@@ -7,24 +7,25 @@ import type {
   Role,
 } from "@weaveforge/core";
 import { createRestClient } from "../postgrest/parts-1";
+import { rustRepository } from "../postgrest/rust-repository";
 
 // --- admin-provisioner ---
-interface ProfileRow {
-  user_id: string;
-  email: string | null;
-  full_name: string | null;
-  role: Role;
-  supervisor_id: string | null;
+/** The profile queries Rust plans (`crates/wf-core/src/repos/account.rs`). */
+interface AccountRepository {
+  profile(userId: string): Promise<Member | null>;
+  saveProfile(input: { userId: string; email: string; fullName?: string; role: Role; supervisorId?: string }): Promise<void>;
+  deleteData(userId: string): Promise<void>;
 }
 
-function toMember(row: ProfileRow): Member {
-  return {
-    id: row.user_id,
-    email: row.email ?? undefined,
-    fullName: row.full_name ?? undefined,
-    role: row.role,
-    supervisorId: row.supervisor_id ?? undefined,
-  };
+function accountRepository(db: SupabaseClient): AccountRepository {
+  return rustRepository<AccountRepository>(db, "account", ["profile", "saveProfile", "deleteData"]);
+}
+
+/** The database's own message: the sender rejects with the raw PostgREST error object. */
+function asError(err: unknown): Error {
+  if (err instanceof Error) return err;
+  const message = (err as { message?: unknown } | null)?.message;
+  return new Error(typeof message === "string" ? message : String(err));
 }
 
 /** Supabase Admin API implementation of {@link IAdminUserProvisioner}. */
@@ -46,15 +47,10 @@ export class SupabaseAdminUserProvisioner implements IAdminUserProvisioner {
     const { data: caller, error: callerErr } = await admin.auth.getUser(accessToken);
     if (callerErr || !caller.user) return null;
 
-    const { data: callerProfile, error: profileErr } = await admin
-      .from("profiles")
-      .select("user_id, email, full_name, role, supervisor_id")
-      .eq("user_id", caller.user.id)
-      .maybeSingle();
     /* A failed read is not "no profile": that would turn an outage into 401/403. */
-    if (profileErr) throw new Error(profileErr.message);
-    if (!callerProfile) return null;
-    return toMember(callerProfile as ProfileRow);
+    return accountRepository(admin as SupabaseClient).profile(caller.user.id).catch((err: unknown) => {
+      throw asError(err);
+    });
   }
 
   async provisionUser(input: ProvisionUserInput): Promise<Member> {
@@ -69,16 +65,17 @@ export class SupabaseAdminUserProvisioner implements IAdminUserProvisioner {
       throw new Error(createErr?.message ?? "Failed to create user.");
     }
 
-    const { error: profileErr } = await admin.from("profiles").upsert({
-      user_id: created.user.id,
-      email: input.email,
-      full_name: input.fullName ?? null,
-      role: input.role,
-      supervisor_id: input.supervisorId ?? null,
-    });
-    if (profileErr) {
+    try {
+      await accountRepository(admin as SupabaseClient).saveProfile({
+        userId: created.user.id,
+        email: input.email,
+        fullName: input.fullName,
+        role: input.role,
+        supervisorId: input.supervisorId,
+      });
+    } catch (err) {
       await admin.auth.admin.deleteUser(created.user.id);
-      throw new Error(profileErr.message);
+      throw asError(err);
     }
 
     return {
@@ -101,8 +98,9 @@ export class SupabaseAdminUserProvisioner implements IAdminUserProvisioner {
     const { purgeUserBlobs } = await import("@/backend/account/purge-user-blobs");
     await purgeUserBlobs(admin, userId);
 
-    const { error: rpcErr } = await admin.rpc("delete_user_account_data", { p_user_id: userId });
-    if (rpcErr) throw new Error(rpcErr.message);
+    await accountRepository(admin as SupabaseClient).deleteData(userId).catch((err: unknown) => {
+      throw asError(err);
+    });
 
     const { error: deleteErr } = await admin.auth.admin.deleteUser(userId);
     if (deleteErr) throw new Error(deleteErr.message);

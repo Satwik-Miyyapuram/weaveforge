@@ -1,7 +1,8 @@
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
-import { readyCore, typedCore } from "@/lib/rust-core";
+import { readyCore } from "@/lib/rust-core";
+import { rustRepository } from "../postgrest/rust-repository";
 import { FetchingBlobStore } from "@/storage/fetching-blob-store";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -387,6 +388,27 @@ export class ExperimentPush {
     private readonly compress: (blob: Blob) => Promise<Blob> = toWebp,
   ) {}
 
+  /** The server queries Rust plans (`crates/wf-core/src/repos/experiment_push.rs`). */
+  private server_(): ExperimentPushRepository {
+    const repo = rustRepository<ExperimentPushRepository>(
+      this.server,
+      "experiment_push",
+      ["clearReset", "pushBatch", "setArtifacts", "staleArtifactIds"],
+      () => ({ userId: this.accountId }),
+    );
+    // The sender rejects with the raw PostgREST error; keep the database's own message.
+    const wrap = <A extends unknown[], R>(f: (...a: A) => Promise<R>) => (...a: A) =>
+      f(...a).catch((err: unknown) => {
+        throw err instanceof Error ? err : new Error((err as { message?: string } | null)?.message ?? String(err));
+      });
+    return {
+      clearReset: wrap(repo.clearReset),
+      pushBatch: wrap(repo.pushBatch),
+      setArtifacts: wrap(repo.setArtifacts),
+      staleArtifactIds: wrap(repo.staleArtifactIds),
+    };
+  }
+
   push(): Promise<void> {
     this.running ??= this.pushAll().finally(() => {
       this.running = null;
@@ -403,11 +425,9 @@ export class ExperimentPush {
 
   private async pushResets(): Promise<void> {
     const resets = (await this.run("select experiment_id from local_metric_resets", [])) as { experiment_id: string }[];
+    const server = this.server_();
     for (const { experiment_id: id } of resets) {
-      for (const table of ["experiment_metric_points", "experiment_metric_chunks"]) {
-        const { error } = await this.server.from(table).delete().eq("experiment_id", id);
-        if (error) throw new Error(error.message);
-      }
+      await server.clearReset(id);
       await this.run("delete from local_metric_resets where experiment_id = $1", [id]);
     }
   }
@@ -421,6 +441,7 @@ export class ExperimentPush {
          left join local_metric_pushes p on p.experiment_id = d.experiment_id and p.metric = n.name`,
       [],
     )) as { experiment_id: string; metric_id: number; metric: string; pushed: number | null }[];
+    const server = this.server_();
     for (const s of series) {
       let pushed = s.pushed;
       for (;;) {
@@ -431,31 +452,10 @@ export class ExperimentPush {
           [s.experiment_id, s.metric_id, pushed ?? -2147483648],
         )) as Omit<MetricRow, "experiment_id" | "metric">[];
         if (!rows.length) break;
-        const { keep, supersededTipStep } = typedCore().planSeriesIngest(rows, pushed);
-        // The cursor is written after the server insert. If that write failed,
-        // this batch was sent before, maybe ending on a tip that is no longer
-        // the tip; clear the batch's range so a re-send leaves no stray point.
-        const cleared = await this.server
-          .from("experiment_metrics")
-          .delete()
-          .eq("experiment_id", s.experiment_id)
-          .eq("metric", s.metric)
-          .gt("step", pushed ?? -2147483648)
-          .lte("step", rows[rows.length - 1]!.step);
-        if (cleared.error) throw new Error(cleared.error.message);
-        const { error } = await this.server
-          .from("experiment_metrics")
-          .insert(keep.map((r) => ({ ...r, experiment_id: s.experiment_id, metric: s.metric, user_id: this.accountId })));
-        if (error) throw new Error(error.message);
-        if (supersededTipStep !== null) {
-          await this.server
-            .from("experiment_metrics")
-            .delete()
-            .eq("experiment_id", s.experiment_id)
-            .eq("metric", s.metric)
-            .eq("step", supersededTipStep);
-        }
-        pushed = rows[rows.length - 1]!.step;
+        // Rust thins the batch to the stored grid. The cursor is written after the
+        // server insert; if that write failed, this batch was sent before, so the
+        // batch's range is cleared first and a re-send leaves no stray point.
+        pushed = await server.pushBatch(s.experiment_id, s.metric, pushed, rows);
         await this.run(
           `insert into local_metric_pushes (experiment_id, metric, step) values ($1, $2, $3)
            on conflict (experiment_id, metric) do update set step = excluded.step`,
@@ -503,8 +503,7 @@ export class ExperimentPush {
         }
       }
       // Raw local writes skip the outbox, so the server row is set here too.
-      const { error } = await this.server.from("experiments").update({ artifacts: next }).eq("id", row.id);
-      if (error) throw new Error(error.message);
+      await this.server_().setArtifacts(row.id, next);
       await this.run("update experiments set artifacts = $2::jsonb where id = $1", [row.id, JSON.stringify(next)]);
     }
   }
@@ -516,23 +515,23 @@ export class ExperimentPush {
       [`%"${this.accountId}/%`],
     )) as { id: string; artifacts: unknown }[];
     if (!local.length) return;
-    const { data, error } = await this.server
-      .from("experiments")
-      .select("id, artifacts")
-      .in("id", local.map((r) => r.id));
-    if (error) throw new Error(error.message);
-    const stale = new Set(
-      ((data ?? []) as { id: string; artifacts: unknown }[])
-        .filter((r) => JSON.stringify(r.artifacts ?? null).includes(ARTIFACT_PREFIX))
-        .map((r) => r.id),
-    );
+    const server = this.server_();
+    const stale = new Set(await server.staleArtifactIds(local.map((r) => r.id)));
     for (const row of local) {
       if (!stale.has(row.id)) continue;
       const artifacts = typeof row.artifacts === "string" ? (JSON.parse(row.artifacts) as unknown) : row.artifacts;
-      const { error: e } = await this.server.from("experiments").update({ artifacts }).eq("id", row.id);
-      if (e) throw new Error(e.message);
+      await server.setArtifacts(row.id, artifacts);
     }
   }
+}
+
+/** The server half of the push, as `experiment_push.rs` runs it. */
+interface ExperimentPushRepository {
+  clearReset(experimentId: string): Promise<void>;
+  /** Sends one batch, thinned; resolves to the new cursor (the batch's last step). */
+  pushBatch(experimentId: string, metric: string, pushed: number | null, rows: readonly unknown[]): Promise<number>;
+  setArtifacts(experimentId: string, artifacts: unknown): Promise<void>;
+  staleArtifactIds(ids: readonly string[]): Promise<string[]>;
 }
 
 interface MetricRow {
