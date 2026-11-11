@@ -1,35 +1,22 @@
-import {
-  one,
-  oneRow,
-  ProjectScopedPostgrestRepository,
-  rows,
-  run,
-} from "@/backend/providers/postgrest/parts-1";
-import {
-  milestoneColumns,
-  type MilestoneRow,
-  milestoneToDomain,
-} from "@/features/plan/infrastructure/milestone-rows";
+import { projectUserCtx, rustRepository } from "@/backend/providers/postgrest/rust-repository";
 import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
 import { singleFlight } from "@/lib/cache/parts";
 import { invalidateAllRepoCaches } from "@/lib/cache/parts-1";
 import { readJsonBody, responseError } from "@/lib/format-error";
 import { getDataClient, relayUrl } from "@/lib/parts";
+import type { ProjectContext } from "@/lib/parts-2";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
+  ICurrentUserProvider,
   ILabSnapshotRepository,
   ISupervisionRepository,
-  LabSnapshot,
-  LabSnapshotContent,
   LogEntry,
   Milestone,
   OrgInviteRole,
   OrgJoinSource,
   OrgMembershipView,
-  PublishLabSnapshotInput,
 } from "@weaveforge/core";
-import type { LogEntryRow } from "@weaveforge/wasm";
 
 // --- org-api ---
 // --- membership-row ---
@@ -264,210 +251,49 @@ export async function leaveOrg(orgId: string) {
 }
 
 // --- postgrest-lab-snapshot-repository ---
-// --- lab-snapshot-rows ---
 /**
- * How lab snapshot rows are stored. The mapping to the domain type is in Rust (wf-core).
- *
- * Shared by both backend providers. They talk to the *same* table — one through
- * supabase-js, the other through `pg` — so the column shape and the mapping are
- * not per-provider facts, and holding two copies of them is how they drift.
+ * ILabSnapshotRepository over `lab_snapshots`. Rust validates the title, plans the
+ * queries and maps the rows (`crates/wf-core/src/repos/lab_snapshots.rs`).
  */
-
-export interface LabSnapshotRow {
-  id: string;
-  project_id: string;
-  title: string;
-  note: string | null;
-  content: LabSnapshotContent;
-  published_at: string;
-  created_at: string;
-}
-
-// --- postgrest-lab-snapshot-repository ---
-/**
- * The columns a LabSnapshotRow is read as, named rather than starred.
- *
- * Derived from the row type: these are exactly the fields the mapper reads, and a
- * star would make them "whatever the table grows next".
- */
-const LAB_SNAPSHOT_COLUMNS = "id,project_id,title,note,content,published_at,created_at";
-
-const TABLE = "lab_snapshots";
-
-/** Bindings type f64 as number | null (NaN/Infinity serialise as null); values are always finite. */
-const toFinite = (n: number | null): number => n as number;
-
-/** Rust's nullable fields arrive as null; the domain leaves them absent. */
-const toDomain = (row: LabSnapshotRow): LabSnapshot => {
-  const s = readyCore().labSnapshotRowToDomain(row);
-  const c = s.content;
-  return {
-    id: s.id,
-    projectId: s.projectId,
-    title: s.title,
-    note: s.note ?? undefined,
-    content: {
-      milestones: c.milestones.map((m) => ({
-        id: m.id,
-        title: m.title,
-        description: m.description ?? undefined,
-        status: m.status,
-        targetDate: m.targetDate ?? undefined,
-      })),
-      logs: c.logs,
-      experiments: c.experiments?.map((e) => ({
-        id: e.id,
-        name: e.name,
-        status: e.status,
-        resultNote: e.resultNote ?? undefined,
-      })),
-      report: c.report?.map((r) => ({
-        id: r.id,
-        title: r.title,
-        status: r.status,
-        wordCount: toFinite(r.wordCount),
-      })),
-      aiAssisted: c.aiAssisted ?? undefined,
-    },
-    publishedAt: s.publishedAt,
-    createdAt: s.createdAt,
-  };
-};
-
-/**
- * The snapshot title rule is Rust (wf-core `lab_snapshot`). Its rejection
- * arrives as a thrown string, so it is rethrown as an Error for the UI.
- */
-function snapshotTitle(raw: string): string {
-  try {
-    return readyCore().validateSnapshotTitle(raw);
-  } catch (error) {
-    if (typeof error === "string") throw new Error(error);
-    throw error;
-  }
-}
-
-export class PostgrestLabSnapshotRepository extends ProjectScopedPostgrestRepository implements ILabSnapshotRepository {
-  protected readonly action = "publishing a lab snapshot";
-
-  async publish(input: PublishLabSnapshotInput): Promise<LabSnapshot> {
-    const title = snapshotTitle(input.title);
-    const userId = await this.session.requireUserId();
-    const dbRow = await oneRow<LabSnapshotRow>(this.db
-      .from(TABLE)
-      .insert({
-        user_id: userId,
-        project_id: this.projectId,
-        title,
-        note: input.note?.trim() || null,
-        content: input.content,
-      })
-      .select(LAB_SNAPSHOT_COLUMNS)
-      .single());
-    return toDomain(dbRow);
-  }
-
-  async remove(id: string): Promise<void> {
-    await run(this.db.from(TABLE).delete().eq("id", id));
-  }
-
-  async listMine(): Promise<LabSnapshot[]> {
-    const userId = await this.session.requireUserId();
-    return (await rows<LabSnapshotRow>(this.db
-      .from(TABLE)
-      .select(LAB_SNAPSHOT_COLUMNS)
-      .eq("user_id", userId)
-      .order("published_at", { ascending: false }))).map(toDomain);
-  }
-
-  async listForMember(memberId: string): Promise<LabSnapshot[]> {
-    return (await rows<LabSnapshotRow>(this.db
-      .from(TABLE)
-      .select(LAB_SNAPSHOT_COLUMNS)
-      .eq("user_id", memberId)
-      .order("published_at", { ascending: false }))).map(toDomain);
-  }
-
-  async getById(id: string): Promise<LabSnapshot | null> {
-    const row = await one<LabSnapshotRow>(this.db.from(TABLE).select(LAB_SNAPSHOT_COLUMNS).eq("id", id).maybeSingle());
-    return row ? toDomain(row) : null;
-  }
+export function labSnapshotRepository(
+  db: SupabaseClient,
+  project: ProjectContext,
+  session: ICurrentUserProvider,
+): ILabSnapshotRepository {
+  return rustRepository<ILabSnapshotRepository>(
+    db,
+    "lab_snapshots",
+    ["publish", "remove", "listMine", "listForMember", "getById"],
+    projectUserCtx(project, session),
+  );
 }
 
 // --- postgrest-supervision-repository ---
-// Log-entry row mapping runs in the Rust core (wf-core `logbook::log_entry_row`).
-const logToDomain = (row: LogEntryRow) => typedCore().logEntryToDomain(row);
-
-/**
- * Reads a supervisee's milestones and log entries by owner user id, across all
- * of their projects. Not project-scoped (a supervisor doesn't select the
- * student's project) — row-level security restricts results to members in the
- * caller's subtree, and the explicit `user_id` filter narrows to one person.
- */
-export class PostgrestSupervisionRepository implements ISupervisionRepository {
-  constructor(private readonly db: SupabaseClient) {}
-
-  async listMilestones(memberId: string): Promise<Milestone[]> {
-    return (await rows<MilestoneRow>(this.db
-      .from("milestones")
-      .select(milestoneColumns())
-      .eq("user_id", memberId)
-      .order("target_date", { ascending: true, nullsFirst: false }))).map(milestoneToDomain);
-  }
-
-  async listLogs(memberId: string): Promise<LogEntry[]> {
-    return (await rows<LogEntryRow>(this.db
-      .from("log_entries")
-      .select(LOG_ENTRY_COLUMNS)
-      .eq("user_id", memberId)
-      .order("entry_date", { ascending: false })
-      .order("created_at", { ascending: false }))).map(logToDomain);
-  }
-
-  async listMilestonesFor(memberIds: readonly string[]): Promise<Map<string, Milestone[]>> {
-    if (memberIds.length === 0) return new Map();
-    const { data, error } = await this.db
-      .from("milestones")
-      .select(`${milestoneColumns()},user_id`)
-      .in("user_id", memberIds)
-      .order("target_date", { ascending: true, nullsFirst: false });
-    if (error) throw error;
-    return groupByOwner(data as unknown as (MilestoneRow & { user_id: string })[], memberIds, milestoneToDomain);
-  }
-
-  async listLogsFor(memberIds: readonly string[]): Promise<Map<string, LogEntry[]>> {
-    if (memberIds.length === 0) return new Map();
-    const { data, error } = await this.db
-      .from("log_entries")
-      .select(`${LOG_ENTRY_COLUMNS},user_id`)
-      .in("user_id", memberIds)
-      .order("entry_date", { ascending: false })
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return groupByOwner(data as (LogEntryRow & { user_id: string })[], memberIds, logToDomain);
-  }
+/** The methods Rust runs: the batched reads come back as `[memberId, items]` pairs. */
+interface SupervisionSteps {
+  listMilestones(memberId: string): Promise<Milestone[]>;
+  listLogs(memberId: string): Promise<LogEntry[]>;
+  listMilestonesFor(memberIds: readonly string[]): Promise<[string, Milestone[]][]>;
+  listLogsFor(memberIds: readonly string[]): Promise<[string, LogEntry[]][]>;
 }
 
 /**
- * The columns a LogEntryRow is read as, named rather than starred.
- *
- * Derived from the row type: exactly the fields the mapper reads, where a star
- * would mean "whatever the table grows next".
+ * Reads a supervisee's milestones and log entries by owner user id, across all
+ * of their projects. Rust plans the queries and maps the rows
+ * (`crates/wf-core/src/repos/supervision.rs`). Every requested id gets an entry,
+ * empty or not: a supervisee with no logs reads as "nothing yet", not "not loaded".
  */
-const LOG_ENTRY_COLUMNS = "id,entry_date,kind,body,links,created_at";
-
-/**
- * Split rows back out by owner, preserving the order the database returned.
- *
- * Every requested id gets an entry, empty or not: a supervisee with no logs has
- * to read as "nothing yet", not as "not loaded".
- */
-function groupByOwner<Row extends { user_id: string }, T>(
-  rows: readonly Row[],
-  memberIds: readonly string[],
-  toDomain: (row: Row) => T,
-): Map<string, T[]> {
-  const byOwner = new Map<string, T[]>(memberIds.map((id) => [id, []]));
-  for (const row of rows) byOwner.get(row.user_id)?.push(toDomain(row));
-  return byOwner;
+export function supervisionRepository(db: SupabaseClient): ISupervisionRepository {
+  const rust = rustRepository<SupervisionSteps>(db, "supervision", [
+    "listMilestones",
+    "listLogs",
+    "listMilestonesFor",
+    "listLogsFor",
+  ]);
+  return {
+    listMilestones: (memberId) => rust.listMilestones(memberId),
+    listLogs: (memberId) => rust.listLogs(memberId),
+    listMilestonesFor: async (memberIds) => new Map(await rust.listMilestonesFor(memberIds)),
+    listLogsFor: async (memberIds) => new Map(await rust.listLogsFor(memberIds)),
+  };
 }

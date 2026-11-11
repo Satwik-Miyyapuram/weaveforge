@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import type { ISupervisionRepository, Member } from "@weaveforge/core";
 
-import { PostgrestSupervisionRepository } from "../infrastructure/parts";
+import { supervisionRepository } from "../infrastructure/parts";
 import { fetchSuperviseeMilestonesAndLogs } from "@/features/dashboard/application/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
@@ -39,7 +39,7 @@ function fakeDb(data: unknown[]) {
 
 test("batched milestones name their columns and keep every field (32-25)", async () => {
   const { db, selects } = fakeDb([MILESTONE]);
-  const out = await new PostgrestSupervisionRepository(db).listMilestonesFor(["a", "z"]);
+  const out = await supervisionRepository(db).listMilestonesFor(["a", "z"]);
   assert.doesNotMatch(selects[0]!, /\*/);
   assert.match(selects[0]!, /user_id/);
   assert.deepEqual(out.get("a"), [{
@@ -51,7 +51,7 @@ test("batched milestones name their columns and keep every field (32-25)", async
 
 test("batched logs name their columns and keep every field (32-25)", async () => {
   const { db, selects } = fakeDb([LOG]);
-  const out = await new PostgrestSupervisionRepository(db).listLogsFor(["b"]);
+  const out = await supervisionRepository(db).listLogsFor(["b"]);
   assert.doesNotMatch(selects[0]!, /\*/);
   assert.match(selects[0]!, /user_id/);
   assert.deepEqual(out.get("b"), [{ id: "l1", entryDate: "2026-10-02", kind: "daily", body: "B", links: [{ type: "experiment", id: "x" }], createdAt: "2026-10-02" }]);
@@ -59,7 +59,7 @@ test("batched logs name their columns and keep every field (32-25)", async () =>
 
 test("no supervisees means no query", async () => {
   const { db, selects } = fakeDb([]);
-  assert.equal((await new PostgrestSupervisionRepository(db).listLogsFor([])).size, 0);
+  assert.equal((await supervisionRepository(db).listLogsFor([])).size, 0);
   assert.deepEqual(selects, []);
 });
 

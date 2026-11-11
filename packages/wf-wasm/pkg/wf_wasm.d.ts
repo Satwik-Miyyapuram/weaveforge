@@ -5164,11 +5164,6 @@ export function kindsForResource(resource_type: string): B.SearchKind[] | null;
 export function knownCandidates(known_pdf: string | null | undefined, page: string | null | undefined): B.OpenAccessCandidate[];
 
 /**
- * [`to_domain`]: a `lab_snapshots` row as a published snapshot.
- */
-export function labSnapshotRowToDomain(row: B.LabSnapshotRow): B.LabSnapshot;
-
-/**
  * [`route_title::label_for_path`]: the screen's own name, or `null` for a route with none.
  *
  * # Errors
@@ -10499,11 +10494,6 @@ export function validateNewMember(email: string, password: string, full_name: st
 export function validateOrgName(name: string): string;
 
 /**
- * [`validate_snapshot_title`](lab_snapshot::validate_snapshot_title). Throws on a blank title.
- */
-export function validateSnapshotTitle(title: string): string;
-
-/**
  * [`vault_asset_paths_in_body`](page::vault_asset_paths_in_body) (TS `vaultAssetPathsInBody`).
  */
 export function vaultAssetPathsInBody(body: string): string[];
@@ -11707,7 +11697,6 @@ export interface InitOutput {
     readonly kindTintClass: (a: number, b: number) => [number, number, number];
     readonly kindsForResource: (a: number, b: number) => [number, number, number];
     readonly knownCandidates: (a: number, b: number, c: number, d: number) => [number, number, number];
-    readonly labSnapshotRowToDomain: (a: any) => [number, number, number];
     readonly labelForPath: (a: number, b: number, c: any) => [number, number, number];
     readonly labelNumber: (a: any) => [number, number, number];
     readonly labelSize: (a: number, b: number, c: number) => [number, number, number];
@@ -12409,7 +12398,6 @@ export interface InitOutput {
     readonly validateDependenciesError: (a: any) => [number, number, number, number];
     readonly validateNewMember: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number];
     readonly validateOrgName: (a: number, b: number) => [number, number, number, number];
-    readonly validateSnapshotTitle: (a: number, b: number) => [number, number, number, number];
     readonly vaultAssetPathsInBody: (a: number, b: number) => [number, number];
     readonly vaultBodyPreview: (a: number, b: number, c: number) => [number, number];
     readonly vaultBodyPreviewChars: () => number;

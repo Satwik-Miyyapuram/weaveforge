@@ -10,8 +10,8 @@ import {
   PostgrestLogEntryRepository,
 } from "@/features/logbook/infrastructure/parts";
 import {
-  PostgrestLabSnapshotRepository,
-  PostgrestSupervisionRepository,
+  labSnapshotRepository as rustLabSnapshotRepository,
+  supervisionRepository as rustSupervisionRepository,
 } from "@/features/org/infrastructure/parts";
 import { memberRepository as rustMemberRepository } from "@/features/org/infrastructure/postgrest-member-repository";
 import {
@@ -594,7 +594,7 @@ export function wirePostgrestBackend(
     [],
     pid,
   );
-  const supervisionRepository = new PostgrestSupervisionRepository(db);
+  const supervisionRepository = rustSupervisionRepository(db);
   const projectBibliographyCollection = new ProjectZoteroStore(db);
   const rawBlobStore = parts?.blobStore ?? wireStorage({ supabaseDb: db });
   const libraryPinRepository: ILibraryPinRepository = cacheRepo(
@@ -636,7 +636,7 @@ export function wirePostgrestBackend(
     { resourceType: "paper" },
   );
   const labSnapshotRepository: ILabSnapshotRepository = cacheRepo(
-    new PostgrestLabSnapshotRepository(db, projectContext, session),
+    rustLabSnapshotRepository(db, projectContext, session),
     ["listMine", "listForMember", "getById"],
     ["publish", "remove"],
     pid,
