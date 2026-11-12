@@ -18,7 +18,7 @@ import {
   type InkWorkerMessage,
   readInkSamples,
 } from "../application/capture-protocol";
-import { NibFilter } from "../application/parts-2";
+import { CaptureStream } from "../application/parts-2";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);
@@ -98,7 +98,7 @@ function sessionHarness(
   };
   harness.session = new PenCaptureSession({
     gate,
-    filter: new NibFilter(),
+    stream: new CaptureStream(),
     writer,
     project: options.project ?? ((x, y) => ({ x: x * 10, y: y * 10 })),
     onLive: () => {

@@ -150,11 +150,9 @@ export class InkPageBuffer {
     return this.background;
   }
 
-  /** Set it, clamped to the byte the chunk header holds. */
+  /** Set it, clamped to the byte the chunk header holds. Rust: `clamp_background_index`. */
   setBackgroundIndex(index: number): void {
-    this.background = Number.isFinite(index)
-      ? Math.max(0, Math.min(255, Math.round(index)))
-      : 0;
+    this.background = readyCore().inkClampBackgroundIndex(index);
   }
 
   /**
@@ -268,13 +266,14 @@ export class InkPageBuffer {
    * about the new numbering, so it is one deliberate pass rather than a habit.
    */
   compact(): Map<number, number> {
+    // Rust `kept_indices`: the old index of each live stroke, in order.
+    const old = readyCore().inkKeptIndices(this.alive.subarray(0, this.strokes.length));
     const remap = new Map<number, number>();
     const kept: InkStrokeGeometry[] = [];
-    for (let i = 0; i < this.strokes.length; i += 1) {
-      if (!this.alive[i]) continue;
-      remap.set(kept.length, i);
-      kept.push(this.strokes[i]!);
-    }
+    old.forEach((from, next) => {
+      remap.set(next, from);
+      kept.push(this.strokes[from]!);
+    });
     this.strokes = kept;
     this.alive = new Uint8Array(Math.max(64, kept.length));
     this.alive.fill(1, 0, kept.length);
@@ -283,21 +282,19 @@ export class InkPageBuffer {
 
   /** The whole page's bounds, or an empty box for a blank page. A stroke with no points adds nothing. */
   bounds(): InkBounds {
-    let box: InkBounds | null = null;
-    for (let i = 0; i < this.strokes.length; i += 1) {
-      if (!this.alive[i]) continue;
+    // Rust `page_bounds`: four numbers per stroke, and a live flag that is 0 for a
+    // dead stroke or one with no points.
+    const n = this.strokes.length;
+    const boxes = new Float64Array(n * 4);
+    const live = new Uint8Array(n);
+    for (let i = 0; i < n; i += 1) {
       const stroke = this.strokes[i]!;
-      if (stroke.x.length === 0) continue;
-      box = box
-        ? [
-            Math.min(box[0], stroke.bounds[0]),
-            Math.min(box[1], stroke.bounds[1]),
-            Math.max(box[2], stroke.bounds[2]),
-            Math.max(box[3], stroke.bounds[3]),
-          ]
-        : [...stroke.bounds];
+      if (!this.alive[i] || stroke.x.length === 0) continue;
+      boxes.set(stroke.bounds, i * 4);
+      live[i] = 1;
     }
-    return box ?? [...EMPTY_BOUNDS];
+    const box = readyCore().inkPageBounds(boxes, live);
+    return [box[0]!, box[1]!, box[2]!, box[3]!];
   }
 }
 
@@ -316,16 +313,17 @@ export function toGeometry(
   const count = Math.floor(stroke.points.length / 2);
   const x = new Float32Array(count);
   const y = new Float32Array(count);
-  const pressure = new Uint8Array(count);
   for (let i = 0; i < count; i += 1) {
     x[i] = stroke.points[i * 2] ?? 0;
     y[i] = stroke.points[i * 2 + 1] ?? 0;
-    const reported = stroke.pressures?.[i];
-    pressure[i] =
-      typeof reported === "number" && Number.isFinite(reported)
-        ? Math.max(0, Math.min(255, Math.round(reported)))
-        : 0;
   }
+  // Rust `stroke_pressures`: one byte per point, a missing or non-finite sample is 0.
+  const pressure = readyCore().inkStrokePressures(
+    Float64Array.from(stroke.pressures ?? [], (p) =>
+      typeof p === "number" ? p : Number.NaN,
+    ),
+    count,
+  );
   return {
     x,
     y,

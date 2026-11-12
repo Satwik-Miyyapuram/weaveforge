@@ -20,7 +20,7 @@
  *   which the worker reports once.
  * - **Filtering happens once, here, for both consumers.** The delegated trail
  *   needs a diameter now and the worker needs the width it bakes into geometry
- *   (§6.2.5). One `NibFilter` feeds both.
+ *   (§6.2.5). One `CaptureStream` feeds both.
  *
  * The reader keeps its own React draft preview: it paints the in-progress stroke
  * as an SVG path in its JSX, and moving that into an offscreen worker is a change
@@ -31,7 +31,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type InkColour, type InkHand } from "@weaveforge/core";
 
-import { NibFilter, type FilteredNibSample } from "./parts-2";
+import { CaptureStream, type FilteredNibSample } from "./parts-2";
 import {
   InkSamplePool,
   InkSampleWriter,
@@ -265,7 +265,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
   const [gateRef] = useState(() => ({
     current: new InkPenGate({ handedness: options.handedness ?? "right" }),
   }));
-  const [filterRef] = useState(() => ({ current: new NibFilter() }));
+  const [filterRef] = useState(() => ({ current: new CaptureStream() }));
   const [poolRef] = useState(() => ({ current: new InkSamplePool({ capacity: 4 }) }));
   const deferTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -297,7 +297,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
     });
     sessionRef.current = new PenCaptureSession({
       gate: gateRef.current,
-      filter: filterRef.current,
+      stream: filterRef.current,
       writer,
       project: (x, y) => callbacksRef.current.project(x, y),
       onLive: (sample, width, event) => {

@@ -24,7 +24,7 @@ import {
   type PenPointerEvent,
 } from "../application/use-pen-capture";
 import { InkPenGate } from "../application/parts-4";
-import { NibFilter } from "../application/parts-2";
+import { CaptureStream } from "../application/parts-2";
 import {
   InkSamplePool,
   InkSampleWriter,
@@ -132,7 +132,7 @@ test("the session marks the dispatched sample and not the coalesced ones", () =>
   const seen: (PenPointerEvent | undefined)[] = [];
   const session = new PenCaptureSession({
     gate: new InkPenGate(),
-    filter: new NibFilter(),
+    stream: new CaptureStream(),
     writer: new InkSampleWriter({
       pool: new InkSamplePool({ capacity: 4 }),
       mode: "clone",

@@ -7,9 +7,10 @@
 use js_sys::{Array, Object, Reflect};
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
-use wf_core::ink::contact_area::contact_area_mm2;
+use wf_core::ink::contact_area::{CSS_PX_PER_MM, PALM_CONTACT_AREA_MM2, contact_area_mm2};
 use wf_core::ink::palette::{
-    Rgb, palette_css, palette_hex, palette_name, parse_css_colour, same_palette,
+    Rgb, light_theme, palette_argb, palette_css, palette_hex, palette_name, parse_css_colour,
+    same_palette,
 };
 
 type JsResult<T> = Result<T, JsValue>;
@@ -105,6 +106,14 @@ pub fn same_palette_js(
     Ok(same_palette(&palette_of(a)?, &palette_of(b)?))
 }
 
+/// [`palette_argb`] over the light theme: a default ink colour as `#aarrggbb`, for the
+/// native shell's pen. Canvas drawing stays TS; this answers only the hex string.
+#[must_use]
+#[wasm_bindgen(js_name = inkArgbHex)]
+pub fn ink_argb_hex_js(colour: &str, alpha: f64) -> String {
+    palette_argb(&light_theme(), colour, alpha)
+}
+
 /// `+event[key]`, or 0 when the side is missing (`null` or `undefined`).
 fn side(event: &JsValue, key: &str) -> JsResult<f64> {
     let value = Reflect::get(event, &JsValue::from_str(key))?;
@@ -129,4 +138,24 @@ pub fn contact_area_mm2_js(
         side(event, "width")?,
         side(event, "height")?,
     ))
+}
+
+/// The contact-area constants: `{ cssPxPerMm, palmContactAreaMm2 }`, read once by the palm gate.
+///
+/// # Errors
+///
+/// Fails only if the result object cannot be written.
+#[wasm_bindgen(
+    js_name = inkContactConsts,
+    unchecked_return_type = "{ cssPxPerMm: number; palmContactAreaMm2: number }"
+)]
+pub fn ink_contact_consts_js() -> JsResult<JsValue> {
+    let out = Object::new();
+    let _ = Reflect::set(&out, &JsValue::from_str("cssPxPerMm"), &JsValue::from_f64(CSS_PX_PER_MM))?;
+    let _ = Reflect::set(
+        &out,
+        &JsValue::from_str("palmContactAreaMm2"),
+        &JsValue::from_f64(PALM_CONTACT_AREA_MM2),
+    )?;
+    Ok(out.into())
 }

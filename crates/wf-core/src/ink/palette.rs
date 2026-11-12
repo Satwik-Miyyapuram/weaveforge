@@ -158,6 +158,42 @@ pub fn same_palette(a: &[(String, Rgb)], b: &[(String, Rgb)]) -> bool {
         && b.iter().all(|(name, _)| find(a, name).is_some())
 }
 
+/// The light theme's defaults, as the TS renderer's `INK_RENDER_COLOURS` lists them:
+/// the first frame's colours, before the host posts the live theme.
+pub const LIGHT_THEME: [(&str, Rgb); 14] = [
+    ("text", [0.13, 0.14, 0.16]),
+    ("accent", [0.23, 0.42, 0.86]),
+    ("warn", [0.85, 0.55, 0.09]),
+    ("good", [0.16, 0.6, 0.36]),
+    ("info", [0.2, 0.55, 0.72]),
+    ("danger", [0.79, 0.24, 0.24]),
+    ("yellow", [1.0, 0.83, 0.0]),
+    ("red", [1.0, 0.4, 0.4]),
+    ("green", [0.37, 0.7, 0.21]),
+    ("blue", [0.18, 0.66, 0.9]),
+    ("purple", [0.64, 0.54, 0.9]),
+    ("pink", [0.9, 0.43, 0.93]),
+    ("orange", [0.95, 0.6, 0.22]),
+    ("grey", [0.67, 0.67, 0.67]),
+];
+
+/// The light theme as a palette object's pairs.
+#[must_use]
+pub fn light_theme() -> Vec<(String, Rgb)> {
+    LIGHT_THEME
+        .iter()
+        .map(|(name, rgb)| ((*name).to_owned(), *rgb))
+        .collect()
+}
+
+/// One palette entry as `#aarrggbb`, the alpha first, as the native shell's pen
+/// takes it. The alpha and each channel clamp to 0..1 and round as the renderers do.
+#[must_use]
+pub fn palette_argb(palette: &[(String, Rgb)], colour: &str, alpha: f64) -> String {
+    let [r, g, b] = lookup(palette, colour).map(hex_channel);
+    format!("#{}{r}{g}{b}", hex_channel(alpha))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -231,6 +267,23 @@ mod tests {
         }
         assert_eq!(palette_name(&p, "  #FF6666 "), Some("red".to_owned()));
         assert_eq!(palette_name(&p, "#010203"), None);
+    }
+
+    // it: "the Rust light theme pins every default colour the TS renderer lists"
+    #[test]
+    fn light_theme_pins_every_entry() {
+        assert_eq!(light_theme(), light());
+        assert_eq!(LIGHT_THEME.len(), 14);
+    }
+
+    // it: "the native pen colour is #aarrggbb with the alpha first, clamped and rounded"
+    #[test]
+    fn argb_puts_alpha_first_and_falls_back_to_text() {
+        let p = light();
+        assert_eq!(palette_argb(&p, "yellow", 0.35), "#59ffd400");
+        assert_eq!(palette_argb(&p, "yellow", 1.0), "#ffffd400");
+        assert_eq!(palette_argb(&p, "yellow", 2.0), "#ffffd400");
+        assert_eq!(palette_argb(&p, "nope", 1.0), "#ff212429");
     }
 
     #[test]
