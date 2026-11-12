@@ -546,7 +546,10 @@ mod tests {
 
     #[test]
     fn update_rejects_a_bad_target_date() {
-        let c = call(vec![json!("m1"), json!({ "targetDate": "30-06-2026" })], vec![]);
+        let c = call(
+            vec![json!("m1"), json!({ "targetDate": "30-06-2026" })],
+            vec![],
+        );
         let (name, msg) = fail(update(&c));
         assert_eq!(name.as_deref(), Some("MilestoneValidationError"));
         assert_eq!(msg, "Target date must be yyyy-mm-dd.");

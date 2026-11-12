@@ -359,8 +359,8 @@ mod tests {
 
     const SURNAMES: [&str; 20] = [
         "Anderson", "Baker", "Clarke", "Davis", "Evans", "Freeman", "Gupta", "Harris", "Ivanov",
-        "Jones", "Kim", "Lee", "Miller", "Nakamura", "Olsen", "Patel", "Quinn", "Rossi",
-        "Schmidt", "Tanaka",
+        "Jones", "Kim", "Lee", "Miller", "Nakamura", "Olsen", "Patel", "Quinn", "Rossi", "Schmidt",
+        "Tanaka",
     ];
 
     /// A numbered bibliography, one entry per line (`numberedReferences`).
@@ -387,7 +387,9 @@ mod tests {
                 Some(t) => t.to_string(),
                 None => format!("{surname} work {year}"),
             };
-            row(&format!("{surname}, A. ({year}). {title}. Journal of Tests."))
+            row(&format!(
+                "{surname}, A. ({year}). {title}. Journal of Tests."
+            ))
         }));
         rows
     }
@@ -416,7 +418,11 @@ mod tests {
     }
 
     fn cites_on(analysis: &DocumentAnalysis, page: f64) -> Vec<&AnalysisCitationMention> {
-        analysis.citations.iter().filter(|c| c.page == page).collect()
+        analysis
+            .citations
+            .iter()
+            .filter(|c| c.page == page)
+            .collect()
     }
 
     #[test]
@@ -442,7 +448,13 @@ mod tests {
         let cites = cites_on(&analysis, 1.0);
         let got: Vec<(&str, Vec<f64>, &str)> = cites
             .iter()
-            .map(|c| (c.text.as_str(), c.reference_indexes.clone(), c.source.as_str()))
+            .map(|c| {
+                (
+                    c.text.as_str(),
+                    c.reference_indexes.clone(),
+                    c.source.as_str(),
+                )
+            })
             .collect();
         assert_eq!(
             got,
@@ -454,7 +466,11 @@ mod tests {
         );
         // A bracket naming several entries is less certain than one naming one.
         assert!(cites.iter().all(|c| c.confidence >= 0.72));
-        assert!(cites.iter().all(|c| c.rects.first().is_some_and(|r| r.len() == 4)));
+        assert!(
+            cites
+                .iter()
+                .all(|c| c.rects.first().is_some_and(|r| r.len() == 4))
+        );
     }
 
     #[test]
@@ -470,7 +486,11 @@ mod tests {
             body(2.0),
             text_page(
                 3.0,
-                &author_year_refs(&[("Smith", 2020, None), ("Jones", 2021, None), ("Lee", 2019, None)]),
+                &author_year_refs(&[
+                    ("Smith", 2020, None),
+                    ("Jones", 2021, None),
+                    ("Lee", 2019, None),
+                ]),
             ),
         ];
         let analysis = analyze_pdf_document(&pages, &[]);
@@ -518,7 +538,10 @@ mod tests {
         let smith = cites_on(&analysis, 1.0)
             .into_iter()
             .find(|c| c.text.starts_with("Smith"));
-        assert_eq!(smith.map(|c| c.reference_indexes.clone()), Some(vec![1.0, 2.0]));
+        assert_eq!(
+            smith.map(|c| c.reference_indexes.clone()),
+            Some(vec![1.0, 2.0])
+        );
     }
 
     #[test]
@@ -533,7 +556,11 @@ mod tests {
             ],
             links: None,
         };
-        let pages = vec![split, body(2.0), text_page(3.0, &numbered_refs(8, "References"))];
+        let pages = vec![
+            split,
+            body(2.0),
+            text_page(3.0, &numbered_refs(8, "References")),
+        ];
         let analysis = analyze_pdf_document(&pages, &[]);
         let got: Vec<Vec<f64>> = cites_on(&analysis, 1.0)
             .iter()
@@ -658,7 +685,11 @@ mod tests {
             }]),
         };
         let analysis = analyze_pdf_document(
-            &[page, body(2.0), text_page(3.0, &numbered_refs(5, "References"))],
+            &[
+                page,
+                body(2.0),
+                text_page(3.0, &numbered_refs(5, "References")),
+            ],
             &[],
         );
         let cites = cites_on(&analysis, 1.0);
@@ -716,7 +747,10 @@ mod tests {
     #[test]
     fn figure_table_and_equation_mentions_resolve_to_their_captions() {
         let pages = vec![
-            text_page(1.0, &[row("As Fig. 2 shows, and Table 1 lists, Eq. (3) holds.")]),
+            text_page(
+                1.0,
+                &[row("As Fig. 2 shows, and Table 1 lists, Eq. (3) holds.")],
+            ),
             AnalysisPdfPage {
                 page_number: 2.0,
                 items: vec![
@@ -746,7 +780,12 @@ mod tests {
 
     #[test]
     fn non_english_reference_headings_are_found() {
-        for heading_text in ["Referencias", "Literaturverzeichnis", "Références", "Referências"] {
+        for heading_text in [
+            "Referencias",
+            "Literaturverzeichnis",
+            "Références",
+            "Referências",
+        ] {
             let pages = vec![
                 text_page(1.0, &[row("Como se muestra en [1].")]),
                 body(2.0),
@@ -829,7 +868,12 @@ mod tests {
         ];
         let inferred = analyze_pdf_document(&pages, &[]);
         // The References heading closes the outline, as in `outlineFromText`.
-        let titles: Vec<&str> = inferred.sections.iter().take(3).map(|s| s.title.as_str()).collect();
+        let titles: Vec<&str> = inferred
+            .sections
+            .iter()
+            .take(3)
+            .map(|s| s.title.as_str())
+            .collect();
         assert_eq!(titles, vec!["1 Introduction", "2 Method", "3 Results"]);
         let outline = vec![OutlineReaderItem {
             title: "Bookmark".to_string(),
@@ -868,7 +912,12 @@ mod tests {
             .collect();
         pages.push(text_page(5.0, &numbered_refs(3, "References")));
         let analysis = analyze_pdf_document(&pages, &[]);
-        assert!(!analysis.sections.iter().any(|s| s.title.contains("Preprint")));
+        assert!(
+            !analysis
+                .sections
+                .iter()
+                .any(|s| s.title.contains("Preprint"))
+        );
         let got: Vec<Vec<f64>> = cites_on(&analysis, 1.0)
             .iter()
             .map(|c| c.reference_indexes.clone())
@@ -887,7 +936,11 @@ mod tests {
         let b = analyze_pdf_document(&pages, &[]);
         assert_eq!(a.fingerprint, b.fingerprint);
         assert_eq!(a.fingerprint.len(), 16);
-        assert!(a.fingerprint.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f')));
+        assert!(
+            a.fingerprint
+                .chars()
+                .all(|c| matches!(c, '0'..='9' | 'a'..='f'))
+        );
         assert!(a.pages[0].text.contains("[1]"));
         assert!(a.pages[1].text.contains("Body prose"));
         assert!(a.pages[2].text.contains("References"));

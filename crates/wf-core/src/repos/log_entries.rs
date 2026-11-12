@@ -382,12 +382,18 @@ mod tests {
         let body = sent(add(&fresh(vec![input], vec![]))).body.unwrap();
         assert_eq!(body["kind"], "weekly");
         assert_eq!(body["entry_date"], "2026-07-20");
-        assert_eq!(body["links"], json!([{ "type": "experiment", "id": "exp-1" }]));
+        assert_eq!(
+            body["links"],
+            json!([{ "type": "experiment", "id": "exp-1" }])
+        );
     }
 
     #[test]
     fn update_edits_body_kind_while_preserving_id_date_createdat() {
-        let args = vec![json!("e1"), json!({ "body": "  edited  ", "kind": "weekly" })];
+        let args = vec![
+            json!("e1"),
+            json!({ "body": "  edited  ", "kind": "weekly" }),
+        ];
         let v = done(update(&fresh(args, vec![row(), Value::Null])));
         assert_eq!(v["id"], "e1");
         assert_eq!(v["entryDate"], "2026-11-01");

@@ -294,7 +294,10 @@ fn an_unknown_kind_narrows_to_nothing_rather_than_leaking_into_the_terms() {
     let query = parse_query("kind:banana latent");
 
     assert!(query.kinds.is_empty());
-    assert_eq!(query.text, "latent", "the bad filter is dropped, not treated as a term");
+    assert_eq!(
+        query.text, "latent",
+        "the bad filter is dropped, not treated as a term"
+    );
 }
 
 #[test]
