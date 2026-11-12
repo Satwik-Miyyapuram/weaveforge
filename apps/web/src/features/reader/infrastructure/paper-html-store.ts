@@ -8,7 +8,7 @@
  */
 
 import { type IWorkspaceFs } from "@weaveforge/core";
-import { loadCore, typedCore } from "@/lib/rust-core";
+import { typedCore } from "@/lib/rust-core";
 import { activeProjectRoot } from "@/features/workspace/application/parts";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import type { PaperHtmlPage } from "@weaveforge/wasm";
@@ -37,9 +37,8 @@ class FolderPaperHtmlStore implements PaperHtmlStore {
   }
 
   async set(page: PaperHtmlPage): Promise<void> {
-    const core = await loadCore();
     const root = await this.projectRoot();
-    await this.fs.mkdirp(core.entityDir("paper", root) + "/html");
+    await this.fs.mkdirp(typedCore().paperHtmlDir(root));
     await this.fs.writeFile(typedCore().paperHtmlPath(page.paperId, root), typedCore().buildPaperHtmlDocument(page));
   }
 
