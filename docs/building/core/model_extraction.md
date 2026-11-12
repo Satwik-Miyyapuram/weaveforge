@@ -21,10 +21,10 @@ cases, plus `the_cap_follows_js_slice_for_odd_values`.
 
 ## How the app calls it
 
-The wasm exports are in `crates/wf-wasm/src/ai_model_extraction.rs`. The wrapper
-`packages/wf-wasm/src/wrappers-9.ts` exports `modelExtractionLimits`,
-`modelBuildBatchRequest` and `modelFinalizeExtraction`. It passes `[...existing]`
-copies and maps an absent `maxConcepts` to `undefined`.
+The wasm exports are in `crates/wf-wasm/src/ai_model_extraction.rs`. They are
+`modelExtractionLimits`,
+`modelBuildBatchRequest` and `modelFinalizeExtraction`, served straight from the wasm
+package; `existing` is copied in and `maxConcepts` is optional.
 
 `packages/core/src/features/ai-assistant/domain/parts.ts` is a thin
 shim. Its `ModelConceptExtractor.extract` filters blank documents, reads the limits,

@@ -2,7 +2,7 @@
 
 Rust: `crates/wf-core/src/reader/annotation_draft.rs` (17 tests).
 Wasm: `crates/wf-wasm/src/reader_annotation_draft.rs`.
-TS wrapper: `packages/wf-wasm/src/wrappers-7.ts` (re-exported from `index.ts`).
+TS types: declared in Rust; served straight from the wasm package (no TS wrapper).
 
 Turns a user gesture (text selection, ink, image region, text box) into the
 new annotation to save.

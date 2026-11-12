@@ -11,7 +11,7 @@ no pull or push result is shown.
 - Otherwise: `N commit(s) to push, M to pull.` with singular/plural handled.
 
 Source: `crates/wf-core/src/overleaf/sync_status.rs`. Wasm: `crates/wf-wasm/src/overleaf_sync_status.rs`
-(`describeOverleafStatus`). Wrapper: `packages/wf-wasm/src/wrappers-5.ts`.
+(`describeOverleafStatus`). No TS wrapper; typed in Rust.
 
 ## What stays in TypeScript
 

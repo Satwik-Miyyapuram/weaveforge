@@ -2,7 +2,7 @@
 
 Rust: `crates/wf-core/src/reader/build_locus_link.rs`.
 Wasm: `crates/wf-wasm/src/reader_build_locus_link.rs`.
-TS wrapper: `packages/wf-wasm/src/wrappers-9.ts` (star-exported from `index.ts`).
+TS types: declared in Rust; served straight from the wasm package (no TS wrapper).
 Callers use `readyCore().buildLocusLink(...)`; the TS shim is gone.
 
 Pure logic: builds the same-origin `/reader?...` deep link for a locus.

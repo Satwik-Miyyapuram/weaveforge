@@ -13,7 +13,7 @@ The use case `create-ai-proposal-draft.use-case.ts` runs the access policy first
 - Status is always `pending`.
 
 Source: `crates/wf-core/src/ai/proposal_draft.rs`. Wasm: `crates/wf-wasm/src/ai_proposal_draft.rs`
-(`shapeAiProposalDraft`). Wrapper: `packages/wf-wasm/src/wrappers-1.ts`.
+(`shapeAiProposalDraft`). No TS wrapper; typed in Rust.
 
 ## What stays in TypeScript
 

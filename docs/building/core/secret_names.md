@@ -10,7 +10,7 @@ Rust home: `crates/wf-core/src/secret_names.rs`.
 ## Where it is called
 
 - wasm export `isSecretName` in `crates/wf-wasm/src/secret_names.rs`.
-- Wrapper `packages/wf-wasm/src/wrappers-9.ts`, typed through `rust()` in `packages/core/src/shared/rust.ts`.
+- No TS wrapper; typed through `rust()` in `packages/core/src/shared/rust.ts`.
 - `apps/shell/sidecar/src/secret-store.ts`: `isSecretName` calls `rust()` after its `typeof` check. The TS `SECRET_NAMES` constant stays, because the type `SecretName` is derived from it.
 
 ## What stays in TS

@@ -20,8 +20,7 @@ stay in TypeScript.
 
 - `wf-wasm` exports `urlMetaShellTarget` and `urlMetaReadFailureMessage`
   (`crates/wf-wasm/src/url_meta.rs`). The prefix avoids name collisions.
-- `packages/wf-wasm/src/wrappers-9.ts` wraps them, re-exported from `modules.ts`
-  and `feature-wrappers.ts`.
+- The wasm package serves them directly, with TS types declared in Rust.
 - `apps/web/src/features/papers/infrastructure/parts-2.ts`
   (`readInShell`) calls `loadCore()` and uses both functions. The relay's `error`
   is still trimmed and cut to 200 characters in TypeScript before it reaches Rust.

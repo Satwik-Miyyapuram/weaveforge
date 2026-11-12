@@ -11,7 +11,7 @@ Rust home: `crates/wf-core/src/ai/provider_descriptor.rs`.
 ## Where it is called
 
 - wasm export `parseStoredAiProvider` in `crates/wf-wasm/src/ai_provider_descriptor.rs`.
-- Wrapper `packages/wf-wasm/src/wrappers-1.ts`, typed as `AiStoredProvider | null`.
+- No TS wrapper; the export is typed in Rust as `AiStoredProvider | null`.
 - `apps/web/src/features/ai-assistant/application/parts.ts` calls `readyCore().parseStoredAiProvider` from `restoreActiveProvider`.
 
 ## What stays in TS
