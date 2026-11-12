@@ -67,9 +67,6 @@ const ZOTERO_PAGE = 100;
  */
 const CONCURRENCY = 4;
 
-/** Longest a server-requested pause is honoured before giving up on it. */
-const MAX_BACKOFF_MS = 30_000;
-
 export interface ZoteroPageRequest {
   /** Library root, e.g. `https://api.zotero.org/users/123`. */
   baseUrl: string;
@@ -113,24 +110,29 @@ class BackoffGate {
     return ms > 0 ? delay(ms) : Promise.resolve();
   }
   note(res: Response): void {
-    const seconds = Number(res.headers.get("Backoff") ?? res.headers.get("Retry-After"));
-    if (!Number.isFinite(seconds) || seconds <= 0) return;
-    const at = Date.now() + Math.min(seconds * 1000, MAX_BACKOFF_MS);
+    const ms = readyCore().zoteroServerBackoffMs(
+      res.headers.get("Backoff") ?? undefined,
+      res.headers.get("Retry-After") ?? undefined,
+    );
+    if (ms == null) return;
+    const at = Date.now() + ms;
     if (at > this.until) this.until = at;
   }
   /** For a 429 with no usable header — back off by attempt, not by nothing. */
   noteAttempt(attempt: number): void {
-    const at = Date.now() + Math.min(1000 * (attempt + 1), MAX_BACKOFF_MS);
+    const at = Date.now() + readyCore().zoteroAttemptBackoffMs(attempt);
     if (at > this.until) this.until = at;
   }
 }
 
 function buildUrl(req: ZoteroPageRequest, start: number, limit: number): string {
-  const params = new URLSearchParams({ limit: String(limit), start: String(start) });
-  for (const [key, value] of Object.entries(req.params ?? {})) {
-    if (value != null && value !== "") params.set(key, value);
-  }
-  return `${req.baseUrl}${req.path ?? "/items"}?${params.toString()}`;
+  return readyCore().zoteroPageUrl(
+    req.baseUrl,
+    req.path ?? undefined,
+    Object.entries(req.params ?? {}),
+    start,
+    limit,
+  );
 }
 
 async function getPage(
@@ -162,8 +164,7 @@ async function getPage(
     // serial loop was written to avoid: items that look missing get re-pushed
     // on the next sync, as duplicates.
     const totalHeader = res.headers.get("Total-Results");
-    const total = totalHeader == null || totalHeader.trim() === "" ? NaN : Number(totalHeader);
-    return { items, total: Number.isFinite(total) ? total : null };
+    return { items, total: readyCore().zoteroTotalResults(totalHeader ?? undefined) ?? null };
   }
 }
 
@@ -217,8 +218,7 @@ export async function fetchAllZoteroItems<T>(req: ZoteroPageRequest): Promise<T[
 
   if (total <= first.items.length) return first.items as T[];
 
-  const starts: number[] = [];
-  for (let start = ZOTERO_PAGE; start < total; start += ZOTERO_PAGE) starts.push(start);
+  const starts = readyCore().zoteroPageStarts(total, ZOTERO_PAGE);
   const rest = await mapWithConcurrency(starts, CONCURRENCY, async (start) =>
     (await getPage(req, gate, start)).items,
   );
@@ -232,11 +232,11 @@ export async function fetchAllZoteroItems<T>(req: ZoteroPageRequest): Promise<T[
  * small response instead of paginating every item in it.
  */
 export async function fetchZoteroItemKeys(req: ZoteroPageRequest): Promise<Set<string>> {
-  const params = new URLSearchParams({ format: "keys" });
-  for (const [key, value] of Object.entries(req.params ?? {})) {
-    if (value != null && value !== "") params.set(key, value);
-  }
-  const url = `${req.baseUrl}${req.path ?? "/items"}?${params.toString()}`;
+  const url = readyCore().zoteroKeysUrl(
+    req.baseUrl,
+    req.path ?? undefined,
+    Object.entries(req.params ?? {}),
+  );
   const res = await req.fetchFn(url, { headers: req.headers });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
@@ -315,31 +315,22 @@ export class ZoteroSync {
       .filter((d) => !isChildItem(d));
 
     const local = await this.deps.listPapers();
-    // Match if any content key overlaps. Each side emits its DOI + arXiv keys
-    // (the same paper can carry a DOI on one side, an arXiv id on the other);
-    // title is only a fallback key when a paper has neither id (see contentKeys).
-    // So a paper with a DOI/arXiv will NOT match a remote item that has only a title.
-    const localKeys = new Set(local.flatMap(keysOfLocal));
-    return { remote, local, localKeys, headers, libraryUrl, col };
+    return { remote, local, headers, libraryUrl, col };
   }
 
   /**
-   * Remote items not present locally (by any content key) become papers.
+   * The remote items the plan names become papers.
    *
    * The tag pass used to re-read the *entire* paper list inside this loop,
    * once per pulled item, to find the row it had just created — so pulling
    * 200 papers meant 200 full reads of a table that was growing as it went.
    * One read afterwards finds all of them.
    */
-  private async pullInto(remote: ZoteroItemData[], localKeys: Set<string>): Promise<number> {
-    let pulled = 0;
+  private async pullItems(remote: ZoteroItemData[], indices: readonly number[]): Promise<number> {
     const pulledItems: ZoteroItemData[] = [];
-    for (const d of remote) {
-      const ks = keysOfRemote(d);
-      if (ks.length === 0 || ks.some((k) => localKeys.has(k))) continue;
+    for (const i of indices) {
+      const d = remote[i]!;
       await this.deps.addPaper(paperInputWithoutNulls(readyCore().zoteroRemoteToInput(d)));
-      ks.forEach((k) => localKeys.add(k));
-      pulled += 1;
       if (this.deps.onItemTags && d.key) pulledItems.push(d);
     }
 
@@ -354,7 +345,7 @@ export class ZoteroSync {
         if (created) await this.deps.onItemTags(created, d);
       }
     }
-    return pulled;
+    return indices.length;
   }
 
   /**
@@ -364,20 +355,17 @@ export class ZoteroSync {
    * and the first third of a sync against the cloud one.
    */
   async pull(): Promise<number> {
-    const { remote, localKeys } = await this.snapshot();
-    return this.pullInto(remote, localKeys);
+    const { remote, local } = await this.snapshot();
+    const plan = readyCore().zoteroSyncPlan(remote, local.map(syncLocal));
+    return this.pullItems(remote, plan.pull);
   }
 
   async sync(): Promise<ZoteroSyncResult> {
-    const { remote, local, localKeys, headers, libraryUrl, col } = await this.snapshot();
-    const remoteKeys = new Set(remote.flatMap(keysOfRemote));
-    // Zotero item keys still present remotely (for delete-propagation).
-    const remoteItemKeys = new Set(remote.map((d) => d.key).filter(Boolean) as string[]);
-    const hasRemoteMatch = (p: Paper) => keysOfLocal(p).some((k) => remoteKeys.has(k));
-
-    // Reconcile in a safe order against this one remote snapshot: PULL first
+    const { remote, local, headers, libraryUrl, col } = await this.snapshot();
+    // One plan from this snapshot. Reconcile in a safe order: PULL first
     // (additive), then PUSH (additive), then DELETE (destructive) last.
-    const pulled = await this.pullInto(remote, localKeys);
+    const plan = readyCore().zoteroSyncPlan(remote, local.map(syncLocal));
+    const pulled = await this.pullItems(remote, plan.pull);
 
     // --- push: local papers that have never been in Zotero. ---
     //
@@ -390,10 +378,7 @@ export class ZoteroSync {
     // item — which the next pull then imported as a genuine paper, immune to
     // every child-item filter. A key that is gone from the remote snapshot is a
     // delete to propagate, handled below; it is never a reason to push.
-    const toPush = local.filter((p) => {
-      if (p.metadata?.["zoteroKey"]) return false;
-      return keysOfLocal(p).length > 0 && !hasRemoteMatch(p);
-    });
+    const toPush = plan.push.map((i) => local[i]!);
     // Zotero takes at most 50 objects per write, and numbers the results by
     // position within that write, so each batch maps back by its own offset.
     // Only the items Zotero accepted count as pushed.
@@ -437,13 +422,10 @@ export class ZoteroSync {
     // by content. Skip entirely if the remote list came back empty, so a partial
     // or failed read can never mass-delete the library. ---
     let deletedLocal = 0;
-    if (this.deps.deletePaper && remote.length > 0) {
-      for (const p of local) {
-        const zk = p.metadata?.["zoteroKey"] as string | undefined;
-        if (zk && !remoteItemKeys.has(zk) && !hasRemoteMatch(p)) {
-          await this.deps.deletePaper(p.id);
-          deletedLocal += 1;
-        }
+    if (this.deps.deletePaper) {
+      for (const i of plan.delete) {
+        await this.deps.deletePaper(local[i]!.id);
+        deletedLocal += 1;
       }
     }
 
@@ -454,13 +436,12 @@ export class ZoteroSync {
 /** Zotero's limit on objects per write request. */
 const ZOTERO_WRITE_LIMIT = 50;
 
-/**
- * Content keys for a paper (Rust `zoteroContentKeys`): match if ANY overlaps. Strong ids
- * (doi, arxiv) are preferred; title is only a fallback when neither exists.
- */
-function keysOfLocal(p: Paper): string[] {
-  return readyCore().zoteroContentKeys(p.doi, p.arxivId, p.title);
-}
-function keysOfRemote(d: ZoteroItemData): string[] {
-  return readyCore().zoteroContentKeys(d.DOI, readyCore().zoteroArxivId(d), d.title);
+/** The fields of a local paper the sync plan matches on (Rust `ZoteroSyncLocal`). */
+function syncLocal(p: Paper) {
+  return {
+    doi: p.doi,
+    arxivId: p.arxivId,
+    title: p.title,
+    zoteroKey: p.metadata?.["zoteroKey"] as string | undefined,
+  };
 }

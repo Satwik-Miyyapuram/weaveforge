@@ -525,18 +525,17 @@ export class MergePapersUseCase {
       await Promise.all(duplicateIds.filter((id) => id !== keepId).map((id) => this.deps.papers.getById(id)))
     ).filter((p): p is Paper => p != null);
     const all = [chosen, ...others];
-    const linked = all.filter((p) => zoteroKeyOf(p) != null);
-    if (linked.length > 1 && !this.deps.bibliography) {
-      throw new PaperMergeRefusedError(
-        `${linked.length} of these copies are linked to Zotero. Merge them in Zotero; the next sync brings the result here.`,
-      );
-    }
-    let kept = zoteroKeyOf(chosen) != null ? chosen : (linked[0] ?? chosen);
-    const dups = all.filter((p) => p.id !== kept.id);
-    // The chosen copy folds in first, so where the survivor has no value its
-    // details are the ones that fill it.
-    dups.sort((a, b) => Number(b.id === keepId) - Number(a.id === keepId));
-    for (const dup of dups) kept = await this.mergeOne(kept, dup);
+    // Which copy survives, the order the others fold in (the chosen copy
+    // first), and the refusal, are decided in Rust (`mergeOrder`).
+    const order = readyCore().mergeOrder(
+      keepId,
+      all.map((p) => ({ id: p.id, linked: zoteroKeyOf(p) != null })),
+      this.deps.bibliography != null,
+    );
+    if (order.refusal) throw new PaperMergeRefusedError(order.refusal);
+    const byId = new Map(all.map((p) => [p.id, p]));
+    let kept = byId.get(order.kept)!;
+    for (const id of order.dups) kept = await this.mergeOne(kept, byId.get(id)!);
     return kept;
   }
 

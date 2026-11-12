@@ -62,3 +62,10 @@ pub fn plan_bib_import_js(
         &existing_keys,
     ))
 }
+
+/// [`bib_add_skip_reason`](bib_import::bib_add_skip_reason) (TS `importBibFile`): the reason a
+/// `.bib` entry is skipped, or `undefined` when the add made a new paper.
+#[wasm_bindgen(js_name = bibAddSkipReason)]
+pub fn bib_add_skip_reason_js(created: bool, title: &str) -> Option<String> {
+    bib_import::bib_add_skip_reason(created, title)
+}

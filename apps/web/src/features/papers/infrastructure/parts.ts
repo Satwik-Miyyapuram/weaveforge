@@ -36,7 +36,7 @@ export class ArxivMetadataSource implements IMetadataSource {
     // Accept an abs/pdf URL or an `arXiv:` prefixed string, not just a bare id.
     const core = await loadCore();
     const id = core.normalizeArxivId(ref.value) ?? ref.value.trim();
-    const res = await this.fetchFn(`${this.baseUrl}?id_list=${encodeURIComponent(id)}`);
+    const res = await this.fetchFn(core.arxivQueryUrl(this.baseUrl, id));
     if (!res.ok) {
       throw new Error(`arXiv request failed: ${res.status} ${res.statusText}`);
     }
@@ -68,7 +68,7 @@ export class CrossrefMetadataSource implements IMetadataSource {
     // Accept full URLs / "doi:" forms by normalizing to the bare DOI first.
     // `extractDoi` also pulls one out of a publisher URL (dl.acm.org/doi/10.x).
     const doi = (await loadCore()).extractDoi(ref.value) ?? readyCore().normalizeDoi(ref.value) ?? ref.value.trim();
-    const res = await this.fetchFn(`${this.baseUrl}/${encodeURIComponent(doi)}`);
+    const res = await this.fetchFn(readyCore().crossrefWorkUrl(this.baseUrl, doi));
     if (!res.ok) {
       if (res.status === 404) {
         throw new Error(`DOI not found in Crossref: ${doi}`);
