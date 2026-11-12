@@ -137,3 +137,10 @@ test("one default colour: the palette's first, used for a blank colour (22-07)",
   assert.equal(helpers.DEFAULT_ANNOTATION_COLOR, "#ffd400");
   assert.equal(helpers.READER_ANNOTATION_COLORS[0], helpers.DEFAULT_ANNOTATION_COLOR);
 });
+
+test("readerAnnotationConsts returns the Rust pending prefix and default colour", () => {
+  assert.deepEqual(readyCore().readerAnnotationConsts(), {
+    pendingPrefix: "pending:",
+    defaultColor: "#ffd400",
+  });
+});

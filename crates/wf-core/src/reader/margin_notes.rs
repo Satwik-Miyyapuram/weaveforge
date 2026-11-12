@@ -7,6 +7,9 @@
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
+use super::annotation_helpers::ReaderAnnotation;
+use super::picture::picture_path;
+use super::text_units::is_js_space;
 use super::viewport::{ReaderPageProjection, pdf_rect_to_screen_box};
 
 /// Vertical gap, in pixels, between two stacked cards.
@@ -159,10 +162,117 @@ pub fn layout_margin_notes(
         .collect()
 }
 
+/// The marks a page's annotations make: a comment with text asks for a card, a placed picture
+/// is drawn instead, and the zotero position says where the mark sits.
+#[must_use]
+pub fn margin_marks(annotations: &[ReaderAnnotation]) -> Vec<MarginMark> {
+    annotations
+        .iter()
+        .map(|annotation| {
+            let comment = annotation.comment.as_deref().unwrap_or("");
+            MarginMark {
+                has_comment: !comment.trim_matches(is_js_space).is_empty(),
+                has_picture: picture_path(&annotation.kind, Some(comment)).is_some(),
+                geometry: annotation
+                    .anchor
+                    .zotero_position
+                    .as_ref()
+                    .map(|position| MarkGeometry {
+                        rects: position.rects.clone().unwrap_or_default(),
+                        paths: position.paths.clone().unwrap_or_default(),
+                    }),
+            }
+        })
+        .collect()
+}
+
+/// [`layout_margin_notes`] over a page's annotations. Each slot's `index` is the annotation's
+/// position in `annotations`.
+#[must_use]
+pub fn layout_annotation_margin_notes(
+    annotations: &[ReaderAnnotation],
+    projection: ReaderPageProjection,
+    card_height: f64,
+) -> Vec<MarginSlot> {
+    layout_margin_notes(&margin_marks(annotations), projection, card_height)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::reader::viewport::pdf_rect_to_screen_box;
+
+    fn annotation(
+        id: &str,
+        comment: &str,
+        rects: Option<Vec<Vec<f64>>>,
+        paths: Option<Vec<Vec<f64>>>,
+    ) -> ReaderAnnotation {
+        let kind = if rects.is_some() { "highlight" } else { "ink" };
+        serde_json::from_value(serde_json::json!({
+            "id": id,
+            "origin": "local",
+            "type": kind,
+            "color": "#ff0",
+            "text": "",
+            "comment": comment,
+            "tags": [],
+            "sortIndex": id,
+            "createdAt": "",
+            "updatedAt": "",
+            "anchor": { "zoteroPosition": { "pageIndex": 0, "rects": rects, "paths": paths } },
+        }))
+        .expect("annotation fixture")
+    }
+
+    fn slots_as_pairs(slots: &[MarginSlot], annotations: &[ReaderAnnotation]) -> Vec<(String, f64)> {
+        slots
+            .iter()
+            .map(|slot| (annotations[slot.index].id.clone(), slot.top))
+            .collect()
+    }
+
+    // it: "only commented marks get a card, level with the mark"
+    #[test]
+    fn only_commented_marks_get_a_card_level_with_the_mark() {
+        let annotations = vec![
+            annotation("a", "", Some(vec![vec![10.0, 700.0, 100.0, 720.0]]), None),
+            annotation("b", "why", Some(vec![vec![10.0, 500.0, 100.0, 520.0]]), None),
+        ];
+        let slots = layout_annotation_margin_notes(&annotations, PAGE, CARD);
+        assert_eq!(slots_as_pairs(&slots, &annotations), vec![("b".to_owned(), 280.0)]);
+    }
+
+    // it: "cards that would overlap stack downwards in page order"
+    #[test]
+    fn cards_that_would_overlap_stack_downwards_in_page_order() {
+        let annotations = vec![
+            annotation("low", "2", Some(vec![vec![10.0, 680.0, 100.0, 700.0]]), None),
+            annotation("high", "1", Some(vec![vec![10.0, 700.0, 100.0, 720.0]]), None),
+        ];
+        let slots = layout_annotation_margin_notes(&annotations, PAGE, CARD);
+        assert_eq!(
+            slots_as_pairs(&slots, &annotations),
+            vec![("high".to_owned(), 80.0), ("low".to_owned(), 152.0)]
+        );
+    }
+
+    // it: "an ink stroke's card sits at the top of the stroke"
+    #[test]
+    fn an_ink_strokes_card_sits_at_the_top_of_the_stroke() {
+        let annotations = vec![annotation("s", "note", None, Some(vec![vec![50.0, 100.0, 60.0, 300.0, 70.0, 200.0]]))];
+        let slots = layout_annotation_margin_notes(&annotations, PAGE, CARD);
+        assert_eq!(slots.len(), 1);
+        assert_eq!(slots[0].top, 500.0);
+    }
+
+    // it: "a placed picture is drawn on the page, not in the margin"
+    #[test]
+    fn a_placed_picture_gets_no_margin_card() {
+        let mut picture = annotation("p", "![picture](fig.png)", Some(vec![vec![10.0, 500.0, 100.0, 520.0]]), None);
+        picture.kind = "image".to_owned();
+        assert!(layout_annotation_margin_notes(&[picture], PAGE, CARD).is_empty());
+    }
 
     const PAGE: ReaderPageProjection = ReaderPageProjection {
         page_width: 600.0,

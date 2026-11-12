@@ -21,12 +21,6 @@ import {
   type ReaderAnnotation,
   ValidationError,
 } from "@weaveforge/core";
-import {
-  layoutMarginNotes as layoutMarks,
-  type MarginMark,
-  type MarginSlot,
-  picturePath,
-} from "@weaveforge/wasm";
 import { findFreeCopy, type FreeCopyOutcome, type HtmlFetchResult } from "./parts-1";
 import { pdfProxyNeedsToken } from "./parts";
 import { fetchTypedPdfToCache } from "./parts-3";
@@ -139,37 +133,27 @@ export interface MarginNote {
 /** Height a card is assumed to take before it is measured; stacking uses it. */
 export const MARGIN_NOTE_HEIGHT = 64;
 
-/** The annotation's zotero position as the layout reads it, or null when it has none. */
-function markGeometry(annotation: ReaderAnnotation): MarginMark["geometry"] {
-  const position = annotation.anchor.zoteroPosition;
-  if (!position) return null;
-  return { rects: position.rects ?? [], paths: position.paths ?? [] };
-}
-
 /**
  * The comments on one page, laid out down the margin beside it: each card
  * level with the mark it annotates, pushed down only as far as the card
  * above it needs. Marks without a comment are not shown — the margin is for
  * what was said about the page, and the highlight itself is already on it.
- * The rules live in Rust (`layoutMarginNotes`); this maps annotations to marks.
+ * The rules, and the reading of each annotation into a mark, live in Rust
+ * (`layoutAnnotationMarginNotes`); this pairs each slot with its annotation.
  */
 export function layoutMarginNotes(
   annotations: readonly ReaderAnnotation[],
   projection: PageProjection,
   cardHeight = MARGIN_NOTE_HEIGHT,
 ): MarginNote[] {
-  const marks: MarginMark[] = annotations.map((annotation) => ({
-    hasComment: annotation.comment.trim().length > 0,
-    // A placed picture keeps its file in the comment; it is drawn on the page, not in the margin.
-    hasPicture: Boolean(picturePath(annotation)),
-    geometry: markGeometry(annotation),
-  }));
-  return layoutMarks(marks, projection, cardHeight).map((slot: MarginSlot) => ({
-    annotation: annotations[slot.index]!,
-    // Rust f64 comes back null only for NaN; keep the old NaN.
-    top: slot.top ?? Number.NaN,
-    anchorTop: slot.anchorTop ?? Number.NaN,
-  }));
+  return readyCore()
+    .layoutAnnotationMarginNotes(annotations, projection, cardHeight)
+    .map((slot) => ({
+      annotation: annotations[slot.index]!,
+      // Rust f64 comes back null only for NaN; keep the old NaN.
+      top: slot.top ?? Number.NaN,
+      anchorTop: slot.anchorTop ?? Number.NaN,
+    }));
 }
 
 // --- pdf-ink-sampler ---
@@ -307,16 +291,6 @@ export interface ReferenceLookupCache {
   set(key: string, value: ResolvedReference): Promise<void> | void;
 }
 
-const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-// 5: misses are no longer stored; the bump drops the ones v4 kept.
-const CACHE_SCHEMA = 5;
-/** How long one library listing answers title matches: a bibliography walk, not a session. */
-const LIBRARY_LIST_TTL_MS = 30_000;
-
-function cacheKey(documentKey: string, refIndex: number): string {
-  return `v${CACHE_SCHEMA}:${documentKey}:ref:${refIndex}`;
-}
-
 /**
  * Resolves parsed bibliography entries to metadata. The entry is offered to
  * the resolver in the order the identifiers trust: DOI first, then arXiv id,
@@ -342,9 +316,10 @@ export class ReferenceLookupService {
   ) {}
 
   resolve(documentKey: string, ref: ParsedReference): Promise<ResolvedReference> {
-    const key = cacheKey(documentKey, ref.index);
+    const core = readyCore();
+    const key = core.referenceCacheKey(documentKey, ref.index);
     const hit = this.memory.get(key);
-    if (hit && this.now() - hit.at < CACHE_TTL_MS) return Promise.resolve(hit.value);
+    if (hit && core.isReferenceCacheEntryFresh(hit.at, this.now())) return Promise.resolve(hit.value);
     return (async () => {
       const cached = await this.cache?.get(key);
       if (cached) {
@@ -360,29 +335,22 @@ export class ReferenceLookupService {
       this.memory.set(key, { at: this.now(), value });
       // Only a hit is kept across sessions: a miss may be a dropped
       // connection, or an entry a later parser reads better.
-      if (value.status === "resolved") void this.cache?.set(key, value);
+      if (core.shouldStoreReferenceLookup(value.status)) void this.cache?.set(key, value);
       return value;
     })();
   }
 
   private async lookup(ref: ParsedReference): Promise<ResolvedReference> {
-    if (!ref.doi && !ref.arxivId && !ref.title) return { status: "unresolved" };
     // Every shape the entry can be asked for, strongest identifier first; a
     // form that fails (unknown DOI, no search match) hands over to the next.
-    const attempts: PaperRef[] = [];
-    if (ref.doi) attempts.push({ kind: "doi", value: ref.doi });
-    if (ref.arxivId) attempts.push({ kind: "arxiv", value: ref.arxivId });
-    if (ref.title) {
-      attempts.push({
-        kind: "bibliographic",
-        value: ref.title,
-        hints: {
-          title: ref.title,
-          ...(ref.year != null ? { year: ref.year } : {}),
-          ...(ref.authors[0] ? { firstAuthor: ref.authors[0] } : {}),
-        },
-      });
-    }
+    // No form at all means the entry is unresolved.
+    const attempts: PaperRef[] = readyCore().referenceLookupAttempts({
+      doi: ref.doi,
+      arxivId: ref.arxivId,
+      title: ref.title,
+      year: ref.year,
+      firstAuthor: ref.authors[0],
+    });
     for (const attempt of attempts) {
       let found: { metadata: PaperMetadata; sourceId: string };
       try {
@@ -429,7 +397,7 @@ export class ReferenceLookupService {
   /** One listing per short window, so a reference walk is not one fetch per entry. */
   private librarySummaries(): ReturnType<IPaperRepository["listSummaries"]> {
     const at = this.now();
-    if (this.library && at - this.library.at < LIBRARY_LIST_TTL_MS) return this.library.list;
+    if (this.library && readyCore().isLibraryListingFresh(this.library.at, at)) return this.library.list;
     const list = this.papers.listSummaries();
     const entry = { at, list };
     this.library = entry;

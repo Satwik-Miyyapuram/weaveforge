@@ -104,30 +104,6 @@ export interface ItemTextOffset {
   offset: number;
 }
 
-/** Build a TextSelectionRange from two item offsets; returns null if empty. */
-export function textSelectionFromOffsets(
-  start: ItemTextOffset,
-  end: ItemTextOffset,
-): TextSelectionRange | null {
-  if (
-    !Number.isInteger(start.itemIndex) ||
-    !Number.isInteger(end.itemIndex) ||
-    start.itemIndex < 0 ||
-    end.itemIndex < 0 ||
-    start.offset < 0 ||
-    end.offset < 0
-  ) {
-    return null;
-  }
-  if (start.itemIndex === end.itemIndex && start.offset === end.offset) return null;
-  return {
-    startItemIndex: start.itemIndex,
-    startOffset: start.offset,
-    endItemIndex: end.itemIndex,
-    endOffset: end.offset,
-  };
-}
-
 /**
  * Map a DOM Selection inside a `.pdf-reader-textlayer` to item/offset indices.
  * Spans must carry `data-item-index` matching PageTextGeometry.items order.
@@ -151,7 +127,7 @@ export function selectionRangeFromDom(
   const start = offsetInTextLayer(range.startContainer, range.startOffset, textLayer, "start");
   const end = offsetInTextLayer(range.endContainer, range.endOffset, textLayer, "end");
   if (!start || !end) return null;
-  return textSelectionFromOffsets(start, end);
+  return readyCore().textSelectionFromOffsets(start, end);
 }
 
 /** Map the start boundary of a DOM selection to an ItemTextOffset in this textLayer. */
@@ -320,13 +296,7 @@ export function pageSpanFromSelection(
   const startPage = resolvePage(range.startContainer, range.startOffset, "start");
   const endPage = resolvePage(range.endContainer, range.endOffset, "end");
 
-  if (!startPage && !endPage) return null;
-  const p1 = startPage ?? endPage!;
-  const p2 = endPage ?? startPage!;
-  return {
-    startPage: Math.min(p1, p2),
-    endPage: Math.max(p1, p2),
-  };
+  return readyCore().pageSpanOf(startPage ?? undefined, endPage ?? undefined);
 }
 
 /** Resolve which page host owns the selection (1-based page number). Returns null if cross-page. */
@@ -539,10 +509,6 @@ export type FreeCopyOutcome =
       asked: OpenAccessSource[];
     };
 
-/** At most this many of each format are tried; the rest are rarely different copies. */
-export const MAX_PDF_ATTEMPTS = 6;
-export const MAX_HTML_ATTEMPTS = 4;
-
 export async function findFreeCopy(
   paperId: string,
   ids: OpenAccessIds,
@@ -550,9 +516,12 @@ export async function findFreeCopy(
 ): Promise<FreeCopyOutcome> {
   const lookup = await deps.lookup(ids);
   const attempts: FreeCopyAttempt[] = [];
-  const pdfs = lookup.candidates.filter((c) => c.format === "pdf").slice(0, MAX_PDF_ATTEMPTS);
-  const pages = lookup.candidates.filter((c) => c.format === "html").slice(0, MAX_HTML_ATTEMPTS);
-  const webArticle = readyCore().isWebArticle(ids);
+  const core = readyCore();
+  // At most a capped number of each format is tried (Rust `free_copy_attempts`).
+  const picked = core.pickFreeCopyAttempts(lookup.candidates.map((c) => c.format));
+  const pdfs = picked.pdf.map((i) => lookup.candidates[i]!);
+  const pages = picked.html.map((i) => lookup.candidates[i]!);
+  const webArticle = core.isWebArticle(ids);
 
   for (const candidate of pdfs) {
     let result: PdfAttempt;
@@ -579,7 +548,6 @@ export async function findFreeCopy(
       continue;
     }
     const clean = deps.sanitize(fetched.raw, fetched.finalUrl);
-    const core = readyCore();
     const minChars = webArticle && candidate.source === "paper" ? core.minArticleTextChars() : core.minPaperTextChars();
     if (!core.isSubstantialPaperText(clean.text, minChars)) {
       attempts.push({ url: candidate.url, format: "html", reason: "abstract-only" });

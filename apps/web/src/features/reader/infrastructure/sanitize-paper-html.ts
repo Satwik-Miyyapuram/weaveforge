@@ -12,36 +12,13 @@
  */
 
 import DOMPurify from "dompurify";
+import { readyCore } from "@/lib/rust-core";
 
 export interface SanitizedPaperHtml {
   html: string;
   text: string;
   title: string;
 }
-
-/** Page furniture that is never the paper. */
-const CHROME_SELECTOR = [
-  "script",
-  "noscript",
-  "style",
-  "link",
-  "nav",
-  "header[role=banner]",
-  "footer",
-  "form",
-  "[role=navigation]",
-  "[role=search]",
-  "[aria-hidden=true]",
-  ".cookie-banner",
-  "#cookie-banner",
-].join(",");
-
-const FORBID_TAGS = [
-  "form", "input", "button", "select", "textarea", "option",
-  "iframe", "frame", "frameset", "object", "embed", "applet",
-  "style", "link", "meta", "base", "script", "noscript", "template",
-  "dialog", "portal",
-];
 
 function metaContent(doc: Document, names: string[]): string | undefined {
   for (const name of names) {
@@ -66,31 +43,25 @@ function pickArticle(doc: Document): Element {
 }
 
 function absolutize(root: Element, baseUrl: string): void {
+  const core = readyCore();
   for (const el of Array.from(root.querySelectorAll("[href]"))) {
     const href = el.getAttribute("href") ?? "";
     if (href.startsWith("#")) continue;
-    try {
-      el.setAttribute("href", new URL(href, baseUrl).toString());
-    } catch {
-      el.removeAttribute("href");
-    }
+    const resolved = core.resolveAbsoluteUrl(href, baseUrl);
+    if (resolved === null) el.removeAttribute("href");
+    else el.setAttribute("href", resolved);
   }
   for (const el of Array.from(root.querySelectorAll("[src]"))) {
     const src = el.getAttribute("src") ?? "";
     if (src.startsWith("data:")) continue;
-    try {
-      el.setAttribute("src", new URL(src, baseUrl).toString());
-    } catch {
-      el.removeAttribute("src");
-    }
+    const resolved = core.resolveAbsoluteUrl(src, baseUrl);
+    if (resolved === null) el.removeAttribute("src");
+    else el.setAttribute("src", resolved);
   }
   // Lazy-loading pages keep the real image in a data attribute.
   for (const img of Array.from(root.querySelectorAll("img[data-src]"))) {
-    try {
-      img.setAttribute("src", new URL(img.getAttribute("data-src") ?? "", baseUrl).toString());
-    } catch {
-      /* leave it */
-    }
+    const resolved = core.resolveAbsoluteUrl(img.getAttribute("data-src") ?? "", baseUrl);
+    if (resolved !== null) img.setAttribute("src", resolved);
   }
   for (const el of Array.from(root.querySelectorAll("[srcset]"))) el.removeAttribute("srcset");
 }
@@ -105,7 +76,7 @@ export function sanitizePaperHtml(raw: string, baseUrl: string): SanitizedPaperH
     metaContent(doc, ["citation_title", "dc.title", "DC.title", "og:title"]) ??
     (doc.querySelector("h1")?.textContent ?? doc.title ?? "").trim();
   const article = pickArticle(doc);
-  for (const el of Array.from(article.querySelectorAll(CHROME_SELECTOR))) el.remove();
+  for (const el of Array.from(article.querySelectorAll(readyCore().paperHtmlChromeSelector()))) el.remove();
   absolutize(article, baseUrl);
 
   const purifier = DOMPurify(window);
@@ -124,7 +95,7 @@ export function sanitizePaperHtml(raw: string, baseUrl: string): SanitizedPaperH
   });
   const html = purifier.sanitize(article.innerHTML, {
     USE_PROFILES: { html: true, mathMl: true, svg: true },
-    FORBID_TAGS,
+    FORBID_TAGS: readyCore().paperHtmlForbidTags(),
     FORBID_ATTR: ["style", "srcset", "formaction", "ping"],
     ALLOWED_URI_REGEXP: /^(?:https:|http:|mailto:|#|data:image\/(?:png|jpe?g|gif|webp);)/i,
     ADD_ATTR: ["target"],

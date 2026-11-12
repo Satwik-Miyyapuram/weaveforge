@@ -163,15 +163,6 @@ export function getReaderPdfByteCache(): IPdfByteCache | undefined {
   return sharedCache;
 }
 
-export function isCachePdfUrl(url: string): boolean {
-  return url.startsWith("cache://");
-}
-
-/** A URL the reader answers from this app's own store, with no network hop. */
-export function isStoredPdfUrl(url: string): boolean {
-  return url.startsWith("blob:") || isCachePdfUrl(url);
-}
-
 /**
  * The bytes behind a `cache://` URL, for pdf.js to take as `data`.
  *
@@ -181,7 +172,7 @@ export function isStoredPdfUrl(url: string): boolean {
  */
 export async function readStoredPdfBytes(url: string): Promise<ArrayBuffer | null> {
   const cache = getReaderPdfByteCache();
-  if (!cache || !isCachePdfUrl(url)) return null;
+  if (!cache || !readyCore().isCachePdfUrl(url)) return null;
   const bytes = await cache.get(decodeURIComponent(url.slice("cache://".length)));
   return bytes && bytes.byteLength > 0 ? bytes : null;
 }
@@ -206,7 +197,7 @@ export async function readStoredPdfBytes(url: string): Promise<ArrayBuffer | nul
  * half the answer is the kind of bug that looks like the network being broken.
  */
 export async function pdfBytesForSource(url: string): Promise<ArrayBuffer | null> {
-  if (isCachePdfUrl(url)) return readStoredPdfBytes(url);
+  if (readyCore().isCachePdfUrl(url)) return readStoredPdfBytes(url);
   return fetchPdfBytesForCache(url);
 }
 
@@ -214,7 +205,7 @@ async function materializeCachePdfUrl(
   url: string,
   cache: IPdfByteCache,
 ): Promise<string | null> {
-  if (!isCachePdfUrl(url)) return url;
+  if (!readyCore().isCachePdfUrl(url)) return url;
   const key = decodeURIComponent(url.slice("cache://".length));
   const bytes = await cache.get(key);
   if (!bytes || bytes.byteLength === 0) return null;
@@ -254,9 +245,9 @@ export async function resolvePaperPdfSourceForReader(
 
   // The desktop shell's origin cannot fetch a blob URL; its reader takes the
   // `cache://` URL as it is and reads the bytes itself (`readStoredPdfBytes`).
-  if (isCachePdfUrl(resolution.hit.url) && cache && desktop()) return resolution;
+  if (readyCore().isCachePdfUrl(resolution.hit.url) && cache && desktop()) return resolution;
 
-  if (isCachePdfUrl(resolution.hit.url) && cache) {
+  if (readyCore().isCachePdfUrl(resolution.hit.url) && cache) {
     const blobUrl = await materializeCachePdfUrl(resolution.hit.url, cache);
     if (!blobUrl) return { ok: false, reason: "no_source" };
     return {
@@ -270,9 +261,7 @@ export async function resolvePaperPdfSourceForReader(
   // Best-effort: seed cache from a successful remote resolve. Not from the
   // no-account copy, which asks first and then fetches on purpose — see
   // `downloadPaperPdfToCache`.
-  const remote =
-    /^https?:\/\//i.test(resolution.hit.url) || resolution.hit.url.startsWith("/");
-  if (cache && paper.id && remote && !isLocalMode()) {
+  if (cache && paper.id && readyCore().isRemotePdfUrl(resolution.hit.url) && !isLocalMode()) {
     void seedCacheFromUrl(cache, paper.id, resolution.hit.url);
   }
 
@@ -364,14 +353,11 @@ export async function fetchTypedPdfToCache(
     if (!res.ok) return { ok: false, reason: "failed" };
     bytes = await res.arrayBuffer();
   }
-  if (!bytes || !looksLikePdfBytes(bytes)) return { ok: false, reason: "not-pdf" };
+  if (!bytes || !readyCore().hasPdfMagic(new Uint8Array(bytes))) {
+    return { ok: false, reason: "not-pdf" };
+  }
   await cache.set(paperId, bytes);
   return { ok: true };
-}
-
-/** `%PDF` somewhere in the first kilobyte (Rust `has_pdf_magic`). */
-export function looksLikePdfBytes(bytes: ArrayBuffer): boolean {
-  return readyCore().hasPdfMagic(new Uint8Array(bytes));
 }
 
 async function seedCacheFromUrl(cache: IPdfByteCache, key: string, url: string): Promise<void> {
