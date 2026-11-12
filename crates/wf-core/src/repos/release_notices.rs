@@ -117,7 +117,12 @@ fn last_seen(call: &RepoCall) -> Result<Option<String>, RepoStep> {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, reason = "test code")]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
 mod tests {
     use super::*;
     use crate::repo_query::{RepoAction, RepoCtx};
@@ -174,7 +179,10 @@ mod tests {
         assert_eq!(notices.limit, Some(1));
         let settings = &queries[1];
         assert_eq!(settings.table, "user_settings");
-        assert_eq!(settings.columns.as_deref(), Some("last_release_notice_seen"));
+        assert_eq!(
+            settings.columns.as_deref(),
+            Some("last_release_notice_seen")
+        );
         assert_eq!(settings.filters[0].column, "user_id");
         assert_eq!(settings.filters[0].value, "u1");
     }
@@ -207,10 +215,7 @@ mod tests {
             unseen(&call(vec![json!({ "version": 1 }), json!([])], Some("u1"))),
             RepoStep::Fail { .. }
         ));
-        assert!(matches!(
-            unseen(&call(vec![], None)),
-            RepoStep::Fail { .. }
-        ));
+        assert!(matches!(unseen(&call(vec![], None)), RepoStep::Fail { .. }));
     }
 
     #[test]
