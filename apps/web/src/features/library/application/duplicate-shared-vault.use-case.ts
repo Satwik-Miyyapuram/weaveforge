@@ -53,10 +53,10 @@ export class DuplicateSharedVaultPageUseCase {
     // travel together. Rewrites are applied afterwards, in the body's own
     // order, so the result does not depend on which copy finished first.
     const copied = await Promise.all(
-      paths.map(async (oldPath) => {
+      paths.map(async (oldPath: string) => {
         try {
           const blob = await this.deps.assets.fetchBlob(oldPath);
-          const ext = oldPath.split(".").pop() ?? "bin";
+          const ext = readyCore().copyExtension(oldPath);
           return { oldPath, newPath: await this.deps.assets.upload(page.id, blob, ext) };
         } catch (err) {
           logToApp({
@@ -69,11 +69,7 @@ export class DuplicateSharedVaultPageUseCase {
         }
       }),
     );
-    const failedAssets = copied.filter((c) => c.newPath === null).map((c) => c.oldPath);
-
-    const rewrites = copied.flatMap((c) =>
-      c.newPath === null ? [] : [{ oldPath: c.oldPath, newPath: c.newPath }],
-    );
+    const { failedAssets, rewrites } = readyCore().planAssetCopies(copied);
     const body = typedCore().replaceVaultAssetPaths(source.body, rewrites);
 
     if (body !== source.body) {

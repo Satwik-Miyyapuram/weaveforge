@@ -87,11 +87,11 @@ pub struct ProposalDraft {
 ///
 /// # Errors
 ///
-/// Returns `AI proposal preview is required.` when the trimmed content is empty.
+/// Returns `A proposal needs a preview describing what it will do.` when the trimmed content is empty.
 pub fn shape_proposal_draft(input: ProposalDraftInput) -> Result<ProposalDraft, String> {
     let content = input.content.trim_matches(is_js_whitespace).to_owned();
     if content.is_empty() {
-        return Err("AI proposal preview is required.".to_owned());
+        return Err("A proposal needs a preview describing what it will do.".to_owned());
     }
     let evidence = input.evidence.filter(|items| !items.is_empty());
     Ok(ProposalDraft {
@@ -148,7 +148,7 @@ mod tests {
     fn blank_content_is_rejected() {
         assert_eq!(
             shape_proposal_draft(input(" \t\n ")).unwrap_err(),
-            "AI proposal preview is required."
+            "A proposal needs a preview describing what it will do."
         );
     }
 

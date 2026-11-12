@@ -542,8 +542,8 @@
       into either one.
     </p>
     <div class="facts">
-      <div class="fact"><b>352,942</b><span>web app lines</span></div>
-      <div class="fact"><b>24,666</b><span>core lines</span></div>
+      <div class="fact"><b>352,741</b><span>web app lines</span></div>
+      <div class="fact"><b>24,646</b><span>core lines</span></div>
       <div class="fact"><b>10,637</b><span>shell lines</span></div>
       <div class="fact"><b>3,375</b><span>python sdk</span></div>
       <div class="fact"><b>153</b><span>migrations</span></div>
@@ -656,7 +656,7 @@ flowchart TB
 
       <div class="tree">
 <pre><b>weaveforge/</b>
-├── <b>packages/core/src/</b>            <i>24,666 lines — the only place rules live</i>
+├── <b>packages/core/src/</b>            <i>24,646 lines — the only place rules live</i>
 │   ├── <u>features/</u>                 <i>19 slices: papers, experiments, plan, report,</i>
 │   │                              <i>logbook, library, vault, wiki, org, sharing,</i>
 │   │                              <i>collab, tags, relations, reading-lists,</i>
@@ -669,7 +669,7 @@ flowchart TB
 │   ├── config/                    <i>defineConfig + plugin contract</i>
 │   └── shared/                    <i>clock, dates, three-way-merge, tree, repository</i>
 │
-├── <b>apps/web/src/</b>                 <i>352,942 lines</i>
+├── <b>apps/web/src/</b>                 <i>352,741 lines</i>
 │   ├── <u>app/</u>                      <i>25 pages + 1 API routes</i>
 │   ├── <u>features/</u>                 <i>31 slices — core's 19 plus the web-only ones:</i>
 │   │                              <i>offline-sync, sync, workspace, editor-workspace,</i>
@@ -813,7 +813,7 @@ flowchart LR
             <tr><td class="key">vault</td><td>yes</td><td>yes</td><td>—</td><td>yes</td><td>Markdown notes on disk, folder interop</td></tr>
             <tr><td class="key">library</td><td>yes</td><td>yes</td><td>—</td><td>local files</td><td>Files, blobs, tiering, previews</td></tr>
             <tr><td class="key">sharing</td><td>yes</td><td>yes</td><td>—</td><td>no</td><td>Grants, supervision, RLS-backed access</td></tr>
-            <tr><td class="key">ai-assistant</td><td>yes</td><td>yes</td><td>—</td><td>needs a provider</td><td>13 tools, proposal queue, provider config</td></tr>
+            <tr><td class="key">ai-assistant</td><td>yes</td><td>yes</td><td>—</td><td>needs a provider</td><td>0 tools, proposal queue, provider config</td></tr>
             <tr><td class="key">offline-sync</td><td>—</td><td>yes</td><td>—</td><td>n/a</td><td>Outbox, puller, merge, conflicts, adoption</td></tr>
             <tr><td class="key">editor-workspace</td><td>—</td><td>yes</td><td>—</td><td>yes</td><td>Editing surface, paste and drop handling</td></tr>
             <tr><td class="key">overleaf</td><td>yes</td><td>yes</td><td>—</td><td>link and edit</td><td>Report push to an Overleaf project; link rules and the LaTeX section tree in core, so a copy with no account shares them</td></tr>
@@ -1140,7 +1140,7 @@ sequenceDiagram
     <section id="ai">
       <h2>AI and MCP boundary</h2>
       <p>
-        The assistant has thirteen tools. Three read. Ten propose, and a proposal is a row in
+        The assistant has no tools. No read. No propose, and a proposal is a row in
         a review queue, never a write. <code>/api/mcp</code> is fail-closed: it answers 404 when
         MCP is off and 503 with the manifest when it is on, because live access goes through
         the browser relay with an active session grant.

@@ -9,6 +9,7 @@ use std::collections::{HashMap, HashSet};
 use js_sys::{Array, Map, Set};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
+use wf_core::vault::asset_copy::{self, AssetCopy};
 use wf_core::vault::page::{self, DerivedNote};
 
 use super::to_js;
@@ -236,6 +237,29 @@ pub fn replace_vault_asset_paths_js(
         .map(|rewrite| (rewrite.old_path, rewrite.new_path))
         .collect();
     Ok(page::replace_vault_asset_paths(body, &pairs))
+}
+
+/// [`plan_asset_copies`](asset_copy::plan_asset_copies): from each image's copy attempt
+/// `{ oldPath, newPath | null }`, the `failedAssets` and the `rewrites` for the rest.
+///
+/// # Errors
+///
+/// Fails if `copies` is not a list of `{ oldPath, newPath }` objects with `newPath` a string or null.
+#[wasm_bindgen(js_name = planAssetCopies, unchecked_return_type = "{ failedAssets: string[]; rewrites: { oldPath: string; newPath: string }[] }")]
+pub fn plan_asset_copies_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly { oldPath: string; newPath: string | null }[]")]
+    copies: JsValue,
+) -> JsResult<JsValue> {
+    let copies: Vec<AssetCopy> = serde_wasm_bindgen::from_value(copies)?;
+    to_js(&asset_copy::plan_asset_copies(&copies))
+}
+
+/// [`copy_extension`](asset_copy::copy_extension): the text after the last `.` in `oldPath`
+/// (TS `oldPath.split(".").pop()`).
+#[wasm_bindgen(js_name = copyExtension)]
+#[must_use]
+pub fn copy_extension_js(old_path: &str) -> String {
+    asset_copy::copy_extension(old_path).to_owned()
 }
 
 /// [`VAULT_IMAGE_PREFIX`](page::VAULT_IMAGE_PREFIX) (TS `vaultImagePrefix()`).
