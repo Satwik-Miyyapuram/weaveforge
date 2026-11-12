@@ -2,7 +2,10 @@
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
+use wf_core::papers::paper_ref::PaperRef;
+use wf_core::relations::citation_alert_log::{AlertItem, alert_log_body};
 use wf_core::relations::citation_alerts::{self, CitationSignals};
+use wf_core::relations::citation_match::{LibraryEntry, match_references};
 
 use super::to_js;
 
@@ -119,4 +122,56 @@ pub fn merge_seen_ids_js(
     #[wasm_bindgen(unchecked_param_type = "readonly string[]")] current: Vec<String>,
 ) -> Vec<String> {
     citation_alerts::merge_seen_ids(&prior, &current)
+}
+
+#[wasm_bindgen(typescript_custom_section)]
+const CITATION_LOG_TS: &str = r"
+/** One ranked citation candidate as the alert log shows it; counts are formatted by the caller. */
+export interface CitationAlertLogItem {
+  title: string;
+  url?: string;
+  authors?: string[];
+  year?: string;
+  citationCount?: number;
+  citationCountText?: string;
+  isInfluential?: boolean;
+  intents?: string[];
+}
+
+/** A library paper's identifiers, as the citation match reads them. */
+export interface CitationLibraryEntry { id: string; arxivId?: string | null; doi?: string | null }
+
+/** A reference a paper cites, as the citation match reads it. */
+export interface CitationPaperRef { kind: 'arxiv' | 'doi' | 'url' | 'zotero'; value: string }
+";
+
+/// [`alert_log_body`]: the markdown log entry for an alert on `paper_title`, `ranked` best first.
+///
+/// # Errors
+///
+/// Fails if `ranked` has the wrong shape.
+#[wasm_bindgen(js_name = citationAlertLogBody)]
+pub fn citation_alert_log_body_js(
+    paper_title: &str,
+    #[wasm_bindgen(unchecked_param_type = "readonly CitationAlertLogItem[]")] ranked: JsValue,
+) -> JsResult<String> {
+    let ranked: Vec<AlertItem> = serde_wasm_bindgen::from_value(ranked)?;
+    Ok(alert_log_body(paper_title, &ranked))
+}
+
+/// [`match_references`]: for each paper's references (aligned to `library`), the index of the
+/// library paper each one matches, or `null`.
+///
+/// # Errors
+///
+/// Fails if `library` or `references` has the wrong shape.
+#[wasm_bindgen(js_name = matchCitationReferences, unchecked_return_type = "(number | null)[][]")]
+pub fn match_citation_references_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly CitationLibraryEntry[]")] library: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly (readonly CitationPaperRef[] | null)[]")]
+    references: JsValue,
+) -> JsResult<JsValue> {
+    let library: Vec<LibraryEntry> = serde_wasm_bindgen::from_value(library)?;
+    let references: Vec<Option<Vec<PaperRef>>> = serde_wasm_bindgen::from_value(references)?;
+    to_js(&match_references(&library, &references))
 }

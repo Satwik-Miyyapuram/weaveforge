@@ -1,5 +1,6 @@
 //! Vault (notes) domain rules.
 
+pub mod asset_copy;
 pub mod import_links;
 pub mod link_resolve;
 pub mod page;

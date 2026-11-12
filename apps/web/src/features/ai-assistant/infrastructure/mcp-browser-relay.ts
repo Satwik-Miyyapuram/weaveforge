@@ -1,6 +1,6 @@
 import { errorMessage, type AiAccessSettings, type AiEvidence } from "@weaveforge/core";
 import { relayUrl } from "@/lib/parts";
-import { readyCore, typedCore } from "@/lib/rust-core";
+import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 
 import { GENERATED_MCP_ENABLED, GENERATED_MCP_TOOL_NAMES } from "@/deployment/generated-registry";
@@ -158,173 +158,48 @@ export async function handleRelayBatch(deps: RelayBatchDeps, batch: readonly Rel
   }
 }
 
-/** Run one decrypted tool call. Every argument is untrusted until checked here. */
+type DraftInput = Parameters<McpToolHost["proposeDraft"]>[0];
+type EvidenceRequest = Parameters<ReturnType<typeof readyCore>["mcpPaperEvidence"]>[0];
+
+/**
+ * Run one decrypted tool call. Every argument is untrusted: the tool check,
+ * the argument checks and the draft shapes are decided in Rust
+ * (`ai::mcp_dispatch`); this runs the host calls the plan names, in its order.
+ */
 export async function dispatchMcpTool(ai: McpToolHost, sessionId: string, settings: AiAccessSettings, command: { tool?: string; arguments?: Record<string, unknown> }): Promise<unknown> {
-  const tool = command.tool ? typedCore().canonicalAiToolName(command.tool) : "";
-  if (!GENERATED_MCP_ENABLED || !tool || !GENERATED_MCP_TOOL_NAMES.includes(tool as (typeof GENERATED_MCP_TOOL_NAMES)[number])) {
-    throw new Error("This MCP tool is not enabled for this deployment.");
-  }
-  const args = command.arguments ?? {};
-  switch (tool) {
-    case "search_workspace": return ai.searchWorkspace({ sessionId, settings, query: String(args.query ?? ""), limit: Number(args.limit) || undefined });
-    case "get_source_excerpt": return ai.getSourceExcerpt({ sessionId, settings, sourceId: String(args.sourceId ?? "") });
-    case "get_workspace_outline": return ai.getWorkspaceOutline({ sessionId, settings });
-    case "suggest_zotero_import": return ai.proposeZoteroImport({
-      sessionId, settings, title: String(args.title ?? ""),
-      authors: Array.isArray(args.authors) ? args.authors.map(String) : [], doi: typeof args.doi === "string" ? args.doi : undefined,
-      url: typeof args.url === "string" ? args.url : undefined, year: typeof args.year === "string" || typeof args.year === "number" ? args.year : undefined,
-      abstract: typeof args.abstract === "string" ? args.abstract : undefined,
+  const enabled = GENERATED_MCP_ENABLED ? [...GENERATED_MCP_TOOL_NAMES] : [];
+  const plan = readyCore().planMcpTool(command.tool ?? "", command.arguments ?? {}, enabled);
+  switch (plan.op) {
+    case "searchWorkspace": return ai.searchWorkspace({ sessionId, settings, query: plan.query, limit: plan.limit });
+    case "getSourceExcerpt": return ai.getSourceExcerpt({ sessionId, settings, sourceId: plan.sourceId });
+    case "getWorkspaceOutline": return ai.getWorkspaceOutline({ sessionId, settings });
+    case "proposeZoteroImport": return ai.proposeZoteroImport({
+      sessionId, settings, title: plan.title, authors: plan.authors, doi: plan.doi,
+      url: plan.url, year: plan.year, abstract: plan.abstract,
     });
-    case "suggest_append_paper_note": {
-      const addition = required(args, "addition");
-      const paperId = required(args, "paperId");
-      const sourceId = optional(args, "sourceId");
-      const evidence = sourceId
-        ? await buildPaperEvidence(ai, sessionId, settings, {
-            paperId, sourceId,
-            quoteExact: optionalRaw(args, "quoteExact"),
-            quotePrefix: optionalRaw(args, "quotePrefix"),
-            quoteSuffix: optionalRaw(args, "quoteSuffix"),
-            page: optionalPage(args.page),
-          })
-        : undefined;
-      return ai.proposeDraft({
-        sessionId, settings, kind: "append_paper_note", tool: "suggest_append_paper_note",
-        resourceId: paperId, resourceType: "paper_note",
-        expectedRevision: optional(args, "expectedRevision"),
-        content: `Append to paper note:\n\n${addition}`,
-        payload: { addition },
-        evidence,
-      });
+    case "proposeDraft": {
+      // Evidence is fetched only after the plan accepted the call, so a refused
+      // call never reads an excerpt and never writes a draft.
+      const evidence = plan.evidence ? await buildPaperEvidence(ai, sessionId, settings, plan.evidence) : undefined;
+      const draft = {
+        sessionId, settings, kind: plan.kind, tool: plan.tool,
+        resourceId: plan.resourceId, resourceType: plan.resourceType,
+        expectedRevision: plan.expectedRevision, content: plan.content,
+        payload: plan.payload, evidence,
+      };
+      return ai.proposeDraft(draft as DraftInput);
     }
-    case "suggest_create_vault_note": return ai.proposeDraft({ sessionId, settings, kind: "create_vault_note", tool: "suggest_create_vault_note", content: `Create vault note: ${required(args, "title")}`, payload: { title: required(args, "title"), body: required(args, "body"), parentId: optional(args, "parentId") } });
-    case "suggest_create_log_entry": return ai.proposeDraft({ sessionId, settings, kind: "create_log_entry", tool: "suggest_create_log_entry", content: `Create log entry:\n\n${required(args, "body")}`, payload: { body: required(args, "body"), entryDate: optional(args, "entryDate"), kind: optional(args, "kind") ?? "daily" } });
-    case "suggest_paper_update": return ai.proposeDraft({ sessionId, settings, kind: "paper_update", tool: "suggest_paper_update", resourceId: required(args, "paperId"), resourceType: "paper", expectedRevision: optional(args, "expectedRevision"), content: `Update paper metadata`, payload: { status: optional(args, "status"), rating: typeof args.rating === "number" ? args.rating : undefined, tags: stringList(args.tags) } });
-    case "suggest_paper_field_value": {
-      const paperId = required(args, "paperId");
-      const fieldId = required(args, "fieldId");
-      const value = readyCore().parsePaperFieldValue(args.value, "value");
-      const sourceId = required(args, "sourceId");
-      const quoteExact = requiredRaw(args, "quoteExact");
-      const evidence = await buildPaperEvidence(ai, sessionId, settings, {
-        paperId, sourceId, quoteExact,
-        quotePrefix: optionalRaw(args, "quotePrefix"),
-        quoteSuffix: optionalRaw(args, "quoteSuffix"),
-        page: optionalPage(args.page),
-      });
-      const preview = Array.isArray(value) ? value.join("; ") : String(value);
-      // resourceId stays the paper id for the executor. Do not pass resourceType:
-      // evidence may cite paper_note / zotero_* (already grant-checked by
-      // getSourceExcerpt), and a hard-coded "paper" metadata grant would fail
-      // least-privilege note-only sessions.
-      return ai.proposeDraft({
-        sessionId, settings, kind: "paper_field_value", tool: "suggest_paper_field_value",
-        resourceId: paperId,
-        expectedRevision: optional(args, "expectedRevision"),
-        // fieldId is authoritative; optional fieldName is an unverified hint only.
-        content: `Set field \`${fieldId}\` to:\n\n${preview}`,
-        payload: {
-          paperId, fieldId, value,
-          ...(optional(args, "listId") ? { listId: optional(args, "listId") } : {}),
-          ...(optional(args, "fieldName") ? { fieldName: optional(args, "fieldName") } : {}),
-        },
-        evidence,
-      });
-    }
-    case "suggest_reading_list_change": return ai.proposeDraft({ sessionId, settings, kind: "reading_list_change", tool: "suggest_reading_list_change", resourceId: required(args, "listId"), resourceType: "reading_list", content: "Add an item to a reading list", payload: { listId: required(args, "listId"), paperId: optional(args, "paperId"), vaultPageId: optional(args, "vaultPageId"), note: optional(args, "note") } });
-    case "suggest_relation": return ai.proposeDraft({ sessionId, settings, kind: "relation", tool: "suggest_relation", resourceId: required(args, "fromPaper"), resourceType: "paper", content: `Add ${required(args, "relation")} relation`, payload: { fromPaper: required(args, "fromPaper"), toPaper: required(args, "toPaper"), relation: required(args, "relation") } });
-    case "suggest_milestone_follow_up": return ai.proposeDraft({ sessionId, settings, kind: "milestone_follow_up", tool: "suggest_milestone_follow_up", content: `Create milestone: ${required(args, "title")}`, payload: { title: required(args, "title"), description: optional(args, "description"), targetDate: optional(args, "targetDate") } });
-    case "suggest_experiment_follow_up": return ai.proposeDraft({ sessionId, settings, kind: "experiment_follow_up", tool: "suggest_experiment_follow_up", content: `Create experiment: ${required(args, "name")}`, payload: { name: required(args, "name"), hypothesis: optional(args, "hypothesis"), relatedPaper: optional(args, "relatedPaper") } });
     default: throw new Error("This MCP tool is not enabled for live execution.");
   }
 }
 
-function required(args: Record<string, unknown>, key: string): string { const value = optional(args, key); if (!value) throw new Error(`${key} is required.`); return value; }
-function optional(args: Record<string, unknown>, key: string): string | undefined {
-  return typeof args[key] === "string" && args[key].trim() ? args[key].trim() : undefined;
-}
-
-/** Affixes must keep abutting whitespace for quote matching — do not trim. */
-function optionalRaw(args: Record<string, unknown>, key: string): string | undefined {
-  if (typeof args[key] !== "string" || args[key].length === 0) return undefined;
-  const value = args[key] as string;
-  return value.length > 2_000 ? value.slice(0, 2_000) : value;
-}
-/** Required quoteExact — trim is wrong for matching, but empty is invalid. */
-function requiredRaw(args: Record<string, unknown>, key: string): string {
-  const value = optionalRaw(args, key);
-  if (!value?.trim()) throw new Error(`${key} is required.`);
-  return value;
-}
-function optionalPage(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isInteger(value) && value >= 0) return value;
-  if (typeof value === "string" && value.trim()) {
-    const n = Number(value);
-    if (Number.isInteger(n) && n >= 0) return n;
-  }
-  return undefined;
-}
-function stringList(value: unknown): string[] | undefined { return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : undefined; }
-
 /**
- * Resolve one paper-scoped evidence item, or refuse.
- *
- * `quoteExact` is optional because `suggest_append_paper_note` accepts evidence
- * without one; where a tool requires the quote it is `requiredRaw` at the call
- * site, so an absent quote here means the tool allowed it.
+ * Fetch the source a draft cites, then let Rust check it: the quote must be in
+ * the excerpt, and the source must be this paper.
  */
-async function buildPaperEvidence(
-  ai: McpToolHost,
-  sessionId: string,
-  settings: AiAccessSettings,
-  input: {
-    paperId: string;
-    sourceId: string;
-    quoteExact?: string;
-    quotePrefix?: string;
-    quoteSuffix?: string;
-    page?: number;
-  },
-): Promise<AiEvidence[]> {
-  const doc = await ai.getSourceExcerpt({ sessionId, settings, sourceId: input.sourceId });
-  if (!doc?.text) {
-    throw new Error("sourceId was provided but no excerpt could be resolved for evidence.");
-  }
-  if (input.quoteExact && !doc.text.includes(input.quoteExact)) {
-    throw new Error("quoteExact was not found in the source excerpt.");
-  }
-  const paperFromSource =
-    doc.source.resourceType === "paper" || doc.source.resourceType === "paper_note"
-      ? doc.source.resourceId
-      : doc.source.resourceType === "zotero_annotation" || doc.source.resourceType === "zotero_note"
-        ? doc.source.resourceId.split(":")[0] || undefined
-        : undefined;
-  if (!paperFromSource) {
-    throw new Error("Evidence sourceId must resolve to a paper-scoped source.");
-  }
-  if (paperFromSource !== input.paperId) {
-    throw new Error("Evidence source belongs to a different paper than paperId.");
-  }
-  return [{
-    sourceId: input.sourceId,
-    excerpt: doc.text,
-    label: doc.source.label,
-    paperId: paperFromSource,
-    href: doc.source.href,
-    ...(input.quoteExact
-      ? {
-          locus: {
-            quote: {
-              type: "TextQuoteSelector" as const,
-              exact: input.quoteExact,
-              ...(input.quotePrefix ? { prefix: input.quotePrefix } : {}),
-              ...(input.quoteSuffix ? { suffix: input.quoteSuffix } : {}),
-            },
-          },
-        }
-      : {}),
-    ...(input.page != null ? { page: input.page } : {}),
-  }];
+async function buildPaperEvidence(ai: McpToolHost, sessionId: string, settings: AiAccessSettings, request: EvidenceRequest): Promise<AiEvidence[]> {
+  const doc = await ai.getSourceExcerpt({ sessionId, settings, sourceId: request.sourceId });
+  return readyCore().mcpPaperEvidence(request, doc) as AiEvidence[];
 }
 
 async function key(secret: string) { return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveKey"]).then((base) => crypto.subtle.deriveKey({ name: "PBKDF2", salt: new TextEncoder().encode("weaveforge-mcp-v1"), iterations: 100_000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"])); }

@@ -669,9 +669,6 @@ export interface LintReport {
   counts: Record<LintKind, number>;
 }
 
-/** A page with nothing but frontmatter and headings has no content of its own. */
-const MIN_CONTENT_CHARS = 40;
-
 /** Above this, two titles are the same idea spelled differently. */
 export const NEAR_DUPLICATE_THRESHOLD = 0.75;
 
