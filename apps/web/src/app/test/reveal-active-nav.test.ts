@@ -3,11 +3,16 @@
  * below its fold: on Log at 1426×836 the highlighted row was cut in half by the
  * account block. The column now scrolls just enough to show the current row.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { scrollTopToReveal } from "../reveal-active-nav";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const view = { top: 120, bottom: 750 };
 

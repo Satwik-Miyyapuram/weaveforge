@@ -1,3 +1,4 @@
+import { readyCore } from "@/lib/rust-core";
 import { formatError } from "@/lib/format-error";
 
 // --- toast-store ---
@@ -12,9 +13,11 @@ import { formatError } from "@/lib/format-error";
  *
  * The timer pauses while the pointer is over a toast, while it has focus, and
  * while the window is hidden, so a toast never times out unread.
+ *
+ * The transitions (state, view, hidden keys, timer and commit effects) are Rust
+ * (wf-core `app_lib::toast_store`). This module holds the timers, the Undo and
+ * commit closures, the commit promises and the listeners.
  */
-export const TOAST_MS = 8000;
-export const MAX_TOASTS = 3;
 
 export interface ToastClock {
   now(): number;
@@ -50,16 +53,43 @@ export interface DeferredDelete {
 
 type PauseReason = "hover" | "focus";
 
-interface Entry {
-  toast: Toast;
+/** The reducer's state. Rust owns its shape, so it is passed back opaque. */
+type ToastState = unknown;
+
+type ToastAction =
+  | { type: "show"; message: string; actionLabel: string; hasRun: boolean; now: number }
+  | { type: "deferDelete"; message: string; keys: readonly string[]; now: number }
+  | { type: "act"; id: number }
+  | { type: "dismiss"; id: number }
+  | { type: "undoLatest" }
+  | { type: "pause"; id: number; reason: PauseReason; now: number }
+  | { type: "resume"; id: number; reason: PauseReason; now: number }
+  | { type: "windowHidden"; hidden: boolean; now: number }
+  | { type: "flush" }
+  | { type: "committing"; id: number; keys: readonly string[] }
+  | { type: "committed"; id: number };
+
+type ToastEffect =
+  | { kind: "start"; id: number; ms: number }
+  | { kind: "stop"; id: number }
+  | { kind: "run"; id: number }
+  | { kind: "commit"; id: number; keys: readonly string[] };
+
+interface ToastReduction {
+  state: ToastState;
+  effects: readonly ToastEffect[];
+  view: readonly Toast[];
+  hidden: readonly string[];
+  /** The toast a show or deferDelete created, or the one undoLatest undid. */
+  id?: number;
+  changed: boolean;
+}
+
+/** The closures a toast holds: its Undo or action, and a delete's commit. */
+interface ToastClosures {
   run?: () => void;
   commit?: DeferredDelete["commit"];
-  failure: string;
-  keys: readonly string[];
-  remaining: number;
-  startedAt: number;
-  timer: unknown;
-  pauses: Set<PauseReason>;
+  failure?: string;
 }
 
 const systemClock: ToastClock = {
@@ -69,76 +99,60 @@ const systemClock: ToastClock = {
 };
 
 export class ToastStore {
-  private entries: Entry[] = [];
-  private nextId = 1;
-  private windowHidden = false;
-  private listeners = new Set<() => void>();
+  private state: ToastState | undefined;
   private view: readonly Toast[] = [];
   private hidden: ReadonlySet<string> = new Set();
-  /** Keys whose delete is running: still hidden, so the row does not flicker back. */
-  private committing = new Map<number, readonly string[]>();
+  private listeners = new Set<() => void>();
+  private closures = new Map<number, ToastClosures>();
+  private timers = new Map<number, unknown>();
+  /** Nesting depth of dispatch. Closures are pruned only when the outermost dispatch ends. */
+  private depth = 0;
 
   constructor(private readonly clock: ToastClock = systemClock) {}
 
   show(input: ToastInput): number {
-    return this.add({ message: input.message, actionLabel: input.action?.label, undoable: false }, input.action?.run);
+    const closure = input.action ? { run: input.action.run } : undefined;
+    return this.dispatch(
+      { type: "show", message: input.message, actionLabel: input.action?.label ?? "", hasRun: input.action !== undefined, now: this.clock.now() },
+      closure,
+    ).id as number;
   }
 
   deferDelete(input: DeferredDelete): number {
-    const id = this.add({ message: input.message, actionLabel: "Undo", undoable: true }, input.restore ?? (() => {}), input);
-    return id;
+    const closure = { run: input.restore ?? (() => {}), commit: input.commit, failure: input.failure ?? "Could not delete" };
+    return this.dispatch({ type: "deferDelete", message: input.message, keys: input.keys, now: this.clock.now() }, closure).id as number;
   }
 
   /** Press the toast's button: Undo, or its own action. Never commits. */
   act(id: number): void {
-    const entry = this.take(id);
-    if (!entry) return;
-    entry.run?.();
-    this.changed();
+    this.dispatch({ type: "act", id });
   }
 
   /** Close the toast (✕ or timeout). A pending delete commits now. */
   dismiss(id: number): void {
-    const entry = this.take(id);
-    if (!entry) return;
-    this.changed();
-    this.commit(entry);
+    this.dispatch({ type: "dismiss", id });
   }
 
   /** Ctrl+Z outside a text field. True when there was something to undo. */
   undoLatest(): boolean {
-    const latest = [...this.entries].reverse().find((e) => e.toast.undoable);
-    if (!latest) return false;
-    this.act(latest.toast.id);
-    return true;
+    return typeof this.dispatch({ type: "undoLatest" }).id === "number";
   }
 
   pause(id: number, reason: PauseReason): void {
-    const entry = this.entries.find((e) => e.toast.id === id);
-    if (!entry) return;
-    entry.pauses.add(reason);
-    this.syncTimer(entry);
+    this.dispatch({ type: "pause", id, reason, now: this.clock.now() });
   }
 
   resume(id: number, reason: PauseReason): void {
-    const entry = this.entries.find((e) => e.toast.id === id);
-    if (!entry) return;
-    entry.pauses.delete(reason);
-    this.syncTimer(entry);
+    this.dispatch({ type: "resume", id, reason, now: this.clock.now() });
   }
 
   setWindowHidden(hidden: boolean): void {
-    this.windowHidden = hidden;
-    for (const entry of this.entries) this.syncTimer(entry);
+    this.dispatch({ type: "windowHidden", hidden, now: this.clock.now() });
   }
 
   /** Commit every pending delete now: the app is quitting. */
   flush(): void {
-    const all = this.entries;
-    this.entries = [];
-    for (const entry of all) this.clock.clearTimeout(entry.timer);
-    this.changed();
-    for (const entry of all) this.commit(entry);
+    this.dispatch({ type: "flush" });
   }
 
   snapshot(): readonly Toast[] {
@@ -154,76 +168,73 @@ export class ToastStore {
     return () => void this.listeners.delete(listener);
   }
 
-  private add(toast: Omit<Toast, "id">, run?: () => void, del?: DeferredDelete): number {
-    const id = this.nextId++;
-    const entry: Entry = {
-      toast: { id, ...toast },
-      run,
-      commit: del?.commit,
-      failure: del?.failure ?? "Could not delete",
-      keys: del?.keys ?? [],
-      remaining: TOAST_MS,
-      startedAt: this.clock.now(),
-      timer: undefined,
-      pauses: new Set(),
-    };
-    this.entries.push(entry);
-    const overflow = this.entries.length > MAX_TOASTS ? this.entries.splice(0, this.entries.length - MAX_TOASTS) : [];
-    for (const old of overflow) this.clock.clearTimeout(old.timer);
-    this.syncTimer(entry);
-    this.changed();
-    for (const old of overflow) this.commit(old);
-    return id;
+  /** Run one action through the Rust reducer, then perform the effects it returns. */
+  private dispatch(action: ToastAction, closure?: ToastClosures): ToastReduction {
+    const current = (this.state ??= readyCore().toastInitialState());
+    const result = readyCore().toastReduce(current, action) as ToastReduction;
+    this.state = result.state;
+    if (result.changed) {
+      this.view = result.view;
+      this.hidden = new Set(result.hidden);
+      for (const listener of this.listeners) listener();
+    }
+    if (closure && result.id !== undefined) this.closures.set(result.id, closure);
+    this.depth++;
+    try {
+      for (const effect of result.effects) this.perform(effect);
+    } finally {
+      this.depth--;
+    }
+    if (this.depth === 0) this.pruneClosures();
+    return result;
   }
 
-  private take(id: number): Entry | undefined {
-    const i = this.entries.findIndex((e) => e.toast.id === id);
-    if (i < 0) return undefined;
-    const [entry] = this.entries.splice(i, 1);
-    this.clock.clearTimeout(entry!.timer);
-    return entry;
+  private perform(effect: ToastEffect): void {
+    switch (effect.kind) {
+      case "start":
+        this.timers.set(
+          effect.id,
+          this.clock.setTimeout(() => {
+            this.timers.delete(effect.id);
+            this.dismiss(effect.id);
+          }, effect.ms),
+        );
+        return;
+      case "stop":
+        this.clock.clearTimeout(this.timers.get(effect.id));
+        this.timers.delete(effect.id);
+        return;
+      case "run":
+        this.closures.get(effect.id)?.run?.();
+        return;
+      case "commit":
+        this.commit(effect.id, effect.keys);
+        return;
+    }
   }
 
-  private commit(entry: Entry): void {
-    if (!entry.commit) return;
-    const id = entry.toast.id;
-    const fail = (error: unknown) => this.show({ message: `${entry.failure}: ${formatError(error)}` });
+  private commit(id: number, keys: readonly string[]): void {
+    const pending = this.closures.get(id);
+    if (!pending?.commit) return;
+    const fail = (error: unknown) => this.show({ message: `${pending.failure ?? "Could not delete"}: ${formatError(error)}` });
     let result: unknown;
     try {
-      result = entry.commit();
+      result = pending.commit();
     } catch (error) {
       fail(error);
       return;
     }
     if (!result || typeof (result as Promise<unknown>).then !== "function") return;
-    this.committing.set(id, entry.keys);
-    this.changed();
-    void (result as Promise<unknown>).catch(fail).finally(() => {
-      this.committing.delete(id);
-      this.changed();
-    });
+    this.dispatch({ type: "committing", id, keys });
+    void (result as Promise<unknown>)
+      .catch(fail)
+      .finally(() => this.dispatch({ type: "committed", id }));
   }
 
-  /** Run the timer only while nothing pauses it, keeping the time left. */
-  private syncTimer(entry: Entry): void {
-    const paused = this.windowHidden || entry.pauses.size > 0;
-    if (entry.timer !== undefined) {
-      this.clock.clearTimeout(entry.timer);
-      entry.timer = undefined;
-      entry.remaining -= this.clock.now() - entry.startedAt;
-    }
-    if (paused) return;
-    entry.startedAt = this.clock.now();
-    entry.timer = this.clock.setTimeout(() => {
-      entry.timer = undefined;
-      this.dismiss(entry.toast.id);
-    }, Math.max(0, entry.remaining));
-  }
-
-  private changed(): void {
-    this.view = this.entries.map((e) => e.toast);
-    this.hidden = new Set([...this.entries.flatMap((e) => e.keys), ...[...this.committing.values()].flat()]);
-    for (const listener of this.listeners) listener();
+  /** Drop the closures of toasts that have closed. */
+  private pruneClosures(): void {
+    const open = new Set(this.view.map((t) => t.id));
+    for (const id of this.closures.keys()) if (!open.has(id)) this.closures.delete(id);
   }
 }
 

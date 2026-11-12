@@ -7,9 +7,9 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
 import {
-  CARD_LIMITS,
+  cardLimits,
   compactLayoutVertical,
-  FIT_MAX_HEIGHTS,
+  fitMaxHeights,
   getCardDef,
   isStatCard,
   layoutFloors,
@@ -36,7 +36,7 @@ const CARD_ENTER_MS = 160;
 
 /** The layout as viewed: list cards take the rows they measured (Rust `dashboard::fit`). */
 function fitLayoutToContent(items: DashboardLayoutItem[], measured: ReadonlyMap<string, number>): DashboardLayoutItem[] {
-  return readyCore().fitLayoutToContent(items, measured, FIT_MAX_HEIGHTS) as DashboardLayoutItem[];
+  return readyCore().fitLayoutToContent(items, measured, fitMaxHeights()) as DashboardLayoutItem[];
 }
 
 /** Positions with each card's saved height put back, so a fitted height is never stored. */
@@ -277,7 +277,7 @@ export function DashboardGrid({
           bpTransitionRef.current = setTimeout(() => {
             bpTransitionRef.current = null;
             const current = layoutRef.current;
-            if (next === "lg" && readyCore().dashboardLgNeedsRepair(current.lg, CARD_LIMITS)) {
+            if (next === "lg" && readyCore().dashboardLgNeedsRepair(current.lg, cardLimits())) {
               onLayoutChange(
                 "lg",
                 compactLayoutVertical(
@@ -285,7 +285,7 @@ export function DashboardGrid({
                   12,
                 ),
               );
-            } else if (next === "sm" && readyCore().dashboardSmNeedsRepack(current.sm, CARD_LIMITS)) {
+            } else if (next === "sm" && readyCore().dashboardSmNeedsRepack(current.sm, cardLimits())) {
               onLayoutChange("sm", normalizeSmLayout(current.sm));
             }
           }, LAYOUT_TRANSITION_MS);
@@ -303,7 +303,7 @@ export function DashboardGrid({
 
           if (bp === "sm") {
             const stored = editing ? rgl : withStoredHeights(rgl, itemsByBp.sm);
-            const merged = readyCore().dashboardMergeRglPositions(itemsByBp.sm, stored, CARD_LIMITS, bpCols) as DashboardLayoutItem[];
+            const merged = readyCore().dashboardMergeRglPositions(itemsByBp.sm, stored, cardLimits(), bpCols) as DashboardLayoutItem[];
             const packed = normalizeSmLayout(merged);
             const prevSig = readyCore().dashboardLayoutSignature(layout.sm);
             const nextSig = readyCore().dashboardLayoutSignature(packed);
@@ -314,7 +314,7 @@ export function DashboardGrid({
           }
 
           if (!editing) return;
-          const merged = readyCore().dashboardMergeRglPositions(itemsByBp.lg, rgl, CARD_LIMITS, bpCols) as DashboardLayoutItem[];
+          const merged = readyCore().dashboardMergeRglPositions(itemsByBp.lg, rgl, cardLimits(), bpCols) as DashboardLayoutItem[];
           onLayoutChange("lg", compactLayoutVertical(merged, 12));
         }}
       >

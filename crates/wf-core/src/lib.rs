@@ -146,3 +146,4 @@ pub mod wire;
 pub mod zotero_local_url;
 pub mod account_provision;
 pub mod account_purge;
+pub mod markdown_input;

@@ -1,6 +1,11 @@
 /** The shared delete-with-Undo used by cards and pages (D10, D-07). */
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 import { removeLater } from "../index";
 import { toasts } from "../parts";
