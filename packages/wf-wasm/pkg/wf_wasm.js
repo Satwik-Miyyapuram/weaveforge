@@ -487,6 +487,146 @@ export class OneEuroFilter {
 if (Symbol.dispose) OneEuroFilter.prototype[Symbol.dispose] = OneEuroFilter.prototype.free;
 
 /**
+ * The search index's bookkeeping (wf-core `SearchIndexStateCore`): whether an index is held,
+ * its document count, PDF pages per paper, and the stale kinds. The caller keeps the JS handles
+ * (index, graph, density, PDF texts) and clears them when `forget` runs.
+ */
+export class SearchIndexState {
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        SearchIndexStateFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_searchindexstate_free(ptr, 0);
+    }
+    /**
+     * Takes the index as built, holding `documentCount` documents.
+     * @param {number} document_count
+     */
+    adopt(document_count) {
+        wasm.searchindexstate_adopt(this.__wbg_ptr, document_count);
+    }
+    /**
+     * Documents the index holds, for the size warning.
+     * @returns {number}
+     */
+    get documentCount() {
+        const ret = wasm.searchindexstate_document_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * Nothing is indexed any more; the next build starts from scratch.
+     */
+    forget() {
+        wasm.searchindexstate_forget(this.__wbg_ptr);
+    }
+    /**
+     * Notes the kinds a write to `resourceType` can change. Returns `true` when the whole index
+     * was distrusted (an unmapped type), so the caller has nothing left to refresh selectively.
+     * @param {string | null} [resource_type]
+     * @returns {boolean}
+     */
+    markStale(resource_type) {
+        var ptr0 = isLikeNone(resource_type) ? 0 : passStringToWasm0(resource_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        const ret = wasm.searchindexstate_markStale(this.__wbg_ptr, ptr0, len0);
+        return ret !== 0;
+    }
+    /**
+     * Nothing indexed yet.
+     */
+    constructor() {
+        const ret = wasm.searchindexstate_new();
+        this.__wbg_ptr = ret;
+        SearchIndexStateFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
+     * Pages held for `paperId`; 0 when none.
+     * @param {string} paper_id
+     * @returns {number}
+     */
+    pdfPageCount(paper_id) {
+        const ptr0 = passStringToWasm0(paper_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.searchindexstate_pdfPageCount(this.__wbg_ptr, ptr0, len0);
+        return ret >>> 0;
+    }
+    /**
+     * The kinds waiting to be refreshed. Taking does not clear them.
+     *
+     * # Errors
+     *
+     * Fails only if the result cannot be serialized.
+     * @returns {B.SearchKind[]}
+     */
+    pendingStale() {
+        const ret = wasm.searchindexstate_pendingStale(this.__wbg_ptr);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
+    /**
+     * Whether an index has been adopted and not forgotten.
+     * @returns {boolean}
+     */
+    get ready() {
+        const ret = wasm.searchindexstate_ready(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
+     * Replaces every paper's page count from a `Map` or a `[paperId, pages][]` iterable.
+     *
+     * # Errors
+     *
+     * Fails if `counts` is not iterable or an entry is not a `[string, number]` pair.
+     * @param {Iterable<readonly [string, number]>} counts
+     */
+    replacePdfPageCounts(counts) {
+        const ret = wasm.searchindexstate_replacePdfPageCounts(this.__wbg_ptr, counts);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * Records the page count held for `paperId`.
+     * @param {string} paper_id
+     * @param {number} count
+     */
+    setPdfPageCount(paper_id, count) {
+        const ptr0 = passStringToWasm0(paper_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.searchindexstate_setPdfPageCount(this.__wbg_ptr, ptr0, len0, count);
+    }
+    /**
+     * Replaces the document count.
+     * @param {number} count
+     */
+    set documentCount(count) {
+        wasm.searchindexstate_set_document_count(this.__wbg_ptr, count);
+    }
+    /**
+     * Forgets the kinds a completed refresh replaced.
+     *
+     * # Errors
+     *
+     * Fails if `kinds` is not an array of search kinds.
+     * @param {readonly B.SearchKind[]} kinds
+     */
+    settleStale(kinds) {
+        const ret = wasm.searchindexstate_settleStale(this.__wbg_ptr, kinds);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+}
+if (Symbol.dispose) SearchIndexState.prototype[Symbol.dispose] = SearchIndexState.prototype.free;
+
+/**
  * [`StrokeEdgeSplit`](Core): one stroke against the drawable area.
  */
 export class StrokeEdgeSplit {
@@ -2171,6 +2311,29 @@ export function buildAnnotationSortIndex(page_index, char_offset, top_pdf_units)
 }
 
 /**
+ * The ask request `{ messages: [system, user], temperature }` for the search hits.
+ *
+ * # Errors
+ *
+ * Fails if `hits` is not an array of search hits.
+ * @param {string} question
+ * @param {readonly SearchHit[]} hits
+ * @param {string} nonce
+ * @returns {{ readonly messages: readonly [{ readonly role: "system"; readonly content: string }, { readonly role: "user"; readonly content: string }]; readonly temperature: number }}
+ */
+export function buildAskRequest(question, hits, nonce) {
+    const ptr0 = passStringToWasm0(question, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(nonce, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.buildAskRequest(ptr0, len0, hits, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::search::excerpt::build_excerpt`]: a snippet of `body` around the
  * densest cluster of `terms`, as `{ text, highlights }` where `text` is UTF-16
  * code units (the TS wrapper turns them into a string, lone surrogates kept).
@@ -3124,6 +3287,27 @@ export function citedSourceNumbers(answer, count) {
 }
 
 /**
+ * The hits an answer cites, as `{ n, hit }` in first-citation order. `hit` is the element of
+ * `hits` itself, so object identity is kept.
+ *
+ * # Errors
+ *
+ * Fails if `hits` is not an array.
+ * @param {string} answer
+ * @param {readonly SearchHit[]} hits
+ * @returns {readonly { readonly n: number; readonly hit: SearchHit }[]}
+ */
+export function citedSources(answer, hits) {
+    const ptr0 = passStringToWasm0(answer, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.citedSources(ptr0, len0, hits);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`claim_digest`](folder_mirror::claim_digest): `base` with `path` recorded for `stamped`.
  *
  * # Errors
@@ -3831,22 +4015,6 @@ export function compactInkPath(path, options) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`compact_skip_reason`](collab::compact_skip_reason): `undefined` when the request should be sent.
- * @param {number} snapshot_upto_id
- * @param {number | null} [current_upto]
- * @returns {"nothing-to-do" | "stale" | undefined}
- */
-export function compactSkipReason(snapshot_upto_id, current_upto) {
-    const ret = wasm.compactSkipReason(snapshot_upto_id, !isLikeNone(current_upto), isLikeNone(current_upto) ? 0 : current_upto);
-    let v1;
-    if (ret[0] !== 0) {
-        v1 = getStringFromWasm0(ret[0], ret[1]);
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v1;
 }
 
 /**
@@ -5765,6 +5933,28 @@ export function describePush(result) {
         deferred2_0 = ptr1;
         deferred2_1 = len1;
         return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * The log line for a rejection reason (`describeRejection`).
+ * @param {unknown} reason
+ * @param {string | null} origin
+ * @param {boolean} session_lost
+ * @returns {string}
+ */
+export function describeRejection(reason, origin, session_lost) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        var ptr0 = isLikeNone(origin) ? 0 : passStringToWasm0(origin, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        const ret = wasm.describeRejection(reason, ptr0, len0, session_lost);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
@@ -8327,6 +8517,88 @@ export function formatCursor(cursor) {
 }
 
 /**
+ * "1 Jul 2026" for an ISO date or datetime, `""` when it does not parse.
+ * @param {string} input
+ * @param {number} offset_minutes
+ * @returns {string}
+ */
+export function formatDate(input, offset_minutes) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.formatDate(ptr0, len0, offset_minutes);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * "1 Jul 2026, 14:05" for an ISO datetime, `""` when it does not parse.
+ * @param {string} input
+ * @param {number} offset_minutes
+ * @returns {string}
+ */
+export function formatDateTime(input, offset_minutes) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.formatDateTime(ptr0, len0, offset_minutes);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * The display text for a thrown value (`formatError`).
+ * @param {unknown} err
+ * @param {string | null} origin
+ * @param {boolean} session_lost
+ * @returns {string}
+ */
+export function formatError(err, origin, session_lost) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        var ptr0 = isLikeNone(origin) ? 0 : passStringToWasm0(origin, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        const ret = wasm.formatError(err, ptr0, len0, session_lost);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * The body message and the log line for a route's error (`formatErrorForResponse`).
+ * Returns `{ message, log? }`; `log` is set only for the database and cause paths.
+ * @param {unknown} err
+ * @param {string} context
+ * @param {string | null} origin
+ * @param {boolean} session_lost
+ * @returns {{ message: string; log?: string }}
+ */
+export function formatErrorForResponse(err, context, origin, session_lost) {
+    const ptr0 = passStringToWasm0(context, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    var ptr1 = isLikeNone(origin) ? 0 : passStringToWasm0(origin, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    const ret = wasm.formatErrorForResponse(err, ptr0, len0, ptr1, len1, session_lost);
+    return ret;
+}
+
+/**
  * [`format_figure_tokens`](figure::format_figure_tokens): the tokens written in an alt.
  *
  * # Errors
@@ -8577,6 +8849,30 @@ export function formatReference(paper) {
         return getStringFromWasm0(ptr1, len1);
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * "Just now", "5m ago", "2h ago", "3d ago", or the date, relative to `now_iso`.
+ * @param {string} input
+ * @param {string} now_iso
+ * @param {number} offset_minutes
+ * @returns {string}
+ */
+export function formatRelative(input, now_iso, offset_minutes) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(now_iso, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.formatRelative(ptr0, len0, ptr1, len1, offset_minutes);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
 }
 
@@ -9761,6 +10057,73 @@ export function hostOf(url) {
         return getStringFromWasm0(ret[0], ret[1]);
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * [`HTML_FINAL_URL_HEADER`]: the response header naming the post-redirect address.
+ * @returns {string}
+ */
+export function htmlFinalUrlHeader() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.htmlFinalUrlHeader();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
+ * [`HTML_PROXY_MAX_BYTES`]: the largest page the relay accepts, in bytes.
+ * @returns {number}
+ */
+export function htmlProxyMaxBytes() {
+    const ret = wasm.htmlProxyMaxBytes();
+    return ret >>> 0;
+}
+
+/**
+ * [`HTML_PROXY_PATH`]: the relay route.
+ * @returns {string}
+ */
+export function htmlProxyPath() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.htmlProxyPath();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
+ * `(HTTP 502 Bad Gateway from /api/x)`: the status line and the URL's path (`httpContext`).
+ * @param {string} url
+ * @param {number} status
+ * @param {string} status_text
+ * @returns {string}
+ */
+export function httpContext(url, status, status_text) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(status_text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.httpContext(ptr0, len0, status, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
 }
 
@@ -11999,6 +12362,16 @@ export function isNetworkFailure(message) {
 }
 
 /**
+ * Whether a thrown value is a request that never reached a server (`isNetworkFailureValue`).
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+export function isNetworkFailureValue(err) {
+    const ret = wasm.isNetworkFailureValue(err);
+    return ret !== 0;
+}
+
+/**
  * [`is_newer`]: whether `candidate` is later than `current`, both `[major, minor, patch]`.
  *
  * # Errors
@@ -12236,6 +12609,21 @@ export function isQuotationType(value) {
  */
 export function isReaderAnnotationType(value) {
     const ret = wasm.isReaderAnnotationType(value);
+    return ret !== 0;
+}
+
+/**
+ * [`is_reader_object_url`]: whether `raw` is a `blob:` URL minted by `origin`.
+ * @param {string | null | undefined} [raw]
+ * @param {string | null | undefined} [origin]
+ * @returns {boolean}
+ */
+export function isReaderObjectUrl(raw, origin) {
+    var ptr0 = isLikeNone(raw) ? 0 : passStringToWasm0(raw, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    var ptr1 = isLikeNone(origin) ? 0 : passStringToWasm0(origin, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    const ret = wasm.isReaderObjectUrl(ptr0, len0, ptr1, len1);
     return ret !== 0;
 }
 
@@ -12702,6 +13090,24 @@ export function joinInkTextLayer(pages) {
         return getStringFromWasm0(ptr1, len1);
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * The text for a body that failed to parse, keeping the parser's reason (`jsonBodyError`).
+ * @param {unknown} err
+ * @returns {string}
+ */
+export function jsonBodyError(err) {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.jsonBodyError(err);
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
     }
 }
 
@@ -13510,6 +13916,28 @@ export function listedAnnotations(annotations) {
 }
 
 /**
+ * The stored PDF texts whose paper still exists, as the caller's own objects, with the page
+ * counts and the orphan paper ids (the ones to delete from storage).
+ *
+ * Returns `{ texts, pageCounts, orphanPaperIds }`; `texts` holds the elements of `stored` that
+ * survive, in their stored order.
+ *
+ * # Errors
+ *
+ * Fails if `stored` is not an array of PDF sources or `paper_ids` is not an array of strings.
+ * @param {readonly (Omit<B.PdfIndexSource, "pages"> & { pages?: readonly B.PdfPageText[] })[]} stored
+ * @param {readonly string[]} paper_ids
+ * @returns {{ readonly texts: readonly T.PdfIndexSource[]; readonly pageCounts: Map<string, number>; readonly orphanPaperIds: readonly string[] }}
+ */
+export function livePdfTexts(stored, paper_ids) {
+    const ret = wasm.livePdfTexts(stored, paper_ids);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`nav_open_groups::load_open_groups`]: the open groups from stored JSON, with `active` forced open.
  *
  * # Errors
@@ -13893,6 +14321,49 @@ export function markPopoverShown(annotation, tool) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+/**
+ * Applies the action `id` to `doc` with the selection `ranges` (UTF-16 offsets) and the main
+ * selection's head. Returns the edits and the selection after them, or `null` when the action
+ * does nothing here (`B.MarkdownOutcome | null`).
+ *
+ * # Errors
+ *
+ * Fails when `id` names no action, when `doc` is over the text cap, or when the arguments
+ * cannot be read.
+ * @param {string} id
+ * @param {string} doc
+ * @param {B.MarkdownSpan[]} ranges
+ * @param {number} main_head
+ * @returns {B.MarkdownOutcome | null}
+ */
+export function markdownFormatAction(id, doc, ranges, main_head) {
+    const ptr0 = passStringToWasm0(id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(doc, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.markdownFormatAction(ptr0, len0, ptr1, len1, ranges, main_head);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Every formatting action, as `{ id, label, key, accelerator }` (`B.MarkdownActionInfo[]`).
+ *
+ * # Errors
+ *
+ * Fails when the list cannot be converted to a JS value.
+ * @returns {B.MarkdownActionInfo[]}
+ */
+export function markdownFormatActions() {
+    const ret = wasm.markdownFormatActions();
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -16518,6 +16989,22 @@ export function originalRange(view, start, end) {
 }
 
 /**
+ * [`original_url_from_proxy`]: the PDF URL a same-origin proxy request carries, or `null`.
+ * `path` is the relay path of `url`.
+ * @param {string} path
+ * @param {string} url
+ * @returns {string | null}
+ */
+export function originalUrlFromProxy(path, url) {
+    const ptr0 = passStringToWasm0(path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.originalUrlFromProxy(ptr0, len0, ptr1, len1);
+    return ret;
+}
+
+/**
  * [`outline_from_text`](analysis_outline::outline_from_text) (TS `outlineFromText`).
  *
  * # Errors
@@ -16781,6 +17268,30 @@ export function packInkStrokeInstances(xs, ys, width, from) {
     var v3 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
     return v3;
+}
+
+/**
+ * [`VectorIndex::to_bytes`] with its model, dimensions and content hashes, as the semantic
+ * index's `serialize()` stores it: `{ model, dimensions, bytes, hashes }`. `hashes` is the
+ * `Map` of embedded text hashes, copied to a plain object.
+ *
+ * # Errors
+ *
+ * Fails if `embedded` is not an iterable of `[string, string]` pairs.
+ * @param {string} model
+ * @param {VectorIndex} index
+ * @param {Iterable<readonly [string, string]>} embedded
+ * @returns {{ readonly model: string; readonly dimensions: number; readonly bytes: Uint8Array; readonly hashes: Readonly<Record<string, string>> }}
+ */
+export function packVectorIndex(model, index, embedded) {
+    const ptr0 = passStringToWasm0(model, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    _assertClass(index, VectorIndex);
+    const ret = wasm.packVectorIndex(ptr0, len0, index.__wbg_ptr, embedded);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -17600,6 +18111,24 @@ export function parseInkChunkPath(path) {
 }
 
 /**
+ * Parses a response body: empty is `{}`, a non-object is `{ data }`, invalid JSON is `{ error }` (`parseJsonBody`).
+ * @param {string} text
+ * @param {string} context
+ * @returns {Record<string, unknown>}
+ */
+export function parseJsonBody(text, context) {
+    const ptr0 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(context, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.parseJsonBody(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::sync::json_entities::parse_json_data`] for JS, as `null` when it is not a JSON array.
  *
  * # Errors
@@ -18294,6 +18823,25 @@ export function pdfPageHref(paper_id, page_index) {
 }
 
 /**
+ * A PDF page's text the way the reader builds it: a newline after each line-ending run.
+ * Items whose `str` is not a string (marked content) carry no text and are skipped.
+ * @param {readonly unknown[]} items
+ * @returns {string}
+ */
+export function pdfPageText(items) {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.pdfPageText(items);
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * [`pdf_point_to_screen`] as `{ x, y }` (TS `pdfPointToScreen`).
  *
  * # Errors
@@ -18310,6 +18858,19 @@ export function pdfPointToScreen(x, y, p) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * [`pdf_proxy_path`]: the same-origin proxy route for an allowlisted PDF URL, or `null` when the
+ * URL is not one the proxy fetches.
+ * @param {string} url
+ * @returns {string | null}
+ */
+export function pdfProxyPath(url) {
+    const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.pdfProxyPath(ptr0, len0);
+    return ret;
 }
 
 /**
@@ -21528,6 +22089,27 @@ export function reportMarkdown(input) {
 }
 
 /**
+ * [`wf_core::error_report::report_repo::report_repo`] for JS: the configured
+ * `owner/repo`, or the default when it is missing or malformed.
+ * @param {string | null} [configured]
+ * @returns {string}
+ */
+export function reportRepo(configured) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        var ptr0 = isLikeNone(configured) ? 0 : passStringToWasm0(configured, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        const ret = wasm.reportRepo(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * [`validate_report_section_input`](report_section::validate_report_section_input): the
  * validation message, or `null` when the input is valid.
  *
@@ -21981,6 +22563,34 @@ export function resourceTypes() {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * The message of a non-ok response: the server's words or `fallback`, then the context (`responseErrorText`).
+ * @param {unknown} server_message
+ * @param {string} fallback
+ * @param {string} context
+ * @param {string | null} origin
+ * @param {boolean} session_lost
+ * @returns {string}
+ */
+export function responseErrorText(server_message, fallback, context, origin, session_lost) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(fallback, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(context, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(origin) ? 0 : passStringToWasm0(origin, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.responseErrorText(server_message, ptr0, len0, ptr1, len1, ptr2, len2, session_lost);
+        deferred4_0 = ret[0];
+        deferred4_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
 }
 
 /**
@@ -27981,6 +28591,10 @@ function __wbg_get_imports() {
             const ret = Number.isSafeInteger(arg0);
             return ret;
         },
+        __wbg_is_4b278c0bd3caba97: function(arg0, arg1) {
+            const ret = Object.is(arg0, arg1);
+            return ret;
+        },
         __wbg_iterator_e3c31c892080e444: function() {
             const ret = Symbol.iterator;
             return ret;
@@ -28317,6 +28931,9 @@ const NibFilterFinalization = (typeof FinalizationRegistry === 'undefined')
 const OneEuroFilterFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_oneeurofilter_free(ptr, 1));
+const SearchIndexStateFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_searchindexstate_free(ptr, 1));
 const StrokeEdgeSplitFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_strokeedgesplit_free(ptr, 1));
@@ -28328,6 +28945,12 @@ function addToExternrefTable0(obj) {
     const idx = wasm.__externref_table_alloc();
     wasm.__wbindgen_externrefs.set(idx, obj);
     return idx;
+}
+
+function _assertClass(instance, klass) {
+    if (!(instance instanceof klass)) {
+        throw new Error(`expected instance of ${klass.name}`);
+    }
 }
 
 const CLOSURE_DTORS = (typeof FinalizationRegistry === 'undefined')

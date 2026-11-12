@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
-import type { ManageTagsUseCase, Paper } from "@weaveforge/core";
+import type { ITagManager, Paper } from "@weaveforge/core";
 
 import { reconcileTagsFromBodyOrDefer, retryDeferredTagReconciles, stopDeferredTagReconcile } from "../note-tags";
 
@@ -32,7 +32,7 @@ function fakePapers(opts: { offline: boolean; summaries: Record<string, string> 
       reconciled.push({ id, tags: items.map((i) => i.name) });
       return paper(id, opts.summaries[id] ?? "");
     },
-  } as unknown as ManageTagsUseCase;
+  } as unknown as ITagManager;
   return {
     reconciled,
     papers: {

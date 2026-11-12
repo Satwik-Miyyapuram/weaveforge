@@ -4,7 +4,7 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 import { readyCore } from "@/lib/rust-core";
 
 import type { Paper, ReaderAnnotation } from "@weaveforge/core";
-import { InMemoryReaderAnnotationRepository } from "@weaveforge/core/testing";
+import { InMemoryReaderAnnotationRepository } from "@core-test/in-memory";
 import {
   annotationsOwedToZotero,
   writeBackZoteroAnnotations,

@@ -1,7 +1,7 @@
 import test, { afterEach, before } from "node:test";
 import assert from "node:assert/strict";
 import { relayPath, relayUrl } from "../parts";
-import { originalUrlFromProxy, proxiedPdfUrl } from "@/features/reader/application/sanitize-reader-url";
+import { readyCore } from "@/lib/rust-core";
 import { semanticScholarUrl } from "../semantic-scholar-fetch";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
@@ -66,9 +66,11 @@ test("a proxied PDF goes through the relay and round-trips", () => {
   inBrowser();
   process.env.NEXT_PUBLIC_RELAY_URL = RELAY;
   const original = "https://arxiv.org/pdf/2301.00001";
-  const proxied = proxiedPdfUrl(original);
+  const proxyPath = readyCore().pdfProxyPath(original);
+  assert.ok(proxyPath);
+  const proxied = relayUrl(proxyPath);
   assert.ok(proxied.startsWith(`${RELAY}/api/pdf-proxy?url=`));
-  assert.equal(originalUrlFromProxy(proxied), original);
+  assert.equal(readyCore().originalUrlFromProxy(relayPath(proxied), proxied), original);
 });
 
 test("Semantic Scholar goes through the relay in a browser", () => {

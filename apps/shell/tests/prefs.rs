@@ -423,10 +423,6 @@ fn pref_error_texts_are_exact() {
         PrefError::BadValue.to_string(),
         "A preference is a string, a boolean, or nothing."
     );
-    const DESKTOP: &str = include_str!("../../shell/sidecar/src/preference-store.ts");
-    assert!(DESKTOP.contains(&PrefError::UnknownName.to_string()));
-    assert!(DESKTOP.contains(&PrefError::Unreadable.to_string()));
-    assert!(DESKTOP.contains(&PrefError::BadValue.to_string()));
 }
 
 #[test]

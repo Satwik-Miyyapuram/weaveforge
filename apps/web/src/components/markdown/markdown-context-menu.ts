@@ -4,7 +4,12 @@ import { EditorView } from "@codemirror/view";
 import type { MenuItem } from "@/components/menu";
 import { openContextMenu } from "@/components/context-menu-store";
 import { setSpellcheck, spellcheckOn } from "./spellcheck";
-import { HEADING_ACTIONS, INLINE_ACTIONS, LIST_ACTIONS, run, type FormatAction } from "./markdown-format";
+import { actionsIn, applyMarkdownAction, type FormatAction } from "./markdown-format-commands";
+
+/** Action ids per menu group. The labels and keys come from the Rust core. */
+const INLINE_IDS = ["bold", "italic", "underline", "strike", "code", "sup", "sub", "link", "clear"];
+const HEADING_IDS = ["normal", "h1", "h2", "h3", "h4", "h5", "h6"];
+const LIST_IDS = ["ordered", "bullet", "task", "quote"];
 
 /** What the editor menu needs from the editor, so the item list is testable without a DOM. */
 export interface EditorMenuContext {
@@ -25,7 +30,7 @@ function asItem(action: FormatAction, ctx: EditorMenuContext): MenuItem {
   return {
     id: action.id,
     label: action.label,
-    accelerator: action.accelerator,
+    accelerator: action.accelerator ?? undefined,
     disabled: ctx.readOnly,
     onSelect: () => ctx.apply(action),
   };
@@ -45,8 +50,8 @@ function byId(actions: readonly FormatAction[], id: string): FormatAction {
 export function editorMenuItems(ctx: EditorMenuContext): MenuItem[] {
   const ro = ctx.readOnly;
   const blocks: MenuItem[] = [
-    { id: "headings", label: "Headings", disabled: ro, submenu: HEADING_ACTIONS.map((a) => asItem(a, ctx)) },
-    { id: "lists", label: "Lists", disabled: ro, submenu: LIST_ACTIONS.map((a) => asItem(a, ctx)) },
+    { id: "headings", label: "Headings", disabled: ro, submenu: actionsIn(HEADING_IDS).map((a) => asItem(a, ctx)) },
+    { id: "lists", label: "Lists", disabled: ro, submenu: actionsIn(LIST_IDS).map((a) => asItem(a, ctx)) },
   ];
   const spelling: MenuItem[] = [
     SEP("sep-spell"),
@@ -65,7 +70,7 @@ export function editorMenuItems(ctx: EditorMenuContext): MenuItem[] {
       { id: "copy", label: "Copy", accelerator: "Ctrl+C", onSelect: ctx.copy },
       { id: "paste", label: "Paste", accelerator: "Ctrl+V", disabled: ro, onSelect: ctx.paste },
       SEP("sep-clip"),
-      ...INLINE_ACTIONS.map((a) => asItem(a, ctx)),
+      ...actionsIn(INLINE_IDS).map((a) => asItem(a, ctx)),
       SEP("sep-inline"),
       ...blocks,
       ...spelling,
@@ -76,7 +81,7 @@ export function editorMenuItems(ctx: EditorMenuContext): MenuItem[] {
     { id: "select-all", label: "Select all", accelerator: "Ctrl+A", onSelect: ctx.selectAll },
     SEP("sep-clip"),
     ...blocks,
-    asItem(byId(INLINE_ACTIONS, "link"), ctx),
+    asItem(byId(actionsIn(INLINE_IDS), "link"), ctx),
     ...spelling,
   ];
 }
@@ -93,7 +98,7 @@ function liveContext(view: EditorView): EditorMenuContext {
     hasSelection: view.state.selection.ranges.some((r) => !r.empty),
     readOnly,
     apply: (action) => {
-      run(action.format)(view);
+      applyMarkdownAction(view, action.id);
       after();
     },
     copy: () => {

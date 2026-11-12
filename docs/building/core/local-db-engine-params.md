@@ -18,8 +18,7 @@ The wasm exports live in `crates/wf-wasm/src/local_db_engine_params.rs`:
 `localDbSharedBuffers()` and `engineStartParams(defaults)`. The wasm package
 serves them directly, with TS types declared in Rust.
 
-The sidecar (`apps/shell/sidecar/src/lifecycle.ts`) and the desktop app
-(`apps/desktop/src/main-local-db.ts`) call
+The sidecar (`apps/shell/sidecar/src/lifecycle.ts`) calls
 `rust().engineStartParams(PGlite.defaultStartParams)` from `@weaveforge/core`.
 `rust()` returns the wasm module registered with `setRustCore`, so the core must
 be registered before the engine opens.

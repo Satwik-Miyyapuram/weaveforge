@@ -1,4 +1,4 @@
-import { TAG_SOURCES, type ManageTagsUseCase, type Paper } from "@weaveforge/core";
+import { TAG_SOURCES, type ITagManager, type Paper } from "@weaveforge/core";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection, isNetworkFailure } from "@/lib/format-error";
 import { readyCore } from "@/lib/rust-core";
@@ -17,7 +17,7 @@ import { registerSessionReset } from "@/lib/cache/parts";
  * body's #hashtags as manual tags.
  */
 export function reconcileTagsFromBody(
-  manageTags: ManageTagsUseCase,
+  manageTags: ITagManager,
   paperId: string,
   body: string,
 ): Promise<Paper> {
@@ -55,7 +55,7 @@ export async function reconcileTagsFromBodyOrDefer(
 }
 
 type TagReconcileDeps = {
-  manageTags: ManageTagsUseCase;
+  manageTags: ITagManager;
   getPaper(id: string): Promise<Paper | null>;
 };
 

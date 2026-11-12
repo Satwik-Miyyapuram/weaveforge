@@ -1,4 +1,4 @@
-//! Tests for the plan widget's pure half (ported from apps/desktop/test/plan-widget.test.ts).
+//! Tests for the plan widget's pure half (ported from the retired Electron shell).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 

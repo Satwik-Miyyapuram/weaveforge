@@ -1,5 +1,8 @@
 # Building the six, in order
 
+> **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
+> TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
+
 The build plan for the six candidates in
 [research-2026-08-competitive.md](research-2026-08-competitive.md), rewritten
 after reading what the repository already contains. Two of the six turned out to

@@ -1,4 +1,4 @@
-//! Tests for Mattermost sign-in and post (ported from apps/desktop/src/mattermost-signin.ts).
+//! Tests for Mattermost sign-in and post (ported from the retired Electron shell).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use crate::upstream;

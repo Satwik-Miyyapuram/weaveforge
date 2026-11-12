@@ -1,5 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-//! Tests for the vault watch batcher (ported from apps/desktop/test/vault-watch.test.ts).
+//! Tests for the vault watch batcher (ported from the retired Electron shell).
 
 use std::io;
 use std::path::Path;

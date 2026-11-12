@@ -1,5 +1,5 @@
 //! Encoder weights cache: serves `app://models/...` from disk, downloading each file from Hugging Face on its first ask.
-//! Port of apps/desktop/src/model-cache.ts.
+//! Ported from the retired Electron shell.
 
 use std::collections::HashMap;
 use std::io::ErrorKind;

@@ -1,5 +1,8 @@
 # Live vault folder
 
+> **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
+> TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
+
 **Status:** proposed
 **Branch:** `feat/obsidian-vault-interop`
 

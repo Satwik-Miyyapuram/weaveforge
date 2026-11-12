@@ -1,111 +1,6 @@
 import { readyCore, type RustCore } from "@/lib/rust-core";
-import type {
-  GraphDensity,
-  IWorkspaceSearchIndex,
-  SearchDoc,
-  SearchKind,
-  WikiGraph,
-} from "@weaveforge/core";
-import type { PdfIndexSource } from "@weaveforge/wasm";
+import type { SearchDoc } from "@weaveforge/core";
 import type { IEmbedder } from "./parts";
-
-// --- search-index-state ---
-// Which kinds a write can change is the Rust table `search_index_state`
-// (`kindsForResource`). Narrow on purpose: a note edit cannot change a milestone,
-// and an unmapped resource type falls back to a full rebuild rather than a guess.
-// `pdf` is in no entry: page documents come from extracted text, refreshed by `indexPdf`.
-
-/**
- * The state of a built index: the index itself, and what it was built from.
- *
- * These seven fields lived directly on `WorkspaceSearch` and were read and
- * written from nine methods, which is how the one real bug in that class stayed
- * invisible: `refreshStale` cleared the staleness set *before* awaiting the
- * snapshot, so a read that rejected lost the kinds for good — the index went on
- * serving the rows it had, nothing was marked stale any more, and no later
- * `ensure()` had any reason to look again.
- *
- * Gathering them here makes the invariant sayable: **a kind stays marked until a
- * refresh that read successfully has replaced its documents.** `pendingStale`
- * and `settleStale` are separate calls for exactly that reason, and
- * `SearchIndexState` is where the pair can be tested without a snapshot, a
- * worker, IndexedDB or MiniSearch.
- *
- * Deliberately not a general-purpose state machine: it is the fields, the
- * transitions that have invariants, and nothing else. `graph`, `density`,
- * `documentCount`, `pdfPageCounts` and `pdfTexts` are public because their
- * readers want a value, not a method.
- */
-export class SearchIndexState {
-  index: IWorkspaceSearchIndex | null = null;
-  graph: WikiGraph | null = null;
-  density: GraphDensity | null = null;
-  /** Documents the index holds, for the size warning. */
-  documentCount = 0;
-  /** Pages held per paper, so a re-extraction knows what to retract. */
-  pdfPageCounts = new Map<string, number>();
-  /** Extracted PDF text for the live papers, read once per build. */
-  pdfTexts: readonly PdfIndexSource[] = [];
-
-  private readonly stale = new Set<SearchKind>();
-
-  get ready(): boolean {
-    return this.index !== null;
-  }
-
-  /** Adopt a built or rehydrated index. */
-  adopt(index: IWorkspaceSearchIndex, documentCount: number): void {
-    this.index = index;
-    this.documentCount = documentCount;
-  }
-
-  /**
-   * Note which kinds a write can have changed.
-   *
-   * Returns whether the whole index was distrusted, which is what an unmapped
-   * resource type means — the caller has nothing left to refresh selectively.
-   * Marking rather than rebuilding: a save should not pay for re-tokenizing the
-   * corpus while the user waits, and a burst of writes should cost one refresh
-   * rather than one each.
-   */
-  markStale(resourceType: string | undefined): boolean {
-    if (!this.ready) return false;
-    const kinds = readyCore().kindsForResource(resourceType ?? "");
-    if (!kinds) {
-      this.forget();
-      return true;
-    }
-    for (const kind of kinds) this.stale.add(kind);
-    return false;
-  }
-
-  /** The kinds waiting to be refreshed. Taking does not clear them. */
-  pendingStale(): SearchKind[] {
-    return [...this.stale];
-  }
-
-  /**
-   * Forget the kinds a completed refresh replaced.
-   *
-   * Called only after the snapshot was read and the index updated. Clearing up
-   * front — where this used to happen — means a failed read loses them
-   * permanently. Removing per kind rather than clearing the set also keeps a
-   * write that lands *during* the refresh marked, so the next one picks it up.
-   */
-  settleStale(kinds: readonly SearchKind[]): void {
-    for (const kind of kinds) this.stale.delete(kind);
-  }
-
-  /** Nothing is indexed any more; the next `ensure()` rebuilds from scratch. */
-  forget(): void {
-    this.index = null;
-    this.graph = null;
-    this.density = null;
-    this.documentCount = 0;
-    this.pdfPageCounts = new Map();
-    this.stale.clear();
-  }
-}
 
 // --- semantic-index ---
 /** A nearest-neighbour hit: a passage or document id and its cosine. */
@@ -178,10 +73,6 @@ export interface PackedIndex {
   /** The Rust index's own blob: width, ids and vectors in one self-describing buffer. */
   bytes: Uint8Array;
   hashes: Record<string, string>;
-}
-
-function pack(model: string, index: VectorIndexHandle, embedded: Map<string, string>): PackedIndex {
-  return { model, dimensions: index.dimensions, bytes: index.toBytes(), hashes: Object.fromEntries(embedded) };
 }
 
 /** `note:n1` → `note:n1#2` for its third passage. */
@@ -277,7 +168,7 @@ export class SemanticIndex {
       options.onProgress?.({ done, total: passages.length });
       if (options.onCheckpoint && done < passages.length && Date.now() - lastCheckpoint > CHECKPOINT_MS) {
         lastCheckpoint = Date.now();
-        options.onCheckpoint(pack(this.embedder.id, index, embedded));
+        options.onCheckpoint(readyCore().packVectorIndex(this.embedder.id, index, embedded));
       }
     }
 
@@ -387,7 +278,7 @@ export class SemanticIndex {
       options.onProgress?.({ done: index.size, total });
       if (options.onCheckpoint && index.size < total && Date.now() - lastCheckpoint > CHECKPOINT_MS) {
         lastCheckpoint = Date.now();
-        options.onCheckpoint(pack(this.embedderId, index, this.embedded));
+        options.onCheckpoint(readyCore().packVectorIndex(this.embedderId, index, this.embedded));
       }
     };
     for (const piece of pieces) {
@@ -441,7 +332,7 @@ export class SemanticIndex {
    * a model change from silently returning nonsense instead of re-embedding.
    */
   serialize(): PackedIndex | null {
-    return this.index ? pack(this.embedderId, this.index, this.embedded) : null;
+    return this.index ? readyCore().packVectorIndex(this.embedderId, this.index, this.embedded) : null;
   }
 
   /**

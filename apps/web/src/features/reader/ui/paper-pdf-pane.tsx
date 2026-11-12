@@ -23,7 +23,6 @@ import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection, formatError } from "@/lib/format-error";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { PdfReader } from "./pdf-reader";
-import { proxiedPdfUrl } from "../application/sanitize-reader-url";
 import { downloadPaperPdfToCache, evictReaderPdfCache, fetchTypedPdfToCache, getReaderPdfByteCache, isStoredPdfUrl, resolvePaperPdfSourceForReader } from "../application/parts-3";
 import {
   linkPdfSource,
@@ -34,6 +33,7 @@ import {
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { AnnotationSidebar } from "./annotation-sidebar";
 import { readyCore } from "@/lib/rust-core";
+import { relayUrl } from "@/lib/parts";
 import { PaperHtmlView } from "./paper-html-view";
 import { Button } from "@/components/button";
 
@@ -61,6 +61,12 @@ export interface PaperPdfPaneProps {
   allowLoad?: boolean;
   /** Open with the pen rail up — the workspace's Ink mode for a paper. */
   inkRail?: boolean;
+}
+
+/** An allowlisted remote PDF goes through the same-origin proxy; anything else loads as given. */
+function readerPdfUrl(url: string): string {
+  const proxyPath = readyCore().pdfProxyPath(url);
+  return proxyPath === null ? url : relayUrl(proxyPath);
 }
 
 export function PaperPdfPane({
@@ -580,7 +586,7 @@ export function PaperPdfPane({
         <div className={`reader-main${aside ? " reader-main--split" : ""}`}>
           <PdfReader
             key={pdfUrl}
-            url={isStoredPdfUrl(pdfUrl) ? pdfUrl : proxiedPdfUrl(pdfUrl)}
+            url={isStoredPdfUrl(pdfUrl) ? pdfUrl : readerPdfUrl(pdfUrl)}
             originalUrl={pdfUrl}
             locus={locus}
             page={page}

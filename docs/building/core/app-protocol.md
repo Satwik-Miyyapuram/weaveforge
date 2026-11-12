@@ -1,11 +1,11 @@
 # app:// protocol rules
 
-Rust port of the pure rules in `apps/shell/sidecar/src/app-protocol.ts`.
+Pure rules for the `app://` scheme. The native shell serves it from `apps/shell/src/protocol.rs` (`resolve_app_file`, `APP_SCHEME`).
 
 - Rust: `crates/wf-core/src/app_protocol.rs`. Tests: `crates/wf-core/tests/app_protocol.rs`.
 - wasm: `crates/wf-wasm/src/app_protocol.rs` exports `appFileCandidates`, `appCanonicalUrl`, `appIsPageRequest`, `appHeaders`, `appContentTypeFor`.
 - No TS wrapper: typed by the wasm package's generated declarations (`rust()` in `packages/core/src/shared/rust.ts`).
-- Shim: `apps/shell/sidecar/src/app-protocol.ts`. It keeps the `APP_SCHEME`, `APP_HOST` and `APP_ORIGIN` constants, and checks each candidate on disk with `isFile`.
+- Native shell: `apps/shell/src/protocol.rs` resolves files on disk; `apps/shell/src/shim.rs` holds `APP_ORIGINS`.
 
 ## What Rust decides
 
@@ -38,4 +38,4 @@ Both scheme entries are schemes rather than wildcards: `app:` still confines the
 
 ## Tests
 
-`crates/wf-core/tests/app_protocol.rs` ports the 19 cases of `apps/shell/sidecar/test/app-protocol.test.ts`, plus cases for an encoded separator, `%FF`, `%ZZ`, and a Windows-style root. The TS test file still needs wasm preloaded (`test/preload-rust.ts`), or the coordinator retires it.
+`crates/wf-core/tests/app_protocol.rs` holds the cases from the retired TS sidecar test, plus cases for an encoded separator, `%FF`, `%ZZ`, and a Windows-style root. `apps/shell/src/protocol.rs` has its own tests for the native file lookup.

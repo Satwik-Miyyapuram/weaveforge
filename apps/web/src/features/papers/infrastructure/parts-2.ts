@@ -1,4 +1,3 @@
-import { HTML_FINAL_URL_HEADER, HTML_PROXY_PATH } from "@/features/reader/application/paper-html-rules";
 import { authHeaders } from "@/lib/auth-headers";
 import { desktop, type DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
@@ -142,7 +141,7 @@ export class UrlMetadataSource implements IMetadataSource {
     const target = core.urlMetaShellTarget(value);
     let res: Response;
     try {
-      res = await this.fetchFn(`${relayUrl(HTML_PROXY_PATH)}?url=${encodeURIComponent(target)}`);
+      res = await this.fetchFn(`${relayUrl(core.htmlProxyPath())}?url=${encodeURIComponent(target)}`);
     } catch (err) {
       throw new Error(`Could not reach that site. Check the connection and try again. (${formatError(err)})`);
     }
@@ -156,7 +155,7 @@ export class UrlMetadataSource implements IMetadataSource {
     }
     const html = await res.text();
     // The meta tags are in the head, so a page over the Rust input limit is cut, not refused.
-    const meta = core.extractPageMetadata(html.slice(0, core.maxIndexTextUtf16()), res.headers.get(HTML_FINAL_URL_HEADER) || target);
+    const meta = core.extractPageMetadata(html.slice(0, core.maxIndexTextUtf16()), res.headers.get(core.htmlFinalUrlHeader()) || target);
     const refusal = core.pageImportRefusal(meta);
     if (refusal) throw new Error(refusal);
     return meta;

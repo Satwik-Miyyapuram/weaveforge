@@ -1,3 +1,4 @@
+import type { Paper } from "../../papers/domain/parts.js";
 import type { Identifiable } from "../../../shared/parts.js";
 import { rust } from "../../../shared/rust.js";
 
@@ -55,4 +56,29 @@ export interface IPaperTagRepository {
   unlinkBySource(paperId: string, source: TagSource): Promise<void>;
   /** Replace all links for a paper from the given sources. */
   reconcile(paperId: string, links: PaperTag[], sources: readonly TagSource[]): Promise<void>;
+}
+
+// --- tag-manager (Rust `tags` repo arms; was ManageTagsUseCase) ---
+export interface TagSourceItem {
+  name: string;
+  source: TagSource;
+  annotationRef?: string;
+}
+
+/** Tag and concept membership operations. Writes paper_tags and the papers.tags cache. */
+export interface ITagManager {
+  listAll(): Promise<Tag[]>;
+  listForPaper(paperId: string): Promise<Tag[]>;
+  listPapersForTag(tagId: string): Promise<string[]>;
+  listPaperTagLinks(paperId: string): Promise<readonly { name: string; source: TagSource }[]>;
+  setManualTags(paperId: string, rawNames: string[]): Promise<Paper>;
+  mergeTags(paperId: string, rawNames: string[], source?: TagSource): Promise<Paper>;
+  removeManualTag(paperId: string, rawName: string): Promise<Paper>;
+  reconcileSources(
+    paperId: string,
+    items: readonly TagSourceItem[],
+    sources: readonly TagSource[],
+  ): Promise<Paper>;
+  mergeConcepts(keepTagId: string, dropTagId: string): Promise<void>;
+  refreshPaperCache(paperId: string): Promise<Paper>;
 }

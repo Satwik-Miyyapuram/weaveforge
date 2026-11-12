@@ -10,7 +10,7 @@ Rust home: `crates/wf-core/src/project_folder.rs`.
 
 - wasm export `projectFolderName` in `crates/wf-wasm/src/project_folder.rs`.
 - No TS wrapper; typed through `rust()` in `packages/core/src/shared/rust.ts`.
-- `apps/shell/sidecar/src/local-mcp-projects.ts`: `resolveProjects` fallback, used when the app's project list is not available.
+- `apps/shell/src/local_http/mcp_projects.rs`: `resolve_projects`, the native fallback used when the app's project list is not available.
 
 ## What stays in TS
 

@@ -2,7 +2,7 @@
  * Which of the two builds this is.
  *
  * The same source produces the served web app and the static bundle inside the
- * desktop installer (`apps/desktop/scripts/build-web.mjs`). Almost nothing
+ * desktop installer (`apps/shell/scripts/build-web.mjs`). Almost nothing
  * needs to know which one it is in — the difference is meant to be a build
  * flag, not a fork — but a few things genuinely cannot exist without a server,
  * and the offline-first plan says those are *absent* rather than present and

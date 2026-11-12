@@ -1,11 +1,11 @@
 import type { LogImageStore } from "@/features/logbook/infrastructure/parts";
-import type { AddLogEntryUseCase, ILogSyncIntegration, IReaderAnnotationProjectSource, ILogEntryRepository, INotificationIntegration, LogEntry } from "@weaveforge/core";
+import type { ILogEntryManager, ILogSyncIntegration, IReaderAnnotationProjectSource, ILogEntryRepository, INotificationIntegration, LogEntry } from "@weaveforge/core";
 
 export class LogbookFacade {
   constructor(
     private readonly deps: {
       logEntries: ILogEntryRepository;
-      addLogEntry: AddLogEntryUseCase;
+      addLogEntry: ILogEntryManager;
       logSync: ILogSyncIntegration;
       notifications: INotificationIntegration;
       images: Pick<LogImageStore, "upload" | "fetchBlobs">;
@@ -30,7 +30,7 @@ export class LogbookFacade {
   /**
    * Replace one entry's body, keeping what it already is.
    *
-   * AddLogEntryUseCase.update takes the kind as well as the body, because the
+   * ILogEntryManager.update takes the kind as well as the body, because the
    * logbook screen has both: it renders a Kind select beside the text. A pane
    * that edits the *markdown* has no opinion about the kind — it is metadata, in
    * the same category as a milestone's status — and a caller with no opinion

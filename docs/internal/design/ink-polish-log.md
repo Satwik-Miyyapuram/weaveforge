@@ -1,5 +1,8 @@
 # Ink polish log: what OneNote-quality ink took, and where each fix lives
 
+> **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
+> TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
+
 A running record of the rendering and capture fixes made while testing the
 desktop build against a real Surface Pen and a mouse, with the reference
 engines each decision was checked against. Section numbers refer to

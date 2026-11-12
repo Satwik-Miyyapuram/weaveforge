@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { relayUrl } from "@/lib/parts";
 
 import { getContainer } from "@/bootstrap";
-import { newIssueUrl } from "@/lib/error-report/parts";
+import { reportRepo } from "@/lib/error-report/parts";
 import { recentLogs } from "@/lib/error-report/log-buffer";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readyCore } from "@/lib/rust-core";
@@ -109,7 +109,7 @@ export function ErrorReportPanel({
       logs,
       context: attached.filter(([label]) => label !== "Route" && label !== "Version"),
     });
-  const githubUrl = () => newIssueUrl({ title: summary, body: markdown() });
+  const githubUrl = () => readyCore().newIssueUrl(summary, markdown(), reportRepo());
 
   const copy = async () => {
     try {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { FOLDER_DRAFTS_DIR, type FolderDraft } from "@weaveforge/core";
-import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
+import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 
 import { importFolderDrafts, importFolderDraftsOnce } from "../application/parts";
 

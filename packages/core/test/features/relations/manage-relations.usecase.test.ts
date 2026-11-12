@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryPaperRelationRepository } from "../../../src/testing/in-memory-a.js";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-b.js";
+import { InMemoryPaperRelationRepository } from "../../support/in-memory.js";
+import { InMemoryPaperRepository } from "../../support/in-memory.js";
 import {
   AddRelationUseCase,
   LinkCitationsUseCase,
@@ -9,7 +9,7 @@ import {
 import type { ICitationSource } from "../../../src/features/relations/application/parts.js";
 import type { PaperRef } from "../../../src/features/papers/application/parts-1.js";
 import { createPaper } from "../../../src/features/papers/domain/parts.js";
-import { fixedClock, seqIds } from "../../../src/testing/parts.js";
+import { fixedClock, seqIds } from "../../support/clock.js";
 
 const clock = fixedClock("2026-06-24T12:00:00.000Z");
 

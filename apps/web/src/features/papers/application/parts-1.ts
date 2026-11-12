@@ -20,7 +20,7 @@ import {
   type IReadingListRepository,
   type IShareRepository,
   loadPinnedScreenData,
-  type ManageTagsUseCase,
+  type ITagManager,
   type Paper,
   type PaperSummary,
   type ReadingList,
@@ -327,7 +327,7 @@ export class ImportLocalZoteroUseCase {
     private readonly deps: {
       papers: IPaperRepository;
       addPaper: AddPaperUseCase;
-      manageTags: ManageTagsUseCase;
+      manageTags: ITagManager;
       /**
        * The desktop bridge, or null anywhere but the desktop shell.
        *

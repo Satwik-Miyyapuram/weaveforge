@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
-import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
+import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   isomorphicFsFrom,

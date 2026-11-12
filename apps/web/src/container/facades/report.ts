@@ -1,6 +1,6 @@
 import type {
+  IReportSectionManager,
   IReportSectionRepository,
-  ManageReportSectionUseCase,
   ReportSection,
   ReportSectionTreeNode,
 } from "@weaveforge/core";
@@ -14,7 +14,7 @@ export class ReportFacade {
     private readonly deps: {
       load: LoadReportScreenUseCase;
       sections: IReportSectionRepository;
-      manageReportSection: ManageReportSectionUseCase;
+      manageReportSection: IReportSectionManager;
       images: import("@/features/report/infrastructure/parts").ReportImageStore;
     },
   ) {}

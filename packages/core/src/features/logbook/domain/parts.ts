@@ -66,3 +66,16 @@ export class LogEntryValidationError extends ValidationError {
 export interface ILogEntryRepository
   extends IReadableRepository<LogEntry, LogEntryFilter>,
     IWritableRepository<LogEntry> {}
+
+/** Editable fields of an existing log entry (id/date/createdAt are preserved). */
+export interface EditLogEntryInput {
+  body: string;
+  kind: LogKind;
+}
+
+/** Log entry operations (Rust `log_entries` repo arms; was AddLogEntryUseCase). */
+export interface ILogEntryManager {
+  add(input: NewLogEntryInput): Promise<LogEntry>;
+  update(id: string, input: EditLogEntryInput): Promise<LogEntry>;
+  remove(id: string): Promise<void>;
+}

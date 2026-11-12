@@ -6,6 +6,7 @@ import type {
 } from "@weaveforge/core";
 import { relayUrl } from "@/lib/parts";
 import type { IIntegrationsStore } from "@/features/sync/domain/parts";
+import type { SettingsWrites } from "@/features/settings/infrastructure/parts";
 import { formatError, GENERIC_ERROR, httpContext, readJsonBody } from "@/lib/format-error";
 
 /** A personal access token as the settings API reports it — never the secret. */
@@ -56,6 +57,8 @@ export class SettingsFacade {
   constructor(
     private readonly deps: {
       settings: ManageSettingsUseCase;
+      /** Appearance and disclaimer writes, straight to the settings repository. */
+      preferences: SettingsWrites;
       bibliography: IBibliographyIntegration;
       projectBibliography: IProjectBibliographyCollectionStore;
       integrations: IIntegrationsStore;
@@ -70,6 +73,9 @@ export class SettingsFacade {
 
   get manageSettings() {
     return this.deps.settings;
+  }
+  get preferences() {
+    return this.deps.preferences;
   }
   get integrations() {
     return this.deps.integrations;

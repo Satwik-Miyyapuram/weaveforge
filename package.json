@@ -43,7 +43,7 @@
     "check:android-permissions": "node scripts/check-android-permissions.mjs",
     "check:oci-infra": "node scripts/check-oci-infra.mjs",
     "check:boundaries": "npm run check:solid && npm run check:dry && npm run check:api-route-tests && npm run check:ui && npm run check:contrast && npm run check:hygiene && npm run check:mcp-plugin && npm run check:android-permissions && npm run check:oci-infra && npm run check:docs && npm run check:ci-parity",
-    "check:all": "npm run build:wasm && npm run typecheck && npm run lint && npm run check:boundaries && npm run test:core && npm run test:web && npm run test:integration:web && npm run test:desktop && npm run build && npm run bundle:budget",
+    "check:all": "npm run build:wasm && npm run typecheck && npm run lint && npm run check:boundaries && npm run test:core && npm run test:web && npm run test:integration:web && node --test apps/shell/scripts/build-web-held-routes.test.mjs && npm run build && npm run bundle:budget",
     "clean:desktop-ini": "node scripts/clean-desktop-ini.mjs",
     "check:pre-push": "npm run clean:desktop-ini && node scripts/check-pre-push.mjs",
     "generate:routes": "node scripts/generate-module-routes.mjs",
@@ -75,11 +75,9 @@
     "migrate": "node scripts/migrate-to-oracle.mjs",
     "rollup:metrics": "node scripts/rollup-metric-chunks.mjs",
     "prune:metrics": "node scripts/prune-metric-series.mjs",
-    "test:desktop": "npm run test --workspace @weaveforge/desktop",
     "test:sidecar": "tsc -p apps/shell/sidecar/tsconfig.json && node --import tsx --import ./apps/shell/sidecar/test/preload-rust.ts --test apps/shell/sidecar/test/*.test.ts && node --test apps/shell/sidecar/scripts/stage.test.mjs apps/shell/scripts/stage-postgres.test.mjs",
     "test:bridge": "node apps/shell/bridge/build-shim.mjs --check && tsc -p apps/shell/bridge/tsconfig.json && node --import tsx --test apps/shell/bridge/test/*.test.ts",
-    "test:memory": "node --import tsx --test apps/shell/sidecar/test/local-db-memory.test.ts && npm run test:memory --workspace @weaveforge/web",
-    "build:desktop": "npm run build --workspace @weaveforge/desktop"
+    "test:memory": "node --import tsx --test apps/shell/sidecar/test/local-db-memory.test.ts && npm run test:memory --workspace @weaveforge/web"
   },
   "devDependencies": {
     "supabase": "^2.119.0"

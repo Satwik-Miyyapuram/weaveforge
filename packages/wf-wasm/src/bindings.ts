@@ -4982,6 +4982,46 @@ export type MarkTarget = {
 	comment?: string,
 };
 
+/**  An [`Action`] without its format, for the editor's keymap and menus. */
+export type MarkdownActionInfo = {
+	/**  Stable id, as passed back to [`apply`] through [`format_for`]. */
+	id: string,
+	/**  The menu label. */
+	label: string,
+	/**  CodeMirror key name, when the action has one. */
+	key: string | null,
+	/**  The key as printed in a menu. */
+	accelerator: string | null,
+};
+
+/**  One replacement: the units `from..to` of the document before the change become `insert`. */
+export type MarkdownEdit = {
+	/**  Start of the replaced units, inclusive. */
+	from: number,
+	/**  End of the replaced units, exclusive; equal to `from` for an insertion. */
+	to: number,
+	/**  The text put in their place. */
+	insert: string,
+};
+
+/**  What a format did: the edits (positions in the document before them) and the selection after them. */
+export type MarkdownOutcome = {
+	/**  Edits in ascending order, none overlapping. */
+	changes: MarkdownEdit[],
+	/**  Selection ranges in the document after `changes`, in the order they were given. */
+	ranges: MarkdownSpan[],
+	/**  Index into `ranges` of the main selection. */
+	main: number,
+};
+
+/**  A selection range in UTF-16 code units, `from <= to`. */
+export type MarkdownSpan = {
+	/**  Start, inclusive. */
+	from: number,
+	/**  End, exclusive. */
+	to: number,
+};
+
 /**  One `reportimg:` figure: the storage path and the safe file name it is written under. */
 export type MarkdownToLatexImageRef = {
 	/**  Storage path after `reportimg:`. */

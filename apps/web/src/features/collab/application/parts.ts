@@ -1,5 +1,5 @@
 import { readyCore } from "@/lib/rust-core";
-import type { CompactCrdtLogUseCase, ICrdtUpdateStore } from "@weaveforge/core";
+import type { ICrdtUpdateStore } from "@weaveforge/core";
 import type { Peer } from "../domain/presence";
 
 // --- body-saver ---
@@ -119,13 +119,13 @@ export interface CollabSession {
   /** Realtime client — typed as opaque in UI; RealtimeYjsProvider narrows in infrastructure. */
   db: unknown;
   projectId: () => string | null;
-  compactCrdtLog: CompactCrdtLogUseCase;
+  crdtUpdateStore: Pick<ICrdtUpdateStore, "compact">;
   getSnapshotUpto: () => Promise<number>;
 }
 
 export interface CollabSnapshotHelpers {
   getSnapshotUpto: () => Promise<number>;
-  compactCrdtLog: CompactCrdtLogUseCase;
+  crdtUpdateStore: Pick<ICrdtUpdateStore, "compact">;
 }
 
 // --- presence-store ---

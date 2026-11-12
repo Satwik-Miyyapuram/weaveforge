@@ -4,7 +4,7 @@ import {
   mirrorWorkspace as tsMirrorWorkspace,
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
-import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
+import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import type { RustCore } from "@/lib/rust-core";
 import { mirrorWorkspace } from "@/features/workspace/application/parts-2";
 import { loadTestCore } from "./load-test-core";

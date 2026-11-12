@@ -47,9 +47,9 @@ after the core has loaded.
 - **Requests and proxies.** The HTTP calls, the proxy and the model downloads
   stay in TypeScript and the desktop app. Rust answers whether a request may
   go; it sends nothing.
-- **Desktop main process.** The desktop proxy code (`apps/desktop/src/proxy-shared.ts`)
-  still wraps these checks. It must run only in the Electron main process. That
-  check is open; see the handoff note.
+- **Desktop shell.** The `app://` relays that wrap these checks now live in Rust, in
+  `apps/relay/wf-relay/src/relay/` (`shared.rs` and the per-route modules), not in the
+  retired Electron main process.
 - **Opening links.** The desktop shell opens the link. Rust only decides whether
   it may open (`mayOpenExternally`).
 - **Caching on disk.** Writing model files and reading the cache directory stay in

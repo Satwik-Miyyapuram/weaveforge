@@ -6,11 +6,15 @@
 //! upload and signing) stays in TS. `nameContains` has no server filter: names are
 //! encrypted at rest, so the match runs here after the read.
 
+use std::collections::HashSet;
+
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
 use crate::experiment_rows::{ExperimentRow, to_domain, to_row};
-use crate::experiments::Experiment;
+use crate::experiment_status::{self, ExperimentStatus, status_patch_for_experiment};
+use crate::experiments::{Experiment, NewExperimentInput, create_experiment};
+use crate::reader_analysis::lines::js_trim;
 use crate::repo_query::{RepoCall, RepoQuery, RepoStep, map_row};
 
 const TABLE: &str = "experiments";
@@ -31,6 +35,12 @@ pub fn step(method: &str, call: &RepoCall) -> Option<RepoStep> {
         "save" => save(call),
         "patch" => patch(call),
         "delete" => delete(call),
+        "add" => add(call),
+        "setStatus" => set_status(call),
+        "recordMetrics" => record_metrics(call),
+        "addArtifacts" => add_artifacts(call),
+        "setResultNote" => set_result_note(call),
+        "remove" => delete(call),
         _ => return None,
     })
 }
@@ -226,10 +236,144 @@ fn delete(call: &RepoCall) -> RepoStep {
     RepoStep::unit()
 }
 
+/// `add(input)`: a new run with a fresh id, saved as one upsert; replies the saved run (TS `add`).
+fn add(call: &RepoCall) -> RepoStep {
+    let input: NewExperimentInput = match call.parse(0) {
+        Ok(input) => input,
+        Err(e) => return RepoStep::fail(e),
+    };
+    let experiment = match create_experiment(&input, &call.id(0), call.now()) {
+        Ok(experiment) => experiment,
+        Err(message) => return RepoStep::fail_named("ExperimentValidationError", message),
+    };
+    match sub_done(save(&call.sub(vec![json!(experiment)], 0))) {
+        Ok(_) => RepoStep::done(&experiment),
+        Err(step) => step,
+    }
+}
+
+/// `setStatus(id, status)`: the timestamp rules of `status_patch_for_experiment`, written as the
+/// status and both timestamps. Clearing `finishedAt` on reopen is an explicit `null`.
+fn set_status(call: &RepoCall) -> RepoStep {
+    let status: ExperimentStatus = match call.parse(1) {
+        Ok(status) => status,
+        Err(e) => return RepoStep::fail(e),
+    };
+    mutate(call, |existing| {
+        let timing = experiment_status::Experiment {
+            status: existing.status,
+            started_at: existing.started_at.clone(),
+            created_at: existing.created_at.clone(),
+        };
+        let patch = status_patch_for_experiment(&timing, status, call.now());
+        object(json!({
+            "status": patch.status,
+            "startedAt": patch.started_at,
+            "finishedAt": patch.finished_at,
+        }))
+    })
+}
+
+/// `recordMetrics(id, metrics)`: a shallow merge into the stored metrics.
+fn record_metrics(call: &RepoCall) -> RepoStep {
+    let metrics: Map<String, Value> = match call.parse(1) {
+        Ok(metrics) => metrics,
+        Err(e) => return RepoStep::fail(e),
+    };
+    mutate(call, move |existing| {
+        let mut merged = existing.metrics.clone();
+        merged.extend(metrics);
+        object(json!({ "metrics": merged }))
+    })
+}
+
+/// `addArtifacts(id, entries)`: appends the entries not stored yet, in first-seen order.
+fn add_artifacts(call: &RepoCall) -> RepoStep {
+    let entries: Vec<String> = match call.parse(1) {
+        Ok(entries) => entries,
+        Err(e) => return RepoStep::fail(e),
+    };
+    mutate(call, move |existing| {
+        let mut seen: HashSet<String> = HashSet::new();
+        let artifacts: Vec<String> = existing
+            .artifacts
+            .iter()
+            .chain(&entries)
+            .filter(|artifact| seen.insert((*artifact).clone()))
+            .cloned()
+            .collect();
+        object(json!({ "artifacts": artifacts }))
+    })
+}
+
+/// `setResultNote(id, note)`: the trimmed note, or `null` when blank so the run has no result.
+fn set_result_note(call: &RepoCall) -> RepoStep {
+    let note = js_trim(call.text(1)).to_owned();
+    mutate(call, move |_| {
+        let result_note = if note.is_empty() {
+            Value::Null
+        } else {
+            json!(note)
+        };
+        object(json!({ "resultNote": result_note }))
+    })
+}
+
+/// TS `mutate`: reads the run named by arg 0, writes only the fields `change` returns, and replies
+/// with the stored run merged with them. Reply 0 is the read, reply 1 the write.
+fn mutate(call: &RepoCall, change: impl FnOnce(&Experiment) -> Map<String, Value>) -> RepoStep {
+    let id = call.text(0);
+    let existing: Experiment = match sub_done(get_by_id(&call.sub(vec![json!(id)], 0))) {
+        Ok(Value::Null) => {
+            return RepoStep::fail_named(
+                "NotFoundError",
+                format!("No experiment with id \"{id}\"."),
+            );
+        }
+        Ok(value) => match serde_json::from_value(value) {
+            Ok(experiment) => experiment,
+            Err(e) => return RepoStep::fail(e),
+        },
+        Err(step) => return step,
+    };
+    let fields = change(&existing);
+    let mut merged = json!(existing);
+    if let Value::Object(map) = &mut merged {
+        map.extend(fields.clone());
+    }
+    let merged: Experiment = match serde_json::from_value(merged) {
+        Ok(merged) => merged,
+        Err(e) => return RepoStep::fail(e),
+    };
+    match sub_done(patch(&call.sub(vec![json!(id), Value::Object(fields)], 1))) {
+        Ok(_) => RepoStep::done(&merged),
+        Err(step) => step,
+    }
+}
+
+/// The map of a JSON object literal; anything else is an empty map.
+fn object(value: Value) -> Map<String, Value> {
+    match value {
+        Value::Object(map) => map,
+        _ => Map::new(),
+    }
+}
+
+/// The value of a sub-step that finished, or the step it still needs (a send or a failure).
+fn sub_done(step: RepoStep) -> Result<Value, RepoStep> {
+    match step {
+        RepoStep::Done { value } => Ok(value),
+        other => Err(other),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::repo_query::{RepoAction, RepoCtx, RepoSingle};
+
+    /// The instant the write arms stamp.
+    const NOW: &str = "2026-03-02T10:00:00Z";
 
     fn call(args: Vec<Value>, replies: Vec<Value>, project: Option<&str>) -> RepoCall {
         RepoCall {
@@ -448,5 +592,251 @@ mod tests {
             delete(&call(vec![json!("e1")], vec![Value::Null], None)),
             RepoStep::unit()
         );
+    }
+
+    /// A call with the write clock and a fixed id seed, so replays mint the same id.
+    fn timed(args: Vec<Value>, replies: Vec<Value>) -> RepoCall {
+        RepoCall {
+            args,
+            replies,
+            ctx: RepoCtx {
+                now: Some(NOW.to_owned()),
+                id_seed: Some("seed".to_owned()),
+                ..RepoCtx::default()
+            },
+        }
+    }
+
+    /// A stored run `e1`: the `row` fixture with `fields` overriding its columns.
+    fn stored(fields: Value) -> Value {
+        let mut base = row("e1", "Baseline");
+        if let (Value::Object(map), Value::Object(fields)) = (&mut base, fields) {
+            map.extend(fields);
+        }
+        base
+    }
+
+    /// The sorted columns an update writes.
+    fn written_columns(q: &RepoQuery) -> Vec<String> {
+        let mut keys: Vec<String> = q
+            .body
+            .as_ref()
+            .and_then(Value::as_object)
+            .map(|map| map.keys().cloned().collect())
+            .unwrap_or_default();
+        keys.sort();
+        keys
+    }
+
+    #[test]
+    fn add_saves_defaults_and_replies_the_run() {
+        let input = json!({"name": "Baseline"});
+        let body = sent(add(&timed(vec![input.clone()], vec![])))
+            .body
+            .expect("body");
+        assert_eq!(body["status"], "planned");
+        assert_eq!(body["config"], json!({}));
+        assert_eq!(body["artifacts"], json!([]));
+        let v = done(add(&timed(vec![input], vec![Value::Null])));
+        assert_eq!(v["status"], "planned");
+        assert_eq!(v["config"], json!({}));
+        assert_eq!(v["artifacts"], json!([]));
+        assert_eq!(v["id"], body["id"]);
+    }
+
+    #[test]
+    fn add_stamps_start_for_running_and_end_for_done() {
+        let running = sent(add(&timed(
+            vec![json!({"name": "R", "status": "running"})],
+            vec![],
+        )))
+        .body
+        .expect("body");
+        assert_eq!(running["started_at"], NOW);
+        assert_eq!(running["finished_at"], Value::Null);
+        let finished = sent(add(&timed(
+            vec![json!({"name": "D", "status": "done"})],
+            vec![],
+        )))
+        .body
+        .expect("body");
+        assert_eq!(finished["finished_at"], NOW);
+    }
+
+    #[test]
+    fn add_rejects_blank_name_as_validation_error() {
+        match add(&timed(vec![json!({"name": "  "})], vec![])) {
+            RepoStep::Fail { message, name } => {
+                assert_eq!(message, "Experiment name is required.");
+                assert_eq!(name.as_deref(), Some("ExperimentValidationError"));
+            }
+            other => panic!("expected fail, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn set_status_reads_then_writes_status_and_start() {
+        let read = sent(set_status(&timed(
+            vec![json!("e1"), json!("running")],
+            vec![],
+        )));
+        assert_eq!(read.action, RepoAction::Select);
+        assert_eq!(read.single, RepoSingle::Maybe);
+        let q = sent(set_status(&timed(
+            vec![json!("e1"), json!("running")],
+            vec![stored(json!({}))],
+        )));
+        assert_eq!(q.action, RepoAction::Update);
+        assert_eq!(written_columns(&q), ["finished_at", "started_at", "status"]);
+        let body = q.body.expect("body");
+        assert_eq!(body["status"], "running");
+        assert_eq!(body["started_at"], NOW);
+    }
+
+    #[test]
+    fn set_status_done_stamps_end_and_keeps_start() {
+        let start = "2026-03-01T09:00:00Z";
+        let run = stored(json!({"status": "running", "started_at": start}));
+        let body = sent(set_status(&timed(
+            vec![json!("e1"), json!("done")],
+            vec![run.clone()],
+        )))
+        .body
+        .expect("body");
+        assert_eq!(body["started_at"], start);
+        assert_eq!(body["finished_at"], NOW);
+        let v = done(set_status(&timed(
+            vec![json!("e1"), json!("done")],
+            vec![run, Value::Null],
+        )));
+        assert_eq!(v["startedAt"], start);
+        assert_eq!(v["finishedAt"], NOW);
+        assert_eq!(v["status"], "done");
+    }
+
+    #[test]
+    fn set_status_reopen_clears_finished_at_explicitly() {
+        let run = stored(json!({
+            "status": "done",
+            "started_at": "2026-03-01T09:00:00Z",
+            "finished_at": "2026-03-01T10:00:00Z"
+        }));
+        let q = sent(set_status(&timed(
+            vec![json!("e1"), json!("running")],
+            vec![run],
+        )));
+        let body = q.body.expect("body");
+        assert!(body.get("finished_at").is_some_and(Value::is_null));
+        assert_eq!(body["started_at"], "2026-03-01T09:00:00Z");
+    }
+
+    #[test]
+    fn set_status_unknown_id_fails_and_writes_nothing() {
+        match set_status(&timed(vec![json!("e9"), json!("done")], vec![Value::Null])) {
+            RepoStep::Fail { message, name } => {
+                assert_eq!(message, "No experiment with id \"e9\".");
+                assert_eq!(name.as_deref(), Some("NotFoundError"));
+            }
+            other => panic!("expected fail, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn record_metrics_shallow_merges_and_writes_only_metrics() {
+        let run = stored(json!({"metrics": {"acc": 0.1}}));
+        let q = sent(record_metrics(&timed(
+            vec![json!("e1"), json!({"acc": 0.9, "loss": 2})],
+            vec![run.clone()],
+        )));
+        assert_eq!(written_columns(&q), ["metrics"]);
+        assert_eq!(
+            q.body.expect("body")["metrics"],
+            json!({"acc": 0.9, "loss": 2})
+        );
+        let v = done(record_metrics(&timed(
+            vec![json!("e1"), json!({"loss": 2})],
+            vec![run, Value::Null],
+        )));
+        assert_eq!(v["metrics"], json!({"acc": 0.1, "loss": 2}));
+    }
+
+    #[test]
+    fn add_artifacts_appends_and_skips_existing() {
+        let run = stored(json!({"artifacts": ["u/e/loss.png"]}));
+        let q = sent(add_artifacts(&timed(
+            vec![json!("e1"), json!(["u/e/loss.png", "u/e/acc.png"])],
+            vec![run],
+        )));
+        assert_eq!(written_columns(&q), ["artifacts"]);
+        assert_eq!(
+            q.body.expect("body")["artifacts"],
+            json!(["u/e/loss.png", "u/e/acc.png"])
+        );
+    }
+
+    #[test]
+    fn add_artifacts_dedupes_repeats_within_one_call() {
+        let run = stored(json!({"artifacts": ["u/e/loss.png"]}));
+        let v = done(add_artifacts(&timed(
+            vec![
+                json!("e1"),
+                json!([
+                    "u/e/acc.png",
+                    "u/e/acc.png",
+                    "u/e/loss.png",
+                    "u/e/f1.png",
+                    "u/e/acc.png"
+                ]),
+            ],
+            vec![run, Value::Null],
+        )));
+        assert_eq!(
+            v["artifacts"],
+            json!(["u/e/loss.png", "u/e/acc.png", "u/e/f1.png"])
+        );
+    }
+
+    #[test]
+    fn add_artifacts_with_nothing_new_keeps_the_list() {
+        let run = stored(json!({"artifacts": ["u/e/loss.png"]}));
+        let q = sent(add_artifacts(&timed(
+            vec![json!("e1"), json!(["u/e/loss.png"])],
+            vec![run],
+        )));
+        assert_eq!(q.body.expect("body")["artifacts"], json!(["u/e/loss.png"]));
+    }
+
+    #[test]
+    fn set_result_note_trims_and_writes_only_the_note() {
+        let run = stored(json!({}));
+        let q = sent(set_result_note(&timed(
+            vec![json!("e1"), json!("  ok  ")],
+            vec![run],
+        )));
+        assert_eq!(written_columns(&q), ["result_note"]);
+        assert_eq!(q.body.expect("body")["result_note"], "ok");
+    }
+
+    #[test]
+    fn blank_result_note_is_sent_as_a_clear() {
+        let run = stored(json!({"result_note": "old"}));
+        let q = sent(set_result_note(&timed(
+            vec![json!("e1"), json!("   ")],
+            vec![run.clone()],
+        )));
+        let body = q.body.expect("body");
+        assert!(body.get("result_note").is_some_and(Value::is_null));
+        let v = done(set_result_note(&timed(
+            vec![json!("e1"), json!("   ")],
+            vec![run, Value::Null],
+        )));
+        assert_eq!(v["resultNote"], Value::Null);
+    }
+
+    #[test]
+    fn remove_dispatches_to_a_delete_by_id() {
+        let q = sent(step("remove", &call(vec![json!("e1")], vec![], None)).expect("method"));
+        assert_eq!(q.action, RepoAction::Delete);
+        assert_eq!(q.filters[0].column, "id");
     }
 }

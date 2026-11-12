@@ -1,7 +1,7 @@
 "use client";
 
 import { formatError } from "@/lib/format-error";
-import { formatDate } from "@/lib/parts-1";
+import { localOffset } from "@/lib/parts-1";
 import { useCallback, useEffect, useState } from "react";
 import { type ShareLink, type ShareableType } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
@@ -11,7 +11,7 @@ import { Button } from "@/components/button";
 import { copyText } from "@/lib/toast/parts";
 
 function formatExpiry(iso: string): string {
-  return formatDate(iso);
+  return readyCore().formatDate(iso, localOffset(iso));
 }
 
 export function ShareLinkPanel({
@@ -102,7 +102,7 @@ export function ShareLinkPanel({
             {links.map((link) => (
               <li key={link.id} className="share-link-row">
                 <span className="muted">view-only link</span>
-                <span className="muted">{formatDate(link.createdAt)}</span>
+                <span className="muted">{readyCore().formatDate(link.createdAt, localOffset(link.createdAt))}</span>
                 {link.expiresAt ? (
                   <span className="share-link-expiry-hint">expires {formatExpiry(link.expiresAt)}</span>
                 ) : null}

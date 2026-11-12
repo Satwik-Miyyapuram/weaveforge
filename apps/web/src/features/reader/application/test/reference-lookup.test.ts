@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MetadataResolver, type IMetadataSource, type PaperMetadata, type PaperRef, type ParsedReference } from "@weaveforge/core";
-import { InMemoryPaperRepository } from "@weaveforge/core/testing";
+import { InMemoryPaperRepository } from "@core-test/in-memory";
 import { ReferenceLookupService, type ReferenceLookupCache, type ResolvedReference } from "../parts-2";
 
 const paper = (fields: Record<string, unknown> = {}) =>

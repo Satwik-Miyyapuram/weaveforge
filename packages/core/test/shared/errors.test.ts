@@ -13,7 +13,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  AddLogEntryUseCase,
   CitationAlertTrackError,
   CommentValidationError,
   ConflictError,
@@ -25,12 +24,7 @@ import {
   ExperimentValidationError,
   LibraryPinError,
   LogEntryValidationError,
-  ManageExperimentUseCase,
-  ManageMilestoneUseCase,
   ManageReadingListUseCase,
-  ManageReportSectionUseCase,
-  ManageTagsUseCase,
-  ManageVaultPageUseCase,
   MemberPermissionError,
   MemberValidationError,
   MetadataResolutionError,
@@ -58,18 +52,12 @@ import {
   isWeaveForgeError,
 } from "../../src/index.js";
 import {
-  InMemoryExperimentRepository,
-  InMemoryLogEntryRepository,
-  InMemoryMilestoneRepository,
   InMemoryPaperRepository,
-  InMemoryPaperTagRepository,
   InMemoryReadingListItemRepository,
   InMemoryReadingListRepository,
-  InMemoryReportSectionRepository,
-  InMemoryTagRepository,
-} from "../../src/testing/index.js";
-import { InMemoryVaultPageRepository } from "../../src/testing/in-memory-b.js";
-import { fixedClock, seqIds } from "../../src/testing/parts.js";
+} from "../support/in-memory.js";
+import type { ITagManager } from "../../src/features/tags/domain/parts.js";
+import { fixedClock, seqIds } from "../support/clock.js";
 
 const clock = fixedClock();
 
@@ -157,75 +145,13 @@ test("the same lab condition maps to the same status, whatever throws it", () =>
 /** One missing-id call per use case that used to signal 404 as a validation error. */
 const NOT_FOUND_CALLS: readonly (readonly [string, () => Promise<unknown>])[] = [
   [
-    "ManageVaultPageUseCase.update",
-    () =>
-      new ManageVaultPageUseCase({
-        repository: new InMemoryVaultPageRepository(),
-        clock,
-        ids: seqIds(),
-      }).update("missing", { title: "x" }),
-  ],
-  [
-    "ManageReportSectionUseCase.setStatus",
-    () =>
-      new ManageReportSectionUseCase({
-        repository: new InMemoryReportSectionRepository(),
-        clock,
-        ids: seqIds(),
-      }).setStatus("missing", "done"),
-  ],
-  [
-    "ManageMilestoneUseCase.update",
-    () =>
-      new ManageMilestoneUseCase({
-        repository: new InMemoryMilestoneRepository(),
-        clock,
-        ids: seqIds(),
-      }).update("missing", { title: "x" }),
-  ],
-  [
-    "ManageExperimentUseCase.setStatus",
-    () =>
-      new ManageExperimentUseCase({
-        repository: new InMemoryExperimentRepository(),
-        clock,
-        ids: seqIds(),
-      }).setStatus("missing", "running"),
-  ],
-  [
     "UpdatePaperUseCase.setStatus",
     () =>
       new UpdatePaperUseCase({
         repository: new InMemoryPaperRepository(),
-        tags: new ManageTagsUseCase({
-          tags: new InMemoryTagRepository(),
-          paperTags: new InMemoryPaperTagRepository(),
-          papers: new InMemoryPaperRepository(),
-          clock,
-          ids: seqIds(),
-        }),
+        tags: {} as unknown as ITagManager,
         clock,
       }).setStatus("missing", "read"),
-  ],
-  [
-    "AddLogEntryUseCase.update",
-    () =>
-      new AddLogEntryUseCase({
-        repository: new InMemoryLogEntryRepository(),
-        clock,
-        ids: seqIds(),
-      }).update("missing", { body: "x", kind: "daily" }),
-  ],
-  [
-    "ManageTagsUseCase.setManualTags",
-    () =>
-      new ManageTagsUseCase({
-        tags: new InMemoryTagRepository(),
-        paperTags: new InMemoryPaperTagRepository(),
-        papers: new InMemoryPaperRepository(),
-        clock,
-        ids: seqIds(),
-      }).setManualTags("missing", ["tag"]),
   ],
   [
     "ManageReadingListUseCase.removeList",
@@ -251,14 +177,3 @@ test("a missing id throws NotFoundError, never a validation error", async () => 
   }
 });
 
-test("the not-found messages still name the id, for logs and toasts", async () => {
-  await assert.rejects(
-    () =>
-      new ManageVaultPageUseCase({
-        repository: new InMemoryVaultPageRepository(),
-        clock,
-        ids: seqIds(),
-      }).update("missing", { title: "x" }),
-    /No vault page with id "missing"\./,
-  );
-});

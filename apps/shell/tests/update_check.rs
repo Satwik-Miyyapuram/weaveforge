@@ -1,4 +1,4 @@
-//! Tests for the update check (ported from apps/desktop/src/update-check.ts).
+//! Tests for the update check (ported from the retired Electron shell).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use crate::upstream;

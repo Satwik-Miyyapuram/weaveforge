@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-b.js";
+import { InMemoryPaperRepository } from "../../support/in-memory.js";
 import {
   AddPaperUseCase,
   type IMetadataSource,
@@ -9,7 +9,7 @@ import {
   MetadataResolver,
   type PaperRef,
 } from "../../../src/features/papers/application/parts-1.js";
-import { fixedClock, seqIds } from "../../../src/testing/parts.js";
+import { fixedClock, seqIds } from "../../support/clock.js";
 
 const clock = fixedClock("2026-06-24T12:00:00.000Z");
 

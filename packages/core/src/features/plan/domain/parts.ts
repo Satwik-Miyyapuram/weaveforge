@@ -99,3 +99,11 @@ export class MilestoneValidationError extends ValidationError {
 export interface IMilestoneRepository
   extends IReadableRepository<Milestone, MilestoneFilter>,
     IWritableRepository<Milestone> {}
+
+/** Milestone writes that validate and apply changes (the Rust `milestones` arms). */
+export interface IMilestoneManager {
+  add(input: NewMilestoneInput): Promise<Milestone>;
+  setStatus(id: string, status: MilestoneStatus): Promise<Milestone>;
+  update(id: string, input: EditMilestoneInput): Promise<Milestone>;
+  remove(id: string): Promise<void>;
+}

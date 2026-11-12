@@ -11,7 +11,7 @@ This monorepo ships **four release tracks**, one tag prefix each. Do not mix the
 | Changelog | [`../CHANGELOG.md`](../../CHANGELOG.md) | Same | Same | Same |
 
 **Why the desktop keeps the bare `vX.Y.Z`.** Copies already installed look for
-`v*` releases (`apps/desktop/src/update-check.ts`), so moving that track to
+`v*` releases (`apps/shell/src/update_check.rs`), so moving that track to
 another prefix would strand every one of them on the version they have. The SDK
 moved instead — which is also what stops a desktop release publishing to PyPI,
 where a version cannot be taken back.
@@ -23,7 +23,7 @@ is what changed *in that track*.
 
 | Track | Version lives in | Free to move |
 |---|---|---|
-| Desktop app | `apps/desktop/package.json` | independently |
+| Desktop app | `apps/shell/tauri.conf.json` | independently |
 | Python SDK | `python/weaveforge/__init__.py` `__version__` | independently |
 | Android | `apps/android/app/build.gradle.kts` `versionName` / `versionCode` | independently |
 | iOS | `apps/ios/project.yml` `MARKETING_VERSION` | independently |
@@ -51,7 +51,7 @@ All changes still land on `main` via pull request (branch protection). Tags are 
    [`../CHANGELOG.md`](../../CHANGELOG.md).
 
    ```
-   apps/desktop/package.json           "version"
+   apps/shell/tauri.conf.json          "version"
    package.json                        "version"   (follows the app)
    apps/web/package.json               "version"   (follows the app)
    packages/core/package.json          "version"   (follows the app)
@@ -59,9 +59,9 @@ All changes still land on `main` via pull request (branch protection). Tags are 
 
    Leave `python/weaveforge/__init__.py` alone unless the SDK itself changed.
 
-   `release-desktop.yml` refuses a tag that does not match
-   `apps/desktop/package.json`: an installer that claims a version it is not
-   makes every installed copy either miss the update or reinstall forever.
+   The tag must match `apps/shell/tauri.conf.json`: an installer that claims a
+   version it is not makes every installed copy either miss the update or
+   reinstall forever.
 2. Merge when CI is green.
 3. On `main`:
    ```bash
@@ -91,14 +91,6 @@ SECURITY: the Windows and macOS builds are not code-signed, so the only
 integrity check on a downloaded update is the SHA-512 in `latest.yml`, served
 over HTTPS from the same release. Say so in the notes; do not describe the
 update as verified.
-
-The universal macOS `.dmg` carries an ad-hoc signature only
-(`apps/desktop/scripts/after-pack.cjs`), which is free and keeps Apple silicon
-from calling the app "damaged", but is not a Developer ID and is not notarised.
-Squirrel.Mac will not install updates on such a build, so macOS copies do not
-auto-update: they show a "new version" notice that opens the release page
-(`apps/desktop/src/main-update-offer.ts`). Put the first-launch steps from
-[`docs/using/desktop.md`](../using/desktop.md#installing-on-a-mac) in the notes.
 
 ## Python SDK (`py-vX.Y.Z`)
 

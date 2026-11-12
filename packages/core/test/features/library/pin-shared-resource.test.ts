@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PinSharedResourceUseCase } from "../../../src/features/library/application/parts.js";
 import { LibraryPinError } from "../../../src/features/library/domain/parts.js";
-import { InMemoryLibraryPinRepository } from "../../../src/testing/in-memory-a.js";
-import { InMemoryShareRepository } from "../../../src/testing/in-memory-b.js";
+import { InMemoryLibraryPinRepository } from "../../support/in-memory.js";
+import { InMemoryShareRepository } from "../../support/in-memory.js";
 
 test("pin succeeds when a matching share exists", async () => {
   const shares = new InMemoryShareRepository("alice");

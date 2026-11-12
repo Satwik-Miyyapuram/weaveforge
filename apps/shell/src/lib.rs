@@ -925,7 +925,7 @@ mod tests {
     #[test]
     fn bundle_ships_the_web_export() {
         let bundle = include_str!("../tauri.bundle.json");
-        assert!(bundle.contains("\"../desktop/dist/web/\": \"web/\""));
+        assert!(bundle.contains("\"dist/web/\": \"web/\""));
         assert!(bundle.contains("\"target/stage/sidecar/\": \"sidecar/\""));
         // `local_pg::server::locate_bin` looks in `<resources>/postgres/bin`.
         assert!(bundle.contains("\"target/stage/postgres/\": \"postgres/\""));

@@ -13,7 +13,7 @@ import { DeviceSecretsStore } from "./local/parts";
  * instead is what broke saving credentials in the desktop app. A window signed
  * in to an account is still a window with no server when it was built as the
  * desktop export, and that build holds `src/app/api/` aside
- * (`apps/desktop/scripts/build-web.mjs`): the credentials route is not in the
+ * (`apps/shell/scripts/build-web.mjs`): the credentials route is not in the
  * bundle at all, the fetch reaches the `app://` file handler, and the 404 with
  * an empty body surfaced as the generic "Failed to save integration
  * credentials." while writing nothing at all.

@@ -61,18 +61,11 @@ jobs:
       - name: Run Web unit tests
         run: npm test --workspace @weaveforge/web
 
-      # 147 tests across 6 suites in ~14s, covering the desktop's own modules:
-      # the IPC guard, both stores, the vault folder, the loopback API and the
-      # app: protocol. They passed and never gated a merge — `check:all` includes
-      # test:desktop, but CI runs check:boundaries, not check:all, and grep for
-      # test:desktop across .github/workflows returned nothing.
-      #
-      # No setup of its own: the script is `node --import tsx --test
-      # test/*.test.ts`, tsx is a workspace dependency, and the desktop reads no
-      # Supabase env var and starts no browser. It does import @weaveforge/core,
-      # which is why "Build Core package" above has to stay ahead of it.
-      - name: Run Desktop tests
-        run: npm run test:desktop
+      # The web export's held-route guard (apps/shell/scripts). The Electron
+      # desktop app and its test suite were retired; its modules now live in
+      # the Rust shell and are tested there.
+      - name: Run build-web route guard tests
+        run: node --test apps/shell/scripts/build-web-held-routes.test.mjs
 
       # The phase-2 Node sidecar: its JSON-lines wire, and one real PGlite
       # open through the desktop's local-db code (the Tauri shell spawns it).
@@ -660,7 +653,7 @@ jobs:
           workspaces: apps/shell
 
       - name: Build web export
-        working-directory: apps/desktop
+        working-directory: apps/shell
         run: node scripts/build-web.mjs
 
       - name: Stage sidecar

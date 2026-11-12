@@ -1,4 +1,4 @@
-import { formatRelative } from "@/lib/parts-1";
+import { localOffset } from "@/lib/parts-1";
 import { readyCore } from "@/lib/rust-core";
 import type { LiveSyncState } from "./parts-1";
 import type { OutboxEntry } from "./parts-2";
@@ -81,11 +81,12 @@ export function syncStatus(
   s: Pick<LiveSyncState, "phase" | "enabled" | "isOnline" | "conflictsCount" | "lastSyncAt">,
   now: Date = new Date(),
 ) {
+  const at = s.lastSyncAt ? new Date(s.lastSyncAt).toISOString() : null;
   return readyCore().syncDot({
     phase: s.phase,
     enabled: s.enabled,
     isOnline: s.isOnline,
     conflictsCount: s.conflictsCount,
-    relativeLastSync: s.lastSyncAt ? formatRelative(s.lastSyncAt, now) : null,
+    relativeLastSync: at ? readyCore().formatRelative(at, now.toISOString(), localOffset(at)) : null,
   });
 }

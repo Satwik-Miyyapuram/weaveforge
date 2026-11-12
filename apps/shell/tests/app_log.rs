@@ -1,5 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, missing_docs)]
-//! Tests for the app log (ported from apps/desktop/test/app-log.test.ts).
+//! Tests for the app log (ported from the retired Electron shell).
 use crate::common;
 
 use std::fs;

@@ -7,13 +7,16 @@
 //! Gap: `listSummaries` and `getTree` fall back to reading `body` when the `body_preview` column
 //! is missing. A step cannot see a query error, so only the migrated path is planned here.
 
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use crate::reader_analysis::lines::js_trim;
 use crate::repo_query::{RepoCall, RepoQuery, RepoStep, map_row, map_rows};
 use crate::vault::page::{
-    VAULT_BODY_PREVIEW_CHARS, VaultPage, VaultPageSummary, build_page_tree, normalize_title_key,
-    vault_body_preview,
+    NewVaultPageInput, VAULT_BODY_PREVIEW_CHARS, VaultPage, VaultPageSummary, build_page_tree,
+    create_vault_page, normalize_title_key, vault_body_preview,
 };
 use crate::vault::page_query::{
     is_missing_body_preview_column, title_like_pattern, title_or_body_filter,
@@ -45,7 +48,9 @@ pub fn step(method: &str, call: &RepoCall) -> Option<RepoStep> {
         "getTree" => get_tree(call),
         "titleTaken" => title_taken(call),
         "save" => save(call),
-        "delete" => delete(call),
+        "add" => add(call),
+        "update" => update(call),
+        "delete" | "remove" => delete(call),
         _ => return None,
     })
 }
@@ -302,10 +307,183 @@ fn delete(call: &RepoCall) -> RepoStep {
     RepoStep::unit()
 }
 
+/// Saves `page` after `skip` replies; once the save reply is in, the saved page is the result.
+fn save_then_done(call: &RepoCall, skip: usize, page: &VaultPage) -> RepoStep {
+    if call.replies.len() > skip {
+        return RepoStep::done(page);
+    }
+    match serde_json::to_value(page) {
+        Ok(value) => save(&call.sub(vec![value], skip)),
+        Err(e) => RepoStep::fail(e),
+    }
+}
+
+/// `titleTaken` as a sub-step at `skip`. `Ok` holds the next reply offset; `Err` is the refusal
+/// or the query to send.
+fn assert_title_unique(
+    call: &RepoCall,
+    skip: usize,
+    title: &str,
+    except: Option<&str>,
+) -> Result<usize, RepoStep> {
+    let args = match except {
+        Some(id) => vec![json!(title), json!(id)],
+        None => vec![json!(title)],
+    };
+    match title_taken(&call.sub(args, skip)) {
+        RepoStep::Done {
+            value: Value::Bool(true),
+        } => Err(RepoStep::fail_named(
+            "VaultPageValidationError",
+            format!("A note titled “{}” already exists.", js_trim(title)),
+        )),
+        RepoStep::Done { .. } => {
+            // A blank key sends no query, so it reads nothing.
+            let reads = usize::from(!normalize_title_key(title).is_empty());
+            Ok(skip + reads)
+        }
+        other => Err(other),
+    }
+}
+
+/// Walks the parent chain from `new_parent` (TS `assertNotUnder`). `Ok` holds the next reply
+/// offset; `Err` is the refusal or the query. A loop already in the data ends the walk quietly.
+fn assert_not_under(
+    call: &RepoCall,
+    skip: usize,
+    id: &str,
+    new_parent: &str,
+) -> Result<usize, RepoStep> {
+    let mut cursor = new_parent.to_owned();
+    let mut seen = HashSet::new();
+    let mut next = skip;
+    while !cursor.is_empty() {
+        if cursor == id {
+            return Err(RepoStep::fail_named(
+                "VaultPageValidationError",
+                "A note cannot be moved inside itself.",
+            ));
+        }
+        if !seen.insert(cursor.clone()) {
+            return Ok(next);
+        }
+        let value = match get_by_id(&call.sub(vec![json!(cursor)], next)) {
+            RepoStep::Done { value } => value,
+            other => return Err(other),
+        };
+        next += 1;
+        if value.is_null() {
+            // Names the requested parent, not the missing ancestor, as TS does.
+            return Err(RepoStep::fail_named(
+                "NotFoundError",
+                format!("No vault page with id \"{new_parent}\"."),
+            ));
+        }
+        cursor = value
+            .get("parentId")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_owned();
+    }
+    Ok(next)
+}
+
+/// `add(input)`: validates the page, refuses a title another page holds, then saves it.
+fn add(call: &RepoCall) -> RepoStep {
+    let input: NewVaultPageInput = match call.parse(0) {
+        Ok(input) => input,
+        Err(e) => return RepoStep::fail(e),
+    };
+    let page = match create_vault_page(&input, &call.id(0), call.now()) {
+        Ok(page) => page,
+        Err(e) => return RepoStep::fail_named("VaultPageValidationError", e),
+    };
+    match assert_title_unique(call, 0, &page.summary.title, None) {
+        Ok(skip) => save_then_done(call, skip, &page),
+        Err(step) => step,
+    }
+}
+
+/// The fields `update` changes. An absent field is left alone; `parentId: null` moves the page
+/// to the top level.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EditInput {
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    body: Option<String>,
+    #[serde(default, deserialize_with = "present")]
+    parent_id: Option<Option<String>>,
+    #[serde(default)]
+    pinned: Option<bool>,
+}
+
+/// Keeps an explicit `null` apart from an absent field.
+fn present<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Option<String>>, D::Error> {
+    Option::<String>::deserialize(d).map(Some)
+}
+
+/// `update(id, input)`: the page must exist; a changed title must be non-blank and unused; the
+/// parent move must not loop; then the page is saved. Reads run in that order, as TS does.
+fn update(call: &RepoCall) -> RepoStep {
+    let input: EditInput = match call.parse(1) {
+        Ok(input) => input,
+        Err(e) => return RepoStep::fail(e),
+    };
+    let id = call.text(0).to_owned();
+    let value = match get_by_id(&call.sub(vec![json!(id)], 0)) {
+        RepoStep::Done { value } => value,
+        other => return other,
+    };
+    if value.is_null() {
+        return RepoStep::fail_named("NotFoundError", format!("No vault page with id \"{id}\"."));
+    }
+    let existing: VaultPage = match serde_json::from_value(value) {
+        Ok(page) => page,
+        Err(e) => return RepoStep::fail(e),
+    };
+    let title = match &input.title {
+        Some(title) => js_trim(title).to_owned(),
+        None => existing.summary.title.clone(),
+    };
+    if title.is_empty() {
+        return RepoStep::fail_named("VaultPageValidationError", "Page title is required.");
+    }
+    let mut next = 1;
+    if normalize_title_key(&title) != normalize_title_key(&existing.summary.title) {
+        next = match assert_title_unique(call, next, &title, Some(id.as_str())) {
+            Ok(next) => next,
+            Err(step) => return step,
+        };
+    }
+    if let Some(Some(parent)) = &input.parent_id {
+        next = match assert_not_under(call, next, &id, parent) {
+            Ok(next) => next,
+            Err(step) => return step,
+        };
+    }
+    let mut updated = existing;
+    updated.summary.title = title;
+    if let Some(body) = input.body {
+        updated.body = body;
+    }
+    if let Some(parent) = input.parent_id {
+        updated.summary.parent_id = parent;
+    }
+    if let Some(pinned) = input.pinned {
+        updated.summary.pinned = Some(pinned);
+    }
+    updated.summary.updated_at = call.now().to_owned();
+    save_then_done(call, next, &updated)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::repo_query::{RepoAction, RepoCtx, RepoSingle};
+
+    const NOW: &str = "2026-11-12T09:00:00.000Z";
 
     fn call(args: Vec<Value>, replies: Vec<Value>, project: Option<&str>) -> RepoCall {
         RepoCall {
@@ -313,6 +491,8 @@ mod tests {
             replies,
             ctx: RepoCtx {
                 project_id: project.map(String::from),
+                id_seed: Some("seed".into()),
+                now: Some(NOW.into()),
                 ..RepoCtx::default()
             },
         }
@@ -343,6 +523,19 @@ mod tests {
             RepoStep::Fail { message, .. } => message,
             other => panic!("expected a failure, got {other:?}"),
         }
+    }
+
+    fn fail(step: RepoStep) -> (String, Option<String>) {
+        match step {
+            RepoStep::Fail { message, name } => (message, name),
+            other => panic!("expected a failure, got {other:?}"),
+        }
+    }
+
+    fn folder_row(id: &str) -> Value {
+        let mut value = row(id, None);
+        value["folder"] = json!(true);
+        value
     }
 
     fn row(id: &str, parent: Option<&str>) -> Value {
@@ -605,6 +798,197 @@ mod tests {
             step("delete", &call(vec![json!("p1")], vec![Value::Null], None)),
             Some(RepoStep::unit())
         );
+    }
+
+    #[test]
+    fn add_trims_title_defaults_body_and_requires_title() {
+        let args = vec![json!({"title": "  Notes  "})];
+        let q = only(step("add", &call(args.clone(), vec![], None)).unwrap());
+        assert_eq!(q.filters[0].op, "ilike");
+        let value = done(step("add", &call(args, vec![json!([]), Value::Null], None)).unwrap());
+        assert_eq!(value["title"], "Notes");
+        assert_eq!(value["body"], "");
+        assert_eq!(value["createdAt"], NOW);
+        let (msg, name) =
+            fail(step("add", &call(vec![json!({"title": " "})], vec![], None)).unwrap());
+        assert_eq!(msg, "Page title is required.");
+        assert_eq!(name.as_deref(), Some("VaultPageValidationError"));
+    }
+
+    #[test]
+    fn add_rejects_a_case_insensitive_duplicate_title() {
+        let rows = json!([{"id": "p0", "title": "My Note"}]);
+        let args = vec![json!({"title": "  my note  "})];
+        let (msg, name) = fail(step("add", &call(args, vec![rows], None)).unwrap());
+        assert_eq!(msg, "A note titled “my note” already exists.");
+        assert_eq!(name.as_deref(), Some("VaultPageValidationError"));
+    }
+
+    #[test]
+    fn add_saves_a_folder_as_one_and_a_note_as_not_a_folder() {
+        let args = vec![json!({"title": "Methods", "folder": true})];
+        let q = only(step("add", &call(args, vec![json!([])], None)).unwrap());
+        assert_eq!(q.action, RepoAction::Upsert);
+        assert_eq!(q.body.unwrap()["folder"], true);
+        let args = vec![json!({"title": "Sampling", "parentId": "f1"})];
+        let q = only(step("add", &call(args, vec![json!([])], None)).unwrap());
+        assert_eq!(q.body.unwrap()["folder"], false);
+    }
+
+    #[test]
+    fn update_edits_title_and_body_keeping_id_and_created_at() {
+        let args = vec![json!("p1"), json!({"title": "New", "body": "b"})];
+        let q = only(step("update", &call(args.clone(), vec![], None)).unwrap());
+        assert_eq!(q.single, RepoSingle::Maybe);
+        let replies = vec![row("p1", None), json!([]), Value::Null];
+        let value = done(step("update", &call(args, replies, None)).unwrap());
+        assert_eq!(value["id"], "p1");
+        assert_eq!(value["createdAt"], "2026-01-01T00:00:00Z");
+        assert_eq!(value["updatedAt"], NOW);
+        assert_eq!(value["title"], "New");
+        assert_eq!(value["body"], "b");
+    }
+
+    #[test]
+    fn update_blocks_renaming_onto_another_title() {
+        let args = vec![json!("p2"), json!({"title": "first"})];
+        let replies = vec![row("p2", None), json!([{"id": "p1", "title": "First"}])];
+        let (msg, name) = fail(step("update", &call(args, replies, None)).unwrap());
+        assert_eq!(msg, "A note titled “first” already exists.");
+        assert_eq!(name.as_deref(), Some("VaultPageValidationError"));
+    }
+
+    #[test]
+    fn update_unknown_id_and_blank_title_then_remove_deletes() {
+        let args = vec![json!("nope"), json!({"title": "x"})];
+        let (msg, name) = fail(step("update", &call(args, vec![Value::Null], None)).unwrap());
+        assert_eq!(msg, "No vault page with id \"nope\".");
+        assert_eq!(name.as_deref(), Some("NotFoundError"));
+        let args = vec![json!("p1"), json!({"title": "  "})];
+        let (msg, name) = fail(step("update", &call(args, vec![row("p1", None)], None)).unwrap());
+        assert_eq!(msg, "Page title is required.");
+        assert_eq!(name.as_deref(), Some("VaultPageValidationError"));
+        let q = only(step("remove", &call(vec![json!("p1")], vec![], None)).unwrap());
+        assert_eq!(q.action, RepoAction::Delete);
+        assert_eq!(q.filters[0].value, json!("p1"));
+    }
+
+    #[test]
+    fn update_moves_under_a_parent_clears_it_and_never_moves_into_itself() {
+        let args = vec![json!("page"), json!({"parentId": "folder"})];
+        let replies = vec![row("page", None), row("folder", None), Value::Null];
+        let moved = done(step("update", &call(args, replies, None)).unwrap());
+        assert_eq!(moved["parentId"], "folder");
+        // Absent leaves the parent alone; null clears it.
+        let held = vec![row("page", Some("folder")), Value::Null];
+        let args = vec![json!("page"), json!({"body": "x"})];
+        let kept = done(step("update", &call(args, held.clone(), None)).unwrap());
+        assert_eq!(kept["parentId"], "folder");
+        let args = vec![json!("page"), json!({"parentId": null})];
+        let cleared = done(step("update", &call(args, held, None)).unwrap());
+        assert!(cleared["parentId"].is_null());
+        // A page cannot move under itself...
+        let args = vec![json!("folder"), json!({"parentId": "folder"})];
+        let (msg, name) =
+            fail(step("update", &call(args, vec![row("folder", None)], None)).unwrap());
+        assert_eq!(msg, "A note cannot be moved inside itself.");
+        assert_eq!(name.as_deref(), Some("VaultPageValidationError"));
+        // ...nor under its own descendant: page sits under folder.
+        let args = vec![json!("folder"), json!({"parentId": "page"})];
+        let replies = vec![row("folder", None), row("page", Some("folder"))];
+        let (msg, _) = fail(step("update", &call(args, replies, None)).unwrap());
+        assert_eq!(msg, "A note cannot be moved inside itself.");
+    }
+
+    #[test]
+    fn update_pins_and_unpins_keeping_the_body() {
+        let args = vec![json!("p1"), json!({"pinned": true})];
+        let pinned = done(
+            step(
+                "update",
+                &call(args, vec![row("p1", None), Value::Null], None),
+            )
+            .unwrap(),
+        );
+        assert_eq!(pinned["pinned"], true);
+        assert_eq!(pinned["body"], "# hi");
+        let args = vec![json!("p1"), json!({"pinned": false})];
+        let unpinned = done(
+            step(
+                "update",
+                &call(args, vec![row("p1", None), Value::Null], None),
+            )
+            .unwrap(),
+        );
+        assert_eq!(unpinned["pinned"], false);
+    }
+
+    #[test]
+    fn update_refuses_a_missing_parent_and_loops_and_names_the_requested_parent() {
+        let args = vec![json!("a"), json!({"parentId": "nope"})];
+        let (msg, name) = fail(
+            step(
+                "update",
+                &call(args, vec![row("a", None), Value::Null], None),
+            )
+            .unwrap(),
+        );
+        assert_eq!(msg, "No vault page with id \"nope\".");
+        assert_eq!(name.as_deref(), Some("NotFoundError"));
+        // a -> c -> b -> ghost: the missing ancestor is ghost, but the message names c.
+        let args = vec![json!("a"), json!({"parentId": "c"})];
+        let replies = vec![
+            row("a", None),
+            row("c", Some("b")),
+            row("b", Some("ghost")),
+            Value::Null,
+        ];
+        let (msg, _) = fail(step("update", &call(args, replies, None)).unwrap());
+        assert_eq!(msg, "No vault page with id \"c\".");
+        // c -> b -> a: moving a under c would close a loop.
+        let args = vec![json!("a"), json!({"parentId": "c"})];
+        let replies = vec![row("a", None), row("c", Some("b")), row("b", Some("a"))];
+        let (msg, name) = fail(step("update", &call(args, replies, None)).unwrap());
+        assert_eq!(msg, "A note cannot be moved inside itself.");
+        assert_eq!(name.as_deref(), Some("VaultPageValidationError"));
+    }
+
+    #[test]
+    fn update_moves_under_a_loop_already_in_the_data() {
+        let args = vec![json!("m"), json!({"parentId": "x"})];
+        let replies = vec![
+            row("m", None),
+            row("x", Some("y")),
+            row("y", Some("x")),
+            Value::Null,
+        ];
+        let value = done(step("update", &call(args, replies, None)).unwrap());
+        assert_eq!(value["parentId"], "x");
+    }
+
+    #[test]
+    fn duplicate_title_check_reads_no_page_list() {
+        let q = only(step("add", &call(vec![json!({"title": "ALPHA"})], vec![], None)).unwrap());
+        assert_eq!(q.table, TABLE);
+        assert_eq!(q.columns.as_deref(), Some("id,title"));
+        assert_eq!(q.filters[0].op, "ilike");
+        let args = vec![json!("p1"), json!({"title": "Beta"})];
+        let q = only(step("update", &call(args, vec![row("p1", None)], None)).unwrap());
+        assert_eq!(q.filters[0].op, "ilike");
+    }
+
+    #[test]
+    fn update_keeps_a_folder_when_it_is_edited() {
+        let args = vec![json!("f1"), json!({"title": "Method"})];
+        let q = only(
+            step(
+                "update",
+                &call(args, vec![folder_row("f1"), json!([])], None),
+            )
+            .unwrap(),
+        );
+        assert_eq!(q.action, RepoAction::Upsert);
+        assert_eq!(q.body.unwrap()["folder"], true);
     }
 
     #[test]

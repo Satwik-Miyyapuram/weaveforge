@@ -1,4 +1,4 @@
-//! Mattermost sign-in in a window of its own, and the post sent from the shell. Ported from apps/desktop/src/mattermost-signin.ts.
+//! Mattermost sign-in in a window of its own, and the post sent from the shell. Ported from the retired Electron shell.
 
 use std::future::Future;
 use std::time::Duration;

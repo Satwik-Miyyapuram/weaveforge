@@ -1,7 +1,7 @@
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import {
-  type AddLogEntryUseCase,
+  type ILogEntryManager,
   type AddPaperUseCase,
   type AddRelationUseCase,
   type AiProposalExecution,
@@ -14,12 +14,12 @@ import {
   type IConceptExtractor,
   type IReaderAnnotationSink,
   type IWorkspaceFs,
-  type ManageExperimentUseCase,
-  type ManageMilestoneUseCase,
+  type IExperimentManager,
+  type IMilestoneManager,
+  type IReportSectionManager,
+  type IVaultPageManager,
   type ManagePaperFieldsUseCase,
   type ManageReadingListUseCase,
-  type ManageReportSectionUseCase,
-  type ManageVaultPageUseCase,
   ModelConceptExtractor,
   proposalApplies,
   type UpdatePaperUseCase,
@@ -239,8 +239,8 @@ export function importFolderDraftsOnce(
  */
 export function createAiProposalExecutors(deps: {
   paperNotes: IAiPaperNoteAppender;
-  vault: ManageVaultPageUseCase;
-  logs: AddLogEntryUseCase;
+  vault: IVaultPageManager;
+  logs: ILogEntryManager;
   papers: { getById(id: string): Promise<{ id: string; updatedAt: string } | null> };
   updatePaper: UpdatePaperUseCase;
   paperFields: Pick<ManagePaperFieldsUseCase, "setValue" | "listDefs">;
@@ -248,10 +248,10 @@ export function createAiProposalExecutors(deps: {
   pushZotero: (paper: Awaited<ReturnType<AddPaperUseCase["addManual"]>>) => Promise<void>;
   lists: ManageReadingListUseCase;
   relations: AddRelationUseCase;
-  milestones: ManageMilestoneUseCase;
-  experiments: ManageExperimentUseCase;
+  milestones: IMilestoneManager;
+  experiments: IExperimentManager;
   vaultPages: { getById(id: string): Promise<{ id: string; body: string; updatedAt: string } | null> };
-  reportSections: Pick<ManageReportSectionUseCase, "setNotes">;
+  reportSections: Pick<IReportSectionManager, "setNotes">;
   reportSectionById: (id: string) => Promise<{ id: string; updatedAt?: string } | null>;
   annotations: Pick<IReaderAnnotationSink, "create">;
 }): readonly IAiProposalExecutor[] {
@@ -268,11 +268,11 @@ export function createAiProposalExecutors(deps: {
       return (await deps.paperNotes.appendPaperNote({ paperId: proposal.resourceId, addition, expectedRevision: proposal.expectedRevision })) === "appended" ? "accepted" : "conflicted";
     }),
     executor("create_vault_note", async (proposal) => {
-      await deps.vault.add(readyCore().proposalVaultNote(proposal.payload) as Arg<ManageVaultPageUseCase["add"]>);
+      await deps.vault.add(readyCore().proposalVaultNote(proposal.payload) as Arg<IVaultPageManager["add"]>);
       return "accepted";
     }),
     executor("create_log_entry", async (proposal) => {
-      await deps.logs.add(readyCore().proposalLogEntry(proposal.payload) as Arg<AddLogEntryUseCase["add"]>);
+      await deps.logs.add(readyCore().proposalLogEntry(proposal.payload) as Arg<ILogEntryManager["add"]>);
       return "accepted";
     }),
     executor("paper_update", async (proposal) => {
@@ -310,17 +310,17 @@ export function createAiProposalExecutors(deps: {
       return "accepted";
     }),
     executor("milestone_follow_up", async (proposal) => {
-      await deps.milestones.add(readyCore().proposalMilestoneFollowUp(proposal.payload) as Arg<ManageMilestoneUseCase["add"]>);
+      await deps.milestones.add(readyCore().proposalMilestoneFollowUp(proposal.payload) as Arg<IMilestoneManager["add"]>);
       return "accepted";
     }),
     executor("experiment_follow_up", async (proposal) => {
-      await deps.experiments.add(readyCore().proposalExperimentFollowUp(proposal.payload) as Arg<ManageExperimentUseCase["add"]>);
+      await deps.experiments.add(readyCore().proposalExperimentFollowUp(proposal.payload) as Arg<IExperimentManager["add"]>);
       return "accepted";
     }),
     executor("edit_vault_note", async (proposal) => {
       const page = await editableNote(proposal);
       if (!page) return "conflicted";
-      await deps.vault.update(page.id, readyCore().proposalEditVaultNote(proposal.payload) as Arg<ManageVaultPageUseCase["update"], 1>);
+      await deps.vault.update(page.id, readyCore().proposalEditVaultNote(proposal.payload) as Arg<IVaultPageManager["update"], 1>);
       return "accepted";
     }),
     executor("append_vault_note", async (proposal) => {
@@ -337,7 +337,7 @@ export function createAiProposalExecutors(deps: {
       return "accepted";
     }),
     executor("milestone_status", async (proposal) => {
-      const status = readyCore().proposalMilestoneStatus(proposal.payload) as Parameters<ManageMilestoneUseCase["setStatus"]>[1];
+      const status = readyCore().proposalMilestoneStatus(proposal.payload) as Parameters<IMilestoneManager["setStatus"]>[1];
       await deps.milestones.setStatus(proposal.resourceId, status);
       return "accepted";
     }),

@@ -1,7 +1,8 @@
 //! Reader URL allowlists. Port of the pure parts of
 //! `apps/web/src/features/reader/application/sanitize-reader-url.ts`: the PDF proxy host list,
 //! https-only PDF URLs, same-origin reader and app hrefs, PDF-looking paths, and paper PDF
-//! resolution. `isReaderObjectUrl` (it reads `location`) and the relay helpers stay in TS.
+//! resolution, the blob-object origin check, and the PDF proxy route. The caller reads `location`
+//! and the relay base and passes them in.
 
 use std::sync::OnceLock;
 
@@ -227,6 +228,49 @@ fn strip_arxiv_prefix(id: &str) -> &str {
         Some(prefix) if prefix.eq_ignore_ascii_case("arxiv:") => &id[6..],
         _ => id,
     }
+}
+
+/// The same-origin proxy route for an allowlisted PDF URL, or `None` when the proxy would refuse
+/// it. The URL is normalised the way the JS `URL` does before the check and the encoding.
+#[must_use]
+pub fn pdf_proxy_path(raw: &str) -> Option<String> {
+    let normalized = Url::parse(raw).ok()?.to_string();
+    if !is_allowed_pdf_proxy_url(&normalized) {
+        return None;
+    }
+    Some(format!(
+        "/api/pdf-proxy?url={}",
+        crate::overleaf_workshop::encode_uri_component(&normalized)
+    ))
+}
+
+/// The PDF URL a same-origin proxy request carries. `path` is the relay path of `url` (the caller
+/// strips the relay base); the target is the sanitised `url` query parameter. `None` for any
+/// other path.
+#[must_use]
+pub fn original_url_from_proxy(path: &str, url: &str) -> Option<String> {
+    if !path.starts_with("/api/pdf-proxy?") {
+        return None;
+    }
+    let parsed = Url::parse("https://local.invalid").ok()?.join(url).ok()?;
+    let target = parsed
+        .query_pairs()
+        .find(|(key, _)| key == "url")
+        .map(|(_, value)| value.into_owned());
+    sanitize_pdf_url(target.as_deref())
+}
+
+/// Whether `raw` is a `blob:` URL minted by `origin`, the page's own origin. Another origin's
+/// handle, a non-blob URL, or a missing origin is refused.
+#[must_use]
+pub fn is_reader_object_url(raw: Option<&str>, origin: Option<&str>) -> bool {
+    let (Some(raw), Some(origin)) = (raw, origin) else {
+        return false;
+    };
+    let Some(inner) = raw.strip_prefix("blob:") else {
+        return false;
+    };
+    Url::parse(inner).is_ok_and(|url| url.origin().ascii_serialization() == origin)
 }
 
 #[cfg(test)]

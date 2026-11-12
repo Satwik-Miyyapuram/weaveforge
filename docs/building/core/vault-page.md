@@ -14,7 +14,7 @@ repository port, and the thin use case.
 | Page types and `VaultPageFns` | TS (hand-declared mirror) | `packages/core/src/shared/core-contract.ts` |
 | `VaultPageValidationError` | TS | `packages/core/src/shared/errors.ts` |
 | Repository port | TS | `packages/core/src/features/vault/domain/vault-page-repository.ts` |
-| Use case (thin) | TS | `packages/core/src/features/vault/application/manage-vault-page.use-case.ts` |
+| Repository I/O | Rust plan, TS runner | `crates/wf-core/src/repos/vault_pages.rs`, `apps/web/src/backend/providers/postgrest/rust-repository.ts` |
 
 ## Types
 

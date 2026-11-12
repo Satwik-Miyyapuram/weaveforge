@@ -1,7 +1,8 @@
 "use client";
 
 import { formatError } from "@/lib/format-error";
-import { formatDateTime } from "@/lib/parts-1";
+import { localOffset } from "@/lib/parts-1";
+import { readyCore } from "@/lib/rust-core";
 import { useState } from "react";
 import { useAuth } from "@/features/auth";
 import { useSyncStatus } from "./use-sync";
@@ -35,7 +36,7 @@ export function SyncSettingsPanel() {
         </p>
         <p className="muted">
           {status.lastPullAt
-            ? `Last checked ${formatDateTime(status.lastPullAt)}.`
+            ? `Last checked ${readyCore().formatDateTime(status.lastPullAt, localOffset(status.lastPullAt))}.`
             : "Not checked yet."}
         </p>
         <Button

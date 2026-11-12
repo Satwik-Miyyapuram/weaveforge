@@ -20,7 +20,8 @@ import { ChevronIcon } from "@/components/chevron-icon";
  *
  * The content is hardcoded rather than fetched: this route is public and must
  * render with no session, no project and no database. It mirrors the project's
- * own showcase seed (scripts/seed-showcase-data.mjs).
+ * own showcase seed (data in crates/wf-core/src/repos/showcase_data, run by
+ * scripts/seed-showcase-data.mjs).
  */
 
 /** Joins module class names written the way they read in the CSS: `k("obj card")`. */

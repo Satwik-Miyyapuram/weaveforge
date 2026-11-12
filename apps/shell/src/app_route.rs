@@ -1,4 +1,4 @@
-//! Routes one `app://` request in the Electron order (`serveBundle` in apps/desktop/src/main.ts):
+//! Routes one `app://` request in the Electron order (`serveBundle` in the retired Electron shell):
 //! cached model weights, saved artifacts, the `/api/` relays, then the web export.
 //! Saved artifacts are also served same-origin under `/artifacts/`, which Windows webviews need.
 

@@ -25,8 +25,8 @@ export const TITLE_BAR_BOOT_SCRIPT = `try{var w=window.weaveforge;if(w&&w.platfo
 
 /**
  * The shell's menu shortcuts (Ctrl+,) ask the page through this; see `routeTo`.
- * Same string as `PAGE_COMMAND_EVENT` in apps/desktop/src/app-menu.ts, checked
- * by apps/desktop/test/app-menu.test.ts.
+ * Same string as `PAGE_COMMAND_EVENT` in apps/shell/src/menu.rs, checked
+ * by the shell menu tests.
  */
 const MENU_COMMAND_EVENT = "weaveforge:menu-command";
 

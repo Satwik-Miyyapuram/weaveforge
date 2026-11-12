@@ -19,7 +19,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
  * click is behind the navigation, and they withhold it silently.
  *
  * The port is fixed because Supabase matches redirect URLs against a literal
- * allow list; it is repeated rather than imported because `apps/desktop` is not
+ * allow list; it is repeated rather than imported because `apps/shell` is not
  * a dependency of `apps/web`, and the desktop test asserts the two agree.
  */
 const AUTH_LOOPBACK_PORT = 53682;

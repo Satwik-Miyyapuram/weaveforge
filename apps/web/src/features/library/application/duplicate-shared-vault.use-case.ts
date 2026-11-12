@@ -1,7 +1,7 @@
 import type {
   IShareRepository,
+  IVaultPageManager,
   IVaultPageRepository,
-  ManageVaultPageUseCase,
   VaultPage,
 } from "@weaveforge/core";
 import { LibraryPinError } from "@weaveforge/core";
@@ -20,7 +20,7 @@ export class DuplicateSharedVaultPageUseCase {
     private readonly deps: {
       shares: IShareRepository;
       pages: IVaultPageRepository;
-      manageVaultPage: ManageVaultPageUseCase;
+      manageVaultPage: IVaultPageManager;
       assets: IVaultAssetStore;
     },
   ) {}

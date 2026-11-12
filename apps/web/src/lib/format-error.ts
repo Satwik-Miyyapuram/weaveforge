@@ -1,411 +1,60 @@
-import { readyCore } from "@/lib/rust-core";
-import { isSessionLost, isSignedOutRefusal, SESSION_LOST_MESSAGE } from "./parts";
-
 /**
- * Browser network failures, which arrive as a bare TypeError. The phrase match
- * lives in Rust (`error_report::network_failure`); see the wf-core module for
- * why "Failed to fetch", "NetworkError when attempting to fetch" and "Load
- * failed" all count and "Upload failed" does not.
+ * Error text for the UI and the API routes. The wording lives in Rust
+ * (`wf_core::error_report::format`); this module keeps the import paths the
+ * callers use and passes the page state across. Formatting needs the wasm core.
  */
-function isNetworkMessage(message: string): boolean {
-  // formatError also reports a failed wasm load, so this must not throw back
-  // into it. When the core is not ready, treat the message as plain text.
-  try {
-    return readyCore().isNetworkFailure(message);
-  } catch {
-    return false;
-  }
-}
+import { readyCore, type RustCore } from "@/lib/rust-core";
+import { pageEnv } from "./http-response";
 
-/**
- * Whether `err` is a request that never reached a server — as a thrown
- * `TypeError` or as the plain object supabase-js hands back. A refusal the
- * server did send (a status, a PostgREST code) is not one.
- */
-export function isNetworkFailure(err: unknown): boolean {
-  const message =
-    err instanceof Error
-      ? err.message
-      : typeof err === "object" && err !== null && typeof (err as { message?: unknown }).message === "string"
-        ? (err as { message: string }).message
-        : "";
-  return isNetworkMessage(message);
-}
+export { httpContext, readJsonBody, responseError } from "./http-response";
 
-/**
- * Text between `prefix` and the next `)`, e.g. the host in `(could not reach h)`.
- * Linear scan; the regex it replaces was quadratic on unclosed markers.
- */
-function markerValue(message: string, prefix: string): string | undefined {
-  const start = message.indexOf(prefix);
-  if (start < 0) return undefined;
-  const from = start + prefix.length;
-  const end = message.indexOf(")", from);
-  return end > from ? message.slice(from, end) : undefined;
-}
-
-function networkFailureMessage(message: string): string | null {
-  const lower = message.toLowerCase();
-  if (lower.includes("dynamically imported module")) {
-    return "Could not load part of the app. This usually means a new version was deployed while this tab was open — reload the page.";
-  }
-  if (!isNetworkMessage(message)) return null;
-  // The client names the host it was going to (see providers/postgrest/client),
-  // and this app talks to two of them — keep it, because "which one" is the
-  // whole of what a reader can pass on to whoever can fix it.
-  const host = markerValue(message, "(could not reach ");
-  /**
-   * The host answered a probe that CORS does not apply to, so it is up.
-   *
-   * **This used to be a verdict, and that was a bug.** The client's marker read
-   * `(origin refused by <host>)` and this function turned it into a paragraph
-   * naming `CORS_ALLOWED_ORIGINS`, telling the reader their server's allow-list
-   * was at fault. But the probe behind it used `mode: "no-cors"`, which resolves
-   * for *any* response — `200`, `401`, `404` alike — so "reachable" was true for
-   * almost any reply whatsoever, and the conclusion did not follow from the
-   * evidence. It sent someone to edit a Caddyfile that was already correct, twice.
-   *
-   * What the observation actually supports: the host is up and answered, so the
-   * problem is not the connection — and the browser's own words, which the client
-   * now carries through, are the part that says what happened. Both are kept.
-   */
-  const answered = /\(host answered\)/.exec(message) !== null;
-  const browserSaid = markerValue(message, "(browser said: ");
-  if (answered) {
-    const where = typeof window === "undefined" ? "this app" : window.location.origin;
-    return (
-      `The API at ${host ?? "the server"} answered a reachability check, so it is running — but this ` +
-      `request from ${where} failed. ` +
-      (browserSaid ? `The browser said: “${browserSaid}”. ` : "") +
-      "That is what a CORS refusal, a blocked request or an expired session looks like from here, " +
-      "and the distinction needs the Network tab or the server's log. Reload and try again; if it " +
-      "persists, the browser's own words above are the part worth passing on."
-    );
-  }
-  const what = host ? `Could not reach ${host}.` : "Could not reach the server.";
-  // The origin, named, because on this deployment it is the usual cause and it is the
-  // one fact a reader can act on without opening a Network tab. The allow-list covers
-  // only `weaveforge.org`, `app://weaveforge` and `localhost:3000|3100`, so a preview
-  // deployment, a dev server on another port and a local API on a bare IP all produce
-  // this while the network is perfectly fine.
-  const origin = typeof window === "undefined" ? null : window.location.origin;
-  const hint =
-    origin && host
-      ? ` If the network is fine, check that this origin (${origin}) is on the API's CORS allow-list.`
-      : "";
-  return `${what} The request never left this browser, so check your connection, VPN, or any extension blocking it, then try again.${hint}`;
-}
+/** Shown for an empty or unusable error value. Duplicates the Rust `GENERIC_ERROR`; keep them equal. */
 export const GENERIC_ERROR = "Something went wrong.";
 
-// Runtime error names worth keeping: "TypeError: x is undefined" says far more in a bug report than "x is undefined".
-const RUNTIME_ERROR_NAMES = new Set([
-  "TypeError", "RangeError", "ReferenceError", "SyntaxError", "EvalError", "URIError",
-  "AbortError", "TimeoutError", "NotAllowedError", "QuotaExceededError", "SecurityError",
-  "NotFoundError", "InvalidStateError", "DataError", "NotReadableError", "OperationError",
-]);
-
-/** The `cause` chain of an Error, innermost last, capped so a cycle cannot loop. */
-function causeChain(err: Error): string {
-  const parts: string[] = [];
-  let cause: unknown = err.cause;
-  for (let depth = 0; cause != null && depth < 3; depth++) {
-    if (cause instanceof Error) {
-      const code = (cause as { code?: unknown }).code;
-      parts.push(`${cause.name}: ${cause.message || "(no message)"}${typeof code === "string" ? ` [${code}]` : ""}`);
-      cause = cause.cause;
-    } else {
-      parts.push(typeof cause === "string" ? cause : describeForLog(cause));
-      break;
-    }
+/** The core, or null before it loads: error paths must still show something when the wasm load is what failed. */
+function loadedCore(): RustCore | null {
+  try {
+    return readyCore();
+  } catch {
+    return null;
   }
-  return parts.length ? ` (cause: ${parts.join(" ← ")})` : "";
 }
 
-function describeErrorInstance(err: Error, withCause: boolean): string {
-  const trimmed = err.message?.trim();
-  if (!trimmed || trimmed === "[object Object]") {
-    return `${err.name || "Error"} (no message)${withCause ? causeChain(err) : ""}`;
-  }
-  const network = networkFailureMessage(trimmed);
-  if (network) return network;
-  const named = RUNTIME_ERROR_NAMES.has(err.name) && !trimmed.includes(err.name) ? `${err.name}: ${trimmed}` : trimmed;
-  return withCause ? named + causeChain(err) : named;
+/** Plain wording for `value` before the core loads. */
+function rawMessage(value: unknown): string {
+  return value instanceof Error ? value.message || GENERIC_ERROR : String(value ?? GENERIC_ERROR);
 }
 
-/** A rejection reason for the log: PostgREST errors are plain objects, and String() of one says nothing. */
+/** Whether `err` is a request that never reached a server (a `TypeError`, or the plain object supabase-js returns). */
+export function isNetworkFailure(err: unknown): boolean {
+  return readyCore().isNetworkFailureValue(err);
+}
+
+/** A rejection reason for the log: the error's name and message, or its JSON. */
 export function describeRejection(reason: unknown): string {
-  if (reason instanceof Error) return `${reason.name} ${reason.message}`;
-  if (reason == null) return "";
-  if (typeof reason !== "object") return String(reason);
-  const text = formatErrorWith(reason, false);
-  const code = (reason as { code?: unknown }).code;
-  return typeof code === "string" && code && !text.includes(code) ? `${text} (${code})` : text;
+  const core = loadedCore();
+  if (!core) return rawMessage(reason);
+  const [origin, sessionLost] = pageEnv();
+  return core.describeRejection(reason, origin, sessionLost);
 }
 
-/** Extract a human-readable message from unknown thrown values (incl. Supabase/PostgREST). */
+/** The message to show for a thrown value. */
 export function formatError(err: unknown): string {
-  return formatErrorWith(err, true);
+  const core = loadedCore();
+  if (!core) return rawMessage(err);
+  const [origin, sessionLost] = pageEnv();
+  return core.formatError(err, origin, sessionLost);
 }
 
-function formatErrorWith(err: unknown, withCause: boolean): string {
-  if (err == null) return GENERIC_ERROR;
-  if (isSessionLost() && signedOutRefusal(err)) return SESSION_LOST_MESSAGE;
-
-  if (typeof err === "string") {
-    const trimmed = err.trim();
-    return trimmed && trimmed !== "[object Object]" ? trimmed : GENERIC_ERROR;
-  }
-
-  if (err instanceof Error) return describeErrorInstance(err, withCause);
-
-  if (typeof err === "object") {
-    const record = err as Record<string, unknown>;
-    const message = record.message;
-    // PostgREST's "no such function": the app is newer than the database it is
-    // talking to. Its raw text ("Could not find the function
-    // public.metric_history(p_experiment_id, …) in the schema cache") reads like
-    // a crash; what it means is that a migration has not been applied yet.
-    if (record.code === "PGRST202") {
-      const fn = typeof message === "string" ? /function ([\w.]+)\(/.exec(message)?.[1] : undefined;
-      return (
-        `The server's database is older than this version of the app${fn ? ` (it has no ${fn.replace(/^public\./, "")} function yet)` : ""}. ` +
-        "Whoever runs the server needs to apply the latest migrations (npm run migrate:schema). (PGRST202)"
-      );
-    }
-    if (typeof message === "string" && message.trim()) {
-      const trimmed = message.trim();
-      // supabase-js hands a failed fetch back as a plain object, so the network
-      // wording has to be reachable from here too, not only from Error.
-      return networkFailureMessage(trimmed) ?? trimmed;
-    }
-    if (message != null && typeof message === "object") return formatErrorWith(message, withCause);
-
-    const code = typeof record.code === "string" ? record.code : null;
-    const details = typeof record.details === "string" ? record.details : null;
-    const hint = typeof record.hint === "string" ? record.hint : null;
-    const errorField = record.error;
-    if (errorField != null && errorField !== err) {
-      const nested = formatErrorWith(errorField, withCause);
-      if (nested !== GENERIC_ERROR) return nested;
-    }
-
-    const parts: string[] = [];
-    if (typeof message === "string" && message.trim()) parts.push(message.trim());
-    if (details) parts.push(details);
-    if (hint) parts.push(hint);
-    if (code) parts.push(`(${code})`);
-    if (parts.length > 0) {
-      const text = parts.join(" — ");
-      if (text.includes("api_tokens") || code === "PGRST205" || code === "42P01") {
-        return `${text}. Apply the schema migrations (npm run migrate:schema; migration 0061) if API tokens are not set up yet.`;
-      }
-      return text;
-    }
-  }
-
-  try {
-    const json = JSON.stringify(err);
-    if (json && json !== "{}" && json !== "null") return json;
-  } catch {
-    /* ignore */
-  }
-
-  return GENERIC_ERROR;
-}
-
-/** Whether `err` is the server refusing a request that carried no sign-in. */
-function signedOutRefusal(err: unknown): boolean {
-  if (typeof err === "string") return isSignedOutRefusal(err, null);
-  if (!err || typeof err !== "object") return false;
-  const record = err as Record<string, unknown>;
-  const message = typeof record.message === "string" ? record.message : "";
-  const code = typeof record.code === "string" ? record.code : null;
-  return isSignedOutRefusal(message, code);
-}
-
-/** "(HTTP 502 Bad Gateway from /api/x)": path only, a query can carry tokens. */
-export function httpContext(res: Response): string {
-  let path = "";
-  try {
-    path = res.url ? new URL(res.url).pathname : "";
-  } catch {
-    /* relative or empty url */
-  }
-  const status = `HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ""}`;
-  return path ? `(${status} from ${path})` : `(${status})`;
-}
-
-/** An Error for a non-ok response: the server's words (or `fallback`) plus status and path. */
-export function responseError(res: Response, serverMessage: unknown, fallback: string): Error {
-  const said = serverMessage == null ? "" : formatError(serverMessage);
-  const text = said && said !== GENERIC_ERROR ? said : fallback;
-  return new Error(`${text} ${httpContext(res)}`);
-}
-
-/** Response text for a body that failed to parse, keeping the parser's reason. */
+/** "Invalid JSON body: <reason>" for a body that failed to parse. */
 export function jsonBodyError(err: unknown): string {
-  const why = err instanceof Error && err.message ? err.message : String(err);
-  return `Invalid JSON body: ${why}`;
+  return readyCore().jsonBodyError(err);
 }
 
-/** Parse a fetch response body; empty or invalid JSON becomes a safe object. */
-export async function readJsonBody(res: Response): Promise<Record<string, unknown>> {
-  const text = await res.text();
-  if (!text.trim()) return {};
-  try {
-    const parsed = JSON.parse(text) as unknown;
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
-    }
-    return { data: parsed };
-  } catch {
-    const snippet = text.slice(0, 300).trim();
-    return { error: `${snippet ? `Server sent non-JSON: ${snippet}` : "Request failed."} ${httpContext(res)}` };
-  }
-}
-
-// ---------------------------------------------------------------------------
-// The wire formatter.
-//
-// `formatError` above is the *display* formatter: it is what the UI shows the
-// person whose own data is in the message, in their own browser, and its whole
-// point is to be specific — "permission denied for table user_settings" is a
-// bad thing to hide from the person who owns the database it names. It is the
-// right thing to hand a `<p class="error">` and the wrong thing to hand a
-// response body.
-//
-// So there are two, and this is the second. Everything a route puts in
-// `{ error: ... }` goes through `formatErrorForResponse`, which keeps the
-// caller's own mistakes legible and replaces the server's internals with
-// something that says the same thing without naming a table, a constraint or a
-// column.
-//
-// What actually leaked before this: a PostgREST failure reaches a route as
-// `{ message, details, hint, code }` and routes returned `error.message`
-// verbatim (or `formatError(error)`, which for that shape *is* the message).
-// Raw Postgres text includes `duplicate key value violates unique constraint
-// "api_tokens_token_hash_idx"`, `new row violates row-level security policy for
-// table "experiment_metric_points"` and `relation "user_settings" does not
-// exist` — schema names, and in the unique-violation case the key value itself,
-// i.e. the caller's own token hash. The `message — details — hint (code)` join
-// the review cites is real but is only reached for an error with no `message`
-// at all; the leak does not depend on it. That join is still the display
-// formatter's job and is unchanged.
-// ---------------------------------------------------------------------------
-
-/**
- * The SQLSTATE classes PostgreSQL actually defines.
- *
- * A SQLSTATE is five characters — a two-character class and a three-character
- * subclass — and the class is *not* always numeric: `XX000` is `internal_error`,
- * `P0001` is a `raise exception` from a function, `HV000` is foreign-data
- * wrapper. A digits-only test would therefore pass `XX000` straight through to
- * the caller unsanitised, which is the leak this formatter exists to close, so
- * the classes are listed rather than pattern-matched.
- *
- * The list is Appendix A of the PostgreSQL manual. A code whose class is not
- * here is not treated as a database error — which is what keeps Node's own
- * errno codes out. They are also five uppercase letters (`EPERM`, `EBADF`,
- * `ENXIO`, `EPIPE`), and classifying one as a database error would hide a
- * filesystem message behind "Something went wrong on the server."
- */
-const SQLSTATE_CLASSES = new Set([
-  "00", "01", "02", "03", "08", "09", "0A", "0B", "0F", "0L", "0P", "0Z",
-  "20", "21", "22", "23", "24", "25", "26", "27", "28", "2B", "2D", "2F",
-  "34", "38", "39", "3B", "3D", "3F", "40", "42", "44",
-  "53", "54", "55", "57", "58", "72",
-  "F0", "HV", "P0", "XX",
-]);
-
-/** A PostgreSQL SQLSTATE, or a PostgREST-invented code (`PGRST205`). */
-function databaseCode(err: unknown): string | null {
-  if (!err || typeof err !== "object") return null;
-  const raw = (err as { code?: unknown }).code;
-  if (typeof raw !== "string") return null;
-  const code = raw.trim();
-  if (!code) return null;
-  if (code.startsWith("PGRST")) return code;
-  if (code.length === 5 && SQLSTATE_CLASSES.has(code.slice(0, 2))) return code;
-  return null;
-}
-
-/**
- * The database refusals that are the caller's to fix, in the caller's terms.
- *
- * Class-level rather than message-level, deliberately: the raw text is what
- * leaks, so the replacement is chosen from the code alone and never quotes the
- * original. `42501` is both "permission denied" and a row-level-security
- * refusal — Postgres reports a policy rejection as `42501` — which is why the
- * wording is about permission rather than about the schema.
- */
-const CALLER_FAULT_MESSAGES: Record<string, string> = {
-  "23502": "A required field was missing.",
-  "23503": "That refers to a record that no longer exists.",
-  "23505": "That value is already in use.",
-  "23514": "One of the values sent was not accepted.",
-  "22P02": "One of the values sent was in the wrong format.",
-  "42501": "You do not have permission to do that.",
-};
-
-/**
- * Codes that mean "this deployment has not run its migrations".
- *
- * `42P01` is undefined_table and `PGRST205` is PostgREST's "not in the schema
- * cache" — the two ways a missing migration presents itself.
- *
- * The hint is kept, deliberately, because it is the one case where the generic
- * message is actively unhelpful to the only person who can act on it: an
- * operator who has just deployed and forgotten `npm run migrate:schema` sees a 500 on
- * every request and needs to be told why. What is *not* kept is the table name
- * — the existing hint in `formatError` says "if API tokens are not set up yet",
- * which names a table to whoever is holding the response. The reworded version
- * says the same useful thing without it. Every route that reaches this formatter
- * has already required a bearer token, so this is not an unauthenticated
- * disclosure either way, but it costs nothing to say it without the table.
- */
-const MIGRATION_INCOMPLETE = new Set(["42P01", "PGRST205"]);
-
-const MIGRATION_HINT =
-  "The server is missing a database migration; apply the schema migrations (npm run migrate:schema) and try again.";
-
-/** The hidden detail, in a form a log reader can use. */
-function describeForLog(err: unknown): string {
-  if (err instanceof Error) return `${err.name}: ${err.message}`;
-  if (err && typeof err === "object") {
-    try {
-      return JSON.stringify(err);
-    } catch {
-      /* fall through */
-    }
-  }
-  return String(err);
-}
-
-/**
- * The message a route may put in a response body.
- *
- * Anything the database produced is replaced: the full error is logged (the
- * convention in this codebase is `console.error` — see `error-boundary-parts`)
- * and the caller gets the SQLSTATE's safe wording plus the code itself. The
- * code is kept because it is the single most useful debugging token for the SDK
- * caller and names nothing: "You do not have permission to do that. (42501)" is
- * actionable, and `42501` says no more than the sentence does.
- *
- * Anything else — a validation error, a config message, a network failure, a
- * deliberate refusal thrown by this application — is already written for a
- * reader and passes through unchanged. That is the half the SDK needs: a
- * `MemberValidationError` still explains itself, and `Server is missing
- * SUPABASE_JWT_SECRET` still reads as the 503 it is.
- */
+/** The message a route may put in a response body; the full error is logged, not returned. */
 export function formatErrorForResponse(err: unknown, context = "api"): string {
-  const code = databaseCode(err);
-  if (code === null) {
-    // Causes can carry internal hosts or driver text: log them, keep them out of the body.
-    if (err instanceof Error && err.cause != null) console.error(`[${context}] ${describeForLog(err)}${causeChain(err)}`);
-    return formatErrorWith(err, false);
-  }
-
-  const safe = MIGRATION_INCOMPLETE.has(code) ? MIGRATION_HINT : CALLER_FAULT_MESSAGES[code];
-  console.error(`[${context}] database error ${code}: ${describeForLog(err)}`);
-  return `${safe ?? "Something went wrong on the server."} (${code})`;
+  const [origin, sessionLost] = pageEnv();
+  const { message, log } = readyCore().formatErrorForResponse(err, context, origin, sessionLost);
+  if (log !== undefined) console.error(log);
+  return message;
 }

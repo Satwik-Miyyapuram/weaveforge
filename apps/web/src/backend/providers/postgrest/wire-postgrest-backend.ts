@@ -18,12 +18,8 @@ import { rustPaperRepository } from "@/features/papers/infrastructure/postgrest-
 import { rustMilestoneRepository } from "@/features/plan/infrastructure/milestone-rows";
 import { rustReaderAnnotationRepository } from "@/features/reader/infrastructure/parts-1";
 import {
-  rustReadingListItemRepository,
-  rustReadingListRepository,
-  rustScreeningRepository,
-} from "@/features/reading-lists/infrastructure/parts";
-import {
   PostgrestSettingsRepository,
+  type SettingsWrites,
 } from "@/features/settings/infrastructure/parts";
 import type { IIntegrationsStore } from "@/features/sync/domain/parts";
 import { cacheRepo } from "@/lib/cache/parts-1";
@@ -44,19 +40,23 @@ import {
   type ICommentRepository,
   type ICurrentUserProvider,
   type IDashboardLayoutRepository,
+  type IExperimentManager,
   type IExperimentRepository,
   type IGraphSettingsRepository,
   type ILabSnapshotRepository,
   type ILibraryPinRepository,
+  type ILogEntryManager,
   type ILogEntryRepository,
   type IMemberRepository,
   type IMetricRepository,
+  type IMilestoneManager,
   type IMilestoneRepository,
   type IPaperFieldRepository,
   type IPaperRelationRepository,
   type IPaperRepository,
   type IPaperTagRepository,
   type IProjectBibliographyCollectionStore,
+  type IProjectManager,
   type IProjectRepository,
   type IReaderAnnotationProjectSource,
   type IReaderAnnotationSink,
@@ -64,12 +64,16 @@ import {
   type IReaderAnnotationSyncRecorder,
   type IReadingListItemRepository,
   type IReadingListRepository,
+  type IReportSectionManager,
   type IReportSectionRepository,
   type IScreeningRepository,
+  type ReadingList,
   type ISettingsRepository,
   type IShareRepository,
   type ISupervisionRepository,
+  type ITagManager,
   type ITagRepository,
+  type IVaultPageManager,
   type IVaultPageRepository,
   type ManageSettingsUseCase,
   ManageSettingsUseCase as ManageSettingsUseCaseClass,
@@ -128,8 +132,8 @@ export function rustIntegrationsStore(db: SupabaseClient): IIntegrationsStore {
 }
 
 /** `projects` through the Rust step engine; `save` stamps the signed-in user. */
-function rustProjectRepository(db: SupabaseClient, session: ICurrentUserProvider): IProjectRepository {
-  return rustRepository<IProjectRepository>(db, "projects", ["getById", "list", "save", "delete"], async () => ({
+function rustProjectRepository(db: SupabaseClient, session: ICurrentUserProvider): IProjectRepository & IProjectManager {
+  return rustRepository<IProjectRepository & IProjectManager>(db, "projects", ["getById", "list", "save", "delete", "create", "remove"], async () => ({
     userId: (await session.getCurrentUserId()) ?? undefined,
   }));
 }
@@ -163,32 +167,32 @@ export interface WiredPostgrestBackend {
   readonly auth: IAuthService;
   readonly adminProvisioner: IAdminUserProvisioner | null;
   readonly projectContext: ProjectContext;
-  readonly settingsRepository: ISettingsRepository;
+  readonly settingsRepository: ISettingsRepository & SettingsWrites;
   readonly manageSettings: ManageSettingsUseCase;
-  readonly projectRepository: IProjectRepository;
+  readonly projectRepository: IProjectRepository & IProjectManager;
   readonly dashboardLayoutRepository: IDashboardLayoutRepository;
   readonly graphSettingsRepository: IGraphSettingsRepository;
   readonly integrationsStore: IIntegrationsStore;
   readonly paperRepository: IPaperRepository;
-  readonly tagRepository: ITagRepository;
+  readonly tagRepository: ITagRepository & ITagManager;
   readonly paperTagRepository: IPaperTagRepository;
-  readonly logEntryRepository: ILogEntryRepository;
-  readonly reportSectionRepository: IReportSectionRepository;
+  readonly logEntryRepository: ILogEntryRepository & ILogEntryManager;
+  readonly reportSectionRepository: IReportSectionRepository & IReportSectionManager;
   readonly readingListRepository: IReadingListRepository;
   readonly readingListItemRepository: IReadingListItemRepository;
   readonly screeningRepository: IScreeningRepository;
   readonly paperRelationRepository: IPaperRelationRepository;
-  readonly experimentRepository: IExperimentRepository;
+  readonly experimentRepository: IExperimentRepository & IExperimentManager;
   readonly metricRepository: IMetricRepository;
   readonly shareRepository: IShareRepository;
   readonly commentRepository: ICommentRepository;
   readonly sharedReader: ISharedReader;
-  readonly milestoneRepository: IMilestoneRepository;
-  readonly memberRepository: IMemberRepository;
+  readonly milestoneRepository: IMilestoneRepository & IMilestoneManager;
+  readonly memberRepository: IMemberRepository & { assertCanCreate(role: string): Promise<void> };
   readonly supervisionRepository: ISupervisionRepository;
   readonly projectBibliographyCollection: IProjectBibliographyCollectionStore;
   readonly rawBlobStore: IBlobStore;
-  readonly rawVaultPageRepository: IVaultPageRepository;
+  readonly rawVaultPageRepository: IVaultPageRepository & IVaultPageManager;
   readonly libraryPinRepository: ILibraryPinRepository;
   readonly citationAlertTrackRepository: ICitationAlertTrackRepository;
   readonly annotationPinRepository: IAnnotationPinRepository;
@@ -217,7 +221,7 @@ export interface BackendParts {
   auth: IAuthService;
   blobStore: IBlobStore;
   /** Settings differ only in where the integration credentials are kept. */
-  settingsRepository: ISettingsRepository;
+  settingsRepository: ISettingsRepository & SettingsWrites;
 }
 
 export function wirePostgrestBackend(
@@ -254,7 +258,7 @@ export function wirePostgrestBackend(
   const projectRepository = cacheRepo(
     rustProjectRepository(db, session),
     ["getById", "list"],
-    ["save", "delete"],
+    ["save", "delete", "create", "remove"],
     pid,
     { resourceType: "project" },
   );
@@ -277,15 +281,34 @@ export function wirePostgrestBackend(
 
   const tagPaperCache = new Map<string, Promise<unknown>>();
   const tagPaperSettled = new Map<string, unknown>();
+  // Tag membership writes (setManualTags, mergeTags, ...) go through the same
+  // cached repo so the tag cache and the write notification stay in one place.
   const tagRepository = cacheRepo(
-    rustRepository<ITagRepository>(
+    rustRepository<ITagRepository & ITagManager>(
       db,
       "tags",
-      ["getById", "findByName", "list", "listWithCounts", "save", "delete"],
+      [
+        "getById",
+        "findByName",
+        "list",
+        "listAll",
+        "listWithCounts",
+        "listForPaper",
+        "listPapersForTag",
+        "listPaperTagLinks",
+        "save",
+        "delete",
+        "setManualTags",
+        "mergeTags",
+        "removeManualTag",
+        "reconcileSources",
+        "mergeConcepts",
+        "refreshPaperCache",
+      ],
       projectUserCtx(projectContext),
     ),
-    ["getById", "findByName", "list", "listWithCounts"],
-    ["save", "delete"],
+    ["getById", "findByName", "list", "listAll", "listWithCounts", "listForPaper", "listPapersForTag", "listPaperTagLinks"],
+    ["save", "delete", "setManualTags", "mergeTags", "removeManualTag", "reconcileSources", "mergeConcepts", "refreshPaperCache"],
     pid,
     { resourceType: "tag", sharedCache: tagPaperCache, sharedSettled: tagPaperSettled },
   );
@@ -306,21 +329,34 @@ export function wirePostgrestBackend(
   );
 
   const logEntryRepository = cacheRepo(
-    rustRepository<ILogEntryRepository>(db, "log_entries", ["getById", "list", "save", "delete"], projectUserCtx(projectContext)),
+    rustRepository<ILogEntryRepository & ILogEntryManager>(db, "log_entries", ["getById", "list", "save", "delete", "add", "update", "remove"], projectUserCtx(projectContext)),
     ["getById", "list"],
-    ["save", "delete"],
+    ["save", "delete", "add", "update", "remove"],
     pid,
     { resourceType: "log_entry" },
   );
   const reportSectionRepository = cacheRepo(
-    rustRepository<IReportSectionRepository>(
+    rustRepository<IReportSectionRepository & IReportSectionManager>(
       db,
       "report_sections",
-      ["getById", "list", "getTree", "save", "delete"],
+      [
+        "getById",
+        "list",
+        "getTree",
+        "save",
+        "delete",
+        "add",
+        "setTitle",
+        "setParent",
+        "setStatus",
+        "setProgress",
+        "setNotes",
+        "remove",
+      ],
       projectUserCtx(projectContext),
     ),
     ["getById", "list", "getTree"],
-    ["save", "delete"],
+    ["save", "delete", "add", "setTitle", "setParent", "setStatus", "setProgress", "setNotes", "remove"],
     pid,
     { resourceType: "report_section" },
   );
@@ -331,19 +367,33 @@ export function wirePostgrestBackend(
   const rawVaultPageRepository = cacheRepo(
     rustVaultPageRepository(db, projectContext),
     ["getById", "list", "listSummaries", "getTree"],
-    ["save", "delete"],
+    ["save", "delete", "add", "update", "remove"],
     pid,
     { resourceType: "vault_page" },
   );
   const readingListRepository = cacheRepo(
-    rustReadingListRepository(db, projectContext),
+    rustRepository<IReadingListRepository & { listByIds(ids: readonly string[]): Promise<ReadingList[]> }>(
+      db,
+      "reading_lists",
+      ["getById", "listByIds", "list", "getTree", "save", "delete"],
+      projectUserCtx(projectContext),
+    ),
     ["getById", "list", "getTree"],
     ["save", "delete"],
     pid,
     { resourceType: "reading_list" },
   );
   const readingListItemRepository = cacheRepo(
-    rustReadingListItemRepository(db),
+    rustRepository<IReadingListItemRepository>(db, "reading_list_items", [
+      "listItems",
+      "listItemsForLists",
+      "listsForPaper",
+      "listsForNote",
+      "find",
+      "findNote",
+      "add",
+      "remove",
+    ] as (keyof IReadingListItemRepository & string)[]),
     ["listItems", "listItemsForLists", "listsForPaper", "find"],
     ["add", "remove"],
     pid,
@@ -351,7 +401,11 @@ export function wirePostgrestBackend(
   );
   // Not cached: a decision another reviewer records is the point of the screen,
   // and a cache would show you your own half of it until something evicted.
-  const screeningRepository = rustScreeningRepository(db);
+  const screeningRepository = rustRepository<IScreeningRepository>(db, "screening_decisions", [
+    "listForItems",
+    "record",
+    "remove",
+  ]);
 
   const paperRelationRepository = cacheRepo(
     rustRepository<IPaperRelationRepository>(
@@ -368,7 +422,7 @@ export function wirePostgrestBackend(
   const experimentRepository = cacheRepo(
     rustExperimentRepository(db, projectContext),
     ["getById", "list"],
-    ["save", "patch", "delete"],
+    ["save", "patch", "delete", "add", "setStatus", "recordMetrics", "addArtifacts", "setResultNote", "remove"],
     pid,
     { resourceType: "experiment" },
   );
@@ -398,7 +452,7 @@ export function wirePostgrestBackend(
   const milestoneRepository = cacheRepo(
     rustMilestoneRepository(db, projectContext),
     ["getById", "list"],
-    ["save", "delete"],
+    ["save", "delete", "add", "setStatus", "update", "remove"],
     pid,
     { resourceType: "milestone" },
   );

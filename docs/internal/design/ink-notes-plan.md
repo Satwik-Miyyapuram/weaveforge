@@ -1,5 +1,8 @@
 # Ink notes — handwritten notes in the editor workspace
 
+> **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
+> TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
+
 **Status:** proposal, not scheduled. Companion to
 `editor-workspace-redesign.md` §3.3, which reserves the *slots* (kind tables,
 `.ink.md` suffix, the ink tab in the prototype). This document is the plan for

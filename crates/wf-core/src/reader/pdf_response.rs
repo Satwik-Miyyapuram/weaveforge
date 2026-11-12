@@ -129,4 +129,16 @@ mod tests {
             "the PDF had no pages"
         );
     }
+
+    #[test]
+    fn read_failure_reason_names_every_browser_fetch_failure_as_cross_origin() {
+        assert_eq!(
+            read_failure_reason("NetworkError when attempting to fetch resource.", None),
+            CROSS_ORIGIN_REASON
+        );
+        assert_eq!(
+            read_failure_reason("Load failed", None),
+            CROSS_ORIGIN_REASON
+        );
+    }
 }

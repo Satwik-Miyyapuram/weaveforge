@@ -3,8 +3,8 @@
  * Fails when a desktop release has been left as a draft.
  *
  * A draft release is invisible to installed copies twice over: GitHub does not
- * return drafts to unauthenticated callers, and `newestRelease()` skips them
- * anyway (`apps/desktop/src/update-check.ts`). So a draft holding a complete
+ * return drafts to unauthenticated callers, and `newest_release()` skips them
+ * anyway (`apps/shell/src/update_check.rs`). So a draft holding a complete
  * set of installers looks, from inside the app, exactly like no release at all
  * — which is how v0.6.0 sat unreachable while the updater was blamed for it.
  *

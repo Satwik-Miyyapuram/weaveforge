@@ -1,4 +1,4 @@
-//! Tests for the app menu model and actions (ported from apps/desktop/src/app-menu.ts).
+//! Tests for the app menu model and actions (ported from the retired Electron shell).
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::cell::{Cell, RefCell};

@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Paper } from "@weaveforge/core";
-import { InMemoryPaperRepository } from "@weaveforge/core/testing";
+import { InMemoryPaperRepository } from "@core-test/in-memory";
 
 import { cachePaperRepository } from "../../../../backend/providers/postgrest/wire-postgrest-backend";
 

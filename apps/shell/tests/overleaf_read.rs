@@ -1,5 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, missing_docs)]
-//! Tests for the Overleaf read (ported from apps/desktop/src/overleaf-source.ts and the web reader and error helpers).
+//! Tests for the Overleaf read (ported from the retired Electron shell, and the web reader and error helpers).
 
 use crate::common;
 

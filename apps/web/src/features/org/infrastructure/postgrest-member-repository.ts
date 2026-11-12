@@ -25,12 +25,20 @@ interface MemberSteps {
   getMine(): Promise<Member | null>;
   listDirectory(): Promise<Member[]>;
   labContext(activeOrgId: string): Promise<LabContext>;
+  assertCanCreate(role: string): Promise<void>;
 }
 
 const OUTSIDE_LAB: LabContext = { inLab: false, orgMemberIds: null };
 
-export function memberRepository(db: SupabaseClient, session: ICurrentUserProvider): IMemberRepository {
-  const rust = rustRepository<MemberSteps>(db, "members", ["getMine", "listDirectory", "labContext"], async () => ({
+export function memberRepository(
+  db: SupabaseClient,
+  session: ICurrentUserProvider,
+): IMemberRepository & { assertCanCreate(role: string): Promise<void> } {
+  const rust = rustRepository<MemberSteps>(
+    db,
+    "members",
+    ["getMine", "listDirectory", "labContext", "assertCanCreate"],
+    async () => ({
     userId: (await session.getCurrentUserId()) ?? undefined,
   }));
 
@@ -59,5 +67,6 @@ export function memberRepository(db: SupabaseClient, session: ICurrentUserProvid
     listDirectory,
     listTeam: () => listMembers(typedCore().filterTeamMembers),
     listLab: () => listMembers(typedCore().filterLabMembers),
+    assertCanCreate: (role) => rust.assertCanCreate(role),
   };
 }

@@ -1,4 +1,4 @@
-import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
+import { emptyWorkspaceSnapshot as snapshot } from "@core-test/workspace-snapshot";
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import type { SearchDoc } from "@weaveforge/core";

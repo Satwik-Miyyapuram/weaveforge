@@ -3,7 +3,7 @@
  *
  * The desktop app is signed in to an account, so every "is this window working
  * locally?" check said no — and the build still had no server. `src/app/api/` is
- * held aside for the export (`apps/desktop/scripts/build-web.mjs`), so a fetch
+ * held aside for the export (`apps/shell/scripts/build-web.mjs`), so a fetch
  * to `/api/settings/credentials` reached the `app://` file handler and came back
  * a 404 with an empty body: `res.json()` threw, the catch left `{}`, and the
  * reader saw the generic "Failed to save integration credentials." while nothing

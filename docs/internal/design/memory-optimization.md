@@ -1,5 +1,8 @@
 # WeaveForge Desktop Memory Optimization: 530 MB Baseline Analysis & Reduction Architecture
 
+> **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
+> TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
+
 ## 1. Executive Summary & Telemetry Breakdown
 
 In its default production configuration on Windows 11 ARM64 (Surface Pro 11th Edition, Qualcomm Snapdragon X Elite, 16–32 GB RAM), the WeaveForge desktop application (Electron 33 / Chromium 130 runtime) exhibits an idle memory footprint of **~530 MB Working Set** in Windows Task Manager.

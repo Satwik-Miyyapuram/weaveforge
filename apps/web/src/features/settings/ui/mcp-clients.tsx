@@ -1,7 +1,8 @@
 "use client";
 
 import { formatError } from "@/lib/format-error";
-import { formatDate } from "@/lib/parts-1";
+import { localOffset } from "@/lib/parts-1";
+import { readyCore } from "@/lib/rust-core";
 import { useState, type KeyboardEvent } from "react";
 import { desktop, type DesktopLocalApi, type DesktopLocalApiPermission } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
@@ -25,7 +26,7 @@ const CHIP: Partial<Record<DesktopLocalApiPermission, string>> = {
 };
 
 function day(iso: string): string {
-  return formatDate(iso);
+  return readyCore().formatDate(iso, localOffset(iso));
 }
 
 function ago(iso: string, now: number): string {

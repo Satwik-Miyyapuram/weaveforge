@@ -1,7 +1,7 @@
 "use client";
 
 import { formatError } from "@/lib/format-error";
-import { formatRelative } from "@/lib/parts-1";
+import { localOffset } from "@/lib/parts-1";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
@@ -227,5 +227,5 @@ export function GitScreen() {
 
 /** A commit's time as the list shows it: "2h ago", or "20 Sep 2026" past a week. */
 function shortDate(iso: string): string {
-  return formatRelative(iso) || iso.slice(0, 10);
+  return readyCore().formatRelative(iso, new Date().toISOString(), localOffset(iso)) || iso.slice(0, 10);
 }

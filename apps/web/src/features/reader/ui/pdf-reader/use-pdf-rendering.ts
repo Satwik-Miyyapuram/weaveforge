@@ -12,7 +12,6 @@ import { getContainer } from "@/bootstrap";
 import { readyCore } from "@/lib/rust-core";
 import { perfEnd, perfStart } from "@/lib/parts-2";
 import { savePdfTextDurably } from "@/features/search/application/parts-1";
-import { isReaderObjectUrl, originalUrlFromProxy } from "../../application/sanitize-reader-url";
 import { isCachePdfUrl, readStoredPdfBytes } from "../../application/parts-3";
 import { pdfObjectUrlBytes, pdfProxyNeedsToken } from "../../application/parts";
 import { useReaderViewport, type ReaderViewportApi } from "../use-reader-viewport";
@@ -165,11 +164,11 @@ export function usePdfRendering({
 
 const safeUrl = (() => {
   if (relayPath(url).startsWith("/api/pdf-proxy?")) {
-    const original = originalUrlFromProxy(url);
+    const original = readyCore().originalUrlFromProxy(relayPath(url), url);
     return original && readyCore().isAllowedPdfProxyUrl(original) ? url : null;
   }
   // Bytes this app already cached and materialised — see isReaderObjectUrl.
-  if (isReaderObjectUrl(url)) return url;
+  if (readyCore().isReaderObjectUrl(url, typeof location === "undefined" ? undefined : location.origin)) return url;
   // The same bytes, still in the store: the desktop reader takes them as data.
   if (isCachePdfUrl(url)) return url;
   return readyCore().sanitizePdfUrl(url);
@@ -177,7 +176,7 @@ const safeUrl = (() => {
 const openUrl = (() => {
   const direct = readyCore().sanitizePdfUrl(originalUrl);
   if (direct) return direct;
-  const fromProxy = originalUrlFromProxy(url);
+  const fromProxy = readyCore().originalUrlFromProxy(relayPath(url), url);
   if (fromProxy && readyCore().isAllowedPdfProxyUrl(fromProxy)) return fromProxy;
   return readyCore().sanitizePdfUrl(url);
 })();
@@ -454,7 +453,7 @@ useEffect(() => {
       // A cached copy that will not open is recoverable: the screen can drop
       // it and refetch from the network. Offer that before showing an error,
       // so a bad cache entry is not a dead end.
-      if ((isReaderObjectUrl(safeUrl) || isCachePdfUrl(safeUrl)) && onSourceFailure) {
+      if ((readyCore().isReaderObjectUrl(safeUrl, typeof location === "undefined" ? undefined : location.origin) || isCachePdfUrl(safeUrl)) && onSourceFailure) {
         onSourceFailure(safeUrl);
         return;
       }

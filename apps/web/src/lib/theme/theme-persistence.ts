@@ -141,7 +141,7 @@ function scheduleAppearanceSave(appearance: UserAppearance): void {
 /** Best-effort server copy: a failure is logged, never thrown into the timer. */
 async function saveAppearance(appearance: UserAppearance): Promise<void> {
   try {
-    await getContainer().settings.manageSettings.saveAppearance(appearance);
+    await getContainer().settings.preferences.saveAppearance(appearance);
   } catch (error) {
     logToApp({
       level: "warn",
@@ -226,7 +226,7 @@ async function hydrateThemeFromServerUncached(): Promise<void> {
     }
 
     const local = readLocalAppearance();
-    await container.settings.manageSettings.saveAppearance(local);
+    await container.settings.preferences.saveAppearance(local);
   } finally {
     hydrating = false;
   }

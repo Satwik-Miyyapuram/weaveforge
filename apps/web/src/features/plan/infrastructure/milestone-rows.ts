@@ -1,4 +1,4 @@
-import type { IMilestoneRepository, Milestone } from "@weaveforge/core";
+import type { IMilestoneManager, IMilestoneRepository, Milestone } from "@weaveforge/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { projectUserCtx, rustRepository } from "@/backend/providers/postgrest/rust-repository";
 import type { ProjectContext } from "@/lib/parts-2";
@@ -10,8 +10,16 @@ import type { ProjectContext } from "@/lib/parts-2";
  * Rust sends unset optional fields as `null`; the domain type wants them absent,
  * so reads drop the nulls, as the stored JSON had them.
  */
-export function rustMilestoneRepository(db: SupabaseClient, project: ProjectContext): IMilestoneRepository {
-  const repo = rustRepository<IMilestoneRepository>(db, "milestones", ["getById", "list", "save", "delete"], projectUserCtx(project));
+export function rustMilestoneRepository(
+  db: SupabaseClient,
+  project: ProjectContext,
+): IMilestoneRepository & IMilestoneManager {
+  const repo = rustRepository<IMilestoneRepository & IMilestoneManager>(
+    db,
+    "milestones",
+    ["getById", "list", "save", "delete", "add", "setStatus", "update", "remove"],
+    projectUserCtx(project),
+  );
   return {
     ...repo,
     getById: async (id) => {

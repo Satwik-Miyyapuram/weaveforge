@@ -1,5 +1,8 @@
 # Phase 2 design: desktop on Tauri 2
 
+> **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
+> TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
+
 One page, per plan §4.3. Plan: [plan.md](plan.md) § Phase 2.
 
 ## Scope

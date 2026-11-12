@@ -13,7 +13,7 @@ The parse is the `url` crate's, which follows the same WHATWG rules as Node's `U
 
 - wasm exports `sameOrigin` and `originOf` in `crates/wf-wasm/src/ipc_origin.rs`.
 - No TS wrapper; typed through `rust()` in `packages/core/src/shared/rust.ts`.
-- `apps/shell/sidecar/src/ipc-guard.ts`: `sameOrigin` and `originOf` call `rust()`. `originOf` still throws `Not a URL` on `null`.
+- The TS sidecar caller is retired; no TS code calls these exports today.
 
 ## What stays in TS
 
