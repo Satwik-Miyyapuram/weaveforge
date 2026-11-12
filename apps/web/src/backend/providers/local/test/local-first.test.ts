@@ -131,6 +131,12 @@ describe("the local-first marker", () => {
     assert.equal(localFirstAccount(), null);
   });
 
+  it("keeps a non-string email as the marker holds it (old TS: parsed.email ?? null)", () => {
+    withStorage();
+    store.set("weaveforge.local-first", JSON.stringify({ id: "a1", email: 5 }));
+    assert.deepEqual(localFirstAccount(), { id: "a1", email: 5 });
+  });
+
   it("ignores a marker it cannot read", () => {
     withStorage();
     store.set("weaveforge.local-first", "{not json");
