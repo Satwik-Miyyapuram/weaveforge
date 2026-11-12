@@ -72,6 +72,23 @@ pub fn paper_image_thumbnail_path_js(path: &str) -> String {
     paper_image::paper_image_thumbnail_path(path)
 }
 
+/// [`full_image_thumbnail_path`](paper_image::full_image_thumbnail_path) (TS `PaperImageStore.remove`). The thumbnail, or `undefined`.
+#[wasm_bindgen(js_name = fullImageThumbnailPath)]
+pub fn full_image_thumbnail_path_js(path: &str) -> Option<String> {
+    paper_image::full_image_thumbnail_path(path)
+}
+
+/// [`paper_image_upload_paths`](paper_image::paper_image_upload_paths) (TS `PaperImageStore.upload`). Returns `[full, thumb]`.
+#[wasm_bindgen(js_name = paperImageUploadPaths)]
+pub fn paper_image_upload_paths_js(
+    user_id: &str,
+    paper_id: &str,
+    unique: &str,
+    ext: &str,
+) -> JsResult<JsValue> {
+    to_js(&paper_image::paper_image_upload_paths(user_id, paper_id, unique, ext))
+}
+
 /// [`is_pdf_too_large`](paper_drop::is_pdf_too_large) (TS `isPdfTooLarge`).
 #[wasm_bindgen(js_name = isPdfTooLarge)]
 pub fn is_pdf_too_large_js(size_bytes: f64) -> bool {

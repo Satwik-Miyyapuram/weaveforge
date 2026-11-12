@@ -61,3 +61,83 @@ pub fn zotero_headers_js(api_key: &str) -> Result<JsValue, JsValue> {
 pub fn zotero_top_level_path_js(collection: Option<String>) -> String {
     zotero_library::zotero_top_level_path(collection.as_deref())
 }
+
+/// [`zotero_page_url`](zotero_library::zotero_page_url): one page of a Zotero read (TS `buildUrl`).
+/// `params` is the `Object.entries` list of the request params, so its order is kept.
+///
+/// # Errors
+///
+/// Fails if `params` is not a list of `[key, value]` pairs.
+#[wasm_bindgen(js_name = zoteroPageUrl)]
+pub fn zotero_page_url_js(
+    base_url: &str,
+    path: Option<String>,
+    #[wasm_bindgen(unchecked_param_type = "readonly [string, string | null | undefined][]")]
+    params: JsValue,
+    start: u32,
+    limit: u32,
+) -> Result<String, JsValue> {
+    let params: Vec<(String, Option<String>)> = serde_wasm_bindgen::from_value(params)?;
+    Ok(zotero_library::zotero_page_url(
+        base_url,
+        path.as_deref(),
+        &params,
+        u64::from(start),
+        u64::from(limit),
+    ))
+}
+
+/// [`zotero_keys_url`](zotero_library::zotero_keys_url): a keys-only read (TS `fetchZoteroItemKeys`).
+///
+/// # Errors
+///
+/// Fails if `params` is not a list of `[key, value]` pairs.
+#[wasm_bindgen(js_name = zoteroKeysUrl)]
+pub fn zotero_keys_url_js(
+    base_url: &str,
+    path: Option<String>,
+    #[wasm_bindgen(unchecked_param_type = "readonly [string, string | null | undefined][]")]
+    params: JsValue,
+) -> Result<String, JsValue> {
+    let params: Vec<(String, Option<String>)> = serde_wasm_bindgen::from_value(params)?;
+    Ok(zotero_library::zotero_keys_url(
+        base_url,
+        path.as_deref(),
+        &params,
+    ))
+}
+
+/// [`zotero_total_results`](zotero_library::zotero_total_results): the `Total-Results` count, or
+/// `undefined` when absent or unusable (TS `getPage`).
+#[wasm_bindgen(js_name = zoteroTotalResults)]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs an owned Option<String>.
+pub fn zotero_total_results_js(header: Option<String>) -> Option<f64> {
+    zotero_library::zotero_total_results(header.as_deref())
+}
+
+/// [`zotero_page_starts`](zotero_library::zotero_page_starts): the offsets after the first page
+/// (TS `fetchAllZoteroItems`).
+///
+/// # Errors
+///
+/// Fails only if the offsets cannot be converted to a JS array.
+#[wasm_bindgen(js_name = zoteroPageStarts, unchecked_return_type = "number[]")]
+pub fn zotero_page_starts_js(total: f64, page: u32) -> Result<JsValue, JsValue> {
+    Ok(to_js(&zotero_library::zotero_page_starts(total, u64::from(page)))?)
+}
+
+/// [`zotero_server_backoff_ms`](zotero_library::zotero_server_backoff_ms): the wait a response's
+/// `Backoff` (or `Retry-After`) header asks for, or `undefined` (TS `BackoffGate.note`).
+#[wasm_bindgen(js_name = zoteroServerBackoffMs)]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned Option<String> arguments.
+pub fn zotero_server_backoff_ms_js(backoff: Option<String>, retry_after: Option<String>) -> Option<f64> {
+    zotero_library::zotero_server_backoff_ms(backoff.as_deref(), retry_after.as_deref())
+}
+
+/// [`zotero_attempt_backoff_ms`](zotero_library::zotero_attempt_backoff_ms): the wait after a 429
+/// with no usable header (TS `BackoffGate.noteAttempt`).
+#[wasm_bindgen(js_name = zoteroAttemptBackoffMs)]
+#[must_use]
+pub fn zotero_attempt_backoff_ms_js(attempt: u32) -> f64 {
+    zotero_library::zotero_attempt_backoff_ms(attempt)
+}

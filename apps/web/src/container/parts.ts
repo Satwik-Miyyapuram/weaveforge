@@ -153,19 +153,15 @@ export class OpenAlexMetadataSource implements IMetadataSource {
 
   async fetch(ref: PaperRef): Promise<PaperMetadata> {
     if (ref.kind !== "bibliographic") throw new Error("Expected a bibliographic reference");
-    const params = new URLSearchParams({ search: ref.hints?.title ?? ref.value, "per-page": "3" });
-    if (this.mailto) params.set("mailto", this.mailto);
-    const key = await this.apiKey?.();
-    if (key) params.set("api_key", key);
-    const response = await this.fetchFn(`${this.baseUrl}?${params}`);
+    const core = await loadCore();
+    const query = core.openAlexSearchQuery(ref.hints?.title ?? ref.value, this.mailto, await this.apiKey?.());
+    const response = await this.fetchFn(`${this.baseUrl}?${query}`);
     if (!response.ok) throw new Error(`OpenAlex metadata failed: ${response.status}`);
     const body = await response.json() as { results?: OpenAlexWork[] };
-    const core = await loadCore();
-    for (const work of body.results ?? []) {
-      if (!work.title || !core.isBibliographicMatch(ref.hints ?? {}, { title: work.title, year: work.publication_year ?? undefined })) continue;
-      return paperInputWithoutNulls(core.openAlexToMetadata(work));
-    }
-    throw new Error("No sufficiently similar OpenAlex match");
+    const works = body.results ?? [];
+    const index = core.openAlexFirstMatch(ref.hints ?? {}, works);
+    if (index === undefined) throw new Error("No sufficiently similar OpenAlex match");
+    return paperInputWithoutNulls(core.openAlexToMetadata(works[index]));
   }
 }
 

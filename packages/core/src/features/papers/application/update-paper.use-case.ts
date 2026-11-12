@@ -37,19 +37,18 @@ export class UpdatePaperUseCase {
    * title has nothing to be listed, linked or cited by.
    */
   async setTitle(id: string, title: string): Promise<Paper> {
-    const trimmed = title.replace(/\s+/g, " ").trim();
+    const trimmed = rust().cleanPaperTitle(title);
     if (!trimmed) throw new PaperValidationError("A paper needs a title.");
     return this.mutate(id, (p) => ({ ...p, title: trimmed }));
   }
 
   /** Reader-authored summary. */
   async setSummary(id: string, summary: string): Promise<Paper> {
-    const trimmed = summary.trim();
-    return this.mutate(id, (p) => ({ ...p, summary: trimmed || undefined }));
+    return this.mutate(id, (p) => ({ ...p, summary: rust().cleanPaperSummary(summary) }));
   }
 
   async setRating(id: string, rating: number | undefined): Promise<Paper> {
-    if (rating != null && (rating < 1 || rating > 5)) {
+    if (rating != null && !rust().ratingInRange(rating)) {
       throw new PaperValidationError("Rating must be between 1 and 5.");
     }
     return this.mutate(id, (p) => ({ ...p, rating }));
@@ -83,8 +82,8 @@ export class UpdatePaperUseCase {
    * blank clears it.
    */
   async setPdfSource(id: string, url: string | undefined): Promise<Paper> {
-    const trimmed = url?.trim();
-    if (trimmed && !/^https:\/\//i.test(trimmed)) {
+    const trimmed = rust().cleanPdfAddress(url);
+    if (trimmed && !rust().isHttpsAddress(trimmed)) {
       throw new PaperValidationError("A PDF address must start with https://.");
     }
     return this.mutate(id, (p) => {
@@ -102,7 +101,7 @@ export class UpdatePaperUseCase {
 
   /** Record an uploaded image's storage path on the paper. */
   async addImage(id: string, path: string): Promise<Paper> {
-    const p = path.trim();
+    const p = rust().cleanImagePath(path);
     if (!p) throw new PaperValidationError("Image path is required.");
     return this.mutate(id, (paper) => ({
       ...paper,
