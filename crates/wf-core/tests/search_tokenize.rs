@@ -1386,6 +1386,40 @@ fn every_option_combination_matches_the_typescript() {
     }
 }
 
+#[test]
+fn cjk_text_yields_characters_and_bigrams_not_one_giant_token() {
+    let tokens = tokenize("变分自编码器", &DEFAULTS);
+
+    assert!(
+        tokens.iter().any(|t| t == "变"),
+        "unigrams make single-character queries work"
+    );
+    assert!(
+        tokens.iter().any(|t| t == "变分"),
+        "bigrams carry most of the meaning"
+    );
+}
+
+#[test]
+fn mixed_script_text_tokenizes_both_halves() {
+    let tokens = tokenize("VAE 编码器", &DEFAULTS);
+
+    assert!(tokens.iter().any(|t| t == "vae"));
+    assert!(tokens.iter().any(|t| t == "编"));
+}
+
+#[test]
+fn empty_and_punctuation_only_input_yield_no_tokens() {
+    assert!(tokenize("", &DEFAULTS).is_empty());
+    assert!(tokenize("--- ,,, ", &DEFAULTS).is_empty());
+}
+
+#[test]
+fn urlparts_stays_linear_on_a_long_run_with_no_url() {
+    // Guards against a backtracking URL scan; a long dotless run has no URL.
+    assert!(url_parts(&"a".repeat(200_000)).is_empty());
+}
+
 /// Text that mixes the shapes the tokenizer branches on: ASCII case changes,
 /// digits, URL punctuation, accents, Greek, CJK, Arabic marks, astral letters.
 fn mixed_text() -> impl Strategy<Value = String> {

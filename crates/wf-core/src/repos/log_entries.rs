@@ -370,4 +370,29 @@ mod tests {
         assert_eq!(message, "Log entry body is required.");
         assert_eq!(name.as_deref(), Some("LogEntryValidationError"));
     }
+
+    #[test]
+    fn add_honours_explicit_kind_date_and_links() {
+        let input = json!({
+            "body": "weekly summary",
+            "kind": "weekly",
+            "entryDate": "2026-07-20",
+            "links": [{ "type": "experiment", "id": "exp-1" }]
+        });
+        let body = sent(add(&fresh(vec![input], vec![]))).body.unwrap();
+        assert_eq!(body["kind"], "weekly");
+        assert_eq!(body["entry_date"], "2026-07-20");
+        assert_eq!(body["links"], json!([{ "type": "experiment", "id": "exp-1" }]));
+    }
+
+    #[test]
+    fn update_edits_body_kind_while_preserving_id_date_createdat() {
+        let args = vec![json!("e1"), json!({ "body": "  edited  ", "kind": "weekly" })];
+        let v = done(update(&fresh(args, vec![row(), Value::Null])));
+        assert_eq!(v["id"], "e1");
+        assert_eq!(v["entryDate"], "2026-11-01");
+        assert_eq!(v["createdAt"], "2026-11-01T10:00:00Z");
+        assert_eq!(v["body"], "edited");
+        assert_eq!(v["kind"], "weekly");
+    }
 }

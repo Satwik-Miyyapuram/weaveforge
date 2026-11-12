@@ -263,6 +263,49 @@ fn kinds_are_the_typescript_list_in_order() {
 }
 
 #[test]
+fn quoted_phrases_stay_contiguous() {
+    let query = parse_query("\"message passing\" graphs");
+
+    assert_eq!(query.phrases, owned(&["message passing"]));
+    assert_eq!(query.terms, owned(&["graphs"]));
+}
+
+#[test]
+fn exclusions_are_captured_for_both_terms_and_phrases() {
+    let query = parse_query("vae -baseline -\"work in progress\"");
+
+    assert_eq!(query.terms, owned(&["vae"]));
+    assert_eq!(query.exclude, owned(&["baseline", "work in progress"]));
+    assert!(
+        !query.text.contains("baseline"),
+        "excluded terms must not feed the ranker"
+    );
+}
+
+#[test]
+fn repeated_filters_accumulate() {
+    let query = parse_query("kind:note kind:paper");
+
+    assert_eq!(kind_names(&query), vec!["note", "paper"]);
+}
+
+#[test]
+fn an_unknown_kind_narrows_to_nothing_rather_than_leaking_into_the_terms() {
+    let query = parse_query("kind:banana latent");
+
+    assert!(query.kinds.is_empty());
+    assert_eq!(query.text, "latent", "the bad filter is dropped, not treated as a term");
+}
+
+#[test]
+fn an_unterminated_quote_does_not_swallow_the_rest_of_the_query() {
+    let query = parse_query("\"message passing");
+
+    assert!(!query.text.is_empty());
+    let _ = parse_query("\"");
+}
+
+#[test]
 fn clauses_keep_input_order() {
     let clauses = parse_clauses("b \"C d\" kind:note -X modified:1w a");
     assert_eq!(

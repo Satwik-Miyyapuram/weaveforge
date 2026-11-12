@@ -1009,6 +1009,200 @@ mod tests {
     }
 
     #[test]
+    fn set_manual_tags_creates_tags_links_them_and_refreshes_the_paper_cache() {
+        let ctx = RepoCtx {
+            id_seed: Some("seed".into()),
+            ..RepoCtx::default()
+        };
+        let args = vec![json!("p1"), json!(["ml", "  NLP  "])];
+        let c = |replies: Vec<Value>| RepoCall {
+            args: args.clone(),
+            replies,
+            ctx: ctx.clone(),
+        };
+        let RepoStep::Send { queries } = step("setManualTags", &c(vec![])).unwrap() else {
+            panic!("expected the tag lookups")
+        };
+        assert_eq!(queries[0].filters[0].value, json!("ml"));
+        assert_eq!(queries[1].filters[0].value, json!("nlp"));
+        let RepoStep::Send { queries } = step("setManualTags", &c(vec![Value::Null; 2])).unwrap()
+        else {
+            panic!("expected the tag creates")
+        };
+        assert_eq!(queries[1].body.as_ref().unwrap()["name"], json!("nlp"));
+        let RepoStep::Send { queries } = step("setManualTags", &c(vec![Value::Null; 4])).unwrap()
+        else {
+            panic!("expected the manual links delete")
+        };
+        assert_eq!(queries[0].table, "paper_tags");
+        let RepoStep::Send { queries } = step("setManualTags", &c(vec![Value::Null; 5])).unwrap()
+        else {
+            panic!("expected the link upsert")
+        };
+        assert_eq!(queries[0].action, RepoAction::Upsert);
+        assert_eq!(queries[0].body.as_ref().unwrap().as_array().map(Vec::len), Some(2));
+        let id0 = c(vec![]).id(0);
+        let id1 = c(vec![]).id(1);
+        let mut replies = vec![Value::Null; 6];
+        replies.push(json!([link(&id0, "manual"), link(&id1, "manual")]));
+        replies.push(json!({ "id": id0, "name": "ml", "color": null }));
+        replies.push(json!({ "id": id1, "name": "nlp", "color": null }));
+        let RepoStep::Send { queries } = step("setManualTags", &c(replies)).unwrap() else {
+            panic!("expected the paper cache write")
+        };
+        assert_eq!(queries[0].table, "papers");
+        assert_eq!(queries[0].body.as_ref().unwrap()["tags"], json!(["ml", "nlp"]));
+    }
+
+    #[test]
+    fn set_manual_tags_replacing_removes_dropped_manual_tags() {
+        let args = vec![json!("p1"), json!(["b", "c"])];
+        // "b" exists, "c" is new; the replace clears the manual links before re-adding.
+        let replies = vec![
+            json!({ "id": "tb", "name": "b", "color": null }),
+            Value::Null,
+            Value::Null,
+        ];
+        let call = RepoCall {
+            args,
+            replies,
+            ..RepoCall::default()
+        };
+        let RepoStep::Send { queries } = step("setManualTags", &call).unwrap() else {
+            panic!("expected the manual links delete")
+        };
+        assert_eq!(queries[0].table, "paper_tags");
+        assert_eq!(queries[0].filters[1].column, "source");
+        assert_eq!(queries[0].filters[1].value, json!(["manual"]));
+    }
+
+    #[test]
+    fn merge_tags_unions_with_existing_tags_of_that_source() {
+        let replies = vec![
+            json!([link("t1", "manual")]),
+            json!({ "id": "t1", "name": "a", "color": null }),
+        ];
+        let RepoStep::Send { queries } =
+            step("mergeTags", &call(vec![json!("p1"), json!(["b"])], replies)).unwrap()
+        else {
+            panic!("expected the tag lookups")
+        };
+        assert_eq!(queries.len(), 2);
+        assert_eq!(queries[0].filters[0].value, json!("a"));
+        assert_eq!(queries[1].filters[0].value, json!("b"));
+    }
+
+    #[test]
+    fn reuses_an_existing_tag_row_rather_than_creating_a_duplicate() {
+        let replies = vec![
+            json!([link("t1", "manual")]),
+            json!({ "id": "t1", "name": "a", "color": null }),
+            json!({ "id": "t1", "name": "a", "color": null }),
+            Value::Null,
+        ];
+        let RepoStep::Send { queries } =
+            step("mergeTags", &call(vec![json!("p1"), json!(["a", "b"])], replies)).unwrap()
+        else {
+            panic!("expected the create for the new tag only")
+        };
+        assert_eq!(queries.len(), 1);
+        assert_eq!(queries[0].body.as_ref().unwrap()["name"], json!("b"));
+    }
+
+    #[test]
+    fn remove_manual_tag_unlinks_one_manual_tag_keeps_the_rest() {
+        let replies = vec![
+            json!([link("t2", "manual"), link("t3", "manual")]),
+            json!({ "id": "t2", "name": "keep", "color": null }),
+            json!({ "id": "t3", "name": "drop", "color": null }),
+        ];
+        let q = only(
+            step(
+                "removeManualTag",
+                &call(vec![json!("p1"), json!("drop")], replies),
+            )
+            .unwrap(),
+        );
+        assert_eq!(q.action, RepoAction::Delete);
+        assert_eq!(q.filters[1].column, "tag_id");
+        assert_eq!(q.filters[1].value, json!("t3"));
+    }
+
+    #[test]
+    fn remove_manual_tag_unlinks_manual_only() {
+        // Both links are named "one"; only the manual one may be unlinked.
+        let replies = vec![
+            json!([link("t4", "zotero_annotation"), link("t2", "manual")]),
+            json!({ "id": "t4", "name": "one", "color": null }),
+            json!({ "id": "t2", "name": "one", "color": null }),
+        ];
+        let q = only(
+            step(
+                "removeManualTag",
+                &call(vec![json!("p1"), json!("one")], replies),
+            )
+            .unwrap(),
+        );
+        assert_eq!(q.filters[1].value, json!("t2"));
+        assert_eq!(q.filters[2].value, json!("manual"));
+    }
+
+    #[test]
+    fn reconcile_sources_replaces_zotero_annotation_tags() {
+        let items = json!([{ "name": "vae", "source": "zotero_annotation" }]);
+        let replies = vec![Value::Null, Value::Null];
+        let q = only(
+            step(
+                "reconcileSources",
+                &call(
+                    vec![json!("p1"), items, json!(["zotero_annotation"])],
+                    replies,
+                ),
+            )
+            .unwrap(),
+        );
+        assert_eq!(q.table, "paper_tags");
+        assert_eq!(q.filters[1].column, "source");
+        assert_eq!(q.filters[1].value, json!(["zotero_annotation"]));
+    }
+
+    #[test]
+    fn manual_and_zotero_annotation_sources_coexist() {
+        // The zotero reconcile deletes only its own source, so manual links survive it.
+        let items = json!([{ "name": "zotero", "source": "zotero_annotation" }]);
+        let replies = vec![Value::Null, Value::Null];
+        let q = only(
+            step(
+                "reconcileSources",
+                &call(
+                    vec![json!("p1"), items, json!(["zotero_annotation"])],
+                    replies,
+                ),
+            )
+            .unwrap(),
+        );
+        assert_eq!(q.filters[1].value, json!(["zotero_annotation"]));
+        assert!(!q.filters[1].value.to_string().contains("manual"));
+    }
+
+    #[test]
+    fn merge_concepts_reassigns_links() {
+        let replies = vec![json!([link("t2", "manual")])];
+        let RepoStep::Send { queries } = step(
+            "mergeConcepts",
+            &call(vec![json!("t1"), json!("t2")], replies),
+        )
+        .unwrap() else {
+            panic!("expected the link moves")
+        };
+        assert_eq!(queries[0].action, RepoAction::Upsert);
+        assert_eq!(queries[0].body.as_ref().unwrap()["tag_id"], json!("t1"));
+        let last = queries.last().unwrap();
+        assert_eq!(last.table, "tags");
+        assert_eq!(last.filters[0].value, json!("t2"));
+    }
+
+    #[test]
     fn unknown_method_is_none() {
         assert!(step("nope", &call(vec![], vec![])).is_none());
     }

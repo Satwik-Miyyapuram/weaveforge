@@ -382,4 +382,24 @@ mod tests {
             Err("Password must be at least 8 characters.".to_owned())
         );
     }
+
+    #[test]
+    fn filter_lab_members_standalone_user_sees_only_themselves() {
+        let team = vec![
+            crate::member::MemberLink {
+                id: "prof".to_owned(),
+                supervisor_id: None,
+            },
+            crate::member::MemberLink {
+                id: "ms2".to_owned(),
+                supervisor_id: Some("prof".to_owned()),
+            },
+        ];
+        let solo = crate::member::filter_lab_members(
+            "ms2",
+            &team,
+            &crate::member::TeamVisibility::default(),
+        );
+        assert_eq!(solo, vec![1]);
+    }
 }
