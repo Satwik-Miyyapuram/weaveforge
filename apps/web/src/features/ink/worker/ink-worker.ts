@@ -35,6 +35,7 @@ import {
   lasso,
   loadPage,
   moveSelection,
+  recordHistoryStep,
   redo,
   reportHistory,
   reportState,
@@ -140,8 +141,7 @@ export function addStrokes(
   }
   if (added.length === 0) return;
   state.index?.invalidate();
-  state.history.push({ kind: "draw", indices: added });
-  state.redone = [];
+  recordHistoryStep(state, { kind: "draw", indices: added });
   state.selection = added;
   state.renderer?.setSelection(added, { x: 0, y: 0 });
   ensureLoop();
@@ -294,7 +294,7 @@ export function appendSamples(stroke: LiveStroke, payload: InkSamplePayload): vo
   eachInkSample(payload, (x, y, pressure) => {
     stroke.points[(start + index) * 2] = x;
     stroke.points[(start + index) * 2 + 1] = y;
-    stroke.pressures[start + index] = pressureByte(pressure);
+    stroke.pressures[start + index] = readyCore().inkPenPressureByte(pressure);
     stroke.packer.push(x, y, stroke.pressures[start + index]);
     index += 1;
   });
@@ -311,14 +311,9 @@ function replacePredictedTail(
   stroke.pressures.length = stroke.realSamples;
   eachInkSample(payload, (x, y, pressure) => {
     stroke.points.push(x, y);
-    stroke.pressures.push(pressureByte(pressure));
+    stroke.pressures.push(readyCore().inkPenPressureByte(pressure));
   });
   stroke.changed = true;
-}
-
-/** The pen reports 0–1; the page and the renderer hold a byte. */
-function pressureByte(pressure: number): number {
-  return Math.max(0, Math.min(255, Math.round(pressure * 255)));
 }
 
 /**
@@ -391,8 +386,7 @@ function commitStroke(stroke: LiveStroke): void {
     colour: stroke.header.colour,
     shape,
   });
-  state.history.push({ kind: "draw", indices: [index] });
-  state.redone = [];
+  recordHistoryStep(state, { kind: "draw", indices: [index] });
   reportHistory(state, post);
   // The index is stale the moment a stroke is added; rebuilding it per stroke would
   // be exactly the per-append allocation §6.2.4 forbids, so it is invalidated and
@@ -548,8 +542,35 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
   else waiting.push(event.data);
 });
 
+/** The worker state and message fields the Rust route reads. */
+function routeInput(message: InkWorkerMessage) {
+  const strokeId =
+    message.type === "stroke-begin" ||
+    message.type === "samples" ||
+    message.type === "stroke-end"
+      ? message.header.strokeId
+      : undefined;
+  const pageIndex =
+    message.type === "replace-page" || message.type === "ink-shown"
+      ? message.pageIndex
+      : undefined;
+  const predicted = message.type === "samples" ? message.predicted : undefined;
+  return {
+    type: message.type,
+    state: {
+      liveStrokeId: state.live?.header.strokeId ?? null,
+      pageIndex: state.pageIndex,
+    },
+    strokeId,
+    pageIndex,
+    predicted,
+  };
+}
+
 function handleMessage(message: InkWorkerMessage): void {
   try {
+    const plan = readyCore().inkWorkerRoute(routeInput(message));
+    if (plan.action === "ignore") return;
     switch (message.type) {
       case "init": {
         state.canvas = message.canvas;
@@ -576,18 +597,14 @@ function handleMessage(message: InkWorkerMessage): void {
         break;
       }
       case "samples": {
-        if (
-          !state.live ||
-          state.live.header.strokeId !== message.header.strokeId
-        )
-          break;
-        if (message.predicted) replacePredictedTail(state.live, message.sample);
+        if (!state.live) break;
+        if (plan.predicted) replacePredictedTail(state.live, message.sample);
         else appendSamples(state.live, message.sample);
         break;
       }
       case "stroke-end": {
         const live = state.live;
-        if (!live || live.header.strokeId !== message.header.strokeId) break;
+        if (!live) break;
         appendSamples(live, message.sample);
         commitStroke(live);
         state.live = null;
@@ -624,8 +641,8 @@ function handleMessage(message: InkWorkerMessage): void {
         });
         break;
       case "replace-page":
-        // A page recognised before a page turn belongs to the old page (21-01).
-        if (message.pageIndex !== state.pageIndex) break;
+        // A page recognised before a page turn belongs to the old page (21-01);
+        // the route drops it.
         installPage(state, message.page, post);
         break;
       case "lasso":
@@ -671,7 +688,6 @@ function handleMessage(message: InkWorkerMessage): void {
         break;
       }
       case "ink-shown": {
-        if (message.pageIndex !== state.pageIndex) break;
         state.renderer?.setShown(message.count);
         ensureLoop();
         break;

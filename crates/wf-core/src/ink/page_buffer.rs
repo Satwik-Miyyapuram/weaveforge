@@ -108,6 +108,15 @@ pub fn clamp_background_index(index: f64) -> u8 {
     max(0.0, min(255.0, round(index))) as u8
 }
 
+/// A stroke's pressure bytes, one per point: `count` entries read from `pressures`.
+/// A missing or `NaN` entry stores 0, and a value is clamped to the byte.
+#[must_use]
+pub fn stroke_pressures(pressures: &[f64], count: usize) -> Vec<u8> {
+    (0..count)
+        .map(|i| pressure_byte(Some(pressures.get(i).copied().unwrap_or(f64::NAN))) as u8)
+        .collect()
+}
+
 /// A stroke's coordinates and pressures as the buffer stores them: `x`/`y` as `f32`
 /// per point, pressure as a byte. A point without a pressure entry (`NaN` here)
 /// stores 0. An odd trailing coordinate is dropped.
@@ -116,14 +125,11 @@ pub fn stroke_arrays(points: &[f64], pressures: &[f64]) -> (Vec<f32>, Vec<f32>, 
     let count = points.len() / 2;
     let mut xs = Vec::with_capacity(count);
     let mut ys = Vec::with_capacity(count);
-    let mut bytes = Vec::with_capacity(count);
     for i in 0..count {
         xs.push(points[i * 2] as f32);
         ys.push(points[i * 2 + 1] as f32);
-        let reported = pressures.get(i).copied().unwrap_or(f64::NAN);
-        bytes.push(pressure_byte(Some(reported)) as u8);
     }
-    (xs, ys, bytes)
+    (xs, ys, stroke_pressures(pressures, count))
 }
 
 #[cfg(test)]
@@ -133,6 +139,22 @@ mod tests {
     #[test]
     fn bounds_of_nothing_is_the_empty_box() {
         assert_eq!(bounds_of(&[], &[]), EMPTY_BOUNDS);
+    }
+
+    // it: "bounds arithmetic is inclusive and slack grows the box"
+    #[test]
+    fn bounds_arithmetic_is_inclusive_and_slack_grows_the_box() {
+        let bounds = bounds_of(&[10.0_f32, 40.0, 25.0], &[5.0_f32, 60.0, 30.0]);
+        assert_eq!(bounds, [10.0, 5.0, 40.0, 60.0]);
+        // touching counts as intersecting
+        assert!(bounds_intersect(bounds, [40.0, 60.0, 90.0, 90.0], 0.0));
+        assert!(!bounds_intersect(bounds, [41.0, 61.0, 90.0, 90.0], 0.0));
+        // slack reaches it
+        assert!(bounds_intersect(bounds, [45.0, 65.0, 90.0, 90.0], 5.0));
+        // the box contains its own corner
+        assert!(bounds_contain(bounds, 10.0, 5.0, 0.0));
+        assert!(!bounds_contain(bounds, 9.0, 5.0, 0.0));
+        assert!(bounds_contain(bounds, 9.0, 5.0, 1.0));
     }
 
     #[test]
@@ -193,6 +215,13 @@ mod tests {
         assert_eq!(clamp_background_index(-4.0), 0);
         assert_eq!(clamp_background_index(2.5), 3);
         assert_eq!(clamp_background_index(300.0), 255);
+    }
+
+    // it: "pressure that arrived as nonsense is stored as none"
+    #[test]
+    fn pressure_that_arrived_as_nonsense_is_stored_as_none() {
+        // clamped, with NaN read as no sample
+        assert_eq!(stroke_pressures(&[f64::NAN, -5.0, 400.0], 3), vec![0, 0, 255]);
     }
 
     #[test]

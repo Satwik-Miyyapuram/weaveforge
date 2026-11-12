@@ -28,7 +28,6 @@ import Flatbush from "flatbush";
 import { readyCore } from "@/lib/rust-core";
 
 import {
-  boundsContain,
   type InkBounds,
   type InkPageBuffer,
 } from "./parts-3";
@@ -192,17 +191,8 @@ export class InkStrokeIndex {
 
   /** Strokes whose bounds contain a point, dead ones skipped. */
   containing(x: number, y: number, slack = 0): number[] {
-    const built = this.built;
-    if (!built) return [];
-    const found = built.tree.search(x, y, x, y);
-    this.lastVisited = found.length;
-    const out: number[] = [];
-    for (const leaf of found) {
-      const index = built.leaves[leaf];
-      if (index === undefined || !this.buffer.isAlive(index)) continue;
-      const stroke = this.buffer.stroke(index);
-      if (stroke && boundsContain(stroke.bounds, x, y, slack)) out.push(index);
-    }
-    return out;
+    // A point within `slack` of a box is a box `slack` wider on each side, so the
+    // same candidate pick as nearBox answers it.
+    return this.nearBox([x - slack, y - slack, x + slack, y + slack]);
   }
 }

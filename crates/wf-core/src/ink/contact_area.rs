@@ -7,6 +7,9 @@
 /// CSS pixels per millimetre: 96 px to the inch, 25.4 mm to the inch.
 pub const CSS_PX_PER_MM: f64 = 96.0 / 25.4;
 
+/// Contact area above which a touch is a hand rather than a fingertip, in mm².
+pub const PALM_CONTACT_AREA_MM2: f64 = 25.0;
+
 /// A contact's area in mm². A side that is missing, zero or `NaN` gives `0`, as
 /// a device that reports no contact box does.
 #[must_use]
@@ -43,5 +46,11 @@ mod tests {
     #[test]
     fn a_fingertip_sized_contact_is_below_the_threshold() {
         assert!(contact_area_mm2(5.0, 5.0) < 25.0);
+    }
+
+    #[test]
+    fn the_palm_threshold_is_25_mm2_and_the_px_scale_is_css() {
+        assert_eq!(PALM_CONTACT_AREA_MM2, 25.0);
+        assert_eq!(CSS_PX_PER_MM, 96.0 / 25.4);
     }
 }
