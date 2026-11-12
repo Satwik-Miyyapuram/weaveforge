@@ -1,6 +1,6 @@
-//! Ports the status decision in `send` and the missing-id rule in `missingIds`
-//! of `apps/web/src/features/offline-sync/infra/postgrest-transport.ts`. The
-//! HTTP calls and the follow-up reads (`conflict`, `gone`, `tombstoned`) stay in TS.
+//! The status verdict on one PostgREST write and the id-presence rules behind
+//! `missingIds` in `apps/web/src/features/offline-sync/infra/postgrest-transport.ts`.
+//! The step machine that sequences the follow-up reads is `sync::send_steps`.
 
 use serde::{Deserialize, Serialize};
 
@@ -71,20 +71,32 @@ pub fn is_link_insert(op: &str, table: &str) -> bool {
     op == "insert" && table == "paper_tags"
 }
 
+/// The ids of `chunk` that `held` does not name, in the chunk's order.
+#[must_use]
+pub fn absent_ids(chunk: &[String], held: &[String]) -> Vec<String> {
+    chunk.iter().filter(|id| !held.contains(id)).cloned().collect()
+}
+
 /// The ids in `chunk` the server did not return and has no tombstone for. A
 /// deleted-elsewhere row is left out, so a resend does not bring it back.
 #[must_use]
 pub fn missing_ids(chunk: &[String], held: &[String], tombstoned: &[String]) -> Vec<String> {
-    chunk
-        .iter()
-        .filter(|id| !held.contains(id) && !tombstoned.contains(id))
-        .cloned()
+    absent_ids(chunk, held)
+        .into_iter()
+        .filter(|id| !tombstoned.contains(id))
         .collect()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{SendVerdict, classify_send, is_link_insert, missing_ids};
+    use super::{SendVerdict, absent_ids, classify_send, is_link_insert, missing_ids};
+
+    #[test]
+    fn absent_ids_keeps_chunk_order_and_skips_held() {
+        let chunk = ["a".to_owned(), "b".to_owned(), "c".to_owned()];
+        let held = ["c".to_owned()];
+        assert_eq!(absent_ids(&chunk, &held), vec!["a".to_owned(), "b".to_owned()]);
+    }
 
     #[test]
     fn missing_parent_is_awaiting_parent_not_conflict() {

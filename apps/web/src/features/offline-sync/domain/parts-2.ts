@@ -1,5 +1,5 @@
 import { readyCore } from "@/lib/rust-core";
-import type { PullFacts, SeqRow } from "@weaveforge/wasm";
+import type { PullFacts } from "@weaveforge/wasm";
 import type { ConflictStore } from "./parts-1";
 import type { RemoteChange, SyncTransport } from "./parts";
 import type { SyncStateStore } from "./parts-3";
@@ -83,19 +83,9 @@ interface OutboxRow {
   last_error: string | null;
 }
 
-function toEntry(row: OutboxRow): OutboxEntry {
-  return {
-    seq: Number(row.seq),
-    opId: row.op_id,
-    table: row.table_name,
-    rowId: row.row_id,
-    op: row.op,
-    payload: row.payload,
-    baseVersion: row.base_version,
-    basePayload: row.base_payload ?? null,
-    attempts: row.attempts,
-    lastError: row.last_error,
-  };
+/** Row to entry (`toEntry`, Rust `sync::outbox_rows`); a whole result set maps in one call. */
+function toEntries(rows: OutboxRow[]): OutboxEntry[] {
+  return readyCore().outboxEntries(rows) as OutboxEntry[];
 }
 
 const COLUMNS =
@@ -121,7 +111,7 @@ export class Outbox {
       ],
     );
     if (!row) throw new Error("The op could not be recorded locally.");
-    return toEntry(row);
+    return toEntries([row])[0]!;
   }
 
   /**
@@ -136,7 +126,7 @@ export class Outbox {
       `select ${COLUMNS} from sync_outbox where dead_at is null order by seq limit $1`,
       [Math.max(1, limit)],
     );
-    return rows.map(toEntry);
+    return toEntries(rows);
   }
 
   /** The server took it; it is no longer owed. */
@@ -186,7 +176,7 @@ export class Outbox {
         where table_name = $1 and row_id = $2 and dead_at is null order by seq`,
       [table, rowId],
     );
-    return rows.map(toEntry);
+    return toEntries(rows);
   }
 
   /** Forget what this device owed for a row; a merge now speaks for it. */
@@ -240,7 +230,7 @@ export class Outbox {
     const rows = await this.sql.query<OutboxRow>(
       `select ${COLUMNS} from sync_outbox where dead_at is not null order by seq`,
     );
-    return rows.map(toEntry);
+    return toEntries(rows);
   }
 
   /** Put a dead entry back in the queue, unchanged, with its history cleared. */
@@ -255,11 +245,6 @@ export class Outbox {
 // --- puller ---
 type Row = Record<string, unknown>;
 type Found = Awaited<ReturnType<ConflictStore["find"]>>;
-
-/** The pull decisions read by the Rust core use these shapes. */
-function seqRow(change: RemoteChange): SeqRow {
-  return { table: change.table, rowId: change.rowId, serverSeq: change.serverSeq };
-}
 
 /**
  * Reads the server's change feed and writes what it says into the local
@@ -314,8 +299,9 @@ export class Puller {
     const summary = readyCore().pullSummary({
       watermark,
       pageSize,
-      fetched: changes.map(seqRow),
-      failed: failed.map((f) => seqRow(f.change)),
+      // The Rust side reads only table, rowId and serverSeq; extra fields are ignored.
+      fetched: changes,
+      failed: failed.map((f) => f.change),
     });
     // A second pass catches rows that clashed with something later in the page.
     const again: Held[] = [];
