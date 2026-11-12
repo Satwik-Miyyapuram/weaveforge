@@ -24,10 +24,25 @@ async fn fake_upstream(
     content_type: &'static str,
     body: &'static str,
 ) -> String {
+    fake_upstream_with_headers(status, content_type, body, &[]).await
+}
+
+/// As `fake_upstream`, with extra response headers.
+async fn fake_upstream_with_headers(
+    status: &'static str,
+    content_type: &'static str,
+    body: &'static str,
+    extra_headers: &[(&str, &str)],
+) -> String {
+    let extra: String = extra_headers
+        .iter()
+        .map(|(name, value)| format!("{name}: {value}\r\n"))
+        .collect();
     let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
     let addr = listener.local_addr().expect("addr");
     drop(tokio::spawn(async move {
         while let Ok((mut socket, _)) = listener.accept().await {
+            let extra = extra.clone();
             drop(tokio::spawn(async move {
                 let mut seen = Vec::new();
                 let mut buf = [0u8; 4096];
@@ -38,7 +53,7 @@ async fn fake_upstream(
                     }
                 }
                 let response = format!(
-                    "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n{extra}\r\n{body}",
                     body.len()
                 );
                 let _ = socket.write_all(response.as_bytes()).await;
@@ -331,4 +346,134 @@ async fn cors_preflight_refuses_other_origin() {
     )
     .await;
     assert!(headers.get("access-control-allow-origin").is_none());
+}
+
+#[tokio::test]
+async fn arxiv_400_when_id_list_is_past_the_cap_and_nothing_is_requested() {
+    // An oversized list is refused before the fetch, so the unreachable upstream is never hit (400, not 502).
+    let (status, _, body) = send(
+        state("http://127.0.0.1:1", "http://127.0.0.1:1/api/query"),
+        get(&format!("/api/arxiv?id_list={}", "1".repeat(4_001)), None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(body.contains("at most 4000 characters"), "{body}");
+}
+
+#[tokio::test]
+async fn arxiv_an_id_list_at_the_cap_is_still_proxied() {
+    let arxiv = fake_upstream("200 OK", "application/atom+xml", "<feed/>").await;
+    let (status, _, body) = send(
+        state("http://127.0.0.1:1", &format!("{arxiv}/api/query")),
+        get(&format!("/api/arxiv?id_list={}", "1".repeat(4_000)), None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "<feed/>");
+}
+
+#[tokio::test]
+async fn arxiv_a_good_answer_is_cacheable_because_it_is_a_pure_function_of_the_request() {
+    let arxiv = fake_upstream("200 OK", "application/atom+xml", "<feed/>").await;
+    let (status, headers, _) = send(
+        state("http://127.0.0.1:1", &format!("{arxiv}/api/query")),
+        get("/api/arxiv?id_list=1706.03762", None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        headers
+            .get("cache-control")
+            .and_then(|v| v.to_str().ok()),
+        Some("public, max-age=600, s-maxage=3600, stale-while-revalidate=86400")
+    );
+}
+
+#[tokio::test]
+async fn arxiv_an_upstream_error_is_not_cached() {
+    let arxiv = fake_upstream("503 Service Unavailable", "text/plain", "busy").await;
+    let (status, headers, _) = send(
+        state("http://127.0.0.1:1", &format!("{arxiv}/api/query")),
+        get("/api/arxiv?id_list=x", None),
+    )
+    .await;
+    assert_ne!(status, StatusCode::OK);
+    assert_eq!(
+        headers
+            .get("cache-control")
+            .and_then(|v| v.to_str().ok()),
+        Some("no-store")
+    );
+}
+
+#[tokio::test]
+async fn fetch_url_image_fetches_are_budgeted_per_caller() {
+    // Targets are loopback literals, refused by the public-network guard without leaving the host.
+    let get_user = fake_get_user().await;
+    let app_state = state(&get_user, "http://127.0.0.1:1/api/query");
+    let mut statuses = Vec::new();
+    for _ in 0..21 {
+        let (status, headers, body) = send(
+            app_state.clone(),
+            get(IMAGE_URI, Some(SESSION)),
+        )
+        .await;
+        if status == StatusCode::TOO_MANY_REQUESTS {
+            assert!(body.contains("Too many image fetches"), "{body}");
+            assert!(headers.get("retry-after").is_some(), "{body}");
+        }
+        statuses.push(status);
+    }
+    assert!(
+        statuses[..20].iter().all(|s| *s != StatusCode::TOO_MANY_REQUESTS),
+        "a burst of twenty gets through: {statuses:?}"
+    );
+    assert_eq!(statuses[20], StatusCode::TOO_MANY_REQUESTS);
+}
+
+#[tokio::test]
+async fn fetch_url_titles_are_not_budgeted_with_images() {
+    let get_user = fake_get_user().await;
+    let app_state = state(&get_user, "http://127.0.0.1:1/api/query");
+    for _ in 0..21 {
+        let _ = send(app_state.clone(), get(IMAGE_URI, Some(SESSION))).await;
+    }
+    let (status, _, body) = send(app_state.clone(), get(TITLE_URI, Some(SESSION))).await;
+    assert_ne!(status, StatusCode::TOO_MANY_REQUESTS, "{body}");
+}
+
+const IMAGE_URI: &str = "/api/fetch-url?as=image&url=https%3A%2F%2F127.0.0.1%2Ffigure.png";
+const TITLE_URI: &str = "/api/fetch-url?url=https%3A%2F%2F127.0.0.1%2Fpaper";
+
+#[tokio::test]
+async fn semantic_scholar_the_upstreams_own_cors_header_is_not_copied_through() {
+    let get_user = fake_get_user().await;
+    let upstream = fake_upstream_with_headers(
+        "200 OK",
+        "application/json",
+        "{}",
+        &[
+            ("access-control-allow-origin", "*"),
+            ("location", "https://evil.example/"),
+        ],
+    )
+    .await;
+    let mut app_state = state(&get_user, "http://127.0.0.1:1/api/query");
+    Arc::get_mut(&mut app_state)
+        .expect("sole owner")
+        .relay
+        .semantic_scholar = upstream;
+    let (status, headers, _) = send(
+        app_state,
+        get("/api/semantic-scholar/graph/v1/paper/x", Some(SESSION)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_ne!(
+        headers
+            .get("access-control-allow-origin")
+            .and_then(|v| v.to_str().ok()),
+        Some("*")
+    );
+    assert!(headers.get("location").is_none());
 }

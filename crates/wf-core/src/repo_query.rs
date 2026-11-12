@@ -725,4 +725,81 @@ mod tests {
         let plain = serde_json::to_value(RepoStep::fail("boom")).unwrap();
         assert_eq!(plain, json!({"kind": "fail", "message": "boom"}));
     }
+
+    /// Every repository name `repo_step` dispatches on, in match order.
+    const REPOS: &[&str] = &[
+        "ai_audit",
+        "ai_proposals",
+        "annotation_quotation_types",
+        "citation_alert_tracks",
+        "comments",
+        "library_pins",
+        "members",
+        "org",
+        "lab_snapshots",
+        "log_entries",
+        "report_sections",
+        "supervision",
+        "paper_tags",
+        "paper_relations",
+        "share_links",
+        "shares",
+        "showcase_seed",
+        "tags",
+        "user_settings",
+        "vault_pages",
+        "annotation_pins",
+        "crdt_updates",
+        "experiment_metrics",
+        "experiments",
+        "paper_fields",
+        "papers",
+        "reader_annotations",
+        "reading_list_items",
+        "reading_lists",
+        "screening_decisions",
+        "crdt_snapshots",
+        "blob_objects",
+        "milestones",
+        "plan_feed_links",
+        "dashboardLayout",
+        "graphSettings",
+        "project_integrations",
+        "projects",
+        "shared_items",
+        "account",
+        "experiment_push",
+    ];
+
+    #[test]
+    fn every_repository_is_wired() {
+        let call = RepoCall::default();
+        for &repo in REPOS {
+            match repo_step(repo, "__nope__", &call) {
+                RepoStep::Fail { message, .. } => assert!(
+                    !message.contains("No Rust repository"),
+                    "{repo} is not wired: {message}"
+                ),
+                other => panic!("{repo}: expected a failure, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn an_unknown_repository_is_refused() {
+        match repo_step("__nope__", "get", &RepoCall::default()) {
+            RepoStep::Fail { message, .. } => {
+                assert!(message.contains("No Rust repository"), "{message}");
+            }
+            other => panic!("expected a failure, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn repos_list_has_no_duplicates() {
+        let mut seen = std::collections::HashSet::new();
+        for &repo in REPOS {
+            assert!(seen.insert(repo), "duplicate repository {repo}");
+        }
+    }
 }

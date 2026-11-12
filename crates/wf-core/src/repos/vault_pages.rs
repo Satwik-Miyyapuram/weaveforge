@@ -171,7 +171,10 @@ fn list(call: &RepoCall) -> RepoStep {
 /// `listSummaries()`: the card projection, ordered by `sort_order` then `title`.
 fn list_summaries(call: &RepoCall) -> RepoStep {
     match summaries(call, true) {
-        Ok(pages) => RepoStep::done(&pages),
+        Ok(pages) => {
+            let pages: Vec<VaultPageSummary> = pages.into_iter().map(|p| p.summary).collect();
+            RepoStep::done(&pages)
+        }
         Err(step) => step,
     }
 }
@@ -673,7 +676,7 @@ mod tests {
             .unwrap(),
         );
         assert_eq!(value[0]["bodyPreview"], "hi");
-        assert_eq!(value[0]["body"], "");
+        assert!(value[0].get("body").is_none());
     }
 
     #[test]

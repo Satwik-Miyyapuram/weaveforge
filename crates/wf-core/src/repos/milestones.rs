@@ -545,6 +545,25 @@ mod tests {
     }
 
     #[test]
+    fn update_rejects_a_bad_target_date() {
+        let c = call(vec![json!("m1"), json!({ "targetDate": "30-06-2026" })], vec![]);
+        let (name, msg) = fail(update(&c));
+        assert_eq!(name.as_deref(), Some("MilestoneValidationError"));
+        assert_eq!(msg, "Target date must be yyyy-mm-dd.");
+    }
+
+    #[test]
+    fn update_keeps_the_id_and_created_at() {
+        let c = call(
+            vec![json!("m1"), json!({ "title": "y" })],
+            vec![dated_row("m1", None), Value::Null],
+        );
+        let v = done(update(&c));
+        assert_eq!(v["id"], "m1");
+        assert_eq!(v["createdAt"], "2026-11-05T00:00:00.000Z");
+    }
+
+    #[test]
     fn remove_deletes_the_milestone() {
         let first = sent(step("remove", &call(vec![json!("m1")], vec![])).expect("known"));
         assert_eq!(first.action, RepoAction::Delete);
