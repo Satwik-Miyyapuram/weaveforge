@@ -9,6 +9,7 @@
 use serde::Serialize;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
+use wf_core::search::semantic_hits;
 use wf_core::search::vector_index::{VectorError, VectorIndex as Core};
 
 /// Errors cross the boundary as their message; the TS wrapper rethrows them.
@@ -123,6 +124,30 @@ impl VectorIndex {
     #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         self.inner.to_bytes()
+    }
+
+    /// Nearest documents to `query`, one hit per document (wf-core `semantic_hits::search_docs`).
+    ///
+    /// # Errors
+    ///
+    /// Fails when `query` is not the index width.
+    #[wasm_bindgen(js_name = searchDocs, unchecked_return_type = "{ id: string; score: number }[]")]
+    pub fn search_docs(&self, query: Vec<f32>, limit: u32) -> Result<JsValue, JsValue> {
+        let hits = semantic_hits::search_docs(&self.inner, &query, width_from(limit))
+            .map_err(|error| js_error(&error))?;
+        encode(&hits)
+    }
+
+    /// Documents nearest to one already indexed, from its own passages (wf-core `semantic_hits::nearest_docs`).
+    ///
+    /// # Errors
+    ///
+    /// Fails when a stored passage is not the index width.
+    #[wasm_bindgen(js_name = nearestDocs, unchecked_return_type = "{ id: string; score: number }[]")]
+    pub fn nearest_docs(&self, doc_id: &str, limit: u32) -> Result<JsValue, JsValue> {
+        let hits = semantic_hits::nearest_docs(&self.inner, doc_id, width_from(limit))
+            .map_err(|error| js_error(&error))?;
+        encode(&hits)
     }
 }
 

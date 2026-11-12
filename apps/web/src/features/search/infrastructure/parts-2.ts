@@ -1,5 +1,6 @@
 import { openAppDb, PDF_TEXT_STORE } from "@/lib/cache/parts-1";
 import { desktop, type DesktopBridge } from "@/lib/desktop/desktop-bridge";
+import { readyCore } from "@/lib/rust-core";
 import { warnOnce } from "@/lib/error-report/parts";
 import type { PdfIndexSource } from "@weaveforge/wasm";
 import type { EmbedRequest, IEmbedder } from "../application/parts";
@@ -167,28 +168,24 @@ function abortReason(signal: AbortSignal): unknown {
  * downloading every file, which is the one part of search that would put real
  * load on blob storage.
  */
-/** Guard against one pathological document filling the user's quota. */
-const MAX_STORED_CHARS = 2_000_000;
-
-function key(projectId: string | null, paperId: string): string {
-  return `${projectId ?? "-"}|${paperId}`;
+/** Key of one paper's text, from the Rust store rules. */
+function storeKey(projectId: string | null, paperId: string): string {
+  return readyCore().pdfTextStoreOp({ op: "key", projectId, paperId }) as string;
 }
 
-/** Every key of one project: `key()` puts the project first, so it is a prefix range. */
+/** Every key of one project as an IndexedDB prefix range (Rust builds the bounds). */
 function projectRange(projectId: string | null): IDBKeyRange {
-  const prefix = `${projectId ?? "-"}|`;
-  return IDBKeyRange.bound(prefix, `${prefix}\uffff`);
+  const { lower, upper } = readyCore().pdfTextStoreOp({ op: "range", projectId }) as {
+    lower: string;
+    upper: string;
+  };
+  return IDBKeyRange.bound(lower, upper);
 }
 
+/** The source trimmed to the storage budget; the Rust rules decide how many pages fit. */
 function withinBudget(source: PdfIndexSource): PdfIndexSource {
-  let total = 0;
-  const pages = [];
-  for (const page of source.pages) {
-    total += page.text.length;
-    if (total > MAX_STORED_CHARS) break;
-    pages.push(page);
-  }
-  return pages.length === source.pages.length ? source : { ...source, pages };
+  const kept = readyCore().pdfTextStoreOp({ op: "budget", pages: source.pages }) as number;
+  return kept === source.pages.length ? source : { ...source, pages: source.pages.slice(0, kept) };
 }
 
 export async function savePdfText(projectId: string | null, source: PdfIndexSource): Promise<void> {
@@ -197,7 +194,7 @@ export async function savePdfText(projectId: string | null, source: PdfIndexSour
     const db = await openAppDb();
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(PDF_TEXT_STORE, "readwrite");
-      tx.objectStore(PDF_TEXT_STORE).put(withinBudget(source), key(projectId, source.paperId));
+      tx.objectStore(PDF_TEXT_STORE).put(withinBudget(source), storeKey(projectId, source.paperId));
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
@@ -248,7 +245,7 @@ export async function removePdfTexts(
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(PDF_TEXT_STORE, "readwrite");
       const store = tx.objectStore(PDF_TEXT_STORE);
-      for (const paperId of paperIds) store.delete(key(projectId, paperId));
+      for (const paperId of paperIds) store.delete(storeKey(projectId, paperId));
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });

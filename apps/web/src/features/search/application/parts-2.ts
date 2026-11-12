@@ -12,12 +12,6 @@ export interface VectorHit {
 /** The Rust `VectorIndex` handle, as the wasm factory returns it. */
 type VectorIndexHandle = ReturnType<RustCore["createVectorIndex"]>;
 
-/**
- * Hits below this cosine are noise. The floor the TS index applied by default,
- * now passed explicitly because the Rust search takes it as a required argument.
- */
-const MIN_SCORE = 0.2;
-
 /** Flatten equal-width vectors into the one buffer the wasm `add` takes. */
 function flatten(vectors: readonly Float32Array[]): Float32Array {
   const out = new Float32Array(vectors.reduce((n, vector) => n + vector.length, 0));
@@ -75,21 +69,7 @@ export interface PackedIndex {
   hashes: Record<string, string>;
 }
 
-/** `note:n1` → `note:n1#2` for its third passage. */
-function passageId(docId: string, index: number): string {
-  return `${docId}#${index}`;
-}
-
-/** Passage ids carry their document: `note:n1#2` belongs to `note:n1` (Rust `document_id_of`). */
-const documentIdOf = (passage: string): string => readyCore().documentIdOf(passage);
-
-/** Text worth embedding for a document (Rust `embeddable_text`: title repeated into the first passage). */
 const embeddableText = (doc: SearchDoc): string => readyCore().embeddableText(doc.title, doc.aliases, doc.body);
-
-/**
- * Fingerprint of what a document was embedded from (Rust `text_hash`). Stored beside the vectors so a
- * reload re-embeds only the documents that changed while the app was closed.
- */
 const hashOf = (doc: SearchDoc): string => readyCore().textHash(embeddableText(doc));
 
 export class SemanticIndex {
@@ -133,7 +113,7 @@ export class SemanticIndex {
     for (const doc of docs) {
       const chunks = readyCore().chunkForEmbedding(embeddableText(doc), { maxChars: CHUNK_CHARS });
       chunks.forEach((chunk, position) => {
-        passages.push({ id: passageId(doc.id, position), text: chunk.text });
+        passages.push({ id: readyCore().passageId(doc.id, position), text: chunk.text });
       });
       ends.push({ end: passages.length, doc });
     }
@@ -180,60 +160,28 @@ export class SemanticIndex {
   /**
    * Nearest documents to a query.
    *
-   * Passage hits collapse to their document, keeping the best score: a note
-   * whose third paragraph answers the question should appear once, ranked by
-   * that paragraph, not three times for three near-misses.
+   * Passage hits collapse to their document, keeping the best score (Rust search_docs): a note
+   * whose third paragraph answers the question should appear once, ranked by that paragraph.
    */
   async search(query: string, limit = 10): Promise<VectorHit[]> {
     const index = this.index;
-    if (!index || query.trim() === "") return [];
+    if (!index || readyCore().isBlankQuery(query)) return [];
 
     const [vector] = await this.embedder.embed({ texts: [query], kind: "query" });
     if (!vector) return [];
 
-    const best = new Map<string, number>();
-    // Over-fetch: several passages of one document can crowd out the runner-up,
-    // so the collapse needs more candidates than the caller asked for.
-    for (const hit of index.search(vector, limit * 4, MIN_SCORE)) {
-      const docId = documentIdOf(hit.id);
-      const current = best.get(docId);
-      if (current === undefined || hit.score > current) best.set(docId, hit.score);
-    }
-
-    return [...best.entries()]
-      .map(([id, score]) => ({ id, score }))
-      .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
-      .slice(0, limit);
+    return index.searchDocs(vector, limit);
   }
 
   /**
    * Documents nearest to one already indexed, by its own passages rather than
    * its title — a note titled "Tuesday" about attention heads should find
-   * papers on attention. No forward pass: the vectors are already here.
+   * papers on attention. No forward pass: the vectors are already here (Rust 
+earest_docs).
    */
   nearestTo(docId: string, limit = 10): VectorHit[] {
-    const index = this.index;
-    if (!index) return [];
-    const best = new Map<string, number>();
-    for (let i = 0; ; i += 1) {
-      const vector = index.vectorOf(passageId(docId, i));
-      // Absent passages come back empty: the wasm side has no null.
-      if (vector.length === 0) break;
-      for (const hit of index.search(vector, limit * 4, MIN_SCORE)) {
-        const id = documentIdOf(hit.id);
-        if (id === docId) continue;
-        const current = best.get(id);
-        if (current === undefined || hit.score > current) best.set(id, hit.score);
-      }
-      // Long documents: the opening passages are what the document is about.
-      if (i >= 3) break;
-    }
-    return [...best.entries()]
-      .map(([id, score]) => ({ id, score }))
-      .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
-      .slice(0, limit);
+    return this.index?.nearestDocs(docId, limit) ?? [];
   }
-
   /** Re-embed one document's passages, leaving the rest of the index alone. */
   async update(docs: readonly SearchDoc[], options: SyncOptions = {}): Promise<void> {
     const index = this.index;
@@ -243,7 +191,7 @@ export class SemanticIndex {
     // prefix rather than by position — a shortened note must not leave its
     // former tail behind. Their hashes go too, so a checkpoint never claims them.
     const updating = new Set(docs.map((doc) => doc.id));
-    index.remove(index.allIds().filter((id) => updating.has(documentIdOf(id))));
+    index.remove(index.allIds().filter((id) => updating.has(readyCore().documentIdOf(id))));
     for (const id of updating) this.embedded.delete(id);
 
     const pieces = docs.map((doc) => ({
@@ -267,7 +215,7 @@ export class SemanticIndex {
       let at = 0;
       for (const { doc, texts: own } of group) {
         index.add(
-          own.map((_, i) => passageId(doc.id, i)),
+          own.map((_, i) => readyCore().passageId(doc.id, i)),
           flatten(vectors.slice(at, at + own.length)),
         );
         at += own.length;
@@ -308,7 +256,7 @@ export class SemanticIndex {
     if (!index) return false;
 
     const present = new Set(docs.map((doc) => doc.id));
-    const gone = [...new Set(index.allIds().map(documentIdOf))].filter((id) => owns(id) && !present.has(id));
+    const gone = [...new Set(index.allIds().map((id) => readyCore().documentIdOf(id)))].filter((id) => owns(id) && !present.has(id));
     if (gone.length > 0) this.removeDocuments(gone);
 
     const changed = docs.filter((doc) => this.embedded.get(doc.id) !== hashOf(doc));
@@ -321,7 +269,7 @@ export class SemanticIndex {
     const index = this.index;
     if (!index) return;
     const dropping = new Set(docIds);
-    index.remove(index.allIds().filter((id) => dropping.has(documentIdOf(id))));
+    index.remove(index.allIds().filter((id) => dropping.has(readyCore().documentIdOf(id))));
     for (const id of docIds) this.embedded.delete(id);
   }
 

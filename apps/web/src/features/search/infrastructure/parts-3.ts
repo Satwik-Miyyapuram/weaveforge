@@ -1,7 +1,7 @@
 import { openAppDb, openAppDb as openDb, SEARCH_STORE, VECTOR_STORE } from "@/lib/cache/parts-1";
 import { warnOnce } from "@/lib/error-report/parts";
 import { formatError } from "@/lib/format-error";
-import { loadCore } from "@/lib/rust-core";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import type { SearchDoc, SearchSettings, WorkspaceSnapshot } from "@weaveforge/core";
 import type { EmbedRequest, IEmbedder } from "../application/parts";
 import {
@@ -183,8 +183,6 @@ export interface WorkerEmbedderOptions {
  * are 80–120 MB of WASM heap that nothing else can reclaim; the browser's HTTP
  * cache keeps the download, so the next `embed` pays only the model's start.
  */
-export const IDLE_EVICT_MS = 5 * 60_000;
-
 export class WorkerEmbedder implements IEmbedder {
   readonly id: string;
   dimensions = 0;
@@ -273,7 +271,7 @@ export class WorkerEmbedder implements IEmbedder {
     this.idleTimer = setTimeout(() => {
       this.idleTimer = null;
       if (this.pending.size === 0) this.dispose();
-    }, IDLE_EVICT_MS);
+    }, readyCore().embedIdleEvictMs());
   }
 
   private async start(): Promise<void> {
@@ -336,11 +334,6 @@ export class WorkerEmbedder implements IEmbedder {
       worker.postMessage({ ...request, id } satisfies EmbedWorkerRequest);
     });
   }
-}
-
-/** Whether this browser can run the encoder at all. */
-export function supportsLocalEmbedding(): boolean {
-  return typeof Worker !== "undefined" && typeof WebAssembly !== "undefined";
 }
 
 /**

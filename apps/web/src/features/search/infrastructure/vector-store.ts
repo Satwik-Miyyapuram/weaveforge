@@ -3,7 +3,6 @@ import { LocalRunner } from "@/backend/providers/local/parts";
 import { localFiles, type LocalFiles } from "@/backend/providers/local/parts-1";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 
-import { WORKSPACE_META_DIR } from "@weaveforge/core";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { idbClearVectors, idbGetVectors, idbSetVectors, type StoredVectors } from "./parts-3";
 import { warnOnce } from "@/lib/error-report/parts";
@@ -27,7 +26,7 @@ export interface VectorStore {
 }
 
 const BUCKET = "vectors";
-const key = (projectId: string | null) => projectId ?? "-";
+const key = (projectId: string | null) => readyCore().vectorStoreKey(projectId ?? undefined);
 
 const idbStore: VectorStore = {
   get: idbGetVectors,
@@ -115,19 +114,15 @@ function headJson(value: StoredVectors): string {
 }
 
 function pack(value: StoredVectors): string {
-  const head = headJson(value);
-  return `${readyCore().encodeBase64(new TextEncoder().encode(head))}.${readyCore().encodeBase64(value.bytes)}`;
+  return readyCore().packLocalVectorRow(headJson(value), value.bytes);
 }
 
 function unpack(packed: string): StoredVectors | null {
-  const split = packed.indexOf(".");
-  if (split < 0) return null;
   try {
-    const head = JSON.parse(new TextDecoder().decode(readyCore().decodeBase64(packed.slice(0, split)))) as Omit<
-      StoredVectors,
-      "bytes"
-    >;
-    return { ...head, bytes: readyCore().decodeBase64(packed.slice(split + 1)) };
+    const row = readyCore().unpackLocalVectorRow(packed);
+    if (!row) return null;
+    const head = JSON.parse(row.head) as Omit<StoredVectors, "bytes">;
+    return { ...head, bytes: row.bytes };
   } catch {
     return null;
   }
@@ -135,8 +130,10 @@ function unpack(packed: string): StoredVectors | null {
 
 
 /** Where the vectors sit inside a connected workspace folder. */
-export const FOLDER_CACHE_DIR = `${WORKSPACE_META_DIR}/cache`;
-const folderPath = (projectId: string | null) => `${FOLDER_CACHE_DIR}/vectors-${key(projectId)}.bin`;
+export function folderCacheDir(): string {
+  return readyCore().vectorFolderCacheDir();
+}
+const folderPath = (projectId: string | null) => readyCore().vectorFolderPath(projectId ?? undefined);
 
 /**
  * A copy in the workspace folder, beside the notes the vectors describe.
@@ -166,9 +163,10 @@ const folderStore = {
     const fs = activeWorkspaceFs();
     if (!fs) return;
     try {
-      await fs.mkdirp(FOLDER_CACHE_DIR);
-      if (!(await fs.stat(`${FOLDER_CACHE_DIR}/.gitignore`))) {
-        await fs.writeFile(`${FOLDER_CACHE_DIR}/.gitignore`, "*\n");
+      const dir = folderCacheDir();
+      await fs.mkdirp(dir);
+      if (!(await fs.stat(`${dir}/.gitignore`))) {
+        await fs.writeFile(`${dir}/.gitignore`, "*\n");
       }
       // The shell writes beside the file and renames it into place, so a
       // kill mid-write leaves the previous cache whole.
@@ -182,8 +180,8 @@ const folderStore = {
     const fs = activeWorkspaceFs();
     if (!fs) return;
     try {
-      for (const entry of await fs.list(FOLDER_CACHE_DIR)) {
-        if (entry.kind === "file" && /\/vectors-[^/]*\.bin$/.test(`/${entry.path}`)) await fs.remove(entry.path);
+      for (const entry of await fs.list(folderCacheDir())) {
+        if (entry.kind === "file" && readyCore().isVectorCacheFile(entry.path)) await fs.remove(entry.path);
       }
     } catch {
       /* nothing there */

@@ -1,10 +1,10 @@
 import MiniSearch, { type Options, type SearchResult } from "minisearch";
 import { type IWorkspaceSearchIndex, type IWorkspaceSearchIndexFactory, type SearchDoc, type SearchHit, type SearchSettings, type SearchKind, type SearchQueryOptions } from "@weaveforge/core";
-import type { ParsedQuery } from "@weaveforge/wasm";
+import type { MiniSearchDocs, ParsedQuery } from "@weaveforge/wasm";
 import { type RustCore, readyCore, typedCore } from "@/lib/rust-core";
 
 /** The Rust core calls this index makes that depend on the injected core. */
-type SearchCore = Pick<RustCore, "parseQuery" | "planFuzzyRetry">;
+type SearchCore = Pick<RustCore, "parseQuery" | "planFuzzyRetry" | "MiniSearchDocs">;
 
 /**
  * BM25 index over the workspace snapshot. The only module that imports
@@ -40,10 +40,18 @@ const STORED_FIELDS = [
 
 type StoredFields = Pick<SearchDoc, (typeof STORED_FIELDS)[number]>;
 
+/** What the Rust store takes: the stored fields plus the id and the parsed `updatedAt`. */
+type DocRecordInput = StoredFields & { id: string; updatedMs: number | null };
+
 function storedFieldsOf(doc: SearchDoc): StoredFields {
   const out: Record<string, unknown> = {};
   for (const field of STORED_FIELDS) out[field] = doc[field];
   return out as StoredFields;
+}
+
+function recordOf(id: string, fields: StoredFields): DocRecordInput {
+  const updatedMs = Date.parse(fields.updatedAt);
+  return { ...fields, id, updatedMs: Number.isNaN(updatedMs) ? null : updatedMs };
 }
 
 /** No terms: only filters, if any. */
@@ -76,66 +84,57 @@ function miniSearchOptions(): Options<SearchDoc> {
   };
 }
 
+/**
+ * MiniSearch scores the text; the Rust store holds the stored documents and
+ * applies filters, document boosts, hit mapping and excerpts.
+ */
 class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
-  /** User ranking preferences; defaults apply when unset. */
+  /** User ranking preferences; defaults apply when unset. Field boosts stay here, for MiniSearch. */
   settings: SearchSettings | undefined;
+  /** Document boosts by id, read by MiniSearch's `boostDocument`; filled by `refreshBoosts`. */
+  private readonly boostMap = new Map<string, number>();
+  /** Set whenever the store or the settings change; cleared once `boostMap` is rebuilt. */
+  private boostsDirty = true;
+  /** The `now` the table was built at: recency decays with time, so the table follows it. */
+  private boostsAt = NaN;
 
   constructor(
     private readonly core: SearchCore,
     private readonly engine: MiniSearch<SearchDoc>,
+    private readonly store: MiniSearchDocs,
     public revision: string,
-    private readonly stored: Map<string, StoredFields>,
   ) {}
 
   replaceAll(docs: readonly SearchDoc[]): void {
     this.engine.removeAll();
-    this.stored.clear();
+    this.store.clear();
     this.add(docs);
   }
 
   add(docs: readonly SearchDoc[]): void {
+    // Re-adding an existing id throws in MiniSearch, so replace explicitly.
     for (const doc of docs) {
-      // Re-adding an existing id throws in MiniSearch, so replace explicitly.
-      if (this.stored.has(doc.id)) this.engine.discard(doc.id);
-      this.stored.set(doc.id, storedFieldsOf(doc));
+      if (this.store.has(doc.id)) this.engine.discard(doc.id);
     }
+    this.store.put(docs.map((doc) => recordOf(doc.id, storedFieldsOf(doc))));
+    this.boostsDirty = true;
     this.engine.addAll(docs as SearchDoc[]);
   }
 
   idsOfKind(kinds: readonly SearchKind[]): string[] {
-    const wanted = new Set<string>(kinds);
-    const out: string[] = [];
-    for (const [id, fields] of this.stored) {
-      if (wanted.has(fields.kind)) out.push(id);
-    }
-    return out;
+    return this.store.idsOfKind(kinds) as string[];
   }
 
   hitById(id: string): SearchHit | null {
-    const fields = this.stored.get(id);
-    if (!fields) return null;
-    return {
-      id,
-      kind: fields.kind,
-      entityId: fields.entityId,
-      title: fields.title,
-      href: fields.href,
-      // No score: this document was ranked by another arm, and inventing a
-      // keyword score for it would corrupt the fusion that asked for it.
-      score: 0,
-      // No matched terms either: nothing in this document matched a keyword, so
-      // highlighting it would draw a box around an arbitrary word.
-      terms: [],
-      ...(fields.page != null ? { page: fields.page } : {}),
-      ...(fields.updatedAt ? { updatedAt: fields.updatedAt } : {}),
-    };
+    return this.store.hitById(id) as SearchHit | null;
   }
 
   remove(ids: readonly string[]): void {
     for (const id of ids) {
-      if (!this.stored.has(id)) continue;
+      if (!this.store.has(id)) continue;
       this.engine.discard(id);
-      this.stored.delete(id);
+      this.store.remove(id);
+      this.boostsDirty = true;
     }
   }
 
@@ -144,16 +143,18 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
     if (isEmptyQuery(parsed)) return [];
 
     const limit = Math.max(1, Math.min(options.limit ?? 30, 200));
-    // Caller-supplied kinds and `kind:` in the query intersect — a screen
-    // scoped to notes must not be widened by typing `kind:paper`.
-    const callerKinds = options.kinds ? new Set(options.kinds) : null;
-    const queryKinds = parsed.kinds.length ? new Set(parsed.kinds) : null;
+    const now = Date.now();
+    // Caller-supplied kinds and `kind:` in the query intersect in the store — a
+    // screen scoped to notes must not be widened by typing `kind:paper`.
+    const kinds = options.kinds ?? null;
 
-    // A filter-only query ("kind:note", "tag:vae") has nothing to rank, so
-    // enumerate the stored documents and apply the filters to all of them.
+    // A filter-only query ("kind:note", "tag:vae") has nothing to rank, so the
+    // store enumerates its documents and applies the filters to all of them.
     if (isFilterOnly(parsed)) {
-      return this.filterOnly(parsed, callerKinds, queryKinds, limit);
+      return this.store.filterOnly(parsed, kinds, limit, now) as SearchHit[];
     }
+
+    this.refreshBoosts(now);
 
     const run = (fuzzyFor: (term: string) => number) =>
       this.engine.search(parsed.text, {
@@ -161,17 +162,13 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         prefix: (term) => (options.prefix === false ? false : term.length >= typedCore().MIN_PREFIX_LENGTH),
         fuzzy: fuzzyFor,
         // Document-level signal: link degree first, recency only as a tiebreak.
-        boostDocument: (id, _term, storedFields) => {
-          const fields = (storedFields ?? this.stored.get(String(id))) as StoredFields | undefined;
-          if (!fields) return 1;
-          return typedCore().documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 }, {
-            kindMultiplier: typedCore().kindMultiplier(fields.kind, this.settings ?? {}),
-            recency: this.settings?.recencyBoost,
-          });
-        },
-        filter: (result) =>
-          this.matchesFilters(result as SearchResult & StoredFields, parsed, callerKinds, queryKinds),
+        boostDocument: (id) => this.boostMap.get(String(id)) ?? 1,
       });
+
+    // Filters, the document boost, the limit and excerpts all happen in the store.
+    // An empty array means nothing passed the filters.
+    const rank = (results: readonly SearchResult[]) =>
+      this.store.finish(results, parsed, kinds, limit, now, !!options.excerpts) as SearchHit[];
 
     const firstPass = (term: string) =>
       typeof options.fuzzy === "number"
@@ -180,108 +177,41 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
           ? 0
           : typedCore().fuzzinessForTerm(term);
 
-    let results = run(firstPass);
+    let hits = rank(run(firstPass));
 
     // Nothing matched. Before reporting an empty result, allow one more edit
     // per term — which is what a transposition costs under Levenshtein, and the
     // reason "nerual" cannot reach "neural" on the first pass. Only queries that
     // already failed pay for this, so the common path is untouched.
-    if (results.length === 0 && options.fuzzy !== false && typeof options.fuzzy !== "number") {
+    if (hits.length === 0 && options.fuzzy !== false && typeof options.fuzzy !== "number") {
       const plan = this.core.planFuzzyRetry({
         resultCount: 0,
         termCount: parsed.text.split(/\s+/).filter(Boolean).length,
       });
-      if (plan.retry) results = run((term) => plan.fuzzinessFor(term));
+      if (plan.retry) hits = rank(run((term) => plan.fuzzinessFor(term)));
     }
 
-    return results.slice(0, limit).map((result) => {
-      const fields = result as SearchResult & StoredFields;
-      return {
-        id: String(result.id),
-        kind: fields.kind,
-        entityId: fields.entityId,
-        title: fields.title,
-        href: fields.href,
-        score: result.score,
-        page: fields.page ?? undefined,
-        updatedAt: fields.updatedAt || undefined,
-        terms: result.terms,
-        queryTerms: result.queryTerms,
-        excerpt: options.excerpts
-          ? readyCore().excerptOf(fields.body ?? "", result.terms)
-          : undefined,
-      };
-    });
+    return hits;
+  }
+
+  /** Apply ranking preferences: MiniSearch keeps the field boosts, the store keeps the rest. */
+  applySettings(settings: SearchSettings | undefined): void {
+    this.settings = settings;
+    this.store.setSettings(settings);
+    this.boostsDirty = true;
   }
 
   /**
-   * Field filters plus exclusions. Exclusions are checked against the stored
-   * text rather than the inverted index so `-"work in progress"` excludes on
-   * the phrase, not on either word.
+   * One wasm call rebuilds every document's boost, instead of one call per candidate
+   * per term. Skipped while the store is unchanged and `now` has not moved.
    */
-  private matchesFilters(
-    fields: StoredFields,
-    parsed: ParsedQuery,
-    callerKinds: Set<SearchKind> | null,
-    queryKinds: Set<SearchKind> | null,
-  ): boolean {
-    if (callerKinds && !callerKinds.has(fields.kind)) return false;
-    if (queryKinds && !queryKinds.has(fields.kind)) return false;
-
-    // modified:Nd — updatedAt within the last N days.
-    if (parsed.modifiedWithinDays !== null) {
-      const since = Date.now() - parsed.modifiedWithinDays * 86_400_000;
-      if (!(Date.parse(fields.updatedAt) >= since)) return false;
-    }
-
-    const path = (fields.path ?? "").toLowerCase();
-    if (parsed.paths.length && !parsed.paths.every((needle) => path.includes(needle))) return false;
-
-    if (parsed.tags.length) {
-      const tags = (Array.isArray(fields.tags) ? fields.tags : []).map((t) => t.toLowerCase());
-      if (!parsed.tags.every((needle) => tags.includes(needle))) return false;
-    }
-
-    // Phrases and exclusions both need the raw text: the inverted index knows
-    // terms, not adjacency, so `"message passing"` would otherwise match any
-    // document containing both words anywhere.
-    if (parsed.phrases.length || parsed.exclude.length) {
-      const haystack = `${fields.title} ${path} ${fields.body ?? ""}`.toLowerCase();
-      if (!parsed.phrases.every((phrase) => haystack.includes(phrase))) return false;
-      if (parsed.exclude.some((needle) => haystack.includes(needle))) return false;
-    }
-
-    return true;
-  }
-
-  /** Enumerate stored documents for queries that carry filters but no terms. */
-  private filterOnly(
-    parsed: ParsedQuery,
-    callerKinds: Set<SearchKind> | null,
-    queryKinds: Set<SearchKind> | null,
-    limit: number,
-  ): readonly SearchHit[] {
-    const hits: SearchHit[] = [];
-    for (const [id, fields] of this.stored) {
-      if (!this.matchesFilters(fields, parsed, callerKinds, queryKinds)) continue;
-      hits.push({
-        id,
-        kind: fields.kind,
-        entityId: fields.entityId,
-        title: fields.title,
-        href: fields.href,
-        // No term scoring to report; order by the document signal alone.
-        score: typedCore().documentBoost({ ...(fields as SearchDoc), degree: fields.degree ?? 0 }, {
-          kindMultiplier: typedCore().kindMultiplier(fields.kind, this.settings ?? {}),
-          recency: this.settings?.recencyBoost,
-        }),
-        ...(fields.updatedAt ? { updatedAt: fields.updatedAt } : {}),
-        terms: [],
-      });
-    }
-    // Sort the whole match set: stopping early would drop the best document
-    // whenever it sits past the cut in insertion order.
-    return hits.sort((a, b) => b.score - a.score).slice(0, limit);
+  private refreshBoosts(now: number): void {
+    if (!this.boostsDirty && this.boostsAt === now) return;
+    const { ids, boosts } = this.store.boosts(now) as { ids: string[]; boosts: number[] };
+    this.boostMap.clear();
+    ids.forEach((id, i) => this.boostMap.set(id, boosts[i] ?? 1));
+    this.boostsDirty = false;
+    this.boostsAt = now;
   }
 
   serialize(): string {
@@ -289,7 +219,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
       schemaVersion: SEARCH_SCHEMA_VERSION,
       revision: this.revision,
       index: JSON.stringify(this.engine),
-      docs: Object.fromEntries(this.stored),
+      docs: Object.fromEntries(this.store.entries() as [string, StoredFields][]),
     };
     return JSON.stringify(payload);
   }
@@ -300,7 +230,7 @@ export function createMiniSearchIndexFactory(core: SearchCore): IWorkspaceSearch
   return {
     create(docs: readonly SearchDoc[]): IWorkspaceSearchIndex {
       const engine = new MiniSearch<SearchDoc>(miniSearchOptions());
-      const index = new MiniSearchWorkspaceIndex(core, engine, "", new Map());
+      const index = new MiniSearchWorkspaceIndex(core, engine, new core.MiniSearchDocs(), "");
       index.replaceAll(docs);
       return index;
     },
@@ -318,8 +248,9 @@ export function createMiniSearchIndexFactory(core: SearchCore): IWorkspaceSearch
         if (payload.revision !== revision) return null;
 
         const engine = MiniSearch.loadJSON<SearchDoc>(payload.index, miniSearchOptions());
-        const stored = new Map<string, StoredFields>(Object.entries(payload.docs ?? {}));
-        return new MiniSearchWorkspaceIndex(core, engine, payload.revision, stored);
+        const store = new core.MiniSearchDocs();
+        store.put(Object.entries(payload.docs ?? {}).map(([id, fields]) => recordOf(id, fields)));
+        return new MiniSearchWorkspaceIndex(core, engine, store, payload.revision);
       } catch {
         return null;
       }
@@ -336,11 +267,11 @@ export function buildSearchIndex(
 ): IWorkspaceSearchIndex {
   const index = createMiniSearchIndexFactory(core).create(docs) as MiniSearchWorkspaceIndex;
   index.revision = revision;
-  index.settings = settings;
+  index.applySettings(settings);
   return index;
 }
 
 /** Apply new ranking preferences without rebuilding the index. */
 export function applySearchSettings(index: IWorkspaceSearchIndex, settings?: SearchSettings): void {
-  (index as MiniSearchWorkspaceIndex).settings = settings;
+  (index as MiniSearchWorkspaceIndex).applySettings(settings);
 }
