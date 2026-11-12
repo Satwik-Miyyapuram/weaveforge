@@ -15,7 +15,7 @@ test("overrides apply on top of the defaults", () => {
   const boosts = rust().effectiveFieldBoosts({ weights: { body: 5 } });
 
   assert.equal(boosts.body, 5);
-  assert.equal(boosts.title, rust().FIELD_BOOSTS.title, "untouched fields keep their default");
+  assert.equal(boosts.title, rust().effectiveFieldBoosts().title, "untouched fields keep their default");
 });
 
 test("weights are clamped — a stored value cannot break scoring", () => {

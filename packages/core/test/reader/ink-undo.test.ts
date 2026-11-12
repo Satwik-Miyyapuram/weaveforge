@@ -5,7 +5,9 @@ import type { ReaderAnnotation } from "../../src/reader/parts.js";
 import * as wasm from "../../../wf-wasm/src/index.ts";
 
 // Their TypeScript was removed; the Rust core is the implementation.
-const { EMPTY_INK_UNDO, INK_UNDO_LIMIT, pushInkUndo, refreshInkUndoAnnotation, renameInkUndoId, takeInkRedo, takeInkUndo } = wasm;
+const { EMPTY_INK_UNDO, pushInkUndo, refreshInkUndoAnnotation, renameInkUndoId, takeInkRedo, takeInkUndo } = wasm;
+// The history cap in crates/wf-core/src/reader/ink_undo.rs.
+const INK_UNDO_LIMIT = 200;
 
 function ink(id: string, paths: number[][] = [[0, 0, 10, 10]]): ReaderAnnotation {
   return {

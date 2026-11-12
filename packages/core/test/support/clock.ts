@@ -9,3 +9,4 @@ export function fixedClock(iso = "2026-06-24T12:00:00.000Z"): Clock {
 export function seqIds(): IdGenerator {
   let n = 0;
   return { newId: () => `id-${++n}` };
+}
