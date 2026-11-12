@@ -61,7 +61,7 @@ export async function purgeUserBlobs(
   const rows = await registry.listForUser(userId);
   const config = readStorageConfig();
   const failed: BlobRow[] = [];
-  if (config.provider === "tiered" && rows.length) {
+  if (readyCore().purgesObjects(config.provider, rows.length)) {
     const store = buildStore(config, registry);
     for (const row of rows) {
       try {
@@ -78,44 +78,39 @@ export async function purgeUserBlobs(
 
   if (failed.length) {
     /* Their rows stay: they are what a retry needs to find the objects. */
-    throw new Error(
-      `Could not delete ${failed.length} of ${rows.length} stored objects — account not deleted. Retry once object storage is reachable.`,
-    );
+    throw new Error(readyCore().purgeFailureMessage(failed.length, rows.length));
   }
 
   await registry.deleteForUser(userId);
 }
-
-/** One listing call returns at most this many entries; longer prefixes are paged. */
-const LIST_PAGE = 200;
 
 async function removeStoragePrefix(
   admin: SupabaseClient,
   bucket: string,
   prefix: string,
 ): Promise<void> {
+  const core = readyCore();
+  const page = core.storageListPage();
   const queue = [prefix];
   const paths: string[] = [];
 
   while (queue.length) {
     const current = queue.pop()!;
-    for (let offset = 0; ; offset += LIST_PAGE) {
+    for (let offset = 0; ; offset += page) {
       const { data, error } = await admin.storage
         .from(bucket)
-        .list(current, { limit: LIST_PAGE, offset });
+        .list(current, { limit: page, offset });
       /* Returning here skipped the rest of the bucket and reported success, so a
          listing failure looked exactly like an empty bucket. */
       if (error) throw error;
 
-      for (const entry of data ?? []) {
-        const full = current ? `${current}/${entry.name}` : entry.name;
-        if (entry.id) {
-          paths.push(full);
-        } else {
-          queue.push(full);
-        }
-      }
-      if ((data?.length ?? 0) < LIST_PAGE) break;
+      const split = core.splitStorageListing(
+        current,
+        (data ?? []).map((entry) => ({ name: entry.name, isFile: Boolean(entry.id) })),
+      );
+      paths.push(...split.files);
+      queue.push(...split.folders);
+      if (!core.storageListingHasMore(data?.length ?? 0)) break;
     }
   }
 
