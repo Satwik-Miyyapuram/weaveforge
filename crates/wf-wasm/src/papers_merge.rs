@@ -4,7 +4,7 @@ use serde_json::{Map, Value};
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsError, JsValue};
 use wf_core::papers::paper_merge::{
-    MergePaper, annotation_identity, merge_paper_into, zotero_key_of,
+    MergeCopy, MergePaper, annotation_identity, merge_order, merge_paper_into, zotero_key_of,
 };
 
 use super::to_js;
@@ -39,6 +39,24 @@ pub fn zotero_key_of_js(
     let metadata: Option<Map<String, Value>> = serde_wasm_bindgen::from_value(metadata)
         .map_err(|error| JsError::new(&error.to_string()))?;
     Ok(metadata.and_then(|map| zotero_key_of(&map)))
+}
+
+/// [`merge_order`] (TS `MergePapersUseCase.execute`): which copy a merge keeps, the order the
+/// others fold into it, and the refusal message when the merge cannot run.
+///
+/// # Errors
+///
+/// Fails if `copies` is not a list of `{ id, linked }` objects.
+#[wasm_bindgen(js_name = mergeOrder, unchecked_return_type = "B.MergeOrder")]
+pub fn merge_order_js(
+    keep_id: &str,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.MergeCopy[]")] copies: JsValue,
+    can_remove_zotero: bool,
+) -> Result<JsValue, JsError> {
+    let copies: Vec<MergeCopy> = serde_wasm_bindgen::from_value(copies)
+        .map_err(|error| JsError::new(&error.to_string()))?;
+    to_js(&merge_order(keep_id, &copies, can_remove_zotero))
+        .map_err(|error| JsError::new(&error.to_string()))
 }
 
 /// [`annotation_identity`] (TS `sameAnnotation`): the key two annotations share when they are

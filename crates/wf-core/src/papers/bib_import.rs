@@ -436,8 +436,8 @@ pub fn plan_bib_import(
     plan
 }
 
-/// The save fields of one planned entry (TS `bibPaperInput`). Absent values serialize as
-/// `undefined`, the TS shape.
+/// The save fields of one planned entry (TS `bibPaperInput`). Absent optional fields are left
+/// out, so the TS side reads them as `undefined`.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -447,22 +447,27 @@ pub struct BibPaperInput {
     /// Authors.
     pub authors: Vec<String>,
     /// Year.
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "specta", specta(optional))]
     pub year: Option<i32>,
     /// Venue.
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "specta", specta(optional))]
     pub venue: Option<String>,
     /// Doi.
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "specta", specta(optional))]
     pub doi: Option<String>,
     /// Arxiv id.
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "specta", specta(optional))]
     pub arxiv_id: Option<String>,
     /// Url.
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "specta", specta(optional))]
     pub url: Option<String>,
     /// Abstract text.
-    #[serde(rename = "abstract")]
+    #[serde(rename = "abstract", skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "specta", specta(optional))]
     pub abstract_text: Option<String>,
     /// Bibtex.
@@ -499,6 +504,13 @@ pub fn bib_paper_input(entry: &BibImportPaper) -> BibPaperInput {
     }
 }
 
+/// Why an entry is reported skipped when its add found the paper already in the library (TS
+/// `importBibFile`). `None` when the add made a new paper.
+#[must_use]
+pub fn bib_add_skip_reason(created: bool, title: &str) -> Option<String> {
+    (!created).then(|| format!("Already in the library as \"{title}\"."))
+}
+
 /// The citation key a paper was imported or exported with (TS `citeKeyOf`): `metadata.citeKey`
 /// as written, when it is a string that is not blank after JS trim.
 #[must_use]
@@ -513,6 +525,46 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    // it: "a paper the add dedupes (same title) is skipped, not counted as added"
+    #[test]
+    fn already_in_library_reason_names_the_existing_title() {
+        assert_eq!(
+            bib_add_skip_reason(false, "Old Title"),
+            Some("Already in the library as \"Old Title\".".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_created_paper_has_no_skip_reason() {
+        assert_eq!(bib_add_skip_reason(true, "New Title"), None);
+    }
+
+    #[test]
+    fn absent_optional_fields_are_left_out_of_the_save_input() {
+        let entry = BibImportPaper {
+            title: "T".to_owned(),
+            authors: Vec::new(),
+            year: None,
+            venue: None,
+            doi: None,
+            arxiv_id: None,
+            url: None,
+            citation_key: "k".to_owned(),
+            line: 1,
+            abstract_text: None,
+            bibtex: "@misc{k}".to_owned(),
+        };
+        let value = serde_json::to_value(bib_paper_input(&entry)).unwrap();
+        let object = value.as_object().unwrap();
+        assert!(!object.contains_key("year"));
+        assert!(!object.contains_key("venue"));
+        assert!(!object.contains_key("doi"));
+        assert!(!object.contains_key("arxivId"));
+        assert!(!object.contains_key("url"));
+        assert!(!object.contains_key("abstract"));
+        assert_eq!(object.get("title"), Some(&json!("T")));
+    }
 
     #[test]
     fn bib_paper_input_keeps_fields_and_cite_key() {
