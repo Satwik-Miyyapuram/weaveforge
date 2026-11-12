@@ -227,7 +227,7 @@ mod tests {
         let mut c = call(vec![json!("\\xabc"), json!("p")], vec![]);
         c.ctx.user_id = None;
         match create(&c) {
-            RepoStep::Fail { message } => assert_eq!(message, "Not signed in."),
+            RepoStep::Fail { message, .. } => assert_eq!(message, "Not signed in."),
             other => panic!("expected fail, got {other:?}"),
         }
     }

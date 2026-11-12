@@ -90,6 +90,7 @@ mod tests {
                 project_id: Some("p1".into()),
                 user_id: Some("u1".into()),
                 now: Some("2026-02-02T00:00:00.000Z".into()),
+                id_seed: None,
             },
             replies,
         }

@@ -223,6 +223,7 @@ mod tests {
                 project_id: Some("p1".into()),
                 user_id: None,
                 now: None,
+                id_seed: None,
             },
         }
     }
