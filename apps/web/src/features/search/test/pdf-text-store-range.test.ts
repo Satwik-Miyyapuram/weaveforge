@@ -1,8 +1,9 @@
-import { test, afterEach } from "node:test";
+import { test, afterEach, before } from "node:test";
 import assert from "node:assert/strict";
 
 import { clearPdfTexts, loadPdfTexts } from "../infrastructure/parts-2";
 import { closeAppDb } from "@/lib/cache/parts-1";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 interface Range {
   lower: string;
@@ -91,6 +92,10 @@ function installCursorDb(keys: string[]) {
   });
   return { rows, visited: () => visited };
 }
+
+before(async () => {
+  await loadTestCore();
+});
 
 afterEach(() => {
   closeAppDb();

@@ -304,7 +304,10 @@ export class WorkspaceSearch {
     // The keyword index was the only thing kept current here; the semantic arm
     // kept the vectors of whatever existed when it was switched on, so a new or
     // edited note was invisible to meaning-search until the next full rebuild.
-    this.syncSemantic(fresh, (id) => (wanted as ReadonlySet<string>).has(id.slice(0, id.indexOf(":"))));
+    this.syncSemantic(fresh, (id) => {
+      const kind = readyCore().kindOfId(id);
+      return kind !== undefined && (wanted as ReadonlySet<string>).has(kind);
+    });
   }
 
   /** Background re-embed of one slice; failures cost freshness, never search. */
@@ -595,7 +598,8 @@ export class WorkspaceSearch {
     // semantic arm's corpus until the next full build read it back from storage.
     this.pdfTexts = [...this.pdfTexts.filter((s) => s.paperId !== source.paperId), source];
     this.state.documentCount = this.state.documentCount - previous + docs.length;
-    const prefix = `pdf:${source.paperId}`;
+    // The `#` keeps paper `p1` from claiming the passages of paper `p10`.
+    const prefix = `${readyCore().pdfIdPrefix(source.paperId)}#`;
     this.syncSemantic(docs, (id) => id.startsWith(prefix));
   }
 
@@ -643,7 +647,7 @@ export class WorkspaceSearch {
    */
   get corpusSize(): { documents: number; large: boolean } {
     const documents = this.state.documentCount;
-    return { documents, large: documents > typedCore().LARGE_CORPUS_WARNING };
+    return { documents, large: readyCore().isLargeCorpus(documents) };
   }
 
   /** True when the index worker could not start and the build blocked the page instead. */

@@ -8,11 +8,7 @@ import type { SemanticStatus as SemanticStatusInput } from "@weaveforge/wasm";
 import { targetEmbeddingModel } from "../infrastructure/parts-1";
 import { nativeEmbedBridge, NativeEmbedder } from "../infrastructure/parts-2";
 import { vectorStore } from "../infrastructure/vector-store";
-import {
-  supportsLocalEmbedding,
-  WorkerEmbedder,
-  type WorkerEmbedderOptions,
-} from "../infrastructure/parts-3";
+import { WorkerEmbedder, type WorkerEmbedderOptions } from "../infrastructure/parts-3";
 import { SEMANTIC_CHANGED_EVENT } from "./parts";
 import { type EmbedProgress, SemanticIndex } from "./parts-2";
 
@@ -150,7 +146,10 @@ function modelName(id: string): string {
 }
 
 export function semanticSupported(): boolean {
-  return supportsLocalEmbedding();
+  return readyCore().supportsLocalEmbedding(
+    typeof Worker !== "undefined",
+    typeof WebAssembly !== "undefined",
+  );
 }
 
 export function semanticEnabled(): boolean {
