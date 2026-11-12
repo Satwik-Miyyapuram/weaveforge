@@ -156,6 +156,21 @@ pub fn resolve_ink_page_order_js(
     to_js(&ink_page::resolve_ink_page_order(&declared, &present))
 }
 
+/// [`compose_ink_page_order`](ink_page::compose_ink_page_order): the pages a note loads, in order.
+///
+/// # Errors
+///
+/// Fails if either list is not an array of strings.
+#[wasm_bindgen(js_name = composeInkPageOrder, unchecked_return_type = "string[]")]
+pub fn compose_ink_page_order_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] declared: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] present: JsValue,
+) -> JsResult<JsValue> {
+    let declared: Vec<String> = serde_wasm_bindgen::from_value(declared)?;
+    let present: Vec<String> = serde_wasm_bindgen::from_value(present)?;
+    to_js(&ink_page::compose_ink_page_order(&declared, &present))
+}
+
 /// [`ink_page_over_budget`](ink_page::ink_page_over_budget): whether the page has too many strokes.
 ///
 /// # Errors

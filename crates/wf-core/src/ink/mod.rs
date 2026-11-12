@@ -82,3 +82,7 @@ pub mod recognition_request;
 pub mod render_instances;
 pub mod render_strokes;
 pub mod trail;
+pub mod capture;
+pub mod stroke_history;
+pub mod native_stroke;
+pub mod worker_route;

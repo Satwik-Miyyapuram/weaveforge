@@ -12,7 +12,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 use wf_core::ink::PackedInkStroke;
 use wf_core::ink::curve::{Side, ink_curve_at, ink_tangent_at};
-use wf_core::ink::decode::{InkWordReadings, decode_ink_words};
+use wf_core::ink::decode::{HelperLine, InkWordReadings, decode_ink_words, helper_line};
 use wf_core::ink::recognise::{
     INK_UNSURE_CONFIDENCE, INK_VOCABULARY_LIMIT, RecognisedLine, bands_coincide,
     ink_page_confidence, ink_page_summary, ink_vocabulary_hints, is_unsure_confidence,
@@ -649,6 +649,27 @@ pub fn decode_ink_words_js(
         &vocabulary,
         engine_text.as_deref(),
     ))
+}
+
+/// [`helper_line`]: one Windows Ink helper line as `{ text, conf, alternatives? }`.
+///
+/// # Errors
+///
+/// Fails if `line` is not a helper line or `vocabulary` not an array of strings.
+#[wasm_bindgen(
+    js_name = inkLineFromHelper,
+    unchecked_return_type = "{ text: string; conf: number; alternatives?: string[] }"
+)]
+pub fn ink_line_from_helper_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "{ text: string; confidence: number; words?: readonly { candidates: readonly string[]; known?: readonly boolean[] | null; join?: string | null }[] | null; alternatives?: readonly string[] | null }"
+    )]
+    line: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] vocabulary: JsValue,
+) -> JsResult<JsValue> {
+    let line: HelperLine = serde_wasm_bindgen::from_value(line)?;
+    let vocabulary: Vec<String> = serde_wasm_bindgen::from_value(vocabulary)?;
+    to_js(&helper_line(&line, &vocabulary))
 }
 
 /// [`ink_vocabulary_words`](wf_core::ink::decode::ink_vocabulary_words), sorted.

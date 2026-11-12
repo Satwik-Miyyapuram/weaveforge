@@ -3,7 +3,6 @@ import {
   BlobNotFoundError,
   type IBlobFetcher,
   type ICurrentUserProvider,
-  INK_CHUNK_EXT,
   type IWorkspaceFs,
 } from "@weaveforge/core";
 import type { InkChunkStore } from "../application/parts-1";
@@ -12,36 +11,32 @@ import type { InkChunkStore } from "../application/parts-1";
 /**
  * Chunks in the encrypted blob bucket the vault's assets already use.
  *
- * The path mirrors the folder layout under the user's prefix —
- * `<userId>/<noteId>/ink/<ulid>.inkb` — so the row the bucket's policy keys on
- * is the same one every other vault asset uses. The bucket cannot be listed
- * from here, so `list` answers `null` and the note's declared order is the
- * whole truth; a chunk this store holds that no note names is unreachable,
- * which is the trade the plan accepts for the cloud path.
+ * The key (bucket, content type and `<userId>/<noteId>/ink/<ulid>.inkb` layout)
+ * is built by Rust, so the row the bucket's policy keys on is the same one every
+ * other vault asset uses. The bucket cannot be listed from here, so `list`
+ * answers `null` and the note's declared order is the whole truth; a chunk this
+ * store holds that no note names is unreachable, which is the trade the plan
+ * accepts for the cloud path.
  */
-export const INK_CHUNK_BUCKET = "vault-assets";
-export const INK_CHUNK_CONTENT_TYPE = "application/octet-stream";
-
 export class BlobInkChunkStore implements InkChunkStore {
   constructor(
     private readonly blobs: IBlobFetcher,
     private readonly session: ICurrentUserProvider,
-    private readonly bucket = INK_CHUNK_BUCKET,
   ) {}
 
   private async path(noteId: string, chunkId: string): Promise<string> {
-    if (!typedCore().isInkNoteId(noteId))
-      throw new Error(`ink: unusable note id ${JSON.stringify(noteId)}`);
-    if (!readyCore().isInkChunkId(chunkId))
-      throw new Error(`ink: unusable chunk id ${JSON.stringify(chunkId)}`);
+    // Ids are checked before the user, as they were before the key moved to
+    // Rust: a bad note id reports first, then a bad chunk id.
+    readyCore().inkSidecarDir(noteId);
+    readyCore().inkChunkPath(noteId, chunkId);
     const userId = await this.session.requireUserId();
-    return `${userId}/${noteId}/ink/${chunkId}${INK_CHUNK_EXT}`;
+    return readyCore().inkChunkBlobKey(userId, noteId, chunkId);
   }
 
   async read(noteId: string, chunkId: string): Promise<Uint8Array | null> {
     try {
       return await this.blobs.fetchBytes(
-        this.bucket,
+        readyCore().inkChunkBlobSpec().bucket,
         await this.path(noteId, chunkId),
       );
     } catch (err) {
@@ -58,19 +53,21 @@ export class BlobInkChunkStore implements InkChunkStore {
     chunkId: string,
     bytes: Uint8Array,
   ): Promise<void> {
-    const blob = new Blob([bytes as BlobPart], {
-      type: INK_CHUNK_CONTENT_TYPE,
-    });
+    const { bucket, contentType } = readyCore().inkChunkBlobSpec();
+    const blob = new Blob([bytes as BlobPart], { type: contentType });
     await this.blobs.upload(
-      this.bucket,
+      bucket,
       await this.path(noteId, chunkId),
       blob,
-      INK_CHUNK_CONTENT_TYPE,
+      contentType,
     );
   }
 
   async remove(noteId: string, chunkId: string): Promise<void> {
-    await this.blobs.remove(this.bucket, await this.path(noteId, chunkId));
+    await this.blobs.remove(
+      readyCore().inkChunkBlobSpec().bucket,
+      await this.path(noteId, chunkId),
+    );
   }
 
   async list(): Promise<null> {
@@ -131,12 +128,9 @@ export class FsInkChunkStore implements InkChunkStore {
     if (!fs) return null;
     const dir = typedCore().inkSidecarDir(noteId);
     if (!(await fs.stat(dir))) return [];
-    const ids: string[] = [];
-    for (const entry of await fs.list(dir)) {
-      if (entry.kind !== "file") continue;
-      const id = readyCore().inkChunkIdOfFileName(entry.path.split("/").pop() ?? "");
-      if (id) ids.push(id);
-    }
-    return ids.sort();
+    const files = (await fs.list(dir))
+      .filter((entry) => entry.kind === "file")
+      .map((entry) => entry.path);
+    return readyCore().inkChunkIdsInListing(files);
   }
 }

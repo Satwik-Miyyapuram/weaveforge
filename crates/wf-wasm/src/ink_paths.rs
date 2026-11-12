@@ -116,3 +116,39 @@ pub fn ink_chunk_id_of_file_name_js(name: &str) -> JsValue {
     let value = ink_paths::chunk_id_of_file_name(name).map(str::to_owned);
     value.map_or(JsValue::NULL, JsValue::from)
 }
+
+/// [`ink_chunk_blob_key`](ink_paths::ink_chunk_blob_key): where a chunk sits in the blob bucket.
+///
+/// # Errors
+///
+/// Fails when `noteId` or `chunkId` is unusable.
+#[wasm_bindgen(js_name = inkChunkBlobKey)]
+pub fn ink_chunk_blob_key_js(user_id: &str, note_id: &str, chunk_id: &str) -> JsResult<String> {
+    ink_paths::ink_chunk_blob_key(user_id, note_id, chunk_id)
+        .map_err(serde_wasm_bindgen::Error::new)
+}
+
+/// [`ink_chunk_blob_spec`](ink_paths::ink_chunk_blob_spec): `{ bucket, contentType }`.
+#[wasm_bindgen(
+    js_name = inkChunkBlobSpec,
+    unchecked_return_type = "{ bucket: string; contentType: string }"
+)]
+pub fn ink_chunk_blob_spec_js() -> JsResult<JsValue> {
+    to_js(&ink_paths::ink_chunk_blob_spec())
+}
+
+/// [`ink_chunk_ids_in_listing`](ink_paths::ink_chunk_ids_in_listing): the sorted chunk ids among
+/// the `paths` of a folder listing.
+///
+/// # Errors
+///
+/// Fails when `paths` is not an array of strings.
+#[wasm_bindgen(
+    js_name = inkChunkIdsInListing,
+    unchecked_param_type = "string[]",
+    unchecked_return_type = "string[]"
+)]
+pub fn ink_chunk_ids_in_listing_js(paths: JsValue) -> JsResult<JsValue> {
+    let paths: Vec<String> = serde_wasm_bindgen::from_value(paths)?;
+    to_js(&ink_paths::ink_chunk_ids_in_listing(&paths))
+}

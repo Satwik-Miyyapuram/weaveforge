@@ -12,9 +12,19 @@
 
 import { type InkColour } from "@weaveforge/core";
 
-import { NibFilter, type FilteredNibSample } from "./parts-2";
+import {
+  CAPTURE_FLAG_DISPATCHED,
+  CAPTURE_FLAG_FIRST,
+  CAPTURE_FLAG_PREDICTED,
+  type CaptureBatch,
+  CaptureStream,
+  type FilteredNibSample,
+} from "./parts-2";
 import { type InkSampleWriter, type InkStrokeHeader } from "./capture-protocol";
 import { InkPenGate, type PenClaim, type PenGateEvent } from "./parts-4";
+
+/** One raw sample in the flat batch layout; `null` rows are dropped before the call. */
+type RawRow = number[] | null;
 
 /* -------------------------------------------------------------------------
  * The session: samples in, worker out
@@ -42,7 +52,8 @@ export interface InkToolChoice {
 
 export interface PenCaptureDeps {
   gate: InkPenGate;
-  filter: NibFilter;
+  /** The per-stroke filter; one batched `consume` per pointer update. */
+  stream: CaptureStream;
   writer: InkSampleWriter;
   /** Client coordinates to page units in 0.1 mm, `null` when off the page. */
   project: (
@@ -89,8 +100,6 @@ export class PenCaptureSession {
   /** Real samples posted for this stroke; predicted ones ride the live tail and never commit. */
   private realSamples = 0;
   private newest: PenPointerEvent | null = null;
-  /** The last real sample consumed, so a repeat of it is dropped (see `consume`). */
-  private lastRaw: { x: number; y: number; t: number } | null = null;
   /** The tool a stroke will use, remembered so a confirmed touch can begin. */
   private tool: InkToolChoice = {
     width: 6,
@@ -165,10 +174,11 @@ export class PenCaptureSession {
   pointerRawUpdate(event: PenPointerEvent): void {
     if (!this.active || event.pointerId !== this.pointerId) return;
     this.newest = event;
-    for (const sample of safeEvents(event.getCoalescedEvents?.bind(event))) {
-      this.consume(sample, false);
-    }
-    this.consume(event, false, false, true);
+    const rows: RawRow[] = safeEvents(event.getCoalescedEvents?.bind(event)).map(
+      (sample) => this.rawRow(sample, 0),
+    );
+    rows.push(this.rawRow(event, CAPTURE_FLAG_DISPATCHED));
+    this.postBatch(rows, event);
 
     // Prediction is for the fallback path only: while the OS is drawing the wet
     // tail, predicting as well forks the stroke (§6.2.6, D11). Predicted samples
@@ -185,11 +195,9 @@ export class PenCaptureSession {
         // only whatever the per-frame flush happened to send: a polyline of the
         // few survivors.
         this.deps.writer.flush("samples", this.header!);
-        // Predicted samples must not move the filter: the next real ones are
-        // older than them, so a dt <= 0 would pin the stroke to the guess.
-        const restore = this.deps.filter.save();
-        for (const sample of predicted) this.consume(sample, false, true);
-        restore();
+        // The stream saves the filter before the predicted run and restores it
+        // after, so predictions never move the filter the next real samples use.
+        this.postBatch(predicted.map((sample) => this.rawRow(sample, CAPTURE_FLAG_PREDICTED)));
         this.deps.writer.flush("samples", this.header!, true);
       }
     }
@@ -228,7 +236,7 @@ export class PenCaptureSession {
   /** Discard the stroke in progress, because a palm decision arrived late. */
   abort(): void {
     this.clear();
-    this.deps.filter.reset();
+    this.deps.stream.resetFilter();
   }
 
   /** Once per frame: get the pending samples to the worker. */
@@ -254,11 +262,11 @@ export class PenCaptureSession {
     };
     this.realSamples = 0;
     this.newest = event;
-    this.deps.filter.reset();
+    this.deps.stream.resetFilter();
     // A stroke whose first sample does not land on the page is not a stroke: the
     // pen came down on the paper's margin or outside it, and telling the worker
     // to begin one would leave it waiting for a stroke that never arrives.
-    if (!this.consume(event, true, false, true)) {
+    if (this.postBatch([this.rawRow(event, CAPTURE_FLAG_FIRST | CAPTURE_FLAG_DISPATCHED)], event) === 0) {
       this.clear();
       this.deps.gate.end(event.pointerId);
       return;
@@ -270,68 +278,75 @@ export class PenCaptureSession {
     this.header = null;
     this.pointerId = null;
     this.realSamples = 0;
-    this.lastRaw = null;
+    this.deps.stream.forgetLast();
   }
 
-  /** Filter one pointer sample and write it into the batch. */
-  private consume(
-    event: PenPointerEvent,
-    first: boolean,
-    predicted = false,
-    dispatched = false,
-  ): boolean {
-    const header = this.header;
-    if (!header) return false;
-    if (!first && event.pointerId !== this.pointerId) return false;
+  /**
+   * One event as a flat raw row for the stream. A coalesced event of another
+   * pointer is dropped here, as is a row whose pointer is not the stroke's.
+   * An off-page point carries NaN coordinates, which the stream drops.
+   */
+  private rawRow(event: PenPointerEvent, flags: number): RawRow {
+    const first = (flags & CAPTURE_FLAG_FIRST) !== 0;
+    if (!first && event.pointerId !== this.pointerId) return null;
     const projected = this.deps.project(event.clientX ?? 0, event.clientY ?? 0);
-    if (!projected) return false;
-
-    // A coalesced or predicted event is the platform's own `PointerEvent`,
-    // which carries `timeStamp`, not `t`; a `NaN` here would poison the
-    // filter's `dt` and every sample after it.
-    const t = Number.isFinite(event.t)
-      ? event.t
-      : ((event as unknown as { timeStamp?: number }).timeStamp ??
-        (typeof performance === "undefined" ? Date.now() : performance.now()));
-    // The dispatched `pointermove` is also the last entry of its own coalesced
-    // list, and a `pointerup` usually repeats the last move. A repeated sample
-    // has `dt = 0`, which the filter can only answer by passing the raw value
-    // through — so every frame boundary would be an unfiltered point — and it
-    // halves the spacing the renderer reads speed from, so the width would
-    // dip at every frame boundary too. It is not new information; drop it.
-    if (
-      !first &&
-      !predicted &&
-      this.lastRaw &&
-      this.lastRaw.t === t &&
-      this.lastRaw.x === projected.x &&
-      this.lastRaw.y === projected.y
-    )
-      return false;
-    if (!predicted) this.lastRaw = { x: projected.x, y: projected.y, t };
-    const sample = this.deps.filter.filter({
-      x: projected.x,
-      y: projected.y,
-      pressure: event.pressure ?? 0,
+    // A coalesced or predicted event is the platform's own `PointerEvent`, which
+    // carries `timeStamp` rather than `t`. NaN marks each absent value; the
+    // stream picks the first finite one, so no NaN reaches the filter's `dt`.
+    const t = typeof event.t === "number" ? event.t : Number.NaN;
+    const timeStamp =
+      (event as unknown as { timeStamp?: number }).timeStamp ?? Number.NaN;
+    return [
+      projected?.x ?? Number.NaN,
+      projected?.y ?? Number.NaN,
+      event.pressure ?? 0,
       t,
-    });
-    const width = header.width;
-    // The trail is told where to start *before* the sample is posted, and with
-    // the tool's width, the one the worker will bake into geometry. A predicted
-    // sample is not where the pen has been, so the trail is not moved for it.
-    if (!predicted)
-      this.deps.onLive?.(sample, width, dispatched ? event : undefined);
-
-    if (!predicted) this.realSamples += 1;
-    this.deps.writer.push(
-      sample.x,
-      sample.y,
-      sample.pressure,
-      sample.t,
-      header,
-    );
-    return true;
+      timeStamp,
+      flags,
+    ];
   }
+
+  /**
+   * Filter one update's rows in a single wasm call, then post what was accepted.
+   * `dispatched` is the event whose sample carries the dispatched flag, handed
+   * to `onLive` so a presenter may take it. Returns how many samples were accepted.
+   */
+  private postBatch(rows: RawRow[], dispatched?: PenPointerEvent): number {
+    const header = this.header;
+    if (!header) return 0;
+    const kept = rows.filter((row): row is number[] => row !== null);
+    if (kept.length === 0) return 0;
+    const raw = new Float64Array(kept.flat());
+    const batch: CaptureBatch = this.deps.stream.consume(raw, now());
+
+    for (let i = 0; i < batch.count; i++) {
+      const at = i * 4;
+      // A sample index below `count` always has a flag byte; a missing one reads as no flags.
+      const flags = batch.flags[i] ?? 0;
+      const sample: FilteredNibSample = {
+        x: batch.samples[at],
+        y: batch.samples[at + 1],
+        pressure: batch.samples[at + 2],
+        t: batch.samples[at + 3],
+      };
+      const predicted = (flags & CAPTURE_FLAG_PREDICTED) !== 0;
+      // The trail is told where to start *before* the sample is posted, and with
+      // the tool's width, the one the worker will bake into geometry. A predicted
+      // sample is not where the pen has been, so the trail is not moved for it.
+      if (!predicted) {
+        const isDispatched = (flags & CAPTURE_FLAG_DISPATCHED) !== 0;
+        this.deps.onLive?.(sample, header.width, isDispatched ? dispatched : undefined);
+        this.realSamples += 1;
+      }
+      this.deps.writer.push(sample.x, sample.y, sample.pressure, sample.t, header);
+    }
+    return batch.count;
+  }
+}
+
+/** The clock for a sample with no time of its own. */
+function now(): number {
+  return typeof performance === "undefined" ? Date.now() : performance.now();
 }
 
 /** Coalesced/predicted lists are optional and may throw on a synthetic event. */

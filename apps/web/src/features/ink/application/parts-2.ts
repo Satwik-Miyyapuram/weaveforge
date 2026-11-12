@@ -12,10 +12,10 @@ import {
 } from "@weaveforge/core";
 import type {
   FilteredNibSample as WasmFilteredNibSample,
+  InkCaptureStream as WasmInkCaptureStream,
   NibFilter as WasmNibFilter,
   OneEuroFilter as WasmOneEuroFilter,
 } from "@weaveforge/wasm";
-import { INK_RENDER_COLOURS } from "../render/parts-1";
 import { createCanvas, openPdf, renderPdfPage, toPngBlob, toWebpBlob } from "./parts-3";
 import type { PenPointerEvent } from "./use-pen-capture";
 
@@ -145,34 +145,31 @@ export function nativeStrokeEvents(
   dpr: number,
   pointerId = -1,
 ): PenPointerEvent[] {
+  // One wasm call per stroke at pen-lift: the scale, the pressure clamp and the
+  // partial-tail drop are decided in Rust (`ink::native_stroke`).
+  const samples = readyCore().inkFlatStrokeSamples(
+    Float64Array.from(points),
+    dpr,
+  );
   const events: PenPointerEvent[] = [];
-  const scale = dpr > 0 ? 1 / dpr : 1;
-  for (let i = 0; i + 3 < points.length; i += 4) {
-    const pressure = points[i + 2]!;
+  for (let i = 0; i < samples.length; i += 4) {
     events.push({
       pointerId,
       pointerType: "pen",
-      pressure: Number.isFinite(pressure)
-        ? Math.max(0, Math.min(1, pressure))
-        : 0.5,
+      pressure: samples[i + 2]!,
       width: 1,
       height: 1,
-      clientX: points[i]! * scale,
-      clientY: points[i + 1]! * scale,
-      t: points[i + 3]!,
+      clientX: samples[i]!,
+      clientY: samples[i + 1]!,
+      t: samples[i + 3]!,
     });
   }
   return events;
 }
 
-/** `#AARRGGBB`, which is what Android's `Color.parseColor` reads. */
+/** `#AARRGGBB`, which is what Android's `Color.parseColor` reads. The Rust core's light theme. */
 function argbHex(colour: InkColour, alpha: number): string {
-  const rgb = INK_RENDER_COLOURS[colour] ?? INK_RENDER_COLOURS.text;
-  const hex = (unit: number) =>
-    Math.round(Math.max(0, Math.min(1, unit)) * 255)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${hex(alpha)}${rgb.map(hex).join("")}`;
+  return readyCore().inkArgbHex(colour, alpha);
 }
 
 // --- one-euro-filter ---
@@ -318,6 +315,59 @@ export class NibFilter {
 
   filter(sample: NibSample): FilteredNibSample {
     return this.handle.filter(sample);
+  }
+}
+
+/** Values per raw pointer sample: `x, y, pressure, t, timeStamp, flags` (`ink::capture`). */
+export const CAPTURE_RAW_STRIDE = 6;
+/** Raw flag: the stroke's first sample. Never de-duplicated. */
+export const CAPTURE_FLAG_FIRST = 1;
+/** Raw and output flag: a prediction. Moves the filter; never a real sample. */
+export const CAPTURE_FLAG_PREDICTED = 2;
+/** Raw and output flag: the dispatched event itself, not a coalesced one. */
+export const CAPTURE_FLAG_DISPATCHED = 4;
+
+/** One update's accepted samples, copied out of wasm. `samples` is `x, y, pressure, t` quadruples. */
+export interface CaptureBatch {
+  count: number;
+  samples: Float64Array;
+  flags: Uint8Array;
+}
+
+/**
+ * The per-stroke capture filter (`ink::capture::CaptureStream`). Lazy like
+ * {@link NibFilter}. One `consume` per pointer update, never per sample.
+ */
+export class CaptureStream {
+  private core: WasmInkCaptureStream | undefined;
+
+  private get handle(): WasmInkCaptureStream {
+    if (!this.core) this.core = new (readyCore().InkCaptureStream)();
+    return this.core;
+  }
+
+  /** A new stroke: the filter starts clean. */
+  resetFilter(): void {
+    this.handle.resetFilter();
+  }
+
+  /** The stroke ended or was dropped: the next sample is never a repeat of the last. */
+  forgetLast(): void {
+    this.handle.forgetLast();
+  }
+
+  /**
+   * Filter one update. `raw` is flat `CAPTURE_RAW_STRIDE` values per sample, with
+   * NaN for an absent `t`/`timeStamp` and for off-page coordinates; `now` is the
+   * fallback time.
+   */
+  consume(raw: Float64Array, now: number): CaptureBatch {
+    const batch = this.handle.consume(raw, now);
+    try {
+      return { count: batch.count, samples: batch.samples(), flags: batch.flags() };
+    } finally {
+      batch.free();
+    }
   }
 }
 
