@@ -91,7 +91,7 @@ pub enum Clause {
 }
 
 /// A parsed query (TS `ParsedQuery` plus `modified_within_days`).
-#[derive(Clone, Debug, PartialEq, Eq, Default, serde::Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ParsedQuery {

@@ -15,7 +15,7 @@ use crate::papers::paper::extract_hashtags;
 use crate::search::acronyms::acronyms_for_title;
 use crate::search::js_text::utf16_len;
 use crate::search::query::SearchKind;
-use crate::search::search_tuning::MAX_INDEXED_BODY_CHARS;
+use crate::search::search_tuning::{LARGE_CORPUS_WARNING, MAX_INDEXED_BODY_CHARS};
 use crate::sync::workspace_snapshot::WorkspaceSnapshot;
 
 /// Pages with almost no text are figures or scan artefacts (TS `MIN_PDF_PAGE_CHARS`).
@@ -491,6 +491,27 @@ pub fn pdf_doc_ids_for(paper_id: &str, page_count: u32) -> Vec<String> {
         .collect()
 }
 
+/// The prefix every page of one paper shares (`pdf:${paperId}`). Matched with
+/// `starts_with`, as the TS refresh did.
+#[must_use]
+pub fn pdf_id_prefix(paper_id: &str) -> String {
+    format!("pdf:{paper_id}")
+}
+
+/// The kind an id names: the part before the first `:`. `None` when there is no
+/// `:`, which no real document id lacks.
+#[must_use]
+pub fn kind_of_id(id: &str) -> Option<&str> {
+    id.split_once(':').map(|(kind, _)| kind)
+}
+
+/// Whether a corpus of this many documents is past the size the client index
+/// is likely to strain at (`LARGE_CORPUS_WARNING`).
+#[must_use]
+pub const fn is_large_corpus(documents: u32) -> bool {
+    documents > LARGE_CORPUS_WARNING
+}
+
 /// One document per page. Pages with too little text are skipped. `degrees`
 /// is keyed by the paper, since pages have no links of their own.
 #[must_use]
@@ -748,5 +769,25 @@ mod tests {
         assert_eq!(docs[0].title, "Vaswani");
         assert_eq!(docs[0].aliases, vec!["key result"]);
         assert_eq!(docs[0].body, "key result");
+    }
+
+    #[test]
+    fn a_paper_prefix_matches_its_own_pages_only() {
+        assert_eq!(pdf_id_prefix("p1"), "pdf:p1");
+        assert!(pdf_doc_id("p1", 0).starts_with(&pdf_id_prefix("p1")));
+        assert!(!pdf_doc_id("p2", 0).starts_with(&pdf_id_prefix("p1")));
+    }
+
+    #[test]
+    fn kind_of_id_is_the_part_before_the_first_colon() {
+        assert_eq!(kind_of_id("note:n1"), Some("note"));
+        assert_eq!(kind_of_id("pdf:p1#0"), Some("pdf"));
+        assert_eq!(kind_of_id("no-colon"), None);
+    }
+
+    #[test]
+    fn a_corpus_is_large_only_past_the_warning_threshold() {
+        assert!(!is_large_corpus(LARGE_CORPUS_WARNING));
+        assert!(is_large_corpus(LARGE_CORPUS_WARNING + 1));
     }
 }

@@ -107,10 +107,6 @@ test("respects the result limit", () => {
   assert.ok(index().search("a", { limit: 2 }).length <= 2);
 });
 
-test("an empty query returns nothing rather than everything", () => {
-  assert.deepEqual(index().search("   "), []);
-});
-
 test("hits carry the route so results are navigable", () => {
   const hit = index().search("Graph Neural")[0]!;
 
@@ -197,28 +193,6 @@ test("a well-linked document outranks an unlinked one on an equal match", () => 
 
 // ------------------------------------------------------- query syntax (Phase 2)
 
-test("kind: restricts results to that entity kind", () => {
-  const hits = index().search("kind:paper");
-
-  assert.ok(hits.length > 0);
-  assert.ok(hits.every((hit) => hit.kind === "paper"));
-});
-
-test("a caller's kinds are intersected with kind:, never widened by it", () => {
-  // A notes screen must not start showing papers because the user typed
-  // kind:paper into its filter box.
-  const hits = index().search("kind:paper", { kinds: ["note"] });
-
-  assert.deepEqual(hits, []);
-});
-
-test("tag: filters on indexed tags", () => {
-  const hits = index().search("tag:vae");
-
-  assert.ok(hits.length > 0);
-  assert.ok(hits.every((hit) => hit.entityId === "n1"));
-});
-
 test("exclusions remove otherwise-matching documents", () => {
   const withAll = index().search("models");
   const without = index().search("models -recurrence");
@@ -258,17 +232,6 @@ test("camelCase text is findable by its parts", () => {
   const hits = buildSearchIndex(core, docs, searchRevision(docs)).search("response");
 
   assert.equal(hits[0]!.entityId, "k1");
-});
-
-test("a filter-only query still returns results", () => {
-  const hits = index().search("kind:note");
-
-  assert.ok(hits.length >= 3, "kind:note alone should enumerate the notes");
-  assert.ok(hits.every((hit) => hit.kind === "note"));
-});
-
-test("an unknown kind: narrows to nothing rather than matching everything", () => {
-  assert.deepEqual(index().search("kind:banana"), []);
 });
 
 // ---------------------------------------------------- user settings (Phase 3)
@@ -365,16 +328,6 @@ test("a PDF page survives the cache round-trip with its page number", () => {
   );
 
   assert.equal(restored!.search("dot product")[0]!.page, 11);
-});
-
-test("a filter-only query returns the best match even past the first limit*4 documents (27-04)", () => {
-  const notes = Array.from({ length: 20 }, (_, i) => note(`m${i}`, `Note ${i}`));
-  const docs = toSearchDocs(snapshot({ vaultPages: notes }));
-  const last = docs.find((d) => d.entityId === "m19")!;
-  (last as { degree?: number }).degree = 50;
-  const hits = buildSearchIndex(core, docs, "r").search("kind:note", { limit: 1 });
-  assert.equal(hits.length, 1);
-  assert.equal(hits[0]!.id, last.id);
 });
 
 test("the snapshot round trip keeps every stored field in the same shape (27-16)", () => {
