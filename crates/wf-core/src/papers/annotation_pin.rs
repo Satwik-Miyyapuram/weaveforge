@@ -49,3 +49,60 @@ pub fn to_domain(row: AnnotationPinRow) -> AnnotationPin {
         created_at: row.created_at,
     }
 }
+
+// The TS test on main covers the repository, not this row mapping; cases come from the doc comments.
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    fn row() -> AnnotationPinRow {
+        AnnotationPinRow {
+            id: "pin-1".to_owned(),
+            paper_id: "paper-1".to_owned(),
+            annotation_key: "ann-1".to_owned(),
+            report_section_id: "sec-1".to_owned(),
+            created_at: "2026-11-08T09:00:00Z".to_owned(),
+        }
+    }
+
+    #[test]
+    fn to_domain_copies_every_field_across() {
+        let pin = to_domain(row());
+        assert_eq!(pin.id, "pin-1");
+        assert_eq!(pin.paper_id, "paper-1");
+        assert_eq!(pin.annotation_key, "ann-1");
+        assert_eq!(pin.report_section_id, "sec-1");
+        assert_eq!(pin.created_at, "2026-11-08T09:00:00Z");
+    }
+
+    #[test]
+    fn to_domain_keeps_created_at_exactly_as_stored() {
+        let pin = to_domain(AnnotationPinRow {
+            created_at: "not-a-date".to_owned(),
+            ..row()
+        });
+        assert_eq!(pin.created_at, "not-a-date");
+    }
+
+    #[test]
+    fn to_domain_passes_empty_strings_through_unchanged() {
+        let pin = to_domain(AnnotationPinRow {
+            id: String::new(),
+            paper_id: String::new(),
+            annotation_key: String::new(),
+            report_section_id: String::new(),
+            created_at: String::new(),
+        });
+        assert_eq!(pin.id, "");
+        assert_eq!(pin.paper_id, "");
+        assert_eq!(pin.annotation_key, "");
+        assert_eq!(pin.report_section_id, "");
+        assert_eq!(pin.created_at, "");
+    }
+}

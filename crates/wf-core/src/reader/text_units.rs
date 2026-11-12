@@ -47,3 +47,54 @@ pub fn collapse_whitespace(text: &str) -> String {
         .collect::<Vec<_>>()
         .join(" ")
 }
+
+// No TS test on main for this module; cases come from the doc comments.
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn as_f64_counts_as_a_float() {
+        assert_eq!(as_f64(3), 3.0);
+    }
+
+    #[test]
+    fn utf16_slice_takes_the_half_open_range() {
+        assert_eq!(utf16_slice("hello", 1.0, 3.0), "el");
+        assert_eq!(utf16_slice("abc", 2.0, 2.0), "");
+        assert_eq!(utf16_slice("abc", 2.0, 1.0), "");
+    }
+
+    #[test]
+    fn utf16_slice_clamps_bounds_and_reads_nan_as_zero() {
+        assert_eq!(utf16_slice("abc", -5.0, 100.0), "abc");
+        assert_eq!(utf16_slice("abc", f64::NAN, 2.0), "ab");
+    }
+
+    #[test]
+    fn utf16_slice_counts_an_astral_character_as_two_units() {
+        // "a" is one unit, the emoji two, "b" one.
+        assert_eq!(utf16_slice("a\u{1F600}b", 0.0, 3.0), "a\u{1F600}");
+        assert_eq!(utf16_slice("a\u{1F600}b", 3.0, 4.0), "b");
+    }
+
+    #[test]
+    fn is_js_space_includes_the_byte_order_mark() {
+        assert!(is_js_space(' '));
+        assert!(is_js_space('\u{FEFF}'));
+        assert!(!is_js_space('x'));
+    }
+
+    #[test]
+    fn collapse_whitespace_trims_and_joins_runs_with_one_space() {
+        assert_eq!(collapse_whitespace("  a \n\t b  "), "a b");
+        assert_eq!(collapse_whitespace("   "), "");
+        assert_eq!(collapse_whitespace(""), "");
+    }
+}

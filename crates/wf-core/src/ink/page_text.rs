@@ -39,3 +39,58 @@ pub fn page_text_after_recognition(was: &str, prior: &str, recognised: &str) -> 
         &ink_page_figures(was),
     )
 }
+
+// The TS tests on main cover `isHydratedPage`/`noteBodyText`, which are not ported here,
+// so these cases come from the doc comment above.
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_page_keeps_only_the_recognised_text() {
+        assert_eq!(page_text_after_recognition("", "", "hello"), "hello");
+    }
+
+    #[test]
+    fn typed_text_stays_above_the_recognised_text() {
+        assert_eq!(
+            page_text_after_recognition("typed note", "", "ocr"),
+            "typed note\n\nocr"
+        );
+    }
+
+    #[test]
+    fn rerecognition_replaces_the_prior_recognised_text() {
+        assert_eq!(
+            page_text_after_recognition("typed note\nold ocr", "old ocr", "new ocr"),
+            "typed note\n\nnew ocr"
+        );
+    }
+
+    #[test]
+    fn page_that_is_only_the_prior_text_is_replaced() {
+        assert_eq!(
+            page_text_after_recognition("old ocr", "old ocr", "new ocr"),
+            "new ocr"
+        );
+    }
+
+    #[test]
+    fn blank_recognition_leaves_the_typed_text() {
+        assert_eq!(page_text_after_recognition("typed", "", "  \n "), "typed");
+    }
+
+    #[test]
+    fn surrounding_white_space_and_bom_are_trimmed() {
+        assert_eq!(
+            page_text_after_recognition("\u{FEFF}  typed  ", "", ""),
+            "typed"
+        );
+    }
+}

@@ -34,3 +34,31 @@ pub fn added_notice(created: bool) -> &'static str {
         "Already in library"
     }
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_notice_shows_only_under_the_entry_it_is_about() {
+        let notice = ReferenceNotice {
+            index: 9,
+            text: "Added to library".to_owned(),
+        };
+        assert_eq!(notice_for(Some(&notice), 9), Some("Added to library"));
+        assert_eq!(notice_for(Some(&notice), 10), None);
+        assert_eq!(notice_for(None, 9), None);
+    }
+
+    #[test]
+    fn an_add_that_found_the_paper_already_there_does_not_claim_it_added_it() {
+        assert_eq!(added_notice(true), "Added to library");
+        assert_eq!(added_notice(false), "Already in library");
+    }
+}

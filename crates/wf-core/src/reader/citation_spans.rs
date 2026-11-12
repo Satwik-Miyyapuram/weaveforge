@@ -208,3 +208,177 @@ pub(super) fn to_index(value: f64) -> usize {
     let index = value as usize;
     index
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    fn item(text: &str, has_eol: Option<bool>) -> SelectionPageTextItem {
+        SelectionPageTextItem {
+            str: text.to_owned(),
+            transform: vec![10.0, 0.0, 0.0, 10.0, 72.0, 700.0],
+            width: Some(40.0),
+            height: Some(10.0),
+            has_eol,
+            font_name: None,
+        }
+    }
+
+    /// Page text is `"see [12]and\n[13]"`: item 0 is 0-8, item 1 is 8-11, newline 11, item 2 is 12-16.
+    fn page() -> Vec<SelectionPageTextItem> {
+        vec![
+            item("see [12]", None),
+            item("and", Some(true)),
+            item("[13]", None),
+        ]
+    }
+
+    fn mention(key: &str, start: f64, end: f64) -> CiteSpan {
+        CiteSpan {
+            key: key.to_owned(),
+            start,
+            end,
+            text: None,
+            label: None,
+            kind: None,
+            url: None,
+        }
+    }
+
+    fn pieces(segments: &[TextSegment]) -> Vec<(&str, Option<&str>)> {
+        segments
+            .iter()
+            .map(|s| (s.text.as_str(), s.mention.as_ref().map(|m| m.key.as_str())))
+            .collect()
+    }
+
+    fn joined(segments: &[TextSegment]) -> String {
+        segments.iter().map(|s| s.text.as_str()).collect()
+    }
+
+    #[test]
+    fn a_mention_maps_onto_the_runs_it_covers() {
+        let items = page();
+        assert_eq!(
+            mention_item_ranges(&items, 4.0, 8.0),
+            vec![ItemRange {
+                item_index: 0.0,
+                from: 4.0,
+                to: 8.0
+            }]
+        );
+        assert_eq!(
+            mention_item_ranges(&items, 6.0, 10.0),
+            vec![
+                ItemRange {
+                    item_index: 0.0,
+                    from: 6.0,
+                    to: 8.0
+                },
+                ItemRange {
+                    item_index: 1.0,
+                    from: 0.0,
+                    to: 2.0
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn an_empty_or_inverted_range_maps_to_nothing() {
+        let items = page();
+        assert!(mention_item_ranges(&items, 5.0, 5.0).is_empty());
+        assert!(mention_item_ranges(&items, 8.0, 4.0).is_empty());
+        assert!(mention_item_ranges(&items, f64::NAN, 4.0).is_empty());
+    }
+
+    #[test]
+    fn splitting_one_run_leaves_the_other_pieces_as_plain_text() {
+        let items = page();
+        let plan = plan_citation_segments(&items, &[mention("c1", 4.0, 8.0)]);
+        assert_eq!(pieces(&plan[0]), vec![("see ", None), ("[12]", Some("c1"))]);
+    }
+
+    #[test]
+    fn a_mention_crossing_a_line_break_marks_both_runs() {
+        let items = page();
+        let plan = plan_citation_segments(&items, &[mention("c1", 6.0, 10.0)]);
+        assert_eq!(pieces(&plan[0]), vec![("see [1", None), ("2]", Some("c1"))]);
+        assert_eq!(pieces(&plan[1]), vec![("an", Some("c1")), ("d", None)]);
+        assert_eq!(joined(&plan[2]), "[13]");
+    }
+
+    #[test]
+    fn decorating_never_loses_or_invents_a_character() {
+        let items = page();
+        let mentions = [
+            mention("a", 4.0, 8.0),
+            mention("b", 0.0, 3.0),
+            mention("c", 6.0, 10.0),
+        ];
+        let plan = plan_citation_segments(&items, &mentions);
+        for (segments, item) in plan.iter().zip(&items) {
+            assert_eq!(joined(segments), item.str);
+        }
+        let page_text: String = plan.iter().flatten().map(|s| s.text.as_str()).collect();
+        assert_eq!(page_text, "see [12]and[13]");
+    }
+
+    #[test]
+    fn overlapping_mentions_do_not_both_claim_a_character() {
+        let items = page();
+        let mentions = [mention("a", 4.0, 8.0), mention("b", 5.0, 12.0)];
+        let plan = plan_citation_segments(&items, &mentions);
+        for (segments, item) in plan.iter().zip(&items) {
+            assert_eq!(joined(segments), item.str);
+        }
+    }
+
+    #[test]
+    fn a_mention_reaching_past_the_page_text_is_ignored() {
+        let items = page();
+        let plan = plan_citation_segments(&items, &[mention("bogus", 0.0, 9999.0)]);
+        assert_eq!(joined(&plan[0]), "see [12]");
+        assert_eq!(pieces(&plan[0]), vec![("see [12]", None)]);
+    }
+
+    #[test]
+    fn url_and_figure_mentions_are_included_in_the_plan() {
+        let items = page();
+        let url = CiteSpan {
+            key: "u1".to_owned(),
+            start: 4.0,
+            end: 8.0,
+            text: None,
+            label: None,
+            kind: Some("url".to_owned()),
+            url: Some("https://example.com".to_owned()),
+        };
+        let figure = CiteSpan {
+            key: "f1".to_owned(),
+            start: 12.0,
+            end: 16.0,
+            text: None,
+            label: None,
+            kind: Some("figure".to_owned()),
+            url: None,
+        };
+        let plan = plan_citation_segments(&items, &[url, figure]);
+        let link = plan[0][1].mention.as_ref();
+        assert_eq!(link.and_then(|m| m.kind.as_deref()), Some("url"));
+        assert_eq!(
+            link.and_then(|m| m.url.as_deref()),
+            Some("https://example.com")
+        );
+        assert_eq!(
+            plan[2][0].mention.as_ref().and_then(|m| m.kind.as_deref()),
+            Some("figure")
+        );
+    }
+}

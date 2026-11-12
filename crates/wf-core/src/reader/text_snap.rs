@@ -76,3 +76,63 @@ pub fn snap_to_text(runs: &[TextRunBox], x: f64, y: f64) -> Option<SnapHit> {
         },
     })
 }
+
+// No TS test on main for this module; cases come from the doc comments.
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    fn run(left: f64, top: f64, right: f64, bottom: f64) -> TextRunBox {
+        TextRunBox {
+            left,
+            top,
+            right,
+            bottom,
+        }
+    }
+
+    #[test]
+    fn no_runs_snaps_to_nothing() {
+        assert_eq!(snap_to_text(&[], 0.0, 0.0).map(|h| h.index), None);
+    }
+
+    #[test]
+    fn a_run_with_no_area_is_skipped() {
+        let runs = [run(10.0, 10.0, 10.0, 20.0)];
+        assert_eq!(snap_to_text(&runs, 10.0, 15.0).map(|h| h.index), None);
+    }
+
+    #[test]
+    fn a_press_beyond_reach_snaps_to_nothing() {
+        // 400 px past the run's right edge, beyond the 120 px horizontal reach.
+        let runs = [run(0.0, 0.0, 100.0, 10.0)];
+        assert_eq!(snap_to_text(&runs, 500.0, 5.0).map(|h| h.index), None);
+    }
+
+    #[test]
+    fn the_press_keeps_to_its_own_line() {
+        // Run 1 is 2 px above the press; run 0 is 18 px above it. Vertical distance weighs 4x.
+        let runs = [run(0.0, 0.0, 100.0, 10.0), run(0.0, 30.0, 100.0, 40.0)];
+        assert_eq!(snap_to_text(&runs, 50.0, 28.0).map(|h| h.index), Some(1));
+    }
+
+    #[test]
+    fn a_tie_keeps_the_first_run() {
+        let runs = [run(0.0, 0.0, 100.0, 10.0), run(0.0, 0.0, 100.0, 10.0)];
+        assert_eq!(snap_to_text(&runs, 50.0, 5.0).map(|h| h.index), Some(0));
+    }
+
+    #[test]
+    fn the_caret_is_kept_half_a_pixel_inside_the_run() {
+        let runs = [run(0.0, 0.0, 100.0, 10.0)];
+        let hit = snap_to_text(&runs, -5.0, 5.0);
+        assert_eq!(hit.as_ref().map(|h| h.x), Some(0.5));
+        assert_eq!(hit.map(|h| h.y), Some(5.0));
+    }
+}

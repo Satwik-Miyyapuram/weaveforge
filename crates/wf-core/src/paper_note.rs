@@ -18,3 +18,38 @@ pub fn append_paper_note(existing: Option<&str>, addition: &str) -> Option<Strin
         None => Some(next.to_owned()),
     }
 }
+
+// No TS test found for this module; cases come from the doc comments.
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn appends_with_blank_line_and_trims_both_sides() {
+        assert_eq!(
+            append_paper_note(Some("  Old  "), " New "),
+            Some("Old\n\nNew".to_owned())
+        );
+    }
+
+    #[test]
+    fn empty_or_missing_note_is_replaced_not_prefixed() {
+        assert_eq!(
+            append_paper_note(Some("   "), "New"),
+            Some("New".to_owned())
+        );
+        assert_eq!(append_paper_note(None, "New"), Some("New".to_owned()));
+    }
+
+    #[test]
+    fn blank_addition_is_refused() {
+        assert_eq!(append_paper_note(Some("Old"), "   "), None);
+        assert_eq!(append_paper_note(None, ""), None);
+    }
+}

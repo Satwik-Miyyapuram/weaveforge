@@ -212,3 +212,115 @@ pub fn recently_approved_wiki_pages(pages: &[WikiNote], limit: usize) -> Vec<Rec
     recent.truncate(limit);
     recent
 }
+
+// No TS test on main for this file; cases come from the doc comments.
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    fn note(id: &str, title: &str, parent: Option<&str>, created: &str) -> WikiNote {
+        WikiNote {
+            id: id.to_owned(),
+            title: title.to_owned(),
+            body: format!("body {id}"),
+            parent_id: parent.map(str::to_owned),
+            created_at: created.to_owned(),
+        }
+    }
+
+    fn sample() -> Vec<WikiNote> {
+        vec![
+            note("w", "Wiki", None, "2026-01-01T00:00:00Z"),
+            note("c1", "Alpha", Some("w"), "2026-01-02T00:00:00Z"),
+            note("c2", "Beta", Some("w"), "2026-01-03T00:00:00Z"),
+            note("n", "Note", None, "2026-01-04T00:00:00Z"),
+        ]
+    }
+
+    fn paper() -> WikiPaper {
+        WikiPaper {
+            id: "p1".to_owned(),
+            title: "Paper".to_owned(),
+            abstract_text: Some("abs".to_owned()),
+            summary: Some("sum".to_owned()),
+        }
+    }
+
+    #[test]
+    fn wiki_root_is_the_note_titled_wiki() {
+        let pages = sample();
+        let root = find_wiki_root(&pages).map(|n| n.id);
+        assert_eq!(root.as_deref(), Some("w"));
+    }
+
+    #[test]
+    fn no_wiki_root_without_a_note_titled_wiki() {
+        let pages = vec![note("n", "Note", None, "2026-01-04T00:00:00Z")];
+        assert!(find_wiki_root(&pages).is_none());
+    }
+
+    #[test]
+    fn wiki_page_refs_are_only_the_generated_children() {
+        let refs = wiki_page_refs(&sample());
+        let ids: Vec<&str> = refs.iter().map(|r| r.id.as_str()).collect();
+        assert_eq!(ids, ["c1", "c2"]);
+    }
+
+    #[test]
+    fn wiki_page_refs_are_empty_without_a_root() {
+        let pages = vec![note("n", "Note", None, "2026-01-04T00:00:00Z")];
+        assert!(wiki_page_refs(&pages).is_empty());
+    }
+
+    #[test]
+    fn source_documents_skip_generated_pages_and_add_papers() {
+        let docs = wiki_source_documents(&sample(), &[paper()], None);
+        let ids: Vec<&str> = docs.iter().map(|d| d.id.as_str()).collect();
+        assert_eq!(ids, ["w", "n", "p1"]);
+        let paper_text = docs.last().map(|d| d.text.as_str());
+        assert_eq!(paper_text, Some("abs\n\nsum"));
+    }
+
+    #[test]
+    fn source_documents_keep_only_the_listed_ids() {
+        let wanted = vec!["p1".to_owned()];
+        let docs = wiki_source_documents(&sample(), &[paper()], Some(wanted.as_slice()));
+        let ids: Vec<&str> = docs.iter().map(|d| d.id.as_str()).collect();
+        assert_eq!(ids, ["p1"]);
+    }
+
+    #[test]
+    fn missing_page_plans_trim_dedupe_and_drop_blank_targets() {
+        let targets = vec![
+            "  Alpha ".to_owned(),
+            String::new(),
+            "Alpha".to_owned(),
+            "Beta".to_owned(),
+        ];
+        let plans = missing_page_plans(&targets);
+        let titles: Vec<&str> = plans.iter().map(|p| p.title.as_str()).collect();
+        assert_eq!(titles, ["Alpha", "Beta"]);
+        assert_eq!(plans.first().map(|p| p.mentions), Some(1));
+        assert_eq!(
+            plans.first().map(|p| p.body.as_str()),
+            Some("# Alpha\n\n_Not written yet._\n")
+        );
+    }
+
+    #[test]
+    fn recently_approved_pages_are_newest_first_and_capped() {
+        let pages = sample();
+        let one = recently_approved_wiki_pages(&pages, 1);
+        let ids: Vec<&str> = one.iter().map(|p| p.id.as_str()).collect();
+        assert_eq!(ids, ["c2"]);
+        let all = recently_approved_wiki_pages(&pages, 10);
+        let ids: Vec<&str> = all.iter().map(|p| p.id.as_str()).collect();
+        assert_eq!(ids, ["c2", "c1"]);
+    }
+}

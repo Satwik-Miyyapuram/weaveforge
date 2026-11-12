@@ -90,3 +90,86 @@ fn within_page(page: &FindMarkPage, found: &FindMarkMatch) -> f64 {
         None => 0.0,
     }
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    fn items() -> Vec<SelectionPageTextItem> {
+        vec![
+            SelectionPageTextItem {
+                str: "top line".to_owned(),
+                transform: vec![10.0, 0.0, 0.0, 10.0, 50.0, 700.0],
+                width: Some(40.0),
+                height: Some(10.0),
+                has_eol: Some(true),
+                font_name: None,
+            },
+            SelectionPageTextItem {
+                str: "bottom line".to_owned(),
+                transform: vec![10.0, 0.0, 0.0, 10.0, 50.0, 100.0],
+                width: Some(55.0),
+                height: Some(10.0),
+                has_eol: None,
+                font_name: None,
+            },
+        ]
+    }
+
+    #[test]
+    fn match_on_second_of_four_pages_lands_in_second_quarter() {
+        let page = FindMarkPage {
+            page_index: 1.0,
+            items: Some(items()),
+            height: 800.0,
+        };
+        let matches = [FindMarkMatch {
+            page_index: 1.0,
+            start: 9.0,
+            end: 15.0,
+        }];
+        let marks = find_marks(&matches, 4.0, &[page]);
+        assert_eq!(marks.len(), 1);
+        let f = marks[0].fraction;
+        assert!(f > 0.25 && f < 0.5, "fraction {f}");
+        // "bottom line" sits at y=100 of 800, near the foot of the page.
+        assert!(f > 0.25 + 0.8 / 4.0, "fraction {f}");
+    }
+
+    #[test]
+    fn without_page_text_the_mark_sits_at_the_top_of_its_page() {
+        let page = FindMarkPage {
+            page_index: 2.0,
+            items: None,
+            height: 800.0,
+        };
+        let matches = [FindMarkMatch {
+            page_index: 2.0,
+            start: 0.0,
+            end: 3.0,
+        }];
+        let marks = find_marks(&matches, 4.0, &[page]);
+        assert_eq!(marks[0].fraction, 0.5);
+    }
+
+    #[test]
+    fn no_pages_gives_no_marks() {
+        let page = FindMarkPage {
+            page_index: 0.0,
+            items: Some(items()),
+            height: 800.0,
+        };
+        let matches = [FindMarkMatch {
+            page_index: 0.0,
+            start: 0.0,
+            end: 1.0,
+        }];
+        assert_eq!(find_marks(&matches, 0.0, &[page]), Vec::<FindMark>::new());
+    }
+}

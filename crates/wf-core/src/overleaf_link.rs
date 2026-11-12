@@ -104,3 +104,80 @@ fn refused() -> LinkFolderCheck {
         reason: Some(BAD_FOLDER.to_owned()),
     }
 }
+
+// No TS test found for this module; cases come from the doc comments.
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_plain_vault_folder() {
+        assert_eq!(
+            check_link_folder("Overleaf/thesis"),
+            LinkFolderCheck {
+                ok: true,
+                folder: Some("Overleaf/thesis".to_owned()),
+                reason: None,
+            }
+        );
+    }
+
+    #[test]
+    fn drops_trailing_slashes() {
+        assert_eq!(
+            check_link_folder("Overleaf/thesis///").folder.as_deref(),
+            Some("Overleaf/thesis")
+        );
+    }
+
+    #[test]
+    fn refuses_empty_and_blank_folder() {
+        assert!(!check_link_folder("").ok);
+        assert!(!check_link_folder("   ").ok);
+        assert_eq!(check_link_folder("").reason.as_deref(), Some(BAD_FOLDER));
+    }
+
+    #[test]
+    fn refuses_absolute_drive_and_backslash_paths() {
+        assert!(!check_link_folder("/etc/x").ok);
+        assert!(!check_link_folder("C:/x").ok);
+        assert!(!check_link_folder("a\\b").ok);
+    }
+
+    #[test]
+    fn refuses_dot_steps_git_and_app_folder() {
+        assert!(!check_link_folder("a/../b").ok);
+        assert!(!check_link_folder("a/./b").ok);
+        assert!(!check_link_folder("a/.git").ok);
+        assert!(!check_link_folder(".weaveforge/x").ok);
+    }
+
+    #[test]
+    fn parse_links_keeps_only_well_formed_entries() {
+        let stored = r#"[
+            {"projectId":"abc_1-2","folder":"Overleaf/x"},
+            {"projectId":"bad id","folder":"Overleaf/y"},
+            {"projectId":"p2"},
+            "text"
+        ]"#;
+        assert_eq!(
+            parse_links(stored),
+            vec![OverleafLink {
+                project_id: "abc_1-2".to_owned(),
+                folder: "Overleaf/x".to_owned(),
+            }]
+        );
+    }
+
+    #[test]
+    fn parse_links_gives_none_for_unreadable_or_non_array() {
+        assert!(parse_links("not json").is_empty());
+        assert!(parse_links("{}").is_empty());
+    }
+}

@@ -443,3 +443,335 @@ pub fn build_reference_index(
     let analysis = analyze_pdf_document(pages, outline);
     index_from_analysis(&analysis, pages)
 }
+
+// Port of `reader-references.test.ts`; the TS `buildReferenceIndex` wrapper is `build_reference_index`.
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+    use serde_json::{Value, json};
+    use std::collections::HashSet;
+
+    /// One text run at a page position; width is `chars * size * 0.5` as in the TS test.
+    fn run(text: &str, x: f64, y: f64, size: f64, eol: bool) -> Value {
+        let width = f64::from(u16::try_from(text.chars().count()).unwrap_or(u16::MAX)) * size * 0.5;
+        json!({
+            "str": text,
+            "transform": [size, 0.0, 0.0, size, x, y],
+            "width": width,
+            "height": size,
+            "hasEOL": eol,
+        })
+    }
+
+    fn line(text: &str, y: f64) -> Value {
+        run(text, 72.0, y, 10.0, true)
+    }
+
+    fn with_prose(mut items: Vec<Value>, from_y: f64) -> Vec<Value> {
+        items.extend((0u32..8).map(|i| {
+            line(
+                "Body prose of the paper goes here and here.",
+                from_y - f64::from(i) * 12.0,
+            )
+        }));
+        items
+    }
+
+    #[allow(clippy::needless_pass_by_value, reason = "fed straight into json!")]
+    fn page(number: f64, items: Vec<Value>, links: Option<Vec<Value>>) -> AnalysisPdfPage {
+        serde_json::from_value(json!({ "pageNumber": number, "items": items, "links": links }))
+            .expect("valid page json")
+    }
+
+    fn body_page() -> AnalysisPdfPage {
+        page(
+            1.0,
+            with_prose(
+                vec![
+                    line("Attention [1] works.", 700.0),
+                    line("See Fig. 2 for the layout.", 688.0),
+                ],
+                676.0,
+            ),
+            None,
+        )
+    }
+
+    fn caption_page() -> AnalysisPdfPage {
+        page(
+            2.0,
+            with_prose(vec![line("Figure 2: The layout.", 640.0)], 600.0),
+            None,
+        )
+    }
+
+    fn bibliography_page() -> AnalysisPdfPage {
+        page(
+            3.0,
+            vec![
+                run("References", 72.0, 700.0, 13.0, true),
+                line(
+                    "[1] Vaswani A. Attention is all you need. NeurIPS, 2017.",
+                    686.0,
+                ),
+                line("[2] Devlin J. BERT. NAACL, 2019.", 672.0),
+                line("[3] Smith J. A third entry. JMLR, 2018.", 658.0),
+            ],
+            None,
+        )
+    }
+
+    fn sample_pages() -> Vec<AnalysisPdfPage> {
+        vec![body_page(), caption_page(), bibliography_page()]
+    }
+
+    fn mentions_on(index: &ReaderReferenceIndex, page_number: f64) -> &[MentionHit] {
+        match index
+            .mentions_by_page
+            .iter()
+            .find(|page| page.page_number == page_number)
+        {
+            Some(found) => found.mentions.as_slice(),
+            None => &[],
+        }
+    }
+
+    fn citations(index: &ReaderReferenceIndex, page_number: f64) -> Vec<&MentionHit> {
+        mentions_on(index, page_number)
+            .iter()
+            .filter(|hit| matches!(hit.kind, MentionKind::Citation))
+            .collect()
+    }
+
+    #[test]
+    fn bibliography_is_parsed_and_indexed_by_entry_number() {
+        let index = build_reference_index(&sample_pages(), &[]);
+        assert_eq!(index.references.len(), 3);
+        let first = index
+            .references
+            .iter()
+            .find(|reference| reference.index == 1.0);
+        assert_eq!(first.and_then(|reference| reference.year), Some(2017.0));
+        assert_eq!(index.references[0].label.as_deref(), Some("[1]"));
+        assert_eq!(index.references[0].page, 3.0);
+    }
+
+    #[test]
+    fn citation_becomes_a_mention_whose_offsets_index_the_derived_page_text() {
+        let index = build_reference_index(&sample_pages(), &[]);
+        let found = citations(&index, 1.0);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].ref_indexes, vec![1.0]);
+        assert_eq!(found[0].label, "[1]");
+        assert_eq!((found[0].start, found[0].end), (10.0, 13.0));
+    }
+
+    #[test]
+    fn figure_mention_carries_the_captions_page_and_y_as_its_target() {
+        let index = build_reference_index(&sample_pages(), &[]);
+        let figures: Vec<&MentionHit> = mentions_on(&index, 1.0)
+            .iter()
+            .filter(|hit| matches!(hit.kind, MentionKind::Figure))
+            .collect();
+        assert_eq!(figures.len(), 1);
+        assert_eq!(
+            figures[0].target,
+            Some(FigureTarget {
+                page: 2.0,
+                x: Some(72.0),
+                y: 640.0,
+                height: Some(10.0),
+                label: Some("Figure 2".to_owned()),
+                kind: Some("figure".to_owned()),
+            })
+        );
+    }
+
+    #[test]
+    fn nothing_inside_the_bibliography_links_back_and_quiet_pages_are_absent() {
+        let index = build_reference_index(&sample_pages(), &[]);
+        let pages: Vec<f64> = index
+            .mentions_by_page
+            .iter()
+            .map(|page| page.page_number)
+            .collect();
+        assert_eq!(pages, vec![1.0]);
+    }
+
+    #[test]
+    fn fingerprint_is_stable_for_the_same_text_and_keys_are_unique() {
+        let index = build_reference_index(&sample_pages(), &[]);
+        assert_eq!(
+            index.fingerprint,
+            build_reference_index(&sample_pages(), &[]).fingerprint
+        );
+        let hex = Regex::new(r"^[0-9a-f]{16}$").expect("valid regex");
+        assert!(hex.is_match(&index.fingerprint));
+        let keys: Vec<&str> = mentions_on(&index, 1.0)
+            .iter()
+            .map(|hit| hit.key.as_str())
+            .collect();
+        let unique: HashSet<&str> = keys.iter().copied().collect();
+        assert_eq!(unique.len(), keys.len());
+    }
+
+    #[test]
+    fn document_with_no_reference_list_yields_no_mentions_and_no_crash() {
+        let index = build_reference_index(
+            &[page(1.0, vec![line("No citations here.", 700.0)], None)],
+            &[],
+        );
+        assert!(index.references.is_empty());
+        assert!(index.mentions_by_page.is_empty());
+        assert_eq!(build_reference_index(&[], &[]).fingerprint, "");
+    }
+
+    #[test]
+    fn hyperref_link_over_the_digits_of_a_bracket_is_the_citation_widened_to_its_brackets() {
+        // pdf.js splits a linked bracket into `[`, the digits, a zero-width space and `]`.
+        let linked_body = page(
+            1.0,
+            with_prose(
+                vec![
+                    run("BERT [", 72.0, 700.0, 10.0, false),
+                    run("2", 102.0, 700.0, 10.0, false),
+                    run(" ", 107.0, 700.0, 10.0, false),
+                    run("] and a URL", 107.0, 700.0, 10.0, true),
+                ],
+                676.0,
+            ),
+            Some(vec![
+                json!({ "rect": [101.0, 699.0, 108.0, 710.0], "dest": { "page": 3.0, "x": 72.0, "y": 674.0 } }),
+                json!({ "rect": [140.0, 699.0, 180.0, 710.0], "url": "https://example.org" }),
+            ]),
+        );
+        let index = build_reference_index(&[linked_body, caption_page(), bibliography_page()], &[]);
+        let found = citations(&index, 1.0);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].ref_indexes, vec![2.0]);
+        assert_eq!((found[0].start, found[0].end), (5.0, 9.0));
+    }
+
+    #[test]
+    fn numeric_cluster_is_one_mention_per_number_and_a_range_stays_one() {
+        let cluster = build_reference_index(
+            &[
+                page(
+                    1.0,
+                    with_prose(vec![line("Prior work [1, 2, 3] shows this.", 700.0)], 688.0),
+                    None,
+                ),
+                bibliography_page(),
+            ],
+            &[],
+        );
+        let hits = citations(&cluster, 1.0);
+        let indexes: Vec<Vec<f64>> = hits.iter().map(|hit| hit.ref_indexes.clone()).collect();
+        assert_eq!(indexes, vec![vec![1.0], vec![2.0], vec![3.0]]);
+        let labels: Vec<&str> = hits.iter().map(|hit| hit.label.as_str()).collect();
+        assert_eq!(labels, vec!["[1]", "[2]", "[3]"]);
+        let text = "Prior work [1, 2, 3] shows this.";
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "offsets are small whole numbers"
+        )]
+        let slices: Vec<&str> = hits
+            .iter()
+            .map(|hit| &text[hit.start as usize..hit.end as usize])
+            .collect();
+        assert_eq!(slices, vec!["1", "2", "3"]);
+        let keys: HashSet<&str> = hits.iter().map(|hit| hit.key.as_str()).collect();
+        assert_eq!(keys.len(), 3);
+        assert!(
+            hits.iter()
+                .all(|hit| hit.rects.as_ref().is_some_and(|rects| !rects.is_empty()))
+        );
+
+        let range = build_reference_index(
+            &[
+                page(
+                    1.0,
+                    with_prose(vec![line("Prior work [1–3] shows this.", 700.0)], 688.0),
+                    None,
+                ),
+                bibliography_page(),
+            ],
+            &[],
+        );
+        let ranged = citations(&range, 1.0);
+        assert_eq!(ranged.len(), 1);
+        assert_eq!(ranged[0].ref_indexes, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn external_url_links_on_a_page_become_url_mentions() {
+        let index = build_reference_index(
+            &[
+                page(
+                    1.0,
+                    with_prose(
+                        vec![line(
+                            "Visit https://github.com/example/repo for code.",
+                            700.0,
+                        )],
+                        688.0,
+                    ),
+                    Some(vec![
+                        json!({ "rect": [102.0, 700.0, 257.0, 710.0], "url": "https://github.com/example/repo" }),
+                    ]),
+                ),
+                bibliography_page(),
+            ],
+            &[],
+        );
+        let urls: Vec<&MentionHit> = mentions_on(&index, 1.0)
+            .iter()
+            .filter(|hit| matches!(hit.kind, MentionKind::Url))
+            .collect();
+        assert_eq!(urls.len(), 1);
+        assert_eq!(
+            urls[0].url.as_deref(),
+            Some("https://github.com/example/repo")
+        );
+    }
+
+    #[test]
+    fn internal_non_citation_destination_links_become_jump_mentions() {
+        let index = build_reference_index(
+            &[
+                page(
+                    1.0,
+                    with_prose(vec![line("Refer to Section 3 for proofs.", 700.0)], 688.0),
+                    Some(vec![
+                        json!({ "rect": [117.0, 700.0, 162.0, 710.0], "dest": { "page": 2.0, "y": 500.0 } }),
+                    ]),
+                ),
+                bibliography_page(),
+            ],
+            &[],
+        );
+        let jumps: Vec<&MentionHit> = mentions_on(&index, 1.0)
+            .iter()
+            .filter(|hit| matches!(hit.kind, MentionKind::Figure))
+            .collect();
+        assert_eq!(jumps.len(), 1);
+        assert_eq!(
+            jumps[0].target,
+            Some(FigureTarget {
+                page: 2.0,
+                x: None,
+                y: 500.0,
+                height: None,
+                label: Some("Section 3".to_owned()),
+                kind: Some("dest".to_owned()),
+            })
+        );
+    }
+}
