@@ -1,0 +1,13 @@
+# CodeQL scans our own code only. Vendored upstream code and test
+# fixtures are left out: their alerts are not ours to fix (vendor) or are
+# fake secrets and URLs on purpose (tests).
+name: weaveforge
+paths-ignore:
+  - apps/web/src/features/report/vendor/**
+  - "**/node_modules/**"
+  - "**/test/**"
+  - "**/tests/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - packages/wf-wasm/pkg/**
+  - local-dev.example/**
