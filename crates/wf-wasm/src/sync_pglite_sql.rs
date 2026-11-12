@@ -73,3 +73,59 @@ pub fn split_top_level_js(expression: &str) -> Result<JsValue, JsError> {
     to_js(&pglite_sql::split_top_level(expression))
         .map_err(|error| JsError::new(&error.to_string()))
 }
+
+/// [`pglite_sql::filter_operator`] (TS `filterOperator`): the SQL operator for a filter name, or undefined.
+#[wasm_bindgen(js_name = filterOperator)]
+#[must_use]
+pub fn filter_operator_js(name: &str) -> Option<String> {
+    pglite_sql::filter_operator(name).map(str::to_owned)
+}
+
+/// [`pglite_sql::in_items`] (TS `inItems`): the pieces of an `in` list written as text.
+///
+/// # Errors
+///
+/// Returns an error if the result cannot be converted to JS.
+#[wasm_bindgen(js_name = inItems, unchecked_return_type = "string[]")]
+pub fn in_items_js(text: &str) -> Result<JsValue, JsError> {
+    to_js(&pglite_sql::in_items(text)).map_err(|error| JsError::new(&error.to_string()))
+}
+
+/// [`pglite_sql::or_value`] (TS `orValue`): one `or()` clause value, unquoted and unescaped.
+#[wasm_bindgen(js_name = orValue)]
+#[must_use]
+pub fn or_value_js(joined: &str) -> String {
+    pglite_sql::or_value(joined)
+}
+
+/// [`pglite_sql::order_clause`] (TS `orderClause`): one quoted `order()` term.
+///
+/// # Errors
+///
+/// Returns an error for a column name the local database will not accept.
+#[wasm_bindgen(js_name = orderClause)]
+pub fn order_clause_js(
+    column: &str,
+    ascending: Option<bool>,
+    nulls_first: Option<bool>,
+) -> Result<String, JsError> {
+    pglite_sql::order_clause(column, ascending, nulls_first).map_err(|error| JsError::new(&error))
+}
+
+/// [`pglite_sql::range_window`] (TS `rangeWindow`): `[limit, offset]` for an inclusive range.
+///
+/// # Errors
+///
+/// Returns an error if the result cannot be converted to JS.
+#[wasm_bindgen(js_name = rangeWindow, unchecked_return_type = "number[]")]
+pub fn range_window_js(from: f64, to: f64) -> Result<JsValue, JsError> {
+    let (limit, offset) = pglite_sql::range_window(from, to);
+    to_js(&[limit, offset]).map_err(|error| JsError::new(&error.to_string()))
+}
+
+/// [`pglite_sql::tail_clause`] (TS `tailClause`): the order, limit and offset tail of a statement.
+#[wasm_bindgen(js_name = tailClause)]
+#[must_use]
+pub fn tail_clause_js(order_by: Option<String>, limit: Option<f64>, offset: f64) -> String {
+    pglite_sql::tail_clause(order_by.as_deref(), limit, offset)
+}

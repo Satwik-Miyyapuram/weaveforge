@@ -67,7 +67,8 @@ export class Adoption {
     const state = await this.state.read();
     // Adopting twice would take rows from the first account and hand them to
     // the second — silently, and with no way back.
-    if (state.accountId) throw new AlreadyAdoptedError(state.accountId);
+    const adopted = readyCore().adoptedAccount(state.accountId ?? undefined);
+    if (adopted) throw new AlreadyAdoptedError(adopted);
 
     const renamed = await this.rename(request.remoteProjectNames, request.deviceLabel);
     const claimed = await this.claim(request.accountId);
