@@ -10,6 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
+import { readyCore } from "@/lib/rust-core";
 import { collectTextFiles, readOverleafProject } from "../infrastructure/overleaf-git-reader";
 
 async function tempDir(t: { after(fn: () => Promise<void>): void }, prefix: string): Promise<string> {
@@ -29,7 +30,7 @@ test("text files in a checkout are collected with their relative paths", async (
   assert.deepEqual(files.map((f) => f.path), ["chapters/one.tex", "main.tex"]);
 });
 
-test("a symlinked .tex in the checkout is skipped, not followed (30-01)", async (t) => {
+test("skips symlinks: a symlinked .tex in the checkout is not followed (30-01)", async (t) => {
   const outside = await tempDir(t, "wf-overleaf-secret-");
   const root = await tempDir(t, "wf-overleaf-read-");
   const secret = path.join(outside, "secret.txt");
@@ -46,6 +47,13 @@ test("a symlinked .tex in the checkout is skipped, not followed (30-01)", async 
   const files = await collectTextFiles(root);
   assert.deepEqual(files.map((f) => f.path), ["main.tex"]);
   assert.ok(!files.some((f) => f.content.includes("SECRET")));
+});
+
+test("rejects ../ escape (absolute, backslash and drive-letter paths too)", () => {
+  for (const bad of ["../etc/passwd", "a/../../x.tex", "/abs.tex", "a\\b.tex", "C:/x.tex"]) {
+    assert.throws(() => readyCore().assertSafeCheckoutPath(bad), /unsafe path/, bad);
+  }
+  assert.doesNotThrow(() => readyCore().assertSafeCheckoutPath("chapters/one.tex"));
 });
 
 for (const bad of ["../etc", "a/b", "abc?x=1", "", "abc def"]) {

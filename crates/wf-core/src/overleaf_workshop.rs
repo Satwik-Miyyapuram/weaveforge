@@ -1,5 +1,6 @@
 //! Overleaf Workshop rules: request body checks, error redaction, project page meta and CDN URLs.
 
+use serde::Serialize;
 use serde_json::Value;
 
 /// Message for a missing or malformed session id.
@@ -132,13 +133,42 @@ fn session_id_field(body: &Value) -> Option<String> {
 }
 
 /// UUID shape, case-insensitive hex, no surrounding whitespace.
-fn is_session_id(id: &str) -> bool {
+pub fn is_session_id(id: &str) -> bool {
     let bytes = id.as_bytes();
     bytes.len() == 36
         && bytes.iter().enumerate().all(|(i, b)| match i {
             8 | 13 | 18 | 23 => *b == b'-',
             _ => b.is_ascii_hexdigit(),
         })
+}
+
+/// One Workshop project, as the projects route lists it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct WorkshopProject {
+    /// Overleaf project id.
+    pub id: String,
+    /// Project name, as Overleaf returns it.
+    pub name: String,
+}
+
+/// Project list from a projects-route body, in the route's order. Entries without a non-empty
+/// string `id` or a string `name` are dropped. `None` when `projects` is missing or not an array.
+#[must_use]
+pub fn workshop_projects(body: &Value) -> Option<Vec<WorkshopProject>> {
+    let projects = body.get("projects")?.as_array()?;
+    Some(
+        projects
+            .iter()
+            .filter_map(|project| {
+                let id = project.get("id")?.as_str().filter(|id| !id.is_empty())?;
+                let name = project.get("name")?.as_str()?;
+                Some(WorkshopProject {
+                    id: id.to_owned(),
+                    name: name.to_owned(),
+                })
+            })
+            .collect(),
+    )
 }
 
 /// Non-empty ASCII alphanumeric project id.
@@ -204,5 +234,74 @@ fn redact_url(candidate: &str) -> String {
             parsed.to_string()
         }
         Err(_) => REDACTED_URL.to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    const SESSION: &str = "0b7e1d2a-3c4f-4e5a-8b6c-7d8e9f0a1b2c";
+
+    // it: a success without a valid session id is an error, not a session
+    #[test]
+    fn session_id_must_be_uuid_shape() {
+        assert!(is_session_id(SESSION));
+        assert!(is_session_id(&SESSION.to_uppercase()));
+        assert!(!is_session_id(""));
+        assert!(!is_session_id("0b7e1d2a-3c4f-4e5a-8b6c-7d8e9f0a1b2"));
+        assert!(!is_session_id(&format!("{SESSION}\n")));
+        assert!(!is_session_id(&format!(" {SESSION}")));
+        assert!(!is_session_id("0b7e1d2a-3c4f-4e5a-8b6c-7d8e9f0a1b2g"));
+    }
+
+    // it: projects drops malformed entries instead of rendering them
+    #[test]
+    fn workshop_projects_drops_malformed_entries() {
+        let body = json!({"projects": [
+            {"id": "p1", "name": "Thesis"},
+            {"id": "", "name": "No id"},
+            {"name": "Missing id"},
+            {"id": 7, "name": "Numeric id"},
+            {"id": "p2"},
+            {"id": "p3", "name": 5},
+            null,
+            "text",
+            {"id": "p4", "name": "Paper", "extra": true},
+        ]});
+        assert_eq!(
+            workshop_projects(&body),
+            Some(vec![
+                WorkshopProject { id: "p1".into(), name: "Thesis".into() },
+                WorkshopProject { id: "p4".into(), name: "Paper".into() },
+            ]),
+        );
+    }
+
+    // it: an empty project list is a success with no projects
+    #[test]
+    fn workshop_projects_empty_array_is_some_empty() {
+        assert_eq!(workshop_projects(&json!({"projects": []})), Some(vec![]));
+    }
+
+    // it: a body without a projects array is an error
+    #[test]
+    fn workshop_projects_without_array_is_none() {
+        assert_eq!(workshop_projects(&json!({})), None);
+        assert_eq!(workshop_projects(&json!({"projects": null})), None);
+        assert_eq!(workshop_projects(&json!({"projects": {"id": "p1", "name": "x"}})), None);
+    }
+
+    // it: projects POSTs the session id and returns id/name pairs sorted by name (the sort stays TS)
+    #[test]
+    fn workshop_projects_keeps_route_order() {
+        let body = json!({"projects": [{"id": "b", "name": "Zebra"}, {"id": "a", "name": "Apple"}]});
+        let names: Vec<String> = workshop_projects(&body)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|p| p.name)
+            .collect();
+        assert_eq!(names, vec!["Zebra", "Apple"]);
     }
 }

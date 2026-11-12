@@ -310,7 +310,7 @@ fn rename_figure_refs(latex: &str, renamed: &HashMap<String, String>) -> String 
 
 /// Escape the LaTeX specials JS `escapeTitle` escapes: `{ } $ & # ^ _ % \`. Kept private here,
 /// because `escape_latex_text` escapes differently (`~`, backslash text).
-fn escape_title(s: &str) -> String {
+pub(crate) fn escape_title(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
         if matches!(c, '{' | '}' | '$' | '&' | '#' | '^' | '_' | '%' | '\\') {

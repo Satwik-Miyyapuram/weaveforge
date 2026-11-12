@@ -2,7 +2,7 @@
 
 import { LocalRunner } from "@/backend/providers/local/parts";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore } from "@/lib/rust-core";
 import type { LatexSectionTree } from "@weaveforge/wasm";
 
 /**
@@ -87,25 +87,8 @@ export class LocalOverleafGateway {
     overleafProjectId: string;
     entryFile: string;
   }): Promise<void> {
-    const entryFile = input.entryFile.trim() || "main.tex";
-    if (!typedCore().isOverleafProjectId(input.overleafProjectId)) {
-      throw new Error("Overleaf project id is invalid.");
-    }
-    const invalid = typedCore().entryFileError(entryFile);
-    if (invalid) throw new Error(invalid);
-    await this.run.exec(
-      `insert into overleaf_linked_reports
-         (user_id, project_id, connection_id, title, overleaf_project_id, entry_file, external_url)
-       values (auth.uid(), $1, $2, $3, $4, $5, $6)`,
-      [
-        input.projectId,
-        input.connectionId,
-        input.title.trim(),
-        input.overleafProjectId,
-        entryFile,
-        typedCore().externalUrl(input.overleafProjectId),
-      ],
-    );
+    const plan = readyCore().planOverleafReportCreate(input);
+    await this.run.exec(plan.sql, plan.params);
   }
 
   /**
@@ -121,53 +104,8 @@ export class LocalOverleafGateway {
     entryFile?: string;
     sectionTargets?: unknown;
   }): Promise<void> {
-    const sets: string[] = [];
-    const params: (string | null)[] = [];
-    const set = (column: string, value: string) => {
-      params.push(value);
-      sets.push(`${column} = $${params.length}`);
-    };
-
-    if (input.sectionTargets !== undefined) {
-      const targets = typedCore().sanitizeSectionTargets(input.sectionTargets);
-      if (!targets) throw new Error("Section targets are invalid.");
-      set("section_targets", JSON.stringify(targets));
-      // The column is jsonb and the parameter is text, so it is cast at the
-      // one place that knows it is JSON rather than by a helper that does not.
-      sets[sets.length - 1] += "::jsonb";
-    }
-    if (input.title !== undefined) {
-      const title = input.title.trim();
-      if (!title) throw new Error("Title cannot be empty.");
-      set("title", title);
-    }
-    if (input.overleafProjectId !== undefined) {
-      const id = input.overleafProjectId.trim();
-      if (!typedCore().isOverleafProjectId(id)) throw new Error("Overleaf project id is invalid.");
-      set("overleaf_project_id", id);
-      // Recomputed, not carried over: a stale link would point at the old project.
-      set("external_url", typedCore().externalUrl(id));
-    }
-    if (input.entryFile !== undefined) {
-      const entryFile = input.entryFile.trim() || "main.tex";
-      const invalid = typedCore().entryFileError(entryFile);
-      if (invalid) throw new Error(invalid);
-      set("entry_file", entryFile);
-    }
-    if (!sets.length) throw new Error("Nothing to update.");
-    // Pointing at a different project or file invalidates what was fetched
-    // under the old target, so clear the cached failure rather than leave it
-    // misattributed. A literal, not a parameter: there is nothing to bind.
-    if (input.overleafProjectId !== undefined || input.entryFile !== undefined) {
-      sets.push("last_error = null");
-    }
-
-    params.push(input.id);
-    await this.run.exec(
-      `update overleaf_linked_reports set ${sets.join(", ")}, updated_at = now()
-       where id = $${params.length} and user_id = auth.uid()`,
-      params,
-    );
+    const plan = readyCore().planOverleafReportPatch(input);
+    await this.run.exec(plan.sql, plan.params);
   }
 
   async deleteReport(id: string): Promise<void> {
@@ -187,7 +125,7 @@ export class LocalOverleafGateway {
     return {
       files: source.files,
       entryFile: source.entryFile,
-      sectionTree: typedCore().parseLatexSectionTree(source.files, source.entryFile) as LatexSectionTree,
+      sectionTree: readyCore().parseLatexSectionTree(source.files, source.entryFile) as LatexSectionTree,
       overleafUrl: source.overleafUrl,
     };
   }
