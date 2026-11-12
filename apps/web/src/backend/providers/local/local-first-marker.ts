@@ -2,6 +2,7 @@
 
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readStored, removeStored, writeStoredJson } from "@/lib/safe-storage";
+import { readyCore } from "@/lib/rust-core";
 import { isLocalMode } from "./local-identity";
 
 /**
@@ -10,7 +11,7 @@ import { isLocalMode } from "./local-identity";
  * provider can read it without pulling in the clients.
  */
 
-const MARKER_KEY = "weaveforge.local-first";
+const markerKey = (): string => readyCore().localFirstKey();
 
 export interface LocalFirstAccount {
   id: string;
@@ -18,24 +19,17 @@ export interface LocalFirstAccount {
 }
 
 export function localFirstAccount(): LocalFirstAccount | null {
-  const raw = readStored(MARKER_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as Partial<LocalFirstAccount>;
-    return typeof parsed.id === "string" ? { id: parsed.id, email: parsed.email ?? null } : null;
-  } catch {
-    return null;
-  }
+  return readyCore().localFirstMarkerAccount(readStored(markerKey()) ?? undefined);
 }
 
 export function setLocalFirstAccount(account: LocalFirstAccount | null): void {
   // Storage denied: the window starts in server mode next time, which works.
-  if (account) writeStoredJson(MARKER_KEY, account);
-  else removeStored(MARKER_KEY);
+  if (account) writeStoredJson(markerKey(), account);
+  else removeStored(markerKey());
 }
 
 /** Whether this window should be wired local-first. */
 export function localFirstActive(): LocalFirstAccount | null {
-  if (isLocalMode() || !desktop()) return null;
+  if (!readyCore().localFirstWanted(isLocalMode(), Boolean(desktop()))) return null;
   return localFirstAccount();
 }

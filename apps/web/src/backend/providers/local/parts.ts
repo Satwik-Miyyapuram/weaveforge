@@ -5,6 +5,7 @@ import {
 } from "@/features/settings/infrastructure/parts";
 import { desktop, type DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import { notifyWorkspaceChange } from "@/lib/parts";
+import { readyCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import { watchWrites } from "../postgrest/watch-writes";
@@ -89,20 +90,21 @@ export class DeviceSecretsStore implements SecretsStore {
   constructor(private readonly run: LocalQuery = localRunnerQuery()) {}
 
   async load(): Promise<Secrets> {
-    const rows = (await this.run("select secrets from local_secrets where user_id = $1", [
-      LOCAL_USER_ID,
-    ])) as { secrets: Secrets | string }[];
+    const rows = (await this.run(readyCore().localSecretsLoadSql(), [LOCAL_USER_ID])) as {
+      secrets: Secrets | string | null;
+    }[];
     const stored = rows[0]?.secrets;
-    if (!stored) return {};
-    return typeof stored === "string" ? (JSON.parse(stored) as Secrets) : stored;
+    const text =
+      stored === undefined || stored === null
+        ? undefined
+        : typeof stored === "string"
+          ? stored
+          : JSON.stringify(stored);
+    return JSON.parse(readyCore().localSecretsJsonText(text)) as Secrets;
   }
 
   async save(secrets: Secrets): Promise<void> {
-    await this.run(
-      `insert into local_secrets (user_id, secrets, updated_at) values ($1, $2, now())
-       on conflict (user_id) do update set secrets = excluded.secrets, updated_at = now()`,
-      [LOCAL_USER_ID, JSON.stringify(secrets)],
-    );
+    await this.run(readyCore().localSecretsSaveSql(), [LOCAL_USER_ID, JSON.stringify(secrets)]);
   }
 }
 

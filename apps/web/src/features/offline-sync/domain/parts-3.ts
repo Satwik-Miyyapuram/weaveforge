@@ -170,11 +170,8 @@ export class SyncStateStore {
     const row = await this.sql.queryOne<SyncStateRow>(
       "select watermark, last_pull_at, account_id from sync_state",
     );
-    return {
-      watermark: Number(row?.watermark ?? 0),
-      lastPullAt: row?.last_pull_at ?? null,
-      accountId: row?.account_id ?? null,
-    };
+    // The read decision (null row, bigint text, empty account) is wf-core's `sync_state`.
+    return readyCore().syncStateFromRow(row ?? undefined) as SyncState;
   }
 
   /**

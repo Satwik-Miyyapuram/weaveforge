@@ -65,18 +65,6 @@ type Row = Record<string, unknown>;
 
 const NOT_FOUND = "PGRST116";
 
-/** Only these operators reach SQL. An unknown one is a bug, not a fallback. */
-const OPERATORS: Record<string, string> = {
-  eq: "=",
-  neq: "<>",
-  gt: ">",
-  gte: ">=",
-  lt: "<",
-  lte: "<=",
-  like: "like",
-  ilike: "ilike",
-};
-
 const BYTEA_HEX = /^\\x(?:[0-9a-fA-F]{2})*$/;
 
 /**
@@ -240,7 +228,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
     if (operator === "in") {
       const items =
         typeof value === "string"
-          ? value.replace(/^\(|\)$/g, "").split(",").map((s) => s.trim()).filter(Boolean)
+          ? readyCore().inItems(value)
           : Array.isArray(value)
             ? value
             : [value];
@@ -248,10 +236,10 @@ class Builder<T> implements PromiseLike<Reply<T>> {
         this.wheres.push("true");
         return this;
       }
-      this.wheres.push(`not (${readyCore().ident(column)} in (${items.map((v) => this.hold(v, column)).join(", ")}))`);
+      this.wheres.push(`not (${readyCore().ident(column)} in (${items.map((v: unknown) => this.hold(v, column)).join(", ")}))`);
       return this;
     }
-    const sql = OPERATORS[operator];
+    const sql = readyCore().filterOperator(operator);
     if (!sql) throw new Error(`The local database has no "${operator}" filter.`);
     this.wheres.push(`not (${readyCore().ident(column)} ${sql} ${this.hold(value, column)})`);
     return this;
@@ -262,11 +250,11 @@ class Builder<T> implements PromiseLike<Reply<T>> {
     if (operator === "in") {
       const inner =
         typeof value === "string"
-          ? value.replace(/^\(|\)$/g, "").split(",").map((s) => s.trim()).filter(Boolean)
+          ? readyCore().inItems(value)
           : (value as unknown[]);
       return this.in(column, inner);
     }
-    const sql = OPERATORS[operator];
+    const sql = readyCore().filterOperator(operator);
     if (!sql) throw new Error(`The local database has no "${operator}" filter.`);
     this.wheres.push(`${readyCore().ident(column)} ${sql} ${this.hold(value, column)}`);
     return this;
@@ -274,18 +262,18 @@ class Builder<T> implements PromiseLike<Reply<T>> {
 
   /** PostgREST's `"a.eq.1,b.is.null"`, which the app uses for two-sided lookups. */
   or(expression: string): this {
-    const parts = readyCore().splitTopLevel(expression).map((clause) => {
+    const parts = readyCore().splitTopLevel(expression).map((clause: string) => {
       const [column = "", operator = "", ...rest] = clause.split(".");
       const joined = rest.join(".");
       // A double-quoted value is PostgREST's way to carry `,` `.` `(` `)` as text.
-      const raw = /^".*"$/s.test(joined) ? joined.slice(1, -1).replace(/\\(.)/gs, "$1") : joined;
+      const raw = readyCore().orValue(joined);
       if (operator === "is") return `${readyCore().ident(column)} is ${readyCore().isLiteral(raw.toLowerCase())}`;
       if (operator === "in") {
-        const items = raw.replace(/^\(|\)$/g, "").split(",").map((s) => s.trim()).filter(Boolean);
+        const items = readyCore().inItems(raw);
         if (items.length === 0) return "false";
-        return `${readyCore().ident(column)} in (${items.map((v) => this.hold(v, column)).join(", ")})`;
+        return `${readyCore().ident(column)} in (${items.map((v: unknown) => this.hold(v, column)).join(", ")})`;
       }
-      const sql = OPERATORS[operator];
+      const sql = readyCore().filterOperator(operator);
       if (!sql) throw new Error(`The local database has no "${operator}" filter.`);
       return `${readyCore().ident(column)} ${sql} ${this.hold(raw, column)}`;
     });
@@ -294,10 +282,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
   }
 
   order(column: string, options?: { ascending?: boolean; nullsFirst?: boolean }): this {
-    const direction = options?.ascending === false ? "desc" : "asc";
-    const nulls =
-      options?.nullsFirst === undefined ? "" : options.nullsFirst ? " nulls first" : " nulls last";
-    this.orders.push(`${readyCore().ident(column)} ${direction}${nulls}`);
+    this.orders.push(readyCore().orderClause(column, options?.ascending, options?.nullsFirst));
     return this;
   }
 
@@ -315,8 +300,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
    * function" on the local backend only.
    */
   range(from: number, to: number): this {
-    this.limitTo = Math.max(0, to - from + 1);
-    this.offsetTo = Math.max(0, from);
+    [this.limitTo, this.offsetTo] = readyCore().rangeWindow(from, to) as [number, number];
     return this;
   }
 
@@ -363,12 +347,13 @@ class Builder<T> implements PromiseLike<Reply<T>> {
   }
 
   private tail(): string {
-    const order = this.orders.length ? ` order by ${this.orders.join(", ")}` : "";
-    const limit = this.limitTo === null ? "" : ` limit ${Number(this.limitTo)}`;
     // `offset` without `limit` is legal in Postgres, so a bare `.range(5, …)`
-    // still pages correctly.
-    const offset = this.offsetTo ? ` offset ${Number(this.offsetTo)}` : "";
-    return `${order}${limit}${offset}`;
+    // still pages correctly (wf-core `pglite_sql::tail_clause`).
+    return readyCore().tailClause(
+      this.orders.length ? this.orders.join(", ") : undefined,
+      this.limitTo ?? undefined,
+      this.offsetTo,
+    );
   }
 
   /** The statement, built last so every filter has already booked its parameter. */

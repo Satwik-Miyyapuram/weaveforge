@@ -64,10 +64,16 @@ results in.
   name the account already holds, and the name it takes. The `update` statements
   stay in `apps/web/src/features/offline-sync/domain/parts-1.ts`. The caller
   passes local projects in `order by name`, which the plan relies on.
-- `send_verdict.rs`: `classifySend` turns a PostgREST status, error code and row
+- `send_verdict.rs` (Rust only, no wasm export): `classify_send` turns a PostgREST status, error code and row
   count into one verdict (awaiting parent, conflict, offline, RLS refused, refused,
-  guard missed, accepted). `isLinkInsert` marks link-table inserts, and
-  `missingIds` lists the ids a chunk expected but the server did not return.
+  guard missed, accepted). `is_link_insert` marks link-table inserts, and
+  `absent_ids` lists the ids a chunk expected but the server did not return.
+  `missing_ids` filters those by tombstones. `send_steps.rs` calls these.
+- `send_steps.rs`: the send step machine. `sendStart` and `sendAdvance` return
+  `{ next: "read", ... }` for each GET the transport must make, or the final
+  `SendOutcome`. `missingIdChunks` plans the chunks (100 ids each), and
+  `missingAfterPresence` / `missingAfterTombstones` decide the missing ids.
+  `changesFromReply` maps the feed reply. TS runs the fetches and loops.
   The transport stays in `postgrest-transport.ts`.
 - `pump_route.rs`: `pumpRoute` picks the pump's step for one send outcome: stop
   (offline), settle, conflict, wait (refused, parent unsent) or fail, and whether

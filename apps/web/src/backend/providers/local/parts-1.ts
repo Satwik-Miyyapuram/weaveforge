@@ -67,20 +67,16 @@ export class LocalBlobStore implements IBlobFetcher {
     // The file first: a row never points at bytes that were not written.
     if (this.files) await this.files.write(bucket, path, bytes);
     await this.run(
-      `insert into local_blobs (bucket, path, content_type, bytes, on_disk, updated_at)
-       values ($1, $2, $3, $4, $5, now())
-       on conflict (bucket, path) do update
-         set content_type = excluded.content_type, bytes = excluded.bytes,
-             on_disk = excluded.on_disk, updated_at = now()`,
+      readyCore().localBlobSql("upsertBlob"),
       [bucket, path, type, this.files ? null : readyCore().encodeBase64(bytes), Boolean(this.files)],
     );
   }
 
   async remove(bucket: string, path: string): Promise<void> {
-    const gone = (await this.run(
-      "delete from local_blobs where bucket = $1 and path = $2 returning on_disk",
-      [bucket, path],
-    )) as { on_disk: boolean }[];
+    const gone = (await this.run(readyCore().localBlobSql("deleteBlobReturningOnDisk"), [
+      bucket,
+      path,
+    ])) as { on_disk: boolean }[];
     if (this.files && gone.some((row) => row.on_disk)) await this.files.remove(bucket, path);
   }
 
@@ -118,11 +114,10 @@ export class LocalBlobStore implements IBlobFetcher {
   /** One statement per set, so a grid of images is one call rather than twenty. */
   private async read(bucket: string, paths: string[]): Promise<Map<string, StoredBlob>> {
     if (paths.length === 0) return new Map();
-    const holes = paths.map((_, i) => `$${i + 2}`).join(", ");
-    const rows = (await this.run(
-      `select path, content_type, bytes, on_disk from local_blobs where bucket = $1 and path in (${holes})`,
-      [bucket, ...paths],
-    )) as BlobRow[];
+    const rows = (await this.run(readyCore().localBlobReadSql(paths.length), [
+      bucket,
+      ...paths,
+    ])) as BlobRow[];
     const found = await Promise.all(rows.map((row) => this.bytesOf(bucket, row)));
     return new Map(found.filter((b): b is StoredBlob => b !== null).map((b) => [b.path, b]));
   }
@@ -193,13 +188,13 @@ export class LocalFirstBlobStore implements IBlobFetcher {
 
   async remove(bucket: string, path: string): Promise<void> {
     await this.local.remove(bucket, path);
-    const [pending] = (await this.run(
-      "select op from local_blob_uploads where bucket = $1 and path = $2",
-      [bucket, path],
-    )) as { op: string }[];
-    if (pending?.op === "upload") {
-      // Never reached the server: forgetting it is the whole of the removal.
-      await this.run("delete from local_blob_uploads where bucket = $1 and path = $2", [bucket, path]);
+    const [pending] = (await this.run(readyCore().localBlobSql("selectUploadOp"), [
+      bucket,
+      path,
+    ])) as { op: string }[];
+    // Never reached the server: forgetting it is the whole of the removal.
+    if (readyCore().localBlobRemovalForgetsUpload(pending?.op)) {
+      await this.run(readyCore().localBlobSql("deleteUpload"), [bucket, path]);
       return;
     }
     await this.enqueue(bucket, path, "remove");
@@ -208,14 +203,14 @@ export class LocalFirstBlobStore implements IBlobFetcher {
 
   async signedUrls(bucket: string, paths: string[], ttlSeconds: number): Promise<(string | null)[]> {
     const here = await this.local.signedUrls(bucket, paths, ttlSeconds);
-    const missing = paths.filter((_, i) => here[i] === null);
-    if (missing.length === 0) return here;
+    const unsigned = readyCore().localBlobUnsignedIndices(here);
+    if (unsigned.length === 0) return here;
+    const missing = unsigned.map((i) => paths[i]!);
     const there = await this.remote.signedUrls(bucket, missing, ttlSeconds).catch((err: unknown) => {
       warn("Could not get attachment links from the server", `${bucket}: ${describeRejection(err)}`);
       return missing.map(() => null);
     });
-    const byPath = new Map(missing.map((path, i) => [path, there[i] ?? null]));
-    return paths.map((path, i) => here[i] ?? byPath.get(path) ?? null);
+    return readyCore().localBlobMergeSignedUrls(paths, here, there);
   }
 
   async fetchBytes(bucket: string, path: string): Promise<Uint8Array> {
@@ -240,7 +235,7 @@ export class LocalFirstBlobStore implements IBlobFetcher {
     fallbackContentType?: string,
   ): Promise<Map<string, Blob>> {
     const found = await this.local.fetchBlobs(bucket, paths, fallbackContentType);
-    const missing = paths.filter((path) => !found.has(path));
+    const missing = readyCore().localBlobMissingPaths(paths, [...found.keys()]);
     if (missing.length === 0) return found;
     const fetched = await this.remote.fetchBlobs(bucket, missing, fallbackContentType).catch((err: unknown) => {
       warn("Could not fetch attachments from the server", `${bucket}: ${describeRejection(err)}`);
@@ -252,7 +247,7 @@ export class LocalFirstBlobStore implements IBlobFetcher {
 
   /** How many attachments are still waiting for the server. */
   async pending(): Promise<number> {
-    const [row] = (await this.run("select count(*)::int as n from local_blob_uploads", [])) as { n: number }[];
+    const [row] = (await this.run(readyCore().localBlobSql("countUploads"), [])) as { n: number }[];
     return Number(row?.n ?? 0);
   }
 
@@ -278,10 +273,7 @@ export class LocalFirstBlobStore implements IBlobFetcher {
 
   private async drain(): Promise<void> {
     if (!this.isOnline()) return;
-    const queue = (await this.run(
-      "select bucket, path, op, version from local_blob_uploads order by queued_at",
-      [],
-    )) as QueuedBlob[];
+    const queue = (await this.run(readyCore().localBlobSql("selectUploadQueue"), [])) as QueuedBlob[];
     for (const item of queue) {
       try {
         if (item.op === "upload") {
@@ -297,28 +289,24 @@ export class LocalFirstBlobStore implements IBlobFetcher {
         } else {
           await this.remote.remove(item.bucket, item.path);
         }
-        await this.run(
-          "delete from local_blob_uploads where bucket = $1 and path = $2 and version = $3",
-          [item.bucket, item.path, item.version],
-        );
+        await this.run(readyCore().localBlobSql("deleteUploadVersion"), [
+          item.bucket,
+          item.path,
+          item.version,
+        ]);
       } catch (err) {
-        await this.run(
-          "update local_blob_uploads set attempts = attempts + 1, last_error = $3 where bucket = $1 and path = $2",
-          [item.bucket, item.path, errorMessage(err)],
-        );
+        await this.run(readyCore().localBlobSql("bumpUploadAttempt"), [
+          item.bucket,
+          item.path,
+          errorMessage(err),
+        ]);
         return;
       }
     }
   }
 
   private async enqueue(bucket: string, path: string, op: "upload" | "remove"): Promise<void> {
-    await this.run(
-      `insert into local_blob_uploads (bucket, path, op, attempts, last_error, queued_at)
-       values ($1, $2, $3, 0, null, now())
-       on conflict (bucket, path) do update
-         set op = excluded.op, version = local_blob_uploads.version + 1, attempts = 0, last_error = null, queued_at = now()`,
-      [bucket, path, op],
-    );
+    await this.run(readyCore().localBlobSql("enqueueUpload"), [bucket, path, op]);
   }
 
   private kick(): void {
@@ -366,9 +354,6 @@ export function keepFlushing(store: LocalFirstBlobStore): () => void {
 }
 
 // --- local-first-experiment-push ---
-const ARTIFACT_PREFIX = "app://artifacts/";
-const ARTIFACT_BUCKET = "experiment-artifacts";
-const BATCH = 1000;
 export const EXPERIMENT_PUSH_MS = 30_000;
 
 /**
@@ -424,66 +409,60 @@ export class ExperimentPush {
   }
 
   private async pushResets(): Promise<void> {
-    const resets = (await this.run("select experiment_id from local_metric_resets", [])) as { experiment_id: string }[];
+    const resets = (await this.run(readyCore().localExperimentPushSql("selectResets"), [])) as { experiment_id: string }[];
     const server = this.server_();
     for (const { experiment_id: id } of resets) {
       await server.clearReset(id);
-      await this.run("delete from local_metric_resets where experiment_id = $1", [id]);
+      await this.run(readyCore().localExperimentPushSql("deleteReset"), [id]);
     }
   }
 
   // Full resolution stays here; the server gets the same thinned curve the web SDK route stores.
   private async pushMetrics(): Promise<void> {
-    const series = (await this.run(
-      `select d.experiment_id, d.metric_id, n.name as metric, p.step as pushed
-         from local_metric_dirty d
-         join experiment_metric_names n on n.id = d.metric_id
-         left join local_metric_pushes p on p.experiment_id = d.experiment_id and p.metric = n.name`,
-      [],
-    )) as { experiment_id: string; metric_id: number; metric: string; pushed: number | null }[];
+    const series = (await this.run(readyCore().localExperimentPushSql("selectSeries"), [])) as {
+      experiment_id: string;
+      metric_id: number;
+      metric: string;
+      pushed: number | null;
+    }[];
     const server = this.server_();
+    const batch = readyCore().localExperimentBatch();
     for (const s of series) {
       let pushed = s.pushed;
       for (;;) {
-        const rows = (await this.run(
-          `select step, value, wall_time from experiment_metric_points
-            where experiment_id = $1 and metric_id = $2 and step > $3
-            order by step limit ${BATCH}`,
-          [s.experiment_id, s.metric_id, pushed ?? -2147483648],
-        )) as Omit<MetricRow, "experiment_id" | "metric">[];
+        const rows = (await this.run(readyCore().localExperimentPushSql("selectPointsAfter"), [
+          s.experiment_id,
+          s.metric_id,
+          readyCore().localExperimentPushedCursor(pushed ?? undefined),
+        ])) as Omit<MetricRow, "experiment_id" | "metric">[];
         if (!rows.length) break;
         // Rust thins the batch to the stored grid. The cursor is written after the
         // server insert; if that write failed, this batch was sent before, so the
         // batch's range is cleared first and a re-send leaves no stray point.
         pushed = await server.pushBatch(s.experiment_id, s.metric, pushed, rows);
-        await this.run(
-          `insert into local_metric_pushes (experiment_id, metric, step) values ($1, $2, $3)
-           on conflict (experiment_id, metric) do update set step = excluded.step`,
-          [s.experiment_id, s.metric, pushed],
-        );
-        if (rows.length < BATCH) break;
+        await this.run(readyCore().localExperimentPushSql("upsertPushCursor"), [s.experiment_id, s.metric, pushed]);
+        if (rows.length < batch) break;
       }
       // Points that landed while this ran keep the series queued.
-      await this.run(
-        `delete from local_metric_dirty d where experiment_id = $1 and metric_id = $2
-           and not exists (select 1 from experiment_metric_points m
-                            where m.experiment_id = d.experiment_id and m.metric_id = d.metric_id and m.step > $3)`,
-        [s.experiment_id, s.metric_id, pushed ?? -2147483648],
-      );
+      await this.run(readyCore().localExperimentPushSql("deleteDirtyBelowCursor"), [
+        s.experiment_id,
+        s.metric_id,
+        readyCore().localExperimentPushedCursor(pushed ?? undefined),
+      ]);
     }
   }
 
   private async pushArtifacts(): Promise<void> {
-    const rows = (await this.run(
-      "select id, artifacts from experiments where artifacts::text like '%app://artifacts/%'",
-      [],
-    )) as { id: string; artifacts: unknown }[];
+    const rows = (await this.run(readyCore().localExperimentPushSql("selectArtifactRows"), [])) as {
+      id: string;
+      artifacts: unknown;
+    }[];
     for (const row of rows) {
       const list = typeof row.artifacts === "string" ? (JSON.parse(row.artifacts) as unknown) : row.artifacts;
       if (!Array.isArray(list)) continue;
       const next: unknown[] = [];
       for (const entry of list) {
-        const rest = typeof entry === "string" && entry.startsWith(ARTIFACT_PREFIX) ? entry.slice(ARTIFACT_PREFIX.length) : null;
+        const rest = typeof entry === "string" ? readyCore().localExperimentArtifactRest(entry) : undefined;
         if (!rest) {
           next.push(entry);
           continue;
@@ -492,9 +471,9 @@ export class ExperimentPush {
           // `{experimentId}/{uuid}/{name}` keeps its uuid, so a re-run is the same path.
           const raw = await this.fetchLocal(entry as string);
           const blob = await this.compress(raw);
-          const name = blob === raw ? rest : rest.replace(/\.(png|jpe?g)$/i, ".webp");
-          const path = `${this.accountId}/${name}`;
-          await this.blobs.upload(ARTIFACT_BUCKET, path, blob, blob.type);
+          const name = readyCore().localExperimentArtifactStorageName(rest, blob !== raw);
+          const path = readyCore().localExperimentArtifactStoragePath(this.accountId, name);
+          await this.blobs.upload(readyCore().localExperimentArtifactBucket(), path, blob, blob.type);
           next.push(path);
         } catch (err) {
           // One unreadable file must not hold back the rest; it stays local and is tried next turn.
@@ -504,16 +483,15 @@ export class ExperimentPush {
       }
       // Raw local writes skip the outbox, so the server row is set here too.
       await this.server_().setArtifacts(row.id, next);
-      await this.run("update experiments set artifacts = $2::jsonb where id = $1", [row.id, JSON.stringify(next)]);
+      await this.run(readyCore().localExperimentPushSql("updateArtifacts"), [row.id, JSON.stringify(next)]);
     }
   }
 
   // Builds before this fix rewrote only the local row; send those paths up once.
   private async repairServerArtifacts(): Promise<void> {
-    const local = (await this.run(
-      "select id, artifacts from experiments where artifacts::text like $1",
-      [`%"${this.accountId}/%`],
-    )) as { id: string; artifacts: unknown }[];
+    const local = (await this.run(readyCore().localExperimentPushSql("selectLocalArtifactsOf"), [
+      readyCore().localExperimentAccountArtifactsPattern(this.accountId),
+    ])) as { id: string; artifacts: unknown }[];
     if (!local.length) return;
     const server = this.server_();
     const stale = new Set(await server.staleArtifactIds(local.map((r) => r.id)));
@@ -550,14 +528,14 @@ async function fetchBlob(url: string): Promise<Blob> {
 
 // Server copy of png/jpg goes up as webp; svg and other files stay as they are.
 export async function toWebp(blob: Blob): Promise<Blob> {
-  if (!/^image\/(png|jpeg)$/.test(blob.type) || typeof OffscreenCanvas === "undefined") return blob;
+  if (!readyCore().localExperimentShouldRecompress(blob.type) || typeof OffscreenCanvas === "undefined") return blob;
   try {
     const bitmap = await createImageBitmap(blob);
     const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
     canvas.getContext("2d")!.drawImage(bitmap, 0, 0);
     bitmap.close();
     const webp = await canvas.convertToBlob({ type: "image/webp", quality: 0.9 });
-    return webp.type === "image/webp" && webp.size < blob.size ? webp : blob;
+    return readyCore().localExperimentPreferWebp(webp.type, webp.size, blob.size) ? webp : blob;
   } catch {
     return blob;
   }
