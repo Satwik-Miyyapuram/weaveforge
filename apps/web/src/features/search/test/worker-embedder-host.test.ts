@@ -7,9 +7,14 @@
  * origin, which the shell maps onto its model cache.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { WorkerEmbedder } from "../infrastructure/parts-3";
+
+before(async () => {
+  await loadTestCore();
+});
 
 type Listener = (event: { data: unknown }) => void;
 

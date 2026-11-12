@@ -16,7 +16,7 @@ import {
 } from "@weaveforge/core";
 import type { DocumentPageText, PaperHtmlPage, PdfIndexSource } from "@weaveforge/wasm";
 import { loadPdfTexts, removePdfTexts, savePdfText } from "../infrastructure/parts-2";
-import { FOLDER_CACHE_DIR } from "../infrastructure/vector-store";
+import { folderCacheDir } from "../infrastructure/vector-store";
 
 // --- ask-library ---
 /**
@@ -64,7 +64,7 @@ export async function askLibrary(input: {
  * per paper, written whole by the shell's atomic write.
  */
 
-const folderDir = (projectId: string | null) => `${FOLDER_CACHE_DIR}/pdf-text/${projectId ?? "-"}`;
+const folderDir = (projectId: string | null) => `${folderCacheDir()}/pdf-text/${projectId ?? "-"}`;
 const folderFile = (projectId: string | null, paperId: string) =>
   `${folderDir(projectId)}/${encodeURIComponent(paperId)}.json`;
 

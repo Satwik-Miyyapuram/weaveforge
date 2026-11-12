@@ -251,6 +251,32 @@ pub fn pdf_doc_ids_for_js(paper_id: String, page_count: u32) -> Vec<String> {
     search_document::pdf_doc_ids_for(&paper_id, page_count)
 }
 
+/// [`pdf_id_prefix`](search_document::pdf_id_prefix).
+#[wasm_bindgen(js_name = pdfIdPrefix)]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes strings by value"
+)]
+pub fn pdf_id_prefix_js(paper_id: String) -> String {
+    search_document::pdf_id_prefix(&paper_id)
+}
+
+/// [`kind_of_id`](search_document::kind_of_id). `undefined` when there is no `:`.
+#[wasm_bindgen(js_name = kindOfId)]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes strings by value"
+)]
+pub fn kind_of_id_js(id: String) -> Option<String> {
+    search_document::kind_of_id(&id).map(str::to_owned)
+}
+
+/// [`is_large_corpus`](search_document::is_large_corpus).
+#[wasm_bindgen(js_name = isLargeCorpus)]
+pub fn is_large_corpus_js(documents: u32) -> bool {
+    search_document::is_large_corpus(documents)
+}
+
 /// [`annotation_doc_id`](search_document::annotation_doc_id).
 #[wasm_bindgen(js_name = annotationDocId)]
 #[allow(
