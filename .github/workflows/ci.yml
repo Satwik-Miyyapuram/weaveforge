@@ -652,6 +652,11 @@ jobs:
         with:
           workspaces: apps/shell
 
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
       - name: Build web export
         working-directory: apps/shell
         run: node scripts/build-web.mjs
@@ -677,6 +682,17 @@ jobs:
           if ($hash -ne "0C0C845626ED77C605D716051C9E8DF3368D07FBBD9F61EA39A4C5C0536FDE7E") { throw "Postgres archive hash mismatch: $hash" }
           tar -xzf $tar -C $env:RUNNER_TEMP
           node apps/shell/scripts/stage-postgres.mjs (Join-Path $env:RUNNER_TEMP $name) apps/shell/target/stage
+
+      - name: Stage ink recogniser
+        working-directory: .
+        shell: pwsh
+        # Windows handwriting helper (apps/shell/native/ink-recogniser); ink.rs finds it in <resources>/native.
+        # build-ink-recogniser.mjs skips without a .NET SDK, so the stage script fails if the exe is missing.
+        run: |
+          node apps/shell/scripts/build-ink-recogniser.mjs --arch=x64
+          if ($LASTEXITCODE -ne 0) { throw "ink recogniser build failed" }
+          node apps/shell/scripts/stage-ink-recogniser.mjs apps/shell/target/stage --arch=x64
+          if ($LASTEXITCODE -ne 0) { throw "ink recogniser stage failed" }
 
       - name: Bundle
         run: npm run tauri -- build --bundles msi,nsis --config tauri.bundle.json

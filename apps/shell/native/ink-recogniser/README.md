@@ -105,15 +105,27 @@ Delete this the moment a Windows update stops needing it.
 ## Building
 
 ```bash
-node apps/shell/scripts/build-ink-recogniser.mjs          # both architectures
-node apps/shell/scripts/build-ink-recogniser.mjs --arch=arm64
+node apps/shell/scripts/build-ink-recogniser.mjs [--arch=x64|arm64]
 ```
 
-Needs a .NET SDK (9 verified). **A missing SDK is not an error**: the script prints
-what it skipped and exits 0, and the app falls back to the web recogniser, which is
-a supported configuration rather than a degraded one. `node apps/shell/scripts/build-ink-recogniser.mjs` builds both
-before the shell is bundled, and the shell finds the one for its architecture
-under its resources at `native/ink-recogniser/<win-x64|win-arm64>/` (`ink_recogniser_path` in `apps/shell/src/ink.rs`).
+The script runs `dotnet publish` as a single-file, self-contained build. The output is
+`win-<arch>/ink-recogniser.exe`. It skips with exit 0 when the host is not Windows or
+has no .NET SDK. Needs a .NET SDK (9 verified). The app then falls back to the web
+recogniser, which is a supported configuration.
+
+Staging copies the helper into the app's stage folder:
+
+```bash
+node apps/shell/scripts/stage-ink-recogniser.mjs <stage-dir> --arch=<arch>
+```
+
+This writes to `<stage>/native/ink-recogniser/win-<arch>/`. Tauri bundles it via
+`"target/stage/native/": "native/"` in `apps/shell/tauri.bundle.json`.
+
+At runtime, `ink_recogniser_path` in `apps/shell/src/ink.rs` resolves
+`<resources>/native/ink-recogniser/win-<arch>/ink-recogniser.exe`.
+
+The CI job `shell-bundle-windows` runs both steps.
 
 The contract test (`apps/shell/tests/ink.rs`) drives a fake helper
 on every platform and runs the real one when it has been built, so a checkout
