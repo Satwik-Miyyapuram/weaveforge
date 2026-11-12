@@ -19,6 +19,7 @@ import { rustMilestoneRepository } from "@/features/plan/infrastructure/mileston
 import { rustReaderAnnotationRepository } from "@/features/reader/infrastructure/parts-1";
 import {
   PostgrestSettingsRepository,
+  type IReleaseNoticesRepository,
   type SettingsWrites,
 } from "@/features/settings/infrastructure/parts";
 import type { IIntegrationsStore } from "@/features/sync/domain/parts";
@@ -168,6 +169,7 @@ export interface WiredPostgrestBackend {
   readonly adminProvisioner: IAdminUserProvisioner | null;
   readonly projectContext: ProjectContext;
   readonly settingsRepository: ISettingsRepository & SettingsWrites;
+  readonly releaseNoticesRepository: IReleaseNoticesRepository;
   readonly manageSettings: ManageSettingsUseCase;
   readonly projectRepository: IProjectRepository & IProjectManager;
   readonly dashboardLayoutRepository: IDashboardLayoutRepository;
@@ -222,6 +224,8 @@ export interface BackendParts {
   blobStore: IBlobStore;
   /** Settings differ only in where the integration credentials are kept. */
   settingsRepository: ISettingsRepository & SettingsWrites;
+  /** Offline copies have no release notices; the server supplies them otherwise. */
+  releaseNotices?: IReleaseNoticesRepository;
 }
 
 export function wirePostgrestBackend(
@@ -254,6 +258,11 @@ export function wirePostgrestBackend(
 
   const settingsRepository =
     parts?.settingsRepository ?? new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
+  const releaseNoticesRepository =
+    parts?.releaseNotices ??
+    rustRepository<IReleaseNoticesRepository>(db, "release_notices", ["unseen"], async () => ({
+      userId: (await session.getCurrentUserId()) ?? undefined,
+    }));
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
   const projectRepository = cacheRepo(
     rustProjectRepository(db, session),
@@ -544,6 +553,7 @@ export function wirePostgrestBackend(
     adminProvisioner,
     projectContext,
     settingsRepository,
+    releaseNoticesRepository,
     manageSettings,
     projectRepository,
     dashboardLayoutRepository,

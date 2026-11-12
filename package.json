@@ -47,6 +47,7 @@
     "clean:desktop-ini": "node scripts/clean-desktop-ini.mjs",
     "check:pre-push": "npm run clean:desktop-ini && node scripts/check-pre-push.mjs",
     "generate:routes": "node scripts/generate-module-routes.mjs",
+    "release:notice": "node scripts/publish-release-notice.mjs",
     "docs:generate": "node scripts/update-docs.mjs && node scripts/build-atlas.mjs",
     "check:docs": "node --test \"scripts/lib/test/*.test.mjs\" && node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check",
     "check:ci-parity": "node scripts/check-ci-parity.mjs",
