@@ -200,7 +200,9 @@ pub fn held_ids(rows: &[Value]) -> Vec<String> {
 /// The `row_id` of each tombstone row, as JS `String(row.row_id)` reads it.
 #[must_use]
 pub fn deleted_ids(rows: &[Value]) -> Vec<String> {
-    rows.iter().map(|row| js_string(field(row, "row_id"))).collect()
+    rows.iter()
+        .map(|row| js_string(field(row, "row_id")))
+        .collect()
 }
 
 /// One feed row mapped to a change. A missing `deleted_at` is `null`; a missing `row_data` is `{}`.
@@ -267,7 +269,13 @@ fn js_string(value: Option<&Value>) -> String {
         Some(Value::String(text)) => text.clone(),
         Some(Value::Array(items)) => items
             .iter()
-            .map(|item| if item.is_null() { String::new() } else { js_string(Some(item)) })
+            .map(|item| {
+                if item.is_null() {
+                    String::new()
+                } else {
+                    js_string(Some(item))
+                }
+            })
             .collect::<Vec<_>>()
             .join(","),
         Some(Value::Object(_)) => "[object Object]".to_owned(),
@@ -285,7 +293,10 @@ fn js_number(value: Option<&Value>) -> f64 {
             let trimmed = text.trim();
             if trimmed.is_empty() {
                 0.0
-            } else if trimmed.chars().all(|c| c.is_ascii_digit() || "+-.eE".contains(c)) {
+            } else if trimmed
+                .chars()
+                .all(|c| c.is_ascii_digit() || "+-.eE".contains(c))
+            {
                 trimmed.parse::<f64>().unwrap_or(f64::NAN)
             } else {
                 f64::NAN
@@ -387,8 +398,8 @@ mod tests {
         let spec = changes_request(4, 100);
         assert_eq!(spec.method, "POST");
         assert_eq!(spec.path, "/rpc/sync_changes");
-        let body: Value = serde_json::from_str(spec.body.as_deref().unwrap_or_default())
-            .unwrap_or(Value::Null);
+        let body: Value =
+            serde_json::from_str(spec.body.as_deref().unwrap_or_default()).unwrap_or(Value::Null);
         assert_eq!(body, json!({ "p_since": 4, "p_limit": 100 }));
 
         let change = to_change(&json!({
@@ -421,8 +432,14 @@ mod tests {
     fn missing_ids_asks_the_tombstones_about_the_absent_ids() {
         let absent = [OTHER.to_owned()];
         let spec = tombstones_for_request("papers", &absent);
-        assert!(spec.path.starts_with("/sync_tombstones?table_name=eq.papers&row_id=in.("));
-        assert_eq!(deleted_ids(&[json!({ "row_id": OTHER })]), vec![OTHER.to_owned()]);
+        assert!(
+            spec.path
+                .starts_with("/sync_tombstones?table_name=eq.papers&row_id=in.(")
+        );
+        assert_eq!(
+            deleted_ids(&[json!({ "row_id": OTHER })]),
+            vec![OTHER.to_owned()]
+        );
     }
 
     // it: "missingIds asks about tombstones only when something is absent"
@@ -443,7 +460,10 @@ mod tests {
             prefer: None,
         };
         let with = request_init(&spec, "anon", Some("jwt"));
-        assert_eq!(with.headers.get("authorization").map(String::as_str), Some("Bearer jwt"));
+        assert_eq!(
+            with.headers.get("authorization").map(String::as_str),
+            Some("Bearer jwt")
+        );
         let without = request_init(&spec, "anon", Some(""));
         assert!(!without.headers.contains_key("authorization"));
         assert!(!without.headers.contains_key("prefer"));
@@ -454,7 +474,10 @@ mod tests {
         assert_eq!(parse_rows(""), None);
         assert_eq!(parse_rows("{\"message\":\"x\"}"), None);
         assert_eq!(parse_rows("not json"), None);
-        assert_eq!(parse_rows("[{\"id\":\"a\"}]").map(|rows| rows.len()), Some(1));
+        assert_eq!(
+            parse_rows("[{\"id\":\"a\"}]").map(|rows| rows.len()),
+            Some(1)
+        );
     }
 
     #[test]

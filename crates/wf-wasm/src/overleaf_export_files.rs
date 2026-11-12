@@ -2,8 +2,8 @@
 //! of `main.tex`, `references.bib`, `manifest.json` and `README.txt`. The caller passes the
 //! section walk output, the cite-keyed library and the export date; nothing here reads the clock.
 
-use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::overleaf::export_package::{BibEntry, ExportPackageInput, build_export_package};
 
 use super::to_js;

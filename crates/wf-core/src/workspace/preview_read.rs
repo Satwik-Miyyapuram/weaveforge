@@ -248,7 +248,10 @@ mod tests {
             entry("assets/y.png", 3),
         ];
         let reads = plan_preview_reads(&listed, ROOT, false, None);
-        assert_eq!(reads.notes, vec!["notes/a.md".to_owned(), "top.md".to_owned()]);
+        assert_eq!(
+            reads.notes,
+            vec!["notes/a.md".to_owned(), "top.md".to_owned()]
+        );
         assert_eq!(paths(&reads.assets), vec!["assets/y.png".to_owned()]);
     }
 
@@ -322,7 +325,11 @@ mod tests {
     #[test]
     fn other_projects_notes_are_not_read_with_a_project_folder() {
         let listed = [entry("other--zzz999/notes/b.md", 3)];
-        assert!(plan_preview_reads(&listed, ROOT, true, None).notes.is_empty());
+        assert!(
+            plan_preview_reads(&listed, ROOT, true, None)
+                .notes
+                .is_empty()
+        );
     }
 
     // Rust-only: a note that is also an asset path is a note, not an asset.
@@ -350,10 +357,22 @@ mod tests {
     #[test]
     fn admit_keeps_under_caps_and_refuses_past_the_total() {
         let kept = admit_asset_bytes(0, 10, LIMITS).unwrap();
-        assert_eq!(kept, AssetAdmit { keep: true, total: 10 });
+        assert_eq!(
+            kept,
+            AssetAdmit {
+                keep: true,
+                total: 10
+            }
+        );
 
         let oversize = admit_asset_bytes(10, LIMITS.max_file_bytes + 1, LIMITS).unwrap();
-        assert_eq!(oversize, AssetAdmit { keep: false, total: 10 });
+        assert_eq!(
+            oversize,
+            AssetAdmit {
+                keep: false,
+                total: 10
+            }
+        );
 
         let err = admit_asset_bytes(LIMITS.max_total_bytes, 1, LIMITS).unwrap_err();
         assert_eq!(err, "Folder assets exceed 256 MB; refusing to continue.");

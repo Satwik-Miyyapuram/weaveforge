@@ -8,7 +8,7 @@
 //! update. The pointer gate, stroke ids, the trail and the sample writer stay in
 //! TypeScript.
 
-use super::one_euro::{position_options, pressure_options, NibFilter, NibFilterState, NibSample};
+use super::one_euro::{NibFilter, NibFilterState, NibSample, position_options, pressure_options};
 
 /// Values per raw sample: `x, y, pressure, t, timeStamp, flags`. A NaN `t` or
 /// `timeStamp` is absent; a NaN `x` or `y` is a point off the page.
@@ -104,7 +104,7 @@ impl CaptureStream {
     pub fn consume(&mut self, raw: &[f64], now: f64) -> Vec<CaptureSample> {
         let mut out = Vec::with_capacity(raw.len() / RAW_STRIDE);
         let mut saved: Option<NibFilterState> = None;
-        for chunk in raw.chunks_exact(RAW_STRIDE) {
+        for chunk in raw.as_chunks::<RAW_STRIDE>().0 {
             let flags = chunk[5] as u32;
             let first = flags & FLAG_FIRST != 0;
             let predicted = flags & FLAG_PREDICTED != 0;
@@ -120,12 +120,14 @@ impl CaptureStream {
                 continue;
             }
             let t = resolve_time(chunk[3], chunk[4], now);
-            if !first && !predicted {
-                if let Some(last) = self.last {
-                    if last.t == t && last.x == x && last.y == y {
-                        continue;
-                    }
-                }
+            if !first
+                && !predicted
+                && let Some(last) = self.last
+                && last.t == t
+                && last.x == x
+                && last.y == y
+            {
+                continue;
             }
             if !predicted {
                 self.last = Some(LastRaw { x, y, t });
@@ -235,10 +237,7 @@ mod tests {
     fn predicted_samples_do_not_bend_the_real_stroke_through_the_filter() {
         let mut with = CaptureStream::new();
         let mut without = CaptureStream::new();
-        let head = flat(&[
-            raw(10.0, 10.0, 1.0, FLAG_FIRST),
-            raw(12.0, 11.0, 2.0, 0),
-        ]);
+        let head = flat(&[raw(10.0, 10.0, 1.0, FLAG_FIRST), raw(12.0, 11.0, 2.0, 0)]);
         let _ = with.consume(&head, 0.0);
         let _ = without.consume(&head, 0.0);
 

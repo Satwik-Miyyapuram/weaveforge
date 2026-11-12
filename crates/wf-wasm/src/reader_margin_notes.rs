@@ -45,7 +45,11 @@ pub fn layout_annotation_margin_notes_js(
 ) -> JsResult<JsValue> {
     let annotations: Vec<ReaderAnnotation> = serde_wasm_bindgen::from_value(annotations)?;
     let projection: ReaderPageProjection = serde_wasm_bindgen::from_value(projection)?;
-    to_js(&layout_annotation_margin_notes(&annotations, projection, card_height))
+    to_js(&layout_annotation_margin_notes(
+        &annotations,
+        projection,
+        card_height,
+    ))
 }
 
 /// [`stack_margin_notes`]: `anchorTops` is a number array; returns `{ index, top, anchorTop }[]`

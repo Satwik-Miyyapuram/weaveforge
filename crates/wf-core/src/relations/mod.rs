@@ -1,7 +1,7 @@
 //! Paper relations and the graph view, ported from `packages/core/src/features/relations/domain`.
 
-pub mod citation_alert_track;
 pub mod citation_alert_log;
+pub mod citation_alert_track;
 pub mod citation_alerts;
 pub mod citation_candidate;
 pub mod citation_match;

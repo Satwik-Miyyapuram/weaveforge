@@ -55,7 +55,10 @@ pub fn collapse(hits: &[VectorHit], exclude: Option<&str>, limit: usize) -> Vec<
             }
         } else {
             let _ = at.insert(id.clone(), out.len());
-            out.push(VectorHit { id, score: hit.score });
+            out.push(VectorHit {
+                id,
+                score: hit.score,
+            });
         }
     }
     out.sort_by(|a, b| {
@@ -136,10 +139,19 @@ mod tests {
     fn passages_collapse_back_to_one_hit_per_document() {
         let index = index_with(
             &["note:long#0", "note:long#1", "note:long#2", "note:other#0"],
-            &[[1.0, 0.0, 0.0], [0.99, 0.1, 0.0], [0.98, 0.2, 0.0], [0.0, 1.0, 0.0]],
+            &[
+                [1.0, 0.0, 0.0],
+                [0.99, 0.1, 0.0],
+                [0.98, 0.2, 0.0],
+                [0.0, 1.0, 0.0],
+            ],
         );
         let hits = search_docs(&index, &[1.0, 0.0, 0.0], 10).expect("query width");
-        assert_eq!(hits.len(), 1, "a document appears once, however many passages matched");
+        assert_eq!(
+            hits.len(),
+            1,
+            "a document appears once, however many passages matched"
+        );
         assert_eq!(hits[0].id, "note:long");
         // The best passage's score is kept, not the last one seen.
         assert!((hits[0].score - 1.0).abs() < 1e-6);
@@ -165,7 +177,11 @@ mod tests {
     #[test]
     fn nearest_of_an_unknown_document_is_empty() {
         let index = index_with(&["note:a#0"], &[[1.0, 0.0, 0.0]]);
-        assert!(nearest_docs(&index, "note:missing", 3).expect("stored width").is_empty());
+        assert!(
+            nearest_docs(&index, "note:missing", 3)
+                .expect("stored width")
+                .is_empty()
+        );
     }
 
     #[test]
@@ -173,8 +189,14 @@ mod tests {
         // Byte order puts "note:B" first (uppercase sorts before lowercase); localeCompare puts
         // "note:a" first. The TypeScript order is the locale one.
         let hits = vec![
-            VectorHit { id: "note:B#0".to_owned(), score: 0.5 },
-            VectorHit { id: "note:a#0".to_owned(), score: 0.5 },
+            VectorHit {
+                id: "note:B#0".to_owned(),
+                score: 0.5,
+            },
+            VectorHit {
+                id: "note:a#0".to_owned(),
+                score: 0.5,
+            },
         ];
         let ranked = collapse(&hits, None, 10);
         assert_eq!(ranked[0].id, "note:a");
@@ -184,10 +206,22 @@ mod tests {
     #[test]
     fn collapse_is_best_first_then_cut_to_the_limit() {
         let hits = vec![
-            VectorHit { id: "note:x#0".to_owned(), score: 0.3 },
-            VectorHit { id: "note:y#0".to_owned(), score: 0.9 },
-            VectorHit { id: "note:x#1".to_owned(), score: 0.6 },
-            VectorHit { id: "note:z#0".to_owned(), score: 0.5 },
+            VectorHit {
+                id: "note:x#0".to_owned(),
+                score: 0.3,
+            },
+            VectorHit {
+                id: "note:y#0".to_owned(),
+                score: 0.9,
+            },
+            VectorHit {
+                id: "note:x#1".to_owned(),
+                score: 0.6,
+            },
+            VectorHit {
+                id: "note:z#0".to_owned(),
+                score: 0.5,
+            },
         ];
         let ranked = collapse(&hits, None, 2);
         let ids: Vec<&str> = ranked.iter().map(|hit| hit.id.as_str()).collect();

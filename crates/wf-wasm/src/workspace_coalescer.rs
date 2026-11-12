@@ -16,8 +16,14 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
     unchecked_return_type = "{ state: { suspended: boolean; timerArmed: boolean; inFlight: boolean; again: boolean }; actions: ({ type: 'clearTimer' } | { type: 'armTimer' } | { type: 'startRun' })[] }"
 )]
 pub fn coalescer_step_js(
-    #[wasm_bindgen(unchecked_param_type = "{ suspended: boolean; timerArmed: boolean; inFlight: boolean; again: boolean }")] state: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "{ type: 'request' | 'cancel' | 'timerFired' | 'runSettled' } | { type: 'suspend'; value: boolean }")] event: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "{ suspended: boolean; timerArmed: boolean; inFlight: boolean; again: boolean }"
+    )]
+    state: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "{ type: 'request' | 'cancel' | 'timerFired' | 'runSettled' } | { type: 'suspend'; value: boolean }"
+    )]
+    event: JsValue,
 ) -> JsResult<JsValue> {
     let state: CoalescerState = serde_wasm_bindgen::from_value(state)?;
     let event: CoalescerEvent = serde_wasm_bindgen::from_value(event)?;

@@ -151,7 +151,11 @@ pub fn contact_area_mm2_js(
 )]
 pub fn ink_contact_consts_js() -> JsResult<JsValue> {
     let out = Object::new();
-    let _ = Reflect::set(&out, &JsValue::from_str("cssPxPerMm"), &JsValue::from_f64(CSS_PX_PER_MM))?;
+    let _ = Reflect::set(
+        &out,
+        &JsValue::from_str("cssPxPerMm"),
+        &JsValue::from_f64(CSS_PX_PER_MM),
+    )?;
     let _ = Reflect::set(
         &out,
         &JsValue::from_str("palmContactAreaMm2"),

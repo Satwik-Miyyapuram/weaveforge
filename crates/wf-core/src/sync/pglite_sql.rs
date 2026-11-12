@@ -177,11 +177,11 @@ pub fn or_value(joined: &str) -> String {
     let mut out = String::new();
     let mut chars = inner.chars();
     while let Some(ch) = chars.next() {
-        if ch == BACKSLASH {
-            if let Some(next) = chars.next() {
-                out.push(next);
-                continue;
-            }
+        if ch == BACKSLASH
+            && let Some(next) = chars.next()
+        {
+            out.push(next);
+            continue;
         }
         out.push(ch);
     }
@@ -199,7 +199,11 @@ pub fn order_clause(
     ascending: Option<bool>,
     nulls_first: Option<bool>,
 ) -> Result<String, String> {
-    let direction = if ascending.unwrap_or(true) { "asc" } else { "desc" };
+    let direction = if ascending.unwrap_or(true) {
+        "asc"
+    } else {
+        "desc"
+    };
     let nulls = match nulls_first {
         None => "",
         Some(true) => " nulls first",
@@ -216,7 +220,11 @@ pub fn range_window(from: f64, to: f64) -> (f64, f64) {
 }
 
 fn non_negative(value: f64) -> f64 {
-    if value.is_nan() { value } else { value.max(0.0) }
+    if value.is_nan() {
+        value
+    } else {
+        value.max(0.0)
+    }
 }
 
 /// The tail of a `select`, `update` or `delete`: ` order by …`, then ` limit n`,
@@ -347,7 +355,10 @@ mod tests {
     #[test]
     fn order_clause_defaults_to_ascending_without_nulls_rule() {
         assert_eq!(order_clause("name", None, None).unwrap(), "\"name\" asc");
-        assert_eq!(order_clause("name", Some(false), None).unwrap(), "\"name\" desc");
+        assert_eq!(
+            order_clause("name", Some(false), None).unwrap(),
+            "\"name\" desc"
+        );
         assert_eq!(
             order_clause("name", Some(true), Some(true)).unwrap(),
             "\"name\" asc nulls first"

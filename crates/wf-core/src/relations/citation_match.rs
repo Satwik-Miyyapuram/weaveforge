@@ -101,7 +101,10 @@ mod tests {
     fn an_arxiv_reference_matches_by_arxiv_id() {
         let library = [entry("a", None, None), entry("b", Some("2305.12345"), None)];
         let refs = [Some(vec![cite(PaperRefKind::Arxiv, "2305.12345")]), None];
-        assert_eq!(match_references(&library, &refs), vec![vec![Some(1)], vec![]]);
+        assert_eq!(
+            match_references(&library, &refs),
+            vec![vec![Some(1)], vec![]]
+        );
     }
 
     // it: "a DOI reference matches by normalised DOI"
@@ -133,7 +136,10 @@ mod tests {
             cite(PaperRefKind::Url, "https://example.org"),
             cite(PaperRefKind::Zotero, "ABCD1234"),
         ])];
-        assert_eq!(match_references(&library, &refs), vec![vec![None, None, None]]);
+        assert_eq!(
+            match_references(&library, &refs),
+            vec![vec![None, None, None]]
+        );
     }
 
     // it: "when two library papers share an arXiv id the later one wins, as in the TS index"
@@ -144,7 +150,11 @@ mod tests {
             entry("b", Some("2305.12345"), None),
             entry("c", None, None),
         ];
-        let refs = [None, None, Some(vec![cite(PaperRefKind::Arxiv, "2305.12345")])];
+        let refs = [
+            None,
+            None,
+            Some(vec![cite(PaperRefKind::Arxiv, "2305.12345")]),
+        ];
         assert_eq!(match_references(&library, &refs)[2], vec![Some(1)]);
     }
 }

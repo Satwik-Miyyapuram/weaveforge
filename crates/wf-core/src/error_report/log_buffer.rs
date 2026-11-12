@@ -95,13 +95,19 @@ pub struct Remembered {
 #[must_use]
 pub fn remember(mut seen: Vec<String>, text: &str) -> Remembered {
     if text.is_empty() || seen.iter().any(|known| known == text) {
-        return Remembered { seen, recorded: true };
+        return Remembered {
+            seen,
+            recorded: true,
+        };
     }
     seen.push(text.to_owned());
     if seen.len() > MAX_SEEN {
         let _ = seen.remove(0);
     }
-    Remembered { seen, recorded: false }
+    Remembered {
+        seen,
+        recorded: false,
+    }
 }
 
 #[cfg(test)]
@@ -113,7 +119,9 @@ mod tests {
     fn the_app_own_static_assets_are_noise_in_every_form() {
         assert!(is_noise("/_next/static/chunks/1601.js"));
         assert!(is_noise("app://weaveforge/_next/static/chunks/1601.js"));
-        assert!(is_noise("http://localhost:3000/_next/static/chunks/1601.js"));
+        assert!(is_noise(
+            "http://localhost:3000/_next/static/chunks/1601.js"
+        ));
         assert!(is_noise("http://localhost:3000/webpack-hmr"));
         assert!(is_noise("/api/.hot-update.json"));
         assert!(!is_noise("https://api.weaveforge.org/rest/v1/papers"));
@@ -134,10 +142,19 @@ mod tests {
     // it: "an uncaught error is recorded even though it never reached console.error"
     #[test]
     fn an_uncaught_error_is_recorded_marked_with_where_it_happened() {
-        let lines = record_uncaught(Vec::new(), "TypeError: x is not a function\n    at papers/screen.tsx:41:9");
+        let lines = record_uncaught(
+            Vec::new(),
+            "TypeError: x is not a function\n    at papers/screen.tsx:41:9",
+        );
         assert_eq!(lines.len(), 1);
-        assert!(lines[0].starts_with("[uncaught] "), "marked, so it is not mistaken for a warning");
-        assert!(lines[0].contains("papers/screen.tsx:41:9"), "and it carries where it happened");
+        assert!(
+            lines[0].starts_with("[uncaught] "),
+            "marked, so it is not mistaken for a warning"
+        );
+        assert!(
+            lines[0].contains("papers/screen.tsx:41:9"),
+            "and it carries where it happened"
+        );
     }
 
     // it: "an empty record is a no-op"
@@ -151,7 +168,10 @@ mod tests {
     fn the_first_line_is_the_message_and_the_full_text_the_detail() {
         let entry = error_entry("Error: boom\n    at papers/screen.tsx:41:9");
         assert_eq!(entry.message, "Error: boom");
-        assert_eq!(entry.detail.as_deref(), Some("Error: boom\n    at papers/screen.tsx:41:9"));
+        assert_eq!(
+            entry.detail.as_deref(),
+            Some("Error: boom\n    at papers/screen.tsx:41:9")
+        );
     }
 
     #[test]
@@ -186,6 +206,9 @@ mod tests {
             seen = remember(seen, &format!("e{i}")).seen;
         }
         assert_eq!(seen.len(), MAX_SEEN);
-        assert!(!remember(seen.clone(), "e0").recorded, "e0 was dropped and counts as new again");
+        assert!(
+            !remember(seen.clone(), "e0").recorded,
+            "e0 was dropped and counts as new again"
+        );
     }
 }

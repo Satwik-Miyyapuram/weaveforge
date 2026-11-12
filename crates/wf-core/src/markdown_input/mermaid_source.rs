@@ -12,6 +12,10 @@ pub fn render_source(code: &str) -> String {
 /// The id a diagram's SVG gets from its source (TS `diagramId`), so the same fence renders to the
 /// same markup every time. A 31-hash over UTF-16 code units, wrapped to 32 bits, in base 36.
 #[must_use]
+#[allow(
+    clippy::cast_sign_loss,
+    reason = "the i32 hash wraps to u32 as the TS base-36 id does"
+)]
 pub fn diagram_id(source: &str) -> String {
     let mut hash: i32 = 0;
     for unit in source.encode_utf16() {
@@ -43,7 +47,10 @@ mod tests {
     fn render_source_trims_js_whitespace_then_quotes_labels() {
         assert_eq!(render_source("  a  "), "a");
         let src = " graph TD\n  A[q(z|x)] ";
-        assert_eq!(render_source(src), quote_awkward_labels("graph TD\n  A[q(z|x)]"));
+        assert_eq!(
+            render_source(src),
+            quote_awkward_labels("graph TD\n  A[q(z|x)]")
+        );
     }
 
     #[test]

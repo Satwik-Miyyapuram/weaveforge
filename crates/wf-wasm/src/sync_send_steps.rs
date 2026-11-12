@@ -22,7 +22,13 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
     js_name = sendStart,
     unchecked_return_type = "{ next: \"done\"; outcome: unknown } | { next: \"read\"; request: { method: string; path: string; body?: string; prefer?: string }; state: unknown }"
 )]
-pub fn send_start_js(status: u16, body: String, op: String, table: String, row_id: String) -> JsResult<JsValue> {
+pub fn send_start_js(
+    status: u16,
+    body: String,
+    op: String,
+    table: String,
+    row_id: String,
+) -> JsResult<JsValue> {
     to_js(&send_start(status, &body, &op, &table, &row_id))
 }
 
@@ -50,7 +56,9 @@ pub fn send_advance_js(
 ///
 /// Fails when `ids` is not an array of strings or the result cannot be serialised.
 #[wasm_bindgen(js_name = missingIdChunks, unchecked_return_type = "string[][]")]
-pub fn missing_id_chunks_js(#[wasm_bindgen(unchecked_param_type = "string[]")] ids: JsValue) -> JsResult<JsValue> {
+pub fn missing_id_chunks_js(
+    #[wasm_bindgen(unchecked_param_type = "string[]")] ids: JsValue,
+) -> JsResult<JsValue> {
     let ids: Vec<String> = serde_wasm_bindgen::from_value(ids)?;
     to_js(&missing_id_chunks(&ids))
 }

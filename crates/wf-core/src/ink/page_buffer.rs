@@ -221,7 +221,10 @@ mod tests {
     #[test]
     fn pressure_that_arrived_as_nonsense_is_stored_as_none() {
         // clamped, with NaN read as no sample
-        assert_eq!(stroke_pressures(&[f64::NAN, -5.0, 400.0], 3), vec![0, 0, 255]);
+        assert_eq!(
+            stroke_pressures(&[f64::NAN, -5.0, 400.0], 3),
+            vec![0, 0, 255]
+        );
     }
 
     #[test]

@@ -111,7 +111,10 @@ mod tests {
     #[test]
     fn an_unreadable_marker_is_ignored() {
         assert_eq!(local_first_account_from_marker(Some("{not json")), None);
-        assert_eq!(local_first_account_from_marker(Some(r#"{"email":"x"}"#)), None);
+        assert_eq!(
+            local_first_account_from_marker(Some(r#"{"email":"x"}"#)),
+            None
+        );
         assert_eq!(local_first_account_from_marker(Some("5")), None);
     }
 

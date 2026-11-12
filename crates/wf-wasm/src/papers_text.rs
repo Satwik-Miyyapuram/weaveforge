@@ -86,7 +86,9 @@ pub fn paper_image_upload_paths_js(
     unique: &str,
     ext: &str,
 ) -> JsResult<JsValue> {
-    to_js(&paper_image::paper_image_upload_paths(user_id, paper_id, unique, ext))
+    to_js(&paper_image::paper_image_upload_paths(
+        user_id, paper_id, unique, ext,
+    ))
 }
 
 /// [`is_pdf_too_large`](paper_drop::is_pdf_too_large) (TS `isPdfTooLarge`).

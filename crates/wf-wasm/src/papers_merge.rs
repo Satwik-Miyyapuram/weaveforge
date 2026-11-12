@@ -53,8 +53,8 @@ pub fn merge_order_js(
     #[wasm_bindgen(unchecked_param_type = "readonly B.MergeCopy[]")] copies: JsValue,
     can_remove_zotero: bool,
 ) -> Result<JsValue, JsError> {
-    let copies: Vec<MergeCopy> = serde_wasm_bindgen::from_value(copies)
-        .map_err(|error| JsError::new(&error.to_string()))?;
+    let copies: Vec<MergeCopy> =
+        serde_wasm_bindgen::from_value(copies).map_err(|error| JsError::new(&error.to_string()))?;
     to_js(&merge_order(keep_id, &copies, can_remove_zotero))
         .map_err(|error| JsError::new(&error.to_string()))
 }

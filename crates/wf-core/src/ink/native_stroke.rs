@@ -14,10 +14,11 @@ pub const NATIVE_PRESSURE_FALLBACK: f64 = 0.5;
 /// [`NATIVE_PRESSURE_FALLBACK`]; otherwise it is clamped to `0..=1`. A trailing
 /// partial quadruple is dropped.
 #[must_use]
+#[allow(clippy::manual_clamp, reason = "keeps NaN handling identical to TS")]
 pub fn flat_stroke_samples(points: &[f64], dpr: f64) -> Vec<f64> {
     let scale = if dpr > 0.0 { 1.0 / dpr } else { 1.0 };
     let mut out = Vec::with_capacity(points.len() / 4 * 4);
-    for quad in points.chunks_exact(4) {
+    for quad in points.as_chunks::<4>().0 {
         let pressure = if quad[2].is_finite() {
             quad[2].max(0.0).min(1.0)
         } else {
@@ -51,8 +52,14 @@ mod tests {
 
     #[test]
     fn a_bad_dpr_leaves_coordinates_unscaled() {
-        assert_eq!(flat_stroke_samples(&[4.0, 6.0, 0.2, 1.0], 0.0), vec![4.0, 6.0, 0.2, 1.0]);
-        assert_eq!(flat_stroke_samples(&[4.0, 6.0, 0.2, 1.0], f64::NAN), vec![4.0, 6.0, 0.2, 1.0]);
+        assert_eq!(
+            flat_stroke_samples(&[4.0, 6.0, 0.2, 1.0], 0.0),
+            vec![4.0, 6.0, 0.2, 1.0]
+        );
+        assert_eq!(
+            flat_stroke_samples(&[4.0, 6.0, 0.2, 1.0], f64::NAN),
+            vec![4.0, 6.0, 0.2, 1.0]
+        );
     }
 
     #[test]

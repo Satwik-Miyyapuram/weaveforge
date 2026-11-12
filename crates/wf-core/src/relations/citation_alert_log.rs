@@ -178,7 +178,9 @@ mod tests {
     fn more_than_twenty_items_are_summarised() {
         let items: Vec<AlertItem> = (0..23).map(|n| item(&format!("P{n}"))).collect();
         let body = alert_log_body("T", &items);
-        assert!(body.starts_with("## Citation alert: T\n\n23 new papers cited this tracked paper:"));
+        assert!(
+            body.starts_with("## Citation alert: T\n\n23 new papers cited this tracked paper:")
+        );
         assert_eq!(body.matches("\n- ").count(), 21);
         assert!(body.ends_with("- …and 3 more"));
     }

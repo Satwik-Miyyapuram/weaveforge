@@ -80,10 +80,19 @@ mod tests {
     #[test]
     fn a_non_redirect_status_is_left_to_the_caller() {
         assert_eq!(
-            next_redirect(200, Some("https://elsewhere.example/"), Some("https://elsewhere.example/"), 0, 4),
+            next_redirect(
+                200,
+                Some("https://elsewhere.example/"),
+                Some("https://elsewhere.example/"),
+                0,
+                4
+            ),
             RedirectStep::NotRedirect
         );
-        assert_eq!(next_redirect(404, None, None, 0, 4), RedirectStep::NotRedirect);
+        assert_eq!(
+            next_redirect(404, None, None, 0, 4),
+            RedirectStep::NotRedirect
+        );
     }
 
     #[test]

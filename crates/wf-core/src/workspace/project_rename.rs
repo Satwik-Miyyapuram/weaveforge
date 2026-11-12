@@ -35,7 +35,10 @@ mod tests {
     // Rust-only: with no candidate folder there is nothing to pick.
     #[test]
     fn no_candidate_folder_picks_nothing() {
-        assert_eq!(pick_renamed_folder(&dirs(&["other--zzz999"]), "--abc123"), None);
+        assert_eq!(
+            pick_renamed_folder(&dirs(&["other--zzz999"]), "--abc123"),
+            None
+        );
     }
 
     // it: "following a rename leaves two candidate folders alone"

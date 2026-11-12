@@ -87,7 +87,12 @@ pub fn settle_external(input: &SettleInput) -> SettleVerdict {
         .filter(|(path, _)| !covered.contains(path.as_str()))
         .map(|(path, reason)| (path.clone(), *reason))
         .collect();
-    external_reasons.extend(input.reasons.iter().map(|(path, reason)| (path.clone(), *reason)));
+    external_reasons.extend(
+        input
+            .reasons
+            .iter()
+            .map(|(path, reason)| (path.clone(), *reason)),
+    );
 
     SettleVerdict {
         external: changed.into_iter().collect(),
@@ -116,11 +121,17 @@ mod tests {
                 entry(ImportAction::Removed, "data/tags.json"),
                 entry(ImportAction::Unchanged, "data/lists.json"),
             ],
-            external: vec!["notes/one.note.md".to_owned(), "notes/two.note.md".to_owned()],
+            external: vec![
+                "notes/one.note.md".to_owned(),
+                "notes/two.note.md".to_owned(),
+            ],
             ..SettleInput::default()
         };
         let verdict = settle_external(&input);
-        assert_eq!(verdict.external, vec!["data/tags.json", "notes/two.note.md"]);
+        assert_eq!(
+            verdict.external,
+            vec!["data/tags.json", "notes/two.note.md"]
+        );
     }
 
     // it: "a preview of some paths settles those and leaves the rest of the list"
@@ -168,7 +179,13 @@ mod tests {
             external_reasons: old_reasons,
         });
         assert_eq!(verdict.external, vec!["a.md", "b.md"]);
-        assert_eq!(verdict.external_reasons.get("a.md"), Some(&HeldReason::EditedOnBothSides));
-        assert_eq!(verdict.external_reasons.get("b.md"), Some(&HeldReason::OpenInEditor));
+        assert_eq!(
+            verdict.external_reasons.get("a.md"),
+            Some(&HeldReason::EditedOnBothSides)
+        );
+        assert_eq!(
+            verdict.external_reasons.get("b.md"),
+            Some(&HeldReason::OpenInEditor)
+        );
     }
 }

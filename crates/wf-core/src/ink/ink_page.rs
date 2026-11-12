@@ -463,9 +463,9 @@ mod tests {
     use super::{
         INK_A4_HEIGHT, INK_A4_WIDTH, INK_PAGE_STROKE_BUDGET, INK_PEN_WIDTH, InkColour, InkPage,
         InkPaper, InkShape, InkStrokeInput, InkTool, blank_ink_page, clamp_ink_page_size,
-        ink_attachment_index, ink_enum_index, ink_enum_value, ink_page_background, ink_page_marker,
-        compose_ink_page_order, ink_page_over_budget, join_ink_text_layer, make_ink_stroke,
-        resolve_ink_page_order, with_ink_page_background,
+        compose_ink_page_order, ink_attachment_index, ink_enum_index, ink_enum_value,
+        ink_page_background, ink_page_marker, ink_page_over_budget, join_ink_text_layer,
+        make_ink_stroke, resolve_ink_page_order, with_ink_page_background,
     };
     use crate::sync::ink_note::{INK_NOTE_MAX_PAGES, split_ink_text_layer};
 

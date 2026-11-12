@@ -247,7 +247,9 @@ pub fn replace_vault_asset_paths_js(
 /// Fails if `copies` is not a list of `{ oldPath, newPath }` objects with `newPath` a string or null.
 #[wasm_bindgen(js_name = planAssetCopies, unchecked_return_type = "{ failedAssets: string[]; rewrites: { oldPath: string; newPath: string }[] }")]
 pub fn plan_asset_copies_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly { oldPath: string; newPath: string | null }[]")]
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly { oldPath: string; newPath: string | null }[]"
+    )]
     copies: JsValue,
 ) -> JsResult<JsValue> {
     let copies: Vec<AssetCopy> = serde_wasm_bindgen::from_value(copies)?;

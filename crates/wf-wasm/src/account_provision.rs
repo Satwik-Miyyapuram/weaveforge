@@ -28,5 +28,7 @@ pub fn citation_alert_failure_log_js(
     paper_id: &str,
     reason: &str,
 ) -> Result<wasm_bindgen::JsValue, serde_wasm_bindgen::Error> {
-    to_js(&account_provision::citation_alert_failure_log(paper_id, reason))
+    to_js(&account_provision::citation_alert_failure_log(
+        paper_id, reason,
+    ))
 }

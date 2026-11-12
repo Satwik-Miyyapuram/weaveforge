@@ -74,7 +74,11 @@ pub fn is_link_insert(op: &str, table: &str) -> bool {
 /// The ids of `chunk` that `held` does not name, in the chunk's order.
 #[must_use]
 pub fn absent_ids(chunk: &[String], held: &[String]) -> Vec<String> {
-    chunk.iter().filter(|id| !held.contains(id)).cloned().collect()
+    chunk
+        .iter()
+        .filter(|id| !held.contains(id))
+        .cloned()
+        .collect()
 }
 
 /// The ids in `chunk` the server did not return and has no tombstone for. A
@@ -95,7 +99,10 @@ mod tests {
     fn absent_ids_keeps_chunk_order_and_skips_held() {
         let chunk = ["a".to_owned(), "b".to_owned(), "c".to_owned()];
         let held = ["c".to_owned()];
-        assert_eq!(absent_ids(&chunk, &held), vec!["a".to_owned(), "b".to_owned()]);
+        assert_eq!(
+            absent_ids(&chunk, &held),
+            vec!["a".to_owned(), "b".to_owned()]
+        );
     }
 
     #[test]

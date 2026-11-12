@@ -172,7 +172,11 @@ fn request_url(
         .iter()
         .map(|(key, value)| (key.as_str(), value.as_str()))
         .collect();
-    format!("{base_url}{}?{}", path.unwrap_or("/items"), form_urlencode(&refs))
+    format!(
+        "{base_url}{}?{}",
+        path.unwrap_or("/items"),
+        form_urlencode(&refs)
+    )
 }
 
 /// The URL for one page of a Zotero read, `limit` and `start` first (TS `buildUrl`).
@@ -237,7 +241,13 @@ mod paging_tests {
     fn page_url_sets_limit_and_start_first_and_skips_empty_params() {
         let base = "https://api.zotero.org/users/1";
         assert_eq!(
-            zotero_page_url(base, None, &[("tag".to_owned(), Some("a b".to_owned()))], 100, 100),
+            zotero_page_url(
+                base,
+                None,
+                &[("tag".to_owned(), Some("a b".to_owned()))],
+                100,
+                100
+            ),
             "https://api.zotero.org/users/1/items?limit=100&start=100&tag=a+b",
         );
         // A param with the same key replaces the lead value in place; empty and missing values drop out.
@@ -255,7 +265,11 @@ mod paging_tests {
     #[test]
     fn keys_url_asks_for_the_key_list_format() {
         assert_eq!(
-            zotero_keys_url("https://x", None, &[("tag".to_owned(), Some("t".to_owned()))]),
+            zotero_keys_url(
+                "https://x",
+                None,
+                &[("tag".to_owned(), Some("t".to_owned()))]
+            ),
             "https://x/items?format=keys&tag=t",
         );
     }

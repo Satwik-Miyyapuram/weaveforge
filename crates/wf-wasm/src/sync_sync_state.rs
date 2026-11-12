@@ -16,7 +16,9 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 ///
 /// Fails when `row` is neither null nor a `sync_state` row, or the result cannot be serialised.
 #[wasm_bindgen(js_name = syncStateFromRow, unchecked_return_type = "unknown")]
-pub fn sync_state_js(#[wasm_bindgen(unchecked_param_type = "unknown")] row: JsValue) -> JsResult<JsValue> {
+pub fn sync_state_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] row: JsValue,
+) -> JsResult<JsValue> {
     let row: Option<SyncStateRow> = serde_wasm_bindgen::from_value(row)?;
     to_js(&sync_state(row.as_ref()))
 }

@@ -66,16 +66,14 @@ mod tests {
 
     #[test]
     fn attempts_are_capped_per_format() {
-        let mut list = Vec::new();
-        for _ in 0..10 {
-            list.push("pdf");
-        }
-        for _ in 0..10 {
-            list.push("html");
-        }
+        let mut list = vec!["pdf"; 10];
+        list.extend(["html"; 10]);
         let picked = pick_free_copy_attempts(&formats(&list));
         assert_eq!(picked.pdf, (0..MAX_PDF_ATTEMPTS).collect::<Vec<_>>());
-        assert_eq!(picked.html, (10..10 + MAX_HTML_ATTEMPTS).collect::<Vec<_>>());
+        assert_eq!(
+            picked.html,
+            (10..10 + MAX_HTML_ATTEMPTS).collect::<Vec<_>>()
+        );
         assert_eq!(MAX_PDF_ATTEMPTS, 6);
         assert_eq!(MAX_HTML_ATTEMPTS, 4);
     }

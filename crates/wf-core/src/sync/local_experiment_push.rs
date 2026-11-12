@@ -119,7 +119,10 @@ mod tests {
     fn png_and_jpg_names_become_webp_when_recompressed() {
         assert_eq!(artifact_storage_name("exp/u1/a.png", true), "exp/u1/a.webp");
         assert_eq!(artifact_storage_name("exp/u1/a.JPG", true), "exp/u1/a.webp");
-        assert_eq!(artifact_storage_name("exp/u1/a.jpeg", true), "exp/u1/a.webp");
+        assert_eq!(
+            artifact_storage_name("exp/u1/a.jpeg", true),
+            "exp/u1/a.webp"
+        );
     }
 
     // it: "sends png/jpg up as webp and keeps svg as it is" (svg stays)
@@ -154,7 +157,11 @@ mod tests {
     #[test]
     fn push_sql_names_resolve() {
         assert!(push_sql("selectResets").is_some());
-        assert!(push_sql("selectPointsAfter").expect("known").contains("limit 1000"));
+        assert!(
+            push_sql("selectPointsAfter")
+                .expect("known")
+                .contains("limit 1000")
+        );
         assert!(push_sql("nope").is_none());
     }
 

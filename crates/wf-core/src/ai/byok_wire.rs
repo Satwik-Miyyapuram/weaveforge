@@ -34,7 +34,11 @@ pub struct ByokRequest {
 /// provider's own auth header. Anthropic takes the system prompt as a field, the other APIs keep
 /// the messages as they are.
 #[must_use]
-pub fn build_request(descriptor: &ProviderDescriptor, api_key: &str, messages: &[Value]) -> ByokRequest {
+pub fn build_request(
+    descriptor: &ProviderDescriptor,
+    api_key: &str,
+    messages: &[Value],
+) -> ByokRequest {
     let base = descriptor.base_url.trim_end_matches('/');
     match descriptor.api {
         ProviderApi::AnthropicMessages => {
@@ -121,7 +125,11 @@ pub fn parse_reply(api: ProviderApi, payload: &Value) -> Option<String> {
             .trim()
             .to_owned(),
     };
-    if text.trim().is_empty() { None } else { Some(text) }
+    if text.trim().is_empty() {
+        None
+    } else {
+        Some(text)
+    }
 }
 
 /// The message for a failed HTTP call: the provider's status, then its own detail text (cut to
@@ -132,7 +140,10 @@ pub fn http_error_message(label: &str, status: u16, detail: &str) -> String {
         return format!("{label} returned {status}");
     }
     let units: Vec<u16> = detail.encode_utf16().take(ERROR_DETAIL_UNITS).collect();
-    format!("{label} returned {status}: {}", String::from_utf16_lossy(&units))
+    format!(
+        "{label} returned {status}: {}",
+        String::from_utf16_lossy(&units)
+    )
 }
 
 fn headers(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
@@ -174,28 +185,51 @@ mod tests {
         assert_eq!(request.headers["authorization"], "Bearer sk-test");
         assert_eq!(request.body["messages"], json!(chat()));
         let reply = json!({ "choices": [{ "message": { "content": " hi " } }] });
-        assert_eq!(parse_reply(ProviderApi::OpenaiChat, &reply).as_deref(), Some("hi"));
+        assert_eq!(
+            parse_reply(ProviderApi::OpenaiChat, &reply).as_deref(),
+            Some("hi")
+        );
     }
 
     // it: "Anthropic gets its own header shape and a hoisted system prompt"
     #[test]
     fn anthropic_gets_its_own_header_shape_and_hoisted_system() {
-        let d = descriptor("anthropic", ProviderApi::AnthropicMessages, "https://api.anthropic.com");
+        let d = descriptor(
+            "anthropic",
+            ProviderApi::AnthropicMessages,
+            "https://api.anthropic.com",
+        );
         let request = build_request(&d, "sk-ant", &chat());
         assert_eq!(request.headers["x-api-key"], "sk-ant");
         // Without this header the browser call is refused outright.
-        assert_eq!(request.headers["anthropic-dangerous-direct-browser-access"], "true");
+        assert_eq!(
+            request.headers["anthropic-dangerous-direct-browser-access"],
+            "true"
+        );
         assert_eq!(request.headers["anthropic-version"], "2023-06-01");
-        assert_eq!(request.body["system"], "Be brief.", "system is a field, not a message");
+        assert_eq!(
+            request.body["system"], "Be brief.",
+            "system is a field, not a message"
+        );
         assert_eq!(request.body["max_tokens"], 4096);
-        assert_eq!(request.body["messages"], json!([{ "role": "user", "content": "Hello" }]));
+        assert_eq!(
+            request.body["messages"],
+            json!([{ "role": "user", "content": "Hello" }])
+        );
         let reply = json!({ "content": [{ "type": "text", "text": "hello" }] });
-        assert_eq!(parse_reply(ProviderApi::AnthropicMessages, &reply).as_deref(), Some("hello"));
+        assert_eq!(
+            parse_reply(ProviderApi::AnthropicMessages, &reply).as_deref(),
+            Some("hello")
+        );
     }
 
     #[test]
     fn anthropic_without_system_omits_the_field() {
-        let d = descriptor("anthropic", ProviderApi::AnthropicMessages, "https://api.anthropic.com");
+        let d = descriptor(
+            "anthropic",
+            ProviderApi::AnthropicMessages,
+            "https://api.anthropic.com",
+        );
         let request = build_request(&d, "k", &[json!({ "role": "user", "content": "Hi" })]);
         assert!(request.body.get("system").is_none());
     }
@@ -208,9 +242,16 @@ mod tests {
         let request = build_request(&d, "", &chat());
         assert!(request.url.ends_with("/api/chat"));
         assert_eq!(request.body["stream"], false);
-        assert_eq!(request.body["messages"], json!(chat()), "Ollama keeps system messages in place");
+        assert_eq!(
+            request.body["messages"],
+            json!(chat()),
+            "Ollama keeps system messages in place"
+        );
         let reply = json!({ "message": { "content": "local reply" } });
-        assert_eq!(parse_reply(ProviderApi::Ollama, &reply).as_deref(), Some("local reply"));
+        assert_eq!(
+            parse_reply(ProviderApi::Ollama, &reply).as_deref(),
+            Some("local reply")
+        );
     }
 
     // it: "a hosted provider without a key reports itself unavailable"
@@ -224,7 +265,11 @@ mod tests {
     // it: "a trailing slash in the base URL does not double up"
     #[test]
     fn a_trailing_slash_in_the_base_url_does_not_double_up() {
-        let d = descriptor("openai", ProviderApi::OpenaiChat, "https://api.example.com/");
+        let d = descriptor(
+            "openai",
+            ProviderApi::OpenaiChat,
+            "https://api.example.com/",
+        );
         assert_eq!(
             build_request(&d, "k", &chat()).url,
             "https://api.example.com/v1/chat/completions"
@@ -244,10 +289,28 @@ mod tests {
     // it: "an empty answer is an error, not a blank reply (32-12)"
     #[test]
     fn an_empty_answer_is_no_reply() {
-        assert_eq!(parse_reply(ProviderApi::OpenaiChat, &json!({ "choices": [{ "message": { "content": "  " } }] })), None);
+        assert_eq!(
+            parse_reply(
+                ProviderApi::OpenaiChat,
+                &json!({ "choices": [{ "message": { "content": "  " } }] })
+            ),
+            None
+        );
         assert_eq!(parse_reply(ProviderApi::OpenaiChat, &json!({})), None);
-        assert_eq!(parse_reply(ProviderApi::AnthropicMessages, &json!({ "content": [{ "type": "tool_use" }] })), None);
-        assert_eq!(parse_reply(ProviderApi::Ollama, &json!({ "message": { "content": "" } })), None);
+        assert_eq!(
+            parse_reply(
+                ProviderApi::AnthropicMessages,
+                &json!({ "content": [{ "type": "tool_use" }] })
+            ),
+            None
+        );
+        assert_eq!(
+            parse_reply(
+                ProviderApi::Ollama,
+                &json!({ "message": { "content": "" } })
+            ),
+            None
+        );
     }
 
     #[test]
@@ -257,7 +320,10 @@ mod tests {
             { "type": "tool_use" },
             { "type": "text", "text": "b" },
         ] });
-        assert_eq!(parse_reply(ProviderApi::AnthropicMessages, &reply).as_deref(), Some("a b"));
+        assert_eq!(
+            parse_reply(ProviderApi::AnthropicMessages, &reply).as_deref(),
+            Some("a b")
+        );
     }
 
     #[test]

@@ -154,11 +154,17 @@ mod tests {
     fn one_page_resolved_fills_both_ends() {
         assert_eq!(
             page_span_of(Some(3.0), None),
-            Some(PageSpan { start_page: 3.0, end_page: 3.0 })
+            Some(PageSpan {
+                start_page: 3.0,
+                end_page: 3.0
+            })
         );
         assert_eq!(
             page_span_of(None, Some(7.0)),
-            Some(PageSpan { start_page: 7.0, end_page: 7.0 })
+            Some(PageSpan {
+                start_page: 7.0,
+                end_page: 7.0
+            })
         );
     }
 
@@ -166,11 +172,17 @@ mod tests {
     fn cross_page_span_is_ordered_low_to_high() {
         assert_eq!(
             page_span_of(Some(4.0), Some(5.0)),
-            Some(PageSpan { start_page: 4.0, end_page: 5.0 })
+            Some(PageSpan {
+                start_page: 4.0,
+                end_page: 5.0
+            })
         );
         assert_eq!(
             page_span_of(Some(5.0), Some(4.0)),
-            Some(PageSpan { start_page: 4.0, end_page: 5.0 })
+            Some(PageSpan {
+                start_page: 4.0,
+                end_page: 5.0
+            })
         );
     }
 

@@ -2,8 +2,8 @@
 //! (`apps/web/src/features/reader/infrastructure/sanitize-paper-html.ts`). Wraps
 //! `wf_core::reader::paper_html_sanitize`; DOMPurify stays in TS.
 
-use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
-use wf_core::reader::paper_html_sanitize::{chrome_selector, resolve_url, FORBID_TAGS};
+use wasm_bindgen::prelude::{JsValue, wasm_bindgen};
+use wf_core::reader::paper_html_sanitize::{FORBID_TAGS, chrome_selector, resolve_url};
 
 /// Page-furniture selector list, joined for `querySelectorAll`.
 #[wasm_bindgen(js_name = paperHtmlChromeSelector)]

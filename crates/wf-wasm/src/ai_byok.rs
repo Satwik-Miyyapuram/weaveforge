@@ -25,8 +25,10 @@ pub fn build_byok_request_js(
     api_key: &str,
     #[wasm_bindgen(unchecked_param_type = "readonly object[]")] messages: JsValue,
 ) -> Result<JsValue, JsError> {
-    let descriptor: ProviderDescriptor = serde_wasm_bindgen::from_value(descriptor).map_err(js_error)?;
-    let messages: Vec<serde_json::Value> = serde_wasm_bindgen::from_value(messages).map_err(js_error)?;
+    let descriptor: ProviderDescriptor =
+        serde_wasm_bindgen::from_value(descriptor).map_err(js_error)?;
+    let messages: Vec<serde_json::Value> =
+        serde_wasm_bindgen::from_value(messages).map_err(js_error)?;
     to_js(&build_request(&descriptor, api_key, &messages)).map_err(js_error)
 }
 
@@ -40,7 +42,8 @@ pub fn byok_available_js(
     #[wasm_bindgen(unchecked_param_type = "B.ProviderDescriptor")] descriptor: JsValue,
     api_key: &str,
 ) -> Result<bool, JsError> {
-    let descriptor: ProviderDescriptor = serde_wasm_bindgen::from_value(descriptor).map_err(js_error)?;
+    let descriptor: ProviderDescriptor =
+        serde_wasm_bindgen::from_value(descriptor).map_err(js_error)?;
     Ok(is_available(&descriptor, api_key))
 }
 

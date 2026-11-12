@@ -806,11 +806,7 @@ pub fn assemble_workspace_js(
 pub fn shortcut_table_js() -> Result<JsValue, JsValue> {
     let out = js_sys::Object::new();
     for (command, chord) in keys::SHORTCUT_TABLE {
-        let _ = js_sys::Reflect::set(
-            &out,
-            &JsValue::from_str(command),
-            &JsValue::from_str(chord),
-        )?;
+        let _ = js_sys::Reflect::set(&out, &JsValue::from_str(command), &JsValue::from_str(chord))?;
     }
     Ok(out.into())
 }

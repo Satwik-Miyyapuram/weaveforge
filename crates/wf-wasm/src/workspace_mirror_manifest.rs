@@ -24,7 +24,9 @@ pub fn mirror_manifest_text_js(
     let paths: Vec<String> = serde_wasm_bindgen::from_value(paths)?;
     let digests: BTreeMap<String, String> = serde_wasm_bindgen::from_value(digests)?;
     let bases: BTreeMap<String, VaultPageBase> = serde_wasm_bindgen::from_value(bases)?;
-    Ok(mirror_manifest::manifest_text(&paths, &digests, &bases, written_at))
+    Ok(mirror_manifest::manifest_text(
+        &paths, &digests, &bases, written_at,
+    ))
 }
 
 /// [`same_manifest_ignoring_stamp`](mirror_manifest::same_manifest_ignoring_stamp).

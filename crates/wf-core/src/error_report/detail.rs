@@ -72,6 +72,9 @@ mod tests {
 
     #[test]
     fn error_detail_skips_a_blank_stack_and_an_empty_digest() {
-        assert_eq!(error_detail(Some("boom"), Some(""), Some(" \t\n\u{feff}")), "boom");
+        assert_eq!(
+            error_detail(Some("boom"), Some(""), Some(" \t\n\u{feff}")),
+            "boom"
+        );
     }
 }

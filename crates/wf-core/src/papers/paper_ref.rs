@@ -235,10 +235,9 @@ mod tests {
     // it: "a bibliographic reference deserializes and ignores its hints"
     #[test]
     fn bibliographic_reference_ignores_hints() {
-        let parsed: PaperRef = serde_json::from_str(
-            r#"{"kind":"bibliographic","value":"x","hints":{"year":2020}}"#,
-        )
-        .unwrap();
+        let parsed: PaperRef =
+            serde_json::from_str(r#"{"kind":"bibliographic","value":"x","hints":{"year":2020}}"#)
+                .unwrap();
         assert_eq!(parsed.kind, PaperRefKind::Bibliographic);
         assert_eq!(parsed.value, "x");
     }

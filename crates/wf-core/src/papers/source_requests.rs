@@ -5,7 +5,8 @@
 use crate::overleaf_workshop::encode_uri_component;
 
 /// Fields asked of Semantic Scholar on every paper lookup.
-pub const SEMANTIC_SCHOLAR_FIELDS: &str = "title,authors,year,venue,externalIds,openAccessPdf,citationCount";
+pub const SEMANTIC_SCHOLAR_FIELDS: &str =
+    "title,authors,year,venue,externalIds,openAccessPdf,citationCount";
 
 /// `${base}?id_list=${encodeURIComponent(id)}` for arXiv's API.
 #[must_use]
@@ -91,21 +92,36 @@ mod tests {
     // it: "a DOI resolves through the paper/DOI: endpoint and maps identifiers"
     #[test]
     fn semantic_scholar_doi_uses_the_doi_endpoint() {
-        let url = semantic_scholar_identifier_url("https://api.semanticscholar.org/graph/v1", "DOI", "10.5555/3295222.3295349");
-        assert!(url.starts_with("https://api.semanticscholar.org/graph/v1/paper/DOI:10.5555%2F3295222.3295349?fields="));
+        let url = semantic_scholar_identifier_url(
+            "https://api.semanticscholar.org/graph/v1",
+            "DOI",
+            "10.5555/3295222.3295349",
+        );
+        assert!(url.starts_with(
+            "https://api.semanticscholar.org/graph/v1/paper/DOI:10.5555%2F3295222.3295349?fields="
+        ));
     }
 
     // it: "an arXiv id resolves through the paper/arXiv: endpoint"
     #[test]
     fn semantic_scholar_arxiv_uses_the_arxiv_endpoint() {
-        let url = semantic_scholar_identifier_url("https://api.semanticscholar.org/graph/v1", "arXiv", "1706.03762");
-        assert!(url.starts_with("https://api.semanticscholar.org/graph/v1/paper/arXiv:1706.03762?fields="));
+        let url = semantic_scholar_identifier_url(
+            "https://api.semanticscholar.org/graph/v1",
+            "arXiv",
+            "1706.03762",
+        );
+        assert!(url.starts_with(
+            "https://api.semanticscholar.org/graph/v1/paper/arXiv:1706.03762?fields="
+        ));
     }
 
     // it: "bibliographic refs keep using the match endpoint with similarity gating"
     #[test]
     fn semantic_scholar_match_uses_form_encoding() {
-        let url = semantic_scholar_match_url("https://api.semanticscholar.org/graph/v1", "attention is all*you need");
+        let url = semantic_scholar_match_url(
+            "https://api.semanticscholar.org/graph/v1",
+            "attention is all*you need",
+        );
         assert!(url.starts_with(
             "https://api.semanticscholar.org/graph/v1/paper/search/match?query=attention+is+all*you+need&fields=title"
         ));

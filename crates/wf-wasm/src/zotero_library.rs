@@ -123,14 +123,20 @@ pub fn zotero_total_results_js(header: Option<String>) -> Option<f64> {
 /// Fails only if the offsets cannot be converted to a JS array.
 #[wasm_bindgen(js_name = zoteroPageStarts, unchecked_return_type = "number[]")]
 pub fn zotero_page_starts_js(total: f64, page: u32) -> Result<JsValue, JsValue> {
-    Ok(to_js(&zotero_library::zotero_page_starts(total, u64::from(page)))?)
+    Ok(to_js(&zotero_library::zotero_page_starts(
+        total,
+        u64::from(page),
+    ))?)
 }
 
 /// [`zotero_server_backoff_ms`](zotero_library::zotero_server_backoff_ms): the wait a response's
 /// `Backoff` (or `Retry-After`) header asks for, or `undefined` (TS `BackoffGate.note`).
 #[wasm_bindgen(js_name = zoteroServerBackoffMs)]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned Option<String> arguments.
-pub fn zotero_server_backoff_ms_js(backoff: Option<String>, retry_after: Option<String>) -> Option<f64> {
+pub fn zotero_server_backoff_ms_js(
+    backoff: Option<String>,
+    retry_after: Option<String>,
+) -> Option<f64> {
     zotero_library::zotero_server_backoff_ms(backoff.as_deref(), retry_after.as_deref())
 }
 

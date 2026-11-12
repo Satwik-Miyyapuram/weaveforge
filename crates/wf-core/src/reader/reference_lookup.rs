@@ -147,8 +147,14 @@ mod tests {
     #[test]
     fn a_stored_lookup_is_fresh_for_thirty_days_only() {
         let stamped = 1_000.0;
-        assert!(is_cache_entry_fresh(stamped, stamped + REFERENCE_CACHE_TTL_MS - 1.0));
-        assert!(!is_cache_entry_fresh(stamped, stamped + REFERENCE_CACHE_TTL_MS));
+        assert!(is_cache_entry_fresh(
+            stamped,
+            stamped + REFERENCE_CACHE_TTL_MS - 1.0
+        ));
+        assert!(!is_cache_entry_fresh(
+            stamped,
+            stamped + REFERENCE_CACHE_TTL_MS
+        ));
         assert_eq!(REFERENCE_CACHE_TTL_MS, 2_592_000_000.0);
     }
 

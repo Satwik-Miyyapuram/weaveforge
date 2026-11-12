@@ -261,7 +261,9 @@ mod tests {
     fn the_file_escapes_the_title_and_source_and_carries_the_frames_csp() {
         let doc = build_paper_html_document(&page(), &PaperHtmlOptions::default());
         assert!(doc.contains("<title>Tom &amp; Jerry &lt;revisited&gt;</title>"));
-        assert!(doc.contains(r#"content="https://arxiv.org/html/2101.00001?a=1&amp;b=&quot;2&quot;""#));
+        assert!(
+            doc.contains(r#"content="https://arxiv.org/html/2101.00001?a=1&amp;b=&quot;2&quot;""#)
+        );
         assert!(doc.contains(&format!(r#"content="{PAPER_HTML_CSP}""#)));
         assert!(!PAPER_HTML_CSP.contains("script-src"));
         assert!(doc.contains(">arxiv.org</a>"));
@@ -270,7 +272,10 @@ mod tests {
     // it: the scheme is pinned only when asked
     #[test]
     fn the_scheme_is_pinned_only_when_asked() {
-        let pinned = PaperHtmlOptions { scheme: Some("dark".to_owned()), print: false };
+        let pinned = PaperHtmlOptions {
+            scheme: Some("dark".to_owned()),
+            print: false,
+        };
         assert!(build_paper_html_document(&page(), &pinned).contains("color-scheme: dark"));
         assert!(
             !build_paper_html_document(&page(), &PaperHtmlOptions::default())
@@ -281,12 +286,17 @@ mod tests {
     // it: the print copy is light, has page margins, and keeps the CSP
     #[test]
     fn the_print_copy_is_light_has_page_margins_and_keeps_the_csp() {
-        let print = PaperHtmlOptions { scheme: Some("light".to_owned()), print: true };
+        let print = PaperHtmlOptions {
+            scheme: Some("light".to_owned()),
+            print: true,
+        };
         let doc = build_paper_html_document(&page(), &print);
         assert!(doc.contains("color-scheme: light"));
         assert!(doc.contains("@page"));
         assert!(doc.contains(PAPER_HTML_CSP));
-        assert!(!build_paper_html_document(&page(), &PaperHtmlOptions::default()).contains("@page"));
+        assert!(
+            !build_paper_html_document(&page(), &PaperHtmlOptions::default()).contains("@page")
+        );
     }
 
     // it: a file this app did not write is not read as a kept page

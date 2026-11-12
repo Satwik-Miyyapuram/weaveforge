@@ -50,7 +50,11 @@ pub fn manifest_text(
         paths: &kept,
         digests: kept
             .iter()
-            .filter_map(|path| digests.get(path).map(|digest| (path.as_str(), digest.as_str())))
+            .filter_map(|path| {
+                digests
+                    .get(path)
+                    .map(|digest| (path.as_str(), digest.as_str()))
+            })
             .collect(),
         bases: kept
             .iter()
@@ -145,8 +149,18 @@ mod tests {
     fn same_when_only_the_stamp_differs() {
         let digests = BTreeMap::new();
         let bases = BTreeMap::new();
-        let first = manifest_text(&strings(&["a.md"]), &digests, &bases, "2026-01-01T00:00:00.000Z");
-        let second = manifest_text(&strings(&["a.md"]), &digests, &bases, "2026-02-02T00:00:00.000Z");
+        let first = manifest_text(
+            &strings(&["a.md"]),
+            &digests,
+            &bases,
+            "2026-01-01T00:00:00.000Z",
+        );
+        let second = manifest_text(
+            &strings(&["a.md"]),
+            &digests,
+            &bases,
+            "2026-02-02T00:00:00.000Z",
+        );
         assert_ne!(first, second);
         assert!(same_manifest_ignoring_stamp(&first, &second));
     }

@@ -20,7 +20,9 @@ pub fn finished_links_js(doc: &str, caret: i32) -> Vec<String> {
 #[wasm_bindgen(js_name = filterCiteCompletions)]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn filter_cite_completions_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly { title: string; label: string; detail?: string }[]")]
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly { title: string; label: string; detail?: string }[]"
+    )]
     items: wasm_bindgen::JsValue,
     query: &str,
 ) -> Result<Vec<u32>, serde_wasm_bindgen::Error> {
