@@ -155,3 +155,165 @@ pub fn draft_reading_log(papers: &[ReadingPaper], marks: &[ReadingMark], day: &s
         format!("Reading:\n{}\n", lines.join("\n"))
     }
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    /// A prepared mark. The quote is already a repaired block, as the caller passes it.
+    fn mark(
+        text: &str,
+        comment: &str,
+        quote: &str,
+        href: &str,
+        page: Option<u32>,
+        sort: &str,
+    ) -> DigestMark {
+        DigestMark {
+            text: text.to_owned(),
+            comment: comment.to_owned(),
+            quote: quote.to_owned(),
+            href: href.to_owned(),
+            page_index: page,
+            sort_index: sort.to_owned(),
+        }
+    }
+
+    fn read_paper(id: &str, title: &str, read_day: Option<&str>) -> ReadingPaper {
+        ReadingPaper {
+            id: id.to_owned(),
+            title: title.to_owned(),
+            read_day: read_day.map(str::to_owned),
+        }
+    }
+
+    fn annotated(paper_id: &str, day: &str) -> ReadingMark {
+        ReadingMark {
+            paper_id: paper_id.to_owned(),
+            day: day.to_owned(),
+        }
+    }
+
+    #[test]
+    fn highlights_become_quotes_with_a_page_link_and_the_comment_in_page_order() {
+        let marks = [
+            mark(
+                "second point",
+                "why it matters",
+                "> second point",
+                "/reader?paper=p1&page=4",
+                Some(4),
+                "1",
+            ),
+            mark(
+                "first point",
+                "",
+                "> first point",
+                "/reader?paper=p1&page=0",
+                Some(0),
+                "0",
+            ),
+        ];
+        assert_eq!(
+            highlights_digest(&marks, ""),
+            "## Highlights\n\n\
+             > first point\n\n[p. 1](/reader?paper=p1&page=0)\n\n\
+             > second point\n\n[p. 5](/reader?paper=p1&page=4) why it matters\n"
+        );
+    }
+
+    #[test]
+    fn an_ink_mark_with_only_a_comment_keeps_the_comment() {
+        let marks = [mark(
+            "",
+            "see figure",
+            "",
+            "/reader?paper=p&page=2",
+            Some(2),
+            "0",
+        )];
+        let out = highlights_digest(&marks, "");
+        assert_eq!(
+            out,
+            "## Highlights\n\n[p. 3](/reader?paper=p&page=2) see figure\n"
+        );
+        assert!(!out.lines().any(|l| l.starts_with('>')));
+    }
+
+    #[test]
+    fn running_it_twice_adds_nothing_new_and_no_second_heading() {
+        let anns = [mark(
+            "first point",
+            "",
+            "> first point",
+            "/reader?paper=p&page=0",
+            Some(0),
+            "0",
+        )];
+        let once = highlights_digest(&anns, "");
+        assert_eq!(highlights_digest(&anns, &format!("My note\n\n{once}")), "");
+        let more = [
+            anns[0].clone(),
+            mark(
+                "new one",
+                "",
+                "> new one",
+                "/reader?paper=p&page=1",
+                Some(1),
+                "1",
+            ),
+        ];
+        assert_eq!(
+            highlights_digest(&more, &format!("My note\n\n{once}")),
+            "> new one\n\n[p. 2](/reader?paper=p&page=1)\n"
+        );
+    }
+
+    #[test]
+    fn a_mark_with_no_page_links_to_the_paper_in_the_reader() {
+        let marks = [mark(
+            "somewhere",
+            "",
+            "> somewhere",
+            "/reader?paper=p",
+            None,
+            "0",
+        )];
+        assert_eq!(
+            highlights_digest(&marks, ""),
+            "## Highlights\n\n> somewhere\n\n[in reader](/reader?paper=p)\n"
+        );
+    }
+
+    #[test]
+    fn the_log_draft_lists_todays_papers_by_how_much_was_marked_with_read_ones_too() {
+        let papers = [
+            read_paper("a", "Alpha", None),
+            read_paper("b", "Beta", None),
+            read_paper("c", "Gamma", Some("2026-11-08")),
+            read_paper("d", "Old", Some("2026-11-01")),
+        ];
+        let anns = [
+            annotated("a", "2026-11-08"),
+            annotated("b", "2026-11-08"),
+            annotated("b", "2026-11-08"),
+            annotated("a", "2026-11-07"),
+        ];
+        assert_eq!(
+            draft_reading_log(&papers, &anns, "2026-11-08"),
+            "Reading:\n- [[Beta]]: 2 annotations\n- [[Alpha]]: 1 annotation\n- [[Gamma]]\n"
+        );
+    }
+
+    #[test]
+    fn no_reading_today_drafts_nothing() {
+        let papers = [read_paper("a", "A", None)];
+        assert_eq!(draft_reading_log(&papers, &[], "2026-11-08"), "");
+    }
+}

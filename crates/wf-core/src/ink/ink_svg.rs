@@ -310,3 +310,227 @@ pub fn ink_page_svg(page: &InkSvgPage, options: &InkSvgOptions) -> String {
     parts.push("</svg>".to_owned());
     format!("{}\n", parts.join("\n"))
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    /// Every `x,y` a path command names, in order.
+    fn path_points(d: &str) -> Vec<(f64, f64)> {
+        d.split(['M', 'L'])
+            .filter(|s| !s.is_empty())
+            .filter_map(|s| {
+                let (x, y) = s.split_once(' ')?;
+                let x: f64 = x.parse().ok()?;
+                let y: f64 = y.parse().ok()?;
+                Some((x, y))
+            })
+            .collect()
+    }
+
+    fn at(points: &[(f64, f64)], i: usize) -> (f64, f64) {
+        points.get(i).copied().unwrap_or_default()
+    }
+
+    fn turn(a: (f64, f64), b: (f64, f64), c: (f64, f64)) -> f64 {
+        let angle =
+            |u: (f64, f64), v: (f64, f64)| (u.0 * v.1 - u.1 * v.0).atan2(u.0 * v.0 + u.1 * v.1);
+        angle((b.0 - a.0, b.1 - a.1), (c.0 - b.0, c.1 - b.1)).abs()
+    }
+
+    #[test]
+    fn a_page_is_a4_in_millimetres_over_a_viewbox_in_the_models_unit() {
+        let svg = ink_page_svg(&InkSvgPage::default(), &InkSvgOptions::default());
+        assert!(svg.starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\""));
+        assert!(svg.contains("width=\"210mm\" height=\"297mm\""));
+        assert!(svg.contains("viewBox=\"0 0 2100 2970\""));
+        assert!(
+            svg.contains("<rect x=\"0\" y=\"0\" width=\"2100\" height=\"2970\" fill=\"#ffffff\"/>")
+        );
+    }
+
+    #[test]
+    fn a_stroke_is_one_round_capped_path_at_its_own_width_and_colour() {
+        let page = InkSvgPage {
+            strokes: vec![InkSvgStroke {
+                points: vec![100.0, 200.0, 300.0, 400.0],
+                width: 5.0,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        // The stroke's colour is a name; the value comes from the palette.
+        let palette: InkSvgPalette = [("text".to_owned(), [1.0, 0.0, 0.0])].into_iter().collect();
+        let options = InkSvgOptions {
+            palette: Some(palette),
+            ..Default::default()
+        };
+        let svg = ink_page_svg(&page, &options);
+        assert!(svg.contains("<path d=\"M100 200L"));
+        assert!(svg.contains("stroke-width=\"5\""));
+        assert!(svg.contains("stroke-linecap=\"round\""));
+        assert!(svg.contains("stroke=\"rgb(255, 0, 0)\""));
+    }
+
+    #[test]
+    fn a_two_point_stroke_stays_the_straight_line_it_is() {
+        let d = stroke_path(&[100.0, 200.0, 300.0, 400.0]).unwrap_or_default();
+        let points = path_points(&d);
+        assert_eq!(points.len(), 1 + INK_SEGMENT_SUBDIVISIONS);
+        for (x, y) in points {
+            // The line through (100, 200) and (300, 400) is y = x + 100.
+            assert!((y - (x + 100.0)).abs() < 0.01, "{x},{y} is off the line");
+        }
+    }
+
+    #[test]
+    fn a_stroke_through_a_bend_is_drawn_as_a_curve_not_as_corners_at_its_samples() {
+        let d = stroke_path(&[0.0, 0.0, 100.0, 0.0, 200.0, 100.0]).unwrap_or_default();
+        let points = path_points(&d);
+        assert_eq!(points.len(), 1 + 2 * INK_SEGMENT_SUBDIVISIONS);
+
+        let at_sample = at(&points, INK_SEGMENT_SUBDIVISIONS);
+        let joint = turn(
+            at(&points, INK_SEGMENT_SUBDIVISIONS - 1),
+            at_sample,
+            at(&points, INK_SEGMENT_SUBDIVISIONS + 1),
+        );
+        // The corner the samples themselves ask for, which is what a polyline draws.
+        let corner = turn((0.0, 0.0), (100.0, 0.0), (200.0, 100.0));
+        assert!(
+            joint < corner * 0.6,
+            "joint {joint} is not a curve against corner {corner}"
+        );
+        // The drawn path still passes through the sample it was given.
+        assert_eq!(at_sample, (100.0, 0.0));
+    }
+
+    #[test]
+    fn a_highlighter_keeps_its_alpha_and_is_drawn_over_the_pen() {
+        let page = InkSvgPage {
+            strokes: vec![
+                InkSvgStroke {
+                    points: vec![10.0, 10.0, 20.0, 20.0],
+                    tool: Some("highlighter".to_owned()),
+                    ..Default::default()
+                },
+                InkSvgStroke {
+                    points: vec![30.0, 30.0, 40.0, 40.0],
+                    tool: Some("pen".to_owned()),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        let svg = ink_page_svg(&page, &InkSvgOptions::default());
+        assert!(svg.contains("stroke-opacity=\"0.35\""));
+        let highlighter = svg.find("stroke-opacity=\"0.35\"");
+        let pen = svg.find("d=\"M30 30");
+        // The pen's path is written first and the tinted band after it.
+        match (pen, highlighter) {
+            (Some(p), Some(h)) => assert!(p < h, "the highlighter draws over the pen"),
+            _ => panic!("pen or highlighter missing from the SVG"),
+        }
+    }
+
+    #[test]
+    fn a_page_with_an_image_embeds_it_and_a_page_without_one_has_none() {
+        let options = InkSvgOptions {
+            background_data_url: Some("data:image/png;base64,AAAA".to_owned()),
+            ..Default::default()
+        };
+        let with_image = ink_page_svg(&InkSvgPage::default(), &options);
+        assert!(with_image.contains("<image x=\"0\" y=\"0\" width=\"2100\" height=\"2970\""));
+        // Embedded, not linked: a blob URL would be dead when the file is opened again.
+        assert!(with_image.contains("xlink:href=\"data:image/png;base64,AAAA\""));
+        assert!(
+            !ink_page_svg(&InkSvgPage::default(), &InkSvgOptions::default()).contains("<image")
+        );
+    }
+
+    #[test]
+    fn a_dot_is_a_zero_length_line_and_a_stroke_with_no_points_is_nothing() {
+        let page = InkSvgPage {
+            strokes: vec![
+                InkSvgStroke {
+                    points: vec![7.0, 8.0],
+                    ..Default::default()
+                },
+                InkSvgStroke::default(),
+            ],
+            ..Default::default()
+        };
+        let svg = ink_page_svg(&page, &InkSvgOptions::default());
+        // A round cap draws the dot; an empty path would draw nothing.
+        assert!(svg.contains("<path d=\"M7 8l0 0\""));
+        assert_eq!(svg.matches("<path ").count(), 1);
+    }
+
+    #[test]
+    fn a_title_with_markup_cannot_escape_its_element() {
+        let options = InkSvgOptions {
+            title: Some("a<b & \"c\"".to_owned()),
+            ..Default::default()
+        };
+        let svg = ink_page_svg(&InkSvgPage::default(), &options);
+        assert!(svg.contains("<title>a&lt;b &amp; &quot;c&quot;</title>"));
+    }
+
+    #[test]
+    fn figures_embed_under_the_strokes_and_a_crop_clips_rather_than_stretches() {
+        let page = InkSvgPage {
+            strokes: vec![InkSvgStroke {
+                points: vec![10.0, 10.0, 20.0, 20.0],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let options = InkSvgOptions {
+            figures: vec![
+                InkSvgFigure {
+                    x: 100.0,
+                    y: 200.0,
+                    w: 500.0,
+                    h: 400.0,
+                    crop: None,
+                    data_url: "data:image/webp;base64,AAAA".to_owned(),
+                },
+                InkSvgFigure {
+                    x: 700.0,
+                    y: 200.0,
+                    w: 500.0,
+                    h: 400.0,
+                    crop: Some([10.0, 0.0, 10.0, 0.0]),
+                    data_url: "data:image/webp;base64,BBBB".to_owned(),
+                },
+            ],
+            ..Default::default()
+        };
+        let svg = ink_page_svg(&page, &options);
+        // Both figures are embedded as data URLs, never links.
+        assert!(svg.contains("xlink:href=\"data:image/webp;base64,AAAA\""));
+        assert!(svg.contains("xlink:href=\"data:image/webp;base64,BBBB\""));
+        // An uncropped figure is drawn at exactly its own box.
+        assert!(svg.contains(
+            "<image x=\"100\" y=\"200\" width=\"500\" height=\"400\" preserveAspectRatio=\"none\""
+        ));
+        // A cropped figure is enlarged into a clip: keepX = 0.8, so it draws 625 wide, 62.5 left.
+        assert!(svg.contains("<image x=\"637.5\" y=\"200\" width=\"625\" height=\"400\""));
+        assert!(svg.contains(
+            "<clipPath id=\"figure-clip-700-200-500-400\"><rect x=\"700\" y=\"200\" width=\"500\" height=\"400\""
+        ));
+        // The writing goes over the pasted photo.
+        let figure = svg.find("<image x=");
+        let stroke = svg.find("<path ");
+        match (figure, stroke) {
+            (Some(f), Some(s)) => assert!(s > f, "the strokes are written over the figures"),
+            _ => panic!("figure or stroke missing from the SVG"),
+        }
+    }
+}

@@ -58,3 +58,11 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [secret_names](secret_names.md) | The four stored secret names and the exact-match check (SECRET_NAMES, is_secret_name). |
 | [data-access](data-access.md) | How data access is split: Rust builds requests and handles replies, one TS sender sends them. Records that a Rust network stack was deliberately not built. |
 | [project_folder](project_folder.md) | Project folder name from a --xxxxxx id suffix (project_folder_name). |
+| [integration-helpers](integration-helpers.md) | Zotero local URL, MCP client config, plan widget and AI proposal grouping helpers. |
+| [latex-tools](latex-tools.md) | LaTeX outline, TeX engine args and log errors, safe TeX paths, Overleaf Workshop checks. |
+| [app-navigation](app-navigation.md) | Nav groups, command palette groups and sort, route titles, screen for path, shortcut labels. |
+| [account](account.md) | Account links and menu, provisioning and purge, auth transitions, backend/home config, update check. |
+| [markdown-helpers](markdown-helpers.md) | Markdown formatting, image refs, widths and alt text, Mermaid labels, heading slugs, anchors, snippets. |
+| [experiments-lab](experiments-lab.md) | Experiment rows and status, metric charts, plot sizes, lab snapshots and data export files. |
+| [rows-and-tags](rows-and-tags.md) | Member, project and library-pin rows, tag counts and tones, sync fields, paper notes. |
+| [text-formatting](text-formatting.md) | Status text, enum labels, JS-style collation, dates, app log lines and error statuses. |

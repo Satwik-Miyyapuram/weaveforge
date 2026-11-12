@@ -180,3 +180,84 @@ pub fn take_page_step(history: &PageHistory, direction: PageDirection) -> Option
     };
     Some(TakenPageStep { history, step })
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    fn stroke() -> PageStep {
+        PageStep::Stroke(StrokeStep::Stroke)
+    }
+
+    #[test]
+    fn empty_page_history_has_nothing_to_undo_or_redo() {
+        let history = empty_page_history();
+        assert!(history.undo.is_empty());
+        assert!(history.redo.is_empty());
+        assert_eq!(take_page_step(&history, PageDirection::Undo), None);
+        assert_eq!(take_page_step(&history, PageDirection::Redo), None);
+    }
+
+    #[test]
+    fn unchanged_figure_lists_add_no_step() {
+        let history = empty_page_history();
+        assert_eq!(
+            push_figure_step(&history, Vec::new(), Vec::new(), Some(1.0)),
+            history
+        );
+    }
+
+    #[test]
+    fn deeper_worker_history_adds_strokes_and_clears_redo() {
+        let history = PageHistory {
+            undo: Vec::new(),
+            redo: vec![stroke()],
+        };
+        let synced = sync_stroke_steps(&history, 2);
+        assert_eq!(synced.undo, vec![stroke(), stroke()]);
+        assert!(synced.redo.is_empty());
+    }
+
+    #[test]
+    fn shallower_worker_history_drops_the_newest_strokes() {
+        let history = PageHistory {
+            undo: vec![stroke(), stroke(), stroke()],
+            redo: Vec::new(),
+        };
+        assert_eq!(sync_stroke_steps(&history, 1).undo, vec![stroke()]);
+    }
+
+    #[test]
+    fn equal_worker_depth_leaves_history_alone() {
+        let history = PageHistory {
+            undo: vec![stroke()],
+            redo: vec![stroke()],
+        };
+        assert_eq!(sync_stroke_steps(&history, 1), history);
+    }
+
+    #[test]
+    fn undo_moves_the_last_step_to_redo() {
+        let history = PageHistory {
+            undo: vec![stroke(), stroke()],
+            redo: Vec::new(),
+        };
+        let taken = take_page_step(&history, PageDirection::Undo);
+        assert_eq!(
+            taken,
+            Some(TakenPageStep {
+                history: PageHistory {
+                    undo: vec![stroke()],
+                    redo: vec![stroke()],
+                },
+                step: stroke(),
+            })
+        );
+    }
+}

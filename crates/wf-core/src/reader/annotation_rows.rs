@@ -84,3 +84,82 @@ pub fn to_domain(row: ReaderAnnotationRow) -> Result<ReaderAnnotation, String> {
         zotero_version: row.zotero_version,
     })
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    /// A valid row with every optional empty; tests override the field they check.
+    fn row() -> ReaderAnnotationRow {
+        ReaderAnnotationRow {
+            id: "a1".to_owned(),
+            paper_id: "p1".to_owned(),
+            origin: "local".to_owned(),
+            zotero_key: None,
+            kind: "highlight".to_owned(),
+            color: "yellow".to_owned(),
+            text: "quote".to_owned(),
+            comment: "note".to_owned(),
+            tags: None,
+            anchor: None,
+            page_index: 0.0,
+            sort_index: "00000|000000|00000".to_owned(),
+            sync_state: None,
+            zotero_version: None,
+            created_at: "2026-01-01T00:00:00Z".to_owned(),
+            updated_at: "2026-01-01T00:00:00Z".to_owned(),
+        }
+    }
+
+    #[test]
+    fn null_tags_become_an_empty_list() {
+        let annotation = to_domain(row()).expect("valid kind");
+        assert!(annotation.tags.is_empty());
+    }
+
+    #[test]
+    fn null_zotero_key_stays_null() {
+        let annotation = to_domain(row()).expect("valid kind");
+        assert_eq!(annotation.zotero_key, None);
+    }
+
+    #[test]
+    fn missing_or_unknown_sync_state_becomes_local() {
+        let missing = to_domain(row()).expect("valid kind");
+        assert_eq!(missing.sync_state.as_deref(), Some("local"));
+        let unknown = to_domain(ReaderAnnotationRow {
+            sync_state: Some("bogus".to_owned()),
+            ..row()
+        })
+        .expect("valid kind");
+        assert_eq!(unknown.sync_state.as_deref(), Some("local"));
+    }
+
+    #[test]
+    fn known_sync_state_is_kept() {
+        let annotation = to_domain(ReaderAnnotationRow {
+            sync_state: Some("conflict".to_owned()),
+            ..row()
+        })
+        .expect("valid kind");
+        assert_eq!(annotation.sync_state.as_deref(), Some("conflict"));
+    }
+
+    #[test]
+    fn unknown_annotation_type_is_an_error() {
+        let result = to_domain(ReaderAnnotationRow {
+            kind: "bogus".to_owned(),
+            ..row()
+        });
+        assert_eq!(
+            result.err(),
+            Some("Invalid annotation type in store: bogus".to_owned())
+        );
+    }
+}

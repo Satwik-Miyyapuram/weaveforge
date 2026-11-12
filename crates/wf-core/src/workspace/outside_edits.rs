@@ -231,3 +231,117 @@ pub fn renamed_paths(seen: &BTreeMap<String, SeenFile>, paths: &[String]) -> Vec
     }
     out
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    fn note(action: ImportAction, path: &str, open: bool) -> NoteEntry {
+        NoteEntry {
+            action,
+            path: path.to_string(),
+            open,
+        }
+    }
+
+    fn row(action: ImportAction, path: &str) -> RowEntry {
+        RowEntry {
+            action,
+            path: path.to_string(),
+        }
+    }
+
+    fn seen(side: ChangeSide, new_path: bool, renamed_from: Option<&str>) -> SeenFile {
+        SeenFile {
+            side,
+            new_path,
+            renamed_from: renamed_from.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn folder_only_update_is_taken_in() {
+        let mut input = SplitInput::default();
+        input.notes.push(note(ImportAction::Updated, "a.md", false));
+        let _ = input
+            .seen
+            .insert("a.md".to_string(), seen(ChangeSide::Folder, false, None));
+
+        let verdict = split_outside_edits(&input);
+
+        assert_eq!(verdict.note_held, vec![false]);
+        assert!(verdict.reasons.is_empty());
+    }
+
+    #[test]
+    fn removed_note_is_held_as_removed() {
+        let input = SplitInput {
+            notes: vec![note(ImportAction::Removed, "gone.md", false)],
+            ..Default::default()
+        };
+
+        let verdict = split_outside_edits(&input);
+
+        assert_eq!(verdict.note_held, vec![true]);
+        assert_eq!(verdict.reasons.get("gone.md"), Some(&HeldReason::Removed));
+    }
+
+    #[test]
+    fn created_note_at_known_path_is_held_as_lost_id() {
+        let mut input = SplitInput {
+            notes: vec![note(ImportAction::Created, "a.md", false)],
+            ..Default::default()
+        };
+        let _ = input
+            .seen
+            .insert("a.md".to_string(), seen(ChangeSide::Folder, false, None));
+
+        let verdict = split_outside_edits(&input);
+
+        assert_eq!(verdict.note_held, vec![true]);
+        assert_eq!(verdict.reasons.get("a.md"), Some(&HeldReason::LostId));
+    }
+
+    #[test]
+    fn row_blocked_by_a_non_created_row_is_held_as_data_file_not_whole() {
+        let mut input = SplitInput {
+            rows: vec![
+                row(ImportAction::Updated, "data.json"),
+                row(ImportAction::Removed, "data.json"),
+            ],
+            ..Default::default()
+        };
+        let _ = input.seen.insert(
+            "data.json".to_string(),
+            seen(ChangeSide::Folder, false, None),
+        );
+
+        let verdict = split_outside_edits(&input);
+
+        assert_eq!(verdict.row_held, vec![true, true]);
+        assert_eq!(
+            verdict.reasons.get("data.json"),
+            Some(&HeldReason::DataFileNotWhole)
+        );
+    }
+
+    #[test]
+    fn renamed_paths_keeps_only_real_renames_without_repeats() {
+        let mut seen_map = BTreeMap::new();
+        let _ = seen_map.insert(
+            "b.md".to_string(),
+            seen(ChangeSide::Folder, true, Some("a.md")),
+        );
+        let _ = seen_map.insert("c.md".to_string(), seen(ChangeSide::Folder, true, Some("")));
+        let _ = seen_map.insert("d.md".to_string(), seen(ChangeSide::Folder, false, None));
+        let paths = ["b.md", "c.md", "d.md", "b.md", "missing.md"].map(String::from);
+
+        assert_eq!(renamed_paths(&seen_map, &paths), vec!["b.md".to_string()]);
+    }
+}

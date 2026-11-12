@@ -133,3 +133,81 @@ fn saturating_number(digits: &str) -> u64 {
             .saturating_add(u64::from(b.saturating_sub(b'0')))
     })
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn located_lines_become_file_line_and_message() {
+        let log =
+            "./main.tex:12: Undefined control sequence.\nchapters/intro.tex:3: Missing $ inserted.";
+        assert_eq!(
+            parse_tex_log(log, "main.tex"),
+            vec![
+                TexError {
+                    file: "main.tex".to_owned(),
+                    line: 12,
+                    message: "Undefined control sequence.".to_owned(),
+                },
+                TexError {
+                    file: "chapters/intro.tex".to_owned(),
+                    line: 3,
+                    message: "Missing $ inserted.".to_owned(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn bang_error_takes_its_line_from_a_later_l_line() {
+        let log = "! LaTeX Error: File `missing.sty' not found.\n\nSee the LaTeX manual.\nl.7 \\usepackage{missing}";
+        let errors = parse_tex_log(log, "main.tex");
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors.first().map(|error| error.line), Some(7));
+        assert!(
+            errors
+                .first()
+                .is_some_and(|error| error.message.contains("File `missing.sty' not found"))
+        );
+    }
+
+    #[test]
+    fn same_error_reported_twice_is_listed_once() {
+        let log = "./main.tex:12: Undefined control sequence.\n./main.tex:12: Undefined control sequence.";
+        assert_eq!(parse_tex_log(log, "main.tex").len(), 1);
+    }
+
+    #[test]
+    fn log_with_nothing_wrong_yields_no_errors() {
+        let log = "This is pdfTeX\nOutput written on main.pdf (42 pages).";
+        assert_eq!(parse_tex_log(log, "main.tex"), Vec::<TexError>::new());
+    }
+
+    #[test]
+    fn tectonic_is_asked_to_keep_logs_not_print() {
+        let args = engine_args(TexEngine::Tectonic, "main.tex");
+        assert!(!args.iter().any(|arg| arg == "--print"));
+        assert!(args.iter().any(|arg| arg == "--keep-logs"));
+        assert_eq!(args, vec!["--keep-logs", "--", "main.tex"]);
+    }
+
+    #[test]
+    fn no_engine_writes_outside_its_own_directory() {
+        for engine in [TexEngine::Latexmk, TexEngine::Tectonic, TexEngine::Pdflatex] {
+            let args = engine_args(engine, "main.tex");
+            assert!(
+                !args
+                    .iter()
+                    .any(|arg| arg.starts_with("--outdir") || arg == "-output-directory")
+            );
+            assert!(args.iter().any(|arg| arg.contains("main.tex")));
+        }
+    }
+}

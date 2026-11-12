@@ -447,3 +447,167 @@ fn js_number(number: f64) -> String {
         number.to_string()
     }
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use serde_json::{Value, json};
+
+    use super::*;
+
+    fn paper(id: &str, title: &str) -> ExtractionPaper {
+        ExtractionPaper {
+            id: id.to_owned(),
+            title: title.to_owned(),
+            year: None,
+            status: "to_read".to_owned(),
+        }
+    }
+
+    fn row(id: &str, title: &str, cells: &[(&str, PaperFieldValueData)]) -> ExtractionRow {
+        ExtractionRow {
+            paper: paper(id, title),
+            values: cells
+                .iter()
+                .map(|(field, value)| ((*field).to_owned(), value.clone()))
+                .collect(),
+        }
+    }
+
+    fn method_def() -> ExtractionFieldDef {
+        ExtractionFieldDef {
+            id: "f1".to_owned(),
+            name: "Method".to_owned(),
+            kind: PaperFieldKind::Text,
+            options: Vec::new(),
+        }
+    }
+
+    fn proposal(id: &str, kind: &str, resource_id: &str, payload: Value) -> ExtractionProposal {
+        ExtractionProposal {
+            id: id.to_owned(),
+            kind: kind.to_owned(),
+            status: "pending".to_owned(),
+            resource_id: resource_id.to_owned(),
+            content: "summary".to_owned(),
+            payload: serde_json::from_value(payload).ok(),
+        }
+    }
+
+    #[test]
+    fn paper_rows_keep_list_order_and_first_place_of_duplicates() {
+        let ids: Vec<String> = ["p1", "p2", "p1"]
+            .iter()
+            .map(|id| (*id).to_owned())
+            .collect();
+        let values = vec![RollupValue {
+            paper_id: "p1".to_owned(),
+            field_id: "f1".to_owned(),
+            value: PaperFieldValueData::Text("RL".to_owned()),
+        }];
+        let rows = paper_value_rows(&ids, &values, &[method_def()]);
+        assert_eq!(
+            rows.iter()
+                .map(|row| row.paper_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["p1", "p2"]
+        );
+        assert_eq!(
+            rows.first().and_then(|row| row.values.get("f1")),
+            Some(&PaperFieldValueData::Text("RL".to_owned()))
+        );
+    }
+
+    #[test]
+    fn markdown_and_csv_include_the_selected_columns() {
+        let rows = vec![row(
+            "p1",
+            "A",
+            &[("f1", PaperFieldValueData::Text("RL".to_owned()))],
+        )];
+        let columns = vec!["title".to_owned(), "field:f1".to_owned()];
+        assert_eq!(
+            extraction_markdown(&rows, &[method_def()], &columns),
+            "| Title | Method |\n| --- | --- |\n| A | RL |"
+        );
+        assert_eq!(
+            extraction_csv(&rows, &[method_def()], &columns),
+            "Title,Method\nA,RL"
+        );
+    }
+
+    #[test]
+    fn pending_fills_join_only_paper_field_value_proposals_for_the_field() {
+        let proposals = vec![
+            proposal(
+                "prop-1",
+                "paper_field_value",
+                "p2",
+                json!({"paperId": "p2", "fieldId": "f1", "value": "VAE"}),
+            ),
+            proposal(
+                "prop-2",
+                "append_paper_note",
+                "p1",
+                json!({"addition": "x"}),
+            ),
+            proposal(
+                "prop-3",
+                "paper_field_value",
+                "p1",
+                json!({"paperId": "p1", "fieldId": "f2", "value": 3}),
+            ),
+        ];
+        assert_eq!(
+            pending_field_fills(&proposals, Some("f1")),
+            vec![ExtractionPendingFill {
+                proposal_id: "prop-1".to_owned(),
+                paper_id: "p2".to_owned(),
+                field_id: "f1".to_owned(),
+                preview: "VAE".to_owned(),
+            }]
+        );
+    }
+
+    #[test]
+    fn empty_cells_skip_papers_with_a_pending_fill() {
+        let rows = vec![
+            row(
+                "p1",
+                "A",
+                &[("f1", PaperFieldValueData::Text("RL".to_owned()))],
+            ),
+            row("p2", "B", &[]),
+        ];
+        assert_eq!(
+            empty_cell_paper_ids(&rows, "f1", &[]),
+            vec!["p2".to_owned()]
+        );
+        assert_eq!(
+            empty_cell_paper_ids(&rows, "f1", &["p2".to_owned()]),
+            Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn fill_prompt_names_the_tool_the_list_and_each_paper() {
+        let prompt = build_propose_fill_prompt(&ProposeFillInput {
+            list_id: "list-1".to_owned(),
+            field_id: "f1".to_owned(),
+            field_name: "Method".to_owned(),
+            papers: vec![FillPaper {
+                id: "p2".to_owned(),
+                title: "B".to_owned(),
+            }],
+        });
+        assert!(prompt.contains("suggest_paper_field_value"));
+        assert!(prompt.contains("quoteExact"));
+        assert!(prompt.contains("- p2 — B"));
+        assert!(prompt.contains("list-1"));
+    }
+}

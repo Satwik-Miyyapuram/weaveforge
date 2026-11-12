@@ -247,3 +247,103 @@ pub fn plan_pace(milestones: &[TimelineMilestone], today: &str) -> String {
     }
     parts.join(" · ")
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    const TODAY: &str = "2026-09-26";
+
+    fn ms(id: &str, target: Option<&str>, status: MilestoneStatus) -> TimelineMilestone {
+        TimelineMilestone {
+            id: id.to_owned(),
+            title: id.to_owned(),
+            status,
+            target_date: target.map(str::to_owned),
+        }
+    }
+
+    fn mark(id: &str, at: f64) -> PlanTimelineMark {
+        PlanTimelineMark {
+            id: id.to_owned(),
+            title: id.to_owned(),
+            status: MilestoneStatus::Planned,
+            at,
+        }
+    }
+
+    fn ids(marks: &[PlanTimelineMark]) -> Vec<&str> {
+        marks.iter().map(|m| m.id.as_str()).collect()
+    }
+
+    #[test]
+    fn no_dated_milestone_no_timeline() {
+        assert!(plan_timeline(&[ms("a", None, MilestoneStatus::Planned)], TODAY).is_none());
+    }
+
+    #[test]
+    fn marks_placed_in_date_order_and_today_on_track() {
+        let milestones = [
+            ms("late", Some("2026-12-26"), MilestoneStatus::Planned),
+            ms("early", Some("2026-07-26"), MilestoneStatus::Done),
+        ];
+        let t = plan_timeline(&milestones, TODAY).expect("dated milestones");
+        assert_eq!(ids(&t.marks), ["early", "late"]);
+        let ats: Vec<f64> = t.marks.iter().map(|m| m.at).collect();
+        assert_eq!(ats, [0.0, 100.0]);
+        assert!(t.today > 40.0 && t.today < 60.0);
+    }
+
+    #[test]
+    fn today_before_every_milestone_starts_track() {
+        let milestones = [ms("a", Some("2026-12-01"), MilestoneStatus::Planned)];
+        let t = plan_timeline(&milestones, TODAY).expect("dated milestone");
+        assert_eq!(t.today, 0.0);
+        assert_eq!(t.marks.first().map(|m| m.at), Some(100.0));
+    }
+
+    #[test]
+    fn month_ticks_thinned_to_six_at_most() {
+        let milestones = [
+            ms("a", Some("2025-01-01"), MilestoneStatus::Planned),
+            ms("b", Some("2027-12-01"), MilestoneStatus::Planned),
+        ];
+        let t = plan_timeline(&milestones, TODAY).expect("dated milestones");
+        assert!(!t.months.is_empty() && t.months.len() <= 6);
+        assert!(t.months.windows(2).all(|w| w[1].at > w[0].at));
+    }
+
+    #[test]
+    fn pace_counts_overdue_and_due_soon_ignoring_done() {
+        let soon = [
+            ms("a", Some("2026-10-01"), MilestoneStatus::Planned),
+            ms("b", Some("2026-12-01"), MilestoneStatus::Planned),
+        ];
+        assert_eq!(plan_pace(&soon, TODAY), "on track · 1 due soon");
+        let overdue = [
+            ms("a", Some("2026-09-01"), MilestoneStatus::Planned),
+            ms("b", Some("2026-09-01"), MilestoneStatus::Done),
+        ];
+        assert_eq!(plan_pace(&overdue, TODAY), "1 overdue");
+    }
+
+    #[test]
+    fn marks_closer_than_gap_fold_into_one_cluster() {
+        let marks = [
+            mark("a", 10.0),
+            mark("b", 11.0),
+            mark("c", 12.5),
+            mark("d", 40.0),
+        ];
+        let clusters = cluster_marks(&marks, 2.0);
+        let grouped: Vec<Vec<&str>> = clusters.iter().map(|c| ids(&c.marks)).collect();
+        assert_eq!(grouped, [vec!["a", "b", "c"], vec!["d"]]);
+        assert_eq!(clusters.first().map(|c| c.at), Some(11.25));
+    }
+}

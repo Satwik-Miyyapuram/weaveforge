@@ -295,3 +295,157 @@ fn js_to_fixed(value: f64, digits: usize) -> String {
         format!("{sign}{int_out}.{frac_out}")
     }
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+    use crate::ink::ink_page::{INK_A4_HEIGHT, INK_A4_WIDTH};
+
+    fn base() -> InkPrintDocument {
+        InkPrintDocument {
+            title: "notes <\"quoted\">".to_owned(),
+            page_size: InkPrintPageSize {
+                width: INK_A4_WIDTH,
+                height: INK_A4_HEIGHT,
+            },
+            scale: 0.5,
+            paper: "ruled".to_owned(),
+            underlay_html: "<h3>Heading</h3><p>Body</p>".to_owned(),
+            underlay: InkPrintUnderlay {
+                pad_x: 28.0,
+                pad_y: 24.0,
+                font_size: 12.0,
+                line_height: 1.6,
+            },
+            rule: BTreeMap::from([
+                ("--ink-rule".to_owned(), "19.2px".to_owned()),
+                ("--ink-rule-offset".to_owned(), "24px".to_owned()),
+            ]),
+            figures: vec![InkPrintFigure {
+                x: 100.0,
+                y: 200.0,
+                w: 400.0,
+                h: 300.0,
+                crop: None,
+                url: "data:image/png;base64,AAAA".to_owned(),
+            }],
+            ink_url: Some("data:image/png;base64,BBBB".to_owned()),
+            style_sheets: vec![
+                InkPrintStyleSheet {
+                    href: Some("https://app/_next/static/a.css".to_owned()),
+                    text: None,
+                },
+                InkPrintStyleSheet {
+                    href: None,
+                    text: Some(".x{color:red}".to_owned()),
+                },
+            ],
+        }
+    }
+
+    /// Byte offset of `needle`, or `usize::MAX` when absent, so order checks fail on a miss.
+    fn pos(html: &str, needle: &str) -> usize {
+        html.find(needle).unwrap_or(usize::MAX)
+    }
+
+    #[test]
+    fn every_layer_of_the_sheet_is_in_the_document_in_order() {
+        let html = ink_print_document(&base());
+        assert!(
+            html.contains("class=\"ink-sheet paper-ruled\""),
+            "the paper's class"
+        );
+        assert!(
+            html.contains("--ink-rule:19.2px;--ink-rule-offset:24px"),
+            "the ruling"
+        );
+        // The print's white must not be the background shorthand, or it wipes the ruling.
+        let sheet_rule = html.find(".ink-print-page .ink-sheet {");
+        assert!(sheet_rule.is_some(), "the sheet rule");
+        let block = sheet_rule.map_or("", |i| html[i..].split('}').next().unwrap_or(""));
+        assert!(
+            !block.contains("background: #fff"),
+            "the ruling survives the paper's white"
+        );
+        assert!(
+            html.contains("padding:24px 28px;font-size:12px;line-height:1.6"),
+            "the underlay's metrics"
+        );
+        assert!(
+            html.contains("<h3>Heading</h3><p>Body</p>"),
+            "the markdown, as is"
+        );
+        assert!(
+            html.contains("left:50px;top:100px;width:200px;height:150px"),
+            "the figure at scale"
+        );
+        assert!(
+            html.contains("src=\"data:image/png;base64,AAAA\""),
+            "the figure's picture"
+        );
+        assert!(
+            pos(&html, "ink-sheet-text-underlay") < pos(&html, "ink-figures"),
+            "text under figures"
+        );
+        assert!(
+            pos(&html, "ink-figures") < pos(&html, "ink-print-ink"),
+            "figures under ink"
+        );
+        assert!(
+            html.contains("@page { size: 210mm 297mm; margin: 0; }"),
+            "A4 in millimetres"
+        );
+        assert!(html.contains("<link rel=\"stylesheet\" href=\"https://app/_next/static/a.css\">"));
+        assert!(html.contains("<style>.x{color:red}</style>"));
+    }
+
+    #[test]
+    fn a_page_with_no_ink_and_no_text_prints_its_paper_and_figures_alone() {
+        let doc = InkPrintDocument {
+            ink_url: None,
+            underlay_html: String::new(),
+            ..base()
+        };
+        let html = ink_print_document(&doc);
+        assert!(!html.contains("ink-print-ink"));
+        assert!(!html.contains("ink-sheet-text-underlay"));
+        assert!(html.contains("class=\"ink-figure\""));
+    }
+
+    #[test]
+    fn the_title_and_the_paper_cannot_break_out_of_the_markup() {
+        let doc = InkPrintDocument {
+            paper: "x\" onload=\"y".to_owned(),
+            ..base()
+        };
+        let html = ink_print_document(&doc);
+        assert!(html.contains("<title>notes &lt;&quot;quoted&quot;&gt;</title>"));
+        assert!(!html.contains("onload=\"y"));
+    }
+
+    #[test]
+    fn sheet_text_holding_style_close_stays_inside_its_tag() {
+        let text = r#".a::after{content:"</style><script>x()</script>"} .b{} .c::before{content:"</STYLE"}"#;
+        let doc = InkPrintDocument {
+            style_sheets: vec![InkPrintStyleSheet {
+                href: None,
+                text: Some(text.to_owned()),
+            }],
+            ..base()
+        };
+        let html = ink_print_document(&doc);
+        // The sheet's own `<style>` comes first; its closing tag is the next `</style>`.
+        let open = html.find("<style>").unwrap_or(0);
+        let close = html[open..].find("</style>").map_or(0, |i| open + i);
+        assert!(close > open, "the sheet has a closing tag");
+        let sheet = &html[open..close];
+        assert!(sheet.contains(".c::before"), "the sheet was cut short");
+        assert!(!sheet[7..].to_ascii_lowercase().contains("</style"));
+    }
+}

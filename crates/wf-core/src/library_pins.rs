@@ -217,3 +217,217 @@ pub fn pinned_screen_index(input: &PinnedScreenInput) -> PinnedScreenIndex {
         can_edit,
     }
 }
+
+// No TS test found for this module; cases come from the doc comments.
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code"
+)]
+mod tests {
+    use super::*;
+
+    fn pin(resource_id: &str, owner_id: &str, user_id: &str) -> PinRow {
+        PinRow {
+            resource_type: "paper".to_owned(),
+            resource_id: resource_id.to_owned(),
+            owner_id: owner_id.to_owned(),
+            user_id: user_id.to_owned(),
+        }
+    }
+
+    fn input(pins: Vec<PinRow>, shares: Vec<ShareRow>, owned: &[&str]) -> PinnedScreenInput {
+        PinnedScreenInput {
+            resource_type: "paper".to_owned(),
+            owned_ids: owned.iter().map(|id| (*id).to_owned()).collect(),
+            pins,
+            shares,
+        }
+    }
+
+    #[test]
+    fn own_pins_are_not_extras_or_shared() {
+        let result = pinned_screen_index(&input(vec![pin("p1", "u", "u")], vec![], &[]));
+        assert!(result.extra_ids.is_empty());
+        assert!(result.pinned_shared_by.is_empty());
+    }
+
+    #[test]
+    fn extra_ids_are_unique_and_skip_owned_rows() {
+        let pins = vec![
+            pin("p1", "o", "u"),
+            pin("p1", "o", "u"),
+            pin("p2", "o", "u"),
+        ];
+        let result = pinned_screen_index(&input(pins, vec![], &["p2"]));
+        assert_eq!(result.extra_ids, vec!["p1".to_owned()]);
+    }
+
+    #[test]
+    fn later_pin_owner_wins_for_a_twice_pinned_resource() {
+        let pins = vec![pin("p1", "a", "u"), pin("p1", "b", "u")];
+        let result = pinned_screen_index(&input(pins, vec![], &[]));
+        assert_eq!(
+            result.pinned_shared_by,
+            vec![PinnedSharedBy {
+                resource_id: "p1".to_owned(),
+                owner_id: "b".to_owned(),
+            }]
+        );
+    }
+
+    #[test]
+    fn edit_share_implies_comment() {
+        let shares = vec![ShareRow {
+            resource_type: "paper".to_owned(),
+            resource_id: Some("p1".to_owned()),
+            owner_id: "o".to_owned(),
+            access: "edit".to_owned(),
+        }];
+        let result = pinned_screen_index(&input(vec![pin("p1", "o", "u")], shares, &[]));
+        let granted = |list: &[GrantEntry]| list.iter().all(|g| g.granted);
+        assert!(granted(&result.can_comment));
+        assert!(granted(&result.can_edit));
+    }
+
+    #[test]
+    fn blanket_share_by_pin_owner_grants_pinned_resource() {
+        let shares = vec![ShareRow {
+            resource_type: "paper".to_owned(),
+            resource_id: None,
+            owner_id: "o".to_owned(),
+            access: "comment".to_owned(),
+        }];
+        let result = pinned_screen_index(&input(vec![pin("p1", "o", "u")], shares, &[]));
+        assert_eq!(
+            result.can_comment,
+            vec![GrantEntry {
+                resource_id: "p1".to_owned(),
+                granted: true,
+            }]
+        );
+        assert_eq!(
+            result.can_edit,
+            vec![GrantEntry {
+                resource_id: "p1".to_owned(),
+                granted: false,
+            }]
+        );
+    }
+
+    #[test]
+    fn shares_of_other_types_are_ignored() {
+        let shares = vec![ShareRow {
+            resource_type: "note".to_owned(),
+            resource_id: Some("p1".to_owned()),
+            owner_id: "o".to_owned(),
+            access: "edit".to_owned(),
+        }];
+        let result = pinned_screen_index(&input(vec![], shares, &[]));
+        assert!(result.can_comment.is_empty());
+        assert!(result.can_edit.is_empty());
+    }
+
+    fn share(
+        resource_type: &str,
+        resource_id: Option<&str>,
+        owner_id: &str,
+        access: &str,
+    ) -> ShareRow {
+        ShareRow {
+            resource_type: resource_type.to_owned(),
+            resource_id: resource_id.map(str::to_owned),
+            owner_id: owner_id.to_owned(),
+            access: access.to_owned(),
+        }
+    }
+
+    fn granted_for(list: &[GrantEntry], id: &str) -> Option<bool> {
+        list.iter()
+            .find(|grant| grant.resource_id == id)
+            .map(|grant| grant.granted)
+    }
+
+    #[test]
+    fn merge_pinned_resource_the_project_does_not_own_joins_the_list() {
+        let shares = vec![share("paper", Some("p9"), "alice", "comment")];
+        let result = pinned_screen_index(&input(vec![pin("p9", "alice", "me")], shares, &["p1"]));
+        assert_eq!(result.extra_ids, vec!["p9".to_owned()]);
+        assert_eq!(
+            result.pinned_shared_by,
+            vec![PinnedSharedBy {
+                resource_id: "p9".to_owned(),
+                owner_id: "alice".to_owned(),
+            }]
+        );
+    }
+
+    #[test]
+    fn merge_blank_edit_share_grants_comment_and_edit_on_pins_by_owner() {
+        let shares = vec![share("paper", None, "alice", "edit")];
+        let result = pinned_screen_index(&input(vec![pin("p9", "alice", "me")], shares, &[]));
+        assert_eq!(granted_for(&result.can_comment, "p9"), Some(true));
+        assert_eq!(granted_for(&result.can_edit, "p9"), Some(true));
+    }
+
+    #[test]
+    fn merge_grants_follow_the_resource_id_named_by_the_share() {
+        let shares = vec![share("paper", Some("p9"), "bob", "edit")];
+        let result = pinned_screen_index(&input(vec![pin("p9", "alice", "me")], shares, &[]));
+        assert_eq!(granted_for(&result.can_edit, "p9"), Some(true));
+        assert_eq!(
+            result.pinned_shared_by,
+            vec![PinnedSharedBy {
+                resource_id: "p9".to_owned(),
+                owner_id: "alice".to_owned(),
+            }]
+        );
+    }
+
+    #[test]
+    fn merge_view_access_is_neither_comment_nor_edit() {
+        let shares = vec![share("paper", Some("p9"), "alice", "view")];
+        let result = pinned_screen_index(&input(vec![pin("p9", "alice", "me")], shares, &[]));
+        assert_eq!(granted_for(&result.can_comment, "p9"), Some(false));
+        assert_eq!(granted_for(&result.can_edit, "p9"), Some(false));
+    }
+
+    #[test]
+    fn merge_pin_the_project_owns_is_reported_but_not_listed_twice() {
+        let result = pinned_screen_index(&input(vec![pin("p1", "alice", "me")], vec![], &["p1"]));
+        assert!(result.extra_ids.is_empty());
+        assert_eq!(
+            result.pinned_shared_by,
+            vec![PinnedSharedBy {
+                resource_id: "p1".to_owned(),
+                owner_id: "alice".to_owned(),
+            }]
+        );
+    }
+
+    #[test]
+    fn merge_grant_for_another_resource_type_reads_false_on_a_pin() {
+        let shares = vec![share("experiment", Some("p9"), "alice", "edit")];
+        let result = pinned_screen_index(&input(vec![pin("p9", "alice", "me")], shares, &[]));
+        assert_eq!(granted_for(&result.can_comment, "p9"), Some(false));
+        assert_eq!(granted_for(&result.can_edit, "p9"), Some(false));
+    }
+
+    #[test]
+    fn merge_resource_neither_pinned_nor_shared_is_absent() {
+        let shares = vec![share("experiment", Some("p9"), "alice", "edit")];
+        let result = pinned_screen_index(&input(vec![], shares, &[]));
+        assert!(result.can_comment.is_empty());
+        assert!(result.can_edit.is_empty());
+    }
+
+    #[test]
+    fn merge_named_share_is_granted_even_when_not_pinned() {
+        let shares = vec![share("paper", Some("p9"), "alice", "comment")];
+        let result = pinned_screen_index(&input(vec![], shares, &[]));
+        assert_eq!(granted_for(&result.can_comment, "p9"), Some(true));
+        assert_eq!(granted_for(&result.can_edit, "p9"), Some(false));
+    }
+}
