@@ -16,10 +16,18 @@ pub fn stroke_path_js(
     stroke_path(points).map_or(JsValue::NULL, JsValue::from)
 }
 
-/// [`ink_page_svg`]: `page` is an `InkSvgPage`, `options` an `InkSvgOptions` (may be `{}`).
+/// [`ink_page_svg`]: the page as an SVG document; `options` defaults to `{}`.
+///
+/// # Errors
+///
+/// Fails if `page` or `options` does not match its shape.
 #[wasm_bindgen(js_name = inkPageSvg)]
-pub fn ink_page_svg_js(page: JsValue, options: JsValue) -> JsResult<String> {
+pub fn ink_page_svg_js(
+    #[wasm_bindgen(unchecked_param_type = "B.InkSvgPage")] page: JsValue,
+    #[wasm_bindgen(unchecked_optional_param_type = "B.InkSvgOptions")] options: Option<JsValue>,
+) -> JsResult<String> {
     let page: InkSvgPage = serde_wasm_bindgen::from_value(page)?;
-    let options: InkSvgOptions = serde_wasm_bindgen::from_value(options)?;
+    let options: InkSvgOptions =
+        serde_wasm_bindgen::from_value(options.unwrap_or_else(|| js_sys::Object::new().into()))?;
     Ok(ink_page_svg(&page, &options))
 }

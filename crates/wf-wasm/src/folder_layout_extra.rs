@@ -13,7 +13,7 @@ use super::to_js;
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
 /// [`parse_kind_suffix`](folder_layout::parse_kind_suffix): the entity type, or `null`.
-#[wasm_bindgen(js_name = parseKindSuffix)]
+#[wasm_bindgen(js_name = parseKindSuffix, unchecked_return_type = "B.WorkspaceEntityType | null")]
 pub fn parse_kind_suffix_js(path: &str) -> JsResult<JsValue> {
     match folder_layout::parse_kind_suffix(path) {
         Some(entity) => to_js(&entity),

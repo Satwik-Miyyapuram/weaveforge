@@ -15,74 +15,150 @@ use super::to_js;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
+/// The generic signatures of the exports that return members from the caller's array,
+/// which wasm-bindgen cannot express.
+#[wasm_bindgen(typescript_custom_section)]
+const MEMBER_PICK_TS: &str = r"
+/** The supervision team: the viewer plus all supervisees, at any depth. */
+export function filterTeamMembers<T extends B.MemberLink>(
+  viewerId: string,
+  members: readonly T[],
+  options: { inLab: boolean; orgMemberIds?: ReadonlySet<string> | null },
+): T[];
+/** The full active-lab roster, for the org chart. */
+export function filterLabMembers<T extends B.MemberLink>(
+  viewerId: string,
+  members: readonly T[],
+  options: { inLab: boolean; orgMemberIds?: ReadonlySet<string> | null },
+): T[];
+/** The people below `viewerId` in the supervisor tree, at any depth. */
+export function studentsOf<T extends B.MemberLink>(viewerId: string | undefined, team: readonly T[]): T[];
+";
+
+/// `options` as [`TeamVisibility`]: `orgMemberIds` may be any iterable (a `Set`), and a
+/// falsy one reads as unknown.
+fn team_visibility(options: &JsValue) -> Result<TeamVisibility, JsValue> {
+    let in_lab = js_sys::Reflect::get(options, &JsValue::from_str("inLab"))?;
+    let ids = js_sys::Reflect::get(options, &JsValue::from_str("orgMemberIds"))?;
+    let wire = js_sys::Object::new();
+    let _ = js_sys::Reflect::set(&wire, &JsValue::from_str("inLab"), &in_lab)?;
+    let ids = if ids.is_truthy() {
+        js_sys::Array::from(&ids).into()
+    } else {
+        JsValue::NULL
+    };
+    let _ = js_sys::Reflect::set(&wire, &JsValue::from_str("orgMemberIds"), &ids)?;
+    Ok(serde_wasm_bindgen::from_value(wire.into())?)
+}
+
+/// The items of `items` at `indices`, as a new JS array of the same objects.
+fn pick(items: &JsValue, indices: &[usize]) -> Result<JsValue, JsValue> {
+    let out = js_sys::Array::new();
+    for &index in indices {
+        let index =
+            u32::try_from(index).map_err(|_| js_sys::RangeError::new("index out of range"))?;
+        let _ = out.push(&js_sys::Reflect::get_u32(items, index)?);
+    }
+    Ok(out.into())
+}
+
 /// [`creatable_roles`](member::creatable_roles).
 #[wasm_bindgen(js_name = creatableRoles, unchecked_return_type = "string[]")]
 pub fn creatable_roles_js(creator: &str) -> JsResult<JsValue> {
     to_js(&member::creatable_roles(creator))
 }
 
-/// [`filter_team_members`](member::filter_team_members). Returns indices into `members`.
+/// [`filter_team_members`](member::filter_team_members). Returns the picked objects of
+/// `members` (the same objects, not copies).
 ///
 /// # Errors
 ///
 /// Fails if `members` or `options` has the wrong shape.
-#[wasm_bindgen(js_name = filterTeamMembers)]
+#[wasm_bindgen(js_name = filterTeamMembers, skip_typescript)]
 pub fn filter_team_members_js(
     viewer_id: &str,
     members: JsValue,
     options: JsValue,
-) -> JsResult<JsValue> {
-    let members: Vec<MemberLink> = serde_wasm_bindgen::from_value(members)?;
-    let options: TeamVisibility = serde_wasm_bindgen::from_value(options)?;
-    to_js(&member::filter_team_members(viewer_id, &members, &options))
+) -> Result<JsValue, JsValue> {
+    let links: Vec<MemberLink> = serde_wasm_bindgen::from_value(members.clone())?;
+    let options = team_visibility(&options)?;
+    pick(
+        &members,
+        &member::filter_team_members(viewer_id, &links, &options),
+    )
 }
 
-/// [`filter_lab_members`](member::filter_lab_members). Returns indices into `members`.
+/// [`filter_lab_members`](member::filter_lab_members). Returns the picked objects of
+/// `members` (the same objects, not copies).
 ///
 /// # Errors
 ///
 /// Fails if `members` or `options` has the wrong shape.
-#[wasm_bindgen(js_name = filterLabMembers)]
+#[wasm_bindgen(js_name = filterLabMembers, skip_typescript)]
 pub fn filter_lab_members_js(
     viewer_id: &str,
     members: JsValue,
     options: JsValue,
-) -> JsResult<JsValue> {
-    let members: Vec<MemberLink> = serde_wasm_bindgen::from_value(members)?;
-    let options: TeamVisibility = serde_wasm_bindgen::from_value(options)?;
-    to_js(&member::filter_lab_members(viewer_id, &members, &options))
+) -> Result<JsValue, JsValue> {
+    let links: Vec<MemberLink> = serde_wasm_bindgen::from_value(members.clone())?;
+    let options = team_visibility(&options)?;
+    pick(
+        &members,
+        &member::filter_lab_members(viewer_id, &links, &options),
+    )
 }
 
-/// [`students_of`](member::students_of). Returns indices into `team`.
+/// [`students_of`](member::students_of). Returns the picked objects of `team` (the same
+/// objects, not copies).
 ///
 /// # Errors
 ///
 /// Fails if `team` has the wrong shape.
-#[wasm_bindgen(js_name = studentsOf)]
-pub fn students_of_js(viewer_id: Option<String>, team: JsValue) -> JsResult<JsValue> {
-    let team: Vec<MemberLink> = serde_wasm_bindgen::from_value(team)?;
-    to_js(&member::students_of(viewer_id.as_deref(), &team))
+#[wasm_bindgen(js_name = studentsOf, skip_typescript)]
+pub fn students_of_js(viewer_id: Option<String>, team: JsValue) -> Result<JsValue, JsValue> {
+    let links: Vec<MemberLink> = serde_wasm_bindgen::from_value(team.clone())?;
+    pick(&team, &member::students_of(viewer_id.as_deref(), &links))
 }
 
 /// [`is_supervisor_role`](member::is_supervisor_role).
 #[wasm_bindgen(js_name = isSupervisorRole)]
 #[must_use]
-pub fn is_supervisor_role_js(role: Option<String>) -> bool {
+pub fn is_supervisor_role_js(
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] role: Option<
+        String,
+    >,
+) -> bool {
     member::is_supervisor_role(role.as_deref())
 }
 
 /// [`role_rank`](member::role_rank). `undefined` for a role the rank table does not know.
-#[wasm_bindgen(js_name = roleRank)]
+#[wasm_bindgen(js_name = roleRank, unchecked_return_type = "number | undefined")]
 #[must_use]
 pub fn role_rank_js(role: &str) -> Option<i8> {
     member::role_rank(role)
 }
 
-/// [`resolve_display_role`](member::resolve_display_role).
+/// `opts` of [`resolve_display_role_js`].
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DisplayRoleOptions {
+    in_lab: bool,
+    #[serde(default)]
+    owns_org: Option<bool>,
+}
+
+/// [`resolve_display_role`](member::resolve_display_role). `opts.ownsOrg` defaults to `false`.
+///
+/// # Errors
+///
+/// Fails if `opts` has the wrong shape.
 #[wasm_bindgen(js_name = resolveDisplayRole)]
-#[must_use]
-pub fn resolve_display_role_js(role: &str, in_lab: bool, owns_org: bool) -> String {
-    member::resolve_display_role(role, in_lab, owns_org).to_owned()
+pub fn resolve_display_role_js(
+    role: &str,
+    #[wasm_bindgen(unchecked_param_type = "{ inLab: boolean; ownsOrg?: boolean }")] opts: JsValue,
+) -> JsResult<String> {
+    let opts: DisplayRoleOptions = serde_wasm_bindgen::from_value(opts)?;
+    Ok(member::resolve_display_role(role, opts.in_lab, opts.owns_org.unwrap_or(false)).to_owned())
 }
 
 /// [`needs_standalone_role_sync`](member::needs_standalone_role_sync).
@@ -130,22 +206,24 @@ pub fn is_missing_service_role_js(message: &str) -> bool {
     org::is_missing_service_role(message)
 }
 
-/// [`has_active_lab`](org::has_active_lab).
+/// [`has_active_lab`](org::has_active_lab). `ownsActiveOrg` defaults to `false`.
 ///
 /// # Errors
 ///
 /// Fails if `memberships` has the wrong shape.
 #[wasm_bindgen(js_name = hasActiveLab)]
 pub fn has_active_lab_js(
-    active_org_id: Option<String>,
-    memberships: JsValue,
-    owns_active_org: bool,
+    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] active_org_id: Option<
+        String,
+    >,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.Membership[]")] memberships: JsValue,
+    owns_active_org: Option<bool>,
 ) -> JsResult<bool> {
     let memberships: Vec<Membership> = serde_wasm_bindgen::from_value(memberships)?;
     Ok(org::has_active_lab(
         active_org_id.as_deref(),
         &memberships,
-        owns_active_org,
+        owns_active_org.unwrap_or(false),
     ))
 }
 
@@ -195,28 +273,54 @@ pub fn resolve_supervisor_id_js(creator_id: &str) -> String {
     member::resolve_supervisor_id(creator_id)
 }
 
-/// [`validate_new_member`](member::validate_new_member). Throws the validation message.
+/// `input` of [`validate_new_member_js`].
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NewMemberInput {
+    email: String,
+    password: String,
+    #[serde(default)]
+    full_name: Option<String>,
+    role: String,
+    #[serde(default)]
+    supervisor_id: Option<String>,
+}
+
+/// [`validate_new_member`](member::validate_new_member): the normalized member, with
+/// absent `fullName` / `supervisorId` set to `undefined` rather than `null`.
 ///
 /// # Errors
 ///
-/// Fails with the message if the request is invalid.
-#[wasm_bindgen(js_name = validateNewMember)]
+/// Throws an `Error` named `MemberValidationError` with the message if the request is
+/// invalid, or a shape error if `input` has the wrong shape.
+#[wasm_bindgen(
+    js_name = validateNewMember,
+    unchecked_return_type = "Omit<B.NewMember, 'fullName' | 'supervisorId'> & { fullName?: string; supervisorId?: string }"
+)]
 pub fn validate_new_member_js(
-    email: &str,
-    password: &str,
-    full_name: Option<String>,
-    role: &str,
-    supervisor_id: Option<String>,
+    #[wasm_bindgen(
+        unchecked_param_type = "Pick<B.NewMember, 'email' | 'password' | 'role'> & Partial<Pick<B.NewMember, 'fullName' | 'supervisorId'>>"
+    )]
+    input: JsValue,
 ) -> Result<JsValue, JsValue> {
+    let input: NewMemberInput = serde_wasm_bindgen::from_value(input)?;
     let member = member::validate_new_member(
-        email,
-        password,
-        full_name.as_deref(),
-        role,
-        supervisor_id.as_deref(),
+        &input.email,
+        &input.password,
+        input.full_name.as_deref(),
+        &input.role,
+        input.supervisor_id.as_deref(),
     )
-    .map_err(|message| JsValue::from_str(&message))?;
-    to_js(&member).map_err(|error| JsValue::from_str(&error.to_string()))
+    .map_err(|message| {
+        let error = js_sys::Error::new(&message);
+        error.set_name("MemberValidationError");
+        JsValue::from(error)
+    })?;
+    // The default serializer writes `None` as `undefined` (the key stays, like `?? undefined`).
+    Ok(serde::Serialize::serialize(
+        &member,
+        &serde_wasm_bindgen::Serializer::new(),
+    )?)
 }
 
 /// [`format_invite_code`](org::format_invite_code).
@@ -248,11 +352,11 @@ pub fn validate_org_name_js(name: &str) -> Result<String, JsValue> {
 /// # Errors
 ///
 /// Fails with the message if the lab cannot take this invite type.
-#[wasm_bindgen(js_name = resolveOrgJoinAssignment)]
+#[wasm_bindgen(js_name = resolveOrgJoinAssignment, unchecked_return_type = "B.JoinAssignment")]
 pub fn resolve_org_join_assignment_js(
     target_role: &str,
-    professor_ids: JsValue,
-    phd_ids: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] professor_ids: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] phd_ids: JsValue,
     professor_supervisor_id: Option<String>,
     phd_supervisor_id: Option<String>,
 ) -> Result<JsValue, JsValue> {

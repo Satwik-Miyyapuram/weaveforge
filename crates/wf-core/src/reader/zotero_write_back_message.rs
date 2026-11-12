@@ -6,23 +6,29 @@ use serde::Deserialize;
 /// Counts from one Zotero write-back run (TS `ZoteroAnnotationWriteBackSummary`).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WriteBackSummary {
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct ZoteroWriteBackSummary {
     /// Annotations Zotero created.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub created: usize,
     /// Annotations Zotero updated.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub updated: usize,
     /// Annotations left as they are because Zotero changed them meanwhile.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub conflicts: usize,
     /// Annotations that could not be sent.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub failed: usize,
     /// The first failure's reason, so the screen can say why.
+    #[cfg_attr(feature = "specta", specta(type = String, optional))]
     pub first_error: Option<String>,
 }
 
 /// The write-back's part of the sync line, led by its ` · ` separator, or `""` when
 /// nothing was owed (TS `zoteroWriteBackMessage`). A missing summary gives `""`.
 #[must_use]
-pub fn zotero_write_back_message(summary: Option<&WriteBackSummary>) -> String {
+pub fn zotero_write_back_message(summary: Option<&ZoteroWriteBackSummary>) -> String {
     let Some(summary) = summary else {
         return String::new();
     };
@@ -71,14 +77,14 @@ mod tests {
     #[test]
     fn nothing_owed_is_empty() {
         assert_eq!(
-            zotero_write_back_message(Some(&WriteBackSummary::default())),
+            zotero_write_back_message(Some(&ZoteroWriteBackSummary::default())),
             ""
         );
     }
 
     #[test]
     fn sent_is_singular_for_one() {
-        let s = WriteBackSummary {
+        let s = ZoteroWriteBackSummary {
             created: 1,
             ..Default::default()
         };
@@ -90,7 +96,7 @@ mod tests {
 
     #[test]
     fn mixed_parts_join_in_order() {
-        let s = WriteBackSummary {
+        let s = ZoteroWriteBackSummary {
             created: 1,
             updated: 2,
             conflicts: 1,
@@ -105,7 +111,7 @@ mod tests {
 
     #[test]
     fn empty_first_error_is_omitted() {
-        let s = WriteBackSummary {
+        let s = ZoteroWriteBackSummary {
             failed: 1,
             first_error: Some(String::new()),
             ..Default::default()

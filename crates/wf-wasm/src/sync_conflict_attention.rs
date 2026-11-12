@@ -22,7 +22,9 @@ pub fn needs_person_js(kind: &str, field_count: usize) -> bool {
 ///
 /// Fails if `open` is not an array of `{ kind, fieldCount }` objects.
 #[wasm_bindgen(js_name = countOpen)]
-pub fn count_open_js(open: JsValue) -> Result<usize, serde_wasm_bindgen::Error> {
+pub fn count_open_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.OpenConflictRef[]")] open: JsValue,
+) -> Result<usize, serde_wasm_bindgen::Error> {
     let open: Vec<OpenConflict> = serde_wasm_bindgen::from_value(open)?;
     Ok(count_open(&open))
 }

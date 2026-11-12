@@ -1,5 +1,5 @@
 //! Quick open ranking and palette groups (wf-core `editor_workspace::quick_open`),
-//! re-exported from `packages/wf-wasm/src/wrappers-6.ts`.
+//! served straight from `@weaveforge/wasm`.
 
 use wasm_bindgen::prelude::{JsValue, wasm_bindgen};
 use wf_core::editor_workspace::quick_open::{self as quick, QuickOpenResult};

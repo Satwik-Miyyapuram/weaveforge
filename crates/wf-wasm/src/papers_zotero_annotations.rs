@@ -1,5 +1,4 @@
-//! Zotero annotation and note rows (wf-core `papers::zotero_annotations`). The TS wrapper
-//! in `packages/wf-wasm/src/wrappers-5.ts` is what callers import.
+//! Zotero annotation and note rows (wf-core `papers::zotero_annotations`).
 
 #![allow(
     clippy::needless_pass_by_value,
@@ -21,15 +20,17 @@ fn out<T: serde::Serialize>(value: &T) -> Result<JsValue, JsError> {
     to_js(value).map_err(|error| JsError::new(&error.to_string()))
 }
 
-/// [`item_key`] (TS `zoteroItemKey`). The key, or null.
+/// [`item_key`] (TS `zoteroItemKey`). The key, or `undefined`.
 ///
 /// # Errors
 ///
 /// Fails if `item` is not a Zotero item.
 #[wasm_bindgen(js_name = zoteroItemKey)]
-pub fn zotero_item_key_js(item: JsValue) -> Result<JsValue, JsError> {
+pub fn zotero_item_key_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ZoteroItemRow")] item: JsValue,
+) -> Result<Option<String>, JsError> {
     let item: ZoteroItemRow = from_js(item)?;
-    out(&item_key(&item))
+    Ok(item_key(&item))
 }
 
 /// [`is_pdf_attachment`] (TS `zoteroIsPdfAttachment`).
@@ -45,15 +46,17 @@ pub fn zotero_is_pdf_attachment_js(
     out(&is_pdf_attachment(&item))
 }
 
-/// [`pick_main_pdf`] (TS `zoteroPickMainPdf`). The main PDF's key, or null.
+/// [`pick_main_pdf`] (TS `zoteroPickMainPdf`). The main PDF's key, or `undefined`.
 ///
 /// # Errors
 ///
 /// Fails if `pdfs` is not an array of Zotero items.
 #[wasm_bindgen(js_name = zoteroPickMainPdf)]
-pub fn zotero_pick_main_pdf_js(pdfs: JsValue) -> Result<JsValue, JsError> {
+pub fn zotero_pick_main_pdf_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ZoteroItemRow[]")] pdfs: JsValue,
+) -> Result<Option<String>, JsError> {
     let pdfs: Vec<ZoteroItemRow> = from_js(pdfs)?;
-    out(&pick_main_pdf(&pdfs))
+    Ok(pick_main_pdf(&pdfs))
 }
 
 /// [`annotation_from_item`] (TS `zoteroAnnotationFromItem`).
@@ -69,13 +72,21 @@ pub fn zotero_annotation_from_item_js(
     out(&annotation_from_item(&item))
 }
 
-/// [`note_from_item`] (TS `zoteroNoteFromItem`). The note, or null when it has no text.
+/// [`note_from_item`] (TS `zoteroNoteFromItem`). The note, or `undefined` when it has no text.
 ///
 /// # Errors
 ///
 /// Fails if `item` is not a Zotero item.
-#[wasm_bindgen(js_name = zoteroNoteFromItem)]
-pub fn zotero_note_from_item_js(item: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(
+    js_name = zoteroNoteFromItem,
+    unchecked_return_type = "B.ZoteroAnnotation | undefined"
+)]
+pub fn zotero_note_from_item_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ZoteroItemRow")] item: JsValue,
+) -> Result<JsValue, JsError> {
     let item: ZoteroItemRow = from_js(item)?;
-    out(&note_from_item(&item))
+    match note_from_item(&item) {
+        Some(note) => out(&note),
+        None => Ok(JsValue::UNDEFINED),
+    }
 }

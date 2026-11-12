@@ -3,7 +3,8 @@ import { test } from "node:test";
 import * as wasm from "../../../../wf-wasm/src/index.ts";
 
 // Their TypeScript was removed; the Rust core is the implementation.
-const { MCP_RESULT_NOTICE, mcpReadResult } = wasm;
+const { mcpReadResult } = wasm;
+const MCP_RESULT_NOTICE = wasm.mcpResultNotice();
 
 const NONCE = "0123456789abcdef";
 

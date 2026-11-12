@@ -14,7 +14,9 @@ use wf_core::papers::paper_title;
 #[wasm_bindgen(js_name = isPlaceholderTitle)]
 #[must_use]
 pub fn is_placeholder_title_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] title: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] title: Option<
+        String,
+    >,
 ) -> bool {
     paper_title::is_placeholder_title(title.as_deref())
 }
@@ -34,7 +36,9 @@ pub fn title_from_file_name_js(title: &str) -> String {
 #[wasm_bindgen(js_name = titleKey, unchecked_return_type = "string | null")]
 #[must_use]
 pub fn title_key_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] title: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] title: Option<
+        String,
+    >,
 ) -> JsValue {
     paper_title::title_key(title.as_deref()).map_or(JsValue::NULL, JsValue::from)
 }

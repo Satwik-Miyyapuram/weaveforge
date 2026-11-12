@@ -2,6 +2,7 @@
 //! match `packages/core/src/features/relations/domain/parts.ts` and
 //! `graph-persisted-state.ts`.
 
+use js_sys::Array;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::relations::graph_settings::{self, GraphViewSettings};
@@ -72,6 +73,24 @@ pub fn graph_filter_count_js(
         selected_lists,
         &settings,
     ))
+}
+
+/// [`graph_filter_count`](graph_settings::graph_filter_count) for the selected tags and lists.
+///
+/// # Errors
+///
+/// Fails if `settings` has the wrong shape.
+#[wasm_bindgen(js_name = graphFilterCount)]
+pub fn graph_filter_count_of_js(
+    #[wasm_bindgen(unchecked_param_type = "string[]")] selected_tags: &Array,
+    #[wasm_bindgen(unchecked_param_type = "string[]")] selected_lists: &Array,
+    #[wasm_bindgen(unchecked_param_type = "B.GraphViewSettings")] settings: JsValue,
+) -> JsResult<u32> {
+    graph_filter_count_js(
+        selected_tags.length() as usize,
+        selected_lists.length() as usize,
+        settings,
+    )
 }
 
 /// [`parse_graph_persisted_state`](graph_settings::parse_graph_persisted_state); `null` when absent.

@@ -31,6 +31,7 @@ pub struct HunkGroup {
 /// The choice a user made for one conflicting field.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "PanelChoice"))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Choice {
     /// Keep this device's copy.

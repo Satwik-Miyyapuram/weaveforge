@@ -10,6 +10,7 @@ use crate::reader_analysis::types::AnalysisParsedReference;
 
 /// Extra facts a bibliographic lookup can match on (TS `PaperRef` `hints`).
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceHints {
     /// The entry's title as printed, untrimmed.
@@ -25,6 +26,7 @@ pub struct ReferenceHints {
 
 /// The paper reference a bibliography entry resolves by (TS `PaperRef` for an entry).
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum ReferenceRef {
     /// A DOI from the entry.
@@ -48,6 +50,7 @@ pub enum ReferenceRef {
 
 /// The fields a manual add can fill from an entry (TS `NewPaperInput`).
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ManualPaperInput {
     /// The trimmed title, or the start of the raw entry text (200 UTF-16 units).

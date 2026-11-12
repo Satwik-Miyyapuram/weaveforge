@@ -1,6 +1,4 @@
 //! `.bib` import for JavaScript (wf-core `papers::bib_import`).
-//!
-//! The TS wrapper in `packages/wf-wasm/src/wrappers-5.ts` gives the result its type.
 
 use serde_json::Value;
 use wasm_bindgen::JsValue;
@@ -27,15 +25,18 @@ pub fn bib_paper_input_js(
     to_js(&bib_import::bib_paper_input(&entry))
 }
 
-/// [`cite_key_of`](bib_import::cite_key_of) (TS `citeKeyOf`).
+/// [`cite_key_of`](bib_import::cite_key_of) (TS `citeKeyOf`): the citation key of a paper's
+/// metadata bag, or `undefined` when it is not a string that is not blank.
 ///
 /// # Errors
 ///
 /// Fails if `metadata` cannot be read as a JSON value.
 #[wasm_bindgen(js_name = citeKeyOf)]
-pub fn cite_key_of_js(metadata: JsValue) -> JsResult<JsValue> {
+pub fn cite_key_of_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] metadata: JsValue,
+) -> JsResult<Option<String>> {
     let metadata: Option<Value> = serde_wasm_bindgen::from_value(metadata)?;
-    to_js(&bib_import::cite_key_of(metadata.as_ref()))
+    Ok(bib_import::cite_key_of(metadata.as_ref()))
 }
 
 /// [`plan_bib_import`](bib_import::plan_bib_import) (TS `planBibImport`).

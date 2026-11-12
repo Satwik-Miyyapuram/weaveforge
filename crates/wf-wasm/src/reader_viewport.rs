@@ -2,8 +2,8 @@
 //! (wf-core `reader::viewport`). Each export wraps one function; the JS names and
 //! shapes match `packages/core/src/reader`.
 //!
-//! Objects cross as plain JS objects through serde; numbers cross as f64. The
-//! TS wrappers in `packages/wf-wasm/src/wrappers-8.ts` apply the defaults.
+//! Objects cross as plain JS objects through serde; numbers cross as f64. Each
+//! export declares its TS types, so no TS wrapper sits in front of it.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -171,8 +171,12 @@ pub fn projected_page_size_js(
 /// # Errors
 ///
 /// Fails if `p` is not a page projection object.
-#[wasm_bindgen(js_name = pdfPointToScreen)]
-pub fn pdf_point_to_screen_js(x: f64, y: f64, p: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = pdfPointToScreen, unchecked_return_type = "{ x: number; y: number }")]
+pub fn pdf_point_to_screen_js(
+    x: f64,
+    y: f64,
+    #[wasm_bindgen(unchecked_param_type = "B.ReaderPageProjection")] p: JsValue,
+) -> JsResult<JsValue> {
     let p = serde_wasm_bindgen::from_value::<ReaderPageProjection>(p)?;
     to_js(&pdf_point_to_screen(x, y, p))
 }
@@ -182,8 +186,12 @@ pub fn pdf_point_to_screen_js(x: f64, y: f64, p: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `p` is not a page projection object.
-#[wasm_bindgen(js_name = screenPointToPdf)]
-pub fn screen_point_to_pdf_js(sx: f64, sy: f64, p: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = screenPointToPdf, unchecked_return_type = "{ x: number; y: number }")]
+pub fn screen_point_to_pdf_js(
+    sx: f64,
+    sy: f64,
+    #[wasm_bindgen(unchecked_param_type = "B.ReaderPageProjection")] p: JsValue,
+) -> JsResult<JsValue> {
     let p = serde_wasm_bindgen::from_value::<ReaderPageProjection>(p)?;
     to_js(&screen_point_to_pdf(sx, sy, p))
 }
@@ -194,8 +202,15 @@ pub fn screen_point_to_pdf_js(sx: f64, sy: f64, p: JsValue) -> JsResult<JsValue>
 /// # Errors
 ///
 /// Fails if `p` is not a page projection object.
-#[wasm_bindgen(js_name = pdfRectToScreenBox)]
-pub fn pdf_rect_to_screen_box_js(rect: &[f64], p: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(
+    js_name = pdfRectToScreenBox,
+    unchecked_return_type = "{ left: number; top: number; width: number; height: number }"
+)]
+pub fn pdf_rect_to_screen_box_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly [number, number, number, number]")]
+    rect: &[f64],
+    #[wasm_bindgen(unchecked_param_type = "B.ReaderPageProjection")] p: JsValue,
+) -> JsResult<JsValue> {
     let p = serde_wasm_bindgen::from_value::<ReaderPageProjection>(p)?;
     let at = |i: usize| rect.get(i).copied().unwrap_or(f64::NAN);
     to_js(&pdf_rect_to_screen_box([at(0), at(1), at(2), at(3)], p))

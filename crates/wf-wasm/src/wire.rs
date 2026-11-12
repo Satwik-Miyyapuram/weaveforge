@@ -110,8 +110,10 @@ pub fn wire_error_reply_js(
 /// # Errors
 ///
 /// Fails if `id` is not a non-negative integer.
-#[wasm_bindgen(js_name = wireOkReplyHead)]
-pub fn wire_ok_reply_head_js(id: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = wireOkReplyHead, unchecked_return_type = "{ id: number; ok: true }")]
+pub fn wire_ok_reply_head_js(
+    #[wasm_bindgen(unchecked_param_type = "number")] id: JsValue,
+) -> JsResult<JsValue> {
     let id: u64 = serde_wasm_bindgen::from_value(id)?;
     to_js(&wire::ok_reply_head(id))
 }

@@ -68,10 +68,15 @@ pub fn kind_owner_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&rules::kind_owner(kind))
 }
 
-/// [`rules::member_rank`].
+/// [`rules::member_rank`]: papers before notes inside a reading list. An unknown kind's
+/// "no rank" (`i32::MAX`) reads as `Number.MAX_SAFE_INTEGER`, so it sorts last as before.
 #[wasm_bindgen(js_name = memberRank)]
-pub fn member_rank_js(kind: &str) -> i32 {
-    rules::member_rank(kind)
+#[must_use]
+pub fn member_rank_js(kind: &str) -> f64 {
+    match rules::member_rank(kind) {
+        i32::MAX => 9_007_199_254_740_991.0,
+        rank => f64::from(rank),
+    }
 }
 
 /// [`rules::link_group_of`].

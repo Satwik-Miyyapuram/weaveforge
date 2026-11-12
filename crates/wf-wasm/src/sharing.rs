@@ -1,8 +1,8 @@
 //! Sharing and comment helpers for JavaScript (wf-core `sharing`). The JS names match
 //! `packages/core/src/features/sharing/domain/share.ts` and `comment.ts`.
 
-use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::{JsCast, JsValue};
 use wf_core::sharing::{
     self, CommentRow, NewCommentInput, NewShareInput, ShareGrant, ShareScope, ShareableType,
     SharedSource,
@@ -19,7 +19,8 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
     reason = "wasm_bindgen takes strings by value"
 )]
 pub fn is_blanket_share_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] resource_id: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")]
+    resource_id: Option<String>,
 ) -> bool {
     sharing::is_blanket_share(resource_id.as_deref())
 }
@@ -36,7 +37,8 @@ pub fn is_blanket_share_js(
 )]
 pub fn share_supports_edit_access_js(
     #[wasm_bindgen(unchecked_param_type = "B.ShareableType")] resource_type: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] resource_id: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")]
+    resource_id: Option<String>,
 ) -> JsResult<bool> {
     let resource_type: ShareableType = serde_wasm_bindgen::from_value(resource_type)?;
     Ok(sharing::share_supports_edit_access(
@@ -120,30 +122,75 @@ pub fn share_allows_edit_js(
     ))
 }
 
-/// [`normalize_share_input`](sharing::normalize_share_input); a validation message throws as text.
-///
-/// # Errors
-///
-/// Fails if `input` has the wrong shape or does not validate.
-#[wasm_bindgen(js_name = normalizeShareInput)]
-pub fn normalize_share_input_js(input: JsValue) -> Result<JsValue, JsValue> {
-    let input: NewShareInput = serde_wasm_bindgen::from_value(input)?;
-    let normalized =
-        sharing::normalize_share_input(&input).map_err(|message| JsValue::from_str(&message))?;
-    Ok(to_js(&normalized)?)
+/// A thrown value as an `Error` named like the TS validation class: an unnamed `Error` (from
+/// serde) is renamed, a message becomes a new `Error`, anything else passes through.
+fn named_error(thrown: JsValue, name: &str) -> JsValue {
+    if let Some(error) = thrown.dyn_ref::<js_sys::Error>() {
+        if error.name() == "Error" {
+            error.set_name(name);
+        }
+        return thrown;
+    }
+    match thrown.as_string() {
+        Some(message) => {
+            let error = js_sys::Error::new(&message);
+            error.set_name(name);
+            error.into()
+        }
+        None => thrown,
+    }
 }
 
-/// [`normalize_comment_input`](sharing::normalize_comment_input); a message throws as text.
+/// [`normalize_share_input`](sharing::normalize_share_input). A grant to a recipient with an
+/// unknown resource type is refused before parsing, as the TS rule did.
 ///
 /// # Errors
 ///
-/// Fails if `input` has the wrong shape or does not validate.
-#[wasm_bindgen(js_name = normalizeCommentInput)]
-pub fn normalize_comment_input_js(input: JsValue) -> Result<JsValue, JsValue> {
-    let input: NewCommentInput = serde_wasm_bindgen::from_value(input)?;
-    let normalized =
-        sharing::normalize_comment_input(&input).map_err(|message| JsValue::from_str(&message))?;
-    Ok(to_js(&normalized)?)
+/// Throws an `Error` named `ShareValidationError` if `input` has the wrong shape or does not
+/// validate.
+#[wasm_bindgen(js_name = normalizeShareInput, unchecked_return_type = "Required<B.NewShareInput>")]
+pub fn normalize_share_input_js(
+    #[wasm_bindgen(unchecked_param_type = "B.NewShareInput")] input: JsValue,
+) -> Result<JsValue, JsValue> {
+    let named = |thrown: JsValue| named_error(thrown, "ShareValidationError");
+    let recipient =
+        js_sys::Reflect::get(&input, &JsValue::from_str("recipientId")).map_err(named)?;
+    if recipient.is_truthy() {
+        let kind =
+            js_sys::Reflect::get(&input, &JsValue::from_str("resourceType")).map_err(named)?;
+        if let Some(kind) = kind.as_string() {
+            let known: Result<ShareableType, _> =
+                serde_wasm_bindgen::from_value(JsValue::from_str(&kind));
+            if known.is_err() {
+                return Err(named(JsValue::from_str(&format!(
+                    "Unknown resource type \"{kind}\"."
+                ))));
+            }
+        }
+    }
+    let input: NewShareInput =
+        serde_wasm_bindgen::from_value(input).map_err(|error| named(error.into()))?;
+    let normalized = sharing::normalize_share_input(&input)
+        .map_err(|message| named(JsValue::from_str(&message)))?;
+    to_js(&normalized).map_err(|error| named(error.into()))
+}
+
+/// [`normalize_comment_input`](sharing::normalize_comment_input).
+///
+/// # Errors
+///
+/// Throws an `Error` named `CommentValidationError` if `input` has the wrong shape or does not
+/// validate.
+#[wasm_bindgen(js_name = normalizeCommentInput, unchecked_return_type = "B.NewCommentInput")]
+pub fn normalize_comment_input_js(
+    #[wasm_bindgen(unchecked_param_type = "B.NewCommentInput")] input: JsValue,
+) -> Result<JsValue, JsValue> {
+    let named = |thrown: JsValue| named_error(thrown, "CommentValidationError");
+    let input: NewCommentInput =
+        serde_wasm_bindgen::from_value(input).map_err(|error| named(error.into()))?;
+    let normalized = sharing::normalize_comment_input(&input)
+        .map_err(|message| named(JsValue::from_str(&message)))?;
+    to_js(&normalized).map_err(|error| named(error.into()))
 }
 
 /// [`encode_share_link_token`](sharing::encode_share_link_token): unpadded base64url.
@@ -152,14 +199,16 @@ pub fn encode_share_link_token_js(token: &[u8]) -> String {
     sharing::encode_share_link_token(token)
 }
 
-/// [`decode_share_link_token`](sharing::decode_share_link_token); a bad token throws its message.
+/// [`decode_share_link_token`](sharing::decode_share_link_token): the token's bytes; accepts
+/// either base64 alphabet, padded or not.
 ///
 /// # Errors
 ///
-/// Fails if `encoded` is not valid base64 (either alphabet).
+/// Throws an `Error` named `InvalidCharacterError` if `encoded` is not valid base64.
 #[wasm_bindgen(js_name = decodeShareLinkToken)]
 pub fn decode_share_link_token_js(encoded: &str) -> Result<Vec<u8>, JsValue> {
-    sharing::decode_share_link_token(encoded).map_err(|message| JsValue::from_str(&message))
+    sharing::decode_share_link_token(encoded)
+        .map_err(|message| named_error(JsValue::from_str(&message), "InvalidCharacterError"))
 }
 
 /// [`comment_from_row`](sharing::comment_from_row): a `comments` row as the app's `Comment`.
@@ -192,15 +241,25 @@ pub fn shared_item_js(
     to_js(&sharing::shared_item(kind, &row, &source))
 }
 
-/// [`member_name_map`](wf_core::member::member_name_map).
+/// [`member_name_map`](wf_core::member::member_name_map) as a `Map` from member id to display
+/// name: full name, else email, else `"Member"`.
 ///
 /// # Errors
 ///
 /// Fails when `members` is not a list of member sources.
-#[wasm_bindgen(js_name = memberNameMap)]
-pub fn member_name_map_js(members: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = memberNameMap, unchecked_return_type = "Map<string, string>")]
+pub fn member_name_map_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.MemberNameSource[]")] members: JsValue,
+) -> JsResult<JsValue> {
     let members: Vec<wf_core::member::MemberNameSource> = serde_wasm_bindgen::from_value(members)?;
-    to_js(&wf_core::member::member_name_map(&members))
+    let names = js_sys::Map::new();
+    for member in wf_core::member::member_name_map(&members) {
+        let _ = names.set(
+            &JsValue::from_str(&member.id),
+            &JsValue::from_str(&member.name),
+        );
+    }
+    Ok(names.into())
 }
 
 /// [`shared_resource_href`](sharing::shared_resource_href).
@@ -248,8 +307,13 @@ pub fn shared_item_type_label_js(
 /// # Errors
 ///
 /// Fails when `metadata` is not JSON, or the summary cannot be converted to a JS value.
-#[wasm_bindgen(js_name = sharedPaperAnnotationSummary)]
-pub fn shared_paper_annotation_summary_js(metadata: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(
+    js_name = sharedPaperAnnotationSummary,
+    unchecked_return_type = "B.SharedPaperAnnotationSummary"
+)]
+pub fn shared_paper_annotation_summary_js(
+    #[wasm_bindgen(unchecked_param_type = "Record<string, unknown> | undefined")] metadata: JsValue,
+) -> JsResult<JsValue> {
     let metadata: Option<serde_json::Value> = serde_wasm_bindgen::from_value(metadata)?;
     to_js(&sharing::shared_paper_annotation_summary(metadata.as_ref()))
 }

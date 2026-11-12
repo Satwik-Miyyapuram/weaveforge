@@ -12,8 +12,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails with `AI proposal preview is required.` for blank content, or when the input is malformed.
-#[wasm_bindgen(js_name = shapeAiProposalDraft)]
-pub fn shape_ai_proposal_draft_js(input: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = shapeAiProposalDraft, unchecked_return_type = "B.ProposalDraft")]
+pub fn shape_ai_proposal_draft_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ProposalDraftInput")] input: JsValue,
+) -> Result<JsValue, JsError> {
     let input: ProposalDraftInput = serde_wasm_bindgen::from_value(input).map_err(js_error)?;
     let draft =
         proposal_draft::shape_proposal_draft(input).map_err(|message| JsError::new(&message))?;

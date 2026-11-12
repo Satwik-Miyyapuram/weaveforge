@@ -34,6 +34,7 @@ impl EraserSweepState {
     }
 
     /// Starts a sweep; `pen_eraser` is whether the pointer is the pen's eraser end.
+    #[wasm_bindgen(unchecked_return_type = "\"none\" | \"show\" | \"keep\" | \"restore\"")]
     pub fn begin(
         &mut self,
         pointer_id: f64,
@@ -55,23 +56,27 @@ impl EraserSweepState {
     }
 
     /// Ends the sweep `pointer_id` owns.
+    #[wasm_bindgen(unchecked_return_type = "\"none\" | \"show\" | \"keep\" | \"restore\"")]
     pub fn end(&mut self, pointer_id: f64) -> String {
         action_name(self.inner.end(pointer_id as i64)).to_string()
     }
 
     /// A hover by `pointer_id`.
     #[must_use]
+    #[wasm_bindgen(unchecked_return_type = "\"none\" | \"show\" | \"keep\" | \"restore\"")]
     pub fn hover(&self, pointer_id: f64) -> String {
         action_name(self.inner.hover(pointer_id as i64)).to_string()
     }
 
     /// The pointer `pointer_id` left the surface.
     #[must_use]
+    #[wasm_bindgen(unchecked_return_type = "\"none\" | \"show\" | \"keep\" | \"restore\"")]
     pub fn leave(&self, pointer_id: f64) -> String {
         action_name(self.inner.leave(pointer_id as i64)).to_string()
     }
 
     /// A down by `pointer_id` that did not erase.
+    #[wasm_bindgen(unchecked_return_type = "\"none\" | \"show\" | \"keep\" | \"restore\"")]
     pub fn release(&mut self, pointer_id: f64) -> String {
         action_name(self.inner.release(pointer_id as i64)).to_string()
     }

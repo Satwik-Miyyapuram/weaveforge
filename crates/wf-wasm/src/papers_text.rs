@@ -1,7 +1,5 @@
 //! Paper drop rules, PDF titles, and figure names for JavaScript (wf-core
 //! `papers::paper_drop` and `papers::paper_image`).
-//!
-//! The TS wrapper in `packages/wf-wasm/src/wrappers-5.ts` gives the results their types.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

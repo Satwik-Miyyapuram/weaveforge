@@ -30,10 +30,16 @@ pub fn mcp_file_of_js(
 /// # Errors
 ///
 /// Fails when `launch` is not an object with `command`, `args` and `env`.
-#[wasm_bindgen(js_name = rewriteMcpConfig)]
+#[wasm_bindgen(
+    js_name = rewriteMcpConfig,
+    unchecked_return_type = "{ changed: boolean; config: unknown }"
+)]
 pub fn rewrite_mcp_config_js(
-    config: JsValue,
-    key: &str,
+    #[wasm_bindgen(unchecked_param_type = "unknown")] config: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "\"mcpServers\" | \"servers\"")] key: &str,
+    #[wasm_bindgen(
+        unchecked_param_type = "{ command: string; args: string[]; env: Record<string, string> }"
+    )]
     launch: JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let config: Value = serde_wasm_bindgen::from_value(config)?;

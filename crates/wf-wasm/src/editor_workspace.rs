@@ -2,6 +2,7 @@
 //! pane layout (`pane_tree`) and tab groups (`tab_groups`) in wf-core.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -67,30 +68,40 @@ struct DocumentProbe {
     folder: bool,
 }
 
-/// [`folder_ids_of`](tree::folder_ids_of). Returns an array; the TS wrapper makes the `Set`.
+/// [`folder_ids_of`](tree::folder_ids_of) as a JS `Set`, filled in sorted order.
 ///
 /// # Errors
 ///
 /// Fails if `nodes` has the wrong shape.
-#[wasm_bindgen(js_name = folderIdsOf)]
-pub fn folder_ids_of_js(nodes: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = folderIdsOf, unchecked_return_type = "Set<string>")]
+pub fn folder_ids_of_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.WorkspaceTreeNode[]")] nodes: JsValue,
+) -> Result<JsValue, JsValue> {
     let nodes: Vec<WorkspaceTreeNode> = serde_wasm_bindgen::from_value(nodes)?;
     let mut ids: Vec<String> = tree::folder_ids_of(&nodes).into_iter().collect();
     ids.sort();
-    to_js(&ids)
+    let set = js_sys::Set::new(&JsValue::UNDEFINED);
+    for id in &ids {
+        let _ = set.add(&JsValue::from_str(id));
+    }
+    Ok(set.into())
 }
 
-/// [`visible_rows`](tree::visible_rows). `expanded` is an array of keys.
+/// [`visible_rows`](tree::visible_rows). `expanded` is the set of expanded keys.
 ///
 /// # Errors
 ///
 /// Fails if either argument has the wrong shape.
-#[wasm_bindgen(js_name = visibleRows)]
-pub fn visible_rows_js(nodes: JsValue, expanded: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = visibleRows, unchecked_return_type = "B.VisibleRow[]")]
+pub fn visible_rows_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.WorkspaceTreeNode[]")] nodes: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "ReadonlySet<string>")] expanded: &JsValue,
+) -> Result<JsValue, JsValue> {
     let nodes: Vec<WorkspaceTreeNode> = serde_wasm_bindgen::from_value(nodes)?;
-    let expanded: Vec<String> = serde_wasm_bindgen::from_value(expanded)?;
+    let expanded: Vec<String> =
+        serde_wasm_bindgen::from_value(js_sys::Array::from(expanded).into())?;
     let expanded = expanded.into_iter().collect();
-    to_js(&tree::visible_rows(&nodes, &expanded))
+    Ok(to_js(&tree::visible_rows(&nodes, &expanded))?)
 }
 
 /// [`slug_segment`](tree::slug_segment).
@@ -112,28 +123,50 @@ pub fn build_lists_tree_js(
     to_js(&tree::build_lists_tree(&input))
 }
 
-/// [`list_membership`](tree::list_membership). Returns a JS `Map` of `kind:id` to list titles.
+/// [`list_membership`](tree::list_membership). `titles` maps list id to title; returns a JS
+/// `Map` of `kind:id` to list titles, in key order.
 ///
 /// # Errors
 ///
 /// Fails if either argument has the wrong shape.
-#[wasm_bindgen(js_name = listMembership)]
-pub fn list_membership_js(items: JsValue, titles: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = listMembership, unchecked_return_type = "Map<string, string[]>")]
+pub fn list_membership_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ListItemEntry[]")] items: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "ReadonlyMap<string, string>")] titles: &JsValue,
+) -> Result<JsValue, JsValue> {
     let items: Vec<ListItemEntry> = serde_wasm_bindgen::from_value(items)?;
-    let titles: HashMap<String, String> = serde_wasm_bindgen::from_value(titles)?;
+    let titles: HashMap<String, String> = crate::search_document::map_arg(titles)?;
     let membership: BTreeMap<String, Vec<String>> = tree::list_membership(&items, &titles);
-    to_js(&membership)
+    let map = js_sys::Map::new();
+    for (key, lists) in &membership {
+        let _ = map.set(&JsValue::from_str(key), &to_js(lists)?);
+    }
+    Ok(map.into())
 }
 
-/// [`filter_rows`](tree::filter_rows). `rows` is an array of `VisibleRow`.
+/// [`filter_rows`](tree::filter_rows): the rows to paint and the keys to expand (a JS `Set`).
 ///
 /// # Errors
 ///
 /// Fails if `rows` has the wrong shape.
-#[wasm_bindgen(js_name = filterRows)]
-pub fn filter_rows_js(rows: JsValue, query: &str) -> JsResult<JsValue> {
+#[wasm_bindgen(
+    js_name = filterRows,
+    unchecked_return_type = "{ rows: B.VisibleRow[]; expand: Set<string> }"
+)]
+pub fn filter_rows_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.VisibleRow[]")] rows: JsValue,
+    query: &str,
+) -> Result<JsValue, JsValue> {
     let rows: Vec<VisibleRow> = serde_wasm_bindgen::from_value(rows)?;
-    to_js(&tree::filter_rows(&rows, query))
+    let filtered = tree::filter_rows(&rows, query);
+    let expand = js_sys::Set::new(&JsValue::UNDEFINED);
+    for key in &filtered.expand {
+        let _ = expand.add(&JsValue::from_str(key));
+    }
+    let out = js_sys::Object::new();
+    let _ = js_sys::Reflect::set(&out, &JsValue::from_str("rows"), &to_js(&filtered.rows)?)?;
+    let _ = js_sys::Reflect::set(&out, &JsValue::from_str("expand"), &expand)?;
+    Ok(out.into())
 }
 
 /// [`preview_tab`](pane::preview_tab).
@@ -195,16 +228,21 @@ pub fn leaves_js(
     to_js(&owned)
 }
 
-/// [`open_tab`](pane::open_tab).
+/// [`open_tab`](pane::open_tab). `pane_id` defaults to the focused pane.
 ///
 /// # Errors
 ///
 /// Fails if `layout` or `tab` has the wrong shape.
-#[wasm_bindgen(js_name = openTab)]
-pub fn open_tab_js(layout: JsValue, tab: JsValue, pane_id: &str) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = openTab, unchecked_return_type = "B.PaneLayout")]
+pub fn open_tab_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.TabRef")] tab: JsValue,
+    pane_id: Option<String>,
+) -> JsResult<JsValue> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
     let tab: TabRef = serde_wasm_bindgen::from_value(tab)?;
-    to_js(&pane::open_tab(&layout, &tab, pane_id))
+    let pane_id = pane_id.unwrap_or_else(|| layout.focused_pane_id.clone());
+    to_js(&pane::open_tab(&layout, &tab, &pane_id))
 }
 
 /// [`activate_tab`](pane::activate_tab).
@@ -237,44 +275,55 @@ pub fn close_tab_js(
     to_js(&pane::close_tab(&layout, pane_id, index))
 }
 
-/// [`split_pane`](pane::split_pane). `direction` is `"row"` or `"column"`.
+/// [`split_pane`](pane::split_pane). `direction` is `"row"` or `"column"`; `new_pane_id`
+/// defaults to a fresh [`next_pane_id`].
 ///
 /// # Errors
 ///
 /// Fails if `layout` or `direction` has the wrong shape.
-#[wasm_bindgen(js_name = splitPane)]
+#[wasm_bindgen(js_name = splitPane, unchecked_return_type = "B.PaneLayout")]
 pub fn split_pane_js(
-    layout: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
     pane_id: &str,
-    direction: JsValue,
-    new_pane_id: &str,
+    #[wasm_bindgen(unchecked_param_type = "B.SplitDirection")] direction: JsValue,
+    new_pane_id: Option<String>,
 ) -> JsResult<JsValue> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
     let direction: SplitDirection = serde_wasm_bindgen::from_value(direction)?;
-    to_js(&pane::split_pane(&layout, pane_id, direction, new_pane_id))
+    let new_pane_id = new_pane_id.unwrap_or_else(next_pane_id);
+    to_js(&pane::split_pane(&layout, pane_id, direction, &new_pane_id))
 }
 
-/// [`move_tab`](pane::move_tab).
+/// [`move_tab`](pane::move_tab). `to_index` is the slot on a tab drop, or omitted to append on
+/// a pane drop.
 ///
 /// # Errors
 ///
-/// Fails if `layout` has the wrong shape.
-#[wasm_bindgen(js_name = moveTab)]
+/// Fails if `layout` or `from` has the wrong shape.
+#[wasm_bindgen(js_name = moveTab, unchecked_return_type = "B.PaneLayout")]
 pub fn move_tab_js(
-    layout: JsValue,
-    from_pane_id: &str,
-    from_index: i32,
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "{ paneId: string; index: number }")] from: JsValue,
     to_pane_id: &str,
     to_index: Option<i32>,
 ) -> JsResult<JsValue> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
+    let from: TabSlot = serde_wasm_bindgen::from_value(from)?;
     to_js(&pane::move_tab(
         &layout,
-        from_pane_id,
-        from_index,
+        &from.pane_id,
+        from.index,
         to_pane_id,
         to_index,
     ))
+}
+
+/// Where a dragged tab came from: its pane and its index there.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TabSlot {
+    pane_id: String,
+    index: i32,
 }
 
 /// [`set_ratio`](pane::set_ratio). `target` is the split being resized.
@@ -307,37 +356,43 @@ pub fn focus_pane_js(
     to_js(&pane::focus_pane(&layout, pane_id))
 }
 
-/// [`active_tab`](pane::active_tab). Takes a leaf.
+/// [`active_tab`](pane::active_tab). Takes a leaf; `undefined` when it has no active tab.
 ///
 /// # Errors
 ///
 /// Fails if `leaf` has the wrong shape.
-#[wasm_bindgen(js_name = activeTab)]
-pub fn active_tab_js(leaf: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = activeTab, unchecked_return_type = "B.TabRef | undefined")]
+pub fn active_tab_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLeaf")] leaf: JsValue,
+) -> JsResult<JsValue> {
     let leaf: PaneLeaf = serde_wasm_bindgen::from_value(leaf)?;
-    to_js(&pane::active_tab(&leaf).cloned())
+    tab_or_undefined(pane::active_tab(&leaf))
 }
 
-/// [`active_tab_ref`](pane::active_tab_ref).
+/// [`active_tab_ref`](pane::active_tab_ref); `undefined` when there is none.
 ///
 /// # Errors
 ///
 /// Fails if `layout` has the wrong shape.
-#[wasm_bindgen(js_name = activeTabRef)]
-pub fn active_tab_ref_js(layout: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = activeTabRef, unchecked_return_type = "B.TabRef | undefined")]
+pub fn active_tab_ref_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+) -> JsResult<JsValue> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
-    to_js(&pane::active_tab_ref(&layout))
+    tab_or_undefined(pane::active_tab_ref(&layout).as_ref())
 }
 
-/// [`active_tab_key`](pane::active_tab_key).
+/// [`active_tab_key`](pane::active_tab_key); `undefined` when there is none.
 ///
 /// # Errors
 ///
 /// Fails if `layout` has the wrong shape.
 #[wasm_bindgen(js_name = activeTabKey)]
-pub fn active_tab_key_js(layout: JsValue) -> JsResult<JsValue> {
+pub fn active_tab_key_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+) -> JsResult<Option<String>> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
-    to_js(&pane::active_tab_key(&layout))
+    Ok(pane::active_tab_key(&layout))
 }
 
 /// [`tab_mode`](pane::tab_mode). Returns `"edit"`, `"read"` or `"ink"`.
@@ -353,15 +408,19 @@ pub fn tab_mode_js(
     to_js(&pane::tab_mode(&tab))
 }
 
-/// [`tab_at`](pane::tab_at).
+/// [`tab_at`](pane::tab_at); `undefined` when there is no tab there.
 ///
 /// # Errors
 ///
 /// Fails if `layout` has the wrong shape.
-#[wasm_bindgen(js_name = tabAt)]
-pub fn tab_at_js(layout: JsValue, pane_id: &str, index: i32) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = tabAt, unchecked_return_type = "B.TabRef | undefined")]
+pub fn tab_at_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+    pane_id: &str,
+    index: i32,
+) -> JsResult<JsValue> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
-    to_js(&pane::tab_at(&layout, pane_id, index))
+    tab_or_undefined(pane::tab_at(&layout, pane_id, index).as_ref())
 }
 
 /// [`set_tab_mode`](pane::set_tab_mode). `mode` is `"edit"`, `"read"` or `"ink"`.
@@ -394,38 +453,53 @@ pub fn preview_open_js(
     Ok(pane::preview_open(&layout))
 }
 
-/// [`toggle_preview`](pane::toggle_preview).
+/// [`toggle_preview`](pane::toggle_preview). `new_pane_id` defaults to a fresh
+/// [`next_pane_id`].
 ///
 /// # Errors
 ///
 /// Fails if `layout` has the wrong shape.
-#[wasm_bindgen(js_name = togglePreview)]
-pub fn toggle_preview_js(layout: JsValue, new_pane_id: &str) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = togglePreview, unchecked_return_type = "B.PaneLayout")]
+pub fn toggle_preview_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+    new_pane_id: Option<String>,
+) -> JsResult<JsValue> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
-    to_js(&pane::toggle_preview(&layout, new_pane_id))
+    let new_pane_id = new_pane_id.unwrap_or_else(next_pane_id);
+    to_js(&pane::toggle_preview(&layout, &new_pane_id))
 }
 
-/// [`preview_source`](pane::preview_source). `previous` may be `undefined`.
+/// [`preview_source`](pane::preview_source): the document the preview shows, the focused tab or
+/// `previous` when the focus is on the preview itself. `undefined` when there is none.
 ///
 /// # Errors
 ///
 /// Fails if an argument has the wrong shape.
-#[wasm_bindgen(js_name = previewSource)]
-pub fn preview_source_js(layout: JsValue, previous: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = previewSource, unchecked_return_type = "B.TabRef | undefined")]
+pub fn preview_source_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.TabRef | undefined")] previous: JsValue,
+) -> JsResult<JsValue> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
     let previous: Option<TabRef> = serde_wasm_bindgen::from_value(previous)?;
-    to_js(&pane::preview_source(&layout, previous.as_ref()))
+    tab_or_undefined(pane::preview_source(&layout, previous.as_ref()).as_ref())
 }
 
-/// [`open_tab_keys`](pane::open_tab_keys).
+/// [`open_tab_keys`](pane::open_tab_keys): the key of every tab open in any pane, as a `Set`.
 ///
 /// # Errors
 ///
 /// Fails if `layout` has the wrong shape.
-#[wasm_bindgen(js_name = openTabKeys)]
-pub fn open_tab_keys_js(layout: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = openTabKeys, unchecked_return_type = "Set<string>")]
+pub fn open_tab_keys_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+) -> JsResult<JsValue> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
-    to_js(&pane::open_tab_keys(&layout))
+    let keys = js_sys::Set::new(&JsValue::UNDEFINED);
+    for key in pane::open_tab_keys(&layout) {
+        let _ = keys.add(&JsValue::from_str(&key));
+    }
+    Ok(keys.into())
 }
 
 /// [`closed_tabs`](pane::closed_tabs).
@@ -456,81 +530,186 @@ pub fn focused_tab_count_js(
     Ok(pane::focused_tab_count(&layout))
 }
 
-/// [`command_for_chord`](keys::command_for_chord). `tab_count` is omitted for an unbounded count.
+/// [`command_for_chord`](keys::command_for_chord): the workspace command a chord means, or
+/// `null`.
+///
+/// The fields are read one by one, since a DOM `KeyboardEvent` keeps its modifiers on prototype
+/// getters. `tab_count` defaults to unbounded; a non-finite count is unbounded too.
 ///
 /// # Errors
 ///
-/// Fails if `chord` has the wrong shape.
-#[wasm_bindgen(js_name = commandForChord)]
-pub fn command_for_chord_js(chord: JsValue, tab_count: Option<u32>) -> JsResult<JsValue> {
-    let chord: KeyChord = serde_wasm_bindgen::from_value(chord)?;
-    let tab_count = tab_count.map(|count| count as usize);
-    to_js(&keys::command_for_chord(&chord, tab_count))
+/// Fails if `chord` is not an object or `chord.key` is not a string.
+#[wasm_bindgen(js_name = commandForChord, unchecked_return_type = "string | null")]
+pub fn command_for_chord_js(
+    #[wasm_bindgen(unchecked_param_type = "B.KeyChord")] chord: &JsValue,
+    tab_count: Option<f64>,
+) -> Result<JsValue, JsValue> {
+    let field = |name: &str| js_sys::Reflect::get(chord, &JsValue::from_str(name));
+    let flag = |name: &str| field(name).map(|value| value.as_bool().unwrap_or(false));
+    let key = field("key")?
+        .as_string()
+        .ok_or_else(|| JsValue::from(js_sys::Error::new("missing field `key`")))?;
+    let chord = KeyChord {
+        key,
+        code: field("code")?.as_string(),
+        ctrl_key: flag("ctrlKey")?,
+        meta_key: flag("metaKey")?,
+        shift_key: flag("shiftKey")?,
+        alt_key: flag("altKey")?,
+    };
+    // A tab count is a small whole number; Infinity (the default) means unbounded.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let tab_count = tab_count
+        .filter(|count| count.is_finite())
+        .map(|count| count as usize);
+    Ok(keys::command_for_chord(&chord, tab_count).map_or(JsValue::NULL, JsValue::from_str))
 }
 
-/// [`layout_for_command`](pane::layout_for_command). `command` is a chord name such as `"split-right"`.
+/// [`layout_for_command`](pane::layout_for_command). `command` is a chord name such as
+/// `"split-right"`; `new_pane_id` defaults to a fresh [`next_pane_id`]. Returns `layout` itself
+/// when the command changes nothing, so `next === layout` means "no change".
 ///
 /// # Errors
 ///
 /// Fails if an argument has the wrong shape.
-#[wasm_bindgen(js_name = layoutForCommand)]
+#[wasm_bindgen(js_name = layoutForCommand, unchecked_return_type = "B.PaneLayout")]
 pub fn layout_for_command_js(
-    layout: JsValue,
-    command: JsValue,
-    new_pane_id: &str,
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.PaneCommand")] command: JsValue,
+    new_pane_id: Option<String>,
 ) -> JsResult<JsValue> {
-    let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
+    let before: PaneLayout = serde_wasm_bindgen::from_value(layout.clone())?;
     let command: PaneCommand = serde_wasm_bindgen::from_value(command)?;
-    to_js(&pane::layout_for_command(&layout, command, new_pane_id))
+    let new_pane_id = new_pane_id.unwrap_or_else(next_pane_id);
+    let after = pane::layout_for_command(&before, command, &new_pane_id);
+    same_or(layout, &before, &after)
 }
 
-/// [`layout_for_tab_menu`](pane::layout_for_tab_menu).
+/// [`layout_for_tab_menu`](pane::layout_for_tab_menu). `new_pane_id` defaults to a fresh
+/// [`next_pane_id`]. Returns `layout` itself when the command changes nothing.
 ///
 /// # Errors
 ///
 /// Fails if an argument has the wrong shape.
-#[wasm_bindgen(js_name = layoutForTabMenu)]
+#[wasm_bindgen(js_name = layoutForTabMenu, unchecked_return_type = "B.PaneLayout")]
 pub fn layout_for_tab_menu_js(
-    layout: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
     pane_id: &str,
     index: i32,
-    command: JsValue,
-    new_pane_id: &str,
+    #[wasm_bindgen(unchecked_param_type = "B.TabMenuCommand")] command: JsValue,
+    new_pane_id: Option<String>,
 ) -> JsResult<JsValue> {
-    let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
+    let before: PaneLayout = serde_wasm_bindgen::from_value(layout.clone())?;
     let command: TabMenuCommand = serde_wasm_bindgen::from_value(command)?;
-    to_js(&pane::layout_for_tab_menu(
-        &layout,
-        pane_id,
-        index,
-        &command,
-        new_pane_id,
-    ))
+    let new_pane_id = new_pane_id.unwrap_or_else(next_pane_id);
+    let after = pane::layout_for_tab_menu(&before, pane_id, index, &command, &new_pane_id);
+    same_or(layout, &before, &after)
 }
 
-/// [`prune_layout`](pane::prune_layout). `open_keys` is an array of tab keys.
+/// [`prune_layout`](pane::prune_layout): drop the tabs for which `exists` is false, then
+/// collapse whatever that empties. Preview tabs are always kept.
 ///
 /// # Errors
 ///
-/// Fails if an argument has the wrong shape.
-#[wasm_bindgen(js_name = pruneLayout)]
-pub fn prune_layout_js(layout: JsValue, open_keys: JsValue) -> JsResult<JsValue> {
+/// Fails if `layout` has the wrong shape, or rethrows what `exists` throws.
+#[wasm_bindgen(js_name = pruneLayout, unchecked_return_type = "B.PaneLayout")]
+pub fn prune_layout_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "(tab: B.TabRef) => boolean")] exists: &js_sys::Function,
+) -> Result<JsValue, JsValue> {
     let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
-    let open_keys: Vec<String> = serde_wasm_bindgen::from_value(open_keys)?;
-    let open_keys: HashSet<String> = open_keys.into_iter().collect();
-    to_js(&pane::prune_layout(&layout, &open_keys))
+    let mut open_keys = HashSet::new();
+    for leaf in pane::leaves(&layout.root) {
+        for tab in &leaf.tabs {
+            if exists.call1(&JsValue::NULL, &to_js(tab)?)?.is_truthy() {
+                let _ = open_keys.insert(pane::tab_key(tab));
+            }
+        }
+    }
+    to_js(&pane::prune_layout(&layout, &open_keys)).map_err(JsValue::from)
 }
 
-/// [`hydrate_tab_modes`](pane::hydrate_tab_modes). `modes` is an object of tab key to mode.
+/// [`hydrate_tab_modes`](pane::hydrate_tab_modes): stamp `mode_for(tab)` onto every tab that
+/// has no mode yet. A tab that already carries a mode is left alone. Returns `layout` itself
+/// when no tab lacks a mode.
 ///
 /// # Errors
 ///
-/// Fails if an argument has the wrong shape.
-#[wasm_bindgen(js_name = hydrateTabModes)]
-pub fn hydrate_tab_modes_js(layout: JsValue, modes: JsValue) -> JsResult<JsValue> {
-    let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
-    let modes: BTreeMap<String, DocumentMode> = serde_wasm_bindgen::from_value(modes)?;
-    to_js(&pane::hydrate_tab_modes(&layout, &modes))
+/// Fails if `layout` or a returned mode has the wrong shape, or rethrows what `mode_for` throws.
+#[wasm_bindgen(js_name = hydrateTabModes, unchecked_return_type = "B.PaneLayout")]
+pub fn hydrate_tab_modes_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "(tab: B.TabRef) => B.DocumentMode")]
+    mode_for: &js_sys::Function,
+) -> Result<JsValue, JsValue> {
+    let parsed: PaneLayout = serde_wasm_bindgen::from_value(layout.clone())?;
+    let mut modes: BTreeMap<String, DocumentMode> = BTreeMap::new();
+    for leaf in pane::leaves(&parsed.root) {
+        for tab in leaf.tabs.iter().filter(|tab| tab.mode.is_none()) {
+            let mode = mode_for.call1(&JsValue::NULL, &to_js(tab)?)?;
+            let _ = modes.insert(pane::tab_key(tab), serde_wasm_bindgen::from_value(mode)?);
+        }
+    }
+    if modes.is_empty() {
+        return Ok(layout);
+    }
+    to_js(&pane::hydrate_tab_modes(&parsed, &modes)).map_err(JsValue::from)
+}
+
+/// True for the preview tab, which is one tab not tied to a document.
+#[wasm_bindgen(js_name = isPreviewTab)]
+#[must_use]
+pub fn is_preview_tab_js(
+    #[wasm_bindgen(unchecked_param_type = "B.TabRef | undefined")] tab: &JsValue,
+) -> bool {
+    if tab.is_undefined() || tab.is_null() {
+        return false;
+    }
+    js_sys::Reflect::get(tab, &JsValue::from_str("kind"))
+        .ok()
+        .and_then(|kind| kind.as_string())
+        .is_some_and(|kind| kind == pane::PREVIEW_KIND)
+}
+
+/// `tab` as a JS value, or `undefined` when there is none.
+fn tab_or_undefined(tab: Option<&TabRef>) -> JsResult<JsValue> {
+    tab.map_or(Ok(JsValue::UNDEFINED), to_js)
+}
+
+/// `layout` itself when `after` equals `before` (its parsed form), so `next === layout` means
+/// "no change"; otherwise `after`.
+fn same_or(layout: JsValue, before: &PaneLayout, after: &PaneLayout) -> JsResult<JsValue> {
+    if before == after {
+        Ok(layout)
+    } else {
+        to_js(after)
+    }
+}
+
+/// Panes created this session, for [`next_pane_id`].
+static PANE_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+/// A pane id unique within this session: `pane-<now in base 36>-<counter>`.
+fn next_pane_id() -> String {
+    let count = PANE_COUNTER.fetch_add(1, Ordering::Relaxed) + 1;
+    // `Date.now()` is a whole, positive millisecond count well inside u64.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let now = js_sys::Date::now() as u64;
+    format!("pane-{}-{count}", base36(now))
+}
+
+/// `n` in lowercase base 36, as JS `n.toString(36)` writes it.
+fn base36(mut n: u64) -> String {
+    let mut digits = Vec::new();
+    loop {
+        let digit = u32::try_from(n % 36).unwrap_or(0);
+        digits.push(char::from_digit(digit, 36).unwrap_or('0'));
+        n /= 36;
+        if n == 0 {
+            break;
+        }
+    }
+    digits.iter().rev().collect()
 }
 
 /// [`without_group`](groups::without_group).

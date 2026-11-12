@@ -25,7 +25,11 @@ pub fn figure_clip_text_js(
 }
 
 /// [`parse_figure_clip`]: the figure a clipboard text names, or `null`.
-#[wasm_bindgen(js_name = parseFigureClip)]
+///
+/// # Errors
+///
+/// Fails only if the result cannot be converted to a JS value.
+#[wasm_bindgen(js_name = parseFigureClip, unchecked_return_type = "B.FigureClip | null")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn parse_figure_clip_js(text: Option<String>) -> JsResult<JsValue> {
     to_js(&parse_figure_clip(text.as_deref()))
@@ -47,14 +51,18 @@ pub fn pasted_figure_place_js(
 /// [`stroke_clip_text`]: the clipboard text for a set of `InkStroke`s.
 #[wasm_bindgen(js_name = strokeClipText)]
 pub fn stroke_clip_text_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly B.InkStroke[]")] strokes: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly T.ReadonlyInkStroke[]")] strokes: JsValue,
 ) -> JsResult<String> {
     let strokes: Vec<InkStroke> = serde_wasm_bindgen::from_value(strokes)?;
     Ok(stroke_clip_text(&strokes))
 }
 
 /// [`parse_stroke_clip`]: the strokes a clipboard text carries, or `null`.
-#[wasm_bindgen(js_name = parseStrokeClip)]
+///
+/// # Errors
+///
+/// Fails only if the result cannot be converted to a JS value.
+#[wasm_bindgen(js_name = parseStrokeClip, unchecked_return_type = "B.InkStroke[] | null")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn parse_stroke_clip_js(text: Option<String>) -> JsResult<JsValue> {
     to_js(&parse_stroke_clip(text.as_deref()))
@@ -63,8 +71,8 @@ pub fn parse_stroke_clip_js(text: Option<String>) -> JsResult<JsValue> {
 /// [`pasted_strokes_place`]: `strokes` are the pasted ones, `on_page` the page's, `page` an `InkPageSize`.
 #[wasm_bindgen(js_name = pastedStrokesPlace, unchecked_return_type = "B.InkStroke[]")]
 pub fn pasted_strokes_place_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly B.InkStroke[]")] strokes: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "readonly B.InkStroke[]")] on_page: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly T.ReadonlyInkStroke[]")] strokes: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly T.ReadonlyInkStroke[]")] on_page: JsValue,
     #[wasm_bindgen(unchecked_param_type = "B.InkPageSize")] page: JsValue,
 ) -> JsResult<JsValue> {
     let strokes: Vec<InkStroke> = serde_wasm_bindgen::from_value(strokes)?;

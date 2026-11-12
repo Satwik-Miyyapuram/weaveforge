@@ -1,13 +1,18 @@
 //! 1-Euro pen filter for JavaScript (wf-core `ink::one_euro`): the smoothing factor and
 //! the stateful filter handles.
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use serde::Deserialize;
 use wasm_bindgen::JsValue;
+use wasm_bindgen::closure::Closure;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::ink::one_euro::{
-    self, NibFilter as CoreNibFilter, NibFilterState, NibSample,
-    OneEuroFilter as CoreOneEuroFilter, OneEuroOptions,
+    self, NibFilter as CoreNibFilter, NibSample, OneEuroFilter as CoreOneEuroFilter, OneEuroOptions,
 };
+
+use super::to_js;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
@@ -31,22 +36,11 @@ pub fn ink_pressure_options_js() -> JsResult<JsValue> {
     serde_wasm_bindgen::to_value(&one_euro::pressure_options())
 }
 
-/// The JS shape of [`OneEuroOptions`].
+/// The JS shape of the [`NibFilter`] constructor's options.
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct OptionsJs {
-    min_cutoff: f64,
-    beta: f64,
-    derivative_cutoff: f64,
-}
-
-fn options_from(value: JsValue) -> JsResult<OneEuroOptions> {
-    let js: OptionsJs = serde_wasm_bindgen::from_value(value)?;
-    Ok(OneEuroOptions {
-        min_cutoff: js.min_cutoff,
-        beta: js.beta,
-        derivative_cutoff: js.derivative_cutoff,
-    })
+struct NibOptionsJs {
+    position: OneEuroOptions,
+    pressure: OneEuroOptions,
 }
 
 /// [`OneEuroFilter`](CoreOneEuroFilter): one scalar channel, held across calls.
@@ -58,26 +52,35 @@ pub struct OneEuroFilter {
 #[wasm_bindgen]
 impl OneEuroFilter {
     /// `options` is `{ minCutoff, beta, derivativeCutoff }`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if `options` is not a `OneEuroOptions`-shaped object.
     #[wasm_bindgen(constructor)]
-    pub fn new(options: JsValue) -> JsResult<OneEuroFilter> {
+    pub fn new(
+        #[wasm_bindgen(unchecked_param_type = "B.OneEuroOptions")] options: JsValue,
+    ) -> JsResult<OneEuroFilter> {
+        let options: OneEuroOptions = serde_wasm_bindgen::from_value(options)?;
         Ok(Self {
-            inner: CoreOneEuroFilter::new(options_from(options)?),
+            inner: CoreOneEuroFilter::new(options),
         })
     }
 
-    /// The last filtered value, or `undefined` before the first sample.
-    #[wasm_bindgen(getter)]
-    pub fn last(&self) -> Option<f64> {
-        self.inner.last()
+    /// The last filtered value, or `null` before the first sample.
+    #[wasm_bindgen(getter, unchecked_return_type = "number | null")]
+    #[must_use]
+    pub fn last(&self) -> JsValue {
+        self.inner.last().map_or(JsValue::NULL, JsValue::from_f64)
     }
 
     /// The last estimated speed, in value units per millisecond.
     #[wasm_bindgen(getter)]
+    #[must_use]
     pub fn speed(&self) -> f64 {
         self.inner.speed()
     }
 
-    /// Forget everything, as at pen-down.
+    /// Forget everything. Called at pen-down: a new stroke is a new signal.
     pub fn reset(&mut self) {
         self.inner.reset();
     }
@@ -88,54 +91,70 @@ impl OneEuroFilter {
     }
 }
 
-/// An opaque snapshot of a [`NibFilter`], for [`NibFilter::restore`].
-#[wasm_bindgen]
-pub struct NibFilterSnapshot {
-    state: NibFilterState,
-}
-
 /// [`NibFilter`](CoreNibFilter): the pen-level filter (position and pressure, one state).
+/// The state is shared with the restore functions [`Self::save`] hands out.
 #[wasm_bindgen]
 pub struct NibFilter {
-    inner: CoreNibFilter,
+    inner: Rc<RefCell<CoreNibFilter>>,
 }
 
 #[wasm_bindgen]
 impl NibFilter {
-    /// `position` and `pressure` are each `{ minCutoff, beta, derivativeCutoff }`.
+    /// `options` is `{ position, pressure }`, each `{ minCutoff, beta, derivativeCutoff }`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if `options` does not hold two `OneEuroOptions`-shaped objects.
     #[wasm_bindgen(constructor)]
-    pub fn new(position: JsValue, pressure: JsValue) -> JsResult<NibFilter> {
+    pub fn new(
+        #[wasm_bindgen(
+            unchecked_param_type = "{ position: B.OneEuroOptions; pressure: B.OneEuroOptions }"
+        )]
+        options: JsValue,
+    ) -> JsResult<NibFilter> {
+        let options: NibOptionsJs = serde_wasm_bindgen::from_value(options)?;
         Ok(Self {
-            inner: CoreNibFilter::new(options_from(position)?, options_from(pressure)?),
+            inner: Rc::new(RefCell::new(CoreNibFilter::new(
+                options.position,
+                options.pressure,
+            ))),
         })
     }
 
-    /// The filter's own speed estimate for the newest sample, for diagnostics.
+    /// The speed the filter saw, in 0.1 mm per ms, from the *raw* samples. Raw
+    /// rather than filtered: the velocity taper is a drawing property.
     #[wasm_bindgen(getter)]
+    #[must_use]
     pub fn speed(&self) -> f64 {
-        self.inner.speed()
+        self.inner.borrow().speed()
     }
 
     /// Start a new stroke: no state carries over from the last one.
     pub fn reset(&mut self) {
-        self.inner.reset();
+        self.inner.borrow_mut().reset();
     }
 
-    /// Filter one raw sample. Returns `[x, y, pressure, velocity, t]`.
-    pub fn filter(&mut self, x: f64, y: f64, pressure: f64, t: f64) -> Vec<f64> {
-        let out = self.inner.filter(NibSample { x, y, pressure, t });
-        vec![out.x, out.y, out.pressure, out.velocity, out.t]
+    /// Filter one raw sample into `{ x, y, pressure, velocity, t }`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if `sample` is not a `NibSample`-shaped object.
+    #[wasm_bindgen(unchecked_return_type = "B.FilteredNibSample")]
+    pub fn filter(
+        &mut self,
+        #[wasm_bindgen(unchecked_param_type = "B.NibSample")] sample: JsValue,
+    ) -> JsResult<JsValue> {
+        let sample: NibSample = serde_wasm_bindgen::from_value(sample)?;
+        let out = self.inner.borrow_mut().filter(sample);
+        to_js(&out)
     }
 
-    /// Snapshot the state, to pass to [`Self::restore`] later.
-    pub fn save(&self) -> NibFilterSnapshot {
-        NibFilterSnapshot {
-            state: self.inner.save(),
-        }
-    }
-
-    /// Put back a state from [`Self::save`].
-    pub fn restore(&mut self, snapshot: &NibFilterSnapshot) {
-        self.inner.restore(snapshot.state);
+    /// Snapshot the filter now; the returned function restores that snapshot.
+    #[wasm_bindgen(unchecked_return_type = "() => void")]
+    #[must_use]
+    pub fn save(&self) -> JsValue {
+        let state = self.inner.borrow().save();
+        let inner = Rc::clone(&self.inner);
+        Closure::<dyn FnMut()>::new(move || inner.borrow_mut().restore(state)).into_js_value()
     }
 }

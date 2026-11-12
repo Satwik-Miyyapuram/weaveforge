@@ -2,8 +2,7 @@
 //! `report::artifact_refs` and `report::artifact_markdown`). The JS names match the TS functions
 //! they replace in `apps/web/src/features/report/application/`.
 //!
-//! The TS wrappers in `packages/wf-wasm/src/wrappers-8.ts` apply the `?? null` handling
-//! and the default stale-check clock.
+//! `resolveArtifactRefsMarkdown` defaults its stale-check clock to `Date.now()`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -46,7 +45,7 @@ pub fn artifact_basename_js(name: &str) -> String {
 }
 
 /// [`resolve_artifact_refs_markdown`](artifact_markdown::resolve_artifact_refs_markdown)
-/// (TS `resolveArtifactRefsMarkdown`). `now_ms` is `Date.now()`.
+/// (TS `resolveArtifactRefsMarkdown`). `now_ms` defaults to `Date.now()`.
 ///
 /// # Errors
 ///
@@ -54,14 +53,14 @@ pub fn artifact_basename_js(name: &str) -> String {
 #[wasm_bindgen(js_name = resolveArtifactRefsMarkdown)]
 pub fn resolve_artifact_refs_markdown_js(
     body: &str,
-    experiments: JsValue,
-    now_ms: f64,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ReportExperiment[]")] experiments: JsValue,
+    now_ms: Option<f64>,
 ) -> JsResult<String> {
     let experiments: Vec<ReportExperiment> = serde_wasm_bindgen::from_value(experiments)?;
     Ok(artifact_markdown::resolve_artifact_refs_markdown(
         body,
         &experiments,
-        now_ms,
+        now_ms.unwrap_or_else(js_sys::Date::now),
     ))
 }
 
@@ -71,7 +70,9 @@ pub fn resolve_artifact_refs_markdown_js(
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs an owned Option<String>.
 #[must_use]
 pub fn safe_artifact_caption_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] alt: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] alt: Option<
+        String,
+    >,
 ) -> String {
     artifact_markdown::safe_artifact_caption(alt.as_deref())
 }

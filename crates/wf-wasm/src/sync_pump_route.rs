@@ -14,8 +14,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails when `input` is not a pump input.
-#[wasm_bindgen(js_name = pumpRoute)]
-pub fn pump_route_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = pumpRoute, unchecked_return_type = "B.PumpRoute")]
+pub fn pump_route_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PumpRouteInput")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: PumpInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&pump_route(input))
 }

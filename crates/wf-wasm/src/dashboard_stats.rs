@@ -15,11 +15,11 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if an input cannot be read as the expected shape.
-#[wasm_bindgen(js_name = dashboardNeedsAttention)]
+#[wasm_bindgen(js_name = dashboardNeedsAttention, unchecked_return_type = "unknown")]
 pub fn dashboard_needs_attention(
-    papers: JsValue,
-    milestones: JsValue,
-    experiments: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "unknown")] papers: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "unknown")] milestones: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "unknown")] experiments: JsValue,
     today: &str,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let papers: Vec<StatPaper> = serde_wasm_bindgen::from_value(papers)?;
@@ -38,8 +38,11 @@ pub fn dashboard_needs_attention(
 /// # Errors
 ///
 /// Fails if `tags` cannot be read as the expected shape.
-#[wasm_bindgen(js_name = dashboardTopTags)]
-pub fn dashboard_top_tags(tags: JsValue, limit: u32) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = dashboardTopTags, unchecked_return_type = "unknown")]
+pub fn dashboard_top_tags(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] tags: JsValue,
+    limit: u32,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let tags: Vec<StatTag> = serde_wasm_bindgen::from_value(tags)?;
     to_js(&stats::top_tags(&tags, limit as usize))
 }
@@ -49,10 +52,10 @@ pub fn dashboard_top_tags(tags: JsValue, limit: u32) -> Result<JsValue, serde_wa
 /// # Errors
 ///
 /// Fails if an input cannot be read as the expected shape.
-#[wasm_bindgen(js_name = dashboardSuperviseeCounts)]
+#[wasm_bindgen(js_name = dashboardSuperviseeCounts, unchecked_return_type = "unknown")]
 pub fn dashboard_supervisee_counts(
-    milestones: JsValue,
-    logs: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "unknown")] milestones: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "unknown")] logs: JsValue,
     today: &str,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let milestones: Vec<StatMilestone> = serde_wasm_bindgen::from_value(milestones)?;
@@ -65,9 +68,9 @@ pub fn dashboard_supervisee_counts(
 /// # Errors
 ///
 /// Fails if `input` cannot be read as the expected shape.
-#[wasm_bindgen(js_name = dashboardBuildStats)]
+#[wasm_bindgen(js_name = dashboardBuildStats, unchecked_return_type = "unknown")]
 pub fn dashboard_build_stats(
-    input: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "unknown")] input: JsValue,
     today: &str,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let input: StatsInput = serde_wasm_bindgen::from_value(input)?;
@@ -79,9 +82,9 @@ pub fn dashboard_build_stats(
 /// # Errors
 ///
 /// Fails if `supervisees` cannot be read as the expected shape.
-#[wasm_bindgen(js_name = dashboardTeamAttention)]
+#[wasm_bindgen(js_name = dashboardTeamAttention, unchecked_return_type = "unknown")]
 pub fn dashboard_team_attention(
-    supervisees: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "unknown")] supervisees: JsValue,
     today: &str,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let supervisees: Vec<StatSupervisee> = serde_wasm_bindgen::from_value(supervisees)?;

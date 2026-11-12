@@ -1,5 +1,4 @@
-//! Metric chart data for JavaScript (wf-core `metric_chart_data`). The TS wrapper in
-//! `packages/wf-wasm/src/wrappers-4.ts` applies the types.
+//! Metric chart data for JavaScript (wf-core `metric_chart_data`).
 
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -27,8 +26,11 @@ pub fn align_series_js(
 }
 
 /// [`ema_smooth`]: debiased EMA over the values; `null` gaps stay gaps.
-#[wasm_bindgen(js_name = emaSmooth)]
-pub fn ema_smooth_js(values: JsValue, alpha: f64) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = emaSmooth, unchecked_return_type = "(number | null)[]")]
+pub fn ema_smooth_js(
+    #[wasm_bindgen(unchecked_param_type = "(number | null)[]")] values: JsValue,
+    alpha: f64,
+) -> Result<JsValue, JsError> {
     let values: Vec<Option<f64>> = parse(values)?;
     to_js(&ema_smooth(&values, alpha)).map_err(js_error)
 }

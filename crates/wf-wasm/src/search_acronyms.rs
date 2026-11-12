@@ -12,7 +12,7 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails only if the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = acronymsForTitle)]
+#[wasm_bindgen(js_name = acronymsForTitle, unchecked_return_type = "string[]")]
 #[allow(
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes strings by value"

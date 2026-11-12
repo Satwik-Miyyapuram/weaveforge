@@ -1,5 +1,5 @@
 //! Extraction-table cell keys and relation labels for JavaScript (wf-core
-//! `reading_lists::extraction_keys`). The JS names match `packages/wf-wasm/src/wrappers-8.ts`.
+//! `reading_lists::extraction_keys`). The JS names match the removed TS helpers.
 
 use std::collections::HashMap;
 
@@ -19,9 +19,12 @@ pub fn pending_key_js(paper_id: &str, field_id: &str) -> String {
 ///
 /// # Errors
 ///
-/// Fails if `ids` is not an array of strings or `titles` is not an object of strings.
+/// Fails if `ids` is not an array of strings or `titles` is not a map (or object) of strings.
 #[wasm_bindgen(js_name = relationTitles)]
-pub fn relation_titles_js(ids: JsValue, titles: JsValue) -> Result<String, JsValue> {
+pub fn relation_titles_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] ids: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "ReadonlyMap<string, string>")] titles: JsValue,
+) -> Result<String, JsValue> {
     let ids: Vec<String> = serde_wasm_bindgen::from_value(ids)?;
     let titles: HashMap<String, String> = serde_wasm_bindgen::from_value(titles)?;
     Ok(extraction_keys::relation_titles(&ids, &titles))

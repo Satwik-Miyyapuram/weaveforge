@@ -76,7 +76,7 @@ export function buildDashboardStats(
   },
   today = localIsoDate(),
 ): DashboardStats {
-  return typedCore().dashboardBuildStats<DashboardStats>(
+  return typedCore().dashboardBuildStats(
     {
       papers: input.papers,
       sections: input.sections,
@@ -88,7 +88,7 @@ export function buildDashboardStats(
       tags: input.tags,
     },
     today,
-  );
+  ) as DashboardStats;
 }
 
 // --- build-supervision-stats ---
@@ -122,7 +122,7 @@ export function summarizeSupervisee(
 ): SuperviseeSummary {
   return {
     member,
-    ...typedCore().dashboardSuperviseeCounts<Omit<SuperviseeSummary, "member">>(milestones, logs, today),
+    ...(typedCore().dashboardSuperviseeCounts(milestones, logs, today) as Omit<SuperviseeSummary, "member">),
   };
 }
 
@@ -135,7 +135,7 @@ export function teamAttentionItems(
     member: s.member,
     milestones: milestonesByMember.get(s.member.id) ?? [],
   }));
-  return typedCore().dashboardTeamAttention<TeamAttentionItem>(supervisees, today);
+  return typedCore().dashboardTeamAttention(supervisees, today) as TeamAttentionItem[];
 }
 
 export function buildSupervisionStats(

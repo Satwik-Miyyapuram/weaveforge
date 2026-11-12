@@ -281,13 +281,22 @@ pub fn relative_asset_paths_js(body: js_sys::JsString) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `bodies` is not an array of strings, or a body is over `MAX_INDEX_TEXT_UTF16`
-/// UTF-16 units.
-#[wasm_bindgen(js_name = ownedAssetFolderPaths)]
-pub fn owned_asset_folder_paths_js(bodies: JsValue) -> JsResult<JsValue> {
-    let bodies: Vec<String> = serde_wasm_bindgen::from_value(bodies)?;
-    for body in &bodies {
-        check_text(body)?;
-    }
+/// UTF-16 units. Each body is checked before it is copied into WASM.
+#[wasm_bindgen(js_name = ownedAssetFolderPaths, unchecked_return_type = "string[]")]
+pub fn owned_asset_folder_paths_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] bodies: &js_sys::Array,
+) -> JsResult<JsValue> {
+    let bodies = bodies
+        .iter()
+        .map(
+            |body| match wasm_bindgen::JsCast::dyn_into::<js_sys::JsString>(body) {
+                Ok(body) => crate::guarded_text(&body),
+                Err(_) => Err(serde_wasm_bindgen::Error::new(
+                    "bodies must be an array of strings",
+                )),
+            },
+        )
+        .collect::<JsResult<Vec<String>>>()?;
     to_js(&owned_asset_folder_paths(&bodies))
 }
 
@@ -353,19 +362,27 @@ fn entity_type(name: &str) -> Option<WorkspaceEntityType> {
         .find(|entity| entity.as_str() == name)
 }
 
-/// [`wf_core::sync::folder_layout::project_dir`] for JS.
+/// [`wf_core::sync::folder_layout::project_dir`] for JS: the folder of a project, named from
+/// its id and name.
 ///
 /// # Errors
 ///
-/// Fails when `id` or `name` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+/// Fails when reading `project` throws, or `id` or `name` is over `MAX_INDEX_TEXT_UTF16` UTF-16
+/// units.
 #[wasm_bindgen(js_name = projectDir)]
-pub fn project_dir_js(id: js_sys::JsString, name: js_sys::JsString) -> JsResult<String> {
-    let id = &crate::guarded_text(&id)?;
-    let name = &crate::guarded_text(&name)?;
-    Ok(project_dir(&WorkspaceProject {
-        id: id.to_owned(),
-        name: name.to_owned(),
-    }))
+pub fn project_dir_js(
+    #[wasm_bindgen(unchecked_param_type = "{ id: string; name: string }")] project: &JsValue,
+) -> Result<String, JsValue> {
+    use wasm_bindgen::JsCast;
+    let text = |key: &str| -> Result<String, JsValue> {
+        let value = js_sys::Reflect::get(project, &JsValue::from_str(key))?;
+        Ok(crate::guarded_text(
+            value.unchecked_ref::<js_sys::JsString>(),
+        )?)
+    };
+    let id = text("id")?;
+    let name = text("name")?;
+    Ok(project_dir(&WorkspaceProject { id, name }))
 }
 
 /// [`wf_core::sync::folder_layout::entity_dir`] for JS.

@@ -3,6 +3,7 @@
 
 use std::collections::{BTreeMap, HashSet};
 
+use js_sys::{Array, Set};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::sync::deserialize::ParsedEntity as FileEntity;
@@ -17,12 +18,15 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 ///
 /// # Errors
 ///
-/// Fails if `entities` is not a list of parsed folder files, or the result cannot be serialized.
-#[wasm_bindgen(js_name = importableEntities)]
-#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned Vec<String> arguments.
-pub fn importable_entities_js(entities: JsValue, note_ids: Vec<String>) -> JsResult<JsValue> {
+/// Fails if `entities` is not a list of parsed folder files, `note_ids` holds a non-string, or
+/// the result cannot be serialized.
+#[wasm_bindgen(js_name = importableEntities, unchecked_return_type = "B.ParsedEntity[]")]
+pub fn importable_entities_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ParsedEntity[]")] entities: JsValue,
+    #[wasm_bindgen(js_name = noteIds, unchecked_param_type = "ReadonlySet<string>")] note_ids: &Set,
+) -> JsResult<JsValue> {
     let entities: Vec<FileEntity> = serde_wasm_bindgen::from_value(entities)?;
-    let note_ids: HashSet<String> = note_ids.into_iter().collect();
+    let note_ids: HashSet<String> = serde_wasm_bindgen::from_value(Array::from(note_ids).into())?;
     to_js(&folder_diff::importable_entities(&entities, &note_ids))
 }
 
@@ -50,12 +54,12 @@ pub fn rename_sources_js(
 /// # Errors
 ///
 /// Fails if the inputs do not match the shape, or the result cannot be serialized.
-#[wasm_bindgen(js_name = seenFiles)]
+#[wasm_bindgen(js_name = seenFiles, unchecked_return_type = "Record<string, B.FolderSeenFile>")]
 pub fn seen_files_js(
-    folder: JsValue,
-    current: JsValue,
-    base: JsValue,
-    renamed: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>>")] folder: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>>")] current: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>>")] base: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>>")] renamed: JsValue,
 ) -> JsResult<JsValue> {
     let folder: BTreeMap<String, String> = serde_wasm_bindgen::from_value(folder)?;
     let current: BTreeMap<String, String> = serde_wasm_bindgen::from_value(current)?;

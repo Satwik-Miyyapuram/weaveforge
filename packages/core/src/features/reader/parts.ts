@@ -24,7 +24,7 @@ export interface ReaderOutlineItem {
 /**
  * One pdf.js text item in PDF user space (origin bottom-left). Core cannot import
  * `@weaveforge/wasm`, so this is a structural copy of the shape in
- * `packages/wf-wasm/src/wrappers-9.ts`; the Rust core is the authority.
+ * `packages/wf-wasm/src/ts-types.ts`; the Rust core is the authority.
  */
 export interface PageTextItem {
   str: string;

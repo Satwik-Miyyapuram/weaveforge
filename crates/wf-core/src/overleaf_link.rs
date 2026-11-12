@@ -16,6 +16,7 @@ const BAD_FOLDER: &str = "Choose a folder inside the vault, like Overleaf/thesis
 /// One Overleaf project linked to a vault folder.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct OverleafLink {
     /// The Overleaf project id.
     pub project_id: String,

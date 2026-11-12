@@ -2,6 +2,7 @@
 //! Each export wraps a `wf_core::reader::zotero_sync` function; the JS shapes match
 //! `packages/core/src/reader/zotero-write-back.ts`.
 
+use js_sys::Array;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::reader::zotero_sync::{
@@ -10,7 +11,9 @@ use wf_core::reader::zotero_sync::{
     to_zotero_write_payload, zotero_write_back_annotations,
 };
 
-use wf_core::reader::zotero_write_back_message::{WriteBackSummary, zotero_write_back_message};
+use wf_core::reader::zotero_write_back_message::{
+    ZoteroWriteBackSummary, zotero_write_back_message,
+};
 
 use super::to_js;
 
@@ -32,12 +35,23 @@ pub fn is_zotero_library_sync_mode_js(
 /// # Errors
 ///
 /// Fails if `row` is not a `ZoteroAnnotationSyncRow` object.
-#[wasm_bindgen(js_name = decideAnnotationSync)]
-pub fn decide_annotation_sync_js(row: JsValue, mode: &str) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = decideAnnotationSync, unchecked_return_type = "B.ZoteroAnnotationDecision")]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes strings by value"
+)]
+pub fn decide_annotation_sync_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ZoteroAnnotationSyncRow")] row: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "\"bidirectional\" | \"read_only\" | \"ignored\" | undefined"
+    )]
+    mode: Option<String>,
+) -> JsResult<JsValue> {
     let row: ZoteroAnnotationSyncRow = serde_wasm_bindgen::from_value(row)?;
+    // A missing mode acts as `bidirectional`, as `""` does.
     to_js(&decide_annotation_sync(
         &row,
-        ZoteroSyncLibraryMode::from_js(mode),
+        ZoteroSyncLibraryMode::from_js(mode.as_deref().unwrap_or("")),
     ))
 }
 
@@ -82,15 +96,36 @@ pub fn to_zotero_write_payload_js(
     to_js(&to_zotero_write_payload(&ann, parent_item_key))
 }
 
-/// [`zotero_write_back_annotations`]: indices of the annotations a write-back sends.
+#[wasm_bindgen(typescript_custom_section)]
+const ZOTERO_WRITE_BACK_ANNOTATIONS_TS: &str = r#"
+/**
+ * The annotations a write-back sends: everything but ink, and only those with a
+ * PDF page. The caller's own objects come back, in order.
+ */
+export function zoteroWriteBackAnnotations<T extends B.ZoteroAnnotationLocal>(annotations: readonly T[]): T[];
+"#;
+
+/// [`zotero_write_back_annotations`]: the caller's annotation objects a write-back sends, in order.
+/// Typed by the custom section above, since its TS signature is generic.
 ///
 /// # Errors
 ///
 /// Fails if `annotations` is not an array of `ZoteroAnnotationLocal` objects.
-#[wasm_bindgen(js_name = zoteroWriteBackAnnotations)]
+#[wasm_bindgen(js_name = zoteroWriteBackAnnotations, skip_typescript)]
 pub fn zotero_write_back_annotations_js(annotations: JsValue) -> JsResult<JsValue> {
-    let annotations: Vec<ZoteroAnnotationLocal> = serde_wasm_bindgen::from_value(annotations)?;
-    to_js(&zotero_write_back_annotations(&annotations))
+    let originals = Array::from(&annotations);
+    let parsed: Vec<ZoteroAnnotationLocal> = serde_wasm_bindgen::from_value(annotations)?;
+    Ok(pick(&originals, zotero_write_back_annotations(&parsed)))
+}
+
+/// The entries of `originals` at `indices`, in that order, as a new array.
+fn pick(originals: &Array, indices: impl IntoIterator<Item = usize>) -> JsValue {
+    indices
+        .into_iter()
+        .filter_map(|i| u32::try_from(i).ok())
+        .map(|i| originals.get(i))
+        .collect::<Array>()
+        .into()
 }
 
 /// [`zotero_write_back_message`]: the sync line's Zotero part for a summary, or `""` for null.
@@ -99,7 +134,9 @@ pub fn zotero_write_back_annotations_js(annotations: JsValue) -> JsResult<JsValu
 ///
 /// Fails if `summary` is neither null nor a write-back summary object.
 #[wasm_bindgen(js_name = zoteroWriteBackMessage)]
-pub fn zotero_write_back_message_js(summary: JsValue) -> JsResult<String> {
-    let summary: Option<WriteBackSummary> = serde_wasm_bindgen::from_value(summary)?;
+pub fn zotero_write_back_message_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ZoteroWriteBackSummary | null")] summary: JsValue,
+) -> JsResult<String> {
+    let summary: Option<ZoteroWriteBackSummary> = serde_wasm_bindgen::from_value(summary)?;
     Ok(zotero_write_back_message(summary.as_ref()))
 }

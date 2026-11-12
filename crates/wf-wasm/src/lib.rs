@@ -185,9 +185,12 @@ use wf_core::search::tokenizer::{
 };
 
 /// Lets `unchecked_param_type` / `unchecked_return_type` name the generated
-/// types as `B.<Name>`, so the package's d.ts is typed without TS wrappers.
+/// types as `B.<Name>`, the narrowed TS types as `T.<Name>` and `R<X>` (every
+/// array readonly), so the package's d.ts is typed without TS wrappers.
 #[wasm_bindgen(typescript_custom_section)]
-const BINDINGS_IMPORT: &str = r#"import type * as B from "../src/bindings.js";"#;
+const BINDINGS_IMPORT: &str = r#"import type * as B from "../src/bindings.js";
+import type * as T from "../src/ts-types.js";
+import type { ReadonlyInput as R } from "../src/readonly-input.js";"#;
 
 /// Converts a value to the JS shape `bindings.ts` declares for it. Every
 /// export returns through here.

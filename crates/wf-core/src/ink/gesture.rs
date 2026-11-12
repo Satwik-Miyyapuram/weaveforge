@@ -12,8 +12,11 @@ use serde::{Deserialize, Serialize};
 
 use super::clip_to_area::{DrawArea, Point, clip_segment_to_area, point_in_area};
 
-/// The armed tool, as the gesture sees it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The armed tool, as the gesture sees it. An unknown name reads as [`Tool::None`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "InkToolName"))]
 pub enum Tool {
     /// The draw tool.
     Draw,
@@ -24,11 +27,15 @@ pub enum Tool {
     /// The region tool.
     Region,
     /// No tool armed.
+    #[serde(other)]
     None,
 }
 
 /// What a pointer's gesture does from down to up.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "InkRouteName"))]
 pub enum Route {
     /// Erase under the pointer.
     Erase,
@@ -45,7 +52,10 @@ pub enum Route {
 }
 
 /// A question the caller answers before the picker can go on.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "InkRouteQuestion"))]
 pub enum Question {
     /// Does the back tip sweep (`begin(event, false, tipErases)`)?
     SweepTip,
@@ -69,9 +79,40 @@ pub enum Step {
     Done(Option<Route>),
 }
 
+/// A [`Step`] as JS sees it: `{ kind: "ask", question }` or
+/// `{ kind: "route", route }`, with a `null` route leaving the down to the caller.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "InkRouteStep"))]
+pub enum RouteStep {
+    /// The caller must answer this question.
+    Ask {
+        /// The question to answer.
+        question: Question,
+    },
+    /// The route is settled.
+    Route {
+        /// The route, or `None` to leave the down to the caller.
+        route: Option<Route>,
+    },
+}
+
+impl From<Step> for RouteStep {
+    fn from(step: Step) -> Self {
+        match step {
+            Step::Ask(question) => RouteStep::Ask { question },
+            Step::Done(route) => RouteStep::Route { route },
+        }
+    }
+}
+
 /// What the caller knows about the down before any question is asked. An absent
 /// callback is never asked; its answer is the old `?.()` default.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "InkRouteFacts"))]
 pub struct DownFacts {
     /// The armed tool at the down.
     pub tool: Tool,
@@ -218,6 +259,8 @@ impl RoutePicker {
 /// One move of a stroke against the paper's edge.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "EdgeStepResult"))]
 pub enum EdgeStep {
     /// Still on the paper.
     Inside,

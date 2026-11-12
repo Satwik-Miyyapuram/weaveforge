@@ -3,15 +3,13 @@
 //! `packages/core/src/features/reader/outline-from-text.ts`.
 //!
 //! Objects cross as plain JS objects through serde; numbers cross as f64.
-//! `isRotatedText` takes a `Float64Array`. The TS wrappers in
-//! `packages/wf-wasm/src/wrappers-6.ts` apply the defaults.
+//! `isRotatedText` takes a `Float64Array`. The exports apply the defaults.
 
-use wasm_bindgen::JsValue;
+use js_sys::{Array, Function, Object, Reflect, Set};
 use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::{JsCast, JsValue};
 use wf_core::reader_analysis::outline as analysis_outline;
-use wf_core::reader_analysis::outline::{
-    OutlinePageRef, OutlineRecurringGroupIndices, OutlineTextItem,
-};
+use wf_core::reader_analysis::outline::{OutlinePageRef, OutlineTextItem};
 
 use super::to_js;
 
@@ -61,32 +59,64 @@ pub fn levenshtein_js(a: &str, b: &str, limit: Option<f64>) -> f64 {
     analysis_outline::levenshtein(a, b, limit.unwrap_or(f64::INFINITY))
 }
 
-/// [`group_recurring_lines`](analysis_outline::group_recurring_lines) (TS `groupRecurringLines`).
-/// The TS wrapper passes each line's text and page; members come back as indices.
+#[wasm_bindgen(typescript_custom_section)]
+const GROUP_RECURRING_LINES_TS: &str = r"
+/** Lines grouped by (near-)identical text; the members are the caller's own line objects. */
+export function groupRecurringLines<T>(lines: readonly T[], textOf: (line: T) => string, pageOf: (line: T) => number): { key: string; pages: Set<number>; members: T[] }[];
+";
+
+/// [`group_recurring_lines`](analysis_outline::group_recurring_lines) (TS `groupRecurringLines`):
+/// lines grouped by (near-)identical text. `textOf` runs over every line, then `pageOf`; the
+/// members are the caller's own line objects.
 ///
 /// # Errors
 ///
-/// Fails if `texts` is not an array of strings or `pages` is not an array of numbers.
-// Indices stay far below 2^53, so the `usize` to `f64` cast is exact.
-#[allow(clippy::cast_precision_loss)]
-#[wasm_bindgen(js_name = groupRecurringLines)]
-pub fn group_recurring_lines_js(texts: JsValue, pages: JsValue) -> JsResult<JsValue> {
-    let texts: Vec<String> = serde_wasm_bindgen::from_value(texts)?;
-    let pages: Vec<f64> = serde_wasm_bindgen::from_value(pages)?;
+/// Fails if `textOf` does not return strings or `pageOf` numbers, or rethrows what they throw.
+#[wasm_bindgen(js_name = groupRecurringLines, skip_typescript)]
+pub fn group_recurring_lines_js(
+    lines: JsValue,
+    text_of: &Function,
+    page_of: &Function,
+) -> Result<JsValue, JsValue> {
+    let lines: Vec<JsValue> = lines.unchecked_into::<Array>().iter().collect();
+    let texts = Array::new();
+    for line in &lines {
+        let _ = texts.push(&text_of.call1(&JsValue::UNDEFINED, line)?);
+    }
+    let pages = Array::new();
+    for line in &lines {
+        let _ = pages.push(&page_of.call1(&JsValue::UNDEFINED, line)?);
+    }
+    let texts: Vec<String> = serde_wasm_bindgen::from_value(texts.into())?;
+    let pages: Vec<f64> = serde_wasm_bindgen::from_value(pages.into())?;
     let indices: Vec<usize> = (0..texts.len()).collect();
-    let groups: Vec<OutlineRecurringGroupIndices> = analysis_outline::group_recurring_lines(
+    let groups = analysis_outline::group_recurring_lines(
         indices.as_slice(),
         |&i| texts.get(i).cloned().unwrap_or_default(),
         |&i| pages.get(i).copied().unwrap_or(f64::NAN),
-    )
-    .into_iter()
-    .map(|group| OutlineRecurringGroupIndices {
-        key: group.key,
-        pages: group.pages,
-        members: group.members.into_iter().map(|&i| i as f64).collect(),
-    })
-    .collect();
-    to_js(&groups)
+    );
+    let out = Array::new();
+    for group in groups {
+        let page_set = Set::new(&JsValue::UNDEFINED);
+        for page in &group.pages {
+            let _ = page_set.add(&JsValue::from_f64(*page));
+        }
+        let members: Array = group
+            .members
+            .into_iter()
+            .map(|&i| lines.get(i).cloned().unwrap_or(JsValue::UNDEFINED))
+            .collect();
+        let row = Object::new();
+        let _ = Reflect::set(
+            &row,
+            &JsValue::from_str("key"),
+            &JsValue::from_str(&group.key),
+        )?;
+        let _ = Reflect::set(&row, &JsValue::from_str("pages"), &page_set)?;
+        let _ = Reflect::set(&row, &JsValue::from_str("members"), &members)?;
+        let _ = out.push(&row);
+    }
+    Ok(out.into())
 }
 
 /// [`outline_from_text`](analysis_outline::outline_from_text) (TS `outlineFromText`).

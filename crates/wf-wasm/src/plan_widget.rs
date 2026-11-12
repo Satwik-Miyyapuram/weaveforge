@@ -1,5 +1,5 @@
-//! Plan desktop widget for JavaScript (wf-core `plan_widget`). JS names match
-//! `packages/wf-wasm/src/wrappers-6.ts`.
+//! Plan desktop widget for JavaScript (wf-core `plan_widget`). JS names are the
+//! public `@weaveforge/wasm` names.
 
 use serde_json::Value;
 use wasm_bindgen::JsValue;
@@ -23,14 +23,20 @@ pub fn clean_widget_palette_js(
     to_js(&clean_widget_palette(&value))
 }
 
-/// [`parse_bounds`]: the saved position from the preference JSON, or `null`.
+/// [`parse_bounds`]: the saved position from the preference JSON, or `null`. A non-string reads
+/// as `null`.
 ///
 /// # Errors
 ///
 /// Fails only if the result cannot be converted to JS.
-#[wasm_bindgen(js_name = parsePlanWidgetBounds)]
-pub fn parse_plan_widget_bounds_js(stored: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    to_js(&parse_bounds(stored))
+#[wasm_bindgen(js_name = parsePlanWidgetBounds, unchecked_return_type = "B.PlanWidgetBounds | null")]
+pub fn parse_plan_widget_bounds_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] stored: &JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    match stored.as_string() {
+        Some(stored) => to_js(&parse_bounds(&stored)),
+        None => Ok(JsValue::NULL),
+    }
 }
 
 /// [`place_widget`]: the saved spot if it is on a screen, else the top-right of the first one.

@@ -2,6 +2,7 @@
 
 use std::collections::HashSet;
 
+use js_sys::{Array, Reflect};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::editor_workspace::explorer_edit as edit;
@@ -58,16 +59,24 @@ pub fn creatable_under_js(
     to_js(&edit::creatable_under(&node))
 }
 
-/// [`creation_kind_for`](edit::creation_kind_for). `activeKind` is `null` when no document is open.
+/// [`creation_kind_for`](edit::creation_kind_for): the kind the "new file" gestures make for the
+/// document on screen. `active` is `undefined` when no document is open.
 ///
 /// # Errors
 ///
 /// Fails if the result cannot be serialised.
-#[wasm_bindgen(js_name = creationKindFor)]
+#[wasm_bindgen(js_name = creationKindFor, unchecked_return_type = "B.CreateKind")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn creation_kind_for_js(
-    active_kind: Option<String>,
+    #[wasm_bindgen(unchecked_param_type = "{ kind: string } | undefined")] active: JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let active_kind = if active.is_undefined() || active.is_null() {
+        None
+    } else {
+        Reflect::get(&active, &JsValue::from_str("kind"))
+            .ok()
+            .and_then(|kind| kind.as_string())
+    };
     to_js(&edit::creation_kind_for(active_kind.as_deref()))
 }
 
@@ -84,21 +93,25 @@ pub fn can_rename_js(
     to_js(&edit::can_rename(&node))
 }
 
-/// [`creation_target`](edit::creation_target). `active` is `null` when no document is open,
-/// `folders` the ids of the notes made as folders.
+/// [`creation_target`](edit::creation_target): where a "new file" lands. `active` is `undefined`
+/// when no document is open (a missing `parentId` means the root), `folders` the ids of the notes
+/// made as folders.
 ///
 /// # Errors
 ///
 /// Fails if an argument does not have the expected shape, or the result cannot be serialised.
-#[wasm_bindgen(js_name = creationTarget)]
+#[wasm_bindgen(js_name = creationTarget, unchecked_return_type = "B.CreationTarget")]
 pub fn creation_target_js(
-    kind: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.CreateKind")] kind: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "{ kind: string; id: string; parentId?: string } | undefined"
+    )]
     active: JsValue,
-    folders: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "ReadonlySet<string>")] folders: &JsValue,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let kind: edit::CreateKind = serde_wasm_bindgen::from_value(kind)?;
     let active: Option<edit::ActiveDocument> = serde_wasm_bindgen::from_value(active)?;
-    let folders: Vec<String> = serde_wasm_bindgen::from_value(folders)?;
+    let folders: Vec<String> = serde_wasm_bindgen::from_value(Array::from(folders).into())?;
     let folders: HashSet<String> = folders.into_iter().collect();
     to_js(&edit::creation_target(kind, active.as_ref(), &folders))
 }

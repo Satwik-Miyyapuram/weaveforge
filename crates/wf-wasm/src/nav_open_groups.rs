@@ -1,4 +1,4 @@
-//! wasm exports for `nav_open_groups` (TS: `packages/wf-wasm/src/wrappers-4.ts`).
+//! wasm exports for `nav_open_groups`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -11,11 +11,11 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `groups` is not an array of strings, or the result cannot be converted to JS.
-#[wasm_bindgen(js_name = withActive)]
+#[wasm_bindgen(js_name = withActive, unchecked_return_type = "string[]")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn with_active_js(
-    groups: JsValue,
-    active: Option<String>,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] groups: JsValue,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null")] active: Option<String>,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let groups: Vec<String> = serde_wasm_bindgen::from_value(groups)?;
     to_js(&nav_open_groups::with_active(&groups, active.as_deref()))
@@ -40,11 +40,11 @@ pub fn toggle_group_js(
 /// # Errors
 ///
 /// Fails if the result cannot be converted to JS.
-#[wasm_bindgen(js_name = loadOpenGroups)]
+#[wasm_bindgen(js_name = loadOpenGroups, unchecked_return_type = "string[]")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn load_open_groups_js(
-    raw: Option<String>,
-    active: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null")] raw: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null")] active: Option<String>,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&nav_open_groups::load_open_groups(
         raw.as_deref(),

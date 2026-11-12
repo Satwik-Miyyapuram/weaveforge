@@ -6,8 +6,9 @@ import {
   parseResultsTableRefs,
   resolveResultsTables,
   serialiseResultsTableRef,
-} from "../src/wrappers-8.js";
-import type { ResultsTableExperiment } from "../src/wrappers-8.js";
+} from "../src/index.js";
+
+type ResultsTableExperiment = Parameters<typeof resolveResultsTables>[1][number];
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 

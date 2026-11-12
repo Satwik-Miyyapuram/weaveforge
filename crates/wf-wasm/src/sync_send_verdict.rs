@@ -15,11 +15,11 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if the result cannot be serialised.
-#[wasm_bindgen(js_name = classifySend)]
+#[wasm_bindgen(js_name = classifySend, unchecked_return_type = "B.SendVerdict")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn classify_send_js(
     status: u16,
-    error_code: Option<String>,
+    #[wasm_bindgen(js_name = errorCode)] error_code: Option<String>,
     rows: Option<u32>,
 ) -> JsResult<JsValue> {
     let rows = rows.map(|n| n as usize);

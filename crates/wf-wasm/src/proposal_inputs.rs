@@ -167,8 +167,13 @@ pub fn proposal_milestone_status(
 }
 
 /// [`experiment_update`](proposal_inputs::experiment_update): status, metrics and artifacts.
-#[wasm_bindgen(js_name = proposalExperimentUpdate)]
-pub fn proposal_experiment_update(payload: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(
+    js_name = proposalExperimentUpdate,
+    unchecked_return_type = "{ status?: string; metrics?: Record<string, unknown>; artifacts?: string[] }"
+)]
+pub fn proposal_experiment_update(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] payload: JsValue,
+) -> JsResult<JsValue> {
     finish(proposal_inputs::experiment_update(&read_payload(payload)?))
 }
 

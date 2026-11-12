@@ -8,6 +8,10 @@ use wf_core::ai::document_text::has_text;
 #[wasm_bindgen(js_name = hasText)]
 #[must_use]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn has_text_js(text: Option<String>) -> bool {
+pub fn has_text_js(
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] text: Option<
+        String,
+    >,
+) -> bool {
     has_text(text.as_deref())
 }

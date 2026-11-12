@@ -483,7 +483,7 @@ export function toExtractionResult(
   return rust().toExtractionResult(
     raw,
     batch.map((doc) => doc.id),
-  );
+  ) as ExtractionResult;
 }
 
 export class ModelConceptExtractor implements IConceptExtractor {

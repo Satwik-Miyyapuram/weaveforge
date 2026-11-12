@@ -66,6 +66,7 @@ pub struct PackedInkStroke {
     pub pressures: Vec<f64>,
 }
 pub mod clipboard;
+pub mod constants;
 pub mod contact_area;
 pub mod gesture;
 pub mod ink_print;

@@ -14,8 +14,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `rects` is not an array of number arrays.
-#[wasm_bindgen(js_name = normalizeHighlightRects)]
-pub fn normalize_highlight_rects_js(rects: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = normalizeHighlightRects, unchecked_return_type = "number[][]")]
+pub fn normalize_highlight_rects_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly (readonly number[])[]")] rects: JsValue,
+) -> JsResult<JsValue> {
     let rects: Vec<Vec<f64>> = serde_wasm_bindgen::from_value(rects)?;
     to_js(&normalize_highlight_rects(&rects))
 }

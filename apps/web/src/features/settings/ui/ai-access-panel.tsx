@@ -111,7 +111,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
   }
 
   function toggleProposal(kind: AiProposalKind) {
-    if (typedCore().AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS.includes(kind)) return;
+    if (typedCore().aiCredentialProtectedProposalKinds().includes(kind)) return;
     const proposalKinds = access.proposalKinds.includes(kind)
       ? access.proposalKinds.filter((item) => item !== kind)
       : [...access.proposalKinds, kind];
@@ -119,11 +119,11 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
   }
 
   function setAllRead(enabled: boolean) {
-    onChange({ ...settings, aiAccess: { ...access, readCategories: enabled ? [...typedCore().AI_READ_CATEGORIES] : [] } });
+    onChange({ ...settings, aiAccess: { ...access, readCategories: enabled ? [...typedCore().aiReadCategories()] : [] } });
   }
 
   function setAllProposals(enabled: boolean) {
-    onChange({ ...settings, aiAccess: { ...access, proposalKinds: enabled ? typedCore().AI_PROPOSAL_KINDS.filter((kind) => !typedCore().AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS.includes(kind)) : [] } });
+    onChange({ ...settings, aiAccess: { ...access, proposalKinds: enabled ? typedCore().aiProposalKinds().filter((kind) => !typedCore().aiCredentialProtectedProposalKinds().includes(kind)) : [] } });
   }
 
   function toggleDynamic(category: AiReadCategory) {
@@ -297,10 +297,10 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
           <section className="ai-section">
             <div className="ai-section-heading">
               <div><h4>Allow reading</h4><p>Only selected sources become available.</p></div>
-              <Button variant="ghost" size="sm" onClick={() => setAllRead(access.readCategories.length !== typedCore().AI_READ_CATEGORIES.length)}>{access.readCategories.length === typedCore().AI_READ_CATEGORIES.length ? "Clear all" : "Select all"}</Button>
+              <Button variant="ghost" size="sm" onClick={() => setAllRead(access.readCategories.length !== typedCore().aiReadCategories().length)}>{access.readCategories.length === typedCore().aiReadCategories().length ? "Clear all" : "Select all"}</Button>
             </div>
             <div className="ai-permission-list ai-list-2col">
-              {typedCore().AI_READ_CATEGORIES.map((category) => (
+              {typedCore().aiReadCategories().map((category) => (
                 <label className="ai-permission-row" key={category}>
                   <span>{READ_LABELS[category]}</span>
                   <input className="wf-check" type="checkbox" checked={access.readCategories.includes(category)} onChange={() => toggleRead(category)} />
@@ -314,10 +314,10 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
               <Button variant="ghost" size="sm" onClick={() => setAllProposals(access.proposalKinds.length === 0)}>{access.proposalKinds.length ? "Clear all" : "Select all"}</Button>
             </div>
             <div className="ai-permission-list ai-list-2col">
-              {typedCore().AI_PROPOSAL_KINDS.map((kind) => (
+              {typedCore().aiProposalKinds().map((kind) => (
                 <label className="ai-permission-row" key={kind}>
-                  <span>{PROPOSAL_LABELS[kind]}{typedCore().AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS.includes(kind) && <small>Unavailable until Zotero writing is enabled</small>}</span>
-                  <input className="wf-check" type="checkbox" checked={access.proposalKinds.includes(kind)} disabled={typedCore().AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS.includes(kind)} onChange={() => toggleProposal(kind)} />
+                  <span>{PROPOSAL_LABELS[kind]}{typedCore().aiCredentialProtectedProposalKinds().includes(kind) && <small>Unavailable until Zotero writing is enabled</small>}</span>
+                  <input className="wf-check" type="checkbox" checked={access.proposalKinds.includes(kind)} disabled={typedCore().aiCredentialProtectedProposalKinds().includes(kind)} onChange={() => toggleProposal(kind)} />
                 </label>
               ))}
             </div>
@@ -329,7 +329,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
                 <ChevronIcon />
               </div>
             </summary>
-            <div className="ai-permission-list ai-list-2col">{typedCore().AI_READ_CATEGORIES.map((category) => <label className="ai-permission-row" key={`dynamic-${category}`}><span>{READ_LABELS[category]}</span><input className="wf-check" type="checkbox" disabled={!access.readCategories.includes(category)} title={access.readCategories.includes(category) ? undefined : "Turn on this read category first"} checked={(access.autoIncludeNewSourceCategories ?? []).includes(category)} onChange={() => toggleDynamic(category)} /></label>)}</div>
+            <div className="ai-permission-list ai-list-2col">{typedCore().aiReadCategories().map((category) => <label className="ai-permission-row" key={`dynamic-${category}`}><span>{READ_LABELS[category]}</span><input className="wf-check" type="checkbox" disabled={!access.readCategories.includes(category)} title={access.readCategories.includes(category) ? undefined : "Turn on this read category first"} checked={(access.autoIncludeNewSourceCategories ?? []).includes(category)} onChange={() => toggleDynamic(category)} /></label>)}</div>
           </details>
           <section className="ai-section ai-session-section">
             <div className="ai-section-heading"><div><h4>Active access</h4><p>Sessions end when the access duration below runs out, or when you revoke them.</p></div></div>

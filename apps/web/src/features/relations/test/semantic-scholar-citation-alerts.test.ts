@@ -8,7 +8,7 @@ import { SemanticScholarCitationSource } from "../infrastructure/parts";
 before(async () => {
   await loadTestCore();
 });
-const rankCitationAlerts = <T extends CitationCandidate>(c: readonly T[]): T[] => typedCore().rankCitationAlerts(c);
+const rankCitationAlerts = <T extends CitationCandidate>(c: readonly T[]): T[] => typedCore().rankCitationAlerts(c) as T[];
 
 test("Semantic Scholar incoming citations page and map stable candidates", async () => {
   const urls: string[] = [];

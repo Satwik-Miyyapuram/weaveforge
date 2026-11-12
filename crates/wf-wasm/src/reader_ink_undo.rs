@@ -32,8 +32,10 @@ pub fn push_ink_undo_js(
 /// # Errors
 ///
 /// Fails if `state` has the wrong shape.
-#[wasm_bindgen(js_name = takeInkUndo)]
-pub fn take_ink_undo_js(state: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = takeInkUndo, unchecked_return_type = "B.InkUndoStep | null")]
+pub fn take_ink_undo_js(
+    #[wasm_bindgen(unchecked_param_type = "B.InkUndoState")] state: JsValue,
+) -> JsResult<JsValue> {
     let state: InkUndoState = serde_wasm_bindgen::from_value(state)?;
     match ink_undo::take_ink_undo(&state) {
         Some(step) => to_js(&step),
@@ -46,8 +48,10 @@ pub fn take_ink_undo_js(state: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `state` has the wrong shape.
-#[wasm_bindgen(js_name = takeInkRedo)]
-pub fn take_ink_redo_js(state: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = takeInkRedo, unchecked_return_type = "B.InkUndoStep | null")]
+pub fn take_ink_redo_js(
+    #[wasm_bindgen(unchecked_param_type = "B.InkUndoState")] state: JsValue,
+) -> JsResult<JsValue> {
     let state: InkUndoState = serde_wasm_bindgen::from_value(state)?;
     match ink_undo::take_ink_redo(&state) {
         Some(step) => to_js(&step),
@@ -78,7 +82,7 @@ pub fn rename_ink_undo_id_js(
 #[wasm_bindgen(js_name = refreshInkUndoAnnotation, unchecked_return_type = "B.InkUndoState")]
 pub fn refresh_ink_undo_annotation_js(
     #[wasm_bindgen(unchecked_param_type = "B.InkUndoState")] state: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "B.ReaderAnnotation")] annotation: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "T.ReaderAnnotation")] annotation: JsValue,
 ) -> JsResult<JsValue> {
     let state: InkUndoState = serde_wasm_bindgen::from_value(state)?;
     let annotation: ZoteroAnnotationLocal = serde_wasm_bindgen::from_value(annotation)?;

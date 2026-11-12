@@ -239,6 +239,26 @@ export type AiResourceType =
 /**  A milestone. */
 "milestone";
 
+/**  One granted document to search (TS `AiRetrievalDocument`). */
+export type AiRetrievalDocument = {
+	/**  Where the text came from. */
+	source: AiSourceLink,
+	/**  Already-decrypted, explicitly granted text. Never persist it. */
+	text: string,
+};
+
+/**  One matching excerpt (TS `AiRetrievedExcerpt`). */
+export type AiRetrievedExcerpt = {
+	/**  Where the excerpt came from. */
+	source: AiSourceLink,
+	/**  `<sourceId>:0`. */
+	passageId: string,
+	/**  The excerpt, with `…` marking cut ends. */
+	text: string,
+	/**  Sum of capped term counts; always positive in results. */
+	score: number,
+};
+
 /**  A session grant (TS `AiSessionGrant`, without the literal `requiresConfirmationForWrites`). */
 export type AiSessionGrant = {
 	/**  Grant id. */
@@ -253,6 +273,20 @@ export type AiSessionGrant = {
 	allowedTools: AiToolName[],
 	/**  Proposal kinds the grant allows. */
 	proposalCapabilities: AiProposalKind[],
+};
+
+/**  Where a passage came from (TS `AiSourceLink`). Passed through unchanged. */
+export type AiSourceLink = {
+	/**  Stable id of the source. */
+	sourceId: string,
+	/**  Display label. */
+	label: string,
+	/**  Kind of workspace resource. */
+	resourceType: AiResourceType,
+	/**  Id of the resource within its type. */
+	resourceId: string,
+	/**  Link target, when the resource has one. */
+	href?: string,
 };
 
 /**  Tools the assistant can call (TS `AiToolName`). */
@@ -1000,7 +1034,7 @@ export type BibEntry = {
 	line: number,
 };
 
-/**  One field of an entry. The TS wrapper rebuilds these into a record. */
+/**  One field of an entry. The wasm export rebuilds these into a record. */
 export type BibField = {
 	/**  Lower-cased field name. */
 	name: string,
@@ -1089,6 +1123,39 @@ export type BibImportSkip = {
 	line: number,
 	/**  Why it was skipped, for the person importing. */
 	reason: string,
+};
+
+/**
+ *  The save fields of one planned entry (TS `bibPaperInput`). Absent values serialize as
+ *  `undefined`, the TS shape.
+ */
+export type BibPaperInput = {
+	/**  Title. */
+	title: string,
+	/**  Authors. */
+	authors: string[],
+	/**  Year. */
+	year?: number | null,
+	/**  Venue. */
+	venue?: string | null,
+	/**  Doi. */
+	doi?: string | null,
+	/**  Arxiv id. */
+	arxivId?: string | null,
+	/**  Url. */
+	url?: string | null,
+	/**  Abstract text. */
+	abstract?: string | null,
+	/**  Bibtex. */
+	bibtex: string,
+	/**  Metadata. */
+	metadata: BibPaperMetadata,
+};
+
+/**  The metadata bag a `.bib` paper is saved with (`metadata.citeKey`). */
+export type BibPaperMetadata = {
+	/**  Cite key. */
+	citeKey: string,
 };
 
 /**  Entries and warnings read from a set of files. */
@@ -1483,6 +1550,28 @@ export type CitationCandidate = {
 	year?: string,
 };
 
+/**  One incoming citation as the citation source hands it to the app (TS `CitationCandidate`). */
+export type CitationCandidateWire = {
+	/**  Semantic Scholar paper id, trimmed and never empty. */
+	id: string,
+	/**  Paper title, trimmed and never empty. */
+	title: string,
+	/**  Author names, each trimmed; blank names are dropped. */
+	authors: string[],
+	/**  Publication year, when Semantic Scholar reports one. */
+	year?: number,
+	/**  The paper's link: Semantic Scholar's own url, else its paper page. */
+	url: string,
+	/**  Whole, non-negative citation count, when reported as a finite number. */
+	citationCount?: number,
+	/**  Trimmed citation context snippets, when any remain. */
+	contexts?: string[],
+	/**  Known citation intents (`background`, `method`, `result`), when any remain. */
+	intents?: string[],
+	/**  Whether Semantic Scholar marks the citation influential, when it sent a boolean. */
+	isInfluential?: boolean,
+};
+
 /**  Where a mention's text falls inside one item (TS `ItemRange`). */
 export type CitationItemRange = {
 	/**  Index of the item in the page's list. */
@@ -1541,6 +1630,24 @@ export type CiteKeyPaper = {
 	citationKey?: string,
 	/**  `metadata.extra`. */
 	extra?: string,
+};
+
+/**  The part of a mention the planner needs: where it is and what to call it (TS `CiteSpan`). */
+export type CiteSpan = {
+	/**  Stable key, shared by every piece of one mention. */
+	key: string,
+	/**  Start offset into the page text. */
+	start: number,
+	/**  Exclusive end offset into the page text. */
+	end: number,
+	/**  Printed text, when the caller has it. */
+	text?: string,
+	/**  Tooltip label, when the caller has one. */
+	label?: string,
+	/**  `citation`, `figure` or `url`. */
+	kind?: string,
+	/**  External URL, for link mentions. */
+	url?: string,
 };
 
 /**  One citing paper in a citation alert. */
@@ -1938,6 +2045,14 @@ export type Crumb = {
 	current?: boolean,
 };
 
+/**  The phase and connectivity a finished or failed cycle leaves behind. */
+export type CyclePhase = {
+	/**  The phase to show. */
+	phase: SyncPhase,
+	/**  Whether the device reached the server. */
+	isOnline: boolean,
+};
+
 /**  A `{ lg, sm }` dashboard layout: one card list per breakpoint. */
 export type DashboardLayout = {
 	/**  Desktop cards, on a 12-column grid. */
@@ -2143,6 +2258,21 @@ export type EdgeMode =
 "tags" | 
 /**  Both. */
 "both";
+
+/**  One move of a stroke against the paper's edge. */
+export type EdgeStepResult = 
+/**  Still on the paper. */
+{ kind: "inside" } | 
+/**  Left the paper, ending the stroke at `at`. */
+{ kind: "exit"; 
+/**  Where the stroke crosses the edge. */
+at: Point } | 
+/**  Still off the paper. */
+{ kind: "outside" } | 
+/**  Back on the paper, starting a stroke at `at`. */
+{ kind: "enter"; 
+/**  Where the stroke crosses the edge. */
+at: Point };
 
 /**  Which root a row belongs to. */
 export type EditableRoot = 
@@ -2789,12 +2919,45 @@ export type FindMarkPage = {
 	height: number,
 };
 
+/**  One step of a fix plan (TS `FixStep`). */
+export type FixStep = {
+	/**  The kind of finding this step fixes. */
+	kind: LintKind,
+	/**  What the step does, for display. */
+	description: string,
+	/**  The findings this step covers. */
+	findings: LintFinding[],
+};
+
+/**  One listed paper that exists: where it sits in the caller's paper list, and its values. */
+export type FlatPaperRow = {
+	/**
+	 *  Index of the paper in the caller's `known_ids` list. A repeated id resolves to its last
+	 *  position, as a JS `Map` built from the list does.
+	 */
+	paperIndex: number,
+	/**  Stored and rollup values, keyed by field id. */
+	values: { [key in string]: PaperFieldValueData },
+};
+
 /**  A parsed folder entity: its note id (when it has one) and its folder path. */
 export type FolderParsedEntity = {
 	/**  Note id the file carries, when any. */
 	id?: string | null,
 	/**  Folder path of the file. */
 	path: string,
+};
+
+/**  What one folder file said: who moved it since the sides last agreed, and its digest now. */
+export type FolderSeenFile = {
+	/**  Side that changed the file. */
+	side: ChangeSide,
+	/**  Digest read now. */
+	digest: string,
+	/**  Neither the last agreement nor the workspace knows this path. */
+	newPath?: boolean,
+	/**  Where the note this new path carries lived, when that file is gone. */
+	renamedFrom?: string,
 };
 
 /**  An owned [`ImageRef`], for JS: what `materializeBlobImages` reads from each match. */
@@ -3042,6 +3205,18 @@ export type GraphBuildPaper = {
 	tags?: string[],
 };
 
+/**  A graph view and its lookups. */
+export type GraphBuildResult = {
+	/**  Nodes and links. */
+	data: GraphData,
+	/**  Node id to the ids it is linked to. */
+	neighbors: { [key in string]: string[] },
+	/**  Tag to the papers that carry it or sit in a list of that name. */
+	tagToPapers: { [key in string]: string[] },
+	/**  Tag to the notes that carry it or sit in a list of that name. */
+	tagToNotes: { [key in string]: string[] },
+};
+
 /**  A report section as the graph reads it. */
 export type GraphBuildSection = {
 	/**  Id. */
@@ -3050,6 +3225,14 @@ export type GraphBuildSection = {
 	title: string,
 	/**  Section notes; their `[[wikilinks]]` draw edges. */
 	notes?: string | null,
+};
+
+/**  The nodes and links of one graph view. */
+export type GraphData = {
+	/**  Nodes, in draw order. */
+	nodes: GraphNode[],
+	/**  Links whose both ends are nodes. */
+	links: GraphLink[],
 };
 
 /**  Measured shape of a graph (TS `GraphDensity`). */
@@ -3114,6 +3297,32 @@ export type GraphNode = {
 	experimentId?: string,
 	/**  The run's status, for an experiment node. */
 	experimentStatus?: string,
+};
+
+/**  Every fixed colour the citation graph draws (TS `GraphPalette`). */
+export type GraphPalette = {
+	/**  Edge colour per relation type. */
+	relation: RelationColours,
+	/**  Node colour per reading status. */
+	readingStatus: ReadingStatusColours,
+	/**  Note. */
+	note: string,
+	/**  Papers when the graph is coloured by kind. */
+	paper: string,
+	/**  Direct `[[wikilink]]` edges. */
+	wikilink: string,
+	/**  Report section nodes. */
+	report: string,
+	/**  Experiment nodes. */
+	experiment: string,
+	/**  Experiment to paper edges. */
+	experimentLink: string,
+	/**  Nodes the current mode says nothing about. */
+	uncoloured: string,
+	/**  The ramp as a CSS gradient. */
+	rampGradient: string,
+	/**  Community colours, biggest first. */
+	cluster: string[],
 };
 
 /**  Per-project graph UI state synced across devices (TS `GraphPersistedState`). */
@@ -3481,6 +3690,54 @@ export type InkColour =
 /**  Marker grey. */
 "grey";
 
+/**  Every ink tuning constant, field names camelCase on the JS side. */
+export type InkConstants = {
+	/**  [`width::INK_WIDTH_UNITS_PER_MM`]. */
+	inkWidthUnitsPerMm: number,
+	/**  [`width::INK_PEN_WIDTHS`]. */
+	inkPenWidths: [number, number, number, number],
+	/**  [`width::INK_PEN_WIDTH`]. */
+	inkPenWidth: number,
+	/**  [`width::INK_HIGHLIGHTER_WIDTH`]. */
+	inkHighlighterWidth: number,
+	/**  [`width::INK_HIGHLIGHTER_WIDTHS`]. */
+	inkHighlighterWidths: [number, number, number, number],
+	/**  [`width::INK_HIGHLIGHTER_MIN_WIDTH`]. */
+	inkHighlighterMinWidth: number,
+	/**  [`width::INK_MIN_WIDTH`]. */
+	inkMinWidth: number,
+	/**  [`width::INK_MAX_WIDTH`]. */
+	inkMaxWidth: number,
+	/**  [`width::INK_VELOCITY_FULL_TAPER`]. */
+	inkVelocityFullTaper: number,
+	/**  [`width::INK_VELOCITY_TAPER`]. */
+	inkVelocityTaper: number,
+	/**  [`width::INK_PRESSURE_MIN_FACTOR`]. */
+	inkPressureMinFactor: number,
+	/**  [`width::INK_PRESSURE_MAX_FACTOR`]. */
+	inkPressureMaxFactor: number,
+	/**  [`zoom::INK_ZOOM_MIN`]. */
+	inkZoomMin: number,
+	/**  [`zoom::INK_ZOOM_MAX`]. */
+	inkZoomMax: number,
+	/**  [`zoom::INK_ZOOM_STEP`]. */
+	inkZoomStep: number,
+	/**  [`smooth::INK_SMOOTH_SPACING`]. */
+	inkSmoothSpacing: number,
+	/**  [`smooth::INK_SMOOTH_PASSES`]. */
+	inkSmoothPasses: number,
+	/**  [`segment::INK_GROUP_WINDOW_MS`]. */
+	inkGroupWindowMs: number,
+	/**  [`segment::INK_LINE_BAND_RATIO`]. */
+	inkLineBandRatio: number,
+	/**  [`decode::INK_ENGINE_MAX_CONFIDENCE`]. */
+	inkEngineMaxConfidence: number,
+	/**  [`figure::FIGURE_ALT`]. */
+	figureAlt: string,
+	/**  [`figure::FIGURE_HANDLES`]. */
+	figureHandles: [string, string, string, string, string, string, string, string],
+};
+
 /**  An ink draft (TS `draftInkAnnotation` input). */
 export type InkDraft = {
 	/**  Colour as CSS text. */
@@ -3728,6 +3985,67 @@ export type InkRequestBuildInput = {
 	lang: string | null,
 };
 
+/**
+ *  What the caller knows about the down before any question is asked. An absent
+ *  callback is never asked; its answer is the old `?.()` default.
+ */
+export type InkRouteFacts = {
+	/**  The armed tool at the down. */
+	tool: InkToolName,
+	/**  Whether the pen's back tip erases on this surface right now. */
+	tipErases: boolean,
+	/**  Whether the pointer is the pen with its barrel button held. */
+	penBarrel: boolean,
+	/**  Whether an admit callback is present. */
+	hasAdmit: boolean,
+	/**  Whether a hit-selection callback is present. */
+	hasHitSelection: boolean,
+	/**  Whether an intercept callback is present. */
+	hasIntercept: boolean,
+};
+
+/**  What a pointer's gesture does from down to up. */
+export type InkRouteName = 
+/**  Erase under the pointer. */
+"erase" | 
+/**  The surface takes the down. */
+"intercept" | 
+/**  Drag the current selection. */
+"drag" | 
+/**  Start a lasso selection. */
+"lasso" | 
+/**  Draw a stroke. */
+"draw" | 
+/**  Start a region selection. */
+"region";
+
+/**  A question the caller answers before the picker can go on. */
+export type InkRouteQuestion = 
+/**  Does the back tip sweep (`begin(event, false, tipErases)`)? */
+"sweepTip" | 
+/**  Is this pointer admitted to draw? */
+"admit" | 
+/**  Does the down land on the current selection? */
+"hitSelection" | 
+/**  Does the armed eraser sweep (`begin(event, tool === eraser, false)`)? */
+"sweepTool" | 
+/**  Does the surface claim the down for itself? */
+"intercept";
+
+/**
+ *  A [`Step`] as JS sees it: `{ kind: "ask", question }` or
+ *  `{ kind: "route", route }`, with a `null` route leaving the down to the caller.
+ */
+export type InkRouteStep = 
+/**  The caller must answer this question. */
+{ kind: "ask"; 
+/**  The question to answer. */
+question: InkRouteQuestion } | 
+/**  The route is settled. */
+{ kind: "route"; 
+/**  The route, or `None` to leave the down to the caller. */
+route: InkRouteName | null };
+
 /**  Lines top to bottom, and the line each input stroke went into (`-1` for none). */
 export type InkSegmentationIndices = {
 	/**  Lines in reading order, top to bottom. */
@@ -3837,6 +4155,19 @@ export type InkTool =
 "highlighter" | 
 /**  Snapped or rough figure. */
 "shape";
+
+/**  The armed tool, as the gesture sees it. An unknown name reads as [`Tool::None`]. */
+export type InkToolName = 
+/**  The draw tool. */
+"draw" | 
+/**  The eraser tool. */
+"eraser" | 
+/**  The lasso tool. */
+"lasso" | 
+/**  The region tool. */
+"region" | 
+/**  No tool armed. */
+string;
 
 /**  One undoable step (TS `InkUndoEntry`). */
 export type InkUndoEntry = 
@@ -4342,6 +4673,66 @@ export type LinkKind =
 /**  A run to its paper. */
 "experiment";
 
+/**  Finding totals per kind; every kind is present, zero when absent (TS `Record<LintKind, number>`). */
+export type LintCounts = {
+	/**  Count of `duplicate` findings. */
+	duplicate: number,
+	/**  Count of `near-duplicate` findings. */
+	"near-duplicate": number,
+	/**  Count of `dead-link` findings. */
+	"dead-link": number,
+	/**  Count of `orphan` findings. */
+	orphan: number,
+	/**  Count of `empty` findings. */
+	empty: number,
+};
+
+/**  One problem the lint found (TS `LintFinding`). */
+export type LintFinding = {
+	/**  The category of the problem. */
+	kind: LintKind,
+	/**  How serious the problem is. */
+	severity: LintSeverity,
+	/**  The page the finding is about. */
+	pageId: string,
+	/**  The human-readable message. */
+	message: string,
+	/**  The other page involved, for duplicates. */
+	relatedPageId?: string,
+	/**  The unresolved target, for dead links. */
+	target?: string,
+};
+
+/**  A lint category (TS `LintKind`). */
+export type LintKind = 
+/**  Same title, different pages. */
+"duplicate" | 
+/**  Titles similar enough to review. */
+"near-duplicate" | 
+/**  A link to nothing. */
+"dead-link" | 
+/**  A page with no edges. */
+"orphan" | 
+/**  A page with no content of its own. */
+"empty";
+
+/**  The result of `lint_wiki` (TS `LintReport`). */
+export type LintReport = {
+	/**  Every finding, in the order the lint produced them. */
+	findings: LintFinding[],
+	/**  Totals per kind. */
+	counts: LintCounts,
+};
+
+/**  How serious a finding is (TS `LintSeverity`). */
+export type LintSeverity = 
+/**  Must be fixed. */
+"error" | 
+/**  Should be reviewed. */
+"warning" | 
+/**  For information only. */
+"info";
+
 /**  A reading list as the tree needs it. Ids and parents, nothing else. */
 export type ListEntry = {
 	/**  List id. */
@@ -4409,6 +4800,14 @@ export type LiveDocEntry = {
 	id: string,
 	/**  The path from the project root, with `/` between folders. */
 	path: string,
+};
+
+/**  A local project as the rename sees it. */
+export type LocalProject = {
+	/**  The project's row id. */
+	id: string,
+	/**  The project's current name. */
+	name: string,
 };
 
 /**  Inputs for [`build_locus_link`] (TS `buildLocusLink` parameter). */
@@ -4512,6 +4911,34 @@ export type LogLink = {
 	id: string,
 };
 
+/**  The fields a manual add can fill from an entry (TS `NewPaperInput`). */
+export type ManualPaperInput = {
+	/**  The trimmed title, or the start of the raw entry text (200 UTF-16 units). */
+	title: string,
+	/**  Always `to_read`: a cited paper goes on the shelf to read. */
+	status: string,
+	/**  The authors, when the entry lists any. */
+	authors?: string[],
+	/**  The publication year, when the entry gives one. */
+	year?: number,
+	/**  The DOI, when the entry gives one. */
+	doi?: string,
+	/**  The arXiv id, when the entry gives one. */
+	arxivId?: string,
+	/**  The URL, when the entry gives one. */
+	url?: string,
+};
+
+/**  One annotation as margin layout reads it. TS fills it from the annotation; the rules are here. */
+export type MarginMark = {
+	/**  True when the comment has text after trimming. */
+	hasComment: boolean,
+	/**  True for a placed picture: it is drawn on the page, not in the margin. */
+	hasPicture: boolean,
+	/**  The mark's geometry; None when the annotation has no zotero position. */
+	geometry: MarkGeometry | null,
+};
+
 /**  Where one card sits: its index in the input, its stacked top, and where its mark starts. */
 export type MarginSlot = {
 	/**  Index of the card's mark in the input slice. */
@@ -4520,6 +4947,29 @@ export type MarginSlot = {
 	top: number,
 	/**  Top of the mark the card belongs to, before stacking. */
 	anchorTop: number,
+};
+
+/**  What the popover on a tapped mark offers (TS `MarkActions`). */
+export type MarkActions = {
+	/**  The label over the popover: what the mark is. */
+	kind: string,
+	/**  Whether the popover offers colour choices. */
+	colour: boolean,
+	/**  The comment button's label, or `None` when the mark takes no comment. */
+	comment: string | null,
+	/**  The composer's starting text: the comment already there. */
+	prefill: string,
+};
+
+/**
+ *  The geometry of an annotation's first mark, from its zotero position. Rects are flat
+ *  `[x1, y1, x2, y2]`; a rect with fewer than four numbers is ignored.
+ */
+export type MarkGeometry = {
+	/**  Rectangles, each flat `[x1, y1, x2, y2]` in PDF user space. */
+	rects: number[][],
+	/**  Freehand paths, each flat `[x, y, x, y, ...]` in PDF user space. */
+	paths: number[][],
 };
 
 /**  The fields of an annotation the popover decision reads. */
@@ -5459,6 +5909,14 @@ export type OpenConflictKind =
 /**  Deleted on this device while the server still had the row. */
 "deleted_local";
 
+/**  An open conflict as the panel counts it. */
+export type OpenConflictRef = {
+	/**  `"edit"`, `"deleted_remote"` or `"deleted_local"`. */
+	kind: string,
+	/**  How many fields are in dispute. Only an edit conflict can have none. */
+	fieldCount: number,
+};
+
 /**  How a list is ordered. */
 export type OrderSpec = {
 	/**  The column to order by. */
@@ -5600,6 +6058,24 @@ export type OutsideRowEntry = {
 	action: ImportAction,
 	/**  Path. */
 	path: string,
+};
+
+/**  What the preview saw of one folder file: who moved it, and whether its path is new. */
+export type OutsideSeenFile = {
+	/**  Side. */
+	side: ChangeSide,
+	/**  Neither the last agreement nor the workspace knows this path. */
+	newPath?: boolean,
+	/**  Where the note this new path carries lived, when that file is gone. */
+	renamedFrom?: string | null,
+};
+
+/**  One Overleaf project linked to a vault folder. */
+export type OverleafLink = {
+	/**  The Overleaf project id. */
+	projectId: string,
+	/**  The vault-relative folder, with forward slashes. */
+	folder: string,
 };
 
 /**  An Overleaf project the sidebar lists. */
@@ -5878,6 +6354,21 @@ export type PaneSplit = {
 	children: [PaneNode, PaneNode],
 };
 
+/**  The choice a user made for one conflicting field. */
+export type PanelChoice = 
+/**  Keep this device's copy. */
+{ kind: "local" } | 
+/**  Take the cloud copy. */
+{ kind: "remote" } | 
+/**  Pick a side per hunk; keys are hunk indexes, values the picked side. */
+{ kind: "hunks"; 
+/**  Picked side per hunk index. */
+picks: { [key in string]: string } } | 
+/**  A hand-edited text, possibly still holding conflict markers. */
+{ kind: "edit"; 
+/**  The edited text. */
+text: string };
+
 /**  A paper as the domain holds it. Unset optional fields are absent, not `null`. */
 export type Paper = {
 	/**  Primary key. */
@@ -5934,6 +6425,17 @@ export type PaperAnnotationInput = {
 	anchor: QuoteAnchor,
 	/**  Page the mark sits on. */
 	pageIndex: number,
+};
+
+/**
+ *  Where each dropped file goes: `.bib` files are imported, the rest take the PDF path.
+ *  Both lists hold indices into the drop, in drop order.
+ */
+export type PaperDropSplit = {
+	/**  Indices of the files that take the PDF path. */
+	pdfIndices: number[],
+	/**  Indices of the `.bib` and `.bibtex` files. */
+	bibIndices: number[],
 };
 
 /**  A paper as the tree needs it. */
@@ -6079,6 +6581,16 @@ export type PaperHtmlPage = {
 	html: string,
 	/**  ISO time it was fetched. */
 	savedAt: string,
+};
+
+/**  What a paper records about where its PDF is. `pdfPath` is not here: nothing writes it. */
+export type PaperPdfSource = {
+	/**  The paper's own URL. */
+	url: string | null,
+	/**  The arXiv id, if any. */
+	arxivId: string | null,
+	/**  The open-access PDF URL, if any. */
+	openAccessPdf: string | null,
 };
 
 /**  The preview frame's state for one paper. */
@@ -6523,6 +7035,51 @@ export type PinnedSharedByEntry = {
 	ownerId: string,
 };
 
+/**
+ *  The card metadata, minus `metadataBase`. Open Graph and Twitter share the title,
+ *  description and image.
+ */
+export type PitchShareCard = {
+	/**  Card title. */
+	title: string,
+	/**  Card description. */
+	description: string,
+	/**  Open Graph type (`website`). */
+	ogType: string,
+	/**  Open Graph site name. */
+	siteName: string,
+	/**  Open Graph locale. */
+	locale: string,
+	/**  Open Graph URL: the base path followed by the page path. */
+	url: string,
+	/**  The card image. */
+	image: PitchShareImage,
+	/**  Twitter card kind (`summary_large_image`). */
+	twitterCard: string,
+};
+
+/**  The shared text, for callers that build the card in another language. */
+export type PitchShareConstants = {
+	/**  [`PITCH_TITLE`]. */
+	title: string,
+	/**  [`PITCH_DESCRIPTION`]. */
+	description: string,
+	/**  [`DEFAULT_APP_ORIGIN`]. */
+	defaultAppOrigin: string,
+};
+
+/**  The card image, as the Open Graph `images` entry. */
+export type PitchShareImage = {
+	/**  Path to the image, prefixed with the base path and not with the origin. */
+	url: string,
+	/**  Image width in pixels. */
+	width: number,
+	/**  Image height in pixels. */
+	height: number,
+	/**  Alt text: the title with a full stop. */
+	alt: string,
+};
+
 /**  Where a background is drawn on the sheet. */
 export type Placement = {
 	/**  Left edge on the sheet, in pixels. */
@@ -6937,6 +7494,29 @@ export type ProposeFillInput = {
 	papers: FillPaper[],
 };
 
+/**  The wire API a provider speaks (TS `ProviderApi`). */
+export type ProviderApi = 
+/**  OpenAI-compatible chat completions (`openai-chat`). */
+"openai-chat" | 
+/**  Anthropic messages API (`anthropic-messages`). */
+"anthropic-messages" | 
+/**  Ollama API (`ollama`). */
+"ollama";
+
+/**  A configured model provider, without its key (TS `ProviderDescriptor`). */
+export type ProviderDescriptor = {
+	/**  Provider id. */
+	id: string,
+	/**  Display label. */
+	label: string,
+	/**  Base URL of the API. */
+	baseUrl: string,
+	/**  Wire API the provider speaks. */
+	api: ProviderApi,
+	/**  Model name. */
+	model: string,
+};
+
 /**  Registered provider ids per integration kind, from the manifest registry. */
 export type ProviderIds = {
 	/**  Bibliography provider ids. */
@@ -6991,6 +7571,52 @@ export type PullSummaryInput = {
 	/**  The first-pass failures, in feed order. */
 	failed: SeqRow[],
 };
+
+/**  The route for one send outcome. */
+export type PumpRoute = {
+	/**  What to do with the op. */
+	action: PumpRouteAction,
+	/**  Whether the op's stored version is written back to the row (accepted, not a delete). */
+	ack: boolean,
+	/**  Whether later ops on the same row wait for this one. True for any non-accepted send. */
+	stall: boolean,
+};
+
+/**  The step the pump takes for one op. */
+export type PumpRouteAction = 
+/**  The network is down: end the run now. */
+"stop" | 
+/**  The server stored the op: settle it. */
+"settle" | 
+/**  The server has a newer version: hand the op to the conflict route. */
+"conflict" | 
+/**  Refused while the parent is still unsent: keep the op waiting. */
+"wait" | 
+/**  Refused for good: keep the op and record why. */
+"fail";
+
+/**  The facts a pump route needs. All of them are known before any write. */
+export type PumpRouteInput = {
+	/**  How the transport answered. */
+	status: PumpSendStatus,
+	/**  Whether the op is a delete. A delete never acks a version. */
+	opIsDelete: boolean,
+	/**  Whether an accepted send came back with the version the server stored. */
+	hasNewVersion: boolean,
+	/**  Whether a refused op is waiting on a parent row the server has not yet received. */
+	awaitingParent: boolean,
+};
+
+/**  How the transport answered one send. */
+export type PumpSendStatus = 
+/**  The request never got an answer: no network, or the transport threw. */
+"offline" | 
+/**  The server stored the op. */
+"accepted" | 
+/**  The server holds a newer version of the row. */
+"conflict" | 
+/**  The server refused the op for another reason. */
+"refused";
 
 /**  A palette section: the hits of one kind, in score order. */
 export type QuickOpenGroup = {
@@ -7467,6 +8093,18 @@ export type ReadingPaper = {
 	readDay: string | null,
 };
 
+/**  Node colour per reading status. Keys are the status names. */
+export type ReadingStatusColours = {
+	/**  To read. */
+	to_read: string,
+	/**  Eading. */
+	reading: string,
+	/**  Ead. */
+	read: string,
+	/**  Skimmed. */
+	skimmed: string,
+};
+
 /**  What an imported body's asset refs become: honoured, uploaded, or left as written. */
 export type ReanchorPlan = {
 	/**  Already referenced by this workspace: honour the path as written. */
@@ -7498,6 +8136,16 @@ export type Redacted = {
 	redactions: number,
 };
 
+/**  Extra facts a bibliographic lookup can match on (TS `PaperRef` `hints`). */
+export type ReferenceHints = {
+	/**  The entry's title as printed, untrimmed. */
+	title?: string,
+	/**  The publication year. */
+	year?: number,
+	/**  The first listed author. */
+	firstAuthor?: string,
+};
+
 /**  The notice shown under one entry (TS `ReferenceNotice`). */
 export type ReferenceNotice = {
 	/**  Index of the entry the notice describes. */
@@ -7523,6 +8171,23 @@ export type ReferencePaper = {
 	/**  Any other link. */
 	url?: string | null,
 };
+
+/**  The paper reference a bibliography entry resolves by (TS `PaperRef` for an entry). */
+export type ReferenceRef = 
+/**  A DOI from the entry. */
+{ kind: "doi"; 
+/**  The DOI. */
+value: string } | 
+/**  An arXiv id from the entry. */
+{ kind: "arxiv"; 
+/**  The arXiv id. */
+value: string } | 
+/**  No identifier: a title search, with hints to narrow it. */
+{ kind: "bibliographic"; 
+/**  The trimmed title, or the trimmed raw entry text when there is no title. */
+value: string; 
+/**  Year and first author to narrow the search. */
+hints: ReferenceHints };
 
 /**
  *  A bibliography span (`ReferenceSectionSpan`). Indices are JS numbers, so
@@ -7628,6 +8293,22 @@ export type RelatedResult = {
 	similarity?: number,
 };
 
+/**  Edge colour per relation type. Keys are the snake_case relation names. */
+export type RelationColours = {
+	/**  Cites. */
+	cites: string,
+	/**  Extends. */
+	extends: string,
+	/**  Contradicts. */
+	contradicts: string,
+	/**  Similar. */
+	similar: string,
+	/**  Builds on. */
+	builds_on: string,
+	/**  Uses method. */
+	uses_method: string,
+};
+
 /**  `relation`. */
 export type RelationInput = {
 	/**  Id of the paper the relation starts at. */
@@ -7698,6 +8379,16 @@ export type RemoteStatusInput = {
 	ahead?: number,
 	/**  Behind. */
 	behind?: number,
+};
+
+/**  One rename to apply: a project, the name it had, and the name it takes. */
+export type Rename = {
+	/**  The project's row id. */
+	id: string,
+	/**  The name before the rename. */
+	from: string,
+	/**  The name after the rename. */
+	to: string,
 };
 
 /**  What a table query does. */
@@ -7942,6 +8633,45 @@ export type ResultsTable = {
 	header: string[],
 	/**  One row per run; each cell follows the header's column order. */
 	rows: string[][],
+};
+
+/**  One `exptable:` reference found in report markdown. */
+export type ResultsTableRef = {
+	/**  The run ids in the ref, in order, with undecodable or empty parts dropped. */
+	experimentIds: string[],
+	/**  The alt text, as written. */
+	caption: string,
+	/**  UTF-16 offset of the first character of the ref. */
+	start: number,
+	/**  UTF-16 offset just past the ref. */
+	end: number,
+	/**  The ref exactly as it appears in the markdown. */
+	raw: string,
+};
+
+/**  One node of the report section tree: a section and its child nodes. */
+export type ResultsTablesTreeNode = {
+	/**  The section this node holds. */
+	section?: ResultsTablesTreeSection,
+	/**  Child nodes, searched after this node's own notes. */
+	children?: ResultsTablesTreeNode[],
+};
+
+/**
+ *  The part of a report section the presence check reads: its notes. A missing or null `notes`
+ *  counts as empty, the same as the TS `notes ?? ""`.
+ */
+export type ResultsTablesTreeSection = {
+	/**  The section's markdown notes, where `exptable:` references live. */
+	notes?: string | null,
+};
+
+/**  Optional limits (TS `options`). `None` takes the default. */
+export type RetrievalOptions = {
+	/**  Results to return, clamped to 1..=20. Default 8. */
+	limit: number | null,
+	/**  Characters per excerpt, clamped to 120..=2000. Default 900. */
+	maxChars: number | null,
 };
 
 /**  A react-grid-layout position for one card, as the grid reports it. */
@@ -8359,6 +9089,23 @@ fallback?: boolean } |
 /**  Why it failed. */
 message: string };
 
+/**  What one PostgREST write means for the outbox entry. */
+export type SendVerdict = 
+/**  A 409 whose cause is a missing parent. Kept and retried once the parent is up. */
+"awaiting_parent" | 
+/**  A 409 over the row itself. TS reads the server copy to decide. */
+"conflict" | 
+/**  A 5xx, or a 401/403 that is about the session. The queue waits. */
+"offline" | 
+/**  A 403 that is a row-level-security refusal. Burns an attempt on this row only. */
+"rls_refused" | 
+/**  Any other 4xx. The row is refused. */
+"refused" | 
+/**  A guarded write that matched no row. TS checks whether a delete already landed. */
+"guard_missed" | 
+/**  The write went through. */
+"accepted";
+
 /**  A change's table, row and server sequence, as far as a pull needs them. */
 export type SeqRow = {
 	/**  The synced table the row belongs to. */
@@ -8638,6 +9385,39 @@ export type SharedSource = {
 	status: string | null,
 };
 
+/**  Parsed sidecar arguments, with paths as given on the command line. */
+export type SidecarArgsPlan = {
+	/**  The `--data-dir` value. Required. */
+	dataDir: string,
+	/**  Every `--migrations` value, in order. At least one. */
+	migrations: string[],
+	/**  The `--backups` value. Required. */
+	backupsDir: string,
+	/**  The `--migrate-from` value, when given. */
+	migrateFrom: string | null,
+	/**  The `--artifacts` value, when given. */
+	artifacts: string | null,
+	/**  The `--bridge` value, when given. */
+	bridge: string | null,
+	/**  The `--app-version` value, when given. */
+	appVersion: string | null,
+	/**  The `--home-variant` value, when given. */
+	homeVariant: string | null,
+	/**  True when `--no-local-api` was passed. */
+	noLocalApi: boolean,
+};
+
+/**  Outcome of parsing: a plan, or the message `main.ts` prints after `weaveforge-sidecar: `. */
+export type SidecarArgsReply = 
+/**  Every required flag was present. */
+{
+	kind: "ok",
+} & SidecarArgsPlan | 
+/**  An argument was unknown, a value flag had no value, or a required flag was missing. */
+{ kind: "error"; 
+/**  The message to print. */
+message: string };
+
 /**  A conflict's two sides: what the row was based on, and this device's state. */
 export type Sides = {
 	/**  The base the first owed edit started from. Empty when unknown. */
@@ -8779,6 +9559,14 @@ export type StoredPdfProjection = {
 	pdfPageCounts: ([string, number])[],
 };
 
+/**  A provider restored from storage, with its key (TS `ActiveProvider`). */
+export type StoredProvider = {
+	/**  The provider. */
+	descriptor: ProviderDescriptor,
+	/**  The API key the user supplied. */
+	apiKey: string,
+};
+
 /**  The stroke marker: serialises as the string `"stroke"`. */
 export type StrokeStep = 
 /**  The only value: a stroke step, handed to the worker. */
@@ -8832,6 +9620,15 @@ export type SyncDotState =
 /**  One or more conflicts need the person. */
 "conflict" | 
 /**  The last cycle threw while online. */
+"error";
+
+/**  The status the sync panel shows. */
+export type SyncPhase = 
+/**  Connected and waiting for the next cycle. */
+"idle" | 
+/**  No connection to the server. */
+"offline" | 
+/**  A cycle failed while the device was online. */
 "error";
 
 /**  The sync providers (TS `SyncProvider`), named as the web names them. */
@@ -9087,6 +9884,18 @@ export type TextRunBox = {
 	right: number,
 	/**  Bottom edge. */
 	bottom: number,
+};
+
+/**  One planned piece of an item's text (TS `TextSegment`). */
+export type TextSegment = {
+	/**  Item-local start offset, in UTF-16 units. */
+	from: number,
+	/**  Item-local exclusive end offset. */
+	to: number,
+	/**  The text of the piece. */
+	text: string,
+	/**  The mention the piece belongs to, when it is one. */
+	mention?: CiteSpan,
 };
 
 /**
@@ -9586,6 +10395,18 @@ export type WikiGraphEdges = {
 	node: string,
 	/**  Undirected neighbours, in insertion order. */
 	neighbours: string[],
+};
+
+/**  A wiki page as the lint reads it (TS `WikiPageRef`; `WikiLintPageRef` in the bindings). */
+export type WikiLintPageRef = {
+	/**  Page id. */
+	id: string,
+	/**  The page title. */
+	title: string,
+	/**  The page body as markdown. */
+	body: string,
+	/**  Other names the page answers to. */
+	aliases?: string[],
 };
 
 /**  The merged page (TS `WikiMergeResult`). */
@@ -10245,4 +11066,18 @@ export type ZoteroReaderAnnotation = {
 export type ZoteroTagRow = {
 	/**  Tag. */
 	tag: string | null,
+};
+
+/**  Counts from one Zotero write-back run (TS `ZoteroAnnotationWriteBackSummary`). */
+export type ZoteroWriteBackSummary = {
+	/**  Annotations Zotero created. */
+	created: number,
+	/**  Annotations Zotero updated. */
+	updated: number,
+	/**  Annotations left as they are because Zotero changed them meanwhile. */
+	conflicts: number,
+	/**  Annotations that could not be sent. */
+	failed: number,
+	/**  The first failure's reason, so the screen can say why. */
+	firstError?: string,
 };

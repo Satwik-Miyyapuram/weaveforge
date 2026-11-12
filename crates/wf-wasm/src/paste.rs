@@ -50,7 +50,8 @@ pub fn clean_pasted_text_js(
     to_js(&clean_pasted_text(input, &settings))
 }
 
-/// [`paste_lands_in_verbatim_context`] for JS. `offset` is in UTF-16 code units.
+/// [`paste_lands_in_verbatim_context`] for JS. `offset` is in UTF-16 code units; it is
+/// floored, and a negative offset reads as 0.
 ///
 /// # Errors
 ///
@@ -58,13 +59,28 @@ pub fn clean_pasted_text_js(
 #[wasm_bindgen(js_name = pasteLandsInVerbatimContext)]
 pub fn paste_lands_in_verbatim_context_js(
     document: js_sys::JsString,
-    offset: usize,
+    offset: f64,
 ) -> JsResult<bool> {
     let document = &crate::guarded_text(&document)?;
     Ok(paste_lands_in_verbatim_context(
         document,
-        byte_offset(document, offset),
+        byte_offset(document, utf16_offset(offset)),
     ))
+}
+
+/// `Math.max(0, Math.floor(offset))` as a JS `usize` argument reads it: a non-finite value
+/// is 0, and a finite one wraps modulo 2^32.
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "the value is a non-negative whole number below 2^32"
+)]
+fn utf16_offset(offset: f64) -> usize {
+    if offset.is_finite() {
+        (offset.floor().max(0.0) % 4_294_967_296.0) as usize
+    } else {
+        0
+    }
 }
 
 /// [`clean_wrapped_text`] for JS, as `{ text, changed }`.
@@ -153,17 +169,26 @@ pub fn default_paste_settings_js() -> JsResult<JsValue> {
     to_js(&PasteSettings::default())
 }
 
-/// [`normalize_paste_settings`] for JS. `json` is `JSON.stringify` of whatever was stored.
+/// [`normalize_paste_settings`] for JS: settings the pipeline can trust from whatever was
+/// stored. A value `JSON.stringify` drops (such as `undefined`) reads as `null`.
 ///
 /// # Errors
 ///
-/// Fails when `json` is not valid JSON or is over the text cap.
-#[wasm_bindgen(js_name = normalizePasteSettings)]
-pub fn normalize_paste_settings_js(json: js_sys::JsString) -> JsResult<JsValue> {
+/// Rethrows what `JSON.stringify` throws; fails when the JSON is over the text cap.
+#[wasm_bindgen(js_name = normalizePasteSettings, unchecked_return_type = "B.PasteSettings")]
+pub fn normalize_paste_settings_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] raw: &JsValue,
+) -> Result<JsValue, JsValue> {
+    let json = js_sys::JSON::stringify(raw)?;
+    let json = if json.is_undefined() {
+        js_sys::JsString::from("null")
+    } else {
+        json
+    };
     let json = &crate::guarded_text(&json)?;
     let raw: serde_json::Value =
         serde_json::from_str(json).map_err(serde_wasm_bindgen::Error::new)?;
-    to_js(&normalize_paste_settings(&raw))
+    Ok(to_js(&normalize_paste_settings(&raw))?)
 }
 
 /// [`parse_link_removal_text`] for JS: the textarea's rules, one per line.

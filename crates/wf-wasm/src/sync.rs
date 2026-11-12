@@ -358,18 +358,13 @@ struct JsFolderNode {
     parent_id: Option<String>,
 }
 
-/// [`tree_paths`](wf_core::sync::folder_layout::tree_paths) as `[id, path]` pairs in
-/// first-seen order (TS `treePaths`; the TS wrapper makes them a `Map`).
-///
-/// # Errors
-///
-/// Fails if `nodes` is not an array of `FolderNode`s or `entity` is not a known type.
-#[wasm_bindgen(js_name = treePathPairs)]
-pub fn tree_path_pairs_js(
+/// [`tree_paths`](wf_core::sync::folder_layout::tree_paths) as `(id, path)` pairs in first-seen
+/// order; `project_root` defaults to empty.
+fn tree_path_rows(
     nodes: JsValue,
     entity: JsValue,
-    project_root: &str,
-) -> JsResult<JsValue> {
+    project_root: Option<&str>,
+) -> JsResult<Vec<(String, String)>> {
     use wf_core::sync::folder_layout::{FolderNode, WorkspaceEntityType, tree_paths};
     let nodes: Vec<JsFolderNode> = serde_wasm_bindgen::from_value(nodes)?;
     let entity: WorkspaceEntityType = serde_wasm_bindgen::from_value(entity)?;
@@ -381,7 +376,55 @@ pub fn tree_path_pairs_js(
             parent_id: n.parent_id,
         })
         .collect();
-    to_js(&tree_paths(&nodes, entity, project_root))
+    Ok(tree_paths(&nodes, entity, project_root.unwrap_or_default()))
+}
+
+/// [`tree_paths`](wf_core::sync::folder_layout::tree_paths) as `[id, path]` pairs in
+/// first-seen order.
+///
+/// # Errors
+///
+/// Fails if `nodes` is not an array of `FolderNode`s or `entity` is not a known type.
+#[wasm_bindgen(js_name = treePathPairs, unchecked_return_type = "[string, string][]")]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes optional strings by value"
+)]
+pub fn tree_path_pairs_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly { id: string; title: string; parentId?: string | null }[]"
+    )]
+    nodes: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.WorkspaceEntityType")] entity: JsValue,
+    project_root: Option<String>,
+) -> JsResult<JsValue> {
+    to_js(&tree_path_rows(nodes, entity, project_root.as_deref())?)
+}
+
+/// [`tree_paths`](wf_core::sync::folder_layout::tree_paths): the folder path of each node in a
+/// tree, keyed by id, as a `Map` in first-seen order.
+///
+/// # Errors
+///
+/// Fails if `nodes` is not an array of `FolderNode`s or `entity` is not a known type.
+#[wasm_bindgen(js_name = treePaths, unchecked_return_type = "Map<string, string>")]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes optional strings by value"
+)]
+pub fn tree_paths_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly { id: string; title: string; parentId?: string | null }[]"
+    )]
+    nodes: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.WorkspaceEntityType")] entity: JsValue,
+    project_root: Option<String>,
+) -> JsResult<JsValue> {
+    let map = js_sys::Map::new();
+    for (id, path) in tree_path_rows(nodes, entity, project_root.as_deref())? {
+        let _ = map.set(&JsValue::from_str(&id), &JsValue::from_str(&path));
+    }
+    Ok(map.into())
 }
 
 /// `{ ok: true, url }` or `{ ok: false, reason }`, as the TS returns it.

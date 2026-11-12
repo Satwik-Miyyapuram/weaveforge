@@ -24,10 +24,15 @@ struct RefArg {
 /// # Errors
 ///
 /// Fails if the value cannot be read as JSON.
-#[wasm_bindgen(js_name = citationContexts)]
-pub fn citation_contexts_js(raw: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(js_name = citationContexts, unchecked_return_type = "string[] | undefined")]
+pub fn citation_contexts_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] raw: JsValue,
+) -> Result<JsValue, JsValue> {
     let raw: Value = serde_wasm_bindgen::from_value(raw)?;
-    Ok(to_js(&semantic_scholar_citation::citation_contexts(&raw))?)
+    match semantic_scholar_citation::citation_contexts(&raw) {
+        Some(contexts) => Ok(to_js(&contexts)?),
+        None => Ok(JsValue::UNDEFINED),
+    }
 }
 
 /// [`citation_intents`](semantic_scholar_citation::citation_intents): the known intents, or
@@ -36,10 +41,15 @@ pub fn citation_contexts_js(raw: JsValue) -> Result<JsValue, JsValue> {
 /// # Errors
 ///
 /// Fails if the value cannot be read as JSON.
-#[wasm_bindgen(js_name = citationIntents)]
-pub fn citation_intents_js(raw: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(js_name = citationIntents, unchecked_return_type = "string[] | undefined")]
+pub fn citation_intents_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] raw: JsValue,
+) -> Result<JsValue, JsValue> {
     let raw: Value = serde_wasm_bindgen::from_value(raw)?;
-    Ok(to_js(&semantic_scholar_citation::citation_intents(&raw))?)
+    match semantic_scholar_citation::citation_intents(&raw) {
+        Some(intents) => Ok(to_js(&intents)?),
+        None => Ok(JsValue::UNDEFINED),
+    }
 }
 
 /// [`external_id_ref`](semantic_scholar_citation::external_id_ref): the lookup reference for
@@ -48,8 +58,10 @@ pub fn citation_intents_js(raw: JsValue) -> Result<JsValue, JsValue> {
 /// # Errors
 ///
 /// Fails if `ids` has the wrong shape.
-#[wasm_bindgen(js_name = citationExternalIdRef)]
-pub fn citation_external_id_ref_js(ids: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(js_name = citationExternalIdRef, unchecked_return_type = "B.PaperRef | null")]
+pub fn citation_external_id_ref_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] ids: JsValue,
+) -> Result<JsValue, JsValue> {
     let ids: Option<S2ExternalIds> = serde_wasm_bindgen::from_value(ids)?;
     Ok(to_js(&semantic_scholar_citation::external_id_ref(
         ids.as_ref(),
@@ -98,8 +110,10 @@ pub fn next_citation_page_offset_js(
 /// # Errors
 ///
 /// Fails if `data` cannot be read as JSON.
-#[wasm_bindgen(js_name = citationCandidates)]
-pub fn citation_candidates_js(data: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(js_name = citationCandidates, unchecked_return_type = "B.CitationCandidateWire[]")]
+pub fn citation_candidates_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] data: JsValue,
+) -> Result<JsValue, JsValue> {
     let data: Value = serde_wasm_bindgen::from_value(data)?;
     Ok(to_js(&citation_candidate::citation_candidates(&data))?)
 }

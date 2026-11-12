@@ -25,9 +25,9 @@ pub fn annotation_pin_key_js(id: &str, zotero_key: Option<String>) -> String {
 /// # Errors
 ///
 /// Fails if `ann` or `patch` is malformed.
-#[wasm_bindgen(js_name = applyAnnotationPatch, unchecked_return_type = "B.ReaderAnnotation")]
+#[wasm_bindgen(js_name = applyAnnotationPatch, unchecked_return_type = "T.ReaderAnnotation")]
 pub fn apply_annotation_patch_js(
-    #[wasm_bindgen(unchecked_param_type = "B.ReaderAnnotation")] ann: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "T.ReaderAnnotation")] ann: JsValue,
     #[wasm_bindgen(unchecked_param_type = "B.AnnotationPatch")] patch: JsValue,
 ) -> JsResult<JsValue> {
     let ann: ReaderAnnotation = serde_wasm_bindgen::from_value(ann)?;
@@ -40,9 +40,9 @@ pub fn apply_annotation_patch_js(
 /// # Errors
 ///
 /// Fails if `draft` is not a new-annotation draft.
-#[wasm_bindgen(js_name = optimisticAnnotationFromDraft, unchecked_return_type = "B.ReaderAnnotation")]
+#[wasm_bindgen(js_name = optimisticAnnotationFromDraft, unchecked_return_type = "T.ReaderAnnotation")]
 pub fn optimistic_annotation_from_draft_js(
-    #[wasm_bindgen(unchecked_param_type = "B.NewReaderAnnotation")] draft: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "T.NewReaderAnnotation")] draft: JsValue,
     id: &str,
     now: &str,
 ) -> JsResult<JsValue> {
@@ -55,8 +55,10 @@ pub fn optimistic_annotation_from_draft_js(
 /// # Errors
 ///
 /// Fails if `annotations` is not a list of annotations.
-#[wasm_bindgen(js_name = listedAnnotations)]
-pub fn listed_annotations_js(annotations: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = listedAnnotations, unchecked_return_type = "T.ReaderAnnotation[]")]
+pub fn listed_annotations_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly T.ReaderAnnotation[]")] annotations: JsValue,
+) -> JsResult<JsValue> {
     let annotations: Vec<ReaderAnnotation> = serde_wasm_bindgen::from_value(annotations)?;
     to_js(&listed_annotations(&annotations))
 }

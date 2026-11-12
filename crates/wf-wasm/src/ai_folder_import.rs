@@ -19,10 +19,12 @@ pub fn is_folder_draft_path_js(path: &str) -> bool {
 /// # Errors
 ///
 /// Fails only if the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = folderDraftForProject)]
+#[wasm_bindgen(js_name = folderDraftForProject, unchecked_return_type = "unknown")]
 pub fn folder_draft_for_project_js(
     raw: &str,
-    project_id: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | undefined")] project_id: Option<
+        String,
+    >,
 ) -> Result<JsValue, JsError> {
     to_js(&folder_draft::folder_draft_for_project(
         raw,

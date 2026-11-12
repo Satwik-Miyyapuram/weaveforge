@@ -32,6 +32,8 @@ fn is_false(value: &bool) -> bool {
 
 /// What one folder file said: who moved it since the sides last agreed, and its digest now.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "FolderSeenFile"))]
 #[serde(rename_all = "camelCase")]
 pub struct FolderSeen {
     /// Side that changed the file.
@@ -40,9 +42,11 @@ pub struct FolderSeen {
     pub digest: String,
     /// Neither the last agreement nor the workspace knows this path.
     #[serde(skip_serializing_if = "is_false")]
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub new_path: bool,
     /// Where the note this new path carries lived, when that file is gone.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub renamed_from: Option<String>,
 }
 

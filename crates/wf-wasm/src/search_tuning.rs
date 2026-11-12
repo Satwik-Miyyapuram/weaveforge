@@ -17,14 +17,27 @@ pub fn fuzziness_for_term_js(term: String) -> f64 {
     search_tuning::fuzziness_for_term(&term)
 }
 
-/// [`document_boost`](search_tuning::document_boost). `now` is epoch milliseconds.
+/// [`document_boost`](search_tuning::document_boost). `options.now` is epoch milliseconds and
+/// defaults to `Date.now()`; `options` defaults to `{}`.
 ///
 /// # Errors
 ///
 /// Fails if `doc` or `options` has the wrong shape.
 #[wasm_bindgen(js_name = documentBoost)]
-pub fn document_boost_js(doc: JsValue, options: JsValue, now: f64) -> JsResult<f64> {
+pub fn document_boost_js(
+    #[wasm_bindgen(unchecked_param_type = "{ degree: number; updatedAt: string }")] doc: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.DocumentBoostOptions & { now?: number }")]
+    options: JsValue,
+) -> JsResult<f64> {
     let doc: RankedDoc = serde_wasm_bindgen::from_value(doc)?;
-    let options: DocumentBoostOptions = serde_wasm_bindgen::from_value(options)?;
+    let (options, now) = if options.is_undefined() || options.is_null() {
+        (DocumentBoostOptions::default(), None)
+    } else {
+        let now = js_sys::Reflect::get(&options, &JsValue::from_str("now"))
+            .ok()
+            .and_then(|now| now.as_f64());
+        (serde_wasm_bindgen::from_value(options)?, now)
+    };
+    let now = now.unwrap_or_else(js_sys::Date::now);
     Ok(search_tuning::document_boost(&doc, &options, now))
 }

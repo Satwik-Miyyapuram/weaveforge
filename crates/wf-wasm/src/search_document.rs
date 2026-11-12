@@ -8,6 +8,8 @@
 )]
 use std::collections::HashMap;
 
+use js_sys::{Array, JsString, Object, Reflect};
+use serde::de::DeserializeOwned;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::search::excerpt::{ExcerptOptions, build_excerpt as core_build_excerpt};
@@ -18,6 +20,50 @@ use wf_core::search::wiki_graph::WikiGraph;
 use wf_core::sync::workspace_snapshot::WorkspaceSnapshot;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
+
+/// A `ReadonlyMap<string, V>` (or any entries iterable) read as `Object.fromEntries` reads it.
+///
+/// # Errors
+///
+/// Fails if `map` is not an entries iterable or a value does not deserialize to `T`.
+pub(crate) fn map_arg<T: DeserializeOwned>(map: &JsValue) -> Result<HashMap<String, T>, JsValue> {
+    Ok(serde_wasm_bindgen::from_value(
+        Object::from_entries(map)?.into(),
+    )?)
+}
+
+/// [`map_arg`], with a missing map read as empty (the TS default `new Map()`).
+fn optional_map_arg<T: DeserializeOwned>(
+    map: Option<JsValue>,
+) -> Result<HashMap<String, T>, JsValue> {
+    map.map_or_else(|| Ok(HashMap::new()), |map| map_arg(&map))
+}
+
+/// The TS wiki graph (`{ nodes, edges: Map<node, neighbours> }`, or a falsy value for none) as
+/// the wire rows Rust reads, in the map's insertion order.
+fn wire_graph(graph: &JsValue) -> Result<Option<WikiGraph>, JsValue> {
+    if graph.is_falsy() {
+        return Ok(None);
+    }
+    let nodes = Array::from(&Reflect::get(graph, &JsValue::from_str("nodes"))?);
+    let edges = Array::from(&Reflect::get(graph, &JsValue::from_str("edges"))?);
+    let rows = Array::new();
+    for entry in edges.iter() {
+        let row = Object::new();
+        let _ = Reflect::set(
+            &row,
+            &JsValue::from_str("node"),
+            &Reflect::get_u32(&entry, 0)?,
+        )?;
+        let neighbours = Array::from(&Reflect::get_u32(&entry, 1)?);
+        let _ = Reflect::set(&row, &JsValue::from_str("neighbours"), &neighbours)?;
+        let _ = rows.push(&row);
+    }
+    let wire = Object::new();
+    let _ = Reflect::set(&wire, &JsValue::from_str("nodes"), &nodes)?;
+    let _ = Reflect::set(&wire, &JsValue::from_str("edges"), &rows)?;
+    Ok(Some(serde_wasm_bindgen::from_value(wire.into())?))
+}
 
 /// The longest prefix of `text` within `max` UTF-16 units, cut on a character boundary. The TS
 /// slice it replaces could split a surrogate pair; this never does.
@@ -58,8 +104,14 @@ pub fn index_terms_of_js(text: &str) -> Vec<String> {
 ///
 /// Fails if `terms` is not an array of strings, or if the terms together need more than
 /// `MAX_INDEX_TEXT_UTF16` units (each counts its length + 1), as the TS `buildExcerpt` does.
-#[wasm_bindgen(js_name = excerptOf)]
-pub fn excerpt_of_js(body: &str, terms: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(
+    js_name = excerptOf,
+    unchecked_return_type = "{ text: string; highlights: { start: number; end: number }[] }"
+)]
+pub fn excerpt_of_js(
+    body: &str,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] terms: JsValue,
+) -> Result<JsValue, JsValue> {
     let terms: Vec<String> = serde_wasm_bindgen::from_value(terms)?;
     let max = crate::max_index_text_utf16();
     let total: usize = terms
@@ -79,20 +131,40 @@ pub fn excerpt_of_js(body: &str, terms: JsValue) -> Result<JsValue, JsValue> {
             single_line: true,
         },
     );
-    Ok(serde_wasm_bindgen::to_value(&excerpt)?)
+    // The text comes back as UTF-16 units (a lone surrogate survives); chunks keep each
+    // `String.fromCharCode` call under the argument limit.
+    let mut text = JsString::from("");
+    for chunk in excerpt.text.chunks(8192) {
+        text = text.concat(&JsString::from_char_code(chunk));
+    }
+    let out = Object::new();
+    let _ = Reflect::set(&out, &JsValue::from_str("text"), &text)?;
+    let _ = Reflect::set(
+        &out,
+        &JsValue::from_str("highlights"),
+        &serde_wasm_bindgen::to_value(&excerpt.highlights)?,
+    )?;
+    Ok(out.into())
 }
 
-/// [`to_search_docs`](search_document::to_search_docs). `degrees` is a plain
-/// `{ "kind:id": count }` object.
+/// [`to_search_docs`](search_document::to_search_docs). `degrees` maps `kind:id` to a link
+/// count and defaults to empty.
 ///
 /// # Errors
 ///
 /// Fails if `snapshot` or `degrees` do not match the expected shape.
-#[wasm_bindgen(js_name = toSearchDocs)]
-pub fn to_search_docs_js(snapshot: JsValue, degrees: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = toSearchDocs, unchecked_return_type = "B.SearchDoc[]")]
+pub fn to_search_docs_js(
+    #[wasm_bindgen(unchecked_param_type = "object")] snapshot: JsValue,
+    #[wasm_bindgen(unchecked_optional_param_type = "ReadonlyMap<string, number>")] degrees: Option<
+        JsValue,
+    >,
+) -> Result<JsValue, JsValue> {
     let snapshot: WorkspaceSnapshot = serde_wasm_bindgen::from_value(snapshot)?;
-    let degrees: HashMap<String, u32> = serde_wasm_bindgen::from_value(degrees)?;
-    serde_wasm_bindgen::to_value(&search_document::to_search_docs(&snapshot, &degrees))
+    let degrees: HashMap<String, u32> = optional_map_arg(degrees)?;
+    Ok(serde_wasm_bindgen::to_value(
+        &search_document::to_search_docs(&snapshot, &degrees),
+    )?)
 }
 
 /// [`search_revision`](search_document::search_revision).
@@ -117,26 +189,36 @@ pub fn extract_headings_js(body: Option<String>) -> Vec<String> {
     search_document::extract_headings(body.as_deref())
 }
 
-/// [`bounded_body`](search_document::bounded_body).
+/// [`bounded_body`](search_document::bounded_body); a missing body reads as empty.
 #[wasm_bindgen(js_name = boundedBody)]
 #[allow(
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes strings by value"
 )]
-pub fn bounded_body_js(body: String) -> String {
-    search_document::bounded_body(&body)
+pub fn bounded_body_js(body: Option<String>) -> String {
+    search_document::bounded_body(body.as_deref().unwrap_or_default())
 }
 
-/// [`to_pdf_search_docs`](search_document::to_pdf_search_docs).
+/// [`to_pdf_search_docs`](search_document::to_pdf_search_docs). `degrees` defaults to empty.
 ///
 /// # Errors
 ///
 /// Fails if `sources` or `degrees` do not match the expected shape.
-#[wasm_bindgen(js_name = toPdfSearchDocs)]
-pub fn to_pdf_search_docs_js(sources: JsValue, degrees: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = toPdfSearchDocs, unchecked_return_type = "B.SearchDoc[]")]
+pub fn to_pdf_search_docs_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly (Required<Omit<B.PdfIndexSource, \"pages\">> & { pages: readonly Required<B.PdfPageText>[] })[]"
+    )]
+    sources: JsValue,
+    #[wasm_bindgen(unchecked_optional_param_type = "ReadonlyMap<string, number>")] degrees: Option<
+        JsValue,
+    >,
+) -> Result<JsValue, JsValue> {
     let sources: Vec<PdfIndexSource> = serde_wasm_bindgen::from_value(sources)?;
-    let degrees: HashMap<String, u32> = serde_wasm_bindgen::from_value(degrees)?;
-    serde_wasm_bindgen::to_value(&search_document::to_pdf_search_docs(&sources, &degrees))
+    let degrees: HashMap<String, u32> = optional_map_arg(degrees)?;
+    Ok(serde_wasm_bindgen::to_value(
+        &search_document::to_pdf_search_docs(&sources, &degrees),
+    )?)
 }
 
 /// [`pdf_doc_id`](search_document::pdf_doc_id).
@@ -180,41 +262,48 @@ pub fn annotation_doc_id_js(annotation_id: String) -> String {
 }
 
 /// [`to_annotation_search_docs`](search_document::to_annotation_search_docs).
-/// `paper_titles` is a plain `{ paperId: title }` object.
+/// `paper_titles` maps a paper id to its title; `degrees` defaults to empty.
 ///
 /// # Errors
 ///
 /// Fails if an argument does not match the expected shape.
-#[wasm_bindgen(js_name = toAnnotationSearchDocs)]
+#[wasm_bindgen(js_name = toAnnotationSearchDocs, unchecked_return_type = "B.SearchDoc[]")]
 pub fn to_annotation_search_docs_js(
-    annotations: JsValue,
-    paper_titles: JsValue,
-    degrees: JsValue,
-) -> JsResult<JsValue> {
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnnotationSource[]")] annotations: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "ReadonlyMap<string, string>")] paper_titles: JsValue,
+    #[wasm_bindgen(unchecked_optional_param_type = "ReadonlyMap<string, number>")] degrees: Option<
+        JsValue,
+    >,
+) -> Result<JsValue, JsValue> {
     let annotations: Vec<AnnotationSource> = serde_wasm_bindgen::from_value(annotations)?;
-    let titles: HashMap<String, String> = serde_wasm_bindgen::from_value(paper_titles)?;
-    let degrees: HashMap<String, u32> = serde_wasm_bindgen::from_value(degrees)?;
-    serde_wasm_bindgen::to_value(&search_document::to_annotation_search_docs(
-        &annotations,
-        &titles,
-        &degrees,
-    ))
+    let titles: HashMap<String, String> = map_arg(&paper_titles)?;
+    let degrees: HashMap<String, u32> = optional_map_arg(degrees)?;
+    Ok(serde_wasm_bindgen::to_value(
+        &search_document::to_annotation_search_docs(&annotations, &titles, &degrees),
+    )?)
 }
 
-/// [`project_search_documents`](projection::project_search_documents). `graph` is a wiki graph or
-/// `null`; `pdfTexts` is the extracted PDF text array.
+/// [`project_search_documents`](projection::project_search_documents). `graph` is the TS wiki
+/// graph (edges as a `Map`), or `null` when degrees are not wanted; `pdfTexts` is the extracted
+/// PDF text array.
 ///
 /// # Errors
 ///
 /// Fails if an argument or a reader annotation does not match the expected shape.
-#[wasm_bindgen(js_name = projectSearchDocuments)]
+#[wasm_bindgen(js_name = projectSearchDocuments, unchecked_return_type = "B.SearchDoc[]")]
 pub fn project_search_documents_js(
-    snapshot: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "object")] snapshot: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "{ nodes: string[]; edges: Map<string, string[]> } | null"
+    )]
     graph: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly (Required<Omit<B.PdfIndexSource, \"pages\">> & { pages: readonly Required<B.PdfPageText>[] })[]"
+    )]
     pdf_texts: JsValue,
 ) -> Result<JsValue, JsValue> {
     let snapshot: WorkspaceSnapshot = serde_wasm_bindgen::from_value(snapshot)?;
-    let graph: Option<WikiGraph> = serde_wasm_bindgen::from_value(graph)?;
+    let graph = wire_graph(&graph)?;
     let pdf_texts: Vec<PdfIndexSource> = serde_wasm_bindgen::from_value(pdf_texts)?;
     let docs = projection::project_search_documents(&snapshot, graph.as_ref(), &pdf_texts)
         .map_err(|error| JsValue::from_str(&error.to_string()))?;

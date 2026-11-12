@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initSync } from "../src/index.js";
 import { createdPageIndex } from "../src/index.js";
-import { groupProposals } from "../src/wrappers-6.js";
+import { groupProposals } from "../src/index.js";
 import {
   shouldMountShellChildren,
   shouldShowWorkspaceLoader,
-} from "../src/wrappers-6.js";
+} from "../src/index.js";
 import { railGroupText } from "../src/index.js";
 import { semanticStatusText } from "../src/index.js";
 import { conflictRoute } from "../src/index.js";

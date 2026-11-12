@@ -1,6 +1,4 @@
 //! Reader-mark digest and reading log (wf-core `papers::reading_digest`).
-//!
-//! The TS wrapper in `packages/wf-wasm/src/wrappers-5.ts` gives the results their types.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;

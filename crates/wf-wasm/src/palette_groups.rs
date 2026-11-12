@@ -57,8 +57,10 @@ pub fn command_match_indices_js(
 /// # Errors
 ///
 /// Fails if `event` has the wrong shape.
-#[wasm_bindgen(js_name = paletteModeFor)]
-pub fn palette_mode_for_js(event: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = paletteModeFor, unchecked_return_type = "B.PaletteMode | null")]
+pub fn palette_mode_for_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaletteKey")] event: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let event: PaletteKey = serde_wasm_bindgen::from_value(event)?;
     to_js(&palette_groups::palette_mode_for(&event))
 }

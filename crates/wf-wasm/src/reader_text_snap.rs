@@ -15,8 +15,12 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `runs` is not an array of `{ left, top, right, bottom }` objects.
-#[wasm_bindgen(js_name = snapToText)]
-pub fn snap_to_text_js(runs: JsValue, x: f64, y: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = snapToText, unchecked_return_type = "B.SnapHit | null")]
+pub fn snap_to_text_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.TextRunBox[]")] runs: JsValue,
+    x: f64,
+    y: f64,
+) -> JsResult<JsValue> {
     let runs: Vec<TextRunBox> = serde_wasm_bindgen::from_value(runs)?;
     to_js(&snap_to_text(&runs, x, y))
 }

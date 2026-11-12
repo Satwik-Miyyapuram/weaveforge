@@ -12,7 +12,14 @@ pub fn max_signed_url_paths_js() -> u32 {
 }
 
 /// [`blob_access::BLOB_STORAGE_BUCKETS`]: every bucket a user's blobs live in, as a string array.
-#[wasm_bindgen(js_name = blobStorageBuckets)]
+///
+/// # Errors
+///
+/// Fails only when the list cannot be converted to JS.
+#[wasm_bindgen(
+    js_name = blobStorageBuckets,
+    unchecked_return_type = "(\"paper-images\" | \"experiment-artifacts\" | \"vault-assets\" | \"report-images\" | \"log-images\")[]"
+)]
 pub fn blob_storage_buckets_js() -> JsResult<JsValue> {
     serde_wasm_bindgen::to_value(&blob_access::BLOB_STORAGE_BUCKETS)
 }
