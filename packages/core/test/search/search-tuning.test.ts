@@ -37,13 +37,14 @@ test("prefix matching needs at least three characters", () => {
 });
 
 test("title outranks every other field", () => {
-  const others = (Object.keys(rust().FIELD_BOOSTS) as (keyof ReturnType<typeof rust>["FIELD_BOOSTS"])[]).filter(
+  const boosts = rust().effectiveFieldBoosts();
+  const others = (Object.keys(boosts) as (keyof typeof boosts)[]).filter(
     (f) => f !== "title",
   );
   for (const field of others) {
-    assert.ok(rust().FIELD_BOOSTS.title > rust().FIELD_BOOSTS[field], `title should outrank ${field}`);
+    assert.ok(boosts.title > boosts[field], `title should outrank ${field}`);
   }
-  assert.ok(rust().FIELD_BOOSTS.body < rust().FIELD_BOOSTS.headings);
+  assert.ok(boosts.body < boosts.headings);
 });
 
 test("link degree beats recency — the deliberate deviation from Omnisearch", () => {

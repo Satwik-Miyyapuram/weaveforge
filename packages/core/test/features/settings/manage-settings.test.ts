@@ -1,8 +1,23 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { ManageSettingsUseCase } from "../../../src/index.js";
-import { fixedClock, InMemorySettingsRepository } from "../../../src/testing/parts.js";
+import { ManageSettingsUseCase, type ISettingsRepository, type UserSettings } from "../../../src/index.js";
+import { fixedClock } from "../../support/clock.js";
+
+/** Keeps the saved settings in memory; only what this test needs. */
+class InMemorySettingsRepository implements ISettingsRepository {
+  private settings = {} as UserSettings;
+  async get(): Promise<UserSettings> {
+    return structuredClone(this.settings);
+  }
+  async getMetadata() {
+    return { disclaimerAcceptedAt: undefined, disclaimerVersion: undefined, appearance: undefined };
+  }
+  async save(settings: UserSettings): Promise<void> {
+    this.settings = structuredClone(settings);
+  }
+  async saveDisclaimer(): Promise<void> {}
+}
 
 const clock = fixedClock("2026-06-24T12:00:00.000Z");
 
