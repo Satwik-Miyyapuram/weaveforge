@@ -83,8 +83,8 @@ are being removed.
   forwarding.
 - **Proposal grouping.** `apps/web/src/features/ai-assistant/application/parts.ts`
   is UI-side grouping and bulk-run logic. It stays in TypeScript for now.
-- **Thin wrappers.** `packages/wf-wasm/src/wrappers-6.ts` only forwards to
-  the raw `proposalApplies` export. It keeps no logic of its own.
+- **No TS wrapper.** `proposalApplies` is served straight from the wasm package;
+  its TS type is declared in Rust.
 
 ## Related
 

@@ -2,7 +2,7 @@
 
 Rust: `crates/wf-core/src/reader/picture.rs` (5 tests).
 Wasm: `crates/wf-wasm/src/reader_picture.rs`.
-TS wrapper: `packages/wf-wasm/src/wrappers-7.ts` (re-exported from `index.ts`).
+TS types: declared in Rust; served straight from the wasm package (no TS wrapper).
 
 Placed picture marks: their stored metadata (file path, crop, stacking order), the
 figure rect on the page, and the draft for a new picture.

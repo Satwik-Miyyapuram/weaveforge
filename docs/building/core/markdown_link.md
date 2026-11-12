@@ -15,7 +15,7 @@ Whitespace follows JavaScript (`\S` and `trim`), using `crate::search::js_text::
 
 ## How the app calls it
 
-The wasm exports are `isBareUrl`, `escapeLinkLabel`, `markdownLink` and `linkLabel` in `crates/wf-wasm/src/paste.rs`. The typed wrappers are in `packages/wf-wasm/src/wrappers-5.ts`. The app reaches them through `readyCore()` from `@/lib/rust-core`.
+The wasm exports are `isBareUrl`, `escapeLinkLabel`, `markdownLink` and `linkLabel` in `crates/wf-wasm/src/paste.rs`. Their TS types are declared in Rust. The app reaches them through `readyCore()` from `@/lib/rust-core`.
 
 `linkLabel` returns `null` for "no label". The wasm side returns `undefined`, and the wrapper maps it to `null`.
 

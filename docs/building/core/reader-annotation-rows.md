@@ -2,7 +2,7 @@
 
 Rust: `crates/wf-core/src/reader/annotation_rows.rs`.
 Wasm: `crates/wf-wasm/src/reader_annotation_rows.rs`.
-TS wrapper: `packages/wf-wasm/src/wrappers-8.ts` (re-exported from `index.ts`).
+TS types: declared in Rust; served straight from the wasm package (no TS wrapper).
 TS shim: `apps/web/src/features/reader/infrastructure/parts-1.ts` (kept; `postgrest-reader-annotation-repository.ts` importer).
 
 Pure logic: maps a stored annotation row (snake_case columns) to the domain `ReaderAnnotation`.

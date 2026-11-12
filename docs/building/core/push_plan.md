@@ -1,6 +1,6 @@
 # push_plan
 
-Offline-sync gates that were still TypeScript-only. Rust: `wf-core::sync::push_plan`; wasm: `sync_push_plan.rs`; wrapper: `packages/wf-wasm/src/wrappers-11.ts`.
+Offline-sync gates that were still TypeScript-only. Rust: `wf-core::sync::push_plan`; wasm: `sync_push_plan.rs`; no TS wrapper (typed in Rust).
 
 | Rust fn | JS | Replaces (TS) |
 | --- | --- | --- |

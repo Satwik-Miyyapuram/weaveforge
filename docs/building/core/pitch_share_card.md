@@ -22,9 +22,8 @@ cases from the TypeScript tests.
 ## How the app calls it
 
 The wasm exports live in `crates/wf-wasm/src/pitch_share_card.rs`:
-`appOriginFrom`, `pitchShareConstants` and `pitchShareCard`. The TypeScript wrappers
-in `packages/wf-wasm/src/wrappers-6.ts` import the raw names from
-`../pkg/wf_wasm.js` and export typed versions with the `PitchShareCard`,
+`appOriginFrom`, `pitchShareConstants` and `pitchShareCard`. They are served
+straight from `../pkg/wf_wasm.js`, typed in Rust with the `PitchShareCard`,
 `PitchShareImage` and `PitchShareConstants` types.
 
 `apps/web/src/app/pitch/share-card.ts` still builds the Next.js `Metadata` object

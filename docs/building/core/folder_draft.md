@@ -10,7 +10,7 @@ are drafts and which belong to the open project. The import loop stays in TypeSc
   or its project matches the open one. An empty project id counts as no project.
 
 Source: `crates/wf-core/src/ai/folder_draft.rs`. Wasm: `crates/wf-wasm/src/ai_folder_import.rs`
-(`isFolderDraftPath`, `folderDraftForProject`). Wrapper: `packages/wf-wasm/src/wrappers-1.ts`.
+(`isFolderDraftPath`, `folderDraftForProject`). No TS wrapper; typed in Rust.
 
 ## What stays in TypeScript
 

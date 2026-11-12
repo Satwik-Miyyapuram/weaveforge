@@ -11,7 +11,7 @@ Rust home: `crates/wf-core/src/local_api_guard.rs`.
 ## Where it is called
 
 - wasm exports `isLoopbackHost`, `bearerToken` and `isLegacyTokenHex` in `crates/wf-wasm/src/local_api_guard.rs`.
-- Wrapper `packages/wf-wasm/src/wrappers-9.ts`, typed through `rust()` in `packages/core/src/shared/rust.ts`.
+- No TS wrapper; typed through `rust()` in `packages/core/src/shared/rust.ts`.
 - `apps/shell/sidecar/src/local-api-server.ts`: `isLoopbackHost` and the legacy check in `parseLocalApiTokens`.
 - `apps/shell/sidecar/src/local-api.ts`: the credential parse in `tokenMatches` and `grantPermissions`.
 

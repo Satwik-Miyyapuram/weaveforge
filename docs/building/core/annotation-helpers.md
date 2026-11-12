@@ -2,7 +2,7 @@
 
 Rust: `crates/wf-core/src/reader/annotation_helpers.rs`.
 Wasm: `crates/wf-wasm/src/reader_annotation_helpers.rs`.
-TS wrapper: `packages/wf-wasm/src/wrappers-7.ts` (re-exported from `index.ts`).
+TS types: declared in Rust; served straight from the wasm package (no TS wrapper).
 
 Pure record helpers for local annotations: pin keys, edits, optimistic rows, and the
 list the Annotations sidebar shows.

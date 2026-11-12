@@ -16,8 +16,7 @@ background PDF indexer. The IO (IndexedDB, the network, pdf.js) stays in TypeScr
 
 - `wf-wasm` exports `recentFailureIds` and `courtesyPauseDue`
   (`crates/wf-wasm/src/library_index.rs`).
-- `packages/wf-wasm/src/wrappers-9.ts` wraps them, re-exported from
-  `modules.ts` and `feature-wrappers.ts`.
+- The wasm package serves them directly, with TS types declared in Rust.
 - `apps/web/src/features/search/application/parts-1.ts` calls
   `readyCore().recentFailureIds` in `recentFailures()`.
 - `apps/web/src/features/search/application/parts-1.ts` calls

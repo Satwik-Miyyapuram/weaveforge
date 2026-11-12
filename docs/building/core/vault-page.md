@@ -10,7 +10,7 @@ repository port, and the thin use case.
 | Wikilinks, frontmatter, titles, tree, previews, scoping (pure) | Rust | `crates/wf-core/src/vault/page.rs` |
 | Page row mapping | Rust | `crates/wf-core/src/vault/page_row.rs` |
 | Wasm exports (`vaultImagePrefix`, `vaultBodyPreviewChars`, plus the helper functions) | Rust | `crates/wf-wasm/src/vault_page.rs` |
-| Typed wasm wrappers | TS | `packages/wf-wasm/src/wrappers-11.ts` |
+| TS types | Rust | `crates/wf-wasm/src` (`unchecked_*_type`) |
 | Page types and `VaultPageFns` | TS (hand-declared mirror) | `packages/core/src/shared/core-contract.ts` |
 | `VaultPageValidationError` | TS | `packages/core/src/shared/errors.ts` |
 | Repository port | TS | `packages/core/src/features/vault/domain/vault-page-repository.ts` |

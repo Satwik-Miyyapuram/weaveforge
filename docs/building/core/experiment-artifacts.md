@@ -23,8 +23,8 @@ Source: `crates/wf-core/src/experiment_artifacts.rs`
 ## How the app calls it
 
 The wasm exports live in `crates/wf-wasm/src/experiment_artifacts.rs`
-(`safeName`, `viewableArtifactUrl`, `isAbsoluteUrl`, `isAbsoluteEntry`, `artifactKind`). The TypeScript
-wrapper is `packages/wf-wasm/src/wrappers-2.ts`.
+(`safeName`, `viewableArtifactUrl`, `isAbsoluteUrl`, `isAbsoluteEntry`, `artifactKind`). Their TS types are
+declared in Rust; there is no TS wrapper.
 
 `apps/web/src/features/experiments/infrastructure/parts.ts`
 calls `readyCore()` for `isAbsoluteUrl`, `viewableArtifactUrl` and `safeName`.

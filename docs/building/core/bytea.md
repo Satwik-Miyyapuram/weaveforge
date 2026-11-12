@@ -26,11 +26,10 @@ and sync payloads depend on it.
 ## How the app calls it
 
 The wasm exports live in `crates/wf-wasm/src/bytea.rs` as `decodeBytea`,
-`encodeBytea`, `decodeBase64` and `encodeBase64`. The wrapper in
-`packages/wf-wasm/src/wrappers-1.ts` imports them from `../pkg/wf_wasm.js` and
-re-exports them through `feature-wrappers.ts`.
+`encodeBytea`, `decodeBase64` and `encodeBase64`. `feature-wrappers.ts`
+re-exports them straight from `../pkg/wf_wasm.js`; their TS types are declared in Rust.
 
-`decodeBytea` keeps one TypeScript step in front of the core: a `Uint8Array`
+`decodeBytea` takes a string or a `Uint8Array`; a `Uint8Array`
 passes through unchanged, because PGlite returns bytea columns as bytes already.
 
 Callers reach these through `readyCore()` from `apps/web/src/lib/rust-core.ts`,

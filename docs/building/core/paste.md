@@ -27,7 +27,7 @@ Offsets in this module are byte offsets. The wasm layer converts the UTF-16 offs
 
 ## How the app calls it
 
-The app reaches the core through `readyCore()` from `@/lib/rust-core`. The wasm exports live in `crates/wf-wasm/src/paste.rs`. `packages/wf-wasm/src/wrappers-5.ts` wraps them.
+The app reaches the core through `readyCore()` from `@/lib/rust-core`. The wasm exports live in `crates/wf-wasm/src/paste.rs`. Their TS types are declared in Rust.
 
 The exports the app calls:
 
