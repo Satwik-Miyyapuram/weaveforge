@@ -17,7 +17,7 @@ import { registerSessionReset } from "@/lib/cache/parts";
 import { logToApp } from "@/lib/error-report/app-log";
 import { relayUrl } from "@/lib/parts";
 import type { ProjectContext } from "@/lib/parts-2";
-import { loadCore } from "@/lib/rust-core";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import {
   type AddPaperDeps,
   AddPaperUseCase,
@@ -85,12 +85,14 @@ export class HttpAccountProvisioner implements IAccountProvisioner {
       member?: Member;
       error?: string;
     };
-    if (!res.ok || !payload.member) {
-      throw responseError(res, payload.error, res.ok ? "Account created but no member returned." : "Failed to create account.");
+    const reply = readyCore().createMemberReply(res.ok, Boolean(payload.member));
+    if (reply.kind === "rejected") {
+      throw responseError(res, payload.error, reply.fallback);
     }
     // The team and lab lists are memoized; the new member must show at once.
     invalidateAllRepoCaches();
-    return payload.member;
+    // Rust's `created` means ok and a truthy member, so this is set here.
+    return payload.member as Member;
   }
 }
 
@@ -265,12 +267,9 @@ export class IdbReferenceLookupCache implements ReferenceLookupCache {
 // --- report-citation-alert-error ---
 /** Logs a citation alert check or notification that failed for one paper. */
 export function reportCitationAlertError(paperId: string, error: unknown): void {
-  logToApp({
-    level: "warn",
-    source: "citation-alerts",
-    message: "A citation alert check or notification failed",
-    detail: `${paperId}: ${describeRejection(error)}`,
-  });
+  void loadCore()
+    .then((core) => logToApp(core.citationAlertFailureLog(paperId, describeRejection(error))))
+    .catch(() => {});
 }
 
 // --- routed-ink-chunk-store ---

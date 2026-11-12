@@ -27,6 +27,8 @@
  * function that answers it. Routes call {@link httpStatusForError} instead of
  * comparing error classes.
  */
+import { rust } from "./rust.js";
+
 
 /**
  * Root of every error WeaveForge throws on purpose.
@@ -99,7 +101,13 @@ export class WorkspacePathError extends ValidationError {
   }
 }
 
-/** Status codes, named so no route spells a number out. */
+/**
+ * Status codes, named so no route spells a number out.
+ *
+ * Literals rather than `rust().httpStatusForKind(...)`: these are read at import, and the app
+ * only registers the wasm after an async load. Rust's kind map is the source of truth; a core
+ * test pins these values to it.
+ */
 export const ERROR_STATUS_BAD_REQUEST = 400;
 export const ERROR_STATUS_FORBIDDEN = 403;
 export const ERROR_STATUS_NOT_FOUND = 404;
@@ -114,11 +122,13 @@ export const ERROR_STATUS_INTERNAL = 500;
  * first so a future subclass of a subclass still lands correctly.
  */
 export function httpStatusForError(error: unknown): number {
-  if (error instanceof NotFoundError) return ERROR_STATUS_NOT_FOUND;
-  if (error instanceof PermissionError) return ERROR_STATUS_FORBIDDEN;
-  if (error instanceof ConflictError) return ERROR_STATUS_CONFLICT;
-  if (error instanceof ValidationError) return ERROR_STATUS_BAD_REQUEST;
-  return ERROR_STATUS_INTERNAL;
+  // The classes decide the kind here; the kind-to-status map is Rust's (wf-core `error_status`).
+  let kind = "internal";
+  if (error instanceof NotFoundError) kind = "not-found";
+  else if (error instanceof PermissionError) kind = "permission";
+  else if (error instanceof ConflictError) kind = "conflict";
+  else if (error instanceof ValidationError) kind = "validation";
+  return rust().httpStatusForKind(kind);
 }
 
 /** Validation errors the Rust core's glue throws as a plain `Error` with this name. */
