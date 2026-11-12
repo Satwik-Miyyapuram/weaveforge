@@ -18,8 +18,6 @@ const TITLE_BYTES = 512 * 1024;
 /** A figure, not a video. */
 const IMAGE_BYTES = 12 * 1024 * 1024;
 
-const IMAGE_TYPES = /^image\/(png|jpeg|gif|webp|avif|bmp|tiff)$/i;
-
 type FetchFailure = { ok: false; status: number; message: string };
 
 export type TitleResult = { ok: true; title: string; url: string } | FetchFailure;
@@ -39,7 +37,7 @@ export async function fetchPageTitle(target: string, options: SafeFetchOptions =
 
   // A PDF or an image has no title to read, and decoding megabytes of one to
   // find that out helps nobody.
-  if (!/^text\/html|^application\/xhtml/i.test(result.contentType)) {
+  if (!typedCore().isHtmlContentType(result.contentType)) {
     return { ok: false, status: 415, message: "That address is not a web page." };
   }
 
@@ -69,11 +67,9 @@ export async function fetchRemoteImage(target: string, options: SafeFetchOptions
   const result = await safeFetch(target, { accept: "image/*", maxBytes: IMAGE_BYTES, ...options });
   if (!result.ok) return { ok: false, status: result.status, message: result.message };
 
-  const contentType = result.contentType.split(";")[0]!.trim().toLowerCase();
-  if (!IMAGE_TYPES.test(contentType)) {
-    // Deliberately not sniffed from the bytes. A server that echoes whatever it
-    // is sent, served back through our own origin, is a stored-XSS delivery
-    // mechanism — and SVG is a script carrier even when it is honest.
+  // Not sniffed from the bytes: the allowlist is `paste_content`'s, and it refuses SVG.
+  const contentType = typedCore().pasteImageType(result.contentType);
+  if (contentType === undefined) {
     return { ok: false, status: 415, message: "That address is not an image." };
   }
 

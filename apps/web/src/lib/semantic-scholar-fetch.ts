@@ -1,5 +1,6 @@
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { relayPath, relayUrl } from "@/lib/parts";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * Where Semantic Scholar is reached from: always our own relay.
@@ -20,8 +21,6 @@ export function semanticScholarUrl(path: string): string {
   const rest = path.startsWith("/") ? path.slice(1) : path;
   return relayUrl(`/api/semantic-scholar/${rest}`);
 }
-
-const RETRIES = 3;
 
 /**
  * Shared Semantic Scholar retry policy for metadata and citation endpoints.
@@ -44,8 +43,8 @@ export async function fetchSemanticScholar(
   wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 ): Promise<Response> {
   let outcome = await attempt(fetchFn, url, init);
-  for (let n = 0; throttled(outcome) && n < RETRIES; n++) {
-    await wait(1000 * (n + 1));
+  for (let n = 0; typedCore().semanticScholarShouldRetry(statusOf(outcome), n); n++) {
+    await wait(typedCore().semanticScholarRetryWaitMs(n));
     outcome = await attempt(fetchFn, url, init);
   }
   if (outcome instanceof Response) return outcome;
@@ -62,6 +61,7 @@ async function attempt(fetchFn: typeof fetch, url: string, init?: RequestInit): 
   }
 }
 
-function throttled(outcome: Response | TypeError): boolean {
-  return outcome instanceof Response ? outcome.status === 429 : true;
+/** The HTTP status of an attempt, or `undefined` for a thrown network error. */
+function statusOf(outcome: Response | TypeError): number | undefined {
+  return outcome instanceof Response ? outcome.status : undefined;
 }

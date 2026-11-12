@@ -76,6 +76,25 @@ test("a redirect to a private address is refused, not followed", async () => {
   }
 });
 
+test("redirect to 127.0.0.1 is blocked after hop 1", async () => {
+  const stub = stubFetch((url) =>
+    url.startsWith("https://example.com")
+      ? new Response(null, { status: 302, headers: { location: "http://127.0.0.1:8080/admin" } })
+      : new Response("local admin page"),
+  );
+  try {
+    const result = await safeFetch("https://example.com/start", { resolve: publicResolver });
+    assert.equal(result.ok, false);
+    assert.equal(result.ok === false && result.status, 400);
+    assert.match(result.ok === false ? result.message : "", /private network/);
+    // Hop 0 was requested; the loopback address was refused before any request to it.
+    assert.equal(stub.calls.length, 1);
+    assert.match(stub.calls[0]!.url, /example\.com/);
+  } finally {
+    stub.restore();
+  }
+});
+
 test("a redirect to another public address is followed and reported", async () => {
   const stub = stubFetch((url) =>
     url.startsWith("https://example.com")

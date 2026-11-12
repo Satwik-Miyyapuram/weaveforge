@@ -3,6 +3,7 @@
 //! The TS `Clock` and `IdGenerator` are replaced by the caller passing the new id and the
 //! current ISO 8601 time, so this module stays free of I/O.
 
+use crate::calendar_date::iso_date;
 use crate::reader_analysis::lines::js_trim;
 
 use std::fmt;
@@ -121,12 +122,6 @@ pub fn create_log_entry(
         links: input.links.unwrap_or_default(),
         created_at: now.to_owned(),
     })
-}
-
-/// `isoDate`: the first ten UTF-16 units of an ISO timestamp (`iso.slice(0, 10)`).
-fn iso_date(iso: &str) -> String {
-    let units: Vec<u16> = iso.encode_utf16().take(10).collect();
-    String::from_utf16_lossy(&units)
 }
 
 #[cfg(test)]
