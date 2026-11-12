@@ -9,6 +9,8 @@ use serde_json::Value;
 use crate::overleaf_workshop::encode_uri_component;
 use crate::reader_analysis::lines::js_trim;
 
+use super::source_requests::form_urlencode;
+
 /// Item types that describe a file or a comment about a paper, not a paper (TS `CHILD_ITEM_TYPES`).
 const CHILD_ITEM_TYPES: [&str; 3] = ["attachment", "note", "annotation"];
 
@@ -94,6 +96,186 @@ fn js_truthy(value: &Value) -> bool {
         Value::Number(number) => number.as_f64().is_some_and(|x| x != 0.0),
         Value::String(text) => !text.is_empty(),
         Value::Array(_) | Value::Object(_) => true,
+    }
+}
+
+/// The backoff ceiling for both the server header and the per-attempt fallback (TS `MAX_BACKOFF_MS`).
+const MAX_BACKOFF_MS: f64 = 30_000.0;
+
+/// A header or count read the way `Number(text)` reads it when it must be finite. Blank, missing
+/// and non-numeric text give `None`, so a missing header never reads as zero.
+fn finite_number(text: Option<&str>) -> Option<f64> {
+    let parsed = text?.trim().parse::<f64>().ok()?;
+    parsed.is_finite().then_some(parsed)
+}
+
+/// The `Total-Results` header as an item count, or `None` when it is absent or unusable (TS
+/// `getPage`). `None` sends the caller down the walk-until-short-page fallback.
+#[must_use]
+pub fn zotero_total_results(header: Option<&str>) -> Option<f64> {
+    finite_number(header)
+}
+
+/// Offsets of the pages after the first, for `total` items read `page` at a time (TS
+/// `fetchAllZoteroItems`). Empty when `page` is zero, since the offset would never advance.
+#[must_use]
+pub fn zotero_page_starts(total: f64, page: u64) -> Vec<u64> {
+    if page == 0 {
+        return Vec::new();
+    }
+    let mut starts = Vec::new();
+    let mut start = page;
+    while (start as f64) < total {
+        starts.push(start);
+        start += page;
+    }
+    starts
+}
+
+/// Milliseconds the shared clock waits after a response's `Backoff` header, falling back to
+/// `Retry-After` when `Backoff` is absent (TS `BackoffGate.note`). `None` when there is no usable
+/// positive value, which leaves the clock where it was.
+#[must_use]
+pub fn zotero_server_backoff_ms(backoff: Option<&str>, retry_after: Option<&str>) -> Option<f64> {
+    let seconds = finite_number(backoff.or(retry_after))?;
+    (seconds > 0.0).then(|| (seconds * 1000.0).min(MAX_BACKOFF_MS))
+}
+
+/// Milliseconds to back off after a 429 that carried no usable header, by attempt number (TS
+/// `BackoffGate.noteAttempt`).
+#[must_use]
+pub fn zotero_attempt_backoff_ms(attempt: u32) -> f64 {
+    (1000.0 * (f64::from(attempt) + 1.0)).min(MAX_BACKOFF_MS)
+}
+
+/// Build a Zotero request URL (TS `buildUrl` and `fetchZoteroItemKeys`): `base_url`, the path
+/// (default `/items`), then the query. `lead` pairs come first. Each `params` entry with a value
+/// is then set: an existing key is replaced in place, a new one is appended, and missing or empty
+/// values are skipped, as `URLSearchParams.set` does.
+fn request_url(
+    base_url: &str,
+    path: Option<&str>,
+    lead: Vec<(String, String)>,
+    params: &[(String, Option<String>)],
+) -> String {
+    let mut pairs = lead;
+    for (key, value) in params {
+        let Some(value) = value.as_deref().filter(|text| !text.is_empty()) else {
+            continue;
+        };
+        match pairs.iter_mut().find(|(existing, _)| existing == key) {
+            Some(pair) => pair.1 = value.to_owned(),
+            None => pairs.push((key.clone(), value.to_owned())),
+        }
+    }
+    let refs: Vec<(&str, &str)> = pairs
+        .iter()
+        .map(|(key, value)| (key.as_str(), value.as_str()))
+        .collect();
+    format!("{base_url}{}?{}", path.unwrap_or("/items"), form_urlencode(&refs))
+}
+
+/// The URL for one page of a Zotero read, `limit` and `start` first (TS `buildUrl`).
+#[must_use]
+pub fn zotero_page_url(
+    base_url: &str,
+    path: Option<&str>,
+    params: &[(String, Option<String>)],
+    start: u64,
+    limit: u64,
+) -> String {
+    let lead = vec![
+        ("limit".to_owned(), limit.to_string()),
+        ("start".to_owned(), start.to_string()),
+    ];
+    request_url(base_url, path, lead, params)
+}
+
+/// The URL for a keys-only read, `format=keys` first (TS `fetchZoteroItemKeys`).
+#[must_use]
+pub fn zotero_keys_url(
+    base_url: &str,
+    path: Option<&str>,
+    params: &[(String, Option<String>)],
+) -> String {
+    request_url(
+        base_url,
+        path,
+        vec![("format".to_owned(), "keys".to_owned())],
+        params,
+    )
+}
+
+#[cfg(test)]
+mod paging_tests {
+    use super::*;
+
+    // Plain-comment tests for the paging and backoff helpers; the TS paginator tests stay in
+    // zotero-web-api.test.ts and exercise these through the wasm bindings.
+
+    #[test]
+    fn total_results_is_read_only_when_it_is_a_number() {
+        // A missing or blank header must not claim the library is empty.
+        assert_eq!(zotero_total_results(Some("120")), Some(120.0));
+        assert_eq!(zotero_total_results(Some(" 7 ")), Some(7.0));
+        assert_eq!(zotero_total_results(Some("")), None);
+        assert_eq!(zotero_total_results(Some("   ")), None);
+        assert_eq!(zotero_total_results(Some("abc")), None);
+        assert_eq!(zotero_total_results(None), None);
+    }
+
+    #[test]
+    fn page_starts_cover_the_rest_after_the_first_page() {
+        assert_eq!(zotero_page_starts(250.0, 100), vec![100, 200]);
+        assert_eq!(zotero_page_starts(200.0, 100), vec![100]);
+        assert!(zotero_page_starts(100.0, 100).is_empty());
+        assert!(zotero_page_starts(0.0, 100).is_empty());
+        assert!(zotero_page_starts(500.0, 0).is_empty());
+    }
+
+    #[test]
+    fn page_url_sets_limit_and_start_first_and_skips_empty_params() {
+        let base = "https://api.zotero.org/users/1";
+        assert_eq!(
+            zotero_page_url(base, None, &[("tag".to_owned(), Some("a b".to_owned()))], 100, 100),
+            "https://api.zotero.org/users/1/items?limit=100&start=100&tag=a+b",
+        );
+        // A param with the same key replaces the lead value in place; empty and missing values drop out.
+        let params = [
+            ("limit".to_owned(), Some("5".to_owned())),
+            ("q".to_owned(), Some(String::new())),
+            ("collection".to_owned(), None),
+        ];
+        assert_eq!(
+            zotero_page_url(base, Some("/collections/K/items/top"), &params, 0, 100),
+            "https://api.zotero.org/users/1/collections/K/items/top?limit=5&start=0",
+        );
+    }
+
+    #[test]
+    fn keys_url_asks_for_the_key_list_format() {
+        assert_eq!(
+            zotero_keys_url("https://x", None, &[("tag".to_owned(), Some("t".to_owned()))]),
+            "https://x/items?format=keys&tag=t",
+        );
+    }
+
+    #[test]
+    fn server_backoff_uses_backoff_then_retry_after_and_clamps() {
+        assert_eq!(zotero_server_backoff_ms(Some("2"), None), Some(2000.0));
+        assert_eq!(zotero_server_backoff_ms(None, Some("5")), Some(5000.0));
+        assert_eq!(zotero_server_backoff_ms(None, Some("60")), Some(30_000.0));
+        // A present but zero Backoff wins over Retry-After and gives no wait.
+        assert_eq!(zotero_server_backoff_ms(Some("0"), Some("5")), None);
+        assert_eq!(zotero_server_backoff_ms(Some("abc"), Some("5")), None);
+        assert_eq!(zotero_server_backoff_ms(None, None), None);
+    }
+
+    #[test]
+    fn attempt_backoff_grows_by_a_second_and_clamps() {
+        assert_eq!(zotero_attempt_backoff_ms(0), 1000.0);
+        assert_eq!(zotero_attempt_backoff_ms(1), 2000.0);
+        assert_eq!(zotero_attempt_backoff_ms(5), 30_000.0);
     }
 }
 

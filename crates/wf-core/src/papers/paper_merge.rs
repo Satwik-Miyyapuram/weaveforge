@@ -270,6 +270,98 @@ fn stable_json(value: &Value) -> String {
     }
 }
 
+/// One copy in a merge: its id, and whether Zotero holds it (a Zotero key is stored).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct MergeCopy {
+    pub id: String,
+    pub linked: bool,
+}
+
+/// Which copy a merge keeps, the order the others fold into it, and a refusal when the merge
+/// cannot run (TS `MergePapersUseCase`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct MergeOrder {
+    pub kept: String,
+    pub dups: Vec<String>,
+    pub refusal: Option<String>,
+}
+
+/// Plan a merge over `copies`, the chosen copy (`keep_id`) first. The chosen copy survives when
+/// Zotero holds it; otherwise the first copy Zotero holds survives. Two linked copies are refused
+/// unless Zotero can remove one. The chosen copy folds in first, then the rest in order.
+#[must_use]
+pub fn merge_order(keep_id: &str, copies: &[MergeCopy], can_remove_zotero: bool) -> MergeOrder {
+    let linked_count = copies.iter().filter(|copy| copy.linked).count();
+    let refusal = (linked_count > 1 && !can_remove_zotero).then(|| {
+        format!(
+            "{linked_count} of these copies are linked to Zotero. Merge them in Zotero; the next sync brings the result here."
+        )
+    });
+    let Some(chosen) = copies.first() else {
+        return MergeOrder {
+            kept: keep_id.to_owned(),
+            dups: Vec::new(),
+            refusal,
+        };
+    };
+    let kept = if chosen.linked {
+        chosen
+    } else {
+        copies.iter().find(|copy| copy.linked).unwrap_or(chosen)
+    };
+    let mut dups: Vec<&MergeCopy> = copies.iter().filter(|copy| copy.id != kept.id).collect();
+    dups.sort_by_key(|copy| copy.id != keep_id);
+    MergeOrder {
+        kept: kept.id.clone(),
+        dups: dups.into_iter().map(|copy| copy.id.clone()).collect(),
+        refusal,
+    }
+}
+
+#[cfg(test)]
+mod merge_order_tests {
+    use super::*;
+
+    fn copy(id: &str, linked: bool) -> MergeCopy {
+        MergeCopy {
+            id: id.to_owned(),
+            linked,
+        }
+    }
+
+    #[test]
+    // it: "the copy linked to Zotero survives, and the chosen copy's details fold into it"
+    fn linked_copy_survives_and_the_chosen_copy_folds_in() {
+        let order = merge_order("A", &[copy("A", false), copy("B", true)], false);
+        assert_eq!(order.kept, "B");
+        assert_eq!(order.dups, vec!["A"]);
+        assert_eq!(order.refusal, None);
+    }
+
+    #[test]
+    // it: "two copies linked to Zotero are refused when there is no way to remove one from Zotero"
+    fn two_linked_copies_are_refused_without_a_zotero_removal() {
+        let order = merge_order("A", &[copy("A", true), copy("B", true)], false);
+        assert_eq!(
+            order.refusal.as_deref(),
+            Some("2 of these copies are linked to Zotero. Merge them in Zotero; the next sync brings the result here.")
+        );
+    }
+
+    #[test]
+    // it: "two copies linked to Zotero: the chosen one stays, the other moves across and leaves Zotero too"
+    fn two_linked_copies_keep_the_chosen_one() {
+        let order = merge_order("A", &[copy("A", true), copy("B", true)], true);
+        assert_eq!(order.kept, "A");
+        assert_eq!(order.dups, vec!["B"]);
+        assert_eq!(order.refusal, None);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

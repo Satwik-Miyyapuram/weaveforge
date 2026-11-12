@@ -35,8 +35,6 @@ import {
 export type { ZoteroAnnotation } from "@weaveforge/wasm";
 
 // --- semantic-scholar-metadata-source ---
-const FIELDS = "title,authors,year,venue,externalIds,openAccessPdf,citationCount";
-
 /**
  * Semantic Scholar as a metadata provider.
  *
@@ -68,12 +66,12 @@ export class SemanticScholarMetadataSource implements IMetadataSource {
     }
     if (ref.kind !== "bibliographic") throw new Error("Expected a bibliographic reference");
     const query = ref.hints?.title ?? ref.value;
-    const params = new URLSearchParams({ query, fields: FIELDS });
+    const core = await loadCore();
+    const url = core.semanticScholarMatchUrl(this.baseUrl ?? semanticScholarUrl("graph/v1"), query);
     const key = await this.apiKey();
-    const response = await fetchSemanticScholar(this.fetchFn, `${this.baseUrl ?? semanticScholarUrl("graph/v1")}/paper/search/match?${params}`, key ? { headers: { "x-api-key": key } } : undefined);
+    const response = await fetchSemanticScholar(this.fetchFn, url, key ? { headers: { "x-api-key": key } } : undefined);
     if (!response.ok) throw new Error(`Semantic Scholar metadata failed: ${response.status}`);
     const body = await response.json() as { data?: SemanticScholarPaper[] };
-    const core = await loadCore();
     for (const paper of body.data ?? []) {
       if (!paper.title || !core.isBibliographicMatch(ref.hints ?? {}, { title: paper.title, year: paper.year ?? undefined })) continue;
       return paperInputWithoutNulls(core.semanticScholarToMetadata(paper));
@@ -84,7 +82,7 @@ export class SemanticScholarMetadataSource implements IMetadataSource {
   /** `paper/DOI:10.…` / `paper/arXiv:2305.12345` — a certain lookup, not a search. */
   private async fetchByIdentifier(kind: "DOI" | "arXiv", value: string): Promise<PaperMetadata> {
     const key = await this.apiKey();
-    const url = `${this.baseUrl ?? semanticScholarUrl("graph/v1")}/paper/${kind}:${encodeURIComponent(value)}?fields=${FIELDS}`;
+    const url = (await loadCore()).semanticScholarIdentifierUrl(this.baseUrl ?? semanticScholarUrl("graph/v1"), kind, value);
     const response = await fetchSemanticScholar(this.fetchFn, url, key ? { headers: { "x-api-key": key } } : undefined);
     if (!response.ok) throw new Error(`Semantic Scholar ${kind} lookup failed: ${response.status}`);
     const paper = await response.json() as SemanticScholarPaper;
@@ -308,67 +306,28 @@ export class ZoteroAnnotations {
       items("note"),
     ]);
 
-    // Pass 1: attachment → parent paper key (library-wide; children are not in collections).
-    // A paper's main PDF is where a write-back would put a new annotation.
-    const attachToPaper = new Map<string, string>();
-    const pdfsByPaper = new Map<string, ZoteroItemRow[]>();
-    for (const it of attachments) {
-      const key = readyCore().zoteroItemKey(it);
-      const paperKey = it.data?.parentItem;
-      if (!key || !paperKey) continue;
-      if (allowedPaperKeys && !allowedPaperKeys.has(paperKey)) continue;
-      attachToPaper.set(key, paperKey);
-      if (readyCore().zoteroIsPdfAttachment(it)) {
-        pdfsByPaper.set(paperKey, [...(pdfsByPaper.get(paperKey) ?? []), it]);
-      }
-    }
-    const paperPdf = new Map<string, string>();
-    const choices: string[] = [];
-    for (const [paperKey, pdfs] of pdfsByPaper) {
-      const main = readyCore().zoteroPickMainPdf(pdfs);
-      if (main) paperPdf.set(paperKey, main);
-      if (pdfs.length > 1) {
-        const keys = pdfs.map((p) => readyCore().zoteroItemKey(p));
-        choices.push(`${paperKey}: ${main} of ${keys.join(", ")}`);
-      }
-    }
-    if (choices.length) {
+    // The join (attachment -> paper, main PDF, annotation and note grouping) is
+    // pure logic and lives in Rust. Only the log line below is I/O.
+    const joined = readyCore().zoteroPullJoin(
+      attachments,
+      annotations,
+      notes,
+      allowedPaperKeys ? [...allowedPaperKeys] : null,
+    );
+    if (joined.choices.length) {
       logToApp({
         level: "info",
         source: "zotero.annotations",
-        message: `Picked the main PDF for ${choices.length} paper(s) with several PDFs`,
-        detail: choices.join("\n"),
+        message: `Picked the main PDF for ${joined.choices.length} paper(s) with several PDFs`,
+        detail: joined.choices.join("\n"),
       });
     }
-    // But the PDF the reader already annotated in Zotero wins: that is the
-    // file the existing marks are on, so new ones belong beside them.
-    const annotatedPdf = new Map<string, string>();
-
-    // Pass 2: annotations, resolved to their paper via the attachment map.
-    const byPaper = new Map<string, ZoteroAnnotation[]>();
-    for (const it of annotations) {
-      const attKey = it.data?.parentItem;
-      const paperKey = attKey ? attachToPaper.get(attKey) : undefined;
-      if (!paperKey) continue;
-      if (!annotatedPdf.has(paperKey)) annotatedPdf.set(paperKey, attKey!);
-      const ann = annotationWithKeys(readyCore().zoteroAnnotationFromItem(it));
-      const list = byPaper.get(paperKey);
-      if (list) list.push(ann);
-      else byPaper.set(paperKey, [ann]);
-    }
-
-    // Zotero notes are direct child items of a paper. Keep them separate from
-    // highlights so AI access can be scoped to precisely selected note sources.
-    for (const it of notes) {
-      const paperKey = it.data?.parentItem;
-      if (!paperKey || (allowedPaperKeys && !allowedPaperKeys.has(paperKey))) continue;
-      const note = readyCore().zoteroNoteFromItem(it);
-      if (!note) continue;
-      const list = byPaper.get(paperKey);
-      if (list) list.push(note);
-      else byPaper.set(paperKey, [note]);
-    }
-    return { byPaper, attachments: new Map([...paperPdf, ...annotatedPdf]) };
+    // Notes were never given the undefined-key shape, only highlights were.
+    const withKeys = (ann: ZoteroAnnotation) => (ann.kind === "note" ? ann : annotationWithKeys(ann));
+    return {
+      byPaper: new Map(joined.byPaper.map(([paper, anns]) => [paper, anns.map(withKeys)])),
+      attachments: new Map(joined.attachments),
+    };
   }
 }
 

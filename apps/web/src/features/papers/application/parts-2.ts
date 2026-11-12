@@ -57,10 +57,7 @@ export interface BibImportOutcome {
 
 /** A planned entry as the fields a new paper takes; the field rules are in Rust (`bib_import`). */
 export function bibPaperInput(entry: BibImportPaper): NewPaperInput {
-  // Rust sends absent fields as null; the input type and the old TS have them undefined.
-  const input = typedCore().bibPaperInput(entry);
-  // Through unknown: the entries are re-keyed to undefined, which the record type does not model.
-  return Object.fromEntries(Object.entries(input).map(([k, v]) => [k, v ?? undefined])) as unknown as NewPaperInput;
+  return typedCore().bibPaperInput(entry);
 }
 
 /** Adds every new entry of a `.bib` file; one failed save does not stop the rest. */
@@ -77,8 +74,9 @@ export async function importBibFile(file: BibFileLike, deps: BibImportDeps): Pro
     const line = entry.line ?? 0;
     try {
       const { paper, created } = await deps.add(bibPaperInput(entry));
-      if (!created) {
-        skipped.push({ key: entry.citationKey ?? "", line, reason: `Already in the library as "${paper.title}".` });
+      const reason = readyCore().bibAddSkipReason(created, paper.title);
+      if (reason) {
+        skipped.push({ key: entry.citationKey ?? "", line, reason });
         continue;
       }
       await deps.afterCreate(paper);
@@ -200,26 +198,31 @@ export async function addPaperFromPdf(file: PdfFileLike, deps: PdfDropDeps): Pro
   const doi = core.extractDoi(pdf.text.slice(0, core.maxIndexTextUtf16()));
   const title = readyCore().metadataTitle(pdf.title) ?? readyCore().guessTitle(pdf.text);
   let found: AddPaperResult | null = null;
-  if (!offline) {
-    if (doi) found = await tryRef({ kind: "doi", value: doi }, deps);
-    // arXiv stamps its id down the first page's margin: `arXiv:2301.12345v2 [cs.LG]`.
-    const arxiv = core.normalizeArxivId(core.arxivStamp(pdf.text));
-    if (!found && arxiv) found = await tryRef({ kind: "arxiv", value: arxiv }, deps);
-    if (!found && title) found = await tryRef({ kind: "bibliographic", value: title, hints: { title } }, deps);
+  // arXiv stamps its id down the first page's margin: `arXiv:2301.12345v2 [cs.LG]`.
+  const arxiv = core.normalizeArxivId(core.arxivStamp(pdf.text));
+  // The order and the offline skip are in Rust (`pdf_add_plan`); this loop only makes the lookups.
+  const steps = readyCore().planPdfLookups({ doi: doi ?? null, arxivId: arxiv ?? null, title: title ?? null, online: !offline });
+  for (const step of steps) {
+    found = await tryRef(
+      step.kind === "title" ? { kind: "bibliographic", value: step.value, hints: { title: step.value } } : step,
+      deps,
+    );
+    if (found) break;
   }
   const result = found ?? (await deps.addByTitle(title ?? file.name.replace(/\.pdf$/i, ""), doi));
-  // A duplicate keeps its own PDF and note; it takes the dropped file only when it has none.
-  const keptPdf = result.created || !(await deps.hasPdf(result.paper.id));
-  if (keptPdf) await deps.keepPdf(result.paper.id, bytes);
+  // Only a duplicate is asked whether it already has a PDF; the decisions are in Rust (`pdf_add_plan`).
+  const hasPdf = !result.created && (await deps.hasPdf(result.paper.id));
+  const plan = readyCore().planPdfAdd({ found: found !== null, created: result.created, hasPdf, hasTitle: !!title });
+  if (plan.keptPdf) await deps.keepPdf(result.paper.id, bytes);
   if (result.created) await deps.afterCreate(result.paper);
   return {
     kind: "added",
     file: file.name,
     paper: result.paper,
     created: result.created,
-    matched: found !== null,
-    titledBy: found ? "lookup" : title ? "pdf" : "file",
-    keptPdf,
+    matched: plan.matched,
+    titledBy: plan.titledBy,
+    keptPdf: plan.keptPdf,
     offline,
   };
 }

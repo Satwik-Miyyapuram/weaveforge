@@ -46,10 +46,65 @@ pub fn images_of(metadata: &Map<String, Value>) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// The storage paths for an uploaded paper image: the full file and its WebP thumbnail,
+/// both under `user/paper/` and sharing one random `unique` id. Returns `(full, thumb)`.
+#[must_use]
+pub fn paper_image_upload_paths(
+    user_id: &str,
+    paper_id: &str,
+    unique: &str,
+    ext: &str,
+) -> (String, String) {
+    let base = format!("{user_id}/{paper_id}/{unique}");
+    (format!("{base}.full.{ext}"), format!("{base}.thumb.webp"))
+}
+
+/// The thumbnail to remove alongside a full image (TS `PaperImageStore.remove`).
+///
+/// Mirrors `path.replace(/\.full\.[^.]+$/, ".thumb.webp")`: the path must end in
+/// `.full.<ext>` with a non-empty extension and no further dot. `None` otherwise.
+#[must_use]
+pub fn full_image_thumbnail_path(path: &str) -> Option<String> {
+    let dot = path.rfind('.')?;
+    if dot + 1 == path.len() {
+        return None;
+    }
+    let before = &path[..dot];
+    let stem = before.strip_suffix(".full")?;
+    Some(format!("{stem}.thumb.webp"))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{images_of, paper_image_thumbnail_path};
+    use super::{
+        full_image_thumbnail_path, images_of, paper_image_thumbnail_path,
+        paper_image_upload_paths,
+    };
     use serde_json::{Map, Value, json};
+
+    // it: "a thumbnail is stored beside the full image"
+    #[test]
+    fn upload_paths_put_the_thumbnail_beside_the_full_image() {
+        let (full, thumb) = paper_image_upload_paths("u1", "p1", "abc", "png");
+        assert_eq!(full, "u1/p1/abc.full.png");
+        assert_eq!(thumb, "u1/p1/abc.thumb.webp");
+    }
+
+    #[test]
+    fn remove_path_maps_full_to_its_thumbnail() {
+        assert_eq!(
+            full_image_thumbnail_path("u1/p1/abc.full.png").as_deref(),
+            Some("u1/p1/abc.thumb.webp")
+        );
+    }
+
+    #[test]
+    fn remove_path_needs_a_full_marker_and_an_extension() {
+        assert_eq!(full_image_thumbnail_path("u1/p1/abc.png"), None);
+        assert_eq!(full_image_thumbnail_path("u1/p1/abc.full."), None);
+        assert_eq!(full_image_thumbnail_path("u1/p1/abc.full.a.b"), None);
+        assert_eq!(full_image_thumbnail_path("u1/p1/abc"), None);
+    }
 
     #[test]
     fn images_of_keeps_only_string_entries() {
