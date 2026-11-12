@@ -767,3 +767,57 @@ pub fn group_runs_js(
     let runs: Vec<TabRun> = groups::group_runs(&leaf);
     to_js(&runs)
 }
+
+/// [`assemble`](wf_core::editor_workspace::workspace_load::assemble): the documents, completion
+/// rows, trees and list membership of one workspace load. `membership` is a JS `Map`.
+///
+/// # Errors
+///
+/// Fails if `input` has the wrong shape.
+#[wasm_bindgen(
+    js_name = assembleWorkspace,
+    unchecked_return_type = "{ documents: { kind: string; id: string; title: string; body: string; hydrated: boolean; path: string; parentId?: string; tags?: string[] }[]; completions: { title: string; label: string; detail?: string; paper?: { id: string; title: string; authors: string[]; year?: number; doi?: string; arxivId?: string; bibtex?: string; metadata?: unknown } }[]; tree: B.WorkspaceTreeNode[]; listsTree: B.WorkspaceTreeNode[]; membership: Map<string, string[]> }"
+)]
+pub fn assemble_workspace_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "{ projectRoot?: string; vault?: { id: string; title: string; parentId?: string | null; folder?: boolean; body?: string | null; bodyPreview?: string | null }[]; papers?: { id: string; title: string; summary?: string | null; tags?: string[] | null; authors?: string[]; year?: number | null; doi?: string | null; arxivId?: string | null; bibtex?: string | null; metadata?: unknown }[]; reportSections?: { id: string; title: string; notes?: string | null; parentId?: string | null }[]; listsLoaded?: boolean; lists?: { id: string; name: string; parentId?: string | null }[]; listItems?: { listId: string; paperId?: string | null; vaultPageId?: string | null; inheritedFromListId?: string | null; duplicateOfItemId?: string | null }[]; logs?: { id: string; entryDate: string; body: string }[]; overleaf?: { id: string; name: string }[]; hydrated?: { id: string; body: string }[] }"
+    )]
+    input: JsValue,
+) -> Result<JsValue, JsValue> {
+    let input: wf_core::editor_workspace::workspace_load::WorkspaceLoadInput =
+        serde_wasm_bindgen::from_value(input)?;
+    let out = wf_core::editor_workspace::workspace_load::assemble(&input);
+    let membership = js_sys::Map::new();
+    for (key, lists) in &out.membership {
+        let _ = membership.set(&JsValue::from_str(key), &to_js(lists)?);
+    }
+    let result = to_js(&out)?;
+    js_sys::Reflect::set(&result, &JsValue::from_str("membership"), &membership)?;
+    Ok(result)
+}
+
+/// [`SHORTCUT_TABLE`](keys::SHORTCUT_TABLE): each command's printed chord, as a JS object whose
+/// keys are in table order.
+///
+/// # Errors
+///
+/// Fails only if the JS object cannot take a property.
+#[wasm_bindgen(js_name = shortcutTable, unchecked_return_type = "Record<string, string>")]
+pub fn shortcut_table_js() -> Result<JsValue, JsValue> {
+    let out = js_sys::Object::new();
+    for (command, chord) in keys::SHORTCUT_TABLE {
+        js_sys::Reflect::set(
+            &out,
+            &JsValue::from_str(command),
+            &JsValue::from_str(chord),
+        )?;
+    }
+    Ok(out.into())
+}
+
+/// [`layout_storage_key`](layout_record::layout_storage_key): the key a project's layout is kept
+/// under.
+#[wasm_bindgen(js_name = layoutStorageKey)]
+pub fn layout_storage_key_js(project_id: Option<String>) -> String {
+    layout_record::layout_storage_key(project_id.as_deref())
+}

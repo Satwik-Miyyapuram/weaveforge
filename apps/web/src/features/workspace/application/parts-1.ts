@@ -107,26 +107,33 @@ export async function jsonDiff(
  */
 export async function applyJsonEntries(json: JsonDiff | undefined): Promise<string[]> {
   if (!json || json.entries.length === 0) return [];
+  // Which entries are written, and to which feature, is decided in Rust. A conflict
+  // is skipped there: a JSON row has no per-field merge, so applying one side or the
+  // other would be a guess at which.
+  const plan = readyCore().planJsonApply(
+    json.entries.map((entry: JsonDiffEntry) => ({
+      action: entry.action,
+      kind: entry.kind,
+      path: entry.path,
+      existingId: entry.existing.id,
+    })),
+  );
   const c = getContainer();
-  const files = new Set<string>();
 
-  for (const entry of json.entries) {
-    // A conflict is the reader's to settle, and a JSON row has no per-field
-    // merge: applying one side or the other would be a guess at which.
-    if (entry.action === "unchanged" || entry.action === "conflict") continue;
-    if (entry.kind === "relations") {
-      if (entry.action === "removed") await c.graph.relations.delete(entry.existing.id);
+  for (const step of plan.steps) {
+    const entry = json.entries[step.index] as JsonDiffEntry;
+    if (step.target === "relations") {
+      if (step.remove) await c.graph.relations.delete(step.id);
       else await c.graph.relations.save(entry.row as unknown as PaperRelation);
-    } else if (entry.kind === "tags") {
-      if (entry.action === "removed") await c.graph.tags.delete(entry.existing.id);
+    } else if (step.target === "tags") {
+      if (step.remove) await c.graph.tags.delete(step.id);
       else await c.graph.tags.save(entry.row as unknown as Tag);
     } else {
-      if (entry.action === "removed") await c.readingLists.items.remove(entry.existing.id);
+      if (step.remove) await c.readingLists.items.remove(step.id);
       else await c.readingLists.items.add(entry.row as unknown as ReadingListItem);
     }
-    files.add(entry.path);
   }
-  return [...files];
+  return plan.files;
 }
 
 /**
@@ -298,8 +305,7 @@ export interface ApplyOptions {
 
 /** A note's title and body as one digest: what an update would overwrite. */
 export function storedDigest(page: { title: string; body: string }): string {
-  return readyCore().digestText(`${page.title}
-${page.body}`);
+  return readyCore().storedDigest(page.title, page.body);
 }
 
 /**
@@ -512,9 +518,7 @@ export async function diffAgainstWorkspace(
   setPendingAssets(assets);
   const owned = ownedAssetFolderPaths(workspaceBodies(snapshot));
   // folder path (`assets/<scope>/<path>`) -> storage path, which is the path itself.
-  const ownedStorage = Object.fromEntries(
-    [...owned].map((folderPath) => [folderPath, folderPath.split("/").slice(2).join("/")]),
-  );
+  const ownedStorage = readyCore().ownedStorage([...owned]);
   const noteIds = new Set(snapshot.vaultPages.map((page) => page.id));
   // Only notes import; an experiment or paper file would otherwise read as a new note.
   const parsed = readyCore().importableEntities(core.parseWorkspaceFolder(files), noteIds).map((entity) => ({
@@ -561,7 +565,7 @@ export async function diffAgainstWorkspace(
     base,
     core.renameSources(parsed, files, current),
   );
-  const stored = Object.fromEntries(snapshot.vaultPages.map((page) => [page.id, storedDigest(page)]));
+  const stored = readyCore().storedDigests(snapshot.vaultPages);
   return { entries, counts: core.addCounts(readyCore().countActions(entries), json.counts), json, seen, stored };
 }
 

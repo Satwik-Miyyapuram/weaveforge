@@ -1,4 +1,4 @@
-import { ASSET_DIR, FOLDER_DRAFTS_DIR, NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type MirrorResult, type JsonDiff, type WorkspaceCommit } from "@weaveforge/core";
+import { ASSET_DIR, NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type MirrorResult, type JsonDiff, type WorkspaceCommit } from "@weaveforge/core";
 import type {
   ImportDiff,
 } from "@weaveforge/wasm";
@@ -8,7 +8,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 import { notifyEach, onWorkspaceChange } from "@/lib/parts";
-import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import {
   BrowserWorkspaceFs,
   DesktopWorkspaceFs,
@@ -457,18 +457,20 @@ export function clearExternalChanges(): void {
  * A preview of `only` some paths settles those; the rest of the list stays as it was.
  */
 export function settleExternalChanges(diff: FolderDiff, only?: ReadonlySet<string>): void {
-  const changed = new Set<string>();
-  for (const entry of diff.entries) if (entry.action !== "unchanged") changed.add(entry.entity.path);
-  for (const entry of diff.json?.entries ?? []) if (entry.action !== "unchanged") changed.add(entry.path);
+  const entries = [
+    ...diff.entries.map((entry) => ({ action: entry.action, path: entry.entity.path })),
+    ...(diff.json?.entries ?? []).map((entry) => ({ action: entry.action, path: entry.path })),
+  ];
   const reasons = splitOutsideEdits(diff, isNoteOpen).reasons;
-  if (only) {
-    for (const path of external) if (!only.has(path)) changed.add(path);
-    const kept = Object.entries(externalReasons).filter(([path]) => !only.has(path));
-    externalReasons = { ...Object.fromEntries(kept), ...reasons };
-  } else {
-    externalReasons = reasons;
-  }
-  external = changed;
+  const settled = readyCore().settleExternal({
+    entries,
+    reasons,
+    only: only ? [...only] : null,
+    external: [...external],
+    externalReasons,
+  });
+  external = new Set(settled.external);
+  externalReasons = settled.externalReasons;
   announceExternal();
 }
 
@@ -516,9 +518,13 @@ function announceExternal(): void {
  */
 function scheduleAutoApply(): void {
   if (autoApplyTimer) clearTimeout(autoApplyTimer);
-  const now = Date.now();
-  autoApplyFirstAt ??= now;
-  const delay = Math.min(AUTO_APPLY_DEBOUNCE_MS, Math.max(0, autoApplyFirstAt + AUTO_APPLY_MAX_WAIT_MS - now));
+  const timing = readyCore().autoApplyTiming({
+    now: Date.now(),
+    firstAt: autoApplyFirstAt,
+    debounceMs: AUTO_APPLY_DEBOUNCE_MS,
+    maxWaitMs: AUTO_APPLY_MAX_WAIT_MS,
+  });
+  autoApplyFirstAt = timing.firstAt;
   autoApplyTimer = setTimeout(() => {
     autoApplyTimer = null;
     autoApplyFirstAt = null;
@@ -558,7 +564,7 @@ function scheduleAutoApply(): void {
         logToApp({ level: "warn", source: "workspace-sync", message: "outside edits not taken in", detail: formatError(error) });
       }
     });
-  }, delay);
+  }, timing.delay);
 }
 
 // An edit held only because its note was open goes in once the note closes, not at the next folder event.
@@ -607,36 +613,14 @@ function watchFolderForChanges(): void {
  */
 function reportFolderChanges(paths: readonly string[]): void {
   const before = external.size;
-  let drafts = false;
-  const candidates: string[] = [];
-
-  let currentIdSuffix: string | null = null;
+  let projectId: string | null = null;
   try {
-    const id = getContainer().projects.context.projectId;
-    if (id) currentIdSuffix = typedCore().idSuffix(id);
+    projectId = getContainer().projects.context.projectId ?? null;
   } catch {
-    currentIdSuffix = null;
+    projectId = null;
   }
-
-  for (const path of paths) {
-    // MCP suggestions go to the review queue, not the changed-files list.
-    if (path.startsWith(`${FOLDER_DRAFTS_DIR}/`)) {
-      drafts = true;
-      continue;
-    }
-    if (readyCore().isAppOwnedPath(path)) continue;
-
-    // When scoped to a project, ignore outside changes that belong to another project's subfolder:
-    const subfolderMatch = path.match(/^[^\/]+--([a-zA-Z0-9]{1,8})\//);
-    if (subfolderMatch && currentIdSuffix) {
-      if (subfolderMatch[1] !== currentIdSuffix) {
-        continue;
-      }
-    }
-
-    // Notes too: reconnecting rewrites every file, and a slow write outlives the shell's echo window.
-    candidates.push(path);
-  }
+  // Notes too: reconnecting rewrites every file, and a slow write outlives the shell's echo window.
+  const { drafts, candidates } = readyCore().triageReportedPaths({ paths, projectId });
 
   if (external.size !== before) announceExternal();
   if (drafts) for (const listener of [...draftListeners]) listener();
