@@ -5,6 +5,7 @@
  */
 
 import { relayUrl } from "@/lib/parts";
+import { readyCore } from "@/lib/rust-core";
 
 export const WORKSHOP_SESSION_PATH = "/api/overleaf/workshop/session";
 export const WORKSHOP_PROJECTS_PATH = "/api/overleaf/workshop/projects";
@@ -27,8 +28,6 @@ export type WorkshopProjectsResult =
   | { ok: true; projects: WorkshopProject[] }
   | { ok: false; expired: boolean; message: string };
 
-const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /** Verifies the Overleaf cookie server-side and returns the session id it was stored under. */
 export async function signInToWorkshop(deps: WorkshopClientDeps, cookies: string): Promise<WorkshopSignInResult> {
   const trimmed = cookies.trim();
@@ -36,7 +35,7 @@ export async function signInToWorkshop(deps: WorkshopClientDeps, cookies: string
   const res = await post(deps, relayUrl(WORKSHOP_SESSION_PATH), { cookies: trimmed });
   if (!res.ok) return { ok: false, message: res.message };
   const sessionId = (res.body as { sessionId?: unknown }).sessionId;
-  if (typeof sessionId !== "string" || !SESSION_ID.test(sessionId)) {
+  if (typeof sessionId !== "string" || !readyCore().isWorkshopSessionId(sessionId)) {
     return { ok: false, message: "The server did not return an Overleaf session." };
   }
   return { ok: true, sessionId };
@@ -48,16 +47,11 @@ export async function listWorkshopProjects(deps: WorkshopClientDeps, sessionId: 
   // Only the route's own "session not found" 401 carries `expired`; a 401 because the
   // app's sign-in lapsed must not forget the Overleaf session (its sealed row would be orphaned).
   if (!res.ok) return { ok: false, expired: res.status === 401 && res.expired, message: res.message };
-  const projects = (res.body as { projects?: unknown }).projects;
-  if (!Array.isArray(projects)) return { ok: false, expired: false, message: "The server did not return a project list." };
-  return {
-    ok: true,
-    projects: projects
-      .filter((p): p is WorkshopProject =>
-        typeof p === "object" && p !== null && typeof p.id === "string" && p.id !== "" && typeof p.name === "string")
-      .map((p) => ({ id: p.id, name: p.name }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-  };
+  // The Rust side drops malformed entries and returns null/undefined when `projects` is not a list.
+  const projects = readyCore().workshopProjectList(res.body) as WorkshopProject[] | null | undefined;
+  if (!projects) return { ok: false, expired: false, message: "The server did not return a project list." };
+  // Sorting uses Intl (localeCompare), so it stays in TypeScript.
+  return { ok: true, projects: [...projects].sort((a, b) => a.name.localeCompare(b.name)) };
 }
 
 /** Forgets the stored session server-side. Best effort: the caller forgets it locally regardless. */
