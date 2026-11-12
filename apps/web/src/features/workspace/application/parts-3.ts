@@ -2,6 +2,7 @@ import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
 import {
   type IWorkspaceFs,
   type JsonDiff,
+  type JsonDiffEntry,
   type VaultPageBase,
   WORKSPACE_META_DIR,
   type WorkspaceProject,
@@ -134,10 +135,10 @@ export async function followProjectRename(
   const root = core.projectDir(project);
   if (await fs.stat(root)) return null;
   const tail = `--${typedCore().idSuffix(project.id)}`;
-  const found = (await fs.list("")).filter((e) => e.kind === "dir" && e.path.endsWith(tail));
-  // Two folders sharing the id suffix: no safe pick.
-  if (found.length !== 1) return null;
-  const old = found[0]!.path;
+  const dirs = (await fs.list("")).filter((e) => e.kind === "dir").map((e) => e.path);
+  // The pick is in Rust; two folders sharing the id suffix have no safe pick.
+  const old = typedCore().pickRenamedFolder(dirs, tail);
+  if (old === undefined) return null;
   const moved = (path: string) => core.movedPath(old, root, path);
 
   const files: string[] = [];
@@ -167,29 +168,13 @@ export async function writeMirrorManifest(
   bases: Readonly<Record<string, VaultPageBase>> = {},
 ): Promise<void> {
   await fs.mkdirp(typedCore().projectMetaDir(projectRoot));
-  const kept = [...new Set(paths)].sort();
-  const body = {
-    version: 3,
-    paths: kept,
-    // Only for paths still claimed, so a manifest cannot grow forever with
-    // digests of files that left the folder years ago.
-    digests: Object.fromEntries(
-      kept.filter((path) => digests[path] !== undefined).map((path) => [path, digests[path]]),
-    ),
-    // Frontmatter and a body digest, never a body. This file sits in the
-    // user's own folder, and a mirror that quietly kept a second copy of every
-    // note would double it for a case the fields already settle.
-    bases: Object.fromEntries(
-      kept.filter((path) => bases[path] !== undefined).map((path) => [path, bases[path]]),
-    ),
-    writtenAt: new Date().toISOString(),
-  };
+  // The text, the claimed-path filter and the stamp-insensitive compare live in Rust.
+  // Frontmatter and a body digest only, never a body: the file sits in the user's own folder.
+  const core = typedCore();
+  const next = core.mirrorManifestText(paths, digests, bases, new Date().toISOString());
   const file = mirrorManifestPath(projectRoot);
-  // A new time alone is not a change; rewriting it would commit noise on every run.
-  const stamp = /^\s*"writtenAt": ".*"$/m;
   const current = await fs.readText(file).catch(() => null);
-  const next = `${JSON.stringify(body, null, 2)}\n`;
-  if (current !== null && current.replace(stamp, "") === next.replace(stamp, "")) return;
+  if (current !== null && core.sameManifestIgnoringStamp(current, next)) return;
   await fs.writeFile(file, next);
 }
 
@@ -223,50 +208,74 @@ export function createCoalescer(options: CoalescerOptions): Coalescer {
   const setTimer = options.setTimeoutFn ?? ((fn, ms) => setTimeout(fn, ms));
   const clearTimer = options.clearTimeoutFn ?? ((handle) => clearTimeout(handle as never));
 
+  // Which run is due, when, and what is owed lives in Rust (`coalescerStep`). This file holds
+  // only the timer handle and the run, and performs the actions each step returns.
+  let state: CoalescerStateView = { suspended: false, timerArmed: false, inFlight: false, again: false };
   let timer: unknown = null;
-  let inFlight: Promise<unknown> | null = null;
-  let again = false;
 
-  async function run(): Promise<void> {
-    if (coalescer.suspended) return;
-    if (inFlight) {
-      again = true;
-      return;
-    }
-    try {
-      inFlight = options.run();
-      await inFlight;
-    } catch (error) {
-      options.onError?.(error);
-    } finally {
-      inFlight = null;
-    }
-    if (again && !coalescer.suspended) {
-      again = false;
-      await run();
-    }
-    again = false;
+  function dispatch(event: CoalescerEventView): void {
+    const step = typedCore().coalescerStep(state, event) as CoalescerStepView;
+    state = step.state;
+    for (const action of step.actions) perform(action.type);
   }
 
-  const coalescer: Coalescer = {
-    suspended: false,
-
-    request() {
-      if (coalescer.suspended) return;
-      if (timer !== null) clearTimer(timer);
-      timer = setTimer(() => {
-        timer = null;
-        void run();
-      }, options.debounceMs);
-    },
-
-    cancel() {
+  function perform(action: CoalescerActionView["type"]): void {
+    if (action === "clearTimer") {
       if (timer !== null) clearTimer(timer);
       timer = null;
+    } else if (action === "armTimer") {
+      timer = setTimer(() => {
+        timer = null;
+        dispatch({ type: "timerFired" });
+      }, options.debounceMs);
+    } else {
+      void runOnce();
+    }
+  }
+
+  async function runOnce(): Promise<void> {
+    try {
+      await options.run();
+    } catch (error) {
+      options.onError?.(error);
+    }
+    dispatch({ type: "runSettled" });
+  }
+
+  return {
+    get suspended() {
+      return state.suspended;
+    },
+    set suspended(value: boolean) {
+      dispatch({ type: "suspend", value });
+    },
+    request() {
+      dispatch({ type: "request" });
+    },
+    cancel() {
+      dispatch({ type: "cancel" });
     },
   };
+}
 
-  return coalescer;
+interface CoalescerStateView {
+  suspended: boolean;
+  timerArmed: boolean;
+  inFlight: boolean;
+  again: boolean;
+}
+
+type CoalescerEventView =
+  | { type: "request" | "cancel" | "timerFired" | "runSettled" }
+  | { type: "suspend"; value: boolean };
+
+interface CoalescerActionView {
+  type: "clearTimer" | "armTimer" | "startRun";
+}
+
+interface CoalescerStepView {
+  state: CoalescerStateView;
+  actions: CoalescerActionView[];
 }
 
 /**
@@ -296,15 +305,15 @@ export async function claimImportedFile(
     return false;
   }
 
-  const core = await loadCore();
-  const stamped = core.stampWorkspaceId(content, id);
-  if (stamped === null) return false;
-
-  await fs.writeFile(path, stamped);
+  await loadCore();
+  // Stamp-or-skip and the digest record are decided in Rust; this only does the I/O.
   const base = await readMirrorBase(fs, projectRoot);
+  const plan = typedCore().planClaimImport(content, id, path, base);
+  if (plan === null) return false;
+
+  await fs.writeFile(path, plan.stamped);
   const bases = await readMirrorBases(fs, projectRoot);
-  const next = core.claimDigest(base, path, stamped);
-  await writeMirrorManifest(fs, projectRoot, Object.keys(next), next, bases);
+  await writeMirrorManifest(fs, projectRoot, Object.keys(plan.digests), plan.digests, bases);
   return true;
 }
 
@@ -387,7 +396,7 @@ export function renamedPaths(diff: FolderDiff): Set<string> {
   return new Set(
     readyCore().renamedOutsidePaths(
       diff.seen ?? {},
-      diff.entries.map((entry) => entry.entity.path),
+      diff.entries.map((entry: ImportDiffEntry) => entry.entity.path),
     ),
   );
 }
@@ -397,11 +406,14 @@ export function splitOutsideEdits(
   diff: FolderDiff,
   isOpen: (noteId: string) => boolean = () => false,
 ): { apply: FolderDiff; held: FolderDiff; reasons: HeldReasons } {
-  const notes: ImportDiffEntry[] = diff.entries.filter((entry) => entry.action !== "unchanged");
-  const rows = diff.json?.entries.filter((entry) => entry.action !== "unchanged") ?? [];
+  const notes: ImportDiffEntry[] = diff.entries.filter(
+    (entry: ImportDiffEntry) => entry.action !== "unchanged",
+  );
+  const rows: JsonDiffEntry[] =
+    diff.json?.entries.filter((entry: JsonDiffEntry) => entry.action !== "unchanged") ?? [];
 
   const split = readyCore().splitOutsideEdits({
-    notes: notes.map((entry) => {
+    notes: notes.map((entry: ImportDiffEntry) => {
       const id = entry.entity.id;
       return {
         action: entry.action,
@@ -409,35 +421,35 @@ export function splitOutsideEdits(
         open: id ? isOpen(id) : false,
       };
     }),
-    rows: rows.map((entry) => ({ action: entry.action, path: entry.path })),
+    rows: rows.map((entry: JsonDiffEntry) => ({ action: entry.action, path: entry.path })),
     seen: diff.seen ?? {},
   });
 
-  const apply = notes.filter((_, i) => !split.noteHeld[i]);
-  const held = notes.filter((_, i) => split.noteHeld[i]);
+  const apply = notes.filter((_: ImportDiffEntry, i: number) => !split.noteHeld[i]);
+  const held = notes.filter((_: ImportDiffEntry, i: number) => split.noteHeld[i]);
   const applyOut: FolderDiff = {
     ...diff,
     entries: apply,
-    counts: readyCore().countActionList(apply.map((entry) => entry.action)),
+    counts: readyCore().countActionList(apply.map((entry: ImportDiffEntry) => entry.action)),
   };
   const heldOut: FolderDiff = {
     ...diff,
     entries: held,
-    counts: readyCore().countActionList(held.map((entry) => entry.action)),
+    counts: readyCore().countActionList(held.map((entry: ImportDiffEntry) => entry.action)),
   };
 
   if (diff.json) {
-    const jsonApply = rows.filter((_, i) => !split.rowHeld[i]);
-    const jsonHeld = rows.filter((_, i) => split.rowHeld[i]);
+    const jsonApply = rows.filter((_: JsonDiffEntry, i: number) => !split.rowHeld[i]);
+    const jsonHeld = rows.filter((_: JsonDiffEntry, i: number) => split.rowHeld[i]);
     applyOut.json = {
       ...diff.json,
       entries: jsonApply,
-      counts: readyCore().countActionList(jsonApply.map((entry) => entry.action)),
+      counts: readyCore().countActionList(jsonApply.map((entry: JsonDiffEntry) => entry.action)),
     };
     heldOut.json = {
       ...diff.json,
       entries: jsonHeld,
-      counts: readyCore().countActionList(jsonHeld.map((entry) => entry.action)),
+      counts: readyCore().countActionList(jsonHeld.map((entry: JsonDiffEntry) => entry.action)),
     };
   }
 

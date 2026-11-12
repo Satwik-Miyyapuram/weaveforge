@@ -130,9 +130,50 @@ fn digit_of(chord: &KeyChord) -> Option<usize> {
         .or_else(|| digit(&chord.key))
 }
 
+/// The chord each command is printed with, in the order the shortcuts dialog lists them. One
+/// chord per command, written with the modifier once (`⌘P`, not `Ctrl+P or ⌘P`).
+pub const SHORTCUT_TABLE: &[(&str, &str)] = &[
+    ("quick-open", "⌘P"),
+    ("toggle-mode", "⌘E"),
+    ("new-note", "⌘N"),
+    ("toggle-explorer", "⌘B"),
+    ("toggle-focus", "F11"),
+    ("show-shortcuts", "⌘/"),
+    ("reopen-tab", "⌘⇧T"),
+    ("rename-doc", "F2"),
+    ("toggle-sidebar", "⌘⇧B"),
+    ("duplicate-note", "⌘D"),
+    ("command-palette", "⌘⇧P"),
+    ("workspace-search", "⌘⇧F"),
+    ("split-right", "⌘\\"),
+    ("close-tab", "⌘W"),
+    ("next-tab", "⌘⇥"),
+    ("previous-tab", "⌘⇧⇥"),
+    ("tab-1", "⌘1"),
+    ("tab-2", "⌘2"),
+    ("tab-3", "⌘3"),
+    ("tab-4", "⌘4"),
+    ("tab-5", "⌘5"),
+    ("tab-6", "⌘6"),
+    ("tab-7", "⌘7"),
+    ("tab-8", "⌘8"),
+    ("last-tab", "⌘9"),
+];
+
 #[cfg(test)]
 mod tests {
-    use super::{KeyChord, command_for_chord};
+    use super::{KeyChord, SHORTCUT_TABLE, command_for_chord};
+
+    #[test]
+    fn shortcut_table_has_one_unique_chord_per_command() {
+        let commands: std::collections::HashSet<&str> =
+            SHORTCUT_TABLE.iter().map(|(command, _)| *command).collect();
+        let chords: std::collections::HashSet<&str> =
+            SHORTCUT_TABLE.iter().map(|(_, chord)| *chord).collect();
+        assert_eq!(SHORTCUT_TABLE.len(), 25);
+        assert_eq!(commands.len(), SHORTCUT_TABLE.len());
+        assert_eq!(chords.len(), SHORTCUT_TABLE.len());
+    }
 
     fn chord(key: &str) -> KeyChord {
         KeyChord {
