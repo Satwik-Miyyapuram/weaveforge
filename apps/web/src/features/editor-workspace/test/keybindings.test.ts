@@ -1,7 +1,8 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { commandForChord, isTypingTarget, shortcutTable } from "../application/parts";
+import { commandForChord, isTypingTarget } from "../application/parts";
+import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);
@@ -34,7 +35,7 @@ test("⌘N asks for a new note", () => {
 });
 
 test("the shortcut table lists every command exactly once", () => {
-  const table = shortcutTable();
+  const table = readyCore().shortcutTable();
   const commands = Object.keys(table);
   assert.equal(new Set(commands).size, commands.length);
   // Everything `commandForChord` can return must have a printable chord, or the
@@ -70,8 +71,8 @@ test("⌘1–⌘8 jump to that tab and ⌘9 to the last, as in a browser", () =>
   assert.equal(commandForChord({ key: "0", ctrlKey: true }), null);
   assert.equal(commandForChord({ key: "1", ctrlKey: true, shiftKey: true }), null);
   assert.equal(commandForChord({ key: "1" }), null);
-  assert.equal(shortcutTable()["tab-1"], "⌘1");
-  assert.equal(shortcutTable()["last-tab"], "⌘9");
+  assert.equal(readyCore().shortcutTable()["tab-1"], "⌘1");
+  assert.equal(readyCore().shortcutTable()["last-tab"], "⌘9");
 });
 
 test("a tab-number chord the window has no tab for is not claimed", () => {
@@ -99,8 +100,8 @@ test("⌘/ shows the shortcuts and ⌘⇧T reopens the last closed tab", () => {
   assert.equal(commandForChord({ key: "T", ctrlKey: true, shiftKey: true }), "reopen-tab");
   // Plain ⌘T stays the browser's "new tab".
   assert.equal(commandForChord({ key: "t", ctrlKey: true }), null);
-  assert.equal(shortcutTable()["show-shortcuts"], "⌘/");
-  assert.equal(shortcutTable()["reopen-tab"], "⌘⇧T");
+  assert.equal(readyCore().shortcutTable()["show-shortcuts"], "⌘/");
+  assert.equal(readyCore().shortcutTable()["reopen-tab"], "⌘⇧T");
 });
 
 test("F2 renames the open document and F11 is focus mode, with no modifier", () => {
@@ -110,8 +111,8 @@ test("F2 renames the open document and F11 is focus mode, with no modifier", () 
   assert.equal(commandForChord({ key: "F2", altKey: true }), null);
   assert.equal(commandForChord({ key: "F11", ctrlKey: true }), null);
   assert.equal(commandForChord({ key: "F2", shiftKey: true }), null);
-  assert.equal(shortcutTable()["rename-doc"], "F2");
-  assert.equal(shortcutTable()["toggle-focus"], "F11");
+  assert.equal(readyCore().shortcutTable()["rename-doc"], "F2");
+  assert.equal(readyCore().shortcutTable()["toggle-focus"], "F11");
 });
 
 test("⌘⇧F searches the workspace, ⌘⇧B toggles the sidebar, ⌘⇧P opens commands", () => {
@@ -121,9 +122,9 @@ test("⌘⇧F searches the workspace, ⌘⇧B toggles the sidebar, ⌘⇧P opens
   // The unshifted chords keep their meaning.
   assert.equal(commandForChord({ key: "b", ctrlKey: true }), "toggle-explorer");
   assert.equal(commandForChord({ key: "p", ctrlKey: true }), "quick-open");
-  assert.equal(shortcutTable()["workspace-search"], "⌘⇧F");
-  assert.equal(shortcutTable()["toggle-sidebar"], "⌘⇧B");
-  assert.equal(shortcutTable()["command-palette"], "⌘⇧P");
+  assert.equal(readyCore().shortcutTable()["workspace-search"], "⌘⇧F");
+  assert.equal(readyCore().shortcutTable()["toggle-sidebar"], "⌘⇧B");
+  assert.equal(readyCore().shortcutTable()["command-palette"], "⌘⇧P");
 });
 
 test("⌘D duplicates the note; ⌘⇧D is not claimed", () => {
@@ -131,5 +132,5 @@ test("⌘D duplicates the note; ⌘⇧D is not claimed", () => {
   assert.equal(commandForChord({ key: "D", metaKey: true }), "duplicate-note");
   assert.equal(commandForChord({ key: "D", ctrlKey: true, shiftKey: true }), null);
   assert.equal(commandForChord({ key: "d" }), null);
-  assert.equal(shortcutTable()["duplicate-note"], "⌘D");
+  assert.equal(readyCore().shortcutTable()["duplicate-note"], "⌘D");
 });

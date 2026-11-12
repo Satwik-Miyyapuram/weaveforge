@@ -17,7 +17,6 @@ import { AskLibraryRow } from "@/components/ask-library-row";
 import { useModuleRegistry } from "@/lib/hooks/parts";
 import { useTheme } from "@/lib/hooks/use-theme";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { shortcutTable } from "@/features/editor-workspace/application/parts";
 import type { HitSort, PaletteGroup, PaletteKey, PaletteMode } from "@weaveforge/wasm";
 import { showNewProject, useProject } from "@/features/projects";
 import { Chip, RowButton } from "./controls";
@@ -396,7 +395,7 @@ export function JumpToPalette() {
       setOpen(false);
       then();
     };
-    const keys = shortcutTable();
+    const keys = readyCore().shortcutTable();
     const fromMenu = menuActions.map((action) => ({
       key: action.id,
       label: action.label,

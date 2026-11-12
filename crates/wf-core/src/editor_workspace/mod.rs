@@ -14,4 +14,5 @@ pub mod pane_tree;
 pub mod quick_open;
 pub mod tab_groups;
 pub mod typing_target;
+pub mod workspace_load;
 pub mod workspace_tree;

@@ -6,7 +6,6 @@ import {
 } from "@/lib/desktop/desktop-bridge";
 import { loadCore, readyCore, type RustCore, typedCore } from "@/lib/rust-core";
 import {
-  ASSET_DIR,
   type IWorkspaceFs,
   type MirrorResult,
   type WorkspaceProject,
@@ -290,50 +289,44 @@ export async function readPreviewFolder(
   only?: ReadonlySet<string>,
 ): Promise<PreviewFolderRead> {
   const core = await loadCore();
+  const listed: WorkspaceStat[] = [];
+  for await (const entry of previewEntries(core, fs, projectRoot, hasProjectDir)) listed.push(entry);
+
+  // The rules (what to read, which assets a note names, the caps) are Rust's; this reads what it says.
+  const onlyPaths = only ? [...only] : undefined;
+  const reads = core.planPreviewReads(
+    listed.map((entry) => ({ path: entry.path, size: entry.size })),
+    projectRoot,
+    hasProjectDir,
+    onlyPaths,
+  );
   const files: Record<string, string> = {};
+  for (const path of reads.notes) files[path] = await fs.readText(path);
   const jsonFiles: Record<string, string> = {};
+  for (const path of reads.json) jsonFiles[path] = await fs.readText(path);
+
+  const picks = core.planAssetReads(reads.assets, onlyPaths, only ? Object.values(files) : [], IMPORT_LIMITS);
   const assets = new Map<string, Uint8Array>();
-  const assetEntries: WorkspaceStat[] = [];
   const skipped: SkippedFile[] = [];
-  const wanted = (path: string) => !only || only.has(path);
-
-  for await (const entry of previewEntries(core, fs, projectRoot, hasProjectDir)) {
-    // Everything listed in a legacy flat folder is this project's.
-    const ours = !hasProjectDir || entry.path.startsWith(`${projectRoot}/`);
-    if (entry.path.endsWith(".md")) {
-      if (ours && wanted(entry.path)) files[entry.path] = await fs.readText(entry.path);
-      continue;
-    }
-    // The project's own data files. Read from the folder rather than assumed,
-    // so a file somebody added by hand is diffed like any other.
-    if (entry.path.endsWith(".json") && core.jsonKindOfPath(entry.path) !== null) {
-      if (ours && wanted(entry.path)) jsonFiles[entry.path] = await fs.readText(entry.path);
-      continue;
-    }
-    if (entry.path.startsWith(`${ASSET_DIR}/`)) assetEntries.push(entry);
-  }
-
-  // Notes link an asset by its path under the asset folder; a name found anywhere in a read note is enough.
-  const texts = only ? Object.values(files) : [];
-  const named = (path: string) => {
-    const rest = path.slice(ASSET_DIR.length + 1);
-    return texts.some((text) => text.includes(rest));
-  };
   let assetBytes = 0;
-  for (const entry of assetEntries) {
-    if (only && !only.has(entry.path) && !named(entry.path)) continue;
-    const bytes = entry.size > IMPORT_LIMITS.maxFileBytes ? null : await fs.readFile(entry.path);
-    if (!bytes || bytes.byteLength > IMPORT_LIMITS.maxFileBytes) {
-      skipped.push({ path: entry.path, reason: SKIP_TOO_BIG });
+  for (const pick of picks) {
+    if (pick.action === "too-big") {
+      skipped.push({ path: pick.path, reason: SKIP_TOO_BIG });
       continue;
     }
-    assetBytes += bytes.byteLength;
-    if (assetBytes > IMPORT_LIMITS.maxTotalBytes) {
-      throw new ImportLimitError(
-        `Folder assets exceed ${Math.round(IMPORT_LIMITS.maxTotalBytes / 1024 / 1024)} MB; refusing to continue.`,
-      );
+    const bytes = await fs.readFile(pick.path);
+    let admit;
+    try {
+      admit = core.admitAssetBytes(assetBytes, bytes.byteLength, IMPORT_LIMITS);
+    } catch (error) {
+      throw asImportLimitError(error);
     }
-    assets.set(entry.path, bytes);
+    assetBytes = admit.total;
+    if (!admit.keep) {
+      skipped.push({ path: pick.path, reason: SKIP_TOO_BIG });
+      continue;
+    }
+    assets.set(pick.path, bytes);
   }
 
   return { files, jsonFiles, assets, skipped };
