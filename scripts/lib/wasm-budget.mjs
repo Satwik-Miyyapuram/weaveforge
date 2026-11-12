@@ -150,7 +150,14 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   shapes and the glue for the new exports. Their TypeScript twins are
 //   deleted. The .wasm still loads lazily. 2000 KB is this batch's ceiling;
 //   shrinking it stays a follow-up.
-export const WASM_GZIP_BUDGET = 2000 * 1024;
+// - TS removal (fifth round, PR #642): ~2335.4 KB gzipped, Windows build.
+//   ~395 KB from the Rust repositories (query plans and row mapping for every
+//   PostgREST table), the showcase seed with its JSON data, and the date,
+//   error-report and markdown formatting exports. No new crates; it is serde
+//   for the record shapes and the glue for the new exports. The .wasm still
+//   loads lazily. 2400 KB is this batch's ceiling; shrinking it stays a
+//   follow-up.
+export const WASM_GZIP_BUDGET = 2400 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.
