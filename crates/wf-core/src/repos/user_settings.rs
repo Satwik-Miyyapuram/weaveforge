@@ -466,7 +466,10 @@ mod tests {
         c.ctx.user_id = None;
         assert!(matches!(save_notice_seen(&c), RepoStep::Fail { .. }));
         assert_eq!(
-            done(save_notice_seen(&call(vec![json!("1.2.0")], vec![Value::Null]))),
+            done(save_notice_seen(&call(
+                vec![json!("1.2.0")],
+                vec![Value::Null]
+            ))),
             Value::Null
         );
     }
