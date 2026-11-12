@@ -27,6 +27,7 @@ mod cache_invalidation;
 mod cache_policy;
 mod card_snippet;
 mod citation_alerts;
+mod relation_phrase;
 mod clip_to_area;
 mod dashboard_layout;
 mod dashboard_packing;
@@ -553,7 +554,6 @@ pub fn can_store_unchanged(mime: &str, size_bytes: f64) -> bool {
 
 mod account_links;
 mod account_menu;
-mod ai_chat_split;
 mod ai_document_text;
 mod ai_folder_import;
 mod ai_lexical_concepts;
@@ -787,3 +787,5 @@ mod papers_pdf_add;
 mod search_semantic_hits;
 mod reader_paper_html_store;
 mod reader_annotation_consts;
+mod ai_byok;
+mod ai_mcp_dispatch;

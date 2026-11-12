@@ -8,12 +8,13 @@ The use case `create-ai-proposal-draft.use-case.ts` runs the access policy first
 ## What lives in Rust
 
 - Trimming the content, with the JavaScript whitespace set.
-- The blank check: `AI proposal preview is required.`
+- The blank check: `A proposal needs a preview describing what it will do.` (the same copy the facade used before).
 - `sourceLinks` defaults to an empty list; `evidence` is kept only when non-empty.
 - Status is always `pending`.
 
 Source: `crates/wf-core/src/ai/proposal_draft.rs`. Wasm: `crates/wf-wasm/src/ai_proposal_draft.rs`
-(`shapeAiProposalDraft`). No TS wrapper; typed in Rust.
+(`shapeAiProposalDraft`). Called by the create-proposal use case in `packages/core` and by the
+`draftLocal` facade method in `apps/web/src/container/facades/ai-proposals.ts`. No TS wrapper; typed in Rust.
 
 ## What stays in TypeScript
 
