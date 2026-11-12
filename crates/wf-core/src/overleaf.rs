@@ -223,8 +223,11 @@ mod tests {
 }
 pub mod bibtex;
 pub mod error_redact;
+pub mod export_package;
 pub mod export_path;
+pub mod path_guard;
 pub mod project_list;
+pub mod report_statements;
 pub mod sync_status;
 pub mod thumb;
 pub mod upload;
