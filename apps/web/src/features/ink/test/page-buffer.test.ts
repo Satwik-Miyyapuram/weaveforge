@@ -13,9 +13,6 @@ import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_CHUNK_HEADER_BYTES, INK_CHUNK_MAGIC, d
 
 import {
   InkPageBuffer,
-  boundsContain,
-  boundsIntersect,
-  boundsOf,
   boundsUnion,
   fromGeometry,
   toGeometry,
@@ -57,32 +54,6 @@ test("a stroke becomes typed arrays and an exact bounding box", () => {
     "a flat line has a flat box",
   );
   assert.equal(geometry.line, -1, "an unsegmented stroke says so");
-});
-
-test("bounds arithmetic is inclusive and slack grows the box", () => {
-  const bounds = boundsOf(
-    Float32Array.from([10, 40, 25]),
-    Float32Array.from([5, 60, 30]),
-  );
-  assert.deepEqual(bounds, [10, 5, 40, 60]);
-  assert.equal(
-    boundsIntersect(bounds, [40, 60, 90, 90]),
-    true,
-    "touching counts as intersecting",
-  );
-  assert.equal(boundsIntersect(bounds, [41, 61, 90, 90]), false);
-  assert.equal(
-    boundsIntersect(bounds, [45, 65, 90, 90], 5),
-    true,
-    "slack reaches it",
-  );
-  assert.equal(
-    boundsContain(bounds, 10, 5),
-    true,
-    "the box contains its own corner",
-  );
-  assert.equal(boundsContain(bounds, 9, 5), false);
-  assert.equal(boundsContain(bounds, 9, 5, 1), true);
 });
 
 test("a page round-trips through the chunk with its geometry intact", () => {
@@ -194,21 +165,6 @@ test("a stroke with no points is held without breaking the bounds", () => {
     buffer.bounds(),
     [0, 0, 0, 0],
     "an empty stroke does not move the page's box",
-  );
-});
-
-test("pressure that arrived as nonsense is stored as none", () => {
-  const geometry = toGeometry({
-    points: [0, 0, 10, 0, 20, 0],
-    pressures: [Number.NaN, -5, 400],
-    width: 6,
-    tool: "pen",
-    colour: "text",
-  });
-  assert.deepEqual(
-    Array.from(geometry.pressure),
-    [0, 0, 255],
-    "clamped, with NaN read as no sample",
   );
 });
 

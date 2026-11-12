@@ -394,6 +394,30 @@ pub fn resolve_ink_page_order(declared: &[String], present: &[String]) -> Vec<St
         .collect()
 }
 
+/// The pages a note loads, in order: the declared ids that are valid chunk ids,
+/// kept even where their chunk is missing so later pages keep their number, then
+/// the unrecorded chunks [`resolve_ink_page_order`] appends. Each id appears once.
+#[must_use]
+pub fn compose_ink_page_order(declared: &[String], present: &[String]) -> Vec<String> {
+    let declared: Vec<String> = declared
+        .iter()
+        .filter(|id| is_ink_chunk_id(id))
+        .cloned()
+        .collect();
+    let mut order: Vec<String> = Vec::with_capacity(declared.len());
+    for id in &declared {
+        if !order.contains(id) {
+            order.push(id.clone());
+        }
+    }
+    for id in resolve_ink_page_order(&declared, present) {
+        if !order.contains(&id) {
+            order.push(id);
+        }
+    }
+    order
+}
+
 /// Whether a page has more strokes than the soft budget it should warn about.
 #[must_use]
 pub fn ink_page_over_budget(page: &InkPage) -> bool {
@@ -440,8 +464,8 @@ mod tests {
         INK_A4_HEIGHT, INK_A4_WIDTH, INK_PAGE_STROKE_BUDGET, INK_PEN_WIDTH, InkColour, InkPage,
         InkPaper, InkShape, InkStrokeInput, InkTool, blank_ink_page, clamp_ink_page_size,
         ink_attachment_index, ink_enum_index, ink_enum_value, ink_page_background, ink_page_marker,
-        ink_page_over_budget, join_ink_text_layer, make_ink_stroke, resolve_ink_page_order,
-        with_ink_page_background,
+        compose_ink_page_order, ink_page_over_budget, join_ink_text_layer, make_ink_stroke,
+        resolve_ink_page_order, with_ink_page_background,
     };
     use crate::sync::ink_note::{INK_NOTE_MAX_PAGES, split_ink_text_layer};
 
@@ -574,6 +598,26 @@ mod tests {
         assert_eq!(
             resolve_ink_page_order(&[], &many).len(),
             usize::try_from(INK_NOTE_MAX_PAGES).unwrap_or(usize::MAX)
+        );
+    }
+
+    // it: "loadInkPages keeps declared order, appends orphans, and makes one page from nothing"
+    #[test]
+    fn load_keeps_declared_order_appends_orphans_and_keeps_missing_pages() {
+        const CHUNK_C: &str = "01JABCDEFGHJKMNPQRSTVWXYZ2";
+        const CHUNK_GONE: &str = "01JABCDEFGHJKMNPQRSTVWXYZ3";
+        assert_eq!(compose_ink_page_order(&[], &[]), Vec::<String>::new());
+        assert_eq!(
+            compose_ink_page_order(&ids(&[CHUNK_B, CHUNK_A]), &ids(&[CHUNK_A, CHUNK_C])),
+            ids(&[CHUNK_B, CHUNK_A, CHUNK_C])
+        );
+        assert_eq!(
+            compose_ink_page_order(&ids(&[CHUNK_B, CHUNK_GONE, CHUNK_A]), &ids(&[CHUNK_A])),
+            ids(&[CHUNK_B, CHUNK_GONE, CHUNK_A])
+        );
+        assert_eq!(
+            compose_ink_page_order(&ids(&[CHUNK_A, CHUNK_A, "notes.md"]), &ids(&[CHUNK_A])),
+            ids(&[CHUNK_A])
         );
     }
 

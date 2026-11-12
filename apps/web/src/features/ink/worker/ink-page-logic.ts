@@ -227,10 +227,7 @@ export function eraseIndices(
     }
   }
   if (removed.length > 0) {
-    if (kind === "erase") {
-      state.history.push({ kind: "erase", indices: removed });
-      state.redone = [];
-    }
+    if (kind === "erase") recordHistoryStep(state, { kind: "erase", indices: removed });
     state.index?.invalidate();
     post({ type: "erased", indices: removed });
     reportState(state, post);
@@ -362,17 +359,52 @@ export function strokeNearPoint(
   );
 }
 
+/** The page action an undo or redo asks for; decided by `wf_core::ink::stroke_history`. */
+type StrokeAction = {
+  op: "restore" | "erase" | "translate";
+  indices: number[];
+  dx?: number;
+  dy?: number;
+};
+
+/** Record a fresh edit on the undo log; a new edit clears redo. */
+export function recordHistoryStep(state: InkPageState, step: HistoryStep): void {
+  stepStrokeHistory(state, { op: "record", step });
+}
+
+/** Run one request on the undo log (Rust decides), and keep its stacks. */
+function stepStrokeHistory(
+  state: InkPageState,
+  op: { op: "record"; step: HistoryStep } | { op: "undo" } | { op: "redo" },
+): StrokeAction | null {
+  const out = readyCore().inkStrokeHistoryStep(
+    { history: state.history, redone: state.redone },
+    op,
+  );
+  state.history = out.stacks.history;
+  state.redone = out.stacks.redone;
+  return out.action;
+}
+
+/** Apply the page side of an undo or redo. */
+function applyStrokeAction(
+  state: InkPageState,
+  action: StrokeAction,
+  post: (event: InkWorkerEvent) => void,
+): void {
+  if (action.op === "restore") restoreIndices(state, action.indices, post);
+  else if (action.op === "erase") eraseIndices(state, action.indices, post, "draw");
+  else translateIndices(state, action.indices, action.dx ?? 0, action.dy ?? 0, post);
+}
+
 /** Undo the last action (erase, draw, or move). */
 export function undo(
   state: InkPageState,
   post: (event: InkWorkerEvent) => void,
 ): void {
-  const step = state.history.pop();
-  if (!step) return;
-  if (step.kind === "erase") restoreIndices(state, step.indices, post);
-  else if (step.kind === "draw") eraseIndices(state, step.indices, post, "draw");
-  else translateIndices(state, step.indices, -step.dx, -step.dy, post);
-  state.redone.push(step);
+  const action = stepStrokeHistory(state, { op: "undo" });
+  if (!action) return;
+  applyStrokeAction(state, action, post);
   reportHistory(state, post);
 }
 
@@ -381,12 +413,9 @@ export function redo(
   state: InkPageState,
   post: (event: InkWorkerEvent) => void,
 ): void {
-  const step = state.redone.pop();
-  if (!step) return;
-  if (step.kind === "erase") eraseIndices(state, step.indices, post, "draw");
-  else if (step.kind === "draw") restoreIndices(state, step.indices, post);
-  else translateIndices(state, step.indices, step.dx, step.dy, post);
-  state.history.push(step);
+  const action = stepStrokeHistory(state, { op: "redo" });
+  if (!action) return;
+  applyStrokeAction(state, action, post);
   reportHistory(state, post);
 }
 
@@ -439,12 +468,11 @@ export function moveSelection(
   ensureLoop();
   if (state.selection.length === 0 || (dx === 0 && dy === 0)) return;
   translateIndices(state, state.selection, dx, dy, post);
-  state.history.push({
+  recordHistoryStep(state, {
     kind: "move",
     indices: [...state.selection],
     dx,
     dy,
   });
-  state.redone = [];
   reportHistory(state, post);
 }

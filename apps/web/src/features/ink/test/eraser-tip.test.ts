@@ -5,8 +5,8 @@ import {
   PEN_ERASER_BIT,
   PEN_ERASER_BUTTON,
   EraserSweep,
-  isPenEraserPointer,
 } from "../application/parts-1";
+import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(loadTestCore);
@@ -16,31 +16,31 @@ test("the pen's fifth button is the eraser end, on down and while held", () => {
   // reports `button: -1` and carries the bit in `buttons`.
   const down = { pointerType: "pen", button: PEN_ERASER_BUTTON, buttons: PEN_ERASER_BIT };
   const held = { pointerType: "pen", button: -1, buttons: PEN_ERASER_BIT };
-  assert.equal(isPenEraserPointer(down), true);
-  assert.equal(isPenEraserPointer(held), true);
+  assert.equal(readyCore().isPenEraserPointer(down.pointerType, down.button, down.buttons), true);
+  assert.equal(readyCore().isPenEraserPointer(held.pointerType, held.button, held.buttons), true);
 });
 
 test("each spelling alone is enough: a driver that sets only one still erases", () => {
   assert.equal(
-    isPenEraserPointer({ pointerType: "pen", button: PEN_ERASER_BUTTON }),
+    readyCore().isPenEraserPointer("pen", PEN_ERASER_BUTTON, undefined),
     true,
   );
   assert.equal(
-    isPenEraserPointer({ pointerType: "pen", buttons: PEN_ERASER_BIT }),
+    readyCore().isPenEraserPointer("pen", undefined, PEN_ERASER_BIT),
     true,
   );
 });
 
 test("a writing pen, a hover, a finger and a mouse never erase", () => {
   // The nib: button 0 on down, bit 1 held.
-  assert.equal(isPenEraserPointer({ pointerType: "pen", button: 0, buttons: 1 }), false);
+  assert.equal(readyCore().isPenEraserPointer("pen", 0, 1), false);
   // A hover reports no buttons at all — the back tip must not erase mid-air.
-  assert.equal(isPenEraserPointer({ pointerType: "pen", button: -1, buttons: 0 }), false);
+  assert.equal(readyCore().isPenEraserPointer("pen", -1, 0), false);
   // A finger and a mouse are never a pen's back tip, whatever their bits say.
-  assert.equal(isPenEraserPointer({ pointerType: "touch", buttons: PEN_ERASER_BIT }), false);
-  assert.equal(isPenEraserPointer({ pointerType: "mouse", buttons: PEN_ERASER_BIT }), false);
+  assert.equal(readyCore().isPenEraserPointer("touch", undefined, PEN_ERASER_BIT), false);
+  assert.equal(readyCore().isPenEraserPointer("mouse", undefined, PEN_ERASER_BIT), false);
   // A barrel button (bit 2) is not the eraser either.
-  assert.equal(isPenEraserPointer({ pointerType: "pen", button: 2, buttons: 4 }), false);
+  assert.equal(readyCore().isPenEraserPointer("pen", 2, 4), false);
 });
 
 test("eraser sweep: the back tip erases under any tool and shows the eraser until it leaves", () => {

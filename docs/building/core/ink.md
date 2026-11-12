@@ -21,7 +21,7 @@ Each file below owns one part:
 - `ink_constants`: the tuning numbers of width, zoom, smooth, segment, decode and figure, read from Rust through `inkConstants()`. The core TS modules still hold these as their own constants, so this is a DATA row only; the export-shape change is deferred.
 - `ink_engine`: facts about the ink engines this build knows.
 - `ink_page`: the page model and text-layer helpers.
-- `ink_paths`: sidecar paths and chunk ids for ink notes. `chunk_id_of_file_name` (wasm `inkChunkIdOfFileName`, called through `readyCore()`) gives the id a file name carries, only for a valid `<ulid>.inkb`.
+- `ink_paths`: sidecar paths and chunk ids for ink notes. `chunk_id_of_file_name` (wasm `inkChunkIdOfFileName`, called through `readyCore()`) gives the id a file name carries, only for a valid `<ulid>.inkb`. `ink_chunk_blob_key` (wasm `inkChunkBlobKey`) builds the blob key `<user>/<note>/ink/<ulid>.inkb`, `ink_chunk_blob_spec` (wasm `inkChunkBlobSpec`) gives the `vault-assets` bucket and octet-stream type, and `ink_chunk_ids_in_listing` (wasm `inkChunkIdsInListing`) keeps and sorts the chunk ids in a folder listing. The blob and folder stores in `apps/web/src/features/ink/infrastructure/parts.ts` do only the fetch, upload, stat and list calls.
 - `ink_print`: a page as a printable HTML document.
 - `ink_svg`: a page as an SVG document.
 - `js_math`: JavaScript `Math` semantics where Rust differs, so geometry matches.
@@ -34,6 +34,8 @@ Each file below owns one part:
 - `palette`: the colour maths of the ink palette: a palette entry as CSS or hex, the name a hex came from, the parse of a computed colour, and whether two palettes match.
 - `pdf_pages`: which pages of a PDF the user meant, such as `all` or a list.
 - `pen_pointer`: the pen's eraser end and barrel button, read from a pointer event.
+- `decode`: scores a recognised line from its words' readings, and `helper_line` (wasm `inkLineFromHelper`) scores one Windows Ink helper line. A line with no words keeps its text and its confidence is capped under certainty.
+- `native_stroke`: `flat_stroke_samples` (wasm `inkFlatStrokeSamples`) turns a native shell's flat stroke into CSS-pixel samples, clamping pressure and dropping a partial tail. One call per stroke at pen-lift.
 - `recognise`: confidence mapping and the other pure parts of recognition. `band_union` (wasm `inkBandUnion`) spans the y-bands of a line's strokes, or is none when there are none.
 - `recognition_request`: builds the request the page sends to the desktop recogniser (`buildInkRequest`, flattening strokes to x, y, pressure) and checks the request the desktop reads (`readInkRequest`).
 - `render_instances`: the WebGL stroke renderer's maths: instance count, the packer that writes each span's capsule instances (`pack_stroke_instances`), the backing-store ratio and the highlighter-pass test. The GL calls, buffers and canvas stay in TypeScript (`render/ink-renderer.ts`, `render/webgl-renderer.ts`), so this is a THIN port.
@@ -64,6 +66,7 @@ Examples of exports:
 - Clipboard: `figureClipText`, `parseFigureClip`, `pastedFigurePlace`, `strokeClipText`, `parseStrokeClip`, `pastedStrokesPlace`.
 - Print and SVG: `inkPrintDocument`, `inkPageSvg`.
 - Palette: `paletteCss`, `paletteHex`, `paletteName`, `parseCssColour`, `samePalette`, from `ink_palette.rs`. Their TS types are declared in Rust.
+- Native argb: `inkArgbHex(colour, alpha)`, from `ink_palette.rs`. It reads the Rust light theme (`LIGHT_THEME` in `palette.rs`) and answers `#aarrggbb` for the native shell's pen. A test in `native-bridge.test.ts` pins that table against `INK_RENDER_COLOURS`.
 - Palm rule: `contactAreaMm2`, from `ink_palette.rs`. Its wrapper takes a `{ width, height }` pointer event.
 - Render instances: `inkStrokeInstanceCount`, `packInkStrokeInstances`, `inkBackingRatio`, `usesInkHighlighterPass`, from `ink_render_instances.rs`. Their TS types are declared in Rust. `packInkStrokeInstances` returns a `Float64Array`; `ink-renderer.ts` narrows it into the `Float32Array` the GL buffer takes. `strokeInstanceCount`, `backingRatio`, `usesHighlighterPass` and `packStrokeInstances` in `ink-renderer.ts` call these through `readyCore()`, so the core must be loaded before the WebGL renderer or the layout hook runs. Tests preload it with `before(loadTestCore)`.
 

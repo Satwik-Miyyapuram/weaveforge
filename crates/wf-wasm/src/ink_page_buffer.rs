@@ -79,6 +79,14 @@ pub fn ink_kept_indices_js(alive: &[u8]) -> Vec<u32> {
         .collect()
 }
 
+/// [`stroke_pressures`](page_buffer::stroke_pressures): one pressure byte per point, for
+/// `count` points read from the reported `pressures` (a missing or NaN entry is 0).
+#[must_use]
+#[wasm_bindgen(js_name = inkStrokePressures)]
+pub fn ink_stroke_pressures_js(pressures: &[f64], count: usize) -> Vec<u8> {
+    page_buffer::stroke_pressures(pressures, count)
+}
+
 /// [`clamp_background_index`](page_buffer::clamp_background_index): the header byte for an attachment index.
 #[must_use]
 #[wasm_bindgen(js_name = inkClampBackgroundIndex)]

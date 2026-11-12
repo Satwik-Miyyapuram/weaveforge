@@ -40,26 +40,17 @@ export interface PenEraserEvent {
 }
 
 /**
- * Whether a pointer event is the pen's eraser end.
- *
- * Touch and mouse never are: a finger is a finger, and a mouse's fifth button
- * is not a pen's back tip. The eraser bit on a hover (no buttons) is absent,
- * which is what keeps an inverted pen from erasing mid-air.
+ * Eraser end: `readyCore().isPenEraserPointer(pointerType, button, buttons)`.
+ * Touch and mouse never are; a hover (no buttons) never erases mid-air.
  */
-export function isPenEraserPointer(event: PenEraserEvent): boolean {
-  return readyCore().isPenEraserPointer(event.pointerType, event.button, event.buttons);
-}
 
 /** The `buttons` bit a pen's barrel button sets while it is held. */
 export const PEN_BARREL_BIT = 2;
 
 /**
- * Whether a pen touched down with its barrel button held. The barrel selects
- * (a lasso), as in OneNote, rather than drawing a stray stroke (E33).
+ * Barrel button: `readyCore().isPenBarrelPointer(pointerType, button, buttons)`.
+ * The barrel selects (a lasso), as in OneNote, rather than drawing a stray stroke (E33).
  */
-export function isPenBarrelPointer(event: PenEraserEvent): boolean {
-  return readyCore().isPenBarrelPointer(event.pointerType, event.button, event.buttons);
-}
 
 /** What a sweep needs from a pointer event; a React or DOM `PointerEvent` fits. */
 export interface EraserSweepEvent extends PenEraserEvent {
@@ -109,7 +100,7 @@ export class EraserSweep {
       event.pointerId,
       toolErases,
       tipErases,
-      tipErases && isPenEraserPointer(event),
+      tipErases && readyCore().isPenEraserPointer(event.pointerType, event.button, event.buttons),
     );
     if (action === "none") return false;
     this.show(event.currentTarget);
@@ -293,11 +284,7 @@ export async function loadInkPages(
   const present = (await store.list(noteId)) ?? [];
   // Declared order is kept even where a chunk is missing — a page that lost
   // its file is an empty page, not a vanished one — then the orphans follow.
-  const declared = meta.pageOrder.filter((id) => readyCore().isInkChunkId(id));
-  const order = [...new Set(declared)];
-  for (const id of typedCore().resolveInkPageOrder(declared, present)) {
-    if (!order.includes(id)) order.push(id);
-  }
+  const order = typedCore().composeInkPageOrder(meta.pageOrder, present);
   if (order.length === 0) order.push(typedCore().newInkChunkId());
   const pages = await Promise.all(
     order.map(async (chunkId): Promise<InkStoredPage> => {
@@ -400,7 +387,7 @@ export class InkGesture {
     const picker = new Picker({
       tool: ctx.tool,
       tipErases: ctx.tipErases,
-      penBarrel: isPenBarrelPointer(event),
+      penBarrel: readyCore().isPenBarrelPointer(event.pointerType, event.button, event.buttons),
       hasAdmit: ctx.admit !== undefined,
       hasHitSelection: ctx.hitSelection !== undefined,
       hasIntercept: ctx.intercept !== undefined,

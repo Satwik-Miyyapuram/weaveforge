@@ -90,6 +90,67 @@ pub fn chunk_id_of_file_name(name: &str) -> Option<&str> {
     is_ink_chunk_id(id).then_some(id)
 }
 
+/// Blob bucket that holds ink chunks: the bucket the vault's assets already use, so the
+/// bucket's policy, keyed on the user's prefix, covers them too.
+pub const INK_CHUNK_BUCKET: &str = "vault-assets";
+
+/// Content type of a chunk blob.
+pub const INK_CHUNK_CONTENT_TYPE: &str = "application/octet-stream";
+
+/// Where and how a chunk blob is stored.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InkChunkBlobSpec {
+    /// The bucket the chunk lives in.
+    pub bucket: &'static str,
+    /// The content type the chunk is uploaded with.
+    pub content_type: &'static str,
+}
+
+/// The bucket and content type every chunk blob is stored with.
+#[must_use]
+pub fn ink_chunk_blob_spec() -> InkChunkBlobSpec {
+    InkChunkBlobSpec {
+        bucket: INK_CHUNK_BUCKET,
+        content_type: INK_CHUNK_CONTENT_TYPE,
+    }
+}
+
+/// `<user>/<weaveforge-id>/ink/<ulid>.inkb`: where one chunk sits in the blob bucket, under the
+/// user's prefix, beside the vault's other assets.
+///
+/// # Errors
+///
+/// Fails when `note_id` is not a safe id, or `chunk_id` is not a chunk id.
+pub fn ink_chunk_blob_key(
+    user_id: &str,
+    note_id: &str,
+    chunk_id: &str,
+) -> Result<String, String> {
+    if !is_ink_note_id(note_id) {
+        return Err(unusable("note id", note_id));
+    }
+    if !is_ink_chunk_id(chunk_id) {
+        return Err(unusable("chunk id", chunk_id));
+    }
+    Ok(format!("{user_id}/{note_id}/ink/{chunk_id}{INK_CHUNK_EXT}"))
+}
+
+/// The chunk ids named by a folder listing: the `<ulid>.inkb` files among `paths`, sorted.
+/// Anything else in the folder, such as a thumbnail, is skipped.
+#[must_use]
+pub fn ink_chunk_ids_in_listing(paths: &[String]) -> Vec<String> {
+    let mut ids: Vec<String> = paths
+        .iter()
+        .filter_map(|path| {
+            let name = path.rsplit('/').next().unwrap_or_default();
+            chunk_id_of_file_name(name).map(str::to_owned)
+        })
+        .collect();
+    ids.sort();
+    ids
+}
+
 /// The character for a 0..32 digit value; `0` for anything out of range.
 fn digit(value: usize) -> u8 {
     CROCKFORD.get(value).copied().unwrap_or(b'0')
@@ -135,8 +196,9 @@ pub fn new_ink_chunk_id(now_ms: f64, random_bytes: &[u8]) -> Result<String, Stri
 #[cfg(test)]
 mod tests {
     use super::{
-        InkChunkPath, ink_chunk_path, ink_sidecar_dir, is_ink_note_id, new_ink_chunk_id,
-        parse_ink_chunk_path,
+        InkChunkBlobSpec, InkChunkPath, ink_chunk_blob_key, ink_chunk_blob_spec,
+        ink_chunk_ids_in_listing, ink_chunk_path, ink_sidecar_dir, is_ink_note_id,
+        new_ink_chunk_id, parse_ink_chunk_path,
     };
     use crate::sync::ink_note::is_ink_chunk_id;
 
@@ -227,5 +289,49 @@ mod tests {
     fn non_finite_time_is_refused() {
         assert!(new_ink_chunk_id(f64::NAN, &[0; 10]).is_err());
         assert!(new_ink_chunk_id(f64::INFINITY, &[0; 10]).is_err());
+    }
+
+    #[test]
+    fn a_chunk_blob_key_sits_under_the_user_prefix_beside_the_vault_assets() {
+        assert_eq!(
+            ink_chunk_blob_key("user-1", "01JNOTE", CHUNK_A),
+            Ok(format!("user-1/01JNOTE/ink/{CHUNK_A}.inkb"))
+        );
+        assert!(matches!(
+            ink_chunk_blob_key("user-1", "../escape", CHUNK_A),
+            Err(e) if e.contains("unusable note id")
+        ));
+        assert!(matches!(
+            ink_chunk_blob_key("user-1", "01JNOTE", "../../etc/passwd"),
+            Err(e) if e.contains("unusable chunk id")
+        ));
+    }
+
+    #[test]
+    fn chunks_are_stored_in_the_vault_bucket_as_octet_streams() {
+        assert_eq!(
+            ink_chunk_blob_spec(),
+            InkChunkBlobSpec {
+                bucket: "vault-assets",
+                content_type: "application/octet-stream",
+            }
+        );
+    }
+
+    // it: "the folder store writes under .ink/<note>/ and lists only chunks"
+    #[test]
+    fn a_listing_keeps_only_chunk_files_and_sorts_them() {
+        let later = "01JABC0DEF0GH0JK0MN0PQ0RSZ";
+        let paths = vec![
+            format!(".ink/01JNOTE/{later}.inkb"),
+            ".ink/01JNOTE/thumb.png".to_owned(),
+            format!(".ink/01JNOTE/{CHUNK_A}.inkb"),
+            ".ink/01JNOTE/notes.inkb".to_owned(),
+        ];
+        assert_eq!(
+            ink_chunk_ids_in_listing(&paths),
+            vec![CHUNK_A.to_owned(), later.to_owned()]
+        );
+        assert!(ink_chunk_ids_in_listing(&[]).is_empty());
     }
 }

@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use unicode_properties::{GeneralCategoryGroup, UnicodeGeneralCategory};
 
 use super::js_math;
-use super::recognise::INK_UNSURE_CONFIDENCE;
+use super::recognise::{INK_UNSURE_CONFIDENCE, map_ink_confidence};
 use crate::search::js_text::is_js_whitespace;
 
 /// The most an engine's line may score; `1` marks a line a person corrected.
@@ -401,6 +401,40 @@ fn line_alternatives(
     alternatives
 }
 
+/// One line as the Windows Ink helper returns it. `confidence` only says the
+/// helper produced text or not; `words` is the evidence when it sent any.
+#[derive(Debug, Clone, PartialEq, Default, serde::Deserialize)]
+pub struct HelperLine {
+    /// The helper's text for the line.
+    pub text: String,
+    /// The helper's confidence, `1` for any produced text.
+    pub confidence: f64,
+    /// Each word's readings, when the helper sent them.
+    #[serde(default)]
+    pub words: Option<Vec<InkWordReadings>>,
+    /// The helper's own whole-line alternatives.
+    #[serde(default)]
+    pub alternatives: Option<Vec<String>>,
+}
+
+/// A helper line as a scored line. With text and per-word readings, the readings
+/// decide the text and score. Otherwise the line keeps its text, its alternatives
+/// (when it has any), and the engine confidence capped under certainty: `1` is a
+/// person's correction, never an engine's.
+#[must_use]
+pub fn helper_line(line: &HelperLine, vocabulary: &[String]) -> RecognisedLine {
+    match line.words.as_deref() {
+        Some(words) if !line.text.is_empty() && !words.is_empty() => {
+            decode_ink_words(words, vocabulary, Some(&line.text))
+        }
+        _ => RecognisedLine {
+            text: line.text.clone(),
+            conf: capped_engine_confidence(map_ink_confidence(line.confidence, 1.0)),
+            alternatives: line.alternatives.clone().filter(|a| !a.is_empty()),
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -482,5 +516,67 @@ mod tests {
         let b: Vec<u16> = "alolation".encode_utf16().collect();
         assert!(distance_within(&a, &b, 2));
         assert!(!distance_within(&a, &b, 1));
+    }
+
+    // it: "a helper line with per-word readings is decoded, not scored by its confidence"
+    #[test]
+    fn a_helper_line_with_words_is_decoded() {
+        let line = helper_line(
+            &HelperLine {
+                text: "lorown".to_owned(),
+                confidence: 1.0,
+                words: Some(vec![word(&["lorown", "brown"], Some(&[false, true]), None)]),
+                alternatives: None,
+            },
+            &[],
+        );
+        assert_eq!(line.text, "brown");
+        assert_eq!(line.conf, INK_ENGINE_MAX_CONFIDENCE);
+        assert_eq!(line.alternatives, Some(vec!["lorown".to_owned()]));
+    }
+
+    // it: "a helper line without words keeps its text and caps its confidence under certainty"
+    #[test]
+    fn a_helper_line_without_words_is_capped_and_keeps_its_text() {
+        let line = helper_line(
+            &HelperLine {
+                text: "hello".to_owned(),
+                confidence: 1.0,
+                words: None,
+                alternatives: None,
+            },
+            &[],
+        );
+        assert_eq!(line.text, "hello");
+        assert_eq!(line.conf, INK_ENGINE_MAX_CONFIDENCE);
+        assert_eq!(line.alternatives, None);
+    }
+
+    // it: "an empty word list counts as no words, and empty alternatives are dropped"
+    #[test]
+    fn empty_words_fall_back_and_empty_alternatives_are_omitted() {
+        let line = helper_line(
+            &HelperLine {
+                text: "hi".to_owned(),
+                confidence: 0.5,
+                words: Some(Vec::new()),
+                alternatives: Some(Vec::new()),
+            },
+            &[],
+        );
+        assert_eq!(line.text, "hi");
+        assert!(line.conf < 1.0);
+        assert_eq!(line.alternatives, None);
+
+        let kept = helper_line(
+            &HelperLine {
+                text: "hi".to_owned(),
+                confidence: 0.5,
+                words: None,
+                alternatives: Some(vec!["ho".to_owned()]),
+            },
+            &[],
+        );
+        assert_eq!(kept.alternatives, Some(vec!["ho".to_owned()]));
     }
 }

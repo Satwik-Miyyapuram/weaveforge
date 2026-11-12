@@ -31,17 +31,24 @@ import type { FilteredNibSample } from "./parts-2";
  * ------------------------------------------------------------------------- */
 
 /**
- * Contact area above which a touch is a hand rather than a fingertip, in mm².
+ * The palm threshold (mm²) and the CSS pixel scale come from Rust, `inkContactConsts`.
  *
  * `PointerEvent.width`/`height` are **CSS pixels**, not millimetres, so the
  * comparison converts with the CSS definition of a pixel (1/96 inch) rather than
  * pretending the two are the same unit — the trap §3.2 names. A pen nib reports a
  * contact well under a square millimetre; a resting palm reports tens of them.
+ *
+ * Read once, on first use, and kept for the page's life.
  */
-export const PALM_CONTACT_AREA_MM2 = 25;
-
-/** CSS pixels per millimetre: 96 px to the inch, 25.4 mm to the inch. */
-export const CSS_PX_PER_MM = 96 / 25.4;
+let contactConsts: { cssPxPerMm: number; palmContactAreaMm2: number } | null =
+  null;
+function palmContactConsts(): {
+  cssPxPerMm: number;
+  palmContactAreaMm2: number;
+} {
+  if (contactConsts === null) contactConsts = readyCore().inkContactConsts();
+  return contactConsts;
+}
 
 /** A pen down within this window of a touch makes the quadrant rule apply (§3.2). */
 export const PALM_PEN_GRACE_MS = 300;
@@ -150,7 +157,8 @@ export class InkPenGate {
    */
   palmReason(event: PenGateEvent): PalmReason | null {
     if (event.pointerType !== "touch") return null;
-    if (contactAreaMm2(event) > PALM_CONTACT_AREA_MM2) return "area";
+    if (readyCore().contactAreaMm2(event) > palmContactConsts().palmContactAreaMm2)
+      return "area";
     const penRecently =
       this.lastPenDownAt !== Number.NEGATIVE_INFINITY &&
       Math.abs(event.t - this.lastPenDownAt) <= PALM_PEN_GRACE_MS;
@@ -304,13 +312,6 @@ export class InkPenGate {
       this.handedness === "right" ? x > bounds.width / 2 : x < bounds.width / 2;
     return lowerHalf && handSide;
   }
-}
-
-/** A contact's area in mm², from the CSS pixels a `PointerEvent` reports (Rust `contact_area`). */
-export function contactAreaMm2(
-  event: Pick<PenGateEvent, "width" | "height">,
-): number {
-  return readyCore().contactAreaMm2(event);
 }
 
 // --- pen-haptics ---
