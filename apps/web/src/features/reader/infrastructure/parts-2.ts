@@ -147,12 +147,6 @@ export interface ZoteroAnnotationPushResult {
   results: ZoteroAnnotationWriteResult[];
 }
 
-interface ZoteroWriteResponse {
-  successful?: Record<string, { key?: string; version?: number }>;
-  failed?: Record<string, { code?: number; message?: string }>;
-  unchanged?: Record<string, unknown>;
-}
-
 export class ZoteroApiAnnotationWriteBack implements IZoteroAnnotationWriteBack {
   constructor(
     private readonly credentials: ZoteroCredentialsProvider = async () => ({}),
@@ -231,32 +225,15 @@ export class ZoteroApiAnnotationWriteBack implements IZoteroAnnotationWriteBack 
       },
       body: JSON.stringify(items.map((i) => i.payload)),
     });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      const reason = `Zotero create failed (${res.status}). ${detail}`.trim();
-      return items.map(({ ann }) => ({ id: ann.id, outcome: "failed" as const, reason }));
-    }
-
-    const body = (await res.json().catch(() => ({}))) as ZoteroWriteResponse;
-    const libraryVersion = versionHeader(res);
-    return items.map(({ ann }, index) => {
-      const key = String(index);
-      const ok = body.successful?.[key];
-      if (ok?.key) {
-        return {
-          id: ann.id,
-          outcome: "created" as const,
-          zoteroKey: ok.key,
-          ...(ok.version ?? libraryVersion ? { zoteroVersion: ok.version ?? libraryVersion! } : {}),
-        };
-      }
-      const bad = body.failed?.[key];
-      return {
-        id: ann.id,
-        outcome: "failed" as const,
-        reason: bad?.message ?? "Zotero did not report this annotation as written.",
-      };
-    });
+    const detail = res.ok ? "" : await res.text().catch(() => "");
+    const body: unknown = res.ok ? await res.json().catch(() => ({})) : {};
+    return typedCore().zoteroWriteBackCreateOutcomes(
+      items.map(({ ann }) => ann.id),
+      res.status,
+      detail,
+      body,
+      versionHeader(res),
+    );
   }
 
   private async update(
@@ -265,54 +242,32 @@ export class ZoteroApiAnnotationWriteBack implements IZoteroAnnotationWriteBack 
     ann: ReaderAnnotation,
     payload: ZoteroAnnotationWritePayload,
   ): Promise<ZoteroAnnotationWriteResult> {
-    const url = `${base}/items/${encodeURIComponent(ann.zoteroKey!)}`;
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...zoteroHeaders(apiKey),
-    };
-    if (typeof ann.zoteroVersion === "number") {
-      headers["If-Unmodified-Since-Version"] = String(ann.zoteroVersion);
-    }
-
-    const res = await this.fetchFn(url, {
+    const core = typedCore();
+    const res = await this.fetchFn(core.zoteroWriteBackUpdateUrl(base, ann.zoteroKey!), {
       method: "PATCH",
-      headers,
+      headers: core.zoteroWriteBackUpdateHeaders(
+        apiKey,
+        typeof ann.zoteroVersion === "number" ? ann.zoteroVersion : undefined,
+      ),
       body: JSON.stringify(payload),
     });
 
-    // 412 is Zotero telling us the item moved on since we last read it.
-    if (res.status === 412) {
-      return {
-        id: ann.id,
-        outcome: "conflict",
-        zoteroKey: ann.zoteroKey!,
-        reason: "The annotation changed in Zotero since this copy was synced.",
-      };
-    }
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      return {
-        id: ann.id,
-        outcome: "failed",
-        zoteroKey: ann.zoteroKey!,
-        reason: `Zotero update failed (${res.status}). ${detail}`.trim(),
-      };
-    }
-    const version = versionHeader(res);
-    return {
-      id: ann.id,
-      outcome: "updated",
-      zoteroKey: ann.zoteroKey!,
-      ...(version ? { zoteroVersion: version } : {}),
-    };
+    // A 412 (conflict) carries no detail worth reading; other failures report their body.
+    const detail = res.ok || res.status === 412 ? "" : await res.text().catch(() => "");
+    return core.zoteroWriteBackUpdateOutcome(
+      ann.id,
+      ann.zoteroKey!,
+      res.status,
+      detail,
+      versionHeader(res),
+    );
   }
 }
 
 function versionHeader(res: Response): number | undefined {
-  const raw = res.headers?.get?.("Last-Modified-Version");
-  if (!raw) return undefined;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : undefined;
+  return typedCore().zoteroWriteBackLibraryVersion(
+    res.headers?.get?.("Last-Modified-Version") ?? undefined,
+  );
 }
 
 function writeToken(): string {

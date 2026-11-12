@@ -125,10 +125,11 @@ export function rememberPdfDownload(always: boolean): void {
 }
 
 // --- reader-annotation-helpers ---
-/** Marks an annotation that exists only on screen, awaiting its server row. */
-export const PENDING_ANNOTATION_PREFIX = "pending:";
-
-/** Zotero's yellow: the colour a mark gets when none is given. */
+/**
+ * Zotero's yellow: the colour a mark gets when none is given.
+ * GAP: kept as a literal. READER_ANNOTATION_COLORS reads it at module scope, before wasm loads.
+ * Rust source: `DEFAULT_ANNOTATION_COLOR` in `crates/wf-core/src/reader/zotero_projection.rs`.
+ */
 export const DEFAULT_ANNOTATION_COLOR = "#ffd400";
 
 export const READER_ANNOTATION_COLORS = [

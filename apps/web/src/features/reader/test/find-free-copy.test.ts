@@ -3,8 +3,6 @@ import test, { before } from "node:test";
 import type { OpenAccessCandidate, OpenAccessLookup } from "@weaveforge/core";
 import {
   findFreeCopy,
-  MAX_HTML_ATTEMPTS,
-  MAX_PDF_ATTEMPTS,
   type FreeCopyDeps,
   type FreeCopyOutcome,
   type HtmlFetchResult,
@@ -93,8 +91,9 @@ test("attempts are bounded per format", async () => {
     },
   }));
   none(await findFreeCopy("p", {}, d));
-  assert.equal(d.tried.filter((u) => u.endsWith(".pdf")).length, MAX_PDF_ATTEMPTS);
-  assert.equal(d.tried.filter((u) => !u.endsWith(".pdf")).length, MAX_HTML_ATTEMPTS);
+  const limits = readyCore().freeCopyAttemptLimits();
+  assert.equal(d.tried.filter((u) => u.endsWith(".pdf")).length, limits.pdf);
+  assert.equal(d.tried.filter((u) => !u.endsWith(".pdf")).length, limits.html);
 });
 
 test("nowhere to keep a PDF stops the PDF attempts but still tries pages", async () => {

@@ -9,7 +9,7 @@ import {
   applyAnnotationPatch,
   optimisticAnnotationFromDraft,
 } from "@weaveforge/wasm";
-import { PENDING_ANNOTATION_PREFIX } from "../../application/parts";
+import { readyCore } from "@/lib/rust-core";
 import type { PdfReaderProps } from "./types";
 
 type ChangeAnnotations = NonNullable<PdfReaderProps["onAnnotationsChange"]>;
@@ -79,7 +79,7 @@ export function useAnnotationActions({
       if (!paperId || !onAnnotationsChange) return null;
       const change: ChangeAnnotations = onAnnotationsChange;
 
-      const tempId = `${PENDING_ANNOTATION_PREFIX}${
+      const tempId = `${readyCore().readerAnnotationConsts().pendingPrefix}${
         globalThis.crypto?.randomUUID?.() ?? String(Date.now())
       }`;
       const optimistic = optimisticAnnotationFromDraft(draft, tempId, new Date().toISOString());
