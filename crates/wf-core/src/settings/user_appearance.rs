@@ -155,6 +155,7 @@ pub fn normalize_appearance(raw: &Value) -> Option<UserAppearance> {
 /// the local one, except that a `null` field keeps the local value. `customTheme` is the one
 /// field where `null` means "no custom theme", so it does clear. Keys absent from `server` keep
 /// their local value.
+#[must_use]
 pub fn merge_server_appearance(local: &Value, server: &Value) -> Value {
     let mut merged = local.as_object().cloned().unwrap_or_default();
     if let Some(server) = server.as_object() {

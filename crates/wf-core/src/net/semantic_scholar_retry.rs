@@ -9,7 +9,7 @@ pub const RETRIES: u32 = 3;
 /// A 429 and a network error are retried, up to [`RETRIES`] times. `attempt` counts retries done.
 #[must_use]
 pub fn should_retry(status: Option<u16>, attempt: u32) -> bool {
-    let throttled = status.map_or(true, |code| code == 429);
+    let throttled = status.is_none_or(|code| code == 429);
     throttled && attempt < RETRIES
 }
 

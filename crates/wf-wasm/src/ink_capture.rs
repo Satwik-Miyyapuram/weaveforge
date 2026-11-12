@@ -77,6 +77,10 @@ impl InkCaptureBatch {
 
     /// One flag byte per accepted sample: `FLAG_PREDICTED` and `FLAG_DISPATCHED`.
     #[must_use]
+    #[allow(
+        clippy::cast_possible_truncation,
+        reason = "flags hold only FLAG_PREDICTED | FLAG_DISPATCHED bits"
+    )]
     pub fn flags(&self) -> Vec<u8> {
         self.samples.iter().map(|s| s.flags as u8).collect()
     }

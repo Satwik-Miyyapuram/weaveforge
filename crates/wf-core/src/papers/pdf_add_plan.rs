@@ -116,7 +116,12 @@ pub fn pdf_lookup_steps(facts: PdfLookupFacts) -> Vec<PdfLookupStep> {
 mod tests {
     use super::*;
 
-    fn lookup(doi: Option<&str>, arxiv: Option<&str>, title: Option<&str>, online: bool) -> PdfLookupFacts {
+    fn lookup(
+        doi: Option<&str>,
+        arxiv: Option<&str>,
+        title: Option<&str>,
+        online: bool,
+    ) -> PdfLookupFacts {
         PdfLookupFacts {
             doi: doi.map(str::to_owned),
             arxiv_id: arxiv.map(str::to_owned),
@@ -129,21 +134,36 @@ mod tests {
     #[test]
     fn a_doi_is_the_first_lookup() {
         let steps = pdf_lookup_steps(lookup(Some("10.1/x"), None, Some("T"), true));
-        assert_eq!(steps[0], PdfLookupStep::Doi { value: "10.1/x".to_owned() });
+        assert_eq!(
+            steps[0],
+            PdfLookupStep::Doi {
+                value: "10.1/x".to_owned()
+            }
+        );
     }
 
     // it: "no DOI: the arXiv stamp on the first page finds the paper"
     #[test]
     fn no_doi_tries_the_arxiv_stamp_next() {
         let steps = pdf_lookup_steps(lookup(None, Some("2301.12345"), None, true));
-        assert_eq!(steps, vec![PdfLookupStep::Arxiv { value: "2301.12345".to_owned() }]);
+        assert_eq!(
+            steps,
+            vec![PdfLookupStep::Arxiv {
+                value: "2301.12345".to_owned()
+            }]
+        );
     }
 
     // it: "no DOI and no arXiv id falls back to a title lookup"
     #[test]
     fn no_doi_and_no_arxiv_id_falls_back_to_the_title() {
         let steps = pdf_lookup_steps(lookup(None, None, Some("A Title"), true));
-        assert_eq!(steps, vec![PdfLookupStep::Title { value: "A Title".to_owned() }]);
+        assert_eq!(
+            steps,
+            vec![PdfLookupStep::Title {
+                value: "A Title".to_owned()
+            }]
+        );
     }
 
     // it: "a DOI is tried before the arXiv stamp"
@@ -153,9 +173,15 @@ mod tests {
         assert_eq!(
             steps,
             vec![
-                PdfLookupStep::Doi { value: "10.1/x".to_owned() },
-                PdfLookupStep::Arxiv { value: "2301.12345".to_owned() },
-                PdfLookupStep::Title { value: "T".to_owned() },
+                PdfLookupStep::Doi {
+                    value: "10.1/x".to_owned()
+                },
+                PdfLookupStep::Arxiv {
+                    value: "2301.12345".to_owned()
+                },
+                PdfLookupStep::Title {
+                    value: "T".to_owned()
+                },
             ]
         );
     }
@@ -164,20 +190,33 @@ mod tests {
     #[test]
     fn the_title_is_still_tried_after_an_arxiv_id() {
         let steps = pdf_lookup_steps(lookup(None, Some("2301.12345"), Some("T"), true));
-        assert_eq!(steps.last(), Some(&PdfLookupStep::Title { value: "T".to_owned() }));
+        assert_eq!(
+            steps.last(),
+            Some(&PdfLookupStep::Title {
+                value: "T".to_owned()
+            })
+        );
     }
 
     // it: "a DOI that resolves nowhere still tries the title"
     #[test]
     fn the_title_is_still_tried_after_a_doi() {
         let steps = pdf_lookup_steps(lookup(Some("10.1/x"), None, Some("T"), true));
-        assert_eq!(steps.last(), Some(&PdfLookupStep::Title { value: "T".to_owned() }));
+        assert_eq!(
+            steps.last(),
+            Some(&PdfLookupStep::Title {
+                value: "T".to_owned()
+            })
+        );
     }
 
     // it: "offline still reads the PDF: its own title, and the DOI it prints"
     #[test]
     fn offline_runs_no_lookup() {
-        assert!(pdf_lookup_steps(lookup(Some("10.1/x"), Some("2301.12345"), Some("T"), false)).is_empty());
+        assert!(
+            pdf_lookup_steps(lookup(Some("10.1/x"), Some("2301.12345"), Some("T"), false))
+                .is_empty()
+        );
     }
 
     #[test]

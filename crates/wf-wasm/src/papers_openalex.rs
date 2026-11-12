@@ -26,12 +26,14 @@ pub fn open_alex_search_query_js(
 #[wasm_bindgen(js_name = openAlexFirstMatch)]
 pub fn open_alex_first_match_js(
     #[wasm_bindgen(unchecked_param_type = "{ title?: string | null; year?: number | null }")] hints: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "{ title?: string | null; publication_year?: number | null }[]")]
+    #[wasm_bindgen(
+        unchecked_param_type = "{ title?: string | null; publication_year?: number | null }[]"
+    )]
     works: JsValue,
 ) -> Result<Option<u32>, JsError> {
-    let hints: AnalysisBibliographicHints = serde_wasm_bindgen::from_value(hints)
-        .map_err(|error| JsError::new(&error.to_string()))?;
-    let works: Vec<OpenAlexCandidate> = serde_wasm_bindgen::from_value(works)
-        .map_err(|error| JsError::new(&error.to_string()))?;
+    let hints: AnalysisBibliographicHints =
+        serde_wasm_bindgen::from_value(hints).map_err(|error| JsError::new(&error.to_string()))?;
+    let works: Vec<OpenAlexCandidate> =
+        serde_wasm_bindgen::from_value(works).map_err(|error| JsError::new(&error.to_string()))?;
     Ok(openalex::first_match(&hints, &works).and_then(|index| u32::try_from(index).ok()))
 }

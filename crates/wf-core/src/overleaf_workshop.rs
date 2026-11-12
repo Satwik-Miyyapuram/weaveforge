@@ -133,6 +133,7 @@ fn session_id_field(body: &Value) -> Option<String> {
 }
 
 /// UUID shape, case-insensitive hex, no surrounding whitespace.
+#[must_use]
 pub fn is_session_id(id: &str) -> bool {
     let bytes = id.as_bytes();
     bytes.len() == 36
@@ -273,8 +274,14 @@ mod tests {
         assert_eq!(
             workshop_projects(&body),
             Some(vec![
-                WorkshopProject { id: "p1".into(), name: "Thesis".into() },
-                WorkshopProject { id: "p4".into(), name: "Paper".into() },
+                WorkshopProject {
+                    id: "p1".into(),
+                    name: "Thesis".into()
+                },
+                WorkshopProject {
+                    id: "p4".into(),
+                    name: "Paper".into()
+                },
             ]),
         );
     }
@@ -290,13 +297,17 @@ mod tests {
     fn workshop_projects_without_array_is_none() {
         assert_eq!(workshop_projects(&json!({})), None);
         assert_eq!(workshop_projects(&json!({"projects": null})), None);
-        assert_eq!(workshop_projects(&json!({"projects": {"id": "p1", "name": "x"}})), None);
+        assert_eq!(
+            workshop_projects(&json!({"projects": {"id": "p1", "name": "x"}})),
+            None
+        );
     }
 
     // it: projects POSTs the session id and returns id/name pairs sorted by name (the sort stays TS)
     #[test]
     fn workshop_projects_keeps_route_order() {
-        let body = json!({"projects": [{"id": "b", "name": "Zebra"}, {"id": "a", "name": "Apple"}]});
+        let body =
+            json!({"projects": [{"id": "b", "name": "Zebra"}, {"id": "a", "name": "Apple"}]});
         let names: Vec<String> = workshop_projects(&body)
             .unwrap_or_default()
             .into_iter()

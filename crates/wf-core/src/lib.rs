@@ -4,9 +4,9 @@
 pub mod ai;
 pub mod auth_transition;
 pub mod bytea;
-pub mod calendar_date;
 pub mod cache_invalidation;
 pub mod cache_policy;
+pub mod calendar_date;
 pub mod card_snippet;
 pub mod collab;
 pub mod dashboard;
@@ -96,6 +96,8 @@ pub fn core_info() -> CoreInfo {
 }
 pub mod account_links;
 pub mod account_menu;
+pub mod account_provision;
+pub mod account_purge;
 pub mod app_lib;
 pub mod app_log_line;
 pub mod app_protocol;
@@ -108,6 +110,7 @@ pub mod home_config;
 pub mod lab_snapshot_rows;
 pub mod library_pin_rows;
 pub mod library_pins;
+pub mod markdown_input;
 pub mod mcp_client_config;
 pub mod mcp_config_rewrite;
 pub mod member_rows;
@@ -144,6 +147,3 @@ pub mod update_check;
 pub mod view_transition;
 pub mod wire;
 pub mod zotero_local_url;
-pub mod account_provision;
-pub mod account_purge;
-pub mod markdown_input;

@@ -93,6 +93,7 @@ pub struct StrokeHistoryOutcome {
 }
 
 /// Apply one request to the stacks.
+#[must_use]
 pub fn stroke_history_step(mut stacks: StrokeHistory, op: StrokeHistoryOp) -> StrokeHistoryOutcome {
     let action = match op {
         StrokeHistoryOp::Record { step } => {
@@ -107,10 +108,10 @@ pub fn stroke_history_step(mut stacks: StrokeHistory, op: StrokeHistoryOp) -> St
 
 /// Push a fresh step and clear redo. An erase that removed nothing is not a step.
 fn record(stacks: &mut StrokeHistory, step: HistoryStep) {
-    if let HistoryStep::Erase { indices } = &step {
-        if indices.is_empty() {
-            return;
-        }
+    if let HistoryStep::Erase { indices } = &step
+        && indices.is_empty()
+    {
+        return;
     }
     stacks.history.push(step);
     stacks.redone.clear();
@@ -180,10 +181,7 @@ mod tests {
     fn record_clears_redo() {
         let mut stacks = StrokeHistory::default();
         stacks.redone.push(erase(&[1]));
-        let out = stroke_history_step(
-            stacks,
-            StrokeHistoryOp::Record { step: erase(&[2]) },
-        );
+        let out = stroke_history_step(stacks, StrokeHistoryOp::Record { step: erase(&[2]) });
         assert_eq!(out.stacks.history, vec![erase(&[2])]);
         assert!(out.stacks.redone.is_empty());
     }
@@ -228,7 +226,10 @@ mod tests {
             redone: Vec::new(),
         };
         let undone = stroke_history_step(stacks, StrokeHistoryOp::Undo);
-        assert_eq!(undone.action, Some(StrokeAction::Erase { indices: vec![7] }));
+        assert_eq!(
+            undone.action,
+            Some(StrokeAction::Erase { indices: vec![7] })
+        );
         let redone = stroke_history_step(undone.stacks, StrokeHistoryOp::Redo);
         assert_eq!(
             redone.action,

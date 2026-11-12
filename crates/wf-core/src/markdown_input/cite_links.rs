@@ -5,7 +5,7 @@
 use serde::Deserialize;
 
 use crate::search::js_text::utf16_len;
-use crate::vault::page::{extract_wikilinks, WIKILINK_RE};
+use crate::vault::page::{WIKILINK_RE, extract_wikilinks};
 
 /// Most completions the cite and wikilink menus show.
 const MAX_COMPLETIONS: usize = 20;
@@ -62,7 +62,9 @@ pub fn matching_completions(items: &[CiteCandidate], query: &str) -> Vec<u32> {
         .filter(|(_, c)| {
             c.title.to_lowercase().contains(&q)
                 || c.label.to_lowercase().contains(&q)
-                || c.detail.as_deref().is_some_and(|d| d.to_lowercase().contains(&q))
+                || c.detail
+                    .as_deref()
+                    .is_some_and(|d| d.to_lowercase().contains(&q))
         })
         .take(MAX_COMPLETIONS)
         .map(|(i, _)| u32::try_from(i).unwrap_or(u32::MAX))
@@ -71,7 +73,7 @@ pub fn matching_completions(items: &[CiteCandidate], query: &str) -> Vec<u32> {
 
 #[cfg(test)]
 mod tests {
-    use super::{finished_links, matching_completions, CiteCandidate};
+    use super::{CiteCandidate, finished_links, matching_completions};
 
     fn candidate(title: &str, label: &str, detail: Option<&str>) -> CiteCandidate {
         CiteCandidate {
@@ -121,7 +123,9 @@ mod tests {
 
     #[test]
     fn completions_stop_at_twenty() {
-        let items: Vec<CiteCandidate> = (0..25).map(|i| candidate(&format!("note {i}"), "x", None)).collect();
+        let items: Vec<CiteCandidate> = (0..25)
+            .map(|i| candidate(&format!("note {i}"), "x", None))
+            .collect();
         assert_eq!(matching_completions(&items, "note").len(), 20);
     }
 }

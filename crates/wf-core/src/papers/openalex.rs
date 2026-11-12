@@ -22,7 +22,9 @@ pub struct OpenAlexCandidate {
 #[must_use]
 pub fn search_query(search: &str, mailto: Option<&str>, api_key: Option<&str>) -> String {
     let mut query = Serializer::new(String::new());
-    let _ = query.append_pair("search", search).append_pair("per-page", "3");
+    let _ = query
+        .append_pair("search", search)
+        .append_pair("per-page", "3");
     if let Some(mailto) = mailto.filter(|value| !value.is_empty()) {
         let _ = query.append_pair("mailto", mailto);
     }
@@ -34,7 +36,10 @@ pub fn search_query(search: &str, mailto: Option<&str>, api_key: Option<&str>) -
 
 /// The index of the first work whose title and year match the hints. Works with no title are skipped.
 #[must_use]
-pub fn first_match(hints: &AnalysisBibliographicHints, works: &[OpenAlexCandidate]) -> Option<usize> {
+pub fn first_match(
+    hints: &AnalysisBibliographicHints,
+    works: &[OpenAlexCandidate],
+) -> Option<usize> {
     works.iter().position(|work| {
         let Some(title) = work.title.as_deref().filter(|title| !title.is_empty()) else {
             return false;

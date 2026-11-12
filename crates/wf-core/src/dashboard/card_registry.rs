@@ -119,17 +119,17 @@ const fn stat(
     }
 }
 
-const fn with_fit(def: CardDef) -> CardDef {
+const fn with_fit(def: &CardDef) -> CardDef {
     CardDef {
         fit_content: true,
-        ..def
+        ..*def
     }
 }
 
-const fn for_phd(def: CardDef) -> CardDef {
+const fn for_phd(def: &CardDef) -> CardDef {
     CardDef {
         min_role: Some("phd"),
-        ..def
+        ..*def
     }
 }
 
@@ -148,10 +148,30 @@ pub const ALL_DATA_SOURCES: [&str; 9] = [
 
 /// The catalog, in picker order.
 pub static CARD_REGISTRY: [CardDef; 11] = [
-    stat("reading-progress", "Reading progress", "Progress", &["papers"]),
-    stat("report-progress", "Report progress", "Progress", &["sections"]),
-    stat("plan-progress", "Plan progress", "Progress", &["milestones"]),
-    stat("experiments-summary", "Experiments", "Progress", &["experiments"]),
+    stat(
+        "reading-progress",
+        "Reading progress",
+        "Progress",
+        &["papers"],
+    ),
+    stat(
+        "report-progress",
+        "Report progress",
+        "Progress",
+        &["sections"],
+    ),
+    stat(
+        "plan-progress",
+        "Plan progress",
+        "Progress",
+        &["milestones"],
+    ),
+    stat(
+        "experiments-summary",
+        "Experiments",
+        "Progress",
+        &["experiments"],
+    ),
     card(
         "needs-attention",
         "Needs attention",
@@ -160,7 +180,7 @@ pub static CARD_REGISTRY: [CardDef; 11] = [
         PANEL,
     ),
     // A log row (date over preview) is taller than a grid row.
-    with_fit(card(
+    with_fit(&card(
         "recent-log",
         "Recent log",
         "Activity",
@@ -190,21 +210,21 @@ pub static CARD_REGISTRY: [CardDef; 11] = [
             max: size(12.0, 6.0),
         },
     ),
-    with_fit(for_phd(card(
+    with_fit(&for_phd(&card(
         "team-roster",
         "Team roster",
         "Team",
         &["supervision"],
         TALL_PANEL,
     ))),
-    with_fit(for_phd(card(
+    with_fit(&for_phd(&card(
         "team-attention",
         "Team attention",
         "Team",
         &["supervision"],
         PANEL,
     ))),
-    for_phd(card(
+    for_phd(&card(
         "supervisee-snapshot",
         "Student snapshot",
         "Team",
@@ -324,7 +344,10 @@ mod tests {
     fn only_the_list_cards_fit_their_content() {
         assert!(card_def("team-roster").unwrap().fit_content);
         assert!(card_def("team-attention").unwrap().fit_content);
-        assert!(!card_def("reading-progress").unwrap().fit_content, "stat tiles keep their size");
+        assert!(
+            !card_def("reading-progress").unwrap().fit_content,
+            "stat tiles keep their size"
+        );
     }
 
     #[test]
@@ -365,7 +388,10 @@ mod tests {
         assert!(!visible(Some("masters")));
         assert!(visible(Some("phd")));
         assert!(visible(Some("professor")));
-        assert!(!visible(Some("admin")), "an unknown role sees no gated card");
+        assert!(
+            !visible(Some("admin")),
+            "an unknown role sees no gated card"
+        );
         let ungated = cards_for_role(Some("admin"));
         assert!(ungated.iter().any(|c| c.card_type == "reading-progress"));
     }

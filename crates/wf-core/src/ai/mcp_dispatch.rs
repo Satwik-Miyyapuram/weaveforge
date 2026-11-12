@@ -215,7 +215,12 @@ pub struct Quote {
 ///
 /// Returns the refusal message when the tool is not enabled, a required argument is missing, or a
 /// field value has the wrong shape.
-pub fn plan_tool_call(tool: &str, arguments: &Value, enabled: &[String]) -> Result<McpPlan, String> {
+#[allow(clippy::too_many_lines, reason = "mirrors the TS function for parity")]
+pub fn plan_tool_call(
+    tool: &str,
+    arguments: &Value,
+    enabled: &[String],
+) -> Result<McpPlan, String> {
     let name = canonical_ai_tool_name(tool);
     if name.is_empty() || !enabled.iter().any(|item| item == &name) {
         return Err(NOT_ENABLED_DEPLOYMENT.to_owned());
@@ -240,14 +245,18 @@ pub fn plan_tool_call(tool: &str, arguments: &Value, enabled: &[String]) -> Resu
                 .unwrap_or_default(),
             doi: raw_string(args, "doi").map(str::to_owned),
             url: raw_string(args, "url").map(str::to_owned),
-            year: args.get("year").filter(|v| v.is_string() || v.is_number()).cloned(),
+            year: args
+                .get("year")
+                .filter(|v| v.is_string() || v.is_number())
+                .cloned(),
             abstract_text: raw_string(args, "abstract").map(str::to_owned),
         })),
         "suggest_append_paper_note" => {
             let addition = required(args, "addition")?;
             let paper_id = required(args, "paperId")?;
-            let evidence = optional(args, "sourceId")
-                .map(|source_id| evidence_request(args, &paper_id, source_id, optional_raw(args, "quoteExact")));
+            let evidence = optional(args, "sourceId").map(|source_id| {
+                evidence_request(args, &paper_id, source_id, optional_raw(args, "quoteExact"))
+            });
             Ok(McpPlan::ProposeDraft(DraftPlan {
                 resource_id: Some(paper_id),
                 resource_type: Some("paper_note"),
@@ -302,7 +311,10 @@ pub fn plan_tool_call(tool: &str, arguments: &Value, enabled: &[String]) -> Resu
                     "Update paper metadata".to_owned(),
                     object(vec![
                         ("status", maybe(optional(args, "status"))),
-                        ("rating", args.get("rating").filter(|v| v.is_number()).cloned()),
+                        (
+                            "rating",
+                            args.get("rating").filter(|v| v.is_number()).cloned(),
+                        ),
                         ("tags", tags.map(|items| json!(items))),
                     ]),
                 )
@@ -325,7 +337,12 @@ pub fn plan_tool_call(tool: &str, arguments: &Value, enabled: &[String]) -> Resu
             Ok(McpPlan::ProposeDraft(DraftPlan {
                 resource_id: Some(paper_id.clone()),
                 expected_revision: optional(args, "expectedRevision"),
-                evidence: Some(evidence_request(args, &paper_id, source_id, Some(quote_exact))),
+                evidence: Some(evidence_request(
+                    args,
+                    &paper_id,
+                    source_id,
+                    Some(quote_exact),
+                )),
                 ..new_draft(
                     "paper_field_value",
                     "suggest_paper_field_value",
@@ -416,16 +433,22 @@ pub fn plan_tool_call(tool: &str, arguments: &Value, enabled: &[String]) -> Resu
 ///
 /// Returns the refusal message when no excerpt resolved, the quote is not in it, the source is not
 /// paper-scoped, or it belongs to another paper.
-pub fn paper_evidence(request: &EvidenceRequest, doc: Option<&ExcerptDoc>) -> Result<Vec<PaperEvidence>, String> {
+pub fn paper_evidence(
+    request: &EvidenceRequest,
+    doc: Option<&ExcerptDoc>,
+) -> Result<Vec<PaperEvidence>, String> {
     let text = doc
         .and_then(|doc| doc.text.as_deref())
         .filter(|text| !text.is_empty())
         .ok_or_else(|| NO_EXCERPT.to_owned())?;
-    let quote = request.quote_exact.as_deref().filter(|quote| !quote.is_empty());
-    if let Some(exact) = quote {
-        if !text.contains(exact) {
-            return Err(QUOTE_NOT_FOUND.to_owned());
-        }
+    let quote = request
+        .quote_exact
+        .as_deref()
+        .filter(|quote| !quote.is_empty());
+    if let Some(exact) = quote
+        && !text.contains(exact)
+    {
+        return Err(QUOTE_NOT_FOUND.to_owned());
     }
     let source = doc.and_then(|doc| doc.source.as_ref());
     let paper = source_paper(source).ok_or_else(|| NOT_PAPER_SCOPED.to_owned())?;
@@ -436,8 +459,14 @@ pub fn paper_evidence(request: &EvidenceRequest, doc: Option<&ExcerptDoc>) -> Re
         quote: Quote {
             kind: "TextQuoteSelector",
             exact: exact.to_owned(),
-            prefix: request.quote_prefix.clone().filter(|prefix| !prefix.is_empty()),
-            suffix: request.quote_suffix.clone().filter(|suffix| !suffix.is_empty()),
+            prefix: request
+                .quote_prefix
+                .clone()
+                .filter(|prefix| !prefix.is_empty()),
+            suffix: request
+                .quote_suffix
+                .clone()
+                .filter(|suffix| !suffix.is_empty()),
         },
     });
     Ok(vec![PaperEvidence {
@@ -481,7 +510,8 @@ fn evidence_request(
 }
 
 fn field_value(raw: Option<&Value>) -> Result<PaperFieldValueData, String> {
-    let input = raw.and_then(|value| serde_json::from_value::<PaperFieldValueInput>(value.clone()).ok());
+    let input =
+        raw.and_then(|value| serde_json::from_value::<PaperFieldValueInput>(value.clone()).ok());
     match input {
         Some(input) => parse_paper_field_value(input, "value"),
         None => Err(paper_field_value_refusal("value")),
@@ -568,8 +598,9 @@ fn optional_page(value: Option<&Value>) -> Option<u64> {
     }
 }
 
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn as_index(number: f64) -> Option<u64> {
-    (number.is_finite() && number >= 0.0 && number.fract() == 0.0).then(|| number as u64)
+    (number.is_finite() && number >= 0.0 && number.fract() == 0.0).then_some(number as u64)
 }
 
 /// A list of strings, or `None` when the value is not an array of only strings (TS `stringList`).
@@ -598,7 +629,13 @@ fn js_value_string(value: &Value) -> String {
         Value::String(text) => text.clone(),
         Value::Array(items) => items
             .iter()
-            .map(|item| if item.is_null() { String::new() } else { js_value_string(item) })
+            .map(|item| {
+                if item.is_null() {
+                    String::new()
+                } else {
+                    js_value_string(item)
+                }
+            })
             .collect::<Vec<_>>()
             .join(","),
         Value::Object(_) => "[object Object]".to_owned(),
@@ -624,7 +661,10 @@ fn js_string_number(text: &str) -> f64 {
     if trimmed.is_empty() {
         return 0.0;
     }
-    if let Some(hex) = trimmed.strip_prefix("0x").or_else(|| trimmed.strip_prefix("0X")) {
+    if let Some(hex) = trimmed
+        .strip_prefix("0x")
+        .or_else(|| trimmed.strip_prefix("0X"))
+    {
         return u64::from_str_radix(hex, 16).map_or(f64::NAN, |value| value as f64);
     }
     match trimmed {
@@ -648,11 +688,16 @@ fn truthy_number(number: f64) -> Option<f64> {
 }
 
 /// `String(number)` for a finite-or-not JS number, for the whole-number and special cases.
+#[allow(clippy::cast_possible_truncation)]
 fn js_number_string(number: f64) -> String {
     if number.is_nan() {
         "NaN".to_owned()
     } else if number.is_infinite() {
-        if number > 0.0 { "Infinity".to_owned() } else { "-Infinity".to_owned() }
+        if number > 0.0 {
+            "Infinity".to_owned()
+        } else {
+            "-Infinity".to_owned()
+        }
     } else if number == 0.0 {
         "0".to_owned()
     } else if number.fract() == 0.0 && number.abs() < 1e21 {
@@ -691,6 +736,7 @@ mod tests {
         ALL_TOOLS.iter().map(|name| (*name).to_owned()).collect()
     }
 
+    #[allow(clippy::needless_pass_by_value, reason = "keeps call sites terse")]
     fn plan(tool: &str, args: Value) -> Result<McpPlan, String> {
         plan_tool_call(tool, &args, &enabled())
     }
@@ -717,7 +763,9 @@ mod tests {
                 "sourceId": "paper|paper-1", "quoteExact": "attention entirely",
             }),
             "suggest_reading_list_change" => json!({ "listId": "list-1", "paperId": "paper-1" }),
-            "suggest_relation" => json!({ "fromPaper": "paper-1", "toPaper": "paper-2", "relation": "cites" }),
+            "suggest_relation" => {
+                json!({ "fromPaper": "paper-1", "toPaper": "paper-2", "relation": "cites" })
+            }
             "suggest_zotero_import" => json!({ "title": "Attention is all you need" }),
             "suggest_milestone_follow_up" => json!({ "title": "Write intro" }),
             "suggest_experiment_follow_up" => json!({ "name": "Ablation" }),
@@ -746,7 +794,9 @@ mod tests {
 
     /// Plan a field-value or append call, then check its evidence against the excerpt.
     fn evidence_of(tool: &str, args: Value) -> Result<Vec<PaperEvidence>, String> {
-        let request = draft_of(tool, args).evidence.expect("a sourceId asks for evidence");
+        let request = draft_of(tool, args)
+            .evidence
+            .expect("a sourceId asks for evidence");
         let doc = excerpt_for(&request.source_id);
         paper_evidence(&request, doc.as_ref())
     }
@@ -755,7 +805,10 @@ mod tests {
     #[test]
     fn every_advertised_tool_name_is_dispatchable_and_nothing_else_is() {
         for name in ALL_TOOLS {
-            assert!(plan(name, happy_args(name)).is_ok(), "{name} should dispatch");
+            assert!(
+                plan(name, happy_args(name)).is_ok(),
+                "{name} should dispatch"
+            );
         }
         assert_eq!(
             plan("delete_everything", json!({})).unwrap_err(),
@@ -792,7 +845,9 @@ mod tests {
             assert_eq!(draft.tool, tool);
         }
         match plan("suggest_zotero_import", happy_args("suggest_zotero_import")) {
-            Ok(McpPlan::ProposeZoteroImport(import)) => assert_eq!(import.title, "Attention is all you need"),
+            Ok(McpPlan::ProposeZoteroImport(import)) => {
+                assert_eq!(import.title, "Attention is all you need");
+            }
             other => panic!("zotero import should plan an import, got {other:?}"),
         }
     }
@@ -801,20 +856,44 @@ mod tests {
     #[test]
     fn a_missing_required_argument_is_refused() {
         let cases: [(&str, Value, &str); 7] = [
-            ("suggest_append_paper_note", json!({ "paperId": "paper-1" }), "addition is required."),
-            ("suggest_append_paper_note", json!({ "addition": "x" }), "paperId is required."),
-            ("suggest_create_vault_note", json!({ "title": "t" }), "body is required."),
+            (
+                "suggest_append_paper_note",
+                json!({ "paperId": "paper-1" }),
+                "addition is required.",
+            ),
+            (
+                "suggest_append_paper_note",
+                json!({ "addition": "x" }),
+                "paperId is required.",
+            ),
+            (
+                "suggest_create_vault_note",
+                json!({ "title": "t" }),
+                "body is required.",
+            ),
             ("suggest_create_log_entry", json!({}), "body is required."),
-            ("suggest_relation", json!({ "fromPaper": "a", "toPaper": "b" }), "relation is required."),
+            (
+                "suggest_relation",
+                json!({ "fromPaper": "a", "toPaper": "b" }),
+                "relation is required.",
+            ),
             (
                 "suggest_paper_field_value",
                 json!({ "paperId": "p", "fieldId": "f", "value": "v", "sourceId": "paper|p" }),
                 "quoteExact is required.",
             ),
-            ("suggest_experiment_follow_up", json!({}), "name is required."),
+            (
+                "suggest_experiment_follow_up",
+                json!({}),
+                "name is required.",
+            ),
         ];
         for (tool, args, message) in cases {
-            assert_eq!(plan(tool, args.clone()).unwrap_err(), message, "{tool} {args}");
+            assert_eq!(
+                plan(tool, args.clone()).unwrap_err(),
+                message,
+                "{tool} {args}"
+            );
         }
     }
 
@@ -822,15 +901,31 @@ mod tests {
     #[test]
     fn a_field_value_must_be_a_string_a_number_or_a_list_of_strings() {
         let refusal = paper_field_value_refusal("value");
-        for value in [json!(null), json!({}), json!([]), json!(["  "]), json!([1]), json!(true), json!("")] {
+        for value in [
+            json!(null),
+            json!({}),
+            json!([]),
+            json!(["  "]),
+            json!([1]),
+            json!(true),
+            json!(""),
+        ] {
             let mut args = happy_args("suggest_paper_field_value");
             args["value"] = value.clone();
-            assert_eq!(plan("suggest_paper_field_value", args).unwrap_err(), refusal, "{value}");
+            assert_eq!(
+                plan("suggest_paper_field_value", args).unwrap_err(),
+                refusal,
+                "{value}"
+            );
         }
         let mut args = happy_args("suggest_paper_field_value");
         args["value"] = json!([" a ", "b", " "]);
         let draft = draft_of("suggest_paper_field_value", args);
-        assert_eq!(draft.payload["value"], json!(["a", "b"]), "list values are trimmed and empty entries dropped");
+        assert_eq!(
+            draft.payload["value"],
+            json!(["a", "b"]),
+            "list values are trimmed and empty entries dropped"
+        );
     }
 
     // it: "evidence is checked against the real excerpt, not taken on the model's word"
@@ -844,22 +939,38 @@ mod tests {
         };
         // A quote the source does not contain.
         assert_eq!(
-            evidence_of("suggest_paper_field_value", with("quoteExact", json!("recurrence is essential"))).unwrap_err(),
+            evidence_of(
+                "suggest_paper_field_value",
+                with("quoteExact", json!("recurrence is essential"))
+            )
+            .unwrap_err(),
             "quoteExact was not found in the source excerpt."
         );
         // A source that resolves to a different paper than the one being edited.
         assert_eq!(
-            evidence_of("suggest_paper_field_value", with("sourceId", json!("paper|paper-9"))).unwrap_err(),
+            evidence_of(
+                "suggest_paper_field_value",
+                with("sourceId", json!("paper|paper-9"))
+            )
+            .unwrap_err(),
             "Evidence source belongs to a different paper than paperId."
         );
         // A source that is not paper-scoped at all.
         assert_eq!(
-            evidence_of("suggest_paper_field_value", with("sourceId", json!("vault_page|page-1"))).unwrap_err(),
+            evidence_of(
+                "suggest_paper_field_value",
+                with("sourceId", json!("vault_page|page-1"))
+            )
+            .unwrap_err(),
             "Evidence sourceId must resolve to a paper-scoped source."
         );
         // A source id that resolves to nothing.
         assert_eq!(
-            evidence_of("suggest_paper_field_value", with("sourceId", json!("unresolvable"))).unwrap_err(),
+            evidence_of(
+                "suggest_paper_field_value",
+                with("sourceId", json!("unresolvable"))
+            )
+            .unwrap_err(),
             "sourceId was provided but no excerpt could be resolved for evidence."
         );
 
@@ -867,7 +978,8 @@ mod tests {
         args["page"] = json!(3);
         args["quotePrefix"] = json!("with ");
         args["quoteSuffix"] = json!(".");
-        let evidence = evidence_of("suggest_paper_field_value", args).expect("a matching quote is accepted");
+        let evidence =
+            evidence_of("suggest_paper_field_value", args).expect("a matching quote is accepted");
         let item = &evidence[0];
         assert_eq!(item.paper_id, "paper-1");
         assert_eq!(item.excerpt, EXCERPT);
@@ -901,7 +1013,10 @@ mod tests {
             json!({ "paperId": "paper-1", "addition": "A remark.", "sourceId": "paper|paper-1" }),
         )
         .expect("evidence without a quote is accepted");
-        assert!(evidence[0].locus.is_none(), "no quote means no locus, not an empty one");
+        assert!(
+            evidence[0].locus.is_none(),
+            "no quote means no locus, not an empty one"
+        );
         assert_eq!(evidence[0].excerpt, EXCERPT);
 
         assert_eq!(
@@ -914,7 +1029,10 @@ mod tests {
         );
 
         // No sourceId at all is allowed: the note simply carries no evidence.
-        let bare = draft_of("suggest_append_paper_note", json!({ "paperId": "paper-1", "addition": "x" }));
+        let bare = draft_of(
+            "suggest_append_paper_note",
+            json!({ "paperId": "paper-1", "addition": "x" }),
+        );
         assert!(bare.evidence.is_none());
     }
 
@@ -923,7 +1041,9 @@ mod tests {
     fn an_over_long_quote_affix_is_truncated() {
         let mut args = happy_args("suggest_paper_field_value");
         args["quotePrefix"] = json!("x".repeat(5_000));
-        let request = draft_of("suggest_paper_field_value", args).evidence.expect("evidence");
+        let request = draft_of("suggest_paper_field_value", args)
+            .evidence
+            .expect("evidence");
         assert_eq!(request.quote_prefix.expect("a prefix").len(), 2_000);
     }
 }

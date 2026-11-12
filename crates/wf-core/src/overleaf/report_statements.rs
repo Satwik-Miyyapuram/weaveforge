@@ -111,7 +111,13 @@ pub fn patch_report_statement(input: &PatchReport) -> Result<Statement, String> 
         if !is_valid_project_id(id) {
             return Err("Overleaf project id is invalid.".to_owned());
         }
-        bind(&mut sets, &mut params, "overleaf_project_id", id.to_owned(), "");
+        bind(
+            &mut sets,
+            &mut params,
+            "overleaf_project_id",
+            id.to_owned(),
+            "",
+        );
         // Recomputed, not carried over: a stale link would point at the old project.
         bind(&mut sets, &mut params, "external_url", external_url(id), "");
     }
@@ -159,7 +165,7 @@ fn non_blank_entry(raw: &str) -> String {
 mod tests {
     use serde_json::json;
 
-    use super::{create_report_statement, patch_report_statement, CreateReport, PatchReport};
+    use super::{CreateReport, PatchReport, create_report_statement, patch_report_statement};
 
     fn patch(id: &str) -> PatchReport {
         PatchReport {
@@ -177,9 +183,20 @@ mod tests {
         let mut input = patch("r1");
         input.title = Some("MSc thesis".to_owned());
         let statement = patch_report_statement(&input).expect("title edit");
-        assert!(statement.sql.contains("set title = $1, updated_at = now()"), "{}", statement.sql);
-        assert!(!statement.sql.contains("section_targets"), "{}", statement.sql);
-        assert_eq!(statement.params, vec!["MSc thesis".to_owned(), "r1".to_owned()]);
+        assert!(
+            statement.sql.contains("set title = $1, updated_at = now()"),
+            "{}",
+            statement.sql
+        );
+        assert!(
+            !statement.sql.contains("section_targets"),
+            "{}",
+            statement.sql
+        );
+        assert_eq!(
+            statement.params,
+            vec!["MSc thesis".to_owned(), "r1".to_owned()]
+        );
     }
 
     // it: "gateway: re-pointing a link clears the recorded failure with it"
@@ -188,8 +205,16 @@ mod tests {
         let mut input = patch("r1");
         input.overleaf_project_id = Some("654321".to_owned());
         let statement = patch_report_statement(&input).expect("repoint");
-        assert!(statement.sql.contains("last_error = null"), "{}", statement.sql);
-        assert!(statement.params.contains(&"https://www.overleaf.com/project/654321".to_owned()));
+        assert!(
+            statement.sql.contains("last_error = null"),
+            "{}",
+            statement.sql
+        );
+        assert!(
+            statement
+                .params
+                .contains(&"https://www.overleaf.com/project/654321".to_owned())
+        );
     }
 
     // it: "gateway: an Overleaf id that could reshape a clone URL is refused"
@@ -212,7 +237,10 @@ mod tests {
     fn blank_title_is_refused() {
         let mut input = patch("r1");
         input.title = Some("   ".to_owned());
-        assert_eq!(patch_report_statement(&input).expect_err("refused"), "Title cannot be empty.");
+        assert_eq!(
+            patch_report_statement(&input).expect_err("refused"),
+            "Title cannot be empty."
+        );
     }
 
     #[test]
@@ -220,7 +248,13 @@ mod tests {
         let mut input = patch("r1");
         input.section_targets = Some(json!({ "Intro": 3 }));
         let statement = patch_report_statement(&input).expect("targets");
-        assert!(statement.sql.contains("set section_targets = $1::jsonb, updated_at"), "{}", statement.sql);
+        assert!(
+            statement
+                .sql
+                .contains("set section_targets = $1::jsonb, updated_at"),
+            "{}",
+            statement.sql
+        );
         assert_eq!(statement.params[0], "{\"Intro\":3}");
     }
 
@@ -228,7 +262,10 @@ mod tests {
     fn invalid_section_targets_are_refused() {
         let mut input = patch("r1");
         input.section_targets = Some(json!("not a map"));
-        assert_eq!(patch_report_statement(&input).expect_err("refused"), "Section targets are invalid.");
+        assert_eq!(
+            patch_report_statement(&input).expect_err("refused"),
+            "Section targets are invalid."
+        );
     }
 
     #[test]
@@ -260,7 +297,10 @@ mod tests {
         assert!(statement.sql.contains("auth.uid()"));
         assert_eq!(statement.params[2], "T");
         assert_eq!(statement.params[4], "main.tex");
-        assert_eq!(statement.params[5], "https://www.overleaf.com/project/0123456789abcdef01234567");
+        assert_eq!(
+            statement.params[5],
+            "https://www.overleaf.com/project/0123456789abcdef01234567"
+        );
     }
 
     #[test]
@@ -272,6 +312,9 @@ mod tests {
             overleaf_project_id: "a/b".to_owned(),
             entry_file: "main.tex".to_owned(),
         };
-        assert_eq!(create_report_statement(&input).expect_err("refused"), "Overleaf project id is invalid.");
+        assert_eq!(
+            create_report_statement(&input).expect_err("refused"),
+            "Overleaf project id is invalid."
+        );
     }
 }

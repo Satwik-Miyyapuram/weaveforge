@@ -26,9 +26,7 @@ pub fn paste_image_type(content_type: &str) -> Option<String> {
         .unwrap_or("")
         .trim()
         .to_ascii_lowercase();
-    IMAGE_TYPES
-        .contains(&essence.as_str())
-        .then_some(essence)
+    IMAGE_TYPES.contains(&essence.as_str()).then_some(essence)
 }
 
 /// True when the header says the body is HTML or XHTML, the only bodies a title can be read from.
@@ -49,7 +47,10 @@ mod tests {
             paste_image_type("Image/PNG; charset=binary"),
             Some("image/png".to_owned())
         );
-        assert_eq!(paste_image_type("image/jpeg"), Some("image/jpeg".to_owned()));
+        assert_eq!(
+            paste_image_type("image/jpeg"),
+            Some("image/jpeg".to_owned())
+        );
     }
 
     #[test]

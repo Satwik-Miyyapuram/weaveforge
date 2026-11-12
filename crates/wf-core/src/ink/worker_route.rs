@@ -134,31 +134,61 @@ mod tests {
 
     #[test]
     fn samples_reach_only_the_live_stroke_and_keep_the_predicted_flag() {
-        assert_eq!(route("samples", Some(1.0), Some(1.0), None, Some(true)).action, "samples");
+        assert_eq!(
+            route("samples", Some(1.0), Some(1.0), None, Some(true)).action,
+            "samples"
+        );
         assert!(route("samples", Some(1.0), Some(1.0), None, Some(true)).predicted);
         assert!(!route("samples", Some(1.0), Some(1.0), None, None).predicted);
-        assert_eq!(route("samples", Some(1.0), Some(2.0), None, None).action, "ignore");
-        assert_eq!(route("samples", None, Some(1.0), None, None).action, "ignore");
+        assert_eq!(
+            route("samples", Some(1.0), Some(2.0), None, None).action,
+            "ignore"
+        );
+        assert_eq!(
+            route("samples", None, Some(1.0), None, None).action,
+            "ignore"
+        );
     }
 
     #[test]
     fn stroke_end_commits_only_the_matching_live_stroke() {
-        assert_eq!(route("stroke-end", Some(1.0), Some(1.0), None, None).action, "stroke-end");
-        assert_eq!(route("stroke-end", Some(1.0), Some(9.0), None, None).action, "ignore");
-        assert_eq!(route("stroke-end", None, Some(1.0), None, None).action, "ignore");
+        assert_eq!(
+            route("stroke-end", Some(1.0), Some(1.0), None, None).action,
+            "stroke-end"
+        );
+        assert_eq!(
+            route("stroke-end", Some(1.0), Some(9.0), None, None).action,
+            "ignore"
+        );
+        assert_eq!(
+            route("stroke-end", None, Some(1.0), None, None).action,
+            "ignore"
+        );
     }
 
     #[test]
     fn page_scoped_messages_drop_a_stale_page() {
-        assert_eq!(route("replace-page", None, None, Some(2.0), None).action, "replace-page");
-        assert_eq!(route("ink-shown", None, None, Some(1.0), None).action, "ignore");
-        assert_eq!(route("replace-page", None, None, None, None).action, "ignore");
+        assert_eq!(
+            route("replace-page", None, None, Some(2.0), None).action,
+            "replace-page"
+        );
+        assert_eq!(
+            route("ink-shown", None, None, Some(1.0), None).action,
+            "ignore"
+        );
+        assert_eq!(
+            route("replace-page", None, None, None, None).action,
+            "ignore"
+        );
     }
 
     #[test]
     fn pass_through_types_run_and_unknown_or_no_op_types_are_ignored() {
         assert_eq!(route("erase", None, None, None, None).action, "erase");
-        assert_eq!(route("samples-returned", None, None, None, None).action, "ignore");
+        assert_eq!(
+            route("samples-returned", None, None, None, None).action,
+            "ignore"
+        );
         assert_eq!(route("not-a-type", None, None, None, None).action, "ignore");
     }
 

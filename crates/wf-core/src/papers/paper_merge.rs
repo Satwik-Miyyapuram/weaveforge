@@ -353,7 +353,9 @@ mod merge_order_tests {
         let order = merge_order("A", &[copy("A", true), copy("B", true)], false);
         assert_eq!(
             order.refusal.as_deref(),
-            Some("2 of these copies are linked to Zotero. Merge them in Zotero; the next sync brings the result here.")
+            Some(
+                "2 of these copies are linked to Zotero. Merge them in Zotero; the next sync brings the result here."
+            )
         );
     }
 

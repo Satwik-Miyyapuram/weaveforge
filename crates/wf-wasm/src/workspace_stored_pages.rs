@@ -23,7 +23,9 @@ pub fn stored_digest_js(title: &str, body: &str) -> String {
 /// Fails when `pages` is not an array of `{ id, title, body }` strings.
 #[wasm_bindgen(js_name = storedDigests, unchecked_return_type = "Record<string, string>")]
 pub fn stored_digests_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly { id: string; title: string; body: string }[]")]
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly { id: string; title: string; body: string }[]"
+    )]
     pages: JsValue,
 ) -> JsResult<JsValue> {
     let pages: Vec<StoredPage> = serde_wasm_bindgen::from_value(pages)?;

@@ -66,5 +66,12 @@ pub fn context_menu_place(
     view_width: f64,
     view_height: f64,
 ) -> JsResult<JsValue> {
-    to_js(&context_menu::place(x, y, width, height, view_width, view_height))
+    to_js(&context_menu::place(
+        x,
+        y,
+        width,
+        height,
+        view_width,
+        view_height,
+    ))
 }

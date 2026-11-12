@@ -57,7 +57,11 @@ pub fn removal_forgets_unsent_upload(pending_op: Option<&str>) -> bool {
 /// The paths that are not in `have`, in their original order (`paths.filter((p) => !have.has(p))`).
 #[must_use]
 pub fn missing_paths(paths: &[String], have: &[String]) -> Vec<String> {
-    paths.iter().filter(|p| !have.contains(p)).cloned().collect()
+    paths
+        .iter()
+        .filter(|p| !have.contains(p))
+        .cloned()
+        .collect()
 }
 
 /// The indices whose signed link this computer does not have (`here[i] === null`), in order.
@@ -82,7 +86,7 @@ pub fn merge_signed_urls(
     let missing: Vec<&String> = paths
         .iter()
         .enumerate()
-        .filter(|(i, _)| here.get(*i).map_or(true, Option::is_none))
+        .filter(|(i, _)| here.get(*i).is_none_or(Option::is_none))
         .map(|(_, p)| p)
         .collect();
     let mut by_path: HashMap<&str, Option<String>> = HashMap::new();
@@ -108,7 +112,12 @@ mod tests {
     // it: "asks the server only for links this computer lacks, by position"
     #[test]
     fn unsigned_indices_are_the_null_positions_in_order() {
-        let here = vec![Some("local".to_owned()), None, None, Some("also local".to_owned())];
+        let here = vec![
+            Some("local".to_owned()),
+            None,
+            None,
+            Some("also local".to_owned()),
+        ];
         assert_eq!(unsigned_indices(&here), vec![1, 2]);
         assert!(unsigned_indices(&[Some("x".to_owned())]).is_empty());
     }

@@ -4,7 +4,7 @@
 
 use std::collections::HashSet;
 
-use crate::sync::git_policy::{decide_git_sync_path, GitSyncDecision};
+use crate::sync::git_policy::{GitSyncDecision, decide_git_sync_path};
 
 /// Strips leading and trailing slashes from an isomorphic-git `dir`/path. `.` means the repo
 /// root, as does the empty string, so both come back as `""`.
@@ -102,7 +102,11 @@ pub fn dir_entry_names(paths: &[String], dir: &str) -> Vec<String> {
     };
     let mut names: Vec<String> = paths
         .iter()
-        .map(|path| path.strip_prefix(prefix.as_str()).unwrap_or(path).to_owned())
+        .map(|path| {
+            path.strip_prefix(prefix.as_str())
+                .unwrap_or(path)
+                .to_owned()
+        })
         .collect();
     names.sort_by(|a, b| a.encode_utf16().cmp(b.encode_utf16()));
     names
@@ -161,17 +165,29 @@ mod tests {
     fn strays_are_policy_excluded_or_skipped_and_not_kept() {
         let indexed = owned(&["a.md", "node_modules/x.js", "big.bin", "desktop.ini"]);
         let strays = out_of_scope_strays(&indexed, &owned(&["a.md"]), &owned(&["big.bin"]), 1024.0);
-        assert_eq!(strays, owned(&["node_modules/x.js", "big.bin", "desktop.ini"]));
+        assert_eq!(
+            strays,
+            owned(&["node_modules/x.js", "big.bin", "desktop.ini"])
+        );
     }
 
     #[test]
     fn entry_names_are_direct_children_in_utf16_order() {
         let paths = owned(&["notes/b.md", "notes/a.md", "notes/sub"]);
-        assert_eq!(dir_entry_names(&paths, "notes"), owned(&["a.md", "b.md", "sub"]));
-        assert_eq!(dir_entry_names(&owned(&["z.md", "a.md"]), ""), owned(&["a.md", "z.md"]));
+        assert_eq!(
+            dir_entry_names(&paths, "notes"),
+            owned(&["a.md", "b.md", "sub"])
+        );
+        assert_eq!(
+            dir_entry_names(&owned(&["z.md", "a.md"]), ""),
+            owned(&["a.md", "z.md"])
+        );
         // U+1F600 is a surrogate pair starting at 0xD83D, below U+FFFD in UTF-16 order.
         let astral = owned(&["\u{FFFD}", "\u{1F600}"]);
-        assert_eq!(dir_entry_names(&astral, ""), owned(&["\u{1F600}", "\u{FFFD}"]));
+        assert_eq!(
+            dir_entry_names(&astral, ""),
+            owned(&["\u{1F600}", "\u{FFFD}"])
+        );
     }
 
     #[test]

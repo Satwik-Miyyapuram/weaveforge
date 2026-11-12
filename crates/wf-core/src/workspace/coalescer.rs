@@ -127,6 +127,7 @@ mod tests {
         CoalescerState::default()
     }
 
+    #[allow(clippy::needless_pass_by_value, reason = "keeps call sites terse")]
     fn apply(state: &CoalescerState, event: CoalescerEvent) -> CoalescerStep {
         step(state, &event)
     }

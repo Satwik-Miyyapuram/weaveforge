@@ -111,7 +111,10 @@ pub fn changes_request_js(since: f64, limit: f64) -> JsResult<JsValue> {
 /// Fails when `spec` is not a request or the result cannot be serialised.
 #[wasm_bindgen(js_name = postgrestRequestInit, unchecked_return_type = "{ method: string; path: string; headers: Record<string, string>; body?: string }")]
 pub fn request_init_js(
-    #[wasm_bindgen(unchecked_param_type = "{ method: string; path: string; body?: string; prefer?: string }")] spec: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "{ method: string; path: string; body?: string; prefer?: string }"
+    )]
+    spec: JsValue,
     api_key: String,
     token: Option<String>,
 ) -> JsResult<JsValue> {

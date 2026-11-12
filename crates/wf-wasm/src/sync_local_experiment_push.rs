@@ -16,7 +16,8 @@ use wf_core::sync::local_experiment_push::{
 /// Fails when `name` is not a statement of the experiment push.
 #[wasm_bindgen(js_name = localExperimentPushSql)]
 pub fn local_experiment_push_sql_js(name: &str) -> Result<String, JsError> {
-    push_sql(name).ok_or_else(|| JsError::new(&format!("unknown experiment push statement: {name}")))
+    push_sql(name)
+        .ok_or_else(|| JsError::new(&format!("unknown experiment push statement: {name}")))
 }
 
 /// [`pushed_cursor`] for JS: the step to read from (`pushed ?? -2147483648`).
@@ -58,7 +59,11 @@ pub fn local_experiment_should_recompress_js(mime: &str) -> bool {
 /// [`prefer_webp`] for JS: whether the webp copy is kept (webp and smaller).
 #[wasm_bindgen(js_name = localExperimentPreferWebp)]
 #[must_use]
-pub fn local_experiment_prefer_webp_js(webp_mime: &str, webp_size: f64, original_size: f64) -> bool {
+pub fn local_experiment_prefer_webp_js(
+    webp_mime: &str,
+    webp_size: f64,
+    original_size: f64,
+) -> bool {
     prefer_webp(webp_mime, webp_size, original_size)
 }
 

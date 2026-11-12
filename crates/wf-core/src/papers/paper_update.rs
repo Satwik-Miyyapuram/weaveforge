@@ -104,6 +104,9 @@ mod tests {
     // it: "addImage rejects empty path"
     fn add_image_rejects_empty_path() {
         assert_eq!(clean_image_path("  "), None);
-        assert_eq!(clean_image_path(" u1/p1/fig1.webp ").as_deref(), Some("u1/p1/fig1.webp"));
+        assert_eq!(
+            clean_image_path(" u1/p1/fig1.webp ").as_deref(),
+            Some("u1/p1/fig1.webp")
+        );
     }
 }

@@ -98,7 +98,11 @@ pub struct Toast {
 
 /// An input to the store. Ids and times are numbers from JS, so they arrive as `f64`.
 #[derive(Clone, Debug, Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum Action {
     /// A plain toast, or one with its own button when `has_run` (an empty label means none).
     Show {
@@ -223,11 +227,24 @@ pub struct Reduction {
 }
 
 /// A store with nothing open.
+#[must_use]
 pub fn initial_state() -> ToastState {
-    ToastState { next_id: 1, entries: Vec::new(), window_hidden: false, committing: Vec::new() }
+    ToastState {
+        next_id: 1,
+        entries: Vec::new(),
+        window_hidden: false,
+        committing: Vec::new(),
+    }
 }
 
-fn new_entry(message: String, action_label: Option<String>, undoable: bool, has_run: bool, has_commit: bool, keys: Vec<String>) -> Entry {
+fn new_entry(
+    message: String,
+    action_label: Option<String>,
+    undoable: bool,
+    has_run: bool,
+    has_commit: bool,
+    keys: Vec<String>,
+) -> Entry {
     Entry {
         id: 0,
         message,
@@ -244,12 +261,29 @@ fn new_entry(message: String, action_label: Option<String>, undoable: bool, has_
 }
 
 /// Apply one action to the store.
+#[must_use]
+#[allow(
+    clippy::too_many_lines,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "mirrors the TS function for parity"
+)]
 pub fn reduce(mut state: ToastState, action: Action) -> Reduction {
     let mut effects = Vec::new();
     let (id, changed) = match action {
-        Action::Show { message, action_label, has_run, now } => {
+        Action::Show {
+            message,
+            action_label,
+            has_run,
+            now,
+        } => {
             let label = (!action_label.is_empty()).then_some(action_label);
-            let id = add(&mut state, new_entry(message, label, false, has_run, false, Vec::new()), now, &mut effects);
+            let id = add(
+                &mut state,
+                new_entry(message, label, false, has_run, false, Vec::new()),
+                now,
+                &mut effects,
+            );
             (Some(id), true)
         }
         Action::DeferDelete { message, keys, now } => {
@@ -258,7 +292,13 @@ pub fn reduce(mut state: ToastState, action: Action) -> Reduction {
         }
         Action::Act { id } => (None, act(&mut state, id, &mut effects)),
         Action::Dismiss { id } => (None, dismiss(&mut state, id, &mut effects)),
-        Action::UndoLatest => match state.entries.iter().rev().find(|e| e.undoable).map(|e| e.id) {
+        Action::UndoLatest => match state
+            .entries
+            .iter()
+            .rev()
+            .find(|e| e.undoable)
+            .map(|e| e.id)
+        {
             Some(id) => {
                 let _ = act(&mut state, f64::from(id), &mut effects);
                 (Some(id), true)
@@ -290,7 +330,7 @@ pub fn reduce(mut state: ToastState, action: Action) -> Reduction {
             (None, false)
         }
         Action::Flush => {
-            let all: Vec<Entry> = state.entries.drain(..).collect();
+            let all: Vec<Entry> = std::mem::take(&mut state.entries);
             for entry in all.iter().filter(|e| e.timer_running) {
                 effects.push(Effect::Stop { id: entry.id });
             }
@@ -300,7 +340,10 @@ pub fn reduce(mut state: ToastState, action: Action) -> Reduction {
             (None, true)
         }
         Action::Committing { id, keys } => {
-            state.committing.push(Committing { id: id as u32, keys });
+            state.committing.push(Committing {
+                id: id as u32,
+                keys,
+            });
             (None, true)
         }
         Action::Committed { id } => {
@@ -311,7 +354,12 @@ pub fn reduce(mut state: ToastState, action: Action) -> Reduction {
     let view = state
         .entries
         .iter()
-        .map(|e| Toast { id: e.id, message: e.message.clone(), action_label: e.action_label.clone(), undoable: e.undoable })
+        .map(|e| Toast {
+            id: e.id,
+            message: e.message.clone(),
+            action_label: e.action_label.clone(),
+            undoable: e.undoable,
+        })
         .collect();
     let hidden = state
         .entries
@@ -320,7 +368,14 @@ pub fn reduce(mut state: ToastState, action: Action) -> Reduction {
         .chain(state.committing.iter().flat_map(|c| c.keys.iter()))
         .cloned()
         .collect();
-    Reduction { state, effects, view, hidden, id, changed }
+    Reduction {
+        state,
+        effects,
+        view,
+        hidden,
+        id,
+        changed,
+    }
 }
 
 fn index_of(state: &ToastState, id: f64) -> Option<usize> {
@@ -357,7 +412,10 @@ fn dismiss(state: &mut ToastState, id: f64, effects: &mut Vec<Effect>) -> bool {
 
 fn commit_effect(entry: &Entry, effects: &mut Vec<Effect>) {
     if entry.has_commit {
-        effects.push(Effect::Commit { id: entry.id, keys: entry.keys.clone() });
+        effects.push(Effect::Commit {
+            id: entry.id,
+            keys: entry.keys.clone(),
+        });
     }
 }
 
@@ -397,7 +455,10 @@ fn sync_entry(state: &mut ToastState, i: usize, now: f64, effects: &mut Vec<Effe
     } else if !paused {
         entry.started_at = now;
         entry.timer_running = true;
-        effects.push(Effect::Start { id: entry.id, ms: entry.remaining.max(0.0) });
+        effects.push(Effect::Start {
+            id: entry.id,
+            ms: entry.remaining.max(0.0),
+        });
     }
 }
 
@@ -420,11 +481,26 @@ mod tests {
 
     impl Shell {
         fn new() -> Self {
-            Self { state: initial_state(), now: 0.0, timers: BTreeMap::new(), runs: Vec::new(), commits: Vec::new(), view: Vec::new(), hidden: Vec::new() }
+            Self {
+                state: initial_state(),
+                now: 0.0,
+                timers: BTreeMap::new(),
+                runs: Vec::new(),
+                commits: Vec::new(),
+                view: Vec::new(),
+                hidden: Vec::new(),
+            }
         }
 
         fn apply(&mut self, action: Action) -> Option<u32> {
-            let Reduction { state, effects, view, hidden, id, changed } = reduce(self.state.clone(), action);
+            let Reduction {
+                state,
+                effects,
+                view,
+                hidden,
+                id,
+                changed,
+            } = reduce(self.state.clone(), action);
             self.state = state;
             if changed {
                 self.view = view;
@@ -447,18 +523,35 @@ mod tests {
 
         fn show(&mut self, message: &str) -> u32 {
             let now = self.now;
-            self.apply(Action::Show { message: message.to_string(), action_label: String::new(), has_run: false, now }).expect("show returns its id")
+            self.apply(Action::Show {
+                message: message.to_string(),
+                action_label: String::new(),
+                has_run: false,
+                now,
+            })
+            .expect("show returns its id")
         }
 
         fn show_with_action(&mut self, message: &str) -> u32 {
             let now = self.now;
-            self.apply(Action::Show { message: message.to_string(), action_label: "Open".to_string(), has_run: true, now }).expect("show returns its id")
+            self.apply(Action::Show {
+                message: message.to_string(),
+                action_label: "Open".to_string(),
+                has_run: true,
+                now,
+            })
+            .expect("show returns its id")
         }
 
         fn defer(&mut self, keys: &[&str], message: &str) -> u32 {
             let now = self.now;
-            let keys = keys.iter().map(|k| k.to_string()).collect();
-            self.apply(Action::DeferDelete { message: message.to_string(), keys, now }).expect("deferDelete returns its id")
+            let keys = keys.iter().map(ToString::to_string).collect();
+            self.apply(Action::DeferDelete {
+                message: message.to_string(),
+                keys,
+                now,
+            })
+            .expect("deferDelete returns its id")
         }
 
         fn act(&mut self, id: u32) {
@@ -471,19 +564,31 @@ mod tests {
 
         fn pause(&mut self, id: u32, reason: PauseReason) {
             let now = self.now;
-            let _ = self.apply(Action::Pause { id: f64::from(id), reason, now });
+            let _ = self.apply(Action::Pause {
+                id: f64::from(id),
+                reason,
+                now,
+            });
         }
 
         fn resume(&mut self, id: u32, reason: PauseReason) {
             let now = self.now;
-            let _ = self.apply(Action::Resume { id: f64::from(id), reason, now });
+            let _ = self.apply(Action::Resume {
+                id: f64::from(id),
+                reason,
+                now,
+            });
         }
 
         /// Move the clock on, closing each toast whose timer comes due on the way.
         fn advance(&mut self, ms: f64) {
             let target = self.now + ms;
             loop {
-                let next = self.timers.iter().min_by(|a, b| a.1.total_cmp(b.1)).map(|(id, due)| (*id, *due));
+                let next = self
+                    .timers
+                    .iter()
+                    .min_by(|a, b| a.1.total_cmp(b.1))
+                    .map(|(id, due)| (*id, *due));
                 match next {
                     Some((id, due)) if due <= target => {
                         self.now = due;

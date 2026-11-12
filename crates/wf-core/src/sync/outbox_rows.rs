@@ -153,15 +153,29 @@ mod tests {
 
     #[test]
     fn text_seq_reads_as_a_number() {
-        assert_eq!(outbox_entry(&row(JsNumber::Text("12".to_owned()))).seq, 12.0);
-        assert_eq!(outbox_entry(&row(JsNumber::Text(" 3 ".to_owned()))).seq, 3.0);
+        assert_eq!(
+            outbox_entry(&row(JsNumber::Text("12".to_owned()))).seq,
+            12.0
+        );
+        assert_eq!(
+            outbox_entry(&row(JsNumber::Text(" 3 ".to_owned()))).seq,
+            3.0
+        );
         assert_eq!(outbox_entry(&row(JsNumber::Text(String::new()))).seq, 0.0);
     }
 
     #[test]
     fn text_seq_that_is_not_a_decimal_is_nan() {
-        assert!(outbox_entry(&row(JsNumber::Text("x1".to_owned()))).seq.is_nan());
-        assert!(outbox_entry(&row(JsNumber::Text("inf".to_owned()))).seq.is_nan());
+        assert!(
+            outbox_entry(&row(JsNumber::Text("x1".to_owned())))
+                .seq
+                .is_nan()
+        );
+        assert!(
+            outbox_entry(&row(JsNumber::Text("inf".to_owned())))
+                .seq
+                .is_nan()
+        );
     }
 
     #[test]

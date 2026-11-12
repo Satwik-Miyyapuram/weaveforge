@@ -24,9 +24,15 @@ mod tests {
     #[test]
     // it: "only text with maths triggers the load"
     fn only_text_with_maths_triggers_the_load() {
-        assert!(contains_math("Just prose about $5 and a shell $VAR."), "a bare dollar counts");
+        assert!(
+            contains_math("Just prose about $5 and a shell $VAR."),
+            "a bare dollar counts"
+        );
         assert!(contains_math("$$\\int_0^1 x\\,dx$$"));
-        assert!(!contains_math("Escaped: \\$5 only."), "an escaped dollar is not a delimiter");
+        assert!(
+            !contains_math("Escaped: \\$5 only."),
+            "an escaped dollar is not a delimiter"
+        );
         assert!(!contains_math("No maths here at all."));
     }
 

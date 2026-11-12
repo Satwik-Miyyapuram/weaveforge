@@ -175,7 +175,10 @@ mod tests {
     #[test]
     fn layout_storage_key_is_plain_without_a_project_id() {
         assert_eq!(super::layout_storage_key(None), "weaveforge.editor.layout");
-        assert_eq!(super::layout_storage_key(Some("")), "weaveforge.editor.layout");
+        assert_eq!(
+            super::layout_storage_key(Some("")),
+            "weaveforge.editor.layout"
+        );
     }
 
     #[test]

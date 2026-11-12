@@ -77,7 +77,10 @@ pub fn plan_json_apply(entries: &[JsonEntry]) -> JsonApplyPlan {
     let mut files = Vec::new();
     let mut seen_files = HashSet::new();
     for (index, entry) in entries.iter().enumerate() {
-        if matches!(entry.action, ImportAction::Unchanged | ImportAction::Conflict) {
+        if matches!(
+            entry.action,
+            ImportAction::Unchanged | ImportAction::Conflict
+        ) {
             continue;
         }
         steps.push(JsonStep {
@@ -110,8 +113,18 @@ mod tests {
     #[test]
     fn skips_unchanged_and_conflicting_rows() {
         let entries = [
-            entry(ImportAction::Unchanged, "tags", ".weaveforge/tags.json", "t1"),
-            entry(ImportAction::Conflict, "relations", ".weaveforge/relations.json", "r1"),
+            entry(
+                ImportAction::Unchanged,
+                "tags",
+                ".weaveforge/tags.json",
+                "t1",
+            ),
+            entry(
+                ImportAction::Conflict,
+                "relations",
+                ".weaveforge/relations.json",
+                "r1",
+            ),
         ];
         let plan = plan_json_apply(&entries);
         assert!(plan.steps.is_empty());
@@ -132,7 +145,10 @@ mod tests {
             .iter()
             .map(|step| (step.index, step.remove, step.id.as_str()))
             .collect();
-        assert_eq!(shape, vec![(0, true, "t1"), (1, false, "t2"), (2, false, "t3")]);
+        assert_eq!(
+            shape,
+            vec![(0, true, "t1"), (1, false, "t2"), (2, false, "t3")]
+        );
     }
 
     // Rust-only: each kind goes to its feature; an unknown kind falls to reading list items.

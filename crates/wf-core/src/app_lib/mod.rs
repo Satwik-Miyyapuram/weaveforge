@@ -10,5 +10,5 @@ pub mod page_text;
 pub mod prefs;
 pub mod reveal_nav;
 pub mod shortcuts;
-pub mod toast_store;
 pub mod storage_keys;
+pub mod toast_store;

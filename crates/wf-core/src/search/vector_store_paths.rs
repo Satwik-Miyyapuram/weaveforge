@@ -21,7 +21,11 @@ pub fn folder_cache_dir() -> String {
 /// The workspace-folder file holding one corpus's vectors.
 #[must_use]
 pub fn folder_path(project_id: Option<&str>) -> String {
-    format!("{}/vectors-{}.bin", folder_cache_dir(), store_key(project_id))
+    format!(
+        "{}/vectors-{}.bin",
+        folder_cache_dir(),
+        store_key(project_id)
+    )
 }
 
 /// Whether a folder-cache entry is a vector cache file, the one `clear` removes.
@@ -67,10 +71,7 @@ mod tests {
 
     #[test]
     fn folder_path_sits_in_the_cache_dir() {
-        assert_eq!(
-            folder_cache_dir(),
-            format!("{WORKSPACE_META_DIR}/cache")
-        );
+        assert_eq!(folder_cache_dir(), format!("{WORKSPACE_META_DIR}/cache"));
         assert_eq!(
             folder_path(Some("p1")),
             format!("{WORKSPACE_META_DIR}/cache/vectors-p1.bin")

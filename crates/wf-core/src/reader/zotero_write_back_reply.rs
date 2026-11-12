@@ -136,7 +136,11 @@ pub fn update_outcome(
             outcome: WriteOutcome::Failed,
             zotero_key: Some(zotero_key.to_owned()),
             zotero_version: None,
-            reason: Some(format!("Zotero update failed ({status}). {detail}").trim().to_owned()),
+            reason: Some(
+                format!("Zotero update failed ({status}). {detail}")
+                    .trim()
+                    .to_owned(),
+            ),
         };
     }
     WriteBackResult {
@@ -160,7 +164,9 @@ pub fn create_outcomes(
     library_version: Option<f64>,
 ) -> Vec<WriteBackResult> {
     if !is_success(status) {
-        let reason = format!("Zotero create failed ({status}). {detail}").trim().to_owned();
+        let reason = format!("Zotero create failed ({status}). {detail}")
+            .trim()
+            .to_owned();
         return ids
             .iter()
             .map(|id| failed_result(id, reason.clone()))
@@ -174,7 +180,13 @@ pub fn create_outcomes(
                 .successful
                 .as_ref()
                 .and_then(|map| map.get(&key))
-                .and_then(|entry| entry.key.as_deref().filter(|k| !k.is_empty()).map(|k| (k, entry)));
+                .and_then(|entry| {
+                    entry
+                        .key
+                        .as_deref()
+                        .filter(|k| !k.is_empty())
+                        .map(|k| (k, entry))
+                });
             if let Some((zotero_key, entry)) = created {
                 return WriteBackResult {
                     id: id.clone(),
@@ -227,9 +239,20 @@ mod tests {
     #[test]
     fn update_headers_guard_only_a_known_version() {
         let guarded = update_headers("key-123", Some(87.0));
-        assert_eq!(guarded.get("If-Unmodified-Since-Version").map(String::as_str), Some("87"));
-        assert_eq!(guarded.get("Content-Type").map(String::as_str), Some("application/json"));
-        assert_eq!(guarded.get("Zotero-API-Key").map(String::as_str), Some("key-123"));
+        assert_eq!(
+            guarded
+                .get("If-Unmodified-Since-Version")
+                .map(String::as_str),
+            Some("87")
+        );
+        assert_eq!(
+            guarded.get("Content-Type").map(String::as_str),
+            Some("application/json")
+        );
+        assert_eq!(
+            guarded.get("Zotero-API-Key").map(String::as_str),
+            Some("key-123")
+        );
         assert!(!update_headers("key-123", None).contains_key("If-Unmodified-Since-Version"));
     }
 
@@ -269,10 +292,19 @@ mod tests {
 
     #[test]
     fn a_failed_create_fails_every_item_with_one_reason() {
-        let out = create_outcomes(&ids(&["a", "b"]), 500, "down", &CreateReply::default(), None);
+        let out = create_outcomes(
+            &ids(&["a", "b"]),
+            500,
+            "down",
+            &CreateReply::default(),
+            None,
+        );
         assert_eq!(out.len(), 2);
         assert!(out.iter().all(|r| r.outcome == WriteOutcome::Failed));
-        assert_eq!(out[0].reason.as_deref(), Some("Zotero create failed (500). down"));
+        assert_eq!(
+            out[0].reason.as_deref(),
+            Some("Zotero create failed (500). down")
+        );
         assert_eq!(out[1].zotero_key, None);
     }
 
@@ -281,7 +313,10 @@ mod tests {
         let reply = CreateReply {
             successful: Some(BTreeMap::from([(
                 "0".to_owned(),
-                CreatedEntry { key: Some("ZKEY01".into()), version: None },
+                CreatedEntry {
+                    key: Some("ZKEY01".into()),
+                    version: None,
+                },
             )])),
             failed: None,
         };
@@ -295,9 +330,12 @@ mod tests {
     fn a_rejected_item_keeps_zoteros_message_or_the_default() {
         let reply = CreateReply {
             successful: None,
-            failed: Some(BTreeMap::from([
-                ("0".to_owned(), FailedEntry { message: Some("invalid annotationPosition".into()) }),
-            ])),
+            failed: Some(BTreeMap::from([(
+                "0".to_owned(),
+                FailedEntry {
+                    message: Some("invalid annotationPosition".into()),
+                },
+            )])),
         };
         let out = create_outcomes(&ids(&["a", "b"]), 200, "", &reply, None);
         assert_eq!(out[0].reason.as_deref(), Some("invalid annotationPosition"));

@@ -203,7 +203,12 @@ impl DocStore {
         self.slots
             .iter()
             .flatten()
-            .map(|record| (record.id.clone(), score_of(record, self.settings.as_ref(), now)))
+            .map(|record| {
+                (
+                    record.id.clone(),
+                    score_of(record, self.settings.as_ref(), now),
+                )
+            })
             .unzip()
     }
 
@@ -343,7 +348,11 @@ fn matches_filters(
     }
 
     let path = fields.path.as_deref().unwrap_or("").to_lowercase();
-    if !query.paths.iter().all(|needle| path.contains(needle.as_str())) {
+    if !query
+        .paths
+        .iter()
+        .all(|needle| path.contains(needle.as_str()))
+    {
         return false;
     }
 

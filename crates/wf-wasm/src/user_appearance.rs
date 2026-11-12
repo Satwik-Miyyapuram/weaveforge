@@ -43,6 +43,7 @@ pub fn merge_server_appearance_js(
     #[wasm_bindgen(unchecked_param_type = "B.UserAppearance")] local: &JsValue,
     #[wasm_bindgen(unchecked_param_type = "B.UserAppearance")] server: &JsValue,
 ) -> Result<JsValue, JsValue> {
-    let merged = user_appearance::merge_server_appearance(&plain_json(local)?, &plain_json(server)?);
+    let merged =
+        user_appearance::merge_server_appearance(&plain_json(local)?, &plain_json(server)?);
     Ok(to_js(&merged)?)
 }

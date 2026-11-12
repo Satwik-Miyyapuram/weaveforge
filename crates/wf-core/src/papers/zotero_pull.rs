@@ -30,6 +30,7 @@ pub struct ZoteroPullJoin {
 /// `allowed_paper_keys` gates parents when a collection is in scope; `None` means
 /// the whole library.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "mirrors the TS function for parity")]
 pub fn join_zotero_pull(
     attachments: &[ZoteroItemRow],
     annotations: &[ZoteroItemRow],
@@ -197,8 +198,12 @@ mod tests {
     #[test]
     fn annotated_pdf_wins_over_the_picked_main_pdf() {
         let attachments = vec![
-            item(r#"{"key":"PDF1","data":{"parentItem":"P1","contentType":"application/pdf","title":"Paper"}}"#),
-            item(r#"{"key":"PDF2","data":{"parentItem":"P1","contentType":"application/pdf","title":"Other"}}"#),
+            item(
+                r#"{"key":"PDF1","data":{"parentItem":"P1","contentType":"application/pdf","title":"Paper"}}"#,
+            ),
+            item(
+                r#"{"key":"PDF2","data":{"parentItem":"P1","contentType":"application/pdf","title":"Other"}}"#,
+            ),
         ];
         let annotations = vec![item(
             r#"{"key":"A1","data":{"parentItem":"PDF2","annotationType":"highlight","annotationText":"x"}}"#,
@@ -237,10 +242,7 @@ mod tests {
             r#"{"key":"LNK","data":{"parentItem":"P2","title":"paper.pdf","path":"/library/paper.pdf"}}"#,
         )];
         let out = join_zotero_pull(&attachments, &[], &[], None);
-        assert_eq!(
-            out.attachments,
-            vec![("P2".to_string(), "LNK".to_string())]
-        );
+        assert_eq!(out.attachments, vec![("P2".to_string(), "LNK".to_string())]);
         assert!(out.choices.is_empty());
     }
 
@@ -257,16 +259,20 @@ mod tests {
                 vec![("P3".to_string(), "MAIN".to_string())]
             );
             assert_eq!(out.choices.len(), 1);
-            assert!(out.choices[0].starts_with("P3: MAIN of "), "{:?}", out.choices);
+            assert!(
+                out.choices[0].starts_with("P3: MAIN of "),
+                "{:?}",
+                out.choices
+            );
         }
     }
 
     // it: "pull keys attachments by paper only"
     #[test]
     fn attachments_are_keyed_by_paper_not_by_item() {
-        let attachments = vec![
-            item(r#"{"key":"PDF5","data":{"parentItem":"P5","contentType":"application/pdf"}}"#),
-        ];
+        let attachments = vec![item(
+            r#"{"key":"PDF5","data":{"parentItem":"P5","contentType":"application/pdf"}}"#,
+        )];
         let annotations = vec![item(
             r#"{"key":"A5","data":{"parentItem":"PDF5","annotationType":"highlight","annotationText":"x"}}"#,
         )];
@@ -280,7 +286,9 @@ mod tests {
     fn collection_scope_gates_parents() {
         let attachments = vec![
             item(r#"{"key":"PDFIN","data":{"parentItem":"PIN","contentType":"application/pdf"}}"#),
-            item(r#"{"key":"PDFOUT","data":{"parentItem":"POUT","contentType":"application/pdf"}}"#),
+            item(
+                r#"{"key":"PDFOUT","data":{"parentItem":"POUT","contentType":"application/pdf"}}"#,
+            ),
         ];
         let allowed: HashSet<String> = ["PIN".to_string()].into_iter().collect();
         let out = join_zotero_pull(&attachments, &[], &[], Some(&allowed));

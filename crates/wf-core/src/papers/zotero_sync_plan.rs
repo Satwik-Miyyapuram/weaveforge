@@ -43,11 +43,7 @@ pub struct ZoteroSyncPlan {
 pub fn sync_plan(remote: &[ZoteroItem], local: &[ZoteroSyncLocal]) -> ZoteroSyncPlan {
     let remote_keys: Vec<Vec<String>> = remote.iter().map(remote_content_keys).collect();
     let local_keys: Vec<Vec<String>> = local.iter().map(local_content_keys).collect();
-    let remote_match: HashSet<&str> = remote_keys
-        .iter()
-        .flatten()
-        .map(String::as_str)
-        .collect();
+    let remote_match: HashSet<&str> = remote_keys.iter().flatten().map(String::as_str).collect();
 
     // A remote item is pulled only when none of its keys is known yet. Pulled items join the known
     // set as they are taken, so two remote items sharing a key pull only the first.
@@ -75,7 +71,10 @@ pub fn sync_plan(remote: &[ZoteroItem], local: &[ZoteroSyncLocal]) -> ZoteroSync
         }
         // Delete only a row whose item is truly gone, and never on an empty remote read, so a
         // partial or failed read cannot mass-delete the library.
-        if !remote.is_empty() && is_gone(paper, &remote_item_keys) && !matches_remote(keys, &remote_match) {
+        if !remote.is_empty()
+            && is_gone(paper, &remote_item_keys)
+            && !matches_remote(keys, &remote_match)
+        {
             delete.push(index);
         }
     }
@@ -85,7 +84,11 @@ pub fn sync_plan(remote: &[ZoteroItem], local: &[ZoteroSyncLocal]) -> ZoteroSync
 
 fn remote_content_keys(item: &ZoteroItem) -> Vec<String> {
     let arxiv_id = zotero_arxiv_id(item);
-    zotero_content_keys(item.doi.as_deref(), arxiv_id.as_deref(), item.title.as_deref())
+    zotero_content_keys(
+        item.doi.as_deref(),
+        arxiv_id.as_deref(),
+        item.title.as_deref(),
+    )
 }
 
 fn local_content_keys(paper: &ZoteroSyncLocal) -> Vec<String> {
@@ -97,7 +100,10 @@ fn local_content_keys(paper: &ZoteroSyncLocal) -> Vec<String> {
 }
 
 fn has_zotero_key(paper: &ZoteroSyncLocal) -> bool {
-    paper.zotero_key.as_deref().is_some_and(|key| !key.is_empty())
+    paper
+        .zotero_key
+        .as_deref()
+        .is_some_and(|key| !key.is_empty())
 }
 
 /// True when the paper's stored key names an item no longer in the remote list.
@@ -157,7 +163,9 @@ mod tests {
 
     #[test]
     fn push_sends_only_unkeyed_papers_with_no_remote_match() {
-        let remote_items = [remote(json!({ "key": "K1", "title": "A", "DOI": "10.1/a" }))];
+        let remote_items = [remote(
+            json!({ "key": "K1", "title": "A", "DOI": "10.1/a" }),
+        )];
         let local_papers = [
             local(Some("10.1/c"), Some("C"), None),
             local(Some("10.1/a"), Some("A"), None),
@@ -170,7 +178,9 @@ mod tests {
 
     #[test]
     fn delete_removes_keyed_papers_whose_item_is_gone() {
-        let remote_items = [remote(json!({ "key": "K1", "title": "A", "DOI": "10.1/a" }))];
+        let remote_items = [remote(
+            json!({ "key": "K1", "title": "A", "DOI": "10.1/a" }),
+        )];
         let local_papers = [
             local(Some("10.1/a"), Some("A"), Some("K1")),
             local(Some("10.1/z"), Some("Z"), Some("K7")),

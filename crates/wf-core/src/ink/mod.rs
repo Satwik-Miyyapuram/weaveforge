@@ -65,12 +65,14 @@ pub struct PackedInkStroke {
     /// One 0-255 pressure byte per point.
     pub pressures: Vec<f64>,
 }
+pub mod capture;
 pub mod clipboard;
 pub mod constants;
 pub mod contact_area;
 pub mod gesture;
 pub mod ink_print;
 pub mod ink_svg;
+pub mod native_stroke;
 pub mod one_euro;
 pub mod page_history;
 pub mod page_math;
@@ -81,8 +83,6 @@ pub mod pen_pointer;
 pub mod recognition_request;
 pub mod render_instances;
 pub mod render_strokes;
-pub mod trail;
-pub mod capture;
 pub mod stroke_history;
-pub mod native_stroke;
+pub mod trail;
 pub mod worker_route;

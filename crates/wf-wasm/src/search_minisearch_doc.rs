@@ -62,7 +62,11 @@ fn hits_to_js(hits: &[SearchHit]) -> Result<JsValue, JsValue> {
     for hit in hits {
         let value = encode(hit)?;
         if let Some(excerpt) = &hit.excerpt {
-            let _ = Reflect::set(&value, &JsValue::from_str("excerpt"), &excerpt_to_js(excerpt)?)?;
+            let _ = Reflect::set(
+                &value,
+                &JsValue::from_str("excerpt"),
+                &excerpt_to_js(excerpt)?,
+            )?;
         }
         let _ = out.push(&value);
     }
@@ -193,12 +197,9 @@ impl MiniSearchDocs {
     ) -> Result<JsValue, JsValue> {
         let query: ParsedQuery = read(query)?;
         let kinds: Option<Vec<SearchKind>> = read(kinds)?;
-        let hits = self.inner.filter_only(
-            &query,
-            kinds.as_deref(),
-            width_from(limit),
-            now,
-        );
+        let hits = self
+            .inner
+            .filter_only(&query, kinds.as_deref(), width_from(limit), now);
         hits_to_js(&hits)
     }
 

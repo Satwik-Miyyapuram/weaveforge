@@ -76,34 +76,55 @@ pub fn text_size_error(size: f64, total_bytes: f64) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::{
-        file_count_error, is_text_source_file, text_size_error, unsafe_checkout_path_error,
-        FILE_LIMIT_MESSAGE, SIZE_LIMIT_MESSAGE, UNSAFE_CHECKOUT_PATH,
+        FILE_LIMIT_MESSAGE, SIZE_LIMIT_MESSAGE, UNSAFE_CHECKOUT_PATH, file_count_error,
+        is_text_source_file, text_size_error, unsafe_checkout_path_error,
     };
 
     // it: "the reader refuses a ../ escape"
     #[test]
     fn rejects_parent_segment_escape() {
-        for bad in ["..", "../x.tex", "a/../b.tex", "a/..", "chapters/../../etc/passwd"] {
-            assert_eq!(unsafe_checkout_path_error(bad), Some(UNSAFE_CHECKOUT_PATH), "{bad}");
+        for bad in [
+            "..",
+            "../x.tex",
+            "a/../b.tex",
+            "a/..",
+            "chapters/../../etc/passwd",
+        ] {
+            assert_eq!(
+                unsafe_checkout_path_error(bad),
+                Some(UNSAFE_CHECKOUT_PATH),
+                "{bad}"
+            );
         }
     }
 
     #[test]
     fn rejects_absolute_paths() {
-        assert_eq!(unsafe_checkout_path_error("/etc/passwd"), Some(UNSAFE_CHECKOUT_PATH));
+        assert_eq!(
+            unsafe_checkout_path_error("/etc/passwd"),
+            Some(UNSAFE_CHECKOUT_PATH)
+        );
     }
 
     #[test]
     fn rejects_backslashes() {
         for bad in ["a\\b.tex", "chapters\\one.tex", "..\\x.tex"] {
-            assert_eq!(unsafe_checkout_path_error(bad), Some(UNSAFE_CHECKOUT_PATH), "{bad}");
+            assert_eq!(
+                unsafe_checkout_path_error(bad),
+                Some(UNSAFE_CHECKOUT_PATH),
+                "{bad}"
+            );
         }
     }
 
     #[test]
     fn rejects_drive_letters() {
         for bad in ["C:/x.tex", "c:x.tex", "Z:"] {
-            assert_eq!(unsafe_checkout_path_error(bad), Some(UNSAFE_CHECKOUT_PATH), "{bad}");
+            assert_eq!(
+                unsafe_checkout_path_error(bad),
+                Some(UNSAFE_CHECKOUT_PATH),
+                "{bad}"
+            );
         }
     }
 
@@ -114,21 +135,43 @@ mod tests {
 
     #[test]
     fn accepts_plain_relative_paths() {
-        for ok in ["main.tex", "chapters/one.tex", "a..b.tex", "...x.tex", ".hidden/x.tex"] {
+        for ok in [
+            "main.tex",
+            "chapters/one.tex",
+            "a..b.tex",
+            "...x.tex",
+            ".hidden/x.tex",
+        ] {
             assert_eq!(unsafe_checkout_path_error(ok), None, "{ok}");
         }
     }
 
     #[test]
     fn keeps_latex_source_extensions_case_insensitively() {
-        for ok in ["main.tex", "refs.BIB", "style.sty", "doc.cls", "a.txt", "README.md", "x.cfg", "A.TeX"] {
+        for ok in [
+            "main.tex",
+            "refs.BIB",
+            "style.sty",
+            "doc.cls",
+            "a.txt",
+            "README.md",
+            "x.cfg",
+            "A.TeX",
+        ] {
             assert!(is_text_source_file(ok), "{ok}");
         }
     }
 
     #[test]
     fn drops_other_files_and_dot_only_names() {
-        for bad in [".tex", "figure.png", "archive.tar.gz", "README", "x.", "data.json"] {
+        for bad in [
+            ".tex",
+            "figure.png",
+            "archive.tar.gz",
+            "README",
+            "x.",
+            "data.json",
+        ] {
             assert!(!is_text_source_file(bad), "{bad}");
         }
     }
@@ -148,6 +191,9 @@ mod tests {
     #[test]
     fn refuses_a_file_that_breaks_the_total_limit() {
         assert_eq!(text_size_error(1_000_000.0, 19_000_000.0), None);
-        assert_eq!(text_size_error(1_000_001.0, 19_000_000.0), Some(SIZE_LIMIT_MESSAGE));
+        assert_eq!(
+            text_size_error(1_000_001.0, 19_000_000.0),
+            Some(SIZE_LIMIT_MESSAGE)
+        );
     }
 }

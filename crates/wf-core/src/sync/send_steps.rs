@@ -7,7 +7,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::postgrest_transport::{PullChange, RequestSpec, conflict_request, gone_request, held_ids, deleted_ids, parse_rows, to_change, tombstone_request, tombstones_for_request};
+use super::postgrest_transport::{
+    PullChange, RequestSpec, conflict_request, deleted_ids, gone_request, held_ids, parse_rows,
+    to_change, tombstone_request, tombstones_for_request,
+};
 use super::postgrest_wire::error_info;
 use super::send_verdict::{SendVerdict, absent_ids, classify_send, is_link_insert, missing_ids};
 
@@ -17,7 +20,11 @@ pub const MISSING_IDS_CHUNK: usize = 100;
 /// The result of one write, as `SendOutcome` in `domain/parts.ts`. A `serverRow`
 /// that is `None` is left out of the JSON (unknown); `Some(None)` is `null` (absent).
 #[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(tag = "status", rename_all = "snake_case", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "status",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum SendOutcome {
     /// The write was accepted, with its new version when the server gave one.
     Accepted {
@@ -192,7 +199,10 @@ pub fn send_start(status: u16, body: &str, op: &str, table: &str, row_id: &str) 
         SendVerdict::GuardMissed if op == "delete" => read(table, row_id, false, Phase::Gone),
         SendVerdict::GuardMissed => read(table, row_id, false, Phase::Conflict),
         SendVerdict::Accepted => done(SendOutcome::Accepted {
-            new_version: parsed.as_ref().and_then(|rows| rows.first()).and_then(row_version),
+            new_version: parsed
+                .as_ref()
+                .and_then(|rows| rows.first())
+                .and_then(row_version),
         }),
     }
 }
@@ -253,12 +263,19 @@ pub fn send_advance(state: &ReadState, status: u16, body: &str) -> SendStep {
 /// The chunks `missingIds` reads, in order.
 #[must_use]
 pub fn missing_id_chunks(ids: &[String]) -> Vec<Vec<String>> {
-    ids.chunks(MISSING_IDS_CHUNK).map(<[String]>::to_vec).collect()
+    ids.chunks(MISSING_IDS_CHUNK)
+        .map(<[String]>::to_vec)
+        .collect()
 }
 
 /// The step for one chunk after its presence read: done, or the tombstone read it needs.
 #[must_use]
-pub fn missing_after_presence(table: &str, chunk: &[String], status: u16, body: &str) -> PresenceStep {
+pub fn missing_after_presence(
+    table: &str,
+    chunk: &[String],
+    status: u16,
+    body: &str,
+) -> PresenceStep {
     if status >= 400 {
         return PresenceStep::Failed;
     }
@@ -268,7 +285,9 @@ pub fn missing_after_presence(table: &str, chunk: &[String], status: u16, body: 
     let held = held_ids(&rows);
     let absent = absent_ids(chunk, &held);
     if absent.is_empty() {
-        return PresenceStep::Done { missing: Vec::new() };
+        return PresenceStep::Done {
+            missing: Vec::new(),
+        };
     }
     PresenceStep::Tombstones {
         request: tombstones_for_request(table, &absent),
@@ -278,7 +297,12 @@ pub fn missing_after_presence(table: &str, chunk: &[String], status: u16, body: 
 
 /// The missing ids of one chunk after its tombstone read. `None` when that read cannot be used.
 #[must_use]
-pub fn missing_after_tombstones(chunk: &[String], held: &[String], status: u16, body: &str) -> Option<Vec<String>> {
+pub fn missing_after_tombstones(
+    chunk: &[String],
+    held: &[String],
+    status: u16,
+    body: &str,
+) -> Option<Vec<String>> {
     if status >= 400 {
         return None;
     }
@@ -301,7 +325,10 @@ pub fn changes_from_reply(status: u16, body: &str) -> ChangesReply {
     if status >= 400 {
         let info = error_info(body);
         return ChangesReply {
-            error: Some(format!("sync_changes failed ({status}): {}", info.first_line)),
+            error: Some(format!(
+                "sync_changes failed ({status}): {}",
+                info.first_line
+            )),
             changes: Vec::new(),
         };
     }
@@ -310,7 +337,10 @@ pub fn changes_from_reply(status: u16, body: &str) -> ChangesReply {
         .iter()
         .map(to_change)
         .collect();
-    ChangesReply { error: None, changes }
+    ChangesReply {
+        error: None,
+        changes,
+    }
 }
 
 #[cfg(test)]
@@ -343,7 +373,10 @@ mod tests {
 
     #[test]
     fn a_session_failure_is_offline() {
-        assert_eq!(done_outcome(send_start(401, "", "update", "notes", ROW)), SendOutcome::Offline);
+        assert_eq!(
+            done_outcome(send_start(401, "", "update", "notes", ROW)),
+            SendOutcome::Offline
+        );
     }
 
     #[test]
@@ -362,7 +395,10 @@ mod tests {
         let SendStep::Read { state, .. } = step else {
             panic!("expected the gone read");
         };
-        assert_eq!(done_outcome(send_advance(&state, 200, "[]")), SendOutcome::Accepted { new_version: None });
+        assert_eq!(
+            done_outcome(send_advance(&state, 200, "[]")),
+            SendOutcome::Accepted { new_version: None }
+        );
     }
 
     #[test]
@@ -407,7 +443,9 @@ mod tests {
         let body = format!(r#"[{{"id":"{ROW}","row_version":2}}]"#);
         assert_eq!(
             done_outcome(send_advance(&state, 200, &body)),
-            SendOutcome::Accepted { new_version: Some(2.0) }
+            SendOutcome::Accepted {
+                new_version: Some(2.0)
+            }
         );
     }
 
@@ -453,23 +491,35 @@ mod tests {
     fn a_presence_read_with_an_absent_id_asks_the_tombstones() {
         let chunk = [ROW.to_owned(), OTHER.to_owned()];
         let body = format!(r#"[{{"id":"{ROW}"}}]"#);
-        let PresenceStep::Tombstones { request, held } = missing_after_presence("papers", &chunk, 200, &body) else {
+        let PresenceStep::Tombstones { request, held } =
+            missing_after_presence("papers", &chunk, 200, &body)
+        else {
             panic!("expected the tombstone read");
         };
-        assert!(request.path.starts_with("/sync_tombstones?table_name=eq.papers&row_id=in.("));
+        assert!(
+            request
+                .path
+                .starts_with("/sync_tombstones?table_name=eq.papers&row_id=in.(")
+        );
         assert_eq!(held, vec![ROW.to_owned()]);
         assert_eq!(
             missing_after_tombstones(&chunk, &held, 200, &format!(r#"[{{"row_id":"{OTHER}"}}]"#)),
             Some(Vec::new())
         );
-        assert_eq!(missing_after_tombstones(&chunk, &held, 200, "[]"), Some(vec![OTHER.to_owned()]));
+        assert_eq!(
+            missing_after_tombstones(&chunk, &held, 200, "[]"),
+            Some(vec![OTHER.to_owned()])
+        );
         assert_eq!(missing_after_tombstones(&chunk, &held, 500, "[]"), None);
     }
 
     #[test]
     fn an_unreadable_changes_reply_names_the_status_and_reason() {
         let reply = changes_from_reply(500, r#"{"message":"boom"}"#);
-        assert_eq!(reply.error.as_deref(), Some("sync_changes failed (500): boom"));
+        assert_eq!(
+            reply.error.as_deref(),
+            Some("sync_changes failed (500): boom")
+        );
         assert!(reply.changes.is_empty());
     }
 }

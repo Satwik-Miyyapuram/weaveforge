@@ -67,10 +67,10 @@ pub fn triage_reported_paths(input: &TriageInput) -> TriageVerdict {
         if is_app_owned_path(path) {
             continue;
         }
-        if let (Some(suffix), Some(found)) = (&suffix, subfolder_suffix(path)) {
-            if found != suffix {
-                continue;
-            }
+        if let (Some(suffix), Some(found)) = (&suffix, subfolder_suffix(path))
+            && found != suffix
+        {
+            continue;
         }
         candidates.push(path.clone());
     }
@@ -107,7 +107,10 @@ mod tests {
         let suffix = id_suffix("p-one-id");
         let mine = format!("notes--{suffix}/a.note.md");
         let theirs = "notes--Zz99Zz99/b.note.md";
-        let verdict = triage(&[mine.as_str(), theirs, "plain/c.note.md"], Some("p-one-id"));
+        let verdict = triage(
+            &[mine.as_str(), theirs, "plain/c.note.md"],
+            Some("p-one-id"),
+        );
         assert_eq!(verdict.candidates, vec![mine, "plain/c.note.md".to_owned()]);
     }
 

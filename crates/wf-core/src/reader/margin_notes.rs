@@ -202,6 +202,7 @@ mod tests {
     use super::*;
     use crate::reader::viewport::pdf_rect_to_screen_box;
 
+    #[allow(clippy::needless_pass_by_value, reason = "keeps call sites terse")]
     fn annotation(
         id: &str,
         comment: &str,
@@ -225,7 +226,10 @@ mod tests {
         .expect("annotation fixture")
     }
 
-    fn slots_as_pairs(slots: &[MarginSlot], annotations: &[ReaderAnnotation]) -> Vec<(String, f64)> {
+    fn slots_as_pairs(
+        slots: &[MarginSlot],
+        annotations: &[ReaderAnnotation],
+    ) -> Vec<(String, f64)> {
         slots
             .iter()
             .map(|slot| (annotations[slot.index].id.clone(), slot.top))
@@ -237,18 +241,36 @@ mod tests {
     fn only_commented_marks_get_a_card_level_with_the_mark() {
         let annotations = vec![
             annotation("a", "", Some(vec![vec![10.0, 700.0, 100.0, 720.0]]), None),
-            annotation("b", "why", Some(vec![vec![10.0, 500.0, 100.0, 520.0]]), None),
+            annotation(
+                "b",
+                "why",
+                Some(vec![vec![10.0, 500.0, 100.0, 520.0]]),
+                None,
+            ),
         ];
         let slots = layout_annotation_margin_notes(&annotations, PAGE, CARD);
-        assert_eq!(slots_as_pairs(&slots, &annotations), vec![("b".to_owned(), 280.0)]);
+        assert_eq!(
+            slots_as_pairs(&slots, &annotations),
+            vec![("b".to_owned(), 280.0)]
+        );
     }
 
     // it: "cards that would overlap stack downwards in page order"
     #[test]
     fn cards_that_would_overlap_stack_downwards_in_page_order() {
         let annotations = vec![
-            annotation("low", "2", Some(vec![vec![10.0, 680.0, 100.0, 700.0]]), None),
-            annotation("high", "1", Some(vec![vec![10.0, 700.0, 100.0, 720.0]]), None),
+            annotation(
+                "low",
+                "2",
+                Some(vec![vec![10.0, 680.0, 100.0, 700.0]]),
+                None,
+            ),
+            annotation(
+                "high",
+                "1",
+                Some(vec![vec![10.0, 700.0, 100.0, 720.0]]),
+                None,
+            ),
         ];
         let slots = layout_annotation_margin_notes(&annotations, PAGE, CARD);
         assert_eq!(
@@ -260,7 +282,12 @@ mod tests {
     // it: "an ink stroke's card sits at the top of the stroke"
     #[test]
     fn an_ink_strokes_card_sits_at_the_top_of_the_stroke() {
-        let annotations = vec![annotation("s", "note", None, Some(vec![vec![50.0, 100.0, 60.0, 300.0, 70.0, 200.0]]))];
+        let annotations = vec![annotation(
+            "s",
+            "note",
+            None,
+            Some(vec![vec![50.0, 100.0, 60.0, 300.0, 70.0, 200.0]]),
+        )];
         let slots = layout_annotation_margin_notes(&annotations, PAGE, CARD);
         assert_eq!(slots.len(), 1);
         assert_eq!(slots[0].top, 500.0);
@@ -269,7 +296,12 @@ mod tests {
     // it: "a placed picture is drawn on the page, not in the margin"
     #[test]
     fn a_placed_picture_gets_no_margin_card() {
-        let mut picture = annotation("p", "![picture](fig.png)", Some(vec![vec![10.0, 500.0, 100.0, 520.0]]), None);
+        let mut picture = annotation(
+            "p",
+            "![picture](fig.png)",
+            Some(vec![vec![10.0, 500.0, 100.0, 520.0]]),
+            None,
+        );
         picture.kind = "image".to_owned();
         assert!(layout_annotation_margin_notes(&[picture], PAGE, CARD).is_empty());
     }

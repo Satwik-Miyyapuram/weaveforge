@@ -3,7 +3,7 @@
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::{JsError, wasm_bindgen};
-use wf_core::ai::mcp_dispatch::{ExcerptDoc, EvidenceRequest, plan_tool_call, paper_evidence};
+use wf_core::ai::mcp_dispatch::{EvidenceRequest, ExcerptDoc, paper_evidence, plan_tool_call};
 
 use super::to_js;
 
@@ -65,7 +65,8 @@ pub fn mcp_paper_evidence_js(
 ) -> Result<JsValue, JsError> {
     let request: EvidenceRequest = serde_wasm_bindgen::from_value(request).map_err(js_error)?;
     let doc: Option<ExcerptDoc> = serde_wasm_bindgen::from_value(doc).map_err(js_error)?;
-    let evidence = paper_evidence(&request, doc.as_ref()).map_err(|message| JsError::new(&message))?;
+    let evidence =
+        paper_evidence(&request, doc.as_ref()).map_err(|message| JsError::new(&message))?;
     to_js(&evidence).map_err(js_error)
 }
 

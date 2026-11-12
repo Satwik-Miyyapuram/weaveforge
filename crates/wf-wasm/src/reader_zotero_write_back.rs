@@ -5,7 +5,7 @@
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::reader::zotero_write_back_reply::{
-    create_outcomes, library_version, update_headers, update_outcome, update_url, CreateReply,
+    CreateReply, create_outcomes, library_version, update_headers, update_outcome, update_url,
 };
 
 use super::to_js;
@@ -56,7 +56,13 @@ pub fn zotero_write_back_update_outcome(
     detail: &str,
     library_version: Option<f64>,
 ) -> JsResult<JsValue> {
-    to_js(&update_outcome(id, zotero_key, status, detail, library_version))
+    to_js(&update_outcome(
+        id,
+        zotero_key,
+        status,
+        detail,
+        library_version,
+    ))
 }
 
 /// [`create_outcomes`]: one `{ id, outcome, ... }` per annotation of a batch create. `body` is the
@@ -78,5 +84,11 @@ pub fn zotero_write_back_create_outcomes(
 ) -> JsResult<JsValue> {
     let ids: Vec<String> = serde_wasm_bindgen::from_value(ids)?;
     let reply: CreateReply = serde_wasm_bindgen::from_value(body).unwrap_or_default();
-    to_js(&create_outcomes(&ids, status, detail, &reply, library_version))
+    to_js(&create_outcomes(
+        &ids,
+        status,
+        detail,
+        &reply,
+        library_version,
+    ))
 }

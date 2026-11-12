@@ -54,7 +54,11 @@ mod tests {
     use super::*;
 
     fn page(id: &str, title: &str, body: &str) -> StoredPage {
-        StoredPage { id: id.to_owned(), title: title.to_owned(), body: body.to_owned() }
+        StoredPage {
+            id: id.to_owned(),
+            title: title.to_owned(),
+            body: body.to_owned(),
+        }
     }
 
     // Rust-only: a note's digest is the digest of its title, a newline, then its body.
@@ -75,6 +79,9 @@ mod tests {
     fn an_owned_folder_path_maps_to_its_storage_path() {
         assert_eq!(storage_path("assets/papers/fig/a.webp"), "fig/a.webp");
         let map = owned_storage(&["assets/n/x.webp".to_owned()]);
-        assert_eq!(map.get("assets/n/x.webp").map(String::as_str), Some("x.webp"));
+        assert_eq!(
+            map.get("assets/n/x.webp").map(String::as_str),
+            Some("x.webp")
+        );
     }
 }

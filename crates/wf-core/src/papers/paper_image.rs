@@ -77,8 +77,7 @@ pub fn full_image_thumbnail_path(path: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        full_image_thumbnail_path, images_of, paper_image_thumbnail_path,
-        paper_image_upload_paths,
+        full_image_thumbnail_path, images_of, paper_image_thumbnail_path, paper_image_upload_paths,
     };
     use serde_json::{Map, Value, json};
 

@@ -8,7 +8,10 @@ use crate::sync::folder_layout::{WorkspaceEntityType, entity_dir};
 /// The folder kept paper pages are written to: `papers/html` inside a project.
 #[must_use]
 pub fn paper_html_dir(project_root: &str) -> String {
-    format!("{}/html", entity_dir(WorkspaceEntityType::Paper, project_root))
+    format!(
+        "{}/html",
+        entity_dir(WorkspaceEntityType::Paper, project_root)
+    )
 }
 
 #[cfg(test)]
@@ -26,6 +29,9 @@ mod tests {
     fn each_kept_page_file_sits_directly_in_that_dir() {
         let file = paper_html_path("id1", "p");
         assert_eq!(file, "p/papers/html/id1.html");
-        assert_eq!(file.rsplit_once('/').map(|(dir, _)| dir), Some(paper_html_dir("p").as_str()));
+        assert_eq!(
+            file.rsplit_once('/').map(|(dir, _)| dir),
+            Some(paper_html_dir("p").as_str())
+        );
     }
 }

@@ -122,11 +122,7 @@ pub fn ink_chunk_blob_spec() -> InkChunkBlobSpec {
 /// # Errors
 ///
 /// Fails when `note_id` is not a safe id, or `chunk_id` is not a chunk id.
-pub fn ink_chunk_blob_key(
-    user_id: &str,
-    note_id: &str,
-    chunk_id: &str,
-) -> Result<String, String> {
+pub fn ink_chunk_blob_key(user_id: &str, note_id: &str, chunk_id: &str) -> Result<String, String> {
     if !is_ink_note_id(note_id) {
         return Err(unusable("note id", note_id));
     }

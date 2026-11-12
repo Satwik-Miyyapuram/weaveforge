@@ -20,8 +20,7 @@ pub const PRISMA_FIGURE_PACKAGES: [&str; 2] = ["tikz", "float"];
 pub const DEFAULT_TITLE: &str = "WeaveForge report export";
 
 /// The `note` field of `manifest.json`.
-pub const MANIFEST_NOTE: &str =
-    "Upload these files to a new or existing Overleaf project. WeaveForge does not push to Overleaf.";
+pub const MANIFEST_NOTE: &str = "Upload these files to a new or existing Overleaf project. WeaveForge does not push to Overleaf.";
 
 /// Which papers `references.bib` holds.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -101,6 +100,7 @@ pub struct ExportPackage {
 /// # Errors
 ///
 /// A `serde_json` error when the manifest cannot be serialised (not expected for this shape).
+#[allow(clippy::too_many_lines, reason = "mirrors the TS function for parity")]
 pub fn build_export_package(
     input: &ExportPackageInput,
     entries: &[BibEntry],
@@ -123,10 +123,7 @@ pub fn build_export_package(
     let bib_entries: Vec<&BibEntry> = if include_bib && !entries.is_empty() {
         match scope {
             BibliographyScope::All => entries.iter().collect(),
-            BibliographyScope::Cited => entries
-                .iter()
-                .filter(|e| cited.contains(&e.key))
-                .collect(),
+            BibliographyScope::Cited => entries.iter().filter(|e| cited.contains(&e.key)).collect(),
         }
     } else {
         Vec::new()
@@ -379,11 +376,9 @@ mod tests {
     #[test]
     // it: buildOverleafExportPackage omits notes and bib when disabled
     fn omits_bib_when_disabled() {
-        let pkg = build_export_package(
-            &input(&["Plain text."], false, BibliographyScope::All),
-            &[],
-        )
-        .unwrap();
+        let pkg =
+            build_export_package(&input(&["Plain text."], false, BibliographyScope::All), &[])
+                .unwrap();
         assert!(pkg.files.iter().all(|f| f.path != "references.bib"));
         let main = contents(&pkg, "main.tex");
         assert!(main.contains("% no bibliography\n"), "{main}");
@@ -476,7 +471,10 @@ mod tests {
         )
         .unwrap();
         let main = contents(&with, "main.tex");
-        assert!(main.contains("\\usepackage{tikz}\n\\usepackage{float}\n"), "{main}");
+        assert!(
+            main.contains("\\usepackage{tikz}\n\\usepackage{float}\n"),
+            "{main}"
+        );
 
         let without =
             build_export_package(&input(&["plain"], false, BibliographyScope::All), &[]).unwrap();
@@ -485,13 +483,11 @@ mod tests {
 
     #[test]
     fn empty_body_lines_are_dropped() {
-        let pkg = build_export_package(
-            &input(&["", "x"], false, BibliographyScope::All),
-            &[],
-        )
-        .unwrap();
+        let pkg =
+            build_export_package(&input(&["", "x"], false, BibliographyScope::All), &[]).unwrap();
         assert!(
-            contents(&pkg, "main.tex").ends_with("\\clearpage\nx\n% no bibliography entries\n\\end{document}"),
+            contents(&pkg, "main.tex")
+                .ends_with("\\clearpage\nx\n% no bibliography entries\n\\end{document}"),
             "{}",
             contents(&pkg, "main.tex")
         );
@@ -531,8 +527,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(manifest(&pkg)["bibliographyScope"], "cited");
-        assert!(contents(&pkg, "README.txt")
-            .contains("references.bib   — only the papers cited in this report"));
+        assert!(
+            contents(&pkg, "README.txt")
+                .contains("references.bib   — only the papers cited in this report")
+        );
         assert!(contents(&pkg, "README.txt").contains("Exported at: 2026-11-12T00:00:00.000Z\n"));
     }
 }

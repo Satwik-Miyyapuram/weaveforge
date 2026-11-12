@@ -24,9 +24,8 @@ pub const CHROME_SELECTORS: &[&str] = &[
 
 /// Tags DOMPurify is told to drop on top of its own profile.
 pub const FORBID_TAGS: &[&str] = &[
-    "form", "input", "button", "select", "textarea", "option",
-    "iframe", "frame", "frameset", "object", "embed", "applet",
-    "style", "link", "meta", "base", "script", "noscript", "template",
+    "form", "input", "button", "select", "textarea", "option", "iframe", "frame", "frameset",
+    "object", "embed", "applet", "style", "link", "meta", "base", "script", "noscript", "template",
     "dialog", "portal",
 ];
 

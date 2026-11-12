@@ -1,8 +1,8 @@
 //! Overleaf Workshop checks for JavaScript (wf-core `overleaf_workshop`): the session-id shape and
 //! the project list the projects route returns. Sorting the list by name stays in TypeScript.
 
-use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::to_js;
 

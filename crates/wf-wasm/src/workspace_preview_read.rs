@@ -33,12 +33,8 @@ pub fn plan_preview_reads_js(
         serde_wasm_bindgen::from_value(entries).map_err(|e| JsError::new(&e.to_string()))?;
     let only: Option<Vec<String>> =
         serde_wasm_bindgen::from_value(only).map_err(|e| JsError::new(&e.to_string()))?;
-    let reads = preview_read::plan_preview_reads(
-        &entries,
-        &project_root,
-        has_project_dir,
-        only.as_deref(),
-    );
+    let reads =
+        preview_read::plan_preview_reads(&entries, &project_root, has_project_dir, only.as_deref());
     to_js(&reads).map_err(|e| JsError::new(&e.to_string()))
 }
 
@@ -68,8 +64,7 @@ pub fn plan_asset_reads_js(
         serde_wasm_bindgen::from_value(note_texts).map_err(|e| JsError::new(&e.to_string()))?;
     let limits: PreviewLimits =
         serde_wasm_bindgen::from_value(limits).map_err(|e| JsError::new(&e.to_string()))?;
-    let picks =
-        preview_read::plan_asset_reads(&assets, only.as_deref(), &note_texts, limits);
+    let picks = preview_read::plan_asset_reads(&assets, only.as_deref(), &note_texts, limits);
     to_js(&picks).map_err(|e| JsError::new(&e.to_string()))
 }
 

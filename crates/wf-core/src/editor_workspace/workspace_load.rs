@@ -283,7 +283,12 @@ fn documents(input: &WorkspaceLoadInput, previous: &HashMap<&str, &str>) -> Vec<
         docs.push(paper_pdf_document(paper));
     }
     docs.extend(input.report_sections.iter().map(section_document));
-    docs.extend(input.logs.iter().map(|entry| log_document(entry, &input.project_root)));
+    docs.extend(
+        input
+            .logs
+            .iter()
+            .map(|entry| log_document(entry, &input.project_root)),
+    );
     docs.extend(input.overleaf.iter().map(overleaf_document));
     docs
 }
@@ -393,7 +398,12 @@ fn completions(input: &WorkspaceLoadInput) -> Vec<CiteRow> {
         .vault
         .iter()
         .map(|page| (page.title.as_str(), "note"))
-        .chain(input.report_sections.iter().map(|s| (s.title.as_str(), "section")));
+        .chain(
+            input
+                .report_sections
+                .iter()
+                .map(|s| (s.title.as_str(), "section")),
+        );
     for (title, detail) in titled {
         if claim_title(&mut seen, title) {
             rows.push(CiteRow {
@@ -420,7 +430,10 @@ fn cite_row(paper: &PaperRow) -> CiteRow {
         [only] => only.clone(),
         [first, ..] => format!("{first} et al."),
     };
-    let year_bit = paper.year.map(|year| format!("({year})")).unwrap_or_default();
+    let year_bit = paper
+        .year
+        .map(|year| format!("({year})"))
+        .unwrap_or_default();
     let head = [author, year_bit]
         .into_iter()
         .filter(|part| !part.is_empty())
@@ -468,7 +481,10 @@ fn tree_input(input: &WorkspaceLoadInput) -> WorkspaceTreeInput {
             .map(|paper| PaperEntry {
                 id: paper.id.clone(),
                 title: paper.title.clone(),
-                has_note: paper.summary.as_deref().is_some_and(|s| !s.trim().is_empty()),
+                has_note: paper
+                    .summary
+                    .as_deref()
+                    .is_some_and(|s| !s.trim().is_empty()),
             })
             .collect(),
         report_sections: input
@@ -543,7 +559,10 @@ fn lists_view(
 /// A membership row as a list item. A paper wins over a vault page when a row has both; a row
 /// with neither is not a member.
 fn list_item(row: &ListItemRow) -> Option<ListItemEntry> {
-    let (kind, id) = match (non_empty(row.paper_id.as_deref()), non_empty(row.vault_page_id.as_deref())) {
+    let (kind, id) = match (
+        non_empty(row.paper_id.as_deref()),
+        non_empty(row.vault_page_id.as_deref()),
+    ) {
         (Some(paper), _) => (ListItemKind::Paper, paper),
         (None, Some(page)) => (ListItemKind::VaultPage, page),
         (None, None) => return None,
@@ -574,7 +593,10 @@ fn note_body(page: &VaultRow) -> String {
     if within_cap(full) && within_cap(preview) {
         return page_text::body_text(full, preview).to_owned();
     }
-    non_empty(full).or(non_empty(preview)).unwrap_or("").to_owned()
+    non_empty(full)
+        .or(non_empty(preview))
+        .unwrap_or("")
+        .to_owned()
 }
 
 /// Whether the note carries its full body and no preview stands in for it. A summary has a
@@ -662,7 +684,10 @@ mod tests {
     fn an_untitled_document_takes_the_untitled_path() {
         let doc = paper_document(&paper("p1", "", &[], None));
         assert_eq!(doc.path, "papers/Untitled.paper.md");
-        assert_eq!(paper_pdf_document(&paper("p1", "", &[], None)).path, "papers/Untitled.pdf");
+        assert_eq!(
+            paper_pdf_document(&paper("p1", "", &[], None)).path,
+            "papers/Untitled.pdf"
+        );
     }
 
     #[test]
@@ -743,12 +768,14 @@ mod tests {
     fn a_blank_summary_is_no_note_in_the_tree() {
         let mut p = paper("p1", "Plan", &[], None);
         p.summary = Some("   ".to_owned());
-        assert!(!tree_input(&WorkspaceLoadInput {
-            papers: vec![p],
-            ..WorkspaceLoadInput::default()
-        })
-        .papers[0]
-            .has_note);
+        assert!(
+            !tree_input(&WorkspaceLoadInput {
+                papers: vec![p],
+                ..WorkspaceLoadInput::default()
+            })
+            .papers[0]
+                .has_note
+        );
     }
 
     #[test]
@@ -768,8 +795,14 @@ mod tests {
             list_id: "l".to_owned(),
             ..ListItemRow::default()
         };
-        assert_eq!(list_item(&paper_row).map(|i| (i.kind, i.id)), Some((ListItemKind::Paper, "p1".to_owned())));
-        assert_eq!(list_item(&page_row).map(|i| i.kind), Some(ListItemKind::VaultPage));
+        assert_eq!(
+            list_item(&paper_row).map(|i| (i.kind, i.id)),
+            Some((ListItemKind::Paper, "p1".to_owned()))
+        );
+        assert_eq!(
+            list_item(&page_row).map(|i| i.kind),
+            Some(ListItemKind::VaultPage)
+        );
         assert!(list_item(&empty).is_none());
     }
 
