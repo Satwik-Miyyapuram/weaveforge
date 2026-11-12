@@ -62,6 +62,7 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [latex-tools](latex-tools.md) | LaTeX outline, TeX engine args and log errors, safe TeX paths, Overleaf Workshop checks. |
 | [app-navigation](app-navigation.md) | Nav groups, command palette groups and sort, route titles, screen for path, shortcut labels. |
 | [account](account.md) | Account links and menu, provisioning and purge, auth transitions, backend/home config, update check. |
+| [release-notices](release-notices.md) | In-app release notice: the unseen-version rule, per-account dismissal and how to publish a notice. |
 | [markdown-helpers](markdown-helpers.md) | Markdown formatting, image refs, widths and alt text, Mermaid labels, heading slugs, anchors, snippets. |
 | [experiments-lab](experiments-lab.md) | Experiment rows and status, metric charts, plot sizes, lab snapshots and data export files. |
 | [rows-and-tags](rows-and-tags.md) | Member, project and library-pin rows, tag counts and tones, sync fields, paper notes. |
