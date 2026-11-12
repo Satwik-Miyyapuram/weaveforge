@@ -65,10 +65,7 @@ fn annotation() -> AnnotationSource {
 }
 
 fn titles() -> HashMap<String, String> {
-    HashMap::from([(
-        "p1".to_owned(),
-        "Attention Is All You Need".to_owned(),
-    )])
+    HashMap::from([("p1".to_owned(), "Attention Is All You Need".to_owned())])
 }
 
 fn no_degrees() -> HashMap<String, u32> {
@@ -165,7 +162,10 @@ fn papers_index_authors_venue_and_identifiers_as_aliases() {
         .find(|d| d.kind == SearchKind::Paper)
         .expect("paper doc");
 
-    assert!(doc.aliases.contains(&"Vaswani".to_owned()), "authors should be searchable as aliases");
+    assert!(
+        doc.aliases.contains(&"Vaswani".to_owned()),
+        "authors should be searchable as aliases"
+    );
     assert!(doc.aliases.contains(&"NeurIPS".to_owned()));
     assert!(doc.aliases.contains(&"1706.03762".to_owned()));
     assert!(doc.body.contains("dominant sequence"));
@@ -220,7 +220,10 @@ fn oversized_bodies_are_truncated_never_dropped() {
     let docs = to_search_docs(&snapshot, &no_degrees());
 
     assert_eq!(docs[0].body.len(), limit);
-    assert_eq!(docs[0].title, "Method", "the document is still indexed by title");
+    assert_eq!(
+        docs[0].title, "Method",
+        "the document is still indexed by title"
+    );
 }
 
 #[test]
@@ -319,13 +322,20 @@ fn every_declared_kind_has_a_route() {
     let declared: BTreeSet<&str> = SearchKind::ALL.iter().map(|k| k.as_str()).collect();
     assert_eq!(kinds, declared);
     for doc in &every_doc {
-        assert!(doc.href.starts_with('/'), "{} has no route", doc.kind.as_str());
+        assert!(
+            doc.href.starts_with('/'),
+            "{} has no route",
+            doc.kind.as_str()
+        );
     }
 }
 
 #[test]
 fn revision_changes_when_content_is_edited_or_removed() {
-    let base = to_search_docs(&snapshot_with_notes(vec![note("n1", "Method", "")]), &no_degrees());
+    let base = to_search_docs(
+        &snapshot_with_notes(vec![note("n1", "Method", "")]),
+        &no_degrees(),
+    );
     let mut edited_note = note("n1", "Method", "");
     edited_note.updated_at = "2026-03-01T00:00:00.000Z".to_owned();
     let edited = to_search_docs(&snapshot_with_notes(vec![edited_note]), &no_degrees());
@@ -356,22 +366,37 @@ fn revision_changes_when_content_is_edited_or_removed() {
 fn one_document_per_page_so_a_hit_can_say_which_page() {
     let docs = to_pdf_search_docs(
         &[pdf_source(vec![
-            page(0, "The dominant sequence transduction models use recurrence."),
-            page(1, "We propose a new simple network architecture, the Transformer."),
+            page(
+                0,
+                "The dominant sequence transduction models use recurrence.",
+            ),
+            page(
+                1,
+                "We propose a new simple network architecture, the Transformer.",
+            ),
         ])],
         &no_degrees(),
     );
 
     assert_eq!(docs.len(), 2);
-    assert_eq!(docs.iter().map(|d| d.page).collect::<Vec<_>>(), vec![Some(0), Some(1)]);
+    assert_eq!(
+        docs.iter().map(|d| d.page).collect::<Vec<_>>(),
+        vec![Some(0), Some(1)]
+    );
 }
 
 #[test]
 fn hits_deep_link_to_the_page_the_match_is_on() {
     let docs = to_pdf_search_docs(
         &[pdf_source(vec![
-            page(0, "The dominant sequence transduction models use recurrence."),
-            page(1, "We propose a new simple network architecture, the Transformer."),
+            page(
+                0,
+                "The dominant sequence transduction models use recurrence.",
+            ),
+            page(
+                1,
+                "We propose a new simple network architecture, the Transformer.",
+            ),
         ])],
         &no_degrees(),
     );
@@ -384,8 +409,14 @@ fn hits_deep_link_to_the_page_the_match_is_on() {
 fn pdf_ids_are_stable_and_unique_per_page() {
     let docs = to_pdf_search_docs(
         &[pdf_source(vec![
-            page(0, "The dominant sequence transduction models use recurrence."),
-            page(1, "We propose a new simple network architecture, the Transformer."),
+            page(
+                0,
+                "The dominant sequence transduction models use recurrence.",
+            ),
+            page(
+                1,
+                "We propose a new simple network architecture, the Transformer.",
+            ),
         ])],
         &no_degrees(),
     );
@@ -399,8 +430,14 @@ fn pdf_ids_are_stable_and_unique_per_page() {
 fn entity_id_is_the_paper_so_kind_filters_and_dedupe_behave() {
     let docs = to_pdf_search_docs(
         &[pdf_source(vec![
-            page(0, "The dominant sequence transduction models use recurrence."),
-            page(1, "We propose a new simple network architecture, the Transformer."),
+            page(
+                0,
+                "The dominant sequence transduction models use recurrence.",
+            ),
+            page(
+                1,
+                "We propose a new simple network architecture, the Transformer.",
+            ),
         ])],
         &no_degrees(),
     );
@@ -429,21 +466,36 @@ fn a_page_inherits_its_papers_link_degree() {
     let degrees = HashMap::from([("paper:p1".to_owned(), 9_u32)]);
     let docs = to_pdf_search_docs(
         &[pdf_source(vec![
-            page(0, "The dominant sequence transduction models use recurrence."),
-            page(1, "We propose a new simple network architecture, the Transformer."),
+            page(
+                0,
+                "The dominant sequence transduction models use recurrence.",
+            ),
+            page(
+                1,
+                "We propose a new simple network architecture, the Transformer.",
+            ),
         ])],
         &degrees,
     );
 
-    assert!(docs.iter().all(|d| d.degree == 9), "pages have no links of their own");
+    assert!(
+        docs.iter().all(|d| d.degree == 9),
+        "pages have no links of their own"
+    );
 }
 
 #[test]
 fn the_page_number_is_searchable_as_an_alias_and_shown_in_the_path() {
     let docs = to_pdf_search_docs(
         &[pdf_source(vec![
-            page(0, "The dominant sequence transduction models use recurrence."),
-            page(1, "We propose a new simple network architecture, the Transformer."),
+            page(
+                0,
+                "The dominant sequence transduction models use recurrence.",
+            ),
+            page(
+                1,
+                "We propose a new simple network architecture, the Transformer.",
+            ),
         ])],
         &no_degrees(),
     );
@@ -456,7 +508,11 @@ fn the_page_number_is_searchable_as_an_alias_and_shown_in_the_path() {
 fn page_ids_can_be_enumerated_to_replace_a_re_extracted_document() {
     assert_eq!(
         pdf_doc_ids_for("p1", 3),
-        vec![pdf_doc_id("p1", 0), pdf_doc_id("p1", 1), pdf_doc_id("p1", 2)]
+        vec![
+            pdf_doc_id("p1", 0),
+            pdf_doc_id("p1", 1),
+            pdf_doc_id("p1", 2)
+        ]
     );
 }
 
@@ -472,7 +528,11 @@ fn no_sources_yields_no_documents() {
 fn both_the_quoted_passage_and_the_comment_are_searchable() {
     let docs = to_annotation_search_docs(&[annotation()], &titles(), &no_degrees());
 
-    assert!(docs[0].body.contains("dependencies without regard to distance"));
+    assert!(
+        docs[0]
+            .body
+            .contains("dependencies without regard to distance")
+    );
     assert!(docs[0].body.contains("the claim the whole paper rests on"));
 }
 
@@ -482,7 +542,10 @@ fn a_hit_opens_the_reader_at_the_page_the_highlight_is_on() {
 
     assert_eq!(docs[0].href, "/reader?paper=p1&page=3");
     assert_eq!(docs[0].page, Some(3));
-    assert_eq!(docs[0].path, "page 4", "the path reads as a human page number");
+    assert_eq!(
+        docs[0].path, "page 4",
+        "the path reads as a human page number"
+    );
 }
 
 #[test]
@@ -490,7 +553,10 @@ fn the_papers_title_is_how_a_highlight_is_recognised() {
     let docs = to_annotation_search_docs(&[annotation()], &titles(), &no_degrees());
 
     assert_eq!(docs[0].title, "Attention Is All You Need");
-    assert_eq!(docs[0].entity_id, "p1", "grouped under the paper, like a PDF page");
+    assert_eq!(
+        docs[0].entity_id, "p1",
+        "grouped under the paper, like a PDF page"
+    );
 }
 
 #[test]
@@ -520,7 +586,10 @@ fn an_ink_stroke_or_crop_with_no_text_is_not_indexed() {
         &no_degrees(),
     );
 
-    assert!(docs.is_empty(), "an empty document would surface on title-only matches");
+    assert!(
+        docs.is_empty(),
+        "an empty document would surface on title-only matches"
+    );
 }
 
 #[test]

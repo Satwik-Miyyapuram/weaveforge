@@ -1040,7 +1040,10 @@ mod tests {
             panic!("expected the link upsert")
         };
         assert_eq!(queries[0].action, RepoAction::Upsert);
-        assert_eq!(queries[0].body.as_ref().unwrap().as_array().map(Vec::len), Some(2));
+        assert_eq!(
+            queries[0].body.as_ref().unwrap().as_array().map(Vec::len),
+            Some(2)
+        );
         let id0 = c(vec![]).id(0);
         let id1 = c(vec![]).id(1);
         let mut replies = vec![Value::Null; 6];
@@ -1051,7 +1054,10 @@ mod tests {
             panic!("expected the paper cache write")
         };
         assert_eq!(queries[0].table, "papers");
-        assert_eq!(queries[0].body.as_ref().unwrap()["tags"], json!(["ml", "nlp"]));
+        assert_eq!(
+            queries[0].body.as_ref().unwrap()["tags"],
+            json!(["ml", "nlp"])
+        );
     }
 
     #[test]
@@ -1100,9 +1106,11 @@ mod tests {
             json!({ "id": "t1", "name": "a", "color": null }),
             Value::Null,
         ];
-        let RepoStep::Send { queries } =
-            step("mergeTags", &call(vec![json!("p1"), json!(["a", "b"])], replies)).unwrap()
-        else {
+        let RepoStep::Send { queries } = step(
+            "mergeTags",
+            &call(vec![json!("p1"), json!(["a", "b"])], replies),
+        )
+        .unwrap() else {
             panic!("expected the create for the new tag only")
         };
         assert_eq!(queries.len(), 1);

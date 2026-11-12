@@ -75,7 +75,8 @@ mod tests {
 
     #[test]
     fn a_hand_written_file_with_frontmatter_keeps_it_plus_an_id() {
-        let stamped = stamp_workspace_id("---\ntitle: My idea\ntags:\n  - a\n---\n\nthe body\n", "n1");
+        let stamped =
+            stamp_workspace_id("---\ntitle: My idea\ntags:\n  - a\n---\n\nthe body\n", "n1");
         assert_eq!(
             stamped.as_deref(),
             Some("---\nweaveforge-id: n1\ntitle: My idea\ntags:\n  - a\n---\n\nthe body\n")
@@ -115,8 +116,8 @@ mod tests {
 
     #[test]
     fn the_stamped_file_parses_back_as_that_entity() {
-        let stamped = stamp_workspace_id("---\ntitle: My idea\n---\n\nthe body\n", "n1")
-            .unwrap_or_default();
+        let stamped =
+            stamp_workspace_id("---\ntitle: My idea\n---\n\nthe body\n", "n1").unwrap_or_default();
         let parsed = parse_workspace_file("notes/My idea.md", &stamped)
             .expect("stamped file parses as an entity");
         assert_eq!(parsed.id.as_deref(), Some("n1"));
