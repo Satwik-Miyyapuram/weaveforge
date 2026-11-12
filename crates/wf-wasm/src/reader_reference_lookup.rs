@@ -42,8 +42,16 @@ pub fn should_store_lookup_js(status: &str) -> bool {
 /// # Errors
 ///
 /// Fails if `entry` is not a `{ doi, arxivId, title, year, firstAuthor }` object.
-#[wasm_bindgen(js_name = referenceLookupAttempts)]
-pub fn reference_lookup_attempts_js(entry: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(
+    js_name = referenceLookupAttempts,
+    unchecked_return_type = "{ kind: \"doi\" | \"arxiv\" | \"bibliographic\"; value: string; hints?: B.ReferenceHints }[]"
+)]
+pub fn reference_lookup_attempts_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "{ doi?: string; arxivId?: string; title?: string; year?: number; firstAuthor?: string }"
+    )]
+    entry: JsValue,
+) -> JsResult<JsValue> {
     let entry: LookupEntry = serde_wasm_bindgen::from_value(entry)?;
     to_js(&lookup_attempts(&entry))
 }

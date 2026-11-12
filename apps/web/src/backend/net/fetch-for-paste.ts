@@ -37,7 +37,7 @@ export async function fetchPageTitle(target: string, options: SafeFetchOptions =
 
   // A PDF or an image has no title to read, and decoding megabytes of one to
   // find that out helps nobody.
-  if (!typedCore().isHtmlContentType(result.contentType)) {
+  if (!typedCore().isPasteHtmlContentType(result.contentType)) {
     return { ok: false, status: 415, message: "That address is not a web page." };
   }
 

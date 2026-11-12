@@ -12,14 +12,18 @@ pub const STORAGE_LIST_PAGE: usize = 200;
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListedEntry {
+    /// The entry's name in the listing.
     pub name: String,
+    /// Whether the entry is a file rather than a folder.
     pub is_file: bool,
 }
 
 /// The entries of one listing, split into object keys to delete and folders to list next.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct ListingSplit {
+    /// Object keys to delete.
     pub files: Vec<String>,
+    /// Folders to list next.
     pub folders: Vec<String>,
 }
 

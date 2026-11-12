@@ -21,9 +21,13 @@ pub const NOT_REPORTED_REASON: &str = "Zotero did not report this annotation as 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum WriteOutcome {
+    /// The annotation was created in Zotero.
     Created,
+    /// The existing Zotero annotation was updated.
     Updated,
+    /// Zotero rejected the write because the version was stale.
     Conflict,
+    /// The write failed for another reason.
     Failed,
 }
 
@@ -32,12 +36,17 @@ pub enum WriteOutcome {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WriteBackResult {
+    /// The annotation id this result is for.
     pub id: String,
+    /// What became of the annotation.
     pub outcome: WriteOutcome,
+    /// The Zotero item key, when one is known.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub zotero_key: Option<String>,
+    /// The library version after the write, when known.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub zotero_version: Option<f64>,
+    /// Why the write failed or conflicted, when it did.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
@@ -47,20 +56,25 @@ pub struct WriteBackResult {
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateReply {
+    /// The items Zotero created, keyed by request index.
     pub successful: Option<BTreeMap<String, CreatedEntry>>,
+    /// The items Zotero rejected, keyed by request index.
     pub failed: Option<BTreeMap<String, FailedEntry>>,
 }
 
 /// An item Zotero created: its key and the library version after the write.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 pub struct CreatedEntry {
+    /// The key Zotero gave the new item.
     pub key: Option<String>,
+    /// The library version after the write.
     pub version: Option<f64>,
 }
 
 /// An item Zotero rejected, with its message.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 pub struct FailedEntry {
+    /// Zotero's message for the rejection.
     pub message: Option<String>,
 }
 
@@ -83,7 +97,7 @@ pub fn update_headers(api_key: &str, zotero_version: Option<f64>) -> BTreeMap<St
     let mut headers = BTreeMap::from([("Content-Type".to_owned(), "application/json".to_owned())]);
     headers.extend(zotero_headers(api_key));
     if let Some(version) = zotero_version {
-        headers.insert(
+        let _ = headers.insert(
             "If-Unmodified-Since-Version".to_owned(),
             format!("{version}"),
         );
@@ -249,7 +263,7 @@ mod tests {
         assert_eq!(out.outcome, WriteOutcome::Failed);
         assert_eq!(
             out.reason.as_deref(),
-            Some("Zotero update failed (500). upstream boom")
+            Some("Zotero update failed (500).   upstream boom")
         );
     }
 

@@ -143,12 +143,10 @@ pub fn ink_chunk_blob_spec_js() -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `paths` is not an array of strings.
-#[wasm_bindgen(
-    js_name = inkChunkIdsInListing,
-    unchecked_param_type = "string[]",
-    unchecked_return_type = "string[]"
-)]
-pub fn ink_chunk_ids_in_listing_js(paths: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = inkChunkIdsInListing, unchecked_return_type = "string[]")]
+pub fn ink_chunk_ids_in_listing_js(
+    #[wasm_bindgen(unchecked_param_type = "string[]")] paths: JsValue,
+) -> JsResult<JsValue> {
     let paths: Vec<String> = serde_wasm_bindgen::from_value(paths)?;
     to_js(&ink_paths::ink_chunk_ids_in_listing(&paths))
 }

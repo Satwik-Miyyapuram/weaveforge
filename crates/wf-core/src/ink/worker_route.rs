@@ -34,8 +34,8 @@ const PASS_THROUGH: &[&str] = &[
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InkWorkerRouteState {
-    /// The stroke being drawn, or none.
-    pub live_stroke_id: Option<String>,
+    /// JS number; the stroke being drawn, or none.
+    pub live_stroke_id: Option<f64>,
     /// JS number; the page the worker is showing.
     pub page_index: f64,
 }
@@ -44,11 +44,16 @@ pub struct InkWorkerRouteState {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InkWorkerRouteInput {
+    /// The message type, from the `type` field.
     #[serde(rename = "type")]
     pub kind: String,
+    /// What the worker currently holds.
     pub state: InkWorkerRouteState,
-    pub stroke_id: Option<String>,
+    /// JS number; the stroke the message refers to, when it has one.
+    pub stroke_id: Option<f64>,
+    /// Page the message refers to, when it has one.
     pub page_index: Option<f64>,
+    /// Whether the samples in the message are predicted.
     pub predicted: Option<bool>,
 }
 
@@ -56,6 +61,7 @@ pub struct InkWorkerRouteInput {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InkWorkerPlan {
+    /// `"ignore"`, or the message type to run.
     pub action: String,
     /// Only meaningful for `"samples"`: replace the predicted tail, not append.
     pub predicted: bool,
@@ -109,18 +115,18 @@ mod tests {
 
     fn route(
         kind: &str,
-        live: Option<&str>,
-        stroke: Option<&str>,
+        live: Option<f64>,
+        stroke: Option<f64>,
         page: Option<f64>,
         predicted: Option<bool>,
     ) -> super::InkWorkerPlan {
         ink_worker_route(&InkWorkerRouteInput {
             kind: kind.to_owned(),
             state: InkWorkerRouteState {
-                live_stroke_id: live.map(str::to_owned),
+                live_stroke_id: live,
                 page_index: 2.0,
             },
-            stroke_id: stroke.map(str::to_owned),
+            stroke_id: stroke,
             page_index: page,
             predicted,
         })
@@ -128,18 +134,18 @@ mod tests {
 
     #[test]
     fn samples_reach_only_the_live_stroke_and_keep_the_predicted_flag() {
-        assert_eq!(route("samples", Some("s1"), Some("s1"), None, Some(true)).action, "samples");
-        assert!(route("samples", Some("s1"), Some("s1"), None, Some(true)).predicted);
-        assert!(!route("samples", Some("s1"), Some("s1"), None, None).predicted);
-        assert_eq!(route("samples", Some("s1"), Some("s2"), None, None).action, "ignore");
-        assert_eq!(route("samples", None, Some("s1"), None, None).action, "ignore");
+        assert_eq!(route("samples", Some(1.0), Some(1.0), None, Some(true)).action, "samples");
+        assert!(route("samples", Some(1.0), Some(1.0), None, Some(true)).predicted);
+        assert!(!route("samples", Some(1.0), Some(1.0), None, None).predicted);
+        assert_eq!(route("samples", Some(1.0), Some(2.0), None, None).action, "ignore");
+        assert_eq!(route("samples", None, Some(1.0), None, None).action, "ignore");
     }
 
     #[test]
     fn stroke_end_commits_only_the_matching_live_stroke() {
-        assert_eq!(route("stroke-end", Some("s1"), Some("s1"), None, None).action, "stroke-end");
-        assert_eq!(route("stroke-end", Some("s1"), Some("s9"), None, None).action, "ignore");
-        assert_eq!(route("stroke-end", None, Some("s1"), None, None).action, "ignore");
+        assert_eq!(route("stroke-end", Some(1.0), Some(1.0), None, None).action, "stroke-end");
+        assert_eq!(route("stroke-end", Some(1.0), Some(9.0), None, None).action, "ignore");
+        assert_eq!(route("stroke-end", None, Some(1.0), None, None).action, "ignore");
     }
 
     #[test]

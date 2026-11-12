@@ -163,7 +163,9 @@ export class OpenAlexMetadataSource implements IMetadataSource {
     const works = body.results ?? [];
     const index = core.openAlexFirstMatch(ref.hints ?? {}, works);
     if (index === undefined) throw new Error("No sufficiently similar OpenAlex match");
-    return paperInputWithoutNulls(core.openAlexToMetadata(works[index]));
+    const work = works[index];
+    if (work === undefined) throw new Error("No sufficiently similar OpenAlex match");
+    return paperInputWithoutNulls(core.openAlexToMetadata(work));
   }
 }
 

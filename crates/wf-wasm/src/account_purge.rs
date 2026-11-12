@@ -28,6 +28,7 @@ pub fn storage_list_page_js() -> u32 {
 #[wasm_bindgen(js_name = splitStorageListing, unchecked_return_type = "{ files: string[]; folders: string[] }")]
 pub fn split_storage_listing_js(
     current: &str,
+    #[wasm_bindgen(unchecked_param_type = "readonly { name: string; isFile: boolean }[]")]
     entries: wasm_bindgen::JsValue,
 ) -> Result<wasm_bindgen::JsValue, serde_wasm_bindgen::Error> {
     let entries: Vec<account_purge::ListedEntry> = serde_wasm_bindgen::from_value(entries)?;

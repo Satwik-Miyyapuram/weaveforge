@@ -79,7 +79,7 @@ pub fn full_image_thumbnail_path_js(path: &str) -> Option<String> {
 }
 
 /// [`paper_image_upload_paths`](paper_image::paper_image_upload_paths) (TS `PaperImageStore.upload`). Returns `[full, thumb]`.
-#[wasm_bindgen(js_name = paperImageUploadPaths)]
+#[wasm_bindgen(js_name = paperImageUploadPaths, unchecked_return_type = "[string, string]")]
 pub fn paper_image_upload_paths_js(
     user_id: &str,
     paper_id: &str,

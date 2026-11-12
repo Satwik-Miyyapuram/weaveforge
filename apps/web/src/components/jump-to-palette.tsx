@@ -415,13 +415,13 @@ export function JumpToPalette() {
       {
         key: "shortcuts",
         label: "Keyboard shortcuts",
-        hint: readyCore().shortcutLabel(keys["show-shortcuts"], mac),
+        hint: readyCore().shortcutLabel(keys["show-shortcuts"] ?? "", mac),
         run: leave(() => requestShortcuts()),
       },
       {
         key: "workspace-search",
         label: "Search workspace",
-        hint: readyCore().shortcutLabel(keys["workspace-search"], mac),
+        hint: readyCore().shortcutLabel(keys["workspace-search"] ?? "", mac),
         run: () => {
           setMode("search");
           setQuery("");

@@ -23,7 +23,10 @@ pub fn zotero_write_back_library_version(raw: Option<String>) -> Option<f64> {
 /// # Errors
 ///
 /// Fails if the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = zoteroWriteBackUpdateHeaders)]
+#[wasm_bindgen(
+    js_name = zoteroWriteBackUpdateHeaders,
+    unchecked_return_type = "Record<string, string>"
+)]
 pub fn zotero_write_back_update_headers(
     api_key: &str,
     zotero_version: Option<f64>,
@@ -42,7 +45,10 @@ pub fn zotero_write_back_update_url(base: &str, zotero_key: &str) -> String {
 /// # Errors
 ///
 /// Fails if the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = zoteroWriteBackUpdateOutcome)]
+#[wasm_bindgen(
+    js_name = zoteroWriteBackUpdateOutcome,
+    unchecked_return_type = "{ id: string; outcome: \"created\" | \"updated\" | \"conflict\" | \"failed\"; zoteroKey?: string; zoteroVersion?: number; reason?: string }"
+)]
 pub fn zotero_write_back_update_outcome(
     id: &str,
     zotero_key: &str,
@@ -59,12 +65,15 @@ pub fn zotero_write_back_update_outcome(
 /// # Errors
 ///
 /// Fails if `ids` is not an array of strings or the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = zoteroWriteBackCreateOutcomes)]
+#[wasm_bindgen(
+    js_name = zoteroWriteBackCreateOutcomes,
+    unchecked_return_type = "{ id: string; outcome: \"created\" | \"updated\" | \"conflict\" | \"failed\"; zoteroKey?: string; zoteroVersion?: number; reason?: string }[]"
+)]
 pub fn zotero_write_back_create_outcomes(
-    ids: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] ids: JsValue,
     status: u16,
     detail: &str,
-    body: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "unknown")] body: JsValue,
     library_version: Option<f64>,
 ) -> JsResult<JsValue> {
     let ids: Vec<String> = serde_wasm_bindgen::from_value(ids)?;

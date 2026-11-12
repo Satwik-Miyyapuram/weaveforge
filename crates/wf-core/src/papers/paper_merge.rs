@@ -275,7 +275,9 @@ fn stable_json(value: &Value) -> String {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct MergeCopy {
+    /// The paper id of this copy.
     pub id: String,
+    /// Whether this copy is linked to a Zotero item.
     pub linked: bool,
 }
 
@@ -285,8 +287,11 @@ pub struct MergeCopy {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct MergeOrder {
+    /// The id of the copy that survives the merge.
     pub kept: String,
+    /// The ids of the copies folded into the kept one, in order.
     pub dups: Vec<String>,
+    /// Why the merge cannot run, or `None` when it can.
     pub refusal: Option<String>,
 }
 

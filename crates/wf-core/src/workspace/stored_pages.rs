@@ -10,8 +10,11 @@ use crate::sync::change_origin::digest_text;
 /// A note's id, title and body as stored.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
 pub struct StoredPage {
+    /// The note's id.
     pub id: String,
+    /// The note's title.
     pub title: String,
+    /// The note's body.
     pub body: String,
 }
 

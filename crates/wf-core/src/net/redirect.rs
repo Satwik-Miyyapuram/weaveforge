@@ -15,9 +15,15 @@ pub enum RedirectStep {
     /// Not a redirect: the caller reads the response as the final answer.
     NotRedirect,
     /// Follow the redirect to this absolute URL, which the loop checks and pins again.
-    Follow { url: String },
+    Follow {
+        /// The absolute URL to request next.
+        url: String,
+    },
     /// The redirect cannot be followed; the message is shown to the visitor.
-    Failed { message: String },
+    Failed {
+        /// The text shown to the visitor.
+        message: String,
+    },
 }
 
 /// Decides the next step after a response.

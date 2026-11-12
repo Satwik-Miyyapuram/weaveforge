@@ -143,9 +143,10 @@ mod tests {
     // it: "treats texts that differ only in writtenAt as the same manifest"
     #[test]
     fn same_when_only_the_stamp_differs() {
-        let none = BTreeMap::new();
-        let first = manifest_text(&strings(&["a.md"]), &none, &none, "2026-01-01T00:00:00.000Z");
-        let second = manifest_text(&strings(&["a.md"]), &none, &none, "2026-02-02T00:00:00.000Z");
+        let digests = BTreeMap::new();
+        let bases = BTreeMap::new();
+        let first = manifest_text(&strings(&["a.md"]), &digests, &bases, "2026-01-01T00:00:00.000Z");
+        let second = manifest_text(&strings(&["a.md"]), &digests, &bases, "2026-02-02T00:00:00.000Z");
         assert_ne!(first, second);
         assert!(same_manifest_ignoring_stamp(&first, &second));
     }
@@ -153,9 +154,10 @@ mod tests {
     // it: "treats a change to the claimed paths as a different manifest"
     #[test]
     fn different_when_paths_differ() {
-        let none = BTreeMap::new();
-        let first = manifest_text(&strings(&["a.md"]), &none, &none, "T");
-        let second = manifest_text(&strings(&["a.md", "b.md"]), &none, &none, "T");
+        let digests = BTreeMap::new();
+        let bases = BTreeMap::new();
+        let first = manifest_text(&strings(&["a.md"]), &digests, &bases, "T");
+        let second = manifest_text(&strings(&["a.md", "b.md"]), &digests, &bases, "T");
         assert!(!same_manifest_ignoring_stamp(&first, &second));
     }
 

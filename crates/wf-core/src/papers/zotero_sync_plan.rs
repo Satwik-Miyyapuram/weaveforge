@@ -13,9 +13,13 @@ use super::zotero_mapping::{ZoteroItem, zotero_arxiv_id, zotero_content_keys};
 #[serde(default, rename_all = "camelCase")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ZoteroSyncLocal {
+    /// The paper's DOI, if known.
     pub doi: Option<String>,
+    /// The paper's arXiv id, if known.
     pub arxiv_id: Option<String>,
+    /// The paper's title, if known.
     pub title: Option<String>,
+    /// The paper's Zotero item key, if linked.
     pub zotero_key: Option<String>,
 }
 
@@ -25,8 +29,11 @@ pub struct ZoteroSyncLocal {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct ZoteroSyncPlan {
+    /// Indices into the remote list to pull.
     pub pull: Vec<usize>,
+    /// Indices into the local list to push to Zotero.
     pub push: Vec<usize>,
+    /// Indices into the local list to delete.
     pub delete: Vec<usize>,
 }
 

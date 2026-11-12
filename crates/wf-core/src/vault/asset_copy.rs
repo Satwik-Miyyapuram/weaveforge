@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetCopy {
+    /// Path of the image as it appears in the shared note.
     pub old_path: String,
+    /// Path of the copy, or `None` when the copy failed.
     pub new_path: Option<String>,
 }
 
@@ -15,7 +17,9 @@ pub struct AssetCopy {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetRewrite {
+    /// Path of the image as it appears in the shared note.
     pub old_path: String,
+    /// Path the copied image has in the new vault.
     pub new_path: String,
 }
 
@@ -23,7 +27,9 @@ pub struct AssetRewrite {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetCopyPlan {
+    /// Images that could not be copied and stay borrowed from the owner.
     pub failed_assets: Vec<String>,
+    /// `vault:` path rewrites for the copies that worked.
     pub rewrites: Vec<AssetRewrite>,
 }
 

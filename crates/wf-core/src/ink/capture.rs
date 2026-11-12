@@ -14,8 +14,8 @@ use super::one_euro::{position_options, pressure_options, NibFilter, NibFilterSt
 /// `timeStamp` is absent; a NaN `x` or `y` is a point off the page.
 pub const RAW_STRIDE: usize = 6;
 
-/// Values per output sample: `x, y, pressure, t`.
-pub const OUT_STRIDE: usize = 4;
+/// Values per output sample: `x, y, pressure, t, velocity`.
+pub const OUT_STRIDE: usize = 5;
 
 /// Raw flag: the sample is the stroke's first (`beginStroke`). Never de-duplicated.
 pub const FLAG_FIRST: u32 = 1;
@@ -37,6 +37,8 @@ pub struct CaptureSample {
     pub pressure: f64,
     /// Milliseconds.
     pub t: f64,
+    /// Speed in 0.1 mm per ms, from the nib filter.
+    pub velocity: f64,
     /// `FLAG_PREDICTED` and `FLAG_DISPATCHED` as they arrived.
     pub flags: u32,
 }
@@ -139,6 +141,7 @@ impl CaptureStream {
                 y: sample.y,
                 pressure: sample.pressure,
                 t: sample.t,
+                velocity: sample.velocity,
                 flags: flags & (FLAG_PREDICTED | FLAG_DISPATCHED),
             });
         }
@@ -186,7 +189,7 @@ mod tests {
         let mut stream = CaptureStream::new();
         let batch = flat(&[
             raw(10.0, 10.0, 1.0, FLAG_FIRST),
-            raw(20.0, 20.0, 2.0, 0.0),
+            raw(20.0, 20.0, 2.0, 0),
             raw(20.0, 20.0, 2.0, FLAG_DISPATCHED),
         ]);
         let out = stream.consume(&batch, 0.0);
@@ -219,7 +222,7 @@ mod tests {
     fn predicted_samples_are_flagged_and_not_remembered_as_real() {
         let mut stream = CaptureStream::new();
         let real = flat(&[raw(10.0, 10.0, 1.0, FLAG_FIRST)]);
-        stream.consume(&real, 0.0);
+        let _ = stream.consume(&real, 0.0);
         let predicted = flat(&[raw(10.0, 10.0, 1.0, FLAG_PREDICTED)]);
         let out = stream.consume(&predicted, 0.0);
         // A predicted sample with the same position and time is not a repeat.
@@ -234,15 +237,15 @@ mod tests {
         let mut without = CaptureStream::new();
         let head = flat(&[
             raw(10.0, 10.0, 1.0, FLAG_FIRST),
-            raw(12.0, 11.0, 2.0, 0.0),
+            raw(12.0, 11.0, 2.0, 0),
         ]);
-        with.consume(&head, 0.0);
-        without.consume(&head, 0.0);
+        let _ = with.consume(&head, 0.0);
+        let _ = without.consume(&head, 0.0);
 
         let guess = flat(&[raw(400.0, 400.0, 3.0, FLAG_PREDICTED)]);
-        with.consume(&guess, 0.0);
+        let _ = with.consume(&guess, 0.0);
 
-        let tail = flat(&[raw(14.0, 12.0, 3.0, 0.0)]);
+        let tail = flat(&[raw(14.0, 12.0, 3.0, 0)]);
         let a = with.consume(&tail, 0.0);
         let b = without.consume(&tail, 0.0);
         assert_eq!(a, b);
@@ -251,8 +254,8 @@ mod tests {
     #[test]
     fn a_new_stroke_starts_from_a_clean_filter() {
         let mut stream = CaptureStream::new();
-        let batch = flat(&[raw(10.0, 10.0, 1.0, FLAG_FIRST), raw(50.0, 50.0, 2.0, 0.0)]);
-        stream.consume(&batch, 0.0);
+        let batch = flat(&[raw(10.0, 10.0, 1.0, FLAG_FIRST), raw(50.0, 50.0, 2.0, 0)]);
+        let _ = stream.consume(&batch, 0.0);
         stream.reset_filter();
         stream.forget_last();
         let fresh = flat(&[raw(10.0, 10.0, 1.0, FLAG_FIRST)]);

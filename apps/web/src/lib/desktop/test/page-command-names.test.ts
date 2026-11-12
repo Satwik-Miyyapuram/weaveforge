@@ -17,7 +17,13 @@ const titleBar = readFileSync(
   new URL("../../../components/desktop-title-bar.tsx", import.meta.url),
   "utf8",
 );
-const tsSource = `${editTs}\n${titleBar}`;
+// The edit-* ids moved from menu-edit.ts into Rust (`exec_command_name`); the
+// handler is the non-test part of edit_menu.rs.
+const editMenuRs = readFileSync(
+  new URL("../../../../../../crates/wf-core/src/app_lib/edit_menu.rs", import.meta.url),
+  "utf8",
+).split("#[cfg(test)]")[0] ?? "";
+const tsSource = `${editTs}\n${titleBar}\n${editMenuRs}`;
 
 const rustIds = commandsIn(rust);
 const tsIds = commandsIn(tsSource);

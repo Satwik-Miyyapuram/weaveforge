@@ -40,10 +40,10 @@ pub fn match_references(
     let mut by_doi: HashMap<String, usize> = HashMap::new();
     for (index, paper) in library.iter().enumerate() {
         if let Some(arxiv) = paper.arxiv_id.as_deref().filter(|id| !id.is_empty()) {
-            by_arxiv.insert(arxiv, index);
+            let _ = by_arxiv.insert(arxiv, index);
         }
         if let Some(doi) = normalize_doi(paper.doi.as_deref()) {
-            by_doi.insert(doi, index);
+            let _ = by_doi.insert(doi, index);
         }
     }
     library
@@ -64,7 +64,9 @@ pub fn match_references(
                                         .unwrap_or_else(|| cited.value.clone());
                                     by_doi.get(&key).copied()
                                 }
-                                PaperRefKind::Url | PaperRefKind::Zotero => None,
+                                PaperRefKind::Url
+                                | PaperRefKind::Zotero
+                                | PaperRefKind::Bibliographic => None,
                             };
                             found.filter(|&matched| library[matched].id != paper.id)
                         })
@@ -105,12 +107,21 @@ mod tests {
     // it: "a DOI reference matches by normalised DOI"
     #[test]
     fn a_doi_reference_matches_by_normalised_doi() {
-        let library = [entry("a", None, Some("https://doi.org/10.1145/ABC"))];
-        let refs = [Some(vec![
-            cite(PaperRefKind::Doi, "10.1145/abc"),
-            cite(PaperRefKind::Doi, "10.9999/other"),
-        ])];
-        assert_eq!(match_references(&library, &refs), vec![vec![Some(0), None]]);
+        let library = [
+            entry("a", None, Some("https://doi.org/10.1145/ABC")),
+            entry("b", None, None),
+        ];
+        let refs = [
+            None,
+            Some(vec![
+                cite(PaperRefKind::Doi, "10.1145/abc"),
+                cite(PaperRefKind::Doi, "10.9999/other"),
+            ]),
+        ];
+        assert_eq!(
+            match_references(&library, &refs),
+            vec![vec![], vec![Some(0), None]]
+        );
     }
 
     // it: "a reference to the paper itself and an unmatched URL both match nothing"

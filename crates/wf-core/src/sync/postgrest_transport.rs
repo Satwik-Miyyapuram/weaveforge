@@ -17,10 +17,14 @@ pub const RETURN_REPRESENTATION: &str = "return=representation";
 /// body and `prefer` header when it has them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestSpec {
+    /// The HTTP method.
     pub method: String,
+    /// The path under the REST root.
     pub path: String,
+    /// The request body, when there is one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+    /// The `prefer` header value, when there is one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prefer: Option<String>,
 }
@@ -28,9 +32,13 @@ pub struct RequestSpec {
 /// A request ready for `fetch`: the path to append to the REST root, the headers, and the body.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RequestInit {
+    /// The HTTP method.
     pub method: String,
+    /// The path to append to the REST root.
     pub path: String,
+    /// The headers to send.
     pub headers: BTreeMap<String, String>,
+    /// The request body, when there is one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
 }
@@ -39,11 +47,17 @@ pub struct RequestInit {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PullChange {
+    /// The table the change belongs to.
     pub table: String,
+    /// The id of the changed row.
     pub row_id: String,
+    /// The server sequence number of the change.
     pub server_seq: f64,
+    /// When the row was deleted, or null if it was not.
     pub deleted_at: Value,
+    /// The version of the row after the change.
     pub row_version: f64,
+    /// The row's contents.
     pub row: Value,
 }
 
@@ -149,13 +163,13 @@ pub fn changes_request(since: i64, limit: i64) -> RequestSpec {
 #[must_use]
 pub fn request_init(spec: &RequestSpec, api_key: &str, token: Option<&str>) -> RequestInit {
     let mut headers = BTreeMap::new();
-    headers.insert("content-type".to_owned(), "application/json".to_owned());
-    headers.insert("apikey".to_owned(), api_key.to_owned());
+    let _ = headers.insert("content-type".to_owned(), "application/json".to_owned());
+    let _ = headers.insert("apikey".to_owned(), api_key.to_owned());
     if let Some(token) = token.filter(|token| !token.is_empty()) {
-        headers.insert("authorization".to_owned(), format!("Bearer {token}"));
+        let _ = headers.insert("authorization".to_owned(), format!("Bearer {token}"));
     }
     if let Some(prefer) = spec.prefer.as_deref().filter(|prefer| !prefer.is_empty()) {
-        headers.insert("prefer".to_owned(), prefer.to_owned());
+        let _ = headers.insert("prefer".to_owned(), prefer.to_owned());
     }
     RequestInit {
         method: spec.method.clone(),
@@ -349,7 +363,7 @@ mod tests {
     fn a_conflict_checks_the_tombstone_for_this_row() {
         assert_eq!(
             tombstone_request("projects", ROW).path,
-            "/sync_tombstones?table_name=eq.projects&row_id=eq.11111111-1111-4111-8111-111111111111"
+            "/sync_tombstones?table_name=eq.projects&row_id=eq.11111111-1111-4111-8111-111111111111&select=row_id"
         );
     }
 

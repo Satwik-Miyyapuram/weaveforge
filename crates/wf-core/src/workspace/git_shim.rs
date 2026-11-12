@@ -4,7 +4,7 @@
 
 use std::collections::HashSet;
 
-use crate::sync::{decide_git_sync_path, GitSyncDecision};
+use crate::sync::git_policy::{decide_git_sync_path, GitSyncDecision};
 
 /// Strips leading and trailing slashes from an isomorphic-git `dir`/path. `.` means the repo
 /// root, as does the empty string, so both come back as `""`.

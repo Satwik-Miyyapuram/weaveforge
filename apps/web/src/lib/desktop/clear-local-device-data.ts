@@ -22,6 +22,10 @@ function deleteDatabase(name: string): Promise<void> {
 /** Remove all app-local persistence from this browser (sign-out / account delete). */
 export async function clearLocalDeviceData(): Promise<void> {
   if (typeof window === "undefined") return;
+  // Taken before the first await: the wipe covers the storage that existed when sign-out ran,
+  // not whatever the global holds once the Rust core has loaded.
+  const session = sessionStorage;
+  const local = localStorage;
   // Which keys are account state is decided in Rust (`wf_core::app_lib::storage_keys`).
   const core = await loadCore();
 
@@ -30,12 +34,12 @@ export async function clearLocalDeviceData(): Promise<void> {
   stopAllRelays();
 
   // Storage has no .keys(); snapshot names first (removeItem mutates the store).
-  for (const key of Object.keys(sessionStorage)) {
-    if (core.isAppStorageKey(key)) sessionStorage.removeItem(key);
+  for (const key of Object.keys(session)) {
+    if (core.isAppStorageKey(key)) session.removeItem(key);
   }
 
-  for (const key of Object.keys(localStorage)) {
-    if (core.isAppStorageKey(key)) localStorage.removeItem(key);
+  for (const key of Object.keys(local)) {
+    if (core.isAppStorageKey(key)) local.removeItem(key);
   }
 
   await clearPersistedMcpSessions();

@@ -6,7 +6,9 @@
 /// A vertical span: a row, or the visible part of a scroller.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Span {
+    /// The top edge, in px.
     pub top: f64,
+    /// The bottom edge, in px.
     pub bottom: f64,
 }
 

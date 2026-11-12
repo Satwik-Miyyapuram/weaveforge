@@ -327,7 +327,7 @@ export const CAPTURE_FLAG_PREDICTED = 2;
 /** Raw and output flag: the dispatched event itself, not a coalesced one. */
 export const CAPTURE_FLAG_DISPATCHED = 4;
 
-/** One update's accepted samples, copied out of wasm. `samples` is `x, y, pressure, t` quadruples. */
+/** One update's accepted samples, copied out of wasm. `samples` is `x, y, pressure, t, velocity` quintuples. */
 export interface CaptureBatch {
   count: number;
   samples: Float64Array;

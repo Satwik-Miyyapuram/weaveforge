@@ -275,7 +275,9 @@ mod paging_tests {
     fn attempt_backoff_grows_by_a_second_and_clamps() {
         assert_eq!(zotero_attempt_backoff_ms(0), 1000.0);
         assert_eq!(zotero_attempt_backoff_ms(1), 2000.0);
-        assert_eq!(zotero_attempt_backoff_ms(5), 30_000.0);
+        assert_eq!(zotero_attempt_backoff_ms(5), 6000.0);
+        assert_eq!(zotero_attempt_backoff_ms(29), 30_000.0);
+        assert_eq!(zotero_attempt_backoff_ms(100), 30_000.0);
     }
 }
 

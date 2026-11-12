@@ -12,7 +12,9 @@ pub const VIEWPORT_PAD: f64 = 12.0;
 /// The pointer point a menu opened at.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Point {
+    /// Horizontal position, in px.
     pub x: f64,
+    /// Vertical position, in px.
     pub y: f64,
 }
 
@@ -20,15 +22,27 @@ pub struct Point {
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum Action {
-    Open { x: f64, y: f64, count: usize },
+    /// Open the menu at this point, with this many items.
+    Open {
+        /// Horizontal position, in px.
+        x: f64,
+        /// Vertical position, in px.
+        y: f64,
+        /// Number of menu items.
+        count: usize,
+    },
+    /// Close the menu.
     Close,
 }
 
 /// The next state, whether the open was accepted, and whether listeners must be notified.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct Reduction {
+    /// The menu position after the action, or `None` when closed.
     pub state: Option<Point>,
+    /// Whether the open was accepted.
     pub accepted: bool,
+    /// Whether listeners must be notified.
     pub changed: bool,
 }
 

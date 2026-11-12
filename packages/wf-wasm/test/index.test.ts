@@ -197,16 +197,20 @@ test("wf-wasm exports no classes or enums", () => {
   // Agree how to type them before adding one.
   // The agreed classes, each typed by wasm-bindgen: the AI AiAccessPolicy, the
   // search VectorIndex and SearchIndexState, the live InkStrokePacker, the import ArchiveBudget, the
-  // stateful pen filters OneEuroFilter and NibFilter, and the stateful ink gesture
-  // machines EraserSweepState, InkRoutePicker and StrokeEdgeSplit.
+  // stateful pen filters OneEuroFilter and NibFilter, the stateful ink gesture
+  // machines EraserSweepState, InkRoutePicker and StrokeEdgeSplit, the pen capture
+  // InkCaptureStream and InkCaptureBatch, and the search MiniSearchDocs.
   const dts = read(new URL("wf_wasm.d.ts", pkgDir));
   const declared = [...dts.matchAll(/^export (?:declare )?(?:class|enum) (\w+)/gm)].map((m) => m[1]);
   assert.deepEqual(declared.sort(), [
     "AiAccessPolicy",
     "ArchiveBudget",
     "EraserSweepState",
+    "InkCaptureBatch",
+    "InkCaptureStream",
     "InkRoutePicker",
     "InkStrokePacker",
+    "MiniSearchDocs",
     "NibFilter",
     "OneEuroFilter",
     "SearchIndexState",
@@ -506,7 +510,7 @@ test("parsePaperRef normalizes each kind", () => {
   assert.deepEqual(parsePaperRef("doi", "https://arxiv.org/abs/2305.12345v2"), { kind: "arxiv", value: "2305.12345" });
   assert.deepEqual(parsePaperRef("zotero", "  ABCD1234 "), { kind: "zotero", value: "ABCD1234" });
   assert.deepEqual(parsePaperRef("url", "example.com/paper"), { kind: "url", value: "https://example.com/paper" });
-  assert.throws(() => parsePaperRef("bibliographic" as never, "x"));
+  assert.deepEqual(parsePaperRef("bibliographic", "x"), { kind: "bibliographic", value: "x" });
 });
 
 test("normalizeArxivId strips prefixes and rejects non-ids", () => {

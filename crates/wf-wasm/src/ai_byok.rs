@@ -50,7 +50,11 @@ pub fn byok_available_js(
 ///
 /// Fails when `api` is not a known wire API or the payload cannot be read.
 #[wasm_bindgen(js_name = parseByokReply, unchecked_return_type = "string | null")]
-pub fn parse_byok_reply_js(api: JsValue, payload: JsValue) -> Result<JsValue, JsError> {
+pub fn parse_byok_reply_js(
+    #[wasm_bindgen(unchecked_param_type = "\"openai-chat\" | \"anthropic-messages\" | \"ollama\"")]
+    api: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "unknown")] payload: JsValue,
+) -> Result<JsValue, JsError> {
     let api: ProviderApi = serde_wasm_bindgen::from_value(api).map_err(js_error)?;
     let payload: serde_json::Value = serde_wasm_bindgen::from_value(payload).map_err(js_error)?;
     to_js(&parse_reply(api, &payload)).map_err(js_error)

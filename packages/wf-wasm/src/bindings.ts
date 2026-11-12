@@ -1126,8 +1126,8 @@ export type BibImportSkip = {
 };
 
 /**
- *  The save fields of one planned entry (TS `bibPaperInput`). Absent values serialize as
- *  `undefined`, the TS shape.
+ *  The save fields of one planned entry (TS `bibPaperInput`). Absent optional fields are left
+ *  out, so the TS side reads them as `undefined`.
  */
 export type BibPaperInput = {
 	/**  Title. */
@@ -1135,17 +1135,17 @@ export type BibPaperInput = {
 	/**  Authors. */
 	authors: string[],
 	/**  Year. */
-	year?: number | null,
+	year?: number,
 	/**  Venue. */
-	venue?: string | null,
+	venue?: string,
 	/**  Doi. */
-	doi?: string | null,
+	doi?: string,
 	/**  Arxiv id. */
-	arxivId?: string | null,
+	arxivId?: string,
 	/**  Url. */
-	url?: string | null,
+	url?: string,
 	/**  Abstract text. */
-	abstract?: string | null,
+	abstract?: string,
 	/**  Bibtex. */
 	bibtex: string,
 	/**  Metadata. */
@@ -6667,7 +6667,9 @@ export type PaperRefKind =
 /**  A web page URL. */
 "url" | 
 /**  An opaque Zotero item key. */
-"zotero";
+"zotero" | 
+/**  A free-text citation, found by title search; it has no identifier. */
+"bibliographic";
 
 /**  A typed, directed edge between two papers (TS `PaperRelation`). */
 export type PaperRelation = {
@@ -6929,6 +6931,28 @@ export type PasteSettings = {
 	cleanPdfOnPaste: boolean,
 };
 
+/**  What the I/O found for one dropped PDF. */
+export type PdfAddFacts = {
+	/**  A lookup (DOI, arXiv id or title) matched a paper. */
+	found: boolean,
+	/**  The add made a new paper (false: the library already had it). */
+	created: boolean,
+	/**  The existing paper already has a PDF. Read only when `created` is false. */
+	hasPdf: boolean,
+	/**  A title was read from the PDF or guessed from its text. */
+	hasTitle: boolean,
+};
+
+/**  The decisions for one dropped PDF. */
+export type PdfAddPlan = {
+	/**  A lookup matched the paper. */
+	matched: boolean,
+	/**  Where the title came from. */
+	titledBy: TitledBy,
+	/**  The dropped file is kept as the paper's PDF. */
+	keptPdf: boolean,
+};
+
 /**  The toast for a drop, and whether it opens the paper (only a one-file drop does). */
 export type PdfDropSummary = {
 	/**  One line for the toast. */
@@ -6948,6 +6972,33 @@ export type PdfIndexSource = {
 	/**  When the text was extracted; drives the recency tiebreak. */
 	extractedAt?: string,
 };
+
+/**  The identifiers read from one dropped PDF, and whether the drop is online. */
+export type PdfLookupFacts = {
+	/**  A DOI printed on the first page, when there is one. */
+	doi: string | null,
+	/**  An arXiv id read from the first page's stamp, when there is one. */
+	arxivId: string | null,
+	/**  The title read from the PDF or guessed from its text. */
+	title: string | null,
+	/**  The drop is online; offline, no lookup runs. */
+	online: boolean,
+};
+
+/**  One lookup to try, in order (TS `PaperRef` kinds; `title` is a bibliographic lookup). */
+export type PdfLookupStep = 
+/**  Look up by DOI. */
+{ kind: "doi"; 
+/**  The DOI. */
+value: string } | 
+/**  Look up by arXiv id. */
+{ kind: "arxiv"; 
+/**  The arXiv id. */
+value: string } | 
+/**  Look up by title (bibliographic). */
+{ kind: "title"; 
+/**  The title. */
+value: string };
 
 /**  One PDF page's extracted text. */
 export type PdfPageText = {
@@ -10248,7 +10299,7 @@ export type UserAppearance = {
 	/**  CRT's scanline overlay. */
 	scanlines?: boolean,
 	/**  Uploaded theme: absent means unchanged, `null` means remove it. */
-	customTheme?: ThemeConfig,
+	customTheme?: ThemeConfig | null,
 };
 
 /**  The settings row (TS `UserSettings`), for the generated bindings. */

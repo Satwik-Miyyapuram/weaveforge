@@ -157,7 +157,14 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   for the record shapes and the glue for the new exports. The .wasm still
 //   loads lazily. 2400 KB is this batch's ceiling; shrinking it stays a
 //   follow-up.
-export const WASM_GZIP_BUDGET = 2400 * 1024;
+// - TS removal (sixth round, rust-port): ~2512.1 KB gzipped, Windows build.
+//   ~177 KB from the last non-UI TypeScript moved to Rust: request building
+//   and reply parsing for every I/O adapter (PostgREST, Zotero, OpenAlex,
+//   Overleaf, AI providers), ink paths and worker routing, workspace and git
+//   shim decisions, search documents and the remaining app rules. TypeScript
+//   keeps only the runtime calls. No new crates. 2600 KB is this batch's
+//   ceiling, agreed with the maintainer; shrinking it stays a follow-up.
+export const WASM_GZIP_BUDGET = 2600 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

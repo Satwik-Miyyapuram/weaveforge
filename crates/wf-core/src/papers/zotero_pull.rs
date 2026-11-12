@@ -51,7 +51,7 @@ pub fn join_zotero_pull(
         if !allowed(paper) {
             continue;
         }
-        attach_to_paper.insert(key, paper.to_string());
+        let _ = attach_to_paper.insert(key, paper.to_string());
         if is_pdf_attachment(it) {
             match pdfs_by_paper.get_mut(paper) {
                 Some(list) => list.push(it),
@@ -168,7 +168,7 @@ impl<V> OrderedMap<V> {
         if let Some(&at) = self.index.get(&key) {
             self.entries[at].1 = value;
         } else {
-            self.index.insert(key.clone(), self.entries.len());
+            let _ = self.index.insert(key.clone(), self.entries.len());
             self.entries.push((key, value));
         }
     }
@@ -234,7 +234,7 @@ mod tests {
     #[test]
     fn linked_pdf_without_content_type_is_the_paper_pdf() {
         let attachments = vec![item(
-            r#"{"key":"LNK","data":{"parentItem":"P2","title":"paper.pdf"}}"#,
+            r#"{"key":"LNK","data":{"parentItem":"P2","title":"paper.pdf","path":"/library/paper.pdf"}}"#,
         )];
         let out = join_zotero_pull(&attachments, &[], &[], None);
         assert_eq!(

@@ -82,7 +82,7 @@ pub struct UserAppearance {
     pub scanlines: Option<bool>,
     /// Uploaded theme: absent means unchanged, `null` means remove it.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "specta", specta(optional, type = Option<ThemeConfig>))]
+    #[cfg_attr(feature = "specta", specta(optional, type = Option<Option<ThemeConfig>>))]
     pub custom_theme: Option<Option<ThemeConfig>>,
 }
 
@@ -162,7 +162,7 @@ pub fn merge_server_appearance(local: &Value, server: &Value) -> Value {
             if value.is_null() && key != "customTheme" {
                 continue;
             }
-            merged.insert(key.clone(), value.clone());
+            let _ = merged.insert(key.clone(), value.clone());
         }
     }
     Value::Object(merged)

@@ -54,7 +54,7 @@ export interface OverleafExportPackage {
 
 /// The export package's files, warnings and stats. `entries` is every library paper (empty when
 /// there is none or no bibliography is included).
-#[wasm_bindgen(js_name = buildOverleafExportFiles)]
+#[wasm_bindgen(js_name = buildOverleafExportFiles, unchecked_return_type = "OverleafExportPackage")]
 pub fn build_overleaf_export_files_js(
     #[wasm_bindgen(unchecked_param_type = "OverleafExportFilesInput")] input: JsValue,
     #[wasm_bindgen(unchecked_param_type = "readonly OverleafBibEntryInput[]")] entries: JsValue,
