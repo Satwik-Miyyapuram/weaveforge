@@ -15,7 +15,7 @@ import type {
   TabMenuCommand,
   TabRef,
 } from "@weaveforge/wasm";
-import { shortcutTable, type WorkspaceCommand } from "../application/parts";
+import { type WorkspaceCommand } from "../application/parts";
 import { readyCore } from "@/lib/rust-core";
 import { openContextMenu } from "@/components/context-menu-store";
 import type { MenuItem } from "@/components/menu";
@@ -337,7 +337,7 @@ function PaneLeafView({
  * The empty state, replacing one grey sentence.
  *
  * The mark, heading and line of orientation say what the screen is for; the
- * grid below says how to use it. The chords come from `shortcutTable()`, so it
+ * grid below says how to use it. The chords come from `readyCore().shortcutTable()`, so it
  * cannot advertise a chord `commandForChord` does not accept — change a binding
  * in `keybindings.ts` and every cell here changes with it.
  */
@@ -367,7 +367,7 @@ function EmptyState() {
 
 /** Keycaps beside a label, one row per command; the empty state and the `⌘/` sheet share it. */
 export function ShortcutGrid({ commands }: { commands: readonly WorkspaceCommand[] }) {
-  const table = shortcutTable();
+  const table = readyCore().shortcutTable();
   return (
     <dl className="pane-shortcuts">
       {commands.map((command) => (

@@ -167,39 +167,6 @@ test("disconnecting stops listening", async (t) => {
   assert.deepEqual(externalChanges(), []);
 });
 
-test("after a preview the outside list is what the preview found changed, no more", async (t) => {
-  t.after(closeFolder);
-  const shell = await connected();
-  shell.changed(["notes/one.note.md", "notes/two.note.md"]);
-  await settle();
-  settleExternalChanges({
-    entries: [
-      { action: "unchanged", entity: { path: "notes/one.note.md" } },
-      { action: "updated", entity: { path: "notes/two.note.md" } },
-    ],
-    json: { entries: [{ action: "removed", path: "data/tags.json" }, { action: "unchanged", path: "data/lists.json" }] },
-  } as never);
-  assert.deepEqual(externalChanges(), ["data/tags.json", "notes/two.note.md"]);
-});
-
-test("a preview of some paths settles those and leaves the rest of the list", async (t) => {
-  t.after(closeFolder);
-  await connected();
-  settleExternalChanges({
-    entries: [
-      { action: "removed", entity: { path: "notes/gone.note.md" } },
-      { action: "removed", entity: { path: "notes/also.note.md" } },
-    ],
-  } as never);
-  settleExternalChanges(
-    { entries: [{ action: "unchanged", entity: { path: "notes/also.note.md" } }] } as never,
-    new Set(["notes/also.note.md"]),
-  );
-  assert.deepEqual(externalChanges(), ["notes/gone.note.md"]);
-  assert.equal(externalChangeReason("notes/gone.note.md"), "removed");
-  assert.equal(externalChangeReason("notes/also.note.md"), undefined);
-});
-
 test("a listed outside edit says why it waits, until the list is cleared", async (t) => {
   t.after(closeFolder);
   await connected();

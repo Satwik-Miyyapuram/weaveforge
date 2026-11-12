@@ -2,17 +2,13 @@ import { getContainer } from "@/bootstrap";
 import { overleafSidebarRows } from "@/features/report/index";
 import { activeProjectRoot } from "@/features/workspace/application/parts";
 import { logToApp } from "@/lib/error-report/app-log";
-import { type CiteCompletion, paperCiteLabel } from "@/lib/hooks/use-cite-links";
-import { isHydratedPage, noteBodyText } from "@/lib/parts";
-import { readyCore, typedCore } from "@/lib/rust-core";
+import { type CiteCompletion } from "@/lib/hooks/use-cite-links";
+import { readyCore } from "@/lib/rust-core";
 import {
   defaultExpanded,
   defaultOpenSections,
   emptyLayout,
-  kindNames,
   layoutFromRecord,
-  type ListItemEntry,
-  memberRank,
   migratedExpanded,
   type PaneLayout,
   parseExplorerKeys,
@@ -234,49 +230,6 @@ export function commandForChord(chord: KeyChord, tabCount = Number.POSITIVE_INFI
 }
 
 /**
- * The chord a command is on, as it should be printed in the UI.
- *
- * The empty state's shortcut grid and any tooltip read *this*, not a string
- * typed into JSX, so a label cannot claim a chord `commandForChord` does not
- * accept — and changing a binding here changes every place it is shown.
- *
- * One chord per command, and the modifier is written once: `⌘P`, not `Ctrl+P
- * or ⌘P`. The editor already treats the two as the same key, so printing both
- * would be noise; `⌘` is the shorter of the two spellings.
- */
-const CHORDS: Record<WorkspaceCommand, string> = {
-  "quick-open": "⌘P",
-  "toggle-mode": "⌘E",
-  "new-note": "⌘N",
-  "toggle-explorer": "⌘B",
-  "toggle-focus": "F11",
-  "show-shortcuts": "⌘/",
-  "reopen-tab": "⌘⇧T",
-  "rename-doc": "F2",
-  "toggle-sidebar": "⌘⇧B",
-  "duplicate-note": "⌘D",
-  "command-palette": "⌘⇧P",
-  "workspace-search": "⌘⇧F",
-  "split-right": "⌘\\",
-  "close-tab": "⌘W",
-  "next-tab": "⌘⇥",
-  "previous-tab": "⌘⇧⇥",
-  "tab-1": "⌘1",
-  "tab-2": "⌘2",
-  "tab-3": "⌘3",
-  "tab-4": "⌘4",
-  "tab-5": "⌘5",
-  "tab-6": "⌘6",
-  "tab-7": "⌘7",
-  "tab-8": "⌘8",
-  "last-tab": "⌘9",
-};
-
-export function shortcutTable(): Record<WorkspaceCommand, string> {
-  return { ...CHORDS };
-}
-
-/**
  * Whether a shortcut should be ignored because the user is typing.
  *
  * The editor itself is an exception: CodeMirror is a text surface, but the
@@ -310,20 +263,15 @@ export const LAYOUT_STORAGE_KEY = "weaveforge.editor.layout";
 type LayoutStore = KeyValueStore & { removeItem?: (key: string) => void };
 
 /**
- * Each project keeps its own panes: a tab from project A restored into
- * project B is a document B cannot open. No project means the plain key.
- */
-function layoutKey(projectId: string | null | undefined): string {
-  return projectId ? `${LAYOUT_STORAGE_KEY}.${projectId}` : LAYOUT_STORAGE_KEY;
-}
-
-/**
+ * Each project keeps its own panes (`readyCore().layoutStorageKey`): a tab from
+ * project A restored into project B is a document B cannot open.
+ *
  * The raw record for a project. Layouts saved before they were per project
  * sit under the plain key: the first project opened adopts that record and
  * the plain key is cleared, so no second project inherits the same tabs.
  */
 function readRaw(store: LayoutStore, projectId: string | null | undefined): string | null {
-  const key = layoutKey(projectId);
+  const key = readyCore().layoutStorageKey(projectId ?? undefined);
   const own = store.getItem(key);
   if (own || key === LAYOUT_STORAGE_KEY) return own;
   const legacy = store.getItem(LAYOUT_STORAGE_KEY);
@@ -351,7 +299,7 @@ export function writeLayout(
   projectId?: string | null,
 ): void {
   try {
-    store?.setItem(layoutKey(projectId), JSON.stringify(layout));
+    store?.setItem(readyCore().layoutStorageKey(projectId ?? undefined), JSON.stringify(layout));
   } catch {
     // Storage disabled. The layout still holds for this session.
   }
@@ -421,6 +369,9 @@ export interface WorkspaceData {
  * Load the workspace. `hydrated` is the full note bodies fetched so far, by
  * id: a reload rebuilds the set from summaries, and a note already hydrated
  * keeps its full body as long as the summary still describes it.
+ *
+ * The reads and the list-items fetch are the only I/O here. The documents,
+ * completions, trees and list membership are one Rust pass (`assembleWorkspace`).
  */
 export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Promise<WorkspaceData> {
   // One lookup for the whole load: the tree, the log rows and every other path
@@ -440,189 +391,28 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
     sectionOr(overleafSidebarRows(), "overleaf", []),
   ]);
 
-  const paperRows = papers?.papers ?? [];
-  const sectionRows = report?.flat ?? [];
   const listRows = lists?.lists ?? [];
-  const logRows = log ?? [];
-  // A reload rebuilds the set from summaries; a note already hydrated keeps
-  // its full body as long as the summary still describes it — the preview
-  // is the body's head, so a body that changed underneath shows as a
-  // preview that no longer matches, and the tab hydrates again.
-  const previous = hydrated;
-  const loaded: Document[] = [
-    ...vault.flat.map((page) => {
-      // `vault.flat` holds summaries, which have no `body` — reading one off
-      // them was always `undefined`, so every note in the workspace was
-      // indexed with an empty body. `noteBodyText` prefers the full body when
-      // the entry has been hydrated and falls back to the preview otherwise.
-      const summary = noteBodyText(page);
-      const kept = previous.get(page.id);
-      const keep = kept !== undefined && !isHydratedPage(page) && kept.startsWith(summary);
-      const body = keep ? kept : summary;
-      return {
-        // A note is one kind whatever its body holds: a note with ink in its
-        // header (§4.1) opens in Ink mode rather than being a second kind with
-        // a second suffix. `ink_page` stays in the kind table for old tabs.
-        kind: "vault_page",
-        id: page.id,
-        title: page.title,
-        body,
-        hydrated: keep || isHydratedPage(page),
-        path: `notes/${page.title || "Untitled"}.note.md`,
-        parentId: page.parentId ?? undefined,
-      };
-    }),
-    // Two documents per paper: its notes and its PDF. The PDF row has no body
-    // of its own — the reader fetches the file by the paper's id.
-    ...paperRows.flatMap((paper) => [
-      {
-        kind: "paper",
-        id: paper.id,
-        title: paper.title,
-        body: paper.summary ?? "",
-        hydrated: true,
-        path: `papers/${paper.title || "Untitled"}.paper.md`,
-        tags: paper.tags,
-      },
-      {
-        kind: "paper_pdf",
-        id: paper.id,
-        title: paper.title,
-        body: "",
-        hydrated: true,
-        path: `papers/${paper.title || "Untitled"}.pdf`,
-        tags: paper.tags,
-      },
-    ]),
-    ...sectionRows.map((section) => ({
-      kind: "report_section",
-      id: section.id,
-      title: section.title,
-      body: section.notes ?? "",
-      hydrated: true,
-      path: `report/${section.title || "Untitled"}.report.md`,
-    })),
-    // A log entry, as a document. Its body is markdown and always whole — the
-    // repository reads the row out in one piece — so hydrated is true and no
-    // pane has to wait for a second fetch before it may save.
-    ...logRows.map((entry) => ({
-      kind: "log_entry",
-      id: entry.id,
-      title: entry.entryDate,
-      body: entry.body,
-      hydrated: true,
-      path: typedCore().logPath(entry.id, entry.entryDate, projectRoot),
-    })),
-    // An Overleaf project's tab: its editor, with nothing to hydrate or save here.
-    ...overleaf.map((project) => ({
-      kind: "overleaf",
-      id: project.id,
-      title: project.name,
-      body: "",
-      hydrated: true,
-      path: `overleaf/${project.name}`,
-    })),
-  ];
+  // Reading-list items are the one fetch the assembly needs and does not make.
+  // They are asked for only when the lists loaded and there is a list to ask about.
+  const listItems =
+    lists && listRows.length > 0
+      ? await sectionOr(
+          container.readingLists.listItemsForLists(listRows.map((list) => list.id)),
+          "list items",
+          [],
+        )
+      : [];
 
-  // The `@` and `[[` rows, in the shape `/notes` builds them: a paper's row
-  // carries its authors and year so a cite can be formatted, a note's and a
-  // section's just their title. Duplicate titles collapse to one row.
-  const seen = new Set<string>();
-  const rows: CiteCompletion[] = [];
-  for (const paper of paperRows) {
-    const key = readyCore().normalizeTitleKey(paper.title);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    rows.push(paperCiteLabel(paper));
-  }
-  const titled = [
-    ...vault.flat.map((page) => ({ title: page.title, detail: "note" })),
-    ...sectionRows.map((section) => ({ title: section.title, detail: "section" })),
-  ];
-  for (const row of titled) {
-    const key = readyCore().normalizeTitleKey(row.title);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    rows.push({ title: row.title, label: row.title, detail: row.detail });
-  }
-  const completions = rows;
-  const tree = readyCore().buildWorkspaceTree({
-      projectRoot,
-      notes: vault.flat.map((page) => ({
-        id: page.id,
-        title: page.title,
-        parentId: page.parentId ?? undefined,
-        kind: "vault_page",
-        folder: page.folder === true,
-      })),
-      papers: paperRows.map((paper) => ({
-        id: paper.id,
-        title: paper.title,
-        hasNote: Boolean(paper.summary?.trim()),
-      })),
-      reportSections: sectionRows.map((section) => ({
-        id: section.id,
-        title: section.title,
-        parentId: section.parentId ?? undefined,
-      })),
-      logEntries: logRows.map((entry) => ({
-        id: entry.id,
-        entryDate: entry.entryDate,
-      })),
-      overleafProjects: overleaf,
+  return readyCore().assembleWorkspace({
+    projectRoot,
+    vault: vault.flat,
+    papers: papers?.papers ?? [],
+    reportSections: report?.flat ?? [],
+    listsLoaded: Boolean(lists),
+    lists: listRows,
+    listItems,
+    logs: log ?? [],
+    overleaf,
+    hydrated: [...hydrated].map(([id, body]) => ({ id, body })),
   });
-
-  // Reading lists, as a view over the same documents rather than a second
-  // copy of them. The membership rows are the many-to-many join in core.
-  let listsTree: WorkspaceTreeNode[] = [];
-  let membership: ReadonlyMap<string, string[]> = new Map();
-  if (lists) {
-    const titles = new Map<string, string>();
-    for (const doc of loaded) titles.set(`${doc.kind}:${doc.id}`, doc.title);
-    const listTitles = new Map(listRows.map((list) => [`reading_list:${list.id}`, list.name]));
-    const items: ListItemEntry[] = [];
-    if (listRows.length > 0) {
-      const rows = await sectionOr(
-        container.readingLists.listItemsForLists(listRows.map((list) => list.id)),
-        "list items",
-        [],
-      );
-      for (const row of rows) {
-        if (row.paperId) {
-          items.push({
-            listId: row.listId,
-            kind: "paper",
-            id: row.paperId,
-            inheritedFromListId: row.inheritedFromListId,
-            duplicateOfItemId: row.duplicateOfItemId,
-          });
-        } else if (row.vaultPageId) {
-          items.push({
-            listId: row.listId,
-            kind: "vault_page",
-            id: row.vaultPageId,
-            inheritedFromListId: row.inheritedFromListId,
-            duplicateOfItemId: row.duplicateOfItemId,
-          });
-        }
-      }
-    }
-    // Papers before notes, from `kind.ts`'s own ordering column, so the
-    // rule is not a comparison against `"paper"` in two places.
-    const memberRankByKind = Object.fromEntries(kindNames().map((kind) => [kind, memberRank(kind)]));
-    listsTree = readyCore().buildListsTree({
-      lists: listRows.map((list) => ({
-        id: list.id,
-        title: list.name,
-        parentId: list.parentId,
-        description: list.description,
-      })),
-      items,
-      titles: Object.fromEntries(titles),
-      memberRank: memberRankByKind,
-    });
-    membership = readyCore().listMembership(items, new Map([...titles, ...listTitles]));
-  }
-
-  return { documents: loaded, completions, tree, listsTree, membership };
 }

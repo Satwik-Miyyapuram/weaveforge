@@ -1,6 +1,10 @@
 //! Workspace path rules shared by every adapter: relative, normalized, never leaving the root.
 
 pub mod archive_limits;
+pub mod coalescer;
+pub mod claim_import;
+pub mod project_rename;
+pub mod stored_pages;
 
 /// Hidden folder inside a workspace that marks it as WeaveForge's.
 pub const WORKSPACE_META_DIR: &str = ".weaveforge";
@@ -147,5 +151,12 @@ mod tests {
 }
 pub mod asset_mime;
 pub mod folder_diff;
+pub mod mirror_manifest;
 pub mod outside_edits;
 pub mod sync_report;
+pub mod json_apply;
+pub mod preview_read;
+pub mod git_shim;
+pub mod settle_external;
+pub mod auto_apply;
+pub mod folder_report;

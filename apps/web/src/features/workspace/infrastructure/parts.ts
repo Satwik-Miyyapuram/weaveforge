@@ -77,10 +77,8 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
   }
 
   private async fileFor(path: string, create: boolean): Promise<FileSystemFileHandle | null> {
-    const safe = safeWorkspacePath(path);
-    const parts = safe.split("/");
-    const name = parts.pop()!;
-    const dir = await this.dirFor(parts.join("/"), create);
+    const [parent, name] = (await loadCore()).splitLeaf(safeWorkspacePath(path));
+    const dir = await this.dirFor(parent, create);
     if (!dir) return null;
     try {
       return await dir.getFileHandle(name, { create });
@@ -115,10 +113,8 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
   }
 
   async remove(path: string, options?: { recursive?: boolean }): Promise<void> {
-    const safe = safeWorkspacePath(path);
-    const parts = safe.split("/");
-    const name = parts.pop()!;
-    const dir = await this.dirFor(parts.join("/"), false);
+    const [parent, name] = (await loadCore()).splitLeaf(safeWorkspacePath(path));
+    const dir = await this.dirFor(parent, false);
     if (!dir) return;
     try {
       await dir.removeEntry(name, { recursive: options?.recursive ?? false });
@@ -335,9 +331,8 @@ function statLike(size: number, mtimeMs: number, isDir: boolean) {
  * root, which the port has no path for — callers must check for the empty
  * string rather than passing it on, since `safeWorkspacePath` rejects it.
  */
-function normalize(path: string): string {
-  const trimmed = path.replace(/^\/+/, "").replace(/\/+$/, "");
-  return trimmed === "." ? "" : trimmed;
+async function normalize(path: string): Promise<string> {
+  return (await loadCore()).normalizeRepoPath(path);
 }
 
 /** The repo root always exists as a directory, even before anything is written. */
@@ -377,11 +372,11 @@ export interface IsomorphicFs {
 export function isomorphicFsFrom(fs: IWorkspaceFs): IsomorphicFs {
   const promises = {
     async cp(source: string, destination: string) {
-      await fs.writeFile(normalize(destination), await fs.readFile(normalize(source)));
+      await fs.writeFile(await normalize(destination), await fs.readFile(await normalize(source)));
     },
 
     async readFile(path: string, options?: { encoding?: string } | string) {
-      const target = normalize(path);
+      const target = await normalize(path);
       let bytes: Uint8Array;
       try {
         bytes = await fs.readFile(target);
@@ -393,22 +388,24 @@ export function isomorphicFsFrom(fs: IWorkspaceFs): IsomorphicFs {
     },
 
     async writeFile(path: string, data: Uint8Array | string) {
-      await fs.writeFile(normalize(path), data);
+      await fs.writeFile(await normalize(path), data);
     },
 
     async unlink(path: string) {
-      await fs.remove(normalize(path));
+      await fs.remove(await normalize(path));
     },
 
     async readdir(path: string) {
-      const dir = normalize(path);
+      const dir = await normalize(path);
       const entries = await fs.list(dir);
-      const prefix = dir ? `${dir}/` : "";
-      return entries.map((entry) => entry.path.slice(prefix.length)).sort();
+      return (await loadCore()).dirEntryNames(
+        entries.map((entry) => entry.path),
+        dir,
+      );
     },
 
     async mkdir(path: string) {
-      const target = normalize(path);
+      const target = await normalize(path);
       if (!target) throw new ExistsError(path);
       const existing = await fs.stat(target).catch(() => null);
       // Node throws on an existing directory and git relies on that to decide
@@ -418,11 +415,11 @@ export function isomorphicFsFrom(fs: IWorkspaceFs): IsomorphicFs {
     },
 
     async rmdir(path: string) {
-      await fs.remove(normalize(path), { recursive: true });
+      await fs.remove(await normalize(path), { recursive: true });
     },
 
     async stat(path: string) {
-      const target = normalize(path);
+      const target = await normalize(path);
       if (!target) return statLike(0, ROOT_STAT_MTIME, true);
       const entry = await fs.stat(target).catch(() => null);
       if (!entry) throw new NotFoundError(path);
@@ -520,12 +517,10 @@ export class IsomorphicWorkspaceGit implements IWorkspaceGit {
       filter: (path) => !core.isUnderIgnoredFolder(path),
     });
     const out: GitFileStatus[] = [];
-    // Row shape is [path, head, workdir, stage]: 0 means absent, 1 unchanged,
-    // 2 modified.
+    // Row shape is [path, head, workdir, stage]; the state mapping lives in Rust.
     for (const [path, head, workdir] of rows) {
-      if (head === 0 && workdir > 0) out.push({ path: String(path), state: "added" });
-      else if (head > 0 && workdir === 0) out.push({ path: String(path), state: "deleted" });
-      else if (head > 0 && workdir === 2) out.push({ path: String(path), state: "modified" });
+      const state = core.gitStatusState(head, workdir);
+      if (state) out.push({ path: String(path), state: state as GitFileStatus["state"] });
     }
     return out;
   }
@@ -587,20 +582,16 @@ export class IsomorphicWorkspaceGit implements IWorkspaceGit {
     const core = await loadCore();
     const git = await this.git();
     const indexed: string[] = await git.listFiles({ fs: this.fs, dir: this.dir });
-    const strays = indexed.filter(
-      (path) =>
-        !keptPaths.has(path) &&
-        (skippedPaths.has(path) || !core.decideGitSyncPath(path, 0, this.maxFileBytes).include),
-    );
+    const strays = core.outOfScopeStrays(indexed, [...keptPaths], [...skippedPaths], this.maxFileBytes);
     if (strays.length === 0) return;
 
     const rows = await git.statusMatrix({ fs: this.fs, dir: this.dir, filepaths: strays });
-    // stage differs from head when the index holds something other than HEAD.
+    // Stage differs from head when the index holds something other than HEAD.
     for (const [path, head, , stage] of rows) {
-      if (stage === head) continue;
-      if (head === 0) {
+      const action = core.unstageAction(head, stage);
+      if (action === "remove") {
         await git.remove({ fs: this.fs, dir: this.dir, filepath: String(path) });
-      } else {
+      } else if (action === "reset") {
         await git.resetIndex({ fs: this.fs, dir: this.dir, filepath: String(path), ref: "HEAD" });
       }
     }

@@ -157,8 +157,35 @@ fn first_leaf_id(node: &PaneNode) -> &str {
     }
 }
 
+/// The key the layout is stored under; a project's layout lives under `KEY.<projectId>`.
+pub const LAYOUT_STORAGE_KEY: &str = "weaveforge.editor.layout";
+
+/// The storage key for a project's layout. No project id, or an empty one, is the plain key.
+#[must_use]
+pub fn layout_storage_key(project_id: Option<&str>) -> String {
+    match project_id {
+        Some(id) if !id.is_empty() => format!("{LAYOUT_STORAGE_KEY}.{id}"),
+        _ => LAYOUT_STORAGE_KEY.to_owned(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    // The storage key is `weaveforge.editor.layout`, with the project id after a dot when one is set.
+    #[test]
+    fn layout_storage_key_is_plain_without_a_project_id() {
+        assert_eq!(super::layout_storage_key(None), "weaveforge.editor.layout");
+        assert_eq!(super::layout_storage_key(Some("")), "weaveforge.editor.layout");
+    }
+
+    #[test]
+    fn layout_storage_key_appends_the_project_id() {
+        assert_eq!(
+            super::layout_storage_key(Some("p1")),
+            "weaveforge.editor.layout.p1"
+        );
+    }
+
     use serde_json::json;
 
     use super::*;
