@@ -17,10 +17,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `marks` or `projection` do not have the expected shape.
-#[wasm_bindgen(js_name = layoutMarginNotes)]
+#[wasm_bindgen(js_name = layoutMarginNotes, unchecked_return_type = "B.MarginSlot[]")]
 pub fn layout_margin_notes_js(
-    marks: JsValue,
-    projection: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.MarginMark[]")] marks: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ReaderPageProjection")] projection: JsValue,
     card_height: f64,
 ) -> JsResult<JsValue> {
     let marks: Vec<MarginMark> = serde_wasm_bindgen::from_value(marks)?;

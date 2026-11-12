@@ -15,8 +15,12 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `items` is not an array of page text items.
-#[wasm_bindgen(js_name = locateMention)]
-pub fn locate_mention_js(items: JsValue, start: f64, end: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = locateMention, unchecked_return_type = "B.MentionGeometry")]
+pub fn locate_mention_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.SelectionPageTextItem[]")] items: JsValue,
+    start: f64,
+    end: f64,
+) -> JsResult<JsValue> {
     let items: Vec<SelectionPageTextItem> = serde_wasm_bindgen::from_value(items)?;
     to_js(&locate_mention(&items, start, end))
 }
@@ -26,8 +30,14 @@ pub fn locate_mention_js(items: JsValue, start: f64, end: f64) -> JsResult<JsVal
 /// # Errors
 ///
 /// Fails if `rects` is not an array of `[x1, y1, x2, y2]` arrays.
-#[wasm_bindgen(js_name = unionRect)]
-pub fn union_rect_js(rects: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(
+    js_name = unionRect,
+    unchecked_return_type = "[number, number, number, number] | null"
+)]
+pub fn union_rect_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly [number, number, number, number][]")]
+    rects: JsValue,
+) -> JsResult<JsValue> {
     let rects: Vec<PdfRect> = serde_wasm_bindgen::from_value(rects)?;
     to_js(&union_rect(&rects))
 }

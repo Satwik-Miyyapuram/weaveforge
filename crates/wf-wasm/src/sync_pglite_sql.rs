@@ -1,20 +1,33 @@
 //! SQL-text helpers for the local PGlite client (wf-core `sync::pglite_sql`). The JS names
 //! match `packages/wf-wasm/src/wrappers-10.ts`.
 
+use js_sys::Array;
 use wasm_bindgen::prelude::{JsError, JsValue, wasm_bindgen};
 use wf_core::sync::pglite_sql;
 
 use super::to_js;
 
-/// [`pglite_sql::pg_array`] (TS `pgArray`): the values as a Postgres array literal.
+#[wasm_bindgen]
+extern "C" {
+    /// The global `String(value)`, which throws only when the value's own conversion does.
+    #[wasm_bindgen(catch, js_name = String)]
+    fn js_string(value: &JsValue) -> Result<String, JsValue>;
+}
+
+/// [`pglite_sql::pg_array`] (TS `pgArray`): the values as a Postgres array literal, each value
+/// spelled as `String(value)` first.
 ///
 /// # Errors
 ///
-/// Returns an error if `values` is not an array of strings.
+/// Rethrows what `String(value)` throws for a value that cannot be spelled.
 #[wasm_bindgen(js_name = pgArray)]
-pub fn pg_array_js(values: JsValue) -> Result<String, JsError> {
-    let values: Vec<String> =
-        serde_wasm_bindgen::from_value(values).map_err(|error| JsError::new(&error.to_string()))?;
+pub fn pg_array_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly unknown[]")] values: &Array,
+) -> Result<String, JsValue> {
+    let values = values
+        .iter()
+        .map(|value| js_string(&value))
+        .collect::<Result<Vec<String>, JsValue>>()?;
     Ok(pglite_sql::pg_array(&values))
 }
 

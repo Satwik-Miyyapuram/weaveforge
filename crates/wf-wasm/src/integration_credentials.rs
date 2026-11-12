@@ -8,21 +8,17 @@ use wf_core::settings::integration_credentials::{self, CredentialSettings};
 use serde_json::Value;
 
 use super::to_js;
+use super::user_settings::read as plain_json;
 
 /// Settings read the way the TypeScript reads them: `settings.integrations?.[p]?.[f]?.trim()`
 /// skips a provider that is not an object and a field that is null, and ignores legacy columns
 /// that are not strings. A requested field (`read`) holding any other non-string throws in TS
 /// (`.trim` is not a function), so it fails here too. Everything else that is not a string is
-/// dropped, since TS never reads it.
+/// dropped, since TS never reads it. `raw` is the settings after a JSON round trip.
 fn credential_settings(
-    raw: JsValue,
+    raw: &Value,
     read: Option<(&str, &str)>,
 ) -> Result<CredentialSettings, serde_wasm_bindgen::Error> {
-    let raw: Value = if raw.is_undefined() || raw.is_null() {
-        Value::Null
-    } else {
-        serde_wasm_bindgen::from_value(raw)?
-    };
     let Value::Object(raw) = raw else {
         return Ok(CredentialSettings::default());
     };
@@ -67,7 +63,7 @@ fn credential_settings(
 }
 
 fn field(
-    settings: JsValue,
+    settings: &Value,
     provider_id: &str,
     field_id: &str,
 ) -> Result<Option<String>, serde_wasm_bindgen::Error> {
@@ -79,39 +75,38 @@ fn field(
     ))
 }
 
-/// [`get_user_integration_field`](integration_credentials::get_user_integration_field);
-/// `undefined` when empty.
+/// [`get_user_integration_field`](integration_credentials::get_user_integration_field): a
+/// provider field from the integrations bag or the legacy flat columns; `undefined` when empty.
 ///
 /// # Errors
 ///
-/// Fails if `settings` has the wrong shape.
+/// Fails if `settings` cannot be read as JSON or the requested field is not a string.
 #[wasm_bindgen(js_name = getUserIntegrationField)]
 pub fn get_user_integration_field_js(
-    settings: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.CredentialSettings")] settings: JsValue,
     provider_id: &str,
     field_id: &str,
-) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    match field(settings, provider_id, field_id)? {
-        Some(value) => to_js(&value),
-        None => Ok(JsValue::UNDEFINED),
-    }
+) -> Result<Option<String>, JsValue> {
+    Ok(field(&plain_json(&settings)?, provider_id, field_id)?)
 }
 
 /// [`is_user_integration_connected`](integration_credentials::is_user_integration_connected).
 ///
 /// # Errors
 ///
-/// Fails if `settings` or `field_ids` has the wrong shape.
+/// Fails if `settings` cannot be read as JSON, `field_ids` is not a string array, or a field
+/// checked before the first set one is not a string.
 #[wasm_bindgen(js_name = isUserIntegrationConnected)]
 pub fn is_user_integration_connected_js(
-    settings: &JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.CredentialSettings")] settings: &JsValue,
     provider_id: &str,
-    field_ids: JsValue,
-) -> Result<bool, serde_wasm_bindgen::Error> {
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] field_ids: JsValue,
+) -> Result<bool, JsValue> {
+    let settings = plain_json(settings)?;
     let field_ids: Vec<String> = serde_wasm_bindgen::from_value(field_ids)?;
     // Field by field, stopping at the first set one, as TS `some` does.
     for field_id in &field_ids {
-        if field(settings.clone(), provider_id, field_id)?.is_some() {
+        if field(&settings, provider_id, field_id)?.is_some() {
             return Ok(true);
         }
     }
@@ -123,14 +118,17 @@ pub fn is_user_integration_connected_js(
 ///
 /// # Errors
 ///
-/// Fails if `settings` has the wrong shape.
-#[wasm_bindgen(js_name = integrationsBagFromLegacy)]
+/// Fails if `settings` cannot be read as JSON.
+#[wasm_bindgen(
+    js_name = integrationsBagFromLegacy,
+    unchecked_return_type = "Record<string, Record<string, string>> | undefined"
+)]
 pub fn integrations_bag_from_legacy_js(
-    settings: JsValue,
-) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    let settings = credential_settings(settings, None)?;
+    #[wasm_bindgen(unchecked_param_type = "B.CredentialSettings")] settings: JsValue,
+) -> Result<JsValue, JsValue> {
+    let settings = credential_settings(&plain_json(&settings)?, None)?;
     match integration_credentials::integrations_bag_from_legacy(&settings) {
-        Some(bag) => to_js(&bag),
+        Some(bag) => Ok(to_js(&bag)?),
         None => Ok(JsValue::UNDEFINED),
     }
 }

@@ -32,7 +32,7 @@ pub fn encode_locus_js(
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes optional strings by value"
 )]
-#[wasm_bindgen(js_name = decodeLocus)]
+#[wasm_bindgen(js_name = decodeLocus, unchecked_return_type = "B.AnchorPdfLocus | null")]
 pub fn decode_locus_js(raw: Option<String>) -> JsResult<JsValue> {
     to_js(&decode_locus_value(raw.as_deref()))
 }

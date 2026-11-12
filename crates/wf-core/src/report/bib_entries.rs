@@ -41,7 +41,7 @@ pub struct BibEntry {
     pub line: u32,
 }
 
-/// One field of an entry. The TS wrapper rebuilds these into a record.
+/// One field of an entry. The wasm export rebuilds these into a record.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "specta", derive(specta::Type))]

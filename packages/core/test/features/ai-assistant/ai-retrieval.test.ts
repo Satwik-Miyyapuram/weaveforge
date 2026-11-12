@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { retrieveAiExcerpts } from "../../../../wf-wasm/src/index.ts";
-import type { AiRetrievalDocument, AiRetrievedExcerpt } from "../../../src/index.js";
+import type { AiRetrievalDocument } from "../../../src/index.js";
 
 const documents: AiRetrievalDocument[] = [
   { source: { sourceId: "paper:a", label: "Causal paper", resourceType: "paper", resourceId: "a", href: "/papers?paper=a" }, text: "Causal abstraction maps a neural network to a higher-level causal model." },
@@ -9,7 +9,7 @@ const documents: AiRetrievalDocument[] = [
 ];
 
 test("retrieves only matching local documents with stable provenance", () => {
-  const results = retrieveAiExcerpts<AiRetrievalDocument, AiRetrievedExcerpt>(documents, "causal model");
+  const results = retrieveAiExcerpts(documents, "causal model");
   assert.equal(results.length, 1);
   assert.equal(results[0]?.source.sourceId, "paper:a");
   assert.equal(results[0]?.source.href, "/papers?paper=a");
@@ -18,8 +18,8 @@ test("retrieves only matching local documents with stable provenance", () => {
 });
 
 test("bounds excerpts and ignores an empty query", () => {
-  assert.deepEqual(retrieveAiExcerpts<AiRetrievalDocument, AiRetrievedExcerpt>(documents, " "), []);
+  assert.deepEqual(retrieveAiExcerpts(documents, " "), []);
   const long: AiRetrievalDocument[] = [{ ...documents[0]!, text: `prefix ${"x".repeat(2_000)} causal result` }];
-  const [result] = retrieveAiExcerpts<AiRetrievalDocument, AiRetrievedExcerpt>(long, "causal", { maxChars: 200 });
+  const [result] = retrieveAiExcerpts(long, "causal", { maxChars: 200 });
   assert.ok((result?.text.length ?? 0) <= 202);
 });

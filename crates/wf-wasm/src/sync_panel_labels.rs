@@ -28,7 +28,7 @@ pub fn group_hunks_js(
 /// Fails if `choice` has the wrong shape.
 #[wasm_bindgen(js_name = isSettled)]
 pub fn is_settled_js(
-    choice: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.PanelChoice | undefined")] choice: JsValue,
     ours: &str,
     theirs: &str,
 ) -> Result<bool, serde_wasm_bindgen::Error> {

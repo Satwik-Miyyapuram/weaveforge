@@ -10,9 +10,15 @@ use wf_core::reader::pdf_resolver_rules::{open_access_supports, trimmed_or_none,
 #[must_use]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn open_access_supports_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] arxiv_id: Option<String>,
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] url: Option<String>,
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] doi: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] arxiv_id: Option<
+        String,
+    >,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] url: Option<
+        String,
+    >,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] doi: Option<
+        String,
+    >,
 ) -> bool {
     open_access_supports(arxiv_id.as_deref(), url.as_deref(), doi.as_deref())
 }
@@ -30,7 +36,9 @@ pub fn webdav_supports_js(webdav_path: Option<String>) -> bool {
 #[must_use]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn trimmed_or_none_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] value: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] value: Option<
+        String,
+    >,
 ) -> JsValue {
     trimmed_or_none(value.as_deref()).map_or(JsValue::NULL, JsValue::from)
 }

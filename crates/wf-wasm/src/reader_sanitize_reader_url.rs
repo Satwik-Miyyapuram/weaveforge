@@ -20,7 +20,9 @@ pub fn is_allowed_pdf_proxy_url_js(raw: &str) -> bool {
 #[wasm_bindgen(js_name = sanitizePdfUrl, unchecked_return_type = "string | null")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn sanitize_pdf_url_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] raw: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] raw: Option<
+        String,
+    >,
 ) -> JsValue {
     sanitize_pdf_url(raw.as_deref()).map_or(JsValue::NULL, JsValue::from)
 }
@@ -29,7 +31,9 @@ pub fn sanitize_pdf_url_js(
 #[wasm_bindgen(js_name = sanitizeReaderHref, unchecked_return_type = "string | null")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn sanitize_reader_href_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] raw: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] raw: Option<
+        String,
+    >,
 ) -> JsValue {
     sanitize_reader_href(raw.as_deref()).map_or(JsValue::NULL, JsValue::from)
 }
@@ -38,7 +42,9 @@ pub fn sanitize_reader_href_js(
 #[wasm_bindgen(js_name = sanitizeAppHref, unchecked_return_type = "string | null")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn sanitize_app_href_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] raw: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] raw: Option<
+        String,
+    >,
 ) -> JsValue {
     sanitize_app_href(raw.as_deref()).map_or(JsValue::NULL, JsValue::from)
 }
@@ -50,13 +56,19 @@ pub fn looks_like_pdf_url_js(url: &str) -> bool {
 }
 
 /// [`resolve_paper_pdf_url`]: `source` is `{ url, arxivId, openAccessPdf }`, each optional.
-/// Unknown fields such as `pdfPath` are ignored, as the TS version ignores them.
+/// Unknown fields such as `pdfPath` are ignored, as the TS version ignores them. Returns `null`
+/// when no URL can be derived.
 ///
 /// # Errors
 ///
 /// Fails if `source` is not an object of strings or `null`.
-#[wasm_bindgen(js_name = resolvePaperPdfUrl)]
-pub fn resolve_paper_pdf_url_js(source: JsValue) -> JsResult<Option<String>> {
+#[wasm_bindgen(js_name = resolvePaperPdfUrl, unchecked_return_type = "string | null")]
+pub fn resolve_paper_pdf_url_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "{ url?: string | null; arxivId?: string | null; openAccessPdf?: string | null }"
+    )]
+    source: JsValue,
+) -> JsResult<JsValue> {
     let source: PaperPdfSource = serde_wasm_bindgen::from_value(source)?;
-    Ok(resolve_paper_pdf_url(&source))
+    Ok(resolve_paper_pdf_url(&source).map_or(JsValue::NULL, |url| JsValue::from_str(&url)))
 }

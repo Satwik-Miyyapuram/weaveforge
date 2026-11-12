@@ -26,24 +26,39 @@ pub fn find_wiki_root_js(
         .map_err(|error| JsError::new(&error.to_string()))
 }
 
-/// [`wiki_page_refs`]: the wiki's pages as `{ id, title, body }`.
-#[wasm_bindgen(js_name = wikiPageRefs)]
-pub fn wiki_page_refs_js(pages: JsValue) -> Result<JsValue, JsError> {
+/// [`wiki_page_refs`]: the wiki's pages (children of the root) as `{ id, title, body, aliases? }`;
+/// `aliases` is left out, never `null`.
+///
+/// # Errors
+///
+/// Fails if `pages` is not a list of wiki notes.
+#[wasm_bindgen(js_name = wikiPageRefs, unchecked_return_type = "B.WikiLintPageRef[]")]
+pub fn wiki_page_refs_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.WikiNote[]")] pages: JsValue,
+) -> Result<JsValue, JsError> {
     let pages: Vec<WikiNote> = parse(pages)?;
     to_js(&wiki_page_refs(&pages)).map_err(|error| JsError::new(&error.to_string()))
 }
 
-/// [`wiki_source_documents`]: notes and papers as extraction documents. `sourceIds` is
-/// optional; omitted means every note and paper.
-#[wasm_bindgen(js_name = wikiSourceDocuments)]
+/// [`wiki_source_documents`]: notes (not generated pages) and papers as extraction documents.
+/// `sourceIds` is optional; omitted means every note and paper.
+///
+/// # Errors
+///
+/// Fails if `pages` or `papers` has the wrong shape.
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes the optional array by value"
+)]
+#[wasm_bindgen(js_name = wikiSourceDocuments, unchecked_return_type = "B.WikiSourceDocument[]")]
 pub fn wiki_source_documents_js(
-    pages: JsValue,
-    papers: JsValue,
-    source_ids: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.WikiNote[]")] pages: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.WikiPaper[]")] papers: JsValue,
+    #[wasm_bindgen(js_name = sourceIds, unchecked_optional_param_type = "readonly string[]")]
+    source_ids: Option<Vec<String>>,
 ) -> Result<JsValue, JsError> {
     let pages: Vec<WikiNote> = parse(pages)?;
     let papers: Vec<WikiPaper> = parse(papers)?;
-    let source_ids: Option<Vec<String>> = parse(source_ids)?;
     let documents = wiki_source_documents(&pages, &papers, source_ids.as_deref());
     to_js(&documents).map_err(|error| JsError::new(&error.to_string()))
 }

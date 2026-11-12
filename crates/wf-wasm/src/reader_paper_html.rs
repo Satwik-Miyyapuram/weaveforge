@@ -37,14 +37,24 @@ pub fn is_substantial_paper_text_js(text: &str, min_chars: f64) -> bool {
 }
 
 /// [`build_paper_html_document`]: the framed, self-contained document for one kept paper.
+/// Absent `options` reads as `{}`.
 ///
 /// # Errors
 ///
 /// Fails if `page` is not a paper page object, or `options` is not an options object.
 #[wasm_bindgen(js_name = buildPaperHtmlDocument)]
-pub fn build_paper_html_document_js(page: JsValue, options: JsValue) -> JsResult<String> {
+pub fn build_paper_html_document_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaperHtmlPage")] page: JsValue,
+    #[wasm_bindgen(
+        unchecked_optional_param_type = "{ scheme?: \"light\" | \"dark\"; print?: boolean }"
+    )]
+    options: Option<JsValue>,
+) -> JsResult<String> {
     let page: PaperHtmlPage = serde_wasm_bindgen::from_value(page)?;
-    let options: PaperHtmlOptions = serde_wasm_bindgen::from_value(options)?;
+    let options: PaperHtmlOptions = match options {
+        Some(options) if !options.is_undefined() => serde_wasm_bindgen::from_value(options)?,
+        _ => PaperHtmlOptions::default(),
+    };
     Ok(build_paper_html_document(&page, &options))
 }
 

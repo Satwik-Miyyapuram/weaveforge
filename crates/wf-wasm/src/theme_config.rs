@@ -7,6 +7,20 @@ use wf_core::settings::theme_config;
 
 use super::to_js;
 
+/// `raw` as plain JSON, the way `JSON.parse(JSON.stringify(raw) ?? "null")` rebuilds it:
+/// functions and `undefined` fields drop out, dates become strings.
+///
+/// # Errors
+///
+/// Fails if `raw` cannot be stringified (a cycle or a `BigInt`) or read back as JSON.
+pub(crate) fn plain_json(raw: &JsValue) -> Result<serde_json::Value, JsValue> {
+    let text = js_sys::JSON::stringify(raw)?
+        .as_string()
+        .unwrap_or_else(|| "null".to_owned());
+    let parsed = js_sys::JSON::parse(&text)?;
+    Ok(serde_wasm_bindgen::from_value(parsed)?)
+}
+
 /// [`parse_theme_config`](theme_config::parse_theme_config); a non-string reads as empty.
 ///
 /// # Errors
@@ -46,32 +60,36 @@ pub fn normalize_font_stack_js(
     value.map_or(JsValue::NULL, JsValue::from)
 }
 
-/// A length from a number (px) or a string, limited to `max_px` (default 64).
+/// A length such as `12px`, `0.5rem` or a px number, limited to `max_px` (default 64); `null`
+/// otherwise.
 #[must_use]
-#[wasm_bindgen(js_name = normalizeLengthValue)]
-pub fn normalize_length_value_js(raw: &JsValue, max_px: Option<f64>) -> Option<String> {
+#[wasm_bindgen(js_name = normalizeLengthValue, unchecked_return_type = "string | null")]
+pub fn normalize_length_value_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] raw: &JsValue,
+    #[wasm_bindgen(js_name = maxPx)] max_px: Option<f64>,
+) -> JsValue {
     let max_px = max_px.unwrap_or(64.0);
-    if let Some(number) = raw.as_f64() {
-        return theme_config::normalize_length_number(number, max_px);
-    }
-    raw.as_string()
-        .and_then(|raw| theme_config::normalize_length_text(&raw, max_px))
+    let value = match raw.as_f64() {
+        Some(number) => theme_config::normalize_length_number(number, max_px),
+        None => raw
+            .as_string()
+            .and_then(|raw| theme_config::normalize_length_text(&raw, max_px)),
+    };
+    value.map_or(JsValue::NULL, JsValue::from)
 }
 
 /// [`normalize_theme_config`](theme_config::normalize_theme_config): a stored config
-/// re-checked, `null` when it no longer passes.
+/// re-checked as if uploaded again (as plain JSON), `null` when it no longer passes.
 ///
 /// # Errors
 ///
-/// Fails if `raw` cannot be read as JSON.
-#[wasm_bindgen(js_name = normalizeThemeConfig)]
-pub fn normalize_theme_config_js(raw: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    let raw = if raw.is_undefined() {
-        serde_json::Value::Null
-    } else {
-        serde_wasm_bindgen::from_value(raw)?
-    };
-    to_js(&theme_config::normalize_theme_config(&raw))
+/// Fails if `raw` cannot be rebuilt as JSON.
+#[wasm_bindgen(js_name = normalizeThemeConfig, unchecked_return_type = "B.ThemeConfig | null")]
+pub fn normalize_theme_config_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] raw: &JsValue,
+) -> Result<JsValue, JsValue> {
+    let raw = plain_json(raw)?;
+    Ok(to_js(&theme_config::normalize_theme_config(&raw))?)
 }
 
 /// [`theme_config_template`](theme_config::theme_config_template): the starter file.

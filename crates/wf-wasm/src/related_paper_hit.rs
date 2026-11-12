@@ -1,5 +1,5 @@
 //! Related-paper hit mappers for JavaScript (wf-core `papers::related_paper_hit`).
-//! The JS names match `packages/wf-wasm/src/wrappers-8.ts`.
+//! The JS names match `apps/web/src/features/papers/application/parts-1.ts`.
 
 use serde_json::{Map, Value};
 use wasm_bindgen::JsValue;
@@ -10,55 +10,53 @@ use wf_core::papers::related_paper_hit::{
 
 use super::to_js;
 
-/// [`s2_to_hit`](related_paper_hit::s2_to_hit): the hit for a Semantic Scholar paper, or nothing
+/// [`s2_to_hit`](related_paper_hit::s2_to_hit): the hit for a Semantic Scholar paper, or `null`
 /// when it has no title.
 ///
 /// # Errors
 ///
 /// Fails if `paper` cannot be read as a Semantic Scholar paper object.
-#[wasm_bindgen(js_name = s2ToHit)]
-pub fn s2_to_hit_js(paper: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(js_name = s2ToHit, unchecked_return_type = "B.RelatedPaperHitRow | null")]
+pub fn s2_to_hit_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] paper: JsValue,
+) -> Result<JsValue, JsValue> {
     let paper: S2Paper = serde_wasm_bindgen::from_value(paper)?;
     Ok(to_js(&related_paper_hit::s2_to_hit(&paper))?)
 }
 
 /// [`openalex_to_hit`](related_paper_hit::openalex_to_hit): the hit for an OpenAlex work, or
-/// nothing when it has no title.
+/// `null` when it has no title.
 ///
 /// # Errors
 ///
 /// Fails if `work` cannot be read as an OpenAlex work object.
-#[wasm_bindgen(js_name = openAlexToHit)]
-pub fn openalex_to_hit_js(work: JsValue) -> Result<JsValue, JsValue> {
+#[wasm_bindgen(js_name = openAlexToHit, unchecked_return_type = "B.RelatedPaperHitRow | null")]
+pub fn openalex_to_hit_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] work: JsValue,
+) -> Result<JsValue, JsValue> {
     let work: OpenAlexWork = serde_wasm_bindgen::from_value(work)?;
     Ok(to_js(&related_paper_hit::openalex_to_hit(&work))?)
 }
 
-/// [`inverted_abstract`](related_paper_hit::inverted_abstract): the abstract text, or nothing.
+/// [`inverted_abstract`](related_paper_hit::inverted_abstract): the abstract text, or `undefined`.
 ///
 /// # Errors
 ///
 /// Fails if `index` is neither an object nor missing.
 #[wasm_bindgen(js_name = invertedAbstract)]
-pub fn inverted_abstract_js(index: JsValue) -> Result<JsValue, JsValue> {
+pub fn inverted_abstract_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] index: JsValue,
+) -> Result<Option<String>, JsValue> {
     let index: Option<Map<String, Value>> = serde_wasm_bindgen::from_value(index)?;
-    Ok(to_js(&related_paper_hit::inverted_abstract(
-        index.as_ref(),
-    ))?)
+    Ok(related_paper_hit::inverted_abstract(index.as_ref()))
 }
 
-/// [`seed_doi`](related_paper_hit::seed_doi): the seed's DOI, or the arXiv DOI, or nothing.
-///
-/// # Errors
-///
-/// Fails only if the result cannot be converted to a JavaScript value.
+/// [`seed_doi`](related_paper_hit::seed_doi): the seed's DOI, or the arXiv DOI, or `undefined`.
 #[wasm_bindgen(js_name = seedDoi)]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn seed_doi_js(doi: Option<String>, arxiv_id: Option<String>) -> Result<JsValue, JsValue> {
-    Ok(to_js(&related_paper_hit::seed_doi(
-        doi.as_deref(),
-        arxiv_id.as_deref(),
-    ))?)
+#[must_use]
+pub fn seed_doi_js(doi: Option<String>, arxiv_id: Option<String>) -> Option<String> {
+    related_paper_hit::seed_doi(doi.as_deref(), arxiv_id.as_deref())
 }
 
 /// [`local_keys`](related_paper_hit::local_keys): the dedupe keys of a library.

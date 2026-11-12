@@ -12,8 +12,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails with the user-facing message when a check fails, or when the input is malformed.
-#[wasm_bindgen(js_name = startAiSession)]
-pub fn start_ai_session_js(input: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(js_name = startAiSession, unchecked_return_type = "B.ActiveSession")]
+pub fn start_ai_session_js(
+    #[wasm_bindgen(unchecked_param_type = "B.SessionGrantInput")] input: JsValue,
+) -> Result<JsValue, JsError> {
     let input: SessionGrantInput = serde_wasm_bindgen::from_value(input).map_err(js_error)?;
     let session = session_grant::start_session(&input).map_err(|message| JsError::new(&message))?;
     to_js(&session).map_err(js_error)

@@ -37,12 +37,30 @@ pub fn set_image_placement_js(
     body: js_sys::JsString,
     alt: js_sys::JsString,
     ordinal: usize,
-    patch: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ImagePlacementPatch")] patch: JsValue,
 ) -> Result<String, serde_wasm_bindgen::Error> {
     let body = &crate::guarded_text(&body)?;
     let alt = &crate::guarded_text(&alt)?;
-    let patch: ImagePlacementPatch = serde_wasm_bindgen::from_value(patch)?;
+    let patch: ImagePlacementPatch = serde_wasm_bindgen::from_value(defined_fields(&patch))?;
     Ok(markdown_image_width::set_image_placement(
         body, alt, ordinal, &patch,
     ))
+}
+
+/// A copy of `patch` without its `undefined` fields, so `{ width: undefined }`
+/// keeps the width like an absent key (only `null` clears). Non-objects pass through.
+fn defined_fields(patch: &JsValue) -> JsValue {
+    if !patch.is_object() {
+        return patch.clone();
+    }
+    let out = js_sys::Object::new();
+    for entry in js_sys::Object::entries(&js_sys::Object::from(patch.clone())).iter() {
+        let pair = js_sys::Array::from(&entry);
+        let value = pair.get(1);
+        if !value.is_undefined() {
+            // Setting a plain data property on a fresh object cannot fail.
+            let _ = js_sys::Reflect::set(&out, &pair.get(0), &value);
+        }
+    }
+    out.into()
 }

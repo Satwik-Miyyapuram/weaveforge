@@ -1,58 +1,24 @@
-//! The ink pointer gesture (wf-core `ink::gesture`), re-exported from
-//! `packages/wf-wasm/src/wrappers-3.ts`. The route picker returns each step as a
-//! string: `"ask:<question>"` or `"route:<route>"`, with `"route:none"` leaving the
-//! down to the caller. The DOM, pointer events and the eraser cursor stay in
+//! The ink pointer gesture (wf-core `ink::gesture`): the route picker and the
+//! stroke's cut at the paper's edge. The picker asks each question in turn; the
+//! caller answers it and feeds the answer back, so a callback runs only when the
+//! route needs it. Each step crosses as a `B.InkRouteStep`. The DOM, pointer
+//! events and the eraser cursor stay in
 //! `apps/web/src/features/ink/application/parts-1.ts`.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::ink::clip_to_area::{DrawArea, Point};
-use wf_core::ink::gesture::{
-    DownFacts, EdgeStep, Question, Route, RoutePicker, Step, StrokeEdgeSplit as Core, Tool,
-};
+use wf_core::ink::gesture::{DownFacts, RoutePicker, RouteStep, Step, StrokeEdgeSplit as Core};
 
 use super::to_js;
 
-fn tool_of(name: &str) -> Tool {
-    match name {
-        "draw" => Tool::Draw,
-        "eraser" => Tool::Eraser,
-        "lasso" => Tool::Lasso,
-        "region" => Tool::Region,
-        _ => Tool::None,
-    }
+type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
+
+fn step_js(step: Step) -> JsResult<JsValue> {
+    to_js(&RouteStep::from(step))
 }
 
-fn question_name(question: Question) -> &'static str {
-    match question {
-        Question::SweepTip => "sweepTip",
-        Question::Admit => "admit",
-        Question::HitSelection => "hitSelection",
-        Question::SweepTool => "sweepTool",
-        Question::Intercept => "intercept",
-    }
-}
-
-fn route_name(route: Option<Route>) -> &'static str {
-    match route {
-        Some(Route::Erase) => "erase",
-        Some(Route::Intercept) => "intercept",
-        Some(Route::Drag) => "drag",
-        Some(Route::Lasso) => "lasso",
-        Some(Route::Draw) => "draw",
-        Some(Route::Region) => "region",
-        None => "none",
-    }
-}
-
-fn step_name(step: Step) -> String {
-    match step {
-        Step::Ask(question) => format!("ask:{}", question_name(question)),
-        Step::Done(route) => format!("route:{}", route_name(route)),
-    }
-}
-
-/// [`RoutePicker`]: picks one down's route, asking the caller each question in turn.
+/// [`RoutePicker`]: one down's route picker, built per down and driven to a route.
 #[wasm_bindgen]
 pub struct InkRoutePicker {
     inner: RoutePicker,
@@ -60,42 +26,40 @@ pub struct InkRoutePicker {
 
 #[wasm_bindgen]
 impl InkRoutePicker {
-    /// `tool` is `"draw"`, `"eraser"`, `"lasso"`, `"region"` or `"none"`.
+    /// A picker for a down with these facts; an unknown `tool` reads as `"none"`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if `facts` is not an `InkRouteFacts` object.
     #[wasm_bindgen(constructor)]
-    #[must_use]
     pub fn new(
-        tool: &str,
-        tip_erases: bool,
-        pen_barrel: bool,
-        has_admit: bool,
-        has_hit_selection: bool,
-        has_intercept: bool,
-    ) -> InkRoutePicker {
-        InkRoutePicker {
-            inner: RoutePicker::new(DownFacts {
-                tool: tool_of(tool),
-                tip_erases,
-                pen_barrel,
-                has_admit,
-                has_hit_selection,
-                has_intercept,
-            }),
-        }
+        #[wasm_bindgen(unchecked_param_type = "B.InkRouteFacts")] facts: JsValue,
+    ) -> JsResult<InkRoutePicker> {
+        let facts: DownFacts = serde_wasm_bindgen::from_value(facts)?;
+        Ok(InkRoutePicker {
+            inner: RoutePicker::new(facts),
+        })
     }
 
-    /// The first step, usually `"ask:sweepTip"`.
-    pub fn start(&mut self) -> String {
-        step_name(self.inner.start())
+    /// The first step: the back-tip sweep question.
+    ///
+    /// # Errors
+    ///
+    /// Fails only if the step cannot be converted to a JS value.
+    #[wasm_bindgen(unchecked_return_type = "B.InkRouteStep")]
+    pub fn start(&mut self) -> JsResult<JsValue> {
+        step_js(self.inner.start())
     }
 
     /// Feeds the answer to the last question and returns the next step.
-    pub fn answer(&mut self, yes: bool) -> String {
-        step_name(self.inner.answer(yes))
+    ///
+    /// # Errors
+    ///
+    /// Fails only if the step cannot be converted to a JS value.
+    #[wasm_bindgen(unchecked_return_type = "B.InkRouteStep")]
+    pub fn answer(&mut self, yes: bool) -> JsResult<JsValue> {
+        step_js(self.inner.answer(yes))
     }
-}
-
-fn edge_step_js(step: EdgeStep) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    to_js(&step)
 }
 
 /// [`StrokeEdgeSplit`](Core): one stroke against the drawable area.
@@ -106,6 +70,7 @@ pub struct StrokeEdgeSplit {
 
 #[wasm_bindgen]
 impl StrokeEdgeSplit {
+    /// A split with no stroke begun.
     #[wasm_bindgen(constructor)]
     #[must_use]
     pub fn new() -> StrokeEdgeSplit {
@@ -121,28 +86,39 @@ impl StrokeEdgeSplit {
         self.inner.outside()
     }
 
-    pub fn begin(&mut self, x: f64, y: f64) {
-        self.inner.begin(Point { x, y });
-    }
-
-    /// One move as `{ kind, at? }`. `area` is a `DrawArea`, or `null` for everywhere.
+    /// Starts a stroke at `at`.
     ///
     /// # Errors
     ///
-    /// Fails only if the area cannot be read or the step cannot be serialised.
-    #[wasm_bindgen(js_name = move)]
+    /// Fails if `at` is not a point.
+    pub fn begin(
+        &mut self,
+        #[wasm_bindgen(unchecked_param_type = "B.Point")] at: JsValue,
+    ) -> JsResult<()> {
+        let at: Point = serde_wasm_bindgen::from_value(at)?;
+        self.inner.begin(at);
+        Ok(())
+    }
+
+    /// One move as `{ kind, at? }`. A `null` area means everywhere is paper.
+    ///
+    /// # Errors
+    ///
+    /// Fails if `at` is not a point, the area cannot be read, or the step cannot
+    /// be serialised.
+    #[wasm_bindgen(js_name = move, unchecked_return_type = "B.EdgeStepResult")]
     pub fn move_to(
         &mut self,
-        x: f64,
-        y: f64,
-        area: JsValue,
-    ) -> Result<JsValue, serde_wasm_bindgen::Error> {
+        #[wasm_bindgen(unchecked_param_type = "B.Point")] at: JsValue,
+        #[wasm_bindgen(unchecked_param_type = "B.DrawArea | null")] area: JsValue,
+    ) -> JsResult<JsValue> {
+        let at: Point = serde_wasm_bindgen::from_value(at)?;
         let area: Option<DrawArea> = if area.is_null() || area.is_undefined() {
             None
         } else {
             Some(serde_wasm_bindgen::from_value(area)?)
         };
-        edge_step_js(self.inner.move_to(Point { x, y }, area.as_ref()))
+        to_js(&self.inner.move_to(at, area.as_ref()))
     }
 
     /// Forgets the stroke; true when it ended off the paper.

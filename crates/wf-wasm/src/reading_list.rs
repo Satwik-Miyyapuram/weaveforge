@@ -1,6 +1,7 @@
 //! Reading-list tree for JavaScript (wf-core `reading_lists::reading_list`). The JS names
 //! match `packages/core/src/features/reading-lists/domain/parts.ts`.
 
+use js_sys::{Map, Set};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::reading_lists::reading_list::{
@@ -37,22 +38,34 @@ pub fn list_display_colour_js(
     Ok(reading_list::list_display_colour(&list))
 }
 
-/// [`list_membership`](reading_list::list_membership) (TS `buildListMembership`). `key` is
-/// `"paper"`, `"vaultPage"` or `"either"`. Returns `[listId, resourceIds[]]` pairs in list order.
+/// [`list_membership`](reading_list::list_membership) (TS `buildListMembership`): which list
+/// holds which resource, `listId -> the ids in it`, in list order. Every list gets an entry,
+/// including the empty ones. `key` is `"paper"`, `"vaultPage"` or `"either"`.
 ///
 /// # Errors
 ///
 /// Fails if `lists`, `items` or `key` has the wrong shape.
-#[wasm_bindgen(js_name = listMembershipByKey)]
+#[wasm_bindgen(js_name = listMembershipByKey, unchecked_return_type = "Map<string, Set<string>>")]
 pub fn list_membership_by_key_js(
-    lists: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly { id: string }[]")] lists: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly { listId: string; paperId?: string | null; vaultPageId?: string | null }[]"
+    )]
     items: JsValue,
-    key: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ListMembershipKey")] key: JsValue,
 ) -> JsResult<JsValue> {
     let lists: Vec<MembershipList> = serde_wasm_bindgen::from_value(lists)?;
     let items: Vec<MembershipItem> = serde_wasm_bindgen::from_value(items)?;
     let key: MembershipKey = serde_wasm_bindgen::from_value(key)?;
-    to_js(&reading_list::list_membership(&lists, &items, key))
+    let out = Map::new();
+    for (list_id, ids) in reading_list::list_membership(&lists, &items, key) {
+        let set = Set::new(&JsValue::UNDEFINED);
+        for id in ids {
+            let _ = set.add(&JsValue::from(id));
+        }
+        let _ = out.set(&JsValue::from(list_id), &set);
+    }
+    Ok(out.into())
 }
 
 /// [`deepest_first_list_ids`](reading_list::deepest_first_list_ids) (TS `removeList` order).

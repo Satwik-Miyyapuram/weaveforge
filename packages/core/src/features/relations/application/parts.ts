@@ -225,7 +225,7 @@ export class CheckCitationAlertsUseCase {
         if (!latest) continue;
 
         const seen = new Set(latest.seenCitingIds);
-        const fresh = rust().rankCitationAlerts(current.filter((item) => !seen.has(item.id)));
+        const fresh = rust().rankCitationAlerts(current.filter((item) => !seen.has(item.id))) as CitationCandidate[];
         const seenCitingIds = rust().mergeSeenIds(
           latest.seenCitingIds,
           current.map((item) => item.id),

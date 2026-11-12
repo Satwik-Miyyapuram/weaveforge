@@ -34,9 +34,9 @@ pub enum BindingsError {
     reason = "flat list of exported types, one per line"
 )]
 pub fn types() -> Types {
-    batch_types(sharing_repo_types(leaf_port_types(port_types_2(
-        port_types_1(settings_lab_types(writing_types(analysis_types(
-            reader_types(Types::default()),
+    wrapper_removal_types(batch_types(sharing_repo_types(leaf_port_types(
+        port_types_2(port_types_1(settings_lab_types(writing_types(
+            analysis_types(reader_types(Types::default())),
         )))),
     ))))
     .register::<wf_core::CoreInfo>()
@@ -979,6 +979,69 @@ fn batch_types(t: Types) -> Types {
         .register::<wf_core::ai::proposal_draft::ProposalDraftInput>()
         .register::<wf_core::ai::proposal_draft::ProposalDraft>()
         .register::<wf_core::overleaf::sync_status::OverleafSyncStatus>()
+}
+
+/// Types the Rust exports name since the TS wasm wrappers were removed.
+fn wrapper_removal_types(t: Types) -> Types {
+    t.register::<wf_core::ai::provider_descriptor::ProviderApi>()
+        .register::<wf_core::ai::provider_descriptor::ProviderDescriptor>()
+        .register::<wf_core::ai::provider_descriptor::StoredProvider>()
+        .register::<wf_core::ai::retrieval::AiRetrievalDocument>()
+        .register::<wf_core::ai::retrieval::AiRetrievedExcerpt>()
+        .register::<wf_core::ai::retrieval::AiSourceLink>()
+        .register::<wf_core::ai::retrieval::RetrievalOptions>()
+        .register::<wf_core::ai::wiki_lint::FixStep>()
+        .register::<wf_core::ai::wiki_lint::LintCounts>()
+        .register::<wf_core::ai::wiki_lint::LintFinding>()
+        .register::<wf_core::ai::wiki_lint::LintKind>()
+        .register::<wf_core::ai::wiki_lint::LintReport>()
+        .register::<wf_core::ai::wiki_lint::LintSeverity>()
+        .register::<wf_core::ai::wiki_lint::WikiPageRef>()
+        .register::<wf_core::ink::constants::InkConstants>()
+        .register::<wf_core::ink::gesture::DownFacts>()
+        .register::<wf_core::ink::gesture::EdgeStep>()
+        .register::<wf_core::ink::gesture::Question>()
+        .register::<wf_core::ink::gesture::Route>()
+        .register::<wf_core::ink::gesture::RouteStep>()
+        .register::<wf_core::ink::gesture::Tool>()
+        .register::<wf_core::overleaf_link::OverleafLink>()
+        .register::<wf_core::papers::bib_import::BibPaperInput>()
+        .register::<wf_core::papers::bib_import::BibPaperMetadata>()
+        .register::<wf_core::papers::paper_drop::PaperDropSplit>()
+        .register::<wf_core::pitch_share_card::PitchShareCard>()
+        .register::<wf_core::pitch_share_card::PitchShareConstants>()
+        .register::<wf_core::pitch_share_card::PitchShareImage>()
+        .register::<wf_core::reader::citation_spans::CiteSpan>()
+        .register::<wf_core::reader::citation_spans::TextSegment>()
+        .register::<wf_core::reader::margin_notes::MarginMark>()
+        .register::<wf_core::reader::mark_actions::MarkActions>()
+        .register::<wf_core::reader::reference_actions::ManualPaperInput>()
+        .register::<wf_core::reader::reference_actions::ReferenceHints>()
+        .register::<wf_core::reader::reference_actions::ReferenceRef>()
+        .register::<wf_core::reader::sanitize_reader_url::PaperPdfSource>()
+        .register::<wf_core::reader::zotero_write_back_message::ZoteroWriteBackSummary>()
+        .register::<wf_core::reading_lists::extraction_rows::FlatPaperRow>()
+        .register::<wf_core::relations::citation_candidate::CitationCandidate>()
+        .register::<wf_core::relations::graph_build::GraphBuildResult>()
+        .register::<wf_core::relations::graph_colour::GraphPalette>()
+        .register::<wf_core::report::results_table_refs::ResultsTableRef>()
+        .register::<wf_core::report::results_tables_presence::ResultsTablesTreeNode>()
+        .register::<wf_core::report::results_tables_presence::ResultsTablesTreeSection>()
+        .register::<wf_core::sidecar_args::SidecarArgsPlan>()
+        .register::<wf_core::sidecar_args::SidecarArgsReply>()
+        .register::<wf_core::sync::adoption_plan::LocalProject>()
+        .register::<wf_core::sync::adoption_plan::Rename>()
+        .register::<wf_core::sync::conflict_attention::OpenConflict>()
+        .register::<wf_core::sync::panel_labels::Choice>()
+        .register::<wf_core::sync::pump_route::PumpAction>()
+        .register::<wf_core::sync::pump_route::PumpInput>()
+        .register::<wf_core::sync::pump_route::PumpRoute>()
+        .register::<wf_core::sync::pump_route::SendStatus>()
+        .register::<wf_core::sync::send_verdict::SendVerdict>()
+        .register::<wf_core::sync::sync_phase::CyclePhase>()
+        .register::<wf_core::sync::sync_phase::SyncPhase>()
+        .register::<wf_core::workspace::folder_diff::FolderSeen>()
+        .register::<wf_core::workspace::outside_edits::SeenFile>()
 }
 
 #[cfg(test)]

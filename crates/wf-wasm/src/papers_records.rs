@@ -1,8 +1,6 @@
 //! Paper record rules for JavaScript (wf-core `papers::paper`, `papers::paper_field` and
 //! `papers::annotation_quotation_type`). The JS names match the TS files of the same name in
 //! `packages/core/src/features/papers/domain`.
-//!
-//! The TS wrappers in `packages/wf-wasm/src/wrappers-5.ts` apply the `null` and `undefined` handling.
 
 use serde_json::{Map, Value};
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -28,29 +26,44 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 #[wasm_bindgen(js_name = normalizeDoi)]
 #[must_use]
 pub fn normalize_doi_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] doi: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] doi: Option<
+        String,
+    >,
 ) -> Option<String> {
     paper::normalize_doi(doi.as_deref())
 }
 
 /// [`resolve_related_paper_url`](related_paper_url::resolve_related_paper_url) (TS
-/// `resolveRelatedPaperUrl`). `None` becomes `undefined`.
-#[allow(
-    clippy::needless_pass_by_value,
-    reason = "wasm_bindgen takes optional strings by value"
-)]
+/// `resolveRelatedPaperUrl`): the hit's url, else its DOI link, else its arXiv page, else
+/// `undefined`.
+///
+/// # Errors
+///
+/// Fails if `hit` is not an object of optional strings.
 #[wasm_bindgen(js_name = resolveRelatedPaperUrl)]
-#[must_use]
 pub fn resolve_related_paper_url_js(
+    #[wasm_bindgen(unchecked_param_type = "{ url?: string; doi?: string; arxivId?: string }")]
+    hit: JsValue,
+) -> Result<Option<String>, JsError> {
+    let hit: RelatedHit =
+        serde_wasm_bindgen::from_value(hit).map_err(|error| JsError::new(&error.to_string()))?;
+    Ok(related_paper_url::resolve_related_paper_url(
+        hit.url.as_deref(),
+        hit.doi.as_deref(),
+        hit.arxiv_id.as_deref(),
+    ))
+}
+
+/// The links a related-paper hit may carry.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RelatedHit {
+    #[serde(default)]
     url: Option<String>,
+    #[serde(default)]
     doi: Option<String>,
+    #[serde(default)]
     arxiv_id: Option<String>,
-) -> Option<String> {
-    related_paper_url::resolve_related_paper_url(
-        url.as_deref(),
-        doi.as_deref(),
-        arxiv_id.as_deref(),
-    )
 }
 
 /// [`images_of`](paper_image::images_of) (TS `imagesOf`). `null` metadata has no images.
@@ -59,7 +72,10 @@ pub fn resolve_related_paper_url_js(
 ///
 /// Fails if `metadata` is not an object of JSON values.
 #[wasm_bindgen(js_name = imagesOf)]
-pub fn images_of_js(metadata: JsValue) -> Result<Vec<String>, JsError> {
+pub fn images_of_js(
+    #[wasm_bindgen(unchecked_param_type = "Record<string, unknown> | null | undefined")]
+    metadata: JsValue,
+) -> Result<Vec<String>, JsError> {
     let metadata: Option<Map<String, Value>> = serde_wasm_bindgen::from_value(metadata)
         .map_err(|error| JsError::new(&error.to_string()))?;
     Ok(metadata.map_or_else(Vec::new, |map| paper_image::images_of(&map)))
@@ -87,7 +103,9 @@ pub fn normalize_tags_js(tags: Vec<String>) -> Vec<String> {
 )]
 #[wasm_bindgen(js_name = extractHashtagRefs, unchecked_return_type = "B.HashtagRef[]")]
 pub fn extract_hashtag_refs_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] text: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] text: Option<
+        String,
+    >,
 ) -> JsResult<JsValue> {
     to_js(&paper::extract_hashtag_refs(text.as_deref()))
 }
@@ -100,7 +118,9 @@ pub fn extract_hashtag_refs_js(
 #[wasm_bindgen(js_name = extractHashtags)]
 #[must_use]
 pub fn extract_hashtags_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] text: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] text: Option<
+        String,
+    >,
 ) -> Vec<String> {
     paper::extract_hashtags(text.as_deref())
 }
@@ -113,7 +133,9 @@ pub fn extract_hashtags_js(
 #[wasm_bindgen(js_name = isEmptyPaperSummary)]
 #[must_use]
 pub fn is_empty_paper_summary_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] summary: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] summary: Option<
+        String,
+    >,
 ) -> bool {
     paper::is_empty_paper_summary(summary.as_deref())
 }
@@ -127,7 +149,9 @@ pub fn is_empty_paper_summary_js(
 #[wasm_bindgen(js_name = checkNewPaper)]
 pub fn check_new_paper_js(
     title: &str,
-    #[wasm_bindgen(unchecked_param_type = "number | null | undefined")] rating: Option<f64>,
+    #[wasm_bindgen(unchecked_optional_param_type = "number | null | undefined")] rating: Option<
+        f64,
+    >,
 ) -> Result<String, JsError> {
     paper::check_new_paper(title, rating).map_err(|message| JsError::new(&message))
 }
@@ -146,7 +170,9 @@ pub fn normalize_field_name_js(raw: &str) -> String {
 )]
 #[must_use]
 #[wasm_bindgen(js_name = normalizeSelectOptions)]
-pub fn normalize_select_options_js(raw: Vec<String>) -> Vec<String> {
+pub fn normalize_select_options_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] raw: Vec<String>,
+) -> Vec<String> {
     paper_field::normalize_select_options(&raw)
 }
 
@@ -170,7 +196,8 @@ pub fn encode_rollup_options_js(
     Ok(paper_field::encode_rollup_options(&config))
 }
 
-/// [`parse_rollup_options`](paper_field::parse_rollup_options) (TS `parseRollupOptions`).
+/// [`parse_rollup_options`](paper_field::parse_rollup_options) (TS `parseRollupOptions`): the
+/// rollup config stored in a field's options, or `null` when they hold none.
 ///
 /// # Errors
 ///
@@ -179,8 +206,13 @@ pub fn encode_rollup_options_js(
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes arrays by value"
 )]
-#[wasm_bindgen(js_name = parseRollupOptions)]
-pub fn parse_rollup_options_js(options: Vec<String>) -> JsResult<JsValue> {
+#[wasm_bindgen(
+    js_name = parseRollupOptions,
+    unchecked_return_type = "B.PaperFieldRollupConfig | null"
+)]
+pub fn parse_rollup_options_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] options: Vec<String>,
+) -> JsResult<JsValue> {
     to_js(&paper_field::parse_rollup_options(&options))
 }
 
@@ -204,15 +236,22 @@ pub fn parse_paper_field_value_js(
     to_js(&parsed).map_err(|error| JsError::new(&error.to_string()))
 }
 
-/// [`coerce_paper_field_value`] (TS `coercePaperFieldValue`). `null` or blank clears the value
-/// (returns `null`); a refusal throws an `Error` with the wf-core message.
+/// [`coerce_paper_field_value`] (TS `coercePaperFieldValue`). `null`, `undefined` or blank
+/// clears the value (returns `null`); a refusal throws an `Error` with the wf-core message.
 ///
 /// # Errors
 ///
 /// Fails if `kind` is not a field kind, if `value` is not a string, number, or string list,
 /// or if the value is refused for `kind`.
-#[wasm_bindgen(js_name = coercePaperFieldValue)]
-pub fn coerce_paper_field_value_js(kind: JsValue, value: JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(
+    js_name = coercePaperFieldValue,
+    unchecked_return_type = "B.PaperFieldValueData | null"
+)]
+pub fn coerce_paper_field_value_js(
+    #[wasm_bindgen(unchecked_param_type = "B.PaperFieldKind")] kind: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.PaperFieldValueData | null | undefined")]
+    value: JsValue,
+) -> Result<JsValue, JsError> {
     let kind: PaperFieldKind =
         serde_wasm_bindgen::from_value(kind).map_err(|error| JsError::new(&error.to_string()))?;
     let raw: Option<PaperFieldValueInput> = serde_wasm_bindgen::from_value(value)
@@ -222,13 +261,27 @@ pub fn coerce_paper_field_value_js(kind: JsValue, value: JsValue) -> Result<JsVa
 }
 
 /// [`compute_rollup_for_papers`] (TS `computeRollupsForPapers`). One call fills a rollup column
-/// for every listed paper; `null` where the rollup has no value.
-#[wasm_bindgen(js_name = computeRollupsForPapers)]
+/// for every listed paper, in `paper_ids` order; `null` where the rollup has no value. A def
+/// without `options` reads as having none.
+///
+/// # Errors
+///
+/// Fails if an argument has the wrong shape.
+#[wasm_bindgen(
+    js_name = computeRollupsForPapers,
+    unchecked_return_type = "(B.PaperFieldValueData | null)[]"
+)]
 pub fn compute_rollups_for_papers_js(
-    paper_ids: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] paper_ids: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "Omit<B.RollupFieldDef, \"options\"> & { options?: readonly string[] }"
+    )]
     rollup: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly (Omit<B.RollupFieldDef, \"options\"> & { options?: readonly string[] })[]"
+    )]
     defs: JsValue,
-    values: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.RollupValue[]")] values: JsValue,
 ) -> Result<JsValue, JsError> {
     let paper_ids: Vec<String> = serde_wasm_bindgen::from_value(paper_ids)
         .map_err(|error| JsError::new(&error.to_string()))?;

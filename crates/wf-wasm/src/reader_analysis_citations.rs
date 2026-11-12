@@ -2,8 +2,7 @@
 //! Each export wraps one function; the JS names and shapes match
 //! `packages/core/src/features/reader/analysis/citations.ts`.
 //!
-//! Objects cross as plain JS objects through serde. The TS wrappers in
-//! `packages/wf-wasm/src/wrappers-6.ts` apply the defaults.
+//! Objects cross as plain JS objects through serde; the exports apply the defaults.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -65,27 +64,42 @@ pub fn find_citation_candidates_js(
 }
 
 /// [`find_pattern_citation_mentions`](analysis_citations::find_pattern_citation_mentions) (TS
-/// `findPatternCitationMentions`). The TS wrapper always passes `excluded` and `candidates`.
+/// `findPatternCitationMentions`). `excluded` defaults to none; `candidates` defaults to
+/// [`find_citation_candidates`](analysis_citations::find_citation_candidates) over `page.items`.
 ///
 /// # Errors
 ///
 /// Fails if `page`, `refs`, `excluded` or `candidates` do not have the expected shape.
-#[wasm_bindgen(js_name = findPatternCitationMentions)]
+#[wasm_bindgen(
+    js_name = findPatternCitationMentions,
+    unchecked_return_type = "B.AnalysisCitationMention[]"
+)]
 pub fn find_pattern_citation_mentions_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "{ number: number; text: string; items: readonly B.AnalysisPdfItem[] }"
+    )]
     page: JsValue,
-    refs: JsValue,
-    excluded: JsValue,
-    candidates: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisParsedReference[]")] refs: JsValue,
+    #[wasm_bindgen(unchecked_optional_param_type = "readonly B.AnalysisPageTextRange[]")] excluded: Option<
+        JsValue,
+    >,
+    #[wasm_bindgen(unchecked_optional_param_type = "readonly B.CitationCandidate[]")]
+    candidates: Option<JsValue>,
 ) -> JsResult<JsValue> {
     let page: CitationPage = serde_wasm_bindgen::from_value(page)?;
     let refs: Vec<AnalysisParsedReference> = serde_wasm_bindgen::from_value(refs)?;
-    let excluded: Vec<AnalysisPageTextRange> = serde_wasm_bindgen::from_value(excluded)?;
-    let candidates: Vec<analysis_citations::CitationCandidate> =
-        serde_wasm_bindgen::from_value(candidates)?;
+    let excluded: Vec<AnalysisPageTextRange> = match excluded {
+        Some(excluded) => serde_wasm_bindgen::from_value(excluded)?,
+        None => Vec::new(),
+    };
+    let candidates: Option<Vec<analysis_citations::CitationCandidate>> = match candidates {
+        Some(candidates) => Some(serde_wasm_bindgen::from_value(candidates)?),
+        None => None,
+    };
     to_js(&analysis_citations::find_pattern_citation_mentions(
         &page,
         &refs,
         &excluded,
-        Some(&candidates),
+        candidates.as_deref(),
     ))
 }

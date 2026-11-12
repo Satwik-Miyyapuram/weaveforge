@@ -65,8 +65,12 @@ pub fn resolve_arxiv_id_js(arxiv_id: Option<String>, doi: Option<String>) -> Opt
 )]
 #[wasm_bindgen(js_name = knownCandidates, unchecked_return_type = "B.OpenAccessCandidate[]")]
 pub fn known_candidates_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] known_pdf: Option<String>,
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] page: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] known_pdf: Option<
+        String,
+    >,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] page: Option<
+        String,
+    >,
 ) -> Result<JsValue, JsError> {
     out(&open_access::known_candidates(known_pdf, page))
 }

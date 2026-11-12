@@ -2,6 +2,7 @@
 //! JavaScript (wf-core `ai::extraction`, `ai::folder_draft`, `papers::reference_text`,
 //! `collab`, `text_anchor`).
 
+use js_sys::{Array, Map, Reflect};
 use serde_json::Value;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -28,8 +29,10 @@ pub fn concept_key_js(name: &str) -> String {
 /// # Errors
 ///
 /// Fails when `results` is not a list of extraction results.
-#[wasm_bindgen(js_name = mergeExtractions)]
-pub fn merge_extractions_js(results: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = mergeExtractions, unchecked_return_type = "B.ExtractionResult")]
+pub fn merge_extractions_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ExtractionResult[]")] results: JsValue,
+) -> JsResult<JsValue> {
     let results: Vec<ExtractionResult> = serde_wasm_bindgen::from_value(results)?;
     to_js(&extraction::merge_extractions(&results))
 }
@@ -39,9 +42,12 @@ pub fn merge_extractions_js(results: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails when `result` is not an extraction result.
-#[wasm_bindgen(js_name = withoutExisting)]
+#[wasm_bindgen(js_name = withoutExisting, unchecked_return_type = "B.ExtractionResult")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs an owned Vec<String>.
-pub fn without_existing_js(result: JsValue, existing: Vec<String>) -> JsResult<JsValue> {
+pub fn without_existing_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ExtractionResult")] result: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] existing: Vec<String>,
+) -> JsResult<JsValue> {
     let result: ExtractionResult = serde_wasm_bindgen::from_value(result)?;
     to_js(&extraction::without_existing(&result, &existing))
 }
@@ -62,7 +68,12 @@ pub fn parse_folder_draft_js(raw: &str) -> JsResult<JsValue> {
 ///
 /// Fails when `paper` is not a paper.
 #[wasm_bindgen(js_name = formatReference)]
-pub fn format_reference_js(paper: JsValue) -> JsResult<String> {
+pub fn format_reference_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "Omit<B.ReferencePaper, \"authors\"> & { authors: readonly string[] }"
+    )]
+    paper: JsValue,
+) -> JsResult<String> {
     let paper: ReferencePaper = serde_wasm_bindgen::from_value(paper)?;
     Ok(reference_text::format_reference(&paper))
 }
@@ -85,6 +96,55 @@ pub fn peers_from_users_js(
         self_client_id,
         self_author_id,
     ))
+}
+
+/// `state?.user ?? null` for one awareness state.
+fn user_of(state: &JsValue) -> Result<JsValue, JsValue> {
+    let user = if state.is_object() || state.is_function() {
+        Reflect::get(state, &JsValue::from_str("user"))?
+    } else {
+        JsValue::UNDEFINED
+    };
+    Ok(if user.is_undefined() || user.is_null() {
+        JsValue::NULL
+    } else {
+        user
+    })
+}
+
+/// [`peers_from_states`](collab::peers_from_states) over awareness states: one entry per
+/// other person (not you, not your other sessions, one per person). `me` is your
+/// `{ clientId, authorId }`.
+///
+/// # Errors
+///
+/// Throws when `me` or a state cannot be read, or a user is not a JSON value.
+#[wasm_bindgen(js_name = peersFromStates, unchecked_return_type = "B.Peer[]")]
+pub fn peers_from_states_js(
+    #[wasm_bindgen(unchecked_param_type = "ReadonlyMap<number, unknown>")] states: &Map,
+    #[wasm_bindgen(unchecked_param_type = "{ clientId: number; authorId: string }")] me: &JsValue,
+) -> Result<JsValue, JsValue> {
+    let pairs = Array::new();
+    let mut failure = None;
+    states.for_each(&mut |state, id| match user_of(&state) {
+        Ok(user) => {
+            let _ = pairs.push(&Array::of2(&id, &user));
+        }
+        Err(error) => {
+            let _ = failure.get_or_insert(error);
+        }
+    });
+    if let Some(error) = failure {
+        return Err(error);
+    }
+    let client_id = Reflect::get(me, &JsValue::from_str("clientId"))?.unchecked_into_f64();
+    let author_id = Reflect::get(me, &JsValue::from_str("authorId"))?
+        .as_string()
+        .ok_or_else(|| JsValue::from(js_sys::TypeError::new("authorId must be a string")))?;
+    let users: Vec<(f64, Value)> = serde_wasm_bindgen::from_value(pairs.into())?;
+    Ok(to_js(&collab::peers_from_states(
+        &users, client_id, &author_id,
+    ))?)
 }
 
 /// [`same_peers`](collab::same_peers).
@@ -144,8 +204,11 @@ pub fn compact_skip_reason_js(snapshot_upto_id: f64, current_upto: Option<f64>) 
 /// # Errors
 ///
 /// Fails when `lengths` is not a list of counts or `span` is not a text span.
-#[wasm_bindgen(js_name = spanPoints)]
-pub fn span_points_js(lengths: JsValue, span: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = spanPoints, unchecked_return_type = "B.SpanPoints | null")]
+pub fn span_points_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] lengths: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.TextSpan")] span: JsValue,
+) -> JsResult<JsValue> {
     let lengths: Vec<usize> = serde_wasm_bindgen::from_value(lengths)?;
     let span: text_anchor::TextSpan = serde_wasm_bindgen::from_value(span)?;
     to_js(&text_anchor::span_points(&lengths, span))

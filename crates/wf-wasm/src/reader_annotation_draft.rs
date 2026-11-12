@@ -19,7 +19,7 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `input` is not a text-selection draft.
-#[wasm_bindgen(js_name = draftFromTextSelection, unchecked_return_type = "B.NewReaderAnnotation | null")]
+#[wasm_bindgen(js_name = draftFromTextSelection, unchecked_return_type = "T.NewReaderAnnotation | null")]
 pub fn draft_from_text_selection_js(
     #[wasm_bindgen(unchecked_param_type = "B.TextSelectionDraft")] input: JsValue,
 ) -> JsResult<JsValue> {
@@ -32,7 +32,7 @@ pub fn draft_from_text_selection_js(
 /// # Errors
 ///
 /// Fails if `input` is not an ink draft.
-#[wasm_bindgen(js_name = draftInkAnnotation, unchecked_return_type = "B.NewReaderAnnotation | null")]
+#[wasm_bindgen(js_name = draftInkAnnotation, unchecked_return_type = "T.NewReaderAnnotation | null")]
 pub fn draft_ink_annotation_js(
     #[wasm_bindgen(unchecked_param_type = "B.InkDraft")] input: JsValue,
 ) -> JsResult<JsValue> {
@@ -45,8 +45,11 @@ pub fn draft_ink_annotation_js(
 /// # Errors
 ///
 /// Fails if `anchor` or `path` is malformed.
-#[wasm_bindgen(js_name = appendInkStroke)]
-pub fn append_ink_stroke_js(anchor: JsValue, path: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = appendInkStroke, unchecked_return_type = "T.CombinedPdfAnchor | null")]
+pub fn append_ink_stroke_js(
+    #[wasm_bindgen(unchecked_param_type = "T.CombinedPdfAnchor")] anchor: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "number[]")] path: JsValue,
+) -> JsResult<JsValue> {
     let anchor: AnchorCombinedPdf = serde_wasm_bindgen::from_value(anchor)?;
     let path: Vec<f64> = serde_wasm_bindgen::from_value(path)?;
     to_js(&append_ink_stroke(&anchor, &path))
@@ -57,8 +60,13 @@ pub fn append_ink_stroke_js(anchor: JsValue, path: JsValue) -> JsResult<JsValue>
 /// # Errors
 ///
 /// Fails if `anchor` is malformed.
-#[wasm_bindgen(js_name = eraseInkPaths)]
-pub fn erase_ink_paths_js(anchor: JsValue, x: f64, y: f64, radius: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = eraseInkPaths, unchecked_return_type = "T.CombinedPdfAnchor | null")]
+pub fn erase_ink_paths_js(
+    #[wasm_bindgen(unchecked_param_type = "T.CombinedPdfAnchor")] anchor: JsValue,
+    x: f64,
+    y: f64,
+    radius: f64,
+) -> JsResult<JsValue> {
     let anchor: AnchorCombinedPdf = serde_wasm_bindgen::from_value(anchor)?;
     to_js(&erase_ink_paths(anchor, x, y, radius))
 }
@@ -68,7 +76,7 @@ pub fn erase_ink_paths_js(anchor: JsValue, x: f64, y: f64, radius: f64) -> JsRes
 /// # Errors
 ///
 /// Fails if `input` is not an image-region draft.
-#[wasm_bindgen(js_name = draftImageRegion, unchecked_return_type = "B.NewReaderAnnotation | null")]
+#[wasm_bindgen(js_name = draftImageRegion, unchecked_return_type = "T.NewReaderAnnotation | null")]
 pub fn draft_image_region_js(
     #[wasm_bindgen(unchecked_param_type = "B.ImageRegionDraft")] input: JsValue,
 ) -> JsResult<JsValue> {
@@ -110,7 +118,7 @@ pub fn text_box_from_rect_js(
 /// # Errors
 ///
 /// Fails if `input` is not a text-box draft.
-#[wasm_bindgen(js_name = draftTextBox, unchecked_return_type = "B.NewReaderAnnotation")]
+#[wasm_bindgen(js_name = draftTextBox, unchecked_return_type = "T.NewReaderAnnotation")]
 pub fn draft_text_box_js(
     #[wasm_bindgen(unchecked_param_type = "B.TextBoxDraft")] input: JsValue,
 ) -> JsResult<JsValue> {

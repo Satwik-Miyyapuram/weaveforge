@@ -15,7 +15,9 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 ///
 /// Returns an error when `groups` is not an array of strings or `undefined`.
 #[wasm_bindgen(js_name = labelNumber)]
-pub fn label_number(groups: JsValue) -> JsResult<f64> {
+pub fn label_number(
+    #[wasm_bindgen(unchecked_param_type = "readonly (string | undefined)[]")] groups: JsValue,
+) -> JsResult<f64> {
     let groups: Vec<Option<String>> = serde_wasm_bindgen::from_value(groups)?;
     Ok(bibliography::label_number(&groups))
 }

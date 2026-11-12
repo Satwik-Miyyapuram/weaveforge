@@ -1,11 +1,12 @@
 //! Vault page helpers for JavaScript (wf-core `vault::page`): wikilinks, frontmatter, titles
 //! and note previews. The markdown image helpers are exported from `workspace.rs`.
 //!
-//! The TS wrappers in `packages/wf-wasm/src/wrappers-11.ts` apply the `undefined` handling and
-//! the defaults.
+//! The names and defaults match the `VaultPage` contract in
+//! `packages/core/src/shared/core-contract.ts`.
 
 use std::collections::{HashMap, HashSet};
 
+use js_sys::{Array, Map, Set};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::vault::page::{self, DerivedNote};
@@ -29,14 +30,22 @@ pub fn parse_wikilink_inner_js(inner: &str, raw: &str) -> JsResult<JsValue> {
     to_js(&page::parse_wikilink_inner(inner, raw))
 }
 
-/// [`extract_wikilinks`](page::extract_wikilinks) (TS `extractWikilinks`). Offsets are UTF-16.
+/// [`extract_wikilinks`](page::extract_wikilinks) (TS `extractWikilinks`). Offsets are UTF-16;
+/// a missing or empty body has none.
 ///
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = extractWikilinks)]
-pub fn extract_wikilinks_js(body: &str) -> JsResult<JsValue> {
-    to_js(&page::extract_wikilinks(body))
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes the optional body by value"
+)]
+#[wasm_bindgen(js_name = extractWikilinks, unchecked_return_type = "B.WikilinkRef[]")]
+pub fn extract_wikilinks_js(body: Option<String>) -> JsResult<JsValue> {
+    match body.as_deref() {
+        Some(body) if !body.is_empty() => to_js(&page::extract_wikilinks(body)),
+        _ => Ok(Array::new().into()),
+    }
 }
 
 /// [`normalize_title_key`](page::normalize_title_key) (TS `normalizeTitleKey`).
@@ -46,11 +55,22 @@ pub fn normalize_title_key_js(title: &str) -> String {
     page::normalize_title_key(title)
 }
 
-/// [`body_links_to`](page::body_links_to) (TS `bodyLinksTo`).
+/// [`body_links_to`](page::body_links_to) (TS `bodyLinksTo`); a missing or empty body links
+/// nowhere.
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "wasm_bindgen takes the optional body by value"
+)]
 #[wasm_bindgen(js_name = bodyLinksTo)]
 #[must_use]
-pub fn body_links_to_js(body: &str, target_key: &str) -> bool {
-    page::body_links_to(body, target_key)
+pub fn body_links_to_js(
+    body: Option<String>,
+    #[wasm_bindgen(js_name = targetKey)] target_key: &str,
+) -> bool {
+    match body.as_deref() {
+        Some(body) if !body.is_empty() => page::body_links_to(body, target_key),
+        _ => false,
+    }
 }
 
 /// [`strip_frontmatter`](page::strip_frontmatter) (TS `stripFrontmatter`).
@@ -63,15 +83,21 @@ pub fn strip_frontmatter_js(md: &str) -> JsResult<JsValue> {
     to_js(&page::strip_frontmatter(md))
 }
 
-/// [`unique_title`](page::unique_title) (TS `uniqueTitle`). `used` holds normalized keys.
-#[allow(
-    clippy::needless_pass_by_value,
-    reason = "wasm_bindgen takes arrays by value"
-)]
+/// [`unique_title`](page::unique_title) (TS `uniqueTitle`): a title unique against `used`
+/// (normalized keys). Records the chosen title's key in `used`.
+///
+/// # Errors
+///
+/// Fails if `used` holds a value that is not a string.
 #[wasm_bindgen(js_name = uniqueTitle)]
-#[must_use]
-pub fn unique_title_js(base: &str, used: Vec<String>) -> String {
-    page::unique_title(base, &used)
+pub fn unique_title_js(
+    base: &str,
+    #[wasm_bindgen(unchecked_param_type = "Set<string>")] used: &Set,
+) -> JsResult<String> {
+    let keys: Vec<String> = serde_wasm_bindgen::from_value(Array::from(used).into())?;
+    let title = page::unique_title(base, &keys);
+    let _ = used.add(&JsValue::from_str(&page::normalize_title_key(&title)));
+    Ok(title)
 }
 
 /// [`vault_image_markdown`](page::vault_image_markdown) (TS `vaultImageMarkdown`).
@@ -89,11 +115,15 @@ pub fn vault_asset_paths_in_body_js(body: &str) -> Vec<String> {
 }
 
 /// [`vault_body_preview`](page::vault_body_preview) (TS `vaultBodyPreview`). `max` counts UTF-16
-/// units.
+/// units and defaults to [`VAULT_BODY_PREVIEW_CHARS`](page::VAULT_BODY_PREVIEW_CHARS); an empty
+/// body previews as empty.
 #[wasm_bindgen(js_name = vaultBodyPreview)]
 #[must_use]
-pub fn vault_body_preview_js(body: &str, max: usize) -> String {
-    page::vault_body_preview(body, max)
+pub fn vault_body_preview_js(body: &str, max: Option<usize>) -> String {
+    if body.is_empty() {
+        return String::new();
+    }
+    page::vault_body_preview(body, max.unwrap_or(page::VAULT_BODY_PREVIEW_CHARS))
 }
 
 /// [`note_backlinks`](page::note_backlinks) (TS `noteBacklinks`), as `{ id, title }` objects.
@@ -105,8 +135,11 @@ pub fn vault_body_preview_js(body: &str, max: usize) -> String {
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes the optional id by value"
 )]
-#[wasm_bindgen(js_name = noteBacklinks)]
-pub fn note_backlinks_js(notes: JsValue, selected_id: Option<String>) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = noteBacklinks, unchecked_return_type = "{ id: string; title: string }[]")]
+pub fn note_backlinks_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly unknown[]")] notes: JsValue,
+    #[wasm_bindgen(js_name = selectedId)] selected_id: Option<String>,
+) -> JsResult<JsValue> {
     let notes = notes_from(notes)?;
     to_js(&page::note_backlinks(&notes, selected_id.as_deref()))
 }
@@ -133,11 +166,14 @@ pub fn note_tags_js(
     clippy::needless_pass_by_value,
     reason = "wasm_bindgen takes arrays by value"
 )]
-#[wasm_bindgen(js_name = scopeNoteIndices)]
+#[wasm_bindgen(js_name = scopeNoteIndices, unchecked_return_type = "number[]")]
 pub fn scope_note_indices_js(
-    notes: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly unknown[]")] notes: JsValue,
+    #[wasm_bindgen(js_name = listFilter, unchecked_param_type = "readonly string[]")]
     list_filter: Vec<String>,
+    #[wasm_bindgen(js_name = tagFilter, unchecked_param_type = "readonly string[]")]
     tag_filter: Vec<String>,
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, readonly string[]>>")]
     membership: JsValue,
 ) -> JsResult<JsValue> {
     let notes = notes_from(notes)?;
@@ -157,28 +193,49 @@ pub fn embed_titles_js(body: &str) -> Vec<String> {
     page::embed_titles(body)
 }
 
-/// [`expand_embeds`](page::expand_embeds): `bodies[i]` is the body that `titles[i]` resolves to.
+/// [`expand_embeds`](page::expand_embeds): `body` with each embed whose title is in `resolved`
+/// replaced by that note's body as a callout.
+///
+/// # Errors
+///
+/// Fails if `resolved` holds a key or value that is not a string.
 #[wasm_bindgen(js_name = expandEmbeds)]
-#[must_use]
-#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn expand_embeds_js(body: &str, titles: Vec<String>, bodies: Vec<String>) -> String {
-    page::expand_embeds(body, &titles, &bodies)
+pub fn expand_embeds_js(
+    body: &str,
+    #[wasm_bindgen(unchecked_param_type = "ReadonlyMap<string, string>")] resolved: &Map,
+) -> JsResult<String> {
+    let titles: Vec<String> = serde_wasm_bindgen::from_value(Array::from(&resolved.keys()).into())?;
+    let bodies: Vec<String> =
+        serde_wasm_bindgen::from_value(Array::from(&resolved.values()).into())?;
+    Ok(page::expand_embeds(body, &titles, &bodies))
 }
 
-/// [`replace_vault_asset_paths`](page::replace_vault_asset_paths): `old_paths[i]` becomes `new_paths[i]`.
-#[allow(
-    clippy::needless_pass_by_value,
-    reason = "wasm_bindgen takes arrays by value"
-)]
+/// One `vault:` path rewrite.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AssetRewrite {
+    old_path: String,
+    new_path: String,
+}
+
+/// [`replace_vault_asset_paths`](page::replace_vault_asset_paths): `body` with each
+/// `vault:{oldPath}` rewritten to `vault:{newPath}`, in order.
+///
+/// # Errors
+///
+/// Fails if `rewrites` is not a list of `{ oldPath, newPath }` strings.
 #[wasm_bindgen(js_name = replaceVaultAssetPaths)]
-#[must_use]
 pub fn replace_vault_asset_paths_js(
     body: &str,
-    old_paths: Vec<String>,
-    new_paths: Vec<String>,
-) -> String {
-    let pairs: Vec<(String, String)> = old_paths.into_iter().zip(new_paths).collect();
-    page::replace_vault_asset_paths(body, &pairs)
+    #[wasm_bindgen(unchecked_param_type = "readonly { oldPath: string; newPath: string }[]")]
+    rewrites: JsValue,
+) -> JsResult<String> {
+    let rewrites: Vec<AssetRewrite> = serde_wasm_bindgen::from_value(rewrites)?;
+    let pairs: Vec<(String, String)> = rewrites
+        .into_iter()
+        .map(|rewrite| (rewrite.old_path, rewrite.new_path))
+        .collect();
+    Ok(page::replace_vault_asset_paths(body, &pairs))
 }
 
 /// [`VAULT_IMAGE_PREFIX`](page::VAULT_IMAGE_PREFIX) (TS `vaultImagePrefix()`).

@@ -1,14 +1,15 @@
 //! Folder export, import parsing and import diffs for JavaScript (steps 0b-5b, 0b-5c). Each export
 //! wraps a `wf-core` function; the JS shapes match `packages/core`.
 //!
-//! The snapshot and the stored JSON rows cross as JSON text: `JSON.stringify` drops
+//! The snapshot and the stored JSON rows are read through `JSON.stringify`, which drops
 //! `undefined` fields, as the TypeScript serializer and diff saw them.
 
 use std::collections::HashMap;
 
+use js_sys::{Array, Function, JSON, JsString, Object, Reflect};
 use serde::de::DeserializeOwned;
-use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::{JsCast, JsValue};
 use wf_core::sync::change_origin::ChangeSide;
 use wf_core::sync::deserialize::{
     ExistingEntity, ParsedEntity, diff_workspace, parse_workspace_folder,
@@ -32,47 +33,73 @@ fn from_json<T: DeserializeOwned>(json: &str) -> JsResult<T> {
     serde_json::from_str(json).map_err(serde_wasm_bindgen::Error::new)
 }
 
-/// [`wf_core::sync::serialize::serialize_workspace`] for JS, as `{ files, assets }`.
+/// `JSON.stringify(value)`; a value with no JSON text (`undefined`) reads as empty text.
+fn stringify(value: &JsValue) -> Result<String, JsValue> {
+    Ok(JSON::stringify(value)?.as_string().unwrap_or_default())
+}
+
+/// `value[key]`.
+fn get(value: &JsValue, key: &str) -> Result<JsValue, JsValue> {
+    Reflect::get(value, &JsValue::from_str(key))
+}
+
+/// [`wf_core::sync::serialize::serialize_workspace`] for JS: the project's folder-mirror files
+/// for a snapshot, as `{ files: { [path]: content }, assets }`.
 ///
 /// # Errors
 ///
-/// Fails when the snapshot JSON is invalid, or the project id or name is over
+/// Fails when the snapshot cannot be stringified or read, or the project id or name is over
 /// `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = serializeWorkspace)]
+#[wasm_bindgen(
+    js_name = serializeWorkspace,
+    unchecked_return_type = "{ files: Record<string, string>; assets: B.SerializedAsset[] }"
+)]
 pub fn serialize_workspace_js(
-    snapshot_json: &str,
-    project_id: &str,
-    project_name: &str,
-) -> JsResult<JsValue> {
-    check_text(project_id)?;
-    check_text(project_name)?;
-    let snapshot: WorkspaceSnapshot = from_json(snapshot_json)?;
+    #[wasm_bindgen(unchecked_param_type = "object")] snapshot: &JsValue,
+    #[wasm_bindgen(unchecked_param_type = "{ id: string; name: string }")] project: &JsValue,
+) -> Result<JsValue, JsValue> {
+    let snapshot_json = stringify(snapshot)?;
     let project = WorkspaceProject {
-        id: project_id.to_owned(),
-        name: project_name.to_owned(),
+        id: crate::guarded_text(&get(project, "id")?.unchecked_into::<JsString>())?,
+        name: crate::guarded_text(&get(project, "name")?.unchecked_into::<JsString>())?,
     };
-    to_js(&serialize_workspace(&snapshot, &project))
+    let snapshot: WorkspaceSnapshot = from_json(&snapshot_json)?;
+    let out = serialize_workspace(&snapshot, &project);
+    let files = Object::from_entries(&to_js(&out.files)?)?;
+    let result = Object::new();
+    let _ = Reflect::set(&result, &JsValue::from_str("files"), &files)?;
+    let _ = Reflect::set(&result, &JsValue::from_str("assets"), &to_js(&out.assets)?)?;
+    Ok(result.into())
 }
 
 /// [`wf_core::sync::workspace_snapshot::workspace_snapshot_counts`] for JS.
 ///
 /// # Errors
 ///
-/// Fails when the snapshot JSON is invalid.
-#[wasm_bindgen(js_name = workspaceSnapshotCounts)]
-pub fn workspace_snapshot_counts_js(snapshot_json: &str) -> JsResult<JsValue> {
-    let snapshot: WorkspaceSnapshot = from_json(snapshot_json)?;
-    to_js(&workspace_snapshot_counts(&snapshot))
+/// Fails when the snapshot cannot be stringified or read.
+#[wasm_bindgen(
+    js_name = workspaceSnapshotCounts,
+    unchecked_return_type = "B.WorkspaceSnapshotCounts"
+)]
+pub fn workspace_snapshot_counts_js(
+    #[wasm_bindgen(unchecked_param_type = "object")] snapshot: &JsValue,
+) -> Result<JsValue, JsValue> {
+    let snapshot: WorkspaceSnapshot = from_json(&stringify(snapshot)?)?;
+    Ok(to_js(&workspace_snapshot_counts(&snapshot))?)
 }
 
-/// [`wf_core::sync::deserialize::parse_workspace_folder`] for JS, over `[path, content][]`.
+/// [`wf_core::sync::deserialize::parse_workspace_folder`] for JS: every importable entity in a
+/// folder's `{ [path]: content }` files.
 ///
 /// # Errors
 ///
 /// Fails when a path or content is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = parseWorkspaceFolder)]
-pub fn parse_workspace_folder_js(files: JsValue) -> JsResult<JsValue> {
-    let files: Vec<(String, String)> = serde_wasm_bindgen::from_value(files)?;
+#[wasm_bindgen(js_name = parseWorkspaceFolder, unchecked_return_type = "B.ParsedEntity[]")]
+pub fn parse_workspace_folder_js(
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>>")] files: &JsValue,
+) -> JsResult<JsValue> {
+    let files: Vec<(String, String)> =
+        serde_wasm_bindgen::from_value(Object::entries(files.unchecked_ref()).into())?;
     for (path, content) in &files {
         check_text(path)?;
         check_text(content)?;
@@ -80,22 +107,46 @@ pub fn parse_workspace_folder_js(files: JsValue) -> JsResult<JsValue> {
     to_js(&parse_workspace_folder(&files))
 }
 
-/// [`wf_core::sync::deserialize::diff_workspace`] for JS. `sides` maps a parsed path to who
-/// changed it; the TS wrapper fills it from `origin`. A path it lacks is `Unknown`. Without
-/// `sides`, there is no origin.
+/// [`wf_core::sync::deserialize::diff_workspace`] for JS: what importing `parsed` would do to
+/// `existing`. `options.origin` is asked once for every parsed path up front (so it must be
+/// pure); a path it lacks is `Unknown`, and without it there is no origin.
 ///
 /// # Errors
 ///
-/// Fails when an argument does not match its shape.
-#[wasm_bindgen(js_name = diffWorkspace)]
-pub fn diff_workspace_js(parsed: JsValue, existing: JsValue, sides: JsValue) -> JsResult<JsValue> {
+/// Fails when an argument does not match its shape, or `origin` throws.
+#[wasm_bindgen(js_name = diffWorkspace, unchecked_return_type = "B.ImportDiff")]
+pub fn diff_workspace_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ParsedEntity[]")] parsed: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ExistingEntity[]")] existing: JsValue,
+    #[wasm_bindgen(unchecked_optional_param_type = "{ origin?(path: string): B.ChangeSide }")]
+    options: Option<JsValue>,
+) -> Result<JsValue, JsValue> {
+    let origin = match options {
+        Some(options) => get(&options, "origin")?,
+        None => JsValue::UNDEFINED,
+    };
+    // As `Object.fromEntries(parsed.map((e) => [e.path, origin(e.path)]))`, before any parsing.
+    let sides = if origin.is_truthy() {
+        let origin: &Function = origin.unchecked_ref();
+        let entries = Array::new();
+        for entity in Array::from(&parsed).iter() {
+            let path = get(&entity, "path")?;
+            let side = origin.call1(&JsValue::UNDEFINED, &path)?;
+            let _ = entries.push(&Array::of2(&path, &side));
+        }
+        Some(Object::from_entries(&entries)?)
+    } else {
+        None
+    };
     let parsed: Vec<ParsedEntity> = serde_wasm_bindgen::from_value(parsed)?;
     let existing: Vec<ExistingEntity> = serde_wasm_bindgen::from_value(existing)?;
-    let sides: Option<HashMap<String, ChangeSide>> = serde_wasm_bindgen::from_value(sides)?;
+    let sides: Option<HashMap<String, ChangeSide>> = sides
+        .map(|sides| serde_wasm_bindgen::from_value(sides.into()))
+        .transpose()?;
     let lookup = sides
         .map(|sides| move |path: &str| sides.get(path).copied().unwrap_or(ChangeSide::Unknown));
     let origin = lookup.as_ref().map(|f| f as &dyn Fn(&str) -> ChangeSide);
-    to_js(&diff_workspace(&parsed, &existing, origin))
+    Ok(to_js(&diff_workspace(&parsed, &existing, origin))?)
 }
 
 /// [`wf_core::sync::json_entities::json_data_path`] for JS.
@@ -132,23 +183,43 @@ pub fn parse_json_data_js(
     parse_json_data(path, content, kind).map_or(Ok(JsValue::NULL), |parsed| to_js(&parsed))
 }
 
-/// [`wf_core::sync::json_entities::diff_json_data`] for JS. `side` is who changed `parsed.path`;
-/// the TS wrapper asks `origin` for it.
+/// [`wf_core::sync::json_entities::diff_json_data`] for JS: what importing a JSON data file would
+/// do to the stored rows. `options.origin?.(parsed.path)` says who changed the file.
 ///
 /// # Errors
 ///
-/// Fails when an argument does not match its shape.
-#[wasm_bindgen(js_name = diffJsonData)]
-pub fn diff_json_data_js(parsed: JsValue, existing_json: &str, side: JsValue) -> JsResult<JsValue> {
+/// Fails when an argument does not match its shape, or `origin` throws.
+#[wasm_bindgen(js_name = diffJsonData, unchecked_return_type = "B.JsonDiff")]
+pub fn diff_json_data_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ParsedJsonData")] parsed: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly Readonly<Record<string, unknown>>[]")]
+    existing: &JsValue,
+    #[wasm_bindgen(unchecked_optional_param_type = "{ origin?(path: string): B.ChangeSide }")]
+    options: Option<JsValue>,
+) -> Result<JsValue, JsValue> {
+    let existing_json = stringify(existing)?;
+    // `options.origin?.(parsed.path)`: a method call, so `this` is `options`.
+    let side = match options {
+        Some(options) => {
+            let origin = get(&options, "origin")?;
+            if origin.is_undefined() || origin.is_null() {
+                JsValue::UNDEFINED
+            } else {
+                let path = get(&parsed, "path")?;
+                origin.unchecked_ref::<Function>().call1(&options, &path)?
+            }
+        }
+        None => JsValue::UNDEFINED,
+    };
     let parsed: ParsedJsonData = serde_wasm_bindgen::from_value(parsed)?;
-    let existing: Vec<JsonRow> = from_json(existing_json)?;
+    let existing: Vec<JsonRow> = from_json(&existing_json)?;
     let side: Option<ChangeSide> = serde_wasm_bindgen::from_value(side)?;
     let origin = side.map(|side| move |_: &str| side);
-    to_js(&diff_json_data(
+    Ok(to_js(&diff_json_data(
         &parsed,
         &existing,
         origin.as_ref().map(|f| f as &dyn Fn(&str) -> ChangeSide),
-    ))
+    ))?)
 }
 
 /// [`wf_core::sync::json_entities::count_json_actions`] for JS.
@@ -179,28 +250,37 @@ pub fn add_counts_js(
     to_js(&add_counts(a, b))
 }
 
-/// [`wf_core::sync::folder_mirror::plan_mirror`] for JS: `files` is `[path, content][]`,
-/// `asset_paths` and `previous_paths` are `string[]`, `base` is an optional
-/// `{ [path]: digest }` and `disk` is `{ [path]: text }` for the paths the plan reads.
-/// Returns the `MirrorResult` (`mirrored` and `bases` as `[path, value][]`).
+/// [`wf_core::sync::folder_mirror::plan_mirror`] for JS: what mirroring `serialized` into the
+/// folder would do, without touching it. `disk` holds the folder's text for every file path and
+/// for every previous path that is not present but has a `base` entry; a missing key is a
+/// missing file. Assets are not fetched: their folder paths only count as present, so they are
+/// never removed. Returns the `MirrorResult` (`mirrored` and `bases` as `[path, value][]`).
 ///
 /// # Errors
 ///
 /// Fails when an argument has the wrong shape.
-#[wasm_bindgen(js_name = planMirror)]
+#[wasm_bindgen(js_name = planMirror, unchecked_return_type = "B.MirrorResult")]
 pub fn plan_mirror_js(
-    files: JsValue,
-    asset_paths: JsValue,
-    previous_paths: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "{ files: Readonly<Record<string, string>>; assets: readonly B.SerializedAsset[] }"
+    )]
+    serialized: &JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] previous_paths: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>> | undefined")]
     base: JsValue,
-    disk: JsValue,
-) -> JsResult<JsValue> {
-    let files: Vec<(String, String)> = serde_wasm_bindgen::from_value(files)?;
-    let asset_paths: Vec<String> = serde_wasm_bindgen::from_value(asset_paths)?;
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>>")] disk: JsValue,
+) -> Result<JsValue, JsValue> {
+    let files = Object::entries(get(serialized, "files")?.unchecked_ref());
+    let asset_paths: Array = Array::from(&get(serialized, "assets")?)
+        .iter()
+        .map(|asset| get(&asset, "folderPath"))
+        .collect::<Result<_, _>>()?;
+    let files: Vec<(String, String)> = serde_wasm_bindgen::from_value(files.into())?;
+    let asset_paths: Vec<String> = serde_wasm_bindgen::from_value(asset_paths.into())?;
     let previous_paths: Vec<String> = serde_wasm_bindgen::from_value(previous_paths)?;
     let base: Option<HashMap<String, String>> = serde_wasm_bindgen::from_value(base)?;
     let disk: HashMap<String, String> = serde_wasm_bindgen::from_value(disk)?;
     let plan = plan_mirror(&files, &asset_paths, &previous_paths, base.as_ref(), &disk)
         .map_err(|err| serde_wasm_bindgen::Error::new(err.to_string()))?;
-    to_js(&plan)
+    Ok(to_js(&plan)?)
 }

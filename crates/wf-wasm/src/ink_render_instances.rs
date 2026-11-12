@@ -18,11 +18,16 @@ pub fn ink_stroke_instance_count_js(points: u32) -> u32 {
 }
 
 /// [`pack_stroke_instances`]: the instance floats for a stroke from span `from`
-/// on, as a `Float64Array` the caller narrows into its buffer.
+/// on (default 0), as a `Float64Array` the caller narrows into its buffer.
 #[wasm_bindgen(js_name = packInkStrokeInstances)]
 #[must_use]
-pub fn pack_ink_stroke_instances_js(xs: &[f64], ys: &[f64], width: f64, from: u32) -> Vec<f64> {
-    pack_stroke_instances(xs, ys, width, from as usize)
+pub fn pack_ink_stroke_instances_js(
+    #[wasm_bindgen(unchecked_param_type = "ArrayLike<number>")] xs: &[f64],
+    #[wasm_bindgen(unchecked_param_type = "ArrayLike<number>")] ys: &[f64],
+    width: f64,
+    from: Option<u32>,
+) -> Vec<f64> {
+    pack_stroke_instances(xs, ys, width, from.unwrap_or(0) as usize)
 }
 
 /// [`backing_ratio`]: the pixel ratio a canvas of the given CSS size is given.

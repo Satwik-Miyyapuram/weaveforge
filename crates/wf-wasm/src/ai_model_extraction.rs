@@ -63,7 +63,8 @@ pub fn model_build_batch_request_js(
 pub fn model_finalize_extraction_js(
     #[wasm_bindgen(unchecked_param_type = "readonly B.ExtractionResult[]")] results: JsValue,
     #[wasm_bindgen(unchecked_param_type = "readonly string[]")] existing: Vec<String>,
-    #[wasm_bindgen(unchecked_param_type = "number | null | undefined")] max_concepts: Option<f64>,
+    #[wasm_bindgen(unchecked_optional_param_type = "number | null | undefined")]
+    max_concepts: Option<f64>,
 ) -> JsResult<JsValue> {
     let results: Vec<ExtractionResult> = serde_wasm_bindgen::from_value(results)?;
     to_js(&model_extraction::finalize_extraction(

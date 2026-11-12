@@ -34,12 +34,17 @@ pub fn resolve_integration_config_js(
 /// Fails if an argument has the wrong shape, or the result cannot be converted to JS.
 #[wasm_bindgen(js_name = userGateOpen)]
 pub fn user_gate_open_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "Omit<B.IntegrationConfig, \"gitRead\"> & { gitRead: readonly string[] }"
+    )]
     config: JsValue,
-    gate: JsValue,
-) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    #[wasm_bindgen(unchecked_optional_param_type = "B.RuntimeGate | undefined")] gate: Option<
+        JsValue,
+    >,
+) -> Result<bool, serde_wasm_bindgen::Error> {
     let config: IntegrationConfig = serde_wasm_bindgen::from_value(config)?;
-    let gate: Option<RuntimeGate> = serde_wasm_bindgen::from_value(gate)?;
-    to_js(&user_gate_open(&config, gate.as_ref()))
+    let gate: Option<RuntimeGate> = serde_wasm_bindgen::from_value(gate.unwrap_or(JsValue::NULL))?;
+    Ok(user_gate_open(&config, gate.as_ref()))
 }
 
 /// [`project_gate_open`].

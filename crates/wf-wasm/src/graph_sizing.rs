@@ -1,5 +1,5 @@
-//! Graph node and label sizes at a zoom (wf-core `relations::graph_sizing`). The TS wrappers in
-//! `packages/wf-wasm/src/wrappers-2.ts` keep the `kind` argument and map it to the tag flag.
+//! Graph node and label sizes at a zoom (wf-core `relations::graph_sizing`). `labelSize` takes the
+//! node `kind` and maps it to the tag flag.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -25,16 +25,21 @@ pub fn node_size_js(
     ))
 }
 
-/// [`label_size`](graph_sizing::label_size) as `{ font, line, gap }`.
+/// [`label_size`](graph_sizing::label_size) as `{ font, line, gap }`: how big a label draws at
+/// `zoom`. `kind === "tag"` picks the tag label's base size; `bounded` defaults to `true`.
 ///
 /// # Errors
 ///
 /// Fails only if the result cannot be serialised.
-#[wasm_bindgen(js_name = labelSize)]
+#[wasm_bindgen(js_name = labelSize, unchecked_return_type = "B.LabelSize")]
 pub fn label_size_js(
-    is_tag: bool,
+    kind: &str,
     zoom: f64,
-    bounded: bool,
+    bounded: Option<bool>,
 ) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    to_js(&graph_sizing::label_size(is_tag, zoom, bounded))
+    to_js(&graph_sizing::label_size(
+        kind == "tag",
+        zoom,
+        bounded.unwrap_or(true),
+    ))
 }

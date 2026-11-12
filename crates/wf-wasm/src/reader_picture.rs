@@ -21,7 +21,9 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 #[wasm_bindgen(js_name = pictureMeta, unchecked_return_type = "B.PictureMeta | null")]
 pub fn picture_meta_js(
     kind: &str,
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] comment: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] comment: Option<
+        String,
+    >,
 ) -> JsResult<JsValue> {
     to_js(&picture_meta(kind, comment.as_deref()))
 }
@@ -44,8 +46,11 @@ pub fn picture_comment_js(
 /// # Errors
 ///
 /// Fails if `annotations` is not a list of annotations.
-#[wasm_bindgen(js_name = pagePictures)]
-pub fn page_pictures_js(annotations: JsValue, page_height: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = pagePictures, unchecked_return_type = "B.PagePicture[]")]
+pub fn page_pictures_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly T.ReaderAnnotation[]")] annotations: JsValue,
+    page_height: f64,
+) -> JsResult<JsValue> {
     let annotations: Vec<ReaderAnnotation> = serde_wasm_bindgen::from_value(annotations)?;
     to_js(&page_pictures(&annotations, page_height))
 }
@@ -69,7 +74,7 @@ pub fn picture_rect_js(
 /// # Errors
 ///
 /// Fails if `input` is not a picture-draft object.
-#[wasm_bindgen(js_name = draftPicture, unchecked_return_type = "B.NewReaderAnnotation")]
+#[wasm_bindgen(js_name = draftPicture, unchecked_return_type = "T.NewReaderAnnotation")]
 pub fn draft_picture_js(
     #[wasm_bindgen(unchecked_param_type = "B.PictureDraftInput")] input: JsValue,
 ) -> JsResult<JsValue> {

@@ -24,6 +24,7 @@ const IMAGE_HEIGHT: u32 = 630;
 
 /// The shared text, for callers that build the card in another language.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct PitchShareConstants {
     /// [`PITCH_TITLE`].
@@ -36,6 +37,7 @@ pub struct PitchShareConstants {
 
 /// The card image, as the Open Graph `images` entry.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct PitchShareImage {
     /// Path to the image, prefixed with the base path and not with the origin.
@@ -51,6 +53,7 @@ pub struct PitchShareImage {
 /// The card metadata, minus `metadataBase`. Open Graph and Twitter share the title,
 /// description and image.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct PitchShareCard {
     /// Card title.

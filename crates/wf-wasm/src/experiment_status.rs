@@ -1,9 +1,10 @@
 //! Experiment status and metric helpers for JavaScript (wf-core `experiment_status`). The JS names
 //! match `packages/core/src/features/experiments/domain/parts.ts`.
 
-use wasm_bindgen::JsValue;
+use js_sys::{BigInt, JSON, Object, Reflect};
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::experiment_status::{self, Experiment, ExperimentStatus};
+use wasm_bindgen::{JsCast, JsValue};
+use wf_core::experiment_status::{self, Experiment, ExperimentStatus, STALE_RUNNING_MS};
 
 use super::to_js;
 
@@ -17,24 +18,34 @@ fn json_from(raw: JsValue) -> JsResult<serde_json::Value> {
     serde_wasm_bindgen::from_value(raw)
 }
 
-/// [`status_patch_for_experiment`](experiment_status::status_patch_for_experiment).
+/// [`status_patch_for_experiment`](experiment_status::status_patch_for_experiment). Every key is
+/// present (a missing stamp is `undefined`), so spreading the patch clears a stamp.
 ///
 /// # Errors
 ///
 /// Fails if `experiment` or `status` has the wrong shape.
-#[wasm_bindgen(js_name = statusPatchForExperiment)]
+#[wasm_bindgen(
+    js_name = statusPatchForExperiment,
+    unchecked_return_type = "B.ExperimentStatusPatch"
+)]
 pub fn status_patch_for_experiment_js(
-    experiment: JsValue,
-    status: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.Experiment")] experiment: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ExperimentStatus")] status: JsValue,
     now: &str,
 ) -> JsResult<JsValue> {
     let experiment: Experiment = serde_wasm_bindgen::from_value(experiment)?;
     let status: ExperimentStatus = serde_wasm_bindgen::from_value(status)?;
-    to_js(&experiment_status::status_patch_for_experiment(
-        &experiment,
-        status,
-        now,
-    ))
+    let patch = experiment_status::status_patch_for_experiment(&experiment, status, now);
+    let out = Object::new();
+    let set = |key: &str, value: &JsValue| {
+        Reflect::set(&out, &JsValue::from_str(key), value)
+            .map(drop)
+            .map_err(|_| serde_wasm_bindgen::Error::new("cannot build the status patch"))
+    };
+    set("status", &to_js(&patch.status)?)?;
+    set("startedAt", &JsValue::from(patch.started_at))?;
+    set("finishedAt", &JsValue::from(patch.finished_at))?;
+    Ok(out.into())
 }
 
 /// [`short_sha`](experiment_status::short_sha); `undefined` when absent or empty.
@@ -57,23 +68,24 @@ pub fn experiment_activity_at_js(
     Ok(experiment_status::experiment_activity_at(&experiment))
 }
 
-/// [`is_stale_running_experiment`](experiment_status::is_stale_running_experiment); `undefined` last metric time means none.
+/// [`is_stale_running_experiment`](experiment_status::is_stale_running_experiment); `undefined` last
+/// metric time means none. `nowMs` defaults to `Date.now()`, `staleMs` to [`STALE_RUNNING_MS`].
 ///
 /// # Errors
 ///
 /// Fails if `experiment` has the wrong shape.
 #[wasm_bindgen(js_name = isStaleRunningExperiment)]
 pub fn is_stale_running_experiment_js(
-    experiment: JsValue,
-    now_ms: f64,
-    stale_ms: f64,
+    #[wasm_bindgen(unchecked_param_type = "B.Experiment")] experiment: JsValue,
+    now_ms: Option<f64>,
+    stale_ms: Option<f64>,
     last_metric_at_ms: Option<f64>,
 ) -> JsResult<bool> {
     let experiment: Experiment = serde_wasm_bindgen::from_value(experiment)?;
     Ok(experiment_status::is_stale_running_experiment(
         &experiment,
-        now_ms,
-        stale_ms,
+        now_ms.unwrap_or_else(js_sys::Date::now),
+        stale_ms.unwrap_or(STALE_RUNNING_MS),
         last_metric_at_ms,
     ))
 }
@@ -84,13 +96,43 @@ pub fn format_metric_value_js(metric: &str, value: f64) -> String {
     experiment_status::format_metric_value(metric, value)
 }
 
-/// [`format_metric_cell`](experiment_status::format_metric_cell).
+/// [`format_metric_cell`](experiment_status::format_metric_cell): one metric's value as text, for a
+/// chip or a table cell. A bigint shows as `String(bigint)`. An object, function or symbol first
+/// goes through `JSON.stringify` (its `toJSON`, dropped `undefined`s); a cycle or an unrepresentable
+/// value shows "—", and a `toJSON` that returned a primitive shows the JSON text itself.
 ///
 /// # Errors
 ///
 /// Fails if `value` cannot be read as JSON.
 #[wasm_bindgen(js_name = formatMetricCell)]
-pub fn format_metric_cell_js(metric: &str, value: JsValue) -> JsResult<String> {
+pub fn format_metric_cell_js(
+    metric: &str,
+    #[wasm_bindgen(unchecked_param_type = "unknown")] value: JsValue,
+) -> JsResult<String> {
+    if value.is_bigint() {
+        return value
+            .unchecked_into::<BigInt>()
+            .to_string(10)
+            .map(String::from)
+            .map_err(|_| serde_wasm_bindgen::Error::new("cannot format a bigint"));
+    }
+    if value.is_object() || value.is_function() || value.is_symbol() {
+        let Ok(json) = JSON::stringify(&value) else {
+            return Ok("\u{2014}".to_owned());
+        };
+        let Some(json) = json.as_string() else {
+            return Ok("\u{2014}".to_owned());
+        };
+        let plain = JSON::parse(&json)
+            .map_err(|_| serde_wasm_bindgen::Error::new("cannot read the metric JSON"))?;
+        if !plain.is_object() {
+            return Ok(json);
+        }
+        return Ok(experiment_status::format_metric_cell(
+            metric,
+            &json_from(plain)?,
+        ));
+    }
     let value = json_from(value)?;
     Ok(experiment_status::format_metric_cell(metric, &value))
 }
@@ -106,6 +148,19 @@ pub fn metric_keys_js(
 ) -> JsResult<JsValue> {
     let experiments: Vec<serde_json::Value> = serde_wasm_bindgen::from_value(experiments)?;
     to_js(&experiment_status::metric_keys(&experiments))
+}
+
+/// [`metric_keys`](experiment_status::metric_keys) under its `parts.ts` name: every metric name any
+/// of the runs logged, sorted by UTF-16 code units.
+///
+/// # Errors
+///
+/// Fails if `experiments` is not an array of run objects.
+#[wasm_bindgen(js_name = metricKeysOf, unchecked_return_type = "string[]")]
+pub fn metric_keys_of_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.Experiment[]")] experiments: JsValue,
+) -> JsResult<JsValue> {
+    metric_keys_js(experiments)
 }
 
 /// [`results_table`](experiment_status::results_table): the header and rows of the runs table.

@@ -54,7 +54,10 @@ pub fn wrap_region_js(kind: &str, name: &str, body: &str) -> Result<String, wasm
 /// # Errors
 ///
 /// Fails only if the result cannot be serialised.
-#[wasm_bindgen(js_name = parseRegions)]
+#[wasm_bindgen(
+    js_name = parseRegions,
+    unchecked_return_type = "{ ok: true; segments: B.Segment[] } | { ok: false; reason: \"malformed_markers\" }"
+)]
 pub fn parse_regions_js(document: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let out = match tpl::parse_regions(document) {
         Some(segments) => json!({ "ok": true, "segments": segments }),
@@ -100,6 +103,7 @@ pub fn merge_template_js(existing: &str, rendered: &str) -> String {
 pub fn apply_template_js(
     existing: Option<String>,
     template: &str,
+    #[wasm_bindgen(js_name = context, unchecked_param_type = "Record<string, unknown>")]
     context_value: JsValue,
 ) -> Result<String, wasm_bindgen::JsError> {
     Ok(tpl::apply_template(

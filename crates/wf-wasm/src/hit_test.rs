@@ -1,5 +1,4 @@
-//! Lasso and erase hit tests for JavaScript (wf-core `ink::hit_test`), re-exported
-//! from `packages/wf-wasm/src/wrappers-2.ts`.
+//! Lasso and erase hit tests for JavaScript (wf-core `ink::hit_test`), used by the ink worker.
 
 use wasm_bindgen::prelude::{JsValue, wasm_bindgen};
 use wf_core::ink::hit_test;
@@ -51,6 +50,8 @@ pub fn ink_lasso_keeps_js(xs: &[f32], ys: &[f32], polygon: &[f64]) -> bool {
 /// [`polygon_bounds`](hit_test::polygon_bounds): `[minX, minY, maxX, maxY]` of a flat `x,y` polygon.
 #[must_use]
 #[wasm_bindgen(js_name = inkPolygonBounds)]
-pub fn ink_polygon_bounds_js(polygon: &[f64]) -> Vec<f64> {
+pub fn ink_polygon_bounds_js(
+    #[wasm_bindgen(unchecked_param_type = "Float64Array")] polygon: &[f64],
+) -> Vec<f64> {
     hit_test::polygon_bounds(polygon).to_vec()
 }

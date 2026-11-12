@@ -30,8 +30,11 @@ pub fn ink_enum_index_js(
 /// # Errors
 ///
 /// Fails if `values` is not an array of strings.
-#[wasm_bindgen(js_name = inkEnumValue)]
-pub fn ink_enum_value_js(values: JsValue, index: f64) -> JsResult<Option<String>> {
+#[wasm_bindgen(js_name = inkEnumValue, unchecked_return_type = "string")]
+pub fn ink_enum_value_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] values: JsValue,
+    index: f64,
+) -> JsResult<Option<String>> {
     let values: Vec<String> = serde_wasm_bindgen::from_value(values)?;
     Ok(ink_page::ink_enum_value(&values, index).map(str::to_owned))
 }
@@ -41,8 +44,13 @@ pub fn ink_enum_value_js(values: JsValue, index: f64) -> JsResult<Option<String>
 /// # Errors
 ///
 /// Fails if `input` has the wrong shape.
-#[wasm_bindgen(js_name = makeInkStroke)]
-pub fn make_ink_stroke_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = makeInkStroke, unchecked_return_type = "B.InkStroke")]
+pub fn make_ink_stroke_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "{ readonly points: readonly number[]; readonly pressures?: readonly number[]; readonly width?: number; readonly tool?: B.InkTool; readonly colour?: B.InkColour; readonly t0?: number; readonly shape?: B.InkShape; readonly lineIndex?: number }"
+    )]
+    input: JsValue,
+) -> JsResult<JsValue> {
     let input: InkStrokeInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&ink_page::make_ink_stroke(input))
 }
@@ -52,9 +60,14 @@ pub fn make_ink_stroke_js(input: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if `paper` is not a known paper name.
-#[wasm_bindgen(js_name = blankInkPage)]
-pub fn blank_ink_page_js(paper: JsValue) -> JsResult<JsValue> {
-    let paper: Option<InkPaper> = serde_wasm_bindgen::from_value(paper)?;
+#[wasm_bindgen(js_name = blankInkPage, unchecked_return_type = "B.InkPage")]
+pub fn blank_ink_page_js(
+    #[wasm_bindgen(unchecked_optional_param_type = "B.InkPaper")] paper: Option<JsValue>,
+) -> JsResult<JsValue> {
+    let paper: Option<InkPaper> = match paper {
+        Some(paper) => serde_wasm_bindgen::from_value(paper)?,
+        None => None,
+    };
     to_js(&ink_page::blank_ink_page(paper.unwrap_or(InkPaper::Blank)))
 }
 
@@ -106,7 +119,9 @@ pub fn ink_page_background_js(text: &str) -> JsResult<JsValue> {
 )]
 pub fn with_ink_page_background_js(
     text: &str,
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] path: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] path: Option<
+        String,
+    >,
 ) -> String {
     ink_page::with_ink_page_background(text, path.as_deref())
 }
@@ -119,7 +134,9 @@ pub fn with_ink_page_background_js(
 )]
 pub fn ink_attachment_index_js(
     body: &str,
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] path: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] path: Option<
+        String,
+    >,
 ) -> u8 {
     ink_page::ink_attachment_index(body, path.as_deref())
 }

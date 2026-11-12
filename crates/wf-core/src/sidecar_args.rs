@@ -18,6 +18,7 @@ const VALUE_FLAGS: [&str; 8] = [
 
 /// Parsed sidecar arguments, with paths as given on the command line.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SidecarArgsPlan {
     /// The `--data-dir` value. Required.
@@ -42,6 +43,7 @@ pub struct SidecarArgsPlan {
 
 /// Outcome of parsing: a plan, or the message `main.ts` prints after `weaveforge-sidecar: `.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SidecarArgsReply {
     /// Every required flag was present.

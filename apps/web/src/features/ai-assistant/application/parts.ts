@@ -342,11 +342,11 @@ export function createAiProposalExecutors(deps: {
       return "accepted";
     }),
     executor("experiment_update", async (proposal) => {
-      const update = readyCore().proposalExperimentUpdate<{
+      const update = readyCore().proposalExperimentUpdate(proposal.payload) as {
         status?: (typeof EXPERIMENT_STATUSES)[number];
         metrics?: Record<string, unknown>;
         artifacts?: string[];
-      }>(proposal.payload);
+      };
       if (update.status) await deps.experiments.setStatus(proposal.resourceId, update.status);
       if (update.metrics) await deps.experiments.recordMetrics(proposal.resourceId, update.metrics);
       if (update.artifacts) await deps.experiments.addArtifacts(proposal.resourceId, update.artifacts);

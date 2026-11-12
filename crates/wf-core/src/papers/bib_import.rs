@@ -440,23 +440,30 @@ pub fn plan_bib_import(
 /// `undefined`, the TS shape.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct BibPaperInput {
     /// Title.
     pub title: String,
     /// Authors.
     pub authors: Vec<String>,
     /// Year.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub year: Option<i32>,
     /// Venue.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub venue: Option<String>,
     /// Doi.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub doi: Option<String>,
     /// Arxiv id.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub arxiv_id: Option<String>,
     /// Url.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub url: Option<String>,
     /// Abstract text.
     #[serde(rename = "abstract")]
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub abstract_text: Option<String>,
     /// Bibtex.
     pub bibtex: String,
@@ -467,6 +474,7 @@ pub struct BibPaperInput {
 /// The metadata bag a `.bib` paper is saved with (`metadata.citeKey`).
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct BibPaperMetadata {
     /// Cite key.
     pub cite_key: String,

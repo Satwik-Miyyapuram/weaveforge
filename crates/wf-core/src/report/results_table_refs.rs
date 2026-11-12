@@ -35,8 +35,10 @@ pub struct ResultsTableRef {
     /// The alt text, as written.
     pub caption: String,
     /// UTF-16 offset of the first character of the ref.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub start: usize,
     /// UTF-16 offset just past the ref.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub end: usize,
     /// The ref exactly as it appears in the markdown.
     pub raw: String,

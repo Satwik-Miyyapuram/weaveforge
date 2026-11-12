@@ -1,5 +1,4 @@
-//! Merging a duplicate paper into the copy kept (wf-core `papers::paper_merge`). The TS
-//! wrapper in `packages/wf-wasm/src/wrappers-5.ts` re-exports the generated types.
+//! Merging a duplicate paper into the copy kept (wf-core `papers::paper_merge`).
 
 use serde_json::{Map, Value};
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -27,17 +26,19 @@ pub fn merge_paper_into_js(
     to_js(&merge_paper_into(&keep, &dup)).map_err(|error| JsError::new(&error.to_string()))
 }
 
-/// [`zotero_key_of`] (TS `zoteroKeyOf`): the paper's Zotero item key, or `null`.
+/// [`zotero_key_of`] (TS `zoteroKeyOf`): the paper's Zotero item key, or `undefined`.
 ///
 /// # Errors
 ///
 /// Fails if `metadata` is not an object of JSON values.
 #[wasm_bindgen(js_name = zoteroKeyOf)]
-pub fn zotero_key_of_js(metadata: JsValue) -> Result<JsValue, JsError> {
+pub fn zotero_key_of_js(
+    #[wasm_bindgen(unchecked_param_type = "Record<string, unknown> | null | undefined")]
+    metadata: JsValue,
+) -> Result<Option<String>, JsError> {
     let metadata: Option<Map<String, Value>> = serde_wasm_bindgen::from_value(metadata)
         .map_err(|error| JsError::new(&error.to_string()))?;
-    to_js(&metadata.and_then(|map| zotero_key_of(&map)))
-        .map_err(|error| JsError::new(&error.to_string()))
+    Ok(metadata.and_then(|map| zotero_key_of(&map)))
 }
 
 /// [`annotation_identity`] (TS `sameAnnotation`): the key two annotations share when they are

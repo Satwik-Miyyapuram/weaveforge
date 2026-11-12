@@ -9,11 +9,13 @@ use super::conflict_deletion::PickSide;
 /// An open conflict as the panel counts it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "OpenConflictRef"))]
 #[serde(rename_all = "camelCase")]
 pub struct OpenConflict {
     /// `"edit"`, `"deleted_remote"` or `"deleted_local"`.
     pub kind: String,
     /// How many fields are in dispute. Only an edit conflict can have none.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub field_count: usize,
 }
 

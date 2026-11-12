@@ -1,13 +1,26 @@
 //! bytea hex and base64 codecs for JavaScript (wf-core `bytea`).
 
-use wasm_bindgen::prelude::{JsError, wasm_bindgen};
+use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::{JsError, JsValue, wasm_bindgen};
 use wf_core::bytea;
 
-/// [`decode_bytea`](bytea::decode_bytea): bytes from a PostgREST `\x…` string.
-#[wasm_bindgen(js_name = decodeBytea)]
-#[must_use]
-pub fn decode_bytea_js(text: &str) -> Vec<u8> {
-    bytea::decode_bytea(text)
+/// [`decode_bytea`](bytea::decode_bytea): bytes from a PostgREST `\x…` string. PGlite hands a
+/// bytea column back as bytes already, so a `Uint8Array` passes through unchanged.
+///
+/// # Errors
+///
+/// Throws when `value` is neither a string nor a `Uint8Array`.
+#[wasm_bindgen(js_name = decodeBytea, unchecked_return_type = "Uint8Array")]
+pub fn decode_bytea_js(
+    #[wasm_bindgen(unchecked_param_type = "string | Uint8Array")] value: JsValue,
+) -> Result<JsValue, JsError> {
+    if value.dyn_ref::<js_sys::Uint8Array>().is_some() {
+        return Ok(value);
+    }
+    let text = value
+        .as_string()
+        .ok_or_else(|| JsError::new("decodeBytea: expected a string or Uint8Array"))?;
+    Ok(js_sys::Uint8Array::from(bytea::decode_bytea(&text).as_slice()).into())
 }
 
 /// [`encode_bytea`](bytea::encode_bytea): PostgREST `\x…` string for bytes.

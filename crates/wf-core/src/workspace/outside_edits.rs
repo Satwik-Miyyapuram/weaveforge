@@ -46,14 +46,18 @@ pub enum HeldReason {
 /// What the preview saw of one folder file: who moved it, and whether its path is new.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "OutsideSeenFile"))]
 pub struct SeenFile {
     /// Side.
     pub side: ChangeSide,
     /// Neither the last agreement nor the workspace knows this path.
     #[serde(default)]
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub new_path: bool,
     /// Where the note this new path carries lived, when that file is gone.
     #[serde(default)]
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub renamed_from: Option<String>,
 }
 

@@ -4,8 +4,9 @@
 
 use std::collections::HashMap;
 
-use wasm_bindgen::JsValue;
+use js_sys::{Array, Object, Reflect};
 use wasm_bindgen::prelude::{JsError, wasm_bindgen};
+use wasm_bindgen::{JsCast, JsValue};
 use wf_core::dashboard::fit;
 use wf_core::dashboard::packing::{self, CardLimit, LayoutItem};
 
@@ -25,8 +26,14 @@ fn js(value: &impl serde::Serialize) -> Result<JsValue, JsError> {
 /// # Errors
 ///
 /// Fails if `limit` is not a card limit.
-#[wasm_bindgen(js_name = dashboardLayoutFloors)]
-pub fn dashboard_layout_floors_js(limit: JsValue, cols: f64) -> Result<JsValue, JsError> {
+#[wasm_bindgen(
+    js_name = dashboardLayoutFloors,
+    unchecked_return_type = "{ minW: number; minH: number; maxW: number; maxH: number }"
+)]
+pub fn dashboard_layout_floors_js(
+    #[wasm_bindgen(unchecked_param_type = "B.CardLimit")] limit: JsValue,
+    cols: f64,
+) -> Result<JsValue, JsError> {
     let limit: CardLimit = serde_wasm_bindgen::from_value(limit).map_err(js_error)?;
     js(&packing::floors(&limit, cols))
 }
@@ -102,16 +109,17 @@ pub fn rows_for_height_js(px: f64, row_height: f64, margin: f64) -> f64 {
 }
 
 /// [`fit_layout_to_content`](fit::fit_layout_to_content). `measured` and `maxHeights` map a card id
-/// (or card type) to rows; only card types in `maxHeights` fit their content.
+/// (or card type) to rows; only card types in `maxHeights` fit their content. `measured` is a JS
+/// `Map` (a plain object also works).
 ///
 /// # Errors
 ///
 /// Fails when an argument is not the expected shape.
-#[wasm_bindgen(js_name = fitLayoutToContent)]
+#[wasm_bindgen(js_name = fitLayoutToContent, unchecked_return_type = "B.LayoutItem[]")]
 pub fn fit_layout_to_content_js(
-    items: JsValue,
-    measured: JsValue,
-    max_heights: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.LayoutItem[]")] items: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "ReadonlyMap<string, number>")] measured: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, number>>")] max_heights: JsValue,
 ) -> Result<JsValue, JsError> {
     let items: Vec<LayoutItem> = serde_wasm_bindgen::from_value(items).map_err(js_error)?;
     let measured: HashMap<String, f64> =
@@ -121,19 +129,41 @@ pub fn fit_layout_to_content_js(
     js(&fit::fit_layout_to_content(&items, &measured, &max_heights))
 }
 
-/// [`stored_heights`](fit::stored_heights): `heights[i]`, or the saved height of card `ids[i]`.
+/// The generic signature of [`stored_heights_js`], which wasm-bindgen cannot express.
+#[wasm_bindgen(typescript_custom_section)]
+const WITH_STORED_HEIGHTS_TS: &str = r"
+/** Each position's height, with the saved height put back where the card has one. */
+export function withStoredHeights<T extends { i: string; h: number }>(
+  rgl: readonly T[],
+  stored: readonly B.LayoutItem[],
+): T[];
+";
+
+/// [`stored_heights`](fit::stored_heights) over grid positions: a shallow copy of each position
+/// (`{ ...r, h }`) with its height replaced by the card's saved height where it has one.
 ///
 /// # Errors
 ///
 /// Fails when an argument is not the expected shape.
-#[wasm_bindgen(js_name = withStoredHeights)]
-pub fn stored_heights_js(
-    ids: JsValue,
-    heights: JsValue,
-    stored: JsValue,
-) -> Result<JsValue, JsError> {
-    let ids: Vec<String> = serde_wasm_bindgen::from_value(ids).map_err(js_error)?;
-    let heights: Vec<f64> = serde_wasm_bindgen::from_value(heights).map_err(js_error)?;
+#[wasm_bindgen(js_name = withStoredHeights, skip_typescript)]
+pub fn stored_heights_js(rgl: &Array, stored: JsValue) -> Result<Array, JsError> {
+    let i_key = JsValue::from_str("i");
+    let h_key = JsValue::from_str("h");
+    let mut ids = Vec::new();
+    let mut heights = Vec::new();
+    for row in rgl.iter() {
+        let id = Reflect::get(&row, &i_key).map_err(|_| js_error("cannot read `i`"))?;
+        let h = Reflect::get(&row, &h_key).map_err(|_| js_error("cannot read `h`"))?;
+        ids.push(id.as_string().unwrap_or_default());
+        heights.push(h.as_f64().unwrap_or(f64::NAN));
+    }
     let stored: Vec<LayoutItem> = serde_wasm_bindgen::from_value(stored).map_err(js_error)?;
-    js(&fit::stored_heights(&ids, &heights, &stored))
+    let out = Array::new();
+    for (row, h) in rgl.iter().zip(fit::stored_heights(&ids, &heights, &stored)) {
+        let copy = Object::assign(&Object::new(), row.unchecked_ref());
+        let _ = Reflect::set(&copy, &h_key, &JsValue::from_f64(h))
+            .map_err(|_| js_error("cannot set `h`"))?;
+        let _ = out.push(&copy);
+    }
+    Ok(out)
 }

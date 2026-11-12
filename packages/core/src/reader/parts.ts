@@ -185,7 +185,7 @@ export interface IReaderAnnotationSink {
 // --- anchor-shapes ---
 /**
  * Structural copies of the anchor shapes core still reads. Core cannot import
- * `@weaveforge/wasm`, so these mirror `packages/wf-wasm/src/wrappers-9.ts`; the Rust
+ * `@weaveforge/wasm`, so these mirror `packages/wf-wasm/src/ts-types.ts`; the Rust
  * core (crates/wf-core) is the authority. The TS anchor logic is gone.
  */
 /** Primary anchor: quote + optional context (W3C TextQuoteSelector). */

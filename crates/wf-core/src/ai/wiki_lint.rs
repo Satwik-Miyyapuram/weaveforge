@@ -22,8 +22,10 @@ static WIKILINK_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"\[\[[^\
 /// A `#tag` made of ASCII word characters and hyphens (JS `#[\w-]+`).
 static TAG_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"#[A-Za-z0-9_-]+").ok());
 
-/// A wiki page as the lint reads it (TS `WikiPageRef`).
+/// A wiki page as the lint reads it (TS `WikiPageRef`; `WikiLintPageRef` in the bindings).
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "WikiLintPageRef"))]
 #[serde(rename_all = "camelCase")]
 pub struct WikiPageRef {
     /// Page id.
@@ -34,12 +36,14 @@ pub struct WikiPageRef {
     pub body: String,
     /// Other names the page answers to.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub aliases: Option<Vec<String>>,
 }
 
 /// A lint category (TS `LintKind`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum LintKind {
     /// Same title, different pages.
     Duplicate,
@@ -56,6 +60,7 @@ pub enum LintKind {
 /// How serious a finding is (TS `LintSeverity`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub enum LintSeverity {
     /// Must be fixed.
     Error,
@@ -68,6 +73,7 @@ pub enum LintSeverity {
 /// One problem the lint found (TS `LintFinding`).
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct LintFinding {
     /// The category of the problem.
     pub kind: LintKind,
@@ -88,6 +94,7 @@ pub struct LintFinding {
 /// Finding totals per kind; every kind is present, zero when absent (TS `Record<LintKind, number>`).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct LintCounts {
     /// Count of `duplicate` findings.
     pub duplicate: u32,
@@ -106,6 +113,7 @@ pub struct LintCounts {
 /// The result of `lint_wiki` (TS `LintReport`).
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct LintReport {
     /// Every finding, in the order the lint produced them.
     pub findings: Vec<LintFinding>,
@@ -116,6 +124,7 @@ pub struct LintReport {
 /// One step of a fix plan (TS `FixStep`).
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct FixStep {
     /// The kind of finding this step fixes.
     pub kind: LintKind,

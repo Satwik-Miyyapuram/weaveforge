@@ -15,10 +15,10 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 ///
 /// Fails if `local` is not an array of `{ id, name }`, `remote_names` is not an array of strings,
 /// or the result cannot be serialised.
-#[wasm_bindgen(js_name = planRenames)]
+#[wasm_bindgen(js_name = planRenames, unchecked_return_type = "B.Rename[]")]
 pub fn plan_renames_js(
-    local: JsValue,
-    remote_names: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.LocalProject[]")] local: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] remote_names: JsValue,
     device_label: &str,
 ) -> JsResult<JsValue> {
     let local: Vec<LocalProject> = serde_wasm_bindgen::from_value(local)?;

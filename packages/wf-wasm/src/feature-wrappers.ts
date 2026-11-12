@@ -1,17 +1,32 @@
 /**
- * Re-exports every feature wrapper module, so index.ts stays under the file-size limit.
+ * Everything index.ts re-exports besides its own wrappers: the raw wasm-bindgen exports
+ * (typed in Rust), the generated bindings types, the browser-glue modules, and the
+ * constants and TS-only types wasm-bindgen cannot export.
  */
 export * from "./modules.js";
-export * from "./wrappers-1.js";
-export * from "./wrappers-2.js";
-export * from "./wrappers-3.js";
-export * from "./wrappers-4.js";
-export * from "./wrappers-5.js";
-export * from "./wrappers-6.js";
-export * from "./wrappers-7.js";
-export * from "./wrappers-8.js";
-export * from "./wrappers-9.js";
-export * from "./wrappers-10.js";
-export * from "./wrappers-11.js";
-export * from "./wrappers-12.js";
-export * from "./wrappers-13.js";
+export * from "../pkg/wf_wasm.js";
+export type * from "./bindings.js";
+export * from "./ts-types.js";
+
+// Names more than one source exports: explicit exports pick the caller-facing one.
+export { isTypingTarget, mergeOverleafProjects, overleafProjectMatches, toRenderStrokes } from "./modules.js";
+export type { BibPaperInput } from "../pkg/wf_wasm.js";
+export type { BibPaperInput as BibPaperInputRow } from "./bindings.js";
+export type {
+  AiPolicyDecision,
+  AnchorStrategy,
+  CiteSpan,
+  CitationPageTextItem,
+  NewReaderAnnotation,
+  ReaderAnnotation,
+  TextSegment,
+  DocumentPageText,
+  DocumentSearchMatch,
+  PdfIndexSource,
+  PdfPageText,
+  ReaderContainerSize,
+  ReaderPageSize,
+  ReaderViewportState,
+} from "./ts-types.js";
+export type { DropEntry as PdfDropEntry, GraphLink as GLink } from "./bindings.js";
+export { overleafExternalUrl as externalUrl } from "../pkg/wf_wasm.js";

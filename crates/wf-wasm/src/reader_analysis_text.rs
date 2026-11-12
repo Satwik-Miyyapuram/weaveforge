@@ -4,8 +4,7 @@
 //! `title-similarity.ts`.
 //!
 //! Objects cross as plain JS objects through serde; numbers cross as f64. `rectanglesOverlap`
-//! takes `Float64Array`s. The TS wrappers in `packages/wf-wasm/src/wrappers-6.ts`
-//! apply the defaults.
+//! takes `Float64Array`s. The exports apply the defaults.
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -74,14 +73,22 @@ pub fn original_range_js(
 }
 
 /// [`item_to_rect`](analysis_text::item_to_rect) as `[x0, y0, x1, y1]` or null (TS `itemToRect`,
-/// exported as `citationItemToRect` because `itemToRect` belongs to another lane).
+/// exported as `citationItemToRect` because `itemToRect` belongs to another lane). `from`
+/// defaults to 0 and `to` to the UTF-16 length of `item.str`.
 ///
 /// # Errors
 ///
 /// Fails if `item` is not a text item with `str`, `transform`, `width` and `height`.
-#[wasm_bindgen(js_name = citationItemToRect)]
-pub fn citation_item_to_rect_js(item: JsValue, from: f64, to: f64) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = citationItemToRect, unchecked_return_type = "number[] | null")]
+#[allow(clippy::cast_precision_loss)] // a JS string length is far below 2^53
+pub fn citation_item_to_rect_js(
+    #[wasm_bindgen(unchecked_param_type = "B.AnalysisPdfItem")] item: JsValue,
+    from: Option<f64>,
+    to: Option<f64>,
+) -> JsResult<JsValue> {
     let item: AnalysisPdfItem = serde_wasm_bindgen::from_value(item)?;
+    let from = from.unwrap_or(0.0);
+    let to = to.unwrap_or_else(|| item.str.encode_utf16().count() as f64);
     to_js(&analysis_text::item_to_rect(&item, from, to))
 }
 

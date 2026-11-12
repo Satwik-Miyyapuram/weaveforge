@@ -1,7 +1,6 @@
 //! Error-report redaction for JavaScript (`wf_core::error_report::redact`).
 //!
-//! Each export returns `{ text, redactions }`; the TS wrapper in
-//! `packages/wf-wasm/src/wrappers-2.ts` names the type.
+//! Each redaction export returns `{ text, redactions }` (`B.Redacted`).
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -15,7 +14,7 @@ use super::{check_text, to_js};
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
-/// [`MAX_REPORT_CHARS`] for JS, so the wrapper's default cap matches Rust.
+/// [`MAX_REPORT_CHARS`] for JS.
 #[must_use]
 #[wasm_bindgen(js_name = maxReportChars)]
 pub fn max_report_chars() -> usize {
@@ -27,22 +26,40 @@ pub fn max_report_chars() -> usize {
 /// # Errors
 ///
 /// Fails when `input` is over the text cap.
-#[wasm_bindgen(js_name = redactReport, unchecked_return_type = "B.Redacted")]
+#[wasm_bindgen(js_name = redact, unchecked_return_type = "B.Redacted")]
 pub fn redact_report(input: &str) -> JsResult<JsValue> {
     check_text(input)?;
     to_js(&core_redact(input))
 }
 
 /// [`wf_core::error_report::redact::redact_and_cap`] for JS, as `{ text, redactions }`.
-/// `limit` is in UTF-16 units.
+/// `limit` is in UTF-16 units, floored and clamped at 0 (JS `ToUint32` of it, as the old TS
+/// wrapper passed it); absent, it is [`MAX_REPORT_CHARS`].
 ///
 /// # Errors
 ///
 /// Fails when `input` is over the text cap.
-#[wasm_bindgen(js_name = redactReportAndCap, unchecked_return_type = "B.Redacted")]
-pub fn redact_report_and_cap(input: &str, limit: usize) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = redactAndCap, unchecked_return_type = "B.Redacted")]
+pub fn redact_report_and_cap(input: &str, limit: Option<f64>) -> JsResult<JsValue> {
     check_text(input)?;
-    to_js(&redact_and_cap(input, limit))
+    to_js(&redact_and_cap(input, report_cap(limit)))
+}
+
+/// The cap `redactAndCap` uses: `Math.max(0, Math.floor(limit))` converted the way
+/// wasm-bindgen converts a JS number to `usize` (NaN and infinity give 0).
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // Reduced below 2^32 first.
+fn report_cap(limit: Option<f64>) -> usize {
+    match limit {
+        None => MAX_REPORT_CHARS,
+        Some(limit) => {
+            let limit = limit.floor().max(0.0);
+            if limit.is_finite() {
+                (limit % 4_294_967_296.0) as usize
+            } else {
+                0
+            }
+        }
+    }
 }
 
 /// [`wf_core::error_report::issue_url::new_issue_url`] for JS: the address for

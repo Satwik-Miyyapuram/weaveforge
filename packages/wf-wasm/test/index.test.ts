@@ -91,8 +91,7 @@ import {
   folderKeys as rawFolderKeys,
   fuseRankings as rawFuseRankings,
 } from "../pkg/wf_wasm.js";
-import { parsePaperFieldValue } from "../src/index.js";
-import { computeRollupsForPapers } from "../src/wrappers-5.js";
+import { computeRollupsForPapers, parsePaperFieldValue } from "../src/index.js";
 import {
   findDuplicateGroups,
   isConferenceCopy,
@@ -160,45 +159,21 @@ test("noteBacklinks, noteTags and scopeNoteIndices return nothing for no notes",
 
 test("the wrapper modules declare no types of their own", () => {
   // Every type comes from bindings.ts, which wf-bindings generates from Rust,
-  // so a type cannot drift from its Rust struct. The exceptions only narrow a
-  // generated type where Specta's export is looser than what Rust sends.
-  const NARROWINGS = ["AiPolicyDecision", "GroupColor", "PdfIndexSource", "PdfPageText", "ReadonlyInput", "RelatedHit"];
-  // PageNode is recursive and generic over the caller's page type, so it cannot be inlined.
-  NARROWINGS.push("PageNode");
-  // Ported wrappers that keep the caller's looser TS shape (readonly arrays,
-  // Date unions, string-literal unions, generic callers) over the generated type.
-  NARROWINGS.push(
-    ...["AppLogLineInput", "EnumKind", "Draft", "SectionState", "GNode", "GraphBuildOutput", "GraphPalette", "InkRecognitionRequest"],
-    ...["ContainerResizeAction", "CreateColourTool", "CiteSpan", "TextSegment", "CitationPageTextItem", "PlanWidgetPalette"],
-    ...["BibPaperInputRow", "PdfTextPartition", "OverleafLinkRow", "OverleafLinkFolderCheck", "OverleafExportFile"],
-    ...["OverleafExportImage", "OverleafWalkStats", "OverleafSectionWalk", "OverleafWalkOptions", "BibPaperInput"],
-    ...["TextQuoteSelector", "TextPositionSelector", "PdfLocus", "PageTextItem", "PageTextGeometry", "TextSelectionRange"],
-    ...["ReaderRotation", "ReaderPageSize", "ReaderContainerSize", "ReaderViewportState", "DocumentPageText"],
-    ...["DocumentSearchMatch", "ResolvedAnchor", "ZoteroRectPosition", "CombinedPdfAnchor", "AnchorStrategy", "MarkActions"],
-    ...["MentionHit", "ReaderReferenceIndex", "ParsedReferenceEntry", "ReferencePage", "FlatReferenceIndex", "PdfRect"],
-    ...["LocatePageTextItem", "PaperPdfSource", "SessionAction", "PanelChoice", "AppVersion", "FolderSeenFile"],
-    ...["OutsideSeenFile", "WikiLintPageRef", "RecolourableNode", "RecolourLookups", "MetricRowInput"],
-    // Specta widens every f64 to `number | null`; the pen filter only sees finite numbers.
-    ...["OneEuroOptions", "NibSample", "FilteredNibSample"],
-    // Reader wrappers that keep the caller's optional, nullable and readonly shapes.
-    ...["FreeCopyIds", "FreeCopyFailure", "FreeCopyPaperLinks", "MarginMark", "ReaderPrintOrientation"],
-    // Report tables take the app's experiments as loose JSON; storage keeps the bucket-name union.
-    ...["ResultsTableRef", "ResultsTableExperiment", "BlobStorageBucket"],
-    // Interim: wrappers from the 2026-11 port batches. They go when the wrapper
-    // typing decision lands (Rust emits these types, or the wrappers are deleted).
-    ...["AiActiveSession", "AiProposalDraft", "AiProposalDraftInput", "AiProviderApi", "AiProviderDescriptor"],
-    ...["AiSessionStartInput", "AiSplitSystem", "AiStoredProvider", "AppLibMenuGroup", "AppLibMenuItem"],
-    ...["AppLibMenuPaletteRow", "AppLibSettingsPaletteRow", "ArtifactKind", "CitationCandidateWire", "ClickFields"],
-    ...["CursorActionName", "CyclePhase", "EdgeStepResult", "FlatPaperRow", "GitRemoteAuthInput", "GitRemoteAuthPlan"],
-    ...["ImportTitlePlan", "InkConstants", "InkRouteFacts", "InkRouteName", "InkRouteQuestion", "InkRouteStep"],
-    ...["InkToolName", "LocalProject", "ManualPaperInput", "MergedOverleafProject", "MotionTier", "MotionTierInput"],
-    ...["OpenConflictRef", "PaperDropSplit", "ParsedGitFileStatus", "ParsedGitLogCommit", "PitchShareCard"],
-    ...["PitchShareConstants", "PitchShareImage", "PumpRoute", "PumpRouteAction", "PumpRouteInput", "PumpSendStatus"],
-    ...["ReferenceHints", "ReferenceRef", "Rename", "ResultsTablesTreeNode", "RootChoice", "RootVerdict", "SendVerdict"],
-    ...["SidecarArgsError", "SidecarArgsPlan", "SidecarArgsReply", "SyncPhase", "WireParsed", "WireRoute"],
-    ...["WireTagValue", "ZoteroWriteBackSummary", "FieldPick", "OverleafSyncStatus"],
-  );
-  const declared = [...wrapperSources().matchAll(/^\s*(?:export\s+)?(?:type|interface)\s+(\w+)/gm)].map((m) => m[1]);
+  // so a type cannot drift from its Rust struct. ts-types.ts and readonly-input.ts
+  // hold the TS-only types that narrow a generated one (literal unions, readonly
+  // arrays, generics); the pkg d.ts names them as T.<Name> and R<X>.
+  const NARROWING_FILES = ["bindings.ts", "ts-types.ts", "readonly-input.ts"];
+  // Browser-glue modules that keep their own row shapes.
+  const NARROWINGS = [
+    ...["AppLibMenuItem", "AppLibMenuGroup", "AppLibMenuPaletteRow", "AppLibSettingsPaletteRow"],
+    "MergedOverleafProject",
+  ];
+  const src = new URL("../src/", import.meta.url);
+  const sources = readdirSync(src)
+    .filter((name) => name.endsWith(".ts") && !NARROWING_FILES.includes(name))
+    .map((name) => read(new URL(name, src)))
+    .join("\n");
+  const declared = [...sources.matchAll(/^\s*(?:export\s+)?(?:type|interface)\s+(\w+)/gm)].map((m) => m[1]);
   assert.deepEqual(declared.filter((name) => !NARROWINGS.includes(name ?? "")), []);
 });
 
@@ -220,21 +195,19 @@ test("every raw wasm export has a typed wrapper", () => {
 test("wf-wasm exports no classes or enums", () => {
   // A #[wasm_bindgen] struct or enum would bypass the wrapper and bindings.ts.
   // Agree how to type them before adding one.
-  // The agreed classes: a factory wrapper builds each; wasm-bindgen types its methods.
-  // VectorIndex (vector-index.ts), the live InkStrokePacker (ink.ts) and the
-  // import ArchiveBudget (createArchiveBudget in index.ts), and the stateful pen
-  // filters OneEuroFilter, NibFilter and NibFilterSnapshot (one-euro.ts), and the
-  // stateful ink gesture machines EraserSweepState (eraser-sweep.ts),
-  // InkRoutePicker and StrokeEdgeSplit (ink-gesture.ts).
+  // The agreed classes, each typed by wasm-bindgen: the AI AiAccessPolicy, the
+  // search VectorIndex, the live InkStrokePacker, the import ArchiveBudget, the
+  // stateful pen filters OneEuroFilter and NibFilter, and the stateful ink gesture
+  // machines EraserSweepState, InkRoutePicker and StrokeEdgeSplit.
   const dts = read(new URL("wf_wasm.d.ts", pkgDir));
   const declared = [...dts.matchAll(/^export (?:declare )?(?:class|enum) (\w+)/gm)].map((m) => m[1]);
   assert.deepEqual(declared.sort(), [
+    "AiAccessPolicy",
     "ArchiveBudget",
     "EraserSweepState",
     "InkRoutePicker",
     "InkStrokePacker",
     "NibFilter",
-    "NibFilterSnapshot",
     "OneEuroFilter",
     "StrokeEdgeSplit",
     "VectorIndex",

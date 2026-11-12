@@ -3,7 +3,6 @@
 //! `packages/core/src/ink/parts-2.ts`, `ink/segment.ts` and `net/page-title.ts`.
 
 use serde::Deserialize;
-use serde_json::Value;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::ink::ink_engine;
@@ -41,29 +40,35 @@ pub fn ink_engine_rank_js(id: &str) -> usize {
 /// # Errors
 ///
 /// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = inkEngineInfo)]
+#[wasm_bindgen(
+    js_name = inkEngineInfo,
+    unchecked_return_type = "{ id: string; offline: boolean; online: boolean; platform: string } | null"
+)]
 pub fn ink_engine_info_js(id: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&ink_engine::ink_engine_info(id))
 }
 
 /// [`ink_line_strokes`](ink_engine::ink_line_strokes): the strokes of one line, given
-/// the line record `{ strokeStart, strokeCount, ... }`. Strokes pass through as JS values.
+/// the line record `{ strokeStart, strokeCount, ... }`. The caller's own stroke objects come
+/// back in a new array.
 ///
 /// # Errors
 ///
-/// Fails if `strokes` is not an array or `line` lacks `strokeStart` / `strokeCount`.
-#[wasm_bindgen(js_name = inkLineStrokes)]
+/// Fails if `line` lacks `strokeStart` / `strokeCount`.
+#[wasm_bindgen(js_name = inkLineStrokes, unchecked_return_type = "B.InkStroke[]")]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn ink_line_strokes_js(
-    strokes: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly T.ReadonlyInkStroke[]")] strokes: js_sys::Array,
+    #[wasm_bindgen(unchecked_param_type = "{ strokeStart: number; strokeCount: number }")]
     line: JsValue,
-) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    let strokes: Vec<Value> = serde_wasm_bindgen::from_value(strokes)?;
+) -> Result<js_sys::Array, serde_wasm_bindgen::Error> {
+    let strokes: Vec<JsValue> = strokes.iter().collect();
     let range: LineRange = serde_wasm_bindgen::from_value(line)?;
-    to_js(&ink_engine::ink_line_strokes(
-        &strokes,
-        range.stroke_start,
-        range.stroke_count,
-    ))
+    Ok(
+        ink_engine::ink_line_strokes(&strokes, range.stroke_start, range.stroke_count)
+            .into_iter()
+            .collect(),
+    )
 }
 
 /// [`extract_page_title`](page_title::extract_page_title): `{ title, suspect }`, or
@@ -72,7 +77,10 @@ pub fn ink_line_strokes_js(
 /// # Errors
 ///
 /// Fails if `html` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = extractPageTitle)]
+#[wasm_bindgen(
+    js_name = extractPageTitle,
+    unchecked_return_type = "{ title: string; suspect: boolean } | null"
+)]
 pub fn extract_page_title_js(html: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     check_text(html)?;
     to_js(&page_title::extract_page_title(html))

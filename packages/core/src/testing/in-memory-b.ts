@@ -700,7 +700,7 @@ export class InMemoryVaultPageRepository implements IVaultPageRepository {
   }
 
   async getTree(): Promise<VaultPageTreeNode[]> {
-    return rust().buildPageTree([...this.store.values()]);
+    return rust().buildPageTree([...this.store.values()]) as VaultPageTreeNode[];
   }
 
   async save(entity: VaultPage): Promise<void> {

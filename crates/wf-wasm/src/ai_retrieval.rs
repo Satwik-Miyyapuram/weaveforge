@@ -9,19 +9,24 @@ use super::to_js;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
-/// [`retrieve_ai_excerpts`](retrieval::retrieve_ai_excerpts). `options` is an object; `{}` takes the defaults.
+/// [`retrieve_ai_excerpts`](retrieval::retrieve_ai_excerpts). `options` is an object; a missing
+/// `options` or `{}` takes the defaults.
 ///
 /// # Errors
 ///
 /// Fails if `documents` or `options` has the wrong shape.
-#[wasm_bindgen(js_name = retrieveAiExcerpts)]
+#[wasm_bindgen(js_name = retrieveAiExcerpts, unchecked_return_type = "B.AiRetrievedExcerpt[]")]
 pub fn retrieve_ai_excerpts_js(
-    documents: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.AiRetrievalDocument[]")] documents: JsValue,
     query: &str,
-    options: JsValue,
+    #[wasm_bindgen(unchecked_optional_param_type = "{ limit?: number; maxChars?: number }")]
+    options: Option<JsValue>,
 ) -> JsResult<JsValue> {
     let documents: Vec<AiRetrievalDocument> = serde_wasm_bindgen::from_value(documents)?;
-    let options: RetrievalOptions = serde_wasm_bindgen::from_value(options)?;
+    let options: RetrievalOptions = match options {
+        Some(options) => serde_wasm_bindgen::from_value(options)?,
+        None => RetrievalOptions::default(),
+    };
     to_js(&retrieval::retrieve_ai_excerpts(&documents, query, options))
 }
 

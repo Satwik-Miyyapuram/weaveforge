@@ -8,7 +8,7 @@ import {
   type OverleafExportFile,
   type OverleafExportImage,
 } from "../src/index.js";
-import { missingFigureWarning } from "../src/wrappers-5.js";
+import { missingFigureWarning } from "../src/index.js";
 import type { ReportSectionTreeNode } from "../src/bindings.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);

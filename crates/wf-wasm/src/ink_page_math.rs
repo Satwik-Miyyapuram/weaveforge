@@ -19,40 +19,51 @@ pub fn fit_scale_js(container_width: f64, page_width: f64) -> f64 {
     page_math::fit_scale(container_width, page_width)
 }
 
-/// [`figure_under`](page_math::figure_under): the topmost figure holding `at`, ignoring `skip`.
+/// A found figure index as a JS number, `null` for none.
+fn index_or_null(index: Option<usize>) -> JsValue {
+    index.map_or(JsValue::NULL, JsValue::from)
+}
+
+/// [`figure_under`](page_math::figure_under): the topmost figure holding `at`, edges
+/// included, ignoring `skip` (default none); `null` when there is none.
 ///
 /// # Errors
 ///
 /// Fails if `figures` is not an array of boxes or `at` is not a point.
-#[wasm_bindgen(js_name = figureUnder)]
+#[wasm_bindgen(js_name = figureUnder, unchecked_return_type = "number | null")]
 pub fn figure_under_js(
-    figures: JsValue,
-    at: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly (B.HitBox | undefined)[]")] figures: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.Point")] at: JsValue,
     skip: Option<u32>,
-) -> JsResult<Option<usize>> {
+) -> JsResult<JsValue> {
     let figures: Vec<Option<HitBox>> = serde_wasm_bindgen::from_value(figures)?;
     let at: Point = serde_wasm_bindgen::from_value(at)?;
-    Ok(page_math::figure_under(&figures, at, skip_index(skip)))
+    Ok(index_or_null(page_math::figure_under(
+        &figures,
+        at,
+        skip_index(skip),
+    )))
 }
 
-/// [`double_click_figure`](page_math::double_click_figure): the figure every press lands in.
+/// [`double_click_figure`](page_math::double_click_figure): the figure every press lands
+/// in, ignoring `skip` (default none), or `null`.
 ///
 /// # Errors
 ///
 /// Fails if `figures` is not an array of boxes or `points` is not an array of points.
-#[wasm_bindgen(js_name = doubleClickFigure)]
+#[wasm_bindgen(js_name = doubleClickFigure, unchecked_return_type = "number | null")]
 pub fn double_click_figure_js(
-    figures: JsValue,
-    points: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly (B.HitBox | undefined)[]")] figures: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.Point[]")] points: JsValue,
     skip: Option<u32>,
-) -> JsResult<Option<usize>> {
+) -> JsResult<JsValue> {
     let figures: Vec<Option<HitBox>> = serde_wasm_bindgen::from_value(figures)?;
     let points: Vec<Point> = serde_wasm_bindgen::from_value(points)?;
-    Ok(page_math::double_click_figure(
+    Ok(index_or_null(page_math::double_click_figure(
         &figures,
         &points,
         skip_index(skip),
-    ))
+    )))
 }
 
 /// [`selected_text`](page_math::selected_text): the text of the lines the chosen strokes

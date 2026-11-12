@@ -177,8 +177,8 @@ export function useInkUndo(
       case "anchor": {
         const target = annotationsRef.current.find((a) => a.id === entry.id);
         if (!target) return;
-        const anchor = direction === "undo" ? entry.before : entry.after;
-        await raw.saveAnchor(target, anchor as ReaderAnnotation["anchor"]);
+        const anchor = (direction === "undo" ? entry.before : entry.after) as ReaderAnnotation["anchor"];
+        await raw.saveAnchor(target, anchor);
         setState((s) => typedCore().refreshInkUndoAnnotation(s, { ...target, anchor }));
         return;
       }

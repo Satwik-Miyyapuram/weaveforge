@@ -50,7 +50,7 @@ pub fn normalize_search_settings_js(
 /// Fails if `settings` cannot be read as JSON.
 #[wasm_bindgen(js_name = effectiveFieldBoosts, unchecked_return_type = "B.FieldBoosts")]
 pub fn effective_field_boosts_js(
-    #[wasm_bindgen(unchecked_param_type = "B.SearchSettings")] settings: Option<JsValue>,
+    #[wasm_bindgen(unchecked_optional_param_type = "B.SearchSettings")] settings: Option<JsValue>,
 ) -> JsResult<JsValue> {
     let settings = settings_from(settings.unwrap_or(JsValue::UNDEFINED))?;
     let boosts: FieldBoosts = search_settings::effective_field_boosts(settings.as_ref());
@@ -65,7 +65,7 @@ pub fn effective_field_boosts_js(
 #[wasm_bindgen(js_name = kindMultiplier)]
 pub fn kind_multiplier_js(
     #[wasm_bindgen(unchecked_param_type = "B.SearchKind")] kind: &str,
-    #[wasm_bindgen(unchecked_param_type = "B.SearchSettings")] settings: Option<JsValue>,
+    #[wasm_bindgen(unchecked_optional_param_type = "B.SearchSettings")] settings: Option<JsValue>,
 ) -> JsResult<f64> {
     let settings = settings_from(settings.unwrap_or(JsValue::UNDEFINED))?;
     Ok(SearchKind::parse(kind).map_or(1.0, |kind| {

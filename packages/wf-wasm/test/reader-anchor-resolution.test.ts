@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import type { PdfLocus, TextPositionSelector, TextQuoteSelector } from "../src/wrappers-9.js";
-import { findQuoteMatches, normaliseWhitespace, pickNearestMatch, resolvePositionSelector, resolveTextAnchor } from "../src/wrappers-6.js";
+import type { PdfLocus, TextPositionSelector, TextQuoteSelector } from "../src/index.js";
+import { findQuoteMatches, normaliseWhitespace, pickNearestMatch, resolvePositionSelector, resolveTextAnchor } from "../src/index.js";
 import { initSync } from "../src/index.js";
 
 // Moved from packages/core/test/reader/anchor-resolution.test.ts when anchor-resolution.ts was removed.

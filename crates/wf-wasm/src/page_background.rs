@@ -1,5 +1,4 @@
-//! Where a page background sits on the A4 sheet (wf-core `ink::page_background`),
-//! re-exported from `packages/wf-wasm/src/wrappers-5.ts`.
+//! Where a page background sits on the A4 sheet (wf-core `ink::page_background`).
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::ink::page_background;

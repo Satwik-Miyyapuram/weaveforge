@@ -80,29 +80,59 @@ pub fn simplify_path_indices_js(
     ))
 }
 
-/// [`simplify_ink_path`]; `tolerance` defaults to 0.35.
-#[wasm_bindgen(js_name = simplifyInkPath)]
-#[must_use]
-pub fn simplify_ink_path_js(path: &[f64], tolerance: Option<f64>) -> Vec<f64> {
-    simplify_ink_path(path, tolerance.unwrap_or(INK_SIMPLIFY_TOLERANCE))
+/// [`simplify_ink_path`]; `tolerance` defaults to 0.35. Returns a plain JS number array.
+///
+/// # Errors
+///
+/// Fails only if the result cannot be converted to JS.
+#[wasm_bindgen(js_name = simplifyInkPath, unchecked_return_type = "number[]")]
+pub fn simplify_ink_path_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] path: &[f64],
+    tolerance: Option<f64>,
+) -> JsResult<JsValue> {
+    to_js(&simplify_ink_path(
+        path,
+        tolerance.unwrap_or(INK_SIMPLIFY_TOLERANCE),
+    ))
 }
 
-/// [`quantize_ink_path`]; `decimals` defaults to 2.
-#[wasm_bindgen(js_name = quantizeInkPath)]
-#[must_use]
-pub fn quantize_ink_path_js(path: &[f64], decimals: Option<f64>) -> Vec<f64> {
-    quantize_ink_path(path, decimals.unwrap_or(INK_COORD_DECIMALS))
+/// [`quantize_ink_path`]; `decimals` defaults to 2. Returns a plain JS number array.
+///
+/// # Errors
+///
+/// Fails only if the result cannot be converted to JS.
+#[wasm_bindgen(js_name = quantizeInkPath, unchecked_return_type = "number[]")]
+pub fn quantize_ink_path_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] path: &[f64],
+    decimals: Option<f64>,
+) -> JsResult<JsValue> {
+    to_js(&quantize_ink_path(
+        path,
+        decimals.unwrap_or(INK_COORD_DECIMALS),
+    ))
 }
 
 /// [`compact_ink_path`]; `options` is `{ tolerance?, maxPoints?, decimals? }` or absent.
-#[wasm_bindgen(js_name = compactInkPath)]
-pub fn compact_ink_path_js(path: &[f64], options: JsValue) -> JsResult<Vec<f64>> {
-    let options: ReaderCompactInkOptions = if options.is_undefined() || options.is_null() {
-        ReaderCompactInkOptions::default()
-    } else {
-        serde_wasm_bindgen::from_value(options)?
+/// Returns a plain JS number array.
+///
+/// # Errors
+///
+/// Fails if `options` is not an options object, or the result cannot be converted to JS.
+#[wasm_bindgen(js_name = compactInkPath, unchecked_return_type = "number[]")]
+pub fn compact_ink_path_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly number[]")] path: &[f64],
+    #[wasm_bindgen(
+        unchecked_optional_param_type = "{ tolerance?: number; maxPoints?: number; decimals?: number }"
+    )]
+    options: Option<JsValue>,
+) -> JsResult<JsValue> {
+    let options: ReaderCompactInkOptions = match options {
+        Some(options) if !options.is_undefined() && !options.is_null() => {
+            serde_wasm_bindgen::from_value(options)?
+        }
+        _ => ReaderCompactInkOptions::default(),
     };
-    Ok(compact_ink_path(path, &options))
+    to_js(&compact_ink_path(path, &options))
 }
 
 /// [`ink_path_json_size`].

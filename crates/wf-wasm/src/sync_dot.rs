@@ -15,8 +15,10 @@ type JsResult<T> = Result<T, Error>;
 /// # Errors
 ///
 /// Fails when `input` is not a sync state with the expected fields.
-#[wasm_bindgen(js_name = syncDot)]
-pub fn sync_dot_js(input: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = syncDot, unchecked_return_type = "B.SyncDot | null")]
+pub fn sync_dot_js(
+    #[wasm_bindgen(unchecked_param_type = "B.SyncDotInput")] input: JsValue,
+) -> JsResult<JsValue> {
     let input: SyncDotInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&sync_dot(&input))
 }

@@ -19,7 +19,10 @@ pub fn home_config_path_js(home: &str, variant: Option<String>, sep: &str) -> St
 /// # Errors
 ///
 /// Fails only when the result cannot be serialised to JavaScript.
-#[wasm_bindgen(js_name = mcpClientConfigs)]
+#[wasm_bindgen(
+    js_name = mcpClientConfigs,
+    unchecked_return_type = "{ file: string; key: \"mcpServers\" | \"servers\" }[]"
+)]
 pub fn mcp_client_configs_js(
     home: &str,
     platform: &str,

@@ -12,8 +12,10 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `milestones` has the wrong shape, or the result cannot be serialised.
-#[wasm_bindgen(js_name = sortByDue)]
-pub fn sort_by_due_js(milestones: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+#[wasm_bindgen(js_name = sortByDue, unchecked_return_type = "B.Milestone[]")]
+pub fn sort_by_due_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.Milestone[]")] milestones: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
     let milestones: Vec<Milestone> = serde_wasm_bindgen::from_value(milestones)?;
     to_js(&screen::sort_by_due(&milestones))
 }

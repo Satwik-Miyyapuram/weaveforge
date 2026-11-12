@@ -199,6 +199,7 @@ fn pdf_url_from_link(link: Option<&str>) -> Option<String> {
 
 /// What a paper records about where its PDF is. `pdfPath` is not here: nothing writes it.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct PaperPdfSource {
     /// The paper's own URL.

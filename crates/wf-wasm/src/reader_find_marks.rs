@@ -14,8 +14,12 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `matches` or `pages` do not have the expected shape.
-#[wasm_bindgen(js_name = findMarks)]
-pub fn find_marks_js(matches: JsValue, num_pages: f64, pages: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(js_name = findMarks, unchecked_return_type = "B.FindMark[]")]
+pub fn find_marks_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.FindMarkMatch[]")] matches: JsValue,
+    num_pages: f64,
+    #[wasm_bindgen(unchecked_param_type = "readonly B.FindMarkPage[]")] pages: JsValue,
+) -> JsResult<JsValue> {
     let matches: Vec<FindMarkMatch> = serde_wasm_bindgen::from_value(matches)?;
     let pages: Vec<FindMarkPage> = serde_wasm_bindgen::from_value(pages)?;
     to_js(&find_marks(&matches, num_pages, &pages))

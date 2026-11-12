@@ -282,10 +282,13 @@ fn plural_suffix(n: usize) -> &'static str {
 /// Both lists hold indices into the drop, in drop order.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct PaperDropSplit {
     /// Indices of the files that take the PDF path.
+    #[cfg_attr(feature = "specta", specta(type = Vec<u32>))]
     pub pdf_indices: Vec<usize>,
     /// Indices of the `.bib` and `.bibtex` files.
+    #[cfg_attr(feature = "specta", specta(type = Vec<u32>))]
     pub bib_indices: Vec<usize>,
 }
 

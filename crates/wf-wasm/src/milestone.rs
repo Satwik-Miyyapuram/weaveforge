@@ -85,3 +85,77 @@ pub fn create_milestone_with_js(
         .map_err(serde_wasm_bindgen::Error::new)?;
     to_js(&made)
 }
+
+/// A JS `Error` named `MilestoneValidationError` carrying `message`.
+fn validation_error(message: &str) -> JsValue {
+    let error = js_sys::Error::new(message);
+    error.set_name("MilestoneValidationError");
+    error.into()
+}
+
+/// [`validate_dependencies`](milestone::validate_dependencies), throwing on an invalid list.
+///
+/// # Errors
+///
+/// Throws a `MilestoneValidationError` with the validation message, or a shape error if
+/// `deps` has the wrong shape.
+#[wasm_bindgen(js_name = validateDependencies)]
+pub fn validate_dependencies_js(
+    #[wasm_bindgen(unchecked_param_type = "B.MilestoneDependency[]")] deps: JsValue,
+) -> Result<(), JsValue> {
+    let deps: Vec<MilestoneDependency> = serde_wasm_bindgen::from_value(deps)?;
+    milestone::validate_dependencies(&deps).map_err(|message| validation_error(&message))
+}
+
+/// [`validate_compute`](milestone::validate_compute), throwing on an invalid list.
+///
+/// # Errors
+///
+/// Throws a `MilestoneValidationError` with the validation message, or a shape error if
+/// `compute` has the wrong shape.
+#[wasm_bindgen(js_name = validateCompute)]
+pub fn validate_compute_js(
+    #[wasm_bindgen(unchecked_param_type = "B.ComputeNeed[]")] compute: JsValue,
+) -> Result<(), JsValue> {
+    let compute: Vec<ComputeNeed> = serde_wasm_bindgen::from_value(compute)?;
+    milestone::validate_compute(&compute).map_err(|message| validation_error(&message))
+}
+
+/// Calls `owner[key][method]()` with `this` = `owner[key]` and returns its result.
+fn call_dep(owner: &JsValue, key: &str, method: &str) -> Result<JsValue, JsValue> {
+    let target = js_sys::Reflect::get(owner, &JsValue::from_str(key))?;
+    let function: js_sys::Function =
+        wasm_bindgen::JsCast::dyn_into(js_sys::Reflect::get(&target, &JsValue::from_str(method))?)
+            .map_err(|_| js_sys::TypeError::new(&format!("{key}.{method} is not a function")))?;
+    function.call0(&target)
+}
+
+/// A new milestone from caller input: validates first (so no id is drawn for bad input),
+/// then calls `deps.ids.newId()` and `deps.clock.nowIso()` in that order.
+///
+/// # Errors
+///
+/// Throws a `MilestoneValidationError` for invalid input, a shape error for a malformed
+/// `input`, or whatever `newId` / `nowIso` throw.
+#[wasm_bindgen(js_name = createMilestone, unchecked_return_type = "B.Milestone")]
+pub fn create_milestone_js(
+    #[wasm_bindgen(unchecked_param_type = "B.NewMilestoneInput")] input: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "{ clock: { nowIso(): string }; ids: { newId(): string } }"
+    )]
+    deps: &JsValue,
+) -> Result<JsValue, JsValue> {
+    let parsed: NewMilestoneInput = serde_wasm_bindgen::from_value(input.clone())?;
+    if let Err(message) = milestone::validate_new_milestone(&parsed) {
+        return Err(validation_error(&message));
+    }
+    let id = call_dep(deps, "ids", "newId")?;
+    let now = call_dep(deps, "clock", "nowIso")?;
+    let id = id
+        .as_string()
+        .ok_or_else(|| js_sys::TypeError::new("newId() must return a string"))?;
+    let now = now
+        .as_string()
+        .ok_or_else(|| js_sys::TypeError::new("nowIso() must return a string"))?;
+    Ok(create_milestone_with_js(input, &id, &now)?)
+}

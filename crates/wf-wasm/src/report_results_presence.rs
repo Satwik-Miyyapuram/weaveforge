@@ -2,7 +2,7 @@
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::report::results_tables_presence::{TreeNode, has_results_tables};
+use wf_core::report::results_tables_presence::{ResultsTablesTreeNode, has_results_tables};
 
 /// [`has_results_tables`]: whether any section in the report tree, or a descendant, has an
 /// `exptable:` reference.
@@ -11,7 +11,9 @@ use wf_core::report::results_tables_presence::{TreeNode, has_results_tables};
 ///
 /// Fails if `nodes` has the wrong shape.
 #[wasm_bindgen(js_name = hasResultsTables)]
-pub fn has_results_tables_js(nodes: JsValue) -> Result<bool, serde_wasm_bindgen::Error> {
-    let nodes: Vec<TreeNode> = serde_wasm_bindgen::from_value(nodes)?;
+pub fn has_results_tables_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly B.ResultsTablesTreeNode[]")] nodes: JsValue,
+) -> Result<bool, serde_wasm_bindgen::Error> {
+    let nodes: Vec<ResultsTablesTreeNode> = serde_wasm_bindgen::from_value(nodes)?;
     Ok(has_results_tables(&nodes))
 }

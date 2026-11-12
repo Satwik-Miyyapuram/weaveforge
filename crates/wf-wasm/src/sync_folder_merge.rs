@@ -22,12 +22,12 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails when `entry` or `base` is not the shape the folder import produces.
-#[wasm_bindgen(js_name = mergeBothChanged)]
+#[wasm_bindgen(js_name = mergeBothChanged, unchecked_return_type = "B.ImportDiffEntry")]
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn merge_both_changed_js(
-    entry: JsValue,
-    base: JsValue,
-    workspace_content: Option<String>,
+    #[wasm_bindgen(unchecked_param_type = "B.ImportDiffEntry")] entry: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.VaultPageBase | undefined")] base: JsValue,
+    #[wasm_bindgen(js_name = workspaceContent)] workspace_content: Option<String>,
 ) -> JsResult<JsValue> {
     let entry: ImportDiffEntry = serde_wasm_bindgen::from_value(entry)?;
     let base: Option<VaultPageBase> = serde_wasm_bindgen::from_value(base)?;
@@ -64,16 +64,34 @@ pub fn count_action_list_js(
     to_js(&folder_merge::count_action_list(&actions))
 }
 
-/// [`next_manifest`](folder_mirror::next_manifest).
-#[wasm_bindgen(js_name = nextManifest)]
-#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned Vec<String> arguments.
-#[must_use]
-pub fn next_manifest_js(
-    previous: Vec<String>,
+/// One mirror run's file changes, as `nextManifest` reads them.
+#[derive(serde::Deserialize)]
+struct MirrorRun {
     written: Vec<String>,
     removed: Vec<String>,
-) -> Vec<String> {
-    folder_mirror::next_manifest(&previous, &written, &removed)
+}
+
+/// [`next_manifest`](folder_mirror::next_manifest): the previous manifest minus removed paths,
+/// plus written paths, deduped in first-seen order.
+///
+/// # Errors
+///
+/// Fails when `run` is not `{ written, removed }` string arrays.
+#[wasm_bindgen(js_name = nextManifest)]
+#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned Vec<String> arguments.
+pub fn next_manifest_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] previous: Vec<String>,
+    #[wasm_bindgen(
+        unchecked_param_type = "{ written: readonly string[]; removed: readonly string[] }"
+    )]
+    run: JsValue,
+) -> JsResult<Vec<String>> {
+    let run: MirrorRun = serde_wasm_bindgen::from_value(run)?;
+    Ok(folder_mirror::next_manifest(
+        &previous,
+        &run.written,
+        &run.removed,
+    ))
 }
 
 /// [`json_edit_since`](folder_mirror::json_edit_since). `base` is the recorded digest map.

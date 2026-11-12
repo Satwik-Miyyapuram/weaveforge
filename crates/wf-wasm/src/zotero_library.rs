@@ -22,17 +22,17 @@ pub fn is_zotero_child_item_js(
 }
 
 /// [`normalize_zotero_library`](zotero_library::normalize_zotero_library): the library path, or
-/// nothing when the input is not a library.
+/// `undefined` when the input is not a library.
 ///
 /// # Errors
 ///
 /// Fails if `library` is neither a string nor missing.
 #[wasm_bindgen(js_name = normalizeZoteroLibrary)]
-pub fn normalize_zotero_library_js(library: JsValue) -> Result<JsValue, JsValue> {
+pub fn normalize_zotero_library_js(
+    #[wasm_bindgen(unchecked_param_type = "string | undefined")] library: JsValue,
+) -> Result<Option<String>, JsValue> {
     let library: Option<String> = serde_wasm_bindgen::from_value(library)?;
-    Ok(to_js(&zotero_library::normalize_zotero_library(
-        library.as_deref(),
-    ))?)
+    Ok(zotero_library::normalize_zotero_library(library.as_deref()))
 }
 
 /// [`zotero_library_url`](zotero_library::zotero_library_url): the API URL for a library path.

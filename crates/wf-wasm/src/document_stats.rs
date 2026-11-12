@@ -30,9 +30,23 @@ pub fn format_words_js(words: u32) -> String {
     stats::format_words(words)
 }
 
-/// [`format_cursor`](stats::format_cursor).
-#[wasm_bindgen(js_name = formatCursorLabel)]
-#[must_use]
-pub fn format_cursor_js(line: u32, col: u32) -> String {
-    stats::format_cursor(line, col)
+/// A cursor position as the status bar holds it.
+#[derive(serde::Deserialize)]
+struct Cursor {
+    line: f64,
+    col: f64,
+}
+
+/// [`format_cursor`](stats::format_cursor) of `{ line, col }`: "Ln 7, Col 4".
+///
+/// # Errors
+///
+/// Fails if `cursor` has no numeric `line` and `col`.
+#[wasm_bindgen(js_name = formatCursor)]
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // Line and column are small counts.
+pub fn format_cursor_js(
+    #[wasm_bindgen(unchecked_param_type = "{ line: number; col: number }")] cursor: JsValue,
+) -> Result<String, serde_wasm_bindgen::Error> {
+    let cursor: Cursor = serde_wasm_bindgen::from_value(cursor)?;
+    Ok(stats::format_cursor(cursor.line as u32, cursor.col as u32))
 }

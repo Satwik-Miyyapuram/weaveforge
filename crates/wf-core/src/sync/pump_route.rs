@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 
 /// How the transport answered one send.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "PumpSendStatus"))]
 #[serde(rename_all = "lowercase")]
 pub enum SendStatus {
     /// The request never got an answer: no network, or the transport threw.
@@ -22,6 +24,8 @@ pub enum SendStatus {
 
 /// The facts a pump route needs. All of them are known before any write.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "PumpRouteInput"))]
 #[serde(rename_all = "camelCase")]
 pub struct PumpInput {
     /// How the transport answered.
@@ -36,6 +40,8 @@ pub struct PumpInput {
 
 /// The step the pump takes for one op.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "PumpRouteAction"))]
 #[serde(rename_all = "lowercase")]
 pub enum PumpAction {
     /// The network is down: end the run now.
@@ -52,6 +58,7 @@ pub enum PumpAction {
 
 /// The route for one send outcome.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct PumpRoute {
     /// What to do with the op.

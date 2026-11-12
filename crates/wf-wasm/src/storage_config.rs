@@ -1,7 +1,8 @@
 //! wasm exports for `storage::config` and `storage::blob_client` (TS: `storage-config.ts`).
 
-use wasm_bindgen::JsValue;
+use js_sys::{Array, Object};
 use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::{JsCast, JsValue};
 use wf_core::storage::blob_client::{
     ColdFields, R2Fields, cold_blob_client_config, missing_r2_config_message, object_key,
     r2_blob_client_config, read_content_type, upload_content_type,
@@ -12,15 +13,28 @@ use wf_core::storage::config::{
 
 use super::to_js;
 
-/// [`read_storage_config`]. `env` is a plain object of env name to string value.
+/// [`read_storage_config`]. `env` is a plain object of env name to string value; an
+/// `undefined` value counts as unset.
 ///
 /// # Errors
 ///
-/// Fails if `env` is not an object of strings, or the result cannot be converted to JS.
-#[wasm_bindgen(js_name = readStorageConfig)]
-pub fn read_storage_config_js(env: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    let env: EnvMap = serde_wasm_bindgen::from_value(env)?;
-    to_js(&read_storage_config(&env))
+/// Fails if a set value in `env` is not a string, or the result cannot be converted to JS.
+#[wasm_bindgen(js_name = readStorageConfig, unchecked_return_type = "B.StorageConfig")]
+pub fn read_storage_config_js(
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string | undefined>>")]
+    env: &Object,
+) -> Result<JsValue, JsValue> {
+    let mut defined = EnvMap::new();
+    for entry in Object::entries(env).iter() {
+        let pair: Array = entry.unchecked_into();
+        let value = pair.get(1);
+        if value.is_undefined() {
+            continue;
+        }
+        let name = pair.get(0).as_string().unwrap_or_default();
+        let _ = defined.insert(name, serde_wasm_bindgen::from_value(value)?);
+    }
+    Ok(to_js(&read_storage_config(&defined))?)
 }
 
 /// [`blob_provider_for_runtime`]. `configured` is `tiered` or anything else for Supabase.

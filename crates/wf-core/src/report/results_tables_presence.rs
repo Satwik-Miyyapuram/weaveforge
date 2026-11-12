@@ -10,26 +10,29 @@ use super::results_table_refs::parse_results_table_refs;
 /// counts as empty, the same as the TS `notes ?? ""`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(default)]
-pub struct TreeSection {
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct ResultsTablesTreeSection {
     /// The section's markdown notes, where `exptable:` references live.
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub notes: Option<String>,
 }
 
 /// One node of the report section tree: a section and its child nodes.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(default)]
-pub struct TreeNode {
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct ResultsTablesTreeNode {
     /// The section this node holds.
-    pub section: TreeSection,
+    pub section: ResultsTablesTreeSection,
     /// Child nodes, searched after this node's own notes.
-    pub children: Vec<TreeNode>,
+    pub children: Vec<ResultsTablesTreeNode>,
 }
 
 /// Whether any node in `nodes`, or any descendant, has an `exptable:` reference in its notes.
 /// Each node's own notes are checked before its children, so the answer is the same as the TS
 /// `some(...)` walk.
 #[must_use]
-pub fn has_results_tables(nodes: &[TreeNode]) -> bool {
+pub fn has_results_tables(nodes: &[ResultsTablesTreeNode]) -> bool {
     nodes.iter().any(|node| {
         let notes = node.section.notes.as_deref().unwrap_or("");
         !parse_results_table_refs(notes).is_empty() || has_results_tables(&node.children)
@@ -45,9 +48,9 @@ mod tests {
         serialise_results_table_ref(&["run-1".to_owned()], "Results")
     }
 
-    fn node(notes: Option<String>, children: Vec<TreeNode>) -> TreeNode {
-        TreeNode {
-            section: TreeSection { notes },
+    fn node(notes: Option<String>, children: Vec<ResultsTablesTreeNode>) -> ResultsTablesTreeNode {
+        ResultsTablesTreeNode {
+            section: ResultsTablesTreeSection { notes },
             children,
         }
     }
@@ -80,7 +83,7 @@ mod tests {
 
     #[test]
     fn deserialises_a_tree_with_null_and_missing_notes() {
-        let tree: Vec<TreeNode> = serde_json::from_str(
+        let tree: Vec<ResultsTablesTreeNode> = serde_json::from_str(
             r#"[
                 {"section": {"notes": null}, "children": []},
                 {"section": {}, "children": [{"section": {"notes": "x"}}]}

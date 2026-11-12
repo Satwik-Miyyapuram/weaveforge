@@ -122,7 +122,9 @@ pub fn next_sort_order_js(
 /// [`is_inherited_link_code`]: whether a database error code means only the inherited link failed.
 #[wasm_bindgen(js_name = isInheritedLinkCode)]
 pub fn is_inherited_link_code_js(
-    #[wasm_bindgen(unchecked_param_type = "string | null | undefined")] code: Option<String>,
+    #[wasm_bindgen(unchecked_optional_param_type = "string | null | undefined")] code: Option<
+        String,
+    >,
 ) -> bool {
     is_inherited_link_code(code.as_deref())
 }

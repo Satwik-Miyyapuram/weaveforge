@@ -15,6 +15,8 @@ use crate::reader_analysis::lines::js_trim;
 /// One incoming citation as the citation source hands it to the app (TS `CitationCandidate`).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[cfg_attr(feature = "specta", serde(rename = "CitationCandidateWire"))]
 pub struct CitationCandidate {
     /// Semantic Scholar paper id, trimmed and never empty.
     pub id: String,
@@ -24,20 +26,25 @@ pub struct CitationCandidate {
     pub authors: Vec<String>,
     /// Publication year, when Semantic Scholar reports one.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub year: Option<f64>,
     /// The paper's link: Semantic Scholar's own url, else its paper page.
     pub url: String,
     /// Whole, non-negative citation count, when reported as a finite number.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub citation_count: Option<f64>,
     /// Trimmed citation context snippets, when any remain.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub contexts: Option<Vec<String>>,
     /// Known citation intents (`background`, `method`, `result`), when any remain.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub intents: Option<Vec<String>>,
     /// Whether Semantic Scholar marks the citation influential, when it sent a boolean.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "specta", specta(optional))]
     pub is_influential: Option<bool>,
 }
 
