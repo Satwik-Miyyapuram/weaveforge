@@ -41,7 +41,6 @@ names are:
 - `parseExtractionJson`, `toExtractionResult` (model concepts).
 - `highlightWithinExcerpt` (evidence, `ai_evidence.rs`).
 - `hasText` (blank-document check, `ai_document_text.rs`).
-- `splitAiSystemMessages` (system-prompt split for BYOK requests, `ai_chat_split.rs`).
 - `planWikiPages`, `wikiProposalContent` (wiki plan).
 - `mergeWikiPages` (wiki merge).
 - `lintWiki`, `planFixOrder` (wiki lint).

@@ -51,7 +51,7 @@ pub enum PaperRefKind {
 }
 
 /// A paper reference: what it is and the value that identifies it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct PaperRef {
     /// Which source can answer for this reference.

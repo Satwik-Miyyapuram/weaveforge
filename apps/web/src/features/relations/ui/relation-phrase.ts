@@ -12,8 +12,7 @@ export function relationPhrase(relation: RelationType, outgoing: boolean): strin
 
 /** "‹from› cites ‹to›", or null until both papers are picked. */
 export function linkSentence(from: string | undefined, relation: RelationType, to: string | undefined): string | null {
-  if (!from || !to) return null;
-  return `${from} ${readyCore().enumLabel("relation", relation).toLowerCase()} ${to}`;
+  return readyCore().linkSentence(from, relation, to);
 }
 
 /** A copy of `papers` ordered by title, ignoring case. */

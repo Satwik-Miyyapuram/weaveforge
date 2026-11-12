@@ -91,33 +91,25 @@ export interface CitationAlertCheckResult {
   failed: number;
 }
 
-/** `ranked` is already best first (rankCitationAlerts). */
+/**
+ * `ranked` is already best first (rankCitationAlerts). Rust writes the markdown; the citation
+ * count is formatted here because `toLocaleString` depends on the locale.
+ */
 function logBody(paper: Paper, ranked: CitationCandidate[]): string {
-  const lines = [
-    `## Citation alert: ${paper.title}`,
-    "",
-    `${ranked.length} new paper${ranked.length === 1 ? "" : "s"} cited this tracked paper:`,
-    "",
-  ];
-  for (const item of ranked.slice(0, 20)) {
-    const author = item.authors[0];
-    const intent = rust().citationIntentLabel(item);
-    const meta = [
-      // Emphasis, not a code span: the intent is a word, not an identifier (DA-40).
-      intent ? `*${intent}*` : null,
-      author ? `${author}${item.authors.length > 1 ? " et al." : ""}` : null,
-      item.year,
-      typeof item.citationCount === "number"
-        ? `${item.citationCount.toLocaleString()} citation${item.citationCount === 1 ? "" : "s"}`
-        : null,
-    ]
-      .filter(Boolean)
-      .join(", ");
-    const title = item.url ? `[${item.title}](${item.url})` : item.title;
-    lines.push(`- ${title}${meta ? ` — ${meta}` : ""}`);
-  }
-  if (ranked.length > 20) lines.push(`- …and ${ranked.length - 20} more`);
-  return lines.join("\n");
+  return rust().citationAlertLogBody(
+    paper.title,
+    ranked.map((item) => ({
+      title: item.title,
+      url: item.url,
+      authors: item.authors,
+      year: item.year ? String(item.year) : undefined,
+      citationCount: item.citationCount,
+      citationCountText:
+        typeof item.citationCount === "number" ? item.citationCount.toLocaleString() : undefined,
+      isInfluential: item.isInfluential,
+      intents: item.intents,
+    })),
+  );
 }
 
 export class CheckCitationAlertsUseCase {
@@ -383,17 +375,6 @@ export class LinkCitationsUseCase {
    * lookups). Falls back to per-paper `references()` otherwise.
    */
   async forAll(library: readonly Paper[]): Promise<LinkCitationsResult> {
-    // In-memory index of local papers by external id (avoids N×M DB queries).
-    const byArxiv = new Map<string, Paper>();
-    const byDoi = new Map<string, Paper>();
-    for (const p of library) {
-      if (p.arxivId) byArxiv.set(p.arxivId, p);
-      if (p.doi) {
-        const n = rust().normalizeDoi(p.doi);
-        if (n) byDoi.set(n, p);
-      }
-    }
-
     // Resolve each paper's references (aligned to `library` by index).
     const refs = library.map((p) => rust().primaryPaperRef(p.arxivId, p.doi));
     const resolvable = refs
@@ -424,20 +405,22 @@ export class LinkCitationsUseCase {
       existing.add(`${e.fromPaper}|${e.toPaper}`);
     }
 
+    // Which library paper each reference points at (arXiv id, normalised DOI), decided in Rust.
+    const matches = rust().matchCitationReferences(
+      library.map((p) => ({ id: p.id, arxivId: p.arxivId, doi: p.doi })),
+      refsByPaper,
+    );
+
     const created: PaperRelation[] = [];
     let unmatched = 0;
     for (let i = 0; i < library.length; i++) {
       const paper = library[i];
       const cites = refsByPaper[i];
       if (!paper || !cites) continue;
-      for (const cited of cites) {
-        const match =
-          cited.kind === "arxiv"
-            ? byArxiv.get(cited.value)
-            : cited.kind === "doi"
-              ? byDoi.get(rust().normalizeDoi(cited.value) ?? cited.value)
-              : undefined;
-        if (!match || match.id === paper.id) {
+      for (let k = 0; k < cites.length; k++) {
+        const matchIndex = matches[i]?.[k];
+        const match = matchIndex == null ? undefined : library[matchIndex];
+        if (!match) {
           unmatched += 1;
           continue;
         }

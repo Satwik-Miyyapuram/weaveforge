@@ -26,3 +26,5 @@ pub mod wiki_lint;
 pub mod wiki_merge;
 pub mod wiki_pages;
 pub mod wiki_plan;
+pub mod byok_wire;
+pub mod mcp_dispatch;
