@@ -23,7 +23,7 @@ import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection, formatError } from "@/lib/format-error";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { PdfReader } from "./pdf-reader";
-import { downloadPaperPdfToCache, evictReaderPdfCache, fetchTypedPdfToCache, getReaderPdfByteCache, isStoredPdfUrl, resolvePaperPdfSourceForReader } from "../application/parts-3";
+import { downloadPaperPdfToCache, evictReaderPdfCache, fetchTypedPdfToCache, getReaderPdfByteCache, resolvePaperPdfSourceForReader } from "../application/parts-3";
 import {
   linkPdfSource,
   pdfDownloadNeedsConsent,
@@ -206,7 +206,7 @@ export function PaperPdfPane({
         } catch {
           if (!cancelled) setQuotationTypes(new Map());
         }
-        if (resolution.ok && isLocalMode() && !isStoredPdfUrl(resolution.hit.url)) {
+        if (resolution.ok && isLocalMode() && !readyCore().isStoredPdfUrl(resolution.hit.url)) {
           // The no-account copy fetches into its own store, on request, and
           // then opens from there — so the paper is on disk for next time and
           // nothing is fetched behind the person's back.
@@ -586,7 +586,7 @@ export function PaperPdfPane({
         <div className={`reader-main${aside ? " reader-main--split" : ""}`}>
           <PdfReader
             key={pdfUrl}
-            url={isStoredPdfUrl(pdfUrl) ? pdfUrl : readerPdfUrl(pdfUrl)}
+            url={readyCore().isStoredPdfUrl(pdfUrl) ? pdfUrl : readerPdfUrl(pdfUrl)}
             originalUrl={pdfUrl}
             locus={locus}
             page={page}

@@ -3,7 +3,10 @@
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::reader::margin_notes::{MarginMark, layout_margin_notes, stack_margin_notes};
+use wf_core::reader::annotation_helpers::ReaderAnnotation;
+use wf_core::reader::margin_notes::{
+    MarginMark, layout_annotation_margin_notes, layout_margin_notes, stack_margin_notes,
+};
 use wf_core::reader::viewport::ReaderPageProjection;
 
 use super::to_js;
@@ -26,6 +29,23 @@ pub fn layout_margin_notes_js(
     let marks: Vec<MarginMark> = serde_wasm_bindgen::from_value(marks)?;
     let projection: ReaderPageProjection = serde_wasm_bindgen::from_value(projection)?;
     to_js(&layout_margin_notes(&marks, projection, card_height))
+}
+
+/// [`layout_annotation_margin_notes`]: the page's annotations, as the margin reads them. Returns
+/// `{ index, top, anchorTop }[]` where `index` is the annotation's position in `annotations`.
+///
+/// # Errors
+///
+/// Fails if `annotations` or `projection` do not have the expected shape.
+#[wasm_bindgen(js_name = layoutAnnotationMarginNotes, unchecked_return_type = "B.MarginSlot[]")]
+pub fn layout_annotation_margin_notes_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly T.ReaderAnnotation[]")] annotations: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ReaderPageProjection")] projection: JsValue,
+    card_height: f64,
+) -> JsResult<JsValue> {
+    let annotations: Vec<ReaderAnnotation> = serde_wasm_bindgen::from_value(annotations)?;
+    let projection: ReaderPageProjection = serde_wasm_bindgen::from_value(projection)?;
+    to_js(&layout_annotation_margin_notes(&annotations, projection, card_height))
 }
 
 /// [`stack_margin_notes`]: `anchorTops` is a number array; returns `{ index, top, anchorTop }[]`

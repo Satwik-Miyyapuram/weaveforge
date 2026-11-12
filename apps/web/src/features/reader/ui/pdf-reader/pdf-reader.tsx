@@ -33,7 +33,6 @@ import {
   pageSpanFromSelection,
   selectionRangeFromDom,
   startOffsetInTextLayer,
-  textSelectionFromOffsets,
 } from "../../application/parts-1";
 import {
   bucketAnnotationsByPage,
@@ -1277,7 +1276,7 @@ export function PdfReader({
       if (startOff) {
         const lastIdx = geometry.items.length - 1;
         const lastOff = geometry.items[lastIdx]!.str.length;
-        range = textSelectionFromOffsets(startOff, { itemIndex: lastIdx, offset: lastOff });
+        range = readyCore().textSelectionFromOffsets(startOff, { itemIndex: lastIdx, offset: lastOff });
       }
     }
     if (!range) {

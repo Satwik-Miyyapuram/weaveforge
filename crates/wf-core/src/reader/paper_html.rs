@@ -233,3 +233,84 @@ fn first_capture(pattern: &str, text: &str) -> Option<String> {
         .and_then(|captures| captures.get(1))
         .map(|found| found.as_str().to_owned())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn page() -> PaperHtmlPage {
+        PaperHtmlPage {
+            paper_id: "p1".to_owned(),
+            url: r#"https://arxiv.org/html/2101.00001?a=1&b="2""#.to_owned(),
+            title: "Tom & Jerry <revisited>".to_owned(),
+            html: "<h1>Intro</h1>\n<p>Body</p>".to_owned(),
+            saved_at: "2026-09-24T10:00:00.000Z".to_owned(),
+        }
+    }
+
+    // it: a kept page round-trips through its file
+    #[test]
+    fn a_kept_page_round_trips_through_its_file() {
+        let page = page();
+        let doc = build_paper_html_document(&page, &PaperHtmlOptions::default());
+        assert_eq!(parse_paper_html_document("p1", &doc), Some(page));
+    }
+
+    // it: the file escapes the title and source, and carries the frame's CSP
+    #[test]
+    fn the_file_escapes_the_title_and_source_and_carries_the_frames_csp() {
+        let doc = build_paper_html_document(&page(), &PaperHtmlOptions::default());
+        assert!(doc.contains("<title>Tom &amp; Jerry &lt;revisited&gt;</title>"));
+        assert!(doc.contains(r#"content="https://arxiv.org/html/2101.00001?a=1&amp;b=&quot;2&quot;""#));
+        assert!(doc.contains(&format!(r#"content="{PAPER_HTML_CSP}""#)));
+        assert!(!PAPER_HTML_CSP.contains("script-src"));
+        assert!(doc.contains(">arxiv.org</a>"));
+    }
+
+    // it: the scheme is pinned only when asked
+    #[test]
+    fn the_scheme_is_pinned_only_when_asked() {
+        let pinned = PaperHtmlOptions { scheme: Some("dark".to_owned()), print: false };
+        assert!(build_paper_html_document(&page(), &pinned).contains("color-scheme: dark"));
+        assert!(
+            !build_paper_html_document(&page(), &PaperHtmlOptions::default())
+                .contains("color-scheme: dark")
+        );
+    }
+
+    // it: the print copy is light, has page margins, and keeps the CSP
+    #[test]
+    fn the_print_copy_is_light_has_page_margins_and_keeps_the_csp() {
+        let print = PaperHtmlOptions { scheme: Some("light".to_owned()), print: true };
+        let doc = build_paper_html_document(&page(), &print);
+        assert!(doc.contains("color-scheme: light"));
+        assert!(doc.contains("@page"));
+        assert!(doc.contains(PAPER_HTML_CSP));
+        assert!(!build_paper_html_document(&page(), &PaperHtmlOptions::default()).contains("@page"));
+    }
+
+    // it: a file this app did not write is not read as a kept page
+    #[test]
+    fn a_file_this_app_did_not_write_is_not_read_as_a_kept_page() {
+        assert_eq!(
+            parse_paper_html_document("p1", "<html><body><p>hand made</p></body></html>"),
+            None
+        );
+        let doc = build_paper_html_document(&page(), &PaperHtmlOptions::default());
+        let no_source = doc
+            .lines()
+            .filter(|line| !line.contains("weaveforge-source"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert_eq!(parse_paper_html_document("p1", &no_source), None);
+    }
+
+    // it: only a page with the paper's text counts, not an abstract
+    #[test]
+    fn only_a_page_with_the_papers_text_counts_not_an_abstract() {
+        let short = "x".repeat(4999);
+        let long = "x".repeat(5000);
+        assert!(!is_substantial_paper_text(&short, MIN_PAPER_TEXT_CHARS));
+        assert!(is_substantial_paper_text(&long, MIN_PAPER_TEXT_CHARS));
+    }
+}
