@@ -3,7 +3,10 @@
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::app_lib::{commit_enter, edit_menu, menu_palette, page_text, prefs, shortcuts};
+use wf_core::app_lib::toast_store::{self, Action, ToastState};
+use wf_core::app_lib::{
+    commit_enter, edit_menu, menu_palette, page_text, prefs, shortcuts, storage_keys,
+};
 
 use super::to_js;
 
@@ -124,4 +127,46 @@ pub fn is_commit_enter_js(key: &str, key_code: Option<u32>, is_composing: bool) 
 #[wasm_bindgen(js_name = isEditCommand)]
 pub fn is_edit_command_js(command: &str) -> bool {
     edit_menu::is_edit_command(command)
+}
+
+/// [`exec_command_name`](edit_menu::exec_command_name): the execCommand id for an edit command,
+/// or `undefined` for paste and anything else.
+#[must_use]
+#[wasm_bindgen(js_name = execCommandName)]
+pub fn exec_command_name_js(command: &str) -> Option<String> {
+    edit_menu::exec_command_name(command).map(str::to_owned)
+}
+
+/// [`is_app_storage_key`](storage_keys::is_app_storage_key): whether a browser storage key holds
+/// account or workspace state, so sign-out wipes it.
+#[must_use]
+#[wasm_bindgen(js_name = isAppStorageKey)]
+pub fn is_app_storage_key_js(key: &str) -> bool {
+    storage_keys::is_app_storage_key(key)
+}
+
+/// [`initial_state`](toast_store::initial_state): an empty toast store.
+///
+/// # Errors
+///
+/// Fails if the result cannot be converted to JS.
+#[wasm_bindgen(js_name = toastInitialState, unchecked_return_type = "unknown")]
+pub fn toast_initial_state_js() -> Result<JsValue, serde_wasm_bindgen::Error> {
+    to_js(&toast_store::initial_state())
+}
+
+/// [`reduce`](toast_store::reduce): the next toast state, view, hidden keys and effects for one action.
+///
+/// # Errors
+///
+/// Fails if `state` or `action` is not a `ToastState` or `Action`-shaped object, or the result
+/// cannot be converted to JS.
+#[wasm_bindgen(js_name = toastReduce, unchecked_return_type = "unknown")]
+pub fn toast_reduce_js(
+    #[wasm_bindgen(unchecked_param_type = "unknown")] state: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "unknown")] action: JsValue,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let state: ToastState = serde_wasm_bindgen::from_value(state)?;
+    let action: Action = serde_wasm_bindgen::from_value(action)?;
+    to_js(&toast_store::reduce(state, action))
 }

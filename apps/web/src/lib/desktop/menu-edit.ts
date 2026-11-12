@@ -4,6 +4,7 @@
  * them on whatever has focus, because a webview has no native edit roles.
  */
 
+import { readyCore } from "@/lib/rust-core";
 import { showToast } from "@/lib/toast/index";
 
 /** The part of `document` the edit commands use. */
@@ -15,14 +16,6 @@ export interface EditDocument {
 export interface EditClipboard {
   readText(): Promise<string>;
 }
-
-const EXEC: Record<string, string> = {
-  "edit-undo": "undo",
-  "edit-redo": "redo",
-  "edit-cut": "cut",
-  "edit-copy": "copy",
-  "edit-select-all": "selectAll",
-};
 
 /**
  * Runs one Edit menu command on the focused element. Paste reads the
@@ -51,6 +44,6 @@ export async function runEditCommand(
     }
     return doc.execCommand("insertText", false, text);
   }
-  const exec = Object.hasOwn(EXEC, command) ? EXEC[command] : undefined;
+  const exec = readyCore().execCommandName(command);
   return exec === undefined ? false : doc.execCommand(exec);
 }

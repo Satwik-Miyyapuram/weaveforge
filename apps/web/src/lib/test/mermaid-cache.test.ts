@@ -1,6 +1,9 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { clearMermaidCache, mermaidCacheSize, renderMermaidBlock, setMermaidLoaderForTests, type MermaidModule } from "../mermaid-render";
+
+before(loadTestCore);
 
 /** A fake renderer that counts calls and echoes the id it was given. */
 function fakeRenderer(): { renderer: MermaidModule; calls: () => number } {

@@ -47,16 +47,8 @@ export function toCompletions(
   return (titles ?? []).map((t) => ({ title: t, label: t }));
 }
 
-function filterCompletions(items: readonly CiteCompletion[], query: string) {
-  const q = query.toLowerCase();
-  return items
-    .filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) ||
-        c.label.toLowerCase().includes(q) ||
-        (c.detail?.toLowerCase().includes(q) ?? false),
-    )
-    .slice(0, 20);
+function matchingCompletions(items: readonly CiteCompletion[], query: string): CiteCompletion[] {
+  return Array.from(readyCore().filterCiteCompletions(items, query), (i) => items[i] as CiteCompletion);
 }
 
 function hasExactTitle(items: readonly CiteCompletion[], title: string): boolean {
@@ -99,19 +91,6 @@ function closingAfter(view: EditorView, pos: number): number {
  * unresolved (the make failed, or it is a paper's title) is not retried on
  * every keystroke.
  */
-export function finishedLinks(doc: string, caret: number): string[] {
-  const out: string[] = [];
-  const re = /\[\[([^[\]\n]+?)\]\]/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(doc)) !== null) {
-    if (caret > m.index && caret < m.index + m[0].length) continue;
-    // Only links `extractWikilinks` reads: `[[title|alias]]` and
-    // `[[title#heading]]` name `title`.
-    const [ref] = readyCore().extractWikilinks(m[0]);
-    if (ref) out.push(ref.target);
-  }
-  return out;
-}
 
 function createTypedLinks(
   completionsRef: { current: readonly CiteCompletion[] },
@@ -123,7 +102,7 @@ function createTypedLinks(
     const create = createNoteRef.current;
     if (!create) return;
     const caret = update.view.hasFocus ? update.state.selection.main.head : -1;
-    for (const title of finishedLinks(update.state.doc.toString(), caret)) {
+    for (const title of readyCore().finishedLinks(update.state.doc.toString(), caret)) {
       const key = readyCore().normalizeTitleKey(title);
       if (!key || offered.has(key)) continue;
       offered.add(key);
@@ -200,7 +179,7 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     const before = ctx.matchBefore(/\[\[[^\]\n]*/);
     if (!before || (before.from === before.to && !ctx.explicit)) return null;
     const query = before.text.slice(2);
-    const options: Completion[] = filterCompletions(completionsRef.current, query).map((c) => ({
+    const options: Completion[] = matchingCompletions(completionsRef.current, query).map((c) => ({
       label: c.label,
       detail: c.detail,
       apply: (view, _completion, from, to) => {
@@ -267,7 +246,7 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     const query = before.text.slice(1);
     if (!query && !ctx.explicit) return null;
     const format = citationFormatRef.current;
-    const options = filterCompletions(completionsRef.current, query).map((c) => ({
+    const options = matchingCompletions(completionsRef.current, query).map((c) => ({
       label: c.label,
       detail: c.detail ?? (format === "wikilink" ? undefined : format),
       apply: insertForCompletion(c, format),

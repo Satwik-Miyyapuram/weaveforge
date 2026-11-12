@@ -155,7 +155,7 @@ export function useScreenData<T>(screen: ScreenId, load: () => Promise<T>) {
 
   /**
    * Reload past the freshness window. `reload` trusts a cache younger than
-   * {@link SCREEN_REVALIDATE_AFTER_MS}, which is right for a tab switch and
+   * the core's `revalidateAfterMs`, which is right for a tab switch and
    * wrong straight after this screen changed something itself: a write that
    * reaches the store by a path the write-watch does not see left the old
    * payload "fresh", and the screen showed what had just been undone. The

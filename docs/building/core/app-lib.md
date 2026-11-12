@@ -22,11 +22,25 @@ page body fallbacks and key-event checks. Storage, DOM access, React state and l
   missing fields, so a missing field is skipped rather than failing the call.
 - `commit_enter::is_commit_enter`: Enter that is not an IME composition (keyCode 229 excluded).
 - `edit_menu::is_edit_command`: `edit-paste` or one of the five execCommand edit commands.
+- `toast_store::reduce`: the pure transitions of the toast store (`apps/web/src/lib/toast/parts.ts`). State in,
+  `Reduction` out: the new state, the effects to run (start/stop a timer, run a commit, commit), the visible
+  list, the hidden count, and `changed`. `TOAST_MS` 8000 and `MAX_TOASTS` 3 live here. Timers, closures per id,
+  commit promises and listeners stay in TS. Wasm exports `toastInitialState` and `toastReduce` in
+  `crates/wf-wasm/src/app_lib.rs`, typed `unknown` until `npm run bindings`. 11 Rust `#[test]`s.
+- `context_menu::reduce` and `context_menu::place`: whether a right-click menu open or close changes state
+  (no open without items; close only when open), and where a menu goes on screen (flip, then clamp to
+  `VIEWPORT_PAD` 12). Items, listeners and the DOM stay in `apps/web/src/components/context-menu-store.ts`.
+  Wasm exports `contextMenuReduce` and `contextMenuPlace` in `crates/wf-wasm/src/app_nav.rs`. 6 Rust `#[test]`s.
+- `reveal_nav::scroll_top_to_reveal`: the `scrollTop` that shows the active sidebar row whole
+  (`apps/web/src/app/reveal-active-nav.ts`). The DOM rectangle reads and the `scrollTop` write stay in TS.
+  Wasm export `navRevealScrollTop` in `crates/wf-wasm/src/app_nav.rs`. 3 Rust `#[test]`s.
 
 WASM exports (`crates/wf-wasm/src/app_lib.rs`): `menuPaletteActions`, `settingsPaletteRows`,
 `nextShortcutsOpen`, `inkHapticsOn`, `citationFormatStorageKey`, `parseEditorCitationFormat`,
 `parseWikilinkCreateMode`, `noteBodyText`, `isHydratedPage`, `textWithinCap`, `isCommitEnter`,
-`isEditCommand`. TS wrapper: `packages/wf-wasm/src/app-lib.ts`.
+`isEditCommand`, `execCommandName` (edit command to `execCommand` id, in `edit_menu.rs`) and
+`isAppStorageKey` (`crates/wf-core/src/app_lib/storage_keys.rs`, the sign-out wipe rule from
+`clear-local-device-data.ts`). TS wrapper: `packages/wf-wasm/src/app-lib.ts`.
 
 Left in TS: DOCS_URL and window event dispatch (`requestShortcuts`), localStorage read/write for
 the three preferences, the `useWikilinkCreateMode` hook, `mergeServerAppearance` (object spread over
@@ -37,4 +51,4 @@ typed fields), and `takenTitles` in `apps/web/src/features/wiki/application/wiki
 Source: `apps/web/src/lib/parts-2.ts`, `apps/web/src/lib/parts.ts`,
 `apps/web/src/lib/parts.ts`, `apps/web/src/lib/parts.ts`,
 `apps/web/src/lib/wikilink-create-preference.ts`, `apps/web/src/lib/parts.ts`,
-`apps/web/src/lib/desktop/menu-edit.ts`.
+`apps/web/src/lib/desktop/menu-edit.ts`, `apps/web/src/lib/desktop/clear-local-device-data.ts`.

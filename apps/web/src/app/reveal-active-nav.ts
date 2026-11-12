@@ -1,10 +1,10 @@
+import { readyCore } from "@/lib/rust-core";
+
 type Span = { top: number; bottom: number };
 
 /** The scrollTop that shows `row` whole inside `view`, moving as little as possible. */
 export function scrollTopToReveal(row: Span, view: Span, scrollTop: number): number {
-  if (row.top < view.top) return scrollTop - (view.top - row.top);
-  if (row.bottom > view.bottom) return scrollTop + (row.bottom - view.bottom);
-  return scrollTop;
+  return readyCore().navRevealScrollTop(row.top, row.bottom, view.top, view.bottom, scrollTop);
 }
 
 /** Scroll the sidebar so its current destination is not hidden below the fold. */

@@ -7,7 +7,9 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { SCREEN_REVALIDATE_AFTER_MS } from "@/lib/cache/cache-policy";
+import { readyCore } from "@/lib/rust-core";
+
+const SCREEN_REVALIDATE_AFTER_MS = readyCore().screenCachePolicy().revalidateAfterMs;
 import { cacheRepo, invalidateAllRepoCaches, invalidateForWrite } from "@/lib/cache/parts-1";
 
 function deferred<T>() {

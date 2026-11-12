@@ -66,18 +66,6 @@ export function themePeleSvg(svg: string): string {
   });
 }
 
-/**
- * An id for a diagram from its source, so the same fence renders to the same
- * markup every time. A running counter made each render a different string,
- * which made React rewrite the body — and kill any link mid-click — whenever
- * a note with a diagram re-rendered for a reason that changed nothing.
- */
-function diagramId(code: string): string {
-  let hash = 0;
-  for (let i = 0; i < code.length; i++) hash = (hash * 31 + code.charCodeAt(i)) | 0;
-  return `wf-mermaid-${(hash >>> 0).toString(36)}`;
-}
-
 function getMermaid(): Promise<MermaidModule> {
   if (!mermaidPromise) {
     mermaidPromise = customLoader ? customLoader() : import("pele/lazy");
@@ -104,7 +92,7 @@ export async function renderMermaidBlock(code: string): Promise<string> {
     return `<pre class="md-code md-mermaid-source" data-lang="mermaid"><code>${readyCore().escapeHtml(code)}</code></pre>`;
   }
   // Mermaid rejects `(`, `)` and `|` inside an unquoted `[label]` or `{label}`; the Rust core quotes them.
-  const source = readyCore().quoteAwkwardMermaidLabels(code.trim());
+  const source = readyCore().mermaidRenderSource(code);
   const hit = renderCache.get(source);
   if (hit !== undefined) {
     renderCache.delete(source);
@@ -113,7 +101,7 @@ export async function renderMermaidBlock(code: string): Promise<string> {
   }
   try {
     const pele = await getMermaid();
-    const { svg } = await pele.renderAsync(source, { idPrefix: diagramId(source) });
+    const { svg } = await pele.renderAsync(source, { idPrefix: readyCore().mermaidDiagramId(source) });
     const html = `<div class="md-mermaid">${themePeleSvg(svg)}</div>`;
     renderCache.set(source, html);
     if (renderCache.size > MAX_CACHE_ENTRIES) {

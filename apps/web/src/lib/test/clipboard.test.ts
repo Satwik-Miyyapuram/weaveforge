@@ -3,9 +3,14 @@
  * missing clipboard must not surface as an unhandled rejection or a "Copied".
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
 import { copyText } from "@/lib/parts";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 async function withNavigator<T>(value: unknown, run: () => Promise<T>): Promise<T> {
   const saved = Object.getOwnPropertyDescriptor(globalThis, "navigator");

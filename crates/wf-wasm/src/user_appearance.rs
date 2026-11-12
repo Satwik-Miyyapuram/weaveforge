@@ -31,3 +31,18 @@ pub fn normalize_appearance_js(
         None => Ok(JsValue::UNDEFINED),
     }
 }
+
+/// [`merge_server_appearance`](user_appearance::merge_server_appearance) of `server` over
+/// `local`, both read as plain JSON. Always an object.
+///
+/// # Errors
+///
+/// Fails if either side cannot be rebuilt as JSON or the result cannot be converted.
+#[wasm_bindgen(js_name = mergeServerAppearance, unchecked_return_type = "B.UserAppearance")]
+pub fn merge_server_appearance_js(
+    #[wasm_bindgen(unchecked_param_type = "B.UserAppearance")] local: &JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.UserAppearance")] server: &JsValue,
+) -> Result<JsValue, JsValue> {
+    let merged = user_appearance::merge_server_appearance(&plain_json(local)?, &plain_json(server)?);
+    Ok(to_js(&merged)?)
+}

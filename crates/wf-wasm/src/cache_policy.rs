@@ -6,8 +6,8 @@ use wf_core::cache_policy::screen_cache_policy;
 
 use super::to_js;
 
-/// [`screen_cache_policy`] as `{ revalidateAfterMs, showMaxAgeMs }`. The TS constants stay in
-/// `cache-policy.ts` (read at module evaluation); this is for callers that run after init.
+/// [`screen_cache_policy`] as `{ revalidateAfterMs, showMaxAgeMs }`. The TS callers read it at call
+/// time (after init), so the TS side has no constants of its own.
 ///
 /// # Errors
 ///

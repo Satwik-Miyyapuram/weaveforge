@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { type DeferredDelete, type ToastInput, toasts } from "./parts";
 
-export { type DeferredDelete, TOAST_MS } from "./parts";
+export type { DeferredDelete } from "./parts";
 
 // --- index ---
 

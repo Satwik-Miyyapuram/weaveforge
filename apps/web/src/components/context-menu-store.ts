@@ -1,5 +1,5 @@
+import { readyCore } from "@/lib/rust-core";
 import type { MenuItem } from "./menu";
-import { VIEWPORT_PAD } from "./viewport-pad";
 
 /**
  * The app's one right-click menu, as state.
@@ -7,12 +7,19 @@ import { VIEWPORT_PAD } from "./viewport-pad";
  * Any surface calls `openContextMenu(event, items)`; the single
  * `<ContextMenuHost />` in the shell draws it with the same `Menu` the kebabs
  * use, so a card's right-click and its kebab list the same actions.
+ *
+ * Whether an open or close changes state, and where a menu goes on screen, are
+ * decided in Rust (`wf_core::app_lib::context_menu`). This file keeps the items
+ * and the listeners.
  */
 export interface ContextMenuState {
   x: number;
   y: number;
   items: readonly MenuItem[];
 }
+
+type Point = { x: number; y: number };
+type Reduction = { state: Point | null; accepted: boolean; changed: boolean };
 
 let current: ContextMenuState | null = null;
 const listeners = new Set<() => void>();
@@ -21,19 +28,30 @@ function emit() {
   for (const listener of listeners) listener();
 }
 
+function pointOf(state: ContextMenuState | null): Point | null {
+  return state ? { x: state.x, y: state.y } : null;
+}
+
 /** Opens the menu at the pointer and stops the browser's own menu. */
 export function openContextMenu(
   at: { clientX: number; clientY: number; preventDefault?: () => void },
   items: readonly MenuItem[],
 ): void {
-  if (items.length === 0) return;
+  const next = readyCore().contextMenuReduce(pointOf(current), {
+    kind: "open",
+    x: at.clientX,
+    y: at.clientY,
+    count: items.length,
+  }) as Reduction;
+  if (!next.accepted) return;
   at.preventDefault?.();
   current = { x: at.clientX, y: at.clientY, items };
-  emit();
+  if (next.changed) emit();
 }
 
 export function closeContextMenu(): void {
-  if (!current) return;
+  const next = readyCore().contextMenuReduce(pointOf(current), { kind: "close" }) as Reduction;
+  if (!next.changed) return;
   current = null;
   emit();
 }
@@ -61,11 +79,8 @@ export function placeContextMenu(
   viewWidth: number,
   viewHeight: number,
 ): { left: number; top: number } {
-  const left = x + width + VIEWPORT_PAD > viewWidth ? x - width : x;
-  const top = y + height + VIEWPORT_PAD > viewHeight ? y - height : y;
-  const clamp = (value: number, size: number, view: number) =>
-    Math.max(VIEWPORT_PAD, Math.min(value, view - size - VIEWPORT_PAD));
-  return { left: clamp(left, width, viewWidth), top: clamp(top, height, viewHeight) };
+  const placed = readyCore().contextMenuPlace(x, y, width, height, viewWidth, viewHeight) as Point;
+  return { left: placed.x, top: placed.y };
 }
 
 /** True when a right-click there should keep the browser's own text menu. */

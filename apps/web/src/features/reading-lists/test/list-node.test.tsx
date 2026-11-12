@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReadingList, ReadingListItem } from "@weaveforge/core";
 

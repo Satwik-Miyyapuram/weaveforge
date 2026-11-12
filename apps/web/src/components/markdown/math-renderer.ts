@@ -47,32 +47,6 @@ export function loadMathRenderer(): Promise<MathRenderer> {
 }
 
 /**
- * Whether this text has anything the renderer would treat as maths.
- *
- * Mirrors the delimiters `renderProseMarkdown` recognises: `$$…$$`, a single-line
- * `$…$`, and a backslash-escaped `$` is not a delimiter. Deliberately
- * conservative — a false positive costs a 75 KB fetch, a false negative costs the
- * reader their formula — so an unclosed `$` counts, and the renderer decides what
- * to do with it.
- */
-export function containsMath(md: string): boolean {
-  // `\(` and `\[` open the bracketed delimiters, so either one counts as maths.
-  if (/\\[([]/.test(md)) return true;
-  let index = 0;
-  while (index < md.length) {
-    const dollar = md.indexOf("$", index);
-    if (dollar === -1) return false;
-    // `\$` is a literal dollar sign, not a delimiter.
-    if (dollar > 0 && md[dollar - 1] === "\\") {
-      index = dollar + 1;
-      continue;
-    }
-    return true;
-  }
-  return false;
-}
-
-/**
  * What to show while the renderer is loading, or forever if it never loads.
  *
  * The TeX itself, escaped and in a span that says what it is: a reader with no
