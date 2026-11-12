@@ -298,6 +298,10 @@ pub enum RepoStep {
     Fail {
         /// The error message.
         message: String,
+        /// The JS error class name (`error.name`), when not plain `Error`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "specta", specta(optional))]
+        name: Option<String>,
     },
 }
 
@@ -331,6 +335,17 @@ impl RepoStep {
     pub fn fail(message: impl ToString) -> Self {
         Self::Fail {
             message: message.to_string(),
+            name: None,
+        }
+    }
+
+    /// Fail with `message` as a JS error whose `name` is `name` (the TS error class).
+    #[must_use]
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn fail_named(name: &str, message: impl ToString) -> Self {
+        Self::Fail {
+            message: message.to_string(),
+            name: Some(name.to_owned()),
         }
     }
 }
@@ -352,6 +367,10 @@ pub struct RepoCtx {
     #[serde(default)]
     #[cfg_attr(feature = "specta", specta(optional))]
     pub now: Option<String>,
+    /// A random seed the sender makes once per call; [`RepoCall::id`] derives ids from it.
+    #[serde(default)]
+    #[cfg_attr(feature = "specta", specta(optional))]
+    pub id_seed: Option<String>,
 }
 
 /// One call of a repository method, as the TS sender hands it over.
@@ -424,6 +443,44 @@ impl RepoCall {
         self.ctx.now.as_deref().unwrap_or_default()
     }
 
+    /// The `n`-th fresh id of this call, as a v4-shaped UUID.
+    ///
+    /// Steps replay from scratch each round, so the id must be the same for the
+    /// same `n` on every round: it is derived from the call's `id_seed`, not drawn.
+    #[must_use]
+    pub fn id(&self, n: usize) -> String {
+        let seed = self.ctx.id_seed.as_deref().unwrap_or_default();
+        let (mut hi, mut lo) = (0x6a09_e667_f3bc_c908_u64, 0xbb67_ae85_84ca_a73b_u64);
+        for b in seed.bytes() {
+            hi = splitmix64(hi ^ u64::from(b));
+            lo = splitmix64(lo.wrapping_add(u64::from(b)));
+        }
+        let n = n as u64;
+        let hi = splitmix64(hi ^ n);
+        let lo = splitmix64(lo.wrapping_add(n));
+        let hi = (hi & !0xf000) | 0x4000;
+        let lo = (lo & !(0xc0 << 56)) | (0x80 << 56);
+        format!(
+            "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
+            hi >> 32,
+            (hi >> 16) & 0xffff,
+            hi & 0xffff,
+            lo >> 48,
+            lo & 0xffff_ffff_ffff
+        )
+    }
+
+    /// A call with the same context, `args`, and the replies after the first `skip`,
+    /// so a method can run another method's steps after its own queries.
+    #[must_use]
+    pub fn sub(&self, args: Vec<Value>, skip: usize) -> RepoCall {
+        RepoCall {
+            args,
+            ctx: self.ctx.clone(),
+            replies: self.replies.get(skip..).unwrap_or_default().to_vec(),
+        }
+    }
+
     /// The selected project, or the step that fails with "Select a project before {action}.".
     ///
     /// # Errors
@@ -436,6 +493,13 @@ impl RepoCall {
             .filter(|id| !id.is_empty())
             .ok_or_else(|| RepoStep::fail(format!("Select a project before {action}.")))
     }
+}
+
+fn splitmix64(x: u64) -> u64 {
+    let mut z = x.wrapping_add(0x9e37_79b9_7f4a_7c15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    z ^ (z >> 31)
 }
 
 /// The next step of `repo.method`, or a failure naming an unknown repository or method.
@@ -589,6 +653,7 @@ mod tests {
             project_id: Some("p".into()),
             user_id: Some("u".into()),
             now: None,
+            id_seed: None,
         };
         assert_eq!(call.user(), Ok("u"));
         assert_eq!(call.project("x"), Ok("p"));
@@ -605,5 +670,58 @@ mod tests {
             repo_step("comments", "nope", &call),
             RepoStep::Fail { .. }
         ));
+    }
+
+    fn seeded(seed: &str) -> RepoCall {
+        RepoCall {
+            ctx: RepoCtx {
+                id_seed: Some(seed.into()),
+                ..RepoCtx::default()
+            },
+            replies: vec![json!(1), json!(2), json!(3)],
+            ..RepoCall::default()
+        }
+    }
+
+    #[test]
+    fn id_is_stable_per_seed_and_index() {
+        let a = seeded("seed-a");
+        assert_eq!(a.id(0), seeded("seed-a").id(0));
+        assert_ne!(a.id(0), a.id(1));
+        assert_ne!(a.id(0), seeded("seed-b").id(0));
+    }
+
+    #[test]
+    fn id_is_v4_shaped() {
+        let id = seeded("x").id(7);
+        let parts: Vec<&str> = id.split('-').collect();
+        assert_eq!(
+            parts.iter().map(|p| p.len()).collect::<Vec<_>>(),
+            [8, 4, 4, 4, 12]
+        );
+        assert!(parts[2].starts_with('4'));
+        assert!(matches!(parts[3].as_bytes()[0], b'8' | b'9' | b'a' | b'b'));
+        assert!(id.bytes().all(|b| b == b'-' || b.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn sub_keeps_ctx_and_skips_replies() {
+        let call = seeded("s");
+        let sub = call.sub(vec![json!("x")], 2);
+        assert_eq!(sub.ctx, call.ctx);
+        assert_eq!(sub.args, vec![json!("x")]);
+        assert_eq!(sub.replies, vec![json!(3)]);
+        assert!(call.sub(vec![], 9).replies.is_empty());
+    }
+
+    #[test]
+    fn fail_named_carries_the_name_and_plain_fail_omits_it() {
+        let named = serde_json::to_value(RepoStep::fail_named("ConflictError", "boom")).unwrap();
+        assert_eq!(
+            named,
+            json!({"kind": "fail", "message": "boom", "name": "ConflictError"})
+        );
+        let plain = serde_json::to_value(RepoStep::fail("boom")).unwrap();
+        assert_eq!(plain, json!({"kind": "fail", "message": "boom"}));
     }
 }

@@ -157,13 +157,21 @@ export function rustRepository<T extends object>(
   const repo: Record<string, (...args: unknown[]) => Promise<unknown>> = {};
   for (const method of methods) {
     repo[method] = async (...args: unknown[]) => {
-      const context: RepoCtx = { ...(await ctx()), now: new Date().toISOString() };
+      const context: RepoCtx = {
+        ...(await ctx()),
+        now: new Date().toISOString(),
+        idSeed: crypto.randomUUID(),
+      };
       const replies: unknown[] = [];
       const rustArgs = args.map(argForRust);
       for (let i = 0; i < MAX_REPO_STEPS; i++) {
         const step = readyCore().repoStep(name, method, rustArgs, context, replies);
         if (step.kind === "done") return step.value;
-        if (step.kind === "fail") throw new Error(step.message);
+        if (step.kind === "fail") {
+          const error = new Error(step.message);
+          if (step.name) error.name = step.name;
+          throw error;
+        }
         replies.push(...(await Promise.all(step.queries.map((q) => sendQuery(db, q)))));
       }
       throw new Error(`${name}.${method} did not finish in ${MAX_REPO_STEPS} steps`);

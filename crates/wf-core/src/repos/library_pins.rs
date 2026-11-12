@@ -144,6 +144,7 @@ mod tests {
                 project_id: project.then(|| "j1".to_owned()),
                 user_id: user.then(|| "u1".to_owned()),
                 now: None,
+                id_seed: None,
             },
         }
     }

@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn unknown_spec_fails() {
         match get("nope", &call(vec![json!("p1")], vec![])) {
-            RepoStep::Fail { message } => assert!(message.contains("nope")),
+            RepoStep::Fail { message, .. } => assert!(message.contains("nope")),
             other => panic!("expected fail, got {other:?}"),
         }
     }

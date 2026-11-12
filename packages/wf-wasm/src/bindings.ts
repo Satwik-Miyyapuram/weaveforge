@@ -8412,6 +8412,8 @@ export type RepoCtx = {
 	userId?: string | null,
 	/**  The sender's clock as an ISO-8601 instant (Rust in wasm has none); set on every call. */
 	now?: string | null,
+	/**  A random seed the sender makes once per call; [`RepoCall::id`] derives ids from it. */
+	idSeed?: string | null,
 };
 
 /**  One filter, sent as the supabase-js method of the same name (`eq`, `in`, `is`, `or`, …). */
@@ -8491,7 +8493,9 @@ value: unknown } |
 /**  The method fails with this message. */
 { kind: "fail"; 
 /**  The error message. */
-message: string };
+message: string; 
+/**  The JS error class name (`error.name`), when not plain `Error`. */
+name?: string };
 
 /**  The experiment fields the markdown rewrite reads (a subset of TS `Experiment`). */
 export type ReportExperiment = {

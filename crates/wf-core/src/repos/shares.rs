@@ -173,6 +173,7 @@ mod tests {
                 project_id: None,
                 user_id: Some("u1".into()),
                 now: None,
+                id_seed: None,
             },
             ..call(args, replies)
         }

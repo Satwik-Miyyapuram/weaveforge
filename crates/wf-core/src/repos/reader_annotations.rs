@@ -356,7 +356,7 @@ mod tests {
 
     fn fail_message(step: RepoStep) -> String {
         match step {
-            RepoStep::Fail { message } => message,
+            RepoStep::Fail { message, .. } => message,
             other => panic!("expected fail, got {other:?}"),
         }
     }
