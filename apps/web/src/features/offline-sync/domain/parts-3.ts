@@ -159,7 +159,8 @@ export interface SyncState {
 
 interface SyncStateRow {
   watermark: string | number;
-  last_pull_at: string | null;
+  /** PGlite hands a timestamptz back as a Date; the Rust read takes text. */
+  last_pull_at: string | Date | null;
   account_id: string | null;
 }
 
@@ -170,8 +171,13 @@ export class SyncStateStore {
     const row = await this.sql.queryOne<SyncStateRow>(
       "select watermark, last_pull_at, account_id from sync_state",
     );
+    const wire =
+      row && {
+        ...row,
+        last_pull_at: row.last_pull_at instanceof Date ? row.last_pull_at.toISOString() : row.last_pull_at,
+      };
     // The read decision (null row, bigint text, empty account) is wf-core's `sync_state`.
-    return readyCore().syncStateFromRow(row ?? undefined) as SyncState;
+    return readyCore().syncStateFromRow(wire ?? undefined) as SyncState;
   }
 
   /**

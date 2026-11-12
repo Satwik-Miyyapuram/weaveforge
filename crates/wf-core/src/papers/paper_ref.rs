@@ -48,6 +48,8 @@ pub enum PaperRefKind {
     Url,
     /// An opaque Zotero item key.
     Zotero,
+    /// A free-text citation, found by title search; it has no identifier.
+    Bibliographic,
 }
 
 /// A paper reference: what it is and the value that identifies it.
@@ -224,6 +226,20 @@ mod tests {
             serde_json::from_str::<PaperRefKind>("\"zotero\"").unwrap(),
             PaperRefKind::Zotero
         );
-        assert!(serde_json::from_str::<PaperRefKind>("\"bibliographic\"").is_err());
+        assert_eq!(
+            serde_json::from_str::<PaperRefKind>("\"bibliographic\"").unwrap(),
+            PaperRefKind::Bibliographic
+        );
+    }
+
+    // it: "a bibliographic reference deserializes and ignores its hints"
+    #[test]
+    fn bibliographic_reference_ignores_hints() {
+        let parsed: PaperRef = serde_json::from_str(
+            r#"{"kind":"bibliographic","value":"x","hints":{"year":2020}}"#,
+        )
+        .unwrap();
+        assert_eq!(parsed.kind, PaperRefKind::Bibliographic);
+        assert_eq!(parsed.value, "x");
     }
 }

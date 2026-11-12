@@ -54,7 +54,7 @@ pub fn collapse(hits: &[VectorHit], exclude: Option<&str>, limit: usize) -> Vec<
                 out[slot].score = hit.score;
             }
         } else {
-            at.insert(id.clone(), out.len());
+            let _ = at.insert(id.clone(), out.len());
             out.push(VectorHit { id, score: hit.score });
         }
     }

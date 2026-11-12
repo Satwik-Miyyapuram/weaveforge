@@ -21,22 +21,33 @@ const EXCERPT_CHARS: usize = 200;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DocRecord {
+    /// Document id, supplied by the caller and never persisted.
     #[serde(default, skip_serializing)]
     pub id: String,
+    /// Kind of entity this document represents.
     pub kind: SearchKind,
+    /// Id of the underlying entity.
     pub entity_id: String,
+    /// Display title.
     pub title: String,
+    /// Link target for the hit.
     pub href: String,
+    /// Last-updated timestamp as an ISO string, when known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<String>,
+    /// Graph degree used for document boosting, when known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub degree: Option<f64>,
+    /// Path of the entity, when it has one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
+    /// Tags attached to the entity.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tags: Option<Vec<String>>,
+    /// Indexed body text.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+    /// Page number for paged entities such as PDF pages.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page: Option<f64>,
     /// `Date.parse(updatedAt)` as computed by TS; `None` when it did not parse.
@@ -48,9 +59,13 @@ pub struct DocRecord {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Candidate {
+    /// Document id.
     pub id: String,
+    /// Raw MiniSearch score.
     pub score: f64,
+    /// Index terms that matched the document.
     pub terms: Vec<String>,
+    /// Query terms that produced the match.
     pub query_terms: Vec<String>,
 }
 
@@ -58,19 +73,30 @@ pub struct Candidate {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchHit {
+    /// Document id.
     pub id: String,
+    /// Kind of entity this hit represents.
     pub kind: SearchKind,
+    /// Id of the underlying entity.
     pub entity_id: String,
+    /// Display title.
     pub title: String,
+    /// Link target for the hit.
     pub href: String,
+    /// Relevance score.
     pub score: f64,
+    /// Page number for paged entities, when set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub page: Option<f64>,
+    /// Last-updated timestamp, when known.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<String>,
+    /// Index terms that matched the document.
     pub terms: Vec<String>,
+    /// Query terms that produced the match, when tracked.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query_terms: Option<Vec<String>>,
+    /// Highlighted excerpt, filled in by the wasm layer.
     #[serde(skip)]
     pub excerpt: Option<Excerpt>,
 }
@@ -84,11 +110,13 @@ pub struct DocStore {
 }
 
 impl DocStore {
+    /// An empty store.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Replace the search settings used for filtering and ranking.
     pub fn set_settings(&mut self, settings: Option<SearchSettings>) {
         self.settings = settings;
     }
@@ -98,7 +126,7 @@ impl DocStore {
         if let Some(&slot) = self.positions.get(&record.id) {
             self.slots[slot] = Some(record);
         } else {
-            self.positions.insert(record.id.clone(), self.slots.len());
+            let _ = self.positions.insert(record.id.clone(), self.slots.len());
             self.slots.push(Some(record));
         }
     }
@@ -116,6 +144,7 @@ impl DocStore {
         self.positions.contains_key(id)
     }
 
+    /// Drop every stored document.
     pub fn clear(&mut self) {
         self.slots.clear();
         self.positions.clear();
@@ -131,6 +160,7 @@ impl DocStore {
             .collect()
     }
 
+    /// Ids of every held document whose kind is in `kinds`.
     #[must_use]
     pub fn ids_of_kind(&self, kinds: &[SearchKind]) -> Vec<String> {
         self.slots

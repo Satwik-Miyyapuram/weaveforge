@@ -320,14 +320,16 @@ export class PenCaptureSession {
     const batch: CaptureBatch = this.deps.stream.consume(raw, now());
 
     for (let i = 0; i < batch.count; i++) {
-      const at = i * 4;
+      const at = i * 5;
       // A sample index below `count` always has a flag byte; a missing one reads as no flags.
       const flags = batch.flags[i] ?? 0;
+      // Each sample index below `count` has its five fields; a missing one reads as 0.
       const sample: FilteredNibSample = {
-        x: batch.samples[at],
-        y: batch.samples[at + 1],
-        pressure: batch.samples[at + 2],
-        t: batch.samples[at + 3],
+        x: batch.samples[at] ?? 0,
+        y: batch.samples[at + 1] ?? 0,
+        pressure: batch.samples[at + 2] ?? 0,
+        t: batch.samples[at + 3] ?? 0,
+        velocity: batch.samples[at + 4] ?? 0,
       };
       const predicted = (flags & CAPTURE_FLAG_PREDICTED) !== 0;
       // The trail is told where to start *before* the sample is posted, and with

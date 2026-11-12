@@ -776,7 +776,7 @@ pub fn group_runs_js(
 /// Fails if `input` has the wrong shape.
 #[wasm_bindgen(
     js_name = assembleWorkspace,
-    unchecked_return_type = "{ documents: { kind: string; id: string; title: string; body: string; hydrated: boolean; path: string; parentId?: string; tags?: string[] }[]; completions: { title: string; label: string; detail?: string; paper?: { id: string; title: string; authors: string[]; year?: number; doi?: string; arxivId?: string; bibtex?: string; metadata?: unknown } }[]; tree: B.WorkspaceTreeNode[]; listsTree: B.WorkspaceTreeNode[]; membership: Map<string, string[]> }"
+    unchecked_return_type = "{ documents: { kind: string; id: string; title: string; body: string; hydrated: boolean; path: string; parentId?: string; tags?: string[] }[]; completions: { title: string; label: string; detail?: string; paper?: { id: string; title: string; authors: string[]; year?: number; doi?: string; arxivId?: string; bibtex?: string; metadata?: Record<string, unknown> } }[]; tree: B.WorkspaceTreeNode[]; listsTree: B.WorkspaceTreeNode[]; membership: Map<string, string[]> }"
 )]
 pub fn assemble_workspace_js(
     #[wasm_bindgen(
@@ -792,7 +792,7 @@ pub fn assemble_workspace_js(
         let _ = membership.set(&JsValue::from_str(key), &to_js(lists)?);
     }
     let result = to_js(&out)?;
-    js_sys::Reflect::set(&result, &JsValue::from_str("membership"), &membership)?;
+    let _ = js_sys::Reflect::set(&result, &JsValue::from_str("membership"), &membership)?;
     Ok(result)
 }
 
@@ -806,7 +806,7 @@ pub fn assemble_workspace_js(
 pub fn shortcut_table_js() -> Result<JsValue, JsValue> {
     let out = js_sys::Object::new();
     for (command, chord) in keys::SHORTCUT_TABLE {
-        js_sys::Reflect::set(
+        let _ = js_sys::Reflect::set(
             &out,
             &JsValue::from_str(command),
             &JsValue::from_str(chord),

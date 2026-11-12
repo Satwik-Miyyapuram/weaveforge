@@ -26,7 +26,7 @@ fn from_js<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T, JsError>
 /// Fails if an item is not a Zotero item row or the key list is not strings.
 #[wasm_bindgen(
     js_name = zoteroPullJoin,
-    unchecked_return_type = "B.ZoteroPullJoin"
+    unchecked_return_type = "{ byPaper: [string, B.ZoteroAnnotation[]][]; attachments: [string, string][]; choices: string[] }"
 )]
 pub fn zotero_pull_join_js(
     #[wasm_bindgen(unchecked_param_type = "readonly B.ZoteroItemRow[]")] attachments: JsValue,

@@ -33,11 +33,12 @@ const REF_PLACEHOLDERS: Record<RefKind, string> = {
 };
 
 /** What the pasted value actually resolves to, for the hint under the field. */
-const DETECTED_LABELS: Record<RefKind, string> = {
+const DETECTED_LABELS: Record<PaperRef["kind"], string> = {
   url: "reading the page",
   arxiv: "arXiv",
   doi: "Crossref DOI",
   zotero: "Zotero",
+  bibliographic: "title search",
 };
 
 const REF_ORDER: RefKind[] = ["url", "arxiv", "doi", "zotero"];

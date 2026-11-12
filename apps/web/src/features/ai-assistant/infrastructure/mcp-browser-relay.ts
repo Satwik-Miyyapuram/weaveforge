@@ -199,7 +199,7 @@ export async function dispatchMcpTool(ai: McpToolHost, sessionId: string, settin
  */
 async function buildPaperEvidence(ai: McpToolHost, sessionId: string, settings: AiAccessSettings, request: EvidenceRequest): Promise<AiEvidence[]> {
   const doc = await ai.getSourceExcerpt({ sessionId, settings, sourceId: request.sourceId });
-  return readyCore().mcpPaperEvidence(request, doc) as AiEvidence[];
+  return readyCore().mcpPaperEvidence(request, doc ?? undefined) as AiEvidence[];
 }
 
 async function key(secret: string) { return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveKey"]).then((base) => crypto.subtle.deriveKey({ name: "PBKDF2", salt: new TextEncoder().encode("weaveforge-mcp-v1"), iterations: 100_000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"])); }

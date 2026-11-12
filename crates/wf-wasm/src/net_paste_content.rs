@@ -12,7 +12,7 @@ pub fn paste_image_type_js(content_type: &str) -> Option<String> {
 }
 
 /// [`is_html_content_type`](paste_content::is_html_content_type): a body a title can be read from.
-#[wasm_bindgen(js_name = isHtmlContentType)]
+#[wasm_bindgen(js_name = isPasteHtmlContentType)]
 #[must_use]
 pub fn is_html_content_type_js(content_type: &str) -> bool {
     paste_content::is_html_content_type(content_type)

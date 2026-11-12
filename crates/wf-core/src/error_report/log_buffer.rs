@@ -33,7 +33,7 @@ pub fn console_line(level: &str, text: &str) -> String {
 pub fn push_line(mut lines: Vec<String>, line: String) -> Vec<String> {
     lines.push(line);
     if lines.len() > MAX_LINES {
-        lines.remove(0);
+        let _ = lines.remove(0);
     }
     lines
 }
@@ -52,7 +52,9 @@ pub fn record_uncaught(lines: Vec<String>, text: &str) -> Vec<String> {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorEntry {
+    /// The first line of the error, cut to a short length.
     pub message: String,
+    /// The full error text, when it differs from the message.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
 }
@@ -82,7 +84,9 @@ fn take_units(text: &str, max: usize) -> &str {
 /// The seen-set after one check, and whether `text` was already there.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Remembered {
+    /// The seen-set after the check.
     pub seen: Vec<String>,
+    /// Whether the text was already recorded.
     pub recorded: bool,
 }
 
@@ -95,7 +99,7 @@ pub fn remember(mut seen: Vec<String>, text: &str) -> Remembered {
     }
     seen.push(text.to_owned());
     if seen.len() > MAX_SEEN {
-        seen.remove(0);
+        let _ = seen.remove(0);
     }
     Remembered { seen, recorded: false }
 }

@@ -35,7 +35,10 @@ pub enum CoalescerEvent {
     /// The run that was started has settled, successfully or not.
     RunSettled,
     /// `suspended` was assigned.
-    Suspend { value: bool },
+    Suspend {
+        /// The new value of `suspended`.
+        value: bool,
+    },
 }
 
 /// Work the caller must perform, in order.
@@ -54,7 +57,9 @@ pub enum CoalescerAction {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CoalescerStep {
+    /// The coalescer state after the event.
     pub state: CoalescerState,
+    /// The actions the caller must perform, in order.
     pub actions: Vec<CoalescerAction>,
 }
 

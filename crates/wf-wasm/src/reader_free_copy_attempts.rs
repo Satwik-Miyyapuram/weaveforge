@@ -15,8 +15,13 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// # Errors
 ///
 /// Fails if `formats` is not an array of strings.
-#[wasm_bindgen(js_name = pickFreeCopyAttempts)]
-pub fn pick_free_copy_attempts_js(formats: JsValue) -> JsResult<JsValue> {
+#[wasm_bindgen(
+    js_name = pickFreeCopyAttempts,
+    unchecked_return_type = "{ pdf: number[]; html: number[] }"
+)]
+pub fn pick_free_copy_attempts_js(
+    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] formats: JsValue,
+) -> JsResult<JsValue> {
     let formats: Vec<String> = serde_wasm_bindgen::from_value(formats)?;
     to_js(&pick_free_copy_attempts(&formats))
 }
@@ -26,7 +31,10 @@ pub fn pick_free_copy_attempts_js(formats: JsValue) -> JsResult<JsValue> {
 /// # Errors
 ///
 /// Fails if the result cannot be converted to a JS value.
-#[wasm_bindgen(js_name = freeCopyAttemptLimits)]
+#[wasm_bindgen(
+    js_name = freeCopyAttemptLimits,
+    unchecked_return_type = "{ pdf: number; html: number }"
+)]
 pub fn free_copy_attempt_limits_js() -> JsResult<JsValue> {
     to_js(&attempt_limits())
 }

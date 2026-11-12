@@ -491,7 +491,7 @@ mod tests {
         )
         .unwrap();
         assert!(
-            contents(&pkg, "main.tex").contains("\\clearpage\nx\n% no bibliography entries\n\\end{document}\n"),
+            contents(&pkg, "main.tex").ends_with("\\clearpage\nx\n% no bibliography entries\n\\end{document}"),
             "{}",
             contents(&pkg, "main.tex")
         );

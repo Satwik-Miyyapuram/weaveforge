@@ -142,7 +142,7 @@ export interface CitationAlertLogItem {
 export interface CitationLibraryEntry { id: string; arxivId?: string | null; doi?: string | null }
 
 /** A reference a paper cites, as the citation match reads it. */
-export interface CitationPaperRef { kind: 'arxiv' | 'doi' | 'url' | 'zotero'; value: string }
+export interface CitationPaperRef { kind: 'arxiv' | 'doi' | 'url' | 'zotero' | 'bibliographic'; value: string; hints?: { title?: string; year?: number; firstAuthor?: string } }
 ";
 
 /// [`alert_log_body`]: the markdown log entry for an alert on `paper_title`, `ranked` best first.

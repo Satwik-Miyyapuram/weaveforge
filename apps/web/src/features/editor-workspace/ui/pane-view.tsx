@@ -373,7 +373,7 @@ export function ShortcutGrid({ commands }: { commands: readonly WorkspaceCommand
       {commands.map((command) => (
         <div className="pane-shortcut" key={command}>
           <dt>
-            {chordKeys(table[command]).map((key, index) => (
+            {chordKeys(table[command] ?? "").map((key, index) => (
               <kbd key={`${command}-${index}`}>{readyCore().keyLabel(key, isMacPlatform())}</kbd>
             ))}
           </dt>

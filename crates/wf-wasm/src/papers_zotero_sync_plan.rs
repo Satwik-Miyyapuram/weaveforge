@@ -13,10 +13,16 @@ use super::to_js;
 /// # Errors
 ///
 /// Fails if `remote` or `local` is not a list of the expected shape, or the plan cannot be converted.
-#[wasm_bindgen(js_name = zoteroSyncPlan, unchecked_return_type = "B.ZoteroSyncPlan")]
+#[wasm_bindgen(
+    js_name = zoteroSyncPlan,
+    unchecked_return_type = "{ pull: number[]; push: number[]; delete: number[] }"
+)]
 pub fn zotero_sync_plan_js(
     #[wasm_bindgen(unchecked_param_type = "readonly B.ZoteroItem[]")] remote: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "readonly B.ZoteroSyncLocal[]")] local: JsValue,
+    #[wasm_bindgen(
+        unchecked_param_type = "readonly { doi?: string | null; arxivId?: string | null; title?: string | null; zoteroKey?: string | null }[]"
+    )]
+    local: JsValue,
 ) -> Result<JsValue, JsValue> {
     let remote: Vec<ZoteroItem> = serde_wasm_bindgen::from_value(remote)?;
     let local: Vec<ZoteroSyncLocal> = serde_wasm_bindgen::from_value(local)?;

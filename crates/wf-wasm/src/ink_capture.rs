@@ -1,7 +1,7 @@
 //! The pen's per-update sample batch for JavaScript (wf-core `ink::capture`).
 //!
 //! One call per pointer update, never per sample: the session flattens the update's
-//! samples into a `Float64Array` of `x, y, pressure, t, timeStamp, flags` quadruples
+//! samples into a `Float64Array` of `x, y, pressure, t, timeStamp, flags` records
 //! and reads back one batch.
 
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -60,7 +60,7 @@ impl InkCaptureBatch {
         self.samples.len()
     }
 
-    /// Accepted samples as `x, y, pressure, t` quadruples. Doubles, as the filter
+    /// Accepted samples as `x, y, pressure, t, velocity` per sample. Doubles, as the filter
     /// computed them; the writer rounds to Float32 when it stores them.
     #[must_use]
     pub fn samples(&self) -> Vec<f64> {
@@ -70,6 +70,7 @@ impl InkCaptureBatch {
             out.push(s.y);
             out.push(s.pressure);
             out.push(s.t);
+            out.push(s.velocity);
         }
         out
     }
@@ -85,9 +86,9 @@ impl InkCaptureBatch {
 mod tests {
     use super::*;
 
-    // Batch layout: x, y, pressure, t per accepted sample, flags alongside.
+    // Batch layout: x, y, pressure, t, velocity per accepted sample, flags alongside.
     #[test]
-    fn a_flushed_batch_carries_x_y_pressure_and_t_in_that_order() {
+    fn a_flushed_batch_carries_x_y_pressure_t_and_velocity_in_that_order() {
         let mut stream = InkCaptureStream::new();
         let raw = [10.0, 20.0, 0.5, 1.0, f64::NAN, 1.0];
         let batch = stream.consume(&raw, 0.0);

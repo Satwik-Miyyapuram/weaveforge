@@ -44,7 +44,7 @@ pub fn dir_entry_names_js(
 }
 
 /// [`split_leaf`](git_shim::split_leaf): `[parent, name]` for a repo-relative path.
-#[wasm_bindgen(js_name = splitLeaf)]
+#[wasm_bindgen(js_name = splitLeaf, unchecked_return_type = "[string, string]")]
 pub fn split_leaf_js(path: &str) -> Vec<String> {
     git_shim::split_leaf(path)
 }

@@ -87,7 +87,7 @@ pub fn merge_signed_urls(
         .collect();
     let mut by_path: HashMap<&str, Option<String>> = HashMap::new();
     for (path, url) in missing.iter().zip(there.iter()) {
-        by_path.insert(path.as_str(), url.clone());
+        let _ = by_path.insert(path.as_str(), url.clone());
     }
     paths
         .iter()

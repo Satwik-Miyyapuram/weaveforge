@@ -16,7 +16,9 @@ const DEFAULT_ENTRY: &str = "main.tex";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Statement {
+    /// The SQL text with `$1..$n` placeholders.
     pub sql: String,
+    /// The values bound to the placeholders.
     pub params: Vec<String>,
 }
 
@@ -24,10 +26,15 @@ pub struct Statement {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateReport {
+    /// The workspace project the report belongs to.
     pub project_id: String,
+    /// The Overleaf connection used to reach the project.
     pub connection_id: String,
+    /// The report's display title.
     pub title: String,
+    /// The Overleaf project id.
     pub overleaf_project_id: String,
+    /// The entry file of the report within the Overleaf project.
     pub entry_file: String,
 }
 
@@ -35,10 +42,15 @@ pub struct CreateReport {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PatchReport {
+    /// The id of the link row to change.
     pub id: String,
+    /// A new display title, or `None` to keep it.
     pub title: Option<String>,
+    /// A new Overleaf project id, or `None` to keep it.
     pub overleaf_project_id: Option<String>,
+    /// A new entry file, or `None` to keep it.
     pub entry_file: Option<String>,
+    /// New section targets, or `None` to keep them.
     pub section_targets: Option<Value>,
 }
 

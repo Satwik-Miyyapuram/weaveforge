@@ -17,22 +17,32 @@ pub const MISSING_IDS_CHUNK: usize = 100;
 /// The result of one write, as `SendOutcome` in `domain/parts.ts`. A `serverRow`
 /// that is `None` is left out of the JSON (unknown); `Some(None)` is `null` (absent).
 #[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(tag = "status", rename_all = "snake_case")]
+#[serde(tag = "status", rename_all = "snake_case", rename_all_fields = "camelCase")]
 pub enum SendOutcome {
+    /// The write was accepted, with its new version when the server gave one.
     Accepted {
+        /// The new row version, when known.
         #[serde(skip_serializing_if = "Option::is_none")]
         new_version: Option<f64>,
     },
+    /// The write could not reach the server.
     Offline,
+    /// The server holds a different version of the row.
     Conflict {
+        /// The version the server holds.
         server_version: Option<f64>,
+        /// The server's copy of the row, when it was read.
         #[serde(skip_serializing_if = "Option::is_none")]
         server_row: Option<Option<Value>>,
+        /// Whether the row was deleted on the server.
         #[serde(skip_serializing_if = "Option::is_none")]
         deleted_elsewhere: Option<bool>,
     },
+    /// The write was refused.
     Refused {
+        /// Why the write was refused.
         reason: String,
+        /// Whether the write waits for its parent row.
         #[serde(skip_serializing_if = "Option::is_none")]
         awaiting_parent: Option<bool>,
     },
@@ -42,8 +52,11 @@ pub enum SendOutcome {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Phase {
+    /// The follow-up read is checking whether the row is gone.
     Gone,
+    /// The follow-up read is checking the conflicting row.
     Conflict,
+    /// The follow-up read is checking for a tombstone.
     Tombstone,
 }
 
@@ -61,8 +74,18 @@ pub struct ReadState {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "next", rename_all = "snake_case")]
 pub enum SendStep {
-    Done { outcome: SendOutcome },
-    Read { request: RequestSpec, state: ReadState },
+    /// The write is finished with this outcome.
+    Done {
+        /// The outcome of the write.
+        outcome: SendOutcome,
+    },
+    /// One more read is needed.
+    Read {
+        /// The read to send.
+        request: RequestSpec,
+        /// The state to resume from with the reply.
+        state: ReadState,
+    },
 }
 
 /// The step for a missing-id chunk after its presence read.
@@ -71,8 +94,18 @@ pub enum SendStep {
 pub enum PresenceStep {
     /// The read could not be used: the whole `missingIds` answer is null.
     Failed,
-    Done { missing: Vec<String> },
-    Tombstones { request: RequestSpec, held: Vec<String> },
+    /// The missing ids are known.
+    Done {
+        /// The ids that are missing.
+        missing: Vec<String>,
+    },
+    /// Tombstones must be read for the held ids.
+    Tombstones {
+        /// The read to send.
+        request: RequestSpec,
+        /// The ids held back until the tombstones are read.
+        held: Vec<String>,
+    },
 }
 
 /// A row is truthy as JS reads it: not null, false, 0, or an empty string.
@@ -256,10 +289,13 @@ pub fn missing_after_tombstones(chunk: &[String], held: &[String], status: u16, 
 /// The reply to `changesSince`: the changes, or the error text when the read failed.
 #[derive(Debug, Clone, Serialize)]
 pub struct ChangesReply {
+    /// The error text when the read failed.
     pub error: Option<String>,
+    /// The changes read from the feed.
     pub changes: Vec<PullChange>,
 }
 
+/// Builds the `changesSince` reply from the HTTP status and body.
 #[must_use]
 pub fn changes_from_reply(status: u16, body: &str) -> ChangesReply {
     if status >= 400 {

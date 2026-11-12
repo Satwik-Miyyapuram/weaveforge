@@ -19,6 +19,7 @@ pub const DEVICE_USER_SQL: &str = "select auth.uid()::text as id";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LocalFirstAccount {
+    /// The account's user id.
     pub id: String,
     /// Whatever the marker holds under `email` unless it is null (`parsed.email ?? null`), so a
     /// non-string value passes through as the old TypeScript did.

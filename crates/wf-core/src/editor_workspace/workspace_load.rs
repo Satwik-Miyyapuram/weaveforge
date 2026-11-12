@@ -510,7 +510,7 @@ fn lists_view(
     }
     let mut titles: HashMap<String, String> = HashMap::new();
     for doc in docs {
-        titles.insert(format!("{}:{}", doc.kind, doc.id), doc.title.clone());
+        let _ = titles.insert(format!("{}:{}", doc.kind, doc.id), doc.title.clone());
     }
     let items: Vec<ListItemEntry> = input.list_items.iter().filter_map(list_item).collect();
     let lists = input
@@ -535,7 +535,7 @@ fn lists_view(
         member_rank: Some(member_rank_by_kind),
     });
     for list in &input.lists {
-        titles.insert(format!("reading_list:{}", list.id), list.name.clone());
+        let _ = titles.insert(format!("reading_list:{}", list.id), list.name.clone());
     }
     (tree, list_membership(&items, &titles))
 }

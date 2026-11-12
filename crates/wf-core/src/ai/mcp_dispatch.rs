@@ -39,32 +39,43 @@ pub enum McpPlan {
     ProposeDraft(DraftPlan),
 }
 
+/// A search-workspace tool call, as planned for the host.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchWorkspacePlan {
+    /// Search text the model sent.
     pub query: String,
+    /// Maximum number of results, if the model gave one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<f64>,
 }
 
+/// A source-excerpt tool call, naming the source to read.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceExcerptPlan {
+    /// Id of the source to excerpt.
     pub source_id: String,
 }
 
+/// A Zotero import tool call: the bibliographic fields to add as a paper.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ZoteroImportPlan {
+    /// Paper title.
     pub title: String,
+    /// Author names, in the order given.
     pub authors: Vec<String>,
+    /// DOI, if one was given.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub doi: Option<String>,
+    /// URL, if one was given.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
     /// A string or a number, as sent; anything else is dropped.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub year: Option<Value>,
+    /// Abstract text, serialized as `abstract`.
     #[serde(rename = "abstract", skip_serializing_if = "Option::is_none")]
     pub abstract_text: Option<String>,
 }
@@ -73,15 +84,22 @@ pub struct ZoteroImportPlan {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DraftPlan {
+    /// Kind of draft this proposal makes.
     pub kind: &'static str,
+    /// Name of the host tool that receives the proposal.
     pub tool: &'static str,
+    /// Id of the resource the draft changes, if it changes one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resource_id: Option<String>,
+    /// Type of the resource the draft changes, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resource_type: Option<&'static str>,
+    /// Revision the resource is expected to be at, if known.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expected_revision: Option<String>,
+    /// Draft content, as the model wrote it.
     pub content: String,
+    /// Structured payload for the host tool.
     pub payload: Value,
     /// Evidence to fetch and check with [`paper_evidence`] before the draft is made.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -92,14 +110,20 @@ pub struct DraftPlan {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EvidenceRequest {
+    /// Id of the paper the evidence comes from.
     pub paper_id: String,
+    /// Id of the source the excerpt is checked against.
     pub source_id: String,
+    /// Exact quoted text to find in the source, if given.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quote_exact: Option<String>,
+    /// Text expected just before the quote, if given.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quote_prefix: Option<String>,
+    /// Text expected just after the quote, if given.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quote_suffix: Option<String>,
+    /// Page the quote is on, if given.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page: Option<u64>,
 }
@@ -108,21 +132,28 @@ pub struct EvidenceRequest {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExcerptDoc {
+    /// Excerpt text, when the host resolved one.
     #[serde(default)]
     pub text: Option<String>,
+    /// Source the excerpt came from, when known.
     #[serde(default)]
     pub source: Option<ExcerptSource>,
 }
 
+/// Where an excerpt came from: resource type, id, label and link.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExcerptSource {
+    /// Resource type of the source, if known.
     #[serde(default)]
     pub resource_type: Option<String>,
+    /// Resource id of the source, if known.
     #[serde(default)]
     pub resource_id: Option<String>,
+    /// Display label for the source, if known.
     #[serde(default)]
     pub label: Option<String>,
+    /// Link to the source, if known.
     #[serde(default)]
     pub href: Option<String>,
 }
@@ -131,33 +162,47 @@ pub struct ExcerptSource {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PaperEvidence {
+    /// Id of the source the evidence was checked against.
     pub source_id: String,
+    /// Checked excerpt text.
     pub excerpt: String,
+    /// Display label for the source, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    /// Id of the paper the evidence comes from.
     pub paper_id: String,
+    /// Link to the source, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub href: Option<String>,
+    /// Quote locus in the source, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub locus: Option<Locus>,
+    /// Page the evidence is on, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub page: Option<u64>,
 }
 
+/// Where in a source the evidence sits.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Locus {
+    /// The quoted text and its context.
     pub quote: Quote,
 }
 
+/// A text quote with optional surrounding context.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Quote {
+    /// Selector type tag, serialized as `type`.
     #[serde(rename = "type")]
     pub kind: &'static str,
+    /// The exact quoted text.
     pub exact: String,
+    /// Text immediately before the quote, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prefix: Option<String>,
+    /// Text immediately after the quote, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub suffix: Option<String>,
 }

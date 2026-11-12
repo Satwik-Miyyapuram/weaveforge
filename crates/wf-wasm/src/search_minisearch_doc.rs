@@ -48,8 +48,8 @@ fn excerpt_to_js(excerpt: &Excerpt) -> Result<JsValue, JsValue> {
         text = text.concat(&JsString::from_char_code(chunk));
     }
     let out = Object::new();
-    Reflect::set(&out, &JsValue::from_str("text"), &text)?;
-    Reflect::set(
+    let _ = Reflect::set(&out, &JsValue::from_str("text"), &text)?;
+    let _ = Reflect::set(
         &out,
         &JsValue::from_str("highlights"),
         &encode(&excerpt.highlights)?,
@@ -62,9 +62,9 @@ fn hits_to_js(hits: &[SearchHit]) -> Result<JsValue, JsValue> {
     for hit in hits {
         let value = encode(hit)?;
         if let Some(excerpt) = &hit.excerpt {
-            Reflect::set(&value, &JsValue::from_str("excerpt"), &excerpt_to_js(excerpt)?)?;
+            let _ = Reflect::set(&value, &JsValue::from_str("excerpt"), &excerpt_to_js(excerpt)?)?;
         }
-        out.push(&value);
+        let _ = out.push(&value);
     }
     Ok(out.into())
 }

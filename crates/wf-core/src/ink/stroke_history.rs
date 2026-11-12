@@ -12,13 +12,22 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum HistoryStep {
     /// Strokes taken out by an erase, or by a delete.
-    Erase { indices: Vec<usize> },
+    Erase {
+        /// Buffer indices of the removed strokes.
+        indices: Vec<usize>,
+    },
     /// Strokes added by a draw.
-    Draw { indices: Vec<usize> },
+    Draw {
+        /// Buffer indices of the added strokes.
+        indices: Vec<usize>,
+    },
     /// Strokes translated by (`dx`, `dy`).
     Move {
+        /// Buffer indices of the moved strokes.
         indices: Vec<usize>,
+        /// Horizontal shift.
         dx: f64,
+        /// Vertical shift.
         dy: f64,
     },
 }
@@ -39,11 +48,24 @@ pub struct StrokeHistory {
 #[serde(tag = "op", rename_all = "lowercase")]
 pub enum StrokeAction {
     /// Bring erased strokes back, each at its own index.
-    Restore { indices: Vec<usize> },
+    Restore {
+        /// Buffer indices to restore.
+        indices: Vec<usize>,
+    },
     /// Take strokes out, without recording a new step.
-    Erase { indices: Vec<usize> },
+    Erase {
+        /// Buffer indices to remove.
+        indices: Vec<usize>,
+    },
     /// Shift strokes by (`dx`, `dy`).
-    Translate { indices: Vec<usize>, dx: f64, dy: f64 },
+    Translate {
+        /// Buffer indices to shift.
+        indices: Vec<usize>,
+        /// Horizontal shift.
+        dx: f64,
+        /// Vertical shift.
+        dy: f64,
+    },
 }
 
 /// One request to the log: record a new step, or undo or redo the last one.
@@ -51,7 +73,10 @@ pub enum StrokeAction {
 #[serde(tag = "op", rename_all = "lowercase")]
 pub enum StrokeHistoryOp {
     /// A fresh edit. Clears the redo stack, as every new edit does.
-    Record { step: HistoryStep },
+    Record {
+        /// The step to record.
+        step: HistoryStep,
+    },
     /// Undo the last step.
     Undo,
     /// Redo the last undone step.
@@ -61,7 +86,9 @@ pub enum StrokeHistoryOp {
 /// The stacks after the request, and the action to apply (none when there was nothing to undo or redo).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct StrokeHistoryOutcome {
+    /// The stacks after the request.
     pub stacks: StrokeHistory,
+    /// The action the page must apply, if any.
     pub action: Option<StrokeAction>,
 }
 

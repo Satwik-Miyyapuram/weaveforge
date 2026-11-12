@@ -14,7 +14,9 @@ use crate::sync::stamp_workspace_id::stamp_workspace_id;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaimPlan {
+    /// The file text with the claim stamp applied.
     pub stamped: String,
+    /// The digests to record, keyed by name.
     pub digests: IndexMap<String, String>,
 }
 

@@ -78,7 +78,7 @@ pub fn settle_external(input: &SettleInput) -> SettleVerdict {
 
     for path in &input.external {
         if !covered.contains(path.as_str()) {
-            changed.insert(path.clone());
+            let _ = changed.insert(path.clone());
         }
     }
     let mut external_reasons: BTreeMap<String, HeldReason> = input
@@ -127,8 +127,8 @@ mod tests {
     #[test]
     fn a_preview_of_some_paths_settles_those_and_leaves_the_rest_of_the_list() {
         let mut reasons = BTreeMap::new();
-        reasons.insert("notes/gone.note.md".to_owned(), HeldReason::Removed);
-        reasons.insert("notes/also.note.md".to_owned(), HeldReason::Removed);
+        let _ = reasons.insert("notes/gone.note.md".to_owned(), HeldReason::Removed);
+        let _ = reasons.insert("notes/also.note.md".to_owned(), HeldReason::Removed);
         let first = settle_external(&SettleInput {
             entries: vec![
                 entry(ImportAction::Removed, "notes/gone.note.md"),
@@ -156,10 +156,10 @@ mod tests {
     #[test]
     fn a_covered_path_takes_the_preview_reason_and_an_uncovered_one_keeps_its_own() {
         let mut reasons = BTreeMap::new();
-        reasons.insert("a.md".to_owned(), HeldReason::EditedOnBothSides);
+        let _ = reasons.insert("a.md".to_owned(), HeldReason::EditedOnBothSides);
         let mut old_reasons = BTreeMap::new();
-        old_reasons.insert("a.md".to_owned(), HeldReason::Removed);
-        old_reasons.insert("b.md".to_owned(), HeldReason::OpenInEditor);
+        let _ = old_reasons.insert("a.md".to_owned(), HeldReason::Removed);
+        let _ = old_reasons.insert("b.md".to_owned(), HeldReason::OpenInEditor);
         let verdict = settle_external(&SettleInput {
             entries: vec![entry(ImportAction::Updated, "a.md")],
             reasons,

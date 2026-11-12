@@ -17,7 +17,9 @@ pub const MAX_TOASTS: usize = 3;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PauseReason {
+    /// The pointer is over the toast.
     Hover,
+    /// Keyboard focus is inside the toast.
     Focus,
 }
 
@@ -26,18 +28,29 @@ pub enum PauseReason {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Entry {
+    /// Unique id of the toast.
     pub id: u32,
+    /// The text the toast shows.
     pub message: String,
+    /// Label of the toast's own button, if any.
     #[serde(default)]
     pub action_label: Option<String>,
+    /// Whether the toast offers Undo.
     pub undoable: bool,
+    /// The row keys hidden while this toast's delete is pending.
     #[serde(default)]
     pub keys: Vec<String>,
+    /// Whether the shell holds the toast's action closure.
     pub has_run: bool,
+    /// Whether the shell holds the toast's commit closure.
     pub has_commit: bool,
+    /// Milliseconds left on the timer.
     pub remaining: f64,
+    /// The time in milliseconds when the timer last started.
     pub started_at: f64,
+    /// Whether the timer is currently running.
     pub timer_running: bool,
+    /// The reasons currently holding the timer.
     #[serde(default)]
     pub pauses: Vec<PauseReason>,
 }
@@ -45,7 +58,9 @@ pub struct Entry {
 /// A delete whose commit returned a promise and has not settled yet. Its keys stay hidden.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Committing {
+    /// The toast whose delete is committing.
     pub id: u32,
+    /// The keys that stay hidden until the commit settles.
     pub keys: Vec<String>,
 }
 
@@ -53,11 +68,15 @@ pub struct Committing {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToastState {
+    /// The id the next toast gets.
     pub next_id: u32,
+    /// The open toasts.
     #[serde(default)]
     pub entries: Vec<Entry>,
+    /// Whether the window is hidden, which pauses every toast.
     #[serde(default)]
     pub window_hidden: bool,
+    /// Deletes whose commit promise has not settled yet.
     #[serde(default)]
     pub committing: Vec<Committing>,
 }
@@ -66,10 +85,14 @@ pub struct ToastState {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Toast {
+    /// Unique id of the toast.
     pub id: u32,
+    /// The text the toast shows.
     pub message: String,
+    /// Label of the toast's own button, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub action_label: Option<String>,
+    /// Whether the toast offers Undo.
     pub undoable: bool,
 }
 
@@ -78,24 +101,76 @@ pub struct Toast {
 #[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Action {
     /// A plain toast, or one with its own button when `has_run` (an empty label means none).
-    Show { message: String, action_label: String, has_run: bool, now: f64 },
+    Show {
+        /// The text the toast shows.
+        message: String,
+        /// The button label; empty means no button.
+        action_label: String,
+        /// Whether the shell holds the button's closure.
+        has_run: bool,
+        /// The current time in milliseconds.
+        now: f64,
+    },
     /// A hidden-until-closed delete with an Undo button. Its commit runs when the toast closes.
-    DeferDelete { message: String, keys: Vec<String>, now: f64 },
+    DeferDelete {
+        /// The text the toast shows.
+        message: String,
+        /// The keys hidden while the delete is pending.
+        keys: Vec<String>,
+        /// The current time in milliseconds.
+        now: f64,
+    },
     /// The toast's button was pressed (Undo or its own action). Never commits.
-    Act { id: f64 },
+    Act {
+        /// The toast whose button was pressed.
+        id: f64,
+    },
     /// The toast closed (✕ or timeout). A pending delete commits now.
-    Dismiss { id: f64 },
+    Dismiss {
+        /// The toast that closed.
+        id: f64,
+    },
     /// Ctrl+Z outside a text field: undo the newest undoable toast.
     UndoLatest,
-    Pause { id: f64, reason: PauseReason, now: f64 },
-    Resume { id: f64, reason: PauseReason, now: f64 },
+    /// Hold the toast's timer for the given reason.
+    Pause {
+        /// The toast to pause.
+        id: f64,
+        /// Why the timer is held.
+        reason: PauseReason,
+        /// The current time in milliseconds.
+        now: f64,
+    },
+    /// Release the hold for the given reason; the timer may run again.
+    Resume {
+        /// The toast to resume.
+        id: f64,
+        /// The hold being released.
+        reason: PauseReason,
+        /// The current time in milliseconds.
+        now: f64,
+    },
     /// The window was hidden or shown. A hidden window pauses every toast.
-    WindowHidden { hidden: bool, now: f64 },
+    WindowHidden {
+        /// Whether the window is now hidden.
+        hidden: bool,
+        /// The current time in milliseconds.
+        now: f64,
+    },
     /// The app is quitting: commit every pending delete.
     Flush,
     /// A commit returned a promise: its keys stay hidden until `Committed`.
-    Committing { id: f64, keys: Vec<String> },
-    Committed { id: f64 },
+    Committing {
+        /// The toast whose commit returned a promise.
+        id: f64,
+        /// The keys that stay hidden until the commit settles.
+        keys: Vec<String>,
+    },
+    /// A commit promise settled; its keys unhide.
+    Committed {
+        /// The toast whose commit settled.
+        id: f64,
+    },
 }
 
 /// What the TS shell does, in order, after a transition.
@@ -103,13 +178,29 @@ pub enum Action {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Effect {
     /// Arm the toast's timer to fire after `ms`.
-    Start { id: u32, ms: f64 },
+    Start {
+        /// The toast whose timer to arm.
+        id: u32,
+        /// Delay in milliseconds before the timer fires.
+        ms: f64,
+    },
     /// Clear the toast's timer.
-    Stop { id: u32 },
+    Stop {
+        /// The toast whose timer to clear.
+        id: u32,
+    },
     /// Run the toast's Undo or action closure.
-    Run { id: u32 },
+    Run {
+        /// The toast whose closure to run.
+        id: u32,
+    },
     /// Run the delete's commit closure. A promise result is reported back as `committing`.
-    Commit { id: u32, keys: Vec<String> },
+    Commit {
+        /// The toast whose commit to run.
+        id: u32,
+        /// The keys the delete removes.
+        keys: Vec<String>,
+    },
 }
 
 /// The result of one transition. `view` and `hidden` are current after every action; the shell
@@ -117,12 +208,17 @@ pub enum Effect {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Reduction {
+    /// The next store state.
     pub state: ToastState,
+    /// Effects the shell performs, in order.
     pub effects: Vec<Effect>,
+    /// The toasts to show now.
     pub view: Vec<Toast>,
+    /// The keys to keep hidden now.
     pub hidden: Vec<String>,
     /// The toast a Show or DeferDelete created, or the one UndoLatest undid.
     pub id: Option<u32>,
+    /// Whether the transition changed anything.
     pub changed: bool,
 }
 
@@ -164,7 +260,7 @@ pub fn reduce(mut state: ToastState, action: Action) -> Reduction {
         Action::Dismiss { id } => (None, dismiss(&mut state, id, &mut effects)),
         Action::UndoLatest => match state.entries.iter().rev().find(|e| e.undoable).map(|e| e.id) {
             Some(id) => {
-                act(&mut state, f64::from(id), &mut effects);
+                let _ = act(&mut state, f64::from(id), &mut effects);
                 (Some(id), true)
             }
             None => (None, false),
@@ -337,10 +433,10 @@ mod tests {
             for effect in effects {
                 match effect {
                     Effect::Start { id, ms } => {
-                        self.timers.insert(id, self.now + ms);
+                        let _ = self.timers.insert(id, self.now + ms);
                     }
                     Effect::Stop { id } => {
-                        self.timers.remove(&id);
+                        let _ = self.timers.remove(&id);
                     }
                     Effect::Run { id } => self.runs.push(id),
                     Effect::Commit { id, .. } => self.commits.push(id),
@@ -366,21 +462,21 @@ mod tests {
         }
 
         fn act(&mut self, id: u32) {
-            self.apply(Action::Act { id: f64::from(id) });
+            let _ = self.apply(Action::Act { id: f64::from(id) });
         }
 
         fn dismiss(&mut self, id: u32) {
-            self.apply(Action::Dismiss { id: f64::from(id) });
+            let _ = self.apply(Action::Dismiss { id: f64::from(id) });
         }
 
         fn pause(&mut self, id: u32, reason: PauseReason) {
             let now = self.now;
-            self.apply(Action::Pause { id: f64::from(id), reason, now });
+            let _ = self.apply(Action::Pause { id: f64::from(id), reason, now });
         }
 
         fn resume(&mut self, id: u32, reason: PauseReason) {
             let now = self.now;
-            self.apply(Action::Resume { id: f64::from(id), reason, now });
+            let _ = self.apply(Action::Resume { id: f64::from(id), reason, now });
         }
 
         /// Move the clock on, closing each toast whose timer comes due on the way.
@@ -391,7 +487,7 @@ mod tests {
                 match next {
                     Some((id, due)) if due <= target => {
                         self.now = due;
-                        self.timers.remove(&id);
+                        let _ = self.timers.remove(&id);
                         self.dismiss(id);
                     }
                     _ => break,
@@ -405,7 +501,7 @@ mod tests {
     // it: "a toast stays 8 seconds, then closes"
     fn a_toast_stays_eight_seconds_then_closes() {
         let mut shell = Shell::new();
-        shell.show("Saved");
+        let _ = shell.show("Saved");
         shell.advance(TOAST_MS - 1.0);
         assert_eq!(shell.view.len(), 1);
         shell.advance(1.0);
@@ -472,14 +568,14 @@ mod tests {
     // it: "a hidden window pauses every toast"
     fn a_hidden_window_pauses_every_toast() {
         let mut shell = Shell::new();
-        shell.show("Saved");
+        let _ = shell.show("Saved");
         shell.advance(2000.0);
         let now = shell.now;
-        shell.apply(Action::WindowHidden { hidden: true, now });
+        let _ = shell.apply(Action::WindowHidden { hidden: true, now });
         shell.advance(100_000.0);
         assert_eq!(shell.view.len(), 1);
         let now = shell.now;
-        shell.apply(Action::WindowHidden { hidden: false, now });
+        let _ = shell.apply(Action::WindowHidden { hidden: false, now });
         // 6000 ms were left when the window was hidden.
         shell.advance(5999.0);
         assert_eq!(shell.view.len(), 1);
@@ -491,7 +587,7 @@ mod tests {
     // it: "undoLatest undoes the newest undoable toast and reports whether it did"
     fn undo_latest_undoes_the_newest_undoable_toast_and_reports_it() {
         let mut shell = Shell::new();
-        shell.show("Saved");
+        let _ = shell.show("Saved");
         let a = shell.defer(&["a"], "A deleted");
         let b = shell.defer(&["b"], "B deleted");
         assert_eq!(shell.apply(Action::UndoLatest), Some(b));
@@ -507,10 +603,10 @@ mod tests {
         assert_eq!(MAX_TOASTS, 3);
         let mut shell = Shell::new();
         let first = shell.defer(&["a"], "A deleted");
-        shell.defer(&["b"], "B deleted");
-        shell.defer(&["c"], "C deleted");
+        let _ = shell.defer(&["b"], "B deleted");
+        let _ = shell.defer(&["c"], "C deleted");
         assert!(shell.commits.is_empty());
-        shell.defer(&["d"], "D deleted");
+        let _ = shell.defer(&["d"], "D deleted");
         assert_eq!(shell.commits, vec![first]);
         assert_eq!(shell.view.len(), MAX_TOASTS);
     }
@@ -533,7 +629,7 @@ mod tests {
         let mut shell = Shell::new();
         let a = shell.defer(&["a"], "A deleted");
         let b = shell.defer(&["b"], "B deleted");
-        shell.apply(Action::Flush);
+        let _ = shell.apply(Action::Flush);
         assert_eq!(shell.commits, vec![a, b]);
         assert!(shell.view.is_empty());
         assert!(shell.timers.is_empty());

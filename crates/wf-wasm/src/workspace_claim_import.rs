@@ -5,6 +5,8 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::workspace::claim_import;
 
+use super::to_js;
+
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
 /// [`plan_claim`](claim_import::plan_claim): `{ stamped, digests }`, or `null` when the file
@@ -25,7 +27,7 @@ pub fn plan_claim_import_js(
 ) -> JsResult<JsValue> {
     let base: IndexMap<String, String> = serde_wasm_bindgen::from_value(base)?;
     match claim_import::plan_claim(content, id, path, &base) {
-        Some(plan) => serde_wasm_bindgen::to_value(&plan),
+        Some(plan) => to_js(&plan),
         None => Ok(JsValue::NULL),
     }
 }

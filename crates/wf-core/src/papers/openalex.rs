@@ -22,12 +22,12 @@ pub struct OpenAlexCandidate {
 #[must_use]
 pub fn search_query(search: &str, mailto: Option<&str>, api_key: Option<&str>) -> String {
     let mut query = Serializer::new(String::new());
-    query.append_pair("search", search).append_pair("per-page", "3");
+    let _ = query.append_pair("search", search).append_pair("per-page", "3");
     if let Some(mailto) = mailto.filter(|value| !value.is_empty()) {
-        query.append_pair("mailto", mailto);
+        let _ = query.append_pair("mailto", mailto);
     }
     if let Some(api_key) = api_key.filter(|value| !value.is_empty()) {
-        query.append_pair("api_key", api_key);
+        let _ = query.append_pair("api_key", api_key);
     }
     query.finish()
 }

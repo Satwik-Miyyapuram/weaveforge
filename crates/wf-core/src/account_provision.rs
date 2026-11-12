@@ -23,7 +23,10 @@ pub enum CreateMemberReply {
     /// The reply carries the new member; the caller refreshes its caches.
     Created,
     /// Refused: throw the server's message, or `fallback` when it gave none.
-    Rejected { fallback: &'static str },
+    Rejected {
+        /// The message to show when the server gave none.
+        fallback: &'static str,
+    },
 }
 
 /// Decide a create-user reply. `ok` is the HTTP status; `has_member` is whether the parsed body
@@ -46,9 +49,13 @@ pub fn create_member_reply(ok: bool, has_member: bool) -> CreateMemberReply {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CitationAlertLog {
+    /// The log level for the failure.
     pub level: &'static str,
+    /// The component that reports the failure.
     pub source: &'static str,
+    /// The fixed failure message.
     pub message: &'static str,
+    /// The paper id and the reason the alert failed.
     pub detail: String,
 }
 

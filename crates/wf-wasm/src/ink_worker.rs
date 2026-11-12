@@ -12,10 +12,14 @@ type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 /// [`ink_worker_route`](worker_route::ink_worker_route): the handler a worker message runs.
 #[wasm_bindgen(
     js_name = inkWorkerRoute,
-    unchecked_param_type = "{ type: string; state: { liveStrokeId: string | null; pageIndex: number }; strokeId?: string | null; pageIndex?: number; predicted?: boolean }",
     unchecked_return_type = "{ action: string; predicted: boolean }"
 )]
-pub fn ink_worker_route_js(input: JsValue) -> JsResult<JsValue> {
+pub fn ink_worker_route_js(
+    #[wasm_bindgen(
+        unchecked_param_type = "{ type: string; state: { liveStrokeId: number | null; pageIndex: number }; strokeId?: number | null; pageIndex?: number; predicted?: boolean }"
+    )]
+    input: JsValue,
+) -> JsResult<JsValue> {
     let input: InkWorkerRouteInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&worker_route::ink_worker_route(&input))
 }

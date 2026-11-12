@@ -14,8 +14,11 @@ const MAX_COMPLETIONS: usize = 20;
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CiteCandidate {
+    /// The title the menu matches on.
     pub title: String,
+    /// The label the menu matches on.
     pub label: String,
+    /// Optional extra text shown with the completion.
     #[serde(default)]
     pub detail: Option<String>,
 }
