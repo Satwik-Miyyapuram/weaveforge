@@ -5,6 +5,7 @@
     "resources": {
       "target/stage/sidecar/": "sidecar/",
       "target/stage/postgres/": "postgres/",
+      "target/stage/native/": "native/",
       "dist/web/": "web/"
     },
     "linux": {
