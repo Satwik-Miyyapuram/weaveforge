@@ -29,7 +29,7 @@ export interface BibPaperInput {
 ";
 
 /// `object[key]`, or `undefined` when `object` is not an object.
-fn get(object: &JsValue, key: &str) -> JsResult<JsValue> {
+pub(crate) fn get(object: &JsValue, key: &str) -> JsResult<JsValue> {
     if object.is_object() {
         js_sys::Reflect::get(object, &JsValue::from_str(key))
     } else {
@@ -49,7 +49,7 @@ fn string_field(value: JsValue) -> JsValue {
 /// One `BibPaperInput` as a [`BibPaper`]: authors copied (absent reads as none), `year`
 /// only when it is a number, and `citeKey` / `citationKey` / `extra` taken from
 /// `metadata` when they are strings.
-fn bib_paper(paper: &JsValue) -> JsResult<BibPaper> {
+pub(crate) fn bib_paper(paper: &JsValue) -> JsResult<BibPaper> {
     let wire = js_sys::Object::new();
     let set =
         |key: &str, value: &JsValue| js_sys::Reflect::set(&wire, &JsValue::from_str(key), value);
