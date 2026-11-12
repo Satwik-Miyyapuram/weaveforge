@@ -1,3 +1,5 @@
+import { rust } from "./rust.js";
+
 // --- clock ---
 /**
  * Time + id abstractions.
@@ -15,9 +17,9 @@ export interface IdGenerator {
   newId(): string;
 }
 
-/** Calendar date (yyyy-mm-dd) from an ISO timestamp. */
+/** Calendar date (yyyy-mm-dd) from an ISO timestamp. Rust: wf-core `calendar_date`. */
 export function isoDate(iso: string): string {
-  return iso.slice(0, 10);
+  return rust().isoDate(iso);
 }
 
 // --- dates ---
@@ -27,8 +29,7 @@ export function isoDate(iso: string): string {
  * part of every day away from Greenwich.
  */
 export function localIsoDate(now: Date = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return rust().localIsoDate(now.getFullYear(), now.getMonth() + 1, now.getDate());
 }
 
 // --- map-limit ---

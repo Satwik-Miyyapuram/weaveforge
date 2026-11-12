@@ -50,6 +50,7 @@ import {
   WorkspacePathError,
   httpStatusForError,
   isWeaveForgeError,
+  rust,
 } from "../../src/index.js";
 import {
   InMemoryPaperRepository,
@@ -164,6 +165,16 @@ const NOT_FOUND_CALLS: readonly (readonly [string, () => Promise<unknown>])[] = 
       }).removeList("missing"),
   ],
 ];
+
+test("the ERROR_STATUS constants agree with Rust's kind-to-status map", () => {
+  // The constants stay literals: a module-level const is read at import, before the app has
+  // awaited the wasm load. This keeps the two copies from drifting apart.
+  assert.equal(ERROR_STATUS_BAD_REQUEST, rust().httpStatusForKind("validation"));
+  assert.equal(ERROR_STATUS_FORBIDDEN, rust().httpStatusForKind("permission"));
+  assert.equal(ERROR_STATUS_NOT_FOUND, rust().httpStatusForKind("not-found"));
+  assert.equal(ERROR_STATUS_CONFLICT, rust().httpStatusForKind("conflict"));
+  assert.equal(ERROR_STATUS_INTERNAL, rust().httpStatusForKind("internal"));
+});
 
 test("a missing id throws NotFoundError, never a validation error", async () => {
   for (const [label, call] of NOT_FOUND_CALLS) {
