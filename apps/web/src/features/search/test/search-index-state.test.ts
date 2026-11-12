@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
 
-import type { IWorkspaceSearchIndex, SearchDoc, WorkspaceSnapshot } from "@weaveforge/core";
-import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
-import { SearchIndexState } from "../application/parts-2";
+import type { SearchDoc, WorkspaceSnapshot } from "@weaveforge/core";
+import { emptyWorkspaceSnapshot as snapshot } from "@core-test/workspace-snapshot";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
@@ -22,13 +21,9 @@ before(async () => {
  * the revision that decides whether a cached index may be trusted.
  */
 
-function index(): IWorkspaceSearchIndex {
-  return { idsOfKind: () => [], remove: () => {}, add: () => {} } as unknown as IWorkspaceSearchIndex;
-}
-
 test("a kind stays stale until a refresh that read successfully settles it", () => {
-  const state = new SearchIndexState();
-  state.adopt(index(), 10);
+  const state = new (readyCore().SearchIndexState)();
+  state.adopt(10);
 
   state.markStale("vault_page");
 
@@ -43,8 +38,8 @@ test("a kind stays stale until a refresh that read successfully settles it", () 
 test("settling one kind leaves another marked", () => {
   // The bug's other half: clearing the whole set meant a write that landed
   // during a refresh was forgotten along with the kinds being refreshed.
-  const state = new SearchIndexState();
-  state.adopt(index(), 0);
+  const state = new (readyCore().SearchIndexState)();
+  state.adopt(0);
 
   state.markStale("vault_page");
   state.markStale("paper");
@@ -54,23 +49,21 @@ test("settling one kind leaves another marked", () => {
 });
 
 test("an unclassified write distrusts the whole index", () => {
-  const state = new SearchIndexState();
-  state.adopt(index(), 10);
-  state.graph = {} as never;
-  state.pdfPageCounts.set("p1", 3);
+  const state = new (readyCore().SearchIndexState)();
+  state.adopt(10);
+  state.setPdfPageCount("p1", 3);
 
   const forgot = state.markStale("something-new");
 
   assert.equal(forgot, true, "the caller has nothing left to refresh selectively");
   assert.equal(state.ready, false);
-  assert.equal(state.graph, null, "and the graph goes with it — degrees were its");
   assert.equal(state.documentCount, 0);
-  assert.equal(state.pdfPageCounts.size, 0, "so a re-extraction is not told pages still exist");
+  assert.equal(state.pdfPageCount("p1"), 0, "so a re-extraction is not told pages still exist");
 });
 
 test("nothing is marked stale before an index exists", () => {
   // There is no index to be stale, and the first build reads everything anyway.
-  const state = new SearchIndexState();
+  const state = new (readyCore().SearchIndexState)();
 
   assert.equal(state.markStale("vault_page"), false);
   assert.deepEqual(state.pendingStale(), []);

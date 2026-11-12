@@ -29,9 +29,9 @@ test("one name per route: Workspace, Report (D-29, D-30)", async () => {
 test("the desktop Go menu lists the sidebar's pages, in its order and with its names (DA-86)", async () => {
   const { buildModuleRegistry } = await import("../registry");
   const r = buildModuleRegistry();
-  const menu = read("../../desktop/src/app-menu.ts");
-  const goMenu = menu.slice(menu.indexOf('label: "Go"'), menu.indexOf('label: "View"'));
-  const entries = [...goMenu.matchAll(/go\("([^"]+)", "([^"]+)"/g)].map((m) => `${m[1]} ${m[2]}`);
+  const menu = read("../../shell/src/menu.rs");
+  const goMenu = menu.slice(menu.indexOf("fn go_entries()"), menu.indexOf("fn view_entries()"));
+  const entries = [...goMenu.matchAll(/Entry::route\("([^"]+)", "([^"]+)"/g)].map((m) => `${m[1]} ${m[2]}`);
   const expected = [r.homeNavItem, ...r.topNavItems, ...r.navGroups.flatMap((g) => g.items)]
     // Git is in the menu whatever this build's config says; the window decides.
     .map((i) => `${i.label} ${i.path}`);

@@ -1,8 +1,13 @@
 /** The editor's right-click menu: which items show with and without a selection. */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { MenuItem } from "../../menu";
 import { editorMenuItems, opensAppMenu, type EditorMenuContext } from "../markdown-context-menu";
+import { loadTestCore } from "../../../lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function ctx(over: Partial<EditorMenuContext> = {}): EditorMenuContext & { applied: string[] } {
   const applied: string[] = [];

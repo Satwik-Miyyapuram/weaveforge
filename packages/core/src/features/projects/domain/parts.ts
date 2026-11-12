@@ -54,3 +54,9 @@ export function createProject(
 export interface IProjectRepository
   extends IReadableRepository<Project, unknown>,
     IWritableRepository<Project> {}
+
+/** Project create/remove (Rust `projects` repo arms; was ManageProjectUseCase). */
+export interface IProjectManager {
+  create(input: NewProjectInput): Promise<Project>;
+  remove(id: string): Promise<void>;
+}

@@ -6,9 +6,10 @@ import assert from "node:assert/strict";
 import test, { before } from "node:test";
 
 import { UNTRUSTED_CONTEXT_RULE, type AiModelRequest, type SearchHit } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
-import { askLibrary, buildAskRequest, citedSources } from "../application/parts-1";
+import { askLibrary } from "../application/parts-1";
 
 before(async () => {
   await loadTestCore();
@@ -31,7 +32,7 @@ function hit(id: string, title: string, text?: string, page?: number): SearchHit
 const HITS = [hit("a", "Attention", "Self-attention replaces recurrence.", 3), hit("b", "BERT", "Masked language modelling.")];
 
 test("prompt numbers the sources and fences them with the nonce", () => {
-  const req = buildAskRequest("What replaces recurrence?", HITS, "n0nce");
+  const req = readyCore().buildAskRequest("What replaces recurrence?", HITS, "n0nce");
   const system = req.messages[0]!.content;
   const user = req.messages[1]!.content;
   assert.ok(system.includes(UNTRUSTED_CONTEXT_RULE));
@@ -44,13 +45,8 @@ test("prompt numbers the sources and fences them with the nonce", () => {
 });
 
 test("a hit with no excerpt is still a source, by its title", () => {
-  const user = buildAskRequest("q", [hit("c", "Only a title")], "x").messages[1]!.content;
+  const user = readyCore().buildAskRequest("q", [hit("c", "Only a title")], "x").messages[1]!.content;
   assert.ok(user.includes("[1]\nOnly a title"));
-});
-
-test("citedSources maps [n] markers to hits, in order, once each, ignoring out-of-range", () => {
-  const cited = citedSources("See [2] and [1][2], not [3] or [0]. Also [1, 2].", HITS);
-  assert.deepEqual(cited.map((s) => [s.n, s.hit.id]), [[2, "b"], [1, "a"]]);
 });
 
 test("no hits: answers without calling the model", async () => {

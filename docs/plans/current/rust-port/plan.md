@@ -1,5 +1,8 @@
 # Plan: Rust core + Tauri 2 shells + React UI
 
+> **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
+> TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
+
 Status: proposal. Nothing in the repo changed. Date: 2026-10-29.
 
 ## 1. Decision

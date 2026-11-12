@@ -1,4 +1,4 @@
-//! Zotero desktop local API relay. Ported from apps/desktop/src/zotero-local.ts.
+//! Zotero desktop local API relay. Ported from the retired Electron shell.
 
 use std::collections::BTreeMap;
 use std::time::Duration;

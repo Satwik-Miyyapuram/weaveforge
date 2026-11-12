@@ -1,4 +1,4 @@
-//! Tests for the LaTeX compile (ported from apps/desktop/test/tex.test.ts).
+//! Tests for the LaTeX compile (ported from the retired Electron shell).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use crate::common;

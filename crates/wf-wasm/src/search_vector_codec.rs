@@ -1,11 +1,46 @@
 //! The stored vector file's framing (wf-core `search::vector_codec`), used by the
 //! workspace-folder and local vector caches.
 
+use js_sys::{Object, Reflect, Uint8Array};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::search::vector_codec::{self as codec, VectorFileHead};
 
 use super::to_js;
+use super::vector_index::VectorIndex;
+
+/// [`VectorIndex::to_bytes`] with its model, dimensions and content hashes, as the semantic
+/// index's `serialize()` stores it: `{ model, dimensions, bytes, hashes }`. `hashes` is the
+/// `Map` of embedded text hashes, copied to a plain object.
+///
+/// # Errors
+///
+/// Fails if `embedded` is not an iterable of `[string, string]` pairs.
+#[wasm_bindgen(
+    js_name = packVectorIndex,
+    unchecked_return_type = "{ readonly model: string; readonly dimensions: number; readonly bytes: Uint8Array; readonly hashes: Readonly<Record<string, string>> }"
+)]
+pub fn pack_vector_index_js(
+    model: &str,
+    index: &VectorIndex,
+    #[wasm_bindgen(unchecked_param_type = "Iterable<readonly [string, string]>")] embedded: JsValue,
+) -> Result<JsValue, JsValue> {
+    let hashes = Object::from_entries(&embedded)?;
+    let out = Object::new();
+    let _ = Reflect::set(&out, &"model".into(), &JsValue::from_str(model))?;
+    let _ = Reflect::set(
+        &out,
+        &"dimensions".into(),
+        &JsValue::from_f64(f64::from(index.dimensions())),
+    )?;
+    let _ = Reflect::set(
+        &out,
+        &"bytes".into(),
+        &Uint8Array::from(index.to_bytes().as_slice()),
+    )?;
+    let _ = Reflect::set(&out, &"hashes".into(), &hashes)?;
+    Ok(out.into())
+}
 
 /// [`pack_vectors`](codec::pack_vectors).
 ///

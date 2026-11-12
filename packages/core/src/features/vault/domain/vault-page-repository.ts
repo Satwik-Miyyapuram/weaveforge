@@ -7,11 +7,29 @@ import type {
   IWritableRepository,
 } from "../../../shared/parts.js";
 import type {
+  NewVaultPageInput,
   VaultPage,
   VaultPageFilter,
   VaultPageSummary,
   VaultPageTreeNode,
 } from "../../../shared/core-contract.js";
+
+/** The fields an edit may change. Absent leaves the field as it is. */
+export interface EditVaultPageInput {
+  title?: string;
+  body?: string;
+  /** A new parent; `null` moves the page to the top level. Absent leaves it. */
+  parentId?: string | null;
+  /** Pin or unpin the note. Absent leaves it. */
+  pinned?: boolean;
+}
+
+/** Vault-page writes that validate and apply changes (the Rust `vault_pages` arms). */
+export interface IVaultPageManager {
+  add(input: NewVaultPageInput): Promise<VaultPage>;
+  update(id: string, input: EditVaultPageInput): Promise<VaultPage>;
+  remove(id: string): Promise<void>;
+}
 
 export interface IVaultPageRepository
   extends IReadableRepository<VaultPage, VaultPageFilter>,

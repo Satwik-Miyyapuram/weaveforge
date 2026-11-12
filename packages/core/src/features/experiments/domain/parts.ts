@@ -171,6 +171,16 @@ export interface IExperimentRepository
   patch(id: string, fields: ExperimentPatch): Promise<void>;
 }
 
+/** Run operations (Rust `experiments` repo arms; was ManageExperimentUseCase). */
+export interface IExperimentManager {
+  add(input: NewExperimentInput): Promise<Experiment>;
+  setStatus(id: string, status: ExperimentStatus): Promise<Experiment>;
+  recordMetrics(id: string, metrics: Record<string, unknown>): Promise<Experiment>;
+  addArtifacts(id: string, entries: readonly string[]): Promise<Experiment>;
+  setResultNote(id: string, note: string): Promise<Experiment>;
+  remove(id: string): Promise<void>;
+}
+
 // --- metric-point ---
 /**
  * Step-indexed metric history — the domain type behind training curves. One

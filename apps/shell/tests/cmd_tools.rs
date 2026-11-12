@@ -1,4 +1,4 @@
-//! Tests for the tool commands (ported from apps/desktop/test/app-log.test.ts and tex.test.ts).
+//! Tests for the tool commands (ported from the retired Electron shell).
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use crate::common;
 

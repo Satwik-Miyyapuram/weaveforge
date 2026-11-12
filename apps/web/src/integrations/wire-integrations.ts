@@ -17,7 +17,7 @@ import type {
   ISettingsRepository,
   LogEntry,
   ManageSettingsUseCase,
-  ManageTagsUseCase,
+  ITagManager,
   Milestone,
   Paper,
 } from "@weaveforge/core";
@@ -120,7 +120,7 @@ export interface WireIntegrationsDeps {
   manageSettings: ManageSettingsUseCase;
   settingsRepository: ISettingsRepository;
   paperRepository: IPaperRepository;
-  manageTags: ManageTagsUseCase;
+  manageTags: ITagManager;
   addPaper: AddPaperUseCase;
   projectBibliographyCollection: IProjectBibliographyCollectionStore;
   config?: IntegrationConfig;

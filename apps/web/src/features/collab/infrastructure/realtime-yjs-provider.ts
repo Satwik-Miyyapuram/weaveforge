@@ -5,7 +5,7 @@
 
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { getRealtimeClient } from "@/backend/providers/postgrest/parts-1";
-import type { CompactCrdtLogUseCase, ICrdtUpdateStore } from "@weaveforge/core";
+import type { ICrdtUpdateStore } from "@weaveforge/core";
 import type { Awareness } from "y-protocols/awareness";
 import { applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from "y-protocols/awareness";
 import * as Y from "yjs";
@@ -44,7 +44,7 @@ export interface RealtimeYjsProviderOptions {
    * text lives only in the CRDT log — and compaction proceeds.
    */
   awaitBodyPersisted?: () => Promise<boolean>;
-  compactCrdtLog?: CompactCrdtLogUseCase;
+  crdtUpdateStore?: Pick<ICrdtUpdateStore, "compact">;
   /**
    * Puts the row's stored body into an empty document. Runs *after* the CRDT
    * log is replayed, and only then, because the log already carries the body
@@ -238,7 +238,7 @@ export class RealtimeYjsProvider {
   }
 
   private async maybeCompact() {
-    if (!this.opts.compactCrdtLog) return;
+    if (!this.opts.crdtUpdateStore) return;
     const snapshotUpto = (await this.opts.getSnapshotUpto?.()) ?? 0;
     const tailCount = await this.opts.crdtStore.countAfter(
       this.opts.resourceType,
@@ -256,13 +256,13 @@ export class RealtimeYjsProvider {
       return;
     }
 
-    const outcome = await this.opts.compactCrdtLog.execute({
+    const outcome = await this.opts.crdtUpdateStore.compact({
       resourceType: this.opts.resourceType,
       resourceId: this.opts.resourceId,
-      snapshotUptoId: this.lastPersistedId,
+      uptoId: this.lastPersistedId,
       // Already read above, to size the tail: a caller whose snapshot is behind
-      // the stored watermark is a local no-op rather than a round trip.
-      currentSnapshotUpto: snapshotUpto,
+      // the stored watermark is a local no-op (the Rust compact arm checks it).
+      currentUpto: snapshotUpto,
     });
 
     if (outcome.status === "not-permitted") {

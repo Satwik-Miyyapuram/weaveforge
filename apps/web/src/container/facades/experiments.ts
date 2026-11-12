@@ -8,7 +8,7 @@ import {
   type IExperimentRepository,
   type IMetricHistoryReader,
   type IPaperRepository,
-  type ManageExperimentUseCase,
+  type IExperimentManager,
   mapLimit,
   type MetricPoint,
   type Paper,
@@ -98,7 +98,7 @@ export class ExperimentsFacade {
       // it does not depend on the writer — which is what kept the aggregate
       // read on an interface shaped like a row store.
       metrics: IMetricHistoryReader & IExperimentActivityReader;
-      manageExperiment: ManageExperimentUseCase;
+      manageExperiment: IExperimentManager;
       artifacts: import("@/features/experiments/infrastructure/parts").ExperimentArtifactStore;
     },
   ) {}

@@ -6,6 +6,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::project_row::{ProjectRow, to_project};
+use crate::projects::project_name;
 use crate::repo_query::{RepoCall, RepoQuery, RepoStep, map_row, map_rows};
 
 const TABLE: &str = "projects";
@@ -38,6 +39,8 @@ pub fn step(method: &str, call: &RepoCall) -> Option<RepoStep> {
         "list" => list(call),
         "save" => save(call),
         "delete" => delete(call),
+        "create" => create(call),
+        "remove" => delete(call),
         "getCollection" => get_collection(call),
         "setCollection" => set_collection(call),
         _ => return None,
@@ -85,6 +88,37 @@ fn save(call: &RepoCall) -> RepoStep {
             "created_at": p.created_at,
         }),
     ))
+}
+
+/// `NewProjectInput`: the name (trimmed, required) and an optional colour.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NewProjectInput {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    color: Option<String>,
+}
+
+/// `create(input)`: builds the project with `call.id(0)` and the sender's clock, then saves it.
+/// A blank name fails before anything is sent.
+fn create(call: &RepoCall) -> RepoStep {
+    let input: NewProjectInput = match call.parse(0) {
+        Ok(input) => input,
+        Err(e) => return RepoStep::fail(e),
+    };
+    let Some(name) = project_name(input.name.as_deref().unwrap_or_default()) else {
+        return RepoStep::fail_named("ProjectValidationError", "Project name is required.");
+    };
+    let mut project = json!({ "id": call.id(0), "name": name, "createdAt": call.now() });
+    if let (Some(color), Value::Object(map)) = (input.color, &mut project) {
+        let _ = map.insert("color".into(), json!(color));
+    }
+    let saved = save(&call.sub(vec![project.clone()], 0));
+    if call.replies.is_empty() || matches!(saved, RepoStep::Fail { .. }) {
+        return saved;
+    }
+    RepoStep::done(&project)
 }
 
 /// `delete(id)`: removes by id, as `deleteRowById` does.
@@ -151,6 +185,59 @@ mod tests {
             RepoStep::Done { value } => value,
             other => panic!("expected done, got {other:?}"),
         }
+    }
+
+    const NOW: &str = "2026-11-01T10:00:00Z";
+
+    /// A call with the seeded id and clock that `create` reads.
+    fn fresh(args: Vec<Value>, replies: Vec<Value>) -> RepoCall {
+        let mut c = call(args, replies);
+        c.ctx.id_seed = Some("seed".into());
+        c.ctx.now = Some(NOW.into());
+        c
+    }
+
+    #[test]
+    fn create_saves_a_trimmed_project_with_id_and_clock() {
+        let c = fresh(vec![json!({ "name": "  Thesis  " })], vec![]);
+        let q = sent(create(&c));
+        assert_eq!(q.action, RepoAction::Upsert);
+        let body = q.body.expect("body");
+        assert_eq!(body["id"], c.id(0));
+        assert_eq!(body["name"], "Thesis");
+        assert_eq!(body["created_at"], NOW);
+        assert_eq!(body["user_id"], "u1");
+    }
+
+    #[test]
+    fn create_returns_the_project_once_saved() {
+        let c = fresh(
+            vec![json!({ "name": "Thesis", "color": "#fff" })],
+            vec![Value::Null],
+        );
+        let v = done(create(&c));
+        assert_eq!(v["id"], c.id(0));
+        assert_eq!(v["name"], "Thesis");
+        assert_eq!(v["color"], "#fff");
+        assert_eq!(v["createdAt"], NOW);
+    }
+
+    #[test]
+    fn create_rejects_a_blank_name_before_saving() {
+        match create(&fresh(vec![json!({ "name": "  " })], vec![])) {
+            RepoStep::Fail { message, name } => {
+                assert_eq!(message, "Project name is required.");
+                assert_eq!(name.as_deref(), Some("ProjectValidationError"));
+            }
+            other => panic!("expected fail, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn remove_deletes_the_project() {
+        let q = sent(step("remove", &call(vec![json!("p1")], vec![])).expect("known"));
+        assert_eq!(q.action, RepoAction::Delete);
+        assert_eq!(q.filters[0].value, json!("p1"));
     }
 
     #[test]

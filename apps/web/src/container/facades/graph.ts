@@ -12,7 +12,7 @@ import type {
   ITagRepository,
   IVaultPageRepository,
   LinkCitationsUseCase,
-  ManageTagsUseCase,
+  ITagManager,
   Paper,
   PaperRelation,
   ReadingList,
@@ -53,7 +53,7 @@ export class GraphFacade {
       addRelation: AddRelationUseCase;
       linkCitations: LinkCitationsUseCase;
       removeRelation: RemoveRelationUseCase;
-      manageTags: ManageTagsUseCase;
+      manageTags: ITagManager;
       tags: ITagRepository;
       settings: IGraphSettingsRepository;
     },

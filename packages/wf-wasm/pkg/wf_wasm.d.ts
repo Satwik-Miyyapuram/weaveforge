@@ -483,6 +483,73 @@ export class OneEuroFilter {
 }
 
 /**
+ * The search index's bookkeeping (wf-core `SearchIndexStateCore`): whether an index is held,
+ * its document count, PDF pages per paper, and the stale kinds. The caller keeps the JS handles
+ * (index, graph, density, PDF texts) and clears them when `forget` runs.
+ */
+export class SearchIndexState {
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Takes the index as built, holding `documentCount` documents.
+     */
+    adopt(document_count: number): void;
+    /**
+     * Nothing is indexed any more; the next build starts from scratch.
+     */
+    forget(): void;
+    /**
+     * Notes the kinds a write to `resourceType` can change. Returns `true` when the whole index
+     * was distrusted (an unmapped type), so the caller has nothing left to refresh selectively.
+     */
+    markStale(resource_type?: string | null): boolean;
+    /**
+     * Nothing indexed yet.
+     */
+    constructor();
+    /**
+     * Pages held for `paperId`; 0 when none.
+     */
+    pdfPageCount(paper_id: string): number;
+    /**
+     * The kinds waiting to be refreshed. Taking does not clear them.
+     *
+     * # Errors
+     *
+     * Fails only if the result cannot be serialized.
+     */
+    pendingStale(): B.SearchKind[];
+    /**
+     * Replaces every paper's page count from a `Map` or a `[paperId, pages][]` iterable.
+     *
+     * # Errors
+     *
+     * Fails if `counts` is not iterable or an entry is not a `[string, number]` pair.
+     */
+    replacePdfPageCounts(counts: Iterable<readonly [string, number]>): void;
+    /**
+     * Records the page count held for `paperId`.
+     */
+    setPdfPageCount(paper_id: string, count: number): void;
+    /**
+     * Forgets the kinds a completed refresh replaced.
+     *
+     * # Errors
+     *
+     * Fails if `kinds` is not an array of search kinds.
+     */
+    settleStale(kinds: readonly B.SearchKind[]): void;
+    /**
+     * Documents the index holds, for the size warning.
+     */
+    documentCount: number;
+    /**
+     * Whether an index has been adopted and not forgotten.
+     */
+    readonly ready: boolean;
+}
+
+/**
  * [`StrokeEdgeSplit`](Core): one stroke against the drawable area.
  */
 export class StrokeEdgeSplit {
@@ -1185,6 +1252,15 @@ export function bucketAnnotationsByPage(annotations: readonly T.ReaderAnnotation
 export function buildAnnotationSortIndex(page_index: number, char_offset: number, top_pdf_units: number): string;
 
 /**
+ * The ask request `{ messages: [system, user], temperature }` for the search hits.
+ *
+ * # Errors
+ *
+ * Fails if `hits` is not an array of search hits.
+ */
+export function buildAskRequest(question: string, hits: readonly SearchHit[], nonce: string): { readonly messages: readonly [{ readonly role: "system"; readonly content: string }, { readonly role: "user"; readonly content: string }]; readonly temperature: number };
+
+/**
  * [`wf_core::search::excerpt::build_excerpt`]: a snippet of `body` around the
  * densest cluster of `terms`, as `{ text, highlights }` where `text` is UTF-16
  * code units (the TS wrapper turns them into a string, lone surrogates kept).
@@ -1603,6 +1679,16 @@ export function citeKeyOf(metadata: unknown): string | undefined;
 export function citedSourceNumbers(answer: string, count: number): number[];
 
 /**
+ * The hits an answer cites, as `{ n, hit }` in first-citation order. `hit` is the element of
+ * `hits` itself, so object identity is kept.
+ *
+ * # Errors
+ *
+ * Fails if `hits` is not an array.
+ */
+export function citedSources(answer: string, hits: readonly SearchHit[]): readonly { readonly n: number; readonly hit: SearchHit }[];
+
+/**
  * [`claim_digest`](folder_mirror::claim_digest): `base` with `path` recorded for `stamped`.
  *
  * # Errors
@@ -1915,11 +2001,6 @@ export function communities(ids: readonly string[], edges: readonly (readonly [s
  * Fails if `options` is not an options object, or the result cannot be converted to JS.
  */
 export function compactInkPath(path: readonly number[], options?: { tolerance?: number; maxPoints?: number; decimals?: number }): number[];
-
-/**
- * [`compact_skip_reason`](collab::compact_skip_reason): `undefined` when the request should be sent.
- */
-export function compactSkipReason(snapshot_upto_id: number, current_upto?: number | null): "nothing-to-do" | "stale" | undefined;
 
 /**
  * [`compose_spacing_accents`](analysis_text::compose_spacing_accents) (TS `composeSpacingAccents`).
@@ -2772,6 +2853,11 @@ export function describePull(result: B.GitPullResult): string;
  * Fails when `result` is not a valid `GitPushResult` object.
  */
 export function describePush(result: B.GitPushResult): string;
+
+/**
+ * The log line for a rejection reason (`describeRejection`).
+ */
+export function describeRejection(reason: unknown, origin: string | null, session_lost: boolean): string;
 
 /**
  * [`wf_core::sync::git_remote::describe_status`] for JS.
@@ -3737,6 +3823,27 @@ export function formatCount(value: number): string;
 export function formatCursor(cursor: { line: number; col: number }): string;
 
 /**
+ * "1 Jul 2026" for an ISO date or datetime, `""` when it does not parse.
+ */
+export function formatDate(input: string, offset_minutes: number): string;
+
+/**
+ * "1 Jul 2026, 14:05" for an ISO datetime, `""` when it does not parse.
+ */
+export function formatDateTime(input: string, offset_minutes: number): string;
+
+/**
+ * The display text for a thrown value (`formatError`).
+ */
+export function formatError(err: unknown, origin: string | null, session_lost: boolean): string;
+
+/**
+ * The body message and the log line for a route's error (`formatErrorForResponse`).
+ * Returns `{ message, log? }`; `log` is set only for the database and cause paths.
+ */
+export function formatErrorForResponse(err: unknown, context: string, origin: string | null, session_lost: boolean): { message: string; log?: string };
+
+/**
  * [`format_figure_tokens`](figure::format_figure_tokens): the tokens written in an alt.
  *
  * # Errors
@@ -3812,6 +3919,11 @@ export function formatQuoteCiteClipboard(quote: string, paper_title: string): st
  * Fails when `paper` is not a paper.
  */
 export function formatReference(paper: Omit<B.ReferencePaper, "authors"> & { authors: readonly string[] }): string;
+
+/**
+ * "Just now", "5m ago", "2h ago", "3d ago", or the date, relative to `now_iso`.
+ */
+export function formatRelative(input: string, now_iso: string, offset_minutes: number): string;
 
 /**
  * [`format_words`](stats::format_words).
@@ -4298,6 +4410,26 @@ export function homeConfigPath(home: string, variant: string | null | undefined,
  * [`host_of`]: the host and port of a PDF address for a failure line, or the address when it has none.
  */
 export function hostOf(url: string): string;
+
+/**
+ * [`HTML_FINAL_URL_HEADER`]: the response header naming the post-redirect address.
+ */
+export function htmlFinalUrlHeader(): string;
+
+/**
+ * [`HTML_PROXY_MAX_BYTES`]: the largest page the relay accepts, in bytes.
+ */
+export function htmlProxyMaxBytes(): number;
+
+/**
+ * [`HTML_PROXY_PATH`]: the relay route.
+ */
+export function htmlProxyPath(): string;
+
+/**
+ * `(HTTP 502 Bad Gateway from /api/x)`: the status line and the URL's path (`httpContext`).
+ */
+export function httpContext(url: string, status: number, status_text: string): string;
 
 /**
  * [`enum_label::humanise`]: `made_up_kind` reads `Made up kind`.
@@ -5229,6 +5361,11 @@ export function isMissingServiceRole(message: string): boolean;
 export function isNetworkFailure(message: string): boolean;
 
 /**
+ * Whether a thrown value is a request that never reached a server (`isNetworkFailureValue`).
+ */
+export function isNetworkFailureValue(err: unknown): boolean;
+
+/**
  * [`is_newer`]: whether `candidate` is later than `current`, both `[major, minor, patch]`.
  *
  * # Errors
@@ -5334,6 +5471,11 @@ export function isQuotationType(value: string): boolean;
  * [`is_reader_annotation_type`] for any JS value: false unless `value` is a string.
  */
 export function isReaderAnnotationType(value: string): boolean;
+
+/**
+ * [`is_reader_object_url`]: whether `raw` is a `blob:` URL minted by `origin`.
+ */
+export function isReaderObjectUrl(raw?: string | null | undefined, origin?: string | null | undefined): boolean;
 
 /**
  * [`is_recent_target`] (TS `isRecentTarget`): a stored value with string `kind` and `id`.
@@ -5531,6 +5673,11 @@ export function joinBibtex(entries: readonly string[]): string;
  * Fails if `pages` is not an array of strings.
  */
 export function joinInkTextLayer(pages: readonly string[]): string;
+
+/**
+ * The text for a body that failed to parse, keeping the parser's reason (`jsonBodyError`).
+ */
+export function jsonBodyError(err: unknown): string;
 
 /**
  * [`wf_core::sync::json_entities::json_data_path`] for JS.
@@ -5877,6 +6024,19 @@ export function listMembershipByKey(lists: readonly { id: string }[], items: rea
 export function listedAnnotations(annotations: readonly T.ReaderAnnotation[]): T.ReaderAnnotation[];
 
 /**
+ * The stored PDF texts whose paper still exists, as the caller's own objects, with the page
+ * counts and the orphan paper ids (the ones to delete from storage).
+ *
+ * Returns `{ texts, pageCounts, orphanPaperIds }`; `texts` holds the elements of `stored` that
+ * survive, in their stored order.
+ *
+ * # Errors
+ *
+ * Fails if `stored` is not an array of PDF sources or `paper_ids` is not an array of strings.
+ */
+export function livePdfTexts(stored: readonly (Omit<B.PdfIndexSource, "pages"> & { pages?: readonly B.PdfPageText[] })[], paper_ids: readonly string[]): { readonly texts: readonly T.PdfIndexSource[]; readonly pageCounts: Map<string, number>; readonly orphanPaperIds: readonly string[] };
+
+/**
  * [`nav_open_groups::load_open_groups`]: the open groups from stored JSON, with `active` forced open.
  *
  * # Errors
@@ -6031,6 +6191,27 @@ export function markColourTool(mark_type: string): string;
  * Fails if `annotation` has no string `type`.
  */
 export function markPopoverShown(annotation: Pick<B.MarkTarget, "type">, tool: string): boolean;
+
+/**
+ * Applies the action `id` to `doc` with the selection `ranges` (UTF-16 offsets) and the main
+ * selection's head. Returns the edits and the selection after them, or `null` when the action
+ * does nothing here (`B.MarkdownOutcome | null`).
+ *
+ * # Errors
+ *
+ * Fails when `id` names no action, when `doc` is over the text cap, or when the arguments
+ * cannot be read.
+ */
+export function markdownFormatAction(id: string, doc: string, ranges: B.MarkdownSpan[], main_head: number): B.MarkdownOutcome | null;
+
+/**
+ * Every formatting action, as `{ id, label, key, accelerator }` (`B.MarkdownActionInfo[]`).
+ *
+ * # Errors
+ *
+ * Fails when the list cannot be converted to a JS value.
+ */
+export function markdownFormatActions(): B.MarkdownActionInfo[];
 
 /**
  * [`wf_core::sync::markdown_image::markdown_image`] for JS.
@@ -7147,6 +7328,12 @@ export function originOf(url: string): string | null;
 export function originalRange(view: B.AnalysisSearchText, start: number, end: number): [number, number];
 
 /**
+ * [`original_url_from_proxy`]: the PDF URL a same-origin proxy request carries, or `null`.
+ * `path` is the relay path of `url`.
+ */
+export function originalUrlFromProxy(path: string, url: string): string | null;
+
+/**
  * [`outline_from_text`](analysis_outline::outline_from_text) (TS `outlineFromText`).
  *
  * # Errors
@@ -7259,6 +7446,17 @@ export function packInkStroke(points: readonly number[], pressures?: readonly nu
  * on (default 0), as a `Float64Array` the caller narrows into its buffer.
  */
 export function packInkStrokeInstances(xs: ArrayLike<number>, ys: ArrayLike<number>, width: number, from?: number | null): Float64Array;
+
+/**
+ * [`VectorIndex::to_bytes`] with its model, dimensions and content hashes, as the semantic
+ * index's `serialize()` stores it: `{ model, dimensions, bytes, hashes }`. `hashes` is the
+ * `Map` of embedded text hashes, copied to a plain object.
+ *
+ * # Errors
+ *
+ * Fails if `embedded` is not an iterable of `[string, string]` pairs.
+ */
+export function packVectorIndex(model: string, index: VectorIndex, embedded: Iterable<readonly [string, string]>): { readonly model: string; readonly dimensions: number; readonly bytes: Uint8Array; readonly hashes: Readonly<Record<string, string>> };
 
 /**
  * [`pack_vectors`](codec::pack_vectors).
@@ -7595,6 +7793,11 @@ export function parseHal(body: unknown): B.OpenAccessCandidate[];
 export function parseInkChunkPath(path: string): { noteId: string; chunkId: string } | null;
 
 /**
+ * Parses a response body: empty is `{}`, a non-object is `{ data }`, invalid JSON is `{ error }` (`parseJsonBody`).
+ */
+export function parseJsonBody(text: string, context: string): Record<string, unknown>;
+
+/**
  * [`wf_core::sync::json_entities::parse_json_data`] for JS, as `null` when it is not a JSON array.
  *
  * # Errors
@@ -7916,6 +8119,12 @@ export function pdfDocIdsFor(paper_id: string, page_count: number): string[];
 export function pdfPageHref(paper_id: string, page_index: number): string;
 
 /**
+ * A PDF page's text the way the reader builds it: a newline after each line-ending run.
+ * Items whose `str` is not a string (marked content) carry no text and are skipped.
+ */
+export function pdfPageText(items: readonly unknown[]): string;
+
+/**
  * [`pdf_point_to_screen`] as `{ x, y }` (TS `pdfPointToScreen`).
  *
  * # Errors
@@ -7923,6 +8132,12 @@ export function pdfPageHref(paper_id: string, page_index: number): string;
  * Fails if `p` is not a page projection object.
  */
 export function pdfPointToScreen(x: number, y: number, p: B.ReaderPageProjection): { x: number; y: number };
+
+/**
+ * [`pdf_proxy_path`]: the same-origin proxy route for an allowlisted PDF URL, or `null` when the
+ * URL is not one the proxy fetches.
+ */
+export function pdfProxyPath(url: string): string | null;
 
 /**
  * [`pdf_rect_to_screen_box`] as `{ left, top, width, height }` (TS `pdfRectToScreenBox`).
@@ -9196,6 +9411,12 @@ export function repoWebUrl(repo_url?: string | null): string | undefined;
 export function reportMarkdown(input: B.ReportMarkdown): string;
 
 /**
+ * [`wf_core::error_report::report_repo::report_repo`] for JS: the configured
+ * `owner/repo`, or the default when it is missing or malformed.
+ */
+export function reportRepo(configured?: string | null): string;
+
+/**
  * [`validate_report_section_input`](report_section::validate_report_section_input): the
  * validation message, or `null` when the input is valid.
  *
@@ -9378,6 +9599,11 @@ export function resolveWithRow(base: Record<string, unknown>, local: Record<stri
  * Fails only if the result cannot be serialized.
  */
 export function resourceTypes(): string[];
+
+/**
+ * The message of a non-ok response: the server's words or `fallback`, then the context (`responseErrorText`).
+ */
+export function responseErrorText(server_message: unknown, fallback: string, context: string, origin: string | null, session_lost: boolean): string;
 
 /**
  * [`results_table`](experiment_status::results_table): the header and rows of the runs table.
@@ -11724,6 +11950,7 @@ export interface InitOutput {
     readonly __wbg_inkstrokepacker_free: (a: number, b: number) => void;
     readonly __wbg_nibfilter_free: (a: number, b: number) => void;
     readonly __wbg_oneeurofilter_free: (a: number, b: number) => void;
+    readonly __wbg_searchindexstate_free: (a: number, b: number) => void;
     readonly __wbg_strokeedgesplit_free: (a: number, b: number) => void;
     readonly __wbg_vectorindex_free: (a: number, b: number) => void;
     readonly absolutePointTriples: (a: number, b: number) => [number, number, number, number];
@@ -11805,6 +12032,7 @@ export interface InitOutput {
     readonly breadcrumbs: (a: any, b: any, c: number) => [number, number, number];
     readonly bucketAnnotationsByPage: (a: any) => [number, number, number];
     readonly buildAnnotationSortIndex: (a: number, b: number, c: number) => [number, number];
+    readonly buildAskRequest: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
     readonly buildExcerpt: (a: any, b: any, c: number, d: number) => [number, number, number];
     readonly buildGraphData: (a: any, b: any, c: any, d: number, e: number, f: number, g: number, h: number) => [number, number, number];
     readonly buildInkRequest: (a: any) => [number, number, number];
@@ -11852,6 +12080,7 @@ export interface InitOutput {
     readonly citationItemToRect: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly citeKeyOf: (a: any) => [number, number, number, number];
     readonly citedSourceNumbers: (a: number, b: number, c: number) => [number, number, number];
+    readonly citedSources: (a: number, b: number, c: any) => [number, number, number];
     readonly claimDigest: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly clampInkNoteWidth: (a: number, b: number, c: number) => number;
     readonly clampInkPageSize: (a: number, b: number) => [number, number, number];
@@ -11892,7 +12121,6 @@ export interface InitOutput {
     readonly commitUrl: (a: number, b: number, c: number, d: number) => [number, number];
     readonly communities: (a: any, b: any) => [number, number, number];
     readonly compactInkPath: (a: number, b: number, c: number) => [number, number, number];
-    readonly compactSkipReason: (a: number, b: number, c: number) => [number, number];
     readonly composeSpacingAccents: (a: number, b: number) => [number, number];
     readonly computeFitPageScale: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly computeFitWidthScale: (a: any, b: any, c: number, d: number, e: number, f: number) => [number, number, number];
@@ -11989,6 +12217,7 @@ export interface InitOutput {
     readonly describeOverleafStatus: (a: any) => [number, number, number, number];
     readonly describePull: (a: any) => [number, number, number, number];
     readonly describePush: (a: any) => [number, number, number, number];
+    readonly describeRejection: (a: any, b: number, c: number, d: number) => [number, number];
     readonly describeRemoteStatus: (a: any) => [number, number, number, number];
     readonly describeSync: (a: any) => [number, number, number, number];
     readonly describeUrlRejection: (a: any) => [number, number, number, number];
@@ -12126,6 +12355,10 @@ export interface InitOutput {
     readonly formatCitation: (a: number, b: number, c: number, d: number) => [number, number];
     readonly formatCount: (a: number) => [number, number];
     readonly formatCursor: (a: any) => [number, number, number, number];
+    readonly formatDate: (a: number, b: number, c: number) => [number, number];
+    readonly formatDateTime: (a: number, b: number, c: number) => [number, number];
+    readonly formatError: (a: any, b: number, c: number, d: number) => [number, number];
+    readonly formatErrorForResponse: (a: any, b: number, c: number, d: number, e: number, f: number) => any;
     readonly formatFigureTokens: (a: any) => [number, number, number, number];
     readonly formatInviteCode: (a: number, b: number) => [number, number];
     readonly formatLogLine: (a: any) => [number, number, number, number];
@@ -12135,6 +12368,7 @@ export interface InitOutput {
     readonly formatQuoteBlock: (a: number, b: number) => [number, number, number, number];
     readonly formatQuoteCiteClipboard: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly formatReference: (a: any) => [number, number, number, number];
+    readonly formatRelative: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly formatWords: (a: number) => [number, number];
     readonly fromRelativeBlobLinks: (a: any, b: any) => [number, number, number, number];
     readonly frontmatterList: (a: any, b: number, c: number) => [number, number, number];
@@ -12197,6 +12431,10 @@ export interface InitOutput {
     readonly highlightsDigest: (a: any, b: number, c: number) => [number, number, number, number];
     readonly homeConfigPath: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly hostOf: (a: number, b: number) => [number, number];
+    readonly htmlFinalUrlHeader: () => [number, number];
+    readonly htmlProxyMaxBytes: () => number;
+    readonly htmlProxyPath: () => [number, number];
+    readonly httpContext: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly humanise: (a: number, b: number) => [number, number];
     readonly humanize: (a: number, b: number) => [number, number];
     readonly hydrateTabModes: (a: any, b: any) => [number, number, number];
@@ -12340,6 +12578,7 @@ export interface InitOutput {
     readonly isMarkdownFile: (a: number, b: number) => number;
     readonly isMissingServiceRole: (a: number, b: number) => number;
     readonly isNetworkFailure: (a: number, b: number) => [number, number, number];
+    readonly isNetworkFailureValue: (a: any) => number;
     readonly isNewerVersion: (a: any, b: any) => [number, number, number];
     readonly isNoteImportFile: (a: number, b: number) => number;
     readonly isOnSamplingGrid: (a: number) => number;
@@ -12359,6 +12598,7 @@ export interface InitOutput {
     readonly isPublicHttpsUrl: (a: number, b: number) => number;
     readonly isQuotationType: (a: number, b: number) => number;
     readonly isReaderAnnotationType: (a: any) => number;
+    readonly isReaderObjectUrl: (a: number, b: number, c: number, d: number) => number;
     readonly isRecentTarget: (a: any) => number;
     readonly isRotatedText: (a: number, b: number) => number;
     readonly isSafeWorkspacePath: (a: any) => [number, number, number];
@@ -12388,6 +12628,7 @@ export interface InitOutput {
     readonly itemToRect: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly joinBibtex: (a: any) => [number, number, number, number];
     readonly joinInkTextLayer: (a: any) => [number, number, number, number];
+    readonly jsonBodyError: (a: any) => [number, number];
     readonly jsonDataPath: (a: any, b: any) => [number, number, number, number];
     readonly jsonEditSince: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly jsonKindOfPath: (a: any) => [number, number, number];
@@ -12428,6 +12669,7 @@ export interface InitOutput {
     readonly listMembership: (a: any, b: any) => [number, number, number];
     readonly listMembershipByKey: (a: any, b: any, c: any) => [number, number, number];
     readonly listedAnnotations: (a: any) => [number, number, number];
+    readonly livePdfTexts: (a: any, b: any) => [number, number, number];
     readonly loadOpenGroups: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly localDbSharedBuffers: () => [number, number];
     readonly localKeys: (a: any) => [number, number, number];
@@ -12448,6 +12690,8 @@ export interface InitOutput {
     readonly markActions: (a: any) => [number, number, number];
     readonly markColourTool: (a: number, b: number) => [number, number];
     readonly markPopoverShown: (a: any, b: number, c: number) => [number, number, number];
+    readonly markdownFormatAction: (a: number, b: number, c: number, d: number, e: any, f: number) => [number, number, number];
+    readonly markdownFormatActions: () => [number, number, number];
     readonly markdownImage: (a: any, b: any) => [number, number, number, number];
     readonly markdownLink: (a: any, b: any) => [number, number, number, number];
     readonly markdownToLatex: (a: number, b: number, c: number) => [number, number, number];
@@ -12599,6 +12843,7 @@ export interface InitOutput {
     readonly optimisticAnnotationFromDraft: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly originOf: (a: number, b: number) => any;
     readonly originalRange: (a: any, b: number, c: number) => [number, number, number];
+    readonly originalUrlFromProxy: (a: number, b: number, c: number, d: number) => any;
     readonly outlineFromText: (a: any) => [number, number, number];
     readonly outlineIsPlausible: (a: any, b: number) => [number, number, number];
     readonly outlineItemOf: (a: any, b: number) => [number, number, number];
@@ -12613,6 +12858,7 @@ export interface InitOutput {
     readonly ownedAssetFolderPaths: (a: any) => [number, number, number];
     readonly packInkStroke: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly packInkStrokeInstances: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+    readonly packVectorIndex: (a: number, b: number, c: number, d: any) => [number, number, number];
     readonly packVectors: (a: any, b: number, c: number) => [number, number, number, number];
     readonly pageFromChunkBody: (a: number, b: number) => [number, number, number];
     readonly pageImportRefusal: (a: any) => [number, number, number];
@@ -12654,6 +12900,7 @@ export interface InitOutput {
     readonly parseGraphPersistedState: (a: any) => [number, number, number];
     readonly parseHal: (a: any) => [number, number, number];
     readonly parseInkChunkPath: (a: number, b: number) => [number, number, number];
+    readonly parseJsonBody: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly parseJsonData: (a: any, b: any, c: any) => [number, number, number];
     readonly parseKindSuffix: (a: number, b: number) => [number, number, number];
     readonly parseLatexSectionTree: (a: any, b: number, c: number) => [number, number, number];
@@ -12692,7 +12939,9 @@ export interface InitOutput {
     readonly pdfDocId: (a: number, b: number, c: number) => [number, number];
     readonly pdfDocIdsFor: (a: number, b: number, c: number) => [number, number];
     readonly pdfPageHref: (a: number, b: number, c: number) => [number, number];
+    readonly pdfPageText: (a: any) => [number, number];
     readonly pdfPointToScreen: (a: number, b: number, c: any) => [number, number, number];
+    readonly pdfProxyPath: (a: number, b: number) => any;
     readonly pdfRectToScreenBox: (a: number, b: number, c: any) => [number, number, number];
     readonly pdfSourceResolverOrder: (a: number, b: number) => [number, number, number];
     readonly peersFromStates: (a: any, b: any) => [number, number, number];
@@ -12854,6 +13103,7 @@ export interface InitOutput {
     readonly repoStep: (a: number, b: number, c: number, d: number, e: any, f: any, g: any) => [number, number, number];
     readonly repoWebUrl: (a: number, b: number) => [number, number];
     readonly reportMarkdown: (a: any) => [number, number, number, number];
+    readonly reportRepo: (a: number, b: number) => [number, number];
     readonly reportSectionInputError: (a: any) => [number, number, number];
     readonly resampleInkStroke: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
     readonly resizeFigureBox: (a: any, b: any, c: number, d: number, e: number) => [number, number, number];
@@ -12874,6 +13124,7 @@ export interface InitOutput {
     readonly resolveViewportScale: (a: any, b: any, c: any) => [number, number, number];
     readonly resolveWithRow: (a: any, b: any, c: any, d: any, e: number) => [number, number, number];
     readonly resourceTypes: () => [number, number, number];
+    readonly responseErrorText: (a: any, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number];
     readonly resultsTable: (a: any) => [number, number, number];
     readonly retrieveAiExcerpts: (a: any, b: number, c: number, d: number) => [number, number, number];
     readonly retryFuzzinessForTerm: (a: number, b: number, c: number) => number;
@@ -12916,6 +13167,18 @@ export interface InitOutput {
     readonly searchMatches: (a: number, b: number, c: number, d: number) => [number, number];
     readonly searchRevision: (a: any) => [number, number, number, number];
     readonly searchTextFromItems: (a: any) => [number, number, number];
+    readonly searchindexstate_adopt: (a: number, b: number) => void;
+    readonly searchindexstate_document_count: (a: number) => number;
+    readonly searchindexstate_forget: (a: number) => void;
+    readonly searchindexstate_markStale: (a: number, b: number, c: number) => number;
+    readonly searchindexstate_new: () => number;
+    readonly searchindexstate_pdfPageCount: (a: number, b: number, c: number) => number;
+    readonly searchindexstate_pendingStale: (a: number) => [number, number, number];
+    readonly searchindexstate_ready: (a: number) => number;
+    readonly searchindexstate_replacePdfPageCounts: (a: number, b: any) => [number, number];
+    readonly searchindexstate_setPdfPageCount: (a: number, b: number, c: number, d: number) => void;
+    readonly searchindexstate_set_document_count: (a: number, b: number) => void;
+    readonly searchindexstate_settleStale: (a: number, b: any) => [number, number];
     readonly sectionProgress: (a: any) => [number, number, number];
     readonly seedDoi: (a: number, b: number, c: number, d: number) => [number, number];
     readonly seenFiles: (a: any, b: any, c: any, d: any) => [number, number, number];

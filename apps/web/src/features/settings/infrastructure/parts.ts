@@ -6,6 +6,7 @@ import type {
   ICurrentUserProvider,
   ISettingsRepository,
   SettingsMetadata,
+  UserAppearance,
   UserSettings,
 } from "@weaveforge/core";
 import type { applyUserIntegrationFields } from "@weaveforge/wasm";
@@ -37,6 +38,8 @@ interface SettingsRows {
   metadata(): Promise<SettingsMetadata>;
   saveRow(settings: UserSettings): Promise<void>;
   saveDisclaimer(acceptedAt: string, version: number): Promise<void>;
+  saveAppearance(appearance: UserAppearance): Promise<void>;
+  acceptDisclaimer(): Promise<void>;
 }
 const CREDENTIALS_ROUTE = "/api/settings/credentials";
 
@@ -49,12 +52,12 @@ const CREDENTIALS_ROUTE = "/api/settings/credentials";
  * are two different questions, and answering the second one when the first was
  * meant is what broke saving credentials in the desktop app: the window was
  * signed in, so it took the server path, and the static export holds
- * `src/app/api/` aside (`apps/desktop/scripts/build-web.mjs`). The request
+ * `src/app/api/` aside (`apps/shell/scripts/build-web.mjs`). The request
  * reached the `app://` handler, which can only serve files out of the bundle,
  * and came back a 404 with an empty body — which `saveSecrets` can only report
  * as the generic "Failed to save integration credentials.".
  *
- * `apps/desktop/src/main.ts` applies `db/migrations-local` on every
+ * `apps/shell/src` applies `db/migrations-local` on every
  * launch, so the alternative store below is always available on a machine that
  * has the local database, signed in or not.
  */
@@ -141,7 +144,7 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
     /** Defaults to the server route; see `SecretsStore` for when it must not. */
     private readonly secrets: SecretsStore = new RouteSecretsStore(db),
   ) {
-    this.rows = rustRepository<SettingsRows>(db, "user_settings", ["row", "metadata", "saveRow", "saveDisclaimer"], async () => ({
+    this.rows = rustRepository<SettingsRows>(db, "user_settings", ["row", "metadata", "saveRow", "saveDisclaimer", "saveAppearance", "acceptDisclaimer"], async () => ({
       userId: (await session.getCurrentUserId()) ?? undefined,
     }));
   }
@@ -239,7 +242,22 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
     await this.rows.saveDisclaimer(acceptedAt, version);
     forgetSettingsMetadata();
   }
+
+  /** Merge the appearance into the stored row (Rust `saveAppearance`). */
+  async saveAppearance(appearance: UserAppearance): Promise<void> {
+    await this.rows.saveAppearance(appearance);
+    forgetSettingsMetadata();
+  }
+
+  /** Record acceptance of the current disclaimer version now (Rust `acceptDisclaimer`). */
+  async acceptDisclaimer(): Promise<void> {
+    await this.rows.acceptDisclaimer();
+    forgetSettingsMetadata();
+  }
 }
+
+/** The writes the Rust `user_settings` arms make for appearance and the disclaimer. */
+export type SettingsWrites = Pick<PostgrestSettingsRepository, "saveAppearance" | "acceptDisclaimer">;
 
 // --- user-settings-core ---
 /** The bindings `UserSettings` the wasm wrapper takes and returns. */

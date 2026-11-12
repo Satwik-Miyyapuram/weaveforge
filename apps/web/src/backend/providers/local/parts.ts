@@ -65,7 +65,7 @@ export function localRunnerQuery(bridge: DesktopBridge | null = desktop()): Loca
  * Integration credentials kept on the machine that holds the database.
  *
  * For a deployment with no server that can answer `/api/settings/credentials`:
- * a static export holds `src/app/api/` aside (`apps/desktop/scripts/build-web.mjs`),
+ * a static export holds `src/app/api/` aside (`apps/shell/scripts/build-web.mjs`),
  * so the route is not in the bundle at all and a fetch for it reaches the
  * `app://` file handler instead. What came back was a 404 with an empty body,
  * which the route store could only turn into "Failed to save integration

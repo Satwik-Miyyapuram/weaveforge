@@ -9,7 +9,6 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { readStored, readStoredJson, writeStored, writeStoredJson } from "@/lib/safe-storage";
 import {
-  type AiModelRequest,
   errorMessage,
   type IModelConversation,
   type Paper,
@@ -33,30 +32,7 @@ export interface CitedSource {
 export interface AskResult {
   answer: string;
   /** The sources the answer cites, by their [n], in the order it first cites them. */
-  sources: CitedSource[];
-}
-
-/** The system and user turns (prompt text and source fencing are Rust `search::ask_library`). */
-export function buildAskRequest(question: string, hits: readonly SearchHit[], nonce: string): AiModelRequest {
-  const { system, user } = readyCore().askPrompt(
-    question,
-    hits.map((hit) => ({ title: hit.title, page: hit.page ?? null, excerpt: hit.excerpt?.text ?? null })),
-    nonce,
-  );
-  return {
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-    temperature: 0.2,
-  };
-}
-
-/** The hits named by [n] or [n, m] markers, first citation order, each once. */
-export function citedSources(answer: string, hits: readonly SearchHit[]): CitedSource[] {
-  return readyCore()
-    .citedSourceNumbers(answer, hits.length)
-    .map((n) => ({ n, hit: hits[n - 1]! }));
+  sources: readonly CitedSource[];
 }
 
 export async function askLibrary(input: {
@@ -67,8 +43,9 @@ export async function askLibrary(input: {
 }): Promise<AskResult> {
   const hits = await input.search(input.question);
   if (hits.length === 0) return { answer: "Nothing in your library matches that question.", sources: [] };
-  const { text } = await input.model.complete(buildAskRequest(input.question, hits, input.nonce ?? typedCore().contextNonce()));
-  return { answer: text, sources: citedSources(text, hits) };
+  const request = readyCore().buildAskRequest(input.question, hits, input.nonce ?? typedCore().contextNonce());
+  const { text } = await input.model.complete(request);
+  return { answer: text, sources: readyCore().citedSources(text, hits) };
 }
 
 // --- pdf-text-folder ---
@@ -257,27 +234,13 @@ async function extractPages(bytes: ArrayBuffer): Promise<DocumentPageText[]> {
     for (let n = 1; n <= doc.numPages; n += 1) {
       const page = await doc.getPage(n);
       const content = await page.getTextContent();
-      pages.push({ pageIndex: n - 1, text: pdfPageText(content.items) });
+      pages.push({ pageIndex: n - 1, text: readyCore().pdfPageText(content.items) });
     }
     return pages;
   } finally {
     // Release the worker even when a page fails; a few hundred documents otherwise accumulate.
     await doc.destroy();
   }
-}
-
-/**
- * A page's text the way the reader builds it: a newline after each line-ending
- * run, so the last word of a line is not glued to the next (27-03). Marked
- * content items carry no text and are skipped.
- */
-export function pdfPageText(items: readonly unknown[]): string {
-  return readyCore().pageTextFromItems(
-    items.filter(
-      (item): item is { str: string; hasEOL?: boolean } =>
-        typeof (item as { str?: unknown }).str === "string",
-    ),
-  );
 }
 
 /**
@@ -303,25 +266,6 @@ const pause = (ms: number, signal?: AbortSignal) =>
       resolve();
     }, { once: true });
   });
-
-/**
- * Why a paper could not be read, in words that say whether to act.
- *
- * Extracted and exported so it can be tested without a container, a network,
- * pdf.js and IndexedDB — which is why the loop that uses it had no test at all,
- * and why "Indexed 0, 18 could not be read" reached a reader with no explanation
- * attached.
- *
- * **The cross-origin branch should now be unreachable, and is kept deliberately.**
- * It fired for all 17 papers the reader reported, because the fetch was made from
- * the page; it now goes through the same-origin proxy, which is the whole point of
- * `fetchPdfBytesForCache`. It stays because a build with no proxy — a browser with
- * no server behind it — can still reach this, and a bare `TypeError: Failed to
- * fetch` identical to a dead network is worth naming when it happens.
- */
-export function readFailureReason(error: unknown, status?: number): string {
-  return readyCore().readFailureReason(errorMessage(error), status);
-}
 
 /**
  * Read and index the given papers, one at a time.
@@ -428,7 +372,7 @@ export async function indexLibraryPdfs(
       failed += 1;
       failures.push(paper.title);
       unreadIds.push(paper.id);
-      reasons[paper.title] = readFailureReason(error);
+      reasons[paper.title] = readyCore().readFailureReason(errorMessage(error));
     } finally {
       // Object URLs from the ladder are per-document; leaking one per paper
       // across a whole library would hold every PDF in memory.

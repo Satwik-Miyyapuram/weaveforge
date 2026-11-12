@@ -524,6 +524,7 @@ pub fn repo_step(repo: &str, method: &str, call: &RepoCall) -> RepoStep {
         "paper_relations" => crate::repos::paper_relations::step(method, call),
         "share_links" => crate::repos::share_links::step(method, call),
         "shares" => crate::repos::shares::step(method, call),
+        "showcase_seed" => crate::repos::showcase_seed::step(method, call),
         "tags" => crate::repos::tags::step(method, call),
         "user_settings" => crate::repos::user_settings::step(method, call),
         "vault_pages" => crate::repos::vault_pages::step(method, call),

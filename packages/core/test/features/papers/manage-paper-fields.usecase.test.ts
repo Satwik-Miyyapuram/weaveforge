@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryPaperFieldRepository } from "../../../src/testing/in-memory-a.js";
+import { InMemoryPaperFieldRepository } from "../../support/in-memory.js";
 import { ManagePaperFieldsUseCase } from "../../../src/features/papers/application/parts-1.js";
-import { seqIds } from "../../../src/testing/parts.js";
+import { seqIds } from "../../support/clock.js";
 
 
 function setup() {

@@ -37,7 +37,7 @@ unselected sources are excluded.
 **Proposal-only** (10) — each saves an encrypted pending proposal, and
 `/ai-review` is the only approval path: `suggest_zotero_import`, `suggest_append_paper_note`, `suggest_create_vault_note`, `suggest_create_log_entry`, `suggest_paper_update`, `suggest_paper_field_value`, `suggest_reading_list_change`, `suggest_relation`, `suggest_milestone_follow_up`, `suggest_experiment_follow_up`
 
-**The desktop workspace server** (0): 
+**The desktop workspace server** (15): `list_projects`, `list_workspace`, `read_entry`, `get_note`, `get_paper`, `get_report_section`, `get_experiment`, `list_experiments`, `get_milestone`, `get_log`, `get_reading_list`, `list_tags`, `get_relations`, `get_backlinks`, `experiment_tracking_setup`
 
 <!-- /generated:mcp-tools -->
 

@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { rustReadingListRepository } from "../parts";
+import type { IReadingListRepository } from "@weaveforge/core";
+import { projectUserCtx, rustRepository } from "@/backend/providers/postgrest/rust-repository";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
@@ -17,9 +18,11 @@ before(async () => {
  */
 function returning(found: Record<string, unknown>[]) {
   const run: LocalQuery = async () => found as never;
-  return rustReadingListRepository(
+  return rustRepository<IReadingListRepository>(
     createLocalClient(run) as unknown as SupabaseClient,
-    { projectId: "p1" },
+    "reading_lists",
+    ["getById", "list", "getTree", "save", "delete"],
+    projectUserCtx({ projectId: "p1" }),
   );
 }
 

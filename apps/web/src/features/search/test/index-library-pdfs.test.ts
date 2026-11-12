@@ -1,78 +1,31 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
 
+import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { readFailureReason } from "../application/parts-1";
 
 before(async () => {
   await loadTestCore();
 });
 
 /**
- * Why a PDF could not be read, in words a reader can act on.
- *
- * The loop that produces these reasons cannot be unit-tested here — it needs a
- * container, the network, pdf.js and IndexedDB — and that absence is exactly why
- * the bugs it had survived: a run finished with "Indexed 0, 18 could not be read"
- * and *no reason for any of them*, because the catch block discarded the error
- * and the result type had nowhere to put one. This is the piece worth testing on
- * its own.
- */
-test("a refused cross-origin read is named as such, not as a dead network", () => {
-  // What a browser reports for either, with nothing to tell them apart. The app
-  // cannot fix a host's CORS policy, and the reader should not be left retrying.
-  assert.equal(
-    readFailureReason(new TypeError("Failed to fetch")),
-    "the host does not allow this app to read its PDF (cross-origin)",
-  );
-  assert.equal(
-    readFailureReason(new TypeError("NetworkError when attempting to fetch resource.")),
-    "the host does not allow this app to read its PDF (cross-origin)",
-  );
-  assert.equal(
-    readFailureReason(new TypeError("Load failed")),
-    "the host does not allow this app to read its PDF (cross-origin)",
-  );
-});
-
-test("an HTTP status is reported as the status", () => {
-  // A 403 and a 404 are different problems; feeding the error body to pdf.js made
-  // both of them a parse failure.
-  assert.equal(readFailureReason(new Error("whatever"), 403), "the host answered 403");
-  assert.equal(readFailureReason(new Error("whatever"), 404), "the host answered 404");
-  assert.equal(readFailureReason(undefined, 500), "the host answered 500");
-});
-
-test("anything else keeps the error's own words", () => {
-  // A real reason from further in — an invalid PDF, a parse failure — is more
-  // useful than a category, so it is passed through rather than relabelled.
-  assert.equal(readFailureReason(new Error("Invalid PDF structure")), "Invalid PDF structure");
-  assert.equal(readFailureReason(new Error("The PDF had no pages")), "The PDF had no pages");
-});
-
-test("a thrown non-Error still yields something printable", () => {
-  assert.equal(readFailureReason("plain string failure"), "plain string failure");
-  assert.equal(readFailureReason(undefined), "undefined");
-});
-
-/**
  * The background indexer reads page text the way the reader does (27-03): a
  * newline after each line-ending run, so the last word of a line is not glued
- * to the first word of the next.
+ * to the first word of the next. The join itself is tested in Rust
+ * (`reader_analysis::lines`); these cases cover the wasm adapter that reads
+ * the pdf.js text items, which is the part still on the TS side.
  */
-test("words at line ends stay separate, as the reader writes them", async () => {
-  const { pdfPageText } = await import("../application/parts-1");
+test("words at line ends stay separate, as the reader writes them", () => {
   const items = [
     { str: "the end of", hasEOL: true },
     { type: "beginMarkedContent" },
     { str: "line two", hasEOL: false },
     { type: "endMarkedContent" },
   ];
-  assert.equal(pdfPageText(items), "the end of\nline two");
+  assert.equal(readyCore().pdfPageText(items), "the end of\nline two");
 });
 
-test("a page with no text runs is empty", async () => {
-  const { pdfPageText } = await import("../application/parts-1");
-  assert.equal(pdfPageText([]), "");
-  assert.equal(pdfPageText([{ type: "beginMarkedContent" }]), "");
+test("a page with no text runs is empty", () => {
+  assert.equal(readyCore().pdfPageText([]), "");
+  assert.equal(readyCore().pdfPageText([{ type: "beginMarkedContent" }]), "");
 });

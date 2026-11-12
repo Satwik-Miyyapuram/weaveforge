@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { PushPaperToZoteroUseCase, type Paper } from "../../../src/index.js";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-b.js";
+import { InMemoryPaperRepository } from "../../support/in-memory.js";
 
 /**
  * The one push-to-Zotero rule.

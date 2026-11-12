@@ -4,7 +4,7 @@ import {
   AddPaperUseCase,
   PaperValidationError,
 } from "../../../src/index.js";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-b.js";
+import { InMemoryPaperRepository } from "../../support/in-memory.js";
 
 function makeUseCase() {
   const repo = new InMemoryPaperRepository();

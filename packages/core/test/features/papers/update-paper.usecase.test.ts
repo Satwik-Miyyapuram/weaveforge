@@ -1,14 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  InMemoryPaperRepository,
-  InMemoryPaperTagRepository,
-  InMemoryTagRepository,
-} from "../../../src/testing/in-memory-b.js";
+import { InMemoryPaperRepository } from "../../support/in-memory.js";
 import { AddPaperUseCase } from "../../../src/features/papers/application/parts-1.js";
 import { UpdatePaperUseCase } from "../../../src/features/papers/application/update-paper.use-case.js";
-import { ManageTagsUseCase } from "../../../src/features/tags/application/manage-tags.use-case.js";
-import { fixedClock, seqIds } from "../../../src/testing/parts.js";
+import type { ITagManager } from "../../../src/features/tags/domain/parts.js";
+import { fixedClock, seqIds } from "../../support/clock.js";
 import { NotFoundError } from "../../../src/index.js";
 import { rust } from "../../../src/shared/rust.js";
 
@@ -16,18 +12,11 @@ const clock = fixedClock("2026-06-24T12:00:00.000Z");
 
 function setup() {
   const repo = new InMemoryPaperRepository();
-  const tagRepo = new InMemoryTagRepository();
-  const paperTagRepo = new InMemoryPaperTagRepository();
-  const manageTags = new ManageTagsUseCase({
-    tags: tagRepo,
-    paperTags: paperTagRepo,
-    papers: repo,
-    clock,
-    ids: seqIds(),
-  });
   const add = new AddPaperUseCase({ repository: repo, clock, ids: seqIds() });
-  const update = new UpdatePaperUseCase({ repository: repo, tags: manageTags, clock });
-  return { repo, add, update, manageTags, tags: tagRepo, paperTags: paperTagRepo };
+  // Tag operations are Rust-owned (tags repo); no test here drives them.
+  const tags = {} as unknown as ITagManager;
+  const update = new UpdatePaperUseCase({ repository: repo, tags, clock });
+  return { repo, add, update };
 }
 
 test("setStatus changes only the status", async () => {
@@ -91,14 +80,6 @@ test("setSummary clears with empty string and keeps markdown verbatim", async ()
   assert.equal(s.summary, md);
   const cleared = await update.setSummary(p.id, "   ");
   assert.equal(cleared.summary, undefined);
-});
-
-test("mergeTags normalizes and unions through the tags use case", async () => {
-  const { add, update } = setup();
-  const p = await add.addManual({ title: "VAE" });
-  await update.mergeTags(p.id, ["#Bayes"]);
-  const b = await update.mergeTags(p.id, ["VAE", "#latent", "vae"]);
-  assert.deepEqual(b.tags.sort(), ["bayes", "latent", "vae"]);
 });
 
 test("extractHashtags pulls normalized tags from text", async () => {

@@ -88,7 +88,7 @@ export function PrivacyDisclaimerGate({
     try {
       const light = getLightContainer();
       try {
-        await light.settings.acceptDisclaimer();
+        await light.preferences.acceptDisclaimer();
       } catch (first) {
         // This is the first row a new account ever writes, so it is where a
         // half-provisioned identity surfaces — as a foreign key violation on
@@ -99,7 +99,7 @@ export function PrivacyDisclaimerGate({
         await light.selfProvisioner.ensureProvisioned(true).catch(() => {
           throw first;
         });
-        await light.settings.acceptDisclaimer();
+        await light.preferences.acceptDisclaimer();
       }
       // The acceptance is written and durable at this point. Refreshing the
       // startup bundle is how the rest of the app learns about it, but if that

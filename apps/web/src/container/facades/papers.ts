@@ -8,7 +8,7 @@ import type {
   IReaderAnnotationSink,
   IReaderAnnotationSource,
   IReportSectionRepository,
-  ManageTagsUseCase,
+  ITagManager,
   NewReaderAnnotation,
   Paper,
   QuotationType,
@@ -38,7 +38,7 @@ export class PapersFacade {
       load: LoadPapersScreenUseCase;
       deletePaper: DeletePaperUseCase;
       papers: IPaperRepository;
-      manageTags: ManageTagsUseCase;
+      manageTags: ITagManager;
       updatePaper: UpdatePaperUseCase;
       importPaper: ImportPaperUseCase;
       addPaper: AddPaperUseCase;

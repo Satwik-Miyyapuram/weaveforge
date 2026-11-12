@@ -55,8 +55,8 @@ function values() {
   return {
     CORE_LINES: n(measure({ dir: "packages/core", unit: "lines" }).lines),
     WEB_LINES: n(measure({ dir: "apps/web", unit: "lines" }).lines),
-    DESKTOP_LINES: n(measure({ dir: "apps/desktop", unit: "lines" }).lines),
-    DESKTOP_FILES: n(measure({ dir: "apps/desktop/src", unit: "lines" }).files),
+    DESKTOP_LINES: n(measure({ dir: "apps/shell", unit: "lines" }).lines),
+    DESKTOP_FILES: n(measure({ dir: "apps/shell/src", unit: "lines" }).files),
     PITCH_LINES: n(measure({ dir: "apps/pitch", unit: "lines" }).lines),
     PYTHON_LINES: n(measure({ dir: "python/weaveforge", unit: "lines" }).lines),
     PYTHON_TEST_LINES: n(measure({ dir: "python/tests", unit: "lines" }).lines),

@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
-import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
+import { emptyWorkspaceSnapshot as snapshot } from "@core-test/workspace-snapshot";
 import { type WorkspaceSnapshot } from "@weaveforge/core";
 import type { PdfIndexSource } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";

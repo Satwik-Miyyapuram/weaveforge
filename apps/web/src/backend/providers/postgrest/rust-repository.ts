@@ -7,6 +7,7 @@ import type {
   IAiProposalStore,
   ICurrentUserProvider,
   IShareLinkRepository,
+  IVaultPageManager,
   IVaultPageRepository,
   VaultPage,
 } from "@weaveforge/core";
@@ -99,14 +100,14 @@ export function projectUserCtx(project: ProjectContext, session?: ICurrentUserPr
 }
 
 /** The vault page repository, plus the stamp and by-id reads the cache and sharing use. */
-export type RustVaultPageRepository = IVaultPageRepository & {
+export type RustVaultPageRepository = IVaultPageRepository & IVaultPageManager & {
   listStamps(): Promise<EntityStamp[]>;
   listByIds(ids: readonly string[]): Promise<VaultPage[]>;
 };
 
 /** `vault_pages` through the Rust step engine, scoped to the current project. */
 export function rustVaultPageRepository(db: SupabaseClient, project: ProjectContext): RustVaultPageRepository {
-  return rustRepository<RustVaultPageRepository>(db, "vault_pages", ["getById", "listStamps", "listByIds", "list", "listSummaries", "getTree", "titleTaken", "save", "delete"], projectUserCtx(project));
+  return rustRepository<RustVaultPageRepository>(db, "vault_pages", ["getById", "listStamps", "listByIds", "list", "listSummaries", "getTree", "titleTaken", "save", "delete", "add", "update", "remove"], projectUserCtx(project));
 }
 
 /** The share-link repository. Rust returns `redeem`'s `dekWrap` as a number array. */

@@ -1,6 +1,7 @@
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
 import {
   PostgrestSettingsRepository,
+  type SettingsWrites,
 } from "@/features/settings/infrastructure/parts";
 import { formatError } from "@/lib/format-error";
 import { systemClock } from "@/lib/parts";
@@ -166,6 +167,8 @@ export function resetSelfProvisioningMemoForTests(): void {
 export interface LightBackend {
   readonly auth: IAuthService;
   readonly manageSettings: ManageSettingsUseCase;
+  /** Appearance and disclaimer writes; the disclaimer is the first of them. */
+  readonly preferences: SettingsWrites;
   /** Pre-disclaimer because the disclaimer itself is the first write. */
   readonly selfProvisioner: ISelfProvisioner;
 }
@@ -199,7 +202,12 @@ export function wireLightBackend(config: BackendConfig = readBackendConfig()): L
   // reach for `/api/settings/credentials` either.
   const settingsRepository = new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
-  return { auth, manageSettings, selfProvisioner: new PostgrestSelfProvisioner(db) };
+  return {
+    auth,
+    manageSettings,
+    preferences: settingsRepository,
+    selfProvisioner: new PostgrestSelfProvisioner(db),
+  };
 }
 
 /**
@@ -214,6 +222,7 @@ function wireLocalLightBackend(): LightBackend {
   return {
     auth: new LocalAuthService(),
     manageSettings: new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock }),
+    preferences: settingsRepository,
     selfProvisioner: { ensureProvisioned: async () => {} },
   };
 }

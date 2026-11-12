@@ -321,23 +321,6 @@ fn error_texts_match_the_spec_exactly() {
 }
 
 #[test]
-fn shared_error_texts_match_the_typescript_constants() {
-    let ts = include_str!("../../shell/sidecar/src/secret-store.ts");
-    let unknown = SecretError::UnknownName.to_string();
-    assert!(ts.contains(&format!("\"{unknown}\"")));
-    let (first, second) = NO_KEYCHAIN_TEXT.split_at(
-        "This machine has no keychain available, so there is nowhere safe to keep it. ".len(),
-    );
-    assert!(ts.contains(&format!("\"{first}\"")));
-    assert!(ts.contains(&format!("\"{second}\"")));
-    assert_eq!(SecretError::NoKeychain.to_string(), NO_KEYCHAIN_TEXT);
-    assert_eq!(
-        SecretError::EmptyValue.to_string(),
-        "A secret is a non-empty string."
-    );
-}
-
-#[test]
 fn page_lists_are_subsets_and_names_are_unique() {
     for name in PAGE_READABLE.iter().chain(PAGE_WRITABLE.iter()) {
         assert!(SECRET_NAMES.contains(name), "{name}");

@@ -2,7 +2,7 @@ import { NotFoundError } from "../../../shared/errors.js";
 import type { Clock, IdGenerator } from "../../../shared/parts.js";
 import { rust } from "../../../shared/rust.js";
 import type { INotificationIntegration } from "../../integrations/domain/parts.js";
-import type { AddLogEntryUseCase } from "../../logbook/application/add-log-entry.use-case.js";
+import type { ILogEntryManager } from "../../logbook/domain/parts.js";
 import type { PaperRef } from "../../papers/application/parts-1.js";
 import type {
   IPaperIdentityLookup,
@@ -129,7 +129,7 @@ export class CheckCitationAlertsUseCase {
       papers: IPaperRepository;
       tracks: ICitationAlertTrackRepository;
       sources: ICitationSource[];
-      logs: AddLogEntryUseCase;
+      logs: ILogEntryManager;
       notifications: INotificationIntegration;
       clock: Clock;
       /** Live project scope; when it changes mid-run, stop before further writes. */

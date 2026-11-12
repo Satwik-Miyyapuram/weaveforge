@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AddPaperUseCase, UpdatePaperUseCase, NotFoundError, imagesOf, type Paper } from "../../../src/index.js";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-b.js";
+import { InMemoryPaperRepository } from "../../support/in-memory.js";
 import { rust } from "../../../src/shared/rust.js";
 
 // The tag methods are exercised in manage-tags; here we only drive the paper

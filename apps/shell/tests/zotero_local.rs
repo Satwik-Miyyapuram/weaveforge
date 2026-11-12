@@ -1,4 +1,4 @@
-//! Tests for the Zotero desktop local API relay (ported from apps/desktop/test/zotero-local.test.ts).
+//! Tests for the Zotero desktop local API relay (ported from the retired Electron shell).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use crate::upstream;

@@ -76,6 +76,14 @@ pub fn new_issue_url(title: &str, body: &str, repo: &str) -> JsResult<String> {
     Ok(core_new_issue_url(title, body, repo))
 }
 
+/// [`wf_core::error_report::report_repo::report_repo`] for JS: the configured
+/// `owner/repo`, or the default when it is missing or malformed.
+#[must_use]
+#[wasm_bindgen(js_name = reportRepo)]
+pub fn report_repo(configured: Option<String>) -> String {
+    wf_core::error_report::report_repo::report_repo(configured.as_deref())
+}
+
 /// [`wf_core::error_report::issue_url::report_markdown`] for JS.
 ///
 /// # Errors

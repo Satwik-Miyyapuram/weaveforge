@@ -183,13 +183,17 @@ fn count_after(call: &RepoCall) -> RepoStep {
     }
 }
 
-/// `compact(input)`: runs `compact_crdt_log`. Stale input is a no-op without a query; the two
-/// refusals (`42501`, `P0002`) are outcomes, and any other error fails with its message.
+/// `compact(input)`: runs `compact_crdt_log`. A snapshot covering no update (`uptoId <= 0`) and
+/// stale input are no-ops without a query; the two refusals (`42501`, `P0002`) are outcomes, and
+/// any other error fails with its message.
 fn compact(call: &RepoCall) -> RepoStep {
     let input: CompactInput = match call.parse(0) {
         Ok(input) => input,
         Err(e) => return RepoStep::fail(e),
     };
+    if input.upto_id <= 0 {
+        return RepoStep::done(&json!({ "status": "no-op", "reason": "nothing-to-do" }));
+    }
     if input
         .current_upto
         .is_some_and(|current| input.upto_id <= current)
@@ -403,6 +407,32 @@ mod tests {
             done(step("compact", &call(vec![input], vec![])).unwrap()),
             json!({"status": "no-op", "reason": "stale"})
         );
+    }
+
+    #[test]
+    fn compact_without_a_snapshot_is_nothing_to_do_without_a_query() {
+        let input = json!({"resourceType": "vault_page", "resourceId": "v1", "uptoId": 0});
+        assert_eq!(
+            done(step("compact", &call(vec![input], vec![])).unwrap()),
+            json!({"status": "no-op", "reason": "nothing-to-do"})
+        );
+    }
+
+    #[test]
+    fn compact_behind_the_watermark_is_stale_without_a_query() {
+        let input = json!({"resourceType": "vault_page", "resourceId": "v1", "uptoId": 100, "currentUpto": 200});
+        assert_eq!(
+            done(step("compact", &call(vec![input], vec![])).unwrap()),
+            json!({"status": "no-op", "reason": "stale"})
+        );
+    }
+
+    #[test]
+    fn compact_newest_snapshot_is_asked_of_the_database() {
+        let input = json!({"resourceType": "vault_page", "resourceId": "v1", "uptoId": 200, "currentUpto": 100});
+        let q = sent(step("compact", &call(vec![input], vec![])).unwrap());
+        assert_eq!(q.rpc.as_deref(), Some("compact_crdt_log"));
+        assert_eq!(q.body.unwrap()["p_upto_id"], 200);
     }
 
     #[test]

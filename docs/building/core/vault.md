@@ -68,10 +68,9 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `sync::vault_limits::too_large_message` (wasm `vaultTooLargeMessage`) gives the
 text for a file over the cap: "That file is too large to open here (over N MB)."
 The cap is in bytes, and the message shows it in whole MB. The caps themselves,
-`MAX_VAULT_BYTES` (8 MiB) and `MAX_VAULT_BLOB_BYTES` (80 MiB), stay as constants
-in `apps/shell/sidecar/src/vault-handlers.ts`, next to the reads and writes they
-guard. `vault-handlers.ts` calls `rust().vaultTooLargeMessage(cap)` on both
-sides of the bridge.
+8 MiB for text and 80 MiB for blobs, were enforced by the retired TS sidecar.
+The native vault commands in `apps/shell/src/cmd_vault.rs` do not enforce them
+yet; adding the check there is open work.
 
 ## Related
 

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import type { McpTokenRecord } from "@/container/facades";
 import { formatError } from "@/lib/format-error";
-import { formatDate } from "@/lib/parts-1";
+import { localOffset } from "@/lib/parts-1";
+import { readyCore } from "@/lib/rust-core";
 import { FormError } from "@/components/form-error";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/button";
@@ -100,7 +101,7 @@ export function McpTokensPanel() {
                 <span className="muted mono">{token.tokenPrefix}</span>
               </div>
               <div className="api-token-meta muted">
-                <span>{token.lastUsedAt ? `Last used ${formatDate(token.lastUsedAt)}` : "Not used yet"}</span>
+                <span>{token.lastUsedAt ? `Last used ${readyCore().formatDate(token.lastUsedAt, localOffset(token.lastUsedAt))}` : "Not used yet"}</span>
               </div>
               <Button variant="danger" size="sm" onClick={() => setRevoking(token.id)} disabled={busy}>
                 Revoke

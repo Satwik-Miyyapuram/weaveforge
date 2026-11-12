@@ -5,7 +5,7 @@ import type {
   IProjectBibliographyCollectionStore,
   ISettingsRepository,
   ManageSettingsUseCase,
-  ManageTagsUseCase,
+  ITagManager,
 } from "@weaveforge/core";
 import {
   ZoteroAnnotations,
@@ -65,7 +65,7 @@ export function wireZoteroBibliography(deps: {
   settingsRepository: ISettingsRepository;
   projectContext: ProjectContext;
   paperRepository: IPaperRepository;
-  manageTags: ManageTagsUseCase;
+  manageTags: ITagManager;
   addPaper: AddPaperUseCase;
   projectCollection: IProjectBibliographyCollectionStore;
 }): ZoteroBibliographyWireResult {

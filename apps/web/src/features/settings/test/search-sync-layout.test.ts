@@ -19,7 +19,7 @@ test("the field weights sit in two compact columns", () => {
 
 test("the sync panel dates its last check without seconds", () => {
   const sync = read("features/offline-sync/ui/sync-settings-panel.tsx");
-  assert.match(sync, /Last checked \$\{formatDateTime\(status\.lastPullAt\)\}/);
+  assert.match(sync, /Last checked \$\{readyCore\(\)\.formatDateTime\(status\.lastPullAt, /);
   assert.doesNotMatch(sync, /toLocale(String|TimeString)/);
 });
 

@@ -1,7 +1,7 @@
 import { rust } from "../../src/shared/rust.js";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MemoryWorkspaceFs } from "../../src/testing/memory-workspace-fs.js";
+import { MemoryWorkspaceFs } from "../support/memory-workspace-fs.js";
 import { WORKSPACE_META_DIR, WorkspacePathError, isSafeWorkspacePath, safeWorkspacePath, type ExistingEntity, type WorkspaceSnapshot } from "../../src/index.js";
 
 function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {

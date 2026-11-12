@@ -1,7 +1,8 @@
 "use client";
 
 import { formatError } from "@/lib/format-error";
-import { formatDateTime } from "@/lib/parts-1";
+import { localOffset } from "@/lib/parts-1";
+import { readyCore } from "@/lib/rust-core";
 import { useCallback, useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
@@ -24,7 +25,7 @@ const EXPIRY_OPTIONS = [
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "Never";
-  return formatDateTime(iso);
+  return readyCore().formatDateTime(iso, localOffset(iso));
 }
 
 /** Personal access tokens for the Python SDK. */

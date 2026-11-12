@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
-import { isReaderObjectUrl } from "../application/sanitize-reader-url.js";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { readyCore } from "@/lib/rust-core";
 
@@ -64,43 +63,6 @@ test("looksLikePdfUrl rejects HTML paths that merely contain /pdf/", () => {
   assert.equal(readyCore().looksLikePdfUrl("https://openreview.net/pdf?id=abc"), true);
   assert.equal(readyCore().looksLikePdfUrl("https://host.example/pdf/abc123"), true);
   assert.equal(readyCore().looksLikePdfUrl("https://doi.org/doi/pdf/10.1/xyz"), true);
-});
-
-test("proxiedPdfUrl rewrites allowlisted hosts through the same-origin proxy", async () => {
-  const { proxiedPdfUrl } = await import("../application/sanitize-reader-url.js");
-  assert.equal(
-    proxiedPdfUrl("https://arxiv.org/pdf/1706.03762"),
-    "/api/pdf-proxy?url=" + encodeURIComponent("https://arxiv.org/pdf/1706.03762"),
-  );
-  assert.equal(proxiedPdfUrl("https://evil.test/a.pdf"), "https://evil.test/a.pdf");
-});
-
-test("isReaderObjectUrl accepts this origin's object URLs and nothing else", () => {
-  const origin = "https://weaveforge.test";
-  const priorLocation = (globalThis as { location?: unknown }).location;
-  Object.defineProperty(globalThis, "location", {
-    value: { origin },
-    configurable: true,
-    writable: true,
-  });
-  try {
-    // The reader caches PDF bytes and re-opens them through createObjectURL, so
-    // the second visit to any paper is a blob: URL. Rejecting it made the reader
-    // refuse to open a paper it had cached itself.
-    assert.equal(isReaderObjectUrl(`blob:${origin}/2f1c-4b`), true);
-    // Another origin's handle is not ours to read.
-    assert.equal(isReaderObjectUrl("blob:https://evil.example/2f1c-4b"), false);
-    assert.equal(isReaderObjectUrl("blob:not-a-url"), false);
-    assert.equal(isReaderObjectUrl("https://arxiv.org/pdf/1706.03762"), false);
-    assert.equal(isReaderObjectUrl("javascript:alert(1)"), false);
-    assert.equal(isReaderObjectUrl(null), false);
-  } finally {
-    Object.defineProperty(globalThis, "location", {
-      value: priorLocation,
-      configurable: true,
-      writable: true,
-    });
-  }
 });
 
 test("sanitizePdfUrl still refuses object URLs, so links never point at blobs", () => {

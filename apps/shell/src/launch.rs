@@ -14,7 +14,7 @@ pub const MAX_IN_FLIGHT: usize = 64;
 /// Longest sidecar reply line: big result sets are allowed, a runaway one kills the sidecar.
 pub const MAX_REPLY_BYTES: usize = 256 * 1024 * 1024;
 /// How long quitting waits for the sidecar to back up and close the database. Same as Electron's
-/// `QUIT_TIMEOUT_MS` (apps/desktop/src/quit.ts): the exit backup can be hundreds of MB.
+/// `QUIT_TIMEOUT_MS` (retired Electron shell): the exit backup can be hundreds of MB.
 pub const SHUTDOWN_GRACE: Duration = Duration::from_secs(15);
 /// Product name of the side-by-side test build. It keeps its own data and MCP files, like Electron's.
 pub const DEV_PRODUCT_NAME: &str = "WeaveForge Dev";
@@ -104,7 +104,7 @@ pub fn home_variant(source: &SidecarSource, product_name: &str) -> Option<&'stat
 pub fn bridge_source(source: &SidecarSource) -> PathBuf {
     match source {
         SidecarSource::Dev { repo } => {
-            without_verbatim_prefix(repo).join("apps/desktop/dist/weaveforge-mcp.mjs")
+            without_verbatim_prefix(repo).join("plugins/weaveforge-research/mcp-server/index.mjs")
         }
         SidecarSource::Bundled { resources } => without_verbatim_prefix(resources)
             .join("sidecar")
@@ -265,7 +265,7 @@ mod tests {
             "--artifacts".into(),
             "/data/artifacts".into(),
             "--bridge".into(),
-            repo.join("apps/desktop/dist/weaveforge-mcp.mjs")
+            repo.join("plugins/weaveforge-research/mcp-server/index.mjs")
                 .into_os_string(),
             "--app-version".into(),
             "1.2.3".into(),
@@ -437,7 +437,7 @@ mod tests {
             bridge_source(&SidecarSource::Dev {
                 repo: PathBuf::from("repo"),
             }),
-            PathBuf::from("repo").join("apps/desktop/dist/weaveforge-mcp.mjs")
+            PathBuf::from("repo").join("plugins/weaveforge-research/mcp-server/index.mjs")
         );
         assert_eq!(
             bridge_source(&SidecarSource::Bundled {
@@ -554,7 +554,7 @@ mod tests {
 
     #[test]
     fn shutdown_grace_covers_the_exit_backup() {
-        // Electron's QUIT_TIMEOUT_MS (apps/desktop/src/quit.ts): the backup and the close fit inside it.
+        // Electron's QUIT_TIMEOUT_MS (retired Electron shell): the backup and the close fit inside it.
         assert_eq!(SHUTDOWN_GRACE, Duration::from_secs(15));
     }
 

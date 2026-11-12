@@ -6,7 +6,7 @@ import { LibraryPinError } from "../../../src/features/library/domain/parts.js";
 import {
   InMemoryPaperRepository,
   InMemoryShareRepository,
-} from "../../../src/testing/in-memory-b.js";
+} from "../../support/in-memory.js";
 
 const clock = { nowIso: () => "2026-01-01T00:00:00.000Z" };
 const ids = { newId: () => "copy-1" };

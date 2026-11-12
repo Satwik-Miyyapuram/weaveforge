@@ -1,5 +1,8 @@
 # End-to-end pass — plan and log
 
+> **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
+> TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
+
 Started 2026-09-24. This file is the plan, and it is updated as each phase
 lands.
 

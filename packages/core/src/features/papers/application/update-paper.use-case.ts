@@ -8,15 +8,14 @@
 
 import { PaperValidationError, PAPER_STATUSES, type Paper, type PaperStatus } from "../domain/parts.js";
 import type { IPaperRepository } from "../domain/parts.js";
-import type { TagSource } from "../../tags/domain/parts.js";
-import type { ManageTagsUseCase } from "../../tags/application/manage-tags.use-case.js";
+import type { ITagManager, TagSource } from "../../tags/domain/parts.js";
 import type { Clock } from "../../../shared/parts.js";
 import { NotFoundError } from "../../../shared/errors.js";
 import { rust } from "../../../shared/rust.js";
 
 export interface UpdatePaperDeps {
   repository: IPaperRepository;
-  tags: ManageTagsUseCase;
+  tags: ITagManager;
   clock: Clock;
 }
 

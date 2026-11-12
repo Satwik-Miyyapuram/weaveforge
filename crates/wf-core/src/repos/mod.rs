@@ -34,6 +34,7 @@ pub mod screening_decisions;
 pub mod share_links;
 pub mod shared_items;
 pub mod shares;
+pub mod showcase_seed;
 pub mod supervision;
 pub mod tags;
 pub mod user_settings;

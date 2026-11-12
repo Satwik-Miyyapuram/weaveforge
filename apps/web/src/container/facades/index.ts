@@ -47,10 +47,10 @@ import type {
   ISupervisionRepository,
   ITagRepository,
   IVaultPageRepository,
-  ManageExperimentUseCase,
-  ManageMilestoneUseCase,
-  ManageProjectUseCase,
-  ManageVaultPageUseCase,
+  IExperimentManager,
+  IProjectManager,
+  IMilestoneManager,
+  IVaultPageManager,
   Member,
   Milestone,
   ParsedReference,
@@ -224,7 +224,7 @@ export class PlanFacade {
     private readonly deps: {
       load: LoadPlanScreenUseCase;
       milestones: IMilestoneRepository;
-      manageMilestone: ManageMilestoneUseCase;
+      manageMilestone: IMilestoneManager;
       notifications: INotificationIntegration;
       /** The calendar / widget link (Settings → Calendar). */
       feedLinks: PlanFeedLinks;
@@ -257,7 +257,7 @@ export class ProjectsFacade {
   constructor(
     private readonly deps: {
       projects: IProjectRepository;
-      manageProject: ManageProjectUseCase;
+      manageProject: IProjectManager;
       context: ProjectContext;
       watchLww: (projectId: string | null) => void;
     },
@@ -307,7 +307,7 @@ export class SyncFacade {
     private readonly deps: {
       integrations: IIntegrationsStore;
       git: IGitClient;
-      manageExperiment: ManageExperimentUseCase;
+      manageExperiment: IExperimentManager;
     },
   ) {}
 
@@ -334,7 +334,7 @@ export class VaultFacade {
     private readonly deps: {
       load: LoadVaultScreenUseCase;
       pages: IVaultPageRepository;
-      manageVaultPage: ManageVaultPageUseCase;
+      manageVaultPage: IVaultPageManager;
       assets: import("@/features/vault/domain/vault-assets").IVaultAssetStore;
       duplicateSharedPage: DuplicateSharedVaultPageUseCase;
     },

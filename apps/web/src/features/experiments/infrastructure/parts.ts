@@ -6,6 +6,7 @@ import type {
   IBlobStore,
   Experiment,
   ICurrentUserProvider,
+  IExperimentManager,
   IExperimentRepository,
   IMetricRepository,
 } from "@weaveforge/core";
@@ -84,15 +85,29 @@ export function isTauriShell(scope: object = globalThis): boolean {
  * scoped to the open project. `listByIds` is the batch read the facades duck-type.
  */
 /** An experiment repository with the batch read the sharing facades duck-type. */
-export type RustExperimentRepository = IExperimentRepository & {
-  listByIds(ids: readonly string[]): Promise<Experiment[]>;
-};
+export type RustExperimentRepository = IExperimentRepository &
+  IExperimentManager & {
+    listByIds(ids: readonly string[]): Promise<Experiment[]>;
+  };
 
 export function rustExperimentRepository(db: SupabaseClient, project: ProjectContext): RustExperimentRepository {
   const repo = rustRepository<RustExperimentRepository>(
     db,
     "experiments",
-    ["getById", "listByIds", "list", "save", "patch", "delete"],
+    [
+      "getById",
+      "listByIds",
+      "list",
+      "save",
+      "patch",
+      "delete",
+      "add",
+      "setStatus",
+      "recordMetrics",
+      "addArtifacts",
+      "setResultNote",
+      "remove",
+    ],
     projectUserCtx(project),
   );
   // JSON drops undefined keys; a field patched to undefined is a clear, so send null.

@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDate, formatDateTime } from "@/lib/parts-1";
+import { localOffset } from "@/lib/parts-1";
 import { Fragment, useState } from "react";
 import { readyCore, type DiffLine, type HunkPick } from "@/lib/rust-core";
 import type { OpenConflict } from "../domain/parts-1";
@@ -403,8 +403,7 @@ function format(value: unknown): string {
   if (value === null || value === undefined || value === "") return "empty";
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "string" && ISO.test(value)) {
-    const d = new Date(value);
-    if (!Number.isNaN(d.getTime())) return value.length > 10 ? formatDateTime(d) : formatDate(d);
+    if (!Number.isNaN(Date.parse(value))) return value.length > 10 ? readyCore().formatDateTime(value, localOffset(value)) : readyCore().formatDate(value, localOffset(value));
   }
   const out = typeof value === "string" ? value : JSON.stringify(value);
   return out.length > 80 ? `${out.slice(0, 80)}…` : out;

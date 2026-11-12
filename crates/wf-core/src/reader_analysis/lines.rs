@@ -483,6 +483,14 @@ mod tests {
     }
 
     #[test]
+    fn page_text_from_items_puts_a_newline_after_each_line_end() {
+        assert_eq!(
+            page_text_from_items(&[run("the end of", Some(true)), run("line two", Some(false))]),
+            "the end of\nline two"
+        );
+    }
+
+    #[test]
     fn is_bold_font_matches_bold_black_and_heavy_any_case_only() {
         for name in [
             "Times-Bold",

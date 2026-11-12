@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
+import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 
 import { IMPORT_LIMITS, readPreviewFolder, SKIP_TOO_BIG } from "../application/parts-2";
 

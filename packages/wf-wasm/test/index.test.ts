@@ -196,7 +196,7 @@ test("wf-wasm exports no classes or enums", () => {
   // A #[wasm_bindgen] struct or enum would bypass the wrapper and bindings.ts.
   // Agree how to type them before adding one.
   // The agreed classes, each typed by wasm-bindgen: the AI AiAccessPolicy, the
-  // search VectorIndex, the live InkStrokePacker, the import ArchiveBudget, the
+  // search VectorIndex and SearchIndexState, the live InkStrokePacker, the import ArchiveBudget, the
   // stateful pen filters OneEuroFilter and NibFilter, and the stateful ink gesture
   // machines EraserSweepState, InkRoutePicker and StrokeEdgeSplit.
   const dts = read(new URL("wf_wasm.d.ts", pkgDir));
@@ -209,6 +209,7 @@ test("wf-wasm exports no classes or enums", () => {
     "InkStrokePacker",
     "NibFilter",
     "OneEuroFilter",
+    "SearchIndexState",
     "StrokeEdgeSplit",
     "VectorIndex",
   ]);

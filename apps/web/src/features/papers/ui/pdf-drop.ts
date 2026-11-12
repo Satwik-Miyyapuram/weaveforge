@@ -5,7 +5,7 @@
 import type { Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { getReaderPdfByteCache } from "@/features/reader/application/parts-3";
-import { pdfPageText } from "@/features/search/application/parts-1";
+import { readyCore } from "@/lib/rust-core";
 import {
   addPaperFromPdf,
   type PdfDropDeps,
@@ -22,7 +22,7 @@ async function readPdf(bytes: ArrayBuffer): Promise<PdfText> {
   const doc = await lib.getDocument({ data: bytes.slice(0) }).promise;
   try {
     const page = await doc.getPage(1);
-    const text = pdfPageText((await page.getTextContent()).items);
+    const text = readyCore().pdfPageText((await page.getTextContent()).items);
     const info = (await doc.getMetadata().catch(() => null))?.info as { Title?: unknown } | undefined;
     return { text, title: typeof info?.Title === "string" ? info.Title : undefined };
   } finally {

@@ -6,33 +6,24 @@
  */
 
 import {
-  AddLogEntryUseCase,
   ImportPaperUseCase,
   AddRelationUseCase,
   CheckCitationAlertsUseCase,
   LinkCitationsUseCase,
   ManageReadingListUseCase,
   ScreenItemsUseCase,
-  ManageReportSectionUseCase,
-  ManageVaultPageUseCase,
-  ManageProjectUseCase,
-  ManageExperimentUseCase,
-  ManageMilestoneUseCase,
   ManageSharingUseCase,
   ManageCommentsUseCase,
   CreateShareLinkUseCase,
   RedeemShareLinkUseCase,
   ManageShareLinksUseCase,
   RevokeShareLinkUseCase,
-  CreateMemberUseCase,
   PinSharedResourceUseCase,
   DuplicateSharedPaperUseCase,
   MetadataResolver,
-  ManageTagsUseCase,
   ManagePaperFieldsUseCase,
   UpdatePaperUseCase,
   RemoveRelationUseCase,
-  CompactCrdtLogUseCase,
   AppendPaperNoteUseCase,
   PushPaperToZoteroUseCase,
   AiProposalExecutorRegistry,
@@ -163,7 +154,6 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
 
   const crdtUpdateStore = rustCrdtUpdateStore(backend.db);
   const crdtSnapshotStore = rustCrdtSnapshotStore(backend.db);
-  const compactCrdtLog = new CompactCrdtLogUseCase({ crdtStore: crdtUpdateStore });
 
   const vaultPageRepository = backend.rawVaultPageRepository;
   const paperRepository = backend.paperRepository;
@@ -195,19 +185,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     folderRestored,
   );
 
-  const manageProject = new ManageProjectUseCase({
-    repository: backend.projectRepository,
-    clock: systemClock,
-    ids: uuidIds,
-  });
+  const manageProject = backend.projectRepository;
 
-  const manageTags = new ManageTagsUseCase({
-    tags: backend.tagRepository,
-    paperTags: backend.paperTagRepository,
-    papers: paperRepository,
-    clock: systemClock,
-    ids: uuidIds,
-  });
+  const manageTags = backend.tagRepository;
 
   const addPaper = new PrefetchingAddPaperUseCase({
     repository: paperRepository,
@@ -269,23 +249,12 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     true,
   );
 
-  const addLogEntry = new AddLogEntryUseCase({
-    repository: logEntryRepository,
-    clock: systemClock,
-    ids: uuidIds,
-  });
+  const addLogEntry = logEntryRepository;
 
-  const manageReportSection = new ManageReportSectionUseCase({
-    repository: reportSectionRepository,
-    clock: systemClock,
-    ids: uuidIds,
-  });
-
-  const manageVaultPage = new ManageVaultPageUseCase({
-    repository: vaultPageRepository,
-    clock: systemClock,
-    ids: uuidIds,
-  });
+  // Writes go straight to the Rust-backed repositories; they own id, clock and
+  // validation, so there is no TS use-case layer in between.
+  const manageReportSection = reportSectionRepository;
+  const manageVaultPage = vaultPageRepository;
 
   const manageReadingList = new ManageReadingListUseCase({
     lists: readingListRepository,
@@ -340,11 +309,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     ids: uuidIds,
   });
 
-  const manageExperiment = new ManageExperimentUseCase({
-    repository: experimentRepository,
-    clock: systemClock,
-    ids: uuidIds,
-  });
+  const manageExperiment = experimentRepository;
 
   const manageSharing = new ManageSharingUseCase({ repository: backend.shareRepository });
   const manageComments = new ManageCommentsUseCase({ repository: commentRepository });
@@ -387,11 +352,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     assets: vaultAssetStore,
   });
 
-  const manageMilestone = new ManageMilestoneUseCase({
-    repository: milestoneRepository,
-    clock: systemClock,
-    ids: uuidIds,
-  });
+  const manageMilestone = milestoneRepository;
   // Was an object literal here; it was the only place that decided whether an
   // approved note proposal still applies, and it could not be tested without
   // wiring the whole container. The port it satisfies already existed in core.
@@ -439,11 +400,6 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
         })
       : [],
   );
-
-  const createMember = new CreateMemberUseCase({
-    members: backend.memberRepository,
-    provisioner: new HttpAccountProvisioner(backend.auth),
-  });
 
   const prefetchProject = new PrefetchProjectUseCase({
     listPapers: () => paperRepository.listSummaries(),
@@ -670,7 +626,6 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     collab: new CollabFacade({
       crdtStore: crdtUpdateStore,
       crdtSnapshotStore,
-      compactCrdtLog,
       db: backend.db,
       session: backend.session,
       projectId: pid,
@@ -698,6 +653,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     }),
     settings: new SettingsFacade({
       settings: backend.manageSettings,
+      preferences: backend.settingsRepository,
       bibliography,
       projectBibliography: wiredIntegrations.projectBibliographyCollection,
       integrations: backend.integrationsStore,
@@ -724,7 +680,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     }),
     org: new OrgFacade({
       members: backend.memberRepository,
-      createMember,
+      provisioner: new HttpAccountProvisioner(backend.auth),
       supervision: backend.supervisionRepository,
       labSnapshots: backend.labSnapshotRepository,
       milestones: backend.milestoneRepository,

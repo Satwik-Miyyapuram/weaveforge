@@ -1,6 +1,7 @@
 "use client";
 
-import { formatDate } from "@/lib/parts-1";
+import { localOffset } from "@/lib/parts-1";
+import { readyCore } from "@/lib/rust-core";
 import type { ReactNode } from "react";
 
 /*
@@ -20,7 +21,7 @@ export function recordDate(iso: string | null | undefined): string {
   if (Number.isNaN(date.getTime())) return "";
   const today = new Date();
   if (date.toDateString() === today.toDateString()) return "Today";
-  return formatDate(date);
+  return readyCore().formatDate(iso, localOffset(iso));
 }
 
 /** Words in a markdown body, ignoring markup, links' targets and code fences. */

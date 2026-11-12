@@ -3,7 +3,7 @@
  * that module onto every route, and this merge (with the note-tag helpers) is
  * only needed when a sync or import runs, so callers load it on demand.
  */
-import { type IPaperRepository, type ManageTagsUseCase } from "@weaveforge/core";
+import { type IPaperRepository, type ITagManager } from "@weaveforge/core";
 import type { BibliographyAnnotation, BibliographyAnnotationPull } from "@weaveforge/core";
 import { reconcileTagsFromBody } from "@/features/papers/lib/note-tags";
 import { readyCore } from "@/lib/rust-core";
@@ -26,7 +26,7 @@ export const ZOTERO_ATTACHMENT_KEY = "zoteroAttachmentKey";
 export async function applyBibliographyAnnotations(
   pulled: BibliographyAnnotationPull,
   papers: IPaperRepository,
-  tags: ManageTagsUseCase,
+  tags: ITagManager,
 ): Promise<number> {
   const { byPaper, attachments } = pulled;
   const all = await papers.list();

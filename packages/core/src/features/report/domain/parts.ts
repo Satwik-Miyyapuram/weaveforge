@@ -222,3 +222,14 @@ export interface IReportSectionRepository
   /** Return all sections assembled into the nested outline tree. */
   getTree(): Promise<ReportSectionTreeNode[]>;
 }
+
+/** Report-section writes that validate and apply changes (the Rust `report_sections` arms). */
+export interface IReportSectionManager {
+  add(input: NewReportSectionInput): Promise<ReportSection>;
+  setTitle(id: string, title: string): Promise<ReportSection>;
+  setParent(id: string, parentId: string | null): Promise<ReportSection>;
+  setStatus(id: string, status: ReportStatus): Promise<ReportSection>;
+  setProgress(id: string, wordCount: number): Promise<ReportSection>;
+  setNotes(id: string, notes: string): Promise<ReportSection>;
+  remove(id: string): Promise<void>;
+}

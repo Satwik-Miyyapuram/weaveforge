@@ -1,4 +1,4 @@
-//! The app log. Ported from apps/desktop/src/app-log.ts.
+//! The app log. Ported from the retired Electron shell.
 
 use std::collections::{HashSet, VecDeque};
 use std::fs::{self, OpenOptions};

@@ -148,7 +148,7 @@ export function CollaborativeMarkdownEditor({
       // is about to delete log rows for, and the debounce above means the newest
       // text may not have been written at all yet.
       awaitBodyPersisted: () => saver.flush(),
-      compactCrdtLog: session.compactCrdtLog,
+      crdtUpdateStore: session.crdtUpdateStore,
       // Runs once the CRDT log has been replayed. Only a document with no
       // stored history takes the row's body — otherwise the log is the truth
       // and seeding would duplicate it.

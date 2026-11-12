@@ -15,7 +15,7 @@ import type {
   IReaderAnnotationSource,
   IReaderAnnotationSyncRecorder,
   IZoteroAnnotationWriteBack,
-  ManageTagsUseCase,
+  ITagManager,
   PushPaperToZoteroUseCase,
   ReaderAnnotation,
   ZoteroAnnotationWritePayload,
@@ -73,7 +73,7 @@ export class ZoteroFacade {
        * annotations onto papers by key and reconciles each item's tags.
        */
       papers: IPaperRepository;
-      manageTags: ManageTagsUseCase;
+      manageTags: ITagManager;
       /** Zotero API key + library, read at call time (post-unlock). */
       zoteroCredentials: ZoteroCredentialsProvider;
       /** Test seam for the live Zotero writer; defaults to the Web API client. */

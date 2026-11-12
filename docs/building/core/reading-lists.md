@@ -42,10 +42,11 @@ core has loaded.
 
 ## What stays in TypeScript, and why
 
-- **Database access.** Reading and writing lists, items and screening records
-  stays in `apps/web` infrastructure. For example,
-  `apps/web/src/features/reading-lists/infrastructure/parts.ts`
-  talks to PostgREST. Rust maps rows; it does not query them.
+- **Network I/O.** Rust plans the queries for lists, items and screening
+  records (`crates/wf-core/src/repos/reading_lists.rs`,
+  `reading_list_items.rs`, `screening_decisions.rs`). The generic runner
+  `apps/web/src/backend/providers/postgrest/rust-repository.ts` sends them to
+  PostgREST.
 - **Model calls.** The request that fills an extraction cell is sent from
   TypeScript. Rust builds the prompt text (`buildProposeFillPrompt`) and reads the
   answers (`pendingFieldFills`).

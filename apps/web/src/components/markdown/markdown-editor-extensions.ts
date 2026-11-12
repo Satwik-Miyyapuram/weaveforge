@@ -26,7 +26,7 @@ import { createCodeMirrorThemeForSite } from "@/lib/theme/codemirror-theme";
 import { pasteCleanup, pasteCleanupKeymap } from "@/components/markdown/markdown-paste-cleanup";
 import { imagePaste, type ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
 import { pendingInsertSupport } from "@/components/markdown/markdown-pending-insert";
-import { markdownFormatKeymap } from "@/components/markdown/markdown-format";
+import { markdownFormatKeymap } from "@/components/markdown/markdown-format-commands";
 import { markdownContextMenu } from "@/components/markdown/markdown-context-menu";
 import { spellcheck } from "@/components/markdown/spellcheck";
 import { readPasteSettings } from "@/lib/paste-cleanup-preference";
@@ -319,7 +319,7 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     // Ahead of the default keymap so the cleanup bindings win.
     keymap.of(pasteCleanupKeymap({ settings: () => pasteSettings.current })),
     // Google Docs' formatting keys, ahead of the default keymap so Mod-i and Mod-u are ours.
-    keymap.of(markdownFormatKeymap),
+    keymap.of(markdownFormatKeymap()),
     markdownContextMenu,
     spellcheck,
     keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),

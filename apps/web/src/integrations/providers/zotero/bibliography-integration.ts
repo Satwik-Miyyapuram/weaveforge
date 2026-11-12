@@ -4,7 +4,7 @@ import type {
   IBibliographyIntegration,
   IPaperRepository,
   ISettingsRepository,
-  ManageTagsUseCase,
+  ITagManager,
   Paper,
 } from "@weaveforge/core";
 import { getDataClient, relayUrl } from "@/lib/parts";
@@ -22,7 +22,7 @@ export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
       exporter: IZoteroExporter;
       annotations: IZoteroAnnotationPull;
       papers: IPaperRepository;
-      tags: ManageTagsUseCase;
+      tags: ITagManager;
       settings: ISettingsRepository;
       fetchFn?: typeof fetch;
     },

@@ -1,4 +1,4 @@
-//! Tests for the encoder weights cache (ported from apps/desktop/test/model-cache.test.ts).
+//! Tests for the encoder weights cache (ported from the retired Electron shell).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use crate::common;

@@ -14,7 +14,7 @@ import { EntityCardMenu } from "@/components/entity-card-menu";
 import { CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
 import { localIsoDay } from "@/features/plan/application/parts";
 import { formatError } from "@/lib/format-error";
-import { formatDate } from "@/lib/parts-1";
+import { localOffset } from "@/lib/parts-1";
 import { logToApp } from "@/lib/error-report/app-log";
 import { runReported } from "@/lib/parts";
 import { statusLabel } from "@/components/status-select";
@@ -133,7 +133,7 @@ export function MilestoneCard({
       meta={
         m.targetDate ? (
           <>
-            Due {formatDate(m.targetDate)}
+            Due {readyCore().formatDate(m.targetDate, localOffset(m.targetDate))}
             {due != null && m.status !== "done" && (
               <>
                 {" · "}

@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { strFromU8, unzipSync, zipSync } from "fflate";
-import { emptyWorkspaceSnapshot } from "@weaveforge/core/testing";
+import { emptyWorkspaceSnapshot } from "@core-test/workspace-snapshot";
 import { buildWorkspaceFolderFiles } from "../application/export-user-data";
 import { zipToBlob } from "@/lib/parts";
 

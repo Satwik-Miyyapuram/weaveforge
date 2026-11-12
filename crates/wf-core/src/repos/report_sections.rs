@@ -5,11 +5,17 @@
 //! [`build_section_tree`]. Titles are end-to-end encrypted, so `titleContains` has
 //! no server filter: the decrypting repository filters after the read.
 
+use std::collections::HashSet;
+
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use crate::reader_analysis::lines::js_trim;
 use crate::repo_query::{RepoCall, RepoQuery, RepoStep, map_row, map_rows};
-use crate::report::report_section::{ReportSection, ReportStatus, build_section_tree};
+use crate::report::report_section::{
+    NewReportSectionInput, ReportSection, ReportStatus, build_section_tree, create_report_section,
+};
+use crate::text::count_words;
 
 const TABLE: &str = "report_sections";
 
@@ -83,7 +89,13 @@ pub fn step(method: &str, call: &RepoCall) -> Option<RepoStep> {
         "list" => list(call),
         "getTree" => get_tree(call),
         "save" => save(call),
-        "delete" => delete(call),
+        "delete" | "remove" => delete(call),
+        "add" => add(call),
+        "setTitle" => set_title(call),
+        "setParent" => set_parent(call),
+        "setStatus" => set_status(call),
+        "setProgress" => set_progress(call),
+        "setNotes" => set_notes(call),
         _ => return None,
     })
 }
@@ -164,6 +176,174 @@ fn get_tree(call: &RepoCall) -> RepoStep {
     }
 }
 
+/// `add(input)`: builds the section with `call.id(0)` and the sender's clock, then saves it.
+/// Validation fails before anything is sent. The result is the section once the save replies.
+fn add(call: &RepoCall) -> RepoStep {
+    let input: NewReportSectionInput = match call.parse(0) {
+        Ok(input) => input,
+        Err(e) => return RepoStep::fail(e),
+    };
+    let section = match create_report_section(&input, &call.id(0), call.now()) {
+        Ok(section) => section,
+        Err(e) => return RepoStep::fail_named("ReportSectionValidationError", e),
+    };
+    let value = match serde_json::to_value(&section) {
+        Ok(value) => value,
+        Err(e) => return RepoStep::fail(e),
+    };
+    let saved = save(&call.sub(vec![value], 0));
+    if call.replies.is_empty() || matches!(saved, RepoStep::Fail { .. }) {
+        return saved;
+    }
+    RepoStep::done(&section)
+}
+
+/// `setTitle(id, title)`: renames in place, trimmed. A blank title fails before anything is read.
+fn set_title(call: &RepoCall) -> RepoStep {
+    let title = js_trim(call.text(1));
+    if title.is_empty() {
+        return RepoStep::fail_named("ReportSectionValidationError", "Section title is required.");
+    }
+    mutate(call, 0, call.text(0), |s| ReportSection {
+        title: title.to_owned(),
+        ..s.clone()
+    })
+}
+
+/// `setParent(id, parentId)`: moves under `parentId`, or to the top when `null`. A move under a
+/// parent first walks up from the parent (see [`assert_not_under`]), then reads and saves.
+fn set_parent(call: &RepoCall) -> RepoStep {
+    let parent: Option<String> = match call.parse(1) {
+        Ok(parent) => parent,
+        Err(e) => return RepoStep::fail(e),
+    };
+    let reads = match parent.as_deref() {
+        Some(parent) => match assert_not_under(call, call.text(0), parent) {
+            Ok(reads) => reads,
+            Err(step) => return step,
+        },
+        None => 0,
+    };
+    mutate(call, reads, call.text(0), |s| ReportSection {
+        parent_id: parent.clone(),
+        ..s.clone()
+    })
+}
+
+/// The walk of TS `assertNotUnder`: climbs from `new_parent` through `getById` reads. Reaching
+/// `id` fails. A loop already in the data ends the walk quietly. Returns how many reads it used,
+/// so the move's own reads come after them.
+fn assert_not_under(call: &RepoCall, id: &str, new_parent: &str) -> Result<usize, RepoStep> {
+    let mut cursor = new_parent.to_owned();
+    let mut seen = HashSet::new();
+    let mut reads = 0;
+    while !cursor.is_empty() {
+        if cursor == id {
+            return Err(RepoStep::fail_named(
+                "ReportSectionValidationError",
+                "A section cannot be moved inside itself.",
+            ));
+        }
+        if !seen.insert(cursor.clone()) {
+            return Ok(reads);
+        }
+        let value = match get_by_id(&call.sub(vec![json!(cursor)], reads)) {
+            RepoStep::Done { value } => value,
+            other => return Err(other),
+        };
+        let node: Option<ReportSection> = match serde_json::from_value(value) {
+            Ok(node) => node,
+            Err(e) => return Err(RepoStep::fail(e)),
+        };
+        let Some(node) = node else {
+            return Err(RepoStep::fail_named(
+                "NotFoundError",
+                format!("No report section with id \"{new_parent}\"."),
+            ));
+        };
+        reads += 1;
+        cursor = node.parent_id.unwrap_or_default();
+    }
+    Ok(reads)
+}
+
+/// `setStatus(id, status)`: changes only the status.
+fn set_status(call: &RepoCall) -> RepoStep {
+    let status: ReportStatus = match call.parse(1) {
+        Ok(status) => status,
+        Err(e) => return RepoStep::fail(e),
+    };
+    mutate(call, 0, call.text(0), |s| ReportSection {
+        status,
+        ..s.clone()
+    })
+}
+
+/// `setProgress(id, wordCount)`: sets the word count; negatives fail before anything is read.
+fn set_progress(call: &RepoCall) -> RepoStep {
+    let word_count: f64 = match call.parse(1) {
+        Ok(n) => n,
+        Err(e) => return RepoStep::fail(e),
+    };
+    if word_count < 0.0 {
+        return RepoStep::fail_named(
+            "ReportSectionValidationError",
+            "Word count cannot be negative.",
+        );
+    }
+    mutate(call, 0, call.text(0), |s| ReportSection {
+        word_count,
+        ..s.clone()
+    })
+}
+
+/// `setNotes(id, notes)`: persists the body (blank clears it) and keeps `wordCount` in sync.
+fn set_notes(call: &RepoCall) -> RepoStep {
+    let raw = call.text(1);
+    let text = if js_trim(raw).is_empty() { "" } else { raw };
+    let notes = (!text.is_empty()).then(|| text.to_owned());
+    let word_count = count_words(text) as f64;
+    mutate(call, 0, call.text(0), |s| ReportSection {
+        notes: notes.clone(),
+        word_count,
+        ..s.clone()
+    })
+}
+
+/// Read section `id` at reply `skip`, apply `change`, save it, and finish with the updated
+/// section. `getById` and `save` run with `call.sub`. A missing section fails as NotFound.
+fn mutate(
+    call: &RepoCall,
+    skip: usize,
+    id: &str,
+    change: impl Fn(&ReportSection) -> ReportSection,
+) -> RepoStep {
+    let value = match get_by_id(&call.sub(vec![json!(id)], skip)) {
+        RepoStep::Done { value } => value,
+        other => return other,
+    };
+    let existing: Option<ReportSection> = match serde_json::from_value(value) {
+        Ok(existing) => existing,
+        Err(e) => return RepoStep::fail(e),
+    };
+    let Some(existing) = existing else {
+        return RepoStep::fail_named(
+            "NotFoundError",
+            format!("No report section with id \"{id}\"."),
+        );
+    };
+    let updated = change(&existing);
+    let value = match serde_json::to_value(&updated) {
+        Ok(value) => value,
+        Err(e) => return RepoStep::fail(e),
+    };
+    let saved = save(&call.sub(vec![value], skip + 1));
+    if call.replies.len() < skip + 2 || matches!(saved, RepoStep::Fail { .. }) {
+        return saved;
+    }
+    RepoStep::done(&updated)
+}
+
 /// `save(section)`: upsert, stamped with the open project when there is one.
 fn save(call: &RepoCall) -> RepoStep {
     if !call.replies.is_empty() {
@@ -193,14 +373,25 @@ mod tests {
     use super::*;
     use crate::repo_query::{RepoAction, RepoCtx};
 
+    const NOW: &str = "2026-11-12T09:00:00.000Z";
+
     fn call(args: Vec<Value>, replies: Vec<Value>) -> RepoCall {
         RepoCall {
             args,
             replies,
             ctx: RepoCtx {
                 project_id: Some("p1".into()),
+                id_seed: Some("seed".into()),
+                now: Some(NOW.into()),
                 ..RepoCtx::default()
             },
+        }
+    }
+
+    fn fail(step: RepoStep) -> (String, Option<String>) {
+        match step {
+            RepoStep::Fail { message, name } => (message, name),
+            other => panic!("expected fail, got {other:?}"),
         }
     }
 
@@ -281,6 +472,162 @@ mod tests {
         assert_eq!(body["project_id"], "p1");
         assert_eq!(body["parent_id"], Value::Null);
         assert!(body.get("updated_at").is_none());
+    }
+
+    #[test]
+    fn add_saves_the_new_section_with_the_project_and_seeded_id() {
+        let id = call(vec![], vec![]).id(0);
+        let input = json!({ "title": "  Intro  " });
+        let q = sent(add(&call(vec![input.clone()], vec![])));
+        assert_eq!(q.action, RepoAction::Upsert);
+        let body = q.body.expect("body");
+        assert_eq!(body["id"], id);
+        assert_eq!(body["project_id"], "p1");
+        assert_eq!(body["title"], "Intro");
+        let v = done(add(&call(vec![input], vec![json!(null)])));
+        assert_eq!(v["id"], id);
+        assert_eq!(v["createdAt"], NOW);
+    }
+
+    #[test]
+    fn add_rejects_a_blank_title_and_a_negative_count() {
+        let (msg, name) = fail(add(&call(vec![json!({ "title": "  " })], vec![])));
+        assert_eq!(msg, "Section title is required.");
+        assert_eq!(name.as_deref(), Some("ReportSectionValidationError"));
+        let (msg, _) = fail(add(&call(
+            vec![json!({ "title": "x", "wordCount": -1 })],
+            vec![],
+        )));
+        assert_eq!(msg, "Word count cannot be negative.");
+    }
+
+    #[test]
+    fn set_status_changes_only_the_status() {
+        let args = vec![json!("s1"), json!("review")];
+        let q = sent(set_status(&call(args.clone(), vec![])));
+        assert_eq!(q.filters[0].column, "id");
+        let q = sent(set_status(&call(args.clone(), vec![row("s1", None, 1.0)])));
+        assert_eq!(q.action, RepoAction::Upsert);
+        assert_eq!(q.body.expect("body")["status"], "review");
+        let v = done(set_status(&call(
+            args,
+            vec![row("s1", None, 1.0), Value::Null],
+        )));
+        assert_eq!(v["status"], "review");
+        assert_eq!(v["title"], "s1");
+        assert_eq!(v["wordCount"], 10.0);
+    }
+
+    #[test]
+    fn set_status_rejects_an_unknown_id() {
+        let args = vec![json!("nope"), json!("review")];
+        let (msg, name) = fail(set_status(&call(args, vec![Value::Null])));
+        assert_eq!(msg, "No report section with id \"nope\".");
+        assert_eq!(name.as_deref(), Some("NotFoundError"));
+    }
+
+    #[test]
+    fn set_progress_sets_the_count_and_rejects_negatives() {
+        let (msg, _) = fail(set_progress(&call(vec![json!("s1"), json!(-1)], vec![])));
+        assert_eq!(msg, "Word count cannot be negative.");
+        let replies = vec![row("s1", None, 1.0), Value::Null];
+        let v = done(set_progress(&call(vec![json!("s1"), json!(120)], replies)));
+        assert_eq!(v["wordCount"], 120.0);
+    }
+
+    #[test]
+    fn set_notes_keeps_the_word_count_in_step_with_the_text() {
+        let replies = vec![row("s1", None, 1.0), Value::Null];
+        let v = done(set_notes(&call(
+            vec![json!("s1"), json!("one two  three")],
+            replies,
+        )));
+        assert_eq!(v["wordCount"], 3.0);
+        assert_eq!(v["notes"], "one two  three");
+        let replies = vec![row("s1", None, 1.0), Value::Null];
+        let v = done(set_notes(&call(vec![json!("s1"), json!("  \n ")], replies)));
+        assert_eq!(v["wordCount"], 0.0);
+        assert!(v["notes"].is_null());
+    }
+
+    #[test]
+    fn set_title_renames_and_rejects_a_blank_title() {
+        let (msg, name) = fail(set_title(&call(vec![json!("s1"), json!("   ")], vec![])));
+        assert_eq!(msg, "Section title is required.");
+        assert_eq!(name.as_deref(), Some("ReportSectionValidationError"));
+        let replies = vec![row("s1", None, 1.0), Value::Null];
+        let v = done(set_title(&call(
+            vec![json!("s1"), json!("  Renamed ")],
+            replies,
+        )));
+        assert_eq!(v["title"], "Renamed");
+    }
+
+    #[test]
+    fn set_parent_nests_under_an_existing_section() {
+        let args = vec![json!("s1"), json!("p")];
+        let q = sent(set_parent(&call(args.clone(), vec![])));
+        assert_eq!(q.filters[0].value, json!("p"));
+        let q = sent(set_parent(&call(args.clone(), vec![row("p", None, 0.0)])));
+        assert_eq!(q.filters[0].value, json!("s1"));
+        let replies = vec![row("p", None, 0.0), row("s1", None, 1.0), Value::Null];
+        let v = done(set_parent(&call(args, replies)));
+        assert_eq!(v["parentId"], "p");
+    }
+
+    #[test]
+    fn set_parent_null_clears_the_parent_without_reading_others() {
+        let args = vec![json!("s1"), Value::Null];
+        let q = sent(set_parent(&call(args.clone(), vec![])));
+        assert_eq!(q.filters[0].value, json!("s1"));
+        let v = done(set_parent(&call(
+            args,
+            vec![row("s1", Some("p"), 1.0), Value::Null],
+        )));
+        assert!(v["parentId"].is_null());
+    }
+
+    #[test]
+    fn set_parent_refuses_a_move_inside_itself_or_a_descendant() {
+        let (msg, name) = fail(set_parent(&call(vec![json!("s1"), json!("s1")], vec![])));
+        assert_eq!(msg, "A section cannot be moved inside itself.");
+        assert_eq!(name.as_deref(), Some("ReportSectionValidationError"));
+        // s2 sits under s1, so moving s1 under s2 would close a loop.
+        let replies = vec![row("s2", Some("s1"), 1.0)];
+        let (msg, _) = fail(set_parent(&call(vec![json!("s1"), json!("s2")], replies)));
+        assert_eq!(msg, "A section cannot be moved inside itself.");
+    }
+
+    #[test]
+    fn set_parent_refuses_a_missing_parent_and_names_the_requested_one() {
+        let args = vec![json!("s1"), json!("p")];
+        let (msg, name) = fail(set_parent(&call(args.clone(), vec![Value::Null])));
+        assert_eq!(msg, "No report section with id \"p\".");
+        assert_eq!(name.as_deref(), Some("NotFoundError"));
+        // The missing ancestor is q, but the message names the requested parent p.
+        let replies = vec![row("p", Some("q"), 1.0), Value::Null];
+        let (msg, _) = fail(set_parent(&call(args, replies)));
+        assert_eq!(msg, "No report section with id \"p\".");
+    }
+
+    #[test]
+    fn set_parent_still_moves_under_a_loop_already_in_the_data() {
+        // p and q already point at each other; the walk ends at the repeat, not in an error.
+        let args = vec![json!("s1"), json!("p")];
+        let replies = vec![
+            row("p", Some("q"), 1.0),
+            row("q", Some("p"), 2.0),
+            row("s1", None, 3.0),
+            Value::Null,
+        ];
+        let v = done(set_parent(&call(args, replies)));
+        assert_eq!(v["parentId"], "p");
+    }
+
+    #[test]
+    fn remove_deletes_the_section() {
+        let q = sent(step("remove", &call(vec![json!("s1")], vec![])).unwrap());
+        assert_eq!(q.action, RepoAction::Delete);
     }
 
     #[test]

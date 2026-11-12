@@ -1,4 +1,3 @@
-import { HTML_FINAL_URL_HEADER, HTML_PROXY_PATH } from "./paper-html-rules";
 import { getContainer } from "@/bootstrap";
 import { NibFilter } from "@/features/ink/application/parts-2";
 import { desktop } from "@/lib/desktop/desktop-bridge";
@@ -78,7 +77,7 @@ export async function fetchPaperHtml(
       if (!token) return { ok: false, reason: "failed" };
       headers.Authorization = `Bearer ${token}`;
     }
-    res = await fetchFn(`${relayUrl(HTML_PROXY_PATH)}?url=${encodeURIComponent(url)}`, { headers });
+    res = await fetchFn(`${relayUrl(readyCore().htmlProxyPath())}?url=${encodeURIComponent(url)}`, { headers });
   } catch {
     return { ok: false, reason: "failed" };
   }
@@ -89,7 +88,7 @@ export async function fetchPaperHtml(
     return { ok: false, reason: res.status === 403 || res.status === 400 ? "blocked" : "failed", status: res.status };
   }
   const raw = await res.text();
-  const finalUrl = res.headers.get(HTML_FINAL_URL_HEADER) || url;
+  const finalUrl = res.headers.get(readyCore().htmlFinalUrlHeader()) || url;
   return { ok: true, raw, finalUrl };
 }
 

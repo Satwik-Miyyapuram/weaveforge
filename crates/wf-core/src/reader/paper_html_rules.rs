@@ -1,7 +1,6 @@
 //! Rules both HTML relays share: which responses count as a web page, and which charset the page
-//! declares. Port of `isHtmlContentType` and `charsetOf` in
-//! `apps/web/src/features/reader/application/paper-html-rules.ts`. The byte decoding itself stays
-//! in TS (`TextDecoder`), which takes the charset from here.
+//! declares. The byte decoding itself stays in TS (`TextDecoder`), which takes the charset from
+//! here.
 
 use regex_lite::Regex;
 

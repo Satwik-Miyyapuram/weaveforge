@@ -1,4 +1,4 @@
-//! LaTeX compile. Ported from apps/desktop/src/tex.ts.
+//! LaTeX compile. Ported from the retired Electron shell.
 
 use std::collections::HashSet;
 use std::fs;

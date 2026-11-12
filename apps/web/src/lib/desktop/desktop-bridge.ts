@@ -3,7 +3,7 @@
 /**
  * What the desktop build adds, and how the web build asks whether it is there.
  *
- * This file is the entire contract between the two. `apps/desktop` implements
+ * This file is the entire contract between the two. `apps/shell` implements
  * it in the Electron main process and exposes it on `window.weaveforge` through
  * a preload script; every feature that can take advantage of it does so through
  * a capability interface with a browser implementation beside it, so nothing in

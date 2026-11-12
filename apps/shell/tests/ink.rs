@@ -1,4 +1,4 @@
-//! Tests for the ink recogniser client (ported from apps/desktop/test/ink-recogniser.test.ts).
+//! Tests for the ink recogniser client (ported from the retired Electron shell).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -452,7 +452,7 @@ async fn a_malformed_line_is_a_diagnostic_not_a_crash() {
 }
 
 // Not ported: the TS "the real helper recognises a page" test runs a Windows Ink helper
-// built from apps/desktop/native, which this Rust port does not ship; the protocol above
+// built from the retired Electron shell native/ folder, which this Rust port does not ship; the protocol above
 // is what it checks. NaN and Infinity cases of readInkRequest are not testable here:
 // JSON cannot carry them, so serde_json never hands over a non-finite number.
 

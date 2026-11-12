@@ -39,7 +39,6 @@ export * from "./features/papers/application/parts-1.js";
 // features/logbook
 export * from "./features/logbook/domain/parts.js";
 export * from "./features/logbook/domain/parts.js";
-export * from "./features/logbook/application/add-log-entry.use-case.js";
 // features/report
 export * from "./features/report/domain/parts.js";
 export * from "./features/report/domain/parts.js";
@@ -49,7 +48,6 @@ export * from "./features/report/domain/parts.js";
 export * from "./features/report/domain/parts.js";
 export * from "./features/report/domain/parts.js";
 export * from "./features/report/domain/parts.js";
-export * from "./features/report/application/manage-report-section.use-case.js";
 // features/reading-lists
 export * from "./features/reading-lists/domain/parts.js";
 export * from "./features/reading-lists/domain/parts.js";
@@ -78,17 +76,14 @@ export { ManageSettingsUseCase } from "./features/settings/application/manage-se
 // features/projects
 export * from "./features/projects/domain/parts.js";
 export * from "./features/projects/domain/parts.js";
-export * from "./features/projects/application/manage-project.use-case.js";
 // features/experiments
 export * from "./features/experiments/domain/parts.js";
 export * from "./features/experiments/domain/parts.js";
 export * from "./features/experiments/domain/parts.js";
 export * from "./features/experiments/domain/parts.js";
-export * from "./features/experiments/application/manage-experiment.use-case.js";
 // features/plan
 export * from "./features/plan/domain/parts.js";
 export * from "./features/plan/domain/parts.js";
-export * from "./features/plan/application/manage-milestone.use-case.js";
 // features/org
 export * from "./features/org/domain/parts.js";
 export * from "./features/org/domain/parts.js";
@@ -99,7 +94,6 @@ export * from "./features/org/domain/parts.js";
 export * from "./features/org/domain/parts.js";
 export * from "./features/org/domain/parts.js";
 export * from "./features/org/domain/parts.js";
-export * from "./features/org/application/create-member.use-case.js";
 // features/sharing
 export type { Comment, CommentAnchor, NewCommentInput, NewShareInput, ResolvedShareLink, Share, ShareAccess, ShareableType, ShareLink, ShareLinkSaveInput, IShareLinkRepository, IShareLinkTokenHasher } from "./shared/core-contract.js";
 export * from "./features/sharing/domain/parts.js";
@@ -113,7 +107,6 @@ export * from "./features/sharing/application/parts.js";
 // features/tags
 export * from "./features/tags/domain/parts.js";
 export * from "./features/tags/domain/parts.js";
-export * from "./features/tags/application/manage-tags.use-case.js";
 // features/integrations
 export type {
   BibliographyAnnotation,
@@ -136,7 +129,6 @@ export * from "./features/dashboard/domain/parts.js";
 // features/vault
 export type { NewVaultPageInput, ParsedFrontmatter, VaultPage, VaultPageFilter, VaultPageSummary, VaultPageTreeNode, WikilinkRef } from "./shared/core-contract.js";
 export * from "./features/vault/domain/vault-page-repository.js";
-export * from "./features/vault/application/manage-vault-page.use-case.js";
 // features/library
 export * from "./features/library/domain/parts.js";
 export * from "./features/library/domain/parts.js";
@@ -146,7 +138,6 @@ export * from "./features/library/application/parts.js";
 export * from "./features/library/application/parts.js";
 // features/collab
 export * from "./features/collab/domain/crdt-update-store.js";
-export * from "./features/collab/application/compact-crdt-log.use-case.js";
 // features/ai-assistant
 export * from "./features/ai-assistant/domain/parts.js";
 export * from "./features/ai-assistant/application/parts.js";

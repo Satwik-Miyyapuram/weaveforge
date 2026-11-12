@@ -15,7 +15,7 @@ import {
   InMemoryPaperRepository,
   InMemoryReaderAnnotationRepository,
   InMemoryReadingListItemRepository,
-} from "@weaveforge/core/testing";
+} from "@core-test/in-memory";
 import { MergePapersUseCase, PaperMergeRefusedError } from "../application/parts-1";
 
 function paper(id: string, over: Partial<Paper> = {}): Paper {

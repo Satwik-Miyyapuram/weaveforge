@@ -1,4 +1,3 @@
-import { proxiedPdfUrl } from "./sanitize-reader-url";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { getContainer } from "@/bootstrap";
 import { activeProjectRoot } from "@/features/workspace/application/parts";
@@ -293,7 +292,8 @@ export async function fetchPdfBytesForCache(
   getAccessToken: () => Promise<string | null> = () =>
     getContainer().auth.auth.getAccessToken(),
 ): Promise<ArrayBuffer | null> {
-  const target = relayPath(url).startsWith("/") ? url : proxiedPdfUrl(url);
+  const proxyPath = relayPath(url).startsWith("/") ? null : readyCore().pdfProxyPath(url);
+  const target = proxyPath === null ? url : relayUrl(proxyPath);
   // Still cross-origin after the rewrite — an unallowlisted host. CORS would
   // reject it, so do not spend a request on it.
   if (!relayPath(target).startsWith("/")) return null;
@@ -330,7 +330,7 @@ export async function downloadPaperPdfToCache(paperId: string, url: string): Pro
  *
  * An allowlisted host goes through the proxy like any other. Any other
  * https host: the desktop shell's proxy fetches it (`typed=1`, see
- * `apps/desktop/src/pdf-proxy.ts`); a browser has no such relay — the web
+ * the pdf proxy in `apps/shell/src`); a browser has no such relay — the web
  * server's proxy is deliberately allowlisted — so it asks the host directly
  * and gets the PDF only if the host sends CORS headers, which repositories
  * often do and publishers mostly do not. The answer says which it was, so

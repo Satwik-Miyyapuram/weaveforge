@@ -1,6 +1,5 @@
 import { Console } from "node:console";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { errorMessage, rust, setRustCore } from "@weaveforge/core";
@@ -8,7 +7,6 @@ import * as rustWasm from "@weaveforge/wasm";
 import type { LocalDbHost } from "./local-db-host";
 import { acquireDbLock, DatabaseInUseError, releaseDbLock } from "./local-db-lock";
 import { BACKUP_EVERY_MS, createLifecycle } from "./lifecycle";
-import { startLocalApi, type LocalApiStart } from "./local-api-start";
 import { migrateFromElectron } from "./migrate";
 import { createPeer, serve, type Handlers } from "./wire";
 
@@ -156,33 +154,8 @@ async function main(): Promise<void> {
   });
   const peer = createPeer(process.stdout);
   const base = sidecarHandlers({ host: lc.host, restartWanted: lc.restartWanted });
-  let api: Pick<LocalApiStart, "handlers" | "close">;
-  try {
-    api = parsed.noLocalApi ? { handlers: base, close: async () => {} } : startLocalApi(base, {
-      peer,
-      localDb: lc.host,
-      artifactRoot: parsed.artifacts ?? path.join(path.dirname(dataDir), "artifacts"),
-      ...(parsed.bridge !== undefined ? { bridge: parsed.bridge } : {}),
-      version: parsed.appVersion ?? "0.0.0",
-      ...(parsed.homeVariant !== undefined ? { homeVariant: parsed.homeVariant } : {}),
-      home: os.homedir(),
-      platform: process.platform,
-      appData: process.env.APPDATA,
-      execPath: process.execPath,
-      log: (l) => process.stderr.write(l + "\n"),
-    });
-  } catch (e) {
-    process.stderr.write("weaveforge-sidecar: " + errorMessage(e) + "\n");
-    process.exitCode = 1;
-    try {
-      await lc.host.close();
-    } catch {
-      // Already failing; the start error above is the one to report.
-    }
-    releaseDbLock(dataDir);
-    // PGlite can keep handles alive, so exit explicitly.
-    process.exit(1);
-  }
+  // The Rust shell serves the local API, so the sidecar has no API of its own to start or close.
+  const api = { handlers: base, close: async () => {} };
   // Unref so the timer alone never keeps the process alive.
   setInterval(() => void lc.backUp(), BACKUP_EVERY_MS).unref();
   try {

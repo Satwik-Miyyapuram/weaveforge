@@ -1,7 +1,7 @@
 "use client";
 
 import { formatError } from "@/lib/format-error";
-import { formatDateTime } from "@/lib/parts-1";
+import { localOffset } from "@/lib/parts-1";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { AiEvidence, AiWriteProposal } from "@weaveforge/core";
@@ -334,7 +334,7 @@ export function AiProposalReviewScreen() {
           title={title}
           // The kind is already the title when the suggestion has none of its own.
           badge={title === label[item.kind] ? undefined : <span className={`ai-kind ai-kind--${item.kind}`}>{label[item.kind]}</span>}
-          meta={<><time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>{preview.why && <> · {preview.why}</>}</>}
+          meta={<><time dateTime={item.createdAt}>{readyCore().formatDateTime(item.createdAt, localOffset(item.createdAt))}</time>{preview.why && <> · {preview.why}</>}</>}
         >
           <div className="ai-review-body">
             {preview.body && <div className="ai-review-proposed">

@@ -1,5 +1,8 @@
 # Native Inking Bridges — Android, iPadOS & Windows Haptics
 
+> **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
+> TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
+
 **Status:** proposal, companion to `ink-notes-plan.md` (Revision 3).  
 **Purpose:** specifies the three platform-specific native micro-bridges that provide hardware-level inking acceleration, bulletproof palm/hand rejection, and physical pen feel without duplicating WeaveForge's core application logic.
 

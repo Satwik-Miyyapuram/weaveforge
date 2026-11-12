@@ -1,4 +1,4 @@
-//! Update check against GitHub releases. Ported from apps/desktop/src/update-check.ts.
+//! Update check against GitHub releases. Ported from the retired Electron shell.
 
 use std::time::Duration;
 

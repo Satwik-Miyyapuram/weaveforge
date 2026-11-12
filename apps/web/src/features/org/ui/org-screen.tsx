@@ -223,7 +223,7 @@ function CreateAccountForm({
     setError(null);
     setDone(null);
     try {
-      const created = await getContainer().org.createMember.create({
+      const created = await getContainer().org.createMember({
         email,
         password,
         fullName: fullName || undefined,

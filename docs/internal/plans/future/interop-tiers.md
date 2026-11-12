@@ -1,5 +1,8 @@
 # Interop tiers, gated git, and metrics storage
 
+> **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
+> TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
+
 Six items were left after the vault-folder branch merged. This is the plan for
 all six, in the order dependency actually forces rather than the order they were
 listed in.
