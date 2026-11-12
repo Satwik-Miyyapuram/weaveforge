@@ -19,7 +19,7 @@ import { Button } from "@/components/button";
 
 import {
   appendCardPair,
-  CARD_LIMITS,
+  cardLimits,
   clearLegacyLayoutStorage,
   closeLayoutGaps,
   initialDashboardLayout,
@@ -76,7 +76,7 @@ export function DashboardScreen() {
   const [layoutFromSnapshot, setLayoutFromSnapshot] = useState(false);
 
   const syncLayouts = useMemo(
-    () => (layout ? (readyCore().dashboardSyncLayouts(layout, CARD_LIMITS) as DashboardLayout) : null),
+    () => (layout ? (readyCore().dashboardSyncLayouts(layout, cardLimits()) as DashboardLayout) : null),
     [layout],
   );
 
@@ -125,7 +125,7 @@ export function DashboardScreen() {
 
     const cached = layoutCache.get(cacheKey);
     if (cached) {
-      const next = readyCore().dashboardFinalizeLayout(cached, CARD_LIMITS) as DashboardLayout;
+      const next = readyCore().dashboardFinalizeLayout(cached, cardLimits()) as DashboardLayout;
       layoutCache.set(cacheKey, next);
       setLayout(next);
       setLayoutLoading(false);
@@ -157,7 +157,7 @@ export function DashboardScreen() {
         setLayoutError(formatError(err));
         const next = readyCore().dashboardFinalizeLayout(
           readyCore().dashboardDefaultLayout(supervisorLayout) as DashboardLayout,
-          CARD_LIMITS,
+          cardLimits(),
         ) as DashboardLayout;
         layoutCache.set(cacheKey, next);
         setLayout(next);
@@ -187,8 +187,8 @@ export function DashboardScreen() {
       const supervisorLayout = typedCore().isSupervisorRole(profile?.role) && supervisees.length > 0;
       const cacheKey = readyCore().dashboardLayoutCacheKey(projectId, supervisorLayout);
       const toSave = readyCore().dashboardFinalizeLayout(
-        readyCore().dashboardSyncLayouts(layout, CARD_LIMITS) as DashboardLayout,
-        CARD_LIMITS,
+        readyCore().dashboardSyncLayouts(layout, cardLimits()) as DashboardLayout,
+        cardLimits(),
       ) as DashboardLayout;
       void getContainer()
         .dashboard.saveLayout(projectId, toSave)
@@ -250,7 +250,7 @@ export function DashboardScreen() {
     setLayout(
       readyCore().dashboardFinalizeLayout(
         readyCore().dashboardDefaultLayout(isSupervisor) as DashboardLayout,
-        CARD_LIMITS,
+        cardLimits(),
       ) as DashboardLayout,
     );
     if (before) showToast("Layout reset", { label: "Undo", run: () => { markDirty(); setLayout(before); } });
@@ -260,7 +260,7 @@ export function DashboardScreen() {
     setEditing(false);
     markDirty();
     setLayout((prev) =>
-      prev ? (readyCore().dashboardFinalizeLayout(prev, CARD_LIMITS) as DashboardLayout) : prev,
+      prev ? (readyCore().dashboardFinalizeLayout(prev, cardLimits()) as DashboardLayout) : prev,
     );
   }, [markDirty]);
 

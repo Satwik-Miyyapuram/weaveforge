@@ -1,6 +1,11 @@
 /** A duplicate merge under rule D-07: the copies go at once, the merge runs when the Undo toast closes. */
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 import { toasts } from "@/lib/toast/parts";
 import { mergeLater } from "../merge-later";

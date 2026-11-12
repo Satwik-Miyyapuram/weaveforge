@@ -29,13 +29,27 @@ No direct app call to `redactReport` or `redactReportAndCap` was found in `apps/
 
 ## What stays in TypeScript, and why
 
-The log capture stays in TypeScript. These files hold live app state that only exists in the browser:
+The log capture wrappers stay in TypeScript. These files hold live app state that only exists in the browser:
 
 - `apps/web/src/lib/error-report/app-log.ts` writes app log lines.
-- `apps/web/src/lib/error-report/log-buffer.ts` keeps the recent-log buffer.
-- `apps/web/src/lib/error-report/request-log.ts` records request history.
+- `apps/web/src/lib/error-report/log-buffer.ts` wraps `console.error` and `console.warn` and holds the line buffer and seen-set.
+- `apps/web/src/lib/error-report/request-log.ts` wraps `window.fetch`, reads the bounded body and records request history.
 - `apps/web/src/lib/error-report/parts.ts` suppresses repeated warnings.
 
+The rules are in Rust, `crates/wf-core/src/error_report/log_buffer.rs`: `is_noise` (failed-request URLs left out),
+`console_line` (`[level] text`), `push_line` (trim to the newest 40 lines), `record_uncaught` (`[uncaught] text`),
+`error_entry` (first line as message, cut to 500 UTF-16 units, full text as detail) and `remember` (de-dupe, bounded
+at 200). Wasm exports in `crates/wf-wasm/src/error_log.rs`: `errorLogIsNoise`, `errorLogConsoleLine`,
+`errorLogPushLine`, `errorLogRecordUncaught`, `errorLogEntry`, `errorLogRemember`. The TS callers wrap each call in
+try/catch, so a console or fetch call never throws into the app, and before `loadCore()` a failure is logged as new.
+
 Rust builds the report text and the address. TypeScript gathers what happened in the page and passes it in. The buffers are in-memory and tied to the browser session, so Rust does not hold them.
+
+Not regenerated yet: the `errorLog*` exports are untyped until `npm run bindings`.
+
+Error-boundary detail (`apps/web/src/app/error-boundary-parts.ts`, `errorDetail`): `error_detail` in
+`crates/wf-core/src/error_report/detail.rs` lays out message, `digest: <d>` and stack, one per line. Empty when there
+is no message. The TS wrapper reads `error.stack` inside a try/catch (the getter may throw) and returns `""` when the
+core is not loaded yet, so a boundary still renders. Wasm export: `errorDetail` in `crates/wf-wasm/src/error_report_detail.rs`.
 
 Source: `crates/wf-core/src/error_report/`

@@ -1,4 +1,3 @@
-import { SCREEN_REVALIDATE_AFTER_MS } from "./cache-policy";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { getRealtimeClient } from "@/backend/providers/postgrest/parts-1";
 import type { AppContainer } from "@/container/facades/index";
@@ -403,7 +402,7 @@ export class ProjectLwwInvalidator {
  * so it survives client-side tab navigation but not a full reload. Reads are
  * keyed by (projectId, method, args); concurrent identical reads share one
  * in-flight promise (deduped). Settled reads are returned without re-fetching
- * for {@link SCREEN_REVALIDATE_AFTER_MS}, the same window the screen cache
+ * for the core's `revalidateAfterMs` (screen cache policy), the same window the screen cache
  * trusts, so a screen's revalidation reaches the store. Past it the read is
  * refetched; if that fails (offline), the older answer is served instead.
  * A failed read is not cached, and a read in flight when the cache is cleared
@@ -467,7 +466,7 @@ export function cacheRepo<R extends object>(
             lastPid = cur;
           }
           const key = `${cur ?? "-"}|${name}|${JSON.stringify(args)}`;
-          if (settled.has(key) && Date.now() - (settledAt.get(key) ?? 0) < SCREEN_REVALIDATE_AFTER_MS) {
+          if (settled.has(key) && Date.now() - (settledAt.get(key) ?? 0) < readyCore().screenCachePolicy().revalidateAfterMs) {
             return Promise.resolve(settled.get(key));
           }
           // `cache` holds reads in flight only. A clear removes `p`, and a read

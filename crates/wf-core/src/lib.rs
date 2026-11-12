@@ -142,3 +142,4 @@ pub mod update_check;
 pub mod view_transition;
 pub mod wire;
 pub mod zotero_local_url;
+pub mod markdown_input;

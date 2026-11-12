@@ -158,9 +158,11 @@ export function buildSupervisionStats(
 
 // --- card-registry ---
 /**
- * Card catalog (OCP). To add a card:
+ * Card catalog (OCP). The catalog data, role gates, data-source deps and fitted
+ * heights live in Rust (wf-core `dashboard::card_registry`); this module reads them
+ * through wasm. To add a card:
  * 1. Extend `DashboardCardType` in `@weaveforge/core`
- * 2. Add a `CardDef` entry below (with `deps`)
+ * 2. Add a `CardDef` entry to the Rust catalog (with `deps`)
  * 3. Add one renderer in `ui/cards/card-renderers.tsx`
  */
 
@@ -174,18 +176,6 @@ export type DashboardDataSource =
   | "lists"
   | "tags"
   | "supervision";
-
-export const ALL_DASHBOARD_DATA_SOURCES: readonly DashboardDataSource[] = [
-  "papers",
-  "sections",
-  "milestones",
-  "experiments",
-  "log",
-  "relations",
-  "lists",
-  "tags",
-  "supervision",
-];
 
 export interface GridSize {
   w: number;
@@ -210,165 +200,28 @@ export interface CardDef {
   fitContent?: boolean;
 }
 
-/* The three layouts every card is one of. Spelled out per card they read as
-   fourteen independent decisions when they are really three, which hides the
-   odd one out and makes "how big is a stat tile" a fourteen-line change. */
-const STAT_TILE = {
-  defaultSize: { w: 3, h: 2 },
-  defaultSizeSm: { w: 2, h: 2 },
-  minSize: { w: 2, h: 2 },
-  maxSize: { w: 6, h: 3 },
-} as const;
+/** Every card's catalog entry, in picker order. */
+export function cardRegistry(): CardDef[] {
+  return readyCore().dashboardCardRegistry() as CardDef[];
+}
 
-const PANEL = {
-  defaultSize: { w: 6, h: 3 },
-  defaultSizeSm: { w: 4, h: 3 },
-  minSize: { w: 4, h: 3 },
-  maxSize: { w: 12, h: 6 },
-} as const;
-
-const TALL_PANEL = {
-  defaultSize: { w: 6, h: 4 },
-  defaultSizeSm: { w: 4, h: 5 },
-  minSize: { w: 4, h: 3 },
-  maxSize: { w: 12, h: 6 },
-} as const;
-
-export const CARD_REGISTRY: readonly CardDef[] = [
-  {
-    type: "reading-progress",
-    label: "Reading progress",
-    group: "Progress",
-    deps: ["papers"],
-    isStat: true,
-    ...STAT_TILE,
-  },
-  {
-    type: "report-progress",
-    label: "Report progress",
-    group: "Progress",
-    deps: ["sections"],
-    isStat: true,
-    ...STAT_TILE,
-  },
-  {
-    type: "plan-progress",
-    label: "Plan progress",
-    group: "Progress",
-    deps: ["milestones"],
-    isStat: true,
-    ...STAT_TILE,
-  },
-  {
-    type: "experiments-summary",
-    label: "Experiments",
-    group: "Progress",
-    deps: ["experiments"],
-    isStat: true,
-    ...STAT_TILE,
-  },
-  {
-    type: "needs-attention",
-    label: "Needs attention",
-    group: "Activity",
-    deps: ["papers", "milestones", "experiments"],
-    ...PANEL,
-  },
-  {
-    type: "recent-log",
-    label: "Recent log",
-    group: "Activity",
-    deps: ["log"],
-    defaultSize: { w: 6, h: 3 },
-    defaultSizeSm: { w: 4, h: 4 },
-    minSize: { w: 4, h: 3 },
-    maxSize: { w: 12, h: 6 },
-    // A log row (date over preview) is taller than a grid row.
-    fitContent: true,
-  },
-  {
-    type: "library-snapshot",
-    label: "Library snapshot",
-    group: "Library",
-    deps: ["papers", "relations", "lists"],
-    isStat: true,
-    ...STAT_TILE,
-  },
-  {
-    type: "top-tags",
-    label: "Top tags",
-    group: "Library",
-    deps: ["tags"],
-    defaultSize: { w: 4, h: 3 },
-    defaultSizeSm: { w: 4, h: 3 },
-    minSize: { w: 3, h: 3 },
-    maxSize: { w: 12, h: 6 },
-  },
-  {
-    type: "team-roster",
-    label: "Team roster",
-    group: "Team",
-    deps: ["supervision"],
-    minRole: "phd",
-    ...TALL_PANEL,
-    fitContent: true,
-  },
-  {
-    type: "team-attention",
-    label: "Team attention",
-    group: "Team",
-    deps: ["supervision"],
-    minRole: "phd",
-    ...PANEL,
-    fitContent: true,
-  },
-  {
-    type: "supervisee-snapshot",
-    label: "Student snapshot",
-    group: "Team",
-    deps: ["supervision"],
-    minRole: "phd",
-    ...TALL_PANEL,
-  },
-];
-
-const byType = new Map(CARD_REGISTRY.map((c) => [c.type, c]));
-
+/** One card's catalog entry. Throws on an unknown card type. */
 export function getCardDef(type: DashboardCardType): CardDef {
-  const def = byType.get(type);
-  if (!def) throw new Error(`Unknown card type: ${type}`);
-  return def;
+  return readyCore().dashboardCardDef(type) as CardDef;
 }
 
 export function cardsForRole(role: Role | null | undefined): CardDef[] {
-  const core = readyCore();
-  const rank = role ? core.roleRank(role) : 0;
-  return CARD_REGISTRY.filter((c) => {
-    if (!c.minRole) return true;
-    const min = core.roleRank(c.minRole);
-    return rank !== undefined && min !== undefined && rank >= min;
-  });
+  return readyCore().dashboardCardsForRole(role || undefined) as CardDef[];
 }
 
 export function isStatCard(type: DashboardCardType): boolean {
-  return !!getCardDef(type).isStat;
-}
-
-/** Union of data sources required by the visible cards. */
-export function dataSourcesForCardTypes(
-  types: readonly DashboardCardType[],
-): Set<DashboardDataSource> {
-  const out = new Set<DashboardDataSource>();
-  for (const type of types) {
-    for (const dep of getCardDef(type).deps) out.add(dep);
-  }
-  return out;
+  return readyCore().dashboardIsStatCard(type);
 }
 
 /** Largest height of each list card that fits its content; the Rust fit takes this map as data. */
-export const FIT_MAX_HEIGHTS: Readonly<Record<string, number>> = Object.fromEntries(
-  CARD_REGISTRY.filter((c) => c.fitContent).map((c) => [c.type, c.maxSize.h]),
-);
+export function fitMaxHeights(): Readonly<Record<string, number>> {
+  return readyCore().dashboardFitMaxHeights();
+}
 
 // --- dashboard-layout-packing ---
 /**
@@ -377,19 +230,19 @@ export const FIT_MAX_HEIGHTS: Readonly<Record<string, number>> = Object.fromEntr
  * The geometry runs in Rust (wf-core `dashboard::packing`); this module supplies
  * each card's size limits from the card registry. Pure, no storage.
  */
-type CardSizeDef = (typeof CARD_REGISTRY)[number];
-
 /** Every card's size limits, as the Rust packing and layout functions take them. */
-export const CARD_LIMITS = CARD_REGISTRY.map((def) => ({
-  type: def.type,
-  minSize: def.minSize,
-  maxSize: def.maxSize,
-  defaultSize: def.defaultSize,
-  defaultSizeSm: def.defaultSizeSm,
-}));
+export function cardLimits() {
+  return cardRegistry().map((def) => ({
+    type: def.type,
+    minSize: def.minSize,
+    maxSize: def.maxSize,
+    defaultSize: def.defaultSize,
+    defaultSizeSm: def.defaultSizeSm,
+  }));
+}
 
 /** Min/max for a card on a given column count (mobile vs desktop semantics differ). */
-export function layoutFloors(def: CardSizeDef, cols: number) {
+export function layoutFloors(def: CardDef, cols: number) {
   return readyCore().dashboardLayoutFloors(
     {
       type: def.type,
@@ -406,7 +259,7 @@ export function normalizeLayoutItem(
   item: DashboardLayoutItem,
   cols = 12,
 ): DashboardLayoutItem {
-  return readyCore().dashboardNormalizeItem(item, CARD_LIMITS, cols) as DashboardLayoutItem;
+  return readyCore().dashboardNormalizeItem(item, cardLimits(), cols) as DashboardLayoutItem;
 }
 
 /** Pack items upward with no vertical gaps (react-grid-layout compact). */
@@ -419,7 +272,7 @@ export function compactLayoutVertical(
 
 /** Pack mobile cards into a tight 4-column grid (row-major, no gaps). */
 export function packSmLayout(items: readonly DashboardLayoutItem[]): DashboardLayoutItem[] {
-  return readyCore().dashboardPackSm(items, CARD_LIMITS) as DashboardLayoutItem[];
+  return readyCore().dashboardPackSm(items, cardLimits()) as DashboardLayoutItem[];
 }
 
 /** Mobile: snap half/full width, then pack into a compact grid. */
@@ -442,7 +295,7 @@ export function normalizeSmLayout(items: readonly DashboardLayoutItem[]): Dashbo
  * resizing is not pulled out from under the pointer.
  */
 export function closeLayoutGaps(items: readonly DashboardLayoutItem[], cols = 12): DashboardLayoutItem[] {
-  return readyCore().dashboardCloseGaps(items, CARD_LIMITS, cols) as DashboardLayoutItem[];
+  return readyCore().dashboardCloseGaps(items, cardLimits(), cols) as DashboardLayoutItem[];
 }
 
 // --- dashboard-layout ---
@@ -480,7 +333,7 @@ export function studentDefaultSm(): DashboardLayoutItem[] {
 export function mergeSupervisorCardsIfMissing(layout: DashboardLayout): DashboardLayout {
   // One id per supervisor-only card type; the core uses only the ones it appends.
   const ids = Array.from({ length: 3 }, newCardId);
-  return readyCore().dashboardMergeSupervisorCards(layout, CARD_LIMITS, ids) as DashboardLayout;
+  return readyCore().dashboardMergeSupervisorCards(layout, cardLimits(), ids) as DashboardLayout;
 }
 
 /**
@@ -492,24 +345,24 @@ export function initialDashboardLayout(
   stored: DashboardLayout | null,
   supervisor: boolean,
 ): DashboardLayout {
-  if (stored) return readyCore().dashboardFinalizeLayout(stored, CARD_LIMITS) as DashboardLayout;
+  if (stored) return readyCore().dashboardFinalizeLayout(stored, cardLimits()) as DashboardLayout;
   const base = readyCore().dashboardDefaultLayout(supervisor) as DashboardLayout;
   return readyCore().dashboardFinalizeLayout(
     supervisor ? mergeSupervisorCardsIfMissing(base) : base,
-    CARD_LIMITS,
+    cardLimits(),
   ) as DashboardLayout;
 }
 
 /** Append a card to both breakpoints with a shared id, then finalize. */
 export function appendCardPair(layout: DashboardLayout, type: DashboardCardType): DashboardLayout {
-  return readyCore().dashboardAppendCardPair(layout, type, newCardId(), CARD_LIMITS) as DashboardLayout;
+  return readyCore().dashboardAppendCardPair(layout, type, newCardId(), cardLimits()) as DashboardLayout;
 }
 
 /** Parse layout JSON and apply compaction defaults for the active breakpoints. */
 export function parseDashboardLayout(raw: unknown): DashboardLayout | null {
   // Rust keeps only cards with a known card type.
   const parsed = readyCore().parseDashboardLayout(raw) as DashboardLayout | null;
-  return parsed ? (readyCore().dashboardFinalizeLayout(parsed, CARD_LIMITS) as DashboardLayout) : null;
+  return parsed ? (readyCore().dashboardFinalizeLayout(parsed, cardLimits()) as DashboardLayout) : null;
 }
 
 // --- fetch-supervisee-data ---
@@ -567,9 +420,7 @@ export interface LoadDashboardStatsResult {
 }
 
 function resolveDeps(cardTypes: readonly DashboardCardType[]): Set<DashboardDataSource> {
-  return cardTypes.length > 0
-    ? dataSourcesForCardTypes(cardTypes)
-    : new Set(ALL_DASHBOARD_DATA_SOURCES);
+  return new Set(readyCore().dashboardResolveDeps(cardTypes) as DashboardDataSource[]);
 }
 
 /** Pure orchestration: fetch only what visible cards need, then build stats. */

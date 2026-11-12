@@ -1,6 +1,11 @@
 /** Deleting a report section: gone at once, deleted when the Undo toast closes (D10, D-07). */
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 import type { ReportSection } from "@weaveforge/core";
 
 import { toasts } from "@/lib/toast/parts";

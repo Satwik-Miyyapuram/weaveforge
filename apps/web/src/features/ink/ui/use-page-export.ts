@@ -5,7 +5,6 @@ import { type FigureGeometry, type InkPage as InkPageModel } from "@weaveforge/c
 
 import { blobToDataUrl, downloadBlob } from "@/lib/parts";
 import { renderMarkdownPlain } from "@/components/markdown/markdown";
-import { containsMath } from "@/components/markdown/math-renderer";
 import type { InkPrintFigure, InkSvgFigure } from "@weaveforge/wasm";
 import { loadInOrder } from "../application/parts";
 import type { InkPalette } from "../render/parts-1";
@@ -235,7 +234,7 @@ export function usePageExport(deps: PageExportDeps) {
     // maths there would come out as the placeholder unless the renderer is in
     // memory — so it is fetched first when the text has any. This callback is
     // already async, so waiting costs nothing visible.
-    if (!live && text.trim() && containsMath(text)) {
+    if (!live && text.trim() && readyCore().containsMath(text)) {
       await loadMathOrLog();
     }
     const underlayHtml = live?.innerHTML ?? (text.trim() ? renderMarkdownPlain(text) : "");

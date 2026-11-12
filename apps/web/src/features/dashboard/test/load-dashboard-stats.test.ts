@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 
 import {
   buildDashboardStats,
-  dataSourcesForCardTypes,
   loadDashboardStats,
 } from "../application/parts";
 import type { DashboardStatsPorts } from "../application/parts";
@@ -12,15 +11,6 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(async () => {
   await loadTestCore();
-});
-
-describe("dataSourcesForCardTypes", () => {
-  it("collects deps from visible cards only", () => {
-    const deps = dataSourcesForCardTypes(["reading-progress", "recent-log"]);
-    assert.ok(deps.has("papers"));
-    assert.ok(deps.has("log"));
-    assert.equal(deps.has("tags"), false);
-  });
 });
 
 describe("loadDashboardStats", () => {
