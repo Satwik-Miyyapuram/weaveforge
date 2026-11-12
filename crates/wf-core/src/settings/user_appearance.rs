@@ -151,6 +151,23 @@ pub fn normalize_appearance(raw: &Value) -> Option<UserAppearance> {
     (out != UserAppearance::default()).then_some(out)
 }
 
+/// The server's appearance over `local`, as the TS merge did: each key the server sends replaces
+/// the local one, except that a `null` field keeps the local value. `customTheme` is the one
+/// field where `null` means "no custom theme", so it does clear. Keys absent from `server` keep
+/// their local value.
+pub fn merge_server_appearance(local: &Value, server: &Value) -> Value {
+    let mut merged = local.as_object().cloned().unwrap_or_default();
+    if let Some(server) = server.as_object() {
+        for (key, value) in server {
+            if value.is_null() && key != "customTheme" {
+                continue;
+            }
+            merged.insert(key.clone(), value.clone());
+        }
+    }
+    Value::Object(merged)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -200,5 +217,21 @@ mod tests {
         for raw in [json!(null), json!([]), json!("dark"), json!(1), json!({})] {
             assert_eq!(normalize_appearance(&raw), None);
         }
+    }
+
+    #[test]
+    fn server_replaces_local_and_nulls_keep_local_except_custom_theme() {
+        let local = json!({ "mode": "light", "cardTilt": true, "customTheme": { "a": 1 } });
+        let server = json!({ "mode": "dark", "cardTilt": null, "customTheme": null });
+        assert_eq!(
+            merge_server_appearance(&local, &server),
+            json!({ "mode": "dark", "cardTilt": true, "customTheme": null })
+        );
+    }
+
+    #[test]
+    fn keys_absent_from_server_keep_local() {
+        let local = json!({ "mode": "light" });
+        assert_eq!(merge_server_appearance(&local, &json!({})), local);
     }
 }

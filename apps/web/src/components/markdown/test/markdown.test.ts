@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { renderMarkdownPlain, renderMarkdownWithShiki, renderProseMarkdown, splitFences } from "@/components/markdown/markdown";
-import { containsMath, loadMathRenderer } from "@/components/markdown/math-renderer";
+import { loadMathRenderer } from "@/components/markdown/math-renderer";
 
 /**
  * The maths tests load KaTeX explicitly, and the app deliberately does not.
@@ -39,15 +39,6 @@ test("without a loaded renderer, maths is a placeholder holding the TeX", () => 
   assert.match(html, /class="math-pending"/);
   assert.match(html, /z = \\mu/, "the source is shown, escaped");
   assert.doesNotMatch(html, /class="katex"/);
-});
-
-test("only text with maths triggers the load", () => {
-  // A false positive costs a 75 KB fetch, so the delimiters are checked the way
-  // the renderer recognises them.
-  assert.equal(containsMath("Just prose about $5 and a shell $VAR."), true, "a bare dollar counts");
-  assert.equal(containsMath("$$\\int_0^1 x\\,dx$$"), true);
-  assert.equal(containsMath("Escaped: \\$5 only."), false, "an escaped dollar is not a delimiter");
-  assert.equal(containsMath("No maths here at all."), false);
 });
 
 test("keeps code, escaped dollars, and URL dollars out of equation rendering", () => {
@@ -246,13 +237,6 @@ test("a display block may open or close on a line with content, and invalid TeX 
   assert.doesNotMatch(multi, /<p>\$\$/);
 
   assert.doesNotThrow(() => renderProseMarkdown("$\\frac{$ and \\(\\unclosed", options));
-});
-
-test("containsMath recognises the bracketed delimiters too", () => {
-  assert.equal(containsMath("\\(x\\)"), true);
-  assert.equal(containsMath("\\[x\\]"), true);
-  assert.equal(containsMath("plain text with a \\(escaped-looking word"), true);
-  assert.equal(containsMath("no maths here"), false);
 });
 
 test("each heading level renders as its own heading element; seven hashes stay text", () => {

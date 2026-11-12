@@ -1,6 +1,7 @@
 /** The shared right-click menu: open/close state and on-screen placement. */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   closeContextMenu,
   contextMenuState,
@@ -9,6 +10,10 @@ import {
   placeContextMenu,
   subscribeContextMenu,
 } from "../context-menu-store";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const item = { id: "a", label: "A" };
 

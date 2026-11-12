@@ -1,5 +1,5 @@
 import { openAppDb as openDb, SCREEN_STORE as STORE } from "@/lib/cache/parts-1";
-import { SCREEN_REVALIDATE_AFTER_MS, SCREEN_SHOW_MAX_AGE_MS } from "./cache-policy";
+import { readyCore } from "@/lib/rust-core";
 
 // --- screen-cache-idb ---
 /**
@@ -11,10 +11,9 @@ import { SCREEN_REVALIDATE_AFTER_MS, SCREEN_SHOW_MAX_AGE_MS } from "./cache-poli
  * both: too old is a miss, an unrecognised shape is a miss. A miss costs one
  * fetch; showing a stale screen as though it were current costs trust.
  *
- * "Too old" is `SCREEN_SHOW_MAX_AGE_MS` from `cache-policy.ts`, beside the much
- * shorter window the memory layer uses to decide whether to revalidate — the two
- * were separate unexported constants in separate files, answering two different
- * questions without saying so.
+ * "Too old" is `showMaxAgeMs` from the wf-core screen cache policy, beside the much
+ * shorter `revalidateAfterMs` window the memory layer uses to decide whether to
+ * revalidate. Both are read from the core at call time, so one policy governs both.
  */
 
 /**
@@ -44,12 +43,18 @@ function unwrap<T>(stored: unknown, now: number): CachedScreen<T> | undefined {
   // A clock that moved backwards leaves a future timestamp behind. Treating it
   // as a miss is the honest reading: its age is unknown, not zero.
   const age = now - envelope.fetchedAt;
-  if (age < 0 || age > SCREEN_SHOW_MAX_AGE_MS) return undefined;
+  if (age < 0 || age > readyCore().screenCachePolicy().showMaxAgeMs) return undefined;
   return { value: envelope.value as T, fetchedAt: envelope.fetchedAt };
 }
 
 /** Exported for the tests; the rules above are the part worth checking. */
-export const __test = { unwrap, ENVELOPE_VERSION, MAX_AGE_MS: SCREEN_SHOW_MAX_AGE_MS };
+export const __test = {
+  unwrap,
+  ENVELOPE_VERSION,
+  get MAX_AGE_MS() {
+    return readyCore().screenCachePolicy().showMaxAgeMs;
+  },
+};
 
 export async function idbGetScreenCache<T>(key: string): Promise<CachedScreen<T> | undefined> {
   if (typeof indexedDB === "undefined") return undefined;
@@ -172,7 +177,7 @@ export function getScreenCache<T>(key: string): T | undefined {
 }
 
 /** Skip background revalidation when the payload was fetched this recently. */
-export function isScreenCacheFresh(key: string, maxAgeMs = SCREEN_REVALIDATE_AFTER_MS): boolean {
+export function isScreenCacheFresh(key: string, maxAgeMs = readyCore().screenCachePolicy().revalidateAfterMs): boolean {
   const entry = store.get(key);
   return entry != null && Date.now() - entry.fetchedAt < maxAgeMs;
 }

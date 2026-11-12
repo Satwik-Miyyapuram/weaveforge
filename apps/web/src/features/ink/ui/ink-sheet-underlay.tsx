@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { renderMarkdownPlain, type WikilinkResolver } from "@/components/markdown/markdown";
-import { containsMath, loadedMathRenderer, loadMathRenderer } from "@/components/markdown/math-renderer";
+import { loadedMathRenderer, loadMathRenderer } from "@/components/markdown/math-renderer";
 import { upgradeMermaidFences } from "@/lib/mermaid-render";
+import { readyCore } from "@/lib/rust-core";
 import { logToApp } from "@/lib/error-report/app-log";
 
 /** Load the maths renderer; on failure log it and answer false, so the sheet shows raw TeX (20-02). */
@@ -104,7 +105,7 @@ export function InkSheetTextUnderlay({
   // exported image with it.
   const [mathReady, setMathReady] = useState(false);
   useEffect(() => {
-    if (mathReady || !containsMath(text)) return;
+    if (mathReady || !readyCore().containsMath(text)) return;
     let cancelled = false;
     void loadMathOrLog().then((ok) => {
       if (ok && !cancelled) setMathReady(true);

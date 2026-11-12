@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import type { DashboardLayoutItem } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { FIT_MAX_HEIGHTS, getCardDef } from "../application/parts";
+import { fitMaxHeights, getCardDef } from "../application/parts";
 
 before(async () => {
   await loadTestCore();
@@ -22,7 +22,7 @@ before(async () => {
 /** Mirrors the grid's calls into the Rust core. */
 const rowsForHeight = (px: number, rowHeight: number, margin: number) => readyCore().rowsForHeight(px, rowHeight, margin);
 const fitLayoutToContent = (items: DashboardLayoutItem[], measured: Map<string, number>) =>
-  readyCore().fitLayoutToContent(items, measured, FIT_MAX_HEIGHTS) as DashboardLayoutItem[];
+  readyCore().fitLayoutToContent(items, measured, fitMaxHeights()) as DashboardLayoutItem[];
 /** Smallest fitted list card, in rows (Rust `FIT_MIN_ROWS`). */
 const FIT_MIN_ROWS = 2;
 
@@ -34,12 +34,6 @@ test("rows for a height count the gap between rows", () => {
   assert.equal(rowsForHeight(104, 48, 8), 2);
   assert.equal(rowsForHeight(105, 48, 8), 3);
   assert.equal(rowsForHeight(0, 48, 8), 0);
-});
-
-test("only the list cards fit their content", () => {
-  assert.equal(getCardDef("team-roster").fitContent, true);
-  assert.equal(getCardDef("team-attention").fitContent, true);
-  assert.notEqual(getCardDef("reading-progress").fitContent, true, "stat tiles keep their size");
 });
 
 test("in view, a list card takes the rows its content needs", () => {

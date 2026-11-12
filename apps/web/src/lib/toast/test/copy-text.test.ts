@@ -1,6 +1,11 @@
 /** Copy buttons say what happened (DA-64). */
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 import { copyText, toasts } from "../parts";
 

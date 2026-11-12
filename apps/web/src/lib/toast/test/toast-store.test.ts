@@ -4,9 +4,17 @@
  * no re-create and sync sees one delete.
  */
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
-import { TOAST_MS, MAX_TOASTS, ToastStore, type ToastClock } from "../parts";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { ToastStore, type ToastClock } from "../parts";
+
+/** The delete-then-undo window (Rust `TOAST_MS`). */
+const TOAST_MS = 8000;
+
+before(async () => {
+  await loadTestCore();
+});
 
 /** A clock the test drives by hand. */
 function fakeClock() {
@@ -43,7 +51,6 @@ function setup() {
 
 test("a toast stays 8 seconds, then closes", () => {
   const { store, advance } = setup();
-  assert.equal(TOAST_MS, 8000);
   store.show({ message: "Copied" });
   advance(7999);
   assert.equal(store.snapshot().length, 1);
@@ -139,7 +146,6 @@ test("at most three toasts show; a fourth closes the oldest, which commits early
   for (const k of ["a", "b", "c", "d"]) {
     store.deferDelete({ keys: [k], message: k, commit: () => void commits.push(k) });
   }
-  assert.equal(MAX_TOASTS, 3);
   assert.deepEqual(store.snapshot().map((t) => t.message), ["b", "c", "d"]);
   assert.deepEqual(commits, ["a"]);
 });

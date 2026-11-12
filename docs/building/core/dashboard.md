@@ -43,17 +43,27 @@ the core has loaded.
 
 ## What stays in TypeScript, and why
 
-- **The card registry.** `apps/web/src/features/dashboard/application/parts.ts`
-  owns the card table: which cards exist, their limits and their heights. It
-  calls `roleRank` through `readyCore()` to filter cards by role, and passes
-  the limits into the Rust layout functions as data. The table stays in
-  TypeScript because it is UI configuration, not a rule.
+- **Card rendering.** Components and grid drag stay in the UI. The card catalog
+  (types, roles, deps, fit heights) is in Rust, see "Card registry" below.
 - **Hooks and components.** Grid rendering, drag handling and the dashboard
   screens stay in `apps/web`.
 - **I/O.** Loading and saving the layout to the database or local storage stays
   in TypeScript. Rust receives the saved value and returns a repaired one.
 - **Type contracts.** The TypeScript types that describe the layout and stats
   shapes stay in `packages/wf-wasm/src` and `packages/core`.
+
+## Card registry
+
+`crates/wf-core/src/dashboard/card_registry.rs` holds the 11-card catalog: `registry()`, `card_def`,
+`cards_for_role`, `is_stat_card`, `data_sources_for_card_types`, `resolve_deps` and `fit_max_heights`.
+Wasm exports (`crates/wf-wasm/src/dashboard_registry.rs`): `dashboardCardRegistry`, `dashboardCardDef`,
+`dashboardCardsForRole`, `dashboardIsStatCard`, `dashboardDataSourcesForCardTypes`,
+`dashboardResolveDeps`, `dashboardFitMaxHeights`. `apps/web/src/features/dashboard/application/parts.ts`
+delegates to them. `cardLimits()` and `fitMaxHeights()` are functions, not constants, because a module-level
+call would run wasm before `loadCore()`. Tests: 9 Rust `#[test]`s, 3 of them ported from TS.
+
+Not regenerated yet: the new exports are untyped in `packages/wf-wasm/pkg` and `packages/wf-bindings`
+until `npm run bindings`; the TS side casts their results.
 
 ## Related
 

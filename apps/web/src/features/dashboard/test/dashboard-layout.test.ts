@@ -7,7 +7,7 @@ import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   appendCardPair,
-  CARD_LIMITS,
+  cardLimits,
   closeLayoutGaps,
   compactLayoutVertical,
   initialDashboardLayout,
@@ -22,9 +22,9 @@ import {
 const defaultLayout = (supervisor: boolean) =>
   readyCore().dashboardDefaultLayout(supervisor) as DashboardLayout;
 const finalizeDashboardLayout = (layout: DashboardLayout) =>
-  readyCore().dashboardFinalizeLayout(layout, CARD_LIMITS) as DashboardLayout;
+  readyCore().dashboardFinalizeLayout(layout, cardLimits()) as DashboardLayout;
 const syncDashboardLayouts = (layout: DashboardLayout) =>
-  readyCore().dashboardSyncLayouts(layout, CARD_LIMITS) as DashboardLayout;
+  readyCore().dashboardSyncLayouts(layout, cardLimits()) as DashboardLayout;
 
 before(async () => {
   await loadTestCore();
@@ -235,7 +235,7 @@ describe("mergeRglPositions", () => {
     const merged = readyCore().dashboardMergeRglPositions(
       items,
       [{ i: "reading", x: 3, y: 1, w: 3, h: 2 }],
-      CARD_LIMITS,
+      cardLimits(),
       12,
     ) as DashboardLayoutItem[];
     const next = merged.find((it) => it.id === "reading");
@@ -249,7 +249,7 @@ describe("lgLayoutNeedsRepair", () => {
     const items = studentDefaultLg().map((it) =>
       it.id === "reading" ? { ...it, w: 1 } : it,
     );
-    assert.ok(readyCore().dashboardLgNeedsRepair(items, CARD_LIMITS));
+    assert.ok(readyCore().dashboardLgNeedsRepair(items, cardLimits()));
   });
 });
 

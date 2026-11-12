@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { readyCore } from "@/lib/rust-core";
 import {
-  containsMath,
   loadedMathRenderer,
   loadMathRenderer,
   mathPlaceholder,
@@ -535,7 +534,7 @@ export function Markdown({
   const [mathReady, setMathReady] = useState(() => loadedMathRenderer() !== null);
 
   useEffect(() => {
-    if (mathReady || !containsMath(children)) return;
+    if (mathReady || !readyCore().containsMath(children)) return;
     let cancelled = false;
     void loadMathRenderer()
       .then(() => {
@@ -628,7 +627,7 @@ export async function renderMarkdownWithShiki(
   // placeholders: the reader asked for a rendered document, and the chunk is
   // already being fetched by then on any surface with maths in it. Only when
   // there is maths, and only when the caller did not bring its own renderer.
-  if (!options?.mathRenderer && containsMath(md)) {
+  if (!options?.mathRenderer && readyCore().containsMath(md)) {
     await loadMathRenderer().catch(() => undefined);
   }
 
