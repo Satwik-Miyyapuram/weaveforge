@@ -174,15 +174,18 @@ Once it is on, the shape is:
 
 ### When it runs
 
-Sync runs **while the app is open**, on three triggers:
+Sync runs **while the app is open**, on these triggers:
 
-1. **When you start the app**, because there may be a backlog from last time.
-2. **When the network comes back**, because the machine tells us so.
-3. **On a timer**, for the failure nobody announces: a socket that died without
-   an event, a token that expired quietly.
+1. **When you start the app**, because there may be a backlog from last time. If
+   that start-up sync fails, it is retried after 30 seconds.
+2. **Every 45 seconds**, for the failure nobody announces: a socket that died
+   without an event, a token that expired quietly.
+3. **When the window regains focus**, if the last run was at least 15 seconds ago.
+4. **1.5 seconds after a local change**, so an edit goes up without waiting for the timer.
+5. **When the network comes back**, because the machine tells us so.
 
-There is no setting for the interval, and that is deliberate — it is a safety
-net, not the mechanism. A cycle also cannot overlap itself: the interval and the
+There is no setting for the interval, and that is deliberate — the timer is a
+safety net, not the mechanism. A cycle also cannot overlap itself: the interval and the
 network-recovery event can fire together, and two concurrent pushes of the same
 outbox rows would send what the first already sent, which the conflict log would
 then report as a conflict with itself.
@@ -194,8 +197,9 @@ background, there is no daemon, and closing the window stops it.
 
 Every row carries a version. A queued write says which version it was based on,
 and the server accepts it only if that is still the current one. If it is not,
-the write is not applied and not silently discarded — it becomes a **conflict**,
-with both sides kept.
+the write is merged automatically when possible. If it cannot be merged, it is not
+applied and not silently discarded — it becomes a **conflict**, with both sides
+kept.
 
 That is what makes working offline safe: you can edit on a train, edit the same
 thing on a laptop, and nothing is thrown away without you seeing it. Conflicts

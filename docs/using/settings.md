@@ -32,7 +32,8 @@ flat column it used to live in. Keys are written to both places, so an older
 version of the app still finds them.
 
 The disclaimer must be accepted again whenever its version is raised. A
-settings row with no acceptance time, or with an older version, asks for it.
+settings row with no acceptance time, or with an older version, asks for it. A
+row with no version counts as version 1, so it is asked again too.
 
 Source: `crates/wf-core/src/settings/`
 

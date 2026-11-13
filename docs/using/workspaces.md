@@ -65,7 +65,7 @@ For research groups, university departments, and labs:
 - **Invite Codes**: A professor or lab director creates a lab organisation and generates
   role-based invite codes for **Professors**, **Postdocs / PhD Students**, and
   **Masters Students**.
-- **Joining a Lab**: When creating your account or in **Settings → Organisation**, enter
+- **Joining a Lab**: When creating your account or in **Settings → Org**, enter
   your lab's invite code to join.
 - **Supervision & Sharing**: In an organisation workspace:
   - Students retain private, isolated projects for their day-to-day work.
@@ -176,7 +176,7 @@ For full details on folder structure, conflict handling, and local REST/MCP acce
 
 WeaveForge Desktop allows you to work completely offline with zero account requirements:
 
-- On the sign-in screen, select **"Work on this computer, without an account"**.
+- On the sign-in screen, select **"Work on this computer (offline)"**.
 - Your projects, notes, papers, search index, and experiments run against an embedded
   PGlite database stored in your operating system's application directory.
 - The app makes zero network calls at boot.
