@@ -19,7 +19,8 @@ const TABLE: &str = "user_settings";
 pub const SETTINGS_COLUMNS: &str =
     "user_id,zotero_library,disclaimer_accepted_at,disclaimer_version,appearance,ai_access";
 
-const METADATA_COLUMNS: &str = "disclaimer_accepted_at,disclaimer_version,appearance";
+const METADATA_COLUMNS: &str =
+    "disclaimer_accepted_at,disclaimer_version,appearance,last_release_notice_seen";
 
 /// The next step of `method`, or `None` for an unknown method.
 #[must_use]
@@ -31,6 +32,7 @@ pub fn step(method: &str, call: &RepoCall) -> Option<RepoStep> {
         "saveAppearance" => save_appearance(call),
         "saveDisclaimer" => save_disclaimer(call),
         "acceptDisclaimer" => accept_disclaimer(call),
+        "saveNoticeSeen" => save_notice_seen(call),
         _ => return None,
     })
 }
@@ -69,6 +71,8 @@ struct Metadata {
     disclaimer_version: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     appearance: Option<UserAppearance>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_release_notice_seen: Option<Value>,
 }
 
 /// A non-null column value.
@@ -91,6 +95,7 @@ fn metadata(call: &RepoCall) -> RepoStep {
             disclaimer_accepted_at: present(&row, "disclaimer_accepted_at"),
             disclaimer_version: present(&row, "disclaimer_version"),
             appearance: appearance(&row),
+            last_release_notice_seen: present(&row, "last_release_notice_seen"),
         }),
         Err(step) => step,
     }
@@ -225,6 +230,32 @@ fn save_disclaimer(call: &RepoCall) -> RepoStep {
         Ok(user) => RepoStep::send(disclaimer_upsert(call, user, call.text(0), call.arg(1))),
         Err(step) => step,
     }
+}
+
+/// `saveNoticeSeen(version)`: record the release notice the caller dismissed. Only that column is
+/// written, so the rest of the row is kept.
+fn save_notice_seen(call: &RepoCall) -> RepoStep {
+    if !call.replies.is_empty() {
+        return RepoStep::unit();
+    }
+    let user = match call.user() {
+        Ok(user) => user,
+        Err(step) => return step,
+    };
+    let version = call.text(0);
+    if version.is_empty() {
+        return RepoStep::fail("A release notice version is required.");
+    }
+    RepoStep::send(
+        RepoQuery::upsert(
+            TABLE,
+            json!({
+                "user_id": user,
+                "last_release_notice_seen": version,
+            }),
+        )
+        .on_conflict("user_id", false),
+    )
 }
 
 /// `acceptDisclaimer()`: accept the current disclaimer version at the call's time (TS
@@ -411,6 +442,50 @@ mod tests {
         assert_eq!(
             done(save_disclaimer(&call(vec![], vec![Value::Null]))),
             Value::Null
+        );
+    }
+
+    #[test]
+    fn save_notice_seen_upserts_only_the_version() {
+        let q = sent(step("saveNoticeSeen", &call(vec![json!("1.2.0")], vec![])).unwrap());
+        assert_eq!(q.action, RepoAction::Upsert);
+        assert_eq!(q.on_conflict.as_deref(), Some("user_id"));
+        assert_eq!(
+            q.body.unwrap(),
+            json!({ "user_id": "u1", "last_release_notice_seen": "1.2.0" })
+        );
+        assert!(matches!(
+            save_notice_seen(&call(vec![json!("")], vec![])),
+            RepoStep::Fail { .. }
+        ));
+        assert!(matches!(
+            save_notice_seen(&call(vec![], vec![])),
+            RepoStep::Fail { .. }
+        ));
+        let mut c = call(vec![json!("1.2.0")], vec![]);
+        c.ctx.user_id = None;
+        assert!(matches!(save_notice_seen(&c), RepoStep::Fail { .. }));
+        assert_eq!(
+            done(save_notice_seen(&call(
+                vec![json!("1.2.0")],
+                vec![Value::Null]
+            ))),
+            Value::Null
+        );
+    }
+
+    #[test]
+    fn metadata_includes_the_dismissed_notice_when_present() {
+        let mut row = stored();
+        row["last_release_notice_seen"] = json!("1.2.0");
+        assert_eq!(
+            done(metadata(&call(vec![], vec![row])))["lastReleaseNoticeSeen"],
+            "1.2.0"
+        );
+        assert!(
+            done(metadata(&call(vec![], vec![stored()])))
+                .get("lastReleaseNoticeSeen")
+                .is_none()
         );
     }
 }

@@ -214,6 +214,13 @@ manual today.
    gh release create vX.Y.Z "apps/shell/target/release/bundle/msi/<file>.msi" "apps/shell/target/release/bundle/nsis/<file>-setup.exe" --title "WeaveForge vX.Y.Z" --notes-file <notes.md>
    ```
 6. Write the notes on the release.
+7. Publish the in-app release notice. The `## [X.Y.Z]` section (no `v`) must exist in
+   [`../../CHANGELOG.md`](../../CHANGELOG.md) first. Preview, then insert:
+   ```bash
+   WF_OCI_SSH=<user@host> npm run release:notice -- X.Y.Z
+   WF_OCI_SSH=<user@host> npm run release:notice -- X.Y.Z --apply
+   ```
+   See [Release notices](core/release-notices.md).
 
 The installers are **not code-signed**. Windows will warn on first run. There is
 no updater signing and no updater config in `apps/shell/tauri.conf.json` or

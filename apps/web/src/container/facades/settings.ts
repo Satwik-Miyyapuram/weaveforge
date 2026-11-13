@@ -6,7 +6,7 @@ import type {
 } from "@weaveforge/core";
 import { relayUrl } from "@/lib/parts";
 import type { IIntegrationsStore } from "@/features/sync/domain/parts";
-import type { SettingsWrites } from "@/features/settings/infrastructure/parts";
+import type { IReleaseNoticesRepository, SettingsWrites } from "@/features/settings/infrastructure/parts";
 import { formatError, GENERIC_ERROR, httpContext, readJsonBody } from "@/lib/format-error";
 
 /** A personal access token as the settings API reports it — never the secret. */
@@ -59,6 +59,8 @@ export class SettingsFacade {
       settings: ManageSettingsUseCase;
       /** Appearance and disclaimer writes, straight to the settings repository. */
       preferences: SettingsWrites;
+      /** Optional so existing test fakes still compile; absent means no notices. */
+      releaseNotices?: IReleaseNoticesRepository;
       bibliography: IBibliographyIntegration;
       projectBibliography: IProjectBibliographyCollectionStore;
       integrations: IIntegrationsStore;
@@ -76,6 +78,9 @@ export class SettingsFacade {
   }
   get preferences() {
     return this.deps.preferences;
+  }
+  get releaseNotices(): IReleaseNoticesRepository {
+    return this.deps.releaseNotices ?? { unseen: async () => null };
   }
   get integrations() {
     return this.deps.integrations;

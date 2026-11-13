@@ -29,6 +29,7 @@ pub mod projects_repo;
 pub mod reader_annotations;
 pub mod reading_list_items;
 pub mod reading_lists;
+pub mod release_notices;
 pub mod report_sections;
 pub mod screening_decisions;
 pub mod share_links;
