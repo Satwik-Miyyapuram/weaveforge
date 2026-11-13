@@ -32,6 +32,19 @@ interface SettingsRow {
 
 export type Secrets = Pick<UserSettings, "zoteroApiKey" | "semanticScholarKey" | "integrations">;
 
+/** A published release notice, as the `release_notices` table reports it. */
+export interface ReleaseNotice {
+  version: string;
+  title: string;
+  body: string;
+  publishedAt: string;
+}
+
+/** The newest notice this account has not dismissed, or null. */
+export interface IReleaseNoticesRepository {
+  unseen(): Promise<ReleaseNotice | null>;
+}
+
 /** The `user_settings` row queries Rust plans. */
 interface SettingsRows {
   row(): Promise<SettingsRow | null>;
@@ -40,6 +53,7 @@ interface SettingsRows {
   saveDisclaimer(acceptedAt: string, version: number): Promise<void>;
   saveAppearance(appearance: UserAppearance): Promise<void>;
   acceptDisclaimer(): Promise<void>;
+  saveNoticeSeen(version: string): Promise<void>;
 }
 const CREDENTIALS_ROUTE = "/api/settings/credentials";
 
@@ -144,7 +158,7 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
     /** Defaults to the server route; see `SecretsStore` for when it must not. */
     private readonly secrets: SecretsStore = new RouteSecretsStore(db),
   ) {
-    this.rows = rustRepository<SettingsRows>(db, "user_settings", ["row", "metadata", "saveRow", "saveDisclaimer", "saveAppearance", "acceptDisclaimer"], async () => ({
+    this.rows = rustRepository<SettingsRows>(db, "user_settings", ["row", "metadata", "saveRow", "saveDisclaimer", "saveAppearance", "acceptDisclaimer", "saveNoticeSeen"], async () => ({
       userId: (await session.getCurrentUserId()) ?? undefined,
     }));
   }
@@ -254,10 +268,16 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
     await this.rows.acceptDisclaimer();
     forgetSettingsMetadata();
   }
+
+  /** Record the release notice the user dismissed (Rust `saveNoticeSeen`). */
+  async saveNoticeSeen(version: string): Promise<void> {
+    await this.rows.saveNoticeSeen(version);
+    forgetSettingsMetadata();
+  }
 }
 
-/** The writes the Rust `user_settings` arms make for appearance and the disclaimer. */
-export type SettingsWrites = Pick<PostgrestSettingsRepository, "saveAppearance" | "acceptDisclaimer">;
+/** The writes the Rust `user_settings` arms make for appearance, the disclaimer and notices. */
+export type SettingsWrites = Pick<PostgrestSettingsRepository, "saveAppearance" | "acceptDisclaimer" | "saveNoticeSeen">;
 
 // --- user-settings-core ---
 /** The bindings `UserSettings` the wasm wrapper takes and returns. */

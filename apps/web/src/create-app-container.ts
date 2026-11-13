@@ -654,6 +654,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     settings: new SettingsFacade({
       settings: backend.manageSettings,
       preferences: backend.settingsRepository,
+      releaseNotices: backend.releaseNoticesRepository,
       bibliography,
       projectBibliography: wiredIntegrations.projectBibliographyCollection,
       integrations: backend.integrationsStore,
