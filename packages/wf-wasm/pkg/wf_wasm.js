@@ -7949,19 +7949,6 @@ export function encodeShareLinkToken(token) {
 }
 
 /**
- * [`local_db_engine_params::engine_start_params`]: `defaults` (a string array) with the shared-buffers flags appended.
- * @param {readonly string[]} defaults
- * @returns {string[]}
- */
-export function engineStartParams(defaults) {
-    const ret = wasm.engineStartParams(defaults);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`wf_core::sync::folder_layout::entity_dir`] for JS.
  *
  * # Errors
@@ -15816,23 +15803,6 @@ export function localBlobUnsignedIndices(here) {
 }
 
 /**
- * [`local_db_engine_params::LOCAL_DB_SHARED_BUFFERS`]: the `shared_buffers` value the local engine runs with.
- * @returns {string}
- */
-export function localDbSharedBuffers() {
-    let deferred1_0;
-    let deferred1_1;
-    try {
-        const ret = wasm.localDbSharedBuffers();
-        deferred1_0 = ret[0];
-        deferred1_1 = ret[1];
-        return getStringFromWasm0(ret[0], ret[1]);
-    } finally {
-        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-    }
-}
-
-/**
  * [`device_user_id`] for JS: the reported id when non-empty, else `fallback`.
  * @param {string | null | undefined} reported
  * @param {string} fallback
@@ -21249,24 +21219,6 @@ export function parseRollupOptions(options) {
  */
 export function parseSemanticScholar(body) {
     const ret = wasm.parseSemanticScholar(body);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`parse_sidecar_args`](wf_core::sidecar_args::parse_sidecar_args): `{ kind: "ok", ... }` or `{ kind: "error", message }`
- * for an array of argv strings (without the program name).
- *
- * # Errors
- *
- * Fails when `argv` is not an array of strings, or when the result cannot be converted to a JS value.
- * @param {readonly string[]} argv
- * @returns {{ kind: "ok"; dataDir: string; migrations: string[]; backupsDir: string; migrateFrom: string | null; artifacts: string | null; bridge: string | null; appVersion: string | null; homeVariant: string | null; noLocalApi: boolean } | { kind: "error"; message: string }}
- */
-export function parseSidecarArgs(argv) {
-    const ret = wasm.parseSidecarArgs(argv);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -31243,102 +31195,6 @@ export function wikiSourceDocuments(pages, papers, sourceIds) {
 }
 
 /**
- * [`error_reply`](wire::error_reply). `id` is a JS number or `null`.
- *
- * # Errors
- *
- * Fails if `id` is neither a non-negative integer nor `null`.
- * @param {number | null} id
- * @param {string} error
- * @returns {Record<string, unknown>}
- */
-export function wireErrorReply(id, error) {
-    const ptr0 = passStringToWasm0(error, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.wireErrorReply(id, ptr0, len0);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`ok_reply_head`](wire::ok_reply_head): `{id, ok: true}`, to which the shell adds `value`.
- *
- * # Errors
- *
- * Fails if `id` is not a non-negative integer.
- * @param {number} id
- * @returns {{ id: number; ok: true }}
- */
-export function wireOkReplyHead(id) {
-    const ret = wasm.wireOkReplyHead(id);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`parse_request`](wire::parse_request) as `{ok: true, id, method, params?}`
- * or `{ok: false, error}`.
- *
- * # Errors
- *
- * Fails only if the result cannot be turned into a JS value.
- * @param {string} line
- * @returns {{ ok: true; id: number; method: string; params?: unknown } | { ok: false; error: string }}
- */
-export function wireParseRequest(line) {
-    const ptr0 = passStringToWasm0(line, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.wireParseRequest(ptr0, len0);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`route_line`](wire::route_line) as `{kind, ...}`: `skip`, `reply`, `call`,
- * `settle`, or `badAnswer`.
- *
- * # Errors
- *
- * Fails only if the decision cannot be turned into a JS value.
- * @param {string} line
- * @param {boolean} accept_answers
- * @returns {{ kind: "skip" } | { kind: "reply"; reply: Record<string, unknown> } | { kind: "call"; id: number; method: string; params?: unknown } | { kind: "settle"; answer: number; ok: true; value: unknown } | { kind: "settle"; answer: number; ok: false; error: string } | { kind: "badAnswer" }}
- */
-export function wireRoute(line, accept_answers) {
-    const ptr0 = passStringToWasm0(line, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.wireRoute(ptr0, len0, accept_answers);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`wire_tag`](wire::wire_tag) as `{kind: "bigint", digits}` or
- * `{kind: "bytes", encoded}`, or `null` when the value is not a tag.
- *
- * # Errors
- *
- * Fails if `value` cannot be read as JSON (for example, a JS bigint).
- * @param {unknown} value
- * @returns {{ kind: "bigint"; digits: string } | { kind: "bytes"; encoded: string } | null}
- */
-export function wireTag(value) {
-    const ret = wasm.wireTag(value);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`nav_open_groups::with_active`]: `groups` with `active` appended when it is not already listed.
  *
  * # Errors
@@ -32637,7 +32493,7 @@ function __wbg_get_imports() {
                     const a = state0.a;
                     state0.a = 0;
                     try {
-                        return wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___js_sys_a74ea40957c530a8___Function_fn_wasm_bindgen_cfd6dee753b71865___JsValue_____wasm_bindgen_cfd6dee753b71865___sys__Undefined___js_sys_a74ea40957c530a8___Function_fn_wasm_bindgen_cfd6dee753b71865___JsValue_____wasm_bindgen_cfd6dee753b71865___sys__Undefined_______true_(a, state0.b, arg0, arg1);
+                        return wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___js_sys_e2ca25dc3b1cb70___Function_fn_wasm_bindgen_c59c2fd73ee08fa2___JsValue_____wasm_bindgen_c59c2fd73ee08fa2___sys__Undefined___js_sys_e2ca25dc3b1cb70___Function_fn_wasm_bindgen_c59c2fd73ee08fa2___JsValue_____wasm_bindgen_c59c2fd73ee08fa2___sys__Undefined_______true_(a, state0.b, arg0, arg1);
                     } finally {
                         state0.a = a;
                     }
@@ -32992,17 +32848,17 @@ function __wbg_get_imports() {
         },
         __wbindgen_generic_0000000000000001: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 14, ret: Externref, inner_ret: Some(Externref) }, mutable: false }) -> Externref`.
-            const ret = makeClosure(arg0, arg1, wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___wasm_bindgen_cfd6dee753b71865___JsValue__wasm_bindgen_cfd6dee753b71865___JsValue__true_);
+            const ret = makeClosure(arg0, arg1, wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___wasm_bindgen_c59c2fd73ee08fa2___JsValue__wasm_bindgen_c59c2fd73ee08fa2___JsValue__true_);
             return ret;
         },
         __wbindgen_generic_0000000000000002: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [String], shim_idx: 15, ret: F64, inner_ret: Some(F64) }, mutable: false }) -> Externref`.
-            const ret = makeClosure(arg0, arg1, wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___alloc_508e33bd5656020b___string__String__f64__true_);
+            const ret = makeClosure(arg0, arg1, wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___alloc_508e33bd5656020b___string__String__f64__true_);
             return ret;
         },
         __wbindgen_generic_0000000000000003: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 13, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke_______true_);
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke_______true_);
             return ret;
         },
         __wbindgen_generic_0000000000000004: function(arg0) {
@@ -33041,23 +32897,23 @@ function __wbg_get_imports() {
     };
 }
 
-function wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke_______true_(arg0, arg1) {
-    wasm.wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke_______true_(arg0, arg1);
+function wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke_______true_(arg0, arg1) {
+    wasm.wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke_______true_(arg0, arg1);
 }
 
-function wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___wasm_bindgen_cfd6dee753b71865___JsValue__wasm_bindgen_cfd6dee753b71865___JsValue__true_(arg0, arg1, arg2) {
-    const ret = wasm.wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___wasm_bindgen_cfd6dee753b71865___JsValue__wasm_bindgen_cfd6dee753b71865___JsValue__true_(arg0, arg1, arg2);
+function wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___wasm_bindgen_c59c2fd73ee08fa2___JsValue__wasm_bindgen_c59c2fd73ee08fa2___JsValue__true_(arg0, arg1, arg2) {
+    const ret = wasm.wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___wasm_bindgen_c59c2fd73ee08fa2___JsValue__wasm_bindgen_c59c2fd73ee08fa2___JsValue__true_(arg0, arg1, arg2);
     return ret;
 }
 
-function wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___js_sys_a74ea40957c530a8___Function_fn_wasm_bindgen_cfd6dee753b71865___JsValue_____wasm_bindgen_cfd6dee753b71865___sys__Undefined___js_sys_a74ea40957c530a8___Function_fn_wasm_bindgen_cfd6dee753b71865___JsValue_____wasm_bindgen_cfd6dee753b71865___sys__Undefined_______true_(arg0, arg1, arg2, arg3) {
-    wasm.wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___js_sys_a74ea40957c530a8___Function_fn_wasm_bindgen_cfd6dee753b71865___JsValue_____wasm_bindgen_cfd6dee753b71865___sys__Undefined___js_sys_a74ea40957c530a8___Function_fn_wasm_bindgen_cfd6dee753b71865___JsValue_____wasm_bindgen_cfd6dee753b71865___sys__Undefined_______true_(arg0, arg1, arg2, arg3);
+function wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___js_sys_e2ca25dc3b1cb70___Function_fn_wasm_bindgen_c59c2fd73ee08fa2___JsValue_____wasm_bindgen_c59c2fd73ee08fa2___sys__Undefined___js_sys_e2ca25dc3b1cb70___Function_fn_wasm_bindgen_c59c2fd73ee08fa2___JsValue_____wasm_bindgen_c59c2fd73ee08fa2___sys__Undefined_______true_(arg0, arg1, arg2, arg3) {
+    wasm.wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___js_sys_e2ca25dc3b1cb70___Function_fn_wasm_bindgen_c59c2fd73ee08fa2___JsValue_____wasm_bindgen_c59c2fd73ee08fa2___sys__Undefined___js_sys_e2ca25dc3b1cb70___Function_fn_wasm_bindgen_c59c2fd73ee08fa2___JsValue_____wasm_bindgen_c59c2fd73ee08fa2___sys__Undefined_______true_(arg0, arg1, arg2, arg3);
 }
 
-function wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___alloc_508e33bd5656020b___string__String__f64__true_(arg0, arg1, arg2) {
+function wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___alloc_508e33bd5656020b___string__String__f64__true_(arg0, arg1, arg2) {
     const ptr0 = passStringToWasm0(arg2, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___alloc_508e33bd5656020b___string__String__f64__true_(arg0, arg1, ptr0, len0);
+    const ret = wasm.wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___alloc_508e33bd5656020b___string__String__f64__true_(arg0, arg1, ptr0, len0);
     return ret;
 }
 

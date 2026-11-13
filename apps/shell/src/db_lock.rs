@@ -1,7 +1,8 @@
 //! One process per data directory: a `<dir>.lock` file beside it, created exclusively, naming the holder.
 //!
-//! Same file format and rules as `sidecar/src/local-db-lock.ts`, so the shell, the sidecar and the old Electron
-//! app honour each other's locks. Two apps on one PGlite directory each write WAL over the other's (2026-10-08).
+//! Same file format and rules as the removed Node sidecar's `local-db-lock.ts`, so the shell, 0.9 and the old
+//! Electron app honour each other's locks. Two apps on one database directory each write WAL over the other's
+//! (2026-10-08).
 
 use std::ffi::OsString;
 use std::fs;

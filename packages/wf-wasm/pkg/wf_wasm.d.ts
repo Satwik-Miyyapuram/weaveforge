@@ -3759,11 +3759,6 @@ export function encodeRollupOptions(config: B.PaperFieldRollupConfig): string[];
 export function encodeShareLinkToken(token: Uint8Array): string;
 
 /**
- * [`local_db_engine_params::engine_start_params`]: `defaults` (a string array) with the shared-buffers flags appended.
- */
-export function engineStartParams(defaults: readonly string[]): string[];
-
-/**
  * [`wf_core::sync::folder_layout::entity_dir`] for JS.
  *
  * # Errors
@@ -6900,11 +6895,6 @@ export function localBlobSql(name: string): string;
 export function localBlobUnsignedIndices(here: readonly (string | null | undefined)[]): number[];
 
 /**
- * [`local_db_engine_params::LOCAL_DB_SHARED_BUFFERS`]: the `shared_buffers` value the local engine runs with.
- */
-export function localDbSharedBuffers(): string;
-
-/**
  * [`device_user_id`] for JS: the reported id when non-empty, else `fallback`.
  */
 export function localDeviceUserId(reported: string | null | undefined, fallback: string): string;
@@ -9134,16 +9124,6 @@ export function parseRollupOptions(options: readonly string[]): B.PaperFieldRoll
  * Fails if `body` is not valid JSON, or the result cannot be converted.
  */
 export function parseSemanticScholar(body: unknown): B.OpenAccessCandidate[];
-
-/**
- * [`parse_sidecar_args`](wf_core::sidecar_args::parse_sidecar_args): `{ kind: "ok", ... }` or `{ kind: "error", message }`
- * for an array of argv strings (without the program name).
- *
- * # Errors
- *
- * Fails when `argv` is not an array of strings, or when the result cannot be converted to a JS value.
- */
-export function parseSidecarArgs(argv: readonly string[]): { kind: "ok"; dataDir: string; migrations: string[]; backupsDir: string; migrateFrom: string | null; artifacts: string | null; bridge: string | null; appVersion: string | null; homeVariant: string | null; noLocalApi: boolean } | { kind: "error"; message: string };
 
 /**
  * [`parse_stored_provider`](wf_core::ai::provider_descriptor::parse_stored_provider): the provider, or `null` when the blob does not match.
@@ -13191,54 +13171,6 @@ export function wikiProposalContent(plan: B.WikiPagePlan): string;
 export function wikiSourceDocuments(pages: readonly B.WikiNote[], papers: readonly B.WikiPaper[], sourceIds?: readonly string[]): B.WikiSourceDocument[];
 
 /**
- * [`error_reply`](wire::error_reply). `id` is a JS number or `null`.
- *
- * # Errors
- *
- * Fails if `id` is neither a non-negative integer nor `null`.
- */
-export function wireErrorReply(id: number | null, error: string): Record<string, unknown>;
-
-/**
- * [`ok_reply_head`](wire::ok_reply_head): `{id, ok: true}`, to which the shell adds `value`.
- *
- * # Errors
- *
- * Fails if `id` is not a non-negative integer.
- */
-export function wireOkReplyHead(id: number): { id: number; ok: true };
-
-/**
- * [`parse_request`](wire::parse_request) as `{ok: true, id, method, params?}`
- * or `{ok: false, error}`.
- *
- * # Errors
- *
- * Fails only if the result cannot be turned into a JS value.
- */
-export function wireParseRequest(line: string): { ok: true; id: number; method: string; params?: unknown } | { ok: false; error: string };
-
-/**
- * [`route_line`](wire::route_line) as `{kind, ...}`: `skip`, `reply`, `call`,
- * `settle`, or `badAnswer`.
- *
- * # Errors
- *
- * Fails only if the decision cannot be turned into a JS value.
- */
-export function wireRoute(line: string, accept_answers: boolean): { kind: "skip" } | { kind: "reply"; reply: Record<string, unknown> } | { kind: "call"; id: number; method: string; params?: unknown } | { kind: "settle"; answer: number; ok: true; value: unknown } | { kind: "settle"; answer: number; ok: false; error: string } | { kind: "badAnswer" };
-
-/**
- * [`wire_tag`](wire::wire_tag) as `{kind: "bigint", digits}` or
- * `{kind: "bytes", encoded}`, or `null` when the value is not a tag.
- *
- * # Errors
- *
- * Fails if `value` cannot be read as JSON (for example, a JS bigint).
- */
-export function wireTag(value: unknown): { kind: "bigint"; digits: string } | { kind: "bytes"; encoded: string } | null;
-
-/**
  * [`nav_open_groups::with_active`]: `groups` with `active` appended when it is not already listed.
  *
  * # Errors
@@ -14043,7 +13975,6 @@ export interface InitOutput {
     readonly encodeOpenGroups: (a: any) => [number, number, number, number];
     readonly encodeRollupOptions: (a: any) => [number, number, number, number];
     readonly encodeShareLinkToken: (a: number, b: number) => [number, number];
-    readonly engineStartParams: (a: any) => [number, number, number];
     readonly entityDir: (a: number, b: number, c: number) => [number, number, number, number];
     readonly entryFileError: (a: number, b: number) => any;
     readonly enumLabel: (a: number, b: number, c: number, d: number) => [number, number];
@@ -14503,7 +14434,6 @@ export interface InitOutput {
     readonly localBlobRemovalForgetsUpload: (a: number, b: number) => number;
     readonly localBlobSql: (a: number, b: number) => [number, number, number, number];
     readonly localBlobUnsignedIndices: (a: any) => [number, number, number];
-    readonly localDbSharedBuffers: () => [number, number];
     readonly localDeviceUserId: (a: number, b: number, c: number, d: number) => [number, number];
     readonly localDeviceUserSql: () => [number, number];
     readonly localExperimentAccountArtifactsPattern: (a: number, b: number) => [number, number];
@@ -14813,7 +14743,6 @@ export interface InitOutput {
     readonly parseResultsTableRefs: (a: number, b: number) => [number, number, number];
     readonly parseRollupOptions: (a: number, b: number) => [number, number, number];
     readonly parseSemanticScholar: (a: any) => [number, number, number];
-    readonly parseSidecarArgs: (a: any) => [number, number, number];
     readonly parseStoredAiProvider: (a: number, b: number) => [number, number, number];
     readonly parseStrokeClip: (a: number, b: number) => [number, number, number];
     readonly parseTaskbarCreatedId: (a: number, b: number) => [number, number, number];
@@ -15355,11 +15284,6 @@ export interface InitOutput {
     readonly wikiPageRefs: (a: any) => [number, number, number];
     readonly wikiProposalContent: (a: any) => [number, number, number];
     readonly wikiSourceDocuments: (a: any, b: any, c: number, d: number) => [number, number, number];
-    readonly wireErrorReply: (a: any, b: number, c: number) => [number, number, number];
-    readonly wireOkReplyHead: (a: any) => [number, number, number];
-    readonly wireParseRequest: (a: number, b: number) => [number, number, number];
-    readonly wireRoute: (a: number, b: number, c: number) => [number, number, number];
-    readonly wireTag: (a: any) => [number, number, number];
     readonly withActive: (a: any, b: number, c: number) => [number, number, number];
     readonly withImageWidth: (a: any, b: number, c: number) => [number, number, number, number];
     readonly withInkPageBackground: (a: number, b: number, c: number, d: number) => [number, number];
@@ -15414,10 +15338,10 @@ export interface InitOutput {
     readonly zoteroWriteBackUpdateHeaders: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly zoteroWriteBackUpdateOutcome: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number, number];
     readonly zoteroWriteBackUpdateUrl: (a: number, b: number, c: number, d: number) => [number, number];
-    readonly wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___alloc_508e33bd5656020b___string__String__f64__true_: (a: number, b: number, c: number, d: number) => number;
-    readonly wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___js_sys_a74ea40957c530a8___Function_fn_wasm_bindgen_cfd6dee753b71865___JsValue_____wasm_bindgen_cfd6dee753b71865___sys__Undefined___js_sys_a74ea40957c530a8___Function_fn_wasm_bindgen_cfd6dee753b71865___JsValue_____wasm_bindgen_cfd6dee753b71865___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___wasm_bindgen_cfd6dee753b71865___JsValue__wasm_bindgen_cfd6dee753b71865___JsValue__true_: (a: number, b: number, c: any) => any;
-    readonly wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke_______true_: (a: number, b: number) => void;
+    readonly wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___alloc_508e33bd5656020b___string__String__f64__true_: (a: number, b: number, c: number, d: number) => number;
+    readonly wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___js_sys_e2ca25dc3b1cb70___Function_fn_wasm_bindgen_c59c2fd73ee08fa2___JsValue_____wasm_bindgen_c59c2fd73ee08fa2___sys__Undefined___js_sys_e2ca25dc3b1cb70___Function_fn_wasm_bindgen_c59c2fd73ee08fa2___JsValue_____wasm_bindgen_c59c2fd73ee08fa2___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___wasm_bindgen_c59c2fd73ee08fa2___JsValue__wasm_bindgen_c59c2fd73ee08fa2___JsValue__true_: (a: number, b: number, c: any) => any;
+    readonly wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;

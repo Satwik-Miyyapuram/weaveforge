@@ -1035,8 +1035,6 @@ fn wrapper_removal_types(t: Types) -> Types {
         .register::<wf_core::report::results_table_refs::ResultsTableRef>()
         .register::<wf_core::report::results_tables_presence::ResultsTablesTreeNode>()
         .register::<wf_core::report::results_tables_presence::ResultsTablesTreeSection>()
-        .register::<wf_core::sidecar_args::SidecarArgsPlan>()
-        .register::<wf_core::sidecar_args::SidecarArgsReply>()
         .register::<wf_core::sync::adoption_plan::LocalProject>()
         .register::<wf_core::sync::adoption_plan::Rename>()
         .register::<wf_core::sync::conflict_attention::OpenConflict>()

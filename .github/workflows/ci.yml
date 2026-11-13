@@ -67,10 +67,9 @@ jobs:
       - name: Run build-web route guard tests
         run: node --test apps/shell/scripts/build-web-held-routes.test.mjs
 
-      # The phase-2 Node sidecar: its JSON-lines wire, and one real PGlite
-      # open through the desktop's local-db code (the Tauri shell spawns it).
-      - name: Run Sidecar tests
-        run: npm run test:sidecar
+      # The installer stage scripts for Postgres and the ink recogniser.
+      - name: Run stage script tests
+        run: npm run test:stage
 
       # The Tauri bridge shim (window.weaveforge over typed commands) and the
       # generated bindings it wraps.
@@ -464,7 +463,6 @@ jobs:
     # strict bans must not inherit (phase-2-desktop.md, step 2.2). Linux
     # needs the WebKitGTK headers to compile it.
     runs-on: ubuntu-latest
-    # Bounds a real-sidecar test that hangs (it reads the helper's pid with no deadline).
     timeout-minutes: 30
     defaults:
       run:
@@ -514,9 +512,6 @@ jobs:
       - name: Test
         run: cargo test --locked
 
-      - name: Real sidecar (database lock and orphan)
-        run: 'cargo test --locked --test shell launch:: -- --ignored'
-
       - name: Dependency policy
         run: cargo deny --locked check
 
@@ -565,10 +560,9 @@ jobs:
         run: cargo deny --locked check
 
   shell-windows:
-    # Windows-only shell code: the sidecar's Job Object (kill-on-close) and its
-    # orphan test run only here (phase-2-desktop.md, step 2.4). The real-sidecar
-    # lock/orphan test runs here and in the Linux job. fmt and cargo-deny are
-    # platform-independent and stay in the Linux job.
+    # Windows-only shell code: the Job Object (kill-on-close) that ties Postgres
+    # and TeX children to the shell. fmt and cargo-deny are platform-independent
+    # and stay in the Linux job.
     runs-on: windows-latest
     timeout-minutes: 30
     defaults:
@@ -606,11 +600,8 @@ jobs:
       - name: Test
         run: cargo test --locked
 
-      - name: Real sidecar (database lock and orphan)
-        run: 'cargo test --locked --test shell launch:: -- --ignored'
-
   shell-bundle-windows:
-    # Windows x64 release bundles (MSI and NSIS) with the sidecar and the web
+    # Windows x64 release bundles (MSI and NSIS) with Postgres and the web
     # export, and their sizes in the step summary (phase 2 done-when: installer
     # size measured on x64). This is the release product ("WeaveForge"), built
     # only to measure; the installers are not uploaded or installed anywhere.
@@ -661,20 +652,14 @@ jobs:
         working-directory: apps/shell
         run: node scripts/build-web.mjs
 
-      - name: Stage sidecar
-        working-directory: .
-        shell: pwsh
-        # The Rust cache can restore a stage folder from an earlier run, and stage.mjs refuses a non-empty one.
-        run: |
-          if (Test-Path apps/shell/target/stage) { Remove-Item apps/shell/target/stage -Recurse -Force }
-          node apps/shell/sidecar/scripts/stage.mjs apps/shell/target/stage --node (Get-Command node).Source
-
       - name: Stage Postgres
         working-directory: .
         shell: pwsh
         # The native local database (local_pg) runs this Postgres from <resources>/postgres. Pinned build
         # from theseus-rs/postgresql-binaries (upstream REL_18_6); the hash is of the release asset.
+        # The Rust cache can restore a stage folder from an earlier run; start from an empty one.
         run: |
+          if (Test-Path apps/shell/target/stage) { Remove-Item apps/shell/target/stage -Recurse -Force }
           $name = "postgresql-18.6.1-x86_64-pc-windows-msvc"
           $tar = Join-Path $env:RUNNER_TEMP "$name.tar.gz"
           Invoke-WebRequest -Uri "https://github.com/theseus-rs/postgresql-binaries/releases/download/18.6.1/$name.tar.gz" -OutFile $tar
@@ -706,8 +691,8 @@ jobs:
           "| --- | --- |" >> $env:GITHUB_STEP_SUMMARY
           foreach ($f in $files) { "| $($f.Name) | $([math]::Round($f.Length / 1MB, 2)) |" >> $env:GITHUB_STEP_SUMMARY; "$($f.Name) $([math]::Round($f.Length / 1MB, 2)) MiB" }
 
-      # rust-cache saves target/ after the job; keep the staged sidecar (100+ MB) out of it.
-      - name: Drop staged sidecar before cache save
+      # rust-cache saves target/ after the job; keep the staged Postgres out of it.
+      - name: Drop staged files before cache save
         if: always()
         shell: pwsh
         run: Remove-Item target/stage -Recurse -Force -ErrorAction SilentlyContinue

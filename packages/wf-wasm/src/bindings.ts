@@ -9480,39 +9480,6 @@ export type SharedSource = {
 	status: string | null,
 };
 
-/**  Parsed sidecar arguments, with paths as given on the command line. */
-export type SidecarArgsPlan = {
-	/**  The `--data-dir` value. Required. */
-	dataDir: string,
-	/**  Every `--migrations` value, in order. At least one. */
-	migrations: string[],
-	/**  The `--backups` value. Required. */
-	backupsDir: string,
-	/**  The `--migrate-from` value, when given. */
-	migrateFrom: string | null,
-	/**  The `--artifacts` value, when given. */
-	artifacts: string | null,
-	/**  The `--bridge` value, when given. */
-	bridge: string | null,
-	/**  The `--app-version` value, when given. */
-	appVersion: string | null,
-	/**  The `--home-variant` value, when given. */
-	homeVariant: string | null,
-	/**  True when `--no-local-api` was passed. */
-	noLocalApi: boolean,
-};
-
-/**  Outcome of parsing: a plan, or the message `main.ts` prints after `weaveforge-sidecar: `. */
-export type SidecarArgsReply = 
-/**  Every required flag was present. */
-{
-	kind: "ok",
-} & SidecarArgsPlan | 
-/**  An argument was unknown, a value flag had no value, or a required flag was missing. */
-{ kind: "error"; 
-/**  The message to print. */
-message: string };
-
 /**  A conflict's two sides: what the row was based on, and this device's state. */
 export type Sides = {
 	/**  The base the first owed edit started from. Empty when unknown. */

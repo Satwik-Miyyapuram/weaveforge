@@ -42,21 +42,22 @@ function codeMap() {
 }
 
 /**
- * The IPC surface, read from the channel table rather than remembered.
+ * The IPC surface, read from the generated command bindings rather than remembered.
  *
  * A hand-kept list of channels is a list that is wrong the week after somebody
  * adds one, and this is exactly the list a reader uses to decide whether a
  * thing they want is even possible from the renderer.
  */
 function desktopIpc() {
-  const source = read("apps/shell/sidecar/src/channels.ts");
-  const channels = [...source.matchAll(/^\s{2}([a-zA-Z]+): "(weaveforge:[a-z-]+)",/gm)]
-    .map((match) => ({ name: match[1], channel: match[2] }));
+  const source = read("apps/shell/bridge/bindings.ts");
+  const commands = [...source.matchAll(/^\t(\w+): .*?__TAURI_INVOKE\("([a-z_]+)"/gm)]
+    .map((match) => ({ name: match[1], command: match[2] }));
+  if (commands.length === 0) throw new Error("no commands found in apps/shell/bridge/bindings.ts");
 
   return [
-    `${n(channels.length)} named channels:`,
+    `${n(commands.length)} typed commands:`,
     "",
-    ...channels.map((entry) => `- \`${entry.channel}\` — \`${entry.name}\``),
+    ...commands.map((entry) => `- \`${entry.command}\` — \`${entry.name}\``),
   ];
 }
 

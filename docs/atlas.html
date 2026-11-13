@@ -544,7 +544,7 @@
     <div class="facts">
       <div class="fact"><b>352,975</b><span>web app lines</span></div>
       <div class="fact"><b>24,646</b><span>core lines</span></div>
-      <div class="fact"><b>10,643</b><span>shell lines</span></div>
+      <div class="fact"><b>5,133</b><span>shell lines</span></div>
       <div class="fact"><b>3,375</b><span>python sdk</span></div>
       <div class="fact"><b>154</b><span>migrations</span></div>
       <div class="fact"><b>32</b><span>web features</span></div>
@@ -678,7 +678,7 @@ flowchart TB
 │   ├── backend/                   <i>provider wiring: postgrest | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
-├── <b>apps/shell/src/</b>              <i>10,643 lines, 0 files, Tauri shell src/ only</i>
+├── <b>apps/shell/src/</b>              <i>5,133 lines, 0 files, Tauri shell src/ only</i>
 │   ├── main.ts  preload.ts  channels.ts
 │   ├── local-db.ts  local-db-host.ts     <i>PGlite in the main process</i>
 │   ├── local-api-server.ts  local-api.ts <i>127.0.0.1:27123</i>
@@ -698,7 +698,7 @@ flowchart TB
 ├── <b>db/migrations/</b>           <i>0001 → 0156, 8,326 lines</i>
 ├── <b>scripts/</b>                       <i>88 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
-└── <b>docs/</b>                          <i>195 files, 35,682 lines</i>
+└── <b>docs/</b>                          <i>193 files, 35,611 lines</i>
 </pre>
       </div>
     </section>
