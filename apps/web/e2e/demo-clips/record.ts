@@ -137,7 +137,7 @@ async function selectShowcaseProject(page: import("@playwright/test").Page) {
     const allProjects = switcher.getByRole("button", { name: /New \/ all projects/i });
     if (await appeared(allProjects, 2000)) {
       await allProjects.click();
-      const showcase = page.locator(".project-card").filter({ hasText: SHOWCASE_PROJECT });
+      const showcase = page.locator(".project-row > .wf-row").filter({ hasText: SHOWCASE_PROJECT });
       if (await appeared(showcase, 8000)) {
         await showcase.click();
         await shell.waitFor({ state: "visible", timeout: 30_000 });
@@ -150,7 +150,7 @@ async function selectShowcaseProject(page: import("@playwright/test").Page) {
     );
   }
 
-  const showcase = page.locator(".project-card").filter({ hasText: SHOWCASE_PROJECT });
+  const showcase = page.locator(".project-row > .wf-row").filter({ hasText: SHOWCASE_PROJECT });
   if (await appeared(showcase, 5000)) {
     await showcase.click();
     await shell.waitFor({ state: "visible", timeout: 30_000 });
