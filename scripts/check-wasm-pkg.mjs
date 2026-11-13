@@ -2,7 +2,8 @@
  * Run after `npm run build:wasm`: fails when the rebuilt packages/wf-wasm/pkg
  * differs from the committed one. CI and pre-push both run it.
  *
- * Glue, types and stamp must match exactly, and no new file may appear. The
+ * Glue, types and stamp must match exactly, and no new file may appear; off
+ * Linux, glue and types may differ only in host-dependent crate hashes. The
  * committed module is the Linux build (CI), and only a Linux host compares it:
  * rustc on Windows can emit different code for the same inputs, so a Windows
  * rebuild is not expected to match. Off Linux, once glue, types and stamp
@@ -32,14 +33,26 @@ const fix =
   "Run npm run build:wasm and commit all of packages/wf-wasm/pkg. Off Linux the module is a placeholder: " +
   "push, then commit wf_wasm_bg.wasm from that CI run's wf-wasm-pkg artifact and push again.";
 
-const changed = git(["status", "--porcelain", "--", PKG, `:(exclude)${MODULE}`]).trim();
-if (changed) {
+// Cargo puts the host triple into crate hashes, and wasm-bindgen writes those
+// hashes into glue symbol names (`wasm_bindgen_c59c2fd73ee08fa2___…`). So glue
+// built off Linux differs from the committed (Linux) glue in those hashes only.
+const GLUE = new Set(["wf_wasm.js", "wf_wasm.d.ts", "wf_wasm_bg.wasm.d.ts"].map((f) => `${PKG}/${f}`));
+const unhash = (text) => text.replace(/([A-Za-z0-9])_[0-9a-f]{12,16}(?=___)/g, "$1_#");
+const hashOnly = (file) => unhash(git(["show", `HEAD:${file}`])) === unhash(readFileSync(path.join(repoRoot, file), "utf8"));
+
+const changed = git(["status", "--porcelain", "--", PKG, `:(exclude)${MODULE}`]).trimEnd();
+const entries = changed ? changed.split("\n").map((line) => ({ status: line.slice(0, 2), file: line.slice(3) })) : [];
+const tolerated =
+  process.platform !== "linux" && entries.every(({ status, file }) => status === " M" && GLUE.has(file) && hashOnly(file));
+if (entries.length && !tolerated) {
   console.error(`FAIL: the rebuilt WASM package differs from the committed one:\n${changed}\n${fix}`);
   process.exit(1);
 }
 
 const committed = git(["show", `HEAD:${MODULE}`], "buffer");
 if (process.platform !== "linux") {
+  for (const { file } of entries) writeFileSync(path.join(repoRoot, file), git(["show", `HEAD:${file}`], "buffer"));
+  if (entries.length) console.log("Glue differs only in host-dependent crate hashes; the committed glue was put back.");
   writeFileSync(path.join(repoRoot, MODULE), committed);
   console.log(`Glue, types and stamp match; ${MODULE} is compared on Linux only (CI), so the committed one was put back.`);
   process.exit(0);
