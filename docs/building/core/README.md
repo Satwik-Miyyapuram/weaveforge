@@ -31,6 +31,10 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [storage](storage.md) | Blob storage rules: content types, cold-tier eviction order and blob access rules. |
 | [pitch_share_card](pitch_share_card.md) | Pitch link-preview card: the shared title and description, the app origin rule and the card paths and image data. |
 | [sync](sync.md) | Storage and sync rules: merges, body diffs, change detection, frontmatter and the workspace folder layout. |
+| [sync-git-outbox](sync-git-outbox.md) | Sync helpers for git, the outbox, Mattermost and the PostgREST wire. |
+| [repos](repos.md) | Per-table repository steps behind `repoStep`: methods, conflict keys and RPCs. |
+| [core-shared](core-shared.md) | Small shared modules: collab peers, metric sampling, MCP limits, member roles, tree, units, Zotero ids. |
+| [wf-store](wf-store.md) | Native I/O crate (desktop only): workspace folder, git history, remote sync, embeddings. |
 | [puller_plan](puller_plan.md) | Pull decisions for the offline-sync Puller: page summary, apply and tombstone steps, unique-clash parsing. |
 | [vault](vault.md) | Vault (notes) domain rules. |
 | [page_query](page_query.md) | Vault page query text for PostgREST: LIKE and PostgREST escaping, title ILIKE pattern, missing `body_preview` check. |

@@ -76,3 +76,18 @@ first, so a token or credential cannot appear in the message.
 - [Reader core](reader.md) for the other module that keeps network I/O in TypeScript.
 
 Source: `crates/wf-core/src/overleaf/`
+
+## More Overleaf modules
+
+| Module | Rust fn | wasm export | TS caller |
+| --- | --- | --- | --- |
+| `export_package` | `build_export_package` | `buildOverleafExportFiles` | `apps/web/src/features/overleaf/application/parts.ts` |
+| `path_guard` | `unsafe_checkout_path_error`, `is_text_source_file`, `file_count_error`, `text_size_error` | `assertSafeCheckoutPath`, `isOverleafTextSource`, `assertOverleafFileCount`, `assertOverleafTextSize` | `apps/web/src/features/overleaf/infrastructure/overleaf-git-reader.ts` |
+| `report_statements` | `create_report_statement`, `patch_report_statement` | `planOverleafReportCreate`, `planOverleafReportPatch` | `apps/web/src/features/overleaf/infrastructure/local-overleaf-gateway.ts` |
+
+Rules:
+
+- `export_package`: `references.bib` holds every library paper for scope `all`, which also gives `main.tex` `\nocite{*}`. Scope `cited` keeps only the papers whose keys the body cites. A blank or absent title becomes `WeaveForge report export`.
+- `path_guard`: a checkout path is refused when it is empty, starts with `/`, has a backslash, a drive letter or a `..` segment. Only `.tex`, `.bib`, `.sty`, `.cls`, `.txt`, `.md` and `.cfg` files are kept, case-insensitively. The `assert*` wasm exports throw; the Rust fns return the message or `None`.
+- `path_guard`: limits are 250 text files, 2,000,000 bytes per file and 20,000,000 bytes in total. The walk stops once 250 are kept.
+- `report_statements`: a blank entry file becomes `main.tex`. An invalid project id or entry file is refused. A patch changes only the fields named, and a change of project or file clears the recorded failure.

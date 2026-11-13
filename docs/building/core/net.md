@@ -61,3 +61,19 @@ after the core has loaded.
   they keep no rules of their own.
 
 Source: `crates/wf-core/src/net/`
+
+## More net modules
+
+| Module | Rust fn | wasm export | TS caller |
+| --- | --- | --- | --- |
+| `paste_content` | `paste_image_type`, `is_html_content_type` | `pasteImageType`, `isPasteHtmlContentType` | `apps/web/src/backend/net/fetch-for-paste.ts` |
+| `redirect` | `next_redirect`, `declared_length_over_cap` | `nextRedirect`, `declaredLengthOverCap` | `apps/web/src/backend/net/safe-fetch.ts` |
+| `semantic_scholar_retry` | `should_retry`, `retry_wait_ms` | `semanticScholarShouldRetry`, `semanticScholarRetryWaitMs` | `apps/web/src/lib/semantic-scholar-fetch.ts` |
+
+Rules:
+
+- `paste_content`: only PNG, JPEG, GIF, WebP, AVIF, BMP and TIFF pass, by the header type without parameters. SVG is refused, not sniffed, because it can carry script.
+- `paste_content`: a body is read for a title only when its header starts with `text/html` or `application/xhtml`, case-insensitively.
+- `redirect`: a status outside 300 to 399 is not a redirect. A redirect with no `location`, or with an unresolved one, fails with a message. Once the hop count reaches `max_redirects`, the next redirect fails.
+- `redirect`: `declared_length_over_cap` refuses only a finite length above the cap. The byte count is still capped while reading.
+- `semantic_scholar_retry`: retries a 429 or a network error (no status), up to `RETRIES` (3) times. Waits are 1 s, 2 s, then 3 s. `RETRIES` is not exported.

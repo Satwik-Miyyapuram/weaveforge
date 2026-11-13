@@ -52,4 +52,16 @@ Error-boundary detail (`apps/web/src/app/error-boundary-parts.ts`, `errorDetail`
 is no message. The TS wrapper reads `error.stack` inside a try/catch (the getter may throw) and returns `""` when the
 core is not loaded yet, so a boundary still renders. Wasm export: `errorDetail` in `crates/wf-wasm/src/error_report_detail.rs`.
 
+## More error-report modules
+
+| Module | Rust fn | wasm export | TS caller |
+| --- | --- | --- | --- |
+| `network_failure` | `is_network_failure` | `isNetworkFailure` | — |
+| `report_repo` | `report_repo` | `reportRepo` | `apps/web/src/lib/error-report/parts.ts` |
+
+Rules:
+
+- `network_failure`: matches "Failed to fetch", "NetworkError" and "Load failed" as whole words, ignoring ASCII case. "Upload failed" does not match. No TS code calls the wasm `isNetworkFailure` directly; `apps/web/src/lib/format-error.ts` goes through `isNetworkFailureValue`, which reaches the same check in `format.rs`.
+- `report_repo`: returns the configured value, trimmed, when it is `owner/repo` (letters, digits, `_`, `.` or `-` on each side). Otherwise it returns `Satwik-Miyyapuram/weaveforge`. The caller passes `process.env.NEXT_PUBLIC_REPORT_REPO`.
+
 Source: `crates/wf-core/src/error_report/`

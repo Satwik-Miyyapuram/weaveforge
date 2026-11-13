@@ -41,3 +41,17 @@ loads the core in a `before` hook.
 - GAP: the math loader and KaTeX renderer calls (`import("katex")`) stay in TS by design.
 - GAP: the mermaid renderer call (`pele/lazy`) stays in TS by design.
 - GAP: lowercase Unicode caveat: the TS filter used `toLowerCase`; Rust uses `to_lowercase` on the same strings, which can differ for a few special-casing code points.
+
+## Markdown input (`markdown_input`)
+
+| Module | Rust fn | wasm export | TS caller |
+| --- | --- | --- | --- |
+| `markdown_input` (`mod.rs`) | — (declares `cite_links`, `math_input`, `mermaid_source`) | native only | — |
+| `math_input` | `contains_math` | `containsMath` | `apps/web/src/components/markdown/markdown.tsx`, `apps/web/src/features/ink/ui/ink-sheet-underlay.tsx`, `apps/web/src/features/ink/ui/use-page-export.ts` |
+| `mermaid_source` | `render_source`, `diagram_id` | `mermaidRenderSource`, `mermaidDiagramId` | `apps/web/src/lib/mermaid-render.ts` |
+
+Rules:
+
+- `markdown_input` (`mod.rs`): string rules only. CodeMirror, the DOM and the renderers stay in TS.
+- `math_input`: a `$` is a delimiter unless backslash-escaped; `\(` and `\[` also count. An unclosed `$` counts.
+- `mermaid_source`: `render_source` JS-trims, then quotes awkward labels. `diagram_id` is a 31-hash over UTF-16 code units, base 36, with the `wf-mermaid-` prefix.

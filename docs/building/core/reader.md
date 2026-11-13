@@ -105,3 +105,26 @@ KEEP decision, not a gap.
 - [Editor workspace core](editor-workspace.md) for the pane that holds the reader.
 
 Source: `crates/wf-core/src/reader/`
+
+## More reader modules
+
+| Module | Rust fn | wasm export | TS caller |
+| --- | --- | --- | --- |
+| `dom_selection_range` | `text_selection_from_offsets`, `page_span_of` | `textSelectionFromOffsets`, `pageSpanOf` | `apps/web/src/features/reader/application/parts-1.ts`, `apps/web/src/features/reader/ui/pdf-reader/pdf-reader.tsx` |
+| `free_copy_attempts` | `attempt_limits`, `pick_free_copy_attempts` | `freeCopyAttemptLimits`, `pickFreeCopyAttempts` | `apps/web/src/features/reader/application/parts-1.ts` |
+| `paper_html_sanitize` | `chrome_selector`, `resolve_url` (consts `CHROME_SELECTORS`, `FORBID_TAGS`) | `paperHtmlChromeSelector`, `paperHtmlForbidTags`, `resolveAbsoluteUrl` | `apps/web/src/features/reader/infrastructure/sanitize-paper-html.ts` |
+| `paper_html_store` | `paper_html_dir` | `paperHtmlDir` | `apps/web/src/features/reader/infrastructure/paper-html-store.ts` |
+| `pdf_url_scheme` | `is_cache_pdf_url`, `is_stored_pdf_url`, `is_remote_pdf_url` | `isCachePdfUrl`, `isStoredPdfUrl`, `isRemotePdfUrl` | `apps/web/src/features/reader/application/parts-3.ts`, `apps/web/src/features/reader/ui/paper-pdf-pane.tsx`, `apps/web/src/features/reader/ui/pdf-reader/use-pdf-rendering.ts` |
+| `reference_lookup` | `reference_cache_key`, `is_cache_entry_fresh`, `is_library_listing_fresh`, `should_store_lookup`, `lookup_attempts` | `referenceCacheKey`, `isReferenceCacheEntryFresh`, `isLibraryListingFresh`, `shouldStoreReferenceLookup`, `referenceLookupAttempts` | `apps/web/src/features/reader/application/parts-2.ts` |
+| `zotero_write_back_reply` | `library_version`, `update_headers`, `update_url`, `update_outcome`, `create_outcomes` | `zoteroWriteBackLibraryVersion`, `zoteroWriteBackUpdateHeaders`, `zoteroWriteBackUpdateUrl`, `zoteroWriteBackUpdateOutcome`, `zoteroWriteBackCreateOutcomes` | `apps/web/src/features/reader/infrastructure/parts-2.ts` |
+
+Rules:
+
+- `dom_selection_range`: `text_selection_from_offsets` returns none for a negative or non-integer index or offset, and when both ends are the same point. `page_span_of` takes the other end's page when one end did not resolve. Reading the DOM `Selection` and resolving each end to a page stay in TS.
+- `free_copy_attempts`: at most 6 PDF and 4 web-page candidates are tried, first in list order. Any other format is never tried. `attempt_limits` reports the caps; only tests read `freeCopyAttemptLimits`.
+- `paper_html_sanitize`: holds the page-furniture selectors, the forbidden tags and the absolute-URL resolve. DOMPurify and the DOM walk stay in TS.
+- `paper_html_store`: kept pages sit at `papers/html/<paperId>.html`; `paper_html_dir` names the folder the store creates before writing. IndexedDB rows and file I/O stay in TS.
+- `pdf_url_scheme`: `is_cache_pdf_url` tests the scheme only; `cache://` decoding, blob minting and byte reads stay in TS. `is_remote_pdf_url` is true for http(s) addresses and same-origin paths.
+- `reference_lookup`: the store key is `v5:<document>:ref:<index>` (`REFERENCE_CACHE_SCHEMA` = 5). Stored lookups answer for 30 days (`REFERENCE_CACHE_TTL_MS`) and library listings for 30 seconds (`LIBRARY_LIST_TTL_MS`). Only `resolved` lookups are kept across sessions; identifiers are tried strongest first.
+- `zotero_write_back_reply`: builds the Zotero request headers, the update URL and the per-annotation outcome. `NOT_REPORTED_REASON` is the text for an annotation Zotero did not report as written. The fetch calls and the response body read stay in TS.
+

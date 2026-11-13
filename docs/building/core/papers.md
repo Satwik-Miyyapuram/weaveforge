@@ -81,3 +81,24 @@ core has loaded.
   exports. They keep no rules of their own.
 
 Source: `crates/wf-core/src/papers/`
+
+## More paper modules
+
+| Module | Rust fn | wasm export | TS caller |
+| --- | --- | --- | --- |
+| `openalex` | `search_query`, `first_match` | `openAlexSearchQuery`, `openAlexFirstMatch` | `apps/web/src/container/parts.ts` |
+| `paper_update` | `clean_title`, `clean_summary`, `clean_image_path`, `clean_pdf_address`, `rating_in_range`, `is_https_address` | `cleanPaperTitle`, `cleanPaperSummary`, `cleanImagePath`, `cleanPdfAddress`, `ratingInRange`, `isHttpsAddress` | `packages/core/src/features/papers/application/update-paper.use-case.ts` |
+| `pdf_add_plan` | `plan_pdf_add`, `pdf_lookup_steps` | `planPdfAdd`, `planPdfLookups` | `apps/web/src/features/papers/application/parts-2.ts` |
+| `source_requests` | `arxiv_query_url`, `crossref_work_url`, `semantic_scholar_identifier_url`, `semantic_scholar_match_url`, `form_urlencode` | `arxivQueryUrl`, `crossrefWorkUrl`, `semanticScholarIdentifierUrl`, `semanticScholarMatchUrl`; `form_urlencode` native only | `apps/web/src/features/papers/infrastructure/parts.ts`, `apps/web/src/features/papers/infrastructure/parts-2.ts` |
+| `zotero_pull` | `join_zotero_pull` | `zoteroPullJoin` | `apps/web/src/features/papers/infrastructure/parts-2.ts` |
+| `zotero_sync_plan` | `sync_plan` | `zoteroSyncPlan` | `apps/web/src/features/papers/infrastructure/parts-3.ts` |
+
+Rules:
+
+- `openalex`: the query is `search` and `per-page=3`, then `mailto` and `api_key` when non-empty. `first_match` returns the first work whose title and year match the hints; works with no title are skipped. The HTTP call stays in TS.
+- `paper_update`: `clean_title` collapses whitespace; `clean_summary` keeps markdown verbatim and clears when blank. `rating_in_range` accepts 1 to 5, and NaN passes, as the TS check did. `is_https_address` matches `https://` in any letter case.
+- `pdf_add_plan`: a lookup match titles the paper; otherwise the PDF's title, else the file name. The dropped PDF is kept when the paper is new or has no PDF yet. `pdf_lookup_steps` tries DOI, then arXiv id, then title, skipping empty ones; offline there are none.
+- `source_requests`: builders only; the fetches stay in TypeScript.
+- `zotero_pull`: output keeps first-seen order, as the JS `Map`s it replaces did.
+- `zotero_sync_plan`: the plan is made once from a snapshot taken before any write, so pull, push and delete read the same state. TS performs only the I/O the plan names.
+

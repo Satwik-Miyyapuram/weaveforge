@@ -151,3 +151,49 @@ Stays in TypeScript, and why:
 - [Storage core](storage.md)
 
 Source: `crates/wf-core/src/sync/`
+
+## More sync modules
+
+These modules sit beside the ones above. Each rule is pure. TS keeps the I/O.
+
+| Module | Rust fn | wasm export | TS caller |
+| --- | --- | --- | --- |
+| `conflict_deletion` | `deletion_for` | `deletionFor` | `apps/web/src/features/offline-sync/ui/use-sync-issues.ts` |
+| `device_session` | `may_drive_device`, `session_action` | `mayDriveDevice`, `sessionAction` | `apps/web/src/features/offline-sync/ui/sync-loop.tsx` |
+| `frontmatter` | `read_frontmatter`, `write_frontmatter`, `frontmatter_string`, `frontmatter_list` | `readFrontmatter`, `writeFrontmatter`, `frontmatterString`, `frontmatterList` | `apps/web/src/features/workspace/application/parts-1.ts` (`readFrontmatter`, `writeFrontmatter` only) |
+| `import_action` | `ImportAction`, `ConflictKind`, `ActionCounts::add` | native only | — |
+| `instant` | `parse_instant`, `format_instant` | native only | — |
+| `integration_fields` | `git_connection_ready`, `mattermost_connection_ready`, `DEFAULT_GIT_BRANCH` | `gitConnection`, `mattermostConnection`, `gitConnectionReady`, `mattermostConnectionReady`, `emptyIntegration` | `apps/web/src/features/sync/infrastructure/parts.ts`, `apps/web/src/features/sync/ui/sync-settings.tsx`, `apps/web/src/features/sync/ui/git-screen.tsx` |
+| `json_entities` | `json_data_path`, `json_kind_of_path`, `parse_json_data`, `diff_json_data`, `is_app_owned_path` | `jsonDataPath`, `parseJsonData`, `diffJsonData`, `countJsonActions`, `addCounts`, `jsonKindOfPath`, `isAppOwnedPath` | `apps/web/src/features/workspace/application/parts-1.ts` |
+| `local_first_route` | `SYNCED_TABLES`, `BOTH_END_RPCS`, `both_ends_merge` | `syncedTables`, `isSyncedTable`, `isBothEndsRpc`, `bothEndsMerge` | `apps/web/src/backend/providers/local/local-first.ts` |
+| `markdown_image` | `markdown_image`, `image_alt_from_filename`, `image_extension_for_mime`, `find_image_refs`, `image_paths_in_body`, `normalize_markdown_image_syntax` | `markdownImage`, `imageAltFromFilename`, `imageExtensionForMime`, `findImageRefs`, `imagePathsInBody`, `normalizeMarkdownImageSyntax` | `apps/web/src/lib/editor-image-upload.ts`, `apps/web/src/features/vault/lib/materialize-blob-images.ts`, `apps/web/src/features/logbook/ui/log-image-upload.ts`, `apps/web/src/features/papers/lib/parts.ts` |
+| `memory_fs` | `MemoryWorkspaceFs`, `with_clock` | native only | — |
+| `merge` | `merge_rows`, `same_value` | `mergeRows`, `sameValue` | `sameValue`: `apps/web/src/features/offline-sync/ui/sync-issues-panel.tsx`. `mergeRows`: — |
+| `merge_vault_page` | `merge_vault_page`, `vault_page_base`, `vault_page_side` | `mergeVaultPage`, `vaultPageBase`, `vaultPageSide` | `vaultPageBase`: `apps/web/src/features/workspace/application/parts-1.ts`. `mergeVaultPage`, `vaultPageSide`: — |
+| `migrated_notice` | `migrated_notice` | `migratedNotice` | — (sidecar port `apps/shell/sidecar/src/migrated-notice.ts`, not a wasm caller) |
+| `project_pick` | `pick_project` | `pickProject` | — |
+| `serialize` | `serialize_workspace`, `WORKSPACE_SCHEMA_VERSION` | `serializeWorkspace` | `apps/web/src/features/workspace/application/parts-1.ts`, `apps/web/src/features/workspace/application/parts-2.ts`, `apps/web/src/features/export/application/export-user-data.ts` |
+| `text_diff` | `diff_body`, `merge_hunks`, `write_conflict_markers`, `has_conflict_markers` | `diffBody`, `mergeHunks`, `writeConflictMarkers`, `hasConflictMarkers` | `apps/web/src/features/offline-sync/ui/sync-issues-panel.tsx`, `apps/web/src/features/settings/ui/folder-conflict-card.tsx` |
+| `vault_limits` | `too_large_message` | `vaultTooLargeMessage` | — |
+| `workspace_fs` | `WorkspaceFs` trait (nine methods), `FsKind`, `WorkspaceStat`, `FsError` | native only | — |
+
+Rules:
+
+- `conflict_deletion`: "Mine" (local) keeps a remote delete and drops a local delete. "Cloud" (remote) is the opposite.
+- `device_session`: an empty user id counts as signed out. `session_action` returns `idle`, `adopt`, `drive` or `foreign`.
+- `frontmatter`: the fence is `---`, with an optional BOM. Numbers match `^-?\d+(\.\d+)?$`. `write_frontmatter` skips null and empty-list fields.
+- `import_action`: `ImportAction` has five variants. `ConflictKind` has three, in kebab-case. `ActionCounts::add` uses `saturating_add`.
+- `instant`: a time with no offset is read as UTC.
+- `integration_fields`: the default git branch is `main`. Git is ready when enabled, with a non-blank token and repo. Mattermost is ready when enabled, with a non-blank bot token, server URL and channel id.
+- `json_entities`: the three JSON files are `relations.json`, `tags.json` and `reading-list-items.json`. `parse_json_data` returns None for non-array content, so a parse error never reads as a deletion. App-owned paths are `.git`, `README.md`, `.weaveforge/{db,db-backups,cache}`, `mirror.json`, `manifest.json` and `papers/{pdf,html}`.
+- `local_first_route`: `SYNCED_TABLES` has 18 entries. `BOTH_END_RPCS` is `metric_history` and `latest_metric_activity`. If both ends fail, the result is `ServerError`. `metric_history` gives `PreferLocalRows`. Other RPCs give `ConcatRows`.
+- `markdown_image`: `VAULT_IMAGE_PREFIX` is `vault:`. Scanners are hand-written, with no regex crate. The default alt text is `image`. `image_extension_for_mime` falls back to `png`.
+- `memory_fs`: a map-backed filesystem for tests and the serializer. Listings sort by byte order. `with_clock` sets the clock.
+- `merge`: `RESERVED` columns are `id`, `server_seq`, `row_version` and `created_at`. Missing keys read as null. Conflicts come in order: local keys first, then remote-only keys.
+- `merge_vault_page`: the body is compared by digest only, so no base text is kept. A side that alone moved a field or body wins. Fields both sides moved differently become conflicts, and the workspace value stands meanwhile.
+- `migrated_notice`: `None` gives `None`. Non-JSON or undated markers give the warning with no " on <date>". The date is the first 10 chars of `at` when `parse_instant` accepts it.
+- `project_pick`: exact match on id, name or dir comes first, then partial name. Errors list the project names. `norm` trims, lowercases and folds JS `\s`.
+- `serialize`: `WORKSPACE_SCHEMA_VERSION` is `2`, stamped into `manifest.json`.
+- `text_diff`: markers are `<<<<<<< this app`, `=======` and `>>>>>>> the folder`. Past `MAX_DIFF_CELLS` (4,000,000) the diff is one hunk holding both copies whole.
+- `vault_limits`: the message reads "That file is too large to open here (over N MB)." Size caps stay in TS.
+- `workspace_fs`: nine methods, deliberately small. Paths are POSIX and relative. Adapters reject unsafe paths. No symlinks, modes, streams or watching. `modified_ms` is milliseconds since the Unix epoch.
