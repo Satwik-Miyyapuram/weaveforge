@@ -22,6 +22,23 @@ tracks at once.
 
 ### iOS
 
+## [0.9.0] - 2026-11-13
+
+Desktop (`v0.9.0`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **Changed:** The app's core logic (data access, sync, search, ink, import and export) now runs in a Rust core shared by every platform. Behaviour is the same; it is faster and uses less memory.
+- **Added:** After an update, a one-time notice says what changed. Dismissing it hides it on all your devices.
+- **Added:** Real folders in the workspace, a unified toolbar and buttons, and workspace keyboard shortcuts.
+- **Added:** Git file sync, Overleaf git sync and an Overleaf workshop.
+- **Added:** Diagrams in notes.
+- **Changed:** A refreshed design across screens, with clearer feedback.
+- **Changed:** Smoother ink: steadier strokes, no jitter on reload, and an eraser that removes one stroke at a time on papers.
+- **Changed:** Lower memory use at start-up and while idle.
+- **Fixed:** Security hardening across storage, sharing, sign-in tokens, settings secrets and database access.
+- **Fixed:** Many reader, markdown, search, sync and dashboard bugs.
+- **Note:** Data still in the old local database is imported on first start; that importer is removed in the next release.
+
 ## [0.8.14] - 2026-10-16
 
 Desktop (`v0.8.14`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
