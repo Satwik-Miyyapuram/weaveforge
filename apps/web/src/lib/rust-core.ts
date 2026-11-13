@@ -66,6 +66,11 @@ export function readyCore(): RustCore {
   return ready;
 }
 
+/** The loaded core, or null before it loads. For screens that must render either way. */
+export function coreIfReady(): RustCore | null {
+  return ready;
+}
+
 /** The loaded core. Kept as an alias while callers move to `readyCore()`. */
 export type TypedCore = RustCore;
 
