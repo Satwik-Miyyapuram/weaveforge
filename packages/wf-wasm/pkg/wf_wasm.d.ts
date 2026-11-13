@@ -15414,10 +15414,10 @@ export interface InitOutput {
     readonly zoteroWriteBackUpdateHeaders: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly zoteroWriteBackUpdateOutcome: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number, number];
     readonly zoteroWriteBackUpdateUrl: (a: number, b: number, c: number, d: number) => [number, number];
-    readonly wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___alloc_508e33bd5656020b___string__String__f64__true_: (a: number, b: number, c: number, d: number) => number;
-    readonly wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___js_sys_e2ca25dc3b1cb70___Function_fn_wasm_bindgen_c59c2fd73ee08fa2___JsValue_____wasm_bindgen_c59c2fd73ee08fa2___sys__Undefined___js_sys_e2ca25dc3b1cb70___Function_fn_wasm_bindgen_c59c2fd73ee08fa2___JsValue_____wasm_bindgen_c59c2fd73ee08fa2___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___wasm_bindgen_c59c2fd73ee08fa2___JsValue__wasm_bindgen_c59c2fd73ee08fa2___JsValue__true_: (a: number, b: number, c: any) => any;
-    readonly wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke_______true_: (a: number, b: number) => void;
+    readonly wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___alloc_508e33bd5656020b___string__String__f64__true_: (a: number, b: number, c: number, d: number) => number;
+    readonly wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___js_sys_a74ea40957c530a8___Function_fn_wasm_bindgen_cfd6dee753b71865___JsValue_____wasm_bindgen_cfd6dee753b71865___sys__Undefined___js_sys_a74ea40957c530a8___Function_fn_wasm_bindgen_cfd6dee753b71865___JsValue_____wasm_bindgen_cfd6dee753b71865___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___wasm_bindgen_cfd6dee753b71865___JsValue__wasm_bindgen_cfd6dee753b71865___JsValue__true_: (a: number, b: number, c: any) => any;
+    readonly wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;
