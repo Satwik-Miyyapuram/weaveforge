@@ -114,7 +114,7 @@ export function ThemeConfigPanel({
 
       {current && !errors.length && (
         <p className="theme-config-active">
-          Active: <strong>{current.name}</strong> — {Object.keys(current.vars).length} tokens.
+          Active: <strong>{current.name}</strong> — {Object.keys(current.vars).length} token{Object.keys(current.vars).length === 1 ? "" : "s"}.
         </p>
       )}
 
