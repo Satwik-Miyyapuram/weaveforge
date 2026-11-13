@@ -7,9 +7,16 @@ and a snapshot of your library. Each part is a card you can move and resize.
 ## How to
 
 1. Open the dashboard. Each card shows its numbers and links to the page behind it.
-2. Turn on edit mode to move or resize cards. Your layout is saved to the project.
-3. Add or remove cards from the card picker.
-4. If a saved card type is no longer known to this version, only that card is
+2. Choose **Customize dashboard**. Drag a card to move it, drag its corner to
+   resize it, or remove it with ✕.
+3. Choose **+ Add card** to open the **Add card** list, grouped as Progress,
+   Activity, Library and Team. Pick a card to add it.
+4. Choose **Done** to save the layout to the project. **Reset layout** puts the
+   default cards back at once, without asking.
+5. The Team cards (`team-roster`, `team-attention`, `supervisee-snapshot`) are
+   listed only for a supervisor role. A supervisor with at least one supervisee
+   also gets them in the default layout.
+6. If a saved card type is no longer known to this version, only that card is
    dropped. The rest of your layout still loads.
 
 ## Reference
