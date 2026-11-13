@@ -13,7 +13,6 @@ import {
   type Paper,
   type ReportSectionTreeNode,
 } from "@weaveforge/core";
-import { paperCiteKeys } from "@weaveforge/wasm";
 import { strToU8, zipSync } from "fflate";
 
 // --- build-overleaf-export ---
@@ -96,7 +95,7 @@ export function withMissingFigures(
 function buildCiteByTitle(
   papers: readonly Paper[],
 ): { citeByTitle: Map<string, string>; keyByPaperId: Map<string, string> } {
-  const keys = paperCiteKeys(papers);
+  const keys = readyCore().paperCiteKeys(papers);
   const citeByTitle = new Map<string, string>();
   const keyByPaperId = new Map<string, string>();
   papers.forEach((p, i) => {

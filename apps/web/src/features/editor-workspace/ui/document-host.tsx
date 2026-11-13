@@ -47,7 +47,6 @@ import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/parts";
 import type { DocumentMode, TabRef } from "@weaveforge/wasm";
 import { ImageSizeControl } from "@/components/image-size-control";
-import { documentKind, hasInkView, hasPdfView } from "@weaveforge/wasm";
 import { useMdPreviewMode } from "@/lib/hooks/use-md-preview-mode";
 import { LivePreview } from "./md-live-preview";
 
@@ -155,15 +154,15 @@ export type RendererName = "editor" | "markdown" | "ink" | "pdf_ink" | "ink_read
  */
 export function rendererFor(kind: string, mode: DocumentMode, body = ""): RendererName {
   // The Overleaf row is a screen, the same in every mode.
-  if (documentKind(kind) === "overleaf") return "overleaf";
+  if (readyCore().documentKind(kind) === "overleaf") return "overleaf";
   // A PDF row is read and inked in one: the reader with the pen rail up, in
   // every mode — same annotations, not a separate canvas.
-  if (documentKind(kind) === "pdf") return hasPdfView(kind) ? "pdf_ink" : "editor";
-  if (mode === "ink") return hasInkView(kind) ? "ink" : "editor";
+  if (readyCore().documentKind(kind) === "pdf") return readyCore().hasPdfView(kind) ? "pdf_ink" : "editor";
+  if (mode === "ink") return readyCore().hasInkView(kind) ? "ink" : "editor";
   if (mode === "read") {
     // A note written in ink is read as the sheet it was written on. A note
     // with no ink in it stays prose, which is what it is.
-    return documentKind(kind) === "ink" || (hasInkView(kind) && readyCore().isInkNoteBody(body))
+    return readyCore().documentKind(kind) === "ink" || (readyCore().hasInkView(kind) && readyCore().isInkNoteBody(body))
       ? "ink_reader"
       : "markdown";
   }

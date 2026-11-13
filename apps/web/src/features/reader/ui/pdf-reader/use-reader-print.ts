@@ -6,7 +6,6 @@ import type { ReaderPrintNote, ReaderPrintPage } from "@weaveforge/wasm";
 
 import { readyCore } from "@/lib/rust-core";
 import { layoutMarginNotes } from "../../application/parts-2";
-import { projectPageAnnotationGeometry } from "@weaveforge/wasm";
 import type { PdfDocument } from "./types";
 
 /**
@@ -85,7 +84,7 @@ export function useReaderPrint(deps: ReaderPrintDeps) {
             scale: PRINT_SCALE,
             rotation,
           };
-          const { boxes, strokes } = projectPageAnnotationGeometry({
+          const { boxes, strokes } = readyCore().projectPageAnnotationGeometry({
             annotations: [...annotations],
             pageNumber: n,
             contentHash,
