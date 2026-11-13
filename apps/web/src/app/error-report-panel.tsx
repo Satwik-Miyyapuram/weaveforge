@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { relayUrl } from "@/lib/parts";
 
 import { getContainer } from "@/bootstrap";
 import { reportRepo } from "@/lib/error-report/parts";
 import { recentLogs } from "@/lib/error-report/log-buffer";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { readyCore } from "@/lib/rust-core";
+import { coreIfReady, loadCore, readyCore } from "@/lib/rust-core";
 import { Button } from "@/components/button";
 
 /** Where the error was shown, read off the page when "Report" was pressed. */
@@ -47,13 +47,31 @@ export interface ReportContext {
  *     token) opens GitHub's own new-issue form with the same report filled in,
  *     where the reader submits it as themselves; "Copy report" works anywhere.
  */
-export function ErrorReportPanel({
-  title,
-  detail,
-  route,
-  open,
-  context,
-}: {
+export function ErrorReportPanel(props: ErrorReportProps) {
+  // Error screens can show before the Rust core has loaded, or because it
+  // failed to. The report is redacted by the core, so it waits for it.
+  const [core, setCore] = useState(coreIfReady);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (core) return;
+    let live = true;
+    loadCore().then(
+      (loadedCore) => live && setCore(loadedCore),
+      () => live && setFailed(true),
+    );
+    return () => {
+      live = false;
+    };
+  }, [core]);
+  if (core) return <ReportForm {...props} />;
+  return (
+    <p className="report-sent" role="status">
+      {failed ? "The report form could not load. Copy the technical details instead." : "Loading the report form…"}
+    </p>
+  );
+}
+
+interface ErrorReportProps {
   /** A one-line summary, prefilled from the error and editable. */
   title: string;
   /** The technical detail: message, stack, whatever the boundary captured. */
@@ -67,7 +85,9 @@ export function ErrorReportPanel({
    */
   open?: boolean;
   context?: ReportContext;
-}) {
+}
+
+function ReportForm({ title, detail, route, open, context }: ErrorReportProps) {
   const [summary, setSummary] = useState(title);
   const [steps, setSteps] = useState("");
   const [showAttached, setShowAttached] = useState(false);
