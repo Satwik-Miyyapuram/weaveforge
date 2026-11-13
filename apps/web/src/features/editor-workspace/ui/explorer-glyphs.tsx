@@ -13,8 +13,9 @@ import { useEffect, useRef, useState } from "react";
 import { FolderIcon } from "@/components/view-icons";
 import { isCommitEnter } from "@/lib/parts";
 import { NavIcon } from "@/app/nav-icon";
+import { readyCore } from "@/lib/rust-core";
 
-import { draftIcon, type CreateKind } from "@weaveforge/wasm";
+import type { CreateKind } from "@weaveforge/wasm";
 
 /**
  * The glyph a draft row shows while it is being named.
@@ -25,7 +26,7 @@ import { draftIcon, type CreateKind } from "@weaveforge/wasm";
  * row it turns into. Which handle is a decision the create table owns.
  */
 export function DraftIcon({ kind }: { kind: CreateKind }) {
-  const name = draftIcon(kind);
+  const name = readyCore().draftIcon(kind);
   return name === "folder" ? <FolderIcon /> : <NavIcon name={name} />;
 }
 

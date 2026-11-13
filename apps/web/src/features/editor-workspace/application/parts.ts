@@ -4,17 +4,7 @@ import { activeProjectRoot } from "@/features/workspace/application/parts";
 import { logToApp } from "@/lib/error-report/app-log";
 import { type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { readyCore } from "@/lib/rust-core";
-import {
-  defaultExpanded,
-  defaultOpenSections,
-  emptyLayout,
-  layoutFromRecord,
-  migratedExpanded,
-  type PaneLayout,
-  parseExplorerKeys,
-  type SectionState,
-  type WorkspaceTreeNode,
-} from "@weaveforge/wasm";
+import type { PaneLayout, SectionState, WorkspaceTreeNode } from "@weaveforge/wasm";
 
 // --- explorer-state ---
 /**
@@ -78,12 +68,12 @@ export function readExpanded(
   roots: readonly string[],
   migrate = false,
 ): Set<string> {
-  const fallback = defaultExpanded(roots);
+  const fallback = readyCore().defaultExpanded(roots);
   if (!store) return new Set(fallback);
   try {
     // Parsing is Rust's (`parse_explorer_keys`): absent or unusable is null, and
     // an empty list is a real answer, honoured rather than treated as missing.
-    const keys = parseExplorerKeys(store.getItem(EXPLORER_STORAGE_KEY));
+    const keys = readyCore().parseExplorerKeys(store.getItem(EXPLORER_STORAGE_KEY));
     if (keys === null) return new Set(fallback);
     const saved = new Set(keys);
     // An empty record is a decision — "I collapsed everything" — and is never
@@ -96,7 +86,7 @@ export function readExpanded(
     // because a fresh session cannot tell "this record predates the root" from
     // "the reader closed it" — both are an absent key. The flag in storage is
     // what tells them apart.
-    return migrate && !readMigrated(store) ? migratedExpanded(saved, roots) : saved;
+    return migrate && !readMigrated(store) ? readyCore().migratedExpanded(saved, roots) : saved;
   } catch {
     return new Set(fallback);
   }
@@ -156,9 +146,9 @@ export function readSections(
   store: KeyValueStore | undefined,
   sections: readonly ExplorerSection[],
 ): SectionState {
-  const defaults = (): SectionState => ({ open: new Set(defaultOpenSections(sections)) });
+  const defaults = (): SectionState => ({ open: new Set(readyCore().defaultOpenSections(sections)) });
   try {
-    const ids = parseExplorerKeys(store?.getItem(SECTIONS_STORAGE_KEY) ?? null);
+    const ids = readyCore().parseExplorerKeys(store?.getItem(SECTIONS_STORAGE_KEY) ?? null);
     if (ids === null) return defaults();
     return { open: new Set(ids) };
   } catch {
@@ -285,11 +275,11 @@ export function readLayout(
   store: LayoutStore | undefined,
   projectId?: string | null,
 ): PaneLayout {
-  if (!store) return emptyLayout();
+  if (!store) return readyCore().emptyLayout();
   try {
-    return layoutFromRecord(readRaw(store, projectId));
+    return readyCore().layoutFromRecord(readRaw(store, projectId));
   } catch {
-    return emptyLayout();
+    return readyCore().emptyLayout();
   }
 }
 

@@ -2,15 +2,6 @@ import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 import { readyCore } from "@/lib/rust-core";
 import type { FieldConflict, Row } from "@weaveforge/core";
-import {
-  deletedLocalBase,
-  deletedRemoteSides,
-  deletionAction,
-  editSides,
-  resolveWithRow,
-  sameRow,
-  settleConflictPlan,
-} from "@weaveforge/wasm";
 import { Outbox, type SqlRunner } from "./parts-2";
 import { SyncStateStore } from "./parts-3";
 
@@ -181,7 +172,7 @@ export class ConflictStore {
    */
   async openFor(table: string, rowId: string, serverVersion: number | null): Promise<void> {
     const outbox = new Outbox(this.sql);
-    const sides = editSides(await outbox.forRow(table, rowId));
+    const sides = readyCore().editSides(await outbox.forRow(table, rowId));
     if (!sides) return;
     await this.sql.exec(
       `insert into sync_conflicts (table_name, row_id, base, local, server_version, kind)
@@ -218,7 +209,7 @@ export class ConflictStore {
       `select sync_payload($1, to_jsonb(t)) as row from public.${readyCore().quoteIdent(table)} t where id = $2`,
       [table, rowId],
     );
-    const sides = deletedRemoteSides(ops, stored?.row ?? null);
+    const sides = readyCore().deletedRemoteSides(ops, stored?.row ?? null);
     if (!sides) return;
     await this.sql.exec(
       `insert into sync_conflicts (table_name, row_id, base, local, remote, fields, server_version, kind)
@@ -244,7 +235,7 @@ export class ConflictStore {
        on conflict (table_name, row_id) where resolved_at is null
        do update set local = '{}'::jsonb, remote = excluded.remote, fields = '[]'::jsonb,
                      server_version = excluded.server_version, kind = 'deleted_local'`,
-      [table, rowId, JSON.stringify(deletedLocalBase(ops)), JSON.stringify(remote), serverVersion],
+      [table, rowId, JSON.stringify(readyCore().deletedLocalBase(ops)), JSON.stringify(remote), serverVersion],
     );
     await outbox.dropRow(table, rowId);
   }
@@ -292,7 +283,7 @@ export class ConflictStore {
     if (!row) return null;
     const version =
       remoteVersion ?? (typeof remote.row_version === "number" ? remote.row_version : null);
-    const plan = settleConflictPlan(row.kind, row.base, row.local, remote);
+    const plan = readyCore().settleConflictPlan(row.kind, row.base, row.local, remote);
     if (plan.action === "storeRemote") {
       // The newest cloud copy is what "restore" brings back; local stays deleted.
       await this.sql.exec("update sync_conflicts set remote = $1::jsonb, server_version = $2 where id = $3", [
@@ -335,7 +326,7 @@ export class ConflictStore {
     await outbox.dropRow(table, rowId);
     // Local may still hold this device's side; the server hears only of a change.
     await this.applyRemote(table, chosen);
-    if (sameRow(chosen, remote)) return;
+    if (readyCore().sameRow(chosen, remote)) return;
     await outbox.append({
       table,
       rowId,
@@ -397,7 +388,7 @@ export class ConflictStore {
     if (!remote) return;
 
     // Start from the merge, so a field only this device changed survives the pick.
-    const chosen = resolveWithRow(row.base, row.local, remote, picks, overrides);
+    const chosen = readyCore().resolveWithRow(row.base, row.local, remote, picks, overrides);
 
     await this.write(row.table_name, row.row_id, chosen, remote, row.server_version);
     await this.resolve(id);
@@ -417,7 +408,7 @@ export class ConflictStore {
     const outbox = new Outbox(this.sql);
     const table = row.table_name;
     const rowId = row.row_id;
-    const action = deletionAction(
+    const action = readyCore().deletionAction(
       row.kind === "deleted_remote" ? "deleted_remote" : "deleted_local",
       choice,
       row.local,

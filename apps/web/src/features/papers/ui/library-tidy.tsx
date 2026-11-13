@@ -3,12 +3,7 @@
 import { readyCore } from "@/lib/rust-core";
 import { useEffect, useMemo, useState } from "react";
 import { type PaperSummary } from "@weaveforge/core";
-import {
-  findDuplicateGroups,
-  titleFixes,
-  type DuplicateGroup,
-  type TitleFix,
-} from "@weaveforge/wasm";
+import type { DuplicateGroup, TitleFix } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import type { LibraryTidyScan, TidyDuplicateGroup } from "@/container/facades/library-tidy";
 import { formatError } from "@/lib/format-error";
@@ -22,7 +17,7 @@ import { paperKey } from "./remove-paper";
 /** What the tidy-up would offer for these papers. Pure, so the screen can count it cheaply. */
 function useLibraryTidy(papers: readonly PaperSummary[]) {
   return useMemo(
-    () => ({ titles: titleFixes(papers), duplicates: findDuplicateGroups([...papers]) }),
+    () => ({ titles: readyCore().titleFixes(papers), duplicates: readyCore().findDuplicateGroups([...papers]) }),
     [papers],
   );
 }

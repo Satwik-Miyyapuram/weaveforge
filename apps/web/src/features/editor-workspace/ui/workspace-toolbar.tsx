@@ -19,7 +19,6 @@ import {
 import { isMacPlatform } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
 import type { DocumentMode, PaneLayout, PaneSplit, TabRef } from "@weaveforge/wasm";
-import { modesFor } from "@weaveforge/wasm";
 import { SplitGlyph } from "./split-glyph";
 
 /**
@@ -150,7 +149,7 @@ function LayoutMenu({
 export function PaneModeSwitch({ tab, onSetMode }: { tab: TabRef; onSetMode: (tab: TabRef, mode: DocumentMode) => void }) {
   return (
     <DocumentModeSwitch
-      modes={modesFor(tab.kind) as readonly DocumentModeName[]}
+      modes={readyCore().modesFor(tab.kind) as readonly DocumentModeName[]}
       mode={readyCore().tabMode(tab) as DocumentModeName}
       onMode={(next) => onSetMode(tab, next)}
       split={false}

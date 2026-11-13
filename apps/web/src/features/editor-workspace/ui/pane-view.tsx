@@ -21,7 +21,6 @@ import { openContextMenu } from "@/components/context-menu-store";
 import type { MenuItem } from "@/components/menu";
 import { Breadcrumbs } from "./breadcrumbs";
 import { PaneModeSwitch, WorkspaceToolbar } from "./workspace-toolbar";
-import { kindIcon, kindSuffix, kindTintClass } from "@weaveforge/wasm";
 import { followPointer } from "./follow-pointer";
 import { isMacPlatform } from "@/lib/parts";
 import { TabButton } from "@/components/controls";
@@ -206,7 +205,7 @@ function PaneLeafView({
         <div className="pane-tab-scroll" role="tablist" aria-label="Open documents">
         {leaf.tabs.map((tab, index) => {
           const isActive = index === leaf.activeIndex;
-          const suffix = kindSuffix(tab.kind);
+          const suffix = readyCore().kindSuffix(tab.kind);
           const run = runs[index]!;
           const group = leaf.groups?.find((g) => g.id === tab.group);
           return (
@@ -253,7 +252,7 @@ function PaneLeafView({
                   onClick={() => onActivate(leaf.id, index)}
                 >
                   <span className={`pane-tab-icon ${tintClass(tab.kind)}`} aria-hidden="true">
-                    <NavIcon name={kindIcon(tab.kind)} />
+                    <NavIcon name={readyCore().kindIcon(tab.kind)} />
                   </span>
                   <span className="pane-tab-label">{labelFor(tab)}</span>
                   {suffix ? <span className="pane-tab-ext">{suffix}</span> : null}
@@ -270,7 +269,7 @@ function PaneLeafView({
         {showing ? (
           <div className="pane-tab-switcher">
             <span className={`pane-tab-icon ${tintClass(showing.kind)}`} aria-hidden="true">
-              <NavIcon name={kindIcon(showing.kind)} />
+              <NavIcon name={readyCore().kindIcon(showing.kind)} />
             </span>
             <Select
               className="pane-tab-select"
@@ -434,7 +433,7 @@ const SHORTCUT_LABEL: Record<WorkspaceCommand, string> = {
 
 /** The tint class for a kind. `kind.ts` owns which tint a kind carries. */
 function tintClass(kind: string): string {
-  return kindTintClass(kind) ?? "";
+  return readyCore().kindTintClass(kind) ?? "";
 }
 
 

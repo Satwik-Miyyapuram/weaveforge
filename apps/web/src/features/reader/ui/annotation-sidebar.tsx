@@ -6,7 +6,7 @@ import { type QuotationType, type ReaderAnnotation } from "@weaveforge/core";
 import { QUOTATION_TYPE_LABELS } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
 import { READER_ANNOTATION_COLORS } from "../application/parts";
-import { annotationPinKey, type AnnotationBacklinkTarget } from "@weaveforge/wasm";
+import type { AnnotationBacklinkTarget } from "@weaveforge/wasm";
 import { Select } from "@/components/select";
 import { Button } from "@/components/button";
 import { RowButton, Swatch } from "@/components/controls";
@@ -144,7 +144,7 @@ export function AnnotationSidebar({
       <ul className="pdf-reader-sidebar-list">
         {filtered.map((a) => {
           const qType = a.zoteroKey ? quotationTypes?.get(a.zoteroKey) : undefined;
-          const pinKey = annotationPinKey(a.id, a.zoteroKey);
+          const pinKey = readyCore().annotationPinKey(a.id, a.zoteroKey);
           const pinnedSection = pinsByKey?.get(pinKey) ?? null;
           const localEditable = canEditLocal && a.origin === "local";
           return (
