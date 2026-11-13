@@ -1,7 +1,13 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
 import assert from "node:assert/strict";
 import type { NewPaperInput, Paper } from "@weaveforge/core";
-import { ZoteroSync } from "../infrastructure/zotero-sync";
+import { ZoteroSync } from "../infrastructure/parts-3";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * Every Zotero item the library holds, keyed by endpoint path. The mock serves
@@ -56,6 +62,7 @@ function paper(over: Partial<Paper>): Paper {
     id: "p1",
     title: "Untitled",
     authors: [],
+    status: "to_read",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     ...over,

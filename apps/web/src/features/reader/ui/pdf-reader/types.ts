@@ -1,15 +1,10 @@
 /** The vocabulary the pdf-reader modules share. */
-import type {
-  AnchorConfidence,
-  InkGroupCandidate,
-  PdfLocus,
-  QuotationType,
-  ReaderAnnotation,
-} from "@weaveforge/core";
+import type { InkGroupCandidate, QuotationType, ReaderAnnotation } from "@weaveforge/core";
+import type { PdfLocus, AnchorConfidence } from "@weaveforge/wasm";
 
-export type { PdfLib } from "@/lib/pdf-lib";
+export type { PdfLib } from "@/lib/parts";
 import type { ReactNode } from "react";
-import type { PdfLib } from "@/lib/pdf-lib";
+import type { PdfLib } from "@/lib/parts";
 
 export type PdfDocument = Awaited<ReturnType<PdfLib["getDocument"]>["promise"]>;
 
@@ -87,6 +82,8 @@ export interface PdfReaderProps {
    */
   contentHash?: string;
   paperTitle?: string;
+  /** Only looked at (a compiled Overleaf PDF): no ink tools and no side panel. */
+  viewOnly?: boolean;
   quotationTypes?: Map<string, QuotationType>;
   /** When set, selection can create local annotations (R3 sink). */
   paperId?: string;

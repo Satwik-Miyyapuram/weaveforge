@@ -15,8 +15,8 @@ import {
   ProjectLwwInvalidator,
   registerRepoCacheEntry,
   setActiveProjectIdForCache,
-} from "@/lib/cache/project-lww-invalidator";
-import { clearAllScreenCaches, getScreenCache, screenCacheKey, setScreenCache } from "@/lib/cache/screen-cache";
+} from "@/lib/cache/parts-1";
+import { clearAllScreenCaches, getScreenCache, screenCacheKey, setScreenCache } from "@/lib/cache/parts-2";
 
 type Log = { level: string; source: string; message: string; detail?: string };
 type Handler = (msg: { payload: unknown }) => void;

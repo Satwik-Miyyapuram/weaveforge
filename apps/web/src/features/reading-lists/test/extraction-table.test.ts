@@ -1,17 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { AiWriteProposal, Paper, PaperFieldDef, PaperFieldValue } from "@weaveforge/core";
-import { encodeRollupOptions } from "@weaveforge/core";
-import {
-  buildProposeFillPrompt,
-  emptyCellPaperIds,
-  extractionCsv,
-  extractionMarkdown,
-  flattenPaperRows,
-  pendingFieldFills,
-  pendingKey,
-  relationTitles,
-} from "../application/extraction-table";
+import { buildProposeFillPrompt, emptyCellPaperIds, extractionCsv, extractionMarkdown, flattenPaperRows, relationTitles } from "../application/parts";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function paper(id: string, title: string): Paper {
   return {
@@ -88,10 +84,10 @@ test("pendingFieldFills joins paper_field_value proposals (Option B test path)",
       payload: { paperId: "p1", fieldId: "f2", value: 3 },
     },
   ];
-  assert.deepEqual(pendingFieldFills(proposals, "f1"), [
+  assert.deepEqual(readyCore().pendingFieldFills(proposals, "f1"), [
     { proposalId: "prop-1", paperId: "p2", fieldId: "f1", preview: "VAE" },
   ]);
-  assert.equal(pendingKey("p2", "f1"), "p2::f1");
+  assert.equal(readyCore().pendingKey("p2", "f1"), "p2::f1");
 });
 
 test("emptyCellPaperIds and buildProposeFillPrompt target empty cells", () => {
@@ -100,11 +96,8 @@ test("emptyCellPaperIds and buildProposeFillPrompt target empty cells", () => {
     ["p1", "p2"],
     values,
   );
-  assert.deepEqual(emptyCellPaperIds(rows, "f1"), ["p2"]);
-  assert.deepEqual(
-    emptyCellPaperIds(rows, "f1", new Set([pendingKey("p2", "f1")])),
-    [],
-  );
+  assert.deepEqual(emptyCellPaperIds(rows, "f1", []), ["p2"]);
+  assert.deepEqual(emptyCellPaperIds(rows, "f1", ["p2"]), []);
   const prompt = buildProposeFillPrompt({
     listId: "list-1",
     fieldId: "f1",
@@ -148,7 +141,7 @@ test("a large extraction table is built in time proportional to its size", () =>
       id: `rollup${index}`,
       name: `Rollup ${index}`,
       kind: "rollup" as const,
-      options: encodeRollupOptions({ relationFieldId: "rel", sourceFieldId: "src", agg: "sum" }),
+      options: readyCore().encodeRollupOptions({ relationFieldId: "rel", sourceFieldId: "src", agg: "sum" }),
       sortOrder: 2 + index,
     })),
   ];

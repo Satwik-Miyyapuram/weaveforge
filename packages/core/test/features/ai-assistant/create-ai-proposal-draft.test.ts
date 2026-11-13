@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  AiAccessPolicy,
   CreateAiProposalDraftUseCase,
   type AiAccessSettings,
   type AiSessionGrant,
   type AiWriteProposal,
 } from "../../../src/index.js";
+// The policy is the Rust core class (wf-wasm).
+import { AiAccessPolicy } from "../../../../wf-wasm/src/index.ts";
 
 const settings: AiAccessSettings = {
   enabled: true,
@@ -78,7 +79,7 @@ test("an append draft is stored trimmed, and an empty one is refused unsaved", a
   assert.equal(proposal.expectedRevision, "rev-1");
   assert.equal(proposal.createdAt, "2026-07-14T12:00:00.000Z");
   assert.deepEqual(proposal.sourceLinks, []);
-  await assert.rejects(draft("   "), /preview is required/);
+  await assert.rejects(draft("   "), /needs a preview/);
   assert.equal(saved.length, 1);
 });
 

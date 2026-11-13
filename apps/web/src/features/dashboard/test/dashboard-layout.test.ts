@@ -1,22 +1,34 @@
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 
+import type { DashboardLayout, DashboardLayoutItem } from "@weaveforge/core";
+
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   appendCardPair,
+  cardLimits,
   closeLayoutGaps,
   compactLayoutVertical,
-  defaultLayout,
-  finalizeDashboardLayout,
+  initialDashboardLayout,
+  mergeSupervisorCardsIfMissing,
   normalizeSmLayout,
   parseDashboardLayout,
   studentDefaultLg,
   studentDefaultSm,
-  mergeSupervisorCardsIfMissing,
-  initialDashboardLayout,
-  syncDashboardLayouts,
-  mergeRglPositions,
-  lgLayoutNeedsRepair,
-} from "../application/dashboard-layout";
+} from "../application/parts";
+
+// Short names for the Rust calls these tests cover.
+const defaultLayout = (supervisor: boolean) =>
+  readyCore().dashboardDefaultLayout(supervisor) as DashboardLayout;
+const finalizeDashboardLayout = (layout: DashboardLayout) =>
+  readyCore().dashboardFinalizeLayout(layout, cardLimits()) as DashboardLayout;
+const syncDashboardLayouts = (layout: DashboardLayout) =>
+  readyCore().dashboardSyncLayouts(layout, cardLimits()) as DashboardLayout;
+
+before(async () => {
+  await loadTestCore();
+});
 
 describe("compactLayoutVertical", () => {
   it("removes vertical gaps", () => {
@@ -220,7 +232,12 @@ describe("mergeRglPositions", () => {
     const items = studentDefaultLg();
     const reading = items.find((it) => it.id === "reading");
     assert.ok(reading);
-    const merged = mergeRglPositions(items, [{ i: "reading", x: 3, y: 1, w: 3, h: 2 }], 12);
+    const merged = readyCore().dashboardMergeRglPositions(
+      items,
+      [{ i: "reading", x: 3, y: 1, w: 3, h: 2 }],
+      cardLimits(),
+      12,
+    ) as DashboardLayoutItem[];
     const next = merged.find((it) => it.id === "reading");
     assert.equal(next?.x, 3);
     assert.equal(next?.y, 1);
@@ -232,7 +249,7 @@ describe("lgLayoutNeedsRepair", () => {
     const items = studentDefaultLg().map((it) =>
       it.id === "reading" ? { ...it, w: 1 } : it,
     );
-    assert.ok(lgLayoutNeedsRepair(items));
+    assert.ok(readyCore().dashboardLgNeedsRepair(items, cardLimits()));
   });
 });
 

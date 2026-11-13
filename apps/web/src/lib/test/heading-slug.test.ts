@@ -5,11 +5,15 @@
  */
 
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
 import { renderProseMarkdown } from "@/components/markdown/markdown";
-import { headingSlug as outlineSlug, outlineOf } from "@/features/editor-workspace/application/outline";
-import { headingSlug } from "@/lib/heading-slug";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const FIXTURES: [string, string][] = [
   ["Introduction", "introduction"],
@@ -23,18 +27,17 @@ const FIXTURES: [string, string][] = [
 ];
 
 test("slugs are unchanged for existing headings", () => {
-  for (const [text, slug] of FIXTURES) assert.equal(headingSlug(text), slug, text);
+  for (const [text, slug] of FIXTURES) assert.equal(readyCore().headingSlug(text), slug, text);
 });
 
-test("the outline uses the same slug function", () => {
-  assert.equal(outlineSlug, headingSlug);
-  assert.equal(outlineOf("## 2.1 Results (final)")[0]!.slug, "2-1-results-final");
+test("the outline slug is the Rust slug", () => {
+  assert.equal(readyCore().outlineOf("## 2.1 Results (final)")[0]!.slug, readyCore().headingSlug("2.1 Results (final)"));
 });
 
 test("the read view's heading id equals the outline slug", () => {
   for (const [text] of FIXTURES.filter(([t]) => t.trim() && t !== "---")) {
     const html = renderProseMarkdown(`## ${text}`);
     const id = /<h\d id="([^"]*)"/.exec(html)?.[1];
-    assert.equal(id, outlineOf(`## ${text}`)[0]!.slug, text);
+    assert.equal(id, readyCore().outlineOf(`## ${text}`)[0]!.slug, text);
   }
 });

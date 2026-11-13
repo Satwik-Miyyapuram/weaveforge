@@ -28,8 +28,8 @@ Before opening or merging a PR, confirm:
       `packages/core`) instead. Only `apps/web/src/features/**` is scanned: `app/` and
       `components/` sit above the features and import their `ui/` entry points by
       design.
-- [ ] **New repo has contract test** — every new repository interface gets a shared
-      contract suite in `packages/core/src/testing/` and a test file under
+- [ ] **New repo has contract test** — every new repository interface gets a test
+      file under
       `packages/core/test/` run against the in-memory implementation (and against
       the schema and RLS suite when the repository is Postgres-backed). `packages/core/test/` mirrors
       `packages/core/src/`: a test for `src/features/papers/...` lives in

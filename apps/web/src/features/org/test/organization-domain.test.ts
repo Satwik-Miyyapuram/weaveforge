@@ -1,0 +1,53 @@
+import assert from "node:assert/strict";
+import { before, describe, it } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { type OrgMembershipView } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
+
+const legacyMembership = (orgId: string): OrgMembershipView => ({
+  orgId,
+  orgName: "Legacy Lab",
+  role: "masters",
+  joinSource: "legacy",
+});
+
+const inviteMembership = (orgId: string): OrgMembershipView => ({
+  orgId,
+  orgName: "Joined Lab",
+  role: "masters",
+  joinSource: "invite",
+});
+
+before(async () => { await loadTestCore(); });
+
+describe("isExplicitLabMembership", () => {
+  it("treats legacy backfill as implicit", () => {
+    assert.equal(typedCore().isExplicitLabMembership(legacyMembership("org-1")), false);
+  });
+
+  it("treats invite and create as explicit", () => {
+    assert.equal(typedCore().isExplicitLabMembership(inviteMembership("org-1")), true);
+    assert.equal(
+      typedCore().isExplicitLabMembership({ ...inviteMembership("org-1"), joinSource: "create" }),
+      true,
+    );
+  });
+});
+
+describe("hasActiveLab", () => {
+  it("returns false without active org", () => {
+    assert.equal(typedCore().hasActiveLab(null, [inviteMembership("org-1")]), false);
+  });
+
+  it("returns false for legacy-only membership even when active org is set", () => {
+    assert.equal(typedCore().hasActiveLab("org-1", [legacyMembership("org-1")]), false);
+  });
+
+  it("returns true for explicit membership on the active org", () => {
+    assert.equal(typedCore().hasActiveLab("org-1", [inviteMembership("org-1")]), true);
+  });
+
+  it("returns true when the user owns the active org", () => {
+    assert.equal(typedCore().hasActiveLab("org-1", [legacyMembership("org-1")], true), true);
+  });
+});

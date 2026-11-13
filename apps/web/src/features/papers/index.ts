@@ -9,4 +9,5 @@ export { PapersScreen } from "./ui/papers-list";
  * them the same way, rather than growing a second `paperimg:` resolver.
  */
 export { PaperMarkdown } from "./ui/paper-markdown";
-export { paperImageMarkdown } from "./lib/paper-images-md";
+export { paperImageMarkdown } from "./lib/parts";
+export { draftReadingLog } from "./application/parts-2";

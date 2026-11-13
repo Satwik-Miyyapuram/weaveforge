@@ -2,13 +2,14 @@
 
 import { EditorSelection, type Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { imageAltFromFilename, looksLikeImageUrl } from "@weaveforge/core";
+
 import {
   insertPending,
   pendingInsertSupport,
   resolvePending,
 } from "@/components/markdown/markdown-pending-insert";
 import { insertRemoteImage } from "@/components/markdown/markdown-remote-paste";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /**
  * Pasting and dropping images into a note.
@@ -140,7 +141,7 @@ function imageUrlFrom(data: DataTransfer | null): string | null {
 
 /** A web address that points at a picture — not a `data:` or `blob:` one. */
 function isDownloadableImage(url: string): boolean {
-  return /^https?:\/\//i.test(url) && looksLikeImageUrl(url);
+  return /^https?:\/\//i.test(url) && typedCore().looksLikeImageUrl(url);
 }
 
 function describe(error: unknown): string {
@@ -179,7 +180,7 @@ export function acceptImageFiles(
     // Inserted at the caret, which is the whole point: an image belongs where
     // the writer was, not at the end of the note the way the attach button used
     // to put it.
-    const id = insertPending(view, placeholderText(imageAltFromFilename(file.name)), { ownLine: true });
+    const id = insertPending(view, placeholderText(readyCore().imageAltFromFilename(file.name)), { ownLine: true });
 
     void config
       .upload(file)

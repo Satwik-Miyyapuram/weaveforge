@@ -1,18 +1,20 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AddLogEntryUseCase } from "../../../src/features/logbook/application/add-log-entry.use-case.js";
-import { CheckCitationAlertsUseCase } from "../../../src/features/relations/application/check-citation-alerts.use-case.js";
+import type { ILogEntryManager, LogEntry } from "../../../src/features/logbook/domain/parts.js";
+import { CheckCitationAlertsUseCase } from "../../../src/features/relations/application/parts.js";
 import type {
   CitationCandidate,
   ICitationSource,
-} from "../../../src/features/relations/application/citation-source.js";
-import type { INotificationIntegration } from "../../../src/features/integrations/domain/integration-ports.js";
-import type { PaperRef } from "../../../src/features/papers/application/metadata-source.js";
-import type { Milestone } from "../../../src/features/plan/domain/milestone.js";
-import type { Paper } from "../../../src/features/papers/domain/paper.js";
-import { InMemoryCitationAlertTrackRepository } from "../../../src/testing/in-memory-citation-alert-track-repository.js";
-import { InMemoryLogEntryRepository } from "../../../src/testing/in-memory-log-entry-repository.js";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
+} from "../../../src/features/relations/application/parts.js";
+import type { INotificationIntegration } from "../../../src/features/integrations/domain/parts.js";
+import type { PaperRef } from "../../../src/features/papers/application/parts-1.js";
+import type { Milestone } from "../../../src/features/plan/domain/parts.js";
+import type { Paper } from "../../../src/features/papers/domain/parts.js";
+import {
+  InMemoryCitationAlertTrackRepository,
+  InMemoryLogEntryRepository,
+} from "../../support/in-memory.js";
+import { InMemoryPaperRepository } from "../../support/in-memory.js";
 
 const paper: Paper = {
   id: "paper-1",
@@ -62,10 +64,34 @@ class Notifications implements INotificationIntegration {
   }
 }
 
-class FailingLogs extends AddLogEntryUseCase {
-  override async add(): Promise<never> {
-    throw new Error("log write failed");
-  }
+/** Log manager over the in-memory repo; `add` can be made to fail. */
+function logManager(
+  logs: InMemoryLogEntryRepository,
+  clock: { nowIso(): string },
+  newId: () => string,
+  fail: boolean,
+): ILogEntryManager {
+  return {
+    async add(input) {
+      if (fail) throw new Error("log write failed");
+      const entry: LogEntry = {
+        id: newId(),
+        entryDate: clock.nowIso().slice(0, 10),
+        kind: input.kind ?? "daily",
+        body: input.body,
+        links: input.links ?? [],
+        createdAt: clock.nowIso(),
+      };
+      await logs.save(entry);
+      return entry;
+    },
+    async update() {
+      throw new Error("not used by citation alerts");
+    },
+    async remove() {
+      throw new Error("not used by citation alerts");
+    },
+  };
 }
 
 function setup(opts?: {
@@ -81,17 +107,7 @@ function setup(opts?: {
   let now = "2026-07-01T12:00:00.000Z";
   let id = 0;
   const clock = { nowIso: () => now };
-  const logUseCase = opts?.failingLogs
-    ? new FailingLogs({
-        repository: logs,
-        clock,
-        ids: { newId: () => `log-${++id}` },
-      })
-    : new AddLogEntryUseCase({
-        repository: logs,
-        clock,
-        ids: { newId: () => `log-${++id}` },
-      });
+  const logUseCase = logManager(logs, clock, () => `log-${++id}`, opts?.failingLogs === true);
   const useCase = new CheckCitationAlertsUseCase({
     papers,
     tracks,

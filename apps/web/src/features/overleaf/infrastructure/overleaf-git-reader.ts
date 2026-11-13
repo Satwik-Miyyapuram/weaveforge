@@ -3,49 +3,37 @@ import os from "node:os";
 import path from "node:path";
 import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
-import { parseLatexSectionTree, type LatexSourceFile } from "@weaveforge/core";
-import { OVERLEAF_PROJECT_ID } from "../domain/link-rules";
-
-const MAX_FILES = 250;
-const MAX_FILE_BYTES = 2_000_000;
-const MAX_TOTAL_BYTES = 20_000_000;
-const TEXT_EXTENSIONS = new Set([".tex", ".bib", ".sty", ".cls", ".txt", ".md", ".cfg"]);
+import type { LatexSectionTreeResult, LatexSourceFile } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 export interface OverleafReadResult {
   projectId: string;
   entryFile: string;
   files: LatexSourceFile[];
-  sectionTree: ReturnType<typeof parseLatexSectionTree>;
+  sectionTree: LatexSectionTreeResult;
   overleafUrl: string;
-}
-
-function safeRelative(root: string, candidate: string): string {
-  const relative = path.relative(root, candidate).replaceAll("\\", "/");
-  if (!relative || relative.startsWith("../") || relative.includes("/../") || path.isAbsolute(relative)) {
-    throw new Error("Overleaf checkout contained an unsafe path.");
-  }
-  return relative;
 }
 
 /** Exported for tests. */
 export async function collectTextFiles(root: string): Promise<LatexSourceFile[]> {
+  const core = readyCore();
   const result: LatexSourceFile[] = [];
   let totalBytes = 0;
   const visit = async (directory: string): Promise<void> => {
     for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
-      if (result.length >= MAX_FILES) throw new Error("Overleaf project exceeds the supported file limit.");
+      core.assertOverleafFileCount(result.length);
       const full = path.join(directory, entry.name);
       if (entry.isDirectory()) { await visit(full); continue; }
       // A clone can hold symlinks; following one reads a file outside it.
       if (!entry.isFile()) continue;
-      const ext = path.extname(entry.name).toLowerCase();
-      if (!TEXT_EXTENSIONS.has(ext)) continue;
+      if (!core.isOverleafTextSource(entry.name)) continue;
       const stat = await fs.stat(full);
-      if (stat.size > MAX_FILE_BYTES || totalBytes + stat.size > MAX_TOTAL_BYTES) {
-        throw new Error("Overleaf project exceeds the supported text size limit.");
-      }
+      core.assertOverleafTextSize(stat.size, totalBytes);
+      // path.relative gives OS separators; the Rust guard takes "/" paths only.
+      const relative = path.relative(root, full).split(path.sep).join("/");
+      core.assertSafeCheckoutPath(relative);
       const content = await fs.readFile(full, "utf8");
-      result.push({ path: safeRelative(root, full), content });
+      result.push({ path: relative, content });
       totalBytes += stat.size;
     }
   };
@@ -59,7 +47,7 @@ export async function readOverleafProject(
   entryFile: string,
   token: string,
 ): Promise<OverleafReadResult> {
-  if (!OVERLEAF_PROJECT_ID.test(projectId)) throw new Error("Overleaf project id is invalid.");
+  if (!readyCore().isOverleafProjectId(projectId)) throw new Error("Overleaf project id is invalid.");
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "weaveforge-overleaf-"));
   try {
     await git.clone({
@@ -78,7 +66,7 @@ export async function readOverleafProject(
       projectId,
       entryFile: normalizedEntry,
       files,
-      sectionTree: parseLatexSectionTree(files, normalizedEntry),
+      sectionTree: readyCore().parseLatexSectionTree(files, normalizedEntry),
       overleafUrl: `https://www.overleaf.com/project/${projectId}`,
     };
   } finally {

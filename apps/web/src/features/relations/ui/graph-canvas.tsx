@@ -1,6 +1,5 @@
 "use client";
 
-import { enumLabel } from "@/lib/enum-label";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { forceCollide } from "d3-force";
@@ -12,14 +11,8 @@ import type {
   ReportSection,
   VaultPage,
 } from "@weaveforge/core";
-import {
-  buildGraphData,
-  type ExperimentEntry,
-  type GLink,
-  type GNode,
-} from "../application/build-graph-data";
-import { cloneLinks, filterGraphByNodes, linkNodeId, localSubgraph } from "../application/local-graph";
-import { graphTopologyKey, timelineLaneX } from "../application/graph-timeline";
+import type { GLink, GNode, GraphBuildExperiment } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { EdgeDetailPopover } from "./graph-side-panel";
 import {
   type FgHandle,
@@ -31,7 +24,6 @@ import {
 import { useGraphColours } from "./graph-colours";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { setGravity } from "./graph-gravity";
-import { labelSize, nodeSize } from "./graph-sizing";
 import { paintStamp, paintStampLabel, stampRadius, textWidth } from "./graph-stamp";
 import { useGraphCanvasSize } from "./use-graph-canvas-size";
 import { useGraphHover } from "./use-graph-hover";
@@ -70,8 +62,8 @@ export function GraphCanvas({
   notes: VaultPage[];
   sections?: ReportSection[];
   relations: PaperRelation[];
-  /** Runs to draw, each attached to the paper it tests. See `ExperimentEntry`. */
-  experiments?: ExperimentEntry[];
+  /** Runs to draw, each attached to the paper it tests. See `GraphBuildExperiment`. */
+  experiments?: GraphBuildExperiment[];
   settings: GraphViewSettings;
   membership: Map<string, Set<string>>;
   lists: ReadingList[];
@@ -150,7 +142,7 @@ export function GraphCanvas({
   // the centre — losing the current layout. Those forces are applied live via
   // the d3Force effect instead, so they must NOT rebuild the data.
   const { data: rawData, neighbors, tagToPapers, tagToNotes } = useMemo(() => {
-    return buildGraphData(papers, relations, settings, membership, lists, notes, sections, experiments);
+    return readyCore().buildGraphData(papers, relations, settings, membership, lists, notes, sections, experiments);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     papers, relations, membership, lists, notes, sections, experiments,
@@ -169,21 +161,21 @@ export function GraphCanvas({
   }, [tagToNotes, onTagToNotes]);
 
   const localSet = useMemo(
-    () => localSubgraph(localSeed, localDepth, neighbors),
+    () => readyCore().localSubgraph(localSeed, localDepth, neighbors),
     [localSeed, localDepth, neighbors],
   );
 
   const topologyKey = useMemo(
-    () => graphTopologyKey(filterGraphByNodes(rawData.nodes, rawData.links, localSet), localSeed, localDepth),
+    () => readyCore().graphTopologyKey(readyCore().filterGraphByNodes(rawData.nodes, rawData.links, localSet), localSeed, localDepth),
     [rawData, localSet, localSeed, localDepth],
   );
 
-  const laneX = useMemo(() => timelineLaneX(settings.layout, rawData.nodes), [settings.layout, rawData.nodes]);
+  const laneX = useMemo(() => readyCore().timelineLaneX(settings.layout, rawData.nodes), [settings.layout, rawData.nodes]);
 
   const data = useMemo(() => {
-    const filtered = filterGraphByNodes(rawData.nodes, rawData.links, localSet);
+    const filtered = readyCore().filterGraphByNodes(rawData.nodes, rawData.links, localSet);
     const nodes = mergeSimNodes(filtered.nodes, simNodesRef.current, pinned, laneX);
-    const links = cloneLinks(filtered.links);
+    const links = readyCore().cloneLinks(filtered.links);
     return { nodes, links };
   }, [rawData, localSet, pinned, laneX]);
 
@@ -205,7 +197,7 @@ export function GraphCanvas({
     // reachable, including after the user drags things around.
     fg.d3Force?.(
       "collide",
-      forceCollide<GNode>().radius((n) => (stampOn ? stampRadius(Math.max(3, n.val)) : Math.max(3, n.val)) + 3).strength(0.9),
+      forceCollide<GNode>().radius((n) => (stampOn ? stampRadius(Math.max(3, n.val ?? 0)) : Math.max(3, n.val ?? 0)) + 3).strength(0.9),
     );
     const topologyChanged = topologyRef.current !== topologyKey;
     topologyRef.current = topologyKey;
@@ -258,21 +250,21 @@ export function GraphCanvas({
   const linkLit = useCallback((l: GLink): boolean => {
     const hovered = hoverRef.current.nodeId;
     if (!hovered) return true;
-    const src = linkNodeId(l.source);
-    const tgt = linkNodeId(l.target);
+    const src = readyCore().linkNodeId(l.source);
+    const tgt = readyCore().linkNodeId(l.target);
     return src === hovered || tgt === hovered;
   }, [hoverRef]);
 
   // The stamp's outline eats into a small shape, so the brutal themes draw
   // every node a size up; hit areas and labels follow the drawn size.
   const rawNodeR = useCallback(
-    (n: GNode) => (stampOn ? stampRadius(Math.max(3, n.val)) : Math.max(3, n.val)),
+    (n: GNode) => (stampOn ? stampRadius(Math.max(3, n.val ?? 0)) : Math.max(3, n.val ?? 0)),
     [stampOn],
   );
 
   const sizeOf = useCallback(
     (n: GNode, zoom = zoomKRef.current || 1) =>
-      nodeSize(rawNodeR(n), n.kind, zoom, settings.boundedZoomScale !== false),
+      readyCore().nodeSize(rawNodeR(n), zoom, settings.boundedZoomScale !== false),
     [rawNodeR, settings.boundedZoomScale],
   );
   const nodeR = useCallback((n: GNode, zoom?: number) => sizeOf(n, zoom).r, [sizeOf]);
@@ -334,7 +326,7 @@ export function GraphCanvas({
   // Link hit areas paint every frame; a map keeps each lookup O(1).
   const nodeById = useMemo(() => new Map(data.nodes.map((n) => [n.id, n])), [data.nodes]);
   const resolveGraphNode = useCallback(
-    (ref: string | GNode): GNode | undefined => nodeById.get(linkNodeId(ref)),
+    (ref: string | GNode): GNode | undefined => nodeById.get(readyCore().linkNodeId(ref)),
     [nodeById],
   );
 
@@ -360,7 +352,7 @@ export function GraphCanvas({
     // a shared node don't overlap and overwrite each other in the pointer
     // buffer, which would leave only the last-painted edge clickable.
     ctx.strokeStyle = color;
-    ctx.lineWidth = Math.max(2.5, link.width * 2.5);
+    ctx.lineWidth = Math.max(2.5, (link.width ?? 0) * 2.5);
     ctx.lineCap = "round";
     ctx.beginPath();
     ctx.moveTo(sx, sy);
@@ -462,8 +454,8 @@ export function GraphCanvas({
         onLinkClick={handleLinkClick}
         linkColor={(l: GLink) => {
           if (searchHits && searchHits.size > 0) {
-            const src = linkNodeId(l.source);
-            const tgt = linkNodeId(l.target);
+            const src = readyCore().linkNodeId(l.source);
+            const tgt = readyCore().linkNodeId(l.target);
             if (!searchHits.has(src) || !searchHits.has(tgt)) return DIM;
           }
           if (!linkLit(l)) return DIM;
@@ -471,7 +463,7 @@ export function GraphCanvas({
         }}
         linkWidth={(l: GLink) => {
           const hl = hoverRef.current.link;
-          return hl?.id === l.id ? l.width * 1.4 : l.width;
+          return hl?.id === l.id ? (l.width ?? 0) * 1.4 : (l.width ?? 0);
         }}
         linkLineDash={(l: GLink) => (l.dashed ? [4, 3] : undefined)}
         linkCurvature={(l: GLink) => (l.kind === "rel" ? 0.18 : 0.06)}
@@ -506,7 +498,7 @@ export function GraphCanvas({
           }
           if (labelVisible(node)) {
             const label = node.label.length > 28 ? `${node.label.slice(0, 27)}…` : node.label;
-            const labelBox = labelSize(node.kind, zoom, settings.boundedZoomScale !== false);
+            const labelBox = readyCore().labelSize(node.kind, zoom, settings.boundedZoomScale !== false);
             const { font: fontSize, gap } = labelBox;
             ctx.font = colours.stamp ? `700 ${fontSize}px ${fontFamily}` : `${fontSize}px ${fontFamily}`;
             const lx = node.x ?? 0;
@@ -547,7 +539,7 @@ export function GraphCanvas({
       />
       {linkTooltip?.relation && (
         <div className="graph-link-tooltip" role="tooltip">
-          {enumLabel("relation", linkTooltip.relation)}
+          {readyCore().enumLabel("relation", linkTooltip.relation)}
           {linkTooltip.sourceKind === "auto" && " (auto)"}
         </div>
       )}

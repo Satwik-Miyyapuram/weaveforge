@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { ReaderAnnotationType } from "@weaveforge/core";
-import { READER_ANNOTATION_COLORS } from "../application/reader-annotation-helpers";
+import { READER_ANNOTATION_COLORS } from "../application/parts";
 import { Button, CloseButton } from "@/components/button";
 import { ToolButton } from "@/components/controls";
 

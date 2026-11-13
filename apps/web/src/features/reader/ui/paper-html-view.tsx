@@ -10,7 +10,8 @@
  */
 
 import { useMemo } from "react";
-import { buildPaperHtmlDocument, type PaperHtmlPage } from "../application/paper-html";
+import type { PaperHtmlPage } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { useDarkPdf } from "./pdf-reader/use-dark-pdf";
 import { Button } from "@/components/button";
 
@@ -24,7 +25,7 @@ export interface PaperHtmlViewProps {
 
 export function PaperHtmlView({ page, toolbarExtra, onRemove }: PaperHtmlViewProps) {
   const dark = useDarkPdf();
-  const doc = useMemo(() => buildPaperHtmlDocument(page, { scheme: dark ? "dark" : "light" }), [page, dark]);
+  const doc = useMemo(() => readyCore().buildPaperHtmlDocument(page,{ scheme: dark ? "dark" : "light" }), [page, dark]);
   const host = useMemo(() => {
     try {
       return new URL(page.url).hostname;
@@ -79,7 +80,7 @@ export function printPaperHtml(page: PaperHtmlPage): void {
   frame.setAttribute("sandbox", "allow-same-origin allow-modals");
   frame.setAttribute("aria-hidden", "true");
   frame.style.cssText = "position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none";
-  frame.srcdoc = buildPaperHtmlDocument(page, { scheme: "light", print: true });
+  frame.srcdoc = readyCore().buildPaperHtmlDocument(page,{ scheme: "light", print: true });
   frame.addEventListener("load", () => {
     const win = frame.contentWindow;
     if (!win) return frame.remove();

@@ -5,7 +5,7 @@ import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "./project-provider";
-import { useSubmit } from "@/lib/hooks/use-submit";
+import { useSubmit } from "@/lib/hooks/parts";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { EmptyState } from "@/components/empty-state";
@@ -124,7 +124,7 @@ export function ProjectsScreen() {
       {!loading && projects.length === 0 && (
         <EmptyState
           variant="first-run"
-          icon={<WeaveForgeLogo className="app-logo" />}
+          icon={<WeaveForgeLogo bare className="empty-logo" />}
           title="No projects yet"
           body="A project is one piece of research: a thesis, a paper, a lab rotation. Everything you add — papers, notes, runs, the report — belongs to one, and switching projects switches the whole workspace."
           action={
@@ -173,7 +173,7 @@ export function ProjectsScreen() {
 async function removeLocalFolder(project: { id: string; name: string }): Promise<void> {
   const [{ activeWorkspaceFs }, { removeProjectFolder }] = await Promise.all([
     import("@/features/workspace/application/workspace-folder"),
-    import("@/features/workspace/application/remove-project-folder"),
+    import("@/features/workspace/application/parts"),
   ]);
   const fs = activeWorkspaceFs();
   if (!fs) return;

@@ -8,15 +8,15 @@ import type {
   IReaderAnnotationSink,
   IReaderAnnotationSource,
   IReportSectionRepository,
-  ManageTagsUseCase,
+  ITagManager,
   NewReaderAnnotation,
   Paper,
   QuotationType,
   ReaderAnnotationPatch,
   UpdatePaperUseCase,
 } from "@weaveforge/core";
-import type { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
-import type { LoadPapersScreenUseCase } from "@/features/papers/application/load-papers-screen.use-case";
+import type { DeletePaperUseCase } from "@/features/papers/application/parts-1";
+import type { LoadPapersScreenUseCase } from "@/features/papers/application/parts-1";
 import type { IPaperImageStore } from "@/features/papers/domain/zotero";
 
 /**
@@ -38,7 +38,7 @@ export class PapersFacade {
       load: LoadPapersScreenUseCase;
       deletePaper: DeletePaperUseCase;
       papers: IPaperRepository;
-      manageTags: ManageTagsUseCase;
+      manageTags: ITagManager;
       updatePaper: UpdatePaperUseCase;
       importPaper: ImportPaperUseCase;
       addPaper: AddPaperUseCase;

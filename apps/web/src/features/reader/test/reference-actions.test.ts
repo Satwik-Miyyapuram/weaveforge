@@ -1,7 +1,11 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { ValidationError, type NewPaperInput, type NewPaperRelationInput, type Paper, type PaperRef, type PaperStatus } from "@weaveforge/core";
-import { createReferenceActions, manualInputFromReference, referenceRef } from "../application/reference-actions";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
+import { createReferenceActions } from "../application/parts-2";
+
+before(loadTestCore);
 
 const entry = {
   index: 12,
@@ -46,21 +50,21 @@ function makeActions(paper: Partial<Paper> = {}) {
 }
 
 test("a DOI is preferred over the title, so resolution is a hit rather than a search", () => {
-  assert.deepEqual(referenceRef({ ...entry, doi: "10.5555/attention" }), {
+  assert.deepEqual(readyCore().referenceRef({ ...entry, doi: "10.5555/attention" }), {
     kind: "doi",
     value: "10.5555/attention",
   });
 });
 
 test("an arXiv id is used when there is no DOI", () => {
-  assert.deepEqual(referenceRef({ ...entry, arxivId: "1706.03762" }), {
+  assert.deepEqual(readyCore().referenceRef({ ...entry, arxivId: "1706.03762" }), {
     kind: "arxiv",
     value: "1706.03762",
   });
 });
 
 test("a title-only entry searches bibliographically, carrying its hints", () => {
-  assert.deepEqual(referenceRef(entry), {
+  assert.deepEqual(readyCore().referenceRef(entry), {
     kind: "bibliographic",
     value: "Attention is all you need",
     hints: { title: "Attention is all you need", year: 2017, firstAuthor: "Vaswani" },
@@ -69,7 +73,7 @@ test("a title-only entry searches bibliographically, carrying its hints", () => 
 
 test("an entry with no title at all falls back to its raw text", () => {
   const { title, ...noTitle } = entry;
-  assert.deepEqual(referenceRef({ ...noTitle, raw: "Some unparsed reference" }), {
+  assert.deepEqual(readyCore().referenceRef({ ...noTitle, raw: "Some unparsed reference" }), {
     kind: "bibliographic",
     value: "Some unparsed reference",
     hints: { year: 2017, firstAuthor: "Vaswani" },
@@ -85,7 +89,7 @@ test("add to library imports the reference with the library's default status", a
 });
 
 test("add manually never invents fields the entry did not carry", () => {
-  const input = manualInputFromReference(entry);
+  const input = readyCore().manualInputFromReference(entry);
   assert.deepEqual(input, {
     title: "Attention is all you need",
     status: "to_read",
@@ -98,7 +102,7 @@ test("add manually never invents fields the entry did not carry", () => {
 
 test("add manually keeps a usable title when parsing found none", () => {
   const { title, ...noTitle } = entry;
-  const input = manualInputFromReference({ ...noTitle, raw: "x".repeat(400) });
+  const input = readyCore().manualInputFromReference({ ...noTitle, raw: "x".repeat(400) });
   assert.equal(input.title.length, 200);
 });
 

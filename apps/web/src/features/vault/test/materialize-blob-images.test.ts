@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 
-import { markdownImage } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 import { materializeBlobImagesInBody } from "../lib/materialize-blob-images";
 
@@ -24,26 +24,26 @@ afterEach(() => {
 
 test("a pasted blob ref becomes a vault: ref, keeping its alt text", async () => {
   const { body, uploadError } = await materializeBlobImagesInBody("see ![a fig](blob:http://x/1) here", "p1", upload);
-  assert.equal(body, `see ${markdownImage("vault:user-1/p1/new.png", "a fig")} here`);
+  assert.equal(body, `see ${readyCore().markdownImage("vault:user-1/p1/new.png", "a fig")} here`);
   assert.equal(uploadError, undefined);
 });
 
 test("an empty alt is written as core writes it everywhere else", async () => {
   const { body } = await materializeBlobImagesInBody("![](blob:http://x/1)", "p1", upload);
-  assert.equal(body, markdownImage("vault:user-1/p1/new.png", "image"));
+  assert.equal(body, readyCore().markdownImage("vault:user-1/p1/new.png", "image"));
 });
 
 test("replacement patterns in the alt text are written literally", async () => {
   for (const alt of ["cost $& $$", "before $` after $'"]) {
     const { body } = await materializeBlobImagesInBody(`![${alt}](blob:http://x/1)`, "p1", upload);
-    assert.equal(body, markdownImage("vault:user-1/p1/new.png", alt), alt);
+    assert.equal(body, readyCore().markdownImage("vault:user-1/p1/new.png", alt), alt);
   }
 });
 
 test("LaTeX beside the image is left as written", async () => {
   const text = "$$\\frac{a}{b}$$ and $x^2$ ![f](blob:http://x/1)";
   const { body } = await materializeBlobImagesInBody(text, "p1", upload);
-  assert.equal(body, `$$\\frac{a}{b}$$ and $x^2$ ${markdownImage("vault:user-1/p1/new.png", "f")}`);
+  assert.equal(body, `$$\\frac{a}{b}$$ and $x^2$ ${readyCore().markdownImage("vault:user-1/p1/new.png", "f")}`);
 });
 
 test("a failed upload is reported, not swallowed (34-16)", async () => {
@@ -66,7 +66,7 @@ test("some uploads failing: the rest are rewritten and the failures counted", as
       return `user-1/${pageId}/new.${ext}`;
     },
   );
-  assert.equal(body, `![a](blob:http://x/1) ${markdownImage("vault:user-1/p1/new.png", "b")} ![c](blob:http://x/3)`);
+  assert.equal(body, `![a](blob:http://x/1) ${readyCore().markdownImage("vault:user-1/p1/new.png", "b")} ![c](blob:http://x/3)`);
   assert.equal(uploadError?.message, "2 images could not be uploaded: quota exceeded 1");
 });
 

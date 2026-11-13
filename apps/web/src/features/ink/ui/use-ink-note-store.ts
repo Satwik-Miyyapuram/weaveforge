@@ -16,21 +16,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { logToApp } from "@/lib/error-report/app-log";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
-import { awaitInkWrites, trackInkWrite } from "../application/ink-pending-writes";
+import { awaitInkWrites, trackInkWrite } from "../application/parts";
 import type { InkSave } from "./use-ink-worker-rpc";
-import {
-  joinInkTextLayer,
-  newInkChunkId,
-  writeInkNoteBody,
-  type InkNoteMeta,
-} from "@weaveforge/core";
+import { type InkNoteMeta } from "@weaveforge/core";
 
 import {
   loadInkPages,
   type InkChunkStore,
   type InkStoredPage,
-} from "../application/ink-chunk-store";
+} from "../application/parts-1";
 
 /** What the saves need from the host. */
 export interface InkNoteStoreDeps {
@@ -103,7 +99,7 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     };
     return {
       meta,
-      body: writeInkNoteBody(meta, joinInkTextLayer(textPagesRef.current)),
+      body: readyCore().writeInkNoteBody(meta, typedCore().joinInkTextLayer(textPagesRef.current)),
     };
   }, [metaRef, pagesRef, textPagesRef]);
 
@@ -225,7 +221,7 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
   /** One blank page, with its text page, after the last (21-11). */
   const pushBlankPage = useCallback(
     (pages: InkStoredPage[]) => {
-      pages.push({ chunkId: newInkChunkId(), chunk: null, paper: metaRef.current.paper });
+      pages.push({ chunkId: typedCore().newInkChunkId(), chunk: null, paper: metaRef.current.paper });
       textPagesRef.current.push("");
     },
     [metaRef, textPagesRef],

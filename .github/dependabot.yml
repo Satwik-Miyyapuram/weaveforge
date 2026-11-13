@@ -10,7 +10,7 @@
 # npm needs one entry per directory. A workspace manifest is a separate
 # dependency graph to Dependabot — `apps/web/package.json` is not covered by the
 # root entry — so every `package.json` in the repository is listed below:
-# `package.json` (root), `apps/web`, `apps/desktop`, `apps/pitch`, and
+# `package.json` (root), `apps/web`, `apps/pitch`, and
 # `packages/core`. A new workspace added later does not appear here by itself;
 # add it, or its dependencies are never checked again.
 #
@@ -78,25 +78,6 @@ updates:
         update-types: ["version-update:semver-major"]
     groups:
       web-patch-minor:
-        patterns: ["*"]
-        update-types: ["minor", "patch"]
-
-  # Electron shell. Its own graph, and the one with the widest privilege.
-  - package-ecosystem: npm
-    directory: "/apps/desktop"
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: Etc/UTC
-    open-pull-requests-limit: 3
-    commit-message:
-      prefix: "chore(deps)"
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
-    groups:
-      desktop-patch-minor:
         patterns: ["*"]
         update-types: ["minor", "patch"]
 

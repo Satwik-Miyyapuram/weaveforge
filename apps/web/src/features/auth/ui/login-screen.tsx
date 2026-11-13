@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { getLightContainer } from "@/light-bootstrap";
 import { FormError } from "@/components/form-error";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
-import { appOrigin, authRedirectTo } from "@/lib/desktop/desktop-auth";
+import { appOrigin, authRedirectTo, pastedSignInQuery } from "@/lib/desktop/desktop-auth";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { setLocalMode } from "@/backend/providers/local/local-identity";
 import { runBusy } from "./run-busy";
@@ -30,6 +30,20 @@ export function LoginScreen() {
   const [onThisComputer, setOnThisComputer] = useState(false);
   useEffect(() => {
     setOnThisComputer(typeof desktop()?.queryLocalDb === "function");
+  }, []);
+
+  // When another program holds the sign-in port, the browser's redirect never
+  // reaches this window, so the reader pastes the address it was sent to.
+  const [portTaken, setPortTaken] = useState(false);
+  const [pasted, setPasted] = useState("");
+  useEffect(() => {
+    let active = true;
+    void desktop()?.signInListening?.().then((listening) => {
+      if (active) setPortTaken(!listening);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   // The origin in a browser, and the desktop return page in the app — see
@@ -79,6 +93,15 @@ export function LoginScreen() {
     return run(async () => {
       await getLightContainer().auth.sendEmailOtp(email.trim());
       setOtpSent(true);
+    });
+  }
+
+  function finishPasted(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    return run(async () => {
+      const query = pastedSignInQuery(pasted);
+      if (!query) throw new Error("That is not the sign-in address. Copy the whole address from the browser tab the sign-in ended on.");
+      await getLightContainer().auth.completeOAuth(query);
     });
   }
 
@@ -205,6 +228,20 @@ export function LoginScreen() {
                   </>
                 )}
               </div>
+
+              {portTaken && (
+                <form className="auth-email" onSubmit={(event) => void finishPasted(event)}>
+                  <p className="auth-sub">
+                    Another program is using the port sign-in returns to, so the browser cannot hand the sign-in back.
+                    After signing in there, copy the address from the browser tab and paste it here.
+                  </p>
+                  <div className="field">
+                    <label htmlFor="pasted-sign-in">Sign-in address</label>
+                    <input id="pasted-sign-in" value={pasted} onChange={(event) => setPasted(event.target.value)} placeholder="http://127.0.0.1:53682/auth/callback?code=…" autoComplete="off" required />
+                  </div>
+                  <Button type="submit" disabled={busy || !pasted.trim()}>Finish sign-in</Button>
+                </form>
+              )}
 
               {onThisComputer && (
                 <Button variant="link"

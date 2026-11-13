@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { pickKeysToEvict } from "../application/pdf-cache-eviction.js";
+import { readyCore } from "@/lib/rust-core";
+
+const { pickKeysToEvict } = readyCore();
 
 test("pickKeysToEvict drops oldest until within cap", () => {
   assert.deepEqual(

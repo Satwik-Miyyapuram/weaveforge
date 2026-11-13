@@ -2,20 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  clampPage,
-  clampScale,
-  computeFitPageScale,
-  computeFitWidthScale,
-  initialReaderViewport,
-  nextRotation,
-  zoomIn as zoomInScale,
-  zoomOut as zoomOutScale,
   type ReaderContainerSize,
   type ReaderFitMode,
   type ReaderPageSize,
   type ReaderRotation,
   type ReaderViewportState,
-} from "@weaveforge/core";
+} from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 export interface UseReaderViewportOptions {
   /** 1-based initial page. */
@@ -56,8 +49,8 @@ function effectiveBaseScale(
 ): number {
   if (state.fit !== "custom" && pageSize && containerSize) {
     return state.fit === "width"
-      ? computeFitWidthScale(pageSize, containerSize, state.rotation)
-      : computeFitPageScale(pageSize, containerSize, state.rotation);
+      ? readyCore().computeFitWidthScale(pageSize, containerSize, state.rotation)
+      : readyCore().computeFitPageScale(pageSize, containerSize, state.rotation);
   }
   return state.scale;
 }
@@ -65,18 +58,18 @@ function effectiveBaseScale(
 export function useReaderViewport(options: UseReaderViewportOptions): ReaderViewportApi {
   const { initialPage = 1, pageSize, containerSize, numPages } = options;
   const [state, setState] = useState<ReaderViewportState>(() =>
-    initialReaderViewport(initialPage),
+    readyCore().initialReaderViewport(initialPage),
   );
 
   useEffect(() => {
-    setState((prev) => ({ ...prev, page: clampPage(prev.page, Math.max(1, numPages)) }));
+    setState((prev) => ({ ...prev, page: readyCore().clampPage(prev.page, Math.max(1, numPages)) }));
   }, [numPages]);
 
   const renderScale = effectiveBaseScale(state, pageSize, containerSize);
 
   const setPage = useCallback(
     (page: number) => {
-      setState((prev) => ({ ...prev, page: clampPage(page, Math.max(1, numPages)) }));
+      setState((prev) => ({ ...prev, page: readyCore().clampPage(page, Math.max(1, numPages)) }));
     },
     [numPages],
   );
@@ -97,8 +90,8 @@ export function useReaderViewport(options: UseReaderViewportOptions): ReaderView
     [pageSize, containerSize],
   );
 
-  const zoomIn = useCallback(() => zoomFrom(zoomInScale), [zoomFrom]);
-  const zoomOut = useCallback(() => zoomFrom(zoomOutScale), [zoomFrom]);
+  const zoomIn = useCallback(() => zoomFrom((s) => readyCore().zoomIn(s)), [zoomFrom]);
+  const zoomOut = useCallback(() => zoomFrom((s) => readyCore().zoomOut(s)), [zoomFrom]);
 
   const fitWidth = useCallback(() => setFit("width"), [setFit]);
   const fitPage = useCallback(() => setFit("page"), [setFit]);
@@ -106,17 +99,17 @@ export function useReaderViewport(options: UseReaderViewportOptions): ReaderView
   const zoomBy = useCallback(
     (factor: number) => {
       if (!Number.isFinite(factor) || factor <= 0) return;
-      zoomFrom((current) => clampScale(current * factor));
+      zoomFrom((current) => readyCore().clampScale(current * factor));
     },
     [zoomFrom],
   );
 
   const rotateClockwise = useCallback(() => {
-    setState((prev) => ({ ...prev, rotation: nextRotation(prev.rotation) }));
+    setState((prev) => ({ ...prev, rotation: readyCore().nextRotation(prev.rotation) }));
   }, []);
 
   const setCustomScale = useCallback((scale: number) => {
-    setState((prev) => ({ ...prev, fit: "custom", scale: clampScale(scale) }));
+    setState((prev) => ({ ...prev, fit: "custom", scale: readyCore().clampScale(scale) }));
   }, []);
 
   return {

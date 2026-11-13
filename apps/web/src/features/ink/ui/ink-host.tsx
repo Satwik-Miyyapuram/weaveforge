@@ -33,33 +33,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PromptDialog } from "@/components/prompt-dialog";
 import { ToolbarSlot } from "@/components/toolbar-slot";
-import {
-  INK_A4_HEIGHT,
-  INK_A4_WIDTH,
-  readInkNoteBody,
-  splitInkTextLayer,
-  type InkHand,
-  type InkPaper,
-  type InkNoteMeta,
-  type RecognisedLine,
-} from "@weaveforge/core";
+import { INK_A4_HEIGHT, INK_A4_WIDTH, type InkHand, type InkPaper, type InkNoteMeta, type RecognisedLine } from "@weaveforge/core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 import {
   INK_RENDER_COLOURS,
-  paletteHex,
   type InkPalette,
-} from "../render/ink-palette";
+} from "../render/parts-1";
 import type {
   InkWorkerMessage,
 } from "../application/capture-protocol";
 import {
   type InkStoredPage,
-} from "../application/ink-chunk-store";
-import { pageListProblem, selectedPdfPages } from "../application/pdf-pages";
+} from "../application/parts-1";
 import { InkBar } from "./ink-bar";
 import { InkSelectionChip } from "./ink-selection-chip";
 import { InkFigures } from "./ink-figures";
-import { fitScale } from "./ink-page-math";
 import { InkSheetTextUnderlay } from "./ink-sheet-underlay";
 import { useInkSelection } from "./use-ink-selection";
 import { InkPage } from "./ink-page";
@@ -139,13 +128,13 @@ export function InkHost({
    */
   const wrapRef = useRef<HTMLDivElement>(null);
   /** The header, as it will be written back. */
-  const metaRef = useRef<InkNoteMeta>(readInkNoteBody(body).meta);
+  const metaRef = useRef<InkNoteMeta>(readyCore().readInkNoteBody(body).meta);
   /** The writing hand, mirrored into state so the bar and the gate follow it. */
   const [hand, setHandState] = useState<InkHand>(metaRef.current.hand);
   const [paper, setPaperState] = useState<InkPaper>(metaRef.current.paper);
   /** The text layer's pages, for the body (§4.2). */
   const textPagesRef = useRef<string[]>(
-    splitInkTextLayer(readInkNoteBody(body).text),
+    typedCore().splitInkTextLayer(readyCore().readInkNoteBody(body).text),
   );
   /** The current page's flowed text, for the print (assigned in render below). */
   const pageTextRef = useRef("");
@@ -187,7 +176,7 @@ export function InkHost({
   } = rpc;
 
   const scale = useMemo(
-    () => fitScale(containerWidth) * zoom,
+    () => readyCore().fitScale(containerWidth, INK_A4_WIDTH) * zoom,
     [containerWidth, zoom],
   );
   const page: InkStoredPage = pagesRef.current?.[pageIndex] ?? {
@@ -694,7 +683,7 @@ export function InkHost({
           paper={page.paper}
           tool={tool}
           cursorMode={cursorMode}
-          ink={{ hex: paletteHex(palette, colour), diameterPx: nib * scale }}
+          ink={{ hex: readyCore().paletteHex(palette, colour), diameterPx: nib * scale }}
           project={project}
           penHandlers={penHandlers}
           canvasRef={canvasRef}
@@ -783,8 +772,8 @@ export function InkHost({
           label="Pages (a number, a list like 1,3-5, or all)"
           initialValue="all"
           confirmLabel="Import these pages"
-          validate={(value) => pageListProblem(value, pageAsk.count)}
-          onConfirm={(value) => answerPdfPages(selectedPdfPages(value, pageAsk.count))}
+          validate={(value) => readyCore().pageListProblem(value, pageAsk.count)}
+          onConfirm={(value) => answerPdfPages(readyCore().selectedPdfPages(value, pageAsk.count))}
           onClose={() => answerPdfPages(null)}
         />
       ) : null}

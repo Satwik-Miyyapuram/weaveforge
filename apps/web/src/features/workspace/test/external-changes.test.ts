@@ -1,17 +1,27 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
-import { MIRROR_MANIFEST_PATH } from "../application/mirror-manifest";
+import type { IWorkspaceFs } from "@weaveforge/core";
+import { holdOpenNotes, MIRROR_MANIFEST_PATH } from "../application/parts-3";
 import {
+  AUTO_APPLY_DEBOUNCE_MS,
+  applyFolderImport,
+  autoApplyScheduled,
   chooseDesktopFolder,
   clearExternalChanges,
   closeFolder,
   describeSync,
+  externalChangeReason,
   externalChanges,
   folderHistory,
   onExternalChange,
   settleExternalChanges,
 } from "../application/workspace-folder";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * A shell that reports folder changes and nothing else.
@@ -48,16 +58,59 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 async function connected() {
   const shell = fakeShell();
-  assert.equal(await chooseDesktopFolder({ git: false, reuse: true }), true);
+  assert.deepEqual(await chooseDesktopFolder({ git: false, reuse: true }), { warnings: [] });
   return shell;
 }
 
-test("a folder change outside the app is remembered, not applied", async (t) => {
+test("a folder change outside the app is remembered until it is taken in", async (t) => {
   t.after(closeFolder);
   const shell = await connected();
   shell.changed(["notes/one.note.md", "notes/two.note.md"]);
   await settle();
   assert.deepEqual(externalChanges(), ["notes/one.note.md", "notes/two.note.md"]);
+});
+
+test("an outside edit that cannot be taken in stays listed", async (t) => {
+  t.after(closeFolder);
+  const shell = await connected();
+  shell.changed(["notes/one.note.md"]);
+  await settle();
+  await new Promise((resolve) => setTimeout(resolve, AUTO_APPLY_DEBOUNCE_MS + 200));
+  assert.deepEqual(externalChanges(), ["notes/one.note.md"]);
+});
+
+test("closing the folder cancels a waiting auto-apply", async (t) => {
+  t.after(closeFolder);
+  const shell = await connected();
+  shell.changed(["notes/one.note.md"]);
+  await settle();
+  assert.equal(autoApplyScheduled(), true);
+  closeFolder();
+  assert.equal(autoApplyScheduled(), false);
+  assert.deepEqual(externalChanges(), []);
+});
+
+test("a listed path that changes again is taken in again", async (t) => {
+  t.after(closeFolder);
+  const shell = await connected();
+  shell.changed(["notes/one.note.md"]);
+  await settle();
+  await new Promise((resolve) => setTimeout(resolve, AUTO_APPLY_DEBOUNCE_MS + 200));
+  assert.equal(autoApplyScheduled(), false);
+  // Still listed from the first edit; the second edit must not be missed for that.
+  shell.changed(["notes/one.note.md"]);
+  await settle();
+  assert.equal(autoApplyScheduled(), true);
+});
+
+test("an apply for a folder no longer connected is refused", async (t) => {
+  t.after(closeFolder);
+  await connected();
+  const other = {} as IWorkspaceFs;
+  await assert.rejects(
+    applyFolderImport({ entries: [], counts: {} } as never, {}, { fs: other }),
+    /folder changed/,
+  );
 });
 
 test("the manifest changing is not somebody else's edit", async (t) => {
@@ -114,19 +167,20 @@ test("disconnecting stops listening", async (t) => {
   assert.deepEqual(externalChanges(), []);
 });
 
-test("after a preview the outside list is what the preview found changed, no more", async (t) => {
+test("a listed outside edit says why it waits, until the list is cleared", async (t) => {
   t.after(closeFolder);
-  const shell = await connected();
-  shell.changed(["notes/one.note.md", "notes/two.note.md"]);
-  await settle();
+  await connected();
   settleExternalChanges({
     entries: [
-      { action: "unchanged", entity: { path: "notes/one.note.md" } },
-      { action: "updated", entity: { path: "notes/two.note.md" } },
+      { action: "removed", entity: { path: "notes/gone.note.md" } },
+      { action: "unchanged", entity: { path: "notes/same.note.md" } },
     ],
-    json: { entries: [{ action: "removed", path: "data/tags.json" }, { action: "unchanged", path: "data/lists.json" }] },
+    counts: { created: 0, updated: 0, unchanged: 1, conflict: 0, removed: 1 },
   } as never);
-  assert.deepEqual(externalChanges(), ["data/tags.json", "notes/two.note.md"]);
+  assert.equal(externalChangeReason("notes/gone.note.md"), "removed");
+  assert.equal(externalChangeReason("notes/same.note.md"), undefined);
+  clearExternalChanges();
+  assert.equal(externalChangeReason("notes/gone.note.md"), undefined);
 });
 
 test("a failed commit is reported, not read as up to date", () => {
@@ -171,4 +225,34 @@ test("a desktop history that cannot be read is an error, not an empty log (xipc-
   const bridge = (globalThis as unknown as { window?: { weaveforge: Record<string, unknown> } }).window!.weaveforge;
   bridge.vaultLog = () => Promise.reject(new Error("fatal: bad object HEAD"));
   await assert.rejects(() => folderHistory(5), /bad object HEAD/);
+});
+
+test("an edit held because its note was open is taken in once the note closes", async (t) => {
+  t.after(closeFolder);
+  await connected();
+  const release = holdOpenNotes(["n1"]);
+  settleExternalChanges({
+    entries: [{ action: "updated", entity: { id: "n1", path: "notes/open.note.md" } }],
+    counts: { created: 0, updated: 1, unchanged: 0, conflict: 0, removed: 0 },
+    seen: { "notes/open.note.md": { side: "folder", digest: "d" } },
+  } as never);
+  assert.equal(externalChangeReason("notes/open.note.md"), "open in editor");
+  assert.equal(autoApplyScheduled(), false);
+  release();
+  assert.equal(autoApplyScheduled(), true);
+});
+
+test("a folder that never goes quiet is still read within the max wait", async (t) => {
+  t.after(closeFolder);
+  const shell = await connected();
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const started = Date.now();
+  // A save every 400 ms keeps restarting the 800 ms debounce; without the cap it would fire at 2400 ms.
+  for (let i = 0; i < 5; i += 1) {
+    shell.changed(["notes/busy.note.md"]);
+    await settle();
+    await wait(400);
+  }
+  await wait(Math.max(0, started + 2200 - Date.now()));
+  assert.equal(autoApplyScheduled(), false);
 });

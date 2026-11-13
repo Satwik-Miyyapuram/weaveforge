@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import { testDb } from "../../../backend/test/pg-test-db";
 import { sqlRunner } from "./local-sql";
-import { SyncEngine, SyncRefusedError, type SyncQuota } from "../domain/sync-engine";
-import type { RemoteChange, SendOutcome, SyncTransport } from "../domain/sync-ports";
+import { SyncEngine, SyncRefusedError, type SyncQuota } from "../domain/parts-3";
+import type { RemoteChange, SendOutcome, SyncTransport } from "../domain/parts";
 
 function transport(
   outcome: SendOutcome = { status: "accepted" },

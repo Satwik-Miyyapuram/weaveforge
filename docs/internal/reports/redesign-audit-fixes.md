@@ -1,5 +1,7 @@
 # Redesign audit — verification and remediation log
 
+> **Historical:** predates the Rust port. `apps/desktop` (Electron) has since been retired; the desktop app is `apps/shell`.
+
 What was checked in redesign-suggestions.md against
 the code as it stands, what was still broken and is now fixed, and what was
 re-read and found **not** to be a defect.

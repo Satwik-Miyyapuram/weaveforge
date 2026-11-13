@@ -8,7 +8,8 @@
  * hygiene ceiling. Nothing here knows about strokes.
  */
 
-import type { InkViewTransform } from "./ink-renderer";
+import type { InkViewTransform } from "./parts-1";
+import { readyCore } from "@/lib/rust-core";
 
 /** Compile and link a program, or throw with the driver's own log. */
 export function linkProgram(
@@ -88,10 +89,10 @@ export function pageScissor(
   width: number,
   height: number,
 ): [number, number, number, number] {
-  const k = transform.scale * dpr;
-  const left = Math.max(0, Math.floor(transform.offsetX * dpr));
-  const top = Math.max(0, Math.floor(transform.offsetY * dpr));
-  const right = Math.min(width, Math.ceil(transform.offsetX * dpr + pageWidth * k));
-  const bottom = Math.min(height, Math.ceil(transform.offsetY * dpr + pageHeight * k));
-  return [left, height - Math.max(top, bottom), Math.max(0, right - left), Math.max(0, bottom - top)];
+  return readyCore().inkPageScissor(
+    transform,
+    dpr,
+    { width: pageWidth, height: pageHeight },
+    { width, height },
+  );
 }

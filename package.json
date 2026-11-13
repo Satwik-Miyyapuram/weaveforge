@@ -1,6 +1,6 @@
 {
   "name": "weaveforge",
-  "version": "0.8.14",
+  "version": "0.9.0",
   "private": true,
   "description": "Open-source, modular tracker for a masters thesis (papers, experiments, logbook, report, meetings).",
   "license": "AGPL-3.0-only",
@@ -43,13 +43,20 @@
     "check:android-permissions": "node scripts/check-android-permissions.mjs",
     "check:oci-infra": "node scripts/check-oci-infra.mjs",
     "check:boundaries": "npm run check:solid && npm run check:dry && npm run check:api-route-tests && npm run check:ui && npm run check:contrast && npm run check:hygiene && npm run check:mcp-plugin && npm run check:android-permissions && npm run check:oci-infra && npm run check:docs && npm run check:ci-parity",
-    "check:all": "npm run typecheck && npm run lint && npm run check:boundaries && npm run test:core && npm run test:web && npm run test:integration:web && npm run test:desktop && npm run build && npm run bundle:budget",
+    "check:all": "npm run build:wasm && npm run typecheck && npm run lint && npm run check:boundaries && npm run test:core && npm run test:web && npm run test:integration:web && node --test apps/shell/scripts/build-web-held-routes.test.mjs && npm run build && npm run bundle:budget",
     "clean:desktop-ini": "node scripts/clean-desktop-ini.mjs",
     "check:pre-push": "npm run clean:desktop-ini && node scripts/check-pre-push.mjs",
     "generate:routes": "node scripts/generate-module-routes.mjs",
+    "release:notice": "node scripts/publish-release-notice.mjs",
     "docs:generate": "node scripts/update-docs.mjs && node scripts/build-atlas.mjs",
     "check:docs": "node --test \"scripts/lib/test/*.test.mjs\" && node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check",
     "check:ci-parity": "node scripts/check-ci-parity.mjs",
+    "bindings": "cargo run -p wf-bindings --locked",
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "wasm:budget": "node scripts/check-wasm-budget.mjs",
+    "wasm:fresh": "node scripts/check-wasm-fresh.mjs",
+    "wasm:pkg": "node scripts/check-wasm-pkg.mjs",
+    "check:rust": "node scripts/check-rust.mjs",
     "bundle:budget": "node scripts/check-bundle-budget.mjs",
     "bundle:duplicates": "node scripts/check-bundle-duplicates.mjs",
     "generate:deployment": "node --import tsx scripts/generate-deployment-registry.mjs",
@@ -69,9 +76,9 @@
     "migrate": "node scripts/migrate-to-oracle.mjs",
     "rollup:metrics": "node scripts/rollup-metric-chunks.mjs",
     "prune:metrics": "node scripts/prune-metric-series.mjs",
-    "test:desktop": "npm run test --workspace @weaveforge/desktop",
-    "test:memory": "npm run test:memory --workspace @weaveforge/desktop && npm run test:memory --workspace @weaveforge/web",
-    "build:desktop": "npm run build --workspace @weaveforge/desktop"
+    "test:sidecar": "tsc -p apps/shell/sidecar/tsconfig.json && node --import tsx --import ./apps/shell/sidecar/test/preload-rust.ts --test apps/shell/sidecar/test/*.test.ts && node --test apps/shell/sidecar/scripts/stage.test.mjs apps/shell/scripts/stage-postgres.test.mjs apps/shell/scripts/stage-ink-recogniser.test.mjs",
+    "test:bridge": "node apps/shell/bridge/build-shim.mjs --check && tsc -p apps/shell/bridge/tsconfig.json && node --import tsx --test apps/shell/bridge/test/*.test.ts",
+    "test:memory": "node --import tsx --test apps/shell/sidecar/test/local-db-memory.test.ts && npm run test:memory --workspace @weaveforge/web"
   },
   "devDependencies": {
     "supabase": "^2.119.0"

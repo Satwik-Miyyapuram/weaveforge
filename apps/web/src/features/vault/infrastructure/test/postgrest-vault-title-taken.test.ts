@@ -1,11 +1,16 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { PostgrestVaultPageRepository } from "../postgrest-vault-page-repository";
+import { rustVaultPageRepository } from "@/backend/providers/postgrest/rust-repository";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import { testDb } from "@/backend/test/pg-test-db";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /** `titleTaken` over the real migrations (PGlite), as a signed-in user with RLS on. */
 async function repoWith(titles: string[]) {
@@ -16,7 +21,7 @@ async function repoWith(titles: string[]) {
     "insert into projects (user_id, name) values ($1, 'Vault') returning id",
     [user],
   );
-  const repo = new PostgrestVaultPageRepository(
+  const repo = rustVaultPageRepository(
     createLocalClient(sql as LocalQuery) as unknown as SupabaseClient,
     { projectId: project!.id },
   );

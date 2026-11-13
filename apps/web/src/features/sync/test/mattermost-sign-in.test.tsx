@@ -3,6 +3,7 @@ import { after, before, describe, it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { mattermostNotificationManifest } from "@/integrations/manifests/mattermost";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 /**
  * Mattermost sign-in names no server of its own. The user types the server
@@ -11,6 +12,8 @@ import { mattermostNotificationManifest } from "@/integrations/manifests/matterm
 
 const g = globalThis as { window?: unknown };
 let hadWindow = false;
+
+before(loadTestCore);
 
 before(() => {
   hadWindow = "window" in g;

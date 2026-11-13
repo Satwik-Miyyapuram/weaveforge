@@ -4,13 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  EXPERIMENT_STATUSES, isStaleRunningExperiment, shortSha, type Experiment, type ExperimentStatus } from "@weaveforge/core";
+  EXPERIMENT_STATUSES,
+  type Experiment,
+  type ExperimentStatus,
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { BackButton } from "@/components/back-button";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { NoteComments, ShareButton } from "@/features/sharing";
-import { commitUrl } from "@/features/sync";
 import { CommentsIcon } from "@/components/view-icons";
 import {
   RecordActivity,
@@ -19,10 +22,9 @@ import {
   RecordSection,
   recordDate,
 } from "@/components/record";
-import { formatMetricCell } from "./metric-chart";
+
 import { formatError } from "@/lib/format-error";
 import { AttachArtifactsButton } from "./attach-artifacts-button";
-import { EXPERIMENTS_HREF } from "../application/experiment-href";
 import { Artifacts, MetricCurves, usePaperTitle } from "./experiment-panels";
 import { StatusSelect } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
@@ -51,6 +53,15 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   const resultRef = useRef<HTMLParagraphElement>(null);
   const paperTitle = usePaperTitle(exp?.relatedPaper);
 
+  // Lets a late response for a previous experiment be dropped.
+  const currentId = useRef(id);
+  currentId.current = id;
+  useEffect(() => {
+    setExp(null);
+    setLoading(true);
+    setError(null);
+  }, [id]);
+
   const load = useCallback(async () => {
     if (!id) {
       setError("Experiment not found.");
@@ -58,8 +69,10 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
       setLoading(false);
       return;
     }
+    const forId = id;
     try {
       const e = await getContainer().experiments.getExperiment(id);
+      if (currentId.current !== forId) return;
       if (!e) {
         setError("Experiment not found.");
         setExp(null);
@@ -68,9 +81,10 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
         setError(null);
       }
     } catch (err) {
+      if (currentId.current !== forId) return;
       setError(formatError(err));
     } finally {
-      setLoading(false);
+      if (currentId.current === forId) setLoading(false);
     }
   }, [id]);
 
@@ -78,7 +92,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
     void load();
   }, [load]);
 
-  const live = exp?.status === "running" && !isStaleRunningExperiment(exp);
+  const live = exp?.status === "running" && !readyCore().isStaleRunningExperiment(exp);
   useEffect(() => {
     if (!live) return;
     const t = setInterval(() => { void load(); }, 5000);
@@ -89,11 +103,21 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   const [resultError, setResultError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [cmdCopied, setCmdCopied] = useState(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+  }, []);
   async function copyRunCommand() {
     if (!exp?.runCommand) return;
-    await navigator.clipboard.writeText(exp.runCommand);
+    try {
+      await navigator.clipboard.writeText(exp.runCommand);
+    } catch {
+      setStatusError("Could not copy to the clipboard.");
+      return;
+    }
     setCmdCopied(true);
-    setTimeout(() => setCmdCopied(false), 2000);
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setCmdCopied(false), 2000);
   }
   async function saveResult() {
     if (!exp || resultDraft === null) return;
@@ -120,7 +144,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   // directly (a link, a reload) and there is nowhere to go back to.
   const goBackToList = useCallback(() => {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
-    else router.push(EXPERIMENTS_HREF);
+    else router.push(readyCore().experimentsListHref());
   }, [router]);
 
   if (loading) {
@@ -149,7 +173,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
     started ? `Started ${started}` : null,
     finished ? `Finished ${finished}` : null,
     exp.branch ? `Branch ${exp.branch}` : null,
-    exp.commitSha ? `Commit ${shortSha(exp.commitSha)}` : null,
+    exp.commitSha ? `Commit ${readyCore().shortSha(exp.commitSha)}` : null,
   ].filter(Boolean).join(" / ");
   const activity = [
     exp.finishedAt ? { at: recordDate(exp.finishedAt), what: `Marked ${exp.status}` } : null,
@@ -288,17 +312,17 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
                   exp.commitSha
                     ? [
                         "Commit",
-                        exp.repoUrl ? (
-                          <a href={commitUrl(exp.repoUrl, exp.commitSha)} target="_blank" rel="noreferrer">
-                            {shortSha(exp.commitSha)}
+                        readyCore().commitUrl(exp.repoUrl, exp.commitSha) ? (
+                          <a href={readyCore().commitUrl(exp.repoUrl, exp.commitSha)} target="_blank" rel="noreferrer">
+                            {readyCore().shortSha(exp.commitSha)}
                           </a>
                         ) : (
-                          shortSha(exp.commitSha)
+                          readyCore().shortSha(exp.commitSha)
                         ),
                       ]
                     : null,
-                  exp.repoUrl
-                    ? ["Repo", <a key="repo" href={exp.repoUrl} target="_blank" rel="noreferrer">Open ↗</a>]
+                  readyCore().repoWebUrl(exp.repoUrl)
+                    ? ["Repo", <a key="repo" href={readyCore().repoWebUrl(exp.repoUrl)} target="_blank" rel="noreferrer">Open ↗</a>]
                     : null,
                   paperTitle && exp.relatedPaper
                     ? ["Paper", <Link key="paper" href={`/papers/?paper=${exp.relatedPaper}`}>{paperTitle}</Link>]
@@ -309,7 +333,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
 
             {metricRows.length > 0 && (
               <RecordSection label="Final metrics">
-                <RecordFacts rows={metricRows.map(([k, v]) => [k, formatMetricCell(k, v)] as const)} />
+                <RecordFacts rows={metricRows.map(([k, v]) => [k, typedCore().formatMetricCell(k, v)] as const)} />
               </RecordSection>
             )}
 

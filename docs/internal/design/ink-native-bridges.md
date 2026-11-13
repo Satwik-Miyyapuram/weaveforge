@@ -1,5 +1,8 @@
 # Native Inking Bridges — Android, iPadOS & Windows Haptics
 
+> **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
+> TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
+
 **Status:** proposal, companion to `ink-notes-plan.md` (Revision 3).  
 **Purpose:** specifies the three platform-specific native micro-bridges that provide hardware-level inking acceleration, bulletproof palm/hand rejection, and physical pen feel without duplicating WeaveForge's core application logic.
 
@@ -573,7 +576,7 @@ A static vibration buzz feels synthetic and irritating. Real friction is **kinet
 > the stop call is `StopFeedback()`, and the wire messages are `haptics-probe` (answered),
 > `haptics-tool`, `haptics-update`, `haptics-stop` (fire-and-forget). The web side throttles to
 > 120 Hz and converts the filter's 0.1 mm/ms velocity to CSS px/ms
-> (`apps/web/src/features/ink/application/pen-haptics.ts`).
+> (`apps/web/src/features/ink/application/parts-4.ts`).
 
 Integrated directly into the existing out-of-process C#/WinRT recognition helper (`apps/desktop/native/ink-recogniser/`):
 

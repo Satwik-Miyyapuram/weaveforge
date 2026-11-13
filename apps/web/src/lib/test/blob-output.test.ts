@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { zipToBlob } from "../blob-output";
+import { zipToBlob } from "../parts";
 
 test("zipToBlob makes an application/zip Blob holding exactly the bytes", async () => {
   const blob = zipToBlob(new Uint8Array([80, 75, 3, 4, 255]));

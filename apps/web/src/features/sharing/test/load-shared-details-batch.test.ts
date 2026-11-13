@@ -8,7 +8,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { loadSharedItemDetails } from "@/features/sharing/application/load-shared-details";
+import { loadSharedItemDetails } from "@/features/sharing/application/parts";
 import type { SharedItem } from "@/features/sharing/domain/shared-reader";
 
 type Row = { id: string; name?: string };

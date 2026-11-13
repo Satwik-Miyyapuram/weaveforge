@@ -15,12 +15,13 @@ import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { NavIcon } from "@/app/nav-icon";
 import { ShareButton, usePinnedOwnerNames } from "@/features/sharing";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
-import { emptyArray, emptyMap } from "@/lib/empty";
+import { emptyArray, emptyMap } from "@/lib/parts";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
-import type { PlanScreenData } from "@/features/plan/application/load-plan-screen.use-case";
+import type { PlanScreenData } from "@/features/plan/application/parts";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
-import { planPace, planTimeline } from "@/features/plan/application/plan-timeline";
+import { localIsoDay } from "@/features/plan/application/parts";
+import { readyCore } from "@/lib/rust-core";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 import { PlanTimelineBar } from "@/features/plan/ui/plan-timeline-bar";
@@ -133,13 +134,13 @@ export function PlanScreen() {
   );
   const done = progressItems.filter((m) => m.status === "done").length;
   const pct = progressItems.length ? Math.round((done / progressItems.length) * 100) : 0;
-  const timeline = useMemo(() => planTimeline(progressItems), [progressItems]);
+  const timeline = useMemo(() => readyCore().planTimeline(progressItems, localIsoDay()), [progressItems]);
 
   // Open milestones by due date first; finished ones fold away so a long plan
   // stays about what is left.
   const match = useScreenSearch(search, "milestone");
   const ordered = useMemo(
-    () => match([...items].sort(byDue), (m) => m.id, (m) => `${m.title} ${m.description ?? ""}`),
+    () => match(readyCore().sortByDue(items), (m) => m.id, (m) => `${m.title} ${m.description ?? ""}`),
     [items, match],
   );
   const openItems = ordered.filter((m) => m.status !== "done");
@@ -188,7 +189,7 @@ export function PlanScreen() {
   return (
     <section className="screen plan-screen">
       <ScreenHead
-        eyebrow={planEyebrow(progressItems.length, done)}
+        eyebrow={readyCore().planEyebrow(progressItems.length, done)}
         search={items.length > 0 ? { value: search, onChange: setSearch, label: "Search milestones" } : undefined}
       >
         {/*
@@ -237,7 +238,7 @@ export function PlanScreen() {
         <div className="card progress-card">
           <div className="progress-top">
             <span>{done} of {progressItems.length} milestones done</span>
-            {timeline ? <small className="plan-pace">{planPace(progressItems)}</small> : <strong>{pct}%</strong>}
+            {timeline ? <small className="plan-pace">{readyCore().planPace(progressItems, localIsoDay())}</small> : <strong>{pct}%</strong>}
           </div>
           {timeline ? (
             <PlanTimelineBar timeline={timeline} pct={pct} onJump={jumpTo} />
@@ -296,15 +297,4 @@ export function PlanScreen() {
   );
 }
 
-/** Dated milestones soonest first, undated ones after. */
-function byDue(a: Milestone, b: Milestone): number {
-  if (a.targetDate && b.targetDate) return a.targetDate.localeCompare(b.targetDate);
-  return a.targetDate ? -1 : b.targetDate ? 1 : 0;
-}
-
-/** "3 milestones · 1 done" above the title. */
-function planEyebrow(total: number, done: number): string | undefined {
-  if (!total) return undefined;
-  return `${total} ${total === 1 ? "milestone" : "milestones"} · ${done} done`;
-}
 

@@ -10,13 +10,13 @@ import { ChevronIcon } from "@/components/chevron-icon";
 import { ArrowDownIcon, ArrowUpIcon, CompareViewIcon, FilterIcon, TreeViewIcon, UnlinkIcon } from "@/components/view-icons";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { SegmentedControl } from "@/components/segmented-control";
-import { usePersistedState } from "@/lib/hooks/use-persisted-state";
-import { listDisplayColor, movedIds, reorderedIds } from "./list-ui";
+import { usePersistedState } from "@/lib/hooks/parts";
+import { readyCore } from "@/lib/rust-core";
 import { ExtractionTable } from "./extraction-table";
 import { ScreeningPanel } from "./screening-panel";
 import { runListAction } from "./run-list-action";
 import { Button, IconButton } from "@/components/button";
-import { deferDelete, deletedMessage, useHiddenKeys } from "@/lib/toast";
+import { deferDelete, deletedMessage, useHiddenKeys } from "@/lib/toast/index";
 
 /** The key a list hides under while its Undo toast shows (D-07). */
 export const listKey = (id: string) => `list:${id}`;
@@ -131,7 +131,7 @@ export function ListNode(props: ListNodeProps) {
     "tree",
   );
   const hasChildren = node.children.length > 0;
-  const dotColor = listDisplayColor(list);
+  const dotColor = readyCore().listDisplayColor(list);
 
   async function addItem() {
     const ref = parseListPicker(picker);
@@ -207,8 +207,9 @@ export function ListNode(props: ListNodeProps) {
   }
 
   const itemIds = items.map((i) => i.id);
-  const reorderItems = (dragId: string, targetId: string) => applyOrder(reorderedIds(itemIds, dragId, targetId));
-  const moveItem = (id: string, step: -1 | 1) => applyOrder(movedIds(itemIds, id, step));
+  const reorderItems = (dragId: string, targetId: string) =>
+    applyOrder(readyCore().reorderedIds(itemIds, dragId, targetId));
+  const moveItem = (id: string, step: -1 | 1) => applyOrder(readyCore().movedIds(itemIds, id, step));
 
   const memberPaperIds = new Set(items.flatMap((i) => (i.paperId ? [i.paperId] : [])));
   const memberNoteIds = new Set(items.flatMap((i) => (i.vaultPageId ? [i.vaultPageId] : [])));

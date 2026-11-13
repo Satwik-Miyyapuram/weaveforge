@@ -1,13 +1,7 @@
+import { rust } from "../../src/shared/rust.js";
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  obsidianTags,
-  parseWorkspaceFolder,
-  readFrontmatter,
-  serializeWorkspace,
-  writeFrontmatter,
-  type WorkspaceSnapshot,
-} from "../../src/index.js";
+import type { WorkspaceSnapshot } from "../../src/index.js";
 
 function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
   return {
@@ -34,28 +28,28 @@ const PROJECT = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis"
 // ------------------------------------------------------------------- aliases
 
 test("every mirrored file declares its title as an alias", () => {
-  const { files } = serializeWorkspace(
+  const { files } = rust().serializeWorkspace(
     snapshot({ vaultPages: [note({ title: "Method Notes" })] }),
     PROJECT,
   );
   const [path] = Object.keys(files);
   // The suffix is what makes the alias necessary: the basename is not the title.
   assert.ok(path!.endsWith(".note.md"));
-  assert.deepEqual(readFrontmatter(files[path!]!).frontmatter.aliases, ["Method Notes"]);
+  assert.deepEqual(rust().readFrontmatter(files[path!]!).frontmatter.aliases, ["Method Notes"]);
 });
 
 test("papers carry an alias too, so a citation key is not the only handle", () => {
-  const { files } = serializeWorkspace(snapshot({ papers: [paper()] }), PROJECT);
+  const { files } = rust().serializeWorkspace(snapshot({ papers: [paper()] }), PROJECT);
   const [path] = Object.keys(files);
-  assert.deepEqual(readFrontmatter(files[path!]!).frontmatter.aliases, ["Attention"]);
+  assert.deepEqual(rust().readFrontmatter(files[path!]!).frontmatter.aliases, ["Attention"]);
 });
 
 test("an alias survives a round trip back into the workspace", () => {
-  const { files } = serializeWorkspace(
+  const { files } = rust().serializeWorkspace(
     snapshot({ vaultPages: [note({ title: "Method Notes" })] }),
     PROJECT,
   );
-  const parsed = parseWorkspaceFolder(files);
+  const parsed = rust().parseWorkspaceFolder(files);
   // The extra key is ignored on the way in: identity is still the id.
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0]!.id, "n1");
@@ -63,33 +57,22 @@ test("an alias survives a round trip back into the workspace", () => {
 });
 
 // ---------------------------------------------------------------------- tags
-
-test("tags with spaces are hyphenated, because a space ends a tag elsewhere", () => {
-  assert.deepEqual(obsidianTags(["machine learning", "nlp"]), ["machine-learning", "nlp"]);
-});
-
-test("hyphenating can collide, and the collision is deduped", () => {
-  assert.deepEqual(obsidianTags(["deep learning", "deep-learning"]), ["deep-learning"]);
-});
-
-test("no tags means no key, not an empty list", () => {
-  assert.equal(obsidianTags([]), undefined);
-  assert.equal(obsidianTags(undefined), undefined);
-});
+// The tag rules (hyphenating, dedupe, no empty key) are Rust's `obsidian_tags`,
+// with literal asserts in crates/wf-core/tests/sync_serialize.rs.
 
 test("a paper's tags reach the file in their safe form", () => {
-  const { files } = serializeWorkspace(
+  const { files } = rust().serializeWorkspace(
     snapshot({ papers: [paper({ tags: ["machine learning"] })] }),
     PROJECT,
   );
   const [path] = Object.keys(files);
-  assert.deepEqual(readFrontmatter(files[path!]!).frontmatter.tags, ["machine-learning"]);
+  assert.deepEqual(rust().readFrontmatter(files[path!]!).frontmatter.tags, ["machine-learning"]);
 });
 
 // ------------------------------------------------------- reading foreign YAML
 
 test("a block list is read, because that is how other editors write lists", () => {
-  const { frontmatter, body } = readFrontmatter(
+  const { frontmatter, body } = rust().readFrontmatter(
     ["---", "title: Method", "tags:", "  - alpha", "  - beta", "---", "Body."].join("\n"),
   );
   assert.deepEqual(frontmatter.tags, ["alpha", "beta"]);
@@ -98,19 +81,19 @@ test("a block list is read, because that is how other editors write lists", () =
 });
 
 test("quoted block items keep their punctuation", () => {
-  const { frontmatter } = readFrontmatter(
+  const { frontmatter } = rust().readFrontmatter(
     ["---", "aliases:", '  - "Method, revised"', "  - 'Method v2'", "---", ""].join("\n"),
   );
   assert.deepEqual(frontmatter.aliases, ["Method, revised", "Method v2"]);
 });
 
 test("a single-quoted scalar unquotes, doubled quote and all", () => {
-  const { frontmatter } = readFrontmatter(["---", "title: 'It''s here'", "---", ""].join("\n"));
+  const { frontmatter } = rust().readFrontmatter(["---", "title: 'It''s here'", "---", ""].join("\n"));
   assert.equal(frontmatter.title, "It's here");
 });
 
 test("a nested map leaves no key rather than an empty one", () => {
-  const { frontmatter } = readFrontmatter(
+  const { frontmatter } = rust().readFrontmatter(
     ["---", "title: Method", "cssclasses:", "  wide: true", "---", ""].join("\n"),
   );
   assert.equal("cssclasses" in frontmatter, false);
@@ -118,7 +101,7 @@ test("a nested map leaves no key rather than an empty one", () => {
 });
 
 test("a key after a block list is still read", () => {
-  const { frontmatter } = readFrontmatter(
+  const { frontmatter } = rust().readFrontmatter(
     ["---", "tags:", "  - alpha", "weaveforge-id: n1", "---", ""].join("\n"),
   );
   assert.equal(frontmatter["weaveforge-id"], "n1");
@@ -126,13 +109,13 @@ test("a key after a block list is still read", () => {
 });
 
 test("an inline list still wins over the block scan", () => {
-  const { frontmatter } = readFrontmatter(["---", "tags: [alpha, beta]", "---", ""].join("\n"));
+  const { frontmatter } = rust().readFrontmatter(["---", "tags: [alpha, beta]", "---", ""].join("\n"));
   assert.deepEqual(frontmatter.tags, ["alpha", "beta"]);
 });
 
 test("what we write still reads back byte-identically", () => {
-  const source = writeFrontmatter({ "weaveforge-id": "n1", aliases: ["Method"] }, "Body.");
-  const parsed = readFrontmatter(source);
+  const source = rust().writeFrontmatter({ "weaveforge-id": "n1", aliases: ["Method"] }, "Body.");
+  const parsed = rust().readFrontmatter(source);
   assert.deepEqual(parsed.frontmatter.aliases, ["Method"]);
-  assert.equal(writeFrontmatter(parsed.frontmatter, parsed.body), source);
+  assert.equal(rust().writeFrontmatter(parsed.frontmatter, parsed.body), source);
 });

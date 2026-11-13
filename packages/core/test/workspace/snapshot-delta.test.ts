@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyDelta, planDelta, readWithDelta, type EntityStamp } from "../../src/index.js";
+import { readWithDelta, rust, type EntityStamp } from "../../src/index.js";
+
+// The plan and merge are Rust's now; these forward to it so the cases read as before.
+const planDelta = (remote: readonly EntityStamp[], held: ReadonlyMap<string, string>) =>
+  rust().planDelta(remote, held);
+const applyDelta = <T extends { id: string }>(
+  held: readonly T[],
+  fetched: readonly T[],
+  order: readonly EntityStamp[],
+) => rust().applyDelta(held, fetched, order);
 
 interface Row {
   id: string;

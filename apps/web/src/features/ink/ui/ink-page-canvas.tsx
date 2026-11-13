@@ -4,12 +4,11 @@
 
 import { memo, useLayoutEffect, useMemo, useRef } from "react";
 import type { InkStroke } from "@weaveforge/core";
-import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
-import { toRenderStrokes } from "./ink-render-strokes";
+import { INK_RENDER_COLOURS, type InkPalette } from "../render/parts-1";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
-import { strokePath } from "../application/ink-svg";
+import { readyCore } from "@/lib/rust-core";
+import { perfEnd, perfStart } from "@/lib/parts-2";
 import type { InkRenderStroke } from "./ink-strokes";
-import { perfEnd, perfStart } from "@/lib/perf-marks";
 
 export interface InkPageCanvasProps {
   strokes?: readonly InkStroke[];
@@ -59,7 +58,7 @@ export function drawInkStrokes(
   const renderStroke = (stroke: InkRenderStroke) => {
     let path = pathCache.get(stroke.points);
     if (!path) {
-      const d = strokePath(stroke);
+      const d = readyCore().strokePath(stroke.points);
       if (!d) return;
       path = new Path2D(d);
       pathCache.set(stroke.points, path);
@@ -143,7 +142,7 @@ export const InkPageCanvas = memo(function InkPageCanvas({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const modeRef = useRef<InkCanvasMode | null>(null);
 
-  const drawn = useMemo(() => toRenderStrokes(strokes, palette, hidden), [strokes, palette, hidden]);
+  const drawn = useMemo(() => readyCore().toRenderStrokes(strokes, palette, hidden), [strokes, palette, hidden]);
 
   const hasDrawn = drawn.length > 0;
 

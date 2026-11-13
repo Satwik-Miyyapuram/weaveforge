@@ -7,10 +7,11 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create } from "react-test-renderer";
 
-import { newInkChunkId } from "@weaveforge/core";
 
-import type { InkStoredPage } from "../application/ink-chunk-store";
+
+import type { InkStoredPage } from "../application/parts-1";
 import { useDecodedStrokes } from "../ui/use-decoded-strokes";
+import { typedCore } from "@/lib/rust-core";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -31,7 +32,7 @@ test("a corrupt chunk is logged once and shows empty (21-21)", async () => {
   g.window = { weaveforge: { fetchTitle: () => Promise.resolve({}), reportAppLog: (entry: Log) => void logs.push(entry) } };
   try {
     const pages: InkStoredPage[] = [
-      { chunkId: newInkChunkId(), chunk: new Uint8Array([1, 2, 3, 4]), paper: "blank" as InkStoredPage["paper"] },
+      { chunkId: typedCore().newInkChunkId(), chunk: new Uint8Array([1, 2, 3, 4]), paper: "blank" as InkStoredPage["paper"] },
     ];
     let map: ReadonlyMap<number, unknown> = new Map();
     function Probe({ version }: { version: number }) {

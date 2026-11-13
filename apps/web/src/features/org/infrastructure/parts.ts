@@ -1,0 +1,310 @@
+import { projectUserCtx, rustRepository } from "@/backend/providers/postgrest/rust-repository";
+import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
+import { singleFlight } from "@/lib/cache/parts";
+import { invalidateAllRepoCaches } from "@/lib/cache/parts-1";
+import { readJsonBody, responseError } from "@/lib/format-error";
+import { getDataClient, relayUrl } from "@/lib/parts";
+import type { ProjectContext } from "@/lib/parts-2";
+import { readyCore } from "@/lib/rust-core";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type {
+  ICurrentUserProvider,
+  ILabSnapshotRepository,
+  ISupervisionRepository,
+  LogEntry,
+  Milestone,
+  OrgInviteRole,
+  OrgJoinSource,
+  OrgMembershipView,
+} from "@weaveforge/core";
+
+// --- org-api ---
+const SERVICE_ROLE_HINT = "Lab create/join is not available on this deployment yet.";
+
+/** Rust keeps role as String; this narrows it to OrgInviteRole. */
+function toInviteRole(role: string): OrgInviteRole {
+  return role as OrgInviteRole;
+}
+
+/** Rust keeps joinSource as String; it only emits invite, create or legacy. */
+function toJoinSource(source: string): OrgJoinSource {
+  return source as OrgJoinSource;
+}
+
+function toMembershipView(view: { orgId: string; orgName: string; role: string; joinSource: string }): OrgMembershipView {
+  return { orgId: view.orgId, orgName: view.orgName, role: toInviteRole(view.role), joinSource: toJoinSource(view.joinSource) };
+}
+
+/** The org queries Rust plans (`crates/wf-core/src/repos/org.rs`); the relay fallbacks stay here. */
+interface OrgSteps {
+  memberships(): Promise<{ orgId: string; orgName: string; role: string; joinSource: string }[]>;
+  switchActive(orgId: string): Promise<void>;
+  leave(orgId: string): Promise<void>;
+  completeSetup(): Promise<void>;
+}
+
+function orgSteps(userId?: string): OrgSteps {
+  return rustRepository<OrgSteps>(
+    getDataClient(),
+    "org",
+    ["memberships", "switchActive", "leave", "completeSetup"],
+    () => ({ userId }),
+  );
+}
+
+/** Runs an org RPC: the error it failed with, or null. */
+async function tryRpc(run: (org: OrgSteps) => Promise<void>): Promise<{ message?: string } | null> {
+  try {
+    await run(orgSteps());
+    return null;
+  } catch (err) {
+    return err as { message?: string };
+  }
+}
+
+function orgApiError(res: Response, message: string | undefined, fallback: string): Error {
+  if (message && readyCore().isMissingServiceRole(message)) {
+    return new Error(SERVICE_ROLE_HINT);
+  }
+  return responseError(res, message, fallback);
+}
+
+/**
+ * Read an org route's answer: throws the mapped error when it failed, else
+ * returns its body. The status is checked before the body is trusted, so a
+ * proxy's HTML error page reads as the failure it is, not as a JSON parse error.
+ */
+export async function orgResponse<T extends { error?: string }>(res: Response, fallback: string): Promise<T> {
+  const body = (await readJsonBody(res)) as T;
+  if (!res.ok) throw orgApiError(res, body.error, fallback);
+  return body;
+}
+
+const authHeaders = () => bearerHeaders({ "Content-Type": "application/json" });
+
+function migrationHint(message: string): Error {
+  if (readyCore().needsMigrationHint(message)) {
+    return new Error(
+      "Database update required — apply the schema migrations (npm run migrate:schema, 0030–0034) and try again.",
+    );
+  }
+  return new Error(message);
+}
+
+export async function createOrg(name: string) {
+  const res = await fetch(relayUrl("/api/org/create"), {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify({ name }),
+  });
+  const body = await orgResponse<{ error?: string }>(res, "Failed to create lab.");
+  invalidateAllRepoCaches();
+  return body;
+}
+
+export async function joinOrg(input: {
+  code: string;
+  phdSupervisorId?: string;
+  professorSupervisorId?: string;
+}) {
+  const res = await fetch(relayUrl("/api/org/join"), {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify(input),
+  });
+  const body = await orgResponse<{ error?: string }>(res, "Failed to join lab.");
+  invalidateAllRepoCaches();
+  return body;
+}
+
+/** Marks org onboarding complete — anon key + RPC, no service role. */
+export async function continueStandalone() {
+  let rpcErr = await tryRpc((org) => org.completeSetup());
+  if (rpcErr) {
+    try {
+      const { getLightContainer } = await import("@/light-bootstrap");
+      await getLightContainer().selfProvisioner.ensureProvisioned();
+      rpcErr = await tryRpc((org) => org.completeSetup());
+    } catch {
+      /* fallback below will handle */
+    }
+  }
+
+  if (!rpcErr) {
+    invalidateAllRepoCaches();
+    return;
+  }
+
+  const res = await fetch(relayUrl("/api/org/standalone"), {
+    method: "POST",
+    headers: await authHeaders(),
+  });
+  const body = (await readJsonBody(res)) as { error?: string };
+  if (res.ok) {
+    invalidateAllRepoCaches();
+    return;
+  }
+
+  const message = body.error ?? rpcErr.message ?? "Failed to complete org setup.";
+  throw migrationHint(message);
+}
+
+export async function previewOrgCode(code: string) {
+  // The route reads the code as the signed-in user, so this needs the same
+  // bearer every other org call sends. Without it the lookup came back "Not
+  // authenticated", the supervisor pickers never rendered, and the join was
+  // refused for a missing supervisor the form had no way to ask for.
+  const res = await fetch(relayUrl(`/api/org/codes?code=${encodeURIComponent(code)}`), {
+    headers: await authHeaders(),
+  });
+  const body = await orgResponse<{
+    error?: string;
+    orgName?: string;
+    targetRole?: string;
+    professors?: { id: string; label: string }[];
+    phds?: { id: string; label: string }[];
+  }>(res, "Invalid code.");
+  return body;
+}
+
+export async function regenerateOrgCode(orgId: string, targetRole: string) {
+  const res = await fetch(relayUrl("/api/org/codes"), {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify({ orgId, targetRole }),
+  });
+  const body = await orgResponse<{ error?: string; code?: string; targetRole?: string }>(res, "Failed to regenerate code.");
+  return body;
+}
+
+export async function fetchOwnedOrgs() {
+  const res = await fetch(relayUrl("/api/org/mine"), { headers: await authHeaders() });
+  const body = await orgResponse<{
+    error?: string;
+    organizations?: { id: string; name: string; ownerId: string }[];
+  }>(res, "Failed to load labs.");
+  return body.organizations ?? [];
+}
+
+/**
+ * Labs the signed-in user belongs to (for the org switcher).
+ *
+ * Shared between concurrent callers: the startup bundle and `ProfileProvider`
+ * both want it during boot, and the answer is the same row set either way.
+ */
+export function fetchMemberships(): Promise<OrgMembershipView[]> {
+  return singleFlight("org:memberships", fetchMembershipsUncached);
+}
+
+async function fetchMembershipsUncached(): Promise<OrgMembershipView[]> {
+  const db = getDataClient();
+  const { data: session } = await db.auth.getSession();
+  const userId = session.session?.user.id;
+  if (!userId) throw new Error("Not authenticated.");
+
+  try {
+    return (await orgSteps(userId).memberships()).map(toMembershipView);
+  } catch {
+    /* relay fallback below */
+  }
+
+  const res = await fetch(relayUrl("/api/org/memberships"), { headers: await authHeaders() });
+  const body = await orgResponse<{
+    error?: string;
+    memberships?: OrgMembershipView[];
+  }>(res, "Failed to load labs.");
+  return body.memberships ?? [];
+}
+
+export async function switchOrg(orgId: string) {
+  const rpcErr = await tryRpc((org) => org.switchActive(orgId));
+  if (!rpcErr) {
+    invalidateAllRepoCaches();
+    return;
+  }
+
+  const res = await fetch(relayUrl("/api/org/switch"), {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify({ orgId }),
+  });
+  const body = (await readJsonBody(res)) as { error?: string };
+  if (res.ok) {
+    invalidateAllRepoCaches();
+    return;
+  }
+
+  const message = body.error ?? rpcErr.message ?? "Failed to switch lab.";
+  throw migrationHint(message);
+}
+
+/** Leave a lab — RPC first, service-role API fallback. */
+export async function leaveOrg(orgId: string) {
+  const rpcErr = await tryRpc((org) => org.leave(orgId));
+  if (!rpcErr) {
+    invalidateAllRepoCaches();
+    return;
+  }
+
+  const res = await fetch(relayUrl("/api/org/leave"), {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify({ orgId }),
+  });
+  const body = (await readJsonBody(res)) as { error?: string };
+  if (res.ok) {
+    invalidateAllRepoCaches();
+    return;
+  }
+
+  const message = body.error ?? rpcErr.message ?? "Failed to leave lab.";
+  throw migrationHint(message);
+}
+
+// --- postgrest-lab-snapshot-repository ---
+/**
+ * ILabSnapshotRepository over `lab_snapshots`. Rust validates the title, plans the
+ * queries and maps the rows (`crates/wf-core/src/repos/lab_snapshots.rs`).
+ */
+export function labSnapshotRepository(
+  db: SupabaseClient,
+  project: ProjectContext,
+  session: ICurrentUserProvider,
+): ILabSnapshotRepository {
+  return rustRepository<ILabSnapshotRepository>(
+    db,
+    "lab_snapshots",
+    ["publish", "remove", "listMine", "listForMember", "getById"],
+    projectUserCtx(project, session),
+  );
+}
+
+// --- postgrest-supervision-repository ---
+/** The methods Rust runs: the batched reads come back as `[memberId, items]` pairs. */
+interface SupervisionSteps {
+  listMilestones(memberId: string): Promise<Milestone[]>;
+  listLogs(memberId: string): Promise<LogEntry[]>;
+  listMilestonesFor(memberIds: readonly string[]): Promise<[string, Milestone[]][]>;
+  listLogsFor(memberIds: readonly string[]): Promise<[string, LogEntry[]][]>;
+}
+
+/**
+ * Reads a supervisee's milestones and log entries by owner user id, across all
+ * of their projects. Rust plans the queries and maps the rows
+ * (`crates/wf-core/src/repos/supervision.rs`). Every requested id gets an entry,
+ * empty or not: a supervisee with no logs reads as "nothing yet", not "not loaded".
+ */
+export function supervisionRepository(db: SupabaseClient): ISupervisionRepository {
+  const rust = rustRepository<SupervisionSteps>(db, "supervision", [
+    "listMilestones",
+    "listLogs",
+    "listMilestonesFor",
+    "listLogsFor",
+  ]);
+  return {
+    listMilestones: (memberId) => rust.listMilestones(memberId),
+    listLogs: (memberId) => rust.listLogs(memberId),
+    listMilestonesFor: async (memberIds) => new Map(await rust.listMilestonesFor(memberIds)),
+    listLogsFor: async (memberIds) => new Map(await rust.listLogsFor(memberIds)),
+  };
+}

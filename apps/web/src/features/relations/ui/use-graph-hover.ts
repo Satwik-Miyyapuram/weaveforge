@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
-import type { GLink } from "../application/build-graph-data";
+import type { GLink } from "@weaveforge/wasm";
 import type { FgHandle } from "./graph-canvas-hooks";
 
 /**

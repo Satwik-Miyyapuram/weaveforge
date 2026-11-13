@@ -9,13 +9,14 @@ import {
   useRef,
   useState,
 } from "react";
-import type { AuthUser } from "../domain/auth";
-import { nextAuthStep } from "../domain/auth-transition";
-import { clearSessionCaches } from "@/lib/cache/clear-session-caches";
+import type { AuthUser } from "../domain/parts";
+import { nextAuthStep } from "../domain/parts";
+import { clearSessionCaches } from "@/lib/cache/parts";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
-import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
-import { setSessionLost } from "@/lib/session-lost";
+import { invalidateAllRepoCaches } from "@/lib/cache/parts-1";
+import { clearAllScreenCaches } from "@/lib/cache/parts-2";
+import { setSessionLost } from "@/lib/parts";
+import { loadCore } from "@/lib/rust-core";
 import { localFirstActive, setLocalFirstAccount } from "@/backend/providers/local/local-first-marker";
 
 interface AuthState {
@@ -56,7 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     let unsubscribe: (() => void) | undefined;
 
-    void import("@/light-bootstrap").then(({ getLightContainer }) => {
+    // nextAuthStep runs in the Rust core, so auth starts once the core is loaded.
+    void Promise.all([import("@/light-bootstrap"), loadCore()]).then(([{ getLightContainer }]) => {
       if (!active) return;
       const auth = getLightContainer().auth;
       // Resolve auth from the locally-stored session (no network): onChange

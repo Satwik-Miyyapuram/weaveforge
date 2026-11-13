@@ -2,6 +2,8 @@ import type {
   AddRelationUseCase,
   Experiment,
   GraphExperimentEntry,
+  GraphPersistedState,
+  IGraphSettingsRepository,
   IPaperRelationRepository,
   IPaperRepository,
   IReadingListItemRepository,
@@ -10,16 +12,15 @@ import type {
   ITagRepository,
   IVaultPageRepository,
   LinkCitationsUseCase,
-  ManageTagsUseCase,
+  ITagManager,
   Paper,
   PaperRelation,
   ReadingList,
+  RemoveRelationUseCase,
   ReportSection,
   VaultPage,
 } from "@weaveforge/core";
-import type { IGraphSettingsRepository, GraphPersistedState } from "@weaveforge/core";
-import type { RemoveRelationUseCase } from "@weaveforge/core";
-import { buildListMembership, paperIdOfItem } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 export interface GraphScreenData {
   papers: Paper[];
@@ -52,7 +53,7 @@ export class GraphFacade {
       addRelation: AddRelationUseCase;
       linkCitations: LinkCitationsUseCase;
       removeRelation: RemoveRelationUseCase;
-      manageTags: ManageTagsUseCase;
+      manageTags: ITagManager;
       tags: ITagRepository;
       settings: IGraphSettingsRepository;
     },
@@ -71,7 +72,7 @@ export class GraphFacade {
       this.deps.experiments.list(),
     ]);
     const items = await this.deps.listItems.listItemsForLists(lists.map((l) => l.id));
-    const membership = buildListMembership(lists, items, paperIdOfItem);
+    const membership = readyCore().listMembershipByKey(lists, items, "paper");
     return {
       papers,
       notes,

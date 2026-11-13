@@ -153,6 +153,7 @@ index, and `docs/internal/` holds the working notes that are not a manual.
 | [`docs/using/search.md`](docs/using/search.md) | One search box over papers, notes, experiments, PDF text and annotations |
 | [`docs/using/paste.md`](docs/using/paste.md) | What happens to text pasted from a PDF, terminal, spreadsheet, or chat |
 | [`docs/using/collaborative-editing.md`](docs/using/collaborative-editing.md) | Two people in one note, live cursors, no overwrite prompt |
+| [`docs/using/organisations.md`](docs/using/organisations.md) | Labs: create or join with an invite code, roles, who sees whom |
 | [`docs/using/desktop.md`](docs/using/desktop.md) | The desktop & mobile apps — Windows, Mac, Android install & offline mode |
 | [`docs/using/workspaces.md`](docs/using/workspaces.md) | Projects & workspaces — project boundaries, switching, multi-pane editor |
 | [`docs/using/workspace-folder.md`](docs/using/workspace-folder.md) | A folder of plain Markdown that mirrors your workspace, and reads your edits back |
@@ -196,7 +197,7 @@ index, and `docs/internal/` holds the working notes that are not a manual.
 ```
 apps/web/         Next.js PWA
 apps/pitch/       Static export of the pitch site (GitHub Pages)
-apps/desktop/     Electron shell around the web app (see apps/desktop/README.md)
+apps/shell/       Tauri desktop and Android shell around the web app
 packages/core/    @weaveforge/core — shared domain + use-cases
 db/               SQL migrations 0001…0131 for the OCI Postgres (see db/migrations/README.md)
 python/           weaveforge SDK
@@ -299,24 +300,16 @@ WeaveForge pricing and usage limits are planned separately.
 
 ## The desktop app
 
-`apps/desktop` is an Electron window that loads the web app — the same Next.js
-build a browser loads — and adds only what a browser genuinely cannot do. Like
-the pitch site, it is **not a copy**: three small files, and the two things it
-adds import the web app's own modules rather than restating them.
-
-Today that is fetching a pasted link's title and downloading a pasted image
-address, both of which a browser has to route through our server because of
-CORS. The desktop app does them directly, through the same address guard, by
-importing the same `fetch-for-paste` module the API route uses.
+`apps/shell` is a Tauri window that loads the web app — the same Next.js
+build a browser loads — and adds only what a browser cannot do. Like the pitch
+site, it is **not a copy**: the native parts (relays for CORS-bound requests,
+local files, ink recognition) are Rust in `apps/shell/src` and `crates/`, and the
+web app reaches them through its desktop bridge.
 
 ```bash
-npm run dev --workspace @weaveforge/web       # the app, on :3000
-npm start --workspace @weaveforge/desktop     # a window pointed at it
+npm run dev --workspace @weaveforge/web           # the app, on :3000
+npm run tauri --workspace @weaveforge/shell dev   # a window pointed at it
 ```
-
-Adding a capability without writing it twice — declare it on `DesktopBridge`,
-give it a browser implementation beside the desktop one, pick between them at
-the call site — is written up in `apps/desktop/README.md`.
 
 ## The pitch site
 

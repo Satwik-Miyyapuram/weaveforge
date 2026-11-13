@@ -1,12 +1,10 @@
 "use client";
 
-import { enumLabel, humanise } from "@/lib/enum-label";
+import { readyCore } from "@/lib/rust-core";
 import { useEffect, useMemo, useState } from "react";
 import {
   type Paper, type PaperRelation, type RelationType, type ReportSection, type VaultPage } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { RELATION_COLORS, tagColor } from "../domain/graph-palette";
-import { noteTags, relatedConcepts as relatedConceptCounts } from "../application/graph-tags";
 import { Select } from "@/components/select";
 import { Button, CloseButton, IconButton } from "@/components/button";
 import { CloseIcon } from "@/components/view-icons";
@@ -15,6 +13,9 @@ import { FormError } from "@/components/form-error";
 import { removeRelationLater } from "./remove-relation";
 import { relationPhrase } from "./relation-phrase";
 import { Chip } from "@/components/controls";
+
+/** Related concepts shown per concept, most frequent first. */
+const RELATED_CONCEPT_LIMIT = 12;
 
 interface StoredAnnotation {
   text?: string;
@@ -97,8 +98,8 @@ export function GraphSidePanel({
       <div className="graph-side-head">
         <span className="graph-side-chips">
           <span className="graph-side-kind">{kindLabel}</span>
-          {paper && <span className="status-pill">{enumLabel("paperStatus", paper.status)}</span>}
-          {section && <span className="status-pill">{humanise(section.status)}</span>}
+          {paper && <span className="status-pill">{readyCore().enumLabel("paperStatus", paper.status)}</span>}
+          {section && <span className="status-pill">{readyCore().humanise(section.status)}</span>}
         </span>
         <CloseButton label="Close panel" onClick={onClose} />
       </div>
@@ -205,7 +206,7 @@ function PaperPanel({
               const otherId = outgoing ? e.toPaper : e.fromPaper;
               return (
                 <li key={e.id} className="graph-side-rel">
-                  <span className="graph-side-rel-kind" style={{ borderColor: RELATION_COLORS[e.relation] }}>
+                  <span className="graph-side-rel-kind" style={{ borderColor: readyCore().graphPalette().relation[e.relation] }}>
                     {relationPhrase(e.relation, outgoing)}
                   </span>
                   <Button variant="link" onClick={() => onSelectPaper(otherId)}>
@@ -242,7 +243,7 @@ function NotePanel({
   note: VaultPage;
   onSelectConcept: (name: string) => void;
 }) {
-  const uniqueTags = noteTags(note);
+  const uniqueTags = readyCore().extractHashtags(`${note.title}\n${note.body}`);
 
   return (
     <div className="graph-side-body">
@@ -313,7 +314,7 @@ function ConceptPanel({
   const linkedCount = linkedPapers.length + linkedNotes.length;
 
   const relatedConcepts = useMemo(
-    () => relatedConceptCounts(name, linkedPapers, linkedNotes),
+    () => readyCore().relatedConcepts(name, linkedPapers, linkedNotes, RELATED_CONCEPT_LIMIT),
     [linkedPapers, linkedNotes, name],
   );
 
@@ -361,7 +362,7 @@ function ConceptPanel({
 
   return (
     <div className="graph-side-body">
-      <h3 className="graph-side-title" style={{ color: tagColor(name) }}>#{name}</h3>
+      <h3 className="graph-side-title" style={{ color: readyCore().tagColor(name) }}>#{name}</h3>
       <p className="muted">{linkedCount} item{linkedCount === 1 ? "" : "s"}</p>
       <div className="graph-side-actions">
         <Button onClick={() => setMergeOpen((v) => !v)}>
@@ -398,7 +399,7 @@ function ConceptPanel({
                 <Button variant="link" onClick={() => onSelectPaper(p.id)}>
                   {p.title}
                 </Button>
-                <span className="muted"> · {enumLabel("paperStatus", p.status)}</span>
+                <span className="muted"> · {readyCore().enumLabel("paperStatus", p.status)}</span>
               </li>
             ))}
           </ul>
@@ -480,8 +481,8 @@ export function EdgeDetailPopover({
       aria-label="Relation edge"
     >
       <div className="graph-edge-popover-head">
-        <span className="legend-swatch" style={{ background: RELATION_COLORS[edge.relation as RelationType] }} />
-        <strong>{enumLabel("relation", edge.relation)}</strong>
+        <span className="legend-swatch" style={{ background: readyCore().graphPalette().relation[edge.relation as RelationType] }} />
+        <strong>{readyCore().enumLabel("relation", edge.relation)}</strong>
         <IconButton label="Close panel" onClick={onClose}><CloseIcon /></IconButton>
       </div>
       <p className="muted graph-edge-popover-path">

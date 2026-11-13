@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   ByokModelConversation,
   PROVIDER_PRESETS,
   type ProviderDescriptor,
 } from "../infrastructure/byok-model-conversation";
+
+before(loadTestCore);
 
 function capture(responseBody: unknown, ok = true) {
   const calls: { url: string; init: RequestInit }[] = [];

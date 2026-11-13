@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
-import type { IWorkspaceSearchIndex, SearchDoc, WorkspaceSnapshot } from "@weaveforge/core";
-import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
-import { SearchIndexState, KINDS_FOR_RESOURCE } from "../application/search-index-state";
-import { projectSearchDocuments } from "../application/search-projection";
+import type { SearchDoc, WorkspaceSnapshot } from "@weaveforge/core";
+import { emptyWorkspaceSnapshot as snapshot } from "@core-test/workspace-snapshot";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * The two pieces of `WorkspaceSearch` that had no test of their own.
@@ -17,13 +21,9 @@ import { projectSearchDocuments } from "../application/search-projection";
  * the revision that decides whether a cached index may be trusted.
  */
 
-function index(): IWorkspaceSearchIndex {
-  return { idsOfKind: () => [], remove: () => {}, add: () => {} } as unknown as IWorkspaceSearchIndex;
-}
-
 test("a kind stays stale until a refresh that read successfully settles it", () => {
-  const state = new SearchIndexState();
-  state.adopt(index(), 10);
+  const state = new (readyCore().SearchIndexState)();
+  state.adopt(10);
 
   state.markStale("vault_page");
 
@@ -38,8 +38,8 @@ test("a kind stays stale until a refresh that read successfully settles it", () 
 test("settling one kind leaves another marked", () => {
   // The bug's other half: clearing the whole set meant a write that landed
   // during a refresh was forgotten along with the kinds being refreshed.
-  const state = new SearchIndexState();
-  state.adopt(index(), 0);
+  const state = new (readyCore().SearchIndexState)();
+  state.adopt(0);
 
   state.markStale("vault_page");
   state.markStale("paper");
@@ -49,23 +49,21 @@ test("settling one kind leaves another marked", () => {
 });
 
 test("an unclassified write distrusts the whole index", () => {
-  const state = new SearchIndexState();
-  state.adopt(index(), 10);
-  state.graph = {} as never;
-  state.pdfPageCounts.set("p1", 3);
+  const state = new (readyCore().SearchIndexState)();
+  state.adopt(10);
+  state.setPdfPageCount("p1", 3);
 
   const forgot = state.markStale("something-new");
 
   assert.equal(forgot, true, "the caller has nothing left to refresh selectively");
   assert.equal(state.ready, false);
-  assert.equal(state.graph, null, "and the graph goes with it — degrees were its");
   assert.equal(state.documentCount, 0);
-  assert.equal(state.pdfPageCounts.size, 0, "so a re-extraction is not told pages still exist");
+  assert.equal(state.pdfPageCount("p1"), 0, "so a re-extraction is not told pages still exist");
 });
 
 test("nothing is marked stale before an index exists", () => {
   // There is no index to be stale, and the first build reads everything anyway.
-  const state = new SearchIndexState();
+  const state = new (readyCore().SearchIndexState)();
 
   assert.equal(state.markStale("vault_page"), false);
   assert.deepEqual(state.pendingStale(), []);
@@ -75,8 +73,8 @@ test("every mapped resource type names kinds the index knows", () => {
   // The mapping is the policy, so a typo in it is a write that silently never
   // refreshes anything — no error, just an edit the search cannot see.
   const known = new Set(["paper", "note", "annotation", "pdf", "list", "section", "experiment", "milestone", "log"]);
-  for (const [resourceType, kinds] of Object.entries(KINDS_FOR_RESOURCE)) {
-    for (const kind of kinds ?? []) {
+  for (const resourceType of readyCore().resourceTypes()) {
+    for (const kind of readyCore().kindsForResource(resourceType) ?? []) {
       assert.ok(known.has(kind), `${resourceType} names a search kind that does not exist: ${kind}`);
     }
   }
@@ -89,7 +87,7 @@ test("the projection holds three sources in a fixed order", () => {
     vaultPages: [{ id: "n1", title: "Method", body: "boiling water", sortOrder: 0 }] as never,
   });
 
-  const docs = projectSearchDocuments({ snapshot: ws, graph: null, pdfTexts: [] });
+  const docs = readyCore().projectSearchDocuments(ws, null, []);
 
   assert.ok(docs.length > 0);
   assert.equal(docs[0]!.kind, "note", "the snapshot's own documents come first");
@@ -105,12 +103,8 @@ test("the projection reads degrees from the graph it is handed", () => {
     ] as never,
   });
 
-  const withGraph = projectSearchDocuments({
-    snapshot: ws,
-    graph: { nodes: new Map(), edges: [] } as never,
-    pdfTexts: [],
-  });
-  const withoutGraph = projectSearchDocuments({ snapshot: ws, graph: null, pdfTexts: [] });
+  const withGraph = readyCore().projectSearchDocuments(ws, readyCore().buildWikiGraph(ws), []);
+  const withoutGraph = readyCore().projectSearchDocuments(ws, null, []);
 
   assert.equal(withGraph.length, withoutGraph.length, "the same corpus either way");
   assert.deepEqual(
@@ -136,18 +130,14 @@ test("extracted PDF text is projected with the snapshot's documents", () => {
     ] as never,
   });
 
-  const docs = projectSearchDocuments({
-    snapshot: ws,
-    graph: null,
-    pdfTexts: [
-      {
-        paperId: "p1",
-        title: "Attention",
-        pages: [{ pageIndex: 0, text: "photosynthesis ".repeat(60) }],
-        extractedAt: "2026-03-01T00:00:00.000Z",
-      },
-    ],
-  });
+  const docs = readyCore().projectSearchDocuments(ws, null, [
+    {
+      paperId: "p1",
+      title: "Attention",
+      pages: [{ pageIndex: 0, text: "photosynthesis ".repeat(60) }],
+      extractedAt: "2026-03-01T00:00:00.000Z",
+    },
+  ]);
 
   assert.ok(
     docs.some((doc) => doc.kind === "pdf"),
@@ -157,5 +147,5 @@ test("extracted PDF text is projected with the snapshot's documents", () => {
 
 test("a snapshot with nothing in it projects nothing, rather than throwing", () => {
   const ws: WorkspaceSnapshot = snapshot();
-  assert.deepEqual(projectSearchDocuments({ snapshot: ws, graph: null, pdfTexts: [] }), []);
+  assert.deepEqual(readyCore().projectSearchDocuments(ws, null, []), []);
 });

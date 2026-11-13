@@ -1,14 +1,9 @@
 "use client";
 
-import { LOCAL_USER_ID, parseLatexSectionTree } from "@weaveforge/core";
-import { LocalRunner } from "@/backend/providers/local/local-runner";
+import { LocalRunner } from "@/backend/providers/local/parts";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import {
-  entryFileError,
-  externalUrl,
-  OVERLEAF_PROJECT_ID,
-  sanitizeSectionTargets,
-} from "../domain/link-rules";
+import { readyCore } from "@/lib/rust-core";
+import type { LatexSectionTree } from "@weaveforge/wasm";
 
 /**
  * The Overleaf link, for a copy working on this computer with no account.
@@ -29,6 +24,10 @@ import {
  * account could be shared between machines. This copy is one person at one
  * machine, and a picker for a list that is always length one is a worse offer
  * than no picker.
+ *
+ * The user is `auth.uid()`, the claim the shell sets per query: the local-only
+ * id before sign-in, the account once the device has adopted one. Passing a
+ * fixed id would fail the row policies on an adopted device.
  */
 
 /** What the row keeps in place of a ciphertext it has no key to make. */
@@ -55,9 +54,9 @@ export class LocalOverleafGateway {
   async listReports(projectId: string): Promise<OverleafReportRow[]> {
     return this.run.query<OverleafReportRow>(
       `select ${ROW_FIELDS} from overleaf_linked_reports
-       where user_id = $1 and project_id = $2 and enabled
+       where user_id = auth.uid() and project_id = $1 and enabled
        order by updated_at desc`,
-      [LOCAL_USER_ID, projectId],
+      [projectId],
     );
   }
 
@@ -74,8 +73,8 @@ export class LocalOverleafGateway {
     await shell.writeSecret("overleaf-token", token);
     const [row] = await this.run.query<{ id: string }>(
       `insert into overleaf_connections (user_id, name, token_ciphertext, token_prefix)
-       values ($1, $2, $3, $4) returning id`,
-      [LOCAL_USER_ID, name, KEYCHAIN, token.slice(0, 4)],
+       values (auth.uid(), $1, $2, $3) returning id`,
+      [name, KEYCHAIN, token.slice(0, 4)],
     );
     if (!row) throw new Error("Could not save the Overleaf connection.");
     return row.id;
@@ -88,26 +87,8 @@ export class LocalOverleafGateway {
     overleafProjectId: string;
     entryFile: string;
   }): Promise<void> {
-    const entryFile = input.entryFile.trim() || "main.tex";
-    if (!OVERLEAF_PROJECT_ID.test(input.overleafProjectId)) {
-      throw new Error("Overleaf project id is invalid.");
-    }
-    const invalid = entryFileError(entryFile);
-    if (invalid) throw new Error(invalid);
-    await this.run.exec(
-      `insert into overleaf_linked_reports
-         (user_id, project_id, connection_id, title, overleaf_project_id, entry_file, external_url)
-       values ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        LOCAL_USER_ID,
-        input.projectId,
-        input.connectionId,
-        input.title.trim(),
-        input.overleafProjectId,
-        entryFile,
-        externalUrl(input.overleafProjectId),
-      ],
-    );
+    const plan = readyCore().planOverleafReportCreate(input);
+    await this.run.exec(plan.sql, plan.params);
   }
 
   /**
@@ -123,60 +104,12 @@ export class LocalOverleafGateway {
     entryFile?: string;
     sectionTargets?: unknown;
   }): Promise<void> {
-    const sets: string[] = [];
-    const params: (string | null)[] = [];
-    const set = (column: string, value: string) => {
-      params.push(value);
-      sets.push(`${column} = $${params.length}`);
-    };
-
-    if (input.sectionTargets !== undefined) {
-      const targets = sanitizeSectionTargets(input.sectionTargets);
-      if (!targets) throw new Error("Section targets are invalid.");
-      set("section_targets", JSON.stringify(targets));
-      // The column is jsonb and the parameter is text, so it is cast at the
-      // one place that knows it is JSON rather than by a helper that does not.
-      sets[sets.length - 1] += "::jsonb";
-    }
-    if (input.title !== undefined) {
-      const title = input.title.trim();
-      if (!title) throw new Error("Title cannot be empty.");
-      set("title", title);
-    }
-    if (input.overleafProjectId !== undefined) {
-      const id = input.overleafProjectId.trim();
-      if (!OVERLEAF_PROJECT_ID.test(id)) throw new Error("Overleaf project id is invalid.");
-      set("overleaf_project_id", id);
-      // Recomputed, not carried over: a stale link would point at the old project.
-      set("external_url", externalUrl(id));
-    }
-    if (input.entryFile !== undefined) {
-      const entryFile = input.entryFile.trim() || "main.tex";
-      const invalid = entryFileError(entryFile);
-      if (invalid) throw new Error(invalid);
-      set("entry_file", entryFile);
-    }
-    if (!sets.length) throw new Error("Nothing to update.");
-    // Pointing at a different project or file invalidates what was fetched
-    // under the old target, so clear the cached failure rather than leave it
-    // misattributed. A literal, not a parameter: there is nothing to bind.
-    if (input.overleafProjectId !== undefined || input.entryFile !== undefined) {
-      sets.push("last_error = null");
-    }
-
-    params.push(input.id, LOCAL_USER_ID);
-    await this.run.exec(
-      `update overleaf_linked_reports set ${sets.join(", ")}, updated_at = now()
-       where id = $${params.length - 1} and user_id = $${params.length}`,
-      params,
-    );
+    const plan = readyCore().planOverleafReportPatch(input);
+    await this.run.exec(plan.sql, plan.params);
   }
 
   async deleteReport(id: string): Promise<void> {
-    await this.run.exec("delete from overleaf_linked_reports where id = $1 and user_id = $2", [
-      id,
-      LOCAL_USER_ID,
-    ]);
+    await this.run.exec("delete from overleaf_linked_reports where id = $1 and user_id = auth.uid()", [id]);
   }
 
   /** Clones through the shell, parses here, and records that it worked. */
@@ -186,13 +119,13 @@ export class LocalOverleafGateway {
     const source = await shell.readOverleafProject(report.overleaf_project_id, report.entry_file);
     await this.run.exec(
       `update overleaf_linked_reports set last_fetched_at = now(), last_error = null
-       where id = $1 and user_id = $2`,
-      [report.id, LOCAL_USER_ID],
+       where id = $1 and user_id = auth.uid()`,
+      [report.id],
     );
     return {
       files: source.files,
       entryFile: source.entryFile,
-      sectionTree: parseLatexSectionTree(source.files, source.entryFile),
+      sectionTree: readyCore().parseLatexSectionTree(source.files, source.entryFile) as LatexSectionTree,
       overleafUrl: source.overleafUrl,
     };
   }

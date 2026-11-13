@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { withAppLogs } from "@/lib/error-report/test/capture-app-logs";
-import { localZoteroCollection } from "../zotero-collection";
+import { localZoteroCollection } from "../parts";
 
 describe("localZoteroCollection", () => {
   const settings = (read: (id: string) => Promise<string | undefined>) => ({ getCollection: read });

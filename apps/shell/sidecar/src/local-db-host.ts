@@ -1,0 +1,289 @@
+import fs from "node:fs";
+import path from "node:path";
+import { errorMessage, LOCAL_BOOTSTRAP_SQL, type Migration } from "@weaveforge/core";
+import { LocalDatabase, type LocalClient } from "./local-db";
+import type { IpcResult } from "./channels";
+import type { Dumpable } from "./local-db-backup";
+
+/**
+ * The local database as the rest of this process sees it: one function that
+ * answers a query, and nothing else.
+ *
+ * Opened on the first query rather than at boot, because a person who never
+ * leaves the network never needs it and a WASM Postgres costs a second to
+ * start. Opened once: the promise is the lock, so two queries arriving together
+ * wait on the same migration run instead of racing to apply it twice.
+ */
+
+const OPEN_FAILED = "The local database could not be opened.";
+const HEALTHY = "The local database opened normally; there is nothing to reset.";
+/** Statements that can change which account the device belongs to. */
+const IDENTITY_CHANGES = /sync_state|sync_claim/i;
+const BAD_QUERY = "A query is a string of SQL and a list of plain values.";
+
+/**
+ * What a parameter may be. Anything else is a structured clone away from a
+ * lie. Bytes are in: a bytea column (the CRDT log) takes nothing else, and the
+ * structured clone carries a `Uint8Array` across whole.
+ */
+type Param = string | number | boolean | null | Uint8Array;
+
+function validParams(value: unknown): value is Param[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (p) =>
+        p === null || p instanceof Uint8Array || ["string", "number", "boolean"].includes(typeof p),
+    )
+  );
+}
+
+/** Read the migrations shipped beside this bundle, in name order. */
+function readMigrations(dir: string): Migration[] {
+  return fs
+    .readdirSync(dir)
+    .filter((name) => name.endsWith(".sql"))
+    .sort()
+    .map((name) => ({ name, sql: fs.readFileSync(path.join(dir, name), "utf8") }));
+}
+
+export interface LocalDbHostOptions {
+  /** Opens the engine. Injected so this file never imports PGlite itself. */
+  open: () => Promise<LocalClient>;
+  /**
+   * Where the shipped `.sql` files are, in the order they apply.
+   *
+   * Two directories, not one: the shared migrations are the server's own, and
+   * the device-only ones (the outbox, the watermark) come after them. Names are
+   * unique per directory but not across them, so what the ledger records is
+   * the directory's name and the file's name together.
+   */
+  migrations: readonly string[];
+  /**
+   * Where the data lives, resolved when it is needed.
+   *
+   * A function rather than a string because the answer *changes*: the database
+   * lives in the workspace folder the reader chose, and that folder is restored
+   * asynchronously at boot and can be changed at any time by picking another
+   * one. Calling this at construction would snapshot the answer from before the
+   * folder was known — which is the bug this signature exists to prevent, and
+   * the reason `dataDir` used to be a string that always said `userData`.
+   */
+  dataDir: () => string;
+  /**
+   * Move the data directory out of the way so the next open starts fresh.
+   *
+   * Injected, like `open`, because how a directory is moved is the shell's
+   * business — on Windows a failed engine can still hold handles, and the move
+   * may have to wait for a relaunch. Whatever it does, it must never delete:
+   * the directory being moved is somebody's data, unreadable or not.
+   */
+  discard: () => Promise<void>;
+  /**
+   * A second chance when `open` throws: an engine built from a backup, and
+   * where the backup came from — or `null` when there is none to build from.
+   * Injected like the rest, because finding and loading a backup is the
+   * shell's business; what happens here is only that it is tried before the
+   * failure is shown to anybody.
+   */
+  recover?: (cause: unknown) => Promise<{ client: LocalClient; from: string } | null>;
+  /**
+   * Called once the engine is open and migrated. Main uses it to collect the
+   * boot's garbage at once instead of holding it until V8's idle GC (M03).
+   * A throw here is ignored: the database is open either way.
+   */
+  opened?: () => void;
+  /** Where failed queries are reported; main's console lands in weaveforge.log. */
+  log?: (line: string) => void;
+}
+
+/** What the page can know about the database without querying it. */
+export interface LocalDbState {
+  /** Why the last open failed, or `null` if it has not failed. */
+  failure: string | null;
+  dataDir: string;
+  /** The backup this run's database was rebuilt from, when it was. */
+  restoredFrom: string | null;
+}
+
+/** Whether a statement can change anything; a backup is only worth taking after one. */
+function writes(sql: string): boolean {
+  return !/^\s*(select|with|show|explain)\b/i.test(sql);
+}
+
+/** An open that failed, told apart from a query that did. */
+class OpenError extends Error {
+  constructor(cause: unknown) {
+    super(`${OPEN_FAILED} ${errorMessage(cause)}`);
+  }
+}
+
+export class LocalDbHost {
+  private opening: Promise<LocalDatabase> | undefined;
+  /**
+   * The last open failure, kept so `state()` can report it and `reset()` can
+   * refuse to touch a database that never failed. Cleared by a reset.
+   */
+  private failure: string | undefined;
+  private restoredFrom: string | undefined;
+  /** Whether anything may have changed since the last `snapshot()`. */
+  private dirty = false;
+  /** Who queries run as; re-read whenever a statement may have changed it. */
+  private user: string | undefined;
+
+  constructor(private readonly options: LocalDbHostOptions) {}
+
+  private database(): Promise<LocalDatabase> {
+    this.opening ??= (async () => {
+      // Held outside the promise's own value, because the value is exactly what
+      // is lost when this fails: the promise is rejected, nothing else refers
+      // to the client, and a half-open engine is left with a lock on the data
+      // directory. Migrating on top of one is how the *second* open ends up
+      // fighting the first for the same files.
+      let client: LocalClient | undefined;
+      try {
+        try {
+          client = await this.options.open();
+        } catch (cause) {
+          const recovered = await this.options.recover?.(cause);
+          if (!recovered) throw cause;
+          client = recovered.client;
+          this.restoredFrom = recovered.from;
+        }
+        const db = new LocalDatabase(client);
+        const migrations = this.options.migrations.flatMap((dir) =>
+          readMigrations(dir).map((m) => ({ ...m, name: `${path.basename(dir)}/${m.name}` })),
+        );
+        await db.migrate(LOCAL_BOOTSTRAP_SQL, migrations);
+        await db.ensureLocalUser();
+        try {
+          this.options.opened?.();
+        } catch {
+          // Best effort; see `opened`.
+        }
+        return db;
+      } catch (error) {
+        // Closed before the field is cleared, and cleared only once the close
+        // has settled: a retry that starts while the old engine is still
+        // shutting down is the race this is here to avoid. A failed close is
+        // swallowed -- the open failed, and that is the error worth reporting;
+        // the original throw is re-raised below either way.
+        if (client) await client.close().catch(() => undefined);
+        this.opening = undefined;
+        const failed = new OpenError(error);
+        this.failure = failed.message;
+        throw failed;
+      }
+    })();
+    return this.opening;
+  }
+
+  /**
+   * Run one statement for the renderer.
+   *
+   * The user id is not taken from the renderer. It cannot be: a page that could
+   * name whoever it liked would be naming the identity that row-level security
+   * is about to trust. It comes from the database itself: the account the
+   * device was adopted by, or the local-only user before that.
+   */
+  async query(sql: unknown, params: unknown): Promise<IpcResult<unknown[]>> {
+    if (typeof sql !== "string" || !sql.trim() || !validParams(params ?? [])) {
+      return { ok: false, message: BAD_QUERY };
+    }
+    try {
+      const db = await this.database();
+      this.user ??= await db.deviceUser();
+      const { rows } = await db.query<unknown>(sql, (params as Param[] | undefined) ?? [], this.user);
+      if (writes(sql)) this.dirty = true;
+      if (IDENTITY_CHANGES.test(sql)) this.user = undefined;
+      return { ok: true, value: rows };
+    } catch (error) {
+      const message = errorMessage(error, OPEN_FAILED);
+      // SQL only, never params: they can hold a person's text.
+      const code = (error as { code?: unknown } | null)?.code;
+      (this.options.log ?? console.error)(
+        `[local-db] query failed${typeof code === "string" ? ` (${code})` : ""}: ${message} | ${sql.replace(/\s+/g, " ").trim().slice(0, 200)}`,
+      );
+      return { ok: false, message };
+    }
+  }
+
+  /**
+   * Read rows as the database owner, read-only, for the shell's one-time copy
+   * into the native database. Never marks the database changed.
+   */
+  async exportRows(sql: unknown): Promise<IpcResult<unknown[]>> {
+    if (typeof sql !== "string" || !sql.trim()) return { ok: false, message: BAD_QUERY };
+    try {
+      const db = await this.database();
+      return { ok: true, value: await db.readRows<unknown>(sql) };
+    } catch (error) {
+      return { ok: false, message: errorMessage(error, OPEN_FAILED) };
+    }
+  }
+
+  state(): LocalDbState {
+    return {
+      failure: this.failure ?? null,
+      dataDir: this.options.dataDir(),
+      restoredFrom: this.restoredFrom ?? null,
+    };
+  }
+
+  /**
+   * Something that can dump the database, if it is open and has changed since
+   * the last dump; `null` otherwise. Never opens: a backup of a database
+   * nobody has used is a backup of nothing. The change flag is cleared when a
+   * dump starts, so a write that lands while it runs marks the next one, and
+   * set again if the dump fails, so the next call tries again.
+   */
+  async snapshot(): Promise<Dumpable | null> {
+    if (!this.opening || !this.dirty) return null;
+    const db = await this.opening.catch(() => undefined);
+    if (!db?.canDump) return null;
+    return {
+      dumpTo: async (file) => {
+        this.dirty = false;
+        try {
+          await db.dumpTo(file);
+        } catch (error) {
+          this.dirty = true;
+          throw error;
+        }
+      },
+    };
+  }
+
+  /**
+   * Move the unopenable database aside, so the next query starts a new one.
+   *
+   * Refused unless an open has actually failed: a page that could reset a
+   * working database would be a page that could make a person's data
+   * disappear from the app with one call. The failure is cleared only once
+   * the move succeeded, so a move that fails leaves the button where it was
+   * and the person can try again after reading why.
+   */
+  async reset(): Promise<IpcResult<null>> {
+    if (this.failure === undefined) return { ok: false, message: HEALTHY };
+    try {
+      await this.options.discard();
+      this.failure = undefined;
+      return { ok: true, value: null };
+    } catch (error) {
+      return { ok: false, message: errorMessage(error) };
+    }
+  }
+
+  /** Close if it was ever opened; quitting should not start a database. */
+  async close(): Promise<void> {
+    const opened = this.opening;
+    this.opening = undefined;
+    this.user = undefined;
+    // Optional, not a non-null assertion: a close that races a failed open
+    // finds nothing to await. The failure path above has already cleared the
+    // field and closed the client it managed to make, so there is nothing here
+    // to do -- and quitting is not the moment to raise about it.
+    const db = await opened?.catch(() => undefined);
+    await db?.close();
+  }
+}

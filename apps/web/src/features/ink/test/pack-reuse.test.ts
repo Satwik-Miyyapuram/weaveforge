@@ -1,15 +1,18 @@
 // packStrokeInstances evaluates each curve point once and reuses it as the next
 // instance's end. This pins its output to the plain one-call-per-use loop.
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   INK_INSTANCE_FLOATS,
   INK_SEGMENT_SUBDIVISIONS,
   packStrokeInstances,
   strokeCurveAt,
   strokeInstanceCount,
-} from "../render/ink-renderer";
+} from "../render/parts-1";
+
+before(loadTestCore);
 
 type Stroke = Parameters<typeof packStrokeInstances>[0];
 

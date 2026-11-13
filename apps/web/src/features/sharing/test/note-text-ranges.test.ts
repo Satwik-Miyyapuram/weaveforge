@@ -1,7 +1,14 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { spanPoints } from "../ui/note-text-ranges";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
+
+const spanPoints: ReturnType<typeof readyCore>["spanPoints"] = (...a) => readyCore().spanPoints(...a);
 
 test("a span inside one text node stays in that node", () => {
   assert.deepEqual(spanPoints([10], { start: 2, end: 5 }), { start: [0, 2], end: [0, 5] });

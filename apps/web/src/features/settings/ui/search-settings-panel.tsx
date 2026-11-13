@@ -1,12 +1,9 @@
 "use client";
 
-import { DEFAULT_EMBEDDING_MODEL } from "@/features/search/infrastructure/embedding-models";
+import { DEFAULT_EMBEDDING_MODEL } from "@/features/search/infrastructure/parts-1";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
-  MAX_FIELD_WEIGHT,
-  MIN_FIELD_WEIGHT,
   SEARCH_KINDS,
-  effectiveFieldBoosts,
   type SearchField,
   type SearchKind,
   type SearchSettings,
@@ -26,6 +23,8 @@ import {
 import { FormError } from "@/components/form-error";
 import { StepProgress, type Step } from "@/components/step-progress";
 import { LibraryPdfIndexing, IndexSize } from "./library-pdf-indexing";
+import { ModelDownloadLine } from "./model-download-line";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /** Fields a user can reweight, with names that mean something outside the code. */
 const FIELD_LABELS: Record<SearchField, string> = {
@@ -56,7 +55,7 @@ export function SearchSettingsPanel({
   value: SearchSettings | undefined;
   onChange: (next: SearchSettings) => void;
 }) {
-  const boosts = effectiveFieldBoosts(value);
+  const boosts = typedCore().effectiveFieldBoosts(value ?? {});
 
   const setWeight = (field: SearchField, weight: number) => {
     onChange({ ...value, weights: { ...(value?.weights ?? {}), [field]: weight } });
@@ -83,8 +82,8 @@ export function SearchSettingsPanel({
             <input
               id={`search-weight-${field}`}
               type="range"
-              min={MIN_FIELD_WEIGHT}
-              max={MAX_FIELD_WEIGHT}
+              min={typedCore().MIN_FIELD_WEIGHT}
+              max={typedCore().MAX_FIELD_WEIGHT}
               step={1}
               value={boosts[field]}
               onChange={(e) => setWeight(field, Number(e.target.value))}
@@ -260,33 +259,11 @@ function SemanticSteps({ status }: { status: SemanticStatus }) {
 
 /** One line saying what the arm is doing, and when it is done, that it works. */
 function SemanticStatusLine({ status }: { status: SemanticStatus }) {
-  const text = (() => {
-    switch (status.phase) {
-      case "downloading":
-        return `Downloading the model — ${Math.round((status.loaded / Math.max(status.total, 1)) * 100)}%`;
-      case "loading":
-        return "Starting the model…";
-      case "embedding":
-        return status.total
-          ? `Reading your workspace — ${status.done.toLocaleString()} of ${status.total.toLocaleString()} passages`
-          : "Reading your workspace…";
-      case "ready":
-        return status.upgrading
-          ? `On (${status.model}). Upgrading to ${status.upgrading.to} in the background${
-              status.upgrading.total
-                ? ` — ${status.upgrading.done.toLocaleString()} of ${status.upgrading.total.toLocaleString()} passages`
-                : "…"
-            }. Search keeps using the current model until it is done.`
-          : `On — ${status.passages.toLocaleString()} passages searchable by meaning (${status.model}). New and edited items are added as you work.`;
-      case "error":
-        return `Not working: ${status.message}. Keyword search is unaffected.`;
-      default:
-        return "Waiting to start…";
-    }
-  })();
+  const text = readyCore().semanticStatusText(status);
   return (
     <div className="semantic-status" data-phase={status.phase} aria-live="polite">
       <p className={status.phase === "error" ? "form-error" : "muted"}>{text}</p>
+      {status.phase === "downloading" && <ModelDownloadLine />}
     </div>
   );
 }

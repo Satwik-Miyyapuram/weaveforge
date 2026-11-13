@@ -7,11 +7,11 @@ import { ConnectionState } from "@/components/connection-state";
 import { Popover } from "@/components/popover";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
-import { emptyIntegration, type Integration } from "../domain/integration";
+import { type Integration } from "../domain/parts";
+import { readyCore } from "@/lib/rust-core";
 import { projectSyncDescriptorsForConfig, sharedProviderHint } from "@/integrations/descriptors-resolve";
-import type { ProjectSyncDescriptor } from "@/integrations/descriptors-types";
-import { gitConnectionReady, mattermostConnectionReady } from "../domain/integration-fields";
-import { MATTERMOST_EVENTS, mattermostOptions, type MattermostOptions } from "../domain/mattermost-options";
+import type { ProjectSyncDescriptor } from "@/integrations/parts";
+import type { MattermostOptions } from "@weaveforge/wasm";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { MattermostSignInControls, useMattermostSignIn } from "./mattermost-sign-in-controls";
@@ -26,6 +26,13 @@ export function SyncSettings() {
     [],
   );
   const [items, setItems] = useState<Record<string, Integration>>({});
+  const empties = useMemo(
+    () =>
+      Object.fromEntries(
+        descriptors.map((d) => [d.provider, readyCore().emptyIntegration(d.provider)]),
+      ) as Record<string, Integration>,
+    [descriptors],
+  );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -59,7 +66,7 @@ export function SyncSettings() {
               key={d.id}
               descriptor={d}
               allDescriptors={descriptors}
-              value={items[d.provider] ?? emptyIntegration(d.provider)}
+              value={items[d.provider] ?? empties[d.provider]!}
               projectId={current.id}
               onChange={(v) => setItems((s) => ({ ...s, [d.provider]: v }))}
             />
@@ -75,7 +82,7 @@ export function SyncSettings() {
  * so in that mode only the server URL and channel are asked for.
  */
 export function fieldsShown<F extends { key: string }>(fields: readonly F[], mattermostSignIn: boolean): F[] {
-  return fields.filter((field) => !mattermostSignIn || field.key !== "token");
+  return fields.filter((field) => readyCore().syncFieldShown(field.key, mattermostSignIn));
 }
 
 function IntegrationRow({
@@ -101,8 +108,8 @@ function IntegrationRow({
 
   const connected =
     descriptor.provider === "mattermost"
-      ? mattermostConnectionReady(value)
-      : gitConnectionReady(value);
+      ? readyCore().mattermostConnectionReady(value)
+      : readyCore().gitConnectionReady(value);
   const parts = descriptor.title.split("—").map((s) => s.trim());
   const name = parts[0] ?? descriptor.title;
   const tagline = parts[1];
@@ -197,8 +204,8 @@ function MattermostEventControls({
   onChange: (p: Partial<Integration>) => void;
   onError: (e: string | null) => void;
 }) {
-  const opts = mattermostOptions(value);
-  const onCount = MATTERMOST_EVENTS.filter((e) => opts.events[e.id] === true).length;
+  const opts = readyCore().mattermostOptions(value);
+  const onCount = readyCore().mattermostEvents().filter((e) => opts.events[e.id] === true).length;
   const [testing, setTesting] = useState(false);
   const [tested, setTested] = useState<string | null>(null);
 
@@ -238,7 +245,7 @@ function MattermostEventControls({
         <span>Events</span>
         <Popover label={onCount === 0 ? "None" : `${onCount} on`} ariaLabel="Events to post" align="right" portal>
           <div className="mm-event-menu">
-            {MATTERMOST_EVENTS.map((e) => {
+            {readyCore().mattermostEvents().map((e) => {
               const on = opts.events[e.id] === true;
               return (
                 <MenuItemButton
@@ -259,7 +266,7 @@ function MattermostEventControls({
         </Popover>
       </div>
       {!opts.sameChannel &&
-        MATTERMOST_EVENTS.filter((e) => opts.events[e.id] === true).map((e) => (
+        readyCore().mattermostEvents().filter((e) => opts.events[e.id] === true).map((e) => (
           <div className="field" key={e.id}>
             <label htmlFor={`mm-ch-${e.id}`}>{e.label} channel ID</label>
             <input

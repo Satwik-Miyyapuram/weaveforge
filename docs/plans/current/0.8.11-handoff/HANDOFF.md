@@ -1,5 +1,7 @@
 # WeaveForge 0.8.11 — builder handoff (one file, everything you need)
 
+> **Historical:** predates the Rust port. `apps/desktop` (Electron) has since been retired; the desktop app is `apps/shell`.
+
 ## 0. Rules. Read first. Follow them exactly.
 
 1. **Follow this document exactly.** Every value, selector, file path and line in it is deliberate. Do not "improve", rename, reorder, round, restyle or swap any value. Do not change a square to a circle, a 60ms to a 150ms, a 3px to a 2px. If something in the code does not match what this document says is there, **stop and report it**; do not guess a fix.

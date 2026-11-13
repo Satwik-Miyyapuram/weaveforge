@@ -2,26 +2,26 @@
 
 import { useState, type SyntheticEvent } from "react";
 import {
-  MILESTONE_STATUSES,
   type Experiment,
   type Milestone,
   type MilestoneStatus,
   type Paper,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast";
+import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast/index";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
-import { daysUntilDate } from "@/features/plan/application/plan-timeline";
-import { formatDate } from "@/lib/format-date";
-import { logToApp } from "@/lib/error-report/app-log";
+import { localIsoDay } from "@/features/plan/application/parts";
 import { formatError } from "@/lib/format-error";
-import { runReported } from "@/lib/run-reported";
+import { localOffset } from "@/lib/parts-1";
+import { logToApp } from "@/lib/error-report/app-log";
+import { runReported } from "@/lib/parts";
 import { statusLabel } from "@/components/status-select";
 import { MilestoneForm } from "./milestone-form";
 import { planChipTarget } from "./plan-chip";
 import { Chip } from "@/components/controls";
+import { readyCore } from "@/lib/rust-core";
 
 /** Chip clicks stay on the chip: the card under them opens on click. */
 const stop = (e: SyntheticEvent) => e.stopPropagation();
@@ -109,7 +109,7 @@ export function MilestoneCard({
     );
   }
 
-  const due = m.targetDate ? daysUntilDate(m.targetDate) : null;
+  const due = m.targetDate ? readyCore().daysUntilDate(m.targetDate, localIsoDay()) : null;
 
   return (
     <>
@@ -133,7 +133,7 @@ export function MilestoneCard({
       meta={
         m.targetDate ? (
           <>
-            Due {formatDate(m.targetDate)}
+            Due {readyCore().formatDate(m.targetDate, localOffset(m.targetDate))}
             {due != null && m.status !== "done" && (
               <>
                 {" · "}
@@ -159,7 +159,7 @@ export function MilestoneCard({
                   {
                     id: "status",
                     label: "Status",
-                    submenu: MILESTONE_STATUSES.map((st) => ({
+                    submenu: readyCore().MILESTONE_STATUSES.map((st) => ({
                       id: `status-${st}`,
                       label: statusLabel(st),
                       kind: "check",

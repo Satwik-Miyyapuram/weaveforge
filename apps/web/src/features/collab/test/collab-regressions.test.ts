@@ -3,13 +3,18 @@
  * all. Each one names the failure it prevents, because none of them are
  * obvious from the code they guard.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import * as Y from "yjs";
 
 import { seedIfEmpty, seedUpdate } from "../domain/seed-document";
-import { shouldPersistBody } from "../domain/save-policy";
-import { encodeRealtimeMessageAsJson } from "@/backend/providers/postgrest/client";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { encodeRealtimeMessageAsJson } from "@/backend/providers/postgrest/parts-1";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const text = (doc: Y.Doc) => doc.getText("body").toString();
 
@@ -88,11 +93,11 @@ test("save: nothing is written before the document is ready", () => {
   // An empty document written over a real body. The logbook rejected it with
   // "Log entry body is required"; the vault would have accepted the deletion.
   assert.equal(
-    shouldPersistBody({ ready: false, next: "", lastSaved: "a real body" }),
+    readyCore().shouldPersistBody(false, "", "a real body"),
     false,
   );
   assert.equal(
-    shouldPersistBody({ ready: false, next: "even a plausible body", lastSaved: "a real body" }),
+    readyCore().shouldPersistBody(false, "even a plausible body", "a real body"),
     false,
   );
 });
@@ -102,14 +107,14 @@ test("save: an unchanged body is not written back", () => {
   // queued a save — and the host closed the form on save. The form shut itself
   // the moment it opened.
   assert.equal(
-    shouldPersistBody({ ready: true, next: "unchanged", lastSaved: "unchanged" }),
+    readyCore().shouldPersistBody(true, "unchanged", "unchanged"),
     false,
   );
 });
 
 test("save: a real edit is written", () => {
   assert.equal(
-    shouldPersistBody({ ready: true, next: "edited", lastSaved: "original" }),
+    readyCore().shouldPersistBody(true, "edited", "original"),
     true,
   );
 });
@@ -117,7 +122,7 @@ test("save: a real edit is written", () => {
 test("save: clearing a body deliberately is still a real edit", () => {
   // Distinct from the not-ready case above: once ready, an empty document means
   // the user emptied it, and refusing that would silently discard their edit.
-  assert.equal(shouldPersistBody({ ready: true, next: "", lastSaved: "had text" }), true);
+  assert.equal(readyCore().shouldPersistBody(true, "", "had text"), true);
 });
 
 // ---------------------------------------------------------------------------

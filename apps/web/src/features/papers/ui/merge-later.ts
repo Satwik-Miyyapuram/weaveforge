@@ -1,4 +1,4 @@
-import { toasts } from "@/lib/toast/toast-store";
+import { toasts } from "@/lib/toast/parts";
 import { paperKey } from "./remove-paper";
 
 /** One duplicate merge under rule D-07. */

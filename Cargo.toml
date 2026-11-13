@@ -1,0 +1,93 @@
+# WeaveForge Rust core. Plan: docs/plans/current/rust-port/plan.md (§4 rules, §6 layout).
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "AGPL-3.0-only"
+repository = "https://github.com/Satwik-Miyyapuram/weaveforge"
+publish = false
+
+# Exact pins: specta is a release candidate and its API moves between rcs.
+[workspace.dependencies]
+wf-core = { path = "crates/wf-core" }
+wf-store = { path = "crates/wf-store" }
+serde = { version = "=1.0.229", features = ["derive"] }
+# preserve_order: rows and frontmatter keep key order, as JS objects do, so the
+# folder mirror writes the same bytes as the TypeScript (no churn between apps).
+serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+# Insertion-ordered maps, as a JS Map keeps them (already in the lock via serde_json).
+indexmap = { version = "=2.14.2", features = ["serde"] }
+specta ={ version = "=2.0.0-rc.27", features = ["derive"] }
+specta-serde = "=0.0.14"
+specta-typescript = "=0.0.14"
+thiserror = "=2.0.21"
+wasm-bindgen = "=0.2.129"
+serde-wasm-bindgen = "=0.6.5"
+js-sys = "=0.3.106"
+# Search text rules (phase 1): NFD/NFC and general categories for \p{L}/\p{N}.
+unicode-normalization = "=0.1.26"
+unicode-properties = { version = "=0.1.4", default-features = false, features = ["general-category"] }
+# WHATWG URL parsing, the same rules as the JS `URL` class (already in the lock via git2).
+url = "=2.5.8"
+# Paper page parsing (phase 5b): the same patterns as packages/core page-metadata.ts.
+# regex-lite, not regex: the Unicode tables tripled the WASM module, and JS
+# (no u flag) treats word boundaries and (?i) as ASCII too. Whitespace is spelled out in js_regex.rs.
+regex-lite = "=0.1.9"
+# Property tests (plan §4.4): 256 cases per commit. No fork/timeout features.
+proptest = { version = "=1.11.0", default-features = false, features = ["std"] }
+# Git sync (P2.10): libgit2, built from source on every platform. gix cannot yet push
+# over https or merge into the worktree. https uses WinHTTP on Windows, SecureTransport
+# on macOS and a vendored OpenSSL on Linux; ssh uses a vendored libssh2. Those come from
+# wf-store's default `git-https` feature, so phones can build without OpenSSL.
+git2 = { version = "=0.21.0", default-features = false, features = ["vendored-libgit2"] }
+# Local embeddings (P2.11): ONNX Runtime downloaded and linked statically at build time; no ndarray,
+# no tracing. tokenizers without the C++ esaxx, onig, progress bar or hub download (fancy-regex instead).
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "download-binaries", "tls-native", "api-31"] }
+tokenizers = { version = "=0.22.2", default-features = false, features = ["fancy-regex"] }
+
+# Plan §4.2/§4.3: no unwrap/expect/panic in library code, every Result handled,
+# functions at most 70 lines (clippy.toml), unsafe only with a SAFETY comment.
+# wf-core additionally sets #![forbid(unsafe_code)] in its lib.rs.
+[workspace.lints.rust]
+unused_must_use = "deny"
+unused_results = "deny"
+missing_docs = "deny"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+undocumented_unsafe_blocks = "deny"
+too_many_lines = "deny"
+# Pedantic subset: silent numeric truncation and sign loss are data bugs.
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_sign_loss = "deny"
+cast_lossless = "deny"
+checked_conversions = "deny"
+must_use_candidate = "deny"
+needless_pass_by_value = "deny"
+redundant_closure_for_method_calls = "deny"
+semicolon_if_nothing_returned = "deny"
+
+[profile.release]
+# Assertions that protect user data stay on in release (plan §4.3).
+debug-assertions = false
+overflow-checks = true
+
+# "s", not "z": on 232k chars of prose, indexTerms runs in 17 ms instead of
+# 24 ms for ~3.2 KB more gzip (P1.7c). The size stays under the plan §4.5 budget.
+# Used only by scripts/build-wasm.mjs; inherits release's overflow checks.
+[profile.wasm-release]
+inherits = "release"
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"

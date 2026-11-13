@@ -1,7 +1,8 @@
-import { createDataClient } from "@/backend/providers/postgrest/client";
-import { readBackendConfig } from "@/backend/config";
+import { createDataClient } from "@/backend/providers/postgrest/parts-1";
+import { readBackendConfig } from "@/backend/parts";
+import { readyCore } from "@/lib/rust-core";
 import { syncEngine } from "./use-sync";
-import type { AdoptionResult } from "../domain/adoption";
+import type { AdoptionResult } from "../domain/parts-1";
 
 /**
  * A **fresh** access token per request.
@@ -63,11 +64,7 @@ export async function enableSync(): Promise<AdoptionResult> {
   });
 }
 
-/** How the reader knows this machine: "which laptop was that?" is answerable. */
+/** How the reader knows this machine: "which laptop was that?" is answerable (wf-core `panel_labels::device_label`). */
 function deviceLabel(): string {
-  const platform = typeof navigator === "undefined" ? "" : navigator.platform;
-  if (/mac/i.test(platform)) return "Mac";
-  if (/win/i.test(platform)) return "Windows";
-  if (/linux/i.test(platform)) return "Linux";
-  return "this device";
+  return readyCore().deviceLabel(typeof navigator === "undefined" ? "" : navigator.platform);
 }

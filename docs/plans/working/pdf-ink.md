@@ -30,24 +30,24 @@ stays a Zotero annotation.
 - Read `docs/building/design.md` §3–4 first. Feature-module shape, dependencies
   inward only, no SDK/HTTP/DOM in `packages/core`.
 - Read before writing:
-  `packages/core/src/reader/reader-annotation.ts` (the annotation model, the
-  sink port), `packages/core/src/reader/ink-stroke.ts` (`clampInkWidth`,
+  `packages/core/src/reader/parts.ts` (the annotation model, the
+  sink port), `packages/core/src/reader/parts.ts` (`clampInkWidth`,
   `inkWidthForPressure`, `INK_DEFAULT_WIDTH`, point caps),
-  `packages/core/src/reader/zotero-write-back.ts` (what R5 syncs — ink is in),
+  `crates/wf-core/src/reader/zotero_sync.rs` (what R5 syncs — ink is in),
   `apps/web/src/features/reader/ui/pdf-reader/pdf-reader.tsx` (`createTool`,
   `createColor`, `canCreate`, the tool `<select>` near line 630, the page loop
   near line 730), `apps/web/src/features/reader/ui/pdf-reader/use-page-pointer.ts`
   (ink capture, `endInkGroup`, the shared `InkPenGate`),
   `apps/web/src/features/reader/ui/annotation-overlay.tsx` (how a stored
   stroke is drawn: `pdf-reader-ink`, `--highlighter`, width in PDF units),
-  `apps/web/src/features/reader/application/draft-local-annotation.ts`,
+  `crates/wf-core/src/reader/annotation_draft.rs` (local drafts),
   `apps/web/src/features/reader/ui/paper-pdf-pane.tsx` (`onAnnotationsChange`,
   the `aside` slot), `apps/web/src/features/ink/ui/ink-bar.tsx` (the ink
   note's tool bar: `INK_BAR_TOOLS`, `nibForTool`, `InkBar`),
-  `packages/core/src/ink/width.ts` (the ink note's nib set),
-  `apps/web/src/features/editor-workspace/application/pane-tree.ts`
+  `packages/core/src/ink/parts.ts` (the ink note's nib set),
+  `crates/wf-core/src/editor_workspace/pane_tree.rs`
   (`splitPane`, `openTab`, `setTabMode`, `DocumentMode`) and
-  `apps/web/src/features/editor-workspace/ui/kind.ts`.
+  `crates/wf-core/src/editor_workspace/kind.rs`.
 - Pure logic goes in `packages/core` with tests under `packages/core/test/`;
   hooks and components in `apps/web`. Nothing over 800 lines
   (`npm run check:hygiene`); split into sibling modules.
@@ -130,10 +130,10 @@ through `onAnnotationsChange` → `IReaderAnnotationSink`, so it:
 What the rail adds is state around creation, not a new record:
 
 - **Nib set** — four widths in PDF points. Match the ink note's feel
-  (`packages/core/src/ink/width.ts` is 0.1 / 0.3 / 0.5 / 0.7 mm): in points
+  (`packages/core/src/ink/parts.ts` is 0.1 / 0.3 / 0.5 / 0.7 mm): in points
   that is 0.28 / 0.85 / 1.42 / 1.98, default 1.42. Add
   `INK_NIB_WIDTHS_PT` next to `clampInkWidth` in
-  `packages/core/src/reader/ink-stroke.ts` and derive it from the ink set
+  `packages/core/src/reader/parts.ts` and derive it from the ink set
   (`mm × 72 / 25.4`), tested, so the two never drift. Highlighter keeps its
   own nib as `ink-bar.tsx` does (`HIGHLIGHTER_NIB`).
 - **Undo / redo** — a stack of `{created: id}` / `{removed: annotation}` over
@@ -151,7 +151,7 @@ What the rail adds is state around creation, not a new record:
 
 - A vault page or ink note whose header carries `paper: <paperId>`
   (frontmatter on a text note; `ink-paper:` header key on an ink note, new in
-  `packages/core/src/ink/ink-note.ts`). Title `Notes — <paper title>`; created
+  `packages/core/src/ink/parts-2.ts`). Title `Notes — <paper title>`; created
   on first request, opened after. `findCompanion(paperId, kind)` on the vault
   indexes the key — no full-body scan per call.
 - Explorer nests companions under the paper (`workspace-tree.ts`): 📝 text,

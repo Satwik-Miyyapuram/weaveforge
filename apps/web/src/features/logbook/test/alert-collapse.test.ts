@@ -4,10 +4,17 @@
  * the top five and a button for the rest.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { collapseAlert } from "../ui/collapse-alert";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
+
+const collapseAlert = (headline: string, rest: string) => readyCore().collapseAlert(headline, rest);
 
 const items = (n: number) => Array.from({ length: n }, (_, i) => `- [Paper ${i + 1}](https://x/${i + 1}) — 2025`);
 const alertRest = (n: number, more = 0) =>
@@ -33,7 +40,7 @@ test("other entries are never collapsed, lists and all", () => {
 
 test("the log card offers Show n more and expands in place", () => {
   const screen = readFileSync(fileURLToPath(new URL("../ui/logbook-screen.tsx", import.meta.url)), "utf8");
-  assert.match(screen, /collapseAlert\(headline, rest\)/);
+  assert.match(screen, /readyCore\(\)\.collapseAlert\(headline, rest\)/);
   assert.match(screen, /Show \{collapsed\.hidden\} more/);
   assert.match(screen, /aria-expanded=\{false\}/);
 });

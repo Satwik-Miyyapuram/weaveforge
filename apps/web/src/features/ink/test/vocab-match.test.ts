@@ -1,11 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  damerauLevenshtein,
-  matchVocabulary,
-  spanDistance,
-} from "../application/vocab-match";
+import { readyCore } from "@/lib/rust-core";
+
+const { damerauLevenshtein, matchVocabulary, spanDistance } = readyCore();
 
 test("damerauLevenshtein counts a transposition as one edit", () => {
   assert.equal(damerauLevenshtein("module", "modlue"), 1);

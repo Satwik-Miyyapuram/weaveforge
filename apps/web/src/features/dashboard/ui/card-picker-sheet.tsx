@@ -1,9 +1,8 @@
 "use client";
 
 import { Modal } from "@/components/modal";
-import { cardsForRole, type CardDef } from "../application/card-registry";
-import type { DashboardCardType } from "@weaveforge/core";
-import type { Role } from "@weaveforge/core";
+import { cardsForRole, type CardDef } from "../application/parts";
+import type { DashboardCardType, Role } from "@weaveforge/core";
 import { RowButton } from "@/components/controls";
 
 export function CardPickerSheet({

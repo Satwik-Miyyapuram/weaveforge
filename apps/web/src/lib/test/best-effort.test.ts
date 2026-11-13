@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { bestEffort } from "../best-effort";
+import { bestEffort } from "../parts";
 import type { AppLogInput } from "../error-report/app-log";
 
 test("a failed best-effort task is logged as a warning, not thrown (13-12)", async () => {

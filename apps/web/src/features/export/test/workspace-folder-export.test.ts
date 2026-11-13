@@ -7,9 +7,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { strFromU8, unzipSync, zipSync } from "fflate";
-import { emptyWorkspaceSnapshot } from "@weaveforge/core/testing";
+import { emptyWorkspaceSnapshot } from "@core-test/workspace-snapshot";
 import { buildWorkspaceFolderFiles } from "../application/export-user-data";
-import { zipToBlob } from "@/lib/blob-output";
+import { zipToBlob } from "@/lib/parts";
 
 const PROJECT = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
 const blob = (text: string) => ({ arrayBuffer: async () => new TextEncoder().encode(text).buffer }) as Blob;

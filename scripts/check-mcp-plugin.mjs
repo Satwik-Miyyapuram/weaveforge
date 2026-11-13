@@ -4,14 +4,14 @@
  *
  * Pins two bugs found by hand: an unimplemented method got no reply (the client
  * waits forever), and one unparseable line killed the process mid-session.
- * Forwarding to a running app is covered by apps/desktop/test/mcp-bridge.test.ts.
+ * Forwarding to a running app is covered by the tests in apps/shell/src/local_http/mcp.rs.
  */
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { listedTools } from "../apps/desktop/src/local-mcp.ts";
+import { workspaceMcpTools } from "./lib/repo-stats.mjs";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const server = join(root, "plugins/weaveforge-research/mcp-server/index.mjs");
@@ -24,7 +24,8 @@ for (const file of ["plugins/weaveforge-research/.claude-plugin/plugin.json", "p
 // A fresh home: no token, and the tool list Connect would have cached.
 const home = mkdtempSync(join(tmpdir(), "wf-mcp-check-"));
 mkdirSync(join(home, ".weaveforge", "mcp"), { recursive: true });
-const tools = listedTools(true);
+// Names and descriptions come from the Rust tool list; the schema stands in for the real one.
+const tools = workspaceMcpTools().map((tool) => ({ ...tool, inputSchema: { type: "object", properties: {} } }));
 writeFileSync(join(home, ".weaveforge", "mcp", "tools.json"), JSON.stringify({ tools }));
 
 const child = spawn(process.execPath, [server], {

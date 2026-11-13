@@ -4,20 +4,22 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { PostgrestAiProposalStore } from "@/features/ai-assistant/infrastructure/postgrest-ai-proposal-store";
+import { rustAiStores } from "@/backend/providers/postgrest/rust-repository";
 
 function fakeDb(result: { data: unknown; error: unknown }) {
   const calls: { op: string; args: unknown[] }[] = [];
   const chain = {
     update: (...args: unknown[]) => { calls.push({ op: "update", args }); return chain; },
     eq: (...args: unknown[]) => { calls.push({ op: "eq", args }); return chain; },
-    select: (...args: unknown[]) => { calls.push({ op: "select", args }); return Promise.resolve(result); },
+    select: (...args: unknown[]) => { calls.push({ op: "select", args }); return chain; },
+    then: (resolve: (r: unknown) => unknown, reject: (e: unknown) => unknown) => Promise.resolve(result).then(resolve, reject),
   };
   const db = { from: (table: string) => { calls.push({ op: "from", args: [table] }); return chain; } };
   return { db: db as never, calls };
 }
 
-const store = (db: never) => new PostgrestAiProposalStore(db, { requireUserId: async () => "u1" } as never, () => "p1");
+const store = (db: never) =>
+  rustAiStores(db, { projectId: "p1" }, { getCurrentUserId: async () => "u1", requireUserId: async () => "u1" } as never).proposals;
 
 test("claimPending moves only a pending row to executing", async () => {
   const { db, calls } = fakeDb({ data: [{ id: "a" }], error: null });

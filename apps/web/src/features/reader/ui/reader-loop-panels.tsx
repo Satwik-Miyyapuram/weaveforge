@@ -1,6 +1,6 @@
 "use client";
 
-import type { ActivityLogEntry } from "../application/batch-annotation-ops";
+import type { ActivityLogEntry } from "../application/parts";
 import { Button } from "@/components/button";
 
 interface ActivityCenterProps {

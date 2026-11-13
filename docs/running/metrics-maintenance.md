@@ -11,7 +11,7 @@ only does anything if something runs it.**
 | `0115` | Packs settled points into arrays in `experiment_metric_chunks` — 132 → 21 bytes/point | **no** |
 | `0115` | `experiment_metrics_rollup()` moves rows into chunks | **no** |
 
-Also: `apps/web/src/app/api/sdk/metrics/route.ts` thins a series on the way in
+Also: `apps/relay/server/src/sdk_metrics.rs` thins a series on the way in
 (Fix C: every point below step 10 000, then a sampling rate that halves once per
 octave), so the *stored* point count is logarithmic in run length. That is the
 ingest path. A writer that talks to PostgREST directly — the Python SDK's

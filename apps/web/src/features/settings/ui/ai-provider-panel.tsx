@@ -11,7 +11,7 @@ import {
   rememberActiveProvider,
   restoreActiveProvider,
   setActiveProvider,
-} from "@/features/ai-assistant/application/ai-provider-session";
+} from "@/features/ai-assistant/application/parts";
 import { getContainer } from "@/bootstrap";
 import { PROVIDER_PRESETS, type ProviderApi } from "@/container/facades";
 import { FormError } from "@/components/form-error";
@@ -243,6 +243,7 @@ export function AiProviderPanel() {
       <div className="screen-actions">
         <Button
           disabled={testing || !ready}
+          title={testing ? "Testing…" : !ready ? "Enter an endpoint and model first, plus an API key unless using Ollama" : undefined}
           onClick={() => void test()}
         >
           {testing ? "Testing…" : active ? "Test and update" : "Test and use"}

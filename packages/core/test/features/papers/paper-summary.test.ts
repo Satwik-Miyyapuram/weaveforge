@@ -4,21 +4,22 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { NO_SUMMARY, isEmptyPaperSummary } from "../../../src/features/papers/domain/paper.js";
+import { NO_SUMMARY } from "../../../src/features/papers/domain/parts.js";
+import { rust } from "../../../src/shared/rust.js";
 
 test("the placeholder is the text old rows were saved with", () => {
   assert.equal(NO_SUMMARY, "No summary yet.");
 });
 
 test("missing, blank and placeholder summaries are empty", () => {
-  assert.equal(isEmptyPaperSummary(undefined), true);
-  assert.equal(isEmptyPaperSummary(null), true);
-  assert.equal(isEmptyPaperSummary(""), true);
-  assert.equal(isEmptyPaperSummary(NO_SUMMARY), true);
+  assert.equal(rust().isEmptyPaperSummary(undefined), true);
+  assert.equal(rust().isEmptyPaperSummary(null), true);
+  assert.equal(rust().isEmptyPaperSummary(""), true);
+  assert.equal(rust().isEmptyPaperSummary(NO_SUMMARY), true);
 });
 
 test("a written summary is not empty, even one that mentions the placeholder", () => {
-  assert.equal(isEmptyPaperSummary("Good paper."), false);
-  assert.equal(isEmptyPaperSummary("No summary yet. Then I wrote one."), false);
-  assert.equal(isEmptyPaperSummary("no summary yet."), false);
+  assert.equal(rust().isEmptyPaperSummary("Good paper."), false);
+  assert.equal(rust().isEmptyPaperSummary("No summary yet. Then I wrote one."), false);
+  assert.equal(rust().isEmptyPaperSummary("no summary yet."), false);
 });

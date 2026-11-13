@@ -15,7 +15,8 @@
 import { useEffect, useState, type ReactNode, type RefObject } from "react";
 
 import { MenuItemButton } from "@/components/controls";
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { readyCore } from "@/lib/rust-core";
+import { isMacPlatform } from "@/lib/parts";
 
 export const FOLD_STAGES = [
   "zoom",
@@ -95,11 +96,14 @@ export function useToolbarFold(ref: RefObject<HTMLElement | null>) {
   }, [ref]);
 }
 
+/** The bars that fold: the Editor's, and a document's own outside it. */
+const TOOLBARS = ".workspace-toolbar, .document-toolbar";
+
 /** The fold of the toolbar `element` sits in, kept current; [] outside one. */
 export function useFoldOf(ref: RefObject<HTMLElement | null>): FoldStage[] {
   const [fold, setFold] = useState("");
   useEffect(() => {
-    const bar = ref.current?.closest<HTMLElement>(".workspace-toolbar");
+    const bar = ref.current?.closest<HTMLElement>(TOOLBARS);
     if (!bar) return;
     const read = () => setFold(bar.dataset.fold ?? "");
     read();
@@ -112,7 +116,7 @@ export function useFoldOf(ref: RefObject<HTMLElement | null>): FoldStage[] {
 
 /** The click on the toolbar's own (hidden) Find, so the reader's search opens in place. */
 export function foldedFind(from: Element | null): (() => void) | undefined {
-  const find = from?.closest(".workspace-toolbar")?.querySelector<HTMLButtonElement>('button[aria-label="Find in document"]');
+  const find = from?.closest(TOOLBARS)?.querySelector<HTMLButtonElement>('button[aria-label="Find in document"]');
   return find && !find.disabled ? () => find.click() : undefined;
 }
 
@@ -151,7 +155,7 @@ export function FoldedItems({
         {has("find") ? (
           <MenuItemButton disabled={!onFind} onClick={onFind ? choose(onFind) : undefined}>
             <span>Find</span>
-            <kbd>{shortcutLabel("⌘F")}</kbd>
+            <kbd>{readyCore().shortcutLabel("⌘F", isMacPlatform())}</kbd>
           </MenuItemButton>
         ) : null}
         {has("insert") ? (

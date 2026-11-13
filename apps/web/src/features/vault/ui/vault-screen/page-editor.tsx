@@ -3,14 +3,12 @@
 import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  extractHashtags,
-  isInkNoteBody,
   type VaultPage,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { deletedMessage, removeLater } from "@/lib/toast";
+import { deletedMessage, removeLater } from "@/lib/toast/index";
+import { readyCore } from "@/lib/rust-core";
 import { noteKey } from "./note-key";
-import { readableText } from "@/lib/page-text";
 import type { EditorHandle } from "@/components/editor-handle";
 import { CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
@@ -23,8 +21,9 @@ import { RelatedPanel } from "@/components/related-panel";
 import { NoteComments, ShareButton, PinnedPaperBadge } from "@/features/sharing";
 import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
-import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
+import { WORKSPACE_PATH } from "@/lib/hooks/parts";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
+import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import { NoteTagEditor } from "./note-tag-editor";
 import { runNoteAction } from "./run-note-action";
 import { RowButton } from "@/components/controls";
@@ -36,7 +35,7 @@ const NOTE_MODES = ["edit", "ink"] as const;
 type NoteMode = (typeof NOTE_MODES)[number] | "read";
 
 /** A handwritten note opens on its sheet, any other in Text. */
-const openMode = (body: string): NoteMode => (isInkNoteBody(body) ? "ink" : "edit");
+const openMode = (body: string): NoteMode => (readyCore().isInkNoteBody(body) ? "ink" : "edit");
 
 export function PageEditor({
   page,
@@ -106,13 +105,15 @@ export function PageEditor({
   // A handwritten note keeps its ink header and page markers in the body. Its
   // three modes are the Editor's, drawn by the Editor's own document host:
   // Edit the source, Read the sheet with the pen down, Ink the ink surface.
-  const ink = isInkNoteBody(page.body);
-  const readBody = useMemo(() => readableText(page.body), [page.body]);
+  const ink = readyCore().isInkNoteBody(page.body);
+  const readBody = useMemo(() => readyCore().readableText(page.body), [page.body]);
   const canEditBody = !readOnly;
   const canEditTitle = canEditBody && !ink && !sharedPage;
   const view: NoteMode = canEditBody ? mode : "read";
   const hasBody = !!readBody.trim();
   const inkFocus = useInkFocus(view === "ink");
+  // While the body can be typed into, an outside edit to this note waits for review.
+  useEffect(() => (view === "read" ? undefined : holdOpenNotes([page.id])), [page.id, view]);
 
   /**
    * Every body write, from any mode — the host saves as it goes, the way it
@@ -180,7 +181,7 @@ export function PageEditor({
 
   const words = wordCount(readBody);
   const wordsLabel = `${words} ${words === 1 ? "word" : "words"}`;
-  const tags = extractHashtags(readBody);
+  const tags = readyCore().extractHashtags(readBody);
   const linksOut = new Set([...readBody.matchAll(/\[\[([^\]|#]+)/g)].map((m) => m[1]!.trim().toLowerCase())).size;
   const edited = recordDate(page.updatedAt);
   const created = recordDate(page.createdAt);

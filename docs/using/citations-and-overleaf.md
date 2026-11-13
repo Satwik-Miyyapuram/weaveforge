@@ -43,7 +43,7 @@ Open a report section. The **Pinned annotations** pane lists those cards:
 
 On a paper note, **Manage** under Custom fields to define project-scoped fields (`text`, `number`, `select`, `multi_select`, `relation`, `rollup`). Values edit inline on the paper and in a reading-list **Table** view.
 
-On **Lists**, toggle **Tree | Table** on a list. The table flattens member papers (including nested sublists), shows selected columns, edits field cells, and can **Copy markdown** / **Copy CSV** for the report.
+On **Lists**, toggle **Tree view | Table view** on a list. The table flattens member papers (including nested sublists), shows selected columns, edits field cells, and can **Copy markdown** / **Copy CSV** for the report.
 
 Relation fields pick other papers in the project. Rollups (`count` / `values` / `sum` / `avg`) are computed and read-only.
 
@@ -106,7 +106,7 @@ On a paper note (needs DOI or arXiv id): **Find related papers** queries Semanti
 
 ## Papers board
 
-Papers layout toggle: **Cards | List | Board**. Board columns are paper status (`to_read`, `reading`, …).
+Papers layout toggle: **Cards | List**.
 
 ---
 

@@ -1,13 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { rust } from "../../../src/shared/rust.js";
 import {
   EMPTY_EXTRACTION,
   LexicalConceptExtractor,
-  conceptKey,
-  mergeExtractions,
   planWikiPages,
   wikiProposalContent,
-  withoutExisting,
   type ExtractionResult,
 } from "../../../src/index.js";
 
@@ -22,7 +20,7 @@ test("hashtags and wikilinks are always kept — the user already committed to t
     documents: [doc("n1", "Note", "Working on #vae and [[Graph Neural Networks]].")],
   });
 
-  const names = result.concepts.map((c) => conceptKey(c.name));
+  const names = result.concepts.map((c) => rust().conceptKey(c.name));
   assert.ok(names.includes("vae"), "a single hashtag still counts");
   assert.ok(names.includes("graph neural networks"));
 });
@@ -126,7 +124,7 @@ test("mentions carry evidence for the review queue", async () => {
     documents: [doc("n1", "N", "The encoder uses #vae tricks throughout the pipeline.")],
   });
 
-  const mention = result.mentions.find((m) => conceptKey(m.conceptName) === "vae");
+  const mention = result.mentions.find((m) => rust().conceptKey(m.conceptName) === "vae");
   assert.ok(mention);
   assert.ok(mention!.evidence.length > 0);
 });
@@ -144,8 +142,8 @@ test("maxConcepts caps the result and prunes orphaned mentions", async () => {
   });
 
   assert.ok(result.concepts.length <= 2);
-  const kept = new Set(result.concepts.map((c) => conceptKey(c.name)));
-  assert.ok(result.mentions.every((m) => kept.has(conceptKey(m.conceptName))));
+  const kept = new Set(result.concepts.map((c) => rust().conceptKey(c.name)));
+  assert.ok(result.mentions.every((m) => kept.has(rust().conceptKey(m.conceptName))));
 });
 
 // ------------------------------------------------ what the kind rules decide
@@ -164,7 +162,7 @@ test("acronyms we know are not all filed as methods", async () => {
   });
 
   const kindOf = (name: string) =>
-    result.concepts.find((c) => conceptKey(c.name) === name)?.kind;
+    result.concepts.find((c) => rust().conceptKey(c.name) === name)?.kind;
 
   assert.equal(kindOf("iclr"), "venue");
   assert.equal(kindOf("neurips"), "venue");
@@ -178,7 +176,7 @@ test("a stated link is classified too, not filed as a bare concept", async () =>
   });
 
   const kindOf = (name: string) =>
-    result.concepts.find((c) => conceptKey(c.name) === name)?.kind;
+    result.concepts.find((c) => rust().conceptKey(c.name) === name)?.kind;
 
   assert.equal(kindOf("imagenet"), "dataset");
   // The tag is lowercased on the way in; the acronym tables are case-insensitive
@@ -194,7 +192,7 @@ test("an ordinary lowercase tag is not mistaken for an acronym", async () => {
   });
 
   const kindOf = (name: string) =>
-    result.concepts.find((c) => conceptKey(c.name) === name)?.kind;
+    result.concepts.find((c) => rust().conceptKey(c.name) === name)?.kind;
 
   assert.equal(kindOf("notes"), "concept");
   assert.equal(kindOf("todo"), "concept");
@@ -209,7 +207,7 @@ test("a wikilink names nothing when it has no target", async () => {
   });
 
   assert.deepEqual(result.concepts, []);
-  assert.ok(!result.mentions.some((m) => conceptKey(m.conceptName) === ""));
+  assert.ok(!result.mentions.some((m) => rust().conceptKey(m.conceptName) === ""));
 });
 
 test("a concept named only by a wikilink still carries evidence", async () => {
@@ -221,7 +219,7 @@ test("a concept named only by a wikilink still carries evidence", async () => {
   });
 
   const mention = result.mentions.find(
-    (m) => conceptKey(m.conceptName) === "graph neural networks",
+    (m) => rust().conceptKey(m.conceptName) === "graph neural networks",
   );
   assert.ok(mention);
   assert.ok(mention!.evidence.length > 0, "a stated concept must not arrive with empty evidence");
@@ -238,7 +236,7 @@ test("one scan still finds the acronym inside a hyphenated phrase", async () => 
     documents: [doc("n1", "N", text), doc("n2", "M", text)],
   });
 
-  const names = result.concepts.map((c) => conceptKey(c.name));
+  const names = result.concepts.map((c) => rust().conceptKey(c.name));
   assert.ok(names.includes("vae"), `expected the acronym; got ${names.join(", ")}`);
   assert.ok(names.includes("vae-based"), "and the phrase it sits in");
 });
@@ -280,7 +278,7 @@ test("a stated tag corrects the name a guess froze first", async () => {
     ],
   });
 
-  const concept = result.concepts.find((c) => conceptKey(c.name) === "transformer");
+  const concept = result.concepts.find((c) => rust().conceptKey(c.name) === "transformer");
   assert.ok(concept);
   assert.equal(concept!.name, "transformer", "the tag's own spelling is the one kept");
 });
@@ -297,7 +295,7 @@ test("a stated tag cannot downgrade a kind a rule recognised", async () => {
     ],
   });
 
-  const concept = result.concepts.find((c) => conceptKey(c.name) === "abc");
+  const concept = result.concepts.find((c) => rust().conceptKey(c.name) === "abc");
   assert.ok(concept);
   assert.equal(concept!.kind, "method");
 });
@@ -314,7 +312,7 @@ test("merging sums mentions and unions aliases", () => {
     mentions: [{ documentId: "n2", conceptName: "vae", evidence: "y" }],
   };
 
-  const merged = mergeExtractions([a, b]);
+  const merged = rust().mergeExtractions([a, b]);
 
   assert.equal(merged.concepts.length, 1, "case differences are the same concept");
   assert.equal(merged.concepts[0]!.mentions, 5);
@@ -323,13 +321,13 @@ test("merging sums mentions and unions aliases", () => {
 });
 
 test("a pending result marks the merge pending, so empty is not read as 'nothing found'", () => {
-  const merged = mergeExtractions([EMPTY_EXTRACTION, { ...EMPTY_EXTRACTION, pending: true }]);
+  const merged = rust().mergeExtractions([EMPTY_EXTRACTION, { ...EMPTY_EXTRACTION, pending: true }]);
 
   assert.equal(merged.pending, true);
 });
 
 test("duplicate mentions of one concept in one document collapse", () => {
-  const merged = mergeExtractions([
+  const merged = rust().mergeExtractions([
     { concepts: [], mentions: [{ documentId: "n1", conceptName: "VAE", evidence: "a" }] },
     { concepts: [], mentions: [{ documentId: "n1", conceptName: "vae", evidence: "b" }] },
   ]);
@@ -436,7 +434,7 @@ test("maxPages bounds a large extraction", () => {
 });
 
 test("withoutExisting prunes mentions along with their concept", () => {
-  const pruned = withoutExisting(extraction, ["VAE"]);
+  const pruned = rust().withoutExisting(extraction, ["VAE"]);
 
   assert.ok(!pruned.concepts.some((c) => c.name === "VAE"));
   assert.ok(!pruned.mentions.some((m) => m.conceptName === "VAE"));

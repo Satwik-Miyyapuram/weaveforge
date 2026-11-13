@@ -3,7 +3,7 @@
 /**
  * What the desktop build adds, and how the web build asks whether it is there.
  *
- * This file is the entire contract between the two. `apps/desktop` implements
+ * This file is the entire contract between the two. `apps/shell` implements
  * it in the Electron main process and exposes it on `window.weaveforge` through
  * a preload script; every feature that can take advantage of it does so through
  * a capability interface with a browser implementation beside it, so nothing in
@@ -37,8 +37,8 @@ export interface DesktopLocalDbState {
 export interface DesktopBridge {
   /** Version of the desktop shell, so a mismatch can be reported rather than crash. */
   readonly version: string;
-  /** The platform, for the few places a keyboard hint differs. */
-  readonly platform: "darwin" | "win32" | "linux";
+  /** The platform, for the few places a keyboard hint or the sign-in return differs. */
+  readonly platform: "darwin" | "win32" | "linux" | "android" | "ios";
 
   /**
    * Reads a page's title without a server round trip.
@@ -65,6 +65,13 @@ export interface DesktopBridge {
   onVaultChange(cb: (paths: string[]) => void): () => void;
 
   /**
+   * Calls back once, with the reason to show, when the watched folder is gone
+   * (renamed, moved or unplugged) and outside changes stop arriving. Absent on
+   * builds that cannot tell.
+   */
+  onVaultWatchLost?(cb: (reason: string) => void): () => void;
+
+  /**
    * Calls back when a provider sign-in returns, with the callback's query
    * string, and answers with the way to stop listening.
    *
@@ -78,6 +85,13 @@ export interface DesktopBridge {
    * back to the page itself.
    */
   onSignIn(cb: (query: string) => void): () => void;
+
+  /**
+   * Whether a sign-in redirect can reach the app. False when another program
+   * holds the loopback port; the sign-in screen then asks the reader to paste
+   * the address the browser was sent to. Absent on builds that cannot tell.
+   */
+  signInListening?(): Promise<boolean>;
 
   /**
    * Whether a newer desktop release exists, or null if not — which covers
@@ -149,6 +163,16 @@ export interface DesktopBridge {
   resetLocalDb(): Promise<void>;
 
   /**
+   * Offline attachment bytes as files in the app's data folder, one per
+   * `(bucket, path)`, so the local database holds only the index. The shell
+   * names each file by a hash of the pair; the page never names a disk path.
+   * Optional: a shell without them keeps the bytes in the database.
+   */
+  readLocalFile?(bucket: string, path: string): Promise<Uint8Array | null>;
+  writeLocalFile?(bucket: string, path: string, bytes: Uint8Array): Promise<void>;
+  removeLocalFile?(bucket: string, path: string): Promise<void>;
+
+  /**
    * The workspace folder on disk: the same markdown the export produces, but
    * live, so an outside editor can open it while the app is running.
    *
@@ -165,9 +189,23 @@ export interface DesktopBridge {
   chooseVaultRoot(): Promise<DesktopVaultRoot | null>;
   /** The folder currently in use, or null when none has been chosen. */
   vaultRoot(): Promise<DesktopVaultRoot | null>;
+  /**
+   * The remembered folder while none is in use (an unplugged drive), or null.
+   * Absent on the Electron shell.
+   */
+  missingVaultRoot?(): Promise<string | null>;
+  /** Try the remembered folder again; rejects with why it still cannot be used. */
+  retryVaultRoot?(): Promise<DesktopVaultRoot | null>;
+  /** Stop using, watching and remembering the folder; answers any warnings. The files stay. */
+  forgetVaultRoot?(): Promise<readonly string[]>;
   /** Read one file, or null when it is not there yet. */
   readVaultFile(path: string): Promise<string | null>;
   writeVaultFile(path: string, contents: string): Promise<void>;
+  /**
+   * Write only while the file still says `expected` (null = still missing);
+   * false = it changed since it was read. Absent on the Electron shell.
+   */
+  writeVaultFileIf?(path: string, contents: string, expected: string | null): Promise<boolean>;
   /** The same pair for bytes (PDFs), which must not pass through a text decode. */
   readVaultBytes(path: string): Promise<Uint8Array | null>;
   writeVaultBytes(path: string, bytes: Uint8Array): Promise<void>;
@@ -187,6 +225,10 @@ export interface DesktopBridge {
   commitVault(): Promise<DesktopCommitResult>;
   /** The folder's own commits, newest first; empty when it has no repository of its own. */
   vaultLog(limit: number): Promise<DesktopCommit[]>;
+  /** The commits that changed one folder file, newest first. Absent on older shells. */
+  vaultFileLog?(path: string, limit: number): Promise<DesktopCommit[]>;
+  /** One folder file's text at a commit; null when missing, too big or not text. Absent on older shells. */
+  vaultReadAt?(oid: string, path: string): Promise<string | null>;
   /**
    * Sync the folder with the git remote set in Settings. The shell reads the
    * URL and token from its own stores; `settings` only reports them (the token
@@ -245,6 +287,12 @@ export interface DesktopBridge {
    */
   mattermostSignIn?(serverUrl: string): Promise<string | null>;
   /**
+   * Opens overleaf.com's login page in a window and answers an Overleaf Workshop
+   * session id once the reader has signed in, or null if they closed it. The
+   * session cookie stays in the shell. Optional: older builds do not have it.
+   */
+  overleafSignIn?(): Promise<string | null>;
+  /**
    * Sends one Mattermost post from the shell, where the server's CORS policy
    * does not apply. Optional: builds before 0.8.9 do not have it.
    */
@@ -262,10 +310,27 @@ export interface DesktopBridge {
       candidates: string[],
     ) => Promise<string[] | null> | string[] | null,
   ): () => void;
+  /** Loads a sentence encoder natively, downloading missing files once. Desktop shell only. */
+  embedLoad?(model: string): Promise<{ dimensions: number }>;
+  /**
+   * Embeds texts with `model`, which `embedLoad` loaded; vectors are unit length.
+   * Rejects with an Error whose `code` is "NOT_LOADED" once the shell dropped it while idle.
+   */
+  embedTexts?(model: string, texts: string[], kind: "passage" | "query"): Promise<number[][]>;
+  /** Drops `model` from the shell now instead of when it goes idle. */
+  embedUnload?(model: string): Promise<void>;
+  /** Model files downloading now, with bytes so far and in all (null when unknown). */
+  modelDownloads?(): Promise<{ file: string; done: number; total: number | null }[]>;
+  /** Stops every model download; each keeps what it has to resume next time. */
+  cancelModelDownloads?(): Promise<void>;
+  /** Model files ready so far, per model, while `embedLoad` runs; returns an unsubscribe. */
+  onEmbedProgress?(listener: (loaded: number, total: number, model: string) => void): () => void;
   compileTex(
     files: readonly { path: string; content: string }[],
     entryFile: string,
   ): Promise<DesktopTexCompileResult>;
+  /** Stops the compiles running now; each answers "The compile was stopped.". */
+  cancelTex?(): Promise<void>;
 
   /**
    * The LaTeX source of one linked Overleaf project, cloned on this machine.
@@ -310,7 +375,7 @@ export interface DesktopBridge {
   inkHaptics(message: DesktopInkHaptics): void;
 
   /**
-   * Focus mode (`⌘⇧F`) at the window's level: on, the menu bar and the
+   * Focus mode (`F11`) at the window's level: on, the menu bar and the
    * title bar go and the window fills the screen; off, they come back. A
    * browser has its own full-screen key and this is a no-op there. Optional
    * because an installed shell may predate it.
@@ -338,12 +403,20 @@ export interface DesktopBridge {
   readAppLog?(): Promise<DesktopAppLog>;
   /** Show the log file in the operating system's file browser. */
   revealAppLog?(): Promise<void>;
+  /** How much space the app's own folders take on this computer. */
+  storageUsage?(): Promise<DesktopStorageArea[]>;
+  /** Empties one of those folders, by its id. */
+  clearStorage?(id: string): Promise<void>;
+  /** Removes the files an experiment saved on this computer, after it is deleted. */
+  deleteLocalArtifacts?(experimentId: string): Promise<void>;
 
   /**
    * The window's menu, for the menu bar the page draws itself.
    *
    * On Windows and Linux the window has no title bar: the page draws one, with
-   * the menu in it, and the window buttons are the system's, drawn over the
+   * the menu in it. The Rust shell's window has no frame, so the page also
+   * draws the window buttons, running the `window:minimize`, `window:maximize`
+   * and `window:close` entries; Electron's are the system's, drawn over the
    * right-hand end. The menu stays in the shell, so its shortcuts work whether
    * or not the bar is showing; `menuModel` is a picture of it, `null` where the
    * shell keeps the native menu bar (macOS), and `invokeMenuItem` runs one
@@ -366,6 +439,15 @@ export interface DesktopBridge {
   setPlanWidget?(on: boolean): Promise<DesktopPlanWidget>;
   /** The theme's colours for the widget, each a `#rrggbb`, keyed as the widget's own CSS variables. */
   setPlanWidgetTheme?(palette: Record<string, string>): void;
+}
+
+/** One of the app's own folders: `artifacts`, `models` or `log`. */
+export interface DesktopStorageArea {
+  id: string;
+  bytes: number;
+  files: number;
+  /** The most the folder may hold before downloads into it are refused; null when uncapped. */
+  limit?: number | null;
 }
 
 /**
@@ -508,6 +590,8 @@ export interface DesktopMcp {
   /** Streamable HTTP endpoint, for clients that take a URL. */
   url: string;
   launch: { command: string; args: string[]; env: Record<string, string> };
+  /** Client configs this start pointed at the app, and those it left alone. Absent when none. */
+  rewrites?: { changed: { file: string; backup?: string }[]; skipped: string[] };
 }
 
 export interface DesktopLocalApi {
@@ -524,7 +608,16 @@ export interface DesktopLocalApi {
   reason?: string;
 }
 
-export type DesktopVaultSyncAction = "settings" | "status" | "connect" | "pull" | "push";
+/** The last three pull again after a conflict, settling each conflicted file the chosen way. */
+export type DesktopVaultSyncAction =
+  | "settings"
+  | "status"
+  | "connect"
+  | "pull"
+  | "push"
+  | "keep-mine"
+  | "take-remote"
+  | "keep-both";
 
 /** Mirrors `GitRemoteStatus`, `GitPullResult` and `GitPushResult` in `@weaveforge/core`. */
 export interface DesktopVaultSync {
@@ -535,7 +628,7 @@ export interface DesktopVaultSync {
     | { kind: "up-to-date" }
     | { kind: "fast-forward"; oid: string }
     | { kind: "merged"; oid: string }
-    | { kind: "conflict"; files: readonly string[] };
+    | { kind: "conflict"; files: string[] };
   push?: { kind: "pushed" } | { kind: "up-to-date" } | { kind: "rejected"; reason: string };
 }
 
@@ -565,6 +658,8 @@ export interface DesktopVaultRoot {
   path: string;
   /** Whether the folder already held a workspace when it was chosen. */
   state: "empty" | "existing";
+  /** Problems that did not undo the pick, such as the folder not being watched. */
+  warnings?: readonly string[];
 }
 
 /** One entry of a folder listing, flattened for the wire. */
@@ -576,7 +671,7 @@ export interface DesktopVaultEntry {
 }
 
 /**
- * The secrets the page may name. Mirrored in `apps/desktop/src/secret-store.ts`
+ * The secrets the page may name. Mirrored in `apps/shell/sidecar/src/secret-store.ts`
  * (`PAGE_WRITABLE`, held equal by its typecheck), which also keeps `local-api-token` for the shell alone, and lets the page
  * write but never read back `overleaf-token` or `git-sync-token`.
  */
@@ -584,7 +679,7 @@ export type DesktopSecretName = "ai-provider" | "overleaf-token" | "git-sync-tok
 
 /**
  * The shell preferences the page may write. Equal to `PAGE_WRITABLE` in
- * `apps/desktop/src/preference-store.ts`; a desktop test holds them equal.
+ * `apps/shell/sidecar/src/preference-store.ts`; a desktop test holds them equal.
  */
 export type DesktopPreferenceName = "vault-git" | "vault-git-remote";
 export type DesktopPreferenceValue = string | boolean | null;

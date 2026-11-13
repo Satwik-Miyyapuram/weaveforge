@@ -1,9 +1,14 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import { sharedPaperAnnotationSummary } from "../application/shared-paper-annotations.js";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 test("sharedPaperAnnotationSummary counts projected annotations", () => {
-  const summary = sharedPaperAnnotationSummary({
+  const summary = readyCore().sharedPaperAnnotationSummary({
     annotations: [
       {
         key: "A1",
@@ -27,5 +32,5 @@ test("sharedPaperAnnotationSummary counts projected annotations", () => {
 });
 
 test("sharedPaperAnnotationSummary handles missing metadata", () => {
-  assert.deepEqual(sharedPaperAnnotationSummary(undefined), { count: 0, samples: [] });
+  assert.deepEqual(readyCore().sharedPaperAnnotationSummary(undefined), { count: 0, samples: [] });
 });

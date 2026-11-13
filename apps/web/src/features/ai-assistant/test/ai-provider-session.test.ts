@@ -10,7 +10,7 @@ import {
   rememberActiveProvider,
   restoreActiveProvider,
   setActiveProvider,
-} from "@/features/ai-assistant/application/ai-provider-session";
+} from "@/features/ai-assistant/application/parts";
 import type { ProviderDescriptor } from "@/features/ai-assistant/infrastructure/byok-model-conversation";
 
 const DESCRIPTOR: ProviderDescriptor = {
@@ -100,7 +100,7 @@ test("listeners are told when the provider changes, and unsubscribe cleanly", ()
  * The desktop keychain path.
  *
  * The bridge is faked because the real one is Electron's `safeStorage`, tested
- * in `apps/desktop`. What matters on this side is that none of it happens
+ * in `apps/shell`. What matters on this side is that none of it happens
  * without a bridge — a browser must behave exactly as it did before any of this
  * existed — and that a stored blob is believed only when it still has the shape
  * this module wrote.

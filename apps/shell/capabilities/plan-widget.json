@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "plan-widget",
+  "description": "Lets the plan widget be dragged by its header.",
+  "windows": ["plan-widget"],
+  "permissions": ["core:window:allow-start-dragging"]
+}

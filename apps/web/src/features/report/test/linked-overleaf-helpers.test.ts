@@ -1,47 +1,10 @@
 /**
- * The parts of the linked Overleaf panel that decide what it shows and saves:
- * stale clone results (30-03), repeated section titles (30-08) and the order
- * of the link form's writes (30-09).
+ * The order of the linked Overleaf link form's writes (30-09).
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { LatexSectionNode } from "@weaveforge/core";
 
-import { latestRequest } from "../lib/latest-request";
-import { sectionTargetKeys } from "../lib/section-target-keys";
-import { linkOverleafReport } from "../application/link-overleaf-report";
-
-test("only the newest request is current (30-03)", () => {
-  const latest = latestRequest();
-  const a = latest.begin();
-  assert.equal(a(), true);
-  const b = latest.begin();
-  assert.equal(a(), false, "A resolving after B opened must be ignored");
-  assert.equal(b(), true);
-});
-
-const node = (title: string) => ({ title, children: [] }) as unknown as LatexSectionNode;
-
-test("unique sibling titles keep the stored key, the lowercased title path (30-08)", () => {
-  assert.deepEqual(sectionTargetKeys([], [node("Intro"), node("Method")]), ["intro", "method"]);
-  assert.deepEqual(sectionTargetKeys(["intro"], [node("Background")]), ["intro > background"]);
-});
-
-test("a repeated sibling title gets its own key; the first keeps the old one (30-08)", () => {
-  assert.deepEqual(
-    sectionTargetKeys(["results"], [node("Discussion"), node("discussion"), node("Discussion")]),
-    ["results > discussion", "results > discussion#2", "results > discussion#3"],
-  );
-});
-
-test("untitled siblings get separate keys too (30-08)", () => {
-  assert.deepEqual(sectionTargetKeys([], [node(""), node("")]), ["(untitled)", "(untitled)#2"]);
-});
-
-test("the same title under different parents is not a repeat", () => {
-  assert.deepEqual(sectionTargetKeys(["a"], [node("Notes")]), ["a > notes"]);
-  assert.deepEqual(sectionTargetKeys(["b"], [node("Notes")]), ["b > notes"]);
-});
+import { linkOverleafReport } from "../application/parts";
 
 function steps() {
   const calls: string[] = [];

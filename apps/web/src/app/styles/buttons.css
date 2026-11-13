@@ -46,3 +46,5 @@ code, pre, .commit-sha { font-family: var(--font-mono); }
 }
 .muted { color: var(--muted); margin: 2px 0; }
 .error { color: var(--danger); }
+/* The Report link after an error message (FormError, InlineError). */
+.error > .wf-link { margin-left: 0.5em; }

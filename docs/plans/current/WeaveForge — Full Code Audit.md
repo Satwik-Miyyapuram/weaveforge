@@ -287,7 +287,7 @@ if inspect.iscoroutinefunction(fn):
 
 ### WF-B10 — Concept classifier labels every 2–6 letter acronym a 'method' — ICLR and MNIST become methods
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** classify() checks /^[A-Z]{2,6}$/ first and returns 'method' before any other rule runs. Venue acronyms (ICLR, ACL, CVPR), dataset acronyms (MNIST, GLUE, COCO) and metric acronyms (BLEU, AUC) all get kind 'method'. The dataset/metric/venue keyword rules below can never fire for acronyms.
 
@@ -303,7 +303,7 @@ if inspect.iscoroutinefunction(fn):
 
 ### WF-B11 — A concept's kind is frozen by whichever mention is seen first — a deliberate #tag cannot correct a guess
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** record() does counts.get(key) ?? { name, kind, ... } — name and kind are set on first insertion and never reconsidered. If 'Transformer' is first harvested as a capitalised-phrase guess and later appears as an explicit #transformer tag (which the module's own comments call a stated, deliberate signal), the tag's kind and casing are discarded.
 
@@ -391,7 +391,7 @@ order by metric, step;
 
 ### WF-P03 — Lexical extractor parses every document twice — hashtags and wikilinks are extracted two times per doc
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** extract() loops over request.documents once to record concepts (calling extractHashtags + extractWikilinks per document), then loops over ALL documents a second time solely to rebuild the set of 'stated' concept keys — calling extractHashtags and extractWikilinks again on the same text. Every regex pass over every document runs twice.
 
@@ -422,7 +422,7 @@ for (const document of request.documents) {
 
 ### WF-P04 — evidenceFor() lowercases the whole document for every single mention
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** evidenceFor(text, needle) begins with text.toLowerCase().indexOf(needle.toLowerCase()). It is called once per recorded mention, and each call allocates a fresh lowercase copy of the entire document and scans it from the start. A 50KB note with 80 mentions allocates ~4MB of throwaway strings and does 80 full scans.
 
@@ -438,7 +438,7 @@ for (const document of request.documents) {
 
 ### WF-P05 — conceptKey() recomputed four times per concept across the extraction pipeline
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** The same normalization is recomputed in record(), in the stated-set builder, in the survivors filter (conceptKey(entry.name)), in the kept-set builder, and per-mention in the final mentions.filter(conceptKey(mention.conceptName)). For M mentions that last filter alone is M extra normalizations of strings whose keys were known when the mention was created.
 
@@ -454,7 +454,7 @@ for (const document of request.documents) {
 
 ### WF-P06 — Two separate full-text regex passes (capitalised phrases, then acronyms) over the same document
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** The phrase loop runs CAPITALISED_PHRASE over the full plain text, then restarts from position 0 with ACRONYM over the same text. Acronyms are also a subset of what the first pattern can match, so many tokens are matched twice and rejected once by the seenInDoc set.
 
@@ -566,7 +566,7 @@ def track(..., container: TrackingContainer | None = None, ...):
 
 ### WF-C03 — LexicalConceptExtractor.extract() does six jobs in one method (SRP)
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** One method strips markdown, harvests stated signals (tags/links), harvests guessed signals (regex phrases), aggregates counts via a captured closure (record), derives the stated-set, filters/ranks, applies the maxConcepts cap, and re-filters mentions. The record closure mutates two collections from four call sites, which is why the merge-policy bug (WF-B11) and the double-parse (WF-P03) could hide in plain sight.
 
@@ -598,7 +598,7 @@ def track(..., container: TrackingContainer | None = None, ...):
 
 ### WF-C05 — The definition of a 'stated' concept lives in two loops that must stay in sync (DRY)
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** 'Stated' (user-authored tag or wikilink) is derived twice: implicitly in the first loop (which records them) and explicitly in the second loop (which rebuilds the set from scratch). Today the second loop trims wikilink targets slightly differently territory: the first loop checks target.trim() truthiness before recording, the second adds conceptKey(link.target) unconditionally — the two derivations already disagree on empty-target links.
 
@@ -614,7 +614,7 @@ def track(..., container: TrackingContainer | None = None, ...):
 
 ### WF-C06 — classify(name, fromTag) — boolean-flag parameter switching between two behaviors
 
-**File:** `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`
+**File:** `packages/core/src/features/ai-assistant/domain/parts.ts`
 
 **Problem:** classify takes fromTag: boolean and branches on it mid-rule-list. A flag argument means the function has two callers wanting two behaviors — the definition of a function doing two things. Call sites read as classify(tag, true) / classify(phrase, false), which is meaningless at a glance.
 
@@ -733,18 +733,18 @@ Every finding below follows one shape: problem, how it was discovered, why it ha
 - `packages/core/src/net/url-safety.ts` — SSRF policy: scheme, port, host, IPv4/IPv6 classification
 - `packages/core/src/features/papers/application/parse-paper-ref.ts` — arXiv/DOI/URL classification of pasted references
 - `packages/core/src/features/papers/application/compute-rollup.ts` — Rollup aggregation over related papers' fields
-- `packages/core/src/features/papers/application/add-paper.use-case.ts` — Dedupe-on-add orchestration
-- `packages/core/src/features/library/application/merge-pinned-screen-data.ts` — Pinned/share merge used by six screens
+- `packages/core/src/features/papers/application/parts-1.ts` — Dedupe-on-add orchestration
+- `packages/core/src/features/library/application/parts.ts` — Pinned/share merge used by six screens
 - `packages/core/src/features/library/application/sync-offer.ts` — One-time offline-sync offer state
 
 #### apps/web — application layer
 
 - `apps/web/src/create-app-container.ts` — Composition root (27 KB)
 - `apps/web/src/bootstrap.ts` — Container lifecycle, lazy loading
-- `apps/web/src/container/facades/papers.ts` — Papers facade (35 methods)
-- `apps/web/src/features/papers/application/load-papers-screen.use-case.ts` — Papers screen load + merge
-- `apps/web/src/features/vault/application/load-vault-screen.use-case.ts` — Vault screen load + tree build
-- `apps/web/src/features/experiments/application/load-experiments-screen.use-case.ts` — Experiments screen load + merge
+- `apps/web/src/container/facades/parts-2.ts` — Papers facade (35 methods)
+- `apps/web/src/features/papers/application/parts-1.ts` — Papers screen load + merge
+- `apps/web/src/features/vault/application/parts.ts` — Vault screen load + tree build
+- `apps/web/src/features/experiments/application/parts.ts` — Experiments screen load + merge
 - `apps/web/src/features/search/application/workspace-search.ts` — Search index lifecycle, staleness, hybrid query
 - `apps/web/src/features/offline-sync/infra/postgrest-transport.ts` — Outbox transport, version guards
 
@@ -755,24 +755,24 @@ Every finding below follows one shape: problem, how it was discovered, why it ha
 - `apps/web/src/backend/net/fetch-for-paste.ts` — Title and image fetch on a user's behalf
 - `apps/web/src/app/api/fetch-url/route.ts` — Authenticated outbound fetch route
 - `apps/web/src/app/api/sdk/_shared.ts` — API token scopes and caller resolution
-- `apps/web/src/lib/cache/project-lww-invalidator.ts` — Realtime LWW cache invalidation
+- `apps/web/src/lib/cache/parts-1.ts` — Realtime LWW cache invalidation
 - `apps/web/src/lib/cache/cache-invalidation-map.ts` — Write → repos/screens invalidation map
-- `apps/web/src/lib/cache/screen-cache.ts` — In-memory screen payload cache
-- `apps/web/src/lib/cache/screen-cache-idb.ts` — Versioned screen payload persistence
-- `apps/web/src/lib/cache/app-idb.ts` — Shared IndexedDB handle for five stores
-- `apps/web/src/container/facades/experiments.ts` — Experiments facade, stale-run reconciliation, artifact signing
-- `apps/web/src/features/collab/application/collab-session.ts` — Collab session contract
+- `apps/web/src/lib/cache/parts-2.ts` — In-memory screen payload cache
+- `apps/web/src/lib/cache/parts-2.ts` — Versioned screen payload persistence
+- `apps/web/src/lib/cache/parts-1.ts` — Shared IndexedDB handle for five stores
+- `apps/web/src/container/facades/parts-1.ts` — Experiments facade, stale-run reconciliation, artifact signing
+- `apps/web/src/features/collab/application/parts.ts` — Collab session contract
 - `apps/web/src/lib/hooks/use-screen-data.ts` — Stale-while-revalidate screen hook
 - `apps/web/src/lib/hooks/use-search-index.ts` — Search index warm-up hook
-- `apps/web/src/lib/hooks/use-submit.ts` — Shared form submit state
+- `apps/web/src/lib/hooks/parts.ts` — Shared form submit state
 - `apps/web/src/lib/markdown-image-refs.ts` — Unresolved image reference stripping
-- `apps/web/src/lib/image-compress.ts` — Client-side image compression
-- `apps/web/src/lib/recent-targets.ts` — Jump-palette recents in localStorage
-- `apps/web/src/lib/screen-for-path.ts` — Pathname → screen id
+- `apps/web/src/lib/parts-1.ts` — Client-side image compression
+- `apps/web/src/lib/parts-2.ts` — Jump-palette recents in localStorage
+- `apps/web/src/lib/parts.ts` — Pathname → screen id
 - `apps/web/src/lib/outbound-fetch.ts` — Browser/desktop outbound fetch seam
-- `apps/web/src/lib/semantic-scholar-fetch.ts` — Shared retry policy for the S2 relay
-- `apps/web/src/lib/perf.ts` — Dev-only timings
-- `apps/web/src/lib/workspace-changes.ts` — Workspace change listener bus
+- `apps/web/src/lib/parts-2.ts` — Shared retry policy for the S2 relay
+- `apps/web/src/lib/parts.ts` — Dev-only timings
+- `apps/web/src/lib/parts.ts` — Workspace change listener bus
 - `apps/web/src/lib/client-runtime-recovery.ts` — Service-worker/cache recovery
 
 #### scripts & tooling
@@ -795,7 +795,7 @@ Every finding below follows one shape: problem, how it was discovered, why it ha
 
 **category:** Bugs & correctness · **area:** apps/web · vault screen · **effort:** S
 
-**files:** `apps/web/src/features/vault/application/load-vault-screen.use-case.ts`, `apps/web/src/features/papers/application/load-papers-screen.use-case.ts`
+**files:** `apps/web/src/features/vault/application/parts.ts`, `apps/web/src/features/papers/application/parts-1.ts`
 
 **problem:**
 
@@ -1130,7 +1130,7 @@ Return `PaperSummary[]` and make the projection method required on `IPaperReposi
 
 **category:** Bugs & correctness · **area:** apps/web · papers facade · **effort:** S
 
-**files:** `apps/web/src/container/facades/papers.ts`
+**files:** `apps/web/src/container/facades/parts-2.ts`
 
 **problem:**
 
@@ -1163,7 +1163,7 @@ private pushWith(client: AnnotationWriteBack, paperId: string) {
 
 **category:** Bugs & correctness · **area:** apps/web · cache invalidation · **effort:** M
 
-**files:** `apps/web/src/create-app-container.ts`, `apps/web/src/lib/cache/project-lww-invalidator.ts:118-160`
+**files:** `apps/web/src/create-app-container.ts`, `apps/web/src/lib/cache/parts-1.ts:118-160`
 
 **problem:**
 
@@ -1493,7 +1493,7 @@ void getContainer().search.ensure()
 
 **category:** Bugs & correctness · **area:** apps/web · lib · **effort:** S
 
-**files:** `apps/web/src/lib/recent-targets.ts`
+**files:** `apps/web/src/lib/parts-2.ts`
 
 **problem:**
 
@@ -1524,7 +1524,7 @@ return next;
 
 **category:** Bugs & correctness · **area:** apps/web · experiments facade · **effort:** M
 
-**files:** `apps/web/src/container/facades/experiments.ts`
+**files:** `apps/web/src/container/facades/parts-1.ts`
 
 **problem:**
 
@@ -1833,7 +1833,7 @@ return body.replace(re, (whole, path) => (urls.has(path) ? whole : ''));
 
 **category:** Speed · **area:** packages/core · library · **effort:** S
 
-**files:** `packages/core/src/features/library/application/merge-pinned-screen-data.ts`
+**files:** `packages/core/src/features/library/application/parts.ts`
 
 **problem:**
 
@@ -2025,7 +2025,7 @@ function adminClient() {
 
 **category:** Speed · **area:** apps/web · nav · **effort:** S
 
-**files:** `apps/web/src/lib/screen-for-path.ts`
+**files:** `apps/web/src/lib/parts.ts`
 
 **problem:**
 
@@ -2093,7 +2093,7 @@ const found = extractPageTitle(end >= 0 ? head.slice(0, end + 7) : head);
 
 **category:** Speed · **area:** apps/web · image pipeline · **effort:** S
 
-**files:** `apps/web/src/lib/image-compress.ts`
+**files:** `apps/web/src/lib/parts-1.ts`
 
 **problem:**
 
@@ -2159,7 +2159,7 @@ async listStamps(since?: string): Promise<EntityStamp[]> {
 
 **category:** Speed · **area:** apps/web · experiments facade · **effort:** S
 
-**files:** `apps/web/src/container/facades/experiments.ts`
+**files:** `apps/web/src/container/facades/parts-1.ts`
 
 **problem:**
 
@@ -2194,7 +2194,7 @@ A ten-line `mapLimit` in core is enough; it is the same helper the Python SDK wa
 
 **category:** Space & memory · **area:** apps/web · cache invalidation · **effort:** M
 
-**files:** `apps/web/src/lib/cache/project-lww-invalidator.ts`
+**files:** `apps/web/src/lib/cache/parts-1.ts`
 
 **problem:**
 
@@ -2268,7 +2268,7 @@ Have the settings screen pass the snapshot's docs back in when the user enables 
 
 **category:** Space & memory · **area:** apps/web · cache invalidation · **effort:** S
 
-**files:** `apps/web/src/lib/cache/project-lww-invalidator.ts`
+**files:** `apps/web/src/lib/cache/parts-1.ts`
 
 **problem:**
 
@@ -2327,7 +2327,7 @@ For the image route, stream instead of buffering at all (SEC-06).
 
 **category:** Space & memory · **area:** apps/web · screen cache · **effort:** S
 
-**files:** `apps/web/src/lib/cache/screen-cache.ts`
+**files:** `apps/web/src/lib/cache/parts-2.ts`
 
 **problem:**
 
@@ -2364,7 +2364,7 @@ Then a per-key `deleteScreenCache` and a size cap both become one-line additions
 
 **category:** Space & memory · **area:** apps/web · IndexedDB layer · **effort:** S
 
-**files:** `apps/web/src/lib/cache/app-idb.ts`, `apps/web/src/lib/cache/screen-cache-idb.ts`
+**files:** `apps/web/src/lib/cache/parts-1.ts`, `apps/web/src/lib/cache/parts-2.ts`
 
 **problem:**
 
@@ -2438,7 +2438,7 @@ export function closeAppDb(): void {
 
 **category:** SOLID / DRY / clean code · **area:** apps/web · screen use-cases · **effort:** M
 
-**files:** `apps/web/src/features/papers/application/load-papers-screen.use-case.ts`, `apps/web/src/features/vault/application/load-vault-screen.use-case.ts`, `apps/web/src/features/experiments/application/load-experiments-screen.use-case.ts`, `apps/web/src/features/{report,plan,reading-lists}/application/load-*-screen.use-case.ts`
+**files:** `apps/web/src/features/papers/application/parts-1.ts`, `apps/web/src/features/vault/application/parts.ts`, `apps/web/src/features/experiments/application/parts.ts`, `apps/web/src/features/{report,plan,reading-lists}/application/load-*-screen.use-case.ts`
 
 **problem:**
 
@@ -2478,7 +2478,7 @@ Each `Load*ScreenUseCase` then becomes a projection over that result, and the co
 
 **category:** SOLID / DRY / clean code · **area:** packages/core · repository contracts · **effort:** M
 
-**files:** `apps/web/src/features/papers/application/load-papers-screen.use-case.ts`, `apps/web/src/features/vault/application/load-vault-screen.use-case.ts`, `apps/web/src/create-app-container.ts`
+**files:** `apps/web/src/features/papers/application/parts-1.ts`, `apps/web/src/features/vault/application/parts.ts`, `apps/web/src/create-app-container.ts`
 
 **problem:**
 
@@ -2514,7 +2514,7 @@ Update the in-memory fake and the contract test suite, then run `npm run check:s
 
 **category:** SOLID / DRY / clean code · **area:** apps/web · facades · **effort:** L
 
-**files:** `apps/web/src/container/facades/papers.ts`
+**files:** `apps/web/src/container/facades/parts-2.ts`
 
 **problem:**
 
@@ -2553,7 +2553,7 @@ The container keeps `papers: papersModule(deps)` so no call site changes its imp
 
 **category:** SOLID / DRY / clean code · **area:** apps/web · facades and use-cases · **effort:** S
 
-**files:** `apps/web/src/container/facades/papers.ts`, `apps/web/src/container/facades/experiments.ts`, `apps/web/src/features/experiments/application/load-experiments-screen.use-case.ts`, `apps/web/src/features/search/application/workspace-search.ts`
+**files:** `apps/web/src/container/facades/parts-2.ts`, `apps/web/src/container/facades/parts-1.ts`, `apps/web/src/features/experiments/application/parts.ts`, `apps/web/src/features/search/application/workspace-search.ts`
 
 **problem:**
 
@@ -2583,7 +2583,7 @@ Hoist them to a single `import type { … } from "@weaveforge/core"` at the top 
 
 **category:** SOLID / DRY / clean code · **area:** apps/web · facades · **effort:** S
 
-**files:** `apps/web/src/container/facades/papers.ts`
+**files:** `apps/web/src/container/facades/parts-2.ts`
 
 **problem:**
 
@@ -2615,7 +2615,7 @@ fetchImageBlobs(paths: readonly string[]) {
 
 **category:** SOLID / DRY / clean code · **area:** apps/web · facades · **effort:** M
 
-**files:** `apps/web/src/container/facades/papers.ts`
+**files:** `apps/web/src/container/facades/parts-2.ts`
 
 **problem:**
 
@@ -2692,7 +2692,7 @@ findByDoi(doi: string) { const d = normalizeDoi(doi); return d ? this.findBy('do
 
 **category:** SOLID / DRY / clean code · **area:** apps/web · composition root + facade · **effort:** S
 
-**files:** `apps/web/src/container/facades/papers.ts`, `apps/web/src/create-app-container.ts`
+**files:** `apps/web/src/container/facades/parts-2.ts`, `apps/web/src/create-app-container.ts`
 
 **problem:**
 
@@ -2711,7 +2711,7 @@ Rules in the composition root cannot be unit-tested without constructing a conta
 Put the rule in core and inject it twice:
 
 ```ts
-// packages/core/src/features/papers/application/push-paper-to-zotero.use-case.ts
+// packages/core/src/features/papers/application/parts-1.ts
 export class PushPaperToZoteroUseCase {
   constructor(private readonly deps: { bibliography: IBibliographyIntegration; papers: IPaperRepository }) {}
   async execute(paper: Paper): Promise<string | null> {
@@ -2826,7 +2826,7 @@ Extract, keeping the class as the lifecycle owner:
 
 **category:** SOLID / DRY / clean code · **area:** apps/web · nav + cache · **effort:** S
 
-**files:** `apps/web/src/lib/screen-for-path.ts`, `apps/web/src/lib/cache/cache-invalidation-map.ts`
+**files:** `apps/web/src/lib/parts.ts`, `apps/web/src/lib/cache/cache-invalidation-map.ts`
 
 **problem:**
 
@@ -2951,7 +2951,7 @@ class RunFinaliser:
 
 **category:** SOLID / DRY / clean code · **area:** apps/web · screen cache · **effort:** S
 
-**files:** `apps/web/src/lib/cache/screen-cache.ts`, `apps/web/src/lib/cache/screen-cache-idb.ts`
+**files:** `apps/web/src/lib/cache/parts-2.ts`, `apps/web/src/lib/cache/parts-2.ts`
 
 **problem:**
 
@@ -3043,7 +3043,7 @@ Guardrails. Every fix above is one refactor away from coming back unless a gate 
 - `packages/core/src/net/url-safety.ts` — IPv6 expansion is written out rather than pattern-matched, precisely because `URL` normalises `[::ffff:127.0.0.1]` to `::ffff:7f00:1` — and the v4-mapped branch then defers to the IPv4 rules. NAT64, 6to4, ULA, link-local and documentation ranges are all refused.
 - `apps/web/src/backend/net/safe-fetch.ts` — `redirect: "manual"` with a re-check per hop, a wall-clock budget carried across hops, and `reader.cancel()` on the over-cap path so the connection does not stay open pulling bytes nobody reads.
 - `packages/core/src/features/papers/application/compute-rollup.ts` — First-value-wins indexing, `Number.isFinite` filtering before sum/average, and an explicit loop instead of `push(...value)` to avoid a stack overflow on a six-figure relation.
-- `apps/web/src/lib/workspace-changes.ts` — A deliberately tiny listener bus: iterates a copy, isolates listener failures from the write that triggered them, and exposes a reset for tests.
-- `apps/web/src/lib/semantic-scholar-fetch.ts` — Retry policy that distinguishes a throttled answer from an ambiguous `TypeError`, and only retries the latter in a browser — with the original error preserved for the caller.
-- `apps/web/src/lib/hooks/use-submit.ts` — One submit shape for every form: throwing is how a form reports a validation failure, and `finally` guarantees the button never sticks on "Saving…".
+- `apps/web/src/lib/parts.ts` — A deliberately tiny listener bus: iterates a copy, isolates listener failures from the write that triggered them, and exposes a reset for tests.
+- `apps/web/src/lib/parts-2.ts` — Retry policy that distinguishes a throttled answer from an ambiguous `TypeError`, and only retries the latter in a browser — with the original error preserved for the caller.
+- `apps/web/src/lib/hooks/parts.ts` — One submit shape for every form: throwing is how a form reports a validation failure, and `finally` guarantees the button never sticks on "Saving…".
 - `apps/web/src/features/papers/infrastructure/supabase-paper-repository.ts` — `created_at` + `id` as a total order, with the comment explaining why a tie reshuffled cards between grid columns. That reasoning is correct and should survive any refactor of `list`.

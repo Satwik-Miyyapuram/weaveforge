@@ -15,8 +15,10 @@
  * Supervisees:  e@example.com, f@example.com — milestones + logbook (for c's /supervision)
  * Empty:        g@example.com — one empty showcase project (empty states)
  *
- * The dataset and the seeder are shared with the desktop app's
- * "Load demo workspace" button: apps/web/src/features/showcase.
+ * The dataset and the seeder are the Rust `showcase_seed` repo
+ * (crates/wf-core/src/repos/showcase_seed.rs), shared with the app's
+ * "Load demo workspace" button. This script loads the wasm core from
+ * packages/wf-wasm/pkg, so run `npm run build:wasm` first after Rust changes.
  *
  * Rows go to the data API (NEXT_PUBLIC_DATA_URL — the OCI PostgREST — or
  * Supabase when unset) with the service role. Files go through the deployed
@@ -40,12 +42,8 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { ensureShowcaseAssets, loadShowcaseChart, seedBlobStore } from "./lib/showcase-images.mjs";
-import {
-  resetShowcaseProject,
-  seedCollabShowcase,
-  seedShowcase,
-  seedSuperviseeShowcase,
-} from "../apps/web/src/features/showcase/infrastructure/seed-showcase.ts";
+import { loadCore } from "../apps/web/src/lib/rust-core.ts";
+import { rustRepository } from "../apps/web/src/backend/providers/postgrest/rust-repository.ts";
 import { createRecordingDb } from "../apps/web/src/features/showcase/infrastructure/recording-db.ts";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -153,15 +151,31 @@ function dryTarget() {
   };
 }
 
+/** The Rust seeder, run against `db`. */
+function showcaseRepo(db) {
+  return rustRepository(db, "showcase_seed", ["chartKinds", "seed", "seedSupervisee", "resetProject", "seedCollab"]);
+}
+
 async function main() {
   const target = dryRun ? dryTarget() : liveTarget();
   if (!dryRun) ensureShowcaseAssets();
+  await loadCore(readFileSync(resolve(__dir, "../packages/wf-wasm/pkg/wf_wasm_bg.wasm")));
   const { db } = target;
+  const repo = showcaseRepo(db);
   const log = (line) => console.log(`  ${line}`);
 
   console.log(`Seeding ${USERS.phd} …`);
   const phd = await target.userId(USERS.phd);
-  const seeded = await seedShowcase({ db, userId: phd, store: await target.store(USERS.phd), chart: target.chart, log });
+  const charts = {};
+  for (const kind of await repo.chartKinds()) {
+    charts[kind] = Buffer.from(await target.chart(kind)).toString("base64");
+  }
+  const seeded = await repo.seed({ userId: phd, charts });
+  const store = await target.store(USERS.phd);
+  for (const upload of seeded.uploads) {
+    await store.upload(upload.bucket, upload.path, Buffer.from(upload.base64, "base64"), "image/png");
+  }
+  for (const [kind, n] of Object.entries(seeded.counts)) log(`${kind}: ${n}`);
 
   for (const [label, email] of [
     ["PhD D", USERS.peer],
@@ -169,20 +183,18 @@ async function main() {
     ["Masters F", USERS.mastersF],
   ]) {
     console.log(`Seeding ${email} …`);
-    await seedSuperviseeShowcase({ db, userId: await target.userId(email), label, log });
+    log(`project → ${await repo.seedSupervisee(await target.userId(email), label)}`);
   }
 
   console.log(`Seeding ${USERS.empty} …`);
-  log(`project ${EMPTY_PROJECT} → ${await resetShowcaseProject(db, await target.userId(USERS.empty), EMPTY_PROJECT)}`);
+  log(`project ${EMPTY_PROJECT} → ${await repo.resetProject(await target.userId(USERS.empty), EMPTY_PROJECT)}`);
 
   console.log(`Seeding supervision and sharing (${USERS.supervisor}, ${USERS.phd}, ${USERS.peer}) …`);
-  await seedCollabShowcase({
-    db,
+  await repo.seedCollab({
     researcherId: phd,
     supervisorId: await target.userId(USERS.supervisor),
     peerId: await target.userId(USERS.peer),
     seeded,
-    log,
   });
 
   target.report();

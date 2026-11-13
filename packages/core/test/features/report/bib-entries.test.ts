@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseBibEntries } from "../../../src/features/report/domain/bib-entries.js";
+import * as wasm from "../../../../wf-wasm/src/index.ts";
+
+// Their TypeScript was removed; the Rust core is the implementation.
+const { parseBibEntries } = wasm;
 
 const bib = (content: string) => [{ path: "refs.bib", content }];
 

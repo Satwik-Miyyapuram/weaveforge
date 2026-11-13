@@ -1,5 +1,6 @@
 import { logToApp } from "@/lib/error-report/app-log";
-import { emptyIntegration, type Integration, type SyncProvider } from "../domain/integration";
+import { readyCore } from "@/lib/rust-core";
+import { type Integration, type SyncProvider } from "../domain/parts";
 
 /**
  * The project's connections, one per provider, or none with a reason.
@@ -14,7 +15,7 @@ export async function loadIntegrations(
   try {
     const loaded = await Promise.all(providers.map((provider) => get(provider)));
     const items = Object.fromEntries(
-      providers.map((provider, i) => [provider, loaded[i] ?? emptyIntegration(provider)]),
+      providers.map((provider, i) => [provider, loaded[i] ?? readyCore().emptyIntegration(provider)]),
     ) as Record<string, Integration>;
     return { items, error: null };
   } catch (err) {

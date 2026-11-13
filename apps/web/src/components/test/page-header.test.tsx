@@ -35,8 +35,8 @@ test("no screen restyles or hides its title (DA-50)", () => {
 
 test("every list screen opens on the page header (DA-50)", () => {
   const root = fileURLToPath(new URL("../../features", import.meta.url));
-  // Record pages and the reader open on the item's own title instead.
-  const own = /experiment-detail-screen|reader-screen/;
+  // Record pages, the reader and an Overleaf project tab open on the item's own title or editor instead.
+  const own = /experiment-detail-screen|reader-screen|overleaf-sidebar/;
   const missing = filesUnder(root)
     .filter((f) => /className=["{`]+screen /.test(readFileSync(f, "utf8")) && !own.test(f))
     .filter((f) => !readFileSync(f, "utf8").includes("<ScreenHead"));

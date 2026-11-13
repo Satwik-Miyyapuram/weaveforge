@@ -5,7 +5,7 @@ import type {
   ReadingListItem,
   ScreenItemsUseCase,
 } from "@weaveforge/core";
-import type { LoadReadingListsScreenUseCase, ReadingListsScreenData } from "@/features/reading-lists/application/load-reading-lists-screen.use-case";
+import type { LoadReadingListsScreenUseCase, ReadingListsScreenData } from "@/features/reading-lists/application/parts";
 
 export class ReadingListsFacade {
   constructor(

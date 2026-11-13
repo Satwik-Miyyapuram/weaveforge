@@ -80,10 +80,19 @@ The desktop app can serve the folder over HTTP, on this machine only, using the
 same routes as Obsidian's local REST API — so tools already written for that
 work against a WeaveForge folder without being changed.
 
-It is off until you switch it on, in Settings → Workspace. Switching it on issues
-a token and shows it once; every request needs it, and nothing shows it again.
-Switching the surface off throws the token away, so turning it back on issues a
-new one and the old one stops working.
+It is off until you switch it on: Settings → Account → **Access tokens**, switch
+**Let programs on this computer connect**, then **Turn on** in the dialog. Every
+request needs a token. A token is shown once when you create it, and nothing
+shows it again.
+
+Each token carries its own permissions: **Experiments** (the Python SDK),
+**Read and search Notes**, **Write and delete Notes**, and the AI client pair.
+A new token starts with Experiments only. The `/vault/` routes need a Notes
+permission; a token without one gets `403`, and a request with no token gets
+`401`. **Revoke** asks first, because scripts using that token stop working.
+You can create up to 5 tokens. Switching the surface off keeps your tokens, so
+they work again when you turn it back on. Switching it on does not issue a new
+token.
 
 What is served: reading, writing, deleting and listing files under `/vault/`,
 `POST /search/simple/?query=...`, and an MCP server at `/mcp` for agents

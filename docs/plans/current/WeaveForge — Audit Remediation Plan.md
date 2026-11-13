@@ -194,7 +194,7 @@ One change to `python/weaveforge/tracking.py`, because all thirteen findings are
 ### 1.4 The experiments screen must not write on load — `BUG-20`, `PERF-10`
 - Split `reconcileAndLoad` into a pure read and a single-flight `reconcileStaleRuns`, called from a scheduler rather than from `loadScreenData`.
 - **Filter to runs this user owns before writing any status.** Reconciliation currently walks the merged list, which includes other users' shared runs, and persists `abandoned` with no ownership check. This is the most serious finding in the audit's web half and the audit does not mention it.
-- Bound the fan-out (upload and status writes) with the concurrency mapper that already exists privately in `apps/web/src/features/papers/infrastructure/zotero-web-api.ts` — export it rather than writing a second copy, and apply it to the same unbounded pattern in `container/facades/report.ts` and `container/facades/papers.ts`.
+- Bound the fan-out (upload and status writes) with the concurrency mapper that already exists privately in `apps/web/src/features/papers/infrastructure/parts-3.ts` — export it rather than writing a second copy, and apply it to the same unbounded pattern in `container/facades/report.ts` and `container/facades/papers.ts`.
 - Test: `experiments-facade.test.ts` from 0.3 — two concurrent calls produce one batch of writes; a shared run owned by someone else is never written.
 
 ### 1.5 Zotero preview and live push must send the same set — `BUG-09`
@@ -228,7 +228,7 @@ One change to `python/weaveforge/tracking.py`, because all thirteen findings are
 - Tests must assert the *primitive* (`isPublicAddress("010.0.0.1")`) — asserting `checkUrlShape("http://010.0.0.1/")` is refused would be asserting something false.
 
 ### 1.12 Two small leaks
-- `apps/web/src/lib/recent-targets.ts`: guard the `setItem`. One caller is a navigation handler, so today a full disk aborts the navigation; the other three throw inside effects.
+- `apps/web/src/lib/parts-2.ts`: guard the `setItem`. One caller is a navigation handler, so today a full disk aborts the navigation; the other three throw inside effects.
 - `apps/web/src/backend/net/safe-fetch.ts`: cancel the response body on the non-OK path, as the redirect path already does. Every 403/404/5xx currently holds the socket.
 
 ### 1.13 Session reset must invalidate the search index — *audit missed*
@@ -248,7 +248,7 @@ One change to `python/weaveforge/tracking.py`, because all thirteen findings are
 
 **Goal:** one rewrite of a 131-line pure module that closes **nine** findings. This is the highest finding-per-line ratio in the audit, and the audit's own decomposition is close to right.
 
-`packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts` — refactor into pure stages with explicit data flow, then fix the rules.
+`packages/core/src/features/ai-assistant/domain/parts.ts` — refactor into pure stages with explicit data flow, then fix the rules.
 
 - **Decompose (`WF-C03`).** `harvestStated(doc)`, `harvestGuessed(plain)`, `mergeMentions(all)` owning the merge policy, `rankAndLimit(concepts, max)`, `projectMentions(kept)`. `extract()` becomes composition. The `record` closure currently mutates two collections from three call sites, which is how the merge-policy bug and the double parse hid.
 - **One pass (`WF-P03`, `WF-C05`).** Collect `stated` keys at the point of recording; delete the second loop over every document. The two derivations already disagree on empty wikilink targets (`[[#Heading]]`), today inertly.
@@ -360,7 +360,7 @@ One change to `python/weaveforge/tracking.py`, because all thirteen findings are
 - **`ARCH-04` lint rule** plus widening the gate root to `container/**`.
 - **CI bundle budget** — the only survivor of `WF-P07`. `@next/bundle-analyzer` is already a devDependency; the analysis is manual today.
 - **`SEC-05` / `WF-B09` — close the check-to-connect window.** Same finding twice in the audit. It needs a transport change, not the two-line agent patch: `undici` is not a dependency (only `undici-types`), and the module is shared with the Electron main process where a `dispatcher` is not guaranteed. Either add `undici` and scope the pinned agent to the server path, or switch this one call to `node:https.request({ lookup, servername })`. Update `docs/SECURITY.md`'s "known residual risk" section, and add an injectable connect seam so a test can prove the pinned address — the current `stubFetch` stubs global fetch, so it cannot.
-- **`SEC-06` — per-user rate limit and streaming** for `/api/fetch-url?as=image`. No limiter exists anywhere in TypeScript (the only one is a SQL function for share links). `auth.userId` is server-verified, so a per-user bucket is sound; the bucket is per-process, and the compose file declares no replicas. The streaming variant costs the exact `Content-Length` header and the client still buffers, so it only removes the server-side copy — worth stating in the commit. `apps/web/src/lib/cache/single-flight.ts` already exists and collapses duplicate pastes more cheaply than a bucket. A route test is mandatory (`check:api-route-tests`).
+- **`SEC-06` — per-user rate limit and streaming** for `/api/fetch-url?as=image`. No limiter exists anywhere in TypeScript (the only one is a SQL function for share links). `auth.userId` is server-verified, so a per-user bucket is sound; the bucket is per-process, and the compose file declares no replicas. The streaming variant costs the exact `Content-Length` header and the client still buffers, so it only removes the server-side copy — worth stating in the commit. `apps/web/src/lib/cache/parts.ts` already exists and collapses duplicate pastes more cheaply than a bucket. A route test is mandatory (`check:api-route-tests`).
 - **`SEC-02` operator allowlist** — the env-driven escape hatch, at the app boundary rather than in the I/O-free core package.
 - **`BUG-18` / `BUG-02` leftovers** — land as clarity if not already covered; neither changes behaviour.
 - **Docs corrections.** `README.md`'s claim that no migration removes the E2EE tables is false; `db/migrations/README.md`'s table stops at `0094` while the chain runs past `0130`; the metric repository's docstring calls a view "the curve table (migration 0016)"; `_shared.ts` cites the wrong migration numbers. Four small corrections that otherwise send the next reader down the same wrong path this audit took.
@@ -499,7 +499,7 @@ Known gaps after Phase 1, recorded rather than hidden: the Zotero push rule and 
 
 ### Phase 2 — what landed
 
-One rewrite of `packages/core/src/features/ai-assistant/domain/lexical-concept-extractor.ts`, closing 9 findings. The file is now `prepare` → `harvestStated` → `harvestGuessed` → `mergeMentions` → `rankAndLimit` → `projectMentions`, and `extract()` is five lines of composition.
+One rewrite of `packages/core/src/features/ai-assistant/domain/parts.ts`, closing 9 findings. The file is now `prepare` → `harvestStated` → `harvestGuessed` → `mergeMentions` → `rankAndLimit` → `projectMentions`, and `extract()` is five lines of composition.
 
 | Item | Finding | How it was closed |
 |---|---|---|

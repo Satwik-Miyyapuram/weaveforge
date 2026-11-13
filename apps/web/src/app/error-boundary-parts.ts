@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { readyCore } from "@/lib/rust-core";
+
 /** The props Next hands both `error.tsx` and `global-error.tsx`. */
 export interface ErrorBoundaryProps {
   error: Error & { digest?: string };
@@ -27,15 +29,25 @@ export function useLoggedError(error: Error): void {
  * is the only handle.
  */
 export function errorDetail(error: ErrorBoundaryProps["error"]): string {
-  if (!error?.message) return "";
-  const parts = [error.message];
-  if (error.digest) parts.push(`digest: ${error.digest}`);
-  // Guarded: a `stack` has been a getter that throws, and a boundary must not
-  // fail while describing a failure.
+  // The stack is read here, guarded: a `stack` has been a getter that throws, and a
+  // boundary must not fail while describing a failure. The layout is Rust's.
+  let stack: string | undefined;
   try {
-    if (typeof error.stack === "string" && error.stack.trim()) parts.push(error.stack);
+    stack = typeof error?.stack === "string" ? error.stack : undefined;
   } catch {
     // No stack available; the message and digest stand.
   }
-  return parts.join("\n");
+  // A boundary can render before the core has loaded (the app shell loads it in an
+  // effect). It must still render, so the detail is simply empty until the core is up.
+  let core: ReturnType<typeof readyCore>;
+  try {
+    core = readyCore();
+  } catch {
+    return "";
+  }
+  return core.errorDetail(
+    error?.message ? String(error.message) : undefined,
+    error?.digest ? String(error.digest) : undefined,
+    stack,
+  );
 }

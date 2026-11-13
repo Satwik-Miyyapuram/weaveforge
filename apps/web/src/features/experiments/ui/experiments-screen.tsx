@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   EXPERIMENT_STATUSES,
-  isStaleRunningExperiment,
   type Experiment,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
@@ -15,15 +14,15 @@ import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { CardColumns } from "@/components/card-columns";
 import { ShareButton, usePinnedOwnerNames } from "@/features/sharing";
-import { usePersistedState } from "@/lib/hooks/use-persisted-state";
+import { usePersistedState } from "@/lib/hooks/parts";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
-import { emptyArray, emptyMap } from "@/lib/empty";
+import { emptyArray, emptyMap } from "@/lib/parts";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
-import type { ExperimentsScreenData } from "@/features/experiments/application/load-experiments-screen.use-case";
+import type { ExperimentsScreenData } from "@/features/experiments/application/parts";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { ScreenHead } from "@/components/screen-head";
 import { FilterRow } from "@/components/filter-row";
-import { warnOnce } from "@/lib/error-report/warn-once";
+import { warnOnce } from "@/lib/error-report/parts";
 import { ViewSwitch } from "@/components/view-switch";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { isOfflineBuild } from "@/deployment/build-target";
@@ -36,8 +35,8 @@ import { CompareView } from "./experiments-compare";
 import { Button } from "@/components/button";
 import { Popover } from "@/components/popover";
 import { Menu } from "@/components/menu";
-import { showToast } from "@/lib/toast";
-import { experimentHref } from "../application/experiment-href";
+import { showToast } from "@/lib/toast/index";
+import { readyCore } from "@/lib/rust-core";
 
 type ExperimentsViewData = ExperimentsScreenData & { ownerNames: Map<string, string> };
 
@@ -109,7 +108,7 @@ export function ExperimentsScreen() {
   // every tick asked the loader to re-fetch a cached payload — see the wording
   // on the live badge, which has to match what this actually does.
   const hasLiveRunning = useMemo(
-    () => items.some((e) => e.status === "running" && !isStaleRunningExperiment(e)),
+    () => items.some((e) => e.status === "running" && !readyCore().isStaleRunningExperiment(e)),
     [items],
   );
   useEffect(() => {
@@ -211,7 +210,7 @@ export function ExperimentsScreen() {
             onAdded={(id) => {
               setComposeOpen(false);
               void load();
-              showToast("Experiment created", { label: "Open", run: () => router.push(experimentHref(id)) });
+              showToast("Experiment created", { label: "Open", run: () => router.push(readyCore().experimentHref(id, isOfflineBuild())) });
             }}
           />
         </Modal>

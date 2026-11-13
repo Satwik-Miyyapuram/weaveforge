@@ -1,6 +1,6 @@
 "use client";
 
-import { hasActiveLab, resolveDisplayRole, ROLE_LABELS } from "@weaveforge/core";
+import { ROLE_LABELS, type Role } from "@weaveforge/core";
 import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org";
 import { Modal } from "@/components/modal";
@@ -9,6 +9,7 @@ import { formatError } from "@/lib/format-error";
 import { useCapability } from "@/deployment/capabilities";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import { typedCore } from "@/lib/rust-core";
 
 /** The web app, where labs and sharing are managed. A self-hosted build names its own. */
 const WEB_APP_URL = /^https?:\/\//.test(process.env.NEXT_PUBLIC_APP_URL ?? "")
@@ -48,9 +49,9 @@ export function AccountInfoPanel() {
     memberships.find((m) => m.orgId === activeOrgId)
     ?? memberships.find((m) => m.joinSource === "invite" || m.joinSource === "create")
     ?? null;
-  const inLab = hasActiveLab(activeOrgId, memberships);
+  const inLab = typedCore().hasActiveLab(activeOrgId, memberships);
   const ownsOrg = memberships.some((m) => m.joinSource === "create");
-  const displayRole = resolveDisplayRole(profile?.role ?? "standalone", { inLab, ownsOrg });
+  const displayRole = typedCore().resolveDisplayRole(profile?.role ?? "standalone", { inLab, ownsOrg });
   const labName = activeMembership?.orgName ?? null;
   const hasEmailPassword = user.providers.includes("email");
 
@@ -66,7 +67,9 @@ export function AccountInfoPanel() {
 
   async function changePassword(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    // React clears currentTarget once the handler awaits.
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const password = String(data.get("new-password") ?? "");
     const confirmation = String(data.get("confirm-password") ?? "");
     setPasswordError(null);
@@ -78,7 +81,7 @@ export function AccountInfoPanel() {
     setPasswordBusy(true);
     try {
       await updatePassword(password);
-      event.currentTarget.reset();
+      form.reset();
       setPasswordSuccess(true);
     } catch (err) {
       setPasswordError(formatError(err));
@@ -100,7 +103,7 @@ export function AccountInfoPanel() {
       ? [
           {
             label: "Role",
-            value: loading ? "Loading…" : ROLE_LABELS[displayRole] ?? displayRole,
+            value: loading ? "Loading…" : ROLE_LABELS[displayRole as Role] ?? displayRole,
           },
           {
             label: "Organization",

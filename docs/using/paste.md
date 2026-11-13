@@ -11,7 +11,7 @@ differently.
 
 ## What runs on every paste
 
-Three rules are on by default. Each is a repair with no stylistic opinion in it —
+Six rules are on by default, under the **Clean up every paste** master switch. Each is a repair with no stylistic opinion in it —
 nothing that changes how *you* set your text.
 
 **Tracking is stripped from links.** Campaign tags and click identifiers go;
@@ -94,16 +94,21 @@ the command is the deliberate way to reach it.
 
 ## What never gets touched
 
-- **Code.** Fenced blocks, indented blocks and inline backtick spans pass
-  through exactly as pasted, and a paste that *lands inside* one is left alone
-  entirely — there, the text is being shown rather than written.
+- **Code.** Links, quotes and dashes in fenced blocks, indented blocks and
+  inline backtick spans pass through exactly as pasted. Terminal colour codes
+  and invisible characters are still removed, because they are never part of
+  the code. A paste that *lands inside* a code block is left alone entirely —
+  there, the text is being shown rather than written.
 - **Maths.** `$\alpha - \beta$` is subtraction and `$x'$` is a prime. Both
   survive the dash and quote rules.
 - **Links and citations.** A `[[wikilink]]` target, a Markdown destination, a
   `\cite{}` key and a `[@pandoc-key]` are names, not prose.
 - **Frontmatter.** The values are data the app reads back.
 
-One `Ctrl+Z` takes a whole paste back out. To get the clipboard in untouched in
+One `Ctrl+Z` takes a whole paste back out. When a pasted link has had its
+title filled in (see [Looking things up](#looking-things-up)), the first
+`Ctrl+Z` takes the title away and leaves the plain link; the second takes the
+paste out. To get the clipboard in untouched in
 the first place, use `Ctrl/Cmd + Shift + V`.
 
 ## Images
@@ -184,7 +189,7 @@ drag that carried a real link — dragging a selection *within* the note is stil
 CodeMirror moving your text, not a download.
 
 Both use the same guard, described under Privacy. Titles are read from at most
-512 KB of a page and capped at 300 characters; images are capped at 12 MB, must
+512 KB of a page and capped at 300 UTF-16 code units; images are capped at 12 MB, must
 declare a bitmap content type, and SVG is refused as it is everywhere else.
 
 ## Commands
@@ -310,3 +315,12 @@ that is what they are for. What is worth knowing about them:
 
 Turning both off restores the older behaviour exactly: no paste rule contacts
 anything outside your own workspace.
+
+## How it works
+
+Every paste rule is written once, in Rust. The web app and the desktop app call
+the same functions through the WebAssembly build, so a paste is cleaned the same
+way in both. Each rule is a pure function of the clipboard text and your paste
+settings, except the two lookup rules, which fetch only the address you pasted.
+
+Source: `crates/wf-core/src/paste/`

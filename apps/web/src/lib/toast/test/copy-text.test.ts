@@ -1,9 +1,13 @@
 /** Copy buttons say what happened (DA-64). */
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
-import { copyText } from "../copy-text";
-import { toasts } from "../toast-store";
+before(async () => {
+  await loadTestCore();
+});
+
+import { copyText, toasts } from "../parts";
 
 test("a copy shows a confirming toast", async () => {
   const written: string[] = [];

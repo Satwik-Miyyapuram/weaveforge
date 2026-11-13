@@ -147,7 +147,7 @@ test("a path change mid-flight revokes the URLs the abandoned run created", asyn
 });
 
 test("a multi-image note with a cache bucket is served from the cache next time (11-01)", async () => {
-  const { clearBlobFetchCache } = await import("@/lib/cache/blob-fetch-cache");
+  const { clearBlobFetchCache } = await import("@/lib/cache/parts-1");
   clearBlobFetchCache();
   const batches: string[][] = [];
   const fetchers = {

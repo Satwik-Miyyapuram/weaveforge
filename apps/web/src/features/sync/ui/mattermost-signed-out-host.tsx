@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { useProject } from "@/features/projects";
-import { onMattermostSignedOut } from "../infrastructure/mattermost-session";
+import { onMattermostSignedOut } from "../infrastructure/parts";
 import { MattermostSignInButton } from "./mattermost-sign-in-button";
 
 /**

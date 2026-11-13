@@ -1,37 +1,73 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  excerptSegments,
-  forgetSearchQuery,
-  normalizeSearchHistory,
-  rememberSearchQuery,
-  type SearchExcerpt,
-  type SearchHit,
-} from "@weaveforge/core";
+import type { SearchExcerpt, SearchHit } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
+import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
+import { DOCS_URL, type MenuPaletteAction, menuPaletteActions, pinRecentTargets, readRecentTargets, type RecentTargetKind, rememberRecentTarget, requestShortcuts, settingsPaletteActions } from "@/lib/parts-2";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/modal";
 import { loadCiteLinkCatalog, type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { getContainer } from "@/bootstrap";
 import { useHybridSearchIndex } from "@/lib/hooks/use-search-index";
-import {
-  pinRecentTargets,
-  readRecentTargets,
-  rememberRecentTarget,
-  type RecentTargetKind,
-} from "@/lib/recent-targets";
-import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
-import { createNoteFromQuery } from "@/lib/create-note-from-query";
+import { createNoteFromQuery, goToRoute, isMacPlatform } from "@/lib/parts";
 import { FormError } from "@/components/form-error";
 import { JumpToCreateRow } from "@/components/jump-to-create-row";
-import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
+import { AskLibraryRow } from "@/components/ask-library-row";
+import { useModuleRegistry } from "@/lib/hooks/parts";
 import { useTheme } from "@/lib/hooks/use-theme";
-import { isMacPlatform } from "@/lib/shortcut-label";
-import { groupPaletteRows, matchingPages, paletteKeys, type PaletteGroup } from "@/lib/palette-groups";
+import { desktop } from "@/lib/desktop/desktop-bridge";
+import type { HitSort, PaletteGroup, PaletteKey, PaletteMode } from "@weaveforge/wasm";
 import { showNewProject, useProject } from "@/features/projects";
 import { Chip, RowButton } from "./controls";
 import { CloseButton } from "./button";
 
+/** Search-hit order: Rust gives the indices; the rows stay the component's own. */
+function sortHits<T extends { title: string; updatedAt?: string }>(rows: readonly T[], order: HitSort): T[] {
+  const keys = rows.map(({ title, updatedAt }) => ({ title, updatedAt }));
+  return readyCore().sortHitOrder(keys, order).map((i) => rows[i]!);
+}
+
+/** Command rows: every one for an empty query, else the page rule (Rust). */
+function commandMatches<T extends { label: string }>(rows: readonly T[], query: string): T[] {
+  return readyCore().commandMatchIndices(rows.map((r) => r.label), query).map((i) => rows[i]!);
+}
+
+/** Pages whose name holds the query, names that start with it first (Rust). */
+function matchingPages<T extends { label: string }>(pages: readonly T[], query: string): T[] {
+  return readyCore().matchingPageIndices(pages.map((p) => p.label), query).map((i) => pages[i]!);
+}
+
+/** Rows under their headings, in display order (Rust). */
+function groupPaletteRows<T extends { group: PaletteGroup }>(
+  rows: readonly T[],
+): { label: PaletteGroup; rows: T[] }[] {
+  return readyCore()
+    .groupPaletteRows(rows.map((r) => r.group))
+    .map(({ label, rows: at }) => ({ label, rows: at.map((i) => rows[i]!) }));
+}
+
+/** A key event as the Rust key rules read it. */
+function chordOf(e: Pick<KeyboardEvent, "key" | "shiftKey" | "ctrlKey" | "metaKey" | "altKey">): PaletteKey {
+  return { key: e.key, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey };
+}
+
+/** The sort chips' labels (UI copy). */
+const HIT_SORTS: readonly { value: HitSort; label: string }[] = [
+  { value: "relevance", label: "Best match" },
+  { value: "newest", label: "Newest" },
+  { value: "title", label: "A–Z" },
+];
+
+/** The footer's key chips, with the platform's own modifier (UI copy). */
+function paletteKeys(mac: boolean): { keys: string[]; label: string }[] {
+  return [
+    { keys: ["↑", "↓"], label: "move" },
+    { keys: ["Enter"], label: "open" },
+    { keys: ["Esc"], label: "close" },
+    { keys: [readyCore().shortcutLabel("⌘K", mac)], label: "from anywhere" },
+  ];
+}
 /** Kinds recorded as recent targets when opened. */
 const RECENT_KINDS = ["paper", "note", "section"] as const satisfies readonly RecentTargetKind[];
 
@@ -59,6 +95,8 @@ type JumpItem = CiteCompletion & {
   href: string;
   recent?: boolean;
   excerpt?: SearchExcerpt;
+  /** ISO time the hit last changed, for the "Newest" sort and the preview. */
+  updatedAt?: string;
 };
 
 /** One palette row: a search hit, a page or an action, under its heading. */
@@ -68,7 +106,31 @@ interface Entry {
   label: string;
   meta?: string;
   excerpt?: SearchExcerpt;
+  updatedAt?: string;
+  /** The command's own shortcut, shown at the row's end. */
+  hint?: string;
   run: () => void;
+}
+
+/** The highlighted row in full: name, kind, last change and the whole snippet. */
+function JumpPreview({ entry }: { entry: Entry }) {
+  const changed = entry.updatedAt ? new Date(entry.updatedAt) : null;
+  return (
+    <aside className="jump-to-preview" aria-label="Preview" aria-live="polite">
+      <strong>{entry.label}</strong>
+      {entry.meta && <div className="jump-to-meta">{entry.meta}</div>}
+      {changed && !Number.isNaN(changed.getTime()) && (
+        <div className="jump-to-meta">Changed {changed.toLocaleString()}</div>
+      )}
+      {entry.excerpt?.text && (
+        <p>
+          {readyCore().excerptSegments(entry.excerpt).map((segment, index) =>
+            segment.highlighted ? <mark key={index}>{segment.text}</mark> : <span key={index}>{segment.text}</span>,
+          )}
+        </p>
+      )}
+    </aside>
+  );
 }
 
 const HIT_GROUP: Record<JumpItem["kind"], PaletteGroup> = {
@@ -82,7 +144,7 @@ const HIT_GROUP: Record<JumpItem["kind"], PaletteGroup> = {
 const HISTORY_KEY = "thesis.search.history";
 
 function readHistory(): string[] {
-  return normalizeSearchHistory(readStoredJson<unknown>(HISTORY_KEY, []));
+  return readyCore().normalizeSearchHistory(readStoredJson<unknown>(HISTORY_KEY, []));
 }
 
 /** Storage disabled or full: history is a convenience, not state. */
@@ -113,8 +175,11 @@ export function JumpToPalette() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [mode, setMode] = useState<PaletteMode>("search");
   const [items, setItems] = useState<JumpItem[]>([]);
   const [active, setActive] = useState(0);
+  const [sort, setSort] = useState<HitSort>("relevance");
+  const [preview, setPreview] = useState(false);
   // Warmed on open, not on mount: the palette is in the shell of every screen.
   //
   // The hybrid variant, so a query can reach the semantic arm when the reader has
@@ -130,6 +195,8 @@ export function JumpToPalette() {
   const theme = useTheme();
   const [mac, setMac] = useState(false);
   useEffect(() => setMac(isMacPlatform()), []);
+  // The shell menu's workspace, docs and update entries; none in a browser.
+  const [menuActions, setMenuActions] = useState<MenuPaletteAction[]>([]);
   const saveHistory = useCallback((next: string[]) => {
     setHistory(next);
     writeHistory(next);
@@ -166,27 +233,40 @@ export function JumpToPalette() {
     setItems(pinRecentTargets(all, readRecentTargets(projectId)));
   }, []);
 
-  const openPalette = useCallback(() => {
+  const openPalette = useCallback((next: PaletteMode = "search") => {
+    setMode(next);
     setOpen(true);
     setQuery("");
     setCreateError(null);
     setActive(0);
+    setSort("relevance");
+    setPreview(false);
     setHistory(readHistory());
     void reload();
+    // Read on each open: the workspace entries change with the folder.
+    void desktop()
+      ?.menuModel?.()
+      .then((groups) => setMenuActions(menuPaletteActions(groups)))
+      .catch(() => setMenuActions([]));
   }, [reload]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      // In a document `⌘K` inserts a link; the editor has handled it already.
+      if (e.defaultPrevented) return;
+      // `⌘⇧P` lists commands, as in VS Code; `⌘⇧F` searches the workspace.
+      const next = readyCore().paletteModeFor(chordOf(e));
+      if (next) {
         e.preventDefault();
-        openPalette();
+        openPalette(next);
       }
     }
+    const onSearch = () => openPalette("search");
     window.addEventListener("keydown", onKey);
-    window.addEventListener(OPEN_SEARCH_EVENT, openPalette);
+    window.addEventListener(OPEN_SEARCH_EVENT, onSearch);
     return () => {
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener(OPEN_SEARCH_EVENT, openPalette);
+      window.removeEventListener(OPEN_SEARCH_EVENT, onSearch);
     };
   }, [openPalette]);
 
@@ -228,7 +308,7 @@ export function JumpToPalette() {
           kind,
           href: hit.href,
         };
-        return { ...base, excerpt: hit.excerpt };
+        return { ...base, excerpt: hit.excerpt, updatedAt: hit.updatedAt };
       }).filter((row, index, rows) =>
         // One row per key: two hits resolving to the same entity (a note found
         // by its title and its body) would otherwise render twice.
@@ -298,6 +378,12 @@ export function JumpToPalette() {
     return bySubstring();
   }, [items, query, searchIndex, rowsFromHits, semanticRows]);
 
+  /** The chosen order applies to search results only, not the empty-query list. */
+  const sorted = useMemo(
+    () => (mode === "search" && query.trim() ? sortHits(filtered, sort) : filtered),
+    [mode, query, filtered, sort],
+  );
+
   /** Pages the nav reaches, plus Settings, which lives in the account menu. */
   const pages = useMemo(() => {
     const all = [registry.homeNavItem, ...registry.navItems, { key: "settings", label: "Settings", path: "/settings" }];
@@ -309,14 +395,60 @@ export function JumpToPalette() {
       setOpen(false);
       then();
     };
-    const actions = [
+    const keys = readyCore().shortcutTable();
+    const fromMenu = menuActions.map((action) => ({
+      key: action.id,
+      label: action.label,
+      run: leave(() => void desktop()?.invokeMenuItem?.(action.id).catch(() => undefined)),
+    }));
+    // In a browser there is no menu to borrow Documentation from.
+    const docs = menuActions.some((action) => action.id === "action:docs")
+      ? []
+      : [{ key: "docs", label: "Documentation", run: leave(() => window.open(DOCS_URL, "_blank", "noopener")) }];
+    const actions: Omit<Entry, "group">[] = [
       { key: "new-project", label: "New project", run: leave(() => showNewProject(setProject)) },
       {
         key: "theme",
         label: theme.dark ? "Switch to light theme" : "Switch to dark theme",
         run: leave(theme.toggle),
       },
+      {
+        key: "shortcuts",
+        label: "Keyboard shortcuts",
+        hint: readyCore().shortcutLabel(keys["show-shortcuts"] ?? "", mac),
+        run: leave(() => requestShortcuts()),
+      },
+      {
+        key: "workspace-search",
+        label: "Search workspace",
+        hint: readyCore().shortcutLabel(keys["workspace-search"] ?? "", mac),
+        run: () => {
+          setMode("search");
+          setQuery("");
+          setActive(0);
+        },
+      },
+      ...fromMenu,
+      ...docs,
+      ...settingsPaletteActions(desktop()).map((row) => ({
+        key: row.key,
+        label: row.label,
+        run: leave(() => goToRoute(row.path, (to) => router.push(to))),
+      })),
     ];
+    const toPage = (page: (typeof pages)[number]): Entry => ({
+      group: "Pages",
+      key: `page:${page.path}`,
+      label: `Go to ${page.label}`,
+      run: leave(() => router.push(page.path)),
+    });
+    // Commands: pages and actions only, all of them before anything is typed.
+    if (mode === "commands") {
+      return groupPaletteRows<Entry>([
+        ...commandMatches(pages.map(toPage), query),
+        ...commandMatches(actions, query).map((action) => ({ ...action, group: "Actions" as const })),
+      ]);
+    }
     const rows: Entry[] = [
       ...matchingPages(pages, query).map((page) => ({
         group: "Pages" as const,
@@ -324,12 +456,13 @@ export function JumpToPalette() {
         label: page.label,
         run: leave(() => router.push(page.path)),
       })),
-      ...filtered.map((c) => ({
+      ...sorted.map((c) => ({
         group: c.recent ? ("Recent" as const) : HIT_GROUP[c.kind],
         key: `${c.kind}-${c.id}`,
         label: c.label,
         meta: c.detail,
         excerpt: c.excerpt,
+        updatedAt: c.updatedAt,
         run: () => go(c),
       })),
       ...matchingPages(actions, query).map((action) => ({ ...action, group: "Actions" as const })),
@@ -337,11 +470,11 @@ export function JumpToPalette() {
     return groupPaletteRows(rows);
     // `go` reads the same state as these dependencies.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pages, query, filtered, theme.dark, theme.toggle, setProject, router]);
+  }, [mode, pages, query, sorted, theme.dark, theme.toggle, setProject, router, menuActions, mac]);
   const flat = useMemo(() => entries.flatMap((group) => group.rows), [entries]);
 
   function go(item: JumpItem) {
-    saveHistory(rememberSearchQuery(history, query));
+    saveHistory(readyCore().rememberSearchQuery(history, query));
     // Only entity screens are recent targets; a PDF page or a highlight is a
     // location inside one, and recording it would push the paper itself out of
     // the list.
@@ -368,7 +501,7 @@ export function JumpToPalette() {
       return;
     }
     const { page } = result;
-    saveHistory(rememberSearchQuery(history, query.trim()));
+    saveHistory(readyCore().rememberSearchQuery(history, query.trim()));
     setOpen(false);
     router.push(`/notes?page=${encodeURIComponent(page.id)}`);
   }, [query, history, router, saveHistory]);
@@ -386,7 +519,16 @@ export function JumpToPalette() {
         // home row. Ctrl is required: plain j/k must still type.
         const vimDown = e.ctrlKey && (e.key === "j" || e.key === "n");
         const vimUp = e.ctrlKey && (e.key === "k" || e.key === "p");
-        if (e.key === "ArrowDown" || vimDown) {
+        if (preview && e.key === "Escape") {
+          // Close the preview, not the palette; React stops this before the
+          // Modal's document listener sees it.
+          e.preventDefault();
+          e.stopPropagation();
+          setPreview(false);
+        } else if (mode === "search" && readyCore().isPreviewKey(chordOf(e), e.target instanceof HTMLInputElement)) {
+          e.preventDefault();
+          setPreview((now) => !now);
+        } else if (e.key === "ArrowDown" || vimDown) {
           e.preventDefault();
           setActive((i) => Math.min(i + 1, flat.length - 1));
         } else if (e.key === "ArrowUp" || vimUp) {
@@ -400,7 +542,7 @@ export function JumpToPalette() {
     >
       <input
         autoFocus
-        placeholder="Jump to paper, note, or section…"
+        placeholder={mode === "commands" ? "Run a command…" : "Jump to paper, note, or section…"}
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -409,7 +551,33 @@ export function JumpToPalette() {
         }}
         aria-label="Search"
       />
-      {!query.trim() && history.length > 0 && (
+      {mode === "search" && query.trim() && filtered.length > 1 && (
+        <div className="jump-to-history" role="group" aria-label="Sort results">
+          {HIT_SORTS.map((option) => (
+            <Chip
+              key={option.value}
+              pressed={sort === option.value}
+              onClick={() => {
+                setSort(option.value);
+                setActive(0);
+              }}
+            >
+              {option.label}
+            </Chip>
+          ))}
+        </div>
+      )}
+      {mode === "search" && indexReady && (
+        <AskLibraryRow
+          query={query}
+          search={(q) => searchHybrid(q, { limit: 8, kinds: PALETTE_KINDS, excerpts: true })}
+          onOpen={(href) => {
+            setOpen(false);
+            router.push(href);
+          }}
+        />
+      )}
+      {mode === "search" && !query.trim() && history.length > 0 && (
         <ul className="jump-to-history" aria-label="Recent searches">
           {history.slice(0, 6).map((entry) => (
             <li key={entry}>
@@ -419,7 +587,7 @@ export function JumpToPalette() {
               <CloseButton
                 size="sm"
                 label={`Remove “${entry}” from recent searches`}
-                onClick={() => saveHistory(forgetSearchQuery(history, entry))}
+                onClick={() => saveHistory(readyCore().forgetSearchQuery(history, entry))}
               />
             </li>
           ))}
@@ -440,7 +608,7 @@ export function JumpToPalette() {
                     <div>{c.label}</div>
                     {c.excerpt && c.excerpt.text && (
                       <div className="jump-to-excerpt">
-                        {excerptSegments(c.excerpt).map((segment, index) =>
+                        {readyCore().excerptSegments(c.excerpt).map((segment, index) =>
                           segment.highlighted ? (
                             <mark key={index}>{segment.text}</mark>
                           ) : (
@@ -450,6 +618,7 @@ export function JumpToPalette() {
                       </div>
                     )}
                     {c.meta && <div className="jump-to-meta">{c.meta}</div>}
+                    {c.hint && <kbd className="jump-to-hint">{c.hint}</kbd>}
                   </RowButton>
                 </li>
                 );
@@ -457,9 +626,10 @@ export function JumpToPalette() {
             </ul>
           </li>
         ))}
-        {filtered.length === 0 && <JumpToCreateRow query={query} onCreate={() => void createFromQuery()} />}
+        {mode === "search" && filtered.length === 0 && <JumpToCreateRow query={query} onCreate={() => void createFromQuery()} />}
       </ul>
       {createError ? <FormError reportable={false}>{createError}</FormError> : null}
+      {preview && flat[active] && <JumpPreview entry={flat[active]!} />}
       <p className="muted jump-to-meta jump-to-keys">
         {paletteKeys(mac).map((hint) => (
           <span key={hint.label}>
@@ -469,6 +639,12 @@ export function JumpToPalette() {
             {hint.label}
           </span>
         ))}
+        {mode === "search" && (
+          <span>
+            <kbd>Shift</kbd>
+            <kbd>Space</kbd> preview
+          </span>
+        )}
       </p>
     </Modal>
   );

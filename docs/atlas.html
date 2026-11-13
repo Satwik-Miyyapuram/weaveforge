@@ -542,12 +542,12 @@
       into either one.
     </p>
     <div class="facts">
-      <div class="fact"><b>231,672</b><span>web app lines</span></div>
-      <div class="fact"><b>56,891</b><span>core lines</span></div>
-      <div class="fact"><b>22,822</b><span>desktop lines</span></div>
+      <div class="fact"><b>352,975</b><span>web app lines</span></div>
+      <div class="fact"><b>24,646</b><span>core lines</span></div>
+      <div class="fact"><b>10,643</b><span>shell lines</span></div>
       <div class="fact"><b>3,375</b><span>python sdk</span></div>
-      <div class="fact"><b>153</b><span>migrations</span></div>
-      <div class="fact"><b>31</b><span>web features</span></div>
+      <div class="fact"><b>154</b><span>migrations</span></div>
+      <div class="fact"><b>32</b><span>web features</span></div>
     </div>
   </header>
 
@@ -656,7 +656,7 @@ flowchart TB
 
       <div class="tree">
 <pre><b>weaveforge/</b>
-├── <b>packages/core/src/</b>            <i>56,891 lines — the only place rules live</i>
+├── <b>packages/core/src/</b>            <i>24,646 lines — the only place rules live</i>
 │   ├── <u>features/</u>                 <i>19 slices: papers, experiments, plan, report,</i>
 │   │                              <i>logbook, library, vault, wiki, org, sharing,</i>
 │   │                              <i>collab, tags, relations, reading-lists,</i>
@@ -669,20 +669,20 @@ flowchart TB
 │   ├── config/                    <i>defineConfig + plugin contract</i>
 │   └── shared/                    <i>clock, dates, three-way-merge, tree, repository</i>
 │
-├── <b>apps/web/src/</b>                 <i>231,672 lines</i>
-│   ├── <u>app/</u>                      <i>25 pages + 43 API routes</i>
-│   ├── <u>features/</u>                 <i>31 slices — core's 19 plus the web-only ones:</i>
+├── <b>apps/web/src/</b>                 <i>352,975 lines</i>
+│   ├── <u>app/</u>                      <i>25 pages + 1 API routes</i>
+│   ├── <u>features/</u>                 <i>32 slices — core's 19 plus the web-only ones:</i>
 │   │                              <i>offline-sync, sync, workspace, editor-workspace,</i>
 │   │                              <i>auth, search, export, overleaf, reader, startup,</i>
 │   │                              <i>legal</i>
 │   ├── backend/                   <i>provider wiring: postgrest | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
-├── <b>apps/desktop/src/</b>              <i>22,822 lines, 74 files, main + preload only</i>
+├── <b>apps/shell/src/</b>              <i>10,643 lines, 0 files, Tauri shell src/ only</i>
 │   ├── main.ts  preload.ts  channels.ts
 │   ├── local-db.ts  local-db-host.ts     <i>PGlite in the main process</i>
 │   ├── local-api-server.ts  local-api.ts <i>127.0.0.1:27123</i>
-│   ├── local-sdk-api.ts  local-mcp.ts    <i>SDK routes + 0 MCP tools</i>
+│   ├── local-sdk-api.ts  local-mcp.ts    <i>SDK routes + 15 MCP tools</i>
 │   ├── vault-folder.ts  vault-watch.ts  vault-git.ts  vault-handlers.ts
 │   ├── auto-update.ts  update-check.ts  app-menu.ts  app-protocol.ts
 │   └── secret-store.ts  preference-store.ts  auth-loopback.ts  zotero-local.ts
@@ -695,10 +695,10 @@ flowchart TB
 │   ├── integrations/              <i>lightning · keras callbacks</i>
 │   └── tracking.py  container.py  cli.py
 │
-├── <b>db/migrations/</b>           <i>0001 → 0155, 8,296 lines</i>
-├── <b>scripts/</b>                       <i>74 files — boundary gates, migration, seeding</i>
+├── <b>db/migrations/</b>           <i>0001 → 0156, 8,326 lines</i>
+├── <b>scripts/</b>                       <i>88 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
-└── <b>docs/</b>                          <i>78 files, 27,570 lines</i>
+└── <b>docs/</b>                          <i>195 files, 35,682 lines</i>
 </pre>
       </div>
     </section>
@@ -813,7 +813,7 @@ flowchart LR
             <tr><td class="key">vault</td><td>yes</td><td>yes</td><td>—</td><td>yes</td><td>Markdown notes on disk, folder interop</td></tr>
             <tr><td class="key">library</td><td>yes</td><td>yes</td><td>—</td><td>local files</td><td>Files, blobs, tiering, previews</td></tr>
             <tr><td class="key">sharing</td><td>yes</td><td>yes</td><td>—</td><td>no</td><td>Grants, supervision, RLS-backed access</td></tr>
-            <tr><td class="key">ai-assistant</td><td>yes</td><td>yes</td><td>—</td><td>needs a provider</td><td>13 tools, proposal queue, provider config</td></tr>
+            <tr><td class="key">ai-assistant</td><td>yes</td><td>yes</td><td>—</td><td>needs a provider</td><td>0 tools, proposal queue, provider config</td></tr>
             <tr><td class="key">offline-sync</td><td>—</td><td>yes</td><td>—</td><td>n/a</td><td>Outbox, puller, merge, conflicts, adoption</td></tr>
             <tr><td class="key">editor-workspace</td><td>—</td><td>yes</td><td>—</td><td>yes</td><td>Editing surface, paste and drop handling</td></tr>
             <tr><td class="key">overleaf</td><td>yes</td><td>yes</td><td>—</td><td>link and edit</td><td>Report push to an Overleaf project; link rules and the LaTeX section tree in core, so a copy with no account shares them</td></tr>
@@ -908,7 +908,7 @@ sequenceDiagram
 </pre>
       </div>
 
-      <h3>The 43 API routes, by why they exist</h3>
+      <h3>The 1 API routes, by why they exist</h3>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Group</th><th>Routes</th><th>Reason it is not a direct query</th></tr></thead>
@@ -986,7 +986,7 @@ flowchart TB
   BRIDGE["preload.ts<br/>window.weaveforge<br/>one bridge object, 26 members"]
 
   subgraph main["Main process"]
-    DB["local-db.ts<br/>PGlite + the 153 migrations"]
+    DB["local-db.ts<br/>PGlite + the 154 migrations"]
     FOLDER["vault-folder.ts<br/>read / write / list / stat"]
     WATCH["vault-watch.ts<br/>notices outside edits"]
     GIT["vault-git.ts<br/>commit history"]
@@ -1123,7 +1123,7 @@ sequenceDiagram
             <li>Outside edits noticed and merged, not clobbered.</li>
             <li>Git history for the folder from inside the app.</li>
             <li>Loopback REST on the port Obsidian's REST plugin already uses.</li>
-            <li>No MCP tools over the same server.</li>
+            <li>Fifteen MCP tools over the same server.</li>
           </ul>
         </div>
         <div class="card">
@@ -1140,7 +1140,7 @@ sequenceDiagram
     <section id="ai">
       <h2>AI and MCP boundary</h2>
       <p>
-        The assistant has thirteen tools. Three read. Ten propose, and a proposal is a row in
+        The assistant has no tools. No read. No propose, and a proposal is a row in
         a review queue, never a write. <code>/api/mcp</code> is fail-closed: it answers 404 when
         MCP is off and 503 with the manifest when it is on, because live access goes through
         the browser relay with an active session grant.
@@ -1291,7 +1291,7 @@ flowchart TB
     <section id="data">
       <h2>Data layer</h2>
       <p>
-        153 numbered migrations, applied in order, by all three backends. Access control is in
+        154 numbered migrations, applied in order, by all three backends. Access control is in
         the database rather than in the app: a missing check in a React component is a bug, a
         missing RLS policy is a breach, so the policy is the one that decides.
       </p>

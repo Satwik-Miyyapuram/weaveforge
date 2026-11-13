@@ -8,19 +8,17 @@ import { MenuItemButton, ToolButton } from "@/components/controls";
 import { DocumentModeSwitch, canSplit, type DocumentModeName } from "@/components/document-mode-switch";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { PreviewIcon } from "@/components/view-icons";
-import { BarMenuList, Caret, InkIdleBar, useBarMenu, useFoldOf, useToolbarFold } from "@/features/ink";
-import { shortcutLabel } from "@/lib/shortcut-label";
 import {
-  activeTabRef,
-  isPreviewTab,
-  previewOpen,
-  tabMode,
-  type DocumentMode,
-  type PaneLayout,
-  type PaneSplit,
-  type TabRef,
-} from "../application/pane-tree";
-import { modesFor } from "./kind";
+  BarMenuList,
+  Caret,
+  InkIdleBar,
+  useBarMenu,
+  useFoldOf,
+  useToolbarFold,
+} from "@/features/ink";
+import { isMacPlatform } from "@/lib/parts";
+import { readyCore } from "@/lib/rust-core";
+import type { DocumentMode, PaneLayout, PaneSplit, TabRef } from "@weaveforge/wasm";
 import { SplitGlyph } from "./split-glyph";
 
 /**
@@ -49,12 +47,12 @@ export function WorkspaceToolbar({
   onSplit: (paneId: string, direction: PaneSplit["direction"]) => void;
   onToggleFocus?: () => void;
 }) {
-  const focused = activeTabRef(layout);
+  const focused = readyCore().activeTabRef(layout);
   // The preview pane is not a document; with it focused, Preview still closes it.
-  const tab = focused && !isPreviewTab(focused) ? focused : undefined;
-  const mode = (tab ? tabMode(tab) : "edit") as DocumentModeName;
+  const tab = focused && !readyCore().isPreviewTab(focused) ? focused : undefined;
+  const mode = (tab ? readyCore().tabMode(tab) : "edit") as DocumentModeName;
   const pane = layout.focusedPaneId;
-  const preview = previewOpen(layout);
+  const preview = readyCore().previewOpen(layout);
   const bar = useRef<HTMLDivElement>(null);
   // Too narrow for one row: stages fold away rather than the bar wrapping.
   useToolbarFold(bar);
@@ -77,7 +75,7 @@ export function WorkspaceToolbar({
         <IconButton
           size="sm"
           label="Preview"
-          tip={`Preview beside the text (${shortcutLabel("⌘E")})`}
+          tip={previewOff ? "Preview needs a text note focused in Text mode" : `Preview beside the text (${readyCore().shortcutLabel("⌘E", isMacPlatform())})`}
           aria-pressed={preview && canSplit(mode)}
           disabled={previewOff}
           onClick={onTogglePreview}
@@ -91,7 +89,7 @@ export function WorkspaceToolbar({
           <SplitGlyph direction="column" />
         </IconButton>
         {onToggleFocus ? (
-          <IconButton size="sm" label="Focus" tip={`Focus: only the document (${shortcutLabel("⌘⇧F")})`} onClick={onToggleFocus}>
+          <IconButton size="sm" label="Focus" tip={`Focus: only the document (${readyCore().shortcutLabel("F11", isMacPlatform())})`} onClick={onToggleFocus}>
             <FocusGlyph on={false} />
           </IconButton>
         ) : null}
@@ -125,16 +123,20 @@ function LayoutMenu({
       </ToolButton>
       {open ? (
         <BarMenuList label="Layout" listRef={listRef} pos={pos}>
-          <MenuItemButton disabled={previewOff} onClick={choose(onTogglePreview)}>
+          <MenuItemButton
+            disabled={previewOff}
+            title={previewOff ? "Preview needs a text note focused in Text mode" : undefined}
+            onClick={choose(onTogglePreview)}
+          >
             <span>Preview</span>
-            <kbd>{shortcutLabel("⌘E")}</kbd>
+            <kbd>{readyCore().shortcutLabel("⌘E", isMacPlatform())}</kbd>
           </MenuItemButton>
           <MenuItemButton onClick={choose(() => onSplit("row"))}>Split right</MenuItemButton>
           <MenuItemButton onClick={choose(() => onSplit("column"))}>Split down</MenuItemButton>
           {focusIn ? (
             <MenuItemButton onClick={choose(focusIn)}>
               <span>Focus</span>
-              <kbd>{shortcutLabel("⌘⇧F")}</kbd>
+              <kbd>{readyCore().shortcutLabel("F11", isMacPlatform())}</kbd>
             </MenuItemButton>
           ) : null}
         </BarMenuList>
@@ -147,8 +149,8 @@ function LayoutMenu({
 export function PaneModeSwitch({ tab, onSetMode }: { tab: TabRef; onSetMode: (tab: TabRef, mode: DocumentMode) => void }) {
   return (
     <DocumentModeSwitch
-      modes={modesFor(tab.kind) as readonly DocumentModeName[]}
-      mode={tabMode(tab) as DocumentModeName}
+      modes={readyCore().modesFor(tab.kind) as readonly DocumentModeName[]}
+      mode={readyCore().tabMode(tab) as DocumentModeName}
       onMode={(next) => onSetMode(tab, next)}
       split={false}
     />

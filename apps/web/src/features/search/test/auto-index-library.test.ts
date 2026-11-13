@@ -6,17 +6,20 @@
  * - 27-11: two papers with the same title keep separate failure records.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
 import type { Paper } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   autoIndexStatus,
   setAutoIndexDeps,
   setAutoIndexEnabled,
   startAutoIndex,
   type AutoIndexDeps,
-} from "../application/auto-index-library";
-import type { LibraryIndexResult } from "../application/index-library-pdfs";
+} from "../application/parts-1";
+import type { LibraryIndexResult } from "../application/parts-1";
+
+before(loadTestCore);
 
 const store = new Map<string, string>();
 (globalThis as { localStorage?: unknown }).localStorage = {

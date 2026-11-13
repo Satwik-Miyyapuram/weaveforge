@@ -16,35 +16,24 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import type { OpenAccessIds, PdfLocus, QuotationType, ReaderAnnotation } from "@weaveforge/core";
+import type { OpenAccessIds, QuotationType, ReaderAnnotation } from "@weaveforge/core";
+import type { PaperHtmlPage, PdfLocus, ZoteroAnnotation } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import { logToApp } from "@/lib/error-report/app-log";
-import { describeRejection } from "@/lib/format-error";
+import { describeRejection, formatError } from "@/lib/format-error";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { PdfReader } from "./pdf-reader";
-import { proxiedPdfUrl } from "../application/sanitize-reader-url";
+import { downloadPaperPdfToCache, evictReaderPdfCache, fetchTypedPdfToCache, getReaderPdfByteCache, resolvePaperPdfSourceForReader } from "../application/parts-3";
 import {
-  downloadPaperPdfToCache,
-  fetchTypedPdfToCache,
-  isStoredPdfUrl,
-  evictReaderPdfCache,
-  getReaderPdfByteCache,
-  resolvePaperPdfSourceForReader,
-} from "../application/resolve-paper-pdf-for-reader";
-import {
+  linkPdfSource,
   pdfDownloadNeedsConsent,
   pdfDownloadRemembered,
   rememberPdfDownload,
-} from "../application/pdf-download-consent";
+} from "../application/parts";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { AnnotationSidebar } from "./annotation-sidebar";
-import { projectZoteroAnnotations } from "../application/project-zotero-annotations";
-import { mergeReaderAnnotations } from "../application/merge-reader-annotations";
-import type { ZoteroAnnotation } from "@/features/papers/domain/zotero";
-import { formatError } from "@/lib/format-error";
-import type { PaperHtmlPage } from "../application/paper-html";
-import { describeFreeCopyFailure, isWebArticle, openAccessIdsOf } from "../application/find-free-copy";
-import { linkPdfSource } from "../application/link-pdf-source";
+import { readyCore } from "@/lib/rust-core";
+import { relayUrl } from "@/lib/parts";
 import { PaperHtmlView } from "./paper-html-view";
 import { Button } from "@/components/button";
 
@@ -72,6 +61,12 @@ export interface PaperPdfPaneProps {
   allowLoad?: boolean;
   /** Open with the pen rail up — the workspace's Ink mode for a paper. */
   inkRail?: boolean;
+}
+
+/** An allowlisted remote PDF goes through the same-origin proxy; anything else loads as given. */
+function readerPdfUrl(url: string): string {
+  const proxyPath = readyCore().pdfProxyPath(url);
+  return proxyPath === null ? url : relayUrl(proxyPath);
 }
 
 export function PaperPdfPane({
@@ -163,7 +158,7 @@ export function PaperPdfPane({
           setError("Paper not found or inaccessible.");
           return;
         }
-        openAccessIds.current = openAccessIdsOf(paper);
+        openAccessIds.current = readyCore().openAccessIdsOf(paper);
         // Resolve the source first: the ladder is what knows the content hash,
         // and the projection needs it to stamp each Zotero rect with the file
         // it was captured against.
@@ -188,7 +183,7 @@ export function PaperPdfPane({
         setContentHash(hash);
 
         const rawAnns = (paper.metadata?.["annotations"] as ZoteroAnnotation[] | undefined) ?? [];
-        const projected = projectZoteroAnnotations(rawAnns, { contentHash: hash });
+        const projected = readyCore().projectZoteroAnnotations(rawAnns, { contentHash: hash }) as ReaderAnnotation[];
         let local: ReaderAnnotation[] = [];
         try {
           local = await getContainer().papers.listReaderAnnotations(paper.id);
@@ -202,7 +197,7 @@ export function PaperPdfPane({
           });
           local = [];
         }
-        if (!cancelled) setAnnotations(mergeReaderAnnotations(projected, local));
+        if (!cancelled) setAnnotations(readyCore().mergeReaderAnnotations(projected, local));
         try {
           const types = await getContainer().papers.listAnnotationQuotationTypesForPaper(paper.id);
           if (!cancelled) {
@@ -211,7 +206,7 @@ export function PaperPdfPane({
         } catch {
           if (!cancelled) setQuotationTypes(new Map());
         }
-        if (resolution.ok && isLocalMode() && !isStoredPdfUrl(resolution.hit.url)) {
+        if (resolution.ok && isLocalMode() && !readyCore().isStoredPdfUrl(resolution.hit.url)) {
           // The no-account copy fetches into its own store, on request, and
           // then opens from there — so the paper is on disk for next time and
           // nothing is fetched behind the person's back.
@@ -241,7 +236,7 @@ export function PaperPdfPane({
           if (cancelled) return;
           if (kept) {
             setHtmlPage(kept);
-          } else if (openAccessIds.current && isWebArticle(openAccessIds.current)) {
+          } else if (openAccessIds.current && readyCore().isWebArticle(openAccessIds.current)) {
             // A blog post or an essay: its own page is the paper, so open it
             // rather than wait for a button press to go and get it.
             setError("This paper is a web page and has no PDF.");
@@ -386,11 +381,11 @@ export function PaperPdfPane({
     if (!paperId || !openAccessIds.current) return;
     setFreeBusy(true);
     setFreeStatus({
-      text: isWebArticle(openAccessIds.current) ? "Fetching the page…" : "Asking the open-access indexes…",
+      text: readyCore().isWebArticle(openAccessIds.current) ? "Fetching the page…" : "Asking the open-access indexes…",
       error: false,
     });
     try {
-      const { findFreeCopyInBrowser } = await import("../application/free-copy-browser");
+      const { findFreeCopyInBrowser } = await import("../application/parts-2");
       const outcome = await findFreeCopyInBrowser(paperId, openAccessIds.current);
       if (outcome.kind === "pdf") {
         const host = new URL(outcome.candidate.url).hostname;
@@ -416,11 +411,14 @@ export function PaperPdfPane({
         setError(null);
         setHtmlPage(outcome.page);
         // Searchable like a PDF's text. Best effort: the page is kept either way.
-        void import("@/features/search/application/index-library-pdfs")
+        void import("@/features/search/application/parts-1")
           .then(({ indexPaperHtmlPage }) => indexPaperHtmlPage(outcome.page, paperTitle ?? undefined))
           .catch(() => undefined);
       } else {
-        setFreeStatus({ text: describeFreeCopyFailure(outcome, isWebArticle(openAccessIds.current)), error: true });
+        setFreeStatus({
+          text: readyCore().describeFreeCopyFailure(outcome, readyCore().isWebArticle(openAccessIds.current)),
+          error: true,
+        });
       }
     } catch (err) {
       setFreeStatus({ text: `The search for a free copy failed: ${formatError(err)}`, error: true });
@@ -436,7 +434,7 @@ export function PaperPdfPane({
       await paperHtmlStore()?.remove(paperId);
       // The page was this paper's only text, so its search text goes with it.
       try {
-        const { removePdfTextsDurably } = await import("@/features/search/application/pdf-text-folder");
+        const { removePdfTextsDurably } = await import("@/features/search/application/parts-1");
         const container = getContainer();
         await removePdfTextsDurably(container.projects.context.projectId, [paperId]);
         container.search.invalidate();
@@ -455,7 +453,7 @@ export function PaperPdfPane({
   const freeCopy = canLoad ? (
     <div className="paper-free-copy">
       <Button variant="primary" size="sm" disabled={freeBusy} onClick={() => void findFree()}>
-        {freeBusy ? "Searching…" : openAccessIds.current && isWebArticle(openAccessIds.current) ? "Open the page" : "Find a free copy"}
+        {freeBusy ? "Searching…" : openAccessIds.current && readyCore().isWebArticle(openAccessIds.current) ? "Open the page" : "Find a free copy"}
       </Button>
       {freeStatus && (
         <p className="paper-free-copy-status" role={freeStatus.error ? "alert" : "status"}>
@@ -588,7 +586,7 @@ export function PaperPdfPane({
         <div className={`reader-main${aside ? " reader-main--split" : ""}`}>
           <PdfReader
             key={pdfUrl}
-            url={isStoredPdfUrl(pdfUrl) ? pdfUrl : proxiedPdfUrl(pdfUrl)}
+            url={readyCore().isStoredPdfUrl(pdfUrl) ? pdfUrl : readerPdfUrl(pdfUrl)}
             originalUrl={pdfUrl}
             locus={locus}
             page={page}

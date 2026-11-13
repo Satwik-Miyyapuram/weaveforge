@@ -1,7 +1,10 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { dedupeMetrics, isInAppHref, rendererFor, surfaceBody, tabForHref, type DocumentMetrics } from "../ui/document-host";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 const INK_HEADER = "<!-- weaveforge-ink ink-pages=1 ink-paper=blank -->";
 const PLAIN_NOTE = "## A note\n\nJust prose.";

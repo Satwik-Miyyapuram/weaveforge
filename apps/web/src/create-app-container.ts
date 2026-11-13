@@ -6,67 +6,59 @@
  */
 
 import {
-  AddLogEntryUseCase,
   ImportPaperUseCase,
   AddRelationUseCase,
   CheckCitationAlertsUseCase,
   LinkCitationsUseCase,
   ManageReadingListUseCase,
   ScreenItemsUseCase,
-  ManageReportSectionUseCase,
-  ManageVaultPageUseCase,
-  ManageProjectUseCase,
-  ManageExperimentUseCase,
-  ManageMilestoneUseCase,
   ManageSharingUseCase,
   ManageCommentsUseCase,
   CreateShareLinkUseCase,
   RedeemShareLinkUseCase,
   ManageShareLinksUseCase,
   RevokeShareLinkUseCase,
-  CreateMemberUseCase,
   PinSharedResourceUseCase,
   DuplicateSharedPaperUseCase,
   MetadataResolver,
-  ManageTagsUseCase,
   ManagePaperFieldsUseCase,
   UpdatePaperUseCase,
   RemoveRelationUseCase,
-  CompactCrdtLogUseCase,
   AppendPaperNoteUseCase,
   PushPaperToZoteroUseCase,
   AiProposalExecutorRegistry,
 } from "@weaveforge/core";
 import type { AiToolName } from "@weaveforge/core";
-import { SemanticScholarMetadataSource } from "@/features/papers/infrastructure/semantic-scholar-metadata-source";
-import { OpenAlexMetadataSource } from "@/features/papers/infrastructure/openalex-metadata-source";
-import { ReferenceLookupService } from "@/features/reader/application/reference-lookup";
-import { createReferenceActions } from "@/features/reader/application/reference-actions";
-import { IdbReferenceLookupCache } from "@/features/reader/infrastructure/reference-lookup-cache";
-import { ArxivMetadataSource } from "@/features/papers/infrastructure/arxiv-metadata-source";
-import { localZoteroCollection } from "@/features/papers/infrastructure/zotero-collection";
-import { CrossrefMetadataSource } from "@/features/papers/infrastructure/crossref-metadata-source";
-import { UrlMetadataSource } from "@/features/papers/infrastructure/url-metadata-source";
-import { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
-import { ImportLocalZoteroUseCase } from "@/features/papers/application/import-local-zotero.use-case";
+import { SemanticScholarMetadataSource, UrlMetadataSource } from "@/features/papers/infrastructure/parts-2";
+import {
+  createContainerLifecycle,
+  createLibraryTidy,
+  HttpAccountProvisioner,
+  IdbReferenceLookupCache,
+  OpenAlexMetadataSource,
+  PrefetchingAddPaperUseCase,
+  reportCitationAlertError,
+  RoutedInkChunkStore,
+  VaultAssetStore,
+  WebCryptoShareLinkTokenHasher,
+  wireBackend,
+} from "@/container/parts";
+import { createReferenceActions, ReferenceLookupService } from "@/features/reader/application/parts-2";
+import { ArxivMetadataSource, CrossrefMetadataSource, localZoteroCollection } from "@/features/papers/infrastructure/parts";
+import { DeletePaperUseCase, ImportLocalZoteroUseCase, LoadPapersScreenUseCase } from "@/features/papers/application/parts-1";
 // Adding a paper also asks for its PDF, so a paper imported after the folder
 // was adopted reaches `papers/pdf/` without a restart (explorer plan §8).
-import { PrefetchingAddPaperUseCase } from "@/features/papers/application/prefetch-paper-pdf.use-case";
-import { LoadPapersScreenUseCase } from "@/features/papers/application/load-papers-screen.use-case";
-import { LoadExperimentsScreenUseCase } from "@/features/experiments/application/load-experiments-screen.use-case";
-import { LoadVaultScreenUseCase } from "@/features/vault/application/load-vault-screen.use-case";
-import { LoadReportScreenUseCase } from "@/features/report/application/load-report-screen.use-case";
-import { LoadPlanScreenUseCase } from "@/features/plan/application/load-plan-screen.use-case";
+import { LoadExperimentsScreenUseCase } from "@/features/experiments/application/parts";
+import { LoadVaultScreenUseCase } from "@/features/vault/application/parts";
+import { LoadReportScreenUseCase } from "@/features/report/application/parts";
+import { LoadPlanScreenUseCase } from "@/features/plan/application/parts";
 import { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
-import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/application/load-reading-lists-screen.use-case";
+import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/application/parts";
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
-import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
-import { PostgrestShareLinkRepository } from "@/features/sharing/infrastructure/postgrest-share-link-repository";
-import { WebCryptoShareLinkTokenHasher } from "@/features/sharing/infrastructure/web-crypto-token-hasher";
-import { HttpAccountProvisioner } from "@/features/org/infrastructure/http-account-provisioner";
+import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/parts";
+import { rustAiStores, rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
-import { wireBackend } from "@/backend/wire-backend";
-import { readBackendConfig } from "@/backend/config";
+import { readBackendConfig } from "@/backend/parts";
 import {
   PapersFacade,
   PaperFieldsFacade,
@@ -93,27 +85,25 @@ import {
   InkFacade,
   type AppContainer,
 } from "@/container/facades";
-import { BlobInkChunkStore } from "@/features/ink/infrastructure/blob-ink-chunk-store";
-import { FsInkChunkStore } from "@/features/ink/infrastructure/fs-ink-chunk-store";
-import { RoutedInkChunkStore } from "@/features/ink/infrastructure/routed-ink-chunk-store";
-import { activeWorkspaceFs, folderRestored } from "@/features/workspace/application/workspace-folder";
+import { BlobInkChunkStore, FsInkChunkStore } from "@/features/ink/infrastructure/parts";
+import {
+  activeWorkspaceFs,
+  closeFolder,
+  folderRestored,
+} from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { reportCitationAlertError } from "@/features/relations/infrastructure/report-citation-alert-error";
-import type { ProjectContext } from "@/lib/project-context";
-import { randomBytes, systemClock, uuidIds } from "@/lib/system";
-import type { ProjectLwwInvalidator } from "@/lib/cache/project-lww-invalidator";
-import { createContainerLifecycle } from "@/container/lifecycle";
-import { createLibraryTidy } from "@/container/library-tidy";
+import { loadCore } from "@/lib/rust-core";
+import type { ProjectContext } from "@/lib/parts-2";
+import { randomBytes, readInkHapticsOn, relayUrl, systemClock, uuidIds } from "@/lib/parts";
+import type { ProjectLwwInvalidator } from "@/lib/cache/parts-1";
 import { FetchingBlobStore } from "@/storage/fetching-blob-store";
-import { PaperImageStore } from "@/features/papers/infrastructure/paper-image-store";
-import { VaultAssetStore } from "@/features/vault/infrastructure/vault-asset-store";
-import { ReportImageStore } from "@/features/report/infrastructure/report-image-store";
-import { LogImageStore } from "@/features/logbook/infrastructure/log-image-store";
-import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/experiment-artifact-store";
-import { createCredentialReader } from "@/integrations/credentials";
+import { PaperImageStore } from "@/features/papers/infrastructure/parts-1";
+import { ReportImageStore } from "@/features/report/infrastructure/parts";
+import { LogImageStore } from "@/features/logbook/infrastructure/parts";
+import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/parts";
+import { createCredentialReader } from "@/integrations/parts";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
-import { clearActiveProvider } from "@/features/ai-assistant/application/ai-provider-session";
-import { closeFolder } from "@/features/workspace/application/workspace-folder";
+import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -135,16 +125,12 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     { wireIntegrations },
     { wireCitationSources },
     { GENERATED_MCP_ENABLED, GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY, GENERATED_MCP_TOOL_NAMES },
-    { PostgrestAiAuditStore, PostgrestAiProposalStore },
-    { PostgrestCrdtUpdateStore },
-    { CrdtSnapshotStore },
+    { rustCrdtUpdateStore, rustCrdtSnapshotStore },
   ] = await Promise.all([
     import("@/integrations/wire-integrations"),
-    import("@/integrations/wire-citations"),
+    import("@/integrations/parts"),
     import("@/deployment/generated-registry"),
-    import("@/features/ai-assistant/infrastructure/postgrest-ai-proposal-store"),
-    import("@/features/collab/infrastructure/postgrest-crdt-update-store"),
-    import("@/features/collab/infrastructure/crdt-snapshot-store"),
+    import("@/features/collab/infrastructure/parts"),
   ]);
 
   const projectContext: ProjectContext = { projectId: null };
@@ -166,9 +152,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     projectLww.watch(backend.db, pid());
   }
 
-  const crdtUpdateStore = new PostgrestCrdtUpdateStore(backend.db);
-  const crdtSnapshotStore = new CrdtSnapshotStore(backend.db);
-  const compactCrdtLog = new CompactCrdtLogUseCase({ crdtStore: crdtUpdateStore });
+  const crdtUpdateStore = rustCrdtUpdateStore(backend.db);
+  const crdtSnapshotStore = rustCrdtSnapshotStore(backend.db);
 
   const vaultPageRepository = backend.rawVaultPageRepository;
   const paperRepository = backend.paperRepository;
@@ -181,8 +166,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const commentRepository = backend.commentRepository;
   const encryptedBlobStore = new FetchingBlobStore(backend.rawBlobStore);
 
-  const aiProposalStore = new PostgrestAiProposalStore(backend.db, backend.session, pid);
-  const aiAuditStore = new PostgrestAiAuditStore(backend.db, backend.session, pid);
+  const { proposals: aiProposalStore, audit: aiAuditStore } = rustAiStores(backend.db, projectContext, backend.session);
 
   const paperImageStore = new PaperImageStore(encryptedBlobStore, backend.session);
   const vaultAssetStore = new VaultAssetStore(encryptedBlobStore, backend.session);
@@ -201,19 +185,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     folderRestored,
   );
 
-  const manageProject = new ManageProjectUseCase({
-    repository: backend.projectRepository,
-    clock: systemClock,
-    ids: uuidIds,
-  });
+  const manageProject = backend.projectRepository;
 
-  const manageTags = new ManageTagsUseCase({
-    tags: backend.tagRepository,
-    paperTags: backend.paperTagRepository,
-    papers: paperRepository,
-    clock: systemClock,
-    ids: uuidIds,
-  });
+  const manageTags = backend.tagRepository;
 
   const addPaper = new PrefetchingAddPaperUseCase({
     repository: paperRepository,
@@ -245,10 +219,12 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const semanticScholarSource = new SemanticScholarMetadataSource(undefined, undefined, () =>
     createCredentialReader(backend.manageSettings)("semantic-scholar", "apiKey"),
   );
-  const openAlexSource = new OpenAlexMetadataSource();
+  const openAlexSource = new OpenAlexMetadataSource(undefined, undefined, undefined, () =>
+    createCredentialReader(backend.manageSettings)("semantic-scholar", "openAlexKey"),
+  );
 
   const resolver = new MetadataResolver([
-    new ArxivMetadataSource(undefined, "/api/arxiv"),
+    new ArxivMetadataSource(undefined, relayUrl("/api/arxiv")),
     new CrossrefMetadataSource(),
     ...(wiredIntegrations.bibliographyMetadataSource
       ? [wiredIntegrations.bibliographyMetadataSource]
@@ -258,8 +234,10 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     semanticScholarSource,
     openAlexSource,
     new UrlMetadataSource(),
-  ]);
-  const importPaper = new ImportPaperUseCase(resolver, addPaper);
+  ], true); // A source that says no (Crossref on a DataCite DOI) falls through to the next.
+  const importPaper = new ImportPaperUseCase(resolver, addPaper, async (kind, value) =>
+    (await loadCore()).parsePaperRef(kind, value),
+  );
 
   // The reader's citation lookup: Semantic Scholar is the first provider for
   // DOI, arXiv and title+author+year alike, with OpenAlex/Crossref behind it.
@@ -267,27 +245,16 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // `semanticScholarUrl`), not a second direct network path. Identifier refs
   // cascade so a DOI Semantic Scholar does not know still lands in Crossref.
   const readerResolver = new MetadataResolver(
-    [semanticScholarSource, openAlexSource, new CrossrefMetadataSource(), new ArxivMetadataSource(undefined, "/api/arxiv")],
+    [semanticScholarSource, openAlexSource, new CrossrefMetadataSource(), new ArxivMetadataSource(undefined, relayUrl("/api/arxiv"))],
     true,
   );
 
-  const addLogEntry = new AddLogEntryUseCase({
-    repository: logEntryRepository,
-    clock: systemClock,
-    ids: uuidIds,
-  });
+  const addLogEntry = logEntryRepository;
 
-  const manageReportSection = new ManageReportSectionUseCase({
-    repository: reportSectionRepository,
-    clock: systemClock,
-    ids: uuidIds,
-  });
-
-  const manageVaultPage = new ManageVaultPageUseCase({
-    repository: vaultPageRepository,
-    clock: systemClock,
-    ids: uuidIds,
-  });
+  // Writes go straight to the Rust-backed repositories; they own id, clock and
+  // validation, so there is no TS use-case layer in between.
+  const manageReportSection = reportSectionRepository;
+  const manageVaultPage = vaultPageRepository;
 
   const manageReadingList = new ManageReadingListUseCase({
     lists: readingListRepository,
@@ -342,17 +309,13 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     ids: uuidIds,
   });
 
-  const manageExperiment = new ManageExperimentUseCase({
-    repository: experimentRepository,
-    clock: systemClock,
-    ids: uuidIds,
-  });
+  const manageExperiment = experimentRepository;
 
   const manageSharing = new ManageSharingUseCase({ repository: backend.shareRepository });
   const manageComments = new ManageCommentsUseCase({ repository: commentRepository });
   const shareLinkTokenHasher = new WebCryptoShareLinkTokenHasher();
   const shareLinkRepository =
-    "db" in backend ? new PostgrestShareLinkRepository(backend.db) : null;
+    "db" in backend ? rustShareLinkRepository(backend.db) : null;
   const createShareLink =
     shareLinkRepository &&
     new CreateShareLinkUseCase({
@@ -389,11 +352,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     assets: vaultAssetStore,
   });
 
-  const manageMilestone = new ManageMilestoneUseCase({
-    repository: milestoneRepository,
-    clock: systemClock,
-    ids: uuidIds,
-  });
+  const manageMilestone = milestoneRepository;
   // Was an object literal here; it was the only place that decided whether an
   // approved note proposal still applies, and it could not be tested without
   // wiring the whole container. The port it satisfies already existed in core.
@@ -441,11 +400,6 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
         })
       : [],
   );
-
-  const createMember = new CreateMemberUseCase({
-    members: backend.memberRepository,
-    provisioner: new HttpAccountProvisioner(backend.auth),
-  });
 
   const prefetchProject = new PrefetchProjectUseCase({
     listPapers: () => paperRepository.listSummaries(),
@@ -639,6 +593,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       logSync,
       notifications,
       images: logImageStore,
+      readingMarks: backend.readerAnnotationRepository,
     }),
     report: new ReportFacade({
       load: loadReportScreen,
@@ -650,6 +605,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       chunks: inkChunkStore,
       assets: vaultAssetStore,
       bridge: desktop,
+      hapticsOn: readInkHapticsOn,
       vocabulary: async () => {
         const [pages, papers] = await Promise.all([
           // Titles only — the projection is the right read, now that the port
@@ -670,7 +626,6 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     collab: new CollabFacade({
       crdtStore: crdtUpdateStore,
       crdtSnapshotStore,
-      compactCrdtLog,
       db: backend.db,
       session: backend.session,
       projectId: pid,
@@ -698,6 +653,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     }),
     settings: new SettingsFacade({
       settings: backend.manageSettings,
+      preferences: backend.settingsRepository,
+      releaseNotices: backend.releaseNoticesRepository,
       bibliography,
       projectBibliography: wiredIntegrations.projectBibliographyCollection,
       integrations: backend.integrationsStore,
@@ -724,7 +681,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     }),
     org: new OrgFacade({
       members: backend.memberRepository,
-      createMember,
+      provisioner: new HttpAccountProvisioner(backend.auth),
       supervision: backend.supervisionRepository,
       labSnapshots: backend.labSnapshotRepository,
       milestones: backend.milestoneRepository,

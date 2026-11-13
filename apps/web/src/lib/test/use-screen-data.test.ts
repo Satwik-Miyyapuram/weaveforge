@@ -18,9 +18,8 @@ import {
   clearScreenCachesForScreens,
   screenCacheKey,
   setScreenCache,
-} from "@/lib/cache/screen-cache";
-import { cacheRepo } from "@/lib/cache/cache-repo";
-import { closeAppDb } from "@/lib/cache/app-idb";
+} from "@/lib/cache/parts-2";
+import { cacheRepo, closeAppDb } from "@/lib/cache/parts-1";
 import { ProjectContext } from "@/features/projects/ui/project-provider";
 import { createFakeIndexedDb } from "./fake-indexeddb.js";
 import { renderHook } from "./react-harness.js";

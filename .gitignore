@@ -69,18 +69,23 @@ apps/web/public/swe-worker*
 
 # pdf.js worker (copied from pdfjs-dist by scripts/copy-pdf-worker.mjs)
 apps/web/public/pdf.worker.min.mjs
+# Overleaf IDE stylesheet and pdf.js assets (scripts/build-overleaf-assets.mjs)
+apps/web/public/overleaf/
+apps/web/public/js/pdfjs-dist/
+apps/web/public/fonts/pdfjs-dist/
+apps/web/public/images/pdfjs-dist/
 
 # --- the Windows Ink recogniser helper -------------------------------------
 #
-# The helper is C# source in `apps/desktop/native/ink-recogniser/`; what is
+# The helper is C# source in `apps/shell/native/ink-recogniser/`; what is
 # ignored is what `dotnet` produces — `bin/` and `obj/` for a local build, and
 # `win-<arch>/` for the two published self-contained executables
-# (`scripts/build-ink-recogniser.mjs`, ~14 MB each). Those are packaging inputs,
+# (`apps/shell/scripts/build-ink-recogniser.mjs`, ~14 MB each). Those are packaging inputs,
 # rebuilt by the build rather than reviewed, and a 14 MB binary in the history of
 # a source repository is not something a later commit can take back.
-apps/desktop/native/ink-recogniser/bin/
-apps/desktop/native/ink-recogniser/obj/
-apps/desktop/native/ink-recogniser/win-*/
+apps/shell/native/ink-recogniser/bin/
+apps/shell/native/ink-recogniser/obj/
+apps/shell/native/ink-recogniser/win-*/
 
 # python
 __pycache__/
@@ -175,3 +180,10 @@ apps/web/public/ort-wasm-*
 
 # local diagnostics probes
 .scratch/
+
+# Rust build output
+/target/
+/apps/shell/target/
+/apps/relay/target/
+# Tauri writes capability schemas here on every build.
+/apps/shell/gen/

@@ -35,12 +35,11 @@ the browser and desktop) and direct local loopback to Zotero 7 (desktop only).
    - In **Settings → Connections**, choose which Zotero collection to mirror for the
      current project, or leave it blank to sync your entire library.
 4. **Syncing your library**:
-   - In the **Papers** screen, click **Sync bibliography**.
+   - In the **Papers** screen, open the **Add paper** menu and click **Sync Zotero**.
    - Items in your collection are imported into your library with metadata, DOIs,
      arXiv IDs, and PDF attachments.
-   - Highlights and notes made in Zotero's PDF reader automatically import as
-     markdown notes in your **Vault** under `Excerpts/`, complete with page numbers
-     and links back to the source paper.
+   - Highlights and notes made in Zotero's PDF reader are pulled in as read-only
+     annotations on the paper.
 
 ### Local Zotero on Desktop (No Account / Key Needed)
 
@@ -64,7 +63,7 @@ can write back to your Zotero cloud library, keeping both libraries synchronized
 ## 2. GitHub & GitLab
 
 Connect code repositories to your thesis or research project to browse source
-trees, inspect commits, and pin code revisions directly to experiment runs.
+trees and inspect commits.
 
 ### Setting Up Authentication
 
@@ -86,12 +85,6 @@ Once connected, the **Git** item appears in the main navigation bar:
 - **Branch switching**: Inspect any branch in the repository without leaving WeaveForge.
 - **Commit history**: Browse chronological commits with authors, timestamps, and commit messages.
 - **Diff viewer**: Click any commit to view changed files and side-by-side or inline diffs.
-
-### Pinning Commits to Experiments
-
-In the **Git** tab, click **Track as experiment** on any commit. WeaveForge creates
-a linked experiment run tagged with the commit SHA. When you run training scripts using
-the Python SDK (`@track_experiment`), curves and artifacts are pinned to this commit.
 
 ---
 
@@ -128,19 +121,24 @@ Mattermost channels.
 
 ### Configuration
 
-1. In Mattermost, go to **Integrations → Incoming Webhooks** → **Add Incoming Webhook**.
-2. Select your target channel (e.g. `#thesis-updates`) and copy the generated Webhook URL.
-3. In WeaveForge, open **Settings → Connections**, select **Mattermost**, and paste the
-   **Webhook URL** and **Channel Name**.
+1. In Mattermost, create a bot account (**Integrations → Bot Accounts**) and copy its
+   access token. Add the bot to the channel it should post in.
+2. Copy that channel's ID (channel menu → **View Info**).
+3. In WeaveForge, open the project's connections, choose **Mattermost — project alerts**,
+   and fill in **Bot token**, **Server URL** (e.g. `https://mattermost.example.com`) and
+   **Default channel ID**.
 
 ### Automated Notifications
 
-- **Milestone Deadlines**: WeaveForge checks your **Plan** milestones and posts alerts
-  7 days, 3 days, and 1 day prior to upcoming due dates.
-- **Milestone Completion**: When you mark a milestone complete in WeaveForge, an
-  announcement is posted with progress statistics.
-- **Experiment Runs**: Training script failures or completions logged via the Python SDK
-  can optionally trigger a channel alert.
+Each event posts only if you switch it on for the project, and each can go to its own
+channel (otherwise the default channel):
+
+- **Milestones**: a milestone is added, or its status changes.
+- **Citation alerts**: new papers cite a paper you track.
+- **Daily and weekly logs**: a log entry is saved.
+
+Milestone deadlines are not posted. For deadline reminders, use the Plan calendar feed,
+which can remind you 1 day, 3 days, or 1 week before a due date.
 
 ---
 
@@ -193,16 +191,23 @@ Add the WeaveForge MCP server to your AI client's configuration file (e.g. `clau
   - `get_source_excerpt`: Retrieve specific quotes and annotations from a paper.
   - `get_workspace_outline`: Inspect your current report structure and plan milestones.
 - **Proposal tools**:
-  - `suggest_append_paper_note`: Suggest summary notes on a paper.
-  - `suggest_create_vault_note`: Propose a new synthesized vault note.
-  - `suggest_create_log_entry`: Propose a logbook entry for today.
+  - `suggest_append_paper_note`: Suggest a note to add to a paper.
+  - `suggest_create_vault_note`: Propose a new vault note.
+  - `suggest_create_log_entry`: Propose a logbook entry.
+  - `suggest_paper_update`: Propose a change to a paper's details.
+  - `suggest_paper_field_value`: Propose a value for one paper field.
+  - `suggest_reading_list_change`: Propose adding a paper to a reading list.
+  - `suggest_relation`: Propose a link between two papers.
+  - `suggest_zotero_import`: Propose importing a paper from Zotero.
   - `suggest_milestone_follow_up`: Propose follow-up tasks for a milestone.
+  - `suggest_experiment_follow_up`: Propose follow-up tasks for an experiment.
 
 ### Human-in-the-Loop Review (`/ai-review`)
 
 AI assistants cannot write directly to your database. Any modification suggested by an
-AI assistant is saved as an encrypted proposal in **`/ai-review`**. You can inspect the
-diff, make manual edits, and explicitly click **Accept** or **Reject**. See
+AI assistant is saved as a proposal in **`/ai-review`**. Nothing changes until you
+click **Approve** or **Reject**. Some proposals show **Approve and append** or
+**Approve and write cell** instead of **Approve**. See
 [`../building/mcp.md`](../building/mcp.md) for tool specifications.
 
 ---
@@ -237,7 +242,7 @@ and **facades** — never on concrete SDKs directly.
 | **Citation** | `ICitationSource` | `wireCitationSources()` | User (optional key) | `NEXT_PUBLIC_CITATION_PROVIDER` |
 | **Notification** | `INotificationIntegration` | `wireIntegrations()` | Project connector | `NEXT_PUBLIC_NOTIFICATION_PROVIDER` |
 | **Log sync** | `ILogSyncIntegration` | `wireIntegrations()` | Project connector | `NEXT_PUBLIC_LOG_SYNC_PROVIDER` |
-| **Git read** | `IGitClient` | `wireGitRead()` in `wire-integrations.ts` | Project connector | `NEXT_PUBLIC_GIT_READ_PROVIDERS` |
+| **Git read** | `IGitClient` | `wireIntegrations()` | Project connector | `NEXT_PUBLIC_GIT_READ_PROVIDERS` |
 
 ### Deployment Configuration (`.env.local`)
 

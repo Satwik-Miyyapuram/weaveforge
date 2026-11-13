@@ -1,23 +1,23 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { BackendConfig } from "@/backend/config";
+import type { BackendConfig } from "@/backend/parts";
 import { secretsStoreFor } from "@/backend/providers/secrets-store";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
-import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/postgrest-settings-repository";
+import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/parts";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
-import { notifyWorkspaceChange } from "@/lib/workspace-changes";
+import { readyCore } from "@/lib/rust-core";
+import { notifyWorkspaceChange } from "@/lib/parts";
 import { wireStorage } from "@/storage/wire-storage";
-import { createDataClient } from "../postgrest/client";
+import { createDataClient } from "../postgrest/parts-1";
 import { watchWrites } from "../postgrest/watch-writes";
 import type { BackendParts } from "../postgrest/wire-postgrest-backend";
 import { createLocalClient, type LocalQuery } from "./pglite-client";
 import type { LocalFirstAccount } from "./local-first-marker";
-import { keepFlushing, LocalFirstBlobStore } from "./local-first-blob-store";
-import { ExperimentPush, keepPushing } from "./local-first-experiment-push";
+import { ExperimentPush, keepFlushing, keepPushing, LocalFirstBlobStore } from "./parts-1";
 import { LocalSessionProvider } from "./local-identity";
-import { localRunnerQuery } from "./local-runner";
+import { localRunnerQuery } from "./parts";
 
 /**
  * Local-first: a signed-in desktop works on its own database and syncs it.
@@ -33,34 +33,6 @@ import { localRunnerQuery } from "./local-runner";
  * that account's work when it does. The marker is set once the device has been
  * adopted and has its first download, and cleared by a deliberate sign-out.
  */
-
-/** The tables the change feed carries: see `0118_sync_change_feed.sql`, `0120` and `0138`. */
-export const SYNCED_TABLES: ReadonlySet<string> = new Set([
-  "projects",
-  "papers",
-  "tags",
-  "paper_field_defs",
-  "paper_field_values",
-  "paper_relations",
-  "reading_lists",
-  "reading_list_items",
-  "log_entries",
-  "milestones",
-  "experiments",
-  "report_sections",
-  "reader_annotations",
-  "annotation_pins",
-  "library_pins",
-  "vault_pages",
-  "screening_decisions",
-  "paper_tags",
-]);
-
-/**
- * Metric reads that must see both ends: the desktop SDK API writes points to the
- * local database and the hosted SDK route to the server, and metrics do not sync.
- */
-const BOTH_END_RPCS: ReadonlySet<string> = new Set(["metric_history", "latest_metric_activity"]);
 
 type RpcReply = { data: unknown; error: unknown };
 
@@ -85,11 +57,13 @@ async function bothEnds(
   // failure is dropped from the answer, so it is logged here instead.
   if (here!.error) logDroppedEnd("this computer", fn, here!.error);
   if (there!.error && !here!.error) logDroppedEnd("the server", fn, there!.error);
-  if (here!.error && there!.error) return there!;
+  // The merge rule (and which RPCs are both-ends) lives in the Rust core.
+  const mode = readyCore().bothEndsMerge(fn, Boolean(here!.error), Boolean(there!.error));
+  if (mode === "serverError") return there!;
   const rows = (r: RpcReply) => (!r.error && Array.isArray(r.data) ? r.data : []);
   // A run's history lives on one end; preferring local keeps the budget-reduced
   // series intact instead of interleaving two reductions.
-  if (fn === "metric_history") {
+  if (mode === "preferLocalRows") {
     const mine = rows(here!);
     return { data: mine.length ? mine : rows(there!), error: null };
   }
@@ -104,7 +78,7 @@ async function bothEnds(
 export function routedClient(
   local: SupabaseClient,
   server: SupabaseClient,
-  synced: ReadonlySet<string> = SYNCED_TABLES,
+  synced: ReadonlySet<string> = new Set(readyCore().syncedTables()),
 ): SupabaseClient {
   return new Proxy(server, {
     get(target, prop, receiver) {
@@ -113,7 +87,7 @@ export function routedClient(
       }
       if (prop === "rpc") {
         return (fn: string, args?: Record<string, unknown>) =>
-          BOTH_END_RPCS.has(fn) ? bothEnds(local, target, fn, args) : target.rpc(fn, args);
+          readyCore().isBothEndsRpc(fn) ? bothEnds(local, target, fn, args) : target.rpc(fn, args);
       }
       const value = Reflect.get(target, prop, receiver) as unknown;
       return typeof value === "function" ? (value as (...a: unknown[]) => unknown).bind(target) : value;

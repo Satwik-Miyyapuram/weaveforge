@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
 import { withAppLogs } from "@/lib/error-report/test/capture-app-logs";
-import { emptyIntegration, type Integration, type SyncProvider } from "../domain/integration";
+import { type Integration, type SyncProvider } from "../domain/parts";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { loadIntegrations } from "../ui/load-integrations";
 
 const github: Integration = { provider: "github", enabled: true, repo: "o/r", branch: "dev" };
+
+before(async () => {
+  await loadTestCore();
+});
 
 test("each provider gets its stored row, or an empty one", async () => {
   const result = await loadIntegrations(
@@ -13,7 +19,7 @@ test("each provider gets its stored row, or an empty one", async () => {
     ["github", "mattermost"],
   );
   assert.deepEqual(result, {
-    items: { github, mattermost: emptyIntegration("mattermost") },
+    items: { github, mattermost: readyCore().emptyIntegration("mattermost") },
     error: null,
   });
 });

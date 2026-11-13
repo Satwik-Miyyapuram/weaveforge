@@ -12,18 +12,13 @@
  */
 
 import { useEffect } from "react";
-import {
-  inkAttachmentIndex,
-  inkPageBackground,
-  inkPageFigures,
-  type InkNoteMeta,
-} from "@weaveforge/core";
+import { type InkNoteMeta } from "@weaveforge/core";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
-import type { InkStoredPage } from "../application/ink-chunk-store";
+import type { InkStoredPage } from "../application/parts-1";
 import { decodedStrokeCount } from "./use-decoded-strokes";
-import type { FigureGeometry } from "@weaveforge/core";
-import type { InkPage } from "@weaveforge/core";
+import type { FigureGeometry, InkPage } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 /** What the page change needs from the host. */
 export interface InkPageLifecycleDeps {
@@ -100,8 +95,8 @@ export function useInkPageLifecycle(deps: InkPageLifecycleDeps) {
    */
   useEffect(() => {
     if (pageCount === 0) return;
-    const path = inkPageBackground(textPagesRef.current[pageIndex] ?? "");
-    const index = inkAttachmentIndex(noteBody(), path);
+    const path = typedCore().inkPageBackground(textPagesRef.current[pageIndex] ?? "");
+    const index = typedCore().inkAttachmentIndex(noteBody(), path);
     setBackgroundPath(path);
     send({ type: "set-background", image: null, index });
     if (!path) return;
@@ -132,7 +127,7 @@ export function useInkPageLifecycle(deps: InkPageLifecycleDeps) {
    * cannot drift apart.
    */
   useEffect(() => {
-    setFigures(inkPageFigures(textPagesRef.current[pageIndex] ?? ""));
+    setFigures(typedCore().inkPageFigures(textPagesRef.current[pageIndex] ?? ""));
     // The controls belong to a figure of *this* page; its index is not one
     // of the next page's, so the page change closes them — unless a figure
     // was just dropped onto this page, which stays selected.

@@ -1,16 +1,22 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
 import type { DesktopVaultSync, DesktopVaultSyncAction } from "@/lib/desktop/desktop-bridge";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import {
   describeRemoteSync,
   disconnectRemote,
   folderRemoteSync,
   forgetRemoteToken,
+  pullThenPush,
   remoteSyncAvailable,
   saveRemoteSyncSettings,
-} from "../application/folder-remote-sync";
+} from "../application/parts-2";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /** A shell with only what this path touches, recording each call. */
 function fakeShell(reply: (action: DesktopVaultSyncAction) => Promise<DesktopVaultSync>) {
@@ -104,25 +110,57 @@ test("each action goes to the shell as named", async () => {
   assert.deepEqual(calls, [["sync", "push"]]);
 });
 
+test("a conflict choice goes to the shell as named, and its merge reads as a pull", async () => {
+  const calls = fakeShell(reply({ pull: { kind: "merged", oid: "abc" } }));
+  for (const choice of ["keep-mine", "take-remote", "keep-both"] as const) {
+    const result = await folderRemoteSync(choice);
+    assert.deepEqual(result.pull, { kind: "merged", oid: "abc" });
+  }
+  assert.deepEqual(calls, [
+    ["sync", "keep-mine"],
+    ["sync", "take-remote"],
+    ["sync", "keep-both"],
+  ]);
+});
+
 test("without the shell, an action is refused rather than ignored", async () => {
   delete (globalThis as { window?: unknown }).window;
   await assert.rejects(folderRemoteSync("pull"), /desktop app/);
 });
 
-test("the outcome reads as one line, a conflict naming its files", () => {
+test("the outcome reads as one line, a conflict naming its files", async () => {
   const base = { url: "https://x.test/r.git", hasToken: false };
-  assert.match(describeRemoteSync({ ...base, pull: { kind: "conflict", files: ["a.md", "b.md"] } }), /a\.md, b\.md/);
-  assert.match(describeRemoteSync({ ...base, push: { kind: "rejected", reason: "Pull first." } }), /Pull first/);
+  assert.match(await describeRemoteSync({ ...base, pull: { kind: "conflict", files: ["a.md", "b.md"] } }), /a\.md, b\.md/);
+  assert.match(await describeRemoteSync({ ...base, push: { kind: "rejected", reason: "Pull first." } }), /Pull first/);
   assert.equal(
-    describeRemoteSync({ ...base, status: { url: "https://x.test/r.git", branch: "main", ahead: 2, behind: 1 } }),
+    await describeRemoteSync({ ...base, status: { url: "https://x.test/r.git", branch: "main", ahead: 2, behind: 1 } }),
     "2 commits to push, 1 to pull on main.",
   );
   assert.equal(
-    describeRemoteSync({ ...base, status: { url: "https://x.test/r.git", branch: "main", ahead: 0, behind: 0 } }),
+    await describeRemoteSync({ ...base, status: { url: "https://x.test/r.git", branch: "main", ahead: 0, behind: 0 } }),
     "In step with the remote on main.",
   );
   assert.equal(
-    describeRemoteSync({ ...base, status: { url: null, branch: "main", ahead: 0, behind: 0 } }),
+    await describeRemoteSync({ ...base, status: { url: null, branch: "main", ahead: 0, behind: 0 } }),
     "Not connected yet.",
   );
+});
+
+test("pullThenPush pulls, then pushes, in one call", async () => {
+  const calls = fakeShell(async (action) =>
+    action === "pull"
+      ? { url: "u", hasToken: true, pull: { kind: "fast-forward", oid: "abc" } }
+      : { url: "u", hasToken: true, push: { kind: "pushed" } },
+  );
+  const { pulled, pushed } = await pullThenPush();
+  assert.deepEqual(calls, [["sync", "pull"], ["sync", "push"]]);
+  assert.equal(pulled.pull?.kind, "fast-forward");
+  assert.equal(pushed?.push?.kind, "pushed");
+});
+
+test("pullThenPush stops after a conflicted pull and pushes nothing", async () => {
+  const calls = fakeShell(async () => ({ url: "u", hasToken: true, pull: { kind: "conflict", files: ["a.md"] } }));
+  const { pushed } = await pullThenPush();
+  assert.deepEqual(calls, [["sync", "pull"]]);
+  assert.equal(pushed, null);
 });

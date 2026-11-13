@@ -1,0 +1,26 @@
+// Overleaf's `main-style.scss`, minus the web fonts (the app brings its own
+// text fonts; the build script links the icon font) and plus the component
+// sheets Overleaf's components import themselves.
+// Compiled by `apps/web/scripts/build-overleaf-assets.mjs`.
+
+@import '../frontend/stylesheets/vendor/select/select';
+@import '../frontend/stylesheets/base/bootstrap';
+@import '../frontend/stylesheets/base/colors';
+@import '../frontend/stylesheets/components/all';
+@import '../frontend/stylesheets/base/typography';
+@import '../frontend/stylesheets/helpers/all';
+@import '../frontend/stylesheets/modals/all';
+@import '../frontend/stylesheets/pages/all';
+@import '../frontend/stylesheets/base/links';
+@import '../frontend/stylesheets/base/base';
+@import '../frontend/stylesheets/base/initial-theme';
+@import '../frontend/stylesheets/base/layout';
+@import '../frontend/stylesheets/modules/all';
+@import '../frontend/stylesheets/ciam/all';
+
+@import '../frontend/stylesheets/components/editor-toolbar';
+@import '../frontend/stylesheets/components/billing-period-toggle';
+@import '../frontend/stylesheets/components/compile-time-paywall-modal';
+
+// Ours, last: the app's theme on Overleaf's colour variables.
+@import 'theme';

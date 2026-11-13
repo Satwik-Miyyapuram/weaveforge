@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -13,15 +13,15 @@ import { PrivacyDisclaimerGate } from "@/features/auth/ui/privacy-disclaimer-gat
 import { ThemeSyncProvider } from "@/features/settings/ui/theme-sync-provider";
 import { OrgSetupGate } from "@/features/org/ui/org-setup-gate";
 import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
-import { useIsDetailView } from "@/lib/hooks/use-detail-view";
-import { useWorkspaceRoute } from "@/lib/hooks/use-workspace-route";
-import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
-import { titleForPath } from "@/lib/route-title";
+import { useIsDetailView, useModuleRegistry, useWorkspaceRoute } from "@/lib/hooks/parts";
+import { useNavFolded } from "@/lib/hooks/use-nav-fold";
+import { commandForChord, isTypingTarget } from "@/features/editor-workspace/application/parts";
 import { HeaderActions } from "./header-actions";
 import { TabBar } from "./tabbar";
 import { SubNav } from "./sub-nav";
 import { PageTransition } from "./page-transition";
 import { JumpToPalette } from "@/components/jump-to-palette";
+import { ShortcutsHost } from "@/components/shortcuts-host";
 import { NavPendingProvider } from "@/lib/nav-pending";
 import { ShareDialogHost } from "@/features/sharing/ui/share-dialog-host";
 import { RoutePending } from "./route-pending";
@@ -30,12 +30,20 @@ import { StartupProvider } from "@/features/startup";
 import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
 import { ToastHost } from "@/components/toast-host";
+import { ReleaseNoticeBanner } from "@/features/release-notices/ui/release-notice-banner";
+import { ContextMenuHost } from "@/components/context-menu";
 import { Button, CloseButton } from "@/components/button";
+import { loadCore, readyCore } from "@/lib/rust-core";
+import { CoreGate } from "./core-gate";
 
 /* Both paint nothing and only matter once a folder is connected; the folder
    code they carry is loaded after the page rather than with every one. */
 const WorkspaceFolderRestore = dynamic(
   () => import("@/features/workspace/ui/workspace-folder-restore").then((m) => m.WorkspaceFolderRestore),
+  { ssr: false },
+);
+const FolderChangeNote = dynamic(
+  () => import("@/features/workspace/ui/folder-change-note").then((m) => m.FolderChangeNote),
   { ssr: false },
 );
 const PdfTextFolderSync = dynamic(
@@ -59,15 +67,20 @@ const MattermostSignedOutHost = dynamic(
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading, expired, sessionEpoch } = useAuth();
   const pathname = usePathname();
-  if (pathname === "/recover") return <EmailRecoveryScreen />;
-  if (pathname === "/reset-password") return <PasswordResetScreen />;
+  // Start fetching the Rust core at once; auth and CoreGate both await it.
+  useEffect(() => {
+    loadCore().catch(() => {});
+  }, []);
+  if (pathname === "/recover") return <CoreGate><EmailRecoveryScreen /></CoreGate>;
+  if (pathname === "/reset-password") return <CoreGate><PasswordResetScreen /></CoreGate>;
   // The product pitch is public and renders its own chrome: no auth gate, no
   // project gate, no nav. It sits inside the app rather than beside it so the
   // cards it shows are the app's real components, not a copy that drifts.
   if (pathname === "/pitch") return <>{children}</>;
   if (loading) return <ThesisLoaderScreen />;
-  if (!user) return <main className="app-shell"><LoginScreen /></main>;
+  if (!user) return <CoreGate><main className="app-shell"><LoginScreen /></main></CoreGate>;
   return (
+    <CoreGate>
     <StartupProvider userId={user.id}>
         <PrivacyDisclaimerGate>
           <ProfileProvider key={user.id}>
@@ -80,8 +93,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     re-ask on every switch. See the component for why this is
                     not in the Settings panel. */}
                 <WorkspaceFolderRestore />
+                <FolderChangeNote />
                 <ToastHost />
+                <ContextMenuHost />
                 {expired && <SessionExpiredPrompt />}
+                <ReleaseNoticeBanner />
                 {/* Keyed on the session epoch: after signing back in, every
                     screen that loaded while signed out loads again. */}
                 <ProjectProvider key={sessionEpoch}>
@@ -95,6 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </ProfileProvider>
         </PrivacyDisclaimerGate>
     </StartupProvider>
+    </CoreGate>
   );
 }
 
@@ -120,7 +137,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   // reader's page announcement say where you are rather than "WeaveForge".
   useEffect(() => {
     const items = [registry.homeNavItem, ...registry.allModules.flatMap((m) => m.navItems)];
-    document.title = titleForPath(pathname, items);
+    document.title = readyCore().titleForPath(pathname, items);
   }, [pathname, registry]);
   const { breakpoint, navEnter, railByDefault } = useLayoutBreakpoint();
   const detailView = useIsDetailView();
@@ -129,6 +146,9 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   // tabs supersede it). It is the one screen that is a workspace rather than a
   // page, and the only one that must reach the window's bottom edge.
   const editorRoute = useWorkspaceRoute();
+  // A screen without its own route, like the live Overleaf editor, can ask for
+  // the rail too (use-nav-fold.ts).
+  const navFolded = useNavFolded();
   // The route picks the default and the hamburger overrides it: the rail on
   // `/workspace`, the wide sidebar elsewhere, either way until the person
   // toggles. `null` is "no override", and a route change clears it, so the
@@ -142,8 +162,19 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   // *default*, not a rule — the toggle above still wins, and widening the window
   // past the threshold puts the sidebar back on its own.
   const [override, setOverride] = useState<boolean | null>(null);
-  const collapsed = override ?? (editorRoute || railByDefault);
-  useEffect(() => setOverride(null), [editorRoute]);
+  const collapsed = override ?? (editorRoute || navFolded || railByDefault);
+  useEffect(() => setOverride(null), [editorRoute, navFolded]);
+  // `⌘⇧B` folds the app sidebar from any screen, the hamburger's keyboard twin.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || isTypingTarget(e.target as HTMLElement | null)) return;
+      if (commandForChord(e) !== "toggle-sidebar") return;
+      e.preventDefault();
+      setOverride((current) => !(current ?? (editorRoute || navFolded || railByDefault)));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editorRoute, navFolded, railByDefault]);
   // Enable sidebar transitions only AFTER the layout has settled into place, so
   // the nav appearing on load (padding-left 0→232) doesn't slide the content
   // around. Collapse-toggle animations still play once this is on.
@@ -202,6 +233,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
       )}
       <main id="main" className="app-shell">
         <JumpToPalette />
+        <ShortcutsHost />
         {/* Mobile's home for the account controls; on desktop they live in the
             nav. Rendered for one breakpoint only — mounting both and hiding one
             with CSS gave every switcher a second copy holding its own state.
@@ -278,9 +310,21 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
 function SessionExpiredPrompt() {
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+  useEffect(() => {
+    if (open) dialogRef.current?.querySelector<HTMLElement>("button, a, input")?.focus();
+  }, [open]);
   if (open) {
     return (
-      <div className="session-expired-overlay" role="dialog" aria-modal="true" aria-label="Sign in again">
+      <div ref={dialogRef} className="session-expired-overlay" role="dialog" aria-modal="true" aria-label="Sign in again">
         <CloseButton label="Not now" onClick={() => setOpen(false)} />
         <LoginScreen />
       </div>

@@ -1,8 +1,8 @@
 "use client";
 
-import { enumLabel } from "@/lib/enum-label";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { clusterMarks, type PlanTimeline } from "@/features/plan/application/plan-timeline";
+import type { PlanTimeline } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { RowButton } from "@/components/controls";
 
 /** A mark's width plus a little air, in px: nearer marks fold into one. */
@@ -34,7 +34,7 @@ export function PlanTimelineBar({
   }, []);
 
   const clusters = useMemo(
-    () => clusterMarks(timeline.marks, width ? (MARK_SPAN / width) * 100 : 3),
+    () => readyCore().clusterMarks(timeline.marks, width ? (MARK_SPAN / width) * 100 : 3),
     [timeline.marks, width],
   );
 
@@ -54,7 +54,7 @@ export function PlanTimelineBar({
         <em>Today</em>
       </span>
       {clusters.map((c) => {
-        const names = c.marks.map((m) => `${m.title} (${enumLabel("milestoneStatus", m.status)})`);
+        const names = c.marks.map((m) => `${m.title} (${readyCore().enumLabel("milestoneStatus", m.status)})`);
         return (
           <span key={c.marks[0]!.id} className="plan-mark-slot" style={{ left: `${c.at}%` }}>
             <RowButton title={names.join("\n")} aria-label={`Go to ${names.join(", ")}`} onClick={() => onJump(c.marks[0]!.id)}>
@@ -69,7 +69,7 @@ export function PlanTimelineBar({
         );
       })}
       <div className="plan-months" aria-hidden>
-        {timeline.months.map((mo) => (
+        {timeline.months.map((mo: PlanTimeline["months"][number]) => (
           <span key={`${mo.label}-${mo.at}`} style={{ left: `${mo.at}%` }}>{mo.label}</span>
         ))}
       </div>

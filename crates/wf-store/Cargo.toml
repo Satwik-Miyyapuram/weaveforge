@@ -1,0 +1,29 @@
+[package]
+name = "wf-store"
+description = "WeaveForge native I/O: the workspace folder, blobs, git and models. Never built for WASM."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = ["git-https", "embeddings"]
+# git over https and ssh. Off on phones: vendored OpenSSL does not cross-build there
+# (phase 4 design, decision 1).
+git-https = ["git2/https", "git2/ssh", "git2/vendored-openssl"]
+# Sentence embeddings on ONNX Runtime. Off on phones: ort ships no Android or iOS
+# binaries, so phones embed in the page as the old Android app did.
+embeddings = ["dep:ort", "dep:tokenizers"]
+
+[dependencies]
+git2.workspace = true
+ort = { workspace = true, optional = true }
+serde_json.workspace = true
+thiserror.workspace = true
+tokenizers = { workspace = true, optional = true }
+wf-core.workspace = true

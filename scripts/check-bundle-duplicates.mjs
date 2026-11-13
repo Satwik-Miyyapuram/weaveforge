@@ -28,10 +28,15 @@ const listFile = path.join(root, "apps/web/.next/client-packages.json");
  * one cannot stand in for the other. An entry that stops being duplicated fails
  * the check too, so the list only shrinks.
  */
-// Empty since diagrams moved from mermaid to pele (no dependencies): every
-// entry here was one of mermaid's — its layout plugins' cose-base and
-// layout-base, d3-sankey's d3 1.x/2.x line, and its own KaTeX 0.16.
-const ALLOWED = {};
+// Every entry comes from the vendored Overleaf IDE, which keeps its own pinned
+// versions apart from the rest of the app.
+const ALLOWED = {
+  "pdfjs-dist":
+    "the reader uses pdfjs-dist 4; the Overleaf IDE pins its own pdf.js 5 (pdfjs-dist-overleaf)",
+  "@restart/hooks": "react-bootstrap (Overleaf IDE) needs 0.4; @restart/ui needs 0.5",
+  uncontrollable: "react-bootstrap (Overleaf IDE) needs 7; @restart/ui needs 8",
+  "compute-scroll-into-view": "scroll-into-view-if-needed (Overleaf IDE) needs 1; downshift needs 3",
+};
 
 let packages;
 try {

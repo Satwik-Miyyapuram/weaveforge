@@ -24,7 +24,7 @@ export function PdfTextFolderSync() {
   useEffect(() => {
     if (!projectId) return;
     const reconcile = () => {
-      void import("@/features/search/application/pdf-text-folder")
+      void import("@/features/search/application/parts-1")
         .then(({ reconcilePdfTextFolder }) => reconcilePdfTextFolder(projectId))
         .catch((err: unknown) =>
           logToApp({

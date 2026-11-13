@@ -3,16 +3,20 @@
  * Insert, its citation format in More. The bar keeps its shape; only which
  * controls are live changes.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
-import { InkBar, InkIdleBar } from "@/features/ink";
+import { InkBar } from "@/features/ink/ui/ink-bar";
+import { InkIdleBar } from "@/features/ink/ui/ink-idle-bar";
 import { hasInsertItems } from "../ui/ink-bar-view";
 import { MenuSections } from "../ui/ink-bar-more";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -102,7 +106,9 @@ test("More sections draw a heading and their items; a checked item is a radio", 
   assert.deepEqual(picked, ["numeric", "closed", "refresh"]);
 });
 
-test("the idle bar is the one bar greyed: Insert works only when handed a picture", () => {
+test("the idle bar shows only what works in Text: Insert and More, no greyed ink tools", () => {
+  const all = controls(createElement(InkIdleBar, { onInsertImage: noop })).map((c) => c.label);
+  assert.deepEqual(all, ["Insert", "More ink options"]);
   assert.deepEqual(live(controls(createElement(InkIdleBar, {}))), []);
   assert.deepEqual(live(controls(createElement(InkIdleBar, { onInsertImage: noop }))), ["Insert"]);
   const both = controls(

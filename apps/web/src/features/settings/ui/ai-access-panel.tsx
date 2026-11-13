@@ -2,8 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS, AI_PROPOSAL_KINDS, AI_READ_CATEGORIES, aiReadCategoryForResource, applyUserIntegrationFields, getUserIntegrationField, type AiAccessSettings, type AiProposalKind, type AiReadCategory, type UserSettings } from "@weaveforge/core";
+  type AiAccessSettings,
+  type AiProposalKind,
+  type AiReadCategory,
+  type UserSettings,
+} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { userSettingsFromCore, userSettingsToCore } from "@/features/settings/infrastructure/parts";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import { hasServerRoutes } from "@/deployment/capabilities";
 import type { AiSourceOption } from "@/container/facades";
@@ -14,6 +19,7 @@ import { ChevronIcon } from "@/components/chevron-icon";
 import { logToApp } from "@/lib/error-report/app-log";
 import { Button } from "@/components/button";
 import { Switch } from "@/components/controls";
+import { typedCore } from "@/lib/rust-core";
 
 const READ_LABELS: Record<AiReadCategory, string> = {
   paper_metadata: "Paper metadata and links",
@@ -87,11 +93,11 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [connection, setConnection] = useState<{ sessionId: string; secret: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [rememberConnection, setRememberConnection] = useState(() => Boolean(getUserIntegrationField(settings, "mcp", "pairingSecret")));
+  const [rememberConnection, setRememberConnection] = useState(() => Boolean(typedCore().getUserIntegrationField(settings, "mcp", "pairingSecret")));
   const access: AiAccessSettings = settings.aiAccess ?? DEFAULT_AI_ACCESS;
   /** Blocks empty persist until first rehydrate attempt finishes (avoids wiping ciphertext). */
   const [sessionsReady, setSessionsReady] = useState(false);
-  const eligibleSources = sources.filter((source) => access.readCategories.includes(aiReadCategoryForResource(source.resourceType)));
+  const eligibleSources = sources.filter((source) => access.readCategories.includes(typedCore().aiReadCategoryForResource(source.resourceType)));
   const sourcesByCategory = eligibleSources.reduce<Record<string, AiSourceOption[]>>((groups, source) => {
     (groups[source.category] ??= []).push(source);
     return groups;
@@ -105,7 +111,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
   }
 
   function toggleProposal(kind: AiProposalKind) {
-    if (AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS.includes(kind)) return;
+    if (typedCore().aiCredentialProtectedProposalKinds().includes(kind)) return;
     const proposalKinds = access.proposalKinds.includes(kind)
       ? access.proposalKinds.filter((item) => item !== kind)
       : [...access.proposalKinds, kind];
@@ -113,11 +119,11 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
   }
 
   function setAllRead(enabled: boolean) {
-    onChange({ ...settings, aiAccess: { ...access, readCategories: enabled ? [...AI_READ_CATEGORIES] : [] } });
+    onChange({ ...settings, aiAccess: { ...access, readCategories: enabled ? [...typedCore().aiReadCategories()] : [] } });
   }
 
   function setAllProposals(enabled: boolean) {
-    onChange({ ...settings, aiAccess: { ...access, proposalKinds: enabled ? AI_PROPOSAL_KINDS.filter((kind) => !AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS.includes(kind)) : [] } });
+    onChange({ ...settings, aiAccess: { ...access, proposalKinds: enabled ? typedCore().aiProposalKinds().filter((kind) => !typedCore().aiCredentialProtectedProposalKinds().includes(kind)) : [] } });
   }
 
   function toggleDynamic(category: AiReadCategory) {
@@ -222,9 +228,9 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
         proposalCapabilities: access.proposalKinds,
         ttlMinutes: Number(ttlMinutes),
       });
-      const remembered = getUserIntegrationField(settings, "mcp", "pairingSecret");
+      const remembered = typedCore().getUserIntegrationField(settings, "mcp", "pairingSecret");
       const secret = remembered ?? (crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, ""));
-      if (rememberConnection && !remembered) onChange(applyUserIntegrationFields(settings, "mcp", { pairingSecret: secret }));
+      if (rememberConnection && !remembered) onChange(userSettingsFromCore(typedCore().applyUserIntegrationFields(userSettingsToCore(settings), "mcp", { pairingSecret: secret })));
       getContainer().aiAssistant.ensureRelay(session.grant.id, secret, access);
       setConnection({ sessionId: session.grant.id, secret });
       setSessions(getContainer().aiAssistant.listActiveSessions());
@@ -291,10 +297,10 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
           <section className="ai-section">
             <div className="ai-section-heading">
               <div><h4>Allow reading</h4><p>Only selected sources become available.</p></div>
-              <Button variant="ghost" size="sm" onClick={() => setAllRead(access.readCategories.length !== AI_READ_CATEGORIES.length)}>{access.readCategories.length === AI_READ_CATEGORIES.length ? "Clear all" : "Select all"}</Button>
+              <Button variant="ghost" size="sm" onClick={() => setAllRead(access.readCategories.length !== typedCore().aiReadCategories().length)}>{access.readCategories.length === typedCore().aiReadCategories().length ? "Clear all" : "Select all"}</Button>
             </div>
             <div className="ai-permission-list ai-list-2col">
-              {AI_READ_CATEGORIES.map((category) => (
+              {typedCore().aiReadCategories().map((category) => (
                 <label className="ai-permission-row" key={category}>
                   <span>{READ_LABELS[category]}</span>
                   <input className="wf-check" type="checkbox" checked={access.readCategories.includes(category)} onChange={() => toggleRead(category)} />
@@ -308,10 +314,10 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
               <Button variant="ghost" size="sm" onClick={() => setAllProposals(access.proposalKinds.length === 0)}>{access.proposalKinds.length ? "Clear all" : "Select all"}</Button>
             </div>
             <div className="ai-permission-list ai-list-2col">
-              {AI_PROPOSAL_KINDS.map((kind) => (
+              {typedCore().aiProposalKinds().map((kind) => (
                 <label className="ai-permission-row" key={kind}>
-                  <span>{PROPOSAL_LABELS[kind]}{AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS.includes(kind) && <small>Unavailable until Zotero writing is enabled</small>}</span>
-                  <input className="wf-check" type="checkbox" checked={access.proposalKinds.includes(kind)} disabled={AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS.includes(kind)} onChange={() => toggleProposal(kind)} />
+                  <span>{PROPOSAL_LABELS[kind]}{typedCore().aiCredentialProtectedProposalKinds().includes(kind) && <small>Unavailable until Zotero writing is enabled</small>}</span>
+                  <input className="wf-check" type="checkbox" checked={access.proposalKinds.includes(kind)} disabled={typedCore().aiCredentialProtectedProposalKinds().includes(kind)} onChange={() => toggleProposal(kind)} />
                 </label>
               ))}
             </div>
@@ -323,7 +329,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
                 <ChevronIcon />
               </div>
             </summary>
-            <div className="ai-permission-list ai-list-2col">{AI_READ_CATEGORIES.map((category) => <label className="ai-permission-row" key={`dynamic-${category}`}><span>{READ_LABELS[category]}</span><input className="wf-check" type="checkbox" disabled={!access.readCategories.includes(category)} checked={(access.autoIncludeNewSourceCategories ?? []).includes(category)} onChange={() => toggleDynamic(category)} /></label>)}</div>
+            <div className="ai-permission-list ai-list-2col">{typedCore().aiReadCategories().map((category) => <label className="ai-permission-row" key={`dynamic-${category}`}><span>{READ_LABELS[category]}</span><input className="wf-check" type="checkbox" disabled={!access.readCategories.includes(category)} title={access.readCategories.includes(category) ? undefined : "Turn on this read category first"} checked={(access.autoIncludeNewSourceCategories ?? []).includes(category)} onChange={() => toggleDynamic(category)} /></label>)}</div>
           </details>
           <section className="ai-section ai-session-section">
             <div className="ai-section-heading"><div><h4>Active access</h4><p>Sessions end when the access duration below runs out, or when you revoke them.</p></div></div>
@@ -343,7 +349,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
                     <option value="10080">1 week</option>
                   </Select>
                 </div>
-                <label className="ai-master-toggle"><span><strong>Remember this Codex connection on this device</strong><small>Stores only the pairing secret in your encrypted settings. Sessions still expire and require an unlocked browser.</small></span><input className="wf-check" type="checkbox" checked={rememberConnection} onChange={(event) => { setRememberConnection(event.target.checked); if (!event.target.checked) onChange(applyUserIntegrationFields(settings, "mcp", { pairingSecret: "" })); }} /></label>
+                <label className="ai-master-toggle"><span><strong>Remember this Codex connection on this device</strong><small>Stores only the pairing secret in your encrypted settings. Sessions still expire and require an unlocked browser.</small></span><input className="wf-check" type="checkbox" checked={rememberConnection} onChange={(event) => { setRememberConnection(event.target.checked); if (!event.target.checked) onChange(userSettingsFromCore(typedCore().applyUserIntegrationFields(userSettingsToCore(settings), "mcp", { pairingSecret: "" }))); }} /></label>
                 <div className="ai-mcp-token-control">
                   <div><strong>MCP token</strong><small>Codex signs in with an MCP token. Make, copy and revoke them on Settings › Access tokens.</small></div>
                   <Button onClick={onManageTokens}>Manage MCP tokens</Button>
@@ -378,7 +384,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
                     </div>
                   </>
                 )}
-                <span className="ai-start-access"><Button onClick={() => void startSession()} disabled={busy || (sourceScope === "selected" ? selectedSourceIds.length === 0 : eligibleSources.length === 0)}>
+                <span className="ai-start-access"><Button onClick={() => void startSession()} disabled={busy || (sourceScope === "selected" ? selectedSourceIds.length === 0 : eligibleSources.length === 0)} title={!busy && (sourceScope === "selected" ? selectedSourceIds.length === 0 : eligibleSources.length === 0) ? "Select at least one source to start" : undefined}>
                   {busy ? "Starting…" : `Start access for ${sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length} source${(sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length) === 1 ? "" : "s"}`}
                 </Button></span>
                 <FormError>{sessionError}</FormError>

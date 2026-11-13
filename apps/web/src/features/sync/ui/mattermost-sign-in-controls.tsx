@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readStored, writeStored } from "@/lib/safe-storage";
-import type { Integration } from "../domain/integration";
+import type { Integration } from "../domain/parts";
 import { MattermostSignInButton } from "./mattermost-sign-in-button";
 import { Switch } from "@/components/controls";
 

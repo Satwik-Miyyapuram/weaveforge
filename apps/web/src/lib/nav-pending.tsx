@@ -11,8 +11,7 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 import { useProject } from "@/features/projects";
-import { hasScreenCacheForPath } from "@/lib/screen-for-path";
-import { perfNow, recordPerf, recordPerfSince } from "@/lib/perf";
+import { hasScreenCacheForPath, perfNow, recordPerf, recordPerfSince } from "@/lib/parts";
 
 const PENDING_TIMEOUT_MS = 12_000;
 

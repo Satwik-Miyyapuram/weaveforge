@@ -9,19 +9,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  INK_A4_HEIGHT,
-  INK_A4_WIDTH,
-  makeInkStroke,
-  type InkPage,
-} from "@weaveforge/core";
+import { INK_A4_HEIGHT, INK_A4_WIDTH, type InkPage } from "@weaveforge/core";
 
-import { InkPageBuffer } from "../application/page-buffer";
+import { InkPageBuffer } from "../application/parts-3";
 import {
   ERASER_RADIUS,
   InkStrokeIndex,
   MAX_PICK_CANDIDATES,
 } from "../application/stroke-index";
+import { typedCore } from "@/lib/rust-core";
 
 /** The plan's dense page: 5 000 short strokes over 125 rows. */
 function densePage(count = 5_000): InkPage {
@@ -42,7 +38,7 @@ function densePage(count = 5_000): InkPage {
       points.push(x + i * 6, Math.round(y + Math.sin(i) * 4));
       pressures.push(128);
     }
-    strokes.push(makeInkStroke({ points, pressures, width: 6, t0: s * 120 }));
+    strokes.push(typedCore().makeInkStroke({ points, pressures, width: 6, t0: s * 120 }));
   }
   return {
     width: INK_A4_WIDTH,

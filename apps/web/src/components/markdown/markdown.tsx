@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { escapeHtml as escapeAttr } from "@/lib/escape-html";
-import { headingSlug } from "@/lib/heading-slug";
-import { parseMdImageAlt } from "@/lib/markdown-figure-alt";
+import { readyCore } from "@/lib/rust-core";
 import {
-  containsMath,
   loadedMathRenderer,
   loadMathRenderer,
   mathPlaceholder,
@@ -14,7 +11,7 @@ import {
  * Minimal markdown-to-HTML for prose blocks (headings, lists, inline). Fenced
  * code blocks are handled separately by Shiki in display mode.
  */
-const escapeHtml = escapeAttr;
+const escapeHtml = (value: string): string => readyCore().escapeHtml(value);
 
 /** Resolve a `[[wikilink]]` target to a destination; unresolved = offer-to-create. */
 interface WikilinkResolution {
@@ -64,11 +61,11 @@ function renderWikilink(inner: string, resolve: WikilinkResolver): string {
   let href = res.href;
   if (!res.unresolved) {
     if (block) href = `${res.href}#^${encodeURIComponent(block)}`;
-    else if (heading) href = `${res.href}#${headingSlug(heading)}`;
+    else if (heading) href = `${res.href}#${readyCore().headingSlug(heading)}`;
   }
   const cls = res.unresolved ? "wikilink wikilink--unresolved" : "wikilink";
-  const create = res.unresolved ? ` data-create="${escapeAttr(target)}"` : "";
-  return `<a class="${cls}" href="${escapeAttr(href)}" data-wikilink="1"${create}>${escapeHtml(label)}</a>`;
+  const create = res.unresolved ? ` data-create="${readyCore().escapeHtml(target)}"` : "";
+  return `<a class="${cls}" href="${readyCore().escapeHtml(href)}" data-wikilink="1"${create}>${escapeHtml(label)}</a>`;
 }
 
 function formatText(s: string, options?: MarkdownRenderOptions): string {
@@ -95,7 +92,7 @@ function formatText(s: string, options?: MarkdownRenderOptions): string {
         // become style and class while the bare alt is kept on a data
         // attribute for the read view's image control to find the
         // reference they came from.
-        const { alt, width, crop, align } = parseMdImageAlt(rawAlt);
+        const { alt, width, crop, align } = readyCore().parseMdImageAlt(rawAlt);
         const safeAlt = alt.replace(/"/g, "&quot;");
         // The resolver is handed the src the regex captured. It answers with a
         // fetchable URL, or null for an asset this note cannot reach — in which
@@ -469,7 +466,7 @@ export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions)
           ? `<div class="callout-body">${renderProseMarkdown(bodyLines.join("\n"), options)}</div>`
           : "";
         out.push(
-          `<div class="callout callout--${escapeAttr(type)}"><div class="callout-title">${escapeHtml(title)}</div>${body}</div>`,
+          `<div class="callout callout--${readyCore().escapeHtml(type)}"><div class="callout-title">${escapeHtml(title)}</div>${body}</div>`,
         );
       } else {
         out.push(`<blockquote>${renderProseMarkdown(quoteLines.join("\n"), options)}</blockquote>`);
@@ -494,7 +491,7 @@ export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions)
       closeList();
       // Each level is its own element: `#` is h1 … `######` is h6. markdown.css sizes them.
       const tag = `h${h[1]!.length}`;
-      out.push(`<${tag} id="${escapeAttr(headingSlug(h[2]!))}">${inline(h[2]!, options)}</${tag}>`);
+      out.push(`<${tag} id="${readyCore().escapeHtml(readyCore().headingSlug(h[2]!))}">${inline(h[2]!, options)}</${tag}>`);
     } else if (li) {
       openList("ul");
       out.push(`<li>${inline(li[1]!, options)}</li>`);
@@ -510,7 +507,7 @@ export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions)
       if (blockMatch) {
         const text = blockMatch[1]!;
         const blockId = blockMatch[2]!;
-        out.push(`<p id="^${escapeAttr(blockId)}">${inline(text, options)}</p>`);
+        out.push(`<p id="^${readyCore().escapeHtml(blockId)}">${inline(text, options)}</p>`);
       } else {
         out.push(`<p>${inline(line, options)}</p>`);
       }
@@ -537,7 +534,7 @@ export function Markdown({
   const [mathReady, setMathReady] = useState(() => loadedMathRenderer() !== null);
 
   useEffect(() => {
-    if (mathReady || !containsMath(children)) return;
+    if (mathReady || !readyCore().containsMath(children)) return;
     let cancelled = false;
     void loadMathRenderer()
       .then(() => {
@@ -613,7 +610,7 @@ export function renderMarkdownPlain(md: string, options?: MarkdownRenderOptions)
     .map((segment) => {
       if (segment.kind === "prose") return renderProseMarkdown(segment.text, options);
       const lang = segment.info.trim().split(/\s+/)[0] ?? "";
-      const langAttr = lang ? ` data-lang="${escapeAttr(lang)}"` : "";
+      const langAttr = lang ? ` data-lang="${readyCore().escapeHtml(lang)}"` : "";
       return `<pre class="md-code"${langAttr}><code>${escapeHtml(segment.code)}</code></pre>`;
     })
     .join("");
@@ -630,7 +627,7 @@ export async function renderMarkdownWithShiki(
   // placeholders: the reader asked for a rendered document, and the chunk is
   // already being fetched by then on any surface with maths in it. Only when
   // there is maths, and only when the caller did not bring its own renderer.
-  if (!options?.mathRenderer && containsMath(md)) {
+  if (!options?.mathRenderer && readyCore().containsMath(md)) {
     await loadMathRenderer().catch(() => undefined);
   }
 

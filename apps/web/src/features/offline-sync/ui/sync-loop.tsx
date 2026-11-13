@@ -2,19 +2,20 @@
 
 import { useEffect } from "react";
 
-import { readBackendConfig } from "@/backend/config";
-import { createDataClient } from "@/backend/providers/postgrest/client";
-import { LocalRunner } from "@/backend/providers/local/local-runner";
+import { readBackendConfig } from "@/backend/parts";
+import { createDataClient } from "@/backend/providers/postgrest/parts-1";
+import { LocalRunner } from "@/backend/providers/local/parts";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { localFirstAccount, setLocalFirstAccount } from "@/backend/providers/local/local-first-marker";
-import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
-import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
+import { invalidateAllRepoCaches } from "@/lib/cache/parts-1";
+import { clearAllScreenCaches } from "@/lib/cache/parts-2";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import { logToApp, type AppLogInput } from "@/lib/error-report/app-log";
 import { alreadyRecorded } from "@/lib/error-report/log-buffer";
 import { LOCAL_USER_ID } from "@weaveforge/core";
-import { SyncStateStore } from "../domain/sync-state";
-import type { CycleResult } from "../domain/sync-engine";
+import { SyncStateStore } from "../domain/parts-3";
+import type { CycleResult } from "../domain/parts-3";
 import { enableSync, liveAccessToken } from "./enable-sync";
 import { syncEngine } from "./use-sync";
 
@@ -59,20 +60,25 @@ import { syncEngine } from "./use-sync";
  * stops the loop; a window signed in as another account never drives it.
  */
 
-import { onWorkspaceChange } from "@/lib/workspace-changes";
-import { setLiveSyncState, registerSyncTrigger, type LiveSyncState } from "../domain/live-sync";
-import { ConflictStore } from "../domain/conflicts";
+import { onWorkspaceChange } from "@/lib/parts";
+import {
+  ConflictStore,
+  type LiveSyncState,
+  registerSyncTrigger,
+  setLiveSyncState,
+} from "../domain/parts-1";
 
 const CYCLE_MS = 45 * 1000;
 const FOCUS_MS = 15 * 1000;
 const DEBOUNCE_CHANGE_MS = 1500;
 const BOOT_RETRY_MS = 30 * 1000;
 
+/** Rust `sync::device_session`: the signed-in account is the one this device adopted. */
 export function mayDriveDevice(
   signedInUserId: string | null,
   adoptedAccountId: string | null,
 ): boolean {
-  return adoptedAccountId !== null && signedInUserId === adoptedAccountId;
+  return readyCore().mayDriveDevice(signedInUserId, adoptedAccountId);
 }
 
 export function createCycleRunner(run: () => Promise<void>): () => Promise<void> {
@@ -121,16 +127,14 @@ export async function syncOnce(deps: {
   try {
     const result = await deps.cycle();
     deps.settle(result);
-    if (result.pushed.stoppedBecause === "offline") {
-      deps.setState({ phase: "offline", isOnline: false });
-    } else {
-      deps.setState({ phase: "idle", lastSyncAt: Date.now(), isOnline: true });
-    }
+    const next = readyCore().afterCycle(result.pushed.stoppedBecause);
+    // Only a cycle that reached the server is a sync worth stamping.
+    deps.setState(next.phase === "idle" ? { ...next, lastSyncAt: Date.now() } : next);
   } catch (err) {
     // The puller leaves the watermark alone on failure; the next tick retries.
     const online = deps.online();
     deps.log({ level: "warn", source: "sync", message: "Sync cycle failed", detail: failureDetail(err) });
-    deps.setState({ phase: online ? "error" : "offline", isOnline: online });
+    deps.setState(readyCore().afterFailure(online));
   }
 }
 
@@ -146,7 +150,7 @@ export async function countOpenConflicts(
   try {
     const open = await store.openConflicts();
     // Only rows the puller has compared need a person; the rest settle themselves.
-    return open.filter((c) => c.kind !== "edit" || c.fields.length > 0).length;
+    return readyCore().countOpen(open.map((c) => ({ kind: c.kind, fieldCount: c.fields.length })));
   } catch (err) {
     log({ level: "warn", source: "sync", message: "Could not read sync conflicts", detail: failureDetail(err) });
     return null;
@@ -194,161 +198,183 @@ export function sessionAction(
   signedInUserId: string | null,
   adoptedAccountId: string | null,
 ): SessionAction {
-  if (!signedInUserId) return "idle";
-  if (adoptedAccountId === null) return "adopt";
-  return mayDriveDevice(signedInUserId, adoptedAccountId) ? "drive" : "foreign";
+  return readyCore().sessionAction(signedInUserId, adoptedAccountId) as SessionAction;
 }
 
 export function SyncLoop() {
   useEffect(() => {
-    const bridge = desktop();
-    if (!bridge) return;
-    if (isLocalMode()) {
-      setLiveSyncState({ phase: "offline", enabled: false, isOnline: false });
-      return;
-    }
-
-    const config = readBackendConfig();
-    const client = createDataClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
-    const runner = new LocalRunner();
-    const state = new SyncStateStore(runner);
-    let cancelled = false;
-    let stop: (() => void) | undefined;
-    let drivenBy: string | null = null;
-
-    const halt = () => {
-      stop?.();
-      stop = undefined;
-      drivenBy = null;
-    };
-
-    const boot = async (user: { id: string; email?: string | null } | null) => {
-      if (cancelled) return;
-      if (user && drivenBy === user.id) return;
-      halt();
-      let current = await state.read();
-      let action = sessionAction(user?.id ?? null, current.accountId);
-      if (action === "adopt") {
-        // Signing in merges the two branches: local work joins the account,
-        // name collisions are kept side by side, and the first cycle pulls the rest.
-        setLiveSyncState({ phase: "syncing" });
-        const adopted = await enableSync();
-        setLiveSyncState({ lastAdoption: adopted });
-        current = await state.read();
-        action = sessionAction(user?.id ?? null, current.accountId);
-      }
-      if (cancelled) return;
-      if (action !== "drive" || !user) {
-        setLiveSyncState({ enabled: false, accountId: current.accountId, phase: "idle" });
-        return;
-      }
-      drivenBy = user.id;
-      stop = drive(user);
-    };
-
-    const drive = (owner: { id: string; email?: string | null }) => {
-      setLiveSyncState({
-        enabled: true,
-        accountId: owner.id,
-        phase: typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "idle",
-        isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
-      });
-
-      const conflictStore = new ConflictStore(runner);
-      const updateConflicts = async () => {
-        const count = await countOpenConflicts(conflictStore, logSyncFailure);
-        if (count !== null) setLiveSyncState({ conflictsCount: count });
-      };
-
-      const engine = syncEngine(liveAccessToken(client));
-
-      const settle = (result: CycleResult) => {
-        const caughtUp = result.pushed.stoppedBecause === null && !result.pulled.more;
-        if (caughtUp && localFirstAccount()?.id !== owner.id) {
-          setLocalFirstAccount({ id: owner.id, email: owner.email ?? null });
-          window.location.reload();
-          return;
-        }
-        // What arrived is already on disk; the screens still hold what they read.
-        if (result.pulled.applied > 0) {
-          invalidateAllRepoCaches();
-          clearAllScreenCaches();
-        }
-      };
-
-      let lastRun = 0;
-      const cycle = createCycleRunner(async () => {
-        lastRun = Date.now();
-        setLiveSyncState({ phase: "syncing" });
-        await syncOnce({
-          cycle: () => engine.cycle(),
-          settle,
-          setState: setLiveSyncState,
-          online: () => typeof navigator === "undefined" || navigator.onLine,
-          log: logSyncFailure,
-        });
-        void updateConflicts();
-      });
-
-      const unregisterTrigger = registerSyncTrigger(() => void cycle());
-      void cycle();
-
-      let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-      const unsubChange = onWorkspaceChange(() => {
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => void cycle(), DEBOUNCE_CHANGE_MS);
-      });
-
-      const onOnline = () => {
-        setLiveSyncState({ isOnline: true });
-        void cycle();
-      };
-      const onOffline = () => setLiveSyncState({ isOnline: false, phase: "offline" });
-      const onFocus = () => {
-        if (Date.now() - lastRun >= FOCUS_MS) void cycle();
-      };
-      window.addEventListener("online", onOnline);
-      window.addEventListener("offline", onOffline);
-      window.addEventListener("focus", onFocus);
-      const timer = window.setInterval(() => void cycle(), CYCLE_MS);
-
-      return () => {
-        window.removeEventListener("online", onOnline);
-        window.removeEventListener("offline", onOffline);
-        window.removeEventListener("focus", onFocus);
-        window.clearInterval(timer);
-        if (debounceTimer) clearTimeout(debounceTimer);
-        unsubChange();
-        unregisterTrigger();
-      };
-    };
-
-    const { queue, cancel } = createBootQueue(boot, {
-      retryMs: BOOT_RETRY_MS,
-      onFailure: (err) => {
+    if (!desktop()) return;
+    // SyncLoop sits above CoreGate, and isLocalMode and every sync rule run in
+    // the Rust core, so the core loads before anything else here.
+    let gone = false;
+    let stopSync: (() => void) | undefined;
+    loadCore().then(
+      () => {
+        if (!gone) stopSync = startSync();
+      },
+      (err) => {
         setLiveSyncState({ phase: "error" });
         logSyncFailure({ level: "warn", source: "sync", message: "Sync could not start", detail: failureDetail(err) });
       },
-    });
-
-    // Signing in or out while the window is open starts or stops the loop.
-    const { data: sub } = client.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") {
-        queue(null);
-        return;
-      }
-      if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "USER_UPDATED") {
-        queue(session?.user ?? null);
-      }
-    });
-
+    );
     return () => {
-      cancelled = true;
-      cancel();
-      sub.subscription.unsubscribe();
-      halt();
+      gone = true;
+      stopSync?.();
     };
   }, []);
 
   return null;
+}
+
+/** Start the loop once the core is loaded. Returns the teardown. */
+function startSync(): (() => void) | undefined {
+  if (isLocalMode()) {
+    setLiveSyncState({ phase: "offline", enabled: false, isOnline: false });
+    return;
+  }
+
+  const config = readBackendConfig();
+  const client = createDataClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
+  const runner = new LocalRunner();
+  const state = new SyncStateStore(runner);
+  let cancelled = false;
+  let stop: (() => void) | undefined;
+  let drivenBy: string | null = null;
+
+  const halt = () => {
+    stop?.();
+    stop = undefined;
+    drivenBy = null;
+  };
+
+  const boot = async (user: { id: string; email?: string | null } | null) => {
+    if (cancelled) return;
+    if (user && drivenBy === user.id) return;
+    // Sync runs above CoreGate, and settling a conflict merges rows in the
+    // Rust core. A failed load throws here, and the boot queue tries again.
+    if (user) await loadCore();
+    halt();
+    let current = await state.read();
+    let action = sessionAction(user?.id ?? null, current.accountId);
+    if (action === "adopt") {
+      // Signing in merges the two branches: local work joins the account,
+      // name collisions are kept side by side, and the first cycle pulls the rest.
+      setLiveSyncState({ phase: "syncing" });
+      const adopted = await enableSync();
+      setLiveSyncState({ lastAdoption: adopted });
+      current = await state.read();
+      action = sessionAction(user?.id ?? null, current.accountId);
+    }
+    if (cancelled) return;
+    if (action !== "drive" || !user) {
+      setLiveSyncState({ enabled: false, accountId: current.accountId, phase: "idle" });
+      return;
+    }
+    drivenBy = user.id;
+    stop = drive(user);
+  };
+
+  const drive = (owner: { id: string; email?: string | null }) => {
+    const online = typeof navigator !== "undefined" ? navigator.onLine : true;
+    setLiveSyncState({
+      enabled: true,
+      accountId: owner.id,
+      phase: readyCore().initialPhase(online),
+      isOnline: online,
+    });
+
+    const conflictStore = new ConflictStore(runner);
+    const updateConflicts = async () => {
+      const count = await countOpenConflicts(conflictStore, logSyncFailure);
+      if (count !== null) setLiveSyncState({ conflictsCount: count });
+    };
+
+    const engine = syncEngine(liveAccessToken(client));
+
+    const settle = (result: CycleResult) => {
+      const caughtUp = readyCore().isCaughtUp(result.pushed.stoppedBecause, result.pulled.more);
+      if (caughtUp && localFirstAccount()?.id !== owner.id) {
+        setLocalFirstAccount({ id: owner.id, email: owner.email ?? null });
+        window.location.reload();
+        return;
+      }
+      // What arrived is already on disk; the screens still hold what they read.
+      if (result.pulled.applied > 0) {
+        invalidateAllRepoCaches();
+        clearAllScreenCaches();
+      }
+    };
+
+    let lastRun = 0;
+    const cycle = createCycleRunner(async () => {
+      lastRun = Date.now();
+      setLiveSyncState({ phase: "syncing" });
+      await syncOnce({
+        cycle: () => engine.cycle(),
+        settle,
+        setState: setLiveSyncState,
+        online: () => typeof navigator === "undefined" || navigator.onLine,
+        log: logSyncFailure,
+      });
+      void updateConflicts();
+    });
+
+    const unregisterTrigger = registerSyncTrigger(() => void cycle());
+    void cycle();
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const unsubChange = onWorkspaceChange(() => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => void cycle(), DEBOUNCE_CHANGE_MS);
+    });
+
+    const onOnline = () => {
+      setLiveSyncState({ isOnline: true });
+      void cycle();
+    };
+    const onOffline = () => setLiveSyncState({ isOnline: false, phase: "offline" });
+    const onFocus = () => {
+      if (Date.now() - lastRun >= FOCUS_MS) void cycle();
+    };
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    window.addEventListener("focus", onFocus);
+    const timer = window.setInterval(() => void cycle(), CYCLE_MS);
+
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(timer);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      unsubChange();
+      unregisterTrigger();
+    };
+  };
+
+  const { queue, cancel } = createBootQueue(boot, {
+    retryMs: BOOT_RETRY_MS,
+    onFailure: (err) => {
+      setLiveSyncState({ phase: "error" });
+      logSyncFailure({ level: "warn", source: "sync", message: "Sync could not start", detail: failureDetail(err) });
+    },
+  });
+
+  // Signing in or out while the window is open starts or stops the loop.
+  const { data: sub } = client.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_OUT") {
+      queue(null);
+      return;
+    }
+    if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "USER_UPDATED") {
+      queue(session?.user ?? null);
+    }
+  });
+
+  return () => {
+    cancelled = true;
+    cancel();
+    sub.subscription.unsubscribe();
+    halt();
+  };
 }

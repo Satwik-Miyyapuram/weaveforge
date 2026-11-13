@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useSubmit } from "@/lib/hooks/use-submit";
-import { LOG_KINDS, type LogKind } from "@weaveforge/core";
+import { useSubmit } from "@/lib/hooks/parts";
+import { type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
@@ -10,6 +10,9 @@ import { bestEffort } from "../application/log-side-effects";
 import { Button } from "@/components/button";
 import { MarkdownField } from "@/components/markdown-field";
 import { logImageUpload } from "./log-image-upload";
+import { readyCore } from "@/lib/rust-core";
+import { showToast } from "@/lib/toast/index";
+import { formatError } from "@/lib/format-error";
 
 /**
  * Add-log-entry form. UI only: it collects input and delegates to the
@@ -33,6 +36,25 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
     onAdded?.();
   });
 
+  /** Today's reading as a draft below what is typed; nothing is saved until Create. */
+  async function draftFromReading() {
+    setImageError(null);
+    try {
+      const c = getContainer();
+      // On demand: the papers feature would otherwise ship with /log (bundle budget).
+      const [{ draftReadingLog }, list, marks] = await Promise.all([
+        import("@/features/papers"),
+        c.papers.listPapers(),
+        c.logbook.listReadingMarks(),
+      ]);
+      const draft = draftReadingLog(list, marks, new Date());
+      if (!draft) return showToast("No reading recorded today");
+      setBody((b) => (b.trim() ? `${b.trimEnd()}\n\n${draft}` : draft));
+    } catch (err) {
+      setImageError(formatError(err));
+    }
+  }
+
   return (
     <form className="card add-form" onSubmit={submit}>
       <div className="field">
@@ -53,7 +75,7 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
           value={kind}
           onChange={(e) => setKind(e.target.value as LogKind)}
         >
-          {LOG_KINDS.map((k) => (
+          {readyCore().LOG_KINDS.map((k) => (
             <option key={k} value={k}>
               {k.charAt(0).toUpperCase() + k.slice(1)}
             </option>
@@ -61,6 +83,9 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
         </Select>
       </div>
       {(error ?? imageError) && <FormError>{error ?? imageError}</FormError>}
+      <Button onClick={() => void draftFromReading()} disabled={busy}>
+        Draft from today&apos;s reading
+      </Button>
       <Button type="submit" variant="primary" disabled={busy || !body.trim()}>
         {busy ? "Creating…" : "Create"}
       </Button>

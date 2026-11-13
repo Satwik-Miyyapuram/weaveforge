@@ -1,5 +1,5 @@
 /** Loading pdf.js, and reading text and outline out of a document. */
-import type { PdfLocus } from "@weaveforge/core";
+import type { PdfLocus } from "@weaveforge/wasm";
 import type { ReaderOutlineItem } from "../reader-outline";
 import type { PdfDocument, PageText, TextItemGeometry } from "./types";
 
@@ -8,7 +8,7 @@ import type { PdfDocument, PageText, TextItemGeometry } from "./types";
  * editor's page backgrounds, and it lives in `lib` so neither feature has to
  * import the other's `ui/`.
  */
-export { loadPdfLib, type PdfLib } from "@/lib/pdf-lib";
+export { loadPdfLib, type PdfLib } from "@/lib/parts";
 
 /** Per-page resolve must ignore document-scoped position offsets. */
 export function pageScopedLocus(locus: PdfLocus): PdfLocus {
@@ -44,7 +44,6 @@ export function textItemsFromContent(content: { items: readonly unknown[] }): Te
   });
 }
 
-export { isEditableTarget } from "@/lib/editable-target";
 
 export async function mapOutline(
   doc: PdfDocument,

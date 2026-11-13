@@ -1,7 +1,7 @@
 import type { IBlobStore } from "@weaveforge/core";
-import { getDataClient } from "@/lib/data-client";
+import { getDataClient, relayUrl } from "@/lib/parts";
 import { logToApp } from "@/lib/error-report/app-log";
-import { MAX_SIGNED_URL_PATHS } from "@/storage/signed-url-limits";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Browser-safe blob adapter when `BLOB_PROVIDER=tiered`.
@@ -34,7 +34,7 @@ export class HttpBlobStore implements IBlobStore {
     form.set("path", path);
     form.set("file", blob, path.split("/").pop() ?? "file");
     if (contentType) form.set("contentType", contentType);
-    const res = await fetch("/api/blobs/upload", {
+    const res = await fetch(relayUrl("/api/blobs/upload"), {
       method: "POST",
       headers: await this.authHeaders(),
       body: form,
@@ -43,7 +43,7 @@ export class HttpBlobStore implements IBlobStore {
   }
 
   async remove(bucket: string, path: string): Promise<void> {
-    const res = await fetch("/api/blobs/remove", {
+    const res = await fetch(relayUrl("/api/blobs/remove"), {
       method: "POST",
       headers: { ...(await this.authHeaders()), "Content-Type": "application/json" },
       body: JSON.stringify({ bucket, path }),
@@ -60,9 +60,10 @@ export class HttpBlobStore implements IBlobStore {
     // The route caps one request, so a long list is sent in batches rather
     // than rejected — a gallery with 300 images should render, not blank.
     // The batches go out together; Promise.all keeps them in input order.
+    const cap = readyCore().maxSignedUrlPaths();
     const batches: string[][] = [];
-    for (let i = 0; i < paths.length; i += MAX_SIGNED_URL_PATHS) {
-      batches.push(paths.slice(i, i + MAX_SIGNED_URL_PATHS));
+    for (let i = 0; i < paths.length; i += cap) {
+      batches.push(paths.slice(i, i + cap));
     }
     const answers = await Promise.all(batches.map((batch) => this.signedUrlBatch(bucket, batch, ttlSeconds)));
     return answers.flat();
@@ -73,7 +74,7 @@ export class HttpBlobStore implements IBlobStore {
     paths: string[],
     ttlSeconds: number,
   ): Promise<(string | null)[]> {
-    const res = await fetch("/api/blobs/signed-urls", {
+    const res = await fetch(relayUrl("/api/blobs/signed-urls"), {
       method: "POST",
       headers: { ...(await this.authHeaders()), "Content-Type": "application/json" },
       body: JSON.stringify({ bucket, paths, ttlSeconds }),

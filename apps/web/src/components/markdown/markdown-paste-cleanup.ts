@@ -2,28 +2,14 @@
 
 import { EditorSelection, type ChangeSpec, type StateCommand } from "@codemirror/state";
 import { EditorView, type Command, type KeyBinding } from "@codemirror/view";
-import {
-  applyCommaPlacement,
-  cleanPastedText,
-  cleanPdfText,
-  cleanWrappedText,
-  pasteLandsInVerbatimContext,
-  tabSeparatedToMarkdownTable,
-  type CommaPlacement,
-  type PasteSettings,
-  type PdfTextOptions,
-} from "@weaveforge/core";
-import {
-  afterUrlPaste,
-  BARE_URL,
-  escapeLinkLabel,
-  type RemotePasteOptions,
-} from "@/components/markdown/markdown-remote-paste";
+import type { CommaPlacement, PasteSettings, PdfTextOptions } from "@weaveforge/wasm";
+import { afterUrlPaste, type RemotePasteOptions } from "@/components/markdown/markdown-remote-paste";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Paste cleanup for the note editor.
  *
- * All the judgement lives in `@weaveforge/core/paste`, which is pure text in
+ * All the judgement lives in the Rust core (`wf_core::paste`), pure text in
  * and text out. This file is only the wiring: it decides *whether* a given
  * paste is eligible, and turns a cleaned string into a single CodeMirror
  * transaction.
@@ -57,15 +43,6 @@ function insertAsOneStep(view: EditorView, text: string): void {
 }
 
 /**
- * Makes a string safe to sit inside a link label. Single-line only; a label
- * spanning lines is not a label, and such a selection is pasted over normally.
- */
-function linkLabel(selected: string): string | null {
-  if (!selected || /[\r\n]/.test(selected)) return null;
-  return escapeLinkLabel(selected);
-}
-
-/**
  * Pasting a URL over selected text makes a link of it.
  *
  * CodeMirror's markdown package offers this, and it is why this handler is
@@ -83,7 +60,7 @@ function insertAsLink(view: EditorView, url: string): boolean {
   const labels = new Map<number, string>();
   for (const range of view.state.selection.ranges) {
     if (range.empty) continue;
-    const label = linkLabel(view.state.sliceDoc(range.from, range.to));
+    const label = readyCore().linkLabel(view.state.sliceDoc(range.from, range.to));
     if (label !== null) labels.set(range.from, label);
   }
   if (labels.size === 0) return false;
@@ -127,14 +104,14 @@ function handlePaste(
   if (!current.cleanOnPaste) return false;
 
   const document = view.state.doc.toString();
-  if (pasteLandsInVerbatimContext(document, view.state.selection.main.from)) return false;
+  if (readyCore().pasteLandsInVerbatimContext(document, view.state.selection.main.from)) return false;
 
-  const result = cleanPastedText(raw, current);
+  const result = readyCore().cleanPastedText(raw, current);
 
   // A cleaned URL dropped onto selected text becomes a link around it. Done
   // here rather than left to the markdown package, which would wrap the
   // clipboard's own spelling and put the tracker back.
-  if (BARE_URL.test(result.text)) {
+  if (readyCore().isBareUrl(result.text)) {
     if (insertAsLink(view, result.text)) {
       event.preventDefault();
       return true;
@@ -143,7 +120,7 @@ function handlePaste(
 
   // A URL that needed no cleaning still gets its title read, so the decision to
   // handle the paste here cannot be "did anything change".
-  const wantsRemote = options !== undefined && BARE_URL.test(result.text);
+  const wantsRemote = options !== undefined && readyCore().isBareUrl(result.text);
   if (!result.changed && !wantsRemote) return false;
 
   event.preventDefault();
@@ -198,7 +175,7 @@ function transformSelection(transform: (text: string) => string): StateCommand {
 
 /** Runs the automatic rules over the selection on demand. */
 export function cleanSelection(settings: () => PasteSettings): StateCommand {
-  return transformSelection((text) => cleanPastedText(text, { ...settings(), cleanOnPaste: true }).text);
+  return transformSelection((text) => readyCore().cleanPastedText(text, { ...settings(), cleanOnPaste: true }).text);
 }
 
 /**
@@ -208,7 +185,7 @@ export function cleanSelection(settings: () => PasteSettings): StateCommand {
  */
 export const cleanTerminalSelection: StateCommand = transformSelection(
   (text) =>
-    cleanWrappedText(text, {
+    readyCore().cleanWrappedText(text, {
       rejoin: "any",
       bullets: "markdown",
       // `$$` in terminal output is the shell's process id, not maths.
@@ -218,12 +195,12 @@ export const cleanTerminalSelection: StateCommand = transformSelection(
 
 /** Repairs text copied out of a PDF. */
 export function cleanPdfSelection(options: PdfTextOptions): StateCommand {
-  return transformSelection((text) => cleanPdfText(text, options).text);
+  return transformSelection((text) => readyCore().cleanPdfText(text, options).text);
 }
 
 /** Moves commas to the chosen side of a closing quote. */
 export function moveCommas(placement: CommaPlacement): StateCommand {
-  return transformSelection((text) => applyCommaPlacement(text, placement).text);
+  return transformSelection((text) => readyCore().applyCommaPlacement(text, placement).text);
 }
 
 /**
@@ -233,7 +210,7 @@ export function moveCommas(placement: CommaPlacement): StateCommand {
  * the automatic version switched off, and for text that arrived some other way.
  */
 const selectionToTable: StateCommand = transformSelection(
-  (text) => tabSeparatedToMarkdownTable(text).text,
+  (text) => readyCore().tabSeparatedToMarkdownTable(text).text,
 );
 
 /** Pastes the clipboard with no rules applied at all. */

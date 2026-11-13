@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { focusFirstControl, focusFirstField } from "../modal";
+import { restoreFocus } from "../popover";
 
 (globalThis as { document?: unknown }).document ??= { activeElement: null };
 
@@ -78,4 +79,23 @@ test("checkbox checkmarks are centered and forms.css has no legacy tick collisio
   // states.css centers the checkmark using translate and position
   assert.match(states, /\.wf-check:not\(\[role="switch"\], \.wf-toggle\)::after\s*\{[^}]*left:\s*50%;\s*top:\s*45%;[^}]*translate:\s*-50%\s*-50%;/);
   assert.match(states, /\.wf-check:not\(\[role="switch"\], \.wf-toggle\):is\(:checked, :indeterminate\)\s*\{[^}]*border-color:\s*var\(--accent\);/);
+});
+
+test("closing a menu returns focus to its trigger only when focus was lost or left in the panel", () => {
+  const doc = globalThis as unknown as { document: { activeElement: unknown; body: unknown } };
+  const body = {};
+  const inPanel = {};
+  const panelEl = { contains: (n: unknown) => n === inPanel } as unknown as HTMLElement;
+  let restored = 0;
+  const trigger = { focus: () => { restored += 1; } } as unknown as HTMLElement;
+  const at = (el: unknown) => { doc.document = { activeElement: el, body }; };
+
+  at(body); restoreFocus(trigger, panelEl);
+  at(null); restoreFocus(trigger, null);
+  at(inPanel); restoreFocus(trigger, panelEl);
+  assert.equal(restored, 3);
+
+  // A row that opened a rename field moved focus on purpose; closing must not steal it.
+  at({ tagName: "INPUT" }); restoreFocus(trigger, panelEl);
+  assert.equal(restored, 3);
 });

@@ -7,7 +7,7 @@
  * worker now starts when the canvas first has a box; once started it stays,
  * because it holds the page's committed geometry and undo history.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
@@ -18,6 +18,9 @@ import {
   type PenCaptureHandle,
 } from "../application/use-pen-capture";
 import type { InkWorkerMessage } from "../application/capture-protocol";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 (globalThis as { window?: unknown }).window ??= {

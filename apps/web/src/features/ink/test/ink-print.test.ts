@@ -9,11 +9,15 @@
  */
 
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
 import { INK_A4_HEIGHT, INK_A4_WIDTH } from "@weaveforge/core";
 
-import { inkPrintDocument, type InkPrintDocument } from "../application/ink-print";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
+import type { InkPrintDocument } from "@weaveforge/wasm";
+
+before(loadTestCore);
 
 const base: InkPrintDocument = {
   title: 'notes <"quoted">',
@@ -29,7 +33,7 @@ const base: InkPrintDocument = {
 };
 
 test("every layer of the sheet is in the document, in the sheet's order", () => {
-  const html = inkPrintDocument(base);
+  const html = readyCore().inkPrintDocument(base);
   const at = (needle: string) => {
     const index = html.indexOf(needle);
     assert.notEqual(index, -1, `missing: ${needle}`);
@@ -52,21 +56,21 @@ test("every layer of the sheet is in the document, in the sheet's order", () => 
 });
 
 test("a page with no ink and no text prints its paper and figures alone", () => {
-  const html = inkPrintDocument({ ...base, inkUrl: null, underlayHtml: "" });
+  const html = readyCore().inkPrintDocument({ ...base, inkUrl: undefined, underlayHtml: "" });
   assert.ok(!html.includes("ink-print-ink"));
   assert.ok(!html.includes("ink-sheet-text-underlay"));
   assert.ok(html.includes('class="ink-figure"'));
 });
 
 test("the title and the paper cannot break out of the markup", () => {
-  const html = inkPrintDocument({ ...base, paper: 'x" onload="y' });
+  const html = readyCore().inkPrintDocument({ ...base, paper: 'x" onload="y' });
   assert.ok(html.includes("<title>notes &lt;&quot;quoted&quot;&gt;</title>"));
   assert.ok(!html.includes('onload="y'));
 });
 
 test("sheet text holding </style stays inside its tag (18-08)", () => {
   const text = '.a::after{content:"</style><script>x()</script>"} .b{} .c::before{content:"</STYLE"}';
-  const html = inkPrintDocument({ ...base, styleSheets: [{ text }] });
+  const html = readyCore().inkPrintDocument({ ...base, styleSheets: [{ text }] });
   const open = html.indexOf("<style>");
   const close = html.indexOf("</style>", open);
   assert.ok(open >= 0 && close > open);

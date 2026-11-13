@@ -88,7 +88,7 @@ identities do not belong in a repository.
 
 Everything else is the web app: the stroke is fed through the same capture
 session as a browser pointer, so filtering, indexing, recognition and saving
-are identical. The web side is `apps/web/src/features/ink/application/native-bridge.ts`.
+are identical. The web side is `apps/web/src/features/ink/application/parts-2.ts`.
 
 Picking the pen up selects a pen mode; see `toolOnPenApproach` in
 `apps/web/src/features/ink/ui/use-ink-prefs.ts`.

@@ -1,5 +1,8 @@
 "use client";
 
+import { useRef } from "react";
+
+import { useCardContextMenu } from "./context-menu";
 import { Popover } from "./popover";
 import { Menu, type MenuItem } from "./menu";
 
@@ -23,8 +26,13 @@ export function CardMenu({
   items: CardMenuItem[];
   label?: string;
 }) {
+  // Right-click anywhere on the card opens the same items as the kebab.
+  const anchor = useRef<HTMLSpanElement>(null);
+  useCardContextMenu(anchor, items);
   if (items.length === 0) return null;
   return (
+    <>
+    <span ref={anchor} hidden />
     <Popover
       align="right"
       trigger="icon"
@@ -37,6 +45,7 @@ export function CardMenu({
     >
       {(close) => <Menu items={items} onClose={close} />}
     </Popover>
+    </>
   );
 }
 

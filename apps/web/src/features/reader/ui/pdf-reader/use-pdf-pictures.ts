@@ -1,27 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  figureCornerHit,
-  keepFigureOnPage,
-  reorderFigures,
-  resizeFigureBox,
-  type FigureGeometry,
-  type FigureOrderStep,
-  type PageTextGeometry,
-  type ReaderAnnotation,
-  type ReaderPageSize,
-} from "@weaveforge/core";
-import type { ReaderCreateTool } from "../../application/reader-annotation-helpers";
+import { type FigureGeometry, type FigureOrderStep, type ReaderAnnotation } from "@weaveforge/core";
+import type { ReaderPageSize, PageTextGeometry } from "@weaveforge/wasm";
 import {
   pagePictures,
   pictureComment,
   pictureMeta,
   pictureRect,
   type PagePicture,
-} from "../../application/reader-picture";
+} from "@weaveforge/wasm";
+import type { ReaderCreateTool } from "../../application/parts";
 import type { AnnotationActions } from "./use-annotation-actions";
 import { pageBoxOf } from "./page-box";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * A placed picture on a paper, handled the way an ink note handles a figure.
@@ -105,10 +97,11 @@ export function usePdfPictures(deps: PdfPicturesDeps) {
   const write = useCallback(
     (id: string, pageNumber: number, box: Box) => {
       const ann = annotationsRef.current.find((a) => a.id === id);
-      const meta = ann ? pictureMeta(ann) : null;
+      const meta = ann ? pictureMeta(ann.type, ann.comment) : null;
       const position = ann?.anchor.zoteroPosition;
       if (!ann || !meta || !position) return;
-      const rect = pictureRect(box, pageHeight(pageNumber));
+      // Rust reads a whole figure, so the box carries the picture's path.
+      const rect = pictureRect({ ...box, path: meta.path }, pageHeight(pageNumber));
       const was = position.rects?.[0];
       const moved = !was || rect.some((n, i) => Math.abs(n - (was[i] ?? 0)) > 0.01);
       const comment =
@@ -176,11 +169,11 @@ export function usePdfPictures(deps: PdfPicturesDeps) {
       const list = picturesOn(current.pageNumber);
       const index = list.findIndex((one) => one.id === current.id);
       if (index < 0) return;
-      const next = reorderFigures(list, index, step);
+      const next = typedCore().reorderFigures(list, index, step);
       next.forEach((one, z) => {
         if (one.z === z) return;
         const ann = annotationsRef.current.find((a) => a.id === one.id);
-        const meta = ann ? pictureMeta(ann) : null;
+        const meta = ann ? pictureMeta(ann.type, ann.comment) : null;
         if (meta) void updateLocal(one.id, { comment: pictureComment({ ...meta, z }) });
       });
     },
@@ -206,7 +199,7 @@ export function usePdfPictures(deps: PdfPicturesDeps) {
   /** The picture a press is over, and which corner: the ink note's `figureAt`. */
   const pictureAt = useCallback(
     (pageNumber: number, at: { x: number; y: number }) => {
-      const hit = figureCornerHit(scale);
+      const hit = typedCore().figureCornerHit(scale);
       const list = picturesOn(pageNumber);
       for (let index = list.length - 1; index >= 0; index -= 1) {
         const one = list[index]!;
@@ -290,9 +283,9 @@ export function usePdfPictures(deps: PdfPicturesDeps) {
         // Clamped so at least half of it stays on the paper, as on a note.
         const width = pageWidth(held.pageNumber);
         const height = pageHeight(held.pageNumber);
-        change(keepFigureOnPage({ ...box, x: box.x + dx, y: box.y + dy }, { width, height }));
+        change(typedCore().keepFigureOnPage({ ...box, x: box.x + dx, y: box.y + dy }, { width, height }));
       } else {
-        change({ ...resizeFigureBox(box, held.corner, dx, dy, { free: event.shiftKey }), crop: box.crop });
+        change({ ...typedCore().resizeFigureBox(box, held.corner, dx, dy, { free: event.shiftKey }), crop: box.crop });
       }
       return true;
     },

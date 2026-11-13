@@ -1,0 +1,38 @@
+import type { GitBranch, GitCommit } from "../infrastructure/parts";
+
+// --- integration ---
+/**
+ * Per-project integration config (git sync + notifications). Web-side type —
+ * the sync layer is infrastructure, so this lives outside @weaveforge/core.
+ *
+ * Field semantics per provider: see `wf-core` `sync::integration_fields` (e.g. Mattermost
+ * stores server URL in `repo` and channel id in `branch`).
+ */
+export type SyncProvider = "github" | "gitlab" | "mattermost";
+
+export interface Integration {
+  provider: SyncProvider;
+  enabled: boolean;
+  /** GitHub/GitLab: API token. Mattermost: bot token. */
+  token?: string;
+  /** GitHub: "owner/name". GitLab: project path or id. Mattermost: server URL. */
+  repo?: string;
+  /** GitHub/GitLab: branch. Mattermost: channel id. */
+  branch: string;
+  /** Provider-specific settings (Mattermost: see `sync::mattermost_options`). */
+  options?: Record<string, unknown>;
+}
+
+/** The branch a git integration uses when none is set. */
+export const DEFAULT_GIT_BRANCH = "main";
+
+// --- sync-ports ---
+export interface IIntegrationsStore {
+  get(projectId: string, provider: SyncProvider): Promise<Integration>;
+  save(projectId: string, integration: Integration): Promise<void>;
+}
+
+export interface IGitClient {
+  listCommits(integration: Integration, branch?: string): Promise<GitCommit[]>;
+  listBranches(integration: Integration): Promise<GitBranch[]>;
+}

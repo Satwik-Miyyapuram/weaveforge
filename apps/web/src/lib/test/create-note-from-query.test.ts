@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createNoteFromQuery } from "@/lib/create-note-from-query";
+import { createNoteFromQuery } from "@/lib/parts";
 
 type Log = { level: string; source: string; message: string; detail?: string };
 

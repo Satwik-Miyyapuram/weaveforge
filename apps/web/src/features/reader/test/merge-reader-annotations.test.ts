@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mergeReaderAnnotations } from "../application/merge-reader-annotations.js";
+import { readyCore } from "@/lib/rust-core";
 import type { ReaderAnnotation } from "@weaveforge/core";
+
+const { mergeReaderAnnotations } = readyCore();
 
 function ann(partial: Partial<ReaderAnnotation> & Pick<ReaderAnnotation, "id" | "sortIndex">): ReaderAnnotation {
   return {

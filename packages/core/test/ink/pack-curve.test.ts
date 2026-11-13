@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { INK_PACK_TOLERANCE, InkStrokePacker, inkCurveAt, packInkStroke } from "../../src/index.js";
+import { INK_PACK_TOLERANCE, type LiveInkStrokePacker, type PackedInkStroke } from "../../src/index.js";
+import { rust } from "../../src/shared/rust.js";
+
+/** What a live packer holds so far, as plain arrays. */
+function packedOf(packer: LiveInkStrokePacker): PackedInkStroke {
+  return { points: Array.from(packer.points()), pressures: Array.from(packer.pressures()) };
+}
 
 // Strokes in the model's unit, 0.1 mm. A pen reports at 240 Hz, so a stroke
 // written at v mm/s leaves a sample every (v / 240) * 10 units.
@@ -48,9 +54,9 @@ function loops(r: number, step: number, turns = 2): number[] {
 /** Distance from a point to the drawn curve of one span, the span cut into 32 chords. */
 function spanDistance(xs: Float64Array, ys: Float64Array, span: number, px: number, py: number): number {
   let best = Infinity;
-  let a = inkCurveAt(xs, ys, span, 0);
+  let a = rust().inkCurveAt(xs, ys, span, 0);
   for (let k = 1; k <= 32; k += 1) {
-    const b = inkCurveAt(xs, ys, span, k / 32);
+    const b = rust().inkCurveAt(xs, ys, span, k / 32);
     const vx = b.x - a.x;
     const vy = b.y - a.y;
     const length = vx * vx + vy * vy;
@@ -93,7 +99,7 @@ test("the curve drawn through a packed stroke stays within the pack tolerance of
   for (const [r, speed] of [[5, 50], [12, 150], [50, 50], [100, 50]] as const)
     cases.push([`loops r${r} ${speed}mm/s`, loops(r, stepAt(speed))]);
   for (const [name, raw] of cases) {
-    const packed = packInkStroke(raw).points;
+    const packed = rust().packInkStroke(raw).points;
     const worst = worstSampleDistance(raw, packed);
     // The bound is checked against 32 chords a span, so allow their sagitta.
     assert.ok(worst <= INK_PACK_TOLERANCE + 0.05, `${name}: a sample is ${worst.toFixed(2)} units off the curve`);
@@ -108,14 +114,14 @@ test("a clean box is drawn as a box: its edges do not bow out past the tolerance
   // kept as its corners is what this guards.
   const bound = 2 * INK_PACK_TOLERANCE;
   for (const [w, h, speed] of [[200, 150, 50], [200, 150, 150], [200, 150, 300], [50, 30, 150], [50, 30, 300], [20, 20, 150], [20, 20, 300]] as const) {
-    const packed = packInkStroke(box(w, h, stepAt(speed), 0)).points;
+    const packed = rust().packInkStroke(box(w, h, stepAt(speed), 0)).points;
     const n = packed.length / 2;
     const xs = Float64Array.from({ length: n }, (_, i) => packed[2 * i]!);
     const ys = Float64Array.from({ length: n }, (_, i) => packed[2 * i + 1]!);
     let out = 0;
     for (let i = 0; i + 1 < n; i += 1)
       for (let k = 0; k <= 64; k += 1) {
-        const p = inkCurveAt(xs, ys, i, k / 64);
+        const p = rust().inkCurveAt(xs, ys, i, k / 64);
         out = Math.max(out, 100 - p.x, p.x - (100 + w), 500 - p.y, p.y - (500 + h));
       }
     assert.ok(out <= bound, `${w}x${h} at ${speed} mm/s: the curve bows ${out.toFixed(2)} units past an edge`);
@@ -129,11 +135,11 @@ function taper(n: number): number[] {
 
 /** Each frame of a stroke as the pen writes it: what the packer holds after every sample. */
 function frames(raw: readonly number[], pressures: readonly number[] = []) {
-  const packer = new InkStrokePacker();
+  const packer = rust().createInkStrokePacker();
   const out: { points: number[]; pressures: number[] }[] = [];
   for (let i = 0; i < raw.length / 2; i += 1) {
     packer.push(raw[2 * i]!, raw[2 * i + 1]!, pressures[i]);
-    out.push(packer.packed());
+    out.push(packedOf(packer));
   }
   return out;
 }
@@ -149,8 +155,8 @@ const written: [string, number[]][] = [
 test("packing as the pen writes gives the same stroke as packing it whole", () => {
   for (const [name, raw] of written) {
     const pressures = taper(raw.length / 2);
-    assert.deepEqual(frames(raw, pressures).at(-1), packInkStroke(raw, pressures), name);
-    assert.deepEqual(frames(raw).at(-1), packInkStroke(raw), `${name}, no pressure`);
+    assert.deepEqual(frames(raw, pressures).at(-1), rust().packInkStroke(raw, pressures), name);
+    assert.deepEqual(frames(raw).at(-1), rust().packInkStroke(raw), `${name}, no pressure`);
   }
 });
 
@@ -177,7 +183,7 @@ test("ink behind the pen is drawn the same in every later frame", () => {
     const out: number[] = [];
     for (let s = 0; s < spans; s += 1)
       for (let k = 0; k <= 8; k += 1) {
-        const p = inkCurveAt(xs, ys, s, k / 8);
+        const p = rust().inkCurveAt(xs, ys, s, k / 8);
         out.push(p.x, p.y);
       }
     return out;
@@ -193,43 +199,43 @@ test("ink behind the pen is drawn the same in every later frame", () => {
 });
 
 test("a pen held still or tapped packs to finite points", () => {
-  assert.deepEqual(packInkStroke([50, 60, 50, 60]).points, [50, 60, 50, 60], "a tap is a dot");
+  assert.deepEqual(rust().packInkStroke([50, 60, 50, 60]).points, [50, 60, 50, 60], "a tap is a dot");
   const still: number[] = [];
   for (let i = 0; i < 30; i += 1) still.push(200, 200);
   for (let i = 0; i < 30; i += 1) still.push(200 + i * 4, 200 + (i % 3));
-  const packed = packInkStroke(still, taper(still.length / 2));
+  const packed = rust().packInkStroke(still, taper(still.length / 2));
   assert.ok(packed.points.length >= 4);
   for (const value of packed.points) assert.ok(Number.isFinite(value));
   assert.deepEqual(packed.points.slice(-2), still.slice(-2));
 });
 
 test("a stroke shorter than two samples packs to nothing, one sample to itself", () => {
-  const packer = new InkStrokePacker();
-  assert.deepEqual(packer.packed(), { points: [], pressures: [] });
+  const packer = rust().createInkStrokePacker();
+  assert.deepEqual(packedOf(packer), { points: [], pressures: [] });
   packer.push(10.4, 20.6, 300);
-  assert.deepEqual(packer.packed(), { points: [10, 21], pressures: [255] });
+  assert.deepEqual(packedOf(packer), { points: [10, 21], pressures: [255] });
 });
 
 test("a sample that is not a number is skipped, so the stroke stays drawable", () => {
-  const packer = new InkStrokePacker();
+  const packer = rust().createInkStrokePacker();
   packer.push(0, 0, 128);
   packer.push(Number.NaN, 5, 128);
   packer.push(30, Number.POSITIVE_INFINITY, 128);
   packer.push(30, 0, 128);
-  assert.deepEqual(packer.packed(), { points: [0, 0, 30, 0], pressures: [128, 128] });
+  assert.deepEqual(packedOf(packer), { points: [0, 0, 30, 0], pressures: [128, 128] });
 });
 
 test("a straight line is still its two ends", () => {
   const raw: number[] = [];
   for (let i = 0; i <= 100; i += 1) raw.push(10 + i * 3, 40);
-  assert.deepEqual(packInkStroke(raw).points, [10, 40, 310, 40]);
+  assert.deepEqual(rust().packInkStroke(raw).points, [10, 40, 310, 40]);
 });
 
 test("the curve pass never pushes a stroke past the point cap", () => {
   // A wobbly box drawn round and round: every corner wants points back.
   const raw: number[] = [];
   for (let lap = 0; lap < 60; lap += 1) raw.push(...box(200, 150, stepAt(50), 1));
-  const packed = packInkStroke(raw, [], { maxPoints: 200 });
+  const packed = rust().packInkStroke(raw, [], { maxPoints: 200 });
   assert.ok(packed.points.length / 2 <= 200, `${packed.points.length / 2} points`);
   assert.deepEqual(packed.points.slice(-2), raw.slice(-2).map(Math.round), "and the true end is kept");
 });
@@ -237,7 +243,7 @@ test("the curve pass never pushes a stroke past the point cap", () => {
 test("packed points are always samples of the stroke, in order", () => {
   const raw = box(50, 30, stepAt(150), 1);
   const rounded = raw.map(Math.round);
-  const packed = packInkStroke(raw).points;
+  const packed = rust().packInkStroke(raw).points;
   let j = 0;
   for (let i = 0; i < packed.length / 2; i += 1) {
     while (j < rounded.length / 2 && (rounded[2 * j] !== packed[2 * i] || rounded[2 * j + 1] !== packed[2 * i + 1])) j += 1;

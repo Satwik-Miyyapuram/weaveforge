@@ -11,7 +11,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { LoadVaultScreenUseCase } from "../application/load-vault-screen.use-case";
+import { LoadVaultScreenUseCase } from "../application/parts";
 
 const summary = (id: string, title: string) => ({
   id,
@@ -35,7 +35,7 @@ function useCase(options: { pinned?: boolean } = {}) {
     pins: {
       listForProject: async () =>
         options.pinned
-          ? [{ id: "pin-1", projectId: "proj", resourceType: "vault_page", resourceId: "theirs", ownerId: "alice" }]
+          ? [{ id: "pin-1", userId: "me", projectId: "proj", resourceType: "vault_page", resourceId: "theirs", ownerId: "alice", createdAt: "2026-01-01T00:00:00.000Z" }]
           : [],
     } as never,
     shares: {

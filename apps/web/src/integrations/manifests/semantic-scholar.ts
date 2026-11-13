@@ -1,6 +1,6 @@
-import { SemanticScholarCitationSource } from "@/features/relations/infrastructure/semantic-scholar-citation-source";
-import { createCredentialReader } from "../credentials";
-import type { WireCitationsDeps } from "../wire-citations";
+import { SemanticScholarCitationSource } from "@/features/relations/infrastructure/parts";
+import { createCredentialReader } from "../parts";
+import type { WireCitationsDeps } from "../parts";
 import type { CitationIntegrationManifest } from "./types";
 
 export const semanticScholarCitationManifest: CitationIntegrationManifest = {
@@ -8,8 +8,8 @@ export const semanticScholarCitationManifest: CitationIntegrationManifest = {
   kind: "citation",
   userDescriptor: {
     providerId: "semantic-scholar",
-    title: "Semantic Scholar",
-    description: "Resolve paper metadata & citations",
+    title: "Semantic Scholar & OpenAlex",
+    description: "Paper metadata, citations & related papers",
     color: "#1857b6",
     runtimeGate: { kind: "citation", providerId: "semantic-scholar" },
     fields: [
@@ -18,6 +18,14 @@ export const semanticScholarCitationManifest: CitationIntegrationManifest = {
         label: "API key",
         type: "password",
         placeholder: "optional — raises rate limits",
+      },
+      {
+        // OpenAlex is the fallback for related papers and title lookups; its
+        // key shares this card so both paper-search keys sit together.
+        id: "openAlexKey",
+        label: "OpenAlex API key",
+        type: "password",
+        placeholder: "optional — raises OpenAlex's daily limit",
       },
     ],
   },

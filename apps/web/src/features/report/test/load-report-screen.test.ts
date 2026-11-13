@@ -3,7 +3,8 @@ import test from "node:test";
 
 import type { LibraryPin, ReportSection, Share } from "@weaveforge/core";
 import { loadPinnedScreenData } from "@weaveforge/core";
-import { buildSectionTree } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
+
 
 /**
  * The report tree is built from the **merged** set.
@@ -24,6 +25,8 @@ function section(id: string, over: Partial<ReportSection> = {}): ReportSection {
     id,
     title: `Section ${id}`,
     parentId: null,
+    status: "not_started",
+    wordCount: 0,
     sortOrder: 0,
     content: "",
     createdAt: "2026-01-01T00:00:00.000Z",
@@ -71,7 +74,7 @@ async function load(owned: ReportSection[], pinned: string[], pinnedParentId: st
       loadById: async (id) => section(id, { title: `Loaded ${id}`, parentId: pinnedParentId ?? undefined }),
     },
   );
-  return { merged, tree: buildSectionTree(merged.items) };
+  return { merged, tree: typedCore().buildSectionTree(merged.items) };
 }
 
 /** Every id in a tree, at any depth. */

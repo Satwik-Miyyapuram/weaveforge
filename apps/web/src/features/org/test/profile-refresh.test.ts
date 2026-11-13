@@ -5,10 +5,12 @@
  * - 32-28: a slow earlier refresh does not overwrite a later one.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import type { Member, OrgMembershipView } from "@weaveforge/core";
 
-import { latestGate, loadProfileBundle, type ProfileSources } from "../application/profile-refresh";
+import { latestGate } from "@/lib/parts";
+import { loadProfileBundle, type ProfileSources } from "../application/profile-refresh";
 
 type Log = { level: string; source: string; message: string; detail?: string };
 
@@ -42,6 +44,8 @@ async function withLogs(run: () => Promise<void>): Promise<Log[]> {
   }
   return logs;
 }
+
+before(async () => { await loadTestCore(); });
 
 test("a failed standalone sync is logged and the first read kept (32-27)", async () => {
   let bundle: Awaited<ReturnType<typeof loadProfileBundle>> | undefined;
@@ -77,12 +81,12 @@ test("a slow earlier refresh is ignored (32-28)", async () => {
   const shown: string[] = [];
   let releaseFirst!: () => void;
   const first = (async () => {
-    const isLatest = gate.begin();
+    const isLatest = gate();
     await new Promise<void>((r) => (releaseFirst = r));
     if (isLatest()) shown.push("first");
   })();
   const second = (async () => {
-    const isLatest = gate.begin();
+    const isLatest = gate();
     await Promise.resolve();
     if (isLatest()) shown.push("second");
   })();
@@ -94,8 +98,8 @@ test("a slow earlier refresh is ignored (32-28)", async () => {
 
 test("a lone refresh is the latest", () => {
   const gate = latestGate();
-  const isLatest = gate.begin();
+  const isLatest = gate();
   assert.equal(isLatest(), true);
-  gate.begin();
+  gate();
   assert.equal(isLatest(), false);
 });

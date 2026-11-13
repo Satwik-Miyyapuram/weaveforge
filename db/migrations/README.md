@@ -106,3 +106,4 @@ live on the OCI server.
 | `0149` | `resolve_api_token` writes `last_used_at` at most hourly, not on every SDK call |
 | `0154` | `vault_pages.folder`: a page made as a folder, the only kind that holds children |
 | `0155` | Overleaf Workshop sessions: the Overleaf cookie kept sealed server-side; the client holds only the row id |
+| `0156` | Release notices: rows inserted per release, users read them; dismissal in `user_settings.last_release_notice_seen` |

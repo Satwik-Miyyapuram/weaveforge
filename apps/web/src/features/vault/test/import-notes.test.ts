@@ -1,7 +1,15 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { importNotesFromFiles, type ImportVault } from "../application/import-notes";
+import { readFileSync } from "node:fs";
+
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { importNotesFromFiles, type ImportVault } from "../application/parts";
+import { readyCore } from "@/lib/rust-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function md(path: string, body = "body"): File {
   const f = new File([body], path.split("/").pop()!);
@@ -79,4 +87,17 @@ test("an import with no notes adds nothing (34-24)", async () => {
   const out = await importNotesFromFiles([md("root/readme.txt")], undefined, fake.vault);
   assert.deepEqual(out, { created: 0, folders: 0, renamed: [], skipped: 1 });
   assert.equal(fake.added.length, 0);
+});
+
+test("a drop on Notes takes .md and .zip files only", () => {
+  assert.deepEqual(
+    ["a.md", "B.MD", "vault.zip", "paper.pdf", "refs.bib", "notes.md.txt", "img.png"].filter((n) => readyCore().isNoteImportFile(n)),
+    ["a.md", "B.MD", "vault.zip"],
+  );
+});
+
+test("Notes shows the drop zone on the list only, not over an open note or a shared view", () => {
+  const src = readFileSync(new URL("../ui/vault-screen/vault-screen.tsx", import.meta.url), "utf8");
+  assert.match(src, /\{!selectedId && !isSharedView && \(\s*<FileDropZone/);
+  assert.match(src, /onImportFiles\(files\.filter\(\(f\) => readyCore\(\)\.isNoteImportFile\(f\.name\)\)\)/);
 });

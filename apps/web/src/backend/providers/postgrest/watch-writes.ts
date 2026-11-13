@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { notifyEach } from "@/lib/notify-each";
+import { notifyEach } from "@/lib/parts";
 
 /**
  * Notice when anything writes, without asking every writer to say so.

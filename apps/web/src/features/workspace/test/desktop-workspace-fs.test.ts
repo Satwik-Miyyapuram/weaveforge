@@ -1,14 +1,21 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
-import { WorkspacePathError, projectDir } from "@weaveforge/core";
-import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
+import { WorkspacePathError } from "@weaveforge/core";
+import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
+
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import {
   DesktopWorkspaceFs,
   type VaultFileBridge,
-} from "../infrastructure/desktop-workspace-fs";
-import { followProjectRename } from "../application/mirror-manifest";
+} from "../infrastructure/parts";
+import { followProjectRename } from "../application/parts-3";
+import { typedCore } from "@/lib/rust-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /** A bridge backed by the in-memory fs, standing in for the desktop process. */
 function bridgeOver(fs: MemoryWorkspaceFs): VaultFileBridge {
@@ -50,6 +57,29 @@ test("the adapter round trips a file through the bridge", async () => {
   await fs.writeFile("notes/one.note.md", "hello");
   assert.equal(await fs.readText("notes/one.note.md"), "hello");
   assert.equal((await fs.stat("notes/one.note.md"))?.kind, "file");
+});
+
+test("a checked write is passed to the shell when it has one", async () => {
+  const calls: unknown[][] = [];
+  const fs = new DesktopWorkspaceFs({
+    ...bridgeOver(new MemoryWorkspaceFs()),
+    async writeVaultFileIf(...args) {
+      calls.push(args);
+      return false;
+    },
+  });
+  assert.equal(await fs.writeTextIf("notes/a.note.md", "app", "read"), false);
+  assert.deepEqual(calls, [["notes/a.note.md", "app", "read"]]);
+});
+
+test("without the shell's checked write, the file is compared before writing", async () => {
+  const fs = adapter();
+  await fs.writeFile("notes/a.note.md", "edited outside");
+  assert.equal(await fs.writeTextIf("notes/a.note.md", "app", "read"), false);
+  assert.equal(await fs.readText("notes/a.note.md"), "edited outside");
+  assert.equal(await fs.writeTextIf("notes/a.note.md", "app", "edited outside"), true);
+  assert.equal(await fs.writeTextIf("notes/new.note.md", "app", null), true);
+  assert.equal(await fs.readText("notes/new.note.md"), "app");
 });
 
 test("bytes survive the trip in both directions", async () => {
@@ -123,7 +153,7 @@ test("a stat the desktop cannot answer is an error, not a missing file (29-04)",
 test("a failed stat does not let a rename follow-up delete the project's folder (29-04)", async () => {
   const memory = new MemoryWorkspaceFs();
   const project = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
-  const root = projectDir(project);
+  const root = typedCore().projectDir(project);
   await memory.writeFile(`${root}/notes/a.md`, "keep me");
   const fs = new DesktopWorkspaceFs({
     ...bridgeOver(memory),

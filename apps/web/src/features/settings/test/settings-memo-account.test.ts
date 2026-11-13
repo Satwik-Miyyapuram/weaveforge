@@ -14,7 +14,7 @@ import {
   PostgrestSettingsRepository,
   type Secrets,
   type SecretsStore,
-} from "@/features/settings/infrastructure/postgrest-settings-repository";
+} from "@/features/settings/infrastructure/parts";
 
 /** One signed-in user at a time; the row and secrets the server holds for them. */
 function world() {

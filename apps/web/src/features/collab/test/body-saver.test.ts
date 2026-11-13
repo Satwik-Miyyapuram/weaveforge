@@ -3,10 +3,15 @@
  * `flush()` says the body is durable, so a `true` that is not backed by a
  * stored body loses text.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { BodySaver } from "../application/body-saver";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { BodySaver } from "../application/parts";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function harness(opts: { fail?: (body: string) => boolean; delayMs?: number } = {}) {
   const saved: string[] = [];

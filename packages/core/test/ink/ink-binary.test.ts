@@ -14,32 +14,27 @@ import assert from "node:assert/strict";
 import { brotliCompressSync, brotliDecompressSync, constants } from "node:zlib";
 
 import {
-  INK_CHUNK_FLAG_COMPRESSED,
-  INK_CHUNK_HEADER_BYTES,
-  INK_CHUNK_MAGIC,
-  INK_CHUNK_RAW_THRESHOLD,
-  InkChunkError,
-  decodeInkChunk,
-  decodeInkChunkBody,
-  encodeInkChunk,
-  encodeInkChunkBody,
-  fitsInkNoteBudget,
-  identityInkChunkCodec,
-  inflateInkChunk,
-  inkChunkBodySize,
-  readInkChunkHeader,
-  type InkChunkCodec,
-} from "../../src/ink/ink-binary.js";
-import {
-  chunkAbsolutePoints,
   chunkLine,
   chunkLineText,
   chunkStroke,
   chunkStrokePoints,
+  decodeInkChunk,
+  decodeInkChunkBody,
+  encodeInkChunk,
+  encodeInkChunkBody,
+  identityInkChunkCodec,
+  inflateInkChunk,
+  INK_CHUNK_FLAG_COMPRESSED,
+  INK_CHUNK_HEADER_BYTES,
+  INK_CHUNK_MAGIC,
+  inkChunkBodySize,
+  type InkChunkCodec,
+  InkChunkError,
   pageFromChunk,
-} from "../../src/ink/ink-chunk-read.js";
-import { INK_PAPERS, makeInkStroke, type InkPage } from "../../src/ink/ink-note.js";
-import { packInkStroke } from "../../src/ink/stroke-packer.js";
+  readInkChunkHeader,
+} from "../../src/ink/parts-1.js";
+import { INK_PAPERS, type InkPage } from "../../src/ink/parts-2.js";
+import { rust } from "../../src/shared/rust.js";
 
 /** Brotli at quality 5, the knee §4.3 pins. */
 const brotliQ5: InkChunkCodec = {
@@ -107,7 +102,7 @@ function densePage(pressure: PressureModel): InkPage {
       else pressures.push(0);
     }
     strokes.push(
-      makeInkStroke({
+      rust().makeInkStroke({
         points: coords,
         pressures,
         width: 6,
@@ -164,13 +159,13 @@ function committedDensePage(keepPressure = true): {
       pressures.push(Math.round(150 + Math.sin(t * Math.PI) * 60 + (rnd() - 0.5) * 6));
     }
     rawPoints += samples;
-    const packed = packInkStroke(coords, pressures);
+    const packed = rust().packInkStroke(coords, pressures);
     packedPoints += packed.points.length / 2;
     // The JSON this page would have cost as revision 1's format: an object per
     // stroke, delta x,y and an absolute pressure per point.
     jsonBytes += 48 + packed.points.length * 5 + (keepPressure ? packed.pressures.length * 4 : 0);
     strokes.push(
-      makeInkStroke({
+      rust().makeInkStroke({
         points: packed.points,
         pressures: keepPressure ? packed.pressures : [],
         width: 6,
@@ -194,7 +189,7 @@ function smallPage(): InkPage {
     paper: "ruled",
     background: 3,
     strokes: [
-      makeInkStroke({
+      rust().makeInkStroke({
         points: [10, 20, 40, 25, 90, 60],
         pressures: [0, 128, 255],
         width: 6,
@@ -203,7 +198,7 @@ function smallPage(): InkPage {
         t0: 1_500,
         lineIndex: 0,
       }),
-      makeInkStroke({
+      rust().makeInkStroke({
         points: [100, 120, 160, 122],
         pressures: [200, 180],
         width: 60,
@@ -213,7 +208,7 @@ function smallPage(): InkPage {
         shape: "none",
         lineIndex: -1,
       }),
-      makeInkStroke({
+      rust().makeInkStroke({
         points: [200, 300, 260, 360, 200, 420],
         pressures: [10, 90, 250],
         width: 10,
@@ -303,7 +298,7 @@ test("points are stored as deltas and read back as absolute positions", () => {
   assert.equal(view.points[4], 5, "25 − 20");
   assert.equal(view.points[5], 128);
 
-  assert.deepEqual(Array.from(chunkAbsolutePoints(view)), [
+  assert.deepEqual(Array.from(rust().absolutePointTriples(view.body)), [
     10, 20, 0, 40, 25, 128, 90, 60, 255,
     // every stroke restarts its delta chain from its own first point
     100, 120, 200, 160, 122, 180,
@@ -311,13 +306,13 @@ test("points are stored as deltas and read back as absolute positions", () => {
   ]);
 
   const stroke = chunkStroke(view, 2);
-  assert.deepEqual(stroke.points, [200, 300, 260, 360, 200, 420]);
+  assert.deepEqual(stroke?.points, [200, 300, 260, 360, 200, 420]);
   assert.deepEqual(Array.from(chunkStrokePoints(view, 2).pressures), [10, 90, 250]);
 });
 
 test("one stroke's points are the same slice of the whole page's walk (06-04)", () => {
   const view = decodeInkChunkBody(encodeInkChunkBody(smallPage()));
-  const all = Array.from(chunkAbsolutePoints(view));
+  const all = Array.from(rust().absolutePointTriples(view.body));
   const joined: number[] = [];
   for (let stroke = 0; stroke < view.strokeCount; stroke += 1) {
     const { points, pressures } = chunkStrokePoints(view, stroke);
@@ -383,9 +378,9 @@ test("a small page is stored raw, and a large one only when compressing helped",
   const smallHeader = readInkChunkHeader(small);
   assert.equal(smallHeader.compressed, false, "below the threshold, inflating costs more than it saves");
   assert.equal(smallHeader.flags & INK_CHUNK_FLAG_COMPRESSED, 0);
-  assert.ok(inkChunkBodySize(smallPage()) < INK_CHUNK_RAW_THRESHOLD);
+  assert.ok(inkChunkBodySize(smallPage()) < rust().inkChunkRawThreshold());
 
-  const dense = await encodeInkChunk(densePage(true), brotliQ5);
+  const dense = await encodeInkChunk(densePage("smooth"), brotliQ5);
   const denseHeader = readInkChunkHeader(dense);
   assert.equal(denseHeader.compressed, true);
   assert.ok(dense.length < denseHeader.bodySize, "a compressed chunk is smaller than its body");
@@ -468,9 +463,9 @@ test("the plan's unsimplified harness page is measured and recorded, not asserte
 });
 
 test("a note's chunks are budgeted against the 8 MB a sidecar may take", () => {
-  assert.equal(fitsInkNoteBudget([52_000, 40_000, 39_000]), true);
-  assert.equal(fitsInkNoteBudget([4 * 1024 * 1024, 4 * 1024 * 1024]), true);
-  assert.equal(fitsInkNoteBudget([4 * 1024 * 1024, 4 * 1024 * 1024 + 1]), false);
+  assert.equal(rust().fitsInkNoteBudget([52_000, 40_000, 39_000]), true);
+  assert.equal(rust().fitsInkNoteBudget([4 * 1024 * 1024, 4 * 1024 * 1024]), true);
+  assert.equal(rust().fitsInkNoteBudget([4 * 1024 * 1024, 4 * 1024 * 1024 + 1]), false);
 });
 
 test("an empty page is a valid chunk: a note with no strokes still opens", () => {
@@ -507,7 +502,7 @@ test("a stroke whose points exceed the format's u16 length is refused, not clipp
   const page: InkPage = {
     ...smallPage(),
     strokes: [
-      makeInkStroke({
+      rust().makeInkStroke({
         points: Array.from({ length: 70_000 * 2 }, (_unused, index) => index % 100),
       }),
     ],

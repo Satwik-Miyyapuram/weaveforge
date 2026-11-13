@@ -1,8 +1,9 @@
 "use client";
 
-import { formatDate } from "@/lib/format-date";
-import { useEffect, useId, useState } from "react";
 import { formatError } from "@/lib/format-error";
+import { localOffset } from "@/lib/parts-1";
+import { readyCore } from "@/lib/rust-core";
+import { useEffect, useId, useState } from "react";
 import {
   desktop,
   type DesktopLocalApi,
@@ -116,7 +117,7 @@ function when(iso: string | null): string {
   const at = Date.parse(iso);
   return at <= 0
     ? "—"
-    : formatDate(at);
+    : readyCore().formatDate(iso, localOffset(iso));
 }
 
 /**

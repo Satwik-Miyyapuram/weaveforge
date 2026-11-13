@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { EXPLORER_ROW_PX, type ExplorerViewport } from "../application/explorer-window";
+import type { ExplorerViewport } from "@weaveforge/wasm";
+
+import { EXPLORER_ROW_PX } from "./explorer-window-constants";
 
 /** Scroll is measured in steps of this many rows, so a scroll re-renders every few rows, not every pixel. */
 const MEASURE_STEP_PX = 4 * EXPLORER_ROW_PX;

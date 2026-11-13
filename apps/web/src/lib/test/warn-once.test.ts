@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { warnOnce } from "@/lib/error-report/warn-once";
+import { warnOnce } from "@/lib/error-report/parts";
 
 type Log = { level: string; source: string; message: string; detail?: string };
 

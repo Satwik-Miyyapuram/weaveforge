@@ -29,8 +29,11 @@ export function DashboardEditBar({
   onDone,
   onReset,
   onAdd,
+  disabled = false,
 }: {
   editing: boolean;
+  /** True while the dashboard shows the device copy: no edits until it is live. */
+  disabled?: boolean;
   onCustomize: () => void;
   onDone: () => void;
   onReset: () => void;
@@ -38,7 +41,7 @@ export function DashboardEditBar({
 }) {
   if (!editing) {
     return (
-      <IconButton label="Customize dashboard" tip="Customize" onClick={onCustomize}>
+      <IconButton label="Customize dashboard" tip="Customize" onClick={onCustomize} disabled={disabled}>
         <CustomizeIcon />
       </IconButton>
     );

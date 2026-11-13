@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { orgResponse } from "../infrastructure/org-api";
+import { orgResponse } from "../infrastructure/parts";
 
 test("a non-JSON 500 gives the mapped error, not a parse error", async () => {
   const res = new Response("<html>Bad gateway</html>", { status: 500 });

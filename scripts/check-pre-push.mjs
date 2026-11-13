@@ -7,11 +7,12 @@
  * 2. Architecture map & docs freshness (check:docs)
  * 3. Commit DCO sign-offs (check:dco)
  * 4. Architectural & code boundaries (check:boundaries - 10 gates)
- * 5. Typecheck across all workspaces (typecheck)
+ * 5. WASM build (committed glue, types and stamp must not change; the module is compared on Linux only), its tests, parity (Node 24.14.1 only) and size budget, then typecheck (build:wasm, typecheck)
  * 6. Linter (lint)
  * 7. Bundle budget (bundle:budget, when .next build exists)
  * 8. Memory budgets (test:memory, ~5 s)
  * 9. Design page guards (test:e2e:design: targets and overflow, D20 G5/G6)
+ * 10. Rust gates (check:rust --local: fmt, clippy, nextest, doctest, bindings, deny; scripts/lib/rust-gates.mjs)
  */
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -59,7 +60,20 @@ run(`node scripts/check-dco.mjs ${baseSha} HEAD`, `Checking DCO sign-offs (${bas
 // 4. Boundary gates (SOLID, DRY, API routes, UI, contrast, hygiene, MCP, Android, CI parity)
 run("npm run check:boundaries", "Running architectural boundary gates");
 
-// 5. Full workspace typecheck
+// 5. Rebuild the committed WASM package; a push with Rust changes but a stale
+// packages/wf-wasm/pkg stops here so the rebuilt files get committed
+// (scripts/check-wasm-pkg.mjs, the same check CI runs).
+run("npm run build:wasm", "Building the Rust core to WASM");
+run("npm run wasm:pkg", "Checking the committed WASM package matches the build");
+run("npm test --workspace @weaveforge/wasm", "Testing the WASM package");
+// Parity goldens were made on Node 24.14.1's ICU; another Node can differ on
+// Unicode case and category data, so parity runs only there (CI: wasm-parity).
+if (process.version === "v24.14.1") {
+  run("npm run parity --workspace @weaveforge/wasm", "Checking TS/Rust parity on the fixtures");
+} else {
+  console.log(`Skipping WASM parity: Node ${process.version}, goldens need v24.14.1 (CI wasm-parity runs it).`);
+}
+run("npm run wasm:budget", "Checking the WASM size budget");
 run("npm run typecheck", "Typechecking all workspace packages");
 
 // 6. Linter
@@ -77,5 +91,8 @@ run("npm run test:memory", "Checking memory budgets");
 // real screens when the e2e account is configured (the screen spec skips itself
 // otherwise).
 run("npm run test:e2e:design --workspace @weaveforge/web", "Checking design page guards (D20 G5/G6)");
+
+// 10. Rust gates for crates/, the same script CI runs.
+run("npm run check:rust -- --local", "Running Rust gates (offline; advisories run in CI)");
 
 console.log("\n==> [pre-push] All offline pre-push checks PASSED cleanly!\n");

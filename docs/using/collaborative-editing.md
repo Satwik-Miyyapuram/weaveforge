@@ -14,7 +14,7 @@ collaborative.
 |---|---|
 | **Live text** | Edits appear in the other window in about a second. |
 | **Peer cursors** | Each editor gets a colour and a name tag at their caret. |
-| **Who is here** | "Editing with …" above the editor, listing everyone else in the document. |
+| **Who is here** | Coloured initials of everyone else in the document, beside the editor. Hover one for the name. More than a few collapse into **+N**. |
 | **Sync trouble** | "Live sync unavailable" if the channel drops. Your edits are still saved — they just are not shared until it recovers. |
 
 Notes keep everything the plain editor has — `[[wikilink]]` and `@cite`
@@ -26,9 +26,9 @@ with a shared document behind it, not a plainer replacement.
 There is no save button for the body. It writes itself as you type, on a
 1.5-second pause.
 
-- **Notes** keep **Done** for the title, which is a plain input and not part of
-  the shared document. "cancel" is "close": a collaborative body is already
-  shared and saved, so offering to roll it back would be a lie.
+- **Notes** have no Done or Cancel for the body: it is already shared and
+  saved. The title is a plain input, not part of the shared document. Enter
+  saves it and Escape restores the old title.
 - **Logbook entries** keep **Done** for the Kind selector, for the same reason.
 
 ### Who can co-edit
@@ -87,7 +87,7 @@ invalidation channel down together.
 Nothing about this is visible from the client: `phx_join` still reports
 `SUBSCRIBED`, and the socket reconnects, and the next send kills it again. The
 realtime client therefore pins its encoder to Phoenix's plain-JSON tuple
-([`client.ts`](../../apps/web/src/backend/providers/postgrest/client.ts)). Do not
+([`parts-1.ts`](../../apps/web/src/backend/providers/postgrest/parts-1.ts)). Do not
 remove that override without checking the deployed Realtime version.
 
 ### Teardown order
@@ -113,7 +113,7 @@ that was behind.
 
 `crdt_updates` grows with editing, and is compacted: once a document's tail
 passes a threshold the log is replaced by a snapshot
-(`compactCrdtLog`), so the table tracks document *size*, not edit count.
+(`compact_crdt_log`), so the table tracks document *size*, not edit count.
 
 ## Editing alone
 

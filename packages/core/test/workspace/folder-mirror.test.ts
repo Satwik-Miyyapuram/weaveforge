@@ -1,15 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MemoryWorkspaceFs } from "../../src/testing/memory-workspace-fs.js";
-import {
-  NoOpWorkspaceGit,
-  digestText,
-  describeChanges,
-  mirrorWorkspace,
-  projectDir,
-  type WorkspaceProject,
-  type WorkspaceSnapshot,
-} from "../../src/index.js";
+import { MemoryWorkspaceFs } from "../support/memory-workspace-fs.js";
+import { rust } from "../../src/shared/rust.js";
+import { NoOpWorkspaceGit, mirrorWorkspace, type WorkspaceProject, type WorkspaceSnapshot } from "../../src/index.js";
 
 function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
   return {
@@ -23,7 +16,7 @@ const note = (id: string, title: string, body = "") =>
   ({ id, title, body, sortOrder: 0, createdAt: "", updatedAt: "" }) as never;
 
 const THESIS: WorkspaceProject = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
-const ROOT = projectDir(THESIS);
+const ROOT = rust().projectDir(THESIS);
 
 /** Every mirrored file is inside the project's folder. */
 const at = (path: string) => `${ROOT}/${path}`;
@@ -124,7 +117,7 @@ test("files the mirror does not own are left alone", async () => {
 test("mirroring a second project leaves the first project's files alone", async () => {
   const fs = new MemoryWorkspaceFs();
   const offline: WorkspaceProject = { id: "00000000-0000-4000-8000-0000000000aa", name: "Offline Trial" };
-  const offlineRoot = projectDir(offline);
+  const offlineRoot = rust().projectDir(offline);
 
   const first = await mirrorWorkspace(
     snapshot({ vaultPages: [note("n1", "Thesis method")] }),
@@ -152,7 +145,7 @@ test("mirroring a second project leaves the first project's files alone", async 
 test("each project's bookkeeping is its own", async () => {
   const fs = new MemoryWorkspaceFs();
   const offline: WorkspaceProject = { id: "00000000-0000-4000-8000-0000000000aa", name: "Offline Trial" };
-  const offlineRoot = projectDir(offline);
+  const offlineRoot = rust().projectDir(offline);
 
   await mirrorWorkspace(
     snapshot({ relations: [{ id: "r1" } as never], tags: [{ id: "t1" } as never] }),
@@ -210,9 +203,9 @@ test("git is off by default and answers without throwing", async () => {
 });
 
 test("commit messages describe what changed", () => {
-  assert.equal(describeChanges([]), "No changes");
+  assert.equal(rust().describeChanges([]), "No changes");
   assert.equal(
-    describeChanges([
+    rust().describeChanges([
       { path: "a", state: "added" },
       { path: "b", state: "modified" },
       { path: "c", state: "modified" },
@@ -253,6 +246,38 @@ test("a file edited since the last mirror is left alone and reported", async () 
   assert.deepEqual(second.heldBack, [path]);
   assert.deepEqual(second.written, [], "and it is not reported as written");
   assert.deepEqual(second.removed, [], "nor as removed");
+});
+
+/**
+ * An edit that lands between the mirror's read and its write. The mirror decided
+ * on what it read; writing blind would lose the edit, so the write is checked
+ * against that read and refused, and the path held back like any other edit.
+ */
+test("an edit made after the mirror read the file is not overwritten", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const first = await mirrorWorkspace(
+    snapshot({ vaultPages: [note("n1", "Method", "One")] }),
+    fs,
+    { project: THESIS },
+  );
+  const path = at("notes/method.note.md");
+  const racing = "typed in another editor while the mirror ran";
+  const readText = fs.readText.bind(fs);
+  fs.readText = async (p: string) => {
+    const text = await readText(p);
+    if (p === path) await fs.writeFile(path, racing);
+    return text;
+  };
+
+  const second = await mirrorWorkspace(
+    snapshot({ vaultPages: [note("n1", "Method", "One changed in the app")] }),
+    fs,
+    { project: THESIS, previousPaths: first.written, base: first.mirrored },
+  );
+
+  assert.equal(await readText(path), racing, "the late edit survives");
+  assert.deepEqual(second.heldBack, [path]);
+  assert.ok(!second.written.includes(path));
 });
 
 test("a file the mirror never wrote is still written beside, and nothing is held", async () => {
@@ -315,7 +340,7 @@ test("an edit the import has applied no longer holds the mirror back", async () 
   // Applying an edit through the import records the folder's text as the base
   // (see `applyEntries`), which is what "the two sides agree" means here: the
   // digest is the one the file now has, not the one the app would have written.
-  const agreedBase = { ...first.mirrored, [path]: digestText(await fs.readText(path)) };
+  const agreedBase = { ...first.mirrored, [path]: rust().digestText(await fs.readText(path)) };
   const agreed = await mirrorWorkspace(
     snapshot({ vaultPages: [note("n1", "Method", "the reader's version")] }),
     fs,

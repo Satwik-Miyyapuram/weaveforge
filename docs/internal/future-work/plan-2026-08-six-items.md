@@ -1,5 +1,8 @@
 # Building the six, in order
 
+> **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
+> TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
+
 The build plan for the six candidates in
 [research-2026-08-competitive.md](research-2026-08-competitive.md), rewritten
 after reading what the repository already contains. Two of the six turned out to
@@ -36,7 +39,7 @@ Three findings, because they move items around:
   Zotero over `weaveforge:zotero-local`. Item 4 is a second reader behind the
   same domain types, not a new feature.
 - **Cite-key resolution already exists**, in
-  `apps/web/src/features/overleaf/application/build-overleaf-export.ts`
+  `apps/web/src/features/overleaf/application/parts.ts`
   (`resolveCiteKey`, `bibKey`). Item 1 needs those rules in `core`, which means
   item 1 *moves* code before it adds any.
 
@@ -62,14 +65,14 @@ chosen.
 
 **What to build.**
 
-1. A new `packages/core/src/features/report/domain/cite-key.ts`, which moves
+1. A new `packages/core/src/features/report/domain/parts.ts`, which moves
    `resolveCiteKey` and the dedupe wrapper out of `apps/web`. Pure, and `apps/web`
    imports it back. Net lines: roughly zero, and one duplication fewer for
    `check:dry` to worry about.
-2. A new `packages/core/src/features/report/domain/bib-entries.ts`: a small BibTeX
+2. A new `packages/core/src/features/report/domain/parts.ts`: a small BibTeX
    reader: entry type, key, fields, brace balance. Not a full parser; the job is
    to answer questions about entries, not to re-render them.
-3. A new `packages/core/src/features/report/domain/bibliography-report.ts` — the
+3. A new `packages/core/src/features/report/domain/parts.ts` — the
    actual check, a pure function from `{ sources, entries }` to findings:
    - `\cite` keys with no entry (**the one Overleaf cannot answer**)
    - entries the draft never cites (**the other one**)
@@ -182,7 +185,7 @@ answers a semantic query correctly after a restart.
 ### 5. A wider MCP surface
 
 **What exists.** Three read tools and ten proposal tools, dispatched in
-`mcp-browser-relay.ts`; the desktop's own server in `apps/desktop/src/local-mcp.ts`
+`mcp-browser-relay.ts`; the desktop's own server in `apps/shell/sidecar/src/local-mcp.ts`
 answers three. The proposal gate is already the rule: nothing is written without
 review.
 

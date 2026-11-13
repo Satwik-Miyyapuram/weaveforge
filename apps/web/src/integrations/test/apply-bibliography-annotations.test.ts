@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { before, test } from "node:test";
 import type { BibliographyAnnotation, Paper } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   applyBibliographyAnnotations,
   ZOTERO_ATTACHMENT_KEY,
 } from "../providers/zotero/apply-bibliography-annotations";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function store(papers: Paper[]) {
   const saved: Paper[] = [];

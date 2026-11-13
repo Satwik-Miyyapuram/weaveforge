@@ -65,7 +65,7 @@ For research groups, university departments, and labs:
 - **Invite Codes**: A professor or lab director creates a lab organisation and generates
   role-based invite codes for **Professors**, **Postdocs / PhD Students**, and
   **Masters Students**.
-- **Joining a Lab**: When creating your account or in **Settings → Organisation**, enter
+- **Joining a Lab**: When creating your account or in **Settings → Org**, enter
   your lab's invite code to join.
 - **Supervision & Sharing**: In an organisation workspace:
   - Students retain private, isolated projects for their day-to-day work.
@@ -116,6 +116,36 @@ Press **`Ctrl+P`** (or **`Cmd+P`** on macOS) anywhere in the app to open the
 - Uses fuzzy matching to rank results instantly.
 - Press **Enter** to open the selected document in your active editor pane.
 
+### How it works
+
+The editor keeps three things apart: the pane layout, the tabs inside each pane, and the
+explorer tree on the left.
+
+- **Pane layout.** The panes form a binary tree of splits. Each split holds two children
+  and a ratio, kept between 10% and 90%, so neither side can disappear. Each leaf is a
+  pane with its own ordered tab strip and one focused pane at a time. Closing the last
+  tab of a pane closes the pane, unless it is the only pane left.
+- **Tabs.** A tab points at a document by kind and id, never by file path. Opening a
+  document that is already open in a pane focuses its existing tab instead of adding a
+  duplicate. A tab can be in Edit, Read, or Ink mode; the mode is remembered per tab and
+  set on every pane where that document is open.
+- **Preview.** Toggling the preview opens one preview pane to the right of the focused
+  pane and keeps focus on the document. Toggling it again closes it. The preview shows
+  the focused document, or keeps showing the previous one while the preview itself
+  has focus.
+- **Tab groups.** Tabs in a pane can be put into coloured groups. Group state is
+  cleaned up whenever the layout is rebuilt.
+- **Explorer tree.** The sidebar tree is built from your project's containers (vault,
+  report, papers, excerpts) and the reading lists. Each row is a document or a folder,
+  and the explorer filters rows by the search text.
+- **Saved layout.** The layout is saved per project, so the same panes, tabs and
+  modes come back on the next visit. A tab whose document was deleted is dropped on
+  restore, and a pane that empties with it collapses.
+
+The layout rules and the tree logic run in the Rust core (`crates/wf-core/src/editor_workspace`),
+and the web app calls them through the WASM bridge (`packages/wf-wasm`). The screen itself
+only draws what those functions return.
+
 ---
 
 ## 4. The Workspace Folder on Disk (Obsidian & VS Code Interop)
@@ -146,7 +176,7 @@ For full details on folder structure, conflict handling, and local REST/MCP acce
 
 WeaveForge Desktop allows you to work completely offline with zero account requirements:
 
-- On the sign-in screen, select **"Work on this computer, without an account"**.
+- On the sign-in screen, select **"Work on this computer (offline)"**.
 - Your projects, notes, papers, search index, and experiments run against an embedded
   PGlite database stored in your operating system's application directory.
 - The app makes zero network calls at boot.

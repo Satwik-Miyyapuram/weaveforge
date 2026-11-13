@@ -1,0 +1,1443 @@
+{
+ "urls": [
+  {
+   "raw": "https://github.com/you/notes.git",
+   "out": {
+    "ok": true,
+    "url": "https://github.com/you/notes.git"
+   }
+  },
+  {
+   "raw": "  https://github.com/you/notes.git  ",
+   "out": {
+    "ok": true,
+    "url": "https://github.com/you/notes.git"
+   }
+  },
+  {
+   "raw": "HTTPS://GitHub.com/You/Notes.git",
+   "out": {
+    "ok": true,
+    "url": "https://github.com/You/Notes.git"
+   }
+  },
+  {
+   "raw": "https://github.com",
+   "out": {
+    "ok": false,
+    "reason": "The URL needs the repository path, e.g. https://github.com/you/notes.git."
+   }
+  },
+  {
+   "raw": "https://github.com/",
+   "out": {
+    "ok": false,
+    "reason": "The URL needs the repository path, e.g. https://github.com/you/notes.git."
+   }
+  },
+  {
+   "raw": "https://user@github.com/a/b.git",
+   "out": {
+    "ok": false,
+    "reason": "Leave the token out of the URL; put it in the token field."
+   }
+  },
+  {
+   "raw": "https://user:tok@github.com/a/b.git",
+   "out": {
+    "ok": false,
+    "reason": "Leave the token out of the URL; put it in the token field."
+   }
+  },
+  {
+   "raw": "https://:tok@github.com/a/b.git",
+   "out": {
+    "ok": false,
+    "reason": "Leave the token out of the URL; put it in the token field."
+   }
+  },
+  {
+   "raw": "http://github.com/a/b.git",
+   "out": {
+    "ok": false,
+    "reason": "Only https:// remotes are supported."
+   }
+  },
+  {
+   "raw": "ssh://git@github.com/a/b.git",
+   "out": {
+    "ok": false,
+    "reason": "Only https:// remotes are supported."
+   }
+  },
+  {
+   "raw": "git@github.com:a/b.git",
+   "out": {
+    "ok": false,
+    "reason": "That is not a URL."
+   }
+  },
+  {
+   "raw": "github.com/a/b",
+   "out": {
+    "ok": false,
+    "reason": "That is not a URL."
+   }
+  },
+  {
+   "raw": "",
+   "out": {
+    "ok": false,
+    "reason": "Enter the remote's https URL."
+   }
+  },
+  {
+   "raw": "   ",
+   "out": {
+    "ok": false,
+    "reason": "Enter the remote's https URL."
+   }
+  },
+  {
+   "raw": "https://exa mple.com/a",
+   "out": {
+    "ok": false,
+    "reason": "That is not a URL."
+   }
+  },
+  {
+   "raw": "https://example.com:443/a",
+   "out": {
+    "ok": true,
+    "url": "https://example.com/a"
+   }
+  },
+  {
+   "raw": "https://example.com:8443/a/../b",
+   "out": {
+    "ok": true,
+    "url": "https://example.com:8443/b"
+   }
+  },
+  {
+   "raw": "https://example.com/a b",
+   "out": {
+    "ok": true,
+    "url": "https://example.com/a%20b"
+   }
+  },
+  {
+   "raw": "https://例え.jp/repo",
+   "out": {
+    "ok": true,
+    "url": "https://xn--r8jz45g.jp/repo"
+   }
+  },
+  {
+   "raw": "https://example.com/a?x=1#frag",
+   "out": {
+    "ok": true,
+    "url": "https://example.com/a?x=1#frag"
+   }
+  },
+  {
+   "raw": "https://[::1]/a",
+   "out": {
+    "ok": true,
+    "url": "https://[::1]/a"
+   }
+  },
+  {
+   "raw": "https://example.com/%7Euser/r",
+   "out": {
+    "ok": true,
+    "url": "https://example.com/%7Euser/r"
+   }
+  },
+  {
+   "raw": "https:/example.com/a",
+   "out": {
+    "ok": true,
+    "url": "https://example.com/a"
+   }
+  },
+  {
+   "raw": "https:example.com/a",
+   "out": {
+    "ok": true,
+    "url": "https://example.com/a"
+   }
+  },
+  {
+   "raw": "https://example.com\\a\\b",
+   "out": {
+    "ok": true,
+    "url": "https://example.com/a/b"
+   }
+  },
+  {
+   "raw": null,
+   "out": {
+    "ok": false,
+    "reason": "Enter the remote's https URL."
+   }
+  },
+  {
+   "raw": 42,
+   "out": {
+    "ok": false,
+    "reason": "Enter the remote's https URL."
+   }
+  },
+  {
+   "raw": {
+    "url": "https://x/y"
+   },
+   "out": {
+    "ok": false,
+    "reason": "Enter the remote's https URL."
+   }
+  }
+ ],
+ "pulls": [
+  {
+   "in": {
+    "kind": "up-to-date"
+   },
+   "out": "Already up to date."
+  },
+  {
+   "in": {
+    "kind": "fast-forward"
+   },
+   "out": "Pulled the remote's changes."
+  },
+  {
+   "in": {
+    "kind": "merged"
+   },
+   "out": "Merged the remote's changes with yours."
+  },
+  {
+   "in": {
+    "kind": "conflict",
+    "files": [
+     "a.md"
+    ]
+   },
+   "out": "Not pulled: 1 file changed on both sides (a.md). Your files were left as they were."
+  },
+  {
+   "in": {
+    "kind": "conflict",
+    "files": [
+     "a.md",
+     "b.md"
+    ]
+   },
+   "out": "Not pulled: 2 files changed on both sides (a.md, b.md). Your files were left as they were."
+  },
+  {
+   "in": {
+    "kind": "conflict",
+    "files": [
+     "1",
+     "2",
+     "3",
+     "4",
+     "5"
+    ]
+   },
+   "out": "Not pulled: 5 files changed on both sides (1, 2, 3, 4, 5). Your files were left as they were."
+  },
+  {
+   "in": {
+    "kind": "conflict",
+    "files": [
+     "1",
+     "2",
+     "3",
+     "4",
+     "5",
+     "6"
+    ]
+   },
+   "out": "Not pulled: 6 files changed on both sides (1, 2, 3, 4, 5, …). Your files were left as they were."
+  }
+ ],
+ "pushes": [
+  {
+   "in": {
+    "kind": "pushed"
+   },
+   "out": "Pushed."
+  },
+  {
+   "in": {
+    "kind": "up-to-date"
+   },
+   "out": "Nothing to push."
+  },
+  {
+   "in": {
+    "kind": "rejected",
+    "reason": "non-fast-forward"
+   },
+   "out": "Not pushed: non-fast-forward"
+  }
+ ],
+ "redacts": [
+  {
+   "text": "token abc in abc",
+   "secret": "abc",
+   "out": "token *** in ***"
+  },
+  {
+   "text": "nothing",
+   "secret": null,
+   "out": "nothing"
+  },
+  {
+   "text": "nothing",
+   "secret": "",
+   "out": "nothing"
+  },
+  {
+   "text": "aaaa",
+   "secret": "aa",
+   "out": "******"
+  }
+ ],
+ "ignored": [
+  {
+   "path": "notes/a.md",
+   "out": false
+  },
+  {
+   "path": ".weaveforge/state.json",
+   "out": true
+  },
+  {
+   "path": "node_modules/x/y.js",
+   "out": true
+  },
+  {
+   "path": ".git/config",
+   "out": true
+  },
+  {
+   "path": "a/.trash/b.md",
+   "out": false
+  },
+  {
+   "path": "paper/main.aux",
+   "out": false
+  },
+  {
+   "path": "paper/main.synctex.gz",
+   "out": false
+  },
+  {
+   "path": "desktop.ini",
+   "out": false
+  },
+  {
+   "path": "sub/Desktop.ini",
+   "out": false
+  },
+  {
+   "path": "big.bin",
+   "out": false
+  },
+  {
+   "path": "",
+   "out": false
+  },
+  {
+   "path": "./.",
+   "out": false
+  },
+  {
+   "path": "notes/.weaveforge/x.md",
+   "out": false
+  },
+  {
+   "path": "notes\\dist\\x.md",
+   "out": true
+  },
+  {
+   "path": "notes/dist",
+   "out": false
+  },
+  {
+   "path": "a/.git",
+   "out": false
+  },
+  {
+   "path": "A/NODE_MODULES/b",
+   "out": true
+  },
+  {
+   "path": "./notes//a.md",
+   "out": false
+  }
+ ],
+ "decide": [
+  {
+   "path": "notes/a.md",
+   "size": 0,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "notes/a.md",
+   "size": 1024,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "notes/a.md",
+   "size": 26214400,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "notes/a.md",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "notes/a.md",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "notes/a.md",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "notes/a.md",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": ".weaveforge/state.json",
+   "size": 0,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": ".weaveforge/state.json",
+   "size": 1024,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": ".weaveforge/state.json",
+   "size": 26214400,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": ".weaveforge/state.json",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": ".weaveforge/state.json",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": ".weaveforge/state.json",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": ".weaveforge/state.json",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "node_modules/x/y.js",
+   "size": 0,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "node_modules/x/y.js",
+   "size": 1024,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "node_modules/x/y.js",
+   "size": 26214400,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "node_modules/x/y.js",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "node_modules/x/y.js",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "node_modules/x/y.js",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "node_modules/x/y.js",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": ".git/config",
+   "size": 0,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": ".git/config",
+   "size": 1024,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": ".git/config",
+   "size": 26214400,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": ".git/config",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": ".git/config",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": ".git/config",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": ".git/config",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "a/.trash/b.md",
+   "size": 0,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "a/.trash/b.md",
+   "size": 1024,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "a/.trash/b.md",
+   "size": 26214400,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "a/.trash/b.md",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "a/.trash/b.md",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "a/.trash/b.md",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "a/.trash/b.md",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "paper/main.aux",
+   "size": 0,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "paper/main.aux",
+   "size": 1024,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "paper/main.aux",
+   "size": 26214400,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "paper/main.aux",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "paper/main.aux",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "paper/main.aux",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "paper/main.aux",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "paper/main.synctex.gz",
+   "size": 0,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "paper/main.synctex.gz",
+   "size": 1024,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "paper/main.synctex.gz",
+   "size": 26214400,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "paper/main.synctex.gz",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "paper/main.synctex.gz",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "paper/main.synctex.gz",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "paper/main.synctex.gz",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "desktop.ini",
+   "size": 0,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "desktop.ini",
+   "size": 1024,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "desktop.ini",
+   "size": 26214400,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "desktop.ini",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "desktop.ini",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "desktop.ini",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "desktop.ini",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "sub/Desktop.ini",
+   "size": 0,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "sub/Desktop.ini",
+   "size": 1024,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "sub/Desktop.ini",
+   "size": 26214400,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "sub/Desktop.ini",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "sub/Desktop.ini",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "sub/Desktop.ini",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "sub/Desktop.ini",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-file"
+   }
+  },
+  {
+   "path": "big.bin",
+   "size": 0,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "big.bin",
+   "size": 1024,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "big.bin",
+   "size": 26214400,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "big.bin",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "big.bin",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "big.bin",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "big.bin",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "",
+   "size": 0,
+   "out": {
+    "include": false,
+    "reason": "invalid-path"
+   }
+  },
+  {
+   "path": "",
+   "size": 1024,
+   "out": {
+    "include": false,
+    "reason": "invalid-path"
+   }
+  },
+  {
+   "path": "",
+   "size": 26214400,
+   "out": {
+    "include": false,
+    "reason": "invalid-path"
+   }
+  },
+  {
+   "path": "",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "invalid-path"
+   }
+  },
+  {
+   "path": "",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "invalid-path"
+   }
+  },
+  {
+   "path": "",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "invalid-path"
+   }
+  },
+  {
+   "path": "",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "invalid-path"
+   }
+  },
+  {
+   "path": "./.",
+   "size": 0,
+   "out": {
+    "include": false,
+    "reason": "invalid-path"
+   }
+  },
+  {
+   "path": "./.",
+   "size": 1024,
+   "out": {
+    "include": false,
+    "reason": "invalid-path"
+   }
+  },
+  {
+   "path": "./.",
+   "size": 26214400,
+   "out": {
+    "include": false,
+    "reason": "invalid-path"
+   }
+  },
+  {
+   "path": "./.",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "invalid-path"
+   }
+  },
+  {
+   "path": "./.",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "invalid-path"
+   }
+  },
+  {
+   "path": "./.",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "invalid-path"
+   }
+  },
+  {
+   "path": "./.",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "invalid-path"
+   }
+  },
+  {
+   "path": "notes/.weaveforge/x.md",
+   "size": 0,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "notes/.weaveforge/x.md",
+   "size": 1024,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "notes/.weaveforge/x.md",
+   "size": 26214400,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "notes/.weaveforge/x.md",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "notes/.weaveforge/x.md",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "notes/.weaveforge/x.md",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "notes/.weaveforge/x.md",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "notes\\dist\\x.md",
+   "size": 0,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "notes\\dist\\x.md",
+   "size": 1024,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "notes\\dist\\x.md",
+   "size": 26214400,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "notes\\dist\\x.md",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "notes\\dist\\x.md",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "notes\\dist\\x.md",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "notes\\dist\\x.md",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "notes/dist",
+   "size": 0,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "notes/dist",
+   "size": 1024,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "notes/dist",
+   "size": 26214400,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "notes/dist",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "notes/dist",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "notes/dist",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "notes/dist",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "a/.git",
+   "size": 0,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "a/.git",
+   "size": 1024,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "a/.git",
+   "size": 26214400,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "a/.git",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "a/.git",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "a/.git",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "a/.git",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "A/NODE_MODULES/b",
+   "size": 0,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "A/NODE_MODULES/b",
+   "size": 1024,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "A/NODE_MODULES/b",
+   "size": 26214400,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "A/NODE_MODULES/b",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "A/NODE_MODULES/b",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "A/NODE_MODULES/b",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "A/NODE_MODULES/b",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "ignored-directory"
+   }
+  },
+  {
+   "path": "./notes//a.md",
+   "size": 0,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "./notes//a.md",
+   "size": 1024,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "./notes//a.md",
+   "size": 26214400,
+   "out": {
+    "include": true
+   }
+  },
+  {
+   "path": "./notes//a.md",
+   "size": 26214401,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "./notes//a.md",
+   "size": -1,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "./notes//a.md",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  },
+  {
+   "path": "./notes//a.md",
+   "size": null,
+   "out": {
+    "include": false,
+    "reason": "too-large"
+   }
+  }
+ ],
+ "types": [
+  {
+   "path": "a.png",
+   "out": "image/png"
+  },
+  {
+   "path": "A.PNG",
+   "out": "image/png"
+  },
+  {
+   "path": "x.jpeg",
+   "out": "image/jpeg"
+  },
+  {
+   "path": "x.jpg",
+   "out": "image/jpeg"
+  },
+  {
+   "path": "x.gif",
+   "out": "image/gif"
+  },
+  {
+   "path": "x.webp",
+   "out": "image/webp"
+  },
+  {
+   "path": "x.svg",
+   "out": "image/svg+xml"
+  },
+  {
+   "path": "x.pdf",
+   "out": "application/pdf"
+  },
+  {
+   "path": "x.md",
+   "out": "application/octet-stream"
+  },
+  {
+   "path": "x.txt",
+   "out": "application/octet-stream"
+  },
+  {
+   "path": "x.json",
+   "out": "application/octet-stream"
+  },
+  {
+   "path": "noext",
+   "out": "application/octet-stream"
+  },
+  {
+   "path": "dir.v/file",
+   "out": "application/octet-stream"
+  },
+  {
+   "path": "x.tar.gz",
+   "out": "application/octet-stream"
+  },
+  {
+   "path": ".png",
+   "out": "image/png"
+  },
+  {
+   "path": "x.",
+   "out": "application/octet-stream"
+  }
+ ]
+}

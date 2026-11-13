@@ -133,14 +133,3 @@ export async function applyMigrations(
   }
   return ran;
 }
-
-/**
- * The transaction-local settings a query needs before RLS means anything.
- *
- * Both travel with the query or neither does: outside a transaction
- * `auth.uid()` is null again by the time the statement runs. `null` for the
- * user is a request with no identity, which policies are entitled to refuse.
- */
-export function sessionClaims(userId: string | null): string {
-  return JSON.stringify(userId ? { sub: userId, role: "authenticated" } : { role: "anon" });
-}

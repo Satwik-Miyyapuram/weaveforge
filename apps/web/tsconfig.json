@@ -18,8 +18,11 @@
       "@weaveforge/core": [
         "../../packages/core/src/index.ts"
       ],
-      "@weaveforge/core/testing": [
-        "../../packages/core/src/testing/index.ts"
+      "@core-test/*": [
+        "../../packages/core/test/support/*"
+      ],
+      "@overleaf-ide": [
+        "./src/features/report/vendor/overleaf/ol-host/api.d.ts"
       ]
     },
     "resolveJsonModule": true,
@@ -34,6 +37,13 @@
   "exclude": [
     "node_modules",
     "public/sw.js",
-    "public/swe-worker*"
+    "public/swe-worker*",
+    "src/features/report/vendor/overleaf/app",
+    "src/features/report/vendor/overleaf/codemirror",
+    "src/features/report/vendor/overleaf/frontend",
+    "src/features/report/vendor/overleaf/libraries",
+    "src/features/report/vendor/overleaf/ol-host",
+    "src/features/report/vendor/overleaf/ol-shims",
+    "src/features/report/vendor/overleaf/types"
   ]
 }

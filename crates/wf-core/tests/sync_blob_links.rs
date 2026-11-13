@@ -1,0 +1,359 @@
+//! Ported and property tests for `sync::blob_links`. Ports the blob-link cases of
+//! `packages/core/test/workspace/workspace-roundtrip.test.ts` and the linear-time
+//! loop in `packages/core/test/shared/markdown-image-refs.test.ts` (which also calls
+//! `imagePathsInBody`; that helper is covered by the markdown-image lane).
+
+use std::time::{Duration, Instant};
+
+use proptest::prelude::*;
+use std::collections::{BTreeMap, BTreeSet};
+
+use wf_core::sync::blob_links::{
+    AssetRef, BlobScheme, ImportedAssetResolver, RelativeAsset, from_relative_blob_links,
+    from_relative_blob_links_mapped, owned_asset_folder_paths, plan_asset_reanchor,
+    relative_asset_paths, to_relative_blob_links, workspace_bodies,
+};
+use wf_core::sync::folder_layout::AssetScope;
+use wf_core::sync::markdown_image::image_paths_in_body;
+
+/// Resolves every path, as an archive that holds all of its files.
+struct AllFiles;
+
+impl ImportedAssetResolver for AllFiles {
+    fn resolve(&self, _scope: AssetScope, relative_path: &str) -> Option<String> {
+        Some(relative_path.to_owned())
+    }
+}
+
+/// Resolves nothing: the archive held no assets.
+struct NoFiles;
+
+impl ImportedAssetResolver for NoFiles {
+    fn resolve(&self, _scope: AssetScope, _relative_path: &str) -> Option<String> {
+        None
+    }
+}
+
+/// Resolves every path to one fixed storage path.
+struct Fixed(&'static str);
+
+impl ImportedAssetResolver for Fixed {
+    fn resolve(&self, _scope: AssetScope, _relative_path: &str) -> Option<String> {
+        Some(self.0.to_owned())
+    }
+}
+
+// ---- workspace-roundtrip.test.ts ----
+
+#[test]
+fn blob_refs_become_folder_relative() {
+    let out = to_relative_blob_links(
+        "![](vault:user-1/n1/diagram.png)",
+        "notes/method/baselines.note.md",
+    );
+
+    assert_eq!(out.body, "![](../../assets/notes/user-1/n1/diagram.png)");
+    assert_eq!(out.assets.len(), 1);
+    assert_eq!(out.assets[0].storage_path, "user-1/n1/diagram.png");
+    assert_eq!(
+        out.assets[0].folder_path,
+        "assets/notes/user-1/n1/diagram.png"
+    );
+    assert_eq!(out.assets[0].scheme, BlobScheme::Vault);
+}
+
+#[test]
+fn import_reanchors_assets_and_never_trusts_a_written_storage_path() {
+    let body = "![](../assets/notes/other-user/n9/secret.png)";
+
+    // An unknown asset must not become a storage ref.
+    assert_eq!(from_relative_blob_links(body, &NoFiles), body);
+    assert_eq!(
+        from_relative_blob_links(body, &Fixed("me/n9/secret.png")),
+        "![](vault:me/n9/secret.png)"
+    );
+}
+
+#[test]
+fn import_reanchors_through_a_folder_path_map() {
+    let body = "![](../assets/notes/other-user/n9/secret.png)";
+    let mut files = BTreeMap::new();
+    let _ = files.insert(
+        "assets/notes/other-user/n9/secret.png".to_owned(),
+        "me/n9/secret.png".to_owned(),
+    );
+
+    assert_eq!(
+        from_relative_blob_links_mapped(body, &files),
+        "![](vault:me/n9/secret.png)"
+    );
+    // No entry for the ref, so it stays as written.
+    assert_eq!(
+        from_relative_blob_links_mapped(body, &BTreeMap::new()),
+        body
+    );
+    // An empty storage path keeps the ref as written.
+    let _ = files.insert(
+        "assets/notes/other-user/n9/secret.png".to_owned(),
+        String::new(),
+    );
+    assert_eq!(from_relative_blob_links_mapped(body, &files), body);
+}
+
+// ---- markdown-image-refs.test.ts ----
+
+#[test]
+fn image_ref_scanning_stays_linear_on_unclosed_refs() {
+    let inputs = [
+        "![".repeat(50_000),
+        "![](vault:!".repeat(50_000),
+        format!("{})", "![](assets/notes/x".repeat(50_000)),
+    ];
+    for s in &inputs {
+        let started = Instant::now();
+        let _ = to_relative_blob_links(s, "a.md");
+        let _ = from_relative_blob_links(s, &NoFiles);
+        let _ = relative_asset_paths(s);
+        let _ = image_paths_in_body(s, "vault:", ToOwned::to_owned);
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "slow on {}",
+            &s[..20]
+        );
+    }
+    assert_eq!(
+        relative_asset_paths("![](assets/notes/x![a](../assets/report/r.png)"),
+        vec![RelativeAsset {
+            scope: "notes".to_owned(),
+            path: "x![a](../assets/report/r.png".to_owned(),
+        }]
+    );
+}
+
+// ---- Rust-side cases for the rules the port enforces ----
+
+#[test]
+fn depth_is_the_number_of_slashes_in_the_file_path() {
+    let shallow = to_relative_blob_links("![](vault:u/p.png)", "a.md");
+    assert_eq!(shallow.body, "![](assets/notes/u/p.png)");
+
+    let deep = to_relative_blob_links("![](vault:u/p.png)", "a/b/c.md");
+    assert_eq!(deep.body, "![](../../assets/notes/u/p.png)");
+}
+
+#[test]
+fn paper_and_report_schemes_map_to_their_asset_scopes() {
+    let out = to_relative_blob_links(
+        "![](paperimg:u/p1/a.png) ![](reportimg:u/r1/b.webp)",
+        "a.md",
+    );
+
+    assert_eq!(
+        out.body,
+        "![](assets/papers/u/p1/a.png) ![](assets/report/u/r1/b.webp)"
+    );
+    assert_eq!(out.assets[0].scheme, BlobScheme::Paperimg);
+    assert_eq!(out.assets[1].scheme, BlobScheme::Reportimg);
+}
+
+#[test]
+fn alt_text_is_kept_as_written_not_escaped() {
+    let out = to_relative_blob_links("![a (b)](vault:u/p.png)", "a.md");
+
+    assert_eq!(out.body, "![a (b)](assets/notes/u/p.png)");
+}
+
+#[test]
+fn to_relative_normalizes_wrapped_refs_first() {
+    let out = to_relative_blob_links("![]( vault:u/p.png )", "a.md");
+
+    assert_eq!(out.body, "![](assets/notes/u/p.png)");
+}
+
+#[test]
+fn from_relative_does_not_normalize_wrapped_refs() {
+    let body = "![]( ../assets/notes/x.png )";
+
+    assert_eq!(from_relative_blob_links(body, &AllFiles), body);
+}
+
+#[test]
+fn an_empty_resolution_keeps_the_ref() {
+    let body = "![](../assets/notes/x.png)";
+
+    assert_eq!(from_relative_blob_links(body, &Fixed("")), body);
+}
+
+#[test]
+fn a_ref_with_no_path_after_its_scope_is_skipped() {
+    let body = "![](../assets/notes/)";
+
+    assert_eq!(from_relative_blob_links(body, &AllFiles), body);
+    assert!(relative_asset_paths(body).is_empty());
+}
+
+#[test]
+fn an_unknown_asset_scope_is_not_a_relative_ref() {
+    let body = "![](../assets/other/x.png)";
+
+    assert_eq!(from_relative_blob_links(body, &AllFiles), body);
+    assert!(relative_asset_paths(body).is_empty());
+}
+
+#[test]
+fn a_ref_nested_in_a_non_relative_target_is_still_found() {
+    // The TS regex fails at the outer `![` (HEAD does not match "foo") and
+    // retries at the inner one.
+    let body = "![a](foo![b](assets/notes/x.png)";
+
+    assert_eq!(
+        from_relative_blob_links(body, &AllFiles),
+        "![a](foo![b](vault:x.png)"
+    );
+    assert_eq!(
+        relative_asset_paths(body),
+        vec![RelativeAsset {
+            scope: "notes".to_owned(),
+            path: "x.png".to_owned(),
+        }]
+    );
+}
+
+#[test]
+fn relative_asset_paths_reports_each_scope_and_path_in_order() {
+    let found = relative_asset_paths(
+        "![](../../assets/notes/u/a.png) ![x](assets/papers/u/b.pdf) ![](https://e.org/c.png)",
+    );
+
+    assert_eq!(
+        found,
+        vec![
+            RelativeAsset {
+                scope: "notes".to_owned(),
+                path: "u/a.png".to_owned(),
+            },
+            RelativeAsset {
+                scope: "papers".to_owned(),
+                path: "u/b.pdf".to_owned(),
+            },
+        ]
+    );
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::default())]
+
+    #[test]
+    fn a_storage_path_survives_a_trip_through_the_folder(
+        user in "[a-z0-9]{1,8}",
+        page in "[a-z0-9]{1,8}",
+        file in "[a-z0-9]{1,8}\\.png",
+        depth in 0usize..4,
+    ) {
+        let storage = format!("{user}/{page}/{file}");
+        let file_path = format!("{}n.md", "d/".repeat(depth));
+        let body = format!("![x](vault:{storage})");
+
+        let folder = to_relative_blob_links(&body, &file_path);
+
+        prop_assert_eq!(folder.assets.len(), 1);
+        prop_assert_eq!(from_relative_blob_links(&folder.body, &AllFiles), body);
+    }
+}
+
+// ---- asset re-anchoring on import ----
+
+fn set(items: &[&str]) -> BTreeSet<String> {
+    items.iter().map(|s| (*s).to_owned()).collect()
+}
+
+#[test]
+fn owned_paths_are_the_folder_forms_of_every_blob_ref() {
+    let bodies = vec![
+        "![](vault:u/n1/a.png) ![](paperimg:u/p1/b.png)".to_owned(),
+        "no refs here".to_owned(),
+    ];
+
+    assert_eq!(
+        owned_asset_folder_paths(&bodies),
+        set(&["assets/notes/u/n1/a.png", "assets/papers/u/p1/b.png"])
+    );
+}
+
+#[test]
+fn workspace_bodies_are_vault_bodies_then_paper_summaries() {
+    let vault = vec!["page one".to_owned()];
+    let papers = vec![Some("summary".to_owned()), None];
+    assert_eq!(
+        workspace_bodies(&vault, &papers),
+        vec!["page one".to_owned(), "summary".to_owned(), String::new()]
+    );
+}
+
+#[test]
+fn a_ref_the_workspace_owns_is_kept_as_written() {
+    let plan = plan_asset_reanchor(
+        "![](../assets/notes/u/n1/a.png)",
+        &set(&["assets/notes/u/n1/a.png"]),
+        &BTreeSet::new(),
+    );
+
+    assert_eq!(
+        plan.keep,
+        vec![AssetRef {
+            folder_path: "assets/notes/u/n1/a.png".to_owned(),
+            storage_path: "u/n1/a.png".to_owned(),
+            scope: "notes".to_owned(),
+        }]
+    );
+    assert!(plan.upload.is_empty());
+    assert!(plan.unresolved.is_empty());
+}
+
+#[test]
+fn an_unowned_notes_ref_that_arrived_with_the_import_is_uploaded() {
+    let plan = plan_asset_reanchor(
+        "![](../assets/notes/other/n2/c.png)",
+        &BTreeSet::new(),
+        &set(&["assets/notes/other/n2/c.png"]),
+    );
+
+    assert_eq!(plan.upload.len(), 1);
+    assert_eq!(plan.upload[0].storage_path, "other/n2/c.png");
+    assert!(plan.keep.is_empty());
+    assert!(plan.unresolved.is_empty());
+}
+
+#[test]
+fn papers_and_reports_are_never_uploaded() {
+    let body = "![](../assets/papers/u/p.png) ![](../assets/report/u/r.png)";
+    let available = set(&["assets/papers/u/p.png", "assets/report/u/r.png"]);
+
+    let plan = plan_asset_reanchor(body, &BTreeSet::new(), &available);
+
+    assert!(plan.upload.is_empty());
+    assert_eq!(plan.unresolved.len(), 2);
+}
+
+#[test]
+fn a_missing_notes_ref_is_unresolved() {
+    let plan = plan_asset_reanchor(
+        "![](../assets/notes/u/x.png)",
+        &BTreeSet::new(),
+        &BTreeSet::new(),
+    );
+
+    assert_eq!(plan.unresolved.len(), 1);
+    assert_eq!(plan.unresolved[0].folder_path, "assets/notes/u/x.png");
+}
+
+#[test]
+fn each_folder_path_is_decided_once_at_its_first_ref() {
+    let body = "![](../assets/notes/u/a.png) ![x](../assets/notes/u/a.png)";
+
+    let plan = plan_asset_reanchor(body, &BTreeSet::new(), &set(&["assets/notes/u/a.png"]));
+
+    assert_eq!(plan.upload.len(), 1);
+    assert!(plan.keep.is_empty());
+    assert!(plan.unresolved.is_empty());
+}

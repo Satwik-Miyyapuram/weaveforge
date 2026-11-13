@@ -17,20 +17,21 @@ import { usePinnedOwnerNames } from "@/features/sharing";
 import { AddListForm } from "./add-list-form";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
-import { collectListIds } from "./list-ui";
+import { readyCore } from "@/lib/rust-core";
 import { ListNode, type ListTreeContext } from "./list-node";
 import { runListAction } from "./run-list-action";
-import { ListsRail, findListNode } from "./lists-rail";
+import { ListsRail, findListNode, pruneHiddenLists } from "./lists-rail";
+import { useHiddenKeys } from "@/lib/toast/index";
 import { useProject } from "@/features/projects";
-import { projectScopedKey, usePersistedState } from "@/lib/hooks/use-persisted-state";
+import { projectScopedKey, usePersistedState } from "@/lib/hooks/parts";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
-import { emptyArray, emptyMap } from "@/lib/empty";
+import { emptyArray, emptyMap } from "@/lib/parts";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
-import type { ReadingListsScreenData } from "@/features/reading-lists/application/load-reading-lists-screen.use-case";
+import type { ReadingListsScreenData } from "@/features/reading-lists/application/parts";
 import { ScreenHead } from "@/components/screen-head";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { FormError } from "@/components/form-error";
-import { loadSubtreeItems } from "@/features/reading-lists/application/subtree-items";
+import { loadSubtreeItems } from "@/features/reading-lists/application/parts";
 import { Button } from "@/components/button";
 
 type ListsViewData = ReadingListsScreenData & { ownerNames: Map<string, string> };
@@ -66,8 +67,14 @@ export function ListsScreen() {
     setError(loadError);
   }, [loadError]);
 
-  const tree = data?.tree ?? emptyArray<ReadingListTreeNode>();
-  const flat = data?.lists ?? emptyArray<ReadingList>();
+  const allTree = data?.tree ?? emptyArray<ReadingListTreeNode>();
+  const allFlat = data?.lists ?? emptyArray<ReadingList>();
+  const hiddenKeys = useHiddenKeys();
+  const { tree, flat } = useMemo(() => {
+    const pruned = pruneHiddenLists(allTree, hiddenKeys);
+    if (pruned.hiddenIds.size === 0) return { tree: allTree, flat: allFlat };
+    return { tree: pruned.tree, flat: allFlat.filter((l) => !pruned.hiddenIds.has(l.id)) };
+  }, [allTree, allFlat, hiddenKeys]);
   const papers = data?.papers ?? emptyArray<Paper>();
   const notes = data?.notes ?? emptyArray<VaultPage>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
@@ -75,7 +82,7 @@ export function ListsScreen() {
   const ownerNames = data?.ownerNames ?? emptyMap<string, string>();
 
   const ownedIds = useMemo(
-    () => new Set(collectListIds(tree)),
+    () => new Set(readyCore().collectListIds(tree)),
     [tree],
   );
 
@@ -85,6 +92,7 @@ export function ListsScreen() {
   );
 
   const load = useCallback(async () => {
+    setError(null);
     await reload();
     setRefresh((n) => n + 1);
   }, [reload]);
@@ -262,7 +270,7 @@ export function ListsScreen() {
             {selectedNode.children.length > 0 && (
               <div className="list-tree-toolbar">
                 <Button variant="link"
-                  onClick={() => setCollapsed(new Set(collectListIds(selectedNode.children)))}
+                  onClick={() => setCollapsed(new Set(readyCore().collectListIds(selectedNode.children)))}
                 >
                   Collapse all
                 </Button>

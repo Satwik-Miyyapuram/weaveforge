@@ -11,12 +11,13 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create } from "react-test-renderer";
 
-import { defaultInkNoteMeta, newInkChunkId } from "@weaveforge/core";
 
-import { MemoryInkChunkStore, type InkStoredPage } from "../application/ink-chunk-store";
-import { awaitInkWrites } from "../application/ink-pending-writes";
+
+import { MemoryInkChunkStore, type InkStoredPage } from "../application/parts-1";
+import { awaitInkWrites } from "../application/parts";
 import { INK_SAVE_FAILED, useInkNoteStore } from "../ui/use-ink-note-store";
 import { useInkWorkerRpc, type InkSave } from "../ui/use-ink-worker-rpc";
+import { typedCore } from "@/lib/rust-core";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -66,7 +67,7 @@ function mount(
   const pagesRef: { current: InkStoredPage[] | null } = { current: null };
   let handle: Handle | null = null;
   // Stable across renders, as the host's refs and callbacks are.
-  const metaRef = { current: { ...defaultInkNoteMeta(), pageOrder } };
+  const metaRef = { current: { ...typedCore().defaultInkNoteMeta(), pageOrder } };
   const textPagesRef = { current: pageOrder.map(() => "") };
   const onSave = onSaveBody ?? (async (body: string) => void saved.push(body));
   const noop = () => {};
@@ -101,7 +102,7 @@ async function settle(): Promise<void> {
 
 test("a sidecar load that fails says so and saves nothing (21-17)", async () => {
   const chunks = new RecordingStore({ list: true });
-  const { handle, pagesRef, saved } = mount(chunks, [newInkChunkId()]);
+  const { handle, pagesRef, saved } = mount(chunks, [typedCore().newInkChunkId()]);
   await settle();
   assert.match(handle().loadError ?? "", /could not be loaded/);
   assert.equal(pagesRef.current, null);
@@ -112,7 +113,7 @@ test("a sidecar load that fails says so and saves nothing (21-17)", async () => 
 });
 
 test("a page that could not be read is never written over (18-01)", async () => {
-  const id = newInkChunkId();
+  const id = typedCore().newInkChunkId();
   const chunks = new RecordingStore({ read: new Set([id]) });
   await chunks.write(NOTE, id, new Uint8Array([1, 2, 3]));
   chunks.writes = [];
@@ -127,7 +128,7 @@ test("a page that could not be read is never written over (18-01)", async () => 
 });
 
 test("an unreadable page is not removed when the worker reports it cleared", async () => {
-  const id = newInkChunkId();
+  const id = typedCore().newInkChunkId();
   const chunks = new RecordingStore({ read: new Set([id]) });
   await chunks.write(NOTE, id, new Uint8Array([1]));
   const { handle, pagesRef } = mount(chunks, [id], { bytes: null, cleared: true });
@@ -140,7 +141,7 @@ test("an unreadable page is not removed when the worker reports it cleared", asy
 });
 
 test("a page that read cleanly is saved as before", async () => {
-  const id = newInkChunkId();
+  const id = typedCore().newInkChunkId();
   const chunks = new RecordingStore();
   await chunks.write(NOTE, id, new Uint8Array([1]));
   chunks.writes = [];
@@ -191,7 +192,7 @@ test("a worker that goes away settles its pending save and export (21-14)", asyn
 });
 
 test("a save the worker never made removes nothing (21-14)", async () => {
-  const id = newInkChunkId();
+  const id = typedCore().newInkChunkId();
   const chunks = new RecordingStore();
   await chunks.write(NOTE, id, new Uint8Array([1]));
   chunks.writes = [];
@@ -206,7 +207,7 @@ test("a save the worker never made removes nothing (21-14)", async () => {
 });
 
 test("a save that fails is logged and said, and its write still settles (21-18)", async () => {
-  const id = newInkChunkId();
+  const id = typedCore().newInkChunkId();
   const chunks = new RecordingStore();
   let logs: Log[] = [];
   let message: string | null = null;
@@ -228,7 +229,7 @@ test("a save that fails is logged and said, and its write still settles (21-18)"
 
 test("added and filled-in pages each get a text page and the note's paper (21-11)", async () => {
   const chunks = new RecordingStore();
-  const { handle, pagesRef, textPagesRef, metaRef } = mount(chunks, [newInkChunkId()]);
+  const { handle, pagesRef, textPagesRef, metaRef } = mount(chunks, [typedCore().newInkChunkId()]);
   await settle();
   act(() => void handle().onAddPage());
   act(() => handle().ensurePageCount(4));
@@ -249,7 +250,7 @@ test("a body save that fails is logged and resolves, so a loop of them goes on (
   let calls = 0;
   const unhandled = await withAppLog(async (captured) => {
     logs = captured;
-    const { handle } = mount(chunks, [newInkChunkId()], undefined, undefined, async () => {
+    const { handle } = mount(chunks, [typedCore().newInkChunkId()], undefined, undefined, async () => {
       calls += 1;
       throw new Error("offline");
     });

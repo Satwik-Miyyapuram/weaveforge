@@ -1,63 +1,42 @@
-import type {
-  ComputeNeed,
-  Milestone,
-  MilestoneDependency,
-  MilestoneStatus,
-} from "@weaveforge/core";
+import type { IMilestoneManager, IMilestoneRepository, Milestone } from "@weaveforge/core";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { projectUserCtx, rustRepository } from "@/backend/providers/postgrest/rust-repository";
+import type { ProjectContext } from "@/lib/parts-2";
 
 /**
- * How a milestone is stored, and how it maps to and from the domain type.
+ * The `milestones` repository through the Rust step engine
+ * (`crates/wf-core/src/repos/milestones.rs`), scoped to the open project.
  *
- * Shared by both backend providers. The PostgREST and Postgres repositories talk
- * to the *same* table — one through supabase-js, the other through `pg` — so
- * the column shape and the mapping are not per-provider facts, and holding two
- * copies of them meant they drifted: one side had `?? []` fallbacks for fields
- * the domain type marks required, the other did not. Nothing behavioural, but
- * the next divergence would not have been.
- *
- * What stays with a provider is the SQL or the query builder, and nothing else.
+ * Rust sends unset optional fields as `null`; the domain type wants them absent,
+ * so reads drop the nulls, as the stored JSON had them.
  */
-export interface MilestoneRow {
-  id: string;
-  title: string;
-  description: string | null;
-  status: MilestoneStatus;
-  target_date: string | null;
-  dependencies: MilestoneDependency[] | null;
-  compute: ComputeNeed[] | null;
-  created_at: string;
-}
-
-/**
- * The columns a MilestoneRow is read as, named rather than starred.
- *
- * Derived from the row type: exactly the fields the mapper reads, where a star
- * would mean "whatever the table grows next".
- */
-export const MILESTONE_COLUMNS = "id,title,description,status,target_date,dependencies,compute,created_at";
-
-export function milestoneToDomain(r: MilestoneRow): Milestone {
+export function rustMilestoneRepository(
+  db: SupabaseClient,
+  project: ProjectContext,
+): IMilestoneRepository & IMilestoneManager {
+  const repo = rustRepository<IMilestoneRepository & IMilestoneManager>(
+    db,
+    "milestones",
+    ["getById", "list", "save", "delete", "add", "setStatus", "update", "remove"],
+    projectUserCtx(project),
+  );
   return {
-    id: r.id,
-    title: r.title,
-    description: r.description ?? undefined,
-    status: r.status,
-    targetDate: r.target_date ?? undefined,
-    dependencies: r.dependencies ?? [],
-    compute: r.compute ?? [],
-    createdAt: r.created_at,
+    ...repo,
+    getById: async (id) => {
+      const m = await repo.getById(id);
+      return m && withoutNullFields(m);
+    },
+    list: async (filter) => (await repo.list(filter)).map(withoutNullFields),
   };
 }
 
-export function milestoneToRow(m: Milestone): Record<string, unknown> {
-  return {
-    id: m.id,
-    title: m.title,
-    description: m.description ?? null,
-    status: m.status,
-    target_date: m.targetDate ?? null,
-    dependencies: m.dependencies,
-    compute: m.compute,
-    created_at: m.createdAt,
-  };
+/** The milestone with its null fields, and those of its dependencies and compute needs, left out. */
+function withoutNullFields(m: Milestone): Milestone {
+  const out = withoutNulls(m);
+  return { ...out, dependencies: m.dependencies.map(withoutNulls), compute: m.compute.map(withoutNulls) };
+}
+
+/** The object with its null fields left out. */
+function withoutNulls<T extends object>(o: T): T {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null)) as T;
 }

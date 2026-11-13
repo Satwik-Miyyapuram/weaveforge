@@ -1,17 +1,17 @@
 "use client";
 
-import { formatDate } from "@/lib/format-date";
-import { useCallback, useEffect, useState } from "react";
-import {
-  SHARE_LINK_DEFAULT_TTL_DAYS, type ShareLink, type ShareableType } from "@weaveforge/core";
-import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
+import { localOffset } from "@/lib/parts-1";
+import { useCallback, useEffect, useState } from "react";
+import { type ShareLink, type ShareableType } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
+import { getContainer } from "@/bootstrap";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
-import { copyText } from "@/lib/toast/copy-text";
+import { copyText } from "@/lib/toast/parts";
 
 function formatExpiry(iso: string): string {
-  return formatDate(iso);
+  return readyCore().formatDate(iso, localOffset(iso));
 }
 
 export function ShareLinkPanel({
@@ -34,7 +34,7 @@ export function ShareLinkPanel({
   }, [enabled, resourceType, resourceId]);
 
   useEffect(() => {
-    void reload();
+    reload().catch((e: unknown) => setError(formatError(e)));
   }, [reload]);
 
   if (!enabled) return null;
@@ -50,6 +50,13 @@ export function ShareLinkPanel({
       });
       const url = `${window.location.origin}/link?t=${encodeURIComponent(urlToken)}`;
       setCreatedUrl(url);
+    } catch (e) {
+      setError(formatError(e));
+      setBusy(false);
+      return;
+    }
+    // Own try: a reload failure after a created link is not a create failure.
+    try {
       await reload();
     } catch (e) {
       setError(formatError(e));
@@ -78,7 +85,7 @@ export function ShareLinkPanel({
       </summary>
       <div className="share-links">
         <p className="share-link-expiry-hint">
-          New links expire after {SHARE_LINK_DEFAULT_TTL_DAYS} days by default.
+          New links expire after {readyCore().shareLinkDefaultTtlDays()} days by default.
         </p>
         {error && <FormError>{error}</FormError>}
         {createdUrl && (
@@ -95,7 +102,7 @@ export function ShareLinkPanel({
             {links.map((link) => (
               <li key={link.id} className="share-link-row">
                 <span className="muted">view-only link</span>
-                <span className="muted">{formatDate(link.createdAt)}</span>
+                <span className="muted">{readyCore().formatDate(link.createdAt, localOffset(link.createdAt))}</span>
                 {link.expiresAt ? (
                   <span className="share-link-expiry-hint">expires {formatExpiry(link.expiresAt)}</span>
                 ) : null}

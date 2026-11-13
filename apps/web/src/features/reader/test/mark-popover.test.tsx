@@ -1,13 +1,16 @@
 /** A tapped mark's popover: kind, colour, Delete, then its comment inline. */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from "react-test-renderer";
 
-import { markActions } from "../application/mark-actions";
+import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { MarkPopover } from "../ui/mark-popover";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+before(loadTestCore);
 
 function text(node: ReactTestInstance): string {
   return node.children.map((c) => (typeof c === "string" ? c : text(c))).join("");
@@ -19,7 +22,7 @@ function mount(comment: string, type: "highlight" | "text" = "highlight", onComm
     tree = create(
       createElement(MarkPopover, {
         at: { x: 100, top: 50, bottom: 70, below: false },
-        actions: markActions({ type, origin: "local", comment })!,
+        actions: typedCore().markActions({ type, origin: "local", comment })!,
         colour: "#ffd400",
         colours: ["#ffd400", "#ff6666"],
         onColour: () => {},

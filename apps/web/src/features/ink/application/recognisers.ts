@@ -18,61 +18,46 @@
  */
 
 import {
-  decodeInkWords,
-  INK_ENGINE_MAX_CONFIDENCE,
-  mapInkConfidence,
-  type InkLine,
   type InkRecogniser,
-  type InkRecognitionHints,
   type RecognisedLine,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 import type {
   DesktopBridge,
   DesktopInkRequest,
 } from "@/lib/desktop/desktop-bridge";
 
+type InkRequestInput = Parameters<ReturnType<typeof readyCore>["buildInkRequest"]>[0];
+
 export const WINDOWS_INK_ENGINE_ID = "windows-ink@1";
 
-/** A page's lines as the desktop helper wants them: flat `[x, y, p, …]` per stroke. */
-export function desktopInkRequest(
-  lines: readonly InkLine[],
-  hints: InkRecognitionHints,
-): DesktopInkRequest {
-  return {
-    lines: lines.map((line) => ({
-      strokes: line.strokes.map((stroke) => {
-        const flat: number[] = [];
-        for (let i = 0; i + 1 < stroke.points.length; i += 2) {
-          flat.push(
-            stroke.points[i]!,
-            stroke.points[i + 1]!,
-            stroke.pressures[i / 2] ?? 128,
-          );
-        }
-        return flat;
-      }),
-    })),
-    vocabulary: [...hints.vocabulary],
-    lang: hints.lang,
-  };
-}
+/** How long a "not available" answer stands before the shell is asked again. */
+export const INK_REPROBE_MS = 30_000;
 
-/** Windows Ink, reached over the bridge. `null` bridge means a browser. */
+/**
+ * Windows Ink, reached over the bridge. `null` bridge means a browser.
+ * A yes is kept; a no is asked again after INK_REPROBE_MS, so turning
+ * handwriting on in Windows works without a restart.
+ */
 export function createDesktopInkRecogniser(
   bridge: () => DesktopBridge | null,
+  now: () => number = Date.now,
 ): InkRecogniser {
-  let known: boolean | null = null;
+  let known = false;
+  let saidNoAt: number | null = null;
   return {
     id: WINDOWS_INK_ENGINE_ID,
     offline: true,
     online: true,
     async available() {
-      if (known !== null) return known;
+      if (known) return true;
+      if (saidNoAt !== null && now() - saidNoAt < INK_REPROBE_MS) return false;
       const desktop = bridge();
       if (!desktop || typeof desktop.inkAvailable !== "function") return false;
       try {
         known = await desktop.inkAvailable();
+        saidNoAt = known ? null : now();
         return known;
       } catch {
         // Often the bridge is not ready yet: answer no now, ask again later.
@@ -85,29 +70,20 @@ export function createDesktopInkRecogniser(
         throw new Error(
           "The handwriting recogniser is only available on the desktop.",
         );
+      // Rust builds the request and scores each helper line (`helper_line`):
+      // per-word readings decide a line's text and score, and a line without
+      // them is capped under certainty, since `1` is a person's correction.
       const result = await desktop.inkRecognise(
-        desktopInkRequest(lines, hints),
+        readyCore().buildInkRequest({
+          // Rust reads the lines only; the readonly arrays are safe to hand over.
+          lines: lines as unknown as InkRequestInput["lines"],
+          vocabulary: hints.vocabulary,
+          lang: hints.lang,
+        }) as DesktopInkRequest,
       );
-      return result.lines.map((line) => {
-        // The helper's `confidence` is only "produced text or not"; its
-        // per-word readings are the evidence, and the decoder turns them into
-        // a choice and a score. A line with no words is empty or came from a
-        // helper that predates them, and is capped the same way either way:
-        // `1` is a person's correction, never an engine's.
-        if (line.text && line.words?.length) {
-          return decodeInkWords(line.words, hints.vocabulary, line.text);
-        }
-        return {
-          text: line.text,
-          conf: Math.min(
-            mapInkConfidence(line.confidence),
-            INK_ENGINE_MAX_CONFIDENCE,
-          ),
-          ...(line.alternatives?.length
-            ? { alternatives: [...line.alternatives] }
-            : {}),
-        };
-      });
+      return result.lines.map((line) =>
+        readyCore().inkLineFromHelper(line, hints.vocabulary),
+      );
     },
   };
 }

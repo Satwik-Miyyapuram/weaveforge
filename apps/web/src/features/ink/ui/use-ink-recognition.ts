@@ -23,11 +23,11 @@ import {
 
 import {
   acceptLine,
-  pageTextAfterRecognition,
   recognisePage,
   recognisedPageFromModel,
   type RecognisedPage,
-} from "../application/recognise-page";
+} from "../application/parts-4";
+import { readyCore } from "@/lib/rust-core";
 
 /** What the flow needs from the host; the host owns the worker and the saves. */
 export interface InkRecognitionDeps {
@@ -107,7 +107,7 @@ export function useInkRecognition(deps: InkRecognitionDeps) {
         setRecognised(result);
       }
       const was = textPagesRef.current[at] ?? "";
-      textPagesRef.current[at] = pageTextAfterRecognition(was, prior, result.text);
+      textPagesRef.current[at] = readyCore().pageTextAfterRecognition(was, prior, result.text);
       metaRef.current = {
         ...metaRef.current,
         recognised: result.confidence,

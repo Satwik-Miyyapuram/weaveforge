@@ -21,7 +21,7 @@
 import { useSyncExternalStore } from "react";
 import { INK_COLOURS, type InkColour } from "@weaveforge/core";
 
-import { READER_ANNOTATION_COLORS } from "@/features/reader/application/reader-annotation-helpers";
+import { READER_ANNOTATION_COLORS } from "@/features/reader/application/parts";
 import { readStored, readStoredJson, writeStoredJson } from "@/lib/safe-storage";
 
 const TOOL_COLOUR_KEY = "weaveforge.ink.tool-colours";

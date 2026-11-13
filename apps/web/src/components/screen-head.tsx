@@ -2,8 +2,8 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
-import { labelForPath } from "@/lib/route-title";
+import { useModuleRegistry } from "@/lib/hooks/parts";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * The header every list screen opens with: an optional title, a row of
@@ -41,7 +41,7 @@ export function ScreenHead({
   const registry = useModuleRegistry();
   const hidden = title
     ? null
-    : labelForPath(pathname, [registry.homeNavItem, ...registry.allModules.flatMap((m) => m.navItems)]);
+    : (readyCore().labelForPath(pathname, [registry.homeNavItem, ...registry.allModules.flatMap((m) => m.navItems)]) ?? null);
   return (
     <header className={className ? `screen-head page-header ${className}` : "screen-head page-header"}>
       <div className="head-row">

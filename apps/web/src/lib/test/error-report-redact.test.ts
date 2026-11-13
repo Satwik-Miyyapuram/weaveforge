@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
-import { redact, redactAndCap } from "@/lib/error-report/redact";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
+
+const redact = (input: string) => readyCore().redact(input);
+const redactAndCap = (input: string, limit?: number) => readyCore().redactAndCap(input, limit);
 
 /**
  * What may leave the building in a bug report.

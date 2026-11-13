@@ -12,19 +12,13 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create } from "react-test-renderer";
 
-import {
-  blankInkPage,
-  defaultInkNoteMeta,
-  makeInkStroke,
-  newInkChunkId,
-  type InkPage,
-  type InkRecogniser,
-} from "@weaveforge/core";
+import { type InkPage, type InkRecogniser } from "@weaveforge/core";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
-import type { InkStoredPage } from "../application/ink-chunk-store";
+import type { InkStoredPage } from "../application/parts-1";
 import { useInkPageLifecycle } from "../ui/use-ink-page-lifecycle";
 import { useInkRecognition } from "../ui/use-ink-recognition";
+import { typedCore } from "@/lib/rust-core";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -48,14 +42,14 @@ function mountLifecycle() {
     fetchBlob: async () => new Blob(),
     noteBody: () => "",
     pagesRef,
-    metaRef: { current: defaultInkNoteMeta() },
+    metaRef: { current: typedCore().defaultInkNoteMeta() },
     textPagesRef: { current: [] as string[] },
     setStrokes: () => {},
     setSelection: () => {},
     setBackgroundPath: () => {},
     setFigures: () => {},
     setFigureControls: () => {},
-    requestModel: async () => blankInkPage("blank"),
+    requestModel: async () => typedCore().blankInkPage("blank"),
     recognitionReset: () => {},
     recognitionOnModelLoaded: () => {},
   };
@@ -74,7 +68,7 @@ function mountLifecycle() {
   return { render, loads, pagesRef };
 }
 
-const page = (): InkStoredPage => ({ chunkId: newInkChunkId(), chunk: null, paper: "blank" });
+const page = (): InkStoredPage => ({ chunkId: typedCore().newInkChunkId(), chunk: null, paper: "blank" });
 
 test("the page loads once the sidecar answers, and again when the page changes", async () => {
   const { render, loads, pagesRef } = mountLifecycle();
@@ -100,9 +94,9 @@ test("pages added after the last do not reload the page in use (21-19)", async (
 
 /** A stroke, so the page has a line to recognise. */
 function modelWithInk(): InkPage {
-  const model = blankInkPage("blank");
+  const model = typedCore().blankInkPage("blank");
   model.strokes = [
-    makeInkStroke({ points: [100, 100, 140, 102, 180, 130], pressures: [128, 128, 128], t0: 0 }),
+    typedCore().makeInkStroke({ points: [100, 100, 140, 102, 180, 130], pressures: [128, 128, 128], t0: 0 }),
   ];
   return model;
 }
@@ -128,7 +122,7 @@ function mountRecognition() {
     hints: async () => ({ vocabulary: [], lang: "en" }),
     requestModel: async () => modelWithInk(),
     sendReplace: (page: InkPage, pageIndex: number) => void replaced.push({ page, pageIndex }),
-    metaRef: { current: defaultInkNoteMeta() },
+    metaRef: { current: typedCore().defaultInkNoteMeta() },
     textPagesRef,
     scheduleSave: () => {},
   };

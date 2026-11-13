@@ -30,7 +30,7 @@ for (const rel of EDITORS) {
 
 test("the report's artifact goes in Insert and its citation format in More", () => {
   const code = src("../../features/report/ui/section-note.tsx");
-  assert.match(code, /insertItems=\{[\s\S]*?Experiment artifact…/);
+  assert.match(code, /insertItems=\{[\s\S]*?Experiment figure or table…/);
   assert.match(code, /moreSections=\{[\s\S]*?citeAsSection\(/);
 });
 
@@ -51,6 +51,15 @@ test("the strip is lead, the slot a live bar portals into, then the greyed bar",
   );
   assert.match(html, /<p>body<\/p>$/);
   assert.doesNotMatch(html.match(/<button[^>]*aria-label="Insert"[^>]*>/)?.[0] ?? "", /disabled=""/, "Insert takes a picture");
+});
+
+test("the strip folds like the Editor's bar instead of clipping", () => {
+  assert.match(src("../document-toolbar.tsx"), /useToolbarFold\(/);
+  const css = src("../../app/styles/entity-detail.css");
+  assert.match(css, /\.document-toolbar \{[^}]*overflow: hidden;/);
+  const fold = src("../../app/styles/editor-workspace.css");
+  assert.doesNotMatch(fold, /(?<!, )\.workspace-toolbar\[data-(fold|moved)/, "every fold rule covers both bars");
+  assert.doesNotMatch(src("../../features/ink/ui/ink-bar-fold.tsx"), /closest[^(]*\("\.workspace-toolbar"\)/);
 });
 
 test("in ink focus the strip steps aside; the sheet keeps its bar", () => {

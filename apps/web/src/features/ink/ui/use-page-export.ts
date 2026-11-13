@@ -1,25 +1,42 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import {
-  inkPageBackground,
-  inkPageFigures,
-  type FigureGeometry,
-  type InkPage as InkPageModel,
-} from "@weaveforge/core";
+import { type FigureGeometry, type InkPage as InkPageModel } from "@weaveforge/core";
 
-import { blobToDataUrl, downloadBlob } from "@/lib/blob-output";
+import { blobToDataUrl, downloadBlob } from "@/lib/parts";
 import { renderMarkdownPlain } from "@/components/markdown/markdown";
-import { containsMath } from "@/components/markdown/math-renderer";
-import {
-  documentStyleSheets,
-  inkPrintDocument,
-  type InkPrintFigure,
-} from "../application/ink-print";
-import { inkPageSvg, type InkSvgFigure } from "../application/ink-svg";
-import { loadInOrder } from "../application/load-in-order";
-import type { InkPalette } from "../render/ink-palette";
+import type { InkPrintFigure, InkSvgFigure } from "@weaveforge/wasm";
+import { loadInOrder } from "../application/parts";
+import type { InkPalette } from "../render/parts-1";
 import { INK_UNDERLAY, inkSheetRuleStyle, loadMathOrLog } from "./ink-sheet-underlay";
+import { readyCore, toWasmInkPage, typedCore } from "@/lib/rust-core";
+
+/**
+ * The app's stylesheets as the print document links them: the linked ones by
+ * address, the inline ones by text. A sheet whose rules cannot be read (a
+ * cross-origin one) is linked by address or, failing that, left out.
+ */
+function documentStyleSheets(
+  root: Document,
+): { href?: string; text?: string }[] {
+  const sheets: { href?: string; text?: string }[] = [];
+  for (const sheet of Array.from(root.styleSheets)) {
+    if (sheet.href) {
+      sheets.push({ href: sheet.href });
+      continue;
+    }
+    try {
+      sheets.push({
+        text: Array.from(sheet.cssRules)
+          .map((rule) => rule.cssText)
+          .join("\n"),
+      });
+    } catch {
+      // Unreadable and unaddressed: nothing to carry over.
+    }
+  }
+  return sheets;
+}
 
 /**
  * Pixels per 0.1 mm unit in an exported or printed page.
@@ -170,7 +187,7 @@ export function usePageExport(deps: PageExportDeps) {
    * figures with its own sheet of white.
    */
   const composedExport = useCallback(async () => {
-    const figures = inkPageFigures(textPages.current[pageIndex] ?? "");
+    const figures = typedCore().inkPageFigures(textPages.current[pageIndex] ?? "");
     const ink = await requestExport(PNG_EXPORT_SCALE, figures.length > 0);
     if (!ink) return null;
     return composeWithFigures(
@@ -217,7 +234,7 @@ export function usePageExport(deps: PageExportDeps) {
     // maths there would come out as the placeholder unless the renderer is in
     // memory — so it is fetched first when the text has any. This callback is
     // already async, so waiting costs nothing visible.
-    if (!live && text.trim() && containsMath(text)) {
+    if (!live && text.trim() && readyCore().containsMath(text)) {
       await loadMathOrLog();
     }
     const underlayHtml = live?.innerHTML ?? (text.trim() ? renderMarkdownPlain(text) : "");
@@ -225,7 +242,7 @@ export function usePageExport(deps: PageExportDeps) {
     // which is the text with its figure lines already taken out.
     // A missing attachment is a figure the page does not draw.
     const figures: InkPrintFigure[] = await loadInOrder(
-      inkPageFigures(textPages.current[pageIndex] ?? ""),
+      typedCore().inkPageFigures(textPages.current[pageIndex] ?? ""),
       async ({ path, ...geometry }) => ({
         ...geometry,
         url: await blobToDataUrl(await fetchBlob(path)),
@@ -235,7 +252,7 @@ export function usePageExport(deps: PageExportDeps) {
     const title = `${noteId} — page ${pageIndex + 1}`;
     setPrintDoc({
       title,
-      html: inkPrintDocument({
+      html: readyCore().inkPrintDocument({
         title,
         pageSize,
         scale,
@@ -249,7 +266,7 @@ export function usePageExport(deps: PageExportDeps) {
         },
         rule: inkSheetRuleStyle(scale),
         figures,
-        inkUrl: ink ? await blobToDataUrl(ink) : null,
+        inkUrl: ink ? await blobToDataUrl(ink) : undefined,
         styleSheets: documentStyleSheets(document),
       }),
     });
@@ -264,7 +281,7 @@ export function usePageExport(deps: PageExportDeps) {
    */
   const onExportSvg = useCallback(async () => {
     const page = await requestModel();
-    const path = inkPageBackground(textPages.current[pageIndex] ?? "");
+    const path = typedCore().inkPageBackground(textPages.current[pageIndex] ?? "");
     let backgroundDataUrl: string | null = null;
     if (path) {
       try {
@@ -279,13 +296,13 @@ export function usePageExport(deps: PageExportDeps) {
     // A missing figure is the same as a missing background: the strokes are
     // the page's own record.
     const figures: InkSvgFigure[] = await loadInOrder(
-      inkPageFigures(textPages.current[pageIndex] ?? ""),
+      typedCore().inkPageFigures(textPages.current[pageIndex] ?? ""),
       async (figure) => ({
         ...figure,
         dataUrl: await blobToDataUrl(await fetchBlob(figure.path)),
       }),
     );
-    const svg = inkPageSvg(page, {
+    const svg = readyCore().inkPageSvg(toWasmInkPage(page), {
       palette,
       backgroundDataUrl,
       figures,

@@ -1,4 +1,2 @@
-/** Public API of the sync feature module (web). */
-export { commitUrl } from "./infrastructure/git-client";
-export { SyncSettings } from "./ui/sync-settings";
-export { GitScreen } from "./ui/git-screen";
+/** Public UI of the sync feature, for other features to import. */
+export * from "./ui/sync-settings";

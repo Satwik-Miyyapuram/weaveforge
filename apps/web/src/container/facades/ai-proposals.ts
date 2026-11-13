@@ -6,7 +6,8 @@ import {
   type IAiAuditStore,
   type IAiProposalStore,
 } from "@weaveforge/core";
-import { singleFlight } from "@/lib/cache/single-flight";
+import { singleFlight } from "@/lib/cache/parts";
+import { readyCore } from "@/lib/rust-core";
 
 /** How long the pending-proposal count is reused across the shell's badges. */
 const PENDING_PROPOSALS_MEMO_MS = 15_000;
@@ -75,20 +76,18 @@ export class AiProposalFacade {
     sourceLinks?: readonly string[];
     expectedRevision?: string;
   }): Promise<AiWriteProposal> {
-    const content = input.content.trim();
-    if (!content) throw new Error("A proposal needs a preview describing what it will do.");
-
-    const proposal: AiWriteProposal = {
+    const shaped = readyCore().shapeAiProposalDraft({
       id: this.deps.newId(),
       kind: input.kind,
       resourceId: input.resourceId,
-      content,
-      payload: input.payload,
+      content: input.content,
+      // Rust requires a payload value; the caller's own (possibly absent) payload is restored below.
+      payload: input.payload ?? null,
       createdAt: this.deps.now(),
-      status: "pending",
-      sourceLinks: input.sourceLinks ?? [],
+      sourceLinks: input.sourceLinks ? [...input.sourceLinks] : undefined,
       expectedRevision: input.expectedRevision,
-    };
+    }) as AiWriteProposal;
+    const proposal: AiWriteProposal = { ...shaped, payload: input.payload };
     await this.deps.proposals.save(proposal);
     this.forgetPending();
     return proposal;

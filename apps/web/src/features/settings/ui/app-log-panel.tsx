@@ -13,7 +13,7 @@ import { Button } from "@/components/button";
  * Why this exists at all: nothing used to be written under `userData`, so when
  * the window died there was no record left to read — and two diagnoses in one
  * session came down to "if only the last request had been on disk". The file is
- * written by the shell (`apps/desktop/src/app-log.ts`); this is the surface that
+ * written by the shell (`apps/shell/src/app_log.rs`); this is the surface that
  * lets a reader open it.
  *
  * Three states, and they are deliberately three:

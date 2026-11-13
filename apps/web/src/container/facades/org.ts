@@ -1,21 +1,24 @@
-import { buildLabSnapshotContent } from "@weaveforge/core";
 import type {
-  CreateMemberUseCase,
+  IAccountProvisioner,
   IExperimentRepository,
   ILabSnapshotRepository,
   ILogEntryRepository,
   IMemberRepository,
   IMilestoneRepository,
   IReportSectionRepository,
+  ISupervisionRepository,
   Member,
+  NewMemberInput,
+  Role,
 } from "@weaveforge/core";
-import type { ISupervisionRepository } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 export class OrgFacade {
   constructor(
     private readonly deps: {
-      members: IMemberRepository;
-      createMember: CreateMemberUseCase;
+      /** `assertCanCreate` is the Rust hierarchy gate over the signed-in member. */
+      members: IMemberRepository & { assertCanCreate(role: string): Promise<void> };
+      provisioner: IAccountProvisioner;
       supervision: ISupervisionRepository;
       labSnapshots: ILabSnapshotRepository;
       milestones: IMilestoneRepository;
@@ -43,8 +46,14 @@ export class OrgFacade {
     return this.deps.members.listDirectory();
   }
 
-  get createMember() {
-    return this.deps.createMember;
+  /**
+   * Create an account beneath the signed-in user. The Rust core validates the input
+   * and the hierarchy gate runs first; the server route re-checks the same rule.
+   */
+  async createMember(input: NewMemberInput): Promise<Member> {
+    const normalized = typedCore().validateNewMember(input);
+    await this.deps.members.assertCanCreate(normalized.role);
+    return this.deps.provisioner.createMember({ ...normalized, role: normalized.role as Role });
   }
 
   loadSupervisee(memberId: string) {
@@ -71,7 +80,7 @@ export class OrgFacade {
     return this.deps.labSnapshots.publish({
       title: input.title,
       note: input.note,
-      content: buildLabSnapshotContent({ milestones, logs, experiments, report, aiAssisted }),
+      content: typedCore().buildLabSnapshotContent({ milestones, logs, experiments, report, aiAssisted }),
     });
   }
 

@@ -1,5 +1,8 @@
 # Ink polish log: what OneNote-quality ink took, and where each fix lives
 
+> **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
+> TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
+
 A running record of the rendering and capture fixes made while testing the
 desktop build against a real Surface Pen and a mouse, with the reference
 engines each decision was checked against. Section numbers refer to
@@ -95,8 +98,8 @@ is only *recorded* and never drawn passes a model assertion and fails that one.
 - `check:hygiene` fails on eight files over the 800-line cap. Seven were
   already over it at `3a68c43` — `apps/desktop/src/main.ts` (1038),
   `apps/web/src/features/editor-workspace/ui/explorer-panel.tsx` (895),
-  `apps/web/src/features/ink/application/shape-snap/` (then one 1426-line
-  `shape-snap.ts`, since split),
+  the web shape-snap module (then one 1426-line file, since ported to
+  `crates/wf-core/src/ink/shape_snap.rs`),
   `apps/web/src/features/ink/application/use-pen-capture.ts` (953),
   `apps/web/src/features/ink/render/webgl-renderer.ts` (1137),
   `apps/web/src/features/ink/worker/ink-worker.ts` (950), and

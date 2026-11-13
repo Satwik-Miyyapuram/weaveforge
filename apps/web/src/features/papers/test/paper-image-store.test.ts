@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { IBlobFetcher, ICurrentUserProvider } from "@weaveforge/core";
-import { PaperImageStore } from "../infrastructure/paper-image-store";
+import { PaperImageStore } from "../infrastructure/parts-1";
 
 /** Browser bits `makeThumbnail` needs, so a thumbnail is actually made. */
 function stubCanvas() {

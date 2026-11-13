@@ -1,0 +1,42 @@
+import { useTranslation } from 'react-i18next'
+import { useFileTreeActionable } from '../../contexts/file-tree-actionable'
+import FileTreeCreateFormProvider from '../../contexts/file-tree-create-form'
+import FileTreeModalCreateFileBody from '../file-tree-create/file-tree-modal-create-file-body'
+import FileTreeModalCreateFileFooter from '../file-tree-create/file-tree-modal-create-file-footer'
+import {
+  OLModal,
+  OLModalBody,
+  OLModalFooter,
+  OLModalHeader,
+  OLModalTitle,
+} from '../../../../shared/components/ol/ol-modal'
+import { useFeatureFlag } from '../../../../shared/context/split-test-context'
+
+export default function FileTreeModalCreateFile() {
+  const { t } = useTranslation()
+  const themed = useFeatureFlag('themed-modals')
+
+  const { isCreatingFile, cancel } = useFileTreeActionable()
+
+  if (!isCreatingFile) {
+    return null
+  }
+
+  return (
+    <FileTreeCreateFormProvider>
+      <OLModal size="lg" onHide={cancel} show themed={themed}>
+        <OLModalHeader>
+          <OLModalTitle>{t('add_files')}</OLModalTitle>
+        </OLModalHeader>
+
+        <OLModalBody className="modal-new-file">
+          <FileTreeModalCreateFileBody />
+        </OLModalBody>
+
+        <OLModalFooter>
+          <FileTreeModalCreateFileFooter />
+        </OLModalFooter>
+      </OLModal>
+    </FileTreeCreateFormProvider>
+  )
+}

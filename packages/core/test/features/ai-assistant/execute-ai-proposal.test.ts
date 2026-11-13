@@ -172,3 +172,45 @@ test("a kind with no executor fails and leaves the proposal pending", async () =
   await assert.rejects(useCaseOver(store, new AiProposalExecutorRegistry([])).execute("proposal-1"), /No proposal executor/);
   assert.equal(store.row.status, "pending");
 });
+
+// --- outcome save after the effect landed ----------------------------------
+//
+// The executor ran, then saving "accepted" failed: the row stayed "executing"
+// forever with no audit entry, while its change was already made. The outcome
+// save is now retried, and a final failure says the change was applied, so
+// nobody approves the same thing again.
+
+function failingSaves(store: Store, failures: number) {
+  let left = failures;
+  return {
+    ...store,
+    getById: store.getById, listPending: store.listPending, claimPending: store.claimPending,
+    async save(value: AiWriteProposal) {
+      if (value.status !== "pending" && left > 0) { left -= 1; throw new Error("network down"); }
+      await store.save(value);
+    },
+  };
+}
+
+test("a failed outcome save is retried and the executor runs once", async () => {
+  const store = proposalStore(logProposal);
+  const audits: string[] = [];
+  let runs = 0;
+  const status = await useCaseOver(failingSaves(store, 2), running(async () => { runs += 1; return "accepted"; }), audits).execute("proposal-1");
+  assert.equal(status, "accepted");
+  assert.equal(runs, 1);
+  assert.equal(store.row.status, "accepted");
+  assert.deepEqual(audits, ["accepted"]);
+});
+
+test("an outcome that cannot be saved says the change was applied", async () => {
+  const store = proposalStore(logProposal);
+  let runs = 0;
+  await assert.rejects(
+    useCaseOver(failingSaves(store, 99), running(async () => { runs += 1; return "accepted"; })).execute("proposal-1"),
+    /applied/i,
+  );
+  assert.equal(runs, 1);
+  // Never back to pending: approving again would apply it twice.
+  assert.notEqual(store.row.status, "pending");
+});

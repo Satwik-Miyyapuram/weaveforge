@@ -30,9 +30,10 @@ import {
   boundsUnion,
   fromGeometry,
   type InkBounds,
-} from "../application/page-buffer";
+} from "../application/parts-3";
 import { ERASER_RADIUS, InkStrokeIndex } from "../application/stroke-index";
-import type { InkRenderer } from "../render/ink-renderer";
+import type { InkRenderer } from "../render/parts-1";
+import { readyCore } from "@/lib/rust-core";
 
 /** One undoable step. `indices` are buffer indices; a move also carries its delta. */
 export type HistoryStep =
@@ -226,10 +227,7 @@ export function eraseIndices(
     }
   }
   if (removed.length > 0) {
-    if (kind === "erase") {
-      state.history.push({ kind: "erase", indices: removed });
-      state.redone = [];
-    }
+    if (kind === "erase") recordHistoryStep(state, { kind: "erase", indices: removed });
     state.index?.invalidate();
     post({ type: "erased", indices: removed });
     reportState(state, post);
@@ -276,31 +274,6 @@ export function translateIndices(
   reportState(state, post);
 }
 
-/**
- * Whether a point is inside a closed polygon, by the even-odd rule.
- *
- * `polygon` is flat `[x, y, …]` in page units. The lasso is a hand-drawn loop,
- * so the polygon is closed implicitly from its last point back to its first.
- */
-export function pointInPolygon(
-  px: number,
-  py: number,
-  polygon: readonly number[],
-): boolean {
-  const count = polygon.length / 2;
-  let inside = false;
-  for (let i = 0, j = count - 1; i < count; j = i, i += 1) {
-    const xi = polygon[i * 2]!;
-    const yi = polygon[i * 2 + 1]!;
-    const xj = polygon[j * 2]!;
-    const yj = polygon[j * 2 + 1]!;
-    const crosses =
-      yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi;
-    if (crosses) inside = !inside;
-  }
-  return inside;
-}
-
 /** Select what a lasso loop enclosed: strokes with most of their points inside. */
 export function lasso(
   state: InkPageState,
@@ -314,30 +287,19 @@ export function lasso(
     post({ type: "selected", indices: [], bounds: null });
     return;
   }
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (let i = 0; i < polygon.length; i += 2) {
-    minX = Math.min(minX, polygon[i]!);
-    maxX = Math.max(maxX, polygon[i]!);
-    minY = Math.min(minY, polygon[i + 1]!);
-    maxY = Math.max(maxY, polygon[i + 1]!);
-  }
+  const core = readyCore();
+  const loop = Float64Array.from(polygon);
+  const box = Array.from(core.inkPolygonBounds(loop)) as InkBounds;
   const index = state.index ?? new InkStrokeIndex(state.buffer);
   state.index = index;
   index.ensure();
-  const box: InkBounds = [minX, minY, maxX, maxY];
   const chosen: number[] = [];
   let bounds: InkBounds | null = null;
   for (const candidate of index.nearBox(box)) {
     const geometry = state.buffer.stroke(candidate);
     if (!geometry || geometry.x.length === 0) continue;
-    let inside = 0;
-    for (let i = 0; i < geometry.x.length; i += 1) {
-      if (pointInPolygon(geometry.x[i]!, geometry.y[i]!, polygon)) inside += 1;
-    }
-    if (inside * 2 < geometry.x.length) continue;
+    // Rust: `hit_test::lasso_keeps` (at least half the points inside the loop).
+    if (!core.inkLassoKeeps(geometry.x, geometry.y, loop)) continue;
     chosen.push(candidate);
     bounds = boundsUnion(bounds, geometry.bounds);
   }
@@ -385,59 +347,54 @@ export function strokeNearPoint(
   to: { x: number; y: number },
   radius = ERASER_RADIUS,
 ): boolean {
-  const steps = Math.max(
-    1,
-    Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / radius),
+  // Rust: `hit_test::stroke_near_segment`. Distance to each *segment*, not each vertex.
+  return readyCore().inkStrokeNearSegment(
+    stroke.x,
+    stroke.y,
+    from.x,
+    from.y,
+    to.x,
+    to.y,
+    radius,
   );
-  const r2 = radius * radius;
-  for (let step = 0; step <= steps; step += 1) {
-    const t = step / steps;
-    const px = from.x + (to.x - from.x) * t;
-    const py = from.y + (to.y - from.y) * t;
-    // Distance to each *segment*, not each vertex: a packed stroke keeps only the
-    // points that bend, so a straight line is two vertices a page apart.
-    if (stroke.x.length === 1) {
-      const dx = stroke.x[0]! - px;
-      const dy = stroke.y[0]! - py;
-      if (dx * dx + dy * dy <= r2) return true;
-      continue;
-    }
-    for (let i = 0; i + 1 < stroke.x.length; i += 1) {
-      if (
-        distanceToSegmentSquared(
-          px,
-          py,
-          stroke.x[i]!,
-          stroke.y[i]!,
-          stroke.x[i + 1]!,
-          stroke.y[i + 1]!,
-        ) <= r2
-      ) {
-        return true;
-      }
-    }
-  }
-  return false;
 }
 
-export function distanceToSegmentSquared(
-  px: number,
-  py: number,
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
-): number {
-  const vx = bx - ax;
-  const vy = by - ay;
-  const length2 = vx * vx + vy * vy;
-  const t =
-    length2 === 0
-      ? 0
-      : Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / length2));
-  const dx = ax + vx * t - px;
-  const dy = ay + vy * t - py;
-  return dx * dx + dy * dy;
+/** The page action an undo or redo asks for; decided by `wf_core::ink::stroke_history`. */
+type StrokeAction = {
+  op: "restore" | "erase" | "translate";
+  indices: number[];
+  dx?: number;
+  dy?: number;
+};
+
+/** Record a fresh edit on the undo log; a new edit clears redo. */
+export function recordHistoryStep(state: InkPageState, step: HistoryStep): void {
+  stepStrokeHistory(state, { op: "record", step });
+}
+
+/** Run one request on the undo log (Rust decides), and keep its stacks. */
+function stepStrokeHistory(
+  state: InkPageState,
+  op: { op: "record"; step: HistoryStep } | { op: "undo" } | { op: "redo" },
+): StrokeAction | null {
+  const out = readyCore().inkStrokeHistoryStep(
+    { history: state.history, redone: state.redone },
+    op,
+  );
+  state.history = out.stacks.history;
+  state.redone = out.stacks.redone;
+  return out.action;
+}
+
+/** Apply the page side of an undo or redo. */
+function applyStrokeAction(
+  state: InkPageState,
+  action: StrokeAction,
+  post: (event: InkWorkerEvent) => void,
+): void {
+  if (action.op === "restore") restoreIndices(state, action.indices, post);
+  else if (action.op === "erase") eraseIndices(state, action.indices, post, "draw");
+  else translateIndices(state, action.indices, action.dx ?? 0, action.dy ?? 0, post);
 }
 
 /** Undo the last action (erase, draw, or move). */
@@ -445,12 +402,9 @@ export function undo(
   state: InkPageState,
   post: (event: InkWorkerEvent) => void,
 ): void {
-  const step = state.history.pop();
-  if (!step) return;
-  if (step.kind === "erase") restoreIndices(state, step.indices, post);
-  else if (step.kind === "draw") eraseIndices(state, step.indices, post, "draw");
-  else translateIndices(state, step.indices, -step.dx, -step.dy, post);
-  state.redone.push(step);
+  const action = stepStrokeHistory(state, { op: "undo" });
+  if (!action) return;
+  applyStrokeAction(state, action, post);
   reportHistory(state, post);
 }
 
@@ -459,12 +413,9 @@ export function redo(
   state: InkPageState,
   post: (event: InkWorkerEvent) => void,
 ): void {
-  const step = state.redone.pop();
-  if (!step) return;
-  if (step.kind === "erase") eraseIndices(state, step.indices, post, "draw");
-  else if (step.kind === "draw") restoreIndices(state, step.indices, post);
-  else translateIndices(state, step.indices, step.dx, step.dy, post);
-  state.history.push(step);
+  const action = stepStrokeHistory(state, { op: "redo" });
+  if (!action) return;
+  applyStrokeAction(state, action, post);
   reportHistory(state, post);
 }
 
@@ -517,12 +468,11 @@ export function moveSelection(
   ensureLoop();
   if (state.selection.length === 0 || (dx === 0 && dy === 0)) return;
   translateIndices(state, state.selection, dx, dy, post);
-  state.history.push({
+  recordHistoryStep(state, {
     kind: "move",
     indices: [...state.selection],
     dx,
     dy,
   });
-  state.redone = [];
   reportHistory(state, post);
 }

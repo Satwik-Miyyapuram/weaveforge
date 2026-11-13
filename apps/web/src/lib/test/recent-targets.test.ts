@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { pinRecentTargets, readRecentTargets, rememberRecentTarget } from "@/lib/recent-targets";
+import test, { before } from "node:test";
+import { pinRecentTargets, readRecentTargets, rememberRecentTarget } from "@/lib/parts-2";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 function installStorage() {
   const values = new Map<string, string>();

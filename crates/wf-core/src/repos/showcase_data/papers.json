@@ -1,0 +1,2740 @@
+{
+ "SHOWCASE_PAPERS": [
+  {
+   "title": "Attention Is All You Need",
+   "authors": [
+    "Ashish Vaswani",
+    "Noam Shazeer",
+    "Niki Parmar",
+    "Jakob Uszkoreit",
+    "Llion Jones",
+    "Aidan N. Gomez",
+    "Łukasz Kaiser",
+    "Illia Polosukhin"
+   ],
+   "year": 2017,
+   "venue": "NeurIPS",
+   "status": "read",
+   "rating": 5,
+   "readDaysAgo": 140,
+   "tags": [
+    "transformers",
+    "foundations",
+    "representation-learning"
+   ],
+   "arxiv_id": "1706.03762",
+   "url": "https://arxiv.org/abs/1706.03762",
+   "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms.",
+   "summary": "Self-attention replaces recurrence for sequence modelling. Key for our encoder baseline and citation in Ch. 2.\n\n**Why it matters here:** the graph-prior module reuses multi-head attention over neighbourhoods (see GAT), so the notation in §3.2 follows this paper.",
+   "bibtex": "@inproceedings{vaswani2017attention,\n  title={Attention is all you need},\n  author={Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob and Jones, Llion and Gomez, Aidan N and Kaiser, {\\L}ukasz and Polosukhin, Illia},\n  booktitle={Advances in Neural Information Processing Systems},\n  volume={30},\n  year={2017}\n}"
+  },
+  {
+   "title": "Deep Residual Learning for Image Recognition",
+   "authors": [
+    "Kaiming He",
+    "Xiangyu Zhang",
+    "Shaoqing Ren",
+    "Jian Sun"
+   ],
+   "year": 2016,
+   "venue": "CVPR",
+   "status": "read",
+   "rating": 5,
+   "readDaysAgo": 150,
+   "doi": "10.1109/CVPR.2016.90",
+   "arxiv_id": "1512.03385",
+   "tags": [
+    "cnn",
+    "foundations",
+    "representation-learning"
+   ],
+   "summary": "Skip connections stabilise very deep nets — backbone for every encoder in the experiment sweeps."
+  },
+  {
+   "title": "Auto-Encoding Variational Bayes",
+   "authors": [
+    "Diederik P. Kingma",
+    "Max Welling"
+   ],
+   "year": 2014,
+   "venue": "ICLR",
+   "status": "read",
+   "rating": 5,
+   "readDaysAgo": 160,
+   "tags": [
+    "vae",
+    "latent-variables",
+    "generative",
+    "foundations"
+   ],
+   "arxiv_id": "1312.6114",
+   "url": "https://arxiv.org/abs/1312.6114",
+   "abstract": "How can we perform efficient inference and learning in directed probabilistic models, in the presence of continuous latent variables with intractable posterior distributions, and large datasets? We introduce a stochastic variational inference and learning algorithm that scales to large datasets.",
+   "summary": "Foundational VAE — reparameterisation trick and ELBO objective we build on throughout Ch. 2–3.\n\n$$\\mathcal{L}(\\theta,\\phi;x) = \\mathbb{E}_{q_\\phi(z|x)}[\\log p_\\theta(x|z)] - D_{KL}(q_\\phi(z|x)\\,\\|\\,p(z))$$",
+   "bibtex": "@inproceedings{kingma2014vae,\n  title={Auto-Encoding Variational Bayes},\n  author={Kingma, Diederik P and Welling, Max},\n  booktitle={International Conference on Learning Representations},\n  year={2014}\n}"
+  },
+  {
+   "title": "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "authors": [
+    "Irina Higgins",
+    "Loïc Matthey",
+    "Arka Pal",
+    "Christopher Burgess",
+    "Xavier Glorot",
+    "Matthew Botvinick",
+    "Shakir Mohamed",
+    "Alexander Lerchner"
+   ],
+   "year": 2017,
+   "venue": "ICLR",
+   "status": "reading",
+   "rating": 4,
+   "tags": [
+    "vae",
+    "disentanglement",
+    "latent-variables"
+   ],
+   "url": "https://openreview.net/forum?id=Sy2fzU9gl",
+   "summary": "β hyperparameter trades reconstruction vs. disentanglement — direct motivation for the β sweep (exp-01)."
+  },
+  {
+   "title": "Neural Discrete Representation Learning (VQ-VAE)",
+   "authors": [
+    "Aäron van den Oord",
+    "Oriol Vinyals",
+    "Koray Kavukcuoglu"
+   ],
+   "year": 2017,
+   "venue": "NeurIPS",
+   "status": "reading",
+   "rating": 4,
+   "tags": [
+    "vae",
+    "discrete-latent",
+    "generative"
+   ],
+   "arxiv_id": "1711.00937",
+   "summary": "Vector quantisation bottleneck; compare against our continuous latent ablation."
+  },
+  {
+   "title": "FactorVAE: Disentangling by Factorising",
+   "authors": [
+    "Hyunjik Kim",
+    "Andriy Mnih"
+   ],
+   "year": 2018,
+   "venue": "ICML",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 90,
+   "arxiv_id": "1802.05983",
+   "tags": [
+    "vae",
+    "disentanglement",
+    "latent-variables"
+   ],
+   "summary": "Total-correlation penalty as an alternative to β scaling — cite in disentanglement related work."
+  },
+  {
+   "title": "Challenging Common Assumptions in the Unsupervised Learning of Disentangled Representations",
+   "authors": [
+    "Francesco Locatello",
+    "Stefan Bauer",
+    "Mario Lucic",
+    "Gunnar Rätsch",
+    "Sylvain Gelly",
+    "Bernhard Schölkopf",
+    "Olivier Bachem"
+   ],
+   "year": 2019,
+   "venue": "ICML",
+   "status": "read",
+   "rating": 5,
+   "readDaysAgo": 75,
+   "tags": [
+    "disentanglement",
+    "vae",
+    "foundations"
+   ],
+   "arxiv_id": "1811.12359",
+   "abstract": "We provide a sober look at recent progress in the field and challenge some common assumptions. We first theoretically show that the unsupervised learning of disentangled representations is fundamentally impossible without inductive biases on both the models and the data.",
+   "summary": "Impossibility result without inductive biases — motivates our graph-structured prior. **The** citation for the thesis argument."
+  },
+  {
+   "title": "Generative Adversarial Nets",
+   "authors": [
+    "Ian Goodfellow",
+    "Jean Pouget-Abadie",
+    "Mehdi Mirza",
+    "Bing Xu",
+    "David Warde-Farley",
+    "Sherjil Ozair",
+    "Aaron Courville",
+    "Yoshua Bengio"
+   ],
+   "year": 2014,
+   "venue": "NeurIPS",
+   "status": "skimmed",
+   "rating": 4,
+   "tags": [
+    "gan",
+    "generative",
+    "foundations"
+   ],
+   "arxiv_id": "1406.2661",
+   "summary": "Adversarial training baseline; contrast with amortised inference in VAE family."
+  },
+  {
+   "title": "Denoising Diffusion Probabilistic Models",
+   "authors": [
+    "Jonathan Ho",
+    "Ajay Jain",
+    "Pieter Abbeel"
+   ],
+   "year": 2020,
+   "venue": "NeurIPS",
+   "status": "to_read",
+   "tags": [
+    "diffusion",
+    "generative",
+    "latent-variables"
+   ],
+   "arxiv_id": "2006.11239",
+   "summary": "Modern generative baseline — skim for related-work completeness."
+  },
+  {
+   "title": "Semi-Supervised Classification with Graph Convolutional Networks",
+   "authors": [
+    "Thomas N. Kipf",
+    "Max Welling"
+   ],
+   "year": 2017,
+   "venue": "ICLR",
+   "status": "read",
+   "rating": 5,
+   "readDaysAgo": 120,
+   "tags": [
+    "gnn",
+    "semi-supervised",
+    "graph-prior"
+   ],
+   "arxiv_id": "1609.02907",
+   "summary": "Spectral GCN layer — starting point for our graph encoder ablations."
+  },
+  {
+   "title": "Graph Attention Networks",
+   "authors": [
+    "Petar Veličković",
+    "Guillem Cucurull",
+    "Arantxa Casanova",
+    "Adriana Romero",
+    "Pietro Liò",
+    "Yoshua Bengio"
+   ],
+   "year": 2018,
+   "venue": "ICLR",
+   "status": "reading",
+   "rating": 4,
+   "tags": [
+    "gnn",
+    "attention",
+    "graph-prior"
+   ],
+   "arxiv_id": "1710.10903",
+   "summary": "Attention over neighbourhood — compare to fixed graph prior in our method."
+  },
+  {
+   "title": "Variational Graph Auto-Encoders",
+   "authors": [
+    "Thomas N. Kipf",
+    "Max Welling"
+   ],
+   "year": 2016,
+   "venue": "NeurIPS Workshop on Bayesian Deep Learning",
+   "status": "read",
+   "rating": 5,
+   "readDaysAgo": 100,
+   "tags": [
+    "gnn",
+    "vae",
+    "graph-prior",
+    "latent-variables"
+   ],
+   "arxiv_id": "1611.07308",
+   "summary": "VAE on graph-structured data — closest prior work to our contribution."
+  },
+  {
+   "title": "Neural Relational Inference for Interacting Systems",
+   "authors": [
+    "Thomas Kipf",
+    "Ethan Fetaya",
+    "Kuan-Chieh Wang",
+    "Max Welling",
+    "Richard Zemel"
+   ],
+   "year": 2018,
+   "venue": "ICML",
+   "status": "skimmed",
+   "rating": 3,
+   "tags": [
+    "gnn",
+    "latent-variables",
+    "graph-prior"
+   ],
+   "arxiv_id": "1802.04687",
+   "summary": "Latent interaction graphs — useful analogy for citation-graph priors."
+  },
+  {
+   "title": "Relational Inductive Biases, Deep Learning, and Graph Networks",
+   "authors": [
+    "Peter W. Battaglia",
+    "Jessica B. Hamrick",
+    "Victor Bapst",
+    "et al."
+   ],
+   "year": 2018,
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 130,
+   "tags": [
+    "gnn",
+    "foundations",
+    "representation-learning"
+   ],
+   "arxiv_id": "1806.01261",
+   "summary": "Unified view of graph nets as relational reasoning — frame for thesis intro."
+  },
+  {
+   "title": "A Survey on Graph Neural Networks for Knowledge Graphs",
+   "authors": [
+    "Wang et al."
+   ],
+   "year": 2022,
+   "status": "to_read",
+   "tags": [
+    "gnn",
+    "survey",
+    "graph-prior"
+   ],
+   "summary": "Background reading for related-work section on relational inductive biases."
+  },
+  {
+   "title": "A Survey on Variational Autoencoders from a Green AI Perspective",
+   "authors": [
+    "Kingma et al."
+   ],
+   "year": 2021,
+   "status": "skimmed",
+   "rating": 3,
+   "tags": [
+    "vae",
+    "survey",
+    "generative"
+   ],
+   "summary": "Broad VAE taxonomy — sanity-check our notation against standard definitions."
+  },
+  {
+   "title": "A Simple Framework for Contrastive Learning of Visual Representations (SimCLR)",
+   "authors": [
+    "Ting Chen",
+    "Simon Kornblith",
+    "Mohammad Norouzi",
+    "Geoffrey Hinton"
+   ],
+   "year": 2020,
+   "venue": "ICML",
+   "status": "to_read",
+   "tags": [
+    "contrastive",
+    "self-supervised",
+    "representation-learning"
+   ],
+   "arxiv_id": "2002.05709",
+   "summary": "Strong visual representations without labels — optional baseline for encoder init."
+  },
+  {
+   "title": "Momentum Contrast for Unsupervised Visual Representation Learning (MoCo)",
+   "authors": [
+    "Kaiming He",
+    "Haoqi Fan",
+    "Yuxin Wu",
+    "Saining Xie",
+    "Ross Girshick"
+   ],
+   "year": 2020,
+   "venue": "CVPR",
+   "status": "to_read",
+   "tags": [
+    "contrastive",
+    "self-supervised",
+    "cnn"
+   ],
+   "arxiv_id": "1911.05722",
+   "summary": "Dictionary queue for contrastive learning — pairs with ResNet backbone experiments."
+  },
+  {
+   "title": "InfoGAN: Interpretable Representation Learning by Information Maximizing GANs",
+   "authors": [
+    "Xi Chen",
+    "Yan Duan",
+    "Rein Houthooft",
+    "John Schulman",
+    "Ilya Sutskever",
+    "Pieter Abbeel"
+   ],
+   "year": 2016,
+   "venue": "NeurIPS",
+   "status": "skimmed",
+   "rating": 3,
+   "tags": [
+    "gan",
+    "disentanglement",
+    "latent-variables"
+   ],
+   "arxiv_id": "1606.03657",
+   "summary": "Mutual-information disentanglement in GANs — contrast with VAE-based approaches."
+  },
+  {
+   "title": "Your Method (Placeholder Preprint)",
+   "authors": [
+    "Test PhD C"
+   ],
+   "year": 2026,
+   "status": "skimmed",
+   "tags": [
+    "thesis",
+    "graph-prior",
+    "vae",
+    "disentanglement"
+   ],
+   "summary": "Internal draft outlining our contribution — keep synced with report Ch. 3–4."
+  },
+  {
+   "title": "Learning Structured Output Representation using Deep Conditional Generative Models",
+   "authors": [
+    "Kihyuk Sohn",
+    "Honglak Lee",
+    "Xinchen Yan"
+   ],
+   "year": 2015,
+   "venue": "NeurIPS",
+   "status": "read",
+   "rating": 3,
+   "readDaysAgo": 60,
+   "tags": [
+    "vae",
+    "conditional",
+    "latent-variables"
+   ],
+   "summary": "Conditional VAE — the conditioning path is what we replace with a graph prior."
+  },
+  {
+   "title": "Importance Weighted Autoencoders",
+   "authors": [
+    "Yuri Burda",
+    "Roger Grosse",
+    "Ruslan Salakhutdinov"
+   ],
+   "year": 2016,
+   "venue": "ICLR",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 45,
+   "arxiv_id": "1509.00519",
+   "tags": [
+    "vae",
+    "latent-variables",
+    "inference"
+   ],
+   "summary": "Tighter bound via importance sampling. Used k=5 for the held-out likelihood numbers in exp-05."
+  },
+  {
+   "title": "Isolating Sources of Disentanglement in Variational Autoencoders",
+   "authors": [
+    "Ricky T. Q. Chen",
+    "Xuechen Li",
+    "Roger Grosse",
+    "David Duvenaud"
+   ],
+   "year": 2018,
+   "venue": "NeurIPS",
+   "status": "read",
+   "rating": 5,
+   "readDaysAgo": 40,
+   "arxiv_id": "1802.04942",
+   "tags": [
+    "vae",
+    "disentanglement",
+    "latent-variables"
+   ],
+   "summary": "Decomposes the KL into index-code MI, total correlation, dimension-wise KL. Defines the **MIG** metric we report."
+  },
+  {
+   "title": "Variational Inference of Disentangled Latent Concepts from Unlabeled Observations",
+   "authors": [
+    "Abhishek Kumar",
+    "Prasanna Sattigeri",
+    "Avinash Balakrishnan"
+   ],
+   "year": 2018,
+   "venue": "ICLR",
+   "status": "skimmed",
+   "rating": 3,
+   "arxiv_id": "1711.00848",
+   "tags": [
+    "vae",
+    "disentanglement"
+   ],
+   "summary": "Moment-matching penalty on the aggregate posterior — one more point on the β/TC axis for Table 2."
+  },
+  {
+   "title": "Ladder Variational Autoencoders",
+   "authors": [
+    "Casper Kaae Sønderby",
+    "Tapani Raiko",
+    "Lars Maaløe",
+    "Søren Kaae Sønderby",
+    "Ole Winther"
+   ],
+   "year": 2016,
+   "venue": "NeurIPS",
+   "status": "skimmed",
+   "arxiv_id": "1602.02282",
+   "tags": [
+    "vae",
+    "hierarchical",
+    "latent-variables"
+   ],
+   "summary": "Hierarchical latents with top-down inference — candidate for a deeper prior if time allows."
+  },
+  {
+   "title": "Adam: A Method for Stochastic Optimization",
+   "authors": [
+    "Diederik P. Kingma",
+    "Jimmy Ba"
+   ],
+   "year": 2015,
+   "venue": "ICLR",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 200,
+   "arxiv_id": "1412.6980",
+   "tags": [
+    "optimisation",
+    "foundations"
+   ],
+   "summary": "Optimiser for every run. lr 1e-3, β₁ 0.9, β₂ 0.999 unless stated."
+  },
+  {
+   "title": "Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift",
+   "authors": [
+    "Sergey Ioffe",
+    "Christian Szegedy"
+   ],
+   "year": 2015,
+   "venue": "ICML",
+   "status": "read",
+   "rating": 3,
+   "readDaysAgo": 210,
+   "arxiv_id": "1502.03167",
+   "tags": [
+    "cnn",
+    "optimisation",
+    "foundations"
+   ],
+   "summary": "Used in the ResNet encoder; disabled in the decoder after it hurt reconstruction (exp-02 note)."
+  },
+  {
+   "title": "Dropout: A Simple Way to Prevent Neural Networks from Overfitting",
+   "authors": [
+    "Nitish Srivastava",
+    "Geoffrey Hinton",
+    "Alex Krizhevsky",
+    "Ilya Sutskever",
+    "Ruslan Salakhutdinov"
+   ],
+   "year": 2014,
+   "venue": "JMLR",
+   "status": "skimmed",
+   "tags": [
+    "regularisation",
+    "foundations"
+   ],
+   "summary": "Background only. Not used — KL already regularises the latent."
+  },
+  {
+   "title": "Inductive Representation Learning on Large Graphs",
+   "authors": [
+    "William L. Hamilton",
+    "Rex Ying",
+    "Jure Leskovec"
+   ],
+   "year": 2017,
+   "venue": "NeurIPS",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 55,
+   "arxiv_id": "1706.02216",
+   "tags": [
+    "gnn",
+    "graph-prior",
+    "inductive"
+   ],
+   "summary": "Neighbourhood sampling makes the graph encoder inductive — needed so unseen papers get a latent."
+  },
+  {
+   "title": "How Powerful are Graph Neural Networks?",
+   "authors": [
+    "Keyulu Xu",
+    "Weihua Hu",
+    "Jure Leskovec",
+    "Stefanie Jegelka"
+   ],
+   "year": 2019,
+   "venue": "ICLR",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 30,
+   "arxiv_id": "1810.00826",
+   "tags": [
+    "gnn",
+    "foundations",
+    "graph-prior"
+   ],
+   "summary": "WL-test expressiveness bound. Justifies sum aggregation in the graph-prior module (§3.2)."
+  },
+  {
+   "title": "Deep Graph Infomax",
+   "authors": [
+    "Petar Veličković",
+    "William Fedus",
+    "William L. Hamilton",
+    "Pietro Liò",
+    "Yoshua Bengio",
+    "R Devon Hjelm"
+   ],
+   "year": 2019,
+   "venue": "ICLR",
+   "status": "reading",
+   "arxiv_id": "1809.10341",
+   "tags": [
+    "gnn",
+    "self-supervised",
+    "contrastive"
+   ],
+   "summary": "Mutual-information objective on graphs — bridge between the contrastive and graph clusters."
+  },
+  {
+   "title": "Score-Based Generative Modeling through Stochastic Differential Equations",
+   "authors": [
+    "Yang Song",
+    "Jascha Sohl-Dickstein",
+    "Diederik P. Kingma",
+    "Abhishek Kumar",
+    "Stefano Ermon",
+    "Ben Poole"
+   ],
+   "year": 2021,
+   "venue": "ICLR",
+   "status": "to_read",
+   "arxiv_id": "2011.13456",
+   "tags": [
+    "diffusion",
+    "generative"
+   ],
+   "summary": "Unifies score matching and diffusion — only for the related-work paragraph on non-VAE generative models."
+  },
+  {
+   "title": "dSprites: Disentanglement Testing Sprites Dataset",
+   "authors": [
+    "Loïc Matthey",
+    "Irina Higgins",
+    "Demis Hassabis",
+    "Alexander Lerchner"
+   ],
+   "year": 2017,
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 95,
+   "url": "https://github.com/deepmind/dsprites-dataset",
+   "tags": [
+    "dataset",
+    "disentanglement"
+   ],
+   "summary": "The benchmark. 737,280 binary 64×64 images from 6 ground-truth factors. Every experiment here runs on it."
+  },
+  {
+   "title": "A Framework for the Quantitative Evaluation of Disentangled Representations",
+   "authors": [
+    "Cian Eastwood",
+    "Christopher K. I. Williams"
+   ],
+   "year": 2018,
+   "venue": "ICLR",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 35,
+   "tags": [
+    "disentanglement",
+    "evaluation"
+   ],
+   "summary": "Disentanglement / completeness / informativeness (DCI). Reported next to MIG in every results table."
+  },
+  {
+   "title": "Bootstrap Your Own Latent: A New Approach to Self-Supervised Learning",
+   "authors": [
+    "Jean-Bastien Grill",
+    "Florian Strub",
+    "Florent Altché",
+    "et al."
+   ],
+   "year": 2020,
+   "venue": "NeurIPS",
+   "status": "to_read",
+   "arxiv_id": "2006.07733",
+   "tags": [
+    "contrastive",
+    "self-supervised",
+    "representation-learning"
+   ],
+   "summary": "Contrastive learning without negatives — parked with SimCLR/MoCo as an encoder-init option."
+  },
+  {
+   "title": "Normalizing Flows: An Introduction and Review of Current Methods",
+   "authors": [
+    "Ivan Kobyzev",
+    "Simon J.D. Prince",
+    "Marcus A. Brubaker"
+   ],
+   "year": 2020,
+   "venue": "IEEE TPAMI",
+   "status": "skimmed",
+   "rating": 3,
+   "arxiv_id": "1908.09257",
+   "tags": [
+    "generative",
+    "survey",
+    "latent-variables"
+   ],
+   "summary": "Survey. A flow posterior is the obvious 'future work' for a tighter bound — one paragraph in Ch. 6."
+  },
+  {
+   "title": "On the Opportunities and Risks of Foundation Models",
+   "authors": [
+    "Rishi Bommasani",
+    "Drew A. Hudson",
+    "Ehsan Adeli",
+    "Russ Altman",
+    "Simran Arora",
+    "Sydney von Arx",
+    "Michael S. Bernstein",
+    "Jeannette Bohg",
+    "Antoine Bosselut",
+    "Emma Brunskill",
+    "Erik Brynjolfsson",
+    "Shyamal Buch",
+    "Dallas Card",
+    "Rodrigo Castellon",
+    "Niladri Chatterji",
+    "Annie Chen",
+    "Percy Liang"
+   ],
+   "year": 2021,
+   "venue": "arXiv",
+   "status": "to_read",
+   "arxiv_id": "2108.07258",
+   "url": "https://arxiv.org/abs/2108.07258",
+   "tags": [
+    "survey",
+    "foundations",
+    "representation-learning"
+   ],
+   "summary": "Long report (100+ authors). Only the representation-learning chapter matters here — skim for the intro framing of Ch. 1."
+  },
+  {
+   "title": "Weakly-Supervised Disentanglement Without Compromises",
+   "authors": [
+    "Francesco Locatello",
+    "Ben Poole",
+    "Gunnar Rätsch",
+    "Bernhard Schölkopf",
+    "Olivier Bachem",
+    "Michael Tschannen"
+   ],
+   "year": 2020,
+   "venue": "ICML",
+   "status": "reading",
+   "arxiv_id": "2002.02886",
+   "url": "https://arxiv.org/abs/2002.02886",
+   "tags": [
+    "disentanglement",
+    "vae",
+    "weak-supervision"
+   ],
+   "summary": "The follow-up to the impossibility result: pairs of observations that share factors are enough. Closest competitor to a graph prior as a source of inductive bias."
+  },
+  {
+   "title": "Understanding disentangling in β-VAE",
+   "authors": [
+    "Christopher P. Burgess",
+    "Irina Higgins",
+    "Arka Pal",
+    "Loic Matthey",
+    "Nick Watters",
+    "Guillaume Desjardins",
+    "Alexander Lerchner"
+   ],
+   "year": 2018,
+   "venue": "arXiv",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 60,
+   "arxiv_id": "1804.03599",
+   "url": "https://arxiv.org/abs/1804.03599",
+   "tags": [
+    "disentanglement",
+    "vae",
+    "beta-vae"
+   ],
+   "summary": "Capacity annealing explains *why* β-VAE disentangles. Use the information-bottleneck view in §2.1.2."
+  },
+  {
+   "title": "Representation Learning: A Review and New Perspectives",
+   "authors": [
+    "Yoshua Bengio",
+    "Aaron Courville",
+    "Pascal Vincent"
+   ],
+   "year": 2013,
+   "venue": "IEEE TPAMI",
+   "status": "read",
+   "rating": 5,
+   "readDaysAgo": 150,
+   "arxiv_id": "1206.5538",
+   "url": "https://arxiv.org/abs/1206.5538",
+   "tags": [
+    "foundations",
+    "representation-learning",
+    "survey"
+   ],
+   "summary": "The priors list (smoothness, multiple factors, hierarchy…) frames the whole thesis. Cite in the first paragraph."
+  },
+  {
+   "title": "Stochastic Backpropagation and Approximate Inference in Deep Generative Models",
+   "authors": [
+    "Danilo Jimenez Rezende",
+    "Shakir Mohamed",
+    "Daan Wierstra"
+   ],
+   "year": 2014,
+   "venue": "ICML",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 135,
+   "arxiv_id": "1401.4082",
+   "url": "https://arxiv.org/abs/1401.4082",
+   "tags": [
+    "vae",
+    "foundations",
+    "variational-inference"
+   ],
+   "summary": "The other origin of the reparameterisation trick, same year as Kingma & Welling. Cite both together in §2.1."
+  },
+  {
+   "title": "Variational Inference with Normalizing Flows",
+   "authors": [
+    "Danilo Jimenez Rezende",
+    "Shakir Mohamed"
+   ],
+   "year": 2015,
+   "venue": "ICML",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 120,
+   "arxiv_id": "1505.05770",
+   "url": "https://arxiv.org/abs/1505.05770",
+   "tags": [
+    "flows",
+    "variational-inference"
+   ],
+   "summary": "Richer posteriors via flows. Not used, but the reviewer will ask why our posterior is Gaussian: answer is in §3.4."
+  },
+  {
+   "title": "Density estimation using Real NVP",
+   "authors": [
+    "Laurent Dinh",
+    "Jascha Sohl-Dickstein",
+    "Samy Bengio"
+   ],
+   "year": 2017,
+   "venue": "ICLR",
+   "status": "skimmed",
+   "arxiv_id": "1605.08803",
+   "url": "https://arxiv.org/abs/1605.08803",
+   "tags": [
+    "flows",
+    "generative-models"
+   ],
+   "summary": "Coupling layers. Background only."
+  },
+  {
+   "title": "Glow: Generative Flow with Invertible 1x1 Convolutions",
+   "authors": [
+    "Diederik P. Kingma",
+    "Prafulla Dhariwal"
+   ],
+   "year": 2018,
+   "venue": "NeurIPS",
+   "status": "skimmed",
+   "arxiv_id": "1807.03039",
+   "url": "https://arxiv.org/abs/1807.03039",
+   "tags": [
+    "flows",
+    "generative-models"
+   ],
+   "summary": "Latent interpolations figure is a nice contrast to our traversals."
+  },
+  {
+   "title": "Improved Variational Inference with Inverse Autoregressive Flow",
+   "authors": [
+    "Diederik P. Kingma",
+    "Tim Salimans",
+    "Rafal Jozefowicz",
+    "Xi Chen",
+    "Ilya Sutskever",
+    "Max Welling"
+   ],
+   "year": 2016,
+   "venue": "NeurIPS",
+   "status": "to_read",
+   "arxiv_id": "1606.04934",
+   "url": "https://arxiv.org/abs/1606.04934",
+   "tags": [
+    "flows",
+    "vae"
+   ],
+   "summary": "Free bits come from here — check before claiming it in the KL-collapse section."
+  },
+  {
+   "title": "NVAE: A Deep Hierarchical Variational Autoencoder",
+   "authors": [
+    "Arash Vahdat",
+    "Jan Kautz"
+   ],
+   "year": 2020,
+   "venue": "NeurIPS",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 75,
+   "arxiv_id": "2007.03898",
+   "url": "https://arxiv.org/abs/2007.03898",
+   "tags": [
+    "vae",
+    "hierarchical"
+   ],
+   "summary": "Spectral regularisation and residual cells keep deep VAEs stable. The warm-up schedule we use is theirs."
+  },
+  {
+   "title": "Very Deep VAEs Generalize Autoregressive Models and Can Outperform Them on Images",
+   "authors": [
+    "Rewon Child"
+   ],
+   "year": 2021,
+   "venue": "ICLR",
+   "status": "reading",
+   "arxiv_id": "2011.10650",
+   "url": "https://arxiv.org/abs/2011.10650",
+   "tags": [
+    "vae",
+    "hierarchical"
+   ],
+   "summary": "Depth over width. Gradient skipping trick might fix the exp-05 spikes."
+  },
+  {
+   "title": "Generating Sentences from a Continuous Space",
+   "authors": [
+    "Samuel R. Bowman",
+    "Luke Vilnis",
+    "Oriol Vinyals",
+    "Andrew M. Dai",
+    "Rafal Jozefowicz",
+    "Samy Bengio"
+   ],
+   "year": 2016,
+   "venue": "CoNLL",
+   "status": "read",
+   "rating": 3,
+   "readDaysAgo": 90,
+   "arxiv_id": "1511.06349",
+   "url": "https://arxiv.org/abs/1511.06349",
+   "tags": [
+    "vae",
+    "posterior-collapse"
+   ],
+   "summary": "First clear description of posterior collapse and KL annealing."
+  },
+  {
+   "title": "Cyclical Annealing Schedule: A Simple Approach to Mitigating KL Vanishing",
+   "authors": [
+    "Hao Fu",
+    "Chunyuan Li",
+    "Xiaodong Liu",
+    "Jianfeng Gao",
+    "Asli Celikyilmaz",
+    "Lawrence Carin"
+   ],
+   "year": 2019,
+   "venue": "NAACL",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 32,
+   "arxiv_id": "1903.10145",
+   "url": "https://arxiv.org/abs/1903.10145",
+   "tags": [
+    "vae",
+    "posterior-collapse"
+   ],
+   "summary": "Tried in exp-04: cyclical β fixed the collapse at depth 3. Keep as ablation row."
+  },
+  {
+   "title": "Lagging Inference Networks and Posterior Collapse in Variational Autoencoders",
+   "authors": [
+    "Junxian He",
+    "Daniel Spokoyny",
+    "Graham Neubig",
+    "Taylor Berg-Kirkpatrick"
+   ],
+   "year": 2019,
+   "venue": "ICLR",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 33,
+   "arxiv_id": "1901.05534",
+   "url": "https://arxiv.org/abs/1901.05534",
+   "tags": [
+    "vae",
+    "posterior-collapse"
+   ],
+   "summary": "Aggressive encoder updates. Explains why our encoder lags at the start of training."
+  },
+  {
+   "title": "Fixing a Broken ELBO",
+   "authors": [
+    "Alexander A. Alemi",
+    "Ben Poole",
+    "Ian Fischer",
+    "Joshua V. Dillon",
+    "Rif A. Saurous",
+    "Kevin Murphy"
+   ],
+   "year": 2018,
+   "venue": "ICML",
+   "status": "read",
+   "rating": 5,
+   "readDaysAgo": 40,
+   "arxiv_id": "1711.00464",
+   "url": "https://arxiv.org/abs/1711.00464",
+   "tags": [
+    "vae",
+    "information-theory"
+   ],
+   "summary": "Rate–distortion plane. Use their figure style for our β sweep."
+  },
+  {
+   "title": "Deep Variational Information Bottleneck",
+   "authors": [
+    "Alexander A. Alemi",
+    "Ian Fischer",
+    "Joshua V. Dillon",
+    "Kevin Murphy"
+   ],
+   "year": 2017,
+   "venue": "ICLR",
+   "status": "skimmed",
+   "arxiv_id": "1612.00410",
+   "url": "https://arxiv.org/abs/1612.00410",
+   "tags": [
+    "information-theory"
+   ],
+   "summary": "IB view of β. One sentence in §2.1.2."
+  },
+  {
+   "title": "Wasserstein Auto-Encoders",
+   "authors": [
+    "Ilya Tolstikhin",
+    "Olivier Bousquet",
+    "Sylvain Gelly",
+    "Bernhard Schölkopf"
+   ],
+   "year": 2018,
+   "venue": "ICLR",
+   "status": "to_read",
+   "arxiv_id": "1711.01558",
+   "url": "https://arxiv.org/abs/1711.01558",
+   "tags": [
+    "autoencoders",
+    "optimal-transport"
+   ],
+   "summary": "Alternative to the KL term. Read if the MMD baseline goes in."
+  },
+  {
+   "title": "Adversarial Autoencoders",
+   "authors": [
+    "Alireza Makhzani",
+    "Jonathon Shlens",
+    "Navdeep Jaitly",
+    "Ian Goodfellow",
+    "Brendan Frey"
+   ],
+   "year": 2015,
+   "venue": "arXiv",
+   "status": "skimmed",
+   "arxiv_id": "1511.05644",
+   "url": "https://arxiv.org/abs/1511.05644",
+   "tags": [
+    "autoencoders",
+    "gan"
+   ],
+   "summary": "Prior matching by adversary. Related-work only."
+  },
+  {
+   "title": "Generating Diverse High-Fidelity Images with VQ-VAE-2",
+   "authors": [
+    "Ali Razavi",
+    "Aaron van den Oord",
+    "Oriol Vinyals"
+   ],
+   "year": 2019,
+   "venue": "NeurIPS",
+   "status": "skimmed",
+   "arxiv_id": "1906.00446",
+   "url": "https://arxiv.org/abs/1906.00446",
+   "tags": [
+    "vae",
+    "discrete-latents"
+   ],
+   "summary": "Hierarchical codebooks. Out of scope, cite with VQ-VAE."
+  },
+  {
+   "title": "Structured Disentangled Representations",
+   "authors": [
+    "Babak Esmaeili",
+    "Hao Wu",
+    "Sarthak Jain",
+    "Alican Bozkurt",
+    "N. Siddharth",
+    "Brooks Paige",
+    "Dana H. Brooks",
+    "Jennifer Dy",
+    "Jan-Willem van de Meent"
+   ],
+   "year": 2019,
+   "venue": "AISTATS",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 55,
+   "arxiv_id": "1804.02086",
+   "url": "https://arxiv.org/abs/1804.02086",
+   "tags": [
+    "disentanglement",
+    "vae"
+   ],
+   "summary": "Hierarchical decomposition of the KL term. Our group-wise prior is a special case — say so."
+  },
+  {
+   "title": "Learning Disentangled Joint Continuous and Discrete Representations",
+   "authors": [
+    "Emilien Dupont"
+   ],
+   "year": 2018,
+   "venue": "NeurIPS",
+   "status": "read",
+   "rating": 3,
+   "readDaysAgo": 70,
+   "arxiv_id": "1804.00104",
+   "url": "https://arxiv.org/abs/1804.00104",
+   "tags": [
+    "disentanglement",
+    "discrete-latents"
+   ],
+   "summary": "JointVAE. Shape in dSprites is discrete; this handles it, we do not."
+  },
+  {
+   "title": "Are Disentangled Representations Helpful for Abstract Visual Reasoning?",
+   "authors": [
+    "Sjoerd van Steenkiste",
+    "Francesco Locatello",
+    "Jürgen Schmidhuber",
+    "Olivier Bachem"
+   ],
+   "year": 2019,
+   "venue": "NeurIPS",
+   "status": "to_read",
+   "arxiv_id": "1905.12506",
+   "url": "https://arxiv.org/abs/1905.12506",
+   "tags": [
+    "disentanglement",
+    "downstream"
+   ],
+   "summary": "Downstream evidence for why disentanglement matters. Needed for the motivation paragraph."
+  },
+  {
+   "title": "On the Fairness of Disentangled Representations",
+   "authors": [
+    "Francesco Locatello",
+    "Gabriele Abbati",
+    "Tom Rainforth",
+    "Stefan Bauer",
+    "Bernhard Schölkopf",
+    "Olivier Bachem"
+   ],
+   "year": 2019,
+   "venue": "NeurIPS",
+   "status": "skimmed",
+   "arxiv_id": "1905.13662",
+   "url": "https://arxiv.org/abs/1905.13662",
+   "tags": [
+    "disentanglement",
+    "fairness"
+   ],
+   "summary": "Possible future-work hook."
+  },
+  {
+   "title": "Towards a Definition of Disentangled Representations",
+   "authors": [
+    "Irina Higgins",
+    "David Amos",
+    "David Pfau",
+    "Sebastien Racaniere",
+    "Loic Matthey",
+    "Danilo Rezende",
+    "Alexander Lerchner"
+   ],
+   "year": 2018,
+   "venue": "arXiv",
+   "status": "read",
+   "rating": 5,
+   "readDaysAgo": 85,
+   "arxiv_id": "1812.02230",
+   "url": "https://arxiv.org/abs/1812.02230",
+   "tags": [
+    "disentanglement",
+    "theory"
+   ],
+   "summary": "Symmetry-based definition. The formal definition in §2.2 follows this."
+  },
+  {
+   "title": "Disentangling Disentanglement in Variational Autoencoders",
+   "authors": [
+    "Emile Mathieu",
+    "Tom Rainforth",
+    "N. Siddharth",
+    "Yee Whye Teh"
+   ],
+   "year": 2019,
+   "venue": "ICML",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 50,
+   "arxiv_id": "1812.02833",
+   "url": "https://arxiv.org/abs/1812.02833",
+   "tags": [
+    "disentanglement",
+    "vae",
+    "priors"
+   ],
+   "summary": "Decomposition = overlap + structure. Strongest argument that the prior matters, which is our thesis."
+  },
+  {
+   "title": "Unsupervised Model Selection for Variational Disentangled Representation Learning",
+   "authors": [
+    "Sunny Duan",
+    "Loic Matthey",
+    "Andre Saraiva",
+    "Nicholas Watters",
+    "Christopher P. Burgess",
+    "Alexander Lerchner",
+    "Irina Higgins"
+   ],
+   "year": 2020,
+   "venue": "ICLR",
+   "status": "reading",
+   "arxiv_id": "1905.12614",
+   "url": "https://arxiv.org/abs/1905.12614",
+   "tags": [
+    "disentanglement",
+    "evaluation"
+   ],
+   "summary": "UDR score. Could replace picking seeds by MIG on ground truth."
+  },
+  {
+   "title": "Toward Causal Representation Learning",
+   "authors": [
+    "Bernhard Schölkopf",
+    "Francesco Locatello",
+    "Stefan Bauer",
+    "Nan Rosemary Ke",
+    "Nal Kalchbrenner",
+    "Anirudh Goyal",
+    "Yoshua Bengio"
+   ],
+   "year": 2021,
+   "venue": "Proceedings of the IEEE",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 95,
+   "arxiv_id": "2102.11107",
+   "url": "https://arxiv.org/abs/2102.11107",
+   "tags": [
+    "causality",
+    "representation-learning",
+    "survey"
+   ],
+   "summary": "Graph prior ≈ weak causal structure. Frame §6 future work around this."
+  },
+  {
+   "title": "CausalVAE: Disentangled Representation Learning via Neural Structural Causal Models",
+   "authors": [
+    "Mengyue Yang",
+    "Furui Liu",
+    "Zhitang Chen",
+    "Xinwei Shen",
+    "Jianye Hao",
+    "Jun Wang"
+   ],
+   "year": 2021,
+   "venue": "CVPR",
+   "status": "read",
+   "rating": 3,
+   "readDaysAgo": 45,
+   "arxiv_id": "2004.08697",
+   "url": "https://arxiv.org/abs/2004.08697",
+   "tags": [
+    "causality",
+    "disentanglement",
+    "vae"
+   ],
+   "summary": "Closest prior work: a DAG over latents. Needs labels; we do not. Key comparison in §2.4."
+  },
+  {
+   "title": "Variational Autoencoders and Nonlinear ICA: A Unifying Framework",
+   "authors": [
+    "Ilyes Khemakhem",
+    "Diederik P. Kingma",
+    "Ricardo Pio Monti",
+    "Aapo Hyvärinen"
+   ],
+   "year": 2020,
+   "venue": "AISTATS",
+   "status": "reading",
+   "arxiv_id": "1907.04809",
+   "url": "https://arxiv.org/abs/1907.04809",
+   "tags": [
+    "identifiability",
+    "vae",
+    "theory"
+   ],
+   "summary": "iVAE identifiability. Does a graph prior count as an auxiliary variable? Ask supervisor."
+  },
+  {
+   "title": "Spatial Broadcast Decoder: A Simple Architecture for Learning Disentangled Representations in VAEs",
+   "authors": [
+    "Nicholas Watters",
+    "Loic Matthey",
+    "Christopher P. Burgess",
+    "Alexander Lerchner"
+   ],
+   "year": 2019,
+   "venue": "arXiv",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 65,
+   "arxiv_id": "1901.07017",
+   "url": "https://arxiv.org/abs/1901.07017",
+   "tags": [
+    "disentanglement",
+    "architecture"
+   ],
+   "summary": "Decoder used in all our runs since exp-02. Must cite in §4.1."
+  },
+  {
+   "title": "MONet: Unsupervised Scene Decomposition and Representation",
+   "authors": [
+    "Christopher P. Burgess",
+    "Loic Matthey",
+    "Nicholas Watters",
+    "Rishabh Kabra",
+    "Irina Higgins",
+    "Matt Botvinick",
+    "Alexander Lerchner"
+   ],
+   "year": 2019,
+   "venue": "arXiv",
+   "status": "skimmed",
+   "arxiv_id": "1901.11390",
+   "url": "https://arxiv.org/abs/1901.11390",
+   "tags": [
+    "object-centric"
+   ],
+   "summary": "Object-centric line. Related work, one paragraph."
+  },
+  {
+   "title": "Object-Centric Learning with Slot Attention",
+   "authors": [
+    "Francesco Locatello",
+    "Dirk Weissenborn",
+    "Thomas Unterthiner",
+    "Aravindh Mahendran",
+    "Georg Heigold",
+    "Jakob Uszkoreit",
+    "Alexey Dosovitskiy",
+    "Thomas Kipf"
+   ],
+   "year": 2020,
+   "venue": "NeurIPS",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 80,
+   "arxiv_id": "2006.15055",
+   "url": "https://arxiv.org/abs/2006.15055",
+   "tags": [
+    "object-centric",
+    "attention"
+   ],
+   "summary": "Slots as a structural prior — sibling idea to ours, at object level."
+  },
+  {
+   "title": "Multi-Object Representation Learning with Iterative Variational Inference",
+   "authors": [
+    "Klaus Greff",
+    "Raphaël Lopez Kaufman",
+    "Rishabh Kabra",
+    "Nick Watters",
+    "Chris Burgess",
+    "Daniel Zoran",
+    "Loic Matthey",
+    "Matthew Botvinick",
+    "Alexander Lerchner"
+   ],
+   "year": 2019,
+   "venue": "ICML",
+   "status": "to_read",
+   "arxiv_id": "1903.00450",
+   "url": "https://arxiv.org/abs/1903.00450",
+   "tags": [
+    "object-centric",
+    "vae"
+   ],
+   "summary": "IODINE. Only if the object-centric paragraph grows."
+  },
+  {
+   "title": "Neural Message Passing for Quantum Chemistry",
+   "authors": [
+    "Justin Gilmer",
+    "Samuel S. Schoenholz",
+    "Patrick F. Riley",
+    "Oriol Vinyals",
+    "George E. Dahl"
+   ],
+   "year": 2017,
+   "venue": "ICML",
+   "status": "read",
+   "rating": 5,
+   "readDaysAgo": 125,
+   "arxiv_id": "1704.01212",
+   "url": "https://arxiv.org/abs/1704.01212",
+   "tags": [
+    "gnn",
+    "foundations"
+   ],
+   "summary": "MPNN framework. Our module is written in this notation (§3.2)."
+  },
+  {
+   "title": "Convolutional Neural Networks on Graphs with Fast Localized Spectral Filtering",
+   "authors": [
+    "Michaël Defferrard",
+    "Xavier Bresson",
+    "Pierre Vandergheynst"
+   ],
+   "year": 2016,
+   "venue": "NeurIPS",
+   "status": "skimmed",
+   "arxiv_id": "1606.09375",
+   "url": "https://arxiv.org/abs/1606.09375",
+   "tags": [
+    "gnn",
+    "spectral"
+   ],
+   "summary": "ChebNet. Background for GCN."
+  },
+  {
+   "title": "Spectral Networks and Locally Connected Networks on Graphs",
+   "authors": [
+    "Joan Bruna",
+    "Wojciech Zaremba",
+    "Arthur Szlam",
+    "Yann LeCun"
+   ],
+   "year": 2014,
+   "venue": "ICLR",
+   "status": "skimmed",
+   "arxiv_id": "1312.6203",
+   "url": "https://arxiv.org/abs/1312.6203",
+   "tags": [
+    "gnn",
+    "spectral"
+   ],
+   "summary": "First spectral GNN. History sentence only."
+  },
+  {
+   "title": "Gated Graph Sequence Neural Networks",
+   "authors": [
+    "Yujia Li",
+    "Daniel Tarlow",
+    "Marc Brockschmidt",
+    "Richard Zemel"
+   ],
+   "year": 2016,
+   "venue": "ICLR",
+   "status": "to_read",
+   "arxiv_id": "1511.05493",
+   "url": "https://arxiv.org/abs/1511.05493",
+   "tags": [
+    "gnn"
+   ],
+   "summary": "GRU updates — candidate for the sum/mean ablation."
+  },
+  {
+   "title": "Modeling Relational Data with Graph Convolutional Networks",
+   "authors": [
+    "Michael Schlichtkrull",
+    "Thomas N. Kipf",
+    "Peter Bloem",
+    "Rianne van den Berg",
+    "Ivan Titov",
+    "Max Welling"
+   ],
+   "year": 2018,
+   "venue": "ESWC",
+   "status": "skimmed",
+   "arxiv_id": "1703.06103",
+   "url": "https://arxiv.org/abs/1703.06103",
+   "tags": [
+    "gnn",
+    "knowledge-graphs"
+   ],
+   "summary": "R-GCN, typed edges. Needed if the prior gets edge types."
+  },
+  {
+   "title": "GraphRNN: Generating Realistic Graphs with Deep Auto-regressive Models",
+   "authors": [
+    "Jiaxuan You",
+    "Rex Ying",
+    "Xiang Ren",
+    "William L. Hamilton",
+    "Jure Leskovec"
+   ],
+   "year": 2018,
+   "venue": "ICML",
+   "status": "skimmed",
+   "arxiv_id": "1802.08773",
+   "url": "https://arxiv.org/abs/1802.08773",
+   "tags": [
+    "graph-generation"
+   ],
+   "summary": "Graph generation, not graph priors. Related work."
+  },
+  {
+   "title": "GraphVAE: Towards Generation of Small Graphs Using Variational Autoencoders",
+   "authors": [
+    "Martin Simonovsky",
+    "Nikos Komodakis"
+   ],
+   "year": 2018,
+   "venue": "ICANN",
+   "status": "read",
+   "rating": 3,
+   "readDaysAgo": 100,
+   "arxiv_id": "1802.03480",
+   "url": "https://arxiv.org/abs/1802.03480",
+   "tags": [
+    "graph-generation",
+    "vae"
+   ],
+   "summary": "VAE that outputs graphs — the opposite direction to ours. Say this clearly to avoid confusion."
+  },
+  {
+   "title": "Junction Tree Variational Autoencoder for Molecular Graph Generation",
+   "authors": [
+    "Wengong Jin",
+    "Regina Barzilay",
+    "Tommi Jaakkola"
+   ],
+   "year": 2018,
+   "venue": "ICML",
+   "status": "to_read",
+   "arxiv_id": "1802.04364",
+   "url": "https://arxiv.org/abs/1802.04364",
+   "tags": [
+    "graph-generation",
+    "vae",
+    "chemistry"
+   ],
+   "summary": "Structured latent with a tree. Check their decoder ablation."
+  },
+  {
+   "title": "Hierarchical Graph Representation Learning with Differentiable Pooling",
+   "authors": [
+    "Rex Ying",
+    "Jiaxuan You",
+    "Christopher Morris",
+    "Xiang Ren",
+    "William L. Hamilton",
+    "Jure Leskovec"
+   ],
+   "year": 2018,
+   "venue": "NeurIPS",
+   "status": "skimmed",
+   "arxiv_id": "1806.08804",
+   "url": "https://arxiv.org/abs/1806.08804",
+   "tags": [
+    "gnn",
+    "pooling"
+   ],
+   "summary": "DiffPool. Not used."
+  },
+  {
+   "title": "Simplifying Graph Convolutional Networks",
+   "authors": [
+    "Felix Wu",
+    "Tianyi Zhang",
+    "Amauri Holanda de Souza Jr.",
+    "Christopher Fifty",
+    "Tao Yu",
+    "Kilian Q. Weinberger"
+   ],
+   "year": 2019,
+   "venue": "ICML",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 60,
+   "arxiv_id": "1902.07153",
+   "url": "https://arxiv.org/abs/1902.07153",
+   "tags": [
+    "gnn",
+    "baselines"
+   ],
+   "summary": "SGC: linear baseline for the prior module. Added to the ablation table."
+  },
+  {
+   "title": "Deeper Insights into Graph Convolutional Networks for Semi-Supervised Learning",
+   "authors": [
+    "Qimai Li",
+    "Zhichao Han",
+    "Xiao-Ming Wu"
+   ],
+   "year": 2018,
+   "venue": "AAAI",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 34,
+   "arxiv_id": "1801.07606",
+   "url": "https://arxiv.org/abs/1801.07606",
+   "tags": [
+    "gnn",
+    "oversmoothing"
+   ],
+   "summary": "Over-smoothing. Explains why depth 3 hurts MIG in exp-06."
+  },
+  {
+   "title": "Graph Contrastive Learning with Augmentations",
+   "authors": [
+    "Yuning You",
+    "Tianlong Chen",
+    "Yongduo Sui",
+    "Ting Chen",
+    "Zhangyang Wang",
+    "Yang Shen"
+   ],
+   "year": 2020,
+   "venue": "NeurIPS",
+   "status": "to_read",
+   "arxiv_id": "2010.13902",
+   "url": "https://arxiv.org/abs/2010.13902",
+   "tags": [
+    "gnn",
+    "contrastive"
+   ],
+   "summary": "GraphCL. Only if the contrastive variant survives."
+  },
+  {
+   "title": "Strategies for Pre-training Graph Neural Networks",
+   "authors": [
+    "Weihua Hu",
+    "Bowen Liu",
+    "Joseph Gomes",
+    "Marinka Zitnik",
+    "Percy Liang",
+    "Vijay Pande",
+    "Jure Leskovec"
+   ],
+   "year": 2020,
+   "venue": "ICLR",
+   "status": "skimmed",
+   "arxiv_id": "1905.12265",
+   "url": "https://arxiv.org/abs/1905.12265",
+   "tags": [
+    "gnn",
+    "pretraining"
+   ],
+   "summary": "Pre-training the prior module is future work."
+  },
+  {
+   "title": "Open Graph Benchmark: Datasets for Machine Learning on Graphs",
+   "authors": [
+    "Weihua Hu",
+    "Matthias Fey",
+    "Marinka Zitnik",
+    "Yuxiao Dong",
+    "Hongyu Ren",
+    "Bowen Liu",
+    "Michele Catasta",
+    "Jure Leskovec"
+   ],
+   "year": 2020,
+   "venue": "NeurIPS",
+   "status": "skimmed",
+   "arxiv_id": "2005.00687",
+   "url": "https://arxiv.org/abs/2005.00687",
+   "tags": [
+    "gnn",
+    "datasets"
+   ],
+   "summary": "Not our task, but reviewers know it. One footnote."
+  },
+  {
+   "title": "Fast Graph Representation Learning with PyTorch Geometric",
+   "authors": [
+    "Matthias Fey",
+    "Jan Eric Lenssen"
+   ],
+   "year": 2019,
+   "venue": "ICLR Workshop",
+   "status": "read",
+   "rating": 3,
+   "readDaysAgo": 110,
+   "arxiv_id": "1903.02428",
+   "url": "https://arxiv.org/abs/1903.02428",
+   "tags": [
+    "gnn",
+    "software"
+   ],
+   "summary": "Library we use. Cite in §4 implementation."
+  },
+  {
+   "title": "Geometric Deep Learning: Grids, Groups, Graphs, Geodesics, and Gauges",
+   "authors": [
+    "Michael M. Bronstein",
+    "Joan Bruna",
+    "Taco Cohen",
+    "Petar Veličković"
+   ],
+   "year": 2021,
+   "venue": "arXiv",
+   "status": "reading",
+   "arxiv_id": "2104.13478",
+   "url": "https://arxiv.org/abs/2104.13478",
+   "tags": [
+    "gnn",
+    "theory",
+    "survey"
+   ],
+   "summary": "Ch. 4–5 for the symmetry argument. Long; reading in chunks."
+  },
+  {
+   "title": "Deep Unsupervised Learning using Nonequilibrium Thermodynamics",
+   "authors": [
+    "Jascha Sohl-Dickstein",
+    "Eric A. Weiss",
+    "Niru Maheswaranathan",
+    "Surya Ganguli"
+   ],
+   "year": 2015,
+   "venue": "ICML",
+   "status": "skimmed",
+   "arxiv_id": "1503.03585",
+   "url": "https://arxiv.org/abs/1503.03585",
+   "tags": [
+    "diffusion",
+    "foundations"
+   ],
+   "summary": "Origin of diffusion models. History sentence."
+  },
+  {
+   "title": "High-Resolution Image Synthesis with Latent Diffusion Models",
+   "authors": [
+    "Robin Rombach",
+    "Andreas Blattmann",
+    "Dominik Lorenz",
+    "Patrick Esser",
+    "Björn Ommer"
+   ],
+   "year": 2022,
+   "venue": "CVPR",
+   "status": "read",
+   "rating": 3,
+   "readDaysAgo": 105,
+   "arxiv_id": "2112.10752",
+   "url": "https://arxiv.org/abs/2112.10752",
+   "tags": [
+    "diffusion",
+    "generative-models"
+   ],
+   "summary": "Diffusion in an autoencoder's latent. Motivates good latents beyond VAEs."
+  },
+  {
+   "title": "Diffusion Models Beat GANs on Image Synthesis",
+   "authors": [
+    "Prafulla Dhariwal",
+    "Alex Nichol"
+   ],
+   "year": 2021,
+   "venue": "NeurIPS",
+   "status": "skimmed",
+   "arxiv_id": "2105.05233",
+   "url": "https://arxiv.org/abs/2105.05233",
+   "tags": [
+    "diffusion"
+   ],
+   "summary": "Background."
+  },
+  {
+   "title": "Improved Denoising Diffusion Probabilistic Models",
+   "authors": [
+    "Alex Nichol",
+    "Prafulla Dhariwal"
+   ],
+   "year": 2021,
+   "venue": "ICML",
+   "status": "to_read",
+   "arxiv_id": "2102.09672",
+   "url": "https://arxiv.org/abs/2102.09672",
+   "tags": [
+    "diffusion"
+   ],
+   "summary": "Cosine schedule — maybe for the β schedule analogy."
+  },
+  {
+   "title": "Variational Diffusion Models",
+   "authors": [
+    "Diederik P. Kingma",
+    "Tim Salimans",
+    "Ben Poole",
+    "Jonathan Ho"
+   ],
+   "year": 2021,
+   "venue": "NeurIPS",
+   "status": "to_read",
+   "arxiv_id": "2107.00630",
+   "url": "https://arxiv.org/abs/2107.00630",
+   "tags": [
+    "diffusion",
+    "vae"
+   ],
+   "summary": "Diffusion as a deep VAE. Bridge paragraph between Ch. 2.1 and 2.3."
+  },
+  {
+   "title": "Unsupervised Representation Learning with Deep Convolutional Generative Adversarial Networks",
+   "authors": [
+    "Alec Radford",
+    "Luke Metz",
+    "Soumith Chintala"
+   ],
+   "year": 2016,
+   "venue": "ICLR",
+   "status": "read",
+   "rating": 3,
+   "readDaysAgo": 145,
+   "arxiv_id": "1511.06434",
+   "url": "https://arxiv.org/abs/1511.06434",
+   "tags": [
+    "gan",
+    "representation-learning"
+   ],
+   "summary": "DCGAN. Encoder/decoder conv layout follows their guidelines."
+  },
+  {
+   "title": "A Style-Based Generator Architecture for Generative Adversarial Networks",
+   "authors": [
+    "Tero Karras",
+    "Samuli Laine",
+    "Timo Aila"
+   ],
+   "year": 2019,
+   "venue": "CVPR",
+   "status": "skimmed",
+   "arxiv_id": "1812.04948",
+   "url": "https://arxiv.org/abs/1812.04948",
+   "tags": [
+    "gan",
+    "disentanglement"
+   ],
+   "summary": "Perceptual path length as a disentanglement proxy. Maybe one metric row."
+  },
+  {
+   "title": "Representation Learning with Contrastive Predictive Coding",
+   "authors": [
+    "Aaron van den Oord",
+    "Yazhe Li",
+    "Oriol Vinyals"
+   ],
+   "year": 2018,
+   "venue": "arXiv",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 115,
+   "arxiv_id": "1807.03748",
+   "url": "https://arxiv.org/abs/1807.03748",
+   "tags": [
+    "contrastive",
+    "information-theory"
+   ],
+   "summary": "InfoNCE bound. Used in the contrastive variant's loss."
+  },
+  {
+   "title": "Learning Deep Representations by Mutual Information Estimation and Maximization",
+   "authors": [
+    "R Devon Hjelm",
+    "Alex Fedorov",
+    "Samuel Lavoie-Marchildon",
+    "Karan Grewal",
+    "Phil Bachman",
+    "Adam Trischler",
+    "Yoshua Bengio"
+   ],
+   "year": 2019,
+   "venue": "ICLR",
+   "status": "skimmed",
+   "arxiv_id": "1808.06670",
+   "url": "https://arxiv.org/abs/1808.06670",
+   "tags": [
+    "contrastive",
+    "information-theory"
+   ],
+   "summary": "Deep InfoMax; DGI's parent."
+  },
+  {
+   "title": "Emerging Properties in Self-Supervised Vision Transformers",
+   "authors": [
+    "Mathilde Caron",
+    "Hugo Touvron",
+    "Ishan Misra",
+    "Hervé Jégou",
+    "Julien Mairal",
+    "Piotr Bojanowski",
+    "Armand Joulin"
+   ],
+   "year": 2021,
+   "venue": "ICCV",
+   "status": "skimmed",
+   "arxiv_id": "2104.14294",
+   "url": "https://arxiv.org/abs/2104.14294",
+   "tags": [
+    "self-supervised",
+    "transformers"
+   ],
+   "summary": "DINO. SSL contrast for the intro."
+  },
+  {
+   "title": "Masked Autoencoders Are Scalable Vision Learners",
+   "authors": [
+    "Kaiming He",
+    "Xinlei Chen",
+    "Saining Xie",
+    "Yanghao Li",
+    "Piotr Dollár",
+    "Ross Girshick"
+   ],
+   "year": 2022,
+   "venue": "CVPR",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 100,
+   "arxiv_id": "2111.06377",
+   "url": "https://arxiv.org/abs/2111.06377",
+   "tags": [
+    "self-supervised",
+    "autoencoders"
+   ],
+   "summary": "Reconstruction objective still wins at scale — useful counterpoint to contrastive."
+  },
+  {
+   "title": "An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale",
+   "authors": [
+    "Alexey Dosovitskiy",
+    "Lucas Beyer",
+    "Alexander Kolesnikov",
+    "Dirk Weissenborn",
+    "Xiaohua Zhai",
+    "Thomas Unterthiner",
+    "Mostafa Dehghani",
+    "Matthias Minderer",
+    "Georg Heigold",
+    "Sylvain Gelly",
+    "Jakob Uszkoreit",
+    "Neil Houlsby"
+   ],
+   "year": 2021,
+   "venue": "ICLR",
+   "status": "skimmed",
+   "arxiv_id": "2010.11929",
+   "url": "https://arxiv.org/abs/2010.11929",
+   "tags": [
+    "transformers",
+    "vision"
+   ],
+   "summary": "ViT. Background."
+  },
+  {
+   "title": "Layer Normalization",
+   "authors": [
+    "Jimmy Lei Ba",
+    "Jamie Ryan Kiros",
+    "Geoffrey E. Hinton"
+   ],
+   "year": 2016,
+   "venue": "arXiv",
+   "status": "skimmed",
+   "arxiv_id": "1607.06450",
+   "url": "https://arxiv.org/abs/1607.06450",
+   "tags": [
+    "training",
+    "foundations"
+   ],
+   "summary": "Used in the prior module. Cite in §4.1."
+  },
+  {
+   "title": "Categorical Reparameterization with Gumbel-Softmax",
+   "authors": [
+    "Eric Jang",
+    "Shixiang Gu",
+    "Ben Poole"
+   ],
+   "year": 2017,
+   "venue": "ICLR",
+   "status": "read",
+   "rating": 4,
+   "readDaysAgo": 70,
+   "arxiv_id": "1611.01144",
+   "url": "https://arxiv.org/abs/1611.01144",
+   "tags": [
+    "discrete-latents",
+    "variational-inference"
+   ],
+   "summary": "Learned adjacency uses Gumbel-softmax edges (exp-07)."
+  },
+  {
+   "title": "Decoupled Weight Decay Regularization",
+   "authors": [
+    "Ilya Loshchilov",
+    "Frank Hutter"
+   ],
+   "year": 2019,
+   "venue": "ICLR",
+   "status": "skimmed",
+   "arxiv_id": "1711.05101",
+   "url": "https://arxiv.org/abs/1711.05101",
+   "tags": [
+    "training",
+    "optimisation"
+   ],
+   "summary": "AdamW — the optimiser in every config. One citation in §4."
+  }
+ ],
+ "SHOWCASE_PAPER_FIGURES": {
+  "Attention Is All You Need": [
+   [
+    "attention-arch",
+    "Transformer encoder block"
+   ]
+  ],
+  "Deep Residual Learning for Image Recognition": [
+   [
+    "resnet-block",
+    "Residual skip connection"
+   ]
+  ],
+  "Neural Discrete Representation Learning (VQ-VAE)": [
+   [
+    "vqvae-codebook",
+    "Vector quantisation codebook"
+   ]
+  ],
+  "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework": [
+   [
+    "beta-vae-heatmap",
+    "Latent factor traversals"
+   ],
+   [
+    "beta-sweep-bar",
+    "β vs reconstruction / disentanglement"
+   ]
+  ],
+  "A Survey on Graph Neural Networks for Knowledge Graphs": [
+   [
+    "gnn-graph",
+    "Graph neighbourhood"
+   ]
+  ],
+  "Your Method (Placeholder Preprint)": [
+   [
+    "method-overview",
+    "Proposed pipeline"
+   ]
+  ]
+ },
+ "SHOWCASE_PROJECT_COLOR": "#3b5b8c",
+ "SHOWCASE_PROJECT_NAME": "MSc Thesis (Showcase)",
+ "SHOWCASE_RELATIONS": [
+  [
+   "Your Method (Placeholder Preprint)",
+   "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "extends",
+   "Graph prior generalises β-VAE"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Variational Graph Auto-Encoders",
+   "builds_on"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Challenging Common Assumptions in the Unsupervised Learning of Disentangled Representations",
+   "cites",
+   "Inductive bias argument"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "A Survey on Graph Neural Networks for Knowledge Graphs",
+   "cites"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Variational Graph Auto-Encoders",
+   "cites"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Auto-Encoding Variational Bayes",
+   "cites"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Isolating Sources of Disentanglement in Variational Autoencoders",
+   "uses_method",
+   "MIG metric"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "A Framework for the Quantitative Evaluation of Disentangled Representations",
+   "uses_method",
+   "DCI metric"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "dSprites: Disentanglement Testing Sprites Dataset",
+   "uses_method",
+   "Benchmark"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "How Powerful are Graph Neural Networks?",
+   "uses_method",
+   "Sum aggregation"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Inductive Representation Learning on Large Graphs",
+   "builds_on",
+   "Inductive encoder"
+  ],
+  [
+   "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "Auto-Encoding Variational Bayes",
+   "extends"
+  ],
+  [
+   "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "FactorVAE: Disentangling by Factorising",
+   "cites"
+  ],
+  [
+   "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "dSprites: Disentanglement Testing Sprites Dataset",
+   "uses_method"
+  ],
+  [
+   "FactorVAE: Disentangling by Factorising",
+   "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "extends"
+  ],
+  [
+   "FactorVAE: Disentangling by Factorising",
+   "Auto-Encoding Variational Bayes",
+   "builds_on"
+  ],
+  [
+   "FactorVAE: Disentangling by Factorising",
+   "Challenging Common Assumptions in the Unsupervised Learning of Disentangled Representations",
+   "cites"
+  ],
+  [
+   "Isolating Sources of Disentanglement in Variational Autoencoders",
+   "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "extends",
+   "Decomposes the β penalty"
+  ],
+  [
+   "Isolating Sources of Disentanglement in Variational Autoencoders",
+   "FactorVAE: Disentangling by Factorising",
+   "similar",
+   "Both penalise total correlation"
+  ],
+  [
+   "Isolating Sources of Disentanglement in Variational Autoencoders",
+   "Auto-Encoding Variational Bayes",
+   "builds_on"
+  ],
+  [
+   "Variational Inference of Disentangled Latent Concepts from Unlabeled Observations",
+   "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "similar"
+  ],
+  [
+   "Variational Inference of Disentangled Latent Concepts from Unlabeled Observations",
+   "Auto-Encoding Variational Bayes",
+   "extends"
+  ],
+  [
+   "A Framework for the Quantitative Evaluation of Disentangled Representations",
+   "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "cites"
+  ],
+  [
+   "A Framework for the Quantitative Evaluation of Disentangled Representations",
+   "InfoGAN: Interpretable Representation Learning by Information Maximizing GANs",
+   "cites"
+  ],
+  [
+   "A Framework for the Quantitative Evaluation of Disentangled Representations",
+   "dSprites: Disentanglement Testing Sprites Dataset",
+   "uses_method"
+  ],
+  [
+   "Neural Discrete Representation Learning (VQ-VAE)",
+   "Auto-Encoding Variational Bayes",
+   "extends"
+  ],
+  [
+   "Neural Discrete Representation Learning (VQ-VAE)",
+   "Deep Residual Learning for Image Recognition",
+   "uses_method"
+  ],
+  [
+   "Neural Discrete Representation Learning (VQ-VAE)",
+   "Generative Adversarial Nets",
+   "cites"
+  ],
+  [
+   "Learning Structured Output Representation using Deep Conditional Generative Models",
+   "Auto-Encoding Variational Bayes",
+   "extends"
+  ],
+  [
+   "Importance Weighted Autoencoders",
+   "Auto-Encoding Variational Bayes",
+   "extends",
+   "Tighter bound"
+  ],
+  [
+   "Ladder Variational Autoencoders",
+   "Auto-Encoding Variational Bayes",
+   "extends"
+  ],
+  [
+   "Ladder Variational Autoencoders",
+   "Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift",
+   "uses_method"
+  ],
+  [
+   "Challenging Common Assumptions in the Unsupervised Learning of Disentangled Representations",
+   "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "contradicts",
+   "No free disentanglement"
+  ],
+  [
+   "Challenging Common Assumptions in the Unsupervised Learning of Disentangled Representations",
+   "FactorVAE: Disentangling by Factorising",
+   "cites"
+  ],
+  [
+   "Challenging Common Assumptions in the Unsupervised Learning of Disentangled Representations",
+   "Isolating Sources of Disentanglement in Variational Autoencoders",
+   "cites"
+  ],
+  [
+   "Challenging Common Assumptions in the Unsupervised Learning of Disentangled Representations",
+   "Variational Inference of Disentangled Latent Concepts from Unlabeled Observations",
+   "cites"
+  ],
+  [
+   "Challenging Common Assumptions in the Unsupervised Learning of Disentangled Representations",
+   "dSprites: Disentanglement Testing Sprites Dataset",
+   "uses_method"
+  ],
+  [
+   "InfoGAN: Interpretable Representation Learning by Information Maximizing GANs",
+   "Generative Adversarial Nets",
+   "extends"
+  ],
+  [
+   "InfoGAN: Interpretable Representation Learning by Information Maximizing GANs",
+   "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "similar"
+  ],
+  [
+   "Denoising Diffusion Probabilistic Models",
+   "Auto-Encoding Variational Bayes",
+   "similar"
+  ],
+  [
+   "Denoising Diffusion Probabilistic Models",
+   "Generative Adversarial Nets",
+   "similar"
+  ],
+  [
+   "Score-Based Generative Modeling through Stochastic Differential Equations",
+   "Denoising Diffusion Probabilistic Models",
+   "extends"
+  ],
+  [
+   "Normalizing Flows: An Introduction and Review of Current Methods",
+   "Auto-Encoding Variational Bayes",
+   "cites"
+  ],
+  [
+   "Normalizing Flows: An Introduction and Review of Current Methods",
+   "Denoising Diffusion Probabilistic Models",
+   "cites"
+  ],
+  [
+   "Graph Attention Networks",
+   "Attention Is All You Need",
+   "uses_method"
+  ],
+  [
+   "Graph Attention Networks",
+   "Semi-Supervised Classification with Graph Convolutional Networks",
+   "extends"
+  ],
+  [
+   "Graph Attention Networks",
+   "Relational Inductive Biases, Deep Learning, and Graph Networks",
+   "cites"
+  ],
+  [
+   "Variational Graph Auto-Encoders",
+   "Auto-Encoding Variational Bayes",
+   "extends"
+  ],
+  [
+   "Variational Graph Auto-Encoders",
+   "Semi-Supervised Classification with Graph Convolutional Networks",
+   "uses_method"
+  ],
+  [
+   "Variational Graph Auto-Encoders",
+   "Graph Attention Networks",
+   "cites"
+  ],
+  [
+   "Neural Relational Inference for Interacting Systems",
+   "Variational Graph Auto-Encoders",
+   "similar"
+  ],
+  [
+   "Neural Relational Inference for Interacting Systems",
+   "Graph Attention Networks",
+   "uses_method"
+  ],
+  [
+   "Neural Relational Inference for Interacting Systems",
+   "Relational Inductive Biases, Deep Learning, and Graph Networks",
+   "cites"
+  ],
+  [
+   "Relational Inductive Biases, Deep Learning, and Graph Networks",
+   "Semi-Supervised Classification with Graph Convolutional Networks",
+   "cites"
+  ],
+  [
+   "Relational Inductive Biases, Deep Learning, and Graph Networks",
+   "Graph Attention Networks",
+   "cites"
+  ],
+  [
+   "Inductive Representation Learning on Large Graphs",
+   "Semi-Supervised Classification with Graph Convolutional Networks",
+   "extends",
+   "Inductive, sampled neighbourhoods"
+  ],
+  [
+   "How Powerful are Graph Neural Networks?",
+   "Semi-Supervised Classification with Graph Convolutional Networks",
+   "contradicts",
+   "Mean aggregation loses expressiveness"
+  ],
+  [
+   "How Powerful are Graph Neural Networks?",
+   "Inductive Representation Learning on Large Graphs",
+   "cites"
+  ],
+  [
+   "Deep Graph Infomax",
+   "Semi-Supervised Classification with Graph Convolutional Networks",
+   "uses_method"
+  ],
+  [
+   "Deep Graph Infomax",
+   "Inductive Representation Learning on Large Graphs",
+   "cites"
+  ],
+  [
+   "Deep Graph Infomax",
+   "A Simple Framework for Contrastive Learning of Visual Representations (SimCLR)",
+   "similar",
+   "MI objective"
+  ],
+  [
+   "A Survey on Graph Neural Networks for Knowledge Graphs",
+   "Relational Inductive Biases, Deep Learning, and Graph Networks",
+   "cites"
+  ],
+  [
+   "A Survey on Graph Neural Networks for Knowledge Graphs",
+   "How Powerful are Graph Neural Networks?",
+   "cites"
+  ],
+  [
+   "A Survey on Graph Neural Networks for Knowledge Graphs",
+   "Inductive Representation Learning on Large Graphs",
+   "cites"
+  ],
+  [
+   "A Survey on Variational Autoencoders from a Green AI Perspective",
+   "Auto-Encoding Variational Bayes",
+   "cites"
+  ],
+  [
+   "A Survey on Variational Autoencoders from a Green AI Perspective",
+   "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "cites"
+  ],
+  [
+   "A Survey on Variational Autoencoders from a Green AI Perspective",
+   "Importance Weighted Autoencoders",
+   "cites"
+  ],
+  [
+   "A Survey on Variational Autoencoders from a Green AI Perspective",
+   "Ladder Variational Autoencoders",
+   "cites"
+  ],
+  [
+   "A Simple Framework for Contrastive Learning of Visual Representations (SimCLR)",
+   "Momentum Contrast for Unsupervised Visual Representation Learning (MoCo)",
+   "similar"
+  ],
+  [
+   "A Simple Framework for Contrastive Learning of Visual Representations (SimCLR)",
+   "Deep Residual Learning for Image Recognition",
+   "uses_method"
+  ],
+  [
+   "Momentum Contrast for Unsupervised Visual Representation Learning (MoCo)",
+   "Deep Residual Learning for Image Recognition",
+   "uses_method"
+  ],
+  [
+   "Momentum Contrast for Unsupervised Visual Representation Learning (MoCo)",
+   "A Simple Framework for Contrastive Learning of Visual Representations (SimCLR)",
+   "cites"
+  ],
+  [
+   "Bootstrap Your Own Latent: A New Approach to Self-Supervised Learning",
+   "A Simple Framework for Contrastive Learning of Visual Representations (SimCLR)",
+   "extends",
+   "Drops the negatives"
+  ],
+  [
+   "Bootstrap Your Own Latent: A New Approach to Self-Supervised Learning",
+   "Momentum Contrast for Unsupervised Visual Representation Learning (MoCo)",
+   "cites"
+  ],
+  [
+   "Attention Is All You Need",
+   "A Survey on Graph Neural Networks for Knowledge Graphs",
+   "cites"
+  ],
+  [
+   "Deep Residual Learning for Image Recognition",
+   "Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift",
+   "uses_method"
+  ],
+  [
+   "Deep Residual Learning for Image Recognition",
+   "Adam: A Method for Stochastic Optimization",
+   "cites"
+  ],
+  [
+   "Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift",
+   "Dropout: A Simple Way to Prevent Neural Networks from Overfitting",
+   "cites"
+  ],
+  [
+   "Semi-Supervised Classification with Graph Convolutional Networks",
+   "Relational Inductive Biases, Deep Learning, and Graph Networks",
+   "cites"
+  ],
+  [
+   "Semi-Supervised Classification with Graph Convolutional Networks",
+   "Adam: A Method for Stochastic Optimization",
+   "uses_method"
+  ],
+  [
+   "Understanding disentangling in β-VAE",
+   "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "builds_on",
+   "Capacity view of the KL term"
+  ],
+  [
+   "Weakly-Supervised Disentanglement Without Compromises",
+   "Challenging Common Assumptions in the Unsupervised Learning of Disentangled Representations",
+   "extends",
+   "Weak supervision escapes the impossibility result"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Representation Learning: A Review and New Perspectives",
+   "cites"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Weakly-Supervised Disentanglement Without Compromises",
+   "similar",
+   "Both add inductive bias; ours is a graph"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Disentangling Disentanglement in Variational Autoencoders",
+   "cites",
+   "The prior matters"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "CausalVAE: Disentangled Representation Learning via Neural Structural Causal Models",
+   "similar",
+   "DAG over latents, but supervised"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Neural Message Passing for Quantum Chemistry",
+   "uses_method",
+   "MPNN notation for the prior module"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Spatial Broadcast Decoder: A Simple Architecture for Learning Disentangled Representations in VAEs",
+   "uses_method"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Cyclical Annealing Schedule: A Simple Approach to Mitigating KL Vanishing",
+   "uses_method",
+   "Fixes collapse at depth 3"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Categorical Reparameterization with Gumbel-Softmax",
+   "uses_method",
+   "Learned adjacency"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Toward Causal Representation Learning",
+   "cites"
+  ],
+  [
+   "Your Method (Placeholder Preprint)",
+   "Structured Disentangled Representations",
+   "extends",
+   "Group-wise prior is a special case"
+  ],
+  [
+   "Stochastic Backpropagation and Approximate Inference in Deep Generative Models",
+   "Auto-Encoding Variational Bayes",
+   "similar",
+   "Same trick, same year"
+  ],
+  [
+   "Cyclical Annealing Schedule: A Simple Approach to Mitigating KL Vanishing",
+   "Generating Sentences from a Continuous Space",
+   "extends"
+  ],
+  [
+   "Lagging Inference Networks and Posterior Collapse in Variational Autoencoders",
+   "Generating Sentences from a Continuous Space",
+   "cites"
+  ],
+  [
+   "Fixing a Broken ELBO",
+   "Deep Variational Information Bottleneck",
+   "extends"
+  ],
+  [
+   "NVAE: A Deep Hierarchical Variational Autoencoder",
+   "Improved Variational Inference with Inverse Autoregressive Flow",
+   "builds_on"
+  ],
+  [
+   "Very Deep VAEs Generalize Autoregressive Models and Can Outperform Them on Images",
+   "NVAE: A Deep Hierarchical Variational Autoencoder",
+   "similar"
+  ],
+  [
+   "Generating Diverse High-Fidelity Images with VQ-VAE-2",
+   "Neural Discrete Representation Learning (VQ-VAE)",
+   "extends"
+  ],
+  [
+   "Glow: Generative Flow with Invertible 1x1 Convolutions",
+   "Density estimation using Real NVP",
+   "extends"
+  ],
+  [
+   "Disentangling Disentanglement in Variational Autoencoders",
+   "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "contradicts",
+   "Disentanglement is not just independence"
+  ],
+  [
+   "Unsupervised Model Selection for Variational Disentangled Representation Learning",
+   "Challenging Common Assumptions in the Unsupervised Learning of Disentangled Representations",
+   "cites"
+  ],
+  [
+   "Towards a Definition of Disentangled Representations",
+   "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+   "cites"
+  ],
+  [
+   "Variational Autoencoders and Nonlinear ICA: A Unifying Framework",
+   "Challenging Common Assumptions in the Unsupervised Learning of Disentangled Representations",
+   "contradicts",
+   "Identifiable with auxiliary variables"
+  ],
+  [
+   "Object-Centric Learning with Slot Attention",
+   "MONet: Unsupervised Scene Decomposition and Representation",
+   "cites"
+  ],
+  [
+   "Simplifying Graph Convolutional Networks",
+   "Semi-Supervised Classification with Graph Convolutional Networks",
+   "builds_on"
+  ],
+  [
+   "Semi-Supervised Classification with Graph Convolutional Networks",
+   "Convolutional Neural Networks on Graphs with Fast Localized Spectral Filtering",
+   "builds_on"
+  ],
+  [
+   "Convolutional Neural Networks on Graphs with Fast Localized Spectral Filtering",
+   "Spectral Networks and Locally Connected Networks on Graphs",
+   "extends"
+  ],
+  [
+   "Deeper Insights into Graph Convolutional Networks for Semi-Supervised Learning",
+   "Semi-Supervised Classification with Graph Convolutional Networks",
+   "cites",
+   "Over-smoothing"
+  ],
+  [
+   "GraphVAE: Towards Generation of Small Graphs Using Variational Autoencoders",
+   "Variational Graph Auto-Encoders",
+   "similar"
+  ],
+  [
+   "High-Resolution Image Synthesis with Latent Diffusion Models",
+   "Denoising Diffusion Probabilistic Models",
+   "builds_on"
+  ],
+  [
+   "Variational Diffusion Models",
+   "Denoising Diffusion Probabilistic Models",
+   "extends"
+  ],
+  [
+   "Masked Autoencoders Are Scalable Vision Learners",
+   "An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale",
+   "uses_method"
+  ],
+  [
+   "Representation Learning with Contrastive Predictive Coding",
+   "A Simple Framework for Contrastive Learning of Visual Representations (SimCLR)",
+   "similar"
+  ]
+ ],
+ "SHOWCASE_TITLES": {
+  "attention": "Attention Is All You Need",
+  "resnet": "Deep Residual Learning for Image Recognition",
+  "vae": "Auto-Encoding Variational Bayes",
+  "betaVae": "β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework",
+  "vqVae": "Neural Discrete Representation Learning (VQ-VAE)",
+  "factorVae": "FactorVAE: Disentangling by Factorising",
+  "locatello": "Challenging Common Assumptions in the Unsupervised Learning of Disentangled Representations",
+  "gan": "Generative Adversarial Nets",
+  "ddpm": "Denoising Diffusion Probabilistic Models",
+  "gcn": "Semi-Supervised Classification with Graph Convolutional Networks",
+  "gat": "Graph Attention Networks",
+  "vgae": "Variational Graph Auto-Encoders",
+  "nri": "Neural Relational Inference for Interacting Systems",
+  "battaglia": "Relational Inductive Biases, Deep Learning, and Graph Networks",
+  "gnnSurvey": "A Survey on Graph Neural Networks for Knowledge Graphs",
+  "vaeSurvey": "A Survey on Variational Autoencoders from a Green AI Perspective",
+  "simclr": "A Simple Framework for Contrastive Learning of Visual Representations (SimCLR)",
+  "moco": "Momentum Contrast for Unsupervised Visual Representation Learning (MoCo)",
+  "infogan": "InfoGAN: Interpretable Representation Learning by Information Maximizing GANs",
+  "ours": "Your Method (Placeholder Preprint)",
+  "cvae": "Learning Structured Output Representation using Deep Conditional Generative Models",
+  "iwae": "Importance Weighted Autoencoders",
+  "tcvae": "Isolating Sources of Disentanglement in Variational Autoencoders",
+  "dipVae": "Variational Inference of Disentangled Latent Concepts from Unlabeled Observations",
+  "ladder": "Ladder Variational Autoencoders",
+  "adam": "Adam: A Method for Stochastic Optimization",
+  "batchnorm": "Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift",
+  "dropout": "Dropout: A Simple Way to Prevent Neural Networks from Overfitting",
+  "graphsage": "Inductive Representation Learning on Large Graphs",
+  "gin": "How Powerful are Graph Neural Networks?",
+  "dgi": "Deep Graph Infomax",
+  "sde": "Score-Based Generative Modeling through Stochastic Differential Equations",
+  "dsprites": "dSprites: Disentanglement Testing Sprites Dataset",
+  "eastwood": "A Framework for the Quantitative Evaluation of Disentangled Representations",
+  "byol": "Bootstrap Your Own Latent: A New Approach to Self-Supervised Learning",
+  "flows": "Normalizing Flows: An Introduction and Review of Current Methods",
+  "foundation": "On the Opportunities and Risks of Foundation Models",
+  "weakly": "Weakly-Supervised Disentanglement Without Compromises",
+  "burgess": "Understanding disentangling in β-VAE",
+  "bengio": "Representation Learning: A Review and New Perspectives"
+ }
+}

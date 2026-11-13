@@ -1,8 +1,14 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { VaultPageSummary } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
-import { noteBacklinks, noteTags, scopeNotes } from "../application/note-derivations";
+import { readyCore } from "@/lib/rust-core";
+import { noteBacklinks, scopeNotes } from "../application/parts";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function note(id: string, title: string, bodyPreview = ""): VaultPageSummary {
   return { id, title, bodyPreview, sortOrder: 0, createdAt: "", updatedAt: "" } as VaultPageSummary;
@@ -31,8 +37,8 @@ test("a note does not backlink itself (34-25)", () => {
 });
 
 test("tags are distinct and sorted across notes (34-25)", () => {
-  assert.deepEqual(noteTags(all), ["x", "y"]);
-  assert.deepEqual(noteTags([]), []);
+  assert.deepEqual(readyCore().noteTags(all), ["x", "y"]);
+  assert.deepEqual(readyCore().noteTags([]), []);
 });
 
 test("no filters keep every note, in order (34-25)", () => {

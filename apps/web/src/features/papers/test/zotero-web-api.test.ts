@@ -1,6 +1,12 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
 import assert from "node:assert/strict";
-import { fetchAllZoteroItems, fetchZoteroItemKeys } from "../infrastructure/zotero-web-api";
+import { fetchAllZoteroItems, fetchZoteroItemKeys } from "../infrastructure/parts-3";
+
+before(async () => {
+  await loadTestCore();
+});
 
 interface Call { url: string }
 

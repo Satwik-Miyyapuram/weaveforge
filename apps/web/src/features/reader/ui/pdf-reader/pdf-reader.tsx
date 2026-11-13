@@ -9,77 +9,56 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import {
-  errorMessage,
-  clampScale,
-  readerKeyboardCommand,
-  resolveTextAnchor,
-  inkNoteWidthToPdfPoints,
-  screenPointToPdf,
-  translateInkPaths,
-  clampZoomFactor,
-  type AnchorConfidence,
-  type ReaderPageSize,
-  type DocumentSearchMatch,
-  type ReaderAnnotationType,
-  type FigureTarget,
-} from "@weaveforge/core";
-import type { InkColour, TextSelectionRange } from "@weaveforge/core";
+import { errorMessage, type ReaderAnnotationType, type FigureTarget } from "@weaveforge/core";
+import type { DocumentSearchMatch, ReaderPageSize, TextSelectionRange, AnchorConfidence } from "@weaveforge/wasm";
+import { readyCore, typedCore } from "@/lib/rust-core";
+import { readStored, writeStored } from "@/lib/safe-storage";
+import type { InkColour, ReaderAnnotation } from "@weaveforge/core";
 // The ink note's own bar, palette and nibs: the reader draws no toolbar of its
 // own. See `use-pen-prefs.ts` for how the two tool vocabularies line up.
 import {
   InkBar,
-  INK_RENDER_COLOURS,
+  InkPrintPreview,
   InkSelectionChip,
-  paletteHex,
-  readThemePalette,
   setToolColour,
   setToolQuickSlot,
-  useToolColours,
   type ToolColourId,
-  type InkPalette,
-  InkPrintPreview,
+  useToolColours,
 } from "@/features/ink";
+import { INK_RENDER_COLOURS } from "@/features/ink/render/webgl-renderer";
+import { readThemePalette, type InkPalette } from "@/features/ink/render/parts-1";
 import { useReaderPrint } from "./use-reader-print";
 import { getContainer } from "@/bootstrap";
 import {
   pageSpanFromSelection,
   selectionRangeFromDom,
   startOffsetInTextLayer,
-  textSelectionFromOffsets,
-} from "../../application/dom-selection-range";
+} from "../../application/parts-1";
 import {
+  bucketAnnotationsByPage,
   draftFromTextSelection,
+  draftPicture,
   draftTextBox,
-  textBoxFromRect,
-} from "../../application/draft-local-annotation";
-import {
-  isDismissTap,
   listedAnnotations,
-  toolOwnsThePage,
+  textBoxFromRect,
+} from "@weaveforge/wasm";
+import {
   type PagePress,
   type ReaderCreateTool,
-} from "../../application/reader-annotation-helpers";
-import { draftPicture } from "../../application/reader-picture";
+} from "../../application/parts";
 import { ReaderSearchBar } from "../reader-search-bar";
 import { ReaderOutline } from "../reader-outline";
 import { AnnotationOverlay, type TextEdit } from "../annotation-overlay";
-import { bucketAnnotationsByPage } from "../../application/project-annotation-geometry";
 import { AnnotationSidebar } from "../annotation-sidebar";
 import { SelectionCreateBar, boxAnchor, selectionAnchor, type SelectionAnchor } from "../selection-create-bar";
 import { MarkPopover } from "../mark-popover";
-import { markActions, markPopoverShown } from "../../application/mark-actions";
-import type { ReaderAnnotation } from "@weaveforge/core";
-import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
-import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { ToolbarSlot } from "@/components/toolbar-slot";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink } from "./overlays";
 import { readWritingPage, writeWritingPage } from "./writing-page";
-import { layoutMarginNotes } from "../../application/margin-notes";
+import { layoutMarginNotes } from "../../application/parts-2";
 import { useAnnotationContext } from "./use-annotation-context";
-import { useDarkPdf } from "./use-dark-pdf";
 import { useAnnotationActions } from "./use-annotation-actions";
 import { usePdfRendering } from "./use-pdf-rendering";
 import { usePdfPageWindow } from "./use-pdf-page-window";
@@ -95,9 +74,7 @@ import { ReferencePopoverHost } from "./reference-popover-host";
 import { CitationTextLayer } from "./citation-text-layer";
 import { FindMarks, FindOverlay } from "../find-overlay";
 import { TargetHighlightOverlay } from "./target-highlight-overlay";
-import { findMarks } from "../../application/find-marks";
 import { ReferencesPanel } from "../references-panel";
-import { buildLocusLink } from "../../application/build-locus-link";
 
 import type {
   JumpState,
@@ -108,13 +85,11 @@ import {
 } from "./constants";
 import {
   buildPageText,
-  isEditableTarget,
   loadPdfLib,
   pageScopedLocus,
   textItemsFromContent,
 } from "./pdf-document";
-import { readStored, writeStored } from "@/lib/safe-storage";
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/parts";
 import { Button, IconButton } from "@/components/button";
 import { RowButton, Swatch, ToolButton } from "@/components/controls";
 import { ViewSwitch } from "@/components/view-switch";
@@ -128,6 +103,7 @@ export function PdfReader({
   annotations = [],
   contentHash = "",
   paperTitle = "Paper",
+  viewOnly = false,
   quotationTypes,
   paperId,
   onAnnotationsChange,
@@ -164,8 +140,10 @@ export function PdfReader({
   // The writing page beside each PDF page is a setting, not the pen's: when it
   // followed the pen, every time the pen came out the pages halved and the
   // layout jumped from one page to two and back.
-  const [writingPage, setWritingPage] = useState(true);
+  const [writingPageSetting, setWritingPage] = useState(true);
   useEffect(() => setWritingPage(readWritingPage()), []);
+  // Nothing gets written on a view-only PDF, so it never has the writing page.
+  const writingPage = writingPageSetting && !viewOnly;
   const toggleWritingPage = useCallback((on: boolean) => {
     writeWritingPage(on);
     setWritingPage(on);
@@ -208,7 +186,7 @@ export function PdfReader({
    */
   const [inkPalette, setInkPalette] = useState<InkPalette>(INK_RENDER_COLOURS);
   useEffect(() => setInkPalette(readThemePalette(document)), []);
-  const hexOf = (colour: InkColour) => paletteHex(inkPalette, colour);
+  const hexOf = (colour: InkColour) => readyCore().paletteHex(inkPalette, colour);
   /** The tool whose colour the create actions draw with right now. */
   const colourTool = colourToolFor({ penOpen, penTool: pen.prefs.tool, pickedTool });
   const drawColour = toolColours[colourTool].colour;
@@ -222,8 +200,8 @@ export function PdfReader({
   /** The swatches a mark is recoloured from: the list of the tool that made it. */
   const markQuickHexes = (type: string) => toolColours[markColourTool(type)].quick.map(hexOf);
   /** The nib in PDF points, from the note's 0.1 mm — one nib set for both surfaces. */
-  const penWidth = inkNoteWidthToPdfPoints(pen.prefs.width);
-  // Focus, the workspace's way (`⌘⇧F`): the paper and nothing else. Per
+  const penWidth = readyCore().inkNoteWidthToPdfPoints(pen.prefs.width);
+  // Focus, the workspace's way (`F11`): the paper and nothing else. Per
   // session, not persisted — a reader that reopens with every control hidden
   // looks broken, not focused.
   const [focus, setFocus] = useState(false);
@@ -255,7 +233,6 @@ export function PdfReader({
     paperId,
     annotations,
   );
-  const darkPdf = useDarkPdf();
   const actions = useAnnotationActions({
     paperId,
     onAnnotationsChange,
@@ -315,7 +292,7 @@ export function PdfReader({
           ...ann.anchor,
           zoteroPosition: {
             ...position,
-            paths: translateInkPaths(position.paths, movePreview.dx, movePreview.dy),
+            paths: readyCore().translateInkPaths(position.paths, movePreview.dx, movePreview.dy),
           },
         },
       };
@@ -385,7 +362,7 @@ export function PdfReader({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isEditableTarget(event.target)) return;
+      if (event.defaultPrevented || typedCore().isEditableReaderTarget(event.target)) return;
       const active = document.activeElement;
       const ours = !active || active === document.body || rootRef.current?.contains(active);
       if (!ours) return;
@@ -393,7 +370,7 @@ export function PdfReader({
       const key = event.key.toLowerCase();
       const mod = (event.ctrlKey || event.metaKey) && !event.altKey;
 
-      if (mod && event.shiftKey && key === "f") {
+      if (event.key === "F11" && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
         event.preventDefault();
         k.toggleFocus();
         return;
@@ -422,13 +399,13 @@ export function PdfReader({
         return;
       }
 
-      const command = readerKeyboardCommand({
+      const command = readyCore().readerKeyboardCommand({
         key: event.key,
         code: event.code,
         ctrlKey: event.ctrlKey,
         metaKey: event.metaKey,
         altKey: event.altKey,
-        fromEditable: isEditableTarget(event.target),
+        fromEditable: typedCore().isEditableReaderTarget(event.target),
       });
       if (!command) return;
       event.preventDefault();
@@ -466,7 +443,7 @@ export function PdfReader({
    * its on-screen size, and the eraser's block. The pointer tool is left
    * alone — it is the arrow and the text I-beam the page already gives it.
    */
-  const nibPoints = createTool === "highlighter" ? inkNoteWidthToPdfPoints(pen.prefs.highlighterWidth) : penWidth;
+  const nibPoints = createTool === "highlighter" ? readyCore().inkNoteWidthToPdfPoints(pen.prefs.highlighterWidth) : penWidth;
   const pageCursor = canCreate
     ? inkCursorFor(createTool, { hex: createColor, diameterPx: nibPoints * scale })
     : undefined;
@@ -617,8 +594,8 @@ export function PdfReader({
   const markPopover = (() => {
     if (!markAt || markAt.id !== selectedAnnId) return null;
     const ann = annotations.find((a) => a.id === markAt.id);
-    const actions = ann ? markActions(ann) : null;
-    if (!ann || !actions || !markPopoverShown(ann, createTool)) return null;
+    const actions = ann ? readyCore().markActions(ann) : null;
+    if (!ann || !actions || !readyCore().markPopoverShown(ann, createTool)) return null;
     return { ann, actions, at: markAt.at };
   })();
 
@@ -732,7 +709,7 @@ export function PdfReader({
     (factor: number, focusX: number, focusY: number) => {
       const scroller = containerRef.current;
       const before = viewport.renderScale;
-      const applied = clampScale(before * factor) / before;
+      const applied = readyCore().clampScale(before * factor) / before;
       if (!Number.isFinite(applied) || applied === 1) {
         setZoomPreview(null);
         return;
@@ -936,7 +913,7 @@ export function PdfReader({
 
       // Negative dy zooms in (> 1), positive dy zooms out (< 1)
       const factorDelta = Math.exp(-dy * 0.002);
-      accumulatedFactor = clampZoomFactor(accumulatedFactor * factorDelta, baseScale);
+      accumulatedFactor = readyCore().clampZoomFactor(accumulatedFactor * factorDelta, baseScale);
 
       showPreview();
 
@@ -965,7 +942,7 @@ export function PdfReader({
       const ge = e as unknown as { scale?: number };
       if (!isPinching) return;
       const scaleVal = typeof ge.scale === "number" ? ge.scale : 1;
-      accumulatedFactor = clampZoomFactor(scaleVal, baseScale);
+      accumulatedFactor = readyCore().clampZoomFactor(scaleVal, baseScale);
       showPreview();
     };
 
@@ -1072,7 +1049,7 @@ export function PdfReader({
       const content = await pdfPage.getTextContent();
       const items = textItemsFromContent(content);
       const pageText = buildPageText(items);
-      const anchor = resolveTextAnchor(pageText.text, pageScopedLocus(locus));
+      const anchor = readyCore().resolveTextAnchor(pageText.text, pageScopedLocus(locus));
       return anchor?.confidence ?? null;
     },
     [pdf, locus],
@@ -1087,7 +1064,7 @@ export function PdfReader({
       const content = await pdfPage.getTextContent();
       const items = textItemsFromContent(content);
       const pageText = buildPageText(items);
-      const anchor = resolveTextAnchor(pageText.text, pageScopedLocus(locus));
+      const anchor = readyCore().resolveTextAnchor(pageText.text, pageScopedLocus(locus));
       if (!anchor) return;
 
       const host = containerRef.current?.querySelector<HTMLDivElement>(
@@ -1261,7 +1238,7 @@ export function PdfReader({
     if ((event.target as Element).closest?.(".pdf-reader-create-bar")) return;
     const down = pressRef.current;
     pressRef.current = null;
-    if (isDismissTap(down, { x: event.clientX, y: event.clientY, time: event.timeStamp }, pendingCreate !== null)) {
+    if (readyCore().isDismissTap(down, { x: event.clientX, y: event.clientY, time: event.timeStamp }, pendingCreate !== null)) {
       window.getSelection()?.removeAllRanges();
       setPendingCreate(null);
       return;
@@ -1299,7 +1276,7 @@ export function PdfReader({
       if (startOff) {
         const lastIdx = geometry.items.length - 1;
         const lastOff = geometry.items[lastIdx]!.str.length;
-        range = textSelectionFromOffsets(startOff, { itemIndex: lastIdx, offset: lastOff });
+        range = readyCore().textSelectionFromOffsets(startOff, { itemIndex: lastIdx, offset: lastOff });
       }
     }
     if (!range) {
@@ -1331,8 +1308,8 @@ export function PdfReader({
           if (isCrossPage && endBox && midY >= endBox.top - 1) {
             const left = cr.left - endBox.left;
             const top = cr.top - endBox.top;
-            const p1 = screenPointToPdf(left, top, pEnd);
-            const p2 = screenPointToPdf(left + cr.width, top + cr.height, pEnd);
+            const p1 = readyCore().screenPointToPdf(left, top, pEnd);
+            const p2 = readyCore().screenPointToPdf(left + cr.width, top + cr.height, pEnd);
             nextPageRects.push([
               Math.min(p1.x, p2.x),
               Math.min(p1.y, p2.y),
@@ -1342,8 +1319,8 @@ export function PdfReader({
           } else {
             const left = cr.left - startBox.left;
             const top = cr.top - startBox.top;
-            const p1 = screenPointToPdf(left, top, pStart);
-            const p2 = screenPointToPdf(left + cr.width, top + cr.height, pStart);
+            const p1 = readyCore().screenPointToPdf(left, top, pStart);
+            const p2 = readyCore().screenPointToPdf(left + cr.width, top + cr.height, pStart);
             exactRects.push([
               Math.min(p1.x, p2.x),
               Math.min(p1.y, p2.y),
@@ -1360,7 +1337,7 @@ export function PdfReader({
       type: "highlight",
       color: highlightHex,
       selection: range,
-      page: geometry,
+      page: { ...geometry, items: [...geometry.items] },
       exactRects: exactRects.length > 0 ? exactRects : undefined,
       nextPageRects: nextPageRects.length > 0 ? nextPageRects : undefined,
       fullText: fullText || undefined,
@@ -1416,7 +1393,7 @@ export function PdfReader({
       type,
       color,
       selection: pendingCreate.selection,
-      page: geometry,
+      page: { ...geometry, items: [...geometry.items] },
       exactRects: pendingCreate.exactRects,
       nextPageRects: pendingCreate.nextPageRects,
       fullText: pendingCreate.quote,
@@ -1483,7 +1460,7 @@ export function PdfReader({
 
   return (
     <div
-      className={`pdf-reader${darkPdf ? " pdf-reader--dark" : ""}${focus ? " is-focus" : ""}`}
+      className={`pdf-reader${focus ? " is-focus" : ""}`}
       ref={rootRef}
       tabIndex={0}
       role="region"
@@ -1494,13 +1471,12 @@ export function PdfReader({
           // actually be, so dragging over text previews the result instead of
           // showing the browser's default blue until you confirm.
           ["--reader-select-color" as string]: highlightHex,
-          ...(darkPdf ? { ["--pdf-dark-filter" as string]: darkPdfCanvasFilter() } : {}),
         } as CSSProperties
       }
     >
       {focus && (
         <span className="focus-exit">
-          <IconButton label="Exit focus" tip={`Exit focus (${shortcutLabel("⌘⇧F")})`} size="sm" onClick={toggleFocus}>
+          <IconButton label="Exit focus" tip={`Exit focus (${readyCore().shortcutLabel("F11", isMacPlatform())})`} size="sm" onClick={toggleFocus}>
             <FocusGlyph on />
           </IconButton>
         </span>
@@ -1529,17 +1505,19 @@ export function PdfReader({
         <div className="pdf-reader-tools">
           {/* Wide screens switch tabs in the expanded sidebar. */}
           <div className={`pdf-reader-group pdf-reader-more${toolbarExtra ? "" : " pdf-reader-narrow-only"}`}>
-            <ViewSwitch
-              label="Sidebar view"
-              className="pdf-reader-side-seg pdf-reader-narrow-only"
-              value={sideCollapsed ? null : activeSideTab}
-              onChange={selectSideTab}
-              options={sideTabs}
-            />
+            {!viewOnly && (
+              <ViewSwitch
+                label="Sidebar view"
+                className="pdf-reader-side-seg pdf-reader-narrow-only"
+                value={sideCollapsed ? null : activeSideTab}
+                onChange={selectSideTab}
+                options={sideTabs}
+              />
+            )}
             {toolbarExtra}
           </div>
           <span className="pdf-reader-focus-btn">
-            <IconButton size="sm" label="Focus" tip={`Focus (${shortcutLabel("⌘⇧F")})`} onClick={toggleFocus}>
+            <IconButton size="sm" label="Focus" tip={`Focus (${readyCore().shortcutLabel("F11", isMacPlatform())})`} onClick={toggleFocus}>
               <FocusGlyph on={false} />
             </IconButton>
           </span>
@@ -1550,6 +1528,7 @@ export function PdfReader({
             not mark greys its tools and keeps pages, view, find and more. */}
         <InkBar
           readOnly={!canCreate}
+          viewOnly={viewOnly}
           tool={barToolFor(pen.prefs.tool)}
           colour={drawColour}
           width={pen.prefs.width}
@@ -1571,7 +1550,7 @@ export function PdfReader({
             onFitWidth: penOpen ? undefined : viewport.fitWidth,
             onRotate: viewport.rotateClockwise,
             writingPage,
-            onWritingPage: toggleWritingPage,
+            onWritingPage: viewOnly ? undefined : toggleWritingPage,
           }}
           find={
             <ReaderSearchBar
@@ -1715,11 +1694,14 @@ export function PdfReader({
             they stay put while the pages move. */}
         <div className="pdf-reader-scroll-wrap">
         <FindMarks
-          marks={findMarks(
+          marks={readyCore().findMarks(
             find.matches,
             numPages,
-            (n) => pageItems.get(n),
-            (n) => pageGeometries.current.get(n)?.pageHeight ?? pageSize?.height ?? 0,
+            Array.from({ length: numPages }, (_, i) => ({
+              pageIndex: i,
+              items: pageItems.get(i + 1),
+              height: pageGeometries.current.get(i + 1)?.pageHeight ?? pageSize?.height ?? 0,
+            })),
           )}
           active={find.active}
         />
@@ -1821,7 +1803,7 @@ export function PdfReader({
             >
               <div
                 className={`pdf-reader-page${
-                  toolOwnsThePage(createTool) && canCreate ? " pdf-reader-page--draw" : ""
+                  readyCore().toolOwnsThePage(createTool) && canCreate ? " pdf-reader-page--draw" : ""
                 }${createTool === "erase" && canCreate ? " pdf-reader-page--erase" : ""}${
                   penSeen ? " pdf-reader-page--pen" : ""
                 }${flashPage === n ? " pdf-reader-flash" : ""}`}
@@ -1934,7 +1916,7 @@ export function PdfReader({
             hiding it moved the page under the pen. Focus gives the full width. */}
         {/* Collapsed, the whole column folds to one vertical tab that still
             says how many annotations wait behind it. */}
-        {sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
+        {!viewOnly && sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
           <span className="pdf-reader-side-rail">
           <RowButton
             aria-expanded={false}
@@ -1956,7 +1938,7 @@ export function PdfReader({
           </RowButton>
           </span>
         )}
-        {!sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
+        {!viewOnly && !sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
           <div className="pdf-reader-side is-list-open">
             <div className="pdf-reader-side-header">
               <ViewSwitch
@@ -2012,7 +1994,7 @@ export function PdfReader({
                 reportSections={reportSections}
                 pinsByKey={pinsByKey}
                 backlinks={
-                  selectedAnnId ? backlinksForAnnotation(backlinkHits, selectedAnnId) : []
+                  selectedAnnId ? readyCore().backlinksForAnnotation(backlinkHits, selectedAnnId) : []
                 }
                 onUpdateLocal={updateLocal}
                 onRemoveLocal={removeLocal}
@@ -2030,7 +2012,7 @@ export function PdfReader({
       </div>
       <ReferencePopoverHost
         refs={refs}
-        onOpenInReader={(id) => { window.location.assign(buildLocusLink({ paperId: id })); }}
+        onOpenInReader={(id) => { window.location.assign(readyCore().buildLocusLink({ paperId: id })); }}
       />
     </div>
   );

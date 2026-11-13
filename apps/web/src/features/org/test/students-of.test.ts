@@ -5,12 +5,13 @@
  * people below the reader in the supervisor tree, and the UI never says
  * "supervisee".
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Member } from "@weaveforge/core";
-import { studentsOf } from "../application/students-of";
+import { readyCore } from "@/lib/rust-core";
 
 const prof: Member = { id: "prof", role: "professor", fullName: "Test Professor B" };
 const phd: Member = { id: "phd", role: "phd", supervisorId: "prof", fullName: "PhD" };
@@ -18,17 +19,21 @@ const ms: Member = { id: "ms", role: "masters", supervisorId: "phd", fullName: "
 const otherMs: Member = { id: "ms2", role: "masters", supervisorId: "prof", fullName: "MSc 2" };
 const team = [prof, phd, ms, otherMs];
 
+before(async () => {
+  await loadTestCore();
+});
+
 test("a PhD student's students are below them, not their supervisor", () => {
-  assert.deepEqual(studentsOf("phd", team).map((m) => m.id), ["ms"]);
+  assert.deepEqual(readyCore().studentsOf("phd", team).map((m) => m.id), ["ms"]);
 });
 
 test("a professor's students include everyone below, at any depth", () => {
-  assert.deepEqual(studentsOf("prof", team).map((m) => m.id), ["phd", "ms", "ms2"]);
+  assert.deepEqual(readyCore().studentsOf("prof", team).map((m) => m.id), ["phd", "ms", "ms2"]);
 });
 
 test("a reader with nobody below has no students", () => {
-  assert.deepEqual(studentsOf("ms", team), []);
-  assert.deepEqual(studentsOf(undefined, team), []);
+  assert.deepEqual(readyCore().studentsOf("ms", team), []);
+  assert.deepEqual(readyCore().studentsOf(undefined, team), []);
 });
 
 test("the dashboard and Supervision use the tree, and say student", () => {

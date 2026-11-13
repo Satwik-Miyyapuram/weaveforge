@@ -1,7 +1,9 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import type { PageTextItem } from "@weaveforge/core";
-import { buildReferenceIndex, type ReferencePage } from "../application/reader-references";
+import type { ParsedReference } from "@weaveforge/core";
+import type { ReaderReferenceIndex, ReferencePage, PageTextItem } from "@weaveforge/wasm";
+import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 /** One text run at a page position, 10pt body unless told otherwise. */
 function run(str: string, { x = 72, y = 700, size = 10, eol = true }: { x?: number; y?: number; size?: number; eol?: boolean } = {}): PageTextItem {
@@ -29,7 +31,12 @@ const pages: ReferencePage[] = [
   ] },
 ];
 
-const index = buildReferenceIndex(pages, []);
+let index: ReaderReferenceIndex<ParsedReference>;
+
+before(loadTestCore);
+before(() => {
+  index = typedCore().buildReferenceIndex<ParsedReference>(pages, []);
+});
 
 test("the bibliography is parsed and indexed by entry number", () => {
   assert.equal(index.references.length, 3);
@@ -57,17 +64,17 @@ test("nothing inside the bibliography links back to itself, and quiet pages are 
 });
 
 test("the fingerprint is stable for the same text and keys are unique", () => {
-  assert.equal(index.fingerprint, buildReferenceIndex(pages, []).fingerprint);
+  assert.equal(index.fingerprint, typedCore().buildReferenceIndex<ParsedReference>(pages, []).fingerprint);
   assert.match(index.fingerprint, /^[0-9a-f]{16}$/);
   const keys = (index.mentionsByPage.get(1) ?? []).map((hit) => hit.key);
   assert.equal(new Set(keys).size, keys.length);
 });
 
 test("a document with no reference list yields no mentions and no crash", () => {
-  const result = buildReferenceIndex([{ pageNumber: 1, items: [run("No citations here.")] }], []);
+  const result = typedCore().buildReferenceIndex([{ pageNumber: 1, items: [run("No citations here.")] }], []);
   assert.deepEqual(result.references, []);
   assert.equal(result.mentionsByPage.size, 0);
-  assert.equal(buildReferenceIndex([], []).fingerprint, "");
+  assert.equal(typedCore().buildReferenceIndex([], []).fingerprint, "");
 });
 
 test("a hyperref link over the digits of `[2 ]` is the citation, widened to its brackets", () => {
@@ -91,14 +98,14 @@ test("a hyperref link over the digits of `[2 ]` is the citation, widened to its 
     pages[1]!,
     pages[2]!,
   ];
-  const citations = (buildReferenceIndex(linked, []).mentionsByPage.get(1) ?? []).filter((hit) => hit.kind === "citation");
+  const citations = (typedCore().buildReferenceIndex(linked, []).mentionsByPage.get(1) ?? []).filter((hit) => hit.kind === "citation");
   assert.equal(citations.length, 1);
   assert.deepEqual(citations[0]?.refIndexes, [2]);
   assert.deepEqual([citations[0]!.start, citations[0]!.end], [5, 9]);
 });
 
 test("a `[1, 2, 3]` cluster is one mention per number; a `[1–3]` range stays one", () => {
-  const cluster = buildReferenceIndex([
+  const cluster = typedCore().buildReferenceIndex([
     { pageNumber: 1, items: [run("Prior work [1, 2, 3] shows this.", { y: 700 }), ...Array.from({ length: 8 }, (_, i) => prose(688 - i * 12))] },
     pages[2]!,
   ], []);
@@ -110,7 +117,7 @@ test("a `[1, 2, 3]` cluster is one mention per number; a `[1–3]` range stays o
   assert.equal(new Set(hits.map((hit) => hit.key)).size, 3);
   assert.ok(hits.every((hit) => hit.rects?.length));
 
-  const range = buildReferenceIndex([
+  const range = typedCore().buildReferenceIndex([
     { pageNumber: 1, items: [run("Prior work [1–3] shows this.", { y: 700 }), ...Array.from({ length: 8 }, (_, i) => prose(688 - i * 12))] },
     pages[2]!,
   ], []);
@@ -136,7 +143,7 @@ test("external URL links on a page become url mentions", () => {
     },
     pages[2]!,
   ];
-  const result = buildReferenceIndex(pageWithUrl, []);
+  const result = typedCore().buildReferenceIndex(pageWithUrl, []);
   const urlHits = (result.mentionsByPage.get(1) ?? []).filter((hit) => hit.kind === "url");
   assert.equal(urlHits.length, 1);
   assert.equal(urlHits[0]?.url, "https://github.com/example/repo");
@@ -160,7 +167,7 @@ test("internal non-citation destination links become figure/jump mentions", () =
     },
     pages[2]!,
   ];
-  const result = buildReferenceIndex(pageWithDest, []);
+  const result = typedCore().buildReferenceIndex(pageWithDest, []);
   const jumpHits = (result.mentionsByPage.get(1) ?? []).filter((hit) => hit.kind === "figure");
   assert.equal(jumpHits.length, 1);
   assert.deepEqual(jumpHits[0]?.target, { page: 2, y: 500, label: "Section 3", kind: "dest" });

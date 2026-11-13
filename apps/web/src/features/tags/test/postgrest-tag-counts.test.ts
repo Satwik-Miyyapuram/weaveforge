@@ -6,10 +6,25 @@
  * project's tag ids, in URL-sized chunks.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import { before, test } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ITagRepository } from "@weaveforge/core";
 
-import { PostgrestTagRepository } from "../infrastructure/postgrest-tag-repository";
+import { projectUserCtx, rustRepository } from "@/backend/providers/postgrest/rust-repository";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+function tagRepo(db: SupabaseClient): ITagRepository {
+  return rustRepository<ITagRepository>(
+    db,
+    "tags",
+    ["getById", "findByName", "list", "listWithCounts", "save", "delete"],
+    projectUserCtx({ projectId: "P" }),
+  );
+}
+
+before(async () => {
+  await loadTestCore();
+});
 
 interface Link {
   tag_id: string;
@@ -56,8 +71,7 @@ test("counts only links to the project's tags, each paper once", async () => {
       { tag_id: "x", paper_id: "c" },
     ],
   );
-  const repo = new PostgrestTagRepository(db, { projectId: "P" });
-  const counts = await repo.listWithCounts();
+  const counts = await tagRepo(db).listWithCounts();
   assert.deepEqual(
     counts.map((t) => [t.id, t.paperCount]),
     [["t1", 2], ["t2", 0]],
@@ -68,7 +82,7 @@ test("counts only links to the project's tags, each paper once", async () => {
 
 test("no tags, no paper_tags read", async () => {
   const { db, reads } = fakeDb([tag("x", "OTHER")], [{ tag_id: "x", paper_id: "c" }]);
-  const counts = await new PostgrestTagRepository(db, { projectId: "P" }).listWithCounts();
+  const counts = await tagRepo(db).listWithCounts();
   assert.deepEqual(counts, []);
   assert.equal(reads.length, 0);
 });
@@ -77,7 +91,7 @@ test("many tags are read in chunks that fit a URL, and every count is kept", asy
   const many = Array.from({ length: 450 }, (_, i) => tag(`t${String(i).padStart(3, "0")}`));
   const links = many.map((t, i) => ({ tag_id: t.id, paper_id: `p${i % 7}` }));
   const { db, reads } = fakeDb(many, links);
-  const counts = await new PostgrestTagRepository(db, { projectId: "P" }).listWithCounts();
+  const counts = await tagRepo(db).listWithCounts();
   assert.equal(counts.length, 450);
   assert.ok(counts.every((t) => t.paperCount === 1));
   assert.ok(reads.length > 1);

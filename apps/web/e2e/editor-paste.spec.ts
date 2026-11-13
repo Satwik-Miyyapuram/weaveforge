@@ -27,7 +27,9 @@ let outDir: string;
 test.beforeAll(async () => {
   outDir = fs.mkdtempSync(path.join(os.tmpdir(), "weaveforge-editor-"));
   await build({
-    entryPoints: [path.join(ROOT, "e2e/fixtures/editor-harness.ts")],
+    // The boot entry loads the Rust core first; its .wasm is inlined (file:// cannot fetch it).
+    entryPoints: [path.join(ROOT, "e2e/fixtures/editor-harness-boot.ts")],
+    loader: { ".wasm": "binary" },
     bundle: true,
     outfile: path.join(outDir, "bundle.js"),
     format: "iife",
@@ -35,6 +37,9 @@ test.beforeAll(async () => {
     target: "es2020",
     // The app's own `@/…` specifiers; there is no tsconfig-paths step here.
     alias: { "@": path.join(ROOT, "src") },
+    // Next replaces `process.env.*` at build time; the editor's import graph reaches
+    // modules that read it at load (build-target via bootstrap), so do the same here.
+    define: { "process.env": "{}" },
     logLevel: "warning",
   });
   fs.writeFileSync(

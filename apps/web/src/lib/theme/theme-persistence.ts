@@ -36,8 +36,9 @@ import {
   type ThemeMode,
 } from "@/lib/theme/theme";
 import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
-import { singleFlight } from "@/lib/cache/single-flight";
+import { singleFlight } from "@/lib/cache/parts";
 import { removeStored, writeStored } from "@/lib/safe-storage";
+import { readyCore } from "@/lib/rust-core";
 
 let hydrating = false;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -65,12 +66,7 @@ export function readLocalAppearance(): UserAppearance {
  * keeps the local one, except `customTheme`: null there means "no custom theme".
  */
 export function mergeServerAppearance(local: UserAppearance, server: UserAppearance): UserAppearance {
-  const merged: UserAppearance = { ...local };
-  for (const [key, value] of Object.entries(server) as [keyof UserAppearance, unknown][]) {
-    if (value === undefined || (value === null && key !== "customTheme")) continue;
-    (merged as Record<string, unknown>)[key] = value;
-  }
-  return merged;
+  return readyCore().mergeServerAppearance(local, server) as UserAppearance;
 }
 
 function writeLocalAppearance(appearance: UserAppearance): void {
@@ -141,7 +137,7 @@ function scheduleAppearanceSave(appearance: UserAppearance): void {
 /** Best-effort server copy: a failure is logged, never thrown into the timer. */
 async function saveAppearance(appearance: UserAppearance): Promise<void> {
   try {
-    await getContainer().settings.manageSettings.saveAppearance(appearance);
+    await getContainer().settings.preferences.saveAppearance(appearance);
   } catch (error) {
     logToApp({
       level: "warn",
@@ -226,7 +222,7 @@ async function hydrateThemeFromServerUncached(): Promise<void> {
     }
 
     const local = readLocalAppearance();
-    await container.settings.manageSettings.saveAppearance(local);
+    await container.settings.preferences.saveAppearance(local);
   } finally {
     hydrating = false;
   }

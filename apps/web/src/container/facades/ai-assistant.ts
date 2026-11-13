@@ -1,3 +1,4 @@
+import { readyCore } from "@/lib/rust-core";
 import type {
   AiEvidence,
   Experiment,
@@ -15,11 +16,8 @@ import type {
 } from "@weaveforge/core";
 import {
   AI_TOOL_NAMES,
-  AiAccessPolicy,
-  aiReadCategoryForResource,
   CreateAiSessionGrantUseCase,
   CreateAiProposalDraftUseCase,
-  retrieveAiExcerpts,
   type AiAccessSettings,
   type AiActiveSession,
   type AiRetrievedExcerpt,
@@ -79,7 +77,9 @@ interface StoredZoteroEntry {
 export class AiAssistantFacade {
   private readonly sessions = new Map<string, AiActiveSession>();
   private readonly createGrant = new CreateAiSessionGrantUseCase();
-  private readonly policy = new AiAccessPolicy();
+  private get policy() {
+    return new (readyCore().AiAccessPolicy)();
+  }
   private readonly createProposal: CreateAiProposalDraftUseCase;
 
   constructor(
@@ -282,7 +282,7 @@ export class AiAssistantFacade {
   }): Promise<readonly AiRetrievedExcerpt[]> {
     const session = this.requireActiveSession(input.sessionId);
     const docs = await this.readGrantedDocuments(session, input.settings, "search_workspace");
-    return retrieveAiExcerpts(docs, input.query, { limit: input.limit });
+    return readyCore().retrieveAiExcerpts(docs, input.query, { limit: input.limit });
   }
 
   async getSourceExcerpt(input: {
@@ -390,8 +390,8 @@ export class AiAssistantFacade {
     const dynamicCategories = new Set(settings.autoIncludeNewSourceCategories ?? []);
     return [
       ...session.grant.readable,
-      ...sourceOptions.filter((source) => dynamicCategories.has(aiReadCategoryForResource(source.resourceType))
-        && settings.readCategories.includes(aiReadCategoryForResource(source.resourceType))
+      ...sourceOptions.filter((source) => dynamicCategories.has(readyCore().aiReadCategoryForResource(source.resourceType))
+        && settings.readCategories.includes(readyCore().aiReadCategoryForResource(source.resourceType))
         && !session.grant.readable.some((granted) => granted.sourceId === source.sourceId)),
     ];
   }

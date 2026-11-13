@@ -3,16 +3,15 @@
  * CRDT payloads are stored and broadcast as plaintext bytes (RLS + at-rest).
  */
 
-import type { RealtimeChannel } from "@supabase/supabase-js";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { getRealtimeClient } from "@/backend/providers/postgrest/client";
-import type { CompactCrdtLogUseCase, ICrdtUpdateStore } from "@weaveforge/core";
+import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
+import { getRealtimeClient } from "@/backend/providers/postgrest/parts-1";
+import type { ICrdtUpdateStore } from "@weaveforge/core";
 import type { Awareness } from "y-protocols/awareness";
 import { applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from "y-protocols/awareness";
 import * as Y from "yjs";
 import { mergeUpdates, encodeStateAsUpdate } from "yjs";
 import { formatError } from "@/lib/format-error";
-import { decodeBase64, encodeBase64 } from "@/lib/bytea";
+import { readyCore } from "@/lib/rust-core";
 
 const MERGE_MS = 200;
 const PERSIST_IDLE_MS = 5000;
@@ -45,7 +44,7 @@ export interface RealtimeYjsProviderOptions {
    * text lives only in the CRDT log — and compaction proceeds.
    */
   awaitBodyPersisted?: () => Promise<boolean>;
-  compactCrdtLog?: CompactCrdtLogUseCase;
+  crdtUpdateStore?: Pick<ICrdtUpdateStore, "compact">;
   /**
    * Puts the row's stored body into an empty document. Runs *after* the CRDT
    * log is replayed, and only then, because the log already carries the body
@@ -128,7 +127,7 @@ export class RealtimeYjsProvider {
     this.awarenessHandler = ({ added, updated, removed }) => {
       const changed = added.concat(updated, removed);
       const update = encodeAwarenessUpdate(awareness, changed);
-      const data = encodeBase64(update);
+      const data = readyCore().encodeBase64(update);
       void this.channel?.send({ type: "broadcast", event: "awareness", payload: { data } });
     };
     awareness.on("update", this.awarenessHandler);
@@ -159,7 +158,7 @@ export class RealtimeYjsProvider {
     }
     const merged = mergeUpdates(this.pending);
     this.pending = [];
-    const data = encodeBase64(merged);
+    const data = readyCore().encodeBase64(merged);
     try {
       const res = await this.channel.send({ type: "broadcast", event: "yjs", payload: { data } });
       if (res !== "ok") this.opts.onError?.("send", `broadcast returned ${String(res)}`);
@@ -179,13 +178,13 @@ export class RealtimeYjsProvider {
 
   private onRemote(payload: { data?: string }) {
     if (!payload.data || this.destroyed) return;
-    const bin = decodeBase64(payload.data);
+    const bin = readyCore().decodeBase64(payload.data);
     Y.applyUpdate(this.opts.doc, bin, this);
   }
 
   private onAwarenessRemote(payload: { data?: string }) {
     if (!payload.data || this.destroyed || !this.opts.awareness) return;
-    const bin = decodeBase64(payload.data);
+    const bin = readyCore().decodeBase64(payload.data);
     applyAwarenessUpdate(this.opts.awareness, bin, this);
   }
 
@@ -239,7 +238,7 @@ export class RealtimeYjsProvider {
   }
 
   private async maybeCompact() {
-    if (!this.opts.compactCrdtLog) return;
+    if (!this.opts.crdtUpdateStore) return;
     const snapshotUpto = (await this.opts.getSnapshotUpto?.()) ?? 0;
     const tailCount = await this.opts.crdtStore.countAfter(
       this.opts.resourceType,
@@ -257,13 +256,13 @@ export class RealtimeYjsProvider {
       return;
     }
 
-    const outcome = await this.opts.compactCrdtLog.execute({
+    const outcome = await this.opts.crdtUpdateStore.compact({
       resourceType: this.opts.resourceType,
       resourceId: this.opts.resourceId,
-      snapshotUptoId: this.lastPersistedId,
+      uptoId: this.lastPersistedId,
       // Already read above, to size the tail: a caller whose snapshot is behind
-      // the stored watermark is a local no-op rather than a round trip.
-      currentSnapshotUpto: snapshotUpto,
+      // the stored watermark is a local no-op (the Rust compact arm checks it).
+      currentUpto: snapshotUpto,
     });
 
     if (outcome.status === "not-permitted") {

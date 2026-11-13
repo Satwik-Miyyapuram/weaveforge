@@ -6,22 +6,22 @@
  * callback a screen may re-render for fires once per stroke. Split from
  * use-pen-capture.test.ts, which keeps the palm rules.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  InkPenGate,
-  PenCaptureSession,
-  type InkStrokeHeader,
-  type PenPointerEvent,
-} from "../index";
-import { NibFilter } from "../application/one-euro-filter";
+import { InkPenGate } from "../application/parts-4";
+import { PenCaptureSession, type PenPointerEvent } from "../application/use-pen-capture";
 import {
   InkSamplePool,
   InkSampleWriter,
+  type InkStrokeHeader,
   type InkWorkerMessage,
   readInkSamples,
 } from "../application/capture-protocol";
+import { CaptureStream } from "../application/parts-2";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 /** A pointer event with sane defaults, so each test states only what it means. */
 function pointer(
@@ -98,7 +98,7 @@ function sessionHarness(
   };
   harness.session = new PenCaptureSession({
     gate,
-    filter: new NibFilter(),
+    stream: new CaptureStream(),
     writer,
     project: options.project ?? ((x, y) => ({ x: x * 10, y: y * 10 })),
     onLive: () => {

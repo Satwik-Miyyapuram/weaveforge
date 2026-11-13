@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 import { createElement } from "react";
 import { act, create, type ReactTestInstance } from "react-test-renderer";
 
-import { shortcutTable, type WorkspaceCommand } from "../application/keybindings";
-import { CHEATSHEET_COMMANDS } from "../ui/shortcuts-dialog";
+import { type WorkspaceCommand } from "../application/parts";
+import { cheatsheetCommands } from "../ui/shortcuts-dialog";
 import { ShortcutGrid } from "../ui/pane-view";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -13,8 +17,9 @@ const textOf = (node: ReactTestInstance): string =>
   node.children.map((c) => (typeof c === "string" ? c : textOf(c))).join("");
 
 test("the cheatsheet lists every command but the per-number tab jumps", () => {
-  const all = Object.keys(shortcutTable()) as WorkspaceCommand[];
-  const hidden = all.filter((command) => !CHEATSHEET_COMMANDS.includes(command));
+  const all = Object.keys(readyCore().shortcutTable()) as WorkspaceCommand[];
+  const shown = cheatsheetCommands();
+  const hidden = all.filter((command) => !shown.includes(command));
   assert.deepEqual(hidden.sort(), ["tab-2", "tab-3", "tab-4", "tab-5", "tab-6", "tab-7", "tab-8"]);
 });
 

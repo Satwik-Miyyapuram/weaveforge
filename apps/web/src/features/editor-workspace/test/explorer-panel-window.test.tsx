@@ -6,14 +6,17 @@
  * screenful; the rest stand in as one gap of the same height, so the
  * scrollbar is unchanged.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { ExplorerPanel } from "../ui/explorer-panel";
-import { EXPLORER_FIRST_PAINT_ROWS, EXPLORER_ROW_PX } from "../application/explorer-window";
-import type { WorkspaceTreeNode } from "../application/workspace-tree";
+import { EXPLORER_FIRST_PAINT_ROWS, EXPLORER_ROW_PX } from "../ui/explorer-window-constants";
+import type { WorkspaceTreeNode } from "@weaveforge/wasm";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 function files(n: number): WorkspaceTreeNode[] {
   return Array.from({ length: n }, (_, i) => ({

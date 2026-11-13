@@ -1,6 +1,9 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import { findMarks } from "../find-marks";
+import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 const items = [
   { str: "top line", transform: [10, 0, 0, 10, 50, 700], width: 40, height: 10, hasEOL: true },
@@ -8,11 +11,10 @@ const items = [
 ];
 
 test("a match on the second of four pages lands in the second quarter", () => {
-  const marks = findMarks(
+  const marks = typedCore().findMarks(
     [{ pageIndex: 1, start: 9, end: 15 }],
     4,
-    () => items,
-    () => 800,
+    [{ pageIndex: 1, items, height: 800 }],
   );
   assert.equal(marks.length, 1);
   const f = marks[0]!.fraction;
@@ -22,10 +24,10 @@ test("a match on the second of four pages lands in the second quarter", () => {
 });
 
 test("without page text the mark sits at the top of its page", () => {
-  const marks = findMarks([{ pageIndex: 2, start: 0, end: 3 }], 4, () => undefined, () => 800);
+  const marks = typedCore().findMarks([{ pageIndex: 2, start: 0, end: 3 }], 4, [{ pageIndex: 2, height: 800 }]);
   assert.equal(marks[0]!.fraction, 0.5);
 });
 
 test("no pages gives no marks", () => {
-  assert.deepEqual(findMarks([{ pageIndex: 0, start: 0, end: 1 }], 0, () => items, () => 800), []);
+  assert.deepEqual(typedCore().findMarks([{ pageIndex: 0, start: 0, end: 1 }], 0, [{ pageIndex: 0, items, height: 800 }]), []);
 });

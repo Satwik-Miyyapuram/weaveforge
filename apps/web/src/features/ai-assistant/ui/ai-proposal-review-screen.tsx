@@ -1,23 +1,24 @@
 "use client";
 
-import { formatDateTime } from "@/lib/format-date";
+import { formatError } from "@/lib/format-error";
+import { localOffset } from "@/lib/parts-1";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  highlightWithinExcerpt, type AiEvidence, type AiWriteProposal } from "@weaveforge/core";
+import type { AiEvidence, AiWriteProposal } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { announceAiProposalsChanged } from "@/lib/ai-proposals-changed";
+import { announceAiProposalsChanged } from "@/lib/parts";
 import { Markdown } from "@/components/markdown/markdown";
 import { EntityCard } from "@/components/entity-card";
 import { ScreenHead } from "@/components/screen-head";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { ScreenLoader } from "@/components/weaveforge-loader";
-import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/reader";
 import { loadCiteLinkCatalog, useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
-import { formatError } from "@/lib/format-error";
-import { createdPageOf, splitProposalContent } from "../application/proposal-preview";
+import { readyCore } from "@/lib/rust-core";
+import { groupProposals, KIND_GROUP_PREFIX, runBulk, type ProposalGrouping } from "../application/parts";
+import { useUndoWindow } from "./use-undo-window";
 import { Button } from "@/components/button";
+import { Chip } from "@/components/controls";
 
 /** A proposal's text, rendered so its `[[links]]` are links, not brackets (E36). */
 function ProposalMarkdown({ text }: { text: string }) {
@@ -141,13 +142,13 @@ function approveLabel(item: AiWriteProposal): string {
 /** One piece of claim-level provenance: excerpt with the used sentence lit up. */
 function EvidencePane({ evidence }: { evidence: AiEvidence }) {
   const highlight = useMemo(
-    () => highlightWithinExcerpt(evidence.excerpt, evidence.locus),
+    () => readyCore().highlightWithinExcerpt(evidence.excerpt, evidence.locus),
     [evidence.excerpt, evidence.locus],
   );
   const link = useMemo(() => {
     // Jump-to-passage only when we have a locus.
     if (evidence.paperId && evidence.locus) {
-      return buildLocusLink({
+      return readyCore().buildLocusLink({
         paperId: evidence.paperId,
         locus: evidence.locus,
         page: evidence.page,
@@ -157,7 +158,7 @@ function EvidencePane({ evidence }: { evidence: AiEvidence }) {
       // Always bind the open link to evidence.paperId (ignore spoofed app hrefs).
       return `/papers?paper=${encodeURIComponent(evidence.paperId)}`;
     }
-    return sanitizeReaderHref(evidence.href) ?? sanitizeAppHref(evidence.href);
+    return readyCore().sanitizeReaderHref(evidence.href) ?? readyCore().sanitizeAppHref(evidence.href);
   }, [evidence.href, evidence.paperId, evidence.locus, evidence.page]);
 
   const locusMiss =
@@ -205,29 +206,37 @@ export function AiProposalReviewScreen() {
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ id: string; title: string } | null>(null);
   const sourceTargets = useSourceTargets();
+  // Keeps the current list on screen while reloading; no loading flash.
   const reload = useCallback(async () => {
-    setLoading(true);
     try { setItems(await getContainer().aiProposals.listPending()); setError(null); }
     catch (err) { setError(formatError(err)); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { void reload(); }, [reload]);
-  const appendOnly = useMemo(() => items.filter((item) => item.kind === "append_paper_note"), [items]);
   const changed = () => announceAiProposalsChanged(getContainer().aiProposals);
   async function run(id: string, action: "approve" | "reject") {
     setBusy(id); setError(null); setCreated(null);
     const item = items.find((entry) => entry.id === id);
     try {
       let conflicted = false;
+      let refreshFailed = false;
       if (action === "reject") await getContainer().aiProposals.reject(id);
       else {
         conflicted = (await getContainer().aiProposals.approve(id)) === "conflicted";
         // E27: a new note gets a link, not just a vanished card.
-        const page = !conflicted && item ? createdPageOf(item, await getContainer().vault.listPages()) : null;
-        if (page) setCreated({ id: page.id, title: page.title });
+        // The approve already landed, so a failed page lookup must not read as a failed approve.
+        if (!conflicted && item) {
+          try {
+            const pages = await getContainer().vault.listPages();
+            const index = readyCore().createdPageIndex(item, pages) as number | null;
+            const page = index === null ? null : pages[index];
+            if (page) setCreated({ id: page.id, title: page.title });
+          } catch { refreshFailed = true; }
+        }
       }
       changed(); await reload();
       if (conflicted) setError("Not applied: the target changed since this was suggested.");
+      else if (refreshFailed) setError("Approved, but the page list could not refresh.");
     } catch (err) { setError(formatError(err)); }
     finally { setBusy(null); }
   }
@@ -242,24 +251,90 @@ export function AiProposalReviewScreen() {
     catch (err) { setError(formatError(err)); }
     finally { setBusy(null); }
   }
+  const [grouping, setGrouping] = useState<ProposalGrouping>("document");
+  const undoWindow = useUndoWindow();
+  // Proposals waiting out the undo window leave the list, so the bulk action
+  // reads as done; undo brings them back.
+  const visible = useMemo(
+    () => items.filter((item) => !undoWindow.scheduled?.ids.has(item.id)),
+    [items, undoWindow.scheduled],
+  );
+  // Bulk approve only touches what the user sees, so it follows the filtered list.
+  const appendOnly = visible.filter((item) => item.kind === "append_paper_note");
+  const groups = useMemo(
+    () => groupProposals(visible, grouping, [...sourceTargets.keys()]),
+    [visible, grouping, sourceTargets],
+  );
+  function groupLabel(key: string): string {
+    if (grouping === "kind") return label[key as AiWriteProposal["kind"]] ?? key;
+    if (key.startsWith(KIND_GROUP_PREFIX)) {
+      const kind = key.slice(KIND_GROUP_PREFIX.length) as AiWriteProposal["kind"];
+      return label[kind] ?? kind;
+    }
+    return sourceTargets.get(key)?.title ?? unresolvedSourceLabel(key);
+  }
+  function bulk(ids: readonly string[], action: "approve" | "reject") {
+    if (!ids.length) return;
+    const count = `${ids.length} suggestion${ids.length === 1 ? "" : "s"}`;
+    setError(null); setCreated(null);
+    undoWindow.schedule(`${action === "approve" ? "Approving" : "Rejecting"} ${count}…`, ids, () => void (async () => {
+      setBusy("all");
+      try {
+        const facade = getContainer().aiProposals;
+        const result = await runBulk(ids, (id) => (action === "approve" ? facade.approve(id) : facade.reject(id)));
+        changed(); await reload();
+        const problems: string[] = [];
+        if (result.conflicted.length) problems.push(`${result.conflicted.length} not applied: the target changed since it was suggested.`);
+        if (result.failed) {
+          problems.push(`Stopped: ${formatError(result.failed.error)} ${result.untouched.length + 1} still pending.`);
+        }
+        setError(problems.length ? problems.join(" ") : null);
+      } catch (err) { setError(formatError(err)); }
+      finally { setBusy(null); }
+    })());
+  }
   if (loading) return <ScreenLoader />;
   return <section className="screen ai-review-screen">
     <ScreenHead title="AI suggestions" eyebrow="AI safety"><Button href="/settings">AI settings</Button></ScreenHead>
-    <p className="muted ai-review-lede">Nothing changes until you approve it. Suggestions are encrypted until this unlocked browser reviews them.</p>
+    <p className="muted ai-review-lede">Nothing changes until you approve it.</p>
     {error && <p className="form-error" role="alert">{error}</p>}
     {created && <p className="muted" role="status">Created &ldquo;{created.title}&rdquo;. <Link href={`/notes?page=${encodeURIComponent(created.id)}`}>Open page &rarr;</Link></p>}
+    {undoWindow.scheduled && <div className="card ai-review-undo" role="status"><span>{undoWindow.scheduled.label}</span><Button variant="secondary" size="sm" onClick={undoWindow.undo}>Undo</Button></div>}
     {!items.length ? <EmptyState variant="first-run" icon={<NavIcon name="sparkle" />} title="Nothing to review" body="New AI suggestions will appear here before they can change your research workspace." /> : <>
-      <div className="card ai-review-toolbar"><div><strong>{items.length} pending suggestion{items.length === 1 ? "" : "s"}</strong><span className="muted"> · Each one waits for you. Additions only add text; nothing is overwritten.</span></div>{appendOnly.length > 1 && <Button variant="primary" disabled={busy !== null} onClick={() => void approveAll()}>Approve the {appendOnly.length} that only add</Button>}</div>
-      <div className="ai-review-list">{items.map((item) => {
+      <div className="card ai-review-toolbar"><div><strong>{visible.length} pending suggestion{visible.length === 1 ? "" : "s"}</strong><span className="muted"> · Each one waits for you. Additions only add text; nothing is overwritten.</span></div>
+        <div className="ai-review-bulk">
+          {appendOnly.length > 1 && <Button variant="secondary" disabled={busy !== null} onClick={() => void approveAll()}>Approve the {appendOnly.length} that only add</Button>}
+          {visible.length > 1 && <>
+            <Button variant="cancel" disabled={busy !== null} onClick={() => bulk(visible.map((item) => item.id), "reject")}>Reject all</Button>
+            <Button variant="primary" disabled={busy !== null} onClick={() => bulk(visible.map((item) => item.id), "approve")}>Approve all</Button>
+          </>}
+        </div>
+      </div>
+      {visible.length > 1 && <div className="ai-review-grouping" role="group" aria-label="Group suggestions">
+        <span className="muted">Group by</span>
+        <Chip pressed={grouping === "document"} onClick={() => setGrouping("document")}>Document</Chip>
+        <Chip pressed={grouping === "kind"} onClick={() => setGrouping("kind")}>Kind</Chip>
+      </div>}
+      {groups.map((group) => <section key={group.key} className="ai-review-group" aria-label={groupLabel(group.key)}>
+        <div className="ai-review-group-head">
+          <h3>{groupLabel(group.key)} <span className="muted">({group.items.length})</span></h3>
+          {group.items.length > 1 && <div className="ai-review-bulk">
+            <Button variant="cancel" size="sm" disabled={busy !== null} onClick={() => bulk(group.items.map((item) => item.id), "reject")}>Reject {group.items.length}</Button>
+            <Button variant="primary" size="sm" disabled={busy !== null} onClick={() => bulk(group.items.map((item) => item.id), "approve")}>Approve {group.items.length}</Button>
+          </div>}
+        </div>
+      <div className="ai-review-list">{group.items.map((item) => {
         const evidence = item.evidence ?? [];
-        const preview = splitProposalContent(item.content);
+        const preview = readyCore().splitProposalContent(item.content);
+        const title = preview.title ?? reviewHeading(item);
         return <EntityCard
           key={item.id}
           className={`ai-review-card${evidence.length ? " ai-review-card--split" : ""}`}
           tone={toneFor(item.kind)}
-          title={preview.title ?? reviewHeading(item)}
-          badge={<span className={`ai-kind ai-kind--${item.kind}`}>{label[item.kind]}</span>}
-          meta={<><time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>{preview.why && <> · {preview.why}</>}</>}
+          title={title}
+          // The kind is already the title when the suggestion has none of its own.
+          badge={title === label[item.kind] ? undefined : <span className={`ai-kind ai-kind--${item.kind}`}>{label[item.kind]}</span>}
+          meta={<><time dateTime={item.createdAt}>{readyCore().formatDateTime(item.createdAt, localOffset(item.createdAt))}</time>{preview.why && <> · {preview.why}</>}</>}
         >
           <div className="ai-review-body">
             {preview.body && <div className="ai-review-proposed">
@@ -276,7 +351,7 @@ export function AiProposalReviewScreen() {
               <span className="ai-review-sources-label">Sources</span>
               {item.sourceLinks.map((raw, i) => {
                 const target = sourceTargets.get(raw.trim());
-                const href = target?.href ?? sanitizeReaderHref(raw) ?? sanitizeAppHref(raw);
+                const href = target?.href ?? readyCore().sanitizeReaderHref(raw) ?? readyCore().sanitizeAppHref(raw);
                 const text = target?.title ?? unresolvedSourceLabel(raw);
                 const key = `${item.id}-src-${i}`;
                 return href ? (
@@ -294,6 +369,7 @@ export function AiProposalReviewScreen() {
           <div className="ai-review-actions"><Button variant="cancel" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</Button><Button variant="primary" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : approveLabel(item)}</Button></div>
         </EntityCard>;
       })}</div>
+      </section>)}
     </>}
   </section>;
 }

@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
+import * as wasm from "../../../wf-wasm/src/index.ts";
 
-import { chunkForEmbedding } from "../../src/index.js";
+// Their TypeScript was removed; the Rust core is the implementation.
+const { chunkForEmbedding } = wasm;
 
 /**
  * Passage ids are `docId#i` and their vectors are stored, so a boundary that

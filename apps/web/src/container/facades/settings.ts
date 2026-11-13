@@ -1,10 +1,12 @@
 import type {
   BibliographyCredentials,
   IBibliographyIntegration,
+  IProjectBibliographyCollectionStore,
   ManageSettingsUseCase,
 } from "@weaveforge/core";
-import type { IProjectBibliographyCollectionStore } from "@weaveforge/core";
-import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
+import { relayUrl } from "@/lib/parts";
+import type { IIntegrationsStore } from "@/features/sync/domain/parts";
+import type { IReleaseNoticesRepository, SettingsWrites } from "@/features/settings/infrastructure/parts";
 import { formatError, GENERIC_ERROR, httpContext, readJsonBody } from "@/lib/format-error";
 
 /** A personal access token as the settings API reports it — never the secret. */
@@ -55,6 +57,10 @@ export class SettingsFacade {
   constructor(
     private readonly deps: {
       settings: ManageSettingsUseCase;
+      /** Appearance and disclaimer writes, straight to the settings repository. */
+      preferences: SettingsWrites;
+      /** Optional so existing test fakes still compile; absent means no notices. */
+      releaseNotices?: IReleaseNoticesRepository;
       bibliography: IBibliographyIntegration;
       projectBibliography: IProjectBibliographyCollectionStore;
       integrations: IIntegrationsStore;
@@ -69,6 +75,12 @@ export class SettingsFacade {
 
   get manageSettings() {
     return this.deps.settings;
+  }
+  get preferences() {
+    return this.deps.preferences;
+  }
+  get releaseNotices(): IReleaseNoticesRepository {
+    return this.deps.releaseNotices ?? { unseen: async () => null };
   }
   get integrations() {
     return this.deps.integrations;
@@ -117,7 +129,7 @@ export class SettingsFacade {
   }
 
   private async send<T>(token: string, path: string, init: RequestInit, fallback: string): Promise<T> {
-    const response = await fetch(path, {
+    const response = await fetch(relayUrl(path), {
       ...init,
       headers: {
         ...((init.headers ?? {}) as Record<string, string>),

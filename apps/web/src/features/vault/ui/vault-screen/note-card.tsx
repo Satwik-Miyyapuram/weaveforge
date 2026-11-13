@@ -1,18 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { extractHashtags, type VaultPage, type VaultPageSummary } from "@weaveforge/core";
+import { type VaultPage, type VaultPageSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast";
+import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast/index";
 import { noteKey } from "./note-key";
 import { InlineError } from "@/components/form-error";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { PinnedPaperBadge } from "@/features/sharing";
 import { ListPicker } from "@/features/reading-lists";
-import { cardSnippet } from "@/lib/card-snippet";
-import { isHydratedPage, noteBodyText, readableText } from "@/lib/page-text";
+import { isHydratedPage, noteBodyText } from "@/lib/parts";
 import { runNoteAction } from "./run-note-action";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Re-exported so the screens and panels that already imported them from here do
@@ -44,8 +44,8 @@ export function NoteCard({
   const [error, setError] = useState<string | null>(null);
   const hidden = useHiddenKeys().has(noteKey(page.id));
   const preview = noteBodyText(page);
-  const excerpt = cardSnippet(readableText(preview));
-  const tags = useMemo(() => extractHashtags(preview), [preview]);
+  const excerpt = readyCore().cardSnippet(readyCore().readableText(preview));
+  const tags = useMemo(() => readyCore().extractHashtags(preview), [preview]);
 
   async function togglePin() {
     await runNoteAction(setBusy, setError, async () => {

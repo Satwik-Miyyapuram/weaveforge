@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ROLE_LABELS,
-  creatableRoles,
-  hasActiveLab,
-  type Role,
-} from "@weaveforge/core";
+import { ROLE_LABELS, type Role } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -16,11 +11,12 @@ import { useProfile } from "./profile-provider";
 import { OrgChart } from "./member-tree";
 import { OrgCodesPanel, OrgLabModal } from "./org-setup-gate";
 import { OrgSwitcher } from "./org-switcher";
-import { fetchOwnedOrgs, leaveOrg } from "../infrastructure/org-api";
+import { fetchOwnedOrgs, leaveOrg } from "../infrastructure/parts";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { ownedOrgsOrError, type OwnedOrg } from "./owned-orgs";
 import { Button } from "@/components/button";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * People / Organization panel. Embedded in Settings (not its own screen). Shows
@@ -48,7 +44,7 @@ export function OrgPanel() {
     !!profile &&
     !!activeMembership &&
     ownedOrgs.some((org) => org.id === activeMembership.orgId && org.ownerId === profile.id);
-  const isInOrg = hasActiveLab(activeOrgId, memberships, ownsActiveOrg);
+  const isInOrg = typedCore().hasActiveLab(activeOrgId, memberships, ownsActiveOrg);
   const canLeaveActiveOrg = isInOrg && !!activeMembership && !ownsActiveOrg;
 
   useEffect(() => {
@@ -69,7 +65,7 @@ export function OrgPanel() {
     };
   }, [profile?.id, profile?.role]);
 
-  const allowedRoles = profile ? creatableRoles(profile.role) : [];
+  const allowedRoles = (profile ? typedCore().creatableRoles(profile.role) : []) as Role[];
   const [addOpen, setAddOpen] = useState(false);
 
   async function handleLeaveOrg() {
@@ -227,7 +223,7 @@ function CreateAccountForm({
     setError(null);
     setDone(null);
     try {
-      const created = await getContainer().org.createMember.create({
+      const created = await getContainer().org.createMember({
         email,
         password,
         fullName: fullName || undefined,

@@ -104,7 +104,7 @@ rather than to a reader. Two places have to account for that.
 
 **Inbound — context we build.** The concept extractor pastes indexed content
 into a prompt, and it goes through
-`packages/core/src/features/ai-assistant/domain/untrusted-context.ts`. Excerpts
+`crates/wf-core/src/ai/untrusted_context.rs`. Excerpts
 are wrapped in a fence carrying a random nonce the text cannot predict, the
 system turn states that the fenced material is data and that instructions found
 inside it are to be reported rather than followed, and the text itself is

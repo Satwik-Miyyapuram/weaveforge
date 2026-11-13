@@ -3,13 +3,28 @@
  * without a shell there is no bridge at all.
  */
 
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
   nativeInkBridge,
   nativeStrokeEvents,
-} from "../application/native-bridge";
+} from "../application/parts-2";
+import { INK_RENDER_COLOURS } from "../render/parts-1";
+
+before(loadTestCore);
+
+test("the Rust light theme's native argb colours match the TS renderer table", () => {
+  const core = readyCore();
+  for (const name of Object.keys(INK_RENDER_COLOURS) as (keyof typeof INK_RENDER_COLOURS)[]) {
+    assert.equal(
+      core.inkArgbHex(name, 1),
+      `#ff${core.paletteHex(INK_RENDER_COLOURS, name).slice(1)}`,
+    );
+  }
+});
 
 test("a flat native stroke becomes pen events in CSS pixels", () => {
   const events = nativeStrokeEvents([200, 400, 0.5, 10, 220, 420, 0.7, 18], 2);

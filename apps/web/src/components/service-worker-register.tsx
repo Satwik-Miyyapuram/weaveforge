@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { bestEffort } from "@/lib/best-effort";
+import { bestEffort } from "@/lib/parts";
 
 /**
  * Registers the Serwist worker in production only.

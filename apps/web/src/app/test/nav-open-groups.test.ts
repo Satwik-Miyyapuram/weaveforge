@@ -1,7 +1,10 @@
 /** Which sidebar groups are unfolded, and that the choice survives a restart (DA-88). */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadOpenGroups, saveOpenGroups, toggleGroup, withActive } from "../nav-open-groups";
+import { loadOpenGroups, saveOpenGroups } from "../nav-open-groups";
+import { readyCore } from "@/lib/rust-core";
+
+const { toggleGroup, withActive } = readyCore();
 
 function memory(initial: Record<string, string> = {}) {
   const data = { ...initial };

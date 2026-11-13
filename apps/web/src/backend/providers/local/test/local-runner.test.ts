@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
-import { LocalRunner, localRunnerQuery } from "../local-runner";
+import { LocalRunner, localRunnerQuery } from "../parts";
 
 function bridgeReturning(rows: unknown[], seen: unknown[][] = []): DesktopBridge {
   return {

@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { addedPaperMessage } from "../../features/papers/ui/add-paper-form";
-import { untitledTitle } from "../../features/vault/application/untitled-title";
+import { readyCore } from "@/lib/rust-core";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const src = (rel: string) => readFileSync(join(root, rel), "utf8");
@@ -52,10 +52,10 @@ test("adding a paper says whether it was new (E10)", () => {
 });
 
 test("a new note is Untitled, numbered past existing ones", () => {
-  assert.equal(untitledTitle([]), "Untitled");
-  assert.equal(untitledTitle(["Other"]), "Untitled");
-  assert.equal(untitledTitle(["untitled"]), "Untitled (2)");
-  assert.equal(untitledTitle(["Untitled", "Untitled (2)"]), "Untitled (3)");
+  assert.equal(readyCore().uniqueTitle("Untitled", new Set([].map(readyCore().normalizeTitleKey))), "Untitled");
+  assert.equal(readyCore().uniqueTitle("Untitled", new Set(["Other"].map(readyCore().normalizeTitleKey))), "Untitled");
+  assert.equal(readyCore().uniqueTitle("Untitled", new Set(["untitled"].map(readyCore().normalizeTitleKey))), "Untitled (2)");
+  assert.equal(readyCore().uniqueTitle("Untitled", new Set(["Untitled", "Untitled (2)"].map(readyCore().normalizeTitleKey))), "Untitled (3)");
 });
 
 test("a new note opens with its title focused", () => {

@@ -15,7 +15,7 @@ import {
   RouteSecretsStore,
   type Secrets,
   type SecretsStore,
-} from "@/features/settings/infrastructure/postgrest-settings-repository";
+} from "@/features/settings/infrastructure/parts";
 
 const realFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = realFetch; });

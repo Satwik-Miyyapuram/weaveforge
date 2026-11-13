@@ -1,10 +1,12 @@
 import { isLocalMode } from "@/backend/providers/local/local-identity";
-import { LocalRunner } from "@/backend/providers/local/local-runner";
-import { decodeBase64, encodeBase64 } from "@/lib/bytea";
-import { WORKSPACE_META_DIR } from "@weaveforge/core";
+import { LocalRunner } from "@/backend/providers/local/parts";
+import { localFiles, type LocalFiles } from "@/backend/providers/local/parts-1";
+import { desktop } from "@/lib/desktop/desktop-bridge";
+
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
-import { idbClearVectors, idbGetVectors, idbSetVectors, type StoredVectors } from "./vector-store-idb";
-import { warnOnce } from "@/lib/error-report/warn-once";
+import { idbClearVectors, idbGetVectors, idbSetVectors, type StoredVectors } from "./parts-3";
+import { warnOnce } from "@/lib/error-report/parts";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Where a corpus's vectors are kept between sessions.
@@ -24,7 +26,7 @@ export interface VectorStore {
 }
 
 const BUCKET = "vectors";
-const key = (projectId: string | null) => projectId ?? "-";
+const key = (projectId: string | null) => readyCore().vectorStoreKey(projectId ?? undefined);
 
 const idbStore: VectorStore = {
   get: idbGetVectors,
@@ -39,20 +41,31 @@ const idbStore: VectorStore = {
  * bridge to the shell is text — so a second table for the same problem would
  * be a second thing to migrate. The ids and the model live in the row's JSON
  * head, the vectors in its buffer, packed together so one read restores both.
+ *
+ * With the shell's offline files (the Rust shell), the vectors go to a file in
+ * the binary format and the row is only the index `clear` walks. Rows written
+ * inline before are still read.
  */
 function localStore(): VectorStore {
   const runner = new LocalRunner();
-  const run = (sql: string, params: unknown[]) => runner.query(sql, params as never[]);
+  return localVectorStore((sql, params) => runner.query(sql, params as never[]), localFiles(desktop()));
+}
 
+/** The local-database store over any query function; exported for tests. */
+export function localVectorStore(run: (sql: string, params: unknown[]) => Promise<unknown[]>, files?: LocalFiles): VectorStore {
   return {
     async get(projectId) {
       try {
-        const rows = (await run("select bytes from local_blobs where bucket = $1 and path = $2", [
+        const rows = (await run("select bytes, on_disk from local_blobs where bucket = $1 and path = $2", [
           BUCKET,
           key(projectId),
-        ])) as { bytes?: string }[];
-        const bytes = rows[0]?.bytes;
-        return bytes ? unpack(bytes) : null;
+        ])) as { bytes?: string | null; on_disk?: boolean }[];
+        const row = rows[0];
+        if (row?.on_disk) {
+          const bytes = files ? await files.read(BUCKET, key(projectId)) : null;
+          return bytes ? readyCore().unpackVectors(bytes) : null;
+        }
+        return row?.bytes ? unpack(row.bytes) : null;
       } catch {
         // A copy whose local database is not there yet has no stored vectors,
         // which is the same answer as a copy that never built any.
@@ -61,12 +74,13 @@ function localStore(): VectorStore {
     },
     async set(projectId, value) {
       try {
+        if (files) await files.write(BUCKET, key(projectId), packBinary(value));
         await run(
-          `insert into local_blobs (bucket, path, content_type, bytes, updated_at)
-           values ($1, $2, $3, $4, now())
+          `insert into local_blobs (bucket, path, content_type, bytes, on_disk, updated_at)
+           values ($1, $2, $3, $4, $5, now())
            on conflict (bucket, path) do update
-             set bytes = excluded.bytes, updated_at = now()`,
-          [BUCKET, key(projectId), "application/octet-stream", pack(value)],
+             set bytes = excluded.bytes, on_disk = excluded.on_disk, updated_at = now()`,
+          [BUCKET, key(projectId), "application/octet-stream", files ? null : pack(value), Boolean(files)],
         );
       } catch (err) {
         warnOnce("search", "Search vectors were not saved to the local database.", err);
@@ -75,7 +89,11 @@ function localStore(): VectorStore {
     },
     async clear() {
       try {
-        await run("delete from local_blobs where bucket = $1", [BUCKET]);
+        const gone = (await run("delete from local_blobs where bucket = $1 returning path, on_disk", [BUCKET])) as {
+          path: string;
+          on_disk: boolean;
+        }[];
+        if (files) await Promise.all(gone.filter((r) => r.on_disk).map((r) => files.remove(BUCKET, r.path)));
       } catch (err) {
         warnOnce("search", "Search vectors were not cleared from the local database.", err);
         /* ignore */
@@ -87,31 +105,24 @@ function localStore(): VectorStore {
 /**
  * One JSON head and one buffer, base64 in a single string.
  *
- * Kept together because they are only ever read together: a set of ids with no
- * vectors, or vectors with no ids, is not half an index but none of one.
+ * Kept together because they are only ever read together: the index blob carries
+ * its own ids and widths, so the head holds only what describes the blob.
  */
-/** The fields both formats store ahead of the vectors, as JSON. */
+/** The fields both formats store ahead of the blob, as JSON. */
 function headJson(value: StoredVectors): string {
-  return JSON.stringify({ model: value.model, dimensions: value.dimensions, ids: value.ids, revision: value.revision, hashes: value.hashes });
+  return JSON.stringify({ model: value.model, dimensions: value.dimensions, revision: value.revision, hashes: value.hashes });
 }
 
 function pack(value: StoredVectors): string {
-  const head = headJson(value);
-  return `${encodeBase64(new TextEncoder().encode(head))}.${encodeBase64(new Uint8Array(value.vectors))}`;
+  return readyCore().packLocalVectorRow(headJson(value), value.bytes);
 }
 
 function unpack(packed: string): StoredVectors | null {
-  const split = packed.indexOf(".");
-  if (split < 0) return null;
   try {
-    const head = JSON.parse(new TextDecoder().decode(decodeBase64(packed.slice(0, split)))) as Omit<
-      StoredVectors,
-      "vectors"
-    >;
-    const bytes = decodeBase64(packed.slice(split + 1));
-    const vectors = new ArrayBuffer(bytes.byteLength);
-    new Uint8Array(vectors).set(bytes);
-    return { ...head, vectors };
+    const row = readyCore().unpackLocalVectorRow(packed);
+    if (!row) return null;
+    const head = JSON.parse(row.head) as Omit<StoredVectors, "bytes">;
+    return { ...head, bytes: row.bytes };
   } catch {
     return null;
   }
@@ -119,8 +130,10 @@ function unpack(packed: string): StoredVectors | null {
 
 
 /** Where the vectors sit inside a connected workspace folder. */
-export const FOLDER_CACHE_DIR = `${WORKSPACE_META_DIR}/cache`;
-const folderPath = (projectId: string | null) => `${FOLDER_CACHE_DIR}/vectors-${key(projectId)}.bin`;
+export function folderCacheDir(): string {
+  return readyCore().vectorFolderCacheDir();
+}
+const folderPath = (projectId: string | null) => readyCore().vectorFolderPath(projectId ?? undefined);
 
 /**
  * A copy in the workspace folder, beside the notes the vectors describe.
@@ -141,7 +154,7 @@ const folderStore = {
     if (!fs) return null;
     try {
       if (!(await fs.stat(folderPath(projectId)))) return null;
-      return unpackBinary(await fs.readFile(folderPath(projectId)));
+      return readyCore().unpackVectors(await fs.readFile(folderPath(projectId)));
     } catch {
       return null;
     }
@@ -150,9 +163,10 @@ const folderStore = {
     const fs = activeWorkspaceFs();
     if (!fs) return;
     try {
-      await fs.mkdirp(FOLDER_CACHE_DIR);
-      if (!(await fs.stat(`${FOLDER_CACHE_DIR}/.gitignore`))) {
-        await fs.writeFile(`${FOLDER_CACHE_DIR}/.gitignore`, "*\n");
+      const dir = folderCacheDir();
+      await fs.mkdirp(dir);
+      if (!(await fs.stat(`${dir}/.gitignore`))) {
+        await fs.writeFile(`${dir}/.gitignore`, "*\n");
       }
       // The shell writes beside the file and renames it into place, so a
       // kill mid-write leaves the previous cache whole.
@@ -166,8 +180,8 @@ const folderStore = {
     const fs = activeWorkspaceFs();
     if (!fs) return;
     try {
-      for (const entry of await fs.list(FOLDER_CACHE_DIR)) {
-        if (entry.kind === "file" && /\/vectors-[^/]*\.bin$/.test(`/${entry.path}`)) await fs.remove(entry.path);
+      for (const entry of await fs.list(folderCacheDir())) {
+        if (entry.kind === "file" && readyCore().isVectorCacheFile(entry.path)) await fs.remove(entry.path);
       }
     } catch {
       /* nothing there */
@@ -176,24 +190,10 @@ const folderStore = {
 };
 
 export function packBinary(value: StoredVectors): Uint8Array {
-  const head = new TextEncoder().encode(headJson(value));
-  const out = new Uint8Array(4 + head.byteLength + value.vectors.byteLength);
-  new DataView(out.buffer).setUint32(0, head.byteLength, true);
-  out.set(head, 4);
-  out.set(new Uint8Array(value.vectors), 4 + head.byteLength);
-  return out;
-}
-
-export function unpackBinary(bytes: Uint8Array): StoredVectors | null {
-  try {
-    const length = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(0, true);
-    const head = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + length))) as Omit<StoredVectors, "vectors">;
-    const vectors = bytes.slice(4 + length).buffer;
-    if (vectors.byteLength !== head.ids.length * head.dimensions * 4) return null;
-    return { ...head, vectors };
-  } catch {
-    return null;
-  }
+  return readyCore().packVectors(
+    { model: value.model, dimensions: value.dimensions, revision: value.revision, hashes: value.hashes },
+    value.bytes,
+  );
 }
 
 let chosen: VectorStore | null = null;

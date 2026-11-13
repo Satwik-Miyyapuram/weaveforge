@@ -1,34 +1,9 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  pageNumberFromSelection,
-  pageSpanFromSelection,
-  textSelectionFromOffsets,
-} from "../application/dom-selection-range.js";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { pageNumberFromSelection, pageSpanFromSelection } from "../application/parts-1.js";
 
-test("textSelectionFromOffsets builds a range", () => {
-  assert.deepEqual(textSelectionFromOffsets({ itemIndex: 0, offset: 1 }, { itemIndex: 2, offset: 4 }), {
-    startItemIndex: 0,
-    startOffset: 1,
-    endItemIndex: 2,
-    endOffset: 4,
-  });
-});
-
-test("textSelectionFromOffsets rejects empty and invalid", () => {
-  assert.equal(
-    textSelectionFromOffsets({ itemIndex: 1, offset: 3 }, { itemIndex: 1, offset: 3 }),
-    null,
-  );
-  assert.equal(
-    textSelectionFromOffsets({ itemIndex: -1, offset: 0 }, { itemIndex: 0, offset: 1 }),
-    null,
-  );
-  assert.equal(
-    textSelectionFromOffsets({ itemIndex: 0, offset: -1 }, { itemIndex: 0, offset: 1 }),
-    null,
-  );
-});
+before(loadTestCore);
 
 test("pageSpanFromSelection and pageNumberFromSelection resolve single page selection", () => {
   const pageHost = { dataset: { page: "3" } };

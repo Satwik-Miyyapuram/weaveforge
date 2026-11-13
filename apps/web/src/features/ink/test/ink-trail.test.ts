@@ -4,19 +4,18 @@
  * which follows pressure; a refusing presenter is dropped, not fatal; and the
  * session hands the presenter only the dispatched event, never a coalesced one.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import { INK_A4_WIDTH, nibWidth } from "@weaveforge/core";
+import { INK_A4_WIDTH } from "@weaveforge/core";
 
 import {
   requestInkPresenter,
   trailColour,
-  trailDiameterPx,
   trailStyle,
   updateTrail,
   type InkPresenterLike,
-} from "../application/ink-trail";
+} from "../application/parts-1";
 import {
   INK_PEN_ONLY_STORAGE_KEY,
   PenCaptureSession,
@@ -24,12 +23,16 @@ import {
   writeStoredPenOnly,
   type PenPointerEvent,
 } from "../application/use-pen-capture";
-import { InkPenGate } from "../application/pen-gate";
-import { NibFilter } from "../application/one-euro-filter";
+import { InkPenGate } from "../application/parts-4";
+import { CaptureStream } from "../application/parts-2";
 import {
   InkSamplePool,
   InkSampleWriter,
 } from "../application/capture-protocol";
+import { readyCore, typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 const area = {} as Element;
 
@@ -72,21 +75,21 @@ test("a granted presenter is returned and asked for over the canvas", async () =
 
 test("the diameter is the nib's width on the page, and follows pressure", () => {
   // A 2100-unit page drawn 420 px wide: 0.1 mm is 0.2 px.
-  assert.equal(trailDiameterPx(INK_A4_WIDTH, 420), 420);
-  assert.equal(trailDiameterPx(10, 420), 2);
-  assert.equal(trailDiameterPx(0, 420), 1, "never thinner than a pixel");
-  assert.equal(trailDiameterPx(10, 0), 1, "a page with no width still draws");
+  assert.equal(readyCore().trailDiameterPx(INK_A4_WIDTH, 420), 420);
+  assert.equal(readyCore().trailDiameterPx(10, 420), 2);
+  assert.equal(readyCore().trailDiameterPx(0, 420), 1, "never thinner than a pixel");
+  assert.equal(readyCore().trailDiameterPx(10, 0), 1, "a page with no width still draws");
 
   const light = trailStyle({
     colour: "text",
     tool: "pen",
-    width: nibWidth(6, 0.2),
+    width: typedCore().nibWidth(6, 0.2),
     pageWidthPx: 800,
   });
   const firm = trailStyle({
     colour: "text",
     tool: "pen",
-    width: nibWidth(6, 0.9),
+    width: typedCore().nibWidth(6, 0.9),
     pageWidthPx: 800,
   });
   assert.ok(firm.diameter > light.diameter, "pressing harder widens the trail");
@@ -129,7 +132,7 @@ test("the session marks the dispatched sample and not the coalesced ones", () =>
   const seen: (PenPointerEvent | undefined)[] = [];
   const session = new PenCaptureSession({
     gate: new InkPenGate(),
-    filter: new NibFilter(),
+    stream: new CaptureStream(),
     writer: new InkSampleWriter({
       pool: new InkSamplePool({ capacity: 4 }),
       mode: "clone",

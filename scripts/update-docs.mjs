@@ -49,16 +49,12 @@ function codeMap() {
  * thing they want is even possible from the renderer.
  */
 function desktopIpc() {
-  const source = read("apps/desktop/src/channels.ts");
+  const source = read("apps/shell/sidecar/src/channels.ts");
   const channels = [...source.matchAll(/^\s{2}([a-zA-Z]+): "(weaveforge:[a-z-]+)",/gm)]
     .map((match) => ({ name: match[1], channel: match[2] }));
-  // Members of the bridge object the preload exposes — one line each, and the
-  // count is what the smoke test and the atlas both quote.
-  const members = [...read("apps/desktop/src/preload.ts").matchAll(/^ {2}([a-zA-Z]+):/gm)].length;
 
   return [
-    `${n(channels.length)} named channels, reached through the ${n(members)} members of the bridge`,
-    "object the preload exposes:",
+    `${n(channels.length)} named channels:`,
     "",
     ...channels.map((entry) => `- \`${entry.channel}\` — \`${entry.name}\``),
   ];

@@ -1,5 +1,6 @@
 "use client";
 
+import { readyCore } from "@/lib/rust-core";
 import { reportFailedRequest } from "./app-log";
 
 /**
@@ -56,13 +57,20 @@ export const MAX_BODY_CHARS = 2_000;
  * already reported by the recovery path, and the log is for the failures
  * nothing else explains.
  */
-const IGNORED = ["/_next/", "/__nextjs", "webpack-hmr", ".hot-update."];
-
 /** What each install replaced, so a test can put it back. See the reset below. */
 const originals = new WeakMap<typeof fetch, typeof fetch>();
 
+/**
+ * The list itself is in Rust (`wf_core::error_report::log_buffer::is_noise`). This runs inside
+ * `window.fetch`, which can be called before the core has loaded; then nothing is noise, so the
+ * failure is logged rather than the wrapper throwing into the caller.
+ */
 function isNoise(url: string): boolean {
-  return IGNORED.some((needle) => url.includes(needle));
+  try {
+    return readyCore().errorLogIsNoise(url) as boolean;
+  } catch {
+    return false;
+  }
 }
 
 /** One request's URL, however it was passed. */
@@ -95,15 +103,14 @@ export function installRequestLog(): void {
   const wrapped: typeof fetch = async (input, init) => {
     const url = urlOf(input as RequestInfo | URL);
     const method = methodOf(input as RequestInfo | URL, init);
-    const noise = isNoise(url);
     let response: Response;
     try {
       response = await current(input, init);
     } catch (error) {
-      if (!noise) reportFailedRequest({ method, url, error });
+      if (!isNoise(url)) reportFailedRequest({ method, url, error });
       throw error;
     }
-    if (response.ok || noise) return response;
+    if (response.ok || isNoise(url)) return response;
 
     // The clone is taken before anything reads the original, and the read is
     // bounded, so a caller that never reads the body still gets its response

@@ -1,0 +1,69 @@
+# Reader
+
+The reader opens a paper's PDF next to your notes. You annotate it, search it,
+follow its citations to the reference list, and jump back to any mark you made.
+
+## How to
+
+### Open a paper's PDF
+
+1. Open the paper.
+2. The reader tries each source for the PDF in turn and uses the first one that
+   has it. Sources that cost money are tried last.
+3. The PDF opens at the page you last read.
+
+### Annotate a passage
+
+1. Select text on the page.
+2. Pick a tool from the **Annotate** toolbar, and a colour from **Annotation colour**.
+
+### Draw with the pen
+
+1. Pick the pen or the highlighter from the **Annotate** toolbar.
+2. Draw on the page. Strokes drawn within 2 s of each other count as one group.
+
+### Follow a citation
+
+1. Click an in-text citation such as `[3]` or `(Smith et al., 2020)`.
+2. A popover lists the matching entry from the reference list, under **Cited entries**.
+
+### Show the side panel
+
+1. If the panel is hidden, click **Show the side panel**.
+
+## Reference
+
+| Setting | Value |
+| --- | --- |
+| Zoom, default | 100% |
+| Zoom, range | 25% to 400% |
+| Zoom step | 1.25 times per step |
+| Undo depth for pen strokes | 200 steps |
+| Stroke points kept per stroke | 400 |
+| Pen widths | 0.1, 0.3, 0.5, 0.7 mm (default 0.3 mm) |
+| Highlighter widths | 3, 4.5, 6, 9 mm (default 6 mm). A stroke 2.5 mm or wider paints as highlighter |
+| Annotation types | highlight, underline, note, image, ink, text |
+| Sync states | local, synced, pending, conflict |
+
+## How it works
+
+Analysis of the PDF text (reference list, headings, citations, figure
+mentions) and the reader's anchor, ink, viewport and sync rules are computed by
+the Rust core, so the same result comes out on every platform.
+
+Citations are found two ways. Where the PDF has internal link annotations on
+citations, those links are used. Otherwise the reader looks for `[n]` and
+`(Author year)` patterns and decides which convention the paper uses. A paper
+that mixes both is handled.
+
+Each annotation sync state is one of `local`, `synced`, `pending` or
+`conflict`. Ink undo holds up to 200 steps.
+
+Source: `crates/wf-core/src/reader/` and `crates/wf-core/src/reader_analysis/`
+
+## Related
+
+- [Search](search.md) — finding text across your notes and papers
+- [Citations, excerpts and Overleaf](citations-and-overleaf.md) — using a passage in a draft
+- [Integrations](integrations.md) — connecting Zotero
+- [Storage and sync](sync.md) — where annotations are kept

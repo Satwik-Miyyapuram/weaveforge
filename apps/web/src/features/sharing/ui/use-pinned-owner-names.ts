@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
+import { loadPinnedOwnerNames } from "@/features/sharing/application/parts";
 
 interface WithOwnerNames {
   /** resourceId -> sharer user id. */

@@ -1,17 +1,20 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  backlinksForAnnotation,
-  findAnnotationBacklinks,
-} from "../application/annotation-backlinks.js";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 test("findAnnotationBacklinks links pins and vault mentions", () => {
+  const { findAnnotationBacklinks, backlinksForAnnotation } = readyCore();
   const hits = findAnnotationBacklinks({
     annotations: [
       { id: "local-1", zoteroKey: null, text: "unique quote here about methods" },
       { id: "z-1", zoteroKey: "ABCD", text: "other" },
     ],
-    pins: [{ annotationKey: "local-1", reportSectionId: "sec-1", paperId: "p" }],
+    pins: [{ annotationKey: "local-1", reportSectionId: "sec-1" }],
     sections: [{ id: "sec-1", title: "Methods" }],
     vaultPages: [
       { id: "n1", title: "Note", body: "See ABCD in the lit review." },
@@ -26,7 +29,7 @@ test("findAnnotationBacklinks links pins and vault mentions", () => {
 
 test("findAnnotationBacklinks returns empty when nothing cites", () => {
   assert.deepEqual(
-    findAnnotationBacklinks({
+    readyCore().findAnnotationBacklinks({
       annotations: [{ id: "a", zoteroKey: null, text: "short" }],
       pins: [],
       sections: [],

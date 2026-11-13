@@ -1,11 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  createPaper,
-  normalizeDoi,
-  PaperValidationError,
-} from "../../../src/features/papers/domain/paper.js";
-import type { Clock, IdGenerator } from "../../../src/shared/clock.js";
+import { createPaper, PaperValidationError } from "../../../src/features/papers/domain/parts.js";
+import type { Clock, IdGenerator } from "../../../src/shared/parts.js";
+import { rust } from "../../../src/shared/rust.js";
 
 const clock: Clock = { nowIso: () => "2026-06-24T12:00:00.000Z" };
 let counter = 0;
@@ -37,7 +34,7 @@ test("createPaper rejects out-of-range rating", () => {
 });
 
 test("normalizeDoi strips url prefix and lowercases", () => {
-  assert.equal(normalizeDoi("https://doi.org/10.1145/ABC"), "10.1145/abc");
-  assert.equal(normalizeDoi("10.1145/abc"), "10.1145/abc");
-  assert.equal(normalizeDoi(undefined), undefined);
+  assert.equal(rust().normalizeDoi("https://doi.org/10.1145/ABC"), "10.1145/abc");
+  assert.equal(rust().normalizeDoi("10.1145/abc"), "10.1145/abc");
+  assert.equal(rust().normalizeDoi(undefined), undefined);
 });

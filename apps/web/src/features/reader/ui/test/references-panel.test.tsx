@@ -10,7 +10,7 @@ import { create } from "react-test-renderer";
 import type { Paper, ParsedReference } from "@weaveforge/core";
 
 import { ReferencesPanel } from "../references-panel";
-import type { ResolvedReference } from "../../application/reference-lookup";
+import type { ResolvedReference } from "../../application/parts-2";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

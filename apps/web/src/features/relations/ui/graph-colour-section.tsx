@@ -11,7 +11,7 @@ import {
 } from "@weaveforge/core";
 import { ColourMenu } from "@/components/colour-menu";
 import { Select } from "@/components/select";
-import { CLUSTER_PALETTE } from "../application/node-colouring";
+import { readyCore } from "@/lib/rust-core";
 import { NODE_COLOR_LABELS, useGraphColours } from "./graph-colours";
 import { CloseIcon } from "@/components/view-icons";
 import { SegmentedControl } from "@/components/segmented-control";
@@ -103,7 +103,7 @@ function GroupRules({
         <Button
           size="sm"
           onClick={() =>
-            onChange([...groups, { query: "", color: CLUSTER_PALETTE[groups.length % CLUSTER_PALETTE.length]! }])
+            onChange([...groups, { query: "", color: readyCore().graphPalette().cluster[groups.length % readyCore().graphPalette().cluster.length]! }])
           }
         >
           Add group

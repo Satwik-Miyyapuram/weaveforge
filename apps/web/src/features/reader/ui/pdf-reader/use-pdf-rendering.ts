@@ -1,31 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { errorMessage, isRotatedText, outlineFromText, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
-import type { PageTextItem } from "@weaveforge/core";
+import { errorMessage, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
+import type { DocumentPageText, ReaderContainerSize, ReaderPageSize, PageTextItem, PageTextGeometry } from "@weaveforge/wasm";
 import type { TextLayer } from "pdfjs-dist";
 import { createPdfTextLayer, measurePdfLinks } from "./pdf-text-layer";
 import { idle } from "./pdf-page-window";
+import { useContainerSize } from "./container-resize";
 
-import type {
-  DocumentPageText,
-  ReaderContainerSize,
-  ReaderPageSize,
-} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { perfEnd, perfStart } from "@/lib/perf-marks";
-import { savePdfTextDurably } from "@/features/search/application/pdf-text-folder";
-import {
-  sanitizePdfUrl,
-  originalUrlFromProxy,
-  isAllowedPdfProxyUrl,
-  isReaderObjectUrl,
-} from "../../application/sanitize-reader-url";
-import { pdfProxyNeedsToken } from "../../application/pdf-download-consent";
-import {
-  isCachePdfUrl,
-  readStoredPdfBytes,
-} from "../../application/resolve-paper-pdf-for-reader";
+import { readyCore } from "@/lib/rust-core";
+import { perfEnd, perfStart } from "@/lib/parts-2";
+import { savePdfTextDurably } from "@/features/search/application/parts-1";
+import { readStoredPdfBytes } from "../../application/parts-3";
+import { pdfObjectUrlBytes, pdfProxyNeedsToken } from "../../application/parts";
 import { useReaderViewport, type ReaderViewportApi } from "../use-reader-viewport";
 import type { ReaderOutlineItem } from "../reader-outline";
 import type { JumpState, PdfDocument, PdfLib, PdfReaderProps, RenderTask, TextItemGeometry } from "./types";
@@ -35,7 +23,7 @@ import {
   mapOutline,
   textItemsFromContent,
 } from "./pdf-document";
-import type { PageTextGeometry } from "@weaveforge/core";
+import { relayPath } from "@/lib/parts";
 
 export interface PdfRenderingDeps {
   url: string;
@@ -148,7 +136,6 @@ export function usePdfRendering({
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState<ReaderPageSize | null>(null);
-  const [containerSize, setContainerSize] = useState<ReaderContainerSize | null>(null);
   const [pageTexts, setPageTexts] = useState<DocumentPageText[]>([]);
   const [pageItems, setPageItems] = useState<Map<number, TextItemGeometry[]>>(() => new Map());
   const [pageLinks, setPageLinks] = useState<Map<number, PdfLink[]>>(() => new Map());
@@ -166,33 +153,32 @@ export function usePdfRendering({
   const scratchCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const scratchQueue = useRef<Promise<void>>(Promise.resolve());
   const renderGeneration = useRef(0);
-  /** The document the container was last measured for at once, not settled. */
-  const measuredFor = useRef<unknown>(null);
 
   // The viewport fits to the page size this hook measures, and the render
   // scale it produces is what the next render pass draws at. Reading it from
   // outside would make the two mutually dependent.
+  const containerSize = useContainerSize(containerRef, pdf, pageShare);
   const viewport = useReaderViewport({ initialPage, pageSize, containerSize, numPages });
   const scale = viewport.renderScale;
   const rotation = viewport.rotation;
 
 const safeUrl = (() => {
-  if (url.startsWith("/api/pdf-proxy?")) {
-    const original = originalUrlFromProxy(url);
-    return original && isAllowedPdfProxyUrl(original) ? url : null;
+  if (relayPath(url).startsWith("/api/pdf-proxy?")) {
+    const original = readyCore().originalUrlFromProxy(relayPath(url), url);
+    return original && readyCore().isAllowedPdfProxyUrl(original) ? url : null;
   }
   // Bytes this app already cached and materialised — see isReaderObjectUrl.
-  if (isReaderObjectUrl(url)) return url;
+  if (readyCore().isReaderObjectUrl(url, typeof location === "undefined" ? undefined : location.origin)) return url;
   // The same bytes, still in the store: the desktop reader takes them as data.
-  if (isCachePdfUrl(url)) return url;
-  return sanitizePdfUrl(url);
+  if (readyCore().isCachePdfUrl(url)) return url;
+  return readyCore().sanitizePdfUrl(url);
 })();
 const openUrl = (() => {
-  const direct = sanitizePdfUrl(originalUrl);
+  const direct = readyCore().sanitizePdfUrl(originalUrl);
   if (direct) return direct;
-  const fromProxy = originalUrlFromProxy(url);
-  if (fromProxy && isAllowedPdfProxyUrl(fromProxy)) return fromProxy;
-  return sanitizePdfUrl(url);
+  const fromProxy = readyCore().originalUrlFromProxy(relayPath(url), url);
+  if (fromProxy && readyCore().isAllowedPdfProxyUrl(fromProxy)) return fromProxy;
+  return readyCore().sanitizePdfUrl(url);
 })();
 
 const cancelRenderTasks = useCallback(() => {
@@ -207,43 +193,6 @@ const cancelRenderTasks = useCallback(() => {
   for (const layer of textLayers.current.values()) layer.cancel();
   textLayers.current.clear();
 }, []);
-
-useEffect(() => {
-  const host = containerRef.current;
-  if (!host || typeof ResizeObserver === "undefined") return;
-  const measure = () => {
-    setContainerSize({
-      width: Math.max(1, host.clientWidth * pageShare),
-      height: Math.max(1, host.clientHeight),
-    });
-  };
-  // The shell animates its width when the pen rail opens or the nav folds;
-  // every frame of that is a resize, and every new width would otherwise
-  // throw away the canvases and repaint every page. Wait for the size to
-  // settle and re-render once at the final width. The first measure after a
-  // load is taken at once so the pages appear without delay; a share change
-  // comes with the same animation, so it waits like a resize does.
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let last = { width: host.clientWidth, height: host.clientHeight };
-  if (measuredFor.current !== pdf) {
-    measuredFor.current = pdf;
-    measure();
-  } else {
-    timer = setTimeout(measure, 160);
-  }
-  const observer = new ResizeObserver(() => {
-    const next = { width: host.clientWidth, height: host.clientHeight };
-    if (next.width === last.width && next.height === last.height) return;
-    last = next;
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(measure, 160);
-  });
-  observer.observe(host);
-  return () => {
-    observer.disconnect();
-    if (timer) clearTimeout(timer);
-  };
-}, [pdf, pageShare]);
 
 useEffect(() => {
   let cancelled = false;
@@ -283,7 +232,7 @@ useEffect(() => {
       const lib = await loadPdfLib();
       if (cancelled) return;
       const httpHeaders: Record<string, string> = {};
-      if (safeUrl.startsWith("/api/pdf-proxy?") && pdfProxyNeedsToken()) {
+      if (relayPath(safeUrl).startsWith("/api/pdf-proxy?") && pdfProxyNeedsToken()) {
         const accessToken = await getContainer().auth.auth.getAccessToken();
         if (!accessToken) {
           if (!cancelled) setError("Sign in to open this PDF in the reader.");
@@ -292,12 +241,14 @@ useEffect(() => {
         httpHeaders.Authorization = `Bearer ${accessToken}`;
       }
       let source: { url: string } | { data: Uint8Array };
-      if (isCachePdfUrl(safeUrl)) {
+      if (readyCore().isCachePdfUrl(safeUrl)) {
         const stored = await readStoredPdfBytes(safeUrl);
         if (!stored) throw new Error("The stored copy of this PDF is missing.");
         source = { data: new Uint8Array(stored) };
       } else {
-        source = { url: safeUrl };
+        // The desktop app cannot fetch a blob: URL; take the bytes behind it when this page made it.
+        const objectBytes = await pdfObjectUrlBytes(safeUrl);
+        source = objectBytes ? { data: objectBytes } : { url: safeUrl };
       }
       if (cancelled) return;
       task = lib.getDocument({
@@ -403,7 +354,7 @@ useEffect(() => {
               x: item.transform[4] ?? 0,
               y: item.transform[5] ?? 0,
               page: n,
-              ...(isRotatedText(item.transform) ? { rotated: true } : {}),
+              ...(readyCore().isRotatedText(item.transform) ? { rotated: true } : {}),
             }));
           };
 
@@ -429,7 +380,7 @@ useEffect(() => {
           await idle(cancelSignal);
           if (cancelled) return;
 
-          detected = outlineFromText(outlinePages);
+          detected = readyCore().outlineFromText(outlinePages);
           publishOutline();
           setPageTexts(texts);
           setPageItems(itemsByPage);
@@ -502,7 +453,7 @@ useEffect(() => {
       // A cached copy that will not open is recoverable: the screen can drop
       // it and refetch from the network. Offer that before showing an error,
       // so a bad cache entry is not a dead end.
-      if ((isReaderObjectUrl(safeUrl) || isCachePdfUrl(safeUrl)) && onSourceFailure) {
+      if ((readyCore().isReaderObjectUrl(safeUrl, typeof location === "undefined" ? undefined : location.origin) || readyCore().isCachePdfUrl(safeUrl)) && onSourceFailure) {
         onSourceFailure(safeUrl);
         return;
       }
@@ -731,6 +682,11 @@ useEffect(() => {
               hasEOL: Boolean(it.hasEOL),
             });
           }
+          // Another render of this page may have filled the layer while this one
+          // waited; without this both sets of words stack in it and a selection
+          // jumps between the copies.
+          textLayers.current.get(pageNumber)?.cancel();
+          textLayer.replaceChildren();
           const layer = createPdfTextLayer(lib, textLayer, content, viewport);
           textLayers.current.set(pageNumber, layer);
           await layer.render();

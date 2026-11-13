@@ -1,17 +1,15 @@
 # Deploy-time plugins
 
-Example plugin: `apps/web/src/plugins/example/`
+## Enable a plugin
 
-## Enable the timer demo
-
-1. Edit `weaveforge.config.ts` at the repo root:
+1. Edit `weaveforge.config.ts` at the repo root and list the plugin:
 
 ```ts
 import { defineConfig } from "@weaveforge/core";
-import { exampleTimerPlugin } from "./apps/web/src/plugins/example";
+import { myPlugin } from "my-weaveforge-plugin";
 
 export default defineConfig({
-  plugins: [exampleTimerPlugin()],
+  plugins: [myPlugin()],
 });
 ```
 

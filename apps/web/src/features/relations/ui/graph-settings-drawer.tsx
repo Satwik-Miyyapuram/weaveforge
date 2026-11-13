@@ -1,10 +1,8 @@
 "use client";
 
-import { enumLabel } from "@/lib/enum-label";
 import { useState } from "react";
 import {
   DEFAULT_GRAPH_SETTINGS,
-  RELATION_TYPES,
   type EdgeMode,
   type GraphViewSettings,
   type GroupBy,
@@ -16,6 +14,7 @@ import { SegmentedControl } from "@/components/segmented-control";
 import { Button, CloseButton } from "@/components/button";
 import { ColourSection } from "./graph-colour-section";
 import { Chip, TabButton } from "@/components/controls";
+import { readyCore } from "@/lib/rust-core";
 
 type SettingsTab = "filters" | "appearance" | "physics" | "actions";
 
@@ -159,7 +158,7 @@ export function GraphSettingsDrawer({
                   <div style={{ display: "flex", gap: "8px" }}>
                     <Button variant="link"
                       style={{ fontSize: "0.72rem" }}
-                      onClick={() => onChange({ relationTypes: [...RELATION_TYPES] })}
+                      onClick={() => onChange({ relationTypes: [...readyCore().RELATION_TYPES] })}
                     >
                       All
                     </Button>
@@ -172,7 +171,7 @@ export function GraphSettingsDrawer({
                   </div>
                 </div>
                 <div className="graph-chip-grid" role="group" aria-label="Relation types">
-                  {RELATION_TYPES.map((t) => {
+                  {readyCore().RELATION_TYPES.map((t) => {
                     const active = settings.relationTypes.includes(t);
                     return (
                       <Chip
@@ -185,7 +184,7 @@ export function GraphSettingsDrawer({
                           onChange({ relationTypes: next.length ? next : ["cites"] });
                         }}
                       >
-                        {enumLabel("relation", t)}
+                        {readyCore().enumLabel("relation", t)}
                       </Chip>
                     );
                   })}

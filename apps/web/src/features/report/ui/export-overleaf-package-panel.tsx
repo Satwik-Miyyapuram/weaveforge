@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
-import { downloadOverleafExportPackage } from "@/features/overleaf/application/download-overleaf-export";
+import { downloadOverleafExportPackage } from "@/features/overleaf/application/parts";
 import { Modal, ModalActions } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 import { Select } from "@/components/select";

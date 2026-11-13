@@ -3,17 +3,20 @@
  * analysis are logged, the in-thread analysis runs once and yields both the
  * analysis and its index, and a pin moves the map and the backlinks together.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create } from "react-test-renderer";
-import type { PageTextItem } from "@weaveforge/core";
 
-import { buildReferenceIndex, type ReferencePage } from "../application/reader-references";
-import { analyzeInThread } from "../ui/pdf-reader/use-document-analyzer";
+import type { PageTextItem } from "@weaveforge/wasm";
+import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { analyzeInThread, type ReaderInputPage } from "../ui/pdf-reader/use-document-analyzer";
 import { useAnnotationContext, type AnnotationContext } from "../ui/pdf-reader/use-annotation-context";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+before(loadTestCore);
 
 type Log = { level: string; source: string; message: string; detail?: string };
 const logs: Log[] = [];
@@ -26,7 +29,7 @@ function run(str: string, y: number, size = 10): PageTextItem {
   return { str, transform: [size, 0, 0, size, 72, y], width: str.length * size * 0.5, height: size, hasEOL: true };
 }
 const prose = (y: number) => run("Body prose of the paper goes here and here.", y);
-const pages: ReferencePage[] = [
+const pages: ReaderInputPage[] = [
   { pageNumber: 1, items: [
     run("Attention [1] works.", 700),
     run("See Fig. 2 for the layout.", 688),
@@ -44,7 +47,7 @@ const pages: ReferencePage[] = [
 test("the in-thread analysis yields the analysis and the same index as buildReferenceIndex (23-07)", () => {
   const result = analyzeInThread(pages, []);
   assert.ok(result);
-  const expected = buildReferenceIndex(pages, []);
+  const expected = typedCore().buildReferenceIndex(pages, []);
   assert.equal(result.index.fingerprint, expected.fingerprint);
   assert.ok(expected.references.length > 0);
   assert.equal(result.index.references.length, expected.references.length);
@@ -53,7 +56,7 @@ test("the in-thread analysis yields the analysis and the same index as buildRefe
 
 test("a failed in-thread analysis is logged, not swallowed (23-08)", () => {
   logs.length = 0;
-  const broken = [{ pageNumber: 1, items: null }] as unknown as ReferencePage[];
+  const broken = [{ pageNumber: 1, items: null }] as unknown as ReaderInputPage[];
   assert.equal(analyzeInThread(broken, []), null);
   assert.equal(logs.length, 1);
   assert.equal(logs[0]!.level, "warn");

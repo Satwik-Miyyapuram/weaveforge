@@ -8,18 +8,20 @@ import {
   type ExperimentStatus,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast";
+import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast/index";
 import { useNavPending } from "@/lib/nav-pending";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { ExperimentCardThumbs } from "@/components/card-thumbs";
-import { cardSnippet } from "@/lib/card-snippet";
+import { readyCore } from "@/lib/rust-core";
 import { PinnedPaperBadge } from "@/features/sharing";
 import {
   ExpGitChips,
   ExpMetricChips,
 } from "./experiment-panels";
-import { experimentHref } from "../application/experiment-href";
+import { isOfflineBuild } from "@/deployment/build-target";
+import { removeExperiment } from "../application/parts";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { StatusSelect } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
@@ -45,7 +47,7 @@ export function ExperimentCard({
   /** The last status change that failed, shown on the card. */
   const [actionError, setActionError] = useState<string | null>(null);
   const openDetail = useCallback(() => {
-    const dest = experimentHref(exp.id);
+    const dest = readyCore().experimentHref(exp.id, isOfflineBuild());
     beginNavigation(dest);
     router.push(dest);
   }, [beginNavigation, router, exp.id]);
@@ -62,7 +64,14 @@ export function ExperimentCard({
     removeLater({
       key: experimentKey(exp.id),
       message: deletedMessage(exp.name),
-      remove: () => getContainer().experiments.manageExperiment.remove(exp.id),
+      remove: () => {
+        const bridge = desktop();
+        return removeExperiment(
+          exp.id,
+          (id) => getContainer().experiments.manageExperiment.remove(id),
+          bridge?.deleteLocalArtifacts?.bind(bridge),
+        );
+      },
       onDeleted: onChanged,
     });
   }
@@ -112,7 +121,7 @@ export function ExperimentCard({
       <ExpGitChips exp={exp} limit={3} />
       <ExpMetricChips exp={exp} limit={3} />
       <div className="card-body-row">
-        {exp.resultNote && <p className="entity-card-snippet">{cardSnippet(exp.resultNote)}</p>}
+        {exp.resultNote && <p className="entity-card-snippet">{readyCore().cardSnippet(exp.resultNote)}</p>}
         <ExperimentCardThumbs artifacts={exp.artifacts} />
       </div>
       {actionError && <FormError>{actionError}</FormError>}

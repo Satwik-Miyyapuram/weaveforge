@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { relayUrl } from "@/lib/parts";
 
 import { getContainer } from "@/bootstrap";
-import { newIssueUrl, reportMarkdown } from "@/lib/error-report/issue-url";
+import { reportRepo } from "@/lib/error-report/parts";
 import { recentLogs } from "@/lib/error-report/log-buffer";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { redactAndCap } from "@/lib/error-report/redact";
+import { coreIfReady, loadCore, readyCore } from "@/lib/rust-core";
 import { Button } from "@/components/button";
 
 /** Where the error was shown, read off the page when "Report" was pressed. */
@@ -46,13 +47,31 @@ export interface ReportContext {
  *     token) opens GitHub's own new-issue form with the same report filled in,
  *     where the reader submits it as themselves; "Copy report" works anywhere.
  */
-export function ErrorReportPanel({
-  title,
-  detail,
-  route,
-  open,
-  context,
-}: {
+export function ErrorReportPanel(props: ErrorReportProps) {
+  // Error screens can show before the Rust core has loaded, or because it
+  // failed to. The report is redacted by the core, so it waits for it.
+  const [core, setCore] = useState(coreIfReady);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (core) return;
+    let live = true;
+    loadCore().then(
+      (loadedCore) => live && setCore(loadedCore),
+      () => live && setFailed(true),
+    );
+    return () => {
+      live = false;
+    };
+  }, [core]);
+  if (core) return <ReportForm {...props} />;
+  return (
+    <p className="report-sent" role="status">
+      {failed ? "The report form could not load. Copy the technical details instead." : "Loading the report form…"}
+    </p>
+  );
+}
+
+interface ErrorReportProps {
   /** A one-line summary, prefilled from the error and editable. */
   title: string;
   /** The technical detail: message, stack, whatever the boundary captured. */
@@ -66,7 +85,9 @@ export function ErrorReportPanel({
    */
   open?: boolean;
   context?: ReportContext;
-}) {
+}
+
+function ReportForm({ title, detail, route, open, context }: ErrorReportProps) {
   const [summary, setSummary] = useState(title);
   const [steps, setSteps] = useState("");
   const [showAttached, setShowAttached] = useState(false);
@@ -75,9 +96,9 @@ export function ErrorReportPanel({
     { status: "idle" } | { status: "sending" } | { status: "sent"; url: string | null } | { status: "failed"; message: string; fallback: boolean }
   >({ status: "idle" });
 
-  const logs = useMemo(() => redactAndCap(recentLogs()).text, []);
+  const logs = useMemo(() => readyCore().redactAndCap(recentLogs()).text, []);
   const logCount = logs ? logs.split("\n").filter((line) => line.trim()).length : 0;
-  const shown = redactAndCap(detail).text;
+  const shown = readyCore().redactAndCap(detail).text;
   const where = route ?? (typeof location === "undefined" ? "" : `${location.pathname}${location.search}`);
   const version = process.env.NEXT_PUBLIC_APP_VERSION ?? "";
   // No server in the desktop app, so no endpoint: go straight to GitHub's form.
@@ -97,9 +118,9 @@ export function ErrorReportPanel({
     ["Platform", platform],
     ["Time", at.replace("T", " ").replace(/\.\d+Z$/, " UTC")],
   ];
-  const cleanSteps = redactAndCap(steps).text;
+  const cleanSteps = readyCore().redactAndCap(steps).text;
   const markdown = (withHeading = true) =>
-    reportMarkdown({
+    readyCore().reportMarkdown({
       withHeading,
       detail: shown,
       steps: cleanSteps,
@@ -108,7 +129,7 @@ export function ErrorReportPanel({
       logs,
       context: attached.filter(([label]) => label !== "Route" && label !== "Version"),
     });
-  const githubUrl = () => newIssueUrl({ title: summary, body: markdown() });
+  const githubUrl = () => readyCore().newIssueUrl(summary, markdown(), reportRepo());
 
   const copy = async () => {
     try {
@@ -124,7 +145,7 @@ export function ErrorReportPanel({
     setState({ status: "sending" });
     try {
       const token = await getContainer().auth.auth.getAccessToken();
-      const response = await fetch("/api/report-issue", {
+      const response = await fetch(relayUrl("/api/report-issue"), {
         method: "POST",
         headers: {
           "content-type": "application/json",

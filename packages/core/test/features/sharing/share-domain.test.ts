@@ -1,11 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  shareAllowsComment,
-  shareAllowsEdit,
-  shareCoversResource,
-  type Share,
-} from "../../../src/features/sharing/domain/share.js";
+import { type Share } from "../../../src/shared/core-contract.js";
+import { rust } from "../../../src/shared/rust.js";
 
 const base = (over: Partial<Share>): Share => ({
   id: "s1",
@@ -19,27 +15,27 @@ const base = (over: Partial<Share>): Share => ({
 });
 
 test("shareCoversResource matches exact resource", () => {
-  assert.equal(shareCoversResource(base({}), "paper", "p1", "alice"), true);
-  assert.equal(shareCoversResource(base({}), "paper", "p2", "alice"), false);
+  assert.equal(rust().shareCoversResource(base({}), "paper", "p1", "alice"), true);
+  assert.equal(rust().shareCoversResource(base({}), "paper", "p2", "alice"), false);
 });
 
 test("shareCoversResource matches blanket grant", () => {
   assert.equal(
-    shareCoversResource(base({ resourceId: null }), "paper", "p9", "alice"),
+    rust().shareCoversResource(base({ resourceId: null }), "paper", "p9", "alice"),
     true,
   );
 });
 
 test("shareAllowsComment requires comment or edit access", () => {
-  assert.equal(shareAllowsComment(base({}), "paper", "p1", "alice"), true);
-  assert.equal(shareAllowsComment(base({ access: "edit" }), "paper", "p1", "alice"), true);
+  assert.equal(rust().shareAllowsComment(base({}), "paper", "p1", "alice"), true);
+  assert.equal(rust().shareAllowsComment(base({ access: "edit" }), "paper", "p1", "alice"), true);
   assert.equal(
-    shareAllowsComment(base({ access: "view" }), "paper", "p1", "alice"),
+    rust().shareAllowsComment(base({ access: "view" }), "paper", "p1", "alice"),
     false,
   );
 });
 
 test("shareAllowsEdit requires edit access", () => {
-  assert.equal(shareAllowsEdit(base({ access: "edit" }), "paper", "p1", "alice"), true);
-  assert.equal(shareAllowsEdit(base({ access: "comment" }), "paper", "p1", "alice"), false);
+  assert.equal(rust().shareAllowsEdit(base({ access: "edit" }), "paper", "p1", "alice"), true);
+  assert.equal(rust().shareAllowsEdit(base({ access: "comment" }), "paper", "p1", "alice"), false);
 });

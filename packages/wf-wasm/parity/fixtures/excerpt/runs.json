@@ -1,0 +1,521 @@
+{
+  "input": {
+    "runs": [
+      {
+        "body": "",
+        "terms": [
+          "x"
+        ],
+        "options": {}
+      },
+      {
+        "body": " \n\t ",
+        "terms": [
+          "x"
+        ],
+        "options": {}
+      },
+      {
+        "body": "Graph neural networks",
+        "terms": [
+          "graph"
+        ],
+        "options": {}
+      },
+      {
+        "body": "Graph neural networks",
+        "terms": [
+          "GRAPH",
+          "Networks"
+        ],
+        "options": {}
+      },
+      {
+        "body": "no hit here",
+        "terms": [
+          "absent"
+        ],
+        "options": {}
+      },
+      {
+        "body": "a short body",
+        "terms": [
+          "x"
+        ],
+        "options": {
+          "maxChars": 10
+        }
+      },
+      {
+        "body": "lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum ",
+        "terms": [
+          "zzz"
+        ],
+        "options": {}
+      },
+      {
+        "body": "lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum ",
+        "terms": [
+          "zzz"
+        ],
+        "options": {
+          "maxChars": 60
+        }
+      },
+      {
+        "body": "lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum target lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum ",
+        "terms": [
+          "target"
+        ],
+        "options": {
+          "maxChars": 60
+        }
+      },
+      {
+        "body": "alpha lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum beta gamma delta lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum ",
+        "terms": [
+          "alpha",
+          "beta",
+          "gamma",
+          "delta"
+        ],
+        "options": {
+          "maxChars": 60
+        }
+      },
+      {
+        "body": "lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum end match",
+        "terms": [
+          "match"
+        ],
+        "options": {
+          "maxChars": 60
+        }
+      },
+      {
+        "body": "abc abc",
+        "terms": [
+          "ab",
+          "bc"
+        ],
+        "options": {}
+      },
+      {
+        "body": "aaaa",
+        "terms": [
+          "aa"
+        ],
+        "options": {}
+      },
+      {
+        "body": "xx yy",
+        "terms": [
+          "xx",
+          "x y"
+        ],
+        "options": {}
+      },
+      {
+        "body": "one two",
+        "terms": [
+          "o",
+          " t ",
+          "  "
+        ],
+        "options": {}
+      },
+      {
+        "body": "line one\n\nline two\r\n  three",
+        "terms": [
+          "two"
+        ],
+        "options": {}
+      },
+      {
+        "body": "line one\n\nline two\r\n  three",
+        "terms": [
+          "two"
+        ],
+        "options": {
+          "singleLine": false
+        }
+      },
+      {
+        "body": "  padded ﻿text herex  ",
+        "terms": [
+          "text"
+        ],
+        "options": {}
+      },
+      {
+        "body": "İstanbul and ISTANBUL",
+        "terms": [
+          "istanbul"
+        ],
+        "options": {}
+      },
+      {
+        "body": "İstanbul",
+        "terms": [
+          "i̇s"
+        ],
+        "options": {}
+      },
+      {
+        "body": "ΣΑΣ σασ",
+        "terms": [
+          "σαΣ"
+        ],
+        "options": {}
+      },
+      {
+        "body": "ΣΑΣ σας",
+        "terms": [
+          "σας"
+        ],
+        "options": {}
+      },
+      {
+        "body": "Kelvin kelvin",
+        "terms": [
+          "kelvin"
+        ],
+        "options": {}
+      },
+      {
+        "body": "Straße STRASSE",
+        "terms": [
+          "straße"
+        ],
+        "options": {}
+      },
+      {
+        "body": "École école",
+        "terms": [
+          "école"
+        ],
+        "options": {}
+      },
+      {
+        "body": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀hit😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+        "terms": [
+          "hit"
+        ],
+        "options": {
+          "maxChars": 40
+        }
+      },
+      {
+        "body": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+        "terms": [
+          "zz"
+        ],
+        "options": {
+          "maxChars": 41
+        }
+      },
+      {
+        "body": "😀x😀x",
+        "terms": [
+          "😀x"
+        ],
+        "options": {}
+      },
+      {
+        "body": "lorem ipsum lorem ipsum lorem ipsum lorem ipsum straddlelorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum ",
+        "terms": [
+          "lorem ipsum lorem ipsum lorem ipsum lorem"
+        ],
+        "options": {
+          "maxChars": 40
+        }
+      },
+      {
+        "body": "exact forty characters of text right here",
+        "terms": [
+          "here"
+        ],
+        "options": {
+          "maxChars": 40
+        }
+      },
+      {
+        "body": "lorem ipsum lorem ipsum lorem ipsum ",
+        "terms": [
+          "lorem"
+        ],
+        "options": {
+          "maxChars": 0
+        }
+      }
+    ]
+  },
+  "expected": [
+    {
+      "text": "",
+      "highlights": []
+    },
+    {
+      "text": "",
+      "highlights": []
+    },
+    {
+      "text": "Graph neural networks",
+      "highlights": [
+        {
+          "start": 0,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "text": "Graph neural networks",
+      "highlights": [
+        {
+          "start": 0,
+          "end": 5
+        },
+        {
+          "start": 13,
+          "end": 21
+        }
+      ]
+    },
+    {
+      "text": "no hit here",
+      "highlights": []
+    },
+    {
+      "text": "a short body",
+      "highlights": []
+    },
+    {
+      "text": "lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum …",
+      "highlights": []
+    },
+    {
+      "text": "lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum …",
+      "highlights": []
+    },
+    {
+      "text": "…ipsum lorem ipsum target lorem ipsum lorem ipsum lorem ipsum…",
+      "highlights": [
+        {
+          "start": 19,
+          "end": 25
+        }
+      ]
+    },
+    {
+      "text": "…ipsum lorem ipsum beta gamma delta lorem ipsum lorem ipsum l…",
+      "highlights": [
+        {
+          "start": 19,
+          "end": 23
+        },
+        {
+          "start": 24,
+          "end": 29
+        },
+        {
+          "start": 30,
+          "end": 35
+        }
+      ]
+    },
+    {
+      "text": "…um lorem ipsum lorem ipsum lorem ipsum lorem ipsum end match",
+      "highlights": [
+        {
+          "start": 56,
+          "end": 61
+        }
+      ]
+    },
+    {
+      "text": "abc abc",
+      "highlights": [
+        {
+          "start": 0,
+          "end": 3
+        },
+        {
+          "start": 4,
+          "end": 7
+        }
+      ]
+    },
+    {
+      "text": "aaaa",
+      "highlights": [
+        {
+          "start": 0,
+          "end": 4
+        }
+      ]
+    },
+    {
+      "text": "xx yy",
+      "highlights": [
+        {
+          "start": 0,
+          "end": 4
+        }
+      ]
+    },
+    {
+      "text": "one two",
+      "highlights": []
+    },
+    {
+      "text": "line one line two three",
+      "highlights": [
+        {
+          "start": 14,
+          "end": 17
+        }
+      ]
+    },
+    {
+      "text": "line one\n\nline two\r\n  three",
+      "highlights": [
+        {
+          "start": 15,
+          "end": 18
+        }
+      ]
+    },
+    {
+      "text": "padded text herex",
+      "highlights": [
+        {
+          "start": 7,
+          "end": 11
+        }
+      ]
+    },
+    {
+      "text": "İstanbul and ISTANBUL",
+      "highlights": [
+        {
+          "start": 13,
+          "end": 21
+        }
+      ]
+    },
+    {
+      "text": "İstanbul",
+      "highlights": [
+        {
+          "start": 0,
+          "end": 2
+        }
+      ]
+    },
+    {
+      "text": "ΣΑΣ σασ",
+      "highlights": []
+    },
+    {
+      "text": "ΣΑΣ σας",
+      "highlights": [
+        {
+          "start": 4,
+          "end": 7
+        }
+      ]
+    },
+    {
+      "text": "Kelvin kelvin",
+      "highlights": [
+        {
+          "start": 0,
+          "end": 6
+        },
+        {
+          "start": 7,
+          "end": 13
+        }
+      ]
+    },
+    {
+      "text": "Straße STRASSE",
+      "highlights": [
+        {
+          "start": 0,
+          "end": 6
+        }
+      ]
+    },
+    {
+      "text": "École école",
+      "highlights": [
+        {
+          "start": 0,
+          "end": 5
+        },
+        {
+          "start": 6,
+          "end": 11
+        }
+      ]
+    },
+    {
+      "text": "…😀😀😀😀😀😀hit😀😀😀😀😀😀😀😀😀😀😀😀\ud83d…",
+      "highlights": [
+        {
+          "start": 13,
+          "end": 16
+        }
+      ]
+    },
+    {
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\ud83d…",
+      "highlights": []
+    },
+    {
+      "text": "😀x😀x",
+      "highlights": [
+        {
+          "start": 0,
+          "end": 6
+        }
+      ]
+    },
+    {
+      "text": "lorem ipsum lorem ipsum lorem ipsum lore…",
+      "highlights": [
+        {
+          "start": 0,
+          "end": 40
+        }
+      ]
+    },
+    {
+      "text": "…xact forty characters of text right here",
+      "highlights": [
+        {
+          "start": 37,
+          "end": 41
+        }
+      ]
+    },
+    {
+      "text": "lorem ipsum lorem ipsum lorem ipsum",
+      "highlights": [
+        {
+          "start": 0,
+          "end": 5
+        },
+        {
+          "start": 12,
+          "end": 17
+        },
+        {
+          "start": 24,
+          "end": 29
+        }
+      ]
+    }
+  ]
+}

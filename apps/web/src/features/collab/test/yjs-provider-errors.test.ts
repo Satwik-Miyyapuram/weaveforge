@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
 
-import { encodeBase64 } from "@/lib/bytea";
+import { readyCore } from "@/lib/rust-core";
 import { RealtimeYjsProvider } from "../infrastructure/realtime-yjs-provider";
 
 type Handler = (msg: { payload: unknown }) => void;
@@ -152,7 +152,7 @@ test("provider: a malformed document update is reported, not left unhandled (33-
   const { doc, provider } = h.make();
   doc.getText("body").insert(0, "kept");
   const unhandled = await withUnhandled(async () => {
-    h.handlers.get("yjs")!({ payload: { data: encodeBase64(new Uint8Array([255, 255, 255, 255, 255])) } });
+    h.handlers.get("yjs")!({ payload: { data: readyCore().encodeBase64(new Uint8Array([255, 255, 255, 255, 255])) } });
     h.handlers.get("yjs")!({ payload: { data: "%%% not base64 %%%" } });
   });
   await provider.destroy();
@@ -177,7 +177,7 @@ test("provider: a malformed awareness update is reported, not left unhandled (33
     onError: (stage, detail) => h.errors.push(`${stage}: ${detail}`),
   });
   const unhandled = await withUnhandled(async () => {
-    h.handlers.get("awareness")!({ payload: { data: encodeBase64(new Uint8Array([5, 255, 255, 255])) } });
+    h.handlers.get("awareness")!({ payload: { data: readyCore().encodeBase64(new Uint8Array([5, 255, 255, 255])) } });
   });
   await provider.destroy();
   awareness.destroy();
@@ -190,7 +190,7 @@ test("provider: a well-formed remote update is applied", async () => {
   const { doc, provider } = h.make();
   const other = new Y.Doc();
   other.getText("body").insert(0, "from a peer");
-  h.handlers.get("yjs")!({ payload: { data: encodeBase64(Y.encodeStateAsUpdate(other)) } });
+  h.handlers.get("yjs")!({ payload: { data: readyCore().encodeBase64(Y.encodeStateAsUpdate(other)) } });
   await settle();
   assert.equal(doc.getText("body").toString(), "from a peer");
   assert.deepEqual(h.errors, []);

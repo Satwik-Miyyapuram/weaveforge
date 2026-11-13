@@ -2,15 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  inkPageFigures,
-  keepFigureOnPage,
-  reorderFigures,
-  withInkPageFigures,
   type FigureGeometry,
 } from "@weaveforge/core";
 
-import { figureClipText } from "../application/figure-clipboard";
 import { InkFigureEditor } from "./ink-figures";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /**
  * The figures on the page being looked at (§figure): images placed on the
@@ -83,7 +79,7 @@ export function useInkFigures(deps: {
       // An undo can take away the figure whose controls are open.
       setFigureControls(null);
       const text = textPagesRef.current[pageIndexRef.current] ?? "";
-      textPagesRef.current[pageIndexRef.current] = withInkPageFigures(text, next);
+      textPagesRef.current[pageIndexRef.current] = typedCore().withInkPageFigures(text, next);
       scheduleSave();
     },
     [pageIndexRef, scheduleSave, textPagesRef],
@@ -97,7 +93,7 @@ export function useInkFigures(deps: {
       setFigures(next);
       figuresRef.current = next;
       const text = textPagesRef.current[pageIndexRef.current] ?? "";
-      textPagesRef.current[pageIndexRef.current] = withInkPageFigures(text, next);
+      textPagesRef.current[pageIndexRef.current] = typedCore().withInkPageFigures(text, next);
       scheduleSave();
       onStep?.(before, next, press.held ? press.id : null);
     },
@@ -156,13 +152,13 @@ export function useFigureDrop(deps: {
       const middle = sheet.top + (one.y + one.h / 2) * scale;
       const slot = middle < sheet.top || middle > sheet.bottom ? pageSlotAt(middle) : null;
       if (!slot || slot.index === pageIndex) {
-        const parked = keepFigureOnPage(one, pageSize);
+        const parked = typedCore().keepFigureOnPage(one, pageSize);
         if (parked !== one) {
           onFiguresChange(figuresRef.current.map((each, i) => (i === index ? parked : each)));
         }
         return;
       }
-      const moved = keepFigureOnPage(
+      const moved = typedCore().keepFigureOnPage(
         {
           ...one,
           x: Math.round((sheet.left + one.x * scale - slot.left) / scale),
@@ -171,8 +167,8 @@ export function useFigureDrop(deps: {
         pageSize,
       );
       const there = textPagesRef.current[slot.index] ?? "";
-      const landed = [...inkPageFigures(there), moved];
-      textPagesRef.current[slot.index] = withInkPageFigures(there, landed);
+      const landed = [...typedCore().inkPageFigures(there), moved];
+      textPagesRef.current[slot.index] = typedCore().withInkPageFigures(there, landed);
       // Off this page, which also schedules the save that carries both pages.
       onFiguresChange(figuresRef.current.filter((_, i) => i !== index));
       pendingControlsRef.current = landed.length - 1;
@@ -206,7 +202,7 @@ export async function copyFigureToClipboard(
   figure: FigureGeometry,
   imageUrl: string | undefined,
 ): Promise<boolean> {
-  const text = figureClipText({ noteId, figure });
+  const text = readyCore().figureClipText({ noteId, figure });
   if (typeof navigator === "undefined" || !navigator.clipboard) return false;
   if (imageUrl && typeof ClipboardItem !== "undefined") {
     // Read through an <img>, not fetch: the picture is a blob: URL, which the
@@ -282,7 +278,7 @@ export function InkActiveFigureEditor({
       onReorder={(step) => {
         // The block's order is the paint order: moving the line moves the
         // picture, and the editor follows it to its new index.
-        const next = reorderFigures(figuresRef.current, figureControls, step);
+        const next = typedCore().reorderFigures(figuresRef.current, figureControls, step);
         const moved = next.indexOf(figuresRef.current[figureControls]!);
         onFiguresChange(next);
         setFigureControls(moved);

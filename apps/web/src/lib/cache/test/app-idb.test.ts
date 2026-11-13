@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { closeAppDb, openAppDb, SCREEN_STORE } from "@/lib/cache/app-idb";
+import { closeAppDb, openAppDb, SCREEN_STORE } from "@/lib/cache/parts-1";
 import { createFakeIndexedDb, type FakeIndexedDb } from "@/lib/test/fake-indexeddb.js";
 
 /**

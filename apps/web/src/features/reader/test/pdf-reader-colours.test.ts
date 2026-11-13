@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
-import { INK_RENDER_COLOURS, paletteHex } from "@/features/ink/render/ink-palette";
+import { INK_RENDER_COLOURS } from "@/features/ink/render/parts-1";
+import { readyCore } from "@/lib/rust-core";
 import { readToolColours, resetToolColoursCacheForTests } from "@/features/ink";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { colourToolFor, markColourTool, rememberRecolour, rememberToolColour } from "../ui/pdf-reader/colour-tools";
+
+before(loadTestCore);
 
 /** An in-memory localStorage, so a remembered colour is read back the way the app reads it. */
 function installStorage(): Map<string, string> {
@@ -29,7 +33,7 @@ function remembered() {
 test("a recolour of a highlight is remembered as the highlight's colour, not the highlighter's", () => {
   installStorage();
   resetToolColoursCacheForTests();
-  rememberToolColour(markColourTool("highlight"), paletteHex(INK_RENDER_COLOURS, "pink"), INK_RENDER_COLOURS);
+  rememberToolColour(markColourTool("highlight"), readyCore().paletteHex(INK_RENDER_COLOURS,"pink"), INK_RENDER_COLOURS);
   const colours = remembered();
   assert.equal(colours.highlight.colour, "pink");
   assert.equal(colours.highlighter.colour, "yellow");
@@ -38,15 +42,15 @@ test("a recolour of a highlight is remembered as the highlight's colour, not the
 test("a recolour of an underline is remembered as the underline's colour", () => {
   installStorage();
   resetToolColoursCacheForTests();
-  rememberToolColour(markColourTool("underline"), paletteHex(INK_RENDER_COLOURS, "blue"), INK_RENDER_COLOURS);
+  rememberToolColour(markColourTool("underline"), readyCore().paletteHex(INK_RENDER_COLOURS,"blue"), INK_RENDER_COLOURS);
   assert.equal(remembered().underline.colour, "blue");
 });
 
 test("a create on the highlight or underline writes its colour back to the store", () => {
   installStorage();
   resetToolColoursCacheForTests();
-  rememberToolColour("underline", paletteHex(INK_RENDER_COLOURS, "green"), INK_RENDER_COLOURS);
-  rememberToolColour("highlight", paletteHex(INK_RENDER_COLOURS, "orange"), INK_RENDER_COLOURS);
+  rememberToolColour("underline", readyCore().paletteHex(INK_RENDER_COLOURS,"green"), INK_RENDER_COLOURS);
+  rememberToolColour("highlight", readyCore().paletteHex(INK_RENDER_COLOURS,"orange"), INK_RENDER_COLOURS);
   const colours = remembered();
   assert.equal(colours.underline.colour, "green");
   assert.equal(colours.highlight.colour, "orange");
@@ -83,17 +87,17 @@ test("each mark is recoloured from its own tool's quick colours", () => {
 test("recolouring a stroke or a note leaves the pen's colour alone", () => {
   installStorage();
   resetToolColoursCacheForTests();
-  rememberRecolour("ink", paletteHex(INK_RENDER_COLOURS, "blue"), INK_RENDER_COLOURS);
-  rememberRecolour("note", paletteHex(INK_RENDER_COLOURS, "green"), INK_RENDER_COLOURS);
+  rememberRecolour("ink", readyCore().paletteHex(INK_RENDER_COLOURS,"blue"), INK_RENDER_COLOURS);
+  rememberRecolour("note", readyCore().paletteHex(INK_RENDER_COLOURS,"green"), INK_RENDER_COLOURS);
   assert.equal(remembered().pen.colour, "text");
 });
 
 test("recolouring a highlight, an underline or a text box is remembered for that tool", () => {
   installStorage();
   resetToolColoursCacheForTests();
-  rememberRecolour("highlight", paletteHex(INK_RENDER_COLOURS, "pink"), INK_RENDER_COLOURS);
-  rememberRecolour("underline", paletteHex(INK_RENDER_COLOURS, "blue"), INK_RENDER_COLOURS);
-  rememberRecolour("text", paletteHex(INK_RENDER_COLOURS, "red"), INK_RENDER_COLOURS);
+  rememberRecolour("highlight", readyCore().paletteHex(INK_RENDER_COLOURS,"pink"), INK_RENDER_COLOURS);
+  rememberRecolour("underline", readyCore().paletteHex(INK_RENDER_COLOURS,"blue"), INK_RENDER_COLOURS);
+  rememberRecolour("text", readyCore().paletteHex(INK_RENDER_COLOURS,"red"), INK_RENDER_COLOURS);
   const colours = remembered();
   assert.equal(colours.highlight.colour, "pink");
   assert.equal(colours.underline.colour, "blue");

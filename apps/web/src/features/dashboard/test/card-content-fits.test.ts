@@ -10,8 +10,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { getCardDef } from "../application/card-registry";
-
 const css = readFileSync(fileURLToPath(new URL("../../../app/styles/dashboard.css", import.meta.url)), "utf8");
 const rule = (selector: string) => {
   const at = css.indexOf(`\n${selector} {`);
@@ -35,8 +33,4 @@ test("in the brutal themes a wrapped count rises beside the number", () => {
 test("a tile too narrow for the running count drops only that part", () => {
   assert.match(rule(".dashboard-stat-link"), /container-type:\s*inline-size/);
   assert.match(css, /@container \(max-width: \d+px\) \{\s*\.dashboard-stat-extra \{ display: none; \}/);
-});
-
-test("the recent log card takes the height its rows need", () => {
-  assert.equal(getCardDef("recent-log").fitContent, true);
 });

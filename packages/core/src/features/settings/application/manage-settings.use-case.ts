@@ -1,14 +1,7 @@
-import {
-  hydrateUserSettings,
-  normalizeAppearance,
-  normalizeUserSettings,
-  type UserAppearance,
-  type UserSettings,
-} from "../domain/user-settings.js";
-import type { SettingsMetadata } from "../domain/settings-repository.js";
-import { CURRENT_DISCLAIMER_VERSION } from "../domain/privacy-disclaimer.js";
-import type { ISettingsRepository } from "../domain/settings-repository.js";
-import type { Clock } from "../../../shared/clock.js";
+import type { UserSettings } from "../domain/parts.js";
+import type { ISettingsRepository, SettingsMetadata } from "../domain/parts.js";
+import type { Clock } from "../../../shared/parts.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface ManageSettingsDeps {
   repository: ISettingsRepository;
@@ -20,7 +13,7 @@ export class ManageSettingsUseCase {
   constructor(private readonly deps: ManageSettingsDeps) {}
 
   async get(): Promise<UserSettings> {
-    return hydrateUserSettings(await this.deps.repository.get());
+    return rust().hydrateUserSettings(await this.deps.repository.get() as never) as UserSettings;
   }
 
   async getMetadata(): Promise<SettingsMetadata> {
@@ -28,18 +21,7 @@ export class ManageSettingsUseCase {
   }
 
   async save(settings: UserSettings): Promise<void> {
-    await this.deps.repository.save(normalizeUserSettings(settings));
+    await this.deps.repository.save(rust().normalizeUserSettings(settings as never) as UserSettings);
   }
 
-  async saveAppearance(appearance: UserAppearance): Promise<void> {
-    const current = await this.get();
-    await this.save({
-      ...current,
-      appearance: normalizeAppearance({ ...current.appearance, ...appearance }),
-    });
-  }
-
-  async acceptDisclaimer(): Promise<void> {
-    await this.deps.repository.saveDisclaimer(this.deps.clock.nowIso(), CURRENT_DISCLAIMER_VERSION);
-  }
 }

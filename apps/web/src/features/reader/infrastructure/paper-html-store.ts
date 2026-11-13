@@ -7,15 +7,12 @@
  * may have been edited by hand, and nothing unsanitised reaches the frame.
  */
 
-import { entityDir, paperHtmlPath, type IWorkspaceFs } from "@weaveforge/core";
-import { activeProjectRoot } from "@/features/workspace/application/active-project";
+import { type IWorkspaceFs } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
+import { activeProjectRoot } from "@/features/workspace/application/parts";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
-import {
-  buildPaperHtmlDocument,
-  parsePaperHtmlDocument,
-  type PaperHtmlPage,
-} from "../application/paper-html";
-import { PAPER_HTML_DB_NAME } from "./local-cache-names";
+import type { PaperHtmlPage } from "@weaveforge/wasm";
+import { PAPER_HTML_DB_NAME } from "./parts-1";
 import { sanitizePaperHtml } from "./sanitize-paper-html";
 
 export interface PaperHtmlStore {
@@ -32,21 +29,21 @@ class FolderPaperHtmlStore implements PaperHtmlStore {
   ) {}
 
   async get(paperId: string): Promise<PaperHtmlPage | null> {
-    const path = paperHtmlPath(paperId, await this.projectRoot());
+    const path = typedCore().paperHtmlPath(paperId, await this.projectRoot());
     if (!(await this.fs.stat(path))) return null;
-    const page = parsePaperHtmlDocument(paperId, await this.fs.readText(path));
+    const page = typedCore().parsePaperHtmlDocument(paperId, await this.fs.readText(path));
     if (!page) return null;
     return { ...page, html: sanitizePaperHtml(page.html, page.url).html };
   }
 
   async set(page: PaperHtmlPage): Promise<void> {
     const root = await this.projectRoot();
-    await this.fs.mkdirp(entityDir("paper", root) + "/html");
-    await this.fs.writeFile(paperHtmlPath(page.paperId, root), buildPaperHtmlDocument(page));
+    await this.fs.mkdirp(typedCore().paperHtmlDir(root));
+    await this.fs.writeFile(typedCore().paperHtmlPath(page.paperId, root), typedCore().buildPaperHtmlDocument(page));
   }
 
   async remove(paperId: string): Promise<void> {
-    const path = paperHtmlPath(paperId, await this.projectRoot());
+    const path = typedCore().paperHtmlPath(paperId, await this.projectRoot());
     if (await this.fs.stat(path)) await this.fs.remove(path);
   }
 }

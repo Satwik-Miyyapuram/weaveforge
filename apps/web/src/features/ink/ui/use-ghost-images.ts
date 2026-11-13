@@ -11,7 +11,8 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { inkPageBackground } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
+
 
 /** What the ghosts need from the host. */
 export interface GhostImagesDeps {
@@ -45,7 +46,7 @@ export function useGhostImages(deps: GhostImagesDeps) {
   // lost its image (a PDF import, "Change the page image", "Remove").
   const paths = Array.from(
     { length: deps.pageCount },
-    (_, index) => inkPageBackground(deps.textPagesRef.current[index] ?? "") ?? "",
+    (_, index) => typedCore().inkPageBackground(deps.textPagesRef.current[index] ?? "") ?? "",
   );
   const pathsKey = paths.join("\n");
   useEffect(() => {

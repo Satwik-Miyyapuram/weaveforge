@@ -1,6 +1,6 @@
 import type { Paper, PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { deferDelete, deletedMessage } from "@/lib/toast";
+import { deferDelete, deletedMessage } from "@/lib/toast/index";
 
 /** The two paper calls a delete needs. */
 export interface PaperRemover {

@@ -1,10 +1,12 @@
 "use client";
 
 import type { EditorView } from "@codemirror/view";
-import { imageAltFromFilename, looksLikeImageUrl, type PasteSettings } from "@weaveforge/core";
+
+import type { PasteSettings } from "@weaveforge/wasm";
 import { outboundFetch } from "@/lib/outbound-fetch";
 import { insertPending, resolvePending, trackPending } from "@/components/markdown/markdown-pending-insert";
 import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /**
  * What happens after a URL has been pasted.
@@ -21,9 +23,6 @@ import type { ImagePasteConfig } from "@/components/markdown/markdown-image-past
  * with a link where they expected a picture.
  */
 
-/** One http(s) address and nothing else. */
-export const BARE_URL = /^https?:\/\/\S+$/;
-
 /** A name for a picture that arrived with no filename of its own. */
 function nameFromUrl(url: string): string {
   try {
@@ -34,19 +33,9 @@ function nameFromUrl(url: string): string {
   }
 }
 
-/** Escapes the characters that would end a Markdown link label early. */
-export function escapeLinkLabel(label: string): string {
-  return label.replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
-}
-
-/** `[label](url)`, with the label folded onto one line and escaped. */
-function markdownLink(label: string, url: string): string {
-  return `[${escapeLinkLabel(label.replace(/[\r\n]+/g, " ")).trim()}](${url})`;
-}
-
 /** The dimmed stand-in shown while a picture downloads. */
 function downloadingPlaceholder(name: string): string {
-  return `![Downloading ${imageAltFromFilename(name)}…]()`;
+  return `![Downloading ${readyCore().imageAltFromFilename(name)}…]()`;
 }
 
 function describe(error: unknown): string {
@@ -72,10 +61,10 @@ export function afterUrlPaste(
   to: number,
   options: RemotePasteOptions,
 ): void {
-  if (!BARE_URL.test(text)) return;
+  if (!readyCore().isBareUrl(text)) return;
   const settings = options.settings();
 
-  if (settings.downloadPastedImages && options.images && looksLikeImageUrl(text)) {
+  if (settings.downloadPastedImages && options.images && typedCore().looksLikeImageUrl(text)) {
     downloadImage(view, text, from, to, options.images);
     return;
   }
@@ -140,7 +129,7 @@ function fetchTitle(view: EditorView, url: string, from: number, to: number): vo
   void outboundFetch()
     .title(url)
     .then(({ title }) => {
-      if (title) resolvePending(view, id, markdownLink(title, url));
+      if (title) resolvePending(view, id, readyCore().markdownLink(title, url));
     })
     .catch(() => {
       // Quietly: the note has a working link, which is what was pasted.

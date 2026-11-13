@@ -2,13 +2,14 @@
 
 import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PAPER_STATUSES, isEmptyPaperSummary, isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
+import { PAPER_STATUSES, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { removePaper } from "./remove-paper";
 import { describeRejection, formatError } from "@/lib/format-error";
 import { logToApp } from "@/lib/error-report/app-log";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import { BellIcon, BellOffIcon, CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
-import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
+import { useCitationFormatPreference, WORKSPACE_PATH } from "@/lib/hooks/parts";
 import {
   RecordActivity,
   RecordEmpty,
@@ -19,7 +20,7 @@ import {
 } from "@/components/record";
 import { RelatedPanel } from "@/components/related-panel";
 import { NoteComments, ShareButton, PinnedPaperBadge } from "@/features/sharing";
-import { materializePaperBlobImages } from "../lib/paper-images-md";
+import { materializePaperBlobImages } from "../lib/parts";
 import { reconcileTagsFromBodyOrDefer } from "../lib/note-tags";
 import type { EditorHandle } from "@/components/editor-handle";
 import { BackButton } from "@/components/back-button";
@@ -28,15 +29,13 @@ import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { InkFocusButton, InkFocusExit, useInkFocus } from "@/components/ink-focus";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
-import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
-import { formatPaperCitation, resolveCiteKey } from "@/features/overleaf/application/build-overleaf-export";
+
 import { PaperExternalLink } from "./paper-external-link";
-import { buildLocusLink, resolvePaperPdfUrl } from "@/features/reader";
-import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffold";
+import { highlightsDigest, reRenderPaperSourceNote } from "../application/parts-2";
 import { PaperAnnotations } from "./paper-annotations";
+import { showToast } from "@/lib/toast/index";
 import { PaperFieldsStrip } from "./paper-fields";
 import { PaperFirstPage, usePaperPreview } from "./paper-first-page";
-import { previewReaderHref } from "../application/paper-preview";
 import { StatusSelect, statusLabel } from "@/components/status-select";
 import { PaperIdentifiersEditor } from "./paper-identifiers-editor";
 import { RelatedPapersPanel } from "./related-papers-panel";
@@ -44,6 +43,10 @@ import { TagEditor } from "./tag-editor";
 import { Modal, ModalActions } from "@/components/modal";
 import { Button, IconButton, IconLink } from "@/components/button";
 import { RowButton } from "@/components/controls";
+import { useRouter } from "next/navigation";
+import { isEditableTarget, openContextMenu } from "@/components/context-menu-store";
+import { paperNoteMenuItems } from "./paper-note-menu";
+import { copyPaperAs } from "./copy-paper";
 
 /** The modes the switch offers, as the Editor's toolbar does. */
 const NOTE_MODES = ["edit", "ink"] as const;
@@ -95,15 +98,15 @@ export function PaperNote({
   onDeleted?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const router = useRouter();
   // Text or Ink, as in the Editor's toolbar: a handwritten note opens on its
   // sheet, any other in Text. Only a reader without edit rights reads.
   const [mode, setMode] = useState<NoteMode>(() =>
-    readOnly ? "read" : isInkNoteBody(paper.summary ?? "") ? "ink" : "edit",
+    readOnly ? "read" : readyCore().isInkNoteBody(paper.summary ?? "") ? "ink" : "edit",
   );
   const inkFocus = useInkFocus(mode === "ink");
   const modeRef = useRef<NoteMode>(mode);
   modeRef.current = mode;
-  const editing = mode !== "read";
   /** The body last written from Edit or Ink, reconciled into tags once put away. */
   const pendingTagsRef = useRef<string | null>(null);
   /** Set once the page has closed: a save that lands after that settles its tags at once. */
@@ -131,21 +134,25 @@ export function PaperNote({
       cancelled = true;
     };
   }, [paper.id]);
-  const hasSummary = !isEmptyPaperSummary(paper.summary);
+  const hasSummary = useMemo(() => !readyCore().isEmptyPaperSummary(paper.summary), [paper.summary]);
   const canTrackCitations = Boolean(paper.doi || paper.arxivId);
   const preview = usePaperPreview(paper.id);
   const remoteReaderHref = useMemo(() => {
-    const pdfUrl = resolvePaperPdfUrl({
+    const pdfUrl = readyCore().resolvePaperPdfUrl({
       url: paper.url,
       arxivId: paper.arxivId,
-      pdfPath: paper.pdfPath,
       openAccessPdf:
         typeof paper.metadata?.["openAccessPdf"] === "string" ? paper.metadata["openAccessPdf"] : null,
     });
-    return pdfUrl ? buildLocusLink({ paperId: paper.id }) : null;
-  }, [paper.id, paper.url, paper.arxivId, paper.pdfPath, paper.metadata]);
+    return pdfUrl ? readyCore().buildLocusLink({ paperId: paper.id }) : null;
+  }, [paper.id, paper.url, paper.arxivId, paper.metadata]);
   // A PDF added from disk or a saved web page has no web link, but the reader opens it.
-  const readerHref = previewReaderHref(remoteReaderHref, preview, buildLocusLink({ paperId: paper.id }));
+  const readerHref = useMemo(
+    () => readyCore().previewReaderHref(remoteReaderHref, preview, readyCore().buildLocusLink({ paperId: paper.id })),
+    [remoteReaderHref, preview, paper.id],
+  );
+  const displayTitle = useMemo(() => readyCore().titleFromFileName(paper.title), [paper.title]);
+  const summaryIsInk = useMemo(() => readyCore().isInkNoteBody(paper.summary ?? ""), [paper.summary]);
 
   async function changeStatus(status: PaperStatus) {
     setBusy(true);
@@ -244,7 +251,7 @@ export function PaperNote({
       year: paper.year,
       venue: paper.venue,
       doi: paper.doi,
-      citeKey: resolveCiteKey(paper),
+      citeKey: typedCore().resolveCiteKey(paper),
     });
     editorHandle.current?.replaceAll(next);
     setSaveError(null);
@@ -252,6 +259,21 @@ export function PaperNote({
   }
 
   const remove = () => removePaper(paper, { onHidden: onBack, onDeleted });
+
+  /** Reader marks not yet in the note, at the caret; the editor saves them. */
+  async function addHighlights() {
+    const editor = editorHandle.current;
+    if (!editor) return;
+    setSaveError(null);
+    try {
+      const marks = await getContainer().papers.listReaderAnnotations(paper.id);
+      const digest = highlightsDigest(marks, { paperId: paper.id, existing: editor.text() });
+      if (digest) editor.insert(`\n\n${digest}`);
+      else showToast("No new highlights to add");
+    } catch (err) {
+      setSaveError(formatError(err));
+    }
+  }
 
   async function toggleCitationTracking() {
     if (!canTrackCitations || trackingCitations == null) return;
@@ -273,7 +295,7 @@ export function PaperNote({
 
   async function copyCitation() {
     const text =
-      citationFormat === "wikilink" ? `[[${paper.title}]]` : formatPaperCitation(paper, citationFormat);
+      citationFormat === "wikilink" ? `[[${paper.title}]]` : typedCore().formatPaperCitation(paper, citationFormat);
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
@@ -307,9 +329,38 @@ export function PaperNote({
     { at: recordDate(paper.createdAt), what: fileName ? `Imported from ${fileName}` : "Added to the library" },
   ].filter((event): event is { at: string; what: string } => event !== null);
 
+  // The record bar's actions on right-click of the bar or the title. The note,
+  // annotations and cards below keep their own menus.
+  const openMenu = (event: React.MouseEvent) => {
+    if (event.defaultPrevented || isEditableTarget(event.target)) return;
+    openContextMenu(
+      event,
+      paperNoteMenuItems({
+        readOnly,
+        busy,
+        hasReader: Boolean(readerHref),
+        watching: Boolean(trackingCitations),
+        canWatch: canTrackCitations && trackingCitations != null && !trackingBusy,
+        status: paper.status,
+        statuses: PAPER_STATUSES,
+        statusLabel: (status) => statusLabel(status as PaperStatus),
+        openInEditor: () => router.push(`${WORKSPACE_PATH}?open=${encodeURIComponent(`paper:${paper.id}`)}`),
+        openReader: () => readerHref && router.push(readerHref),
+        copyCitation: () => void copyCitation(),
+        copyReference: () => void copyPaperAs("reference", paper, getContainer().papers),
+        copyBibtex: () => void copyPaperAs("bibtex", paper, getContainer().papers),
+        copyTitle: () => void navigator.clipboard.writeText(readyCore().titleFromFileName(paper.title)),
+        setStatus: (status) => void changeStatus(status as PaperStatus),
+        toggleWatch: () => void toggleCitationTracking(),
+        editIdentifiers: () => setEditingIds(true),
+        remove: () => void remove(),
+      }),
+    );
+  };
+
   return (
     <article className="record">
-      <nav className="record-bar" aria-label="Paper">
+      <nav className="record-bar" aria-label="Paper" onContextMenu={openMenu}>
         <BackButton label="Papers" onClick={onBack} />
         <span className="record-mono record-bar-id">Record {citeKey || paper.id.slice(0, 6)}</span>
         {readOnly && <PinnedPaperBadge ownerName={sharedByName} />}
@@ -366,8 +417,8 @@ export function PaperNote({
         </div>
       </nav>
 
-      <header className="record-head">
-        <h1 className="record-title">{titleFromFileName(paper.title)}</h1>
+      <header className="record-head" onContextMenu={openMenu}>
+        <h1 className="record-title">{displayTitle}</h1>
         {paper.authors.length > 0 && (
           <p className="record-by">
             {paper.authors.slice(0, 6).join(", ")}
@@ -412,7 +463,7 @@ export function PaperNote({
                 className={
                   mode !== "read"
                     ? `record-doc record-doc--${mode}${inkFocus.focus ? " record-ink-focus is-focus" : ""}`
-                    : isInkNoteBody(paper.summary ?? "")
+                    : summaryIsInk
                       ? "record-note-read record-note-read--ink"
                       : "record-note-read"
                 }
@@ -443,6 +494,11 @@ export function PaperNote({
                                 title: "Refresh generated metadata; your edits are preserved",
                                 onSelect: () => void reRenderTemplate(),
                               },
+                              {
+                                label: "Add highlights from reader",
+                                title: "Quote your reader highlights and comments here, each linked to its page",
+                                onSelect: () => void addHighlights(),
+                              },
                             ],
                           },
                         ]
@@ -464,50 +520,46 @@ export function PaperNote({
               </div>
             )}
             {saveError && <InlineError>{saveError}</InlineError>}
-            {!editing && !readOnly && <TagEditor paper={paper} onReplace={onReplace} />}
+            {mode === "edit" && !readOnly && <TagEditor paper={paper} onReplace={onReplace} editor={editorHandle} />}
           </RecordSection>
 
-          {!editing && (
-            <>
-              <RecordSection label="Annotations" tag={annotationCount > 0 ? String(annotationCount) : "None yet"}>
-                {annotationCount > 0 ? (
-                  <PaperAnnotations paper={paper} readOnly={readOnly} />
-                ) : (
-                  <RecordEmpty>
-                    Nothing highlighted yet. Select text in the PDF and the highlight lands here with its page number.
-                  </RecordEmpty>
-                )}
-              </RecordSection>
+          <RecordSection label="Annotations" tag={annotationCount > 0 ? String(annotationCount) : "None yet"}>
+            {annotationCount > 0 ? (
+              <PaperAnnotations paper={paper} readOnly={readOnly} />
+            ) : (
+              <RecordEmpty>
+                Nothing highlighted yet. Select text in the PDF and the highlight lands here with its page number.
+              </RecordEmpty>
+            )}
+          </RecordSection>
 
-              <RecordSection label="Abstract" tag={paper.abstract ? null : "Unresolved"}>
-                {paper.abstract ? (
-                  <p className="record-abstract">{paper.abstract}</p>
-                ) : (
-                  <RecordEmpty>
-                    No abstract on file.{" "}
-                    {canTrackCitations
-                      ? "Resolve the identifier and WeaveForge will pull one in."
-                      : "Add a DOI or arXiv ID and WeaveForge can pull one in."}
-                  </RecordEmpty>
-                )}
-              </RecordSection>
+          <RecordSection label="Abstract" tag={paper.abstract ? null : "Unresolved"}>
+            {paper.abstract ? (
+              <p className="record-abstract">{paper.abstract}</p>
+            ) : (
+              <RecordEmpty>
+                No abstract on file.{" "}
+                {canTrackCitations
+                  ? "Resolve the identifier and WeaveForge will pull one in."
+                  : "Add a DOI or arXiv ID and WeaveForge can pull one in."}
+              </RecordEmpty>
+            )}
+          </RecordSection>
 
-              {!readOnly && (
-                <RecordSection label="Linked papers" tag="By hand">
-                  <RelatedPapersPanel paper={paper} onChanged={onChanged} />
-                </RecordSection>
-              )}
-
-              <NoteComments
-                resourceType="paper"
-                resourceId={paper.id}
-                canComment={readOnly ? canComment : true}
-                isOwner={!readOnly}
-                contentRef={noteTextRef}
-                contentKey={`${mode}:${paper.summary ?? ""}`}
-              />
-            </>
+          {!readOnly && (
+            <RecordSection label="Linked papers" tag="By hand">
+              <RelatedPapersPanel paper={paper} onChanged={onChanged} />
+            </RecordSection>
           )}
+
+          <NoteComments
+            resourceType="paper"
+            resourceId={paper.id}
+            canComment={readOnly ? canComment : true}
+            isOwner={!readOnly}
+            contentRef={noteTextRef}
+            contentKey={`${mode}:${paper.summary ?? ""}`}
+          />
         </div>
 
         <aside className="record-aside">

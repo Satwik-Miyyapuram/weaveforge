@@ -5,7 +5,7 @@ import {
   type IPdfSourceResolver,
   type PdfSourceHit,
   type PdfSourcePaper,
-} from "../../src/reader/index.js";
+} from "../../src/index.js";
 
 const paper: PdfSourcePaper = { id: "p1", doi: "10.1000/example" };
 

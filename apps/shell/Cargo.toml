@@ -1,0 +1,176 @@
+# WeaveForge desktop shell on Tauri 2. Design: docs/plans/current/rust-port/phase-2-desktop.md.
+# Its own workspace: Tauri brings many duplicate crate versions, and the root
+# workspace's cargo-deny bans must stay strict for wf-core (design § Steps 2.2).
+[workspace]
+
+[package]
+name = "weaveforge-shell"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "AGPL-3.0-only"
+repository = "https://github.com/Satwik-Miyyapuram/weaveforge"
+publish = false
+# One integration test binary (tests/main.rs); see that file.
+autotests = false
+
+[[test]]
+name = "shell"
+path = "tests/main.rs"
+
+[lib]
+# `_lib`, as in Tauri's template: a cdylib and a bin with one name write the same .pdb on
+# Windows (cargo #6313).
+name = "weaveforge_shell_lib"
+# Android loads the app as a shared library (cdylib); the desktop bin and tests use the rlib.
+crate-type = ["cdylib", "rlib"]
+
+# Exact pins, as in the root workspace: Tauri 2.x minor releases change behaviour.
+[dependencies]
+tauri = { version = "=2.12.5", features = [] }
+# Native folder picker for the workspace folder (step 2.7b). The plugin runs the
+# dialog on the platform's UI thread; the page gets no dialog permission.
+tauri-plugin-dialog = "=2.8.3"
+# Opens links and files for the sidecar's open.url / open.path asks (step 2.10).
+# Rust side only; the page gets no opener permission.
+tauri-plugin-opener = "=2.7.2"
+# Sidecar client (step 2.4): async child process, Job Object on Windows so the
+# sidecar dies with the shell. The std API of process-wrap never sets kill-on-close.
+process-wrap = { version = "=10.0.1", default-features = false, features = ["tokio1", "job-object", "kill-on-drop", "creation-flags", "process-group"] }
+# Rows keep column order and JSON keeps key order, as PGlite returned them.
+serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+# Editor MCP configs are often JSONC; the CST edit keeps the user's comments.
+jsonc-parser = { version = "=0.34.0", features = ["cst", "serde_json"] }
+tokio = { version = "=1.54.1", features = ["fs", "io-std", "io-util", "macros", "net", "process", "rt", "sync", "time"] }
+# Typed commands: tauri-specta generates bridge/bindings.ts from the command signatures.
+# Specta v2 is a release candidate; the pins must move together.
+serde = { version = "=1.0.229", features = ["derive"] }
+specta = { version = "=2.0.0-rc.26", features = ["derive", "serde_json"] }
+specta-typescript = { version = "=0.0.13", features = ["serde"] }
+tauri-specta = { version = "=2.0.0-rc.26", features = ["derive", "typescript"] }
+# Error enums (plan §4.7); same pin as the root workspace.
+thiserror = "=2.0.21"
+# Secrets (step 2.8): keyring-core picks no store itself; the shell sets the
+# platform's native store at start, and tests use its mock store.
+keyring-core = "=1.0.1"
+# Vault, root confinement and search logic shared with the web build (plan §4.1).
+wf-core = { path = "../../crates/wf-core" }
+# Relays and pasted-link fetches, shared with the relay server.
+wf-relay = { path = "../relay/wf-relay", features = ["specta"] }
+# Page titles for paste (step 2.9e): the same patterns as packages/core page-title.ts.
+# Already in the lock through tauri.
+regex = "=1.13.1"
+# Bytes cross the bridge as base64 text (vault PDFs, images, compiled PDFs): JSON
+# number arrays would be three to four times larger. Already in the lock through tauri.
+base64 = "=0.23.1"
+notify = "=8.2.1"
+# Overleaf git dirs are named by a hash of the folder (step 2.13). Already in the lock.
+sha2 = "=0.10.9"
+# Local HTTP API (step 5.3): token bytes, constant-time compare, request parsing.
+# All already in the lock.
+getrandom = "=0.3.4"
+subtle = "=2.6.1"
+httparse = "=1.10.1"
+# The .mcpb bundle is a store-only zip.
+crc32fast = "=1.5.3"
+# Local database (step 5.3d): a native Postgres child replaces PGlite. A small wire
+# client on postgres-protocol asks for text results, so values come back in the same
+# shape PGlite gave (tokio-postgres always asks for binary).
+postgres-protocol = "=0.6.12"
+bytes = "=1.12.1"
+fallible-iterator = "=0.2.0"
+
+# Desktop: git over https and ssh, and TLS from the platform (phase 4 design, decision 1).
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+# Overleaf read (step 2.12c) clones with git2; same pin and features as the root workspace.
+git2 = { version = "=0.21.0", default-features = false, features = ["https", "ssh", "vendored-libgit2", "vendored-openssl"] }
+# Relays (step 2.9): the shell fetches papers, pages and APIs the page cannot reach.
+# Same reqwest tauri already locks. native-tls, not rustls: rustls's default
+# aws-lc-rs needs cmake and nasm to build; native-tls uses schannel on Windows,
+# Security.framework on macOS, and on Linux the OpenSSL git2 already vendors.
+reqwest = { version = "=0.13.5", default-features = false, features = ["native-tls-vendored"] }
+wf-store = { path = "../../crates/wf-store" }
+
+# Phones: vendored OpenSSL needs perl and make to cross-build, so no OpenSSL.
+# git2 without https (no Overleaf git on phones); rustls on ring, which builds
+# with the NDK's clang.
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+git2 = { version = "=0.21.0", default-features = false, features = ["vendored-libgit2"] }
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls-no-provider"] }
+rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std"] }
+wf-store = { path = "../../crates/wf-store", default-features = false }
+# The pen surface over the WebView (step 4.3a; plugins/ink).
+tauri-plugin-ink = { path = "plugins/ink" }
+# App Links for the sign-in return (auth_link.rs); 2.6.3 is the newest 2.x.
+tauri-plugin-deep-link = "=2.6.3"
+
+[target.'cfg(windows)'.dependencies]
+# Same version process-wrap uses; only for the CREATE_NO_WINDOW flag type.
+windows = { version = "=0.62.2", default-features = false, features = ["Win32_Foundation", "Win32_System_Environment", "Win32_System_SystemInformation", "Win32_System_Threading"] }
+# Windows Credential Manager store for keyring-core; search is not needed.
+windows-native-keyring-store = { version = "=1.1.0", default-features = false }
+
+# Database lock (step 5.3c): is the holder's pid alive. Same rustix the lockfile already has.
+[target.'cfg(all(unix, not(any(target_os = "android", target_os = "ios"))))'.dependencies]
+rustix = { version = "=1.1.6", default-features = false, features = ["std", "process"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# macOS login keychain store for keyring-core.
+apple-native-keyring-store = { version = "=1.0.2", features = ["keychain"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# Secret Service (GNOME Keyring, KWallet) over libdbus, with an encrypted session
+# in pure-Rust crypto (the crate does not build without a crypto feature).
+# Builds need libdbus-1-dev.
+dbus-secret-service-keyring-store = { version = "=1.0.1", features = ["crypto-rust"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+# SharedPreferences sealed with an Android Keystore key, for keyring-core. Tauri's
+# activity (tao) sets up the ndk-context it reads.
+android-native-keyring-store = { version = "=1.0.0", default-features = false }
+
+[dev-dependencies]
+tokio = { version = "=1.54.1", features = ["io-util", "macros", "net", "process", "rt", "rt-multi-thread", "sync", "time"] }
+
+[build-dependencies]
+tauri-build = { version = "=2.7.4", features = [] }
+
+# Same rules as the root workspace (plan §4.2/§4.3).
+[lints.rust]
+unused_must_use = "deny"
+unused_results = "deny"
+missing_docs = "deny"
+# deny, not forbid: the phone entry point (lib.rs `mobile_entry`) comes from a Tauri macro
+# that emits `no_mangle` and JNI glue, and needs a local allow.
+unsafe_code = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+undocumented_unsafe_blocks = "deny"
+too_many_lines = "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_sign_loss = "deny"
+cast_lossless = "deny"
+checked_conversions = "deny"
+must_use_candidate = "deny"
+needless_pass_by_value = "deny"
+redundant_closure_for_method_calls = "deny"
+semicolon_if_nothing_returned = "deny"
+
+# Keep dev builds small: full debug info made every test exe link a ~100 MB PDB.
+# Line tables still give file:line in backtraces; dependencies get none.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.release]
+debug-assertions = false
+overflow-checks = true

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   ModelConceptExtractor,
-  parseExtractionJson,
+  rust,
   toExtractionResult,
   type AiModelRequest,
   type AiModelResponse,
@@ -53,20 +53,20 @@ test("concepts come back with document ids as mentions", async () => {
 
 test("JSON survives a code fence and a preamble", () => {
   const wrapped = "Sure! Here you go:\n```json\n" + REPLY + "\n```\nHope that helps.";
-  const parsed = parseExtractionJson(wrapped);
+  const parsed = rust().parseExtractionJson(wrapped);
   assert.equal(parsed.length, 2);
 });
 
 test("a brace inside a string does not end the object early", () => {
   const text = '{"concepts":[{"name":"a }{ b","aliases":[],"kind":"concept","documentIds":["d1"]}]}';
-  const parsed = parseExtractionJson(text);
+  const parsed = rust().parseExtractionJson(text);
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0]!.name, "a }{ b");
 });
 
 test("an escaped quote does not end the string early", () => {
   const text = '{"concepts":[{"name":"say \\"hi\\"","aliases":[],"kind":"concept","documentIds":["d1"]}]}';
-  assert.equal(parseExtractionJson(text)[0]!.name, 'say "hi"');
+  assert.equal(rust().parseExtractionJson(text)[0]!.name, 'say "hi"');
 });
 
 test("an unparseable reply yields nothing rather than throwing", async () => {
@@ -222,17 +222,17 @@ test("batches go to the model one at a time (02-10)", async () => {
 
 test("a brace in the preamble does not hide the JSON after it (02-09)", () => {
   const text = 'I filled in the {concepts} template:\n' + REPLY;
-  assert.equal(parseExtractionJson(text).length, 2);
+  assert.equal(rust().parseExtractionJson(text).length, 2);
 });
 
 test("an object without concepts is skipped for the one that has them (02-09)", () => {
   const text = '{"status":"ok"}\n' + REPLY;
-  assert.equal(parseExtractionJson(text).length, 2);
+  assert.equal(rust().parseExtractionJson(text).length, 2);
 });
 
 test("an empty concepts list is still the answer, not a reason to keep looking", () => {
   const text = '{"concepts":[]} and later {"concepts":[{"name":"x","documentIds":["d1"]}]}';
-  assert.deepEqual(parseExtractionJson(text), []);
+  assert.deepEqual(rust().parseExtractionJson(text), []);
 });
 
 test("broken entries cost themselves, not the valid ones beside them (02-09)", () => {
@@ -255,6 +255,6 @@ test("a reply whose list holds a null still yields its valid concepts (02-09)", 
 });
 
 test("a reply with no balanced object yields nothing", () => {
-  assert.deepEqual(parseExtractionJson('{"concepts":[{"name":"x"'), []);
-  assert.deepEqual(parseExtractionJson("}{"), []);
+  assert.deepEqual(rust().parseExtractionJson('{"concepts":[{"name":"x"'), []);
+  assert.deepEqual(rust().parseExtractionJson("}{"), []);
 });

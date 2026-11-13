@@ -10,17 +10,17 @@
  */
 
 import {
-  inkVocabularyHints,
   selectInkRecogniser,
   type InkRecogniser,
   type InkRecognitionHints,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
-import type { InkChunkStore } from "@/features/ink/application/ink-chunk-store";
+import type { InkChunkStore } from "@/features/ink/application/parts-1";
 import {
   createPenHaptics,
   type PenHaptics,
-} from "@/features/ink/application/pen-haptics";
+} from "@/features/ink/application/parts-4";
 import { inkRecogniserCandidates } from "@/features/ink/application/recognisers";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 
@@ -43,6 +43,8 @@ export class InkFacade {
       bridge: () => DesktopBridge | null;
       /** Titles the vocabulary hints are built from. */
       vocabulary: () => Promise<readonly (readonly string[])[]>;
+      /** The Settings switch for pen haptics; on when absent. */
+      hapticsOn?: () => boolean;
     },
   ) {}
 
@@ -92,6 +94,8 @@ export class InkFacade {
    * machine's, not the note's.
    */
   haptics(): Promise<PenHaptics | null> {
+    // Read on each call, not cached: the pen asks when an ink page opens, so a change applies from the next one.
+    if (this.deps.hapticsOn && !this.deps.hapticsOn()) return Promise.resolve(null);
     this.hapticsProbe ??= (async () => {
       const bridge = this.deps.bridge();
       if (!bridge || typeof bridge.inkHapticsAvailable !== "function")
@@ -115,6 +119,6 @@ export class InkFacade {
     } catch {
       sources = [];
     }
-    return { vocabulary: inkVocabularyHints(sources), lang };
+    return { vocabulary: readyCore().inkVocabularyHints(sources), lang };
   }
 }

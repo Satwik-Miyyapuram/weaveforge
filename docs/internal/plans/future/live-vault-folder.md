@@ -1,5 +1,8 @@
 # Live vault folder
 
+> **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
+> TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
+
 **Status:** proposed
 **Branch:** `feat/obsidian-vault-interop`
 
@@ -46,7 +49,7 @@ exist, are already tested, and currently justify none of their weight.
 - [x] `verifyRoot` refuses a folder that is neither empty nor already ours —
       `.weaveforge/` is the mark. Pointing this at `Documents/` would bury a
       person's files among a thousand of ours with no way to tell them apart
-- [x] 18 tests in `apps/desktop/test/vault-folder.test.ts`
+- [x] 18 tests in `apps/shell/sidecar/test/vault-folder.test.ts`
 
 Not yet done in this phase: persisting the chosen root across restarts. The
 `preference-store` allow list would need a `vault-root` name, and the question
@@ -142,7 +145,7 @@ and it keeps itself up to date from then on.
       import can only see that two copies differ, and cannot tell an edit made
       out there from one made in here. Version 1 manifests still read, and yield
       no base, so those folders behave exactly as they did before
-- [x] `changedSide` in `packages/core/src/workspace/change-origin.ts` reads the
+- [x] `changedSide` in `crates/wf-core/src/sync/change_origin.rs` reads the
       three digests and answers `folder`, `workspace`, `both`, `neither`, or
       `unknown`. `diffWorkspace` takes it as an optional `origin` and uses it:
       a folder edit is an update, a workspace edit is *not* something to import

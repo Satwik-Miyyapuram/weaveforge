@@ -1,15 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryPaperRelationRepository } from "../../../src/testing/in-memory-paper-relation-repository.js";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
+import { InMemoryPaperRelationRepository } from "../../support/in-memory.js";
+import { InMemoryPaperRepository } from "../../support/in-memory.js";
 import {
   AddRelationUseCase,
   LinkCitationsUseCase,
-} from "../../../src/features/relations/application/manage-relations.use-case.js";
-import type { ICitationSource } from "../../../src/features/relations/application/citation-source.js";
-import type { PaperRef } from "../../../src/features/papers/application/metadata-source.js";
-import { createPaper } from "../../../src/features/papers/domain/paper.js";
-import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
+} from "../../../src/features/relations/application/parts.js";
+import type { ICitationSource } from "../../../src/features/relations/application/parts.js";
+import type { PaperRef } from "../../../src/features/papers/application/parts-1.js";
+import { createPaper } from "../../../src/features/papers/domain/parts.js";
+import { fixedClock, seqIds } from "../../support/clock.js";
 
 const clock = fixedClock("2026-06-24T12:00:00.000Z");
 

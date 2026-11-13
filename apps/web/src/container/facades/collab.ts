@@ -1,17 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CollabSnapshotHelpers, CollabSession } from "@/features/collab/application/collab-session";
-import type {
-  CompactCrdtLogUseCase,
-  ICrdtUpdateStore,
-  ICurrentUserProvider,
-} from "@weaveforge/core";
+import type { CollabSnapshotHelpers, CollabSession } from "@/features/collab/application/parts";
+import type { ICrdtUpdateStore, ICurrentUserProvider } from "@weaveforge/core";
 
 export class CollabFacade {
   constructor(
     private readonly inner: {
       crdtStore: ICrdtUpdateStore;
-      crdtSnapshotStore: import("@/features/collab/infrastructure/crdt-snapshot-store").CrdtSnapshotStore;
-      compactCrdtLog: CompactCrdtLogUseCase;
+      crdtSnapshotStore: import("@/features/collab/infrastructure/parts").CrdtSnapshotStore;
       db: SupabaseClient;
       session: ICurrentUserProvider;
       projectId: () => string | null;
@@ -40,7 +35,7 @@ export class CollabFacade {
       crdtStore: this.inner.crdtStore,
       db: this.inner.db,
       projectId: this.inner.projectId,
-      compactCrdtLog: snapshot.compactCrdtLog,
+      crdtUpdateStore: snapshot.crdtUpdateStore,
       getSnapshotUpto: snapshot.getSnapshotUpto,
     };
     this.sessionCache.set(cacheKey, session);
@@ -51,7 +46,7 @@ export class CollabFacade {
     const store = this.inner.crdtSnapshotStore;
     return {
       getSnapshotUpto: () => store.getSnapshotUpto(resourceType, resourceId),
-      compactCrdtLog: this.inner.compactCrdtLog,
+      crdtUpdateStore: this.inner.crdtStore,
     };
   }
 

@@ -11,10 +11,11 @@
 import { useEffect, useRef, useState } from "react";
 
 import { FolderIcon } from "@/components/view-icons";
-import { isCommitEnter } from "@/lib/commit-enter";
+import { isCommitEnter } from "@/lib/parts";
 import { NavIcon } from "@/app/nav-icon";
+import { readyCore } from "@/lib/rust-core";
 
-import { draftIcon, type CreateKind } from "../application/explorer-edit";
+import type { CreateKind } from "@weaveforge/wasm";
 
 /**
  * The glyph a draft row shows while it is being named.
@@ -25,7 +26,7 @@ import { draftIcon, type CreateKind } from "../application/explorer-edit";
  * row it turns into. Which handle is a decision the create table owns.
  */
 export function DraftIcon({ kind }: { kind: CreateKind }) {
-  const name = draftIcon(kind);
+  const name = readyCore().draftIcon(kind);
   return name === "folder" ? <FolderIcon /> : <NavIcon name={name} />;
 }
 
@@ -57,8 +58,15 @@ export function InlineTitle({
   const finish = (submit: boolean) => {
     if (done.current) return;
     done.current = true;
-    if (submit) void onSubmit(value);
-    else onCancel();
+    if (!submit) {
+      onCancel();
+      return;
+    }
+    // A failed submit reopens the box so the person can fix the name and retry.
+    // Called now, not a tick later, so the submit lands before the box unmounts.
+    void Promise.resolve(onSubmit(value)).catch(() => {
+        done.current = false;
+      });
   };
   return (
     <input

@@ -129,7 +129,7 @@ const securityHeaders = [
       // `script-src`, which has no `blob:` — so a bundler that emits the worker
       // from a blob URL makes **ink work on desktop and fail on the web**, which
       // is the most confusing shape a bug can take. The desktop shell already
-      // allows it (`apps/desktop/src/app-protocol.ts`); this is the web half.
+      // allows it (`apps/shell/sidecar/src/app-protocol.ts`); this is the web half.
       "worker-src 'self' blob:",
       // The Workshop PDF viewer embeds the compiled PDF as `<iframe src="blob:...">`.
       // Without this, frame-src falls back to default-src 'self' and refuses the blob.
@@ -197,9 +197,9 @@ const exportOnly = {
 
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@weaveforge/core"],
+  transpilePackages: ["@weaveforge/core", "@weaveforge/wasm"],
   ...(DESKTOP ? exportOnly : servedOnly),
-  webpack: (config, { isServer, dev }) => {
+  webpack: (config, { isServer, dev, webpack }) => {
     // @weaveforge/core is consumed as TypeScript source with ESM ".js" import
     // specifiers (NodeNext style). Teach webpack to resolve ".js" -> ".ts".
     config.resolve.extensionAlias = {
@@ -221,6 +221,51 @@ const nextConfig = {
       type: "javascript/auto",
       resolve: { fullySpecified: false },
     });
+
+    // The vendored Overleaf IDE keeps Overleaf's pinned pieces, for that tree
+    // only: pdfjs-dist 5 (the app keeps 4), Overleaf's vim fork, and no
+    // add-on modules in place of its babel macro.
+    const overleaf = path.resolve(__dirname, "src/features/report/vendor/overleaf");
+    config.module.rules.push({
+      include: overleaf,
+      resolve: {
+        alias: {
+          "pdfjs-dist": "pdfjs-dist-overleaf",
+          "@replit/codemirror-vim$": path.join(overleaf, "codemirror/vim/index.ts"),
+          [path.join(overleaf, "frontend/macros/import-overleaf-module.macro")]:
+            path.join(overleaf, "ol-shims/import-overleaf-module.ts"),
+        },
+      },
+    });
+    // Overleaf's webpack ships its wasm and media as plain files.
+    config.module.rules.push({
+      test: /\.(wasm|mp4)$/,
+      include: overleaf,
+      type: "asset/resource",
+    });
+    // pdf.js's worker names its wasm with `new URL(...)` beside itself, where
+    // the package has none; the IDE passes `wasmUrl` instead, as Overleaf does.
+    // Matched by package, since npm ci may hoist it out of the vendored tree.
+    config.module.rules.push({
+      test: /pdf\.worker\.mjs$/,
+      include: /[\\/]pdfjs-dist-overleaf[\\/]/,
+      parser: { url: false },
+    });
+    // Overleaf's components import their own stylesheets; the build script
+    // compiles those into `public/overleaf/ide.css` with Overleaf's Sass, so
+    // the imports here only need to resolve.
+    config.plugins.push(
+      new webpack.NormalModuleReplacementPlugin(/\.scss$/, (resource) => {
+        if (resource.context?.startsWith(overleaf)) {
+          resource.request = path.join(overleaf, "ol-host/no-style.js");
+        }
+      }),
+    );
+    // The app's one way in; tsc sees `ol-host/api.d.ts` instead (tsconfig paths).
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@overleaf-ide$": path.join(overleaf, "ol-host/mount.tsx"),
+    };
 
     // Records which package copies the browser build holds, for
     // `npm run bundle:duplicates`; a production build drops module paths.

@@ -1,0 +1,92 @@
+import { localOffset } from "@/lib/parts-1";
+import { readyCore } from "@/lib/rust-core";
+import type { LiveSyncState } from "./parts-1";
+import type { OutboxEntry } from "./parts-2";
+
+export type { SyncDotState } from "@weaveforge/wasm";
+
+// --- sync-ports ---
+/**
+ * What the sync engine needs from the network, and nothing more.
+ *
+ * Two verbs — send an op, read the feed — so the engine can be tested against a
+ * transport that refuses, stalls, or answers out of order without a server
+ * being involved. The real one talks PostgREST; that belongs in infrastructure.
+ */
+
+/**
+ * What became of an op.
+ *
+ * `conflict` is separate from `refused` because they call for opposite
+ * responses: a conflict means the server has a newer version and the local edit
+ * needs merging, while a refusal means this op will never be accepted and
+ * retrying it is noise. `offline` is neither — the op is still owed.
+ */
+export type SendOutcome =
+  /** `newVersion` is the server's `row_version` after the write, when it said. */
+  | { status: "accepted"; newVersion?: number }
+  /**
+   * The server has a version this op was not based on. `serverVersion` is
+   * `null` when the transport could not read it — unknown, and kept unknown
+   * rather than defaulted to 0, because this value is what the next attempt
+   * guards on.
+   */
+  | {
+      status: "conflict";
+      serverVersion: number | null;
+      /** The server's row when it could be read, so the merge need not wait for a pull. */
+      serverRow?: Record<string, unknown> | null;
+      /**
+       * With `serverRow: null`: whether the server records deleting this row.
+       * `false` means it never got it; left out when that could not be read.
+       */
+      deletedElsewhere?: boolean;
+    }
+  /**
+   * `awaitingParent`: refused because a row this one points at is not on the
+   * server yet. That can change (the parent goes up later, from here or from
+   * another device), so the op is retried without ever being given up on.
+   */
+  | { status: "refused"; reason: string; awaitingParent?: boolean }
+  | { status: "offline" };
+
+export interface RemoteChange {
+  table: string;
+  rowId: string;
+  serverSeq: number;
+  deletedAt: string | null;
+  rowVersion: number;
+  row: Record<string, unknown>;
+}
+
+export interface SyncTransport {
+  send(entry: OutboxEntry): Promise<SendOutcome>;
+  /** Changes strictly after `since`, in watermark order. */
+  changesSince(since: number, limit: number): Promise<RemoteChange[]>;
+  /**
+   * Which of these ids the server does not hold, or null when that cannot be
+   * read. Optional: without it, rows an earlier version lost are not re-sent.
+   */
+  missingIds?(table: string, ids: string[]): Promise<string[] | null>;
+}
+
+// --- sync-status ---
+/**
+ * What the sync dot says (D-13): one state, a short label and the tooltip in
+ * words. The wording and state rules live in Rust (`sync::sync_dot`); this
+ * formats the last-sync time, which needs the browser's clock. Null when this
+ * account does not sync and is online.
+ */
+export function syncStatus(
+  s: Pick<LiveSyncState, "phase" | "enabled" | "isOnline" | "conflictsCount" | "lastSyncAt">,
+  now: Date = new Date(),
+) {
+  const at = s.lastSyncAt ? new Date(s.lastSyncAt).toISOString() : null;
+  return readyCore().syncDot({
+    phase: s.phase,
+    enabled: s.enabled,
+    isOnline: s.isOnline,
+    conflictsCount: s.conflictsCount,
+    relativeLastSync: at ? readyCore().formatRelative(at, now.toISOString(), localOffset(at)) : null,
+  });
+}

@@ -23,7 +23,6 @@ import {
   decodeInkChunk,
   defaultInkNoteMeta,
   inkPageBackground,
-  inkPageFigures,
   joinInkTextLayer,
   pageFromChunk,
   readInkNoteBody,
@@ -31,9 +30,9 @@ import {
   writeInkNoteBody,
 } from "@weaveforge/core";
 
-import { availableInkChunkCodec } from "@/features/ink/application/ink-chunk-codec";
-import { MemoryInkChunkStore } from "@/features/ink/application/ink-chunk-store";
+import { availableInkChunkCodec, MemoryInkChunkStore } from "@/features/ink/application/parts-1";
 import { InkHost } from "@/features/ink/ui/ink-host";
+import { typedCore } from "@/lib/rust-core";
 
 import "@/app/styles/index.css";
 
@@ -197,7 +196,7 @@ window.inkHarness = {
   backgroundPath: (index = 0) =>
     inkPageBackground(splitInkTextLayer(readInkNoteBody(body).text)[index] ?? ""),
   figures: (index = 0) =>
-    inkPageFigures(splitInkTextLayer(readInkNoteBody(body).text)[index] ?? "").map(
+    typedCore().inkPageFigures(splitInkTextLayer(readInkNoteBody(body).text)[index] ?? "").map(
       ({ path, x, y, w, h }) => ({ path, x, y, w, h }),
     ),
   vault: () =>

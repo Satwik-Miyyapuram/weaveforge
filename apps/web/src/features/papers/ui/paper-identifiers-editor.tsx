@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { type Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { useSubmit } from "@/lib/hooks/use-submit";
+import { useSubmit } from "@/lib/hooks/parts";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 

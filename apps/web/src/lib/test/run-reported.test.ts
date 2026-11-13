@@ -4,7 +4,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runReported } from "@/lib/run-reported";
+import { runReported } from "@/lib/parts";
 
 test("a failed action reports its message and resolves false", async () => {
   const errors: string[] = [];

@@ -1,7 +1,12 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { labelSize, nodeSize } from "../ui/graph-sizing";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const ZOOMS = [0.25, 0.5, 1, 2, 4, 8];
 const BASE = 6;
@@ -26,8 +31,8 @@ test("bounded node and label sizes follow the mock formula at each zoom", () => 
   for (const kind of ["paper", "tag"] as const) {
     for (const z of ZOOMS) {
       const want = expected(BASE, kind, z);
-      const node = nodeSize(BASE, kind, z);
-      const label = labelSize(kind, z);
+      const node = readyCore().nodeSize(BASE, z, true);
+      const label = readyCore().labelSize(kind, z, true);
       const at = `${kind} z=${z}`;
       assert.ok(Math.abs(node.r - want.r) < 1e-9, `${at}: r ${node.r} vs ${want.r}`);
       assert.ok(Math.abs(node.line - want.line) < 1e-9, `${at}: line ${node.line} vs ${want.line}`);
@@ -41,23 +46,23 @@ test("bounded node and label sizes follow the mock formula at each zoom", () => 
 });
 
 test("bounded node radius never draws under 5px on screen", () => {
-  const { r } = nodeSize(1, "paper", 0.1);
+  const { r } = readyCore().nodeSize(1, 0.1, true);
   assert.ok(Math.abs(r * 0.1 - 5) < 1e-9, `r*z = ${r * 0.1}`);
 });
 
 test("bounded node radius caps its growth at 3.2x base on screen", () => {
-  const { r } = nodeSize(6, "paper", 100);
+  const { r } = readyCore().nodeSize(6, 100, true);
   assert.ok(Math.abs(r * 100 - 6 * 3.2) < 1e-9, `r*z = ${r * 100}`);
 });
 
 test("the hit area never shrinks under 7px on screen", () => {
   for (const z of ZOOMS) {
-    const { r, line, hit } = nodeSize(3, "paper", z);
+    const { r, line, hit } = readyCore().nodeSize(3, z, true);
     assert.ok(hit >= r + line);
     assert.ok(hit * z >= 7 - 1e-9);
   }
 });
 
 test("unbounded zoom keeps the node's own size", () => {
-  assert.equal(nodeSize(6, "paper", 20, false).r, 6);
+  assert.equal(readyCore().nodeSize(6, 20, false).r, 6);
 });
