@@ -22,6 +22,15 @@ For somebody using the app.
 - [Search](using/search.md) — one box over the workspace, typo recovery, acronyms, query filters, and how results are ranked
 - [Papers](using/papers.md) — pasting a DOI, arXiv id or page, duplicate matching, and what the import refuses
 - [Reader](using/reader.md) — opening a paper's PDF, annotating it, and following its citations
+- [Notes](using/notes.md) — creating, importing, renaming and tagging notes, and deleting with Undo
+- [Reading lists](using/reading-lists.md) — grouping papers by theme, sublists, screening and comparison tables
+- [Graph](using/graph.md) — relations between papers, finding citations, filters and export
+- [Experiments](using/experiments.md) — creating one by hand, logging runs from Python, and comparing runs
+- [Logbook](using/logbook.md) — daily entries, drafting one from your reading, and supervisor check-ins
+- [Plan](using/plan.md) — milestones, target dates, dependencies and compute needs
+- [Supervision](using/supervision.md) — students, check-ins, and what a supervisor sees
+- [Review queue](using/review-queue.md) — approving, editing or rejecting what the assistant suggests
+- [Git](using/git.md) — reading a connected repository's commits and tracking them as experiments
 - [Citations, excerpts and Overleaf](using/citations-and-overleaf.md)
 - [Reports](using/reports.md) — draft thesis sections, check the bibliography, convert Markdown to LaTeX
 - [Integrations](using/integrations.md) — Zotero, git, MCP, the browser extension

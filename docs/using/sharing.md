@@ -22,6 +22,21 @@ to Can edit.
 Comments are left on a paper, a passage, or a page. A reply belongs to its
 thread, and a comment needs text before it can be posted.
 
+### See what others shared with you
+
+Go to `/shared` to see items other people shared with you. The heading is
+**Shared with you**. Items are grouped by the person who shared them.
+
+Each item shows an access tag, **Can comment** or **Can view**. Select **Open**
+to read it. A paper shows **Open note** instead.
+
+If more than one type is shared, **Filter by type** appears. Pick **All** or one
+type.
+
+To share your own items in bulk, choose **Share my work**. It offers **All notes**,
+**All papers**, **All experiments**, **Whole report**, **Whole plan** and **All
+reading lists**.
+
 ## Reference
 
 Shareable types: milestone, experiment, report section, reading list, paper and
@@ -41,6 +56,16 @@ Rules the app enforces:
 - A comment body is trimmed and must not be blank. A comment needs a target.
 - A reply, or a comment with a blank quote, drops the passage it would have
   anchored to.
+
+The `/shared` screen shows **Loading shared items…** while it loads. With nothing
+shared, it shows **Nothing shared with you yet** and this text: "When someone
+shares a paper, a note or a reading list with you, it lands here grouped by who
+sent it. You can comment on what they share; the edits stay theirs." A
+**Go to your papers** button is shown too. A load failure shows the error text.
+
+The `/shared` screen has no **Remove** button. The owner removes a share in that
+item's share dialog, with **Remove** beside the person. When nobody is left, the
+dialog shows "Not shared with anyone yet."
 
 ## How it works
 
