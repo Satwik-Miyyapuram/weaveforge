@@ -22,8 +22,9 @@ async function openOrgTab(page: Page): Promise<void> {
   await page.goto("/settings#settings-org");
   // The code lookup and the join both call the server as this user, and a page
   // that has not finished restoring its session answers "Not authenticated" —
-  // which reads in the dialog as a bad code. Wait for the signed-in shell.
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible({ timeout: 30_000 });
+  // which reads in the dialog as a bad code. Wait for the signed-in shell: the
+  // Account menu (where Sign out now lives) shows only once there is a user.
+  await expect(page.getByRole("button", { name: "Account" })).toBeVisible({ timeout: 30_000 });
   const tab = page.getByRole("tab", { name: "Org" });
   if (await appeared(tab, 20_000)) await tab.click();
 }

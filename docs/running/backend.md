@@ -151,6 +151,13 @@ Caddy sends `/relay/*` to it and strips the prefix, so the public URL is
 `apps/relay/server/src/routes.rs`; each handler module names its own source in
 its header.
 
+The web app finds the relay through `NEXT_PUBLIC_RELAY_URL`, read at build time.
+Set it wherever `apps/web` is built, for example
+`NEXT_PUBLIC_RELAY_URL=https://api.weaveforge.org/relay`. Without it the app
+calls `/api/...` on its own origin, where a web build has no routes, so
+Settings, the PDF reader, Overleaf and MCP access all get 404. The desktop app
+does not use it.
+
 | Path | Method | What it does |
 |---|---|---|
 | `/healthz` | GET | Liveness check; returns `ok`. |

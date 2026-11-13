@@ -73,7 +73,8 @@ test.describe("core domain CRUD (PostgREST + RLS)", () => {
     const body = `E2E log ${Date.now()} — wrote tests for CRUD.`;
 
     await page.goto("/log");
-    await page.getByRole("button", { name: "New entry" }).click();
+    // The empty state has its own "New entry"; the header one is always there.
+    await page.locator(".screen-head").getByRole("button", { name: "New entry" }).click();
     await page.locator("#body").fill(body);
     await page.getByRole("button", { name: "Create", exact: true }).click();
 

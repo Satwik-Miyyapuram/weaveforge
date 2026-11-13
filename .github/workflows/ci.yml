@@ -350,6 +350,9 @@ jobs:
           # locally against the same code.
           NEXT_PUBLIC_DATA_URL: https://api.weaveforge.org
           NEXT_PUBLIC_REALTIME_URL: https://api.weaveforge.org
+          # The app's /api routes live in the relay (apps/relay) now; a web
+          # build without this calls its own origin and every one is a 404.
+          NEXT_PUBLIC_RELAY_URL: https://api.weaveforge.org/relay
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
@@ -363,6 +366,7 @@ jobs:
           # Same reason as the build step above: the data lives here now.
           NEXT_PUBLIC_DATA_URL: https://api.weaveforge.org
           NEXT_PUBLIC_REALTIME_URL: https://api.weaveforge.org
+          NEXT_PUBLIC_RELAY_URL: https://api.weaveforge.org/relay
           WEAVEFORGE_EMAIL: ${{ secrets.TT_A_EMAIL }}
           WEAVEFORGE_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
           TT_A_EMAIL: ${{ secrets.TT_A_EMAIL }}
