@@ -9,7 +9,7 @@ async function isPastLoginGates(page: Page): Promise<boolean> {
   if (/shared=1/.test(page.url())) return true;
   const linkRedeem = page.getByTestId("link-redeem");
   if (await appeared(linkRedeem, 250)) return true;
-  return appeared(page.locator(".project-card, .project-list, .empty").first(), 250);
+  return appeared(page.locator(".project-row, .project-list, .empty").first(), 250);
 }
 
 async function isCryptoGateBusy(page: Page): Promise<boolean> {
@@ -135,11 +135,11 @@ export async function ensureProjectSelected(page: Page) {
   if (await appeared(shell, 2000)) return;
 
   await page
-    .locator(".project-list, .project-card, .empty")
+    .locator(".project-list, .project-row, .empty")
     .first()
     .waitFor({ timeout: 30000 });
 
-  const projectCard = page.locator(".project-card").first();
+  const projectCard = page.locator(".project-row > .wf-row").first();
   if (await appeared(projectCard, 5000)) {
     await projectCard.click();
     await shell.waitFor({ timeout: 30000 });
