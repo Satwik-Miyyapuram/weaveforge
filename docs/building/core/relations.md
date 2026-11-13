@@ -82,3 +82,17 @@ new wasm exports, then a call-time function, then the importers repointed.
   exports, so they keep no rules of their own.
 
 Source: `crates/wf-core/src/relations/`
+
+## More relations modules
+
+| Module | Rust fn | wasm export | TS caller |
+| --- | --- | --- | --- |
+| `citation_alert_log` | `alert_log_body` | `citationAlertLogBody` | `packages/core/src/features/relations/application/parts.ts` |
+| `citation_match` | `match_references` | `matchCitationReferences` | `packages/core/src/features/relations/application/parts.ts` |
+| `relation_phrase` | `link_sentence` | `linkSentence` | `apps/web/src/features/relations/ui/relation-phrase.ts` |
+
+Rules:
+
+- `citation_alert_log`: the entry starts `## Citation alert: <title>`, and the count word is singular for exactly one paper. At most 20 items are listed, then `…and N more`. A link appears only when the URL is non-blank. Only the first author is named, with `et al.` when there are more.
+- `citation_match`: an arXiv reference matches by raw arXiv id. A DOI reference matches by normalised DOI, else the raw value. URL, Zotero and bibliographic references match nothing, and so does a reference to the paper itself. When two library papers share a key, the later one wins.
+- `relation_phrase`: returns `null` until both papers are non-blank. Otherwise the sentence is `<from> <relation label, lowercased> <to>`, so `uses_method` reads `uses method`.

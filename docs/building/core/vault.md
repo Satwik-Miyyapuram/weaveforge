@@ -79,3 +79,16 @@ yet; adding the check there is open work.
 - [Storage core](storage.md)
 
 Source: `crates/wf-core/src/vault/`
+
+## Shared-note image copies (`asset_copy`)
+
+| Module | Rust fn | wasm export | TS caller |
+| --- | --- | --- | --- |
+| `asset_copy` | `plan_asset_copies` | `planAssetCopies` | `apps/web/src/features/library/application/duplicate-shared-vault.use-case.ts` |
+| `asset_copy` | `copy_extension` | `copyExtension` | `apps/web/src/features/library/application/duplicate-shared-vault.use-case.ts` |
+
+Rules:
+
+- `plan_asset_copies`: a failed copy (`new_path` none) keeps the owner's path and is listed in `failed_assets`. Every copy that worked becomes a `vault:` rewrite, in the order given; `vault::page::replace_vault_asset_paths` applies them.
+- `copy_extension`: the text after the last `.`, as TS `split(".").pop()` gives it. No lowercasing and no default: a path without a dot comes back whole; a trailing dot gives `""`.
+- The file copies themselves stay in TS.

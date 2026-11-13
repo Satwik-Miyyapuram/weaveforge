@@ -101,4 +101,22 @@ The app's ink worker, renderers and storage are in TypeScript too. These files t
 - `infrastructure/routed-ink-chunk-store.ts`: reads and writes chunks through storage I/O.
 - `worker/ink-background.ts`, `worker/ink-export.ts`, `worker/ink-paste.ts`: handle worker messages over fetch and storage.
 
+## More ink modules
+
+| Module | Rust fn | wasm export | TS caller |
+| --- | --- | --- | --- |
+| `capture` | `CaptureStream` (`new`, `reset_filter`, `forget_last`, `consume`), `resolve_time` | `InkCaptureStream` (`resetFilter`, `forgetLast`, `consume`); `resolve_time` native only | `apps/web/src/features/ink/application/parts-2.ts` |
+| `constants` | `ink_constants` | `inkConstants` | — |
+| `page_buffer` | `bounds_of`, `bounds_intersect`, `bounds_union`, `bounds_contain`, `page_bounds`, `kept_indices`, `clamp_background_index`, `stroke_pressures`, `stroke_arrays` | `inkBoundsOf`, `inkBoundsIntersect`, `inkBoundsUnion`, `inkBoundsContain`, `inkPageBounds`, `inkKeptIndices`, `inkClampBackgroundIndex`, `inkStrokePressures`; `stroke_arrays` native only | `apps/web/src/features/ink/application/parts-3.ts` |
+| `stroke_history` | `stroke_history_step` | `inkStrokeHistoryStep` | `apps/web/src/features/ink/worker/ink-page-logic.ts` |
+| `worker_route` | `ink_worker_route`, `pen_pressure_byte` | `inkWorkerRoute`, `inkPenPressureByte` | `apps/web/src/features/ink/worker/ink-worker.ts` |
+
+Rules:
+
+- `capture`: a sample with a non-finite `x` or `y` is dropped. A real sample repeating the last one's time and point is dropped. A predicted run is filtered from a saved filter state, which is restored after it, so predictions never move the stroke that follows. `resolve_time` uses `t`, else `timeStamp`, else `now`, whichever is finite first.
+- `constants`: one object holds the tuning numbers of width, zoom, smooth, segment, decode and figure. The TS core keeps its own copies. `packages/core/src/shared/rust.ts` documents the return type; no TS call site was found.
+- `page_buffer`: `bounds_intersect` and `bounds_contain` grow the boxes by `slack`. `page_bounds` skips dead or empty strokes and returns `EMPTY_BOUNDS` when none are left. `clamp_background_index` gives 0 for a non-finite index, else rounds and clamps to 0 to 255. `stroke_pressures` stores 0 for a missing or `NaN` entry.
+- `stroke_history`: a `record` clears the redo stack. `undo` and `redo` return an action for the page, or none when there is nothing to take.
+- `worker_route`: `samples` and `stroke-end` run only for the live stroke with the same id. `replace-page` and `ink-shown` run only for the page on show. Pass-through types run unguarded; anything else, including `samples-returned`, is ignored. `pen_pressure_byte` is `round(p * 255)` clamped to 0 to 255, with `NaN` kept.
+
 Source: `crates/wf-core/src/ink/`

@@ -75,4 +75,15 @@ is rebuilt whenever the loaded entities change.
 - [Report core](report.md) for the report sections shown in the explorer.
 - [Overleaf core](overleaf.md) for the Overleaf leaf in the tree.
 
+## More editor-workspace modules
+
+| Module | Rust fn | wasm export | TS caller |
+| --- | --- | --- | --- |
+| `workspace_load` | `assemble` | `assembleWorkspace` | `apps/web/src/features/editor-workspace/application/parts.ts` |
+
+Rules:
+
+- `workspace_load`: one pass builds the documents, the `@` and `[[` completions, the explorer tree, the reading-lists tree and the list membership. A reload keeps an already hydrated note body only while its summary preview still matches the body's head.
+- `workspace_load`: a completion title already seen (by its normalised key) collapses to one row. A paper wins over a vault page when a membership row has both, and a row with neither is not a member.
+
 Source: `crates/wf-core/src/editor_workspace/`

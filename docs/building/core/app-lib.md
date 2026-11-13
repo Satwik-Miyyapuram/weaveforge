@@ -52,3 +52,17 @@ Source: `apps/web/src/lib/parts-2.ts`, `apps/web/src/lib/parts.ts`,
 `apps/web/src/lib/parts.ts`, `apps/web/src/lib/parts.ts`,
 `apps/web/src/lib/wikilink-create-preference.ts`, `apps/web/src/lib/parts.ts`,
 `apps/web/src/lib/desktop/menu-edit.ts`, `apps/web/src/lib/desktop/clear-local-device-data.ts`.
+
+## More app_lib modules
+
+| Module | Rust fn | wasm export | TS caller |
+| --- | --- | --- | --- |
+| `commit_enter` | `is_commit_enter` | `isCommitEnter` | `apps/web/src/lib/parts.ts` |
+| `context_menu` | `reduce`, `place`, `VIEWPORT_PAD` | `contextMenuReduce`, `contextMenuPlace` | `apps/web/src/components/context-menu-store.ts` |
+| `menu_palette` | `menu_palette_actions`, `settings_palette_rows` | `menuPaletteActions`, `settingsPaletteRows` | `apps/web/src/lib/parts-2.ts` |
+| `prefs` | `ink_haptics_on`, `citation_format_storage_key`, `parse_editor_citation_format`, `parse_wikilink_create_mode` | `inkHapticsOn`, `citationFormatStorageKey`, `parseEditorCitationFormat`, `parseWikilinkCreateMode` | `apps/web/src/lib/parts.ts`, `apps/web/src/lib/hooks/parts.ts`, `apps/web/src/lib/wikilink-create-preference.ts` |
+| `reveal_nav` | `scroll_top_to_reveal` | `navRevealScrollTop` | `apps/web/src/app/reveal-active-nav.ts` |
+| `shortcuts` | `next_shortcuts_open` | `nextShortcutsOpen` | `apps/web/src/lib/parts-2.ts`, `apps/web/src/components/shortcuts-host.tsx` |
+| `toast_store` | `initial_state`, `reduce`, `TOAST_MS`, `MAX_TOASTS` | `toastInitialState`, `toastReduce` | `apps/web/src/lib/toast/parts.ts` |
+
+The rules for these modules are in the list at the top of this page.

@@ -93,3 +93,17 @@ are being removed.
 - [Settings core](settings.md)
 
 Source: `crates/wf-core/src/ai/`
+
+## More AI modules
+
+| Module | Rust fn | wasm export | TS caller |
+| --- | --- | --- | --- |
+| `byok_wire` | `build_request`, `is_available`, `parse_reply`, `http_error_message` | `buildByokRequest`, `byokAvailable`, `parseByokReply`, `byokHttpError` | `apps/web/src/features/ai-assistant/infrastructure/byok-model-conversation.ts` |
+| `mcp_dispatch` | `plan_tool_call`, `paper_evidence` | `planMcpTool`, `mcpPaperEvidence` | `apps/web/src/features/ai-assistant/infrastructure/mcp-browser-relay.ts` |
+
+Rules:
+
+- `byok_wire`: builds the request only; no I/O. The key goes only in the provider's own auth header, and the request goes to that provider's base URL.
+- `byok_wire`: Anthropic takes the system prompt as a `system` field with `max_tokens` 4096. Ollama sends `stream: false`, so every call is one JSON reply.
+- `byok_wire`: `parse_reply` returns `None` for a blank reply, which callers report as an empty reply. `http_error_message` keeps the provider's detail, cut to 300 UTF-16 units.
+- `mcp_dispatch`: pure rules only. Host calls and the relay stay in TS. Refusal messages match the TS text.
