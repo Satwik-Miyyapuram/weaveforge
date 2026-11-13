@@ -157,22 +157,24 @@ test("every RPC the app calls is classified as a write or not", async () => {
   // stale-mirror bug this list exists to prevent. Naming every one here makes
   // a new RPC fail this test until someone decides.
   const { RPC_WRITES } = await import("../providers/postgrest/watch-writes");
-  const { readdirSync, readFileSync } = await import("node:fs");
+  const { readdirSync, readFileSync, statSync } = await import("node:fs");
   const path = await import("node:path");
   const src = path.resolve(import.meta.dirname, "../..");
   const called = new Set<string>();
-  for (const entry of readdirSync(src, { recursive: true, withFileTypes: true })) {
-    if (!entry.isFile() || !/\.tsx?$/.test(entry.name) || /[\/]test[\/]?/.test(entry.parentPath + path.sep)) continue;
-    const text = readFileSync(path.join(entry.parentPath, entry.name), "utf8");
+  for (const rel of readdirSync(src, { recursive: true, encoding: "utf8" }) as string[]) {
+    const file = path.join(src, rel);
+    if (!statSync(file).isFile() || !/\.tsx?$/.test(file) || rel.split(/[\\/]/).slice(0, -1).includes("test")) continue;
+    const text = readFileSync(file, "utf8");
     for (const match of text.matchAll(/\.rpc(?:<[^>]*>)?\(\s*"([a-z_0-9]+)"/g)) called.add(match[1]!);
   }
-  // Rust-planned repositories name their RPCs in wf-core; the TS sender calls them.
+  // Rust-planned repositories name their RPCs in wf-core, directly or through a local `rpc(call, "name", ..)` helper; the TS sender calls them.
   const core = path.resolve(src, "../../../crates/wf-core/src");
-  for (const entry of readdirSync(core, { recursive: true, withFileTypes: true })) {
-    if (!entry.isFile() || !entry.name.endsWith(".rs")) continue;
+  for (const rel of readdirSync(core, { recursive: true, encoding: "utf8" }) as string[]) {
+    const file = path.join(core, rel);
+    if (!statSync(file).isFile() || !file.endsWith(".rs")) continue;
     // Unit tests below `#[cfg(test)]` call made-up RPCs; only the shipped code counts.
-    const text = readFileSync(path.join(entry.parentPath, entry.name), "utf8").split("#[cfg(test)]")[0]!;
-    for (const match of text.matchAll(/RepoQuery::rpc\(\s*"([a-z_0-9]+)"/g)) called.add(match[1]!);
+    const text = readFileSync(file, "utf8").split("#[cfg(test)]")[0]!;
+    for (const match of text.matchAll(/(?:RepoQuery::rpc|\brpc)\(\s*(?:call,\s*)?"([a-z_0-9]+)"/g)) called.add(match[1]!);
   }
   assert.ok(called.size > 10, "the scan found the app's RPC calls");
   const unclassified = [...called].filter((fn) => !Object.hasOwn(RPC_WRITES, fn)).sort();

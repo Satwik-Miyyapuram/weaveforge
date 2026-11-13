@@ -382,9 +382,7 @@ async fn arxiv_a_good_answer_is_cacheable_because_it_is_a_pure_function_of_the_r
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
-        headers
-            .get("cache-control")
-            .and_then(|v| v.to_str().ok()),
+        headers.get("cache-control").and_then(|v| v.to_str().ok()),
         Some("public, max-age=600, s-maxage=3600, stale-while-revalidate=86400")
     );
 }
@@ -399,9 +397,7 @@ async fn arxiv_an_upstream_error_is_not_cached() {
     .await;
     assert_ne!(status, StatusCode::OK);
     assert_eq!(
-        headers
-            .get("cache-control")
-            .and_then(|v| v.to_str().ok()),
+        headers.get("cache-control").and_then(|v| v.to_str().ok()),
         Some("no-store")
     );
 }
@@ -413,11 +409,7 @@ async fn fetch_url_image_fetches_are_budgeted_per_caller() {
     let app_state = state(&get_user, "http://127.0.0.1:1/api/query");
     let mut statuses = Vec::new();
     for _ in 0..21 {
-        let (status, headers, body) = send(
-            app_state.clone(),
-            get(IMAGE_URI, Some(SESSION)),
-        )
-        .await;
+        let (status, headers, body) = send(app_state.clone(), get(IMAGE_URI, Some(SESSION))).await;
         if status == StatusCode::TOO_MANY_REQUESTS {
             assert!(body.contains("Too many image fetches"), "{body}");
             assert!(headers.get("retry-after").is_some(), "{body}");
@@ -425,7 +417,9 @@ async fn fetch_url_image_fetches_are_budgeted_per_caller() {
         statuses.push(status);
     }
     assert!(
-        statuses[..20].iter().all(|s| *s != StatusCode::TOO_MANY_REQUESTS),
+        statuses[..20]
+            .iter()
+            .all(|s| *s != StatusCode::TOO_MANY_REQUESTS),
         "a burst of twenty gets through: {statuses:?}"
     );
     assert_eq!(statuses[20], StatusCode::TOO_MANY_REQUESTS);
