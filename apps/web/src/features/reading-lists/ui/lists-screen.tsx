@@ -20,7 +20,8 @@ import { NavIcon } from "@/app/nav-icon";
 import { readyCore } from "@/lib/rust-core";
 import { ListNode, type ListTreeContext } from "./list-node";
 import { runListAction } from "./run-list-action";
-import { ListsRail, findListNode } from "./lists-rail";
+import { ListsRail, findListNode, pruneHiddenLists } from "./lists-rail";
+import { useHiddenKeys } from "@/lib/toast/index";
 import { useProject } from "@/features/projects";
 import { projectScopedKey, usePersistedState } from "@/lib/hooks/parts";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
@@ -66,8 +67,14 @@ export function ListsScreen() {
     setError(loadError);
   }, [loadError]);
 
-  const tree = data?.tree ?? emptyArray<ReadingListTreeNode>();
-  const flat = data?.lists ?? emptyArray<ReadingList>();
+  const allTree = data?.tree ?? emptyArray<ReadingListTreeNode>();
+  const allFlat = data?.lists ?? emptyArray<ReadingList>();
+  const hiddenKeys = useHiddenKeys();
+  const { tree, flat } = useMemo(() => {
+    const pruned = pruneHiddenLists(allTree, hiddenKeys);
+    if (pruned.hiddenIds.size === 0) return { tree: allTree, flat: allFlat };
+    return { tree: pruned.tree, flat: allFlat.filter((l) => !pruned.hiddenIds.has(l.id)) };
+  }, [allTree, allFlat, hiddenKeys]);
   const papers = data?.papers ?? emptyArray<Paper>();
   const notes = data?.notes ?? emptyArray<VaultPage>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();

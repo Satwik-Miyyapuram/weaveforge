@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import type { ReadingList, ReadingListTreeNode } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import { RowButton } from "@/components/controls";
+import { listKey } from "./list-node";
 
 /** One rail row: a list at its depth in the tree. */
 interface RailRow {
@@ -17,6 +18,31 @@ function flattenTree(nodes: readonly ReadingListTreeNode[], depth = 0): RailRow[
     { list: n.list, depth, sublists: n.children.length },
     ...flattenTree(n.children, depth + 1),
   ]);
+}
+
+/**
+ * Drops lists waiting on their Undo toast, with their sublists, so the rail,
+ * the count and the right pane all lose them at once (D-07).
+ */
+export function pruneHiddenLists(
+  tree: readonly ReadingListTreeNode[],
+  hiddenKeys: ReadonlySet<string>,
+): { tree: readonly ReadingListTreeNode[]; hiddenIds: ReadonlySet<string> } {
+  const hiddenIds = new Set<string>();
+  const collect = (n: ReadingListTreeNode) => {
+    hiddenIds.add(n.list.id);
+    n.children.forEach(collect);
+  };
+  const prune = (nodes: readonly ReadingListTreeNode[]): ReadingListTreeNode[] =>
+    nodes.flatMap((n) => {
+      if (hiddenKeys.has(listKey(n.list.id))) {
+        collect(n);
+        return [];
+      }
+      return [{ ...n, children: prune(n.children) }];
+    });
+  const pruned = prune(tree);
+  return { tree: hiddenIds.size ? pruned : tree, hiddenIds };
 }
 
 /** Finds a list's node anywhere in the tree. */
