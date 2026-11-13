@@ -37,6 +37,9 @@ test.beforeAll(async () => {
     target: "es2020",
     // The app's own `@/…` specifiers; there is no tsconfig-paths step here.
     alias: { "@": path.join(ROOT, "src") },
+    // Next replaces `process.env.*` at build time; the editor's import graph reaches
+    // modules that read it at load (build-target via bootstrap), so do the same here.
+    define: { "process.env": "{}" },
     logLevel: "warning",
   });
   fs.writeFileSync(
