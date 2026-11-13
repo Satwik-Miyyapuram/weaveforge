@@ -56,7 +56,11 @@ pub fn without_verbatim_prefix(path: &Path) -> PathBuf {
 /// app's data. Electron's `userData` is `<appData>/<productName>`, so the release copies from `WeaveForge` and the
 /// test build from `WeaveForge Dev`. Tauri's `config_dir` is that `<appData>` on every OS.
 #[must_use]
-pub fn electron_data_dir(source: &AppSource, product_name: &str, config_dir: &Path) -> Option<PathBuf> {
+pub fn electron_data_dir(
+    source: &AppSource,
+    product_name: &str,
+    config_dir: &Path,
+) -> Option<PathBuf> {
     match source {
         AppSource::Dev { .. } => None,
         AppSource::Bundled { .. } => Some(config_dir.join(product_name)),
@@ -110,7 +114,9 @@ mod tests {
             migration_dirs(&dev),
             vec![
                 PathBuf::from(r"C:\repo").join("db").join("migrations"),
-                PathBuf::from(r"C:\repo").join("db").join("migrations-local"),
+                PathBuf::from(r"C:\repo")
+                    .join("db")
+                    .join("migrations-local"),
             ]
         );
         let bundled = AppSource::Bundled {
@@ -158,7 +164,9 @@ mod tests {
             bridge_source(&AppSource::Bundled {
                 resources: PathBuf::from(r"\\?\C:\app"),
             }),
-            PathBuf::from(r"C:\app").join("app").join("weaveforge-mcp.mjs")
+            PathBuf::from(r"C:\app")
+                .join("app")
+                .join("weaveforge-mcp.mjs")
         );
     }
 
@@ -167,7 +175,10 @@ mod tests {
         let dev = AppSource::Dev {
             repo: PathBuf::from("repo"),
         };
-        assert_eq!(electron_data_dir(&dev, DEV_PRODUCT_NAME, Path::new("cfg")), None);
+        assert_eq!(
+            electron_data_dir(&dev, DEV_PRODUCT_NAME, Path::new("cfg")),
+            None
+        );
     }
 
     #[test]
@@ -208,6 +219,9 @@ mod tests {
             without_verbatim_prefix(Path::new(r"\\?\UNC\srv\share\app")),
             PathBuf::from(r"\\srv\share\app")
         );
-        assert_eq!(without_verbatim_prefix(Path::new("res")), PathBuf::from("res"));
+        assert_eq!(
+            without_verbatim_prefix(Path::new("res")),
+            PathBuf::from("res")
+        );
     }
 }
