@@ -67,18 +67,18 @@ const MattermostSignedOutHost = dynamic(
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading, expired, sessionEpoch } = useAuth();
   const pathname = usePathname();
-  // Start fetching the Rust core while sign-in resolves; CoreGate awaits it.
+  // Start fetching the Rust core at once; auth and CoreGate both await it.
   useEffect(() => {
     loadCore().catch(() => {});
   }, []);
-  if (pathname === "/recover") return <EmailRecoveryScreen />;
-  if (pathname === "/reset-password") return <PasswordResetScreen />;
+  if (pathname === "/recover") return <CoreGate><EmailRecoveryScreen /></CoreGate>;
+  if (pathname === "/reset-password") return <CoreGate><PasswordResetScreen /></CoreGate>;
   // The product pitch is public and renders its own chrome: no auth gate, no
   // project gate, no nav. It sits inside the app rather than beside it so the
   // cards it shows are the app's real components, not a copy that drifts.
   if (pathname === "/pitch") return <>{children}</>;
   if (loading) return <ThesisLoaderScreen />;
-  if (!user) return <main className="app-shell"><LoginScreen /></main>;
+  if (!user) return <CoreGate><main className="app-shell"><LoginScreen /></main></CoreGate>;
   return (
     <CoreGate>
     <StartupProvider userId={user.id}>
