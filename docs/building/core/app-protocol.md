@@ -38,4 +38,4 @@ Both scheme entries are schemes rather than wildcards: `app:` still confines the
 
 ## Tests
 
-`crates/wf-core/tests/app_protocol.rs` holds the cases from the retired TS sidecar test, plus cases for an encoded separator, `%FF`, `%ZZ`, and a Windows-style root. `apps/shell/src/protocol.rs` has its own tests for the native file lookup.
+`crates/wf-core/tests/app_protocol.rs` holds the cases from the removed TS sidecar test, plus cases for an encoded separator, `%FF`, `%ZZ`, and a Windows-style root. `apps/shell/src/protocol.rs` has its own tests for the native file lookup.

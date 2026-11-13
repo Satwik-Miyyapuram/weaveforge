@@ -31,11 +31,11 @@ tauri = { version = "=2.12.5", features = [] }
 # Native folder picker for the workspace folder (step 2.7b). The plugin runs the
 # dialog on the platform's UI thread; the page gets no dialog permission.
 tauri-plugin-dialog = "=2.8.3"
-# Opens links and files for the sidecar's open.url / open.path asks (step 2.10).
+# Opens links and files for the page's open-url / open-path asks (step 2.10).
 # Rust side only; the page gets no opener permission.
 tauri-plugin-opener = "=2.7.2"
-# Sidecar client (step 2.4): async child process, Job Object on Windows so the
-# sidecar dies with the shell. The std API of process-wrap never sets kill-on-close.
+# Postgres and TeX children: async child process, Job Object on Windows so they
+# die with the shell. The std API of process-wrap never sets kill-on-close.
 process-wrap = { version = "=10.0.1", default-features = false, features = ["tokio1", "job-object", "kill-on-drop", "creation-flags", "process-group"] }
 # Rows keep column order and JSON keeps key order, as PGlite returned them.
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }

@@ -60,9 +60,7 @@ Tool results are capped: each item at 8,000 characters, and the whole result at
 
 The access rules, the untrusted-context fencing and the tool-result caps are
 pure functions in Rust. The web app calls them through the WebAssembly build.
-The assistant sidecar still runs its own copy of the tool-name and result
-helpers, and the lexical concept extractor and wiki linting still run in
-TypeScript. The policy is checked before any model call, so a denied request
+The lexical concept extractor and wiki linting still run in TypeScript. The policy is checked before any model call, so a denied request
 never reaches the model.
 
 Source: `crates/wf-core/src/ai/`

@@ -1,12 +1,11 @@
-//! The local database on a native Postgres child process (step 5.3d), replacing PGlite in the Node
-//! sidecar.
+//! The local database on a native Postgres child process (step 5.3d). It replaced PGlite in the old Node
+//! sidecar, now removed.
 //!
 //! - `server`: finds the Postgres binaries, creates the data dir, starts and stops the server.
 //! - `wire`: a small client that asks for text results, so values match what PGlite returned.
 //! - `value`: turns Postgres text values into the JSON the app already reads, and JSON params into text.
 //! - `db`: the app's database rules: migrations, queries run as a user under RLS, the device user.
 //! - `host`: the database as the app sees it: lazy open, queries as the device user, state, reset.
-//! - `import`: a one-time copy of an old PGlite database into the new one.
 //! - `backup`: `pg_dump` copies of the database and which of them to keep.
 //! - `restore`: rebuilds a missing database from the newest backup that loads.
 //! - `comspec`: runs `initdb`'s shell commands without the user's cmd AutoRun.
@@ -15,7 +14,6 @@ pub mod backup;
 pub mod comspec;
 pub mod db;
 pub mod host;
-pub mod import;
 pub mod restore;
 pub mod server;
 pub mod value;

@@ -117,10 +117,10 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 - **Store reads.** `collectWorkspaceSnapshot` reads the stores and is not
   ported. Rust keeps only the fields the serializer reads.
 
-## Sidecar git and argument rules
+## Git rules
 
-These rules moved from `apps/shell/sidecar/src` into Rust. The sidecar still
-spawns git and reads the file system.
+These rules moved from the removed Node sidecar into Rust. The shell spawns git
+and reads the file system.
 
 - `sync::git_auth` (`gitBasicAuth`, `gitRemoteAuth`) builds the Basic header and
   the `GIT_CONFIG_*` plan. The token goes only in the env plan, never on the
@@ -129,9 +129,6 @@ spawns git and reads the file system.
 - `sync::vault_git_parse` (`gitParseStatus`, `gitParseLog`, `gitOverwrittenFiles`,
   `gitNulList`, `gitPathChunks`) parses git's text output. Renames skip the
   second record. Path chunks count UTF-16 units, as JavaScript does.
-- `sidecar_args` (`parseSidecarArgs`) walks the sidecar's argv and returns the
-  raw paths or the error message. `main.ts` resolves the paths with
-  `path.resolve`. The wasm loads before argv is parsed.
 
 Stays in TypeScript, and why:
 
@@ -170,7 +167,7 @@ These modules sit beside the ones above. Each rule is pure. TS keeps the I/O.
 | `memory_fs` | `MemoryWorkspaceFs`, `with_clock` | native only | — |
 | `merge` | `merge_rows`, `same_value` | `mergeRows`, `sameValue` | `sameValue`: `apps/web/src/features/offline-sync/ui/sync-issues-panel.tsx`. `mergeRows`: — |
 | `merge_vault_page` | `merge_vault_page`, `vault_page_base`, `vault_page_side` | `mergeVaultPage`, `vaultPageBase`, `vaultPageSide` | `vaultPageBase`: `apps/web/src/features/workspace/application/parts-1.ts`. `mergeVaultPage`, `vaultPageSide`: — |
-| `migrated_notice` | `migrated_notice` | `migratedNotice` | — (sidecar port `apps/shell/sidecar/src/migrated-notice.ts`, not a wasm caller) |
+| `migrated_notice` | `migrated_notice` | `migratedNotice` | — (the shell, not a wasm caller) |
 | `project_pick` | `pick_project` | `pickProject` | — |
 | `serialize` | `serialize_workspace`, `WORKSPACE_SCHEMA_VERSION` | `serializeWorkspace` | `apps/web/src/features/workspace/application/parts-1.ts`, `apps/web/src/features/workspace/application/parts-2.ts`, `apps/web/src/features/export/application/export-user-data.ts` |
 | `text_diff` | `diff_body`, `merge_hunks`, `write_conflict_markers`, `has_conflict_markers` | `diffBody`, `mergeHunks`, `writeConflictMarkers`, `hasConflictMarkers` | `apps/web/src/features/offline-sync/ui/sync-issues-panel.tsx`, `apps/web/src/features/settings/ui/folder-conflict-card.tsx` |
