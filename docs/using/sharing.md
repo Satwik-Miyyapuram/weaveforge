@@ -8,16 +8,16 @@ look, comment, or edit together.
 
 1. Open the item and choose **Share**.
 2. Pick the member to share with.
-3. Pick the access level: **View** is read only, **Comment** adds the right to
-   leave comments, and **Edit** lets you both edit together.
+3. Pick the access level: **Can view** is read only, **Can comment** adds the
+   right to leave comments, and **Can edit** lets you both edit together.
 
-Edit is only offered for a single vault page or report section. Every other
+Can edit is only offered for a single vault page or report section. Every other
 type can be shared for viewing or commenting.
 
 A share can also cover every item of a type at once. A blanket share, with no
 specific item chosen, gives the member the access level you pick (view or
 comment) to every item of that type that you own. A blanket share cannot be set
-to Edit.
+to Can edit.
 
 Comments are left on a paper, a passage, or a page. A reply belongs to its
 thread, and a comment needs text before it can be posted.

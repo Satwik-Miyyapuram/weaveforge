@@ -6,6 +6,28 @@ same thing. Nothing in the wiki changes without your review.
 
 ## How to
 
+### Draft new pages
+
+1. Open **Wiki** (`/wiki`).
+2. Choose **Scan everything**, or **Choose what to scan…** to pick documents.
+   The scan runs on this device unless a model is set in Settings.
+3. The result says how many documents were scanned and how many new pages it
+   proposes. "Nothing new to add" means the wiki already covers every concept
+   found; "No concept comes up often enough to need a page yet" means the scan
+   found nothing worth a page.
+4. Tick the pages you want and choose **Send N for review**. Drafts go to the
+   review queue (`/ai-review`); nothing is written until you approve them.
+
+### Check the wiki's health
+
+The **Health** section lists likely duplicates, links to pages that do not
+exist, and orphan pages nothing links to. **Re-check** runs it again, and
+**Queue a page for each missing link** sends a draft for every missing page to
+the review queue. **Rebuild index page** regenerates the index; on an empty
+wiki it says "There is no wiki yet — scan for concepts first."
+
+### Write and merge pages
+
 1. Keep your wiki pages under the Wiki root. Each page is listed in the index.
 2. Write your own text above or below the index. Regenerating the index never
    touches it.
