@@ -94,16 +94,21 @@ the command is the deliberate way to reach it.
 
 ## What never gets touched
 
-- **Code.** Fenced blocks, indented blocks and inline backtick spans pass
-  through exactly as pasted, and a paste that *lands inside* one is left alone
-  entirely — there, the text is being shown rather than written.
+- **Code.** Links, quotes and dashes in fenced blocks, indented blocks and
+  inline backtick spans pass through exactly as pasted. Terminal colour codes
+  and invisible characters are still removed, because they are never part of
+  the code. A paste that *lands inside* a code block is left alone entirely —
+  there, the text is being shown rather than written.
 - **Maths.** `$\alpha - \beta$` is subtraction and `$x'$` is a prime. Both
   survive the dash and quote rules.
 - **Links and citations.** A `[[wikilink]]` target, a Markdown destination, a
   `\cite{}` key and a `[@pandoc-key]` are names, not prose.
 - **Frontmatter.** The values are data the app reads back.
 
-One `Ctrl+Z` takes a whole paste back out. To get the clipboard in untouched in
+One `Ctrl+Z` takes a whole paste back out. When a pasted link has had its
+title filled in (see [Looking things up](#looking-things-up)), the first
+`Ctrl+Z` takes the title away and leaves the plain link; the second takes the
+paste out. To get the clipboard in untouched in
 the first place, use `Ctrl/Cmd + Shift + V`.
 
 ## Images

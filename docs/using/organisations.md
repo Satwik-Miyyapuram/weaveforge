@@ -22,8 +22,10 @@ You see **Lab created.** with one code per invite role.
 
 ### Get or replace an invite code
 
-1. Open **Settings → Organization** and choose **Reveal** next to the role.
-2. Choose **Regenerate** to get a new code.
+1. Open **Settings → Organization** and choose **New code** next to the role.
+   The old code for that role stops working at once; there is no way to see a
+   code again after it was shown.
+2. Copy the code with **Copy**. To replace it again, choose **Regenerate**.
 3. Share the code. Codes are shown only when they are created or regenerated, so store them securely.
 
 ### Create an account for someone in your team
