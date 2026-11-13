@@ -18,14 +18,15 @@ same thing. Nothing in the wiki changes without your review.
 
 The generated index sits between two markers, and only that region is rebuilt.
 Each entry is a link to the page, followed by "— also" and its aliases when it
-has any. Pages are grouped alphabetically. Titles that start with a digit or
-symbol go in a last group. Each group is sorted by title. The index heading is
+has any. Pages are grouped alphabetically. Titles that start with a digit, a
+symbol, or a letter other than A to Z go in a last group. Each group is sorted by title. The index heading is
 "Index", and a line under it gives the page count and the generation date.
 
 A merge keeps the primary page's title and body, adds the absorbed page's
 statements that are new, and lists contradictions. Two statements contradict
-when their wording is at least 60 percent alike and only one of them contains a
-negation word such as "not" or "never". A statement that is 85 percent alike
+when they are at least 60 percent alike and exactly one of them contains a
+negation word such as "not" or "never". If both or neither contain one, they
+do not count as a contradiction. A statement that is 85 percent alike
 to one already kept is treated as the same claim and not added twice. Aliases
 and sources from both pages are combined, with duplicates removed.
 

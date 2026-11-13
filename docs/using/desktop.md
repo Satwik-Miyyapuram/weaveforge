@@ -10,13 +10,12 @@ same notes a moment later, because both are talking to the same account.
 
 ## Installing on Windows
 
-Download the installer for your chip from the
+Download the installer from the
 [releases page](https://github.com/Satwik-Miyyapuram/weaveforge/releases/latest):
-`WeaveForge-<version>-Windows-x64-Installer.exe` for Intel and AMD, or
-`WeaveForge-<version>-Windows-arm64-Installer.exe` for Snapdragon and other Arm
-PCs. Not sure? **Settings → System → About → System type** says which. The
-`-update.exe` files on the same page are for the app's own updater; you can
-ignore them.
+`WeaveForge_<version>_x64-setup.exe` for most people, or
+`WeaveForge_<version>_x64_en-US.msi` if your IT department deploys MSI packages.
+Both install the same app. The build is for 64-bit Intel and AMD PCs; Arm PCs
+(Snapdragon) run it through Windows' built-in emulation.
 
 The Windows build is free and open-source, and is not signed with an expensive
 commercial EV code-signing certificate (which costs hundreds of dollars a year).
@@ -195,7 +194,7 @@ from somewhere else does not get to run in it.
 
 ## Working without an account
 
-The desktop window offers **"Work on this computer, without an account"** on the
+The desktop window offers **"Work on this computer (offline)"** on the
 sign-in screen. Choosing it swaps four things — the database client, the
 identity, the auth service and the blob store — for local ones, and leaves every
 repository, screen and use case above them untouched. The data lives in PGlite
@@ -242,8 +241,8 @@ start can open. Three things stand between that and losing your notes:
 - **Copies.** Every ten minutes while something has changed, and again when
   the app quits, the whole database is written out as a compressed archive to
   `local-db-backups/` beside it — and, when a workspace folder is chosen, to
-  `.weaveforge/db-backups/` inside that folder too. The newest three are kept
-  in each place. The workspace folder is yours, not the app's: uninstalling
+  `.weaveforge/db-backups/` inside that folder too. In each place the newest
+  three are kept, plus the newest copy from each of the last seven days. The workspace folder is yours, not the app's: uninstalling
   does not touch it.
 - **Restoring by itself.** When the database will not open, the broken
   directory is moved aside as `local-db.broken-<time>` (never deleted) and the
@@ -278,23 +277,31 @@ SQL — so figures logged this way have nowhere to go offline.
 
 ## Updates
 
-Packaged copies update themselves: `electron-updater` checks the GitHub releases
-feed on launch and every six hours, downloads in the background, and asks once —
-after the bytes are already local — whether to restart now or install on quit.
-Every failure is silent, because "cannot reach GitHub" is the ordinary state of
-a copy on a train. **Help → Check for updates…** forces a check and says so
-either way.
+The window checks GitHub releases for a newer version when **Settings → Updates**
+opens, and keeps the answer for an hour. The app downloads nothing itself. When a
+newer version is out, the section shows it with a **Get** button that opens the
+release page in your browser. A failed check shows "Could not check for updates.
+Try again." and is not kept, so the next look asks again. **Check now** in that
+section, or **Help → Check for updates…**, asks straight away.
 
-SECURITY: the Windows build is not code-signed. The only integrity check on a
-downloaded update is the SHA-512 in `latest.yml`, fetched over HTTPS from the
-same release. That is weaker than a signature, and signing is the fix.
+SECURITY: the Windows build is not code-signed. Nothing is installed by the app
+itself; the installer comes from the release page in your browser, over HTTPS.
+That is weaker than a signature, and signing is the fix.
 
 ## The window's menu
 
-The window carries its own menu rather than Electron's default (whose Help
-entries point at electronjs.org): File has the workspace-folder chooser and
-Settings, Edit has the usual editing roles, View has Home / Library / Notes plus
-reload and zoom, and Help has Documentation, Check for updates… and the version.
+The window has its own menu bar:
+
+- **File**: the workspace-folder entries (**Choose workspace folder…** when none
+  is set; otherwise **Show in file explorer** and **Change workspace folder…**),
+  **Settings** (`Ctrl+,`) and **Quit**.
+- **Edit**: Undo, Redo, Cut, Copy, Paste and Select all.
+- **Go**: the sidebar pages, from Home and Search… down to Settings.
+- **View**: Reload, Actual size, Zoom in, Zoom out and Full screen.
+- **Window**: Minimize, Maximize and Close window.
+- **Help**: Documentation, Keyboard shortcuts, Check for updates… and the
+  version number, greyed out.
+
 Menu navigation happens inside the page, not with `loadURL` — a load driven from
 the main process starts a fresh document, which would log an account-less copy
 straight back out.

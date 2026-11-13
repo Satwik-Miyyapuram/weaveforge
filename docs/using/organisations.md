@@ -17,7 +17,7 @@ You see **Lab created.** with one code per invite role.
 
 1. On the first-run screen, pick **Join with code**.
 2. Enter the code in **Join code**. Dashes and case do not matter.
-3. A PhD student or master's student picks a supervisor in the **Professor supervisor** or **PhD supervisor** list when the form asks.
+3. A PhD student's professor supervisor is picked automatically when the lab has exactly one professor. Otherwise, choose one in **Professor supervisor**, or the join fails with `Choose a professor supervisor for this lab.` A master's student chooses a PhD supervisor in **PhD supervisor**.
 4. Choose **Join lab**.
 
 ### Get or replace an invite code

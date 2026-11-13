@@ -74,7 +74,7 @@ The closest thing to a “plugin” today. Env vars select the implementation at
 5. Optional: `apps/web/src/app/api/<name>/route.ts` for CORS-safe browser calls.
 6. Run `npm run check:solid`.
 
-**Example:** `NEXT_PUBLIC_BIBLIOGRAPHY_PROVIDER=zotero` → `ZoteroBibliographyIntegration` is constructed in `wireIntegrations()` and injected into `PapersFacade`.
+**Example:** `NEXT_PUBLIC_BIBLIOGRAPHY_PROVIDER=zotero` → the Zotero manifest's `wire()` builds `ZoteroBibliographyIntegration` inside `wireIntegrations()`, and `apps/web/src/create-app-container.ts` injects it into `ZoteroFacade`.
 
 ---
 
@@ -84,13 +84,13 @@ Paper import resolves metadata through a **chain of sources** — first `support
 
 | Port | Location | Wired in |
 |------|----------|----------|
-| `IMetadataSource` | `packages/core/.../metadata-source.ts` | `MetadataResolver` in `bootstrap.ts` |
-| `ICitationSource` | `packages/core/.../citation-source.ts` | `wire-citations.ts` |
+| `IMetadataSource` | `packages/core/.../metadata-source.ts` | `MetadataResolver` in `apps/web/src/create-app-container.ts` |
+| `ICitationSource` | `packages/core/.../citation-source.ts` | `wireCitationSources()` in `apps/web/src/create-app-container.ts` |
 
 To add e.g. OpenAlex:
 
 1. Implement `IMetadataSource` with `id`, `supports()`, `fetch()`.
-2. Append to the resolver list in `bootstrap.ts` (after existing sources).
+2. Append to the `MetadataResolver` list in `apps/web/src/create-app-container.ts` (after existing sources).
 3. Unit-test the pure parsing; integration-test against the API if creds exist.
 
 Bibliography providers may also export a metadata source (Zotero does both).
@@ -176,8 +176,8 @@ Adding a feature today requires edits in **several** places (by design — expli
 
 | Layer | Env var | Wire file |
 |-------|---------|-----------|
-| Relational DB + auth | `NEXT_PUBLIC_BACKEND_PROVIDER` | `wire-backend.ts` |
-| Object blobs | `BLOB_PROVIDER` | `wire-storage.ts` |
+| Relational DB + auth | `NEXT_PUBLIC_BACKEND_PROVIDER` | `apps/web/src/backend/parts.ts` (`readBackendConfig()`) |
+| Object blobs | `NEXT_PUBLIC_BLOB_PROVIDER`, then `BLOB_PROVIDER` | `apps/web/src/storage/wire-storage.ts` |
 
 Implement repository interfaces from `@weaveforge/core`, pass the shared **contract test suite**, add a `case` in the wire switch.
 
@@ -208,7 +208,7 @@ Integration Settings UI is **data-driven**: each manifest under
 `descriptors-resolve.ts` collects them.
 
 - `UserIntegrationDescriptor` — per-user API keys (Zotero, Semantic Scholar)
-- `ProjectSyncDescriptor` — per-project connectors (GitHub, Mattermost)
+- `ProjectSyncDescriptor` — per-project connectors (GitHub and GitLab Git tab, GitLab logbook, Mattermost project alerts)
 
 Gated by `readIntegrationConfig()` so disabled providers never appear.
 
@@ -222,7 +222,7 @@ Gated by `readIntegrationConfig()` so disabled providers never appear.
 | Repository | Shared contract suite — run against in-memory + PostgREST |
 | UI boundaries | `npm run check:solid` + `npm run check:dry` |
 | Integrations | Adapter unit tests + optional live test with env creds |
-| Python sync | `pytest` with fabricated rows (`tests/test_sync_sources.py`) |
+| Python sync | `pytest` with fabricated rows (`python/tests/test_sync_sources.py`) |
 | Full CI | `npm run test:core`, `npm test --workspace @weaveforge/web`, PR to `main` |
 
 A module is done when contract tests pass on **both** in-memory and real backend implementations (Liskov).

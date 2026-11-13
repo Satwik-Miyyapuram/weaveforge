@@ -11,7 +11,7 @@ differently.
 
 ## What runs on every paste
 
-Three rules are on by default. Each is a repair with no stylistic opinion in it —
+Six rules are on by default, under the **Clean up every paste** master switch. Each is a repair with no stylistic opinion in it —
 nothing that changes how *you* set your text.
 
 **Tracking is stripped from links.** Campaign tags and click identifiers go;
@@ -184,7 +184,7 @@ drag that carried a real link — dragging a selection *within* the note is stil
 CodeMirror moving your text, not a download.
 
 Both use the same guard, described under Privacy. Titles are read from at most
-512 KB of a page and capped at 300 characters; images are capped at 12 MB, must
+512 KB of a page and capped at 300 UTF-16 code units; images are capped at 12 MB, must
 declare a bitmap content type, and SVG is refused as it is everywhere else.
 
 ## Commands

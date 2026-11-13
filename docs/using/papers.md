@@ -12,10 +12,11 @@ out what the reference points to, so you do not have to type the metadata.
 2. In the **…or import from** dropdown, choose **DOI**, **arXiv id**, **URL** or
    **Zotero key**. The field next to it takes the value, and its label and
    placeholder follow the kind you chose.
-3. Paste the reference, for example `10.1145/3592979` or a `doi.org` link for a DOI.
+3. Paste the reference. Any text that contains a DOI works, for example `10.1145/3592979` or a link to a DOI on any site.
    An arXiv id (`2305.12345`, `arXiv:2305.12345`) or an arXiv link
    (`arxiv.org/abs/…`, `arxiv.org/pdf/…`, `arxiv.org/html/…`) works the same way.
 4. Leave **Title** empty. It is required only when the reference field is empty.
+   **Status** sets where you are with the paper; it starts as **To read**.
 5. Click **Add paper**. The button reads "Adding…" while the paper is added.
 6. If the reference names both an arXiv paper and a DOI, the arXiv id wins.
 7. An arXiv link with a version (`v2`) and the same paper without one resolve to
@@ -32,9 +33,11 @@ out what the reference points to, so you do not have to type the metadata.
 
 ### Add a paper from a PDF or a BibTeX file
 
-1. In the **Add paper** dialog, click **…or add from a PDF** and choose the PDF.
-   The DOI or title on its first page finds the paper.
+1. In the **Add paper** dialog, click **…or add from a PDF**, then **Choose PDFs…** and
+   pick one or more PDFs. The DOI or title on the first page finds the paper.
 2. Or click **…or import a BibTeX file** and choose a `.bib` or `.bibtex` file.
+   Entries with the same DOI or citation key as a paper already in the project are
+   skipped.
 
 ### Check whether a paper is already in your project
 
@@ -47,7 +50,7 @@ never match, so two papers titled "Notes" are not merged.
 
 | Kind | You paste | Stored as |
 |---|---|---|
-| `doi` | a DOI, `doi:` prefix, or `doi.org` / `dx.doi.org` / `dl.acm.org/doi` link | the lowercase DOI |
+| `doi` | any text containing a DOI (`10.NNNN/…`), such as a `doi:` prefix or a link to one | the lowercase DOI |
 | `arxiv` | a bare id, `arXiv:` prefix, or an arxiv.org abs / pdf / html link | the id without its version |
 | `url` | any other web address | the URL |
 | `zotero` | a Zotero item key | the key, unchanged |
@@ -100,8 +103,8 @@ When a page cannot be imported, WeaveForge says one of these (exact text):
 
 Reference parsing and page reading are pure text work, done by the Rust core
 (`wf-core`). They make no network calls: the page must be fetched first, and the
-parsers only read the text they are given. Inputs longer than the core's index
-text limit are rejected rather than parsed.
+parsers only read the text they are given. Text longer than the core's index
+text limit (16 Mi UTF-16 units) is refused with a length error, not parsed.
 
 Page metadata is read in this order of preference: citation tags, then Dublin
 Core, then JSON-LD, then OpenGraph. The publication date comes from citation

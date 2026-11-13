@@ -35,9 +35,9 @@ Each finding has a kind and a severity. Errors break the document or the bibliog
 | --- | --- | --- |
 | `cited-not-defined` | error | A key is cited but defined in no `.bib` file. |
 | `missing-bib-file` | error | A bibliography file is named but is not in the project. |
-| `duplicate-key` | warning | A key is defined more than once. The first definition wins. |
+| `duplicate-key` | error | A key is defined more than once. The first definition wins. |
 | `defined-not-cited` | warning | An entry is defined but never cited. |
-| `missing-field` | warning | An entry lacks a field its type needs to render. |
+| `missing-field` | error | An entry lacks a field its type needs to render. |
 | `malformed-doi` | warning | A DOI field that is not a DOI. |
 | `malformed-url` | warning | A URL field that will not resolve. |
 | `author-format` | warning | Authors are written the other way round from the rest of the file. |

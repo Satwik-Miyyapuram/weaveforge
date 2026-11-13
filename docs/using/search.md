@@ -39,7 +39,7 @@ derives acronyms from each title when it builds the index.
 | `kind:<value>` or `type:<value>` | Limit to one kind of item |
 | `path:<value>` or `in:<value>` | Limit to items whose path matches. `in:` is the same filter |
 | `tag:<value>` | Limit to items with a tag. A leading `#` is ignored |
-| `modified:<n><unit>` | Limit to items changed within the last `n` days, weeks, months or years. Units are `d`, `w`, `m` and `y`. The span is capped at 36,500 days |
+| `modified:<n><unit>` | Limit to items changed within the last `n` days, weeks, months or years. Units are `d`, `w`, `m` and `y`. Values outside 1 to 36,500 days are ignored. |
 | `"..."` | Match an exact phrase |
 | `-term` | Exclude items containing the term |
 
@@ -70,7 +70,7 @@ Length counts characters in the term.
 | 6 or more | 0.2 of the length, rounded | the same, plus 1 |
 
 Retry happens only when the first pass returns no results, and only for queries
-of 1 to 4 terms. Terms shorter than 4 characters are never retried.
+of 1 to 4 terms. Terms shorter than 4 characters (counted in UTF-16 units) are never retried.
 
 ### Ranking and recency
 
@@ -87,7 +87,7 @@ does not hide them.
 
 When semantic search is on in Settings, its results are fused with the keyword
 results rather than replacing them. The app drops semantic matches with a score
-below 0.2.
+below 0.3.
 
 ### Limits
 

@@ -18,8 +18,9 @@ made; both are set by the app, not typed by you.
 
 The naming rule is part of the Rust core (`crates/wf-core/src/projects.rs`,
 `project_name`), reached from the TypeScript domain through the wasm build
-(`projectName`). The TypeScript side keeps the error it throws, so the message
-stays the same in every screen that creates a project.
+(`projectName`, exported from `project_name_js` in `crates/wf-wasm/src/projects.rs`).
+The TypeScript side keeps the error it throws, so the message stays the same in
+every screen that creates a project.
 
 Core code calls the Rust core through `rust()`, which needs the wasm module
 registered first. The web app does this at startup (`apps/web/src/lib/rust-core.ts`).
