@@ -302,7 +302,13 @@ test("an answer line over MAX_LINE is not parsed", async () => {
 test("an ask times out and a late answer is ignored", async () => {
   const { out } = lineSink();
   const peer = createPeer(out, { timeoutMs: 20 });
-  await assert.rejects(peer.ask("slow.method"), { message: "ask timed out: slow.method" });
+  // The ask timer is unref'd; keep the loop alive so node waits for it.
+  const keepAlive = setInterval(() => {}, 1000);
+  try {
+    await assert.rejects(peer.ask("slow.method"), { message: "ask timed out: slow.method" });
+  } finally {
+    clearInterval(keepAlive);
+  }
   assert.equal(peer.settleLine('{"answer":1,"ok":true,"value":1}'), true);
 });
 
