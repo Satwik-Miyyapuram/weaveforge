@@ -40,9 +40,8 @@ follow its citations to the reference list, and jump back to any mark you made.
 | Zoom step | 1.25 times per step |
 | Undo depth for pen strokes | 200 steps |
 | Stroke points kept per stroke | 400 |
-| Strokes per annotation | 64 |
-| Default pen width | 2 pt |
-| Highlighter width | 14 pt (never thinner than 8 pt) |
+| Pen widths | 0.1, 0.3, 0.5, 0.7 mm (default 0.3 mm) |
+| Highlighter widths | 3, 4.5, 6, 9 mm (default 6 mm). A stroke 2.5 mm or wider paints as highlighter |
 | Annotation types | highlight, underline, note, image, ink, text |
 | Sync states | local, synced, pending, conflict |
 
