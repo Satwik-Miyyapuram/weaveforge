@@ -262,7 +262,11 @@ export function WikiScreen() {
             </p>
 
             {preview.plans.length === 0 ? (
-              <p className="muted">Nothing new to add — the wiki already covers what was found.</p>
+              <p className="muted">
+                {preview.alreadyCovered > 0
+                  ? "Nothing new to add — the wiki already covers what was found."
+                  : "No concept comes up often enough to need a page yet."}
+              </p>
             ) : (
               <>
                 <ul className="wiki-plan-list">

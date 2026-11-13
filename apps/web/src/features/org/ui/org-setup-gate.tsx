@@ -321,7 +321,10 @@ export function OrgCodesPanel({ orgId, orgName }: { orgId: string; orgName: stri
   return (
     <div className="org-codes-panel">
       <h4 className="settings-group">{orgName} — invite codes</h4>
-      <p className="muted">Codes are shown only when created or regenerated. Store them securely.</p>
+      <p className="muted">
+        Codes are shown only when created or regenerated. Store them securely. A new code replaces the
+        old one, which stops working.
+      </p>
       <ul className="org-code-list">
         {roles.map((r) => (
           <li key={r.id} className="org-code-row">
@@ -333,7 +336,7 @@ export function OrgCodesPanel({ orgId, orgName }: { orgId: string; orgName: stri
                 disabled={busy === r.id}
                 onClick={() => void regen(r.id)}
               >
-                {busy === r.id ? "…" : revealed[r.id] ? "Regenerate" : "Reveal"}
+                {busy === r.id ? "…" : revealed[r.id] ? "Regenerate" : "New code"}
               </Button>
               {revealed[r.id] && (
                 <Button
