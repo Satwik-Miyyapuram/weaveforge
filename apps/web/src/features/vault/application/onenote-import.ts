@@ -1,6 +1,6 @@
 import { getContainer } from "@/bootstrap";
 import { readyCore, typedCore } from "@/lib/rust-core";
-import { encodeInkChunkBody } from "@weaveforge/core";
+import { encodeInkChunk } from "@weaveforge/core";
 import type { OneNoteImage, OneNotePage, OneNoteSection } from "@weaveforge/wasm";
 
 /** The slice of the vault and ink facades a OneNote import writes through. */
@@ -122,7 +122,7 @@ async function writeInkNote(
   );
   const note = await deps.add({ title, body, parentId });
   for (const [i, inkPage] of page.ink.entries()) {
-    await deps.writeChunk(note.id, chunkIds[i]!, encodeInkChunkBody(inkPage));
+    await deps.writeChunk(note.id, chunkIds[i]!, await encodeInkChunk(inkPage));
   }
 }
 

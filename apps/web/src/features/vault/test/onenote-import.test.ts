@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { readyCore, typedCore } from "@/lib/rust-core";
+import { decodeInkChunk } from "@weaveforge/core";
 import type { OneNoteSection } from "@weaveforge/wasm";
 import { importOneNoteSection, type OneNoteImportDeps } from "../application/onenote-import";
 
@@ -89,6 +90,8 @@ test("a OneNote section imports as a folder, nested pages and a handwriting note
   assert.equal(ink.parentId, byTitle.get("B")!.parentId);
   assert.equal(fake.chunks.length, 1);
   assert.equal(fake.chunks[0]!.noteId, ink.id);
+  // A stored chunk is a whole chunk (header + body), so the ink page can read it back.
+  await assert.doesNotReject(decodeInkChunk(fake.chunks[0]!.bytes));
 
   assert.equal(out.created, 4);
   assert.equal(out.inkNotes, 1);
