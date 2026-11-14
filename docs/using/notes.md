@@ -14,7 +14,7 @@ with `#hashtags`.
    a unique title.
 3. The note opens with its title selected, so you can type over it.
 4. Write in the body. Start with **Text**, or switch to **Ink** for a handwritten
-   note.
+   note; [Handwriting](ink.md) shows how to write on the page.
 
 ### Create a note from a link
 
