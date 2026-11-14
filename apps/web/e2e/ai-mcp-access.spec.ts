@@ -31,7 +31,7 @@ test.describe("AI & MCP access", () => {
 
     await page.getByRole("button", { name: "Save AI access" }).click();
     await expect(page.getByRole("heading", { name: "AI & MCP access" })).not.toBeVisible();
-    await expect(page.locator(".ai-access-launcher .status")).toHaveText("Enabled");
+    await expect(page.getByRole("button", { name: /AI assistant access/i }).locator(".status")).toHaveText("Enabled");
   });
 
   test("executes an approved encrypted relay read and stops after revocation", async ({ page, request }) => {
@@ -134,7 +134,7 @@ test.describe("AI & MCP access", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("heading", { name: "AI & MCP access" })).not.toBeVisible();
     // Sign out lives in the Account menu.
-    await page.getByRole("button", { name: /^Account/ }).click();
+    await page.getByRole("button", { name: "Account", exact: true }).click();
     await page.getByRole("menuitem", { name: /Sign out/i }).click();
     await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible({ timeout: 30_000 });
     const afterSignOut = await request.post(relayApi("/api/mcp/relay"), {
