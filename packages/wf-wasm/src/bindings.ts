@@ -5842,6 +5842,42 @@ export type OneEuroOptions = {
 	derivativeCutoff: number,
 };
 
+/**  An image referenced from a page's Markdown. */
+export type OneNoteImage = {
+	/**  File name the Markdown refers to, such as `image-1.png`. */
+	name: string,
+	/**  Alt text with brackets removed. */
+	alt: string,
+	/**  Image bytes, base64 encoded. */
+	base64: string,
+};
+
+/**  One imported OneNote page. */
+export type OneNotePage = {
+	/**  Trimmed page title, or `Untitled page`. */
+	title: string,
+	/**  Page indent level, `0` for top level. */
+	level: number,
+	/**  Page text as Markdown. */
+	markdown: string,
+	/**  Images referenced from `markdown`. */
+	images: OneNoteImage[],
+	/**  Ink pages, empty when the page has no ink. */
+	ink: InkPage[],
+	/**  Recognised handwriting words joined by spaces, or empty. */
+	inkText: string,
+};
+
+/**  An imported OneNote section. */
+export type OneNoteSection = {
+	/**  Section display name. */
+	name: string,
+	/**  Pages in notebook order. */
+	pages: OneNotePage[],
+	/**  Non-fatal problems met during import. */
+	warnings: string[],
+};
+
 /**  The verb and base version of one op a device still owes for the row. */
 export type OpFact = {
 	/**  The verb of the op. */
@@ -9479,39 +9515,6 @@ export type SharedSource = {
 	/**  Column holding the status; `None` for types without one. */
 	status: string | null,
 };
-
-/**  Parsed sidecar arguments, with paths as given on the command line. */
-export type SidecarArgsPlan = {
-	/**  The `--data-dir` value. Required. */
-	dataDir: string,
-	/**  Every `--migrations` value, in order. At least one. */
-	migrations: string[],
-	/**  The `--backups` value. Required. */
-	backupsDir: string,
-	/**  The `--migrate-from` value, when given. */
-	migrateFrom: string | null,
-	/**  The `--artifacts` value, when given. */
-	artifacts: string | null,
-	/**  The `--bridge` value, when given. */
-	bridge: string | null,
-	/**  The `--app-version` value, when given. */
-	appVersion: string | null,
-	/**  The `--home-variant` value, when given. */
-	homeVariant: string | null,
-	/**  True when `--no-local-api` was passed. */
-	noLocalApi: boolean,
-};
-
-/**  Outcome of parsing: a plan, or the message `main.ts` prints after `weaveforge-sidecar: `. */
-export type SidecarArgsReply = 
-/**  Every required flag was present. */
-{
-	kind: "ok",
-} & SidecarArgsPlan | 
-/**  An argument was unknown, a value flag had no value, or a required flag was missing. */
-{ kind: "error"; 
-/**  The message to print. */
-message: string };
 
 /**  A conflict's two sides: what the row was based on, and this device's state. */
 export type Sides = {

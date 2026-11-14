@@ -3,7 +3,9 @@
   "bundle": {
     "active": true,
     "resources": {
-      "target/stage/sidecar/": "sidecar/",
+      "../../db/migrations/*.sql": "app/migrations/",
+      "../../db/migrations-local/*.sql": "app/migrations-local/",
+      "../../plugins/weaveforge-research/mcp-server/index.mjs": "app/weaveforge-mcp.mjs",
       "target/stage/postgres/": "postgres/",
       "target/stage/native/": "native/",
       "dist/web/": "web/"

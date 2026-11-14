@@ -109,7 +109,7 @@ One `Ctrl+Z` takes a whole paste back out. When a pasted link has had its
 title filled in (see [Looking things up](#looking-things-up)), the first
 `Ctrl+Z` takes the title away and leaves the plain link; the second takes the
 paste out. To get the clipboard in untouched in
-the first place, use `Ctrl/Cmd + Shift + V`.
+the first place, use `Ctrl/Cmd + Alt + Shift + V` (**Paste as plain text**).
 
 ## Images
 
@@ -192,6 +192,30 @@ Both use the same guard, described under Privacy. Titles are read from at most
 512 KB of a page and capped at 300 UTF-16 code units; images are capped at 12 MB, must
 declare a bitmap content type, and SVG is refused as it is everywhere else.
 
+## Paste with formatting
+
+Copy from a web page, Word or Google Docs, press `Ctrl/Cmd + Shift + V`, and the
+formatting comes with it, written as Markdown.
+
+Kept:
+
+- bold, italic, strikethrough and links
+- headings
+- bullet and numbered lists, including nested ones
+- tables
+- inline code and code blocks
+- images that have a web address
+
+Dropped: colours, fonts, sizes, scripts and styles. Images pasted as embedded
+data or from local temp files are dropped too; their alt text stays.
+
+In a code block or a math block the text goes in as plain text, because Markdown
+there would be wrong. Nothing to convert (plain text on the clipboard) → you get
+the plain text.
+
+Both **Paste with formatting** and **Paste as plain text** are on the right-click
+menu. One `Ctrl+Z` takes the whole paste out.
+
 ## Commands
 
 In any note editor, on the selection — or on the whole note when nothing is
@@ -206,7 +230,8 @@ selected.
 | Turn a tab-separated selection into a table | `Ctrl/Cmd + Alt + Shift + T` |
 | Move commas inside the quotes | `Ctrl/Cmd + Alt + ,` |
 | Move commas outside the quotes | `Ctrl/Cmd + Alt + .` |
-| Paste without cleaning | `Ctrl/Cmd + Shift + V` |
+| Paste with formatting | `Ctrl/Cmd + Shift + V` |
+| Paste as plain text (no cleanup) | `Ctrl/Cmd + Alt + Shift + V` |
 
 ### Terminal output
 

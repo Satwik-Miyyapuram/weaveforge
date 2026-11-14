@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { bootstrapSession, drainLoginGates, signIn } from "./helpers/auth.js";
 import { ensurePaperExists } from "./helpers/papers.js";
 import { e2eTwoUsersEnabled, e2eUserA, e2eUserB } from "./helpers/env.js";
@@ -27,6 +27,12 @@ async function confirmShareFingerprint(page: Page) {
   const hex = raw.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
   const formatted = hex.match(/.{1,4}/g)?.join(" ") ?? raw.trim();
   await page.locator(".share-fingerprint-input").first().fill(formatted);
+}
+
+/** Share sits in each card's "More actions" menu, not on the card itself. */
+async function openCardShare(card: Locator) {
+  await card.getByRole("button", { name: /^More actions for / }).click();
+  await card.page().getByRole("menuitem", { name: "Share", exact: true }).click();
 }
 
 test.describe("sharing", () => {
@@ -68,7 +74,7 @@ test.describe("sharing", () => {
 
     await bootstrapSession(owner, userA.email, userA.password);
     await ensurePaperExists(owner);
-    await owner.getByRole("button", { name: "Share", exact: true }).first().click();
+    await openCardShare(owner.locator(".paper-card").first());
     await owner.getByText("Public link", { exact: false }).click();
     await owner.getByRole("button", { name: "Create view link" }).click();
     const linkUrlEl = owner.getByTestId("share-link-url");
@@ -114,7 +120,7 @@ test.describe("sharing", () => {
     const handle = userB.email.split("@")[0]!;
     const memberRow = owner.locator(".mp-row").filter({ hasText: new RegExp(handle, "i") }).first();
 
-    await card.getByRole("button", { name: "Share", exact: true }).click();
+    await openCardShare(card);
     // The dialog fetches the directory and the existing shares together, so
     // decide nothing about either until at least one row has arrived. A query
     // typed into an empty list filters to nothing, which used to read as

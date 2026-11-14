@@ -1,12 +1,15 @@
 import { createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
+import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { bootstrapSession } from "./helpers/auth.js";
-import { e2eEnabled, e2eUserA } from "./helpers/env.js";
+import { e2eEnabled, e2eUserA, relayApi } from "./helpers/env.js";
 import { ensurePaperExists } from "./helpers/papers.js";
 
 // The Supabase auth storage state alone cannot restore the session-only
 // encryption key. Begin clean and run the real login/unlock flow per test.
 test.use({ storageState: { cookies: [], origins: [] } });
+
+const SIGN_OUT_TEST = "stops a live relay when the user signs out";
 
 test.describe("AI & MCP access", () => {
   test.beforeEach(async ({ page }, testInfo) => {
@@ -15,14 +18,30 @@ test.describe("AI & MCP access", () => {
     await bootstrapSession(page, user.email, user.password);
   });
 
+  // Sign-out revokes every session of the account, including the one saved in
+  // e2e/.auth/user-a.json that the specs after this one start from. Sign in
+  // again and save the fresh session, or every later spec lands on Sign in.
+  test.afterEach(async ({ browser }, testInfo) => {
+    if (testInfo.title !== SIGN_OUT_TEST || !e2eEnabled()) return;
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    try {
+      const fresh = await context.newPage();
+      const user = e2eUserA();
+      await bootstrapSession(fresh, user.email, user.password);
+      await context.storageState({ path: path.join(process.cwd(), "e2e", ".auth", "user-a.json") });
+    } finally {
+      await context.close();
+    }
+  });
+
   test("requires an explicit opt-in and exposes scoped connection controls", async ({ page }) => {
     await page.goto("/settings#settings-ai");
     await page.getByRole("button", { name: /AI assistant access/i }).click();
 
     await expect(page.getByRole("heading", { name: "AI & MCP access" })).toBeVisible();
     const toggle = page.getByRole("switch", { name: "Enable AI assistant access" });
-    if (await toggle.getAttribute("aria-checked") === "false") await toggle.click();
-    await expect(toggle).toHaveAttribute("aria-checked", "true");
+    if (!(await toggle.isChecked())) await toggle.click();
+    await expect(toggle).toBeChecked();
 
     await expect(page.getByRole("heading", { name: "Allow reading" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Allow proposals" })).toBeVisible();
@@ -31,7 +50,7 @@ test.describe("AI & MCP access", () => {
 
     await page.getByRole("button", { name: "Save AI access" }).click();
     await expect(page.getByRole("heading", { name: "AI & MCP access" })).not.toBeVisible();
-    await expect(page.locator(".ai-access-launcher .status")).toHaveText("Enabled");
+    await expect(page.getByRole("button", { name: /AI assistant access/i }).locator(".status")).toHaveText("Enabled");
   });
 
   test("executes an approved encrypted relay read and stops after revocation", async ({ page, request }) => {
@@ -59,7 +78,7 @@ test.describe("AI & MCP access", () => {
     await page.getByRole("button", { name: /AI assistant access/i }).click();
 
     const accessToggle = page.getByRole("switch", { name: "Enable AI assistant access" });
-    if (await accessToggle.getAttribute("aria-checked") === "false") await accessToggle.click();
+    if (!(await accessToggle.isChecked())) await accessToggle.click();
     const metadata = page.getByRole("checkbox", { name: "Paper metadata and links" }).first();
     if (!(await metadata.isChecked())) await metadata.check();
     await page.getByLabel("Source access mode").click();
@@ -83,7 +102,7 @@ test.describe("AI & MCP access", () => {
     await expect.poll(() => browserRelayToken, { timeout: 10_000 }).not.toBeNull();
     await expect.poll(() => browserRelaySessions.has(sessionId), { timeout: 10_000 }).toBe(true);
 
-    const first = await request.post("/api/mcp/relay", {
+    const first = await request.post(relayApi("/api/mcp/relay"), {
       headers: { Authorization: `Bearer ${browserRelayToken}` },
       data: { sessionId, envelope: seal(secret, { tool: "get_workspace_outline", arguments: {} }) },
     });
@@ -94,23 +113,23 @@ test.describe("AI & MCP access", () => {
     expect(open(secret, completed.response_enc!)).toEqual(expect.any(Array));
 
     await page.getByRole("button", { name: "Revoke now" }).first().click();
-    const afterRevoke = await request.post("/api/mcp/relay", {
+    const afterRevoke = await request.post(relayApi("/api/mcp/relay"), {
       headers: { Authorization: `Bearer ${browserRelayToken}` },
       data: { sessionId, envelope: seal(secret, { tool: "get_workspace_outline", arguments: {} }) },
     });
     expect(afterRevoke.status()).toBe(201);
     const revokedId = (await afterRevoke.json() as { request: { id: string } }).request.id;
     await page.waitForTimeout(2_500);
-    const pending = await request.get(`/api/mcp/relay?id=${encodeURIComponent(revokedId)}`, { headers: { Authorization: `Bearer ${browserRelayToken}` } });
+    const pending = await request.get(relayApi(`/api/mcp/relay?id=${encodeURIComponent(revokedId)}`), { headers: { Authorization: `Bearer ${browserRelayToken}` } });
     expect((await pending.json() as { request: { status: string } }).request.status).toBe("pending");
   });
 
-  test("stops a live relay when the user signs out", async ({ page, request }) => {
+  test(SIGN_OUT_TEST, async ({ page, request }) => {
     await ensurePaperExists(page, "E2E MCP Privacy Test Paper");
     await page.goto("/settings#settings-ai");
     await page.getByRole("button", { name: /AI assistant access/i }).click();
     const accessToggle = page.getByRole("switch", { name: "Enable AI assistant access" });
-    if (await accessToggle.getAttribute("aria-checked") === "false") await accessToggle.click();
+    if (!(await accessToggle.isChecked())) await accessToggle.click();
     const metadata = page.getByRole("checkbox", { name: "Paper metadata and links" }).first();
     if (!(await metadata.isChecked())) await metadata.check();
     await page.getByLabel("Source access mode").click();
@@ -133,16 +152,18 @@ test.describe("AI & MCP access", () => {
 
     await page.keyboard.press("Escape");
     await expect(page.getByRole("heading", { name: "AI & MCP access" })).not.toBeVisible();
-    await page.locator("button.signout").click();
+    // Sign out lives in the Account menu.
+    await page.getByRole("button", { name: "Account", exact: true }).click();
+    await page.getByRole("menuitem", { name: /Sign out/i }).click();
     await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible({ timeout: 30_000 });
-    const afterSignOut = await request.post("/api/mcp/relay", {
+    const afterSignOut = await request.post(relayApi("/api/mcp/relay"), {
       headers: { Authorization: `Bearer ${accessToken}` },
       data: { sessionId, envelope: seal(secret, { tool: "get_workspace_outline", arguments: {} }) },
     });
     if (afterSignOut.status() === 201) {
       const id = (await afterSignOut.json() as { request: { id: string } }).request.id;
       await page.waitForTimeout(2_500);
-      const poll = await request.get(`/api/mcp/relay?id=${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const poll = await request.get(relayApi(`/api/mcp/relay?id=${encodeURIComponent(id)}`), { headers: { Authorization: `Bearer ${accessToken}` } });
       expect((await poll.json() as { request: { status: string } }).request.status).toBe("pending");
     } else {
       expect(afterSignOut.status()).toBe(401);
@@ -154,7 +175,7 @@ type Envelope = { iv: string; ciphertext: string };
 function key(secret: string) { return pbkdf2Sync(secret, "weaveforge-mcp-v1", 100_000, 32, "sha256"); }
 function seal(secret: string, value: unknown): Envelope { const iv = randomBytes(12); const cipher = createCipheriv("aes-256-gcm", key(secret), iv); const data = Buffer.concat([cipher.update(JSON.stringify(value), "utf8"), cipher.final()]); return { iv: iv.toString("base64"), ciphertext: Buffer.concat([data, cipher.getAuthTag()]).toString("base64") }; }
 function open(secret: string, envelope: Envelope): unknown { const raw = Buffer.from(envelope.ciphertext, "base64"); const decipher = createDecipheriv("aes-256-gcm", key(secret), Buffer.from(envelope.iv, "base64")); decipher.setAuthTag(raw.subarray(-16)); return JSON.parse(Buffer.concat([decipher.update(raw.subarray(0, -16)), decipher.final()]).toString("utf8")); }
-async function waitForRelay(request: import("@playwright/test").APIRequestContext, token: string, id: string, browserRelayResponses: readonly string[] = [], sessionId?: string, browserRelaySessions: ReadonlySet<string> = new Set(), browserRelayClaimCounts: readonly number[] = [], browserRelayPatchStatuses: readonly string[] = []): Promise<{ status: string; response_enc?: Envelope }> { let lastStatus = "unknown"; for (let attempt = 0; attempt < 60; attempt++) { const response = await request.get(`/api/mcp/relay?id=${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${token}` } }); const payload = await response.json() as { request: { status: string; response_enc?: Envelope } }; lastStatus = payload.request.status; if (lastStatus === "complete") return payload.request; await new Promise((resolve) => setTimeout(resolve, 500)); } const manualClaim = sessionId ? await request.get(`/api/mcp/relay/browser?sessionId=${encodeURIComponent(sessionId)}`, { headers: { Authorization: `Bearer ${token}` } }) : null; const claimed = manualClaim ? (await manualClaim.json() as { requests?: unknown[] }).requests?.length ?? 0 : 0; throw new Error(`Timed out waiting for the browser relay response (request: ${lastStatus}; browser sessions: ${[...browserRelaySessions].join(", ") || "none"}; poll responses: ${browserRelayResponses.join(", ") || "none"}; poll claim counts: ${browserRelayClaimCounts.join(", ") || "none"}; PATCH statuses: ${browserRelayPatchStatuses.join(", ") || "none"}; manual claims: ${claimed}).`); }
+async function waitForRelay(request: import("@playwright/test").APIRequestContext, token: string, id: string, browserRelayResponses: readonly string[] = [], sessionId?: string, browserRelaySessions: ReadonlySet<string> = new Set(), browserRelayClaimCounts: readonly number[] = [], browserRelayPatchStatuses: readonly string[] = []): Promise<{ status: string; response_enc?: Envelope }> { let lastStatus = "unknown"; for (let attempt = 0; attempt < 60; attempt++) { const response = await request.get(relayApi(`/api/mcp/relay?id=${encodeURIComponent(id)}`), { headers: { Authorization: `Bearer ${token}` } }); const payload = await response.json() as { request: { status: string; response_enc?: Envelope } }; lastStatus = payload.request.status; if (lastStatus === "complete") return payload.request; await new Promise((resolve) => setTimeout(resolve, 500)); } const manualClaim = sessionId ? await request.get(relayApi(`/api/mcp/relay/browser?sessionId=${encodeURIComponent(sessionId)}`), { headers: { Authorization: `Bearer ${token}` } }) : null; const claimed = manualClaim ? (await manualClaim.json() as { requests?: unknown[] }).requests?.length ?? 0 : 0; throw new Error(`Timed out waiting for the browser relay response (request: ${lastStatus}; browser sessions: ${[...browserRelaySessions].join(", ") || "none"}; poll responses: ${browserRelayResponses.join(", ") || "none"}; poll claim counts: ${browserRelayClaimCounts.join(", ") || "none"}; PATCH statuses: ${browserRelayPatchStatuses.join(", ") || "none"}; manual claims: ${claimed}).`); }
 
 async function readPersistedSecret(page: import("@playwright/test").Page, sessionId: string): Promise<string> {
   await expect.poll(

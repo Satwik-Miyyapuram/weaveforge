@@ -5,6 +5,7 @@ import type { MenuItem } from "@/components/menu";
 import { openContextMenu } from "@/components/context-menu-store";
 import { setSpellcheck, spellcheckOn } from "./spellcheck";
 import { actionsIn, applyMarkdownAction, type FormatAction } from "./markdown-format-commands";
+import { pastePlainText, pasteWithFormatting } from "./markdown-paste-cleanup";
 
 /** Action ids per menu group. The labels and keys come from the Rust core. */
 const INLINE_IDS = ["bold", "italic", "underline", "strike", "code", "sup", "sub", "link", "clear"];
@@ -19,6 +20,8 @@ export interface EditorMenuContext {
   cut: () => void;
   copy: () => void;
   paste: () => void;
+  pasteFormatted: () => void;
+  pastePlain: () => void;
   selectAll: () => void;
   spellcheck: boolean;
   toggleSpellcheck: () => void;
@@ -69,6 +72,8 @@ export function editorMenuItems(ctx: EditorMenuContext): MenuItem[] {
       { id: "cut", label: "Cut", accelerator: "Ctrl+X", disabled: ro, onSelect: ctx.cut },
       { id: "copy", label: "Copy", accelerator: "Ctrl+C", onSelect: ctx.copy },
       { id: "paste", label: "Paste", accelerator: "Ctrl+V", disabled: ro, onSelect: ctx.paste },
+      { id: "paste-formatted", label: "Paste with formatting", accelerator: "Ctrl+Shift+V", disabled: ro, onSelect: ctx.pasteFormatted },
+      { id: "paste-plain", label: "Paste as plain text", accelerator: "Ctrl+Alt+Shift+V", disabled: ro, onSelect: ctx.pastePlain },
       SEP("sep-clip"),
       ...actionsIn(INLINE_IDS).map((a) => asItem(a, ctx)),
       SEP("sep-inline"),
@@ -78,6 +83,8 @@ export function editorMenuItems(ctx: EditorMenuContext): MenuItem[] {
   }
   return [
     { id: "paste", label: "Paste", accelerator: "Ctrl+V", disabled: ro, onSelect: ctx.paste },
+    { id: "paste-formatted", label: "Paste with formatting", accelerator: "Ctrl+Shift+V", disabled: ro, onSelect: ctx.pasteFormatted },
+    { id: "paste-plain", label: "Paste as plain text", accelerator: "Ctrl+Alt+Shift+V", disabled: ro, onSelect: ctx.pastePlain },
     { id: "select-all", label: "Select all", accelerator: "Ctrl+A", onSelect: ctx.selectAll },
     SEP("sep-clip"),
     ...blocks,
@@ -120,6 +127,14 @@ function liveContext(view: EditorView): EditorMenuContext {
           if (text) view.dispatch(view.state.replaceSelection(text), { userEvent: "input.paste", scrollIntoView: true });
         })
         .catch(() => undefined);
+      after();
+    },
+    pasteFormatted: () => {
+      pasteWithFormatting(view);
+      after();
+    },
+    pastePlain: () => {
+      pastePlainText(view);
       after();
     },
     selectAll: () => {

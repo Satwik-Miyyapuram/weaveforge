@@ -10,8 +10,9 @@ import { appeared } from "./visible.js";
  * that can never fill — a failure about a locator, caused by account history.
  *
  * So the spec builds the precondition instead of assuming it: the owner has a
- * lab and mints a code, the recipient redeems it. Both halves are idempotent —
- * an account already in a lab keeps the one it has.
+ * lab and mints a code, the recipient redeems it. Both halves are idempotent:
+ * the owner keeps the lab it has, and joining again only refreshes the
+ * recipient's membership.
  */
 
 const LAB_NAME = "E2E Lab";
@@ -22,8 +23,9 @@ async function openOrgTab(page: Page): Promise<void> {
   await page.goto("/settings#settings-org");
   // The code lookup and the join both call the server as this user, and a page
   // that has not finished restoring its session answers "Not authenticated" —
-  // which reads in the dialog as a bad code. Wait for the signed-in shell.
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible({ timeout: 30_000 });
+  // which reads in the dialog as a bad code. Wait for the signed-in shell: the
+  // Account menu (where Sign out now lives) shows only once there is a user.
+  await expect(page.getByRole("button", { name: "Account", exact: true })).toBeVisible({ timeout: 30_000 });
   const tab = page.getByRole("tab", { name: "Org" });
   if (await appeared(tab, 20_000)) await tab.click();
 }
@@ -50,20 +52,27 @@ export async function mintLabCode(owner: Page): Promise<string> {
   // yet. A PhD join takes the lab's single professor automatically.
   const row = owner.locator(".org-code-row").filter({ hasText: /^PhD/i }).first();
   await expect(row, "the lab has no invite codes to hand out").toBeVisible({ timeout: 20_000 });
-  const reveal = row.getByRole("button", { name: /Reveal|Regenerate/i });
+  const reveal = row.getByRole("button", { name: /New code|Reveal|Regenerate/i });
   if (await appeared(reveal, 5_000)) await reveal.click();
   const value = row.locator(".org-code-value, code").filter({ hasNotText: HIDDEN_CODE }).first();
   await expect(value, "no invite code was shown after minting one").toBeVisible({ timeout: 20_000 });
   return (await value.innerText()).trim();
 }
 
-/** Redeem a code, unless this account is already in a lab. */
+/**
+ * Redeem a code. An account already in some lab still joins this one: the
+ * picker only lists people who share an organization, and being in *a* lab is
+ * not being in the owner's. Joining a lab twice updates the membership, so
+ * this is safe to repeat.
+ */
 export async function joinLab(recipient: Page, code: string): Promise<void> {
   await openOrgTab(recipient);
-  if (await appeared(recipient.getByRole("button", { name: "Create / join another lab" }), 15_000)) {
-    return;
+  const another = recipient.getByRole("button", { name: "Create / join another lab" });
+  if (await appeared(another, 15_000)) {
+    await another.click();
+  } else {
+    await recipient.getByRole("button", { name: "Create or join" }).first().click();
   }
-  await recipient.getByRole("button", { name: "Create or join" }).first().click();
   await recipient.getByRole("button", { name: "Join with code" }).click();
   const field = recipient.getByPlaceholder("ABC-DEF-GH2");
   await field.fill(code);
@@ -98,10 +107,17 @@ export async function joinLab(recipient: Page, code: string): Promise<void> {
   }
 
   await recipient.getByRole("button", { name: "Join lab" }).click();
-  await expect(
-    recipient.getByRole("button", { name: "Create / join another lab" }),
-    "the invite code was not accepted",
-  ).toBeVisible({ timeout: 30_000 });
+  // The dialog closes only once the server accepts the code. Waiting on the
+  // button is not enough: while the request runs it reads "Joining…", so it
+  // counts as hidden at once even when the join then fails. On failure the
+  // dialog stays open with an alert, so report that text.
+  const dialog = recipient.getByRole("dialog", { name: "Join or create an organization" });
+  try {
+    await expect(dialog).toBeHidden({ timeout: 30_000 });
+  } catch (cause) {
+    const alert = await dialog.getByRole("alert").first().textContent({ timeout: 1_000 }).catch(() => null);
+    throw new Error(`the invite code was not accepted: ${alert?.trim() || "no error shown"}`, { cause });
+  }
 }
 
 /** Both halves, in the order they have to happen. */

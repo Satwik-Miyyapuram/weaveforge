@@ -1,7 +1,7 @@
 //! First start after the Electron app: copy its data into the new data dir, once.
 //!
-//! Port of `sidecar/src/migrate.ts`, run by the shell before the sidecar starts, so the sidecar never opens a
-//! half-copied database. Same markers and lock names, so either side's run counts for the other.
+//! Ported from the removed Node sidecar's `migrate.ts`; runs before the database opens, so it never opens a
+//! half-copied one. Same markers and lock names as the older apps, so their runs count here too.
 
 use std::fs;
 use std::io;

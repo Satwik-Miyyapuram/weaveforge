@@ -60,7 +60,7 @@ these as module-load values, so they are a second copy until the importers move:
   `DEFAULT_GRAPH_PERSISTED_STATE` (`domain/graph-persisted-defaults.ts`).
 
 They are still TS because they are public `@weaveforge/core` names read by
-`apps/web` (`.tsx` under `ui/` and `.ts` tests) and `apps/shell/sidecar`. Rust has
+`apps/web` (`.tsx` under `ui/` and `.ts` tests). Rust has
 no exported relation-type list or node-colour key list yet. Moving them needs
 new wasm exports, then a call-time function, then the importers repointed.
 

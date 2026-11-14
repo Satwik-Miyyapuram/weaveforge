@@ -138,6 +138,14 @@ export function ExperimentsScreen() {
     };
   }, [load]);
 
+  // Offline, the detail page below shares this route, and its edits (status,
+  // result) are not in the list's data. Reload when the reader comes back.
+  const prevFocus = useRef(focusFromUrl);
+  useEffect(() => {
+    if (prevFocus.current && !focusFromUrl) void load();
+    prevFocus.current = focusFromUrl;
+  }, [focusFromUrl, load]);
+
   const match = useScreenSearch(search, "experiment");
   const visible = useMemo(() => {
     const set = new Set(statusFilter);

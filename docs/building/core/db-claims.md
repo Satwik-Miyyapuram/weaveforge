@@ -10,7 +10,6 @@ Rust home: `crates/wf-core/src/db_claims.rs`.
 
 - Shell: `apps/shell/src/local_pg/db.rs` re-exports it; `claims_for` maps "no user given" to the local-only user.
 - wasm export `sessionClaims` in `crates/wf-wasm/src/db_claims.rs`, re-exported as is (no TS wrapper) from `packages/wf-wasm/src/index.ts`.
-- `apps/shell/sidecar/src/local-db.ts` through `rust()` (typed in `packages/core/src/shared/rust.ts`).
 - `apps/web/src/backend/test/pg-test-db.ts` through `readyCore()`.
 
 ## What stays in TS
