@@ -23,6 +23,9 @@ test.describe("PDF reader", () => {
   });
 
   test("renders a PDF and fits it to the container width by default", async ({ page }) => {
+    // The writing page beside each PDF page is on by default and takes half
+    // the width. Turn it off so this checks the fit against the whole container.
+    await page.addInitScript(() => localStorage.setItem("weaveforge.reader.writingPage", "0"));
     await gotoStable(page, `/reader?pdf=${encodeURIComponent(SAMPLE_PDF)}`);
 
     const canvas = page.locator(".pdf-reader-page canvas").first();
