@@ -99,9 +99,23 @@ pub(crate) fn build_sheets(raw: &[RawStroke], bands: &[Rect]) -> Vec<Sheet> {
         }
     }
 
-    let limit = f64::from(INK_COORD_LIMIT);
     let mut sheets = Vec::new();
     for (group, (band, indices)) in bands.iter().zip(&members).enumerate() {
+        band_sheets(raw, band, indices, group, &mut sheets);
+    }
+    sheets
+}
+
+/// Sheets for one printout `band` holding the strokes at `indices`.
+fn band_sheets(
+    raw: &[RawStroke],
+    band: &Rect,
+    indices: &[usize],
+    group: usize,
+    sheets: &mut Vec<Sheet>,
+) {
+    let limit = f64::from(INK_COORD_LIMIT);
+    {
         let extent = bounds(indices.iter().flat_map(|&i| raw[i].points.iter()));
         let (ox, oy) = extent.map_or((band.x, band.y), |(min_x, min_y, _, _)| {
             (band.x.min(min_x - MARGIN), band.y.min(min_y - MARGIN))
@@ -152,7 +166,6 @@ pub(crate) fn build_sheets(raw: &[RawStroke], bands: &[Rect]) -> Vec<Sheet> {
             );
         }
     }
-    sheets
 }
 
 /// `(min_x, min_y, max_x, max_y)` of `points`, or `None` when there are none.
