@@ -6,6 +6,7 @@ Four folders, and which one a page belongs in is a question about who reads it.
 
 For somebody using the app.
 
+- [Your account](using/account.md) — signing in, local mode, the privacy notice, password reset and invite links
 - [Getting started](using/getting-started.md) — your first project, paper and note, in 10 minutes
 - [The desktop and mobile apps](using/desktop.md) — installing on Windows, Mac, and Android, what an installed window can do, and working without an account
 - [Projects and workspaces](using/workspaces.md) — project boundaries, switching, multi-pane editor, and organisation modes
@@ -24,6 +25,8 @@ For somebody using the app.
 - [Papers](using/papers.md) — pasting a DOI, arXiv id or page, duplicate matching, and what the import refuses
 - [Reader](using/reader.md) — opening a paper's PDF, annotating it, and following its citations
 - [Notes](using/notes.md) — creating, importing, renaming and tagging notes, and deleting with Undo
+- [Tags](using/tags.md) — adding tags to notes and papers, finding everything with one tag, and removing one
+- [Handwriting](using/ink.md) — writing and drawing on a page, figures, recognition, printing and shortcuts
 - [Reading lists](using/reading-lists.md) — grouping papers by theme, sublists, screening and comparison tables
 - [Graph](using/graph.md) — relations between papers, finding citations, filters and export
 - [Experiments](using/experiments.md) — creating one by hand, logging runs from Python, and comparing runs

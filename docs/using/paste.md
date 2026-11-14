@@ -1,3 +1,8 @@
+---
+covers:
+  - crates/wf-core/src/paste
+checked: 2026-11-14
+---
 # Paste
 
 Text arrives in a note from somewhere else — a PDF column, a terminal window, a
@@ -291,7 +296,7 @@ page number rather than data, and that the passage was one paragraph the layout
 broke apart.
 
 **Highlights get this for free.** *Copy quote + cite* in the reader, and
-*Insert excerpt* in a report section, both run the repair — a highlight's text is
+**Insert** on a related excerpt in a report section, both run the repair — a highlight's text is
 the PDF's text layer, so it has exactly these problems, every time.
 
 ## Link rules

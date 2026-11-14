@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/report
+  - crates/wf-core/src/report
+checked: 2026-11-13
+---
 # Reports
 
 Reports turn your notes and library into a thesis or paper draft. They hold the outline with a status for each section, check the bibliography before you export, and convert Markdown to LaTeX for Overleaf.

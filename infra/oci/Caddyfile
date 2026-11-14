@@ -145,3 +145,31 @@
 		reverse_proxy postgrest:3000
 	}
 }
+
+# The user docs' live demo app (docs/.site-demo, built by
+# scripts/user-docs/build-demo-app.mjs), for demo.weaveforge.org. Not live yet:
+# hosting waits for the owner's approval, and the tunnel needs an ingress rule
+# sending demo.weaveforge.org to 127.0.0.1:8081.
+#
+# Its own port because the app uses absolute paths, so it needs a host root.
+# Static files only; the demo database runs in the reader's browser.
+:8081 {
+	encode zstd gzip
+	root * /srv/demo
+
+	# Next's client navigation fetches the RSC payloads (`*.txt`). Served as
+	# octet-stream, the router gives up and does a full page load, which reloads
+	# the app and its database on every screen switch.
+	@rsc path *.txt
+	header @rsc Content-Type "text/plain; charset=utf-8"
+
+	# Hashed build output and the demo data never change under one name.
+	@immutable path /_next/static/* /_demo/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# The docs site on another host frames this one.
+	header -X-Frame-Options
+
+	try_files {path} {path}/index.html {path}.html
+	file_server
+}

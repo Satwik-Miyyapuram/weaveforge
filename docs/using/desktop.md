@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/shell
+  - apps/android
+checked: 2026-11-14
+---
 # The desktop app
 
 WeaveForge in a window of its own. It is the same app the browser runs — the
@@ -51,7 +57,7 @@ and offers only **Done** or **Move to Trash**. To open it:
    **Open Anyway**. Confirm with your password or Touch ID. From then on it opens
    normally.
 2. **Finder Control-Click**: In Finder, open `/Applications`, hold the **Control**
-   key and click (or right-click) **WeaveForge.app**, then select **Open**. In the
+   key and click (or right-click) `WeaveForge.app`, then select **Open**. In the
    dialog that appears, click the **Open** button (which is hidden during a regular
    double-click).
 3. **In Terminal**, once (removes the quarantine attribute applied to downloads):
@@ -136,8 +142,8 @@ addresses match.
 
 ## Sharing and supervision
 
-A signed-in window has the same **Sharing** entry in the account menu as the
-browser (**Supervision & sharing** when you supervise students). It shows what
+A signed-in window has the same **Shared with you** entry in the sidebar's Inbox
+as the browser (**Supervision** too when you supervise students). It shows what
 others shared with you and what you shared, and **Share my work** shares a whole
 kind of thing at once: every note, every paper, the whole report or plan,
 including items you add later. These pages read from the server, so they need
@@ -169,14 +175,12 @@ The section is not there in a browser, because a browser has no window to
 update — whatever it loads is already current.
 
 **On a Mac** the app does not update itself: macOS only lets an app replace
-itself when Apple has signed it, and this one is not. Instead it checks when it
-opens and every few hours while it stays open, and when there is a newer
-version it asks once — **Download** opens the release page, where you install
-the new `.dmg` over the old one as the first time. **Later** holds until you
-next open the app.
+itself when Apple has signed it, and this one is not. The same **Updates**
+section applies: when a newer version is out it says so, with a **Get** button
+that opens the release page. Nothing is installed without you.
 
-If the check cannot reach GitHub it says nothing rather than showing you an
-error, because a shell that cannot reach GitHub is still a working shell.
+If the check cannot reach GitHub the section says **Could not check for
+updates. Try again.** and the window keeps working.
 
 ## A folder on your disk
 
@@ -194,8 +198,9 @@ from somewhere else does not get to run in it.
 
 ## Working without an account
 
-The desktop window offers **"Work on this computer (offline)"** on the
-sign-in screen. Choosing it swaps four things — the database client, the
+The desktop window offers **Use without an account, local only** on the
+sign-in screen (and **Work on this computer (offline)** on the "Couldn’t start the
+app" screen). Choosing it swaps four things — the database client, the
 identity, the auth service and the blob store — for local ones, and leaves every
 repository, screen and use case above them untouched. The data lives in PGlite
 under the app's own directory, with the same schema the server has (all the
@@ -260,7 +265,7 @@ start can open. Three things stand between that and losing your notes:
 
 The local HTTP API also answers the Python SDK's routes, so a run logged from a
 training script lands in the same folder-sized database as everything else. Create
-a token in **Experiments → Experiment actions → Python SDK token** (experiments
+a token in **Experiments → More → Python SDK token** (experiments
 only) or **Settings → Access tokens** (pick permissions and expiry). It shows once;
 only its hash is kept. Then:
 
@@ -279,8 +284,8 @@ SQL — so figures logged this way have nowhere to go offline.
 
 The window checks GitHub releases for a newer version when **Settings → Updates**
 opens, and keeps the answer for an hour. The app downloads nothing itself. When a
-newer version is out, the section shows it with a **Get** button that opens the
-release page in your browser. A failed check shows "Could not check for updates.
+newer version is out, the section shows it with a **Get** button, labelled with the new version
+number, that opens the release page in your browser. A failed check shows "Could not check for updates.
 Try again." and is not kept, so the next look asks again. **Check now** in that
 section, or **Help → Check for updates…**, asks straight away.
 
