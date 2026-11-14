@@ -1,4 +1,4 @@
-// Docs site behaviour: theme switch, steps and picture, search palette, topics drawer, vote.
+// Docs site behaviour: theme switch, steps and app views, search palette, topics drawer, vote.
 // The generator also inlines a 1-line head script for no-flash; this file does not touch it.
 (function () {
   "use strict";
@@ -30,15 +30,32 @@
   if (sel) sel.addEventListener("change", () => {
     applyTheme(sel.value);
     save(KEY, sel.value);
-    refreshShot();
+    refreshViews();
   });
 
-  // Steps: one active step per list (the filled circle); a step with a picture also shows it.
+  // Steps: one active step per list (the filled circle). A list with views has a figure
+  // right after it: a frozen view of the app that rings the active step's control.
   const steps = [...document.querySelectorAll("ol.docs-steps:not(.docs-steps--static) > li.docs-step")];
-  const img = document.querySelector("[data-docs-shot]");
-  const cap = document.querySelector("[data-docs-shot-caption]");
-  const fig = img && img.closest("figure");
-  let current = null;
+  const frames = [...document.querySelectorAll(".docs-view-frame iframe")];
+  const ringOf = new Map(); // iframe -> ring key it should show
+
+  function mode() {
+    const opt = sel && sel.selectedOptions[0];
+    const group = opt && opt.parentElement;
+    return group && group.label === "Dark" ? "dark" : "light";
+  }
+  function post(frame) {
+    if (frame.contentWindow) frame.contentWindow.postMessage({ docsTheme: theme, docsMode: mode(), docsRing: ringOf.get(frame) || null }, "*");
+  }
+  // The view keeps the app's own size; scaling it down keeps the layout true at every width.
+  const fit = new ResizeObserver(entries => entries.forEach(e => {
+    const frame = e.target.querySelector("iframe");
+    frame.style.transform = "scale(" + e.contentRect.width / parseFloat(frame.style.width) + ")";
+  }));
+  frames.forEach(frame => {
+    fit.observe(frame.parentElement);
+    frame.addEventListener("load", () => post(frame));
+  });
 
   function heading(li) {
     const ol = li.closest("ol");
@@ -46,40 +63,34 @@
     while (p && p.tagName !== "H3") p = p.previousElementSibling;
     return p ? p.textContent.trim() : "";
   }
+  function figureOf(li) {
+    const next = li.parentElement.nextElementSibling;
+    return next && next.matches("figure[data-docs-steps-view]") ? next : null;
+  }
   function mark(li) {
     li.parentElement.querySelectorAll(":scope > li").forEach(s => s.classList.toggle("is-active", s === li));
   }
   function setActive(li) {
     mark(li);
-    if (!img || !li.dataset.shot) return;
-    current = li;
-    img.src = li.dataset.shot + "." + theme + ".png";
-    img.alt = li.textContent.trim();
+    const fig = figureOf(li);
+    if (!fig || !li.dataset.view) return;
+    const frame = fig.querySelector("iframe");
+    const cap = fig.querySelector("[data-docs-view-caption]");
+    ringOf.set(frame, li.dataset.ring);
+    if (frame.getAttribute("src") !== li.dataset.view) frame.setAttribute("src", li.dataset.view);
+    else post(frame);
+    frame.title = li.textContent.trim();
     if (cap) cap.textContent = heading(li) + " · step " + li.dataset.step;
-    img.onerror = () => {
-      if (!img.src.endsWith(".light.png")) img.src = li.dataset.shot + ".light.png";
-      else if (fig) fig.hidden = true;
-    };
   }
-  function refreshShot() {
-    if (current) setActive(current);
+  function refreshViews() {
+    frames.forEach(post);
   }
-  if (img) img.onload = () => { if (fig) fig.hidden = false; };
 
   steps.forEach(li => li.addEventListener("click", () => setActive(li)));
   document.querySelectorAll("ol.docs-steps:not(.docs-steps--static)").forEach(ol => {
-    if (ol.firstElementChild) mark(ol.firstElementChild);
+    const first = ol.querySelector(":scope > li[data-view]") || ol.firstElementChild;
+    if (first) setActive(first);
   });
-  const shotSteps = steps.filter(li => li.dataset.shot);
-  if (shotSteps.length && img) {
-    if ("IntersectionObserver" in window) {
-      const io = new IntersectionObserver(entries => {
-        entries.forEach(e => { if (e.isIntersecting) setActive(e.target); });
-      }, { rootMargin: "-35% 0px -55% 0px" });
-      shotSteps.forEach(s => io.observe(s));
-    }
-    setActive(shotSteps[0]);
-  }
 
   // Search palette
   const box = document.querySelector("[data-docs-palette]");

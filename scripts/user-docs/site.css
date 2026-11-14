@@ -217,6 +217,9 @@ body.docs .docs-crumb a { color: var(--muted); }
 
 .docs-figure { margin: 18px 0 26px; }
 .docs-figure img { display: block; width: 100%; height: auto; }
+/* A frozen view of the app: drawn at the app's size, scaled to fit, never interactive. */
+.docs-view-frame { position: relative; overflow: hidden; width: 100%; max-width: 100%; background: var(--bg); }
+.docs-view-frame iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; pointer-events: none; }
 .docs-figure figcaption { font: 14px var(--docs-hand); color: var(--docs-pen); padding-top: 6px; }
 
 /* Steps: hand-drawn number circles; the active one is filled. */

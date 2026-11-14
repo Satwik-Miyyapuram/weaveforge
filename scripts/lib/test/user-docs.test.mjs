@@ -44,13 +44,13 @@ const html = `<h2>How to</h2>
 <li>not a task</li>
 </ol>`;
 
-test("decorate numbers the steps under an h3 and links shots that exist", () => {
-  const out = decorate(html, "notes", (key) => key === "notes/create-a-note/2");
+test("decorate numbers the steps under an h3 and links the views that show them", () => {
+  const out = decorate(html, "notes", (key) => (key === "notes/create-a-note/2" ? "notes/hero.html" : null));
   assert.match(out, /<h2 id="how-to">How to<\/h2>/);
   assert.match(out, /<h3 id="create-a-note">Create a note<\/h3>/);
   assert.match(out, /<ol class="docs-steps" data-task="create-a-note">/);
-  assert.match(out, /<li class="wf-item docs-step" data-step="1">Click/);
-  assert.match(out, /<li class="wf-item docs-step" data-step="2" data-shot="shots\/notes\/create-a-note\/2">Two<ul>\n<li>sub/);
+  assert.match(out, /<li class="wf-item docs-step" data-step="1" data-ring="notes\/create-a-note\/1">Click/);
+  assert.match(out, /<li class="wf-item docs-step" data-step="2" data-view="views\/notes\/hero.html" data-ring="notes\/create-a-note\/2">Two<ul>\n<li>sub/);
   assert.match(out, /<h2 id="limits">Limits<\/h2>\n<ol>\n<li>not a task/);
 });
 

@@ -1,7 +1,7 @@
 /**
  * Turns the HTML that `marked` makes from a `docs/using` page into the docs
- * site's markup: ids on headings, numbered how-to steps that a screenshot can
- * follow, links between pages, and callouts. Pure string work, so it is tested
+ * site's markup: ids on headings, numbered how-to steps that a view of the app
+ * can follow, links between pages, and callouts. Pure string work, so it is tested
  * without a browser; scripts/build-user-docs.mjs does the files.
  */
 
@@ -32,11 +32,12 @@ export function plainText(html) {
 const CALLOUT = { TIP: ["tip", "Good to know"], NOTE: ["note", "Note"], WARNING: ["warning", "Careful"] };
 
 /**
- * `hasShot("page/task/step")` says whether a screenshot was captured for a
- * step; only those steps get `data-shot`. An ordered list counts as a how-to
+ * Each how-to step gets `data-ring="page/task/step"`, the control a view rings
+ * for it. `viewOf(key)` names the captured view that shows the step, or null;
+ * steps with one also get `data-view`. An ordered list counts as a how-to
  * when it sits under an h3 (`### Create a note`); lists under an h2 do not.
  */
-export function decorate(html, page, hasShot) {
+export function decorate(html, page, viewOf) {
   let task = null;
   let olDepth = 0;
   let ulDepth = 0;
@@ -69,8 +70,8 @@ export function decorate(html, page, hasShot) {
     if (steps && olDepth === 1 && ulDepth === 0) {
       step += 1;
       const key = `${page}/${task}/${step}`;
-      const shot = hasShot(key) ? ` data-shot="shots/${key}"` : "";
-      return `<li class="wf-item docs-step" data-step="${step}"${shot}>`;
+      const view = viewOf(key);
+      return `<li class="wf-item docs-step" data-step="${step}"${view ? ` data-view="views/${view}"` : ""} data-ring="${key}">`;
     }
     return tag;
   });
