@@ -27,6 +27,9 @@ unicode-properties.workspace = true
 url.workspace = true
 # Paper pages and refs (papers module) use the same patterns as the TypeScript.
 regex-lite.workspace = true
+# OneNote import: .one section bytes to pages, text and ink.
+onenote_parser.workspace = true
+typed-path.workspace = true
 
 [features]
 # Derives specta::Type on the IPC types, for wf-bindings.
