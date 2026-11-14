@@ -217,10 +217,13 @@ body.docs .docs-crumb a { color: var(--muted); }
 
 .docs-figure { margin: 18px 0 26px; }
 .docs-figure img { display: block; width: 100%; height: auto; }
-/* A frozen view of the app: drawn at the app's size, scaled to fit, never interactive. */
+/* The demo app: drawn at the app's size, scaled to fit, never interactive. */
 .docs-view-frame { position: relative; overflow: hidden; width: 100%; max-width: 100%; background: var(--bg); }
 .docs-view-frame iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; pointer-events: none; }
 .docs-figure figcaption { font: 14px var(--docs-hand); color: var(--docs-pen); padding-top: 6px; }
+/* A how-to: its steps on the left, the demo doing them on the right, kept in view. */
+.docs-howto { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 24px; align-items: start; }
+.docs-howto > .docs-figure { position: sticky; top: 16px; margin-top: 0; }
 
 /* Steps: hand-drawn number circles; the active one is filled. */
 :root:root .docs-sheet ol.docs-steps,
@@ -411,6 +414,8 @@ body.docs .docs-foot a { color: var(--muted); }
   .docs-margin { padding-top: 0; }
   .docs-sheet { padding: 24px 20px; }
   .docs-hero { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .docs-howto { grid-template-columns: minmax(0, 1fr); }
+  .docs-howto > .docs-figure { position: static; }
   .docs-topnav { display: none; }
 }
 @media (max-width: 520px) {

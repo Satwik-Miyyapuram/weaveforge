@@ -47,7 +47,7 @@ On the desktop app there is one more choice on the sign-in screen: **Use without
 an account, local only**. It keeps everything on your own computer, with no
 sign-in, no server and no internet connection needed. The whole story, including
 what the app stores and where, lives in [The desktop and mobile apps](desktop.md#working-without-an-account).
-For what a local workspace looks like day to day, see [Workspaces](workspaces.md).
+For what a local workspace looks like day to day, see [The workspace editor](workspaces.md).
 
 When the app is running this way, a small tag reading "Offline · on this
 computer" sits in the app's header. Hover over it and it says your data is on

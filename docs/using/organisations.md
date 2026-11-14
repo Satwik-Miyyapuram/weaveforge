@@ -82,6 +82,6 @@ Source: `crates/wf-core/src/org.rs` and `crates/wf-core/src/member.rs`
 
 ## Related
 
-- [Workspaces](workspaces.md): projects and how they switch.
+- [Projects](projects.md): projects and how they switch.
 - [Collaborative editing](collaborative-editing.md): two people in one note.
 - [Getting started](getting-started.md): first sign-in and setup.

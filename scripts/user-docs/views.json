@@ -1,6 +1,6 @@
 {
   "getting-started": { "route": "dashboard/" },
-  "projects": { "route": "dashboard/" },
+  "projects": { "route": "?docsProject=none", "tasks": { "switch-projects": { "route": "dashboard/" } } },
   "dashboard": { "route": "dashboard/" },
   "search": { "route": "papers/", "do": ["key:ctrl+k"] },
   "account": { "route": "settings/", "do": ["Account"] },
@@ -26,6 +26,6 @@
   "settings": { "route": "settings/" },
   "integrations": { "route": "settings/", "do": ["Sync and integrations"] },
   "sync": { "route": "settings/", "do": ["Sync and integrations"] },
-  "workspaces": { "route": "dashboard/" },
+  "workspaces": { "route": "workspace/" },
   "workspace-folder": { "route": "settings/", "do": ["Data and updates"] }
 }

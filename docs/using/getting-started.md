@@ -56,7 +56,7 @@ which sits in the top bar behind your account button.
 ## 4. Make a project
 
 A project holds the papers, notes and experiments of one piece of work, such as
-a thesis. See [Projects and workspaces](workspaces.md) for more.
+a thesis. See [Projects](projects.md) for more.
 
 1. Open **Projects** from your account menu.
 2. Select **New project**.
