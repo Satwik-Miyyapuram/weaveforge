@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/ink
+  - crates/wf-core/src/ink
+checked: 2026-11-14
+---
 # Handwriting
 
 Handwriting is ink: you write, sketch and draw straight onto a page, the way you

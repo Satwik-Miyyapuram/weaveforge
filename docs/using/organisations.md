@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/org
+  - crates/wf-core/src/org.rs
+checked: 2026-11-14
+---
 # Organisations (labs)
 
 A lab is a shared group, usually a research group, with professors, PhD supervisors and master's students. You create a lab or join one with an invite code. Each person sees the team below them in the supervisor tree, and the whole lab on the org chart.

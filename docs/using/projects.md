@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/projects
+  - crates/wf-core/src/projects.rs
+checked: 2026-11-14
+---
 # Projects
 
 A project is the outermost container in WeaveForge. It is one piece of research:

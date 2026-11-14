@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/app/ai-review
+  - apps/web/src/features/ai-assistant/ui
+checked: 2026-11-14
+---
 # AI review queue
 
 The review queue is where AI suggestions wait for you. Nothing in the suggestion

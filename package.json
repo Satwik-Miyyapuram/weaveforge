@@ -49,6 +49,7 @@
     "generate:routes": "node scripts/generate-module-routes.mjs",
     "release:notice": "node scripts/publish-release-notice.mjs",
     "docs:generate": "node scripts/update-docs.mjs && node scripts/build-atlas.mjs",
+    "check:docs-freshness": "node scripts/check-docs-freshness.mjs",
     "check:docs": "node --test \"scripts/lib/test/*.test.mjs\" && node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check && node scripts/check-ui-names.mjs",
     "check:ci-parity": "node scripts/check-ci-parity.mjs",
     "bindings": "cargo run -p wf-bindings --locked",

@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/search
+  - crates/wf-core/src/search
+checked: 2026-11-14
+---
 # Search
 
 Search is one box over the whole workspace: papers, notes, report sections,

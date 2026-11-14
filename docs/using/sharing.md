@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/sharing
+  - crates/wf-core/src/sharing.rs
+checked: 2026-11-13
+---
 # Sharing
 
 Share a paper, experiment, reading list, milestone, report section or vault

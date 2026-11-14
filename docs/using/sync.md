@@ -1,3 +1,10 @@
+---
+covers:
+  - apps/web/src/features/sync
+  - apps/web/src/features/offline-sync
+  - crates/wf-core/src/sync
+checked: 2026-11-14
+---
 # How your work is stored and synced
 
 This page is the whole picture: where your work physically lives, what syncs,

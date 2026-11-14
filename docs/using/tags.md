@@ -1,3 +1,10 @@
+---
+covers:
+  - apps/web/src/features/tags
+  - crates/wf-core/src/tag_row.rs
+  - crates/wf-core/src/tag_counts.rs
+checked: 2026-11-14
+---
 # Tags
 
 A tag is a short word that you attach to a note or a paper so you can find
