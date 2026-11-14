@@ -308,8 +308,16 @@ fn background_rect(image: &Image) -> ink::Rect {
     ink::Rect {
         x: offset(image.offset_horizontal()),
         y: offset(image.offset_vertical()),
-        width: size(image.layout_max_width(), image.picture_width(), INK_A4_WIDTH),
-        height: size(image.layout_max_height(), image.picture_height(), INK_A4_HEIGHT),
+        width: size(
+            image.layout_max_width(),
+            image.picture_width(),
+            INK_A4_WIDTH,
+        ),
+        height: size(
+            image.layout_max_height(),
+            image.picture_height(),
+            INK_A4_HEIGHT,
+        ),
     }
 }
 
