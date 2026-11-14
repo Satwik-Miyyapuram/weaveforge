@@ -79,7 +79,8 @@ pub(crate) fn band_index(tops: &[f64], y: f64) -> usize {
 /// Ink pages for `raw`. With `bands` (printout pages, sorted by top) each band
 /// gets its own pages holding the strokes whose middle falls in it, shifted so
 /// the band's corner is the page corner (or further, for ink in the margin).
-/// Without bands every stroke shares one page size.
+/// Every sheet gets the largest sheet's size. Without bands every stroke
+/// shares one page size.
 pub(crate) fn build_sheets(raw: &[RawStroke], bands: &[Rect]) -> Vec<Sheet> {
     if bands.is_empty() {
         return build_pages(raw)
@@ -102,6 +103,14 @@ pub(crate) fn build_sheets(raw: &[RawStroke], bands: &[Rect]) -> Vec<Sheet> {
     let mut sheets = Vec::new();
     for (group, (band, indices)) in bands.iter().zip(&members).enumerate() {
         band_sheets(raw, band, indices, group, &mut sheets);
+    }
+    // The ink view lays every page of a note out at one size, so all sheets
+    // take the largest; content is anchored top-left and does not move.
+    let width = sheets.iter().map(|s| s.page.width).fold(0.0, f64::max);
+    let height = sheets.iter().map(|s| s.page.height).fold(0.0, f64::max);
+    for sheet in &mut sheets {
+        sheet.page.width = width;
+        sheet.page.height = height;
     }
     sheets
 }
@@ -480,6 +489,29 @@ mod tests {
         assert!(image.y.abs() < f64::EPSILON);
         assert!((sheet.page.width - 3123.0).abs() < f64::EPSILON);
         assert_eq!(&sheet.page.strokes[0].points[..2], &[50.0, 373.0]);
+    }
+
+    #[test]
+    fn every_sheet_takes_the_largest_page_size() {
+        // The ink view sizes every page of a note alike, so a wide page
+        // (margin ink) must not leave its neighbours narrower.
+        let bands = [a4_at(127.0), a4_at(3200.0)];
+        let raw = vec![
+            stroke(&[(500.0, 400.0), (600.0, 500.0)]),
+            stroke(&[(500.0, 3500.0), (4000.0, 3600.0)]),
+        ];
+        let sheets = build_sheets(&raw, &bands);
+        assert_eq!(sheets.len(), 2);
+        let (w, h) = (sheets[1].page.width, sheets[0].page.height);
+        assert!(w > 2100.0);
+        for sheet in &sheets {
+            assert!((sheet.page.width - w).abs() < f64::EPSILON);
+            assert!((sheet.page.height - h).abs() < f64::EPSILON);
+        }
+        // Content stays anchored top-left.
+        let image = sheets[0].background.unwrap();
+        assert_eq!((image.x, image.y), (0.0, 0.0));
+        assert_eq!(&sheets[0].page.strokes[0].points[..2], &[373.0, 273.0]);
     }
 
     #[test]
