@@ -14,7 +14,7 @@ and a snapshot of your library. Each part is a card you can move and resize.
 4. Choose **Done** to save the layout to the project. **Reset layout** puts the
    default cards back at once, without asking.
 5. The Team cards (`team-roster`, `team-attention`, `supervisee-snapshot`) are
-   listed only for a supervisor role. A supervisor with at least one supervisee
+   listed only for PhD and professor roles. A supervisor with at least one supervisee
    also gets them in the default layout.
 6. If a saved card type is no longer known to this version, only that card is
    dropped. The rest of your layout still loads.

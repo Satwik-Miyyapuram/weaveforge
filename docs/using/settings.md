@@ -6,10 +6,10 @@ follow you to every device you sign in on.
 
 ## How to
 
-1. Pick a light or dark mode, a theme variant and a control size. Changes apply at once.
-2. To use your own theme, download the starter file from settings, edit it, and
-   upload it again. A file with a problem is refused, and the list of problems
-   tells you what to fix. The app never applies half a theme.
+1. Pick a light theme and a dark theme, and set **Button size**. Changes apply at once.
+2. To use your own theme, click **Template** under **Theme file** to download the
+   starter file, edit it, and upload it again. A file with a problem is refused, and
+   the list of problems tells you what to fix. The app never applies half a theme.
 3. Enter an integration key (for example Zotero or Semantic Scholar). Keys are
    stored with your settings and read back the same way for every feature that
    needs them.

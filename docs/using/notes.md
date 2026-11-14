@@ -118,7 +118,7 @@ with `#hashtags`.
 | Mode | Who sees it |
 |---|---|
 | **Text** | You, when you can edit the body |
-| **Ink** | You, for a handwritten note |
+| **Ink** | You, when you can edit the body. A handwritten note opens here |
 | **Read** | People without edit rights. The Text and Ink switch is not shown |
 
 A handwritten (Ink) note, or a shared note, cannot change its title on this screen.
