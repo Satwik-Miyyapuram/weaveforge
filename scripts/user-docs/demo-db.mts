@@ -9,7 +9,7 @@
  *   node --import tsx --import ./src/lib/test/preload-core.mts ../../scripts/user-docs/demo-db.mts
  *   (cwd apps/web, TSX_TSCONFIG_PATH=tsconfig.test.json)
  */
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
@@ -73,8 +73,22 @@ const { loadLocalDemoWorkspace } = await import("@/features/showcase/application
 const { projectId } = await loadLocalDemoWorkspace();
 
 mkdirSync(OUT, { recursive: true });
+
+// One PDF, so the reader has something to open: MAE (He et al., arXiv:2111.06377),
+// licensed CC BY 4.0. Fetched once and kept in docs/.demo/, never committed.
+const PDF_ARXIV = "2111.06377";
+const pdfFile = path.join(OUT, "demo-paper.pdf");
+if (!existsSync(pdfFile)) {
+  const res = await realFetch(`https://arxiv.org/pdf/${PDF_ARXIV}`);
+  if (!res.ok) throw new Error(`demo-db: arXiv answered ${res.status} for ${PDF_ARXIV}`);
+  writeFileSync(pdfFile, Buffer.from(await res.arrayBuffer()));
+}
+const pdfRows = await localQuery(db, claims, "select id from public.papers where arxiv_id = $1 and project_id = $2", [PDF_ARXIV, projectId]);
+const pdfPaperId = (pdfRows as { id: string }[])[0]?.id;
+if (!pdfPaperId) throw new Error(`demo-db: no demo paper with arXiv id ${PDF_ARXIV}`);
+
 const dump = await db.dumpDataDir("gzip");
 writeFileSync(path.join(OUT, "db.tar.gz"), Buffer.from(await dump.arrayBuffer()));
-writeFileSync(path.join(OUT, "files.json"), JSON.stringify({ projectId, claims, files }));
+writeFileSync(path.join(OUT, "files.json"), JSON.stringify({ projectId, pdfPaperId, claims, files }));
 await db.close();
 console.log(`demo-db: project ${projectId}, ${Object.keys(files).length} files -> docs/.demo/`);

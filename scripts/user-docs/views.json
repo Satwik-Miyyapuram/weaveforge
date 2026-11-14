@@ -5,6 +5,7 @@
   "search": { "route": "papers/", "do": ["key:ctrl+k"] },
   "account": { "route": "settings/", "do": ["Account"] },
   "papers": { "route": "papers/" },
+  "reader": { "route": "reader/?paper=demo" },
   "tags": { "route": "papers/", "do": ["open:Dropout: A Simple Way to Prevent Neural Networks from Overfitting"] },
   "reading-lists": { "route": "lists/" },
   "review-queue": { "route": "ai-review/" },
