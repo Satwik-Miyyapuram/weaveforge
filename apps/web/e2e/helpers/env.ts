@@ -74,5 +74,14 @@ export function e2eUserB() {
   };
 }
 
+/**
+ * A relay route as the app calls it: on `NEXT_PUBLIC_RELAY_URL` when set (the
+ * Next API routes are gone), else relative to the app.
+ */
+export function relayApi(path: string): string {
+  const base = process.env.NEXT_PUBLIC_RELAY_URL?.trim().replace(/\/+$/, "");
+  return base ? `${base}${path}` : path;
+}
+
 /** Loaded from local-dev/test-accounts.env or env vars — never hardcoded in repo. */
 export const DEFAULT_TEST_PASSWORD = resolveTestPassword();

@@ -57,7 +57,7 @@ test.describe("settings privileged APIs", () => {
     await page.getByRole("button", { name: /AI assistant access/i }).click();
     const enable = page.getByRole("switch", { name: "Enable AI assistant access" });
     await expect(enable).toBeVisible({ timeout: 15_000 });
-    if ((await enable.getAttribute("aria-checked")) !== "true") {
+    if (!(await enable.isChecked())) {
       await enable.click();
     }
     await expect.poll(() => mcpGets.length, { timeout: 20_000 }).toBeGreaterThan(0);

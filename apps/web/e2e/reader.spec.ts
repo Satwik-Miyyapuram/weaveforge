@@ -55,7 +55,9 @@ test.describe("PDF reader", () => {
     await expect.poll(async () => (await canvas.boundingBox())!.width).toBeLessThan(zoomed);
 
     // Fit width returns to the container, whatever the zoom history.
-    await page.getByRole("button", { name: "Fit width" }).click();
+    // Fit width sits in the zoom menu.
+    await page.getByRole("button", { name: "Zoom, fit and rotate" }).click();
+    await page.getByRole("menuitemradio", { name: "Fit width" }).click();
     const host = (await page.locator(".pdf-reader-scroll").boundingBox())!.width;
     await expect
       .poll(async () => (await canvas.boundingBox())!.width)
@@ -70,6 +72,8 @@ test.describe("PDF reader", () => {
     const span = page.locator(".pdf-reader-textlayer span[data-item-index]").first();
     await expect(span).toBeAttached({ timeout: 60_000 });
 
+    // The search box opens from the Find button.
+    await page.locator('button[aria-label="Find in document"]:enabled').first().click();
     const search = page.getByRole("searchbox", { name: "Find in document" });
     await search.fill("attention");
     await expect(page.locator(".pdf-reader-search-count")).not.toHaveText("0/0", {

@@ -51,7 +51,7 @@ export async function mintLabCode(owner: Page): Promise<string> {
   // yet. A PhD join takes the lab's single professor automatically.
   const row = owner.locator(".org-code-row").filter({ hasText: /^PhD/i }).first();
   await expect(row, "the lab has no invite codes to hand out").toBeVisible({ timeout: 20_000 });
-  const reveal = row.getByRole("button", { name: /Reveal|Regenerate/i });
+  const reveal = row.getByRole("button", { name: /New code|Reveal|Regenerate/i });
   if (await appeared(reveal, 5_000)) await reveal.click();
   const value = row.locator(".org-code-value, code").filter({ hasNotText: HIDDEN_CODE }).first();
   await expect(value, "no invite code was shown after minting one").toBeVisible({ timeout: 20_000 });
