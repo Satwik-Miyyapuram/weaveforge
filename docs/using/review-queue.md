@@ -14,13 +14,14 @@ is in [The AI assistant](ai-assistant.md).
 
 ### Read a suggestion
 
-1. Each suggestion is a card. Its title is the suggestion's own title, or the
-   kind name when it has none, such as **Paper update**.
+1. Each suggestion is a card. Its title is the suggestion's own title. Without one,
+   it is the kind's name, such as **Paper update**, or a sentence for a paper note
+   append or a paper field.
 2. The card shows the time it was made. A short reason follows it, when there is one.
 3. A card with evidence has two columns: **Proposed write** and **Evidence**.
    Each evidence item shows its source, the excerpt, and a link.
 4. A card with no evidence shows its sources under **Sources**. A source with a
-   known title shows that title. Other sources show a shortened id.
+   known title shows that title. Only ids of 32 or more hex characters are shortened, to 8 characters.
 
 ### Approve a suggestion
 
@@ -37,7 +38,7 @@ is in [The AI assistant](ai-assistant.md).
 ### Approve or reject many at once
 
 1. Use **Group by** to group the cards by **Document** or **Kind**.
-2. Each group has **Approve N** and **Reject N** buttons, where N is the group size.
+2. Each group with more than one suggestion has **Reject N** and **Approve N** buttons, where N is the group size.
 3. When more than one suggestion is shown, the toolbar has **Approve all** and
    **Reject all**.
 4. When more than one paper note append is shown, the toolbar has

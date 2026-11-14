@@ -29,8 +29,8 @@ Every research asset in WeaveForge belongs to an active project:
 ### Creating a Project
 
 1. Click the **Project dropdown** in the top navigation bar (or sidebar).
-2. Click **+ New Project**.
-3. Enter a **Title** (e.g. *"Masters Thesis: Graph Neural Networks"*), an optional
+2. Click **＋ New project**.
+3. Enter a **Name** (e.g. *"Masters Thesis: Graph Neural Networks"*), an optional
    description, and click **Create**.
 4. WeaveForge initializes the new workspace with empty folders and outlines ready for use.
 
@@ -94,10 +94,11 @@ cross-referencing.
 ### Explorer Sidebar
 
 The left sidebar in the Workspace Editor displays a tree view of your project's contents:
-- **Vault**: Browse and organize long-form notes into nested folders.
-- **Report**: Browse the hierarchical sections of your thesis outline.
+- **Notes**: Browse and organize long-form notes into nested folders.
 - **Papers**: Quick access to imported papers and PDF attachments.
-- **Excerpts**: View highlights and quoted passages synced from Zotero or the PDF reader.
+- **Report**: Browse the hierarchical sections of your thesis outline.
+- **Log**: Browse your logbook entries.
+- **Overleaf**: Open the Overleaf projects linked to this workspace.
 
 Clicking any item in the tree opens it in the currently active editor pane.
 
@@ -164,7 +165,8 @@ browser) can mirror your active project to a plain Markdown directory on your lo
 - **Obsidian Vault Compatible**: All links are written as `[[wikilinks]]`, so you can
   open the folder directly in Obsidian or VS Code with full link navigation.
 - **Two-Way Sync with Diff Preview**: Edit your notes outside in Obsidian or VS Code.
-  When you return to WeaveForge, click **Pull folder edits**; WeaveForge shows a field-by-field
+  When you return to WeaveForge, go to **Settings → Workspace** and click **Check for changes**.
+  If outside edits are found, the button reads **Review N outside edit(s)**. WeaveForge shows a
   diff before applying any changes, so your work is never overwritten accidentally.
 
 For full details on folder structure, conflict handling, and local REST/MCP access, see

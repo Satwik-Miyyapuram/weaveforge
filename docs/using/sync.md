@@ -242,7 +242,7 @@ You can take any device offline — on a flight, in the library, or on a train �
 
 #### Settle conflicts between devices
 - **Different fields on the same item**: If you edit a paper's tags on your phone and rewrite its title on your desktop while both are offline, WeaveForge performs a three-way merge automatically. Both changes are kept without interrupting you.
-- **Colliding fields or document bodies**: If both devices edit the exact same paragraph or metadata field, the collision is surfaced in the Sync status view. You see side-by-side diffs and can choose which side to keep or merge manually.
+- **Colliding fields or document bodies**: If both devices edit the exact same paragraph or metadata field, the collision is listed under **Needs you** in Settings → Sync, and the sync status indicator turns amber. You see side-by-side diffs and can choose which side to keep or merge manually.
 - **Active live co-editing**: When two devices have the same document open simultaneously, WeaveForge uses CRDTs (Conflict-free Replicated Data Types) so keystrokes converge live in real time without overwriting each other.
 
 ### Working together, live

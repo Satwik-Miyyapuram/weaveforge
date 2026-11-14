@@ -13,9 +13,8 @@ sends a query anywhere.
 2. Read the results. If nothing matches, search retries once with one more
    edit allowed per term. You do not need to do anything.
 
-Search recovers the intended paper in sixteen of seventeen plausible misspellings
-in our test corpus of real paper titles. The one it misses is a typo inside a
-three-character acronym, such as `vea` for `β-VAE`.
+Search tolerates typos, so a misspelled title still finds the paper. It can
+miss a typo inside a three-character acronym, such as `vea` for `β-VAE`.
 
 ### Find a paper by its acronym
 

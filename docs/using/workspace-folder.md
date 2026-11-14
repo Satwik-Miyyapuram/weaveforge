@@ -80,7 +80,7 @@ The desktop app can serve the folder over HTTP, on this machine only, using the
 same routes as Obsidian's local REST API — so tools already written for that
 work against a WeaveForge folder without being changed.
 
-It is off until you switch it on: Settings → Account → **Access tokens**, switch
+It is off until you switch it on: Settings → **Access tokens**, switch
 **Let programs on this computer connect**, then **Turn on** in the dialog. Every
 request needs a token. A token is shown once when you create it, and nothing
 shows it again.

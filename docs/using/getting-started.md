@@ -12,7 +12,7 @@ a thesis. See [Projects and workspaces](workspaces.md) for more.
 1. Open **Projects**.
 2. Select **New project**.
 3. In **Name**, type a name, for example `Latent Spaces Thesis`.
-4. Confirm. The new project opens, and everything you add from now on goes into it.
+4. Select **Create project**. The new project opens, and everything you add from now on goes into it.
 
 ## 2. Add a paper
 

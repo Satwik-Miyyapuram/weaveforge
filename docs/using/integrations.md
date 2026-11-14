@@ -9,7 +9,7 @@ Credentials and connections in WeaveForge belong to two distinct scopes:
 - **Personal credentials** (**Settings → Integrations**): Your individual API keys
   (e.g., Zotero API key, Semantic Scholar key). These are associated with your user
   account and shared across all your projects.
-- **Project connectors** (**Settings → Connections**): Repository links, Overleaf
+- **Project connectors** (**Settings → Integrations**): Repository links, Overleaf
   sync, and notification channels tied to the active project. Switching projects
   automatically switches the active connectors.
 
@@ -30,9 +30,9 @@ the browser and desktop) and direct local loopback to Zotero 7 (desktop only).
      the top of the API keys page: *"Your userID for use in API calls is 1234567"*).
 2. **Configure in WeaveForge**:
    - Go to **Settings → Integrations**.
-   - Under **Zotero**, enter your **User ID** and **API Key**, then click **Save**.
+   - Under **Zotero**, enter your **API key** and **Library** (`users/<id>` or `groups/<id>`), then click **Save**.
 3. **Select a Collection (Optional)**:
-   - In **Settings → Connections**, choose which Zotero collection to mirror for the
+   - In **Settings → Integrations**, choose which Zotero collection to mirror for the
      current project, or leave it blank to sync your entire library.
 4. **Syncing your library**:
    - In the **Papers** screen, open the **Add paper** menu and click **Sync Zotero**.
@@ -47,7 +47,7 @@ If you have Zotero 7 running on the same PC or Mac, WeaveForge Desktop can read 
 it directly without needing an API key:
 
 - Open the **Papers** screen.
-- Click **+ Add Paper → Read Zotero on this computer**.
+- Click **More → Read Zotero on this computer**.
 - WeaveForge connects to Zotero's local loopback API (`http://127.0.0.1:23119`)
   through the desktop shell.
 - Your local papers and annotations are imported instantly without needing an
@@ -71,10 +71,10 @@ trees and inspect commits.
    - **GitHub**: Go to **GitHub Settings → Developer settings → Personal access tokens**.
      Create a token with `repo` scope (or fine-grained with read access to your repository).
    - **GitLab**: Go to **GitLab Preferences → Access Tokens**. Create a token with
-     `read_repository` scope.
+     `api` scope.
 2. **Connect your project**:
-   - Open **Settings → Connections** in WeaveForge.
-   - Under **GitHub** or **GitLab**, paste your **API Token**.
+   - Open **Settings → Integrations** in WeaveForge.
+   - Under **GitHub** or **GitLab**, paste your **Token**.
    - Specify the repository path (`owner/repository`, e.g. `octocat/thesis-experiments`).
    - Specify the default branch (`main` or `master`), then save.
 
@@ -94,8 +94,8 @@ WeaveForge bridges Markdown research notes with formal LaTeX manuscripts in Over
 
 ### Connecting Overleaf
 
-1. In **Settings → Connections** (or in **Report → Overleaf**), provide your Overleaf
-   Git URL and token (found in Overleaf under **Menu → Git**).
+1. In **Settings → Integrations** (or in **Report → Overleaf**), provide your **Overleaf Git token**
+   (found in Overleaf under **Menu → Git**) and **Overleaf project ID**.
 2. WeaveForge clones the project via the Overleaf Git bridge (or through this computer's
    keychain in desktop offline mode).
 
@@ -149,7 +149,7 @@ Enrich your literature library with automated citation graphs and paper recommen
 ### Configuration
 
 - Open **Settings → Integrations**.
-- Under **Semantic Scholar**, optionally enter your API key. (An API key is not required
+- Under **Semantic Scholar & OpenAlex**, optionally enter your **API key** or **OpenAlex API key**. (An API key is not required
   for basic lookups, but provides higher rate limits for large libraries).
 
 ### Features
@@ -218,7 +218,7 @@ Capture papers directly into WeaveForge while browsing arXiv, PubMed, IEEE Xplor
 or university portals:
 
 - **Direct Import by URL or DOI**: In the WeaveForge **Papers** screen, click
-  **+ Add Paper** and paste any arXiv URL/ID, DOI, Semantic Scholar URL, or direct
+  **Add paper** and paste any arXiv URL/ID, DOI, Semantic Scholar URL, or direct
   PDF link. WeaveForge's metadata resolver automatically queries arXiv, Crossref,
   and Semantic Scholar to extract the title, authors, venue, and abstract, and
   fetches the PDF into your project library.
