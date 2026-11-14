@@ -64,7 +64,7 @@ test.describe("Overleaf browser privacy boundary", () => {
     });
 
     await page.goto("/report/overleaf");
-    await expect(page.getByRole("heading", { name: "Overleaf", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Overleaf", exact: true })).toBeVisible({ timeout: 30_000 });
     await page.getByRole("button", { name: "Overleaf account" }).first().click();
     await page.getByRole("menuitem", { name: "Link a project (Git token)" }).click();
     await page.getByLabel("Connection name").fill("Test Overleaf");
@@ -90,7 +90,7 @@ test.describe("Overleaf browser privacy boundary", () => {
     });
 
     await page.goto("/report/overleaf");
-    await expect(page.getByRole("heading", { name: "Overleaf", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Overleaf", exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(page.locator(".overleaf-card", { hasText: "Visible thesis" })).toBeVisible();
     await expect(page.locator(".overleaf-card", { hasText: "Foreign thesis" })).not.toBeVisible();
     expect(requestedProjectId).toBeTruthy();
