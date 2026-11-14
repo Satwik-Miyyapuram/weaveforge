@@ -507,6 +507,8 @@ export async function composeOnPage(
     const canvas = createCanvas(Math.round(pageWidth * scale), Math.round(pageHeight * scale));
     const context = canvas.getContext("2d") as CanvasRenderingContext2D | null;
     if (!context) throw new Error("A 2D context could not be created for the page.");
+    // OneNote printouts are small rasters scaled up a lot; smooth them well.
+    context.imageSmoothingQuality = "high";
     context.drawImage(bitmap, box.x * scale, box.y * scale, box.width * scale, box.height * scale);
     const { blob, type } = await toWebpBlob(canvas);
     return { blob, ext: type === "image/webp" ? "webp" : "png" };
