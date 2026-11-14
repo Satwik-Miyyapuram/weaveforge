@@ -35,6 +35,7 @@ pub mod markdown_mermaid_labels;
 pub mod mcp;
 pub mod member;
 pub mod net;
+pub mod onenote;
 pub mod org;
 pub mod overleaf;
 pub mod overleaf_workshop;
