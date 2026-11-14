@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
+import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { bootstrapSession } from "./helpers/auth.js";
 import { e2eEnabled, e2eUserA, relayApi } from "./helpers/env.js";
@@ -8,11 +9,29 @@ import { ensurePaperExists } from "./helpers/papers.js";
 // encryption key. Begin clean and run the real login/unlock flow per test.
 test.use({ storageState: { cookies: [], origins: [] } });
 
+const SIGN_OUT_TEST = "stops a live relay when the user signs out";
+
 test.describe("AI & MCP access", () => {
   test.beforeEach(async ({ page }, testInfo) => {
     if (!e2eEnabled()) testInfo.skip(true, "Set WEAVEFORGE_* env vars for both users");
     const user = e2eUserA();
     await bootstrapSession(page, user.email, user.password);
+  });
+
+  // Sign-out revokes every session of the account, including the one saved in
+  // e2e/.auth/user-a.json that the specs after this one start from. Sign in
+  // again and save the fresh session, or every later spec lands on Sign in.
+  test.afterEach(async ({ browser }, testInfo) => {
+    if (testInfo.title !== SIGN_OUT_TEST || !e2eEnabled()) return;
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    try {
+      const fresh = await context.newPage();
+      const user = e2eUserA();
+      await bootstrapSession(fresh, user.email, user.password);
+      await context.storageState({ path: path.join(process.cwd(), "e2e", ".auth", "user-a.json") });
+    } finally {
+      await context.close();
+    }
   });
 
   test("requires an explicit opt-in and exposes scoped connection controls", async ({ page }) => {
@@ -31,7 +50,7 @@ test.describe("AI & MCP access", () => {
 
     await page.getByRole("button", { name: "Save AI access" }).click();
     await expect(page.getByRole("heading", { name: "AI & MCP access" })).not.toBeVisible();
-    await expect(page.locator(".ai-access-launcher .status")).toHaveText("Enabled");
+    await expect(page.getByRole("button", { name: /AI assistant access/i }).locator(".status")).toHaveText("Enabled");
   });
 
   test("executes an approved encrypted relay read and stops after revocation", async ({ page, request }) => {
@@ -105,7 +124,7 @@ test.describe("AI & MCP access", () => {
     expect((await pending.json() as { request: { status: string } }).request.status).toBe("pending");
   });
 
-  test("stops a live relay when the user signs out", async ({ page, request }) => {
+  test(SIGN_OUT_TEST, async ({ page, request }) => {
     await ensurePaperExists(page, "E2E MCP Privacy Test Paper");
     await page.goto("/settings#settings-ai");
     await page.getByRole("button", { name: /AI assistant access/i }).click();
@@ -134,7 +153,7 @@ test.describe("AI & MCP access", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("heading", { name: "AI & MCP access" })).not.toBeVisible();
     // Sign out lives in the Account menu.
-    await page.getByRole("button", { name: /^Account/ }).click();
+    await page.getByRole("button", { name: "Account", exact: true }).click();
     await page.getByRole("menuitem", { name: /Sign out/i }).click();
     await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible({ timeout: 30_000 });
     const afterSignOut = await request.post(relayApi("/api/mcp/relay"), {
