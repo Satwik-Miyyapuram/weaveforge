@@ -1,14 +1,17 @@
 /* Docs site layout; tokens and controls come from the app CSS (see docs/plans design-set). */
 
 /* The app gets these from next/font; the docs name the same faces. */
-:root { --font-face-sans: "Rubik"; --font-face-mono: "JetBrains Mono"; --font-face-pixel: "Jersey 10"; }
+:root {
+  --font-face-sans: "Rubik", ui-sans-serif, system-ui, sans-serif;
+  --font-face-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-face-pixel: "Jersey 10", ui-monospace, monospace;
+}
 
 [hidden] { display: none !important; }
 
 body.docs {
   margin: 0;
-  background-color: var(--bg);
-  background-image: repeating-linear-gradient(to bottom, transparent 0 calc(1.6em - 1px), color-mix(in srgb, var(--border) 14%, transparent) calc(1.6em - 1px) 1.6em);
+  background: var(--bg);
   color: var(--text);
   font-family: var(--font);
   font-size: var(--fs-lg);
@@ -47,7 +50,8 @@ body.docs kbd {
   font-size: var(--fs-lg);
 }
 
-.docs-menu { display: none; }
+/* :root:root beats the app's .wf-btn display (states.css). */
+:root:root .docs-menu { display: none; }
 
 /* Shell: tree, page, screenshot */
 .docs-shell {
@@ -60,11 +64,19 @@ body.docs kbd {
   padding-block: 24px;
 }
 
+/* Narrower shell so the sheet and its margin notes sit together. */
 body.docs-noshots .docs-shell {
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr) 200px;
+  max-width: 1240px;
 }
 
-body.docs-noshots .docs-shot { display: none; }
+/* Home: no tree on wide screens, one centred column. */
+body.docs-home .docs-shell {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 1120px;
+}
+
+body.docs-home .docs-tree { display: none; }
 
 /* Topic tree */
 .docs-tree {
@@ -91,6 +103,189 @@ body.docs-noshots .docs-shot { display: none; }
 .docs-tree-group:first-child { margin-top: 0; }
 
 .docs-page { min-width: 0; }
+
+/* Notebook sheet: a card with ruled lines and a margin rule. */
+.docs-sheet {
+  position: relative;
+  background-color: var(--surface);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 27px, color-mix(in srgb, var(--border) 12%, transparent) 27px 28px);
+  background-position: 0 14px;
+}
+
+.docs-sheet::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 28px;
+  border-left: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  pointer-events: none;
+}
+
+:root:root .docs-md.docs-sheet {
+  max-width: 78ch;
+  padding: 32px 40px 40px 56px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: var(--sh-overlay);
+}
+
+/* Margin notes: the notebook's handwriting, in the app's font. */
+.docs-note {
+  color: var(--muted);
+  font-style: italic;
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  transform: rotate(-1.5deg);
+  margin: 0;
+}
+
+.docs-crumb {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  margin: 0;
+}
+
+.docs-crumb a { color: var(--muted); }
+
+.docs-margin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 20px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+.docs-margin-list .docs-note { margin-bottom: 6px; }
+
+.docs-margin-list a {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+}
+
+.docs-margin-list a:hover { color: var(--accent); }
+
+.docs-shot > .docs-note { margin-top: 16px; }
+
+/* Home: hero, stage sheets, doors */
+.docs-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 40px;
+  align-items: center;
+  padding-block: 24px 8px;
+}
+
+.docs-kicker {
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+.docs-hero h1 {
+  font-size: var(--fs-h1);
+  margin: 8px 0;
+  text-wrap: balance;
+}
+
+.docs-hero p { max-width: 60ch; }
+
+.docs-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.docs-hero-margin {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-left: 16px;
+  border-left: 1px dashed var(--border);
+}
+
+.docs-hero-margin .docs-note:nth-child(2) { transform: rotate(1deg); }
+
+.docs-home-page > h2 {
+  font-size: var(--fs-h2);
+  margin: 40px 0 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.docs-stages {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+:root:root .docs-stage {
+  padding: 18px 20px 20px 48px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: var(--sh-overlay);
+}
+
+.docs-stage:nth-child(odd) { transform: rotate(-0.4deg); }
+
+.docs-stage:nth-child(even) { transform: rotate(0.4deg); }
+
+.docs-stage h3 {
+  font-size: var(--fs-lg);
+  margin: 0;
+}
+
+.docs-checklist {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 28px;
+}
+
+.docs-checklist li { position: relative; }
+
+.docs-checklist li::before {
+  content: "";
+  position: absolute;
+  left: -24px;
+  top: 8px;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 2px;
+}
+
+.docs-task {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.docs-task:hover { color: var(--accent); }
+
+.docs-subtasks {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 12px;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.docs-subtasks a {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+}
+
+.docs-subtasks a:hover { color: var(--accent); }
 
 /* Markdown column */
 .docs-md { max-width: 72ch; }
@@ -174,6 +369,7 @@ body.docs-noshots .docs-shot { display: none; }
   margin: 0;
   padding: 8px;
   box-shadow: var(--sh-overlay);
+  transform: rotate(-0.6deg);
 }
 
 .docs-frame img {
@@ -267,9 +463,12 @@ body.docs-noshots .docs-shot { display: none; }
 
 /* Narrow desktop: screenshot drops below the page */
 @media (max-width: 1200px) {
-  .docs-shell {
+  .docs-shell,
+  body.docs-noshots .docs-shell {
     grid-template-columns: 220px minmax(0, 1fr);
   }
+
+  body.docs-noshots .docs-shot { display: none; }
 
   .docs-shot {
     grid-column: 1 / -1;
@@ -300,7 +499,12 @@ body.docs-noshots .docs-shot { display: none; }
 
   body.docs-tree-open .docs-tree { transform: none; }
 
-  .docs-menu { display: inline-flex; }
+  /* Keep the bar, and its menu button, above the open drawer so it can close. */
+  body.docs-tree-open .docs-top { z-index: 50; }
+
+  .docs-tree { padding-top: 96px; }
+
+  :root:root .docs-menu { display: inline-flex; }
 
   .docs-shot {
     position: sticky;
@@ -315,8 +519,21 @@ body.docs-noshots .docs-shot { display: none; }
   }
 
   .docs-search-btn kbd { display: none; }
+
+  body.docs-home .docs-tree { display: flex; }
+
+  .docs-hero { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+
+  :root:root .docs-md.docs-sheet { padding: 20px 16px 24px 40px; }
+
+  .docs-sheet::before { left: 20px; }
+
+  .docs-stages { grid-template-columns: minmax(0, 1fr); }
+
+  .docs-margin-list { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .docs-tree { transition: none; }
+  .docs-note, .docs-stage, .docs-frame { transform: none !important; }
 }
