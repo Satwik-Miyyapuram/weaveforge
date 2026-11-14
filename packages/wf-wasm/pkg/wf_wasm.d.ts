@@ -5042,6 +5042,15 @@ export function htmlProxyMaxBytes(): number;
 export function htmlProxyPath(): string;
 
 /**
+ * [`html_to_markdown`] for JS: clipboard HTML in, Markdown out.
+ *
+ * # Errors
+ *
+ * Fails when `html` is over the text cap.
+ */
+export function htmlToMarkdown(html: string): string;
+
+/**
  * `(HTTP 502 Bad Gateway from /api/x)`: the status line and the URL's path (`httpContext`).
  */
 export function httpContext(url: string, status: number, status_text: string): string;
@@ -14154,6 +14163,7 @@ export interface InitOutput {
     readonly htmlFinalUrlHeader: () => [number, number];
     readonly htmlProxyMaxBytes: () => number;
     readonly htmlProxyPath: () => [number, number];
+    readonly htmlToMarkdown: (a: any) => [number, number, number, number];
     readonly httpContext: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly httpStatusForKind: (a: number, b: number) => number;
     readonly humanise: (a: number, b: number) => [number, number];
