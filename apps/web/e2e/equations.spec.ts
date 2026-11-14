@@ -18,7 +18,8 @@ test.describe("paper-note equations", () => {
     await page.goto("/papers");
     await openPaper(page, "E2E Equation Privacy Test Paper");
 
-    // Unique per run: earlier runs leave their equations in this note.
+    // Unique per run, and typed over the whole note: appending let the shared note
+    // grow until the new text fell outside the lines the editor draws.
     const marker = `A local equation ${Date.now()}`;
     const body = `\n\n${marker}: $z = \\mu + \\sigma\\epsilon$.\n\n$$\\mathcal{L}_{VAE} = x^2$$\n`;
     const editor = noteEditor(page);
@@ -28,7 +29,7 @@ test.describe("paper-note equations", () => {
     // what was typed, so type until the editor holds the text.
     await expect(async () => {
       await editor.click();
-      await page.keyboard.press("Control+End");
+      await page.keyboard.press("Control+a");
       await page.keyboard.type(body);
       await expect(editor).toContainText(marker, { timeout: 5_000 });
     }).toPass({ timeout: 60_000 });
