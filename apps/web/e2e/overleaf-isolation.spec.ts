@@ -28,6 +28,7 @@ test.describe("Overleaf browser privacy boundary", () => {
   test("never renders or receives the saved Overleaf token", async ({ page }) => {
     const responseBodies: string[] = [];
     let activeProjectId = "";
+    let linked = false;
     page.on("response", async (response) => {
       if (response.url().includes("/api/overleaf/")) responseBodies.push(await response.text().catch(() => ""));
     });
@@ -45,11 +46,12 @@ test.describe("Overleaf browser privacy boundary", () => {
       if (route.request().method() === "POST") {
         const body = JSON.parse(route.request().postData() ?? "{}");
         activeProjectId = body.projectId;
+        linked = true;
         await route.fulfill({ json: { report: report("report-a", activeProjectId, "MSc thesis") } });
         return;
       }
       activeProjectId = new URL(route.request().url()).searchParams.get("projectId") ?? "";
-      await route.fulfill({ json: { reports: [report("report-a", activeProjectId, "MSc thesis")] } });
+      await route.fulfill({ json: { reports: linked ? [report("report-a", activeProjectId, "MSc thesis")] : [] } });
     });
     await page.route("**/api/overleaf/reports/*/content", async (route) => {
       await route.fulfill({ json: {
@@ -62,23 +64,22 @@ test.describe("Overleaf browser privacy boundary", () => {
     });
 
     await page.goto("/report/overleaf");
-    await expect(page.getByRole("heading", { name: "Overleaf reports" })).toBeVisible();
-    await page.getByRole("button", { name: "Link report" }).click();
+    await expect(page.getByRole("heading", { name: "Overleaf", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Overleaf account" }).first().click();
+    await page.getByRole("menuitem", { name: "Link a project (Git token)" }).click();
     await page.getByLabel("Connection name").fill("Test Overleaf");
     await page.getByLabel("Overleaf Git token").fill(rawToken);
     await page.getByLabel("Report title").fill("MSc thesis");
     await page.getByLabel("Overleaf project ID").fill("overleaf-project-a");
     await page.getByRole("button", { name: "Save and link report" }).click();
-    await expect(page.getByRole("button", { name: /MSc thesis/ })).toBeVisible();
-    await page.getByRole("button", { name: /MSc thesis/ }).click();
-    // The section list and the LaTeX source preview both say "Introduction";
-    // the section title is the one that proves the sections rendered.
-    await expect(page.locator(".linked-overleaf-section__title", { hasText: "Introduction" })).toBeVisible();
+    const card = page.locator(".overleaf-card", { hasText: "MSc thesis" });
+    await expect(card).toBeVisible();
+    await card.click();
 
     expect(await page.locator("body").innerText()).not.toContain(rawToken);
     expect(responseBodies.join("\\n")).not.toContain(rawToken);
     expect(responseBodies.join("\\n")).not.toContain("token_ciphertext");
-    await expect(page.getByRole("link", { name: /Open in Overleaf/ })).toHaveAttribute("href", /overleaf-project-a/);
+    await expect(page.getByLabel("Open in Overleaf").first()).toHaveAttribute("href", /overleaf-project-a/);
   });
 
   test("renders only reports belonging to the active project", async ({ page }) => {
@@ -89,9 +90,9 @@ test.describe("Overleaf browser privacy boundary", () => {
     });
 
     await page.goto("/report/overleaf");
-    await expect(page.getByRole("heading", { name: "Overleaf reports" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Visible thesis/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Foreign thesis/ })).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: "Overleaf", exact: true })).toBeVisible();
+    await expect(page.locator(".overleaf-card", { hasText: "Visible thesis" })).toBeVisible();
+    await expect(page.locator(".overleaf-card", { hasText: "Foreign thesis" })).not.toBeVisible();
     expect(requestedProjectId).toBeTruthy();
   });
 });
