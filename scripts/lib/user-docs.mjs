@@ -82,3 +82,54 @@ export function decorate(html, page, hasShot) {
     })
     .replace(/<blockquote>([\s\S]*?)<\/blockquote>/g, '<div class="callout callout--note"><div class="callout-body">$1</div></div>');
 }
+
+/** Splits a decorated page at its h2s: the HTML before the first h2, then each section. */
+export function sections(html) {
+  const chunks = html.split(/(?=<h2 id=")/);
+  const head = chunks[0].startsWith('<h2 id="') ? "" : chunks.shift();
+  const parts = chunks.map((chunk) => {
+    const m = chunk.match(/^<h2 id="([^"]+)">([\s\S]*?)<\/h2>\n?/);
+    return { id: m[1], title: plainText(m[2]), body: chunk.slice(m[0].length) };
+  });
+  return { head, parts };
+}
+
+/** A "Stuck?" paragraph opens with the question in bold or italics; it becomes a fold-out. */
+export function stuckToDetails(body) {
+  return body.replace(/<p><(em|strong)>([\s\S]*?)<\/\1>\s*([\s\S]+?)<\/p>/g, (_, _tag, question, answer) => {
+    const q = question.replace(/^Q:\s*/, "");
+    return `<details class="docs-stuck"><summary>${q}</summary><p>${answer.replace(/^A:\s*/, "")}</p></details>`;
+  });
+}
+
+/** The pages a "Related" list links to, in order. */
+export function relatedStems(body) {
+  return [...body.matchAll(/<li><a href="([a-z0-9-]+)\.html[^"]*">/g)].map((m) => m[1]);
+}
+
+/** The first `max` rows of the first table, as plain [name, value] pairs. */
+export function tableFacts(body, max) {
+  const table = body.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1] ?? "";
+  return [...table.matchAll(/<tr>\s*<td>([\s\S]*?)<\/td>\s*<td>([\s\S]*?)<\/td>/g)].slice(0, max).map((m) => [plainText(m[1]), plainText(m[2])]);
+}
+
+export function listItems(body) {
+  return [...body.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
+}
+
+/** The first sentence that names a key shortcut, for the "Faster way" card. */
+export function fasterWay(text) {
+  return text.match(/[^.!?]*\b(?:Ctrl|Cmd|Alt|Shift)\+[^.!?]*[.!?]/)?.[0].trim() ?? "";
+}
+
+export function readMinutes(text) {
+  return Math.max(1, Math.round(text.split(/\s+/).filter(Boolean).length / 200));
+}
+
+/** A small hand-written "N steps" beside each how-to heading. */
+export function noteSteps(body) {
+  return body.replace(/(<h3 id="[^"]+">[\s\S]*?<\/h3>)([\s\S]*?)(?=<h3 |$)/g, (_, heading, rest) => {
+    const n = (rest.match(/class="wf-item docs-step"/g) ?? []).length;
+    return n ? `${heading}<span class="docs-hand docs-aside-note">${n} step${n === 1 ? "" : "s"}</span>${rest}` : heading + rest;
+  });
+}
