@@ -19,6 +19,8 @@ function ctx(over: Partial<EditorMenuContext> = {}): EditorMenuContext & { appli
     cut: () => applied.push("cut"),
     copy: () => applied.push("copy"),
     paste: () => applied.push("paste"),
+    pasteFormatted: () => applied.push("paste-formatted"),
+    pastePlain: () => applied.push("paste-plain"),
     selectAll: () => applied.push("select-all"),
     spellcheck: true,
     toggleSpellcheck: () => applied.push("spellcheck"),
@@ -30,7 +32,7 @@ const ids = (items: readonly MenuItem[]) => items.filter((i) => i.kind !== "sepa
 
 test("with a selection: clipboard, inline formats, then headings and lists", () => {
   assert.deepEqual(ids(editorMenuItems(ctx({ hasSelection: true }))), [
-    "cut", "copy", "paste",
+    "cut", "copy", "paste", "paste-formatted", "paste-plain",
     "bold", "italic", "underline", "strike", "code", "sup", "sub", "link", "clear",
     "headings", "lists",
     "spellcheck",
@@ -38,7 +40,17 @@ test("with a selection: clipboard, inline formats, then headings and lists", () 
 });
 
 test("with only a caret: paste, select all, block formats and link", () => {
-  assert.deepEqual(ids(editorMenuItems(ctx())), ["paste", "select-all", "headings", "lists", "link", "spellcheck"]);
+  assert.deepEqual(ids(editorMenuItems(ctx())), ["paste", "paste-formatted", "paste-plain", "select-all", "headings", "lists", "link", "spellcheck"]);
+});
+
+test("the paste items show their shortcuts", () => {
+  const items = editorMenuItems(ctx());
+  const formatted = items.find((i) => i.id === "paste-formatted")!;
+  const plain = items.find((i) => i.id === "paste-plain")!;
+  assert.equal(formatted.label, "Paste with formatting");
+  assert.equal(formatted.accelerator, "Ctrl+Shift+V");
+  assert.equal(plain.label, "Paste as plain text");
+  assert.equal(plain.accelerator, "Ctrl+Alt+Shift+V");
 });
 
 test("items run their action and show the shortcut", () => {
@@ -59,7 +71,7 @@ test("a read-only editor still copies but cannot change the text", () => {
   const items = editorMenuItems(ctx({ hasSelection: true, readOnly: true }));
   const disabled = (id: string) => items.find((i) => i.id === id)?.disabled === true;
   assert.equal(disabled("copy"), false);
-  for (const id of ["cut", "paste", "bold", "headings", "lists"]) assert.ok(disabled(id), id);
+  for (const id of ["cut", "paste", "paste-formatted", "paste-plain", "bold", "headings", "lists"]) assert.ok(disabled(id), id);
 });
 
 test("Check spelling is a check item that shows and flips the setting", () => {

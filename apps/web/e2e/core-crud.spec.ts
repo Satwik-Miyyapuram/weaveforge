@@ -73,8 +73,13 @@ test.describe("core domain CRUD (PostgREST + RLS)", () => {
     const body = `E2E log ${Date.now()} — wrote tests for CRUD.`;
 
     await page.goto("/log");
-    await page.getByRole("button", { name: "New entry" }).click();
-    await page.locator("#body").fill(body);
+    // The empty state has its own "New entry"; the header one is always there.
+    await page.locator(".screen-head").getByRole("button", { name: "New entry" }).click();
+    // The body is a CodeMirror field labelled "What did you do?", not a textarea.
+    const editor = page.locator(".log-body-editor .cm-content");
+    await editor.click();
+    await page.keyboard.type(body);
+    await expect(editor).toContainText(body);
     await page.getByRole("button", { name: "Create", exact: true }).click();
 
     await expect(page.getByText(body, { exact: false }).first()).toBeVisible({ timeout: 30_000 });

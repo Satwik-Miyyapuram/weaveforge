@@ -5,7 +5,6 @@ use std::sync::Arc;
 use serde_json::Value;
 
 use crate::local_pg::host::{PgEngine, PgHost};
-use crate::sidecar::SidecarError;
 
 /// The native Postgres database.
 pub type NativeDb = Arc<PgHost<PgEngine>>;
@@ -44,7 +43,7 @@ pub struct DbState {
     pub restored_from: Option<String>,
 }
 
-/// A JSON value as the sidecar sends it (`$bigint` / `$bytes` tagged). TypeScript sees `unknown`;
+/// A JSON value as the database sends it (`$bigint` / `$bytes` tagged). TypeScript sees `unknown`;
 /// `serde_json::Value` cannot be exported because its numbers include i64.
 pub type Json = specta_typescript::Unknown<Value>;
 
@@ -60,19 +59,6 @@ impl From<String> for ShellError {
         Self {
             message,
             code: None,
-        }
-    }
-}
-
-impl From<SidecarError> for ShellError {
-    fn from(error: SidecarError) -> Self {
-        match error {
-            SidecarError::Spawn(m) => shell_error(format!("local database failed to start: {m}")),
-            SidecarError::Busy => shell_error("local database is busy"),
-            SidecarError::TooLarge => shell_error("local database request is too large"),
-            SidecarError::Timeout => shell_error("local database timed out"),
-            SidecarError::Exited => shell_error("local database stopped"),
-            SidecarError::Remote(m) => shell_error(m),
         }
     }
 }
@@ -163,7 +149,7 @@ fn json_row(row: Value) -> Result<Json, ShellError> {
     serde_json::from_value(row).map_err(|_| shell_error("local database: bad reply"))
 }
 
-/// The local-API channels the page may call, as in apps/shell/sidecar/src/channels.ts.
+/// The local-API channels the page may call.
 pub const LOCAL_API_CHANNELS: &[&str] = &[
     "weaveforge:local-api-state",
     "weaveforge:local-api-set",
@@ -175,7 +161,7 @@ pub const LOCAL_API_CHANNELS: &[&str] = &[
     "weaveforge:semantic-ranked",
 ];
 
-/// Refuses a channel the page may not call, before the sidecar is touched.
+/// Refuses a channel the page may not call, before anything runs.
 fn check_channel(channel: &str) -> Result<(), ShellError> {
     if LOCAL_API_CHANNELS.contains(&channel) {
         Ok(())
@@ -184,7 +170,7 @@ fn check_channel(channel: &str) -> Result<(), ShellError> {
     }
 }
 
-/// Unwraps a sidecar `{ ok, value | message }` reply; any other reply passes through unchanged.
+/// Unwraps an `{ ok, value | message }` reply; any other reply passes through unchanged.
 fn ipc_reply(reply: Value) -> Result<Value, ShellError> {
     match reply.get("ok").and_then(Value::as_bool) {
         Some(true) => Ok(reply.get("value").cloned().unwrap_or(Value::Null)),
@@ -315,23 +301,6 @@ pub fn export_bindings(path: &std::path::Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn error_mapping() {
-        let msg = |e: SidecarError| ShellError::from(e).message;
-        assert_eq!(
-            msg(SidecarError::Spawn("x".into())),
-            "local database failed to start: x"
-        );
-        assert_eq!(msg(SidecarError::Busy), "local database is busy");
-        assert_eq!(
-            msg(SidecarError::TooLarge),
-            "local database request is too large"
-        );
-        assert_eq!(msg(SidecarError::Timeout), "local database timed out");
-        assert_eq!(msg(SidecarError::Exited), "local database stopped");
-        assert_eq!(msg(SidecarError::Remote("m".into())), "m");
-    }
 
     #[test]
     fn ipc_reply_ok_with_value() {

@@ -1,3 +1,8 @@
+---
+covers:
+  - apps/web/src/features/release-notices
+checked: 2026-11-13
+---
 # Release notices
 
 After an update, WeaveForge may show a short notice at the top of the app: a

@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/org
+  - crates/wf-core/src/org.rs
+checked: 2026-11-14
+---
 # Organisations (labs)
 
 A lab is a shared group, usually a research group, with professors, PhD supervisors and master's students. You create a lab or join one with an invite code. Each person sees the team below them in the supervisor tree, and the whole lab on the org chart.
@@ -22,7 +28,7 @@ You see **Lab created.** with one code per invite role.
 
 ### Get or replace an invite code
 
-1. Open **Settings → Organization** and choose **New code** next to the role.
+1. Open **Settings → Org** and choose **New code** next to the role.
    The old code for that role stops working at once; there is no way to see a
    code again after it was shown.
 2. Copy the code with **Copy**. To replace it again, choose **Regenerate**.
@@ -30,14 +36,14 @@ You see **Lab created.** with one code per invite role.
 
 ### Create an account for someone in your team
 
-1. Open **Settings → Organization**, then under **People** choose **New account**.
+1. Open **Settings → Org**, then under **People** choose **New account**.
 2. Choose a **Role** below your own. A professor can create PhD and master's accounts. A PhD supervisor can create master's accounts. A master's student cannot create any.
 3. Enter the **Full name** and **Email**, and a **Temporary password** of at least 8 characters.
 4. Choose **Create account**. The new member is recorded as supervised by you.
 
 ### Continue without a lab
 
-On the first-run screen, choose **Continue without an org**. You can join or create a lab later from **Settings → Organization**. Without a lab, your team view shows only you.
+On the first-run screen, choose **Continue without an org**. You can join or create a lab later from **Settings → Org**. Without a lab, your team view shows only you.
 
 ## Reference
 
@@ -76,6 +82,6 @@ Source: `crates/wf-core/src/org.rs` and `crates/wf-core/src/member.rs`
 
 ## Related
 
-- [Workspaces](workspaces.md): projects and how they switch.
+- [Projects](projects.md): projects and how they switch.
 - [Collaborative editing](collaborative-editing.md): two people in one note.
 - [Getting started](getting-started.md): first sign-in and setup.

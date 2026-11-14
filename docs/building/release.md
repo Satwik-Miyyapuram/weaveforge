@@ -12,15 +12,16 @@ This monorepo ships **four release tracks**, one tag prefix each. Do not mix the
 
 ## Overview
 
-The desktop app is a Tauri shell. It ships a web export, a local sidecar and a
-pinned Postgres build inside the installer. CI builds the Windows installers on
+The desktop app is a Tauri shell. It ships a web export, the database migrations,
+the MCP bridge and a pinned Postgres build inside the installer. CI builds the Windows installers on
 every run of the `shell-bundle-windows` job in `.github/workflows/ci.yml`, but
 no workflow publishes them. Releasing the desktop app is a manual step today.
 
 Only Windows x64 is built for the desktop app. macOS and Linux are not built.
 
-The sidecar is kept in 0.9 only so that old PGlite data can be imported. It
-will be removed in the next release.
+The Node sidecar shipped in 0.9 only to import old PGlite data, and is now
+removed. A user still on the old PGlite database must install 0.9 and open it
+once before updating; a newer build refuses to open the database and says so.
 
 ## Versioning
 
@@ -82,19 +83,12 @@ toolchain pinned by the repo (`rustup show` installs it), and PowerShell.
    cd ../..
    ```
 
-3. Stage the sidecar (repo root). `stage.mjs` refuses a non-empty folder, so
-   remove the old stage first:
-
-   ```powershell
-   if (Test-Path apps/shell/target/stage) { Remove-Item apps/shell/target/stage -Recurse -Force }
-   node apps/shell/sidecar/scripts/stage.mjs apps/shell/target/stage --node (Get-Command node).Source
-   ```
-
-4. Stage Postgres (repo root). This downloads the pinned archive from
+3. Stage Postgres (repo root). Start from an empty stage folder. This downloads the pinned archive from
    `theseus-rs/postgresql-binaries` (PostgreSQL 18.6.1) and checks its SHA-256
    before unpacking:
 
    ```powershell
+   if (Test-Path apps/shell/target/stage) { Remove-Item apps/shell/target/stage -Recurse -Force }
    $name = "postgresql-18.6.1-x86_64-pc-windows-msvc"
    $tar = Join-Path $env:TEMP "$name.tar.gz"
    Invoke-WebRequest -Uri "https://github.com/theseus-rs/postgresql-binaries/releases/download/18.6.1/$name.tar.gz" -OutFile $tar
@@ -104,7 +98,7 @@ toolchain pinned by the repo (`rustup show` installs it), and PowerShell.
    node apps/shell/scripts/stage-postgres.mjs (Join-Path $env:TEMP $name) apps/shell/target/stage
    ```
 
-5. Build the Windows ink recogniser (repo root). It is staged into
+4. Build the Windows ink recogniser (repo root). It is staged into
    `apps/shell/target/stage/native/` and ships under `native/`. The stage step
    fails if the exe is missing:
 
@@ -113,7 +107,7 @@ toolchain pinned by the repo (`rustup show` installs it), and PowerShell.
    node apps/shell/scripts/stage-ink-recogniser.mjs apps/shell/target/stage --arch=x64
    ```
 
-6. Build the installers (from `apps/shell`):
+5. Build the installers (from `apps/shell`):
 
    ```powershell
    cd apps/shell
@@ -124,11 +118,12 @@ toolchain pinned by the repo (`rustup show` installs it), and PowerShell.
    The output is in `apps/shell/target/release/bundle/` (`msi` and `nsis`
    folders). The MSI is `*.msi`; the NSIS installer is `*-setup.exe`.
 
-7. Delete `apps/shell/target/stage` when done. It holds 100+ MB of sidecar
-   files and CI deletes it before the cache save.
+6. Delete `apps/shell/target/stage` when done. It holds the staged Postgres,
+   and CI deletes it before the cache save.
 
-Bundle resources are set in `apps/shell/tauri.bundle.json`: the sidecar, the
-Postgres build, the ink recogniser (`native/`) and the web export.
+Bundle resources are set in `apps/shell/tauri.bundle.json`: the migrations and
+the MCP bridge (`app/`, straight from `db/` and `plugins/`), the Postgres
+build, the ink recogniser (`native/`) and the web export.
 
 ## Python SDK (`py-vX.Y.Z`)
 

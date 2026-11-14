@@ -193,7 +193,7 @@ export function HeaderActions({
           );
         }
         return (
-          <MenuItemLink key={link.id} href={link.href!} title={TITLES[link.id]} onClick={close}>
+          <MenuItemLink key={link.id} href={link.href!} title={TITLES[link.id]} data-help-id={`account-${link.id}`} onClick={close}>
             <Icon /><span>{link.label}</span>
           </MenuItemLink>
         );
@@ -205,6 +205,7 @@ export function HeaderActions({
     <Popover
       portal
       align="right"
+      helpId="account-menu"
       // The person icon says what it is; a caret beside it made the control look
       // like a disclosure that folds, and animated on every open. The chip's own
       // secondary button, so the pair rests and lifts alike; alone, the icon button.

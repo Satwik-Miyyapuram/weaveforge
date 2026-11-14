@@ -1,6 +1,6 @@
 //! WeaveForge desktop shell on Tauri 2.
 //!
-//! Serves the static web export over the `app` scheme and starts the local database sidecar behind the
+//! Serves the static web export over the `app` scheme and starts the native local database behind the
 //! typed DB commands. The main window gets the `window.weaveforge` bridge as an init script (`shim`),
 //! and the sign-in redirect comes back through the loopback listener (`auth_loopback`).
 
@@ -37,7 +37,6 @@ pub mod mcp_bridge;
 pub mod menu;
 pub mod migrate;
 pub mod model_cache;
-pub mod old_db;
 pub mod outside_gate;
 pub mod overleaf_links;
 pub mod overleaf_live;
@@ -52,7 +51,6 @@ pub mod protocol;
 pub mod range;
 pub mod secrets;
 pub mod shim;
-pub mod sidecar;
 pub mod tex;
 pub mod update_check;
 pub mod vault;
@@ -346,8 +344,15 @@ fn native_db(
     app: &tauri::AppHandle,
     data: &std::path::Path,
     resources: &std::path::Path,
-    source: &launch::SidecarSource,
+    source: &launch::AppSource,
 ) -> Result<commands::NativeDb, String> {
+    // This build cannot read the old PGlite database. Opening an empty one would hide the old
+    // data, so it refuses until 0.9 (which can copy it) has run once.
+    if let Some(old) = migrate::old_pglite_dir(data)
+        && !data.join(OLD_DB_IMPORTED).exists()
+    {
+        return Err(old_db_message(&old));
+    }
     let bin_override = std::env::var_os("WEAVEFORGE_PG_BIN").map(PathBuf::from);
     // initdb cannot run postgres from a `\\?\` path, which Tauri's resource dir has on Windows.
     let resources = launch::without_verbatim_prefix(resources);
@@ -358,26 +363,18 @@ fn native_db(
         .map_err(|e| e.to_string())?;
     let log = app.clone();
     let backups = local_pg::backup::Backups::new(vec![data.join("local-db-backups")]);
-    let mut host = local_pg::host::PgHost::new(
+    let host = local_pg::host::PgHost::new(
         local_pg::host::PgEngine::new(bin, root, Some(backups.clone())),
         launch::migration_dirs(source),
     )
     .with_log(Arc::new(move |line: &str| local_api::warn(&log, line)))
     .with_backups(backups);
-    // A failed copy fails the open, so old data is never hidden behind an empty database.
-    if let Some(old) = migrate::old_pglite_dir(data) {
-        local_api::warn(
-            app,
-            &format!("[local-db] old database to copy: {}", old.display()),
-        );
-        host = host.with_first_open(Arc::new(old_db_import(app, data, &old, source)));
-    }
     let host = Arc::new(host);
     spawn_backups(app, &host);
     Ok(host)
 }
 
-/// How often the native database is backed up while it changes (the sidecar's `BACKUP_EVERY_MS`).
+/// How often the native database is backed up while it changes.
 const BACKUP_EVERY: std::time::Duration = std::time::Duration::from_secs(600);
 
 /// Backs up the native database every `BACKUP_EVERY` when it changed; quitting takes the last one.
@@ -397,39 +394,16 @@ fn spawn_backups(app: &tauri::AppHandle, host: &commands::NativeDb) {
     });
 }
 
-/// Copies the old PGlite database into the native one on its first open, through a sidecar that
-/// runs only for the copy. The marker sits beside the native folder, so discarding that folder does
-/// not copy again.
-fn old_db_import(
-    app: &tauri::AppHandle,
-    data: &std::path::Path,
-    old_dir: &std::path::Path,
-    source: &launch::SidecarSource,
-) -> old_db::StopAfter<local_pg::import::OnceImport> {
-    use tauri::Manager as _;
-    let api = launch::ApiArgs {
-        artifacts: data.join("artifacts"),
-        app_version: app.package_info().version.to_string(),
-        product_name: app.package_info().name.clone(),
-    };
-    // The sidecar migrates the folder it opens, so it gets a copy; the old folder is only read.
-    let copy = data.join("local-pg-import-src");
-    let config = launch::sidecar_config(source, &copy, &data.join("local-db-backups"), &api, None);
-    let old = Arc::new(old_db::OldDb::new(config).with_snapshot(old_dir.to_path_buf(), copy));
-    let _ = app.manage(Arc::clone(&old));
-    let reader = Arc::clone(&old);
-    let rows: local_pg::import::RowsFn = Arc::new(move |sql: String| {
-        let reader = Arc::clone(&reader);
-        Box::pin(async move { reader.rows(sql).await })
-    });
-    old_db::StopAfter {
-        job: local_pg::import::OnceImport {
-            marker: data.join("local-pg.imported"),
-            source: rows,
-            page_rows: 500,
-        },
-        old,
-    }
+/// Marker 0.9 wrote after copying the old PGlite database into the native one.
+const OLD_DB_IMPORTED: &str = "local-pg.imported";
+
+/// Why the database will not open while an old PGlite database is still uncopied.
+fn old_db_message(old: &std::path::Path) -> String {
+    format!(
+        "This WeaveForge can no longer read the old local database at {}. Install WeaveForge 0.9 \
+         and open it once to copy your data, then update again.",
+        old.display()
+    )
 }
 
 /// Opens the native database and manages its `LocalDb`. Any failure is reported through
@@ -439,7 +413,7 @@ fn start_local_db(app: &tauri::AppHandle) {
     let paths = app.path();
     let db = match (paths.app_data_dir(), paths.resource_dir()) {
         (Ok(data), Ok(resources)) => {
-            let source = launch::sidecar_source(resources.clone());
+            let source = launch::app_source(resources.clone());
             let product = app.package_info().name.clone();
             let old = paths
                 .config_dir()
@@ -480,7 +454,7 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
     let variant = paths
         .resource_dir()
         .ok()
-        .map(launch::sidecar_source)
+        .map(launch::app_source)
         .map_or(Some("dev"), |s| launch::home_variant(&s, &product));
     let release = !cfg!(debug_assertions) && variant.is_none();
     let home = paths.home_dir().unwrap_or_default();
@@ -569,14 +543,11 @@ fn stop_local_api(app: &tauri::AppHandle) {
     }
 }
 
-/// Stops Postgres and an import sidecar still running, then drops the database lock.
+/// Stops Postgres, then drops the database lock.
 fn stop_local_db(app: &tauri::AppHandle) {
     use tauri::Manager;
     if let Some(db) = app.try_state::<commands::LocalDb>() {
         tauri::async_runtime::block_on(db.shutdown());
-    }
-    if let Some(old) = app.try_state::<Arc<old_db::OldDb>>() {
-        tauri::async_runtime::block_on(old.stop(launch::SHUTDOWN_GRACE));
     }
     // Drops only this process's lock, after Postgres stopped; a no-op when it never opened.
     if let Ok(data) = app.path().app_data_dir() {
@@ -926,7 +897,11 @@ mod tests {
     fn bundle_ships_the_web_export() {
         let bundle = include_str!("../tauri.bundle.json");
         assert!(bundle.contains("\"dist/web/\": \"web/\""));
-        assert!(bundle.contains("\"target/stage/sidecar/\": \"sidecar/\""));
+        // `launch::migration_dirs` and `launch::bridge_source` look in `<resources>/app`.
+        assert!(bundle.contains("\"../../db/migrations/*.sql\": \"app/migrations/\""));
+        assert!(bundle.contains("\"../../db/migrations-local/*.sql\": \"app/migrations-local/\""));
+        assert!(bundle.contains("\"app/weaveforge-mcp.mjs\""));
+        assert!(!bundle.contains("sidecar"));
         // `local_pg::server::locate_bin` looks in `<resources>/postgres/bin`.
         assert!(bundle.contains("\"target/stage/postgres/\": \"postgres/\""));
     }
