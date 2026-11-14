@@ -25,7 +25,7 @@ export type FilterFacet = {
  * a clear link, then `children` (e.g. a layout switch).
  * A facet with no options is left out.
  */
-export function FilterRow({ label, facets, children }: { label: string; facets: FilterFacet[]; children?: ReactNode }) {
+export function FilterRow({ label, facets, children, helpId }: { label: string; facets: FilterFacet[]; children?: ReactNode; helpId?: string }) {
   const shown = facets.filter((f) => f.options.length > 0);
   const chips = shown.flatMap((f) =>
     f.values.map((v) => ({
@@ -36,7 +36,7 @@ export function FilterRow({ label, facets, children }: { label: string; facets: 
   );
   const hidden = chips.slice(SHOWN_CHIPS);
   return (
-    <div className="filter-row" role="group" aria-label={label}>
+    <div className="filter-row" role="group" aria-label={label} data-help-id={helpId}>
       {shown.map((f) => (
         <MultiSelect
           key={f.id}

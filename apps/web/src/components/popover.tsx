@@ -27,6 +27,7 @@ export function Popover({
   portal = false,
   disabled = false,
   children,
+  helpId,
 }: {
   label: React.ReactNode;
   count?: number;
@@ -64,6 +65,8 @@ export function Popover({
   portal?: boolean;
   /** The panel, or a function of `close` when picking something should shut it. */
   children: React.ReactNode | ((close: () => void) => React.ReactNode);
+  /** `data-help-id` for the user docs' screenshot capture. */
+  helpId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -181,7 +184,7 @@ export function Popover({
       </Button>
     );
   return (
-    <div className="popover" ref={ref}>
+    <div className="popover" ref={ref} data-help-id={helpId}>
       {triggerButton}
       {open &&
         (() => {

@@ -32,7 +32,7 @@ export function ScreenHead({
   /** Status line under the actions, e.g. the result of a sync. */
   note?: ReactNode;
   /** The screen's search box, first in the actions. */
-  search?: { value: string; onChange: (value: string) => void; label: string };
+  search?: { value: string; onChange: (value: string) => void; label: string; helpId?: string };
   /** Extra class on the header, e.g. the graph's focus-mode head. */
   className?: string;
   children?: ReactNode;
@@ -60,6 +60,7 @@ export function ScreenHead({
               onChange={(e) => search.onChange(e.target.value)}
               placeholder={search.label}
               aria-label={search.label}
+              data-help-id={search.helpId}
             />
           )}
           {children}

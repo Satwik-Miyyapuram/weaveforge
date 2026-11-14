@@ -52,6 +52,9 @@ local-dev/
 # demo captures (regenerate locally; README embeds added later)
 docs/demo/
 
+# user-docs site build and its screenshots (scripts/build-user-docs.mjs, capture-docs-shots.mjs)
+docs/.site/
+
 # graphify build artifacts
 graphify-out/
 

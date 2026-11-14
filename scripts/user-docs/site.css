@@ -1,0 +1,322 @@
+/* Docs site layout; tokens and controls come from the app CSS (see docs/plans design-set). */
+
+/* The app gets these from next/font; the docs name the same faces. */
+:root { --font-face-sans: "Rubik"; --font-face-mono: "JetBrains Mono"; --font-face-pixel: "Jersey 10"; }
+
+[hidden] { display: none !important; }
+
+body.docs {
+  margin: 0;
+  background-color: var(--bg);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 calc(1.6em - 1px), color-mix(in srgb, var(--border) 14%, transparent) calc(1.6em - 1px) 1.6em);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-lg);
+  line-height: 1.6;
+}
+
+body.docs kbd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: var(--r-sm);
+  padding: 0 5px;
+}
+
+/* Top bar */
+.docs-top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-block: 10px;
+  padding-inline: max(16px, env(safe-area-inset-left, 0px));
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.docs-brand {
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  margin-right: auto;
+  font-size: var(--fs-lg);
+}
+
+.docs-menu { display: none; }
+
+/* Shell: tree, page, screenshot */
+.docs-shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) minmax(0, 520px);
+  gap: 32px;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px;
+}
+
+body.docs-noshots .docs-shell {
+  grid-template-columns: 240px minmax(0, 1fr);
+}
+
+body.docs-noshots .docs-shot { display: none; }
+
+/* Topic tree */
+.docs-tree {
+  position: sticky;
+  top: 64px;
+  align-self: start;
+  max-height: calc(100vh - 80px);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.docs-tree .wf-nav { display: block; }
+
+.docs-tree-group {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 16px 0 4px;
+}
+
+.docs-tree-group:first-child { margin-top: 0; }
+
+.docs-page { min-width: 0; }
+
+/* Markdown column */
+.docs-md { max-width: 72ch; }
+
+.docs-md h1 { font-size: var(--fs-h1); }
+
+.docs-md h2 {
+  font-size: var(--fs-h2);
+  margin-top: 2em;
+}
+
+.docs-md h3 {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.docs-md > p.docs-stamp { margin: 0 0 16px; }
+
+/* Steps: each step highlights its screenshot */
+/* .markdown ol (markdown.css) indents lists; steps carry their own number. */
+.markdown ol.docs-steps {
+  list-style: none;
+  padding: 0;
+  margin-inline: 0;
+  counter-reset: step;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* :root:root matches the weight of the app's .wf-item rule (states.css). */
+:root:root .docs-step {
+  counter-increment: step;
+  font-size: inherit;
+  font-weight: 400;
+  cursor: default;
+  /* Block, not grid: a step's text mixes inline tags that must stay one line. */
+  display: block;
+  position: relative;
+  padding: 8px 10px 8px 46px;
+  border-radius: var(--r-control);
+  border-left: 3px solid transparent;
+}
+
+:root:root .docs-step[data-shot] { cursor: pointer; }
+
+.docs-step::before {
+  content: counter(step);
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-pill);
+  background: var(--surface2);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  position: absolute;
+  left: 10px;
+  top: 8px;
+}
+
+:root:root .docs-step.is-active {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+}
+
+.docs-step.is-active::before {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* Screenshot pane */
+.docs-shot {
+  position: sticky;
+  top: 72px;
+  align-self: start;
+}
+
+.docs-frame {
+  margin: 0;
+  padding: 8px;
+  box-shadow: var(--sh-overlay);
+}
+
+.docs-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--r-sm);
+  background: var(--surface2);
+  min-height: 120px;
+}
+
+.docs-frame figcaption {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  padding: 8px 4px 0;
+}
+
+/* Home tiles and related pages */
+.docs-tiles,
+.docs-related {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.docs-tiles { margin-top: 24px; }
+
+.docs-related { margin-top: 40px; }
+
+.docs-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.docs-tile span {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.docs-tile:hover { border-color: var(--accent); }
+
+/* Search palette */
+.docs-palette {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  display: grid;
+  justify-items: center;
+  align-items: start;
+  padding-top: 12vh;
+  padding-inline: 16px;
+}
+
+.docs-palette-box {
+  width: min(640px, 100%);
+  padding: 10px;
+  box-shadow: var(--sh-overlay);
+}
+
+.docs-palette input { width: 100%; }
+
+.docs-palette ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.docs-palette li a {
+  display: block;
+  padding: 8px 10px;
+  border-radius: var(--r-control);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.docs-palette li small {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  display: block;
+}
+
+.docs-palette li.is-active a,
+.docs-palette li a:hover { background: var(--accent-soft); }
+
+/* Narrow desktop: screenshot drops below the page */
+@media (max-width: 1200px) {
+  .docs-shell {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .docs-shot {
+    grid-column: 1 / -1;
+    position: static;
+  }
+}
+
+/* Phone: topic tree becomes a slide-in drawer, screenshot sticks to the bottom */
+@media (max-width: 800px) {
+  .docs-shell, body.docs-noshots .docs-shell {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .docs-tree {
+    position: fixed;
+    inset: 0 auto 0 0;
+    top: 0;
+    width: min(300px, 85vw);
+    max-height: none;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 0.2s;
+  }
+
+  body.docs-tree-open .docs-tree { transform: none; }
+
+  .docs-menu { display: inline-flex; }
+
+  .docs-shot {
+    position: sticky;
+    bottom: 0;
+    top: auto;
+    z-index: 10;
+  }
+
+  .docs-frame img {
+    max-height: 38vh;
+    object-fit: contain;
+  }
+
+  .docs-search-btn kbd { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs-tree { transition: none; }
+}

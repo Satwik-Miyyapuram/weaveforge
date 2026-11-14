@@ -79,7 +79,7 @@ export function ProjectsScreen() {
     <section className="screen">
       <ScreenHead>
         {demoButton}
-        <Button variant="primary" onClick={() => setAddOpen(true)}>New project</Button>
+        <Button variant="primary" data-help-id="projects-new" onClick={() => setAddOpen(true)}>New project</Button>
       </ScreenHead>
 
       {demoError && <FormError>{demoError}</FormError>}
@@ -104,6 +104,7 @@ export function ProjectsScreen() {
               <label htmlFor="pname">Name</label>
               <input
                 id="pname"
+                data-help-id="projects-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Latent Spaces Thesis"
@@ -112,7 +113,7 @@ export function ProjectsScreen() {
               />
             </div>
             {error && <FormError>{error}</FormError>}
-            <Button type="submit" variant="primary" disabled={busy}>
+            <Button type="submit" variant="primary" data-help-id="projects-create" disabled={busy}>
               {busy ? "Creating…" : "Create project"}
             </Button>
           </form>

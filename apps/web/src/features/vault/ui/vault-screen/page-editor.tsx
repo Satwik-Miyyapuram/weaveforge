@@ -236,6 +236,7 @@ export function PageEditor({
               if (e.key === "Escape") setTitle(page.title);
             }}
             aria-label="Note title"
+            data-help-id="notes-title"
             autoFocus={focusTitle}
             onFocus={(e) => { if (focusTitle) e.currentTarget.select(); }}
           />

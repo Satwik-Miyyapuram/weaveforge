@@ -1,0 +1,21 @@
+{
+  "notes": {
+    "create-a-note": [
+      { "step": 1, "go": "/notes", "ring": "notes-new" },
+      { "step": 2, "click": "notes-new", "ring": "notes-title" },
+      { "step": 3, "ring": "notes-title" }
+    ],
+    "find-a-note": [
+      { "step": 1, "go": "/notes", "type": { "id": "notes-search", "text": "latent" }, "ring": "notes-search" },
+      { "step": 2, "go": "/notes", "ring": "notes-filters" }
+    ]
+  },
+  "getting-started": {
+    "4-make-a-project": [
+      { "step": 1, "go": "/", "click": "account-menu", "ring": "account-projects" },
+      { "step": 2, "click": "account-projects", "ring": "projects-new" },
+      { "step": 3, "click": "projects-new", "type": { "id": "projects-name", "text": "Latent Spaces Thesis" }, "ring": "projects-name" },
+      { "step": 4, "ring": "projects-create" }
+    ]
+  }
+}

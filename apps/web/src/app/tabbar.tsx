@@ -138,6 +138,7 @@ export function TabBar({
           // that lives only in that span disappears with it, so each item states
           // its own, and the rail's tip reads it (`rail-tip.tsx`).
           aria-label={homeNavItem.label}
+          data-help-id={helpIdFor(homeNavItem.label)}
           onPointerEnter={() => prefetchScreenForPath(homeNavItem.path)}
         >
           <NavIcon name={homeNavItem.icon} />
@@ -161,6 +162,7 @@ export function TabBar({
                 href={item.path}
                 current={active}
                 aria-label={item.label}
+                data-help-id={helpIdFor(item.label)}
                 onPointerEnter={() => prefetchScreenForPath(item.path)}
               >
                 <NavIcon name={item.icon ?? "box"} />
@@ -202,6 +204,7 @@ export function TabBar({
                             href={item.path}
                             current={active}
                             aria-label={item.label}
+                            data-help-id={helpIdFor(item.label)}
                             onPointerEnter={() => prefetchScreenForPath(item.path)}
                           >
                             <NavIcon name={item.icon ?? group.icon} />
@@ -272,4 +275,9 @@ function navStore(): Storage | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** `data-help-id` for a nav entry, e.g. "Notes" -> "nav-notes", for the user docs' screenshots. */
+function helpIdFor(label: string): string {
+  return `nav-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
 }
