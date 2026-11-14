@@ -42,8 +42,8 @@ rmSync(OUT, { recursive: true, force: true });
 cpSync(exported, OUT, { recursive: true });
 
 // The bridge opens the demo project before the app's scripts ask for one.
-const { projectId } = JSON.parse(readFileSync(path.join(demo, "files.json"), "utf8"));
-const TAG = `<script src="/_demo/bridge.js" data-project="${projectId}"></script>`;
+const { projectId, pdfPaperId } = JSON.parse(readFileSync(path.join(demo, "files.json"), "utf8"));
+const TAG = `<script src="/_demo/bridge.js" data-project="${projectId}" data-pdf-paper="${pdfPaperId}"></script>`;
 function inject(dir) {
   for (const name of readdirSync(dir)) {
     const p = path.join(dir, name);
@@ -60,6 +60,6 @@ cpSync(pglite, path.join(assets, "pglite"), {
   recursive: true,
   filter: (src) => !/\.(map|cjs|d\.ts|d\.cts)$/.test(src) && path.basename(src) !== "desktop.ini",
 });
-for (const f of ["db.tar.gz", "files.json"]) cpSync(path.join(demo, f), path.join(assets, f));
+for (const f of ["db.tar.gz", "files.json", "demo-paper.pdf"]) cpSync(path.join(demo, f), path.join(assets, f));
 for (const f of ["demo-query.mjs", "demo-bridge.js"]) cpSync(path.join(here, f), path.join(assets, f === "demo-bridge.js" ? "bridge.js" : f));
 console.log(`demo app -> ${path.relative(root, OUT)}`);

@@ -37,6 +37,10 @@ follow its citations to the reference list, and jump back to any mark you made.
 
 1. If the panel is hidden, click **Show the side panel**.
 
+The PDF in the demo beside this page is *Masked Autoencoders Are Scalable
+Vision Learners* by He et al. ([arXiv:2111.06377](https://arxiv.org/abs/2111.06377)),
+shared under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
 ## Reference
 
 <!-- generated:reader-limits -->

@@ -39,7 +39,7 @@
   // same app shows the page's screen. Readers watch it; it takes no input.
   const steps = [...document.querySelectorAll("ol.docs-steps:not(.docs-steps--static) > li.docs-step")];
   const frames = [...document.querySelectorAll(".docs-view-frame iframe")];
-  const live = new Map(); // iframe -> { ol, loaded, at: step it shows, want: step asked for }
+  const live = new Map(); // iframe -> { ol, off, loaded, at: step it shows, want: step asked for }
 
   function mode() {
     const opt = sel && sel.selectedOptions[0];
@@ -60,10 +60,23 @@
     url.searchParams.set("docsTheme", theme);
     url.searchParams.set("docsMode", mode());
     const s = live.get(frame);
+    s.off = false;
     s.loaded = false;
     s.at = 0;
     frame.src = url.href;
   }
+  // Each demo runs its own database, so only the ones near the screen run at all.
+  function unload(frame) {
+    const s = live.get(frame);
+    s.off = true;
+    s.loaded = false;
+    frame.src = "about:blank";
+  }
+  const near = new IntersectionObserver(entries => entries.forEach(e => {
+    const frame = e.target.querySelector("iframe");
+    if (e.isIntersecting && live.get(frame).off) reload(frame);
+    else if (!e.isIntersecting && !live.get(frame).off) unload(frame);
+  }), { rootMargin: "300px 0px" });
   // Walk the demo forward to step `n`; going back means starting over.
   function go(frame, n) {
     const s = live.get(frame);
@@ -85,17 +98,17 @@
   frames.forEach(frame => {
     const fig = frame.closest("figure");
     const howto = fig.parentElement.matches(".docs-howto") ? fig.parentElement : null;
-    live.set(frame, { ol: howto && howto.querySelector("ol.docs-steps"), loaded: false, at: 0, want: 1 });
+    live.set(frame, { ol: howto && howto.querySelector("ol.docs-steps"), off: true, loaded: false, at: 0, want: 1 });
     fit.observe(frame.parentElement);
+    near.observe(frame.parentElement);
     frame.addEventListener("load", () => {
       const s = live.get(frame);
-      if (!frame.getAttribute("src") || s.loaded) return;
+      if (s.off || s.loaded) return;
       s.loaded = true;
       send(frame, { docsDo: JSON.parse(frame.dataset.docsDo || "[]") });
       s.at = 1;
       go(frame, s.want);
     });
-    reload(frame);
   });
 
   function heading(li) {
@@ -117,7 +130,7 @@
     if (cap) cap.textContent = heading(li) + " · step " + li.dataset.step;
   }
   function refreshViews() {
-    frames.forEach(frame => { if (frame.getAttribute("src")) reload(frame); });
+    frames.forEach(frame => { if (!live.get(frame).off) reload(frame); });
   }
 
   steps.forEach(li => li.addEventListener("click", () => setActive(li)));

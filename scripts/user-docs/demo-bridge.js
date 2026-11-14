@@ -18,6 +18,14 @@
     else localStorage.removeItem("thesis.projectId");
   } catch { /* no storage: sign-in screen */ }
 
+  // The one paper with a PDF (demo-db.mts). The docs name it ?paper=demo, since
+  // its id changes with every build; swapped before the app reads the URL.
+  const pdfPaper = document.currentScript && document.currentScript.dataset.pdfPaper;
+  if (params.get("paper") === "demo" && pdfPaper) {
+    params.set("paper", pdfPaper);
+    history.replaceState(history.state, "", location.pathname + "?" + params + location.hash);
+  }
+
   // The docs open the demo in their own theme (?docsTheme=…&docsMode=…), saved the
   // way apps/web/src/lib/theme/theme.ts reads it, before the app's scripts run.
   const theme = params.get("docsTheme");
@@ -41,8 +49,29 @@
       fetch(BASE + "files.json").then((r) => r.json()),
     ]);
     const db = await PGlite.create({ loadDataDir: data, extensions: { pgcrypto }, parsers: q.DEMO_PARSERS });
+    if (pdfPaper) await cachePdf(pdfPaper).catch(() => {});
     return { db, q, meta };
   })();
+
+  // Put the demo PDF where the reader's browser cache looks for it, keyed by paper
+  // id (IndexedDbPdfByteCache, apps/web/src/features/reader/infrastructure/parts-1.ts).
+  // Done before the database opens, so the reader cannot ask first.
+  async function cachePdf(paperId) {
+    const bytes = await (await fetch(BASE + "demo-paper.pdf")).arrayBuffer();
+    const idb = await new Promise((resolve, reject) => {
+      const req = indexedDB.open("weaveforge-pdf-cache", 1);
+      req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains("pdfs")) req.result.createObjectStore("pdfs", { keyPath: "key" }); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    await new Promise((resolve, reject) => {
+      const tx = idb.transaction("pdfs", "readwrite");
+      tx.objectStore("pdfs").put({ key: paperId, bytes, updatedAt: Date.now() });
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    idb.close();
+  }
 
   const none = async () => null;
   const nothing = async () => undefined;
