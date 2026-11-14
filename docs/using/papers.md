@@ -35,7 +35,7 @@ out what the reference points to, so you do not have to type the metadata.
 
 1. In the **Add paper** dialog, click **…or add from a PDF**, then **Choose PDFs…** and
    pick one or more PDFs. The DOI or title on the first page finds the paper.
-2. Or click **…or import a BibTeX file** and choose a `.bib` or `.bibtex` file.
+2. Or, under **…or import a BibTeX file**, click **Choose .bib file…** and pick a `.bib` or `.bibtex` file.
    Entries with the same DOI or citation key as a paper already in the project are
    skipped.
 
@@ -104,7 +104,7 @@ When a page cannot be imported, WeaveForge says one of these (exact text):
 Reference parsing and page reading are pure text work, done by the Rust core
 (`wf-core`). They make no network calls: the page must be fetched first, and the
 parsers only read the text they are given. Text longer than the core's index
-text limit (16 Mi UTF-16 units) is refused with a length error, not parsed.
+text limit is refused with a length error, not parsed.
 
 Page metadata is read in this order of preference: citation tags, then Dublin
 Core, then JSON-LD, then OpenGraph. The publication date comes from citation

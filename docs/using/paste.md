@@ -266,7 +266,7 @@ page number rather than data, and that the passage was one paragraph the layout
 broke apart.
 
 **Highlights get this for free.** *Copy quote + cite* in the reader, and
-*Insert excerpt* in a report section, both run the repair — a highlight's text is
+**Insert** on a related excerpt in a report section, both run the repair — a highlight's text is
 the PDF's text layer, so it has exactly these problems, every time.
 
 ## Link rules

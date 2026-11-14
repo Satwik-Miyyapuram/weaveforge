@@ -6,14 +6,16 @@ without your approval.
 
 ## How to
 
-1. Turn AI on in Settings and accept the disclosure. Until both are done, the
-   assistant refuses every request.
+1. Go to **Settings → AI**, turn on **Enable AI assistant access**, and accept
+   the disclosure. Until both are done, the assistant refuses every request.
 2. Pick the read categories it may use: paper metadata, paper notes, Zotero
    annotations, reading lists, vault notes, the logbook and experiments.
 3. Pick the proposal kinds it may suggest, such as a new log entry or a paper
    note. A suggestion is a draft that waits for you to approve it.
-4. Start a session. A session grant names the resources, tools and proposal
-   kinds it covers, and it has an expiry date. When the grant expires, the
+4. Click **Start access for N sources**, where N counts the sources you
+   selected, or every eligible source when you did not select any. A session
+   grant names the resources, tools and proposal kinds it covers, and it has an
+   expiry date. When the grant expires, the
    assistant stops until you start a new one.
 
 To ask a question of your library, the search answers from the passages it
