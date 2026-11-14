@@ -33,11 +33,16 @@ test.describe("PDF reader", () => {
 
     // The whole point of R0: the page must fit inside the scroll container
     // rather than overflowing it, which is what the old fixed 135% scale did.
+    // The first render can land before the fit-to-width pass, so poll the
+    // ratio rather than reading it once.
     const scroll = page.locator(".pdf-reader-scroll");
-    const pageWidth = (await canvas.boundingBox())!.width;
-    const hostWidth = (await scroll.boundingBox())!.width;
-    expect(pageWidth).toBeLessThanOrEqual(hostWidth + 1);
-    expect(pageWidth).toBeGreaterThan(hostWidth * 0.5);
+    const ratio = async () => {
+      const pageWidth = (await canvas.boundingBox())?.width ?? 0;
+      const hostWidth = (await scroll.boundingBox())?.width ?? 1;
+      return pageWidth / hostWidth;
+    };
+    await expect.poll(ratio, { timeout: 30_000 }).toBeGreaterThan(0.5);
+    expect(await ratio()).toBeLessThanOrEqual(1.01);
   });
 
   test("zoom controls change the rendered page size", async ({ page }) => {
@@ -46,9 +51,14 @@ test.describe("PDF reader", () => {
     await expect(canvas).toBeVisible({ timeout: 60_000 });
     await expect.poll(async () => (await canvas.boundingBox())?.width ?? 0).toBeGreaterThan(0);
 
-    const before = (await canvas.boundingBox())!.width;
-    await page.getByRole("button", { name: "Zoom in" }).click();
-    await expect.poll(async () => (await canvas.boundingBox())!.width).toBeGreaterThan(before);
+    // A click that lands while the first render is still settling can be lost,
+    // so retry it until the page grows.
+    const width = async () => (await canvas.boundingBox())?.width ?? 0;
+    await expect(async () => {
+      const before = await width();
+      await page.getByRole("button", { name: "Zoom in" }).click();
+      await expect.poll(width, { timeout: 2_000 }).toBeGreaterThan(before);
+    }).toPass({ timeout: 30_000 });
 
     const zoomed = (await canvas.boundingBox())!.width;
     await page.getByRole("button", { name: "Zoom out" }).click();
