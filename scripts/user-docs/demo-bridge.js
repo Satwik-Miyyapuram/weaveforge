@@ -49,7 +49,7 @@
       fetch(BASE + "files.json").then((r) => r.json()),
     ]);
     const db = await PGlite.create({ loadDataDir: data, extensions: { pgcrypto }, parsers: q.DEMO_PARSERS });
-    if (pdfPaper) await cachePdf(pdfPaper).catch(() => {});
+    if (pdfPaper && params.has("paper")) await cachePdf(pdfPaper).catch(() => {});
     return { db, q, meta };
   })();
 
@@ -71,6 +71,12 @@
       tx.onerror = () => reject(tx.error);
     });
     idb.close();
+  }
+
+  if (parent !== window) {
+    const focus = HTMLElement.prototype.focus;
+    HTMLElement.prototype.focus = function (opts) { focus.call(this, { ...opts, preventScroll: true }); reveal(this); };
+    Element.prototype.scrollIntoView = function () { reveal(this); };
   }
 
   const none = async () => null;
@@ -152,11 +158,24 @@
     const name = (el) => words(el.getAttribute("aria-label") || el.getAttribute("title") || el.getAttribute("placeholder") || el.textContent);
     return all.find((el) => name(el) === want) || all.find((el) => name(el).startsWith(want)) || all.find((el) => name(el).includes(want)) || null;
   }
+  // Scroll a control into view inside the demo only. The browser's scrollIntoView
+  // and focus() also scroll the docs page around the frame, which pulls the reader
+  // off the text and swaps which demo runs; the app's own calls go through here too.
+  function reveal(el) {
+    for (let box = el.parentElement; box; box = box.parentElement) {
+      if (box.scrollHeight <= box.clientHeight && box.scrollWidth <= box.clientWidth) continue;
+      const b = box.getBoundingClientRect(), r = el.getBoundingClientRect();
+      if (r.top < b.top) box.scrollTop -= b.top - r.top;
+      else if (r.bottom > b.bottom) box.scrollTop += r.bottom - b.bottom;
+      if (r.left < b.left) box.scrollLeft -= b.left - r.left;
+      else if (r.right > b.right) box.scrollLeft += r.right - b.right;
+    }
+  }
   function show(label) {
     const r0 = ringEl();
     const el = label && find(label);
     if (!el) { r0.style.display = "none"; return; }
-    el.scrollIntoView({ block: "nearest", inline: "nearest" });
+    reveal(el);
     const r = el.getBoundingClientRect();
     Object.assign(r0.style, { display: "block", left: r.left - 6 + "px", top: r.top - 6 + "px", width: r.width + 12 + "px", height: r.height + 12 + "px" });
   }
@@ -191,7 +210,8 @@
     el?.click();
   }
   // Nothing runs before the demo database is open and the app has drawn a control.
-  let queue = ready.then(() => until(() => document.querySelector("button"), 15000), () => {});
+  let queue = ready.then(() => until(() => document.querySelector("button"), 15000), () => {})
+    .then(() => { if (parent !== window) parent.postMessage({ docsReady: true }, "*"); });
   window.addEventListener("message", (e) => {
     const d = e.data || {};
     if (d.docsTheme) document.documentElement.dataset.theme = d.docsTheme;
