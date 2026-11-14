@@ -6,7 +6,9 @@ import {
   cleanPdfSelection,
   cleanSelection,
   cleanTerminalSelection,
+  formattedPasteText,
   moveCommas,
+  pasteCleanupKeymap,
 } from "@/components/markdown/markdown-paste-cleanup";
 import { readyCore } from "@/lib/rust-core";
 
@@ -118,4 +120,62 @@ test("a multi-range selection is transformed range by range", () => {
     },
   });
   assert.equal(next.doc.toString(), "a https://x.example/1 b https://y.example/2 c");
+});
+
+test("paste with formatting converts the HTML when there is some", () => {
+  assert.equal(
+    formattedPasteText({ html: "<b>x</b>", plain: "x" }, false, () => "**x**"),
+    "**x**",
+  );
+});
+
+test("paste with formatting falls back to plain text when there is no usable HTML", () => {
+  const unused = () => {
+    throw new Error("converter must not be called");
+  };
+  const toMarkdown = (h: string) => `md:${h}`;
+  assert.equal(formattedPasteText({ html: null, plain: "p" }, false, toMarkdown), "p");
+  assert.equal(formattedPasteText({ html: "", plain: "p" }, false, toMarkdown), "p");
+  assert.equal(formattedPasteText({ html: "<b>x</b>", plain: "p" }, false, () => "  \n"), "p");
+  assert.equal(formattedPasteText({ html: "<b>x</b>", plain: "p" }, true, unused), "p");
+});
+
+test("paste with formatting converts through the core", () => {
+  const text = formattedPasteText(
+    {
+      html: '<p>Hello <b>bold</b> <a href="https://x.org">link</a></p><ul><li>a</li></ul>',
+      plain: "ignored",
+    },
+    false,
+    (h) => readyCore().htmlToMarkdown(h),
+  );
+  assert.equal(text, "Hello **bold** [link](https://x.org)\n\n- a");
+});
+
+test("paste with formatting strips scripts through the core", () => {
+  const text = formattedPasteText(
+    { html: "<p>ok</p><script>alert(1)</script>", plain: "ignored" },
+    false,
+    (h) => readyCore().htmlToMarkdown(h),
+  );
+  assert.equal(text, "ok");
+});
+
+test("paste with formatting falls back to plain text for images with data: sources", () => {
+  const text = formattedPasteText(
+    { html: '<img src="data:image/png;base64,AA">', plain: "img" },
+    false,
+    (h) => readyCore().htmlToMarkdown(h),
+  );
+  assert.equal(text, "img");
+});
+
+test("the paste keymap binds formatted and plain paste to distinct keys", () => {
+  const bindings = pasteCleanupKeymap({ settings: settings() });
+  const formatted = bindings.find((b) => b.key === "Mod-Shift-v");
+  const plain = bindings.find((b) => b.key === "Mod-Alt-Shift-v");
+  assert.equal(formatted?.run?.name, "pasteWithFormatting");
+  assert.equal(plain?.run?.name, "pastePlainText");
+  const keys = bindings.map((b) => b.key);
+  assert.equal(new Set(keys).size, keys.length);
 });
