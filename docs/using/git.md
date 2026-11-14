@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/app/git
+  - crates/wf-core/src/repos
+checked: 2026-11-13
+---
 # Git
 
 The Git screen lists the branches and recent commits of the repository your

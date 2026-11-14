@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/vault
+  - crates/wf-core/src/vault
+checked: 2026-11-14
+---
 # Notes
 
 A note is a short piece of writing you keep in your project: a derivation, a
@@ -14,7 +20,7 @@ with `#hashtags`.
    a unique title.
 3. The note opens with its title selected, so you can type over it.
 4. Write in the body. Start with **Text**, or switch to **Ink** for a handwritten
-   note.
+   note; [Handwriting](ink.md) shows how to write on the page.
 
 ### Create a note from a link
 
@@ -130,7 +136,7 @@ with `#hashtags`.
 | Mode | Who sees it |
 |---|---|
 | **Text** | You, when you can edit the body |
-| **Ink** | You, for a handwritten note |
+| **Ink** | You, when you can edit the body. A handwritten note opens here |
 | **Read** | People without edit rights. The Text and Ink switch is not shown |
 
 A handwritten (Ink) note, or a shared note, cannot change its title on this screen.

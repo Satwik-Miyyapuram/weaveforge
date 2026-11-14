@@ -1,3 +1,8 @@
+---
+covers:
+  - apps/web/src/app/supervision
+checked: 2026-11-13
+---
 # Supervision
 
 The Supervision screen shows a supervisor the work of the students below them in the lab. You see their milestones and logbook, live or as a check-in they sent. Setting up the lab is covered in [Organisations](organisations.md).

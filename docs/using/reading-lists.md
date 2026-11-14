@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/reading-lists
+  - crates/wf-core/src/reading_lists
+checked: 2026-11-13
+---
 # Reading lists
 
 A reading list is a named group of papers and notes. You make lists on the Lists

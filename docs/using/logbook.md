@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/logbook
+  - crates/wf-core/src/logbook
+checked: 2026-11-13
+---
 # Logbook
 
 The logbook is your daily log. Each entry is a short note on what you did and
