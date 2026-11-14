@@ -1,8 +1,10 @@
 # Settings
 
-Settings hold your appearance, your theme file, your integration keys and the
-acceptance of the privacy disclaimer. They are saved to your account, so they
-follow you to every device you sign in on.
+Settings hold your appearance, your theme file, your integration keys, your
+access tokens, your calendar link and the acceptance of the privacy disclaimer.
+Most of them are saved to your account, so they follow you to every device you
+sign in on. The one exception is integration keys in the desktop app, which stay
+on the computer you are using.
 
 ## How to
 
@@ -10,16 +12,143 @@ follow you to every device you sign in on.
 2. To use your own theme, click **Template** under **Theme file** to download the
    starter file, edit it, and upload it again. A file with a problem is refused, and
    the list of problems tells you what to fix. The app never applies half a theme.
-3. Enter an integration key (for example Zotero or Semantic Scholar). Keys are
-   stored with your settings and read back the same way for every feature that
-   needs them.
+3. Enter an integration key (for example Zotero or Semantic Scholar). In the web app,
+   keys are stored with your settings and read back the same way for every feature
+   that needs them. In the desktop app they are kept on this computer, and signing in
+   does not move them to your account.
 4. When the privacy disclaimer changes, you are asked to accept it again before
    the app opens.
+
+## What is on each tab
+
+The tabs appear in this order.
+
+- **Account**: your account details, and a way to change your password.
+- **Org**: the people in your lab or group, under **People**, with its invite codes.
+- **Appearance**: your light and dark themes, **Button size**, **Animation speed**
+  and the **Theme file** described above.
+- **Search**: how much each field counts in search results. **Push these down the
+  results** lets you pick the items that should rank lower.
+- **Paste**: the switches for cleaning up text when you paste it. See [Paste](paste.md).
+- **Editor**: preferences for how the editor behaves while you write.
+- **Workspace**: the folder your workspace uses on this computer, and **Bring changes
+  back in** for edits the app held back, so you choose which version to keep.
+- **AI**: **AI provider**, where you choose the model and enter its **API key**, and
+  **AI assistant access**, which lets an AI assistant read the sources you pick and
+  propose changes. Every proposed change waits for your review. In the desktop app,
+  this tab also has a section for AI tools on this computer.
+- **Access tokens**: the tokens that let scripts and AI tools reach your workspace.
+  See the two sections below.
+- **Integrations**: the metadata sources for your library. Click one to enter its keys.
+- **Sync**: how your changes are kept in step. **Needs you** lists anything that
+  needs your attention, such as **Changes that could not be saved**.
+- **Calendar**: the private link that puts your deadlines in a calendar app. See
+  the calendar section below.
+- **Data**: **Your data** to export, the **Application log**, **Space on this
+  computer**, and **Delete account** at the bottom if you have an account.
+- **Updates**: the version you are running and any update for the desktop app.
+
+## API tokens
+
+An API token is a key for scripts. With one, a Python script or notebook can send
+experiments, measurements and files into your WeaveForge workspace. It works without
+using your sign-in, so you can revoke it on its own without signing out anywhere.
+
+To make one:
+
+1. Open **Settings** and go to the **Access tokens** tab.
+2. Under **Python SDK access tokens**, click **Generate token**.
+3. Type a **Name** you will recognise later, such as the computer or project it is for.
+   The **Create token** button stays off until you have typed a name.
+4. Pick an **Expiration**: **Never expires**, **7 days**, **30 days**, **90 days**
+   or **1 year**. The choice starts on **90 days**.
+5. Click **Create token**.
+
+Copy it straight away. The new token appears in a window titled **Copy your new
+token**, and that is the only time the full token is shown. Click **Copy token**
+to copy it, and the button changes to **Copied** when it works. Store it somewhere
+safe. If you lose it, you cannot see it again, so make a new one.
+
+The panel shows the install and setup lines for the Python package above the list.
+Put your token where those lines say.
+
+Each token in the list shows its **Name**, a short prefix so you can tell tokens
+apart, when it was created, when it **Expires**, and when it was **Last used**
+(or **Never** if it has not been used yet).
+
+To stop a token working, click **Revoke** on its row. WeaveForge asks **Revoke this
+token?** and warns you that scripts using it will stop working immediately. Click
+**Revoke** to confirm. If a script still needs access, make a new token and put it
+in the script.
+
+## Tokens for AI tools (MCP)
+
+An AI tool such as Codex can read and write your WeaveForge workspace through the
+MCP connection. It signs in with a token of its own, which you make here. For how to
+connect each tool, see [Integrations](integrations.md).
+
+To make one, go to the **Access tokens** tab and find **AI client (MCP) tokens**.
+Click **Create MCP token**. If you already have one, the button says **Create
+replacement** instead. That makes another token, and the existing ones keep working
+until you revoke them.
+
+You do not choose a name for these tokens. WeaveForge names them for you, and each
+row shows its short prefix and when it was last used, or **Not used yet** if it has
+not been used.
+
+Copy the token when it appears. The panel shows it once, so click **Copy** before
+you leave the page. A token for an AI tool does not expire.
+
+To stop an AI tool from connecting, click **Revoke** on its row. WeaveForge asks
+**Revoke this MCP token?** and says that any AI client using it stops working at once.
+
+This section only appears where AI tool tokens are served. In the desktop app, AI
+tools connect to this computer instead; see [Integrations](integrations.md).
+
+## Calendar feed
+
+One private link puts every dated milestone in your calendar app as an all-day
+event, and keeps it up to date as your dates change. Widgets on your phone read the
+same link. In the desktop app there is also a widget for your wallpaper, which reads
+this computer's own copy instead of the link.
+
+On the **Calendar** tab you can choose:
+
+- **Reminder**: **No reminder**, **1 day before** (the default), **3 days before**
+  or **1 week before**.
+- **Include finished milestones**: tick this to keep milestones you have already
+  finished in the calendar. They are left out by default.
+
+To make the link, click **Make a link**. You get two links: the **Calendar link** for
+calendar apps, and the **Widget link** for phone widgets. Click **Copy** next to the
+one you need. The full link is shown only once, right after it is made. After that
+the panel only says a link is on, and shows a short prefix for it.
+
+To add the link to your calendar app, use the "add a calendar from a URL" option in
+the app and paste the **Calendar link** into it:
+
+- **Google Calendar**: add a calendar from a URL in the other calendars menu, and
+  paste the link.
+- **Outlook**: add a calendar that you subscribe to from the web, and paste the link.
+- **Apple Calendar**: open the link straight away. The panel has an **open in
+  calendar app** link that does this.
+
+If you change the options above, you do not need a new link. Click **Copy** again,
+and the same link takes the new options.
+
+To replace the link, click **Make a new link** and confirm **Make new link**. The
+calendars and widgets using the old link stop updating, so you will need to add the
+new one to them. To stop the feed altogether, click **Turn off** and confirm. Their
+events stay in the calendar until you remove that calendar.
+
+**Privacy warning:** the link is a secret. Anyone who has it can see your milestones.
+Do not post it in a chat, a shared document or a
+public place. If you think it has leaked, click **Make a new link** straight away.
 
 ## Reference
 
 Theme files are capped at 64 KB. The file can set up to 24 colours, three
-fonts and three corner radii. Colours must be hex, `rgb()`, `hsl()` or one of
+fonts and three corner radii. Colours must be hex, rgb or hsl, or one of
 four keywords. Font stacks name up to five families, and values with stylesheet
 syntax are rejected. A file reports at most 50 problems.
 
@@ -27,15 +156,12 @@ Appearance settings are checked when they are read back. A value that is not
 recognised is dropped and the default is used. The animation speed is one of
 0.25, 0.5, 1, 2 or 4 times normal.
 
-An integration key is read from the provider's bag first, then from the older
-flat column it used to live in. Keys are written to both places, so an older
-version of the app still finds them.
+An integration key is read from the provider's own entry first, then from the
+older single-column storage it used to live in.
 
 The disclaimer must be accepted again whenever its version is raised. A
 settings row with no acceptance time, or with an older version, asks for it. A
 row with no version counts as version 1, so it is asked again too.
-
-Source: `crates/wf-core/src/settings/`
 
 ## Related
 
