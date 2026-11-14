@@ -7,6 +7,7 @@
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::paste::clean_pasted_text::{clean_pasted_text, paste_lands_in_verbatim_context};
+use wf_core::paste::html_to_markdown::html_to_markdown;
 use wf_core::paste::markdown_link::{escape_link_label, is_bare_url, link_label, markdown_link};
 use wf_core::paste::paste_settings::{
     PasteSettings, normalize_paste_settings, parse_link_removal_text,
@@ -137,6 +138,17 @@ pub fn apply_comma_placement_js(
 pub fn tab_separated_to_markdown_table_js(input: js_sys::JsString) -> JsResult<JsValue> {
     let input = &crate::guarded_text(&input)?;
     to_js(&tab_separated_to_markdown_table(input))
+}
+
+/// [`html_to_markdown`] for JS: clipboard HTML in, Markdown out.
+///
+/// # Errors
+///
+/// Fails when `html` is over the text cap.
+#[wasm_bindgen(js_name = htmlToMarkdown)]
+pub fn html_to_markdown_js(html: js_sys::JsString) -> JsResult<String> {
+    let html = &crate::guarded_text(&html)?;
+    Ok(html_to_markdown(html))
 }
 
 /// Cleans the URLs in `text` with the built-in rules plus the user's `rules`

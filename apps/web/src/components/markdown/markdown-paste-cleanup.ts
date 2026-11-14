@@ -18,7 +18,8 @@ import { readyCore } from "@/lib/rust-core";
  * rewrite acceptable: one Ctrl+Z takes the whole paste back out, rather than
  * peeling off a rule at a time and leaving the writer somewhere in between.
  * Getting the untouched clipboard in is a separate, deliberate act —
- * Ctrl+Shift+V.
+ * Ctrl+Alt+Shift+V, "Paste as plain text". Ctrl+Shift+V pastes a web page or
+ * document with its formatting, as Markdown.
  */
 
 /**
@@ -213,8 +214,49 @@ const selectionToTable: StateCommand = transformSelection(
   (text) => readyCore().tabSeparatedToMarkdownTable(text).text,
 );
 
-/** Pastes the clipboard with no rules applied at all. */
-const pasteWithoutCleanup: Command = (view) => {
+/**
+ * What "Paste with formatting" inserts. Pure so it is testable without a
+ * clipboard: the HTML becomes Markdown, unless there is none, it converts to
+ * nothing, or the caret sits where Markdown would be wrong (a code block or
+ * math), in which case the plain text goes in as it came.
+ */
+export function formattedPasteText(
+  clip: { html: string | null; plain: string },
+  inVerbatim: boolean,
+  toMarkdown: (html: string) => string,
+): string {
+  if (inVerbatim || !clip.html || clip.html.length > MAX_CLEANED_PASTE * 4) return clip.plain;
+  const markdown = toMarkdown(clip.html);
+  return markdown.trim() ? markdown : clip.plain;
+}
+
+/** The clipboard's HTML (if any) and plain text. Empty on no permission. */
+async function readClipboard(): Promise<{ html: string | null; plain: string }> {
+  const clipboard = navigator.clipboard;
+  if (!clipboard) return { html: null, plain: "" };
+  try {
+    if (typeof clipboard.read === "function") {
+      const items = await clipboard.read();
+      let html: string | null = null;
+      let plain = "";
+      for (const item of items) {
+        if (html === null && item.types.includes("text/html")) html = await (await item.getType("text/html")).text();
+        if (!plain && item.types.includes("text/plain")) plain = await (await item.getType("text/plain")).text();
+      }
+      return { html, plain };
+    }
+  } catch {
+    // Fall through to plain text: some browsers refuse `read()` but allow `readText()`.
+  }
+  try {
+    return { html: null, plain: await clipboard.readText() };
+  } catch {
+    return { html: null, plain: "" };
+  }
+}
+
+/** "Paste as plain text": the clipboard exactly as it is, no cleanup. */
+export const pastePlainText: Command = (view) => {
   void navigator.clipboard
     ?.readText()
     .then((text) => {
@@ -225,6 +267,27 @@ const pasteWithoutCleanup: Command = (view) => {
       // command simply does nothing rather than reporting a failure the reader
       // cannot act on.
     });
+  return true;
+};
+
+/** "Paste with formatting": rich clipboard content as Markdown. */
+export const pasteWithFormatting: Command = (view) => {
+  void readClipboard().then((clip) => {
+    const inVerbatim = readyCore().pasteLandsInVerbatimContext(
+      view.state.doc.toString(),
+      view.state.selection.main.from,
+    );
+    // A conversion error (say, HTML over the size cap) falls back to the plain text.
+    const toMarkdown = (html: string) => {
+      try {
+        return readyCore().htmlToMarkdown(html);
+      } catch {
+        return "";
+      }
+    };
+    const text = formattedPasteText(clip, inVerbatim, toMarkdown);
+    if (text) insertAsOneStep(view, text);
+  });
   return true;
 };
 
@@ -245,7 +308,8 @@ export interface PasteCleanupOptions {
 /** Keys for the on-demand cleanups. */
 export function pasteCleanupKeymap(options: PasteCleanupOptions): KeyBinding[] {
   return [
-    { key: "Mod-Shift-v", run: pasteWithoutCleanup, preventDefault: true },
+    { key: "Mod-Shift-v", run: pasteWithFormatting, preventDefault: true },
+    { key: "Mod-Alt-Shift-v", run: pastePlainText, preventDefault: true },
     { key: "Mod-Alt-c", run: cleanSelection(options.settings), preventDefault: true },
     { key: "Mod-Alt-t", run: cleanTerminalSelection, preventDefault: true },
     {
