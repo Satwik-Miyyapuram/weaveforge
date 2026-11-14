@@ -1,0 +1,32 @@
+# Names the how-tos may bold that are not in apps/web/src. Keep it short.
+
+# Labels the app builds from parts the pattern cannot follow
+Pen (P)                       # ink-bar.tsx: `${toolLabel(entry)} (${key})`
+Start access for N sources    # ai-assistant: pluralises with `source${…}`
+
+# Windows SmartScreen and file properties (desktop.md)
+More info
+Run anyway
+Properties
+Unblock
+# macOS Gatekeeper (desktop.md)
+System Settings
+Privacy & Security
+Open Anyway
+# Android package installer (desktop.md)
+Allow from this source
+More details
+Install anyway
+
+# Zotero, GitHub, GitLab and Mattermost screens (integrations.md)
+Create new private key
+Allow library access
+Save Key
+API Key
+User ID
+GitHub Settings
+Developer settings
+GitLab Preferences
+Access Tokens
+Bot Accounts
+View Info

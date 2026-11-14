@@ -28,7 +28,7 @@ Every research asset in WeaveForge belongs to an active project:
 
 ### Creating a Project
 
-1. Click the **Project dropdown** in the top navigation bar (or sidebar).
+1. Click the project dropdown in the top navigation bar (or sidebar).
 2. Click **＋ New project**.
 3. Enter a **Name** (e.g. *"Masters Thesis: Graph Neural Networks"*), an optional
    description, and click **Create**.
@@ -38,7 +38,7 @@ Every research asset in WeaveForge belongs to an active project:
 
 You can maintain multiple concurrent research projects:
 
-- Click the **Project dropdown** in the top header.
+- Click the project dropdown in the top header.
 - Select any project from the list.
 - WeaveForge switches the active workspace instantly: your open tabs, navigation items,
   papers, and notes switch to the selected project without reloading the page.
