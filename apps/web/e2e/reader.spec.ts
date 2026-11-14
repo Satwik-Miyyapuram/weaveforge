@@ -36,16 +36,20 @@ test.describe("PDF reader", () => {
 
     // The whole point of R0: the page must fit inside the scroll container
     // rather than overflowing it, which is what the old fixed 135% scale did.
-    // The first render can land before the fit-to-width pass, so poll the
-    // ratio rather than reading it once.
+    // The first fit can be measured before the layout settles; the refit after
+    // the resize waits 160 ms. So poll until the ratio is in range, not once.
     const scroll = page.locator(".pdf-reader-scroll");
     const ratio = async () => {
       const pageWidth = (await canvas.boundingBox())?.width ?? 0;
       const hostWidth = (await scroll.boundingBox())?.width ?? 1;
       return pageWidth / hostWidth;
     };
-    await expect.poll(ratio, { timeout: 30_000 }).toBeGreaterThan(0.5);
-    expect(await ratio()).toBeLessThanOrEqual(1.01);
+    await expect
+      .poll(async () => {
+        const r = await ratio();
+        return r > 0.5 && r <= 1.01 ? "fits" : `ratio ${r.toFixed(3)}`;
+      }, { timeout: 30_000 })
+      .toBe("fits");
   });
 
   test("zoom controls change the rendered page size", async ({ page }) => {
