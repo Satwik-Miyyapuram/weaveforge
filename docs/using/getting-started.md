@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/startup
+  - apps/web/src/app/page.tsx
+checked: 2026-11-14
+---
 # Getting started
 
 Your first session takes about 10 minutes. You open WeaveForge, make a project,

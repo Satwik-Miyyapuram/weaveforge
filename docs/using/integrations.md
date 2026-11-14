@@ -1,3 +1,10 @@
+---
+covers:
+  - crates/wf-core/src/integrations
+  - crates/wf-core/src/zotero.rs
+  - apps/web/src/integrations
+checked: 2026-11-14
+---
 # Integrations
 
 WeaveForge connects with your existing research tools — reference managers,

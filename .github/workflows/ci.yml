@@ -431,6 +431,21 @@ jobs:
           "${{ github.event.pull_request.base.sha }}"
           "${{ github.event.pull_request.head.sha }}"
 
+  docs-freshness:
+    # Warns, never fails: a docs/using page whose covered code changed after its
+    # `checked:` date gets an annotation (scripts/lib/doc-freshness.mjs).
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          # Dates need history; a shallow clone dates every file to one commit.
+          fetch-depth: 0
+
+      - name: Check docs freshness
+        run: node scripts/check-docs-freshness.mjs
+
   rust:
     # Rust gates for crates/ (plan §4.5). The gate list lives once, in
     # scripts/lib/rust-gates.mjs; pre-push runs the same script.

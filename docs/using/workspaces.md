@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/editor-workspace
+  - crates/wf-core/src/editor_workspace
+checked: 2026-11-14
+---
 # Projects and Workspaces
 
 WeaveForge organizes your research into **projects**. A project is an isolated,

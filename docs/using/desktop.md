@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/shell
+  - apps/android
+checked: 2026-11-14
+---
 # The desktop app
 
 WeaveForge in a window of its own. It is the same app the browser runs — the

@@ -19,6 +19,8 @@
 - [ ] Tests cover the new behaviour, and would fail without this change
 - [ ] No secrets (sign-in keys, server credentials, tokens, passwords) anywhere in the diff
 - [ ] Docs / README / `CHANGELOG.md` updated if behaviour or setup changed
+- [ ] If a user would see this change, the `docs/using` page that covers it is
+      updated in this PR and its `checked:` date set to today
 - [ ] Architecture holds: domain and application layers import no Supabase;
       wiring stays in the composition root (see `docs/building/design.md`)
 

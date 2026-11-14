@@ -1,3 +1,12 @@
+---
+covers:
+  - apps/web/src/features/auth
+  - crates/wf-core/src/account_links.rs
+  - crates/wf-core/src/account_menu.rs
+  - crates/wf-core/src/account_provision.rs
+  - crates/wf-core/src/account_purge.rs
+checked: 2026-11-14
+---
 # Your account
 
 WeaveForge keeps your research in one place, and that place needs to know it is

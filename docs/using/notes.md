@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/vault
+  - crates/wf-core/src/vault
+checked: 2026-11-14
+---
 # Notes
 
 A note is a short piece of writing you keep in your project: a derivation, a

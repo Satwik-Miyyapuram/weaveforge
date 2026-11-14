@@ -1,3 +1,10 @@
+---
+covers:
+  - apps/web/src/features/ai-assistant
+  - crates/wf-core/src/ai
+  - crates/wf-core/src/mcp.rs
+checked: 2026-11-14
+---
 # The AI assistant
 
 The assistant answers questions and drafts changes, but it only sees what you

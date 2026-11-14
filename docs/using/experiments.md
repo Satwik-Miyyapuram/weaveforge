@@ -1,3 +1,10 @@
+---
+covers:
+  - apps/web/src/features/experiments
+  - crates/wf-core/src/experiments.rs
+  - crates/wf-core/src/experiment_rows.rs
+checked: 2026-11-13
+---
 # Experiments
 
 An experiment is one run you can point at: what you changed, what came out, and

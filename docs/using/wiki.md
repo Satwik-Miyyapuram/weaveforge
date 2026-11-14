@@ -1,3 +1,8 @@
+---
+covers:
+  - apps/web/src/features/wiki
+checked: 2026-11-13
+---
 # The wiki
 
 The wiki is a set of notes under a root page called Wiki. The app builds an

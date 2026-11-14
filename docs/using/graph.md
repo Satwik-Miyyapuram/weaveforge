@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/relations
+  - crates/wf-core/src/relations
+checked: 2026-11-13
+---
 # Graph
 
 The graph screen (`/graph`) draws your papers, notes and report sections as dots,

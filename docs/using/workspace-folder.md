@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/workspace
+  - crates/wf-core/src/workspace
+checked: 2026-11-14
+---
 # The workspace folder
 
 WeaveForge can keep a folder of plain Markdown on your disk that mirrors your

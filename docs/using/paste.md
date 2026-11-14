@@ -1,3 +1,8 @@
+---
+covers:
+  - crates/wf-core/src/paste
+checked: 2026-11-14
+---
 # Paste
 
 Text arrives in a note from somewhere else — a PDF column, a terminal window, a

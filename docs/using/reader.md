@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/reader
+  - crates/wf-core/src/reader
+checked: 2026-11-14
+---
 # Reader
 
 The reader opens a paper's PDF next to your notes. You annotate it, search it,

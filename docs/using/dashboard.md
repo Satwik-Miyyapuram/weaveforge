@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/dashboard
+  - crates/wf-core/src/dashboard
+checked: 2026-11-14
+---
 # The dashboard
 
 The dashboard is the front page of a project. It shows your reading progress,

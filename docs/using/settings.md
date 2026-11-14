@@ -1,3 +1,10 @@
+---
+covers:
+  - apps/web/src/features/settings
+  - crates/wf-core/src/settings
+  - apps/web/src/lib/theme
+checked: 2026-11-14
+---
 # Settings
 
 Settings hold your appearance, your theme file, your integration keys, your

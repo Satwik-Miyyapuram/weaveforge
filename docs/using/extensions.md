@@ -1,3 +1,10 @@
+---
+covers:
+  - plugins
+  - apps/web/src/integrations
+  - weaveforge.config.ts
+checked: 2026-11-14
+---
 # Extending WeaveForge
 
 WeaveForge is built as a **modular monolith**: domain logic lives in `@weaveforge/core`, infrastructure is swapped at the composition root, and the UI talks to **facades** — not supabase-js, not repositories, not third-party SDKs.

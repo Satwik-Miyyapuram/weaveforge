@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/plan
+  - crates/wf-core/src/plan
+checked: 2026-11-13
+---
 # Plan
 
 The plan screen lists your milestones: dated points you are steering by, such as a

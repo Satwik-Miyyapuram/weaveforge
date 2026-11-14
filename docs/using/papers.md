@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/papers
+  - crates/wf-core/src/papers
+checked: 2026-11-14
+---
 # Papers
 
 A paper is a reference you keep in your project: its title, authors, DOI or arXiv

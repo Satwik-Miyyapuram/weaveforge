@@ -1,3 +1,12 @@
+---
+covers:
+  - apps/web/src/features/overleaf
+  - apps/web/src/features/export
+  - crates/wf-core/src/overleaf
+  - crates/wf-core/src/overleaf.rs
+  - crates/wf-core/src/overleaf_export_package.rs
+checked: 2026-11-14
+---
 # Using citations, excerpts, and Overleaf export
 
 How WeaveForge connects reading (Zotero) → notes → report writing → LaTeX.
