@@ -15,7 +15,20 @@ import { marked } from "marked";
 
 import { frontMatter } from "./lib/doc-freshness.mjs";
 import { ROOT } from "./lib/repo-stats.mjs";
-import { decorate, plainText, slug, stripFrontMatter } from "./lib/user-docs.mjs";
+import {
+  decorate,
+  fasterWay,
+  listItems,
+  noteSteps,
+  plainText,
+  readMinutes,
+  relatedStems,
+  sections,
+  slug,
+  stripFrontMatter,
+  stuckToDetails,
+  tableFacts,
+} from "./lib/user-docs.mjs";
 
 const SRC = path.join(ROOT, "docs/using");
 const OUT = path.join(ROOT, "docs/.site");
@@ -77,18 +90,14 @@ const themes = themeOptions();
 const themeIds = themes.flatMap(([, list]) => list.map(([id]) => id));
 const css = appCss();
 
-// A tile shows the page's first sentence, cut at a word if it runs long.
-const blurb = (text) => {
-  const sentence = text.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text;
-  return sentence.length <= 140 ? sentence : `${sentence.slice(0, 140).replace(/\s+\S*$/, "")}…`;
-};
-const tile = (page) => `<a class="card docs-tile" href="${page.stem}.html"><b>${esc(page.title)}</b><span>${esc(blurb(page.intro))}</span></a>`;
 
-function shell({ stem, title, main, shots, home = false }) {
+const ISSUES = "https://github.com/Satwik-Miyyapuram/weaveforge/issues/new";
+
+function shell({ stem, title, main, home = false }) {
   const tree = groups
     .map(([name, stems]) => {
-      const links = stems.map((s) => `<a class="wf-nav" href="${s}.html"${s === stem ? ' aria-current="page"' : ""}>${esc(byStem.get(s).title)}</a>`);
-      return `<p class="docs-tree-group">${name}</p>\n${links.join("\n")}`;
+      const links = stems.map((s) => `<a href="${s}.html"${s === stem ? ' aria-current="page"' : ""}>${esc(byStem.get(s).title)}</a>`);
+      return `<p class="docs-hand">${name}</p>\n${links.join("\n")}`;
     })
     .join("\n");
   const picker = themes
@@ -106,24 +115,24 @@ function shell({ stem, title, main, shots, home = false }) {
 ${css.map((file) => `<link rel="stylesheet" href="app/${file}">`).join("\n")}
 <link rel="stylesheet" href="site.css">
 </head>
-<body class="docs${shots ? "" : " docs-noshots"}${home ? " docs-home" : ""}" data-page="${stem}">
-<header class="docs-top">
-<button class="wf-btn wf-ghost wf-icon docs-menu" aria-label="Topics" data-docs-menu><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-<a class="docs-brand" href="index.html">WeaveForge help</a>
-<button class="wf-btn wf-ghost docs-search-btn" data-docs-search>Search <kbd>Ctrl K</kbd></button>
+<body class="docs${home ? " docs-home" : ""}" data-page="${stem}">
+<header class="docs-wrap docs-top">
+<button class="docs-menu" aria-label="All topics" aria-expanded="false" data-docs-menu><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+<a class="docs-brand" href="index.html">WeaveForge <i class="docs-hand">help notebook</i></a>
+<nav class="docs-topnav"><a href="getting-started.html">Start here</a><a href="index.html#stages">I want to…</a></nav>
+<button class="docs-search docs-sketchy" data-docs-search>Look something up <kbd>Ctrl K</kbd></button>
 <select class="wf-select docs-theme" data-docs-theme aria-label="Theme">${picker}</select>
 </header>
-<div class="docs-shell">
-<nav class="docs-tree" aria-label="Topics">
+<div class="docs-backdrop" data-docs-backdrop hidden></div>
+<nav class="docs-tree docs-sheet" aria-label="All topics">
 ${tree}
 </nav>
-<main class="docs-page">
+<main class="docs-wrap${home ? "" : " docs-page"}">
 ${main}
 </main>
-${home ? "" : aside(stem, shots)}
-</div>
+<footer class="docs-foot"><div class="docs-wrap"><a href="index.html#stages">All topics</a><a href="release-notices.html">What's new</a><a href="${ISSUES}">Report a problem with the docs</a></div></footer>
 <div class="docs-palette" data-docs-palette hidden>
-<div class="card docs-palette-box"><input class="wf-input" data-docs-palette-input placeholder="Search help" aria-label="Search help"><ul data-docs-palette-list></ul></div>
+<div class="docs-palette-box"><input data-docs-palette-input placeholder="Search help" aria-label="Search help"><ul data-docs-palette-list></ul></div>
 </div>
 <script src="search-index.js"></script>
 <script src="site.js"></script>
@@ -132,80 +141,120 @@ ${home ? "" : aside(stem, shots)}
 `;
 }
 
-// The margin beside a page: the step picture, then notes in the notebook's margin.
-function aside(stem, shots) {
-  const toc = byStem.get(stem).tasks.slice(0, 8).map(([id, text]) => `<a href="#${id}">${esc(text)}</a>`);
-  const notes = [
-    shots ? `<p class="docs-note">Click a step and the picture shows you where.</p>` : "",
-    toc.length ? `<nav class="docs-margin-list" aria-label="On this page"><p class="docs-note">On this page</p>${toc.join("")}</nav>` : "",
-  ].join("");
-  const frame = shots ? `<figure class="card docs-frame"><img data-docs-shot alt=""><figcaption data-docs-shot-caption></figcaption></figure>` : "";
-  return `<aside class="docs-shot" aria-live="polite">\n${frame}${notes}\n</aside>`;
+const card = (title, body) => `<div class="docs-card"><b class="docs-hand">${title}</b>${body}</div>`;
+
+// The notebook's right margin: a hand note, the short cards, and "Did this help?".
+function margin(page, parts, shots) {
+  const how = parts.find((p) => p.id === "how-to");
+  const psst = shots
+    ? `<p class="docs-note">psst, click a step and the picture shows you where.</p>`
+    : `<p class="docs-note">psst, ${page.tasks.length ? "pick a how-to:" : "it's a short one."}</p>`;
+  const toc = !shots && how && page.tasks.length ? `<nav class="docs-toc" aria-label="On this page">${page.tasks.map(([id, text]) => `<a href="#${id}">${esc(text)}</a>`).join("")}</nav>` : "";
+  const faster = fasterWay(plainText(page.html));
+  const known = parts.find((p) => p.id === "good-to-know");
+  const facts = known
+    ? listItems(known.body).slice(0, 4)
+    : tableFacts(parts.find((p) => p.id === "reference")?.body ?? "", 4).map(([k, v]) => `${esc(k)}: ${esc(v)}`);
+  const vote = `<div class="docs-note docs-note--tilt docs-vote" data-docs-vote>Did this help? <button class="docs-sketchy" data-vote="yes">yes</button><button class="docs-sketchy" data-vote="no">not really</button>
+<span data-vote-yes hidden>Thanks! Glad it did.</span><span data-vote-no hidden>Sorry. <a href="${ISSUES}">Tell us what was missing</a>.</span></div>`;
+  return `<aside class="docs-margin">
+${psst}${toc}
+${faster ? card("Faster way", `<p>${esc(faster)}</p>`) : ""}
+${facts.length ? card("Good to know", `<ul>${facts.map((f) => `<li>${f}</li>`).join("")}</ul>`) : ""}
+${vote}
+</aside>`;
 }
 
 function pageHtml(page) {
   const [groupName, group] = groups.find(([, stems]) => stems.includes(page.stem));
-  const stamp = page.checked ? `\n<p class="docs-stamp"><span class="wf-chip">Checked ${page.checked}</span></p>` : "";
+  const { head, parts } = sections(page.html);
+  const shots = page.html.includes("data-shot=");
+  const minutes = readMinutes(plainText(page.html));
+  const chips = [
+    page.tasks.length ? `${page.tasks.length} how-to${page.tasks.length === 1 ? "" : "s"}` : "",
+    `${minutes} min read`,
+    page.checked ? `Checked ${page.checked}` : "",
+  ].filter(Boolean);
+  const top = head
+    .replace(/<p>/, '<p class="docs-promise">')
+    .replace(/(<p class="docs-promise">[\s\S]*?<\/p>)/, `$1\n<p class="docs-chips">${chips.map((c) => `<span>${c}</span>`).join("")}</p>`);
+  const figure = shots ? `<figure class="docs-taped docs-figure"><img data-docs-shot alt=""><figcaption data-docs-shot-caption></figcaption></figure>\n` : "";
+  const body = parts
+    .filter((p) => p.id !== "related" && p.id !== "good-to-know")
+    .map((p) => {
+      const inner = p.id === "how-to" ? noteSteps(p.body) : p.id === "stuck" ? stuckToDetails(p.body) : p.body;
+      return `<h2 id="${p.id}">${esc(p.title)}</h2>\n${inner}`;
+    })
+    .join("");
+  const related = relatedStems(parts.find((p) => p.id === "related")?.body ?? "").filter((s) => byStem.has(s) && s !== page.stem);
+  const next = (related.length ? related : group.filter((s) => s !== page.stem)).slice(0, 4);
   const crumb = `<p class="docs-crumb"><a href="index.html">Notebook</a> › <a href="index.html#${slug(groupName)}">${groupName}</a></p>\n`;
-  const article = crumb + page.html.replace(/(<\/h1>)/, `$1${stamp}`);
-  const related = group.filter((stem) => stem !== page.stem).slice(0, 3).map((stem) => tile(byStem.get(stem)));
-  const main = `<article class="docs-md markdown docs-sheet">\n${article}\n<h2 id="up-next">Up next</h2>\n<nav class="docs-related" aria-label="Related">${related.join("")}</nav>\n</article>`;
-  return shell({ stem: page.stem, title: page.title, main, shots: page.html.includes("data-shot=") });
+  const upNext = next.length
+    ? `<h2 id="up-next">Up next</h2>\n<nav class="docs-next" aria-label="Up next">${next.map((s) => `<a class="docs-sketchy" href="${s}.html">→ ${esc(byStem.get(s).title)}</a>`).join("")}</nav>`
+    : "";
+  const main = `<article class="docs-sheet docs-md markdown">
+${crumb}${top}${figure}${body}${upNext}
+</article>
+${margin(page, parts, shots)}`;
+  return shell({ stem: page.stem, title: page.title, main });
 }
 
-// What each part of the notebook is for, in the reader's words.
+// What each part of the notebook is for, in the reader's words, plus a margin note.
 const STAGE_LINES = {
-  "Start here": "Set up and find your way",
-  "Your research": "Collect and read papers",
-  Writing: "Think, write and log the work",
-  "Working together": "Share with your group",
-  "App and data": "Connect and extend",
+  "Start here": "do this first",
+  "Your research": "most people's first stop",
+  Writing: "think, write, log",
+  "Working together": "share with your group",
+  "App and data": "connect and extend",
 };
 
-// A stage sheet lists each page as a task, with the page's first how-tos under it.
-function stage([name, stems]) {
+function stage([name, stems], i) {
   const rows = stems.map((s) => {
     const page = byStem.get(s);
-    const sub = page.tasks.slice(0, 2).map(([id, text]) => `<a href="${s}.html#${id}">${esc(text)}</a>`).join("");
-    return `<li><a class="docs-task" href="${s}.html">${esc(page.title)}</a>${sub ? `<span class="docs-subtasks">${sub}</span>` : ""}</li>`;
+    const n = page.tasks.length ? `<small>${page.tasks.length} how-to${page.tasks.length === 1 ? "" : "s"}</small>` : "";
+    return `<li><a href="${s}.html">${esc(page.title)}</a>${n}</li>`;
   });
-  const line = STAGE_LINES[name] ? `<p class="docs-note">${STAGE_LINES[name]}</p>` : "";
-  return `<section class="card docs-sheet docs-stage" id="${slug(name)}">\n<h3>${name}</h3>${line}\n<ul class="docs-checklist">${rows.join("")}</ul>\n</section>`;
+  const note = STAGE_LINES[name] ? ` <small class="docs-hand">${STAGE_LINES[name]}</small>` : "";
+  return `<section class="docs-sheet docs-stage${i % 2 ? " docs-tilt-r" : " docs-tilt-l"}" id="${slug(name)}">\n<h2>${name}${note}</h2>\n<ul>${rows.join("")}</ul>\n</section>`;
 }
 
 const DOORS = [
-  ["getting-started", "Start from zero", "Install, sign in and make your first project."],
-  ["sync", "Move between devices", "Keep laptop, web and phone in step."],
-  ["release-notices", "What changed", "Notices about new versions."],
+  ["getting-started", "Start from zero"],
+  ["sync", "Move between devices"],
+  ["search", "Find anything"],
+  ["release-notices", "What changed"],
 ];
 
 function homeHtml() {
+  const howtos = pages.reduce((n, p) => n + p.tasks.length, 0);
   const hero = `<section class="docs-hero">
-<div class="docs-hero-text">
-<p class="docs-kicker">WeaveForge help notebook</p>
-<h1>Your research, one page at a time.</h1>
-<p>Each page is one part of WeaveForge, written as short how-tos you can follow with the app open beside you.</p>
-<p class="docs-hero-actions"><a class="wf-btn wf-primary" href="getting-started.html">Start here</a><button class="wf-btn wf-ghost" data-docs-search>Look something up <kbd>Ctrl K</kbd></button></p>
+<div>
+<p class="docs-hand docs-kicker">Day 1 of your PhD, probably.</p>
+<h1>Your research, <span class="docs-mark">one page at a time.</span></h1>
+<p class="docs-promise">The notebook we wish we had: how to read, write and keep track of your research in WeaveForge, with notes in the margins.</p>
 </div>
-<div class="docs-hero-margin">
-<p class="docs-note">New here? Start with the first sheet and work down.</p>
-<p class="docs-note">Press <kbd>/</kbd> anywhere to search every how-to.</p>
-<p class="docs-note">The theme menu up top has all ${themeIds.length} app themes.</p>
+<div class="docs-pic">
+<div class="docs-taped docs-index-card">
+<p class="docs-hand">How this notebook works</p>
+<ol class="docs-steps docs-steps--static">
+<li class="docs-step">Pick a sheet below, or press <kbd>Ctrl K</kbd>.</li>
+<li class="docs-step">Keep WeaveForge open and follow the numbered steps.</li>
+<li class="docs-step">Stuck? Open the questions at the bottom of the page.</li>
+</ol>
+</div>
+<svg class="docs-arrow" viewBox="0 0 60 60" width="60" height="60" aria-hidden="true"><path d="M40 4 C50 30 30 46 24 56" /><path d="M16 48 L24 56 L30 46" /></svg>
+<span class="docs-note docs-pic-note">${pages.length} pages, ${howtos} how-tos</span>
 </div>
 </section>`;
-  const doors = DOORS.filter(([s]) => byStem.has(s)).map(
-    ([s, head, text]) => `<a class="card docs-tile" href="${s}.html"><b>${head}</b><span>${text}</span></a>`,
-  );
-  const main = `<article class="docs-home-page">
-${hero}
-<h2 id="stages">I want to… <span class="docs-note">pick where you are</span></h2>
+  const doors = DOORS.filter(([s]) => byStem.has(s)).map(([s, text]) => `<a class="docs-sketchy" href="${s}.html">${text}</a>`);
+  const main = `${hero}
+<h2 class="docs-sec" id="stages">I want to… <small class="docs-hand">(pick where you are)</small></h2>
 <div class="docs-stages">
 ${groups.map(stage).join("\n")}
 </div>
-<h2 id="other-ways-in">Other ways in</h2>
-<nav class="docs-related" aria-label="Other ways in">${doors.join("")}</nav>
-</article>`;
-  return shell({ stem: "index", title: "Home", main, shots: false, home: true });
+<h2 class="docs-sec">Other ways in</h2>
+<nav class="docs-doors" aria-label="Other ways in">${doors.join("")}</nav>`;
+  return shell({ stem: "index", title: "Home", main, home: true });
 }
 
 // One entry per page and per h2/h3, for the Ctrl K palette.

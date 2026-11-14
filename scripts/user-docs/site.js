@@ -1,4 +1,4 @@
-// Docs site behaviour: theme switch, step picture, search palette, phone menu.
+// Docs site behaviour: theme switch, steps and picture, search palette, topics drawer, vote.
 // The generator also inlines a 1-line head script for no-flash; this file does not touch it.
 (function () {
   "use strict";
@@ -33,8 +33,8 @@
     refreshShot();
   });
 
-  // Step picture
-  const steps = [...document.querySelectorAll("li.docs-step[data-shot]")];
+  // Steps: one active step per list (the filled circle); a step with a picture also shows it.
+  const steps = [...document.querySelectorAll("ol.docs-steps:not(.docs-steps--static) > li.docs-step")];
   const img = document.querySelector("[data-docs-shot]");
   const cap = document.querySelector("[data-docs-shot-caption]");
   const fig = img && img.closest("figure");
@@ -46,11 +46,13 @@
     while (p && p.tagName !== "H3") p = p.previousElementSibling;
     return p ? p.textContent.trim() : "";
   }
+  function mark(li) {
+    li.parentElement.querySelectorAll(":scope > li").forEach(s => s.classList.toggle("is-active", s === li));
+  }
   function setActive(li) {
+    mark(li);
+    if (!img || !li.dataset.shot) return;
     current = li;
-    steps.forEach(s => s.classList.remove("is-active"));
-    li.classList.add("is-active");
-    if (!img) return;
     img.src = li.dataset.shot + "." + theme + ".png";
     img.alt = li.textContent.trim();
     if (cap) cap.textContent = heading(li) + " · step " + li.dataset.step;
@@ -64,15 +66,19 @@
   }
   if (img) img.onload = () => { if (fig) fig.hidden = false; };
 
-  if (steps.length) {
-    steps.forEach(li => li.addEventListener("click", () => setActive(li)));
+  steps.forEach(li => li.addEventListener("click", () => setActive(li)));
+  document.querySelectorAll("ol.docs-steps:not(.docs-steps--static)").forEach(ol => {
+    if (ol.firstElementChild) mark(ol.firstElementChild);
+  });
+  const shotSteps = steps.filter(li => li.dataset.shot);
+  if (shotSteps.length && img) {
     if ("IntersectionObserver" in window) {
       const io = new IntersectionObserver(entries => {
         entries.forEach(e => { if (e.isIntersecting) setActive(e.target); });
       }, { rootMargin: "-35% 0px -55% 0px" });
-      steps.forEach(s => io.observe(s));
+      shotSteps.forEach(s => io.observe(s));
     }
-    setActive(steps[0]);
+    setActive(shotSteps[0]);
   }
 
   // Search palette
@@ -160,12 +166,33 @@
     });
   }
 
-  // Phone menu
+  // Topics drawer: the menu button opens it at every width; backdrop, Escape or a link closes it.
   const menu = document.querySelector("[data-docs-menu]");
-  if (menu) menu.addEventListener("click", () => document.body.classList.toggle("docs-tree-open"));
-  document.querySelectorAll(".docs-tree a").forEach(a =>
-    a.addEventListener("click", () => document.body.classList.remove("docs-tree-open")));
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") document.body.classList.remove("docs-tree-open");
-  });
+  const backdrop = document.querySelector("[data-docs-backdrop]");
+  function drawer(open) {
+    document.body.classList.toggle("docs-tree-open", open);
+    if (backdrop) backdrop.hidden = !open;
+    if (menu) menu.setAttribute("aria-expanded", String(open));
+  }
+  if (menu) menu.addEventListener("click", () => drawer(!document.body.classList.contains("docs-tree-open")));
+  if (backdrop) backdrop.addEventListener("click", () => drawer(false));
+  document.querySelectorAll(".docs-tree a").forEach(a => a.addEventListener("click", () => drawer(false)));
+  document.addEventListener("keydown", e => { if (e.key === "Escape") drawer(false); });
+
+  // "Did this help?": answered on this device only, nothing is sent.
+  const vote = document.querySelector("[data-docs-vote]");
+  if (vote) {
+    const page = document.body.dataset.page;
+    const show = v => {
+      vote.querySelectorAll("button").forEach(b => { b.hidden = true; });
+      const msg = vote.querySelector("[data-vote-" + v + "]");
+      if (msg) msg.hidden = false;
+    };
+    const was = load("wf-docs-vote:" + page);
+    if (was === "yes" || was === "no") show(was);
+    vote.querySelectorAll("button[data-vote]").forEach(b => b.addEventListener("click", () => {
+      save("wf-docs-vote:" + page, b.dataset.vote);
+      show(b.dataset.vote);
+    }));
+  }
 })();
