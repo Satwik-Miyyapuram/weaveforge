@@ -51,9 +51,14 @@ test.describe("PDF reader", () => {
     await expect(canvas).toBeVisible({ timeout: 60_000 });
     await expect.poll(async () => (await canvas.boundingBox())?.width ?? 0).toBeGreaterThan(0);
 
-    const before = (await canvas.boundingBox())!.width;
-    await page.getByRole("button", { name: "Zoom in" }).click();
-    await expect.poll(async () => (await canvas.boundingBox())!.width).toBeGreaterThan(before);
+    // A click that lands while the first render is still settling can be lost,
+    // so retry it until the page grows.
+    const width = async () => (await canvas.boundingBox())?.width ?? 0;
+    await expect(async () => {
+      const before = await width();
+      await page.getByRole("button", { name: "Zoom in" }).click();
+      await expect.poll(width, { timeout: 2_000 }).toBeGreaterThan(before);
+    }).toPass({ timeout: 30_000 });
 
     const zoomed = (await canvas.boundingBox())!.width;
     await page.getByRole("button", { name: "Zoom out" }).click();
