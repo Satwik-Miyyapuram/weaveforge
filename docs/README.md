@@ -25,6 +25,7 @@ For somebody using the app.
 - [Papers](using/papers.md) — pasting a DOI, arXiv id or page, duplicate matching, and what the import refuses
 - [Reader](using/reader.md) — opening a paper's PDF, annotating it, and following its citations
 - [Notes](using/notes.md) — creating, importing, renaming and tagging notes, and deleting with Undo
+- [Tags](using/tags.md) — adding tags to notes and papers, finding everything with one tag, and removing one
 - [Handwriting](using/ink.md) — writing and drawing on a page, figures, recognition, printing and shortcuts
 - [Reading lists](using/reading-lists.md) — grouping papers by theme, sublists, screening and comparison tables
 - [Graph](using/graph.md) — relations between papers, finding citations, filters and export
