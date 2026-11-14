@@ -7949,19 +7949,6 @@ export function encodeShareLinkToken(token) {
 }
 
 /**
- * [`local_db_engine_params::engine_start_params`]: `defaults` (a string array) with the shared-buffers flags appended.
- * @param {readonly string[]} defaults
- * @returns {string[]}
- */
-export function engineStartParams(defaults) {
-    const ret = wasm.engineStartParams(defaults);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
  * [`wf_core::sync::folder_layout::entity_dir`] for JS.
  *
  * # Errors
@@ -11383,6 +11370,34 @@ export function htmlProxyPath() {
 }
 
 /**
+ * [`html_to_markdown`] for JS: clipboard HTML in, Markdown out.
+ *
+ * # Errors
+ *
+ * Fails when `html` is over the text cap.
+ * @param {string} html
+ * @returns {string}
+ */
+export function htmlToMarkdown(html) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.htmlToMarkdown(html);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * `(HTTP 502 Bad Gateway from /api/x)`: the status line and the URL's path (`httpContext`).
  * @param {string} url
  * @param {number} status
@@ -11649,6 +11664,29 @@ export function imagesOf(metadata) {
     var v1 = getArrayJsValueFromWasm0(ret[0], ret[1]);
     wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
     return v1;
+}
+
+/**
+ * [`onenote::import_section`]: a `.one` section's pages as text, images and ink strokes.
+ *
+ * # Errors
+ *
+ * Fails when the bytes are not a OneNote section, are over the size cap, or
+ * the result cannot be converted to JS.
+ * @param {Uint8Array} bytes
+ * @param {string} file_name
+ * @returns {B.OneNoteSection}
+ */
+export function importOneNoteSection(bytes, file_name) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(file_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.importOneNoteSection(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -15813,23 +15851,6 @@ export function localBlobUnsignedIndices(here) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`local_db_engine_params::LOCAL_DB_SHARED_BUFFERS`]: the `shared_buffers` value the local engine runs with.
- * @returns {string}
- */
-export function localDbSharedBuffers() {
-    let deferred1_0;
-    let deferred1_1;
-    try {
-        const ret = wasm.localDbSharedBuffers();
-        deferred1_0 = ret[0];
-        deferred1_1 = ret[1];
-        return getStringFromWasm0(ret[0], ret[1]);
-    } finally {
-        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-    }
 }
 
 /**
@@ -21249,24 +21270,6 @@ export function parseRollupOptions(options) {
  */
 export function parseSemanticScholar(body) {
     const ret = wasm.parseSemanticScholar(body);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`parse_sidecar_args`](wf_core::sidecar_args::parse_sidecar_args): `{ kind: "ok", ... }` or `{ kind: "error", message }`
- * for an array of argv strings (without the program name).
- *
- * # Errors
- *
- * Fails when `argv` is not an array of strings, or when the result cannot be converted to a JS value.
- * @param {readonly string[]} argv
- * @returns {{ kind: "ok"; dataDir: string; migrations: string[]; backupsDir: string; migrateFrom: string | null; artifacts: string | null; bridge: string | null; appVersion: string | null; homeVariant: string | null; noLocalApi: boolean } | { kind: "error"; message: string }}
- */
-export function parseSidecarArgs(argv) {
-    const ret = wasm.parseSidecarArgs(argv);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -31236,102 +31239,6 @@ export function wikiSourceDocuments(pages, papers, sourceIds) {
     var ptr0 = isLikeNone(sourceIds) ? 0 : passArrayJsValueToWasm0(sourceIds, wasm.__wbindgen_malloc);
     var len0 = WASM_VECTOR_LEN;
     const ret = wasm.wikiSourceDocuments(pages, papers, ptr0, len0);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`error_reply`](wire::error_reply). `id` is a JS number or `null`.
- *
- * # Errors
- *
- * Fails if `id` is neither a non-negative integer nor `null`.
- * @param {number | null} id
- * @param {string} error
- * @returns {Record<string, unknown>}
- */
-export function wireErrorReply(id, error) {
-    const ptr0 = passStringToWasm0(error, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.wireErrorReply(id, ptr0, len0);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`ok_reply_head`](wire::ok_reply_head): `{id, ok: true}`, to which the shell adds `value`.
- *
- * # Errors
- *
- * Fails if `id` is not a non-negative integer.
- * @param {number} id
- * @returns {{ id: number; ok: true }}
- */
-export function wireOkReplyHead(id) {
-    const ret = wasm.wireOkReplyHead(id);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`parse_request`](wire::parse_request) as `{ok: true, id, method, params?}`
- * or `{ok: false, error}`.
- *
- * # Errors
- *
- * Fails only if the result cannot be turned into a JS value.
- * @param {string} line
- * @returns {{ ok: true; id: number; method: string; params?: unknown } | { ok: false; error: string }}
- */
-export function wireParseRequest(line) {
-    const ptr0 = passStringToWasm0(line, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.wireParseRequest(ptr0, len0);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`route_line`](wire::route_line) as `{kind, ...}`: `skip`, `reply`, `call`,
- * `settle`, or `badAnswer`.
- *
- * # Errors
- *
- * Fails only if the decision cannot be turned into a JS value.
- * @param {string} line
- * @param {boolean} accept_answers
- * @returns {{ kind: "skip" } | { kind: "reply"; reply: Record<string, unknown> } | { kind: "call"; id: number; method: string; params?: unknown } | { kind: "settle"; answer: number; ok: true; value: unknown } | { kind: "settle"; answer: number; ok: false; error: string } | { kind: "badAnswer" }}
- */
-export function wireRoute(line, accept_answers) {
-    const ptr0 = passStringToWasm0(line, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.wireRoute(ptr0, len0, accept_answers);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return takeFromExternrefTable0(ret[0]);
-}
-
-/**
- * [`wire_tag`](wire::wire_tag) as `{kind: "bigint", digits}` or
- * `{kind: "bytes", encoded}`, or `null` when the value is not a tag.
- *
- * # Errors
- *
- * Fails if `value` cannot be read as JSON (for example, a JS bigint).
- * @param {unknown} value
- * @returns {{ kind: "bigint"; digits: string } | { kind: "bytes"; encoded: string } | null}
- */
-export function wireTag(value) {
-    const ret = wasm.wireTag(value);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }

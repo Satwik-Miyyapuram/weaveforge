@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/sharing
+  - crates/wf-core/src/sharing.rs
+checked: 2026-11-13
+---
 # Sharing
 
 Share a paper, experiment, reading list, milestone, report section or vault
@@ -79,4 +85,4 @@ Source: `crates/wf-core/src/sharing.rs`
 
 - [Collaborative editing](collaborative-editing.md) — what happens when two people edit at once
 - [Organisations](organisations.md) — who the members are
-- [Workspaces](workspaces.md) — where shared items live
+- [Projects](projects.md) — where shared items live

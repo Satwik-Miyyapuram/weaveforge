@@ -1,0 +1,433 @@
+/* Docs site: the help notebook (mock A). Colours, sizes and controls come from the app CSS;
+   the notebook adds two font stacks and a few marks, all built from app tokens so every theme works.
+   The minimal set is listed in docs/plans/current/docs-map/design-set.md. */
+
+/* The app gets these from next/font; the docs name the same faces. */
+:root {
+  --font-face-sans: "Rubik", ui-sans-serif, system-ui, sans-serif;
+  --font-face-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-face-pixel: "Jersey 10", ui-monospace, monospace;
+
+  /* The notebook's only additions: two system font stacks and marks made from app colours. */
+  --docs-serif: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  --docs-hand: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+  --docs-paper: var(--surface);
+  --docs-pen: var(--s-danger);
+  --docs-ok: var(--s-good);
+  --docs-tape: color-mix(in srgb, var(--s-warn) 45%, transparent);
+  --docs-mark: color-mix(in srgb, var(--s-warn) 40%, transparent);
+  --docs-rule: color-mix(in srgb, var(--text) 8%, transparent);
+  --docs-dot: color-mix(in srgb, var(--text) 7%, transparent);
+  --docs-sketch: 255px 15px 225px 15px / 15px 225px 15px 255px;
+}
+
+[hidden] { display: none !important; }
+
+body.docs {
+  margin: 0;
+  background: var(--bg) radial-gradient(var(--docs-dot) 1px, transparent 1px) 0 0 / 22px 22px;
+  color: var(--text);
+  font: 17px/1.6 var(--docs-serif);
+  overflow-x: hidden;
+}
+
+body.docs kbd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: var(--r-sm);
+  padding: 0 5px;
+}
+
+body.docs a { color: var(--accent); }
+
+.docs-wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
+}
+
+/* Marks */
+.docs-hand { font-family: var(--docs-hand); font-style: normal; color: var(--docs-pen); }
+
+.docs-mark { background: linear-gradient(transparent 55%, var(--docs-mark) 55%, var(--docs-mark) 90%, transparent 90%); }
+
+.docs-sketchy {
+  border: 1.5px solid var(--text);
+  border-radius: var(--docs-sketch);
+  background: var(--docs-paper);
+  color: var(--text);
+}
+
+.docs-sheet {
+  background: var(--docs-paper) linear-gradient(var(--docs-rule) 1px, transparent 1px) 0 12px / 100% 28px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 36px 44px 40px;
+  min-width: 0;
+}
+
+.docs-taped {
+  position: relative;
+  background: var(--docs-paper);
+  padding: 10px;
+  box-shadow: var(--shadow);
+  transform: rotate(-0.6deg);
+}
+.docs-taped::before,
+.docs-taped::after {
+  content: "";
+  position: absolute;
+  top: -12px;
+  width: 86px;
+  height: 24px;
+  background: var(--docs-tape);
+}
+.docs-taped::before { left: 18px; transform: rotate(-6deg); }
+.docs-taped::after { right: 18px; transform: rotate(5deg); }
+
+.docs-note {
+  font: 15px/1.4 var(--docs-hand);
+  color: var(--docs-pen);
+  transform: rotate(-2deg);
+  margin: 0;
+}
+.docs-note--tilt { transform: rotate(1deg); }
+
+/* Header */
+.docs-top {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-block: 16px;
+  flex-wrap: wrap;
+}
+.docs-menu {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.docs-menu svg { width: 22px; height: 22px; }
+.docs-brand { font: 700 20px var(--docs-serif); text-decoration: none; }
+body.docs .docs-brand { color: var(--text); }
+.docs-brand i { font-size: 16px; font-weight: 400; }
+.docs-topnav { display: flex; gap: 18px; font-family: var(--font); font-size: 14px; }
+body.docs .docs-topnav a { color: var(--muted); text-decoration: none; }
+body.docs .docs-topnav a:hover { color: var(--text); }
+.docs-search {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  font: 14px var(--font);
+  cursor: pointer;
+}
+body.docs .docs-search { color: var(--muted); }
+.docs-theme { max-width: 150px; }
+
+/* Topics drawer (every width) */
+.docs-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+}
+.docs-tree.docs-sheet {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  width: min(300px, 86vw);
+  overflow-y: auto;
+  padding: 24px 22px 32px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transform: translateX(-105%);
+  transition: transform 0.2s ease;
+  box-shadow: var(--sh-overlay);
+}
+body.docs-tree-open .docs-tree.docs-sheet { transform: none; }
+.docs-tree p { margin: 16px 0 4px; font-size: 17px; }
+.docs-tree p:first-child { margin-top: 0; }
+body.docs .docs-tree a {
+  color: var(--text);
+  text-decoration: none;
+  padding: 3px 8px;
+  border-radius: var(--r-sm);
+  line-height: 1.6;
+}
+body.docs .docs-tree a:hover { background: var(--accent-soft); }
+body.docs .docs-tree a[aria-current="page"] { background: var(--docs-mark); font-weight: 700; }
+
+/* Page: the sheet and its margin */
+.docs-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 36px;
+  align-items: start;
+  padding-block: 12px 48px;
+}
+
+/* :root:root beats the app's .markdown heading and list rules. */
+:root:root .docs-sheet.markdown { font-size: 17px; line-height: 1.7; }
+:root:root .docs-sheet h1 {
+  font: 700 clamp(30px, 4vw, 44px)/1.15 var(--docs-serif);
+  margin: 6px 0 10px;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+:root:root .docs-sheet h2 {
+  font: 700 24px/1.3 var(--docs-serif);
+  margin: 36px 0 10px;
+  color: var(--text);
+}
+:root:root .docs-sheet h3 {
+  font: 700 19px/1.4 var(--docs-serif);
+  margin: 26px 0 10px;
+  color: var(--text);
+}
+.docs-aside-note { font-size: 14px; font-weight: 400; margin-left: 10px; display: inline-block; transform: rotate(-2deg); }
+
+.docs-crumb { margin: 0; font: 13px var(--font); color: var(--muted); }
+body.docs .docs-crumb a { color: var(--muted); }
+.docs-promise { font-style: italic; color: var(--muted); font-size: 19px; margin: 0 0 12px; }
+.docs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 22px;
+  font: 13px var(--font);
+  color: var(--muted);
+}
+.docs-chips span + span::before { content: "·"; margin-right: 14px; }
+
+.docs-figure { margin: 18px 0 26px; }
+.docs-figure img { display: block; width: 100%; height: auto; }
+/* The demo app: drawn at the app's size, scaled to fit, never interactive. */
+.docs-view-frame { position: relative; overflow: hidden; width: 100%; max-width: 100%; background: var(--bg); }
+.docs-view-frame iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; pointer-events: none; }
+/* Only one demo runs at a time; the others say so instead of sitting blank. */
+.docs-view-frame[data-demo]::after { position: absolute; inset: 0; display: grid; place-items: center; background: var(--bg); color: var(--muted); font: 15px var(--docs-hand); }
+.docs-view-frame[data-demo="loading"]::after { content: "Opening the demo…"; }
+.docs-view-frame[data-demo="idle"]::after { content: "The demo runs when this is in view"; }
+.docs-figure figcaption { font: 14px var(--docs-hand); color: var(--docs-pen); padding-top: 6px; }
+/* A how-to: its steps on the left, the demo doing them on the right, kept in view. */
+.docs-howto { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 24px; align-items: start; }
+.docs-howto > .docs-figure { position: sticky; top: 16px; margin-top: 0; }
+
+/* Steps: hand-drawn number circles; the active one is filled. */
+:root:root .docs-sheet ol.docs-steps,
+:root:root .docs-index-card ol.docs-steps {
+  list-style: none;
+  counter-reset: step;
+  padding: 0;
+  margin: 6px 0 14px;
+}
+:root:root .docs-steps > .docs-step {
+  counter-increment: step;
+  display: block;
+  position: relative;
+  min-height: 34px;
+  padding: 3px 0 18px 52px;
+  font: inherit;
+  color: var(--text);
+  background: none;
+  cursor: pointer;
+  border-radius: 0;
+}
+:root:root .docs-steps > .docs-step::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 34px;
+  height: 34px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  font: 700 18px var(--docs-hand);
+  color: var(--docs-pen);
+  border: 2px solid var(--docs-pen);
+  border-radius: 50% 45% 52% 48% / 48% 52% 45% 50%;
+  background: var(--docs-paper);
+}
+:root:root .docs-steps > .docs-step.is-active::before,
+:root:root .docs-steps--static > .docs-step:first-child::before { background: var(--docs-pen); color: var(--docs-paper); }
+:root:root .docs-steps--static > .docs-step { cursor: default; }
+:root:root .docs-steps > .docs-step:hover { background: none; }
+.docs-check { font-family: var(--docs-hand); color: var(--docs-ok); }
+
+/* Stuck? questions */
+.docs-stuck { border-top: 1px dashed var(--border); padding: 10px 0; }
+.docs-stuck:last-of-type { border-bottom: 1px dashed var(--border); }
+.docs-stuck summary { cursor: pointer; font-weight: 700; }
+.docs-stuck p { margin: 8px 0 0; color: var(--muted); }
+
+/* Up next */
+.docs-next { display: flex; flex-wrap: wrap; gap: 12px; }
+body.docs .docs-next a { padding: 8px 16px; text-decoration: none; color: var(--text); }
+body.docs .docs-next a:hover { background: var(--docs-mark); }
+
+/* The right margin */
+.docs-margin {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-top: 120px;
+  min-width: 0;
+}
+.docs-card {
+  background: var(--docs-paper);
+  padding: 14px;
+  box-shadow: var(--shadow);
+  font: 15px/1.5 var(--docs-serif);
+}
+.docs-card b { display: block; font-size: 17px; margin-bottom: 4px; }
+.docs-card p { margin: 0; }
+.docs-card ul { margin: 0; padding-left: 18px; }
+.docs-card li + li { margin-top: 6px; }
+.docs-toc { display: flex; flex-direction: column; gap: 6px; font-size: 15px; margin-top: -12px; }
+body.docs .docs-toc a { color: var(--text); text-decoration: none; border-bottom: 1px dashed var(--border); padding-bottom: 2px; }
+.docs-vote { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.docs-vote button { font: 14px var(--docs-hand); padding: 2px 12px; cursor: pointer; }
+.docs-vote span { color: var(--text); }
+
+/* Home */
+.docs-hero {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 48px;
+  align-items: center;
+  padding-block: 40px 24px;
+}
+.docs-hero > * { min-width: 0; }
+.docs-kicker { font-size: 20px; margin: 0; transform: rotate(-2deg); display: inline-block; }
+.docs-hero h1 {
+  font: 700 clamp(36px, 5vw, 58px)/1.08 var(--docs-serif);
+  margin: 10px 0 16px;
+  text-wrap: balance;
+}
+.docs-hero .docs-promise { font-size: 20px; max-width: 46ch; }
+.docs-pic { position: relative; padding: 18px 0 64px; }
+.docs-index-card { padding: 22px 24px 8px; }
+.docs-index-card > p { margin: 0 0 14px; font-size: 20px; }
+.docs-arrow { position: absolute; left: 30%; bottom: 4px; fill: none; stroke: var(--docs-pen); stroke-width: 2; stroke-linecap: round; }
+.docs-pic-note { position: absolute; left: calc(30% + 64px); bottom: 14px; }
+
+.docs-sec { font: 700 30px var(--docs-serif); margin: 40px 0 18px; }
+.docs-sec small { font-size: 17px; font-weight: 400; margin-left: 8px; }
+.docs-stages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 28px;
+}
+.docs-stage { padding: 24px 28px 22px; }
+.docs-tilt-l { transform: rotate(-0.5deg); }
+.docs-tilt-r { transform: rotate(0.5deg); }
+.docs-stage h2 { font: 700 24px var(--docs-serif); margin: 0 0 8px; }
+.docs-stage h2 small { font-size: 15px; font-weight: 400; margin-left: 6px; }
+.docs-stage ul { list-style: none; margin: 0; padding: 0; }
+.docs-stage li { line-height: 28px; display: flex; gap: 8px; align-items: baseline; }
+.docs-stage li::before { content: "☐"; color: var(--muted); }
+.docs-stage li:first-child::before { content: "☞"; color: var(--docs-pen); }
+body.docs .docs-stage a { color: var(--text); text-decoration: none; }
+body.docs .docs-stage a:hover { text-decoration: underline; }
+.docs-stage li small { margin-left: auto; font: 12px var(--font); color: var(--muted); white-space: nowrap; }
+
+.docs-doors { display: flex; flex-wrap: wrap; gap: 18px; padding-bottom: 32px; }
+body.docs .docs-doors a {
+  padding: 14px 22px;
+  font-size: 18px;
+  text-decoration: none;
+  box-shadow: var(--shadow);
+  transform: rotate(-1deg);
+}
+body.docs .docs-doors a:nth-child(even) { transform: rotate(1deg); }
+
+/* Footer */
+.docs-foot { border-top: 1px dashed var(--border); padding-block: 20px 32px; font: 14px var(--font); }
+.docs-foot .docs-wrap { display: flex; flex-wrap: wrap; gap: 20px; }
+body.docs .docs-foot a { color: var(--muted); }
+
+/* Search palette */
+.docs-palette {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  display: grid;
+  justify-items: center;
+  align-items: start;
+  padding-top: 12vh;
+  padding-inline: 16px;
+}
+
+.docs-palette-box {
+  width: min(640px, 100%);
+  padding: 10px;
+  background: var(--docs-paper);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-overlay);
+}
+
+.docs-palette input { width: 100%; }
+
+.docs-palette ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.docs-palette li a {
+  display: block;
+  padding: 8px 10px;
+  border-radius: var(--r-control);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.docs-palette li small {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  display: block;
+}
+
+.docs-palette li.is-active a,
+.docs-palette li a:hover { background: var(--accent-soft); }
+
+/* Phone and narrow windows */
+@media (max-width: 860px) {
+  .docs-page { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .docs-margin { padding-top: 0; }
+  .docs-sheet { padding: 24px 20px; }
+  .docs-hero { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .docs-howto { grid-template-columns: minmax(0, 1fr); }
+  .docs-howto > .docs-figure { position: static; }
+  .docs-topnav { display: none; }
+}
+@media (max-width: 520px) {
+  .docs-search kbd { display: none; }
+  .docs-search { margin-left: 0; flex: 1; }
+  .docs-theme { max-width: 120px; }
+  .docs-tilt-l, .docs-tilt-r { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .docs-tree.docs-sheet { transition: none; }
+}

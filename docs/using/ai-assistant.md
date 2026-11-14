@@ -1,3 +1,10 @@
+---
+covers:
+  - apps/web/src/features/ai-assistant
+  - crates/wf-core/src/ai
+  - crates/wf-core/src/mcp.rs
+checked: 2026-11-14
+---
 # The AI assistant
 
 The assistant answers questions and drafts changes, but it only sees what you
@@ -6,14 +13,16 @@ without your approval.
 
 ## How to
 
-1. Turn AI on in Settings and accept the disclosure. Until both are done, the
-   assistant refuses every request.
+1. Go to **Settings → AI**, turn on **Enable AI assistant access**, and accept
+   the disclosure. Until both are done, the assistant refuses every request.
 2. Pick the read categories it may use: paper metadata, paper notes, Zotero
    annotations, reading lists, vault notes, the logbook and experiments.
 3. Pick the proposal kinds it may suggest, such as a new log entry or a paper
    note. A suggestion is a draft that waits for you to approve it.
-4. Start a session. A session grant names the resources, tools and proposal
-   kinds it covers, and it has an expiry date. When the grant expires, the
+4. Click **Start access for N sources**, where N counts the sources you
+   selected, or every eligible source when you did not select any. A session
+   grant names the resources, tools and proposal kinds it covers, and it has an
+   expiry date. When the grant expires, the
    assistant stops until you start a new one.
 
 To ask a question of your library, the search answers from the passages it
@@ -60,9 +69,7 @@ Tool results are capped: each item at 8,000 characters, and the whole result at
 
 The access rules, the untrusted-context fencing and the tool-result caps are
 pure functions in Rust. The web app calls them through the WebAssembly build.
-The assistant sidecar still runs its own copy of the tool-name and result
-helpers, and the lexical concept extractor and wiki linting still run in
-TypeScript. The policy is checked before any model call, so a denied request
+The lexical concept extractor and wiki linting still run in TypeScript. The policy is checked before any model call, so a denied request
 never reaches the model.
 
 Source: `crates/wf-core/src/ai/`

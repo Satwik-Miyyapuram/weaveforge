@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/collab
+  - crates/wf-core/src/collab.rs
+checked: 2026-11-13
+---
 # Collaborative editing
 
 Two people editing the same note or log entry at the same time, each seeing the

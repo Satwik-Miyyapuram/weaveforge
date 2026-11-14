@@ -1,3 +1,12 @@
+---
+covers:
+  - apps/web/src/features/overleaf
+  - apps/web/src/features/export
+  - crates/wf-core/src/overleaf
+  - crates/wf-core/src/overleaf.rs
+  - crates/wf-core/src/overleaf_export_package.rs
+checked: 2026-11-14
+---
 # Using citations, excerpts, and Overleaf export
 
 How WeaveForge connects reading (Zotero) → notes → report writing → LaTeX.
@@ -21,7 +30,7 @@ In **Notes**, **Papers** (paper note), and **Report** (section notes):
 ## Annotations from Zotero (under the paper)
 
 1. Configure Zotero in Settings and run **Sync Zotero** on Papers.
-2. Highlights / notes are cached on the paper (`metadata.annotations`) and shown as **read-only cards** under the paper note (synced from Zotero — not two-way editable yet).
+2. Highlights / notes are cached on the paper (`metadata.annotations`) and shown as read-only cards under the paper note (synced from Zotero — not two-way editable yet).
 3. Cards show quote, comment, page, colour, and tags when available.
 
 ### Copy quote + cite
@@ -71,7 +80,7 @@ you press **Pull** or **Push**, not as you type.
 
 1. In Overleaf, open **Account settings → Git integration** and create a git
    token (`olp_…`).
-2. In WeaveForge, open **Settings → Workspace folder → Overleaf projects**,
+2. In WeaveForge, open **Settings → Workspace → Overleaf projects**,
    paste the token and press **Save token**. It goes to this machine's
    keychain and is never shown again.
 3. Paste the project's URL (`https://www.overleaf.com/project/<id>`) or its git

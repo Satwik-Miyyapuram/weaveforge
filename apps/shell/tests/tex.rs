@@ -573,7 +573,8 @@ fn is_running(pid: u32) -> bool {
 }
 
 /// Compiles with `tool` and asks the compile to stop once the grandchild's pid is on disk.
-/// Gives up waiting after ten seconds, so a missing pid fails the test instead of hanging it.
+/// Gives up waiting after thirty seconds, so a missing pid fails the test instead of hanging it.
+/// PowerShell's cold start on a busy Windows runner has taken longer than ten.
 async fn compile_then_stop_once_started(
     tmp: &TempDir,
     files: &[TexSourceFile],
@@ -584,7 +585,7 @@ async fn compile_then_stop_once_started(
     let asker = std::sync::Arc::clone(&stop);
     let watched = pid_file.to_path_buf();
     let _stopper = tokio::spawn(async move {
-        for _ in 0..200 {
+        for _ in 0..600 {
             if read_pid(&watched).is_some() {
                 break;
             }

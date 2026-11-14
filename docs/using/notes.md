@@ -1,3 +1,9 @@
+---
+covers:
+  - apps/web/src/features/vault
+  - crates/wf-core/src/vault
+checked: 2026-11-14
+---
 # Notes
 
 A note is a short piece of writing you keep in your project: a derivation, a
@@ -14,7 +20,7 @@ with `#hashtags`.
    a unique title.
 3. The note opens with its title selected, so you can type over it.
 4. Write in the body. Start with **Text**, or switch to **Ink** for a handwritten
-   note.
+   note; [Handwriting](ink.md) shows how to write on the page.
 
 ### Create a note from a link
 
@@ -28,6 +34,17 @@ with `#hashtags`.
 1. Drag `.md` files or a `.zip` onto the list, or click **More**.
 2. Choose **Import zip…** or **Import folder…**.
 3. The result line reads, for example, `Imported 3 notes, 1 folder.`
+
+### Import a OneNote section
+
+1. In OneNote, export or copy the section's `.one` file.
+2. Click **More**, then **Import OneNote section…**, and pick the file.
+3. WeaveForge makes a folder named after the section, with one note per page.
+   Sub-pages sit under their parent page.
+4. Pictures come in as attachments. Handwriting comes in as a separate ink
+   note named `<page title> (handwriting)`, next to the page's note.
+5. Attached files, such as PDFs, are not imported. The note says which file
+   was left out.
 
 ### Find a note
 
@@ -73,6 +90,7 @@ with `#hashtags`.
 | **More** | Head of the list. Opens the import and wiki items |
 | **Import zip…** | **More** menu |
 | **Import folder…** | **More** menu |
+| **Import OneNote section…** | **More** menu |
 | **Wiki** | **More** menu. Opens the wiki |
 | **Search notes** | Search box in the head |
 | **Lists**, **Tags** | Filter row beside the list. A filter with no values is hidden |
@@ -118,7 +136,7 @@ with `#hashtags`.
 | Mode | Who sees it |
 |---|---|
 | **Text** | You, when you can edit the body |
-| **Ink** | You, for a handwritten note |
+| **Ink** | You, when you can edit the body. A handwritten note opens here |
 | **Read** | People without edit rights. The Text and Ink switch is not shown |
 
 A handwritten (Ink) note, or a shared note, cannot change its title on this screen.

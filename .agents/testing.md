@@ -17,7 +17,7 @@ From the repo root (Git Bash or PowerShell):
 One file or one test, faster:
 
 ```bash
-node --import tsx --test apps/shell/sidecar/test/home-config.test.ts
+cd apps/shell && cargo test --lib launch::
 cd packages/core && node --import tsx --test test/features/reader/references.test.ts
 npm run test:web -- --test-name-pattern "find overlay"
 ```
@@ -64,13 +64,16 @@ this machine: it would migrate from the installed app's data.
 
 ```powershell
 cd apps\shell; node scripts/build-web.mjs; cd ..\..
-node apps/shell/sidecar/scripts/stage.mjs <out> --node (Get-Command node).Source
 node apps/shell/scripts/stage-postgres.mjs <extracted postgres dist> <out>
 cd apps\shell; npm run tauri -- build --no-bundle --config tauri.dev.json
 ```
 
-`stage.mjs` copies the `LICENSE` beside `node.exe`. If that install has none,
-pass `--node-license <Node's LICENSE>`, never the repo's own `LICENSE`.
+A release exe reads its migrations and MCP bridge from `<out>\app`, laid out
+as `tauri.bundle.json` maps them: `db\migrations` to `app\migrations`,
+`db\migrations-local` to `app\migrations-local`, and
+`plugins\weaveforge-research\mcp-server\index.mjs` to
+`app\weaveforge-mcp.mjs`. A debug build reads them from the repo instead when
+`WF_DEV_REPO` names the repo root.
 
 `stage-postgres.mjs` takes the extracted
 `postgresql-18.6.1-x86_64-pc-windows-msvc` release of
