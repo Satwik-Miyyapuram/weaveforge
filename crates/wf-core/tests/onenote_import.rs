@@ -65,7 +65,10 @@ fn links_render_as_markdown_and_levels_start_at_zero() {
     let section = import_section(FIXTURE, FIXTURE_NAME).expect("fixture imports");
     assert!(section.pages.iter().any(|page| page.level == 0));
     for page in &section.pages {
-        assert!(!page_text(page).contains('\u{fddf}'), "hidden marker leaked");
+        assert!(
+            !page_text(page).contains('\u{fddf}'),
+            "hidden marker leaked"
+        );
     }
     assert!(
         section
@@ -81,6 +84,8 @@ fn page_text(page: &OneNotePage) -> String {
     std::iter::once(page.markdown.as_str())
         .chain(sheets)
         .collect::<Vec<_>>()
-        .join("
-")
+        .join(
+            "
+",
+        )
 }

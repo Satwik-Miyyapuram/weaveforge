@@ -145,7 +145,11 @@ pub(crate) fn build_sheets(raw: &[RawStroke], bands: &[Rect]) -> Vec<Sheet> {
         if strokes.is_empty() {
             sheets.push(sheet(Vec::new()));
         } else {
-            sheets.extend(strokes.chunks(INK_PAGE_STROKE_BUDGET).map(|chunk| sheet(chunk.to_vec())));
+            sheets.extend(
+                strokes
+                    .chunks(INK_PAGE_STROKE_BUDGET)
+                    .map(|chunk| sheet(chunk.to_vec())),
+            );
         }
     }
     sheets
@@ -316,7 +320,11 @@ fn build_pages(raw: &[RawStroke]) -> Vec<InkPage> {
         .enumerate()
         .filter(|(_, (_, path))| !path.is_empty())
         .map(|(index, (stroke, path))| {
-            ink_stroke(stroke, path.iter().flat_map(|&(x, y)| [x, y]).collect(), index)
+            ink_stroke(
+                stroke,
+                path.iter().flat_map(|&(x, y)| [x, y]).collect(),
+                index,
+            )
         })
         .collect();
 
@@ -439,7 +447,10 @@ mod tests {
         assert_eq!(sheets[0].page.strokes.len(), 1);
         assert_eq!(sheets[1].page.strokes.len(), 1);
         let image = sheets[1].background.unwrap();
-        assert_eq!((image.x, image.y, image.width, image.height), (0.0, 0.0, 2100.0, 2970.0));
+        assert_eq!(
+            (image.x, image.y, image.width, image.height),
+            (0.0, 0.0, 2100.0, 2970.0)
+        );
         assert_eq!(&sheets[1].page.strokes[0].points[..2], &[373.0, 300.0]);
         assert!((sheets[1].page.width - 2100.0).abs() < f64::EPSILON);
         assert!((sheets[1].page.height - 2970.0).abs() < f64::EPSILON);
@@ -476,7 +487,11 @@ mod tests {
             .collect();
         let sheets = build_sheets(&raw, &bands);
         assert_eq!(sheets.len(), 2);
-        assert!(sheets.iter().all(|sheet| sheet.group == 0 && sheet.background.is_some()));
+        assert!(
+            sheets
+                .iter()
+                .all(|sheet| sheet.group == 0 && sheet.background.is_some())
+        );
     }
 
     #[test]
