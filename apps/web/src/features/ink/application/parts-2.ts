@@ -488,6 +488,34 @@ export async function figureImageFromFile(
 }
 
 /**
+ * A page background with `image` drawn at `box` (page units) on a transparent
+ * page of `pageWidth` × `pageHeight`, so an imported printout lands where it
+ * sat on the source page. The raster keeps the page's aspect and caps its
+ * long side at 4096 px.
+ */
+export async function composeOnPage(
+  image: Blob,
+  box: { x: number; y: number; width: number; height: number },
+  pageWidth: number,
+  pageHeight: number,
+): Promise<{ blob: Blob; ext: "webp" | "png" }> {
+  if (typeof createImageBitmap !== "function")
+    throw new Error("Images cannot be decoded here.");
+  const scale = Math.min(1, 4096 / Math.max(pageWidth, pageHeight));
+  const bitmap = await createImageBitmap(image);
+  try {
+    const canvas = createCanvas(Math.round(pageWidth * scale), Math.round(pageHeight * scale));
+    const context = canvas.getContext("2d") as CanvasRenderingContext2D | null;
+    if (!context) throw new Error("A 2D context could not be created for the page.");
+    context.drawImage(bitmap, box.x * scale, box.y * scale, box.width * scale, box.height * scale);
+    const { blob, type } = await toWebpBlob(canvas);
+    return { blob, ext: type === "image/webp" ? "webp" : "png" };
+  } finally {
+    bitmap.close();
+  }
+}
+
+/**
  * An image file's pixel size, for a figure's first box: the placement is
  * chosen from the image's own aspect, so a portrait photo does not land in a
  * landscape frame.

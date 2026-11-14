@@ -1,4 +1,4 @@
-//! OneNote `.one` section import: pages become Markdown, images, ink and recognised text.
+//! OneNote `.one` section import: pages become Markdown, images and ink pages.
 
 use std::io::{Error, Read};
 
@@ -12,7 +12,7 @@ use serde::Serialize;
 use typed_path::{TypedPath, TypedPathBuf};
 
 use crate::bytea::encode_base64;
-use crate::ink::ink_page::InkPage;
+use crate::ink::ink_page::{INK_A4_HEIGHT, INK_A4_WIDTH, InkPage};
 
 mod ink;
 
@@ -43,14 +43,42 @@ pub struct OneNotePage {
     pub title: String,
     /// Page indent level, `0` for top level.
     pub level: u32,
-    /// Page text as Markdown.
+    /// Page text as Markdown; empty when the page has ink, whose pages carry the text.
     pub markdown: String,
-    /// Images referenced from `markdown`.
+    /// Images referenced from `markdown`, the ink pages' text and their backgrounds.
     pub images: Vec<OneNoteImage>,
     /// Ink pages, empty when the page has no ink.
-    pub ink: Vec<InkPage>,
-    /// Recognised handwriting words joined by spaces, or empty.
-    pub ink_text: String,
+    pub ink: Vec<OneNoteInkPage>,
+}
+
+/// One ink page of an imported OneNote page.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct OneNoteInkPage {
+    /// Strokes and page size.
+    pub page: InkPage,
+    /// Printout page drawn under the strokes, if any.
+    pub background: Option<OneNoteBackground>,
+    /// Typed text that sat on this part of the OneNote page, as Markdown.
+    pub text: String,
+}
+
+/// Where a background image sits on an ink page, in 0.1 mm.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct OneNoteBackground {
+    /// Name of the image in the page's `images`.
+    pub name: String,
+    /// Left edge.
+    pub x: f64,
+    /// Top edge.
+    pub y: f64,
+    /// Width.
+    pub width: f64,
+    /// Height.
+    pub height: f64,
 }
 
 /// An image referenced from a page's Markdown.
@@ -162,14 +190,22 @@ struct Block {
 
 fn convert_page(page: &Page) -> (OneNotePage, Vec<String>) {
     let mut body = Body::default();
-    for content in page.contents() {
-        match content {
-            PageContent::Outline(outline) => walk_outline(outline, &mut body),
-            PageContent::Image(image) => push_image(image, &mut body),
-            PageContent::EmbeddedFile(file) => push_attachment(file, &mut body),
-            _ => {}
+    let strokes = ink::page_strokes(page);
+    let ink = if strokes.is_empty() {
+        Vec::new()
+    } else {
+        ink_pages(page, &strokes, &mut body)
+    };
+    // Handwriting is imported as strokes only: OneNote's recognised text would
+    // repeat it, so it is left out.
+    let markdown = if ink.is_empty() {
+        for content in page.contents() {
+            push_content(content, &mut body);
         }
-    }
+        render(&body.blocks)
+    } else {
+        String::new()
+    };
 
     let title = page
         .title_text()
@@ -178,26 +214,103 @@ fn convert_page(page: &Page) -> (OneNotePage, Vec<String>) {
         .unwrap_or("Untitled page")
         .to_string();
     let level = u32::try_from(page.level().max(0)).unwrap_or(0);
-    let ink_text = page
-        .ink_recognition()
-        .map(|recognition| {
-            recognition
-                .text()
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join(" ")
-        })
-        .unwrap_or_default();
 
     let converted = OneNotePage {
         title,
         level,
-        markdown: render(&body.blocks),
+        markdown,
         images: body.images,
-        ink: ink::page_ink(page),
-        ink_text,
+        ink,
     };
     (converted, body.warnings)
+}
+
+fn push_content(content: &PageContent, body: &mut Body) {
+    match content {
+        PageContent::Outline(outline) => walk_outline(outline, body),
+        PageContent::Image(image) => push_image(image, body),
+        PageContent::EmbeddedFile(file) => push_attachment(file, body),
+        _ => {}
+    }
+}
+
+/// Ink pages for a page with handwriting. Each background image (a printout
+/// page) starts a band down the OneNote page; every band becomes its own ink
+/// pages with the image under the strokes and the band's typed text on its
+/// first page. Empty when no stroke has a point.
+fn ink_pages(page: &Page, strokes: &[ink::RawStroke], body: &mut Body) -> Vec<OneNoteInkPage> {
+    let mut backgrounds: Vec<(ink::Rect, String)> = page
+        .contents()
+        .iter()
+        .filter_map(|content| match content {
+            PageContent::Image(image) if image.is_background() => Some(image),
+            _ => None,
+        })
+        .filter_map(|image| Some((background_rect(image), add_image_file(image, body)?)))
+        .collect();
+    backgrounds.sort_by(|a, b| a.0.y.total_cmp(&b.0.y));
+    let bands: Vec<ink::Rect> = backgrounds.iter().map(|(rect, _)| *rect).collect();
+    let sheets = ink::build_sheets(strokes, &bands);
+    if sheets.is_empty() {
+        return Vec::new();
+    }
+
+    let tops: Vec<f64> = bands.iter().map(|band| band.y).collect();
+    let mut texts = vec![String::new(); bands.len().max(1)];
+    for (group, text) in texts.iter_mut().enumerate() {
+        body.blocks.clear();
+        for content in page.contents() {
+            let top = match content {
+                PageContent::Outline(outline) => outline.offset_vertical(),
+                PageContent::Image(image) if !image.is_background() => image.offset_vertical(),
+                PageContent::EmbeddedFile(file) => file.offset_vertical(),
+                _ => continue,
+            };
+            let band = top.map_or(0, |y| {
+                ink::band_index(&tops, f64::from(y) * ink::HALF_INCH_TENTHS_MM)
+            });
+            if band == group {
+                push_content(content, body);
+            }
+        }
+        *text = render(&body.blocks);
+    }
+    body.blocks.clear();
+
+    sheets
+        .into_iter()
+        .map(|sheet| OneNoteInkPage {
+            page: sheet.page,
+            background: sheet.background.map(|rect| OneNoteBackground {
+                name: backgrounds[sheet.group].1.clone(),
+                x: rect.x,
+                y: rect.y,
+                width: rect.width,
+                height: rect.height,
+            }),
+            // Only a band's first page gets its text; the take leaves "" behind.
+            text: std::mem::take(&mut texts[sheet.group]),
+        })
+        .collect()
+}
+
+/// Where a background image sits on the OneNote page, in 0.1 mm.
+fn background_rect(image: &Image) -> ink::Rect {
+    let half_inch = ink::HALF_INCH_TENTHS_MM;
+    let offset = |value: Option<f32>| value.map_or(0.0, |v| f64::from(v) * half_inch);
+    // Layout sizes are in half-inches, picture sizes in inches.
+    let size = |layout: Option<f32>, picture: Option<f32>, fallback: f64| {
+        layout
+            .map(|v| f64::from(v) * half_inch)
+            .or_else(|| picture.map(|v| f64::from(v) * 2.0 * half_inch))
+            .unwrap_or(fallback)
+    };
+    ink::Rect {
+        x: offset(image.offset_horizontal()),
+        y: offset(image.offset_vertical()),
+        width: size(image.layout_max_width(), image.picture_width(), INK_A4_WIDTH),
+        height: size(image.layout_max_height(), image.picture_height(), INK_A4_HEIGHT),
+    }
 }
 
 fn walk_outline(outline: &Outline, body: &mut Body) {
@@ -388,47 +501,59 @@ fn cell_text(elements: &[OutlineElement]) -> String {
 }
 
 fn push_image(image: &Image, body: &mut Body) {
+    if let Some(name) = add_image_file(image, body) {
+        body.blocks.push(Block {
+            text: format!("![{}]({name})", image_alt(image)),
+            item: false,
+        });
+    }
+}
+
+/// Copies `image` into the page's images and returns its name, or warns and
+/// returns `None` when it is too large or unreadable.
+fn add_image_file(image: &Image, body: &mut Body) -> Option<String> {
     let name_hint = image.image_filename().unwrap_or("image").to_string();
     if image.size().is_some_and(|size| size > IMAGE_MAX_BYTES) {
         body.warnings
             .push(format!("image {name_hint} skipped: larger than 20 MiB"));
-        return;
+        return None;
     }
     let Some(reader) = image.read() else {
         body.warnings
             .push(format!("image {name_hint} skipped: unreadable"));
-        return;
+        return None;
     };
     let mut bytes = Vec::new();
     let mut limited = reader.take(IMAGE_MAX_BYTES + 1);
     if limited.read_to_end(&mut bytes).is_err() {
         body.warnings
             .push(format!("image {name_hint} skipped: unreadable"));
-        return;
+        return None;
     }
     if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > IMAGE_MAX_BYTES {
         body.warnings
             .push(format!("image {name_hint} skipped: larger than 20 MiB"));
-        return;
+        return None;
     }
 
     let number = body.images.len() + 1;
     let name = format!("image-{number}.{}", image_extension(image.extension()));
-    let alt = image
+    body.images.push(OneNoteImage {
+        name: name.clone(),
+        alt: image_alt(image),
+        base64: encode_base64(&bytes),
+    });
+    Some(name)
+}
+
+/// Alt text with brackets and line breaks removed.
+fn image_alt(image: &Image) -> String {
+    image
         .alt_text()
         .unwrap_or("")
         .replace(['[', ']', '\r', '\n'], " ")
         .trim()
-        .to_string();
-    body.blocks.push(Block {
-        text: format!("![{alt}]({name})"),
-        item: false,
-    });
-    body.images.push(OneNoteImage {
-        name,
-        alt,
-        base64: encode_base64(&bytes),
-    });
+        .to_string()
 }
 
 /// Lower-case extension of at most five `[a-z0-9]` characters, else `png`.
