@@ -209,14 +209,44 @@
     const el = await until(() => find(step.replace(/^open:/, "")));
     el?.click();
   }
+  // Another how-to's screen, in the running app: the router, not a new page, so the
+  // app and its database stay. Only a different open project needs a fresh start.
+  async function goTo(href) {
+    const url = new URL(href, location.href);
+    const want = url.searchParams.get("docsProject") === "none" ? null : project;
+    let have = null;
+    try { have = localStorage.getItem("thesis.projectId"); } catch { /* no storage */ }
+    if ((want || null) !== (have || null)) {
+      location.href = url.href; // this script sets the project; the new page reports in
+      return new Promise(() => {});
+    }
+    if (url.searchParams.get("paper") === "demo" && pdfPaper) {
+      url.searchParams.set("paper", pdfPaper);
+      await cachePdf(pdfPaper).catch(() => {});
+    }
+    show(null);
+    for (const t of [document.activeElement, document]) t && t.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    window.next.router.push(url.pathname + url.search);
+    await until(() => location.pathname === url.pathname && document.querySelector("button"), 5000);
+    await new Promise((r) => setTimeout(r, 300));
+  }
   // Nothing runs before the demo database is open and the app has drawn a control.
   let queue = ready.then(() => until(() => document.querySelector("button"), 15000), () => {})
     .then(() => { if (parent !== window) parent.postMessage({ docsReady: true }, "*"); });
+  // The latest switch; work queued for an older one is dropped, so scrolling past
+  // a how-to does not make the one the reader stops at wait for it.
+  let latest = 0;
   window.addEventListener("message", (e) => {
     const d = e.data || {};
     if (d.docsTheme) document.documentElement.dataset.theme = d.docsTheme;
     if (d.docsMode) document.documentElement.dataset.mode = d.docsMode;
-    if (Array.isArray(d.docsDo)) queue = queue.then(async () => { for (const s of d.docsDo) { await act(s); await new Promise((r) => setTimeout(r, 250)); } });
-    if ("docsRing" in d) queue = queue.then(() => until(() => !d.docsRing || find(d.docsRing), 4000)).then(() => requestAnimationFrame(() => show(d.docsRing)));
+    if ("docsStart" in d) latest = d.docsStart;
+    const mine = latest;
+    const live = () => mine === latest;
+    const steps = async () => { for (const s of d.docsDo || []) { if (!live()) return; await act(s); await new Promise((r) => setTimeout(r, 250)); } };
+    // docsStart: open a how-to (docsGo), do its first steps, then say so with the same ticket.
+    if ("docsStart" in d) queue = queue.then(async () => { if (!live()) return; if (d.docsGo) await goTo(d.docsGo); await steps(); if (live()) parent.postMessage({ docsReady: d.docsStart }, "*"); });
+    else if (Array.isArray(d.docsDo)) queue = queue.then(steps);
+    if ("docsRing" in d) queue = queue.then(() => live() && until(() => !d.docsRing || find(d.docsRing), 4000)).then(() => live() && requestAnimationFrame(() => show(d.docsRing)));
   });
 })();

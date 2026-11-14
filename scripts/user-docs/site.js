@@ -34,12 +34,19 @@
   });
 
   // Steps: one active step per list (the filled circle). Beside each how-to sits the
-  // demo app: it opens where the page starts, does each step's **bold** control up
+  // demo app: it opens where the how-to starts, does each step's **bold** control up
   // to the active step, and rings the active step's control. Under the title, the
   // same app shows the page's screen. Readers watch it; it takes no input.
+  // The page runs ONE app: a single frame that moves to the figure most in view and
+  // switches screens inside the app, so the app and its database load once per page.
   const steps = [...document.querySelectorAll("ol.docs-steps:not(.docs-steps--static) > li.docs-step")];
-  const frames = [...document.querySelectorAll(".docs-view-frame iframe")];
-  const live = new Map(); // iframe -> { ol, off, loaded, at: step it shows, want: step asked for }
+  const boxes = [...document.querySelectorAll(".docs-view-frame")];
+  const views = new Map(); // box -> { ol, src, start, title, at: step it shows, want: step asked for }
+  const demo = document.createElement("iframe");
+  demo.tabIndex = -1;
+  let cur = null;   // the box the demo sits in
+  let ticket = 0;   // the switch the demo is busy with; older answers are ignored
+  let booted = false;
 
   function mode() {
     const opt = sel && sel.selectedOptions[0];
@@ -51,83 +58,97 @@
     const bold = li && li.querySelector("strong");
     return bold ? bold.textContent.split("→").map(s => s.trim()).filter(Boolean) : [];
   }
-  function send(frame, msg) {
-    if (frame.contentWindow) frame.contentWindow.postMessage(msg, "*");
+  function send(msg) {
+    if (demo.contentWindow) demo.contentWindow.postMessage(msg, "*");
   }
-  // (Re)load the demo in the docs theme; every load starts from the same demo data.
-  function reload(frame) {
-    const url = new URL(frame.dataset.src);
+  function busy(box) {
+    views.get(box).at = 0;
+    box.dataset.demo = "loading";
+    ticket++;
+  }
+  // (Re)load the app at the box's screen in the docs theme, from the same demo data.
+  function reload(box) {
+    busy(box);
+    booted = false;
+    const url = new URL(views.get(box).src);
     url.searchParams.set("docsTheme", theme);
     url.searchParams.set("docsMode", mode());
-    const s = live.get(frame);
-    s.off = false;
-    s.loaded = false;
-    s.at = 0;
-    frame.parentElement.dataset.demo = "loading";
-    frame.src = url.href;
+    demo.src = url.href;
   }
-  // Each demo runs its own database, so only the ones near the screen run at all.
-  function unload(frame) {
-    const s = live.get(frame);
-    s.off = true;
-    s.loaded = false;
-    frame.parentElement.dataset.demo = "idle";
-    frame.src = "about:blank";
+  // Show the box's screen in the running app: no new page, no new database.
+  function switchTo(box) {
+    busy(box);
+    const v = views.get(box);
+    send({ docsStart: ticket, docsGo: v.src, docsDo: v.start });
   }
-  // Each demo runs the whole app and its own database, so one runs at a time: the
-  // one most in view once scrolling settles. The rest wait, blank.
-  const seen = new Map(); // iframe -> how much of it is on screen
+  // moveBefore keeps the frame running; browsers without it reload it in its new place.
+  function moveTo(box) {
+    if (cur && cur !== box) cur.dataset.demo = "idle";
+    const keeps = typeof box.moveBefore === "function" && demo.isConnected;
+    if (keeps) box.moveBefore(demo, null); else box.appendChild(demo);
+    cur = box;
+    title(box);
+    scale(box);
+    if (keeps && booted) switchTo(box); else reload(box);
+  }
+  const seen = new Map(); // box -> how much of it is on screen
   let settle;
   const near = new IntersectionObserver(entries => {
-    entries.forEach(e => seen.set(e.target.querySelector("iframe"), e.isIntersecting ? e.intersectionRatio : 0));
+    entries.forEach(e => seen.set(e.target, e.isIntersecting ? e.intersectionRatio : 0));
     clearTimeout(settle);
     settle = setTimeout(pick, 250);
   }, { threshold: [0, 0.25, 0.5, 0.75, 1] });
   function pick() {
     let best = null, most = 0;
-    seen.forEach((r, f) => { if (r > most) { best = f; most = r; } });
-    if (!best) return; // none on screen: keep the one that runs
-    frames.forEach(f => { if (f !== best && !live.get(f).off) unload(f); });
-    if (live.get(best).off) reload(best);
+    seen.forEach((r, b) => { if (r > most) { best = b; most = r; } });
+    if (best && best !== cur) moveTo(best); // none on screen: the demo stays where it is
   }
-  // The demo says when its app has drawn; until then the frame says it is loading.
+  // The app says when it has drawn (true), and when it has done a switch (its ticket).
   window.addEventListener("message", e => {
-    const frame = frames.find(f => f.contentWindow === e.source);
-    if (frame && e.data && e.data.docsReady && !live.get(frame).off) delete frame.parentElement.dataset.demo;
+    if (e.source !== demo.contentWindow || !cur || !e.data || !("docsReady" in e.data)) return;
+    const v = views.get(cur);
+    if (e.data.docsReady === true) {
+      booted = true;
+      send({ docsStart: ticket, docsDo: v.start });
+    } else if (e.data.docsReady === ticket) {
+      delete cur.dataset.demo;
+      v.at = 1;
+      go(cur, v.want);
+    }
   });
-  // Walk the demo forward to step `n`; going back means starting over.
-  function go(frame, n) {
-    const s = live.get(frame);
-    s.want = n;
-    if (!s.loaded) return;
-    if (!s.ol) return send(frame, { docsRing: null });
-    if (n < s.at) return reload(frame);
-    const lis = [...s.ol.children];
-    const todo = lis.slice(Math.max(s.at, 1) - 1, n - 1).flatMap(controls);
-    s.at = n;
+  // Walk the demo forward to step `n`; going back means starting the how-to over.
+  function go(box, n) {
+    const v = views.get(box);
+    v.want = n;
+    if (box !== cur || !v.at) return;
+    if (!v.ol) return send({ docsRing: null });
+    if (n < v.at) return booted ? switchTo(box) : reload(box);
+    const lis = [...v.ol.children];
+    const todo = lis.slice(v.at - 1, n - 1).flatMap(controls);
+    v.at = n;
     const ring = controls(lis[n - 1]);
-    send(frame, { docsDo: todo, docsRing: ring[ring.length - 1] || null });
+    send({ docsDo: todo, docsRing: ring[ring.length - 1] || null });
   }
   // The demo keeps a desktop size; scaling it down keeps the layout true at every width.
-  const fit = new ResizeObserver(entries => entries.forEach(e => {
-    const frame = e.target.querySelector("iframe");
-    frame.style.transform = "scale(" + e.contentRect.width / parseFloat(frame.style.width) + ")";
-  }));
-  frames.forEach(frame => {
-    const fig = frame.closest("figure");
+  function scale(box) {
+    demo.style.transform = "scale(" + box.clientWidth / parseFloat(demo.style.width) + ")";
+  }
+  const fit = new ResizeObserver(entries => entries.forEach(e => { if (e.target === cur) scale(cur); }));
+  function title(box) {
+    const v = views.get(box);
+    const li = v.ol && v.ol.querySelector(":scope > li.is-active");
+    demo.title = li ? li.textContent.trim() : v.title;
+  }
+  boxes.forEach(box => {
+    const ph = box.querySelector("iframe");
+    const fig = box.closest("figure");
     const howto = fig.parentElement.matches(".docs-howto") ? fig.parentElement : null;
-    live.set(frame, { ol: howto && howto.querySelector("ol.docs-steps"), off: true, loaded: false, at: 0, want: 1 });
-    fit.observe(frame.parentElement);
-    frame.parentElement.dataset.demo = "idle";
-    near.observe(frame.parentElement);
-    frame.addEventListener("load", () => {
-      const s = live.get(frame);
-      if (s.off || s.loaded) return;
-      s.loaded = true;
-      send(frame, { docsDo: JSON.parse(frame.dataset.docsDo || "[]") });
-      s.at = 1;
-      go(frame, s.want);
-    });
+    views.set(box, { ol: howto && howto.querySelector("ol.docs-steps"), src: ph.dataset.src, start: JSON.parse(ph.dataset.docsDo || "[]"), title: ph.title, at: 0, want: 1 });
+    if (!demo.style.width) demo.style.cssText = ph.style.cssText;
+    ph.remove();
+    box.dataset.demo = "idle";
+    fit.observe(box);
+    near.observe(box);
   });
 
   function heading(li) {
@@ -142,14 +163,14 @@
     ol.querySelectorAll(":scope > li").forEach(s => s.classList.toggle("is-active", s === li));
     const fig = ol.nextElementSibling;
     if (!fig || !fig.matches("figure[data-docs-steps-view]")) return;
-    const frame = fig.querySelector("iframe");
+    const box = fig.querySelector(".docs-view-frame");
     const cap = fig.querySelector("[data-docs-view-caption]");
-    go(frame, Number(li.dataset.step));
-    frame.title = li.textContent.trim();
+    go(box, Number(li.dataset.step));
+    if (box === cur) title(box);
     if (cap) cap.textContent = heading(li) + " · step " + li.dataset.step;
   }
   function refreshViews() {
-    frames.forEach(frame => { if (!live.get(frame).off) reload(frame); });
+    if (cur) reload(cur);
   }
 
   steps.forEach(li => li.addEventListener("click", () => setActive(li)));
