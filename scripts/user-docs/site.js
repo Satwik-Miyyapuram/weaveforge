@@ -165,4 +165,7 @@
   if (menu) menu.addEventListener("click", () => document.body.classList.toggle("docs-tree-open"));
   document.querySelectorAll(".docs-tree a").forEach(a =>
     a.addEventListener("click", () => document.body.classList.remove("docs-tree-open")));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") document.body.classList.remove("docs-tree-open");
+  });
 })();

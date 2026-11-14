@@ -64,7 +64,8 @@ const pages = fs
     const html = decorate(marked.parse(stripFrontMatter(raw)), stem, hasShot);
     const title = plainText(html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1] ?? stem);
     const intro = plainText(html.match(/<p>([\s\S]*?)<\/p>/)?.[1] ?? "");
-    return { stem, html, title, intro, checked: frontMatter(raw)?.checked ?? "" };
+    const tasks = [...html.matchAll(/<h3 id="([^"]+)">([\s\S]*?)<\/h3>/g)].map((m) => [m[1], plainText(m[2])]);
+    return { stem, html, title, intro, tasks, checked: frontMatter(raw)?.checked ?? "" };
   });
 
 const byStem = new Map(pages.map((page) => [page.stem, page]));
@@ -83,7 +84,7 @@ const blurb = (text) => {
 };
 const tile = (page) => `<a class="card docs-tile" href="${page.stem}.html"><b>${esc(page.title)}</b><span>${esc(blurb(page.intro))}</span></a>`;
 
-function shell({ stem, title, main, shots }) {
+function shell({ stem, title, main, shots, home = false }) {
   const tree = groups
     .map(([name, stems]) => {
       const links = stems.map((s) => `<a class="wf-nav" href="${s}.html"${s === stem ? ' aria-current="page"' : ""}>${esc(byStem.get(s).title)}</a>`);
@@ -105,7 +106,7 @@ function shell({ stem, title, main, shots }) {
 ${css.map((file) => `<link rel="stylesheet" href="app/${file}">`).join("\n")}
 <link rel="stylesheet" href="site.css">
 </head>
-<body class="docs${shots ? "" : " docs-noshots"}" data-page="${stem}">
+<body class="docs${shots ? "" : " docs-noshots"}${home ? " docs-home" : ""}" data-page="${stem}">
 <header class="docs-top">
 <button class="wf-btn wf-ghost wf-icon docs-menu" aria-label="Topics" data-docs-menu><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
 <a class="docs-brand" href="index.html">WeaveForge help</a>
@@ -119,9 +120,7 @@ ${tree}
 <main class="docs-page">
 ${main}
 </main>
-<aside class="docs-shot" aria-live="polite">
-<figure class="card docs-frame"><img data-docs-shot alt=""><figcaption data-docs-shot-caption></figcaption></figure>
-</aside>
+${home ? "" : aside(stem, shots)}
 </div>
 <div class="docs-palette" data-docs-palette hidden>
 <div class="card docs-palette-box"><input class="wf-input" data-docs-palette-input placeholder="Search help" aria-label="Search help"><ul data-docs-palette-list></ul></div>
@@ -133,21 +132,80 @@ ${main}
 `;
 }
 
+// The margin beside a page: the step picture, then notes in the notebook's margin.
+function aside(stem, shots) {
+  const toc = byStem.get(stem).tasks.slice(0, 8).map(([id, text]) => `<a href="#${id}">${esc(text)}</a>`);
+  const notes = [
+    shots ? `<p class="docs-note">Click a step and the picture shows you where.</p>` : "",
+    toc.length ? `<nav class="docs-margin-list" aria-label="On this page"><p class="docs-note">On this page</p>${toc.join("")}</nav>` : "",
+  ].join("");
+  const frame = shots ? `<figure class="card docs-frame"><img data-docs-shot alt=""><figcaption data-docs-shot-caption></figcaption></figure>` : "";
+  return `<aside class="docs-shot" aria-live="polite">\n${frame}${notes}\n</aside>`;
+}
+
 function pageHtml(page) {
+  const [groupName, group] = groups.find(([, stems]) => stems.includes(page.stem));
   const stamp = page.checked ? `\n<p class="docs-stamp"><span class="wf-chip">Checked ${page.checked}</span></p>` : "";
-  const article = page.html.replace(/(<\/h1>)/, `$1${stamp}`);
-  const group = groups.find(([, stems]) => stems.includes(page.stem))[1];
+  const crumb = `<p class="docs-crumb"><a href="index.html">Notebook</a> › <a href="index.html#${slug(groupName)}">${groupName}</a></p>\n`;
+  const article = crumb + page.html.replace(/(<\/h1>)/, `$1${stamp}`);
   const related = group.filter((stem) => stem !== page.stem).slice(0, 3).map((stem) => tile(byStem.get(stem)));
-  const main = `<article class="docs-md markdown">\n${article}\n<nav class="docs-related" aria-label="Related">${related.join("")}</nav>\n</article>`;
+  const main = `<article class="docs-md markdown docs-sheet">\n${article}\n<h2 id="up-next">Up next</h2>\n<nav class="docs-related" aria-label="Related">${related.join("")}</nav>\n</article>`;
   return shell({ stem: page.stem, title: page.title, main, shots: page.html.includes("data-shot=") });
 }
 
+// What each part of the notebook is for, in the reader's words.
+const STAGE_LINES = {
+  "Start here": "Set up and find your way",
+  "Your research": "Collect and read papers",
+  Writing: "Think, write and log the work",
+  "Working together": "Share with your group",
+  "App and data": "Connect and extend",
+};
+
+// A stage sheet lists each page as a task, with the page's first how-tos under it.
+function stage([name, stems]) {
+  const rows = stems.map((s) => {
+    const page = byStem.get(s);
+    const sub = page.tasks.slice(0, 2).map(([id, text]) => `<a href="${s}.html#${id}">${esc(text)}</a>`).join("");
+    return `<li><a class="docs-task" href="${s}.html">${esc(page.title)}</a>${sub ? `<span class="docs-subtasks">${sub}</span>` : ""}</li>`;
+  });
+  const line = STAGE_LINES[name] ? `<p class="docs-note">${STAGE_LINES[name]}</p>` : "";
+  return `<section class="card docs-sheet docs-stage" id="${slug(name)}">\n<h3>${name}</h3>${line}\n<ul class="docs-checklist">${rows.join("")}</ul>\n</section>`;
+}
+
+const DOORS = [
+  ["getting-started", "Start from zero", "Install, sign in and make your first project."],
+  ["sync", "Move between devices", "Keep laptop, web and phone in step."],
+  ["release-notices", "What changed", "Notices about new versions."],
+];
+
 function homeHtml() {
-  const sections = groups
-    .map(([name, stems]) => `<h2 id="${slug(name)}">${name}</h2>\n<div class="docs-tiles">${stems.map((s) => tile(byStem.get(s))).join("")}</div>`)
-    .join("\n");
-  const main = `<article class="docs-md markdown">\n<h1>WeaveForge help</h1>\n<p>How to do things in WeaveForge, one task at a time. Press <kbd>Ctrl K</kbd> to search.</p>\n${sections}\n</article>`;
-  return shell({ stem: "index", title: "Home", main, shots: false });
+  const hero = `<section class="docs-hero">
+<div class="docs-hero-text">
+<p class="docs-kicker">WeaveForge help notebook</p>
+<h1>Your research, one page at a time.</h1>
+<p>Each page is one part of WeaveForge, written as short how-tos you can follow with the app open beside you.</p>
+<p class="docs-hero-actions"><a class="wf-btn wf-primary" href="getting-started.html">Start here</a><button class="wf-btn wf-ghost" data-docs-search>Look something up <kbd>Ctrl K</kbd></button></p>
+</div>
+<div class="docs-hero-margin">
+<p class="docs-note">New here? Start with the first sheet and work down.</p>
+<p class="docs-note">Press <kbd>/</kbd> anywhere to search every how-to.</p>
+<p class="docs-note">The theme menu up top has all ${themeIds.length} app themes.</p>
+</div>
+</section>`;
+  const doors = DOORS.filter(([s]) => byStem.has(s)).map(
+    ([s, head, text]) => `<a class="card docs-tile" href="${s}.html"><b>${head}</b><span>${text}</span></a>`,
+  );
+  const main = `<article class="docs-home-page">
+${hero}
+<h2 id="stages">I want to… <span class="docs-note">pick where you are</span></h2>
+<div class="docs-stages">
+${groups.map(stage).join("\n")}
+</div>
+<h2 id="other-ways-in">Other ways in</h2>
+<nav class="docs-related" aria-label="Other ways in">${doors.join("")}</nav>
+</article>`;
+  return shell({ stem: "index", title: "Home", main, shots: false, home: true });
 }
 
 // One entry per page and per h2/h3, for the Ctrl K palette.
