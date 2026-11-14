@@ -107,11 +107,17 @@ export async function joinLab(recipient: Page, code: string): Promise<void> {
   }
 
   await recipient.getByRole("button", { name: "Join lab" }).click();
-  // The dialog closes once the server accepts the code.
-  await expect(
-    recipient.getByRole("button", { name: "Join lab" }),
-    "the invite code was not accepted",
-  ).toBeHidden({ timeout: 30_000 });
+  // The dialog closes only once the server accepts the code. Waiting on the
+  // button is not enough: while the request runs it reads "Joining…", so it
+  // counts as hidden at once even when the join then fails. On failure the
+  // dialog stays open with an alert, so report that text.
+  const dialog = recipient.getByRole("dialog", { name: "Join or create an organization" });
+  try {
+    await expect(dialog).toBeHidden({ timeout: 30_000 });
+  } catch (cause) {
+    const alert = await dialog.getByRole("alert").first().textContent({ timeout: 1_000 }).catch(() => null);
+    throw new Error(`the invite code was not accepted: ${alert?.trim() || "no error shown"}`, { cause });
+  }
 }
 
 /** Both halves, in the order they have to happen. */
