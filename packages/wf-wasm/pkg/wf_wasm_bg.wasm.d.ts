@@ -545,6 +545,7 @@ export const hostOf: (a: number, b: number) => [number, number];
 export const htmlFinalUrlHeader: () => [number, number];
 export const htmlProxyMaxBytes: () => number;
 export const htmlProxyPath: () => [number, number];
+export const htmlToMarkdown: (a: any) => [number, number, number, number];
 export const httpContext: (a: number, b: number, c: number, d: number, e: number) => [number, number];
 export const httpStatusForKind: (a: number, b: number) => number;
 export const humanise: (a: number, b: number) => [number, number];

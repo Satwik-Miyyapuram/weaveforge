@@ -7,6 +7,7 @@
 
 pub mod clean_pasted_text;
 pub mod control_characters;
+pub mod html_to_markdown;
 pub mod markdown_link;
 pub mod markdown_ranges;
 pub mod paste_settings;
