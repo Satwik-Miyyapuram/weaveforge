@@ -10,8 +10,9 @@ import { appeared } from "./visible.js";
  * that can never fill — a failure about a locator, caused by account history.
  *
  * So the spec builds the precondition instead of assuming it: the owner has a
- * lab and mints a code, the recipient redeems it. Both halves are idempotent —
- * an account already in a lab keeps the one it has.
+ * lab and mints a code, the recipient redeems it. Both halves are idempotent:
+ * the owner keeps the lab it has, and joining again only refreshes the
+ * recipient's membership.
  */
 
 const LAB_NAME = "E2E Lab";
@@ -58,13 +59,20 @@ export async function mintLabCode(owner: Page): Promise<string> {
   return (await value.innerText()).trim();
 }
 
-/** Redeem a code, unless this account is already in a lab. */
+/**
+ * Redeem a code. An account already in some lab still joins this one: the
+ * picker only lists people who share an organization, and being in *a* lab is
+ * not being in the owner's. Joining a lab twice updates the membership, so
+ * this is safe to repeat.
+ */
 export async function joinLab(recipient: Page, code: string): Promise<void> {
   await openOrgTab(recipient);
-  if (await appeared(recipient.getByRole("button", { name: "Create / join another lab" }), 15_000)) {
-    return;
+  const another = recipient.getByRole("button", { name: "Create / join another lab" });
+  if (await appeared(another, 15_000)) {
+    await another.click();
+  } else {
+    await recipient.getByRole("button", { name: "Create or join" }).first().click();
   }
-  await recipient.getByRole("button", { name: "Create or join" }).first().click();
   await recipient.getByRole("button", { name: "Join with code" }).click();
   const field = recipient.getByPlaceholder("ABC-DEF-GH2");
   await field.fill(code);
@@ -99,10 +107,11 @@ export async function joinLab(recipient: Page, code: string): Promise<void> {
   }
 
   await recipient.getByRole("button", { name: "Join lab" }).click();
+  // The dialog closes once the server accepts the code.
   await expect(
-    recipient.getByRole("button", { name: "Create / join another lab" }),
+    recipient.getByRole("button", { name: "Join lab" }),
     "the invite code was not accepted",
-  ).toBeVisible({ timeout: 30_000 });
+  ).toBeHidden({ timeout: 30_000 });
 }
 
 /** Both halves, in the order they have to happen. */
