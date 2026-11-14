@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Every WeaveForge feature, step by step, followed through the code.">
+<title>WeaveForge Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,600&display=swap">
+<link rel="stylesheet" href="map.css">
+</head>
+<body>
+<header class="nav">
+  <a class="brand" href="#/">
+    <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path class="warp" d="M7 3v18M17 3v18"/><path class="weft" d="M3 8h2.2M8.8 8H21M3 16h12.2M18.8 16H21"/></svg>
+    <span>WeaveForge <em>map</em></span>
+  </a>
+  <nav id="areas" aria-label="Areas"></nav>
+  <button id="open-search" class="searchbtn" aria-label="Search"><span>Search</span><kbd>Ctrl K</kbd></button>
+</header>
+
+<div class="levelbar" role="group" aria-label="Fold level">
+  <div class="wrap wide lb-in">
+    <span class="lb-label">Fold</span>
+    <div id="levels" class="levels"></div>
+    <span class="lb-hint">keys <kbd>1</kbd>–<kbd>4</kbd></span>
+  </div>
+</div>
+
+<main id="main"></main>
+
+<footer class="foot"><div class="wrap wide fine" id="foot"></div>
+<div class="wrap wide fine">
+  <details class="settings">
+    <summary>Editor links</summary>
+    <label>Your repo folder (for “open in editor”) <input id="local-root" placeholder="C:/code/weaveforge" spellcheck="false" autocomplete="off"></label>
+    <p>Stored only in this browser.</p>
+  </details>
+</div>
+</footer>
+
+<dialog id="search">
+  <input placeholder="Search flows, functions, files…" aria-label="Search">
+  <ul></ul>
+  <p class="hint"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open · <kbd>Esc</kbd> close</p>
+</dialog>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
