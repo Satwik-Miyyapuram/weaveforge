@@ -338,11 +338,11 @@ export function VaultScreen() {
       {!selected && (
       <ScreenHead
         eyebrow={hasNotes ? `${ownedNotes.length} ${ownedNotes.length === 1 ? "note" : "notes"}` : undefined}
-        search={hasNotes ? { value: search, onChange: setSearch, label: "Search notes" } : undefined}
+        search={hasNotes ? { value: search, onChange: setSearch, label: "Search notes", helpId: "notes-search" } : undefined}
       >
         <Button
           variant="primary"
-         
+          data-help-id="notes-new"
           disabled={importing}
           onClick={() => void createUntitled()}
         >
@@ -411,6 +411,7 @@ export function VaultScreen() {
       {!error && !selected && hasNotes && (
         <FilterRow
           label="Filter notes"
+          helpId="notes-filters"
           facets={[
             {
               id: "fnlist",
