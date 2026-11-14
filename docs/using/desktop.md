@@ -51,7 +51,7 @@ and offers only **Done** or **Move to Trash**. To open it:
    **Open Anyway**. Confirm with your password or Touch ID. From then on it opens
    normally.
 2. **Finder Control-Click**: In Finder, open `/Applications`, hold the **Control**
-   key and click (or right-click) **WeaveForge.app**, then select **Open**. In the
+   key and click (or right-click) `WeaveForge.app`, then select **Open**. In the
    dialog that appears, click the **Open** button (which is hidden during a regular
    double-click).
 3. **In Terminal**, once (removes the quarantine attribute applied to downloads):
