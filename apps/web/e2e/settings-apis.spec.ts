@@ -60,6 +60,8 @@ test.describe("settings privileged APIs", () => {
     if (!(await enable.isChecked())) {
       await enable.click();
     }
+    // The tokens list lives on its own tab; the AI access panel links to it.
+    await page.getByRole("button", { name: "Manage MCP tokens" }).click();
     await expect.poll(() => mcpGets.length, { timeout: 20_000 }).toBeGreaterThan(0);
   });
 });
