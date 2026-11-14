@@ -178,7 +178,7 @@ For full details on folder structure, conflict handling, and local REST/MCP acce
 
 WeaveForge Desktop allows you to work completely offline with zero account requirements:
 
-- On the sign-in screen, select **"Work on this computer (offline)"**.
+- On the sign-in screen, select **Use without an account, local only**.
 - Your projects, notes, papers, search index, and experiments run against an embedded
   PGlite database stored in your operating system's application directory.
 - The app makes zero network calls at boot.

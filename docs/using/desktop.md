@@ -192,8 +192,9 @@ from somewhere else does not get to run in it.
 
 ## Working without an account
 
-The desktop window offers **"Work on this computer (offline)"** on the
-sign-in screen. Choosing it swaps four things — the database client, the
+The desktop window offers **Use without an account, local only** on the
+sign-in screen (and **Work on this computer (offline)** on the "Couldn’t start the
+app" screen). Choosing it swaps four things — the database client, the
 identity, the auth service and the blob store — for local ones, and leaves every
 repository, screen and use case above them untouched. The data lives in PGlite
 under the app's own directory, with the same schema the server has (all the
