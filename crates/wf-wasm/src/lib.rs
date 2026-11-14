@@ -637,6 +637,7 @@ mod net_redirect;
 mod net_semantic_scholar_relay;
 mod net_semantic_scholar_retry;
 mod one_euro;
+mod onenote;
 mod outline;
 mod overleaf_bibtex;
 mod overleaf_error;

@@ -5139,6 +5139,16 @@ export function imagePathsInBody(body: string, prefix: string): string[];
 export function imagesOf(metadata: Record<string, unknown> | null | undefined): string[];
 
 /**
+ * [`onenote::import_section`]: a `.one` section's pages as text, images and ink strokes.
+ *
+ * # Errors
+ *
+ * Fails when the bytes are not a OneNote section, are over the size cap, or
+ * the result cannot be converted to JS.
+ */
+export function importOneNoteSection(bytes: Uint8Array, file_name: string): B.OneNoteSection;
+
+/**
  * [`import_relative_path`](import_links::import_relative_path). An empty `webkit_relative_path`
  * means unset.
  */
@@ -14166,6 +14176,7 @@ export interface InitOutput {
     readonly imageExtensionForMime: (a: any) => [number, number, number, number];
     readonly imagePathsInBody: (a: any, b: any) => [number, number, number, number];
     readonly imagesOf: (a: any) => [number, number, number, number];
+    readonly importOneNoteSection: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly importRelativePath: (a: number, b: number, c: number, d: number) => [number, number];
     readonly importableEntities: (a: any, b: any) => [number, number, number];
     readonly inItems: (a: number, b: number) => [number, number, number];
@@ -15338,10 +15349,10 @@ export interface InitOutput {
     readonly zoteroWriteBackUpdateHeaders: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly zoteroWriteBackUpdateOutcome: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number, number];
     readonly zoteroWriteBackUpdateUrl: (a: number, b: number, c: number, d: number) => [number, number];
-    readonly wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___alloc_508e33bd5656020b___string__String__f64__true_: (a: number, b: number, c: number, d: number) => number;
-    readonly wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___js_sys_a74ea40957c530a8___Function_fn_wasm_bindgen_cfd6dee753b71865___JsValue_____wasm_bindgen_cfd6dee753b71865___sys__Undefined___js_sys_a74ea40957c530a8___Function_fn_wasm_bindgen_cfd6dee753b71865___JsValue_____wasm_bindgen_cfd6dee753b71865___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke___wasm_bindgen_cfd6dee753b71865___JsValue__wasm_bindgen_cfd6dee753b71865___JsValue__true_: (a: number, b: number, c: any) => any;
-    readonly wasm_bindgen_cfd6dee753b71865___convert__closures_____invoke_______true_: (a: number, b: number) => void;
+    readonly wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___alloc_508e33bd5656020b___string__String__f64__true_: (a: number, b: number, c: number, d: number) => number;
+    readonly wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___js_sys_e2ca25dc3b1cb70___Function_fn_wasm_bindgen_c59c2fd73ee08fa2___JsValue_____wasm_bindgen_c59c2fd73ee08fa2___sys__Undefined___js_sys_e2ca25dc3b1cb70___Function_fn_wasm_bindgen_c59c2fd73ee08fa2___JsValue_____wasm_bindgen_c59c2fd73ee08fa2___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke___wasm_bindgen_c59c2fd73ee08fa2___JsValue__wasm_bindgen_c59c2fd73ee08fa2___JsValue__true_: (a: number, b: number, c: any) => any;
+    readonly wasm_bindgen_c59c2fd73ee08fa2___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;

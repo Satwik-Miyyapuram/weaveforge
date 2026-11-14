@@ -48,6 +48,10 @@ git2 = { version = "=0.21.0", default-features = false, features = ["vendored-li
 # no tracing. tokenizers without the C++ esaxx, onig, progress bar or hub download (fancy-regex instead).
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "download-binaries", "tls-native", "api-31"] }
 tokenizers = { version = "=0.22.2", default-features = false, features = ["fancy-regex"] }
+# OneNote import (.one sections, ink as strokes). MPL-2.0. No default features: the
+# filesystem backend is not needed, sections are parsed from bytes (also in wasm).
+onenote_parser = { version = "=2.1.0", default-features = false }
+typed-path = "0.12.4"
 
 # Plan §4.2/§4.3: no unwrap/expect/panic in library code, every Result handled,
 # functions at most 70 lines (clippy.toml), unsafe only with a SAFETY comment.

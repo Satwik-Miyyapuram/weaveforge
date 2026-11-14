@@ -5842,6 +5842,42 @@ export type OneEuroOptions = {
 	derivativeCutoff: number,
 };
 
+/**  An image referenced from a page's Markdown. */
+export type OneNoteImage = {
+	/**  File name the Markdown refers to, such as `image-1.png`. */
+	name: string,
+	/**  Alt text with brackets removed. */
+	alt: string,
+	/**  Image bytes, base64 encoded. */
+	base64: string,
+};
+
+/**  One imported OneNote page. */
+export type OneNotePage = {
+	/**  Trimmed page title, or `Untitled page`. */
+	title: string,
+	/**  Page indent level, `0` for top level. */
+	level: number,
+	/**  Page text as Markdown. */
+	markdown: string,
+	/**  Images referenced from `markdown`. */
+	images: OneNoteImage[],
+	/**  Ink pages, empty when the page has no ink. */
+	ink: InkPage[],
+	/**  Recognised handwriting words joined by spaces, or empty. */
+	inkText: string,
+};
+
+/**  An imported OneNote section. */
+export type OneNoteSection = {
+	/**  Section display name. */
+	name: string,
+	/**  Pages in notebook order. */
+	pages: OneNotePage[],
+	/**  Non-fatal problems met during import. */
+	warnings: string[],
+};
+
 /**  The verb and base version of one op a device still owes for the row. */
 export type OpFact = {
 	/**  The verb of the op. */
