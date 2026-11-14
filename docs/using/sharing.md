@@ -85,4 +85,4 @@ Source: `crates/wf-core/src/sharing.rs`
 
 - [Collaborative editing](collaborative-editing.md) — what happens when two people edit at once
 - [Organisations](organisations.md) — who the members are
-- [Workspaces](workspaces.md) — where shared items live
+- [Projects](projects.md) — where shared items live

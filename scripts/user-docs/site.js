@@ -1,4 +1,4 @@
-// Docs site behaviour: theme switch, steps and app views, search palette, topics drawer, vote.
+// Docs site behaviour: theme switch, steps and the demo app, search palette, topics drawer, vote.
 // The generator also inlines a 1-line head script for no-flash; this file does not touch it.
 (function () {
   "use strict";
@@ -33,63 +33,96 @@
     refreshViews();
   });
 
-  // Steps: one active step per list (the filled circle). A list with views has a figure
-  // right after it: a frozen view of the app that rings the active step's control.
+  // Steps: one active step per list (the filled circle). Beside each how-to sits the
+  // demo app: it opens where the page starts, does each step's **bold** control up
+  // to the active step, and rings the active step's control. Under the title, the
+  // same app shows the page's screen. Readers watch it; it takes no input.
   const steps = [...document.querySelectorAll("ol.docs-steps:not(.docs-steps--static) > li.docs-step")];
   const frames = [...document.querySelectorAll(".docs-view-frame iframe")];
-  const ringOf = new Map(); // iframe -> ring key it should show
+  const live = new Map(); // iframe -> { ol, loaded, at: step it shows, want: step asked for }
 
   function mode() {
     const opt = sel && sel.selectedOptions[0];
     const group = opt && opt.parentElement;
     return group && group.label === "Dark" ? "dark" : "light";
   }
-  function post(frame) {
-    if (frame.contentWindow) frame.contentWindow.postMessage({ docsTheme: theme, docsMode: mode(), docsRing: ringOf.get(frame) || null }, "*");
+  // "**Settings → Org**" means click Settings, then Org.
+  function controls(li) {
+    const bold = li && li.querySelector("strong");
+    return bold ? bold.textContent.split("→").map(s => s.trim()).filter(Boolean) : [];
   }
-  // The view keeps the app's own size; scaling it down keeps the layout true at every width.
+  function send(frame, msg) {
+    if (frame.contentWindow) frame.contentWindow.postMessage(msg, "*");
+  }
+  // (Re)load the demo in the docs theme; every load starts from the same demo data.
+  function reload(frame) {
+    const url = new URL(frame.dataset.src);
+    url.searchParams.set("docsTheme", theme);
+    url.searchParams.set("docsMode", mode());
+    const s = live.get(frame);
+    s.loaded = false;
+    s.at = 0;
+    frame.src = url.href;
+  }
+  // Walk the demo forward to step `n`; going back means starting over.
+  function go(frame, n) {
+    const s = live.get(frame);
+    s.want = n;
+    if (!s.loaded) return;
+    if (!s.ol) return send(frame, { docsRing: null });
+    if (n < s.at) return reload(frame);
+    const lis = [...s.ol.children];
+    const todo = lis.slice(Math.max(s.at, 1) - 1, n - 1).flatMap(controls);
+    s.at = n;
+    const ring = controls(lis[n - 1]);
+    send(frame, { docsDo: todo, docsRing: ring[ring.length - 1] || null });
+  }
+  // The demo keeps a desktop size; scaling it down keeps the layout true at every width.
   const fit = new ResizeObserver(entries => entries.forEach(e => {
     const frame = e.target.querySelector("iframe");
     frame.style.transform = "scale(" + e.contentRect.width / parseFloat(frame.style.width) + ")";
   }));
   frames.forEach(frame => {
+    const fig = frame.closest("figure");
+    const howto = fig.parentElement.matches(".docs-howto") ? fig.parentElement : null;
+    live.set(frame, { ol: howto && howto.querySelector("ol.docs-steps"), loaded: false, at: 0, want: 1 });
     fit.observe(frame.parentElement);
-    frame.addEventListener("load", () => post(frame));
+    frame.addEventListener("load", () => {
+      const s = live.get(frame);
+      if (!frame.getAttribute("src") || s.loaded) return;
+      s.loaded = true;
+      send(frame, { docsDo: JSON.parse(frame.dataset.docsDo || "[]") });
+      s.at = 1;
+      go(frame, s.want);
+    });
+    reload(frame);
   });
 
   function heading(li) {
     const ol = li.closest("ol");
-    let p = ol ? ol.previousElementSibling : null;
+    const box = ol && ol.parentElement.matches(".docs-howto") ? ol.parentElement : ol;
+    let p = box ? box.previousElementSibling : null;
     while (p && p.tagName !== "H3") p = p.previousElementSibling;
     return p ? p.textContent.trim() : "";
   }
-  function figureOf(li) {
-    const next = li.parentElement.nextElementSibling;
-    return next && next.matches("figure[data-docs-steps-view]") ? next : null;
-  }
-  function mark(li) {
-    li.parentElement.querySelectorAll(":scope > li").forEach(s => s.classList.toggle("is-active", s === li));
-  }
   function setActive(li) {
-    mark(li);
-    const fig = figureOf(li);
-    if (!fig || !li.dataset.view) return;
+    const ol = li.parentElement;
+    ol.querySelectorAll(":scope > li").forEach(s => s.classList.toggle("is-active", s === li));
+    const fig = ol.nextElementSibling;
+    if (!fig || !fig.matches("figure[data-docs-steps-view]")) return;
     const frame = fig.querySelector("iframe");
     const cap = fig.querySelector("[data-docs-view-caption]");
-    ringOf.set(frame, li.dataset.ring);
-    if (frame.getAttribute("src") !== li.dataset.view) frame.setAttribute("src", li.dataset.view);
-    else post(frame);
+    go(frame, Number(li.dataset.step));
     frame.title = li.textContent.trim();
     if (cap) cap.textContent = heading(li) + " · step " + li.dataset.step;
   }
   function refreshViews() {
-    frames.forEach(post);
+    frames.forEach(frame => { if (frame.getAttribute("src")) reload(frame); });
   }
 
   steps.forEach(li => li.addEventListener("click", () => setActive(li)));
   document.querySelectorAll("ol.docs-steps:not(.docs-steps--static)").forEach(ol => {
-    const first = ol.querySelector(":scope > li[data-view]") || ol.firstElementChild;
-    if (first) setActive(first);
+    if (ol.firstElementChild) setActive(ol.firstElementChild);
   });
 
   // Search palette

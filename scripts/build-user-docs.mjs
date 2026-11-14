@@ -3,8 +3,10 @@
  * Builds the user help site from docs/using/*.md into docs/.site/ (not
  * committed). It reuses the app's own CSS, so every one of the app's themes is
  * a docs theme too; docs/plans/current/docs-map/design-set.md lists the only
- * elements it may use. Frozen views of the real app come from
- * scripts/capture-docs-views.mjs into docs/using/views/ and are copied in.
+ * elements it may use. Each page and each how-to shows the real app beside it:
+ * the demo build (scripts/user-docs/build-demo-app.mjs) served at DOCS_DEMO_URL,
+ * opened where scripts/user-docs/views.json says and walked through the steps
+ * by site.js. Readers watch it; they cannot edit it.
  *
  *   node scripts/build-user-docs.mjs
  */
@@ -32,10 +34,10 @@ import {
 
 const SRC = path.join(ROOT, "docs/using");
 const OUT = path.join(ROOT, "docs/.site");
-const VIEWS = path.join(SRC, "views");
-const manifest = fs.existsSync(path.join(VIEWS, "index.json"))
-  ? JSON.parse(fs.readFileSync(path.join(VIEWS, "index.json"), "utf8"))
-  : { size: null, views: {} };
+const DEMO = process.env.DOCS_DEMO_URL ?? "http://127.0.0.1:4174/";
+// page -> { route, do, tasks: { <how-to id>: { route, do } } }: where its demo opens.
+const VIEWS = JSON.parse(fs.readFileSync(path.join(ROOT, "scripts/user-docs/views.json"), "utf8"));
+const [VIEW_W, VIEW_H] = [1280, 800];
 const APP = path.join(ROOT, "apps/web/src/app");
 const STYLES = ["base.css", "states.css", "cards.css", "markdown.css"];
 
@@ -77,7 +79,7 @@ const pages = fs
   .map((name) => {
     const stem = name.slice(0, -3);
     const raw = fs.readFileSync(path.join(SRC, name), "utf8");
-    const html = decorate(marked.parse(stripFrontMatter(raw)), stem, (key) => manifest.views[key] ?? null);
+    const html = decorate(marked.parse(stripFrontMatter(raw)));
     const title = plainText(html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1] ?? stem);
     const intro = plainText(html.match(/<p>([\s\S]*?)<\/p>/)?.[1] ?? "");
     const tasks = [...html.matchAll(/<h3 id="([^"]+)">([\s\S]*?)<\/h3>/g)].map((m) => [m[1], plainText(m[2])]);
@@ -150,7 +152,7 @@ const card = (title, body) => `<div class="docs-card"><b class="docs-hand">${tit
 function margin(page, parts, viewed) {
   const how = parts.find((p) => p.id === "how-to");
   const psst = viewed
-    ? `<p class="docs-note">psst, click a step and the app below shows you where.</p>`
+    ? `<p class="docs-note">psst, click a step and the app beside it shows you where.</p>`
     : `<p class="docs-note">psst, ${page.tasks.length ? "pick a how-to:" : "it's a short one."}</p>`;
   const toc = !viewed && how && page.tasks.length ? `<nav class="docs-toc" aria-label="On this page">${page.tasks.map(([id, text]) => `<a href="#${id}">${esc(text)}</a>`).join("")}</nav>` : "";
   const faster = fasterWay(plainText(page.html));
@@ -168,24 +170,26 @@ ${vote}
 </aside>`;
 }
 
-// A frozen view of the app at its captured size, scaled to the figure by site.js.
-function viewFrame(src, title, extra = "") {
-  const [w, h] = manifest.size;
-  return `<figure class="docs-taped docs-figure"${extra}><div class="docs-view-frame" style="aspect-ratio:${w}/${h}"><iframe src="${src}" title="${esc(title)}" tabindex="-1" loading="lazy" style="width:${w}px;height:${h}px"></iframe></div>`;
+// The demo app at a desktop size, scaled to the figure by site.js. site.js opens
+// it at `start.route` and does `start.do` there; the reader cannot touch it.
+function demoFrame(start, title, extra = "") {
+  const src = new URL(start.route, DEMO).href;
+  return `<figure class="docs-taped docs-figure"${extra}><div class="docs-view-frame" style="aspect-ratio:${VIEW_W}/${VIEW_H}"><iframe data-src="${esc(src)}" data-docs-do="${esc(JSON.stringify(start.do ?? []))}" title="${esc(title)}" tabindex="-1" loading="lazy" style="width:${VIEW_W}px;height:${VIEW_H}px"></iframe></div>`;
 }
 
-// After each how-to list with views, a figure that shows the active step's view.
-function stepFigures(body) {
-  return body.replace(/<ol class="docs-steps"[\s\S]*?<\/ol>/g, (ol) => {
-    const first = ol.match(/data-view="([^"]+)"/)?.[1];
-    return first ? `${ol}\n${viewFrame(first, "WeaveForge", " data-docs-steps-view")}<figcaption data-docs-view-caption></figcaption></figure>\n` : ol;
+// Each how-to's steps sit beside its own demo, which site.js walks to the clicked step.
+function stepFigures(body, view) {
+  return body.replace(/<ol class="docs-steps" data-task="([^"]+)">[\s\S]*?<\/ol>/g, (ol, task) => {
+    const start = view.tasks?.[task] ?? view;
+    return `<div class="docs-howto">${ol}\n${demoFrame(start, "WeaveForge", " data-docs-steps-view")}<figcaption data-docs-view-caption></figcaption></figure></div>\n`;
   });
 }
 
 function pageHtml(page) {
   const [groupName, group] = groups.find(([, stems]) => stems.includes(page.stem));
   const { head, parts } = sections(page.html);
-  const viewed = page.html.includes("data-view=");
+  const view = VIEWS[page.stem];
+  const viewed = Boolean(view && page.tasks.length);
   const minutes = readMinutes(plainText(page.html));
   const chips = [
     page.tasks.length ? `${page.tasks.length} how-to${page.tasks.length === 1 ? "" : "s"}` : "",
@@ -195,12 +199,12 @@ function pageHtml(page) {
   const top = head
     .replace(/<p>/, '<p class="docs-promise">')
     .replace(/(<p class="docs-promise">[\s\S]*?<\/p>)/, `$1\n<p class="docs-chips">${chips.map((c) => `<span>${c}</span>`).join("")}</p>`);
-  const heroView = manifest.views[`${page.stem}/hero`];
-  const hero = heroView ? `${viewFrame(`views/${heroView}`, `${page.title} in WeaveForge`)}</figure>\n` : "";
+  const hero = view ? `${demoFrame(view, `${page.title} in WeaveForge`)}</figure>\n` : "";
   const body = parts
     .filter((p) => p.id !== "related" && p.id !== "good-to-know")
     .map((p) => {
-      const inner = p.id === "how-to" ? stepFigures(noteSteps(p.body)) : p.id === "stuck" ? stuckToDetails(p.body) : p.body;
+      const how = p.id === "how-to" && noteSteps(p.body);
+      const inner = how ? (view ? stepFigures(how, view) : how) : p.id === "stuck" ? stuckToDetails(p.body) : p.body;
       return `<h2 id="${p.id}">${esc(p.title)}</h2>\n${inner}`;
     })
     .join("");
@@ -290,7 +294,6 @@ function searchIndex() {
 fs.mkdirSync(OUT, { recursive: true });
 for (const file of css) copy(path.join(APP, file), path.join(OUT, "app", file));
 for (const file of ["site.css", "site.js"]) copy(path.join(ROOT, "scripts/user-docs", file), path.join(OUT, file));
-if (fs.existsSync(VIEWS)) fs.cpSync(VIEWS, path.join(OUT, "views"), { recursive: true });
 for (const page of pages) fs.writeFileSync(path.join(OUT, `${page.stem}.html`), pageHtml(page));
 fs.writeFileSync(path.join(OUT, "index.html"), homeHtml());
 fs.writeFileSync(path.join(OUT, "search-index.js"), searchIndex());

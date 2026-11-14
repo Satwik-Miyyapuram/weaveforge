@@ -132,5 +132,5 @@ Source: `crates/wf-core/src/search/`. The rules are in `search_tuning.rs`,
 
 ## Related
 
-- [Projects and workspaces](workspaces.md): the boundary search covers.
+- [Projects](projects.md): the boundary search covers.
 - [Integrations](integrations.md): the MCP tools that search your workspace.

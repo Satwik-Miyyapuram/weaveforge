@@ -32,12 +32,10 @@ export function plainText(html) {
 const CALLOUT = { TIP: ["tip", "Good to know"], NOTE: ["note", "Note"], WARNING: ["warning", "Careful"] };
 
 /**
- * Each how-to step gets `data-ring="page/task/step"`, the control a view rings
- * for it. `viewOf(key)` names the captured view that shows the step, or null;
- * steps with one also get `data-view`. An ordered list counts as a how-to
- * when it sits under an h3 (`### Create a note`); lists under an h2 do not.
+ * Ids the headings and numbers the how-to steps. An ordered list counts as a
+ * how-to when it sits under an h3 (`### Create a note`); lists under an h2 do not.
  */
-export function decorate(html, page, viewOf) {
+export function decorate(html) {
   let task = null;
   let olDepth = 0;
   let ulDepth = 0;
@@ -69,9 +67,7 @@ export function decorate(html, page, viewOf) {
     }
     if (steps && olDepth === 1 && ulDepth === 0) {
       step += 1;
-      const key = `${page}/${task}/${step}`;
-      const view = viewOf(key);
-      return `<li class="wf-item docs-step" data-step="${step}"${view ? ` data-view="views/${view}"` : ""} data-ring="${key}">`;
+      return `<li class="wf-item docs-step" data-step="${step}">`;
     }
     return tag;
   });
