@@ -5842,6 +5842,20 @@ export type OneEuroOptions = {
 	derivativeCutoff: number,
 };
 
+/**  Where a background image sits on an ink page, in 0.1 mm. */
+export type OneNoteBackground = {
+	/**  Name of the image in the page's `images`. */
+	name: string,
+	/**  Left edge. */
+	x: number,
+	/**  Top edge. */
+	y: number,
+	/**  Width. */
+	width: number,
+	/**  Height. */
+	height: number,
+};
+
 /**  An image referenced from a page's Markdown. */
 export type OneNoteImage = {
 	/**  File name the Markdown refers to, such as `image-1.png`. */
@@ -5852,20 +5866,28 @@ export type OneNoteImage = {
 	base64: string,
 };
 
+/**  One ink page of an imported OneNote page. */
+export type OneNoteInkPage = {
+	/**  Strokes and page size. */
+	page: InkPage,
+	/**  Printout page drawn under the strokes, if any. */
+	background: OneNoteBackground | null,
+	/**  Typed text that sat on this part of the OneNote page, as Markdown. */
+	text: string,
+};
+
 /**  One imported OneNote page. */
 export type OneNotePage = {
 	/**  Trimmed page title, or `Untitled page`. */
 	title: string,
 	/**  Page indent level, `0` for top level. */
 	level: number,
-	/**  Page text as Markdown. */
+	/**  Page text as Markdown; empty when the page has ink, whose pages carry the text. */
 	markdown: string,
-	/**  Images referenced from `markdown`. */
+	/**  Images referenced from `markdown`, the ink pages' text and their backgrounds. */
 	images: OneNoteImage[],
 	/**  Ink pages, empty when the page has no ink. */
-	ink: InkPage[],
-	/**  Recognised handwriting words joined by spaces, or empty. */
-	inkText: string,
+	ink: OneNoteInkPage[],
 };
 
 /**  An imported OneNote section. */
