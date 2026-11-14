@@ -62,8 +62,8 @@ export async function mintLabCode(owner: Page): Promise<string> {
 /**
  * Redeem a code. An account already in some lab still joins this one: the
  * picker only lists people who share an organization, and being in *a* lab is
- * not being in the owner's. Joining a lab twice updates the membership, so
- * this is safe to repeat.
+ * not being in the owner's. The server refuses a second join of the same lab;
+ * that counts as joined, so this is safe to repeat.
  */
 export async function joinLab(recipient: Page, code: string): Promise<void> {
   await openOrgTab(recipient);
@@ -116,6 +116,12 @@ export async function joinLab(recipient: Page, code: string): Promise<void> {
     await expect(dialog).toBeHidden({ timeout: 30_000 });
   } catch (cause) {
     const alert = await dialog.getByRole("alert").first().textContent({ timeout: 1_000 }).catch(() => null);
+    // An earlier run already joined: the server refuses a second join, and the
+    // membership this asks for is there.
+    if (alert?.includes("You are already in this lab.")) {
+      await recipient.keyboard.press("Escape");
+      return;
+    }
     throw new Error(`the invite code was not accepted: ${alert?.trim() || "no error shown"}`, { cause });
   }
 }
