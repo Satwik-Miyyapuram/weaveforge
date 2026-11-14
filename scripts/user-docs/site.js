@@ -63,6 +63,7 @@
     s.off = false;
     s.loaded = false;
     s.at = 0;
+    frame.parentElement.dataset.demo = "loading";
     frame.src = url.href;
   }
   // Each demo runs its own database, so only the ones near the screen run at all.
@@ -70,13 +71,30 @@
     const s = live.get(frame);
     s.off = true;
     s.loaded = false;
+    frame.parentElement.dataset.demo = "idle";
     frame.src = "about:blank";
   }
-  const near = new IntersectionObserver(entries => entries.forEach(e => {
-    const frame = e.target.querySelector("iframe");
-    if (e.isIntersecting && live.get(frame).off) reload(frame);
-    else if (!e.isIntersecting && !live.get(frame).off) unload(frame);
-  }), { rootMargin: "300px 0px" });
+  // Each demo runs the whole app and its own database, so one runs at a time: the
+  // one most in view once scrolling settles. The rest wait, blank.
+  const seen = new Map(); // iframe -> how much of it is on screen
+  let settle;
+  const near = new IntersectionObserver(entries => {
+    entries.forEach(e => seen.set(e.target.querySelector("iframe"), e.isIntersecting ? e.intersectionRatio : 0));
+    clearTimeout(settle);
+    settle = setTimeout(pick, 250);
+  }, { threshold: [0, 0.25, 0.5, 0.75, 1] });
+  function pick() {
+    let best = null, most = 0;
+    seen.forEach((r, f) => { if (r > most) { best = f; most = r; } });
+    if (!best) return; // none on screen: keep the one that runs
+    frames.forEach(f => { if (f !== best && !live.get(f).off) unload(f); });
+    if (live.get(best).off) reload(best);
+  }
+  // The demo says when its app has drawn; until then the frame says it is loading.
+  window.addEventListener("message", e => {
+    const frame = frames.find(f => f.contentWindow === e.source);
+    if (frame && e.data && e.data.docsReady && !live.get(frame).off) delete frame.parentElement.dataset.demo;
+  });
   // Walk the demo forward to step `n`; going back means starting over.
   function go(frame, n) {
     const s = live.get(frame);
@@ -100,6 +118,7 @@
     const howto = fig.parentElement.matches(".docs-howto") ? fig.parentElement : null;
     live.set(frame, { ol: howto && howto.querySelector("ol.docs-steps"), off: true, loaded: false, at: 0, want: 1 });
     fit.observe(frame.parentElement);
+    frame.parentElement.dataset.demo = "idle";
     near.observe(frame.parentElement);
     frame.addEventListener("load", () => {
       const s = live.get(frame);

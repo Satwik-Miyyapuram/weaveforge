@@ -220,6 +220,10 @@ body.docs .docs-crumb a { color: var(--muted); }
 /* The demo app: drawn at the app's size, scaled to fit, never interactive. */
 .docs-view-frame { position: relative; overflow: hidden; width: 100%; max-width: 100%; background: var(--bg); }
 .docs-view-frame iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; pointer-events: none; }
+/* Only one demo runs at a time; the others say so instead of sitting blank. */
+.docs-view-frame[data-demo]::after { position: absolute; inset: 0; display: grid; place-items: center; background: var(--bg); color: var(--muted); font: 15px var(--docs-hand); }
+.docs-view-frame[data-demo="loading"]::after { content: "Opening the demo…"; }
+.docs-view-frame[data-demo="idle"]::after { content: "The demo runs when this is in view"; }
 .docs-figure figcaption { font: 14px var(--docs-hand); color: var(--docs-pen); padding-top: 6px; }
 /* A how-to: its steps on the left, the demo doing them on the right, kept in view. */
 .docs-howto { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 24px; align-items: start; }
