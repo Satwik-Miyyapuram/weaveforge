@@ -16,6 +16,7 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [logbook](logbook.md) | Pure helpers behind the logbook. |
 | [markdown_link](markdown_link.md) | Markdown link helpers for pasted URLs: the bare-URL check, label escaping and `[label](url)`. |
 | [net](net.md) | Pure network helpers: URL shape and address checks. |
+| [onenote-import](onenote-import.md) | OneNote import: a `.one` section's pages as Markdown, pictures and ink. |
 | [overleaf](overleaf.md) | Overleaf link rules: project id and entry file validation, section target sanitizing, and project URLs. |
 | [papers](papers.md) | Paper imports: reading a paper's details from a page and parsing DOIs and arXiv ids. |
 | [paste](paste.md) | Paste cleanup: the rules applied to clipboard text. |
