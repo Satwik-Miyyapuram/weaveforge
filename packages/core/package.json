@@ -20,10 +20,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./reader-analysis": {
-      "types": "./dist/features/reader/analysis/index.d.ts",
-      "default": "./dist/features/reader/analysis/index.js"
     }
   },
   "scripts": {
