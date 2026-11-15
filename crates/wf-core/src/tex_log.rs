@@ -1,5 +1,5 @@
-//! TeX engine argument vectors and TeX log error parsing. Pure: the probe, the compile and the
-//! file writes stay in the desktop shell.
+//! TeX log error parsing. Pure: the probe, the argument vectors, the compile and the file
+//! writes stay in the desktop shell.
 
 use std::collections::HashSet;
 use std::sync::LazyLock;
@@ -33,35 +33,6 @@ pub struct TexError {
     pub line: u64,
     /// The error message, trimmed.
     pub message: String,
-}
-
-/// The argument vector for `engine` compiling `entry`.
-///
-/// `./` is put before a latexmk or pdflatex entry so a file named `-something.tex` is a file,
-/// not an option. Neither runs an rc file or a shell escape. Tectonic gets `--keep-logs`, so
-/// the `.log` sits beside the PDF, and `--` before the entry, for the same reason as `./`.
-#[must_use]
-pub fn engine_args(engine: TexEngine, entry: &str) -> Vec<String> {
-    let dotted = format!("./{entry}");
-    let args: &[&str] = match engine {
-        TexEngine::Latexmk => &[
-            "-norc",
-            "-pdf",
-            "-interaction=nonstopmode",
-            "-halt-on-error",
-            "-file-line-error",
-        ],
-        TexEngine::Tectonic => return vec!["--keep-logs".into(), "--".into(), entry.into()],
-        TexEngine::Pdflatex => &[
-            "-no-shell-escape",
-            "-interaction=nonstopmode",
-            "-halt-on-error",
-            "-file-line-error",
-        ],
-    };
-    let mut out: Vec<String> = args.iter().map(|arg| (*arg).to_owned()).collect();
-    out.push(dotted);
-    out
 }
 
 /// `file:line: message`, as `-file-line-error` prints it. The message may not run into a line
@@ -188,26 +159,5 @@ mod tests {
     fn log_with_nothing_wrong_yields_no_errors() {
         let log = "This is pdfTeX\nOutput written on main.pdf (42 pages).";
         assert_eq!(parse_tex_log(log, "main.tex"), Vec::<TexError>::new());
-    }
-
-    #[test]
-    fn tectonic_is_asked_to_keep_logs_not_print() {
-        let args = engine_args(TexEngine::Tectonic, "main.tex");
-        assert!(!args.iter().any(|arg| arg == "--print"));
-        assert!(args.iter().any(|arg| arg == "--keep-logs"));
-        assert_eq!(args, vec!["--keep-logs", "--", "main.tex"]);
-    }
-
-    #[test]
-    fn no_engine_writes_outside_its_own_directory() {
-        for engine in [TexEngine::Latexmk, TexEngine::Tectonic, TexEngine::Pdflatex] {
-            let args = engine_args(engine, "main.tex");
-            assert!(
-                !args
-                    .iter()
-                    .any(|arg| arg.starts_with("--outdir") || arg == "-output-directory")
-            );
-            assert!(args.iter().any(|arg| arg.contains("main.tex")));
-        }
     }
 }
