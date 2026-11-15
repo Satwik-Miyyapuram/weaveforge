@@ -30,7 +30,6 @@ mod protocol_range;
 mod range;
 mod secrets;
 mod temp_dir;
-mod tex;
 mod update_check;
 mod vault;
 mod vault_choice;

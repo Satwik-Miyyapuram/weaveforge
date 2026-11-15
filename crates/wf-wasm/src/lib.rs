@@ -764,8 +764,6 @@ mod sync_pump_route;
 mod sync_push_plan;
 mod sync_send_steps;
 mod sync_sync_state;
-mod tex_log;
-mod tex_path;
 mod update_check;
 mod vault_git_parse;
 mod vault_import_links;
