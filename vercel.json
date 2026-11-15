@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "test -f scripts/vercel-install.sh || cd ../..; bash scripts/vercel-install.sh",
-  "buildCommand": "PATH=\"$HOME/.cargo/bin:$PATH\" npm run build"
+  "buildCommand": "PATH=\"${CARGO_HOME:-$HOME/.cargo}/bin:$PATH\" npm run build"
 }
