@@ -30,6 +30,11 @@ test("plainText strips tags and squeezes space", () => {
   assert.equal(plainText("<p>Click <strong>New</strong>\n now.</p>"), "Click New now.");
 });
 
+test("plainText decodes entities once and strips nested tags fully", () => {
+  assert.equal(plainText("&amp;lt;b&amp;gt;"), "&lt;b&gt;");
+  assert.ok(!plainText("<scr<b>ipt>alert(1)").includes("<"));
+});
+
 const html = `<h2>How to</h2>
 <h3>Create a note</h3>
 <ol>

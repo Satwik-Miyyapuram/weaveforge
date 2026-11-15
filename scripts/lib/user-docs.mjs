@@ -18,13 +18,19 @@ export function stripFrontMatter(md) {
 }
 
 export function plainText(html) {
-  return html
-    .replace(/<[^>]+>/g, "")
-    .replace(/&amp;/g, "&")
+  // Repeat so nested tags like "<scr<b>ipt>" cannot re-form after a pass.
+  let s = html;
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(/<[^>]*>/g, "");
+  } while (s !== prev);
+  return s
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
     .replace(/\s+/g, " ")
     .trim();
 }
