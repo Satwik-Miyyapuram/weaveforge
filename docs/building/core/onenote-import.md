@@ -23,7 +23,10 @@ and creates the notes itself.
   - Places strokes from their outline and ink offsets, in 0.1 mm units.
   - Maps OneNote colours to the nearest WeaveForge ink colour.
   - Treats a translucent stroke as a highlighter.
-  - Splits a page that has more than `INK_PAGE_STROKE_BUDGET` strokes.
+  - Groups strokes by printout: each background image is a band, and a
+    stroke goes to the band its middle falls in. Each band is one ink page
+    (more if it has over `INK_PAGE_STROKE_BUDGET` strokes), with the printout
+    placed as its background.
 - `crates/wf-core/tests/onenote_import.rs`: integration tests on a sample
   section in `tests/fixtures/onenote/`.
 
@@ -31,18 +34,22 @@ and creates the notes itself.
 
 `crates/wf-wasm/src/onenote.rs` exports `importOneNoteSection(bytes, fileName)`.
 It returns a `OneNoteSection { name, pages, warnings }`. Each page has `title`,
-`level`, `markdown`, `images` (name, alt text, base64 bytes), `ink` and
-`inkText` (the words OneNote recognised in the handwriting).
+`level`, `markdown`, `images` (name, alt text, base64 bytes) and `ink`, a list
+of `OneNoteInkPage { page, background, text }`. `background` is the printout's
+image name and its box on the page; `text` is the typed text of that band. A
+page with ink has an empty `markdown`, so its typed text is not imported
+twice. OneNote's recognised handwriting text is dropped: the strokes are the
+handwriting.
 
 `apps/web/src/features/vault/application/onenote-import.ts` creates the notes:
 
-1. One folder note named after the section.
-2. One note per page, nested by page level.
-3. Each picture uploaded as a vault attachment, and its reference replaced
+1. One note per page, nested by page level, with no note for the section.
+2. Each picture uploaded as a vault attachment, and its reference replaced
    with the attachment's path.
-4. For a page with handwriting, a separate ink note named
-   `<title> (handwriting)`, next to the text note. Its text layer is the
-   recognised words.
+3. A page with handwriting is one ink note instead of a text note. Each ink
+   page's printout is drawn at its box on a transparent page
+   (`composeOnPage`), uploaded, and set as that page's background. A page
+   with more than `INK_NOTE_MAX_PAGES` ink pages splits into numbered parts.
 
 The **More → Import OneNote section…** item on the notes list runs it.
 

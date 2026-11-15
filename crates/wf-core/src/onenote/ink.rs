@@ -11,7 +11,7 @@ use crate::ink::ink_page::{
 use crate::sync::ink_note::InkPaper;
 
 /// Half an inch in 0.1 mm, the unit of OneNote offsets.
-const HALF_INCH_TENTHS_MM: f64 = 127.0;
+pub(crate) const HALF_INCH_TENTHS_MM: f64 = 127.0;
 /// Margin kept when a page's ink would start at a negative coordinate, in 0.1 mm.
 const MARGIN: f64 = 50.0;
 /// Extra room added past the furthest point when sizing a page, in 0.1 mm.
@@ -32,15 +32,34 @@ const PALETTE: [(InkColour, (i64, i64, i64)); 9] = [
 
 /// A stroke in page coordinates before it becomes an `InkStroke`.
 #[derive(Debug, Clone)]
-struct RawStroke {
+pub(crate) struct RawStroke {
     points: Vec<(f64, f64)>,
     width: f64,
     tool: InkTool,
     colour: InkColour,
 }
 
-/// Ink pages for every ink object on `page`, or empty when it has none.
-pub(crate) fn page_ink(page: &Page) -> Vec<InkPage> {
+/// A rectangle on the OneNote page or on an ink page, in 0.1 mm.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Rect {
+    pub(crate) x: f64,
+    pub(crate) y: f64,
+    pub(crate) width: f64,
+    pub(crate) height: f64,
+}
+
+/// One ink page made from a OneNote page.
+#[derive(Debug, Clone)]
+pub(crate) struct Sheet {
+    pub(crate) page: InkPage,
+    /// Where the band's printout image sits on this ink page.
+    pub(crate) background: Option<Rect>,
+    /// Index of the band this sheet belongs to.
+    pub(crate) group: usize,
+}
+
+/// Every ink stroke on `page`, in OneNote page coordinates.
+pub(crate) fn page_strokes(page: &Page) -> Vec<RawStroke> {
     let mut raw = Vec::new();
     for content in page.contents() {
         match content {
@@ -49,7 +68,133 @@ pub(crate) fn page_ink(page: &Page) -> Vec<InkPage> {
             _ => {}
         }
     }
-    build_pages(&raw)
+    raw
+}
+
+/// Band holding `y`: the last band whose top is at or above it, else the first.
+pub(crate) fn band_index(tops: &[f64], y: f64) -> usize {
+    tops.iter().rposition(|&top| top <= y).unwrap_or(0)
+}
+
+/// Ink pages for `raw`. With `bands` (printout pages, sorted by top) each band
+/// gets its own pages holding the strokes whose middle falls in it, shifted so
+/// the band's corner is the page corner (or further, for ink in the margin).
+/// Every sheet gets the largest sheet's size. Without bands every stroke
+/// shares one page size.
+pub(crate) fn build_sheets(raw: &[RawStroke], bands: &[Rect]) -> Vec<Sheet> {
+    if bands.is_empty() {
+        return build_pages(raw)
+            .into_iter()
+            .map(|page| Sheet {
+                page,
+                background: None,
+                group: 0,
+            })
+            .collect();
+    }
+    let tops: Vec<f64> = bands.iter().map(|band| band.y).collect();
+    let mut members: Vec<Vec<usize>> = vec![Vec::new(); bands.len()];
+    for (index, stroke) in raw.iter().enumerate() {
+        if let Some((_, min_y, _, max_y)) = bounds(stroke.points.iter()) {
+            members[band_index(&tops, (min_y + max_y) / 2.0)].push(index);
+        }
+    }
+
+    let mut sheets = Vec::new();
+    for (group, (band, indices)) in bands.iter().zip(&members).enumerate() {
+        band_sheets(raw, band, indices, group, &mut sheets);
+    }
+    // The ink view lays every page of a note out at one size, so all sheets
+    // take the largest; content is anchored top-left and does not move.
+    let width = sheets.iter().map(|s| s.page.width).fold(0.0, f64::max);
+    let height = sheets.iter().map(|s| s.page.height).fold(0.0, f64::max);
+    for sheet in &mut sheets {
+        sheet.page.width = width;
+        sheet.page.height = height;
+    }
+    sheets
+}
+
+/// Sheets for one printout `band` holding the strokes at `indices`.
+fn band_sheets(
+    raw: &[RawStroke],
+    band: &Rect,
+    indices: &[usize],
+    group: usize,
+    sheets: &mut Vec<Sheet>,
+) {
+    let limit = f64::from(INK_COORD_LIMIT);
+    {
+        let extent = bounds(indices.iter().flat_map(|&i| raw[i].points.iter()));
+        let (ox, oy) = extent.map_or((band.x, band.y), |(min_x, min_y, _, _)| {
+            (band.x.min(min_x - MARGIN), band.y.min(min_y - MARGIN))
+        });
+        let placed = Rect {
+            x: band.x - ox,
+            y: band.y - oy,
+            width: band.width,
+            height: band.height,
+        };
+        let (mut right, mut bottom) = (placed.x + placed.width, placed.y + placed.height);
+        if let Some((_, _, max_x, max_y)) = extent {
+            right = right.max(max_x - ox + PAGE_PAD);
+            bottom = bottom.max(max_y - oy + PAGE_PAD);
+        }
+        let size = clamp_ink_page_size(right, bottom);
+        let strokes: Vec<InkStroke> = indices
+            .iter()
+            .map(|&index| {
+                let stroke = &raw[index];
+                let points = stroke
+                    .points
+                    .iter()
+                    .flat_map(|&(x, y)| [whole_coord(x - ox, limit), whole_coord(y - oy, limit)])
+                    .collect();
+                ink_stroke(stroke, points, index)
+            })
+            .collect();
+        let sheet = |strokes: Vec<InkStroke>| Sheet {
+            page: InkPage {
+                width: size.width,
+                height: size.height,
+                paper: InkPaper::Blank,
+                background: 0.0,
+                strokes,
+                lines: Vec::new(),
+            },
+            background: Some(placed),
+            group,
+        };
+        if strokes.is_empty() {
+            sheets.push(sheet(Vec::new()));
+        } else {
+            sheets.extend(
+                strokes
+                    .chunks(INK_PAGE_STROKE_BUDGET)
+                    .map(|chunk| sheet(chunk.to_vec())),
+            );
+        }
+    }
+}
+
+/// `(min_x, min_y, max_x, max_y)` of `points`, or `None` when there are none.
+fn bounds<'a>(points: impl Iterator<Item = &'a (f64, f64)>) -> Option<(f64, f64, f64, f64)> {
+    points.fold(None, |acc, &(x, y)| {
+        Some(acc.map_or((x, y, x, y), |(a, b, c, d)| {
+            (a.min(x), b.min(y), c.max(x), d.max(y))
+        }))
+    })
+}
+
+fn ink_stroke(stroke: &RawStroke, points: Vec<f64>, index: usize) -> InkStroke {
+    make_ink_stroke(InkStrokeInput {
+        points,
+        width: Some(stroke.width),
+        tool: Some(stroke.tool),
+        colour: Some(stroke.colour),
+        t0: Some(index_as_f64(index) * 10.0),
+        ..Default::default()
+    })
 }
 
 fn collect_outline(outline: &Outline, out: &mut Vec<RawStroke>) {
@@ -197,14 +342,11 @@ fn build_pages(raw: &[RawStroke]) -> Vec<InkPage> {
         .enumerate()
         .filter(|(_, (_, path))| !path.is_empty())
         .map(|(index, (stroke, path))| {
-            make_ink_stroke(InkStrokeInput {
-                points: path.iter().flat_map(|&(x, y)| [x, y]).collect(),
-                width: Some(stroke.width),
-                tool: Some(stroke.tool),
-                colour: Some(stroke.colour),
-                t0: Some(index_as_f64(index) * 10.0),
-                ..Default::default()
-            })
+            ink_stroke(
+                stroke,
+                path.iter().flat_map(|&(x, y)| [x, y]).collect(),
+                index,
+            )
         })
         .collect();
 
@@ -275,6 +417,126 @@ mod tests {
         let mut paths = vec![vec![(1.0e9, 0.0)]];
         fit_to_page(&mut paths);
         assert!((paths[0][0].0 - f64::from(INK_COORD_LIMIT)).abs() < f64::EPSILON);
+    }
+
+    fn stroke(points: &[(f64, f64)]) -> RawStroke {
+        RawStroke {
+            points: points.to_vec(),
+            width: 1.0,
+            tool: InkTool::Pen,
+            colour: InkColour::Text,
+        }
+    }
+
+    fn a4_at(y: f64) -> Rect {
+        Rect {
+            x: 127.0,
+            y,
+            width: 2100.0,
+            height: 2970.0,
+        }
+    }
+
+    #[test]
+    fn band_index_picks_last_band_at_or_above() {
+        let tops = [0.0, 3000.0, 6000.0];
+        assert_eq!(band_index(&tops, -50.0), 0);
+        assert_eq!(band_index(&tops, 2999.0), 0);
+        assert_eq!(band_index(&tops, 3000.0), 1);
+        assert_eq!(band_index(&tops, 9000.0), 2);
+        assert_eq!(band_index(&[], 10.0), 0);
+    }
+
+    #[test]
+    fn sheets_without_bands_match_old_pages() {
+        let raw = vec![stroke(&[(10.0, 10.0), (20.0, 20.0)])];
+        let sheets = build_sheets(&raw, &[]);
+        assert_eq!(sheets.len(), 1);
+        assert_eq!(sheets[0].background, None);
+        assert_eq!(sheets[0].page, build_pages(&raw)[0]);
+    }
+
+    #[test]
+    fn strokes_go_to_their_band_and_shift_to_its_corner() {
+        let bands = [a4_at(127.0), a4_at(3200.0)];
+        let raw = vec![
+            stroke(&[(500.0, 400.0), (600.0, 500.0)]),
+            stroke(&[(500.0, 3500.0), (600.0, 3600.0)]),
+        ];
+        let sheets = build_sheets(&raw, &bands);
+        assert_eq!(sheets.len(), 2);
+        assert_eq!((sheets[0].group, sheets[1].group), (0, 1));
+        assert_eq!(sheets[0].page.strokes.len(), 1);
+        assert_eq!(sheets[1].page.strokes.len(), 1);
+        let image = sheets[1].background.unwrap();
+        assert_eq!(
+            (image.x, image.y, image.width, image.height),
+            (0.0, 0.0, 2100.0, 2970.0)
+        );
+        assert_eq!(&sheets[1].page.strokes[0].points[..2], &[373.0, 300.0]);
+        assert!((sheets[1].page.width - 2100.0).abs() < f64::EPSILON);
+        assert!((sheets[1].page.height - 2970.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn margin_ink_widens_the_page_and_keeps_the_image_in_place() {
+        let bands = [a4_at(127.0)];
+        let raw = vec![stroke(&[(27.0, 500.0), (3000.0, 600.0)])];
+        let sheets = build_sheets(&raw, &bands);
+        let sheet = &sheets[0];
+        let image = sheet.background.unwrap();
+        assert!((image.x - 150.0).abs() < f64::EPSILON);
+        assert!(image.y.abs() < f64::EPSILON);
+        assert!((sheet.page.width - 3123.0).abs() < f64::EPSILON);
+        assert_eq!(&sheet.page.strokes[0].points[..2], &[50.0, 373.0]);
+    }
+
+    #[test]
+    fn every_sheet_takes_the_largest_page_size() {
+        // The ink view sizes every page of a note alike, so a wide page
+        // (margin ink) must not leave its neighbours narrower.
+        let bands = [a4_at(127.0), a4_at(3200.0)];
+        let raw = vec![
+            stroke(&[(500.0, 400.0), (600.0, 500.0)]),
+            stroke(&[(500.0, 3500.0), (4000.0, 3600.0)]),
+        ];
+        let sheets = build_sheets(&raw, &bands);
+        assert_eq!(sheets.len(), 2);
+        let (w, h) = (sheets[1].page.width, sheets[0].page.height);
+        assert!(w > 2100.0);
+        for sheet in &sheets {
+            assert!((sheet.page.width - w).abs() < f64::EPSILON);
+            assert!((sheet.page.height - h).abs() < f64::EPSILON);
+        }
+        // Content stays anchored top-left.
+        let image = sheets[0].background.unwrap();
+        assert_eq!((image.x, image.y), (0.0, 0.0));
+        assert_eq!(&sheets[0].page.strokes[0].points[..2], &[373.0, 273.0]);
+    }
+
+    #[test]
+    fn a_band_without_ink_still_makes_a_page() {
+        let bands = [a4_at(127.0), a4_at(3200.0)];
+        let raw = vec![stroke(&[(500.0, 400.0), (600.0, 500.0)])];
+        let sheets = build_sheets(&raw, &bands);
+        assert_eq!(sheets.len(), 2);
+        assert!(sheets[1].page.strokes.is_empty());
+        assert_eq!(sheets[1].group, 1);
+    }
+
+    #[test]
+    fn a_full_band_splits_by_stroke_budget() {
+        let bands = [a4_at(127.0)];
+        let raw: Vec<RawStroke> = (0..=INK_PAGE_STROKE_BUDGET)
+            .map(|_| stroke(&[(500.0, 400.0), (600.0, 500.0)]))
+            .collect();
+        let sheets = build_sheets(&raw, &bands);
+        assert_eq!(sheets.len(), 2);
+        assert!(
+            sheets
+                .iter()
+                .all(|sheet| sheet.group == 0 && sheet.background.is_some())
+        );
     }
 
     #[test]
