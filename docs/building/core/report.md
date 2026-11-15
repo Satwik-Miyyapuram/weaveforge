@@ -34,10 +34,10 @@ The wasm exports live in `crates/wf-wasm/src`. The TypeScript wrappers in
 those wrappers.
 
 - `report-records.ts`: `createReportSection`,
-  `reportSectionInputError`, `buildSectionTree`, `sectionProgress`,
+  `buildSectionTree`, `sectionProgress`,
   `outlineProgress`, `countSectionSources`, `editedRelativeLabel`,
   `checkBibliography`, `prismaFigureTex`, `prismaCaveat`.
-- `report-cite-key.ts`: `resolveCiteKey`, `uniqueCiteKey`, `formatCitation`,
+- `report-cite-key.ts`: `resolveCiteKey`, `formatCitation`,
   `formatPaperCitation`.
 - `report-bib-entries.ts`: `parseBibEntries`, `parseLatexSectionTree`.
 - `report-markdown-to-latex.ts`: `markdownToLatex`,

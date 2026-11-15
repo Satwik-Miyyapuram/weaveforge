@@ -5,7 +5,7 @@
 use serde_json::{Map, Value};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::sync::folder_layout::{self, AssetScope, WorkspaceEntityType};
+use wf_core::sync::folder_layout::{self, WorkspaceEntityType};
 use wf_core::sync::ink_note::{self, InkNoteMeta};
 
 use super::to_js;
@@ -58,26 +58,6 @@ pub fn paper_pdf_path_js(paper_id: &str, project_root: Option<String>) -> String
 #[wasm_bindgen(js_name = paperHtmlPath)]
 pub fn paper_html_path_js(paper_id: &str, project_root: Option<String>) -> String {
     folder_layout::paper_html_path(paper_id, project_root.as_deref().unwrap_or(""))
-}
-
-/// [`asset_path`](folder_layout::asset_path). `scope` is `"notes"`, `"papers"` or `"report"`.
-///
-/// # Errors
-///
-/// Fails on any other scope.
-#[wasm_bindgen(js_name = assetPath)]
-pub fn asset_path_js(scope: &str, storage_path: &str) -> JsResult<String> {
-    let scope = match scope {
-        "notes" => AssetScope::Notes,
-        "papers" => AssetScope::Papers,
-        "report" => AssetScope::Report,
-        other => {
-            return Err(serde_wasm_bindgen::Error::new(format!(
-                "unknown asset scope {other}"
-            )));
-        }
-    };
-    Ok(folder_layout::asset_path(scope, storage_path))
 }
 
 /// [`folder_key`](folder_layout::folder_key) (TS `folderSegments` joined with `/`): the folder

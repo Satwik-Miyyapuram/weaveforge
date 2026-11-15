@@ -63,28 +63,6 @@ pub fn create_experiment_with_js(
     to_js(&made)
 }
 
-/// A new experiment, its time from `deps.clock.nowIso()` and then its id from
-/// `deps.ids.newId()`.
-///
-/// # Errors
-///
-/// Throws an `ExperimentValidationError` for a blank name or a wrongly shaped `input`, and
-/// rethrows whatever `deps` throws.
-#[wasm_bindgen(js_name = createExperiment, unchecked_return_type = "B.Experiment")]
-#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn create_experiment_js(
-    #[wasm_bindgen(unchecked_param_type = "unknown")] input: JsValue,
-    #[wasm_bindgen(
-        unchecked_param_type = "{ clock: { nowIso(): string }; ids: { newId(): string } }"
-    )]
-    deps: JsValue,
-) -> Result<JsValue, JsValue> {
-    let now = dep_text(&deps, "clock", "nowIso")?;
-    let id = dep_text(&deps, "ids", "newId")?;
-    create_experiment_with_js(input, &id, &now)
-        .map_err(|error| named_error(error, "ExperimentValidationError"))
-}
-
 /// [`member_role_label`](member::member_role_label): the label, or `undefined` when the role has none.
 ///
 /// # Errors

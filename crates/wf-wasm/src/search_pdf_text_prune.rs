@@ -30,41 +30,6 @@ fn partition_from_js(
     Ok(pdf_text_prune::partition_pdf_texts(&stored, &paper_ids))
 }
 
-/// [`partition_pdf_texts`](pdf_text_prune::partition_pdf_texts): which stored PDF texts survive and which to delete.
-///
-/// Returns `{ kept, pageCounts, orphanPaperIds }`; `pageCounts` is a JS `Map` from paper id to
-/// page count, in `Object.entries` order of the counts.
-///
-/// # Errors
-///
-/// Fails if `stored` is not an array of PDF sources or `paper_ids` is not an array of strings.
-#[wasm_bindgen(
-    js_name = partitionPdfTexts,
-    unchecked_return_type = "{ readonly kept: readonly number[]; readonly pageCounts: Map<string, number>; readonly orphanPaperIds: readonly string[] }"
-)]
-pub fn partition_pdf_texts_js(
-    #[wasm_bindgen(
-        unchecked_param_type = "readonly (Omit<B.PdfIndexSource, \"pages\"> & { pages?: readonly B.PdfPageText[] })[]"
-    )]
-    stored: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] paper_ids: JsValue,
-) -> Result<JsValue, JsValue> {
-    let partition = partition_from_js(stored, paper_ids)?;
-    let out = Object::new();
-    let _ = Reflect::set(&out, &"kept".into(), &to_js(&partition.kept)?)?;
-    let _ = Reflect::set(
-        &out,
-        &"pageCounts".into(),
-        &JsValue::from(page_counts_map(&partition)?),
-    )?;
-    let _ = Reflect::set(
-        &out,
-        &"orphanPaperIds".into(),
-        &to_js(&partition.orphan_paper_ids)?,
-    )?;
-    Ok(out.into())
-}
-
 /// The stored PDF texts whose paper still exists, as the caller's own objects, with the page
 /// counts and the orphan paper ids (the ones to delete from storage).
 ///

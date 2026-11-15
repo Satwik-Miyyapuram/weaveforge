@@ -1,7 +1,6 @@
 //! Metric downsampling and Overleaf link rules for JavaScript (wf-core `experiments`, `overleaf`).
 
 use js_sys::{Array, Object, Reflect};
-use serde::Serialize;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::{experiments, overleaf};
@@ -22,30 +21,6 @@ pub fn stride_for_step_js(step: f64) -> f64 {
 #[must_use]
 pub fn is_on_sampling_grid_js(step: f64) -> bool {
     experiments::is_on_sampling_grid(step)
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct IngestPlan {
-    keep: Vec<usize>,
-    superseded_tip_step: Option<f64>,
-}
-
-/// [`plan_series_ingest`](experiments::plan_series_ingest): `{ keep: indices, supersededTipStep }`.
-///
-/// # Errors
-///
-/// Fails only if the result cannot be converted to a JS value.
-#[wasm_bindgen(
-    js_name = planSeriesIngestIndices,
-    unchecked_return_type = "{ keep: number[]; supersededTipStep: number | null }"
-)]
-pub fn plan_series_ingest_js(steps: &[f64], previous_max_step: Option<f64>) -> JsResult<JsValue> {
-    let plan = experiments::plan_series_ingest(steps, previous_max_step);
-    to_js(&IngestPlan {
-        keep: plan.keep,
-        superseded_tip_step: plan.superseded_tip_step,
-    })
 }
 
 /// The generic signature of [`plan_series_ingest_points_js`], which wasm-bindgen cannot express.
@@ -145,26 +120,4 @@ pub fn overleaf_git_url_js(id: &str) -> String {
 #[must_use]
 pub fn overleaf_external_url_js(id: &str) -> String {
     overleaf::external_url(id)
-}
-
-/// [`sanitize_section_targets`](overleaf::sanitize_section_targets); `null` when malformed.
-///
-/// # Errors
-///
-/// Fails if `input` cannot be read as JSON.
-#[wasm_bindgen(
-    js_name = sanitizeSectionTargets,
-    unchecked_return_type = "Record<string, number> | null"
-)]
-pub fn sanitize_section_targets_js(
-    #[wasm_bindgen(unchecked_param_type = "unknown")] input: JsValue,
-) -> JsResult<JsValue> {
-    if input.is_undefined() {
-        return Ok(JsValue::NULL);
-    }
-    let value: serde_json::Value = serde_wasm_bindgen::from_value(input)?;
-    match overleaf::sanitize_section_targets(&value) {
-        Some(map) => to_js(&map),
-        None => Ok(JsValue::NULL),
-    }
 }

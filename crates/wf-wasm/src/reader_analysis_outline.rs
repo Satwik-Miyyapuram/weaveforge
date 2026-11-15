@@ -23,20 +23,6 @@ pub fn is_rotated_text_js(
     analysis_outline::is_rotated_text(transform)
 }
 
-/// [`body_font_size`](analysis_outline::body_font_size) (TS `bodyFontSize`).
-///
-/// # Errors
-///
-/// Fails if `pages` is not an array of arrays of text items.
-#[wasm_bindgen(js_name = bodyFontSize)]
-pub fn body_font_size_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly (readonly B.OutlineTextItem[])[]")]
-    pages: JsValue,
-) -> JsResult<f64> {
-    let pages: Vec<Vec<OutlineTextItem>> = serde_wasm_bindgen::from_value(pages)?;
-    Ok(analysis_outline::body_font_size(&pages))
-}
-
 #[wasm_bindgen(typescript_custom_section)]
 const GROUP_RECURRING_LINES_TS: &str = r"
 /** Lines grouped by (near-)identical text; the members are the caller's own line objects. */

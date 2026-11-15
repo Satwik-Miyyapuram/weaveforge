@@ -1,10 +1,10 @@
 //! Experiment status and metric helpers for JavaScript (wf-core `experiment_status`). The JS names
 //! match `packages/core/src/features/experiments/domain/parts.ts`.
 
-use js_sys::{BigInt, JSON, Object, Reflect};
+use js_sys::{BigInt, JSON};
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
-use wf_core::experiment_status::{self, Experiment, ExperimentStatus, STALE_RUNNING_MS};
+use wf_core::experiment_status::{self, Experiment, STALE_RUNNING_MS};
 
 use super::to_js;
 
@@ -16,36 +16,6 @@ fn json_from(raw: JsValue) -> JsResult<serde_json::Value> {
         return Ok(serde_json::Value::Null);
     }
     serde_wasm_bindgen::from_value(raw)
-}
-
-/// [`status_patch_for_experiment`](experiment_status::status_patch_for_experiment). Every key is
-/// present (a missing stamp is `undefined`), so spreading the patch clears a stamp.
-///
-/// # Errors
-///
-/// Fails if `experiment` or `status` has the wrong shape.
-#[wasm_bindgen(
-    js_name = statusPatchForExperiment,
-    unchecked_return_type = "B.ExperimentStatusPatch"
-)]
-pub fn status_patch_for_experiment_js(
-    #[wasm_bindgen(unchecked_param_type = "B.Experiment")] experiment: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "B.ExperimentStatus")] status: JsValue,
-    now: &str,
-) -> JsResult<JsValue> {
-    let experiment: Experiment = serde_wasm_bindgen::from_value(experiment)?;
-    let status: ExperimentStatus = serde_wasm_bindgen::from_value(status)?;
-    let patch = experiment_status::status_patch_for_experiment(&experiment, status, now);
-    let out = Object::new();
-    let set = |key: &str, value: &JsValue| {
-        Reflect::set(&out, &JsValue::from_str(key), value)
-            .map(drop)
-            .map_err(|_| serde_wasm_bindgen::Error::new("cannot build the status patch"))
-    };
-    set("status", &to_js(&patch.status)?)?;
-    set("startedAt", &JsValue::from(patch.started_at))?;
-    set("finishedAt", &JsValue::from(patch.finished_at))?;
-    Ok(out.into())
 }
 
 /// [`short_sha`](experiment_status::short_sha); `undefined` when absent or empty.

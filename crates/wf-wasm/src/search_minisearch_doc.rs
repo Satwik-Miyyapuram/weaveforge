@@ -160,13 +160,6 @@ impl MiniSearchDocs {
         encode(&self.inner.entries())
     }
 
-    /// The document boost for MiniSearch's `boostDocument`; `1` for an unknown id.
-    #[wasm_bindgen(js_name = boostOf)]
-    #[must_use]
-    pub fn boost_of(&self, id: &str, now: f64) -> f64 {
-        self.inner.boost_of(id, now)
-    }
-
     /// Every document's boost in one call: `{ ids, boosts }` as parallel arrays.
     ///
     /// # Errors

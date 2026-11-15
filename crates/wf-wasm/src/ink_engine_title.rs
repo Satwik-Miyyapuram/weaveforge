@@ -28,20 +28,6 @@ pub fn ink_engine_rank_js(id: &str) -> usize {
     ink_engine::ink_engine_rank(id)
 }
 
-/// [`ink_engine_info`](ink_engine::ink_engine_info): the engine's declared facts, or
-/// `null` for an unknown id.
-///
-/// # Errors
-///
-/// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(
-    js_name = inkEngineInfo,
-    unchecked_return_type = "{ id: string; offline: boolean; online: boolean; platform: string } | null"
-)]
-pub fn ink_engine_info_js(id: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    to_js(&ink_engine::ink_engine_info(id))
-}
-
 /// [`ink_line_strokes`](ink_engine::ink_line_strokes): the strokes of one line, given
 /// the line record `{ strokeStart, strokeCount, ... }`. The caller's own stroke objects come
 /// back in a new array.

@@ -52,28 +52,6 @@ pub fn original_range_js(
     to_js(&analysis_text::original_range(&view, start, end))
 }
 
-/// [`mention_rects`](analysis_text::mention_rects) as an array of rects (TS `mentionRects`).
-///
-/// # Errors
-///
-/// Fails if `items` is not an array of text items.
-#[wasm_bindgen(js_name = mentionRects, unchecked_return_type = "number[][]")]
-pub fn mention_rects_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisPdfItem[]")] items: JsValue,
-    start: f64,
-    end: f64,
-) -> JsResult<JsValue> {
-    let items: Vec<AnalysisPdfItem> = serde_wasm_bindgen::from_value(items)?;
-    to_js(&analysis_text::mention_rects(&items, start, end))
-}
-
-/// [`surname_key`](analysis_text::surname_key) (TS `surnameKey`).
-#[wasm_bindgen(js_name = surnameKey)]
-#[must_use]
-pub fn surname_key_js(name: &str) -> String {
-    analysis_text::surname_key(name)
-}
-
 /// [`title_similarity`](analysis_text::title_similarity) (TS `titleSimilarity`).
 #[wasm_bindgen(js_name = titleSimilarity)]
 #[must_use]

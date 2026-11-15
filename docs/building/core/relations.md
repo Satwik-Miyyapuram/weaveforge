@@ -40,9 +40,9 @@ import the raw names from `../pkg/wf_wasm.js` and re-export them. The main names
 - Tags and concepts: `graphTagNames`, `relatedConcepts`, `notesTagged`.
 - Timeline: `yearSpacing`, `timelineLaneOffset`.
 - Colour and size: `graphPalette`, `tagColor`, `recolourNodes`, `nodeSize`, `labelSize`, `rampColour`, `yearColours`, `degreeColours`, `communities`.
-- Settings: `normalizeGraphViewSettings`, `effectiveRelationTypes`, `graphFilterCountFor`, `parseGraphPersistedState`, `mergeGraphPersistedState`, `showRelationEdges`, `showConceptEdges`.
+- Settings: `normalizeGraphViewSettings`, `graphFilterCountFor`, `parseGraphPersistedState`, `mergeGraphPersistedState`.
 - Relations and alerts: `paperRelationInputError`, `createPaperRelationWith`.
-- Vault pages: `createVaultPageWith`, `buildPageTree`.
+- Vault pages: `buildPageTree`.
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `apps/web/src/lib/rust-core.ts`, or through the wrappers in `packages/wf-wasm`.

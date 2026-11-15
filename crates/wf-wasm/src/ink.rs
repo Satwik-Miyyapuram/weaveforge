@@ -432,25 +432,6 @@ fn line_records(counts: &[u32], bands: &[f64], recognised: Option<JsValue>) -> J
     to_js(&ink_line_records(&lines, &recognised))
 }
 
-/// [`ink_line_records`]: `counts[i]` strokes per line, `bands` as flat
-/// `yMin, yMax` pairs, `recognised` an array of `{ text, confidence }` or
-/// undefined per line (default `[]`).
-///
-/// # Errors
-///
-/// Fails if `recognised` is not such an array.
-#[wasm_bindgen(js_name = inkLineRecords, unchecked_return_type = "B.InkLineRecord[]")]
-pub fn ink_line_records_js(
-    #[wasm_bindgen(unchecked_param_type = "Uint32Array")] counts: &[u32],
-    #[wasm_bindgen(unchecked_param_type = "Float64Array")] bands: &[f64],
-    #[wasm_bindgen(
-        unchecked_optional_param_type = "readonly ({ text: string; confidence: number } | undefined)[]"
-    )]
-    recognised: Option<JsValue>,
-) -> JsResult<JsValue> {
-    line_records(counts, bands, recognised)
-}
-
 /// Strokes reordered so each line's are contiguous, each a copy tagged with its
 /// `lineIndex` (unsegmented ones last, `-1`), and the line records the container
 /// stores ([`ink_line_records`]). `segmentation` is what `segmentInkLines` returned.

@@ -3,7 +3,6 @@
 //! use. Byte decoding stays in TS (`TextDecoder`), which takes the charset from here.
 
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::reader::paper_html_rules::is_html_content_type;
 
 /// The relay route the web app fetches a paper page through.
 pub const HTML_PROXY_PATH: &str = "/api/html-proxy";
@@ -33,13 +32,6 @@ pub fn html_proxy_max_bytes_js() -> u32 {
 #[must_use]
 pub fn html_final_url_header_js() -> String {
     HTML_FINAL_URL_HEADER.to_owned()
-}
-
-/// [`is_html_content_type`]: whether a response counts as a web page.
-#[wasm_bindgen(js_name = isHtmlContentType)]
-#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn is_html_content_type_js(value: Option<String>) -> bool {
-    is_html_content_type(value.as_deref())
 }
 
 #[cfg(test)]

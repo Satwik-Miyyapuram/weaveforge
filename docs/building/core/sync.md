@@ -122,7 +122,7 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 These rules moved from the removed Node sidecar into Rust. The shell spawns git
 and reads the file system.
 
-- `sync::git_auth` (`gitRemoteAuth`) builds the Basic header and
+- `sync::git_auth` builds the Basic header and
   the `GIT_CONFIG_*` plan. The token goes only in the env plan, never on the
   command line or in `.git/config`. An empty token means no header, and a
   non-http URL gets no header.
@@ -154,7 +154,7 @@ These modules sit beside the ones above. Each rule is pure. TS keeps the I/O.
 | --- | --- | --- | --- |
 | `conflict_deletion` | `deletion_for` | `deletionFor` | `apps/web/src/features/offline-sync/ui/use-sync-issues.ts` |
 | `device_session` | `may_drive_device`, `session_action` | `mayDriveDevice`, `sessionAction` | `apps/web/src/features/offline-sync/ui/sync-loop.tsx` |
-| `frontmatter` | `read_frontmatter`, `write_frontmatter`, `frontmatter_string`, `frontmatter_list` | `readFrontmatter`, `writeFrontmatter`, `frontmatterString`, `frontmatterList` | `apps/web/src/features/workspace/application/parts-1.ts` (`readFrontmatter`, `writeFrontmatter` only) |
+| `frontmatter` | `read_frontmatter`, `write_frontmatter`, `frontmatter_string`, `frontmatter_list` | `readFrontmatter`, `writeFrontmatter`, `frontmatterString` | `apps/web/src/features/workspace/application/parts-1.ts` (`readFrontmatter`, `writeFrontmatter` only) |
 | `import_action` | `ImportAction`, `ConflictKind`, `ActionCounts::add` | native only | — |
 | `instant` | `parse_instant`, `format_instant` | native only | — |
 | `integration_fields` | `git_connection_ready`, `mattermost_connection_ready`, `DEFAULT_GIT_BRANCH` | `gitConnection`, `mattermostConnection`, `gitConnectionReady`, `mattermostConnectionReady`, `emptyIntegration` | `apps/web/src/features/sync/infrastructure/parts.ts`, `apps/web/src/features/sync/ui/sync-settings.tsx`, `apps/web/src/features/sync/ui/git-screen.tsx` |

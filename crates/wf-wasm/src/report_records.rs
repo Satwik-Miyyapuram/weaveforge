@@ -142,21 +142,6 @@ fn with_field_lists(input: &JsValue) -> JsResult<JsValue> {
     Ok(copy.into())
 }
 
-/// [`validate_report_section_input`](report_section::validate_report_section_input): the
-/// validation message, or `null` when the input is valid.
-///
-/// # Errors
-///
-/// Fails if `input` has the wrong shape.
-#[wasm_bindgen(js_name = reportSectionInputError, unchecked_return_type = "string | null")]
-pub fn report_section_input_error_js(
-    #[wasm_bindgen(unchecked_param_type = "B.NewReportSectionInput")] input: JsValue,
-) -> JsResult<JsValue> {
-    let input: NewReportSectionInput = serde_wasm_bindgen::from_value(input)?;
-    let message = report_section::validate_report_section_input(&input).err();
-    Ok(message.map_or(JsValue::NULL, JsValue::from))
-}
-
 /// Calls `target[method]()` with `target` as `this`; whatever it throws is rethrown.
 fn call_method(target: &JsValue, method: &str) -> Result<JsValue, JsValue> {
     let function: Function = Reflect::get(target, &JsValue::from_str(method))?.dyn_into()?;
