@@ -83,6 +83,7 @@
     "test:memory": "npm run test:memory --workspace @weaveforge/web"
   },
   "devDependencies": {
+    "pg": "^8.23.1",
     "supabase": "^2.119.0"
   }
 }
