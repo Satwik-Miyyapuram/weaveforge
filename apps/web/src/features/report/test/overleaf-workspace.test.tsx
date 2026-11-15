@@ -250,7 +250,7 @@ test("both connect options are offered, each with a hover tip naming its limits"
   assert.match(optionLabel(tree, "signin").props.title, /passwords/i);
   assert.match(optionLabel(tree, "git").props.title, /institution licence/i);
   assert.match(optionLabel(tree, "git").props.title, /about a year/);
-  assert.match(optionLabel(tree, "git").props.title, /LaTeX/);
+  assert.match(optionLabel(tree, "git").props.title, /Overleaf compiles the PDF/);
   await act(async () => tree.unmount());
 });
 
