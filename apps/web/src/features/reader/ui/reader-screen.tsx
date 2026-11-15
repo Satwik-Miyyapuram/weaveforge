@@ -15,6 +15,7 @@ import {
 } from "../application/parts";
 import { ActivityCenter, ReaderSplitPanel } from "./reader-loop-panels";
 import { Button } from "@/components/button";
+import { DocumentToolbar } from "@/components/document-toolbar";
 
 /** Reader route: renders a PDF via the source ladder and jumps to an optional locus. */
 export function ReaderScreen() {
@@ -158,6 +159,9 @@ export function ReaderScreen() {
           <p>That PDF link is not allowed — only https PDF URLs can be opened.</p>
         </div>
       ) : (
+        // The reader's bar goes up into the one document toolbar, which folds
+        // into More as it narrows, as the Editor's does, rather than wrapping.
+        <DocumentToolbar onError={() => undefined}>
         <PaperPdfPane
           paperId={paperId}
           pdfUrl={pdfFromParam}
@@ -179,6 +183,7 @@ export function ReaderScreen() {
             ) : undefined
           }
         />
+        </DocumentToolbar>
       )}
     </section>
   );

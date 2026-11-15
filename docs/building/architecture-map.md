@@ -97,7 +97,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 | `crates/wf-bindings` | 1,110 lines | Writes the TypeScript types for every Rust type the UI sees |
 | `packages/core` | 24,619 lines | Residual TypeScript: shared contracts and glue that call the Rust core |
 | `packages/wf-wasm` | 4,245 lines | TypeScript wrappers and generated types over the WASM module |
-| `apps/web` | 218,099 lines | The app itself: screens, features, API routes, backend wiring |
+| `apps/web` | 218,148 lines | The app itself: screens, features, API routes, backend wiring |
 | `apps/shell` | 47,325 lines | The Tauri shell — what only an installed app can do |
 | `apps/relay` | 27,140 lines | Relays and pasted-link fetches, in Rust: the wf-relay library and its OCI server |
 | `apps/pitch` | 919 lines | The public site and this documentation |
@@ -106,7 +106,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 | `db/migrations` | 155 files | The schema, as an ordered sequence |
 | `docs` | 185 files | Documentation, this page included |
 
-**540,687 lines of code in all**, across 3,258 source files.
+**540,736 lines of code in all**, across 3,259 source files.
 
 <!-- /generated:code-map -->
 
