@@ -48,24 +48,6 @@ pub fn parse_figure_tokens_js(alt: &str) -> JsResult<JsValue> {
     to_js(&figure::parse_figure_tokens(alt))
 }
 
-/// [`parse_figure_crop`](figure::parse_figure_crop): a `c=l,t,r,b` value as crop insets clamped
-/// to 0..99, or `undefined` when it is not four numbers.
-///
-/// # Errors
-///
-/// Fails if `raw` is longer than the index text limit.
-#[wasm_bindgen(
-    js_name = parseFigureCrop,
-    unchecked_return_type = "B.FigureBox[\"crop\"] | undefined"
-)]
-pub fn parse_figure_crop_js(raw: &str) -> JsResult<JsValue> {
-    check_text(raw)?;
-    match figure::parse_figure_crop(raw) {
-        Some(crop) => to_js(&crop),
-        None => Ok(JsValue::UNDEFINED),
-    }
-}
-
 #[wasm_bindgen(typescript_custom_section)]
 const KEEP_FIGURE_ON_PAGE_TS: &str = r"
 /** The box moved so at least half of it stays on the page; the same object when it already fits. */

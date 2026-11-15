@@ -5,7 +5,7 @@
 //! string values of `doi`, `arxivId`, `bibtex` and `metadata.{citeKey, citationKey, extra}`
 //! count; anything else reads as missing.
 
-use js_sys::{Reflect, Set};
+use js_sys::Reflect;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::report::cite_key;
@@ -51,28 +51,6 @@ pub fn resolve_cite_key_js(
     paper: JsValue,
 ) -> JsResult<String> {
     Ok(cite_key::resolve_cite_key(&to_cite_key_paper(&paper)?))
-}
-
-/// [`unique_cite_key`](cite_key::unique_cite_key) (TS `uniqueCiteKey`): the resolved key, made
-/// unique against `used`. `used` is mutated: the returned key is added to it.
-///
-/// # Errors
-///
-/// Fails if `paper.id` is not a string, or `used` holds a non-string.
-#[wasm_bindgen(js_name = uniqueCiteKey)]
-#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn unique_cite_key_js(
-    #[wasm_bindgen(
-        unchecked_param_type = "{ id: string; doi?: string; arxivId?: string; bibtex?: string; metadata?: Record<string, unknown> }"
-    )]
-    paper: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "Set<string>")] used: Set,
-) -> JsResult<String> {
-    let paper = to_cite_key_paper(&paper)?;
-    let taken: Vec<String> = serde_wasm_bindgen::from_value(JsValue::from(used.clone()))?;
-    let key = cite_key::unique_cite_key(&paper, &taken);
-    let _ = used.add(&JsValue::from_str(&key));
-    Ok(key)
 }
 
 /// [`format_citation`](cite_key::format_citation) (TS `formatCitation`).

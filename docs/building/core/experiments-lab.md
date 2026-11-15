@@ -5,7 +5,7 @@ These modules hold the pure parts of experiments, metric charts, lab snapshots a
 | Module | Rust fn | wasm export | TS caller |
 | --- | --- | --- | --- |
 | `experiment_rows` | `to_domain`, `to_row` | native only | — |
-| `experiment_status` | `status_patch_for_experiment`, `short_sha`, `experiment_activity_at`, `is_stale_running_experiment`, `format_metric_value`, `format_metric_cell`, `metric_keys`, `results_table`, `experiment_href` | `statusPatchForExperiment`, `shortSha`, `experimentActivityAt`, `isStaleRunningExperiment`, `formatMetricValue`, `formatMetricCell`, `metricKeys`, `metricKeysOf`, `experimentHref`, `experimentsListHref` | `packages/core/src/features/experiments/domain/parts.ts` |
+| `experiment_status` | `status_patch_for_experiment`, `short_sha`, `experiment_activity_at`, `is_stale_running_experiment`, `format_metric_value`, `format_metric_cell`, `metric_keys`, `results_table`, `experiment_href` | `shortSha`, `experimentActivityAt`, `isStaleRunningExperiment`, `formatMetricValue`, `formatMetricCell`, `metricKeys`, `metricKeysOf`, `experimentHref`, `experimentsListHref` | `packages/core/src/features/experiments/domain/parts.ts` |
 | `lab_snapshot` | `build_lab_snapshot_content`, `validate_snapshot_title` | `buildLabSnapshotContent` | `apps/web/src/container/facades/org.ts` |
 | `lab_snapshot_rows` | `to_domain` | native only | — |
 | `metric_chart_data` | `align_series`, `ema_smooth`, `tick_format` | `alignSeries`, `emaSmooth`, `tickFormat` | `apps/web/src/features/experiments/ui/metric-chart-data.ts` |

@@ -56,33 +56,6 @@ export interface JsonDiff {
   counts: Record<ImportAction, number>;
 }
 
-
-/** The ink tuning constants the wf-wasm `inkConstants()` returns. */
-export interface InkTuningConstants {
-  inkWidthUnitsPerMm: number;
-  inkPenWidths: readonly number[];
-  inkPenWidth: number;
-  inkHighlighterWidth: number;
-  inkHighlighterWidths: readonly number[];
-  inkHighlighterMinWidth: number;
-  inkMinWidth: number;
-  inkMaxWidth: number;
-  inkVelocityFullTaper: number;
-  inkVelocityTaper: number;
-  inkPressureMinFactor: number;
-  inkPressureMaxFactor: number;
-  inkZoomMin: number;
-  inkZoomMax: number;
-  inkZoomStep: number;
-  inkSmoothSpacing: number;
-  inkSmoothPasses: number;
-  inkGroupWindowMs: number;
-  inkLineBandRatio: number;
-  inkEngineMaxConfidence: number;
-  figureAlt: string;
-  figureHandles: readonly string[];
-}
-
 let core: unknown = null;
 
 export function setRustCore(module: unknown): void {

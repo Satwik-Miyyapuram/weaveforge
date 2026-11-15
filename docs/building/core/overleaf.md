@@ -33,7 +33,6 @@ Examples of the JavaScript names:
 - `overleaf_error`: `redactOverleafErrorText`.
 - `overleaf_export_path`: `assertSafeExportPath`, `missingFigureWarning`.
 - `overleaf_export_package`: `walkOverleafSections`, `withMissingFigures`.
-- `overleaf_link`: `checkOverleafLinkFolder`, `parseOverleafLinks`.
 - `overleaf_text_ot`: `applyTextOp`, `transformTextOps`.
 - `overleaf_tree`: `flattenOverleafDocs`, `flattenOverleafFiles`.
 - `overleaf_upload`: `rootFolderIdOf`.

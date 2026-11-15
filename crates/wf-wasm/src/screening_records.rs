@@ -4,7 +4,7 @@
 //! Decision and item lists are read as one `JSON.stringify` copy, not a boundary call per
 //! field; a JSON string is accepted too.
 
-use js_sys::{Function, JSON, Map, Reflect};
+use js_sys::{Function, JSON, Reflect};
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 use wf_core::reading_lists::screening::{
@@ -87,30 +87,6 @@ pub fn check_decision_js(
         }
         None => Ok(()),
     }
-}
-
-/// [`latest_by_reviewer`](screening::latest_by_reviewer) (TS `latestByReviewer`): the latest
-/// decision each reviewer recorded for one item, keyed by reviewer id.
-///
-/// # Errors
-///
-/// Fails if `decisions` or `stage` has the wrong shape.
-#[wasm_bindgen(
-    js_name = latestByReviewer,
-    unchecked_return_type = "Map<string, B.ScreeningDecision>"
-)]
-pub fn latest_by_reviewer_map_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly B.ScreeningDecision[]")] decisions: JsValue,
-    item_id: &str,
-    #[wasm_bindgen(unchecked_param_type = "B.ScreeningStage")] stage: JsValue,
-) -> JsResult<JsValue> {
-    let decisions = decisions_from(decisions)?;
-    let stage: ScreeningStage = serde_wasm_bindgen::from_value(stage)?;
-    let map = Map::new();
-    for decision in screening::latest_by_reviewer(&decisions, item_id, stage) {
-        let _ = map.set(&JsValue::from_str(&decision.reviewer_id), &to_js(decision)?);
-    }
-    Ok(map.into())
 }
 
 /// [`reviewers`](screening::reviewers) (TS `reviewers`): everyone who recorded a decision,

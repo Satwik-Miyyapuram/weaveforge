@@ -33,12 +33,9 @@ The module is exported from the wasm core through
 `crates/wf-wasm/src/reader_analysis_*.rs`, with one file per submodule group.
 Examples of the JavaScript names:
 
-- `reader_analysis_document`: `analyzePdfDocument`, `outlineItemOf`.
-- `reader_analysis_bibliography`: `parseBibliography`, `parseBibliographyEntry`.
+- `reader_analysis_document`: `analyzePdfDocument`.
 - `reader_analysis_lines`: `pageTextFromItems`.
 - `reader_analysis_outline`: `outlineFromText`.
-- `reader_analysis_structure`: `findFigureMentions`, `assemblePageCitations`,
-  `matchPageCitations`, `headingOutline`.
 - `reader_analysis_citations` and `reader_analysis_text`: citation candidates and
   text helpers.
 

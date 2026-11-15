@@ -4,7 +4,7 @@ These modules hold the pure parts of git sync, the Mattermost messages, the outb
 
 | Module | Rust fn | wasm export | TS caller |
 | --- | --- | --- | --- |
-| `git_auth` | `basic_auth`, `remote_auth` | `gitRemoteAuth` | — |
+| `git_auth` | `basic_auth`, `remote_auth` | — | — |
 | `git_policy` | `is_under_ignored_folder`, `decide_git_sync_path`, `describe_changes` | `isUnderIgnoredFolder`, `decideGitSyncPath`, `describeChanges` | `apps/web/src/features/workspace/infrastructure/parts.ts`, `apps/web/src/features/workspace/application/workspace-folder.ts` |
 | `git_reason` | `git_reason` | `gitReason` | — |
 | `repo_web_url` | `repo_web_url`, `commit_url` | `repoWebUrl`, `commitUrl` | `apps/web/src/features/experiments/ui/experiment-panels.tsx`, `apps/web/src/features/experiments/ui/experiment-detail-screen.tsx` |

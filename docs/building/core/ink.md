@@ -18,7 +18,7 @@ Each file below owns one part:
 - `eraser_sweep`: the state of one erase sweep (who sweeps, whether the back tip made it, the sticky hover). It returns the cursor action (`none`, `show`, `keep`, `restore`); the DOM target and its saved cursor stay in TypeScript (`application/eraser-tip.ts`), so this is a THIN port.
 - `figure`: figures placed on a page, written as image refs in the page text.
 - `hit_test`: point and segment tests for lasso selection and erasing. `polygon_bounds` (wasm `inkPolygonBounds`) gives the box round a lasso loop.
-- `ink_constants`: the tuning numbers of width, zoom, smooth, segment, decode and figure, read from Rust through `inkConstants()`. The core TS modules still hold these as their own constants, so this is a DATA row only; the export-shape change is deferred.
+- `ink_constants`: the tuning numbers of width, zoom, smooth, segment, decode and figure. The core TS modules still hold these as their own constants; there is no wasm export.
 - `ink_engine`: facts about the ink engines this build knows.
 - `ink_page`: the page model and text-layer helpers.
 - `ink_paths`: sidecar paths and chunk ids for ink notes. `chunk_id_of_file_name` (wasm `inkChunkIdOfFileName`, called through `readyCore()`) gives the id a file name carries, only for a valid `<ulid>.inkb`. `ink_chunk_blob_key` (wasm `inkChunkBlobKey`) builds the blob key `<user>/<note>/ink/<ulid>.inkb`, `ink_chunk_blob_spec` (wasm `inkChunkBlobSpec`) gives the `vault-assets` bucket and octet-stream type, and `ink_chunk_ids_in_listing` (wasm `inkChunkIdsInListing`) keeps and sorts the chunk ids in a folder listing. The blob and folder stores in `apps/web/src/features/ink/infrastructure/parts.ts` do only the fetch, upload, stat and list calls.
@@ -106,7 +106,7 @@ The app's ink worker, renderers and storage are in TypeScript too. These files t
 | Module | Rust fn | wasm export | TS caller |
 | --- | --- | --- | --- |
 | `capture` | `CaptureStream` (`new`, `reset_filter`, `forget_last`, `consume`), `resolve_time` | `InkCaptureStream` (`resetFilter`, `forgetLast`, `consume`); `resolve_time` native only | `apps/web/src/features/ink/application/parts-2.ts` |
-| `constants` | `ink_constants` | `inkConstants` | — |
+| `constants` | `ink_constants` | — | — |
 | `page_buffer` | `bounds_of`, `bounds_intersect`, `bounds_union`, `bounds_contain`, `page_bounds`, `kept_indices`, `clamp_background_index`, `stroke_pressures` | `inkBoundsOf`, `inkBoundsIntersect`, `inkBoundsUnion`, `inkBoundsContain`, `inkPageBounds`, `inkKeptIndices`, `inkClampBackgroundIndex`, `inkStrokePressures` | `apps/web/src/features/ink/application/parts-3.ts` |
 | `stroke_history` | `stroke_history_step` | `inkStrokeHistoryStep` | `apps/web/src/features/ink/worker/ink-page-logic.ts` |
 | `worker_route` | `ink_worker_route`, `pen_pressure_byte` | `inkWorkerRoute`, `inkPenPressureByte` | `apps/web/src/features/ink/worker/ink-worker.ts` |

@@ -51,19 +51,6 @@ impl VectorIndex {
         u32::try_from(self.inner.size()).unwrap_or(u32::MAX)
     }
 
-    /// Whether `id` is held.
-    #[must_use]
-    pub fn has(&self, id: &str) -> bool {
-        self.inner.has(id)
-    }
-
-    /// The stored unit vector for `id`; empty when absent (dimensions are at least 1).
-    #[wasm_bindgen(js_name = vectorOf)]
-    #[must_use]
-    pub fn vector_of(&self, id: &str) -> Vec<f32> {
-        self.inner.vector_of(id).unwrap_or_default()
-    }
-
     /// Every id held, in slot order.
     #[wasm_bindgen(js_name = allIds, unchecked_return_type = "string[]")]
     pub fn all_ids(&self) -> Result<JsValue, JsValue> {
@@ -98,25 +85,6 @@ impl VectorIndex {
         let ids = ids_from(ids)?;
         self.inner.remove(&ids);
         Ok(())
-    }
-
-    /// Drop every vector.
-    pub fn clear(&mut self) {
-        self.inner.clear();
-    }
-
-    /// Top `limit` by cosine similarity, best first; scores below `minScore` are dropped.
-    ///
-    /// # Errors
-    ///
-    /// Fails when `query` is not the index width.
-    #[wasm_bindgen(unchecked_return_type = "{ id: string; score: number }[]")]
-    pub fn search(&self, query: Vec<f32>, limit: u32, min_score: f64) -> Result<JsValue, JsValue> {
-        let hits = self
-            .inner
-            .search(&query, width_from(limit), min_score)
-            .map_err(|error| js_error(&error))?;
-        encode(&hits)
     }
 
     /// The packed bytes; read back with `vectorIndexFromBytes`.

@@ -7,7 +7,7 @@ use serde_json::{Map, Value};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::sync::frontmatter::{
-    frontmatter_list, frontmatter_string, read_frontmatter, write_frontmatter,
+    frontmatter_string, read_frontmatter, write_frontmatter,
 };
 use wf_core::sync::merge_vault_page::{
     VaultPageBase, VaultPageSide, merge_vault_page, vault_page_base, vault_page_side,
@@ -147,20 +147,4 @@ pub fn frontmatter_string_js(
 ) -> JsResult<Option<String>> {
     let fields: Map<String, Value> = serde_wasm_bindgen::from_value(frontmatter)?;
     Ok(frontmatter_string(&fields, key))
-}
-
-/// [`frontmatter_list`](wf_core::sync::frontmatter::frontmatter_list) for JS: a list field
-/// as its entries as text, or a non-blank scalar string as one entry.
-///
-/// # Errors
-///
-/// Fails when `frontmatter` is not an object.
-#[wasm_bindgen(js_name = frontmatterList, unchecked_return_type = "string[]")]
-pub fn frontmatter_list_js(
-    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, unknown>>")]
-    frontmatter: JsValue,
-    key: &str,
-) -> JsResult<JsValue> {
-    let fields: Map<String, Value> = serde_wasm_bindgen::from_value(frontmatter)?;
-    to_js(&frontmatter_list(&fields, key))
 }

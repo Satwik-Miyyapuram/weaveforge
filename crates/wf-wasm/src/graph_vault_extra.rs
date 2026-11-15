@@ -6,7 +6,7 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::relations::graph_settings::{self, GraphPersistedState};
 use wf_core::vault::page::{
-    self, NewVaultPageInput, TreePage, VaultPageSummary, VaultPageTreeNode,
+    self, TreePage, VaultPageSummary, VaultPageTreeNode,
 };
 
 use super::to_js;
@@ -25,22 +25,6 @@ pub fn merge_graph_persisted_state_js(
 ) -> JsResult<JsValue> {
     let stored: Option<GraphPersistedState> = serde_wasm_bindgen::from_value(stored)?;
     to_js(&graph_settings::merge_graph_persisted_state(stored))
-}
-
-/// [`create_vault_page`](page::create_vault_page) with the id and time supplied.
-///
-/// # Errors
-///
-/// Fails if `input` has the wrong shape, or with the validation message when the title is blank.
-#[wasm_bindgen(js_name = createVaultPageWith, unchecked_return_type = "B.VaultPage")]
-pub fn create_vault_page_with_js(
-    #[wasm_bindgen(unchecked_param_type = "unknown")] input: JsValue,
-    id: &str,
-    now: &str,
-) -> JsResult<JsValue> {
-    let input: NewVaultPageInput = serde_wasm_bindgen::from_value(input)?;
-    let made = page::create_vault_page(&input, id, now).map_err(serde_wasm_bindgen::Error::new)?;
-    to_js(&made)
 }
 
 /// One caller page: the summary fields the tree is built from, and the caller's own object.

@@ -87,7 +87,7 @@ Source: `crates/wf-core/src/search/`
 | `embedding_runtime` | `supports_local_embedding`, `IDLE_EVICT_MS` | `supportsLocalEmbedding`, `embedIdleEvictMs` | `apps/web/src/features/search/application/semantic-search.ts` |
 | `hybrid_fusion` | `strip_stopwords`, `query_term_count`, `covered_hit_mask`, `gate_vector_mask` | `stripStopwords`, `coveredHits`, `gateVectorHits` | `apps/web/src/features/search/application/workspace-search.ts` |
 | `js_text` | `is_js_whitespace`, `is_letter_or_number`, `utf16_len` | native only | — |
-| `minisearch_doc` | `DocStore` (`put`, `remove`, `filter_only`, `boost_of`, `finish`) | `DocStore` methods `setSettings`, `put`, `remove`, `has`, `clear`, `idsOfKind`, `hitById`, `entries`, `boostOf`, `filterOnly`, `finish` | `apps/web/src/features/search/infrastructure/minisearch-index.ts` |
+| `minisearch_doc` | `DocStore` (`put`, `remove`, `filter_only`, `boost_of`, `finish`) | `DocStore` methods `setSettings`, `put`, `remove`, `has`, `clear`, `idsOfKind`, `hitById`, `entries`, `filterOnly`, `finish` | `apps/web/src/features/search/infrastructure/minisearch-index.ts` |
 | `pdf_text_store` | `store_key`, `project_range`, `budget_page_count` | `pdfTextStoreOp` | `apps/web/src/features/search/infrastructure/parts-2.ts` |
 | `personalized_pagerank` | `personalized_page_rank`, `related_by_ppr` | `personalizedPageRank`, `relatedByPpr` | — |
 | `projection` | `project_search_documents`, `project_stored_pdf_texts` | `projectSearchDocuments`, `projectStoredPdfTexts` | `apps/web/src/features/search/application/workspace-search.ts` |

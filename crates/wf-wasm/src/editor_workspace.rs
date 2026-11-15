@@ -1,7 +1,7 @@
 //! Editor workspace for JavaScript: the explorer tree (`workspace_tree`), the
 //! pane layout (`pane_tree`) and tab groups (`tab_groups`) in wf-core.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use wasm_bindgen::JsValue;
@@ -14,7 +14,7 @@ use wf_core::editor_workspace::pane_tree::{
 };
 use wf_core::editor_workspace::tab_groups::{self as groups, TabRun};
 use wf_core::editor_workspace::workspace_tree::{
-    self as tree, ListItemEntry, ListsTreeInput, VisibleRow, WorkspaceTreeInput, WorkspaceTreeNode,
+    self as tree, ListsTreeInput, VisibleRow, WorkspaceTreeInput, WorkspaceTreeNode,
 };
 
 use super::to_js;
@@ -45,27 +45,6 @@ pub fn flatten_tree_js(
 ) -> JsResult<JsValue> {
     let nodes: Vec<WorkspaceTreeNode> = serde_wasm_bindgen::from_value(nodes)?;
     to_js(&tree::flatten_tree(&nodes))
-}
-
-/// [`is_document_node`](tree::is_document_node).
-///
-/// # Errors
-///
-/// Fails if `node` has the wrong shape.
-#[wasm_bindgen(js_name = isDocumentNode)]
-pub fn is_document_node_js(
-    #[wasm_bindgen(unchecked_param_type = "Pick<B.WorkspaceTreeNode, \"kind\" | \"folder\">")] node: JsValue,
-) -> JsResult<bool> {
-    let node: DocumentProbe = serde_wasm_bindgen::from_value(node)?;
-    Ok(tree::is_document_kind(node.kind, node.folder))
-}
-
-/// The fields of a tree row that [`is_document_node_js`] reads.
-#[derive(serde::Deserialize)]
-struct DocumentProbe {
-    kind: tree::TreeNodeKind,
-    #[serde(default)]
-    folder: bool,
 }
 
 /// [`folder_ids_of`](tree::folder_ids_of) as a JS `Set`, filled in sorted order.
@@ -104,12 +83,6 @@ pub fn visible_rows_js(
     Ok(to_js(&tree::visible_rows(&nodes, &expanded))?)
 }
 
-/// [`slug_segment`](tree::slug_segment).
-#[wasm_bindgen(js_name = slugSegment)]
-pub fn slug_segment_js(title: &str) -> String {
-    tree::slug_segment(title)
-}
-
 /// [`build_lists_tree`](tree::build_lists_tree). `input` is a `ListsTreeInput`.
 ///
 /// # Errors
@@ -121,27 +94,6 @@ pub fn build_lists_tree_js(
 ) -> JsResult<JsValue> {
     let input: ListsTreeInput = serde_wasm_bindgen::from_value(input)?;
     to_js(&tree::build_lists_tree(&input))
-}
-
-/// [`list_membership`](tree::list_membership). `titles` maps list id to title; returns a JS
-/// `Map` of `kind:id` to list titles, in key order.
-///
-/// # Errors
-///
-/// Fails if either argument has the wrong shape.
-#[wasm_bindgen(js_name = listMembership, unchecked_return_type = "Map<string, string[]>")]
-pub fn list_membership_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly B.ListItemEntry[]")] items: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "ReadonlyMap<string, string>")] titles: &JsValue,
-) -> Result<JsValue, JsValue> {
-    let items: Vec<ListItemEntry> = serde_wasm_bindgen::from_value(items)?;
-    let titles: HashMap<String, String> = crate::search_document::map_arg(titles)?;
-    let membership: BTreeMap<String, Vec<String>> = tree::list_membership(&items, &titles);
-    let map = js_sys::Map::new();
-    for (key, lists) in &membership {
-        let _ = map.set(&JsValue::from_str(key), &to_js(lists)?);
-    }
-    Ok(map.into())
 }
 
 /// [`filter_rows`](tree::filter_rows): the rows to paint and the keys to expand (a JS `Set`).
@@ -167,16 +119,6 @@ pub fn filter_rows_js(
     let _ = js_sys::Reflect::set(&out, &JsValue::from_str("rows"), &to_js(&filtered.rows)?)?;
     let _ = js_sys::Reflect::set(&out, &JsValue::from_str("expand"), &expand)?;
     Ok(out.into())
-}
-
-/// [`preview_tab`](pane::preview_tab).
-///
-/// # Errors
-///
-/// Never fails in practice; returns the serializer's result type.
-#[wasm_bindgen(js_name = previewTab, unchecked_return_type = "B.TabRef")]
-pub fn preview_tab_js() -> JsResult<JsValue> {
-    to_js(&pane::preview_tab())
 }
 
 /// [`tab_key`](pane::tab_key).
@@ -382,19 +324,6 @@ pub fn active_tab_ref_js(
     tab_or_undefined(pane::active_tab_ref(&layout).as_ref())
 }
 
-/// [`active_tab_key`](pane::active_tab_key); `undefined` when there is none.
-///
-/// # Errors
-///
-/// Fails if `layout` has the wrong shape.
-#[wasm_bindgen(js_name = activeTabKey)]
-pub fn active_tab_key_js(
-    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
-) -> JsResult<Option<String>> {
-    let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
-    Ok(pane::active_tab_key(&layout))
-}
-
 /// [`tab_mode`](pane::tab_mode). Returns `"edit"`, `"read"` or `"ink"`.
 ///
 /// # Errors
@@ -406,21 +335,6 @@ pub fn tab_mode_js(
 ) -> JsResult<JsValue> {
     let tab: TabRef = serde_wasm_bindgen::from_value(tab)?;
     to_js(&pane::tab_mode(&tab))
-}
-
-/// [`tab_at`](pane::tab_at); `undefined` when there is no tab there.
-///
-/// # Errors
-///
-/// Fails if `layout` has the wrong shape.
-#[wasm_bindgen(js_name = tabAt, unchecked_return_type = "B.TabRef | undefined")]
-pub fn tab_at_js(
-    #[wasm_bindgen(unchecked_param_type = "B.PaneLayout")] layout: JsValue,
-    pane_id: &str,
-    index: i32,
-) -> JsResult<JsValue> {
-    let layout: PaneLayout = serde_wasm_bindgen::from_value(layout)?;
-    tab_or_undefined(pane::tab_at(&layout, pane_id, index).as_ref())
 }
 
 /// [`set_tab_mode`](pane::set_tab_mode). `mode` is `"edit"`, `"read"` or `"ink"`.
@@ -723,19 +637,6 @@ pub fn without_group_js(
 ) -> JsResult<JsValue> {
     let tab: TabRef = serde_wasm_bindgen::from_value(tab)?;
     to_js(&groups::without_group(&tab))
-}
-
-/// [`clean_groups`](groups::clean_groups).
-///
-/// # Errors
-///
-/// Fails if `leaf` has the wrong shape.
-#[wasm_bindgen(js_name = cleanGroups, unchecked_return_type = "B.PaneLeaf")]
-pub fn clean_groups_js(
-    #[wasm_bindgen(unchecked_param_type = "B.PaneLeaf")] leaf: JsValue,
-) -> JsResult<JsValue> {
-    let leaf: PaneLeaf = serde_wasm_bindgen::from_value(leaf)?;
-    to_js(&groups::clean_groups(&leaf))
 }
 
 /// [`group_runs`](groups::group_runs).
