@@ -360,7 +360,7 @@ mod tests {
         }
     }
 
-    /// The fixture the TS parity test uses: the entry above, with a folder copy that is
+    /// The fixture the old TS parity test used: the entry above, with a folder copy that is
     /// titled `Both of us edited this` and has body `the folder's copy`.
     fn settle_fixture(kind: ConflictKind) -> ImportDiffEntry {
         ImportDiffEntry {
