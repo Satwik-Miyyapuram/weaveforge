@@ -4,8 +4,10 @@
 *
 !Cargo.toml
 !Cargo.lock
-!crates/wf-core
+!crates
+!apps/shell
 !apps/relay
 **/target
+**/node_modules
 **/.env
 **/.env.*

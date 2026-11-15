@@ -6,6 +6,8 @@
 //! account deletion (`/api/account/*`), admin user creation (`/api/admin/*`),
 //! Overleaf links (`/api/overleaf/*`), Zotero collections and the MCP relay (`/api/mcp/*`).
 
+#![forbid(unsafe_code)]
+
 pub mod account;
 pub mod account_purge;
 pub mod admin_users;
