@@ -17,12 +17,20 @@
  *    healthy, starting or stopped one alone.
  */
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+// WSL's bash.exe can come first on PATH on Windows and cannot read Windows paths, so prefer Git's bash.
+function bashBinary() {
+  if (process.platform !== "win32") return "bash";
+  const execPath = spawnSync("git", ["--exec-path"], { encoding: "utf8" }).stdout.trim();
+  const gitBash = path.resolve(execPath, "../../../usr/bin/bash.exe");
+  return existsSync(gitBash) ? gitBash : "bash";
+}
 const failures = [];
 const fail = (message) => failures.push(message);
 
@@ -101,8 +109,11 @@ let run = 0;
 function watch(env) {
   const calls = path.join(dir, `calls-${run++}.log`);
   writeFileSync(calls, "");
-  const result = spawnSync("bash", [script], {
-    env: { ...process.env, ...env, CALLS: calls, PATH: `${bin}${path.delimiter}${process.env.PATH}` },
+  // Stubs use `#!/usr/bin/env bash`, so the shell's folder must precede WSL's on PATH too.
+  const shell = bashBinary();
+  const shellDir = path.isAbsolute(shell) ? path.dirname(shell) : null;
+  const result = spawnSync(shell, [script], {
+    env: { ...process.env, ...env, CALLS: calls, PATH: [bin, shellDir, process.env.PATH].filter(Boolean).join(path.delimiter) },
     encoding: "utf8",
   });
   const log = readFileSync(calls, "utf8").split("\n").filter(Boolean);
