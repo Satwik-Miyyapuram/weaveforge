@@ -1,8 +1,8 @@
 //! Plan feed for JavaScript (wf-core `plan::feed`): the iCalendar of dated milestones and the
 //! widget summary.
 
-use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::plan::feed::{self};
 use wf_core::plan::feed_urls;
 

@@ -5,9 +5,7 @@
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::relations::graph_settings::{self, GraphPersistedState};
-use wf_core::vault::page::{
-    self, TreePage, VaultPageSummary, VaultPageTreeNode,
-};
+use wf_core::vault::page::{self, TreePage, VaultPageSummary, VaultPageTreeNode};
 
 use super::to_js;
 

@@ -6,9 +6,7 @@ use std::collections::BTreeMap;
 use serde_json::{Map, Value};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::sync::frontmatter::{
-    frontmatter_string, read_frontmatter, write_frontmatter,
-};
+use wf_core::sync::frontmatter::{frontmatter_string, read_frontmatter, write_frontmatter};
 use wf_core::sync::merge_vault_page::{
     VaultPageBase, VaultPageSide, merge_vault_page, vault_page_base, vault_page_side,
 };
