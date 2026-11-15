@@ -43,19 +43,6 @@ pub enum GitSyncSkipReason {
     InvalidPath,
 }
 
-impl GitSyncSkipReason {
-    /// The TypeScript reason string, for logs.
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::IgnoredDirectory => "ignored-directory",
-            Self::IgnoredFile => "ignored-file",
-            Self::TooLarge => "too-large",
-            Self::InvalidPath => "invalid-path",
-        }
-    }
-}
-
 /// Result of `decide_git_sync_path`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GitSyncDecision {

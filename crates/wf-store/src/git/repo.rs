@@ -177,12 +177,6 @@ impl FolderRepo {
         &self.branch
     }
 
-    /// Where the git data lives when it is outside the folder.
-    #[must_use]
-    pub fn git_dir(&self) -> Option<&Path> {
-        self.git_dir.as_deref()
-    }
-
     /// Opens the repository, with the folder as its work tree when the git data is elsewhere.
     pub(crate) fn open(&self) -> Result<Repository, git2::Error> {
         let Some(git_dir) = &self.git_dir else {

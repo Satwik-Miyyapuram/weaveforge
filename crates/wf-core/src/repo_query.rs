@@ -256,13 +256,6 @@ impl RepoQuery {
         self
     }
 
-    /// Inclusive row range.
-    #[must_use]
-    pub fn range(mut self, from: u32, to: u32) -> Self {
-        self.range = Some((from, to));
-        self
-    }
-
     /// Exactly one row.
     #[must_use]
     pub fn single(mut self) -> Self {

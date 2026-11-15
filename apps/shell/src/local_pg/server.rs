@@ -207,18 +207,6 @@ pub async fn ensure_initialized(bin: &Path, root: &Path) -> Result<String, PgErr
 }
 
 impl PgServer {
-    /// The loopback port the server listens on.
-    #[must_use]
-    pub fn port(&self) -> u16 {
-        self.port
-    }
-
-    /// The superuser password.
-    #[must_use]
-    pub fn password(&self) -> &str {
-        &self.password
-    }
-
     /// Initialises if needed, starts the server on a free port, and waits until it answers.
     pub async fn start(bin: &Path, root: &Path) -> Result<PgServer, PgError> {
         let password = ensure_initialized(bin, root).await?;

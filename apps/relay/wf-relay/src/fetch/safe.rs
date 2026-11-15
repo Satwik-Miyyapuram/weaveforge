@@ -194,11 +194,6 @@ pub async fn safe_fetch_via<N: Network>(
     Err(upstream(502, "That address redirected too many times."))
 }
 
-/// `safe_fetch_via` on the real network.
-pub async fn safe_fetch(input: &str, options: &FetchOptions) -> Result<Fetched, FetchFailure> {
-    safe_fetch_via(&PublicNetwork, input, options).await
-}
-
 /// Drops one pair of `[` `]` around an IPv6 literal.
 fn strip_brackets(host: &str) -> &str {
     host.strip_prefix('[')
