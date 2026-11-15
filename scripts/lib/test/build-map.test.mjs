@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { build, headingExists, resolveLine, validate } from "./build-map.mjs";
+import { build, headingExists, resolveLine, validate } from "../../build-map.mjs";
 
 const files = {
   "src/a.tsx": "const x = 1;\nfunction onSave() {}\n",
