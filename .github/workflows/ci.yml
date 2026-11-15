@@ -34,6 +34,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          # The Overleaf IDE and its vim fork (third_party/README.md).
+          submodules: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -323,6 +326,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          # The Overleaf IDE and its vim fork (third_party/README.md).
+          submodules: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -639,6 +645,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          # The Overleaf IDE and its vim fork (third_party/README.md).
+          submodules: true
 
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install

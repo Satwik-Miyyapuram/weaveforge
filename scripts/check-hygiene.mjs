@@ -113,8 +113,8 @@ const OVERSIZED_ALLOWED = new Map([
   ],
 ]);
 
-/** Vendored upstream code, kept as upstream wrote it so it still diffs cleanly. */
-const VENDORED = ["apps/web/src/features/report/vendor/overleaf/"];
+/** Upstream files the app overrides, kept as upstream wrote them so they still diff cleanly. */
+const VENDORED = ["apps/web/src/features/report/ol-host/overrides/"];
 const vendored = (f) => VENDORED.some((p) => f.startsWith(p));
 
 {

@@ -58,13 +58,13 @@ test("the gate has no ratchet: every rule fails on its first hit", () => {
   assert.doesNotMatch(readFileSync(gate, "utf8"), /ceiling/);
 });
 
-test("vendored Overleaf code is third-party and skipped; our code beside it is not", () => {
-  const vendored = "apps/web/src/features/report/vendor/overleaf/frontend/js/x.tsx";
+test("Overleaf files the app overrides are third-party and skipped; our code beside them is not", () => {
+  const vendored = "apps/web/src/features/report/ol-host/overrides/frontend/js/x.tsx";
   const ours = "apps/web/src/features/report/ui/x.tsx";
   const raw = "export const X = () => <button>Go</button>;\n";
   assert.equal(runGate({ [vendored]: raw }).code, 0);
   const r = runGate({ [vendored]: raw, [ours]: raw });
   assert.equal(r.code, 1);
-  assert.doesNotMatch(r.out, /vendor\/overleaf/);
+  assert.doesNotMatch(r.out, /ol-host\/overrides/);
   assert.match(r.out, /features\/report\/ui\/x\.tsx:1/);
 });
