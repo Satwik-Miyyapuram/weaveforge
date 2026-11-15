@@ -63,12 +63,9 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
   Dotted paths index arrays by numeric position only. Both are recorded in the
   module head.
 
-## Size-cap message
+## Size caps
 
-`sync::vault_limits::too_large_message` gives the
-text for a file over the cap: "That file is too large to open here (over N MB)."
-The cap is in bytes, and the message shows it in whole MB. The caps themselves,
-8 MiB for text and 80 MiB for blobs, were enforced by the retired TS sidecar.
+The caps, 8 MiB for text and 80 MiB for blobs, were enforced by the retired TS sidecar.
 The native vault commands in `apps/shell/src/cmd_vault.rs` do not enforce them
 yet; adding the check there is open work.
 

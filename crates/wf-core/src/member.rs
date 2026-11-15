@@ -396,21 +396,10 @@ pub fn needs_standalone_role_sync(
     !memberships.iter().any(is_explicit_lab_membership)
 }
 
-/// Supervisor recorded for an account the `creator_id` member creates: the creator.
-#[must_use]
-pub fn resolve_supervisor_id(creator_id: &str) -> String {
-    creator_id.to_owned()
-}
-
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
-    #[test]
-    fn resolve_supervisor_id_is_creator() {
-        assert_eq!(resolve_supervisor_id("prof"), "prof");
-    }
-
     fn link(id: &str, supervisor: Option<&str>) -> MemberLink {
         MemberLink {
             id: id.to_owned(),

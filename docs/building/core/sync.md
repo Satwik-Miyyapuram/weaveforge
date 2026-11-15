@@ -126,8 +126,6 @@ and reads the file system.
   the `GIT_CONFIG_*` plan. The token goes only in the env plan, never on the
   command line or in `.git/config`. An empty token means no header, and a
   non-http URL gets no header.
-- `sync::vault_git_parse` parses git's text output. Renames skip the
-  second record. Path chunks count UTF-16 units, as JavaScript does.
 
 Stays in TypeScript, and why:
 
@@ -170,7 +168,6 @@ These modules sit beside the ones above. Each rule is pure. TS keeps the I/O.
 | `project_pick` | `pick_project` | `pickProject` | — |
 | `serialize` | `serialize_workspace`, `WORKSPACE_SCHEMA_VERSION` | `serializeWorkspace` | `apps/web/src/features/workspace/application/parts-1.ts`, `apps/web/src/features/workspace/application/parts-2.ts`, `apps/web/src/features/export/application/export-user-data.ts` |
 | `text_diff` | `diff_body`, `merge_hunks`, `write_conflict_markers`, `has_conflict_markers` | `diffBody`, `mergeHunks`, `writeConflictMarkers`, `hasConflictMarkers` | `apps/web/src/features/offline-sync/ui/sync-issues-panel.tsx`, `apps/web/src/features/settings/ui/folder-conflict-card.tsx` |
-| `vault_limits` | `too_large_message` | — | — |
 | `workspace_fs` | `WorkspaceFs` trait (nine methods), `FsKind`, `WorkspaceStat`, `FsError` | native only | — |
 
 Rules:
@@ -191,5 +188,4 @@ Rules:
 - `project_pick`: exact match on id, name or dir comes first, then partial name. Errors list the project names. `norm` trims, lowercases and folds JS `\s`.
 - `serialize`: `WORKSPACE_SCHEMA_VERSION` is `2`, stamped into `manifest.json`.
 - `text_diff`: markers are `<<<<<<< this app`, `=======` and `>>>>>>> the folder`. Past `MAX_DIFF_CELLS` (4,000,000) the diff is one hunk holding both copies whole.
-- `vault_limits`: the message reads "That file is too large to open here (over N MB)." Size caps stay in TS.
 - `workspace_fs`: nine methods, deliberately small. Paths are POSIX and relative. Adapters reject unsafe paths. No symlinks, modes, streams or watching. `modified_ms` is milliseconds since the Unix epoch.

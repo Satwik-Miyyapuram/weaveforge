@@ -5,7 +5,6 @@ Rust home: `crates/wf-core/src/shell_paths.rs`, plus `mcp_client_configs` in `cr
 ## What it owns
 
 - `join_path(sep, parts)`: Node `path.join` for plain segments. Skips empty parts, collapses runs of separators, resolves `.` and `..` like Node, keeps a trailing separator, keeps a `C:` drive root on win32, and turns `/` into `\` when `sep` is `\`. A `..` above a root is dropped; `""` for no parts, `.` for a path that resolves to nothing.
-- `home_config_path(home, variant, sep)`: `<home>/.weaveforge/desktop.json`, or `desktop-<variant>.json`. An empty variant counts as none.
 - `mcp_client_configs(home, platform, app_data, sep)`: Cursor's `mcpServers` file, then VS Code's `servers` file. Win32 uses `app_data` or `<home>/AppData/Roaming`; darwin uses `Library/Application Support`; other platforms use `.config`.
 
 ## Where it is called

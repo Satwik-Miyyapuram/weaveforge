@@ -51,9 +51,7 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [app-protocol](app-protocol.md) | `app://` protocol rules: candidate files, canonical URLs, content types, headers and the CSP (`app_protocol`). |
 | [session_grant](session_grant.md) | AI session start: TTL clamp, source dedupe, the start checks and the grant shape. |
 | [provider_descriptor](provider_descriptor.md) | Restoring a stored AI provider blob: shape check, wire API names, `null` on mismatch. |
-| [shell_paths](shell_paths.md) | Desktop shell file naming: `join_path`, the home pointer file and the MCP client config files, with separator and platform as inputs. |
-| [ipc_origin](ipc_origin.md) | IPC guard origin rules: same-origin check by scheme, host and effective port, and `origin_of`. |
-| [vault_search](vault_search.md) | Vault folder and search rules: search file and skip rules, match cut, folder verdict, nested-folder choice and staged-write names. |
+| [shell_paths](shell_paths.md) | Desktop shell file naming: `join_path` and the MCP client config files, with separator and platform as inputs. |
 | [proposal_draft](proposal_draft.md) | AI proposal draft shaping: trimmed preview, blank check, pending status and optional fields. |
 | [folder_draft](folder_draft.md) | Folder draft import rules: `.json` draft test and the project match. |
 | [overleaf_sync_status](overleaf_sync_status.md) | Overleaf sync status line when no pull or push ran. |
@@ -62,12 +60,9 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [experiment-artifacts](experiment-artifacts.md) | Experiment artifact rules: storage key segment, viewable URL and absolute-link check (`safe_name`, `viewable_artifact_url`, `is_absolute_url`). |
 | [library-index](library-index.md) | Background PDF indexer decisions: the 7-day failure retry window and the courtesy pause (`recent_failure_ids`, `courtesy_pause_due`). |
 | [url-meta](url-meta.md) | Paper-from-URL rules in the desktop shell: relay target with `https://` default and read failure messages (`shell_target`, `read_failure_message`). |
-| [local_api_guard](local_api_guard.md) | Local API request guards: loopback Host check, Bearer credential extraction and legacy token shape (is_loopback_host, bearer_token, is_legacy_token_hex). |
-| [secret_names](secret_names.md) | The four stored secret names and the exact-match check (SECRET_NAMES, is_secret_name). |
 | [data-access](data-access.md) | How data access is split: Rust builds requests and handles replies, one TS sender sends them. Records that a Rust network stack was deliberately not built. |
-| [project_folder](project_folder.md) | Project folder name from a --xxxxxx id suffix (project_folder_name). |
-| [integration-helpers](integration-helpers.md) | Zotero local URL, MCP client config, plan widget and AI proposal grouping helpers. |
-| [latex-tools](latex-tools.md) | LaTeX outline, TeX engine args and log errors, safe TeX paths, Overleaf Workshop checks. |
+| [integration-helpers](integration-helpers.md) | MCP client config, plan widget and AI proposal grouping helpers. |
+| [latex-tools](latex-tools.md) | LaTeX outline, TeX engine args and log errors, Overleaf Workshop checks. |
 | [app-navigation](app-navigation.md) | Nav groups, command palette groups and sort, route titles, screen for path, shortcut labels. |
 | [account](account.md) | Account links and menu, provisioning and purge, auth transitions, backend/home config, update check. |
 | [release-notices](release-notices.md) | In-app release notice: the unseen-version rule, per-account dismissal and how to publish a notice. |

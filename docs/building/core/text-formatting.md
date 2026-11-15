@@ -9,7 +9,6 @@ These modules format text, dates and status labels. They live in `crates/wf-core
 | `js_collate` | `locale_compare` | native only | — |
 | `date_format` | `format_date`, `format_date_time`, `format_relative` | `formatDate`, `formatDateTime`, `formatRelative` | `apps/web/src/components/record.tsx` |
 | `calendar_date` | `iso_date`, `local_iso_date` | `isoDate`, `localIsoDate` | `packages/core/src/shared/parts.ts` |
-| `app_log_line` | `format_log_line` | — | — |
 | `error_status` | `http_status_for_kind` | `httpStatusForKind` | `packages/core/src/shared/errors.ts` |
 
 Rules:
@@ -20,5 +19,4 @@ Rules:
 - `date_format`: inputs are ISO-8601 text. A value with no zone, and a bare `YYYY-MM-DD`, are local time. The caller passes the offset in minutes east of UTC (`-Date.getTimezoneOffset()`), because Rust has no time-zone database. Anything that does not parse formats to `""`.
 - `format_relative`: activity under a week old reads as "Just now", "5m ago", "2h ago" or "3d ago"; otherwise the date. A clock a little ahead of `now_iso` also reads "Just now".
 - `calendar_date`: pure. The caller reads the local fields from its own `Date`. `iso_date` takes the first ten UTF-16 units of the input. `local_iso_date` takes a 1-based month and pads month and day to two digits.
-- `app_log_line`: output is `<stamp> <LEVEL> [<source>] <message>`. The stamp loses the first `T` and the first `Z`. The level is upper-cased and padded to five UTF-16 units. An empty detail is the same as no detail; a detail goes on following lines indented four spaces.
 - `error_status`: only the kind-to-status map is here. The error classes stay in TS. Any kind not in the taxonomy is a server error.

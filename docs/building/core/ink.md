@@ -107,7 +107,7 @@ The app's ink worker, renderers and storage are in TypeScript too. These files t
 | --- | --- | --- | --- |
 | `capture` | `CaptureStream` (`new`, `reset_filter`, `forget_last`, `consume`), `resolve_time` | `InkCaptureStream` (`resetFilter`, `forgetLast`, `consume`); `resolve_time` native only | `apps/web/src/features/ink/application/parts-2.ts` |
 | `constants` | `ink_constants` | `inkConstants` | — |
-| `page_buffer` | `bounds_of`, `bounds_intersect`, `bounds_union`, `bounds_contain`, `page_bounds`, `kept_indices`, `clamp_background_index`, `stroke_pressures`, `stroke_arrays` | `inkBoundsOf`, `inkBoundsIntersect`, `inkBoundsUnion`, `inkBoundsContain`, `inkPageBounds`, `inkKeptIndices`, `inkClampBackgroundIndex`, `inkStrokePressures`; `stroke_arrays` native only | `apps/web/src/features/ink/application/parts-3.ts` |
+| `page_buffer` | `bounds_of`, `bounds_intersect`, `bounds_union`, `bounds_contain`, `page_bounds`, `kept_indices`, `clamp_background_index`, `stroke_pressures` | `inkBoundsOf`, `inkBoundsIntersect`, `inkBoundsUnion`, `inkBoundsContain`, `inkPageBounds`, `inkKeptIndices`, `inkClampBackgroundIndex`, `inkStrokePressures` | `apps/web/src/features/ink/application/parts-3.ts` |
 | `stroke_history` | `stroke_history_step` | `inkStrokeHistoryStep` | `apps/web/src/features/ink/worker/ink-page-logic.ts` |
 | `worker_route` | `ink_worker_route`, `pen_pressure_byte` | `inkWorkerRoute`, `inkPenPressureByte` | `apps/web/src/features/ink/worker/ink-worker.ts` |
 

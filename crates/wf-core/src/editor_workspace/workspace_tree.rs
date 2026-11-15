@@ -819,15 +819,6 @@ fn dashed(text: &str) -> String {
 }
 
 /// The path a list file is mirrored to: `reading-lists/<parent>/<slug>.list.md`.
-#[must_use]
-pub fn list_path(list: &ListEntry) -> String {
-    let slug = list
-        .slug
-        .clone()
-        .unwrap_or_else(|| slug_segment(&list.title));
-    list_path_parts(&slug, list.parent_slug.as_deref())
-}
-
 fn list_path_parts(slug: &str, parent_slug: Option<&str>) -> String {
     match parent_slug.filter(|parent| !parent.is_empty()) {
         Some(parent) => format!("reading-lists/{parent}/{slug}.list.md"),

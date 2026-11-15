@@ -65,7 +65,5 @@ pub mod sync_dot;
 pub mod sync_phase;
 pub mod sync_state;
 pub mod text_diff;
-pub mod vault_git_parse;
-pub mod vault_limits;
 pub mod workspace_fs;
 pub mod workspace_snapshot;
