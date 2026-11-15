@@ -33,8 +33,8 @@ re-export them. The main names are:
 - Packing (`dashboard-packing.ts`): `dashboardLayoutFloors`, `dashboardNormalizeItem`,
   `dashboardCompactVertical`, `dashboardPackSm`, `dashboardCloseGaps`, `rowsForHeight`,
   `fitLayoutToContent`, `withStoredHeights`.
-- Stats (`dashboard-stats.ts`): `dashboardBuildStats`, `dashboardNeedsAttention`,
-  `dashboardTopTags`, `dashboardSuperviseeCounts`, `dashboardTeamAttention`.
+- Stats (`dashboard-stats.ts`): `dashboardBuildStats`,
+  `dashboardSuperviseeCounts`, `dashboardTeamAttention`.
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `apps/web/src/lib/rust-core.ts`, or through the wrappers in `packages/wf-wasm`.
@@ -57,7 +57,7 @@ the core has loaded.
 `crates/wf-core/src/dashboard/card_registry.rs` holds the 11-card catalog: `registry()`, `card_def`,
 `cards_for_role`, `is_stat_card`, `data_sources_for_card_types`, `resolve_deps` and `fit_max_heights`.
 Wasm exports (`crates/wf-wasm/src/dashboard_registry.rs`): `dashboardCardRegistry`, `dashboardCardDef`,
-`dashboardCardsForRole`, `dashboardIsStatCard`, `dashboardDataSourcesForCardTypes`,
+`dashboardCardsForRole`, `dashboardIsStatCard`,
 `dashboardResolveDeps`, `dashboardFitMaxHeights`. `apps/web/src/features/dashboard/application/parts.ts`
 delegates to them. `cardLimits()` and `fitMaxHeights()` are functions, not constants, because a module-level
 call would run wasm before `loadCore()`. Tests: 9 Rust `#[test]`s, 3 of them ported from TS.

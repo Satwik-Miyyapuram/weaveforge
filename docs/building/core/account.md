@@ -11,7 +11,7 @@ These modules hold the pure rules for accounts, auth, backend config, home confi
 | `auth_transition` | `next_auth_step` | `nextAuthStep` | `apps/web/src/features/auth/domain/parts.ts` |
 | `backend_config` | `missing_config_message` | `missingConfigMessage` | — |
 | `home_config` | `vault_root_from_text` | `vaultRootFromText` | — |
-| `update_check` | `parse_tag`, `parse_version`, `is_newer`, `newest_release` | `parseReleaseTag`, `parseAppVersion`, `isNewerVersion`, `newestDesktopRelease` | — |
+| `update_check` | `parse_tag`, `parse_version`, `is_newer`, `newest_release` | — | — |
 | `privacy_disclaimer_readiness` | `should_mount_shell_children`, `should_show_workspace_loader` | `shouldMountShellChildren`, `shouldShowWorkspaceLoader` | `apps/web/src/features/auth/ui/privacy-disclaimer-gate.tsx` |
 
 Rules:

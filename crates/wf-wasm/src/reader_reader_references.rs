@@ -6,7 +6,7 @@ use js_sys::{Array, Map, Object, Reflect};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::reader::reader_references::{
-    ReaderReferenceIndex, build_reference_index, index_from_analysis, outline_items_for,
+    ReaderReferenceIndex, build_reference_index, index_from_analysis,
 };
 use wf_core::reader_analysis::document_analysis::DocumentAnalysis;
 use wf_core::reader_analysis::outline::OutlineReaderItem;
@@ -127,17 +127,4 @@ pub fn index_from_analysis_js(analysis: JsValue, pages: JsValue) -> JsResult<JsV
     let analysis: DocumentAnalysis = serde_wasm_bindgen::from_value(analysis)?;
     let pages: Vec<AnalysisPdfPage> = serde_wasm_bindgen::from_value(pages)?;
     to_maps(&index_from_analysis(&analysis, &pages))
-}
-
-/// [`outline_items_for`]: the pages' runs as outline items, one array per page.
-///
-/// # Errors
-///
-/// Fails if `pages` does not have the expected shape.
-#[wasm_bindgen(js_name = outlineItemsFor, unchecked_return_type = "unknown[][]")]
-pub fn outline_items_for_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly ReferencePage[]")] pages: JsValue,
-) -> JsResult<JsValue> {
-    let pages: Vec<AnalysisPdfPage> = serde_wasm_bindgen::from_value(pages)?;
-    to_js(&outline_items_for(&pages))
 }

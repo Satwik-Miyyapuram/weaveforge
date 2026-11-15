@@ -13,13 +13,6 @@ use super::to_js;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
-/// [`escape_latex_text`](markdown_to_latex::escape_latex_text) (TS `escapeLatexText`).
-#[wasm_bindgen(js_name = escapeLatexText)]
-#[must_use]
-pub fn escape_latex_text_js(s: &str) -> String {
-    markdown_to_latex::escape_latex_text(s)
-}
-
 /// [`markdown_to_latex`](markdown_to_latex::markdown_to_latex) (TS `markdownToLatex`): the
 /// report Markdown as a LaTeX body, with warnings, figures and cited keys. `citeByTitle` maps
 /// normalized paper titles to bib keys. A missing `md` reads as `""`, missing `opts` as `{}`.

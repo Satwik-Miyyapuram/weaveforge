@@ -35,8 +35,7 @@ The wasm exports live in `crates/wf-wasm/src` (for example `ai_access_policy.rs`
 import the raw names from `../pkg/wf_wasm.js` and re-export them. The main
 names are:
 
-- `evaluateAiAccess`, `normalizeAiAccessSettings`, `aiReadCategoryForResource` (access policy).
-- `canonicalAiToolName`, `contextNonceFrom` (tool names).
+- `normalizeAiAccessSettings`, `aiReadCategoryForResource` (access policy).
 - `mcpReadResult` (MCP results).
 - `parseExtractionJson`, `toExtractionResult` (model concepts).
 - `highlightWithinExcerpt` (evidence, `ai_evidence.rs`).
@@ -46,7 +45,7 @@ names are:
 - `lintWiki`, `planFixOrder` (wiki lint).
 - `buildWikiIndex`, `replaceWikiIndex` (wiki index).
 - `buildWikiGraph` (wiki graph).
-- `neutraliseContext`, `safeLabel`, `fenceUntrusted`, `untrustedContextRule` (untrusted context).
+- `neutraliseContext`, `safeLabel`, `fenceUntrusted` (untrusted context).
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `apps/web/src/lib/rust-core.ts`, or through the wrappers in `packages/wf-wasm`.

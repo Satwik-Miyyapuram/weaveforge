@@ -3,18 +3,12 @@
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::sync::conflict_attention::{OpenConflict, count_open, keep_all_picks, needs_person};
+use wf_core::sync::conflict_attention::{OpenConflict, count_open, keep_all_picks};
 use wf_core::sync::conflict_deletion::PickSide;
 
 use super::to_js;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
-
-/// [`needs_person`]: whether one open conflict still needs a person.
-#[wasm_bindgen(js_name = needsPerson)]
-pub fn needs_person_js(kind: &str, field_count: usize) -> bool {
-    needs_person(kind, field_count)
-}
 
 /// [`count_open`]: how many open conflicts still need a person.
 ///

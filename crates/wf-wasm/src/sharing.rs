@@ -4,8 +4,7 @@
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsCast, JsValue};
 use wf_core::sharing::{
-    self, CommentRow, NewCommentInput, NewShareInput, ShareGrant, ShareScope, ShareableType,
-    SharedSource,
+    self, NewCommentInput, NewShareInput, ShareGrant, ShareScope, ShareableType,
 };
 
 use super::to_js;
@@ -211,36 +210,6 @@ pub fn decode_share_link_token_js(encoded: &str) -> Result<Vec<u8>, JsValue> {
         .map_err(|message| named_error(JsValue::from_str(&message), "InvalidCharacterError"))
 }
 
-/// [`comment_from_row`](sharing::comment_from_row): a `comments` row as the app's `Comment`.
-///
-/// # Errors
-///
-/// Fails if `row` does not have the `comments` columns.
-#[wasm_bindgen(js_name = commentFromRow, unchecked_return_type = "B.Comment")]
-pub fn comment_from_row_js(
-    #[wasm_bindgen(unchecked_param_type = "B.CommentRow")] row: JsValue,
-) -> JsResult<JsValue> {
-    let row: CommentRow = serde_wasm_bindgen::from_value(row)?;
-    to_js(&sharing::comment_from_row(&row))
-}
-
-/// [`shared_item`](sharing::shared_item): one table row as a `SharedItem`.
-///
-/// # Errors
-///
-/// Fails if `kind` is not a shareable type or `source` lacks `title`.
-#[wasm_bindgen(js_name = sharedItem, unchecked_return_type = "B.SharedItem")]
-pub fn shared_item_js(
-    #[wasm_bindgen(unchecked_param_type = "B.ShareableType")] kind: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "Record<string, unknown>")] row: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "B.SharedSource")] source: JsValue,
-) -> JsResult<JsValue> {
-    let kind: ShareableType = serde_wasm_bindgen::from_value(kind)?;
-    let row: serde_json::Value = serde_wasm_bindgen::from_value(row)?;
-    let source: SharedSource = serde_wasm_bindgen::from_value(source)?;
-    to_js(&sharing::shared_item(kind, &row, &source))
-}
-
 /// [`member_name_map`](wf_core::member::member_name_map) as a `Map` from member id to display
 /// name: full name, else email, else `"Member"`.
 ///
@@ -330,24 +299,6 @@ pub fn default_share_link_expires_at_js(now_ms: f64) -> String {
     sharing::default_share_link_expires_at(now_ms as i64)
 }
 
-/// [`shared_read_plan`](sharing::shared_read_plan): the PostgREST table, columns and filter for
-/// one shared read, or `null` when there is no id and no owner.
-///
-/// # Errors
-///
-/// Fails if `kind` is not a shareable type or `ids`/`owners` are not string lists.
-#[wasm_bindgen(js_name = sharedReadPlan, unchecked_return_type = "B.SharedReadPlan | null")]
-pub fn shared_read_plan_js(
-    #[wasm_bindgen(unchecked_param_type = "B.ShareableType")] kind: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] ids: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] owners: JsValue,
-) -> JsResult<JsValue> {
-    let kind: ShareableType = serde_wasm_bindgen::from_value(kind)?;
-    let ids: Vec<String> = serde_wasm_bindgen::from_value(ids)?;
-    let owners: Vec<String> = serde_wasm_bindgen::from_value(owners)?;
-    to_js(&sharing::shared_read_plan(kind, &ids, &owners))
-}
-
 /// [`share_targets`](sharing::share_targets): the ids and blanket owners of one type in a grant list.
 ///
 /// # Errors
@@ -371,17 +322,6 @@ pub fn share_targets_js(
 #[wasm_bindgen(js_name = shareableTypes, unchecked_return_type = "readonly B.ShareableType[]")]
 pub fn shareable_types_js() -> JsResult<JsValue> {
     to_js(&sharing::SHAREABLE_TYPES)
-}
-
-/// [`CRDT_EDITABLE_SHARE_TYPES`](sharing::CRDT_EDITABLE_SHARE_TYPES): share types that support
-/// collaborative editing.
-///
-/// # Errors
-///
-/// Fails if the list cannot be converted to a JS value.
-#[wasm_bindgen(js_name = crdtEditableShareTypes, unchecked_return_type = "readonly B.ShareableType[]")]
-pub fn crdt_editable_share_types_js() -> JsResult<JsValue> {
-    to_js(&sharing::CRDT_EDITABLE_SHARE_TYPES)
 }
 
 /// [`SHARE_LINK_DEFAULT_TTL_DAYS`](sharing::SHARE_LINK_DEFAULT_TTL_DAYS) as a JS number.

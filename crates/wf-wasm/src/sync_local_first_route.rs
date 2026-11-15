@@ -16,12 +16,6 @@ pub fn synced_tables_js() -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&local_first_route::synced_tables())
 }
 
-/// [`local_first_route::is_synced_table`].
-#[wasm_bindgen(js_name = isSyncedTable)]
-pub fn is_synced_table_js(table: &str) -> bool {
-    local_first_route::is_synced_table(table)
-}
-
 /// [`local_first_route::is_both_ends_rpc`].
 #[wasm_bindgen(js_name = isBothEndsRpc)]
 pub fn is_both_ends_rpc_js(name: &str) -> bool {

@@ -23,16 +23,6 @@ pub fn root_key_js(
     to_js(&edit::root_key(root))
 }
 
-/// [`root_of_kind`](edit::root_of_kind). `kind` is a snake_case tree kind name.
-///
-/// # Errors
-///
-/// Fails if the result cannot be serialised.
-#[wasm_bindgen(js_name = rootOfKind, unchecked_return_type = "B.EditableRoot | null")]
-pub fn root_of_kind_js(kind: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    edit::root_of_kind(kind).map_or(Ok(JsValue::NULL), |v| to_js(&v))
-}
-
 /// [`root_of`](edit::root_of).
 ///
 /// # Errors

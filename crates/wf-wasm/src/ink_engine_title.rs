@@ -20,12 +20,6 @@ struct LineRange {
     stroke_count: u32,
 }
 
-/// [`is_ink_engine_id`](ink_engine::is_ink_engine_id).
-#[wasm_bindgen(js_name = isInkEngineId)]
-pub fn is_ink_engine_id_js(id: &str) -> bool {
-    ink_engine::is_ink_engine_id(id)
-}
-
 /// [`ink_engine_rank`](ink_engine::ink_engine_rank): the engine's preference rank, or the
 /// engine count for an unknown id.
 #[wasm_bindgen(js_name = inkEngineRank)]

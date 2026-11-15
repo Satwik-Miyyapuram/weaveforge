@@ -9,7 +9,6 @@ Rust home: `crates/wf-core/src/secret_names.rs`.
 
 ## Where it is called
 
-- wasm export `isSecretName` in `crates/wf-wasm/src/secret_names.rs`.
 - No TS wrapper; typed through `rust()` in `packages/core/src/shared/rust.ts`.
 - The native shell keeps its own list: `SECRET_NAMES` and `known()` in `apps/shell/src/secrets.rs`.
 

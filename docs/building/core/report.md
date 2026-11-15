@@ -33,14 +33,14 @@ The wasm exports live in `crates/wf-wasm/src`. The TypeScript wrappers in
 `packages/wf-wasm/src` reach them through `readyCore()`, and the app imports
 those wrappers.
 
-- `report-records.ts`: `createReportSection`, `createReportSectionWith`,
+- `report-records.ts`: `createReportSection`,
   `reportSectionInputError`, `buildSectionTree`, `sectionProgress`,
   `outlineProgress`, `countSectionSources`, `editedRelativeLabel`,
-  `normalizeProjectPath`, `checkBibliography`, `prismaFigureTex`, `prismaCaveat`.
+  `checkBibliography`, `prismaFigureTex`, `prismaCaveat`.
 - `report-cite-key.ts`: `resolveCiteKey`, `uniqueCiteKey`, `formatCitation`,
   `formatPaperCitation`.
 - `report-bib-entries.ts`: `parseBibEntries`, `parseLatexSectionTree`.
-- `report-markdown-to-latex.ts`: `markdownToLatex`, `escapeLatexText`,
+- `report-markdown-to-latex.ts`: `markdownToLatex`,
   `uniqueFigureName`, `uniqueFigureNameIn`.
 - `report-artifacts.ts`: `parseArtifactRefs`, `serialiseArtifactRef`,
   `artifactBasename`, `resolveArtifactRefsMarkdown`, `safeArtifactCaption`,

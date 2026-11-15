@@ -8,7 +8,7 @@ Pure markdown and text helpers for the editor, reader and cards. They live in `c
 | `markdown_format` | `apply`, `format_for`, `action_infos` | `markdownFormatActions`, `markdownFormatAction` | `apps/web/src/components/markdown/markdown-format-commands.ts` |
 | `markdown_image_refs` | `strip_unresolved_image_refs` | `stripUnresolvedImageRefs` | `apps/web/src/features/papers/ui/paper-markdown.tsx` |
 | `markdown_image_width` | `with_image_width`, `set_image_placement` | `withImageWidth`, `setImagePlacement` | `apps/web/src/components/image-size-control.tsx` |
-| `markdown_mermaid_labels` | `quote_awkward_labels` | `quoteAwkwardMermaidLabels` | — |
+| `markdown_mermaid_labels` | `quote_awkward_labels` | — | — |
 | `figure_label` | `figure_label` | `figureLabel` | `apps/web/src/features/experiments/ui/artifact-items.ts` |
 | `heading_slug` | `heading_slug` | `headingSlug` | `apps/web/src/components/markdown/markdown.tsx` |
 | `text_anchor` | `anchor_at`, `locate_anchor`, `span_points` | `anchorAt`, `locateAnchor`, `spanPoints` | `apps/web/src/features/sharing/ui/note-comments.tsx` |

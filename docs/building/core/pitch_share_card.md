@@ -21,10 +21,8 @@ cases from the TypeScript tests.
 
 ## How the app calls it
 
-The wasm exports live in `crates/wf-wasm/src/pitch_share_card.rs`:
-`appOriginFrom`, `pitchShareConstants` and `pitchShareCard`. They are served
-straight from `../pkg/wf_wasm.js`, typed in Rust with the `PitchShareCard`,
-`PitchShareImage` and `PitchShareConstants` types.
+The wasm export lives in `crates/wf-wasm/src/pitch_share_card.rs`:
+`appOriginFrom`. It is served straight from `../pkg/wf_wasm.js`.
 
 `apps/web/src/app/pitch/share-card.ts` still builds the Next.js `Metadata` object
 (`metadataBase` from `new URL(origin)`, `openGraph`, `twitter`) in TypeScript. Next

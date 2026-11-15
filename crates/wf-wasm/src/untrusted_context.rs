@@ -7,13 +7,6 @@ use wf_core::ai::untrusted_context::{self, UntrustedItem};
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
-/// [`UNTRUSTED_CONTEXT_RULE`](untrusted_context::UNTRUSTED_CONTEXT_RULE).
-#[wasm_bindgen(js_name = untrustedContextRule)]
-#[must_use]
-pub fn untrusted_context_rule_js() -> String {
-    untrusted_context::UNTRUSTED_CONTEXT_RULE.to_owned()
-}
-
 /// [`neutralise_context`](untrusted_context::neutralise_context).
 #[wasm_bindgen(js_name = neutraliseContext)]
 #[must_use]

@@ -80,17 +80,6 @@ fn cited_pairs<'a, T>(answer: &str, hits: &'a [T]) -> Vec<(usize, &'a T)> {
         .collect()
 }
 
-/// [`ask_prompt`](ask_library::ask_prompt): `{ system, user }` for the sources as passed.
-#[wasm_bindgen(js_name = askPrompt, unchecked_return_type = "B.AskPrompt")]
-pub fn ask_prompt_js(
-    question: &str,
-    #[wasm_bindgen(unchecked_param_type = "readonly B.AskSource[]")] sources: JsValue,
-    nonce: &str,
-) -> JsResult<JsValue> {
-    let sources: Vec<AskSource> = serde_wasm_bindgen::from_value(sources)?;
-    serde_wasm_bindgen::to_value(&ask_library::ask_prompt(question, &sources, nonce))
-}
-
 /// The ask request `{ messages: [system, user], temperature }` for the search hits.
 ///
 /// # Errors

@@ -15,12 +15,6 @@ pub fn is_pdf_file_js(name: &str, mime_type: &str) -> bool {
     paper_drop::is_pdf_file(name, mime_type)
 }
 
-/// [`is_bib_file`](paper_drop::is_bib_file) (TS `isBibFile`).
-#[wasm_bindgen(js_name = isBibFile)]
-pub fn is_bib_file_js(name: &str) -> bool {
-    paper_drop::is_bib_file(name)
-}
-
 /// [`guess_title`](paper_drop::guess_title) (TS `guessTitle`).
 #[wasm_bindgen(js_name = guessTitle)]
 pub fn guess_title_js(text: &str) -> Option<String> {
