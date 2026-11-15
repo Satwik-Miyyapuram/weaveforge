@@ -2735,7 +2735,7 @@
 .ink-menu-hint { margin: 4px 8px 2px; font-size: var(--fs-xs); color: var(--muted); white-space: normal; }
 /* The typed page number: as wide as three digits, no spinner. */
 .ink-page-input {
-  width: 3ch; min-width: 2.4rem; padding: 0 2px;
+  width: calc(3ch + 6px); min-width: 0; padding: 0 2px;
   border: 0; border-radius: var(--r-sm); background: color-mix(in srgb, var(--text) 8%, transparent);
   color: var(--text); font: inherit; text-align: center; font-variant-numeric: tabular-nums;
   appearance: textfield; -moz-appearance: textfield;
@@ -2746,9 +2746,10 @@
    the zoom value have room round them and read at the pill's own text size. */
 :root:root:root .ink-page-input { height: 24px; min-height: 0; box-sizing: border-box; }
 :root:root:root .ink-zoom-pill .wf-btn { height: 24px; min-height: 0; padding: 0 var(--s1); font-family: inherit; font-size: inherit; font-weight: inherit; }
-/* Fixed widths, so switching tabs ("/ 1" to "/ 12", "100%" to "61%") never slides the bar. */
-:root:root:root .ink-bar .ink-page-count { width: 11ch; justify-content: center; font-variant-numeric: tabular-nums; }
-:root:root:root .ink-bar .ink-zoom-pill .wf-btn { width: 8ch; justify-content: center; font-variant-numeric: tabular-nums; }
+/* Fixed widths, so switching tabs ("/ 1" to "/ 12", "100%" to "61%") never slides the bar;
+   sized to "999 / 999" and "100%" plus the caret, no wider. */
+:root:root:root .ink-bar .ink-page-count { width: calc(7ch + 16px); justify-content: center; font-variant-numeric: tabular-nums; }
+:root:root:root .ink-bar .ink-zoom-pill .wf-btn { width: calc(4ch + 24px); min-width: 0; justify-content: center; font-variant-numeric: tabular-nums; }
 /* Focus mode stacks the bar vertically; keep it narrow there. */
 :root:root:root :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-bar :is(.ink-page-count, .ink-zoom-pill .wf-btn) { width: auto; }
 .ink-page-input::-webkit-inner-spin-button,
