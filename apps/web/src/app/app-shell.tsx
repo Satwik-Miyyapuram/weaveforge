@@ -59,6 +59,10 @@ const MattermostSignedOutHost = dynamic(
   { ssr: false },
 );
 
+// Start fetching the Rust core as soon as this module runs, before React's first
+// paint; auth and CoreGate both await it. A failed load is retried by the next caller.
+if (typeof window !== "undefined") loadCore().catch(() => {});
+
 /**
  * Top-level shell: gates on auth, then on a selected project. Brand header
  * carries the project switcher + account actions. Screen content is keyed by
@@ -67,10 +71,6 @@ const MattermostSignedOutHost = dynamic(
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading, expired, sessionEpoch } = useAuth();
   const pathname = usePathname();
-  // Start fetching the Rust core at once; auth and CoreGate both await it.
-  useEffect(() => {
-    loadCore().catch(() => {});
-  }, []);
   if (pathname === "/recover") return <CoreGate><EmailRecoveryScreen /></CoreGate>;
   if (pathname === "/reset-password") return <CoreGate><PasswordResetScreen /></CoreGate>;
   // The product pitch is public and renders its own chrome: no auth gate, no
