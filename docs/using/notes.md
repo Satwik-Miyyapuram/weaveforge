@@ -39,10 +39,11 @@ with `#hashtags`.
 
 1. In OneNote, export or copy the section's `.one` file.
 2. Click **More**, then **Import OneNote section…**, and pick the file.
-3. WeaveForge makes a folder named after the section, with one note per page.
-   Sub-pages sit under their parent page.
-4. Pictures come in as attachments. Handwriting comes in as a separate ink
-   note named `<page title> (handwriting)`, next to the page's note.
+3. WeaveForge makes one note per page. Sub-pages sit under their parent page.
+4. Pictures come in as attachments. A page with handwriting comes in as an
+   ink note: each printout on the page becomes one ink page, with the printout
+   behind the strokes and the page's typed text in its text layer. A page
+   with more than 50 printouts splits into `<title> (part 2)` and so on.
 5. Attached files, such as PDFs, are not imported. The note says which file
    was left out.
 

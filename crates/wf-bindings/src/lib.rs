@@ -137,6 +137,8 @@ pub fn types() -> Types {
     .register::<wf_core::papers::page_metadata::PageMetadata>()
     .register::<wf_core::onenote::OneNoteImage>()
     .register::<wf_core::onenote::OneNotePage>()
+    .register::<wf_core::onenote::OneNoteInkPage>()
+    .register::<wf_core::onenote::OneNoteBackground>()
     .register::<wf_core::onenote::OneNoteSection>()
     .register::<wf_core::paste::TextResult>()
     .register::<wf_core::paste::clean_pasted_text::CleanPasteResult>()
