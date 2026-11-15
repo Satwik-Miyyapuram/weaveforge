@@ -4,7 +4,8 @@
  *
  * Runs all validation gates locally before git push hits GitHub:
  * 1. desktop.ini purge
- * 2. Architecture map & docs freshness (check:docs)
+ * 2. Architecture map & docs freshness (check:docs), and docs/using pages
+ *    changed with the code they cover (check-docs-coupled --unpushed)
  * 3. Commit DCO sign-offs (check:dco)
  * 4. Architectural & code boundaries (check:boundaries - 10 gates)
  * 5. Generate the bindings and WASM package (generate:rust), then its tests, size budget and typecheck
@@ -47,6 +48,7 @@ if (execSync(`git status --porcelain -- ${docs}`, { cwd: root, encoding: "utf8" 
   process.exit(1);
 }
 run("npm run check:docs", "Verifying architecture docs freshness");
+run("node scripts/check-docs-coupled.mjs --unpushed", "Checking docs/using pages changed with the code they cover");
 
 // 3. DCO check against origin/main (or upstream)
 let baseSha = "origin/main";

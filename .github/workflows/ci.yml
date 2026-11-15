@@ -218,16 +218,19 @@ jobs:
         run: npm run check:docs
 
       # Fails a PR that changes code a docs/using page `covers:` without
-      # touching that page; a `docs-ok: <reason>` line in the PR body waives it.
-      # Pull requests only, so no gate_ id and not in the summary below. The
-      # checkout is the PR's merge commit, whose first parent is the base tip,
-      # so HEAD^1...HEAD is exactly this PR's change.
+      # touching that page; a `docs-ok: <reason>` line in a commit message or
+      # the PR body waives it. The pre-push hook runs the same check first; this
+      # is the backstop for pushes that skip hooks. Pull requests only, so no
+      # gate_ id and not in the summary below. The checkout is the PR's merge
+      # commit, whose first parent is the base tip, so HEAD^1...HEAD is exactly
+      # this PR's change; the fetch is deep enough to read its commit messages.
       - name: Docs change with the code they cover
         if: always() && github.event_name == 'pull_request'
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
+          PR_COMMITS: ${{ github.event.pull_request.commits }}
         run: |
-          git fetch --no-tags --depth=2 origin "$GITHUB_SHA"
+          git fetch --no-tags --depth=$((PR_COMMITS + 2)) origin "$GITHUB_SHA"
           node scripts/check-docs-coupled.mjs HEAD^1 HEAD
 
       # The list above and `check:boundaries` are written twice, and this is what

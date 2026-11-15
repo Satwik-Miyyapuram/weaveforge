@@ -53,8 +53,8 @@ export function pageWarnings(meta, io) {
 }
 
 /**
- * Pages whose covered code changed in this PR while the page itself did not.
- * A `docs-ok: <reason>` line in the PR body waives every miss.
+ * Pages whose covered code changed while the page itself did not.
+ * A `docs-ok: <reason>` line in `body` (commit messages, PR body) waives every miss.
  * `because` is the first changed path that a page covers.
  */
 export function uncoupledPages(changed, pages, body) {

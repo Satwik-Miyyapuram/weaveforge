@@ -26,7 +26,7 @@ in `npm run check:docs`, so in the pre-push hook and in CI job
 | --- | --- | --- |
 | R1 | `scripts/check-doc-refs.mjs` | a path or file name in any tracked doc that is not in the repo |
 | R2 | `scripts/lib/test/repo-stats.test.mjs` | a `crates/*` dir or mobile shell missing from `AREAS` |
-| R3 | `scripts/check-docs-coupled.mjs`, step "Docs change with the code they cover" | a PR that changes code a `docs/using` page `covers:` without touching that page; a `docs-ok: <reason>` line in the PR body waives it |
+| R3 | `scripts/check-docs-coupled.mjs`: `--unpushed` in the pre-push hook, and CI step "Docs change with the code they cover" as backstop | a push or PR that changes code a `docs/using` page `covers:` without touching that page; a `docs-ok: <reason>` line in a commit message (or, in CI, the PR body) waives it |
 | R4 | `scripts/check-core-docs.mjs` | a `crates/wf-core/src` module no `docs/building/core` page names, or a core page the README does not link |
 | R6 | `scripts/check-doc-links.mjs` | a relative Markdown link to a missing file or heading |
 
