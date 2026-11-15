@@ -49,12 +49,6 @@ pub fn synced_tables() -> &'static [&'static str] {
     &SYNCED_TABLES
 }
 
-/// Whether `table` is read and written on this computer.
-#[must_use]
-pub fn is_synced_table(table: &str) -> bool {
-    SYNCED_TABLES.contains(&table)
-}
-
 /// Whether the RPC `name` reads both ends.
 #[must_use]
 pub fn is_both_ends_rpc(name: &str) -> bool {
@@ -80,8 +74,6 @@ mod tests {
     #[test]
     fn synced_tables_are_listed() {
         assert_eq!(SYNCED_TABLES.len(), 18);
-        assert!(is_synced_table("papers"));
-        assert!(!is_synced_table("users"));
     }
 
     #[test]

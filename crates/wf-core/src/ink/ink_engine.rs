@@ -26,12 +26,6 @@ pub const INK_ENGINES: [InkEngineInfo; 1] = [InkEngineInfo {
     platform: "desktop-windows",
 }];
 
-/// Whether an engine id is one this build was written against.
-#[must_use]
-pub fn is_ink_engine_id(id: &str) -> bool {
-    INK_ENGINES.iter().any(|engine| engine.id == id)
-}
-
 /// The declared facts about an engine, or `None` for an id we do not know.
 #[must_use]
 pub fn ink_engine_info(id: &str) -> Option<InkEngineInfo> {
@@ -63,14 +57,6 @@ pub fn ink_line_strokes<T: Clone>(strokes: &[T], stroke_start: u32, stroke_count
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn known_engine_ids_are_recognised() {
-        assert!(is_ink_engine_id("windows-ink@1"));
-        assert!(!is_ink_engine_id("windows-ink"));
-        assert!(!is_ink_engine_id("stroke-ctc-small"));
-        assert!(!is_ink_engine_id(""));
-    }
 
     #[test]
     fn info_is_the_declared_facts_or_none() {

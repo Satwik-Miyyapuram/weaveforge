@@ -7,7 +7,6 @@ These modules hold the pure parts of git sync, the Mattermost messages, the outb
 | `git_auth` | `basic_auth`, `remote_auth` | `gitRemoteAuth` | — |
 | `git_policy` | `is_under_ignored_folder`, `decide_git_sync_path`, `describe_changes` | `isUnderIgnoredFolder`, `decideGitSyncPath`, `describeChanges` | `apps/web/src/features/workspace/infrastructure/parts.ts`, `apps/web/src/features/workspace/application/workspace-folder.ts` |
 | `git_reason` | `git_reason` | `gitReason` | — |
-| `vault_git_parse` | `parse_status`, `parse_log`, `overwritten_files`, `nul_list`, `path_chunks` | — | — |
 | `repo_web_url` | `repo_web_url`, `commit_url` | `repoWebUrl`, `commitUrl` | `apps/web/src/features/experiments/ui/experiment-panels.tsx`, `apps/web/src/features/experiments/ui/experiment-detail-screen.tsx` |
 | `sync_dot` | `sync_dot` | `syncDot` | `apps/web/src/features/offline-sync/domain/parts.ts` |
 | `mattermost_messages` | `milestone_message`, `citation_alert_message`, `log_entry_message` | `milestoneMessage`, `citationAlertMessage`, `logEntryMessage` | `apps/web/src/integrations/manifests/mattermost.ts` |
@@ -24,8 +23,6 @@ Rules:
 - `git_policy`: skip reasons are `ignored-directory`, `ignored-file`, `too-large` and `invalid-path`. The root `.weaveforge` folder is always ignored; `notes/.weaveforge` is not.
 - `git_policy`: a non-finite or negative size is skipped as `too-large`. `describe_changes` gives `No changes` or e.g. `1 added, 2 changed, 1 removed`.
 - `git_reason`: `fatal:` and `error:` lines are joined by a space. Otherwise the first line is used, or `Could not commit.` when it is empty.
-- `vault_git_parse`: `parse_status` maps codes to `deleted`, `added` or `modified`, and skips the second record after `R` or `C`. `parse_log` splits on U+001F and skips blank or incomplete lines.
-- `vault_git_parse`: `path_chunks` counts UTF-16 units against `PATH_CHUNK_MAX_UNITS` (8000); an oversized path gets its own batch.
 - `repo_web_url`: only http(s) URLs are kept, trimmed. `commit_url` strips `.git` and a trailing slash, then uses `/-/commit/<sha>` when the host contains `gitlab` and `/commit/<sha>` otherwise. An empty sha gives `None`.
 - `sync_dot`: the order is conflicts, then offline (`!is_online` or phase `offline`), then `None` when not enabled, then syncing, then error (`Sync failed`), then synced with a tip that includes `relative_last_sync`.
 - `mattermost_messages`: locale-free; the caller formats numbers. The citation list stops at `CITING_LIST_LIMIT` (10) and then reads `…and N more`.
