@@ -74,6 +74,7 @@ import { ReferencePopoverHost } from "./reference-popover-host";
 import { CitationTextLayer } from "./citation-text-layer";
 import { FindMarks, FindOverlay } from "../find-overlay";
 import { TargetHighlightOverlay } from "./target-highlight-overlay";
+import { ownsReaderFocus, pointerFocusTarget } from "./reader-focus";
 import { ReferencesPanel } from "../references-panel";
 
 import type {
@@ -113,6 +114,7 @@ export function PdfReader({
   toolbarExtra,
 }: PdfReaderProps) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const chromeRef = useRef<HTMLDivElement>(null);
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
   const [activeSideTab, setActiveSideTab] = useState<"outline" | "references" | "annotations">("outline");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -363,9 +365,7 @@ export function PdfReader({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || typedCore().isEditableReaderTarget(event.target)) return;
-      const active = document.activeElement;
-      const ours = !active || active === document.body || rootRef.current?.contains(active);
-      if (!ours) return;
+      if (!ownsReaderFocus(document.activeElement, document.body, [rootRef.current, chromeRef.current])) return;
       const k = keysRef.current;
       const key = event.key.toLowerCase();
       const mod = (event.ctrlKey || event.metaKey) && !event.altKey;
@@ -1465,6 +1465,9 @@ export function PdfReader({
       tabIndex={0}
       role="region"
       aria-label="PDF reader"
+      onPointerDownCapture={(event) => {
+        if (rootRef.current) pointerFocusTarget(event.target as Element, rootRef.current)?.focus({ preventScroll: true });
+      }}
       style={
         {
           // Tint the live text selection with the colour the highlight will
@@ -1501,7 +1504,7 @@ export function PdfReader({
       {/* In the Editor the bar goes up to the one toolbar; in the reader's own
           focus it stays, so the pen palette can float over the page. */}
       <ToolbarSlot inline={focus}>
-      <div className="pdf-reader-chrome" data-phone-panel={phonePanel}>
+      <div className="pdf-reader-chrome" ref={chromeRef} data-phone-panel={phonePanel}>
         <div className="pdf-reader-tools">
           {/* Wide screens switch tabs in the expanded sidebar. */}
           <div className={`pdf-reader-group pdf-reader-more${toolbarExtra ? "" : " pdf-reader-narrow-only"}`}>
