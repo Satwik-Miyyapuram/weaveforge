@@ -22,7 +22,7 @@ export function useDismissOnOutside(
     if (!open) return;
     const refs = Array.isArray(within) ? within : [within as RefObject<HTMLElement | null>];
 
-    const onDown = (event: MouseEvent) => {
+    const onDown = (event: PointerEvent) => {
       const target = event.target as Node;
       if (refs.some((ref) => ref.current?.contains(target))) return;
       onDismiss();
@@ -34,12 +34,14 @@ export function useDismissOnOutside(
       onDismiss();
     };
 
-    // `mousedown` rather than `click`: a click that starts inside the panel and
-    // ends outside it is a drag-select, not a dismissal.
-    document.addEventListener("mousedown", onDown);
+    // `pointerdown` rather than `click`: a click that starts inside the panel
+    // and ends outside it is a drag-select, not a dismissal. Not `mousedown`,
+    // and in the capture phase: the pen canvases cancel the pointer's default,
+    // which suppresses `mousedown`, and may stop the event before it bubbles.
+    document.addEventListener("pointerdown", onDown, true);
     document.addEventListener("keydown", onKey, true);
     return () => {
-      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("pointerdown", onDown, true);
       document.removeEventListener("keydown", onKey, true);
     };
     // `onDismiss` is a setter or a small closure at every call site; including

@@ -89,7 +89,7 @@ export function useBarMenu(content?: unknown) {
 
   useEffect(() => {
     if (!open) return;
-    const onPointerDown = (event: MouseEvent) => {
+    const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
       // The list may be portalled out of the menu, so it counts as inside too.
       if (!menuRef.current?.contains(target) && !listRef.current?.contains(target)) setOpen(false);
@@ -97,10 +97,10 @@ export function useBarMenu(content?: unknown) {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
-    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
