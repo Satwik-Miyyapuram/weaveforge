@@ -773,33 +773,6 @@ jobs:
         working-directory: apps/shell/gen/android
         run: ./gradlew --no-daemon :tauri-plugin-ink:testDebugUnitTest
 
-  wasm-parity:
-    # TS vs Rust on frozen goldens (plan P1.2). Node is pinned to the version
-    # the fixtures were generated on: its ICU fixes toLowerCase and \p{...}
-    # behaviour, so another Node could fail on the TS side, not the port.
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24.14.1
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      # The bindings and WASM package are git-ignored, and core's types come from them.
-      - uses: ./.github/actions/generate
-
-      - name: Build Core package
-        run: npm run build:core
-
-      - name: TS/Rust parity on fixtures
-        run: npm run parity --workspace @weaveforge/wasm
-
   python-sdk:
     runs-on: ubuntu-latest
     steps:

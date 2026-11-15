@@ -1,19 +1,14 @@
-//! Golden, ported and property tests for `sync::change_origin` and
-//! `sync::snapshot_delta`. Goldens come from `tests/goldens/sync-text.mjs`, which
-//! runs `packages/core/src/workspace/{change-origin,snapshot-delta}.ts`. Ported
-//! cases come from `packages/core/test/workspace/{change-origin,snapshot-delta}.test.ts`.
+//! Table, ported and property tests for `sync::change_origin` and
+//! `sync::snapshot_delta`. The tables keep every case the old TypeScript-printed
+//! golden of `packages/core/src/workspace/{change-origin,snapshot-delta}.ts`
+//! covered. Ported cases come from
+//! `packages/core/test/workspace/{change-origin,snapshot-delta}.test.ts`.
 //! `readWithDelta` is async I/O and is not ported, so its tests are not here.
 
-// Golden-reading helpers sit outside `#[test]`, where clippy.toml's test allowance stops.
-#![allow(clippy::expect_used, clippy::panic)]
-
 use proptest::prelude::*;
-use serde_json::Value;
 use std::collections::HashSet;
 use wf_core::sync::change_origin::{ChangeOrigin, ChangeSide, changed_side, digest_text};
 use wf_core::sync::snapshot_delta::{EntityStamp, apply_delta, plan_delta};
-
-const GOLDEN: &str = include_str!("goldens/sync-origin.json");
 
 #[derive(Clone, Debug, PartialEq)]
 struct Row {
@@ -28,80 +23,11 @@ struct Item {
     v: i64,
 }
 
-fn golden() -> Value {
-    serde_json::from_str(GOLDEN).expect("sync-origin.json parses")
-}
-
-fn section<'a>(golden: &'a Value, name: &str) -> &'a [Value] {
-    golden
-        .get(name)
-        .and_then(Value::as_array)
-        .expect("section present")
-        .as_slice()
-}
-
-fn text(v: &Value) -> &str {
-    v.as_str().expect("string")
-}
-
-fn side_name(side: ChangeSide) -> &'static str {
-    match side {
-        ChangeSide::Neither => "neither",
-        ChangeSide::Folder => "folder",
-        ChangeSide::Workspace => "workspace",
-        ChangeSide::Both => "both",
-        ChangeSide::Unknown => "unknown",
-    }
-}
-
-fn origin_of(v: &Value) -> ChangeOrigin<'_> {
-    ChangeOrigin {
-        base: v.get("base").and_then(Value::as_str),
-        folder: v.get("folder").and_then(Value::as_str),
-        workspace: v.get("workspace").and_then(Value::as_str),
-    }
-}
-
 fn stamp(id: &str, updated_at: &str) -> EntityStamp {
     EntityStamp {
         id: id.to_owned(),
         updated_at: updated_at.to_owned(),
     }
-}
-
-fn stamps_of(v: &Value) -> Vec<EntityStamp> {
-    v.as_array()
-        .expect("array")
-        .iter()
-        .map(|s| stamp(text(&s["id"]), text(&s["updatedAt"])))
-        .collect()
-}
-
-fn held_of(v: &Value) -> Vec<(String, String)> {
-    v.as_array()
-        .expect("array")
-        .iter()
-        .map(|p| (text(&p[0]).to_owned(), text(&p[1]).to_owned()))
-        .collect()
-}
-
-fn strings_of(v: &Value) -> Vec<String> {
-    v.as_array()
-        .expect("array")
-        .iter()
-        .map(|s| text(s).to_owned())
-        .collect()
-}
-
-fn items_of(v: &Value) -> Vec<Item> {
-    v.as_array()
-        .expect("array")
-        .iter()
-        .map(|r| Item {
-            id: text(&r["id"]).to_owned(),
-            v: r["v"].as_i64().expect("integer"),
-        })
-        .collect()
 }
 
 fn row(id: &str, updated_at: &str, body: &str) -> Row {
@@ -119,6 +45,16 @@ fn held(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
         .collect()
 }
 
+fn items(pairs: &[(&str, i64)]) -> Vec<Item> {
+    pairs
+        .iter()
+        .map(|(id, v)| Item {
+            id: (*id).to_owned(),
+            v: *v,
+        })
+        .collect()
+}
+
 fn side(base: &str, folder: &str, workspace: &str) -> ChangeSide {
     let (b, f, w) = (
         digest_text(base),
@@ -132,57 +68,139 @@ fn side(base: &str, folder: &str, workspace: &str) -> ChangeSide {
     })
 }
 
-// ------------------------------------------------------------------ goldens
+// ------------------------------------------------------------------- tables
 
+/// `digest_text` walks UTF-16 units, so astral characters and U+FFFF hash as units.
 #[test]
-fn golden_digest_cases() {
-    let g = golden();
-    for case in section(&g, "digest") {
+fn digest_cases() {
+    let long = "x".repeat(1000);
+    let cases = [
+        ("", "811c9dc501000193"),
+        ("a", "e40c292cefafc426"),
+        ("ab", "4d2505cae3ac7ad7"),
+        ("hello world", "d58b3fa7d3025c56"),
+        ("héllo", "f1e5b55fec13d51f"),
+        ("日本語", "5406374ef94592a7"),
+        ("😀", "cb31c4b88e7ecf29"),
+        ("\u{10000}", "36215bcd2bc474d0"),
+        ("a\r\nb", "c40663dbf6933c33"),
+        (long.as_str(), "07d181652dc67853"),
+        ("\0", "050c5d1f3d2fa671"),
+        ("\u{ffff}", "79aea14edd4f8f24"),
+    ];
+    for (text, want) in cases {
+        assert_eq!(digest_text(text), want, "case {text:?}");
+    }
+}
+
+/// Digests as (base, folder, workspace); `None` is a side with no digest.
+#[test]
+fn side_cases() {
+    let cases = [
+        (None, None, None, ChangeSide::Unknown),
+        (Some("a"), None, None, ChangeSide::Unknown),
+        (Some("a"), Some("a"), None, ChangeSide::Unknown),
+        (Some("a"), None, Some("a"), ChangeSide::Unknown),
+        (None, Some("a"), Some("a"), ChangeSide::Neither),
+        (None, Some("a"), Some("b"), ChangeSide::Unknown),
+        (Some("a"), Some("a"), Some("a"), ChangeSide::Neither),
+        (Some("a"), Some("b"), Some("a"), ChangeSide::Folder),
+        (Some("a"), Some("a"), Some("b"), ChangeSide::Workspace),
+        (Some("a"), Some("b"), Some("c"), ChangeSide::Both),
+        (Some("a"), Some("b"), Some("b"), ChangeSide::Neither),
+        (Some("a"), Some(""), Some(""), ChangeSide::Neither),
+        (Some(""), Some(""), Some("x"), ChangeSide::Workspace),
+    ];
+    for (base, folder, workspace, want) in cases {
+        let origin = ChangeOrigin {
+            base,
+            folder,
+            workspace,
+        };
         assert_eq!(
-            digest_text(text(&case[0])),
-            text(&case[1]),
-            "case {:?}",
-            text(&case[0])
+            changed_side(origin),
+            want,
+            "case {base:?} {folder:?} {workspace:?}"
         );
     }
 }
 
+/// One `plan_delta` case: remote stamps, held (id, updated_at), then the
+/// expected fetch ids, drop ids and `unchanged`.
+type PlanCase<'a> = (
+    &'a [(&'a str, &'a str)],
+    &'a [(&'a str, &'a str)],
+    &'a [&'a str],
+    &'a [&'a str],
+    bool,
+);
+
 #[test]
-fn golden_side_cases() {
-    let g = golden();
-    for case in section(&g, "side") {
-        let got = side_name(changed_side(origin_of(&case[0])));
-        assert_eq!(got, text(&case[1]), "case {}", case[0]);
+fn plan_cases() {
+    let cases: [PlanCase; 8] = [
+        (&[], &[], &[], &[], true),
+        (&[("a", "1")], &[], &["a"], &[], false),
+        (&[], &[("a", "1")], &[], &["a"], false),
+        (&[("a", "1")], &[("a", "1")], &[], &[], true),
+        (&[("a", "2")], &[("a", "1")], &["a"], &[], false),
+        (
+            &[("a", "1"), ("b", "1"), ("c", "1")],
+            &[("c", "1"), ("d", "1"), ("a", "0")],
+            &["a", "b"],
+            &["d"],
+            false,
+        ),
+        // A repeated remote id with one stamp is one row.
+        (&[("a", "1"), ("a", "1")], &[("a", "1")], &[], &[], true),
+        // A repeated remote id with a newer stamp is fetched once.
+        (&[("a", "1"), ("a", "2")], &[("a", "1")], &["a"], &[], false),
+    ];
+    for (remote, held_rows, fetch, drop, unchanged) in cases {
+        let remote: Vec<EntityStamp> = remote.iter().map(|(id, at)| stamp(id, at)).collect();
+        let plan = plan_delta(&remote, &held(held_rows));
+        let case = format!("remote {remote:?}, held {held_rows:?}");
+        assert_eq!(plan.fetch, fetch, "fetch, {case}");
+        assert_eq!(plan.drop, drop, "drop, {case}");
+        assert_eq!(plan.unchanged, unchanged, "unchanged, {case}");
     }
 }
 
-#[test]
-fn golden_plan_cases() {
-    let g = golden();
-    for case in section(&g, "plan") {
-        let plan = plan_delta(&stamps_of(&case["remote"]), &held_of(&case["held"]));
-        let want = &case["out"];
-        assert_eq!(plan.fetch, strings_of(&want["fetch"]), "fetch, case {case}");
-        assert_eq!(plan.drop, strings_of(&want["drop"]), "drop, case {case}");
-        assert_eq!(
-            plan.unchanged,
-            want["unchanged"].as_bool().expect("bool"),
-            "unchanged, case {case}"
-        );
-    }
-}
+/// One `apply_delta` case: held items, fetched items, the database's id order,
+/// then the expected items.
+type ApplyCase<'a> = (
+    &'a [(&'a str, i64)],
+    &'a [(&'a str, i64)],
+    &'a [&'a str],
+    &'a [(&'a str, i64)],
+);
 
 #[test]
-fn golden_apply_cases() {
-    let g = golden();
-    for case in section(&g, "apply") {
-        let out = apply_delta(
-            &items_of(&case["held"]),
-            &items_of(&case["fetched"]),
-            &stamps_of(&case["order"]),
-            |item| item.id.as_str(),
-        );
-        assert_eq!(out, items_of(&case["out"]), "case {case}");
+fn apply_cases() {
+    let cases: [ApplyCase; 6] = [
+        (&[], &[], &[], &[]),
+        (&[("a", 1)], &[], &["a"], &[("a", 1)]),
+        (
+            &[("a", 1), ("b", 1)],
+            &[("b", 2), ("c", 2)],
+            &["c", "b", "a"],
+            &[("c", 2), ("b", 2), ("a", 1)],
+        ),
+        (&[("a", 1)], &[], &["z"], &[]),
+        // A repeated id keeps its last copy.
+        (&[("a", 1), ("a", 2)], &[], &["a"], &[("a", 2)]),
+        (
+            &[("a", 1)],
+            &[("a", 2), ("a", 3)],
+            &["a", "a"],
+            &[("a", 3), ("a", 3)],
+        ),
+    ];
+    for (held_items, fetched, order, want) in cases {
+        let order: Vec<EntityStamp> = order.iter().map(|id| stamp(id, "")).collect();
+        let out = apply_delta(&items(held_items), &items(fetched), &order, |item| {
+            item.id.as_str()
+        });
+        assert_eq!(out, items(want), "held {held_items:?}, fetched {fetched:?}");
     }
 }
 

@@ -1,12 +1,10 @@
-//! Golden tests for `url_parts`, `tokenize` and `index_terms`. Expected values
+//! Table tests for `url_parts`, `tokenize` and `index_terms`. Expected values
 //! were produced by the TypeScript in `packages/core/src/search/search-tokenizer.ts`
-//! on Node 24.14.1 (ICU 78.2, Unicode 17.0) with
-//! `node crates/wf-core/tests/goldens/search-tokenize.mjs` from the repo root,
-//! then rustfmt. `index_terms` is `tokenize` followed by `processTerm` on each
-//! token, which is what MiniSearch does on the index side. They stay as frozen
-//! goldens after the TS is deleted (P1.8).
+//! on Node 24.14.1 (ICU 78.2, Unicode 17.0) and are now the spec; that
+//! TypeScript was deleted in P1.8. `index_terms` is `tokenize` followed by
+//! `processTerm` on each token, which is what MiniSearch does on the index side.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use proptest::prelude::*;
 use wf_core::search::js_text::utf16_len;
@@ -1383,6 +1381,416 @@ fn every_option_combination_matches_the_typescript() {
             *terms,
             "index_terms({input:?}, {mask})"
         );
+    }
+}
+
+/// Every option mask, for the masks loops below.
+const ALL_MASKS: &[u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+
+/// (input, option masks, tokenize, index_terms or `None` when it equals tokenize).
+/// The rows of one input cover all 16 masks between them, so they show which
+/// option bits change its tokens.
+type MaskCase = (
+    &'static str,
+    &'static [u8],
+    &'static [&'static str],
+    Option<&'static [&'static str]>,
+);
+
+const MASK_CASES: &[MaskCase] = &[
+    ("", ALL_MASKS, &[], None),
+    ("   ", ALL_MASKS, &[], None),
+    ("hello world", ALL_MASKS, &["hello", "world"], None),
+    ("Hello, World! hello", ALL_MASKS, &["hello", "world"], None),
+    (
+        "parseHTTPResponse myVariable XMLHttpRequest getID2Name",
+        &[0, 1, 2, 3, 8, 9, 10, 11],
+        &[
+            "parsehttpresponse",
+            "myvariable",
+            "xmlhttprequest",
+            "getid2name",
+        ],
+        None,
+    ),
+    (
+        "parseHTTPResponse myVariable XMLHttpRequest getID2Name",
+        &[4, 5, 6, 7, 12, 13, 14, 15],
+        &[
+            "parse",
+            "http",
+            "response",
+            "parsehttpresponse",
+            "my",
+            "variable",
+            "myvariable",
+            "xml",
+            "request",
+            "xmlhttprequest",
+            "get",
+            "id2",
+            "name",
+            "getid2name",
+        ],
+        None,
+    ),
+    (
+        "a1B2C3 ABCDefGHIjk aB ABCdEFg aBCd HTTPServer2Go",
+        &[0, 1, 2, 3, 8, 9, 10, 11],
+        &[
+            "a1b2c3",
+            "abcdefghijk",
+            "ab",
+            "abcdefg",
+            "abcd",
+            "httpserver2go",
+        ],
+        None,
+    ),
+    (
+        "a1B2C3 ABCDefGHIjk aB ABCdEFg aBCd HTTPServer2Go",
+        &[4, 5, 6, 7, 12, 13, 14, 15],
+        &[
+            "a1",
+            "b2",
+            "c3",
+            "a1b2c3",
+            "abc",
+            "def",
+            "gh",
+            "ijk",
+            "abcdefghijk",
+            "ab",
+            "cd",
+            "fg",
+            "abcdefg",
+            "abcd",
+            "http",
+            "server2",
+            "go",
+            "httpserver2go",
+        ],
+        None,
+    ),
+    (
+        "my_var snake_Case_X __",
+        ALL_MASKS,
+        &["my_var", "snake_case_x", "__"],
+        None,
+    ),
+    (
+        "caf\u{e9} M\u{fc}ller na\u{ef}ve \u{3a3}\u{391}\u{3a3} \u{130}stanbul \u{1c5}emal",
+        &[0, 2, 4, 6, 8, 10, 12, 14],
+        &[
+            "caf\u{e9}",
+            "m\u{fc}ller",
+            "na\u{ef}ve",
+            "\u{3c3}\u{3b1}\u{3c2}",
+            "i\u{307}stanbul",
+            "\u{1c6}emal",
+        ],
+        None,
+    ),
+    (
+        "caf\u{e9} M\u{fc}ller na\u{ef}ve \u{3a3}\u{391}\u{3a3} \u{130}stanbul \u{1c5}emal",
+        &[1, 3, 9, 11],
+        &[
+            "cafe",
+            "muller",
+            "naive",
+            "\u{3c3}\u{3b1}\u{3c2}",
+            "istanbul",
+            "\u{1c6}emal",
+        ],
+        None,
+    ),
+    (
+        "caf\u{e9} M\u{fc}ller na\u{ef}ve \u{3a3}\u{391}\u{3a3} \u{130}stanbul \u{1c5}emal",
+        &[5, 7, 13, 15],
+        &[
+            "cafe",
+            "m\u{fc}ller",
+            "muller",
+            "naive",
+            "\u{3c3}\u{3b1}\u{3c2}",
+            "istanbul",
+            "\u{1c6}emal",
+        ],
+        Some(&[
+            "cafe",
+            "muller",
+            "muller",
+            "naive",
+            "\u{3c3}\u{3b1}\u{3c2}",
+            "istanbul",
+            "\u{1c6}emal",
+        ]),
+    ),
+    (
+        "VAE\u{7de8}\u{78bc}\u{5668} \u{65e5}\u{672c}\u{8a9e}\u{30c6}\u{30ad}\u{30b9}\u{30c8} \u{d55c}\u{ad6d}\u{c5b4} x\u{65e5}y",
+        ALL_MASKS,
+        &[
+            "vae",
+            "\u{7de8}",
+            "\u{78bc}",
+            "\u{5668}",
+            "\u{7de8}\u{78bc}",
+            "\u{78bc}\u{5668}",
+            "\u{65e5}",
+            "\u{672c}",
+            "\u{8a9e}",
+            "\u{30c6}",
+            "\u{30ad}",
+            "\u{30b9}",
+            "\u{30c8}",
+            "\u{65e5}\u{672c}",
+            "\u{672c}\u{8a9e}",
+            "\u{8a9e}\u{30c6}",
+            "\u{30c6}\u{30ad}",
+            "\u{30ad}\u{30b9}",
+            "\u{30b9}\u{30c8}",
+            "\u{d55c}",
+            "\u{ad6d}",
+            "\u{c5b4}",
+            "\u{d55c}\u{ad6d}",
+            "\u{ad6d}\u{c5b4}",
+            "x",
+            "y",
+        ],
+        None,
+    ),
+    (
+        "\u{20000}\u{20001} \u{1d400}\u{1d401}\u{1d402}",
+        ALL_MASKS,
+        &["\u{20000}\u{20001}", "\u{1d400}\u{1d401}\u{1d402}"],
+        None,
+    ),
+    (
+        "see https://arxiv.org/abs/2305.12345 now",
+        &[0, 1, 2, 3, 4, 5, 6, 7],
+        &[
+            "see", "https", "arxiv", "org", "abs", "2305", "12345", "now",
+        ],
+        None,
+    ),
+    (
+        "see https://arxiv.org/abs/2305.12345 now",
+        &[8, 9, 10, 11, 12, 13, 14, 15],
+        &[
+            "https", "arxiv", "org", "abs", "2305", "12345", "see", "now",
+        ],
+        None,
+    ),
+    (
+        "foo.com/bar?x=1 sub.example.io",
+        &[0, 1, 2, 3, 4, 5, 6, 7],
+        &["foo", "com", "bar", "x", "1", "sub", "example", "io"],
+        None,
+    ),
+    (
+        "foo.com/bar?x=1 sub.example.io",
+        &[8, 9, 10, 11, 12, 13, 14, 15],
+        &["foo", "com", "bar", "sub", "example", "io", "x", "1"],
+        None,
+    ),
+    (
+        "a.comx b.co .com x.COM. HTTPS://Ex.Org",
+        &[0, 1, 2, 3, 4, 5, 6, 7],
+        &["a", "comx", "b", "co", "com", "x", "https", "ex", "org"],
+        None,
+    ),
+    (
+        "a.comx b.co .com x.COM. HTTPS://Ex.Org",
+        &[8, 9, 10, 11, 12, 13, 14, 15],
+        &["com", "https", "ex", "org", "a", "comx", "b", "co", "x"],
+        None,
+    ),
+    (
+        "prefix(https://x.y/z) ftp://a.b",
+        &[0, 1, 2, 3, 4, 5, 6, 7],
+        &["prefix", "https", "x", "y", "z", "ftp", "a", "b"],
+        None,
+    ),
+    (
+        "prefix(https://x.y/z) ftp://a.b",
+        &[8, 9, 10, 11, 12, 13, 14, 15],
+        &["https", "prefix", "x", "y", "z", "ftp", "a", "b"],
+        None,
+    ),
+    (
+        "http:// http://a hhttp://ab",
+        &[0, 1, 2, 3, 4, 5, 6, 7],
+        &["http", "a", "hhttp", "ab"],
+        None,
+    ),
+    (
+        "http:// http://a hhttp://ab",
+        &[8, 9, 10, 11, 12, 13, 14, 15],
+        &["http", "ab", "a", "hhttp"],
+        None,
+    ),
+    (
+        "e.g. i.e. v1.2.3 3.14",
+        ALL_MASKS,
+        &["e", "g", "i", "v1", "2", "3", "14"],
+        None,
+    ),
+    (
+        "x.dev_y x.dev-y a.io_b.com x..com",
+        &[0, 1, 2, 3, 4, 5, 6, 7],
+        &["x", "dev_y", "dev", "y", "a", "io_b", "com"],
+        None,
+    ),
+    (
+        "x.dev_y x.dev-y a.io_b.com x..com",
+        &[8, 9, 10, 11, 12, 13, 14, 15],
+        &["dev", "io", "com", "x", "dev_y", "y", "a", "io_b"],
+        None,
+    ),
+    (
+        "a.com\u{e9} a.com\u{1d400}",
+        &[0, 2, 4, 6],
+        &["a", "com\u{e9}", "com\u{1d400}"],
+        None,
+    ),
+    (
+        "a.com\u{e9} a.com\u{1d400}",
+        &[1, 3, 5, 7],
+        &["a", "come", "com\u{1d400}"],
+        None,
+    ),
+    (
+        "a.com\u{e9} a.com\u{1d400}",
+        &[8, 10, 12, 14],
+        &["com\u{e9}", "com\u{1d400}", "a"],
+        None,
+    ),
+    (
+        "a.com\u{e9} a.com\u{1d400}",
+        &[9, 11, 13, 15],
+        &["com\u{e9}", "com\u{1d400}", "a", "come"],
+        Some(&["come", "com\u{1d400}", "a", "come"]),
+    ),
+    (
+        "a.\u{130}o b.\u{131}o c.\u{212a}om",
+        &[0, 2, 4, 6, 8, 10, 12, 14],
+        &["a", "i\u{307}o", "b", "\u{131}o", "c", "kom"],
+        None,
+    ),
+    (
+        "a.\u{130}o b.\u{131}o c.\u{212a}om",
+        &[1, 3, 5, 7, 9, 11, 13, 15],
+        &["a", "io", "b", "\u{131}o", "c", "kom"],
+        None,
+    ),
+    (
+        "\u{feff}word\u{85}next\u{a0}tail x\u{2028}y.com",
+        &[0, 1, 2, 3, 4, 5, 6, 7],
+        &["word", "next", "tail", "x", "y", "com"],
+        None,
+    ),
+    (
+        "\u{feff}word\u{85}next\u{a0}tail x\u{2028}y.com",
+        &[8, 9, 10, 11, 12, 13, 14, 15],
+        &["com", "word", "next", "tail", "x", "y"],
+        None,
+    ),
+    (
+        "\u{e9}mile.com/\u{c9}t\u{e9}",
+        &[0, 2, 4, 6, 8, 10, 12, 14],
+        &["\u{e9}mile", "com", "\u{e9}t\u{e9}"],
+        None,
+    ),
+    (
+        "\u{e9}mile.com/\u{c9}t\u{e9}",
+        &[1, 3, 5, 7],
+        &["emile", "com", "ete"],
+        None,
+    ),
+    (
+        "\u{e9}mile.com/\u{c9}t\u{e9}",
+        &[9, 11, 13, 15],
+        &["\u{e9}mile", "com", "\u{e9}t\u{e9}", "emile", "ete"],
+        Some(&["emile", "com", "ete", "emile", "ete"]),
+    ),
+    (
+        "\u{645}\u{64f}\u{62d}\u{64e}\u{645}\u{64e}\u{651}\u{62f} \u{642}\u{64f}\u{631}\u{652}\u{622}\u{646}",
+        &[0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14],
+        &[
+            "\u{645}",
+            "\u{62d}",
+            "\u{62f}",
+            "\u{642}",
+            "\u{631}",
+            "\u{622}\u{646}",
+        ],
+        None,
+    ),
+    (
+        "\u{645}\u{64f}\u{62d}\u{64e}\u{645}\u{64e}\u{651}\u{62f} \u{642}\u{64f}\u{631}\u{652}\u{622}\u{646}",
+        &[3, 7, 11, 15],
+        &[
+            "\u{645}",
+            "\u{62d}",
+            "\u{62f}",
+            "\u{642}",
+            "\u{631}",
+            "\u{627}\u{646}",
+        ],
+        None,
+    ),
+    (
+        "x:y a:b.org",
+        &[0, 1, 2, 3, 4, 5, 6, 7],
+        &["x", "y", "a", "b", "org"],
+        None,
+    ),
+    (
+        "x:y a:b.org",
+        &[8, 9, 10, 11, 12, 13, 14, 15],
+        &["org", "x", "y", "a", "b"],
+        None,
+    ),
+    (
+        "Caf\u{e9} CAFE cafe",
+        &[0, 2, 4, 6, 8, 10, 12, 14],
+        &["caf\u{e9}", "cafe"],
+        None,
+    ),
+    ("Caf\u{e9} CAFE cafe", &[1, 3, 9, 11], &["cafe"], None),
+    (
+        "Caf\u{e9} CAFE cafe",
+        &[5, 7, 13, 15],
+        &["caf\u{e9}", "cafe"],
+        Some(&["cafe", "cafe"]),
+    ),
+];
+
+#[test]
+fn every_mask_matches_the_typescript_for_more_inputs() {
+    let mut masks_seen: BTreeMap<&str, BTreeSet<u8>> = BTreeMap::new();
+    for (input, masks, tokens, terms) in MASK_CASES {
+        for mask in *masks {
+            let options = options_for(*mask);
+            assert_eq!(
+                tokenize(input, &options),
+                *tokens,
+                "tokenize({input:?}, {mask})"
+            );
+            assert_eq!(
+                index_terms(input, &options),
+                terms.unwrap_or(tokens),
+                "index_terms({input:?}, {mask})"
+            );
+            assert!(
+                masks_seen.entry(input).or_default().insert(*mask),
+                "{input:?} lists mask {mask} twice"
+            );
+        }
+    }
+    assert_eq!(masks_seen.len(), 24);
+    for (input, masks) in masks_seen {
+        assert_eq!(masks.len(), ALL_MASKS.len(), "masks of {input:?}");
     }
 }
 
