@@ -140,8 +140,6 @@ pub mod signed_out;
 pub mod sync_fields;
 pub mod tag_counts;
 pub mod tag_row;
-pub mod tex_log;
-pub mod tex_path;
 pub mod update_check;
 pub mod view_transition;
 pub mod zotero_local_url;

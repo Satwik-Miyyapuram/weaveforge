@@ -15,7 +15,7 @@
  *
  * A missing .NET SDK is not an error. The desktop app degrades to the web
  * recogniser (§5.3), so a contributor without the SDK gets a working app and a
- * line saying what was skipped — the same rule `probeTex()` follows for TeX.
+ * line saying what was skipped.
  *
  *   node scripts/build-ink-recogniser.mjs            both
  *   node scripts/build-ink-recogniser.mjs --arch=arm64

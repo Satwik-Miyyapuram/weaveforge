@@ -12,8 +12,6 @@ import type {
   DesktopPreferenceValue,
   DesktopSecretName,
   DesktopStorageArea,
-  DesktopTexCompileResult,
-  DesktopTexTool,
   DesktopUpdate,
   DesktopVaultEntry,
   DesktopVaultRoot,
@@ -32,11 +30,6 @@ void generatedCommandsFit;
 
 type Result<T> =
   { status: "ok"; data: T } | { status: "error"; error: { message: string } };
-
-/** A TeX compile result as it crosses the bridge: the pdf is base64. */
-type WireTexResult = Omit<DesktopTexCompileResult, "pdf"> & {
-  pdf: string | null;
-};
 
 /** A recognise answer as it crosses the bridge: Rust floats arrive as null when not finite. */
 type WireInkResult = Omit<DesktopInkResult, "lines" | "ms"> & {
@@ -103,12 +96,6 @@ export interface DesktopCommands {
   fetchImage(
     url: string,
   ): Promise<Result<{ bytes: string; contentType: string; url: string }>>;
-  texProbe(): Promise<Result<DesktopTexTool | null>>;
-  texCompile(
-    files: { path: string; content: string }[],
-    entryFile: string,
-  ): Promise<Result<WireTexResult>>;
-  texCancel(): Promise<Result<null>>;
   zoteroLocal(url: string): Promise<Result<DesktopZoteroReply>>;
   updateCheck(): Promise<Result<DesktopUpdate | null>>;
   signInListening(): Promise<Result<boolean>>;
@@ -297,9 +284,6 @@ export type DesktopShim = Pick<
   | "vaultSync"
   | "fetchTitle"
   | "fetchImage"
-  | "probeTex"
-  | "compileTex"
-  | "cancelTex"
   | "zoteroLocal"
   | "checkUpdate"
   | "signInListening"
@@ -557,22 +541,6 @@ export function desktopShim(
         contentType: image.contentType,
         url: image.url,
       };
-    },
-    probeTex: async () => unwrap(await cmds.texProbe()),
-    compileTex: async (files, entryFile) => {
-      const result = unwrap(
-        await cmds.texCompile(
-          files.map((f) => ({ path: f.path, content: f.content })),
-          entryFile,
-        ),
-      );
-      return {
-        ...result,
-        pdf: result.pdf === null ? null : exactBytes(fromBase64(result.pdf)),
-      };
-    },
-    cancelTex: async () => {
-      unwrap(await cmds.texCancel());
     },
     zoteroLocal: async (url) => unwrap(await cmds.zoteroLocal(url)),
     checkUpdate: async () => unwrap(await cmds.updateCheck()),

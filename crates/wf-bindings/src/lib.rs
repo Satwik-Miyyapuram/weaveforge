@@ -935,8 +935,6 @@ fn batch_types(t: Types) -> Types {
         .register::<wf_core::workspace::folder_diff::ParsedEntity>()
         .register::<wf_core::update_check::Release>()
         .register::<wf_core::reader::citation_spans::ItemRange>()
-        .register::<wf_core::tex_log::TexEngine>()
-        .register::<wf_core::tex_log::TexError>()
         .register::<wf_core::tag_row::TagRow>()
         .register::<wf_core::tag_row::PaperTagRow>()
         .register::<wf_core::papers::related_paper_hit::RelatedPaperHit>()
