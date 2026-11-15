@@ -29,24 +29,6 @@ pub fn match_author_year_text_js(
     to_js(&analysis_citations::match_author_year_text(text, &refs))
 }
 
-/// [`in_reference_list`](analysis_citations::in_reference_list) (TS `inReferenceList`).
-///
-/// # Errors
-///
-/// Fails if `ranges` is not an array of page text ranges.
-#[wasm_bindgen(js_name = inReferenceList)]
-pub fn in_reference_list_js(
-    page: f64,
-    start: f64,
-    end: f64,
-    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisPageTextRange[]")] ranges: JsValue,
-) -> JsResult<bool> {
-    let ranges: Vec<AnalysisPageTextRange> = serde_wasm_bindgen::from_value(ranges)?;
-    Ok(analysis_citations::in_reference_list(
-        page, start, end, &ranges,
-    ))
-}
-
 /// [`find_citation_candidates`](analysis_citations::find_citation_candidates) (TS `findCitationCandidates`).
 ///
 /// # Errors

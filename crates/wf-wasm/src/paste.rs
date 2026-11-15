@@ -8,7 +8,7 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::paste::clean_pasted_text::{clean_pasted_text, paste_lands_in_verbatim_context};
 use wf_core::paste::html_to_markdown::html_to_markdown;
-use wf_core::paste::markdown_link::{escape_link_label, is_bare_url, link_label, markdown_link};
+use wf_core::paste::markdown_link::{is_bare_url, link_label, markdown_link};
 use wf_core::paste::paste_settings::{
     PasteSettings, normalize_paste_settings, parse_link_removal_text,
 };
@@ -219,13 +219,6 @@ pub fn parse_link_removal_text_js(text: js_sys::JsString) -> JsResult<JsValue> {
 pub fn is_bare_url_js(text: js_sys::JsString) -> JsResult<bool> {
     let text = &crate::guarded_text(&text)?;
     Ok(is_bare_url(text))
-}
-
-/// [`escape_link_label`] for JS.
-#[wasm_bindgen(js_name = escapeLinkLabel)]
-pub fn escape_link_label_js(label: js_sys::JsString) -> JsResult<String> {
-    let label = &crate::guarded_text(&label)?;
-    Ok(escape_link_label(label))
 }
 
 /// [`markdown_link`] for JS: `[label](url)`.

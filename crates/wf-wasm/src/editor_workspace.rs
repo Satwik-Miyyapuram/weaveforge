@@ -12,7 +12,7 @@ use wf_core::editor_workspace::pane_tree::{
     self as pane, DocumentMode, PaneCommand, PaneLayout, PaneLeaf, PaneNode, PaneSplit,
     SplitDirection, TabMenuCommand, TabRef,
 };
-use wf_core::editor_workspace::tab_groups::{self as groups, TabGroupCommand, TabRun};
+use wf_core::editor_workspace::tab_groups::{self as groups, TabRun};
 use wf_core::editor_workspace::workspace_tree::{
     self as tree, ListItemEntry, ListsTreeInput, VisibleRow, WorkspaceTreeInput, WorkspaceTreeNode,
 };
@@ -736,22 +736,6 @@ pub fn clean_groups_js(
 ) -> JsResult<JsValue> {
     let leaf: PaneLeaf = serde_wasm_bindgen::from_value(leaf)?;
     to_js(&groups::clean_groups(&leaf))
-}
-
-/// [`apply_group_command`](groups::apply_group_command).
-///
-/// # Errors
-///
-/// Fails if an argument has the wrong shape.
-#[wasm_bindgen(js_name = applyGroupCommand, unchecked_return_type = "B.PaneLeaf")]
-pub fn apply_group_command_js(
-    #[wasm_bindgen(unchecked_param_type = "B.PaneLeaf")] leaf: JsValue,
-    index: i32,
-    #[wasm_bindgen(unchecked_param_type = "B.TabGroupCommand")] command: JsValue,
-) -> JsResult<JsValue> {
-    let leaf: PaneLeaf = serde_wasm_bindgen::from_value(leaf)?;
-    let command: TabGroupCommand = serde_wasm_bindgen::from_value(command)?;
-    to_js(&groups::apply_group_command(&leaf, index, &command))
 }
 
 /// [`group_runs`](groups::group_runs).

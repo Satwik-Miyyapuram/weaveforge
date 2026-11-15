@@ -163,19 +163,6 @@ pub fn metric_keys_of_js(
     metric_keys_js(experiments)
 }
 
-/// [`results_table`](experiment_status::results_table): the header and rows of the runs table.
-///
-/// # Errors
-///
-/// Fails if `experiments` is not an array of run objects, or the result cannot be serialised.
-#[wasm_bindgen(js_name = resultsTable, unchecked_return_type = "B.ResultsTable")]
-pub fn results_table_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly B.Experiment[]")] experiments: JsValue,
-) -> JsResult<JsValue> {
-    let experiments: Vec<serde_json::Value> = serde_wasm_bindgen::from_value(experiments)?;
-    to_js(&experiment_status::results_table(&experiments))
-}
-
 /// [`experiment_href`](experiment_status::experiment_href): where an experiment opens.
 #[wasm_bindgen(js_name = experimentHref)]
 #[must_use]

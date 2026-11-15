@@ -89,40 +89,6 @@ pub fn check_decision_js(
     }
 }
 
-/// [`decision_error`](screening::decision_error) (TS `screeningDecisionError`): why `next` may
-/// not be recorded after `existing`, or `null` when it may.
-///
-/// # Errors
-///
-/// Fails if `next` or `existing` has the wrong shape.
-#[wasm_bindgen(js_name = screeningDecisionError, unchecked_return_type = "string | null")]
-#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn screening_decision_error_js(
-    #[wasm_bindgen(unchecked_param_type = "B.ScreeningDecisionDraft")] next: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "readonly B.ScreeningDecision[]")] existing: JsValue,
-) -> JsResult<JsValue> {
-    let next: ScreeningDecisionDraft = serde_wasm_bindgen::from_value(next)?;
-    let message = screening::decision_error(&next, &decisions_from(existing)?);
-    Ok(message.map_or(JsValue::NULL, JsValue::from))
-}
-
-/// [`latest_by_reviewer`](screening::latest_by_reviewer) (TS `latestByReviewerList`): the
-/// latest decision of each reviewer for one item, as a list in `Map` order.
-///
-/// # Errors
-///
-/// Fails if `decisions` or `stage` has the wrong shape.
-#[wasm_bindgen(js_name = latestByReviewerList, unchecked_return_type = "B.ScreeningDecision[]")]
-pub fn latest_by_reviewer_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly B.ScreeningDecision[]")] decisions: JsValue,
-    item_id: &str,
-    #[wasm_bindgen(unchecked_param_type = "B.ScreeningStage")] stage: JsValue,
-) -> JsResult<JsValue> {
-    let decisions = decisions_from(decisions)?;
-    let stage: ScreeningStage = serde_wasm_bindgen::from_value(stage)?;
-    to_js(&screening::latest_by_reviewer(&decisions, item_id, stage))
-}
-
 /// [`latest_by_reviewer`](screening::latest_by_reviewer) (TS `latestByReviewer`): the latest
 /// decision each reviewer recorded for one item, keyed by reviewer id.
 ///
@@ -209,35 +175,6 @@ pub fn prisma_counts_js(
         &items,
         &decisions_from(decisions)?,
     ))
-}
-
-/// [`decision_from_row`](screening::decision_from_row) (TS `PostgrestScreeningRepository`
-/// `toDomain`): a stored `screening_decisions` row as a decision.
-///
-/// # Errors
-///
-/// Fails if `row` has the wrong shape, or its stage or state is not one the enums know.
-#[wasm_bindgen(js_name = screeningDecisionFromRow, unchecked_return_type = "B.ScreeningDecision")]
-pub fn screening_decision_from_row_js(
-    #[wasm_bindgen(unchecked_param_type = "B.ScreeningDecisionRow")] row: JsValue,
-) -> JsResult<JsValue> {
-    let row: screening::ScreeningDecisionRow = serde_wasm_bindgen::from_value(row)?;
-    let decision = screening::decision_from_row(&row).map_err(serde_wasm_bindgen::Error::new)?;
-    to_js(&decision)
-}
-
-/// [`decision_to_row`](screening::decision_to_row) (TS `PostgrestScreeningRepository`
-/// `record`): a decision as the `screening_decisions` row the table takes.
-///
-/// # Errors
-///
-/// Fails if `decision` has the wrong shape.
-#[wasm_bindgen(js_name = screeningDecisionToRow, unchecked_return_type = "B.ScreeningDecisionRow")]
-pub fn screening_decision_to_row_js(
-    #[wasm_bindgen(unchecked_param_type = "B.ScreeningDecision")] decision: JsValue,
-) -> JsResult<JsValue> {
-    let decision: ScreeningDecision = serde_wasm_bindgen::from_value(decision)?;
-    to_js(&screening::decision_to_row(&decision))
 }
 
 /// [`exclusion_reasons`](screening::exclusion_reasons) (TS `exclusionReasons`): why items were

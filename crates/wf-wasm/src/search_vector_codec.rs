@@ -56,19 +56,6 @@ pub fn pack_vectors_js(
     Ok(codec::pack_vectors(&head, bytes))
 }
 
-/// [`unpack_head`](codec::unpack_head): the head, or `null` for a torn file.
-///
-/// # Errors
-///
-/// Fails only if the head cannot be serialised.
-#[wasm_bindgen(js_name = unpackVectorHead, unchecked_return_type = "B.VectorFileHead | null")]
-pub fn unpack_vector_head_js(file: &[u8]) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    match codec::unpack_head(file) {
-        Some((head, _)) => to_js(&head),
-        None => Ok(JsValue::NULL),
-    }
-}
-
 /// [`unpack_vectors`](codec::unpack_vectors): a file's head with its blob as `bytes`, or `null`
 /// if it is torn or its head is not valid.
 ///
@@ -90,11 +77,4 @@ pub fn unpack_vectors_js(file: &[u8]) -> Result<JsValue, JsValue> {
         &js_sys::Uint8Array::from(bytes.as_slice()),
     )?;
     Ok(out)
-}
-
-/// The blob of [`unpack_vectors`](codec::unpack_vectors), or `undefined` for a torn file.
-#[wasm_bindgen(js_name = unpackVectorBlob)]
-#[must_use]
-pub fn unpack_vector_blob_js(file: &[u8]) -> Option<Vec<u8>> {
-    codec::unpack_vectors(file).map(|(_, bytes)| bytes)
 }

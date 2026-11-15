@@ -8,7 +8,6 @@ Rust home: `crates/wf-core/src/project_folder.rs`.
 
 ## Where it is called
 
-- wasm export `projectFolderName` in `crates/wf-wasm/src/project_folder.rs`.
 - No TS wrapper; typed through `rust()` in `packages/core/src/shared/rust.ts`.
 - `apps/shell/src/local_http/mcp_projects.rs`: `resolve_projects`, the native fallback used when the app's project list is not available.
 

@@ -3,7 +3,6 @@
 Pure rules for the `app://` scheme. The native shell serves it from `apps/shell/src/protocol.rs` (`resolve_app_file`, `APP_SCHEME`).
 
 - Rust: `crates/wf-core/src/app_protocol.rs`. Tests: `crates/wf-core/tests/app_protocol.rs`.
-- wasm: `crates/wf-wasm/src/app_protocol.rs` exports `appFileCandidates`, `appCanonicalUrl`, `appIsPageRequest`, `appHeaders`, `appContentTypeFor`.
 - No TS wrapper: typed by the wasm package's generated declarations (`rust()` in `packages/core/src/shared/rust.ts`).
 - Native shell: `apps/shell/src/protocol.rs` resolves files on disk; `apps/shell/src/shim.rs` holds `APP_ORIGINS`.
 
@@ -34,7 +33,7 @@ Both scheme entries are schemes rather than wildcards: `app:` still confines the
 ## Known limits
 
 - `\` counts as a path separator on every platform, which is stricter than POSIX Node.
-- The `root` passed to `appFileCandidates` must already be normalised, with no trailing separator.
+- The `root` passed to `app_file_candidates` must already be normalised, with no trailing separator.
 
 ## Tests
 

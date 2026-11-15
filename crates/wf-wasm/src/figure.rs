@@ -158,25 +158,6 @@ pub fn figure_alt_for_js(body: &str, path: &str) -> JsResult<JsValue> {
     Ok(figure::figure_alt_for(body, path).map_or(JsValue::NULL, JsValue::from))
 }
 
-/// [`reorder_figure_indices`](figure::reorder_figure_indices): the new order of `len` figures as
-/// old indices, with the one at `index` moved by `step`.
-///
-/// # Errors
-///
-/// Fails if `step` is not a known step.
-#[wasm_bindgen(js_name = reorderFigureIndices, unchecked_return_type = "number[]")]
-pub fn reorder_figure_indices_js(
-    len: u32,
-    index: f64,
-    #[wasm_bindgen(unchecked_param_type = "B.FigureOrderStep")] step: JsValue,
-) -> JsResult<JsValue> {
-    Ok(reorder_indices(len as usize, index, step)?
-        .into_iter()
-        .map(|i| JsValue::from(u32::try_from(i).unwrap_or(u32::MAX)))
-        .collect::<Array>()
-        .into())
-}
-
 #[wasm_bindgen(typescript_custom_section)]
 const REORDER_FIGURES_TS: &str = r#"
 /** The figures with the one at `index` moved; "front" is the end of the array. */

@@ -5,9 +5,9 @@ TS caller: `apps/web/src/features/offline-sync/infra/postgrest-transport.ts` (`P
 
 ## What moved
 
-- Request specs for every call the transport makes (`postgrestWriteRequest`, `postgrestGoneRequest`,
-  `postgrestConflictRequest`, `postgrestTombstoneRequest`, `postgrestPresenceRequest`,
-  `postgrestTombstonesForRequest`, `postgrestChangesRequest`). Method, path, body and `prefer` header.
+- Request specs for every call the transport makes (`postgrestWriteRequest`,
+  `postgrestPresenceRequest`,
+  `postgrestChangesRequest`). Method, path, body and `prefer` header.
 - Write shape per op: insert POSTs, update PATCHes, delete DELETEs. Updates and deletes are guarded by
   `row_version=eq.N` only when a base version is held.
 - Request init for `fetch`: headers (`content-type`, `apikey`, `authorization` when a token is set, `prefer`).

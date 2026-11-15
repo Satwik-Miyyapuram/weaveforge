@@ -10,7 +10,7 @@ Rust home: `crates/wf-core/src/shell_paths.rs`, plus `mcp_client_configs` in `cr
 
 ## Where it is called
 
-- wasm exports `homeConfigPath` and `mcpClientConfigs` in `crates/wf-wasm/src/shell_paths.rs`.
+- wasm exports `mcpClientConfigs` in `crates/wf-wasm/src/shell_paths.rs`.
 - No TS wrapper; typed through `rust()` in `packages/core/src/shared/rust.ts`.
 - The native shell rewrites MCP configs itself: `mcp_client_configs` and `rewrite_mcp_client_configs` in `apps/shell/src/local_http/rewrite.rs`.
 

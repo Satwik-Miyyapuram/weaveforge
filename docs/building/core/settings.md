@@ -27,8 +27,8 @@ TypeScript wrappers in `packages/wf-wasm/src` import the raw names from
 - User settings: `hydrateUserSettings`, `normalizeUserSettings`,
   `applyUserIntegrationFields`, `needsDisclaimerAcceptance`.
 - Appearance: `normalizeAppearance`.
-- Theme config: `parseThemeConfig`, `normalizeColorValue`, `normalizeFontStack`,
-  `normalizeLengthValue`, `normalizeThemeConfig`, `themeConfigTemplate`.
+- Theme config: `parseThemeConfig`,
+  `normalizeThemeConfig`, `themeConfigTemplate`.
 - Integration credentials: `getUserIntegrationField`, `isUserIntegrationConnected`,
   `integrationsBagFromLegacy`.
 

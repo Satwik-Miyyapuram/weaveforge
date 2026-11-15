@@ -9,8 +9,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsError, JsValue};
 use wf_core::papers::paper_merge::MergePaper;
 use wf_core::papers::zotero_mapping::{
-    ZoteroItem, to_zotero_item, zotero_arxiv_id, zotero_content_keys, zotero_remote_to_input,
-    zotero_remote_to_metadata,
+    ZoteroItem, to_zotero_item, zotero_remote_to_input, zotero_remote_to_metadata,
 };
 
 use super::to_js;
@@ -21,33 +20,6 @@ fn from_js<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T, JsError>
 
 fn out<T: serde::Serialize>(value: &T) -> Result<JsValue, JsError> {
     to_js(value).map_err(|error| JsError::new(&error.to_string()))
-}
-
-/// [`zotero_arxiv_id`] (TS `zoteroArxivId`). The arXiv id of a Zotero item, or null.
-///
-/// # Errors
-///
-/// Fails if `item` is not a Zotero item.
-#[wasm_bindgen(js_name = zoteroArxivId, unchecked_return_type = "string | null")]
-pub fn zotero_arxiv_id_js(
-    #[wasm_bindgen(unchecked_param_type = "B.ZoteroItem")] item: JsValue,
-) -> Result<JsValue, JsError> {
-    let item: ZoteroItem = from_js(item)?;
-    out(&zotero_arxiv_id(&item))
-}
-
-/// [`zotero_content_keys`] (TS `zoteroContentKeys`). The keys a paper matches on.
-#[wasm_bindgen(js_name = zoteroContentKeys, unchecked_return_type = "string[]")]
-pub fn zotero_content_keys_js(
-    doi: Option<String>,
-    arxiv_id: Option<String>,
-    title: Option<String>,
-) -> Result<JsValue, JsError> {
-    out(&zotero_content_keys(
-        doi.as_deref(),
-        arxiv_id.as_deref(),
-        title.as_deref(),
-    ))
 }
 
 /// [`zotero_remote_to_input`] (TS `zoteroRemoteToInput`). A paper read from a Zotero item,

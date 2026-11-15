@@ -37,7 +37,7 @@ Each file below owns one part:
 - `decode`: scores a recognised line from its words' readings, and `helper_line` (wasm `inkLineFromHelper`) scores one Windows Ink helper line. A line with no words keeps its text and its confidence is capped under certainty.
 - `native_stroke`: `flat_stroke_samples` (wasm `inkFlatStrokeSamples`) turns a native shell's flat stroke into CSS-pixel samples, clamping pressure and dropping a partial tail. One call per stroke at pen-lift.
 - `recognise`: confidence mapping and the other pure parts of recognition. `band_union` (wasm `inkBandUnion`) spans the y-bands of a line's strokes, or is none when there are none.
-- `recognition_request`: builds the request the page sends to the desktop recogniser (`buildInkRequest`, flattening strokes to x, y, pressure) and checks the request the desktop reads (`readInkRequest`).
+- `recognition_request`: builds the request the page sends to the desktop recogniser (`buildInkRequest`, flattening strokes to x, y, pressure) and checks the request the desktop reads (`read_ink_request`).
 - `render_instances`: the WebGL stroke renderer's maths: instance count, the packer that writes each span's capsule instances (`pack_stroke_instances`), the backing-store ratio and the highlighter-pass test. The GL calls, buffers and canvas stay in TypeScript (`render/ink-renderer.ts`, `render/webgl-renderer.ts`), so this is a THIN port.
 - `render_strokes`: the strokes in the shape the one renderer takes, with colour names resolved.
 - `segment`: groups a page's strokes into the lines a recogniser reads.

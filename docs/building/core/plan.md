@@ -29,11 +29,11 @@ the raw names from `../pkg/wf_wasm.js` and re-export them. The main names are:
 
 - Milestone (`milestone.ts`): `isIsoDay`, `isoDayFromParts` (the local-day
   string, `localIsoDay` in `apps/web/.../plan/application/local-day.ts`),
-  `validateDependenciesError`, `validateComputeError`, `milestoneInputError`,
+  `milestoneInputError`,
   `createMilestoneWith`.
 - Rows (`milestone-rows.ts`): `milestoneFromRow`, `milestoneToRow`.
 - Timeline (`plan-timeline.ts`): `planTimeline`, `clusterMarks`, `daysUntilDate`, `planPace`.
-- Feed (`plan-feed.ts`): `planFeedOrigin`, `planFeedUrls`, `milestonesToIcs`,
+- Feed (`plan-feed.ts`): `planFeedOrigin`, `planFeedUrls`,
   `planWidgetData`, `addDays`.
 - Chip (`plan-chip.ts`): `planChipTarget`.
 - Screen (`plan-screen.ts`): `sortByDue`, `planEyebrow`.

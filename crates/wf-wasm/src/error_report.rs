@@ -14,13 +14,6 @@ use super::{check_text, to_js};
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
-/// [`MAX_REPORT_CHARS`] for JS.
-#[must_use]
-#[wasm_bindgen(js_name = maxReportChars)]
-pub fn max_report_chars() -> usize {
-    MAX_REPORT_CHARS
-}
-
 /// [`wf_core::error_report::redact::redact`] for JS, as `{ text, redactions }`.
 ///
 /// # Errors

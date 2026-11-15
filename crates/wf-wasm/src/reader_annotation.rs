@@ -6,8 +6,7 @@ use js_sys::Reflect;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::reader::annotation::{
-    ReaderKeyEvent, is_annotation_sync_state, is_editable_reader_target, is_reader_annotation_type,
-    reader_keyboard_command,
+    ReaderKeyEvent, is_editable_reader_target, is_reader_annotation_type, reader_keyboard_command,
 };
 
 use super::to_js;
@@ -21,17 +20,6 @@ pub fn is_reader_annotation_type_js(
     value
         .as_string()
         .is_some_and(|s| is_reader_annotation_type(&s))
-}
-
-/// [`is_annotation_sync_state`] for any JS value: false unless `value` is a string.
-#[must_use]
-#[wasm_bindgen(js_name = isAnnotationSyncState)]
-pub fn is_annotation_sync_state_js(
-    #[wasm_bindgen(unchecked_param_type = "string")] value: &JsValue,
-) -> bool {
-    value
-        .as_string()
-        .is_some_and(|s| is_annotation_sync_state(&s))
 }
 
 /// [`is_editable_reader_target`]: whether an event target owns its keystrokes (a text

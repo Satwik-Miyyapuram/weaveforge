@@ -81,18 +81,3 @@ pub fn plural_js(n: u32, word: &str, many: Option<String>) -> String {
 pub fn device_label_js(platform: &str) -> String {
     panel_labels::device_label(platform)
 }
-
-/// [`unique_device_name`](panel_labels::unique_device_name): an adoption label no taken name matches.
-///
-/// # Errors
-///
-/// Fails if `taken` is not an array of strings.
-#[wasm_bindgen(js_name = uniqueDeviceName)]
-pub fn unique_device_name_js(
-    name: &str,
-    device_label: &str,
-    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] taken: JsValue,
-) -> Result<String, serde_wasm_bindgen::Error> {
-    let taken: Vec<String> = serde_wasm_bindgen::from_value(taken)?;
-    Ok(panel_labels::unique_device_name(name, device_label, &taken))
-}

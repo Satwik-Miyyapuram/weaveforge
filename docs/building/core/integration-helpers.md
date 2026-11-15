@@ -4,9 +4,9 @@ Pure helpers for the Zotero bridge, MCP client config, the plan desktop widget a
 
 | Module | Rust fn | wasm export | TS caller |
 | --- | --- | --- | --- |
-| `zotero_local_url` | `is_local_zotero_url` | `isLocalZoteroUrl` | — |
+| `zotero_local_url` | `is_local_zotero_url` | — | — |
 | `mcp_client_config` | `claude_code_commands`, `gemini_install`, `codex_toml`, `mcp_servers_json`, `vscode_json` | `claudeCodeCommands`, `geminiInstall`, `codexToml`, `mcpServersJson`, `vscodeJson` | `apps/web/src/features/settings/ui/mcp-client-config.ts` |
-| `plan_widget` | `clean_widget_palette`, `parse_bounds`, `place_widget`, `parse_taskbar_created` | `cleanWidgetPalette`, `parsePlanWidgetBounds`, `placePlanWidget`, `parseTaskbarCreatedId` | — |
+| `plan_widget` | `clean_widget_palette`, `parse_bounds`, `place_widget`, `parse_taskbar_created` | — | — |
 | `proposal_created_page` | `created_page_index` | `createdPageIndex` | `apps/web/src/features/ai-assistant/ui/ai-proposal-review-screen.tsx` |
 | `proposal_groups` | `group_proposals` | `groupProposals` | `apps/web/src/features/ai-assistant/application/parts.ts` |
 
