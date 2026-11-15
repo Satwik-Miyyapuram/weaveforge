@@ -137,7 +137,7 @@ makes the MCP server carry its own file access, leaving Tier 2 as a second copy.
   serves a read-only Web API at `http://127.0.0.1:23119/api` with no key, so the
   pager, annotation parser and attachment join work unchanged. A plain-HTTP
   loopback request from an `app://` document is blocked as mixed content, so
-  the shell has one guarded proxy (`apps/desktop/src/zotero-local.ts`). It
+  the shell has one guarded proxy (`zotero_local` in `apps/shell/src/cmd_tools.rs`). It
   accepts only Zotero's own local API URLs; a general fetch channel would forward
   requests for anything on the machine. Papers match on their existing
   `zoteroKey`, so the import adds annotations and never creates papers. Write-back

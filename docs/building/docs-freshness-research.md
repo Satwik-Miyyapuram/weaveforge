@@ -51,8 +51,8 @@ What follows are the causes, each with a concrete example.
    - Missing paths: `crates/wf-wasm/src/reader_annotation_rows.rs`
      (`core/reader-annotation-rows.md`), `packages/wf-wasm/src/bindings.ts`
      (`core/wf-bindings.md`, `core/puller_plan.md`),
-     `apps/web/src/app/themes/nord.css` (`themes.md`),
-     `apps/web/src/features/timer/` (`dev.md`).
+     a `nord` theme stylesheet (`themes.md`),
+     a `timer` feature folder (`dev.md`).
 
    Any of these is a one-line `git grep` away from being caught.
 3. **Feature claims are prose, not labels.** Layer 2 checks only bold names in
@@ -116,7 +116,7 @@ FP = false-positive rate. Size = rough new code including tests.
 ### R2. Inventory completeness for generator inputs and coverage maps. High value.
 
 - **Build:** two assertions in `scripts/check-doc-refs.mjs` (or
-  `scripts/lib/test/areas.test.mjs`):
+  a new test in `scripts/lib/test/`):
   - **(a) Every code root has a row.** Every top-level code root
     (`crates/*`, `apps/*`, `packages/*`, `python/*`) above about 500 lines must
     be a `dir` in `AREAS`. A new crate then fails CI until it has a row.
