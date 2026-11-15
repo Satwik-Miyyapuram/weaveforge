@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { flushSync } from "react-dom";
 import type { ReaderContainerSize } from "@weaveforge/wasm";
 import { readyCore } from "@/lib/rust-core";
@@ -31,7 +31,9 @@ export function useContainerSize(
   /** The document the container was last measured for at once, not settled. */
   const measuredFor = useRef<unknown>(null);
 
-  useEffect(() => {
+  // A layout effect, so the first measure after a load lands before paint and
+  // the pages never show at the default zoom first.
+  useLayoutEffect(() => {
     const host = containerRef.current;
     if (!host || typeof ResizeObserver === "undefined") return;
     const measure = () => {
