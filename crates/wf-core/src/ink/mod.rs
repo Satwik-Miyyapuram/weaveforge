@@ -67,7 +67,6 @@ pub struct PackedInkStroke {
 }
 pub mod capture;
 pub mod clipboard;
-pub mod constants;
 pub mod contact_area;
 pub mod gesture;
 pub mod ink_print;

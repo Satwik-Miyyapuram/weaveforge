@@ -4,7 +4,6 @@ These modules hold the pure parts of git sync, the Mattermost messages, the outb
 
 | Module | Rust fn | wasm export | TS caller |
 | --- | --- | --- | --- |
-| `git_auth` | `basic_auth`, `remote_auth` | — | — |
 | `git_policy` | `is_under_ignored_folder`, `decide_git_sync_path`, `describe_changes` | `isUnderIgnoredFolder`, `decideGitSyncPath`, `describeChanges` | `apps/web/src/features/workspace/infrastructure/parts.ts`, `apps/web/src/features/workspace/application/workspace-folder.ts` |
 | `git_reason` | `git_reason` | `gitReason` | — |
 | `repo_web_url` | `repo_web_url`, `commit_url` | `repoWebUrl`, `commitUrl` | `apps/web/src/features/experiments/ui/experiment-panels.tsx`, `apps/web/src/features/experiments/ui/experiment-detail-screen.tsx` |
@@ -18,8 +17,6 @@ These modules hold the pure parts of git sync, the Mattermost messages, the outb
 
 Rules:
 
-- `git_auth`: `basic_auth` is base64 of `user:token`; an absent username uses `x-access-token`. `remote_auth` always sets `GIT_TERMINAL_PROMPT=0`.
-- `git_auth`: the `extraHeader` config and `-c credential.helper=` are added only for a non-empty token on an http(s) origin.
 - `git_policy`: skip reasons are `ignored-directory`, `ignored-file`, `too-large` and `invalid-path`. The root `.weaveforge` folder is always ignored; `notes/.weaveforge` is not.
 - `git_policy`: a non-finite or negative size is skipped as `too-large`. `describe_changes` gives `No changes` or e.g. `1 added, 2 changed, 1 removed`.
 - `git_reason`: `fatal:` and `error:` lines are joined by a space. Otherwise the first line is used, or `Could not commit.` when it is empty.

@@ -190,13 +190,6 @@ impl DocStore {
         })
     }
 
-    /// The document boost MiniSearch applies to a candidate; 1 when the document is unknown.
-    #[must_use]
-    pub fn boost_of(&self, id: &str, now: f64) -> f64 {
-        self.get(id)
-            .map_or(1.0, |fields| score_of(fields, self.settings.as_ref(), now))
-    }
-
     /// Every held document's boost in one pass: `ids[i]` has `boosts[i]`, in insertion order.
     #[must_use]
     pub fn boosts(&self, now: f64) -> (Vec<String>, Vec<f64>) {
@@ -493,13 +486,14 @@ mod tests {
     }
 
     #[test]
-    fn boosts_matches_boost_of_for_every_document() {
+    fn boosts_scores_every_document() {
         let store = corpus();
         let (ids, boosts) = store.boosts(NOW);
         assert_eq!(ids.len(), 4);
         assert_eq!(ids.len(), boosts.len());
         for (id, boost) in ids.iter().zip(&boosts) {
-            assert_eq!(*boost, store.boost_of(id, NOW));
+            let fields = store.get(id).expect("held document");
+            assert_eq!(*boost, score_of(fields, store.settings.as_ref(), NOW));
         }
     }
 

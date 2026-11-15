@@ -87,7 +87,7 @@ Source: `crates/wf-core/src/search/`
 | `embedding_runtime` | `supports_local_embedding`, `IDLE_EVICT_MS` | `supportsLocalEmbedding`, `embedIdleEvictMs` | `apps/web/src/features/search/application/semantic-search.ts` |
 | `hybrid_fusion` | `strip_stopwords`, `query_term_count`, `covered_hit_mask`, `gate_vector_mask` | `stripStopwords`, `coveredHits`, `gateVectorHits` | `apps/web/src/features/search/application/workspace-search.ts` |
 | `js_text` | `is_js_whitespace`, `is_letter_or_number`, `utf16_len` | native only | — |
-| `minisearch_doc` | `DocStore` (`put`, `remove`, `filter_only`, `boost_of`, `finish`) | `DocStore` methods `setSettings`, `put`, `remove`, `has`, `clear`, `idsOfKind`, `hitById`, `entries`, `filterOnly`, `finish` | `apps/web/src/features/search/infrastructure/minisearch-index.ts` |
+| `minisearch_doc` | `DocStore` (`put`, `remove`, `filter_only`, `boosts`, `finish`) | `DocStore` methods `setSettings`, `put`, `remove`, `has`, `clear`, `idsOfKind`, `hitById`, `entries`, `filterOnly`, `finish` | `apps/web/src/features/search/infrastructure/minisearch-index.ts` |
 | `pdf_text_store` | `store_key`, `project_range`, `budget_page_count` | `pdfTextStoreOp` | `apps/web/src/features/search/infrastructure/parts-2.ts` |
 | `personalized_pagerank` | `personalized_page_rank`, `related_by_ppr` | `personalizedPageRank`, `relatedByPpr` | — |
 | `projection` | `project_search_documents`, `project_stored_pdf_texts` | `projectSearchDocuments`, `projectStoredPdfTexts` | `apps/web/src/features/search/application/workspace-search.ts` |
@@ -105,7 +105,7 @@ Rules:
 - `embedding_runtime`: local embedding needs both a Worker and WebAssembly. Idle eviction is 5 minutes (`IDLE_EVICT_MS`).
 - `hybrid_fusion`: `strip_stopwords` keeps `kind:`, quoted and `-` terms, and returns an all-stopword query whole. `covered_hit_mask` keeps every hit when the query has one term or less, or a hit did not report its term count. `gate_vector_mask` drops all vector hits when the best score is under the floor.
 - `js_text`: `is_letter_or_number` has an ASCII fast path, then Unicode Letter or Number. `utf16_len` counts UTF-16 code units.
-- `minisearch_doc`: `boost_of` gives 1.0 for an unknown id. `filter_only` sorts the whole match set by boost before it cuts to the limit.
+- `minisearch_doc`: `filter_only` sorts the whole match set by boost before it cuts to the limit.
 - `pdf_text_store`: stored text is capped at `MAX_STORED_CHARS` (2,000,000). The op names are `key`, `range` and `budget`.
 - `personalized_pagerank`: defaults are 3000 walks, 50 steps, damping 0.15. A seed missing from the graph gives an empty result; a seed with no edges keeps all its probability. `related_by_ppr` drops the seed and breaks ties by `locale_compare`.
 - `projection`: revision order is the snapshot's documents, then PDF pages, then reader annotations. The worker and main thread share this path so their revisions cannot drift.
