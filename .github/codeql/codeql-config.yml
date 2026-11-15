@@ -1,9 +1,11 @@
-# CodeQL scans our own code only. Vendored upstream code and test
-# fixtures are left out: their alerts are not ours to fix (vendor) or are
+# CodeQL scans our own code only. Upstream code (submodules and the few
+# Overleaf files the app overrides) and test fixtures are left out: their
+# alerts are not ours to fix (upstream) or are
 # fake secrets and URLs on purpose (tests).
 name: weaveforge
 paths-ignore:
-  - apps/web/src/features/report/vendor/**
+  - third_party/**
+  - apps/web/src/features/report/ol-host/overrides/**
   - "**/node_modules/**"
   - "**/test/**"
   - "**/tests/**"

@@ -11,13 +11,15 @@ import { fileURLToPath } from "node:url";
 
 const src = fileURLToPath(new URL("../../", import.meta.url));
 const PRIMITIVES = ["components/button.tsx", "components/controls.tsx"];
-// Overleaf's IDE, vendored as it ships (AGPL-3.0): its own controls, not ours to restyle.
-const VENDORED = join(src, "features/report/vendor/overleaf");
+// Overleaf's IDE files the app overrides, kept as upstream wrote them (AGPL-3.0), and
+// the shims that stand in for its packages inside it: its own Bootstrap controls, not
+// ours to restyle. The rest of the IDE is the third_party submodule.
+const VENDORED = ["ol-host/overrides", "ol-shims"].map((d) => join(src, "features/report", d));
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
-    if (statSync(path).isDirectory()) return name === "test" || path === VENDORED ? [] : sources(path);
+    if (statSync(path).isDirectory()) return name === "test" || VENDORED.includes(path) ? [] : sources(path);
     return /\.tsx?$/.test(name) ? [path] : [];
   });
 }

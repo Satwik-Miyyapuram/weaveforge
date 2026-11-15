@@ -27,7 +27,7 @@ const ACTIONS = ".ide-redesign-toolbar-actions";
 const HOME = "a.ide-redesign-toolbar-home-link";
 
 /**
- * Overleaf's own IDE (vendored, `vendor/overleaf`), mounted on one project.
+ * Overleaf's own IDE (the `third_party/overleaf` submodule), mounted on one project.
  * The IDE talks to Overleaf through the workshop's live routes.
  */
 export function WorkshopLiveEditor({ client, sessionId, projectId, toolbar, onHome }: Props) {

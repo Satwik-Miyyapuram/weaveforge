@@ -10,8 +10,9 @@ import { ROLE_LABELS } from "@weaveforge/core";
 import { LIST_COLOR_NAMES, LIST_COLOR_PRESETS } from "../../features/reading-lists/ui/list-ui";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-// Overleaf's IDE, vendored as it ships (AGPL-3.0): its own controls, not ours to restyle.
-const VENDORED = join(root, "features/report/vendor/overleaf");
+// Overleaf's IDE files the app overrides, kept as upstream wrote them (AGPL-3.0): its
+// own controls, not ours to restyle. The rest of the IDE is the third_party submodule.
+const VENDORED = join(root, "features/report/ol-host/overrides");
 const src = (rel: string) => readFileSync(join(root, rel), "utf8");
 
 function uiFiles(dir: string): string[] {
