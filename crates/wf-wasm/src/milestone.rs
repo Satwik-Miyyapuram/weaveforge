@@ -4,7 +4,6 @@
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::plan::milestone::{self};
 
-
 /// [`is_iso_day`](milestone::is_iso_day).
 #[wasm_bindgen(js_name = isIsoDay)]
 #[allow(
