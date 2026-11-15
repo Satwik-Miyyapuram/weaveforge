@@ -7,6 +7,7 @@ import type { TextLayer } from "pdfjs-dist";
 import { createPdfTextLayer, measurePdfLinks } from "./pdf-text-layer";
 import { idle } from "./pdf-page-window";
 import { useContainerSize } from "./container-resize";
+import { canvasSize } from "./canvas-size";
 
 import { getContainer } from "@/bootstrap";
 import { readyCore } from "@/lib/rust-core";
@@ -568,18 +569,19 @@ useEffect(() => {
           if (!(canvas instanceof HTMLCanvasElement)) return;
           const ctx = canvas.getContext("2d");
           if (!ctx) return;
-          const ratio = window.devicePixelRatio || 1;
+          const size = canvasSize(viewport.width, viewport.height, window.devicePixelRatio || 1);
+          const ratio = size.pixelWidth / size.cssWidth || 1;
 
           // Nothing on screen to keep yet, so paint straight in; the page box (not the row host) takes the size.
           const isFirstRender = canvas.width === 0 || !paintedPages.current.has(pageNumber);
           if (isFirstRender) {
-            canvas.width = Math.floor(viewport.width * ratio);
-            canvas.height = Math.floor(viewport.height * ratio);
-            canvas.style.width = `${Math.floor(viewport.width)}px`;
-            canvas.style.height = `${Math.floor(viewport.height)}px`;
+            canvas.width = size.pixelWidth;
+            canvas.height = size.pixelHeight;
+            canvas.style.width = `${size.cssWidth}px`;
+            canvas.style.height = `${size.cssHeight}px`;
             const pageBox = host.querySelector<HTMLElement>(".pdf-reader-page") ?? host;
-            pageBox.style.width = `${Math.floor(viewport.width)}px`;
-            pageBox.style.height = `${Math.floor(viewport.height)}px`;
+            pageBox.style.width = `${size.cssWidth}px`;
+            pageBox.style.height = `${size.cssHeight}px`;
             ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
             const renderStart = perfStart();
             const renderTask = pdfPage.render({ canvasContext: ctx, viewport });
@@ -608,8 +610,8 @@ useEffect(() => {
                 scratchCanvasRef.current = document.createElement("canvas");
               }
               const scratch = scratchCanvasRef.current;
-              scratch.width = Math.floor(viewport.width * ratio);
-              scratch.height = Math.floor(viewport.height * ratio);
+              scratch.width = size.pixelWidth;
+              scratch.height = size.pixelHeight;
               const scratchCtx = scratch.getContext("2d");
               if (!scratchCtx) return;
               scratchCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -626,11 +628,11 @@ useEffect(() => {
               if (isStale()) return;
               canvas.width = scratch.width;
               canvas.height = scratch.height;
-              canvas.style.width = `${Math.floor(viewport.width)}px`;
-              canvas.style.height = `${Math.floor(viewport.height)}px`;
+              canvas.style.width = `${size.cssWidth}px`;
+              canvas.style.height = `${size.cssHeight}px`;
               const pageBox = host.querySelector<HTMLElement>(".pdf-reader-page") ?? host;
-              pageBox.style.width = `${Math.floor(viewport.width)}px`;
-              pageBox.style.height = `${Math.floor(viewport.height)}px`;
+              pageBox.style.width = `${size.cssWidth}px`;
+              pageBox.style.height = `${size.cssHeight}px`;
               ctx.setTransform(1, 0, 0, 1, 0, 0);
               ctx.drawImage(scratch, 0, 0);
               scratch.width = 0;
