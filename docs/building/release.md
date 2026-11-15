@@ -115,7 +115,7 @@ toolchain pinned by the repo (`rustup show` installs it), and PowerShell.
    cd ../..
    ```
 
-   The output is in `apps/shell/target/release/bundle/` (`msi` and `nsis`
+   The output is in `target/release/bundle/` (`msi` and `nsis`
    folders). The MSI is `*.msi`; the NSIS installer is `*-setup.exe`.
 
 6. Delete `apps/shell/target/stage` when done. It holds the staged Postgres,
@@ -206,7 +206,7 @@ manual today.
    upload its installers. Build them locally with those steps.
 5. Create the GitHub release and attach the MSI and NSIS files:
    ```bash
-   gh release create vX.Y.Z "apps/shell/target/release/bundle/msi/<file>.msi" "apps/shell/target/release/bundle/nsis/<file>-setup.exe" --title "WeaveForge vX.Y.Z" --notes-file <notes.md>
+   gh release create vX.Y.Z "target/release/bundle/msi/<file>.msi" "target/release/bundle/nsis/<file>-setup.exe" --title "WeaveForge vX.Y.Z" --notes-file <notes.md>
    ```
 6. Write the notes on the release.
 7. Publish the in-app release notice. The `## [X.Y.Z]` section (no `v`) must exist in

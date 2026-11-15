@@ -1,18 +1,17 @@
 # WeaveForge relay server (wf-relay-server).
 #
-# Build from the repo root, because the server depends on crates/wf-core by a
-# relative path and wf-core inherits its version, lints and pins from the root
-# Cargo.toml:
+# Build from the repo root, because the server is a member of the root workspace
+# and builds against its Cargo.lock:
 #   docker build -f apps/relay/Dockerfile .
 
 FROM rust:1.98-bookworm AS builder
 WORKDIR /src
-# Root manifest and lock for wf-core's `workspace = true` keys. The build itself
-# runs in apps/relay, which is its own workspace and reads its own Cargo.lock.
+# Cargo loads every workspace member's manifest and targets, so the core crates
+# and the shell come along, though only the server's graph is built.
 COPY Cargo.toml Cargo.lock ./
-COPY crates/wf-core crates/wf-core
+COPY crates crates
+COPY apps/shell apps/shell
 COPY apps/relay apps/relay
-WORKDIR /src/apps/relay
 RUN cargo build --release --locked -p wf-relay-server \
  && cp target/release/wf-relay-server /usr/local/bin/wf-relay-server
 

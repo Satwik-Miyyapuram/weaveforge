@@ -1,16 +1,14 @@
 # WeaveForge desktop shell on Tauri 2. Design: docs/plans/current/rust-port/phase-2-desktop.md.
-# Its own workspace: Tauri brings many duplicate crate versions, and the root
-# workspace's cargo-deny bans must stay strict for wf-core (design § Steps 2.2).
-[workspace]
-
+# A root workspace member; CI checks it against its own deny.toml, since Tauri brings
+# many duplicate crate versions the root bans must not take in (design § Steps 2.2).
 [package]
 name = "weaveforge-shell"
-version = "0.1.0"
-edition = "2024"
-rust-version = "1.98"
-license = "AGPL-3.0-only"
-repository = "https://github.com/Satwik-Miyyapuram/weaveforge"
-publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
 # One integration test binary (tests/main.rs); see that file.
 autotests = false
 
@@ -135,42 +133,5 @@ tokio = { version = "=1.54.1", features = ["io-util", "macros", "net", "process"
 [build-dependencies]
 tauri-build = { version = "=2.7.4", features = [] }
 
-# Same rules as the root workspace (plan §4.2/§4.3).
-[lints.rust]
-unused_must_use = "deny"
-unused_results = "deny"
-missing_docs = "deny"
-# deny, not forbid: the phone entry point (lib.rs `mobile_entry`) comes from a Tauri macro
-# that emits `no_mangle` and JNI glue, and needs a local allow.
-unsafe_code = "deny"
-
-[lints.clippy]
-unwrap_used = "deny"
-expect_used = "deny"
-panic = "deny"
-todo = "deny"
-unimplemented = "deny"
-dbg_macro = "deny"
-undocumented_unsafe_blocks = "deny"
-too_many_lines = "deny"
-cast_possible_truncation = "deny"
-cast_possible_wrap = "deny"
-cast_sign_loss = "deny"
-cast_lossless = "deny"
-checked_conversions = "deny"
-must_use_candidate = "deny"
-needless_pass_by_value = "deny"
-redundant_closure_for_method_calls = "deny"
-semicolon_if_nothing_returned = "deny"
-
-# Keep dev builds small: full debug info made every test exe link a ~100 MB PDB.
-# Line tables still give file:line in backtraces; dependencies get none.
-[profile.dev]
-debug = "line-tables-only"
-
-[profile.dev.package."*"]
-debug = false
-
-[profile.release]
-debug-assertions = false
-overflow-checks = true
+[lints]
+workspace = true

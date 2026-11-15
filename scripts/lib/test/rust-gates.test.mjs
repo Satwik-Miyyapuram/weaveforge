@@ -4,9 +4,10 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CARGO_PLUGINS, RUST_GATES } from "../rust-gates.mjs";
+import { CARGO_PLUGINS, OWN_JOB_CRATES, RUST_GATES } from "../rust-gates.mjs";
 
 const gate = (name) => RUST_GATES.find((g) => g.name === name);
+const excluded = OWN_JOB_CRATES.flatMap((crate) => ["--exclude", crate]);
 
 test("lists the gates in order", () => {
   assert.deepEqual(
@@ -44,12 +45,18 @@ test("cargo gates that resolve dependencies use the committed lockfile", () => {
   }
 });
 
-test("nextest runs the whole workspace and fails when no test runs", () => {
-  assert.deepEqual(gate("nextest").args, ["nextest", "run", "--workspace", "--locked", "--no-tests=fail"]);
+test("nextest runs the workspace but the own-job crates and fails when no test runs", () => {
+  assert.deepEqual(gate("nextest").args, ["nextest", "run", "--workspace", ...excluded, "--locked", "--no-tests=fail"]);
 });
 
 test("doc tests are gated", () => {
-  assert.deepEqual(gate("doctest").args, ["test", "--doc", "--workspace", "--locked"]);
+  assert.deepEqual(gate("doctest").args, ["test", "--doc", "--workspace", ...excluded, "--locked"]);
+});
+
+test("the own-job crates are exactly the shell, its ink plugin and the relays", () => {
+  assert.deepEqual(OWN_JOB_CRATES, ["weaveforge-shell", "tauri-plugin-ink", "wf-relay", "wf-relay-server"]);
+  const clippy = gate("clippy").args;
+  assert.deepEqual(clippy.slice(clippy.indexOf("--workspace") + 1, clippy.indexOf("--all-targets")), excluded);
 });
 
 test("bindings gate fails when the generated TypeScript is stale", () => {
@@ -57,8 +64,8 @@ test("bindings gate fails when the generated TypeScript is stale", () => {
 });
 
 test("deny checks licences, bans and sources offline; advisories only in CI", () => {
-  assert.deepEqual(gate("deny").args, ["deny", "--locked", "check", "licenses", "bans", "sources"]);
-  assert.deepEqual(gate("advisories").args, ["deny", "--locked", "check", "advisories"]);
+  assert.deepEqual(gate("deny").args, ["deny", "--locked", ...excluded, "check", "licenses", "bans", "sources"]);
+  assert.deepEqual(gate("advisories").args, ["deny", "--locked", ...excluded, "check", "advisories"]);
   assert.deepEqual(
     RUST_GATES.filter((g) => g.ciOnly).map((g) => g.name),
     ["advisories"],
