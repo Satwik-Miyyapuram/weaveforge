@@ -114,7 +114,7 @@ test("Escape closes the menu (32-30)", () => {
 test("a click away closes the menu (32-30)", () => {
   const r = render(async () => {});
   openMenu(r);
-  act(() => fire("mousedown", { target: {} }));
+  act(() => fire("pointerdown", { target: {} }));
   assert.equal(isOpen(r), false);
 });
 
@@ -123,5 +123,5 @@ test("closing the menu removes its document listeners", () => {
   openMenu(r);
   act(() => fire("keydown", { key: "Escape", stopPropagation() {} }));
   assert.equal(listeners.get("keydown")?.size ?? 0, 0);
-  assert.equal(listeners.get("mousedown")?.size ?? 0, 0);
+  assert.equal(listeners.get("pointerdown")?.size ?? 0, 0);
 });
