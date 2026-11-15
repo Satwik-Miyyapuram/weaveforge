@@ -181,30 +181,6 @@ pub struct InkPageSize {
     pub height: f64,
 }
 
-/// Index of `value` in `values`, or `0` where it is not in the vocabulary.
-#[must_use]
-pub fn ink_enum_index<S: AsRef<str>>(values: &[S], value: &str) -> usize {
-    values
-        .iter()
-        .position(|candidate| candidate.as_ref() == value)
-        .unwrap_or(0)
-}
-
-/// The name at `index`, or the vocabulary's first entry where out of range; `None` when empty.
-#[must_use]
-pub fn ink_enum_value<S: AsRef<str>>(values: &[S], index: f64) -> Option<&str> {
-    whole_index(index)
-        .and_then(|at| values.get(at))
-        .or_else(|| values.first())
-        .map(AsRef::as_ref)
-}
-
-/// `index` as a position when it is a non-negative whole number.
-fn whole_index(index: f64) -> Option<usize> {
-    let whole = index.fract().abs() < f64::MIN_POSITIVE;
-    (whole && index >= 0.0).then_some(index as usize)
-}
-
 /// A stroke with the defaults filled in.
 #[must_use]
 pub fn make_ink_stroke(input: InkStrokeInput) -> InkStroke {
@@ -463,9 +439,9 @@ mod tests {
     use super::{
         INK_A4_HEIGHT, INK_A4_WIDTH, INK_PAGE_STROKE_BUDGET, INK_PEN_WIDTH, InkColour, InkPage,
         InkPaper, InkShape, InkStrokeInput, InkTool, blank_ink_page, clamp_ink_page_size,
-        compose_ink_page_order, ink_attachment_index, ink_enum_index, ink_enum_value,
-        ink_page_background, ink_page_marker, ink_page_over_budget, join_ink_text_layer,
-        make_ink_stroke, resolve_ink_page_order, with_ink_page_background,
+        compose_ink_page_order, ink_attachment_index, ink_page_background, ink_page_marker,
+        ink_page_over_budget, join_ink_text_layer, make_ink_stroke, resolve_ink_page_order,
+        with_ink_page_background,
     };
     use crate::sync::ink_note::{INK_NOTE_MAX_PAGES, split_ink_text_layer};
 
@@ -646,22 +622,5 @@ mod tests {
         assert!(stroke.t0.abs() < f64::EPSILON);
         assert_eq!(stroke.shape, InkShape::None);
         assert!((stroke.line_index + 1.0).abs() < f64::EPSILON);
-    }
-
-    #[test]
-    fn enum_index_is_zero_for_unknown_names() {
-        let tools = ["pen", "highlighter", "shape"];
-        assert_eq!(ink_enum_index(&tools, "shape"), 2);
-        assert_eq!(ink_enum_index(&tools, "laser"), 0);
-    }
-
-    #[test]
-    fn enum_value_falls_back_to_the_first_entry() {
-        let tools = ["pen", "highlighter"];
-        assert_eq!(ink_enum_value(&tools, 1.0), Some("highlighter"));
-        assert_eq!(ink_enum_value(&tools, 9.0), Some("pen"));
-        assert_eq!(ink_enum_value(&tools, -1.0), Some("pen"));
-        let none: [&str; 0] = [];
-        assert_eq!(ink_enum_value(&none, 0.0), None);
     }
 }
