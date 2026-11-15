@@ -74,7 +74,8 @@ apps/web/public/swe-worker*
 
 # pdf.js worker (copied from pdfjs-dist by scripts/copy-pdf-worker.mjs)
 apps/web/public/pdf.worker.min.mjs
-# Overleaf IDE stylesheet and pdf.js assets (scripts/build-overleaf-assets.mjs)
+# Overleaf IDE packages, parsers, stylesheet and pdf.js assets (scripts/build-overleaf-assets.mjs)
+apps/web/.overleaf-build/
 apps/web/public/overleaf/
 apps/web/public/js/pdfjs-dist/
 apps/web/public/fonts/pdfjs-dist/

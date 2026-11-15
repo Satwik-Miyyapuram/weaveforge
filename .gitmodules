@@ -1,0 +1,8 @@
+[submodule "third_party/overleaf"]
+	path = third_party/overleaf
+	url = https://github.com/overleaf/overleaf.git
+	shallow = true
+[submodule "third_party/codemirror-vim"]
+	path = third_party/codemirror-vim
+	url = https://github.com/overleaf/codemirror-vim.git
+	shallow = true
