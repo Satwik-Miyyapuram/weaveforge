@@ -35,6 +35,9 @@ jobs:
 
       - run: npm ci
 
+      # The demo app needs the git-ignored WASM package.
+      - uses: ./.github/actions/generate
+
       - name: Build the demo app
         run: node scripts/user-docs/build-demo-app.mjs
 

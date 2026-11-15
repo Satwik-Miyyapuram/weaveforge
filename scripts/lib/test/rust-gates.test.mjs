@@ -12,7 +12,7 @@ const excluded = OWN_JOB_CRATES.flatMap((crate) => ["--exclude", crate]);
 test("lists the gates in order", () => {
   assert.deepEqual(
     RUST_GATES.map((g) => g.name),
-    ["fmt", "clippy", "nextest", "doctest", "bindings", "deny", "advisories"],
+    ["fmt", "clippy", "nextest", "doctest", "deny", "advisories"],
   );
 });
 
@@ -38,7 +38,7 @@ test("clippy denies warnings, unwrap, expect and panic on all targets", () => {
 });
 
 test("cargo gates that resolve dependencies use the committed lockfile", () => {
-  for (const name of ["clippy", "nextest", "doctest", "bindings", "deny", "advisories"]) {
+  for (const name of ["clippy", "nextest", "doctest", "deny", "advisories"]) {
     const args = gate(name).args;
     const end = args.includes("--") ? args.indexOf("--") : args.length;
     assert.ok(args.slice(0, end).includes("--locked"), `${name} lacks --locked`);
@@ -57,10 +57,6 @@ test("the own-job crates are exactly the shell, its ink plugin and the relays", 
   assert.deepEqual(OWN_JOB_CRATES, ["weaveforge-shell", "tauri-plugin-ink", "wf-relay", "wf-relay-server"]);
   const clippy = gate("clippy").args;
   assert.deepEqual(clippy.slice(clippy.indexOf("--workspace") + 1, clippy.indexOf("--all-targets")), excluded);
-});
-
-test("bindings gate fails when the generated TypeScript is stale", () => {
-  assert.deepEqual(gate("bindings").args, ["run", "-p", "wf-bindings", "--locked", "--", "--check"]);
 });
 
 test("deny checks licences, bans and sources offline; advisories only in CI", () => {

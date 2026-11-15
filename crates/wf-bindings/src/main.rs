@@ -1,9 +1,9 @@
-//! `cargo run -p wf-bindings` writes the bindings; `-- --check` fails if the file is stale.
+//! `cargo run -p wf-bindings` (`npm run bindings`) writes the bindings; `npm run generate` runs it.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use wf_bindings::{Mode, OUTPUT, is_fresh, parse_mode, write};
+use wf_bindings::{OUTPUT, write};
 
 fn output_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -12,22 +12,12 @@ fn output_path() -> PathBuf {
 }
 
 fn main() -> ExitCode {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    let Some(mode) = parse_mode(&args) else {
-        eprintln!("usage: wf-bindings [--check]");
+    if std::env::args().len() > 1 {
+        eprintln!("usage: wf-bindings");
         return ExitCode::FAILURE;
-    };
-    let path = output_path();
-    let result = match mode {
-        Mode::Write => write(&path).map(|()| true),
-        Mode::Check => is_fresh(&path),
-    };
-    match result {
-        Ok(true) => ExitCode::SUCCESS,
-        Ok(false) => {
-            eprintln!("{OUTPUT} is stale. Run `npm run bindings` and commit it.");
-            ExitCode::FAILURE
-        }
+    }
+    match write(&output_path()) {
+        Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("wf-bindings: {e}");
             ExitCode::FAILURE

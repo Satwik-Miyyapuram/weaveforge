@@ -6,6 +6,12 @@ guess.
 
 ## 1. Unit tests and typecheck
 
+The Rust bindings, the WASM package (`packages/wf-wasm/pkg`) and the docs map
+are generated, not committed. A fresh clone or worktree runs
+`npm ci && npm run generate` first; the web `predev`, `prebuild` and `pretest`
+hooks rerun the bindings and WASM steps. The shell's `build.rs` bundles the
+bridge with esbuild, so `npm ci` also comes before any shell `cargo` command.
+
 From the repo root (Git Bash or PowerShell):
 
 | Area | Test | Typecheck |
