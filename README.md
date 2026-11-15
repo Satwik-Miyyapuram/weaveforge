@@ -126,7 +126,7 @@ Details: [`python/README.md`](python/README.md).
 ```
 packages/core/     Domain entities, repository interfaces, use-cases (no React, no data-access SDK)
 apps/web/          Next.js PWA — features/{domain,application,infrastructure,ui}
-                   bootstrap.ts = composition root; facades/ = UI API (ISP)
+                   bootstrap.ts = composition root; container/facades/ = UI API (ISP)
 python/            Same contracts for experiment push + sync sources
 db/                SQL migrations — single schema source of truth
 ```
@@ -198,8 +198,14 @@ index, and `docs/internal/` holds the working notes that are not a manual.
 apps/web/         Next.js PWA
 apps/pitch/       Static export of the pitch site (GitHub Pages)
 apps/shell/       Tauri desktop and Android shell around the web app
+apps/android/     Android inking shell (WebView + stylus overlay)
+apps/ios/         iOS WKWebView shell
+apps/relay/       Relay crates and the relay server on OCI
+crates/           Rust core: wf-core, wf-wasm, wf-bindings, wf-store (see docs/building/core/)
 packages/core/    @weaveforge/core — shared domain + use-cases
-db/               SQL migrations 0001…0131 for the OCI Postgres (see db/migrations/README.md)
+packages/wf-wasm/ wf-core as wasm, with types generated from Rust
+db/               SQL migrations 0001…0156 for the OCI Postgres (see db/migrations/README.md)
+infra/oci/        Docker Compose for the OCI server
 python/           weaveforge SDK
 docs/             using/ building/ running/, and internal/ working notes
 ```
