@@ -1,7 +1,7 @@
 //! The script the shell injects into its main window, so the page finds `window.weaveforge`.
 
-/// The bridge bundle, built from `bridge/inject.ts` by `bridge/build-shim.mjs`.
-pub const BRIDGE_BUNDLE: &str = include_str!("../bridge/shim.gen.js");
+/// The bridge bundle, built from `bridge/inject.ts` by `bridge/build-shim.mjs`, which `build.rs` runs.
+pub const BRIDGE_BUNDLE: &str = include_str!(concat!(env!("OUT_DIR"), "/shim.gen.js"));
 
 /// The origins the app's own pages load from: `https://app.localhost` on Windows (`useHttpsScheme`),
 /// `app://localhost` elsewhere. No plain-http entry: `http://app.localhost` resolves to loopback.

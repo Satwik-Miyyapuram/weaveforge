@@ -86,6 +86,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - uses: ./.github/actions/generate
       - run: npm run build:core
       - name: TypeScript schema and RLS tests
         run: npm run test:integration:web

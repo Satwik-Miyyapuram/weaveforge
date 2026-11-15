@@ -52,6 +52,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The bindings and WASM package are git-ignored, and core's types come from them.
+      - uses: ./.github/actions/generate
+
       - name: Build Core package
         run: npm run build:core
 
@@ -103,40 +106,6 @@ jobs:
 
       - name: Run editor paste tests
         run: npm run test:e2e:editor
-
-      # packages/wf-wasm/pkg is committed so the web and mobile builds need no
-      # Rust. Its stamp must match the Rust inputs before anything is built.
-      - name: Check the committed WASM package is fresh
-        run: npm run wasm:fresh
-
-      - name: Install pinned Rust toolchain
-        run: rustup show active-toolchain || rustup toolchain install
-
-      - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2
-
-      # Must equal the wasm-bindgen crate in Cargo.lock; build-wasm.mjs checks.
-      - name: Install wasm-bindgen CLI
-        uses: taiki-e/install-action@v2
-        with:
-          tool: wasm-bindgen@0.2.129
-
-      - name: Build the Rust core to WASM
-        run: npm run build:wasm
-
-      # Glue, types and stamp must match exactly, and so must the module: the
-      # committed one is this Linux build (Windows rustc can emit other code).
-      - name: Check the rebuilt WASM package matches the committed one
-        run: npm run wasm:pkg
-
-      # The Linux-built package: the committed module comes from here.
-      - name: Keep the rebuilt WASM package
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: wf-wasm-pkg
-          path: packages/wf-wasm/pkg/
-          retention-days: 7
 
       - name: Run WASM package tests
         run: npm test --workspace @weaveforge/wasm
@@ -333,6 +302,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The bindings and WASM package are git-ignored, and core's types come from them.
+      - uses: ./.github/actions/generate
+
       - name: Build Core package
         run: npm run build:core
 
@@ -503,6 +475,9 @@ jobs:
         working-directory: .
         run: npm ci
 
+      # The bindings and WASM package are git-ignored, and core's types come from them.
+      - uses: ./.github/actions/generate
+
       - name: Build Core package
         working-directory: .
         run: npm run build:core
@@ -604,6 +579,9 @@ jobs:
         working-directory: .
         run: npm ci
 
+      # The bindings and WASM package are git-ignored, and core's types come from them.
+      - uses: ./.github/actions/generate
+
       - name: Build Core package
         working-directory: .
         run: npm run build:core
@@ -652,6 +630,9 @@ jobs:
       - name: Install dependencies
         working-directory: .
         run: npm ci
+
+      # The bindings and WASM package are git-ignored, and core's types come from them.
+      - uses: ./.github/actions/generate
 
       - name: Build Core package
         working-directory: .
@@ -770,6 +751,9 @@ jobs:
         working-directory: .
         run: npm ci
 
+      # The bindings and WASM package are git-ignored, and core's types come from them.
+      - uses: ./.github/actions/generate
+
       - name: Build Core package
         working-directory: .
         run: npm run build:core
@@ -806,7 +790,6 @@ jobs:
     # TS vs Rust on frozen goldens (plan P1.2). Node is pinned to the version
     # the fixtures were generated on: its ICU fixes toLowerCase and \p{...}
     # behaviour, so another Node could fail on the TS side, not the port.
-    # Uses the committed pkg/; build-and-test's wasm:fresh proves it current.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -820,6 +803,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # The bindings and WASM package are git-ignored, and core's types come from them.
+      - uses: ./.github/actions/generate
 
       - name: Build Core package
         run: npm run build:core

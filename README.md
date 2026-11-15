@@ -40,7 +40,9 @@ Built **TDD + SOLID**: framework-agnostic core (`@weaveforge/core`), repository 
 
 ## Quick start
 
-**Prerequisites:** Node.js 22+ and the data stack: **Postgres 16 + PostgREST + Realtime on OCI**,
+**Prerequisites:** Node.js 22+, Rust through `rustup` (`rust-toolchain.toml` pins the version and
+the `wasm32-unknown-unknown` target), `cargo install wasm-bindgen-cli --version 0.2.129` (it must
+equal the `wasm-bindgen` crate in `Cargo.lock`), and the data stack: **Postgres 16 + PostgREST + Realtime on OCI**,
 with MinIO for blobs, all behind Caddy ([`infra/oci/docker-compose.yml`](infra/oci/docker-compose.yml);
 see [`docs/running/backend.md`](docs/running/backend.md)). Every row and every file lives there.
 
@@ -50,7 +52,8 @@ verifies them. No research data is stored in Supabase.
 ```bash
 git clone https://github.com/Satwik-Miyyapuram/weaveforge.git
 cd weaveforge
-npm install
+npm ci
+npm run generate           # the Rust bindings, the WASM package and the docs map (not committed)
 npm run build:core
 npm run test:core          # the domain suite — no network, no browser
 ```
@@ -267,6 +270,7 @@ That is the same gate CI runs — typecheck across every workspace, lint,
 build. Everything below is a piece of it, useful when you want a faster loop.
 
 ```bash
+npm run generate         # bindings + WASM package + docs map (dev, build and test also run the first two)
 npm run dev              # web app @ :3000
 npm run build:core       # compile @weaveforge/core
 npm run test:core        # domain + contract tests
