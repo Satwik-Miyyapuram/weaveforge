@@ -260,8 +260,13 @@ const vendored = (f) => VENDORED.some((p) => f.startsWith(p));
   }
   // A path git is told to ignore is one the reader is meant to create — a doc
   // naming `.env.local` is right, and the file is absent on a clean checkout by
-  // design. Asked once for the whole set rather than once per path.
-  const ignored = new Set(checkIgnore(missing.map((line) => line.split(" ")[1])));
+  // design. Asked once for the whole set rather than once per path. Each path is
+  // also asked as a directory (`dir/`), since a `dir/` pattern does not match an
+  // absent path without the slash: an unbuilt output folder is still ignored.
+  const missingPaths = missing.map((line) => line.split(" ")[1]);
+  const ignored = new Set(
+    checkIgnore(missingPaths.flatMap((p) => [p, `${p}/`])).map((p) => p.replace(/\/$/, "")),
+  );
   const unexplained = missing.filter((line) => !ignored.has(line.split(" ")[1]));
   if (unexplained.length) {
     fail(
