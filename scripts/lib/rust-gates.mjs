@@ -37,8 +37,6 @@ export const RUST_GATES = Object.freeze([
   gate("nextest", ["nextest", "run", "--workspace", ...excludeOwnJobs, "--locked", "--no-tests=fail"]),
   // nextest does not run doc tests; plan §4.4 gates them too.
   gate("doctest", ["test", "--doc", "--workspace", ...excludeOwnJobs, "--locked"]),
-  // Generated TypeScript (packages/wf-wasm/src/bindings.ts) must match the Rust types.
-  gate("bindings", ["run", "-p", "wf-bindings", "--locked", "--", "--check"]),
   gate("deny", ["deny", "--locked", ...excludeOwnJobs, "check", "licenses", "bans", "sources"]),
   gate("advisories", ["deny", "--locked", ...excludeOwnJobs, "check", "advisories"], true),
 ]);

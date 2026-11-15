@@ -1,9 +1,9 @@
 /**
  * Builds crates/wf-wasm for the browser and Node: cargo compiles it to
  * wasm32 with the size-tuned `wasm-release` profile, then wasm-bindgen writes
- * the JS glue and .d.ts to packages/wf-wasm/pkg, which is committed so the
- * web, desktop and mobile builds need no Rust. It also writes the digest of
- * the build inputs there (WASM_STAMP_FILE); check-wasm-fresh.mjs compares it.
+ * the JS glue and .d.ts to packages/wf-wasm/pkg. The pkg is git-ignored:
+ * `npm run generate` builds it, and the web app's predev, prebuild and pretest
+ * hooks run this before anything imports it.
  *
  * Panic locations carry source paths, so the cargo home and checkout paths are
  * remapped to keep the builder's home directory out of the shipped module.
@@ -15,20 +15,11 @@
  *     npm run build:wasm
  */
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import {
-  WASM_ARTIFACT,
-  WASM_PKG_DIR,
-  WASM_STAMP_FILE,
-  cliVersion,
-  inputDigest,
-  lockedVersion,
-  remapFlags,
-} from "./lib/wasm-build.mjs";
-import { collectInputs } from "./lib/wasm-inputs.mjs";
+import { WASM_ARTIFACT, WASM_PKG_DIR, cliVersion, lockedVersion, remapFlags } from "./lib/wasm-build.mjs";
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const run = (cmd, args, stdio, env = process.env) =>
@@ -69,7 +60,8 @@ if (cargo.error || cargo.status !== 0) {
 const bindgen = run(
   "wasm-bindgen",
   [
-    WASM_ARTIFACT,
+    // CARGO_TARGET_DIR moves cargo's output, so look for the module there.
+    path.join(process.env.CARGO_TARGET_DIR ?? "target", WASM_ARTIFACT),
     "--target",
     "web",
     "--out-dir",
@@ -83,7 +75,5 @@ if (bindgen.error || bindgen.status !== 0) {
   console.error("FAIL: wasm-bindgen failed.");
   process.exit(1);
 }
-
-writeFileSync(path.join(repoRoot, WASM_STAMP_FILE), `${inputDigest(collectInputs(repoRoot))}\n`);
 
 console.log(`OK: built ${WASM_PKG_DIR} (wasm-bindgen ${want})`);
