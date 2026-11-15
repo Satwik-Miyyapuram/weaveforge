@@ -1,6 +1,6 @@
 # Annotation drafts (`reader::annotation_draft`)
 
-Rust: `crates/wf-core/src/reader/annotation_draft.rs` (17 tests).
+Rust: `crates/wf-core/src/reader/annotation_draft.rs` (16 tests).
 Wasm: `crates/wf-wasm/src/reader_annotation_draft.rs`.
 TS types: declared in Rust; served straight from the wasm package (no TS wrapper).
 
@@ -25,12 +25,11 @@ new annotation to save.
 `TextSelectionDraft`, `InkDraft`, `ImageRegionDraft`, `TextBoxDraft`,
 `TextBoxRect` come from `./bindings.ts` (generated). The anchor argument and
 result of `appendInkStroke` and `eraseInkPaths` use the hand-written
-`CombinedPdfAnchor` (`reader-types.ts`); the wrapper casts at the raw boundary,
-as `reader-selection.ts` does. Drafts return the hand-written
+`CombinedPdfAnchor` (`packages/core/src/reader/parts.ts`); the wrapper casts at the raw boundary. Drafts return the hand-written
 `NewReaderAnnotation` from `@weaveforge/core`.
 
 ## Parity notes
 
-- Input and output shapes follow the old TS `draft-local-annotation.ts`.
+- Input and output shapes follow the Rust port in `crates/wf-core/src/reader/annotation_draft.rs` (`append_ink_stroke`, `erase_ink_paths`).
 - `PDF_INK_SAVE_TOLERANCE` is 0.1 pt, the same drift bound the ink tests check.
 - Raw wasm functions take `JsValue`, so no typed input casts are needed.

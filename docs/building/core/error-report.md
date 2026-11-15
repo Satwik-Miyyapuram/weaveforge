@@ -17,14 +17,14 @@ The app reaches the core through `readyCore()` from `@/lib/rust-core`. The wasm 
 
 The exports are:
 
-- `redactReport`: redacts a report.
-- `redactReportAndCap`: redacts and caps a report in one call.
+- `redact`: redacts a report.
+- `redactAndCap`: redacts and caps a report in one call.
 - `newIssueUrl`: builds the prefilled new-issue address.
 - `reportMarkdown`: builds the report body.
 
-The one real call site is `apps/web/src/lib/error-report/parts.ts`. Its header says the address and body are "built in Rust (`wf_core::error_report::issue_url`)". Line 25 calls `readyCore().newIssueUrl(input.title, input.body, input.repo ?? reportRepo())`. Line 30 calls `readyCore().reportMarkdown(input)`.
+The address and body are built by `apps/web/src/app/error-report-panel.tsx` calls `readyCore().reportMarkdown({...})` and `readyCore().newIssueUrl(summary, markdown(), reportRepo())`. `apps/web/src/lib/error-report/parts.ts` calls `reportRepo`.
 
-No direct app call to `redactReport` or `redactReportAndCap` was found in `apps/web/src`. The redaction exports exist for the core and are ready for callers that need them.
+`apps/web/src/app/error-report-panel.tsx` calls `redactAndCap`. No app caller of the uncapped `redact` was found in `apps/web/src`.
 
 ## What stays in TypeScript, and why
 

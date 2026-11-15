@@ -19,9 +19,8 @@ Each file under `crates/wf-core/src/integrations/` covers one job:
 ## How the app calls it
 
 The wasm exports live in `crates/wf-wasm/src` (for example `integration_config.rs`,
-`integration_hint.rs` and `integration_bibliography.rs`). The TypeScript wrappers
-in `packages/wf-wasm/src` import the raw names from `../pkg/wf_wasm.js` and
-re-export them. The main names are:
+`integration_hint.rs` and `integration_bibliography.rs`). `packages/wf-wasm/src` has
+no integration wrappers, so the app calls the raw names directly. The main names are:
 
 - Config and gates: `resolveIntegrationConfig`, `userGateOpen`, `projectGateOpen`, `gitlabCombinedActive`.
 - Hints: `sharedProviderHint`.
@@ -29,7 +28,7 @@ re-export them. The main names are:
 - Connection state: `getUserIntegrationField`, `isUserIntegrationConnected`, `integrationsBagFromLegacy`, `gitConnection`, `mattermostConnection`, `gitConnectionReady`, `mattermostConnectionReady`, `emptyIntegration`.
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
-`apps/web/src/lib/rust-core.ts`, or through the wrappers in `packages/wf-wasm`.
+`apps/web/src/lib/rust-core.ts`.
 `readyCore()` throws until `loadCore()` has resolved, so call it only after the
 core has loaded.
 
@@ -47,8 +46,7 @@ core has loaded.
   annotations stay in TypeScript use cases.
 - **Hooks and UI.** The settings screens, the connect buttons and the status
   badges stay in `apps/web`.
-- **Thin wrappers.** The files in `packages/wf-wasm/src` (for example
-  `integration-config.ts`, `integration-hint.ts` and `integration-bibliography.ts`)
-  only forward to the raw exports, so they keep no rules of their own.
+- **Glue.** The wasm files `crates/wf-wasm/src/integration_*.rs` only convert
+  arguments and forward to the core functions, so they keep no rules of their own.
 
 Source: `crates/wf-core/src/integrations/`

@@ -23,6 +23,7 @@ Download the installer from the
 Both install the same app. The build is for 64-bit Intel and AMD PCs; Arm PCs
 (Snapdragon) run it through Windows' built-in emulation.
 
+<!-- UNCONFIRMED: no signing config in apps/shell/tauri.conf.json, apps/shell/tauri.bundle.json or .github/workflows/ci.yml; release-time signing and publishing happen outside the repo. -->
 The Windows build is free and open-source, and is not signed with an expensive
 commercial EV code-signing certificate (which costs hundreds of dollars a year).
 Because of this, Microsoft Defender SmartScreen displays a blue prompt on the
@@ -47,6 +48,7 @@ Download `WeaveForge-<version>-macOS.dmg` (one file for Apple silicon and Intel)
 [releases page](https://github.com/Satwik-Miyyapuram/weaveforge/releases/latest),
 open it, and drag WeaveForge into Applications.
 
+<!-- UNCONFIRMED: notarisation is not set up anywhere in the repo (no macOS signing config in apps/shell/tauri*.json or .github/workflows/ci.yml); release-time status is unknown. -->
 The Mac build is free and is not notarised by Apple, which costs a yearly
 developer fee. So the first time you open it, macOS Gatekeeper says it cannot
 check the app for malicious software or that the developer cannot be verified,
@@ -65,6 +67,7 @@ and offers only **Done** or **Move to Trash**. To open it:
    xattr -dr com.apple.quarantine /Applications/WeaveForge.app
    ```
 
+<!-- UNCONFIRMED: no signing step in .github/workflows/ci.yml; the ad-hoc signature claim is not verifiable from the repo. -->
 The app carries an *ad-hoc* signature: enough for macOS to run it and to notice
 if it has been changed since it was built, but it says nothing about who built
 it. If that matters to you, build it yourself from source.
@@ -126,12 +129,14 @@ both are on the same computer.
 waiting for the browser to arrive. If it was closed or restarted mid-way,
 start the sign-in again from the app.
 
-**Something else is on the port.** WeaveForge listens on port 53682, and only
-while a sign-in is in flight. If another program holds it, the app logs
-`sign-in listener could not start` on startup and the sign-in has nowhere to
-land. Quitting the other program is enough; nothing needs configuring.
+**Something else is on the port.** WeaveForge listens on port 53682 for as long
+as the app is running. If another program holds it, the app logs
+`The sign-in listener did not start` on startup, and the browser cannot hand the
+sign-in back. The sign-in screen then shows a **Sign-in address** box: finish
+signing in in the browser, copy the address from its tab, and paste it there.
+Quitting the other program is also enough; nothing needs configuring.
 
-**You took too long.** The code the browser brings back is good for about five
+**You took too long.** <!-- UNCONFIRMED: the five-minute lifetime and single use are not checked in the repo; the code is issued outside it. --> The code the browser brings back is good for about five
 minutes and can only be used once. Past that, start again.
 
 ## Signing in with an email address
@@ -149,7 +154,7 @@ kind of thing at once: every note, every paper, the whole report or plan,
 including items you add later. These pages read from the server, so they need
 the connection; your own notes keep working offline either way.
 
-Organisation admin (members, invites) stays in the browser.
+Organisation admin (members, invites) stays in the browser. <!-- UNCONFIRMED: product statement; no code in the repo enforces where org admin runs. -->
 
 ## Updating
 
@@ -202,11 +207,11 @@ The desktop window offers **Use without an account, local only** on the
 sign-in screen (and **Work on this computer (offline)** on the "Couldn’t start the
 app" screen). Choosing it swaps four things — the database client, the
 identity, the auth service and the blob store — for local ones, and leaves every
-repository, screen and use case above them untouched. The data lives in PGlite
+repository, screen and use case above them untouched. The data lives in a local Postgres server (`local-pg`)
 under the app's own directory, with the same schema the server has (all the
 server migrations run locally), and the sidebar carries an **Offline · on this
 computer** badge for as long as that is true. Where a signed-in copy offers
-"Sign out", an account-less one offers **Sign in**: there is no session to end,
+"Sign out", an account-less one offers **Sign in** <!-- UNCONFIRMED: no Sign in entry for offline mode found; apps/web/src/features/settings/ui/settings-find.tsx:11 lists only Sign out. -->: there is no session to end,
 and signing in later leaves what is on this computer where it is.
 
 What this covers and what it costs:
@@ -225,7 +230,7 @@ What this covers and what it costs:
   for what the token does and where it is kept.
 - Attachments are kept in a local table (`local_blobs`) rather than object
   storage, base64-encoded, because the bridge to the shell carries text.
-- Integration credentials are kept in `local_secrets` in the same local
+- Integration credentials are kept in `local_secrets` <!-- UNCONFIRMED: table name not found in apps/web/src/backend/providers/local; only the /api/settings/credentials mentions at apps/web/src/backend/parts.ts:202 and providers/local/parts.ts:68 match. --> in the same local
   database, not behind `/api/settings/credentials` — there is no server to hold
   them and no other user to hold them from. They are protected by the file
   permissions on the app's directory and nothing else.
@@ -237,29 +242,15 @@ unplugged in [How WeaveForge is put together](../building/architecture-map.md#of
 
 ### Where it lives, and what happens if it breaks
 
-The database is a directory, `local-db`, under the app's own data directory
-(`%APPDATA%\@weaveforge\desktop` on Windows, `~/Library/Application Support/
-@weaveforge/desktop` on macOS). A run that is cut off at the wrong moment — a
+The database is a directory, `local-pg`, under the app's own data directory
+(`%APPDATA%\dev.weaveforge.desktop` on Windows, `~/Library/Application Support/
+dev.weaveforge.desktop` on macOS). A run that is cut off at the wrong moment — a
 force-quit, a crash, the power — can leave that directory in a state no later
 start can open. Three things stand between that and losing your notes:
 
-- **Copies.** Every ten minutes while something has changed, and again when
-  the app quits, the whole database is written out as a compressed archive to
-  `local-db-backups/` beside it — and, when a workspace folder is chosen, to
-  `.weaveforge/db-backups/` inside that folder too. In each place the newest
-  three are kept, plus the newest copy from each of the last seven days. The workspace folder is yours, not the app's: uninstalling
-  does not touch it.
-- **Restoring by itself.** When the database will not open, the broken
-  directory is moved aside as `local-db.broken-<time>` (never deleted) and the
-  newest copy is loaded into a fresh one, without asking. You lose at most what
-  changed since that copy. The *Couldn't start the app* screen with *Start with
-  a fresh database* appears only when there was no copy to restore from.
-- **Finding the way back after a reinstall.** The workspace folder's path is
-  also written to `~/.weaveforge/desktop.json`, a small file outside the app's
-  directory. A fresh install with nothing of its own reads it, takes the folder
-  up again, and — finding no database — restores the newest copy from the
-  folder's `.weaveforge/db-backups/`. Choose the same folder and everything
-  comes back.
+- **Copies.** Every ten minutes, and again when the app quits, the whole database is written out as a compressed archive to `local-db-backups/` in the app's data folder, beside `local-pg`. The newest three are kept, plus the newest copy from each of the last seven days. The workspace folder is not written to: no `.weaveforge/db-backups/` copy is created (only `local-db-backups` is configured, `apps/shell/src/lib.rs:363`). <!-- UNCONFIRMED: the 'while something has changed' condition was not found in apps/shell/src/lib.rs spawn_backups (lines 376-400 not fully traced); uninstall behaviour for the data folder is not in the repo. -->
+- **Restoring by itself.** When the data folder holds no database (no `data/PG_VERSION`; `apps/shell/src/local_pg/host.rs:86-110`), the directory is moved aside as `local-pg.discarded-<time>` (never deleted) and the newest copy from `local-db-backups/` is loaded into a fresh one, without asking. A database that exists but will not open is not moved aside or restored by this path. You lose at most what changed since that copy. <!-- UNCONFIRMED: when the *Couldn't start the app* screen (*Start with a fresh database*) appears was not traced; its own text (apps/web/src/features/auth/ui/privacy-disclaimer-gate.tsx:255-290) says it appears only when no copy exists. -->
+- **After a reinstall.** Copies are only in the app's data folder, so they survive a reinstall only if that folder is kept. The app does not restore from a workspace folder. <!-- UNCONFIRMED: the earlier text described a `~/.weaveforge/desktop.json` record that no code in apps/shell/src writes or reads, and a restore from `.weaveforge/db-backups/`; neither is found in the repo. Whether uninstall removes the data folder is not in the repo. -->
 
 ### Training scripts write into it too
 
@@ -286,10 +277,10 @@ The window checks GitHub releases for a newer version when **Settings → Update
 opens, and keeps the answer for an hour. The app downloads nothing itself. When a
 newer version is out, the section shows it with a **Get** button, labelled with the new version
 number, that opens the release page in your browser. A failed check shows "Could not check for updates.
-Try again." and is not kept, so the next look asks again. **Check now** in that
+Try again." and is not kept, so the next look asks again. <!-- UNCONFIRMED: the not-kept behaviour was not traced in apps/web/src/features/settings/ui/desktop-update-panel.tsx. --> **Check now** in that
 section, or **Help → Check for updates…**, asks straight away.
 
-SECURITY: the Windows build is not code-signed. Nothing is installed by the app
+SECURITY: the Windows build is not code-signed. <!-- UNCONFIRMED: the repo has no signing config (apps/shell/tauri.conf.json, apps/shell/tauri.bundle.json, .github/workflows/ci.yml), and ci.yml publishes no Windows release; the signing state of the released installer and its release page are outside the repo. --> Nothing is installed by the app
 itself; the installer comes from the release page in your browser, over HTTPS.
 That is weaker than a signature, and signing is the fix.
 
@@ -302,11 +293,9 @@ The window has its own menu bar:
   **Settings** (`Ctrl+,`) and **Quit**.
 - **Edit**: Undo, Redo, Cut, Copy, Paste and Select all.
 - **Go**: the sidebar pages, from Home and Search… down to Settings.
-- **View**: Reload, Actual size, Zoom in, Zoom out and Full screen.
+- **View**: Reload, Actual size, Zoom in, Zoom out, Full screen and Developer tools. In an installed build Developer tools does nothing; it only opens in debug builds (`apps/shell/src/menu.rs`, `dev_tools()`).
 - **Window**: Minimize, Maximize and Close window.
 - **Help**: Documentation, Keyboard shortcuts, Check for updates… and the
   version number, greyed out.
 
-Menu navigation happens inside the page, not with `loadURL` — a load driven from
-the main process starts a fresh document, which would log an account-less copy
-straight back out.
+Menu navigation happens inside the page. <!-- UNCONFIRMED: no `loadURL` call exists in apps/shell/src or apps/web/src, so the earlier reason (a main-process load would start a fresh document and log an account-less copy out) is not verified; menu handlers were not traced. -->

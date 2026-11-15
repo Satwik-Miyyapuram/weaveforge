@@ -22,17 +22,15 @@ archived versions and nothing linked to them, so they are gone.
 |------|-------|
 | [`migration-plan.md`](completed/migration-plan.md) | Self-host Postgres + tiered blobs. Phases 0–2 delivered; 3–6 documented but **not provisioned** — see [`../self-host-roadmap.md`](../strategy/self-host-roadmap.md) |
 | [`modular-deployment-plan.md`](completed/modular-deployment-plan.md) | Feature/integration allowlists |
-| [`competitive-scan-implementation-plan.md`](completed/competitive-scan-implementation-plan.md) | Cite / discovery / library UX |
 | [`pdf-viewer-plan.md`](completed/pdf-viewer-plan.md) | Phase D provenance reader record; superseded by the reader plan |
-| [`hosting-and-cost-plan.md`](completed/hosting-and-cost-plan.md) | Hosted vs self-host licensing boundary (AGPL-3.0) |
-| [`COMMERCIALIZATION_AND_COST_PLAN.md`](completed/COMMERCIALIZATION_AND_COST_PLAN.md) | Cost drivers and OCI guidance; its tier table is superseded by [`../pricing-strategy.md`](../strategy/pricing.md) |
+| [`COMMERCIALIZATION_AND_COST_PLAN.md`](completed/COMMERCIALIZATION_AND_COST_PLAN.md) | Cost drivers and OCI guidance; its tier table is superseded by [`../strategy/pricing.md`](../strategy/pricing.md), which also holds the hosted vs self-host licensing boundary (§12) |
 | [`offline-first-sync.md`](completed/offline-first-sync.md) | Offline-first desktop and sync — data-kind classification, three-way merge, conflict policy. **Delivered** |
 
 ## Elsewhere
 
 - **Billing / pricing** — [`../future-work/billing-and-quota-plan.md`](../future-work/billing-and-quota-plan.md)
   (entitlements and metering, status: proposed). Strategy lives in
-  [`../pricing-strategy.md`](../strategy/pricing.md).
+  [`../strategy/pricing.md`](../strategy/pricing.md).
 - Other non-plan notes — [`../future-work/`](../../future-work/) (backlog, overnight queue, handoffs).
 
 ## Future

@@ -51,7 +51,7 @@
     "docs:generate": "node scripts/update-docs.mjs && node scripts/build-atlas.mjs",
     "docs:site": "node scripts/build-user-docs.mjs",
     "check:docs-freshness": "node scripts/check-docs-freshness.mjs",
-    "check:docs": "node --test \"scripts/lib/test/*.test.mjs\" && node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check && node scripts/check-ui-names.mjs",
+    "check:docs": "node --test \"scripts/lib/test/*.test.mjs\" && node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check && node scripts/check-ui-names.mjs && node scripts/check-doc-refs.mjs",
     "check:ci-parity": "node scripts/check-ci-parity.mjs",
     "bindings": "cargo run -p wf-bindings --locked",
     "build:wasm": "node scripts/build-wasm.mjs",

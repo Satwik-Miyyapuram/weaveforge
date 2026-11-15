@@ -2,7 +2,7 @@
 
 The `proposal_draft` module shapes a pending AI write proposal before it is saved:
 it trims the preview, rejects a blank one and tidies the optional fields. It does no I/O.
-The use case `create-ai-proposal-draft.use-case.ts` runs the access policy first, calls
+The use case `CreateAiProposalDraftUseCase` (`packages/core/src/features/ai-assistant/application/parts.ts`) runs the access policy first, calls
 `rust().shapeAiProposalDraft`, then saves.
 
 ## What lives in Rust

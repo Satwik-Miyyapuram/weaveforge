@@ -7,7 +7,7 @@ The recognition helpers are the pure parts of handwriting recognition: the unsur
 - `wf_core::ink::recognise`: `INK_UNSURE_CONFIDENCE`, `is_unsure_confidence`, `map_ink_confidence`, `ink_page_confidence`, `ink_vocabulary_hints`, `bands_coincide` and `ink_page_summary` (a `RecognisedLine` list reduced to its text, confidence and unsure count).
 - `wf_core::ink::ink_engine`: `ink_engine_rank`, the engine's index in `INK_ENGINES`, with unknown ids sorting last.
 
-The wasm exports are in `crates/wf-wasm/src/ink.rs` and `ink_engine_title.rs`: `inkUnsureConfidence`, `isUnsureLine`, `mapInkConfidence`, `inkPageConfidence`, `inkVocabularyHints`, `bandsCoincide`, `inkPageSummary` and `inkEngineRank`.
+The wasm exports are in `crates/wf-wasm/src/ink.rs` and `crates/wf-wasm/src/ink_engine_title.rs`: `inkUnsureConfidence`, `isUnsureLine`, `mapInkConfidence`, `inkPageConfidence`, `inkVocabularyHints`, `bandsCoincide`, `inkPageSummary` and `inkEngineRank`.
 
 ## What stays in TypeScript
 
@@ -15,11 +15,6 @@ The wasm exports are in `crates/wf-wasm/src/ink.rs` and `ink_engine_title.rs`: `
 - `recognisePage`, `recogniseLine` and `acceptedLines` in `apps/web/src/features/ink/application/parts-4.ts` stay as shims. They drive the engine and the line loop, and they call `readyCore()` for the pure parts.
 
 ## Wrappers
-
-Every raw export has a typed wrapper in `packages/wf-wasm/src`, imported as `rawX` from `../pkg/wf_wasm.js`:
-
-- `ink-lines.ts`: `inkUnsureConfidence`, `bandsCoincide`, `inkPageSummary`.
-- `core-extra.ts`: `inkEngineRank`.
 
 The eight recognition names are typed by the wasm package's generated declarations, through `rust()` in `packages/core/src/shared/rust.ts`. The former `RecogniseFns` interface is gone, so `rust()` types them directly.
 

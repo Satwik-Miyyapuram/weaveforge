@@ -11,7 +11,7 @@ checked: 2026-11-14
 
 How WeaveForge connects reading (Zotero) → notes → report writing → LaTeX.
 
-See also: [competitive scan](../internal/strategy/competitive-scan.md) · [implementation plan](../internal/plans/completed/competitive-scan-implementation-plan.md)
+See also: [competitive findings](../internal/strategy/competitive-findings-2026-07.md)
 
 ---
 
@@ -39,12 +39,7 @@ On a paper’s annotation list: **Copy quote + cite** puts a blockquote and `[[P
 
 ### Pin to a report section
 
-On an annotation card, use **Pin to section**. Pins live in the `annotation_pins` table (not vault notes).
-
-Open a report section. The **Pinned annotations** pane lists those cards:
-
-- **Insert** appends quote + `[[Paper]]` into the section draft
-- **Copy** / **Unpin** as needed
+On an annotation card, use **Pin to section** and choose a report section. Choose **Unpinned** to remove the pin. Pins are saved in the `annotation_pins` table, not in vault notes.
 
 ---
 

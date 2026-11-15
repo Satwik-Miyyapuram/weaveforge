@@ -114,3 +114,34 @@ is only *recorded* and never drawn passes a model assertion and fails that one.
   every ref in the editor, not a move. It needs deciding per file: split, or an
   `OVERSIZED_ALLOWED` entry with a reason. See `docs/building/dev.md` § Source
   hygiene.
+
+## 5. Surface Pen capture: root causes and landed fixes
+
+On a Surface Slim Pen 2 (Snapdragon X, Windows 11, Electron 33) strokes drew
+nothing on `.ink-canvas` and did not commit. Four defects combined:
+
+- **Early messages dropped.** The presenter request is async, so `workerRef`
+  was null while `InkHost` sent `load-page`, `page-model`, `viewport` and
+  `resize`. They were discarded, and the worker drew at scale 1, which put
+  the middle and lower page outside clip space. Fixed with a `pendingRef`
+  queue in `use-pen-capture.ts` (`post`), flushed after `init` starts the worker.
+- **Pen gestures cancelled.** Without `preventDefault()` on pointerdown and
+  pointermove, Chromium sent `pointercancel` after a pixel or two, and a
+  stroke under four samples is dropped on commit. Fixed with `preventDefault()`
+  in the pen handlers (`use-pen-capture.ts`, `ink-page-pointer.ts`).
+- **Palm gate stuck.** `pointerUp` returned early for an aborted stroke and
+  never released `gate.activeId`, so every later contact was ignored. Fixed in
+  `pen-capture-session.ts` (`pointerUp`): the gate is released unconditionally
+  for the pointer.
+- **Coalesced samples had no `t`.** Native events carry `timeStamp`, not `t`, so
+  `dt` became NaN in the One-Euro filter. Fixed in `pen-capture-session.ts`: both `t` and `timeStamp` go into the row, NaN marks the
+  absent one, and the stream takes the first finite value, so no NaN reaches `dt`.
+
+Regression coverage: `apps/web/src/features/ink/test/use-pen-capture-leak.test.tsx`
+(page open/close leaves no worker or listener behind) and the `timeStamp`
+case in `pen-capture-session.test.ts`.
+
+Not confirmed in code, so treat as open: the design doc's Fix 5 (viewport
+resync on backend ready in `ink-host.tsx`) and Fix 6 (a live digitiser readout
+in `InkBar`; no `ink-readout` class exists). The doc's `performance.now()`
+fallback for timestamps was not what landed; NaN marking is what is in code.

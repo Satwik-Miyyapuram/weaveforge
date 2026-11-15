@@ -39,9 +39,8 @@ Examples of the JavaScript names:
 - `reader_analysis_citations` and `reader_analysis_text`: citation candidates and
   text helpers.
 
-The TypeScript wrappers in `packages/wf-wasm/src` call these through
-`readyCore()`, and through `typedCore()` where typed results are needed. The
-analysis pass runs in the reader, once per opened document.
+App code calls these through `readyCore()`, and through `typedCore()` where
+typed results are needed. The analysis pass runs in the reader.
 
 ## Offsets and units
 

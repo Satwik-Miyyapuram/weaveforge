@@ -57,7 +57,7 @@ const FOLDER_INDEX = "README.md";
  * manual, and as pages they made the site open on a section of paperwork
  * before anything about the product.
  */
-const GITHUB_FILES = new Set(["CODE_OF_CONDUCT.md", "SECURITY.md"]);
+export const GITHUB_FILES = new Set(["CODE_OF_CONDUCT.md", "SECURITY.md"]);
 
 /**
  * The atlas is a generated HTML page, not Markdown, so it is not one of the

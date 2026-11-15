@@ -17,7 +17,7 @@ Whitespace follows JavaScript (`\S` and `trim`), using `crate::search::js_text::
 
 The wasm exports are `isBareUrl`, `markdownLink` and `linkLabel` in `crates/wf-wasm/src/paste.rs`. Their TS types are declared in Rust. The app reaches them through `readyCore()` from `@/lib/rust-core`.
 
-`linkLabel` returns `null` for "no label". The wasm side returns `undefined`, and the wrapper maps it to `null`.
+`linkLabel` returns `null` for "no label". The wasm side returns `null` directly (`link_label_js` in `crates/wf-wasm/src/paste.rs:234-236`).
 
 Callers:
 

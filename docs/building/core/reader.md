@@ -1,4 +1,3 @@
-- Zotero projection: the app calls `readyCore().projectZoteroAnnotations` directly from `paper-pdf-pane.tsx`. The TS wrapper `project-zotero-annotations.ts` was removed (batch 7).
 # Reader core (`reader`)
 
 The `reader` module holds the pure rules behind the PDF reader: where an
@@ -89,7 +88,7 @@ KEEP decision, not a gap.
   the reference-action rules that `apps/web/src/features/reader/application/parts-2.ts`
   calls. The TS file keeps the clipboard and navigation calls.
 - `crates/wf-core/src/reader/zotero_write_back_message.rs` (wasm `reader_zotero_sync.rs`):
-  the Zotero annotation write-back message rules. `write-back-zotero-annotations.ts` keeps
+  the Zotero annotation write-back message rules. `apps/web/src/features/reader/infrastructure/parts-2.ts` keeps
   the network call.
 - Anything that touches pdf.js, the DOM, IndexedDB, the network or Zotero's API
   stays in TS. Rust only receives plain numbers and values.

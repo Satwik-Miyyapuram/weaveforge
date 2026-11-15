@@ -45,7 +45,7 @@ Setup cost is materially lower than the classic Zotero Integration + Dataview + 
 
 **Switching cost and lock-in.** Near zero — data lives in Zotero and Markdown. That cuts both ways: trivial for a researcher to try it, trivial to leave. Our vault ZIP import (§6.9) and Zotero sync (§6.1) already cover the migration path inbound.
 
-**Threat horizon: High.** Free, AGPL, shipping fast — last push within a week of writing, on a repo barely six months old. Squarely overlaps the reading → writing loop our competitive scan names as the product's mid-layer bet.
+**Threat horizon: High.** Free, AGPL, shipping fast — last push within a week of writing, on a repo barely six months old. Squarely overlaps the reading → writing loop the earlier internal scan (§11) names as the product's mid-layer bet.
 
 Calibration: ~9,000 downloads and 158 stars in roughly six months is a strong trajectory but not ubiquity, and 22 open issues on a young project suggests it is still stabilising. **Mobile is weaker than first reported** — `isDesktopOnly` is false, but the README states support is "currently limited," so the mobile flank is not yet lost. This is a threat to intercept, not a lost position.
 
@@ -293,9 +293,53 @@ This file consolidates verification over two external Deep Research runs commiss
 
 | Source document | Outcome |
 |-----------------|---------|
-| `docs/internal/strategy/research-app-analysis.md` | Usable. Followed the brief's structure; the `§`-citation gate correctly reclassified seven recommendations as already-shipped. Undersourced — six references for a nine-tool matrix. Corrections from §7 above have been applied to it. |
 | `docs/internal/plans/completed/competitive-strategy-report-plan.md` | Failed. Reported §14 as "omitted from the source document", invented its own Q1–Q10, and marked Q11–Q22 `UNANSWERED` against a section that exists. Teardowns sliced by workflow phase rather than by app. No matrix, no self-check, no consolidated roadmap. Retain only for the name-collision note below. |
 
-Other internal docs: `docs/internal/strategy/competitive-scan.md` (prior internal scan), `docs/internal/future-work/BACKLOG.md` (shipped vs deferred).
+Other internal docs: `docs/internal/future-work/BACKLOG.md` (shipped vs deferred). The earlier internal scan is merged into §11 below.
 
 **Name collision note** — partially salvageable from the failed run, and partially wrong. Verified 2026-07-25: `WEAVEFORGE LIMITED` is an active UK-registered company (property/investment, number 04598210); `glyphweaveforge` is an unrelated Rust crate; `WeaveFox` is an unrelated platform; the GitHub org `weaveforge` is held by an unrelated dormant dev team; multiple GitHub repositories are named `weaveforge`. **The claimed TTRPG using the WeaveForge name does not appear to exist** — that came from the failed run citing a Reddit thread, and direct searching finds only a game called *Weave*. No software trademark for WeaveForge was found. Resolution: keep the name, register no trademark.
+
+---
+
+## 11. Earlier internal scan — merged content (2026-11-15)
+
+The earlier internal scan (`competitive-scan.md`) is merged here. Its build plan (phases 0–5) is complete; the plan file is retired. The one open phase item is in `docs/internal/future-work/BACKLOG.md` (row 11).
+
+### 11.1 Other products — verdicts
+
+| Product | Verdict | Take for WeaveForge | Skip |
+|---------|---------|---------------------|------|
+| LiquidWorkspace | Steal soon | Project-binder feel across Papers / Notes / Report; cite palette showing author/year; optional CSL styles for non-LaTeX export | Theme Studio, infinite canvas as primary UX, in-app clipboard tray |
+| LiquidText | Maybe later | Persist page/locus on excerpts; "jump to source" if a viewer ships | Infinite canvas, stylus ink, pinch-compare chrome |
+| Citavi | Steal soon (best strategic fit) | Assign excerpts to report sections; "insert related excerpts" pane; quotation types; section outline + queued excerpts compiled to draft | Word add-in as the product, NVivo-depth coding |
+| EndNote 2025 | Maybe later | Copy quote + `[[Paper]]` as blockquote for the report; stronger related-paper suggestions | Word plugin race, Clarivate lock-in |
+| Notion 3.0 | Maybe later | Relation / rollup properties feeding the graph; saved views over the Papers library | General workspace/db builder, per-seat AI pricing, block-level everything |
+| Zotero | Already have | Stay sync partner; improve Better BibTeX citekey import for LaTeX identity | Forking a PDF reader |
+| Discovery tools (ResearchRabbit, Litmaps, Connected Papers, Elicit, Semantic Scholar) | Steal soon | Related-paper query seeded from the library; saved-search alerts; structured extraction table | Visual mapping canvas, general AI search, being a discovery destination |
+| Mendeley, Paperpile, Readwise Reader, Logseq / RemNote | Mixed | Paperpile: cite-insert UX polish. Readwise Reader: highlights as excerpt notes (maybe later). Mendeley, Logseq / RemNote: skip | Block refs and spaced repetition are not thesis-OS priorities |
+
+### 11.2 Status of the earlier steal list
+
+| # | Idea | Status |
+|---|------|--------|
+| 1 | Pin excerpt to report section | Shipped (PR #29) |
+| 2 | Related-excerpts pane while writing | Shipped (PR #29) |
+| 3 | Copy quote + cite | Shipped (PR #29) |
+| 4 | Templated paper source note | On `feat/library-knowledge-loop` (source-note layout). Not the same as §6 P0 "vault note templates", which is still open |
+| 5 | Related-paper discovery | Shipped (PR #29), as direct add to library rather than AI Review proposals |
+| 6 | Stable Better BibTeX citekeys | Shipped (PR #29) |
+| 7 | Cite autocomplete showing author (year) | Shipped (PR #29) |
+| 8 | Structured-extraction table | On `feat/library-knowledge-loop`. AI column fill still open (§6 P0) |
+| 9 | Saved-search / new-citation alerts | Shipped (PR #33) |
+| 10 | Page/locus on excerpts | Shipped (PR #29) |
+| 11 | Cross-surface search / recents | On `feat/library-knowledge-loop` (jump recents) |
+| 12 | Saved DB views on Papers | Board view shipped (PR #29). Relation / rollup on `feat/library-knowledge-loop`. No timeline view listed as shipped |
+
+### 11.3 Non-goals carried over
+
+- Infinite canvas / Theme Studio (high build cost, weak thesis-OS fit; the graph covers relational views).
+- In-app PDF highlighter. Revisit per §2.1 and §6; a read-only surface for provenance is a separate question.
+- Word / Google Docs cite-while-you-write plugin (EndNote and Paperpile own it; WeaveForge bets on report sections and Overleaf/LaTeX).
+- Outliner block refs and spaced repetition.
+- In-app clipboard tray (OS clipboard is enough for v1).
+- Standalone discovery destination or visual citation canvas (borrow the related-papers query, not a mapping app).

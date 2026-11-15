@@ -25,5 +25,5 @@ Rules:
 - `tag_row`: a `null` colour becomes an absent colour. A `null` annotation becomes absent.
 - `tag_tone`: the tag is lowercased, then each code point's first UTF-16 unit is folded into `h = h * 31 + unit` (wrapping at 2^32). Astral code points contribute only their high surrogate. Result is in `1..=6`. Must match the TypeScript hash exactly, so a tag keeps its slot.
 - `sync_fields`: in Mattermost sign-in mode the `token` field is hidden. Every other field is shown in both modes. The key match is exact, so `Token` is shown (see `packages/wf-wasm/test/sync-fields.test.ts`).
-- `serde_util`: `null` and a missing key both read as the default, as `?? ""` and `?? []` do in TS. Crate-private.
+- `serde_util`: `null` reads as the default, as `?? ""` and `?? []` do in TS. A missing key needs `#[serde(default)]` on the field. Crate-private.
 - `paper_note`: the addition is trimmed and so is the existing note. A blank existing note is replaced, not prefixed. The new text follows the existing one after a blank line. Returns `None` when the addition is blank, so the caller can refuse it.

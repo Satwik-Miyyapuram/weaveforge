@@ -40,9 +40,12 @@ Examples of the JavaScript names:
 - `overleaf_thumb`: `thumbKey`, `thumbFits`.
 - `overleaf_project_list`: `mergeOverleafProjects`, `overleafProjectMatches`, `overleafProjectShown`.
 
-TypeScript reaches these through the wrappers in `packages/wf-wasm/src`, which
-call `readyCore()` for the loaded core and `typedCore()` for typed results. The
-Overleaf feature in `apps/web/src/features/overleaf/` calls the wrappers.
+TypeScript calls the raw names through `readyCore()` for the loaded core and
+`typedCore()` for typed results. `packages/wf-wasm/src` has one wrapper for this
+module, `overleaf-project-list.ts`, and nothing else. The Overleaf feature in
+`apps/web/src/features/overleaf/` calls the raw names, for example
+`application/parts.ts:131` (`walkOverleafSections`) and `:249`
+(`describeOverleafStatus`).
 
 ## Export flow
 

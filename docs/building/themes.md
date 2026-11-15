@@ -18,7 +18,7 @@ WeaveForge uses a pure CSS-variable theming system to maintain high performance 
 3. **Dual Mode**: The app tracks two distinct states:
    - `data-mode`: `"light"` or `"dark"`.
    - `data-theme`: The specific palette applied to that mode (e.g., `"mocha"`, `"amoled"`, `"latte"`).
-4. **No-Flash Boot**: `layout.tsx` contains an inline `<script>` that reads `localStorage` before the DOM parses, instantly applying the correct `data-mode` and `data-theme` to the `<html>` root. This prevents any white-flash on load.
+4. **No-Flash Boot**: `layout.tsx` injects an inline `<script>` (`THEME_BOOT_SCRIPT`, `apps/web/src/lib/theme/theme.ts`) that reads `localStorage` before the DOM parses, instantly applying the correct `data-mode` and `data-theme` to the `<html>` root. This prevents any white-flash on load.
 
 ## Adding a New Theme
 
@@ -29,8 +29,9 @@ tokens and are theme-agnostic by design. Overriding an alias in a theme block
 sets the derived value while leaving its source unset, which is how you get a
 theme that looks right in some components and unstyled in others.
 
-1. **Define the source tokens** in `apps/web/src/app/themes/nord.css`, and add
-   an `@import` for it to `themes/index.css`. Every token below, or the theme
+1. **Define the source tokens** in a new file, `apps/web/src/app/themes/<name>.css`,
+   named for the theme (the example below uses `nord`), and add an `@import`
+   for it to `themes/index.css`. Every token below, or the theme
    inherits a value from the default palette and mismatches itself:
 
    ```css
@@ -140,7 +141,7 @@ Aliases — defined once on `:root`, **never** in a theme block:
 
 ## The Catppuccin Implementation
 
-Our Catppuccin themes (Latte, Frappé, Mocha) are mapped exactly to the official Catppuccin style guide:
+Our Catppuccin themes (Latte, Mocha) are mapped exactly to the official Catppuccin style guide:
 - `Base` -> `--bg`
 - `Surface0` -> `--surface` (cards)
 - `Mantle` -> `--chip`, `--nav-bg` (sidebars/shells)
@@ -239,7 +240,7 @@ starter file from Settings → Appearance. Shape:
 ```
 
 The file is untrusted input and is validated by `parseThemeConfig`
-(`packages/core/src/features/settings/domain/parts.ts`) before anything
+(`crates/wf-core/src/settings/theme_config.rs`, bound in `crates/wf-wasm/src/theme_config.rs`) before anything
 is applied:
 
 - A byte cap is enforced *before* `JSON.parse`.

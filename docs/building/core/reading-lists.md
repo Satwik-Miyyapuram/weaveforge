@@ -23,14 +23,14 @@ Each file under `crates/wf-core/src/reading_lists/` covers one job:
 ## How the app calls it
 
 The wasm exports live in `crates/wf-wasm/src` (for example `reading_list.rs`,
-`reading_lists_order.rs`, `reading_list_rows.rs`, `reading_lists_extraction.rs`
+`reading_lists_order.rs`, `reading_lists_extraction.rs`
 and `screening_records.rs`). The TypeScript wrappers in `packages/wf-wasm/src`
 import the raw names from `../pkg/wf_wasm.js` and re-export them. The main names are:
 
 - Tree: `buildListTree`, `deepestFirstListIds`, `listDisplayColor`, `listMembershipByKey`.
 - Order: `collectListIds`, `reorderedIds`, `movedIds`, `planItemOrder`, `itemIdsForPapers`, `nextSortOrder`, `isInheritedLinkCode`, `subtreeIds`, `groupSubtreeItems`.
   `itemIdsForPapers` maps a paper order to item ids (refuses the first paper not in the list). `nextSortOrder` gives a new row its position. `isInheritedLinkCode` holds the database codes (23503, 42703, PGRST204) that mean only the inherited link failed.
-- Rows: `readingListToDomain`, `readingListToRow`, `readingListItemToDomain`, `readingListItemToRow`.
+- Rows: `to_list_domain`, `to_list_row`, `to_item_domain`, `to_item_row` in `crates/wf-core/src/reading_lists/list_row.rs`. Rust only; wasm does not export them.
 - Creation: `createReadingListWith`, `verdictsFor`.
 - Extraction: `flattenPaperRows` (existing listed papers, in list order, with their values; the TS side maps the index back to the paper), `extractionMarkdown`, `extractionCsv`, `emptyCellPaperIds`, `buildProposeFillPrompt`, `pendingFieldFills`.
 - Screening: `verdictFor`, `agreementBetween`, `prismaCounts`.

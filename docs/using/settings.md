@@ -43,7 +43,7 @@ The tabs appear in this order.
 - **AI**: **AI provider**, where you choose the model and enter its **API key**, and
   **AI assistant access**, which lets an AI assistant read the sources you pick and
   propose changes. Every proposed change waits for your review. In the desktop app,
-  this tab also has a section for AI tools on this computer.
+  this tab also has an **AI & MCP** section for AI clients on this computer.
 - **Access tokens**: the tokens that let scripts and AI tools reach your workspace.
   See the two sections below.
 - **Integrations**: the metadata sources for your library. Click one to enter its keys.

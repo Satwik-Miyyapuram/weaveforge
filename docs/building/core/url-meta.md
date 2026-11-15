@@ -1,8 +1,7 @@
 # URL meta core module
 
 `crates/wf-core/src/papers/url_meta.rs` holds the pure rules behind reading a
-paper from a web address in the desktop shell. The HTTP fetch and the HTML parse
-stay in TypeScript.
+paper from a web address in the desktop shell. The HTTP fetch stays in TypeScript.
 
 ## What lives in Rust
 
@@ -10,7 +9,7 @@ stay in TypeScript.
   has a scheme (`^[a-z][a-z0-9+.-]*:`, ASCII case-insensitive) is kept as is.
   Otherwise `https://` is prefixed.
 - `read_failure_message(status, detail)`: the error text for a failed relay read.
-  - 415: the not-a-web-page message, ending with `…`, plus ` (detail)` when detail is set.
+  - 415: the not-a-web-page message, ending with `….`, plus ` (detail)` when detail is set.
   - 400: the detail if set, else "That address cannot be fetched. Use an https link."
   - 403: the refused-site message, plus ` (detail)` when detail is set.
   - Other statuses: "Could not read that page: detail." when detail is set, else

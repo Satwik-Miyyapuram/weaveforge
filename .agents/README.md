@@ -52,8 +52,10 @@ untracked files. Never accumulate uncommitted task changes across turns.
 A change a user can see updates the `docs/using` page that covers it in the
 same PR: fix the steps, then set its `checked:` front matter to today. Each
 page's `covers:` lists the code it describes. `npm run check:docs` fails on a
-bolded button name the app lacks; `npm run check:docs-freshness` warns on a
-page whose code moved after `checked:`.
+bolded button name the app lacks, and on a file path or file name in any
+tracked doc that is not in the repo (`scripts/check-doc-refs.mjs`; runtime
+names go in `scripts/doc-refs-allow.txt`). `npm run check:docs-freshness`
+warns on a page whose code moved after `checked:`.
 
 ## Testing
 

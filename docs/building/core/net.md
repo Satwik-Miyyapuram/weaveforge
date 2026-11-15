@@ -18,9 +18,9 @@ Each file under `crates/wf-core/src/net/` covers one job:
 ## How the app calls it
 
 The wasm exports live in `crates/wf-wasm/src` (for example `url_safety.rs`,
-`net_redirect.rs` and `net_semantic_scholar_retry.rs`). The TypeScript
-wrappers in `packages/wf-wasm/src` import the raw names from
-`../pkg/wf_wasm.js` and re-export them. The main names are:
+`net_redirect.rs` and `net_semantic_scholar_retry.rs`). `packages/wf-wasm/src`
+has no wrappers for these; the app calls the raw names through `readyCore()` or
+`typedCore()`. The main names are:
 
 - Hosts and addresses: `checkUrlShape`, `isPublicAddress`.
 - Refusal copy: `describeUrlRejection(reason)`, which takes a reason code such as `"scheme"` and returns the sentence for it.
@@ -29,8 +29,7 @@ wrappers in `packages/wf-wasm/src` import the raw names from
 `page_title.rs` and `image_url.rs` have no `js_name` of their own. The ink
 engine's title code in `ink_engine_title.rs` calls `page_title` from Rust. Code
 in `apps/web` reads the exported names
-through `readyCore()` or `typedCore()` from `apps/web/src/lib/rust-core.ts`, or
-through the wrappers in `packages/wf-wasm`. The desktop app imports the wasm
+through `readyCore()` or `typedCore()` from `apps/web/src/lib/rust-core.ts`. The desktop app imports the wasm
 directly. `readyCore()` throws until `loadCore()` has resolved, so call it only
 after the core has loaded.
 
@@ -47,9 +46,9 @@ after the core has loaded.
   the desktop app.
 - **Orchestration.** Choosing when to call a relay, when to retry and what to show
   on failure stay in TypeScript use cases.
-- **Thin wrappers.** The files in `packages/wf-wasm/src` (for example
-  `net-private-host.ts` and `url-safety.ts`) only forward to the raw exports, so
-  they keep no rules of their own.
+- **Glue.** The wasm files `crates/wf-wasm/src/url_safety.rs`, `net_redirect.rs`
+  and `net_semantic_scholar_retry.rs` only convert arguments and forward to the
+  core functions, so they keep no rules of their own.
 
 Source: `crates/wf-core/src/net/`
 

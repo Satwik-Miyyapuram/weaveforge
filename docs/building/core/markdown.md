@@ -28,7 +28,7 @@ Caret positions and link indices are UTF-16 offsets, as CodeMirror reports them.
 ## Tests
 
 The four TS cases that covered these functions moved to Rust
-(`// it: ported` in the Rust source). `markdown-typed-links.test.ts` was
+(`// it: "..."` comments in the Rust source). The old TypeScript test file was
 deleted; its two cases now live in `cite_links.rs`. `mermaid-cache.test.ts`
 loads the core in a `before` hook.
 

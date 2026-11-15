@@ -12,8 +12,8 @@ ports, and use-case orchestration.
 | TS types | Rust | `crates/wf-wasm/src` (`unchecked_*_type`) |
 | Shared types | TS (hand-declared mirror) | `packages/core/src/shared/core-contract.ts`; functions typed by the generated wasm declarations |
 | Validation error classes | TS | `packages/core/src/shared/errors.ts` |
-| Repository ports | TS | `packages/core/src/features/sharing/domain/*-repository.ts` |
-| Use cases | TS (thin) | `packages/core/src/features/sharing/application/*.use-case.ts` |
+| Repository ports | TS | `packages/core/src/features/sharing/domain/parts.ts` (`ICommentRepository`, `IShareRepository`) |
+| Use cases | TS (thin) | `packages/core/src/features/sharing/application/parts.ts` |
 
 ## Types
 
@@ -41,8 +41,7 @@ The wasm module must be loaded first (`loadCore()` in the web app,
 ## Share-link token
 
 - Random bytes come from the injected `randomBytes(32)`. The 32-byte length is
-  the `SHARE_LINK_TOKEN_BYTES` constant in `create-share-link.use-case.ts`.
-  `generateShareLinkToken` was removed; it was a one-line wrapper.
+  the `SHARE_LINK_TOKEN_BYTES` constant in `packages/core/src/features/sharing/application/parts.ts`, used by `CreateShareLinkUseCase`.
 - The URL form is `rust().encodeShareLinkToken(token)`.
 - The default expiry is `rust().defaultShareLinkExpiresAt(nowMs)`.
 
@@ -59,13 +58,13 @@ class name in Rust (`named_error` in `crates/wf-wasm/src/sharing.rs`).
 ## Public surface
 
 `packages/core/src/index.ts` re-exports the types from
-`core-contract.ts`, the two repository modules, and the six use-case modules.
+`core-contract.ts`, the repository interfaces, and the six use-case classes.
 It no longer exports the old domain classes or the removed constants.
 
 ## Deleted
 
-The whole `domain/` folder (the share, comment, share-link and share-link-token
-classes). Their rules live in `crates/wf-core` now.
+The share, comment, share-link and share-link-token classes. The `domain/` folder
+keeps only the repository interfaces. Their rules live in `crates/wf-core` now.
 
 ## Still TS (thin)
 
@@ -74,10 +73,9 @@ repository ports. Grant, comment, and token rules run through `rust()`.
 
 Pure rules still in TS (not ported, listed for review):
 
-- `revoke-share-link.use-case.ts`: owner check `link.ownerId !== input.ownerId`.
-- `create-share-link.use-case.ts`: `!input.resourceId` throws a bare `Error`,
+- `RevokeShareLinkUseCase` (`packages/core/src/features/sharing/application/parts.ts`): owner check `link.ownerId !== input.ownerId`.
+- `CreateShareLinkUseCase` (same file): `!input.resourceId` throws a bare `Error`,
   which the route maps to 500 rather than 400.
-- `redeem-share-link.use-case.ts`: expiry and revocation are enforced by the
+- `RedeemShareLinkUseCase` (same file): expiry and revocation are enforced by the
   repository's `redeem`, not here.
-- `manage-vault-page.use-case.ts` (group B, vault): `title.trim()` and the
-  required-title check are TS. The title-key comparison uses `rust().normalizeTitleKey`.
+- Vault page titles: `title.trim()` is in `apps/web/src/features/vault/ui/vault-screen/page-editor.tsx`. The title-key comparison uses `rust().normalizeTitleKey` in `apps/web/src/features/vault/application/parts.ts`. No `manage-vault-page` use case exists in this worktree.

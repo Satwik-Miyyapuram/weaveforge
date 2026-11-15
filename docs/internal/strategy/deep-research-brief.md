@@ -550,7 +550,7 @@ Tables: `ai_proposals`, `ai_audit_records`, `ai_mcp_relay_requests`, MCP token s
 
 ## 12. Competitive context already internalized
 
-Internal scan lives in `docs/internal/strategy/competitive-scan.md`. High-level takeaways already decided:
+Internal scan lives in `docs/internal/strategy/competitive-findings-2026-07.md` (§11 for the earlier steal list). High-level takeaways already decided:
 
 | Steal direction | Examples |
 |-----------------|----------|
@@ -699,12 +699,12 @@ Produce **all** of the following. A missing section is a failed deliverable.
 | `docs/internal/plans/README.md` | Plan index (current / working / future / completed) |
 | `docs/internal/plans/completed/AI_MCP_PLAN.md` | Full AI design |
 | `docs/using/citations-and-overleaf.md` | Cite / pin / export UX |
-| `docs/internal/strategy/competitive-scan.md` | Prior competitive notes |
+| `docs/internal/strategy/competitive-findings-2026-07.md` | Prior competitive notes (§11 merged) |
 | `docs/internal/future-work/BACKLOG.md` | Shipped vs deferred |
 | `docs/internal/plans/completed/library-knowledge-loop-plan.md` | Fields / annotations track |
 | `python/README.md` | SDK |
 | `plugins/weaveforge-research/README.md` | Codex plugin setup |
-| `docs/internal/plans/completed/hosting-and-cost-plan.md` | Hosted pricing thinking |
+| `docs/internal/strategy/pricing.md` | Hosted pricing thinking |
 | `docs/internal/plans/completed/modular-deployment-plan.md` | Feature stripping |
 
 ---

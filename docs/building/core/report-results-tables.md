@@ -24,7 +24,7 @@ The Markdown and LaTeX table renderers are private and are not exported to wasm.
   Missing or null notes count as empty. Own notes are checked before children.
   Lives in `crates/wf-core/src/report/results_tables_presence.rs`; wasm export
   `hasResultsTables` in `crates/wf-wasm/src/report_results_presence.rs`. It replaces the TS walk in
-  `download-overleaf-export.ts`, which decides whether experiments are loaded
+  `apps/web/src/features/overleaf/application/parts.ts` (`downloadOverleafExportPackage`), which decides whether experiments are loaded
   before the Overleaf export. It does not check the 16Mi cap, same as
   `parseResultsTableRefs`.
 

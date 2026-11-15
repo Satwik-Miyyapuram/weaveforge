@@ -28,7 +28,7 @@ fetch`, indistinguishable from a dead network.
 | Host | Serves | Deployed from |
 |---|---|---|
 | `app.weaveforge.org` | the web app (and the Android TWA wraps this host) | `apps/web` on Vercel |
-| `www.weaveforge.org` | the pitch site and the docs (`/docs/*`) | `apps/pitch` on GitHub Pages (`apps/pitch/public/CNAME`) |
+| `www.weaveforge.org` | the pitch site and the docs (`/docs/*`) | `apps/pitch` on GitHub Pages (built by `.github/workflows/pages.yml`; the build's `prebuild` step, `copy-assets.mjs` in `apps/pitch/scripts/`, writes the custom-domain CNAME into the export) |
 | `docs.weaveforge.org` | legacy docs address — redirects to `www.weaveforge.org/docs/` | DNS only |
 | `api.weaveforge.org` | PostgREST data + realtime | the self-hosted box — [oracle-shift-guide](oracle-shift.md) |
 
@@ -48,12 +48,12 @@ preview host you need for as long as you need it.
 ```
 packages/core/                    apps/web/src/
 ├── features/*/domain/            ├── backend/            ← Postgres repos, auth
-│   IPaperRepository, …           │   config.ts           ← NEXT_PUBLIC_BACKEND_PROVIDER
-├── storage/                      │   wire-backend.ts
+│   IPaperRepository, …           │   parts.ts            ← readBackendConfig (NEXT_PUBLIC_BACKEND_PROVIDER)
+├── storage/                      │   (wireBackend: container/parts.ts)
 │   IBlobStore                    ├── storage/            ← blobs (separate layer)
 ├── backend/                      │   config.ts           ← BLOB_PROVIDER, R2, tiering
 │   IAuthService                  │   wire-storage.ts
-│   ICurrentUserProvider          │   providers/supabase|s3|tiered/
+│   ICurrentUserProvider          │   providers/http|postgrest|s3|tiered/
 │   IAdminUserProvisioner         └── integrations/       ← Zotero, GitLab, …
 ```
 
@@ -119,14 +119,16 @@ new-issue form, prefilled with the same report; the reader submits it from their
 own account. A report is never silently dropped.
 
 **Where that variable goes** is worth being precise about, because the obvious
-guess is wrong: the route that files reports (`/api/report-issue`) is served by
-`apps/web`, which runs on **Vercel** — not on the API box. So:
+guess is wrong: the route that files reports (`/api/report-issue`) is served by the relay
+(`apps/relay/server/src/routes.rs`), which `apps/web` calls through
+`relayUrl` (`apps/web/src/app/error-report-panel.tsx`). In the OCI compose
+file the relay is the `weaveforge-relay` service (profile `relay`). So:
 
 | Context | Where to set it |
 |---|---|
-| Production | the `apps/web` project on Vercel → Settings → Environment Variables (`GITHUB_ISSUES_TOKEN`, optionally `GITHUB_ISSUES_REPO`). Redeploy for it to take effect. |
-| Local development | `apps/web/.env.local` — Next only reads it from the app directory, and it is git-ignored. |
-| The OCI box | **nothing.** `infra/oci/docker-compose.yml` runs the database, PostgREST, Realtime, the gateway and MinIO; the web app is not in it. Setting the token there would look configured and do nothing. |
+| Production | the API box's `infra/oci` env file (`GITHUB_ISSUES_TOKEN`, optionally `GITHUB_ISSUES_REPO`), passed into `weaveforge-relay` (`infra/oci/docker-compose.yml`). Recreate the relay container for it to take effect. |
+| Local development | the environment of the relay process you run (`apps/relay/server/src/settings.rs`). Setting it in `apps/web/.env.local` does nothing for reports. |
+| The OCI box | the `weaveforge-relay` service above. Setting it on any other service does nothing. |
 | A packaged desktop build | **nothing** — it serves a static copy of the app, which has no server and therefore no report endpoint. Its report button opens GitHub's prefilled new-issue form instead. |
 
 The token is a fine-grained PAT with `issues: write` on one repository. When it is
@@ -224,13 +226,13 @@ handler's header.
 
 3. **Repositories** — copy a `Postgrest*Repository` → `Postgres*Repository` using `pg` / Drizzle / Kysely. Same tables, same columns; enforce `project_id` filters in app code if you drop RLS.
 
-4. **Blob store** — implement `IBlobStore` under `apps/web/src/storage/providers/` (S3/R2, tiered). Wired via `wireStorage()`, not `wire-backend.ts` directly.
+4. **Blob store** — implement `IBlobStore` under `apps/web/src/storage/providers/` (S3/R2, tiered). Wired via `wireStorage()` (`apps/web/src/storage/wire-storage.ts:54`), not from `wireBackend()` directly.
 
 5. **Admin provisioner** — implement `IAdminUserProvisioner` (create user + `profiles` row).
 
-6. **Wire** — add `case "postgres":` in `wire-backend.ts`; blob adapter in `wire-storage.ts`.
+6. **Wire** — add `case "postgres":` in `wireBackend()` (`apps/web/src/container/parts.ts:348`); blob adapter in `apps/web/src/storage/wire-storage.ts`.
 
-7. **Deploy** — set `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` and `DATABASE_URL` for **server-side** code. The browser needs a data API of its own; see [`oracle-shift-guide.md`](oracle-shift.md).
+7. **Deploy** — set `NEXT_PUBLIC_BACKEND_PROVIDER=postgres` and `DATABASE_URL` for **server-side** code. The browser needs a data API of its own; see [`oracle-shift.md`](oracle-shift.md).
 
 ### Oracle Cloud free tier (sketch)
 
@@ -271,7 +273,7 @@ Auth: self-hosted [Keycloak](https://www.keycloak.org/), [Authentik](https://goa
 | 3 | Implement `IAuthService`, `ICurrentUserProvider`, `IAdminUserProvisioner` |
 | 4 | Implement repository interfaces in `wire-postgrest-backend.ts` |
 | 5 | Implement blob adapters in `storage/providers/` + `wire-storage.ts` |
-| 6 | Add `case` in `wire-backend.ts` |
+| 6 | Add `case` in `wireBackend()` (`apps/web/src/container/parts.ts:348`) |
 | 7 | Document env vars in `.env.local.example` |
 | 8 | Run contract tests (in-memory + live integration) |
 

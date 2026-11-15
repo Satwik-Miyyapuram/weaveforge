@@ -285,7 +285,16 @@ Pricing is also independently switchable per deployment: a self-hosted instance 
 ## 11. Related
 
 - `docs/internal/plans/completed/COMMERCIALIZATION_AND_COST_PLAN.md` — cost drivers, OCI decision, pre-launch cost controls (still authoritative; its tier table is superseded by §5 here)
-- `docs/internal/plans/completed/hosting-and-cost-plan.md` — licensing boundary between hosted and self-hosted
+- Licensing boundary between hosted and self-hosted: see §12 (hosted operator controls, AGPL §13, self-host responsibilities)
 - `docs/internal/future-work/billing-and-quota-plan.md` — implementation
 - `docs/internal/plans/completed/pdf-viewer-plan.md` — the storage ladder that makes §3 possible
 - `docs/internal/plans/completed/modular-deployment-plan.md` — deploy-time feature stripping, used to remove billing entirely from self-host builds
+
+## 12. Licence boundary and hosted operator controls
+
+- The whole repository (including the Python SDK and MCP plugin) is AGPL-3.0-only. Self-hosting is always allowed, has no WeaveForge fee, and is subject only to the licences of the external services it uses.
+- AGPL-3.0 section 13: an operator who modifies WeaveForge and offers it over a network must give its users the corresponding source. The hosted instance is covered too; publishing all source keeps us compliant by default.
+- Hosted operator controls (access limited to invited users or organisations, fair-use limits on storage, sync, MCP relay and external integrations, a hosted-service plan for heavy use, suspension for abuse, unpaid use or operational risk) do not restrict self-hosting.
+- Self-hosters pay for and run compute and database, object storage and backups, auth and email, domain, TLS, monitoring and incident response, and their own external accounts (Supabase, Zotero, Overleaf, GitLab). They own security updates, RLS migrations, credential-encryption keys, backups and uptime.
+- Hosted billing and quota enforcement are planned, not built. Hosted access restriction is available through deployment configuration.
+- Leaked-password protection on hosted Supabase needs a Supabase Pro-or-above plan; the current project plan rejected the setting. This is a hosted-provider limit, not an application bypass. Self-hosters should set the equivalent Auth/GoTrue protection in their deployment.

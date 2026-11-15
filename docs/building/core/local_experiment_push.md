@@ -1,7 +1,7 @@
 # local_experiment_push
 
 Rust home: `crates/wf-core/src/sync/local_experiment_push.rs`. wasm: `crates/wf-wasm/src/sync_local_experiment_push.rs`.
-TS caller: `apps/web/src/backend/providers/local/parts-1.ts` (`LocalExperimentPush`).
+TS caller: `apps/web/src/backend/providers/local/parts-1.ts` (`ExperimentPush`, parts-1.ts).
 
 ## What moved
 

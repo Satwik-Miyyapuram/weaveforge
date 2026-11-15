@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-export const CODE = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".css", ".sql"]);
+export const CODE = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".css", ".sql", ".rs"]);
 
 export const TRACKED = execFileSync("git", ["ls-files", "-z"], {
   cwd: ROOT,
@@ -145,25 +145,29 @@ export function webRoutes() {
   };
 }
 
-/** Every `case "name":` in a dispatch switch, in the order the code lists them. */
-export function switchCases(rel) {
-  return [...read(rel).matchAll(/case "([a-z_]+)":/g)].map((match) => match[1]);
-}
-
-/** The local MCP server's tools as `{ name, description }`, read from `tool("name", "description", ...)` in Rust. */
+/**
+ * The local MCP server's tools as `{ name, description }`, from each `tool("name", ...)` in Rust.
+ * The description is the first string literal after the name, so an interpolated `&format!(` one shows its fixed text.
+ */
 export function workspaceMcpTools() {
-  return [...read("apps/shell/src/local_http/mcp_tools.rs").matchAll(/\btool\(\s*"([a-z_]+)",\s*"((?:[^"\\]|\\.)*)"/g)].map(
+  return [...read("apps/shell/src/local_http/mcp_tools.rs").matchAll(/\btool\(\s*"([a-z_]+)",\s*(?:&format!\(\s*)?"((?:[^"\\]|\\.)*)"/g)].map(
     (match) => ({ name: match[1], description: match[2] }),
   );
 }
 
-/** The assistant's tools by kind, read from the dispatch and the desktop server. */
+/**
+ * The assistant's tools by kind, read from the Rust desktop server: reads and
+ * workspace from the `tool(...)` declarations, proposals from the `suggest_`
+ * arms that dispatch them.
+ */
 export function mcpToolNames() {
-  const relay = switchCases("apps/web/src/features/ai-assistant/infrastructure/mcp-browser-relay.ts");
   const workspace = workspaceMcpTools().map((tool) => tool.name);
+  const proposals = [...read("apps/shell/src/local_http/mcp_suggest.rs").matchAll(/"(suggest_[a-z_]+)"\s*=>/g)].map(
+    (match) => match[1],
+  );
   return {
-    reads: relay.filter((tool) => !tool.startsWith("suggest_")),
-    proposals: relay.filter((tool) => tool.startsWith("suggest_")),
+    reads: workspace.filter((tool) => !tool.startsWith("suggest_")),
+    proposals,
     workspace,
   };
 }

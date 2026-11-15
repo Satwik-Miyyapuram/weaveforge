@@ -48,8 +48,8 @@ export interface WireStorageDeps {
  * Tiered mode uses {@link HttpBlobStore} in the browser (R2/MinIO secrets stay server-side).
  *
  * This module is in the browser bundle, so it must not import the S3 stores:
- * that pulled the AWS SDK into every page. Server code builds tiered storage
- * through `storage/server/blob-api`.
+ * that pulled the AWS SDK into every page. Server-side tiered blob routes are
+ * in `apps/relay/server/src/blob_routes.rs`.
  */
 export function wireStorage(deps: WireStorageDeps): IBlobStore {
   const config = deps.config ?? readStorageConfig();

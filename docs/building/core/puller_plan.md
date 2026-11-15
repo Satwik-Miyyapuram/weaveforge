@@ -1,6 +1,6 @@
 # Puller plan core module
 
-`puller_plan.rs` holds the pure decisions of the offline-sync `Puller`
+`crates/wf-core/src/sync/puller_plan.rs` holds the pure decisions of the offline-sync `Puller`
 (`apps/web/src/features/offline-sync/domain/parts-2.ts`). The Puller still does
 the reads, writes, transport calls and timers. It passes facts in and runs the
 step that comes back.
@@ -23,8 +23,7 @@ step that comes back.
   (wasm `uniqueConstraintName`): read a unique-constraint error message.
 
 There is no TypeScript wrapper. Its
-types come from `packages/wf-wasm/src/bindings.ts`, which was hand-edited for
-the new types and needs regeneration.
+types come from `packages/wf-wasm/src/bindings.ts`, a generated file (`npm run bindings`, gitignored). Regenerate it after changing the Rust types.
 
 ## What stays in TypeScript
 

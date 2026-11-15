@@ -31,7 +31,7 @@ Rules:
 - `milestones`: `remove` is an alias of `delete`; Rust sends unset optional fields as `null`, and TS drops them on reads.
 - `paper_fields`: `saveDef` upserts on `id`; `setValue` upserts on `project_id,paper_id,field_id` and returns `.single()`; one bad stored value fails the list call.
 - `plan_feed_links`: every query carries the `plan_feed` scope on `api_tokens`; the link name is "Calendar and widget link".
-- `project_columns`: `dashboardLayout` and `graphSettings` are routed to this module by `repo_step` (`crates/wf-core/src/repo_query.rs:546`); `get` and `save` are methods with no TS caller found under the name `project_columns`.
+- `project_columns`: `dashboardLayout` and `graphSettings` are routed to this module by `repo_step` (`repo_step` in `crates/wf-core/src/repo_query.rs`); `get` and `save` are methods with no TS caller found under the name `project_columns`.
 - `project_integrations`: upsert on `project_id,provider`; columns `provider,enabled,token,repo,branch,options`.
 - `projects_repo`: table `projects`, columns `id,name,color,created_at`; `getCollection` and `setCollection` are its last two methods.
 - `reader_annotations`: selected columns are fixed by `READER_ANNOTATION_COLUMNS`; `remove` deletes by id under the table.

@@ -15,9 +15,9 @@ Values: `SCREEN_REVALIDATE_AFTER_MS = 120_000`, `SCREEN_SHOW_MAX_AGE_MS = 604_80
 
 ## THIN
 
-The TS constants stay in `apps/web/src/lib/cache/parts-1.ts`. `cache-repo.ts`
-reads them at module evaluation, before wasm is loaded, so they cannot call Rust.
+The cache-repo section of `apps/web/src/lib/cache/parts-1.ts` reads the limits at
+call time through `readyCore().screenCachePolicy()`; they are not copied into TS.
 
 ## Parity notes
 
-- The Rust values are a copy of the TS constants. Keep them in step by hand.
+- There is no TS copy of the values to keep in step; TS reads them from Rust.

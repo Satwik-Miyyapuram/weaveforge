@@ -1,6 +1,6 @@
 # UI helpers
 
-Four pure helpers moved from `apps/web/src/lib` into `crates/wf-core`. Each has a wasm export in `crates/wf-wasm` and a wrapper in `packages/wf-wasm`. The web files keep I/O, DOM and env reads in TS and call `readyCore()`.
+Four pure helpers moved from `apps/web/src/lib` into `crates/wf-core`. Each has a wasm export in `crates/wf-wasm`. The web files keep I/O, DOM and env reads in TS and call `readyCore()`.
 
 | Module | Rust fn | wasm export | TS caller |
 | --- | --- | --- | --- |
@@ -13,7 +13,7 @@ Rules:
 
 - `isSignedOutRefusal` checks the error code first (`42501`, `PGRST301`, `PGRST303`), then a lowercase message needle list.
 - `motionTier` takes primitives, not an object. Result is `off`, `calm`, `reactive` or `crt`.
-- `pinRecentTargets` returns slot indices, so TS keeps its own item references. Recents come first with `recent: true`, unmatched items follow in order. Last recent wins on duplicates.
+- `pinRecentTargets` returns slot indices, so TS keeps its own item references. Recents come first with `recent: true`, unmatched items follow in order. When items share a key, the last item wins the recent slot.
 - `relayPath` strips the base only when the rest starts with `/`. An empty base means no base.
 
 Not in Rust: storage, `LIMIT`, `setSessionLost`, `startFn`, `navTransition`, `relayBase()` (env and desktop check).

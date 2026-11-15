@@ -11,7 +11,7 @@ repository port, and the thin use case.
 | Page row mapping | Rust | `crates/wf-core/src/vault/page_row.rs` |
 | Wasm exports (`vaultImagePrefix`, plus the helper functions) | Rust | `crates/wf-wasm/src/vault_page.rs` |
 | TS types | Rust | `crates/wf-wasm/src` (`unchecked_*_type`) |
-| Page types and `VaultPageFns` | TS (hand-declared mirror) | `packages/core/src/shared/core-contract.ts` |
+| Page types | TS (hand-declared mirror) | `packages/core/src/shared/core-contract.ts` |
 | `VaultPageValidationError` | TS | `packages/core/src/shared/errors.ts` |
 | Repository port | TS | `packages/core/src/features/vault/domain/vault-page-repository.ts` |
 | Repository I/O | Rust plan, TS runner | `crates/wf-core/src/repos/vault_pages.rs`, `apps/web/src/backend/providers/postgrest/rust-repository.ts` |

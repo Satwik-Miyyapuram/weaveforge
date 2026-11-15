@@ -4,12 +4,13 @@ Object/blob storage is a **separate composition layer** from relational backend 
 
 ```
 packages/core/src/storage/          apps/web/src/storage/
-├── blob-ports.ts (IBlobStore)      ├── config.ts           ← BLOB_PROVIDER, R2, tiering knobs
-└── (Phase 1: registry, tiering)    ├── wire-storage.ts     ← composition helper
+├── parts.ts (IBlobStore)           ├── config.ts           ← BLOB_PROVIDER, R2, tiering knobs
+                                    ├── wire-storage.ts     ← composition helper
                                     └── providers/
-                                        supabase/           ← legacy adapter, unused (code fallback)
-                                        s3/                 ← R2 + MinIO
-                                        tiered/             ← hot/cold facade — what OCI runs
+                                        http/               ← browser client for /api/blobs/* (HttpBlobStore)
+                                        postgrest/          ← blob_objects registry (PostgrestBlobRegistry)
+                                        s3/                 ← S3-compatible store (S3BlobStore)
+                                        tiered/             ← hot/cold facade (TieredBlobStore) — what OCI runs
 ```
 
 ## How it fits
@@ -31,8 +32,8 @@ Feature code uses **`IBlobStore`** via `PaperImageStore` — never Supabase Stor
 
 ## What is actually running
 
-The OCI deployment runs **`BLOB_PROVIDER=tiered`** — R2 (or S3-compatible) hot, **MinIO on the OCI
-box** cold, with the `blob_objects` registry tracking what is where. No files are stored in
+The OCI deployment runs **`BLOB_PROVIDER=tiered`**. Uploads go to **R2** (hot). The **MinIO on the OCI
+box** (cold) is configured by `BLOB_COLD_*` but unused: nothing moves objects to it, so cold only holds objects a caller tags `cold`. The `blob_objects` registry records each object's tier. No files are stored in
 Supabase Storage. The env examples set `tiered`; `apps/web/.env.local.example` has the keys.
 
 ## Code fallback

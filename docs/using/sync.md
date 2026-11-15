@@ -34,9 +34,7 @@ folder up backs up the app. That is the arrangement:
 │       ├── manifest.json         a summary of what is in this project
 │       └── tags.json, relations.json …
 ├── assets/                       images and figures, shared by every project
-└── .weaveforge/
-    ├── db/                       the local database, shared by every project
-    └── db-backups/               compressed snapshots of it
+└── .weaveforge/                 the app's own bookkeeping
 ```
 
 A project's folder is its name plus a short id, so two projects may share a name
@@ -96,7 +94,7 @@ since they last agreed is a conflict to settle rather than a guess.
 
 Three things are the app's own and are never imported:
 
-- the database and its backups — `.weaveforge/db`, `.weaveforge/db-backups`,
+- database folders older versions kept here — `.weaveforge/db`, `.weaveforge/db-backups`,
 - the caches — `papers/pdf`, `papers/html`, `.weaveforge/cache`,
 - the mirror's record of what it wrote — `mirror.json` and `manifest.json`. That
   record is what lets the app tell its own writes from yours: the mirror rewrites

@@ -33,8 +33,7 @@ Each file under `crates/wf-core/src/relations/` covers one job:
 The wasm exports live in `crates/wf-wasm/src` (for example `graph_build.rs`,
 `graph_topology.rs`, `graph_settings.rs`, `graph_tags.rs`, `graph_colour.rs`,
 `graph_sizing.rs`, `graph_timeline.rs`, `node_colouring.rs` and
-`relations_local_graph.rs`). The TypeScript wrappers in `packages/wf-wasm/src`
-import the raw names from `../pkg/wf_wasm.js` and re-export them. The main names are:
+`relations_local_graph.rs`). No TypeScript wrapper in `packages/wf-wasm/src` names these. The main names are:
 
 - Graph data: `buildGraphData`, `graphTopologyKey`.
 - Tags and concepts: `graphTagNames`, `relatedConcepts`, `notesTagged`.
@@ -45,7 +44,7 @@ import the raw names from `../pkg/wf_wasm.js` and re-export them. The main names
 - Vault pages: `buildPageTree`.
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
-`apps/web/src/lib/rust-core.ts`, or through the wrappers in `packages/wf-wasm`.
+`apps/web/src/lib/rust-core.ts`.
 `readyCore()` throws until `loadCore()` has resolved, so call it only after the
 core has loaded.
 
@@ -55,9 +54,9 @@ Rust is the only copy of the graph defaults (`default_graph_settings`,
 `MAX_COLOR_GROUPS`, the persisted-state defaults). The TS files still declare
 these as module-load values, so they are a second copy until the importers move:
 
-- `RELATION_TYPES` (`domain/paper-relation.ts`), `NODE_COLOR_KEYS` and
-  `DEFAULT_GRAPH_SETTINGS`, `MAX_COLOR_GROUPS` (`domain/graph-view-settings.ts`),
-  `DEFAULT_GRAPH_PERSISTED_STATE` (`domain/graph-persisted-defaults.ts`).
+- `RELATION_TYPES`, `NODE_COLOR_KEYS`, `DEFAULT_GRAPH_SETTINGS`,
+  `MAX_COLOR_GROUPS` and `DEFAULT_GRAPH_PERSISTED_STATE`, all in
+  `packages/core/src/features/relations/domain/parts.ts` (lines 18, 105, 163, 189, 245).
 
 They are still TS because they are public `@weaveforge/core` names read by
 `apps/web` (`.tsx` under `ui/` and `.ts` tests). Rust has

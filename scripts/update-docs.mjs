@@ -62,7 +62,7 @@ function desktopIpc() {
   ];
 }
 
-/** The tools an assistant may call, taken from the dispatch it is checked against. */
+/** The tools the desktop MCP server declares, split into reads and proposals. */
 function mcpTools() {
   const { reads, proposals, workspace } = mcpToolNames();
 
@@ -70,10 +70,10 @@ function mcpTools() {
   return [
     `**Read-only** (${n(reads.length)}): ${list(reads)}`,
     "",
-    `**Proposal-only** (${n(proposals.length)}) — each saves an encrypted pending proposal, and`,
-    `\`/ai-review\` is the only approval path: ${list(proposals)}`,
+    `**Proposal-only** (${n(proposals.length)}) — each leaves a draft in \`.weaveforge/proposals/\`, and`,
+    `nothing changes until a person approves it under AI suggestions (\`/ai-review\`): ${list(proposals)}`,
     "",
-    `**The desktop workspace server** (${n(workspace.length)}): ${list(workspace)}`,
+    `**Every tool the desktop server declares** (${n(workspace.length)}): ${list(workspace)}`,
   ];
 }
 

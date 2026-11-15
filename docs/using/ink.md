@@ -87,7 +87,7 @@ have one, the column says so and your page is left as it is.
 ## Paper, printing and exporting
 
 Open **More ink options** to change the look of the page. Under **Paper** you can
-pick **Blank**, **Dotted**, **Ruled**, **Grid** or **Wide**. Under **Page spacing**
+pick **Blank**, **Dotted**, **Ruled**, **Grid** or **Wide ruled**. Under **Page spacing**
 you can pick **None**, **Small** or **Large**, which puts a gap between pages.
 
 Under **Print** there are two layouts, both on A4:

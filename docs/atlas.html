@@ -542,9 +542,9 @@
       into either one.
     </p>
     <div class="facts">
-      <div class="fact"><b>218,036</b><span>web app lines</span></div>
-      <div class="fact"><b>24,619</b><span>core lines</span></div>
-      <div class="fact"><b>3,971</b><span>shell lines</span></div>
+      <div class="fact"><b>218,099</b><span>web app lines</span></div>
+      <div class="fact"><b>178,754</b><span>Rust core lines</span></div>
+      <div class="fact"><b>47,325</b><span>shell lines</span></div>
       <div class="fact"><b>3,375</b><span>python sdk</span></div>
       <div class="fact"><b>154</b><span>migrations</span></div>
       <div class="fact"><b>32</b><span>web features</span></div>
@@ -574,8 +574,9 @@
     <section id="topology">
       <h2>System topology</h2>
       <p>
-        One core package holds the domain and application logic. Everything else is a
-        delivery mechanism around it: a Next.js app, an Electron shell, a Python package.
+        One core holds the domain and application logic: the Rust crates under <code>crates/</code>
+        and the TypeScript contracts in <code>@weaveforge/core</code>. Everything else is a delivery
+        mechanism around it: a Next.js app, a Tauri 2 desktop shell, a Python package.
         The teal lane needs a network; the amber lane never does.
       </p>
 
@@ -584,8 +585,8 @@
 %%{init: {"theme":"base","themeVariables":{"background":"#f4f7f7","primaryColor":"#e4eef0","primaryTextColor":"#101619","primaryBorderColor":"#0d6f78","lineColor":"#5f7178","fontFamily":"IBM Plex Sans, sans-serif","fontSize":"14px","clusterBkg":"#eaf0f1","clusterBorder":"#ccd9dc"}}}%%
 flowchart TB
   subgraph clients["Clients"]
-    WEB["Web app / PWA<br/>Next.js 14 App Router"]
-    DESK["Desktop app<br/>Electron 33"]
+    WEB["Web app / PWA<br/>Next.js 16 App Router"]
+    DESK["Desktop app<br/>Tauri 2 shell"]
     SDK["Python SDK<br/>training scripts"]
     MCPC["MCP clients<br/>Claude, editors"]
   end
@@ -596,6 +597,12 @@ flowchart TB
     PORTS["ports<br/>repositories, blobs, auth"]
   end
 
+  subgraph rust["Rust core (crates/)"]
+    WFC["wf-core<br/>pure rules, sync decisions, MCP tools"]
+    WFS["wf-store<br/>vault, git, workspace files"]
+    WFW["wf-wasm<br/>browser bindings"]
+  end
+
   subgraph backends["Backends (pick one)"]
     SUPA["OCI PostgREST<br/>Postgres + MinIO, Supabase sign-in"]
     PG["Self-hosted Postgres<br/>OCI + object store"]
@@ -604,6 +611,8 @@ flowchart TB
 
   WEB --> APP
   DESK --> APP
+  DESK --> WFS
+  WEB --> WFW
   SDK -->|"HTTP /api/sdk/*"| WEB
   SDK -->|"HTTP 127.0.0.1:27123"| DESK
   MCPC -->|"stdio / relay"| WEB
@@ -615,7 +624,7 @@ flowchart TB
   PORTS --> PG
   PORTS --> PGL
 
-  SUPA --- SCHEMA["119 SQL migrations<br/>+ row-level security"]
+  SUPA --- SCHEMA["154 SQL migrations<br/>+ row-level security"]
   PG --- SCHEMA
   PGL --- SCHEMA
 </pre>
@@ -656,7 +665,8 @@ flowchart TB
 
       <div class="tree">
 <pre><b>weaveforge/</b>
-├── <b>packages/core/src/</b>            <i>24,619 lines — the only place rules live</i>
+├── <b>crates/wf-core/src/</b>           <i>178,754 lines — where the rules live</i>
+├── <b>packages/core/src/</b>            <i>24,619 lines — TS contracts and glue</i>
 │   ├── <u>features/</u>                 <i>19 slices: papers, experiments, plan, report,</i>
 │   │                              <i>logbook, library, vault, wiki, org, sharing,</i>
 │   │                              <i>collab, tags, relations, reading-lists,</i>
@@ -665,12 +675,12 @@ flowchart TB
 │   ├── backend/                   <i>auth ports, session ports, admin provisioner</i>
 │   ├── database/                  <i>local-postgres (PGlite) helpers</i>
 │   ├── storage/                   <i>blob ports, tiering, content types</i>
-│   ├── search/  reader/  paste/   <i>cross-cutting engines</i>
+│   ├── search/  reader/  ink/     <i>cross-cutting engines</i>
 │   ├── config/                    <i>defineConfig + plugin contract</i>
 │   └── shared/                    <i>clock, dates, three-way-merge, tree, repository</i>
 │
-├── <b>apps/web/src/</b>                 <i>218,036 lines</i>
-│   ├── <u>app/</u>                      <i>25 pages + 1 API routes</i>
+├── <b>apps/web/src/</b>                 <i>218,099 lines</i>
+│   ├── <u>app/</u>                      <i>25 pages</i>
 │   ├── <u>features/</u>                 <i>32 slices — core's 19 plus the web-only ones:</i>
 │   │                              <i>offline-sync, sync, workspace, editor-workspace,</i>
 │   │                              <i>auth, search, export, overleaf, reader, startup,</i>
@@ -678,16 +688,16 @@ flowchart TB
 │   ├── backend/                   <i>provider wiring: postgrest | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
-├── <b>apps/shell/src/</b>              <i>3,971 lines, 0 files, Tauri shell src/ only</i>
-│   ├── main.ts  preload.ts  channels.ts
-│   ├── local-db.ts  local-db-host.ts     <i>PGlite in the main process</i>
-│   ├── local-api-server.ts  local-api.ts <i>127.0.0.1:27123</i>
-│   ├── local-sdk-api.ts  local-mcp.ts    <i>SDK routes + 15 MCP tools</i>
-│   ├── vault-folder.ts  vault-watch.ts  vault-git.ts  vault-handlers.ts
-│   ├── auto-update.ts  update-check.ts  app-menu.ts  app-protocol.ts
-│   └── secret-store.ts  preference-store.ts  auth-loopback.ts  zotero-local.ts
+├── <b>apps/shell/src/</b>              <i>47,325 lines, 73 files, Tauri shell src/ only</i>
+│   ├── lib.rs  commands.rs  cmd_vault.rs  cmd_ink.rs  <i>Tauri 2 commands</i>
+│   ├── local_pg/  local_api.rs           <i>embedded Postgres, SDK-facing local API</i>
+│   ├── local_http/                       <i>127.0.0.1:27123 loopback server + 31 MCP tools</i>
+│   ├── vault.rs  vault_watch.rs  vault_sync.rs  git.rs  <i>folder and vault interop</i>
+│   ├── secrets.rs  prefs.rs  update_check.rs  menu.rs  <i>keychain, preferences, updates</i>
+│   └── overleaf_*.rs  mattermost.rs  ink.rs  auth_loopback.rs  <i>integrations</i>
+│   <i>webview bridge (TypeScript): apps/shell/bridge/</i>
 │
-├── <b>apps/pitch/</b>                    <i>904 lines — public site, GitHub Pages</i>
+├── <b>apps/pitch/</b>                    <i>919 lines — public site, GitHub Pages</i>
 │
 ├── <b>python/weaveforge/</b>             <i>3,375 lines + 2,277 lines of tests</i>
 │   ├── features/{experiments,papers,projects}/{domain,application,infrastructure}
@@ -696,9 +706,9 @@ flowchart TB
 │   └── tracking.py  container.py  cli.py
 │
 ├── <b>db/migrations/</b>           <i>0001 → 0156, 8,326 lines</i>
-├── <b>scripts/</b>                       <i>107 files — boundary gates, migration, seeding</i>
+├── <b>scripts/</b>                       <i>112 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
-└── <b>docs/</b>                          <i>197 files, 36,463 lines</i>
+└── <b>docs/</b>                          <i>185 files, 33,954 lines</i>
 </pre>
       </div>
     </section>
@@ -813,8 +823,8 @@ flowchart LR
             <tr><td class="key">vault</td><td>yes</td><td>yes</td><td>—</td><td>yes</td><td>Markdown notes on disk, folder interop</td></tr>
             <tr><td class="key">library</td><td>yes</td><td>yes</td><td>—</td><td>local files</td><td>Files, blobs, tiering, previews</td></tr>
             <tr><td class="key">sharing</td><td>yes</td><td>yes</td><td>—</td><td>no</td><td>Grants, supervision, RLS-backed access</td></tr>
-            <tr><td class="key">ai-assistant</td><td>yes</td><td>yes</td><td>—</td><td>needs a provider</td><td>0 tools, proposal queue, provider config</td></tr>
-            <tr><td class="key">offline-sync</td><td>—</td><td>yes</td><td>—</td><td>n/a</td><td>Outbox, puller, merge, conflicts, adoption</td></tr>
+            <tr><td class="key">ai-assistant</td><td>yes</td><td>yes</td><td>—</td><td>needs a provider</td><td>31 tools, proposal queue, provider config</td></tr>
+            <tr><td class="key">offline-sync</td><td>—</td><td>yes</td><td>—</td><td>n/a</td><td>Outbox, puller, merge, conflicts, adoption (decisions in Rust, TS transport)</td></tr>
             <tr><td class="key">editor-workspace</td><td>—</td><td>yes</td><td>—</td><td>yes</td><td>Editing surface, paste and drop handling</td></tr>
             <tr><td class="key">overleaf</td><td>yes</td><td>yes</td><td>—</td><td>link and edit</td><td>Report push to an Overleaf project; link rules and the LaTeX section tree in core, so a copy with no account shares them</td></tr>
           </tbody>
@@ -855,7 +865,7 @@ flowchart LR
             <li><code>check:solid</code> — layer direction, slice isolation, single composition root.</li>
             <li><code>check:dry</code> — patterns already centralised in a helper cannot reappear inline.</li>
             <li><code>check:ui</code> — shared controls instead of raw elements, so keyboard and ARIA behaviour stays in one place.</li>
-            <li><code>check:api-route-tests</code> — every <code>route.ts</code> must have a colocated test.</li>
+            <li><code>check:api-route-tests</code> — every <code>route.ts</code> under <code>apps/web/src/app</code> needs a colocated <code>test/route.test.ts</code> with a <code>test()</code> call that imports <code>../route</code> or a <code>_shared</code> gate. One exemption: the Chrome DevTools probe route.</li>
             <li><code>check:hygiene</code> — one rule per bug the repo has already been bitten by.</li>
             <li><code>check:deployment-surface</code> — nothing enters the bundle that the deploy config did not select.</li>
             <li><code>check:mcp-plugin</code> — drives the stdio MCP server the way a client does.</li>
@@ -878,8 +888,8 @@ flowchart LR
       <h2>Online read &amp; write</h2>
       <p>
         In the hosted configuration the browser talks to Postgres directly through PostgREST,
-        under row-level security, as the signed-in user. Next.js API routes exist only where a
-        request needs a secret, a third party, or a decision the browser must not be trusted to make.
+        under row-level security, as the signed-in user. Relay routes (Rust, <code>apps/relay/server</code>)
+        exist only where a request needs a secret, a third party, or a decision the browser must not be trusted to make.
       </p>
 
       <div class="plate">
@@ -892,7 +902,7 @@ sequenceDiagram
   participant UC as Use case
   participant R as Repository
   participant DB as Postgres + RLS
-  participant API as Next API route
+  participant API as Relay route
 
   U->>UI: edits a paper field
   UI->>UC: updatePaperField(id, field, value)
@@ -908,7 +918,7 @@ sequenceDiagram
 </pre>
       </div>
 
-      <h3>The 1 API routes, by why they exist</h3>
+      <h3>The relay routes, by why they exist</h3>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Group</th><th>Routes</th><th>Reason it is not a direct query</th></tr></thead>
@@ -917,12 +927,14 @@ sequenceDiagram
             <tr><td class="key">blobs</td><td>upload, content, signed-urls, remove</td><td>Storage credentials and tiering policy</td></tr>
             <tr><td class="key">org</td><td>create, join, leave, codes, memberships, mine, switch, standalone</td><td>Membership changes need service-role writes</td></tr>
             <tr><td class="key">account</td><td>delete-user, delete-user/otp</td><td>Destructive, so it takes a second factor</td></tr>
-            <tr><td class="key">fetch</td><td>arxiv, fetch-url, pdf-proxy, url-meta</td><td>Outbound requests and CORS</td></tr>
+            <tr><td class="key">fetch</td><td>arxiv, fetch-url, pdf-proxy, html-proxy, url-meta, semantic-scholar</td><td>Outbound requests and CORS</td></tr>
             <tr><td class="key">settings</td><td>api-tokens, mcp-tokens, credentials</td><td>Tokens are hashed server-side and shown once</td></tr>
             <tr><td class="key">mcp</td><td>mcp, mcp/relay, mcp/relay/browser</td><td>Fail-closed gateway; see the AI section</td></tr>
-            <tr><td class="key">overleaf</td><td>connections, reports, report content</td><td>Third-party credentials</td></tr>
+            <tr><td class="key">overleaf</td><td>connections, reports, workshop session, projects, compile, pdf</td><td>Third-party credentials</td></tr>
             <tr><td class="key">integrations</td><td>zotero/collections</td><td>Third-party credentials</td></tr>
             <tr><td class="key">admin</td><td>create-user</td><td>Provisioning, service-role only</td></tr>
+            <tr><td class="key">issues</td><td>report-issue</td><td>Redacts the report again before it is filed as a GitHub issue</td></tr>
+            <tr><td class="key">plan feed</td><td>plan/feed/{token}/{file}</td><td>Token in the path, so a calendar or widget reads it without a session</td></tr>
           </tbody>
         </table>
       </div>
@@ -934,23 +946,25 @@ sequenceDiagram
       <p>
         The web app keeps working with no network and reconciles afterwards. Writes queue in an
         outbox; a pump drains it when connectivity returns; a puller brings down what changed;
-        a three-way merge decides the rest and only escalates what it genuinely cannot.
+        a three-way merge decides the rest and only escalates what it genuinely cannot. The
+        decisions are Rust (<code>crates/wf-core/src/sync</code>); the web app supplies the network
+        transport and the UI.
       </p>
 
       <div class="plate">
 <pre class="mermaid">
 %%{init: {"theme":"base","themeVariables":{"background":"#f4f7f7","primaryColor":"#e4eef0","primaryTextColor":"#101619","primaryBorderColor":"#0d6f78","lineColor":"#5f7178","fontFamily":"IBM Plex Sans, sans-serif","fontSize":"13px","clusterBkg":"#eaf0f1","clusterBorder":"#ccd9dc"}}}%%
 flowchart TB
-  EDIT["local edit"] --> OUTBOX["outbox.ts<br/>ordered, idempotent entries"]
-  OUTBOX --> PUMP{"pump.ts<br/>online?"}
+  EDIT["local edit"] --> OUTBOX["outbox_rows.rs<br/>ordered, idempotent entries"]
+  OUTBOX --> PUMP{"pump_route.rs<br/>online?"}
   PUMP -->|"no"| OUTBOX
   PUMP -->|"yes"| TRANSPORT["postgrest-transport.ts"]
   TRANSPORT --> REMOTE[("remote row")]
-  REMOTE --> PULLER["puller.ts<br/>changed since cursor"]
-  PULLER --> MERGE["merge.ts<br/>three-way against the base"]
-  MERGE -->|"clean"| STATE["sync-state.ts<br/>cursor advances"]
-  MERGE -->|"divergent"| CONFLICT["conflicts.ts<br/>surfaced to the user"]
-  ADOPT["adoption.ts<br/>a local-only workspace signs in"] --> OUTBOX
+  REMOTE --> PULLER["puller_plan.rs<br/>changed since cursor"]
+  PULLER --> MERGE["merge.rs<br/>three-way against the base"]
+  MERGE -->|"clean"| STATE["sync_state.rs<br/>cursor advances"]
+  MERGE -->|"divergent"| CONFLICT["conflict_route.rs<br/>surfaced to the user"]
+  ADOPT["adoption_plan.rs<br/>a local-only workspace signs in"] --> OUTBOX
 </pre>
       </div>
 
@@ -958,7 +972,7 @@ flowchart TB
         <h4>Adoption is the hard case</h4>
         <p>
           A folder that has never signed in already holds real work. When an account arrives,
-          that work is not a conflict to resolve — it is the base. <code>adoption.ts</code> replays
+          that work is not a conflict to resolve — it is the base. <code>adoption_plan.rs</code> replays
           it through the outbox so the server sees ordinary writes, in order, with the same
           idempotency the normal path has.
         </p>
@@ -971,8 +985,8 @@ flowchart TB
       <p>
         The renderer is the same Next.js bundle, exported statically and served from the
         <code>app://weaveforge</code> protocol. It has no Node access. Everything privileged —
-        the database, the folder, secrets, the loopback server — lives in the main process
-        behind named IPC channels.
+        the database, the folder, secrets, the loopback server — lives in the Rust shell process
+        behind Tauri commands.
       </p>
 
       <div class="plate">
@@ -983,20 +997,20 @@ flowchart TB
     NEXT["Next.js static export<br/>app://weaveforge"]
   end
 
-  BRIDGE["preload.ts<br/>window.weaveforge<br/>one bridge object, 26 members"]
+  BRIDGE["apps/shell/bridge<br/>window.weaveforge<br/>one bridge object"]
 
-  subgraph main["Main process"]
-    DB["local-db.ts<br/>PGlite + the 154 migrations"]
-    FOLDER["vault-folder.ts<br/>read / write / list / stat"]
-    WATCH["vault-watch.ts<br/>notices outside edits"]
-    GIT["vault-git.ts<br/>commit history"]
-    SECRETS["secret-store.ts<br/>OS keychain"]
-    OVERLEAF["overleaf-source.ts<br/>clones a linked project<br/>with the keychain token"]
-    PREFS["preference-store.ts"]
-    SERVER["local-api-server.ts<br/>127.0.0.1:27123"]
-    MCP["local-mcp.ts<br/>list_workspace · read_entry · search_workspace"]
-    UPDATE["auto-update.ts"]
-    MENU["app-menu.ts"]
+  subgraph main["Shell process (Rust)"]
+    DB["local_pg/<br/>embedded Postgres + the 154 migrations"]
+    FOLDER["cmd_vault.rs<br/>read / write / list / stat"]
+    WATCH["vault_watch.rs<br/>notices outside edits"]
+    GIT["git.rs<br/>commit history"]
+    SECRETS["secrets.rs<br/>OS keychain"]
+    OVERLEAF["overleaf_*.rs<br/>clones a linked project<br/>with the keychain token"]
+    PREFS["prefs.rs"]
+    SERVER["local_http<br/>127.0.0.1:27123"]
+    MCP["local_http/mcp_tools.rs<br/>list_workspace · read_entry · search_workspace · get_note"]
+    UPDATE["update_check.rs<br/>release feed"]
+    MENU["menu.rs"]
   end
 
   DISK[("The chosen folder<br/>markdown + PGlite data")]
@@ -1022,33 +1036,31 @@ flowchart TB
 </pre>
       </div>
 
-      <h3>The IPC surface</h3>
+      <h3>The command surface</h3>
       <div class="chips">
-        <span class="chip">db-query</span>
-        <span class="chip">vault-root</span>
-        <span class="chip">vault-choose</span>
-        <span class="chip">vault-list</span>
-        <span class="chip">vault-read</span>
-        <span class="chip">vault-write</span>
-        <span class="chip">vault-remove</span>
-        <span class="chip">vault-stat</span>
-        <span class="chip">vault-commit</span>
-        <span class="chip">vault-forget</span>
-        <span class="chip on">vault-changed</span>
-        <span class="chip">secret-read</span>
-        <span class="chip">secret-write</span>
-        <span class="chip">secret-clear</span>
-        <span class="chip">preference-write</span>
-        <span class="chip warm">local-api-set</span>
-        <span class="chip warm">local-api-state</span>
-        <span class="chip">check-update</span>
-        <span class="chip">sign-in</span>
-        <span class="chip">fetch-title</span>
-        <span class="chip">fetch-image</span>
-        <span class="chip">zotero-local</span>
-        <span class="chip">overleaf-read</span>
+        <span class="chip">db_query</span>
+        <span class="chip">vault_root</span>
+        <span class="chip">vault_choose</span>
+        <span class="chip">vault_list</span>
+        <span class="chip">vault_read</span>
+        <span class="chip">vault_write</span>
+        <span class="chip">vault_remove</span>
+        <span class="chip">vault_stat</span>
+        <span class="chip">vault_commit</span>
+        <span class="chip">vault_forget</span>
+        <span class="chip">secret_read</span>
+        <span class="chip">secret_write</span>
+        <span class="chip">secret_clear</span>
+        <span class="chip">preference_write</span>
+        <span class="chip warm">local_api_call</span>
+        <span class="chip">update_check</span>
+        <span class="chip">sign_in_listening</span>
+        <span class="chip">fetch_title</span>
+        <span class="chip">fetch_image</span>
+        <span class="chip">zotero_local</span>
+        <span class="chip">overleaf_read</span>
       </div>
-      <p class="caption">Teal: pushed from main to the renderer. Amber: turns the loopback server on and reports its state.</p>
+      <p class="caption">Amber: <code>local_api_call</code> carries the loopback server channels that turn it on and report its state.</p>
 
       <div class="note">
         <h4>Two things that only recently worked without an account</h4>
@@ -1064,8 +1076,7 @@ flowchart TB
           <strong>Overleaf.</strong> Linking a report does three jobs and only one needs a server:
           the row is an ordinary row, the section tree is a pure <code>core</code> function, and only
           the token needs somewhere safe. So the token moved to the OS keychain, the clone moved
-          into the main process behind <code>overleaf-read</code>, and the clone <em>code</em> is the
-          web app's own reader — imported through the esbuild <code>@</code> alias, not copied.
+          into the Rust shell process behind <code>overleaf_read</code>, which clones with git2.
           Viewing a report still needs a network: that is a clone from overleaf.com.
         </p>
       </div>
@@ -1123,14 +1134,14 @@ sequenceDiagram
             <li>Outside edits noticed and merged, not clobbered.</li>
             <li>Git history for the folder from inside the app.</li>
             <li>Loopback REST on the port Obsidian's REST plugin already uses.</li>
-            <li>Fifteen MCP tools over the same server.</li>
+            <li>31 MCP tools over the same server.</li>
           </ul>
         </div>
         <div class="card">
           <h4>Deliberately not available</h4>
           <ul>
             <li>Figures and artifacts offline — there is no blob store in a folder, and a half-working upload is worse than an honest gap.</li>
-            <li>Supervision and sharing routes in the desktop bundle — both are about other people's copies, so they are not shipped and not linked.</li>
+            <li>Org and sharing endpoints — the desktop export refuses <code>app/api</code> route handlers, so the offline app has none of them.</li>
           </ul>
         </div>
       </div>
@@ -1140,7 +1151,7 @@ sequenceDiagram
     <section id="ai">
       <h2>AI and MCP boundary</h2>
       <p>
-        The assistant has no tools. No read. No propose, and a proposal is a row in
+        The assistant has 31 tools. Seventeen read. Fourteen propose, and a proposal is a row in
         a review queue, never a write. <code>/api/mcp</code> is fail-closed: it answers 404 when
         MCP is off and 503 with the manifest when it is on, because live access goes through
         the browser relay with an active session grant.
@@ -1162,8 +1173,8 @@ flowchart TB
     T3["get_workspace_outline"]
   end
 
-  subgraph propose["Propose tools — require confirmation"]
-    P["propose_append_paper_note<br/>propose_create_vault_note<br/>propose_create_log_entry<br/>propose_paper_update<br/>propose_paper_field_value<br/>propose_reading_list_change<br/>propose_relation<br/>propose_zotero_import<br/>propose_milestone_follow_up<br/>propose_experiment_follow_up"]
+  subgraph propose["Suggest tools — require confirmation"]
+    P["suggest_append_paper_note<br/>suggest_create_vault_note<br/>suggest_create_log_entry<br/>suggest_paper_update<br/>suggest_paper_field_value<br/>suggest_reading_list_change<br/>suggest_relation<br/>suggest_zotero_import<br/>suggest_milestone_follow_up<br/>suggest_experiment_follow_up"]
   end
 
   QUEUE["/ai-review<br/>the user accepts or discards"]
@@ -1194,9 +1205,10 @@ flowchart TB
       </div>
 
       <p>
-        The desktop app runs its own smaller server: <code>list_workspace</code>,
-        <code>read_entry</code>, <code>search_workspace</code> — read-only, loopback-only, bearer
-        token compared with <code>timingSafeEqual</code>. A separate stdio server lives in
+        The desktop shell runs its own smaller server in Rust (<code>apps/shell/src/local_http/</code>):
+        <code>list_workspace</code>, <code>read_entry</code>, <code>search_workspace</code>,
+        <code>get_note</code> — read-only, loopback-only, bearer token compared in constant time
+        (<code>subtle::ConstantTimeEq</code>). A separate stdio server lives in
         <code>plugins/weaveforge-research/</code> and is driven by <code>check:mcp-plugin</code>
         in CI, because nothing else imports it.
       </p>
@@ -1342,7 +1354,7 @@ erDiagram
     <section id="ci">
       <h2>CI &amp; gates</h2>
       <p>
-        Six workflows. One runs on every push and pull request; the rest are opt-in, scheduled,
+        Ten workflows. <code>ci.yml</code> runs on every push and pull request; the rest are opt-in, scheduled,
         or release-triggered. The rule is that anything needing a secret is opt-in and
         everything else runs on the PR.
       </p>
@@ -1362,17 +1374,17 @@ flowchart TB
 
   subgraph steps["build-and-test, in order"]
     S1["build core → core tests"]
-    S2["web unit tests"]
-    S3["schema + RLS on in-process Postgres"]
-    S4["editor paste tests in Chromium"]
+    S2["web unit, route-guard and stage-script tests"]
+    S3["bridge tests · schema + RLS on in-process Postgres"]
+    S4["editor paste tests in Chromium · WASM tests and size budget"]
     S5["typecheck"]
-    S6["check:boundaries — all seven gates"]
+    S6["eleven boundary gates, one step each (check:solid … check:ci-parity)"]
     S7["lint"]
     S8["build web"]
-    S9["check:deployment-surface"]
+    S9["deployment surface · bundle budget · duplicate packages"]
   end
 
-  OTHER["verify.yml — sharing-rls · sdk-integration · ts-settings-contract<br/>pages.yml — pitch site<br/>release-desktop.yml — installers + update feed on v*<br/>publish-python.yml — PyPI on py-v*<br/>android.yml · ios.yml · android-fingerprint.yml"]
+  OTHER["verify.yml — sharing-rls · sdk-integration · ts-settings-contract<br/>pages.yml — pitch site<br/>publish-python.yml — PyPI on py-v*<br/>android.yml · ios.yml · android-fingerprint.yml<br/>codeql.yml · docs-site.yml · nightly.yml"]
 
   PR --> BT --> S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9
   PR --> DCO
@@ -1395,28 +1407,27 @@ flowchart TB
     <section id="release">
       <h2>Build &amp; release</h2>
       <p>
-        The desktop build has an order, and the order is not optional: the esbuild step wipes
-        <code>dist</code>, so exporting the web bundle first throws it away.
+        The desktop build has an order, and the order is not optional: the Tauri bundler packages
+        <code>dist/web</code>, so the web export has to finish first.
       </p>
 
       <div class="plate">
 <pre class="mermaid">
 %%{init: {"theme":"base","themeVariables":{"background":"#f4f7f7","primaryColor":"#e4eef0","primaryTextColor":"#101619","primaryBorderColor":"#0d6f78","lineColor":"#5f7178","fontFamily":"IBM Plex Sans, sans-serif","fontSize":"13px"}}}%%
 flowchart LR
-  A["scripts/build.mjs<br/>esbuild main + preload<br/><i>wipes dist/</i>"] --> B["scripts/build-web.mjs<br/>Next static export → dist/web"]
-  B --> C["electron-builder --dir<br/><i>--dir, never the installer</i>"]
-  C --> D["release/win-arm64-unpacked/<br/>WeaveForge.exe"]
-  D --> E["installed by copying the folder"]
-  E --> F["auto-update.ts checks<br/>and swaps in place"]
+  A["build web: Next static export<br/><i>dist/web</i>"] --> B["stage ink recogniser + Postgres<br/><i>apps/shell/target/stage</i>"]
+  B --> C["npm run tauri -- build<br/><i>--bundles msi,nsis --config tauri.bundle.json</i>"]
+  C --> D["target/release/bundle/<br/>msi/*.msi · nsis/*-setup.exe"]
+  D --> E["gh release create<br/>attach both files"]
 </pre>
       </div>
 
       <div class="note warm">
-        <h4>Why <code>--dir</code> and a folder copy</h4>
+        <h4>Two installers, one bundler</h4>
         <p>
-          The NSIS installer writes to the Windows registry. This project's packaging deliberately
-          does not: the app is built unpacked and installed by copying a directory, so uninstalling
-          is deleting a folder and nothing outside it is ever touched.
+          CI builds an MSI and an NSIS <code>-setup.exe</code> with the Tauri bundler
+          (<code>--bundles msi,nsis --config tauri.bundle.json</code>), and the release attaches
+          both files to the GitHub release.
         </p>
       </div>
 
@@ -1426,10 +1437,10 @@ flowchart LR
           <thead><tr><th>Command</th><th>What it does</th></tr></thead>
           <tbody>
             <tr><td class="key">npm run dev</td><td>Web app in development</td></tr>
-            <tr><td class="key">npm run check:all</td><td>Typecheck, lint, all seven boundary gates, core + web + integration + desktop tests, build</td></tr>
-            <tr><td class="key">npm run check:boundaries</td><td>The seven gates alone — the fast pre-PR pass</td></tr>
-            <tr><td class="key">npm run test:desktop</td><td>Desktop main-process suite</td></tr>
-            <tr><td class="key">npm run build:desktop</td><td>esbuild step only; run the web export and electron-builder after it</td></tr>
+            <tr><td class="key">npm run check:all</td><td>Typecheck, lint, all eleven boundary gates, core + web + integration tests, build, bundle budget</td></tr>
+            <tr><td class="key">npm run check:boundaries</td><td>The eleven gates alone — the fast pre-PR pass</td></tr>
+            <tr><td class="key">npm run test:bridge</td><td>Desktop webview bridge tests</td></tr>
+            <tr><td class="key">npm run tauri -- build --bundles msi,nsis --config tauri.bundle.json</td><td>Windows installers; run the web export first</td></tr>
             <tr><td class="key">npm run migrate</td><td>Full move to a self-hosted Postgres: schema, data, blobs, verify</td></tr>
             <tr><td class="key">npm run seed:showcase</td><td>Populate a workspace with demo material</td></tr>
           </tbody>

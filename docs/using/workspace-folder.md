@@ -17,9 +17,9 @@ Settings → Workspace is where all of this lives.
 
 One directory per kind of thing — `notes/`, `papers/`, `reading-lists/`,
 `report/`, `experiments/`, `plan/`, `logbook/` — plus `assets/` for images and
-a `.weaveforge/` directory holding the mirror's own bookkeeping. On the desktop
-that directory also holds `db/` — the local database itself — and `db-backups/`,
-compressed snapshots of it, which is how a reinstall gets everything back. See
+a `.weaveforge/` directory holding the mirror's own bookkeeping. The local
+database and its backups are not in this folder; they live in the app's data
+folder. See
 [the desktop app](desktop.md#where-it-lives-and-what-happens-if-it-breaks).
 
 That makes the folder the thing to back up: one folder holds your Markdown, your
@@ -46,7 +46,7 @@ database is the source of truth, and a folder that cannot be written (disk
 unplugged, permission revoked) must never take your save down with it.
 
 Pulling folder edits back in is always an explicit action, and always shows you
-a diff first — "12 updated, 1 conflict" — before anything is applied. Applying
+a diff first — "12 changed · 1 conflict" — before anything is applied. Applying
 blind would overwrite the app's copy with no way back.
 
 On desktop, WeaveForge watches the folder and tells you when something out there

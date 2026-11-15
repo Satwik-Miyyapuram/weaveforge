@@ -70,3 +70,24 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [experiments-lab](experiments-lab.md) | Experiment rows and status, metric charts, plot sizes, lab snapshots and data export files. |
 | [rows-and-tags](rows-and-tags.md) | Member, project and library-pin rows, tag counts and tones, sync fields, paper notes. |
 | [text-formatting](text-formatting.md) | Status text, enum labels, JS-style collation, dates, app log lines and error statuses. |
+| [annotation-draft](annotation-draft.md) | Reader annotation drafts (`reader::annotation_draft`). |
+| [annotation-geometry](annotation-geometry.md) | Reader annotation geometry (`reader::annotation_geometry`). |
+| [annotation-helpers](annotation-helpers.md) | Reader annotation helpers (`reader::annotation_helpers`). |
+| [app-lib](app-lib.md) | Small pure rules from `apps/web/src/lib`: palette rows, preference defaults, shortcut toggles, page body fallbacks and key checks. |
+| [build-locus-link](build-locus-link.md) | Reader build locus link rules (`reader::build_locus_link`). |
+| [cache-policy](cache-policy.md) | Cache policy limits read by the TS cache repos (`screenCachePolicy`). |
+| [compact-crdt-log](compact-crdt-log.md) | CRDT log compaction: Rust owns the request, the `compact_crdt_log` RPC does the database side. |
+| [db-claims](db-claims.md) | Database claim rules (`db_claims`). |
+| [local_blob_plan](local_blob_plan.md) | Local-first blob plan: unsigned indices and merging signed URLs. |
+| [local_experiment_push](local_experiment_push.md) | Local-first experiment push: push SQL, metric cursor, artifact paths, recompress and batch size. |
+| [local_identity](local_identity.md) | Local-first identity: local mode, the local-first marker and the device user id. |
+| [local_secrets](local_secrets.md) | Local-first device secrets: JSON text for the secrets store. |
+| [markdown](markdown.md) | Markdown input rules: `[[link]]` completions, math detection and Mermaid source and id. |
+| [picture](picture.md) | Reader picture rules (`reader::picture`), with its wasm export. |
+| [postgrest_transport](postgrest_transport.md) | PostgREST transport: the Rust home of the offline-sync wire, and its TS caller. |
+| [project-lww-invalidator](project-lww-invalidator.md) | Project last-write-wins cache invalidation: write scope, clear target and notify resource (`cache_invalidation`). |
+| [reader-annotation-rows](reader-annotation-rows.md) | Reader annotation rows (`reader::annotation_rows`). Rust only, not exported to wasm or TS. |
+| [reader-pdf-theme](reader-pdf-theme.md) | Reader PDF theme (`reader::pdf_theme`). |
+| [resolve-paper-pdf-source](resolve-paper-pdf-source.md) | Resolver order for a paper's PDF source (`reader::pdf_source_ladder`). |
+| [sharing](sharing.md) | Sharing rules: Rust owns them, TS keeps types, repository ports and use-case orchestration. |
+| [vault-page](vault-page.md) | Vault page rules: Rust owns them, TS keeps types, the repository port and the thin use case. |

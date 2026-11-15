@@ -4,9 +4,9 @@ Offline-sync gates that were still TypeScript-only. Rust: `wf-core::sync::push_p
 
 | Rust fn | JS | Replaces (TS) |
 | --- | --- | --- |
-| `continue_push_round(sent, stopped_early)` | `continuePushRound` | `push()` loop break in `domain/sync-engine.ts` |
-| `should_recover_unsent(has_account, resend_checked)` | `shouldRecoverUnsent` | gate at the top of `recoverUnsent()` in `domain/sync-engine.ts` |
-| `group_eligible(deleted, unique_clash, pending_ops)` | `groupEligible` | candidate filter in `applyGroups()` in `domain/puller.ts` |
+| `continue_push_round(sent, stopped_early)` | `continuePushRound` | `push()` loop break in `domain/parts-3.ts` |
+| `should_recover_unsent(has_account, resend_checked)` | `shouldRecoverUnsent` | gate at the top of `recoverUnsent()` in `domain/parts-3.ts` |
+| `group_eligible(deleted, unique_clash, pending_ops)` | `groupEligible` | candidate filter in `applyGroups()` in `domain/parts-2.ts` |
 
 ## Rules
 
@@ -16,7 +16,7 @@ Offline-sync gates that were still TypeScript-only. Rust: `wf-core::sync::push_p
 
 ## Not in Rust
 
-- The pump's per-row stall set (`domain/pump.ts`): bookkeeping interleaved with I/O.
+- The pump's per-row stall set (`domain/parts-3.ts`): bookkeeping interleaved with I/O.
 - Outbox, conflict and live-sync SQL and listeners: I/O.
 
 ## Status
