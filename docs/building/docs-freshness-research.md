@@ -16,6 +16,20 @@ documentation from going out of date, automatically, from now on?
 `ci.yml`; the git hooks (`.githooks/pre-commit`, `pre-push`) regenerate and
 stage only the files in `scripts/lib/generated-docs.mjs`.
 
+## What was built (2026-11-15)
+
+R1, R2, R3, R4 and R6 below are in place and block; R5 is not built. All run
+in `npm run check:docs`, so in the pre-push hook and in CI job
+`build-and-test`, a required check on `main`.
+
+| Item | Check | Fails on |
+| --- | --- | --- |
+| R1 | `scripts/check-doc-refs.mjs` | a path or file name in any tracked doc that is not in the repo |
+| R2 | `scripts/lib/test/repo-stats.test.mjs` | a `crates/*` dir or mobile shell missing from `AREAS` |
+| R3 | `scripts/check-docs-coupled.mjs`, step "Docs change with the code they cover" | a PR that changes code a `docs/using` page `covers:` without touching that page; a `docs-ok: <reason>` line in the PR body waives it |
+| R4 | `scripts/check-core-docs.mjs` | a `crates/wf-core/src` module no `docs/building/core` page names, or a core page the README does not link |
+| R6 | `scripts/check-doc-links.mjs` | a relative Markdown link to a missing file or heading |
+
 ## 1. Why the docs went stale anyway
 
 Measured on `docs/accuracy-pass` (HEAD 536867f2b) with a throwaway scan of

@@ -544,7 +544,7 @@
     <div class="facts">
       <div class="fact"><b>218,148</b><span>web app lines</span></div>
       <div class="fact"><b>178,754</b><span>Rust core lines</span></div>
-      <div class="fact"><b>47,325</b><span>shell lines</span></div>
+      <div class="fact"><b>50,102</b><span>shell lines</span></div>
       <div class="fact"><b>3,375</b><span>python sdk</span></div>
       <div class="fact"><b>154</b><span>migrations</span></div>
       <div class="fact"><b>32</b><span>web features</span></div>
@@ -688,7 +688,7 @@ flowchart TB
 │   ├── backend/                   <i>provider wiring: postgrest | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
-├── <b>apps/shell/src/</b>              <i>47,325 lines, 73 files, Tauri shell src/ only</i>
+├── <b>apps/shell/src/</b>              <i>50,102 lines, 73 files, Tauri shell src/ only</i>
 │   ├── lib.rs  commands.rs  cmd_vault.rs  cmd_ink.rs  <i>Tauri 2 commands</i>
 │   ├── local_pg/  local_api.rs           <i>embedded Postgres, SDK-facing local API</i>
 │   ├── local_http/                       <i>127.0.0.1:27123 loopback server + 31 MCP tools</i>
@@ -706,9 +706,9 @@ flowchart TB
 │   └── tracking.py  container.py  cli.py
 │
 ├── <b>db/migrations/</b>           <i>0001 → 0156, 8,326 lines</i>
-├── <b>scripts/</b>                       <i>112 files — boundary gates, migration, seeding</i>
+├── <b>scripts/</b>                       <i>119 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
-└── <b>docs/</b>                          <i>185 files, 33,954 lines</i>
+└── <b>docs/</b>                          <i>185 files, 33,975 lines</i>
 </pre>
       </div>
     </section>

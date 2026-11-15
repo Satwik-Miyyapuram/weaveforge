@@ -113,6 +113,16 @@ export function missingIdents(idents, wordSet, allow) {
   );
 }
 
+/** Sorted unique `crates/<x>`, `apps/<x>`, `packages/<x>` roots that hold a tracked file. */
+export function codeRoots(trackedPaths) {
+  const roots = new Set();
+  for (const rel of trackedPaths) {
+    const root = rel.match(/^(?:crates|apps|packages)\/[^/]+(?=\/)/)?.[0];
+    if (root) roots.add(root);
+  }
+  return [...roots].sort();
+}
+
 /** Code roots that have no `dir` row in AREAS. */
 export function missingAreaRows(roots, areaDirs) {
   const rows = new Set(areaDirs);

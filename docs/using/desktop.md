@@ -226,7 +226,7 @@ What this covers and what it costs:
   the other end of it to reach. A copy with an account and a copy without both
   end up with the same document; only one of them has anybody to send it to.
 - Overleaf reports can be linked, renamed, re-pointed and unlinked with no
-  account. See [Overleaf, with no account](integrations.md#overleaf-with-no-account)
+  account. See [Connecting Overleaf](integrations.md#connecting-overleaf)
   for what the token does and where it is kept.
 - Attachments are kept in a local table (`local_blobs`) rather than object
   storage, base64-encoded, because the bridge to the shell carries text.

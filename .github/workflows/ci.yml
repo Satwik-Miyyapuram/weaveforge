@@ -217,6 +217,19 @@ jobs:
         if: always()
         run: npm run check:docs
 
+      # Fails a PR that changes code a docs/using page `covers:` without
+      # touching that page; a `docs-ok: <reason>` line in the PR body waives it.
+      # Pull requests only, so no gate_ id and not in the summary below. The
+      # checkout is the PR's merge commit, whose first parent is the base tip,
+      # so HEAD^1...HEAD is exactly this PR's change.
+      - name: Docs change with the code they cover
+        if: always() && github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          git fetch --no-tags --depth=2 origin "$GITHUB_SHA"
+          node scripts/check-docs-coupled.mjs HEAD^1 HEAD
+
       # The list above and `check:boundaries` are written twice, and this is what
       # makes that safe: a gate added to one and not the other is the failure
       # mode that would otherwise be silent, in the direction of less checking.
@@ -411,7 +424,9 @@ jobs:
 
   docs-freshness:
     # Warns, never fails: a docs/using page whose covered code changed after its
-    # `checked:` date gets an annotation (scripts/lib/doc-freshness.mjs).
+    # `checked:` date gets an annotation (scripts/lib/doc-freshness.mjs). The
+    # blocking twin is the "Docs change with the code they cover" step in
+    # build-and-test.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:

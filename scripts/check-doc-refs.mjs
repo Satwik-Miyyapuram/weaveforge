@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Sync layer 5: docs name code that exists. Fails when a doc's path or
- * identifier is not in the tracked tree, or a large code root has no AREAS row.
+ * identifier is not in the tracked tree, or a code root has no AREAS row.
  *
  *   node scripts/check-doc-refs.mjs
  */
@@ -10,12 +10,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { AREAS } from "./lib/areas.mjs";
-import { extractRefs, missingAreaRows, missingFiles, missingIdents, missingPaths } from "./lib/doc-refs.mjs";
-import { ROOT, TRACKED, measure, readIndex } from "./lib/repo-stats.mjs";
+import { codeRoots, extractRefs, missingAreaRows, missingFiles, missingIdents, missingPaths } from "./lib/doc-refs.mjs";
+import { ROOT, TRACKED, readIndex } from "./lib/repo-stats.mjs";
 
 const WORD_EXT = new Set([".rs", ".ts", ".tsx", ".mjs", ".js", ".sql", ".py", ".kt", ".kts", ".toml", ".json"]);
 const SKIP = /(^|\/)(node_modules|target)\/|(^|\/)package-lock\.json$/;
-const LARGE = 500;
 
 const allow = readFileSync(path.join(ROOT, "scripts/doc-refs-allow.txt"), "utf8")
   .split(/\r?\n/)
@@ -46,20 +45,13 @@ for (const rel of docFiles) {
   for (const { text, line } of missingFiles(files, tracked, allow)) {
     misses.push({ at: `${rel}:${line}`, kind: "file", text });
   }
-  if (!rel.startsWith("docs/building/")) continue;
   for (const { text, line } of missingIdents(idents, wordSet, allow)) {
     misses.push({ at: `${rel}:${line}`, kind: "ident", text });
   }
 }
 
-const roots = new Set();
-for (const rel of TRACKED) {
-  const root = rel.match(/^(?:crates|apps|packages)\/[^/]+/)?.[0];
-  if (root) roots.add(root);
-}
-const large = [...roots].filter((root) => measure({ dir: root, unit: "lines" }).lines > LARGE);
 const areaDirs = AREAS.map((row) => row.dir);
-for (const root of missingAreaRows(large, areaDirs)) {
+for (const root of missingAreaRows(codeRoots(TRACKED), areaDirs)) {
   misses.push({ at: "scripts/lib/areas.mjs", kind: "area row", text: root });
 }
 

@@ -54,8 +54,12 @@ same PR: fix the steps, then set its `checked:` front matter to today. Each
 page's `covers:` lists the code it describes. `npm run check:docs` fails on a
 bolded button name the app lacks, and on a file path or file name in any
 tracked doc that is not in the repo (`scripts/check-doc-refs.mjs`; runtime
-names go in `scripts/doc-refs-allow.txt`). `npm run check:docs-freshness`
-warns on a page whose code moved after `checked:`.
+names go in `scripts/doc-refs-allow.txt`), on a broken relative link or
+heading anchor, on a `crates/wf-core/src` module no `docs/building/core` page
+names, and on a core page the README does not link. In a PR, CI fails when
+code a page `covers:` changed but the page did not; a `docs-ok: <reason>` line
+in the PR body waives it. `npm run check:docs-freshness` warns on a page whose
+code moved after `checked:`.
 
 ## Testing
 

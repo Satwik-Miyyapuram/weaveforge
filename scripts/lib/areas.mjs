@@ -15,6 +15,8 @@ export const AREAS = [
   { dir: "apps/web", unit: "lines", what: "The app itself: screens, features, API routes, backend wiring" },
   { dir: "apps/shell", unit: "lines", what: "The Tauri shell — what only an installed app can do" },
   { dir: "apps/relay", unit: "lines", what: "Relays and pasted-link fetches, in Rust: the wf-relay library and its OCI server" },
+  { dir: "apps/android", unit: "lines", what: "The Android shell: the web app in a WebView with a stylus inking surface" },
+  { dir: "apps/ios", unit: "lines", what: "The iOS shell: the web app in a WKWebView" },
   { dir: "apps/pitch", unit: "lines", what: "The public site and this documentation" },
   { dir: "python/weaveforge", unit: "lines", what: "The SDK training scripts import" },
   { dir: "python/tests", unit: "lines", what: "Its tests" },

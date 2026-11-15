@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-export const CODE = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".css", ".sql", ".rs"]);
+export const CODE = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".css", ".sql", ".rs", ".kt", ".kts", ".swift"]);
 
 export const TRACKED = execFileSync("git", ["ls-files", "-z"], {
   cwd: ROOT,

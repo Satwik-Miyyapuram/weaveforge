@@ -47,6 +47,11 @@ module, `overleaf-project-list.ts`, and nothing else. The Overleaf feature in
 `application/parts.ts:131` (`walkOverleafSections`) and `:249`
 (`describeOverleafStatus`).
 
+`overleaf_link` (`check_link_folder`, `parse_links`, `OverleafLink`) is not in
+the wasm build. `crates/wf-bindings` exports its `OverleafLink` type. The desktop
+shell does not call it: `apps/shell/src/overleaf_links.rs` keeps its own
+`check_link_folder` and `parse_links`.
+
 ## Export flow
 
 The export takes the report, turns each section into LaTeX with

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { frontMatter, pageWarnings } from "../doc-freshness.mjs";
+import { frontMatter, pageWarnings, uncoupledPages } from "../doc-freshness.mjs";
 
 test("frontMatter reads covers and checked", () => {
   const md = `---
@@ -45,4 +45,40 @@ test("pageWarnings flags missing front matter, a bad date and a covered path tha
     "covers: gone does not exist.",
   ]);
   assert.deepEqual(pageWarnings({ covers: [], checked: "2026-11-14" }, io), ["covers: lists no paths."]);
+});
+
+const reader = { file: "docs/using/reader.md", covers: ["apps/web/src/features/reader"] };
+
+test("uncoupledPages flags a covered change whose page did not change", () => {
+  assert.deepEqual(uncoupledPages(["apps/web/src/features/reader/a.ts"], [reader], ""), [
+    { file: "docs/using/reader.md", because: "apps/web/src/features/reader/a.ts" },
+  ]);
+});
+
+test("uncoupledPages is quiet when the page changed too", () => {
+  assert.deepEqual(uncoupledPages(["apps/web/src/features/reader/a.ts", "docs/using/reader.md"], [reader], ""), []);
+});
+
+test("uncoupledPages ignores test-only changes", () => {
+  assert.deepEqual(
+    uncoupledPages(["apps/web/src/features/reader/test/a.ts", "apps/web/src/features/reader/b.test.ts"], [reader], ""),
+    [],
+  );
+});
+
+test("uncoupledPages matches a cover by directory, not by name prefix", () => {
+  assert.deepEqual(uncoupledPages(["apps/web/src/features/reader2/x.ts"], [reader], ""), []);
+});
+
+test("uncoupledPages is waived by a docs-ok line with a reason", () => {
+  assert.deepEqual(uncoupledPages(["apps/web/src/features/reader/a.ts"], [reader], "Fix typo\ndocs-ok: refactor only"), []);
+});
+
+test("uncoupledPages is not waived by docs-ok without a reason", () => {
+  assert.deepEqual(uncoupledPages(["apps/web/src/features/reader/a.ts"], [reader], "docs-ok:   "), [
+    { file: "docs/using/reader.md", because: "apps/web/src/features/reader/a.ts" },
+  ]);
+  assert.deepEqual(uncoupledPages(["apps/web/src/features/reader/a.ts"], [reader], "docs-ok:\nnext line"), [
+    { file: "docs/using/reader.md", because: "apps/web/src/features/reader/a.ts" },
+  ]);
 });

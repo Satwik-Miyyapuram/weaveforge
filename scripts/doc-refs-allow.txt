@@ -18,3 +18,7 @@ manifest.json
 widget.json
 claude_desktop_config.json
 methods--a1b2c3.note.md
+# Names outside the repo: a Supabase realtime channel kind, a Cloudflare MCP tool, an Electron API the desktop doc says is absent
+postgres_changes
+r2_bucket_create
+loadURL

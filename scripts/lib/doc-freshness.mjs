@@ -51,3 +51,22 @@ export function pageWarnings(meta, io) {
   }
   return warnings;
 }
+
+/**
+ * Pages whose covered code changed in this PR while the page itself did not.
+ * A `docs-ok: <reason>` line in the PR body waives every miss.
+ * `because` is the first changed path that a page covers.
+ */
+export function uncoupledPages(changed, pages, body) {
+  if (/^docs-ok:[ \t]*\S/m.test(body ?? "")) return [];
+  // Test-only changes do not move what a user sees; same rule as the freshness check.
+  const isTest = (file) => file.includes("/test/") || /\.test\./.test(file.split("/").pop());
+  const sources = changed.filter((file) => !isTest(file));
+  const misses = [];
+  for (const page of pages) {
+    if (changed.includes(page.file)) continue;
+    const because = sources.find((file) => page.covers.some((cover) => file === cover || file.startsWith(`${cover}/`)));
+    if (because) misses.push({ file: page.file, because });
+  }
+  return misses;
+}

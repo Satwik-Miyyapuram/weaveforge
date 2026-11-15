@@ -98,15 +98,17 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 | `packages/core` | 24,619 lines | Residual TypeScript: shared contracts and glue that call the Rust core |
 | `packages/wf-wasm` | 4,245 lines | TypeScript wrappers and generated types over the WASM module |
 | `apps/web` | 218,148 lines | The app itself: screens, features, API routes, backend wiring |
-| `apps/shell` | 47,325 lines | The Tauri shell — what only an installed app can do |
+| `apps/shell` | 50,102 lines | The Tauri shell — what only an installed app can do |
 | `apps/relay` | 27,140 lines | Relays and pasted-link fetches, in Rust: the wf-relay library and its OCI server |
+| `apps/android` | 2,763 lines | The Android shell: the web app in a WebView with a stylus inking surface |
+| `apps/ios` | 115 lines | The iOS shell: the web app in a WKWebView |
 | `apps/pitch` | 919 lines | The public site and this documentation |
 | `python/weaveforge` | 3,375 lines | The SDK training scripts import |
 | `python/tests` | 2,277 lines | Its tests |
 | `db/migrations` | 155 files | The schema, as an ordered sequence |
 | `docs` | 185 files | Documentation, this page included |
 
-**540,736 lines of code in all**, across 3,259 source files.
+**546,391 lines of code in all**, across 3,309 source files.
 
 <!-- /generated:code-map -->
 

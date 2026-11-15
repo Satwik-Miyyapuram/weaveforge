@@ -99,6 +99,15 @@ describe("measure", () => {
     assert.equal(CODE.has(".rs"), true);
   });
 
+  it("counts the mobile shells' Kotlin and Swift as code", () => {
+    for (const ext of [".kt", ".kts", ".swift"]) assert.equal(CODE.has(ext), true, ext);
+  });
+
+  it("counts lines of apps/android and apps/ios above zero", () => {
+    assert.ok(measure({ dir: "apps/android", unit: "lines" }).lines > 0);
+    assert.ok(measure({ dir: "apps/ios", unit: "lines" }).lines > 0);
+  });
+
   it("counts lines of crates/wf-core above zero", () => {
     assert.ok(measure({ dir: "crates/wf-core", unit: "lines" }).lines > 0);
   });

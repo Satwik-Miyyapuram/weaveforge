@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { extractRefs, missingAreaRows, missingFiles, missingIdents, missingPaths } from "../doc-refs.mjs";
+import { codeRoots, extractRefs, missingAreaRows, missingFiles, missingIdents, missingPaths } from "../doc-refs.mjs";
 
 test("extractRefs skips fenced code blocks", () => {
   const md = "Use `apps/web/src/a.ts` here.\n```sh\n`crates/wf-core/src/x.rs`\n```\n";
@@ -84,6 +84,20 @@ test("missingAreaRows reports a code root with no AREAS row", () => {
 
 test("missingAreaRows passes a root that has a row", () => {
   assert.deepEqual(missingAreaRows(["apps/web"], ["apps/web", "docs"]), []);
+});
+
+test("codeRoots lists each crates, apps or packages root with a tracked file, nested or not", () => {
+  const tracked = ["apps/web/src/a.ts", "crates/wf-core/src/lib.rs", "packages/wf/index.ts", "packages/wf/src/deep/b.ts"];
+  assert.deepEqual(codeRoots(tracked), ["apps/web", "crates/wf-core", "packages/wf"]);
+});
+
+test("codeRoots counts each root once and ignores non-root paths", () => {
+  const tracked = ["apps/web/a.ts", "apps/web/b.ts", "apps/web/c.ts", "docs/x.md", "scripts/a.mjs", "crates/README.md", "apps/x.ts"];
+  assert.deepEqual(codeRoots(tracked), ["apps/web"]);
+});
+
+test("codeRoots returns sorted roots and ignores a bare crates, apps or packages segment", () => {
+  assert.deepEqual(codeRoots(["packages/b/x.ts", "crates/a/x.rs", "apps", "crates"]), ["crates/a", "packages/b"]);
 });
 
 test("extractRefs collects a bare file name with a code extension", () => {
