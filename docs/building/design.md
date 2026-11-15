@@ -73,18 +73,18 @@ weaveforge/
 │       ├── src/lib/{hooks,cache,theme,desktop}/   # shared, grouped by purpose
 │       └── src/components/       # shared UI, markdown editor in components/markdown/
 ├── packages/
-│   ├── core/                     # shared domain contracts + types (TS)
+│   └── core/                     # shared domain contracts + types (TS)
 │   │   └── test/                 # mirrors core/src, area for area
-│   └── config/                   # shared lint/tsconfig
 ├── python/
 │   └── weaveforge/           # CLI/SDK, same module shape
 │       └── features/<feature>/{domain,application,infrastructure}
 ├── db/
 │   └── migrations/               # the single source of truth for the schema
 ├── docs/
-│   ├── DESIGN.md                 # this file
-│   ├── CONTRIBUTING.md, CHANGELOG.md, SECURITY.md, …
-│   └── dev.md, extensions.md, …
+│   ├── building/design.md         # this file
+│   ├── building/dev.md, …
+│   └── using/extensions.md, …
+├── CONTRIBUTING.md, CHANGELOG.md, SECURITY.md
 ├── LICENSE                       # AGPL-3.0-only (entire repository)
 ├── NOTICE
 └── README.md
@@ -144,18 +144,17 @@ Modules register via an explicit descriptor array (auto-discovery is backlog). A
 export interface FeatureModule {
   id: string;                       // "papers"
   title: string;                    // "Papers"
-  icon: IconComponent;
   routes: RouteDef[];               // contributes its own routes
   navItems: NavItem[];              // contributes to the nav/tab bar
   migrations?: string[];            // declares its own DB migrations
 }
 ```
 
-The app shell collects descriptors from a registry array and builds navigation dynamically. Adding a module = create the folder + register in `registry.ts` + wire `bootstrap.ts` / facades (see [`extensions.md`](../using/extensions.md)). Removing one = delete it. This is the Open/Closed principle made concrete (§4.2).
+The app shell collects descriptors from a registry array and builds navigation dynamically. Adding a module = create the folder + add it to the `features` array in `scripts/generate-deployment-registry.mjs` (then `npm run generate:deployment`) + wire `create-app-container.ts` / facades (see [`extensions.md`](../using/extensions.md)). Removing one = delete it. This is the Open/Closed principle made concrete (§4.2).
 
 ### 3.4 Cross-feature patterns (sharing + library)
 
-**Sharing** (`packages/core/src/features/sharing/`) owns grants and comments. Pure helpers such as `shareCoversResource` and `shareAllowsComment` live in the domain layer so UI and use-cases do not duplicate share-matching logic.
+**Sharing** (`packages/core/src/features/sharing/`) owns grants and comments. Pure helpers such as `shareCoversResource` and `shareAllowsComment` are Rust (`crates/wf-core/src/sharing.rs`), reached from web through the wasm binding, so UI and use-cases do not duplicate share-matching logic.
 
 **Library pins** (`packages/core/src/features/library/`) are a separate module: a recipient-side index of shared items they want in their project library. Pinning always goes through `PinSharedResourceUseCase`, which validates an active share before writing. The web adapter lives in `apps/web/src/features/library/` and is exported via that module's `index.ts`.
 
@@ -186,13 +185,13 @@ These are not abstract aspirations — each maps to enforceable rules and concre
 
 ### 4.4 Interface Segregation Principle (ISP)
 *Many specific interfaces beat one fat interface.*
-- Split capabilities: `IReadableRepository<T>` vs `IWritableRepository<T>`; a read-only graph view depends only on the read interface.
+- Split capabilities: `IReadableRepository<T>` vs `IWritableRepository<T>` (built, in `packages/core/src/shared/parts.ts`); a read-only graph view depends only on the read interface.
 - Realtime, offline-cache, and storage are **separate** interfaces (`IRealtimeChannel`, `IOfflineCache`, `IFileStorage`), so a module uses only what it needs.
 
 ### 4.5 Dependency Inversion Principle (DIP)
 *Depend on abstractions, not concretions.*
-- Domain/application depend on interfaces defined in `domain/` and `backend/` (auth, session, blob). Concrete adapters are constructed at the composition root (`wireBackend()`, `bootstrap.ts`) and **injected**.
-- A single **composition root** (`apps/web/src/bootstrap.ts`, `python/weaveforge/container.py`) is the only place that knows concrete implementations and wires them together. Everywhere else receives dependencies via constructor/params.
+- Domain/application depend on interfaces defined in `domain/` and `backend/` (auth, session, blob). Concrete adapters are constructed at the composition root (`wireBackend()`, `create-app-container.ts`) and **injected**.
+- A single **composition root** (`apps/web/src/create-app-container.ts`, `python/weaveforge/container.py`) is the only place that knows concrete implementations and wires them together. Everywhere else receives dependencies via constructor/params.
 
 ```ts
 // domain (no SDK import anywhere here)
@@ -216,7 +215,7 @@ const addPaper = new AddPaperUseCase(paperRepo, arxivSource);
 ## 5. Cross-cutting contracts
 
 ### 5.1 Data-access contracts
-A generic base plus per-entity specializations (ISP-friendly):
+A simplified sketch of the built shape (the source of truth is `packages/core/src/shared/parts.ts`):
 
 ```ts
 interface IReadableRepository<T, F = unknown> {
@@ -247,7 +246,7 @@ Third-party **bibliography, citation, notification, and log-sync** providers fol
 Kept separate (ISP): `IRealtimeChannel` (subscribe to table changes), `IOfflineCache` (read-through cache + write outbox), `IFileStorage` (PDF blobs). A module opts into each independently. The offline strategy (last-write-wins on `updated_at`) lives behind `IOfflineCache` so it can evolve without touching features.
 
 ### 5.4 Keeping the two clients consistent
-The migrations in `db/migrations/` (the folder keeps its original name) are the **single source of truth** for the schema. TypeScript types are generated from the live schema; Python models mirror the same tables. Domain *behavior* (validation, dedupe rules) is duplicated intentionally per language but documented in one place (this doc + docstrings) so the contract is shared even though the runtime isn't.
+The migrations in `db/migrations/` (the folder keeps its original name) are the **single source of truth** for the schema. Python models mirror the same tables. No script generates TypeScript types from the schema. Domain *behavior* (validation, dedupe rules) is duplicated intentionally per language but documented in one place (this doc + docstrings) so the contract is shared even though the runtime isn't.
 
 ---
 
@@ -288,6 +287,6 @@ This way the very first module sets the pattern every later one copies — which
 
 ## 9. Open questions / decisions to confirm
 
-- Web framework: **Next.js** (assumed in plan) vs **SvelteKit** — both fit this architecture; confirm before scaffolding `apps/web`.
+- Web framework: **Next.js chosen** (`apps/web` is Next.js). SvelteKit was considered and not adopted.
 - Auto-discovery vs explicit registry array for modules (§3.3) — start explicit (simpler), revisit if it gets noisy.
 - How much domain logic to duplicate in Python vs. expose via a thin shared API — current call: duplicate the small amount that exists, keep schema as the shared contract (§5.4).

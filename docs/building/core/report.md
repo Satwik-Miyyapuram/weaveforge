@@ -29,22 +29,9 @@ Each line is one file under `crates/wf-core/src/report/`.
 
 ## How the app calls it
 
-The wasm exports live in `crates/wf-wasm/src`. The TypeScript wrappers in
-`packages/wf-wasm/src` reach them through `readyCore()`, and the app imports
-those wrappers.
-
-- `report-records.ts`: `createReportSection`,
-  `buildSectionTree`, `sectionProgress`,
-  `outlineProgress`, `countSectionSources`, `editedRelativeLabel`,
-  `checkBibliography`, `prismaFigureTex`, `prismaCaveat`.
-- `report-cite-key.ts`: `resolveCiteKey`, `formatCitation`,
-  `formatPaperCitation`.
-- `report-bib-entries.ts`: `parseBibEntries`, `parseLatexSectionTree`.
-- `report-markdown-to-latex.ts`: `markdownToLatex`,
-  `uniqueFigureName`, `uniqueFigureNameIn`.
-- `report-artifacts.ts`: `parseArtifactRefs`, `serialiseArtifactRef`,
-  `artifactBasename`, `resolveArtifactRefsMarkdown`, `safeArtifactCaption`,
-  `safeImageDestination`.
+The wasm exports live in `crates/wf-wasm/src`. The app reaches them through
+`readyCore()` (`apps/web/src/lib/rust-core.ts`); `packages/core` calls them
+through `rust()` (`packages/core/src/shared/rust.ts`), e.g. `rust().uniqueFigureName`.
 
 ## What stays in TypeScript, and why
 

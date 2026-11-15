@@ -80,7 +80,7 @@ or a training script can log it for you with the Python SDK.
 | `running` | In progress. The screen re-checks it in the background. |
 | `done` | Finished. The default when a `track` run exits without error. |
 | `failed` | Your code raised an error inside a `track` run. |
-| `abandoned` | Marked by WeaveForge when a `running` run has gone stale. |
+| `abandoned` | Marked by WeaveForge when a `running` run has had no finish and no activity for 2 minutes. |
 
 ### Limits and validation
 

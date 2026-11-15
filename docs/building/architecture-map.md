@@ -10,16 +10,18 @@ wants to know what runs on their machine and what does not.
 
 One codebase, four surfaces, one schema.
 
-- **`packages/core`** — the rules. Domain types and use cases with no framework
-  and no database in them: citation keys, LaTeX section trees, the paste
-  pipeline, the search ranking. Everything else depends on this, and it depends
-  on nothing.
+- **`crates/wf-core`** — the rules. Pure Rust with no I/O in it: citation keys,
+  LaTeX section trees, the paste pipeline, the search ranking. Everything else
+  depends on this, and it depends on nothing. See [The Rust core](#the-rust-core).
+- **`packages/core`** — the TypeScript that remains: shared contracts and glue
+  that call into the Rust core. The domain rules themselves are in `crates/wf-core`.
 - **`apps/web`** — the app. Screens, features, API routes, and the wiring that
   chooses which backend is behind them. The browser runs this; so does the
-  desktop window, unchanged.
+  desktop window, unchanged. Rust logic reaches it through the WASM build,
+  registered in `apps/web/src/lib/rust-core.ts`.
 - **`apps/shell`** — the shell. Only what a window can do and a tab cannot:
   the keychain, a folder on your disk, a local database, a loopback API, the
-  menu, updates.
+  menu, updates. It links `wf-core` for the rules and `wf-store` for the native I/O.
 - **`apps/pitch`** — the public site, including this page.
 - **`python/weaveforge`** — the SDK training scripts import.
 - **`db/migrations`** — the schema, applied in the same order to a hosted
@@ -34,9 +36,9 @@ startup.
 
 | | In a browser | Desktop, signed in | Desktop, no account |
 | --- | --- | --- | --- |
-| Where data lives | Hosted Postgres | Hosted Postgres | PGlite, in the app's folder |
+| Where data lives | Hosted Postgres | Hosted Postgres | Native Postgres, run by the shell, in the app's folder |
 | Who you are | Your account | Your account | One local user |
-| Attachments | Object storage | Object storage | A local table |
+| Attachments | Object storage | Object storage | Files on disk, each with a row that points at it |
 | Integration tokens | Sealed with a server key | Sealed with a server key | This computer's keychain |
 | Needs a network | Yes | Yes | No |
 
@@ -57,7 +59,7 @@ no outbound request at boot, and these work with the network unplugged:
 | The citation popover's record — title, venue, DOI | No | Looked up on arXiv, Crossref, Semantic Scholar and OpenAlex, then cached for thirty days keyed by the text's fingerprint |
 | Linking and editing an Overleaf report | Yes | The token sits in the keychain; the row is an ordinary row |
 | Opening an Overleaf report's contents | No | It is a clone from overleaf.com — offline means no server of ours, not no Overleaf |
-| Attachments logged from a training script | No | Blobs, and the loopback API only runs SQL |
+| Attachments logged from a training script | Yes, up to 25 MB | The loopback API saves them to the app's local artifacts folder |
 | Sharing, supervision, anything with a second person | No | Account features |
 
 ### Why the editor needed a fix rather than a flag
@@ -72,12 +74,12 @@ no transport, not no history. The document is still recorded; nothing is sent.
 ### Why Overleaf needed a keychain
 
 Linking an Overleaf report does three jobs, and only one of them needs a server.
-The rows are ordinary rows. The LaTeX parse is a pure function in `core`. Only
+The rows are ordinary rows. The LaTeX parse is a pure function in `wf-core`. Only
 holding the token needs somewhere safe — and on a server that is a key the
 browser never sees. The equivalent this machine has is its own keychain, so the
 token is kept there, the clone happens in the shell, and the page never holds
-the credential either way. The clone code is not duplicated: the shell imports
-the app's own reader.
+the credential either way. The clone code is not duplicated: the shell's
+Overleaf workshop imports the same `wf-core` reader the app uses.
 
 ## How big it is
 
@@ -89,16 +91,22 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 
 | Where | Size | What lives there |
 | --- | --- | --- |
-| `packages/core` | 24,619 lines | Domain and application logic shared by every surface |
-| `apps/web` | 218,085 lines | The app itself: screens, features, API routes, backend wiring |
-| `apps/shell` | 3,971 lines | The Tauri shell — what only an installed app can do |
-| `apps/pitch` | 904 lines | The public site and this documentation |
+| `crates/wf-core` | 178,754 lines | The rules, in Rust: pure logic with no I/O, shared by every shell |
+| `crates/wf-store` | 5,468 lines | Native I/O in Rust: the workspace folder, blobs, git and models |
+| `crates/wf-wasm` | 27,356 lines | wf-core for JavaScript, via wasm-bindgen |
+| `crates/wf-bindings` | 1,110 lines | Writes the TypeScript types for every Rust type the UI sees |
+| `packages/core` | 24,619 lines | Residual TypeScript: shared contracts and glue that call the Rust core |
+| `packages/wf-wasm` | 4,245 lines | TypeScript wrappers and generated types over the WASM module |
+| `apps/web` | 218,148 lines | The app itself: screens, features, API routes, backend wiring |
+| `apps/shell` | 47,325 lines | The Tauri shell — what only an installed app can do |
+| `apps/relay` | 27,140 lines | Relays and pasted-link fetches, in Rust: the wf-relay library and its OCI server |
+| `apps/pitch` | 919 lines | The public site and this documentation |
 | `python/weaveforge` | 3,375 lines | The SDK training scripts import |
 | `python/tests` | 2,277 lines | Its tests |
 | `db/migrations` | 155 files | The schema, as an ordered sequence |
-| `docs` | 197 files | Documentation, this page included |
+| `docs` | 185 files | Documentation, this page included |
 
-**253,231 lines of code in all**, across 1,966 source files.
+**540,736 lines of code in all**, across 3,259 source files.
 
 <!-- /generated:code-map -->
 
@@ -106,7 +114,8 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 
 Everything the desktop shell can do that a tab cannot goes through one of these,
 a Rust command in `apps/shell/src`, typed once in the generated
-`apps/shell/bridge/bindings.ts` and wrapped by `desktop-bridge.ts`. Two are pushed the other way — main to renderer — because
+`apps/shell/bridge/bindings.ts` and wrapped by
+`apps/web/src/lib/desktop/desktop-bridge.ts`. Two are pushed the other way — main to renderer — because
 they are events nobody asked for: a sign-in finishing, and somebody else
 changing the folder.
 
@@ -186,12 +195,28 @@ changing the folder.
 The number is deliberately visible. A codebase this size is a cost, and a figure
 that only ever goes up is a figure somebody should be arguing with.
 
+## The Rust core
+
+The rules and the native I/O moved to Rust. Each crate has one job, and the
+dependency only points one way: the others depend on `wf-core`, not the reverse.
+
+| Crate | What it does |
+| --- | --- |
+| `crates/wf-core` | Pure logic shared by every shell, with no I/O. Also built to WASM. |
+| `crates/wf-store` | Native I/O: the workspace folder, blobs, git and models. Never built for WASM. |
+| `crates/wf-wasm` | `wf-core` for JavaScript, through `wasm-bindgen`. Built by `scripts/build-wasm.mjs`. |
+| `crates/wf-bindings` | Writes the TypeScript types for every Rust type that crosses into the UI. |
+
+The shell's `apps/shell/src/local_pg` runs the native Postgres that the desktop
+app uses when there is no account.
+
 ## Where to put a change
 
-- A rule that would be true in any client — **`packages/core`**.
+- A rule that would be true in any client — **`crates/wf-core`**.
 - A screen, or a rule about how one behaves — **`apps/web/src/features`**.
 - Something only an installed window can do — **`apps/shell/src`**, exposed
-  as Tauri commands in `commands.rs` and typed once in `apps/shell/bridge/bindings.ts`.
+  as Tauri commands (registered in `commands.rs` or a `cmd_*.rs` module) and typed
+  once in `apps/shell/bridge/bindings.ts`.
 - A column — a new migration in **`db/migrations`**. Never an edit to an
   old one; they have already run on other people's machines.
 

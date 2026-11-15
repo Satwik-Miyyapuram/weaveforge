@@ -76,8 +76,8 @@ are being removed.
 - **Hooks and UI.** React state, hooks and components stay in `apps/web`.
 - **Type contracts.** The TypeScript types that describe the wasm inputs and
   outputs stay in TypeScript, because they are the boundary the app
-  type-checks against. They now sit in `ai-types.ts` (data types and the
-  `UNTRUSTED_CONTEXT_RULE` const) and `core-contract.ts` (data shapes the bindings do not cover yet). The wf-wasm wrappers keep only the runtime
+  type-checks against. They now sit in `packages/core/src/features/ai-assistant/domain/parts.ts` (the
+  `UNTRUSTED_CONTEXT_RULE` const) and `packages/core/src/shared/core-contract.ts` (data shapes the bindings do not cover yet). The wf-wasm wrappers keep only the runtime
   forwarding.
 - **Proposal grouping.** `apps/web/src/features/ai-assistant/application/parts.ts`
   is UI-side grouping and bulk-run logic. It stays in TypeScript for now.

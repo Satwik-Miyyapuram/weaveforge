@@ -1,6 +1,6 @@
 # Offline-first and sync
 
-**Status:** proposal, nothing built.
+**Status:** delivered. The decisions live in `crates/wf-core/src/sync`; this is the design record.
 **Question it answers:** can WeaveForge keep working with no network — on the
 desktop app especially — and reconcile cleanly when the network comes back,
 including when the same thing was edited in two places at once?
@@ -20,8 +20,8 @@ Facts, not plans. Each is load-bearing for what follows.
 
 | Fact | Where | Consequence |
 |------|-------|-------------|
-| The desktop app is a shell that loads a remote URL | [`apps/desktop/src/main.ts:84`](../../../../apps/desktop/src/main.ts) — `window.loadURL(APP_URL)` | **There is no offline desktop app today, at any level.** No network, no window contents. Data sync is moot until this is fixed. |
-| The service worker deliberately never caches HTML or navigations | [`apps/web/src/sw.ts:7`](../../../../apps/web/src/sw.ts) | The PWA does not boot offline either. The reason is sound (Next embeds build-id-specific chunk and RSC URLs, so a cached shell breaks after a deploy), so the fix is not "cache the HTML too". |
+| The desktop app is a shell that loads a remote URL | [`apps/desktop/src/main.ts`](../../../../apps/desktop/src/main.ts) — `window.loadURL(APP_URL)` | **There is no offline desktop app today, at any level.** No network, no window contents. Data sync is moot until this is fixed. |
+| The service worker deliberately never caches HTML or navigations | [`apps/web/src/sw.ts`](../../../../apps/web/src/sw.ts) | The PWA does not boot offline either. The reason is sound (Next embeds build-id-specific chunk and RSC URLs, so a cached shell breaks after a deploy), so the fix is not "cache the HTML too". |
 | Repositories are ports in `@weaveforge/core`, wired per provider | `apps/web/src/backend/providers/{supabase,postgres}` | A third provider can be added without touching a single feature. This is the main reason the work is tractable. |
 | `@electric-sql/pglite` is already a dependency | `apps/web/package.json`, used by `apps/web/src/backend/test/pg-test-db.ts` | Real Postgres in-process, running **the shipped migrations**. One schema, one set of RLS policies, local and remote. |
 | The postgres provider already switches role for RLS | [`apps/web/src/backend/providers/postgres/pg-runner.ts`](../../../../apps/web/src/backend/providers/postgres/pg-runner.ts) | Local reads enforce the same policies as the server. Without this a local mirror of a shared project would leak other members' rows. |
@@ -400,7 +400,7 @@ estimate did not grow more than it did.
 
 Pricing follows from these — sync and hosted storage are what the hosted service
 sells once the app itself is free and complete offline. See
-[`../../pricing-strategy.md`](../../strategy/pricing.md) §3.1.
+[`../../strategy/pricing.md`](../../strategy/pricing.md) §3.1.
 
 Settled. These are product calls and they simplify the engineering
 substantially — each one removes a whole class of edge case rather than

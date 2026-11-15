@@ -26,8 +26,7 @@ environment, the clock and the object store.
 ## How the app calls it
 
 The wasm exports live in `crates/wf-wasm/src` (`storage_config.rs`,
-`storage_blob_access.rs`). The TypeScript wrappers in `packages/wf-wasm/src`
-import the raw names from `../pkg/wf_wasm.js` and re-export them. The main names
+`storage_blob_access.rs`). No TypeScript wrapper in `packages/wf-wasm/src` names these. The main names
 are `readStorageConfig`, `blobProviderForRuntime`, `r2BlobClientConfig`,
 `coldBlobClientConfig`, `missingR2ConfigMessage`, `maxSignedUrlPaths` and
 `blobStorageBuckets`. The return type of `blobStorageBuckets` in
@@ -54,8 +53,10 @@ Call `readyCore()` only after `loadCore()` has resolved.
 - **The S3 client and object I/O.** The AWS client, uploads, downloads and
   deletes live in `apps/web/src/storage/providers/s3/s3-blob-store.ts`. Rust
   returns the config that the client is built from.
-- **The HTTP routes.** The `/api/blobs/*` handlers read requests and write
-  responses in the app. They call the access rules from Rust.
+- **The HTTP client.** `apps/web/src/storage/providers/http/http-blob-store.ts`
+  calls `/api/blobs/*`. The handlers are Rust in the relay
+  (`apps/relay/server/src/blob_routes.rs`) and call the access rules from
+  `wf_core::storage::blob_access`.
 - **The clock.** The app reads the time and passes `now` in, so the access rules
   take no clock of their own and stay testable.
 - **Secrets and environment reads.** The app reads the process environment and

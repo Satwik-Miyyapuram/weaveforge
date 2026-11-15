@@ -244,7 +244,7 @@ A module is done when contract tests pass on **both** in-memory and real backend
 | Dynamic `bootstrap.ts` / facade fields for plugins | UI-only plugin modules work; data plugins need manual wiring |
 | Runtime `import()` marketplace | Phase E — deferred |
 | Auto-generated Next.js routes for built-in features | Built-ins keep hand-written `app/*/page.tsx` |
-| Plugin marketplace / sandbox | Explicit non-goal for v1 (`DESIGN.md` §7) |
+| Plugin marketplace / sandbox | Explicit non-goal for v1 (`design.md` §7) |
 | Python SDK backend swap | Not needed: the SDK talks only to the web app's `/api/sdk/*` |
 
 ---
@@ -253,7 +253,7 @@ A module is done when contract tests pass on **both** in-memory and real backend
 
 | Doc | Topic |
 |-----|-------|
-| [`DESIGN.md`](../building/design.md) | SOLID rubric, module shape, non-goals |
+| [`design.md`](../building/design.md) | SOLID rubric, module shape, non-goals |
 | [`dev.md`](../building/dev.md) | Day-to-day dev, SOLID CI checks |
 | [`integrations.md`](integrations.md) | Integration provider deep dive |
 | [`backend.md`](../running/backend.md) | Backend vs storage separation |

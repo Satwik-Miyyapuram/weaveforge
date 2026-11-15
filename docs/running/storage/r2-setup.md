@@ -1,6 +1,6 @@
 # Cloudflare R2 setup — WeaveForge hot tier
 
-One-time setup for `BLOB_PROVIDER=tiered`. Cold tier (OCI MinIO) is Phase 3.
+One-time setup for `BLOB_PROVIDER=tiered`. Uploads go to R2 (the hot tier). The OCI MinIO cold tier is configured by env but nothing moves objects to it yet.
 
 ## 1. Enable R2 (required first)
 
@@ -62,7 +62,7 @@ R2_SECRET_ACCESS_KEY=your_secret_access_key
 R2_BUCKET=weaveforge-hot
 ```
 
-`NEXT_PUBLIC_BLOB_PROVIDER` tells the **browser** to call `/api/blobs/*` instead of the default MinIO store. R2 keys stay server-only (no `NEXT_PUBLIC_` prefix). You can also set `BLOB_PROVIDER=tiered` as a server-only alias.
+`NEXT_PUBLIC_BLOB_PROVIDER` tells the **browser** to call `/api/blobs/*` instead of the default Supabase Storage adapter (used when unset; `apps/web/src/storage/wire-storage.ts`). R2 keys stay server-only (no `NEXT_PUBLIC_` prefix). You can also set `BLOB_PROVIDER=tiered` as a server-only alias.
 
 Restart dev:
 
@@ -81,9 +81,9 @@ npm run dev -w @weaveforge/web
 | Error | Fix |
 |-------|-----|
 | `Please enable R2` (403) | Step 1 |
-| `Tiered storage requires R2_*` | Step 5 — all four R2 vars set |
+| Relay reports `Tiered storage is not configured: missing …` (from `apps/relay/server/src/storage.rs`) | Step 5 — all four R2 vars set |
 | `BLOB_PROVIDER is not tiered` on API | Set `NEXT_PUBLIC_BLOB_PROVIDER=tiered`, restart |
-| Upload goes to the default MinIO store instead of R2 | Set `NEXT_PUBLIC_BLOB_PROVIDER=tiered` (browser needs the public var) |
+| Upload goes to the default Supabase store instead of R2 | Set `NEXT_PUBLIC_BLOB_PROVIDER=tiered` (browser needs the public var) |
 | Upload 401 | Sign in again; the session token has expired |
 | `blob_objects` insert fails | Apply migration `0023` |
 | Image open shows 405 | Fixed: images use `/api/blobs/content` (not R2 presigned URLs) |

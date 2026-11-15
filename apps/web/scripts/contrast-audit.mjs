@@ -157,7 +157,7 @@ const PAIRS = [
      Raising the token to 4.5:1 would put it within a step of `--muted` in
      nine themes and collapse the hierarchy the ramp exists to express, so
      that is a design decision rather than a contrast fix, and it is recorded
-     as open in docs/internal/reports/redesign-audit-fixes.md instead of being
+     as open in the redesign audit-fixes notes instead of being
      silently settled here. */
   ["--faint", "--bg", "faint text on bg", true], // decorative → 3:1 bar
   ["--accent-fg", "--accent", "button label on accent"],

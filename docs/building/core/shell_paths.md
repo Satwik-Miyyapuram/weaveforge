@@ -9,8 +9,8 @@ Rust home: `crates/wf-core/src/shell_paths.rs`, plus `mcp_client_configs` in `cr
 
 ## Where it is called
 
-- The native shell rewrites MCP configs itself: `mcp_client_configs` and `rewrite_mcp_client_configs` in `apps/shell/src/local_http/rewrite.rs`.
+- The native shell rewrites MCP configs itself, with its own `mcp_client_configs` and `rewrite_mcp_client_configs` in `apps/shell/src/local_http/rewrite.rs` (called from `apps/shell/src/lib.rs`). It does not call the `mcp_client_configs` above.
 
-## What stays in TS
+## What runs outside wf-core
 
-Reading and writing the home pointer and the MCP config files, the rewrite-and-backup flow, and `mcp-connect.ts`, which still joins `HOME_CONFIG_DIR` itself.
+Reading and writing the MCP config files and the rewrite-and-backup flow run in Rust: `read_mcp_connection` and `write_mcp_connection` in `apps/shell/src/local_http/connect.rs`, and `write_backup` and `rewrite_mcp_client_configs` in `apps/shell/src/local_http/rewrite.rs`. `HOME_CONFIG_DIR` is joined in Rust (`apps/shell/src/local_http/connect.rs`), not in TS.

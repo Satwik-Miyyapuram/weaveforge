@@ -7,14 +7,14 @@ WeaveForge is built using **SOLID** principles, emphasizing a clean, modular str
 We use a feature-sliced modular pattern:
 - **`apps/web/src/features/`**: The home for all UI features. Each folder represents an isolated domain (e.g., `papers`, `graph`, `logbook`).
 - **`apps/web/src/registry.ts`**: Feature module registry. Call `buildModuleRegistry(integrationConfig)` for env-aware nav (e.g. hide Git when no git-read providers are enabled).
-- **`apps/web/src/bootstrap.ts`**: Composition root — wires use-cases, integrations, and facades from `wireBackend()`.
+- **`apps/web/src/bootstrap.ts`**: Thin entry (`ensureContainer`, `getContainer`). The composition root is `apps/web/src/create-app-container.ts`, which wires use-cases, integrations, and facades (`wireBackend()` in `container/parts.ts`).
 - **`apps/web/src/container/facades/`**: UI entry points (`getContainer().papers`, `.plan`, …). UI must not reach into repositories directly.
 - **`packages/core/`**: Shared interfaces, entities, and use cases.
 - **`apps/web/src/backend/`**: Env-driven persistence + auth wiring (`wireBackend()`). Data: PostgREST on the OCI server; sign-in: Supabase Auth; see [`docs/running/backend.md`](../running/backend.md).
 - **`docs/using/integrations.md`**: Third-party providers (Zotero, GitLab, …).
 - **`docs/using/extensions.md`**: Extension seams — integrations, modules, backend, Python sync; links to plugin backlog.
 - **`docs/using/citations-and-overleaf.md`**: User guide for cite/excerpts/Overleaf `\cite` / related papers.
-- **`docs/internal/strategy/competitive-scan.md`** + **`docs/internal/plans/completed/competitive-scan-implementation-plan.md`**: product steal list + phased build plan.
+- **`docs/internal/strategy/competitive-findings-2026-07.md`**: verified competitor findings, roadmap (§6) and status of the earlier steal list (§11).
 
 ## Adding a New Component or Feature
 
@@ -55,21 +55,16 @@ To add a new feature (e.g., a "Timer" module):
    ```
 
 4. **Register the Module**
-   Open `apps/web/src/registry.ts` and add your module to `ALL_MODULES`:
-   ```ts
-   import { timerModule } from "@/features/timer/module";
-
-   const ALL_MODULES: readonly FeatureModule[] = [
-     // ...
-     timerModule,
-   ];
+   Open `scripts/generate-deployment-registry.mjs` and add a row to its `features` array, then run `npm run generate:deployment` (it also runs on `prebuild`). The generator writes `apps/web/src/deployment/generated-registry.ts`; do not edit that file by hand:
+   ```js
+   ["timer", "@/features/timer/module", "timerModule", false],
    ```
    Nav items are built by `buildModuleRegistry()` — no edits to `tabbar.tsx` per feature.
-   If the module belongs in a grouped sub-nav (Library, Plan, …), add its key to `buildNavGroupsFromItems()` in `registry.ts`.
+   If the module belongs in a grouped sub-nav (Library, Plan, …), add its key to `buildNavGroupsFromModules()` in `registry.ts`.
    Create `apps/web/src/app/<path>/page.tsx` manually (Next.js App Router — not auto-wired from `FeatureModule.routes` yet).
 
 5. **Wire domain logic**
-   Add use-cases in `packages/core`, wire in `bootstrap.ts`, expose via a facade in `container/facades/`. See [`extensions.md`](../using/extensions.md) §4.
+   Add use-cases in `packages/core`, wire in `create-app-container.ts`, expose via a facade in `container/facades/`. See [`extensions.md`](../using/extensions.md) §4.
 
 ## Adding or swapping an integration
 
@@ -80,7 +75,7 @@ Third-party services (Zotero, GitLab, Mattermost, Semantic Scholar, …) are wir
 Quick summary:
 1. Implement the core port (`IBibliographyIntegration`, `ICitationSource`, etc.).
 2. Add provider adapter under `apps/web/src/integrations/providers/<name>/`.
-3. Register via integration **manifests** (`integrations/manifests/`) and `config.ts`; wire in `wire-integrations.ts` / `wire-citations.ts`.
+3. Register via integration **manifests** (`integrations/manifests/`) and `config.ts`; wire in `wire-integrations.ts`.
 4. Set `NEXT_PUBLIC_*_PROVIDER` env var for your deployment.
 
 ## Post-merge review checklist (SOLID / DRY)
@@ -89,10 +84,10 @@ When landing sharing, library, or org onboarding work, confirm:
 
 | Area | Rule |
 |------|------|
-| **Share matching** | Use `shareCoversResource` / `shareAllowsComment` from `@weaveforge/core` in use-cases — never in UI components. |
-| **Library pins** | Writes go through `PinSharedResourceUseCase`; repos must pass `runLibraryPinRepositoryContract`. |
-| **Screen data** | Multi-repo orchestration lives in `Load*ScreenUseCase` classes wired in `bootstrap.ts`, not in React screens. Pin merge uses `mergePinnedScreenData` from `@weaveforge/core`. |
-| **Pinned owner labels** | `buildMemberNameMap` may be named only in `features/sharing/application/member-labels.ts` (the definition), `features/sharing/application/load-pinned-owner-names.ts` (the wrapper) and `features/sharing/ui/shared-with-me-screen.tsx` (which builds from members its use-case already loaded, so it costs no extra directory read). Anywhere else, call `loadPinnedOwnerNames()`. `check:dry` searches all of `features/`, not just `ui/`, and fails on a fourth caller — it could not see `application/` before, which is where the real callers are. |
+| **Share matching** | Use `shareCoversResource` / `shareAllowsComment` (Rust, `crates/wf-core/src/sharing.rs`, reached via `readyCore()`) in use-cases — never in UI components. |
+| **Library pins** | Writes go through `PinSharedResourceUseCase`; the library-pin repositories are covered by the contract suite in `apps/web/src/backend/test/contracts/pins-projects.contract.test.ts`. |
+| **Screen data** | Multi-repo orchestration lives in `Load*ScreenUseCase` classes wired in `create-app-container.ts`, not in React screens. Pin merge uses `mergePinnedScreenData` from `@weaveforge/core`. |
+| **Pinned owner labels** | `loadPinnedOwnerNames()` (`features/sharing/application/parts.ts`) builds owner labels from `readyCore().memberNameMap`; `features/sharing/ui/shared-with-me-screen.tsx` may build its own (which builds from members its use-case already loaded, so it costs no extra directory read). Anywhere else, call `loadPinnedOwnerNames()`. `check:dry` searches all of `features/`, not just `ui/`, and fails on a fourth caller — it could not see `application/` before, which is where the real callers are. |
 | **Duplicate copy** | Papers: `DuplicateSharedPaperUseCase` (core). Vault pages: `DuplicateSharedVaultPageUseCase` (web, asset re-upload). Both require an active share grant. |
 | **Org API routes** | Shared helpers in `apps/relay/server/src/org_routes.rs`; code preview requires auth. |
 | **Standalone onboarding** | Client calls `complete_org_setup()` RPC; `/api/org/standalone` is the JWT fallback only. |
@@ -110,7 +105,7 @@ Scope, so it is not mistaken for more: the cross-feature rule reads `apps/web/sr
 
 `npm run check:dry` runs in the same job. It fails when UI screens duplicate patterns we centralised: share matching, pin merge, or pinned owner label loops.
 
-UI talks to **`getContainer().<feature>`** facades only; repositories stay behind use-cases in `bootstrap.ts`.
+UI talks to **`getContainer().<feature>`** facades only; repositories stay behind use-cases in `create-app-container.ts`.
 
 ## Source hygiene (enforced)
 
@@ -137,10 +132,8 @@ Two more rules the checker cannot see, so they are on you:
   splits into, with an `index.ts` re-exporting the entry point so importers do
   not change. `features/reader/ui/pdf-reader/` and `app/pitch/` are worked
   examples; see [`docs/building/design.md`](design.md) § 3.2.2.
-- **A precondition shared by two routes lives in one `_shared.ts`.** Two copies
-  of an auth check is a way for them to drift apart —
-  [`api/account/delete-user/_shared.ts`](../../apps/web/src/app/api/account/delete-user/_shared.ts)
-  and [`api/sdk/_shared.ts`](../../apps/web/src/app/api/sdk/_shared.ts).
+- **A precondition shared by two routes lives in one shared module that both routes import.** Two copies
+  of an auth check is a way for them to drift apart.
 
 ## Dependencies that look unused
 
@@ -222,14 +215,9 @@ These tests run in `check:all` and on every PR.
 | **python-sdk** | ruff, mypy, pytest |
 | **dco** | [`scripts/check-dco.sh`](../../scripts/check-dco.sh) and its Node twin [`scripts/check-dco.mjs`](../../scripts/check-dco.mjs) — every commit the PR adds carries a `Signed-off-by:` line naming its own author. Bot commits are exempt (GitHub's `<name>[bot]@users.noreply.github.com` convention), because a sign-off certifies the author and Dependabot cannot write one — without it every dependency PR would block on this required check. CI runs both scripts, so the two cannot drift; the `.mjs` is the copy a Windows contributor can run: `npm run check:dco -- origin/main HEAD`. Commit with `git commit -s`; sign off a branch already written with `git rebase --signoff origin/main`. Reads only what the PR adds, so the unsigned history before the check is not its business. |
 
-The gates `check:boundaries` runs, read from `package.json` rather than
-remembered:
+The gates `check:boundaries` runs, read from `package.json`:
 
-<<<<<<< HEAD
 CI runs these as **separate steps** rather than through `check:boundaries`, so each gate names itself in the job log and a second broken rule is visible in the same run instead of waiting behind the first. An aggregate step fails the job if any gate did not pass, so the job is still red on a failure. That makes this list a second copy of `check:boundaries`, and `check:ci-parity` is the gate that keeps the two identical — a gate added to one and not the other used to stop gating merges, silently, with a green build. `check:boundaries` itself is unchanged and remains the fast local pre-PR pass.
-=======
-CI runs these eight as **separate steps** rather than through `check:boundaries`, so each gate names itself in the job log and a second broken rule is visible in the same run instead of waiting behind the first. An aggregate step fails the job if any gate did not pass, so the job is still red on a failure. `check:boundaries` itself is unchanged and remains the fast local pre-PR pass — but it is now a second copy of this list, so a gate added there must be added to [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) too.
->>>>>>> origin/main
 
 <!-- generated:boundary-checks -->
 
@@ -246,7 +234,7 @@ CI runs these eight as **separate steps** rather than through `check:boundaries`
 | `npm run check:mcp-plugin` | `node --import tsx scripts/check-mcp-plugin.mjs` |
 | `npm run check:android-permissions` | `node scripts/check-android-permissions.mjs` |
 | `npm run check:oci-infra` | `node scripts/check-oci-infra.mjs` |
-| `npm run check:docs` | `node --test "scripts/lib/test/*.test.mjs" && node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check && node scripts/check-ui-names.mjs` |
+| `npm run check:docs` | `node --test "scripts/lib/test/*.test.mjs" && node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check && node scripts/check-ui-names.mjs && node scripts/check-doc-refs.mjs` |
 | `npm run check:ci-parity` | `node scripts/check-ci-parity.mjs` |
 
 <!-- /generated:boundary-checks -->
@@ -263,7 +251,7 @@ Because data is heavily scoped to "Projects", we centralize project context but 
 
 1. **Local State**: Use `useState` for simple UI toggles.
 2. **Context Providers**: Feature-wide state is provided by Contexts. E.g., `project-provider.tsx` fetches and caches the active project, providing `current` and `projects` downstream without prop-drilling.
-3. **Data Fetching**: UI calls `getContainer().<feature>` facades; facades delegate to use-cases wired in `bootstrap.ts`. Do not add ad-hoc `fetch` in components except for Next.js API routes consumed by infrastructure adapters.
+3. **Data Fetching**: UI calls `getContainer().<feature>` facades; facades delegate to use-cases wired in `create-app-container.ts`. Do not add ad-hoc `fetch` in components except for Next.js API routes consumed by infrastructure adapters.
 4. **Caching & Optimistic Updates**:
    To ensure the UI feels instant:
    - Always perform optimistic updates before the network request finishes.

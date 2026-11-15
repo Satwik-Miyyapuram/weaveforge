@@ -53,7 +53,7 @@ For somebody changing the code.
 - [MCP implementation](building/mcp.md)
 - [Releasing](building/release.md)
 - [How we write the docs](building/docs-style.md) — page outline, sentence rules, Rust as the source
-- [Contributing](../CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), [security policy](SECURITY.md)
+- [Contributing](../CONTRIBUTING.md), [security policy](../SECURITY.md)
 
 ## [Running it yourself](running/)
 
@@ -73,9 +73,9 @@ to walk past a backlog to find it.
 
 ## Why the split
 
-`CODE_OF_CONDUCT.md` and `SECURITY.md` stay at the top of
-this folder rather than under `building/`: GitHub looks for them in the
-repository root, `.github/`, or `docs/`, and nowhere else. Everything else is
+`SECURITY.md` stays at the repository root rather than under `building/`:
+GitHub looks for it in the repository root, `.github/`, or `docs/`, and
+nowhere else. Everything else is
 sorted by its reader, which is also what decides whether it is published — the
 site publishes these three folders and hides `internal/`, so a new document is
 public or not by where it is saved, not by a list somebody has to remember to

@@ -8,8 +8,9 @@ checked: 2026-11-14
 
 Search is one box over the whole workspace: papers, notes, report sections,
 experiments, milestones, log entries, PDF text and annotations. It runs in your
-browser over an index built from your project, so it works offline and never
-sends a query anywhere.
+browser over an index built from your project. Queries never leave your device,
+and keyword search works offline. Semantic search downloads its model once, on
+first use, and then works offline too.
 
 ## How to
 
@@ -92,7 +93,7 @@ does not hide them.
 
 When semantic search is on in Settings, its results are fused with the keyword
 results rather than replacing them. The app drops semantic matches with a score
-below 0.3.
+below 0.2.
 
 ### Limits
 

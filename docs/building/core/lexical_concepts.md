@@ -22,7 +22,7 @@ the TypeScript cases, plus `max_concepts_follows_js_slice_for_odd_values`.
 
 The wasm export is `extractLexical` in `crates/wf-wasm/src/ai_lexical_concepts.rs`.
 It is served straight from the wasm package,
-with types from `./bindings.js` declared in Rust. The TypeScript `LexicalConceptExtractor` in
+with types from `packages/wf-wasm/src/bindings.ts`, which `crates/wf-bindings` generates from Rust. The TypeScript `LexicalConceptExtractor` in
 `packages/core/src/features/ai-assistant/domain/parts.ts` is a
 thin shim that calls `rust().extractLexical`.
 

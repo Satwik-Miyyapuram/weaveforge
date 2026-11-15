@@ -98,8 +98,8 @@ from `../pkg/wf_wasm.js` and re-export them. The main names are `digestText`,
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `apps/web/src/lib/rust-core.ts`. For example,
 `apps/web/src/features/workspace/application/parts-3.ts` calls
-`readyCore().jsonEditSince`, `folder-import-apply.ts` calls
-`readyCore().folderTitleFromPath`, and `remove-project-folder.ts` calls
+`readyCore().jsonEditSince`, `titleFromFileName` (in `apps/web/src/features/workspace/application/parts-1.ts`) calls
+`readyCore().folderTitleFromPath`, and `removeProjectFolder` (in `apps/web/src/features/workspace/application/parts.ts`) calls
 `typedCore().pickProjectFolder`. `ink-host.tsx` calls
 `typedCore().splitInkTextLayer`.
 
@@ -123,11 +123,11 @@ The shell spawns git and reads the file system.
 
 Stays in TypeScript, and why:
 
-- **Running git.** `vault-git.ts` spawns git, and the env merge with
-  `process.env` is I/O.
+- **Running git.** Git is spawned in Rust (`apps/shell/src/git.rs`, ported from the
+  retired sidecar's git module), so it is not a TS responsibility.
 - **Timers, lock files and the pid.** Lifecycle timers, the DB lock and the
   pid are process state.
-- **The mirror writes.** `vault-handlers.ts` reads and writes the vault folder.
+- **The mirror writes.** Reading and writing the vault folder is I/O, so it stays out of the core.
 - **Bridge transport.** `bridge.ts` `decodeWire`/`unwrap` build JS-realm values
   and throw JS errors, and `desktop.ts` validators run in the webview before
   its wasm is confirmed loaded. Both are left for a follow-up.

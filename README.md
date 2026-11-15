@@ -129,7 +129,7 @@ Details: [`python/README.md`](python/README.md).
 ```
 packages/core/     Domain entities, repository interfaces, use-cases (no React, no data-access SDK)
 apps/web/          Next.js PWA — features/{domain,application,infrastructure,ui}
-                   bootstrap.ts = composition root; container/facades/ = UI API (ISP)
+                   create-app-container.ts = composition root; container/facades/ = UI API (ISP)
 python/            Same contracts for experiment push + sync sources
 db/                SQL migrations — single schema source of truth
 ```
@@ -173,7 +173,7 @@ index, and `docs/internal/` holds the working notes that are not a manual.
 | [`docs/running/oracle-shift.md`](docs/running/oracle-shift.md) | Start-to-finish move onto Oracle Cloud free tier |
 | [`docs/running/storage/README.md`](docs/running/storage/README.md) | Blob storage as its own composition layer (R2, tiering, growth) |
 | [`docs/internal/strategy/self-host-roadmap.md`](docs/internal/strategy/self-host-roadmap.md) | What is delivered vs still to provision for self-hosting |
-| [`docs/SECURITY.md`](docs/SECURITY.md) | Vulnerability reporting, RLS scope, data protection model |
+| [`SECURITY.md`](SECURITY.md) | Vulnerability reporting, RLS scope, data protection model |
 | [`docs/using/integrations.md`](docs/using/integrations.md) | Zotero, Git, Mattermost — provider setup and env vars |
 | [`docs/building/release.md`](docs/building/release.md) | The two release tracks: Python SDK (PyPI) and Android TWA |
 
@@ -348,9 +348,10 @@ npm run build --workspace @weaveforge/pitch    # -> apps/pitch/out
    where the page's "Open the app" buttons go. Without one they fall back to
    this repository rather than looping visitors back to the pitch page.
 
-The workflow sets `BASE_PATH` to the repository name so assets resolve under
-`user.github.io/<repo>/`; set it to empty for a custom domain at the apex. It
-also writes `.nojekyll`, because Jekyll silently drops the `_next/` directory
+The workflow sets `BASE_PATH` to empty because the page is served from its own
+custom domain (`www.weaveforge.org`); set it to the repository name only when
+serving from `user.github.io/<repo>/`. `apps/pitch/scripts/finish-export.mjs`
+writes `.nojekyll`, because Jekyll silently drops the `_next/` directory
 that every stylesheet and script lives in.
 
 ---

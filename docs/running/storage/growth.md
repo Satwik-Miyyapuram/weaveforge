@@ -3,7 +3,7 @@
 A survey of where the database's bytes are, and which tables will decide when
 the volume fills. Measured rather than guessed — `node scripts/measure-database-storage.mjs`
 reproduces all of it (through the SSH tunnel; see
-[`oracle-shift-guide.md`](../oracle-shift.md)).
+[`oracle-shift.md`](../oracle-shift.md)).
 
 ## The headline
 

@@ -54,6 +54,7 @@ function values() {
 
   return {
     CORE_LINES: n(measure({ dir: "packages/core", unit: "lines" }).lines),
+    RUST_CORE_LINES: n(measure({ dir: "crates/wf-core", unit: "lines" }).lines),
     WEB_LINES: n(measure({ dir: "apps/web", unit: "lines" }).lines),
     DESKTOP_LINES: n(measure({ dir: "apps/shell", unit: "lines" }).lines),
     DESKTOP_FILES: n(measure({ dir: "apps/shell/src", unit: "lines" }).files),

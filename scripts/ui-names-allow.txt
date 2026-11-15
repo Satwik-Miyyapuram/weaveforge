@@ -9,6 +9,8 @@ More info
 Run anyway
 Properties
 Unblock
+OK
+General
 # macOS Gatekeeper (desktop.md)
 System Settings
 Privacy & Security
@@ -30,3 +32,6 @@ GitLab Preferences
 Access Tokens
 Bot Accounts
 View Info
+
+# Overleaf account page (citations-and-overleaf.md)
+Git integration

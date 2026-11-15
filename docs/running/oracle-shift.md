@@ -1267,7 +1267,7 @@ MinIO speaks path-style S3; the app sets that automatically whenever
 | Variable | In the browser? | Notes |
 |---|---|---|
 | `NEXT_PUBLIC_DATA_URL` | yes | **The cutover switch.** Your PostgREST |
-| `NEXT_PUBLIC_BACKEND_PROVIDER` | yes | Leave `supabase`. `postgres` breaks the bundle |
+| `NEXT_PUBLIC_BACKEND_PROVIDER` | yes | Leave `postgrest` (the default). `postgres` breaks the bundle |
 | `NEXT_PUBLIC_SUPABASE_URL` / anon key | yes | Auth. Never changes |
 | `DATABASE_URL` | **never** | Server and scripts only |
 | `SUPABASE_SERVICE_ROLE_KEY` | **never** | Server only |
@@ -1318,7 +1318,7 @@ The things that cause real damage rather than lost time.
 | `permission denied for table …` after cutover | `0026_self_host_grants.sql` did not apply. `npm run migrate:schema -- --follow-ups-only` |
 | Requests return `200 []` for every table, anonymous correctly gets `401` | `auth.uid()` is returning null, so every policy denies. `0025` defines it reading only `request.jwt.claim.sub`, and PostgREST removed those legacy GUCs at v12 — from 12 on it sets only `request.jwt.claims`. Fixed by `0027`; apply with `--follow-ups-only` |
 | `check constraint … is violated by some row` during `migrate:schema` | You are replaying base migrations over existing data. See the warning in 2.2 — rebuild, or use `--follow-ups-only` |
-| **Users can see each other's data** | **Stop and roll back.** Either the app is not running as `authenticated` — check `pg-runner.ts` still issues `SET LOCAL ROLE` — or `DATABASE_URL` points at a superuser, which bypasses RLS regardless of role |
+| **Users can see each other's data** | **Stop and roll back.** Either the app is not running as `authenticated` — check `apps/shell/src/local_pg/db.rs:89` still sets role `authenticated` — or `DATABASE_URL` points at a superuser, which bypasses RLS regardless of role |
 | `cannot insert a non-DEFAULT value into column` | A generated column — the target schema is a different version from the source. Re-apply migrations |
 | Migration is slow | One round trip per table plus batched inserts; most of the wait is latency to Supabase |
 | MinIO upload 403 | Wrong keys or bucket name; the endpoint needs `http://` and `:9000` |

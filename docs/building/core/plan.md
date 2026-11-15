@@ -27,13 +27,13 @@ The wasm exports live in `crates/wf-wasm/src` (`milestone.rs`,
 `plan_screen.rs`). The TypeScript wrappers in `packages/wf-wasm/src` import
 the raw names from `../pkg/wf_wasm.js` and re-export them. The main names are:
 
-- Milestone (`milestone.ts`): `isIsoDay`, `isoDayFromParts` (the local-day
-  string, `localIsoDay` in `apps/web/.../plan/application/local-day.ts`).
-- Rows (`milestone-rows.ts`): `milestoneFromRow`, `milestoneToRow`.
-- Timeline (`plan-timeline.ts`): `planTimeline`, `clusterMarks`, `daysUntilDate`, `planPace`.
-- Feed (`plan-feed.ts`): `planFeedOrigin`, `planFeedUrls`, `addDays`.
-- Chip (`plan-chip.ts`): `planChipTarget`.
-- Screen (`plan-screen.ts`): `sortByDue`, `planEyebrow`.
+- Milestone (`milestone.rs`): `isIsoDay`, `isoDayFromParts` (the local-day
+  string, `localIsoDay` in `apps/web/src/features/plan/application/parts.ts`).
+- Rows (`milestone_rows.rs`): `milestoneFromRow`, `milestoneToRow`.
+- Timeline (`plan_timeline.rs`): `planTimeline`, `clusterMarks`, `daysUntilDate`, `planPace`.
+- Feed (`plan_feed.rs`): `planFeedOrigin`, `planFeedUrls`, `addDays`.
+- Chip (`plan_chip.rs`): `planChipTarget`.
+- Screen (`plan_screen.rs`): `sortByDue`, `planEyebrow`.
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `apps/web/src/lib/rust-core.ts`, or through the wrappers in `packages/wf-wasm`.

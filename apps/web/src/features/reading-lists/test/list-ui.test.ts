@@ -5,6 +5,7 @@ import type { ReadingList, ReadingListTreeNode } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { runListAction } from "../ui/run-list-action";
+import { otherReviewersLabel } from "../ui/list-ui";
 
 before(async () => {
   await loadTestCore();
@@ -45,6 +46,13 @@ test("movedIds: no move past either end, or for an unknown id", () => {
   assert.equal(movedIds(["a", "b"], "a", -1), null);
   assert.equal(movedIds(["a", "b"], "b", 1), null);
   assert.equal(movedIds(["a", "b"], "x", 1), null);
+});
+
+test("otherReviewersLabel: pluralised count of other reviewers", () => {
+  assert.equal(otherReviewersLabel(0), "");
+  assert.equal(otherReviewersLabel(1), " (1 other reviewer)");
+  assert.equal(otherReviewersLabel(2), " (2 other reviewers)");
+  assert.equal(otherReviewersLabel(10), " (10 other reviewers)");
 });
 
 test("runListAction: clears the error, runs, and reports success", async () => {

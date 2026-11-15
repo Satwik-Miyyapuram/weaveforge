@@ -259,9 +259,8 @@ function LocalDbRecovery({ state }: { state: DesktopLocalDbState }) {
         happens when a previous run was interrupted while writing to it.
       </p>
       <p className="muted">
-        The app keeps copies of the database (under{" "}
-        <code>local-db-backups</code> beside it, and in the workspace folder’s{" "}
-        <code>.weaveforge/db-backups</code>) and restores the newest one by
+        The app keeps copies of the database in{" "}
+        <code>local-db-backups</code> beside it and restores the newest one by
         itself; you see this only when there was none to restore from.
       </p>
       <p className="muted" style={{ wordBreak: "break-all" }}>
@@ -278,7 +277,7 @@ function LocalDbRecovery({ state }: { state: DesktopLocalDbState }) {
       </details>
       <p>
         Starting fresh moves the old database aside as{" "}
-        <code>local-db.broken-…</code> in the same folder — nothing is deleted —
+        <code>local-pg.discarded-…</code> in the same folder — nothing is deleted —
         and opens a new, empty one.
       </p>
       {error && <FormError>{error}</FormError>}

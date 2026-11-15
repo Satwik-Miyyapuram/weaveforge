@@ -39,7 +39,7 @@ re-export them. The main names are:
 - Outside edits: `splitOutsideEdits`, `renamedOutsidePaths`.
 - Folder diff: `renameSources`, `seenFiles`.
 - Assets: `assetMimeType`, `assetExtension`, `workspaceBodies`.
-- Sync report: `describeSync` (`workspace-sync-report.ts`). The app calls
+- Sync report: `describeSync` (defined in `apps/web/src/features/workspace/application/workspace-folder.ts`). The app calls
   `readyCore().describeSync` from `workspace-folder.ts`.
 - Explorer rows: `rowSlots` (`crates/wf-core` `editor_workspace::explorer_window`).
   The app calls `readyCore().rowSlots(count, viewport, pinned, EXPLORER_ROW_METRICS)`

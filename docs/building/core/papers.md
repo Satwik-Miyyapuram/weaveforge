@@ -48,8 +48,8 @@ The wasm exports live in `crates/wf-wasm/src`. The TypeScript wrappers in
 `packages/wf-wasm/src` import the raw names from `../pkg/wf_wasm.js` and
 re-export them. The main names are:
 
-- Paper rows and identifiers: `normalizeDoi`, `normalizeTags`, `extractHashtags`, `paperToRow`, `paperRowToDomain`.
-- New paper rules: `checkNewPaper` (trimmed title required; rating 1 to 5). Used by `createPaper` in `features/papers/domain/paper.ts`.
+- Paper rows and identifiers: `normalizeDoi`, `normalizeTags`, `extractHashtags`, `paperToRow`.
+- New paper rules: `checkNewPaper` (trimmed title required; rating 1 to 5). Used by `createPaper` in `packages/core/src/features/papers/domain/parts.ts`.
 - Metadata: `openAlexToMetadata`, `crossrefToMetadata`, `semanticScholarToMetadata`, `arxivEntryToMetadata`, `urlMetaToMetadata`.
 - Open access: `parseOpenalex`, `parseUnpaywall`, `parseSemanticScholar`, `rankOpenAccessCandidates`, `resolveArxivId`.
 - Bibliography import: `planBibImport`, `bibPaperInput`, `citeKeyOf`.

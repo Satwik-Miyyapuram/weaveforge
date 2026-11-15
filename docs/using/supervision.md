@@ -11,7 +11,7 @@ The Supervision screen shows a supervisor the work of the students below them in
 
 ### See your students
 
-1. Open **Supervision** in the sidebar. It is shown to professors and PhD supervisors.
+1. Open **Supervision** from the **Shared with you** page: click the **Supervision** button in its header. The button is not shown to master's students.
 2. The heading reads **Supervision**. Under it, the line reads "You supervise N people" (or "1 person").
 3. The **Your team** list shows everyone below you, at any depth. Each row has the person's name and role.
 4. Choose a name to open their panel. The first student in the list opens by default.

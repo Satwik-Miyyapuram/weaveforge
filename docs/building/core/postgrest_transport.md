@@ -18,9 +18,9 @@ TS caller: `apps/web/src/features/offline-sync/infra/postgrest-transport.ts` (`P
 - The `missingIds` plan: `missingIdChunks` (chunks of `MISSING_IDS_CHUNK` = 100), then `missingAfterPresence` and
   `missingAfterTombstones` decide what is missing. The TS loop reads each chunk and feeds replies back.
 - Feed reply: `changesFromReply` (`ChangesReply`: the feed rows as `changes` (`PullChange`) from the status and body).
-- The `postgrest*Request` specs above are used by the TS loop; the reply helpers `postgrestParseRows`,
-  `postgrestHeldIds`, `postgrestDeletedIds`, `postgrestAbsentIds` and `postgrestToChange` are dropped from wasm.
-  Their rules live in `send_verdict` and `send_steps`.
+- The `postgrest*Request` specs above are used by the TS loop; the reply helpers `parse_rows`, `held_ids`,
+  `deleted_ids` and `to_change` (in `crates/wf-core/src/sync/postgrest_transport.rs`) are not exported from wasm.
+  `absent_ids` and `missing_ids` live in `crates/wf-core/src/sync/send_verdict.rs`. Their rules live in `send_verdict` and `send_steps`.
 
 ## What stays in TS
 
@@ -39,6 +39,6 @@ TS caller: `apps/web/src/features/offline-sync/infra/postgrest-transport.ts` (`P
 
 ## Tests
 
-Request-shape `it:` cases moved to `#[test]` in `postgrest_transport.rs`: update guard, delete guard, unguarded
+Request-shape `it:` cases moved to `#[test]` in `crates/wf-core/src/sync/postgrest_transport.rs`: update guard, delete guard, unguarded
 update, tombstone path, conflict read, gone read, feed RPC and mapping, missingIds presence and tombstone asks,
 and the absent-list rule. Fetch-outcome cases (offline, refused, conflict flows, thrown fetch, logging) stay in the TS test file, unchanged.

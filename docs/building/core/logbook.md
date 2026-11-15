@@ -19,20 +19,20 @@ Source: `crates/wf-core/src/logbook/`
 ## How the app calls it
 
 The wasm exports live in `crates/wf-wasm/src` (`log_entry.rs`,
-`logbook_view.rs`, `logbook_collapse_alert.rs`). The
-TypeScript wrappers in `packages/wf-wasm/src` import the raw names from
-`../pkg/wf_wasm.js` and re-export them. The main names are:
+`logbook_view.rs`, `logbook_collapse_alert.rs`). `packages/wf-wasm/src` has no
+wrappers for these; the app calls the raw names. The main names are:
 
-- Entry (`log-entry.ts`): `createLogEntry`, `logEntryInputError`, `LOG_KINDS`
-  (`daily`, `weekly`).
+- Entry (`log_entry.rs`): `createLogEntry`, `logEntryInputError`. The `LOG_KINDS`
+  list (`daily`, `weekly`) is TypeScript in `packages/core/src/features/logbook/domain/parts.ts`.
 - Rows: no export. The `log_entries` repository runs in Rust
   (`repos/log_entries.rs`, see [data-access](data-access.md)) and maps rows there.
-- View (`logbook-view.ts`): `groupByDay`, `logEyebrow`,
+- View (`logbook_view.rs`): `groupByDay`, `logEyebrow`,
   `splitHeadline`, `newestFirstOrder`.
-- Alert (`logbook-collapse-alert.ts`): `collapseAlert`.
+- Alert (`logbook_collapse_alert.rs`): `collapseAlert`.
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
-`apps/web/src/lib/rust-core.ts`, or through the wrappers in `packages/wf-wasm`.
+`apps/web/src/lib/rust-core.ts`, for example `features/logbook/ui/logbook-screen.tsx:201`
+(`collapseAlert`).
 `readyCore()` throws until `loadCore()` has resolved, so call it only after
 the core has loaded.
 

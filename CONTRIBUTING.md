@@ -22,7 +22,7 @@ Before opening or merging a PR, confirm:
 
 - [ ] **No Supabase in UI** — `apps/web/src/features/**/ui/**` must not import
       `@supabase/*` or call the Supabase SDK directly. Data access goes through the
-      composition root (`bootstrap.ts`) via use-cases or repository interfaces.
+      composition root (`create-app-container.ts`) via use-cases or repository interfaces.
 - [ ] **No cross-feature `ui/` imports** — feature code must not import another
       feature's `ui/` folder. Use the feature's public `index.ts` (or shared types in
       `packages/core`) instead. Only `apps/web/src/features/**` is scanned: `app/` and
@@ -35,7 +35,7 @@ Before opening or merging a PR, confirm:
       `packages/core/src/`: a test for `src/features/papers/...` lives in
       `test/features/papers/`, one for `src/reader/...` in `test/reader/`.
 - [ ] **Business logic not in bootstrap/components** — orchestration and rules live
-      in use-cases / application services. `bootstrap.ts` wires dependencies only;
+      in use-cases / application services. `create-app-container.ts` wires dependencies only;
       React components handle presentation and local UI state.
 
 See `docs/building/design.md` §4 for the full SOLID rubric.
@@ -45,7 +45,7 @@ See `docs/building/design.md` §4 for the full SOLID rubric.
 The data lives in Postgres on the project's OCI server (behind PostgREST at
 `api.weaveforge.org`); Supabase handles sign-in only. Apply **every** migration
 to that database before running the app or the integration suite, the
-self-hosted prerequisites first; `0132` is the current head. They are ordered
+self-hosted prerequisites first; the highest-numbered file in `db/migrations` is the current head. They are ordered
 and cumulative:
 
 ```bash
@@ -77,7 +77,7 @@ The prerequisites in [`db/migrations-self-hosted-postgres/`](db/migrations-self-
 2. Define the entity and repository interface in `packages/core`.
 3. Provide an in-memory implementation (for tests) and a PostgREST implementation.
 4. Add a DB migration under `db/migrations/`.
-5. Export a `FeatureModule` descriptor and register it in `apps/web/src/registry.ts` (`ALL_MODULES`).
+5. Export a `FeatureModule` descriptor, add a row to the `features` array in `scripts/generate-deployment-registry.mjs`, then run `npm run generate:deployment`.
 
 ## Web backend (`apps/web/src/backend/`)
 
@@ -85,7 +85,7 @@ Persistence and auth are env-selected at the composition root — same pattern a
 
 **Full guide:** [`docs/running/backend.md`](docs/running/backend.md)
 
-Table data goes to the Postgres on the OCI server through PostgREST (`NEXT_PUBLIC_DATA_URL`). The provider id is `postgrest`; leave it at that default (`postgres` only selects the server-side blob registry and breaks the browser bundle). A different store means implementing the repository adapters against the same schema and wiring a new provider in `wire-backend.ts`.
+Table data goes to the Postgres on the OCI server through PostgREST (`NEXT_PUBLIC_DATA_URL`). The provider id is `postgrest`; leave it at that default (`postgres` only selects the server-side blob registry and breaks the browser bundle). A different store means implementing the repository adapters against the same schema and wiring a new provider in `wireBackend()` (`apps/web/src/container/parts.ts`).
 
 ## Web storage (`apps/web/src/storage/`)
 
@@ -105,8 +105,8 @@ To add or swap a provider (bibliography, citation, notification, log sync, git r
 
 1. Implement the port in `@weaveforge/core` (or reuse an existing one).
 2. Add an adapter under `integrations/providers/<name>/`.
-3. Register in `integrations/config.ts`, the wire switch (`wire-integrations.ts` or `wire-citations.ts`), and `integrations/descriptors.ts`.
-4. Add an API proxy route if the browser needs CORS help (`app/api/<name>/route.ts`).
+3. Register in `integrations/config.ts`, the wire switch (`wire-integrations.ts`), and `integrations/descriptors-resolve.ts`.
+4. Add an API proxy route if the browser needs CORS help (a route in `apps/relay/server/src/`).
 5. Extend `project_integrations.provider` (migration) for project-scoped connectors.
 6. Document the `NEXT_PUBLIC_*` env var; defaults keep stock behavior.
 
@@ -116,7 +116,7 @@ Run `npm run check:solid` — UI must not import repositories or Supabase direct
 
 The SDK mirrors the same modular shape (`features/<name>/{domain,application,infrastructure}`
 + `container.py` composition root). Nothing in the SDK imports `supabase` — it
-authenticates with a bearer token and talks to the web app's `/api/sdk/*`
+authenticates with a bearer token and talks to the relay server's `/api/sdk/*`
 endpoints, which is what keeps database URLs and keys out of training
 environments. HTTP access stays in `infrastructure/`; domain and application
 code must not reach for it.
@@ -140,7 +140,7 @@ You don't edit the SDK to support a new logger — you add a class and register 
    registered-but-unavailable until installed.
 3. `default_registry.register(YourSource())`.
 4. Keep the parsing in a pure function and unit-test it with fabricated rows
-   (see `tests/test_sync_sources.py`); add an optional-dependency extra in
+   (see `python/tests/test_sync_sources.py`); add an optional-dependency extra in
    `pyproject.toml` if it needs one.
 
 `run.sync("your-id", ref)` and `track(sync={"your-id": ref})` then drive it —

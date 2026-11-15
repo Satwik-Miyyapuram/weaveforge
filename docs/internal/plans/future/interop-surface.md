@@ -107,3 +107,47 @@ Order of work, if taken up:
 Tier 2 and Tier 3 both need to know when the workspace changed, and so does
 `requestSync` — see Phase 2b in `live-vault-folder.md`. Three consumers for one
 missing seam is the argument for building it properly rather than per-caller.
+
+## Build order, status and constraints
+
+Order follows what each step depends on, not the order they were listed in:
+frontmatter reader, gated git, Tier 2, Tier 3, Zotero annotations, then
+`experiment_metrics` storage. Tier 3 comes after Tier 2 because the reverse
+makes the MCP server carry its own file access, leaving Tier 2 as a second copy.
+
+- **Frontmatter reader (Tier 1): done.** Commit `ae70b92` reads block lists and
+  skips nested maps; `unquote` handles single-quoted YAML. No YAML dependency.
+  The Known risk section of `live-vault-folder.md` still calls it outstanding.
+- **Gated git (Phase 5): off by default.** A `vault-git` preference in the same
+  store as `vault-root`. The app commits the folder after a settled write (the
+  mirror run, not each file). The gate is checked at commit time, not only when
+  the setting is shown, because a mirror folder inside someone else's repository
+  must never commit there. No history model: `GitPort` commits and nothing reads
+  the log back.
+- **Tier 2 constraints:** loopback only (`127.0.0.1`); a token generated per
+  install, shown once in settings, revocable there, required on every route;
+  off by default; the same `safeWorkspacePath` guard as the folder writer, so a
+  path that resolves outside the vault is refused before any I/O.
+- **Tier 3:** built on the Tier 2 handlers. Results go through `mcpReadResult`,
+  because the tool manifest declares `resultsAreUntrusted`, and a result that
+  skips the wrapper would make that declaration false.
+- **Zotero: read path shipped, write-back not.** Not SQLite: a SQLite
+  dependency is a compiled module in the installer (Electron 33 runs Node 20.18,
+  which has no `node:sqlite`), and Zotero locks the file while open. Zotero 7
+  serves a read-only Web API at `http://127.0.0.1:23119/api` with no key, so the
+  pager, annotation parser and attachment join work unchanged. A plain-HTTP
+  loopback request from an `app://` document is blocked as mixed content, so
+  the shell has one guarded proxy (`zotero_local` in `apps/shell/src/cmd_tools.rs`). It
+  accepts only Zotero's own local API URLs; a general fetch channel would forward
+  requests for anything on the machine. Papers match on their existing
+  `zoteroKey`, so the import adds annotations and never creates papers. Write-back
+  needs the cloud path (`ZoteroApiAnnotationWriteBack`, via `api.zotero.org`)
+  and an API key, because the local API is read-only.
+- **`experiment_metrics` storage: gated on the OCI cutover.** `BACKLOG.md` §2
+  item 0 defers it, because a schema change breaks the migration's byte-identical
+  verify. Check the cutover before touching a migration; if it has not happened,
+  leave it on the backlog and record the check. Measured cost is 439 B/row.
+  Options: A, a composite primary key plus a `metric_id` lookup (~110 B);
+  C, downsample on write at the ingest route (bounds growth); B, chunked
+  `float8[]` (~10-15 B/point). A comes before B, since B reuses A's `metric_id`
+  and supersedes its row layout.

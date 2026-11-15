@@ -151,4 +151,4 @@ signing in later leaves it where it is.
 | Provider | [`realtime-yjs-provider.ts`](../../apps/web/src/features/collab/infrastructure/realtime-yjs-provider.ts) |
 | Editor | [`collaborative-markdown-editor.tsx`](../../apps/web/src/features/collab/ui/collaborative-markdown-editor.tsx) |
 | Regression tests | [`collab-regressions.test.ts`](../../apps/web/src/features/collab/test/collab-regressions.test.ts), [`yjs-provider-teardown.test.ts`](../../apps/web/src/features/collab/test/yjs-provider-teardown.test.ts) |
-| Self-hosted Realtime setup | [`oracle-shift-guide.md`](../running/oracle-shift.md) |
+| Self-hosted Realtime setup | [`oracle-shift.md`](../running/oracle-shift.md) |

@@ -17,7 +17,7 @@ Rules:
 - `collab`: `should_persist_body` saves only when ready and the body differs from the last saved body.
 - `experiments`: stride is 1 up to `KEEP_ALL_BELOW_STEP` (10,000), then doubles per octave. Non-test TS does not call the wasm names; they are used by `apps/web/src/features/experiments/test/downsample-metrics.test.ts`.
 - `mcp`: `MAX_ENVELOPE_CHARS` (64,000) and `MAX_BODY_BYTES` (68,096) bound relayed envelopes; `relay_ttl_ms` defaults to 90,000 ms and clamps to 15,000–600,000 ms.
-- `member`: module doc is "Lab member rules: role ranks, new-member validation, email masking, and confirmation-code parsing." `mask_email`, `parse_otp_or_link`, `accessible_member_ids` and `role_label` have no wasm export, so TS cannot call them.
+- `member`: module doc is "Lab member rules: role ranks, new-member validation, email masking, and confirmation-code parsing." `mask_email`, `parse_otp_or_link`, `accessible_member_ids` and `role_label` have no wasm export, so TS cannot call them. `memberNameMap` is exported from `crates/wf-wasm/src/sharing.rs`; `memberRoleLabel` and `memberRoleLabelOf` from `crates/wf-wasm/src/experiment_member.rs`.
 - `tree`: `build_tree` ports `buildTree` in `packages/core/src/shared/parts.ts`. A missing or empty parent makes a root; a later duplicate id replaces the earlier one in place; a parent loop is cut at one node that becomes a root; each level is stably sorted by `compare`.
 - `zotero`: `normalize_library` trims the input, turns bare digits into `users/<id>`, keeps `users/<digits>` and `groups/<digits>`, and returns `None` for anything else.
 

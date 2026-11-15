@@ -6,12 +6,12 @@ gives the browser no data layer.
 
 Table data already runs on self-hosted Postgres — through PostgREST, which the
 browser repositories speak natively, so the cutover is one address:
-`NEXT_PUBLIC_DATA_URL`. See [`oracle-shift-guide.md`](oracle-shift.md).
+`NEXT_PUBLIC_DATA_URL`. See [`oracle-shift.md`](oracle-shift.md).
 Supabase remains the identity provider either way.
 
 A second, direct-`pg` set of repositories used to live under
 `backend/providers/postgres/repositories/`. It was never imported by anything
-that shipped: `wire-backend.ts` reached a stub that threw, because the `pg`
+that shipped: `wireBackend()` (`apps/web/src/container/parts.ts:348`) reached a stub that threw, because the `pg`
 driver cannot run in a browser bundle. It was deleted rather than maintained as
 a duplicate of the live path; `git log` has it if the app ever needs to talk to
 Postgres without PostgREST in front.
@@ -20,14 +20,13 @@ Postgres without PostgREST in front.
 
 | Item | Location |
 |------|----------|
-| `pg` pool + RLS session (`request.jwt.claim.sub`) | `backend/providers/postgres/pool.ts`, `pg-runner.ts` |
-| Blob registry | `storage/providers/postgres/blob-registry.ts` |
-| Tiered blob API | `storage/server/blob-api.ts` picks the Postgres registry when backend = postgres |
+| Blob registry (`PostgrestBlobRegistry`, uses `rustRepository`) | `apps/web/src/storage/providers/postgrest/blob-registry.ts` |
+| Tiered blob API | `apps/relay/server/src/blob_routes.rs` (`/api/blobs/*`) |
 | Self-host auth stubs | `db/migrations-self-hosted-postgres/0025_self_host_auth.sql` |
 
 ## Server-side blob registry
 
-Server-only, since it uses the Node `pg` driver:
+Server-only, since `DATABASE_URL` is a server secret (no `pg` driver is imported under `apps/web/src`):
 
 ```ini
 NEXT_PUBLIC_BACKEND_PROVIDER=postgres
@@ -44,7 +43,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 **first**, then every file in [`db/migrations/`](../../db/migrations/). A stock Postgres
 has none of the furniture a Supabase-hosted database provides implicitly — `auth.users` in a foreign key, `auth.uid()`
 in every RLS policy, `storage.buckets`, the `anon`/`authenticated`/`service_role` grants — and the
-base chain uses it from the first file, so `0001_papers.sql` fails on line 28 and nothing after it
+base chain uses it from the first file, so `0001_papers.sql` fails at its `create table papers` (`auth.users`) and nothing after it
 runs. This paragraph used to give the two in the opposite order.
 
 `0025` creates a minimal `auth.users` stub with **RLS enabled** and **no

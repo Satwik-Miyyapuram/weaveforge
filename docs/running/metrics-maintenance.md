@@ -7,8 +7,8 @@ only does anything if something runs it.**
 
 | Migration | What it does | Runs by itself? |
 |---|---|---|
-| `0014` + `0114` | Narrows a point to 56 bytes and turns `experiment_metrics` into a view | on apply |
-| `0115` | Packs settled points into arrays in `experiment_metric_chunks` — 132 → 21 bytes/point | **no** |
+| `0114` | Narrows a point to 56 bytes and drops the old `experiment_metrics` table | on apply |
+| `0115` | Packs settled points into arrays in `experiment_metric_chunks` — 132 → 21 bytes/point; makes `experiment_metrics` a view | **no** |
 | `0115` | `experiment_metrics_rollup()` moves rows into chunks | **no** |
 
 Also: `apps/relay/server/src/sdk_metrics.rs` thins a series on the way in

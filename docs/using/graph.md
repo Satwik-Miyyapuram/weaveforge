@@ -61,7 +61,7 @@ To do this for one paper, open it in the side panel and click **Auto-link citati
 ### Export the visible papers
 
 1. Open **Graph settings**, then the **Actions** tab.
-2. Click **Export visible papers (.md)**. The file is named `graph-papers.md`.
+2. Click **Export visible papers (.md)** to save the list as a Markdown file.
 
 ## Reference
 

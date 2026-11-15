@@ -18,7 +18,7 @@ figure rect on the page, and the draft for a new picture.
 | `draftPicture(input)` | `draft_picture` | New picture mark, half the page wide at the picture's aspect. |
 
 `picturePath` is not exported from this module. It lives in
-`reader-mark-actions.ts` (`reader::mark_actions::picture_path`), so the two
+`crates/wf-core/src/reader/mark_actions.rs` (`reader::mark_actions::picture_path`), so the two
 exports do not collide.
 
 ## Types

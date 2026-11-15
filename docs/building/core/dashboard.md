@@ -24,16 +24,16 @@ The wasm exports live in `crates/wf-wasm/src` (`dashboard_layout.rs`,
 `packages/wf-wasm/src` import the raw names from `../pkg/wf_wasm.js` and
 re-export them. The main names are:
 
-- Layout (`dashboard-layout.ts`): `parseDashboardLayout`, `dashboardDefaultLayout`,
+- Layout (`apps/web/src/features/dashboard/application/parts.ts`): `parseDashboardLayout`, `dashboardDefaultLayout`,
   `dashboardMergeSupervisorCards`, `dashboardAppendCardPair`, `dashboardSyncLayouts`,
   `dashboardFinalizeLayout`, `dashboardMergeRglPositions`, `dashboardLgNeedsRepair`,
   `dashboardLayoutSignature`, `dashboardSmNeedsRepack`, `dashboardLayoutCacheKey`
   (`dashboard-screen.tsx` calls it directly; `layout::cache_key` in Rust).
-  The UI calls these through `readyCore()`; no TS wrappers remain.
-- Packing (`dashboard-packing.ts`): `dashboardLayoutFloors`, `dashboardNormalizeItem`,
+  The UI calls these through `readyCore()`, or through `application/parts.ts`.
+- Packing (`apps/web/src/features/dashboard/application/parts.ts`): `dashboardLayoutFloors`, `dashboardNormalizeItem`,
   `dashboardCompactVertical`, `dashboardPackSm`, `dashboardCloseGaps`, `rowsForHeight`,
   `fitLayoutToContent`, `withStoredHeights`.
-- Stats (`dashboard-stats.ts`): `dashboardBuildStats`,
+- Stats (`apps/web/src/features/dashboard/application/parts.ts`): `dashboardBuildStats`,
   `dashboardSuperviseeCounts`, `dashboardTeamAttention`.
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
@@ -62,7 +62,7 @@ Wasm exports (`crates/wf-wasm/src/dashboard_registry.rs`): `dashboardCardRegistr
 delegates to them. `cardLimits()` and `fitMaxHeights()` are functions, not constants, because a module-level
 call would run wasm before `loadCore()`. Tests: 9 Rust `#[test]`s, 3 of them ported from TS.
 
-Not regenerated yet: the new exports are untyped in `packages/wf-wasm/pkg` and `packages/wf-bindings`
+Not regenerated yet: the new exports are untyped in `packages/wf-wasm/pkg` and `crates/wf-bindings`
 until `npm run bindings`; the TS side casts their results.
 
 ## Related
@@ -74,4 +74,4 @@ until `npm run bindings`; the TS side casts their results.
 
 Source: `crates/wf-core/src/dashboard/`
 
-Batch 7 note: `build-dashboard-stats.ts`, `build-supervision-stats.ts` and `dashboard-layout-packing.ts` stay as TS files. They still export types and `CARD_LIMITS` used by UI and `dashboard-layout.ts`. Their wasm twins (`dashboardBuildStats`, `dashboardSuperviseeCounts`, `dashboardPackSm` and others) are called from them. `DashboardStats`, `ProgressStat`, `AttentionItem` and `LibrarySnapshot` are not in the generated `bindings.ts`, so `build-dashboard-stats.ts` stays KEEP until they are generated. Remove the TS files once the types move and the card registry is ported.
+Batch 7 note: this code was kept as TS in batch 7 and now lives in `apps/web/src/features/dashboard/application/parts.ts`, under the `build-dashboard-stats`, `dashboard-layout-packing` and `dashboard-layout` headers. It still exports types and `cardLimits()` (line 234) used by UI and the layout code. Its wasm twins (`dashboardBuildStats` and `dashboardSuperviseeCounts` in `crates/wf-wasm/src/dashboard_stats.rs`, `dashboardPackSm` in `crates/wf-wasm/src/dashboard_packing.rs`, and others) are called from it. `DashboardStats`, `ProgressStat`, `AttentionItem` and `LibrarySnapshot` are not in the generated `bindings.ts`, so the `build-dashboard-stats` section stays KEEP until they are generated. Remove those sections once the types move and the card registry is ported.

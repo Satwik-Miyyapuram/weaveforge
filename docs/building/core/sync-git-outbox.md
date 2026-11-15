@@ -17,7 +17,7 @@ These modules hold the pure parts of git sync, the Mattermost messages, the outb
 
 Rules:
 
-- `git_policy`: skip reasons are `ignored-directory`, `ignored-file`, `too-large` and `invalid-path`. The root `.weaveforge` folder is always ignored; `notes/.weaveforge` is not.
+- `git_policy`: skip reasons are `ignored-directory` and `too-large`. The root `.weaveforge` folder is always ignored; `notes/.weaveforge` is not.
 - `git_policy`: a non-finite or negative size is skipped as `too-large`. `describe_changes` gives `No changes` or e.g. `1 added, 2 changed, 1 removed`.
 - `git_reason`: `fatal:` and `error:` lines are joined by a space. Otherwise the first line is used, or `Could not commit.` when it is empty.
 - `repo_web_url`: only http(s) URLs are kept, trimmed. `commit_url` strips `.git` and a trailing slash, then uses `/-/commit/<sha>` when the host contains `gitlab` and `/commit/<sha>` otherwise. An empty sha gives `None`.

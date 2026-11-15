@@ -19,6 +19,7 @@ import { latestGate } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
 import { Button } from "@/components/button";
 import { ToggleButton } from "@/components/controls";
+import { otherReviewersLabel } from "./list-ui";
 
 const STAGE_LABEL: Record<ScreeningStage, string> = {
   title_abstract: "Title & abstract",
@@ -199,7 +200,7 @@ export function ScreeningPanel({
                     : verdict?.state
                       ? STATE_LABEL[verdict.state]
                       : "undecided"}
-                  {others.length > 0 && ` (${others.length} other reviewer)`}
+                  {otherReviewersLabel(others.length)}
                 </span>
                 {!readOnly && (
                   <span className="screening-actions">

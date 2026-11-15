@@ -39,7 +39,7 @@ name (`breadcrumbs.rs`, `document_stats.rs`, `quick_open.rs`,
   `commandForChord`, `layoutForCommand`.
 - `breadcrumbs`: `breadcrumbs`.
 - `typing_target`: `isTypingTarget`.
-- `document_stats`: `bodyStats`, `formatCount`, `formatWords`, `formatCursorLabel`.
+- `document_stats`: `bodyStats`, `formatCount`, `formatWords`, `formatCursor`.
 - `quick_open`: `quickOpenResults`, `groupResults`, `stepCursor`.
 - `explorer_window`: `rowSlots`.
 - `duplicate_note`: `duplicatePlan`.

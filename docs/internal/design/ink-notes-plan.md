@@ -3,7 +3,7 @@
 > **Predates the Rust port:** paths here name the Electron app (`apps/desktop`) and the
 > TypeScript sidecar, since replaced by the Tauri shell (`apps/shell/src`) and `crates/`.
 
-**Status:** proposal, not scheduled. Companion to
+**Status:** largely built (plan steps 1-9 landed, step 10 partial; see `ink-polish-log.md`). This is the design record. Companion to
 `editor-workspace-redesign.md` §3.3, which reserves the *slots* (kind tables,
 `.ink.md` suffix, the ink tab in the prototype). This document is the plan for
 filling them. It **supersedes** the redesign's §3.3 file-format sketch
@@ -12,7 +12,7 @@ touches nothing else the hand-off owns.
 
 **Revision 3, 2026-09-11.** Revision 2 moved to a WebGL2 worker pipeline,
 binary compressed storage and OS stroke recognition. Revision 3 incorporates a
-review (`ink-notes-plan-update.md`) and the primary sources it pointed at.
+external review and the primary sources it pointed at.
 **§0.2 retracts four revision-1 conclusions; §0.3 retracts three revision-2
 errors, including one where revision 2 invented a mechanism that the API's own
 spec forbids.** The requirement driving all of it: ink must be fast on a
@@ -136,7 +136,7 @@ remain the reason D1 exists.
 
 ## 0.3 What revision 2 got wrong, and what the review got wrong
 
-A review (`ink-notes-plan-update.md`) was checked against primary sources and
+An external review was checked against primary sources and
 against measurement. Three revision-2 errors are confirmed and fixed; three of
 the review's claims are overstated or unsupported; one of the review's claims
 that revision 2 missed is also fixed. And the review's citation apparatus
@@ -314,7 +314,7 @@ the palm never reaches the page. The reader already has layer one.
 
 ### 3.1 Layer one — pen seen, touch stops drawing (exists)
 
-`use-page-pointer.ts:105-121, 229-241` — once any `pointerType === "pen"` event
+`use-page-pointer.ts` — once any `pointerType === "pen"` event
 has been seen, `touch` pointers never draw again for the session; they scroll.
 One pointer owns a stroke (`inkPointerId`, `:395`). **Keep exactly this**, and
 lift it into `features/ink/application/use-pen-capture.ts`. **But see §7 step
@@ -558,12 +558,12 @@ The original plan asserted that Markdown and CodeMirror "treat a fenced block
 as opaque… neither learns anything." Opaque to the *parser* is not opaque to
 the *editor*. In the current code:
 
-- `apps/web/src/features/collab/ui/collaborative-markdown-editor.tsx:167-168`
+- `apps/web/src/features/collab/ui/collaborative-markdown-editor.tsx`
   runs `yText.observe(onYText)` → `scheduleSave(yText.toString())`. The
   `toString()` is **eager on every change**; only the persist is debounced
   (`SAVE_MS = 1500`, `:17`).
 - The save writes the **entire body** (`:91-94`).
-- `apps/web/src/features/collab/domain/seed-document.ts:30-37` inserts the whole
+- `apps/web/src/features/collab/domain/seed-document.ts` inserts the whole
   body into a throwaway `Y.Doc` and `Y.encodeStateAsUpdate`s it — a full CRDT
   encode on open.
 - The editor is built as `EditorState.create({ doc: yText.toString() })` with
@@ -614,7 +614,7 @@ spare.
   `![](vault:…)` in the body and a `bg` entry in the sidecar; the raster lives
   in the vault attachment folder as today. Nothing binary in the markdown.
 - **Zotero stays out of it.** Reader ink is a Zotero annotation shape (PDF
-  space, width-only, no tool field — `ink-stroke.ts:62-72`). Ink notes are not
+  space, width-only, no tool field — `ink-stroke.ts`). Ink notes are not
   synced to Zotero; reader-ink → ink-page is a one-way helper.
 - **Suffix**: `ink_page` → `.ink.md` in `KIND_SUFFIX`
   (`packages/core/src/workspace/parts-1.ts`) — one row, the only core
@@ -1268,8 +1268,8 @@ the filter state (§6.2.5).
 **But it is not available in this repo today, and enabling it is not free.**
 Verified:
 
-- **Neither build sends COOP/COEP headers.** `apps/web/next.config.mjs:109-127`
-  (`securityHeaders`) and `apps/desktop/src/app-protocol.ts:74-101`
+- **Neither build sends COOP/COEP headers.** `apps/web/next.config.mjs`
+  (`securityHeaders`) and `apps/desktop/src/app-protocol.ts`
   (`appHeaders`) set CSP, `X-Frame-Options`, `X-Content-Type-Options` and
   `Referrer-Policy` — no `Cross-Origin-Opener-Policy` and no
   `Cross-Origin-Embedder-Policy`. Without both, `crossOriginIsolated` is
@@ -1284,14 +1284,14 @@ Verified:
 `SharedArrayBuffer` as a desktop-only optimisation**, gated behind a measured
 need — and note that the desktop shell is the easy place to add it, because
 `app://` is served by our own protocol handler
-(`apps/desktop/src/main.ts:336-341`, `app-protocol.ts`), so adding COOP/COEP
+(`apps/desktop/src/main.ts`, `app-protocol.ts`), so adding COOP/COEP
 there touches nothing third-party.
 
 **CSP must be widened for the worker, on web only.** The desktop CSP already
 allows blob workers (`worker-src 'self' blob:`,
-`apps/desktop/src/app-protocol.ts:95`). The **web** CSP does not set
+`apps/desktop/src/app-protocol.ts`). The **web** CSP does not set
 `worker-src` at all, so it falls back through `child-src` to `script-src`
-(`next.config.mjs:114`) — which is `'self' 'unsafe-inline' 'unsafe-eval'`,
+(`next.config.mjs`) — which is `'self' 'unsafe-inline' 'unsafe-eval'`,
 **without `blob:`**. If the bundler emits the ink worker from a blob URL (the
 desktop comment implies it does), **ink rendering will fail on web and work on
 desktop** — a confusing, environment-specific break. Add `worker-src 'self'
@@ -1313,7 +1313,7 @@ worker in a production build rather than only in dev.
 
 > **Unit trap — do not reuse the reader's width helpers verbatim.** The reader
 > is in **PDF units**; the sidecar is **0.1 mm integers**. `clampInkWidth`
-> (`ink-stroke.ts:82-85`) clamps to `[0.75, 24]`, which in 0.1 mm is
+> (`ink-stroke.ts`) clamps to `[0.75, 24]`, which in 0.1 mm is
 > `[0.075 mm, 2.4 mm]` — a 6 mm highlighter (`width: 60`) would clamp to
 > 2.4 mm, thinner than the pen's maximum. `HIGHLIGHTER_MIN_WIDTH = 8` and
 > `HIGHLIGHTER_WIDTH = 14` are also PDF units; against 0.1 mm a 0.9 mm pen is

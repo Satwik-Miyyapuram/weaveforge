@@ -2,7 +2,7 @@
 
 The `session_grant` module starts an AI session: it checks that AI access is on,
 clamps the TTL, dedupes the sources and builds the in-memory grant. It does no I/O.
-The use case `create-ai-session-grant.use-case.ts` calls it through `rust().startAiSession`.
+The use case in `packages/core/src/features/ai-assistant/application/parts.ts` calls it through `rust().startAiSession`.
 
 ## What lives in Rust
 

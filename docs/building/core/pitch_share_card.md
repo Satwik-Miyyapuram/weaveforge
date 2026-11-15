@@ -37,6 +37,6 @@ needs that object shape, and the URL class is needed to build `metadataBase`.
 
 ## Known gap
 
-`apps/pitch` does not load the wasm core, and its `layout.tsx` builds metadata at
+`apps/pitch` does not load the wasm core, and its `apps/pitch/app/layout.tsx` builds metadata at
 build time. Until that app calls `loadCore()`, the metadata code cannot call
 `readyCore()` there, so `apps/pitch` keeps the TypeScript share card for now.

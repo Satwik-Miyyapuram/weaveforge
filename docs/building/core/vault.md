@@ -52,9 +52,9 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
   `apps/web/src/features/vault/infrastructure`. Rust maps rows; it does not query.
 - **File reads for import.** The app reads the files a notes import selects.
   `import_links.rs` decides which ones to read.
-- **Import file I/O and zips.** `import-notes.ts` expands zips with `fflate` and
+- **Import file I/O and zips.** `importNotesFromFiles` (in `apps/web/src/features/vault/application/parts.ts`) expands zips with `fflate` and
   reads each note's text. Rust gets only names and paths, and returns titles.
-- **Link-target loading.** `load-link-targets.ts` fetches papers and sections and
+- **Link-target loading.** `loadLinkTargets` (in `apps/web/src/features/vault/application/parts.ts`) fetches papers and sections and
   logs each failure. Rust only builds the error message from the failed labels.
 - **The editor and the screens.** The editor, the vault screens and the dialogs
   stay in `apps/web/src/features/vault/ui`.
@@ -66,8 +66,8 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 ## Size caps
 
 The caps, 8 MiB for text and 80 MiB for blobs, were enforced by the retired TS sidecar.
-The native vault commands in `apps/shell/src/cmd_vault.rs` do not enforce them
-yet; adding the check there is open work.
+The native vault commands in `apps/shell/src/cmd_vault.rs` enforce them through
+the session methods in `apps/shell/src/vault.rs` (`MAX_TEXT_BYTES`, `MAX_BLOB_BYTES`).
 
 ## Related
 

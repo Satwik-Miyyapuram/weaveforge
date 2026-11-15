@@ -16,9 +16,10 @@ Credentials and connections in WeaveForge belong to two distinct scopes:
 - **Personal credentials** (**Settings → Integrations**): Your individual API keys
   (e.g., Zotero API key, Semantic Scholar key). These are associated with your user
   account and shared across all your projects.
-- **Project connectors** (**Settings → Integrations**): Repository links, Overleaf
-  sync, and notification channels tied to the active project. Switching projects
-  automatically switches the active connectors.
+- **Project connectors** (**Settings → Integrations**): Repository links and
+  notification channels tied to the active project. Overleaf sync is set up under
+  **Settings → Workspace**. Switching projects automatically switches the active
+  connectors.
 
 ---
 
@@ -42,7 +43,7 @@ the browser and desktop) and direct local loopback to Zotero 7 (desktop only).
    - In **Settings → Integrations**, choose which Zotero collection to mirror for the
      current project, or leave it blank to sync your entire library.
 4. **Syncing your library**:
-   - In the **Papers** screen, open the **Add paper** menu and click **Sync Zotero**.
+   - On the **Papers** screen, open **More** next to **Add paper** and click **Sync Zotero**.
    - Items in your collection are imported into your library with metadata, DOIs,
      arXiv IDs, and PDF attachments.
    - Highlights and notes made in Zotero's PDF reader are pulled in as read-only
@@ -101,8 +102,8 @@ WeaveForge bridges Markdown research notes with formal LaTeX manuscripts in Over
 
 ### Connecting Overleaf
 
-1. In **Settings → Integrations** (or in **Report → Overleaf**), provide your **Overleaf Git token**
-   (found in Overleaf under **Menu → Git**) and **Overleaf project ID**.
+1. In **Settings → Workspace**, under **Overleaf projects**, enter your **Overleaf git token**
+   (found in Overleaf under **Menu → Git**) and the **Project URL or id**.
 2. WeaveForge clones the project via the Overleaf Git bridge (or through this computer's
    keychain in desktop offline mode).
 
@@ -195,19 +196,20 @@ Add the WeaveForge MCP server to your AI client's configuration file (e.g. `clau
 
 - **Read-only tools**:
   - `search_workspace`: Search notes, papers, logs, and experiments.
-  - `get_source_excerpt`: Retrieve specific quotes and annotations from a paper.
-  - `get_workspace_outline`: Inspect your current report structure and plan milestones.
+  - `get_paper`, `get_paper_text`, `get_note`, `get_log`, `get_milestone`, `get_experiment`,
+    `get_reading_list`, `get_relations`, `get_report_section`, `get_backlinks`: Read one item.
+  - `list_projects`, `list_experiments`, `list_tags`, `list_workspace`: List items.
+  - `read_entry`: Read one workspace entry.
 - **Proposal tools**:
-  - `suggest_append_paper_note`: Suggest a note to add to a paper.
-  - `suggest_create_vault_note`: Propose a new vault note.
-  - `suggest_create_log_entry`: Propose a logbook entry.
-  - `suggest_paper_update`: Propose a change to a paper's details.
-  - `suggest_paper_field_value`: Propose a value for one paper field.
+  - `suggest_annotation`, `suggest_paper_note`, `suggest_paper_update`: Propose a change to a
+    paper, its annotations or its notes.
+  - `suggest_note_create`, `suggest_note_append`, `suggest_note_edit`: Propose a note change.
+  - `suggest_log_entry`: Propose a logbook entry.
+  - `suggest_milestone`, `suggest_milestone_status`: Propose a milestone or its status.
+  - `suggest_experiment`, `suggest_experiment_update`: Propose an experiment or an update to one.
   - `suggest_reading_list_change`: Propose adding a paper to a reading list.
-  - `suggest_relation`: Propose a link between two papers.
-  - `suggest_zotero_import`: Propose importing a paper from Zotero.
-  - `suggest_milestone_follow_up`: Propose follow-up tasks for a milestone.
-  - `suggest_experiment_follow_up`: Propose follow-up tasks for an experiment.
+  - `suggest_relation`: Propose a link between two items.
+  - `suggest_report_edit`: Propose an edit to a report section.
 
 ### Human-in-the-Loop Review (`/ai-review`)
 

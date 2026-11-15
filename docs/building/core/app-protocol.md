@@ -9,9 +9,9 @@ Pure rules for the `app://` scheme. The native shell serves it from `apps/shell/
 ## What Rust decides
 
 - **Candidates** (`app_file_candidates`): the request path is percent-decoded and joined under `root`. A `..` that would leave the root is refused, and so is a malformed escape. A path ending in `/` gives only `index.html`. Any other path gives, in order, the file, `file.html`, `file/index.html` and the Next segment-prefetch file (`__next.a.b.txt` becomes `__next.a/b.txt`). `root` must have no trailing separator.
-- **Canonical URL** (`app_canonical_url`): repeated path slashes are collapsed. The query and fragment are left alone. `null` means no redirect.
-- **Page or asset** (`app_is_page_request`): a request is a page when its last segment has no dot, or ends in `.html`.
-- **Content type** (`app_content_type_for`): by extension. Unknown is `application/octet-stream`. `.map` is served as JSON.
+- **Canonical URL** (`canonical_app_url`): repeated path slashes are collapsed. The query and fragment are left alone. `null` means no redirect.
+- **Page or asset** (`is_page_request`): a request is a page when its last segment has no dot, or ends in `.html`.
+- **Content type** (`content_type_for`): by extension. Unknown is `application/octet-stream`. `.map` is served as JSON.
 - **Headers** (`app_headers`): `content-type`, `x-content-type-options: nosniff` and `referrer-policy: strict-origin-when-cross-origin`. The CSP is added only when the content type starts with `text/html`.
 
 ## What stays in TS
@@ -23,7 +23,7 @@ Pure rules for the `app://` scheme. The native shell serves it from `apps/shell/
 
 The web build's policy, plus what only the desktop reaches: the weights host, the Cache API, local model servers on loopback, and workers built from blobs. Two entries exist because of the same mistake made twice, and both cost a long detour to find.
 
-- **`app:`** in `connect-src`. `'self'` is `app://weaveforge`, and the encoder's weights are served from `app://models`, a different origin. Without this the page cannot fetch a model file. The failure shows as transformers.js's `Bad gateway error occurred while trying to load file: "app://models/…/config.json"`, which names this app's own proxy and so points at the handler rather than at the policy. `apps/web/next.config.mjs` carries `app://models` for the same reason. The browser build never reaches this host, which is why the scheme appears only here. The policy was not the only gate: `app:` is not a CORS-enabled scheme, so Chromium blocked the cross-origin fetch anyway. The renderer now asks for `app://weaveforge/models/…`, same-origin, which the shell maps onto the same cache (`modelCacheUrl`). `app:` stays for the other `app:` hosts.
+- **`app:`** in `connect-src`. `'self'` is `app://weaveforge`, and the encoder's weights are served from `app://models`, a different origin. Without this the page cannot fetch a model file. The failure shows as transformers.js's `Bad gateway error occurred while trying to load file: "app://models/…/config.json"`, which names this app's own proxy and so points at the handler rather than at the policy. `apps/web/src/features/search/infrastructure/embedding-worker.ts` documents the same `app://models` host. The browser build never reaches this host, which is why the scheme appears only here. The policy was not the only gate: `app:` is not a CORS-enabled scheme, so Chromium blocked the cross-origin fetch anyway. The renderer now asks for `app://weaveforge/models/…`, same-origin, which the shell maps onto the same cache (`apps/shell/src/model_cache.rs`, which strips the `/models/` path prefix). `app:` stays for the other `app:` hosts.
 - **`cache:`** in `connect-src`. Electron's Cache API, which Transformers.js uses to store model files. A Cache API lookup is subject to `connect-src`, and a refused one rejects rather than returning a miss, so the library received a rejection where it expected a `Response`.
 - **`app://artifacts`** in `img-src` shows SDK uploads kept on this disk.
 - **`blob:`** in `frame-src` shows the Overleaf Workshop's compiled PDF.
