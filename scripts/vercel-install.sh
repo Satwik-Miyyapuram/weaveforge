@@ -4,6 +4,8 @@
 # rust-toolchain.toml picks the toolchain and the wasm32 target; the CLI version
 # comes from Cargo.lock, which build-wasm.mjs checks again.
 set -euo pipefail
+# Vercel may run this from the project Root Directory (apps/web); work from the repo root.
+cd "$(dirname "$0")/.."
 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
 export PATH="$HOME/.cargo/bin:$PATH"
