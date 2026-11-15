@@ -1,17 +1,13 @@
-//! Golden, ported and property tests for `sync::folder_layout`. Goldens were
-//! printed by `packages/core/src/workspace/parts-1.ts` through
-//! `tests/goldens/sync-text.mjs`. Ported from `packages/core/test/workspace/`:
+//! Table, ported and property tests for `sync::folder_layout`. The tables keep
+//! every case the old TypeScript-printed golden of
+//! `packages/core/src/workspace/parts-1.ts` covered. Ported from `packages/core/test/workspace/`:
 //! `kind-suffix.test.ts`, `project-layout.test.ts` and `entity-types.test.ts`.
 //! The folder-reader and frontmatter-reader cases in those files need
 //! `parseWorkspaceFolder` / `parseWorkspaceFile`, which are not ported here.
 
-// Golden-reading helpers sit outside `#[test]`, where clippy.toml's test allowance stops.
-#![allow(clippy::expect_used, clippy::panic)]
-
 use std::collections::HashSet;
 
 use proptest::prelude::*;
-use serde_json::Value;
 use wf_core::search::js_text::utf16_len;
 use wf_core::sync::folder_layout::{
     ASSET_DIR, AssetScope, ENTITY_DIRS, FolderNode, KIND_SUFFIX, PAPER_HTML_DIR, PAPER_PDF_DIR,
@@ -20,29 +16,7 @@ use wf_core::sync::folder_layout::{
     parse_kind_suffix, project_dir, project_meta_dir, slug_for, strip_kind_suffix, tree_paths,
 };
 
-const GOLDEN: &str = include_str!("goldens/sync-layout.json");
-
 const THESIS_ROOT: &str = "msc-thesis--8d7317";
-
-fn golden() -> Value {
-    serde_json::from_str(GOLDEN).expect("sync-layout.json parses")
-}
-
-fn cases<'a>(golden: &'a Value, section: &str) -> &'a [Value] {
-    golden[section].as_array().expect(section).as_slice()
-}
-
-fn text(v: &Value) -> &str {
-    v.as_str().expect("golden string")
-}
-
-fn kind(name: &str) -> WorkspaceEntityType {
-    ENTITY_DIRS
-        .iter()
-        .map(|(t, _)| *t)
-        .find(|t| t.as_str() == name)
-        .expect(name)
-}
 
 fn node(id: &str, title: &str, parent: Option<&str>) -> FolderNode {
     FolderNode {
@@ -52,18 +26,6 @@ fn node(id: &str, title: &str, parent: Option<&str>) -> FolderNode {
     }
 }
 
-fn nodes_of(v: &Value) -> Vec<FolderNode> {
-    v.as_array()
-        .expect("nodes")
-        .iter()
-        .map(|n| FolderNode {
-            id: text(&n["id"]).to_owned(),
-            title: text(&n["title"]).to_owned(),
-            parent_id: n["parentId"].as_str().map(str::to_owned),
-        })
-        .collect()
-}
-
 fn thesis() -> WorkspaceProject {
     WorkspaceProject {
         id: "8d731734-bdcd-4f08-b648-efd15fdf75da".to_owned(),
@@ -71,130 +33,404 @@ fn thesis() -> WorkspaceProject {
     }
 }
 
+/// Title, slug with the `untitled` fallback, slug with the `project` fallback.
+/// Slugs fold to ASCII where they can, cut at 80 UTF-16 units and dodge
+/// Windows device names.
 #[test]
-fn golden_slugs() {
-    let g = golden();
-    for case in cases(&g, "slugs") {
-        let title = text(&case[0]);
-        assert_eq!(slug_for(title, "untitled"), text(&case[1]), "slugs {case}");
-        assert_eq!(slug_for(title, "project"), text(&case[2]), "slugs {case}");
+fn slug_cases() {
+    let (a100, a80, a79) = ("a".repeat(100), "a".repeat(80), "a".repeat(79));
+    let (e_acute100, e80) = ("\u{e9}".repeat(100), "e".repeat(80));
+    let a79_emoji = format!("{a79}\u{1f600}");
+    let (a100, a80, a79) = (a100.as_str(), a80.as_str(), a79.as_str());
+    let (e_acute100, e80, a79_emoji) = (e_acute100.as_str(), e80.as_str(), a79_emoji.as_str());
+    let cases = [
+        ("", "untitled", "project"),
+        ("Hello World", "hello-world", "hello-world"),
+        ("  --Hello--  ", "hello", "hello"),
+        ("Café Ångström", "cafe-angstrom", "cafe-angstrom"),
+        ("日本語のタイトル", "日本語のタイトル", "日本語のタイトル"),
+        ("con", "con-file", "con-file"),
+        ("CON", "con-file", "con-file"),
+        ("aux", "aux-file", "aux-file"),
+        ("com1", "com1-file", "com1-file"),
+        ("com0", "com0", "com0"),
+        ("lpt9", "lpt9-file", "lpt9-file"),
+        ("nul.txt", "nul-txt", "nul-txt"),
+        (a100, a80, a80),
+        (e_acute100, e80, e80),
+        ("😀 emoji", "emoji", "emoji"),
+        ("x😀y", "x-y", "x-y"),
+        ("\u{fb01}le", "file", "file"),
+        ("\u{216b}", "xii", "xii"),
+        ("ΣΑΣ", "σας", "σας"),
+        ("İstanbul", "istanbul", "istanbul"),
+        ("a_b-c.d", "a-b-c-d", "a-b-c-d"),
+        ("---", "untitled", "project"),
+        ("😀", "untitled", "project"),
+        (a79_emoji, a79, a79),
+        ("\u{ff21}\u{ff42}\u{ff43}", "abc", "abc"),
+        ("x\u{301}y", "xy", "xy"),
+        ("Straße", "straße", "straße"),
+        ("\u{1c5}", "dz", "dz"),
+    ];
+    for (title, untitled, project) in cases {
+        assert_eq!(slug_for(title, "untitled"), untitled, "slug of {title:?}");
+        assert_eq!(slug_for(title, "project"), project, "slug of {title:?}");
+    }
+}
+
+/// An id suffix keeps the first six ASCII alphanumerics, or `x` when there are none.
+#[test]
+fn id_cases() {
+    let cases = [
+        ("", "x"),
+        ("abc", "abc"),
+        ("a-b-c-d-e-f-g", "abcdef"),
+        ("1234567890", "123456"),
+        ("--", "x"),
+        ("日本", "x"),
+        ("AbC_dE.fGh", "AbCdEf"),
+    ];
+    for (id, want) in cases {
+        assert_eq!(id_suffix(id), want, "id suffix of {id:?}");
+    }
+}
+
+/// File name, the kind its suffix names, the name with the suffix stripped.
+#[test]
+fn kind_cases() {
+    use WorkspaceEntityType::*;
+    let cases = [
+        (
+            "methods--a1b2c3.note.md",
+            Some(VaultPage),
+            "methods--a1b2c3",
+        ),
+        ("x.ink.md", Some(InkPage), "x"),
+        ("x.md", None, "x"),
+        ("x.foo.md", None, "x.foo"),
+        ("x.paper.md", Some(Paper), "x"),
+        ("dir/y.list.md", Some(ReadingList), "dir/y"),
+        ("x.Note.md", None, "x.Note"),
+        ("x.note.md.bak", None, "x.note.md.bak"),
+        (".note.md", Some(VaultPage), ""),
+        ("x.log", None, "x"),
+        ("a.b.c.report.md", Some(ReportSection), "a.b.c"),
+        ("x.experiment.md", Some(Experiment), "x"),
+        ("x.milestone.md", Some(Milestone), "x"),
+        ("x.log.md", Some(LogEntry), "x"),
+        ("x.list.MD", None, "x.list.MD"),
+        ("x.my_kind.md", None, "x.my_kind"),
+    ];
+    for (name, want, stripped) in cases {
+        assert_eq!(parse_kind_suffix(name), want, "kind of {name:?}");
+        assert_eq!(strip_kind_suffix(name), stripped, "stripped {name:?}");
     }
 }
 
 #[test]
-fn golden_ids() {
-    let g = golden();
-    for case in cases(&g, "ids") {
-        assert_eq!(id_suffix(text(&case[0])), text(&case[1]), "ids {case}");
-    }
-}
-
-#[test]
-fn golden_kinds() {
-    let g = golden();
-    for case in cases(&g, "kinds") {
-        let name = text(&case[0]);
-        let parsed = parse_kind_suffix(name).map(WorkspaceEntityType::as_str);
-        assert_eq!(parsed, case[1].as_str(), "kinds {case}");
-        assert_eq!(strip_kind_suffix(name), text(&case[2]), "kinds {case}");
-    }
-}
-
-#[test]
-fn golden_project() {
-    let g = golden();
-    for case in cases(&g, "project") {
+fn project_cases() {
+    let cases = [
+        ("abcdef123", "My Project", "my-project--abcdef"),
+        ("", "", "project--x"),
+        ("p-1", "con", "con-file--p1"),
+    ];
+    for (id, name, want) in cases {
         let project = WorkspaceProject {
-            id: text(&case[0]["id"]).to_owned(),
-            name: text(&case[0]["name"]).to_owned(),
+            id: id.to_owned(),
+            name: name.to_owned(),
         };
-        assert_eq!(project_dir(&project), text(&case[1]), "project {case}");
-    }
-}
-
-#[test]
-fn golden_dirs() {
-    let g = golden();
-    for case in cases(&g, "dirs") {
-        let t = kind(text(&case[0]));
-        assert_eq!(entity_dir_name(t), text(&case[1]), "dirs {case}");
-        assert_eq!(kind_suffix(t), text(&case[2]), "dirs {case}");
-        assert_eq!(entity_dir(t, ""), text(&case[3]), "dirs {case}");
-        assert_eq!(entity_dir(t, "proj--abc"), text(&case[4]), "dirs {case}");
         assert_eq!(
-            flat_path(t, "id-123456789", "A Title", ""),
-            text(&case[5]),
-            "dirs {case}"
-        );
-        assert_eq!(
-            flat_path(t, "id", "", "root"),
-            text(&case[6]),
-            "dirs {case}"
+            project_dir(&project),
+            want,
+            "project dir of {id:?} {name:?}"
         );
     }
 }
 
+/// Kind, dir name, suffix, dir at the root, dir in `proj--abc`, then
+/// `flat_path(kind, "id-123456789", "A Title", "")` and
+/// `flat_path(kind, "id", "", "root")`.
 #[test]
-fn golden_logs() {
-    let g = golden();
-    for case in cases(&g, "logs") {
-        let got = log_path(text(&case[0]), text(&case[1]), text(&case[2]));
-        assert_eq!(got, text(&case[3]), "logs {case}");
+#[allow(clippy::too_many_lines, reason = "one table of cases")]
+fn dir_cases() {
+    use WorkspaceEntityType::*;
+    let cases = [
+        (
+            VaultPage,
+            "notes",
+            "note",
+            "notes",
+            "proj--abc/notes",
+            "notes/a-title--id1234.note.md",
+            "root/notes/untitled--id.note.md",
+        ),
+        (
+            InkPage,
+            "notes",
+            "ink",
+            "notes",
+            "proj--abc/notes",
+            "notes/a-title--id1234.ink.md",
+            "root/notes/untitled--id.ink.md",
+        ),
+        (
+            Paper,
+            "papers",
+            "paper",
+            "papers",
+            "proj--abc/papers",
+            "papers/a-title--id1234.paper.md",
+            "root/papers/untitled--id.paper.md",
+        ),
+        (
+            ReadingList,
+            "reading-lists",
+            "list",
+            "reading-lists",
+            "proj--abc/reading-lists",
+            "reading-lists/a-title--id1234.list.md",
+            "root/reading-lists/untitled--id.list.md",
+        ),
+        (
+            ReportSection,
+            "report",
+            "report",
+            "report",
+            "proj--abc/report",
+            "report/a-title--id1234.report.md",
+            "root/report/untitled--id.report.md",
+        ),
+        (
+            Experiment,
+            "experiments",
+            "experiment",
+            "experiments",
+            "proj--abc/experiments",
+            "experiments/a-title--id1234.experiment.md",
+            "root/experiments/untitled--id.experiment.md",
+        ),
+        (
+            Milestone,
+            "plan",
+            "milestone",
+            "plan",
+            "proj--abc/plan",
+            "plan/a-title--id1234.milestone.md",
+            "root/plan/untitled--id.milestone.md",
+        ),
+        (
+            LogEntry,
+            "logbook",
+            "log",
+            "logbook",
+            "proj--abc/logbook",
+            "logbook/a-title--id1234.log.md",
+            "root/logbook/untitled--id.log.md",
+        ),
+    ];
+    for (kind, name, suffix, root_dir, project_dir, flat, untitled) in cases {
+        assert_eq!(entity_dir_name(kind), name, "dir name of {kind:?}");
+        assert_eq!(kind_suffix(kind), suffix, "suffix of {kind:?}");
+        assert_eq!(entity_dir(kind, ""), root_dir, "root dir of {kind:?}");
+        assert_eq!(
+            entity_dir(kind, "proj--abc"),
+            project_dir,
+            "project dir of {kind:?}"
+        );
+        assert_eq!(
+            flat_path(kind, "id-123456789", "A Title", ""),
+            flat,
+            "flat path of {kind:?}"
+        );
+        assert_eq!(
+            flat_path(kind, "id", "", "root"),
+            untitled,
+            "untitled path of {kind:?}"
+        );
     }
 }
 
+/// Id, date, root, expected path. A date without a month files under `00`.
 #[test]
-fn golden_tree() {
-    let g = golden();
-    for case in cases(&g, "tree") {
-        let nodes = nodes_of(&case[0]);
-        let got = tree_paths(&nodes, kind(text(&case[1])), text(&case[2]));
-        let want: Vec<(String, String)> = case[3]
-            .as_array()
-            .expect("paths")
+fn log_cases() {
+    let cases = [
+        (
+            "abc",
+            "2026-03-14",
+            "",
+            "logbook/2026/03/2026-03-14--abc.log.md",
+        ),
+        ("abc", "2026", "", "logbook/2026/00/2026--abc.log.md"),
+        ("abc", "", "", "logbook//00/--abc.log.md"),
+        (
+            "abc",
+            "2026-03-14",
+            "proj",
+            "proj/logbook/2026/03/2026-03-14--abc.log.md",
+        ),
+        ("x", "a-b-c", "", "logbook/a/b/a-b-c--x.log.md"),
+    ];
+    for (id, date, root, want) in cases {
+        assert_eq!(
+            log_path(id, date, root),
+            want,
+            "log path of {id:?} {date:?} {root:?}"
+        );
+    }
+}
+
+/// Nodes as (id, title, parent), then the (id, path) pairs for notes at the
+/// root and for ink notes under `proj`. A node with children is a folder; a
+/// repeated title gets an id suffix; a missing or empty parent counts as the
+/// root, and a parent cycle is broken so every node still gets one path.
+type TreeCase<'a> = (
+    &'a [(&'a str, &'a str, Option<&'a str>)],
+    &'a [(&'a str, &'a str)],
+    &'a [(&'a str, &'a str)],
+);
+
+#[test]
+#[allow(clippy::too_many_lines, reason = "one table of cases")]
+fn tree_cases() {
+    let cases: [TreeCase; 10] = [
+        (&[], &[], &[]),
+        (
+            &[("a", "Alpha", None)],
+            &[("a", "notes/alpha.note.md")],
+            &[("a", "proj/notes/alpha.ink.md")],
+        ),
+        (
+            &[
+                ("a", "Alpha", None),
+                ("b", "Beta", Some("a")),
+                ("c", "Gamma", Some("b")),
+            ],
+            &[
+                ("a", "notes/alpha/alpha.note.md"),
+                ("b", "notes/alpha/beta/beta.note.md"),
+                ("c", "notes/alpha/beta/gamma.note.md"),
+            ],
+            &[
+                ("a", "proj/notes/alpha/alpha.ink.md"),
+                ("b", "proj/notes/alpha/beta/beta.ink.md"),
+                ("c", "proj/notes/alpha/beta/gamma.ink.md"),
+            ],
+        ),
+        (
+            &[
+                ("a", "Same", None),
+                ("b", "Same", None),
+                ("c", "Same", None),
+            ],
+            &[
+                ("a", "notes/same.note.md"),
+                ("b", "notes/same--b.note.md"),
+                ("c", "notes/same--c.note.md"),
+            ],
+            &[
+                ("a", "proj/notes/same.ink.md"),
+                ("b", "proj/notes/same--b.ink.md"),
+                ("c", "proj/notes/same--c.ink.md"),
+            ],
+        ),
+        (
+            &[
+                ("a", "Same", Some("p")),
+                ("b", "Same", None),
+                ("p", "Parent", None),
+            ],
+            &[
+                ("a", "notes/parent/same.note.md"),
+                ("b", "notes/same.note.md"),
+                ("p", "notes/parent/parent.note.md"),
+            ],
+            &[
+                ("a", "proj/notes/parent/same.ink.md"),
+                ("b", "proj/notes/same.ink.md"),
+                ("p", "proj/notes/parent/parent.ink.md"),
+            ],
+        ),
+        (
+            &[("a", "A", Some("b")), ("b", "B", Some("a"))],
+            &[("a", "notes/a/a.note.md"), ("b", "notes/a/b/b.note.md")],
+            &[
+                ("a", "proj/notes/a/a.ink.md"),
+                ("b", "proj/notes/a/b/b.ink.md"),
+            ],
+        ),
+        (
+            &[("a", "A", Some("a"))],
+            &[("a", "notes/a/a.note.md")],
+            &[("a", "proj/notes/a/a.ink.md")],
+        ),
+        (
+            &[("a", "A", Some("missing"))],
+            &[("a", "notes/a.note.md")],
+            &[("a", "proj/notes/a.ink.md")],
+        ),
+        (
+            &[
+                ("x1", "Dup", None),
+                ("x2", "Dup", None),
+                ("c", "Child", Some("x2")),
+            ],
+            &[
+                ("x1", "notes/dup.note.md"),
+                ("x2", "notes/dup--x2/dup--x2.note.md"),
+                ("c", "notes/dup--x2/child.note.md"),
+            ],
+            &[
+                ("x1", "proj/notes/dup.ink.md"),
+                ("x2", "proj/notes/dup--x2/dup--x2.ink.md"),
+                ("c", "proj/notes/dup--x2/child.ink.md"),
+            ],
+        ),
+        (
+            &[("a", "A", Some(""))],
+            &[("a", "notes/a.note.md")],
+            &[("a", "proj/notes/a.ink.md")],
+        ),
+    ];
+    for (nodes, notes, inks) in cases {
+        let nodes: Vec<FolderNode> = nodes
             .iter()
-            .map(|p| (text(&p[0]).to_owned(), text(&p[1]).to_owned()))
+            .map(|(id, title, parent)| node(id, title, *parent))
             .collect();
-        assert_eq!(got, want, "tree {case}");
+        for (kind, root, want) in [
+            (WorkspaceEntityType::VaultPage, "", notes),
+            (WorkspaceEntityType::InkPage, "proj", inks),
+        ] {
+            let want: Vec<(String, String)> = want
+                .iter()
+                .map(|(id, path)| ((*id).to_owned(), (*path).to_owned()))
+                .collect();
+            assert_eq!(
+                tree_paths(&nodes, kind, root),
+                want,
+                "tree {nodes:?} as {kind:?}"
+            );
+        }
     }
 }
 
 #[test]
-fn golden_misc() {
-    let g = golden();
-    let m = &g["misc"];
-    assert_eq!(WORKSPACE_META_DIR, text(&m["metaDir"]), "misc metaDir");
-    assert_eq!(ASSET_DIR, text(&m["assetDir"]), "misc assetDir");
-    assert_eq!(PAPER_PDF_DIR, text(&m["pdfDir"]), "misc pdfDir");
-    assert_eq!(PAPER_HTML_DIR, text(&m["htmlDir"]), "misc htmlDir");
-    assert_eq!(
-        project_meta_dir("p"),
-        text(&m["projectMeta"]),
-        "misc projectMeta"
-    );
-    assert_eq!(paper_pdf_path("id1", ""), text(&m["pdf"][0]), "misc pdf");
-    assert_eq!(paper_pdf_path("id1", "p"), text(&m["pdf"][1]), "misc pdf");
-    assert_eq!(paper_html_path("id1", ""), text(&m["html"][0]), "misc html");
-    assert_eq!(
-        paper_html_path("id1", "p"),
-        text(&m["html"][1]),
-        "misc html"
-    );
+fn fixed_dirs_and_paper_and_asset_paths() {
+    assert_eq!(WORKSPACE_META_DIR, ".weaveforge");
+    assert_eq!(ASSET_DIR, "assets");
+    assert_eq!(PAPER_PDF_DIR, "papers/pdf");
+    assert_eq!(PAPER_HTML_DIR, "papers/html");
+    assert_eq!(project_meta_dir("p"), "p/.weaveforge");
+    assert_eq!(paper_pdf_path("id1", ""), "papers/pdf/id1.pdf");
+    assert_eq!(paper_pdf_path("id1", "p"), "p/papers/pdf/id1.pdf");
+    assert_eq!(paper_html_path("id1", ""), "papers/html/id1.html");
+    assert_eq!(paper_html_path("id1", "p"), "p/papers/html/id1.html");
     assert_eq!(
         asset_path(AssetScope::Notes, "u/p/f.png"),
-        text(&m["asset"][0]),
-        "misc asset"
+        "assets/notes/u/p/f.png"
     );
-    assert_eq!(
-        asset_path(AssetScope::Papers, "x"),
-        text(&m["asset"][1]),
-        "misc asset"
-    );
-    assert_eq!(
-        asset_path(AssetScope::Report, ""),
-        text(&m["asset"][2]),
-        "misc asset"
-    );
+    assert_eq!(asset_path(AssetScope::Papers, "x"), "assets/papers/x");
+    assert_eq!(asset_path(AssetScope::Report, ""), "assets/report/");
 }
 
 #[test]

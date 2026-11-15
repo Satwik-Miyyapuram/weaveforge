@@ -84,6 +84,145 @@ fn limit_truncates_after_sorting() {
     assert_eq!(fuse_rankings(&lists, RRF_K, many), ["a", "b", "c"]);
 }
 
+/// Runs of two-letter ids as (start, step, count), with `aa` = 0 and
+/// wrapping after `zz` = 675, so a long list needs no long literal.
+fn stride(runs: &[(usize, usize, usize)], weight: f64) -> RankedList {
+    let letter = |n: usize| char::from(b'a' + u8::try_from(n).unwrap_or(0));
+    let ids = runs
+        .iter()
+        .flat_map(|&(start, step, count)| (0..count).map(move |k| (start + step * k) % 676))
+        .map(|n| [letter(n / 26), letter(n % 26)].iter().collect())
+        .collect();
+    RankedList { ids, weight }
+}
+
+/// Lists as (ids, weight), k, limit (0 is no limit, as the WASM binding reads
+/// it), fused ids.
+type FusionCase = (
+    &'static [(&'static [&'static str], f64)],
+    u32,
+    usize,
+    &'static [&'static str],
+);
+
+/// The ids are lowercase ASCII, so code point ties order like the TypeScript did.
+const CASES: &[FusionCase] = &[
+    (&[], RRF_K, 0, &[]),
+    (&[(&[], 1.0), (&[], 1.0)], RRF_K, 0, &[]),
+    (
+        &[(&["aa", "ab", "ac"], 1.0), (&["ac", "aa"], 1.0)],
+        RRF_K,
+        0,
+        &["aa", "ac", "ab"],
+    ),
+    (
+        &[(&["xa", "ya"], 0.0), (&["ya", "xa"], 1.0)],
+        RRF_K,
+        0,
+        &["ya", "xa"],
+    ),
+    (
+        &[(&["xa", "ya"], 2.0), (&["ya", "xa"], 1.0)],
+        RRF_K,
+        0,
+        &["xa", "ya"],
+    ),
+    (
+        &[(&["xa", "ya"], 0.5), (&["ya", "xa"], 1.25)],
+        RRF_K,
+        0,
+        &["ya", "xa"],
+    ),
+    (
+        &[(&["aa", "ab"], 1.0), (&["ac", "ad", "ab"], 1.0)],
+        0,
+        0,
+        &["aa", "ac", "ab", "ad"],
+    ),
+    (
+        &[(&["aa", "ab"], 1.0), (&["ac", "ad", "ab"], 1.0)],
+        1000,
+        0,
+        &["ab", "aa", "ac", "ad"],
+    ),
+    (&[(&["aa", "ab", "ac"], 1.0)], RRF_K, 2, &["aa", "ab"]),
+    (&[(&["aa", "ab", "ac"], 1.0)], RRF_K, 0, &["aa", "ab", "ac"]),
+    (
+        &[(&["aa", "ab", "ac"], 1.0)],
+        RRF_K,
+        10,
+        &["aa", "ab", "ac"],
+    ),
+    (
+        &[(&["aa", "ab", "aa", "aa"], 1.0), (&["ab"], 1.0)],
+        RRF_K,
+        0,
+        &["aa", "ab"],
+    ),
+    (
+        &[
+            (&["ma"], 1.0),
+            (&["ka"], 1.0),
+            (&["za"], 1.0),
+            (&["ab"], 1.0),
+        ],
+        RRF_K,
+        0,
+        &["ab", "ka", "ma", "za"],
+    ),
+    (
+        &[(&["ca", "ba"], 1.0), (&["ba", "ca"], 1.0)],
+        RRF_K,
+        0,
+        &["ba", "ca"],
+    ),
+];
+
+#[test]
+fn every_case_matches_the_typescript() {
+    for (lists, k, limit, want) in CASES {
+        let lists: Vec<RankedList> = lists
+            .iter()
+            .map(|(ids, weight)| list(ids, *weight))
+            .collect();
+        assert_eq!(
+            fuse_rankings(&lists, *k, NonZeroUsize::new(*limit)),
+            *want,
+            "fuse {lists:?} k {k} limit {limit}"
+        );
+    }
+}
+
+/// Lists of 60, 80 and 40 ids (the second runs the first backwards, then adds
+/// 20; the third is weighted 0.75), then a cut to 25 of 350 ids with k 7, as
+/// the TypeScript fused them.
+#[test]
+fn long_lists_match_the_typescript() {
+    let lists = [
+        stride(&[(0, 1, 60)], 1.0),
+        stride(&[(59, 675, 60), (100, 3, 20)], 1.0),
+        stride(&[(5, 7, 40)], 0.75),
+    ];
+    let want: &[&str] = &[
+        "af", "am", "cc", "at", "bv", "ba", "bo", "bh", "aa", "ch", "ab", "cg", "ac", "cf", "ad",
+        "ce", "ae", "cd", "ag", "cb", "ah", "ca", "ai", "bz", "aj", "by", "ak", "bx", "al", "bw",
+        "an", "bu", "ao", "bt", "ap", "bs", "aq", "br", "ar", "bq", "as", "bp", "au", "bn", "av",
+        "bm", "aw", "bl", "ax", "bk", "ay", "bj", "az", "bi", "bb", "bg", "bc", "bf", "bd", "be",
+        "dz", "eu", "fp", "cj", "cq", "cx", "de", "dl", "ds", "eg", "en", "fb", "fi", "fw", "gd",
+        "gk", "gr", "gy", "hf", "hm", "ht", "ia", "dw", "ih", "io", "ec", "ef", "iv", "ei", "jc",
+        "el", "jj", "eo", "er", "jq", "jx", "ex", "ke", "fa", "fd", "kl", "fg", "ks", "fj", "fm",
+        "fs", "fv", "fy", "gb",
+    ];
+    assert_eq!(fuse_rankings(&lists, RRF_K, None), want);
+
+    let lists = [stride(&[(0, 13, 200)], 1.0), stride(&[(3, 11, 150)], 1.0)];
+    let want: &[&str] = &[
+        "dn", "aa", "an", "ba", "ad", "bn", "ca", "ao", "cn", "da", "az", "ja", "fa", "ea", "bk",
+        "en", "bv", "gn", "fn", "ga", "cg", "on", "ha", "cr", "kn",
+    ];
+    assert_eq!(fuse_rankings(&lists, 7, NonZeroUsize::new(25)), want);
+}
+
 proptest! {
     #[test]
     fn output_is_the_distinct_input_ids(

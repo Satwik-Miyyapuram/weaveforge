@@ -44,7 +44,7 @@ pub enum GitSyncSkipReason {
 }
 
 impl GitSyncSkipReason {
-    /// The TypeScript reason string, for logs and goldens.
+    /// The TypeScript reason string, for logs.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {

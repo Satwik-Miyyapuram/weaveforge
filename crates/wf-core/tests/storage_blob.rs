@@ -1,11 +1,8 @@
 //! Blob content types and eviction scoring, matching
 //! `packages/core/src/storage/blob-content-type.ts` and
 //! `packages/core/src/storage/blob-tiering.ts`, with cases from
-//! `packages/core/test/storage/blob-tiering.test.ts` and the `types` section of
-//! `goldens/sync-leaf.json`.
-
-// Golden-reading helpers sit outside `#[test]`, where clippy.toml's test allowance stops.
-#![allow(clippy::expect_used, clippy::panic)]
+//! `packages/core/test/storage/blob-tiering.test.ts` and the content-type
+//! cases the old TypeScript-printed golden covered.
 
 use proptest::prelude::*;
 use wf_core::storage::blob::{
@@ -21,10 +18,6 @@ const APR_1_2026: i64 = 1_775_001_600_000;
 const JUL_10_2026: i64 = 1_783_641_600_000;
 /// 2026-07-11T12:00:00Z in epoch ms, the TS test's `now`.
 const NOW: i64 = 1_783_771_200_000;
-
-fn golden() -> serde_json::Value {
-    serde_json::from_str(include_str!("goldens/sync-leaf.json")).expect("golden parses")
-}
 
 fn rec(
     path: &str,
@@ -44,17 +37,32 @@ fn rec(
     }
 }
 
-// --- golden `types` section ---
+// --- content types ---
 
+/// Path, content type. Only images and PDFs get a type; the last dot segment
+/// decides, case-insensitively.
 #[test]
-fn golden_types_match() {
-    let g = golden();
-    let cases = g["types"].as_array().expect("types array");
-    assert!(!cases.is_empty());
-    for case in cases {
-        let path = case["path"].as_str().expect("path");
-        let out = case["out"].as_str().expect("out");
-        assert_eq!(guess_blob_content_type(path), out, "case {path:?}");
+fn content_type_cases() {
+    let cases = [
+        ("a.png", "image/png"),
+        ("A.PNG", "image/png"),
+        ("x.jpeg", "image/jpeg"),
+        ("x.jpg", "image/jpeg"),
+        ("x.gif", "image/gif"),
+        ("x.webp", "image/webp"),
+        ("x.svg", "image/svg+xml"),
+        ("x.pdf", "application/pdf"),
+        ("x.md", "application/octet-stream"),
+        ("x.txt", "application/octet-stream"),
+        ("x.json", "application/octet-stream"),
+        ("noext", "application/octet-stream"),
+        ("dir.v/file", "application/octet-stream"),
+        ("x.tar.gz", "application/octet-stream"),
+        (".png", "image/png"),
+        ("x.", "application/octet-stream"),
+    ];
+    for (path, want) in cases {
+        assert_eq!(guess_blob_content_type(path), want, "case {path:?}");
     }
 }
 

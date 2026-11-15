@@ -1,7 +1,7 @@
 //! Storage and sync rules (phase 3): merges, body diffs, change detection,
 //! frontmatter and the workspace folder layout. Each module matches the
-//! TypeScript it replaces in `packages/core/src/{shared,workspace}`; goldens
-//! in `tests/goldens/sync-*.json` were printed by that TypeScript.
+//! TypeScript it replaces in `packages/core/src/{shared,workspace}`; the table
+//! tests in `tests/sync_*.rs` keep the cases that TypeScript printed.
 
 pub mod adoption_plan;
 pub mod blob_links;

@@ -1,8 +1,7 @@
-//! Golden tests for the phase-1 text rules. Expected values were produced by the
+//! Table tests for the phase-1 text rules. Expected values were produced by the
 //! TypeScript in `packages/core/src/search/search-tokenizer.ts` on Node 24.14.1
-//! (ICU 78.2, Unicode 17.0) with `node crates/wf-core/tests/goldens/search-text.mjs`
-//! from the repo root, then rustfmt. They stay as frozen goldens after the TS is
-//! deleted (P1.8).
+//! (ICU 78.2, Unicode 17.0) and are now the spec; that TypeScript was deleted in
+//! P1.8.
 
 use wf_core::search::js_text::{is_js_whitespace, is_letter_or_number, utf16_len};
 use wf_core::search::tokenizer::{TokenizerOptions, fold_diacritics, is_cjk, process_term};

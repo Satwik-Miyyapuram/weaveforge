@@ -2,7 +2,7 @@
 //! bundle stands in for the disk: `resolve` tries each candidate against a set
 //! of files, the way the TS shim tries `isFile`.
 
-// Golden-reading helpers sit outside `#[test]`, where clippy.toml's test allowance stops.
+// The policy helper (`directive`) sits outside `#[test]`, where clippy.toml's test allowance stops.
 #![allow(clippy::expect_used, clippy::panic)]
 
 use wf_core::app_protocol::{
