@@ -11,7 +11,6 @@ These modules hold the pure rules for accounts, auth, backend config, home confi
 | `auth_transition` | `next_auth_step` | `nextAuthStep` | `apps/web/src/features/auth/domain/parts.ts` |
 | `backend_config` | `missing_config_message` | `missingConfigMessage` | — |
 | `home_config` | `vault_root_from_text` | `vaultRootFromText` | — |
-| `update_check` | `parse_tag`, `parse_version`, `is_newer`, `newest_release` | — | — |
 | `privacy_disclaimer_readiness` | `should_mount_shell_children`, `should_show_workspace_loader` | `shouldMountShellChildren`, `shouldShowWorkspaceLoader` | `apps/web/src/features/auth/ui/privacy-disclaimer-gate.tsx` |
 
 Rules:
@@ -23,5 +22,4 @@ Rules:
 - `auth_transition`: decides from ids and flags only. The caller builds the user object for the step it gets back.
 - `backend_config`: names only, never values. A variable scoped to Production is invisible on Preview deployments, so the message says which environment to set it for.
 - `home_config`: returns `None` (TS `{ vaultRoot: null }`) when the text is not a JSON object, the key is missing or not a string, or the string is empty.
-- `update_check`: tags must be exactly `v<major>.<minor>.<patch>` after trimming. `android-vN` and `py-v…` tags are rejected. The newest release is found by version, not list order; drafts and pre-releases are skipped; on a tie the first listed is kept.
 - `privacy_disclaimer_readiness`: a cached "already accepted" snapshot still waits for the full container. The workspace loader yields to the error when a startup error is present.
