@@ -57,6 +57,7 @@ import { FocusGlyph } from "@/components/focus-glyph";
 import { ToolbarSlot } from "@/components/toolbar-slot";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink } from "./overlays";
 import { readWritingPage, writeWritingPage } from "./writing-page";
+import { hasSidePanel } from "./side-panel";
 import { canvasSize } from "./canvas-size";
 import { layoutMarginNotes } from "../../application/parts-2";
 import { useAnnotationContext } from "./use-annotation-context";
@@ -331,6 +332,7 @@ export function PdfReader({
     setJump,
     pageShare: writingPage ? 0.5 : 1,
   });
+  const sidePanel = hasSidePanel({ numPages, annotations: listed.length, canCreate });
   const scale = viewport.renderScale;
   const rotation = viewport.rotation;
 
@@ -1690,7 +1692,7 @@ export function PdfReader({
       )}
       <div
         className={`pdf-reader-body${
-          outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate
+          sidePanel
             ? sideCollapsed
               ? " pdf-reader-body--rail"
               : " pdf-reader-body--outline"
@@ -1923,7 +1925,7 @@ export function PdfReader({
             hiding it moved the page under the pen. Focus gives the full width. */}
         {/* Collapsed, the whole column folds to one vertical tab that still
             says how many annotations wait behind it. */}
-        {!viewOnly && sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
+        {!viewOnly && sideCollapsed && sidePanel && (
           <span className="pdf-reader-side-rail">
           <RowButton
             aria-expanded={false}
@@ -1945,7 +1947,7 @@ export function PdfReader({
           </RowButton>
           </span>
         )}
-        {!viewOnly && !sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
+        {!viewOnly && !sideCollapsed && sidePanel && (
           <div className="pdf-reader-side is-list-open">
             <div className="pdf-reader-side-header">
               <ViewSwitch
