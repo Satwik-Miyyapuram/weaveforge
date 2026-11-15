@@ -57,6 +57,7 @@ import { FocusGlyph } from "@/components/focus-glyph";
 import { ToolbarSlot } from "@/components/toolbar-slot";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink } from "./overlays";
 import { readWritingPage, writeWritingPage } from "./writing-page";
+import { canvasSize } from "./canvas-size";
 import { layoutMarginNotes } from "../../application/parts-2";
 import { useAnnotationContext } from "./use-annotation-context";
 import { useAnnotationActions } from "./use-annotation-actions";
@@ -142,8 +143,8 @@ export function PdfReader({
   // The writing page beside each PDF page is a setting, not the pen's: when it
   // followed the pen, every time the pen came out the pages halved and the
   // layout jumped from one page to two and back.
-  const [writingPageSetting, setWritingPage] = useState(true);
-  useEffect(() => setWritingPage(readWritingPage()), []);
+  // Read before the first render, so the fit never starts at the other width and jumps.
+  const [writingPageSetting, setWritingPage] = useState(readWritingPage);
   // Nothing gets written on a view-only PDF, so it never has the writing page.
   const writingPage = writingPageSetting && !viewOnly;
   const toggleWritingPage = useCallback((on: boolean) => {
@@ -975,10 +976,13 @@ export function PdfReader({
    */
   function pageRenderSize(size: ReaderPageSize, at: number, turn: number) {
     const sideways = turn % 180 !== 0;
-    return {
-      width: Math.floor((sideways ? size.height : size.width) * at),
-      height: Math.floor((sideways ? size.width : size.height) * at),
-    };
+    // The same snapped size the paint gives the page box, so a page does not shift when it paints.
+    const { cssWidth, cssHeight } = canvasSize(
+      (sideways ? size.height : size.width) * at,
+      (sideways ? size.width : size.height) * at,
+      typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
+    );
+    return { width: cssWidth, height: cssHeight };
   }
 
   const unpaintedPageSize = (size: ReaderPageSize, at: number, turn: number) => {
