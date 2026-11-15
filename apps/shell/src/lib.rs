@@ -51,7 +51,6 @@ pub mod protocol;
 pub mod range;
 pub mod secrets;
 pub mod shim;
-pub mod tex;
 pub mod update_check;
 pub mod vault;
 pub mod vault_choice;
@@ -194,7 +193,6 @@ fn start_stores(app: &tauri::AppHandle) {
     let _ = app.manage(app_log::AppLog::new(&logs, &home));
     let _ = app.manage(git::GitQueue::default());
     let _ = app.manage(embed::EmbedSlot::default());
-    let _ = app.manage(cmd_tools::TexStop::default());
     let _ = app.manage(auth_loopback::SignInPort::default());
     let _ = app.manage(local_files::LocalFiles::new(data.join("local-files")));
 }
