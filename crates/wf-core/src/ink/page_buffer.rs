@@ -117,21 +117,6 @@ pub fn stroke_pressures(pressures: &[f64], count: usize) -> Vec<u8> {
         .collect()
 }
 
-/// A stroke's coordinates and pressures as the buffer stores them: `x`/`y` as `f32`
-/// per point, pressure as a byte. A point without a pressure entry (`NaN` here)
-/// stores 0. An odd trailing coordinate is dropped.
-#[must_use]
-pub fn stroke_arrays(points: &[f64], pressures: &[f64]) -> (Vec<f32>, Vec<f32>, Vec<u8>) {
-    let count = points.len() / 2;
-    let mut xs = Vec::with_capacity(count);
-    let mut ys = Vec::with_capacity(count);
-    for i in 0..count {
-        xs.push(points[i * 2] as f32);
-        ys.push(points[i * 2 + 1] as f32);
-    }
-    (xs, ys, stroke_pressures(pressures, count))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -225,16 +210,5 @@ mod tests {
             stroke_pressures(&[f64::NAN, -5.0, 400.0], 3),
             vec![0, 0, 255]
         );
-    }
-
-    #[test]
-    fn stroke_arrays_quantise_pressure_and_drop_an_odd_coordinate() {
-        let (xs, ys, p) = stroke_arrays(&[1.0, 2.0, 3.0, 4.0, 5.0], &[f64::NAN, 300.0, 127.5]);
-        assert_eq!(xs, vec![1.0, 3.0]);
-        assert_eq!(ys, vec![2.0, 4.0]);
-        assert_eq!(p, vec![0, 255]);
-        // A missing pressure entry stores 0, as a NaN one does.
-        let (_, _, short) = stroke_arrays(&[0.0, 0.0, 1.0, 1.0], &[127.5]);
-        assert_eq!(short, vec![128, 0]);
     }
 }

@@ -36,28 +36,6 @@ pub enum SearchField {
     Body,
 }
 
-/// Every searchable field, in TS `SEARCH_FIELDS` order.
-pub const SEARCH_FIELDS: [SearchField; 6] = [
-    SearchField::Title,
-    SearchField::Aliases,
-    SearchField::Headings,
-    SearchField::Tags,
-    SearchField::Path,
-    SearchField::Body,
-];
-
-/// Per-field multiplier (TS `FIELD_BOOSTS`).
-#[must_use]
-pub const fn field_boost(field: SearchField) -> f64 {
-    match field {
-        SearchField::Title => 8.0,
-        SearchField::Aliases => 6.0,
-        SearchField::Headings | SearchField::Tags => 3.0,
-        SearchField::Path => 2.0,
-        SearchField::Body => 1.0,
-    }
-}
-
 /// Edit distance as a fraction of term length, graduated by length (TS `fuzzinessForTerm`).
 #[must_use]
 pub fn fuzziness_for_term(term: &str) -> f64 {
@@ -154,14 +132,6 @@ mod tests {
         assert!(close(fuzziness_for_term("abcdef"), 0.2));
         // A surrogate pair is two UTF-16 units, so this is still a short term.
         assert!(close(fuzziness_for_term("😀a"), 0.0));
-    }
-
-    #[test]
-    fn field_boosts_follow_declared_order() {
-        let boosts: Vec<f64> = SEARCH_FIELDS.iter().map(|f| field_boost(*f)).collect();
-        assert!(boosts.windows(2).all(|w| w[0] >= w[1]));
-        assert!(close(field_boost(SearchField::Title), 8.0));
-        assert!(close(field_boost(SearchField::Body), 1.0));
     }
 
     #[test]

@@ -6,7 +6,6 @@ These modules hold the pure LaTeX outline and Overleaf Workshop rules. They live
 | --- | --- | --- | --- |
 | `latex_section_tree` | `parse_latex_section_tree` | `parseLatexSectionTree` | `apps/web/src/features/overleaf/infrastructure/overleaf-git-reader.ts` |
 | `tex_log` | `engine_args`, `parse_tex_log` | — | — |
-| `tex_path` | `safe_relative` | — | — |
 | `overleaf_workshop` | `is_session_id`, `workshop_projects` | `isWorkshopSessionId`, `workshopProjectList` | `apps/web/src/features/overleaf/infrastructure/workshop-session-client.ts` |
 
 Rules:

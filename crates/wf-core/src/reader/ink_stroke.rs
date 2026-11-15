@@ -106,12 +106,6 @@ pub fn ink_nib_widths_pt() -> [f64; 4] {
     INK_PEN_WIDTHS.map(ink_note_width_to_pdf_points)
 }
 
-/// TS `INK_NIB_DEFAULT_PT`: the rail's default nib, the third of `ink_nib_widths_pt`.
-#[must_use]
-pub fn ink_nib_default_pt() -> f64 {
-    ink_nib_widths_pt()[2]
-}
-
 /// TS `isHighlighterInk`: a stored width at or above `HIGHLIGHTER_MIN_WIDTH`.
 #[must_use]
 pub fn is_highlighter_ink(width: Option<f64>) -> bool {
@@ -587,7 +581,6 @@ mod tests {
     #[test]
     fn ink_nib_widths_pt_is_the_ink_note_nib_set_in_points() {
         assert_eq!(ink_nib_widths_pt(), [0.28, 0.85, 1.42, 1.98]);
-        assert_eq!(ink_nib_default_pt(), 1.42, "the default is the 0.5 mm pen");
         for nib in ink_nib_widths_pt() {
             assert_eq!(clamp_ink_width(nib), nib, "{nib} pt must survive the clamp");
         }

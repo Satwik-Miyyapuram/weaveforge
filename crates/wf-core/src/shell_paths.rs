@@ -4,11 +4,6 @@
 //! same rule gives Windows or POSIX paths in tests without touching the host. Only the file naming lives
 //! here; reading and writing the files stays in TypeScript.
 
-/// Directory under the home folder that holds the home pointer (TS `HOME_CONFIG_DIR`).
-pub const HOME_CONFIG_DIR: &str = ".weaveforge";
-/// The home pointer's file name (TS `HOME_CONFIG_FILE`).
-pub const HOME_CONFIG_FILE: &str = "desktop.json";
-
 /// Joins path segments with `sep`, as Node's `path.join` does. Empty segments are skipped, runs of
 /// separators collapse to one, `.` segments are dropped and `..` pops the segment before it. A `..`
 /// that would climb above a root is dropped; a relative `..` that has nothing to pop is kept. A
@@ -80,17 +75,6 @@ fn split_root<'a>(sep: &str, path: &'a str) -> (String, &'a str) {
     (root, rest)
 }
 
-/// The home pointer's file: `<home>/.weaveforge/desktop.json`, or `desktop-<variant>.json` for a
-/// side-by-side build, so a dev build never reads the main app's folder.
-#[must_use]
-pub fn home_config_path(home: &str, variant: Option<&str>, sep: &str) -> String {
-    let file = match variant.filter(|v| !v.is_empty()) {
-        Some(variant) => format!("desktop-{variant}.json"),
-        None => HOME_CONFIG_FILE.to_string(),
-    };
-    join_path(sep, &[home, HOME_CONFIG_DIR, &file])
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -159,18 +143,6 @@ mod tests {
     }
 
     #[test]
-    fn home_config_path_posix_and_win32() {
-        assert_eq!(
-            home_config_path("/home/u", None, "/"),
-            "/home/u/.weaveforge/desktop.json"
-        );
-        assert_eq!(
-            home_config_path("C:\\Users\\u", None, "\\"),
-            "C:\\Users\\u\\.weaveforge\\desktop.json"
-        );
-    }
-
-    #[test]
     fn mcp_client_configs_win32_uses_app_data() {
         let configs = crate::mcp_config_rewrite::mcp_client_configs(
             "C:\\Users\\u",
@@ -208,17 +180,5 @@ mod tests {
         let linux =
             crate::mcp_config_rewrite::mcp_client_configs("/home/u", "linux", Some("ignored"), "/");
         assert_eq!(linux[1].file, "/home/u/.config/Code/User/mcp.json");
-    }
-
-    #[test]
-    fn home_config_path_variant_gets_its_own_file() {
-        assert_eq!(
-            home_config_path("/home/u", Some("dev"), "/"),
-            "/home/u/.weaveforge/desktop-dev.json"
-        );
-        assert_eq!(
-            home_config_path("/home/u", Some(""), "/"),
-            "/home/u/.weaveforge/desktop.json"
-        );
     }
 }
