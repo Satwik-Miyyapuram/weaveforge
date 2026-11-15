@@ -1,6 +1,6 @@
 //! Checks on a git checkout's files before the Overleaf reader keeps them (port of `safeRelative`,
-//! `TEXT_EXTENSIONS` and the size limits in apps/web/src/features/overleaf/infrastructure/overleaf-git-reader.ts).
-//! The fs walk and the symlink skip stay in TS; these decide what the walk may keep.
+//! `TEXT_EXTENSIONS` and the size limits of the removed TS `overleaf-git-reader.ts`).
+//! These decide what the checkout walk may keep.
 
 /// Message for a checkout path that escapes the clone or is not a plain relative path.
 pub const UNSAFE_CHECKOUT_PATH: &str = "Overleaf checkout contained an unsafe path.";

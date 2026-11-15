@@ -62,7 +62,6 @@ pub mod tag_tone;
 pub mod text;
 pub mod text_anchor;
 pub mod tree;
-pub mod units;
 pub mod vault;
 pub mod workspace;
 pub mod zotero;

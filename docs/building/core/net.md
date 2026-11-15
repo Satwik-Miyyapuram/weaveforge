@@ -57,7 +57,7 @@ Source: `crates/wf-core/src/net/`
 
 | Module | Rust fn | wasm export | TS caller |
 | --- | --- | --- | --- |
-| `paste_content` | `paste_image_type`, `is_html_content_type` | `pasteImageType`, `isPasteHtmlContentType` | `apps/web/src/backend/net/fetch-for-paste.ts` |
+| `paste_content` | `paste_image_type`, `is_html_content_type` | `pasteImageType`, `isPasteHtmlContentType` | — |
 | `redirect` | `next_redirect`, `declared_length_over_cap` | `nextRedirect`, `declaredLengthOverCap` | `apps/web/src/backend/net/safe-fetch.ts` |
 | `semantic_scholar_retry` | `should_retry`, `retry_wait_ms` | `semanticScholarShouldRetry`, `semanticScholarRetryWaitMs` | `apps/web/src/lib/semantic-scholar-fetch.ts` |
 
