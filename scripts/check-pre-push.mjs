@@ -7,7 +7,7 @@
  * 2. Architecture map & docs freshness (check:docs)
  * 3. Commit DCO sign-offs (check:dco)
  * 4. Architectural & code boundaries (check:boundaries - 10 gates)
- * 5. Generate the bindings and WASM package (generate:rust), then its tests, parity (Node 24.14.1 only), size budget and typecheck
+ * 5. Generate the bindings and WASM package (generate:rust), then its tests, size budget and typecheck
  * 6. Linter (lint)
  * 7. Bundle budget (bundle:budget, when .next build exists)
  * 8. Memory budgets (test:memory, ~5 s)
@@ -64,13 +64,6 @@ run("npm run check:boundaries", "Running architectural boundary gates");
 // typecheck below run against this checkout's Rust.
 run("npm run generate:rust", "Generating the bindings and the WASM package");
 run("npm test --workspace @weaveforge/wasm", "Testing the WASM package");
-// Parity goldens were made on Node 24.14.1's ICU; another Node can differ on
-// Unicode case and category data, so parity runs only there (CI: wasm-parity).
-if (process.version === "v24.14.1") {
-  run("npm run parity --workspace @weaveforge/wasm", "Checking TS/Rust parity on the fixtures");
-} else {
-  console.log(`Skipping WASM parity: Node ${process.version}, goldens need v24.14.1 (CI wasm-parity runs it).`);
-}
 run("npm run wasm:budget", "Checking the WASM size budget");
 run("npm run typecheck", "Typechecking all workspace packages");
 

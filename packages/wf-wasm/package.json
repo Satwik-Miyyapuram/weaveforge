@@ -12,7 +12,6 @@
   },
   "scripts": {
     "test": "node --import tsx --test \"test/**/*.test.ts\"",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "parity": "node --import tsx --test parity/parity.test.ts"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   }
 }

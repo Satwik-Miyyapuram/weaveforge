@@ -1,17 +1,13 @@
-//! Golden, ported and property tests for `sync::git_policy` and `sync::git_remote`.
-//! Goldens were printed by `packages/core/src/workspace/parts-2.ts` and
-//! `git-sync-policy.ts` through `tests/goldens/sync-leaf.mjs`. Ported from
-//! `packages/core/test/workspace/git-sync-policy.test.ts` and `git-remote.test.ts`.
-//! The `NoOpWorkspaceGit` case in `git-remote.test.ts` needs the TypeScript git
-//! port, which is not ported here, so it is not ported.
-
-// Golden-reading helpers sit outside `#[test]`, where clippy.toml's test allowance stops.
-#![allow(clippy::expect_used, clippy::panic)]
+//! Table, ported and property tests for `sync::git_policy` and `sync::git_remote`.
+//! The tables keep every case the old TypeScript-printed golden of
+//! `packages/core/src/workspace/parts-2.ts` and `git-sync-policy.ts` covered.
+//! Ported from `packages/core/test/workspace/git-sync-policy.test.ts` and
+//! `git-remote.test.ts`. The `NoOpWorkspaceGit` case in `git-remote.test.ts`
+//! needs the TypeScript git port, which is not ported here, so it is not ported.
 
 use std::collections::HashSet;
 
 use proptest::prelude::*;
-use serde_json::{Value, json};
 use wf_core::sync::git_policy::{
     GIT_SYNC_IGNORED_EXTENSIONS, GIT_SYNC_MAX_FILE_BYTES, GitSyncDecision, GitSyncSkipReason,
     decide_git_sync_path, is_under_ignored_folder,
@@ -21,64 +17,8 @@ use wf_core::sync::git_remote::{
     check_git_remote_url, describe_pull, describe_push, redact_secret,
 };
 
-const GOLDEN: &str = include_str!("goldens/sync-leaf.json");
-
 const MB: f64 = 1024.0 * 1024.0;
 const SMALL: f64 = 1024.0;
-
-fn golden() -> Value {
-    serde_json::from_str(GOLDEN).expect("sync-leaf.json parses")
-}
-
-fn cases<'a>(golden: &'a Value, section: &str) -> &'a [Value] {
-    golden[section].as_array().expect(section).as_slice()
-}
-
-fn text(v: &Value) -> &str {
-    v.as_str().expect("golden string")
-}
-
-fn check_json(check: &GitRemoteUrlCheck) -> Value {
-    match check {
-        GitRemoteUrlCheck::Accepted { url } => json!({ "ok": true, "url": url }),
-        GitRemoteUrlCheck::Refused { reason } => json!({ "ok": false, "reason": reason }),
-    }
-}
-
-fn decision_json(decision: GitSyncDecision) -> Value {
-    match decision {
-        GitSyncDecision::Include => json!({ "include": true }),
-        GitSyncDecision::Skip(reason) => json!({ "include": false, "reason": reason.as_str() }),
-    }
-}
-
-fn pull_from(v: &Value) -> GitPullResult {
-    match text(&v["kind"]) {
-        "up-to-date" => GitPullResult::UpToDate,
-        "fast-forward" => GitPullResult::FastForward { oid: String::new() },
-        "merged" => GitPullResult::Merged { oid: String::new() },
-        "conflict" => GitPullResult::Conflict {
-            files: v["files"]
-                .as_array()
-                .expect("files")
-                .iter()
-                .map(|f| text(f).to_owned())
-                .collect(),
-        },
-        other => panic!("unknown pull kind {other}"),
-    }
-}
-
-fn push_from(v: &Value) -> GitPushResult {
-    match text(&v["kind"]) {
-        "pushed" => GitPushResult::Pushed,
-        "up-to-date" => GitPushResult::UpToDate,
-        "rejected" => GitPushResult::Rejected {
-            reason: text(&v["reason"]).to_owned(),
-        },
-        other => panic!("unknown push kind {other}"),
-    }
-}
 
 fn decide(path: &str, size: f64) -> GitSyncDecision {
     decide_git_sync_path(path, size, GIT_SYNC_MAX_FILE_BYTES)
@@ -95,59 +35,213 @@ fn reason_for(path: &str, size: f64) -> Option<GitSyncSkipReason> {
     }
 }
 
+const NEEDS_PATH: &str =
+    "The URL needs the repository path, e.g. https://github.com/you/notes.git.";
+const NO_TOKEN: &str = "Leave the token out of the URL; put it in the token field.";
+const HTTPS_ONLY: &str = "Only https:// remotes are supported.";
+const NOT_URL: &str = "That is not a URL.";
+const ENTER_URL: &str = "Enter the remote's https URL.";
+
+/// Raw input, then the normalised URL or the refusal reason. `None` stands for
+/// any non-string the TypeScript side was given (null, a number, an object).
 #[test]
-fn golden_urls_match_check_git_remote_url() {
-    let golden = golden();
-    for case in cases(&golden, "urls") {
-        let got = check_json(&check_git_remote_url(case["raw"].as_str()));
-        assert_eq!(got, case["out"], "case {}", case["raw"]);
+fn url_cases() {
+    let cases: [(Option<&str>, Result<&str, &'static str>); 26] = [
+        (
+            Some("https://github.com/you/notes.git"),
+            Ok("https://github.com/you/notes.git"),
+        ),
+        (
+            Some("  https://github.com/you/notes.git  "),
+            Ok("https://github.com/you/notes.git"),
+        ),
+        (
+            Some("HTTPS://GitHub.com/You/Notes.git"),
+            Ok("https://github.com/You/Notes.git"),
+        ),
+        (Some("https://github.com"), Err(NEEDS_PATH)),
+        (Some("https://github.com/"), Err(NEEDS_PATH)),
+        (Some("https://user@github.com/a/b.git"), Err(NO_TOKEN)),
+        (Some("https://user:tok@github.com/a/b.git"), Err(NO_TOKEN)),
+        (Some("https://:tok@github.com/a/b.git"), Err(NO_TOKEN)),
+        (Some("http://github.com/a/b.git"), Err(HTTPS_ONLY)),
+        (Some("ssh://git@github.com/a/b.git"), Err(HTTPS_ONLY)),
+        (Some("git@github.com:a/b.git"), Err(NOT_URL)),
+        (Some("github.com/a/b"), Err(NOT_URL)),
+        (Some(""), Err(ENTER_URL)),
+        (Some("   "), Err(ENTER_URL)),
+        (Some("https://exa mple.com/a"), Err(NOT_URL)),
+        (
+            Some("https://example.com:443/a"),
+            Ok("https://example.com/a"),
+        ),
+        (
+            Some("https://example.com:8443/a/../b"),
+            Ok("https://example.com:8443/b"),
+        ),
+        (
+            Some("https://example.com/a b"),
+            Ok("https://example.com/a%20b"),
+        ),
+        (
+            Some("https://例え.jp/repo"),
+            Ok("https://xn--r8jz45g.jp/repo"),
+        ),
+        (
+            Some("https://example.com/a?x=1#frag"),
+            Ok("https://example.com/a?x=1#frag"),
+        ),
+        (Some("https://[::1]/a"), Ok("https://[::1]/a")),
+        (
+            Some("https://example.com/%7Euser/r"),
+            Ok("https://example.com/%7Euser/r"),
+        ),
+        (Some("https:/example.com/a"), Ok("https://example.com/a")),
+        (Some("https:example.com/a"), Ok("https://example.com/a")),
+        (
+            Some("https://example.com\\a\\b"),
+            Ok("https://example.com/a/b"),
+        ),
+        (None, Err(ENTER_URL)),
+    ];
+    for (raw, want) in cases {
+        let want = match want {
+            Ok(url) => GitRemoteUrlCheck::Accepted {
+                url: url.to_owned(),
+            },
+            Err(reason) => GitRemoteUrlCheck::Refused { reason },
+        };
+        assert_eq!(check_git_remote_url(raw), want, "case {raw:?}");
+    }
+}
+
+fn conflict(files: &[&str]) -> GitPullResult {
+    GitPullResult::Conflict {
+        files: files.iter().map(|f| (*f).to_owned()).collect(),
+    }
+}
+
+/// A conflict lists at most five files, then an ellipsis.
+#[test]
+fn pull_cases() {
+    let cases = [
+        (GitPullResult::UpToDate, "Already up to date."),
+        (
+            GitPullResult::FastForward { oid: String::new() },
+            "Pulled the remote's changes.",
+        ),
+        (
+            GitPullResult::Merged { oid: String::new() },
+            "Merged the remote's changes with yours.",
+        ),
+        (
+            conflict(&["a.md"]),
+            "Not pulled: 1 file changed on both sides (a.md). Your files were left as they were.",
+        ),
+        (
+            conflict(&["a.md", "b.md"]),
+            "Not pulled: 2 files changed on both sides (a.md, b.md). Your files were left as they were.",
+        ),
+        (
+            conflict(&["1", "2", "3", "4", "5"]),
+            "Not pulled: 5 files changed on both sides (1, 2, 3, 4, 5). Your files were left as they were.",
+        ),
+        (
+            conflict(&["1", "2", "3", "4", "5", "6"]),
+            "Not pulled: 6 files changed on both sides (1, 2, 3, 4, 5, …). Your files were left as they were.",
+        ),
+    ];
+    for (result, want) in cases {
+        assert_eq!(describe_pull(&result), want, "case {result:?}");
     }
 }
 
 #[test]
-fn golden_pulls_match_describe_pull() {
-    let golden = golden();
-    for case in cases(&golden, "pulls") {
-        let got = describe_pull(&pull_from(&case["in"]));
-        assert_eq!(got, text(&case["out"]), "case {}", case["in"]);
+fn push_cases() {
+    let cases = [
+        (GitPushResult::Pushed, "Pushed."),
+        (GitPushResult::UpToDate, "Nothing to push."),
+        (
+            GitPushResult::Rejected {
+                reason: "non-fast-forward".to_owned(),
+            },
+            "Not pushed: non-fast-forward",
+        ),
+    ];
+    for (result, want) in cases {
+        assert_eq!(describe_push(&result), want, "case {result:?}");
     }
 }
 
+/// Text, secret, redacted text. A missing or empty secret leaves the text alone.
 #[test]
-fn golden_pushes_match_describe_push() {
-    let golden = golden();
-    for case in cases(&golden, "pushes") {
-        let got = describe_push(&push_from(&case["in"]));
-        assert_eq!(got, text(&case["out"]), "case {}", case["in"]);
+fn redact_cases() {
+    let cases = [
+        ("token abc in abc", Some("abc"), "token *** in ***"),
+        ("nothing", None, "nothing"),
+        ("nothing", Some(""), "nothing"),
+        ("aaaa", Some("aa"), "******"),
+    ];
+    for (text, secret, want) in cases {
+        assert_eq!(
+            redact_secret(text, secret),
+            want,
+            "case {text:?} {secret:?}"
+        );
     }
 }
 
+/// Path, whether it sits under an ignored folder, and the skip reason at any
+/// size (`None` when the path itself is synced). Each path is then decided at
+/// seven sizes: a skipped path skips at all of them; a synced path is included
+/// up to the 25 MB cap and too large above it or when the size is negative,
+/// NaN or infinite.
 #[test]
-fn golden_redacts_match_redact_secret() {
-    let golden = golden();
-    for case in cases(&golden, "redacts") {
-        let got = redact_secret(text(&case["text"]), case["secret"].as_str());
-        assert_eq!(got, text(&case["out"]), "case {}", case["text"]);
-    }
-}
-
-#[test]
-fn golden_ignored_match_is_under_ignored_folder() {
-    let golden = golden();
-    for case in cases(&golden, "ignored") {
-        let got = json!(is_under_ignored_folder(text(&case["path"])));
-        assert_eq!(got, case["out"], "case {}", case["path"]);
-    }
-}
-
-#[test]
-fn golden_decide_matches_decide_git_sync_path() {
-    let golden = golden();
-    for case in cases(&golden, "decide") {
-        // JSON has no NaN or Infinity, so the golden stores both as null; both are too large.
-        let size = case["size"].as_f64().unwrap_or(f64::NAN);
-        let got = decision_json(decide(text(&case["path"]), size));
-        assert_eq!(got, case["out"], "case {} {}", case["path"], case["size"]);
+fn path_cases() {
+    use GitSyncSkipReason::*;
+    let cases: [(&str, bool, Option<GitSyncSkipReason>); 18] = [
+        ("notes/a.md", false, None),
+        (".weaveforge/state.json", true, Some(IgnoredDirectory)),
+        ("node_modules/x/y.js", true, Some(IgnoredDirectory)),
+        (".git/config", true, Some(IgnoredDirectory)),
+        ("a/.trash/b.md", false, None),
+        ("paper/main.aux", false, Some(IgnoredFile)),
+        ("paper/main.synctex.gz", false, Some(IgnoredFile)),
+        ("desktop.ini", false, Some(IgnoredFile)),
+        ("sub/Desktop.ini", false, Some(IgnoredFile)),
+        ("big.bin", false, None),
+        ("", false, Some(InvalidPath)),
+        ("./.", false, Some(InvalidPath)),
+        ("notes/.weaveforge/x.md", false, None),
+        ("notes\\dist\\x.md", true, Some(IgnoredDirectory)),
+        ("notes/dist", false, None),
+        ("a/.git", false, Some(IgnoredDirectory)),
+        ("A/NODE_MODULES/b", true, Some(IgnoredDirectory)),
+        ("./notes//a.md", false, None),
+    ];
+    let sizes = [
+        (0.0, true),
+        (SMALL, true),
+        (25.0 * MB, true),
+        (25.0 * MB + 1.0, false),
+        (-1.0, false),
+        (f64::NAN, false),
+        (f64::INFINITY, false),
+    ];
+    for (path, under_ignored, skip) in cases {
+        assert_eq!(
+            is_under_ignored_folder(path),
+            under_ignored,
+            "ignored {path:?}"
+        );
+        for (size, fits) in sizes {
+            let want = match skip {
+                Some(reason) => GitSyncDecision::Skip(reason),
+                None if fits => GitSyncDecision::Include,
+                None => GitSyncDecision::Skip(TooLarge),
+            };
+            assert_eq!(decide(path, size), want, "decide {path:?} at {size}");
+        }
     }
 }
 

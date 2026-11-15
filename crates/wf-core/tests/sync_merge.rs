@@ -1,9 +1,9 @@
-//! Instant, golden, ported and property tests for `sync::instant` and
-//! `sync::merge`. Goldens come from `tests/goldens/sync-merge.mjs`, which runs
-//! `packages/core/src/shared/parts.ts`. Ported cases come from
+//! Instant, table, ported and property tests for `sync::instant` and
+//! `sync::merge`. The tables keep every case the old TypeScript-printed golden
+//! of `packages/core/src/shared/parts.ts` covered. Ported cases come from
 //! `packages/core/test/shared/three-way-merge.test.ts`.
 
-// Golden-reading helpers sit outside `#[test]`, where clippy.toml's test allowance stops.
+// Row helpers sit outside `#[test]`, where clippy.toml's test allowance stops.
 #![allow(clippy::expect_used, clippy::panic)]
 
 use proptest::prelude::*;
@@ -11,7 +11,6 @@ use serde_json::{Map, Value, json};
 use wf_core::sync::instant::parse_instant;
 use wf_core::sync::merge::{Conflict, MergeResult, merge_rows, same_value};
 
-const GOLDEN: &str = include_str!("goldens/sync-merge.json");
 const RESERVED: [&str; 4] = ["id", "server_seq", "row_version", "created_at"];
 const KEYS: &[&str] = &[
     "a",
@@ -33,10 +32,6 @@ const STRS: &[&str] = &[
 /// 2024-01-01T00:00Z in epoch milliseconds.
 const BASE: i64 = 1_704_067_200_000;
 
-fn golden() -> Value {
-    serde_json::from_str(GOLDEN).expect("golden parses")
-}
-
 fn row(value: Value) -> Map<String, Value> {
     match value {
         Value::Object(map) => map,
@@ -44,7 +39,7 @@ fn row(value: Value) -> Map<String, Value> {
     }
 }
 
-/// JS `undefined` is absent from the golden JSON; the Rust side reads it as null.
+/// A field missing from a row reads as null, as in `merge_rows` conflicts.
 fn or_null(value: Option<&Value>) -> Value {
     value.cloned().unwrap_or(Value::Null)
 }
@@ -133,52 +128,331 @@ fn instant_rejects_everything_outside_the_grammar() {
     }
 }
 
-#[test]
-fn same_value_golden_cases() {
-    let golden = golden();
-    let cases = golden["same"].as_array().expect("same section");
-    assert!(!cases.is_empty());
-    for case in cases {
-        let expected = case[2].as_bool().expect("bool");
-        let actual = same_value(&case[0], &case[1]);
-        assert_eq!(actual, expected, "same case {case}");
+/// Instant strings grouped by the moment they name. `same_value` is true for
+/// any two strings in one group and false across groups. Offsetless forms read
+/// as UTC; a string outside the instant grammar only equals itself.
+const INSTANT_GROUPS: &[&[&str]] = &[
+    &[
+        "2026-01-01T10:00:00Z",
+        "2026-01-01T10:00:00.000Z",
+        "2026-01-01 10:00:00+00",
+        "2026-01-01 10:00:00+00:00",
+        "2026-01-01T12:00:00+02:00",
+        "2026-01-01T10:00",
+        "2026-01-01 10:00",
+        "2026-01-01T10:00:00",
+    ],
+    // Fractions past milliseconds are cut, not rounded.
+    &[
+        "2026-01-01T10:00:00.123456Z",
+        "2026-01-01T10:00:00.123Z",
+        "2026-01-01T10:00:00.1239Z",
+    ],
+    &["2026-01-01 08:00:00.5+00", "2026-01-01T08:00:00.500Z"],
+    // Hour 24 is midnight of the next day.
+    &["2026-01-01T24:00:00Z", "2026-01-02T00:00:00Z"],
+    &["2026-01-01T12:00+02"],
+    &["2026-01-01T12:00:00+02"],
+    &["2026-01-01T10:00:00-05:30"],
+    &["2026-01-01T04:30:00Z"],
+    &["2026-01-01T10:00:00+0200"],
+    &["2026-01-01T10:00:00+23:59"],
+    &["2026-02-30T10:00:00Z"],
+    &["2024-02-29T10:00:00Z"],
+    &["2023-02-29T10:00:00Z"],
+    &["1970-01-01T00:00:00Z"],
+    &["1969-12-31T23:59:59.999Z"],
+    &["9999-12-31T23:59:59Z"],
+    &["2026-13-01T10:00:00Z"],
+    &["2026-01-01T25:00:00Z"],
+    &["2026-01-01T10:60:00Z"],
+    &["2026-01-01T10:00:00ZZ"],
+    &["2026-01-01T10:00:00 extra"],
+    &["2026-01-01X10:00"],
+    &["2026-01-01"],
+    &["10:00"],
+    &[""],
+    &["abc"],
+    &["+002026-01-01T10:00:00Z"],
+    &["2026-01-01T10:00:00.Z"],
+    &["2026-01-01T10:00:00,5Z"],
+    &["2026-01-01T10:00:00+24:00"],
+    &["2026-01-01t10:00:00z"],
+    &["2026-01-01T1:00:00Z"],
+];
+
+/// Asserts `same_value` holds exactly within each group, over every ordered pair.
+fn assert_groups(groups: &[Vec<Value>]) {
+    for (i, group_a) in groups.iter().enumerate() {
+        for (j, group_b) in groups.iter().enumerate() {
+            for a in group_a {
+                for b in group_b {
+                    assert_eq!(same_value(a, b), i == j, "same_value({a}, {b})");
+                }
+            }
+        }
     }
 }
 
 #[test]
-fn merge_rows_golden_cases() {
-    let golden = golden();
-    let cases = golden["merge"].as_array().expect("merge section");
-    assert!(!cases.is_empty());
-    for case in cases {
-        let base = row(case["base"].clone());
-        let local = row(case["local"].clone());
-        let remote = row(case["remote"].clone());
-        let result = merge_rows(&base, &local, &remote);
+fn same_value_matches_instants_by_moment() {
+    let groups: Vec<Vec<Value>> = INSTANT_GROUPS
+        .iter()
+        .map(|group| group.iter().map(|s| json!(s)).collect())
+        .collect();
+    assert_groups(&groups);
+}
 
-        assert_eq!(
-            Value::Object(result.merged.clone()),
-            case["out"]["merged"],
-            "merged for case {case}"
-        );
+#[test]
+fn same_value_matches_other_values_structurally() {
+    let groups = vec![
+        vec![Value::Null],
+        vec![json!(true)],
+        vec![json!(false)],
+        vec![json!(0)],
+        vec![json!(1)],
+        vec![json!(-1)],
+        vec![json!(1.5)],
+        vec![json!("a")],
+        vec![json!("")],
+        vec![json!("1")],
+        vec![json!([])],
+        vec![json!([1, 2])],
+        vec![json!([2, 1])],
+        vec![json!({})],
+        vec![json!({"a": 1, "b": 2}), json!({"b": 2, "a": 1})],
+        vec![
+            json!({"a": {"y": 1, "x": 2}}),
+            json!({"a": {"x": 2, "y": 1}}),
+        ],
+        vec![json!([{"b": 1, "a": 2}]), json!([{"a": 2, "b": 1}])],
+        vec![json!({"a": null})],
+        vec![json!({"a": [1, {"d": 1, "c": 2}]})],
+    ];
+    assert_groups(&groups);
+}
 
-        let mut expected: Vec<Conflict> = case["out"]["conflicts"]
+/// One `merge_rows` case: base, local, remote, the merged row, and the
+/// conflicts as `[field, base, local, remote]` (null where a side lacks it).
+type MergeCase = (Value, Value, Value, Value, Value);
+
+#[test]
+#[allow(clippy::too_many_lines, reason = "one table of cases")]
+fn merge_rows_cases() {
+    let cases: Vec<MergeCase> = vec![
+        (json!({}), json!({}), json!({}), json!({}), json!([])),
+        // One side changed: take it.
+        (
+            json!({"t": "a"}),
+            json!({"t": "b"}),
+            json!({"t": "a"}),
+            json!({"t": "b"}),
+            json!([]),
+        ),
+        (
+            json!({"t": "a"}),
+            json!({"t": "a"}),
+            json!({"t": "b"}),
+            json!({"t": "b"}),
+            json!([]),
+        ),
+        // Both made the same change.
+        (
+            json!({"t": "a"}),
+            json!({"t": "b"}),
+            json!({"t": "b"}),
+            json!({"t": "b"}),
+            json!([]),
+        ),
+        // Both changed differently: remote wins and the field is a conflict.
+        (
+            json!({"t": "a"}),
+            json!({"t": "b"}),
+            json!({"t": "c"}),
+            json!({"t": "c"}),
+            json!([["t", "a", "b", "c"]]),
+        ),
+        (
+            json!({"t": "a", "r": false}),
+            json!({"t": "b", "r": false}),
+            json!({"t": "a", "r": true}),
+            json!({"t": "b", "r": true}),
+            json!([]),
+        ),
+        // Added on one side, or differently on both.
+        (
+            json!({}),
+            json!({"t": "new"}),
+            json!({}),
+            json!({"t": "new"}),
+            json!([]),
+        ),
+        (
+            json!({}),
+            json!({}),
+            json!({"t": "new"}),
+            json!({"t": "new"}),
+            json!([]),
+        ),
+        (
+            json!({}),
+            json!({"t": "x"}),
+            json!({"t": "y"}),
+            json!({"t": "y"}),
+            json!([["t", null, "x", "y"]]),
+        ),
+        // Removed on one side; removed against an edit is a conflict.
+        (
+            json!({"t": "a"}),
+            json!({}),
+            json!({"t": "a"}),
+            json!({}),
+            json!([]),
+        ),
+        (
+            json!({"t": "a"}),
+            json!({"t": "a"}),
+            json!({}),
+            json!({}),
+            json!([]),
+        ),
+        (
+            json!({"t": "a"}),
+            json!({}),
+            json!({"t": "b"}),
+            json!({"t": "b"}),
+            json!([["t", "a", null, "b"]]),
+        ),
+        (
+            json!({"t": "a"}),
+            json!({"t": null}),
+            json!({"t": "b"}),
+            json!({"t": "b"}),
+            json!([["t", "a", null, "b"]]),
+        ),
+        // Reserved columns always come from the server.
+        (
+            json!({"id": 1, "server_seq": 1, "row_version": 1, "created_at": "x"}),
+            json!({"id": 2, "server_seq": 2, "row_version": 2, "created_at": "y"}),
+            json!({"id": 3, "server_seq": 3, "row_version": 3, "created_at": "z"}),
+            json!({"id": 3, "server_seq": 3, "row_version": 3, "created_at": "z"}),
+            json!([]),
+        ),
+        // `updated_at` keeps the later instant; unreadable stamps take remote.
+        (
+            json!({"updated_at": "2026-01-01T10:00:00Z"}),
+            json!({"updated_at": "2026-01-02T10:00:00Z"}),
+            json!({"updated_at": "2026-01-03T10:00:00Z"}),
+            json!({"updated_at": "2026-01-03T10:00:00Z"}),
+            json!([]),
+        ),
+        (
+            json!({"updated_at": "2026-01-01T10:00:00Z"}),
+            json!({"updated_at": "2026-01-04T10:00:00Z"}),
+            json!({"updated_at": "2026-01-03T10:00:00Z"}),
+            json!({"updated_at": "2026-01-04T10:00:00Z"}),
+            json!([]),
+        ),
+        (
+            json!({"updated_at": "2026-01-01T10:00:00Z"}),
+            json!({"updated_at": "2026-01-04 10:00:00+00"}),
+            json!({"updated_at": "2026-01-04T10:00:00Z"}),
+            json!({"updated_at": "2026-01-04 10:00:00+00"}),
+            json!([]),
+        ),
+        (
+            json!({"updated_at": "x"}),
+            json!({"updated_at": "y"}),
+            json!({"updated_at": "z"}),
+            json!({"updated_at": "z"}),
+            json!([]),
+        ),
+        (
+            json!({"updated_at": "x"}),
+            json!({"updated_at": "2026-01-04T10:00:00Z"}),
+            json!({"updated_at": "z"}),
+            json!({"updated_at": "z"}),
+            json!([]),
+        ),
+        (
+            json!({"updated_at": "2026-01-01T10:00:00Z"}),
+            json!({"updated_at": "2026-01-04T10:00:00Z"}),
+            json!({"updated_at": "2026-01-04T10:00:00.000Z"}),
+            json!({"updated_at": "2026-01-04T10:00:00Z"}),
+            json!([]),
+        ),
+        // The same instant in another form counts as unchanged.
+        (
+            json!({"at": "2026-01-01T10:00:00Z"}),
+            json!({"at": "2026-01-01 10:00:00+00"}),
+            json!({"at": "2026-01-02T10:00:00Z"}),
+            json!({"at": "2026-01-02T10:00:00Z"}),
+            json!([]),
+        ),
+        (
+            json!({"s": "2026-01-01T10:00:00Z"}),
+            json!({"s": "2026-01-01T10:00:00Z"}),
+            json!({"s": "2026-01-01T12:00:00+02:00"}),
+            json!({"s": "2026-01-01T12:00:00+02:00"}),
+            json!([]),
+        ),
+        // Structures compare by value, ignoring key order.
+        (
+            json!({"j": {"a": 1, "b": 2}}),
+            json!({"j": {"b": 2, "a": 1}}),
+            json!({"j": {"a": 1, "b": 3}}),
+            json!({"j": {"a": 1, "b": 3}}),
+            json!([]),
+        ),
+        (
+            json!({"j": {"a": 1}}),
+            json!({"j": {"a": 2}}),
+            json!({"j": {"a": 3}}),
+            json!({"j": {"a": 3}}),
+            json!([["j", {"a": 1}, {"a": 2}, {"a": 3}]]),
+        ),
+        // Numbers compare by value and never equal their text.
+        (
+            json!({"n": 1}),
+            json!({"n": 1.0}),
+            json!({"n": 2}),
+            json!({"n": 2}),
+            json!([]),
+        ),
+        (
+            json!({"n": 1}),
+            json!({"n": "1"}),
+            json!({"n": 1}),
+            json!({"n": "1"}),
+            json!([]),
+        ),
+        // Several fields at once.
+        (
+            json!({"a": 1, "b": 1, "c": 1}),
+            json!({"a": 2, "b": 1, "c": 5}),
+            json!({"a": 1, "b": 3, "c": 6, "d": 9}),
+            json!({"a": 2, "b": 3, "c": 6, "d": 9}),
+            json!([["c", 1, 5, 6]]),
+        ),
+    ];
+    for (base, local, remote, merged, conflicts) in cases {
+        let case = format!("base {base}, local {local}, remote {remote}");
+        let result = merge_rows(&row(base), &row(local), &row(remote));
+        assert_eq!(Value::Object(result.merged), merged, "merged for {case}");
+        let expected: Vec<Conflict> = conflicts
             .as_array()
             .expect("conflicts array")
             .iter()
             .map(|c| {
                 conflict(
-                    c["field"].as_str().expect("field"),
-                    or_null(c.get("base")),
-                    or_null(c.get("local")),
-                    or_null(c.get("remote")),
+                    c[0].as_str().expect("field"),
+                    c[1].clone(),
+                    c[2].clone(),
+                    c[3].clone(),
                 )
             })
             .collect();
-        expected.sort_by(|a, b| a.field.cmp(&b.field));
-        let mut actual = result.conflicts.clone();
-        actual.sort_by(|a, b| a.field.cmp(&b.field));
-        assert_eq!(actual, expected, "conflicts for case {case}");
+        assert_eq!(result.conflicts, expected, "conflicts for {case}");
     }
 }
 

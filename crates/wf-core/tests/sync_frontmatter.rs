@@ -1,11 +1,8 @@
-//! Golden, ported and property tests for the frontmatter writer and reader.
-//! Goldens were printed by `packages/core/src/workspace/parts.ts` through
-//! `node crates/wf-core/tests/goldens/sync-text.mjs`; ported cases come from
+//! Table, ported and property tests for the frontmatter writer and reader.
+//! The tables keep every case the old TypeScript-printed golden of
+//! `packages/core/src/workspace/parts.ts` covered; ported cases come from
 //! `packages/core/test/workspace/workspace-roundtrip.test.ts` and
 //! `packages/core/test/workspace/obsidian-interop.test.ts`.
-
-// Golden-reading helpers sit outside `#[test]`, where clippy.toml's test allowance stops.
-#![allow(clippy::expect_used, clippy::panic)]
 
 use std::collections::BTreeMap;
 
@@ -16,21 +13,22 @@ use wf_core::sync::frontmatter::{
     frontmatter_list, frontmatter_string, read_frontmatter, write_frontmatter,
 };
 
-const GOLDEN: &str = include_str!("goldens/sync-frontmatter.json");
-
-fn golden() -> Value {
-    serde_json::from_str(GOLDEN).expect("golden parses")
-}
-
 fn field(key: &str, value: Value) -> (String, Value) {
     (key.to_owned(), value)
 }
 
-/// The generator's `written` inputs in its key order; serde_json maps sort keys, so the order lives here.
-fn written_inputs() -> Vec<(Vec<(String, Value)>, &'static str)> {
+type WrittenCase = (Vec<(String, Value)>, &'static str, &'static str);
+
+/// `write_frontmatter` cases: fields in write order, body, then the expected text.
+/// A field set to null or an empty list is left out.
+fn written_cases() -> Vec<WrittenCase> {
     vec![
-        (vec![], ""),
-        (vec![field("title", Value::from("Hello"))], "body"),
+        (vec![], "", "---\n---\n"),
+        (
+            vec![field("title", Value::from("Hello"))],
+            "body",
+            "---\ntitle: Hello\n---\nbody",
+        ),
         (
             vec![
                 field("a", Value::from("")),
@@ -45,6 +43,7 @@ fn written_inputs() -> Vec<(Vec<(String, Value)>, &'static str)> {
                 field("j", Value::from("a\\b")),
             ],
             "\n",
+            "---\na: \"\"\nb: \"x y\"\nc: \"true\"\nd: \"False\"\ne: \"null\"\nf: \"~\"\ng: \"12\"\nh: \"-1\"\ni: \"a\\\"b\"\nj: \"a\\\\b\"\n---\n\n",
         ),
         (
             vec![
@@ -59,6 +58,7 @@ fn written_inputs() -> Vec<(Vec<(String, Value)>, &'static str)> {
                 field("ff", Value::from(false)),
             ],
             "b",
+            "---\nn: 1\nm: -2.5\nz: 0\nbig: 1e+21\nsmall: 1e-7\nneg0: 0\nf: 0.30000000000000004\nt: true\nff: false\n---\nb",
         ),
         (
             vec![
@@ -69,81 +69,148 @@ fn written_inputs() -> Vec<(Vec<(String, Value)>, &'static str)> {
                 field("v", json!("ok")),
             ],
             "x",
+            "---\nm: [a]\nk: [\"a b\", \"c,d\", \"\", \"1\", \"x\\\"y\"]\nv: ok\n---\nx",
         ),
         (
             vec![field("weird key", json!("v")), field("k:", json!("v"))],
             "",
+            "---\nweird key: v\nk:: v\n---\n",
         ),
         (
             vec![field("e", json!("é")), field("p", json!("a.b/c@d+e-f_g"))],
             "",
+            "---\ne: \"é\"\np: a.b/c@d+e-f_g\n---\n",
         ),
-        (vec![field("s", json!(" lead"))], ""),
+        (
+            vec![field("s", json!(" lead"))],
+            "",
+            "---\ns: \" lead\"\n---\n",
+        ),
     ]
 }
 
 #[test]
-fn golden_written_cases_match_typescript() {
-    let golden = golden();
-    let cases = golden["written"].as_array().expect("written");
-    let inputs = written_inputs();
-    assert_eq!(inputs.len(), cases.len(), "golden case count");
-    for ((fields, body), case) in inputs.iter().zip(cases) {
-        assert_eq!(case[1].as_str(), Some(*body), "body of golden case {case}");
-        let want = case[2].as_str().expect("output");
+fn written_cases_match() {
+    for (fields, body, want) in written_cases() {
         assert_eq!(
-            write_frontmatter(fields, body),
+            write_frontmatter(&fields, body),
             want,
             "written {body:?} / {fields:?}"
         );
     }
 }
 
+/// `read_frontmatter` cases: input, expected frontmatter, expected body.
 #[test]
-fn golden_read_cases_match_typescript() {
-    let golden = golden();
-    let cases = golden["read"].as_array().expect("read");
-    assert!(!cases.is_empty(), "golden has read cases");
-    for case in cases {
-        let input = case[0].as_str().expect("input");
-        let want = &case[1];
+#[allow(clippy::too_many_lines, reason = "one table of cases")]
+fn read_cases() {
+    let cases = [
+        ("", json!({}), ""),
+        ("no frontmatter", json!({}), "no frontmatter"),
+        ("---\n---\nbody", json!({}), "---\n---\nbody"),
+        ("---\ntitle: x\n---\nbody", json!({"title": "x"}), "body"),
+        (
+            "\u{feff}---\ntitle: x\n---\nbody",
+            json!({"title": "x"}),
+            "body",
+        ),
+        (
+            "---\r\ntitle: x\r\n---\r\nbody",
+            json!({"title": "x"}),
+            "body",
+        ),
+        ("---\ntitle: x\n---", json!({"title": "x"}), ""),
+        ("---\ntitle: x\n---body", json!({"title": "x"}), "body"),
+        (
+            "---\na: 1\nb: -2.5\nc: 1.\nd: 01\ne: true\nf: TRUE\ng: \"q\\\"x\"\nh: 'it''s'\ni: \"\"\n---\n",
+            json!({"a": 1, "b": -2.5, "c": "1.", "d": 1, "e": true, "f": true, "g": "q\"x", "h": "it's", "i": ""}),
+            "",
+        ),
+        (
+            "---\nl: [a, \"b, c\", '', d ]\nm: []\nn: [ ]\no: [\"x\\\"y\", z]\np: [a,,b]\n---\n",
+            json!({"l": ["a", "b, c", "d"], "m": [], "n": [], "o": ["x\"y", "z"], "p": ["a", "b"]}),
+            "",
+        ),
+        (
+            "---\nlist:\n  - a\n  - \"b\"\n\n  - \n- c\n---\n",
+            json!({"list": ["a", "b"]}),
+            "",
+        ),
+        (
+            "---\nmap:\n  k: v\n  - a\nnext: 1\n---\n",
+            json!({"next": 1}),
+            "",
+        ),
+        (
+            "---\nempty:\nafter: 2\n---\n",
+            json!({"empty": "", "after": 2}),
+            "",
+        ),
+        (
+            "---\n  indented: 1\nkey with space: 2\nok_key-1: 3\n---\n",
+            json!({"ok_key-1": 3}),
+            "",
+        ),
+        (
+            "---\nx: [unclosed\ny: a: b\n---\n",
+            json!({"x": "[unclosed", "y": "a: b"}),
+            "",
+        ),
+        ("---\ndup: 1\ndup: 2\n---\n", json!({"dup": 2}), ""),
+        (
+            "---\ntitle: x\n---\n---\ny: 2\n---\n",
+            json!({"title": "x"}),
+            "---\ny: 2\n---\n",
+        ),
+        ("---\nt: x\n---\r\nrest", json!({"t": "x"}), "rest"),
+        ("---\nlist:\n\t- a\n---\n", json!({"list": ["a"]}), ""),
+        (
+            "---\nk: \"unterminated\n---\n",
+            json!({"k": "\"unterminated"}),
+            "",
+        ),
+        (
+            "---\nk: [\"a\" , \"b\"]\n---\n",
+            json!({"k": ["a", "b"]}),
+            "",
+        ),
+    ];
+    for (input, frontmatter, body) in cases {
         let parsed = read_frontmatter(input);
         assert_eq!(
             Value::Object(parsed.frontmatter),
-            want["frontmatter"],
+            frontmatter,
             "frontmatter for {input:?}"
         );
-        assert_eq!(
-            parsed.body.as_str(),
-            want["body"].as_str().expect("body"),
-            "body for {input:?}"
-        );
+        assert_eq!(parsed.body, body, "body for {input:?}");
     }
 }
 
+/// Getter cases over one frontmatter: key, `frontmatter_string`, `frontmatter_list`.
+/// Blank strings read as absent; a scalar string is a one-item list.
 #[test]
-fn golden_getters_match_typescript() {
-    let golden = golden();
+fn getter_cases() {
     let fm = json!({
         "s": " x ", "e": "", "n": 3, "b": false, "l": ["a", "b"], "le": [], "w": "  "
     });
     let fm = fm.as_object().expect("object");
-    let cases = golden["getters"].as_array().expect("getters");
-    assert_eq!(cases.len(), 8, "golden case count");
-    for case in cases {
-        let key = case[0].as_str().expect("key");
+    let cases: [(&str, Option<&str>, &[&str]); 8] = [
+        ("s", Some("x"), &["x"]),
+        ("e", None, &[]),
+        ("n", Some("3"), &[]),
+        ("b", Some("false"), &[]),
+        ("l", None, &["a", "b"]),
+        ("le", None, &[]),
+        ("w", None, &[]),
+        ("missing", None, &[]),
+    ];
+    for (key, string, list) in cases {
         assert_eq!(
             frontmatter_string(fm, key).as_deref(),
-            case[1].as_str(),
+            string,
             "string getter for {key:?}"
         );
-        let want: Vec<&str> = case[2]
-            .as_array()
-            .expect("list")
-            .iter()
-            .map(|entry| entry.as_str().expect("entry"))
-            .collect();
-        assert_eq!(frontmatter_list(fm, key), want, "list getter for {key:?}");
+        assert_eq!(frontmatter_list(fm, key), list, "list getter for {key:?}");
     }
 }
 
