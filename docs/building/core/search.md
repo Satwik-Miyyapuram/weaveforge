@@ -43,7 +43,7 @@ The wasm exports live in `crates/wf-wasm/src`. The TypeScript wrappers in
 re-export them. The main names are `projectSearchDocuments`,
 `projectStoredPdfTexts`, `searchRevision`, `diffRefreshPlan`, `distinctRelated`,
 `collapseToEntities`, `planEmbeddingStart`, `packVectors`, `unpackVectors`,
-`normalizeSearchSettings`, `findRelated`, `shouldRetrySearch`, `normalizeVector`
+`normalizeSearchSettings`, `findRelated`, `shouldRetrySearch`
 and `fuzzinessForTerm`.
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
@@ -82,8 +82,8 @@ Source: `crates/wf-core/src/search/`
 
 | Module | Rust fn | wasm export | TS caller |
 | --- | --- | --- | --- |
-| `ask_library` | `source_text`, `ask_prompt`, `SYSTEM_PROMPT` | `askPrompt` | — |
-| `embedding` | `normalize_vector` | `normalizeVector` | — |
+| `ask_library` | `source_text`, `ask_prompt`, `SYSTEM_PROMPT` | — | — |
+| `embedding` | `normalize_vector` | — | — |
 | `embedding_runtime` | `supports_local_embedding`, `IDLE_EVICT_MS` | `supportsLocalEmbedding`, `embedIdleEvictMs` | `apps/web/src/features/search/application/semantic-search.ts` |
 | `hybrid_fusion` | `strip_stopwords`, `query_term_count`, `covered_hit_mask`, `gate_vector_mask` | `stripStopwords`, `coveredHits`, `gateVectorHits` | `apps/web/src/features/search/application/workspace-search.ts` |
 | `js_text` | `is_js_whitespace`, `is_letter_or_number`, `utf16_len` | native only | — |

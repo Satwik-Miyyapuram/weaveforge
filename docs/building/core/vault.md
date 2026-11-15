@@ -65,7 +65,7 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 
 ## Size-cap message
 
-`sync::vault_limits::too_large_message` (wasm `vaultTooLargeMessage`) gives the
+`sync::vault_limits::too_large_message` gives the
 text for a file over the cap: "That file is too large to open here (over N MB)."
 The cap is in bytes, and the message shows it in whole MB. The caps themselves,
 8 MiB for text and 80 MiB for blobs, were enforced by the retired TS sidecar.

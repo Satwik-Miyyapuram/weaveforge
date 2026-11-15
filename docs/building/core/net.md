@@ -28,11 +28,9 @@ The wasm exports live in `crates/wf-wasm/src` (for example `net_private_host.rs`
 wrappers in `packages/wf-wasm/src` import the raw names from
 `../pkg/wf_wasm.js` and re-export them. The main names are:
 
-- Hosts and addresses: `isPrivateHost`, `isPublicHttpsUrl`, `isApiHost`, `checkUrlShape`, `isIpAddress`, `isPublicAddress`, `expandIpv6`.
+- Hosts and addresses: `checkUrlShape`, `isPublicAddress`.
 - Refusal copy: `describeUrlRejection(reason)`, which takes a reason code such as `"scheme"` and returns the sentence for it.
-- Links and images: `mayOpenExternally`, `looksLikeImageUrl`.
-- Model cache: `modelCacheUrl`, `cachePathSegments`.
-- Relay: `semanticScholarTarget`.
+- Links and images: `looksLikeImageUrl`.
 
 `page_title.rs` and `image_url.rs` have no `js_name` of their own. The ink
 engine's title code in `ink_engine_title.rs` calls `page_title` from Rust. Code
@@ -51,7 +49,7 @@ after the core has loaded.
   `apps/relay/wf-relay/src/relay/` (`shared.rs` and the per-route modules), not in the
   retired Electron main process.
 - **Opening links.** The desktop shell opens the link. Rust only decides whether
-  it may open (`mayOpenExternally`).
+  it may open (`net::open_external`).
 - **Caching on disk.** Writing model files and reading the cache directory stay in
   the desktop app. Rust gives the cache path segments and the URL.
 - **Orchestration.** Choosing when to call a relay, when to retry and what to show

@@ -54,9 +54,9 @@ re-export them. The main names are:
 - Open access: `parseOpenalex`, `parseUnpaywall`, `parseSemanticScholar`, `rankOpenAccessCandidates`, `resolveArxivId`.
 - Bibliography import: `planBibImport`, `bibPaperInput`, `citeKeyOf`.
 - Duplicates: `titleFixes`, `findDuplicateGroups`, `pickKeeper`, `isConferenceCopy`, `mergePaperInto`.
-- Zotero: `zoteroHeaders`, `zoteroArxivId`, `zoteroRemoteToMetadata`, `toZoteroItem`, `zoteroItemKey`, `zoteroPickMainPdf`.
+- Zotero: `zoteroHeaders`, `zoteroRemoteToMetadata`, `toZoteroItem`.
 - Notes and quotes: `formatQuoteBlock`, `formatQuoteCiteClipboard`, `highlightsDigest`, `draftReadingLog`.
-- Hashtags: `tagToHashtag`, `appendTagHashtags`, `removeHashtagFromBody`.
+- Hashtags: `removeHashtagFromBody`.
 
 Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `apps/web/src/lib/rust-core.ts`, or through the wrappers in `packages/wf-wasm`.

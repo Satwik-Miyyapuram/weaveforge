@@ -8,7 +8,7 @@ ports, and use-case orchestration.
 | Concern | Owner | Path |
 | --- | --- | --- |
 | Share grant, comment, share-link rules (pure) | Rust | `crates/wf-core/src/sharing.rs` |
-| Wasm exports (`shareableTypes`, `crdtEditableShareTypes`, `shareLinkDefaultTtlDays`, plus the row/rule functions) | Rust | `crates/wf-wasm/src/sharing.rs` |
+| Wasm exports (`shareableTypes`, `shareLinkDefaultTtlDays`, plus the row/rule functions) | Rust | `crates/wf-wasm/src/sharing.rs` |
 | TS types | Rust | `crates/wf-wasm/src` (`unchecked_*_type`) |
 | Shared types | TS (hand-declared mirror) | `packages/core/src/shared/core-contract.ts`; functions typed by the generated wasm declarations |
 | Validation error classes | TS | `packages/core/src/shared/errors.ts` |
@@ -33,7 +33,6 @@ Constants are read at call time from the wasm module. They are not TS `const`s,
 so the Rust value is the only copy.
 
 - `rust().shareableTypes()` replaces `SHAREABLE_TYPES`.
-- `rust().crdtEditableShareTypes()` replaces `CRDT_EDITABLE_SHARE_TYPES`.
 - `rust().shareLinkDefaultTtlDays()` replaces `SHARE_LINK_DEFAULT_TTL_DAYS`.
 
 The wasm module must be loaded first (`loadCore()` in the web app,

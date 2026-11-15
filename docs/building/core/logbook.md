@@ -27,7 +27,7 @@ TypeScript wrappers in `packages/wf-wasm/src` import the raw names from
   (`daily`, `weekly`).
 - Rows: no export. The `log_entries` repository runs in Rust
   (`repos/log_entries.rs`, see [data-access](data-access.md)) and maps rows there.
-- View (`logbook-view.ts`): `groupByDay`, `streakDays`, `logEyebrow`,
+- View (`logbook-view.ts`): `groupByDay`, `logEyebrow`,
   `splitHeadline`, `newestFirstOrder`.
 - Alert (`logbook-collapse-alert.ts`): `collapseAlert`.
 

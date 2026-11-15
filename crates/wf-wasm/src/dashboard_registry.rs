@@ -63,21 +63,6 @@ pub fn dashboard_is_stat_card_js(card_type: &str) -> Result<bool, JsError> {
     card_registry::is_stat_card(card_type).map_err(js_error)
 }
 
-/// [`data_sources_for_card_types`](card_registry::data_sources_for_card_types): the union of
-/// the cards' data sources, each once.
-///
-/// # Errors
-///
-/// Fails on an unknown card type or a bad input shape.
-#[wasm_bindgen(js_name = dashboardDataSourcesForCardTypes, unchecked_return_type = "string[]")]
-pub fn dashboard_data_sources_for_card_types_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] card_types: JsValue,
-) -> Result<JsValue, JsError> {
-    let types = read_types(card_types)?;
-    let refs: Vec<&str> = types.iter().map(String::as_str).collect();
-    js(&card_registry::data_sources_for_card_types(&refs).map_err(js_error)?)
-}
-
 /// [`resolve_deps`](card_registry::resolve_deps): the sources to fetch, every source when no
 /// card is visible.
 ///

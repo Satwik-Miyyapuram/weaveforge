@@ -17,7 +17,6 @@ The app reaches the core through `readyCore()` from `@/lib/rust-core`. The wasm 
 
 The exports are:
 
-- `maxReportChars`: the length cap.
 - `redactReport`: redacts a report.
 - `redactReportAndCap`: redacts and caps a report in one call.
 - `newIssueUrl`: builds the prefilled new-issue address.

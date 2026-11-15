@@ -177,21 +177,6 @@ pub fn read_mirror_bases_js(text: Option<String>) -> JsResult<JsValue> {
     to_js(&folder_mirror::read_mirror_bases(text.as_deref()))
 }
 
-/// [`claim_digest`](folder_mirror::claim_digest): `base` with `path` recorded for `stamped`.
-///
-/// # Errors
-///
-/// Fails when `base` is not an object of string digests.
-#[wasm_bindgen(js_name = claimDigest, unchecked_return_type = "Record<string, string>")]
-pub fn claim_digest_js(
-    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>>")] base: JsValue,
-    path: &str,
-    stamped: &str,
-) -> JsResult<JsValue> {
-    let base: indexmap::IndexMap<String, String> = serde_wasm_bindgen::from_value(base)?;
-    to_js(&folder_mirror::claim_digest(&base, path, stamped))
-}
-
 /// [`moved_path`](folder_mirror::moved_path): `path` after the project folder `old` moved to `root`.
 #[wasm_bindgen(js_name = movedPath)]
 #[must_use]

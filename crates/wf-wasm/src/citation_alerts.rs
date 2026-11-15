@@ -11,38 +11,6 @@ use super::to_js;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
-/// [`citation_alert_score`](citation_alerts::citation_alert_score) of each candidate, in order,
-/// as a plain array.
-///
-/// # Errors
-///
-/// Fails if `candidates` has the wrong shape.
-#[wasm_bindgen(js_name = citationAlertScores, unchecked_return_type = "number[]")]
-pub fn citation_alert_scores_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly B.CitationSignals[]")] candidates: JsValue,
-) -> JsResult<JsValue> {
-    let candidates: Vec<CitationSignals> = serde_wasm_bindgen::from_value(candidates)?;
-    let scores: Vec<f64> = candidates
-        .iter()
-        .map(citation_alerts::citation_alert_score)
-        .collect();
-    to_js(&scores)
-}
-
-/// One candidate's [`citation_alert_score`](citation_alerts::citation_alert_score): recency, the
-/// influential bonus and its strongest intent.
-///
-/// # Errors
-///
-/// Fails if `candidate` has the wrong shape.
-#[wasm_bindgen(js_name = citationAlertScore)]
-pub fn citation_alert_score_js(
-    #[wasm_bindgen(unchecked_param_type = "B.CitationSignals")] candidate: JsValue,
-) -> JsResult<f64> {
-    let candidate: CitationSignals = serde_wasm_bindgen::from_value(candidate)?;
-    Ok(citation_alerts::citation_alert_score(&candidate))
-}
-
 /// The string field `key` of `item`, or `""` when it is missing or not a string.
 fn text_field(item: &JsValue, key: &str) -> String {
     js_sys::Reflect::get(item, &JsValue::from_str(key))
@@ -97,20 +65,6 @@ pub fn rank_citation_alerts_js(
             .then_with(|| locale_order(&a.2, &b.2, &locales))
     });
     Ok(ranked.into_iter().map(|(_, _, _, item)| item).collect())
-}
-
-/// [`intent_label`](citation_alerts::intent_label) of one candidate, or `null` when it has no intents.
-///
-/// # Errors
-///
-/// Fails if `candidate` has the wrong shape.
-#[wasm_bindgen(js_name = citationIntentLabel, unchecked_return_type = "string | null")]
-pub fn citation_intent_label_js(
-    #[wasm_bindgen(unchecked_param_type = "B.CitationSignals")] candidate: JsValue,
-) -> JsResult<JsValue> {
-    let candidate: CitationSignals = serde_wasm_bindgen::from_value(candidate)?;
-    let value = citation_alerts::intent_label(&candidate);
-    Ok(value.map_or(JsValue::NULL, JsValue::from))
 }
 
 /// [`merge_seen_ids`](citation_alerts::merge_seen_ids): prior ids, then new ones, each once.

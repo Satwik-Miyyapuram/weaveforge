@@ -29,21 +29,6 @@ pub fn reference_for_destination_js(
     to_js(&link_citations::reference_for_destination(&dest, &refs).cloned())
 }
 
-/// [`covered_text_spans`](link_citations::covered_text_spans) (TS `coveredTextSpans`).
-///
-/// # Errors
-///
-/// Fails if `page` or `links` do not have the expected shape.
-#[wasm_bindgen(js_name = coveredTextSpans, unchecked_return_type = "B.CoveredTextSpans")]
-pub fn covered_text_spans_js(
-    #[wasm_bindgen(unchecked_param_type = "B.LinkCitationPage")] page: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "readonly B.AnalysisPdfLink[]")] links: JsValue,
-) -> JsResult<JsValue> {
-    let page: LinkCitationPage = serde_wasm_bindgen::from_value(page)?;
-    let links: Vec<AnalysisPdfLink> = serde_wasm_bindgen::from_value(links)?;
-    to_js(&link_citations::covered_text_spans(&page, &links))
-}
-
 /// [`link_citation_mentions`](link_citations::link_citation_mentions) (TS
 /// `linkCitationMentions`).
 ///

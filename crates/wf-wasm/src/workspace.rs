@@ -8,7 +8,7 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::sync::blob_links::{
     from_relative_blob_links_mapped, owned_asset_folder_paths, plan_asset_reanchor,
-    relative_asset_paths, to_relative_blob_links, workspace_bodies,
+    to_relative_blob_links, workspace_bodies,
 };
 use wf_core::sync::folder_layout::{
     ENTITY_DIRS, WorkspaceEntityType, WorkspaceProject, entity_dir, id_suffix, project_dir,
@@ -262,17 +262,6 @@ pub fn to_relative_blob_links_js(
     let body = &crate::guarded_text(&body)?;
     let file_path = &crate::guarded_text(&file_path)?;
     to_js(&to_relative_blob_links(body, file_path))
-}
-
-/// [`wf_core::sync::blob_links::relative_asset_paths`] for JS, as `[{ scope, path }]`.
-///
-/// # Errors
-///
-/// Fails when `body` is over `MAX_INDEX_TEXT_UTF16` UTF-16 units.
-#[wasm_bindgen(js_name = relativeAssetPaths, unchecked_return_type = "B.RelativeAsset[]")]
-pub fn relative_asset_paths_js(body: js_sys::JsString) -> JsResult<JsValue> {
-    let body = &crate::guarded_text(&body)?;
-    to_js(&relative_asset_paths(body))
 }
 
 /// [`wf_core::sync::blob_links::owned_asset_folder_paths`] for JS. `bodies` is an array

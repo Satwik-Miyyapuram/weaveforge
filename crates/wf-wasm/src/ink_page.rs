@@ -10,35 +10,6 @@ use super::to_js;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
 
-/// [`ink_enum_index`](ink_page::ink_enum_index): the position of `value` in `values`, or `0`.
-///
-/// # Errors
-///
-/// Fails if `values` is not an array of strings.
-#[wasm_bindgen(js_name = inkEnumIndex)]
-pub fn ink_enum_index_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] values: JsValue,
-    value: &str,
-) -> JsResult<usize> {
-    let values: Vec<String> = serde_wasm_bindgen::from_value(values)?;
-    Ok(ink_page::ink_enum_index(&values, value))
-}
-
-/// [`ink_enum_value`](ink_page::ink_enum_value): the name at `index`, or the first entry
-/// where out of range; `undefined` for an empty list.
-///
-/// # Errors
-///
-/// Fails if `values` is not an array of strings.
-#[wasm_bindgen(js_name = inkEnumValue, unchecked_return_type = "string")]
-pub fn ink_enum_value_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] values: JsValue,
-    index: f64,
-) -> JsResult<Option<String>> {
-    let values: Vec<String> = serde_wasm_bindgen::from_value(values)?;
-    Ok(ink_page::ink_enum_value(&values, index).map(str::to_owned))
-}
-
 /// [`make_ink_stroke`](ink_page::make_ink_stroke) with the defaults filled in.
 ///
 /// # Errors

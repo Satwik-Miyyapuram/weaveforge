@@ -3,14 +3,8 @@
 
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::reader::pdf_response::{
-    has_pdf_magic, host_of, is_pdf_content_type, media_type_essence, read_failure_reason,
+    has_pdf_magic, host_of, is_pdf_content_type, read_failure_reason,
 };
-
-/// [`media_type_essence`]: the media type without parameters, lowercased.
-#[wasm_bindgen(js_name = mediaTypeEssence)]
-pub fn media_type_essence_js(value: &str) -> String {
-    media_type_essence(value)
-}
 
 /// [`is_pdf_content_type`]: whether a `Content-Type` value names a PDF. `null` or empty is not.
 #[wasm_bindgen(js_name = isPdfContentType)]

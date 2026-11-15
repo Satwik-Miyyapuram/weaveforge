@@ -35,8 +35,8 @@ Examples of the JavaScript names:
 
 - `reader_analysis_document`: `analyzePdfDocument`, `outlineItemOf`.
 - `reader_analysis_bibliography`: `parseBibliography`, `parseBibliographyEntry`.
-- `reader_analysis_lines`: `reconstructLines`, `detectColumns`, `pageTextFromItems`.
-- `reader_analysis_outline`: `outlineFromText`, `groupRecurringLines`.
+- `reader_analysis_lines`: `pageTextFromItems`.
+- `reader_analysis_outline`: `outlineFromText`.
 - `reader_analysis_structure`: `findFigureMentions`, `assemblePageCitations`,
   `matchPageCitations`, `headingOutline`.
 - `reader_analysis_citations` and `reader_analysis_text`: citation candidates and

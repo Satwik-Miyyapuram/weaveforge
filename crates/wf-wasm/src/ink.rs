@@ -275,13 +275,6 @@ pub fn clamp_ink_zoom_js(zoom: f64) -> f64 {
     clamp_ink_zoom(zoom)
 }
 
-/// [`wf_core::ink::pressure_byte`].
-#[wasm_bindgen(js_name = pressureByte)]
-#[must_use]
-pub fn pressure_byte_js(pressure: Option<f64>) -> f64 {
-    wf_core::ink::pressure_byte(pressure)
-}
-
 /// [`ink_zoom_in`].
 #[wasm_bindgen(js_name = inkZoomIn)]
 #[must_use]
@@ -511,13 +504,6 @@ pub fn apply_ink_segmentation_js(
     Ok(out.into())
 }
 
-/// [`is_unsure_confidence`].
-#[wasm_bindgen(js_name = isUnsureConfidence)]
-#[must_use]
-pub fn is_unsure_confidence_js(conf: f64) -> bool {
-    is_unsure_confidence(conf)
-}
-
 /// Whether a line's `conf` is too low, or missing, to trust ([`is_unsure_confidence`]).
 ///
 /// # Errors
@@ -682,19 +668,6 @@ fn sorted_vocabulary_words(vocabulary: JsValue) -> JsResult<Vec<String>> {
     Ok(words)
 }
 
-/// The words a recogniser vocabulary allows, in order
-/// ([`ink_vocabulary_words`](wf_core::ink::decode::ink_vocabulary_words), sorted).
-///
-/// # Errors
-///
-/// Fails if `vocabulary` is not an array of strings.
-#[wasm_bindgen(js_name = inkVocabularyWordList, unchecked_return_type = "string[]")]
-pub fn ink_vocabulary_word_list_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] vocabulary: JsValue,
-) -> JsResult<JsValue> {
-    to_js(&sorted_vocabulary_words(vocabulary)?)
-}
-
 /// The words a recogniser vocabulary allows, as a `Set` (in sorted insertion order).
 ///
 /// # Errors
@@ -707,14 +680,6 @@ pub fn ink_vocabulary_words_js(
     Ok(js_sys::Set::new(&to_js(&sorted_vocabulary_words(
         vocabulary,
     )?)?))
-}
-
-/// [`ink_stroke_band`](wf_core::ink::segment::ink_stroke_band): `[yMin, yMax]` over a
-/// stroke's flat x,y points, or `undefined` when no y is finite.
-#[wasm_bindgen(js_name = inkStrokeBandOf)]
-#[must_use]
-pub fn ink_stroke_band_js(points: &[f64]) -> Option<Vec<f64>> {
-    wf_core::ink::segment::ink_stroke_band(points).map(|(lo, hi)| vec![lo, hi])
 }
 
 /// The y band `[min, max]` of a stroke's points, or `null` for a stroke with no

@@ -38,9 +38,9 @@ import the raw names from `../pkg/wf_wasm.js` and re-export them. The main names
 
 - Graph data: `buildGraphData`, `graphTopologyKey`.
 - Tags and concepts: `graphTagNames`, `relatedConcepts`, `notesTagged`.
-- Timeline: `yearSpacing`, `timelineMidYear`, `timelineLaneOffset`.
+- Timeline: `yearSpacing`, `timelineLaneOffset`.
 - Colour and size: `graphPalette`, `tagColor`, `recolourNodes`, `nodeSize`, `labelSize`, `rampColour`, `yearColours`, `degreeColours`, `communities`.
-- Settings: `defaultGraphSettings`, `normalizeGraphViewSettings`, `effectiveRelationTypes`, `graphFilterCountFor`, `parseGraphPersistedState`, `mergeGraphPersistedState`, `showRelationEdges`, `showConceptEdges`.
+- Settings: `normalizeGraphViewSettings`, `effectiveRelationTypes`, `graphFilterCountFor`, `parseGraphPersistedState`, `mergeGraphPersistedState`, `showRelationEdges`, `showConceptEdges`.
 - Relations and alerts: `paperRelationInputError`, `createPaperRelationWith`.
 - Vault pages: `createVaultPageWith`, `buildPageTree`.
 

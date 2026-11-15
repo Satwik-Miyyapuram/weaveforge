@@ -131,13 +131,6 @@ pub fn is_supervisor_role_js(
     member::is_supervisor_role(role.as_deref())
 }
 
-/// [`role_rank`](member::role_rank). `undefined` for a role the rank table does not know.
-#[wasm_bindgen(js_name = roleRank, unchecked_return_type = "number | undefined")]
-#[must_use]
-pub fn role_rank_js(role: &str) -> Option<i8> {
-    member::role_rank(role)
-}
-
 /// `opts` of [`resolve_display_role_js`].
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -159,26 +152,6 @@ pub fn resolve_display_role_js(
 ) -> JsResult<String> {
     let opts: DisplayRoleOptions = serde_wasm_bindgen::from_value(opts)?;
     Ok(member::resolve_display_role(role, opts.in_lab, opts.owns_org.unwrap_or(false)).to_owned())
-}
-
-/// [`needs_standalone_role_sync`](member::needs_standalone_role_sync).
-///
-/// # Errors
-///
-/// Fails if `profile` or `memberships` has the wrong shape.
-#[wasm_bindgen(js_name = needsStandaloneRoleSync)]
-pub fn needs_standalone_role_sync_js(
-    #[wasm_bindgen(unchecked_param_type = "B.ProfileState | null")] profile: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "readonly B.Membership[]")] memberships: JsValue,
-    in_lab: bool,
-) -> JsResult<bool> {
-    let profile: Option<ProfileState> = serde_wasm_bindgen::from_value(profile)?;
-    let memberships: Vec<Membership> = serde_wasm_bindgen::from_value(memberships)?;
-    Ok(member::needs_standalone_role_sync(
-        profile.as_ref(),
-        &memberships,
-        in_lab,
-    ))
 }
 
 /// [`is_explicit_lab_membership`](org::is_explicit_lab_membership).
@@ -259,20 +232,6 @@ pub fn needs_org_setup_js(
     Ok(org::needs_org_setup(&state))
 }
 
-/// [`can_create_role`](member::can_create_role).
-#[wasm_bindgen(js_name = canCreateRole)]
-#[must_use]
-pub fn can_create_role_js(creator: &str, target: &str) -> bool {
-    member::can_create_role(creator, target)
-}
-
-/// [`resolve_supervisor_id`](member::resolve_supervisor_id).
-#[wasm_bindgen(js_name = resolveSupervisorId)]
-#[must_use]
-pub fn resolve_supervisor_id_js(creator_id: &str) -> String {
-    member::resolve_supervisor_id(creator_id)
-}
-
 /// `input` of [`validate_new_member_js`].
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -321,56 +280,4 @@ pub fn validate_new_member_js(
         &member,
         &serde_wasm_bindgen::Serializer::new(),
     )?)
-}
-
-/// [`format_invite_code`](org::format_invite_code).
-#[wasm_bindgen(js_name = formatInviteCode)]
-#[must_use]
-pub fn format_invite_code_js(raw: &str) -> String {
-    org::format_invite_code(raw)
-}
-
-/// [`normalize_invite_code`](org::normalize_invite_code).
-#[wasm_bindgen(js_name = normalizeOrgInviteCode)]
-#[must_use]
-pub fn normalize_org_invite_code_js(input: &str) -> String {
-    org::normalize_invite_code(input)
-}
-
-/// [`validate_org_name`](org::validate_org_name). Throws the validation message.
-///
-/// # Errors
-///
-/// Fails with the message if the name is blank or too long.
-#[wasm_bindgen(js_name = validateOrgName, unchecked_return_type = "string")]
-pub fn validate_org_name_js(name: &str) -> Result<String, JsValue> {
-    org::validate_org_name(name).map_err(JsValue::from_str)
-}
-
-/// [`resolve_join_assignment`](org::resolve_join_assignment). Returns `{ role, supervisorId }`.
-///
-/// # Errors
-///
-/// Fails with the message if the lab cannot take this invite type.
-#[wasm_bindgen(js_name = resolveOrgJoinAssignment, unchecked_return_type = "B.JoinAssignment")]
-pub fn resolve_org_join_assignment_js(
-    target_role: &str,
-    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] professor_ids: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] phd_ids: JsValue,
-    professor_supervisor_id: Option<String>,
-    phd_supervisor_id: Option<String>,
-) -> Result<JsValue, JsValue> {
-    let professor_ids: Vec<String> = serde_wasm_bindgen::from_value(professor_ids)
-        .map_err(|error| JsValue::from_str(&error.to_string()))?;
-    let phd_ids: Vec<String> = serde_wasm_bindgen::from_value(phd_ids)
-        .map_err(|error| JsValue::from_str(&error.to_string()))?;
-    let assignment = org::resolve_join_assignment(
-        target_role,
-        &professor_ids,
-        &phd_ids,
-        professor_supervisor_id.as_deref(),
-        phd_supervisor_id.as_deref(),
-    )
-    .map_err(JsValue::from_str)?;
-    to_js(&assignment).map_err(|error| JsValue::from_str(&error.to_string()))
 }

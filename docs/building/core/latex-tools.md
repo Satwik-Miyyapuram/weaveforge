@@ -5,8 +5,8 @@ These modules hold the pure LaTeX, TeX log, TeX path and Overleaf Workshop rules
 | Module | Rust fn | wasm export | TS caller |
 | --- | --- | --- | --- |
 | `latex_section_tree` | `parse_latex_section_tree` | `parseLatexSectionTree` | `apps/web/src/features/overleaf/infrastructure/overleaf-git-reader.ts` |
-| `tex_log` | `engine_args`, `parse_tex_log` | `texEngineArgs`, `texLogErrors` | — |
-| `tex_path` | `safe_relative` | `safeRelative` | — |
+| `tex_log` | `engine_args`, `parse_tex_log` | — | — |
+| `tex_path` | `safe_relative` | — | — |
 | `overleaf_workshop` | `is_session_id`, `workshop_projects` | `isWorkshopSessionId`, `workshopProjectList` | `apps/web/src/features/overleaf/infrastructure/workshop-session-client.ts` |
 
 Rules:

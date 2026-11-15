@@ -3,9 +3,7 @@
 
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::logbook::log_view::{
-    group_by_day, log_eyebrow, newest_first_order, split_headline, streak_days,
-};
+use wf_core::logbook::log_view::{group_by_day, log_eyebrow, newest_first_order, split_headline};
 
 use super::to_js;
 
@@ -22,20 +20,6 @@ pub fn group_by_day_js(
 ) -> JsResult<JsValue> {
     let dates: Vec<String> = serde_wasm_bindgen::from_value(entry_dates)?;
     to_js(&group_by_day(&dates))
-}
-
-/// [`streak_days`] for JS (TS `streakDays`).
-///
-/// # Errors
-///
-/// Fails when `entryDates` is not an array of strings.
-#[wasm_bindgen(js_name = streakDays)]
-pub fn streak_days_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] entry_dates: JsValue,
-    today: &str,
-) -> JsResult<u32> {
-    let dates: Vec<String> = serde_wasm_bindgen::from_value(entry_dates)?;
-    Ok(streak_days(&dates, today))
 }
 
 /// [`log_eyebrow`] for JS (TS `logEyebrow`): the line, or `undefined` with no entries.

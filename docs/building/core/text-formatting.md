@@ -9,7 +9,7 @@ These modules format text, dates and status labels. They live in `crates/wf-core
 | `js_collate` | `locale_compare` | native only | — |
 | `date_format` | `format_date`, `format_date_time`, `format_relative` | `formatDate`, `formatDateTime`, `formatRelative` | `apps/web/src/components/record.tsx` |
 | `calendar_date` | `iso_date`, `local_iso_date` | `isoDate`, `localIsoDate` | `packages/core/src/shared/parts.ts` |
-| `app_log_line` | `format_log_line` | `formatLogLine` | — |
+| `app_log_line` | `format_log_line` | — | — |
 | `error_status` | `http_status_for_kind` | `httpStatusForKind` | `packages/core/src/shared/errors.ts` |
 
 Rules:

@@ -9,7 +9,6 @@ use wf_core::vault::page::{
     self, NewVaultPageInput, TreePage, VaultPageSummary, VaultPageTreeNode,
 };
 
-use super::experiment_member::{dep_text, named_error};
 use super::to_js;
 
 type JsResult<T> = Result<T, serde_wasm_bindgen::Error>;
@@ -42,28 +41,6 @@ pub fn create_vault_page_with_js(
     let input: NewVaultPageInput = serde_wasm_bindgen::from_value(input)?;
     let made = page::create_vault_page(&input, id, now).map_err(serde_wasm_bindgen::Error::new)?;
     to_js(&made)
-}
-
-/// A new vault page, its time from `deps.clock.nowIso()` and then its id from
-/// `deps.ids.newId()`.
-///
-/// # Errors
-///
-/// Throws a `VaultPageValidationError` for a blank title or a wrongly shaped `input`, and
-/// rethrows whatever `deps` throws.
-#[wasm_bindgen(js_name = createVaultPage, unchecked_return_type = "B.VaultPage")]
-#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn create_vault_page_js(
-    #[wasm_bindgen(unchecked_param_type = "unknown")] input: JsValue,
-    #[wasm_bindgen(
-        unchecked_param_type = "{ clock: { nowIso(): string }; ids: { newId(): string } }"
-    )]
-    deps: JsValue,
-) -> Result<JsValue, JsValue> {
-    let now = dep_text(&deps, "clock", "nowIso")?;
-    let id = dep_text(&deps, "ids", "newId")?;
-    create_vault_page_with_js(input, &id, &now)
-        .map_err(|error| named_error(error, "VaultPageValidationError"))
 }
 
 /// One caller page: the summary fields the tree is built from, and the caller's own object.

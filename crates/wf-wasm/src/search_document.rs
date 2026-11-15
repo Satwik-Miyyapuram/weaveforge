@@ -14,7 +14,7 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::search::excerpt::{ExcerptOptions, build_excerpt as core_build_excerpt};
 use wf_core::search::projection;
-use wf_core::search::search_document::{self, AnnotationSource, PdfIndexSource, SearchDoc};
+use wf_core::search::search_document::{self, PdfIndexSource, SearchDoc};
 use wf_core::search::tokenizer::{TokenizerOptions, index_terms as core_index_terms};
 use wf_core::search::wiki_graph::WikiGraph;
 use wf_core::sync::workspace_snapshot::WorkspaceSnapshot;
@@ -183,22 +183,6 @@ pub fn search_revision_js(
     Ok(search_document::search_revision(&docs))
 }
 
-/// [`extract_headings`](search_document::extract_headings).
-#[wasm_bindgen(js_name = extractHeadings)]
-pub fn extract_headings_js(body: Option<String>) -> Vec<String> {
-    search_document::extract_headings(body.as_deref())
-}
-
-/// [`bounded_body`](search_document::bounded_body); a missing body reads as empty.
-#[wasm_bindgen(js_name = boundedBody)]
-#[allow(
-    clippy::needless_pass_by_value,
-    reason = "wasm_bindgen takes strings by value"
-)]
-pub fn bounded_body_js(body: Option<String>) -> String {
-    search_document::bounded_body(body.as_deref().unwrap_or_default())
-}
-
 /// [`to_pdf_search_docs`](search_document::to_pdf_search_docs). `degrees` defaults to empty.
 ///
 /// # Errors
@@ -219,26 +203,6 @@ pub fn to_pdf_search_docs_js(
     Ok(serde_wasm_bindgen::to_value(
         &search_document::to_pdf_search_docs(&sources, &degrees),
     )?)
-}
-
-/// [`pdf_doc_id`](search_document::pdf_doc_id).
-#[wasm_bindgen(js_name = pdfDocId)]
-#[allow(
-    clippy::needless_pass_by_value,
-    reason = "wasm_bindgen takes strings by value"
-)]
-pub fn pdf_doc_id_js(paper_id: String, page_index: u32) -> String {
-    search_document::pdf_doc_id(&paper_id, page_index)
-}
-
-/// [`pdf_page_href`](search_document::pdf_page_href).
-#[wasm_bindgen(js_name = pdfPageHref)]
-#[allow(
-    clippy::needless_pass_by_value,
-    reason = "wasm_bindgen takes strings by value"
-)]
-pub fn pdf_page_href_js(paper_id: String, page_index: u32) -> String {
-    search_document::pdf_page_href(&paper_id, page_index)
 }
 
 /// [`pdf_doc_ids_for`](search_document::pdf_doc_ids_for).
@@ -275,38 +239,6 @@ pub fn kind_of_id_js(id: String) -> Option<String> {
 #[wasm_bindgen(js_name = isLargeCorpus)]
 pub fn is_large_corpus_js(documents: u32) -> bool {
     search_document::is_large_corpus(documents)
-}
-
-/// [`annotation_doc_id`](search_document::annotation_doc_id).
-#[wasm_bindgen(js_name = annotationDocId)]
-#[allow(
-    clippy::needless_pass_by_value,
-    reason = "wasm_bindgen takes strings by value"
-)]
-pub fn annotation_doc_id_js(annotation_id: String) -> String {
-    search_document::annotation_doc_id(&annotation_id)
-}
-
-/// [`to_annotation_search_docs`](search_document::to_annotation_search_docs).
-/// `paper_titles` maps a paper id to its title; `degrees` defaults to empty.
-///
-/// # Errors
-///
-/// Fails if an argument does not match the expected shape.
-#[wasm_bindgen(js_name = toAnnotationSearchDocs, unchecked_return_type = "B.SearchDoc[]")]
-pub fn to_annotation_search_docs_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly B.AnnotationSource[]")] annotations: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "ReadonlyMap<string, string>")] paper_titles: JsValue,
-    #[wasm_bindgen(unchecked_optional_param_type = "ReadonlyMap<string, number>")] degrees: Option<
-        JsValue,
-    >,
-) -> Result<JsValue, JsValue> {
-    let annotations: Vec<AnnotationSource> = serde_wasm_bindgen::from_value(annotations)?;
-    let titles: HashMap<String, String> = map_arg(&paper_titles)?;
-    let degrees: HashMap<String, u32> = optional_map_arg(degrees)?;
-    Ok(serde_wasm_bindgen::to_value(
-        &search_document::to_annotation_search_docs(&annotations, &titles, &degrees),
-    )?)
 }
 
 /// [`project_search_documents`](projection::project_search_documents). `graph` is the TS wiki
