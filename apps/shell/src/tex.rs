@@ -174,6 +174,10 @@ fn has_drive_letter(path: &str) -> bool {
 }
 
 /// The argument vector each engine is run with, so it writes into the build directory.
+///
+/// `./` is put before a latexmk or pdflatex entry so a file named `-something.tex` is a file,
+/// not an option. Neither runs an rc file or a shell escape. Tectonic gets `--keep-logs`, so
+/// the `.log` sits beside the PDF, and `--` before the entry, for the same reason as `./`.
 #[must_use]
 pub fn args_for(engine: TexEngine, entry: &str) -> Vec<String> {
     match engine {
