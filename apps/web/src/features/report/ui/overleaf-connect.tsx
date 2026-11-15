@@ -12,14 +12,13 @@ const SIGN_IN_TIP =
   "Google may refuse embedded windows.";
 
 const GIT_TIP =
-  "Pull and push the project as files in your vault and compile locally. Needs an Overleaf plan or institution " +
-  "licence with Git (TU Delft has one); the git token lasts about a year; needs local LaTeX " +
-  "(MiKTeX, TeX Live or Tectonic).";
+  "Pull and push the project as files in your vault; Overleaf compiles the PDF. Needs an Overleaf plan or institution " +
+  "licence with Git (TU Delft has one); the git token lasts about a year.";
 
 /** The two ways to connect. The tip holds the details; the hint is the one line always shown. */
 const CONNECT_OPTIONS: readonly { mode: ConnectMode; label: string; hint: string; tip: string }[] = [
   { mode: "signin", label: "Sign in to Overleaf", hint: "Any plan. Edit live, see the PDF and the outline.", tip: SIGN_IN_TIP },
-  { mode: "git", label: "Edit as files (Git token)", hint: "Paid or institution plan. Edit in your vault, compile locally.", tip: GIT_TIP },
+  { mode: "git", label: "Edit as files (Git token)", hint: "Paid or institution plan. Edit the files in your vault.", tip: GIT_TIP },
 ];
 
 /** The connect step: sign in (app window or pasted cookie), or go to Settings for a git token. */
