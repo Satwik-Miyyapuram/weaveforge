@@ -7,12 +7,12 @@
  * 2. Architecture map & docs freshness (check:docs)
  * 3. Commit DCO sign-offs (check:dco)
  * 4. Architectural & code boundaries (check:boundaries - 10 gates)
- * 5. WASM build (committed glue, types and stamp must not change; the module is compared on Linux only), its tests, parity (Node 24.14.1 only) and size budget, then typecheck (build:wasm, typecheck)
+ * 5. Generate the bindings and WASM package (generate:rust), then its tests, parity (Node 24.14.1 only), size budget and typecheck
  * 6. Linter (lint)
  * 7. Bundle budget (bundle:budget, when .next build exists)
  * 8. Memory budgets (test:memory, ~5 s)
  * 9. Design page guards (test:e2e:design: targets and overflow, D20 G5/G6)
- * 10. Rust gates (check:rust --local: fmt, clippy, nextest, doctest, bindings, deny; scripts/lib/rust-gates.mjs)
+ * 10. Rust gates (check:rust --local: fmt, clippy, nextest, doctest, deny; scripts/lib/rust-gates.mjs)
  */
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -60,11 +60,9 @@ run(`node scripts/check-dco.mjs ${baseSha} HEAD`, `Checking DCO sign-offs (${bas
 // 4. Boundary gates (SOLID, DRY, API routes, UI, contrast, hygiene, MCP, Android, CI parity)
 run("npm run check:boundaries", "Running architectural boundary gates");
 
-// 5. Rebuild the committed WASM package; a push with Rust changes but a stale
-// packages/wf-wasm/pkg stops here so the rebuilt files get committed
-// (scripts/check-wasm-pkg.mjs, the same check CI runs).
-run("npm run build:wasm", "Building the Rust core to WASM");
-run("npm run wasm:pkg", "Checking the committed WASM package matches the build");
+// 5. Generate the git-ignored bindings and WASM package, so the tests and the
+// typecheck below run against this checkout's Rust.
+run("npm run generate:rust", "Generating the bindings and the WASM package");
 run("npm test --workspace @weaveforge/wasm", "Testing the WASM package");
 // Parity goldens were made on Node 24.14.1's ICU; another Node can differ on
 // Unicode case and category data, so parity runs only there (CI: wasm-parity).

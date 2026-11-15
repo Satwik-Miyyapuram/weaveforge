@@ -11,7 +11,7 @@ const gate = (name) => RUST_GATES.find((g) => g.name === name);
 test("lists the gates in order", () => {
   assert.deepEqual(
     RUST_GATES.map((g) => g.name),
-    ["fmt", "clippy", "nextest", "doctest", "bindings", "deny", "advisories"],
+    ["fmt", "clippy", "nextest", "doctest", "deny", "advisories"],
   );
 });
 
@@ -37,7 +37,7 @@ test("clippy denies warnings, unwrap, expect and panic on all targets", () => {
 });
 
 test("cargo gates that resolve dependencies use the committed lockfile", () => {
-  for (const name of ["clippy", "nextest", "doctest", "bindings", "deny", "advisories"]) {
+  for (const name of ["clippy", "nextest", "doctest", "deny", "advisories"]) {
     const args = gate(name).args;
     const end = args.includes("--") ? args.indexOf("--") : args.length;
     assert.ok(args.slice(0, end).includes("--locked"), `${name} lacks --locked`);
@@ -50,10 +50,6 @@ test("nextest runs the whole workspace and fails when no test runs", () => {
 
 test("doc tests are gated", () => {
   assert.deepEqual(gate("doctest").args, ["test", "--doc", "--workspace", "--locked"]);
-});
-
-test("bindings gate fails when the generated TypeScript is stale", () => {
-  assert.deepEqual(gate("bindings").args, ["run", "-p", "wf-bindings", "--locked", "--", "--check"]);
 });
 
 test("deny checks licences, bans and sources offline; advisories only in CI", () => {
