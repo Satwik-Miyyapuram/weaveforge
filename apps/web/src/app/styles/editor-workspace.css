@@ -863,6 +863,12 @@
   display: none;
 }
 
+/* Outside the Editor (the reader's own screen) no toolbar Focus stands in,
+   so the reader's stays, last in the row: top right. */
+.document-toolbar .workspace-toolbar-doc .pdf-reader-focus-btn {
+  display: inline-flex;
+}
+
 /* Overleaf's top bar, brought up into the row so the tabs above never move. */
 .workspace-toolbar-doc > .workshop-ide__bar {
   display: flex;
