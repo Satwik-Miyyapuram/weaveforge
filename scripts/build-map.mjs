@@ -158,7 +158,7 @@ function sourceFiles(dir, exts, found = []) {
     const full = path.join(abs, entry);
     const rel = path.relative(ROOT, full).split(path.sep).join("/");
     if (statSync(full).isDirectory()) {
-      if (rel.endsWith("features/report/vendor")) continue;
+      if (rel.endsWith("features/report/ol-host/overrides")) continue;
       sourceFiles(rel, exts, found);
     } else if (exts.some((ext) => entry.endsWith(ext))) {
       found.push(full);
