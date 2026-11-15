@@ -1,7 +1,10 @@
 # WeaveForge Rust core. Plan: docs/plans/current/rust-port/plan.md (§4 rules, §6 layout).
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+# One workspace and one Cargo.lock for the core, the desktop shell and the relays.
+# cargo-deny bans stay strict for crates/* only: CI checks the shell and the relays
+# against their own deny.toml (apps/shell, apps/relay).
+members = ["crates/*", "apps/shell", "apps/shell/plugins/ink", "apps/relay/wf-relay", "apps/relay/server"]
 
 [workspace.package]
 version = "0.1.0"
@@ -11,7 +14,8 @@ license = "AGPL-3.0-only"
 repository = "https://github.com/Satwik-Miyyapuram/weaveforge"
 publish = false
 
-# Exact pins: specta is a release candidate and its API moves between rcs.
+# Exact pins: specta is a release candidate and its API moves between rcs. rc.26, as
+# tauri-specta rc.26 (the shell) requires; one lock holds one semver-compatible version.
 [workspace.dependencies]
 wf-core = { path = "crates/wf-core" }
 wf-store = { path = "crates/wf-store" }
@@ -21,9 +25,9 @@ serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 # Insertion-ordered maps, as a JS Map keeps them (already in the lock via serde_json).
 indexmap = { version = "=2.14.2", features = ["serde"] }
-specta ={ version = "=2.0.0-rc.27", features = ["derive"] }
-specta-serde = "=0.0.14"
-specta-typescript = "=0.0.14"
+specta = { version = "=2.0.0-rc.26", features = ["derive"] }
+specta-serde = "=0.0.13"
+specta-typescript = "=0.0.13"
 thiserror = "=2.0.21"
 wasm-bindgen = "=0.2.129"
 serde-wasm-bindgen = "=0.6.5"
@@ -55,11 +59,14 @@ typed-path = "0.12.4"
 
 # Plan §4.2/§4.3: no unwrap/expect/panic in library code, every Result handled,
 # functions at most 70 lines (clippy.toml), unsafe only with a SAFETY comment.
-# wf-core additionally sets #![forbid(unsafe_code)] in its lib.rs.
+# Crates without unsafe code (wf-core, the relays) set #![forbid(unsafe_code)] in their roots.
 [workspace.lints.rust]
 unused_must_use = "deny"
 unused_results = "deny"
 missing_docs = "deny"
+# deny, not forbid: the shell's phone entry point (lib.rs `mobile_entry`) comes from a
+# Tauri macro that emits `no_mangle` and JNI glue, and needs a local allow.
+unsafe_code = "deny"
 
 [workspace.lints.clippy]
 unwrap_used = "deny"
@@ -80,6 +87,14 @@ must_use_candidate = "deny"
 needless_pass_by_value = "deny"
 redundant_closure_for_method_calls = "deny"
 semicolon_if_nothing_returned = "deny"
+
+# Keep dev builds small: full debug info made every shell test exe link a ~100 MB PDB.
+# Line tables still give file:line in backtraces; dependencies get none.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
 
 [profile.release]
 # Assertions that protect user data stay on in release (plan §4.3).

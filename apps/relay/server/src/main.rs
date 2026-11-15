@@ -1,5 +1,7 @@
 //! Starts the relay server: reads the environment, binds, and serves until Ctrl-C.
 
+#![forbid(unsafe_code)]
+
 use std::process::ExitCode;
 use std::sync::Arc;
 

@@ -10,11 +10,18 @@
 const gate = (name, args, ciOnly = false) =>
   Object.freeze({ name, cmd: "cargo", args: Object.freeze(args), ciOnly });
 
+// The shell and the relays share the root workspace and Cargo.lock, but have their own
+// CI jobs and deny.toml: Tauri and reqwest bring duplicate crate versions that the
+// strict bans here must not take in.
+export const OWN_JOB_CRATES = Object.freeze(["weaveforge-shell", "tauri-plugin-ink", "wf-relay", "wf-relay-server"]);
+const excludeOwnJobs = OWN_JOB_CRATES.flatMap((crate) => ["--exclude", crate]);
+
 export const RUST_GATES = Object.freeze([
   gate("fmt", ["fmt", "--all", "--check"]),
   gate("clippy", [
     "clippy",
     "--workspace",
+    ...excludeOwnJobs,
     "--all-targets",
     "--locked",
     "--",
@@ -27,13 +34,13 @@ export const RUST_GATES = Object.freeze([
     "-D",
     "clippy::panic",
   ]),
-  gate("nextest", ["nextest", "run", "--workspace", "--locked", "--no-tests=fail"]),
+  gate("nextest", ["nextest", "run", "--workspace", ...excludeOwnJobs, "--locked", "--no-tests=fail"]),
   // nextest does not run doc tests; plan §4.4 gates them too.
-  gate("doctest", ["test", "--doc", "--workspace", "--locked"]),
+  gate("doctest", ["test", "--doc", "--workspace", ...excludeOwnJobs, "--locked"]),
   // Generated TypeScript (packages/wf-wasm/src/bindings.ts) must match the Rust types.
   gate("bindings", ["run", "-p", "wf-bindings", "--locked", "--", "--check"]),
-  gate("deny", ["deny", "--locked", "check", "licenses", "bans", "sources"]),
-  gate("advisories", ["deny", "--locked", "check", "advisories"], true),
+  gate("deny", ["deny", "--locked", ...excludeOwnJobs, "check", "licenses", "bans", "sources"]),
+  gate("advisories", ["deny", "--locked", ...excludeOwnJobs, "check", "advisories"], true),
 ]);
 
 /** Cargo subcommands that are not part of rustup; check-rust.mjs probes for them. */

@@ -1,6 +1,6 @@
-# cargo deny check for the relay workspace. Same licence, source and advisory
-# policy as the root deny.toml. It is a workspace of its own so its reqwest and
-# tokio graph never loosens wf-core's strict duplicate-version check.
+# cargo deny check for the relay crates. Same licence, source and advisory
+# policy as the root deny.toml. The root check excludes them, so their reqwest
+# and tokio graph never loosens wf-core's strict duplicate-version check.
 [graph]
 targets = [
   "x86_64-pc-windows-msvc",
