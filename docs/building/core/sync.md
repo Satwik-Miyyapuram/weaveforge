@@ -36,7 +36,7 @@ results in.
   the file URL, the `logbook/` path, the markdown body, the branch fallback and
   the commit messages. The PUT, POST fallback and DELETE stay in
   `apps/web/src/features/sync/infrastructure/parts.ts`.
-- `integration_store.rs`: `branchRead` and `branchSave` give the branch an
+- `integration_store.rs`: `branch_read` and `branch_save` give the branch an
   integration reads back from its row and the value it writes. Mattermost keeps
   a blank channel blank; git falls back to `main`. The row reads and the upsert
   stay in `apps/web/src/backend/providers/postgrest/wire-postgrest-backend.ts`.
@@ -122,12 +122,11 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 These rules moved from the removed Node sidecar into Rust. The shell spawns git
 and reads the file system.
 
-- `sync::git_auth` (`gitBasicAuth`, `gitRemoteAuth`) builds the Basic header and
+- `sync::git_auth` (`gitRemoteAuth`) builds the Basic header and
   the `GIT_CONFIG_*` plan. The token goes only in the env plan, never on the
   command line or in `.git/config`. An empty token means no header, and a
   non-http URL gets no header.
-- `sync::vault_git_parse` (`gitParseStatus`, `gitParseLog`, `gitOverwrittenFiles`,
-  `gitNulList`, `gitPathChunks`) parses git's text output. Renames skip the
+- `sync::vault_git_parse` parses git's text output. Renames skip the
   second record. Path chunks count UTF-16 units, as JavaScript does.
 
 Stays in TypeScript, and why:
@@ -162,7 +161,7 @@ These modules sit beside the ones above. Each rule is pure. TS keeps the I/O.
 | `instant` | `parse_instant`, `format_instant` | native only | — |
 | `integration_fields` | `git_connection_ready`, `mattermost_connection_ready`, `DEFAULT_GIT_BRANCH` | `gitConnection`, `mattermostConnection`, `gitConnectionReady`, `mattermostConnectionReady`, `emptyIntegration` | `apps/web/src/features/sync/infrastructure/parts.ts`, `apps/web/src/features/sync/ui/sync-settings.tsx`, `apps/web/src/features/sync/ui/git-screen.tsx` |
 | `json_entities` | `json_data_path`, `json_kind_of_path`, `parse_json_data`, `diff_json_data`, `is_app_owned_path` | `jsonDataPath`, `parseJsonData`, `diffJsonData`, `countJsonActions`, `addCounts`, `jsonKindOfPath`, `isAppOwnedPath` | `apps/web/src/features/workspace/application/parts-1.ts` |
-| `local_first_route` | `SYNCED_TABLES`, `BOTH_END_RPCS`, `both_ends_merge` | `syncedTables`, `isSyncedTable`, `isBothEndsRpc`, `bothEndsMerge` | `apps/web/src/backend/providers/local/local-first.ts` |
+| `local_first_route` | `SYNCED_TABLES`, `BOTH_END_RPCS`, `both_ends_merge` | `syncedTables`, `isBothEndsRpc`, `bothEndsMerge` | `apps/web/src/backend/providers/local/local-first.ts` |
 | `markdown_image` | `markdown_image`, `image_alt_from_filename`, `image_extension_for_mime`, `find_image_refs`, `image_paths_in_body`, `normalize_markdown_image_syntax` | `markdownImage`, `imageAltFromFilename`, `imageExtensionForMime`, `findImageRefs`, `imagePathsInBody`, `normalizeMarkdownImageSyntax` | `apps/web/src/lib/editor-image-upload.ts`, `apps/web/src/features/vault/lib/materialize-blob-images.ts`, `apps/web/src/features/logbook/ui/log-image-upload.ts`, `apps/web/src/features/papers/lib/parts.ts` |
 | `memory_fs` | `MemoryWorkspaceFs`, `with_clock` | native only | — |
 | `merge` | `merge_rows`, `same_value` | `mergeRows`, `sameValue` | `sameValue`: `apps/web/src/features/offline-sync/ui/sync-issues-panel.tsx`. `mergeRows`: — |
@@ -171,7 +170,7 @@ These modules sit beside the ones above. Each rule is pure. TS keeps the I/O.
 | `project_pick` | `pick_project` | `pickProject` | — |
 | `serialize` | `serialize_workspace`, `WORKSPACE_SCHEMA_VERSION` | `serializeWorkspace` | `apps/web/src/features/workspace/application/parts-1.ts`, `apps/web/src/features/workspace/application/parts-2.ts`, `apps/web/src/features/export/application/export-user-data.ts` |
 | `text_diff` | `diff_body`, `merge_hunks`, `write_conflict_markers`, `has_conflict_markers` | `diffBody`, `mergeHunks`, `writeConflictMarkers`, `hasConflictMarkers` | `apps/web/src/features/offline-sync/ui/sync-issues-panel.tsx`, `apps/web/src/features/settings/ui/folder-conflict-card.tsx` |
-| `vault_limits` | `too_large_message` | `vaultTooLargeMessage` | — |
+| `vault_limits` | `too_large_message` | — | — |
 | `workspace_fs` | `WorkspaceFs` trait (nine methods), `FsKind`, `WorkspaceStat`, `FsError` | native only | — |
 
 Rules:

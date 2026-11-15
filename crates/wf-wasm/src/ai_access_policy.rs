@@ -56,20 +56,6 @@ pub fn ai_credential_protected_proposal_kinds_js() -> JsResult<JsValue> {
     to_js(&access_policy::AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS)
 }
 
-/// [`evaluate_ai_access`](access_policy::evaluate_ai_access); `now` is the ISO 8601 clock time.
-///
-/// # Errors
-///
-/// Fails if `input` has the wrong shape.
-#[wasm_bindgen(js_name = evaluateAiAccess, unchecked_return_type = "T.AiPolicyDecision")]
-pub fn evaluate_ai_access_js(
-    #[wasm_bindgen(unchecked_param_type = "R<B.AiPolicyInput>")] input: JsValue,
-    now: &str,
-) -> JsResult<JsValue> {
-    let input: AiPolicyInput = serde_wasm_bindgen::from_value(input)?;
-    to_js(&access_policy::evaluate_ai_access(&input, now))
-}
-
 /// Single policy evaluator shared by in-app tools and the MCP adapter. `evaluate` reads the
 /// clock (`new Date().toISOString()`) when the input carries no `now`.
 #[wasm_bindgen]

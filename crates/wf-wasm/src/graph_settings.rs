@@ -19,16 +19,6 @@ fn json_from(raw: JsValue) -> JsResult<serde_json::Value> {
     serde_wasm_bindgen::from_value(raw)
 }
 
-/// [`default_graph_settings`](graph_settings::default_graph_settings).
-///
-/// # Errors
-///
-/// Fails only if the value cannot be converted to a JS value.
-#[wasm_bindgen(js_name = defaultGraphSettings, unchecked_return_type = "B.GraphViewSettings")]
-pub fn default_graph_settings_js() -> JsResult<JsValue> {
-    to_js(&graph_settings::default_graph_settings())
-}
-
 /// [`normalize_graph_view_settings`](graph_settings::normalize_graph_view_settings).
 ///
 /// # Errors

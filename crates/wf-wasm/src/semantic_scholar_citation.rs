@@ -18,40 +18,6 @@ struct RefArg {
     value: String,
 }
 
-/// [`citation_contexts`](semantic_scholar_citation::citation_contexts): trimmed snippets, or
-/// nothing when none remain.
-///
-/// # Errors
-///
-/// Fails if the value cannot be read as JSON.
-#[wasm_bindgen(js_name = citationContexts, unchecked_return_type = "string[] | undefined")]
-pub fn citation_contexts_js(
-    #[wasm_bindgen(unchecked_param_type = "unknown")] raw: JsValue,
-) -> Result<JsValue, JsValue> {
-    let raw: Value = serde_wasm_bindgen::from_value(raw)?;
-    match semantic_scholar_citation::citation_contexts(&raw) {
-        Some(contexts) => Ok(to_js(&contexts)?),
-        None => Ok(JsValue::UNDEFINED),
-    }
-}
-
-/// [`citation_intents`](semantic_scholar_citation::citation_intents): the known intents, or
-/// nothing when none remain.
-///
-/// # Errors
-///
-/// Fails if the value cannot be read as JSON.
-#[wasm_bindgen(js_name = citationIntents, unchecked_return_type = "string[] | undefined")]
-pub fn citation_intents_js(
-    #[wasm_bindgen(unchecked_param_type = "unknown")] raw: JsValue,
-) -> Result<JsValue, JsValue> {
-    let raw: Value = serde_wasm_bindgen::from_value(raw)?;
-    match semantic_scholar_citation::citation_intents(&raw) {
-        Some(intents) => Ok(to_js(&intents)?),
-        None => Ok(JsValue::UNDEFINED),
-    }
-}
-
 /// [`external_id_ref`](semantic_scholar_citation::external_id_ref): the lookup reference for
 /// a paper's external ids, or nothing.
 ///

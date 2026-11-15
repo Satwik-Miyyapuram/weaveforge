@@ -4,7 +4,7 @@
 use serde::Deserialize;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::reader::mark_actions::{MarkTarget, mark_actions, mark_popover_shown, picture_path};
+use wf_core::reader::mark_actions::{MarkTarget, mark_actions, mark_popover_shown};
 
 use super::to_js;
 
@@ -42,17 +42,4 @@ pub fn mark_popover_shown_js(
 ) -> JsResult<bool> {
     let annotation: MarkType = serde_wasm_bindgen::from_value(annotation)?;
     Ok(mark_popover_shown(&annotation.kind, tool))
-}
-
-/// [`picture_path`]: the stored file behind a placed picture, or `null`.
-///
-/// # Errors
-///
-/// Fails if `target` is not a mark's `{ type, origin, comment }` object.
-#[wasm_bindgen(js_name = picturePath, unchecked_return_type = "string | null")]
-pub fn picture_path_js(
-    #[wasm_bindgen(unchecked_param_type = "B.MarkTarget")] target: JsValue,
-) -> JsResult<JsValue> {
-    let target: MarkTarget = serde_wasm_bindgen::from_value(target)?;
-    to_js(&picture_path(&target))
 }

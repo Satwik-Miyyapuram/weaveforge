@@ -18,13 +18,6 @@ pub fn ink_point_in_polygon_js(
     Ok(hit_test::point_in_polygon(px, py, &polygon))
 }
 
-/// [`distance_to_segment_squared`](hit_test::distance_to_segment_squared).
-#[wasm_bindgen(js_name = distanceToSegmentSquared)]
-#[must_use]
-pub fn distance_to_segment_squared_js(px: f64, py: f64, ax: f64, ay: f64, bx: f64, by: f64) -> f64 {
-    hit_test::distance_to_segment_squared(px, py, ax, ay, bx, by)
-}
-
 /// [`stroke_near_segment`](hit_test::stroke_near_segment): whether a stroke passes within `radius` of a swept segment.
 #[must_use]
 #[wasm_bindgen(js_name = inkStrokeNearSegment)]

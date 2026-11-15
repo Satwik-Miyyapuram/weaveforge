@@ -379,28 +379,6 @@ fn tree_path_rows(
     Ok(tree_paths(&nodes, entity, project_root.unwrap_or_default()))
 }
 
-/// [`tree_paths`](wf_core::sync::folder_layout::tree_paths) as `[id, path]` pairs in
-/// first-seen order.
-///
-/// # Errors
-///
-/// Fails if `nodes` is not an array of `FolderNode`s or `entity` is not a known type.
-#[wasm_bindgen(js_name = treePathPairs, unchecked_return_type = "[string, string][]")]
-#[allow(
-    clippy::needless_pass_by_value,
-    reason = "wasm_bindgen takes optional strings by value"
-)]
-pub fn tree_path_pairs_js(
-    #[wasm_bindgen(
-        unchecked_param_type = "readonly { id: string; title: string; parentId?: string | null }[]"
-    )]
-    nodes: JsValue,
-    #[wasm_bindgen(unchecked_param_type = "B.WorkspaceEntityType")] entity: JsValue,
-    project_root: Option<String>,
-) -> JsResult<JsValue> {
-    to_js(&tree_path_rows(nodes, entity, project_root.as_deref())?)
-}
-
 /// [`tree_paths`](wf_core::sync::folder_layout::tree_paths): the folder path of each node in a
 /// tree, keyed by id, as a `Map` in first-seen order.
 ///

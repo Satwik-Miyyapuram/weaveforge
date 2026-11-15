@@ -4,17 +4,17 @@ These modules hold the pure parts of git sync, the Mattermost messages, the outb
 
 | Module | Rust fn | wasm export | TS caller |
 | --- | --- | --- | --- |
-| `git_auth` | `basic_auth`, `remote_auth` | `gitBasicAuth`, `gitRemoteAuth` | — |
+| `git_auth` | `basic_auth`, `remote_auth` | `gitRemoteAuth` | — |
 | `git_policy` | `is_under_ignored_folder`, `decide_git_sync_path`, `describe_changes` | `isUnderIgnoredFolder`, `decideGitSyncPath`, `describeChanges` | `apps/web/src/features/workspace/infrastructure/parts.ts`, `apps/web/src/features/workspace/application/workspace-folder.ts` |
 | `git_reason` | `git_reason` | `gitReason` | — |
-| `vault_git_parse` | `parse_status`, `parse_log`, `overwritten_files`, `nul_list`, `path_chunks` | `gitParseStatus`, `gitParseLog`, `gitOverwrittenFiles`, `gitNulList`, `gitPathChunks` | — |
+| `vault_git_parse` | `parse_status`, `parse_log`, `overwritten_files`, `nul_list`, `path_chunks` | — | — |
 | `repo_web_url` | `repo_web_url`, `commit_url` | `repoWebUrl`, `commitUrl` | `apps/web/src/features/experiments/ui/experiment-panels.tsx`, `apps/web/src/features/experiments/ui/experiment-detail-screen.tsx` |
 | `sync_dot` | `sync_dot` | `syncDot` | `apps/web/src/features/offline-sync/domain/parts.ts` |
 | `mattermost_messages` | `milestone_message`, `citation_alert_message`, `log_entry_message` | `milestoneMessage`, `citationAlertMessage`, `logEntryMessage` | `apps/web/src/integrations/manifests/mattermost.ts` |
 | `mattermost_options` | `mattermost_events`, `mattermost_options`, `mattermost_channel_for` | `mattermostEvents`, `mattermostOptions`, `mattermostChannelFor` | `apps/web/src/features/sync/ui/sync-settings.tsx`, `apps/web/src/integrations/manifests/mattermost.ts` |
 | `outbox_rows` | `outbox_entry`, `outbox_entries` | `outboxEntries` | `apps/web/src/features/offline-sync/domain/parts-2.ts` |
 | `outbox_sides` | `edit_sides`, `deleted_remote_sides`, `deleted_local_base` | `editSides`, `deletedRemoteSides`, `deletedLocalBase` | `apps/web/src/features/offline-sync/domain/parts-1.ts` |
-| `postgrest_wire` | `writable`, `error_info` | `postgrestWritable`, `postgrestErrorInfo` | — |
+| `postgrest_wire` | `writable`, `error_info` | — | — |
 | `sql_ident` | `quote_ident` | `quoteIdent` | `apps/web/src/features/offline-sync/domain/parts-1.ts`, `apps/web/src/features/offline-sync/domain/parts-2.ts` |
 
 Rules:

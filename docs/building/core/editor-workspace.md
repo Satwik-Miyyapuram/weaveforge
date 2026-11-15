@@ -35,7 +35,7 @@ name (`breadcrumbs.rs`, `document_stats.rs`, `quick_open.rs`,
 
 - Layout and tabs (`editor_workspace.rs`): `buildWorkspaceTree`, `flattenTree`,
   `buildListsTree`, `openTab`, `closeTab`, `splitPane`, `moveTab`, `setRatio`,
-  `focusPane`, `activeTab`, `pruneLayout`, `groupRuns`, `applyGroupCommand`,
+  `focusPane`, `activeTab`, `pruneLayout`, `groupRuns`,
   `commandForChord`, `layoutForCommand`.
 - `breadcrumbs`: `breadcrumbs`.
 - `typing_target`: `isTypingTarget`.

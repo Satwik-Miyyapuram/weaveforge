@@ -53,22 +53,6 @@ pub fn mcp_result_notice_js() -> String {
     mcp_result::MCP_RESULT_NOTICE.to_owned()
 }
 
-/// [`MAX_ITEM_CHARS`](mcp_result::MAX_ITEM_CHARS): characters of any single item.
-#[wasm_bindgen(js_name = mcpMaxItemChars)]
-#[must_use]
-#[allow(clippy::cast_precision_loss, reason = "8000 is exact in f64")]
-pub fn mcp_max_item_chars_js() -> f64 {
-    mcp_result::MAX_ITEM_CHARS as f64
-}
-
-/// [`MAX_RESULT_CHARS`](mcp_result::MAX_RESULT_CHARS): characters of a whole result.
-#[wasm_bindgen(js_name = mcpMaxResultChars)]
-#[must_use]
-#[allow(clippy::cast_precision_loss, reason = "32000 is exact in f64")]
-pub fn mcp_max_result_chars_js() -> f64 {
-    mcp_result::MAX_RESULT_CHARS as f64
-}
-
 /// [`mcp_read_result`](mcp_result::mcp_read_result), as a plain JS `McpResult` object. A missing
 /// `options.nonce` is drawn from `Math.random` (16 characters of `[a-z0-9]`).
 ///

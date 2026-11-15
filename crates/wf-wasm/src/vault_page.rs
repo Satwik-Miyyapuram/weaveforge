@@ -270,10 +270,3 @@ pub fn copy_extension_js(old_path: &str) -> String {
 pub fn vault_image_prefix_js() -> String {
     page::VAULT_IMAGE_PREFIX.to_string()
 }
-
-/// [`VAULT_BODY_PREVIEW_CHARS`](page::VAULT_BODY_PREVIEW_CHARS) (TS `vaultBodyPreviewChars()`).
-#[wasm_bindgen(js_name = vaultBodyPreviewChars)]
-#[must_use]
-pub fn vault_body_preview_chars_js() -> usize {
-    page::VAULT_BODY_PREVIEW_CHARS
-}

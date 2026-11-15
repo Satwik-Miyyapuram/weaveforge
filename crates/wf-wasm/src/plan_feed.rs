@@ -45,35 +45,6 @@ fn to_uint32(n: f64) -> u32 {
     }
 }
 
-/// [`milestones_to_ics`](feed::milestones_to_ics): the `.ics` text for `items`.
-/// `options.reminderDays` is floored; `includeDone` defaults to `false`.
-///
-/// # Errors
-///
-/// Fails if `items` or `options` has the wrong shape.
-#[wasm_bindgen(js_name = milestonesToIcs)]
-#[allow(
-    clippy::cast_possible_truncation,
-    reason = "day counts and epoch milliseconds from JS are whole numbers well inside i64"
-)]
-pub fn milestones_to_ics_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly B.FeedMilestone[]")] items: JsValue,
-    #[wasm_bindgen(
-        unchecked_param_type = "{ includeDone?: boolean; reminderDays?: number; now: Date }"
-    )]
-    options: JsValue,
-) -> Result<String, JsValue> {
-    let items: Vec<FeedMilestone> = serde_wasm_bindgen::from_value(items)?;
-    let opts = feed_options(&options)?;
-    let now_ms = now_ms_of(&options)?;
-    Ok(feed::milestones_to_ics(
-        &items,
-        opts.include_done.unwrap_or(false),
-        opts.reminder_days.unwrap_or(0.0).floor() as i64,
-        now_ms as i64,
-    ))
-}
-
 /// [`plan_widget`](feed::plan_widget): the summary a widget draws.
 ///
 /// # Errors

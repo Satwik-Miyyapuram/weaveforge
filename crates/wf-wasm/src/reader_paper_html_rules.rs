@@ -3,7 +3,7 @@
 //! use. Byte decoding stays in TS (`TextDecoder`), which takes the charset from here.
 
 use wasm_bindgen::prelude::wasm_bindgen;
-use wf_core::reader::paper_html_rules::{declared_charset, is_html_content_type};
+use wf_core::reader::paper_html_rules::is_html_content_type;
 
 /// The relay route the web app fetches a paper page through.
 pub const HTML_PROXY_PATH: &str = "/api/html-proxy";
@@ -40,13 +40,6 @@ pub fn html_final_url_header_js() -> String {
 #[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
 pub fn is_html_content_type_js(value: Option<String>) -> bool {
     is_html_content_type(value.as_deref())
-}
-
-/// [`declared_charset`]: the charset a page declares, lowercased, else `utf-8`.
-#[wasm_bindgen(js_name = declaredCharset)]
-#[allow(clippy::needless_pass_by_value)] // wasm-bindgen needs owned arguments.
-pub fn declared_charset_js(content_type: Option<String>, bytes: &[u8]) -> String {
-    declared_charset(content_type.as_deref(), bytes)
 }
 
 #[cfg(test)]

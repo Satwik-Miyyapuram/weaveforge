@@ -21,17 +21,6 @@ fn read_candidates(list: JsValue) -> Result<Vec<OpenAccessCandidate>, JsError> {
     serde_wasm_bindgen::from_value(list).map_err(|error| JsError::new(&error.to_string()))
 }
 
-/// [`wf_core::papers::open_access::clean_arxiv_id`]: the cleaned arXiv id, or `None`.
-#[allow(
-    clippy::needless_pass_by_value,
-    reason = "wasm_bindgen takes optional strings by value"
-)]
-#[must_use]
-#[wasm_bindgen(js_name = cleanArxivId)]
-pub fn clean_arxiv_id_js(id: Option<String>) -> Option<String> {
-    open_access::clean_arxiv_id(id.as_deref())
-}
-
 /// [`wf_core::papers::open_access::clean_pmcid`]: the cleaned PMCID, or `None`.
 #[allow(
     clippy::needless_pass_by_value,

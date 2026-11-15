@@ -4,7 +4,7 @@
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::reader::paper_html::{
-    MIN_ARTICLE_TEXT_CHARS, MIN_PAPER_TEXT_CHARS, PAPER_HTML_CSP, PaperHtmlOptions, PaperHtmlPage,
+    MIN_ARTICLE_TEXT_CHARS, MIN_PAPER_TEXT_CHARS, PaperHtmlOptions, PaperHtmlPage,
     build_paper_html_document, is_substantial_paper_text, parse_paper_html_document,
 };
 
@@ -22,12 +22,6 @@ pub fn min_paper_text_chars_js() -> f64 {
 #[wasm_bindgen(js_name = minArticleTextChars)]
 pub fn min_article_text_chars_js() -> f64 {
     MIN_ARTICLE_TEXT_CHARS
-}
-
-/// [`PAPER_HTML_CSP`]: the frame's own content security policy.
-#[wasm_bindgen(js_name = paperHtmlCsp)]
-pub fn paper_html_csp_js() -> String {
-    PAPER_HTML_CSP.to_string()
 }
 
 /// [`is_substantial_paper_text`]: whether the text reaches `min_chars` once whitespace is collapsed.

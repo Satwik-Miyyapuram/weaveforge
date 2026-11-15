@@ -9,7 +9,7 @@ repository port, and the thin use case.
 | --- | --- | --- |
 | Wikilinks, frontmatter, titles, tree, previews, scoping (pure) | Rust | `crates/wf-core/src/vault/page.rs` |
 | Page row mapping | Rust | `crates/wf-core/src/vault/page_row.rs` |
-| Wasm exports (`vaultImagePrefix`, `vaultBodyPreviewChars`, plus the helper functions) | Rust | `crates/wf-wasm/src/vault_page.rs` |
+| Wasm exports (`vaultImagePrefix`, plus the helper functions) | Rust | `crates/wf-wasm/src/vault_page.rs` |
 | TS types | Rust | `crates/wf-wasm/src` (`unchecked_*_type`) |
 | Page types and `VaultPageFns` | TS (hand-declared mirror) | `packages/core/src/shared/core-contract.ts` |
 | `VaultPageValidationError` | TS | `packages/core/src/shared/errors.ts` |
@@ -30,11 +30,10 @@ The constants that used to be TS `const`s are now wasm getters, read at call
 time:
 
 - `vaultImagePrefix()` returns `"vault:"` (wf-core `VAULT_IMAGE_PREFIX`).
-- `vaultBodyPreviewChars()` returns `320` (wf-core `VAULT_BODY_PREVIEW_CHARS`).
 
 Callers in `apps/web` use `readyCore().vaultImagePrefix()`. Core code uses
-`rust().vaultImagePrefix()` / `rust().vaultBodyPreviewChars()`. The default
-`max` of `vaultBodyPreview` reads `vaultBodyPreviewChars()` in the wasm wrapper.
+`rust().vaultImagePrefix()`. The default `max` of `vaultBodyPreview` is wf-core
+`VAULT_BODY_PREVIEW_CHARS` (`320`), read in the wasm wrapper.
 
 ## Errors
 

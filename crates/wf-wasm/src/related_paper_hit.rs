@@ -1,7 +1,6 @@
 //! Related-paper hit mappers for JavaScript (wf-core `papers::related_paper_hit`).
 //! The JS names match `apps/web/src/features/papers/application/parts-1.ts`.
 
-use serde_json::{Map, Value};
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wf_core::papers::related_paper_hit::{
@@ -36,19 +35,6 @@ pub fn openalex_to_hit_js(
 ) -> Result<JsValue, JsValue> {
     let work: OpenAlexWork = serde_wasm_bindgen::from_value(work)?;
     Ok(to_js(&related_paper_hit::openalex_to_hit(&work))?)
-}
-
-/// [`inverted_abstract`](related_paper_hit::inverted_abstract): the abstract text, or `undefined`.
-///
-/// # Errors
-///
-/// Fails if `index` is neither an object nor missing.
-#[wasm_bindgen(js_name = invertedAbstract)]
-pub fn inverted_abstract_js(
-    #[wasm_bindgen(unchecked_param_type = "unknown")] index: JsValue,
-) -> Result<Option<String>, JsValue> {
-    let index: Option<Map<String, Value>> = serde_wasm_bindgen::from_value(index)?;
-    Ok(related_paper_hit::inverted_abstract(index.as_ref()))
 }
 
 /// [`seed_doi`](related_paper_hit::seed_doi): the seed's DOI, or the arXiv DOI, or `undefined`.

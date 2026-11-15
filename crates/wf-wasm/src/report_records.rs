@@ -11,7 +11,6 @@ use wasm_bindgen::{JsCast, JsValue};
 use wf_core::report::bibliography_report::{self, BibliographyInput};
 use wf_core::report::edited_label;
 use wf_core::report::prisma_figure::{self, PrismaCounts, PrismaFigureOptions};
-use wf_core::report::project_path;
 use wf_core::report::report_section::{
     self, NewReportSectionInput, ReportSection, ReportSectionTreeNode,
 };
@@ -73,14 +72,6 @@ pub fn count_section_sources_js(body: Option<String>) -> u32 {
 #[must_use]
 pub fn edited_relative_label_js(seconds: f64) -> JsValue {
     edited_label::edited_relative_label(seconds).map_or(JsValue::NULL, JsValue::from)
-}
-
-/// [`normalize_project_path`](project_path::normalize_project_path) (TS `normalizeProjectPath`).
-/// `None` becomes `null`.
-#[wasm_bindgen(js_name = normalizeProjectPath, unchecked_return_type = "string | null")]
-#[must_use]
-pub fn normalize_project_path_js(path: &str) -> JsValue {
-    project_path::normalize_project_path(path).map_or(JsValue::NULL, JsValue::from)
 }
 
 /// [`check_bibliography`](bibliography_report::check_bibliography) (TS `checkBibliography`):
@@ -164,24 +155,6 @@ pub fn report_section_input_error_js(
     let input: NewReportSectionInput = serde_wasm_bindgen::from_value(input)?;
     let message = report_section::validate_report_section_input(&input).err();
     Ok(message.map_or(JsValue::NULL, JsValue::from))
-}
-
-/// [`create_report_section`](report_section::create_report_section) with the id and time
-/// supplied. Call [`report_section_input_error_js`] first: invalid input fails here.
-///
-/// # Errors
-///
-/// Fails if `input` has the wrong shape or does not validate.
-#[wasm_bindgen(js_name = createReportSectionWith, unchecked_return_type = "B.ReportSection")]
-pub fn create_report_section_js(
-    #[wasm_bindgen(unchecked_param_type = "B.NewReportSectionInput")] input: JsValue,
-    id: &str,
-    now_iso: &str,
-) -> Result<JsValue, JsValue> {
-    let input: NewReportSectionInput = serde_wasm_bindgen::from_value(input)?;
-    let section = report_section::create_report_section(&input, id, now_iso)
-        .map_err(|message| JsValue::from_str(&message))?;
-    Ok(to_js(&section)?)
 }
 
 /// Calls `target[method]()` with `target` as `this`; whatever it throws is rethrown.

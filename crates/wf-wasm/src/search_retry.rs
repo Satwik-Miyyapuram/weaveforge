@@ -13,16 +13,6 @@ pub fn should_retry_js(result_count: u32, term_count: u32) -> bool {
     search_retry::should_retry(result_count as usize, term_count as usize)
 }
 
-/// [`retry_fuzziness_for_term`](search_retry::retry_fuzziness_for_term).
-#[wasm_bindgen(js_name = retryFuzzinessForTerm)]
-#[allow(
-    clippy::needless_pass_by_value,
-    reason = "wasm_bindgen takes strings by value"
-)]
-pub fn retry_fuzziness_for_term_js(term: String, retry: bool) -> f64 {
-    search_retry::retry_fuzziness_for_term(&term, retry)
-}
-
 /// Whether, and how, to re-run a query that returned no results, as
 /// `{ retry, fuzzinessFor(term) }`. The fuzziness for each term is absolute (max edit
 /// distance), or 0 to leave it alone.

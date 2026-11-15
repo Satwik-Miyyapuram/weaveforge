@@ -57,7 +57,7 @@ The module is compiled into the wasm core and exported through
 matches the Rust function. Examples:
 
 - `reader_free_copy`: `describeFreeCopyFailure`, `isWebArticle`, `openAccessIdsOf`.
-- `reader_margin_notes`: `layoutMarginNotes`, `stackMarginNotes`.
+- `reader_margin_notes`: `layoutMarginNotes`.
 - `reader_print`: `readerPrintDocument`, `readerPrintOrientation`.
 - `reader_locus`: `encodeLocus`, `decodeLocus`.
 - `reader_anchor`: `resolveTextAnchor`.

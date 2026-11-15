@@ -105,13 +105,6 @@ pub fn check_url_shape_js(
     ))
 }
 
-/// [`is_ip_address`](url_safety::is_ip_address).
-#[wasm_bindgen(js_name = isIpAddress)]
-#[must_use]
-pub fn is_ip_address_js(value: &str) -> bool {
-    url_safety::is_ip_address(value)
-}
-
 /// [`is_public_address`](url_safety::is_public_address).
 #[wasm_bindgen(js_name = isPublicAddress)]
 #[must_use]
@@ -138,16 +131,6 @@ pub fn describe_url_rejection_js(
 ) -> JsResult<String> {
     let reason: url_safety::UrlRejection = serde_wasm_bindgen::from_value(reason)?;
     Ok(url_safety::rejection_copy(reason).to_owned())
-}
-
-/// [`expand_ipv6`](url_safety::expand_ipv6): the eight groups; `null` when the text is not IPv6.
-///
-/// # Errors
-///
-/// Fails if the groups cannot be converted to a JS value.
-#[wasm_bindgen(js_name = expandIpv6, unchecked_return_type = "number[] | null")]
-pub fn expand_ipv6_js(value: &str) -> JsResult<JsValue> {
-    to_js(&url_safety::expand_ipv6(value))
 }
 
 /// [`DEFAULT_FETCH_LIMITS`](url_safety::DEFAULT_FETCH_LIMITS): the caps read at call time.

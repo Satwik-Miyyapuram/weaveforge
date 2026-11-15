@@ -78,26 +78,6 @@ pub fn format_reference_js(
     Ok(reference_text::format_reference(&paper))
 }
 
-/// [`peers_from_states`](collab::peers_from_states); `users` is `[clientId, user][]`.
-///
-/// # Errors
-///
-/// Fails when `users` is not a list of pairs.
-#[wasm_bindgen(js_name = peersFromUsers, unchecked_return_type = "B.Peer[]")]
-pub fn peers_from_users_js(
-    #[wasm_bindgen(unchecked_param_type = "readonly (readonly [number, unknown])[]")]
-    users: JsValue,
-    self_client_id: f64,
-    self_author_id: &str,
-) -> JsResult<JsValue> {
-    let users: Vec<(f64, Value)> = serde_wasm_bindgen::from_value(users)?;
-    to_js(&collab::peers_from_states(
-        &users,
-        self_client_id,
-        self_author_id,
-    ))
-}
-
 /// `state?.user ?? null` for one awareness state.
 fn user_of(state: &JsValue) -> Result<JsValue, JsValue> {
     let user = if state.is_object() || state.is_function() {
