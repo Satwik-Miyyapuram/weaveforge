@@ -965,7 +965,6 @@ fn wrapper_removal_types(t: Types) -> Types {
         .register::<wf_core::ai::wiki_lint::LintReport>()
         .register::<wf_core::ai::wiki_lint::LintSeverity>()
         .register::<wf_core::ai::wiki_lint::WikiPageRef>()
-        .register::<wf_core::ink::constants::InkConstants>()
         .register::<wf_core::ink::gesture::DownFacts>()
         .register::<wf_core::ink::gesture::EdgeStep>()
         .register::<wf_core::ink::gesture::Question>()

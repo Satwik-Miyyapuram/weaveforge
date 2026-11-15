@@ -18,7 +18,6 @@ pub mod folder_merge;
 pub mod folder_mirror;
 pub mod frontmatter;
 pub mod git_api;
-pub mod git_auth;
 pub mod git_gate;
 pub mod git_policy;
 pub mod git_reason;

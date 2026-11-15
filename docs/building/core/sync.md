@@ -119,13 +119,7 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 
 ## Git rules
 
-These rules moved from the removed Node sidecar into Rust. The shell spawns git
-and reads the file system.
-
-- `sync::git_auth` builds the Basic header and
-  the `GIT_CONFIG_*` plan. The token goes only in the env plan, never on the
-  command line or in `.git/config`. An empty token means no header, and a
-  non-http URL gets no header.
+The shell spawns git and reads the file system.
 
 Stays in TypeScript, and why:
 
