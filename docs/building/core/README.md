@@ -34,7 +34,12 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [sync-git-outbox](sync-git-outbox.md) | Sync helpers for git, the outbox, Mattermost and the PostgREST wire. |
 | [repos](repos.md) | Per-table repository steps behind `repoStep`: methods, conflict keys and RPCs. |
 | [core-shared](core-shared.md) | Small shared modules: collab peers, metric sampling, MCP limits, member roles, tree, units, Zotero ids. |
-| [wf-store](wf-store.md) | Native I/O crate (desktop only): workspace folder, git history, remote sync, embeddings. |
+| [wf-core](wf-core.md) | The core crate itself: pure logic, no I/O, its feature and tests. |
+| [wf-wasm](wf-wasm.md) | `wf-core` compiled to wasm for the browser and Node; its build and checks. |
+| [wf-bindings](wf-bindings.md) | Writes the TypeScript types for Rust types that cross into the UI. |
+| [wf-store](wf-store.md) | Native I/O crate (never wasm): workspace folder, git history, remote sync, embeddings. |
+| [shell](shell.md) | The Tauri desktop and phone shell crate (`apps/shell`). |
+| [relay](relay.md) | The relay crates (`apps/relay`): shared fetches and the relay server. |
 | [puller_plan](puller_plan.md) | Pull decisions for the offline-sync Puller: page summary, apply and tombstone steps, unique-clash parsing. |
 | [vault](vault.md) | Vault (notes) domain rules. |
 | [page_query](page_query.md) | Vault page query text for PostgREST: LIKE and PostgREST escaping, title ILIKE pattern, missing `body_preview` check. |
