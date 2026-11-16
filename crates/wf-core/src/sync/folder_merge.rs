@@ -223,6 +223,10 @@ pub fn settle_conflict(
     if entry.kind == Some(ConflictKind::Markers) {
         return None;
     }
+    // A canvas whose id map cannot be read is held until the map is repaired.
+    if entry.kind == Some(ConflictKind::BrokenMap) {
+        return None;
+    }
 
     let asked = resolutions
         .get(&entry.entity.path)
@@ -353,6 +357,7 @@ mod tests {
                 path: "notes/n1.note.md".to_owned(),
                 fields,
                 kind: None,
+                canvas_map_broken: false,
             },
             reason: None,
             kind: Some(ConflictKind::BothChanged),
@@ -468,6 +473,18 @@ mod tests {
     fn type_mismatch_left_alone_is_still_left_alone() {
         assert_eq!(
             settle_conflict(settle_fixture(ConflictKind::TypeMismatch), &BTreeMap::new()),
+            None
+        );
+    }
+
+    #[test]
+    fn a_broken_canvas_map_is_never_importable() {
+        let resolutions = resolve(
+            "notes/board.canvas",
+            ConflictResolution::Named(NamedResolution::Folder),
+        );
+        assert_eq!(
+            settle_conflict(settle_fixture(ConflictKind::BrokenMap), &resolutions),
             None
         );
     }

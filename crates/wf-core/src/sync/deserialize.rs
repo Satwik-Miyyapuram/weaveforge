@@ -59,6 +59,9 @@ pub struct ParsedEntity {
     /// `canvas` for a `.canvas` file, which is read back as a canvas page; absent for a note.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
+    /// True for a canvas whose folder id map is malformed: its id cannot be read, so it is held.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub canvas_map_broken: bool,
 }
 
 /// An entity as the workspace stores it.
@@ -75,6 +78,9 @@ pub struct ExistingEntity {
     pub title: String,
     /// The stored body.
     pub body: String,
+    /// `canvas` for a canvas page; absent for a note.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
 }
 
 /// What an import would do with one parsed file.
@@ -219,6 +225,7 @@ pub fn parse_workspace_file(path: &str, content: &str) -> Option<ParsedEntity> {
             path: path.to_owned(),
             fields: Map::new(),
             kind: Some("canvas".to_owned()),
+            canvas_map_broken: false,
         });
     }
     if !path.ends_with(".md") {
@@ -261,6 +268,7 @@ pub fn parse_workspace_file(path: &str, content: &str) -> Option<ParsedEntity> {
         path: path.to_owned(),
         fields,
         kind: None,
+        canvas_map_broken: false,
     })
 }
 
@@ -270,24 +278,28 @@ pub fn parse_workspace_file(path: &str, content: &str) -> Option<ParsedEntity> {
 /// file has no frontmatter to carry one.
 #[must_use]
 pub fn parse_workspace_folder(files: &[(String, String)]) -> Vec<ParsedEntity> {
-    let canvas_ids = canvas_id_map(files);
+    let (canvas_ids, broken_maps) = canvas_id_maps(files);
     files
         .iter()
         .filter_map(|(path, content)| {
             let mut parsed = parse_workspace_file(path, content)?;
             if parsed.kind.as_deref() == Some("canvas") {
                 parsed.id = canvas_ids.get(path).cloned();
+                parsed.canvas_map_broken = broken_maps
+                    .iter()
+                    .any(|project| project.is_empty() || path.starts_with(&format!("{project}/")));
             }
             Some(parsed)
         })
         .collect()
 }
 
-/// Canvas page ids by full file path, from every `<project>/.weaveforge/canvas-ids.json`.
-/// A malformed map is ignored, so its canvases import as new pages.
-fn canvas_id_map(files: &[(String, String)]) -> HashMap<String, String> {
+/// Canvas page ids by full file path, from every `<project>/.weaveforge/canvas-ids.json`,
+/// and the projects whose map is malformed (`""` for the folder root).
+fn canvas_id_maps(files: &[(String, String)]) -> (HashMap<String, String>, Vec<String>) {
     let map_name = format!("{WORKSPACE_META_DIR}/canvas-ids.json");
     let mut ids = HashMap::new();
+    let mut broken = Vec::new();
     for (path, content) in files {
         let project = if *path == map_name {
             ""
@@ -302,6 +314,7 @@ fn canvas_id_map(files: &[(String, String)]) -> HashMap<String, String> {
             format!("{project}/")
         };
         let Ok(Value::Object(map)) = serde_json::from_str::<Value>(content) else {
+            broken.push(project.to_owned());
             continue;
         };
         for (relative, id) in map {
@@ -310,7 +323,7 @@ fn canvas_id_map(files: &[(String, String)]) -> HashMap<String, String> {
             }
         }
     }
-    ids
+    (ids, broken)
 }
 
 /// Compare parsed files with what is stored, by id.
@@ -355,6 +368,16 @@ fn diff_entity(
             ),
         );
     }
+    if entity.canvas_map_broken {
+        return conflict(
+            entity,
+            ConflictKind::BrokenMap,
+            format!(
+                "The canvas id map for {} cannot be read, so the canvas is held. Repair or remove .weaveforge/canvas-ids.json.",
+                entity.path
+            ),
+        );
+    }
     let Some(current) = entity
         .id
         .as_deref()
@@ -373,6 +396,26 @@ fn diff_entity(
                 entity.path,
                 current.entity_type.as_str(),
                 entity.entity_type.as_str()
+            ),
+        );
+    }
+    // A canvas page and a note never share an id: the canvas map cannot point at a note.
+    if (current.kind.as_deref() == Some("canvas")) != (entity.kind.as_deref() == Some("canvas")) {
+        let describe = |kind: Option<&str>| {
+            if kind == Some("canvas") {
+                "canvas page".to_owned()
+            } else {
+                "note".to_owned()
+            }
+        };
+        return conflict(
+            entity,
+            ConflictKind::TypeMismatch,
+            format!(
+                "The id in {} belongs to a {}, not a {}.",
+                entity.path,
+                describe(current.kind.as_deref()),
+                describe(entity.kind.as_deref())
             ),
         );
     }
@@ -480,6 +523,7 @@ mod tests {
             path: "notes/t.md".into(),
             fields: json!({"tags": ["a"]}).as_object().unwrap().clone(),
             kind: None,
+            canvas_map_broken: false,
         };
         let value = json!({"type":"vault_page","title":"T","body":"B","path":"notes/t.md","fields":{"tags":["a"]}});
         assert_eq!(serde_json::to_value(&entity).unwrap(), value);
@@ -525,6 +569,7 @@ mod tests {
                 path: "notes/t.md".into(),
                 fields: Map::new(),
                 kind: None,
+                canvas_map_broken: false,
             },
             reason: None,
             kind: Some(ConflictKind::BothChanged),
