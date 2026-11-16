@@ -28,6 +28,7 @@ import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { InkFocusButton, InkFocusExit, useInkFocus } from "@/components/ink-focus";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
+import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
 
 import { PaperExternalLink } from "./paper-external-link";
@@ -104,7 +105,9 @@ export function PaperNote({
   const [mode, setMode] = useState<NoteMode>(() =>
     readOnly ? "read" : readyCore().isInkNoteBody(paper.summary ?? "") ? "ink" : "edit",
   );
-  const inkFocus = useInkFocus(mode === "ink");
+  // F11 and focus belong to the screen on show: a hidden kept Papers must not take them.
+  const screenActive = useScreenActive();
+  const inkFocus = useInkFocus(mode === "ink" && screenActive);
   const modeRef = useRef<NoteMode>(mode);
   modeRef.current = mode;
   /** The body last written from Edit or Ink, reconciled into tags once put away. */
