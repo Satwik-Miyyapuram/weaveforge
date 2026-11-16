@@ -243,3 +243,98 @@ test("a successful write reports saved so the editor can clear its banner", asyn
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(saved, 1);
 });
+
+const tick = () => new Promise((resolve) => setImmediate(resolve));
+
+test("an older write landing after a newer write failed does not clear the banner", async () => {
+  const timers = fakeTimers();
+  const pending: Array<{ resolve: () => void; reject: (e: Error) => void }> = [];
+  const errors: unknown[] = [];
+  let saved = 0;
+  const saver = new CanvasSaver({
+    write: () =>
+      new Promise((resolve, reject) => {
+        pending.push({ resolve: () => resolve(undefined), reject });
+      }),
+    onError: (e) => void errors.push(e),
+    onSaved: () => {
+      saved += 1;
+    },
+    schedule: timers.schedule,
+    unschedule: timers.unschedule,
+  });
+  let text = "A";
+  const read = () => text;
+  saver.touch(read);
+  text = "B";
+  saver.flush(read);
+  text = "C";
+  saver.flush(read);
+  pending[1].reject(new Error("disk full"));
+  await tick();
+  pending[0].resolve();
+  await tick();
+  assert.equal(saved, 0, "B landed but C is still unsaved on screen, so the banner stays");
+  assert.equal(errors.length, 1);
+  assert.equal(timers.armedCount(), 1, "C's failure schedules a retry");
+});
+
+test("a failed write is retried by a timer without any further edit", async () => {
+  const timers = fakeTimers();
+  const written: string[] = [];
+  let attempts = 0;
+  const saver = new CanvasSaver({
+    write: (t) => {
+      attempts += 1;
+      if (attempts === 1) return Promise.reject(new Error("offline"));
+      written.push(t);
+      return undefined;
+    },
+    onError: () => undefined,
+    schedule: timers.schedule,
+    unschedule: timers.unschedule,
+  });
+  let text = "A";
+  const read = () => text;
+  saver.touch(read);
+  text = "B";
+  saver.flush(read);
+  await tick();
+  assert.equal(timers.armedCount(), 1, "the failure arms a retry");
+  timers.fire();
+  await tick();
+  assert.deepEqual(written, ["B"], "the same text is written again");
+});
+
+test("retries back off, doubling from the debounce delay", async () => {
+  const delays: number[] = [];
+  let retry: (() => void) | null = null;
+  let attempts = 0;
+  const saver = new CanvasSaver({
+    write: () => {
+      attempts += 1;
+      return Promise.reject(new Error("offline"));
+    },
+    onError: () => undefined,
+    schedule: (fn: () => void, ms: number) => {
+      delays.push(ms);
+      retry = fn;
+      return 1;
+    },
+    unschedule: () => {
+      retry = null;
+    },
+  });
+  let text = "A";
+  const read = () => text;
+  saver.touch(read);
+  text = "B";
+  saver.flush(read);
+  await tick();
+  retry!();
+  await tick();
+  retry!();
+  await tick();
+  assert.equal(attempts, 3);
+  assert.deepEqual(delays, [600, 1200, 2400], "each failed attempt doubles the wait before the next retry");
+});
