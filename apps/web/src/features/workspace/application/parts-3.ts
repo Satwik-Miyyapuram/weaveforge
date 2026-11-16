@@ -419,7 +419,9 @@ export function canvasRenameIds(
   // same body could be either way round, so neither is assigned.
   for (const [digest, paths] of fresh) {
     const ids = lost.get(digest) ?? [];
-    if (paths.length === 1 && ids.length === 1) result.set(paths[0], ids[0]);
+    const [path] = paths;
+    const [id] = ids;
+    if (paths.length === 1 && ids.length === 1 && path !== undefined && id !== undefined) result.set(path, id);
   }
   return result;
 }
