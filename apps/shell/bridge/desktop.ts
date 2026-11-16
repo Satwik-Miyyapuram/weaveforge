@@ -202,7 +202,7 @@ function isAppUpdatePayload(payload: unknown): payload is AppUpdateStatus {
 }
 
 /** The status with every optional field present (null when absent), the shape the page reads. */
-function appUpdateOf(status: AppUpdateStatus): AppUpdateStatus_Serialize {
+function toDesktopAppUpdate(status: AppUpdateStatus): AppUpdateStatus_Serialize {
   return {
     phase: status.phase,
     current: status.current,
@@ -571,9 +571,9 @@ export function desktopShim(
     },
     zoteroLocal: async (url) => unwrap(await cmds.zoteroLocal(url)),
     checkUpdate: async () => unwrap(await cmds.updateCheck()),
-    appUpdateStatus: async () => appUpdateOf(await cmds.appUpdateStatus()),
-    appUpdateCheck: async () => appUpdateOf(await cmds.appUpdateCheck()),
-    appUpdateInstall: async () => appUpdateOf(await cmds.appUpdateInstall()),
+    appUpdateStatus: async () => toDesktopAppUpdate(await cmds.appUpdateStatus()),
+    appUpdateCheck: async () => toDesktopAppUpdate(await cmds.appUpdateCheck()),
+    appUpdateInstall: async () => toDesktopAppUpdate(await cmds.appUpdateInstall()),
     // Same unlisten rule as `onVaultChange`.
     onAppUpdate: (cb) => {
       let stopped = false;
@@ -581,7 +581,7 @@ export function desktopShim(
       void events
         .listen(APP_UPDATE_EVENT, (payload) => {
           if (stopped || !isAppUpdatePayload(payload)) return;
-          cb(appUpdateOf(payload));
+          cb(toDesktopAppUpdate(payload));
         })
         .then((stop) => {
           if (stopped) stop();
