@@ -322,7 +322,7 @@ test("onboarding is on by default: Connect GitHub first, Skip second", async () 
   const tree = await mount(createElement(GithubOnboarding));
   const text = textOf(tree.root);
   assert.match(text, /your own private GitHub repository/);
-  assert.match(text, /only relays live sessions and shared items/);
+  assert.match(text, /the WeaveForge server only relays live shared sessions/);
   assert.match(text, /GitHub can read/);
   const buttons = tree.root.findAll((n) => n.type === "button").map(textOf);
   assert.deepEqual(buttons.slice(0, 2), ["Connect GitHub", "Skip"]);
@@ -339,6 +339,47 @@ test("Skip keeps server sync and does not ask again", async () => {
 
   const again = await mount(createElement(GithubOnboarding));
   assert.equal(again.toJSON(), null);
+});
+
+test("a remembered Skip keeps the card hidden on the next render", async () => {
+  stubWindow({ stored: { [GITHUB_ONBOARDING_KEY]: "skipped" } });
+  const tree = await mount(createElement(GithubOnboarding));
+  assert.equal(tree.toJSON(), null);
+});
+
+test("Connect GitHub is the primary action and starts the device flow", async () => {
+  const { calls, store } = stubWindow();
+  const tree = await mount(createElement(GithubOnboarding));
+  const connect = button(tree, "Connect GitHub");
+  assert.match(String(connect.props.className), /primary/);
+  await click(tree, "Connect GitHub");
+  assert.deepEqual(calls.finish, [null]);
+  assert.deepEqual(calls.opened, ["https://github.com/login/device"]);
+  assert.match(textOf(tree.root), /ABCD-1234/);
+  assert.equal(store[GITHUB_ONBOARDING_KEY], undefined);
+});
+
+test("the card still renders and Skip still works when storage throws", async () => {
+  const { calls } = stubWindow();
+  const win = g.window as { localStorage: unknown };
+  const broken = () => {
+    throw new Error("storage blocked");
+  };
+  win.localStorage = { getItem: broken, setItem: broken, removeItem: broken };
+  const tree = await mount(createElement(GithubOnboarding));
+  assert.match(textOf(tree.root), /Sync with GitHub/);
+  await click(tree, "Skip");
+  assert.equal(tree.toJSON(), null);
+  assert.equal(calls.finish.length, 0);
+});
+
+test("the card copy says GitHub holds the files and the server only relays live shared sessions", async () => {
+  stubWindow();
+  const tree = await mount(createElement(GithubOnboarding));
+  const text = textOf(tree.root);
+  assert.match(text, /GitHub holds your synced files/);
+  assert.match(text, /the WeaveForge server only relays live shared sessions/);
+  assert.ok(!/only relays live sessions and shared items/.test(text));
 });
 
 test("onboarding stays away when a remote is already set or the shell is older", async () => {
