@@ -428,6 +428,44 @@ export interface DesktopBridge {
   setPlanWidget?(on: boolean): Promise<DesktopPlanWidget>;
   /** The theme's colours for the widget, each a `#rrggbb`, keyed as the widget's own CSS variables. */
   setPlanWidgetTheme?(palette: Record<string, string>): void;
+
+  /**
+   * One-click updates of the installed window. The shell checks on its own
+   * (quietly, shortly after start and every six hours); the page asks for the
+   * current state, asks for a check, and installs a release that was found.
+   *
+   * `installDesktopUpdate` ends with the window restarting, so its answer is
+   * only seen when the install failed. Absent on shells that predate it; those
+   * fall back to `checkUpdate`, which opens the release page instead.
+   */
+  appUpdateStatus?(): Promise<DesktopAppUpdate>;
+  appUpdateCheck?(): Promise<DesktopAppUpdate>;
+  appUpdateInstall?(): Promise<DesktopAppUpdate>;
+  /** Called on every state change the shell makes on its own; returns the way to stop listening. */
+  onAppUpdate?(cb: (status: DesktopAppUpdate) => void): () => void;
+}
+
+/** Where the installed window stands with its own updates. Mirrors the shell's `AppUpdateStatus`. */
+export type DesktopAppUpdatePhase =
+  | "unsupported"
+  | "idle"
+  | "checking"
+  | "upToDate"
+  | "available"
+  | "downloading"
+  | "installing"
+  | "failed";
+
+export interface DesktopAppUpdate {
+  phase: DesktopAppUpdatePhase;
+  /** The version running now. */
+  current: string;
+  /** The release found, when there is one. */
+  version: string | null;
+  /** Download progress, 0 to 100, when the size is known. */
+  percent: number | null;
+  /** Why the last check or install failed, fit to show. */
+  error: string | null;
 }
 
 /** One of the app's own folders: `artifacts`, `models` or `log`. */

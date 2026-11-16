@@ -95,6 +95,36 @@ test("the toggle stores the choice", async () => {
   await act(async () => tree.unmount());
 });
 
+test("a shell with one-click updates shows its version and checks through the shell", async () => {
+  const calls = { status: 0, check: 0 };
+  const idle = { phase: "idle", current: "0.9.1", version: null, percent: null, error: null };
+  g.window = {
+    weaveforge: {
+      fetchTitle: () => Promise.resolve({}),
+      version: "0.9.1",
+      platform: "win32",
+      appUpdateStatus: () => { calls.status += 1; return Promise.resolve(idle); },
+      appUpdateCheck: () => { calls.check += 1; return Promise.resolve({ ...idle, phase: "upToDate" }); },
+      appUpdateInstall: () => Promise.resolve(idle),
+      onAppUpdate: () => () => undefined,
+      checkUpdate: () => { throw new Error("the legacy check must not run"); },
+    },
+  };
+  const tree = await mount();
+  const text = textOf(tree.root);
+  assert.match(text, /Current version/);
+  assert.match(text, /0\.9\.1/);
+  assert.ok(!text.includes("Check when Settings opens"), "the legacy toggle is not shown");
+  assert.equal(calls.status, 1);
+  await act(async () => {
+    button(tree, "Check for updates").props.onClick();
+    await new Promise((r) => setTimeout(r, 5));
+  });
+  assert.equal(calls.check, 1);
+  assert.match(textOf(tree.root), /You have the latest version\./);
+  await act(async () => tree.unmount());
+});
+
 test("an available update is shown, and a good answer is cached", async () => {
   const { calls } = stubWindow(() => Promise.resolve({ version: "0.6.0", url: "https://example.invalid/v0.6.0" }));
   const first = await mount();
