@@ -128,12 +128,18 @@ mod tests {
         let mut at = 0;
         while at + 512 <= tar.len() && tar[at] != 0 {
             let h = &tar[at..at + 512];
-            let name = String::from_utf8_lossy(&h[..100]).trim_end_matches('\0').to_string();
+            let name = String::from_utf8_lossy(&h[..100])
+                .trim_end_matches('\0')
+                .to_string();
             let size_text = String::from_utf8_lossy(&h[124..135]).to_string();
             let size = u64::from_str_radix(&size_text, 8).unwrap() as usize;
             let body = &tar[at + 512..at + 512 + size];
-            let value = if h[156] == b'5' { None } else { Some(body.to_vec()) };
-            out.insert(name, value);
+            let value = if h[156] == b'5' {
+                None
+            } else {
+                Some(body.to_vec())
+            };
+            let _ = out.insert(name, value);
             at += 512 + size.next_multiple_of(512);
         }
         out
@@ -152,7 +158,10 @@ mod tests {
         fixture(&dir);
         let entries = parse(&archive(&dir).unwrap());
         assert_eq!(entries.get("PG_VERSION"), Some(&Some(b"17\n".to_vec())));
-        assert_eq!(entries.get("base/1/rows"), Some(&Some(b"row data".to_vec())));
+        assert_eq!(
+            entries.get("base/1/rows"),
+            Some(&Some(b"row data".to_vec()))
+        );
         assert_eq!(entries.get("base"), Some(&None));
         assert_eq!(entries.get("pg_wal"), Some(&None));
         assert_eq!(entries.len(), 5);
@@ -178,7 +187,10 @@ mod tests {
                     stack.push(p);
                 } else {
                     let meta = fs::metadata(&p).unwrap();
-                    out.insert(p.display().to_string(), (fs::read(&p).unwrap(), meta.modified().unwrap()));
+                    let _ = out.insert(
+                        p.display().to_string(),
+                        (fs::read(&p).unwrap(), meta.modified().unwrap()),
+                    );
                 }
             }
         }
@@ -190,7 +202,10 @@ mod tests {
         let dir = scratch("missing").join("local-db");
         let err = read_old_db(&dir).unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::NotFound);
-        assert!(err.to_string().starts_with("no old local database at"), "{err}");
+        assert!(
+            err.to_string().starts_with("no old local database at"),
+            "{err}"
+        );
     }
 
     #[test]

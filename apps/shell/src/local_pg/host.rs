@@ -984,7 +984,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn owner_import_opens_once_and_each_call_rolls_back_its_own_failure() -> Result<(), String> {
+    async fn owner_import_opens_once_and_each_call_rolls_back_its_own_failure() -> Result<(), String>
+    {
         let (engine, host) = host();
         // The fake reports no columns, so each import refuses; the open and the rollback are what is checked.
         let first = host.import_table("notes", &[json!({"id": 1})]).await;
@@ -1000,7 +1001,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn owner_import_done_writes_no_marker_until_the_ledger_has_every_table() -> Result<(), String> {
+    async fn owner_import_done_writes_no_marker_until_the_ledger_has_every_table()
+    -> Result<(), String> {
         let (_engine, host) = host();
         let dir = std::env::temp_dir().join(format!(
             "wf-host-marker-{}-{}",

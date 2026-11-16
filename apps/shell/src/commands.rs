@@ -107,7 +107,11 @@ impl LocalDb {
     }
 
     /// Imports `rows` into `table` on the owner session; each call commits or rolls back on its own.
-    pub async fn import_table(&self, table: &str, rows: &[Value]) -> Result<TableReport, ShellError> {
+    pub async fn import_table(
+        &self,
+        table: &str,
+        rows: &[Value],
+    ) -> Result<TableReport, ShellError> {
         self.native()?
             .import_table(table, rows)
             .await
@@ -115,7 +119,11 @@ impl LocalDb {
     }
 
     /// Writes the import marker in the data dir once every table in `tables` is in the ledger.
-    pub async fn import_finish(&self, tables: &[String], marker: &std::path::Path) -> Result<(), ShellError> {
+    pub async fn import_finish(
+        &self,
+        tables: &[String],
+        marker: &std::path::Path,
+    ) -> Result<(), ShellError> {
         let names: Vec<&str> = tables.iter().map(String::as_str).collect();
         self.native()?
             .import_done(&names, marker)

@@ -63,7 +63,10 @@ pub async fn old_db_import_finish(
     tables: Vec<String>,
 ) -> Result<(), ShellError> {
     use tauri::Manager;
-    let data = app.path().app_data_dir().map_err(|e| ShellError::from(e.to_string()))?;
+    let data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| ShellError::from(e.to_string()))?;
     db.import_finish(&tables, &data.join(IMPORTED_MARKER)).await
 }
 
@@ -72,7 +75,10 @@ pub async fn old_db_import_finish(
 #[specta::specta]
 pub fn old_db_status(app: tauri::AppHandle) -> Result<bool, ShellError> {
     use tauri::Manager;
-    let data = app.path().app_data_dir().map_err(|e| ShellError::from(e.to_string()))?;
+    let data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| ShellError::from(e.to_string()))?;
     Ok(pending(&data))
 }
 
@@ -82,7 +88,10 @@ pub fn old_db_status(app: tauri::AppHandle) -> Result<bool, ShellError> {
 #[specta::specta]
 pub async fn old_db_tar(app: tauri::AppHandle) -> Result<String, ShellError> {
     use tauri::Manager;
-    let data = app.path().app_data_dir().map_err(|e| ShellError::from(e.to_string()))?;
+    let data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| ShellError::from(e.to_string()))?;
     let dir = match migrate::old_db_state(&data) {
         OldDb::Found(dir) => dir,
         OldDb::WorkspaceMissing(root) => {
@@ -91,7 +100,11 @@ pub async fn old_db_tar(app: tauri::AppHandle) -> Result<String, ShellError> {
                 root.display()
             )));
         }
-        OldDb::None => return Err(ShellError::from("there is no old local database to import".to_string())),
+        OldDb::None => {
+            return Err(ShellError::from(
+                "there is no old local database to import".to_string(),
+            ));
+        }
     };
     let bytes = tokio::task::spawn_blocking(move || old_db::read_old_db(&dir))
         .await
@@ -131,7 +144,11 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let db = LocalDb::new(Err("no postgres".to_string()), "data".to_string());
         assert!(db.import_table("notes", &[]).await.is_err());
-        assert!(db.import_finish(&["notes".to_string()], &dir.join(IMPORTED_MARKER)).await.is_err());
+        assert!(
+            db.import_finish(&["notes".to_string()], &dir.join(IMPORTED_MARKER))
+                .await
+                .is_err()
+        );
         assert!(!dir.join(IMPORTED_MARKER).exists());
         let _ = std::fs::remove_dir_all(&dir);
     }

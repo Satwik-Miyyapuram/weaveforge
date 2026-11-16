@@ -77,7 +77,9 @@ pub async fn describe<C: Conn>(conn: &mut C, table: &str) -> Result<Shape, PgErr
     }
     let pk = conn.query(PK_SQL, std::slice::from_ref(&reg)).await?;
     let primary_key = pk.rows.first().map(|row| cell(row, 0));
-    let seq = conn.query(SEQUENCES_SQL, std::slice::from_ref(&reg)).await?;
+    let seq = conn
+        .query(SEQUENCES_SQL, std::slice::from_ref(&reg))
+        .await?;
     let sequences = seq
         .rows
         .iter()
@@ -262,8 +264,13 @@ async fn import_in_transaction<C: Conn>(
         already_done: false,
     };
     for batch in pack_batches(rows, BATCH_BYTES)? {
-        let got = u64::try_from(conn.query(&sql, &[Value::String(batch.json)]).await?.rows.len())
-            .unwrap_or(u64::MAX);
+        let got = u64::try_from(
+            conn.query(&sql, &[Value::String(batch.json)])
+                .await?
+                .rows
+                .len(),
+        )
+        .unwrap_or(u64::MAX);
         let sent = u64::try_from(batch.rows).unwrap_or(u64::MAX);
         report.inserted += got;
         report.skipped += sent.saturating_sub(got);
@@ -323,9 +330,9 @@ pub fn write_marker(marker: &Path, expected: &[&str], done: &BTreeSet<String>) -
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::local_pg::TextRows;
     use crate::local_pg::server::PgServer;
     use crate::local_pg::wire::PgConn;
-    use crate::local_pg::TextRows;
     use serde_json::json;
     use std::path::PathBuf;
     use std::time::Duration;
@@ -407,7 +414,10 @@ mod tests {
             self.admin
                 .exec(&format!("SELECT pg_terminate_backend({})", self.pid))
                 .await?;
-            let probe = format!("SELECT count(*) FROM pg_stat_activity WHERE pid = {}", self.pid);
+            let probe = format!(
+                "SELECT count(*) FROM pg_stat_activity WHERE pid = {}",
+                self.pid
+            );
             for _ in 0..200 {
                 if scalar(&mut self.admin, &probe).await? == "0" {
                     return Ok(());
@@ -500,25 +510,59 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn real_serial_identity_and_generated_columns_import_and_sequences_resume() -> Result<(), PgError> {
+    async fn real_serial_identity_and_generated_columns_import_and_sequences_resume()
+    -> Result<(), PgError> {
         // Guards: identity-always rows refused without OVERRIDING, generated columns written
         // (and so refused), and the identity sequence left at 1 so the next insert collides.
-        let Some((server, root)) = start("ids").await? else { return Ok(()) };
+        let Some((server, root)) = start("ids").await? else {
+            return Ok(());
+        };
         let r = async {
             let mut c = server.connect().await?;
             c.exec(SCHEMA).await?;
-            let _ = import_table(&mut c, "serial_t", &rows(3, |i| json!({ "id": i + 1, "body": "s" }))).await?;
-            let _ = import_table(&mut c, "ident_t", &rows(3, |i| json!({ "id": i + 1, "body": "i" }))).await?;
+            let _ = import_table(
+                &mut c,
+                "serial_t",
+                &rows(3, |i| json!({ "id": i + 1, "body": "s" })),
+            )
+            .await?;
+            let _ = import_table(
+                &mut c,
+                "ident_t",
+                &rows(3, |i| json!({ "id": i + 1, "body": "i" })),
+            )
+            .await?;
             let _ = import_table(
                 &mut c,
                 "gen_t",
                 &rows(3, |i| json!({ "id": i + 1, "a": i + 1, "b": 999 })),
             )
             .await?;
-            assert_eq!(scalar(&mut c, "SELECT b FROM gen_t WHERE id = 2").await?, "4");
-            assert_eq!(scalar(&mut c, "INSERT INTO serial_t (body) VALUES ('new') RETURNING id").await?, "4");
-            assert_eq!(scalar(&mut c, "INSERT INTO ident_t (body) VALUES ('new') RETURNING id").await?, "4");
-            assert!(import_table(&mut c, "gen_only", &rows(1, |_| json!({ "b": 1 }))).await.is_err());
+            assert_eq!(
+                scalar(&mut c, "SELECT b FROM gen_t WHERE id = 2").await?,
+                "4"
+            );
+            assert_eq!(
+                scalar(
+                    &mut c,
+                    "INSERT INTO serial_t (body) VALUES ('new') RETURNING id"
+                )
+                .await?,
+                "4"
+            );
+            assert_eq!(
+                scalar(
+                    &mut c,
+                    "INSERT INTO ident_t (body) VALUES ('new') RETURNING id"
+                )
+                .await?,
+                "4"
+            );
+            assert!(
+                import_table(&mut c, "gen_only", &rows(1, |_| json!({ "b": 1 })))
+                    .await
+                    .is_err()
+            );
             Ok::<(), PgError>(())
         }
         .await;
@@ -526,18 +570,42 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn real_sequence_reset_never_moves_backwards_and_respects_minvalue() -> Result<(), PgError> {
+    async fn real_sequence_reset_never_moves_backwards_and_respects_minvalue() -> Result<(), PgError>
+    {
         // Guards: a reset setting the sequence to max+1 even when native rows already used higher
         // keys (moving it backwards), and ignoring MINVALUE.
-        let Some((server, root)) = start("seqmove").await? else { return Ok(()) };
+        let Some((server, root)) = start("seqmove").await? else {
+            return Ok(());
+        };
         let r = async {
             let mut c = server.connect().await?;
             c.exec(SCHEMA).await?;
-            c.exec("SELECT setval(pg_get_serial_sequence('serial_t', 'id'), 50, true)").await?;
-            let _ = import_table(&mut c, "serial_t", &rows(3, |i| json!({ "id": i + 1, "body": "s" }))).await?;
-            assert_eq!(scalar(&mut c, "INSERT INTO serial_t (body) VALUES ('n') RETURNING id").await?, "51");
-            let _ = import_table(&mut c, "minv", &rows(3, |i| json!({ "id": i + 1, "body": "m" }))).await?;
-            assert_eq!(scalar(&mut c, "INSERT INTO minv (body) VALUES ('n') RETURNING id").await?, "100");
+            c.exec("SELECT setval(pg_get_serial_sequence('serial_t', 'id'), 50, true)")
+                .await?;
+            let _ = import_table(
+                &mut c,
+                "serial_t",
+                &rows(3, |i| json!({ "id": i + 1, "body": "s" })),
+            )
+            .await?;
+            assert_eq!(
+                scalar(
+                    &mut c,
+                    "INSERT INTO serial_t (body) VALUES ('n') RETURNING id"
+                )
+                .await?,
+                "51"
+            );
+            let _ = import_table(
+                &mut c,
+                "minv",
+                &rows(3, |i| json!({ "id": i + 1, "body": "m" })),
+            )
+            .await?;
+            assert_eq!(
+                scalar(&mut c, "INSERT INTO minv (body) VALUES ('n') RETURNING id").await?,
+                "100"
+            );
             Ok::<(), PgError>(())
         }
         .await;
@@ -545,21 +613,30 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn real_pk_less_table_crash_before_commit_leaves_no_rows_and_rerun_matches_source() -> Result<(), PgError> {
+    async fn real_pk_less_table_crash_before_commit_leaves_no_rows_and_rerun_matches_source()
+    -> Result<(), PgError> {
         // Guards: a half-written keyless table left behind by a crash mid-import, which a rerun
         // would then duplicate.
-        let Some((server, root)) = start("pkless").await? else { return Ok(()) };
+        let Some((server, root)) = start("pkless").await? else {
+            return Ok(());
+        };
         let r = async {
             let mut c = server.connect().await?;
             c.exec(SCHEMA).await?;
             drop(c);
             let src = rows(10, |i| json!({ "seq": i + 1, "body": "x".repeat(1 << 20) }));
-            assert!(pack_batches(&src, BATCH_BYTES)?.len() >= 2, "needs two INSERTs");
+            assert!(
+                pack_batches(&src, BATCH_BYTES)?.len() >= 2,
+                "needs two INSERTs"
+            );
             let mut f = Faulty::open(&server, Fault::TerminateAtInsert(2)).await?;
             assert!(import_table(&mut f, "log_t", &src).await.is_err());
             let mut c = server.connect().await?;
             assert_eq!(scalar(&mut c, "SELECT count(*) FROM log_t").await?, "0");
-            assert_eq!(scalar(&mut c, "SELECT count(*) FROM wf_import.done").await?, "0");
+            assert_eq!(
+                scalar(&mut c, "SELECT count(*) FROM wf_import.done").await?,
+                "0"
+            );
             let again = import_table(&mut c, "log_t", &src).await?;
             assert_eq!(again.inserted, 10);
             assert_eq!(scalar(&mut c, "SELECT count(*) FROM log_t").await?, "10");
@@ -570,9 +647,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn real_dropped_connection_on_a_keyed_table_leaves_nothing_and_rerun_matches() -> Result<(), PgError> {
+    async fn real_dropped_connection_on_a_keyed_table_leaves_nothing_and_rerun_matches()
+    -> Result<(), PgError> {
         // Guards: a dropped connection leaving some rows committed for a table with a key.
-        let Some((server, root)) = start("drop").await? else { return Ok(()) };
+        let Some((server, root)) = start("drop").await? else {
+            return Ok(());
+        };
         let r = async {
             let mut c = server.connect().await?;
             c.exec(SCHEMA).await?;
@@ -591,10 +671,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn real_commit_that_succeeds_then_fails_on_the_client_does_not_duplicate_on_rerun() -> Result<(), PgError> {
+    async fn real_commit_that_succeeds_then_fails_on_the_client_does_not_duplicate_on_rerun()
+    -> Result<(), PgError> {
         // Guards: a crash after COMMIT but before the ledger is saved, which made a rerun insert
         // a keyless table's rows a second time. The ledger row is in the same transaction.
-        let Some((server, root)) = start("after").await? else { return Ok(()) };
+        let Some((server, root)) = start("after").await? else {
+            return Ok(());
+        };
         let r = async {
             let mut c = server.connect().await?;
             c.exec(SCHEMA).await?;
@@ -616,15 +699,24 @@ mod tests {
     #[tokio::test]
     async fn real_keyed_table_keeps_native_rows_and_counts_skipped_keys() -> Result<(), PgError> {
         // Guards: a non-empty native DB losing its own row, or duplicating an imported one.
-        let Some((server, root)) = start("keep").await? else { return Ok(()) };
+        let Some((server, root)) = start("keep").await? else {
+            return Ok(());
+        };
         let r = async {
             let mut c = server.connect().await?;
             c.exec(SCHEMA).await?;
-            c.exec("INSERT INTO serial_t (id, body) VALUES (1, 'native')").await?;
-            let src = vec![json!({ "id": 1, "body": "old" }), json!({ "id": 2, "body": "b" })];
+            c.exec("INSERT INTO serial_t (id, body) VALUES (1, 'native')")
+                .await?;
+            let src = vec![
+                json!({ "id": 1, "body": "old" }),
+                json!({ "id": 2, "body": "b" }),
+            ];
             let report = import_table(&mut c, "serial_t", &src).await?;
             assert_eq!((report.inserted, report.skipped), (1, 1));
-            assert_eq!(scalar(&mut c, "SELECT body FROM serial_t WHERE id = 1").await?, "native");
+            assert_eq!(
+                scalar(&mut c, "SELECT body FROM serial_t WHERE id = 1").await?,
+                "native"
+            );
             Ok::<(), PgError>(())
         }
         .await;
@@ -635,7 +727,9 @@ mod tests {
     async fn real_non_primary_key_unique_conflict_is_an_error_not_skipped() -> Result<(), PgError> {
         // Guards: ON CONFLICT with no target swallowing a clash on another UNIQUE column, losing
         // an old row without a word.
-        let Some((server, root)) = start("uniq").await? else { return Ok(()) };
+        let Some((server, root)) = start("uniq").await? else {
+            return Ok(());
+        };
         let r = async {
             let mut c = server.connect().await?;
             c.exec(SCHEMA).await?;
@@ -643,7 +737,10 @@ mod tests {
             let src = vec![json!({ "id": 2, "code": "X" })];
             assert!(import_table(&mut c, "uniq_t", &src).await.is_err());
             assert_eq!(scalar(&mut c, "SELECT count(*) FROM uniq_t").await?, "1");
-            assert_eq!(scalar(&mut c, "SELECT count(*) FROM wf_import.done").await?, "0");
+            assert_eq!(
+                scalar(&mut c, "SELECT count(*) FROM wf_import.done").await?,
+                "0"
+            );
             Ok::<(), PgError>(())
         }
         .await;
@@ -651,9 +748,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn real_commit_reports_the_rollback_tag_of_an_aborted_transaction() -> Result<(), PgError> {
+    async fn real_commit_reports_the_rollback_tag_of_an_aborted_transaction() -> Result<(), PgError>
+    {
         // Guards: COMMIT on an aborted transaction (the server answers ROLLBACK) reported as success.
-        let Some((server, root)) = start("tag").await? else { return Ok(()) };
+        let Some((server, root)) = start("tag").await? else {
+            return Ok(());
+        };
         let r = async {
             let mut c = server.connect().await?;
             c.exec(SCHEMA).await?;
@@ -672,10 +772,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn real_orchestrator_stops_at_a_failing_table_and_writes_the_marker_last() -> Result<(), PgError> {
+    async fn real_orchestrator_stops_at_a_failing_table_and_writes_the_marker_last()
+    -> Result<(), PgError> {
         // Guards: the marker written while a table is still missing, or later tables imported
         // after an earlier table failed.
-        let Some((server, root)) = start("orch").await? else { return Ok(()) };
+        let Some((server, root)) = start("orch").await? else {
+            return Ok(());
+        };
         let r = async {
             let mut c = server.connect().await?;
             c.exec(SCHEMA).await?;
@@ -689,8 +792,13 @@ mod tests {
             ];
             assert!(import_tables(&mut c, &plan, &marker).await.is_err());
             assert!(!marker.exists(), "no marker while a table is missing");
-            assert_eq!(scalar(&mut c, "SELECT count(*) FROM log_t").await?, "0", "later tables not started");
-            c.exec("CREATE TABLE nope (id int PRIMARY KEY, body text)").await?;
+            assert_eq!(
+                scalar(&mut c, "SELECT count(*) FROM log_t").await?,
+                "0",
+                "later tables not started"
+            );
+            c.exec("CREATE TABLE nope (id int PRIMARY KEY, body text)")
+                .await?;
             let plan: Vec<(&str, &[Value])> = vec![
                 ("serial_t", serial.as_slice()),
                 ("nope", serial.as_slice()),
@@ -699,7 +807,11 @@ mod tests {
             let reports = import_tables(&mut c, &plan, &marker).await?;
             assert_eq!(reports.len(), 3);
             assert!(marker.exists());
-            assert_eq!(scalar(&mut c, "SELECT count(*) FROM serial_t").await?, "3", "no duplicates on rerun");
+            assert_eq!(
+                scalar(&mut c, "SELECT count(*) FROM serial_t").await?,
+                "3",
+                "no duplicates on rerun"
+            );
             Ok::<(), PgError>(())
         }
         .await;
@@ -707,18 +819,28 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn real_table_and_column_names_with_quotes_and_dollar_signs_import() -> Result<(), PgError> {
+    async fn real_table_and_column_names_with_quotes_and_dollar_signs_import() -> Result<(), PgError>
+    {
         // Guards: a table name with quotes or $$ breaking the reset SQL (the old DO block) or the
         // insert, so the table is unusable.
-        let Some((server, root)) = start("names").await? else { return Ok(()) };
+        let Some((server, root)) = start("names").await? else {
+            return Ok(());
+        };
         let r = async {
             let mut c = server.connect().await?;
-            c.exec("CREATE TABLE \"we\"\"ird $$ name\" (\"my id\" serial PRIMARY KEY, \"b d\" text)").await?;
+            c.exec(
+                "CREATE TABLE \"we\"\"ird $$ name\" (\"my id\" serial PRIMARY KEY, \"b d\" text)",
+            )
+            .await?;
             let src = rows(2, |i| json!({ "my id": i + 1, "b d": "v" }));
             let report = import_table(&mut c, "we\"ird $$ name", &src).await?;
             assert_eq!(report.inserted, 2);
             assert_eq!(
-                scalar(&mut c, "INSERT INTO \"we\"\"ird $$ name\" (\"b d\") VALUES ('n') RETURNING \"my id\"").await?,
+                scalar(
+                    &mut c,
+                    "INSERT INTO \"we\"\"ird $$ name\" (\"b d\") VALUES ('n') RETURNING \"my id\""
+                )
+                .await?,
                 "3"
             );
             Ok::<(), PgError>(())
