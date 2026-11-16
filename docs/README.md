@@ -26,6 +26,7 @@ For somebody using the app.
 - [Reader](using/reader.md) — opening a paper's PDF, annotating it, and following its citations
 - [Notes](using/notes.md) — creating, importing, renaming and tagging notes, and deleting with Undo
 - [Canvas](using/canvas.md) — free-form boards of text, notes, files and links, arrows and groups, saved as Obsidian-compatible `.canvas` files
+- [Import a OneNote section](using/onenote-import.md) — bringing a OneNote `.one` section in as free-form pages, with text, pictures and handwriting in place
 - [Tags](using/tags.md) — adding tags to notes and papers, finding everything with one tag, and removing one
 - [Handwriting](using/ink.md) — writing and drawing on a page, figures, recognition, printing and shortcuts
 - [Reading lists](using/reading-lists.md) — grouping papers by theme, sublists, screening and comparison tables

@@ -29,6 +29,9 @@ A canvas opens in the canvas editor on the Notes page. Its card in the Notes lis
 says "Canvas" where a note shows its first lines. In the editor, a canvas tab and
 its breadcrumb end in `.canvas`.
 
+A page imported from OneNote is also a canvas. See
+[Import a OneNote section](onenote-import.md).
+
 ### Modes
 
 The toolbar has four modes. The pressed one is the one in use.
