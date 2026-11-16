@@ -33,7 +33,7 @@ function inScreen(active: boolean) {
   return createElement(
     ScreenActiveContext.Provider,
     { value: active },
-    createElement(Modal, { title: "Paper", onClose: () => {} }, createElement("p", null, "body")),
+    createElement(Modal, { title: "Paper", onClose: () => {}, children: createElement("p", null, "body") }),
   );
 }
 
