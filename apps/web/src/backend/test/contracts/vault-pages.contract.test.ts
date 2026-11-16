@@ -1,7 +1,9 @@
 // contract-repos: vault_pages
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VaultPage } from "@weaveforge/core";
+import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import { rustVaultPageRepository } from "@/backend/providers/postgrest/rust-repository";
 import { testDb } from "../pg-test-db";
 import { clientFor, projectFor, seedProject, type Db } from "./harness";
@@ -224,4 +226,42 @@ test("update: pins and unpins a note, keeping its body", async () => {
   assert.equal((await repo.getById(created.id))?.body, "text");
   const unpinned = await repo.update(created.id, { pinned: false });
   assert.equal(unpinned.pinned, false);
+});
+
+test("update: a save based on a stale version matches no row, so the guard reads again and merges", async () => {
+  const db = await testDb();
+  const userId = await db.createUser();
+  const projectId = await seedProject(db, userId);
+  const base = "line one\nline two\nline three";
+  // Another save lands between the guard's read and its write: the write names
+  // the version it read, which is stale by then.
+  let raced = false;
+  const versionedWrites: unknown[][] = [];
+  const query = db.as(userId).sql as LocalQuery;
+  const racing: LocalQuery = async (sql, params) => {
+    const isVersionedWrite = /^\s*update\b/i.test(sql) && /vault_pages/.test(sql) && /row_version/.test(sql);
+    if (isVersionedWrite && !raced) {
+      raced = true;
+      await db.sql("update vault_pages set body = $1 where id = $2", [
+        "line one\nline two\nline THREE (theirs)",
+        page.id,
+      ]);
+    }
+    const rows = await query(sql, params);
+    if (isVersionedWrite) versionedWrites.push(rows);
+    return rows;
+  };
+  const repo = rustVaultPageRepository(
+    createLocalClient(racing) as unknown as SupabaseClient,
+    projectFor(projectId),
+  );
+  const page = await repo.add({ title: "Raced", body: base });
+
+  const saved = await repo.update(page.id, { body: "line ONE (ours)\nline two\nline three", baseBody: base });
+
+  assert.equal(raced, true, "the race was injected before the versioned write");
+  assert.deepEqual(versionedWrites[0], [], "the stale-version write matched no row");
+  assert.equal(versionedWrites.length, 2, "the guard read again and wrote once more");
+  assert.equal(saved.body, "line ONE (ours)\nline two\nline THREE (theirs)");
+  assert.equal((await repo.getById(page.id))?.body, saved.body);
 });

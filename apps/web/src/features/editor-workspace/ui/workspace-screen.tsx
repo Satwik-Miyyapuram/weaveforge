@@ -16,6 +16,7 @@ import {
   type Document,
   isTypingTarget,
   loadWorkspace,
+  NoteSaves,
   readHidden,
   readLayout,
   type WorkspaceData,
@@ -181,6 +182,12 @@ export function WorkspaceScreen() {
   dirtyRef.current = dirty;
   const pendingRef = useRef(0);
   const { bodies: hydrated, hydrate } = useNoteBodies(setDocuments, setError);
+  // One save of a note at a time, each naming the body the last one stored.
+  // Made once and kept: a new one would drop the queues of saves in flight.
+  // `hydrated` is `useNoteBodies`'s ref map, the same map every render.
+  const noteSavesRef = useRef<NoteSaves | null>(null);
+  noteSavesRef.current ??= new NoteSaves(hydrated);
+  const noteSaves = noteSavesRef.current;
   // Each reload's number: late Overleaf rows apply only to the newest load.
   const loadRef = useRef(0);
   const reload = useCallback(async () => {
@@ -287,7 +294,7 @@ export function WorkspaceScreen() {
   documentsRef.current = documents;
 
   const save = useCallback(
-    async (tab: TabRef, body: string) => {
+    async (tab: TabRef, body: string, meta?: { sessionDigests: readonly string[] }): Promise<string | void> => {
       // A body may only go back to the store once the full one has come in.
       // The editor is not mounted before that, but an editor that saved the
       // 320-character preview would overwrite the note with it — a loss the
@@ -305,33 +312,61 @@ export function WorkspaceScreen() {
         // `if (kind === …)` chain. It cannot live in `ui/kind.ts` — the values
         // are container calls, and that table is pure data — but it is the same
         // kind of per-kind column, and it is the one an ink note adds a row to.
+        // A note's save names the body the store held when it was sent (the
+        // last save's stored body, else the one the note loaded with), so an
+        // edit someone else saved since is merged in or kept as a copy, never
+        // overwritten. It resolves the stored body, which differs from the one
+        // sent when the store merged them.
+        const saveNote = (id: string, next: string) =>
+          noteSaves.run(id, doc?.body, async (base) => {
+            const saved = await container.vault.manageVaultPage.update(id, {
+              body: next,
+              ...(base !== undefined ? { baseBody: base } : {}),
+              ...(meta ? { sessionDigests: meta.sessionDigests } : {}),
+            });
+            if (saved.conflictCopyId) {
+              setError(
+                "Someone else changed this note at the same time. Your text was saved; theirs is kept as a conflict copy beside it.",
+              );
+              void reload();
+            }
+            return saved.body;
+          });
         const writers: Record<string, (id: string, next: string) => Promise<unknown>> = {
-          vault_page: (id, next) => container.vault.manageVaultPage.update(id, { body: next }),
+          vault_page: saveNote,
           // An ink note is a vault page whose body starts with the ink header (§4.1).
-          ink_page: (id, next) => container.vault.manageVaultPage.update(id, { body: next }),
+          ink_page: saveNote,
           paper: (id, next) => container.papers.updatePaper.setSummary(id, next),
           report_section: (id, next) => container.report.manageReportSection.setNotes(id, next),
           // A log entry is markdown, so the editor's text *is* the entry's body.
           // The kind is not ours to write: see LogbookFacade.saveEntryBody.
           log_entry: (id, next) => container.logbook.saveEntryBody(id, next),
         };
-        await writers[tab.kind]?.(tab.id, body);
+        const result = await writers[tab.kind]?.(tab.id, body);
+        const stored = typeof result === "string" ? result : body;
         setDirty(false);
-        if (hasLazyBody(tab.kind)) hydrated.set(tab.id, body);
+        // A note's queue keeps its stored body; another kind keeps the one sent.
+        if (hasLazyBody(tab.kind) && typeof result !== "string") hydrated.set(tab.id, body);
         setDocuments((current) =>
           (current ?? []).map((doc) =>
-            doc.kind === tab.kind && doc.id === tab.id ? { ...doc, body, hydrated: true } : doc,
+            doc.kind === tab.kind && doc.id === tab.id ? { ...doc, body: stored, hydrated: true } : doc,
           ),
         );
+        return stored;
       } catch (err) {
         setDirty(true);
         setError(formatError(err));
+        // The live editor (the only caller that names its session's saves)
+        // must know the save failed: it takes back its saved-body mark and
+        // keeps the edit dirty, and compaction must not trust the body.
+        // Others fire and forget, so for them the notice is the report.
+        if (meta) throw err;
       } finally {
         pendingRef.current -= 1;
         setPending(pendingRef.current);
       }
     },
-    [hydrated],
+    [hydrated, noteSaves, reload],
   );
 
   // The browser only honours the guard if the handler is registered before the
@@ -534,7 +569,7 @@ export function WorkspaceScreen() {
           links={links}
           completions={completions}
           tags={tags}
-          onSave={(body: string) => save(tab, body)}
+          onSave={(body, meta) => save(tab, body, meta)}
           onMetrics={(next) => setMetrics((current) => ({ ...current, [key]: next }))}
           onOpenLink={openLink}
           onCreateNote={createMode === "create" ? createFromLink : undefined}

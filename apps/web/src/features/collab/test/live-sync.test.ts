@@ -581,7 +581,8 @@ test("live: a send that fails on a joined channel is requeued in order", async (
   const store = memoryCrdtStore();
   const a = makeClient(server, store);
   const b = makeClient(server, store);
-  await run();
+  // Past the hello window: the seed's state message would carry the edit too.
+  await run(1000);
 
   a.client.current().failSends = 1;
   a.doc.getText("body").insert(0, "one ");

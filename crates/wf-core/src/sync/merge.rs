@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::sync::instant::parse_instant;
+use crate::sync::text_merge::{TextMerge, merge_text};
 
 /// Columns the sync machinery owns; the server is the only author of them.
 const RESERVED: [&str; 4] = ["id", "server_seq", "row_version", "created_at"];
@@ -81,6 +82,15 @@ pub fn merge_rows(
         // An edit stamp is not work: the later one wins.
         if field == "updated_at" {
             set_field(&mut merged, field, later_stamp(l, r));
+            continue;
+        }
+        // A note body both sides edited: their changes to different lines both land.
+        if field == "body"
+            && let (Some(Value::String(b)), Some(Value::String(l)), Some(Value::String(r))) =
+                (b, l, r)
+            && let TextMerge::Clean(text) = merge_text(b, l, r)
+        {
+            set_field(&mut merged, field, Some(&Value::String(text)));
             continue;
         }
         // The server's value stands so this device agrees with it until the reader decides.
