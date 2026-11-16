@@ -2,7 +2,7 @@
 covers:
   - apps/web/src/features/workspace
   - crates/wf-core/src/workspace
-checked: 2026-11-14
+checked: 2026-11-16
 ---
 # The workspace folder
 
@@ -69,6 +69,13 @@ both sides rewrote — is reported as a conflict naming the fields that actually
 collided, and nothing is written over until you say which copy wins.
 
 Three ways out, per file: keep this app's copy, take the folder's, or keep both.
+
+## Canvases
+
+A [canvas](canvas.md) is written as a `.canvas` file in `notes/`, with no
+frontmatter. Because the file carries no id, the mirror records which canvas each
+file belongs to in `.weaveforge/canvas-ids.json`. Leave that file alone. If it is
+damaged, your canvases are held until you repair or remove it.
 
 ## Dropping a file in by hand
 

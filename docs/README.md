@@ -48,6 +48,8 @@ For somebody changing the code.
 - [How WeaveForge is put together](building/architecture-map.md) — where code lives and what runs offline
 - [Core modules](building/core/README.md) — one page per Rust core module: what is in Rust, how the app calls it, what stays in TypeScript
 - [The atlas](atlas.html) — the same map as one drawn page, every figure read off this commit
+- [Performance](building/performance.md) — keep-alive screens, the boot snapshot, idle memory and how to measure them
+- [Text merge](building/core/text_merge.md) — the three-way merge behind conflict copies
 - [Developer guide](building/dev.md) — running it, the checks, the hygiene rules
 - [Design principles](building/design.md)
 - [Theming](building/themes.md)

@@ -2,7 +2,7 @@
 covers:
   - apps/web/src/features/vault
   - crates/wf-core/src/vault
-checked: 2026-11-14
+checked: 2026-11-16
 ---
 # Notes
 
@@ -69,6 +69,13 @@ with `#hashtags`.
 4. When the toast closes, or you click its close button, the note is deleted.
 5. If the delete fails, the note comes back and a toast says so.
 
+### When two places save at once
+
+If someone else saves the same note while you do, the two texts are merged. If
+they overlap, your text is kept and theirs appears in the list as
+"<title> (conflict copy <date> <time>)". See
+[a note or canvas edited in two places](sync.md#a-note-or-canvas-edited-in-two-places).
+
 ### Remove a shared note from your library
 
 1. A note shared with you can be pinned to your library.
@@ -116,6 +123,7 @@ with `#hashtags`.
 | `Loading notes…` | Screen is loading |
 | `Opening note…` | A note is opening |
 | `"<title>" deleted` | Delete toast |
+| `Someone else changed this note at the same time. Your text was saved; theirs is kept as a conflict copy beside it.` | Two places saved the same note and the texts overlapped |
 
 ### Sections on an open note
 

@@ -57,7 +57,12 @@ needed. The shell in `apps/web/src/features/` calls the wrappers.
 `workspace_tree` builds the explorer from entities that are already loaded. It
 has four roots: notes, papers, report and logbook. An Overleaf leaf sits under
 the same tree when the project is linked. The tree is derived, not stored, so it
-is rebuilt whenever the loaded entities change.
+is rebuilt whenever the loaded entities change. The notes root lists canvases
+beside notes, and the explorer can create one (`CreateKind::Canvas` in
+`explorer_edit.rs`, the New canvas button), which opens in the canvas editor
+([canvas](canvas.md)). A canvas tab and the last part of its breadcrumb show
+the `.canvas` suffix (`suffixFor` in `workspace-screen.tsx`, passed to
+`pane-view.tsx` and `breadcrumbs.tsx`).
 
 ## What stays in TypeScript, and why
 

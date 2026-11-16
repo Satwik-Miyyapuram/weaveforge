@@ -3,7 +3,7 @@ covers:
   - apps/web/src/features/sync
   - apps/web/src/features/offline-sync
   - crates/wf-core/src/sync
-checked: 2026-11-14
+checked: 2026-11-16
 ---
 # How your work is stored and synced
 
@@ -155,6 +155,22 @@ written beside the note rather than inside it, so settling a conflict decides th
 note's *text* and nothing else: both sides' pages stay and are drawn together.
 Strokes have one home — the workspace folder while one is open, the account's
 storage otherwise — so two devices' handwriting meets where their homes meet.
+
+### A note or canvas edited in two places
+
+When the same note or canvas is saved from two places at nearly the same time,
+for example two devices or you and a teammate, the app merges the two texts the
+way git does, using the text both started from. If the changes do not overlap,
+both are kept and you see nothing. If they overlap, your text is saved as the
+note and the other copy is kept beside it as "<title> (conflict copy <date>
+<time>)". The note then says "Someone else changed this note at the same time.
+Your text was saved; theirs is kept as a conflict copy beside it." Open the copy,
+move across what you want, and delete it. A canvas works the same way and its
+copy is a canvas. See [canvas](canvas.md).
+
+A canvas in the workspace folder has one extra case. It is matched to its canvas
+through `.weaveforge/canvas-ids.json`. If that file cannot be read, the canvases
+are held, not imported, and the conflict card says to repair or remove the file.
 
 
 ## Syncing to your account
