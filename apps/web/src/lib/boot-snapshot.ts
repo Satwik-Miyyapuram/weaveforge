@@ -1,4 +1,5 @@
 import { readDeviceSnapshot, writeDeviceSnapshot } from "@/lib/cache/parts";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { removeStored } from "@/lib/safe-storage";
 
 /**
@@ -91,7 +92,7 @@ export function saveBootSnapshot(at: {
     screens: screens.slice(-MAX_SCREENS),
   };
   writeDeviceSnapshot(NAME, record);
-  return fits && readRecord() !== null;
+  return fits && desktop() !== null;
 }
 
 export function forgetBootSnapshot(): void {

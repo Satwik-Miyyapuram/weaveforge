@@ -3,7 +3,7 @@
  * read-only while the core and the database start, gone as soon as the live
  * screen is up or anything says it might be wrong.
  */
-import { test } from "node:test";
+import { afterEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
@@ -12,6 +12,9 @@ import { markScreenShown } from "@/lib/screen-shown";
 import { BootSnapshotView } from "../boot-snapshot";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+// A mark from an earlier test would read as "the live screen is already up".
+afterEach(() => performance.clearMarks());
 
 const snap = { html: "<div class=\"layout\">last screen</div>", userId: "u1" };
 
@@ -114,4 +117,39 @@ test("a broken load is a miss, not an error", async () => {
   const tree = await mount({ userId: undefined, load: () => Promise.reject(new Error("boom")) });
   assert.equal(overlay(tree), undefined);
   await act(async () => tree.unmount());
+});
+
+test("a screen already shown before the snapshot loaded: never painted", async () => {
+  performance.mark("wf:screen:papers:shown");
+  try {
+    const tree = await mount({ userId: "u1" });
+    assert.equal(overlay(tree), undefined);
+    await act(async () => tree.unmount());
+  } finally {
+    performance.clearMarks("wf:screen:papers:shown");
+  }
+});
+
+test("the first click is swallowed and dismisses the picture", async () => {
+  const target = new EventTarget();
+  const g = globalThis as { window?: unknown };
+  const had = "window" in g;
+  const real = g.window;
+  g.window = target;
+  try {
+    const tree = await mount({ userId: "u1" });
+    assert.equal(overlay(tree)?.props.style?.pointerEvents, "auto");
+    const calls: string[] = [];
+    const ev = Object.assign(new Event("pointerdown"), {
+      preventDefault: () => calls.push("prevent"),
+      stopPropagation: () => calls.push("stop"),
+    });
+    await act(async () => void target.dispatchEvent(ev));
+    assert.deepEqual(calls.sort(), ["prevent", "stop"]);
+    assert.equal(overlay(tree), undefined);
+    await act(async () => tree.unmount());
+  } finally {
+    if (had) g.window = real;
+    else delete g.window;
+  }
 });

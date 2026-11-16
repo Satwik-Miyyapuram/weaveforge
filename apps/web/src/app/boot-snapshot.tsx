@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/features/auth/ui/auth-provider";
+import { registerSessionReset } from "@/lib/cache/parts";
 import { forgetBootSnapshot, readBootSnapshot, saveBootSnapshot, screenPath, styleBuildKey } from "@/lib/boot-snapshot";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readStored } from "@/lib/safe-storage";
@@ -27,6 +28,8 @@ const MAX_SHOW_MS = 10_000;
 /** `ProjectProvider`'s key for the project the app opens on. */
 const PROJECT_KEY = "thesis.projectId";
 const SHOWN_MARK = "wf:boot:snapshot:shown";
+/** The mark `markScreenShown` leaves for a live screen (`lib/screen-shown.ts`). */
+const SHOWN_PATTERN = /^wf:screen:.+:shown$/;
 
 /** Left out of the saved markup: live-only, heavy, or wrong once restarted. */
 const STRIP =
@@ -100,22 +103,43 @@ export function BootSnapshotView({
   useEffect(() => {
     if (!shown) return;
     if (typeof performance !== "undefined" && typeof performance.mark === "function") performance.mark(SHOWN_MARK);
+    // The live screen may have reported before the snapshot finished loading.
+    if (typeof performance !== "undefined" && typeof performance.getEntriesByType === "function") {
+      if (performance.getEntriesByType("mark").some((m) => SHOWN_PATTERN.test(m.name))) {
+        setDone(true);
+        return;
+      }
+    }
     const end = () => setDone(true);
+    // The first click is swallowed, so it never lands on what is underneath.
+    const swallow = (event: Event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      end();
+    };
     const off = onScreenShown(end);
     const timer = setTimeout(end, MAX_SHOW_MS);
     const host = typeof window === "undefined" ? null : window;
-    host?.addEventListener("pointerdown", end, true);
+    host?.addEventListener("pointerdown", swallow, true);
     host?.addEventListener("keydown", end, true);
     return () => {
       off();
       clearTimeout(timer);
-      host?.removeEventListener("pointerdown", end, true);
+      host?.removeEventListener("pointerdown", swallow, true);
       host?.removeEventListener("keydown", end, true);
     };
   }, [shown]);
 
   if (!shown) return null;
-  return <div className="boot-snapshot" aria-hidden inert dangerouslySetInnerHTML={{ __html: snap.html }} />;
+  return (
+    <div
+      className="boot-snapshot"
+      style={{ pointerEvents: "auto" }}
+      aria-hidden
+      inert
+      dangerouslySetInnerHTML={{ __html: snap.html }}
+    />
+  );
 }
 
 /** This build's stylesheets: the saved markup is only right with the CSS it was drawn with. */
@@ -139,25 +163,48 @@ async function loadHere(): Promise<Snap | null> {
 /** The live shell's markup, without what must not be painted again. */
 function captureLayout(): string | null {
   const live = [...document.querySelectorAll(".layout")].find((el) => !el.closest(".boot-snapshot"));
-  if (!live) return null;
-  const copy = live.cloneNode(true) as Element;
-  for (const el of copy.querySelectorAll(STRIP)) el.remove();
+  return live ? captureLayoutFrom(live) : null;
+}
+
+/** Copies `node` without the parts `STRIP` names, so a hidden host is never cloned. */
+function copyWithout(node: Node): Node {
+  const copy = node.cloneNode(false);
+  for (const child of Array.from(node.childNodes)) {
+    if (child.nodeType === 1 && (child as Element).matches(STRIP)) continue;
+    copy.appendChild(copyWithout(child));
+  }
+  return copy;
+}
+
+/** Exported for tests. */
+export function captureLayoutFrom(live: Element): string {
+  const copy = copyWithout(live) as Element;
   copy.classList.remove("anim");
   return copy.outerHTML;
 }
 
 /**
  * Saves the screen on show (when the browser is idle) and when the window is
- * hidden or closed, so the next start has the latest one.
+ * hidden or closed, so the next start has the latest one. Only a path that
+ * reported "shown" is saved, so closing on settings never paints settings.
+ * Signing out forgets the snapshot and stops saving until another user is set.
+ * Exported for tests.
  */
-function useBootSnapshotRecorder(userId: string | null): void {
+export function useBootSnapshotRecorder(userId: string | null, capture: () => string | null = captureLayout): void {
   useEffect(() => {
     if (!userId || !desktop()) return;
     let pending: ReturnType<typeof setTimeout> | number | undefined;
+    let blocked = false;
+    let shownPath: string | null = null;
+    let lastSaved: string | null = null;
     const save = () => {
+      if (blocked || shownPath === null || screenPath(window.location.pathname) !== shownPath) return;
       const projectId = readStored(PROJECT_KEY);
-      const html = captureLayout();
+      const html = capture();
       if (!projectId || !html) return;
+      const stamp = `${shownPath}\n${html}`;
+      if (stamp === lastSaved) return;
+      lastSaved = stamp;
       saveBootSnapshot({ build: currentBuild(), userId, projectId, path: window.location.pathname, html });
     };
     const cancel = () => {
@@ -173,17 +220,32 @@ function useBootSnapshotRecorder(userId: string | null): void {
           ? window.requestIdleCallback(save, { timeout: 2000 })
           : setTimeout(save, 500);
     };
+    const onShown = () => {
+      shownPath = screenPath(window.location.pathname);
+      later();
+    };
     const onHidden = () => {
       if (document.visibilityState === "hidden") save();
     };
-    const off = onScreenShown(later);
+    const offReset = registerSessionReset(() => {
+      blocked = true;
+      cancel();
+      lastSaved = null;
+      forgetBootSnapshot();
+    });
+    const off = onScreenShown(onShown);
+    // A screen that reported before this effect ran is still on show.
+    if (typeof performance !== "undefined" && typeof performance.getEntriesByType === "function") {
+      if (performance.getEntriesByType("mark").some((m) => SHOWN_PATTERN.test(m.name))) onShown();
+    }
     window.addEventListener("pagehide", save);
     document.addEventListener("visibilitychange", onHidden);
     return () => {
       off();
+      offReset();
       cancel();
       window.removeEventListener("pagehide", save);
       document.removeEventListener("visibilitychange", onHidden);
     };
-  }, [userId]);
+  }, [userId, capture]);
 }

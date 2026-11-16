@@ -286,7 +286,8 @@ When the window opens, the screen you left is there straight away, while the
 app starts behind it. That first look is a picture of the screen you last saw.
 You cannot click or type in it, and it is swapped for the live screen as soon
 as the app is ready, usually within a second or two. Click or press a key
-before then and the picture goes, so nothing you do lands on it.
+before then and the picture goes; that first click is not passed on, so nothing
+you do lands on it.
 
 The picture is kept only on this computer, only for the last three screens of
 the project you had open, and only for the version of the app that drew it.
