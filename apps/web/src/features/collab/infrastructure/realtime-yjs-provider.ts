@@ -29,6 +29,7 @@ const SEED_FALLBACK_MS = 4000;
  */
 type SyncMessage =
   | { type: "hello"; id: number; seeded: boolean; sv: string }
+  | { type: "bye"; id: number }
   | { type: "state"; id: number; seeded: boolean; sv: string; data: string; ack?: boolean };
 
 export interface RealtimeYjsProviderOptions {
@@ -229,6 +230,12 @@ export class RealtimeYjsProvider {
 
   private onSync(msg: SyncMessage) {
     if (this.destroyed || typeof msg?.id !== "number" || msg.id === this.opts.doc.clientID) return;
+    if (msg.type === "bye") {
+      // A peer that left will never seed: stop waiting for it.
+      this.peers.delete(msg.id);
+      this.maybeSeed();
+      return;
+    }
     this.peers.set(msg.id, msg.seeded === true || this.peers.get(msg.id) === true);
     if (msg.type === "state") {
       if (msg.data) Y.applyUpdate(this.opts.doc, readyCore().decodeBase64(msg.data), this);
@@ -270,9 +277,14 @@ export class RealtimeYjsProvider {
       .catch((err) => this.opts.onError?.("send", formatError(err)));
   }
 
-  /** Listen for peers for a moment once the log is replayed and the channel joined. */
+  /**
+   * Listen for peers for a moment once the log is replayed and the channel
+   * joined. The fallback starts here too, not at replay: a join slower than
+   * the fallback would otherwise seed before any peer was heard.
+   */
   private openWindow() {
     if (!this.booted || !this.subscribed || this.windowTimer || this.seeded) return;
+    this.fallbackTimer ??= setTimeout(() => this.maybeSeed(true), SEED_FALLBACK_MS);
     this.windowTimer = setTimeout(() => {
       this.windowOpen = false;
       this.maybeSeed();
@@ -288,8 +300,8 @@ export class RealtimeYjsProvider {
    * client reconciles alone only when it has nobody to wait for: no channel, a
    * seeded peer's state already merged in (its reconcile is then a no-op), or
    * the listening window closed with no lower client id still unseeded. The
-   * others wait for that client's state. The fallback covers a peer that left
-   * before seeding.
+   * others wait for that client's state. A peer that leaves unseeded says
+   * "bye"; the fallback covers one that drops without a word.
    */
   private maybeSeed(force = false) {
     if (this.seeded || this.destroyed || !this.booted) return;
@@ -334,7 +346,6 @@ export class RealtimeYjsProvider {
       // channel it waits for them first: see `maybeSeed`.
       this.booted = true;
       if (!this.destroyed) {
-        this.fallbackTimer = setTimeout(() => this.maybeSeed(true), SEED_FALLBACK_MS);
         this.openWindow();
         this.maybeSeed();
       }
@@ -436,6 +447,10 @@ export class RealtimeYjsProvider {
     // logged "Uncaught (in promise)" on every exit from Edit mode. They are
     // reported through `onError` instead: the row body has its own save, so
     // the failure is worth a notice, not a crash.
+    // Unseeded, say so first: a peer waiting on this client's lower id would
+    // otherwise wait out the whole fallback. `sendSync` still runs: only
+    // `onSync` checks `destroyed`.
+    if (!this.seeded) this.sendSync({ type: "bye", id: this.opts.doc.clientID });
     this.channel?.unsubscribe().catch((err) => this.opts.onError?.("leave", formatError(err)));
 
     // Forced: `destroyed` is already true above, and this is the flush that

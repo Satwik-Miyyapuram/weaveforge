@@ -34,7 +34,8 @@ const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms));
 function bus() {
   const members: Map<string, Handler>[] = [];
   return {
-    db() {
+    /** `joinAfterMs`: how long the channel takes to report it joined. */
+    db(joinAfterMs = 0) {
       const handlers = new Map<string, Handler>();
       members.push(handlers);
       const channel = {
@@ -44,7 +45,7 @@ function bus() {
           return channel;
         },
         subscribe(cb?: (status: string) => void) {
-          setTimeout(() => cb?.("SUBSCRIBED"), 0);
+          setTimeout(() => cb?.("SUBSCRIBED"), joinAfterMs);
           return channel;
         },
         send: async (msg: { event: string; payload: unknown }) => {
@@ -64,13 +65,13 @@ function bus() {
 }
 
 /** A client that replays `log` and reconciles it with `body`, as the editor does. */
-function client(net: ReturnType<typeof bus>, id: number, log: Uint8Array[], body: string) {
+function client(net: ReturnType<typeof bus>, id: number, log: Uint8Array[], body: string, joinAfterMs = 0) {
   const doc = new Y.Doc();
   doc.clientID = id;
   let seeded = false;
   const provider = new RealtimeYjsProvider({
     doc,
-    db: net.db() as never,
+    db: net.db(joinAfterMs) as never,
     crdtStore: {
       listAfter: async () => log.map((payload, i) => ({ id: i + 1, payload })),
       append: async () => ({ id: 1 }),
@@ -158,4 +159,49 @@ test("sync: a solo document seeds as soon as the log is replayed", async () => {
   await tick(0);
   assert.equal(seeded, true);
   await provider.destroy();
+});
+
+/** Two reads of one log that rebuild one body differently, as in the first test. */
+function divergentLogs() {
+  const origin = new Y.Doc();
+  origin.clientID = 7;
+  origin.getText("body").insert(0, "abcdef");
+  markSaved(origin, digest("abcdef"));
+  const early = Y.encodeStateAsUpdate(origin);
+  origin.getText("body").delete(1, 1);
+  return { early, late: Y.encodeStateAsUpdate(origin) };
+}
+
+test("sync: a client slow to join waits for its peers, not the fallback, before it seeds", async () => {
+  const { early, late } = divergentLogs();
+  const net = bus();
+  const alice = client(net, 101, [early], "abXdef");
+  await until(alice.isSeeded, "alice's seed");
+  // Bob's channel takes longer to join than the fallback: it must still hear
+  // Alice's state first, not rebuild the body from its own read alone.
+  const bob = client(net, 50, [late], "abXdef", 4_500);
+  await until(bob.isSeeded, "bob's seed");
+  await tick(400);
+
+  assert.equal(text(bob.doc), text(alice.doc), "both clients hold the same text");
+  assert.equal(text(bob.doc).split("X").length - 1, 1, `one X, got ${JSON.stringify(text(bob.doc))}`);
+  await Promise.all([alice.provider.destroy(), bob.provider.destroy()]);
+});
+
+test("sync: a lower-id peer that leaves before seeding is not waited for", async () => {
+  const { early } = divergentLogs();
+  const net = bus();
+  const carol = client(net, 50, [early], "abXdef");
+  const alice = client(net, 101, [early], "abXdef");
+  const started = Date.now();
+  await tick(100);
+  assert.equal(carol.isSeeded(), false, "carol leaves inside the window, unseeded");
+  await carol.provider.destroy();
+  await until(alice.isSeeded, "alice's seed");
+  assert.ok(
+    Date.now() - started < 2_000,
+    `alice seeded after the window, not the fallback (${Date.now() - started} ms)`,
+  );
+  assert.equal(text(alice.doc), "abXdef");
+  await alice.provider.destroy();
 });
