@@ -5,6 +5,7 @@ use std::sync::Arc;
 use serde_json::Value;
 
 use crate::local_pg::host::{PgEngine, PgHost};
+use crate::local_pg::import::TableReport;
 
 /// The native Postgres database.
 pub type NativeDb = Arc<PgHost<PgEngine>>;
@@ -103,6 +104,31 @@ impl LocalDb {
     /// Resets the database.
     pub async fn reset(&self) -> Result<(), ShellError> {
         self.native()?.reset().await.map_err(ShellError::from)
+    }
+
+    /// Imports `rows` into `table` on the owner session; each call commits or rolls back on its own.
+    pub async fn import_table(
+        &self,
+        table: &str,
+        rows: &[Value],
+    ) -> Result<TableReport, ShellError> {
+        self.native()?
+            .import_table(table, rows)
+            .await
+            .map_err(ShellError::from)
+    }
+
+    /// Writes the import marker in the data dir once every table in `tables` is in the ledger.
+    pub async fn import_finish(
+        &self,
+        tables: &[String],
+        marker: &std::path::Path,
+    ) -> Result<(), ShellError> {
+        let names: Vec<&str> = tables.iter().map(String::as_str).collect();
+        self.native()?
+            .import_done(&names, marker)
+            .await
+            .map_err(ShellError::from)
     }
 
     /// Closes the native database.
@@ -219,6 +245,10 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         db_query,
         db_state,
         db_reset,
+        crate::cmd_import::old_db_import_table,
+        crate::cmd_import::old_db_import_finish,
+        crate::cmd_import::old_db_status,
+        crate::cmd_import::old_db_tar,
         local_api_call,
         crate::local_files::local_file_read,
         crate::local_files::local_file_write,

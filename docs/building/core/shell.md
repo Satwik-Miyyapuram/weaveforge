@@ -16,4 +16,12 @@
 
 Building and testing WeaveForge Dev: `.agents/testing.md`.
 
+## Electron data migration (`migrate.rs`)
+
+- Source: the Electron userData dir for the release, `<appData>/@weaveforge/desktop` (fallback `<appData>/<productName>`). The first candidate holding `local-db` or `preferences.json` wins. A repo-checkout run (`AppSource::Dev`) never reads it.
+- The copy is read-only on the Electron side: the old dir is byte-identical after a run, and no marker is written there.
+- Copies the seven `ITEMS` in `migrate.rs` (`local-db`, `local-db-backups`, `preferences.json`, `models`, `artifacts`, `weaveforge.log`, `overleaf-git`; never `secrets.json`) into the new dir through `.migrating`. Items that already exist in the new dir move to `.pre-migration/<time>/` first.
+- Done marker: `migrated-from-electron` (JSON: `from`, `at`, `copied`, `secretsLeftBehind`) in the new dir, written last. A marker that copied nothing is retried once the source has data.
+- Also writes `migrated` (JSON: `to`, `at`) into the new dir only.
+
 Source: `apps/shell/src/`

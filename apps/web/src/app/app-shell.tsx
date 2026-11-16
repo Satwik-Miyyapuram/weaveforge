@@ -10,6 +10,7 @@ import { ThesisLoaderScreen } from "@/components/weaveforge-loader";
 import { ProjectProvider, ProjectSwitcher, ProjectsScreen, useProject } from "@/features/projects";
 import { ProfileProvider } from "@/features/org";
 import { PrivacyDisclaimerGate } from "@/features/auth/ui/privacy-disclaimer-gate";
+import { OldDbImportGate } from "@/features/startup/ui/old-db-import-gate";
 import { ThemeSyncProvider } from "@/features/settings/ui/theme-sync-provider";
 import { OrgSetupGate } from "@/features/org/ui/org-setup-gate";
 import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
@@ -94,6 +95,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <ProfileProvider key={user.id}>
             {/* E2EE unlock gate removed: data is stored plaintext, so the shell
                 renders straight through after auth. */}
+            {/* Holds the workspace back while 0.8 data is brought over, so nothing
+                below reads an empty database first. */}
+            <OldDbImportGate>
             <ThemeSyncProvider>
               <OrgSetupGate>
                 {/* Above the project-scoped shell, so it runs once: the folder
@@ -118,6 +122,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </ProjectProvider>
               </OrgSetupGate>
             </ThemeSyncProvider>
+            </OldDbImportGate>
           </ProfileProvider>
         </PrivacyDisclaimerGate>
     </StartupProvider>
