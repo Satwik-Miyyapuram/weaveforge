@@ -8,7 +8,9 @@ Start access for N sources    # ai-assistant: pluralises with `source${…}`
 More info
 Run anyway
 Properties
+General
 Unblock
+OK
 # macOS Gatekeeper (desktop.md)
 System Settings
 Privacy & Security
@@ -17,6 +19,9 @@ Open Anyway
 Allow from this source
 More details
 Install anyway
+
+# Overleaf account settings (citations-and-overleaf.md)
+Git integration
 
 # Zotero, GitHub, GitLab and Mattermost screens (integrations.md)
 Create new private key
