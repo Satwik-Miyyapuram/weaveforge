@@ -215,6 +215,9 @@ async function connectDesktopFolder(
   root: DesktopVaultRoot,
   options: { git?: boolean; reuse?: boolean; retry?: boolean },
 ): Promise<{ warnings: readonly string[] }> {
+  // A folder already open is torn down first: its held outside edits, its waiting
+  // auto-apply and its pending assets belong to that folder, not the new one.
+  if (activeFs) closeFolder();
   activeFs = new DesktopWorkspaceFs(bridge);
   // No git in here for a desktop folder. The shell has the machine's own git
   // and, more to the point, can see what is *above* the folder -- which is the
