@@ -13,6 +13,16 @@ without WeaveForge installed.
 
 Settings → Workspace is where all of this lives.
 
+## Choosing the folder on first open
+
+The first time the desktop app opens with no folder chosen, it asks once where
+the workspace should go. **Choose folder** lets you pick one. **Skip** uses a
+`WeaveForge` folder inside your Documents folder. Either answer is remembered
+across restarts and the question is not asked again, even after you disconnect
+the folder. You can change the folder later from Settings → Workspace.
+
+If you already have WeaveForge data from an earlier version, you are not asked.
+
 ## What gets written
 
 One directory per kind of thing — `notes/`, `papers/`, `reading-lists/`,

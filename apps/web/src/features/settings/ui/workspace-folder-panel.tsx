@@ -41,6 +41,7 @@ import { FolderRemoteSyncPanel } from "./folder-remote-sync-panel";
 import { overleafSyncAvailable } from "@/features/overleaf/application/parts";
 import { OverleafSyncPanel } from "./overleaf-sync-panel";
 import { FolderFileHistory } from "./folder-file-history";
+import { ChangeFolderAction } from "@/features/workspace/ui/change-folder-action";
 import { SkippedFiles } from "./skipped-files";
 import type { SkippedFile } from "@/features/workspace/application/parts-2";
 import { folderWatchLost, onFolderWatchLost } from "@/features/workspace/application/parts";
@@ -396,6 +397,14 @@ export function WorkspaceFolderPanel() {
               Disconnect
             </Button>
           </div>
+          {hasShell && (
+            <ChangeFolderAction
+              onChanged={() => {
+                setMissing(null);
+                setSession(folderSession());
+              }}
+            />
+          )}
           {history.length > 0 && (
             <ul className="wiki-lint-list">
               {history.map((commit) => (
