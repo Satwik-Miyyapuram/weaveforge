@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { stageInkRecogniser } from "./stage-ink-recogniser.mjs";
+import { inkArchesForBundle, stageInkForBundle, stageInkRecogniser } from "./stage-ink-recogniser.mjs";
 
 /** A `native/` root holding `ink-recogniser/win-<arch>/` with the given relative files. */
 function nativeWith(files) {
@@ -64,6 +64,49 @@ test("leaves other stage contents untouched", () => {
     fs.writeFileSync(path.join(stage, "postgres", "x.txt"), "x");
     stageInkRecogniser(native, stage, "x64");
     assert.equal(fs.readFileSync(path.join(stage, "postgres", "x.txt"), "utf8"), "x");
+  } finally {
+    fs.rmSync(native, { recursive: true, force: true });
+    fs.rmSync(stage, { recursive: true, force: true });
+  }
+});
+
+test("an arm64 installer requires both the arm64 and the x64 fallback helper", () => {
+  assert.deepEqual(inkArchesForBundle("arm64"), ["arm64", "x64"]);
+  assert.deepEqual(inkArchesForBundle("x64"), ["x64"]);
+});
+
+test("an arm64 bundle stages both helpers", () => {
+  const native = nativeWith(["ink-recogniser/win-arm64/ink-recogniser.exe", "ink-recogniser/win-x64/ink-recogniser.exe"]);
+  const stage = fs.mkdtempSync(path.join(os.tmpdir(), "wf-ink-stage-"));
+  try {
+    stageInkForBundle(native, stage, "arm64");
+    assert.ok(fs.existsSync(path.join(stage, "native", "ink-recogniser", "win-arm64", "ink-recogniser.exe")));
+    assert.ok(fs.existsSync(path.join(stage, "native", "ink-recogniser", "win-x64", "ink-recogniser.exe")));
+  } finally {
+    fs.rmSync(native, { recursive: true, force: true });
+    fs.rmSync(stage, { recursive: true, force: true });
+  }
+});
+
+test("an arm64 bundle with no x64 fallback fails and stages nothing", () => {
+  const native = nativeWith(["ink-recogniser/win-arm64/ink-recogniser.exe"]);
+  const stage = fs.mkdtempSync(path.join(os.tmpdir(), "wf-ink-stage-"));
+  try {
+    assert.throws(() => stageInkForBundle(native, stage, "arm64"), /win-x64/);
+    assert.ok(!fs.existsSync(path.join(stage, "native")));
+  } finally {
+    fs.rmSync(native, { recursive: true, force: true });
+    fs.rmSync(stage, { recursive: true, force: true });
+  }
+});
+
+test("an x64 bundle stages only the x64 helper", () => {
+  const native = nativeWith(["ink-recogniser/win-x64/ink-recogniser.exe", "ink-recogniser/win-arm64/ink-recogniser.exe"]);
+  const stage = fs.mkdtempSync(path.join(os.tmpdir(), "wf-ink-stage-"));
+  try {
+    stageInkForBundle(native, stage, "x64");
+    assert.ok(fs.existsSync(path.join(stage, "native", "ink-recogniser", "win-x64", "ink-recogniser.exe")));
+    assert.ok(!fs.existsSync(path.join(stage, "native", "ink-recogniser", "win-arm64")));
   } finally {
     fs.rmSync(native, { recursive: true, force: true });
     fs.rmSync(stage, { recursive: true, force: true });

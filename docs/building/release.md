@@ -6,7 +6,7 @@ This monorepo ships **four release tracks**, one tag prefix each. Do not mix the
 |---|---|---|---|---|
 | Tag | `vX.Y.Z` | `py-vX.Y.Z` | `android-vX.Y.Z` | `ios-vX.Y.Z` |
 | Covers | Tauri shell (`apps/shell`) + the offline web build and local Postgres inside it | The `weaveforge` SDK on PyPI | Native app (`apps/android`) | WKWebView shell (`apps/ios`) |
-| Artifact | Windows x64 MSI and NSIS installers | PyPI wheel + sdist | `WeaveForge-<v>-Android.apk` | `WeaveForge-<v>-iOS.ipa` (unsigned) |
+| Artifact | Windows x64 and arm64 MSI and NSIS installers | PyPI wheel + sdist | `WeaveForge-<v>-Android.apk` | `WeaveForge-<v>-iOS.ipa` (unsigned) |
 | Workflow | None yet. Publishing is manual, see below | `publish-python.yml` | `android.yml` | `ios.yml` |
 | Changelog | [`../../CHANGELOG.md`](../../CHANGELOG.md) | Same | Same | Same |
 
@@ -17,7 +17,8 @@ the MCP bridge and a pinned Postgres build inside the installer. CI builds the W
 every run of the `shell-bundle-windows` job in `.github/workflows/ci.yml`, but
 no workflow publishes them. Releasing the desktop app is a manual step today.
 
-Only Windows x64 is built for the desktop app. macOS and Linux are not built.
+Windows x64 and arm64 are both published for the desktop app (v0.9.0 shipped
+setup.exe and msi for each). macOS and Linux are not built.
 
 The Node sidecar shipped in 0.9 only to import old PGlite data, and is now
 removed. A user still on the old PGlite database must install 0.9 and open it
@@ -98,20 +99,30 @@ toolchain pinned by the repo (`rustup show` installs it), and PowerShell.
    node apps/shell/scripts/stage-postgres.mjs (Join-Path $env:TEMP $name) apps/shell/target/stage
    ```
 
-4. Build the Windows ink recogniser (repo root). It is staged into
-   `apps/shell/target/stage/native/` and ships under `native/`. The stage step
-   fails if the exe is missing:
+4. Build the Windows ink recogniser helpers (repo root). They are staged into
+   `apps/shell/target/stage/native/` and ship under `native/`. Build both
+   arches once; then stage for each installer you are about to build (step 5).
+   The stage step fails if a required exe is missing. An arm64 installer also
+   needs the x64 helper, because `ink_recogniser_path` falls back to it:
 
    ```powershell
-   node apps/shell/scripts/build-ink-recogniser.mjs --arch=x64
+   node apps/shell/scripts/build-ink-recogniser.mjs
+   # x64 installer
    node apps/shell/scripts/stage-ink-recogniser.mjs apps/shell/target/stage --arch=x64
+   # arm64 installer (stages win-arm64 and the win-x64 fallback). Clear
+   # apps/shell/target/stage/native/ink-recogniser first so the x64 installer
+   # built earlier does not carry win-arm64, and the arm64 one carries only what it needs.
+   node apps/shell/scripts/stage-ink-recogniser.mjs apps/shell/target/stage --arch=arm64
    ```
 
-5. Build the installers (from `apps/shell`):
+5. Build the installers (from `apps/shell`). Build the x64 installer after
+   staging x64 (step 4), and the arm64 installer after staging arm64:
 
    ```powershell
    cd apps/shell
    npm run tauri -- build --bundles msi,nsis --config tauri.bundle.json
+   # arm64 (unverified until the first arm64 build; run after staging arm64)
+   npm run tauri -- build --bundles msi,nsis --config tauri.bundle.json --target aarch64-pc-windows-msvc
    cd ../..
    ```
 
