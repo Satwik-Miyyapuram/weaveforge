@@ -49,11 +49,11 @@ function findOr(nodes: readonly WorkspaceTreeNode[], key: string): WorkspaceTree
   }
 }
 
-test("rules: only Notes and its folders hold notes and folders; a note holds nothing; Report takes sections; Papers nothing", () => {
+test("rules: only Notes and its folders hold notes, folders and canvases; a note holds nothing; Report takes sections; Papers nothing", () => {
   const roots = tree();
-  assert.deepEqual(core().creatableUnder(find(roots, core().rootKey("notes"))), ["note", "folder"]);
-  assert.deepEqual(core().creatableUnder(find(roots, "vault_page:n1")), ["note", "folder"]);
-  assert.deepEqual(core().creatableUnder(find(roots, "vault_page:n4")), ["note", "folder"]);
+  assert.deepEqual(core().creatableUnder(find(roots, core().rootKey("notes"))), ["note", "folder", "canvas"]);
+  assert.deepEqual(core().creatableUnder(find(roots, "vault_page:n1")), ["note", "folder", "canvas"]);
+  assert.deepEqual(core().creatableUnder(find(roots, "vault_page:n4")), ["note", "folder", "canvas"]);
   assert.deepEqual(core().creatableUnder(find(roots, "vault_page:n2")), [], "a note has no sub-notes");
   assert.deepEqual(core().creatableUnder(find(roots, "ink_page:n3")), [], "nor does an ink note");
   assert.deepEqual(core().creatableUnder(find(roots, core().rootKey("report"))), ["section"]);
@@ -135,12 +135,13 @@ test("new file: the kind is the table's answer for the document on screen", () =
 });
 
 test("a draft of each kind: what it writes into, and whether it opens", () => {
-  assert.deepEqual(core().draftMakes("note"), { ink: false, opens: true, folder: false });
-  assert.deepEqual(core().draftMakes("section"), { ink: false, opens: true, folder: false });
+  assert.deepEqual(core().draftMakes("note"), { ink: false, opens: true, folder: false, canvas: false });
+  assert.deepEqual(core().draftMakes("section"), { ink: false, opens: true, folder: false, canvas: false });
+  assert.deepEqual(core().draftMakes("canvas"), { ink: false, opens: true, folder: false, canvas: true });
   // A folder is made and left closed: there is nothing to write into a folder,
   // and opening one would open a grouping row rather than a document. It is
   // saved as a folder, so it is still one when it is empty.
-  assert.deepEqual(core().draftMakes("folder"), { ink: false, opens: false, folder: true });
+  assert.deepEqual(core().draftMakes("folder"), { ink: false, opens: false, folder: true, canvas: false });
 });
 
 test("a draft row wears the icon of the kind it will become", () => {
