@@ -2,7 +2,7 @@
 covers:
   - apps/web/src/features/papers
   - crates/wf-core/src/papers
-checked: 2026-11-14
+checked: 2026-11-16
 ---
 # Papers
 
@@ -104,6 +104,17 @@ When a page cannot be imported, WeaveForge says one of these (exact text):
 | That site blocked automated access. Import by DOI or arXiv id instead. | The page title is a bot challenge (for example "Just a moment", "Verifying your browser", "Are you a robot", "Captcha"). |
 | That page has no title to file the paper under. Add the paper manually. | The page has no title. |
 | That page does not look like a paper or an article — it has no citation tags and does not say it is an article. Import by DOI or arXiv id, or add the paper manually. | No citation tags, and the page is not marked as an article. |
+
+## Good to know
+
+- Papers stays open in the background once you have opened it, on a computer or
+  a tablet held wide. Going to another screen and back shows the list as you
+  left it, with your search, filters and any paper you had open, instead of
+  building it again. If it has been a while, the list is refreshed behind it
+  while you look. Where you had scrolled to is not kept. On a
+  phone it is closed when you leave, to save memory.
+- Switching project closes it, so the next project's papers are never shown
+  under the last one's.
 
 ## How it works
 

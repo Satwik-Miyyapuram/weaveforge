@@ -2,7 +2,7 @@
 covers:
   - apps/shell
   - apps/android
-checked: 2026-11-14
+checked: 2026-11-16
 ---
 # The desktop app
 
@@ -279,6 +279,20 @@ same client, the same routes, the same rows. Re-sending a step overwrites it
 rather than duplicating it, so a script that retries a flush is safe. Artifacts
 are the exception — they are blobs, and the local API only knows how to run
 SQL — so figures logged this way have nowhere to go offline.
+
+## Opening on your last screen
+
+When the window opens, the screen you left is there straight away, while the
+app starts behind it. That first look is a picture of the screen you last saw.
+You cannot click or type in it, and it is swapped for the live screen as soon
+as the app is ready, usually within a second or two. Click or press a key
+before then and the picture goes; that first click is not passed on, so nothing
+you do lands on it.
+
+The picture is kept only on this computer, only for the last three screens of
+the project you had open, and only for the version of the app that drew it.
+Signing out removes it. A different account, a new version, or a screen that
+was too big to keep simply opens the normal way, with the loading screen.
 
 ## Updates
 

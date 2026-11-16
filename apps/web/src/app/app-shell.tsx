@@ -36,6 +36,7 @@ import { ContextMenuHost } from "@/components/context-menu";
 import { Button, CloseButton } from "@/components/button";
 import { loadCore, readyCore } from "@/lib/rust-core";
 import { CoreGate } from "./core-gate";
+import { KeepAliveProvider } from "./keep-alive";
 
 /* Both paint nothing and only matter once a folder is connected; the folder
    code they carry is loaded after the page rather than with every one. */
@@ -262,11 +263,16 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
                 that made the Library look like six tabs rather than one section
                 of a sidebar. */}
             {!detailView && !editorRoute && breakpoint === "mobile" && <SubNav />}
-            <SwipeViews disabled={detailView || editorRoute}>
-              <RoutePending>
-                <PageTransition>{children}</PageTransition>
-              </RoutePending>
-            </SwipeViews>
+            {/* Papers is kept mounted beside the routes too (keep-alive.tsx),
+                so leaving it and coming back does not rebuild its grid. Not on
+                the phone layout, where memory is tightest. */}
+            <KeepAliveProvider pathname={pathname} projectId={current.id} enabled={breakpoint !== "mobile"}>
+              <SwipeViews disabled={detailView || editorRoute}>
+                <RoutePending>
+                  <PageTransition>{children}</PageTransition>
+                </RoutePending>
+              </SwipeViews>
+            </KeepAliveProvider>
             {/* Beside the routes, not in `/workspace`'s page: it stays mounted
                 once opened, so coming back to it is instant. Keyed on the
                 project, so a switch drops the last project's tabs. */}

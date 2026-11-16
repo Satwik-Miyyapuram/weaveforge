@@ -16,6 +16,8 @@ import { perfNow, recordPerf, recordPerfSince } from "@/lib/parts";
 import { formatError, isNetworkFailure } from "@/lib/format-error";
 import { logToApp } from "@/lib/error-report/app-log";
 import type { ScreenId } from "@/lib/parts";
+import { useScreenActive } from "@/lib/hooks/use-screen-active";
+import { useScreenShown } from "@/lib/screen-shown";
 
 /** A PostgREST error body: the request log has it already. */
 function isPostgrestError(err: unknown): boolean {
@@ -152,6 +154,18 @@ export function useScreenData<T>(screen: ScreenId, load: () => Promise<T>) {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // A screen kept mounted behind another (`keep-alive.tsx`) revalidates when
+  // it comes back: an app write while it was hidden cleared its cache, and
+  // `reload` returns at once when the payload is still fresh.
+  const active = useScreenActive();
+  const wasActive = useRef(active);
+  useEffect(() => {
+    if (active && !wasActive.current) void reload();
+    wasActive.current = active;
+  }, [active, reload]);
+
+  useScreenShown(screen, data != null);
 
   /**
    * Reload past the freshness window. `reload` trusts a cache younger than

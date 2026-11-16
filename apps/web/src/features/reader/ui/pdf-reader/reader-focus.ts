@@ -3,13 +3,16 @@ const FOCUSABLE = "[tabindex],a[href],button,input,select,textarea,[contentedita
 /**
  * Whether the reader's keys should answer: focus is nowhere, on the body, or
  * inside one of `roots` — the reader and its toolbar, which the Editor
- * portals out of the reader into the one shared bar.
+ * portals out of the reader into the one shared bar. A reader on a screen kept
+ * mounted but not on show (`useScreenActive`) never answers.
  */
 export function ownsReaderFocus(
   active: Element | null,
   body: Element | null,
   roots: readonly (HTMLElement | null)[],
+  screenActive = true,
 ): boolean {
+  if (!screenActive) return false;
   if (!active || active === body) return true;
   return roots.some((root) => root?.contains(active) ?? false);
 }
