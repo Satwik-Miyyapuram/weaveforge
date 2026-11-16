@@ -10,9 +10,11 @@ import {
   disconnectRemote,
   folderRemoteSync,
   forgetRemoteToken,
+  githubConnectAvailable,
   pullThenPush,
   saveRemoteSyncSettings,
 } from "@/features/workspace/application/parts-2";
+import { GithubConnect } from "./github-connect";
 
 type Choice = "keep-mine" | "take-remote" | "keep-both";
 
@@ -117,6 +119,17 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
         sides; then pick which copy to keep. Push never overwrites the remote. Build files, <code>node_modules</code> and files
         over 25 MB are left out.
       </p>
+      {githubConnectAvailable() && (
+        <GithubConnect
+          onConnected={(done) => {
+            setUrl(done.url);
+            setSavedUrl(done.url);
+            setHasToken(true);
+          }}
+        />
+      )}
+      <details className="git-remote-advanced">
+        <summary>Advanced: any git host, with your own URL and token</summary>
       <div className="field">
         <label htmlFor="git-remote-url">Repository URL (https)</label>
         <input
@@ -140,6 +153,40 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
         />
         <p className="muted jump-to-meta">Kept in this machine&apos;s keychain and never shown again.</p>
       </div>
+      <div className="screen-actions screen-actions--start">
+        <Button
+          disabled={busy !== null}
+          onClick={() =>
+            void run("save", async () => {
+              const stored = await saveRemoteSyncSettings({ url, token });
+              setUrl(stored);
+              setSavedUrl(stored);
+              if (token.trim()) setHasToken(true);
+              setToken("");
+              setStatus("Saved.");
+            })
+          }
+        >
+          {busy === "save" ? "Saving…" : "Save"}
+        </Button>
+        {hasToken && (
+          <Button
+            variant="ghost"
+            disabled={busy !== null}
+            onClick={() =>
+              void run("forget", async () => {
+                await forgetRemoteToken();
+                setHasToken(false);
+                setStatus("Token forgotten.");
+              })
+            }
+          >
+            Forget token
+          </Button>
+        )}
+      </div>
+      {unsaved && <p className="muted jump-to-meta">Save the URL first.</p>}
+      </details>
       {error && <FormError>{error}</FormError>}
       <div role="status" aria-live="polite">
         {status && <p className="muted">{status}</p>}
@@ -172,36 +219,6 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
         </div>
       )}
       <div className="screen-actions screen-actions--start">
-        <Button
-          disabled={busy !== null}
-          onClick={() =>
-            void run("save", async () => {
-              const stored = await saveRemoteSyncSettings({ url, token });
-              setUrl(stored);
-              setSavedUrl(stored);
-              if (token.trim()) setHasToken(true);
-              setToken("");
-              setStatus("Saved.");
-            })
-          }
-        >
-          {busy === "save" ? "Saving…" : "Save"}
-        </Button>
-        {hasToken && (
-          <Button
-            variant="ghost"
-            disabled={busy !== null}
-            onClick={() =>
-              void run("forget", async () => {
-                await forgetRemoteToken();
-                setHasToken(false);
-                setStatus("Token forgotten.");
-              })
-            }
-          >
-            Forget token
-          </Button>
-        )}
         {savedUrl && (
           <Button
             variant="ghost"
@@ -230,7 +247,6 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
           </Button>
         ))}
       </div>
-      {unsaved && <p className="muted jump-to-meta">Save the URL first.</p>}
     </>
   );
 }

@@ -190,6 +190,28 @@ export const commands = {
 	 */
 	vaultReadAt: (oid: string, path: string) => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("vault_read_at", { oid, path })),
 	/**
+	 *  Starts the device flow and answers the code for the page to show.
+	 * 
+	 *  # Errors
+	 *  `UNREACHABLE`, or GitHub's reason.
+	 */
+	githubConnectStart: () => typedError<GithubConnectStart, ShellError_Serialize>(__TAURI_INVOKE("github_connect_start")),
+	/**
+	 *  Waits for approval, then stores the token, makes or reuses the repo and sets it as the folder's remote.
+	 *  `name` is the project slug; the repo is `weaveforge-<name>`.
+	 * 
+	 *  # Errors
+	 *  `NOT_STARTED`, `DENIED`, `EXPIRED`, `CANCELLED`, or why GitHub or the keychain refused.
+	 */
+	githubConnectFinish: (name: string | null) => typedError<GithubConnected, ShellError_Serialize>(__TAURI_INVOKE("github_connect_finish", { name })),
+	/**
+	 *  Stops a `github_connect_finish` that is still waiting.
+	 * 
+	 *  # Errors
+	 *  Never; the `Err` arm is kept for the Tauri wiring.
+	 */
+	githubConnectCancel: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("github_connect_cancel")),
+	/**
 	 *  Fetches the page title of a pasted link from the public internet.
 	 * 
 	 *  # Errors
@@ -625,6 +647,28 @@ export type EntryKindPayload =
 "file" | 
 /**  A folder. */
 "dir";
+
+/**  What the page shows while the reader approves. */
+export type GithubConnectStart = {
+	/**  The code to type, e.g. `ABCD-1234`. */
+	userCode: string,
+	/**  `https://github.com/login/device`. */
+	verificationUri: string,
+	/**  Seconds until the code is void. */
+	expiresIn: number,
+};
+
+/**  The repo the folder now syncs to. */
+export type GithubConnected = {
+	/**  The GitHub account. */
+	login: string,
+	/**  `owner/name`. */
+	repo: string,
+	/**  The https clone URL, now the folder's remote. */
+	url: string,
+	/**  False when an existing repo of the same name was reused. */
+	created: boolean,
+};
 
 /**  An image's bytes, its media type and the final URL it was read from. */
 export type ImageReply = {

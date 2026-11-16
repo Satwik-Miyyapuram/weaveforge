@@ -1,6 +1,8 @@
 import {
   desktop,
   type DesktopBridge,
+  type DesktopGithubCode,
+  type DesktopGithubConnected,
   type DesktopVaultSync,
   type DesktopVaultSyncAction,
 } from "@/lib/desktop/desktop-bridge";
@@ -451,6 +453,49 @@ export function folderRemoteSync(action: DesktopVaultSyncAction): Promise<Deskto
   const bridge = shell();
   if (!bridge) return Promise.reject(new Error(NO_SHELL));
   return bridge.vaultSync(action);
+}
+
+type GithubShell = DesktopBridge &
+  Required<Pick<DesktopBridge, "vaultSync" | "githubConnectStart" | "githubConnectFinish" | "githubConnectCancel">>;
+
+function githubShell(): GithubShell | null {
+  const bridge = shell();
+  return bridge &&
+    typeof bridge.githubConnectStart === "function" &&
+    typeof bridge.githubConnectFinish === "function" &&
+    typeof bridge.githubConnectCancel === "function"
+    ? (bridge as GithubShell)
+    : null;
+}
+
+/** The shell can sign in to GitHub and make the repo itself. */
+export function githubConnectAvailable(): boolean {
+  return githubShell() !== null;
+}
+
+/** Ask GitHub for the device code the user types at `verificationUri`. */
+export function startGithubConnect(): Promise<DesktopGithubCode> {
+  const bridge = githubShell();
+  if (!bridge) return Promise.reject(new Error(NO_SHELL));
+  return bridge.githubConnectStart();
+}
+
+/**
+ * Wait for the code to be entered, then let the shell make the private repo
+ * and set it as the remote; connect it so git knows the remote too. Nothing
+ * is pushed here: Push, or auto-sync, does that.
+ */
+export async function finishGithubConnect(name: string | null): Promise<DesktopGithubConnected> {
+  const bridge = githubShell();
+  if (!bridge) throw new Error(NO_SHELL);
+  const connected = await bridge.githubConnectFinish(name);
+  await bridge.vaultSync("connect");
+  return connected;
+}
+
+/** Stop waiting; the pending finish rejects as cancelled. */
+export async function cancelGithubConnect(): Promise<void> {
+  await githubShell()?.githubConnectCancel();
 }
 
 /**

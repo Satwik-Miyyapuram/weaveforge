@@ -403,7 +403,7 @@ fn pull_choice(action: &str) -> Option<PullChoice> {
 /// The folder's path, if a folder is chosen.
 ///
 /// Locks in a blocking task: a file command may hold the lock through a long write.
-async fn current_root(vault: &VaultState) -> Option<PathBuf> {
+pub(crate) async fn current_root(vault: &VaultState) -> Option<PathBuf> {
     let vault = vault.clone();
     tokio::task::spawn_blocking(move || vault.lock().root().map(|root| PathBuf::from(root.path)))
         .await

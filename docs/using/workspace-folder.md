@@ -156,6 +156,11 @@ else's repository. Their history is not ours to write into, and a stray commit
 in it is noticed long after it is easy to explain. A folder with no repository
 gets one of its own.
 
+To sync the folder to another machine, push that history to a git remote.
+**Connect GitHub** under Settings → Workspace folder → **Git remote** makes a
+private repository for it in one step; see
+[Syncing to your own GitHub](sync.md#syncing-to-your-own-github).
+
 ## Safety
 
 - Paths are folded and checked before any write: `..`, absolute paths, and drive

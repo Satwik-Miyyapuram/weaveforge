@@ -55,6 +55,11 @@ const WorkspaceSetupDialog = dynamic(
   () => import("@/features/workspace/ui/workspace-setup-dialog").then((m) => m.WorkspaceSetupDialog),
   { ssr: false },
 );
+/* Desktop only, and only until answered once. */
+const GithubOnboarding = dynamic(
+  () => import("@/features/settings/ui/github-onboarding").then((m) => m.GithubOnboarding),
+  { ssr: false },
+);
 const PdfTextFolderSync = dynamic(
   () => import("@/features/workspace/ui/pdf-text-folder-sync").then((m) => m.PdfTextFolderSync),
   { ssr: false },
@@ -107,6 +112,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <WorkspaceFolderRestore />
                 <WorkspaceSetupDialog />
                 <FolderChangeNote />
+                <GithubOnboarding />
                 <ToastHost />
                 <ContextMenuHost />
                 {expired && <SessionExpiredPrompt />}

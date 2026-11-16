@@ -267,6 +267,19 @@ export interface DesktopBridge {
    */
   vaultSync?(action: DesktopVaultSyncAction): Promise<DesktopVaultSync>;
   /**
+   * One-click GitHub: ask GitHub for a device code to show. Absent on older shells.
+   */
+  githubConnectStart?(): Promise<DesktopGithubCode>;
+  /**
+   * Wait until the code is entered on GitHub, then make (or reuse) the private
+   * repo `weaveforge-<name>`, keep the token in the keychain and set the remote.
+   * `name` is the project slug; null uses the folder's name. Rejects with a
+   * message fit to show: declined, expired, cancelled.
+   */
+  githubConnectFinish?(name: string | null): Promise<DesktopGithubConnected>;
+  /** Stop waiting for the code. */
+  githubConnectCancel?(): Promise<void>;
+  /**
    * Overleaf projects synced into folders of the vault over Overleaf's git
    * bridge. The shell keeps the links and reads the `overleaf-token` itself.
    * Rejects with a message fit to show. Absent on older shells.
@@ -669,6 +682,23 @@ export interface DesktopVaultSync {
     | { kind: "merged"; oid: string }
     | { kind: "conflict"; files: string[] };
   push?: { kind: "pushed" } | { kind: "up-to-date" } | { kind: "rejected"; reason: string };
+}
+
+/** Mirrors `GithubConnectStart` in the shell's `github_connect.rs`. */
+export interface DesktopGithubCode {
+  userCode: string;
+  verificationUri: string;
+  expiresIn: number;
+}
+
+/** Mirrors `GithubConnected` in the shell's `github_connect.rs`. */
+export interface DesktopGithubConnected {
+  login: string;
+  /** owner/name */
+  repo: string;
+  url: string;
+  /** False when a private repo of that name already existed and is reused. */
+  created: boolean;
 }
 
 export type DesktopOverleafSyncRequest =
