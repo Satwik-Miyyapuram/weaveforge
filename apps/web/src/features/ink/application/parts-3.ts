@@ -1,4 +1,5 @@
 import { loadPdfLib } from "@/lib/parts";
+import { openPdfDocument } from "@/lib/pdf-worker";
 import { readyCore } from "@/lib/rust-core";
 import {
   INK_A4_HEIGHT,
@@ -380,7 +381,7 @@ export interface OpenPdf {
 /** Parse `bytes` once; the caller renders what it needs, then closes. */
 export async function openPdf(bytes: ArrayBuffer): Promise<OpenPdf> {
   const lib = await loadPdfLib();
-  const pdf = await lib.getDocument({ data: copyOf(bytes) }).promise;
+  const pdf = await openPdfDocument(lib, { data: copyOf(bytes) }).promise;
   return {
     numPages: pdf.numPages,
     render: async (pageNumber, widthPx) => {
