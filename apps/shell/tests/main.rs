@@ -37,4 +37,5 @@ mod vault_search;
 mod vault_sync;
 mod vault_watch;
 mod vault_watcher;
+mod window_icon;
 mod zotero_local;

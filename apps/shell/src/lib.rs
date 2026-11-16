@@ -59,6 +59,7 @@ pub mod vault_search;
 pub mod vault_sync;
 pub mod vault_watch;
 pub mod vault_watcher;
+pub mod window_icon;
 pub mod zotero_local;
 
 pub use wf_relay::{fetch, relay, tls};

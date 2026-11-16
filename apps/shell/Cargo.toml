@@ -25,7 +25,7 @@ crate-type = ["cdylib", "rlib"]
 
 # Exact pins, as in the root workspace: Tauri 2.x minor releases change behaviour.
 [dependencies]
-tauri = { version = "=2.12.5", features = [] }
+tauri = { version = "=2.12.5", features = ["image-png"] }
 # Native folder picker for the workspace folder (step 2.7b). The plugin runs the
 # dialog on the platform's UI thread; the page gets no dialog permission.
 tauri-plugin-dialog = "=2.8.3"
@@ -109,6 +109,8 @@ windows = { version = "=0.62.2", default-features = false, features = ["Win32_Fo
 windows-native-keyring-store = { version = "=1.1.0", default-features = false }
 # WebView2 memory target while minimized (idle_memory.rs). Same version wry already locks.
 webview2-com = "=0.39.1"
+# The taskbar's light or dark mode, for the window icon (window_icon.rs). Already in the lock.
+winreg = "=0.56.0"
 
 # Database lock (step 5.3c): is the holder's pid alive. Same rustix the lockfile already has.
 [target.'cfg(all(unix, not(any(target_os = "android", target_os = "ios"))))'.dependencies]

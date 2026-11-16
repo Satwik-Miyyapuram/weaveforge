@@ -363,6 +363,15 @@ export const commands = {
 	 *  Returns an error when the window refuses the change.
 	 */
 	windowFocus: (focus: boolean) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("window_focus", { focus })),
+	/**  Whether the OS taskbar is in light mode, read from the user's registry. */
+	osUsesLightTheme: () => __TAURI_INVOKE<boolean>("os_uses_light_theme"),
+	/**
+	 *  Sets the window and taskbar icon from the page's base64 PNG.
+	 * 
+	 *  # Errors
+	 *  Returns an error when the bytes are not a PNG or the window refuses the icon.
+	 */
+	windowIconSet: (pngBase64: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("window_icon_set", { pngBase64 })),
 	/**
 	 *  Whether the widget can be shown here, and whether it is on.
 	 * 

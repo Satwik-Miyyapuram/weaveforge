@@ -274,6 +274,8 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::menu::commands::menu_invoke,
         crate::menu::commands::title_bar_colors,
         crate::menu::commands::window_focus,
+        crate::window_icon::os_uses_light_theme,
+        crate::window_icon::window_icon_set,
         crate::plan_widget_window::plan_widget_state,
         crate::plan_widget_window::plan_widget_set,
         crate::plan_widget_window::plan_widget_theme,
