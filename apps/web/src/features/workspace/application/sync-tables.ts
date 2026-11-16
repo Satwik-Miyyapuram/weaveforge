@@ -62,6 +62,25 @@ export function syncTableFile(table: string): string {
   return `.weaveforge/tables/${table}.json`;
 }
 
+/** Folder files for every synced table, path to JSON text. A table with no rows is written as `[]`. */
+export function syncTableFolderFiles(rows: Partial<Record<SyncTable, SyncRow[]>>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const table of SYNC_TABLES) out[syncTableFile(table)] = JSON.stringify(rows[table] ?? []);
+  return out;
+}
+
+/** Rows back from folder files. A missing file is left out; a corrupt one throws rather than importing nothing. */
+export function syncTableRowsFromFolder(
+  folder: Readonly<Record<string, string>>,
+): Partial<Record<SyncTable, SyncRow[]>> {
+  const out: Partial<Record<SyncTable, SyncRow[]>> = {};
+  for (const table of SYNC_TABLES) {
+    const text = folder[syncTableFile(table)];
+    if (text !== undefined) out[table] = JSON.parse(text) as SyncRow[];
+  }
+  return out;
+}
+
 export async function exportSyncTables(db: SyncSql): Promise<Record<SyncTable, SyncRow[]>> {
   const out = {} as Record<SyncTable, SyncRow[]>;
   for (const table of SYNC_TABLES) {

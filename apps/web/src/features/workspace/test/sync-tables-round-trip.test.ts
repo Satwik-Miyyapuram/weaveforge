@@ -16,6 +16,8 @@ import {
   exportSyncTables,
   importSyncTables,
   syncTableFile,
+  syncTableFolderFiles,
+  syncTableRowsFromFolder,
 } from "../application/sync-tables";
 
 type Row = Record<string, unknown>;
@@ -94,16 +96,18 @@ test("every synced table survives export to folder files and import into an empt
   const exported = await exportSyncTables(src);
   const dir = await mkdtemp(path.join(os.tmpdir(), "sync-tables-"));
   try {
-    for (const table of SYNC_TABLES) {
-      const file = path.join(dir, syncTableFile(table));
-      await mkdir(path.dirname(file), { recursive: true });
-      await writeFile(file, JSON.stringify(exported[table] ?? []), "utf8");
+    // The folder is the only thing a clone receives: write its files, read them back, import them.
+    for (const [file, text] of Object.entries(syncTableFolderFiles(exported))) {
+      const full = path.join(dir, file);
+      await mkdir(path.dirname(full), { recursive: true });
+      await writeFile(full, text, "utf8");
     }
-    const read: Record<string, Row[]> = {};
+    const folder: Record<string, string> = {};
     for (const table of SYNC_TABLES) {
-      read[table] = JSON.parse(await readFile(path.join(dir, syncTableFile(table)), "utf8"));
+      const file = syncTableFile(table);
+      folder[file] = await readFile(path.join(dir, file), "utf8");
     }
-    await importSyncTables(dst, read);
+    await importSyncTables(dst, syncTableRowsFromFolder(folder));
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -115,6 +119,10 @@ test("every synced table survives export to folder files and import into an empt
     assert.ok(before.length > 0, `${table}: seed must contain a row`);
     assert.deepEqual(after, before, `${table}: rows equal`);
   }
+
+  // Sample row: a known paper arrives with its title, not just a matching hash.
+  const sample = await dst.sql<{ title: string }>(`select title from papers where id = $1`, [PAPER_1]);
+  assert.equal(sample[0]?.title, "Paper one");
 });
 
 test("the folder file for a table lives under .weaveforge/tables", () => {
