@@ -30,48 +30,85 @@ const digest = (body: string) => readyCore().digestText(body);
 const text = (doc: Y.Doc) => doc.getText("body").toString();
 const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms));
 
-/** One broadcast topic: what a client sends reaches every other client, later. */
+/** How one client's socket behaves. */
+interface Link {
+  /** How long a channel takes to report it joined. */
+  joinAfterMs?: number;
+  /** How long the provider waits for a join before it gives up and retries. */
+  joinTimeoutMs?: number;
+  /** The token step before each join; one that never settles stalls the join. */
+  setAuth?: () => Promise<unknown>;
+}
+
+/**
+ * One broadcast topic: what a joined channel sends reaches every other joined
+ * channel, later. Each `channel()` is a fresh channel, as supabase-js hands out
+ * once the last one on the topic has left.
+ */
 function bus() {
   const members: Map<string, Handler>[] = [];
+  const leave = (handlers: Map<string, Handler>) => {
+    const at = members.indexOf(handlers);
+    if (at >= 0) members.splice(at, 1);
+  };
   return {
-    /** `joinAfterMs`: how long the channel takes to report it joined. */
-    db(joinAfterMs = 0) {
-      const handlers = new Map<string, Handler>();
-      members.push(handlers);
-      const channel = {
-        topic: "realtime:crdt:vault_page:abc",
-        on(_type: string, filter: { event: string }, cb: Handler) {
-          handlers.set(filter.event, cb);
+    db(link: Link = {}) {
+      const state = { joins: 0, fail: () => {} };
+      const db = {
+        channel: () => {
+          const handlers = new Map<string, Handler>();
+          let left = false;
+          const channel = {
+            topic: "realtime:crdt:vault_page:abc",
+            on(_type: string, filter: { event: string }, cb: Handler) {
+              handlers.set(filter.event, cb);
+              return channel;
+            },
+            subscribe(cb?: (status: string) => void) {
+              setTimeout(() => {
+                // A channel that left before its join came back stays out.
+                if (left) return;
+                members.push(handlers);
+                state.joins += 1;
+                cb?.("SUBSCRIBED");
+              }, link.joinAfterMs ?? 0);
+              state.fail = () => {
+                leave(handlers);
+                cb?.("CHANNEL_ERROR");
+              };
+              return channel;
+            },
+            send: async (msg: { event: string; payload: unknown }) => {
+              if (!members.includes(handlers)) return "error";
+              for (const other of members) {
+                if (other !== handlers) setTimeout(() => other.get(msg.event)?.({ payload: msg.payload }), 5);
+              }
+              return "ok";
+            },
+            unsubscribe: async () => {
+              left = true;
+              leave(handlers);
+              return "ok";
+            },
+          };
           return channel;
         },
-        subscribe(cb?: (status: string) => void) {
-          setTimeout(() => cb?.("SUBSCRIBED"), joinAfterMs);
-          return channel;
-        },
-        send: async (msg: { event: string; payload: unknown }) => {
-          for (const other of members) {
-            if (other !== handlers) setTimeout(() => other.get(msg.event)?.({ payload: msg.payload }), 5);
-          }
-          return "ok";
-        },
-        unsubscribe: async () => {
-          members.splice(members.indexOf(handlers), 1);
-          return "ok";
-        },
+        realtime: { setAuth: link.setAuth ?? (async () => undefined) },
       };
-      return { channel: () => channel, realtime: { setAuth: async () => undefined } };
+      return { db, state };
     },
   };
 }
 
 /** A client that replays `log` and reconciles it with `body`, as the editor does. */
-function client(net: ReturnType<typeof bus>, id: number, log: Uint8Array[], body: string, joinAfterMs = 0) {
+function client(net: ReturnType<typeof bus>, id: number, log: Uint8Array[], body: string, link: Link = {}) {
   const doc = new Y.Doc();
   doc.clientID = id;
   let seeded = false;
+  const socket = net.db(link);
   const provider = new RealtimeYjsProvider({
     doc,
-    db: net.db(joinAfterMs) as never,
+    db: socket.db as never,
     crdtStore: {
       listAfter: async () => log.map((payload, i) => ({ id: i + 1, payload })),
       append: async () => ({ id: 1 }),
@@ -85,8 +122,9 @@ function client(net: ReturnType<typeof bus>, id: number, log: Uint8Array[], body
       reconcileWithBody(doc, body, digest);
       seeded = true;
     },
+    timing: { joinTimeoutMs: link.joinTimeoutMs ?? 300, rejoinBaseMs: 50, rejoinMaxMs: 200 },
   });
-  return { doc, provider, isSeeded: () => seeded };
+  return { doc, provider, isSeeded: () => seeded, socket: socket.state };
 }
 
 async function until(ok: () => boolean, label: string) {
@@ -179,7 +217,7 @@ test("sync: a client slow to join waits for its peers, not the fallback, before 
   await until(alice.isSeeded, "alice's seed");
   // Bob's channel takes longer to join than the fallback: it must still hear
   // Alice's state first, not rebuild the body from its own read alone.
-  const bob = client(net, 50, [late], "abXdef", 4_500);
+  const bob = client(net, 50, [late], "abXdef", { joinAfterMs: 4_500, joinTimeoutMs: 8_000 });
   await until(bob.isSeeded, "bob's seed");
   await tick(400);
 
@@ -204,4 +242,56 @@ test("sync: a lower-id peer that leaves before seeding is not waited for", async
   );
   assert.equal(text(alice.doc), "abXdef");
   await alice.provider.destroy();
+});
+
+/** A log that already holds `body`: seeding it changes nothing. */
+function savedLog(body: string) {
+  const origin = new Y.Doc();
+  origin.clientID = 7;
+  origin.getText("body").insert(0, body);
+  markSaved(origin, digest(body));
+  return Y.encodeStateAsUpdate(origin);
+}
+
+test("sync: a join that never completes seeds locally, keeps retrying, and merges once it gets through", async () => {
+  const log = savedLog("abcdef");
+  const net = bus();
+  const alice = client(net, 101, [log], "abcdef");
+  let open = false;
+  const bob = client(net, 202, [log], "abcdef", {
+    setAuth: () => (open ? Promise.resolve() : new Promise(() => {})),
+  });
+  await until(alice.isSeeded, "alice's seed");
+  // Bob's token never comes: past the join timeout the editor still works.
+  await until(bob.isSeeded, "bob's local seed");
+  assert.equal(text(bob.doc), "abcdef");
+  bob.doc.getText("body").insert(6, "!");
+  alice.doc.getText("body").insert(0, ">");
+  await tick(500);
+  assert.equal(bob.socket.joins, 0, "still not joined");
+
+  open = true;
+  await until(() => bob.socket.joins > 0, "bob's join after the retry");
+  await until(() => text(alice.doc) === text(bob.doc), "the merge");
+  assert.equal(text(bob.doc), ">abcdef!", "each side's edit once, no second body");
+  await Promise.all([alice.provider.destroy(), bob.provider.destroy()]);
+});
+
+test("sync: a channel that errors after joining rejoins and catches up", async () => {
+  const log = savedLog("abcdef");
+  const net = bus();
+  const alice = client(net, 101, [log], "abcdef");
+  const bob = client(net, 202, [log], "abcdef");
+  await until(() => alice.isSeeded() && bob.isSeeded() && bob.socket.joins === 1, "both joined");
+
+  bob.socket.fail();
+  alice.doc.getText("body").insert(0, "1");
+  await tick(30);
+  assert.equal(text(bob.doc), "abcdef", "bob is off the topic and missed it");
+
+  await until(() => bob.socket.joins === 2, "bob's rejoin");
+  await until(() => text(bob.doc) === "1abcdef", "bob catching up");
+  bob.doc.getText("body").insert(7, "2");
+  await until(() => text(alice.doc) === "1abcdef2", "live again after the rejoin");
+  await Promise.all([alice.provider.destroy(), bob.provider.destroy()]);
 });
