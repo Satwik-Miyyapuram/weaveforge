@@ -622,11 +622,11 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
           <Glyph d="M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3" />
         </IconButton>
         <IconButton label="Zoom out" size="sm" onClick={() => zoomBy(1 / 1.25)}>
-          −
+          <Glyph d="M5 12h14" />
         </IconButton>
         <span className="canvas-editor__zoom">{Math.round(view.zoom * 100)}%</span>
         <IconButton label="Zoom in" size="sm" onClick={() => zoomBy(1.25)}>
-          +
+          <Glyph d="M12 5v14M5 12h14" />
         </IconButton>
         <Button size="sm" onClick={() => createText(centre())}>
           Text

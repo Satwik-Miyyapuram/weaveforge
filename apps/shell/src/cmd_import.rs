@@ -73,6 +73,7 @@ pub async fn old_db_import_finish(
 /// Whether an old database is waiting to be imported: one is found and no import has finished.
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::needless_pass_by_value, reason = "tauri passes the handle by value")]
 pub fn old_db_status(app: tauri::AppHandle) -> Result<bool, ShellError> {
     use tauri::Manager;
     let data = app
@@ -114,6 +115,7 @@ pub async fn old_db_tar(app: tauri::AppHandle) -> Result<String, ShellError> {
 }
 
 /// True while an old database is found under `data` and the import marker is not there yet.
+#[must_use]
 pub fn pending(data: &Path) -> bool {
     matches!(migrate::old_db_state(data), OldDb::Found(_)) && !data.join(IMPORTED_MARKER).exists()
 }

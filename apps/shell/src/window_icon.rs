@@ -10,7 +10,9 @@ use crate::commands::ShellError;
 pub const ICON_BAD: &str = "Window icon must be a base64 PNG.";
 
 /// Registry key and value Windows writes for the app-and-taskbar light theme (1 light, 0 dark).
+#[cfg(windows)]
 const THEME_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
+#[cfg(windows)]
 const THEME_VALUE: &str = "SystemUsesLightTheme";
 
 /// Whether the taskbar uses the light theme. A missing or unreadable value counts as light,
@@ -63,7 +65,12 @@ pub async fn window_icon_set(
     png_base64: String,
 ) -> Result<(), ShellError> {
     let icon = decode_icon(&png_base64).map_err(ShellError::from)?;
+    // Mobile windows have no icon to set.
+    #[cfg(desktop)]
     window
         .set_icon(icon)
-        .map_err(|error| ShellError::from(error.to_string()))
+        .map_err(|error| ShellError::from(error.to_string()))?;
+    #[cfg(mobile)]
+    let _ = (window, icon);
+    Ok(())
 }

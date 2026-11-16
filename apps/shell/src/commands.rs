@@ -240,6 +240,7 @@ pub async fn db_reset(db: tauri::State<'_, LocalDb>) -> Result<(), ShellError> {
 
 /// The command set, shared by the app (invoke handler) and the bindings export.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "the command list is data")]
 pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
         db_query,

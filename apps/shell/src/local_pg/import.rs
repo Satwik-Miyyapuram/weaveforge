@@ -436,11 +436,11 @@ mod tests {
         async fn query(&mut self, sql: &str, params: &[Value]) -> Result<TextRows, PgError> {
             if sql.contains("jsonb_populate_recordset") {
                 self.inserts += 1;
-                if let Some(Fault::TerminateAtInsert(n)) = self.fault {
-                    if self.inserts == n {
-                        self.fault = None;
-                        self.kill().await?;
-                    }
+                if let Some(Fault::TerminateAtInsert(n)) = self.fault
+                    && self.inserts == n
+                {
+                    self.fault = None;
+                    self.kill().await?;
                 }
             }
             self.conn.query(sql, params).await

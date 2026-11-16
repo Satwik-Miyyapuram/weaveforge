@@ -150,7 +150,7 @@
 .canvas-edges__line[data-color="5"] { stroke: var(--s-info); }
 .canvas-edges__line[data-color="6"] { stroke: var(--accent); }
 .canvas-edges__arrow { fill: var(--muted); }
-.canvas-edges__label { fill: var(--muted); font-size: 14px; }
+.canvas-edges__label { fill: var(--muted); font-size: var(--fs); }
 
 @media (max-width: 600px) {
   .canvas-editor__status { margin-left: 0; }

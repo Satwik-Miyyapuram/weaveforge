@@ -683,8 +683,9 @@ jobs:
           node apps/shell/scripts/stage-ink-recogniser.mjs apps/shell/target/stage --arch=x64
           if ($LASTEXITCODE -ne 0) { throw "ink recogniser stage failed" }
 
+      # PR builds have no updater key; release-desktop.yml signs the real installers.
       - name: Bundle
-        run: npm run tauri -- build --bundles msi,nsis --config tauri.bundle.json
+        run: npm run tauri -- build --bundles msi,nsis --config tauri.bundle.json --config tauri.unsigned.json
 
       - name: Report bundle sizes
         shell: pwsh

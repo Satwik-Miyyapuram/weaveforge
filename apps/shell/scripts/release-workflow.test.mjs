@@ -32,3 +32,10 @@ test("signs with the updater key and publishes a pre-release", () => {
   assert.match(workflow, /gh release create "\$TAG" --verify-tag --prerelease /);
   assert.doesNotMatch(workflow, /--latest/);
 });
+
+test("CI bundles without the updater key; the release never does", () => {
+  assert.match(ci, /--config tauri\.bundle\.json --config tauri\.unsigned\.json/);
+  assert.doesNotMatch(workflow, /tauri\.unsigned\.json/);
+  const unsigned = JSON.parse(readFileSync(`${root}apps/shell/tauri.unsigned.json`, "utf8"));
+  assert.equal(unsigned.bundle.createUpdaterArtifacts, false);
+});

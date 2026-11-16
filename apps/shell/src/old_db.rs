@@ -132,7 +132,7 @@ mod tests {
                 .trim_end_matches('\0')
                 .to_string();
             let size_text = String::from_utf8_lossy(&h[124..135]).to_string();
-            let size = u64::from_str_radix(&size_text, 8).unwrap() as usize;
+            let size = usize::from_str_radix(&size_text, 8).unwrap();
             let body = &tar[at + 512..at + 512 + size];
             let value = if h[156] == b'5' {
                 None
