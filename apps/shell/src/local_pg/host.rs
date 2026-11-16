@@ -6,7 +6,7 @@
 //! as the device user under RLS; the user id never comes from the page.
 
 use std::future::Future;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
@@ -15,6 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 
 use super::backup::Backups;
+use super::import::{self, TableReport};
 use super::server::PgServer;
 use super::wire::PgConn;
 use super::{Conn, PgError, db, value};
@@ -386,6 +387,81 @@ impl<E: Engine> PgHost<E> {
         })
     }
 
+    /// Opens the database when it is not open. A later open that works makes it healthy, so reset is
+    /// refused again.
+    async fn ensure_open(&self, inner: &mut Inner<E>) -> Result<(), PgError> {
+        if inner.open.is_some() {
+            return Ok(());
+        }
+        match self.open_db().await {
+            Ok(open) => {
+                inner.open = Some(open);
+                self.set_failure(None);
+                Ok(())
+            }
+            Err(err) => {
+                let message = format!("{OPEN_FAILED} {}", err.message);
+                self.set_failure(Some(message.clone()));
+                Err(PgError {
+                    code: err.code,
+                    message,
+                })
+            }
+        }
+    }
+
+    /// A broken connection (Postgres crashed, socket gone) is dropped, so the next call reopens.
+    async fn drop_if_broken<T>(&self, inner: &mut Inner<E>, result: &Result<T, PgError>) {
+        if result.as_ref().is_err_and(PgError::is_connection)
+            && let Some(open) = inner.open.take()
+        {
+            inner.user = None;
+            self.engine.close(open.conn, open.handle).await;
+        }
+    }
+
+    /// Imports one table with one transaction (the owner session's unit of work). The query lock is
+    /// held for this call only, so the page never waits on a whole import.
+    ///
+    /// # Errors
+    /// A message for the page: the open failure, or the import's refusal.
+    pub async fn import_table(&self, table: &str, rows: &[Value]) -> Result<TableReport, String> {
+        let mut inner = self.inner.lock().await;
+        if inner.closed {
+            return Err(CLOSED.to_owned());
+        }
+        self.ensure_open(&mut inner).await.map_err(|e| e.message)?;
+        let Some(open) = inner.open.as_mut() else {
+            return Err(OPEN_FAILED.to_owned());
+        };
+        let result = import::import_table(&mut open.conn, table, rows).await;
+        self.drop_if_broken(&mut inner, &result).await;
+        let report = result.map_err(|e| e.message)?;
+        if report.inserted > 0 {
+            self.changed.store(true, Ordering::Release);
+        }
+        Ok(report)
+    }
+
+    /// Writes the import marker once every table in `tables` is in the ledger.
+    ///
+    /// # Errors
+    /// A message for the page: the open failure, a missing table, or the marker's write error.
+    pub async fn import_done(&self, tables: &[&str], marker: &Path) -> Result<(), String> {
+        let mut inner = self.inner.lock().await;
+        if inner.closed {
+            return Err(CLOSED.to_owned());
+        }
+        self.ensure_open(&mut inner).await.map_err(|e| e.message)?;
+        let Some(open) = inner.open.as_mut() else {
+            return Err(OPEN_FAILED.to_owned());
+        };
+        let done = import::done_tables(&mut open.conn).await;
+        self.drop_if_broken(&mut inner, &done).await;
+        let done = done.map_err(|e| e.message)?;
+        import::write_marker(marker, tables, &done).map_err(|e| e.to_string())
+    }
+
     async fn run(
         &self,
         inner: &mut Inner<E>,
@@ -395,23 +471,7 @@ impl<E: Engine> PgHost<E> {
         if inner.closed {
             return Err(PgError::local(CLOSED));
         }
-        if inner.open.is_none() {
-            match self.open_db().await {
-                Ok(open) => {
-                    inner.open = Some(open);
-                    // A later open that works makes the database healthy, so reset is refused again.
-                    self.set_failure(None);
-                }
-                Err(err) => {
-                    let message = format!("{OPEN_FAILED} {}", err.message);
-                    self.set_failure(Some(message.clone()));
-                    return Err(PgError {
-                        code: err.code,
-                        message,
-                    });
-                }
-            }
-        }
+        self.ensure_open(inner).await?;
         let Some(open) = inner.open.as_mut() else {
             return Err(PgError::local(OPEN_FAILED));
         };
@@ -920,6 +980,41 @@ mod tests {
         // Nothing to move is not an error.
         engine.discard().map_err(|e| e.message)?;
         let _ = std::fs::remove_dir_all(&tmp);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn owner_import_opens_once_and_each_call_rolls_back_its_own_failure() -> Result<(), String> {
+        let (engine, host) = host();
+        // The fake reports no columns, so each import refuses; the open and the rollback are what is checked.
+        let first = host.import_table("notes", &[json!({"id": 1})]).await;
+        assert!(first.is_err());
+        let second = host.import_table("papers", &[]).await;
+        assert!(second.is_err());
+        assert_eq!(engine.opens.load(Ordering::SeqCst), 1);
+        assert_eq!(engine.closes.load(Ordering::SeqCst), 0);
+        assert_eq!(count(&engine, "BEGIN"), 2);
+        assert_eq!(count(&engine, "ROLLBACK"), 2);
+        assert_eq!(count(&engine, "COMMIT"), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn owner_import_done_writes_no_marker_until_the_ledger_has_every_table() -> Result<(), String> {
+        let (_engine, host) = host();
+        let dir = std::env::temp_dir().join(format!(
+            "wf-host-marker-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos())
+        ));
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let marker = dir.join("local-pg.imported");
+        let result = host.import_done(&["notes"], &marker).await;
+        assert!(result.is_err());
+        assert!(!marker.exists());
+        let _ = std::fs::remove_dir_all(&dir);
         Ok(())
     }
 }
