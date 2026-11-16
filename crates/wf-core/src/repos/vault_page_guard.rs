@@ -14,7 +14,9 @@
 //!   "conflict copy", so neither edit is lost.
 //!
 //! A write that misses the version (someone saved in between) reads again and
-//! decides again, up to [`ATTEMPTS`] times.
+//! decides again, up to [`ATTEMPTS`] times. A retry that clashes again reuses
+//! the same copy, and a copy made on any attempt is reported. A missed write
+//! whose re-read shows the same version was refused by the row policy.
 
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -85,40 +87,30 @@ pub fn update(call: &RepoCall) -> Option<RepoStep> {
 fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
     let id = call.text(0).to_owned();
     let mut at = 0;
-    for attempt in 0..ATTEMPTS {
-        let read = scoped(
-            RepoQuery::select(TABLE, &format!("{VAULT_PAGE_COLUMNS},row_version")),
-            call,
-        )
-        .eq("id", id.as_str())
-        .maybe_single();
-        let row = match reply_or_send(call, at, read) {
-            Ok(row) => row,
+    let mut copy_id = None;
+    let mut missed: Option<Option<i64>> = None;
+    for _ in 0..ATTEMPTS {
+        let (version, existing) = match read(call, at, &id) {
+            Ok(read) => read,
             Err(step) => return step,
         };
         at += 1;
-        if row.is_null() {
+        if missed == Some(version) {
             return RepoStep::fail_named(
-                "NotFoundError",
-                format!("No vault page with id \"{id}\"."),
+                "VaultPagePermissionError",
+                format!("You may not edit the vault page \"{id}\"."),
             );
         }
-        let version = row.get("row_version").and_then(Value::as_i64);
-        let existing = match serde_json::from_value::<VaultPageRow>(row.clone()) {
-            Ok(row) => to_domain(&row),
-            Err(e) => return RepoStep::fail(e),
-        };
-        let mut copy_id = None;
         let text = match plan(
             &input.base_body,
             &input.body,
             &existing.body,
             &input.session_digests,
         ) {
-            Plan::Keep => return RepoStep::done(&existing),
+            Plan::Keep => return finish(&existing, copy_id),
             Plan::Write(text) => text,
             Plan::CopyThenWrite => {
-                let copy = match conflict_copy(call, attempt, &existing) {
+                let copy = match conflict_copy(call, &existing) {
                     Ok(copy) => copy,
                     Err(step) => return step,
                 };
@@ -146,19 +138,13 @@ fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
         };
         at += 1;
         if written.as_array().is_some_and(Vec::is_empty) {
-            continue; // Someone saved in between: read again.
+            missed = Some(version);
+            continue; // Someone saved in between, or the policy refused: read again.
         }
         let mut page = existing;
         page.body = text;
         page.summary.updated_at = now;
-        let mut value = match serde_json::to_value(&page) {
-            Ok(value) => value,
-            Err(e) => return RepoStep::fail(e),
-        };
-        if let (Some(copy_id), Some(obj)) = (copy_id, value.as_object_mut()) {
-            let _ = obj.insert("conflictCopyId".into(), copy_id);
-        }
-        return RepoStep::Done { value };
+        return finish(&page, copy_id);
     }
     RepoStep::fail_named(
         "VaultPageConflictError",
@@ -166,8 +152,41 @@ fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
     )
 }
 
+/// The page at reply `at` with its `row_version`, or the step that reads it.
+fn read(call: &RepoCall, at: usize, id: &str) -> Result<(Option<i64>, VaultPage), RepoStep> {
+    let query = scoped(
+        RepoQuery::select(TABLE, &format!("{VAULT_PAGE_COLUMNS},row_version")),
+        call,
+    )
+    .eq("id", id)
+    .maybe_single();
+    let row = reply_or_send(call, at, query)?;
+    if row.is_null() {
+        return Err(RepoStep::fail_named(
+            "NotFoundError",
+            format!("No vault page with id \"{id}\"."),
+        ));
+    }
+    let version = row.get("row_version").and_then(Value::as_i64);
+    let row = serde_json::from_value::<VaultPageRow>(row.clone()).map_err(RepoStep::fail)?;
+    Ok((version, to_domain(&row)))
+}
+
+/// The saved page, naming the conflict copy when one was made.
+fn finish(page: &VaultPage, copy_id: Option<Value>) -> RepoStep {
+    let mut value = match serde_json::to_value(page) {
+        Ok(value) => value,
+        Err(e) => return RepoStep::fail(e),
+    };
+    if let (Some(copy_id), Some(obj)) = (copy_id, value.as_object_mut()) {
+        let _ = obj.insert("conflictCopyId".into(), copy_id);
+    }
+    RepoStep::Done { value }
+}
+
 /// A new page beside `existing` holding the body it had, as `save` takes it.
-fn conflict_copy(call: &RepoCall, attempt: usize, existing: &VaultPage) -> Result<Value, RepoStep> {
+/// Its id is the same on every attempt, so a retry overwrites one copy.
+fn conflict_copy(call: &RepoCall, existing: &VaultPage) -> Result<Value, RepoStep> {
     let input = NewVaultPageInput {
         title: copy_title(&existing.summary.title, call.now()),
         body: Some(existing.body.clone()),
@@ -175,7 +194,7 @@ fn conflict_copy(call: &RepoCall, attempt: usize, existing: &VaultPage) -> Resul
         folder: None,
         sort_order: Some(existing.summary.sort_order),
     };
-    let page = create_vault_page(&input, &call.id(attempt), call.now())
+    let page = create_vault_page(&input, &call.id(0), call.now())
         .map_err(|e| RepoStep::fail_named("VaultPageValidationError", e))?;
     serde_json::to_value(page).map_err(RepoStep::fail)
 }
@@ -360,6 +379,73 @@ mod tests {
         let write = only(step(input(base, "ONE\nmid\ntwo"), replies));
         assert_eq!(write.body.as_ref().unwrap()["body"], "ONE\nmid\nTWO");
         assert!(filters(&write).contains(&("row_version".into(), json!(2))));
+    }
+
+    #[test]
+    fn a_retry_after_a_copy_reuses_the_copy_and_still_reports_it() {
+        let (base, mine) = (
+            "a
+b", "a
+MINE",
+        );
+        let mut replies = vec![row(
+            "a
+THEIRS", 4,
+        )];
+        let first = only(step(input(base, mine), replies.clone()));
+        let copy_id = first.body.unwrap()["id"].clone();
+        replies.extend([Value::Null, json!([])]); // copy saved, write lost the race
+        replies.push(row(
+            "a
+THEIRS2",
+            5,
+        ));
+        let second = only(step(input(base, mine), replies.clone()));
+        assert_eq!(second.action, RepoAction::Upsert);
+        let second = second.body.unwrap();
+        assert_eq!(
+            second["id"], copy_id,
+            "one copy, overwritten, not a second one"
+        );
+        assert_eq!(
+            second["body"],
+            "a
+THEIRS2"
+        );
+        replies.extend([Value::Null, json!([{ "id": "p1" }])]);
+        assert_eq!(
+            done(step(input(base, mine), replies))["conflictCopyId"],
+            copy_id
+        );
+    }
+
+    #[test]
+    fn a_copy_made_before_a_lost_race_is_reported_after_a_clean_retry() {
+        let (base, mine) = (
+            "a
+b", "a
+MINE",
+        );
+        let mut replies = vec![row(
+            "a
+THEIRS", 4,
+        )];
+        let copy_id = only(step(input(base, mine), replies.clone())).body.unwrap()["id"].clone();
+        replies.extend([Value::Null, json!([]), row(mine, 5)]);
+        let page = done(step(input(base, mine), replies));
+        assert_eq!(page["body"], mine);
+        assert_eq!(page["conflictCopyId"], copy_id);
+    }
+
+    #[test]
+    fn a_write_the_row_policy_hides_is_a_permission_error_not_a_race() {
+        let replies = vec![row("a", 7), json!([]), row("a", 7)];
+        match step(input("a", "b"), replies) {
+            RepoStep::Fail { name, .. } => {
+                assert_eq!(name.as_deref(), Some("VaultPagePermissionError"));
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]

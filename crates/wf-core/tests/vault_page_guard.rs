@@ -2,6 +2,8 @@
 //! like the server: every write bumps `row_version`, and a write filtered on a
 //! version it no longer has changes nothing and returns no rows.
 
+#![allow(clippy::expect_used, clippy::panic)]
+
 use serde_json::{Value, json};
 use wf_core::repo_query::{RepoAction, RepoCall, RepoCtx, RepoQuery, RepoStep};
 use wf_core::repos::vault_pages::step;
