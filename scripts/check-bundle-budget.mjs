@@ -125,7 +125,11 @@ const ROUTE_ALLOWANCES_KB = {
   // The review panel and the PDF reader shell each sit a little above the default.
   "/ai-review": 432,
   "/reader": 428,
-  "/dashboard": 427,
+  // 0.9.1 put app code in the shell every route boots: the boot snapshot, kept-alive
+  // screens and their shown marks (speed lane, +7 KB on every route in CI), plus the
+  // canvas id map in the folder mirror. The dashboard sits closest to its limit, so
+  // it is the one route that crossed: measured 446 KB plus 2. No dependency arrived.
+  "/dashboard": 436,
   // Lists screen carries reading lists, membership management, and EntityCardMenu:
   "/lists": 425,
   "/log": 422,
