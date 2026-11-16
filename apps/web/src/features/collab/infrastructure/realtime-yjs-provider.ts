@@ -16,6 +16,20 @@ import { readyCore } from "@/lib/rust-core";
 const MERGE_MS = 200;
 const PERSIST_IDLE_MS = 5000;
 const COMPACT_THRESHOLD = 200;
+/** How long a joined client listens for peers before it may reconcile alone. */
+const HELLO_WINDOW_MS = 600;
+/** Reconcile anyway after this long: a peer it is waiting on may have left. */
+const SEED_FALLBACK_MS = 4000;
+
+/**
+ * The sync handshake, on its own broadcast event. `hello` asks every peer for
+ * the state the sender lacks; `state` answers it (and is answered once, with
+ * `ack`, so both sides end up with the union). `seeded` says whether the sender
+ * has reconciled the document with the row's body.
+ */
+type SyncMessage =
+  | { type: "hello"; id: number; seeded: boolean; sv: string }
+  | { type: "state"; id: number; seeded: boolean; sv: string; data: string; ack?: boolean };
 
 export interface RealtimeYjsProviderOptions {
   doc: Y.Doc;
@@ -77,6 +91,15 @@ export class RealtimeYjsProvider {
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
   private lastPersistedId = 0;
   private destroyed = false;
+  // Seeding waits for the peers: see `maybeSeed`.
+  private booted = false;
+  private subscribed = false;
+  private seeded = false;
+  private windowOpen = true;
+  private syncedWithSeeded = false;
+  private readonly peers = new Map<number, boolean>();
+  private windowTimer: ReturnType<typeof setTimeout> | null = null;
+  private fallbackTimer: ReturnType<typeof setTimeout> | null = null;
   private awarenessHandler: ((payload: { added: number[]; updated: number[]; removed: number[] }) => void) | null =
     null;
 
@@ -101,6 +124,9 @@ export class RealtimeYjsProvider {
     channel.on("broadcast", { event: "awareness" }, ({ payload }) => {
       this.receive(() => this.onAwarenessRemote(payload as { data?: string }));
     });
+    channel.on("broadcast", { event: "sync" }, ({ payload }) => {
+      this.receive(() => this.onSync(payload as SyncMessage));
+    });
     // Token first, then join — see the note in `project-lww-invalidator`.
     void db.realtime
       .setAuth()
@@ -113,13 +139,22 @@ export class RealtimeYjsProvider {
             console.debug(`[collab] ${channel.topic} → ${status}${err ? `: ${err.message}` : ""}`);
           }
           if (this.destroyed) return;
-          if (status === "SUBSCRIBED") this.opts.onConnected?.();
-          else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          if (status === "SUBSCRIBED") {
+            this.opts.onConnected?.();
+            this.onJoined();
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
             this.opts.onError?.("subscribe", `${status}${err ? `: ${err.message}` : ""}`);
+            // Nobody can be reached, so there is nobody to wait for.
+            this.windowOpen = false;
+            this.maybeSeed();
           }
         });
       })
-      .catch((err) => this.opts.onError?.("setAuth", formatError(err)));
+      .catch((err) => {
+        this.opts.onError?.("setAuth", formatError(err));
+        this.windowOpen = false;
+        this.maybeSeed();
+      });
     return channel;
   }
 
@@ -182,6 +217,95 @@ export class RealtimeYjsProvider {
     Y.applyUpdate(this.opts.doc, bin, this);
   }
 
+  /**
+   * Every join, the first and each reconnect: ask the peers for what this
+   * client lacks. A reconnect gets back the updates it missed while away.
+   */
+  private onJoined() {
+    this.subscribed = true;
+    this.sendSync({ type: "hello", id: this.opts.doc.clientID, seeded: this.seeded, sv: this.stateVector() });
+    this.openWindow();
+  }
+
+  private onSync(msg: SyncMessage) {
+    if (this.destroyed || typeof msg?.id !== "number" || msg.id === this.opts.doc.clientID) return;
+    this.peers.set(msg.id, msg.seeded === true || this.peers.get(msg.id) === true);
+    if (msg.type === "state") {
+      if (msg.data) Y.applyUpdate(this.opts.doc, readyCore().decodeBase64(msg.data), this);
+      // Their state is now part of this document: a seeded peer's carries the
+      // reconcile, so this client's own would only repeat it.
+      if (msg.seeded) this.syncedWithSeeded = true;
+      if (!msg.ack) this.sendState(msg.sv, true);
+    } else if (msg.type === "hello") {
+      this.sendState(msg.sv, false);
+    }
+    this.maybeSeed();
+  }
+
+  /** This client's state, less what the state vector `sv` says the peer holds. */
+  private sendState(sv: string, ack: boolean) {
+    const core = readyCore();
+    const update = encodeStateAsUpdate(this.opts.doc, sv ? core.decodeBase64(sv) : undefined);
+    this.sendSync({
+      type: "state",
+      id: this.opts.doc.clientID,
+      seeded: this.seeded,
+      sv: this.stateVector(),
+      data: core.encodeBase64(update),
+      ...(ack ? { ack } : {}),
+    });
+  }
+
+  private stateVector(): string {
+    return readyCore().encodeBase64(Y.encodeStateVector(this.opts.doc));
+  }
+
+  private sendSync(payload: SyncMessage) {
+    if (!this.channel || !this.subscribed) return;
+    this.channel
+      .send({ type: "broadcast", event: "sync", payload })
+      .then((res) => {
+        if (res !== "ok") this.opts.onError?.("send", `sync returned ${String(res)}`);
+      })
+      .catch((err) => this.opts.onError?.("send", formatError(err)));
+  }
+
+  /** Listen for peers for a moment once the log is replayed and the channel joined. */
+  private openWindow() {
+    if (!this.booted || !this.subscribed || this.windowTimer || this.seeded) return;
+    this.windowTimer = setTimeout(() => {
+      this.windowOpen = false;
+      this.maybeSeed();
+    }, HELLO_WINDOW_MS);
+  }
+
+  /**
+   * Reconcile the document with the row's body, once, and only when no other
+   * client is about to.
+   *
+   * Two clients that each rebuild one body from different reads of the log
+   * make different operations, and the merge holds the new text twice. So a
+   * client reconciles alone only when it has nobody to wait for: no channel, a
+   * seeded peer's state already merged in (its reconcile is then a no-op), or
+   * the listening window closed with no lower client id still unseeded. The
+   * others wait for that client's state. The fallback covers a peer that left
+   * before seeding.
+   */
+  private maybeSeed(force = false) {
+    if (this.seeded || this.destroyed || !this.booted) return;
+    if (!force && this.channel && !this.syncedWithSeeded) {
+      if (this.windowOpen) return;
+      const me = this.opts.doc.clientID;
+      for (const [id, seeded] of this.peers) if (!seeded && id < me) return;
+    }
+    this.seeded = true;
+    if (this.windowTimer) clearTimeout(this.windowTimer);
+    if (this.fallbackTimer) clearTimeout(this.fallbackTimer);
+    this.opts.seed?.();
+    // Announce at once, not after the merge delay: the waiting peers seed on it.
+    this.sendState("", true);
+  }
+
   private onAwarenessRemote(payload: { data?: string }) {
     if (!payload.data || this.destroyed || !this.opts.awareness) return;
     const bin = readyCore().decodeBase64(payload.data);
@@ -206,8 +330,14 @@ export class RealtimeYjsProvider {
     } finally {
       // Always seed, even when the replay failed: an empty editor over a
       // non-empty row would otherwise look like the body had been deleted, and
-      // the first keystroke would persist that deletion.
-      if (!this.destroyed) this.opts.seed?.();
+      // the first keystroke would persist that deletion. With peers on the
+      // channel it waits for them first: see `maybeSeed`.
+      this.booted = true;
+      if (!this.destroyed) {
+        this.fallbackTimer = setTimeout(() => this.maybeSeed(true), SEED_FALLBACK_MS);
+        this.openWindow();
+        this.maybeSeed();
+      }
     }
   }
 
@@ -278,6 +408,8 @@ export class RealtimeYjsProvider {
     this.opts.doc.off("update", this.onLocalUpdate);
     if (this.mergeTimer) clearTimeout(this.mergeTimer);
     if (this.persistTimer) clearTimeout(this.persistTimer);
+    if (this.windowTimer) clearTimeout(this.windowTimer);
+    if (this.fallbackTimer) clearTimeout(this.fallbackTimer);
     if (this.opts.awareness && this.awarenessHandler) {
       this.opts.awareness.off("update", this.awarenessHandler);
       try {

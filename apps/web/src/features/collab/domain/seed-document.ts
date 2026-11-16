@@ -84,8 +84,9 @@ export function markSaved(doc: Y.Doc, digest: string): void {
     const all = saved.toArray();
     const kept = new Set<string>();
     for (let i = all.length - 1; i >= 0; i -= 1) {
-      if (kept.has(all[i]) || kept.size >= SAVED_BODIES_KEPT) saved.delete(i, 1);
-      else kept.add(all[i]);
+      const mark = all[i] ?? "";
+      if (kept.has(mark) || kept.size >= SAVED_BODIES_KEPT) saved.delete(i, 1);
+      else kept.add(mark);
     }
   });
 }
