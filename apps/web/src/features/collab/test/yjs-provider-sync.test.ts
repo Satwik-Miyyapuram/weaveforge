@@ -41,6 +41,14 @@ interface Link {
   setAuth?: () => Promise<unknown>;
   /** Leaving never finishes: the channel is off the topic, but the promise hangs. */
   hangUnsubscribe?: boolean;
+  /**
+   * Leaving takes this long, the channel's own leave timeout. Until it ends
+   * `channel()` hands back the leaving channel, whose `subscribe()` does
+   * nothing, as supabase-js does while a channel is still registered.
+   */
+  leaveMs?: number;
+  /** This many `onConnected` calls throw. */
+  connectedThrows?: number;
   /** This many `channel()` calls throw before one succeeds. */
   channelThrows?: number;
   /** Every channel errors right after it joins. */
@@ -64,8 +72,10 @@ function bus() {
     db(link: Link = {}) {
       const state = { joins: 0, joinedAt: [] as number[], fail: () => {} };
       let throws = link.channelThrows ?? 0;
+      let leaving: unknown = null;
       const db = {
         channel: () => {
+          if (leaving) return leaving;
           if (throws > 0) {
             throws -= 1;
             throw new Error("socket not ready");
@@ -74,6 +84,7 @@ function bus() {
           let left = false;
           const channel = {
             topic: "realtime:crdt:vault_page:abc",
+            timeout: link.leaveMs,
             on(_type: string, filter: { event: string }, cb: Handler) {
               handlers.set(filter.event, cb);
               return channel;
@@ -104,6 +115,15 @@ function bus() {
             unsubscribe: () => {
               left = true;
               leave(handlers);
+              if (link.leaveMs !== undefined) {
+                leaving = channel;
+                return new Promise<string>((resolve) =>
+                  setTimeout(() => {
+                    leaving = null;
+                    resolve("ok");
+                  }, link.leaveMs),
+                );
+              }
               return link.hangUnsubscribe ? new Promise<string>(() => {}) : Promise.resolve("ok");
             },
           };
@@ -121,6 +141,8 @@ function client(net: ReturnType<typeof bus>, id: number, log: Uint8Array[], body
   const doc = new Y.Doc();
   doc.clientID = id;
   let seeded = false;
+  let connectedThrows = link.connectedThrows ?? 0;
+  const errors: string[] = [];
   const socket = net.db(link);
   const awareness = link.awareness ? new Awareness(doc) : undefined;
   const provider = new RealtimeYjsProvider({
@@ -140,9 +162,16 @@ function client(net: ReturnType<typeof bus>, id: number, log: Uint8Array[], body
       reconcileWithBody(doc, body, digest);
       seeded = true;
     },
+    onConnected: () => {
+      if (connectedThrows > 0) {
+        connectedThrows -= 1;
+        throw new Error("listener failed");
+      }
+    },
+    onError: (stage, detail) => errors.push(`${stage}: ${detail}`),
     timing: { joinTimeoutMs: link.joinTimeoutMs ?? 300, rejoinBaseMs: 50, rejoinMaxMs: 200, stableMs: 1_000 },
   });
-  return { doc, provider, awareness, isSeeded: () => seeded, socket: socket.state };
+  return { doc, provider, awareness, errors, isSeeded: () => seeded, socket: socket.state };
 }
 
 async function until(ok: () => boolean, label: string) {
@@ -346,6 +375,28 @@ test("sync: a leave that never finishes does not stop the rejoin", async () => {
   bob.socket.fail();
   await until(() => bob.socket.joins === 2, "bob's rejoin past the hung leave");
   await Promise.all([alice.provider.destroy(), bob.provider.destroy()]);
+});
+
+test("sync: a throw while handling the join does not leave the client cut off", async () => {
+  const net = bus();
+  const log = savedLog("abcdef");
+  const alice = client(net, 101, [log], "abcdef");
+  const bob = client(net, 202, [log], "abcdef", { connectedThrows: 1 });
+  await until(() => bob.socket.joins === 2, "bob's rejoin after the throw");
+  await until(() => alice.isSeeded() && bob.isSeeded(), "both seeded");
+  alice.doc.getText("body").insert(0, "Z");
+  await until(() => text(bob.doc).startsWith("Z"), "bob receiving alice's edit");
+  await Promise.all([alice.provider.destroy(), bob.provider.destroy()]);
+});
+
+test("sync: a slow leave is waited out, so the rejoin gets a fresh channel", async () => {
+  const net = bus();
+  const bob = client(net, 202, [savedLog("abcdef")], "abcdef", { leaveMs: 500, joinTimeoutMs: 200 });
+  await until(() => bob.isSeeded() && bob.socket.joins === 1, "bob joined");
+  bob.socket.fail();
+  await until(() => bob.socket.joins === 2, "bob's rejoin");
+  await bob.provider.destroy();
+  assert.deepEqual(bob.errors.filter((e) => e.includes("not joined")), [], "no join stalled on the leaving channel");
 });
 
 test("sync: a channel that throws while joining is retried, and construction survives it", async () => {

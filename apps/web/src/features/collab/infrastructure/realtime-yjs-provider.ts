@@ -104,6 +104,7 @@ export class RealtimeYjsProvider {
   private joinTimer: ReturnType<typeof setTimeout> | null = null;
   private rejoinTimer: ReturnType<typeof setTimeout> | null = null;
   private stableTimer: ReturnType<typeof setTimeout> | null = null;
+  private leaveTimer: ReturnType<typeof setTimeout> | null = null;
   private pending: Uint8Array[] = [];
   private mergeTimer: ReturnType<typeof setTimeout> | null = null;
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -186,8 +187,14 @@ export class RealtimeYjsProvider {
             this.stableTimer = setTimeout(() => {
               this.rejoins = 0;
             }, this.opts.timing?.stableMs ?? STABLE_MS);
-            this.opts.onConnected?.();
-            this.onJoined();
+            // A throw here would escape into realtime-js and leave the channel
+            // joined but never used, with nothing to start a rejoin.
+            try {
+              this.opts.onConnected?.();
+              this.onJoined();
+            } catch (err) {
+              if (current()) this.lost("subscribe", formatError(err));
+            }
           } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
             this.lost("subscribe", `${status}${err ? `: ${err.message}` : ""}`);
           }
@@ -218,7 +225,8 @@ export class RealtimeYjsProvider {
     this.maybeSeed();
     // Join again once this channel has left: supabase-js keys channels by topic
     // and hands back the old one while it is still registered. A leave that
-    // never settles is waited on for one join timeout, no longer.
+    // never settles is waited on for one join timeout, or for the channel's own
+    // leave timeout if longer: realtime-js drops the channel only once that ends.
     const old = this.channel;
     this.channel = null;
     const left = old
@@ -230,10 +238,16 @@ export class RealtimeYjsProvider {
     const t = this.opts.timing;
     const delay = Math.min(t?.rejoinMaxMs ?? REJOIN_MAX_MS, (t?.rejoinBaseMs ?? REJOIN_BASE_MS) * 2 ** this.rejoins);
     this.rejoins += 1;
-    const leaveLimit = new Promise<void>((resolve) => setTimeout(resolve, t?.joinTimeoutMs ?? JOIN_TIMEOUT_MS));
+    const leaveWait = Math.max(t?.joinTimeoutMs ?? JOIN_TIMEOUT_MS, old?.timeout ?? 0);
+    if (this.leaveTimer) clearTimeout(this.leaveTimer);
+    const leaveLimit = new Promise<void>((resolve) => {
+      this.leaveTimer = setTimeout(resolve, leaveWait);
+    });
     this.rejoinTimer = setTimeout(() => {
       this.rejoinTimer = null;
       void Promise.race([left, leaveLimit]).then(() => {
+        if (this.leaveTimer) clearTimeout(this.leaveTimer);
+        this.leaveTimer = null;
         if (!this.destroyed) this.join();
       });
     }, delay);
@@ -513,6 +527,7 @@ export class RealtimeYjsProvider {
     if (this.joinTimer) clearTimeout(this.joinTimer);
     if (this.rejoinTimer) clearTimeout(this.rejoinTimer);
     if (this.stableTimer) clearTimeout(this.stableTimer);
+    if (this.leaveTimer) clearTimeout(this.leaveTimer);
     if (this.opts.awareness && this.awarenessHandler) {
       this.opts.awareness.off("update", this.awarenessHandler);
       try {
