@@ -85,8 +85,8 @@ export function GithubOnboarding() {
     <aside className="release-notice-banner github-onboarding" aria-label="Sync with GitHub">
       <strong>Sync with GitHub</strong>
       <p className="release-notice-body">
-        Your notes sync to your own private GitHub repository. Our server only relays live sessions and shared
-        items.
+        Your notes sync to your own private GitHub repository. GitHub holds your synced files; the WeaveForge
+        server only relays live shared sessions.
       </p>
       <ul className="github-onboarding-points">
         <li>You own the data and its full history.</li>
