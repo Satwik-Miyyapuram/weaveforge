@@ -47,7 +47,7 @@ const STYLES = ["base.css", "states.css", "cards.css", "markdown.css"];
 const GROUPS = [
   ["Start here", ["getting-started", "desktop", "workspaces", "workspace-folder", "projects", "dashboard", "settings", "account"]],
   ["Your research", ["papers", "reader", "reading-lists", "review-queue", "citations-and-overleaf", "search", "graph", "tags"]],
-  ["Writing", ["notes", "ink", "paste", "wiki", "logbook", "reports", "experiments", "plan"]],
+  ["Writing", ["notes", "ink", "canvas", "paste", "wiki", "logbook", "reports", "experiments", "plan"]],
   ["Working together", ["sharing", "collaborative-editing", "organisations", "supervision", "git", "sync"]],
   ["App and data", ["integrations", "extensions", "ai-assistant", "release-notices"]],
 ];
