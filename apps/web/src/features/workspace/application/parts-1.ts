@@ -400,6 +400,8 @@ export async function applyEntries(
         const page = await container.vault.manageVaultPage.add({
           title: entry.entity.title,
           body: await reanchorAssets(entry.entity.body, "new", owned),
+          // A raw .canvas file comes back as a canvas page, not a markdown note.
+          ...(entry.entity.kind === "canvas" ? { kind: "canvas" as const } : {}),
         });
         id = page.id;
         created += 1;

@@ -298,6 +298,8 @@ export async function claimImportedFile(
   id: string,
   projectRoot: string,
 ): Promise<boolean> {
+  // A canvas is pure JSON Canvas: its id lives in the mirror's canvas-ids.json, never in the file.
+  if (path.endsWith(".canvas")) return false;
   let content: string;
   try {
     content = await fs.readText(path);
