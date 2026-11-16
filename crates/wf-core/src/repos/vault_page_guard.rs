@@ -23,8 +23,8 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::vault_pages::{TABLE, VAULT_PAGE_COLUMNS, save, scoped};
-use crate::repo_query::{RepoCall, RepoQuery, RepoStep};
 use crate::canvas::parse_canvas;
+use crate::repo_query::{RepoCall, RepoQuery, RepoStep};
 use crate::sync::change_origin::digest_text;
 use crate::sync::text_merge::{TextMerge, merge_text};
 use crate::vault::page::{CANVAS_KIND, NewVaultPageInput, VaultPage, create_vault_page};
