@@ -11,7 +11,8 @@
 //! - otherwise the three are merged line by line ([`merge_text`]); a clean
 //!   merge is written. When both sides changed the same lines, `mine` is
 //!   written and `theirs` is first kept as a new page beside it, the
-//!   "conflict copy", so neither edit is lost.
+//!   "conflict copy", so neither edit is lost. A canvas note merges the same
+//!   way, but a merge that no longer parses as a canvas counts as a clash.
 //!
 //! A write that misses the version (someone saved in between) reads again and
 //! decides again, up to [`ATTEMPTS`] times. A retry that clashes again reuses
@@ -23,9 +24,10 @@ use serde_json::{Value, json};
 
 use super::vault_pages::{TABLE, VAULT_PAGE_COLUMNS, save, scoped};
 use crate::repo_query::{RepoCall, RepoQuery, RepoStep};
+use crate::canvas::parse_canvas;
 use crate::sync::change_origin::digest_text;
 use crate::sync::text_merge::{TextMerge, merge_text};
-use crate::vault::page::{NewVaultPageInput, VaultPage, create_vault_page};
+use crate::vault::page::{CANVAS_KIND, NewVaultPageInput, VaultPage, create_vault_page};
 use crate::vault::page_row::{VaultPageRow, to_domain};
 
 /// How many times a save re-reads after losing the version race.
@@ -51,7 +53,7 @@ enum Plan {
     CopyThenWrite,
 }
 
-fn plan(base: &str, mine: &str, theirs: &str, session: &[String]) -> Plan {
+fn plan(base: &str, mine: &str, theirs: &str, session: &[String], canvas: bool) -> Plan {
     if theirs == mine {
         return Plan::Keep;
     }
@@ -60,6 +62,8 @@ fn plan(base: &str, mine: &str, theirs: &str, session: &[String]) -> Plan {
     }
     match merge_text(base, mine, theirs) {
         TextMerge::Clean(merged) if merged == theirs => Plan::Keep,
+        // Lines merged cleanly can still break the JSON (a comma, a bracket).
+        TextMerge::Clean(merged) if canvas && parse_canvas(&merged).is_err() => Plan::CopyThenWrite,
         TextMerge::Clean(merged) => Plan::Write(merged),
         TextMerge::Conflict => Plan::CopyThenWrite,
     }
@@ -111,6 +115,7 @@ fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
             &input.body,
             &existing.body,
             &input.session_digests,
+            existing.summary.kind.as_deref() == Some(CANVAS_KIND),
         ) {
             Plan::Keep => return finish(&existing, copy_id),
             Plan::Write(text) => text,
@@ -203,6 +208,7 @@ fn conflict_copy(call: &RepoCall, existing: &VaultPage, n: usize) -> Result<Valu
         body: Some(existing.body.clone()),
         parent_id: existing.summary.parent_id.clone(),
         folder: None,
+        kind: existing.summary.kind.clone(),
         sort_order: Some(existing.summary.sort_order),
     };
     let page = create_vault_page(&input, &call.id(n), call.now())
@@ -378,6 +384,84 @@ mod tests {
         let page = done(step(input("a\nb", "a\nMINE"), replies));
         assert_eq!(page["body"], "a\nMINE");
         assert_eq!(page["conflictCopyId"], copy_id);
+    }
+
+    fn canvas_row(body: &str, version: i64) -> Value {
+        let mut row = row(body, version);
+        row["kind"] = json!("canvas");
+        row
+    }
+
+    #[test]
+    fn a_canvas_conflict_copy_is_a_canvas() {
+        let theirs = "{\"nodes\":[{\"id\":\"t\"}]}";
+        let mine = "{\"nodes\":[{\"id\":\"m\"}]}";
+        let base = "{\"nodes\":[]}";
+        let copy = only(step(input(base, mine), vec![canvas_row(theirs, 4)]));
+        assert_eq!(copy.action, RepoAction::Upsert);
+        let body = copy.body.unwrap();
+        assert_eq!(body["kind"], "canvas");
+        assert_eq!(body["body"], theirs);
+    }
+
+    #[test]
+    fn a_canvas_merge_that_breaks_the_json_keeps_theirs_as_a_copy() {
+        // Mine wraps the middle in an object; theirs puts a node there. The edits
+        // touch different lines, so they merge cleanly, into a node with no key.
+        let base = "{\"nodes\":[
+
+
+
+]}";
+        let mine = "{\"nodes\":[],\"x\":{
+
+
+
+}}";
+        let theirs = "{\"nodes\":[
+
+{\"id\":\"a\"}
+
+]}";
+        let TextMerge::Clean(merged) = merge_text(base, mine, theirs) else {
+            panic!("the lines must merge cleanly for this case to test the guard");
+        };
+        assert!(parse_canvas(&merged).is_err(), "{merged}");
+        // As a note the clean merge is written; as a canvas theirs is kept first.
+        let note = only(step(input(base, mine), vec![row(theirs, 4)]));
+        assert_eq!(note.action, RepoAction::Update);
+        let copy = only(step(input(base, mine), vec![canvas_row(theirs, 4)]));
+        assert_eq!(copy.action, RepoAction::Upsert);
+        assert_eq!(copy.body.unwrap()["body"], theirs);
+    }
+
+    #[test]
+    fn a_canvas_merge_that_stays_a_canvas_is_written() {
+        let base = "{\"nodes\":[
+{\"id\":\"a\"},
+{\"id\":\"b\"},
+{\"id\":\"c\"}
+]}";
+        let mine = "{\"nodes\":[
+{\"id\":\"A\"},
+{\"id\":\"b\"},
+{\"id\":\"c\"}
+]}";
+        let theirs = "{\"nodes\":[
+{\"id\":\"a\"},
+{\"id\":\"b\"},
+{\"id\":\"C\"}
+]}";
+        let write = only(step(input(base, mine), vec![canvas_row(theirs, 4)]));
+        assert_eq!(write.action, RepoAction::Update);
+        assert_eq!(
+            write.body.unwrap()["body"],
+            "{\"nodes\":[
+{\"id\":\"A\"},
+{\"id\":\"b\"},
+{\"id\":\"C\"}
+]}"
+        );
     }
 
     #[test]
