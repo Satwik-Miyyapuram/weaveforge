@@ -5,6 +5,7 @@ import { Handle, NodeResizer, Position, useReactFlow, type Node, type NodeProps 
 import { Markdown } from "@/components/markdown/markdown";
 import { MarkdownFieldEditor } from "@/components/markdown/markdown-field-editor";
 import { useVaultImageSource } from "@/lib/hooks/use-vault-markdown-source";
+import { readyCore } from "@/lib/rust-core";
 import type { RawCanvasNode } from "../application/canvas-doc";
 
 /** A node as React Flow holds it: the stored object rides along in `data.raw`. */
@@ -52,7 +53,11 @@ function TextNode({ id, data, selected }: NodeProps<FlowNode>) {
   const [editing, setEditing] = useState(false);
   const raw = data.raw;
   // Read mode shows the same pictures a note page does: `vault:` refs resolve to blob URLs.
-  const readSource = useVaultImageSource(raw.text ?? "");
+  // Text with no `vault:` reference skips the lookup (the hook still runs, on an empty source).
+  const text = raw.text ?? "";
+  const hasPictures = text.includes(readyCore().vaultImagePrefix());
+  const resolved = useVaultImageSource(hasPictures ? text : "");
+  const readSource = hasPictures ? resolved : text;
   // Clicking elsewhere on the canvas deselects the node and ends the edit.
   useEffect(() => {
     if (!selected) setEditing(false);

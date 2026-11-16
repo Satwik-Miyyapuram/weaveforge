@@ -340,3 +340,56 @@ test("canvas mode keeps typed ink text out of the ink note, so nothing is writte
   assert.equal(fake.uploads.filter((u) => u.pageId === b.id).length, 1);
   assert.equal(fake.uploads.filter((u) => u.pageId === ink.id).length, 1);
 });
+
+test("canvas mode points an ink file node at the path the workspace gives the note, even with a slash in the title (OneNote)", async () => {
+  const section = canvasSection();
+  section.pages[1]!.title = "Lab 1/2";
+  const fake = fakeDeps({ section });
+  await importOneNoteSection(sectionFile(), fake.deps, CANVAS);
+
+  const b = fake.adds.find((x) => x.title === "Lab 1/2")!;
+  const ink = fake.adds.find((x) => x.title === "Lab 1/2 (handwriting)")!;
+  assert.equal(ink.parentId, b.id);
+  const pageB = JSON.parse(finalBody(fake, b.id)) as { nodes: { file?: string }[] };
+  assert.deepEqual(
+    pageB.nodes.map((n) => n.file),
+    ["notes/Lab 1/2 (handwriting).note.md"],
+  );
+});
+
+test("canvas mode keeps markdown the layout has no text for (OneNote)", async () => {
+  const section = canvasSection();
+  section.pages[0]!.layout = section.pages[0]!.layout.filter((item) => item.kind !== "text");
+  section.pages[0]!.markdown = "only in markdown";
+  const fake = fakeDeps({ section });
+  await importOneNoteSection(sectionFile(), fake.deps, CANVAS);
+
+  const a = fake.adds.find((x) => x.title === "A")!;
+  const pageA = JSON.parse(finalBody(fake, a.id)) as { nodes: { type: string; text?: string }[] };
+  assert.ok(pageA.nodes.some((n) => n.type === "text" && n.text === "only in markdown"));
+});
+
+test("canvas mode warns when an ink note fails and still writes the canvas body (OneNote)", async () => {
+  const fake = fakeDeps({ section: canvasSection() });
+  fake.deps.writeChunk = async () => {
+    throw new Error("disk full");
+  };
+  const out = await importOneNoteSection(sectionFile(), fake.deps, CANVAS);
+
+  assert.ok(out.warnings.includes('Handwriting "B (handwriting)" on "B" not imported'));
+  const b = fake.adds.find((x) => x.title === "B")!;
+  const pageB = JSON.parse(finalBody(fake, b.id)) as { nodes: unknown[] };
+  assert.ok(Array.isArray(pageB.nodes));
+  assert.equal(out.inkNotes, 0);
+});
+
+test("canvas mode saves the body in Obsidian layout, one node per line (OneNote)", async () => {
+  const fake = fakeDeps({ section: canvasSection() });
+  await importOneNoteSection(sectionFile(), fake.deps, CANVAS);
+
+  const a = fake.adds.find((x) => x.title === "A")!;
+  const body = finalBody(fake, a.id);
+  const nodeLines = body.split("\n").filter((line) => line.includes('"type"'));
+  assert.equal(nodeLines.length, 2);
+  assert.equal(body, readyCore().normalizeCanvasText(body));
+});

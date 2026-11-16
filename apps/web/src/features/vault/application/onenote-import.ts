@@ -139,6 +139,22 @@ function pageNoteNames(page: OneNotePage, canvas: boolean): string[] {
   return names.map((name) => `${name}.md`);
 }
 
+/** The workspace path of a note: the same `notes/<title>.note.md` the editor workspace gives it. */
+function inkNotePath(title: string): string {
+  return `notes/${title === "" ? "Untitled" : title}.note.md`;
+}
+
+/**
+ * The page's layout, plus one text item holding `markdown` below it when the
+ * layout has no text of its own, so text the parser kept only in markdown is not lost.
+ */
+function withMarkdownText(page: OneNotePage): OneNotePage["layout"] {
+  const hasText = page.layout.some((item) => item.kind === "text");
+  if (hasText || page.markdown.trim() === "") return page.layout;
+  const bottom = page.layout.reduce((max, item) => Math.max(max, (item.y ?? 0) + (item.height ?? 0)), 0);
+  return [...page.layout, { kind: "text", key: "", text: page.markdown, x: 0, y: bottom, width: 384, height: 192 }];
+}
+
 /**
  * A page as a canvas. Its placed images upload first, its ink notes are
  * written under the canvas, and the canvas body follows once every file has a
@@ -155,6 +171,7 @@ async function writeCanvasPage(
   const canvas = await deps.add({ title: canvasTitle!, parentId, kind: "canvas" });
   const files: Record<string, string> = {};
   let images = 0;
+  let inkWritten = 0;
 
   // A printout behind ink lives in its ink note, so only placed images upload here.
   const placed = new Set(page.layout.filter((item) => item.kind === "image").map((item) => item.key));
@@ -174,13 +191,22 @@ async function writeCanvasPage(
     const sheets = page.ink
       .slice(start, start + INK_NOTE_MAX_PAGES)
       .map((sheet) => ({ ...sheet, text: "" }));
-    const note = await writeInkNote(title!, canvas.id, sheets, page.images, deps, warnings);
-    files[`ink-${index}`] = `notes/${title}.note.md`;
-    images += note.uploaded;
+    try {
+      const note = await writeInkNote(title!, canvas.id, sheets, page.images, deps, warnings);
+      files[`ink-${index}`] = inkNotePath(title!);
+      images += note.uploaded;
+      inkWritten += 1;
+    } catch {
+      warnings.push(`Handwriting "${title}" on "${canvasTitle}" not imported`);
+    }
   }
 
-  await deps.update(canvas.id, readyCore().oneNoteCanvasText(page.layout, files));
-  return { id: canvas.id, inkNotes: inkTitles.length, images };
+  try {
+    await deps.update(canvas.id, readyCore().normalizeCanvasText(readyCore().oneNoteCanvasText(withMarkdownText(page), files)));
+  } catch {
+    warnings.push(`Canvas "${canvasTitle}" could not be written`);
+  }
+  return { id: canvas.id, inkNotes: inkWritten, images };
 }
 
 /**
