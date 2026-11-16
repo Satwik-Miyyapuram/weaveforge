@@ -15,7 +15,7 @@ import { Awareness, removeAwarenessStates } from "y-protocols/awareness";
 
 import { readyCore } from "@/lib/rust-core";
 import { RealtimeYjsProvider } from "../infrastructure/realtime-yjs-provider";
-import { FakeRealtime, memoryCrdtStore } from "./fake-realtime";
+import { FakeRealtime, memoryCrdtStore, type FakeChannel } from "./fake-realtime";
 
 const settle = async () => {
   for (let i = 0; i < 50; i += 1) await Promise.resolve();
@@ -416,26 +416,112 @@ test("live: an old channel's broadcasts never reach the new session", async () =
   await a.close();
 });
 
-test("live: a topic still holding the replaced channel is not subscribed twice", async () => {
+test("live: a topic still holding the old channel has it removed and joins at once", async () => {
   const server = new FakeRealtime();
   const store = memoryCrdtStore();
   const a = makeClient(server, store);
   await run();
   server.reuseChannels = true;
+  const old = a.client.current();
+  old.serverClose();
+  await settle();
+  mock.timers.tick(1_000);
+  await settle();
+  assert.equal(server.removes, 1, "the old instance is removed from the client");
+  assert.equal(a.client.channels.length, 2, "a fresh channel, no backoff wait");
+  assert.notEqual(a.client.current(), old);
+  assert.equal(server.subscribes, 2);
+  assert.ok(a.client.current().joined);
+  await a.close();
+});
+
+test("live: a client that keeps the old channel is removed again on every retry", async () => {
+  const server = new FakeRealtime();
+  const store = memoryCrdtStore();
+  const a = makeClient(server, store);
+  await run();
+  server.reuseChannels = true;
+  server.ignoreRemoval = true;
   a.client.current().serverClose();
   await settle();
   mock.timers.tick(1_000);
   await settle();
-  assert.equal(server.subscribes, 1, "the old instance is not joined again");
+  assert.equal(server.subscribes, 1, "the old instance is never subscribed again");
+  assert.equal(server.removes, 2, "removed, asked again, removed again");
   assert.ok(a.errors.some((e) => e.includes("still registered")), JSON.stringify(a.errors));
-
-  server.reuseChannels = false;
   mock.timers.tick(2_000);
+  await settle();
+  assert.equal(server.removes, 4, "each retry removes it first");
+
+  server.ignoreRemoval = false;
+  mock.timers.tick(4_000);
   await run();
   assert.equal(server.subscribes, 2);
-  assert.equal(a.client.channels.length, 2);
   assert.ok(a.client.current().joined);
   await a.close();
+});
+
+test("live: an errored channel is removed from the client when replaced", async () => {
+  const server = new FakeRealtime();
+  const store = memoryCrdtStore();
+  const a = makeClient(server, store);
+  await run();
+  server.refuseJoins = true;
+  server.refuseJoinStatus = "CHANNEL_ERROR";
+  a.client.current().drop();
+  await settle();
+  mock.timers.tick(10_000);
+  await settle();
+  assert.equal(server.removes, 1);
+  await a.close();
+});
+
+test("live: no failure leaves the provider without a way back", async () => {
+  const fail: Record<string, (s: FakeRealtime, ch: () => FakeChannel) => void> = {
+    "server close": (_s, ch) => ch().serverClose(),
+    "refused CLOSED": (s, ch) => {
+      s.refuseJoins = true;
+      ch().serverClose();
+    },
+    "refused CHANNEL_ERROR": (s, ch) => {
+      s.refuseJoins = true;
+      s.refuseJoinStatus = "CHANNEL_ERROR";
+      ch().drop();
+    },
+    "error then close": (s, ch) => {
+      s.refuseJoins = true;
+      s.refuseJoinStatus = "CHANNEL_ERROR";
+      ch().drop();
+      ch().lateStatus("CLOSED");
+    },
+    "token refused": (s, ch) => {
+      s.failAuth = true;
+      ch().serverClose();
+    },
+    "old channel kept": (s, ch) => {
+      s.reuseChannels = true;
+      s.ignoreRemoval = true;
+      ch().serverClose();
+    },
+  };
+  for (const [name, break_] of Object.entries(fail)) {
+    const server = new FakeRealtime();
+    const a = makeClient(server, memoryCrdtStore());
+    await run();
+    break_(server, () => a.client.current());
+    for (let i = 0; i < 12; i += 1) {
+      await settle();
+      mock.timers.tick(5_000);
+    }
+    Object.assign(server, { refuseJoins: false, failAuth: false, ignoreRemoval: false });
+    for (let i = 0; i < 20; i += 1) {
+      await settle();
+      mock.timers.tick(5_000);
+    }
+    await settle();
+    assert.ok(a.client.current().joined, `${name}: joined again`);
+    await a.close();
+  }
 });
 
 test("live: the library's own rejoin inside 10 s leaves the channel alone", async () => {

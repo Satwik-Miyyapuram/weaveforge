@@ -112,18 +112,37 @@ export class RealtimeYjsProvider {
 
   /** Joins the document's broadcast topic. Only called when there is a socket. */
   private join() {
+    this.openChannel().catch((err) => {
+      this.opts.onError?.("subscribe", formatError(err));
+      this.scheduleRejoin(() => this.join());
+    });
+  }
+
+  private async openChannel() {
     const opts = this.opts;
     // The socket, which after a cutover is not the same host as the data API.
     const db = getRealtimeClient(opts.db as SupabaseClient);
-    const channel = db.channel(`crdt:${opts.resourceType}:${opts.resourceId}`, {
-      config: { broadcast: { self: false }, private: true },
-    });
+    const make = () =>
+      db.channel(`crdt:${opts.resourceType}:${opts.resourceId}`, {
+        config: { broadcast: { self: false }, private: true },
+      });
+    let channel = make();
     // The client still holds the channel being replaced: subscribing it again
-    // throws, and its handlers are already bound. Try again later instead.
-    if (channel === this.channel || channel === this.replaced) {
-      opts.onError?.("subscribe", "old channel still registered; retrying");
-      this.scheduleRejoin(() => this.join());
-      return;
+    // throws, and its handlers are bound to the old session. Remove it from
+    // the client, then ask for a fresh one straight away.
+    if (this.isOld(channel)) {
+      this.retire(channel);
+      await this.remove(channel);
+      if (this.destroyed) return;
+      channel = make();
+      if (this.isOld(channel)) {
+        // Still there: remove it again and retry on the backoff. Every retry
+        // removes it first, so this never gives up while the editor is open.
+        opts.onError?.("subscribe", "old channel still registered; removed, retrying");
+        void this.remove(channel);
+        this.scheduleRejoin(() => this.join());
+        return;
+      }
     }
     if (this.channel) this.replaced = this.channel;
     this.channel = channel;
@@ -189,11 +208,35 @@ export class RealtimeYjsProvider {
       this.errorTimer = null;
       if (this.destroyed || this.connected || channel !== this.channel) return;
       // Dropped first, so whatever the old channel still reports is stale.
-      this.replaced = channel;
-      this.channel = null;
-      channel.unsubscribe().catch((err) => this.opts.onError?.("leave", formatError(err)));
+      this.retire(channel);
+      // Removed, not only left, so the client never hands it back for the topic.
+      void this.remove(channel);
       this.scheduleRejoin(() => this.join());
     }, ERROR_REJOIN_MS);
+  }
+
+  private isOld(channel: RealtimeChannel) {
+    return channel === this.channel || channel === this.replaced;
+  }
+
+  /** From here on, anything the channel reports is stale. */
+  private retire(channel: RealtimeChannel) {
+    this.replaced = channel;
+    if (this.channel === channel) this.channel = null;
+  }
+
+  /**
+   * Unsubscribes the channel and drops it from the client's registry. Only for
+   * replacing a channel: this editor joins the topic again right after, so the
+   * registry (and the shared socket) is not left empty by it.
+   */
+  private async remove(channel: RealtimeChannel) {
+    const db = getRealtimeClient(this.opts.db as SupabaseClient);
+    try {
+      await db.removeChannel(channel);
+    } catch (err) {
+      this.opts.onError?.("leave", formatError(err));
+    }
   }
 
   private clearErrorTimer() {

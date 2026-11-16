@@ -78,13 +78,22 @@ provider covers each case:
 
 | Status | Who rejoins |
 | --- | --- |
-| `CHANNEL_ERROR`, `TIMED_OUT` | Usually the library, on the same channel: `SUBSCRIBED` fires again and `onJoined()` runs. A refused join (expired token, denied topic) may never be retried, so if no `SUBSCRIBED` comes within 10 s (`ERROR_REJOIN_MS`) the provider leaves that channel and `join()` builds a new one. A late status or broadcast on the old channel is then ignored, and if the client hands the old channel back for the topic, it is not subscribed again: the join is retried after the backoff. |
+| `CHANNEL_ERROR`, `TIMED_OUT` | Usually the library, on the same channel: `SUBSCRIBED` fires again and `onJoined()` runs. A refused join (expired token, denied topic) may never be retried, so if no `SUBSCRIBED` comes within 10 s (`ERROR_REJOIN_MS`) the provider removes that channel from the client (`removeChannel`) and `join()` builds a new one. A late status or broadcast on the old channel is then ignored. |
 | `CLOSED` from the server | Nobody, unless we do. The library drops closed channels, so `join()` builds a new one. |
 | `setAuth()` rejected | We retry `connect()` on the *same* channel (no new handlers). |
 
 Our retries back off 1 s, 2 s, 4 s … up to 30 s (`REJOIN_BASE_MS`,
 `REJOIN_MAX_MS`). One timer at a time; a success resets the count. A status from
 a channel that is no longer current is ignored.
+
+`join()` always ends on a fresh channel. If the client hands back the channel
+being replaced (it is still in the client's registry), `join()` removes it with
+`removeChannel` and asks again at once, with no backoff. Only if the client
+still returns the old one does it log, remove it again and retry on the backoff;
+every retry removes it first, so the provider never stops trying while the
+editor is open. Removing only happens on a replace, right before a new join, so
+the shared socket is not left with an empty registry. `destroy()` still only
+unsubscribes (see the note there).
 
 ## Presence
 
@@ -121,7 +130,8 @@ runs real providers and real `Y.Doc`s over
 [`fake-realtime.ts`](../../apps/web/src/features/collab/test/fake-realtime.ts),
 an in-memory broadcast server that can drop a socket, close a channel, refuse
 joins (CLOSED, or CHANNEL_ERROR with no library retry), refuse a token, fail a
-send, or report a late status on a replaced channel. It covers:
+send, report a late status on a replaced channel, hand back a channel that is
+still registered, or ignore `removeChannel`. It covers:
 
 - convergence;
 - offline merge;
@@ -130,6 +140,7 @@ send, or report a late status on a replaced channel. It covers:
 - reload equality;
 - backoff, and replacing an errored channel the library gave up on;
 - stale status and failed sends;
+- removing a still-registered channel, and getting back from every failure;
 - presence;
 - leak-free teardown.
 

@@ -13,7 +13,8 @@
  * `serverClose()` is the server ending the channel (CLOSED, no library rejoin).
  * A refused join reports `refuseJoinStatus`: CLOSED, or CHANNEL_ERROR with no
  * library rejoin after it (an expired token or a denied topic).
- * `reuseChannels` makes `channel()` return the topic's old channel, and
+ * `reuseChannels` makes `channel()` return the topic's old channel until
+ * `removeChannel()` drops it (unless `ignoreRemoval`), and
  * `inject()` hands a broadcast to a channel's handlers whatever its state.
  */
 
@@ -140,8 +141,11 @@ export class FakeRealtime {
   refuseJoins = false;
   /** What a refused join reports. */
   refuseJoinStatus: Status = "CLOSED";
-  /** `channel()` hands back the client's last channel (still registered). */
+  /** `channel()` hands back the client's last channel while it is registered. */
   reuseChannels = false;
+  /** `removeChannel()` leaves the channel registered (a client that ignores it). */
+  ignoreRemoval = false;
+  removes = 0;
   /** setAuth rejects while this is set. */
   failAuth = false;
   private readonly members = new Map<string, Set<FakeChannel>>();
@@ -149,12 +153,21 @@ export class FakeRealtime {
   /** One client's `db`: each call to `channel()` is a fresh channel object. */
   client() {
     const channels: FakeChannel[] = [];
+    const removed = new Set<FakeChannel>();
     const db = {
       channel: (topic: string) => {
-        if (this.reuseChannels && channels.length > 0) return channels[channels.length - 1]!;
+        const last = channels[channels.length - 1];
+        if (this.reuseChannels && last && !removed.has(last)) return last;
         const ch = new FakeChannel(topic, this);
         channels.push(ch);
         return ch;
+      },
+      // Unsubscribes and drops the channel from the client's registry.
+      removeChannel: async (ch: FakeChannel) => {
+        this.removes += 1;
+        if (!this.ignoreRemoval) removed.add(ch);
+        await ch.unsubscribe();
+        return "ok";
       },
       realtime: {
         setAuth: async () => {
