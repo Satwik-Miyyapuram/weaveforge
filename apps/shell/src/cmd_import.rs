@@ -126,11 +126,14 @@ mod tests {
 
     #[tokio::test]
     async fn import_commands_fail_when_the_native_db_is_down() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = std::env::temp_dir().join(format!("wf-import-down-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
         let db = LocalDb::new(Err("no postgres".to_string()), "data".to_string());
         assert!(db.import_table("notes", &[]).await.is_err());
-        assert!(db.import_finish(&["notes".to_string()], &dir.path().join(IMPORTED_MARKER)).await.is_err());
-        assert!(!dir.path().join(IMPORTED_MARKER).exists());
+        assert!(db.import_finish(&["notes".to_string()], &dir.join(IMPORTED_MARKER)).await.is_err());
+        assert!(!dir.join(IMPORTED_MARKER).exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
