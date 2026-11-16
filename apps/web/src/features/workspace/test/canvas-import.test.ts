@@ -13,7 +13,7 @@ import type { IWorkspaceFs } from "@weaveforge/core";
 import type { ImportDiff } from "@weaveforge/wasm";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { applyEntries } from "../application/parts-1";
-import { claimImportedFile, writeTextAtomic } from "../application/parts-3";
+import { canvasRenameIds, claimImportedFile, writeTextAtomic } from "../application/parts-3";
 
 const BOARD = '{"nodes":[],"edges":[]}';
 
@@ -184,4 +184,79 @@ test("an atomic map write replaces the map and leaves no temp file behind", asyn
 
   assert.equal(store.get(mapPath), '{"a.canvas":"page-1"}');
   assert.deepEqual([...store.keys()].filter((key) => key.endsWith(".tmp")), []);
+});
+
+/** A parsed folder entity for a canvas file that has no id yet. */
+function unmappedCanvas(path: string, body: string) {
+  return { path, kind: "canvas", body };
+}
+
+test("a canvas renamed outside the app is matched to its page by body", () => {
+  const renamed = `${projectRoot}/Renamed.canvas`;
+  const ids = canvasRenameIds(
+    { [renamed]: BOARD },
+    projectRoot,
+    [{ id: "page-1", kind: "canvas", body: BOARD }],
+    [unmappedCanvas(renamed, BOARD)],
+    { "notes/board.canvas": "page-1" },
+  );
+
+  assert.equal(ids.get(renamed), "page-1");
+});
+
+test("two lost pages with the same body are ambiguous and match nothing", () => {
+  const renamed = `${projectRoot}/Moved.canvas`;
+  const ids = canvasRenameIds(
+    { [renamed]: BOARD },
+    projectRoot,
+    [
+      { id: "page-1", kind: "canvas", body: BOARD },
+      { id: "page-2", kind: "canvas", body: BOARD },
+    ],
+    [unmappedCanvas(renamed, BOARD)],
+    { "a.canvas": "page-1", "b.canvas": "page-2" },
+  );
+
+  assert.equal(ids.size, 0, "which page the file came from is unknown, so it is not assigned");
+});
+
+test("two new files with the same body do not both take the one lost page", () => {
+  const one = `${projectRoot}/one.canvas`;
+  const two = `${projectRoot}/two.canvas`;
+  const ids = canvasRenameIds(
+    { [one]: BOARD, [two]: BOARD },
+    projectRoot,
+    [{ id: "page-1", kind: "canvas", body: BOARD }],
+    [unmappedCanvas(one, BOARD), unmappedCanvas(two, BOARD)],
+    { "old.canvas": "page-1" },
+  );
+
+  assert.equal(ids.size, 0, "two candidates for one page is ambiguous, so neither is assigned");
+});
+
+test("a renamed canvas whose body was also edited is not matched, so nothing is lost", () => {
+  const renamed = `${projectRoot}/Renamed.canvas`;
+  const edited = '{"nodes":[{"id":"n1"}],"edges":[]}';
+  const ids = canvasRenameIds(
+    { [renamed]: edited },
+    projectRoot,
+    [{ id: "page-1", kind: "canvas", body: BOARD }],
+    [unmappedCanvas(renamed, edited)],
+    { "notes/board.canvas": "page-1" },
+  );
+
+  assert.equal(ids.size, 0, "no match, so the file is imported as a new page and page-1 is kept");
+});
+
+test("a canvas renamed into a subfolder is matched to its page", () => {
+  const moved = `${projectRoot}/a/b/moved.canvas`;
+  const ids = canvasRenameIds(
+    { [moved]: BOARD },
+    projectRoot,
+    [{ id: "page-1", kind: "canvas", body: BOARD }],
+    [unmappedCanvas(moved, BOARD)],
+    { "notes/board.canvas": "page-1" },
+  );
+
+  assert.equal(ids.get(moved), "page-1");
 });

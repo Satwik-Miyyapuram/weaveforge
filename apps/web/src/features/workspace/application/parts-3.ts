@@ -399,20 +399,27 @@ export function canvasRenameIds(
   const result = new Map<string, string>();
   if (unmapped.length === 0) return result;
   const bodies = new Map(pages.filter((page) => page.kind === "canvas").map((page) => [page.id, page.body]));
-  // Digest of a page whose mapped file is gone -> its id.
-  const lost = new Map<string, string>();
+  // Digest of a page whose mapped file is gone -> the ids with that body.
+  const lost = new Map<string, string[]>();
   for (const [key, id] of Object.entries(map)) {
     const path = `${projectRoot}/${key}`;
     if (files[path] !== undefined) continue;
     const body = bodies.get(id);
-    if (body !== undefined) lost.set(readyCore().digestText(body), id);
+    if (body === undefined) continue;
+    const digest = readyCore().digestText(body);
+    lost.set(digest, [...(lost.get(digest) ?? []), id]);
   }
+  // Digest -> the unmapped canvas files with that body.
+  const fresh = new Map<string, string[]>();
   for (const entity of unmapped) {
     const digest = readyCore().digestText(entity.body);
-    const id = lost.get(digest);
-    if (id === undefined) continue;
-    result.set(entity.path, id);
-    lost.delete(digest);
+    fresh.set(digest, [...(fresh.get(digest) ?? []), entity.path]);
+  }
+  // Only a one-to-one match is a rename. Two lost pages, or two new files, with the
+  // same body could be either way round, so neither is assigned.
+  for (const [digest, paths] of fresh) {
+    const ids = lost.get(digest) ?? [];
+    if (paths.length === 1 && ids.length === 1) result.set(paths[0], ids[0]);
   }
   return result;
 }
