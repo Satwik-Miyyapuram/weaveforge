@@ -334,7 +334,13 @@ function canvasIdMapPath(projectRoot: string): string {
 export async function writeTextAtomic(fs: IWorkspaceFs, path: string, text: string): Promise<void> {
   const temp = `${path}.tmp`;
   await fs.writeFile(temp, text);
-  await fs.rename(temp, path);
+  try {
+    await fs.rename(temp, path);
+  } catch {
+    // A lock (Windows, antivirus, OneDrive) can refuse the rename: write in place, leave no temp behind.
+    await fs.remove(temp).catch(() => undefined);
+    await fs.writeFile(path, text);
+  }
 }
 
 /**

@@ -186,6 +186,41 @@ test("an atomic map write replaces the map and leaves no temp file behind", asyn
   assert.deepEqual([...store.keys()].filter((key) => key.endsWith(".tmp")), []);
 });
 
+test("a locked rename falls back to a direct write and leaves no temp file behind", async () => {
+  const mapPath = `${metaDir}/canvas-ids.json`;
+  const { fs, store } = memoryFs({ [mapPath]: "{}" });
+  const locked = {
+    ...fs,
+    rename: async () => {
+      throw new Error("EBUSY: file is locked");
+    },
+  } as unknown as IWorkspaceFs;
+
+  await writeTextAtomic(locked, mapPath, '{"a.canvas":"page-1"}');
+
+  assert.equal(store.get(mapPath), '{"a.canvas":"page-1"}');
+  assert.deepEqual([...store.keys()].filter((key) => key.endsWith(".tmp")), []);
+});
+
+test("a locked rename whose direct write also fails throws and leaves no temp file behind", async () => {
+  const mapPath = `${metaDir}/canvas-ids.json`;
+  const { fs, store } = memoryFs({ [mapPath]: "{}" });
+  const locked = {
+    ...fs,
+    writeFile: async (path: string, data: string) => {
+      if (path === mapPath) throw new Error("EBUSY: file is locked");
+      await fs.writeFile(path, data);
+    },
+    rename: async () => {
+      throw new Error("EBUSY: file is locked");
+    },
+  } as unknown as IWorkspaceFs;
+
+  await assert.rejects(writeTextAtomic(locked, mapPath, '{"a.canvas":"page-1"}'));
+  assert.equal(store.get(mapPath), "{}", "the old map is still the one on disk");
+  assert.deepEqual([...store.keys()].filter((key) => key.endsWith(".tmp")), []);
+});
+
 /** A parsed folder entity for a canvas file that has no id yet. */
 function unmappedCanvas(path: string, body: string) {
   return { path, kind: "canvas", body };
@@ -309,8 +344,11 @@ test("an unchanged canvas moved to a subfolder keeps one page across two syncs",
     undefined,
     new Set([moved]),
   );
-  assert.equal(store.has(moved), false, "the moved copy is removed; the mirror writes the canonical path");
-  store.set(canonical, BOARD); // what the mirror writes after sync 1
+  assert.equal(store.get(moved), BOARD, "the user's file is kept; only the mirror may replace it");
+  assert.deepEqual(idMap(store), { "sub/Plan.canvas": "page-1" }, "the moved file is claimed for its page");
+  // What the mirror does after sync 1: write the canonical path and drop the claimed copy it replaces.
+  store.set(canonical, BOARD);
+  store.delete(moved);
 
   // Sync 2: the canonical file is mapped and unchanged, so nothing is added.
   await applyEntries(fs, { entries: [entry(canonical)], counts: {} } as unknown as ImportDiff, {});
@@ -321,6 +359,32 @@ test("an unchanged canvas moved to a subfolder keeps one page across two syncs",
     "exactly one canvas file remains",
   );
   assert.ok(updates.every((u) => u.id === "page-1" && u.body === BOARD), "the page body is intact");
+});
+
+test("a canvas copied to a new name and its original deleted is never deleted by the import", async () => {
+  // Plan.canvas was copied to Plan v2.canvas outside the app, then the original deleted.
+  const copy = `${projectRoot}/Plan v2.canvas`;
+  const { fs, store } = memoryFs({ [copy]: BOARD });
+  const { container } = onePageContainer();
+  setContainerForTests(container);
+  const entry = {
+    action: "unchanged",
+    entity: { type: "vault_page", id: "page-1", kind: "canvas", title: "Plan", body: BOARD, path: copy, fields: {} },
+  };
+
+  await applyEntries(
+    fs,
+    { entries: [entry], counts: {} } as unknown as ImportDiff,
+    {},
+    undefined,
+    new Set([copy]),
+  );
+
+  // With the mirror off nothing rewrites the file, so it must still be there, claimed for its page.
+  assert.equal(store.get(copy), BOARD, "the user's file is still on disk");
+  assert.deepEqual(idMap(store), { "Plan v2.canvas": "page-1" }, "the next import finds its id");
+  const manifest = store.get(`${metaDir}/mirror.json`) ?? "";
+  assert.ok(manifest.includes("Plan v2.canvas"), "the mirror may replace it only while it is unchanged");
 });
 
 test("the mirror keeps a claim at a non-canonical path, so an edit still finds its id", async () => {

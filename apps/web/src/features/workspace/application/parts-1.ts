@@ -441,7 +441,10 @@ export async function applyEntries(
       continue;
     }
     // The note is whole in the workspace now; the mirror writes it at the path its title gives.
-    await fs.remove(path).catch(() => undefined);
+    // A canvas is never deleted here: claimed, it keeps its id until the mirror replaces it,
+    // and the mirror removes only a claimed file still unchanged, in the run that rewrites it.
+    if (entry.entity.kind === "canvas") await claimImportedFile(fs, path, page.id, projectRoot).catch(() => false);
+    else await fs.remove(path).catch(() => undefined);
   }
 
   pendingAssets = new Map();
