@@ -2,9 +2,11 @@
 //! canvas note's body text, so no canvas object crosses the boundary and unknown fields stay
 //! in the text.
 
+use serde::Serialize;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::{JsError, wasm_bindgen};
 use wf_core::canvas;
+use wf_core::canvas::excalidraw::{self, ExcalidrawImage};
 
 use super::to_js;
 
@@ -50,4 +52,49 @@ pub fn canvas_bounds_js(text: &str) -> Result<JsValue, JsError> {
 #[wasm_bindgen(js_name = canvasGroupMembers)]
 pub fn canvas_group_members_js(text: &str, group_id: &str) -> Result<Vec<String>, JsError> {
     Ok(canvas::group_members(&read(text)?, group_id))
+}
+
+/// An Excalidraw drawing read as canvas text, with the images to upload.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportedDrawing {
+    canvas_text: String,
+    images: Vec<ExcalidrawImage>,
+    warnings: Vec<String>,
+}
+
+/// [`excalidraw::import_excalidraw`]: an `.excalidraw` or `.excalidraw.md` file as canvas
+/// text in Obsidian's layout.
+///
+/// # Errors
+///
+/// Fails when the text is not an Excalidraw drawing.
+#[wasm_bindgen(
+    js_name = importExcalidraw,
+    unchecked_return_type = "{ canvasText: string; images: B.ExcalidrawImage[]; warnings: string[] }"
+)]
+pub fn import_excalidraw_js(text: &str) -> Result<JsValue, JsError> {
+    let read = excalidraw::import_excalidraw(text).map_err(|e| JsError::new(&e))?;
+    to_js(&ImportedDrawing {
+        canvas_text: canvas::canvas_text(&read.canvas),
+        images: read.images,
+        warnings: read.warnings,
+    })
+    .map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// [`excalidraw::export_excalidraw`]: the canvas as `.excalidraw` JSON, with `images` (the
+/// file nodes' contents) embedded.
+///
+/// # Errors
+///
+/// Fails when the text is not a JSON Canvas file or `images` is not a list of images.
+#[wasm_bindgen(js_name = exportExcalidraw, unchecked_return_type = "B.ExcalidrawExport")]
+pub fn export_excalidraw_js(
+    text: &str,
+    #[wasm_bindgen(unchecked_param_type = "B.ExcalidrawImage[]")] images: JsValue,
+) -> Result<JsValue, JsError> {
+    let images: Vec<ExcalidrawImage> = serde_wasm_bindgen::from_value(images)?;
+    to_js(&excalidraw::export_excalidraw(&read(text)?, &images))
+        .map_err(|e| JsError::new(&e.to_string()))
 }

@@ -3,7 +3,7 @@
 
 use serde::Serialize;
 
-use super::{Canvas, CanvasNode};
+use super::{Canvas, CanvasNode, read_ink, stroke_rect};
 
 /// An axis-aligned box in canvas pixels; `y` grows downwards.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
@@ -49,13 +49,19 @@ pub fn node_rect(node: &CanvasNode) -> CanvasRect {
     }
 }
 
-/// The smallest box around every node, or `None` for an empty canvas: what "fit to view" shows.
-/// A node with no position (NaN) has no place to show, so it is left out.
+/// The smallest box around every node and ink stroke, or `None` for an empty canvas: what "fit to
+/// view" shows. A node with no position (NaN) has no place to show, so it is left out.
 #[must_use]
 pub fn canvas_bounds(canvas: &Canvas) -> Option<CanvasRect> {
-    let mut rects = canvas.nodes.iter().map(node_rect).filter(|r| {
-        r.x.is_finite() && r.y.is_finite() && r.width.is_finite() && r.height.is_finite()
-    });
+    let strokes = read_ink(canvas);
+    let mut rects = canvas
+        .nodes
+        .iter()
+        .map(node_rect)
+        .chain(strokes.iter().filter_map(stroke_rect))
+        .filter(|r| {
+            r.x.is_finite() && r.y.is_finite() && r.width.is_finite() && r.height.is_finite()
+        });
     let first = rects.next()?;
     let (mut left, mut top, mut right, mut bottom) =
         (first.x, first.y, first.right(), first.bottom());
