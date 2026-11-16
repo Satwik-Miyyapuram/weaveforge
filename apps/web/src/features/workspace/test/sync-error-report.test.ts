@@ -4,9 +4,29 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { NO_ACTIVE_PROJECT_MESSAGE, NoActiveProjectError, isNoActiveProject } from "../application/parts";
 import { reportSyncError } from "../application/workspace-folder";
 
 type Log = { level: string; source: string; message: string; detail?: string };
+
+test("no open project is a state to describe, not a failed sync", () => {
+  const logs: Log[] = [];
+  const g = globalThis as { window?: unknown };
+  const original = g.window;
+  g.window = { weaveforge: { fetchTitle: () => Promise.resolve({}), reportAppLog: (e: Log) => void logs.push(e) } };
+  try {
+    reportSyncError(new NoActiveProjectError());
+  } finally {
+    g.window = original;
+  }
+  assert.deepEqual(logs, []);
+});
+
+test("the no-project error is recognised, a real failure is not", () => {
+  assert.equal(isNoActiveProject(new NoActiveProjectError()), true);
+  assert.equal(isNoActiveProject(new Error("disk full")), false);
+  assert.equal(new NoActiveProjectError().message, NO_ACTIVE_PROJECT_MESSAGE);
+});
 
 test("a failed folder sync is logged as a warning", () => {
   const logs: Log[] = [];

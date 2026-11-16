@@ -222,23 +222,31 @@ fn read_ink_line(line: &Value) -> Option<InkRecognitionLineInput> {
 }
 
 /// Location of the bundled helper; `None` off Windows or on an unsupported CPU.
+///
+/// An ARM64 machine prefers its native `win-arm64` helper and falls back to
+/// `win-x64` (emulated) when the installer shipped only that one.
 #[must_use]
 pub fn ink_recogniser_path(platform: &str, arch: &str, resources: &Path) -> Option<PathBuf> {
     if platform != "windows" {
         return None;
     }
-    let rid = match arch {
-        "aarch64" => "win-arm64",
-        "x86_64" => "win-x64",
+    let candidates: &[&str] = match arch {
+        "aarch64" => &["win-arm64", "win-x64"],
+        "x86_64" => &["win-x64"],
         _ => return None,
     };
-    Some(
+    let helper = |rid: &str| {
         resources
             .join("native")
             .join("ink-recogniser")
             .join(rid)
-            .join("ink-recogniser.exe"),
-    )
+            .join("ink-recogniser.exe")
+    };
+    candidates
+        .iter()
+        .map(|rid| helper(rid))
+        .find(|path| path.is_file())
+        .or_else(|| candidates.first().map(|rid| helper(rid)))
 }
 
 /// Settings for an `InkRecogniser`.

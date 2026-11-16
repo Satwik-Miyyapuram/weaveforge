@@ -43,7 +43,12 @@ import { OverleafSyncPanel } from "./overleaf-sync-panel";
 import { FolderFileHistory } from "./folder-file-history";
 import { SkippedFiles } from "./skipped-files";
 import type { SkippedFile } from "@/features/workspace/application/parts-2";
-import { folderWatchLost, onFolderWatchLost } from "@/features/workspace/application/parts";
+import {
+  folderWatchLost,
+  isNoActiveProject,
+  NO_ACTIVE_PROJECT_MESSAGE,
+  onFolderWatchLost,
+} from "@/features/workspace/application/parts";
 
 const FolderConflictCard = dynamic(
   () => import("./folder-conflict-card").then((m) => m.FolderConflictCard),
@@ -372,7 +377,13 @@ export function WorkspaceFolderPanel() {
               disabled={busy !== null || !current}
               onClick={() =>
                 void run("sync", async () => {
-                  setStatus(describeSync(await syncToFolder()));
+                  try {
+                    setStatus(describeSync(await syncToFolder()));
+                  } catch (err) {
+                    // No open project is a state to describe, not a failed sync.
+                    if (!isNoActiveProject(err)) throw err;
+                    setStatus(NO_ACTIVE_PROJECT_MESSAGE);
+                  }
                   setHistory(await folderHistory());
                 })
               }

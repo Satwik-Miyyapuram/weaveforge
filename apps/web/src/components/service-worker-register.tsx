@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
+import { isOfflineBuild } from "@/deployment/build-target";
 import { bestEffort } from "@/lib/parts";
+
+/**
+ * Whether this build registers the offline worker. The desktop build is served
+ * from the app itself and ships no sw.js, so registering one would be a second
+ * cache for nothing.
+ */
+export function shouldRegisterOfflineWorker(offlineBuild: boolean): boolean {
+  return !offlineBuild;
+}
 
 /**
  * Registers the Serwist worker in production only.
@@ -10,7 +20,9 @@ import { bestEffort } from "@/lib/parts";
  * In development, unregister leftover production SWs (e.g. after `next start`)
  * so a stale precache cannot blank the page with Next’s Application error.
  */
-export function ServiceWorkerRegister() {
+export function ServiceWorkerRegister({
+  offlineBuild = isOfflineBuild(),
+}: { offlineBuild?: boolean } = {}) {
   useEffect(() => {
     // Durability is an optimization; failure must not affect startup.
     void bestEffort("Requesting persistent storage failed.", async () => {
@@ -37,6 +49,8 @@ export function ServiceWorkerRegister() {
       return;
     }
 
+    if (!shouldRegisterOfflineWorker(offlineBuild)) return;
+
     // Offline enhancement is best-effort and must not affect app startup.
     void bestEffort("Service worker registration failed.", async () => {
       if (window.serwist) {
@@ -45,7 +59,7 @@ export function ServiceWorkerRegister() {
       }
       await navigator.serviceWorker.register("/sw.js", { scope: "/" });
     });
-  }, []);
+  }, [offlineBuild]);
 
   return null;
 }
