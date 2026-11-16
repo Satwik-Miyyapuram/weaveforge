@@ -84,6 +84,14 @@ fn check_node(node: &CanvasNode, issues: &mut Vec<CanvasIssue>) {
             format!("Node {} has no {field}.", node.id),
         );
     }
+    if node.x.is_nan() || node.y.is_nan() {
+        issue(
+            issues,
+            "missing-field",
+            &node.id,
+            format!("Node {} has no x or y.", node.id),
+        );
+    }
     if !(node.width > 0.0 && node.height > 0.0) {
         issue(
             issues,
@@ -222,6 +230,14 @@ mod tests {
                 pair("bad-side", "e"),
                 pair("bad-end", "e"),
             ]
+        );
+    }
+
+    #[test]
+    fn a_node_without_coordinates_is_reported() {
+        assert_eq!(
+            codes(r##"{"nodes":[{"id":"t","type":"text","text":"","width":10,"height":10}]}"##),
+            vec![pair("missing-field", "t")]
         );
     }
 

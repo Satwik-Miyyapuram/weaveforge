@@ -63,11 +63,11 @@ pub struct CanvasNode {
     /// `cover`, `ratio` or `repeat`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background_style: Option<String>,
-    /// Left edge, in canvas pixels.
-    #[serde(default, serialize_with = "whole")]
+    /// Left edge, in canvas pixels. NaN when the file has none (`validate` reports it).
+    #[serde(default = "absent", skip_serializing_if = "is_absent", serialize_with = "whole")]
     pub x: f64,
-    /// Top edge, in canvas pixels.
-    #[serde(default, serialize_with = "whole")]
+    /// Top edge, in canvas pixels. NaN when the file has none (`validate` reports it).
+    #[serde(default = "absent", skip_serializing_if = "is_absent", serialize_with = "whole")]
     pub y: f64,
     /// Width, in canvas pixels.
     #[serde(default, serialize_with = "whole")]
@@ -120,6 +120,15 @@ pub struct CanvasEdge {
     #[serde(flatten)]
     #[cfg_attr(feature = "specta", specta(skip))]
     pub extra: Map<String, Value>,
+}
+
+/// A coordinate the file did not give. Kept as NaN so it is neither invented as 0 nor written back.
+fn absent() -> f64 {
+    f64::NAN
+}
+
+fn is_absent(value: &f64) -> bool {
+    value.is_nan()
 }
 
 /// Writes a whole number without a fraction (`10`, not `10.0`), as JSON Canvas expects integers.
@@ -263,6 +272,15 @@ mod tests {
         let canvas = parse_canvas(r#"{"nodes":[{"type":"text"}]}"#).unwrap();
         assert_eq!(canvas.nodes[0].id, "");
         assert!(canvas.nodes[0].width.abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn missing_coordinates_are_not_written_back_as_zero() {
+        let text = r#"{"nodes":[{"id":"a","type":"text","text":"hi","width":10,"height":10}],"edges":[]}"#;
+        let canvas = parse_canvas(text).unwrap();
+        let again: Value = serde_json::from_str(&canvas_text(&canvas)).unwrap();
+        assert_eq!(again["nodes"][0].get("x"), None);
+        assert_eq!(again["nodes"][0].get("y"), None);
     }
 
     #[test]
