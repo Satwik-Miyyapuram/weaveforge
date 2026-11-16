@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
+import { isOfflineBuild } from "@/deployment/build-target";
 import { bestEffort } from "@/lib/parts";
+
+/**
+ * Whether this build registers the offline worker. The desktop build is served
+ * from the app itself and ships no sw.js, so registering one would be a second
+ * cache for nothing.
+ */
+export function shouldRegisterOfflineWorker(offlineBuild: boolean): boolean {
+  return !offlineBuild;
+}
 
 /**
  * Registers the Serwist worker in production only.
@@ -36,6 +46,8 @@ export function ServiceWorkerRegister() {
       });
       return;
     }
+
+    if (!shouldRegisterOfflineWorker(isOfflineBuild())) return;
 
     // Offline enhancement is best-effort and must not affect app startup.
     void bestEffort("Service worker registration failed.", async () => {
