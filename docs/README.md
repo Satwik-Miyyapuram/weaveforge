@@ -50,6 +50,7 @@ For somebody changing the code.
 - [Developer guide](building/dev.md) — running it, the checks, the hygiene rules
 - [Design principles](building/design.md)
 - [Theming](building/themes.md)
+- [Live collaboration](building/live-collab.md) — how a co-editing session joins, saves, reconnects and catches up
 - [MCP implementation](building/mcp.md)
 - [Releasing](building/release.md)
 - [How we write the docs](building/docs-style.md) — page outline, sentence rules, Rust as the source

@@ -2,7 +2,7 @@
 covers:
   - apps/web/src/features/collab
   - crates/wf-core/src/collab.rs
-checked: 2026-11-13
+checked: 2026-11-16
 ---
 # Collaborative editing
 
@@ -21,7 +21,7 @@ collaborative.
 | **Live text** | Edits appear in the other window in about a second. |
 | **Peer cursors** | Each editor gets a colour and a name tag at their caret. |
 | **Who is here** | Coloured initials of everyone else in the document, beside the editor. Hover one for the name. More than a few collapse into **+N**. |
-| **Sync trouble** | "Live sync unavailable" if the channel drops. Your edits are still saved — they just are not shared until it recovers. |
+| **Sync trouble** | "Live sync unavailable" if the channel drops. Your edits are still saved and held for the others. The app reconnects by itself (waiting 1, 2, 4… up to 30 seconds between tries), sends what you typed while away, and the message goes. Other people's cursors disappear while you are offline and come back when you reconnect. |
 
 Notes keep everything the plain editor has — `[[wikilink]]` and `@cite`
 completion, find-in-note, undo, the theme. Co-editing a note is the same editor
@@ -139,9 +139,11 @@ signing in later leaves it where it is.
   bytes; RLS and encryption at rest are the boundary. See [SECURITY.md](../SECURITY.md).
 - **Text only.** The title, tags and a note's Kind are ordinary fields with
   ordinary last-write-wins behaviour.
-- **Offline edits are not queued.** If the channel is down your edits still save
-  to the row, but they are not merged into anyone else's document until you
-  reconnect and reopen.
+- **Offline edits wait for the connection, not forever.** Edits made while the
+  channel is down are held in memory and merged into everyone's document when it
+  comes back, with no reopen. If you close the note before then, they are still
+  in the saved body and the stored history, and reach the others when they next
+  open it.
 
 ## Related
 
@@ -150,5 +152,6 @@ signing in later leaves it where it is.
 | Realtime channel authorization | [`0044_realtime_authorization.sql`](../../db/migrations/0044_realtime_authorization.sql) |
 | Provider | [`realtime-yjs-provider.ts`](../../apps/web/src/features/collab/infrastructure/realtime-yjs-provider.ts) |
 | Editor | [`collaborative-markdown-editor.tsx`](../../apps/web/src/features/collab/ui/collaborative-markdown-editor.tsx) |
-| Regression tests | [`collab-regressions.test.ts`](../../apps/web/src/features/collab/test/collab-regressions.test.ts), [`yjs-provider-teardown.test.ts`](../../apps/web/src/features/collab/test/yjs-provider-teardown.test.ts) |
+| Regression tests | [`collab-regressions.test.ts`](../../apps/web/src/features/collab/test/collab-regressions.test.ts), [`yjs-provider-teardown.test.ts`](../../apps/web/src/features/collab/test/yjs-provider-teardown.test.ts), [`live-sync.test.ts`](../../apps/web/src/features/collab/test/live-sync.test.ts) |
+| How a live session runs | [`live-collab.md`](../building/live-collab.md) |
 | Self-hosted Realtime setup | [`oracle-shift-guide.md`](../running/oracle-shift.md) |
