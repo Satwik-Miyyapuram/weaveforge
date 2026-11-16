@@ -170,7 +170,10 @@ async function writeCanvasPage(
 
   for (const [index, title] of inkTitles.entries()) {
     const start = index * INK_NOTE_MAX_PAGES;
-    const sheets = page.ink.slice(start, start + INK_NOTE_MAX_PAGES);
+    // Typed text lives in the canvas text nodes, so the ink note keeps only the printout.
+    const sheets = page.ink
+      .slice(start, start + INK_NOTE_MAX_PAGES)
+      .map((sheet) => ({ ...sheet, text: "" }));
     const note = await writeInkNote(title!, canvas.id, sheets, page.images, deps, warnings);
     files[`ink-${index}`] = `notes/${title}.note.md`;
     images += note.uploaded;

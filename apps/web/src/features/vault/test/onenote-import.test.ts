@@ -307,3 +307,36 @@ test("canvas mode drops an image whose upload failed and keeps the ink part (One
     ["notes/B (handwriting).note.md"],
   );
 });
+
+test("canvas mode keeps typed ink text out of the ink note, so nothing is written twice (OneNote)", async () => {
+  const image = (name: string) => ({ name, alt: "pic", base64: PNG_BASE64 });
+  const section = {
+    name: "Lab",
+    warnings: [],
+    pages: [
+      {
+        title: "B",
+        level: 0,
+        markdown: "",
+        images: [image("image-1.png"), image("image-2.png")],
+        ink: [sheet("typed ![pic](image-1.png)", "image-2.png")],
+        layout: [
+          { kind: "text", key: "", text: "typed", x: 0, y: 0, width: 96, height: 48 },
+          { kind: "image", key: "image-1.png", text: "", x: 100, y: 100, width: 96, height: 96 },
+          { kind: "ink", key: "ink-0", text: "", x: 0, y: 0, width: 378, height: 504 },
+        ],
+      },
+    ],
+  } as unknown as OneNoteSection;
+  const fake = fakeDeps({ section });
+  await importOneNoteSection(sectionFile(), fake.deps, CANVAS);
+
+  const b = fake.adds.find((x) => x.title === "B")!;
+  const ink = fake.adds.find((x) => x.title === "B (handwriting)")!;
+  const inkBody = finalBody(fake, ink.id);
+  assert.ok(!inkBody.includes("typed"), "typed text must not repeat in the ink note");
+  assert.ok(!inkBody.includes("image-1.png"), "the placed image is not repeated in the ink note");
+  // One upload for the placed image on the canvas, one for the ink printout.
+  assert.equal(fake.uploads.filter((u) => u.pageId === b.id).length, 1);
+  assert.equal(fake.uploads.filter((u) => u.pageId === ink.id).length, 1);
+});
