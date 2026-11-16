@@ -8,7 +8,8 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use common::TempDir;
 use weaveforge_shell_lib::cmd_vault::{
-    BAD_BYTES, list, read, read_bytes, remove, root, stat, write, write_bytes,
+    BAD_BYTES, NOT_CREATED, create_skip_folder, list, read, read_bytes, remove, root, stat, write,
+    write_bytes,
 };
 use weaveforge_shell_lib::vault::{EntryKindPayload, NO_ROOT, RootKind, VaultState};
 
@@ -216,4 +217,24 @@ async fn root_reports_folder() {
         Some(text(dir.path()))
     );
     assert_eq!(reported.map(|r| r.state), Some(RootKind::Empty));
+}
+
+#[test]
+fn skip_folder_under_a_file_reports_not_created() {
+    // A file where the Skip folder should go: the folder cannot be created beneath it.
+    let dir = TempDir::new();
+    let blocker = dir.path().join("WeaveForge");
+    fs::write(&blocker, b"x").unwrap();
+    assert_eq!(
+        create_skip_folder(&blocker.join("nested")),
+        Err(NOT_CREATED.to_owned())
+    );
+}
+
+#[test]
+fn skip_folder_is_created_when_missing() {
+    let dir = TempDir::new();
+    let target = dir.path().join("WeaveForge");
+    assert_eq!(create_skip_folder(&target), Ok(()));
+    assert!(target.is_dir());
 }

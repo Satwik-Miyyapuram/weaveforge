@@ -283,6 +283,17 @@ pub async fn workspace_setup(
     })
 }
 
+/// Creates the folder Skip uses. The io cause is logged with the path; the reader gets `NOT_CREATED`.
+///
+/// # Errors
+/// `NOT_CREATED` when the folder cannot be created.
+pub fn create_skip_folder(target: &std::path::Path) -> Result<(), String> {
+    std::fs::create_dir_all(target).map_err(|error| {
+        eprintln!("[vault] could not create {}: {error}", target.display());
+        NOT_CREATED.to_owned()
+    })
+}
+
 /// Skip on the first-open question: the workspace goes into `WeaveForge` in the reader's Documents
 /// folder, created if missing, through the same checks as a pick.
 ///
@@ -306,8 +317,7 @@ pub async fn workspace_skip(
     let watch = watch.inner().clone();
     let sink = crate::change_sink(&app);
     let choice = tokio::task::spawn_blocking(move || {
-        std::fs::create_dir_all(&target)
-            .map_err(|_| NOT_CREATED.to_owned())
+        create_skip_folder(&target)
             .and_then(|()| adopt_choice(&vault, &prefs, &watch, Some(&target), sink))
     })
     .await
