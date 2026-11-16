@@ -137,7 +137,8 @@ const ROUTE_ALLOWANCES_KB = {
   // The pitch page itself did not change; it sits on the shell, and the 0.9
   // shell (Rust port wasm loading, release-notice banner) put it at 423 KB on
   // CI, 1 KB over the default. Measured plus 2 KB. No dependency arrived.
-  "/pitch": 413,
+  // The 0.9.1 shell (see /dashboard) put it at 426 KB on CI: plus 2 again.
+  "/pitch": 416,
 };
 
 /** The allowance for a route, longest matching prefix first, plus the environment's. */
