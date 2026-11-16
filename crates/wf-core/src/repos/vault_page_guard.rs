@@ -394,23 +394,36 @@ mod tests {
 
     #[test]
     fn a_retry_that_meets_newer_clashing_text_keeps_both_their_texts() {
-        let (base, mine) = ("a
+        let (base, mine) = (
+            "a
 b", "a
-MINE");
-        let mut replies = vec![row("a
-THEIRS", 4)];
+MINE",
+        );
+        let mut replies = vec![row(
+            "a
+THEIRS", 4,
+        )];
         let first = only(step(input(base, mine), replies.clone()));
         let first = first.body.unwrap();
-        assert_eq!(first["body"], "a
-THEIRS");
+        assert_eq!(
+            first["body"],
+            "a
+THEIRS"
+        );
         replies.extend([Value::Null, json!([])]); // copy saved, write lost the race
-        replies.push(row("a
-THEIRS2", 5));
+        replies.push(row(
+            "a
+THEIRS2",
+            5,
+        ));
         let second = only(step(input(base, mine), replies.clone()));
         assert_eq!(second.action, RepoAction::Upsert);
         let second = second.body.unwrap();
-        assert_eq!(second["body"], "a
-THEIRS2");
+        assert_eq!(
+            second["body"],
+            "a
+THEIRS2"
+        );
         assert_ne!(
             second["id"], first["id"],
             "a second copy: overwriting the first would lose THEIRS"
@@ -424,20 +437,33 @@ THEIRS2");
 
     #[test]
     fn a_retry_that_meets_the_text_already_copied_makes_no_second_copy() {
-        let (base, mine) = ("a
+        let (base, mine) = (
+            "a
 b", "a
-MINE");
-        let mut replies = vec![row("a
-THEIRS", 4)];
+MINE",
+        );
+        let mut replies = vec![row(
+            "a
+THEIRS", 4,
+        )];
         let copy_id = only(step(input(base, mine), replies.clone())).body.unwrap()["id"].clone();
         // The race was lost to a change that left the body alone (a pin).
-        replies.extend([Value::Null, json!([]), row("a
-THEIRS", 5)]);
+        replies.extend([
+            Value::Null,
+            json!([]),
+            row(
+                "a
+THEIRS", 5,
+            ),
+        ]);
         let write = only(step(input(base, mine), replies.clone()));
         assert_eq!(write.action, RepoAction::Update);
         assert!(filters(&write).contains(&("row_version".into(), json!(5))));
         replies.push(json!([{ "id": "p1" }]));
-        assert_eq!(done(step(input(base, mine), replies))["conflictCopyId"], copy_id);
+        assert_eq!(
+            done(step(input(base, mine), replies))["conflictCopyId"],
+            copy_id
+        );
     }
 
     #[test]
