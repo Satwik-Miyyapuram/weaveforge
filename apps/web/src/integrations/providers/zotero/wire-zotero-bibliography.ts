@@ -5,15 +5,17 @@ import type {
   IProjectBibliographyCollectionStore,
   ISettingsRepository,
   ManageSettingsUseCase,
-  ManageTagsUseCase,
+  ITagManager,
 } from "@weaveforge/core";
-import { ZoteroMetadataSource } from "@/features/papers/infrastructure/zotero-metadata-source";
-import { ZoteroExporter } from "@/features/papers/infrastructure/zotero-exporter";
-import { ZoteroSync } from "@/features/papers/infrastructure/zotero-sync";
-import { ZoteroAnnotations } from "@/features/papers/infrastructure/zotero-annotations";
-import type { ProjectContext } from "@/lib/project-context";
+import {
+  ZoteroAnnotations,
+  ZoteroExporter,
+  ZoteroMetadataSource,
+} from "@/features/papers/infrastructure/parts-2";
+import { ZoteroSync } from "@/features/papers/infrastructure/parts-3";
+import type { ProjectContext } from "@/lib/parts-2";
 import { isOfflineBuild } from "@/deployment/build-target";
-import { createCredentialReader } from "../../credentials";
+import { createCredentialReader } from "../../parts";
 import { ZoteroBibliographyIntegration } from "./bibliography-integration";
 
 /**
@@ -63,7 +65,7 @@ export function wireZoteroBibliography(deps: {
   settingsRepository: ISettingsRepository;
   projectContext: ProjectContext;
   paperRepository: IPaperRepository;
-  manageTags: ManageTagsUseCase;
+  manageTags: ITagManager;
   addPaper: AddPaperUseCase;
   projectCollection: IProjectBibliographyCollectionStore;
 }): ZoteroBibliographyWireResult {

@@ -9,22 +9,27 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { LOG_IMAGE_PREFIX, logImageMarkdown, logImagePathsInBody } from "../lib/log-images-md";
+import { before } from "node:test";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { LOG_IMAGE_PREFIX } from "../lib/log-image-ref";
 import { LogbookFacade } from "@/container/facades/logbook";
-import { assertAllowedBlobBucket, sharedResourceFor } from "@/storage/server/blob-access";
 
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(`../../../${rel}`, import.meta.url)), "utf8");
 
+before(async () => {
+  await loadTestCore();
+});
+
 test("a log image is written and read back as a logimg: reference", () => {
   assert.equal(LOG_IMAGE_PREFIX, "logimg:");
-  const md = logImageMarkdown("u1/e1/a.webp", "plot");
+  const md = readyCore().markdownImage(`${LOG_IMAGE_PREFIX}u1/e1/a.webp`, "plot");
   assert.equal(md, "![plot](logimg:u1/e1/a.webp)");
-  assert.deepEqual(logImagePathsInBody(`Ran it.\n\n${md}\n\n${md}\n![x](reportimg:u/s/b.png)`), ["u1/e1/a.webp"]);
+  assert.deepEqual(readyCore().imagePathsInBody(`Ran it.\n\n${md}\n\n${md}\n![x](reportimg:u/s/b.png)`, LOG_IMAGE_PREFIX), ["u1/e1/a.webp"]);
 });
 
 test("the blob routes accept the log-images bucket", () => {
-  assert.doesNotThrow(() => assertAllowedBlobBucket("log-images"));
-  assert.equal(sharedResourceFor("log-images"), "log_entry");
+  assert.ok(readyCore().blobStorageBuckets().includes("log-images"));
 });
 
 test("the logbook facade stores an image under the entry", async () => {

@@ -2,8 +2,8 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
-import { labelForPath } from "@/lib/route-title";
+import { useModuleRegistry } from "@/lib/hooks/parts";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * The header every list screen opens with: an optional title, a row of
@@ -32,7 +32,7 @@ export function ScreenHead({
   /** Status line under the actions, e.g. the result of a sync. */
   note?: ReactNode;
   /** The screen's search box, first in the actions. */
-  search?: { value: string; onChange: (value: string) => void; label: string };
+  search?: { value: string; onChange: (value: string) => void; label: string; helpId?: string };
   /** Extra class on the header, e.g. the graph's focus-mode head. */
   className?: string;
   children?: ReactNode;
@@ -41,7 +41,7 @@ export function ScreenHead({
   const registry = useModuleRegistry();
   const hidden = title
     ? null
-    : labelForPath(pathname, [registry.homeNavItem, ...registry.allModules.flatMap((m) => m.navItems)]);
+    : (readyCore().labelForPath(pathname, [registry.homeNavItem, ...registry.allModules.flatMap((m) => m.navItems)]) ?? null);
   return (
     <header className={className ? `screen-head page-header ${className}` : "screen-head page-header"}>
       <div className="head-row">
@@ -60,6 +60,7 @@ export function ScreenHead({
               onChange={(e) => search.onChange(e.target.value)}
               placeholder={search.label}
               aria-label={search.label}
+              data-help-id={search.helpId}
             />
           )}
           {children}

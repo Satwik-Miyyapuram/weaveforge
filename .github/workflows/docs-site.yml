@@ -1,0 +1,62 @@
+name: User docs build
+
+# Builds the user docs site (docs/.site) and its live demo app (docs/.site-demo)
+# and uploads both as workflow artifacts. It deploys nothing: hosting waits for
+# the owner's approval.
+
+on:
+  workflow_dispatch:
+    inputs:
+      demo_url:
+        description: "Where the docs' demo frames point"
+        type: string
+        required: false
+        default: "https://demo.weaveforge.org/"
+
+permissions:
+  contents: read
+
+# A newer manual run supersedes an older one still building.
+concurrency:
+  group: docs-site
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The demo app needs the git-ignored WASM package.
+      - uses: ./.github/actions/generate
+
+      - name: Build the demo app
+        run: node scripts/user-docs/build-demo-app.mjs
+
+      - name: Build the docs site
+        env:
+          # The demo frames in the docs load from this URL.
+          DOCS_DEMO_URL: ${{ inputs.demo_url }}
+        run: node scripts/build-user-docs.mjs
+
+      - name: Upload docs site
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site
+          path: docs/.site
+          retention-days: 14
+
+      - name: Upload demo app
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-demo
+          path: docs/.site-demo
+          retention-days: 14

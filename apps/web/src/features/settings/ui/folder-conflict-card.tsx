@@ -1,12 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { diffBody, type HunkPick, type ImportDiffEntry } from "@weaveforge/core";
-import {
-  keepBothTitle,
-  type ConflictPicks,
-  type ConflictResolution,
-} from "@/features/workspace/application/workspace-folder";
+import type { ImportDiffEntry } from "@weaveforge/wasm";
+import { readyCore, type HunkPick } from "@/lib/rust-core";
+import type { ConflictPicks, ConflictResolution } from "@weaveforge/wasm";
 import { Button } from "@/components/button";
 
 /**
@@ -39,7 +36,7 @@ export function FolderConflictCard({
 
   const detail = entry.merge;
   const unresolved = entry.kind === "markers";
-  const body = detail?.bodySides ? diffBody(detail.bodySides.ours, detail.bodySides.theirs) : null;
+  const body = detail?.bodySides ? readyCore().diffBody(detail.bodySides.ours, detail.bodySides.theirs) : null;
 
   const pick = (next: Partial<ConflictPicks>) => {
     onChoose({ kind: "picks", fields, hunks, ...next });
@@ -189,7 +186,7 @@ export function FolderConflictCard({
       )}
       {chosen === "both" && (
         <p className="muted jump-to-meta">
-          Imported as “{keepBothTitle(entry.entity.title)}”, leaving this app&apos;s copy as it is.
+          Imported as “{readyCore().keepBothTitle(entry.entity.title)}”, leaving this app&apos;s copy as it is.
         </p>
       )}
     </li>

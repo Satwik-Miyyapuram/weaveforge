@@ -60,5 +60,12 @@ export async function openPaper(page: Page, title?: string) {
     return;
   }
   const open = target.getByRole("button", { name: "Open note" });
-  await (await open.count() > 0 ? open : target.locator(".entity-card-title").first()).click();
+  if (await open.count() > 0) {
+    await open.click();
+    return;
+  }
+  // A click on the title can land on the floated status select instead. The
+  // card's keyboard opener (an empty link button named by the title) cannot.
+  await target.locator("button[aria-labelledby]").first().focus();
+  await page.keyboard.press("Enter");
 }

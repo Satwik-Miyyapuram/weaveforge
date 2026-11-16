@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import {
-  WEB_CACHE_DOCUMENT_LIMIT,
   isInstalledApp,
   persistSearchIndex,
   shouldPersistIndex,
-} from "@/features/search/infrastructure/index-cache-policy";
+} from "@/features/search/infrastructure/parts-1";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+const webCacheDocumentLimit = () => readyCore().webCacheDocumentLimit();
+
+before(async () => {
+  await loadTestCore();
+});
 
 type Surface = { displayMode?: string; iosStandalone?: boolean; referrer?: string } | null;
 
@@ -88,7 +95,7 @@ test("server-side rendering is not an installed app", () => {
 test("the installed app persists an index of any size", () => {
   const restore = asSurface({ displayMode: "standalone" });
   try {
-    assert.equal(shouldPersistIndex(WEB_CACHE_DOCUMENT_LIMIT * 10), true);
+    assert.equal(shouldPersistIndex(webCacheDocumentLimit() * 10), true);
   } finally {
     restore();
   }
@@ -97,8 +104,8 @@ test("the installed app persists an index of any size", () => {
 test("the website persists up to the threshold and no further", () => {
   const restore = asSurface({ referrer: "" });
   try {
-    assert.equal(shouldPersistIndex(WEB_CACHE_DOCUMENT_LIMIT), true, "the limit itself is included");
-    assert.equal(shouldPersistIndex(WEB_CACHE_DOCUMENT_LIMIT + 1), false);
+    assert.equal(shouldPersistIndex(webCacheDocumentLimit()), true, "the limit itself is included");
+    assert.equal(shouldPersistIndex(webCacheDocumentLimit() + 1), false);
   } finally {
     restore();
   }
@@ -111,7 +118,7 @@ test("an index that will not be cached is never serialized", async () => {
     await persistSearchIndex(null, () => {
       serialized += 1;
       return "{}";
-    }, WEB_CACHE_DOCUMENT_LIMIT + 1);
+    }, webCacheDocumentLimit() + 1);
 
     assert.equal(
       serialized,

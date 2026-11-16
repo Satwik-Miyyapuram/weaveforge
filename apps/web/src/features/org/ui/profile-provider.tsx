@@ -12,11 +12,12 @@ import {
 import type { Member, OrgMembershipView } from "@weaveforge/core";
 import { useAuth } from "@/features/auth";
 import { useStartupOptional } from "@/features/startup";
-import { continueStandalone, fetchMemberships, switchOrg as switchActiveOrg } from "../infrastructure/org-api";
-import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
+import { continueStandalone, fetchMemberships, switchOrg as switchActiveOrg } from "../infrastructure/parts";
+import { invalidateAllRepoCaches } from "@/lib/cache/parts-1";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
-import { latestGate, loadProfileBundle } from "../application/profile-refresh";
+import { latestGate } from "@/lib/parts";
+import { loadProfileBundle } from "../application/profile-refresh";
 
 const EMPTY_PROFILE_STATE = {
   profile: null as Member | null,
@@ -63,7 +64,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const gate = useRef(latestGate());
 
   const refresh = useCallback(async () => {
-    const isLatest = gate.current.begin();
+    const isLatest = gate.current();
     const userId = user?.id;
     if (!userId) {
       setProfile(null);

@@ -20,7 +20,7 @@ import { activeWorkspaceFs } from "@/features/workspace/application/workspace-fo
 import {
   downloadLibraryPdfs,
   downloadPaperPdf,
-} from "../application/download-library-pdfs";
+} from "../application/parts-1";
 
 test("with no folder open the library walk is over before it reads anything", async () => {
   assert.equal(

@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { setImagePlacement, withImageWidth } from "../markdown-image-width";
+import { readyCore } from "../rust-core";
+
+const { setImagePlacement, withImageWidth } = readyCore();
 
 test("withImageWidth writes and clears the suffix", () => {
   assert.equal(withImageWidth("Figure 1", "40%"), "Figure 1|40%");

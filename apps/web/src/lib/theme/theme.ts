@@ -1,5 +1,4 @@
 import {
-  normalizeThemeConfig,
   THEME_COLOR_KEYS,
   THEME_FONT_KEYS,
   THEME_RADIUS_KEYS,
@@ -7,6 +6,7 @@ import {
   type ThemeConfig,
 } from "@weaveforge/core";
 
+import { typedCore } from "@/lib/rust-core";
 import { readStored, removeStored } from "@/lib/safe-storage";
 
 export type { SurfaceStyle, ThemeConfig };
@@ -305,7 +305,7 @@ export function readStoredCustomTheme(): ThemeConfig | null {
   const raw = readStored(THEME_KEY.customTheme);
   if (!raw) return null;
   try {
-    return normalizeThemeConfig(JSON.parse(raw));
+    return typedCore().normalizeThemeConfig(JSON.parse(raw));
   } catch {
     return null;
   }

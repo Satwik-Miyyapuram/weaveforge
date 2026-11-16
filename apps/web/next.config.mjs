@@ -129,7 +129,7 @@ const securityHeaders = [
       // `script-src`, which has no `blob:` — so a bundler that emits the worker
       // from a blob URL makes **ink work on desktop and fail on the web**, which
       // is the most confusing shape a bug can take. The desktop shell already
-      // allows it (`apps/desktop/src/app-protocol.ts`); this is the web half.
+      // allows it (`apps/shell/src/protocol.rs`); this is the web half.
       "worker-src 'self' blob:",
       // The Workshop PDF viewer embeds the compiled PDF as `<iframe src="blob:...">`.
       // Without this, frame-src falls back to default-src 'self' and refuses the blob.
@@ -197,9 +197,11 @@ const exportOnly = {
 
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@weaveforge/core"],
+  transpilePackages: ["@weaveforge/core", "@weaveforge/wasm"],
+  // The Overleaf IDE is compiled from the submodule, outside this app.
+  experimental: { externalDir: true },
   ...(DESKTOP ? exportOnly : servedOnly),
-  webpack: (config, { isServer, dev }) => {
+  webpack: (config, { isServer, dev, webpack }) => {
     // @weaveforge/core is consumed as TypeScript source with ESM ".js" import
     // specifiers (NodeNext style). Teach webpack to resolve ".js" -> ".ts".
     config.resolve.extensionAlias = {
@@ -221,6 +223,134 @@ const nextConfig = {
       type: "javascript/auto",
       resolve: { fullySpecified: false },
     });
+
+    // The Overleaf IDE is the `third_party/overleaf` submodule, unmodified.
+    // What it needs from the app is said here, for its tree only: its `@/` and
+    // `@ol-types/` roots, the packages Overleaf pins (pdfjs-dist 5 where the
+    // app keeps 4, CodeMirror releases patched by the build script), stand-ins
+    // for the server, add-on modules and packages the app does not ship, and
+    // no add-on modules in place of its babel macro.
+    const overleaf = path.resolve(__dirname, "../../third_party/overleaf");
+    const overleafWeb = path.join(overleaf, "services/web");
+    const overleafJs = path.join(overleafWeb, "frontend/js");
+    const olHost = path.resolve(__dirname, "src/features/report/ol-host");
+    const olShims = path.resolve(__dirname, "src/features/report/ol-shims");
+    const olBuild = path.resolve(__dirname, ".overleaf-build");
+    const lezer = (name, file) => [
+      path.join(overleafJs, "features/source-editor", `lezer-${name}`, file),
+      path.join(olBuild, `lezer-${name}`, file),
+    ];
+    config.module.rules.push({
+      include: [overleafWeb, olHost, olShims, olBuild],
+      resolve: {
+        alias: {
+          "@": overleafJs,
+          "@ol-types": path.join(overleafWeb, "types"),
+          "pdfjs-dist": "pdfjs-dist-overleaf",
+          "@codemirror/autocomplete$": path.join(olBuild, "codemirror-autocomplete"),
+          "@codemirror/search$": path.join(olBuild, "codemirror-search"),
+          "@overleaf/o-error$": path.join(overleaf, "libraries/o-error/index.cjs"),
+          "@overleaf/ranges-tracker$": path.join(overleaf, "libraries/ranges-tracker/index.cjs"),
+          "overleaf-editor-core$": path.join(olShims, "overleaf-editor-core/index.ts"),
+          "overleaf-editor-core/lib/types": path.join(olShims, "overleaf-editor-core/lib/types.ts"),
+          "overleaf-editor-core/lib/range": path.join(olShims, "overleaf-editor-core/lib/range.ts"),
+          "overleaf-editor-core/lib/file_data/clear_tracking_props": path.join(
+            olShims,
+            "overleaf-editor-core/lib/file_data/clear_tracking_props.ts",
+          ),
+          "@sentry/browser$": path.join(olShims, "sentry-browser.ts"),
+          "@uppy/core$": path.join(olShims, "uppy.tsx"),
+          "@uppy/react$": path.join(olShims, "uppy.tsx"),
+          "@uppy/xhr-upload$": path.join(olShims, "uppy-xhr-upload.ts"),
+          "@uppy/utils/lib/getDroppedFiles": path.join(olShims, "uppy-get-dropped-files.ts"),
+          "@uppy/core/dist/style.css": path.join(olShims, "empty.css"),
+          "@uppy/dashboard/dist/style.css": path.join(olShims, "empty.css"),
+          [path.join(overleafWeb, "frontend/macros/import-overleaf-module.macro")]: path.join(
+            olShims,
+            "import-overleaf-module.ts",
+          ),
+          // The parsers are generated from the submodule's grammars at build time.
+          ...Object.fromEntries([
+            lezer("latex", "latex.mjs"),
+            lezer("latex", "latex.terms.mjs"),
+            lezer("bibtex", "bibtex.mjs"),
+            lezer("bibtex", "bibtex.terms.mjs"),
+          ]),
+          // Their hand-written tokenizers stay in the submodule beside the grammars.
+          ...Object.fromEntries(
+            [lezer("latex", "tokens.mjs"), lezer("bibtex", "tokens.mjs"), lezer("bibtex", "highlight.mjs")].map(
+              ([source, built]) => [built, source],
+            ),
+          ),
+        },
+        // The submodule has no node_modules of its own; it uses the app's.
+        modules: [path.join(__dirname, "node_modules"), path.resolve(__dirname, "../../node_modules"), "node_modules"],
+      },
+    });
+    // Overleaf's vim fork, its own submodule. Kept out of the rule above so it
+    // takes the app's unpatched @codemirror/search, as its package pins.
+    const vim = path.resolve(__dirname, "../../third_party/codemirror-vim");
+    config.module.rules.push({
+      include: overleafWeb,
+      resolve: { alias: { "@replit/codemirror-vim$": path.join(vim, "src/index.ts") } },
+    });
+    config.module.rules.push({
+      include: vim,
+      resolve: {
+        modules: [path.join(__dirname, "node_modules"), path.resolve(__dirname, "../../node_modules"), "node_modules"],
+      },
+    });
+    // React 19 dropped findDOMNode; only Overleaf's dropdown hook still asks.
+    config.module.rules.push({
+      test: /use-dropdown\.ts$/,
+      include: overleafWeb,
+      resolve: { alias: { "react-dom$": path.join(olShims, "react-dom-compat.ts") } },
+    });
+    // Overleaf's webpack ships its wasm and media as plain files.
+    config.module.rules.push({
+      test: /\.(wasm|mp4)$/,
+      include: overleafWeb,
+      type: "asset/resource",
+    });
+    // pdf.js's worker names its wasm with `new URL(...)` beside itself, where
+    // the package has none; the IDE passes `wasmUrl` instead, as Overleaf does.
+    // Matched by package, since npm ci may hoist it.
+    config.module.rules.push({
+      test: /pdf\.worker\.mjs$/,
+      include: /[\\/]pdfjs-dist-overleaf[\\/]/,
+      parser: { url: false },
+    });
+    // Overleaf's components import their own stylesheets; the build script
+    // compiles those into `public/overleaf/ide.css` with Overleaf's Sass, so
+    // the imports here only need to resolve.
+    config.plugins.push(
+      new webpack.NormalModuleReplacementPlugin(/\.scss$/, (resource) => {
+        if (resource.context?.startsWith(overleafWeb) || resource.context?.startsWith(olHost)) {
+          resource.request = path.join(olHost, "no-style.js");
+        }
+      }),
+    );
+    // The few files the app changes are copies under `ol-host/overrides/`, at
+    // the same path as in the submodule, swapped in once resolved.
+    const overridden =
+      /[\\/]services[\\/]web[\\/]frontend[\\/]js[\\/]features[\\/](ide-react[\\/]components[\\/]toolbar[\\/]toolbar\.tsx|file-view[\\/]components[\\/]file-view-image\.tsx|source-editor[\\/]extensions[\\/]visual[\\/]visual-widgets[\\/]graphics\.ts)$/;
+    config.plugins.push(
+      new webpack.NormalModuleReplacementPlugin(overridden, (resource) => {
+        const file = resource.createData?.resource;
+        if (file?.startsWith(overleafWeb)) {
+          resource.createData.resource = path.join(olHost, "overrides", path.relative(overleafWeb, file));
+          // Its own imports resolve from where the copy sits.
+          resource.createData.context = path.dirname(resource.createData.resource);
+        }
+      }),
+    );
+    // Only English is shipped; the app has no language switch.
+    config.plugins.push(new webpack.ContextReplacementPlugin(/[\\/]services[\\/]web[\\/]locales$/, /^\.\/en\.json$/));
+    // The app's one way in; tsc sees `ol-host/api.d.ts` instead (tsconfig paths).
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@overleaf-ide$": path.join(olHost, "mount.tsx"),
+    };
 
     // Records which package copies the browser build holds, for
     // `npm run bundle:duplicates`; a production build drops module paths.

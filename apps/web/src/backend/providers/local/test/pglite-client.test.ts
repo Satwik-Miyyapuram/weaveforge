@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { createLocalClient, pgArray, type LocalQuery } from "../pglite-client";
+import test, { before } from "node:test";
+import { readyCore } from "@/lib/rust-core";
+import { createLocalClient, type LocalQuery } from "../pglite-client";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 /** Records what would have run, and answers with whatever the test supplies. */
 function recorder(rows: unknown[] = []): { run: LocalQuery; seen: { sql: string; params: unknown[] }[] } {
@@ -175,7 +179,7 @@ test("a text[] column takes an array literal; a jsonb column takes JSON", async 
   assert.deepEqual(seen[0]?.params, ["1", '{"Ada","Bo \\"B\\""}', "{}", '{"list":["x"]}']);
   await createLocalClient(run).from("papers").update({ tags: ["a"] }).eq("id", "1");
   assert.equal(seen[1]?.params[0], '{"a"}');
-  assert.equal(pgArray(["a\\b"]), '{"a\\\\b"}');
+  assert.equal(readyCore().pgArray(["a\\b"]),'{"a\\\\b"}');
 });
 
 test("`range` is an inclusive window, spelled limit and offset", async () => {

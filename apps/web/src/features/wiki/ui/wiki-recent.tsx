@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { recentlyApprovedWikiPages } from "../application/build-wiki";
+import { recentlyApprovedWikiPages } from "../application/wiki-build";
 
 const DATE = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
 

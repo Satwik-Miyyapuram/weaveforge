@@ -2,9 +2,9 @@
 
 import { useNavPending } from "@/lib/nav-pending";
 import { useEffect, useRef, useState } from "react";
-import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
+import { useModuleRegistry } from "@/lib/hooks/parts";
 import { activeNavItem, type NavGroup } from "@/registry";
-import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
+import { prefetchScreenForPath } from "@/lib/cache/parts-1";
 import type { LayoutBreakpoint, NavEnterAnim } from "@/lib/hooks/use-layout-breakpoint";
 import { NavIcon } from "./nav-icon";
 import { ChevronIcon } from "@/components/chevron-icon";
@@ -12,14 +12,22 @@ import { openSearchPalette } from "@/components/jump-to-palette";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { ProjectSwitcher } from "@/features/projects";
 import { HeaderActions } from "./header-actions";
-import type { InboxLink } from "./inbox-links";
+import type { InboxLink } from "@weaveforge/wasm";
 import { useRailTip } from "./rail-tip";
-import { loadOpenGroups, saveOpenGroups, toggleGroup, withActive } from "./nav-open-groups";
+import { loadOpenGroups, saveOpenGroups } from "./nav-open-groups";
+import { readyCore } from "@/lib/rust-core";
 import { useInbox } from "./use-inbox";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 import { FoldButton, NavButton, NavLink } from "@/components/controls";
 import { revealActiveNav } from "./reveal-active-nav";
+import dynamic from "next/dynamic";
+
+// Lazy: the indexing store pulls the PDF reader, which the nav must not wait for.
+const PdfIndexChip = dynamic(
+  () => import("@/features/search/ui/pdf-index-chip").then((m) => m.PdfIndexChip),
+  { ssr: false },
+);
 
 /**
  * Primary navigation, rendered from the module registry. One markup, two
@@ -75,10 +83,10 @@ export function TabBar({
     activeGroupKey ? [activeGroupKey] : [],
   );
   useEffect(() => {
-    setOpenGroups((prev) => loadOpenGroups(navStore(), null).reduce((acc, k) => withActive(acc, k), [...prev]));
+    setOpenGroups((prev) => loadOpenGroups(navStore(), null).reduce((acc, k) => readyCore().withActive(acc, k), [...prev]));
   }, []);
   useEffect(() => {
-    setOpenGroups((prev) => withActive(prev, activeGroupKey));
+    setOpenGroups((prev) => readyCore().withActive(prev, activeGroupKey));
   }, [activeGroupKey]);
 
   /*
@@ -130,6 +138,7 @@ export function TabBar({
           // that lives only in that span disappears with it, so each item states
           // its own, and the rail's tip reads it (`rail-tip.tsx`).
           aria-label={homeNavItem.label}
+          data-help-id={helpIdFor(homeNavItem.label)}
           onPointerEnter={() => prefetchScreenForPath(homeNavItem.path)}
         >
           <NavIcon name={homeNavItem.icon} />
@@ -153,6 +162,7 @@ export function TabBar({
                 href={item.path}
                 current={active}
                 aria-label={item.label}
+                data-help-id={helpIdFor(item.label)}
                 onPointerEnter={() => prefetchScreenForPath(item.path)}
               >
                 <NavIcon name={item.icon ?? "box"} />
@@ -177,7 +187,7 @@ export function TabBar({
                     aria-controls={`nav-group-${group.key}`}
                     title={collapsed ? group.label : undefined}
                     onClick={() => {
-                      const next = toggleGroup(openGroups, group.key);
+                      const next = readyCore().toggleGroup(openGroups, group.key);
                       setOpenGroups(next);
                       saveOpenGroups(navStore(), next);
                     }}
@@ -194,12 +204,13 @@ export function TabBar({
                             href={item.path}
                             current={active}
                             aria-label={item.label}
+                            data-help-id={helpIdFor(item.label)}
                             onPointerEnter={() => prefetchScreenForPath(item.path)}
                           >
                             <NavIcon name={item.icon ?? group.icon} />
                             <span className="nav-label">{item.label}</span>
                             {"badge" in item && item.badge !== undefined && (
-                              <b className="nav-badge" aria-label={`${item.badge} waiting`}>{item.badge}</b>
+                              <b className="nav-badge" aria-label={`${item.badge} waiting`} title={`${item.badge} waiting for you in ${item.label}`}>{item.badge}</b>
                             )}
                           </NavLink>
                         );
@@ -249,6 +260,7 @@ export function TabBar({
             <ProjectSwitcher />
             <HeaderActions inbox={false} alone={collapsed} />
           </div>
+          <PdfIndexChip />
           <LocalModeBadge />
         </div>
       )}
@@ -263,4 +275,9 @@ function navStore(): Storage | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** `data-help-id` for a nav entry, e.g. "Notes" -> "nav-notes", for the user docs' screenshots. */
+function helpIdFor(label: string): string {
+  return `nav-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
 }

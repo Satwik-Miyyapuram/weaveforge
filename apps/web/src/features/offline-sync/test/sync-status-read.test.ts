@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { withAppLogs } from "@/lib/error-report/test/capture-app-logs";
 import { readSyncStatus } from "../ui/use-sync";
-import { onLiveSyncChange, setLiveSyncState } from "../domain/live-sync";
+import { onLiveSyncChange, setLiveSyncState } from "../domain/parts-1";
 
 test("a readable local database reports its sync state (34-07)", async () => {
   const status = await readSyncStatus({

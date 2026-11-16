@@ -3,14 +3,17 @@
  * page, the figure editor and the PDF reader round a resize the same way
  * (20-06).
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { createElement, createRef } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
-import { resizeFigureBox } from "@weaveforge/core";
 
 import { InkPage } from "../ui/ink-page";
 import type { InkPageProps } from "../ui/ink-page-props";
+import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 (globalThis as { window?: unknown }).window ??= { requestAnimationFrame: () => 0, cancelAnimationFrame() {} };
@@ -72,21 +75,21 @@ function drag(from: { x: number; y: number }, to: { x: number; y: number }, shif
 
 test("a south-east corner drag matches core, rounding included", () => {
   const got = drag({ x: 300, y: 200 }, { x: 300.6, y: 200 });
-  assert.deepEqual(got.at(-1), resizeFigureBox(BOX, "se", 0.6, 0));
+  assert.deepEqual(got.at(-1), typedCore().resizeFigureBox(BOX, "se", 0.6, 0));
 });
 
 test("a north-west corner drag anchors the far corner like core", () => {
   const got = drag({ x: 100, y: 100 }, { x: 40, y: 95 });
-  assert.deepEqual(got.at(-1), resizeFigureBox(BOX, "nw", -60, -5));
+  assert.deepEqual(got.at(-1), typedCore().resizeFigureBox(BOX, "nw", -60, -5));
 });
 
 test("shift frees the aspect like core", () => {
   const got = drag({ x: 300, y: 200 }, { x: 350, y: 260 }, true);
-  assert.deepEqual(got.at(-1), resizeFigureBox(BOX, "se", 50, 60, { free: true }));
+  assert.deepEqual(got.at(-1), typedCore().resizeFigureBox(BOX, "se", 50, 60, { free: true }));
 });
 
 test("a corner never shrinks below the minimum", () => {
   const got = drag({ x: 300, y: 200 }, { x: -500, y: 200 });
-  assert.deepEqual(got.at(-1), resizeFigureBox(BOX, "se", -800, 0));
+  assert.deepEqual(got.at(-1), typedCore().resizeFigureBox(BOX, "se", -800, 0));
   assert.ok(got.at(-1)!.w >= 30 && got.at(-1)!.h >= 30);
 });

@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import { testDb } from "../../../backend/test/pg-test-db";
 import { sqlRunner } from "./local-sql";
-import { Adoption } from "../domain/adoption";
+import { Adoption } from "../domain/parts-1";
 
 // One database per file, so every id is new.
 let nextId = 100;

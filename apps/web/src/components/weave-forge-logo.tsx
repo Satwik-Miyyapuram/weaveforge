@@ -10,17 +10,20 @@
  *
  * The static file at /icons/weave_forge.svg is kept for the favicon and apple
  * touch icon, which the browser fetches outside any page and cannot theme.
+ *
+ * `bare` drops the rounded tile and crops the viewBox to the mark, for a spot
+ * that already draws its own tile (the empty-state mark).
  */
-export function WeaveForgeLogo({ className }: { className?: string }) {
+export function WeaveForgeLogo({ className, bare = false }: { className?: string; bare?: boolean }) {
   return (
     <svg
       className={className}
-      viewBox="0 0 512 512"
+      viewBox={bare ? "96 96 330 330" : "0 0 512 512"}
       xmlns="http://www.w3.org/2000/svg"
       role="img"
       aria-label="WeaveForge"
     >
-      <rect width="512" height="512" rx="115" fill="var(--surface2)" />
+      {!bare && <rect width="512" height="512" rx="115" fill="var(--surface2)" />}
 
       <path
         d="M 230 125 L 194 125 A 54 54 0 0 0 140 179 L 140 355 A 54 54 0 0 0 194 409 L 318 409 A 54 54 0 0 0 372 355 L 372 265"

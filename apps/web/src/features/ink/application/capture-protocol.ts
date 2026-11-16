@@ -26,7 +26,7 @@
 
 import type { InkColour, InkPage, InkStroke } from "@weaveforge/core";
 
-import type { InkPalette } from "../render/ink-palette";
+import type { InkPalette } from "../render/parts-1";
 
 /** `x, y, pressure, t` per sample. */
 export const INK_SAMPLE_STRIDE = 4;

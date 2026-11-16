@@ -10,46 +10,44 @@ import {
   canDrop,
   canRename,
   creatableUnder,
+  type CreateKind,
   creationTarget,
+  type Draft,
   draftPlaceholder,
   dropParentId,
+  isDocumentKind,
+  isSectionOpen,
+  kindIcon,
+  kindIconClass,
   rootKey,
   rootOf,
-  EXPLORER_DRAG_TYPE,
-  type CreateKind,
-  type Draft,
-} from "../application/explorer-edit";
-import {
-  isSectionOpen,
   toggleExpanded,
   toggleSection,
+} from "@weaveforge/wasm";
+import {
   writeExpanded,
   writeSections,
   type ExplorerSection,
-} from "../application/explorer-state";
-import { EXPLORER_ROW_PX, rowSlots } from "../application/explorer-window";
+} from "../application/parts";
+import { EXPLORER_ROW_METRICS, EXPLORER_ROW_PX } from "./explorer-window-constants";
 import { findRow, useExplorerWindow } from "./use-explorer-window";
 import { useExplorerExpansion } from "./use-explorer-expansion";
-import {
-  filterRows,
-  folderIdsOf,
-  visibleRows,
-  type TreeNodeKind,
-  type VisibleRow,
-  type WorkspaceTreeNode,
-} from "../application/workspace-tree";
-import { isDocumentKind, kindIcon, kindIconClass } from "./kind";
+import type { TreeNodeKind, VisibleRow, WorkspaceTreeNode } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import {
   DraftIcon,
   HideGlyph,
   InlineTitle,
   RefreshGlyph,
 } from "./explorer-glyphs";
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/parts";
 import { FoldButton } from "@/components/controls";
 import { Button, CloseButton, IconButton } from "@/components/button";
 
 /** The "new in here" hover actions on a row, in the order they show. */
+/** The MIME type explorer rows drag as. */
+const EXPLORER_DRAG_TYPE = "application/x-weaveforge-node";
+
 const NEW_HERE: { kind: CreateKind; label: string; icon: React.ReactNode }[] = [
   { kind: "note", label: "New note here", icon: <NavIcon name="notes" /> },
   { kind: "section", label: "New section here", icon: <NavIcon name="doc" /> },
@@ -88,6 +86,7 @@ export function ExplorerPanel({
   onOpen,
   onStartNote,
   onRelease,
+  renameRequest,
   draft,
   onDraft,
   onCreate,
@@ -103,6 +102,8 @@ export function ExplorerPanel({
   activeKey?: string;
   /** The same document, with its parent: where a "new file" from the head lands. */
   activeDoc?: { kind: string; id: string; parentId?: string };
+  /** Bumped by `F2`: rename the active document's row. */
+  renameRequest?: number;
   onOpen: (selection: ExplorerSelection) => void;
   /** Offered on a paper that has no note yet. */
   onStartNote?: (paperId: string) => void;
@@ -146,8 +147,8 @@ export function ExplorerPanel({
     const forced = new Set<string>();
     const byId = new Map<string, VisibleRow[]>();
     for (const section of sections) {
-      const rows = visibleRows(section.tree, expanded);
-      const result = filterRows(rows, query);
+      const rows = readyCore().visibleRows(section.tree, expanded);
+      const result = readyCore().filterRows(rows, query);
       for (const key of result.expand) forced.add(key);
       byId.set(section.id, result.rows);
     }
@@ -156,7 +157,7 @@ export function ExplorerPanel({
 
   // A new note from the head lands in the open note's folder only when that
   // parent is a real folder.
-  const folderIds = useMemo(() => folderIdsOf(sections.flatMap((section) => section.tree)), [sections]);
+  const folderIds = useMemo(() => readyCore().folderIdsOf(sections.flatMap((section) => section.tree)), [sections]);
 
   const effectiveExpanded = useMemo(
     () => (query.trim() ? new Set([...expanded, ...filtered.forced]) : expanded),
@@ -186,6 +187,27 @@ export function ExplorerPanel({
     for (const section of sections) for (const root of section.tree) walk(root);
     return map;
   }, [sections]);
+
+  // `F2` anywhere: the open document's row becomes a text box, its folders
+  // opened so the box is on screen. A count, so each press starts it once.
+  useEffect(() => {
+    const node = renameRequest && activeKey ? nodeByKey.get(activeKey) : undefined;
+    if (!node || !onRename || !canRename(node)) return;
+    const path: string[] = [];
+    const find = (n: WorkspaceTreeNode): boolean =>
+      n.key === node.key || (n.children.some(find) && (path.push(n.key), true));
+    for (const section of sections) section.tree.some(find);
+    const missing = path.filter((key) => !expanded.has(key));
+    if (missing.length > 0) {
+      const next = new Set([...expanded, ...missing]);
+      setExpanded(next);
+      persistExpanded(next);
+    }
+    setProblem(null);
+    setRenaming(node.key);
+    // Only a new press starts it; the tree changing under a rename must not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renameRequest]);
 
   /**
    * The key of the row a draft sits under. A note's parent is a note row;
@@ -242,6 +264,8 @@ export function ExplorerPanel({
         onDraft?.(null);
       } catch (error) {
         setProblem({ key: "draft", message: errorMessage(error) });
+        // Rethrow so the name box reopens for a retry.
+        throw error;
       }
     },
     [draft, onCreate, onDraft],
@@ -259,6 +283,8 @@ export function ExplorerPanel({
         setRenaming(null);
       } catch (error) {
         setProblem({ key: node.key, message: errorMessage(error) });
+        // Rethrow so the name box reopens for a retry.
+        throw error;
       }
     },
     [onRename],
@@ -408,7 +434,7 @@ export function ExplorerPanel({
             </>
           ) : null}
           {onHide ? (
-            <IconButton size="sm" label="Hide explorer" tip={`Hide explorer (${shortcutLabel("⌘B")})`} onClick={onHide}>
+            <IconButton size="sm" label="Hide explorer" tip={`Hide explorer (${readyCore().shortcutLabel("⌘B", isMacPlatform())})`} onClick={onHide}>
               <HideGlyph />
             </IconButton>
           ) : null}
@@ -469,10 +495,11 @@ export function ExplorerPanel({
                   hidden={!open}
                   data-section-rows={section.id}
                 >
-                  {rowSlots(
+                  {readyCore().rowSlots(
                     rows.length,
                     views?.[section.id] ?? null,
                     rows.flatMap((row, i) => (pinnedKeys.has(row.node.key) ? [i] : [])),
+                    EXPLORER_ROW_METRICS,
                   ).map((slot, s) => {
                     if (slot.kind === "gap") {
                       return (

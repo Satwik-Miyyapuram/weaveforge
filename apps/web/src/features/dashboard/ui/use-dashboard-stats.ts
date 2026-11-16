@@ -2,26 +2,33 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
 import { formatError } from "@/lib/format-error";
-import { registerDashboardUiCacheClear } from "@/lib/cache/clear-session-caches";
+import {
+  readDeviceSnapshot,
+  registerDashboardUiCacheClear,
+  writeDeviceSnapshot,
+} from "@/lib/cache/parts";
 import type { DashboardCardType, Member } from "@weaveforge/core";
 
-import { buildDashboardStats, type DashboardStats } from "../application/build-dashboard-stats";
 import {
-  loadDashboardStats,
+  buildDashboardStats,
+  type DashboardStats,
   type DashboardStatsPorts,
-} from "../application/load-dashboard-stats";
-import type { SupervisionStats } from "../application/build-supervision-stats";
+  loadDashboardStats,
+} from "../application/parts";
+import type { SupervisionStats } from "../application/parts";
 
-const EMPTY_STATS = buildDashboardStats({
-  papers: [],
-  sections: [],
-  milestones: [],
-  experiments: [],
-  logEntries: [],
-  relations: [],
-  listCount: 0,
-  tags: [],
-});
+// Built on demand: the Rust core is not loaded when this module is imported.
+const emptyStats = (): DashboardStats =>
+  buildDashboardStats({
+    papers: [],
+    sections: [],
+    milestones: [],
+    experiments: [],
+    logEntries: [],
+    relations: [],
+    listCount: 0,
+    tags: [],
+  });
 
 type StatsCacheEntry = {
   stats: DashboardStats;
@@ -41,6 +48,17 @@ function statsCacheKey(
   return `${projectId ?? "-"}|${cards}|${people}`;
 }
 
+/** The device copy of a project's last good stats (desktop and phone only). */
+function snapshotName(projectId: string): string {
+  return `dashboard-stats:${projectId}`;
+}
+
+function readSnapshot(projectId: string | null): StatsCacheEntry | null {
+  if (!projectId) return null;
+  const saved = readDeviceSnapshot<StatsCacheEntry>(snapshotName(projectId));
+  return saved && typeof saved.stats === "object" && saved.stats ? saved : null;
+}
+
 function portsFromContainer(): DashboardStatsPorts {
   return getContainer().dashboard.statsPorts();
 }
@@ -55,13 +73,18 @@ export function useDashboardStats(
   const projectId = project?.id ?? null;
   const cacheKey = statsCacheKey(projectId, cardTypes, supervisees);
   const cached = statsCache.get(cacheKey);
+  // On a cold start the device copy paints until the database answers.
+  const [saved] = useState(() => (cached ? null : readSnapshot(projectId)));
+  const first = cached ?? saved;
 
-  const [statsLoading, setStatsLoading] = useState(() => cached == null);
+  const [statsLoading, setStatsLoading] = useState(() => first == null);
   const [statsError, setStatsError] = useState<string | null>(null);
-  const [stats, setStats] = useState<DashboardStats>(() => cached?.stats ?? EMPTY_STATS);
+  const [stats, setStats] = useState<DashboardStats>(() => first?.stats ?? emptyStats());
   const [supervision, setSupervision] = useState<SupervisionStats | null>(
-    () => cached?.supervision ?? null,
+    () => first?.supervision ?? null,
   );
+  /** True while the stats shown are the device copy, not a live load. */
+  const [fromSnapshot, setFromSnapshot] = useState(() => cached == null && saved != null);
 
   // The key of the newest load. An older one that answers late — a project
   // switched away from mid-load — must not paint over the newer one.
@@ -75,17 +98,20 @@ export function useDashboardStats(
   const loadStats = useCallback(async () => {
     latestKey.current = cacheKey;
     if (!projectId) {
-      setStats(EMPTY_STATS);
+      setStats(emptyStats());
       setSupervision(null);
       setStatsLoading(false);
       setStatsError(null);
+      setFromSnapshot(false);
       return;
     }
     const hit = statsCache.get(cacheKey);
-    if (hit) {
-      setStats(hit.stats);
-      setSupervision(hit.supervision);
+    const copy = hit ? null : readSnapshot(projectId);
+    if (hit ?? copy) {
+      setStats((hit ?? copy)!.stats);
+      setSupervision((hit ?? copy)!.supervision);
       setStatsLoading(false);
+      setFromSnapshot(hit == null);
     } else {
       setStatsLoading(true);
     }
@@ -102,7 +128,10 @@ export function useDashboardStats(
       };
       // A partial result is shown but not kept: the next visit should try again
       // rather than paint a failure from the cache as if it were the data.
-      if (!result.criticalError && !result.supervisionError) statsCache.set(cacheKey, entry);
+      if (!result.criticalError && !result.supervisionError) {
+        statsCache.set(cacheKey, entry);
+        writeDeviceSnapshot(snapshotName(projectId), entry);
+      }
       setStats(entry.stats);
       setSupervision(entry.supervision);
       if (result.criticalError) {
@@ -113,7 +142,10 @@ export function useDashboardStats(
     } catch (err) {
       if (latestKey.current === cacheKey) setStatsError(formatError(err));
     } finally {
-      if (latestKey.current === cacheKey) setStatsLoading(false);
+      if (latestKey.current === cacheKey) {
+        setStatsLoading(false);
+        setFromSnapshot(false);
+      }
     }
   }, [cacheKey, cardTypes, supervisees, projectId]);
 
@@ -121,5 +153,5 @@ export function useDashboardStats(
     void loadStats();
   }, [loadStats]);
 
-  return { stats, supervision, statsLoading, statsError, reloadStats: loadStats };
+  return { stats, supervision, statsLoading, statsError, fromSnapshot, reloadStats: loadStats };
 }

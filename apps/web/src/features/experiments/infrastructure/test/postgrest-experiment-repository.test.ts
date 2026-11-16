@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { PostgrestExperimentRepository } from "../postgrest-experiment-repository";
+import { rustExperimentRepository } from "../parts";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
-import type { ProjectContext } from "@/lib/project-context";
+import type { ProjectContext } from "@/lib/parts-2";
 
 /**
  * What an experiment edit sends (02-12).
@@ -28,7 +28,7 @@ function recorder() {
 
 function repo(rec: ReturnType<typeof recorder>) {
   const ctx: ProjectContext = { projectId: "p1" };
-  return new PostgrestExperimentRepository(
+  return rustExperimentRepository(
     createLocalClient(rec.run) as unknown as SupabaseClient,
     ctx,
   );
@@ -89,7 +89,7 @@ test("experiments: an empty patch sends nothing", async () => {
 /** A client whose every select returns these rows. */
 function returning(found: Record<string, unknown>[]) {
   const run: LocalQuery = async () => found as never;
-  return new PostgrestExperimentRepository(
+  return rustExperimentRepository(
     createLocalClient(run) as unknown as SupabaseClient,
     { projectId: "p1" },
   );

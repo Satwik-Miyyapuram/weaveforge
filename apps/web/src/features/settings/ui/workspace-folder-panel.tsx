@@ -1,16 +1,22 @@
 "use client";
 
 import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import type { ImportDiff, WorkspaceCommit } from "@weaveforge/core";
+import type { WorkspaceCommit } from "@weaveforge/core";
+import type { ImportDiff } from "@weaveforge/wasm";
 import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import {
   applyFolderImport,
   chooseDesktopFolder,
   chooseFolder,
-  closeFolder,
+  disconnectFolder,
+  externalChangeReason,
+  onOutsideEditsTakenIn,
+  missingDesktopFolder,
+  folderFileHistory,
   folderHistory,
   folderSession,
+  restoreFolderFile,
   previewArchiveImport,
   clearExternalChanges,
   writeMarkersFor,
@@ -20,6 +26,7 @@ import {
   onExternalChange,
   previewFolderImport,
   settleExternalChanges,
+  settleHeldEdit,
   supportsDirectoryPicker,
   describeSync,
   syncToFolder,
@@ -29,10 +36,14 @@ import { FormError } from "@/components/form-error";
 import { ProjectContext } from "@/features/projects";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/button";
-import { remoteSyncAvailable } from "@/features/workspace/application/folder-remote-sync";
+import { remoteSyncAvailable } from "@/features/workspace/application/parts-2";
 import { FolderRemoteSyncPanel } from "./folder-remote-sync-panel";
-import { overleafSyncAvailable } from "@/features/overleaf/application/overleaf-folder-sync";
+import { overleafSyncAvailable } from "@/features/overleaf/application/parts";
 import { OverleafSyncPanel } from "./overleaf-sync-panel";
+import { FolderFileHistory } from "./folder-file-history";
+import { SkippedFiles } from "./skipped-files";
+import type { SkippedFile } from "@/features/workspace/application/parts-2";
+import { folderWatchLost, onFolderWatchLost } from "@/features/workspace/application/parts";
 
 const FolderConflictCard = dynamic(
   () => import("./folder-conflict-card").then((m) => m.FolderConflictCard),
@@ -117,7 +128,7 @@ export function WorkspaceFolderPanel() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [history, setHistory] = useState<readonly WorkspaceCommit[]>([]);
-  const [diff, setDiff] = useState<(ImportDiff & { skipped?: string[] }) | null>(null);
+  const [diff, setDiff] = useState<(ImportDiff & { skipped?: SkippedFile[] }) | null>(null);
   const archiveInput = useRef<HTMLInputElement | null>(null);
   // Resolved after mount: the server has no shell, and disagreeing would be a hydration mismatch.
   const [hasShell, setHasShell] = useState(false);
@@ -139,20 +150,41 @@ export function WorkspaceFolderPanel() {
     };
   }, [session]);
 
-  // Files something else changed in the folder; shown, never applied.
+  // Outside edits that still need a look: the folder's own edits are taken in by themselves.
   const [outside, setOutside] = useState<string[]>([]);
   useEffect(() => {
     setOutside(externalChanges());
     return onExternalChange(setOutside);
   }, []);
+  // Edits taken in with no click are still said, so nothing changes unseen.
+  useEffect(
+    () =>
+      onOutsideEditsTakenIn((count) =>
+        setStatus(`${count} outside edit${count === 1 ? "" : "s"} taken in from the folder.`),
+      ),
+    [],
+  );
+  // A watch that lost its folder (renamed, unplugged) is said, not left silent.
+  useEffect(() => {
+    const lost = folderWatchLost();
+    if (lost) setStatus(lost);
+    return onFolderWatchLost((reason) => {
+      if (reason) setStatus(reason);
+    });
+  }, []);
 
-  // Reconnect the folder the shell remembers, without opening a dialog.
+  // Reconnect the folder the shell remembers, without opening a dialog. One
+  // that is remembered but not there (an unplugged drive) is named, with a retry.
+  const [missing, setMissing] = useState<string | null>(null);
   useEffect(() => {
     if (!hasShell || session) return;
     let live = true;
     void chooseDesktopFolder({ git: false, reuse: true })
-      .then((adopted) => {
-        if (live && adopted) setSession(folderSession());
+      .then(async (adopted) => {
+        if (!live) return;
+        if (adopted) return setSession(folderSession());
+        const gone = await missingDesktopFolder();
+        if (live) setMissing(gone);
       })
       .catch(() => {});
     return () => {
@@ -160,6 +192,9 @@ export function WorkspaceFolderPanel() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasShell]);
+
+  // Only once the folder is up; desktop needs the shell, resolved after mount.
+  const fileHistory = session && (session.kind !== "desktop" || hasShell) ? folderFileHistory() : null;
 
   const run = async (label: string, work: () => Promise<void>) => {
     setBusy(label);
@@ -172,6 +207,9 @@ export function WorkspaceFolderPanel() {
       setBusy(null);
     }
   };
+
+  // Problems that did not undo a pick or a disconnect, said where the reader is looking.
+  const showWarnings = (warnings: readonly string[]) => setStatus(warnings.length > 0 ? warnings.join(" ") : null);
 
   const folderValue =
     session === null ? (
@@ -209,7 +247,32 @@ export function WorkspaceFolderPanel() {
           <StatusRow label="Outside edits">
             {outside.length === 0
               ? "None"
-              : `${outside.length} file${outside.length === 1 ? "" : "s"} changed outside WeaveForge — not in the app yet`}
+              : `${outside.length} outside edit${outside.length === 1 ? "" : "s"} to review`}
+            {outside.length > 0 && (
+              <ul className="wiki-lint-list">
+                {outside.slice(0, 10).map((path) => {
+                  const reason = externalChangeReason(path);
+                  return (
+                    <li key={path}>
+                      <code>{path}</code>
+                      {reason && <span className="jump-to-meta"> · held: {reason}</span>}
+                      {reason && SETTLE_INLINE.has(reason) && (
+                        <span className="screen-actions screen-actions--start">
+                          <Button size="sm" disabled={busy !== null} onClick={() => void run("settle", () => settleHeldEdit(path, "mine"))}>
+                            {reason === "removed" ? "Put back" : "Keep mine"}
+                          </Button>
+                          {reason !== "removed" && (
+                            <Button size="sm" disabled={busy !== null} onClick={() => void run("settle", () => settleHeldEdit(path, "theirs"))}>
+                              Take theirs
+                            </Button>
+                          )}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </StatusRow>
         )}
         {database?.dataDir && (
@@ -226,6 +289,30 @@ export function WorkspaceFolderPanel() {
       <h4 className="settings-group">Folder</h4>
       {!session ? (
         <>
+          {missing && (
+            <div role="alert">
+              <p>
+                The folder <PathValue path={missing} /> is not available. Plug its drive back in and try
+                again, or choose another folder below.
+              </p>
+              <div className="screen-actions screen-actions--start">
+                <Button
+                  disabled={busy !== null}
+                  onClick={() =>
+                    void run("retry", async () => {
+                      const back = await chooseDesktopFolder({ git: false, retry: true });
+                      if (!back) return;
+                      setMissing(null);
+                      setSession(folderSession());
+                      showWarnings(back.warnings);
+                    })
+                  }
+                >
+                  {busy === "retry" ? "Trying…" : "Try again"}
+                </Button>
+              </div>
+            </div>
+          )}
           <p className="muted jump-to-meta">
             Pick any folder; if it holds other files, WeaveForge keeps its own in a{" "}
             <strong>WeaveForge</strong> subfolder.
@@ -247,7 +334,10 @@ export function WorkspaceFolderPanel() {
                 onClick={() =>
                   void run("pick", async () => {
                     const picked = hasShell ? await chooseDesktopFolder({ git }) : await chooseFolder({ git });
-                    if (picked) setSession(folderSession());
+                    if (!picked) return;
+                    setMissing(null);
+                    setSession(folderSession());
+                    if (picked !== true) showWarnings(picked.warnings);
                   })
                 }
               >
@@ -293,13 +383,15 @@ export function WorkspaceFolderPanel() {
               variant="ghost"
              
               disabled={busy !== null}
-              onClick={() => {
-                closeFolder();
-                setSession(null);
-                setHistory([]);
-                setDiff(null);
-                setStatus(null);
-              }}
+              onClick={() =>
+                void run("disconnect", async () => {
+                  const warnings = await disconnectFolder();
+                  setSession(null);
+                  setHistory([]);
+                  setDiff(null);
+                  showWarnings(warnings);
+                })
+              }
             >
               Disconnect
             </Button>
@@ -313,6 +405,17 @@ export function WorkspaceFolderPanel() {
                 </li>
               ))}
             </ul>
+          )}
+          {fileHistory && (
+            <FolderFileHistory
+              source={fileHistory}
+              restore={restoreFolderFile}
+              onRestored={() =>
+                void run("preview", async () => {
+                  setDiff(await previewFolderImport());
+                })
+              }
+            />
           )}
           {hasShell && session.kind === "desktop" && remoteSyncAvailable() && (
             <FolderRemoteSyncPanel onPulled={() => void folderHistory().then(setHistory, () => undefined)} />
@@ -375,11 +478,17 @@ export function WorkspaceFolderPanel() {
   );
 }
 
+/**
+ * Held edits a row can settle in one click. A removed file can only be put back: the import never deletes
+ * a note. Copies, lost ids and moves need the full review.
+ */
+const SETTLE_INLINE: ReadonlySet<string> = new Set(["edited on both sides", "no record of the app's write", "removed"]);
+
 function ImportPreview({
   diff,
   onApplied,
 }: {
-  diff: ImportDiff & { skipped?: string[] };
+  diff: ImportDiff & { skipped?: SkippedFile[] };
   onApplied: (message: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -405,8 +514,8 @@ function ImportPreview({
         {diff.counts.created} new · {diff.counts.updated} changed · {diff.counts.removed} removed ·{" "}
         {diff.counts.unchanged} unchanged · {diff.counts.conflict} conflict
         {diff.counts.conflict === 1 ? "" : "s"}
-        {diff.skipped?.length ? ` · ${diff.skipped.length} file(s) skipped as unsafe` : ""}
       </p>
+      <SkippedFiles skipped={diff.skipped ?? []} />
 
       {conflicts.length > 0 && (
         <ul className="wiki-lint-list">
@@ -434,6 +543,7 @@ function ImportPreview({
           variant="primary"
          
           disabled={busy || writable === 0}
+          title={!busy && writable === 0 ? "No changes to import" : undefined}
           onClick={() => {
             setBusy(true);
             setError(null);

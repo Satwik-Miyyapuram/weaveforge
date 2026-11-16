@@ -47,6 +47,14 @@ branch before addressing the next user request. Only commit changes made by you
 for your specific task; never commit unrelated working tree modifications or
 untracked files. Never accumulate uncommitted task changes across turns.
 
+## User docs change in the same PR
+
+A change a user can see updates the `docs/using` page that covers it in the
+same PR: fix the steps, then set its `checked:` front matter to today. Each
+page's `covers:` lists the code it describes. `npm run check:docs` fails on a
+bolded button name the app lacks; `npm run check:docs-freshness` warns on a
+page whose code moved after `checked:`.
+
 ## Testing
 
 Prove every change before reporting it. Read [testing.md](testing.md) before

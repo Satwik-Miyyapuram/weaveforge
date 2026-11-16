@@ -14,7 +14,7 @@ import { bindEditorHandle } from "@/components/markdown/markdown-editor-handle";
 import type { EditorHandleRef } from "@/components/editor-handle";
 import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/theme/codemirror-theme";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
-import type { EditorCitationFormat } from "@/lib/citation-format-preference";
+import type { EditorCitationFormat } from "@/lib/parts";
 import { CollaborativeMarkdownEditor } from "./collaborative-markdown-editor.js";
 import { docChangeListener } from "./doc-change-listener";
 
@@ -65,6 +65,7 @@ export function CollabBodyHost({
   onViewCreated,
   onDocChange,
   handleRef,
+  inlinePresence,
 }: {
   resourceType: string;
   resourceId: string;
@@ -87,6 +88,8 @@ export function CollabBodyHost({
    * for avoiding.
    */
   handleRef?: EditorHandleRef;
+  /** See `CollaborativeMarkdownEditor`. */
+  inlinePresence?: boolean;
 }) {
   const [authorId, setAuthorId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("Editor");
@@ -207,6 +210,7 @@ export function CollabBodyHost({
       readOnly={readOnly}
       editorClassName={editorClassName}
       onViewCreated={handleViewCreated}
+      inlinePresence={inlinePresence}
     />
   );
 }

@@ -3,7 +3,7 @@
  *
  * The desktop app is signed in to an account, so every "is this window working
  * locally?" check said no — and the build still had no server. `src/app/api/` is
- * held aside for the export (`apps/desktop/scripts/build-web.mjs`), so a fetch
+ * held aside for the export (`apps/shell/scripts/build-web.mjs`), so a fetch
  * to `/api/settings/credentials` reached the `app://` file handler and came back
  * a 404 with an empty body: `res.json()` threw, the catch left `{}`, and the
  * reader saw the generic "Failed to save integration credentials." while nothing
@@ -16,8 +16,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { LOCAL_USER_ID } from "@weaveforge/core";
-import { RouteSecretsStore } from "@/features/settings/infrastructure/postgrest-settings-repository";
-import { DeviceSecretsStore } from "../providers/local/device-secrets-store";
+import { RouteSecretsStore } from "@/features/settings/infrastructure/parts";
+import { DeviceSecretsStore } from "../providers/local/parts";
 import { secretsStoreFor } from "../providers/secrets-store";
 
 /** A client that can answer the only thing the route store asks it. */

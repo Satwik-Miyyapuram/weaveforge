@@ -2,10 +2,13 @@
  * A paper figure's bytes: the thumbnail variant first, the full image as the
  * fallback (21-08). One helper serves the ink sheet and the paper preview.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
-import { fetchPaperImageBlob, fetchPaperImageBlobs } from "../lib/image-variants";
+import { fetchPaperImageBlob, fetchPaperImageBlobs } from "../lib/parts";
+
+before(async () => { await loadTestCore(); });
 
 const blob = (s: string) => new Blob([s]);
 

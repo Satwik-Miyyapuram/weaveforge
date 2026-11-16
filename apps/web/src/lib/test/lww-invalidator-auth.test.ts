@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ProjectLwwInvalidator } from "@/lib/cache/project-lww-invalidator";
+import { ProjectLwwInvalidator } from "@/lib/cache/parts-1";
 
 /**
  * The project channel joins after the socket has a token, and nothing awaits

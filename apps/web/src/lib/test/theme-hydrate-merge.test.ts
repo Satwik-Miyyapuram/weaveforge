@@ -19,7 +19,6 @@ const LOCAL: UserAppearance = {
   cardTint: "full",
   cardTilt: true,
   scanlines: false,
-  customTheme: undefined,
 };
 
 test("server fields win, missing ones come from this device", () => {
@@ -38,7 +37,8 @@ test("a null server field falls back to this device, except customTheme", () => 
 test("an absent customTheme keeps this device's", () => {
   const custom = { vars: {}, motionScale: 1 } as unknown as UserAppearance["customTheme"];
   const merged = mergeServerAppearance({ ...LOCAL, customTheme: custom }, { mode: "dark" });
-  assert.equal(merged.customTheme, custom);
+  // The merge crosses the wasm JSON boundary, so the object comes back equal in content, not by reference.
+  assert.deepEqual(merged.customTheme, custom);
 });
 
 test("sanitizeCardTint keeps every listed tint and defaults the rest", () => {

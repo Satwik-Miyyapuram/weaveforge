@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { NotFoundError } from "@weaveforge/core";
-import type { AddLogEntryUseCase, ILogEntryRepository, LogEntry } from "@weaveforge/core";
+import type { ILogEntryManager, ILogEntryRepository, LogEntry } from "@weaveforge/core";
 import { LogbookFacade } from "../facades/logbook";
 
 /**
  * The one rule the editor pane needs from the logbook.
  *
- * `AddLogEntryUseCase.update` takes a kind as well as a body, because the
+ * `ILogEntryManager.update` takes a kind as well as a body, because the
  * logbook screen renders a Kind select beside the text. The workspace pane
  * edits the *markdown*, which has no opinion about the kind — so if a save from
  * there passed only a body the use case would either refuse it or, worse, write
@@ -43,7 +43,7 @@ function facade(existing: LogEntry | null, options: { notFound?: boolean } = {})
       written.push({ id, body: input.body, kind: input.kind });
       return { ...(existing ?? entry()), ...input, id } as LogEntry;
     },
-  } as unknown as AddLogEntryUseCase;
+  } as unknown as ILogEntryManager;
   const logbook = new LogbookFacade({
     logEntries: repository,
     addLogEntry,

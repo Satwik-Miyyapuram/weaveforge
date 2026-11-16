@@ -4,7 +4,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { requestNativeGoogleIdToken } from "../infrastructure/native-google-id-token.js";
+import { requestNativeGoogleIdToken } from "../infrastructure/supabase-auth.js";
 
 type Channel = { postMessage(message: string): void; onmessage: ((event: { data: unknown }) => void) | null };
 

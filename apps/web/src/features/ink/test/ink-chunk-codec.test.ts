@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { pipeThrough } from "../application/ink-chunk-codec";
+import { pipeThrough } from "../application/parts-1";
 
 test("corrupt deflate rejects once and leaves no unhandled rejection (18-05)", async () => {
   const unhandled: unknown[] = [];

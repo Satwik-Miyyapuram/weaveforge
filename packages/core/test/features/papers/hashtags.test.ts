@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extractHashtagRefs, extractHashtags } from "../../../src/features/papers/domain/paper.js";
+import { rust } from "../../../src/shared/rust.js";
 
 const FIXTURES: Array<[string, string[]]> = [
   ["Key #Disentanglement idea, see #beta-VAE and #beta-VAE again.", ["disentanglement", "beta-vae"]],
@@ -20,19 +20,19 @@ const FIXTURES: Array<[string, string[]]> = [
 ];
 
 test("extractHashtags fixtures", () => {
-  for (const [text, tags] of FIXTURES) assert.deepEqual(extractHashtags(text), tags, text);
-  assert.deepEqual(extractHashtags(undefined), []);
+  for (const [text, tags] of FIXTURES) assert.deepEqual(rust().extractHashtags(text), tags, text);
+  assert.deepEqual(rust().extractHashtags(undefined), []);
 });
 
 test("extractHashtags is the tags of extractHashtagRefs, in the same order", () => {
   for (const [text] of FIXTURES) {
-    assert.deepEqual(extractHashtags(text), extractHashtagRefs(text).map((r) => r.tag), text);
+    assert.deepEqual(rust().extractHashtags(text), rust().extractHashtagRefs(text).map((r) => r.tag), text);
   }
 });
 
 test("each ref's offset points at its own first occurrence", () => {
   const text = "#ab then #a then #ab";
-  assert.deepEqual(extractHashtagRefs(text), [
+  assert.deepEqual(rust().extractHashtagRefs(text), [
     { tag: "ab", index: 0, length: 3 },
     { tag: "a", index: 9, length: 2 },
   ]);

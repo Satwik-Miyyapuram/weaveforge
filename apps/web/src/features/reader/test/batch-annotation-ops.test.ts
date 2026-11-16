@@ -1,10 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  appendActivityLog,
-  collectAnnotationImageRegions,
-} from "../application/batch-annotation-ops.js";
+import { appendActivityLog } from "../application/parts.js";
 import type { ReaderAnnotation } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 function ann(partial: Partial<ReaderAnnotation> & Pick<ReaderAnnotation, "id" | "type">): ReaderAnnotation {
   return {
@@ -23,7 +21,7 @@ function ann(partial: Partial<ReaderAnnotation> & Pick<ReaderAnnotation, "id" | 
 }
 
 test("collectAnnotationImageRegions extracts rects only from image anns", () => {
-  const regions = collectAnnotationImageRegions([
+  const regions = readyCore().collectAnnotationImageRegions([
     ann({
       id: "i1",
       type: "image",

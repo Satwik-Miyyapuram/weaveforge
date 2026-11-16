@@ -1,14 +1,64 @@
-import { errorMessage, searchRevision, type SearchDoc } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { SemanticIndex, type EmbedProgress } from "./semantic-index";
-import { WorkerEmbedder, supportsLocalEmbedding } from "../infrastructure/worker-embedder";
-import { vectorStore } from "../infrastructure/vector-store";
-import { planEmbeddingStart, targetEmbeddingModel } from "../infrastructure/embedding-models";
-import { desktop } from "@/lib/desktop/desktop-bridge";
-import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 import { onFolderConnected } from "@/features/workspace/application/workspace-folder";
-import { SEMANTIC_CHANGED_EVENT } from "./semantic-events";
+import { desktop } from "@/lib/desktop/desktop-bridge";
+import { readyCore } from "@/lib/rust-core";
+import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
+import { errorMessage, type SearchDoc } from "@weaveforge/core";
+import type { SemanticStatus as SemanticStatusInput } from "@weaveforge/wasm";
+import { targetEmbeddingModel } from "../infrastructure/parts-1";
+import { nativeEmbedBridge, NativeEmbedder } from "../infrastructure/parts-2";
+import { vectorStore } from "../infrastructure/vector-store";
+import { WorkerEmbedder, type WorkerEmbedderOptions } from "../infrastructure/parts-3";
+import { SEMANTIC_CHANGED_EVENT } from "./parts";
+import { type EmbedProgress, SemanticIndex } from "./parts-2";
 
+// --- load-with-fallback ---
+/** Something that loads before use and can be released. */
+export interface Loadable {
+  load(): Promise<void>;
+  dispose(): void;
+}
+
+/**
+ * Load `primary`; when it fails and there is a `fallback`, release `primary`
+ * and load the fallback instead. Without one, the failure is rethrown and
+ * `primary` stays the caller's to release. A fallback that fails is released
+ * here, since nothing else holds it.
+ *
+ * Once `signal` aborts, no fallback is built (the primary stays the caller's),
+ * and a fallback that finishes loading after it is released; both reject with
+ * the signal's reason.
+ *
+ * The desktop shell uses this to fall back from its native encoder to the
+ * web worker, so a broken native runtime never turns semantic search off.
+ */
+export async function loadWithFallback<T extends Loadable>(
+  primary: T,
+  fallback: (() => T) | null,
+  onFallback: (error: unknown) => void = () => {},
+  signal?: AbortSignal,
+): Promise<T> {
+  try {
+    await primary.load();
+    return primary;
+  } catch (error) {
+    if (!fallback) throw error;
+    signal?.throwIfAborted();
+    onFallback(error);
+    primary.dispose();
+    const next = fallback();
+    try {
+      await next.load();
+      signal?.throwIfAborted();
+    } catch (fallbackError) {
+      next.dispose();
+      throw fallbackError;
+    }
+    return next;
+  }
+}
+
+// --- semantic-search ---
 /**
  * Turning semantic search on and off.
  *
@@ -20,13 +70,43 @@ import { SEMANTIC_CHANGED_EVENT } from "./semantic-events";
 
 const ENABLED_KEY = "thesis.search.semantic";
 
-let embedder: WorkerEmbedder | null = null;
+let embedder: WorkerEmbedder | NativeEmbedder | null = null;
 let semantic: SemanticIndex | null = null;
 let building: Promise<void> | null = null;
 /** The project the attached vectors describe; a switch must not keep them. */
 let semanticProject: string | null | undefined;
 /** A newer encoder embedding in the background while the old one serves. */
-let upgrade: { controller: AbortController; embedder: WorkerEmbedder } | null = null;
+let upgrade: { controller: AbortController; embedder: WorkerEmbedder | NativeEmbedder } | null = null;
+
+/** The desktop shell's native encoder when it has one; the web worker otherwise. */
+export function createEmbedder(options: WorkerEmbedderOptions): WorkerEmbedder | NativeEmbedder {
+  const bridge = nativeEmbedBridge();
+  return bridge
+    ? new NativeEmbedder(bridge, { model: options.model, onProgress: options.onProgress })
+    : new WorkerEmbedder(options);
+}
+
+/**
+ * Load `candidate`. A native encoder that fails to load hands over to the web
+ * worker, so a broken native runtime never turns semantic search off.
+ */
+function loadEmbedder(
+  options: WorkerEmbedderOptions,
+  candidate: WorkerEmbedder | NativeEmbedder = createEmbedder(options),
+  signal?: AbortSignal,
+): Promise<WorkerEmbedder | NativeEmbedder> {
+  return loadWithFallback<WorkerEmbedder | NativeEmbedder>(
+    candidate,
+    candidate instanceof NativeEmbedder ? () => new WorkerEmbedder(options) : null,
+    (error) => console.warn("The native encoder did not load; using the web worker:", error),
+    signal,
+  );
+}
+
+/** True when the desktop has a native encoder but `current` is the web worker standing in. */
+function onFallback(current: WorkerEmbedder | NativeEmbedder | null): boolean {
+  return current instanceof WorkerEmbedder && nativeEmbedBridge() !== null;
+}
 
 /**
  * What the semantic arm is doing, for anyone who wants to show it.
@@ -38,19 +118,7 @@ let upgrade: { controller: AbortController; embedder: WorkerEmbedder } | null = 
  * checked it sat on "Downloading the model — 100%" with no sign of what came
  * next or whether it had worked.
  */
-export type SemanticStatus =
-  | { phase: "off" }
-  | { phase: "downloading"; loaded: number; total: number }
-  | { phase: "loading" }
-  | { phase: "embedding"; done: number; total: number }
-  | {
-      phase: "ready";
-      passages: number;
-      model: string;
-      /** A newer model is embedding in the background; this one keeps answering until it is done. */
-      upgrading?: { to: string; done: number; total: number };
-    }
-  | { phase: "error"; message: string };
+export type SemanticStatus = SemanticStatusInput;
 
 let status: SemanticStatus = { phase: "off" };
 const statusListeners = new Set<() => void>();
@@ -78,7 +146,10 @@ function modelName(id: string): string {
 }
 
 export function semanticSupported(): boolean {
-  return supportsLocalEmbedding();
+  return readyCore().supportsLocalEmbedding(
+    typeof Worker !== "undefined",
+    typeof WebAssembly !== "undefined",
+  );
 }
 
 export function semanticEnabled(): boolean {
@@ -126,7 +197,7 @@ async function run(options: EnableOptions): Promise<void> {
   // stale on any incremental refresh, and the revision below is derived from it,
   // so a note added after the build could never be found by this arm.
   const docs: readonly SearchDoc[] = await container.search.projectionForSemantic();
-  const revision = searchRevision(docs);
+  const revision = readyCore().searchRevision(docs);
 
   // The embedder outlives this call, so its download callback reads the
   // current caller's options rather than capturing the first one's.
@@ -137,8 +208,8 @@ async function run(options: EnableOptions): Promise<void> {
   const stored = await vectorStore().get(projectId);
   // Vectors from a model the app has since moved on from still answer while
   // the new one embeds: an upgrade should never be minutes of search by
-  // meaning going dark. See `planEmbeddingStart`.
-  if (stored && planEmbeddingStart(stored.model, target.id) === "swap") {
+  // meaning going dark. See `planEmbeddingStart` in Rust (`embedding_models`).
+  if (stored && readyCore().planEmbeddingStart(stored.model, target.id) === "swap") {
     if (await serveWhileUpgrading(stored, docs, revision, projectId, target.id)) return;
   }
 
@@ -146,7 +217,7 @@ async function run(options: EnableOptions): Promise<void> {
     embedder.dispose();
     embedder = null;
   }
-  embedder ??= new WorkerEmbedder({
+  const embedderOptions: WorkerEmbedderOptions = {
     model: target.id,
     onProgress: (loaded, total) => {
       // A cached model reports its "download" too, instantly; past 100% the
@@ -154,8 +225,9 @@ async function run(options: EnableOptions): Promise<void> {
       setStatus(loaded >= total ? { phase: "loading" } : { phase: "downloading", loaded, total });
       downloadListener?.({ done: 0, total: 0, download: { loaded, total } });
     },
-  });
-  await embedder.load();
+  };
+  embedder ??= createEmbedder(embedderOptions);
+  embedder = await loadEmbedder(embedderOptions, embedder);
 
   semantic = new SemanticIndex(embedder);
   semanticProject = projectId;
@@ -170,8 +242,7 @@ async function run(options: EnableOptions): Promise<void> {
       {
         model: stored.model,
         dimensions: stored.dimensions,
-        ids: stored.ids,
-        vectors: stored.vectors,
+        bytes: stored.bytes,
         hashes: stored.hashes,
       },
       // Without hashes (an older store) the docs can seed the comparison only
@@ -232,7 +303,12 @@ function attach(projectId: string | null): void {
   announceSemanticChange();
   serveRankingRequests();
   rememberPreference(true);
-  setStatus({ phase: "ready", passages: semantic?.size ?? 0, model: modelName(embedder?.id ?? "") });
+  setStatus({
+    phase: "ready",
+    passages: semantic?.size ?? 0,
+    model: modelName(embedder?.id ?? ""),
+    fallback: onFallback(embedder),
+  });
 }
 
 type StoredVectors = NonNullable<Awaited<ReturnType<ReturnType<typeof vectorStore>["get"]>>>;
@@ -250,12 +326,12 @@ async function serveWhileUpgrading(
   targetId: string,
 ): Promise<boolean> {
   if (stored.hashes === undefined && stored.revision !== revision) return false;
-  const previous = new WorkerEmbedder({ model: stored.model });
+  let previous = createEmbedder({ model: stored.model });
   try {
-    await previous.load();
+    previous = await loadEmbedder({ model: stored.model }, previous);
     const old = new SemanticIndex(previous);
     const loaded = old.load(
-      { model: stored.model, dimensions: stored.dimensions, ids: stored.ids, vectors: stored.vectors, hashes: stored.hashes },
+      { model: stored.model, dimensions: stored.dimensions, bytes: stored.bytes, hashes: stored.hashes },
       docs,
     );
     if (!loaded) throw new Error("The stored vectors could not be read.");
@@ -283,9 +359,9 @@ async function serveWhileUpgrading(
  * it again and retries. Edits made during the build are caught by the sync
  * after the swap, which re-embeds only what changed.
  */
-async function upgradeInBackground(projectId: string | null, targetId: string, previous: WorkerEmbedder): Promise<void> {
+async function upgradeInBackground(projectId: string | null, targetId: string, previous: WorkerEmbedder | NativeEmbedder): Promise<void> {
   const controller = new AbortController();
-  const next = new WorkerEmbedder({ model: targetId });
+  let next = createEmbedder({ model: targetId });
   upgrade = { controller, embedder: next };
   const showProgress = (done: number, total: number) => {
     if (status.phase !== "ready" || upgrade?.embedder !== next) return;
@@ -293,7 +369,9 @@ async function upgradeInBackground(projectId: string | null, targetId: string, p
   };
   try {
     showProgress(0, 0);
-    await next.load();
+    const candidate = next;
+    next = await loadEmbedder({ model: targetId }, candidate, controller.signal);
+    if (upgrade?.embedder === candidate) upgrade.embedder = next;
     const fresh = new SemanticIndex(next);
     const container = getContainer();
     await fresh.build(await container.search.projectionForSemantic(), {
@@ -317,8 +395,9 @@ async function upgradeInBackground(projectId: string | null, targetId: string, p
 
     const latest = await container.search.projectionForSemantic();
     await fresh.sync(latest, () => true);
-    persistVectors(fresh, projectId, searchRevision(latest));
-    if (semantic === fresh) setStatus({ phase: "ready", passages: fresh.size, model: modelName(targetId) });
+    persistVectors(fresh, projectId, readyCore().searchRevision(latest));
+    if (semantic === fresh)
+      setStatus({ phase: "ready", passages: fresh.size, model: modelName(targetId), fallback: onFallback(next) });
   } catch {
     // The old arm is still attached and still right; the next start retries.
     if (embedder !== next) next.dispose();
@@ -342,7 +421,7 @@ onFolderConnected(() => {
   if (!semantic?.ready) return;
   void getContainer()
     .search.projectionForSemantic()
-    .then((docs) => persistNow(semanticProject ?? null, searchRevision(docs)))
+    .then((docs) => persistNow(semanticProject ?? null, readyCore().searchRevision(docs)))
     .catch(() => undefined);
 });
 
@@ -396,7 +475,7 @@ function persistAfterSync(): void {
       const docs = await container.search.projectionForSemantic();
       const packed = index.serialize();
       if (packed && index === semantic) {
-        await vectorStore().set(container.projects.context.projectId, { ...packed, revision: searchRevision(docs) });
+        await vectorStore().set(container.projects.context.projectId, { ...packed, revision: readyCore().searchRevision(docs) });
       }
     })().catch(() => undefined);
   }, 5_000);
@@ -454,21 +533,9 @@ function serveRankingRequests(): void {
     const hits = await index.search(query, candidates.length);
     const byId = new Map(hits.map((hit) => [hit.id, hit.score]));
     const scored = candidates
-      .map((name) => ({ name, score: byId.get(documentIdOfPath(name)) }))
+      .map((name) => ({ name, score: byId.get(readyCore().documentIdOfPath(name)) }))
       .filter((entry): entry is { name: string; score: number } => entry.score !== undefined)
       .sort((a, b) => b.score - a.score);
     return scored.length ? scored.map((entry) => entry.name) : null;
   });
-}
-
-/**
- * The document id behind a workspace file name.
- *
- * The folder writes one file per entry, named for its id, so the id is the
- * base name with the extension taken off.
- */
-function documentIdOfPath(file: string): string {
-  const base = file.slice(file.lastIndexOf("/") + 1);
-  const dot = base.lastIndexOf(".");
-  return dot > 0 ? base.slice(0, dot) : base;
 }

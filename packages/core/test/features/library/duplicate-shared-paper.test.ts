@@ -1,10 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DuplicateSharedPaperUseCase } from "../../../src/features/library/application/duplicate-shared-paper.use-case.js";
-import { AddPaperUseCase } from "../../../src/features/papers/application/add-paper.use-case.js";
-import { LibraryPinError } from "../../../src/features/library/domain/library-pin.js";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
-import { InMemoryShareRepository } from "../../../src/testing/in-memory-share-repository.js";
+import { DuplicateSharedPaperUseCase } from "../../../src/features/library/application/parts.js";
+import { AddPaperUseCase } from "../../../src/features/papers/application/parts-1.js";
+import { LibraryPinError } from "../../../src/features/library/domain/parts.js";
+import {
+  InMemoryPaperRepository,
+  InMemoryShareRepository,
+} from "../../support/in-memory.js";
 
 const clock = { nowIso: () => "2026-01-01T00:00:00.000Z" };
 const ids = { newId: () => "copy-1" };

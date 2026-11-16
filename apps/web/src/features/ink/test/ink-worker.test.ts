@@ -6,15 +6,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  decodeInkChunk,
-  INK_PACK_TOLERANCE,
-  inkCurveAt,
-  makeInkStroke,
-  packInkStroke,
-  pageFromChunk,
-  simplifyPathIndices,
-} from "@weaveforge/core";
+import { decodeInkChunk, INK_PACK_TOLERANCE, pageFromChunk } from "@weaveforge/core";
 
 import type {
   InkStrokeHeader,
@@ -22,6 +14,7 @@ import type {
   InkWorkerMessage,
 } from "../application/capture-protocol";
 import { INK_SAMPLE_STRIDE } from "../application/capture-protocol";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 type Listener = (event: { data: InkWorkerMessage }) => void;
 
@@ -35,11 +28,6 @@ function runFrames(limit = 10): void {
   }
 }
 let listener: Listener | null = null;
-let pointInPolygon: (
-  px: number,
-  py: number,
-  polygon: readonly number[],
-) => boolean;
 let liveForRenderer: typeof import("../worker/ink-worker").liveForRenderer;
 let newLiveStroke: typeof import("../worker/ink-worker").newLiveStroke;
 let appendSamples: typeof import("../worker/ink-worker").appendSamples;
@@ -54,7 +42,6 @@ before(async () => {
     requestAnimationFrame: (cb: () => void) => frames.push(cb),
   };
   const worker = await import("../worker/ink-worker");
-  pointInPolygon = worker.pointInPolygon;
   liveForRenderer = worker.liveForRenderer;
   newLiveStroke = worker.newLiveStroke;
   appendSamples = worker.appendSamples;
@@ -185,7 +172,7 @@ function farthestSampleOffCurve(points: readonly number[], drawn: readonly numbe
   const ys = points.filter((_, i) => i % 2 === 1);
   const curve: { x: number; y: number }[] = [];
   for (let i = 0; i + 1 < xs.length; i += 1) {
-    for (let k = 0; k <= 64; k += 1) curve.push(inkCurveAt(xs, ys, i, k / 64));
+    for (let k = 0; k <= 64; k += 1) curve.push(typedCore().inkCurveAt(xs, ys, i, k / 64));
   }
   let worst = 0;
   for (let i = 0; i < drawn.length; i += 2) {
@@ -253,7 +240,7 @@ test("pasted strokes land as one undoable step and come back selected", () => {
   draw(10, 50);
   send({
     type: "add-strokes",
-    strokes: [0, 1].map((k) => makeInkStroke({ points: [10, 200 + k * 40, 100, 200 + k * 40], pressures: [128, 128] })),
+    strokes: [0, 1].map((k) => typedCore().makeInkStroke({ points: [10, 200 + k * 40, 100, 200 + k * 40], pressures: [128, 128] })),
   });
   assert.equal(last("page-state").strokes, 3);
   assert.deepEqual(last("selected").indices, [1, 2]);
@@ -453,7 +440,7 @@ test("the shape tool snaps a rectangle-ish scribble to a rectangle", () => {
   const fitted = last("page-model").page.strokes[0]!;
   assert.equal(fitted.shape, "rect");
   // Its points lie on four straight edges: the shape, not the scribble.
-  const rounded = simplifyPathIndices(fitted.points, 0.75);
+  const rounded = typedCore().simplifyPathIndices(fitted.points, 0.75);
   assert.equal(rounded.length, 5, "four edges and the closing corner");
   assert.ok(
     curveStrays(fitted.points) <= 2 * INK_PACK_TOLERANCE,
@@ -473,7 +460,7 @@ function curveStrays(points: readonly number[]): number {
   let worst = 0;
   for (let i = 0; i + 1 < n; i += 1) {
     for (let k = 0; k <= 32; k += 1) {
-      const p = inkCurveAt(xs, ys, i, k / 32);
+      const p = typedCore().inkCurveAt(xs, ys, i, k / 32);
       let best = Infinity;
       for (let j = 0; j + 1 < n; j += 1) {
         const ax = xs[j]!;
@@ -491,10 +478,11 @@ function curveStrays(points: readonly number[]): number {
 }
 
 test("pointInPolygon follows the even-odd rule", () => {
+  const { inkPointInPolygon } = readyCore();
   const square = [0, 0, 10, 0, 10, 10, 0, 10];
-  assert.equal(pointInPolygon(5, 5, square), true);
-  assert.equal(pointInPolygon(15, 5, square), false);
-  assert.equal(pointInPolygon(5, -1, square), false);
+  assert.equal(inkPointInPolygon(5, 5, square), true);
+  assert.equal(inkPointInPolygon(15, 5, square), false);
+  assert.equal(inkPointInPolygon(5, -1, square), false);
 });
 test("live stroke simplifies dense staircases so live curves match commit curves", () => {
   fresh();
@@ -603,7 +591,7 @@ test("the live stroke's real part is the stroke that will be saved, whatever the
     points.push(100 + t * 400 + 7 * Math.cos(t * 40), 300 + 9 * Math.sin(t * 40));
     pressures.push(128);
   }
-  const saved = packInkStroke(points, pressures, { tolerance: INK_PACK_TOLERANCE });
+  const saved = typedCore().packInkStroke(points, pressures, { tolerance: INK_PACK_TOLERANCE });
   // Two predicted samples that overshoot sideways, as a guess about a hand can.
   const stroke = newLiveStroke(header());
   appendSamples(stroke, batch(points, pressures.map((p) => p / 255)));

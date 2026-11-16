@@ -1,9 +1,14 @@
 import { strict as assert } from "node:assert";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
 import { BlobNotFoundError, type IBlobFetcher, type IBlobStore } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { FetchingBlobStore } from "../fetching-blob-store";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const unused = async () => {};
 

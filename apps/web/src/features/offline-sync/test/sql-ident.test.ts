@@ -1,16 +1,21 @@
 /** One SQL identifier quoter for the device database (xhelp-22). */
 
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
-import { quoteIdent } from "../domain/sql-ident";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 test("an identifier is double-quoted", () => {
-  assert.equal(quoteIdent("papers"), '"papers"');
-  assert.equal(quoteIdent(""), '""');
+  assert.equal(readyCore().quoteIdent("papers"), '"papers"');
+  assert.equal(readyCore().quoteIdent(""), '""');
 });
 
 test("an embedded double quote is doubled, so it cannot close the identifier", () => {
-  assert.equal(quoteIdent('a"b'), '"a""b"');
-  assert.equal(quoteIdent('x"; drop table y; --'), '"x""; drop table y; --"');
+  assert.equal(readyCore().quoteIdent('a"b'), '"a""b"');
+  assert.equal(readyCore().quoteIdent('x"; drop table y; --'), '"x""; drop table y; --"');
 });

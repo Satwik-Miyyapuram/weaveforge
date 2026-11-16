@@ -1,16 +1,16 @@
 "use client";
 
-import { enumLabel } from "@/lib/enum-label";
 import { useState } from "react";
-import { RELATION_TYPES, type Paper, type RelationType } from "@weaveforge/core";
+import { type Paper, type RelationType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 import { Field } from "@/components/field";
-import { showToast } from "@/lib/toast";
+import { showToast } from "@/lib/toast/index";
 import { linkSentence, sortPapersByTitle } from "./relation-phrase";
+import { readyCore } from "@/lib/rust-core";
 
 /** Form for linking two papers by hand; used inside the Link papers modal. */
 export function AddEdgeForm({
@@ -68,7 +68,7 @@ export function AddEdgeForm({
       </Field>
       <Field label="Relation">
         <Select value={relation} onChange={(e) => setRelation(e.target.value as RelationType)}>
-          {RELATION_TYPES.map((t) => (<option key={t} value={t}>{enumLabel("relation", t)}</option>))}
+          {readyCore().RELATION_TYPES.map((t) => (<option key={t} value={t}>{readyCore().enumLabel("relation", t)}</option>))}
         </Select>
       </Field>
       <Field label="To">

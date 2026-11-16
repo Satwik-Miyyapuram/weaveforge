@@ -77,7 +77,7 @@ export function hasAccount(): boolean {
 /**
  * Whether this deployment can answer its own `/api/*` routes.
  *
- * The desktop app is a static export: `apps/desktop/scripts/build-web.mjs` holds
+ * The desktop app is a static export: `apps/shell/scripts/build-web.mjs` holds
  * `src/app/api/` aside for that build, so there is no server to answer them and a
  * fetch for one reaches the `app://` file handler instead — a 404 with an empty
  * body. Signing in does not change that: the same window reads the account's

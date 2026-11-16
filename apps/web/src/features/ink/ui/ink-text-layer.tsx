@@ -15,11 +15,12 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { isUnsureLine, type RecognisedLine } from "@weaveforge/core";
+import type { RecognisedLine } from "@weaveforge/core";
 import { Markdown } from "@/components/markdown/markdown";
-import { isCommitEnter } from "@/lib/commit-enter";
+import { isCommitEnter } from "@/lib/parts";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { Button } from "@/components/button";
+import { readyCore } from "@/lib/rust-core";
 
 export interface InkTextLayerProps {
   /** The page's lines, in reading order; empty when nothing has been recognised. */
@@ -49,7 +50,7 @@ function InkRawText({ text }: { text: string }) {
 /** The class a line renders with: unsure lines are dotted, accepted ones plain. */
 export function lineClass(line: RecognisedLine): string {
   if (line.conf >= 1) return "ink-line ink-line-sure";
-  return isUnsureLine(line) ? "ink-line ink-line-unsure" : "ink-line";
+  return readyCore().isUnsureLine(line) ? "ink-line ink-line-unsure" : "ink-line";
 }
 
 export function InkTextLayer({

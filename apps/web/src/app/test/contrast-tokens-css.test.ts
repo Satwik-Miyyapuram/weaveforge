@@ -95,7 +95,7 @@ test("a link is one colour in the source editor and in preview (D05)", () => {
   const markdown = read("../styles/markdown.css");
   assert.match(rule(markdown, ".wikilink"), /color:\s*var\(--link\);/);
   assert.match(rule(markdown, ".wikilink--unresolved:hover"), /color:\s*var\(--link\);/);
-  assert.match(read("../../lib/markdown-cm-syntax.ts"), /tag: t\.link, color: "var\(--link\)"/);
+  assert.match(read("../../lib/theme/codemirror-theme.ts"), /tag: t\.link, color: "var\(--link\)"/);
 });
 
 /** Relative luminance of `oklch(L C h)`, through OKLab to linear sRGB. */

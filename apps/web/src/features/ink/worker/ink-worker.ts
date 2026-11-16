@@ -1,3 +1,156 @@
+import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
+import {
+  errorMessage,
+  INK_A4_HEIGHT,
+  INK_A4_WIDTH,
+  INK_PACK_TOLERANCE,
+  type InkChunkCodec,
+  type InkShape,
+  type InkStroke,
+  type LiveInkStrokePacker,
+  type PackedInkStroke,
+} from "@weaveforge/core";
+import {
+  eachInkSample,
+  type InkSamplePayload,
+  type InkStrokeHeader,
+  type InkTransferMode,
+  type InkWorkerEvent,
+  type InkWorkerMessage,
+} from "../application/capture-protocol";
+import { inkChunkCodec } from "../application/parts-1";
+import { boundsUnion, type InkBounds, InkPageBuffer } from "../application/parts-3";
+import { InkStrokeIndex } from "../application/stroke-index";
+import { CanvasInkRenderer } from "../render/canvas-renderer";
+import type { InkLiveStroke, InkPalette, InkRenderer } from "../render/parts-1";
+import { supportsWebglInk, WebglInkRenderer } from "../render/webgl-renderer";
+import {
+  clearSelection,
+  deleteSelection,
+  dragSelection,
+  erase,
+  type HistoryStep,
+  type InkPageState,
+  installPage,
+  lasso,
+  loadPage,
+  moveSelection,
+  recordHistoryStep,
+  redo,
+  reportHistory,
+  reportState,
+  savePage,
+  undo,
+} from "./ink-page-logic";
+
+// --- ink-background ---
+/// <reference lib="webworker" />
+
+/**
+ * Background compositing for the ink worker (§4.8).
+ *
+ * Extracted from `ink-worker.ts` so background installation stays apart
+ * from the worker's message pump.
+ */
+
+
+export interface InkBackgroundState {
+  background: ImageBitmap | null;
+  renderer: InkRenderer | null;
+  buffer: InkPageBuffer;
+}
+
+/** Install a new background image onto the worker's state and renderer. */
+export function setBackground(
+  state: InkBackgroundState,
+  image: ImageBitmap | null,
+  index?: number,
+): void {
+  state.background?.close?.();
+  state.background = image;
+  state.renderer?.setBackground(image);
+  // The image is the *rendering* of §4.8; the buffer carries the
+  // attachment index the chunk header mirrors, so a later save — a
+  // stroke drawn over the image, say — writes it back rather than
+  // clearing it.
+  if (typeof index === "number") {
+    state.buffer.setBackgroundIndex(index);
+  }
+}
+
+// --- ink-export ---
+/// <reference lib="webworker" />
+
+/**
+ * Page export for the ink worker: render to PNG (or transparent PNG) via the
+ * renderer, or reply with null if no renderer is active.
+ *
+ * Extracted from `ink-worker.ts` so the export path stays apart from the
+ * worker's message pump.
+ */
+
+
+/** Export a rendered page to PNG (or transparent PNG) via the renderer. */
+export async function exportPage(
+  renderer: InkRenderer | null,
+  requestId: number,
+  scale: number,
+  transparent: boolean,
+  post: (event: InkWorkerEvent) => void,
+): Promise<void> {
+  // A worker with no renderer still has to answer: the host is holding a
+  // promise on this request id, and silence would hang the print and PNG
+  // buttons for the rest of the session rather than reporting that there
+  // is nothing to draw with.
+  if (!renderer) {
+    post({ type: "exported", requestId, png: null });
+    return;
+  }
+  void renderer
+    .capture(scale, transparent)
+    .then((png) =>
+      post({ type: "exported", requestId, png }),
+    )
+    .catch((error: unknown) => {
+      // Said out loud rather than swallowed: a null PNG with no reason is
+      // a button that does nothing.
+      console.error(
+        `ink: the export failed — ${errorMessage(error)}`,
+      );
+      post({ type: "exported", requestId, png: null });
+    });
+}
+
+// --- ink-paste ---
+/** Add pasted strokes as one undoable draw, and select them so they can be moved. */
+export function addStrokes(
+  state: InkPageState,
+  strokes: readonly InkStroke[],
+  post: (event: InkWorkerEvent) => void,
+  ensureLoop: () => void,
+): void {
+  const added: number[] = [];
+  let bounds: InkBounds | null = null;
+  for (const stroke of strokes) {
+    const index = state.buffer.append(stroke);
+    const geometry = state.buffer.stroke(index);
+    if (!geometry) continue;
+    state.renderer?.appendStroke(geometry, index);
+    added.push(index);
+    bounds = boundsUnion(bounds, geometry.bounds);
+  }
+  if (added.length === 0) return;
+  state.index?.invalidate();
+  recordHistoryStep(state, { kind: "draw", indices: added });
+  state.selection = added;
+  state.renderer?.setSelection(added, { x: 0, y: 0 });
+  ensureLoop();
+  reportState(state, post);
+  reportHistory(state, post);
+  post({ type: "selected", indices: added, bounds });
+}
+
+// --- ink-worker ---
 /// <reference lib="webworker" />
 
 /**
@@ -17,7 +170,7 @@
  * - the page's geometry ({@link InkPageBuffer}) and the R-tree over it
  *   ({@link InkStrokeIndex}), so a pick never costs the main thread a milisecond;
  * - the live stroke, with its predicted tail **replaced rather than committed**;
- * - packing the stroke as it is drawn with core's `InkStrokePacker`, which only
+ * - packing the stroke as it is drawn with the Rust core's live packer, which only
  *   ever appends points, so ink on the page never moves and lifting the pen
  *   stores exactly the last frame drawn;
  * - a one-byte progress counter every frame, which is what the delegated trail
@@ -30,61 +183,9 @@
  * to recreate the canvas rather than flip an attribute.
  */
 
-import {
-  errorMessage,
-  INK_A4_HEIGHT,
-  INK_A4_WIDTH,
-  INK_PACK_TOLERANCE,
-  InkStrokePacker,
-  packInkStroke,
-  type InkChunkCodec,
-  type InkShape,
-} from "@weaveforge/core";
 
-import {
-  eachInkSample,
-  type InkSamplePayload,
-  type InkStrokeHeader,
-  type InkTransferMode,
-  type InkWorkerEvent,
-  type InkWorkerMessage,
-} from "../application/capture-protocol";
 // The codec lives with the rest of the chunk plumbing rather than here: the
 // host writes a page's chunk too, when its background changes (§4.8).
-import { inkChunkCodec } from "../application/ink-chunk-codec";
-import { InkPageBuffer } from "../application/page-buffer";
-import type { InkPalette } from "../render/ink-palette";
-import {
-  fittedArrowPaths,
-  fittedInkPath,
-  recogniseShape,
-} from "../application/shape-snap";
-import { InkStrokeIndex } from "../application/stroke-index";
-import { CanvasInkRenderer } from "../render/canvas-renderer";
-import { WebglInkRenderer, supportsWebglInk } from "../render/webgl-renderer";
-import type { InkLiveStroke, InkRenderer } from "../render/ink-renderer";
-import {
-  clearSelection,
-  deleteSelection,
-  dragSelection,
-  erase,
-  installPage,
-  lasso,
-  loadPage,
-  moveSelection,
-  pointInPolygon,
-  redo,
-  reportHistory,
-  reportState,
-  savePage,
-  undo,
-  type HistoryStep,
-} from "./ink-page-logic";
-import { exportPage } from "./ink-export";
-import { addStrokes } from "./ink-paste";
-import { setBackground } from "./ink-background";
-
-export { pointInPolygon };
 
 /** The stroke being drawn: raw samples, with its predicted tail marked off. */
 export interface LiveStroke {
@@ -103,7 +204,12 @@ export interface LiveStroke {
   /** Samples arrived since the renderer last got this stroke; a frame without new ones repacks nothing (19-09). */
   changed: boolean;
   /** The real samples, packed as they arrive: what is drawn and what is saved. */
-  packer: InkStrokePacker;
+  packer: LiveInkStrokePacker;
+}
+
+/** What the live packer holds so far, as plain arrays. */
+function packedSoFar(packer: LiveInkStrokePacker): PackedInkStroke {
+  return { points: Array.from(packer.points()), pressures: Array.from(packer.pressures()) };
 }
 
 /** A stroke the pen has just put down, with nothing in it yet. */
@@ -114,7 +220,7 @@ export function newLiveStroke(header: InkStrokeHeader): LiveStroke {
     pressures: [],
     realSamples: 0,
     changed: true,
-    packer: new InkStrokePacker({ tolerance: INK_PACK_TOLERANCE }),
+    packer: typedCore().createInkStrokePacker({ tolerance: INK_PACK_TOLERANCE }),
   };
 }
 
@@ -188,7 +294,7 @@ export function appendSamples(stroke: LiveStroke, payload: InkSamplePayload): vo
   eachInkSample(payload, (x, y, pressure) => {
     stroke.points[(start + index) * 2] = x;
     stroke.points[(start + index) * 2 + 1] = y;
-    stroke.pressures[start + index] = pressureByte(pressure);
+    stroke.pressures[start + index] = readyCore().inkPenPressureByte(pressure);
     stroke.packer.push(x, y, stroke.pressures[start + index]);
     index += 1;
   });
@@ -205,14 +311,9 @@ function replacePredictedTail(
   stroke.pressures.length = stroke.realSamples;
   eachInkSample(payload, (x, y, pressure) => {
     stroke.points.push(x, y);
-    stroke.pressures.push(pressureByte(pressure));
+    stroke.pressures.push(readyCore().inkPenPressureByte(pressure));
   });
   stroke.changed = true;
-}
-
-/** The pen reports 0–1; the page and the renderer hold a byte. */
-function pressureByte(pressure: number): number {
-  return Math.max(0, Math.min(255, Math.round(pressure * 255)));
 }
 
 /**
@@ -224,7 +325,7 @@ function pressureByte(pressure: number): number {
  */
 export function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
   const real = stroke.realSamples;
-  const { points, pressures } = stroke.packer.packed();
+  const { points, pressures } = packedSoFar(stroke.packer);
   const realCount = points.length / 2;
   const tail = stroke.points.length / 2 - real;
   const count = realCount + tail;
@@ -257,7 +358,7 @@ function commitStroke(stroke: LiveStroke): void {
   let rawPressures: readonly number[] = stroke.pressures.slice(0, real);
   let shape: InkShape = "none";
   // What was drawn live is what is saved, unless the mark is replaced below.
-  let packed = stroke.packer.packed();
+  let packed = packedSoFar(stroke.packer);
   if (stroke.header.tool === "shape") {
     // The shape tool snaps on lift (§6.3): the mark is fitted here, once, and what
     // is stored is the fitted path with a flat pressure, so a rectangle is a
@@ -267,14 +368,14 @@ function commitStroke(stroke: LiveStroke): void {
       raw = snapped.points;
       rawPressures = new Array(raw.length / 2).fill(128);
       shape = snapped.shape;
-      packed = packInkStroke(raw, rawPressures, { tolerance: INK_PACK_TOLERANCE });
+      packed = typedCore().packInkStroke(raw, rawPressures, { tolerance: INK_PACK_TOLERANCE });
     }
   }
   // A single tap: preserve as a 2-point dot segment [x, y, x, y] so dots on 'i' or periods are not discarded
   if (raw.length === 2) {
     raw = [raw[0]!, raw[1]!, raw[0]!, raw[1]!];
     rawPressures = [rawPressures[0] ?? 128, rawPressures[0] ?? 128];
-    packed = packInkStroke(raw, rawPressures, { tolerance: INK_PACK_TOLERANCE });
+    packed = typedCore().packInkStroke(raw, rawPressures, { tolerance: INK_PACK_TOLERANCE });
   }
   if (packed.points.length < 4) return; // a dot or a slip of the pen: nothing to keep
   const index = state.buffer.append({
@@ -285,8 +386,7 @@ function commitStroke(stroke: LiveStroke): void {
     colour: stroke.header.colour,
     shape,
   });
-  state.history.push({ kind: "draw", indices: [index] });
-  state.redone = [];
+  recordHistoryStep(state, { kind: "draw", indices: [index] });
   reportHistory(state, post);
   // The index is stale the moment a stroke is added; rebuilding it per stroke would
   // be exactly the per-append allocation §6.2.4 forbids, so it is invalidated and
@@ -321,36 +421,8 @@ function commitStroke(stroke: LiveStroke): void {
 function snapShape(
   points: readonly number[],
 ): { points: number[]; shape: InkShape } | null {
-  const recognised = recogniseShape(points);
-  if (!recognised.fit) return null;
-  const geometry = recognised.fit.geometry;
-  const paths =
-    geometry.kind === "arrow"
-      ? fittedArrowPaths(geometry)
-      : [fittedInkPath(geometry)];
-  const flat: number[] = [];
-  for (const path of paths) {
-    for (let i = 0; i < path.length; i += 1) {
-      const [x, y] = path[i]!;
-      if (i > 0) {
-        // Sample each straight edge as a pen would, so packing keeps the
-        // corners: the stroke is drawn as a curve, and a rectangle stored as
-        // its four corners would bow 2 mm off its edges.
-        const [px, py] = path[i - 1]!;
-        const steps = Math.floor(Math.hypot(x - px, y - py) / SNAP_EDGE_STEP);
-        for (let k = 1; k < steps; k += 1)
-          flat.push(px + ((x - px) * k) / steps, py + ((y - py) * k) / steps);
-      }
-      flat.push(x, y);
-    }
-  }
-  return flat.length >= 4
-    ? { points: flat, shape: recognised.fit.shape }
-    : null;
+  return readyCore().snapInkShape(points);
 }
-
-/** Spacing, in 0.1 mm, a snapped shape's straight edges are sampled at: 1 mm. */
-const SNAP_EDGE_STEP = 10;
 
 /** One frame: draw, count it, hand buffers back, and ask for the next only mid-stroke (19-05). */
 function tick(): void {
@@ -453,9 +525,52 @@ function startRenderer(delegating: boolean): void {
   post({ type: "ready", backend: renderer.backend });
 }
 
+// Core's chunk encoder calls the Rust core, and a worker has its own globals, so
+// it loads its own copy. Messages wait, in order, until it is in; a failed load
+// still lets them through, so the pen draws and only saving reports the error.
+const waiting: InkWorkerMessage[] = [];
+let coreSettled = false;
+void loadCore()
+  .catch(() => undefined)
+  .finally(() => {
+    coreSettled = true;
+    for (const message of waiting.splice(0)) handleMessage(message);
+  });
+
 scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
-  const message = event.data;
+  if (coreSettled) handleMessage(event.data);
+  else waiting.push(event.data);
+});
+
+/** The worker state and message fields the Rust route reads. */
+function routeInput(message: InkWorkerMessage) {
+  const strokeId =
+    message.type === "stroke-begin" ||
+    message.type === "samples" ||
+    message.type === "stroke-end"
+      ? message.header.strokeId
+      : undefined;
+  const pageIndex =
+    message.type === "replace-page" || message.type === "ink-shown"
+      ? message.pageIndex
+      : undefined;
+  const predicted = message.type === "samples" ? message.predicted : undefined;
+  return {
+    type: message.type,
+    state: {
+      liveStrokeId: state.live?.header.strokeId ?? null,
+      pageIndex: state.pageIndex,
+    },
+    strokeId,
+    pageIndex,
+    predicted,
+  };
+}
+
+function handleMessage(message: InkWorkerMessage): void {
   try {
+    const plan = readyCore().inkWorkerRoute(routeInput(message));
+    if (plan.action === "ignore") return;
     switch (message.type) {
       case "init": {
         state.canvas = message.canvas;
@@ -482,18 +597,14 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         break;
       }
       case "samples": {
-        if (
-          !state.live ||
-          state.live.header.strokeId !== message.header.strokeId
-        )
-          break;
-        if (message.predicted) replacePredictedTail(state.live, message.sample);
+        if (!state.live) break;
+        if (plan.predicted) replacePredictedTail(state.live, message.sample);
         else appendSamples(state.live, message.sample);
         break;
       }
       case "stroke-end": {
         const live = state.live;
-        if (!live || live.header.strokeId !== message.header.strokeId) break;
+        if (!live) break;
         appendSamples(live, message.sample);
         commitStroke(live);
         state.live = null;
@@ -530,8 +641,8 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         });
         break;
       case "replace-page":
-        // A page recognised before a page turn belongs to the old page (21-01).
-        if (message.pageIndex !== state.pageIndex) break;
+        // A page recognised before a page turn belongs to the old page (21-01);
+        // the route drops it.
         installPage(state, message.page, post);
         break;
       case "lasso":
@@ -577,7 +688,6 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         break;
       }
       case "ink-shown": {
-        if (message.pageIndex !== state.pageIndex) break;
         state.renderer?.setShown(message.count);
         ensureLoop();
         break;
@@ -621,4 +731,4 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
     // Every message may change what is on screen, or leave buffers to return.
     ensureLoop();
   }
-});
+}

@@ -11,7 +11,7 @@
 | Virtualised pages | ✅ `IntersectionObserver`, 600px root margin |
 | **Jump-to-locus** from a stored anchor | ✅ quote-first, position fallback, low-confidence surfaced |
 | Source resolution | ⚠️ **step 4 only** (arXiv / open-access URL). `resolvePaperPdfUrl` is what the reader calls |
-| Steps 1 (cache) and 2 (Zotero storage) | ❌ `packages/core/src/reader/pdf-source-ladder.ts` implements the ladder and is **never called by the app** |
+| Steps 1 (cache) and 2 (Zotero storage) | ❌ `packages/core/src/reader/parts.ts` implements the ladder and is **never called by the app** |
 | IndexedDB byte cache with LRU cap | ❌ absent |
 | Page navigation, zoom, fit-width/fit-page, rotate | ❌ absent — `scale` is a fixed prop with no controls |
 | Text selection + copy | ❌ **no text layer is rendered.** `getTextContent()` is used for anchor matching only; the page is a bare canvas, so text cannot be selected or copied |
@@ -155,8 +155,8 @@ Steps 3–5 need a CORS-safe fetch path; where the origin blocks it, proxy throu
 
 Reuse what exists rather than building new storage:
 
-- `packages/core/src/storage/blob-ports.ts` — `IBlobStore`
-- `packages/core/src/storage/blob-registry-ports.ts` — `BlobTier`, `IBlobRegistry`
+- `packages/core/src/storage/parts.ts` — `IBlobStore`
+- `packages/core/src/storage/parts.ts` — `BlobTier`, `IBlobRegistry`
 - `packages/core/src/storage/blob-tiering.ts` — `computeBlobEvictionScore`, `rankForEviction`, `DEFAULT_BLOB_TIERING_WEIGHTS`
 - `apps/web/src/storage/providers/tiered/tiered-blob-store.ts`
 
@@ -199,7 +199,7 @@ Resolution order when opening: try rects if the content hash matches the file th
 
 ### 5.2 What already exists
 
-`apps/web/src/features/papers/infrastructure/zotero-annotations.ts` (158 lines) already paginates `itemType=annotation`, resolves attachment → parent paper in two passes, and handles 429 with `Retry-After` and `Backoff`. The ingest pipeline is done.
+`apps/web/src/features/papers/infrastructure/parts-2.ts` (158 lines) already paginates `itemType=annotation`, resolves attachment → parent paper in two passes, and handles 429 with `Retry-After` and `Backoff`. The ingest pipeline is done.
 
 **It discards the fields the viewer needs.** `ZoteroItem.data` currently maps `annotationText`, `annotationComment`, `annotationColor`, `annotationPageLabel`, and `tags`. Add to both that interface and the `ZoteroAnnotation` domain type:
 

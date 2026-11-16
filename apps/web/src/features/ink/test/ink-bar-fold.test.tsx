@@ -114,7 +114,7 @@ const inToolbar = (find: { disabled: boolean; click: () => void } | null) => {
   const selectors: string[] = [];
   const from = {
     closest: (selector: string) =>
-      selector === ".workspace-toolbar"
+      selector.split(", ").includes(".workspace-toolbar")
         ? {
             querySelector: (query: string) => {
               selectors.push(query);

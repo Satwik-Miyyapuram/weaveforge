@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryPdfByteCache, PdfByteCacheResolver } from "../../src/reader/pdf-byte-cache.js";
-import { resolvePdfSource } from "../../src/reader/pdf-source-ladder.js";
+import {
+  InMemoryPdfByteCache,
+  PdfByteCacheResolver,
+  resolvePdfSource,
+} from "../../src/reader/parts.js";
 
 test("InMemoryPdfByteCache evicts least-recently-used entries", async () => {
   const cache = new InMemoryPdfByteCache(2);

@@ -1,16 +1,19 @@
 import type { Paper } from "@weaveforge/core";
 import assert from "node:assert/strict";
-import test from "node:test";
+import { before, test } from "node:test";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import {
-  ZOTERO_LOCAL_API_OFF,
   ZOTERO_NOT_RUNNING,
   localZoteroAnnotations,
   localZoteroLibrary,
   zoteroLocalFetch,
-  zoteroLocalStatusMessage,
-  usableStatus,
-} from "../infrastructure/zotero-local";
+} from "../infrastructure/parts-2";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function bridgeWith(
   reply: (url: string) => { status: number; body: string; headers: Record<string, string> },
@@ -55,13 +58,14 @@ test("a shell that cannot reach Zotero says so in words a reader can act on", as
  * refused too.
  */
 test("a status the Response constructor refuses still becomes a response", async () => {
-  assert.equal(usableStatus(304), 500);
-  assert.equal(usableStatus(204), 500);
-  assert.equal(usableStatus(205), 500);
-  assert.equal(usableStatus(1000), 500);
-  assert.equal(usableStatus(200), 200);
-  assert.equal(usableStatus(404), 404);
-  assert.equal(usableStatus(599), 599);
+  const core = readyCore();
+  assert.equal(core.usableStatus(304), 500);
+  assert.equal(core.usableStatus(204), 500);
+  assert.equal(core.usableStatus(205), 500);
+  assert.equal(core.usableStatus(1000), 500);
+  assert.equal(core.usableStatus(200), 200);
+  assert.equal(core.usableStatus(404), 404);
+  assert.equal(core.usableStatus(599), 599);
 
   const fetchFn = zoteroLocalFetch(bridgeWith(() => ({ status: 304, body: "", headers: {} })));
   const res = await fetchFn("http://127.0.0.1:23119/api/users/0/items");
@@ -86,15 +90,16 @@ test("a 403 from the local API names the preference and the restart", async () =
     assert.match(error.message, /extensions\.zotero\.httpServer\.localAPI\.enabled/);
     assert.match(error.message, /Config Editor/);
     assert.match(error.message, /restart Zotero/i);
-    assert.equal(error.message, ZOTERO_LOCAL_API_OFF);
+    assert.equal(error.message, readyCore().zoteroLocalApiOff());
     return true;
   });
 });
 
 test("only the 403 is translated; other statuses still reach the pager", async () => {
-  assert.equal(zoteroLocalStatusMessage(403), ZOTERO_LOCAL_API_OFF);
-  assert.equal(zoteroLocalStatusMessage(404), null);
-  assert.equal(zoteroLocalStatusMessage(500), null);
+  const core = readyCore();
+  assert.equal(core.zoteroLocalStatusMessage(403), core.zoteroLocalApiOff());
+  assert.equal(core.zoteroLocalStatusMessage(404), null);
+  assert.equal(core.zoteroLocalStatusMessage(500), null);
   const fetchFn = zoteroLocalFetch(bridgeWith(() => ({ status: 500, body: "boom", headers: {} })));
   const res = await fetchFn("http://127.0.0.1:23119/api/users/0/items");
   assert.equal(res.status, 500);

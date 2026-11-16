@@ -1,14 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  findDocumentMatches,
-  nextMatchIndex,
-  type DocumentPageText,
-  type DocumentSearchMatch,
-} from "@weaveforge/core";
+import type { DocumentPageText, DocumentSearchMatch } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { ChevronIcon } from "@/components/chevron-icon";
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/parts";
 import { Button, CloseButton, IconButton } from "@/components/button";
 
 interface ReaderSearchBarProps {
@@ -35,7 +31,7 @@ export function ReaderSearchBar({
   };
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(-1);
-  const matches = useMemo(() => findDocumentMatches(pages, query), [pages, query]);
+  const matches = useMemo(() => readyCore().findDocumentMatches(pages, query), [pages, query]);
   useEffect(() => {
     onMatches?.(matches, active);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -43,7 +39,7 @@ export function ReaderSearchBar({
 
   function jump(direction: 1 | -1) {
     if (matches.length === 0) return;
-    const next = nextMatchIndex(active, matches.length, direction);
+    const next = readyCore().nextMatchIndex(active, matches.length, direction);
     setActive(next);
     const match = matches[next];
     if (match) onJump(match);
@@ -54,7 +50,7 @@ export function ReaderSearchBar({
       <Button variant="ghost" size="sm"
         onClick={() => setOpen(true)}
         aria-label="Find in document"
-        title={`Find in document (${shortcutLabel("⌘F")})`}
+        title={`Find in document (${readyCore().shortcutLabel("⌘F", isMacPlatform())})`}
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
           <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.2-4.2" />

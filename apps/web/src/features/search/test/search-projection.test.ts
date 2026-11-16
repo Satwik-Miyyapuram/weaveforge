@@ -7,11 +7,16 @@
  * fresh when it is not.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
-import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
-import { buildWikiGraph, searchRevision, type PdfIndexSource, type WorkspaceSnapshot } from "@weaveforge/core";
+import test, { before } from "node:test";
+import { emptyWorkspaceSnapshot as snapshot } from "@core-test/workspace-snapshot";
+import { type WorkspaceSnapshot } from "@weaveforge/core";
+import type { PdfIndexSource } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
-import { projectSearchDocuments, projectStoredPdfTexts } from "../application/search-projection";
+before(async () => {
+  await loadTestCore();
+});
 
 const paper = (id: string, title: string) =>
   ({
@@ -36,22 +41,22 @@ const body = "attention is all you need, and then some more words so the page is
 test("the worker's projection is the main thread's projection", () => {
   const snap = snapshot({ papers: [paper("pa1", "Attention"), paper("pa2", "Transformers")] });
   const stored = [pdf("pa1", body, body), pdf("pa2", body)];
-  const { docs } = projectStoredPdfTexts(snap, stored);
-  const expected = projectSearchDocuments({ snapshot: snap, graph: buildWikiGraph(snap), pdfTexts: stored });
+  const { docs } = readyCore().projectStoredPdfTexts(snap, stored);
+  const expected = readyCore().projectSearchDocuments(snap, readyCore().buildWikiGraph(snap), stored);
   assert.deepEqual(docs, expected);
-  assert.equal(searchRevision(docs), searchRevision(expected));
+  assert.equal(readyCore().searchRevision(docs), readyCore().searchRevision(expected));
 });
 
 test("text of a paper the library no longer holds is dropped", () => {
   const snap = snapshot({ papers: [paper("pa1", "Attention")] });
-  const { docs, pdfPageCounts } = projectStoredPdfTexts(snap, [pdf("pa1", body), pdf("gone", body, body)]);
+  const { docs, pdfPageCounts } = readyCore().projectStoredPdfTexts(snap, [pdf("pa1", body), pdf("gone", body, body)]);
   assert.deepEqual(pdfPageCounts, [["pa1", 1]]);
   assert.ok(docs.every((d) => !d.id.includes("gone")));
 });
 
 test("no stored text projects the snapshot alone", () => {
   const snap = snapshot({ papers: [paper("pa1", "Attention")] });
-  const { docs, pdfPageCounts } = projectStoredPdfTexts(snap, []);
+  const { docs, pdfPageCounts } = readyCore().projectStoredPdfTexts(snap, []);
   assert.deepEqual(pdfPageCounts, []);
-  assert.deepEqual(docs, projectSearchDocuments({ snapshot: snap, graph: buildWikiGraph(snap), pdfTexts: [] }));
+  assert.deepEqual(docs, readyCore().projectSearchDocuments(snap, readyCore().buildWikiGraph(snap), []));
 });

@@ -12,27 +12,26 @@ import { useProject } from "@/features/projects";
 import { AddEdgeForm } from "./add-edge-form";
 import { BraveGraphWarning } from "./brave-graph-warning";
 import { GraphCanvas } from "./graph-canvas";
-import type { GNode } from "../application/build-graph-data";
-import { graphTagNames, notesTagged } from "../application/graph-tags";
+import type { GNode } from "@weaveforge/wasm";
 import { SettingsIcon } from "@/components/view-icons";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { GraphLegend } from "./graph-legend";
 import { GraphSettingsDrawer } from "./graph-settings-drawer";
 import { GraphSidePanel } from "./graph-side-panel";
-import { useHiddenKeys } from "@/lib/toast";
+import { useHiddenKeys } from "@/lib/toast/index";
 import { relationKey } from "./remove-relation";
-import { graphFilterCount } from "@weaveforge/core";
-import { experimentHref } from "@/features/experiments";
+import { isOfflineBuild } from "@/deployment/build-target";
 import { useGraphPersistedState } from "../application/use-graph-persisted-state";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
-import { emptyArray, emptyMap } from "@/lib/empty";
+import { emptyArray, emptyMap } from "@/lib/parts";
 import type { GraphScreenData } from "@/container/facades";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button, IconButton } from "@/components/button";
 import { Popover } from "@/components/popover";
 import { Menu } from "@/components/menu";
+import { readyCore } from "@/lib/rust-core";
 
 /** Graph screen — data loading, view-state, and child presentation components. */
 export function GraphScreen() {
@@ -97,7 +96,7 @@ export function GraphScreen() {
   }, [focus]);
 
   const allTags = useMemo(
-    () => graphTagNames(papers, notes, lists, settings.includeListsAsConcepts !== false),
+    () => readyCore().graphTagNames(papers, notes, lists, settings.includeListsAsConcepts !== false),
     [papers, notes, lists, settings.includeListsAsConcepts],
   );
 
@@ -118,14 +117,14 @@ export function GraphScreen() {
   }, [edges, visiblePapers]);
 
   const visibleNotes = useMemo(
-    () => (selectedTags.length === 0 ? notes : notesTagged(notes, selectedTags)),
+    () => (selectedTags.length === 0 ? notes : readyCore().notesTagged(notes, selectedTags).map((i) => notes[i]!)),
     [notes, selectedTags],
   );
 
   const hasGraphItems = papers.length > 0 || notes.length > 0 || sections.length > 0;
   const hasVisibleItems = visiblePapers.length > 0 || visibleNotes.length > 0 || sections.length > 0;
 
-  const activeFilters = graphFilterCount(selectedTags, selectedLists, settings);
+  const activeFilters = readyCore().graphFilterCount(selectedTags, selectedLists, settings);
   const selectedPaper = selectedPaperId ? papers.find((p) => p.id === selectedPaperId) ?? null : null;
   const selectedNote = selectedNoteId ? notes.find((n) => n.id === selectedNoteId) ?? null : null;
   const selectedSection = selectedSectionId
@@ -174,7 +173,7 @@ export function GraphScreen() {
      * the view they come back to.
      */
     if (node.kind === "experiment") {
-      router.push(experimentHref(node.experimentId ?? node.id));
+      router.push(readyCore().experimentHref(node.experimentId ?? node.id, isOfflineBuild()));
       return;
     }
     if (node.kind === "report" || node.sectionId) {

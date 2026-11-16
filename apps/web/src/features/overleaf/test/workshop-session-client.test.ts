@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { before } from "node:test";
 import assert from "node:assert/strict";
 import {
   listWorkshopProjects,
@@ -6,6 +6,11 @@ import {
   signOutOfWorkshop,
   type WorkshopClientDeps,
 } from "../infrastructure/workshop-session-client";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const SESSION = "3f6c2a9e-1b2d-4c5e-8f70-123456789abc";
 

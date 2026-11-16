@@ -1,18 +1,54 @@
 import type {
+  ImportLocalZoteroUseCase,
+} from "@/features/papers/application/parts-1";
+import type {
+  ZoteroCredentialsProvider,
+} from "@/features/papers/infrastructure/parts-2";
+import type {
+  ZoteroAnnotationPusher,
+  ZoteroAnnotationWriteBackSummary,
+} from "@/features/reader/application/parts-3";
+import { readyCore } from "@/lib/rust-core";
+import type {
   IBibliographyIntegration,
   IPaperRepository,
   IReaderAnnotationSource,
   IReaderAnnotationSyncRecorder,
-  ManageTagsUseCase,
+  IZoteroAnnotationWriteBack,
+  ITagManager,
   PushPaperToZoteroUseCase,
+  ReaderAnnotation,
+  ZoteroAnnotationWritePayload,
 } from "@weaveforge/core";
-import type {
-  ZoteroAnnotationPusher,
-  ZoteroAnnotationWriteBackSummary,
-} from "@/features/reader/application/write-back-zotero-annotations";
-import type { ImportLocalZoteroUseCase } from "@/features/papers/application/import-local-zotero.use-case";
-import type { ZoteroCredentialsProvider } from "@/features/papers/infrastructure/zotero-metadata-source";
 
+// --- dry-run-zotero-write-back ---
+/**
+ * Records what a live Zotero push would send, without sending it. Live
+ * write-back needs human-supervised credentials, so `{ live: true }` throws.
+ * The payloads come from the Rust core.
+ */
+export class DryRunZoteroAnnotationWriteBack implements IZoteroAnnotationWriteBack {
+  async push(
+    parentItemKey: string,
+    annotations: readonly ReaderAnnotation[],
+    options?: { live?: boolean },
+  ): Promise<{ dryRun: boolean; payloads: ZoteroAnnotationWritePayload[] }> {
+    if (options?.live) {
+      throw new Error(
+        "Live Zotero write-back is disabled in DryRunZoteroAnnotationWriteBack — needs human-supervised credentials (R5).",
+      );
+    }
+    const core = readyCore();
+    return {
+      dryRun: true,
+      payloads: core
+        .zoteroWriteBackAnnotations(annotations)
+        .map((a: ReaderAnnotation) => core.toZoteroWritePayload(a, parentItemKey) as ZoteroAnnotationWritePayload),
+    };
+  }
+}
+
+// --- zotero ---
 /**
  * Zotero: the cloud library, the copy running on this computer, and the
  * annotation write-back.
@@ -37,7 +73,7 @@ export class ZoteroFacade {
        * annotations onto papers by key and reconciles each item's tags.
        */
       papers: IPaperRepository;
-      manageTags: ManageTagsUseCase;
+      manageTags: ITagManager;
       /** Zotero API key + library, read at call time (post-unlock). */
       zoteroCredentials: ZoteroCredentialsProvider;
       /** Test seam for the live Zotero writer; defaults to the Web API client. */
@@ -82,7 +118,7 @@ export class ZoteroFacade {
     const creds = await this.deps.zoteroCredentials();
     if (!creds.apiKey || !creds.library) return null;
     const [{ writeBackZoteroAnnotations }, { ZOTERO_ATTACHMENT_KEY }] = await Promise.all([
-      import("@/features/reader/application/write-back-zotero-annotations"),
+      import("@/features/reader/application/parts-3"),
       import("@/integrations/providers/zotero/apply-bibliography-annotations"),
     ]);
     const pusher = await this.pusher();
@@ -101,7 +137,7 @@ export class ZoteroFacade {
   private async pusher(): Promise<ZoteroAnnotationPusher> {
     if (this.deps.annotationPusher) return this.deps.annotationPusher();
     const { ZoteroApiAnnotationWriteBack } = await import(
-      "@/features/reader/infrastructure/zotero-annotation-write-back"
+      "@/features/reader/infrastructure/parts-2"
     );
     return new ZoteroApiAnnotationWriteBack(this.deps.zoteroCredentials);
   }
@@ -127,7 +163,7 @@ export class ZoteroFacade {
    * mistyped argument away from actually writing.
    */
   async dryRunZoteroAnnotationWriteBack(paperId: string, parentItemKey: string) {
-    const { DryRunZoteroAnnotationWriteBack } = await import("@weaveforge/core");
+    const { DryRunZoteroAnnotationWriteBack } = await import("./zotero");
     const annotations = await this.deps.readerAnnotations.list(paperId);
     return new DryRunZoteroAnnotationWriteBack().push(parentItemKey, annotations);
   }

@@ -2,22 +2,20 @@
 
 import { memo, useMemo, useRef, type ReactNode } from "react";
 import {
-  pdfRectToScreenBox,
   type FigureGeometry,
   type FigureOrderStep,
   type ReaderAnnotation,
 } from "@weaveforge/core";
-import {
-  INK_SELECTION_HALO_PX,
-  InkFigureEditor,
-  InkFigures,
-  InkStrokes,
-} from "@/features/ink";
-import { isCommitEnter } from "@/lib/commit-enter";
+import { readyCore } from "@/lib/rust-core";
+import { INK_SELECTION_HALO_PX } from "@/features/ink/render/parts-1";
+import { InkFigureEditor, InkFigures, InkStrokes } from "@/features/ink";
+import { isCommitEnter } from "@/lib/parts";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
-import { grownTextRect } from "../application/draft-local-annotation";
-import { projectPageAnnotationGeometry } from "../application/project-annotation-geometry";
-import { pagePictures } from "../application/reader-picture";
+import {
+  grownTextRect,
+  pagePictures,
+  projectPageAnnotationGeometry,
+} from "@weaveforge/wasm";
 import type { PictureEdit } from "./pdf-reader/use-pdf-pictures";
 
 interface AnnotationOverlayProps {
@@ -328,7 +326,7 @@ export function TextBoxEditor({
 }) {
   // Enter saves and unmounts, which blurs: without this the box saves twice.
   const done = useRef(false);
-  const box = pdfRectToScreenBox(edit.rect, projection);
+  const box = readyCore().pdfRectToScreenBox(edit.rect, projection);
   // Only an upright (or upside-down) page grows the box along its PDF height.
   const upright = projection.rotation % 180 === 0;
   const finish = (el: { value: string; scrollHeight: number }) => {

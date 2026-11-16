@@ -6,19 +6,24 @@ guess.
 
 ## 1. Unit tests and typecheck
 
+The Rust bindings, the WASM package (`packages/wf-wasm/pkg`) and the docs map
+are generated, not committed. A fresh clone or worktree runs
+`npm ci && npm run generate` first; the web `predev`, `prebuild` and `pretest`
+hooks rerun the bindings and WASM steps. The shell's `build.rs` bundles the
+bridge with esbuild, so `npm ci` also comes before any shell `cargo` command.
+
 From the repo root (Git Bash or PowerShell):
 
 | Area | Test | Typecheck |
 | --- | --- | --- |
 | `packages/core` | `npm run test:core` | `npm run typecheck --workspace @weaveforge/core` |
 | `apps/web` | `npm run test:web` | `npm run typecheck --workspace @weaveforge/web` |
-| `apps/desktop` | `npm run test:desktop` | `npm run typecheck --workspace @weaveforge/desktop` |
 | everything | — | `npm run typecheck` |
 
 One file or one test, faster:
 
 ```bash
-cd apps/desktop && node --import tsx --test test/home-config.test.ts
+cd apps/shell && cargo test --lib launch::
 cd packages/core && node --import tsx --test test/features/reader/references.test.ts
 npm run test:web -- --test-name-pattern "find overlay"
 ```
@@ -37,7 +42,7 @@ npm run test:web -- --test-name-pattern "find overlay"
 `.claude/launch.json` names the dev servers (`web`, `web-desktop-mode`,
 `web-prod`, `web-worktree`, `pitch-export`). Start one with the preview tool,
 never from the shell. Good for layout and CSS; anything that depends on the
-Electron shell (local DB, file system, app:// routes) is checked in the
+desktop shell (local DB, file system, app:// routes) is checked in the
 desktop app below.
 
 ## 3. Desktop: the WeaveForge Dev build
@@ -46,46 +51,46 @@ The person's installed **WeaveForge** holds their real workspace. Never kill,
 reinstall or drive it. Test in a side-by-side **WeaveForge Dev** build that has
 its own app id, user-data folder and workspace pointer.
 
-### Build (~5 min; run in the background and poll the log)
-
-From `apps/desktop`. Both build scripts are required: `build.mjs` wipes
-`dist/`, so without `build-web.mjs` after it the app falls back to
-`http://localhost:3000`.
-
-```bash
-node scripts/build.mjs && node scripts/build-web.mjs && ls dist/web && npx electron-builder --win --arm64 --dir --publish never -c.appId=dev.weaveforge.desktop.dev -c.productName="WeaveForge Dev" -c.extraMetadata.name=weaveforge-dev -c.extraMetadata.productName="WeaveForge Dev"
-```
-
-Prove the bundle carries the change before installing:
-
-```bash
-grep -rl "<unique string from the change>" dist/web/_next/static/chunks
-```
-
-`git status` afterwards: `build-web.mjs` must not have deleted route files.
-
-### Install, launch, stop (PowerShell)
-
-```powershell
-Get-Process | ? { $_.Path -like "$env:LOCALAPPDATA\Programs\WeaveForge Dev\*" } | Stop-Process -Force
-Copy-Item -Recurse -Force "apps\desktop\release\win-arm64-unpacked\*" "$env:LOCALAPPDATA\Programs\WeaveForge Dev"
-& "$env:LOCALAPPDATA\Programs\WeaveForge Dev\WeaveForge Dev.exe" --remote-debugging-port=9223
-```
-
-Stop it only by path, as in the first line. Never `taskkill /IM WeaveForge.exe`.
-
 ### What keeps Dev apart
 
-- User data: `%APPDATA%\WeaveForge Dev\` (its own `preferences.json` and local DB).
-- Workspace pointer: `~/.weaveforge/desktop-dev.json`, not `desktop.json`
-  (`home-config.ts`, chosen in `main.ts` when `app.getName()` is
-  `WeaveForge Dev`).
-- Debug port 9223; the main app uses 9222 when launched for testing.
+- Its own app id, user-data folder and local DB (see the build below).
 - Open a new or demo project in Dev. Never point it at the person's
   workspace: two apps on one local DB hit EPERM and the reset path can move
   the DB aside.
 - Sign-in loopback port 53682 is shared, so Dev logs `EADDRINUSE` while the
   main app runs. Harmless for local-only checks.
+
+### Build
+
+The Tauri shell becomes the Dev build only through the `tauri.dev.json`
+overlay (productName `WeaveForge Dev`, identifier
+`dev.weaveforge.desktop.dev`). It then migrates from the Electron Dev profile
+and leaves editor MCP configs alone. Never run a Tauri build without it on
+this machine: it would migrate from the installed app's data.
+
+```powershell
+cd apps\shell; node scripts/build-web.mjs; cd ..\..
+node apps/shell/scripts/stage-postgres.mjs <extracted postgres dist> <out>
+cd apps\shell; npm run tauri -- build --no-bundle --config tauri.dev.json
+```
+
+A release exe reads its migrations and MCP bridge from `<out>\app`, laid out
+as `tauri.bundle.json` maps them: `db\migrations` to `app\migrations`,
+`db\migrations-local` to `app\migrations-local`, and
+`plugins\weaveforge-research\mcp-server\index.mjs` to
+`app\weaveforge-mcp.mjs`. A debug build reads them from the repo instead when
+`WF_DEV_REPO` names the repo root.
+
+`stage-postgres.mjs` takes the extracted
+`postgresql-18.6.1-x86_64-pc-windows-msvc` release of
+theseus-rs/postgresql-binaries (the one CI pins) and writes `<out>\postgres`,
+where the native local database looks for it.
+
+Copy `target\release\weaveforge-shell.exe` into `<out>`, and
+`apps\shell\dist\web` to `<out>\web`. Run the exe from `<out>` unbundled, so
+it registers no URL scheme. For CDP set
+`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223`; the page
+origin is `https://app.localhost`.
 
 ## 4. Drive it over CDP
 

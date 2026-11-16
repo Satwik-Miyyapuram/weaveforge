@@ -16,8 +16,9 @@
  */
 import type { PageViewport, TextLayer } from "pdfjs-dist";
 import type { TextContent } from "pdfjs-dist/types/src/display/api";
-import type { PageTextItem, PdfLink } from "@weaveforge/core";
-import type { PdfLib } from "@/lib/pdf-lib";
+import type { PdfLink } from "@weaveforge/core";
+import type { PdfLib } from "@/lib/parts";
+import type { PageTextItem } from "@weaveforge/wasm";
 
 /**
  * `lib` is the loaded pdf.js, passed in rather than imported: the bundle is a

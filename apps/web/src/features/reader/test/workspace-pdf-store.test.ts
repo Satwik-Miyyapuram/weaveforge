@@ -7,27 +7,28 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { InMemoryPdfByteCache, paperPdfPath, projectDir } from "@weaveforge/core";
-import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
+import { InMemoryPdfByteCache } from "@weaveforge/core";
+import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 
 import {
   RoutedPdfByteCache,
   WorkspacePdfStore,
-} from "../infrastructure/workspace-pdf-store";
+} from "../infrastructure/parts-2";
+import { typedCore } from "@/lib/rust-core";
 
 const bytes = (...values: number[]) => new Uint8Array(values).buffer;
 
 /** The project the reader has open; its folder is where the PDFs go. */
 const PROJECT = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
-const ROOT = projectDir(PROJECT);
+const ROOT = typedCore().projectDir(PROJECT);
 const root = async () => ROOT;
 
 test("a set lands in the folder at the paper's path and reads back the same bytes", async () => {
   const fs = new MemoryWorkspaceFs();
   const store = new WorkspacePdfStore(() => fs, root);
   await store.set("p1", bytes(37, 80, 68, 70));
-  assert.ok(await fs.stat(paperPdfPath("p1", ROOT)));
-  assert.equal(paperPdfPath("p1", ROOT), `${ROOT}/papers/pdf/p1.pdf`);
+  assert.ok(await fs.stat(typedCore().paperPdfPath("p1", ROOT)));
+  assert.equal(typedCore().paperPdfPath("p1", ROOT), `${ROOT}/papers/pdf/p1.pdf`);
   assert.deepEqual(new Uint8Array((await store.get("p1"))!), new Uint8Array([37, 80, 68, 70]));
   assert.equal(await store.size(), 1);
   await store.remove("p1");
@@ -47,7 +48,7 @@ test("the routed store picks the folder while one is open and the browser cache 
   const browser = new InMemoryPdfByteCache(4);
   const routed = new RoutedPdfByteCache(() => (fs ? folder : browser));
   await routed.set("p1", bytes(1));
-  assert.ok(await fs.stat(paperPdfPath("p1", ROOT)));
+  assert.ok(await fs.stat(typedCore().paperPdfPath("p1", ROOT)));
   assert.equal(await browser.get("p1"), null);
   fs = null;
   assert.equal(await routed.get("p1"), null);
@@ -59,7 +60,7 @@ test("has is a stat: true for a held PDF, false for a missing or empty one, and 
   const fs = new MemoryWorkspaceFs();
   const store = new WorkspacePdfStore(() => fs, root);
   await store.set("p1", bytes(37, 80, 68, 70));
-  await fs.writeFile(paperPdfPath("empty", ROOT), new Uint8Array(0));
+  await fs.writeFile(typedCore().paperPdfPath("empty", ROOT), new Uint8Array(0));
   let reads = 0;
   const readFile = fs.readFile.bind(fs);
   fs.readFile = async (path: string) => {

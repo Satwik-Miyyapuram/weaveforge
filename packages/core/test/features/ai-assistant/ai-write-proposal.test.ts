@@ -6,7 +6,7 @@ import {
   proposalApplies,
   type Paper,
 } from "../../../src/index.js";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
+import { InMemoryPaperRepository } from "../../support/in-memory.js";
 
 test("paper note additions are append-only", () => {
   assert.equal(appendPaperNote("Existing note", "AI addition"), "Existing note\n\nAI addition");

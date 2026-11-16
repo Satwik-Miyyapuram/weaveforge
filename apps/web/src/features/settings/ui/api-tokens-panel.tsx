@@ -1,6 +1,8 @@
 "use client";
 
-import { formatDateTime } from "@/lib/format-date";
+import { formatError } from "@/lib/format-error";
+import { localOffset } from "@/lib/parts-1";
+import { readyCore } from "@/lib/rust-core";
 import { useCallback, useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
@@ -8,10 +10,9 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
 import { useAuth } from "@/features/auth";
-import { formatError } from "@/lib/format-error";
-import { useSubmit } from "@/lib/hooks/use-submit";
+import { useSubmit } from "@/lib/hooks/parts";
 import type { ApiTokenRecord } from "@/container/facades";
-import { copyText } from "@/lib/clipboard";
+import { copyText } from "@/lib/parts";
 import { Button } from "@/components/button";
 
 const EXPIRY_OPTIONS = [
@@ -24,7 +25,7 @@ const EXPIRY_OPTIONS = [
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "Never";
-  return formatDateTime(iso);
+  return readyCore().formatDateTime(iso, localOffset(iso));
 }
 
 /** Personal access tokens for the Python SDK. */

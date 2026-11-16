@@ -1,11 +1,12 @@
 "use client";
 
-import { formatDate } from "@/lib/format-date";
-import { useState, type KeyboardEvent } from "react";
 import { formatError } from "@/lib/format-error";
+import { localOffset } from "@/lib/parts-1";
+import { readyCore } from "@/lib/rust-core";
+import { useState, type KeyboardEvent } from "react";
 import { desktop, type DesktopLocalApi, type DesktopLocalApiPermission } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
-import { copyText } from "@/lib/clipboard";
+import { copyText } from "@/lib/parts";
 import {
   MCP_CLIENT_TABS,
   claudeCodeCommands,
@@ -25,7 +26,7 @@ const CHIP: Partial<Record<DesktopLocalApiPermission, string>> = {
 };
 
 function day(iso: string): string {
-  return formatDate(iso);
+  return readyCore().formatDate(iso, localOffset(iso));
 }
 
 function ago(iso: string, now: number): string {
@@ -197,6 +198,21 @@ export function McpClients({
             <Button variant="primary" disabled={busy} onClick={() => void act(() => desktop()?.connectMcp?.())}>
               Connect
             </Button>
+          </div>
+        )}
+        {mcp.rewrites && (
+          <div className="mcp-small">
+            {mcp.rewrites.changed.map((c) => (
+              <div key={c.file}>
+                Pointed at this app: <span className="mono">{c.file}</span>
+                {c.backup && <> (original kept at <span className="mono">{c.backup}</span>)</>}
+              </div>
+            ))}
+            {mcp.rewrites.skipped.map((file) => (
+              <div key={file}>
+                Left alone (could not be read or written): <span className="mono">{file}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>

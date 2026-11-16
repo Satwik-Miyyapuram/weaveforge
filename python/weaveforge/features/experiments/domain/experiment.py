@@ -1,7 +1,7 @@
 """Experiments domain model — pure, no I/O. An Experiment is one tracked run,
 pinned to a code state (repo / branch / commit) like a git entry, with config
 and metrics. Faithful port of
-``packages/core/src/features/experiments/domain/experiment.ts`` — the schema in
+``packages/core/src/features/experiments/domain/parts.ts`` — the schema in
 ``db/migrations/0009_experiments.sql`` is the shared source of truth.
 """
 

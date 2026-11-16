@@ -199,7 +199,7 @@ change underneath it. A → C → B is the cheap path; A and C together is fine.
 | Fix A migration | [`0114_experiment_metrics_narrow_rows.sql`](../../../db/migrations/0114_experiment_metrics_narrow_rows.sql) |
 | Fix B migration | [`0115_experiment_metric_chunks.sql`](../../../db/migrations/0115_experiment_metric_chunks.sql) |
 | Rollbacks | [`migrations-rollback/`](../../../db/migrations-rollback/) |
-| Fix C rule | [`downsample-metrics.ts`](../../../packages/core/src/features/experiments/domain/downsample-metrics.ts) |
+| Fix C rule | [`downsample-metrics.ts`](../../../packages/core/src/features/experiments/domain/parts.ts) |
 | Measurement | [`measure-metrics-storage.mjs`](../../../scripts/measure-metrics-storage.mjs), [`measure-metrics-layouts.mjs`](../../../scripts/measure-metrics-layouts.mjs) |
 | Operations | [`rollup-metric-chunks.mjs`](../../../scripts/rollup-metric-chunks.mjs), [`prune-metric-series.mjs`](../../../scripts/prune-metric-series.mjs) |
 | Ingest path | [`sdk/metrics/route.ts`](../../../apps/web/src/app/api/sdk/metrics/route.ts) |

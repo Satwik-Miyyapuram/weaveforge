@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { shouldUseDarkPdfRendering } from "../../application/reader-pdf-theme";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Whether pages should be rendered for a dark background.
@@ -19,7 +19,7 @@ export function useDarkPdf(): boolean {
       const root = document.documentElement;
       const theme = root.getAttribute("data-theme");
       const mode = root.getAttribute("data-mode");
-      setDarkPdf(mode === "dark" || shouldUseDarkPdfRendering(theme, mode));
+      setDarkPdf(mode === "dark" || readyCore().shouldUseDarkPdfRendering(theme, mode));
     };
     readTheme();
     const observer = new MutationObserver(readTheme);

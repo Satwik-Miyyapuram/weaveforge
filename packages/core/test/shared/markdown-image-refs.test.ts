@@ -12,36 +12,35 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  imagePathsInBody,
-  markdownImage,
-  materializeBlobImages,
-  normalizeMarkdownImageSyntax,
-} from "../../src/index.js";
+import { materializeBlobImages } from "../../src/index.js";
+import { rust } from "../../src/shared/rust.js";
+
+const imagePathsInBody = (body: string, prefix: string) => rust().imagePathsInBody(body, prefix);
+const markdownImage = (target: string, alt: string) => rust().markdownImage(target, alt);
 
 const body = (prefix: string) => `Body text.\n\n![](${prefix}user-1/p1/diagram.png)\n\n![a fig](${prefix}user-1/p1/fig.webp)`;
 
 for (const prefix of ["vault:", "paperimg:", "reportimg:"]) {
   test(`imagePathsInBody finds ${prefix} refs, with and without alt text`, () => {
-    assert.deepEqual(imagePathsInBody(body(prefix), prefix, normalizeMarkdownImageSyntax), [
+    assert.deepEqual(imagePathsInBody(body(prefix), prefix), [
       "user-1/p1/diagram.png",
       "user-1/p1/fig.webp",
     ]);
   });
 
   test(`imagePathsInBody ignores refs that are not ${prefix}`, () => {
-    assert.deepEqual(imagePathsInBody("![](https://example.com/x.png)", prefix, normalizeMarkdownImageSyntax), []);
+    assert.deepEqual(imagePathsInBody("![](https://example.com/x.png)", prefix), []);
   });
 }
 
 test("a path is reported once however often it is referenced", () => {
   const twice = "![](vault:a/b.png) and again ![](vault:a/b.png)";
-  assert.deepEqual(imagePathsInBody(twice, "vault:", normalizeMarkdownImageSyntax), ["a/b.png"]);
+  assert.deepEqual(imagePathsInBody(twice, "vault:"), ["a/b.png"]);
 });
 
 test("a ref wrapped across lines is still found", () => {
   const wrapped = "![]( vault:a/b.png )";
-  assert.deepEqual(imagePathsInBody(wrapped, "vault:", normalizeMarkdownImageSyntax), ["a/b.png"]);
+  assert.deepEqual(imagePathsInBody(wrapped, "vault:"), ["a/b.png"]);
 });
 
 test("materializeBlobImages uploads each blob ref and rewrites it, keeping the alt text", async () => {
@@ -53,7 +52,7 @@ test("materializeBlobImages uploads each blob ref and rewrites it, keeping the a
       "p1",
       async (ownerId, _blob, ext) => `user-1/${ownerId}/new.${ext}`,
       "paperimg:",
-      normalizeMarkdownImageSyntax,
+      rust().normalizeMarkdownImageSyntax,
     );
     assert.equal(out, markdownImage("paperimg:user-1/p1/new.webp", "a diagram"));
     assert.equal(uploadError, undefined);
@@ -73,7 +72,7 @@ test("a stale blob URL keeps its original ref rather than vanishing from the bod
       "p1",
       async () => "unused",
       "paperimg:",
-      normalizeMarkdownImageSyntax,
+      rust().normalizeMarkdownImageSyntax,
     );
     assert.equal(out, "![](blob:http://x/1)");
     // A stale blob is the browser's loss, not a failed save: nothing to report.
@@ -86,25 +85,21 @@ test("a stale blob URL keeps its original ref rather than vanishing from the bod
 test("normalizeMarkdownImageSyntax stays linear on unclosed image syntax", () => {
   for (const unit of ["![\\", "![](blob:", "![](http://"]) {
     const started = performance.now();
-    normalizeMarkdownImageSyntax(unit.repeat(50_000));
+    rust().normalizeMarkdownImageSyntax(unit.repeat(50_000));
     assert.ok(performance.now() - started < 500, `slow on repeated ${unit}`);
   }
-  assert.equal(normalizeMarkdownImageSyntax("![](foo![x]( vault:a.png )"), "![](foo![x](vault:a.png)");
+  assert.equal(rust().normalizeMarkdownImageSyntax("![](foo![x]( vault:a.png )"), "![](foo![x](vault:a.png)");
 });
 
 test("image-ref scanning stays linear on unclosed refs", async () => {
-  const { fromRelativeBlobLinks, relativeAssetPaths, toRelativeBlobLinks } = await import("../../src/workspace/blob-links.js");
-  const resolver = { resolve: () => null };
   for (const s of ["![".repeat(50_000), "![](vault:!".repeat(50_000), `${"![](assets/notes/x".repeat(50_000)})`]) {
     const t = performance.now();
-    toRelativeBlobLinks(s, "a.md");
-    fromRelativeBlobLinks(s, resolver);
-    relativeAssetPaths(s);
-    imagePathsInBody(s, "vault:", (b) => b);
+    imagePathsInBody(s, "vault:");
     assert.ok(performance.now() - t < 1000, `slow on ${s.slice(0, 20)}`);
   }
-  assert.deepEqual(relativeAssetPaths("![](assets/notes/x![a](../assets/report/r.png)"), [{ scope: "notes", path: "x![a](../assets/report/r.png" }]);
 });
+// The blob-link rewrite and its linearity are Rust's (`sync::blob_links`, with
+// literal asserts in crates/wf-core/tests/sync_blob_links.rs).
 
 test("replacement patterns in alt text are written literally, not expanded (01-02)", async () => {
   const original = globalThis.fetch;
@@ -116,7 +111,7 @@ test("replacement patterns in alt text are written literally, not expanded (01-0
         "p1",
         async () => "user-1/p1/new.png",
         "paperimg:",
-        normalizeMarkdownImageSyntax,
+        rust().normalizeMarkdownImageSyntax,
       );
       assert.equal(out, `intro ${markdownImage("paperimg:user-1/p1/new.png", alt)} outro`, alt);
     }
@@ -139,7 +134,7 @@ test("a failed upload keeps its ref, rewrites the others, and is reported (34-16
         return `user-1/p1/${n}.png`;
       },
       "reportimg:",
-      normalizeMarkdownImageSyntax,
+      rust().normalizeMarkdownImageSyntax,
     );
     assert.equal(
       body,
@@ -164,7 +159,7 @@ test("several failed uploads are counted in one report", async () => {
         throw "offline";
       },
       "vault:",
-      normalizeMarkdownImageSyntax,
+      rust().normalizeMarkdownImageSyntax,
     );
     assert.match(String(uploadError?.message), /2 images could not be uploaded: offline/);
   } finally {
@@ -179,7 +174,7 @@ test("a body with no blob refs comes back unchanged and without a fetch", async 
   }) as never;
   try {
     const text = "$$x$$ ![](vault:a.png) plain";
-    const out = await materializeBlobImages(text, "p1", async () => "unused", "vault:", normalizeMarkdownImageSyntax);
+    const out = await materializeBlobImages(text, "p1", async () => "unused", "vault:", rust().normalizeMarkdownImageSyntax);
     assert.deepEqual(out, { body: text, uploadError: undefined });
   } finally {
     globalThis.fetch = original;

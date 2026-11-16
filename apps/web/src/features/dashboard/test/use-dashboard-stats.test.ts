@@ -7,14 +7,19 @@
  * few milliseconds (seconds of script per second, hundreds of MB held).
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import { createElement, type ReactNode } from "react";
 import type { DashboardCardType, Member, Project } from "@weaveforge/core";
 
 import { ProjectContext } from "@/features/projects";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { renderHook } from "@/lib/test/react-harness";
 import { useDashboardStats } from "../ui/use-dashboard-stats";
-import type { DashboardStatsPorts } from "../application/load-dashboard-stats";
+import type { DashboardStatsPorts } from "../application/parts";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function withProject(id: string) {
   return function ProjectWrapper(children: ReactNode) {

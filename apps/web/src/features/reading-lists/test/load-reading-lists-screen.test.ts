@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { LibraryPin, ReadingList, Share } from "@weaveforge/core";
-import { buildListTree, loadPinnedScreenData } from "@weaveforge/core";
+import { loadPinnedScreenData } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
 
 /**
  * `BUG-01`'s sibling in the reading lists: the tree came from `owned`.
@@ -59,7 +60,7 @@ async function load(owned: ReadingList[], pinned: string[], parentId: string | n
       loadById: async (id) => list(id, { name: `Loaded ${id}`, parentId: parentId ?? undefined }),
     },
   );
-  return { merged, tree: buildListTree(merged.items) };
+  return { merged, tree: typedCore().buildListTree(merged.items) };
 }
 
 test("a shared list is in the tree, not only in the flat list", async () => {

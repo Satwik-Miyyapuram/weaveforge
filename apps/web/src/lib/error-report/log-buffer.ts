@@ -11,14 +11,21 @@
  * The buffer is fixed-size and in memory: an old warning is dropped rather than
  * kept. Errors (not warnings) are also written once each to the desktop shell's
  * log file, which outlives the window; in a browser that is a no-op.
+ *
+ * The rules — the line a message becomes, the trim to the newest lines, the
+ * message/detail split, and the de-duplication — are in Rust
+ * (`wf_core::error_report::log_buffer`). This file holds the state and wraps the
+ * console; it never throws into a console call, and before the Rust core has
+ * loaded it skips the line rather than fail.
  */
 
+import { readyCore } from "@/lib/rust-core";
 import { logToApp } from "./app-log";
 
-const MAX_LINES = 40;
-
-const lines: string[] = [];
+let lines: string[] = [];
 let installed = false;
+/** The failures already written, oldest first. Rust trims it to its cap. */
+let seen: string[] = [];
 /** How to unwrap each console method, so a test can leave the console as it found it. */
 const restores: (() => void)[] = [];
 
@@ -30,6 +37,15 @@ function describe(value: unknown): string {
     return JSON.stringify(value);
   } catch {
     return String(value);
+  }
+}
+
+/** Runs a core call; `fallback` when the core is not loaded, so capture never throws. */
+function tryCore<T>(run: () => T, fallback: T): T {
+  try {
+    return run();
+  } catch {
+    return fallback;
   }
 }
 
@@ -46,12 +62,13 @@ export function installConsoleCapture(): void {
     const original = console[level];
     console[level] = (...args: unknown[]) => {
       const text = args.map(describe).join(" ");
-      lines.push(`[${level}] ${text}`);
-      if (lines.length > MAX_LINES) lines.shift();
-      if (level === "error" && !alreadyRecorded(`console:${text}`)) {
-        const message = text.split("\n", 1)[0]!.slice(0, 500);
-        logToApp({ level: "error", source: "console", message, detail: text === message ? undefined : text });
-      }
+      tryCore(() => {
+        const core = readyCore();
+        lines = core.errorLogPushLine(lines, core.errorLogConsoleLine(level, text)) as string[];
+        if (level === "error" && !alreadyRecorded(`console:${text}`)) {
+          logToApp({ level: "error", source: "console", ...(core.errorLogEntry(text) as { message: string; detail?: string }) });
+        }
+      }, undefined);
       original.apply(console, args);
     };
     restores.push(() => {
@@ -76,9 +93,7 @@ export function recentLogs(): string {
  * and the `Error` behind a rejection carries the stack.
  */
 export function recordError(text: string): void {
-  if (!text) return;
-  lines.push(`[uncaught] ${text}`);
-  if (lines.length > MAX_LINES) lines.shift();
+  lines = tryCore(() => readyCore().errorLogRecordUncaught(lines, text) as string[], lines);
 }
 
 /**
@@ -91,22 +106,15 @@ export function recordError(text: string): void {
  * occurrences of a byte-identical stack with a byte-identical origin line are
  * the same failure happening twice, and one line about it is the honest report.
  *
- * Bounded, and cleared with the rest of the capture. A `Set` of every stack a
- * long session ever produced would itself become the leak.
+ * Bounded in Rust, and cleared with the rest of the capture. Before the core
+ * loads nothing can be checked, so the failure counts as new.
  */
-const seen = new Set<string>();
-const MAX_SEEN = 200;
-
 export function alreadyRecorded(text: string): boolean {
-  if (!text) return true;
-  if (seen.has(text)) return true;
-  seen.add(text);
-  if (seen.size > MAX_SEEN) {
-    // Oldest-first: a `Set` iterates in insertion order.
-    const oldest = seen.values().next().value;
-    if (oldest !== undefined) seen.delete(oldest);
-  }
-  return false;
+  return tryCore(() => {
+    const result = readyCore().errorLogRemember(seen, text) as { seen: string[]; recorded: boolean };
+    seen = result.seen;
+    return result.recorded;
+  }, false);
 }
 
 /**
@@ -114,12 +122,12 @@ export function alreadyRecorded(text: string): boolean {
  *
  * Restoring matters as much as clearing: resetting `installed` alone would let a
  * second install wrap the already-wrapped console, so every message would be
- * recorded twice and printed twice. And the buffer is emptied in place rather
- * than reassigned, because the installed wrappers close over this array.
+ * recorded twice and printed twice. The wrappers read `lines` and `seen` by name
+ * at call time, so reassigning them here is seen by any wrapper still installed.
  */
 export function resetLogCaptureForTest(): void {
   for (const restore of restores.splice(0)) restore();
-  lines.length = 0;
-  seen.clear();
+  lines = [];
+  seen = [];
   installed = false;
 }

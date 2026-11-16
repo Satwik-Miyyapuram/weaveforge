@@ -1,9 +1,17 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  projectZoteroAnnotations,
-} from "../application/project-zotero-annotations.js";
-import type { ZoteroAnnotation } from "../../papers/domain/zotero.js";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
+import type { ZoteroAnnotation } from "@weaveforge/wasm";
+
+before(async () => {
+  await loadTestCore();
+});
+
+// The app calls the Rust projection through the loaded core.
+const projectZoteroAnnotations: ReturnType<typeof readyCore>["projectZoteroAnnotations"] = (
+  ...args
+) => readyCore().projectZoteroAnnotations(...args);
 
 const sample: ZoteroAnnotation[] = [
   {
@@ -54,6 +62,7 @@ test("projectZoteroAnnotations rejects strikeout by falling back to highlight", 
   const projected = projectZoteroAnnotations([
     {
       key: "bad",
+      kind: "annotation",
       tags: [],
       annotationType: "strikeout" as never,
       annotationPosition: { pageIndex: 0, rects: [[0, 0, 1, 1]] },

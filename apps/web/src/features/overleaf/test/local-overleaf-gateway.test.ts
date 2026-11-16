@@ -9,6 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { LOCAL_USER_ID } from "@weaveforge/core";
 import { LocalOverleafGateway } from "../infrastructure/local-overleaf-gateway";
 
 function recorder() {
@@ -38,7 +39,7 @@ test("gateway: a title edit writes the title and nothing else", async () => {
   const { sql, params } = first(calls);
   assert.match(sql, /set title = \$1, updated_at = now\(\)/);
   assert.ok(!sql.includes("section_targets"), sql);
-  assert.deepEqual(params, ["MSc thesis", "r1", params[2]]);
+  assert.deepEqual(params, ["MSc thesis", "r1"]);
 });
 
 test("gateway: re-pointing a link clears the recorded failure with it", async () => {
@@ -68,7 +69,36 @@ test("gateway: only this project's enabled links are listed", async () => {
   const { calls, gateway } = recorder();
   await gateway.listReports("p1");
   const { sql, params } = first(calls);
-  assert.match(sql, /project_id = \$2/);
+  assert.match(sql, /project_id = \$1/);
   assert.ok(sql.includes("enabled"), sql);
-  assert.equal(params[1], "p1");
+  assert.deepEqual(params, ["p1"]);
+});
+
+/*
+ * A device that has adopted an account runs every query as that account
+ * (the shell sets the claim), so a row written for the fixed local-only id
+ * fails the row policies. Every statement must take the user from the claim.
+ */
+test("gateway: every statement takes the user from auth.uid(), never the fixed local id", async () => {
+  const { calls } = recorder();
+  const run = {
+    query: async (sql: string, params: unknown[] = []) => {
+      calls.push({ sql, params });
+      return [{ id: "c1" }];
+    },
+    exec: async (sql: string, params: unknown[] = []) => {
+      calls.push({ sql, params });
+    },
+  };
+  const gateway = new LocalOverleafGateway(run as never);
+  const id = "0123456789abcdef01234567";
+  await gateway.listReports("p1");
+  await gateway.createReport({ projectId: "p1", connectionId: "c1", title: "T", overleafProjectId: id, entryFile: "main.tex" });
+  await gateway.patchReport({ id: "r1", title: "T2" });
+  await gateway.deleteReport("r1");
+  assert.equal(calls.length, 4);
+  for (const { sql, params } of calls) {
+    assert.ok(sql.includes("auth.uid()"), sql);
+    assert.ok(!params.includes(LOCAL_USER_ID), `${sql} ${JSON.stringify(params)}`);
+  }
 });

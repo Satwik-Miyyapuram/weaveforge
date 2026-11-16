@@ -9,16 +9,16 @@ import { useProject } from "@/features/projects";
 import { getContainer } from "@/bootstrap";
 import { Popover } from "@/components/popover";
 import { SubmenuFlyout } from "@/components/menu";
-import { isExplicitLabMembership, ROLE_LABELS, type Role } from "@weaveforge/core";
+import { ROLE_LABELS, type Role } from "@weaveforge/core";
 import { ThemeToggle } from "./theme-toggle";
-import { accountLinks, type AccountLinkId } from "./account-links";
+import type { AccountLinkId } from "@weaveforge/wasm";
 import { NavIcon } from "./nav-icon";
 import { useInbox } from "./use-inbox";
 import { MenuItemButton, MenuItemLink } from "@/components/controls";
 import { useLiveSync } from "@/features/offline-sync/ui/use-live-sync";
-import { syncStatus } from "@/features/offline-sync/domain/sync-status";
+import { syncStatus } from "@/features/offline-sync/domain/parts";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { accountAttention } from "./account-attention";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /** A person, for the account menu. The ellipsis said "more things"; this says
  *  whose things they are, which is what the menu contains. */
@@ -91,10 +91,10 @@ export function HeaderActions({
   const pathname = usePathname();
   const { links: inboxRows, local } = useInbox();
   const live = useLiveSync();
-  const attention = accountAttention({ conflicts: live.conflictsCount, inbox: inboxRows, inboxInMenu: inbox });
+  const attention = readyCore().accountAttention({ conflicts: live.conflictsCount, inbox: inboxRows, inboxInMenu: inbox });
   // Sync runs on the desktop only; its state is words in the menu, not a dot.
   const sync = desktop() ? syncStatus(live) : null;
-  const labs = memberships ? memberships.filter(isExplicitLabMembership) : [];
+  const labs = memberships ? memberships.filter(typedCore().isExplicitLabMembership) : [];
 
   if (!user) return null;
 
@@ -139,7 +139,7 @@ export function HeaderActions({
             {row.badge !== undefined && <b className="nav-badge">{row.badge}</b>}
           </MenuItemLink>
         ))}
-      {accountLinks({ hasProject: !!current, local }).map((link) => {
+      {readyCore().accountLinks({ hasProject: !!current, local }).map((link) => {
         const Icon = ICONS[link.id];
 
         // Leaving offline mode is not signing out — there is no session to end.
@@ -193,7 +193,7 @@ export function HeaderActions({
           );
         }
         return (
-          <MenuItemLink key={link.id} href={link.href!} title={TITLES[link.id]} onClick={close}>
+          <MenuItemLink key={link.id} href={link.href!} title={TITLES[link.id]} data-help-id={`account-${link.id}`} onClick={close}>
             <Icon /><span>{link.label}</span>
           </MenuItemLink>
         );
@@ -205,6 +205,7 @@ export function HeaderActions({
     <Popover
       portal
       align="right"
+      helpId="account-menu"
       // The person icon says what it is; a caret beside it made the control look
       // like a disclosure that folds, and animated on every open. The chip's own
       // secondary button, so the pair rests and lifts alike; alone, the icon button.
@@ -238,7 +239,7 @@ export function HeaderActions({
             >
               <NavIcon name={row.icon} />
               <span>{row.label}</span>
-              <b className="nav-badge">{row.badge}</b>
+              <b className="nav-badge" aria-label={`${row.badge} waiting for you`} title={`${row.badge} waiting for you`}>{row.badge}</b>
             </MenuItemButton>
           ))}
           {links(close)}

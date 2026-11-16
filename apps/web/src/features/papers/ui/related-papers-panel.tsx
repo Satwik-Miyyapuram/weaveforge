@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { type PaperSummary } from "@weaveforge/core";
+import type { PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { typedCore } from "@/lib/rust-core";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import type { RelatedKind } from "@/features/papers/application/parts-1";
 
 type RelatedHit = {
   title: string;
@@ -30,19 +32,24 @@ export function RelatedPapersPanel({ paper, onChanged }: { paper: PaperSummary; 
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
-  async function findRelated() {
+  async function findRelated(kind: RelatedKind) {
     setBusy(true);
     setError(null);
     setMsg(null);
     setOpen(true);
     try {
       const { fetchRelatedPapers } = await import(
-        "@/features/papers/application/fetch-related-papers"
+        "@/features/papers/application/parts-1"
       );
-      const library = await getContainer().papers.loadScreenData();
-      const next = await fetchRelatedPapers(paper, library.papers);
+      const c = getContainer();
+      const [library, settings] = await Promise.all([c.papers.loadScreenData(), c.settings.manageSettings.get()]);
+      const next = await fetchRelatedPapers(paper, library.papers, {
+        kind,
+        apiKey: typedCore().getUserIntegrationField(settings, "semantic-scholar", "apiKey"),
+        openAlexKey: typedCore().getUserIntegrationField(settings, "semantic-scholar", "openAlexKey"),
+      });
       setHits(next);
-      if (next.length === 0) setMsg("No related papers found (needs DOI or arXiv id).");
+      if (next.length === 0) setMsg(kind === "citedBy" ? "No citing papers found." : "No related papers found.");
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -75,8 +82,11 @@ export function RelatedPapersPanel({ paper, onChanged }: { paper: PaperSummary; 
 
   return (
     <div className="related-papers">
-      <Button disabled={busy} onClick={() => void findRelated()}>
+      <Button disabled={busy} onClick={() => void findRelated("related")}>
         {busy ? "Finding…" : "Find related papers"}
+      </Button>
+      <Button disabled={busy} onClick={() => void findRelated("citedBy")} title="Papers that cite this one, most cited first">
+        Cited by
       </Button>
       {open && (
         <div className="related-papers-panel">

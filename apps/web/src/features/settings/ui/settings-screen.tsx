@@ -1,15 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsFind, findSettings } from "./settings-find";
 import dynamic from "next/dynamic";
 import type { UserSettings, UserIntegrationDescriptor } from "@weaveforge/core";
-import {
-  applyUserIntegrationFields,
-  getUserIntegrationField,
-  isUserIntegrationConnected,
-} from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { userSettingsFromCore, userSettingsToCore } from "@/features/settings/infrastructure/parts";
 import { Modal, ModalActions } from "@/components/modal";
 import { ScreenHead } from "@/components/screen-head";
 import { ConnectionState } from "@/components/connection-state";
@@ -25,10 +21,10 @@ import { LocalApiPanel } from "./local-api-panel";
 import { AccountInfoPanel } from "./account-info-panel";
 import { PrivacyNotice } from "./privacy-notice";
 import { ExportDataPanel } from "./export-data-panel";
+import { CoreVersion } from "./core-version";
 import { GitHubLinkCard } from "./github-link-card";
 import { Select } from "@/components/select";
 import { userIntegrationsForConfig } from "@/integrations/descriptors-resolve";
-import { railGroupText, type RailGroupWords } from "./rail-group-text";
 import { isOfflineBuild } from "@/deployment/build-target";
 import { AiAccessPanel } from "./ai-access-panel";
 import { AppearancePanel } from "./appearance-panel";
@@ -36,12 +32,13 @@ import { SyncIssuesPanel, SyncSettingsPanel } from "@/features/offline-sync";
 import { DesktopUpdatePanel, useDesktopUpdate } from "./desktop-update-panel";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
-import { useSubmit } from "@/lib/hooks/use-submit";
+import { useSubmit } from "@/lib/hooks/parts";
 import { useCapability, hasServerRoutes } from "@/deployment/capabilities";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 import { RowButton, TabButton } from "@/components/controls";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 // Only the Tokens tab paints it, so it stays out of the route's first load.
 const ApiTokensPanel = dynamic(() => import("./api-tokens-panel").then((m) => m.ApiTokensPanel), { ssr: false });
@@ -54,6 +51,7 @@ const mcpTokensServed = GENERATED_MCP_ENABLED && hasServerRoutes();
 // panels sit at the bottom of theirs.
 const OrgPanel = dynamic(() => import("@/features/org").then((m) => m.OrgPanel), { ssr: false });
 const AppLogPanel = dynamic(() => import("./app-log-panel").then((m) => m.AppLogPanel), { ssr: false });
+const StoragePanel = dynamic(() => import("./storage-panel").then((m) => m.StoragePanel), { ssr: false });
 const CalendarFeedPanel = dynamic(() => import("./calendar-feed-panel").then((m) => m.CalendarFeedPanel), { ssr: false });
 const DeleteAccountPanel = dynamic(() => import("./delete-account-panel").then((m) => m.DeleteAccountPanel), { ssr: false });
 
@@ -79,6 +77,15 @@ const SETTINGS_TABS = [
 ] as const;
 
 type SettingsTabId = (typeof SETTINGS_TABS)[number]["id"];
+
+/** What a settings rail group says about itself; readyCore().railGroupText picks the words shown. */
+type RailGroupWords = {
+  label: string;
+  /** The label to use when the tab it names is hidden: "Account" with no lab tab. */
+  labelWithout?: { tab: string; label: string };
+  /** One word or phrase per tab, in rail order. The integrations tab's is filled in from config. */
+  hints: readonly (readonly [tab: string, text: string])[];
+};
 
 /**
  * The tabs, gathered into the six groups the side rail lists. Choosing a group
@@ -166,6 +173,8 @@ export function SettingsScreen() {
   const [projectCollection, setProjectCollection] = useState<string>("");
   const [activeProvider, setActiveProvider] = useState<UserIntegrationDescriptor | null>(null);
   const [aiAccessOpen, setAiAccessOpen] = useState(false);
+  // Settings as they were when the AI modal opened; Cancel puts them back.
+  const aiAccessSnapshot = useRef<UserSettings | null>(null);
   const [tab, setTab] = useState<SettingsTabId>("account");
   const [findQuery, setFindQuery] = useState("");
 
@@ -181,6 +190,16 @@ export function SettingsScreen() {
   function selectTab(next: SettingsTabId) {
     setTab(next);
     history.replaceState(null, "", `#settings-${next}`);
+  }
+
+  function openAiAccess() {
+    aiAccessSnapshot.current = settings;
+    setAiAccessOpen(true);
+  }
+
+  function cancelAiAccess() {
+    if (aiAccessSnapshot.current) setSettings(aiAccessSnapshot.current);
+    setAiAccessOpen(false);
   }
 
   /** Saved first, so leaving the dialog keeps what the reader set in it (DA-132). */
@@ -243,7 +262,7 @@ export function SettingsScreen() {
     }
     const entries = activeProvider.fields.map(
       (field) =>
-        [field.id, getUserIntegrationField(settings, bibliographyProviderId, field.id) ?? ""] as const,
+        [field.id, typedCore().getUserIntegrationField(settings, bibliographyProviderId, field.id) ?? ""] as const,
     );
     if (entries.some(([, value]) => value.trim() === "")) return null;
     return Object.fromEntries(entries);
@@ -292,12 +311,19 @@ export function SettingsScreen() {
   }, [credentialsKey]);
 
   async function saveCollection(key: string) {
+    const previous = projectCollection;
     setProjectCollection(key);
-    if (current) await getContainer().settings.setProjectCollection(current.id, key || null);
+    try {
+      if (current) await getContainer().settings.setProjectCollection(current.id, key || null);
+    } catch (err) {
+      // Show the old choice again: the select must match what was stored.
+      setProjectCollection(previous);
+      setError(formatError(err));
+    }
   }
 
   function patchProviderField(providerId: string, fieldId: string, value: string) {
-    setSettings((s) => applyUserIntegrationFields(s, providerId, { [fieldId]: value }));
+    setSettings((s) => userSettingsFromCore(typedCore().applyUserIntegrationFields(userSettingsToCore(s), providerId, { [fieldId]: value })));
   }
 
   const showBibliographyCollection =
@@ -325,7 +351,11 @@ export function SettingsScreen() {
   const groups = SETTINGS_GROUPS
     .map((g) => ({
       ...g,
-      ...railGroupText(g, visible, userIntegrations.map((d) => d.title)),
+      ...readyCore().railGroupText(
+        { ...g, hints: g.hints.map(([tab, text]): [string, string] => [tab, text]) },
+        [...visible],
+        userIntegrations.map((d) => d.title),
+      ),
       tabs: g.tabs.filter((id) => visible.has(id)),
     }))
     .filter((g) => g.tabs.length > 0);
@@ -438,7 +468,7 @@ export function SettingsScreen() {
           <h3 className="settings-group">AI & MCP</h3>
           <p className="muted">Control what an AI client such as Codex may read or propose. Access is off by default.</p>
           <div className="integration-item">
-            <RowButton onClick={() => setAiAccessOpen(true)}>
+            <RowButton onClick={() => openAiAccess()}>
               <span className="integration-logo ai-access-launcher-icon">✦</span>
               <span className="integration-main"><strong>AI assistant access</strong><span className="muted">Sources, proposals, active sessions, and revocation.</span></span>
               <span className={`status ${settings.aiAccess?.enabled ? "status-done" : "status-not_started"}`}>{settings.aiAccess?.enabled ? "Enabled" : "Disabled"}</span>
@@ -476,7 +506,7 @@ export function SettingsScreen() {
               ) : null}
               <div className="integration-list">
                 {userIntegrations.map((d) => {
-                  const connected = isUserIntegrationConnected(
+                  const connected = typedCore().isUserIntegrationConnected(
                     settings,
                     d.providerId,
                     d.fields.map((f) => f.id),
@@ -513,7 +543,7 @@ export function SettingsScreen() {
                 <input
                   id={`${activeProvider.providerId}-${field.id}`}
                   type={field.type}
-                  value={getUserIntegrationField(settings, activeProvider.providerId, field.id) ?? ""}
+                  value={typedCore().getUserIntegrationField(settings, activeProvider.providerId, field.id) ?? ""}
                   onChange={(e) => patchProviderField(activeProvider.providerId, field.id, e.target.value)}
                   placeholder={field.placeholder}
                   autoComplete="off"
@@ -564,11 +594,11 @@ export function SettingsScreen() {
       )}
 
       {aiAccessOpen && (
-        <Modal title="AI & MCP access" onClose={() => !busy && setAiAccessOpen(false)}>
+        <Modal title="AI & MCP access" onClose={() => !busy && cancelAiAccess()}>
           <form className="add-form ai-access-modal" onSubmit={(event) => { void submit(event).then((ok) => { if (ok) setAiAccessOpen(false); }); }}>
             <AiAccessPanel settings={settings} onChange={setSettings} onManageTokens={() => void openTokensFromAiAccess()} />
             {error && <FormError>{error}</FormError>}
-            <ModalActions><Button variant="cancel" onClick={() => setAiAccessOpen(false)}>Cancel</Button><Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</Button></ModalActions>
+            <ModalActions><Button variant="cancel" onClick={() => cancelAiAccess()}>Cancel</Button><Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</Button></ModalActions>
           </form>
         </Modal>
       )}
@@ -595,10 +625,12 @@ export function SettingsScreen() {
               *after* something failed, and a panel they have to go looking for
               is one they will not find while stuck. */}
           <AppLogPanel />
+          <StoragePanel />
           <PrivacyNotice />
           {/* Linking a provider and deleting an account both need the account. */}
           {hasAccount && <GitHubLinkCard />}
           {hasAccount && <DeleteAccountPanel />}
+          <CoreVersion />
         </div>
       )}
       </div>

@@ -8,7 +8,7 @@ import { formatError } from "@/lib/format-error";
 import {
   activeProviderLabel,
   onProviderChange,
-} from "@/features/ai-assistant/application/ai-provider-session";
+} from "@/features/ai-assistant/application/parts";
 import {
   applyMerge,
   previewMerge,
@@ -19,7 +19,7 @@ import {
   regenerateWikiIndex,
   runWikiLint,
   type WikiBuildPreview,
-} from "../application/build-wiki";
+} from "../application/wiki-build";
 import { FormError } from "@/components/form-error";
 import { ScreenHead } from "@/components/screen-head";
 import { WikiRecentlyApproved } from "./wiki-recent";
@@ -262,7 +262,11 @@ export function WikiScreen() {
             </p>
 
             {preview.plans.length === 0 ? (
-              <p className="muted">Nothing new to add — the wiki already covers what was found.</p>
+              <p className="muted">
+                {preview.alreadyCovered > 0
+                  ? "Nothing new to add — the wiki already covers what was found."
+                  : "No concept comes up often enough to need a page yet."}
+              </p>
             ) : (
               <>
                 <ul className="wiki-plan-list">

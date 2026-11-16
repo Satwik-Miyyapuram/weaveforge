@@ -2,7 +2,7 @@
  * Privacy-preserving service worker (Serwist).
  *
  * Precache: hashed Next static chunks + public icons/manifest only.
- * Runtime: StaleWhileRevalidate for `/_next/static/` JS/CSS (instant launch;
+ * Runtime: StaleWhileRevalidate for `/_next/static/` JS/CSS/WASM (instant launch;
  * content-hashed URLs are immutable so a cached copy is never wrong).
  * Never cache HTML/navigations (Next embeds build-id-specific chunk + RSC URLs,
  * so a cached shell breaks after a deploy), RSC payloads, `/api/*`, or blobs.
@@ -35,7 +35,7 @@ const staticOnlyRuntime: RuntimeCaching[] = [
     // JS/CSS: content-hashed and immutable, so serve instantly from cache and
     // revalidate in the background — new deploys ship new hashed URLs (fetched
     // fresh), so a stale copy for a given URL can never be wrong. Instant launch.
-    matcher: /\/_next\/static.+\.(?:js|css)$/i,
+    matcher: /\/_next\/static.+\.(?:js|css|wasm)$/i,
     handler: new StaleWhileRevalidate({
       cacheName: "thesis-next-static",
       plugins: [

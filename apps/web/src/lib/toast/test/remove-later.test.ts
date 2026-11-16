@@ -1,9 +1,14 @@
 /** The shared delete-with-Undo used by cards and pages (D10, D-07). */
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
-import { removeLater } from "../remove-later";
-import { toasts } from "../toast-store";
+before(async () => {
+  await loadTestCore();
+});
+
+import { removeLater } from "../index";
+import { toasts } from "../parts";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 

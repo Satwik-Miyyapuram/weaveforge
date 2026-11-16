@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
-import type { SqlRunner } from "../domain/outbox";
+import type { SqlRunner } from "../domain/parts-2";
 
 /**
  * The device-only tables in a real Postgres, and nothing else.

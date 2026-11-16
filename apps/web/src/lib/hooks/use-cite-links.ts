@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { normalizeTitleKey } from "@weaveforge/core";
+
 import { getContainer } from "@/bootstrap";
 import type { WikilinkResolver } from "@/components/markdown/markdown";
+import { typedCore } from "@/lib/rust-core";
 
 export type CiteLinkEntry = { id: string; title: string };
 
@@ -109,7 +110,7 @@ export function citeCatalogFrom(
   const seen = new Set<string>();
   const titles: string[] = [];
   const add = (title: string, completion: () => CiteCompletion) => {
-    const key = normalizeTitleKey(title);
+    const key = typedCore().normalizeTitleKey(title);
     if (!key || seen.has(key)) return;
     seen.add(key);
     titles.push(title);
@@ -143,11 +144,11 @@ export function makeWikilinkResolver(
   papers: readonly CiteLinkEntry[],
   sections: readonly CiteLinkEntry[] = [],
 ): WikilinkResolver {
-  const noteMap = new Map(notes.map((n) => [normalizeTitleKey(n.title), n.id]));
-  const paperMap = new Map(papers.map((p) => [normalizeTitleKey(p.title), p.id]));
-  const sectionMap = new Map(sections.map((s) => [normalizeTitleKey(s.title), s.id]));
+  const noteMap = new Map(notes.map((n) => [typedCore().normalizeTitleKey(n.title), n.id]));
+  const paperMap = new Map(papers.map((p) => [typedCore().normalizeTitleKey(p.title), p.id]));
+  const sectionMap = new Map(sections.map((s) => [typedCore().normalizeTitleKey(s.title), s.id]));
   return (target) => {
-    const key = normalizeTitleKey(target);
+    const key = typedCore().normalizeTitleKey(target);
     const noteId = noteMap.get(key);
     if (noteId) return { href: `/notes?page=${encodeURIComponent(noteId)}`, unresolved: false };
     const paperId = paperMap.get(key);

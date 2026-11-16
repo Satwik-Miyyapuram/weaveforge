@@ -5,12 +5,13 @@ import {
   CreateShareLinkUseCase,
   RedeemShareLinkUseCase,
   RevokeShareLinkUseCase,
-  SHARE_LINK_DEFAULT_TTL_DAYS,
-  encodeShareLinkToken,
-  decodeShareLinkToken,
-} from "../../../src/features/sharing/index.js";
-import type { IShareLinkTokenHasher } from "../../../src/features/sharing/domain/share-link-token.js";
-import { InMemoryShareLinkRepository } from "../../../src/testing/in-memory-share-link-repository.js";
+} from "../../../src/index.js";
+import { rust } from "../../../src/shared/rust.js";
+
+const encodeShareLinkToken = (token: Uint8Array): string => rust().encodeShareLinkToken(token);
+const decodeShareLinkToken = (encoded: string): Uint8Array => rust().decodeShareLinkToken(encoded);
+import type { IShareLinkTokenHasher } from "../../../src/shared/core-contract.js";
+import { InMemoryShareLinkRepository } from "../../support/in-memory.js";
 
 const shareLinks = new InMemoryShareLinkRepository();
 
@@ -55,7 +56,7 @@ test("create + redeem share link resolves plaintext resource", async () => {
   const expires = new Date(listed[0]!.expiresAt!);
   const created = new Date(listed[0]!.createdAt);
   const diffDays = (expires.getTime() - created.getTime()) / (24 * 60 * 60 * 1000);
-  assert.ok(Math.abs(diffDays - SHARE_LINK_DEFAULT_TTL_DAYS) < 0.01);
+  assert.ok(Math.abs(diffDays - rust().shareLinkDefaultTtlDays()) < 0.01);
   assert.equal(listed[0]!.dekWrap ?? null, null);
 });
 

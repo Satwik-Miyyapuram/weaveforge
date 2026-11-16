@@ -13,7 +13,6 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { search, searchKeymap } from "@codemirror/search";
 import type { Compartment, Extension } from "@codemirror/state";
-import { extractWikilinks, normalizeTitleKey } from "@weaveforge/core";
 import {
   EditorView,
   drawSelection,
@@ -27,10 +26,15 @@ import { createCodeMirrorThemeForSite } from "@/lib/theme/codemirror-theme";
 import { pasteCleanup, pasteCleanupKeymap } from "@/components/markdown/markdown-paste-cleanup";
 import { imagePaste, type ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
 import { pendingInsertSupport } from "@/components/markdown/markdown-pending-insert";
+import { markdownFormatKeymap } from "@/components/markdown/markdown-format-commands";
+import { markdownContextMenu } from "@/components/markdown/markdown-context-menu";
+import { spellcheck } from "@/components/markdown/spellcheck";
 import { readPasteSettings } from "@/lib/paste-cleanup-preference";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
-import type { EditorCitationFormat } from "@/lib/citation-format-preference";
-import { formatPaperCitation, type Paper, type PasteSettings } from "@weaveforge/core";
+import type { EditorCitationFormat } from "@/lib/parts";
+import { type Paper } from "@weaveforge/core";
+import type { PasteSettings } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 
 /** Characters that may precede `@` for cite autocomplete (not email local-parts). */
 const AT_BOUNDARY = /[^A-Za-z0-9._%+-]/;
@@ -43,27 +47,19 @@ export function toCompletions(
   return (titles ?? []).map((t) => ({ title: t, label: t }));
 }
 
-function filterCompletions(items: readonly CiteCompletion[], query: string) {
-  const q = query.toLowerCase();
-  return items
-    .filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) ||
-        c.label.toLowerCase().includes(q) ||
-        (c.detail?.toLowerCase().includes(q) ?? false),
-    )
-    .slice(0, 20);
+function matchingCompletions(items: readonly CiteCompletion[], query: string): CiteCompletion[] {
+  return Array.from(readyCore().filterCiteCompletions(items, query), (i) => items[i] as CiteCompletion);
 }
 
 function hasExactTitle(items: readonly CiteCompletion[], title: string): boolean {
-  const key = normalizeTitleKey(title);
-  return items.some((c) => normalizeTitleKey(c.title) === key);
+  const key = readyCore().normalizeTitleKey(title);
+  return items.some((c) => readyCore().normalizeTitleKey(c.title) === key);
 }
 
 /** How an `@` cite completion inserts under the chosen format (Phase C2). */
 function insertForCompletion(c: CiteCompletion, format: EditorCitationFormat): string {
   if (format === "wikilink" || !c.paper) return `[[${c.title}]]`;
-  return formatPaperCitation(c.paper as Paper, format);
+  return readyCore().formatPaperCitation(c.paper as Paper, format);
 }
 
 /**
@@ -95,19 +91,6 @@ function closingAfter(view: EditorView, pos: number): number {
  * unresolved (the make failed, or it is a paper's title) is not retried on
  * every keystroke.
  */
-export function finishedLinks(doc: string, caret: number): string[] {
-  const out: string[] = [];
-  const re = /\[\[([^[\]\n]+?)\]\]/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(doc)) !== null) {
-    if (caret > m.index && caret < m.index + m[0].length) continue;
-    // Only links `extractWikilinks` reads: `[[title|alias]]` and
-    // `[[title#heading]]` name `title`.
-    const [ref] = extractWikilinks(m[0]);
-    if (ref) out.push(ref.target);
-  }
-  return out;
-}
 
 function createTypedLinks(
   completionsRef: { current: readonly CiteCompletion[] },
@@ -119,8 +102,8 @@ function createTypedLinks(
     const create = createNoteRef.current;
     if (!create) return;
     const caret = update.view.hasFocus ? update.state.selection.main.head : -1;
-    for (const title of finishedLinks(update.state.doc.toString(), caret)) {
-      const key = normalizeTitleKey(title);
+    for (const title of readyCore().finishedLinks(update.state.doc.toString(), caret)) {
+      const key = readyCore().normalizeTitleKey(title);
       if (!key || offered.has(key)) continue;
       offered.add(key);
       if (hasExactTitle(completionsRef.current, title)) continue;
@@ -196,7 +179,7 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     const before = ctx.matchBefore(/\[\[[^\]\n]*/);
     if (!before || (before.from === before.to && !ctx.explicit)) return null;
     const query = before.text.slice(2);
-    const options: Completion[] = filterCompletions(completionsRef.current, query).map((c) => ({
+    const options: Completion[] = matchingCompletions(completionsRef.current, query).map((c) => ({
       label: c.label,
       detail: c.detail,
       apply: (view, _completion, from, to) => {
@@ -263,7 +246,7 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     const query = before.text.slice(1);
     if (!query && !ctx.explicit) return null;
     const format = citationFormatRef.current;
-    const options = filterCompletions(completionsRef.current, query).map((c) => ({
+    const options = matchingCompletions(completionsRef.current, query).map((c) => ({
       label: c.label,
       detail: c.detail ?? (format === "wikilink" ? undefined : format),
       apply: insertForCompletion(c, format),
@@ -314,6 +297,10 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
     search({ top: true }),
     // Ahead of the default keymap so the cleanup bindings win.
     keymap.of(pasteCleanupKeymap({ settings: () => pasteSettings.current })),
+    // Google Docs' formatting keys, ahead of the default keymap so Mod-i and Mod-u are ours.
+    keymap.of(markdownFormatKeymap()),
+    markdownContextMenu,
+    spellcheck,
     keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
     drawSelection(),
     EditorView.lineWrapping,

@@ -1,21 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { analyzePdfDocument, type DocumentAnalysis, type ReaderOutlineItem } from "@weaveforge/core";
+import { type DocumentAnalysis, type ParsedReference, type PdfLink, type ReaderOutlineItem } from "@weaveforge/core";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
-import {
-  indexFromAnalysis,
-  type ReaderReferenceIndex,
-  type ReferencePage,
-} from "../../application/reader-references";
-import type {
-  AnalysisRequest,
-  AnalysisResponse,
-  AnalysisWorkerPage,
-} from "../../infrastructure/analysis.worker";
+import type { PageTextItem, ReaderReferenceIndex } from "@weaveforge/wasm";
+import type { AnalysisRequest, AnalysisResponse, AnalysisWorkerPage } from "../../infrastructure/analysis.worker";
+import { readyCore } from "@/lib/rust-core";
 
-const EMPTY_INDEX: ReaderReferenceIndex = {
+/** The page the reader hands the analyzer: its text items and `/Link` annotations. */
+export interface ReaderInputPage {
+  pageNumber: number;
+  items: readonly PageTextItem[];
+  links?: readonly PdfLink[];
+}
+
+/** The overlay index, with references typed as the parsed entries the overlay reads. */
+export type ReferenceIndex = ReaderReferenceIndex<ParsedReference>;
+
+const EMPTY_INDEX: ReferenceIndex = {
   references: [],
   byIndex: new Map(),
   mentionsByPage: new Map(),
@@ -48,7 +51,7 @@ function getWorker(): Worker | null {
 }
 
 export interface UseDocumentAnalyzerInput {
-  pages: readonly ReferencePage[];
+  pages: readonly ReaderInputPage[];
   outline: readonly ReaderOutlineItem[];
 }
 
@@ -57,15 +60,15 @@ export interface UseDocumentAnalyzerInput {
  * worker failed: one analysis pass yields both. Null (and logged) on failure.
  */
 export function analyzeInThread(
-  pages: readonly ReferencePage[],
+  pages: readonly ReaderInputPage[],
   outline: readonly ReaderOutlineItem[],
-): { analysis: DocumentAnalysis; index: ReaderReferenceIndex } | null {
+): { analysis: DocumentAnalysis; index: ReferenceIndex } | null {
   try {
-    const analysis = analyzePdfDocument(
-      pages.map((page) => ({ pageNumber: page.pageNumber, items: page.items, links: page.links ?? [] })),
+    const analysis = readyCore().analyzePdfDocument(
+      pages.map((page) => ({ pageNumber: page.pageNumber, items: [...page.items], links: [...(page.links ?? [])] })),
       outline,
-    );
-    return { analysis, index: indexFromAnalysis(analysis, pages) };
+    ) as DocumentAnalysis;
+    return { analysis, index: readyCore().indexFromAnalysis<ParsedReference>(analysis, pages) };
   } catch (err) {
     logToApp({
       level: "warn",
@@ -79,7 +82,7 @@ export function analyzeInThread(
 
 export interface DocumentAnalyzerResult {
   /** The overlay-shaped index derived from the analysis. */
-  index: ReaderReferenceIndex;
+  index: ReferenceIndex;
   /** The structured analysis itself — sections, entries, citations, figures. */
   analysis: DocumentAnalysis;
   progress: number; // 0 - 100
@@ -96,7 +99,7 @@ export function useDocumentAnalyzer({
   pages,
   outline,
 }: UseDocumentAnalyzerInput): DocumentAnalyzerResult {
-  const [index, setIndex] = useState<ReaderReferenceIndex>(EMPTY_INDEX);
+  const [index, setIndex] = useState<ReferenceIndex>(EMPTY_INDEX);
   const [analysis, setAnalysis] = useState<DocumentAnalysis>(EMPTY_ANALYSIS);
   const [progress, setProgress] = useState<number>(0);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
@@ -152,7 +155,7 @@ export function useDocumentAnalyzer({
         setProgress(data.percent);
       } else if (data.type === "complete") {
         setAnalysis(data.analysis);
-        setIndex(indexFromAnalysis(data.analysis, pages));
+        setIndex(readyCore().indexFromAnalysis<ParsedReference>(data.analysis, pages));
         setProgress(100);
         setIsAnalyzing(false);
         cleanup();

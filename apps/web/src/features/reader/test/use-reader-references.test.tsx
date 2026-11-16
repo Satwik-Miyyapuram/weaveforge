@@ -3,16 +3,20 @@
  * that lands after the document changed writes nothing, the prefetch queue
  * reads the current resolutions, and a failed prefetch is logged.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
-import type { PageTextItem, ParsedReference } from "@weaveforge/core";
+import type { ParsedReference } from "@weaveforge/core";
 
-import type { ResolvedReference } from "../application/reference-lookup";
+import type { ResolvedReference } from "../application/parts-2";
 import { useReaderReferences } from "../ui/pdf-reader/use-reader-references";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import type { PageTextItem } from "@weaveforge/wasm";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+before(loadTestCore);
 
 type Log = { level: string; source: string; message: string; detail?: string };
 const logs: Log[] = [];

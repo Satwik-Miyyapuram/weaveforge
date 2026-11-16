@@ -40,7 +40,9 @@ Built **TDD + SOLID**: framework-agnostic core (`@weaveforge/core`), repository 
 
 ## Quick start
 
-**Prerequisites:** Node.js 22+ and the data stack: **Postgres 16 + PostgREST + Realtime on OCI**,
+**Prerequisites:** Node.js 22+, Rust through `rustup` (`rust-toolchain.toml` pins the version and
+the `wasm32-unknown-unknown` target), `cargo install wasm-bindgen-cli --version 0.2.129` (it must
+equal the `wasm-bindgen` crate in `Cargo.lock`), and the data stack: **Postgres 16 + PostgREST + Realtime on OCI**,
 with MinIO for blobs, all behind Caddy ([`infra/oci/docker-compose.yml`](infra/oci/docker-compose.yml);
 see [`docs/running/backend.md`](docs/running/backend.md)). Every row and every file lives there.
 
@@ -50,7 +52,8 @@ verifies them. No research data is stored in Supabase.
 ```bash
 git clone https://github.com/Satwik-Miyyapuram/weaveforge.git
 cd weaveforge
-npm install
+npm ci
+npm run generate           # the Rust bindings, the WASM package and the docs map (not committed)
 npm run build:core
 npm run test:core          # the domain suite — no network, no browser
 ```
@@ -126,7 +129,7 @@ Details: [`python/README.md`](python/README.md).
 ```
 packages/core/     Domain entities, repository interfaces, use-cases (no React, no data-access SDK)
 apps/web/          Next.js PWA — features/{domain,application,infrastructure,ui}
-                   bootstrap.ts = composition root; facades/ = UI API (ISP)
+                   bootstrap.ts = composition root; container/facades/ = UI API (ISP)
 python/            Same contracts for experiment push + sync sources
 db/                SQL migrations — single schema source of truth
 ```
@@ -153,6 +156,7 @@ index, and `docs/internal/` holds the working notes that are not a manual.
 | [`docs/using/search.md`](docs/using/search.md) | One search box over papers, notes, experiments, PDF text and annotations |
 | [`docs/using/paste.md`](docs/using/paste.md) | What happens to text pasted from a PDF, terminal, spreadsheet, or chat |
 | [`docs/using/collaborative-editing.md`](docs/using/collaborative-editing.md) | Two people in one note, live cursors, no overwrite prompt |
+| [`docs/using/organisations.md`](docs/using/organisations.md) | Labs: create or join with an invite code, roles, who sees whom |
 | [`docs/using/desktop.md`](docs/using/desktop.md) | The desktop & mobile apps — Windows, Mac, Android install & offline mode |
 | [`docs/using/workspaces.md`](docs/using/workspaces.md) | Projects & workspaces — project boundaries, switching, multi-pane editor |
 | [`docs/using/workspace-folder.md`](docs/using/workspace-folder.md) | A folder of plain Markdown that mirrors your workspace, and reads your edits back |
@@ -196,9 +200,15 @@ index, and `docs/internal/` holds the working notes that are not a manual.
 ```
 apps/web/         Next.js PWA
 apps/pitch/       Static export of the pitch site (GitHub Pages)
-apps/desktop/     Electron shell around the web app (see apps/desktop/README.md)
+apps/shell/       Tauri desktop and Android shell around the web app
+apps/android/     Android inking shell (WebView + stylus overlay)
+apps/ios/         iOS WKWebView shell
+apps/relay/       Relay crates and the relay server on OCI
+crates/           Rust core: wf-core, wf-wasm, wf-bindings, wf-store (see docs/building/core/)
 packages/core/    @weaveforge/core — shared domain + use-cases
-db/               SQL migrations 0001…0131 for the OCI Postgres (see db/migrations/README.md)
+packages/wf-wasm/ wf-core as wasm, with types generated from Rust
+db/               SQL migrations 0001…0156 for the OCI Postgres (see db/migrations/README.md)
+infra/oci/        Docker Compose for the OCI server
 python/           weaveforge SDK
 docs/             using/ building/ running/, and internal/ working notes
 ```
@@ -266,6 +276,7 @@ That is the same gate CI runs — typecheck across every workspace, lint,
 build. Everything below is a piece of it, useful when you want a faster loop.
 
 ```bash
+npm run generate         # bindings + WASM package + docs map (dev, build and test also run the first two)
 npm run dev              # web app @ :3000
 npm run build:core       # compile @weaveforge/core
 npm run test:core        # domain + contract tests
@@ -299,24 +310,16 @@ WeaveForge pricing and usage limits are planned separately.
 
 ## The desktop app
 
-`apps/desktop` is an Electron window that loads the web app — the same Next.js
-build a browser loads — and adds only what a browser genuinely cannot do. Like
-the pitch site, it is **not a copy**: three small files, and the two things it
-adds import the web app's own modules rather than restating them.
-
-Today that is fetching a pasted link's title and downloading a pasted image
-address, both of which a browser has to route through our server because of
-CORS. The desktop app does them directly, through the same address guard, by
-importing the same `fetch-for-paste` module the API route uses.
+`apps/shell` is a Tauri window that loads the web app — the same Next.js
+build a browser loads — and adds only what a browser cannot do. Like the pitch
+site, it is **not a copy**: the native parts (relays for CORS-bound requests,
+local files, ink recognition) are Rust in `apps/shell/src` and `crates/`, and the
+web app reaches them through its desktop bridge.
 
 ```bash
-npm run dev --workspace @weaveforge/web       # the app, on :3000
-npm start --workspace @weaveforge/desktop     # a window pointed at it
+npm run dev --workspace @weaveforge/web           # the app, on :3000
+npm run tauri --workspace @weaveforge/shell dev   # a window pointed at it
 ```
-
-Adding a capability without writing it twice — declare it on `DesktopBridge`,
-give it a browser implementation beside the desktop one, pick between them at
-the call site — is written up in `apps/desktop/README.md`.
 
 ## The pitch site
 

@@ -6,9 +6,10 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
 import { LocalApiTokenCreate, LocalApiTokenTable, useLocalApiState } from "@/components/local-api-tokens";
 import { McpClients } from "./mcp-clients";
-import { copyText } from "@/lib/clipboard";
+import { copyText } from "@/lib/parts";
 import { Button } from "@/components/button";
 import { Switch } from "@/components/controls";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 /**
  * Settings → AI → MCP and the local HTTP surface, desktop only.
@@ -20,6 +21,7 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
 
   if (!state) return null;
 
@@ -72,9 +74,25 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
           checked={state.enabled}
           label={sdk ? "Let programs on this computer connect" : "Serve MCP"}
           disabled={busy}
-          onChange={(on) => void setEnabled(on)}
+          onChange={(on) => (on ? setAsking(true) : void setEnabled(false))}
         />
       </div>
+      {asking && (
+        <ConfirmDialog
+          title={sdk ? "Turn on program access?" : "Turn on AI access?"}
+          body={
+            sdk
+              ? "Programs on this computer with a token you make can then use this app while it is open."
+              : "AI clients on this computer with a token you make can then read and search your workspace and leave drafts for you to approve."
+          }
+          confirmLabel="Turn on"
+          onConfirm={() => {
+            setAsking(false);
+            void setEnabled(true);
+          }}
+          onClose={() => setAsking(false)}
+        />
+      )}
       {!sdk && state.mcp && <McpClients state={state} onChange={setState} />}
       {state.enabled && !(!sdk && state.mcp) && (
         <>

@@ -1,24 +1,25 @@
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  cloneLinks,
-  filterGraphByNodes,
-  linkNodeId,
-  localSubgraph,
-} from "../application/local-graph";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 describe("linkNodeId", () => {
   it("returns string sources unchanged", () => {
-    assert.equal(linkNodeId("a"), "a");
+    assert.equal(readyCore().linkNodeId("a"), "a");
   });
 
   it("reads id from object sources", () => {
-    assert.equal(linkNodeId({ id: "b" }), "b");
+    assert.equal(readyCore().linkNodeId({ id: "b" }), "b");
   });
 });
 
 describe("localSubgraph", () => {
+
   const neighbors = new Map<string, Set<string>>([
     ["a", new Set(["b", "c"])],
     ["b", new Set(["a", "d"])],
@@ -27,16 +28,16 @@ describe("localSubgraph", () => {
   ]);
 
   it("returns null when seed or depth is invalid", () => {
-    assert.equal(localSubgraph(null, 2, neighbors), null);
-    assert.equal(localSubgraph("a", 0, neighbors), null);
+    assert.equal(readyCore().localSubgraph(null, 2, neighbors), null);
+    assert.equal(readyCore().localSubgraph("a", 0, neighbors), null);
   });
 
   it("expands to depth-limited neighborhood", () => {
-    const depth1 = localSubgraph("a", 1, neighbors);
+    const depth1 = readyCore().localSubgraph("a", 1, neighbors);
     assert.ok(depth1);
     assert.deepEqual([...depth1!].sort(), ["a", "b", "c"]);
 
-    const depth2 = localSubgraph("a", 2, neighbors);
+    const depth2 = readyCore().localSubgraph("a", 2, neighbors);
     assert.ok(depth2);
     assert.deepEqual([...depth2!].sort(), ["a", "b", "c", "d"]);
   });
@@ -51,26 +52,26 @@ describe("filterGraphByNodes", () => {
   ];
 
   it("passes through when allowed is null", () => {
-    const out = filterGraphByNodes(nodes, links, null);
+    const out = readyCore().filterGraphByNodes(nodes, links, null);
     assert.equal(out.nodes.length, 3);
     assert.equal(out.links.length, 3);
   });
 
   it("keeps only links whose endpoints are allowed", () => {
-    const out = filterGraphByNodes(nodes, links, new Set(["a", "b"]));
+    const out = readyCore().filterGraphByNodes(nodes, links, new Set(["a", "b"]));
     assert.deepEqual(
       out.nodes.map((n) => n.id),
       ["a", "b"],
     );
     assert.equal(out.links.length, 1);
-    assert.equal(linkNodeId(out.links[0]!.source), "a");
-    assert.equal(linkNodeId(out.links[0]!.target), "b");
+    assert.equal(readyCore().linkNodeId(out.links[0]!.source), "a");
+    assert.equal(readyCore().linkNodeId(out.links[0]!.target), "b");
   });
 });
 
 describe("cloneLinks", () => {
   it("normalizes object endpoints to strings", () => {
-    const cloned = cloneLinks([
+    const cloned = readyCore().cloneLinks([
       { source: { id: "x" }, target: "y", color: "#000" },
     ]);
     assert.equal(cloned[0]!.source, "x");

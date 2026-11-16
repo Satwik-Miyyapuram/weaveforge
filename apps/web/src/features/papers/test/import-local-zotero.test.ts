@@ -3,7 +3,7 @@ import test from "node:test";
 
 import type { Paper } from "@weaveforge/core";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
-import { ImportLocalZoteroUseCase } from "../application/import-local-zotero.use-case";
+import { ImportLocalZoteroUseCase } from "../application/parts-1";
 
 /**
  * The local-Zotero workflow, driven with a bridge a test supplies.

@@ -13,11 +13,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { InkColour } from "@weaveforge/core";
 
-import type { PenHaptics, PenHapticsTool } from "../application/pen-haptics";
+import type { PenHaptics, PenHapticsTool } from "../application/parts-4";
 import { usePenCapture } from "../application/use-pen-capture";
-import { trailStyle } from "../application/ink-trail";
+import { trailStyle } from "../application/parts-1";
 import type { InkWorkerEvent } from "../application/capture-protocol";
-import type { InkPalette } from "../render/ink-palette";
+import type { InkPalette } from "../render/parts-1";
 import { nibForTool, type InkBarTool } from "./ink-bar";
 
 /** What the pen needs from the host. */

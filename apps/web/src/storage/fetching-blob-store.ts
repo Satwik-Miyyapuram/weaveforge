@@ -1,5 +1,6 @@
 import type { IBlobStore, IBlobFetcher } from "@weaveforge/core";
-import { BlobNotFoundError, guessBlobContentType } from "@weaveforge/core";
+import { BlobNotFoundError } from "@weaveforge/core";
+import { loadCore } from "@/lib/rust-core";
 
 const FETCH_TTL_S = 300;
 
@@ -48,7 +49,7 @@ export class FetchingBlobStore implements IBlobFetcher {
   async fetchBlob(bucket: string, path: string, fallbackContentType?: string): Promise<Blob> {
     if (this.reader) return this.reader.fetchBlob(bucket, path, fallbackContentType);
     const bytes = await this.fetchBytes(bucket, path);
-    const type = fallbackContentType ?? guessBlobContentType(path);
+    const type = fallbackContentType ?? (await loadCore()).guessBlobContentType(path);
     return new Blob([bytes.slice()], { type });
   }
 
@@ -69,7 +70,7 @@ export class FetchingBlobStore implements IBlobFetcher {
           const res = await fetch(url);
           if (!res.ok) return;
           const bytes = new Uint8Array(await res.arrayBuffer());
-          const type = fallbackContentType ?? guessBlobContentType(path);
+          const type = fallbackContentType ?? (await loadCore()).guessBlobContentType(path);
           out.set(path, new Blob([bytes.slice()], { type }));
         } catch {
           // skip broken assets

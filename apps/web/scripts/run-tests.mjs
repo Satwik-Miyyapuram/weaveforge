@@ -10,6 +10,8 @@
  *
  *   npm run test --workspace @weaveforge/web
  *   npm run test --workspace @weaveforge/web -- --test-name-pattern startup
+ *
+ * It also preloads the Rust core (src/lib/test/preload-core.mts).
  */
 
 import { spawn } from "node:child_process";
@@ -23,6 +25,9 @@ const child = spawn(
   [
     "--import",
     "tsx",
+    // Loads the Rust core before any test, for callers of readyCore().
+    "--import",
+    "./src/lib/test/preload-core.mts",
     "--test",
     ...process.argv.slice(2),
     // Named test files run alone; otherwise the whole suite. Two patterns

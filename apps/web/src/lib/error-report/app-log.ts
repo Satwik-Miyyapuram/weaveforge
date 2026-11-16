@@ -1,7 +1,20 @@
 "use client";
 
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { redact } from "./redact";
+import { readyCore } from "@/lib/rust-core";
+
+/**
+ * Redacts before a line is written. Logging can run before the Rust core has
+ * loaded, and then nothing can be redacted, so the value is withheld rather than
+ * written raw.
+ */
+function scrub(text: string): string {
+  try {
+    return readyCore().redact(text).text;
+  } catch {
+    return "<not logged: Rust core not loaded>";
+  }
+}
 
 /**
  * The one way the page writes to the application log.
@@ -58,12 +71,12 @@ export function reportFailedRequest(input: {
   error?: unknown;
 }): void {
   const { method, url, status, statusText, body, error } = input;
-  const line = `${method.toUpperCase()} ${redact(url).text} — ${
+  const line = `${method.toUpperCase()} ${scrub(url)} — ${
     status === undefined ? "no response" : `${status}${statusText ? ` ${statusText}` : ""}`
   }`;
   const detail = [
     error instanceof Error ? (error.stack ?? `${error.name}: ${error.message}`) : error ? String(error) : "",
-    body ? redact(body).text.slice(0, 2_000) : "",
+    body ? scrub(body).slice(0, 2_000) : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -71,6 +84,6 @@ export function reportFailedRequest(input: {
     level: "error",
     source: "request",
     message: line,
-    detail: detail ? redact(detail).text : undefined,
+    detail: detail ? scrub(detail) : undefined,
   });
 }

@@ -1,0 +1,30 @@
+//! Pure helpers behind the AI assistant: prompt fencing and the wiki index.
+
+pub mod access_policy;
+pub mod ai_tool_name;
+pub mod byok_wire;
+pub mod chat_split;
+pub mod document_text;
+pub mod evidence;
+pub mod extraction;
+pub mod folder_draft;
+pub mod lexical_concepts;
+pub mod mcp_dispatch;
+pub mod mcp_result;
+pub mod model_concepts;
+pub mod model_extraction;
+pub mod model_router;
+pub mod proposal_apply;
+pub mod proposal_draft;
+pub mod proposal_inputs;
+pub mod proposal_payload;
+pub mod proposal_preview;
+pub mod provider_descriptor;
+pub mod retrieval;
+pub mod session_grant;
+pub mod untrusted_context;
+pub mod wiki_index;
+pub mod wiki_lint;
+pub mod wiki_merge;
+pub mod wiki_pages;
+pub mod wiki_plan;

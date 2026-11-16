@@ -141,6 +141,36 @@ export function TextIcon(props: IconProps) {
   );
 }
 
+/** A keyboard — Text mode: type the note. */
+export function KeyboardIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M8 13h.01M12 13h.01M16 13h.01M7 16h10" />
+    </Svg>
+  );
+}
+
+/** A handwritten stroke on a line — Ink mode: write by hand. */
+export function HandwritingIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3 15c2-4 4-8 6-8s0 8 2 8 2-5 4-5 1 5 3 5 2-2 3-3" />
+      <path d="M3 20h18" />
+    </Svg>
+  );
+}
+
+/** Two panes — the preview beside (`side`) or below the text. */
+export function SplitViewIcon({ side, ...props }: IconProps & { side: "side" | "below" }) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d={side === "side" ? "M12 4v16" : "M3 12h18"} />
+    </Svg>
+  );
+}
+
 /** An eye — preview the rendered Markdown. */
 export function PreviewIcon(props: IconProps) {
   return (
@@ -252,6 +282,16 @@ export function CheckIcon(props: IconProps) {
   return (
     <Svg {...props}>
       <path d="M5 12.5l4.5 4.5L19 7" />
+    </Svg>
+  );
+}
+
+/** Link — two chain links. */
+export function LinkIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
     </Svg>
   );
 }

@@ -3,7 +3,7 @@ import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { renderDashboardCard, type CardRenderProps } from "../ui/cards/card-renderers";
-import type { DashboardStats } from "../application/build-dashboard-stats";
+import type { DashboardStats } from "../application/parts";
 
 /** The three progress cards share one renderer; each shows its own figure (35-21). */
 const stats = {

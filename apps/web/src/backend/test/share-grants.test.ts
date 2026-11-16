@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ShareAccess } from "@weaveforge/core";
+import type { IShareRepository, ShareAccess } from "@weaveforge/core";
 
-import { PostgrestShareRepository } from "@/features/sharing/infrastructure/postgrest-share-repository";
+import { projectUserCtx, rustRepository } from "@/backend/providers/postgrest/rust-repository";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import { testDb } from "./pg-test-db";
 
@@ -19,7 +19,13 @@ type Db = Awaited<ReturnType<typeof testDb>>;
 
 function repoFor(db: Db, as: string) {
   const session = { getCurrentUserId: async () => as, requireUserId: async () => as };
-  return new PostgrestShareRepository(createLocalClient(db.as(as).sql as LocalQuery) as unknown as SupabaseClient, session);
+  const client = createLocalClient(db.as(as).sql as LocalQuery) as unknown as SupabaseClient;
+  return rustRepository<IShareRepository>(
+    client,
+    "shares",
+    ["grant", "revoke", "listForResource", "listSharedWithMe"],
+    projectUserCtx({ projectId: null }, session),
+  );
 }
 
 async function ownedNote(db: Db) {

@@ -1,3 +1,10 @@
+---
+covers:
+  - plugins
+  - apps/web/src/integrations
+  - weaveforge.config.ts
+checked: 2026-11-14
+---
 # Extending WeaveForge
 
 WeaveForge is built as a **modular monolith**: domain logic lives in `@weaveforge/core`, infrastructure is swapped at the composition root, and the UI talks to **facades** — not supabase-js, not repositories, not third-party SDKs.
@@ -32,7 +39,7 @@ That layering is the extension model. You extend the app by implementing a **por
 | Client | File |
 |--------|------|
 | Web PWA | `apps/web/src/bootstrap.ts` |
-| Backend selection | `apps/web/src/backend/wire-backend.ts` |
+| Backend selection | `apps/web/src/container/parts.ts` |
 | Integrations | `apps/web/src/integrations/wire-integrations.ts` |
 | Blob storage | `apps/web/src/storage/wire-storage.ts` |
 | Python SDK | `python/weaveforge/container.py` |
@@ -46,7 +53,7 @@ That layering is the extension model. You extend the app by implementing a **por
 |---------------|-----------|--------|-------|
 | Connect Zotero, GitLab, Mattermost, … | **Integration provider** | Low | [`integrations.md`](integrations.md) |
 | Import papers from a new catalog | **Metadata / citation source** | Low | Below + `integrations.md` |
-| Push metrics from training code | **Python sync source** | Low | [`CONTRIBUTING.md` § Python](../CONTRIBUTING.md#adding-a-sync-source-the-extension-point) |
+| Push metrics from training code | **Python sync source** | Low | [`CONTRIBUTING.md` § Python](../../CONTRIBUTING.md#adding-a-sync-source-the-extension-point) |
 | New top-level screen (e.g. Timer) | **Feature module** | Medium | Below + [`dev.md`](../building/dev.md) |
 | Self-host on plain Postgres | **Backend provider** | High | [`backend.md`](../running/backend.md) |
 | S3/R2/MinIO blobs | **Storage provider** | Medium | [`storage/README.md`](../running/storage/README.md) |
@@ -60,10 +67,10 @@ The closest thing to a “plugin” today. Env vars select the implementation at
 **Ports** live in `packages/core/src/features/integrations/`:
 
 - `IBibliographyIntegration` — Zotero sync
-- `ICitationSource` — Semantic Scholar graph linking
+- `ICitationSource` — Semantic Scholar graph linking (`packages/core/src/features/relations/application/parts.ts`)
 - `INotificationIntegration` — Mattermost milestone alerts
 - `ILogSyncIntegration` — push logbook entries externally
-- `IGitClient` — read branches/commits
+- `IGitClient` — read branches/commits (app-side: `apps/web/src/features/sync/domain/parts.ts`)
 
 **Checklist** (full detail in [`integrations.md`](integrations.md)):
 
@@ -74,7 +81,7 @@ The closest thing to a “plugin” today. Env vars select the implementation at
 5. Optional: `apps/web/src/app/api/<name>/route.ts` for CORS-safe browser calls.
 6. Run `npm run check:solid`.
 
-**Example:** `NEXT_PUBLIC_BIBLIOGRAPHY_PROVIDER=zotero` → `ZoteroBibliographyIntegration` is constructed in `wireIntegrations()` and injected into `PapersFacade`.
+**Example:** `NEXT_PUBLIC_BIBLIOGRAPHY_PROVIDER=zotero` → the Zotero manifest's `wire()` builds `ZoteroBibliographyIntegration` inside `wireIntegrations()`, and `apps/web/src/create-app-container.ts` injects it into `ZoteroFacade`.
 
 ---
 
@@ -84,13 +91,13 @@ Paper import resolves metadata through a **chain of sources** — first `support
 
 | Port | Location | Wired in |
 |------|----------|----------|
-| `IMetadataSource` | `packages/core/.../metadata-source.ts` | `MetadataResolver` in `bootstrap.ts` |
-| `ICitationSource` | `packages/core/.../citation-source.ts` | `wire-citations.ts` |
+| `IMetadataSource` | `packages/core/src/features/papers/application/parts-1.ts` | `MetadataResolver` in `apps/web/src/create-app-container.ts` |
+| `ICitationSource` | `packages/core/src/features/relations/application/parts.ts` | `wireCitationSources()` in `apps/web/src/create-app-container.ts` |
 
 To add e.g. OpenAlex:
 
 1. Implement `IMetadataSource` with `id`, `supports()`, `fetch()`.
-2. Append to the resolver list in `bootstrap.ts` (after existing sources).
+2. Append to the `MetadataResolver` list in `apps/web/src/create-app-container.ts` (after existing sources).
 3. Unit-test the pure parsing; integration-test against the API if creds exist.
 
 Bibliography providers may also export a metadata source (Zotero does both).
@@ -135,7 +142,7 @@ features/<name>/
 
 ### `FeatureModule` contract
 
-Defined in `packages/core/src/shared/module.ts`:
+Defined in `packages/core/src/shared/parts.ts`:
 
 ```ts
 export interface FeatureModule {
@@ -154,8 +161,8 @@ Adding a feature today requires edits in **several** places (by design — expli
 | Step | File / location |
 |------|-----------------|
 | 1. Domain + ports | `packages/core/src/features/<name>/` |
-| 2. Contract tests | `packages/core/src/testing/*-contract.ts` + `packages/core/test/` |
-| 3. In-memory fake | `packages/core/src/testing/in-memory-*.ts` |
+| 2. Contract tests | `apps/web/src/backend/test/contracts/*.contract.test.ts` |
+| 3. In-memory fake | class beside its port, e.g. `InMemoryPdfByteCache` in `packages/core/src/reader/parts.ts` |
 | 4. PostgREST adapter | `apps/web/src/features/<name>/infrastructure/` or `backend/providers/postgrest/` |
 | 5. DB migration | `db/migrations/00NN_<name>.sql` |
 | 6. Module descriptor | `apps/web/src/features/<name>/module.ts` |
@@ -176,8 +183,8 @@ Adding a feature today requires edits in **several** places (by design — expli
 
 | Layer | Env var | Wire file |
 |-------|---------|-----------|
-| Relational DB + auth | `NEXT_PUBLIC_BACKEND_PROVIDER` | `wire-backend.ts` |
-| Object blobs | `BLOB_PROVIDER` | `wire-storage.ts` |
+| Relational DB + auth | `NEXT_PUBLIC_BACKEND_PROVIDER` | `apps/web/src/backend/parts.ts` (`readBackendConfig()`) |
+| Object blobs | `NEXT_PUBLIC_BLOB_PROVIDER` | `apps/web/src/storage/wire-storage.ts` |
 
 Implement repository interfaces from `@weaveforge/core`, pass the shared **contract test suite**, add a `case` in the wire switch.
 
@@ -208,7 +215,7 @@ Integration Settings UI is **data-driven**: each manifest under
 `descriptors-resolve.ts` collects them.
 
 - `UserIntegrationDescriptor` — per-user API keys (Zotero, Semantic Scholar)
-- `ProjectSyncDescriptor` — per-project connectors (GitHub, Mattermost)
+- `ProjectSyncDescriptor` — per-project connectors (GitHub and GitLab Git tab, GitLab logbook, Mattermost project alerts)
 
 Gated by `readIntegrationConfig()` so disabled providers never appear.
 
@@ -222,7 +229,7 @@ Gated by `readIntegrationConfig()` so disabled providers never appear.
 | Repository | Shared contract suite — run against in-memory + PostgREST |
 | UI boundaries | `npm run check:solid` + `npm run check:dry` |
 | Integrations | Adapter unit tests + optional live test with env creds |
-| Python sync | `pytest` with fabricated rows (`tests/test_sync_sources.py`) |
+| Python sync | `pytest` with fabricated rows (`python/tests/test_sync_sources.py`) |
 | Full CI | `npm run test:core`, `npm test --workspace @weaveforge/web`, PR to `main` |
 
 A module is done when contract tests pass on **both** in-memory and real backend implementations (Liskov).
@@ -250,4 +257,4 @@ A module is done when contract tests pass on **both** in-memory and real backend
 | [`dev.md`](../building/dev.md) | Day-to-day dev, SOLID CI checks |
 | [`integrations.md`](integrations.md) | Integration provider deep dive |
 | [`backend.md`](../running/backend.md) | Backend vs storage separation |
-| [`CONTRIBUTING.md`](../CONTRIBUTING.md) | PR checklist |
+| [`CONTRIBUTING.md`](../../CONTRIBUTING.md) | PR checklist |

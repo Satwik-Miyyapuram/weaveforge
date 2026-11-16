@@ -7,8 +7,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { accountAttention } from "../account-attention";
-import type { InboxLink } from "../inbox-links";
+import { readyCore } from "@/lib/rust-core";
+import type { InboxLink } from "@weaveforge/wasm";
+
+const { accountAttention } = readyCore();
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
 const ai = (badge?: number): InboxLink => ({

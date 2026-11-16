@@ -13,8 +13,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  AddLogEntryUseCase,
-  AiBrowserPairingRequiredError,
   CitationAlertTrackError,
   CommentValidationError,
   ConflictError,
@@ -26,12 +24,7 @@ import {
   ExperimentValidationError,
   LibraryPinError,
   LogEntryValidationError,
-  ManageExperimentUseCase,
-  ManageMilestoneUseCase,
   ManageReadingListUseCase,
-  ManageReportSectionUseCase,
-  ManageTagsUseCase,
-  ManageVaultPageUseCase,
   MemberPermissionError,
   MemberValidationError,
   MetadataResolutionError,
@@ -52,26 +45,20 @@ import {
   ShareValidationError,
   UpdatePaperUseCase,
   ValidationError,
-  VectorDimensionError,
   VaultPageValidationError,
   WeaveForgeError,
   WorkspacePathError,
   httpStatusForError,
   isWeaveForgeError,
+  rust,
 } from "../../src/index.js";
 import {
-  InMemoryExperimentRepository,
-  InMemoryLogEntryRepository,
-  InMemoryMilestoneRepository,
   InMemoryPaperRepository,
-  InMemoryPaperTagRepository,
   InMemoryReadingListItemRepository,
   InMemoryReadingListRepository,
-  InMemoryReportSectionRepository,
-  InMemoryTagRepository,
-} from "../../src/testing/index.js";
-import { InMemoryVaultPageRepository } from "../../src/testing/in-memory-vault-page-repository.js";
-import { fixedClock, seqIds } from "../../src/testing/fakes.js";
+} from "../support/in-memory.js";
+import type { ITagManager } from "../../src/features/tags/domain/parts.js";
+import { fixedClock, seqIds } from "../support/clock.js";
 
 const clock = fixedClock();
 
@@ -113,7 +100,7 @@ test("every legacy error class keeps its name and gains a typed branch", () => {
 test("errors without a clear HTTP meaning still extend the root, not Error", () => {
   // These two describe a local transport precondition and a metadata fetch
   // failure: neither has a defensible status of its own, so they claim none.
-  for (const error of [new AiBrowserPairingRequiredError(), new CitationAlertTrackError("x")]) {
+  for (const error of [new CitationAlertTrackError("x")]) {
     assert.ok(error instanceof WeaveForgeError);
     assert.equal(error instanceof ValidationError, false);
     assert.equal(error instanceof NotFoundError, false);
@@ -131,7 +118,6 @@ test("httpStatusForError maps each branch, and nothing else guesses", () => {
     [new ValidationError("bad"), ERROR_STATUS_BAD_REQUEST],
     [new OrgValidationError("bad"), ERROR_STATUS_BAD_REQUEST],
     [new OrgInviteValidationError("bad"), ERROR_STATUS_BAD_REQUEST],
-    [new VectorDimensionError(3, 4), ERROR_STATUS_BAD_REQUEST],
     [new WorkspacePathError("../etc/passwd"), ERROR_STATUS_BAD_REQUEST],
     // A bug is not a rule: anything untaxonomised is a server error.
     [new Error("boom"), ERROR_STATUS_INTERNAL],
@@ -160,75 +146,13 @@ test("the same lab condition maps to the same status, whatever throws it", () =>
 /** One missing-id call per use case that used to signal 404 as a validation error. */
 const NOT_FOUND_CALLS: readonly (readonly [string, () => Promise<unknown>])[] = [
   [
-    "ManageVaultPageUseCase.update",
-    () =>
-      new ManageVaultPageUseCase({
-        repository: new InMemoryVaultPageRepository(),
-        clock,
-        ids: seqIds(),
-      }).update("missing", { title: "x" }),
-  ],
-  [
-    "ManageReportSectionUseCase.setStatus",
-    () =>
-      new ManageReportSectionUseCase({
-        repository: new InMemoryReportSectionRepository(),
-        clock,
-        ids: seqIds(),
-      }).setStatus("missing", "done"),
-  ],
-  [
-    "ManageMilestoneUseCase.update",
-    () =>
-      new ManageMilestoneUseCase({
-        repository: new InMemoryMilestoneRepository(),
-        clock,
-        ids: seqIds(),
-      }).update("missing", { title: "x" }),
-  ],
-  [
-    "ManageExperimentUseCase.setStatus",
-    () =>
-      new ManageExperimentUseCase({
-        repository: new InMemoryExperimentRepository(),
-        clock,
-        ids: seqIds(),
-      }).setStatus("missing", "running"),
-  ],
-  [
     "UpdatePaperUseCase.setStatus",
     () =>
       new UpdatePaperUseCase({
         repository: new InMemoryPaperRepository(),
-        tags: new ManageTagsUseCase({
-          tags: new InMemoryTagRepository(),
-          paperTags: new InMemoryPaperTagRepository(),
-          papers: new InMemoryPaperRepository(),
-          clock,
-          ids: seqIds(),
-        }),
+        tags: {} as unknown as ITagManager,
         clock,
       }).setStatus("missing", "read"),
-  ],
-  [
-    "AddLogEntryUseCase.update",
-    () =>
-      new AddLogEntryUseCase({
-        repository: new InMemoryLogEntryRepository(),
-        clock,
-        ids: seqIds(),
-      }).update("missing", { body: "x", kind: "daily" }),
-  ],
-  [
-    "ManageTagsUseCase.setManualTags",
-    () =>
-      new ManageTagsUseCase({
-        tags: new InMemoryTagRepository(),
-        paperTags: new InMemoryPaperTagRepository(),
-        papers: new InMemoryPaperRepository(),
-        clock,
-        ids: seqIds(),
-      }).setManualTags("missing", ["tag"]),
   ],
   [
     "ManageReadingListUseCase.removeList",
@@ -242,6 +166,16 @@ const NOT_FOUND_CALLS: readonly (readonly [string, () => Promise<unknown>])[] = 
   ],
 ];
 
+test("the ERROR_STATUS constants agree with Rust's kind-to-status map", () => {
+  // The constants stay literals: a module-level const is read at import, before the app has
+  // awaited the wasm load. This keeps the two copies from drifting apart.
+  assert.equal(ERROR_STATUS_BAD_REQUEST, rust().httpStatusForKind("validation"));
+  assert.equal(ERROR_STATUS_FORBIDDEN, rust().httpStatusForKind("permission"));
+  assert.equal(ERROR_STATUS_NOT_FOUND, rust().httpStatusForKind("not-found"));
+  assert.equal(ERROR_STATUS_CONFLICT, rust().httpStatusForKind("conflict"));
+  assert.equal(ERROR_STATUS_INTERNAL, rust().httpStatusForKind("internal"));
+});
+
 test("a missing id throws NotFoundError, never a validation error", async () => {
   for (const [label, call] of NOT_FOUND_CALLS) {
     await assert.rejects(call(), NotFoundError, `${label} did not throw NotFoundError`);
@@ -254,14 +188,3 @@ test("a missing id throws NotFoundError, never a validation error", async () => 
   }
 });
 
-test("the not-found messages still name the id, for logs and toasts", async () => {
-  await assert.rejects(
-    () =>
-      new ManageVaultPageUseCase({
-        repository: new InMemoryVaultPageRepository(),
-        clock,
-        ids: seqIds(),
-      }).update("missing", { title: "x" }),
-    /No vault page with id "missing"\./,
-  );
-});

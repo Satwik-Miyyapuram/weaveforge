@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { act } from "react-test-renderer";
 
-import { useSubmit } from "@/lib/hooks/use-submit";
+import { useSubmit } from "@/lib/hooks/parts";
 import { renderHook } from "./react-harness";
 
 test("a successful action resolves true and leaves no error", async () => {

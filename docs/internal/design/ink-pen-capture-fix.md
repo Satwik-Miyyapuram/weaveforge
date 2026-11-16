@@ -55,7 +55,7 @@ A forensic walkthrough of the pointer capture, event gating, worker messaging, a
   - In `ink-page.tsx`, `onPointerCancel={onPointerUp}` calls `session.pointerUp(event)`. Because only 1 or 2 samples were recorded before cancellation, `commitStroke` drops the mark (`packed.points.length < 4`), causing the stroke to immediately disappear.
 
 ### Bug 3: Permanent Palm Gate Lockup on Aborted / Non-Active Strokes
-- **Files:** `apps/web/src/features/ink/application/use-pen-capture.ts`, `apps/web/src/features/ink/application/pen-gate.ts`
+- **Files:** `apps/web/src/features/ink/application/use-pen-capture.ts`, `apps/web/src/features/ink/application/parts-4.ts`
 - **Mechanism:**
   - In `session.pointerDown(event)`, `this.deps.gate.begin(event)` claims the pointer and sets `gate.activeId = event.pointerId`.
   - When the stroke is subsequently cancelled by `pointercancel` or if `beginStroke` fails, `session.pointerUp(event)` executes:

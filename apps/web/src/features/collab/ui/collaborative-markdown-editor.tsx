@@ -8,12 +8,15 @@ import { defaultKeymap } from "@codemirror/commands";
 import { yCollab } from "y-codemirror.next";
 import * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
-import type { CollabSession } from "../application/collab-session.js";
+import type { CollabSession } from "../application/parts.js";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { RealtimeYjsProvider } from "../infrastructure/realtime-yjs-provider.js";
 import { seedIfEmpty } from "../domain/seed-document.js";
-import { BodySaver } from "../application/body-saver.js";
+import { BodySaver, publishPeers } from "../application/parts.js";
 import { logToApp } from "@/lib/error-report/app-log";
+import type { Peer } from "../domain/presence.js";
+import { typedCore } from "@/lib/rust-core";
+import { PresenceAvatars } from "./presence-avatars";
 
 const SAVE_MS = 1500;
 
@@ -38,6 +41,7 @@ export function CollaborativeMarkdownEditor({
   readOnly = false,
   editorClassName,
   onViewCreated,
+  inlinePresence = true,
 }: {
   resourceType: string;
   resourceId: string;
@@ -63,6 +67,11 @@ export function CollaborativeMarkdownEditor({
    * follow the site theme without rebuilding the document.
    */
   onViewCreated?: (view: EditorView) => (() => void) | void;
+  /**
+   * Draw the avatars above the editor. Off where the surrounding chrome (the
+   * workspace tab strip) draws them from the presence store instead.
+   */
+  inlinePresence?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const onSaveRef = useRef(onSave);
@@ -72,7 +81,7 @@ export function CollaborativeMarkdownEditor({
   const onViewCreatedRef = useRef(onViewCreated);
   onViewCreatedRef.current = onViewCreated;
   const awarenessRef = useRef<Awareness | null>(null);
-  const [peers, setPeers] = useState<string[]>([]);
+  const [peers, setPeers] = useState<readonly Peer[]>([]);
   const [transportError, setTransportError] = useState<string | null>(null);
 
   // Saves only real edits once the document is seeded, and tells compaction
@@ -97,7 +106,7 @@ export function CollaborativeMarkdownEditor({
   useEffect(() => {
     const awareness = awarenessRef.current;
     if (!awareness) return;
-    awareness.setLocalStateField("user", { name: displayName, color: pickColor(authorId) });
+    awareness.setLocalStateField("user", { id: authorId, name: displayName, color: pickColor(authorId) });
   }, [displayName, authorId]);
 
   useEffect(() => {
@@ -114,6 +123,9 @@ export function CollaborativeMarkdownEditor({
     const awareness = new Awareness(doc);
     awarenessRef.current = awareness;
     awareness.setLocalStateField("user", {
+      // The account id lets other clients show one avatar per person and
+      // leave out their own other sessions.
+      id: authorId,
       name: displayNameRef.current,
       color: pickColor(authorId),
     });
@@ -136,7 +148,7 @@ export function CollaborativeMarkdownEditor({
       // is about to delete log rows for, and the debounce above means the newest
       // text may not have been written at all yet.
       awaitBodyPersisted: () => saver.flush(),
-      compactCrdtLog: session.compactCrdtLog,
+      crdtUpdateStore: session.crdtUpdateStore,
       // Runs once the CRDT log has been replayed. Only a document with no
       // stored history takes the row's body — otherwise the log is the truth
       // and seeding would duplicate it.
@@ -149,17 +161,17 @@ export function CollaborativeMarkdownEditor({
       onConnected: () => setTransportError(null),
     });
 
-    // Keyed by awareness client id, not by name. Keying by name meant two
-    // sessions of one account — or two people who happen to share a display
-    // name — collapsed into a single entry, so the presence line never appeared
-    // for exactly the case it is most needed in.
+    // One entry per other person, by account id (see peersFromStates).
+    // Awareness changes on every remote cursor move, so only a changed list
+    // of people is passed on: anything else re-rendered the editor per move.
+    const docKey = `${resourceType}:${resourceId}`;
+    let current: readonly Peer[] = [];
     const syncPeers = () => {
-      const names: string[] = [];
-      awareness.getStates().forEach((state, clientId) => {
-        if (clientId === doc.clientID) return;
-        names.push((state.user as { name?: string } | undefined)?.name || "Someone");
-      });
-      setPeers(names);
+      const next = typedCore().peersFromStates(awareness.getStates(), { clientId: doc.clientID, authorId });
+      if (typedCore().samePeers(current, next)) return;
+      current = next;
+      setPeers(next);
+      publishPeers(docKey, next);
     };
     awareness.on("change", syncPeers);
     syncPeers();
@@ -191,6 +203,7 @@ export function CollaborativeMarkdownEditor({
       if (typeof disposeView === "function") disposeView();
       yText.unobserve(onYText);
       awareness.off("change", syncPeers);
+      publishPeers(docKey, []);
       if (awarenessRef.current === awareness) awarenessRef.current = null;
       // Flush only real edits. An unconditional flush here wrote the body back
       // on every teardown, and the host closed the form on save — so the editor
@@ -205,9 +218,9 @@ export function CollaborativeMarkdownEditor({
 
   return (
     <div className={className}>
-      {peers.length > 0 ? (
-        <div className="collab-presence muted" role="status">
-          Editing with {peers.join(", ")}
+      {inlinePresence && peers.length > 0 ? (
+        <div className="collab-presence">
+          <PresenceAvatars peers={peers} />
         </div>
       ) : null}
       {transportError ? (

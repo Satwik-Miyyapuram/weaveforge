@@ -29,12 +29,11 @@ import {
   INK_PEN_WIDTHS,
   INK_HIGHLIGHTER_WIDTH,
   INK_HIGHLIGHTER_WIDTHS,
-  clampInkZoom,
-  inkZoomIn,
-  inkZoomOut,
   type InkHand,
   type InkPaper,
 } from "@weaveforge/core";
+
+import { readyCore } from "@/lib/rust-core";
 
 import { toolIcon, toolLabel } from "./ink-bar-glyphs";
 import { MoreMenu, type InkPageGap } from "./ink-bar-more";
@@ -50,11 +49,11 @@ import {
   type ViewMenuProps,
 } from "./ink-bar-view";
 import { InkQuickColours } from "./ink-quick-colours";
-import { INK_COLOUR_TOKENS } from "../render/ink-palette";
+import { INK_COLOUR_TOKENS } from "../render/parts-1";
 import { useQuickColours } from "./use-quick-colours";
 import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
 import { Popover } from "@/components/popover";
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { isMacPlatform } from "@/lib/parts";
 import { Button } from "@/components/button";
 import { Swatch, ToolButton } from "@/components/controls";
 import { useRovingToolbar } from "@/lib/hooks/use-roving-toolbar";
@@ -203,6 +202,16 @@ export interface InkBarProps {
    * keeps one shape on every surface.
    */
   readOnly?: boolean;
+  /**
+   * A PDF that is only looked at (a compiled Overleaf PDF): the ink tools,
+   * colours, undo, Insert and Recognise are dropped, not greyed.
+   */
+  viewOnly?: boolean;
+  /**
+   * No ink surface at all (a note in Text): only what works is shown, Insert
+   * and More. Greyed tools from another mode are noise, not a hint.
+   */
+  idle?: boolean;
 }
 
 export function InkBar({
@@ -264,6 +273,8 @@ export function InkBar({
   moreSections,
   children,
   readOnly = false,
+  viewOnly = false,
+  idle = false,
 }: InkBarProps) {
   // The highlighter keeps its own five quick colours; every other tool uses the pen's.
   const [ownQuickColours, setOwnQuickColour] = useQuickColours(
@@ -316,9 +327,9 @@ export function InkBar({
     (zoom !== undefined && onZoom
       ? {
           zoomPercent: Math.round(zoom * 100),
-          onZoomOut: () => onZoom(inkZoomOut(zoom)),
-          onZoomIn: () => onZoom(inkZoomIn(zoom)),
-          onZoomTo: (percent) => onZoom(clampInkZoom(percent / 100)),
+          onZoomOut: () => onZoom(readyCore().inkZoomOut(zoom)),
+          onZoomIn: () => onZoom(readyCore().inkZoomIn(zoom)),
+          onZoomTo: (percent) => onZoom(readyCore().clampInkZoom(percent / 100)),
           fit: zoom === 1 ? "width" : "custom",
           onFitWidth: () => onZoom(1),
         }
@@ -330,7 +341,7 @@ export function InkBar({
       className="ink-bar ink-palette"
       role="toolbar"
       {...roving}
-      aria-label={readOnly ? "Page controls" : "Ink tools"}
+      aria-label={idle ? "Document tools" : readOnly ? "Page controls" : "Ink tools"}
       data-collapsed={collapsed || undefined}
       data-dock={dock}
       data-backend={backend === undefined ? undefined : (backend ?? "starting")}
@@ -341,6 +352,7 @@ export function InkBar({
         <PaletteFoldButton collapsed={collapsed} onToggle={() => setCollapsed((was) => !was)} />
       </div>
 
+      {!viewOnly && !idle && (<>
       {/* 1. Drawing Tools Segmented Pill */}
       <div
         className="ink-bar-group ink-bar-tools"
@@ -431,7 +443,9 @@ export function InkBar({
 
       {/* 4. Undo / Redo */}
       {history}
+      </>)}
 
+      {!idle && (<>
       {/* 5. Page Switcher & Add Page */}
       {pagePill}
 
@@ -439,18 +453,21 @@ export function InkBar({
 
       {/* 5b. Find: the reader's search, or its place held greyed */}
       {find ?? <FindPlaceholder />}
+      </>)}
 
+      {!viewOnly && (<>
       {/* 5c. Insert: a picture, PDF pages, a snip, a text box (`ink-bar-view.tsx`) */}
       <InsertMenu {...insert} disabled={!hasInsertItems(insert)} />
 
       {/* 6. OCR Recognise */}
-      <ToolButton label="Recognise"
-        tip={busy ? (progress ?? "Recognising…") : `Recognise this page (${shortcutLabel("⌘⇧R")})`}
+      {!idle && <ToolButton label="Recognise"
+        tip={busy ? (progress ?? "Recognising…") : `Recognise this page (${readyCore().shortcutLabel("⌘⇧R", isMacPlatform())})`}
         onClick={onRecognise}
         disabled={recogniseOff}
       >
         <RecogniseGlyph />
-      </ToolButton>
+      </ToolButton>}
+      </>)}
 
       <span className="ink-bar-spacer" />
 
@@ -514,7 +531,7 @@ function RecogniseGlyph() {
 function UndoRedo({ onUndo, onRedo, undoOff, redoOff }: { onUndo: () => void; onRedo: () => void; undoOff: boolean; redoOff: boolean }) {
   return (
       <div className="ink-bar-group">
-        <ToolButton label="Undo" tip={`Undo (${shortcutLabel("⌘Z")})`}
+        <ToolButton label="Undo" tip={`Undo (${readyCore().shortcutLabel("⌘Z", isMacPlatform())})`}
           onClick={onUndo}
           disabled={undoOff}
         >
@@ -533,7 +550,7 @@ function UndoRedo({ onUndo, onRedo, undoOff, redoOff }: { onUndo: () => void; on
             <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
           </svg>
         </ToolButton>
-        <ToolButton label="Redo" tip={`Redo (${shortcutLabel("⌘⇧Z")})`}
+        <ToolButton label="Redo" tip={`Redo (${readyCore().shortcutLabel("⌘⇧Z", isMacPlatform())})`}
           onClick={onRedo}
           disabled={redoOff}
         >

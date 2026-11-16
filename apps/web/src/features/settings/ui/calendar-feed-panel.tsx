@@ -1,6 +1,7 @@
 "use client";
 
-import { formatDateTime } from "@/lib/format-date";
+import { formatError } from "@/lib/format-error";
+import { localOffset } from "@/lib/parts-1";
 import { useCallback, useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -8,14 +9,13 @@ import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
 import { useAuth } from "@/features/auth";
 import { hasServerRoutes } from "@/deployment/capabilities";
-import { formatError } from "@/lib/format-error";
 import { PlanWidgetToggle } from "./plan-widget-toggle";
-import { copyText } from "@/lib/clipboard";
+import { copyText } from "@/lib/parts";
 import {
   planFeedOrigin,
-  planFeedUrls,
   type PlanFeedLink,
 } from "@/features/plan/infrastructure/plan-feed-links";
+import { readyCore } from "@/lib/rust-core";
 import { Button } from "@/components/button";
 
 const REMINDER_OPTIONS = [
@@ -27,7 +27,7 @@ const REMINDER_OPTIONS = [
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "never";
-  return formatDateTime(iso);
+  return readyCore().formatDateTime(iso, localOffset(iso));
 }
 
 /**
@@ -95,7 +95,7 @@ export function CalendarFeedPanel() {
     });
 
   const urls = token
-    ? planFeedUrls(planFeedOrigin(hasServerRoutes(), window.location.origin), token, {
+    ? readyCore().planFeedUrls(planFeedOrigin(hasServerRoutes(), window.location.origin), token, {
         includeDone,
         reminderDays: Number(reminder),
       })

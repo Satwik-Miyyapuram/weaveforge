@@ -16,35 +16,14 @@
  * page index rather than closing over its own.
  */
 
-import {
-  parseFigureClip,
-  pastedFigurePlace,
-  type FigureClip,
-} from "../application/figure-clipboard";
+import type { FigureClip } from "@weaveforge/wasm";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isEditableTarget } from "@/lib/editable-target";
-import {
-  errorMessage,
-  INK_A4_WIDTH,
-  INK_A4_HEIGHT,
-  blankInkPage,
-  clampInkPageSize,
-  encodeInkChunk,
-  inkAttachmentIndex,
-  inkPageBackground,
-  inkPageFigures,
-  joinInkTextLayer,
-  newInkChunkId,
-  withInkPageBackground,
-  withInkPageFigures,
-  writeInkNoteBody,
-  type FigureGeometry,
-  type InkNoteMeta,
-} from "@weaveforge/core";
+import { fromWasmFigure, readyCore, typedCore } from "@/lib/rust-core";
+import { errorMessage, INK_A4_WIDTH, INK_A4_HEIGHT, encodeInkChunk, type FigureGeometry, type InkNoteMeta } from "@weaveforge/core";
 
-import { availableInkChunkCodec } from "../application/ink-chunk-codec";
-import type { InkStoredPage } from "../application/ink-chunk-store";
-import { pdfPageCount } from "../application/pdf-page-raster";
+import { availableInkChunkCodec } from "../application/parts-1";
+import type { InkStoredPage } from "../application/parts-1";
+import { pdfPageCount } from "../application/parts-3";
 import {
   figureImageFromFile,
   imageFileFromClipboard,
@@ -54,7 +33,7 @@ import {
   pageBackgroundFromFile,
   pageChunkWithBackground,
   pdfPageBackgrounds,
-} from "../application/page-background";
+} from "../application/parts-2";
 import { figureBoxForImage } from "./ink-figures";
 
 /** How a page's media gets written; the host owns the sidecar and the saves. */
@@ -217,9 +196,9 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         const path = await deps.assets.upload(deps.noteId, png, "png");
         // The text layer first: the body is what the attachment index counts.
         deps.textPagesRef.current = deps.textPagesRef.current.map((text, index) =>
-          index === target ? withInkPageBackground(text, path) : text,
+          index === target ? typedCore().withInkPageBackground(text, path) : text,
         );
-        const background = inkAttachmentIndex(deps.noteBody(), path);
+        const background = typedCore().inkAttachmentIndex(deps.noteBody(), path);
         await writePageBackgroundChunk(target, background);
         // The page the work was for is still the one on screen, whichever page
         // the user was on when the click started: a page made for a new image
@@ -254,9 +233,9 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         0,
         Math.min(targetPageIndex ?? deps.pageIndexRef.current, pages.length - 1),
       );
-      if (!inkPageBackground(deps.textPagesRef.current[target] ?? "")) return;
+      if (!typedCore().inkPageBackground(deps.textPagesRef.current[target] ?? "")) return;
       deps.textPagesRef.current = deps.textPagesRef.current.map((text, index) =>
-        index === target ? withInkPageBackground(text, null) : text,
+        index === target ? typedCore().withInkPageBackground(text, null) : text,
       );
       await writePageBackgroundChunk(target, 0);
       // Only if the reader is still on that page: the chunk write above is an
@@ -287,8 +266,8 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         return true;
       }
       const there = deps.textPagesRef.current[target] ?? "";
-      const onPage = inkPageFigures(there);
-      deps.textPagesRef.current[target] = withInkPageFigures(there, [...onPage, place(onPage)]);
+      const onPage = typedCore().inkPageFigures(there);
+      deps.textPagesRef.current[target] = typedCore().withInkPageFigures(there, [...onPage, place(onPage)]);
       deps.scheduleSave();
       return false;
     },
@@ -372,7 +351,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
       let index = 0;
       const live = addFigureToPage(target, (onPage) => {
         index = onPage.length;
-        return pastedFigurePlace({ ...clip.figure, path }, onPage, deps.pageSize);
+        return fromWasmFigure(readyCore().pastedFigurePlace({ ...clip.figure, path }, onPage, deps.pageSize));
       });
       if (live) deps.selectFigure?.(index);
     },
@@ -400,13 +379,13 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
       const { deps, onAddFigure, pasteFigure } = pasteRef.current;
-      if (isEditableTarget(event.target)) return;
+      if (typedCore().isEditableReaderTarget(event.target)) return;
       const wrap = deps.wrapRef.current;
       if (!wrap || !wrap.contains(document.activeElement)) return;
       // A figure copied from a note (§figure-clipboard) comes back as itself,
       // box and crop. In the note that owns its attachment it shows the same
       // one; in another note the bytes are uploaded again, as this note's own.
-      const clip = parseFigureClip(event.clipboardData?.getData("text/plain"));
+      const clip = readyCore().parseFigureClip(event.clipboardData?.getData("text/plain"));
       if (clip) {
         event.preventDefault();
         void pasteFigure(clip);
@@ -454,7 +433,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         // first text-layer line. The attachment index counts the body, so the
         // text layer grows before each index is read — which is what makes a
         // later page's index different from an earlier one's.
-        const size = clampInkPageSize(INK_A4_WIDTH, INK_A4_HEIGHT);
+        const size = typedCore().clampInkPageSize(INK_A4_WIDTH, INK_A4_HEIGHT);
         const backgrounds = bytes
           ? pdfPageBackgrounds(bytes, numbers)
           : (async function* () {
@@ -462,18 +441,18 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
             })();
         for await (const png of backgrounds) {
           const path = await deps.assets.upload(deps.noteId, png, "png");
-          const text = withInkPageBackground("", path);
+          const text = typedCore().withInkPageBackground("", path);
           const nextTextPages = [...deps.textPagesRef.current, text];
-          const body = writeInkNoteBody(
+          const body = readyCore().writeInkNoteBody(
             deps.metaRef.current,
-            joinInkTextLayer(nextTextPages),
+            typedCore().joinInkTextLayer(nextTextPages),
           );
-          const chunkId = newInkChunkId();
+          const chunkId = typedCore().newInkChunkId();
           const chunk = await encodeInkChunk({
-            ...blankInkPage(deps.metaRef.current.paper),
+            ...typedCore().blankInkPage(deps.metaRef.current.paper),
             width: size.width,
             height: size.height,
-            background: inkAttachmentIndex(body, path),
+            background: typedCore().inkAttachmentIndex(body, path),
           });
           await deps.chunks.write(deps.noteId, chunkId, chunk);
           deps.flushSave();

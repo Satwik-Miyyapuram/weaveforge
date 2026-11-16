@@ -1,21 +1,46 @@
-import type { IBlobStore } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { readStorageConfig, type BlobProviderId, type StorageConfig } from "./config";
+import type { IBlobStore } from "@weaveforge/core";
+import { type BlobProviderId, readStorageConfig, type StorageConfig } from "./config";
 import { HttpBlobStore } from "./providers/http/http-blob-store";
-import { SupabaseBlobStore } from "./providers/supabase/blob-store";
 
+// --- blob-store ---
+/** Supabase Storage adapter for {@link IBlobStore}. */
+export class SupabaseBlobStore implements IBlobStore {
+  constructor(private readonly db: SupabaseClient) {}
+
+  async upload(bucket: string, path: string, blob: Blob, contentType?: string): Promise<void> {
+    const { error } = await this.db.storage.from(bucket).upload(path, blob, {
+      contentType: contentType ?? blob.type,
+      cacheControl: "31536000",
+      upsert: true,
+    });
+    if (error) throw new Error(`Blob upload failed: ${error.message}`);
+  }
+
+  async remove(bucket: string, path: string): Promise<void> {
+    const { error } = await this.db.storage.from(bucket).remove([path]);
+    if (error) throw new Error(`Blob delete failed: ${error.message}`);
+  }
+
+  async signedUrls(
+    bucket: string,
+    paths: string[],
+    ttlSeconds: number,
+  ): Promise<(string | null)[]> {
+    if (paths.length === 0) return [];
+    const { data, error } = await this.db.storage.from(bucket).createSignedUrls(paths, ttlSeconds);
+    if (error || !data) return paths.map(() => null);
+    const byPath = new Map(data.map((d) => [d.path, d.signedUrl ?? null]));
+    return paths.map((p) => byPath.get(p) ?? null);
+  }
+}
+
+// --- wire-storage ---
 export interface WireStorageDeps {
   /** Required when provider = supabase. */
   supabaseDb?: SupabaseClient;
   config?: StorageConfig;
-}
-
-/** The browser follows the inlined public setting; the server follows its config. */
-export function blobProviderForRuntime(
-  configured: BlobProviderId,
-  runtime: { inBrowser: boolean; publicProvider: string | undefined },
-): BlobProviderId {
-  return runtime.inBrowser && runtime.publicProvider === "tiered" ? "tiered" : configured;
 }
 
 /**
@@ -28,11 +53,12 @@ export function blobProviderForRuntime(
  */
 export function wireStorage(deps: WireStorageDeps): IBlobStore {
   const config = deps.config ?? readStorageConfig();
-  const provider = blobProviderForRuntime(config.provider, {
+  // The browser follows the inlined public setting; the server follows its config.
+  const provider = readyCore().blobProviderForRuntime(config.provider, {
     inBrowser: typeof window !== "undefined",
     // Literal read: Next.js inlines it into the browser bundle.
     publicProvider: process.env.NEXT_PUBLIC_BLOB_PROVIDER,
-  });
+  }) as BlobProviderId;
   switch (provider) {
     case "tiered":
       if (typeof window !== "undefined") {

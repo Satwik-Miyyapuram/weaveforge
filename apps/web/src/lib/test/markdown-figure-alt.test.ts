@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  parseMdImageAlt,
-  withMdImageAlt,
-} from "../markdown-figure-alt";
+import { readyCore } from "../rust-core";
+
+const { parseMdImageAlt, withMdImageAlt } = readyCore();
 
 test("a plain alt is all description", () => {
   assert.deepEqual(parseMdImageAlt("Figure 1"), { alt: "Figure 1" });

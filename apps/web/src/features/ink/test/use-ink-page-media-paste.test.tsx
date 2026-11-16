@@ -3,12 +3,15 @@
  * fresh deps object every render, and a paste still reaches the latest deps
  * (21-05).
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
-import { figureClipText } from "../application/figure-clipboard";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
+
+before(loadTestCore);
 import { useInkPageMedia, type InkPageMediaDeps } from "../ui/use-ink-page-media";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -54,7 +57,7 @@ function Host(props: { deps: InkPageMediaDeps }) {
 }
 
 function pasteEvent() {
-  const text = figureClipText({ noteId: "n1", figure: { path: "a.png", x: 1, y: 1, w: 10, h: 10 } });
+  const text = readyCore().figureClipText({ noteId: "n1", figure: { path: "a.png", x: 1, y: 1, w: 10, h: 10 } });
   return {
     target: null,
     preventDefault() {},
@@ -140,7 +143,7 @@ async function crossNotePaste(flipTo: number | null) {
       upload: () => new Promise<string>((resolve) => (finishUpload = resolve)),
     },
   } as unknown as InkPageMediaDeps;
-  const text = figureClipText({ noteId: "other", figure: { path: "a.png", x: 1, y: 1, w: 10, h: 10 } });
+  const text = readyCore().figureClipText({ noteId: "other", figure: { path: "a.png", x: 1, y: 1, w: 10, h: 10 } });
   try {
     let r!: ReactTestRenderer;
     act(() => {

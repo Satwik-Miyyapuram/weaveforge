@@ -2,7 +2,7 @@
  * The reader draws its chrome with the ink note's own bar: one toolbar, one
  * dock, one set of quick colours. These pin what the reader hands it.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -10,10 +10,14 @@ import { createElement } from "react";
 import { act, create, type ReactTestRenderer, type ReactTestInstance } from "react-test-renderer";
 
 import { PaletteDockButton } from "@/components/palette-dock";
-import { INK_RENDER_COLOURS, InkBar, paletteHex, paletteName } from "@/features/ink";
-import { InsertMenu, PageField, ViewMenu } from "../ui/ink-bar-view";
+import { INK_RENDER_COLOURS } from "@/features/ink/render/webgl-renderer";
+import { InkBar } from "@/features/ink/ui/ink-bar";
+import { readyCore } from "@/lib/rust-core";
+import { InsertMenu, PageField, ViewMenu, WritingPageItem, ZoomPresets } from "../ui/ink-bar-view";
 import { NibRow } from "../ui/ink-bar";
-import { WritingPageItem, ZoomPresets } from "../ui/ink-bar-view";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -230,6 +234,20 @@ test("a paper the reader cannot mark keeps pages and view, greys tools and Inser
   });
 });
 
+test("a view-only PDF drops the ink tools; pages, view and find stay", () => {
+  withWindow(new Map(), () => {
+    const tree = render(readerBar({ readOnly: true, viewOnly: true }));
+    assert.equal(byLabel(tree, "Drawing tools").length, 0);
+    assert.equal(byLabel(tree, "Pen colour and nib").length, 0);
+    assert.equal(byLabel(tree, "Undo").length, 0);
+    assert.equal(tree.root.findAllByType(InsertMenu).length, 0);
+    assert.equal(byLabel(tree, "Recognise").length, 0);
+    assert.equal(tree.root.findAllByType(PageField).length, 1);
+    assert.equal(tree.root.findAllByType(ViewMenu).length, 1);
+    act(() => tree.unmount());
+  });
+});
+
 test("two bars share one dock key", () => {
   const store = new Map([["weaveforge.ink.palette-dock", "bottom-right"]]);
   withWindow(store, () => {
@@ -252,12 +270,12 @@ test("two bars share one dock key", () => {
 test("paletteName reverses paletteHex, and knows no stranger", () => {
   const palette = INK_RENDER_COLOURS;
   for (const name of Object.keys(palette) as (keyof typeof palette)[]) {
-    const back = paletteName(palette, paletteHex(palette, name));
+    const back = readyCore().paletteName(palette, readyCore().paletteHex(palette, name));
     assert.ok(back !== null);
-    assert.equal(paletteHex(palette, back), paletteHex(palette, name));
+    assert.equal(readyCore().paletteHex(palette, back), readyCore().paletteHex(palette, name));
   }
-  assert.equal(paletteName(palette, paletteHex(palette, "red").toUpperCase()), paletteName(palette, paletteHex(palette, "red")));
-  assert.equal(paletteName(palette, "#010203"), null);
+  assert.equal(readyCore().paletteName(palette, readyCore().paletteHex(palette, "red").toUpperCase()), readyCore().paletteName(palette, readyCore().paletteHex(palette, "red")));
+  assert.equal(readyCore().paletteName(palette, "#010203"), null);
 });
 
 const src = (p: string) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), "utf8");

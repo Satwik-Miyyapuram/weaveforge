@@ -19,12 +19,20 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
  * click is behind the navigation, and they withhold it silently.
  *
  * The port is fixed because Supabase matches redirect URLs against a literal
- * allow list; it is repeated rather than imported because `apps/desktop` is not
+ * allow list; it is repeated rather than imported because `apps/shell` is not
  * a dependency of `apps/web`, and the desktop test asserts the two agree.
  */
 const AUTH_LOOPBACK_PORT = 53682;
 
 export const AUTH_LOOPBACK_URL = `http://127.0.0.1:${AUTH_LOOPBACK_PORT}/auth/callback`;
+
+/**
+ * Where a sign-in returns on a phone. Phones cannot rely on a listening port,
+ * so the browser returns to an https link the app owns (an Android App Link or
+ * iOS Universal Link), and the OS hands it to the app. The shell repeats this
+ * in `apps/shell/src/auth_link.rs`.
+ */
+export const AUTH_LINK_URL = "https://app.weaveforge.org/auth/app-callback";
 
 /**
  * The address a provider should return to.
@@ -33,12 +41,36 @@ export const AUTH_LOOPBACK_URL = `http://127.0.0.1:${AUTH_LOOPBACK_PORT}/auth/ca
  * the desktop app it is the loopback listener, because the browser finishing
  * the flow is a different program from the one that started it — landing back
  * on the origin would sign the browser in and leave the app as it was.
+ *
+ * On a phone it is the app's sign-in link (`AUTH_LINK_URL`).
  */
+/**
+ * The callback query in an address the reader pasted, or null when it is not
+ * the loopback callback. Used when another program holds the loopback port, so
+ * the browser's redirect never reaches this app: the reader copies the address
+ * the browser was sent to and pastes it in.
+ */
+export function pastedSignInQuery(text: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(text.trim());
+  } catch {
+    return null;
+  }
+  const loopback = url.hostname === "127.0.0.1" || url.hostname === "localhost";
+  if (url.protocol !== "http:" || !loopback || url.port !== String(AUTH_LOOPBACK_PORT)) return null;
+  if (url.pathname !== "/auth/callback") return null;
+  const params = url.searchParams;
+  return params.has("code") || params.has("error") ? url.search : null;
+}
+
 export function appOrigin(): string | undefined {
   return typeof window === "undefined" ? undefined : window.location.origin;
 }
 
 export function authRedirectTo(): string | undefined {
   if (typeof window === "undefined") return undefined;
-  return desktop() ? AUTH_LOOPBACK_URL : window.location.origin;
+  const bridge = desktop();
+  if (!bridge) return window.location.origin;
+  return bridge.platform === "android" || bridge.platform === "ios" ? AUTH_LINK_URL : AUTH_LOOPBACK_URL;
 }

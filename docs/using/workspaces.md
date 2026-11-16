@@ -1,158 +1,118 @@
-# Projects and Workspaces
-
-WeaveForge organizes your research into **projects**. A project is an isolated,
-self-contained workspace holding all the literature, notes, citation graphs,
-report outlines, experiment runs, and milestone plans for a research effort —
-whether that is a nine-month masters thesis, a multi-year PhD, or a journal paper.
-
 ---
-
-## 1. Projects: The Workspace Boundary
-
-Every research asset in WeaveForge belongs to an active project:
-
-- **Papers & Reading Lists**: Bibliography entries, PDF attachments, annotations,
-  and categorized reading lists.
-- **Citation Graph**: Force-directed literature visualization showing citation edges
-  and `#tags` between papers in this project.
-- **Vault Notes**: Markdown research notes with bi-directional `[[wikilinks]]`,
-  backlinks panels, and image attachments.
-- **Report Outline**: Hierarchical manuscript sections with word count targets and
-  Overleaf sync.
-- **Logbook**: Daily dated research log entries, hours tracked, and mood logs.
-- **Plan**: Milestones, tasks, dependencies, and deadline tracking.
-- **Experiments**: ML runs, metric curves, hyperparameter sweeps, and artifact files
-  pushed from Python scripts.
-- **Connections**: Third-party connectors (e.g. linked GitHub repositories or Mattermost
-  channels) are configured per project.
-
-### Creating a Project
-
-1. Click the **Project dropdown** in the top navigation bar (or sidebar).
-2. Click **+ New Project**.
-3. Enter a **Title** (e.g. *"Masters Thesis: Graph Neural Networks"*), an optional
-   description, and click **Create**.
-4. WeaveForge initializes the new workspace with empty folders and outlines ready for use.
-
-### Switching Projects (Workspace Selection)
-
-You can maintain multiple concurrent research projects:
-
-- Click the **Project dropdown** in the top header.
-- Select any project from the list.
-- WeaveForge switches the active workspace instantly: your open tabs, navigation items,
-  papers, and notes switch to the selected project without reloading the page.
-- In desktop offline mode, switching projects points the local database and workspace
-  mirror to that project's folder.
-
+covers:
+  - apps/web/src/features/editor-workspace
+  - crates/wf-core/src/editor_workspace
+checked: 2026-11-14
 ---
+# The workspace editor
 
-## 2. Standalone vs. Lab Organisation Workspaces
+The workspace is where you write. It looks like a code editor: a file explorer
+on the left, your open notes as tabs, and as many side-by-side panes as your
+screen can hold. Everything in it belongs to the project you have open; to
+make, open or switch projects, see [Projects](projects.md).
 
-WeaveForge supports two collaboration models:
+## How to
 
-### Standalone Mode (Independent Researcher)
+### Open a note from the explorer
 
-If you are working independently or your research group does not host a centralized lab
-workspace:
-- You work in standalone mode with your own personal projects.
-- You can still share individual items (papers, vault notes, report outlines, or experiment
-  runs) with colleagues via **Share** links or external view links (`/link?t=...`).
+1. Look at **Files** in the explorer on the left. It shows the project's notes
+   and folders as a tree.
+2. Click a note. It opens as a tab in the pane you were last working in.
 
-### Lab Organisation Mode (Supervision & Sharing)
+Want the explorer out of the way? Click **Hide explorer**, or press Ctrl+B
+(Cmd+B on a Mac). Press it again to bring it back.
 
-For research groups, university departments, and labs:
-- **Invite Codes**: A professor or lab director creates a lab organisation and generates
-  role-based invite codes for **Professors**, **Postdocs / PhD Students**, and
-  **Masters Students**.
-- **Joining a Lab**: When creating your account or in **Settings → Organisation**, enter
-  your lab's invite code to join.
-- **Supervision & Sharing**: In an organisation workspace:
-  - Students retain private, isolated projects for their day-to-day work.
-  - Supervisors can view assigned student projects, inspect milestone progress, and
-    leave inline review comments on report drafts without needing screenshots or PDF exports.
-  - Lab members can share papers or reading lists across the lab shelf (**Add to library**).
+### Make a new note or folder
 
----
+1. Click **New note** at the top of the explorer. You can also press Ctrl+N.
+2. Type a name for it and press Enter.
+3. For a folder instead, click **New folder** and name it the same way.
 
-## 3. The Workspace Editor (`/workspace`)
+Press F2 to rename the note you have open.
 
-The **Workspace Editor** (accessible via `/workspace` or the sidebar) provides an
-IDE-style, multi-pane environment designed for simultaneous reading, writing, and
-cross-referencing.
+### Find a note by name
 
-### Multi-Pane Layout
+1. Press Ctrl+P (Cmd+P on a Mac). A small search window opens.
+2. Type part of the note's name. The list narrows as you type.
+3. Press Enter to open the top match, or click any row.
 
-- **Split Panes**: Split the editor vertically (side-by-side) or horizontally (stacked)
-  to view multiple documents at once. For example, keep a paper's PDF open on the left
-  while taking synthesis notes in Markdown on the right.
-- **Resizing & Rearranging**: Click and drag the dividers between panes to adjust their
-  width or height.
-- **Closing Panes**: Click the close button on a pane to dismiss it; remaining panes
-  automatically resize to fill the workspace.
+Hold Ctrl while you pick a row, and the note opens in a new pane beside the one
+you have. To search inside notes instead of their names, press Ctrl+Shift+F.
 
-### Explorer Sidebar
+### Write next to the preview
 
-The left sidebar in the Workspace Editor displays a tree view of your project's contents:
-- **Vault**: Browse and organize long-form notes into nested folders.
-- **Report**: Browse the hierarchical sections of your thesis outline.
-- **Papers**: Quick access to imported papers and PDF attachments.
-- **Excerpts**: View highlights and quoted passages synced from Zotero or the PDF reader.
+1. Open a note.
+2. Click **Preview**. The note is shown as it will read, with headings, lists
+   and links drawn, and it updates as you type.
 
-Clicking any item in the tree opens it in the currently active editor pane.
+Ctrl+E switches the note between writing and reading.
 
-### Document Tabs
+### Put two notes side by side
 
-Each pane maintains its own tab bar:
-- Open multiple documents within the same pane and switch between them using tabs.
-- Unsaved changes display a dirty indicator dot on the tab.
-- Reorder tabs by dragging or close them with `Ctrl+W` / `Cmd+W`.
+1. Open the first note.
+2. Click **Split right**. A second pane opens to the right. Ctrl+\ does the same.
+3. Or click **Split down** to put the new pane underneath.
+4. Open another note in the new pane. Drag the line between the panes to
+   resize them.
 
-### Quick Open (`Ctrl+P` / `Cmd+P`)
+Each pane has its own tabs. Ctrl+W closes the tab you are on, and Ctrl+Shift+T
+brings back the last one you closed.
 
-Press **`Ctrl+P`** (or **`Cmd+P`** on macOS) anywhere in the app to open the
-**Quick Open** modal:
-- Type any part of a note title, paper name, or report section.
-- Uses fuzzy matching to rank results instantly.
-- Press **Enter** to open the selected document in your active editor pane.
+### Hide everything but the text
 
----
+1. Click **Focus**, or press F11.
+2. The rail, the explorer, the tab strip and the status bar go away. Only the
+   note is left.
+3. Press F11 again to come back.
 
-## 4. The Workspace Folder on Disk (Obsidian & VS Code Interop)
+## Keyboard shortcuts
 
-WeaveForge does not lock your notes in a proprietary database. The desktop app (and
-browser) can mirror your active project to a plain Markdown directory on your local disk:
+On a Mac, use Cmd wherever this table says Ctrl. Press Ctrl+/ in the app to see
+the same list.
 
-- Go to **Settings → Workspace** and choose a local directory.
-- WeaveForge mirrors your project into organized subdirectories:
-  - `notes/` — Vault markdown pages.
-  - `papers/` — Paper notes and summaries.
-  - `report/` — Report outline sections.
-  - `experiments/` — Experiment logs and sweep configurations.
-  - `plan/` — Milestone and task lists.
-  - `assets/` — Images and attachments.
-- **Obsidian Vault Compatible**: All links are written as `[[wikilinks]]`, so you can
-  open the folder directly in Obsidian or VS Code with full link navigation.
-- **Two-Way Sync with Diff Preview**: Edit your notes outside in Obsidian or VS Code.
-  When you return to WeaveForge, click **Pull folder edits**; WeaveForge shows a field-by-field
-  diff before applying any changes, so your work is never overwritten accidentally.
+| Keys | What it does |
+| --- | --- |
+| Ctrl+P | Find a note by name |
+| Ctrl+Shift+P | Open the command palette |
+| Ctrl+Shift+F | Search inside every note |
+| Ctrl+N | New note |
+| Ctrl+D | Duplicate the note |
+| F2 | Rename the note |
+| Ctrl+E | Switch between writing and reading |
+| Ctrl+B | Show or hide the explorer |
+| Ctrl+Shift+B | Show or hide the sidebar |
+| Ctrl+\ | Split right |
+| Ctrl+W | Close the tab |
+| Ctrl+Shift+T | Reopen the last closed tab |
+| Ctrl+Tab | Next tab |
+| Ctrl+1 to Ctrl+8 | Go to tab 1 to 8; Ctrl+9 goes to the last tab |
+| F11 | Focus: only the note |
 
-For full details on folder structure, conflict handling, and local REST/MCP access, see
-[`workspace-folder.md`](workspace-folder.md).
+## Good to know
 
----
+- Your panes, and whether the explorer is open, are remembered on this computer.
+  They come back the next time you start the app.
+- Shortcuts that change text are ignored while you type in a form field, such
+  as a search box. In the editor itself, they work.
+- Ctrl+1 to Ctrl+8 only take effect when the pane has that many tabs. Otherwise
+  your browser keeps the keys for itself.
 
-## 5. Offline and Local Mode Workspaces
+## Stuck?
 
-WeaveForge Desktop allows you to work completely offline with zero account requirements:
+*The explorer is gone.*
+Press Ctrl+B, or leave focus mode with F11.
 
-- On the sign-in screen, select **"Work on this computer, without an account"**.
-- Your projects, notes, papers, search index, and experiments run against an embedded
-  PGlite database stored in your operating system's application directory.
-- The app makes zero network calls at boot.
-- Automated compressed backups of your database are created every 10 minutes and on exit
-  in `local-db-backups/` (and inside `.weaveforge/db-backups/` if a workspace folder is set).
-- If you decide to sign in to a cloud account later, your local workspace remains intact
-  on your computer.
+*Ctrl+P does nothing.*
+Click inside the workspace first, so the app has the keyboard, then try again.
 
-For full details on desktop offline capabilities, see [The desktop and mobile apps](desktop.md#working-without-an-account).
+*I closed a tab by mistake.*
+Press Ctrl+Shift+T. The last closed tab comes back.
+
+## Related
+
+- [Projects](projects.md)
+- [Notes](notes.md)
+- [Search](search.md)
+- [Workspace folder](workspace-folder.md)
+- [Organisations](organisations.md)
+- [Desktop app](desktop.md)

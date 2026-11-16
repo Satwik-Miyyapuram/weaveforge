@@ -9,7 +9,7 @@ import {
   describeOverleafSync,
   overleafSync,
   saveOverleafToken,
-} from "@/features/overleaf/application/overleaf-folder-sync";
+} from "@/features/overleaf/application/parts";
 
 type Link = DesktopOverleafSync["links"][number];
 
@@ -18,6 +18,11 @@ const ACTIONS = {
   pull: ["Pull", "Pulling…"],
   push: ["Push", "Pushing…"],
 } as const;
+
+const TIPS: Partial<Record<keyof typeof ACTIONS, string>> = {
+  pull: "Bring Overleaf's changes into this folder. Commits your edits first; stops if a file changed on both sides.",
+  push: "Send your edits to Overleaf. Never overwrites changes made on Overleaf.",
+};
 
 /**
  * Overleaf projects synced into folders of the vault over Overleaf's git
@@ -65,7 +70,7 @@ export function OverleafSyncPanel({ onPulled }: { onPulled?: () => void }) {
     run(`${action}:${link.projectId}`, async () => {
       const reply = await overleafSync({ action, projectId: link.projectId });
       take(reply);
-      setStatus(`${link.folder}: ${describeOverleafSync(reply)}`);
+      setStatus(`${link.folder}: ${await describeOverleafSync(reply)}`);
       if (reply.pull && (reply.pull.kind === "fast-forward" || reply.pull.kind === "merged")) onPulled?.();
     });
 
@@ -158,6 +163,7 @@ export function OverleafSyncPanel({ onPulled }: { onPulled?: () => void }) {
                     key={action}
                     variant="secondary"
                     disabled={busy !== null || !hasToken}
+                    title={TIPS[action]}
                     onClick={() => void act(link, action)}
                   >
                     {busy === `${action}:${link.projectId}` ? ACTIONS[action][1] : ACTIONS[action][0]}

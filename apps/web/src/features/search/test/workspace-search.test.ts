@@ -1,9 +1,15 @@
-import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
+import { emptyWorkspaceSnapshot as snapshot } from "@core-test/workspace-snapshot";
 import assert from "node:assert/strict";
-import test from "node:test";
-import type { PdfIndexSource, SearchHit, WorkspaceSnapshot } from "@weaveforge/core";
+import test, { before } from "node:test";
+import type { SearchHit, WorkspaceSnapshot } from "@weaveforge/core";
+import type { PdfIndexSource } from "@weaveforge/wasm";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
-import { collapseToEntities, distinctRelated } from "@/features/search/application/collapse-to-entities";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * `WorkspaceSearch` reaches IndexedDB for the PDF text store and the index
@@ -331,7 +337,7 @@ function fakeSemantic(ranking: readonly string[]) {
     async search(_query: string, _limit: number) {
       return ranking.map((id, i) => ({ id, score: 1 - i * 0.1 }));
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex;
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex;
 }
 
 test("without a semantic arm, hybrid search is exactly the keyword ranking", async () => {
@@ -396,7 +402,7 @@ test("an encoder failure falls back to keywords rather than to nothing", async (
     async search() {
       throw new Error("the model died");
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
 
   const hybrid = await search.searchHybrid("attention", { limit: 10 });
   assert.equal(hybrid.length, 1, "the arm that always works still answers");
@@ -420,7 +426,7 @@ test("detaching the semantic arm restores keyword-only results", async () => {
 test("collapseToEntities folds a paper's pages onto the paper and drops the seed", () => {
   const hit = (id: string, kind: "paper" | "pdf", entityId: string, score: number) =>
     ({ id, kind, entityId, score, title: entityId, href: "/", terms: [] }) as const;
-  const folded = collapseToEntities(
+  const folded = readyCore().collapseToEntities(
     [
       hit("pdf:seed#0", "pdf", "seed", 9),
       hit("pdf:a#3", "pdf", "a", 5),
@@ -442,17 +448,17 @@ test("collapseToEntities folds a paper's pages onto the paper and drops the seed
 test("collapseToEntities keeps the best page when the paper itself is not indexed", () => {
   const hit = (id: string, entityId: string, score: number) =>
     ({ id, kind: "pdf" as const, entityId, score, title: entityId, href: "/", terms: [] }) as const;
-  const folded = collapseToEntities([hit("pdf:a#2", "a", 1), hit("pdf:a#0", "a", 7)], { entityId: "x" });
+  const folded = readyCore().collapseToEntities([hit("pdf:a#2", "a", 1), hit("pdf:a#0", "a", 7)], { entityId: "x" });
   assert.deepEqual(folded, [{ id: "pdf:a#2", score: 7 }]);
 });
 
 test("collapseToEntities sends a page to its paper's document even when the paper did not match", () => {
   const hit = (id: string, entityId: string, score: number) =>
     ({ id, kind: "pdf" as const, entityId, score, title: entityId, href: "/", terms: [] }) as const;
-  const folded = collapseToEntities(
+  const folded = readyCore().collapseToEntities(
     [hit("pdf:a#4", "a", 3), hit("pdf:b#0", "b", 2)],
     { entityId: "x" },
-    (page: SearchHit) => (page.entityId === "a" ? "paper:a" : null),
+    (page: { entityId: string }) => (page.entityId === "a" ? "paper:a" : null),
   );
   assert.deepEqual(folded, [
     { id: "paper:a", score: 3 },
@@ -475,11 +481,11 @@ test("distinctRelated lists a paper once, however the arms named it", () => {
   const results = ["paper:a", "pdf:a#3", "paper:b", "paper:a2", "note:n", "paper:b2", "gone", "paper:c"].map(
     (id, i) => ({ id, score: 10 - i }),
   );
-  const kept = distinctRelated(results, (id) => docs[id] ?? null);
+  const kept = readyCore().distinctRelated(results, (id) => docs[id] ?? null);
   // Order is kept and the best-ranked entry of each wins; an id the index no
   // longer resolves is passed through for the caller to drop.
   assert.deepEqual(kept.map((r) => r.id), ["paper:a", "paper:b", "note:n", "gone", "paper:c"]);
-  assert.deepEqual(distinctRelated(results, (id) => docs[id] ?? null, 2).map((r) => r.id), ["paper:a", "paper:b"]);
+  assert.deepEqual(readyCore().distinctRelated(results, (id) => docs[id] ?? null, 2).map((r) => r.id), ["paper:a", "paper:b"]);
 });
 
 test("distinctRelated reads a file-named import as the paper it is, and leaves out the seed's twin", () => {
@@ -493,7 +499,7 @@ test("distinctRelated reads a file-named import as the paper it is, and leaves o
   };
   const results = ["paper:file", "paper:x", "paper:y", "paper:z"].map((id, i) => ({ id, score: 10 - i }));
   assert.deepEqual(
-    distinctRelated(results, (id) => docs[id] ?? null, Infinity, "paper:seed").map((r) => r.id),
+    readyCore().distinctRelated(results, (id) => docs[id] ?? null, Infinity, "paper:seed").map((r) => r.id),
     ["paper:x", "paper:z"],
   );
 });
@@ -505,7 +511,7 @@ test("distinctRelated knows a file name cut short is still the paper", () => {
     "paper:other": "Nonparametric Bayes",
   };
   const resolve = (id: string) => ({ kind: "paper" as const, entityId: id, title: titles[id]! });
-  const kept = distinctRelated([{ id: "paper:cut" }, { id: "paper:other" }], resolve, 5, "paper:seed");
+  const kept = readyCore().distinctRelated([{ id: "paper:cut" }, { id: "paper:other" }], resolve, 5, "paper:seed");
   assert.deepEqual(kept.map((r) => r.id), ["paper:other"]);
 });
 
@@ -516,7 +522,7 @@ test("distinctRelated knows a second download of the file is the same paper", ()
     "paper:gpt": "Language Models are Unsupervised Multitask Learners GPT 2",
   };
   const resolve = (id: string) => ({ kind: "paper" as const, entityId: id, title: titles[id]! });
-  const kept = distinctRelated([{ id: "paper:copy" }, { id: "paper:gpt" }], resolve, 5, "paper:seed");
+  const kept = readyCore().distinctRelated([{ id: "paper:copy" }, { id: "paper:gpt" }], resolve, 5, "paper:seed");
   assert.deepEqual(kept.map((r) => r.id), ["paper:gpt"]);
 });
 
@@ -561,7 +567,7 @@ test("a vector hit below the noise floor does not become a match", async () => {
     async search() {
       return [{ id: "note:n2", score: 0.21 }];
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
 
   const hybrid = await search.searchHybrid("attention", { limit: 10 });
   assert.equal(hybrid.some((h) => h.id === "note:n2"), false);
@@ -580,7 +586,7 @@ test("the noise floor is the encoder's own, not a fixed number", async () => {
     async search() {
       return [{ id: "note:n2", score: 0.45 }];
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
 
   const hybrid = await search.searchHybrid("attention", { limit: 10 });
   assert.equal(hybrid.some((h) => h.id === "note:n2"), false);
@@ -600,7 +606,7 @@ test("a keyword hit on one function word of a question is not fused in", async (
     async search() {
       return [{ id: "note:n1", score: 0.5 }];
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
 
   // "how" and "for" match the cooking note; neither is about anything.
   const hybrid = await search.searchHybrid("how to train very deep networks", { limit: 10 });
@@ -619,7 +625,7 @@ test("an off-topic question returns nothing once both arms are strict", async ()
     async search() {
       return [{ id: "note:n1", score: 0.12 }];
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
 
   assert.deepEqual(await search.searchHybrid("how to cook pasta for dinner", { limit: 10 }), []);
 });
@@ -635,7 +641,7 @@ test("related falls back to meaning when the graph has nothing, and says so", as
     async search() {
       return [];
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
 
   const related = await search.relatedHybrid("note:n1", 5);
   assert.equal(related[0]?.id, "note:n2");
@@ -662,7 +668,7 @@ test("related adds what is close in meaning to what wording found, and says whic
     async search() {
       return [];
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
 
   const related = await search.relatedHybrid("note:n1", 5);
   const byId = new Map(related.map((hit) => [hit.id, hit]));
@@ -685,7 +691,7 @@ test("a refreshed note is handed to the semantic arm to re-embed", async () => {
       synced.push(docs.map((d) => d.id));
       return true;
     },
-  } as unknown as import("@/features/search/application/semantic-index").SemanticIndex);
+  } as unknown as import("@/features/search/application/parts-2").SemanticIndex);
   let changed = 0;
   search.onSemanticChanged = () => {
     changed += 1;
@@ -698,4 +704,25 @@ test("a refreshed note is handed to the semantic arm to re-embed", async () => {
 
   assert.deepEqual(synced, [["note:n1"]]);
   assert.equal(changed, 1);
+});
+
+test("a worker that cannot start falls back to the main thread and says so", async () => {
+  const held = (globalThis as { Worker?: unknown }).Worker;
+  (globalThis as { Worker?: unknown }).Worker = class {
+    constructor() {
+      throw new Error("no worker here");
+    }
+  };
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    const search = searchFor({ vaultPages: [note("n1", "Alpha", "alpha body")] });
+    assert.equal(search.builtOnMainThread, false);
+    await search.ensure();
+    assert.equal(search.ready, true, "search still works");
+    assert.equal(search.builtOnMainThread, true);
+  } finally {
+    console.warn = warn;
+    (globalThis as { Worker?: unknown }).Worker = held;
+  }
 });

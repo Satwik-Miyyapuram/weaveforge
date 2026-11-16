@@ -2,9 +2,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import test from "node:test";
-import { kindMeta, isDocumentKind, documentKind } from "../ui/kind";
-import { buildWorkspaceTree, flattenTree } from "../application/workspace-tree";
+import test, { before } from "node:test";
+import { documentKind, isDocumentKind, kindSuffix } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * Every document kind the tree can show must also be one the pane can edit.
@@ -45,14 +50,14 @@ function writerKinds(): string[] {
  */
 test("every kind the Files tree shows as a document has an editor writer", () => {
   const writers = new Set(writerKinds());
-  const tree = buildWorkspaceTree({
+  const tree = readyCore().buildWorkspaceTree({
     projectRoot: "",
     notes: [{ id: "n1", title: "A note" }],
     papers: [{ id: "p1", title: "A paper", hasNote: true }],
     reportSections: [{ id: "s1", title: "A section" }],
     logEntries: [{ id: "l1", entryDate: "2026-03-14" }],
   });
-  const shown = new Set(flattenTree(tree).map((node) => node.kind));
+  const shown = new Set(readyCore().flattenTree(tree).map((node) => node.kind));
   for (const kind of shown) {
     if (!isDocumentKind(kind)) continue;
     if (documentKind(kind) !== "text") continue;
@@ -68,16 +73,16 @@ test("every kind the Files tree shows as a document has an editor writer", () =>
 test("a log entry is a text document, and is in the tree", () => {
   assert.equal(isDocumentKind("log_entry"), true);
   assert.equal(documentKind("log_entry"), "text");
-  assert.equal(kindMeta("log_entry").suffix, ".log.md");
+  assert.equal(kindSuffix("log_entry"), ".log.md");
   // And it is reachable: a tree built with one has a row for it.
-  const tree = buildWorkspaceTree({
+  const tree = readyCore().buildWorkspaceTree({
     projectRoot: "",
     notes: [],
     papers: [],
     reportSections: [],
     logEntries: [{ id: "l1", entryDate: "2026-03-14" }],
   });
-  const rows = flattenTree(tree).filter((node) => node.kind === "log_entry");
+  const rows = readyCore().flattenTree(tree).filter((node) => node.kind === "log_entry");
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.path, "logbook/2026/03/2026-03-14--l1.log.md");
 });

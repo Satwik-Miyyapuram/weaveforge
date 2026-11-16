@@ -3,7 +3,7 @@
 Domain factories stay pure and testable by depending on these instead of
 calling ``datetime``/``uuid`` directly. Concrete implementations are injected
 at the composition root (``container.py``). Port of
-``packages/core/src/shared/clock.ts``.
+``packages/core/src/shared/parts.ts``.
 """
 
 from __future__ import annotations

@@ -1,7 +1,10 @@
 /** The sidebar's Inbox group: things other people or the AI sent you (D-04). */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { inboxLinks, type InboxInput } from "../inbox-links";
+import { readyCore } from "@/lib/rust-core";
+import type { InboxInput } from "@weaveforge/wasm";
+
+const { inboxLinks } = readyCore();
 
 const base: InboxInput = { canSupervise: false, pendingProposals: 0, local: false };
 const labels = (input: Partial<InboxInput> = {}) => inboxLinks({ ...base, ...input }).map((l) => l.label);

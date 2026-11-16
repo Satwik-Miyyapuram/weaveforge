@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
-import { pagesToEvict } from "./pdf-page-window";
+import { readyCore } from "@/lib/rust-core";
+import { nearestFirst, type PageExtent } from "./render-order";
 
 export interface UsePdfPageWindowOpts {
   rootRef: RefObject<HTMLElement | null>;
@@ -31,18 +32,22 @@ export function usePdfPageWindow(opts: UsePdfPageWindowOpts): void {
 
     const windowObserver = new IntersectionObserver(
       (entries) => {
+        const entering: PageExtent[] = [];
         for (const entry of entries) {
           const n = pageOf(entry.target);
           if (!n) continue;
           if (entry.isIntersecting) {
             near.add(n);
             held.add(n);
-            void renderPage(n);
+            entering.push({ page: n, top: entry.boundingClientRect.top, bottom: entry.boundingClientRect.bottom });
           } else {
             near.delete(n);
           }
         }
-        for (const p of pagesToEvict(held, near)) {
+        // Repaints after a zoom run one at a time, so the page in view goes first.
+        const box = root.getBoundingClientRect();
+        for (const n of nearestFirst(entering, (box.top + box.bottom) / 2)) void renderPage(n);
+        for (const p of readyCore().pagesToEvict([...held], [...near])) {
           evictPage(p);
           held.delete(p);
         }

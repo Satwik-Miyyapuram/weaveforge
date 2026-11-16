@@ -6,13 +6,13 @@ import type { Experiment } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal, ModalActions } from "@/components/modal";
 import { Select } from "@/components/select";
-import { artifactBasename, serialiseArtifactRef } from "../application/artifact-refs";
+import { readyCore } from "@/lib/rust-core";
 import { formatError } from "@/lib/format-error";
 import { Button } from "@/components/button";
 
 /** Collision key matching {@link artifactLabel} / insert serialization. */
 function artifactCollisionKey(name: string): string {
-  return artifactBasename(name) || name;
+  return readyCore().artifactBasename(name) || name;
 }
 
 /** Readable label for an artifact URL/name in the dropdown. */
@@ -44,8 +44,9 @@ function artifactLabel(name: string, siblings: readonly string[]): string {
 }
 
 /**
- * The experiment artifact picker (Insert → Experiment artifact…): inserts an
- * `expartifact:` markdown ref (Phase C4). Open while mounted.
+ * The experiment picker (Insert → Experiment figure or table…): inserts an
+ * `expartifact:` figure ref (Phase C4) or an `exptable:` results-table ref
+ * over the ticked runs. Open while mounted.
  */
 export function ExperimentArtifactPicker({
   onInsert,
@@ -57,6 +58,7 @@ export function ExperimentArtifactPicker({
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [experimentId, setExperimentId] = useState("");
   const [artifactName, setArtifactName] = useState("");
+  const [tableIds, setTableIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -105,7 +107,7 @@ export function ExperimentArtifactPicker({
     const name =
       collisions.length > 1 ? artifactName.trim() : base || artifactName.trim();
     onInsert(
-      serialiseArtifactRef({
+      readyCore().serialiseArtifactRef({
         experimentId,
         artifactName: name,
         alt: artifactCollisionKey(name),
@@ -114,14 +116,22 @@ export function ExperimentArtifactPicker({
     onClose();
   }
 
+  function insertTable() {
+    if (tableIds.length === 0) return;
+    // Keep the experiments list order, not the tick order.
+    onInsert(readyCore().serialiseResultsTableRef(experiments.map((e) => e.id).filter((id) => tableIds.includes(id))));
+    onClose();
+  }
+
   return (
     <>
-      <Modal title="Insert experiment artifact" onClose={() => { if (!busy) onClose(); }}>
+      <Modal title="Insert from experiments" onClose={() => { if (!busy) onClose(); }}>
         <div className="form-stack">
           <Select
             aria-label="Experiment"
             value={experimentId}
             disabled={busy || experiments.length === 0}
+            title={!busy && experiments.length === 0 ? "No experiments to choose from" : undefined}
             onChange={(e) => {
               const id = e.target.value;
               setExperimentId(id);
@@ -143,6 +153,7 @@ export function ExperimentArtifactPicker({
             aria-label="Artifact"
             value={artifactName}
             disabled={busy || artifacts.length === 0}
+            title={!busy && artifacts.length === 0 ? "Pick an experiment that has artifacts" : undefined}
             onChange={(e) => setArtifactName(e.target.value)}
           >
             {artifacts.length === 0 ? (
@@ -155,17 +166,38 @@ export function ExperimentArtifactPicker({
               ))
             )}
           </Select>
+          {experiments.length > 0 && (
+            <fieldset className="form-stack" disabled={busy}>
+              <legend>Results table (runs × metrics, stays up to date)</legend>
+              {experiments.map((exp) => (
+                <label key={exp.id} className="export-overleaf-check">
+                  <input
+                    className="wf-check"
+                    type="checkbox"
+                    checked={tableIds.includes(exp.id)}
+                    onChange={(e) =>
+                      setTableIds((ids) => (e.target.checked ? [...ids, exp.id] : ids.filter((id) => id !== exp.id)))
+                    }
+                  />
+                  <span>{exp.name}</span>
+                </label>
+              ))}
+            </fieldset>
+          )}
           {error && <InlineError>{error}</InlineError>}
           <ModalActions>
             <Button variant="cancel" onClick={onClose} disabled={busy}>
               Cancel
+            </Button>
+            <Button onClick={insertTable} disabled={busy || tableIds.length === 0}>
+              Insert table
             </Button>
             <Button
               variant="primary"
               onClick={insert}
               disabled={busy || !experimentId || !artifactName.trim()}
             >
-              Insert
+              Insert figure
             </Button>
           </ModalActions>
         </div>

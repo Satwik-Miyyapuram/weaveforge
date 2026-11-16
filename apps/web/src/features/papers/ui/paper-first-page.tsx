@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getReaderPdfByteCache } from "@/features/reader/application/resolve-paper-pdf-for-reader";
+import { getReaderPdfByteCache } from "@/features/reader/application/parts-3";
 import { folderRestored } from "@/features/workspace/application/workspace-folder";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
-import { PreviewCache, siteOf, type PaperPreview } from "../application/paper-preview";
+import { readyCore } from "@/lib/rust-core";
+import { PreviewCache, type PaperPreview } from "../application/parts-2";
 
 /** Previews already made, by paper id — a page drawn once is not drawn again. */
 const made = new PreviewCache(48, (url) => URL.revokeObjectURL(url));
@@ -43,7 +44,7 @@ async function loadPreview(paperId: string): Promise<PaperPreview> {
   const pdf = await firstPageImage(paperId);
   if (pdf) return { kind: "pdf", imageUrl: pdf };
   const page = await savedWebPage(paperId);
-  if (page) return { kind: "page", title: page.title, site: siteOf(page.url) };
+  if (page) return { kind: "page", title: page.title, site: readyCore().siteOf(page.url) };
   return { kind: "none" };
 }
 
@@ -57,7 +58,7 @@ async function firstPageImage(paperId: string): Promise<string | null> {
   }
   if (!bytes || bytes.byteLength === 0) return null;
   try {
-    const { renderPdfPage, toPngBlob } = await import("@/features/ink/application/pdf-page-raster");
+    const { renderPdfPage, toPngBlob } = await import("@/features/ink/application/parts-3");
     const canvas = await renderPdfPage(bytes, 1, 480);
     return URL.createObjectURL(await toPngBlob(canvas));
   } catch (err) {

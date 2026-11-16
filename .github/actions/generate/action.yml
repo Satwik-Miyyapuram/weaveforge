@@ -1,0 +1,30 @@
+name: Generate
+description: >-
+  Installs the pinned Rust toolchain and wasm-bindgen CLI, then runs `npm run generate`
+  (the bindings, the WASM package and the docs map, none of which are committed).
+  Needs `npm ci` first.
+runs:
+  using: composite
+  steps:
+    # rust-toolchain.toml pins the version and the wasm32-unknown-unknown target.
+    - name: Install pinned Rust toolchain
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: rustup show active-toolchain || rustup toolchain install
+
+    # One cache for every job that generates: they all build the same wasm-release crate.
+    - name: Cache Rust build
+      uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: generate
+
+    # Must equal the wasm-bindgen crate in Cargo.lock; build-wasm.mjs checks.
+    - name: Install wasm-bindgen CLI
+      uses: taiki-e/install-action@v2
+      with:
+        tool: wasm-bindgen@0.2.129
+
+    - name: Generate the bindings, the WASM package and the docs map
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: npm run generate

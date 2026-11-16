@@ -1,10 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { prismaFigureTex } from "../../../src/features/report/domain/prisma-figure.js";
-import { markdownToLatex } from "../../../src/features/report/domain/markdown-to-latex.js";
+import { rust } from "../../../src/shared/rust.js";
+
+
 
 test("markdownToLatex converts headings, emphasis, and lists", () => {
-  const { latex, warnings } = markdownToLatex("# Intro\n\nHello **world**\n\n- a\n- b");
+  const { latex, warnings } = rust().markdownToLatex("# Intro\n\nHello **world**\n\n- a\n- b");
   assert.match(latex, /\\section\{Intro\}/);
   assert.match(latex, /\\textbf\{world\}/);
   assert.match(latex, /\\begin\{itemize\}/);
@@ -13,13 +14,13 @@ test("markdownToLatex converts headings, emphasis, and lists", () => {
 });
 
 test("markdownToLatex preserves inline and display math as TeX", () => {
-  const { latex } = markdownToLatex("Energy $E=mc^2$\n\n$$\\int x$$");
+  const { latex } = rust().markdownToLatex("Energy $E=mc^2$\n\n$$\\int x$$");
   assert.match(latex, /\$E=mc\^2\$/);
   assert.match(latex, /\\\[\\int x\\\]/);
 });
 
 test("markdownToLatex converts reportimg figures to includegraphics", () => {
-  const { latex, warnings, images } = markdownToLatex(
+  const { latex, warnings, images } = rust().markdownToLatex(
     "See ![Plot A](reportimg:user/sec/a.webp) and more.",
   );
   assert.match(latex, /\\includegraphics\[width=\\linewidth\]\{figures\/a\.webp\}/);
@@ -29,13 +30,13 @@ test("markdownToLatex converts reportimg figures to includegraphics", () => {
 });
 
 test("markdownToLatex still warns on non-report images", () => {
-  const { warnings } = markdownToLatex("![x](https://example.com/x.png)");
+  const { warnings } = rust().markdownToLatex("![x](https://example.com/x.png)");
   assert.ok(warnings.some((w) => w.includes("non-report image")));
 });
 
 test("markdownToLatex turns [[Paper]] into \\cite when mapped", () => {
   const citeByTitle = new Map([["a paper", "doi_10_1234"]]);
-  const { latex, citedKeys, warnings } = markdownToLatex(
+  const { latex, citedKeys, warnings } = rust().markdownToLatex(
     "As shown in [[A Paper]] and [[A Paper|short]].",
     { citeByTitle },
   );
@@ -46,7 +47,7 @@ test("markdownToLatex turns [[Paper]] into \\cite when mapped", () => {
 
 test("markdownToLatex leaves unresolved wikilinks as text with a warning", () => {
   const citeByTitle = new Map([["a paper", "k1"]]);
-  const { latex, warnings } = markdownToLatex("See [[Unknown Note]].", { citeByTitle });
+  const { latex, warnings } = rust().markdownToLatex("See [[Unknown Note]].", { citeByTitle });
   assert.match(latex, /See Unknown Note\./);
   assert.doesNotMatch(latex, /\\cite/);
   assert.ok(warnings.some((w) => w.includes("[[Unknown Note]]")));
@@ -55,7 +56,7 @@ test("markdownToLatex leaves unresolved wikilinks as text with a warning", () =>
 test("markdownToLatex passes a whole figure block through untouched", () => {
   // A PRISMA figure is TikZ, not prose: every line between the delimiters has
   // to survive verbatim or the diagram compiles as escaped text.
-  const tex = prismaFigureTex(
+  const tex = rust().prismaFigureTex(
     {
       identified: 10,
       duplicates: 1,
@@ -69,7 +70,7 @@ test("markdownToLatex passes a whole figure block through untouched", () => {
     },
     { label: "fig:prisma" },
   );
-  const { latex } = markdownToLatex(`Before.
+  const { latex } = rust().markdownToLatex(`Before.
 
 ${tex}
 
@@ -82,7 +83,7 @@ After.`);
 });
 
 test("markdownToLatex keeps a link URL raw and escapes only its label (05-03)", () => {
-  const { latex } = markdownToLatex("See [a_b **x**](https://x.org/a_b~c&d%20#f) now_ok");
+  const { latex } = rust().markdownToLatex("See [a_b **x**](https://x.org/a_b~c&d%20#f) now_ok");
   assert.ok(
     latex.includes(String.raw`\href{https://x.org/a_b~c&d\%20\#f}{a\_b \textbf{x}}`),
     latex,
@@ -99,7 +100,7 @@ test("markdownToLatex keeps a code fence's \\end{verbatim} inside the block (05-
     "",
     "After.",
   ].join("\n");
-  const { latex, warnings } = markdownToLatex(md);
+  const { latex, warnings } = rust().markdownToLatex(md);
 
   // Only the block's own closer ends the verbatim; the rest stays code.
   assert.equal(latex.split(String.raw`\end{verbatim}`).length - 1, 1, latex);
@@ -110,13 +111,13 @@ test("markdownToLatex keeps a code fence's \\end{verbatim} inside the block (05-
 });
 
 test("markdownToLatex leaves a plain code fence unchanged and unwarned (05-10)", () => {
-  const { latex, warnings } = markdownToLatex("```\nx = {1}\n```");
+  const { latex, warnings } = rust().markdownToLatex("```\nx = {1}\n```");
   assert.ok(latex.includes("\\begin{verbatim}\nx = {1}\n\\end{verbatim}"), latex);
   assert.deepEqual(warnings, []);
 });
 
 test("markdownToLatex leaves non-http brackets as text (05-03)", () => {
-  const { latex } = markdownToLatex("[a_b](ftp://x_y)");
+  const { latex } = rust().markdownToLatex("[a_b](ftp://x_y)");
   assert.ok(!latex.includes(String.raw`\href`), latex);
   assert.ok(latex.includes(String.raw`a\_b`), latex);
 });

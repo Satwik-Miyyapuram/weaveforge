@@ -8,7 +8,7 @@
  * mode) and the PDF reader's page overlay — so a stroke looks the same
  * wherever it was written, and a change to how ink is drawn is one change.
  *
- * The geometry comes from `strokePath` (`application/ink-svg`), the same path
+ * The geometry comes from `strokePath` (`@weaveforge/wasm`), the same path
  * builder the SVG export uses: the model holds centrelines, and a round cap and
  * join at the nib's width is how a centreline becomes a stroke. The caller
  * decides the coordinate space — the note works in page units with a `viewBox`,
@@ -22,7 +22,7 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
-import { strokePath } from "../application/ink-svg";
+import { readyCore } from "@/lib/rust-core";
 
 /** One stroke, ready to draw: geometry in the caller's space, colour resolved. */
 export interface InkRenderStroke {
@@ -90,7 +90,7 @@ export function InkStrokes({
   const selected = new Set(selectedIds ?? []);
 
   const draw = (stroke: InkRenderStroke, key: string) => {
-    const d = strokePath(stroke);
+    const d = readyCore().strokePath(stroke.points);
     if (!d) return null;
     const styled = stroke.highlighter && Boolean(highlighterClassName);
     const held = stroke.id != null && selected.has(stroke.id) && haloGrow > 0;

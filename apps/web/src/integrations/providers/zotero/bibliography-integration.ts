@@ -1,15 +1,17 @@
-import type { IPaperRepository, ManageTagsUseCase } from "@weaveforge/core";
-import type { Paper } from "@weaveforge/core";
 import type {
   BibliographyAnnotationPull,
   BibliographyCredentials,
   IBibliographyIntegration,
+  IPaperRepository,
+  ISettingsRepository,
+  ITagManager,
+  Paper,
 } from "@weaveforge/core";
+import { getDataClient, relayUrl } from "@/lib/parts";
 import type { IZoteroLibrarySync, IZoteroExporter, IZoteroAnnotationPull } from "@/features/papers/domain/zotero";
-import type { ISettingsRepository } from "@weaveforge/core";
-import { getUserIntegrationField } from "@weaveforge/core";
-import { normalizeZoteroLibrary, zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/zotero-web-api";
-import { getDataClient } from "@/lib/data-client";
+import { toBibliographyAnnotationPull } from "@/features/papers/domain/zotero";
+import { normalizeZoteroLibrary, zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/parts-3";
+import { typedCore } from "@/lib/rust-core";
 
 export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
   readonly providerId = "zotero";
@@ -20,7 +22,7 @@ export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
       exporter: IZoteroExporter;
       annotations: IZoteroAnnotationPull;
       papers: IPaperRepository;
-      tags: ManageTagsUseCase;
+      tags: ITagManager;
       settings: ISettingsRepository;
       fetchFn?: typeof fetch;
     },
@@ -31,7 +33,7 @@ export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
   }
 
   async pullAnnotations(): Promise<BibliographyAnnotationPull> {
-    return this.deps.annotations.pull();
+    return toBibliographyAnnotationPull(await this.deps.annotations.pull());
   }
 
   async pushPaper(paper: Paper) {
@@ -51,8 +53,8 @@ export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
     let library = typedLibrary;
     if (!apiKey || !library) {
       const s = await this.deps.settings.get();
-      apiKey = apiKey || getUserIntegrationField(s, "zotero", "apiKey");
-      library = library || getUserIntegrationField(s, "zotero", "library");
+      apiKey = apiKey || typedCore().getUserIntegrationField(s, "zotero", "apiKey");
+      library = library || typedCore().getUserIntegrationField(s, "zotero", "library");
     }
     library = normalizeZoteroLibrary(library);
     if (!apiKey || !library) return [];
@@ -60,7 +62,7 @@ export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
       const { data: sessionData } = await getDataClient().auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) return [];
-      const res = await fetch("/api/integrations/zotero/collections", {
+      const res = await fetch(relayUrl("/api/integrations/zotero/collections"), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ apiKey, library }),

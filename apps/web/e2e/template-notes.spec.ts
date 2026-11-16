@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { bootstrapSession } from "./helpers/auth.js";
 import { e2eEnabled, e2eUserA } from "./helpers/env.js";
 import { ensurePaperExists, openPaper } from "./helpers/papers.js";
+import { noteEditor, refreshPaperDetails, waitForNoteSave } from "./helpers/paper-note.js";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -27,30 +28,26 @@ test.describe("source-note template re-render preserves edits (C1)", () => {
     // loading no longer reads as "the paper was never added".
     await ensurePaperExists(page, title);
     await openPaper(page, title);
-    await page.getByRole("button", { name: /Edit note|Add note/ }).click();
-
-    const editor = page.locator(".summary-input .cm-content");
+    const editor = noteEditor(page);
     await editor.waitFor({ timeout: 30_000 });
 
-    await page.getByRole("button", { name: "Refresh paper details" }).click();
-    await expect(page.locator(".summary-input")).toContainText("<!-- wf:editable:notes -->", {
-      timeout: 15_000,
-    });
-    await expect(page.locator(".summary-input")).toContainText(title);
+    await refreshPaperDetails(page);
+    await expect(editor).toContainText("<!-- wf:editable:notes -->", { timeout: 15_000 });
+    await expect(editor).toContainText(title);
 
     await editor.click();
     await page.keyboard.press("Control+End");
     await page.keyboard.type(`\n\n## My appendix\n\n${sentinel}\n`);
-    await expect(page.locator(".summary-input")).toContainText(sentinel);
+    await expect(editor).toContainText(sentinel);
 
-    await page.getByRole("button", { name: "Refresh paper details" }).click();
-    await expect(page.locator(".summary-input")).toContainText(sentinel, { timeout: 15_000 });
-    await expect(page.locator(".summary-input")).toContainText("## My appendix");
-    await expect(page.locator(".summary-input")).toContainText(title);
+    await refreshPaperDetails(page);
+    await expect(editor).toContainText(sentinel, { timeout: 15_000 });
+    await expect(editor).toContainText("## My appendix");
+    await expect(editor).toContainText(title);
 
-    await page.getByRole("button", { name: /Save note/ }).click();
-    await expect(page.getByText(sentinel, { exact: false }).first()).toBeVisible({
-      timeout: 30_000,
-    });
+    // The note saves itself; after a reload the edit is still there.
+    await waitForNoteSave(page);
+    await page.reload();
+    await expect(noteEditor(page)).toContainText(sentinel, { timeout: 30_000 });
   });
 });

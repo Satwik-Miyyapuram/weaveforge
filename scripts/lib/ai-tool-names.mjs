@@ -10,7 +10,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const SOURCE = "packages/core/src/features/ai-assistant/domain/ai-types.ts";
+const SOURCE = "packages/core/src/features/ai-assistant/domain/parts.ts";
 
 /** @param {string} root repo root @returns {string[]} tool names, in declared order */
 export function readAiToolNames(root) {

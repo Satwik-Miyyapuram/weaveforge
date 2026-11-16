@@ -1,4 +1,4 @@
-import { GitClient } from "@/features/sync/infrastructure/git-client";
+import { GitClient } from "@/features/sync/infrastructure/parts";
 import type { GitReadIntegrationManifest } from "./types";
 
 const GITHUB_FIELDS = [
