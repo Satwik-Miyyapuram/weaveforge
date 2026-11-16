@@ -279,6 +279,8 @@ export interface NewVaultPageInput {
   parentId?: string;
   /** Make a folder rather than a note. */
   folder?: boolean;
+  /** `canvas` makes a canvas note: its body is JSON Canvas (Obsidian `.canvas`). */
+  kind?: "canvas";
   sortOrder?: number;
 }
 
@@ -298,6 +300,8 @@ export interface VaultPageSummary extends Identifiable {
   pinned?: boolean;
   /** Made as a folder: it holds notes and folders, and is not opened as a note. */
   folder?: boolean;
+  /** `canvas` for a canvas note, whose body is JSON Canvas; absent for a markdown note. */
+  kind?: "canvas";
   sortOrder: number;
   createdAt: string;
   updatedAt: string;

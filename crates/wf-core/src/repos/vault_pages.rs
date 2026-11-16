@@ -30,11 +30,10 @@ const ID_CHUNK: usize = 200;
 
 /// The columns a [`VaultPageRow`] is read as, named rather than starred.
 pub const VAULT_PAGE_COLUMNS: &str =
-    "id,title,body,body_preview,parent_id,pinned,folder,sort_order,created_at,updated_at";
+    "id,title,body,body_preview,parent_id,pinned,folder,kind,sort_order,created_at,updated_at";
 
 /// The tree and card projection: a preview, no body.
-const VAULT_SUMMARY_COLUMNS: &str =
-    "id,title,parent_id,pinned,folder,sort_order,created_at,updated_at,project_id,body_preview";
+const VAULT_SUMMARY_COLUMNS: &str = "id,title,parent_id,pinned,folder,kind,sort_order,created_at,updated_at,project_id,body_preview";
 
 /// The next step of `method`, or `None` for an unknown method.
 #[must_use]
@@ -978,6 +977,36 @@ mod tests {
         let args = vec![json!("p1"), json!({"title": "Beta"})];
         let q = only(step("update", &call(args, vec![row("p1", None)], None)).unwrap());
         assert_eq!(q.filters[0].op, "ilike");
+    }
+
+    #[test]
+    fn add_saves_a_canvas_with_its_kind_and_an_empty_canvas_body() {
+        let args = vec![json!({"title": "Board", "kind": "canvas"})];
+        let body = only(step("add", &call(args, vec![json!([])], None)).unwrap())
+            .body
+            .unwrap();
+        assert_eq!(body["kind"], "canvas");
+        assert_eq!(
+            body["body"],
+            "{
+	\"nodes\":[],
+	\"edges\":[]
+}"
+        );
+        let args = vec![json!({"title": "Plain"})];
+        let body = only(step("add", &call(args, vec![json!([])], None)).unwrap())
+            .body
+            .unwrap();
+        assert_eq!(body["kind"], "note");
+    }
+
+    #[test]
+    fn update_keeps_a_canvas_a_canvas() {
+        let mut stored = row("c1", None);
+        stored["kind"] = json!("canvas");
+        let args = vec![json!("c1"), json!({"body": "{}"})];
+        let q = only(step("update", &call(args, vec![stored], None)).unwrap());
+        assert_eq!(q.body.unwrap()["kind"], "canvas");
     }
 
     #[test]
