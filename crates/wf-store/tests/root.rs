@@ -166,3 +166,26 @@ fn folder_that_cannot_be_written_is_refused() {
     fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o755)).unwrap();
     assert_eq!(result, Err(RootError::CannotWrite));
 }
+
+// Windows ignores the read-only flag on folders, so the folder is denied file and subfolder
+// creation with an ACL instead. Denying all write (W) also blocks listing the folder, which
+// would fail earlier as NotAFolder; (WD,AD) blocks only creation. Everyone (S-1-1-0) is denied;
+// the deny is removed again before the folder is cleaned up.
+#[cfg(windows)]
+#[test]
+fn folder_that_cannot_be_written_is_refused() {
+    use std::process::Command;
+    let dir = TempDir::new();
+    let denied = Command::new("icacls")
+        .arg(dir.path())
+        .args(["/deny", "*S-1-1-0:(OI)(CI)(WD,AD)"])
+        .status()
+        .unwrap();
+    assert!(denied.success());
+    let result = workspace_root_for(dir.path());
+    let _ = Command::new("icacls")
+        .arg(dir.path())
+        .args(["/remove:d", "*S-1-1-0"])
+        .status();
+    assert_eq!(result, Err(RootError::CannotWrite));
+}
