@@ -56,6 +56,10 @@ pub(crate) struct Sheet {
     pub(crate) background: Option<Rect>,
     /// Index of the band this sheet belongs to.
     pub(crate) group: usize,
+    /// Page position of this sheet's corner, in 0.1 mm: a sheet point plus
+    /// the origin is the same point on the OneNote page.
+    pub(crate) origin_x: f64,
+    pub(crate) origin_y: f64,
 }
 
 /// Every ink stroke on `page`, in OneNote page coordinates.
@@ -83,12 +87,16 @@ pub(crate) fn band_index(tops: &[f64], y: f64) -> usize {
 /// shares one page size.
 pub(crate) fn build_sheets(raw: &[RawStroke], bands: &[Rect]) -> Vec<Sheet> {
     if bands.is_empty() {
+        let paths: Vec<Vec<(f64, f64)>> = raw.iter().map(|stroke| stroke.points.clone()).collect();
+        let (dx, dy) = fit_shift(&paths);
         return build_pages(raw)
             .into_iter()
             .map(|page| Sheet {
                 page,
                 background: None,
                 group: 0,
+                origin_x: -dx,
+                origin_y: -dy,
             })
             .collect();
     }
@@ -164,6 +172,8 @@ fn band_sheets(
             },
             background: Some(placed),
             group,
+            origin_x: ox,
+            origin_y: oy,
         };
         if strokes.is_empty() {
             sheets.push(sheet(Vec::new()));
@@ -294,8 +304,8 @@ pub(crate) fn place_points(
         .collect()
 }
 
-/// Shifts paths so no coordinate is negative (to a 5 mm margin), then rounds and clamps.
-pub(crate) fn fit_to_page(paths: &mut [Vec<(f64, f64)>]) {
+/// The shift `fit_to_page` applies: enough to lift any negative coordinate to the margin.
+fn fit_shift(paths: &[Vec<(f64, f64)>]) -> (f64, f64) {
     let min_x = paths
         .iter()
         .flatten()
@@ -308,6 +318,12 @@ pub(crate) fn fit_to_page(paths: &mut [Vec<(f64, f64)>]) {
         .fold(f64::INFINITY, f64::min);
     let dx = if min_x < 0.0 { MARGIN - min_x } else { 0.0 };
     let dy = if min_y < 0.0 { MARGIN - min_y } else { 0.0 };
+    (dx, dy)
+}
+
+/// Shifts paths so no coordinate is negative (to a 5 mm margin), then rounds and clamps.
+pub(crate) fn fit_to_page(paths: &mut [Vec<(f64, f64)>]) {
+    let (dx, dy) = fit_shift(paths);
     let limit = f64::from(INK_COORD_LIMIT);
     for point in paths.iter_mut().flatten() {
         point.0 = whole_coord(point.0 + dx, limit);
@@ -476,6 +492,41 @@ mod tests {
         assert_eq!(&sheets[1].page.strokes[0].points[..2], &[373.0, 300.0]);
         assert!((sheets[1].page.width - 2100.0).abs() < f64::EPSILON);
         assert!((sheets[1].page.height - 2970.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn band_sheet_origin_is_where_its_page_corner_sits_on_the_page() {
+        // origin + sheet point = page point, so a sheet's origin is its page
+        // position: the band corner, or further out for ink in the margin.
+        let bands = [a4_at(127.0), a4_at(3200.0)];
+        let raw = vec![
+            stroke(&[(500.0, 400.0), (600.0, 500.0)]),
+            stroke(&[(500.0, 3500.0), (600.0, 3600.0)]),
+        ];
+        let sheets = build_sheets(&raw, &bands);
+        assert_eq!((sheets[0].origin_x, sheets[0].origin_y), (127.0, 127.0));
+        assert_eq!((sheets[1].origin_x, sheets[1].origin_y), (127.0, 3200.0));
+        let margin = build_sheets(
+            &[stroke(&[(27.0, 500.0), (3000.0, 600.0)])],
+            &[a4_at(127.0)],
+        );
+        assert_eq!((margin[0].origin_x, margin[0].origin_y), (-23.0, 127.0));
+    }
+
+    #[test]
+    fn band_less_origin_maps_sheet_points_back_to_page_points() {
+        let raw = vec![stroke(&[(-10.0, -20.0), (5.0, 5.0)])];
+        let sheets = build_sheets(&raw, &[]);
+        let sheet = &sheets[0];
+        assert_eq!((sheet.origin_x, sheet.origin_y), (-60.0, -70.0));
+        let points = &sheet.page.strokes[0].points;
+        assert_eq!(
+            (points[0] + sheet.origin_x, points[1] + sheet.origin_y),
+            (-10.0, -20.0)
+        );
+
+        let plain = build_sheets(&[stroke(&[(10.0, 10.0)])], &[]);
+        assert_eq!((plain[0].origin_x, plain[0].origin_y), (0.0, 0.0));
     }
 
     #[test]

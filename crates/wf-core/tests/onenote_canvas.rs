@@ -350,3 +350,60 @@ fn fixture_page_lays_out_text_image_and_ink() {
     assert_eq!(ink.len(), 1);
     assert_eq!(ink[0].key, "ink-0");
 }
+
+#[test]
+fn ink_node_sits_at_its_onenote_position_not_stacked() {
+    // The fixture has no printout and its strokes start at non-negative page
+    // coordinates, so its page position is the corner. Before the fix the ink
+    // had no position and was stacked below the typed text instead.
+    let section = import_section(FIXTURE, FIXTURE_NAME).expect("fixture imports");
+    let page = &section.pages[0];
+    let sheet = &page.ink[0];
+    assert_eq!((sheet.origin_x, sheet.origin_y), (0.0, 0.0));
+
+    let ink = page
+        .layout
+        .iter()
+        .find(|i| i.kind == LayoutKind::Ink)
+        .expect("ink item");
+    assert_eq!(ink.x, Some(sheet.origin_x));
+    assert_eq!(ink.y, Some(sheet.origin_y));
+
+    let json = page_canvas(
+        &page.layout,
+        &files(&[(ink.key.as_str(), "notes/Ink.note.md")]),
+    );
+    let nodes = nodes_of(&json);
+    let node = nodes
+        .iter()
+        .find(|n| n["file"] == "notes/Ink.note.md")
+        .expect("ink node");
+    let expected_x = (sheet.origin_x * 48.0 / HALF_INCH).round() as i64;
+    let expected_y = (sheet.origin_y * 48.0 / HALF_INCH).round() as i64;
+    assert_eq!((int(node, "x"), int(node, "y")), (expected_x, expected_y));
+}
+
+#[test]
+fn ink_without_printout_is_placed_at_its_strokes_not_stacked() {
+    // A band-less page: the ink item must carry a position, so it is not
+    // pushed into the loose column at x = 0.
+    let layout = [
+        text("Typed", Some(0.0), Some(0.0), Some(1000.0), Some(400.0)),
+        OneNoteLayoutItem {
+            kind: LayoutKind::Ink,
+            key: "ink-0".to_string(),
+            text: String::new(),
+            x: Some(2540.0),
+            y: Some(1270.0),
+            width: Some(1000.0),
+            height: Some(1000.0),
+        },
+    ];
+    let json = page_canvas(&layout, &files(&[("ink-0", "notes/Ink.note.md")]));
+    let nodes = nodes_of(&json);
+    let ink = nodes
+        .iter()
+        .find(|n| n["file"] == "notes/Ink.note.md")
+        .expect("ink node");
+    assert_eq!((int(ink, "x"), int(ink, "y")), (960, 480));
+}

@@ -67,6 +67,10 @@ pub struct OneNoteInkPage {
     pub page: InkPage,
     /// Printout page drawn under the strokes, if any.
     pub background: Option<OneNoteBackground>,
+    /// Where this page's top-left corner sits on the OneNote page, in 0.1 mm.
+    pub origin_x: f64,
+    /// See `origin_x`.
+    pub origin_y: f64,
     /// Typed text that sat on this part of the OneNote page, as Markdown.
     pub text: String,
 }
@@ -301,6 +305,8 @@ fn ink_pages(page: &Page, strokes: &[ink::RawStroke], body: &mut Body) -> Vec<On
                 width: rect.width,
                 height: rect.height,
             }),
+            origin_x: sheet.origin_x,
+            origin_y: sheet.origin_y,
             // Only a band's first page gets its text; the take leaves "" behind.
             text: std::mem::take(&mut texts[sheet.group]),
         })
@@ -326,16 +332,12 @@ fn page_layout(page: &Page, ink: &[OneNoteInkPage], body: &mut Body) -> Vec<OneN
         let Some(first) = sheets.first() else {
             continue;
         };
-        let (x, y) = first
-            .background
-            .as_ref()
-            .map_or((None, None), |rect| (Some(rect.x), Some(rect.y)));
         items.push(OneNoteLayoutItem {
             kind: LayoutKind::Ink,
             key: format!("ink-{part}"),
             text: String::new(),
-            x,
-            y,
+            x: Some(first.origin_x),
+            y: Some(first.origin_y),
             width: Some(first.page.width),
             height: Some(first.page.height),
         });
