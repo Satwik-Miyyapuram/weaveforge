@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createElement, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import ReactDOM from "react-dom";
 import { act, create } from "react-test-renderer";
 
@@ -30,10 +30,12 @@ Object.assign(globalThis, {
 });
 
 function inScreen(active: boolean) {
-  return createElement(
-    ScreenActiveContext.Provider,
-    { value: active },
-    createElement(Modal, { title: "Paper", onClose: () => {}, children: createElement("p", null, "body") }),
+  return (
+    <ScreenActiveContext.Provider value={active}>
+      <Modal title="Paper" onClose={() => {}}>
+        <p>body</p>
+      </Modal>
+    </ScreenActiveContext.Provider>
   );
 }
 
