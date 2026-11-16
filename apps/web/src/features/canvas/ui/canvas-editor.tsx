@@ -1,44 +1,43 @@
 "use client";
 
-import "@xyflow/react/dist/style.css";
-
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from "react";
 import {
-  Background,
-  ConnectionMode,
-  Controls,
-  MarkerType,
-  ReactFlow,
-  ReactFlowProvider,
-  addEdge,
-  useEdgesState,
-  useNodesState,
-  useReactFlow,
-  type Connection,
-  type Edge,
-  type OnNodeDrag,
-} from "@xyflow/react";
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type DragEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import { readyCore } from "@/lib/rust-core";
 import { formatError } from "@/lib/format-error";
 import { useScreenActive } from "@/lib/hooks/use-screen-active";
-import { Button } from "@/components/button";
+import { useBlobObjectUrls, type BlobFetchers } from "@/lib/hooks/use-blob-object-urls";
+import { Button, IconButton } from "@/components/button";
+import { Select } from "@/components/select";
+import { makeNode, newCanvasId, nodeBox, parseCanvasFile, type CanvasFile, type RawCanvasNode } from "../application/canvas-doc";
+import { addNode, addStroke, moveItems, patchNode, removeItems, strokesOf } from "../application/freeform-edit";
 import {
-  fromFlow,
-  groupCarry,
-  makeNode,
-  moveMembers,
-  newCanvasId,
-  parseCanvasFile,
-  toFlow,
-  type CanvasFile,
-  type CanvasFlowEdge,
-  type RawCanvasEdge,
-} from "../application/canvas-doc";
+  MIN_SIZE,
+  pictureSize,
+  placeText,
+  resizeKeepAspect,
+  screenToPage,
+  zoomAt,
+  type PageView,
+  type Size,
+} from "../application/freeform-geometry";
+import { encodeStroke, eraseHits, strokeAt, type InkPoint } from "../application/freeform-ink";
+import { canRedo, canUndo, createHistory, record, redo, undo, type History } from "../application/canvas-history";
 import { CanvasSaver } from "../application/canvas-save";
-import { deleteKeysFor, focusesOnPress } from "../application/canvas-keys";
-import { CanvasActionsContext, NODE_TYPES, type FlowNode } from "./canvas-nodes";
-
-type FlowEdge = Edge<{ raw: RawCanvasEdge }>;
+import { canvasKeyAction, focusesOnPress } from "../application/canvas-keys";
+import { CanvasCard, isPicturePath } from "./canvas-nodes";
+import { EdgeLayer } from "./canvas-edges";
+import { InkLayer, type InkDraft } from "./canvas-ink";
+import { loadNaturalSize, type CanvasImages } from "../application/canvas-images";
 
 export interface CanvasEditorProps {
   /** The canvas note's body: JSON Canvas text. */
@@ -52,124 +51,142 @@ export interface CanvasEditorProps {
   filePaths: readonly string[];
   /** Opens what a file node points to; false when nothing matches. */
   onOpenFile: (path: string) => boolean;
+  /** This page's picture store, memoised by the caller per page. */
+  images: CanvasImages;
 }
 
-/** Obsidian's six preset colours, drawn in the theme's status colours. */
-const PRESET_STROKE: Record<string, string> = {
-  "1": "var(--s-danger)",
-  "2": "var(--s-warn)",
-  "3": "var(--s-warn)",
-  "4": "var(--s-good)",
-  "5": "var(--s-info)",
-  "6": "var(--accent)",
-};
+type Mode = "type" | "pen" | "eraser" | "select";
 
-const ARROW = { type: MarkerType.ArrowClosed } as const;
-
-/** Whether keys typed at `target` go into a field or a card's text, not the canvas. */
-function isTextEntry(target: EventTarget): boolean {
-  return target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [contenteditable]") !== null);
+interface Point {
+  x: number;
+  y: number;
 }
 
-/** An edge as React Flow draws it: ends as arrow markers, colour as its stroke. */
-function drawnEdge(edge: CanvasFlowEdge): FlowEdge {
-  const { markerStart, markerEnd, color, ...rest } = edge;
-  const stroke = color ? (PRESET_STROKE[color] ?? color) : undefined;
-  return {
-    ...rest,
-    ...(markerStart ? { markerStart: { ...ARROW, ...(stroke ? { color: stroke } : {}) } } : {}),
-    ...(markerEnd ? { markerEnd: { ...ARROW, ...(stroke ? { color: stroke } : {}) } } : {}),
-    ...(stroke ? { style: { stroke } } : {}),
-  };
-}
+/** What a pointer is doing between press and release. `base` is the file at the start, for one history entry. */
+type Gesture =
+  | { kind: "pan"; screen: Point; view: PageView }
+  | { kind: "ink"; points: InkPoint[]; colour: string; width: number }
+  | { kind: "erase"; base: CanvasFile }
+  | { kind: "move"; base: CanvasFile; ids: ReadonlySet<string>; origin: Point }
+  | { kind: "resize"; base: CanvasFile; id: string; origin: Point; size: Size; picture: boolean };
 
-interface Loaded {
-  file: CanvasFile;
-  nodes: FlowNode[];
-  edges: FlowEdge[];
-}
+const EMPTY_FILE: CanvasFile = { nodes: [], edges: [] };
+const DEFAULT_VIEW: PageView = { x: 0, y: 0, zoom: 1 };
+const DEFAULT_COLOUR = "#1f2328";
+const PEN_WIDTHS = [2, 4, 8, 16];
+const DEFAULT_WIDTH = 4;
+/** The eraser reaches this many screen pixels, whatever the zoom. */
+const ERASER_RADIUS = 10;
+const CARD_SIZE: Size = { width: 320, height: 120 };
+const GROUP_SIZE: Size = { width: 320, height: 200 };
 
-function load(text: string): Loaded {
-  const file = parseCanvasFile(text);
-  const flow = toFlow(file);
-  return { file, nodes: flow.nodes, edges: flow.edges.map(drawnEdge) };
-}
-
-/** The canvas as JSON Canvas text, laid out as Obsidian writes it. */
-function canvasText(file: CanvasFile, nodes: readonly FlowNode[], edges: readonly FlowEdge[]): string {
-  return readyCore().normalizeCanvasText(JSON.stringify(fromFlow(file, nodes, edges)));
-}
-
-/**
- * A canvas note, edited in place: pan, zoom, add, move, resize, connect and
- * delete; text nodes edit as markdown. Changes save themselves through
- * `onSave`. A body that is not a canvas is shown as an error and never
- * overwritten.
- */
-export default function CanvasEditor(props: CanvasEditorProps) {
+function Glyph({ d }: { d: string }) {
   return (
-    <ReactFlowProvider>
-      <CanvasSurface {...props} />
-    </ReactFlowProvider>
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
-function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProps) {
+const MODES: { mode: Mode; label: string; icon: ReactNode }[] = [
+  { mode: "select", label: "Select", icon: <Glyph d="M5 3l13 8-5.5 1.5L15 19l-2.5 1-2.7-6.4L5 17z" /> },
+  { mode: "type", label: "Type", icon: <Glyph d="M5 6V4h14v2M12 4v16M9 20h6" /> },
+  { mode: "pen", label: "Pen", icon: <Glyph d="M4 20l1.2-4.2L15.8 5.2a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L8.2 18.8z" /> },
+  { mode: "eraser", label: "Eraser", icon: <Glyph d="M3 17l8.5-8.5a2 2 0 0 1 2.8 0l4.2 4.2a2 2 0 0 1 0 2.8L14 21H8zM7 12l5 5" /> },
+];
+
+/** Whether keys typed at `target` go into a field or a card's text, not the canvas. */
+function isTextEntry(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [contenteditable]") !== null);
+}
+
+function isImage(file: File): boolean {
+  return file.type.startsWith("image/");
+}
+
+/** A stored picture path without the `vault:` prefix the file node carries. */
+function barePath(stored: string, prefix: string): string {
+  return stored.startsWith(prefix) ? stored.slice(prefix.length) : stored;
+}
+
+function pictureOf(raw: RawCanvasNode, prefix: string): string | undefined {
+  return raw.file && isPicturePath(raw.file) ? barePath(raw.file, prefix) : undefined;
+}
+
+/**
+ * A freeform page: pan and zoom; text boxes, pictures, links, notes and
+ * groups as cards; pen strokes on top. Changes save themselves through
+ * `onSave`. A body that is not a canvas is shown as an error and never
+ * overwritten.
+ */
+export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, images }: CanvasEditorProps) {
   const [initial] = useState(() => {
     try {
-      return { loaded: load(body), error: null };
+      return { file: parseCanvasFile(body), error: null as string | null };
     } catch (err) {
-      return { loaded: null, error: formatError(err) };
+      return { file: EMPTY_FILE, error: formatError(err) };
     }
   });
   // A load error means the body is not a canvas: the editor halts and never saves over it.
   const [loadError, setLoadError] = useState<string | null>(initial.error);
   // A failed write is shown but does not halt: the edit stays pending and saves on the next change or flush.
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(initial.loaded?.nodes ?? []);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(initial.loaded?.edges ?? []);
-  const fileRef = useRef<CanvasFile>(initial.loaded?.file ?? { nodes: [], edges: [] });
-  const nodesRef = useRef(nodes);
-  nodesRef.current = nodes;
-  const edgesRef = useRef(edges);
-  edgesRef.current = edges;
+  const [pictureError, setPictureError] = useState<string | null>(null);
+  const [hist, setHist] = useState<History<CanvasFile>>(() => createHistory(initial.file));
+  const file = hist.present;
+  // The body never parsed and nothing valid has replaced it: show the error card, with no surface.
+  const broken = loadError !== null && file === initial.file;
+  const fileRef = useRef(file);
+  fileRef.current = file;
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
-  const { screenToFlowPosition } = useReactFlow<FlowNode, FlowEdge>();
-  const wrapRef = useRef<HTMLDivElement>(null);
   const screenActive = useScreenActive();
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
   const [focusWithin, setFocusWithin] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const deleteKeys = deleteKeysFor({ screenActive, focusWithin, editing });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  // The file as it was when a text or label edit began: one history entry covers the whole edit.
+  const editBaseRef = useRef<CanvasFile | null>(null);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [mode, setMode] = useState<Mode>("select");
+  const [colour, setColour] = useState(DEFAULT_COLOUR);
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const [view, setView] = useState<PageView>(DEFAULT_VIEW);
+  const [draft, setDraft] = useState<InkDraft | null>(null);
+  const gestureRef = useRef<Gesture | null>(null);
+  // The pointer the gesture belongs to: a second finger or pen is ignored until it ends.
+  const pointerRef = useRef<number | null>(null);
+  const [filePath, setFilePath] = useState("");
+  const [url, setUrl] = useState("");
+
   // Puts a body from the store on screen.
-  const show = useCallback(
-    (text: string) => {
-      try {
-        const next = load(text);
-        fileRef.current = next.file;
-        setNodes(next.nodes);
-        setEdges(next.edges);
-        setLoadError(null);
-      } catch (err) {
-        setLoadError(formatError(err));
-      }
-    },
-    [setNodes, setEdges],
-  );
+  const show = useCallback((text: string) => {
+    try {
+      const next = parseCanvasFile(text);
+      editBaseRef.current = null;
+      // A gesture in progress was built on the old file: drop it, so its release cannot write that file back.
+      gestureRef.current = null;
+      pointerRef.current = null;
+      setDraft(null);
+      setHist(createHistory(next));
+      setSelected(new Set());
+      setEditingId(null);
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(formatError(err));
+    }
+  }, []);
   const [saver] = useState(
     () =>
       new CanvasSaver({
         loaded: body,
-        write: (text, base) => {
-          fileRef.current = parseCanvasFile(text);
-          return onSaveRef.current(text, base);
-        },
+        write: (text, base) => onSaveRef.current(text, base),
         onError: (err) => setSaveError(formatError(err)),
         onSaved: () => setSaveError(null),
         onStored: show,
       }),
   );
-  const readText = useCallback(() => canvasText(fileRef.current, nodesRef.current, edgesRef.current), []);
+  const readText = useCallback(() => readyCore().normalizeCanvasText(JSON.stringify(fileRef.current)), []);
 
   const issues = useMemo(() => {
     try {
@@ -195,7 +212,7 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
     }
     saver.resume();
     saver.touch(readText);
-  }, [nodes, edges, loadError, saver, readText]);
+  }, [file, loadError, saver, readText]);
   // Leaving mid-wait still saves: closing the tab, navigating away, unmounting.
   useEffect(() => {
     const save = () => saver.flush(readText);
@@ -210,88 +227,325 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
     };
   }, [saver, readText]);
 
-  // Dragging a group carries the nodes inside it, as in Obsidian. Members are
-  // found once, at drag start, by the Rust core's geometry.
-  const groupDrag = useRef<{ id: string; members: string[]; last: { x: number; y: number } } | null>(null);
-  const onNodeDragStart: OnNodeDrag<FlowNode> = useCallback((_event, node, dragged) => {
-    if (!dragged.some((n) => n.type === "group")) {
-      groupDrag.current = null;
+  // Pictures: the file node's path is the vault prefix plus the stored path.
+  const prefix = readyCore().vaultImagePrefix();
+  const picturePaths = useMemo(
+    () => file.nodes.flatMap((node) => {
+      const path = pictureOf(node, prefix);
+      return path ? [path] : [];
+    }),
+    [file.nodes, prefix],
+  );
+  const fetchers = useMemo<BlobFetchers>(() => ({ fetchOne: (path) => images.fetch(path) }), [images]);
+  const pictureUrls = useBlobObjectUrls(picturePaths, fetchers);
+
+  /** Selection without ids that no longer exist (after undo or a remote change). */
+  const live = useMemo(() => {
+    const ids = new Set<string>([...file.nodes.map((node) => node.id), ...strokesOf(file).map((stroke) => stroke.id)]);
+    return new Set([...selected].filter((id) => ids.has(id)));
+  }, [file, selected]);
+
+  // One history entry per edit: `record` for discrete changes, `preview` while a gesture or typing changes the
+  // page without an entry, and `commit` to close a gesture with the file it started from.
+  const edit = useCallback((change: (f: CanvasFile) => CanvasFile) => setHist((h) => record(h, change(h.present))), []);
+  const preview = useCallback((change: (f: CanvasFile) => CanvasFile) => {
+    setHist((h) => {
+      const next = change(h.present);
+      return next === h.present ? h : { ...h, present: next };
+    });
+  }, []);
+  const commit = useCallback((base: CanvasFile) => {
+    setHist((h) => {
+      if (JSON.stringify(base) === JSON.stringify(h.present)) return h.present === base ? h : { ...h, present: base };
+      return record({ ...h, present: base }, h.present);
+    });
+  }, []);
+
+  const beginEdit = useCallback((id: string) => {
+    if (editBaseRef.current === null) editBaseRef.current = fileRef.current;
+    setEditingId(id);
+  }, []);
+  const endEdit = useCallback(() => {
+    const base = editBaseRef.current;
+    editBaseRef.current = null;
+    setEditingId(null);
+    if (base) commit(base);
+  }, [commit]);
+
+  /** Puts a new text box at `at`, open for typing. */
+  const createText = (at: Point) => {
+    const raw = makeNode("text", at, placeText(at));
+    if (editBaseRef.current === null) editBaseRef.current = fileRef.current;
+    setHist((h) => ({ ...h, present: addNode(h.present, raw) }));
+    setSelected(new Set([raw.id]));
+    setEditingId(raw.id);
+  };
+
+  /** The ids plus the nodes inside any group among them: a group carries its members, as in Obsidian. */
+  const withMembers = useCallback((selection: ReadonlySet<string>): Set<string> => {
+    const ids = new Set(selection);
+    const text = JSON.stringify(fileRef.current);
+    for (const node of fileRef.current.nodes) {
+      if (selection.has(node.id) && node.type === "group") {
+        for (const member of readyCore().canvasGroupMembers(text, node.id)) ids.add(member);
+      }
+    }
+    return ids;
+  }, []);
+
+  // Keys (see canvasKeyAction): delete, undo, redo, and arrows that nudge the selection. Never while typing.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const action = canvasKeyAction(
+        { screenActive, focusWithin, editing: editingId !== null, textEntry: isTextEntry(event.target) },
+        { key: event.key, ctrl: event.ctrlKey || event.metaKey, shift: event.shiftKey },
+      );
+      if (!action) return;
+      if (action.kind === "undo" || action.kind === "redo") {
+        event.preventDefault();
+        setHist((h) => (action.kind === "undo" ? undo(h) : redo(h)));
+        return;
+      }
+      if (live.size === 0) return;
+      event.preventDefault();
+      if (action.kind === "delete") {
+        const ids = live;
+        setHist((h) => record(h, removeItems(h.present, ids)));
+        setSelected(new Set());
+      } else {
+        const ids = withMembers(live);
+        setHist((h) => record(h, moveItems(h.present, ids, action.dx, action.dy)));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [screenActive, focusWithin, editingId, live, withMembers]);
+
+  // Plain wheel pans; Ctrl+wheel zooms about the pointer. Text being typed keeps its own scrolling.
+  useEffect(() => {
+    const el = surfaceRef.current;
+    if (!el) return;
+    const onWheel = (event: WheelEvent) => {
+      if (isTextEntry(event.target)) return;
+      event.preventDefault();
+      if (event.ctrlKey) {
+        const rect = el.getBoundingClientRect();
+        const at = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+        const factor = Math.exp(-event.deltaY * 0.002);
+        setView((v) => zoomAt(v, at, factor));
+      } else {
+        setView((v) => ({ ...v, x: v.x - event.deltaX, y: v.y - event.deltaY }));
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [broken]);
+
+  const local = (clientX: number, clientY: number): Point => {
+    const rect = surfaceRef.current?.getBoundingClientRect();
+    return rect ? { x: clientX - rect.left, y: clientY - rect.top } : { x: clientX, y: clientY };
+  };
+  const pageAt = (clientX: number, clientY: number): Point => screenToPage(view, local(clientX, clientY));
+  /** The page point at the middle of the visible surface. */
+  const centre = (): Point => {
+    const rect = surfaceRef.current?.getBoundingClientRect();
+    return screenToPage(view, { x: (rect?.width ?? 0) / 2, y: (rect?.height ?? 0) / 2 });
+  };
+
+  const startGesture = (event: ReactPointerEvent<HTMLDivElement>, gesture: Gesture) => {
+    gestureRef.current = gesture;
+    pointerRef.current = event.pointerId;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const eraseAt = (at: Point) => {
+    const radius = ERASER_RADIUS / view.zoom;
+    preview((f) => {
+      const ids = eraseHits(strokesOf(f), at, radius);
+      return ids.length > 0 ? removeItems(f, new Set(ids)) : f;
+    });
+  };
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (isTextEntry(event.target) || gestureRef.current !== null) return;
+    if (focusesOnPress({ screenActive, textEntry: false })) wrapperRef.current?.focus({ preventScroll: true });
+    if (editingId !== null) endEdit();
+    const target = event.target instanceof Element ? event.target : null;
+    const card = target?.closest<HTMLElement>("[data-node-id]") ?? null;
+    const at = pageAt(event.clientX, event.clientY);
+    const screen = local(event.clientX, event.clientY);
+
+    if (event.button === 1) {
+      event.preventDefault();
+      startGesture(event, { kind: "pan", screen, view });
       return;
     }
-    const text = JSON.stringify(fromFlow(fileRef.current, nodesRef.current, edgesRef.current));
-    const members = groupCarry(dragged, (id) => readyCore().canvasGroupMembers(text, id));
-    groupDrag.current = { id: node.id, members, last: { ...node.position } };
-  }, []);
-  const onNodeDrag: OnNodeDrag<FlowNode> = useCallback(
-    (_event, node) => {
-      const drag = groupDrag.current;
-      if (!drag || drag.id !== node.id) return;
-      const delta = { x: node.position.x - drag.last.x, y: node.position.y - drag.last.y };
-      if (delta.x === 0 && delta.y === 0) return;
-      drag.last = { ...node.position };
-      setNodes((current) => moveMembers(current, drag.members, delta));
-    },
-    [setNodes],
-  );
-  const onNodeDragStop: OnNodeDrag<FlowNode> = useCallback(
-    (event, node, dragged) => {
-      onNodeDrag(event, node, dragged);
-      groupDrag.current = null;
-    },
-    [onNodeDrag],
-  );
+    if (event.button !== 0) return;
 
-  const onConnect = useCallback(
-    (connection: Connection) => setEdges((current) => addEdge({ ...connection, id: newCanvasId(), markerEnd: ARROW }, current)),
-    [setEdges],
-  );
+    if (mode === "pen") {
+      const first = { x: at.x, y: at.y, pressure: event.pressure > 0 ? event.pressure : 0.5 };
+      startGesture(event, { kind: "ink", points: [first], colour, width });
+      setDraft({ points: [first], colour, width });
+      return;
+    }
+    if (mode === "eraser") {
+      startGesture(event, { kind: "erase", base: fileRef.current });
+      eraseAt(at);
+      return;
+    }
 
-  /** The flow point at the middle of the visible canvas. */
-  const centre = useCallback(() => {
-    const box = wrapRef.current?.getBoundingClientRect();
-    if (!box) return { x: 0, y: 0 };
-    return screenToFlowPosition({ x: box.left + box.width / 2, y: box.top + box.height / 2 });
-  }, [screenToFlowPosition]);
-
-  const add = useCallback(
-    (raw: ReturnType<typeof makeNode>) => {
-      const [node] = toFlow({ nodes: [raw], edges: [] }).nodes;
-      setNodes((current) => [...current.map((n) => ({ ...n, selected: false })), { ...node!, selected: true }]);
-    },
-    [setNodes],
-  );
-  const addAtCentre = (kind: "text" | "group") => {
-    const at = centre();
-    add(makeNode(kind, { x: at.x - 125, y: at.y - 30 }));
+    const raw = card ? fileRef.current.nodes.find((node) => node.id === card.dataset.nodeId) : undefined;
+    if (raw && target?.closest("[data-resize]")) {
+      const box = nodeBox(raw);
+      startGesture(event, {
+        kind: "resize",
+        base: fileRef.current,
+        id: raw.id,
+        origin: at,
+        size: { width: box.width, height: box.height },
+        picture: isPicturePath(raw.file),
+      });
+      return;
+    }
+    // In select mode a press on empty page picks the topmost stroke there, if any.
+    const hit = raw?.id ?? (mode === "select" ? strokeAt(strokesOf(fileRef.current), at, ERASER_RADIUS / view.zoom) : undefined);
+    if (hit) {
+      const next = event.shiftKey ? new Set([...selected, hit]) : selected.has(hit) ? selected : new Set([hit]);
+      setSelected(next);
+      // Group members are found once, at press, by the Rust core.
+      startGesture(event, { kind: "move", base: fileRef.current, ids: withMembers(next), origin: at });
+      return;
+    }
+    if (mode === "type") {
+      createText(at);
+      return;
+    }
+    setSelected(new Set());
+    startGesture(event, { kind: "pan", screen, view });
   };
 
-  // A double-click on empty canvas adds a text card there, as in Obsidian.
-  const onDoubleClick = (event: MouseEvent) => {
-    if (!(event.target instanceof Element) || !event.target.classList.contains("react-flow__pane")) return;
-    const at = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-    add(makeNode("text", { x: at.x - 125, y: at.y - 30 }));
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const g = gestureRef.current;
+    if (!g || event.pointerId !== pointerRef.current) return;
+    const screen = local(event.clientX, event.clientY);
+    const at = screenToPage(view, screen);
+    if (g.kind === "pan") {
+      setView({ ...g.view, x: g.view.x + screen.x - g.screen.x, y: g.view.y + screen.y - g.screen.y });
+    } else if (g.kind === "ink") {
+      g.points.push({ x: at.x, y: at.y, pressure: event.pressure > 0 ? event.pressure : 0.5 });
+      setDraft({ points: g.points.slice(), colour: g.colour, width: g.width });
+    } else if (g.kind === "erase") {
+      eraseAt(at);
+    } else if (g.kind === "move") {
+      const dx = at.x - g.origin.x;
+      const dy = at.y - g.origin.y;
+      preview(() => moveItems(g.base, g.ids, dx, dy));
+    } else {
+      const dx = at.x - g.origin.x;
+      const dy = at.y - g.origin.y;
+      const size = g.picture
+        ? resizeKeepAspect(g.size, dx)
+        : { width: Math.max(MIN_SIZE, Math.round(g.size.width + dx)), height: Math.max(MIN_SIZE, Math.round(g.size.height + dy)) };
+      preview(() => patchNode(g.base, g.id, { width: size.width, height: size.height }));
+    }
   };
 
-  const [filePath, setFilePath] = useState("");
-  const [url, setUrl] = useState("");
-  const addFile = (event: FormEvent) => {
+  const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const g = gestureRef.current;
+    if (!g || event.pointerId !== pointerRef.current) return;
+    gestureRef.current = null;
+    pointerRef.current = null;
+    if (g.kind === "ink") {
+      setDraft(null);
+      if (g.points.length > 0) {
+        const stroke = encodeStroke({ id: newCanvasId(), width: g.width, colour: g.colour, points: g.points });
+        edit((f) => addStroke(f, stroke));
+      }
+    } else if (g.kind === "erase" || g.kind === "move" || g.kind === "resize") {
+      commit(g.base);
+    }
+  };
+
+  const onDoubleClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (mode !== "select" || isTextEntry(event.target)) return;
+    if (event.target instanceof Element && event.target.closest("[data-node-id]")) return;
+    createText(pageAt(event.clientX, event.clientY));
+  };
+
+  /** Stores pictures and places each as a file node, one after another from `at`. */
+  const addPictures = async (pictures: File[], at: Point) => {
+    let spot = at;
+    for (const picture of pictures) {
+      try {
+        const path = await images.store(picture);
+        const size = pictureSize(await loadNaturalSize(picture));
+        const raw = makeNode("file", spot, size, { file: `${prefix}${path}` });
+        edit((f) => addNode(f, raw));
+        setSelected(new Set([raw.id]));
+        spot = { x: spot.x + 24, y: spot.y + 24 };
+      } catch (err) {
+        setPictureError(formatError(err));
+      }
+    }
+  };
+
+  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (Array.from(event.dataTransfer.types).includes("Files")) event.preventDefault();
+  };
+  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    if (isTextEntry(event.target)) return;
+    const pictures = Array.from(event.dataTransfer.files).filter(isImage);
+    if (pictures.length === 0) return;
     event.preventDefault();
-    if (!filePath.trim()) return;
+    void addPictures(pictures, pageAt(event.clientX, event.clientY));
+  };
+  const onPaste = (event: ClipboardEvent<HTMLDivElement>) => {
+    if (isTextEntry(event.target)) return;
+    const pictures = Array.from(event.clipboardData.files).filter(isImage);
+    if (pictures.length === 0) return;
+    event.preventDefault();
+    void addPictures(pictures, centre());
+  };
+
+  /** Undo or redo from the toolbar: an open text edit is closed first, so it becomes the entry undone. */
+  const stepHistory = (step: (h: History<CanvasFile>) => History<CanvasFile>) => {
+    endEdit();
+    setHist((h) => step(h));
+  };
+  const chooseMode = (next: Mode) => {
+    endEdit();
+    setMode(next);
+  };
+  const zoomBy = (factor: number) => {
+    const rect = surfaceRef.current?.getBoundingClientRect();
+    const at = { x: (rect?.width ?? 0) / 2, y: (rect?.height ?? 0) / 2 };
+    setView((v) => zoomAt(v, at, factor));
+  };
+  const addGroup = () => {
     const at = centre();
-    add(makeNode("file", { x: at.x - 200, y: at.y - 200 }, { file: filePath.trim() }));
+    const raw = makeNode("group", { x: at.x - 160, y: at.y - 100 }, GROUP_SIZE);
+    edit((f) => addNode(f, raw));
+    setSelected(new Set([raw.id]));
+  };
+
+  const addFile = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const path = filePath.trim();
+    if (!path) return;
+    const at = centre();
+    edit((f) => addNode(f, makeNode("file", { x: at.x - 160, y: at.y - 60 }, CARD_SIZE, { file: path })));
     setFilePath("");
   };
-  const addLink = (event: FormEvent) => {
+  const addLink = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!url.trim()) return;
+    const address = url.trim();
+    if (!address) return;
     const at = centre();
-    add(makeNode("link", { x: at.x - 200, y: at.y - 200 }, { url: url.trim() }));
+    edit((f) => addNode(f, makeNode("link", { x: at.x - 160, y: at.y - 60 }, CARD_SIZE, { url: address })));
     setUrl("");
   };
 
-  const actions = useMemo(() => ({ openFile: onOpenFile }), [onOpenFile]);
-
-  if (loadError && nodes.length === 0 && edges.length === 0 && initial.error) {
+  if (broken) {
     return (
       <div className="canvas-editor canvas-editor--broken" role="alert">
         <p>This canvas cannot be shown, so it is left as it is.</p>
@@ -300,31 +554,56 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
     );
   }
 
+  const problem = loadError ?? saveError ?? pictureError;
+
   return (
     <div
       className="canvas-editor"
-      ref={wrapRef}
-      // Focusable so a press can move focus here; the delete keys need focus inside the canvas.
-      tabIndex={-1}
-      onMouseDown={(event) => {
-        if (focusesOnPress({ screenActive, textEntry: isTextEntry(event.target) })) wrapRef.current?.focus({ preventScroll: true });
-      }}
-      onDoubleClick={onDoubleClick}
-      onFocus={(event) => {
-        setFocusWithin(true);
-        setEditing(isTextEntry(event.target));
-      }}
+      ref={wrapperRef}
+      // Focusable (by Tab too) so the delete, undo and arrow keys, which need focus inside the canvas, reach it.
+      tabIndex={0}
+      aria-label="Freeform page"
+      onFocus={() => setFocusWithin(true)}
       onBlur={(event) => {
         if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
         setFocusWithin(false);
-        setEditing(false);
+        endEdit();
       }}
+      onPaste={onPaste}
     >
       <div className="canvas-editor__bar" role="toolbar" aria-label="Canvas">
-        <Button size="sm" onClick={() => addAtCentre("text")}>
+        <div className="canvas-editor__modes" role="group" aria-label="Mode">
+          {MODES.map(({ mode: m, label, icon }) => (
+            <IconButton key={m} label={label} size="sm" aria-pressed={mode === m} onClick={() => chooseMode(m)}>
+              {icon}
+            </IconButton>
+          ))}
+        </div>
+        <input type="color" aria-label="Pen colour" value={colour} onChange={(event) => setColour(event.target.value)} />
+        <Select aria-label="Pen width" value={width} onChange={(event) => setWidth(Number(event.target.value))}>
+          {PEN_WIDTHS.map((w) => (
+            <option key={w} value={w}>
+              {w} px
+            </option>
+          ))}
+        </Select>
+        <IconButton label="Undo" size="sm" disabled={!canUndo(hist)} onClick={() => stepHistory(undo)}>
+          <Glyph d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" />
+        </IconButton>
+        <IconButton label="Redo" size="sm" disabled={!canRedo(hist)} onClick={() => stepHistory(redo)}>
+          <Glyph d="M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3" />
+        </IconButton>
+        <IconButton label="Zoom out" size="sm" onClick={() => zoomBy(1 / 1.25)}>
+          −
+        </IconButton>
+        <span className="canvas-editor__zoom">{Math.round(view.zoom * 100)}%</span>
+        <IconButton label="Zoom in" size="sm" onClick={() => zoomBy(1.25)}>
+          +
+        </IconButton>
+        <Button size="sm" onClick={() => createText(centre())}>
           Text
         </Button>
-        <Button size="sm" onClick={() => addAtCentre("group")}>
+        <Button size="sm" onClick={addGroup}>
           Group
         </Button>
         <form onSubmit={addFile} className="canvas-editor__add">
@@ -350,9 +629,9 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
             Add link
           </Button>
         </form>
-        {loadError ?? saveError ? (
+        {problem ? (
           <span className="canvas-editor__status" role="alert">
-            {loadError ?? saveError}
+            {problem}
           </span>
         ) : issues.length > 0 ? (
           <span className="canvas-editor__status muted" title={issues.map((issue: { message: string }) => issue.message).join("\n")}>
@@ -360,29 +639,41 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
           </span>
         ) : null}
       </div>
-      <CanvasActionsContext.Provider value={actions}>
-        <ReactFlow<FlowNode, FlowEdge>
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={NODE_TYPES}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onNodeDragStart={onNodeDragStart}
-          onNodeDrag={onNodeDrag}
-          onNodeDragStop={onNodeDragStop}
-          connectionMode={ConnectionMode.Loose}
-          deleteKeyCode={deleteKeys}
-          elevateNodesOnSelect={false}
-          zoomOnDoubleClick={false}
-          minZoom={0.1}
-          maxZoom={4}
-          fitView
-        >
-          <Background />
-          <Controls />
-        </ReactFlow>
-      </CanvasActionsContext.Provider>
+      <div
+        className="canvas-surface"
+        ref={surfaceRef}
+        data-mode={mode}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onDoubleClick={onDoubleClick}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+      >
+        <div className="canvas-page" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
+          <EdgeLayer nodes={file.nodes} edges={file.edges} />
+          {file.nodes.map((raw) => {
+            const picture = pictureOf(raw, prefix);
+            return (
+              <CanvasCard
+                key={raw.id}
+                raw={raw}
+                selected={live.has(raw.id)}
+                editing={editingId === raw.id}
+                pictureUrl={picture ? pictureUrls.get(picture) : undefined}
+                paste={images.paste}
+                openFile={onOpenFile}
+                onChange={(patch) => preview((f) => patchNode(f, raw.id, patch))}
+                onEditStart={() => beginEdit(raw.id)}
+                onEditEnd={endEdit}
+                onSelect={() => setSelected(new Set([raw.id]))}
+              />
+            );
+          })}
+          <InkLayer strokes={strokesOf(file)} selected={live} draft={draft} />
+        </div>
+      </div>
     </div>
   );
 }

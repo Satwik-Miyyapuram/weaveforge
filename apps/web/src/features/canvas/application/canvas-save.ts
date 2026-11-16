@@ -1,6 +1,6 @@
 /**
  * The debounced save of a canvas body. Kept apart from the editor so it runs
- * without the wasm core or React Flow: the editor reads the text on screen and
+ * without the wasm core: the editor reads the text on screen and
  * passes it in.
  */
 

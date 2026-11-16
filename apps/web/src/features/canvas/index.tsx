@@ -4,7 +4,7 @@ import { ScreenLoader } from "@/components/weaveforge-loader";
 
 export type { CanvasEditorProps } from "./ui/canvas-editor";
 
-/** Loaded on first use: React Flow stays out of the bundle until a canvas opens. */
+/** Loaded on first use: the canvas editor stays out of the bundle until a canvas opens. */
 export const LazyCanvasEditor = dynamic(() => import("./ui/canvas-editor"), {
   ssr: false,
   loading: () => <ScreenLoader status="Loading canvas…" showTips={false} compact />,

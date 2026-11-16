@@ -42,7 +42,7 @@ export function editorImageUpload(options: {
  * came too, rather than refused: a format this browser does not know is still a
  * file the writer meant to attach, and the note keeps working.
  */
-async function prepare(file: File): Promise<{ blob: Blob; ext: string }> {
+export async function prepare(file: File): Promise<{ blob: Blob; ext: string }> {
   const core = await loadCore();
   if (file.type === "image/gif") {
     return { blob: file, ext: "gif" };

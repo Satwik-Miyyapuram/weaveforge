@@ -1,13 +1,14 @@
 /**
- * A canvas note's body (JSON Canvas 1.0, as Obsidian writes it) mapped to the
- * nodes and edges the canvas editor draws, and back.
+ * A freeform page's body: JSON Canvas 1.0 (as Obsidian writes it) plus the
+ * top-level `wfInk` strokes (see `freeform-ink.ts`).
  *
- * Every node and edge keeps the object it was read from (`data.raw`), so a
- * field this editor does not know — a later spec version's, or a plugin's such
- * as Advanced Canvas's `styleAttributes` — is written back untouched. The text
- * layout itself (tabs, one node per line, key order) is the Rust core's job:
- * `normalizeCanvasText` in wf-core `canvas`.
+ * The editor keeps the parsed file and changes it by spreading, so every field
+ * it does not touch (a plugin's `styleAttributes`, a later spec's keys, edges it
+ * only draws) is written back as it was read. The text layout itself (tabs, one
+ * node per line, key order) is the Rust core's job: `normalizeCanvasText`.
  */
+
+import { unreadInk, type InkStroke } from "./freeform-ink";
 
 /** A node as stored: the spec's fields plus whatever else the file carried. */
 export interface RawCanvasNode {
@@ -40,63 +41,62 @@ export interface RawCanvasEdge {
   [field: string]: unknown;
 }
 
-/** A whole canvas file, top-level plugin fields included. */
+/** A whole canvas file, top-level plugin fields and `wfInk` included. */
 export interface CanvasFile {
   nodes: RawCanvasNode[];
   edges: RawCanvasEdge[];
+  wfInk?: unknown[];
   [field: string]: unknown;
 }
 
 /** The body of a canvas with nothing on it, byte for byte as Obsidian writes it. */
 export const EMPTY_CANVAS_TEXT = '{\n\t"nodes":[],\n\t"edges":[]\n}';
 
-/** The node kinds the editor draws; `unknown` is a later version's, shown as a plain box. */
+/** The node kinds the page draws; `unknown` is a later version's, shown as a plain card. */
 export type CanvasNodeKind = "text" | "file" | "link" | "group" | "unknown";
 
 const KNOWN_KINDS = new Set<string>(["text", "file", "link", "group"]);
 
-export interface CanvasFlowNode {
-  id: string;
-  type: CanvasNodeKind;
-  position: { x: number; y: number };
-  width: number;
-  height: number;
-  /** Groups draw behind everything else, as in Obsidian. */
-  zIndex: number;
-  data: { raw: RawCanvasNode };
+/** The kind the page draws a node as. */
+export function nodeKind(raw: RawCanvasNode): CanvasNodeKind {
+  return KNOWN_KINDS.has(raw.type) ? (raw.type as CanvasNodeKind) : "unknown";
 }
 
-export interface CanvasFlowEdge {
-  id: string;
-  source: string;
-  target: string;
-  /** The side the edge leaves from; the handle ids are the spec's side names. */
-  sourceHandle?: string | null;
-  targetHandle?: string | null;
-  label?: string;
-  color?: string;
-  markerStart: boolean;
-  markerEnd: boolean;
-  data: { raw: RawCanvasEdge };
+const LABEL_LENGTH = 40;
+
+/** A short name for a card, for screen readers: its kind and the start of its content. */
+export function nodeLabel(raw: RawCanvasNode): string {
+  switch (nodeKind(raw)) {
+    case "text": {
+      const line = (raw.text ?? "").split("\n")[0]?.trim() ?? "";
+      if (!line) return "Text: empty";
+      return `Text: ${line.length > LABEL_LENGTH ? `${line.slice(0, LABEL_LENGTH)}…` : line}`;
+    }
+    case "file":
+      return `File: ${(raw.file ?? "").split("/").pop() || "no file"}`;
+    case "link":
+      return `Link: ${raw.url || "no address"}`;
+    case "group":
+      return raw.label ? `Group: ${raw.label}` : "Group";
+    default:
+      return `${raw.type} node`;
+  }
 }
 
-/** What `fromFlow` reads off a node: React Flow's nodes satisfy it as they are. */
-export interface NodeLike {
-  id: string;
-  position: { x: number; y: number };
-  width?: number | null;
-  height?: number | null;
-  data: { raw: RawCanvasNode };
+const DEFAULT_BOX = { width: 320, height: 40 };
+
+/** The box a node is drawn in. A missing or non-numeric coordinate is drawn at 0, never NaN. */
+export function nodeBox(raw: RawCanvasNode): { x: number; y: number; width: number; height: number } {
+  return {
+    x: finiteOr(raw.x, 0),
+    y: finiteOr(raw.y, 0),
+    width: finiteOr(raw.width, DEFAULT_BOX.width),
+    height: finiteOr(raw.height, DEFAULT_BOX.height),
+  };
 }
 
-/** What `fromFlow` reads off an edge; a new edge has no `raw` yet. */
-export interface EdgeLike {
-  id: string;
-  source: string;
-  target: string;
-  sourceHandle?: string | null;
-  targetHandle?: string | null;
-  data?: { raw: RawCanvasEdge };
+function finiteOr(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function notACanvas(): Error {
@@ -115,97 +115,25 @@ export function parseCanvasFile(text: string): CanvasFile {
   return { ...file, nodes: nodes as RawCanvasNode[], edges: edges as RawCanvasEdge[] };
 }
 
-/** The canvas as the editor draws it. */
-export function toFlow(file: CanvasFile): { nodes: CanvasFlowNode[]; edges: CanvasFlowEdge[] } {
-  const nodes = file.nodes.map<CanvasFlowNode>((raw) => ({
-    id: raw.id,
-    type: KNOWN_KINDS.has(raw.type) ? (raw.type as CanvasNodeKind) : "unknown",
-    // A node with no x or y is drawn at 0 rather than NaN; saving keeps it coordinate-free until it is moved.
-    position: { x: finiteOr(raw.x, 0), y: finiteOr(raw.y, 0) },
-    width: raw.width,
-    height: raw.height,
-    zIndex: raw.type === "group" ? 0 : 1,
-    data: { raw },
-  }));
-  const edges = file.edges.map<CanvasFlowEdge>((raw) => ({
-    id: raw.id,
-    source: raw.fromNode,
-    target: raw.toNode,
-    sourceHandle: raw.fromSide ?? null,
-    targetHandle: raw.toSide ?? null,
-    ...(raw.label !== undefined ? { label: raw.label } : {}),
-    ...(raw.color !== undefined ? { color: raw.color } : {}),
-    markerStart: raw.fromEnd === "arrow",
-    markerEnd: (raw.toEnd ?? "arrow") === "arrow",
-    data: { raw },
-  }));
-  return { nodes, edges };
+/** The file with its ink replaced. No strokes means no `wfInk` field at all. */
+export function setInk(file: CanvasFile, strokes: readonly InkStroke[]): CanvasFile {
+  const { wfInk: previous, ...rest } = file;
+  if (previous !== undefined && !Array.isArray(previous) && strokes.length === 0) return file;
+  const ink = [...unreadInk(previous), ...strokes];
+  return ink.length === 0 ? (rest as CanvasFile) : { ...rest, wfInk: ink };
 }
 
-/** A number kept as read when it did not change, else rounded as Obsidian writes it. */
-function settle(next: number | null | undefined, stored: number): number {
-  if (next === undefined || next === null || next === stored) return stored;
-  if (!Number.isFinite(next)) return stored;
-  // A node stored without a coordinate is drawn at 0; only a move away from 0 writes one.
-  if (!Number.isFinite(stored) && next === 0) return stored;
-  return Math.round(next);
-}
-
-function finiteOr(value: number | undefined, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-/**
- * The file the editor's state stands for. Nodes and edges keep the editor's
- * order; an edge whose node was deleted goes with it (an edge that already
- * pointed at nothing in the file is kept, so a save loses nothing it did not
- * cause). Top-level fields come from `file`.
- */
-export function fromFlow(file: CanvasFile, nodes: readonly NodeLike[], edges: readonly EdgeLike[]): CanvasFile {
-  const present = new Set(nodes.map((n) => n.id));
-  const removed = new Set(file.nodes.map((n) => n.id).filter((id) => !present.has(id)));
-  const outNodes = nodes.map<RawCanvasNode>((node) => {
-    const raw = node.data.raw;
-    return {
-      ...raw,
-      id: node.id,
-      x: settle(node.position.x, raw.x),
-      y: settle(node.position.y, raw.y),
-      width: settle(node.width, raw.width),
-      height: settle(node.height, raw.height),
-    };
-  });
-  const outEdges = edges
-    .filter((edge) => !removed.has(edge.source) && !removed.has(edge.target))
-    .map<RawCanvasEdge>((edge) => {
-      const out: RawCanvasEdge = { ...(edge.data?.raw ?? {}), id: edge.id, fromNode: edge.source, toNode: edge.target };
-      if (edge.sourceHandle) out.fromSide = edge.sourceHandle;
-      else delete out.fromSide;
-      if (edge.targetHandle) out.toSide = edge.targetHandle;
-      else delete out.toSide;
-      return out;
-    });
-  return { ...file, nodes: outNodes, edges: outEdges };
-}
-
-/** A 16-hex-digit id, the shape Obsidian gives nodes and edges. */
 export function newCanvasId(): string {
   const bytes = new Uint8Array(8);
   crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-const DEFAULT_SIZE: Record<Exclude<CanvasNodeKind, "unknown">, { width: number; height: number }> = {
-  text: { width: 250, height: 60 },
-  file: { width: 400, height: 400 },
-  link: { width: 400, height: 400 },
-  group: { width: 400, height: 300 },
-};
-
-/** A new node of `kind` at `at`, with its required field (`text`, `file`, `url`, or a group's label). */
+/** A new node of `kind` at `at` (rounded to whole page pixels), with the field its kind needs. */
 export function makeNode(
   kind: Exclude<CanvasNodeKind, "unknown">,
   at: { x: number; y: number },
+  size: { width: number; height: number },
   fields: Partial<RawCanvasNode> = {},
 ): RawCanvasNode {
   const required =
@@ -216,39 +144,8 @@ export function makeNode(
     ...required,
     x: Math.round(at.x),
     y: Math.round(at.y),
-    ...DEFAULT_SIZE[kind],
+    width: size.width,
+    height: size.height,
     ...fields,
   };
-}
-
-/** `nodes` with the ones in `ids` shifted by `delta` (a group dragging its members). */
-export function moveMembers<N extends { id: string; position: { x: number; y: number } }>(
-  nodes: readonly N[],
-  ids: readonly string[],
-  delta: { x: number; y: number },
-): N[] {
-  const members = new Set(ids);
-  return nodes.map((node) =>
-    members.has(node.id)
-      ? { ...node, position: { x: node.position.x + delta.x, y: node.position.y + delta.y } }
-      : node,
-  );
-}
-
-/**
- * The nodes a drag of `dragged` carries along: the members of every group
- * being dragged, each once, minus the nodes being dragged themselves (React
- * Flow moves those already).
- */
-export function groupCarry(
-  dragged: readonly { id: string; type?: string }[],
-  membersOf: (groupId: string) => readonly string[],
-): string[] {
-  const moving = new Set(dragged.map((node) => node.id));
-  const carried = new Set<string>();
-  for (const group of dragged) {
-    if (group.type !== "group") continue;
-    for (const id of membersOf(group.id)) if (!moving.has(id)) carried.add(id);
-  }
-  return [...carried];
 }

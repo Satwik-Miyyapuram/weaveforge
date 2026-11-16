@@ -26,6 +26,7 @@ import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import { NoteSaves } from "@/features/editor-workspace/application/parts";
 import { LazyCanvasEditor } from "@/features/canvas";
+import { canvasImages } from "@/features/canvas/application/canvas-images";
 import { resolveCanvasFile } from "@/features/canvas/application/canvas-files";
 import { NoteTagEditor } from "./note-tag-editor";
 import { runNoteAction } from "./run-note-action";
@@ -209,6 +210,7 @@ export function PageEditor({
     [notes, page.id],
   );
   const canvasPaths = useMemo(() => canvasTargets.map((t) => t.path), [canvasTargets]);
+  const canvasPictures = useMemo(() => canvasImages(page.id), [page.id]);
   const openCanvasFile = useCallback(
     (path: string) => {
       const target = onOpenPage ? resolveCanvasFile(canvasTargets, path) : undefined;
@@ -340,6 +342,7 @@ export function PageEditor({
                   onSave={canEditBody ? saveCanvas : async () => undefined}
                   filePaths={canvasPaths}
                   onOpenFile={openCanvasFile}
+                  images={canvasPictures}
                 />
               </div>
             ) : view === "read" && !hasBody && !ink ? (

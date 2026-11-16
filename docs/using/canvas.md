@@ -8,68 +8,108 @@ checked: 2026-11-16
 ---
 # Canvas
 
-A canvas is a free-form board in your notes tree. You place text, notes,
-files, web links and groups on it, draw arrows between them, and pan and zoom
-around the board. A canvas is saved as a `.canvas` file in the JSON Canvas
-format, the same format Obsidian uses, so a canvas you make here opens in
-Obsidian and the reverse.
+A canvas is a free-form page, like a page in OneNote. Put text boxes, pictures,
+handwriting, note and file cards, web links and labelled groups anywhere on it,
+and pan and zoom around it. A canvas is saved as a `.canvas` file in the JSON
+Canvas format, the same format Obsidian uses, so a canvas you make here opens in
+Obsidian and the reverse. Handwriting is kept in an extra field of the file that
+Obsidian does not draw.
 
 ## How to
 
 ### Create a canvas
 
-In 0.9.1 the explorer has no button to make a new canvas: a freeform page,
-where you put text, pictures and handwriting anywhere, comes in a later
-release. A `.canvas` file that is already in your notes, for example one
-imported from an Obsidian vault, still opens and saves as described below.
+Click **New page** in the Explorer header, or **New page here** in the menu of a
+folder or notes item. A canvas is a normal entry in the notes tree. You can
+rename, move, tag and delete it the same way as a note. A `.canvas` file already
+in your notes, for example one imported from an Obsidian vault, opens and saves
+as described below.
 
-A canvas is a normal entry in the notes tree. You can rename, move, tag and
-delete it the same way as a note.
+A canvas opens in the canvas editor on the Notes page. Its card in the Notes list
+says "Canvas" where a note shows its first lines. In the editor, a canvas tab and
+its breadcrumb end in `.canvas`.
 
-A canvas also opens in the canvas editor on the Notes page, and its card in the
-Notes list says "Canvas" where a note shows its first lines. The card never
-shows the canvas's JSON, or tags picked out of it. In the editor, a canvas tab
-and its breadcrumb end in `.canvas`.
+### Modes
 
-### Add nodes
+The toolbar has four modes. The pressed one is the one in use.
 
-The toolbar above the board has these buttons:
+- **Select** moves, selects and resizes things. Drag the empty background to pan.
+- **Type** puts a text box where you click, open for typing.
+- **Pen** draws on the page. Pick its colour and width (2, 4, 8 or 16 px) in the toolbar.
+- **Eraser** removes the strokes it passes over.
 
-- **Text** adds a text node in the middle of the view. Double-click it to write
-  Markdown in the note editor.
-- **Group** adds a labelled frame. Drag a group and the nodes inside it move
-  with it.
-- **Note or file…** adds a note, paper or attachment by its path. Pick a path
-  from the list, or type one. Double-click the node to open that file.
-- **Web address** adds a link node with the address you type.
+### Add things
 
-### Move around
+- **Text** puts a text box in the middle of the view. In Select mode, double-click
+  empty space to make one there.
+- Double-click a text box to write Markdown in it. Press Escape to finish.
+- **Group** adds a labelled frame. Type its label in place.
+- **Add file** adds a card for a note, paper or attachment by its path. Pick a
+  path from the list or type one. Double-click the card to open that file. If it
+  is not in this workspace, the card says so.
+- **Add link** adds a card for a web address. Only `http://` and `https://`
+  addresses are allowed, and the address opens in your browser.
+- **Pictures** are added by pasting an image or dragging one onto the page. A
+  picture is shown at its natural size, up to 640 px wide.
 
-- Drag the empty background to pan.
-- Scroll or pinch to zoom.
-- Drag a node to move it. Select a node to show its resize corners.
-- Drag from one of a node's four side handles to another node to draw an arrow.
+### Move and resize
 
-### Delete and keys
+- Drag a card to move it. Shift-click adds to the selection.
+- Drag a group to move the cards inside it with it.
+- Select a card to show its resize corner, then drag the corner. A picture keeps
+  its shape while you resize it.
+- A text box grows to fit its text while you edit it.
 
-Select a node or an arrow, then press Backspace or Delete to remove it. The keys
-only act while the canvas has focus and the screen is on show, and never while
-you are writing in a card, so editing a card's text cannot delete it. Clicking
-the board gives it focus, unless the click lands in a text field.
+### Pan and zoom
+
+- Drag the empty background to pan, or drag with the middle mouse button anywhere.
+- Scroll to pan.
+- Ctrl and scroll zooms around the pointer. The **+**
+  and **−** buttons zoom around the middle of the view. The percentage in the
+  toolbar shows the zoom.
+
+### Undo, delete and keys
+
+- **Undo** and **Redo** are in the toolbar. Ctrl+Z undoes; Ctrl+Shift+Z or Ctrl+Y
+  redoes. A text edit is one step.
+- In Select mode, click a stroke to select it, and drag to move it. Shift-click
+  adds to the selection.
+- Select a card or a stroke, then press Delete or Backspace to remove it.
+- The arrow keys move the selection 1 px, or 10 px with Shift.
+- These keys act only while the canvas has focus and the screen is on show, and
+  never while you are writing in a card or a toolbar field, so editing a card's
+  text cannot delete it. Clicking the page gives it focus, unless the click
+  lands in a text field.
+- Without a mouse: press Tab to reach the page, then Tab again to step through
+  the cards. A card selects when it gets focus. Enter starts editing a text
+  card, opens a file card, and moves to a group's label or a link card's link.
+
+### Ink
+
+Pen strokes are drawn at the width you picked. A highlighter stroke, for
+example one imported from Excalidraw, is drawn see-through. Pen pressure is
+saved with each stroke but is not drawn yet, so every stroke has an even width.
+
+### Arrows
+
+Arrows already in a `.canvas` file are drawn as straight lines, with their
+colours and labels. You cannot draw or move arrows in the editor yet. Edit them in
+Obsidian, or in the file itself.
 
 ### Colours
 
-The editor has no colour controls, so you cannot set a colour here. A colour
-that is already in the file is shown and kept. The presets 1 to 6 follow your
-theme, and a hex colour such as `#e0a030` is drawn as it is. To set one, edit
-the `.canvas` file in an editor or in Obsidian.
+Only the pen has a colour control. A colour already set in the file is shown and
+kept. The presets 1 to 6 follow your theme, and a hex colour such as `#e0a030` is
+drawn as it is. You cannot change a card's colour here; edit the `.canvas` file in
+an editor or in Obsidian.
 
 ### Save
 
 Changes save a moment after you stop editing. You do not need a save button.
-If the status at the right of the toolbar shows a count of issues, the file
-has something the JSON Canvas format does not allow, such as an edge that points
-at a node that does not exist. Hover the count to see each issue.
+If the status at the right of the toolbar shows a count of issues, the file has
+something the JSON Canvas format does not allow, such as an edge that points at a
+node that does not exist. Hover the count to see each issue. If a save fails, the
+error shows in the same place.
 
 ### Saving and conflicts
 
@@ -107,9 +147,13 @@ on the way in. If both sides changed it, see
 - Anything in a `.canvas` file that WeaveForge does not show, such as a field
   added by another app, is kept when you save. Colours set elsewhere are shown
   and kept too (see Colours above).
+- Handwriting is stored in an extra field that Obsidian does not draw, so strokes
+  made here show only in WeaveForge.
 - A file that is not valid JSON Canvas does not open. The editor shows the
   error instead, and the file is not changed.
 
 ## Limits
 
 - Canvases are for arranging things. For long writing, use a [note](notes.md).
+- Pinch to zoom on a touch screen is not supported yet; use the + and − buttons
+  or Ctrl and scroll.
