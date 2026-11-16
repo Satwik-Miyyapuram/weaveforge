@@ -167,3 +167,42 @@ export function orderBySelfReference(rows: SyncRow[], column: string | undefined
   }
   return out;
 }
+
+/** Stored generated columns of synced tables. The database computes them, so an insert leaves them out. */
+export const OMITTED_GENERATED: Partial<Record<SyncTable, readonly string[]>> = {
+  vault_pages: ["body_preview"],
+  paper_tags: ["id"],
+};
+
+/** The writes a restore needs from a store, whether PostgREST or a test double. */
+export interface SyncTableStore {
+  /** True when the table has no rows for this user yet. */
+  isEmpty(table: SyncTable): Promise<boolean>;
+  insert(table: SyncTable, rows: SyncRow[]): Promise<void>;
+}
+
+const INSERT_CHUNK = 500;
+
+/**
+ * Restore every synced table into a store, parents first, with plain inserts.
+ * Refuses a store that already has rows, so a restore never meets a primary-key
+ * conflict halfway through.
+ */
+export async function restoreSyncTables(
+  tables: Partial<Record<SyncTable, SyncRow[]>>,
+  store: SyncTableStore,
+): Promise<void> {
+  for (const table of SYNC_TABLES) {
+    if (!(await store.isEmpty(table))) {
+      throw new Error(`Cannot restore: ${table} already has rows. Restore into an empty database.`);
+    }
+  }
+  for (const table of SYNC_TABLES) {
+    const omitted = new Set(OMITTED_GENERATED[table] ?? []);
+    const rows = orderBySelfReference(tables[table] ?? [], SELF_REFERENCE[table])
+      .map((row) => Object.fromEntries(Object.entries(row).filter(([k]) => !omitted.has(k))));
+    for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+      await store.insert(table, rows.slice(i, i + INSERT_CHUNK));
+    }
+  }
+}

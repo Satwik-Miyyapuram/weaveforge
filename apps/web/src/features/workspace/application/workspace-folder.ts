@@ -15,7 +15,14 @@ import {
   IsomorphicWorkspaceGit,
 } from "../infrastructure/parts";
 import { folderLock } from "./folder-lock";
-import { exportSyncTables, syncTableFolderFiles, type SyncRow, type SyncTableReader } from "./sync-tables";
+import {
+  exportSyncTables,
+  syncTableFolderFiles,
+  type SyncRow,
+  type SyncTable,
+  type SyncTableReader,
+  type SyncTableStore,
+} from "./sync-tables";
 import {
   applyFolderImport,
   clearPendingAssets,
@@ -332,6 +339,24 @@ function restTableReader(client: ReturnType<typeof getDataClient>): SyncTableRea
       rows.push(...page);
       if (page.length < REST_PAGE) return rows;
     }
+  };
+}
+
+/**
+ * Restore target through the app's data client: a table is empty when one read
+ * returns no row, and each chunk is one plain POST with explicit values.
+ */
+export function restTableStore(client: ReturnType<typeof getDataClient>): SyncTableStore {
+  return {
+    async isEmpty(table: SyncTable) {
+      const { data, error } = await client.from(table).select("*").range(0, 0);
+      if (error) throw new Error(`Could not check ${table} before restore: ${error.message}`);
+      return (data ?? []).length === 0;
+    },
+    async insert(table: SyncTable, rows: SyncRow[]) {
+      const { error } = await client.from(table).insert(rows);
+      if (error) throw new Error(`Could not restore ${table}: ${error.message}`);
+    },
   };
 }
 

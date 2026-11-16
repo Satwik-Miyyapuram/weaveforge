@@ -21,7 +21,12 @@ import {
   SYNC_TABLES,
   exportSyncTables,
   importSyncTables,
+  OMITTED_GENERATED,
+  restoreSyncTables,
   sqlTableReader,
+  type SyncRow,
+  type SyncTable,
+  type SyncTableStore,
   syncTableFile,
   syncTableFolderFiles,
   syncTableRowsFromFolder,
@@ -173,4 +178,74 @@ test("the mirror writes every table file into the folder and a clone rebuilds fr
   for (const table of SYNC_TABLES) {
     assert.deepEqual(await snapshot(dst, table), await snapshot(src, table), `${table}: rows equal`);
   }
+});
+
+// The restore path used by the app: the same rows through a store that writes
+// plain inserts, generated columns left out. The PGlite store stands in for the
+// PostgREST client, which cannot run in tests.
+function pgliteStore(db: TestDb): SyncTableStore {
+  return {
+    async isEmpty(table: SyncTable) {
+      const rows = await db.sql<{ n: number }>(`select count(*)::int as n from ${table}`);
+      return rows[0]?.n === 0;
+    },
+    async insert(table: SyncTable, rows: SyncRow[]) {
+      const cols = [...new Set(rows.flatMap((row) => Object.keys(row)))];
+      const list = cols.map((c) => `"${c}"`).join(", ");
+      await db.sql(
+        `insert into ${table} (${list}) select ${list} from json_populate_recordset(null::${table}, $1::json)`,
+        [JSON.stringify(rows)],
+      );
+    },
+  };
+}
+
+test("the restore into an empty database through plain inserts rebuilds every table", async () => {
+  const src = await freshTestDb();
+  const uid = await src.createUser("restore@test.invalid");
+  await seed(src, uid);
+  const tableFiles = syncTableFolderFiles(await exportSyncTables(sqlTableReader(src)));
+  const rows = syncTableRowsFromFolder(tableFiles);
+
+  const dst = await freshTestDb();
+  await dst.sql(`insert into auth.users (id, email) values ($1, 'restore@test.invalid')`, [uid]);
+  await restoreSyncTables(rows, pgliteStore(dst));
+  for (const table of SYNC_TABLES) {
+    assert.deepEqual(await snapshot(dst, table), await snapshot(src, table), `${table}: rows equal`);
+  }
+});
+
+test("a restore refuses a database that already has synced rows", async () => {
+  const src = await freshTestDb();
+  const uid = await src.createUser("restore2@test.invalid");
+  await seed(src, uid);
+  const rows = syncTableRowsFromFolder(syncTableFolderFiles(await exportSyncTables(sqlTableReader(src))));
+  await assert.rejects(restoreSyncTables(rows, pgliteStore(src)), /already has rows/);
+});
+
+test("the generated columns left out of a restore are exactly the stored generated columns of synced tables", async () => {
+  const db = await testDb();
+  const generated = await db.sql<{ table_name: string; column_name: string }>(
+    `select table_name, column_name from information_schema.columns
+      where table_schema = 'public' and is_generated = 'ALWAYS'`,
+  );
+  const synced = new Set<string>(SYNC_TABLES);
+  const found = generated
+    .filter((c) => synced.has(c.table_name))
+    .map((c) => `${c.table_name}.${c.column_name}`)
+    .sort();
+  const omitted = Object.entries(OMITTED_GENERATED)
+    .flatMap(([table, cols]) => (cols ?? []).map((c) => `${table}.${c}`))
+    .sort();
+  assert.deepEqual(omitted, found);
+});
+
+test("no synced table has an identity column that refuses explicit values", async () => {
+  const db = await testDb();
+  const always = await db.sql<{ table_name: string; column_name: string }>(
+    `select table_name, column_name from information_schema.columns
+      where table_schema = 'public' and identity_generation = 'ALWAYS'`,
+  );
+  const synced = new Set<string>(SYNC_TABLES);
+  assert.deepEqual(always.filter((c) => synced.has(c.table_name)), []);
 });
