@@ -26,7 +26,7 @@ import type { EditorView } from "@codemirror/view";
 import { getContainer } from "@/bootstrap";
 import type { EditorHandleRef } from "@/components/editor-handle";
 import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
-import { CollabBodyHost } from "@/features/collab";
+import { CollabBodyHost, type SaveBody } from "@/features/collab";
 // The features' public APIs, not their `ui/` folders: a feature may reach a
 // sibling only through its index (CONTRIBUTING.md § SOLID). A paper's
 // `paperimg:` and a section's `reportimg:` resolve here because the resolvers
@@ -93,7 +93,7 @@ export interface DocumentHostProps {
   completions?: CiteCompletion[];
   /** `#tag` completions: every tag the project already uses. */
   tags?: readonly string[];
-  onSave: (body: string) => Promise<void>;
+  onSave: SaveBody;
   /** The renderer reporting on itself — see `DocumentMetrics`. */
   onMetrics?: (metrics: DocumentMetrics) => void;
   /**

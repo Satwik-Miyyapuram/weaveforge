@@ -284,7 +284,7 @@ export function WorkspaceScreen() {
   documentsRef.current = documents;
 
   const save = useCallback(
-    async (tab: TabRef, body: string) => {
+    async (tab: TabRef, body: string, meta?: { sessionDigests: readonly string[] }) => {
       // A body may only go back to the store once the full one has come in.
       // The editor is not mounted before that, but an editor that saved the
       // 320-character preview would overwrite the note with it — a loss the
@@ -302,10 +302,26 @@ export function WorkspaceScreen() {
         // `if (kind === …)` chain. It cannot live in `ui/kind.ts` — the values
         // are container calls, and that table is pure data — but it is the same
         // kind of per-kind column, and it is the one an ink note adds a row to.
+        // A note's save names the body this editor last sent, so an edit someone
+        // else saved since is merged in or kept as a copy, never overwritten.
+        const saveNote = async (id: string, next: string) => {
+          const base = hydrated.get(id);
+          const saved = await container.vault.manageVaultPage.update(id, {
+            body: next,
+            ...(base !== undefined ? { baseBody: base } : {}),
+            ...(meta ? { sessionDigests: meta.sessionDigests } : {}),
+          });
+          if (saved.conflictCopyId) {
+            setError(
+              "Someone else changed this note at the same time. Your text was saved; theirs is kept as a conflict copy beside it.",
+            );
+            void reload();
+          }
+        };
         const writers: Record<string, (id: string, next: string) => Promise<unknown>> = {
-          vault_page: (id, next) => container.vault.manageVaultPage.update(id, { body: next }),
+          vault_page: saveNote,
           // An ink note is a vault page whose body starts with the ink header (§4.1).
-          ink_page: (id, next) => container.vault.manageVaultPage.update(id, { body: next }),
+          ink_page: saveNote,
           paper: (id, next) => container.papers.updatePaper.setSummary(id, next),
           report_section: (id, next) => container.report.manageReportSection.setNotes(id, next),
           // A log entry is markdown, so the editor's text *is* the entry's body.
@@ -328,7 +344,7 @@ export function WorkspaceScreen() {
         setPending(pendingRef.current);
       }
     },
-    [hydrated],
+    [hydrated, reload],
   );
 
   // The browser only honours the guard if the handler is registered before the
@@ -526,7 +542,7 @@ export function WorkspaceScreen() {
           links={links}
           completions={completions}
           tags={tags}
-          onSave={(body: string) => save(tab, body)}
+          onSave={(body, meta) => save(tab, body, meta)}
           onMetrics={(next) => setMetrics((current) => ({ ...current, [key]: next }))}
           onOpenLink={openLink}
           onCreateNote={createMode === "create" ? createFromLink : undefined}

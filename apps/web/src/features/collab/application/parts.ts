@@ -4,6 +4,13 @@ import type { Peer } from "../domain/presence";
 
 // --- body-saver ---
 /**
+ * Writes a collaborative document's body to its row. `sessionDigests` names the
+ * bodies this document's live sessions saved, so the store can tell a peer's
+ * save from someone else's edit (`repos::vault_page_guard`).
+ */
+export type SaveBody = (body: string, meta?: { sessionDigests: readonly string[] }) => Promise<void>;
+
+/**
  * Writes a collaborative document's text back to its row: debounced while
  * typing, at once on `flush()`, and one last time on `close()`.
  *

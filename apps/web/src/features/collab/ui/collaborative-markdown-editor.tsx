@@ -11,11 +11,11 @@ import { Awareness } from "y-protocols/awareness";
 import type { CollabSession } from "../application/parts.js";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { RealtimeYjsProvider } from "../infrastructure/realtime-yjs-provider.js";
-import { seedIfEmpty } from "../domain/seed-document.js";
-import { BodySaver, publishPeers } from "../application/parts.js";
+import { markSaved, reconcileWithBody, savedDigests } from "../domain/seed-document.js";
+import { BodySaver, publishPeers, type SaveBody } from "../application/parts.js";
 import { logToApp } from "@/lib/error-report/app-log";
 import type { Peer } from "../domain/presence.js";
-import { typedCore } from "@/lib/rust-core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import { PresenceAvatars } from "./presence-avatars";
 
 const SAVE_MS = 1500;
@@ -49,7 +49,7 @@ export function CollaborativeMarkdownEditor({
   session: CollabSession;
   authorId: string;
   displayName: string;
-  onSave: (body: string) => Promise<void>;
+  onSave: SaveBody;
   className?: string;
   /**
    * CodeMirror stack to use instead of the plain markdown default. Notes pass
@@ -81,6 +81,7 @@ export function CollaborativeMarkdownEditor({
   const onViewCreatedRef = useRef(onViewCreated);
   onViewCreatedRef.current = onViewCreated;
   const awarenessRef = useRef<Awareness | null>(null);
+  const docRef = useRef<Y.Doc | null>(null);
   const [peers, setPeers] = useState<readonly Peer[]>([]);
   const [transportError, setTransportError] = useState<string | null>(null);
 
@@ -91,7 +92,14 @@ export function CollaborativeMarkdownEditor({
     () =>
       new BodySaver(
         {
-          save: (body) => onSaveRef.current(body),
+          // The save names the bodies this document's sessions saved, so the
+          // store does not take a peer's save for someone else's edit; once it
+          // lands, this body joins them (see reconcileWithBody).
+          save: async (body) => {
+            const doc = docRef.current;
+            await onSaveRef.current(body, { sessionDigests: doc ? savedDigests(doc) : [] });
+            if (doc) markSaved(doc, readyCore().digestText(body));
+          },
           onError: (err) =>
             logToApp({ level: "warn", source: "collab", message: "Body save failed", detail: String(err) }),
           delayMs: SAVE_MS,
@@ -118,6 +126,7 @@ export function CollaborativeMarkdownEditor({
     saver.begin();
 
     const doc = new Y.Doc();
+    docRef.current = doc;
     const yText = doc.getText("body");
 
     const awareness = new Awareness(doc);
@@ -149,12 +158,13 @@ export function CollaborativeMarkdownEditor({
       // text may not have been written at all yet.
       awaitBodyPersisted: () => saver.flush(),
       crdtUpdateStore: session.crdtUpdateStore,
-      // Runs once the CRDT log has been replayed. Only a document with no
-      // stored history takes the row's body — otherwise the log is the truth
-      // and seeding would duplicate it.
+      // Runs once the CRDT log has been replayed. The row's body is the truth:
+      // an empty document takes it, and a log it cannot show to be newer is
+      // rebuilt to it, so a stale log never overwrites a newer body.
       seed: () => {
-        seedIfEmpty(doc, initialBody);
-        saver.seeded(yText.toString());
+        const { saved, dirty } = reconcileWithBody(doc, initialBody, (text) => readyCore().digestText(text));
+        saver.seeded(saved);
+        if (dirty) saver.schedule(yText.toString());
         host.dispatchEvent(new Event("input", { bubbles: true }));
       },
       onError: (stage, detail) => setTransportError(`${stage}: ${detail}`),
@@ -209,6 +219,7 @@ export function CollaborativeMarkdownEditor({
       // on every teardown, and the host closed the form on save — so the editor
       // shut itself the moment it opened.
       saver.close(yText.toString());
+      if (docRef.current === doc) docRef.current = null;
       void provider.destroy();
       view.destroy();
       doc.destroy();

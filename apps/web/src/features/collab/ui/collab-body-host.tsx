@@ -16,6 +16,7 @@ import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/theme/codemi
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/parts";
 import { CollaborativeMarkdownEditor } from "./collaborative-markdown-editor.js";
+import type { SaveBody } from "../application/parts.js";
 import { docChangeListener } from "./doc-change-listener";
 
 /**
@@ -70,7 +71,7 @@ export function CollabBodyHost({
   resourceType: string;
   resourceId: string;
   initialBody: string;
-  onSave: (body: string) => Promise<void>;
+  onSave: SaveBody;
   className?: string;
   /** Caller's CodeMirror stack — see `CollaborativeMarkdownEditor`. */
   extraExtensions?: Extension[];

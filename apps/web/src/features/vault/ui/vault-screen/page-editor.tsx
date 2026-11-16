@@ -121,16 +121,33 @@ export function PageEditor({
    * arriving mid-edit or mid-stroke would shut the surface under the writer,
    * so Edit and Ink refresh once they are put away (`chooseMode`).
    */
+  // The body this editor started from or last sent: a save names it, so an
+  // edit someone else saved since is merged in or kept as a copy.
+  const baseRef = useRef(page.body);
+  useEffect(() => {
+    baseRef.current = page.body;
+  }, [page.id, page.body]);
+
   const saveBody = useCallback(
-    async (nextBody: string) => {
+    async (nextBody: string, meta?: { sessionDigests: readonly string[] }) => {
       setSaveError(null);
       try {
         const vault = getContainer().vault;
         const { body, uploadError } = await materializeBlobImagesInBody(nextBody, page.id, (id, blob, ext) =>
           vault.uploadAsset(id, blob, ext),
         );
-        await vault.manageVaultPage.update(page.id, { body });
+        const saved = await vault.manageVaultPage.update(page.id, {
+          body,
+          baseBody: baseRef.current,
+          ...(meta ? { sessionDigests: meta.sessionDigests } : {}),
+        });
+        baseRef.current = body;
         if (modeRef.current === "read") await onChanged();
+        if (saved.conflictCopyId) {
+          setSaveError(
+            "Someone else changed this note at the same time. Your text was saved; theirs is kept as a conflict copy beside it.",
+          );
+        }
         // The text is saved; a failed upload is still said out loud.
         if (uploadError) throw uploadError;
       } catch (err) {
