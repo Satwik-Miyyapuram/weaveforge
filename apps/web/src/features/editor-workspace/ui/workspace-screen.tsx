@@ -180,7 +180,11 @@ export function WorkspaceScreen() {
   const pendingRef = useRef(0);
   const { bodies: hydrated, hydrate } = useNoteBodies(setDocuments, setError);
   // One save of a note at a time, each naming the body the last one stored.
-  const noteSaves = useMemo(() => new NoteSaves(hydrated), [hydrated]);
+  // Made once and kept: a new one would drop the queues of saves in flight.
+  // `hydrated` is `useNoteBodies`'s ref map, the same map every render.
+  const noteSavesRef = useRef<NoteSaves | null>(null);
+  noteSavesRef.current ??= new NoteSaves(hydrated);
+  const noteSaves = noteSavesRef.current;
   // Each reload's number: late Overleaf rows apply only to the newest load.
   const loadRef = useRef(0);
   const reload = useCallback(async () => {
