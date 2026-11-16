@@ -10,6 +10,7 @@ use std::sync::Arc;
 pub mod app_log;
 pub mod app_route;
 pub mod app_storage;
+pub mod app_update;
 pub mod auth_link;
 pub mod auth_loopback;
 pub mod cmd_ink;
@@ -116,6 +117,9 @@ pub fn run() -> tauri::Result<()> {
     // Sign-in returns through an App Link on phones (phase 4, step 4.5).
     #[cfg(mobile)]
     let builder = builder.plugin(tauri_plugin_deep_link::init());
+    // One-click updates (app_update): desktop only; the config's pubkey gates the checks.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     let app = builder
         .invoke_handler(commands::specta_builder().invoke_handler())
         .setup(|app| {
@@ -128,6 +132,7 @@ pub fn run() -> tauri::Result<()> {
             open_main_window(app.handle())?;
             plan_widget_window::open_at_start(app.handle());
             start_sign_in(app.handle());
+            app_update::start(app.handle());
             Ok(())
         })
         .register_asynchronous_uri_scheme_protocol(

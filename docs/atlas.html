@@ -542,12 +542,12 @@
       into either one.
     </p>
     <div class="facts">
-      <div class="fact"><b>228,026</b><span>web app lines</span></div>
+      <div class="fact"><b>228,564</b><span>web app lines</span></div>
       <div class="fact"><b>24,637</b><span>core lines</span></div>
-      <div class="fact"><b>3,971</b><span>shell lines</span></div>
+      <div class="fact"><b>4,705</b><span>shell lines</span></div>
       <div class="fact"><b>3,375</b><span>python sdk</span></div>
       <div class="fact"><b>155</b><span>migrations</span></div>
-      <div class="fact"><b>33</b><span>web features</span></div>
+      <div class="fact"><b>34</b><span>web features</span></div>
     </div>
   </header>
 
@@ -669,16 +669,16 @@ flowchart TB
 │   ├── config/                    <i>defineConfig + plugin contract</i>
 │   └── shared/                    <i>clock, dates, three-way-merge, tree, repository</i>
 │
-├── <b>apps/web/src/</b>                 <i>228,026 lines</i>
+├── <b>apps/web/src/</b>                 <i>228,564 lines</i>
 │   ├── <u>app/</u>                      <i>25 pages + 1 API routes</i>
-│   ├── <u>features/</u>                 <i>33 slices — core's 19 plus the web-only ones:</i>
+│   ├── <u>features/</u>                 <i>34 slices — core's 19 plus the web-only ones:</i>
 │   │                              <i>offline-sync, sync, workspace, editor-workspace,</i>
 │   │                              <i>auth, search, export, overleaf, reader, startup,</i>
 │   │                              <i>legal</i>
 │   ├── backend/                   <i>provider wiring: postgrest | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
-├── <b>apps/shell/src/</b>              <i>3,971 lines, 0 files, Tauri shell src/ only</i>
+├── <b>apps/shell/src/</b>              <i>4,705 lines, 0 files, Tauri shell src/ only</i>
 │   ├── main.ts  preload.ts  channels.ts
 │   ├── local-db.ts  local-db-host.ts     <i>PGlite in the main process</i>
 │   ├── local-api-server.ts  local-api.ts <i>127.0.0.1:27123</i>
@@ -698,7 +698,7 @@ flowchart TB
 ├── <b>db/migrations/</b>           <i>0001 → 0157, 8,352 lines</i>
 ├── <b>scripts/</b>                       <i>109 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
-└── <b>docs/</b>                          <i>203 files, 37,250 lines</i>
+└── <b>docs/</b>                          <i>203 files, 37,297 lines</i>
 </pre>
       </div>
     </section>

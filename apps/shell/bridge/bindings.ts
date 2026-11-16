@@ -191,6 +191,12 @@ export const commands = {
 	 *  When the releases could not be fetched, so the page can say the check failed.
 	 */
 	updateCheck: () => typedError<Update | null, ShellError_Serialize>(__TAURI_INVOKE("update_check")),
+	/**  The status now, for the page on load. */
+	appUpdateStatus: () => __TAURI_INVOKE<AppUpdateStatus_Serialize>("app_update_status"),
+	/**  Asks for a newer release now. */
+	appUpdateCheck: () => __TAURI_INVOKE<AppUpdateStatus_Serialize>("app_update_check"),
+	/**  Downloads and runs the offered release. */
+	appUpdateInstall: () => __TAURI_INVOKE<AppUpdateStatus_Serialize>("app_update_install"),
 	/**
 	 *  Whether a sign-in redirect can reach the app; when not, the page asks for the address to be pasted.
 	 * 
@@ -459,6 +465,37 @@ export type AppLogText = {
 	text: string,
 	/**  False when the in-memory log has dropped entries it once held. */
 	complete: boolean,
+};
+
+/**  What the page needs to draw the notice and the Settings row. */
+export type AppUpdateStatus = AppUpdateStatus_Serialize | AppUpdateStatus_Deserialize;
+
+/**  What the page needs to draw the notice and the Settings row. */
+export type AppUpdateStatus_Deserialize = {
+	/**  Where the cycle is now. */
+	phase: Phase,
+	/**  The version running now, `major.minor.patch`. */
+	current: string,
+	/**  The newer version offered, when there is one. */
+	version?: string | null,
+	/**  Download progress, 0 to 100, when the size is known. */
+	percent?: number | null,
+	/**  A message the page can show as it is. */
+	error?: string | null,
+};
+
+/**  What the page needs to draw the notice and the Settings row. */
+export type AppUpdateStatus_Serialize = {
+	/**  Where the cycle is now. */
+	phase: Phase,
+	/**  The version running now, `major.minor.patch`. */
+	current: string,
+	/**  The newer version offered, when there is one. */
+	version: string | null,
+	/**  Download progress, 0 to 100, when the size is known. */
+	percent: number | null,
+	/**  A message the page can show as it is. */
+	error: string | null,
 };
 
 /**  What a pick did. */
@@ -837,6 +874,25 @@ export type OverleafSyncReply_Serialize = {
 	/**  The push's outcome, for `push`. */
 	push?: SyncPush,
 };
+
+/**  Where the shell is in the update cycle. */
+export type Phase = 
+/**  No updater configured (no signing key yet) or a dev build: nothing is checked. */
+"unsupported" | 
+/**  Configured, nothing asked yet. */
+"idle" | 
+/**  Asking the manifest. */
+"checking" | 
+/**  The manifest has no newer release. */
+"upToDate" | 
+/**  A newer release is known and waiting for one click. */
+"available" | 
+/**  The installer is downloading; `percent` says how far. */
+"downloading" | 
+/**  The installer is running; the app is about to close and reopen. */
+"installing" | 
+/**  The last check or install failed; `error` says so and a retry is allowed. */
+"failed";
 
 /**  The plan widget, as `DesktopPlanWidget` in apps/web/src/lib/desktop/desktop-bridge.ts. */
 export type PlanWidgetStatePayload = {

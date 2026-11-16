@@ -19,7 +19,7 @@ import type {
   DesktopZoteroReply,
 } from "@/lib/desktop/desktop-bridge";
 import { fromBase64, toBase64, unwrap } from "./bridge";
-import type { commands } from "./bindings";
+import type { AppUpdateStatus, AppUpdateStatus_Serialize, commands } from "./bindings";
 
 /** Compiles only while the generated commands still fit what this shim expects. */
 export type GeneratedCommandsFit = typeof commands extends DesktopCommands
@@ -98,6 +98,10 @@ export interface DesktopCommands {
   ): Promise<Result<{ bytes: string; contentType: string; url: string }>>;
   zoteroLocal(url: string): Promise<Result<DesktopZoteroReply>>;
   updateCheck(): Promise<Result<DesktopUpdate | null>>;
+  // One-click updates answer with the status itself, not a Result: they never throw.
+  appUpdateStatus(): Promise<AppUpdateStatus_Serialize>;
+  appUpdateCheck(): Promise<AppUpdateStatus_Serialize>;
+  appUpdateInstall(): Promise<AppUpdateStatus_Serialize>;
   signInListening(): Promise<Result<boolean>>;
   appLogReport(report: {
     level: string;
@@ -188,6 +192,25 @@ export const VAULT_CHANGED_EVENT = "vault-changed";
 
 /** The event the shell emits, with the reason, when the folder watch stops seeing changes. */
 export const VAULT_WATCH_LOST_EVENT = "vault-watch-lost";
+
+/** The event the shell emits with the whole update status each time it changes. */
+export const APP_UPDATE_EVENT = "app-update";
+
+/** Whether an `app-update` payload is a status (it carries a phase), so the page never reads junk. */
+function isAppUpdatePayload(payload: unknown): payload is AppUpdateStatus {
+  return typeof payload === "object" && payload !== null && typeof (payload as { phase?: unknown }).phase === "string";
+}
+
+/** The status with every optional field present (null when absent), the shape the page reads. */
+function toDesktopAppUpdate(status: AppUpdateStatus): AppUpdateStatus_Serialize {
+  return {
+    phase: status.phase,
+    current: status.current,
+    version: status.version ?? null,
+    percent: status.percent ?? null,
+    error: status.error ?? null,
+  };
+}
 
 /** The event the sidecar emits to ask for a semantic ranking: [id, query, candidates]. */
 export const SEMANTIC_RANK_EVENT = "semanticRank";
@@ -286,6 +309,10 @@ export type DesktopShim = Pick<
   | "fetchImage"
   | "zoteroLocal"
   | "checkUpdate"
+  | "appUpdateStatus"
+  | "appUpdateCheck"
+  | "appUpdateInstall"
+  | "onAppUpdate"
   | "signInListening"
   | "reportAppLog"
   | "readAppLog"
@@ -544,6 +571,32 @@ export function desktopShim(
     },
     zoteroLocal: async (url) => unwrap(await cmds.zoteroLocal(url)),
     checkUpdate: async () => unwrap(await cmds.updateCheck()),
+    appUpdateStatus: async () => toDesktopAppUpdate(await cmds.appUpdateStatus()),
+    appUpdateCheck: async () => toDesktopAppUpdate(await cmds.appUpdateCheck()),
+    appUpdateInstall: async () => toDesktopAppUpdate(await cmds.appUpdateInstall()),
+    // Same unlisten rule as `onVaultChange`.
+    onAppUpdate: (cb) => {
+      let stopped = false;
+      let unlisten: (() => void) | null = null;
+      void events
+        .listen(APP_UPDATE_EVENT, (payload) => {
+          if (stopped || !isAppUpdatePayload(payload)) return;
+          cb(toDesktopAppUpdate(payload));
+        })
+        .then((stop) => {
+          if (stopped) stop();
+          else unlisten = stop;
+        })
+        .catch((error: unknown) => {
+          console.warn("Update progress will not show up live:", error);
+        });
+      return () => {
+        if (stopped) return;
+        stopped = true;
+        unlisten?.();
+        unlisten = null;
+      };
+    },
     // A failed question is no reason to ask for a pasted link, so it counts as listening.
     signInListening: async () => {
       try {

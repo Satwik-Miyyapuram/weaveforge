@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { desktop, type DesktopUpdate } from "@/lib/desktop/desktop-bridge";
 import { Button } from "@/components/button";
 import { FormError } from "@/components/form-error";
+import { AppUpdateSettings } from "@/features/app-update";
 
 /**
  * Updates, for the desktop window only.
@@ -100,7 +101,8 @@ export function useDesktopUpdate(): {
   };
 }
 
-export function DesktopUpdatePanel() {
+/** The release-page check, for shells that predate one-click updates. */
+function LegacyUpdatePanel() {
   const bridge = desktop();
   const { checked, failed, idle, update, recheck } = useDesktopUpdate();
   const [asked, setAsked] = useState(false);
@@ -176,4 +178,12 @@ export function DesktopUpdatePanel() {
       </label>
     </div>
   );
+}
+
+/** Installed windows with one-click updates get the new block; older shells keep the release-page check. */
+export function DesktopUpdatePanel() {
+  const bridge = desktop();
+  if (!bridge) return null;
+  if (bridge.appUpdateStatus) return <AppUpdateSettings version={bridge.version} />;
+  return <LegacyUpdatePanel />;
 }
