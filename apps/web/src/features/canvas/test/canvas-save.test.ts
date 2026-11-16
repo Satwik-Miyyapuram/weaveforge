@@ -270,9 +270,9 @@ test("an older write landing after a newer write failed does not clear the banne
   saver.flush(read);
   text = "C";
   saver.flush(read);
-  pending[1].reject(new Error("disk full"));
+  pending[1]!.reject(new Error("disk full"));
   await tick();
-  pending[0].resolve();
+  pending[0]!.resolve();
   await tick();
   assert.equal(saved, 0, "B landed but C is still unsaved on screen, so the banner stays");
   assert.equal(errors.length, 1);
