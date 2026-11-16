@@ -1,0 +1,15 @@
+{
+	"nodes":[
+		{"id":"5d0a3f1c9e7b2a64","type":"group","label":"Reading","x":-620,"y":-360,"width":980,"height":720,"color":"4"},
+		{"id":"b1f0c2d3e4a59687","type":"text","text":"# Questions\n\n- Does the **method** scale?\n- See [[Paper notes#Results]]","x":-580,"y":-320,"width":400,"height":260},
+		{"id":"0c9e8d7f6a5b4c3d","type":"file","file":"Papers/Attention is all you need.md","subpath":"#Results","x":-120,"y":-320,"width":440,"height":400,"color":"#e0a96d"},
+		{"id":"7a6b5c4d3e2f1a0b","type":"file","file":"Attachments/figure 1.png","x":-580,"y":0,"width":400,"height":300},
+		{"id":"1234abcd5678ef90","type":"link","url":"https://jsoncanvas.org/spec/1.0/","x":420,"y":-320,"width":400,"height":400},
+		{"id":"fedcba9876543210","type":"group","label":"Empty","background":"Attachments/bg.png","backgroundStyle":"cover","x":420,"y":140,"width":400,"height":200}
+	],
+	"edges":[
+		{"id":"e1a2b3c4d5e6f708","fromNode":"b1f0c2d3e4a59687","fromSide":"right","toNode":"0c9e8d7f6a5b4c3d","toSide":"left","label":"answers"},
+		{"id":"a9b8c7d6e5f40312","fromNode":"0c9e8d7f6a5b4c3d","fromSide":"right","fromEnd":"arrow","toNode":"1234abcd5678ef90","toSide":"left","toEnd":"none","color":"2"},
+		{"id":"0011223344556677","fromNode":"7a6b5c4d3e2f1a0b","fromSide":"top","toNode":"b1f0c2d3e4a59687","toSide":"bottom"}
+	]
+}

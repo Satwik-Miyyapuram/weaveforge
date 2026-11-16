@@ -1,0 +1,10 @@
+{
+	"nodes":[
+		{"id":"n1","type":"text","text":"Plugin fields","x":0,"y":0,"width":250,"height":60,"color":"1","styleAttributes":{"shape":"pill","border":"dashed"}},
+		{"id":"n2","type":"text","text":"Portal","x":300,"y":0,"width":250,"height":60,"portalToFile":"Other.canvas"}
+	],
+	"edges":[
+		{"id":"x1","fromNode":"n1","fromSide":"right","toNode":"n2","toSide":"left","styleAttributes":{"path":"dotted"}}
+	],
+	"metadata":{"version":"1.0-1.0","frontmatter":{}}
+}
