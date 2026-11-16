@@ -1,5 +1,6 @@
 //! Moving the workspace to a folder the reader picked: the session, the remembered folder and the folder watch move together.
 
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -155,15 +156,23 @@ pub fn default_workspace_folder(documents: &Path) -> PathBuf {
     documents.join(WORKSPACE_SUBDIR)
 }
 
-/// Refuses a folder that is the app's install folder or inside it. Whole path components only,
-/// so a sibling that shares the text prefix is allowed. `None` (install folder unknown) refuses nothing.
+/// Refuses a folder that is the app's install folder or inside it. Both paths are resolved first
+/// (`..` and, on Windows, letter case), so a spelling of the same folder cannot slip past. Whole
+/// path components only, so a sibling that shares the text prefix is allowed. `None` (install
+/// folder unknown) refuses nothing.
 ///
 /// # Errors
 /// The reader-facing reason; the pick changes nothing.
 pub fn refuse_install_dir(chosen: &Path, install: Option<&Path>) -> Result<(), String> {
-    match install {
-        Some(install) if chosen.starts_with(install) => Err(INSIDE_INSTALL.to_owned()),
-        _ => Ok(()),
+    let Some(install) = install else {
+        return Ok(());
+    };
+    let chosen = fs::canonicalize(chosen).unwrap_or_else(|_| chosen.to_path_buf());
+    let install = fs::canonicalize(install).unwrap_or_else(|_| install.to_path_buf());
+    if chosen.starts_with(&install) {
+        Err(INSIDE_INSTALL.to_owned())
+    } else {
+        Ok(())
     }
 }
 

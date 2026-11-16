@@ -543,6 +543,33 @@ fn an_install_dir_or_anything_inside_it_is_refused() {
 }
 
 #[test]
+fn a_folder_reached_through_dot_dot_into_the_install_dir_is_refused() {
+    let tmp = TempDir::new();
+    let install = tmp.path().join("WeaveForgeApp");
+    fs::create_dir_all(install.join("data")).unwrap();
+    fs::create_dir_all(tmp.path().join("x")).unwrap();
+    let sneaky = tmp
+        .path()
+        .join("x")
+        .join("..")
+        .join("WeaveForgeApp")
+        .join("data");
+
+    assert!(refuse_install_dir(&sneaky, Some(&install)).is_err());
+}
+
+#[cfg(windows)]
+#[test]
+fn a_folder_in_the_install_dir_with_other_letter_case_is_refused() {
+    let tmp = TempDir::new();
+    let install = tmp.path().join("WeaveForgeApp");
+    fs::create_dir_all(install.join("data")).unwrap();
+    let other_case = tmp.path().join("WEAVEFORGEAPP").join("data");
+
+    assert!(refuse_install_dir(&other_case, Some(&install)).is_err());
+}
+
+#[test]
 fn skip_uses_weaveforge_in_documents() {
     assert_eq!(
         default_workspace_folder(Path::new("/home/me/Documents")),
