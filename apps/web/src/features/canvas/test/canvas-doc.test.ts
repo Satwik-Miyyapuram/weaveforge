@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   EMPTY_CANVAS_TEXT,
   fromFlow,
+  groupCarry,
   makeNode,
   moveMembers,
   parseCanvasFile,
@@ -116,4 +117,24 @@ test("moveMembers shifts only the listed nodes", () => {
     ],
   );
   assert.equal(moved[2], nodes[2], "untouched nodes keep their identity");
+});
+
+test("groupCarry gathers the members of every dragged group, once, leaving the dragged nodes alone", () => {
+  const dragged = [
+    { id: "g", type: "group" },
+    { id: "g2", type: "group" },
+    { id: "t", type: "text" },
+  ];
+  const members: Record<string, string[]> = { g: ["t", "a"], g2: ["a", "b", "g"] };
+  assert.deepEqual(
+    groupCarry(dragged, (id) => members[id] ?? []),
+    ["a", "b"],
+  );
+});
+
+test("groupCarry carries nothing when no group is dragged", () => {
+  assert.deepEqual(
+    groupCarry([{ id: "t", type: "text" }], () => ["x"]),
+    [],
+  );
 });

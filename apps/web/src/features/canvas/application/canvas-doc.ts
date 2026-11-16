@@ -226,3 +226,21 @@ export function moveMembers<N extends { id: string; position: { x: number; y: nu
       : node,
   );
 }
+
+/**
+ * The nodes a drag of `dragged` carries along: the members of every group
+ * being dragged, each once, minus the nodes being dragged themselves (React
+ * Flow moves those already).
+ */
+export function groupCarry(
+  dragged: readonly { id: string; type?: string }[],
+  membersOf: (groupId: string) => readonly string[],
+): string[] {
+  const moving = new Set(dragged.map((node) => node.id));
+  const carried = new Set<string>();
+  for (const group of dragged) {
+    if (group.type !== "group") continue;
+    for (const id of membersOf(group.id)) if (!moving.has(id)) carried.add(id);
+  }
+  return [...carried];
+}

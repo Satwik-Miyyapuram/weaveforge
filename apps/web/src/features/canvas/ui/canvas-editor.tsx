@@ -20,9 +20,11 @@ import {
 } from "@xyflow/react";
 import { readyCore } from "@/lib/rust-core";
 import { formatError } from "@/lib/format-error";
+import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { Button } from "@/components/button";
 import {
   fromFlow,
+  groupCarry,
   makeNode,
   moveMembers,
   newCanvasId,
@@ -32,6 +34,8 @@ import {
   type CanvasFlowEdge,
   type RawCanvasEdge,
 } from "../application/canvas-doc";
+import { CanvasSaver } from "../application/canvas-save";
+import { deleteKeysFor } from "../application/canvas-keys";
 import { CanvasActionsContext, NODE_TYPES, type FlowNode } from "./canvas-nodes";
 
 type FlowEdge = Edge<{ raw: RawCanvasEdge }>;
@@ -47,9 +51,6 @@ export interface CanvasEditorProps {
   onOpenFile: (path: string) => boolean;
 }
 
-/** How long the canvas waits after the last change before it saves. */
-const SAVE_DELAY_MS = 600;
-
 /** Obsidian's six preset colours, drawn in the theme's status colours. */
 const PRESET_STROKE: Record<string, string> = {
   "1": "var(--s-danger)",
@@ -61,6 +62,11 @@ const PRESET_STROKE: Record<string, string> = {
 };
 
 const ARROW = { type: MarkerType.ArrowClosed } as const;
+
+/** Whether keys typed at `target` go into a field or a card's text, not the canvas. */
+function isTextEntry(target: EventTarget): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [contenteditable]") !== null);
+}
 
 /** An edge as React Flow draws it: ends as arrow markers, colour as its stroke. */
 function drawnEdge(edge: CanvasFlowEdge): FlowEdge {
@@ -117,10 +123,6 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(initial.loaded?.nodes ?? []);
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(initial.loaded?.edges ?? []);
   const fileRef = useRef<CanvasFile>(initial.loaded?.file ?? { nodes: [], edges: [] });
-  /** The body this editor last showed or wrote: an incoming body equal to it is our own echo. */
-  const bodyRef = useRef(body);
-  /** The text of what is on screen when it was last loaded or saved; saving the same text is a no-op. */
-  const savedRef = useRef<string | null>(null);
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
   const edgesRef = useRef(edges);
@@ -129,6 +131,22 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
   onSaveRef.current = onSave;
   const { screenToFlowPosition } = useReactFlow<FlowNode, FlowEdge>();
   const wrapRef = useRef<HTMLDivElement>(null);
+  const screenActive = useScreenActive();
+  const [focusWithin, setFocusWithin] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const deleteKeys = deleteKeysFor({ screenActive, focusWithin, editing });
+  const [saver] = useState(
+    () =>
+      new CanvasSaver({
+        loaded: body,
+        write: (text) => {
+          fileRef.current = parseCanvasFile(text);
+          return onSaveRef.current(text);
+        },
+        onError: (err) => setError(formatError(err)),
+      }),
+  );
+  const readText = useCallback(() => canvasText(fileRef.current, nodesRef.current, edgesRef.current), []);
 
   const issues = useMemo(() => {
     try {
@@ -139,76 +157,53 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
   }, [body, error]);
 
   // The body changed outside this editor (another device, an import): show it.
+  // Our own saves echo back through here, and a change still waiting to save
+  // wins over an incoming body: both are left alone.
   useEffect(() => {
-    if (body === bodyRef.current) return;
-    bodyRef.current = body;
+    if (saver.isOwnEcho(body) || saver.hasPending()) return;
+    saver.markLoaded(body);
     try {
       const next = load(body);
       fileRef.current = next.file;
-      savedRef.current = null;
       setNodes(next.nodes);
       setEdges(next.edges);
       setError(null);
     } catch (err) {
       setError(formatError(err));
     }
-  }, [body, setNodes, setEdges]);
+  }, [body, saver, setNodes, setEdges]);
 
-  // Save a moment after the last change. The first pass only records what was
-  // loaded, so opening a canvas never rewrites it.
-  const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flush = useCallback(() => {
-    pending.current = null;
-    let text: string;
-    try {
-      text = canvasText(fileRef.current, nodesRef.current, edgesRef.current);
-    } catch (err) {
-      setError(formatError(err));
-      return;
-    }
-    if (savedRef.current === null) {
-      savedRef.current = text;
-      return;
-    }
-    if (text === savedRef.current) return;
-    savedRef.current = text;
-    bodyRef.current = text;
-    fileRef.current = parseCanvasFile(text);
-    void Promise.resolve(onSaveRef.current(text)).catch((err) => setError(formatError(err)));
-  }, []);
+  // Save a moment after the last change. A broken body is never saved over.
   useEffect(() => {
-    if (error) return;
-    if (savedRef.current === null) {
-      flush();
+    if (error) {
+      saver.halt();
       return;
     }
-    if (pending.current) clearTimeout(pending.current);
-    pending.current = setTimeout(flush, SAVE_DELAY_MS);
-  }, [nodes, edges, error, flush]);
-  // Closing the tab mid-wait still saves.
-  useEffect(
-    () => () => {
-      if (pending.current) {
-        clearTimeout(pending.current);
-        flush();
-      }
-    },
-    [flush],
-  );
+    saver.resume();
+    saver.touch(readText);
+  }, [nodes, edges, error, saver, readText]);
+  // Leaving mid-wait still saves: closing the tab, navigating away, unmounting.
+  useEffect(() => {
+    const save = () => saver.flush(readText);
+    window.addEventListener("pagehide", save, { passive: true });
+    window.addEventListener("beforeunload", save, { passive: true });
+    return () => {
+      window.removeEventListener("pagehide", save);
+      window.removeEventListener("beforeunload", save);
+      saver.flush(readText);
+    };
+  }, [saver, readText]);
 
   // Dragging a group carries the nodes inside it, as in Obsidian. Members are
   // found once, at drag start, by the Rust core's geometry.
   const groupDrag = useRef<{ id: string; members: string[]; last: { x: number; y: number } } | null>(null);
   const onNodeDragStart: OnNodeDrag<FlowNode> = useCallback((_event, node, dragged) => {
-    if (node.type !== "group") {
+    if (!dragged.some((n) => n.type === "group")) {
       groupDrag.current = null;
       return;
     }
-    const moving = new Set(dragged.map((n) => n.id));
     const text = JSON.stringify(fromFlow(fileRef.current, nodesRef.current, edgesRef.current));
-    const members = readyCore()
-      .canvasGroupMembers(text, node.id)
-      .filter((id: string) => !moving.has(id));
+    const members = groupCarry(dragged, (id) => readyCore().canvasGroupMembers(text, id));
     groupDrag.current = { id: node.id, members, last: { ...node.position } };
   }, []);
   const onNodeDrag: OnNodeDrag<FlowNode> = useCallback(
@@ -290,7 +285,20 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
   }
 
   return (
-    <div className="canvas-editor" ref={wrapRef} onDoubleClick={onDoubleClick}>
+    <div
+      className="canvas-editor"
+      ref={wrapRef}
+      onDoubleClick={onDoubleClick}
+      onFocus={(event) => {
+        setFocusWithin(true);
+        setEditing(isTextEntry(event.target));
+      }}
+      onBlur={(event) => {
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+        setFocusWithin(false);
+        setEditing(false);
+      }}
+    >
       <div className="canvas-editor__bar" role="toolbar" aria-label="Canvas">
         <Button size="sm" onClick={() => addAtCentre("text")}>
           Text
@@ -343,7 +351,8 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
           onNodeDrag={onNodeDrag}
           onNodeDragStop={onNodeDragStop}
           connectionMode={ConnectionMode.Loose}
-          deleteKeyCode={["Backspace", "Delete"]}
+          deleteKeyCode={deleteKeys}
+          elevateNodesOnSelect={false}
           zoomOnDoubleClick={false}
           minZoom={0.1}
           maxZoom={4}
