@@ -8,10 +8,15 @@
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
 
+pub mod excalidraw;
 mod geometry;
+mod ink;
+mod merge;
 mod validate;
 
 pub use geometry::{CanvasRect, canvas_bounds, group_members, node_rect};
+pub use ink::{FreeStroke, INK_FIELD, read_ink, stroke_rect, strokes_hit, write_ink};
+pub use merge::merge_canvas_with_ink;
 pub use validate::{CanvasIssue, validate};
 
 /// A whole canvas: nodes in z-order (first is drawn at the back), then edges.
@@ -188,7 +193,15 @@ pub fn canvas_text(canvas: &Canvas) -> String {
         out.push_str(",\n\t");
         out.push_str(&compact(&Value::String(key.clone())));
         out.push(':');
-        out.push_str(&compact(value));
+        // Ink strokes get one item per line, so a merge diffs per stroke. Other extras stay
+        // compact, as Obsidian writes them.
+        if let (INK_FIELD, Value::Array(items)) = (key.as_str(), value) {
+            out.push('[');
+            push_lines(&mut out, items.as_slice());
+            out.push(']');
+        } else {
+            out.push_str(&compact(value));
+        }
     }
     out.push_str("\n}");
     out
@@ -232,6 +245,43 @@ mod tests {
         assert_eq!(canvas.nodes.len(), 2);
         assert_eq!(canvas.nodes[1].text.as_deref(), Some("# Hello\n\nworld"));
         assert_eq!(canvas.edges[0].from_side.as_deref(), Some("right"));
+        assert_eq!(canvas_text(&canvas), OBSIDIAN);
+        assert_eq!(normalize_canvas_text(OBSIDIAN).unwrap(), OBSIDIAN);
+    }
+
+    #[test]
+    fn ink_on_an_obsidian_canvas_adds_lines_and_changes_none() {
+        let mut canvas = parse_canvas(OBSIDIAN).unwrap();
+        let stroke = FreeStroke {
+            id: "s0".into(),
+            x: -300.0,
+            y: 12.5,
+            w: 2.0,
+            c: "#1f2937".into(),
+            t: "pen".into(),
+            p: vec![0, 0, 10, 5],
+            r: vec![128, 200],
+            extra: Map::new(),
+        };
+        write_ink(
+            &mut canvas,
+            &[
+                stroke.clone(),
+                FreeStroke {
+                    id: "s1".into(),
+                    ..stroke
+                },
+            ],
+        );
+        let inked = canvas_text(&canvas);
+        let ink_lines = "\t\"wfInk\":[\n\
+            \t\t{\"id\":\"s0\",\"x\":-300,\"y\":12.5,\"w\":2,\"c\":\"#1f2937\",\"t\":\"pen\",\"p\":[0,0,10,5],\"r\":[128,200]},\n\
+            \t\t{\"id\":\"s1\",\"x\":-300,\"y\":12.5,\"w\":2,\"c\":\"#1f2937\",\"t\":\"pen\",\"p\":[0,0,10,5],\"r\":[128,200]}\n\
+            \t]";
+        let expected = format!("{},\n{ink_lines}\n}}", &OBSIDIAN[..OBSIDIAN.len() - 2]);
+        assert_eq!(inked, expected);
+        assert_eq!(normalize_canvas_text(&inked).unwrap(), inked);
+        write_ink(&mut canvas, &[]);
         assert_eq!(canvas_text(&canvas), OBSIDIAN);
     }
 
@@ -323,6 +373,59 @@ mod tests {
         assert_eq!(
             canvas_text(&canvas),
             "{\n\t\"nodes\":[],\n\t\"edges\":[],\n\t\"z\":1,\n\t\"a\":{\"b\":[1]}\n}"
+        );
+    }
+
+    #[test]
+    fn ink_strokes_are_written_one_per_line_and_read_back() {
+        let s1 = json!({"id":"a","x":1,"y":2,"w":3,"c":"#000000","t":"pen","p":[0,0,10,5]});
+        let s2 = json!({"id":"b","x":4,"y":5,"w":2,"c":"#ff0000","t":"highlighter","p":[0,0]});
+        let mut canvas = Canvas::default();
+        let _ = canvas
+            .extra
+            .insert(INK_FIELD.into(), json!([s1.clone(), s2.clone()]));
+        let text = canvas_text(&canvas);
+        assert_eq!(
+            text,
+            format!(
+                "{{\n\t\"nodes\":[],\n\t\"edges\":[],\n\t\"wfInk\":[\n\t\t{s1},\n\t\t{s2}\n\t]\n}}"
+            )
+        );
+        assert_eq!(parse_canvas(&text).unwrap(), canvas);
+    }
+
+    #[test]
+    fn an_empty_ink_array_stays_on_one_line() {
+        let mut canvas = Canvas::default();
+        let _ = canvas.extra.insert(INK_FIELD.into(), json!([]));
+        assert_eq!(
+            canvas_text(&canvas),
+            "{\n\t\"nodes\":[],\n\t\"edges\":[],\n\t\"wfInk\":[]\n}"
+        );
+    }
+
+    #[test]
+    fn array_extras_other_than_ink_stay_compact_on_one_line() {
+        let canvas = parse_canvas(r#"{"nodes":[],"tags":[{"a":1},{"b":2}]}"#).unwrap();
+        assert_eq!(
+            canvas_text(&canvas),
+            "{
+	\"nodes\":[],
+	\"edges\":[],
+	\"tags\":[{\"a\":1},{\"b\":2}]
+}"
+        );
+    }
+
+    #[test]
+    fn object_extras_stay_compact_on_one_line() {
+        let mut canvas = Canvas::default();
+        let _ = canvas
+            .extra
+            .insert("metadata".into(), json!({"version": "1.0-1.0"}));
+        assert_eq!(
+            canvas_text(&canvas),
+            "{\n\t\"nodes\":[],\n\t\"edges\":[],\n\t\"metadata\":{\"version\":\"1.0-1.0\"}\n}"
         );
     }
 

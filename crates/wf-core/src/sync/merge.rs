@@ -113,6 +113,15 @@ pub fn merge_rows(
 /// The clean line merge of a body, or `None` when the lines clash. A canvas
 /// merge must still parse, and every edge must still reach both its nodes.
 fn merged_body(base: &str, local: &str, remote: &str, canvas: bool) -> Option<String> {
+    // Ink merges stroke by stroke, so strokes drawn on two devices both land. Only a side that
+    // parses with the field counts; a text node that merely mentions it does not.
+    if canvas
+        && [base, local, remote].iter().any(|text| {
+            parse_canvas(text).is_ok_and(|c| c.extra.contains_key(crate::canvas::INK_FIELD))
+        })
+    {
+        return crate::canvas::merge_canvas_with_ink(base, local, remote);
+    }
     let TextMerge::Clean(text) = merge_text(base, local, remote) else {
         return None;
     };
@@ -244,6 +253,21 @@ mod tests {
     }
 
     #[test]
+    fn strokes_added_on_both_devices_both_land() {
+        // Both sides append a stroke at the end of the ink: as lines that clash.
+        let base = "{\"nodes\":[],\n\"wfInk\":[\n{\"id\":\"s1\",\"x\":0,\"y\":0,\"w\":2,\"c\":\"#000\",\"t\":\"pen\",\"p\":[0,0]}\n]}";
+        let local = "{\"nodes\":[],\n\"wfInk\":[\n{\"id\":\"s1\",\"x\":0,\"y\":0,\"w\":2,\"c\":\"#000\",\"t\":\"pen\",\"p\":[0,0]},\n{\"id\":\"s2\",\"x\":5,\"y\":5,\"w\":2,\"c\":\"#000\",\"t\":\"pen\",\"p\":[0,0]}\n]}";
+        let remote = "{\"nodes\":[],\n\"wfInk\":[\n{\"id\":\"s1\",\"x\":0,\"y\":0,\"w\":2,\"c\":\"#000\",\"t\":\"pen\",\"p\":[0,0]},\n{\"id\":\"s3\",\"x\":9,\"y\":9,\"w\":2,\"c\":\"#000\",\"t\":\"pen\",\"p\":[0,0]}\n]}";
+        assert_eq!(merge(None, base, local, remote).conflicts.len(), 1);
+        let result = merge(Some("canvas"), base, local, remote);
+        assert!(result.conflicts.is_empty());
+        let body = result.merged["body"].as_str().unwrap();
+        let ink = crate::canvas::read_ink(&parse_canvas(body).unwrap());
+        let ids: Vec<&str> = ink.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(ids, ["s1", "s3", "s2"]);
+    }
+
+    #[test]
     fn a_canvas_merge_that_stays_whole_lands() {
         let base = "{\"nodes\":[\n{\"id\":\"a\"},\n{\"id\":\"b\"},\n{\"id\":\"c\"}\n]}";
         let local = "{\"nodes\":[\n{\"id\":\"A\"},\n{\"id\":\"b\"},\n{\"id\":\"c\"}\n]}";
@@ -253,6 +277,23 @@ mod tests {
         assert_eq!(
             result.merged["body"],
             "{\"nodes\":[\n{\"id\":\"A\"},\n{\"id\":\"b\"},\n{\"id\":\"C\"}\n]}"
+        );
+    }
+
+    #[test]
+    fn a_note_that_only_mentions_ink_still_merges_by_line() {
+        // The word is in a text node, not the top-level ink field: the lines merge as written.
+        let base =
+            "{\"nodes\":[\n{\"id\":\"a\",\"text\":\"wfInk\"},\n{\"id\":\"b\"},\n{\"id\":\"c\"}\n]}";
+        let local =
+            "{\"nodes\":[\n{\"id\":\"A\",\"text\":\"wfInk\"},\n{\"id\":\"b\"},\n{\"id\":\"c\"}\n]}";
+        let remote =
+            "{\"nodes\":[\n{\"id\":\"a\",\"text\":\"wfInk\"},\n{\"id\":\"b\"},\n{\"id\":\"C\"}\n]}";
+        let result = merge(Some("canvas"), base, local, remote);
+        assert!(result.conflicts.is_empty());
+        assert_eq!(
+            result.merged["body"],
+            "{\"nodes\":[\n{\"id\":\"A\",\"text\":\"wfInk\"},\n{\"id\":\"b\"},\n{\"id\":\"C\"}\n]}"
         );
     }
 }

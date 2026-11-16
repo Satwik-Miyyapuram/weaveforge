@@ -137,6 +137,8 @@ pub fn types() -> Types {
     .register::<wf_core::papers::page_metadata::PageMetadata>()
     .register::<wf_core::canvas::CanvasIssue>()
     .register::<wf_core::canvas::CanvasRect>()
+    .register::<wf_core::canvas::excalidraw::ExcalidrawImage>()
+    .register::<wf_core::canvas::excalidraw::ExcalidrawExport>()
     .register::<wf_core::onenote::OneNoteImage>()
     .register::<wf_core::onenote::OneNotePage>()
     .register::<wf_core::onenote::OneNoteInkPage>()
