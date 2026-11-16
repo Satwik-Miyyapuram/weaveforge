@@ -111,15 +111,22 @@ export function BootSnapshotView({
       }
     }
     const end = () => setDone(true);
+    const host = typeof window === "undefined" ? null : window;
     // The first click is swallowed, so it never lands on what is underneath.
+    // Cancelling pointerdown does not cancel its click, so that is stopped too.
     const swallow = (event: Event) => {
       event.preventDefault();
       event.stopPropagation();
+      const stopClick = (click: Event) => {
+        click.preventDefault();
+        click.stopPropagation();
+      };
+      host?.addEventListener("click", stopClick, { capture: true, once: true });
+      setTimeout(() => host?.removeEventListener("click", stopClick, { capture: true }), 1000);
       end();
     };
     const off = onScreenShown(end);
     const timer = setTimeout(end, MAX_SHOW_MS);
-    const host = typeof window === "undefined" ? null : window;
     host?.addEventListener("pointerdown", swallow, true);
     host?.addEventListener("keydown", end, true);
     return () => {

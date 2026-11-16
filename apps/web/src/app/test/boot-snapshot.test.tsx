@@ -147,6 +147,17 @@ test("the first click is swallowed and dismisses the picture", async () => {
     await act(async () => void target.dispatchEvent(ev));
     assert.deepEqual(calls.sort(), ["prevent", "stop"]);
     assert.equal(overlay(tree), undefined);
+    // pointerdown's preventDefault does not cancel the click that follows it.
+    const clicks: string[] = [];
+    const click = Object.assign(new Event("click"), {
+      preventDefault: () => clicks.push("prevent"),
+      stopPropagation: () => clicks.push("stop"),
+    });
+    target.dispatchEvent(click);
+    assert.deepEqual(clicks.sort(), ["prevent", "stop"]);
+    const next: string[] = [];
+    target.dispatchEvent(Object.assign(new Event("click"), { stopPropagation: () => next.push("stop") }));
+    assert.deepEqual(next, [], "only the first click is swallowed");
     await act(async () => tree.unmount());
   } finally {
     if (had) g.window = real;
