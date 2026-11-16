@@ -182,6 +182,18 @@ that opens the release page. Nothing is installed without you.
 If the check cannot reach GitHub the section says **Could not check for
 updates. Try again.** and the window keeps working.
 
+### Coming from 0.8
+
+0.8 kept your offline data in a different local database. The first time 0.9.1
+opens, it brings that data over by itself: a screen says **Bringing over your
+0.8 data…** and counts the tables as they go. You do not need to install
+anything in between or open the app twice.
+
+The old data is only read, never changed or deleted. If something goes wrong
+the screen shows what failed and a **Retry** button; retrying is safe, because
+rows already brought over are skipped. Once every table is through, the app
+notes that the import is done and does not run it again.
+
 ## A folder on your disk
 
 The desktop app can point WeaveForge at any folder you pick and keep it mirrored
