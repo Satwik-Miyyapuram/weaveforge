@@ -49,6 +49,7 @@ import type { DocumentMode, TabRef } from "@weaveforge/wasm";
 import { ImageSizeControl } from "@/components/image-size-control";
 import { useMdPreviewMode } from "@/lib/hooks/use-md-preview-mode";
 import { LivePreview } from "./md-live-preview";
+import type { Document } from "../application/parts";
 
 /** What the active renderer tells the pane about itself. */
 export interface DocumentMetrics {
@@ -170,6 +171,11 @@ export function rendererFor(kind: string, mode: DocumentMode, body = ""): Render
 }
 
 type ImageStore = Pick<Parameters<typeof editorImageUpload>[0], "store" | "toMarkdown">;
+
+/** Whether a workspace document is a canvas note (its path is `notes/<title>.canvas`). */
+export function isCanvasDocument(doc: Pick<Document, "kind" | "path">): boolean {
+  return doc.kind === "vault_page" && doc.path.endsWith(".canvas");
+}
 
 /**
  * How each kind stores a pasted or dropped image, and the markdown it writes.
