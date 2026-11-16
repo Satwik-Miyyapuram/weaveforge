@@ -22,6 +22,22 @@ tracks at once.
 
 ### iOS
 
+## [0.9.1] - 2026-11-16
+
+Desktop (`v0.9.1`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **Fixed:** Updating from 0.8 keeps your data. 0.9.0 refused to open a 0.8 database and asked you to install 0.9 first; 0.9.1 brings the 0.8 data over itself on first open and never changes the old folder.
+- **Fixed:** Google sign-in on the desktop app.
+- **Fixed:** The installer is branded WeaveForge, and the taskbar icon shows.
+- **Fixed:** Ink works on Windows on ARM.
+- **Fixed:** The home header and the workspace picker.
+- **Fixed:** The start-up error screen no longer cuts its text off on the right.
+- **Added:** Updates install with one click.
+- **Added:** Freeform pages with ink, pictures and undo; import and export Excalidraw drawings.
+- **Changed:** The logo has no tile or background and follows the theme.
+- **Changed:** Lower memory use, faster start-up and steadier sync.
+
 ## [0.9.0] - 2026-11-16
 
 Desktop (`v0.9.0`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
