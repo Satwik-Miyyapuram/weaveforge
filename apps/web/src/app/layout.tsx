@@ -18,9 +18,18 @@ export const metadata: Metadata = {
   title: "WeaveForge",
   description: "A private research environment for literature, experiments, and logs.",
   manifest: "/manifest.webmanifest",
+  // The SVG themes itself from the OS colour scheme. Browsers without SVG favicons
+  // get a PNG for their scheme: the light emblem, or the light-ink variant on dark.
   // iOS ignores an SVG touch icon and screenshots the page instead, so the home
   // screen gets a 180px PNG (full-bleed; iOS rounds the corners itself).
-  icons: { icon: "/icons/weave_forge.svg", apple: "/icons/apple-touch-icon.png" },
+  icons: {
+    icon: [
+      { url: "/icons/weave_forge.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-512.png", type: "image/png", media: "(prefers-color-scheme: light)" },
+      { url: "/icons/icon-512-dark.png", type: "image/png", media: "(prefers-color-scheme: dark)" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
+  },
   appleWebApp: { capable: true, title: "WeaveForge", statusBarStyle: "black-translucent" },
   // Next 14 writes only the unprefixed `mobile-web-app-capable`; older iPadOS
   // still needs Apple's name to open the home-screen app without Safari's bars.

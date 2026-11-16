@@ -1,25 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
   <defs>
     <style>
-      /* 
-         The SVG looks for these variables in your app's CSS. 
-         If it can't find them, it uses the fallback colors (Light Mode). 
+      /*
+         Inlined in the app, the page's --logo-ink and --logo-accent apply.
+         Standalone (favicon, manifest, OS previews) the fallbacks apply, and
+         the OS colour scheme picks them: dark ink on light, light ink on dark.
+         The emblem has no tile, so it is transparent in both.
       */
-      .bg-rect { 
-        fill: var(--logo-bg, #F1ECE1); 
-        transition: fill 0.3s ease; /* Smooth transition when changing themes */
-      }
-      .ink-stroke { 
-        stroke: var(--logo-ink, #0F2540); 
+      .ink-stroke {
+        stroke: var(--logo-ink, #0F2540);
         transition: stroke 0.3s ease;
       }
-      .ink-fill { 
-        fill: var(--logo-ink, #0F2540); 
+      .ink-fill {
+        fill: var(--logo-ink, #0F2540);
         transition: fill 0.3s ease;
       }
-      .accent-fill { 
-        fill: var(--logo-accent, #4B6FA5); 
+      .accent-fill {
+        fill: var(--logo-accent, #4B6FA5);
         transition: fill 0.3s ease;
+      }
+      @media (prefers-color-scheme: dark) {
+        .ink-stroke { stroke: var(--logo-ink, #E8EEF7); }
+        .ink-fill { fill: var(--logo-ink, #E8EEF7); }
       }
     </style>
   </defs>
