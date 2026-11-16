@@ -1,6 +1,11 @@
 //! Canvas layout of imported OneNote pages: positions, scale, file nodes and edge cases.
 
-#![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+#![allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::panic,
+    clippy::cast_possible_truncation
+)]
 
 use std::collections::BTreeMap;
 
