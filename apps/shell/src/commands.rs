@@ -229,6 +229,8 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::secrets::secret_clear,
         crate::cmd_vault::vault_root,
         crate::cmd_vault::vault_choose,
+        crate::cmd_vault::workspace_setup,
+        crate::cmd_vault::workspace_skip,
         crate::cmd_vault::vault_missing,
         crate::cmd_vault::vault_retry,
         crate::cmd_vault::vault_forget,

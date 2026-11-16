@@ -13,8 +13,9 @@ use common::TempDir;
 use weaveforge_shell_lib::prefs::{PrefValue, Prefs};
 use weaveforge_shell_lib::vault::VaultState;
 use weaveforge_shell_lib::vault_choice::{
-    NOT_REMEMBERED, ROOT_PREF, adopt_choice_with, forget_choice, missing_remembered,
-    restore_remembered, retry_remembered, watch_root_with,
+    NOT_REMEMBERED, ROOT_PREF, adopt_choice_with, default_workspace_folder, forget_choice,
+    missing_remembered, note_earlier_data, refuse_install_dir, restore_remembered,
+    retry_remembered, setup_needed, watch_root_with,
 };
 use weaveforge_shell_lib::vault_watcher::{ChangeSink, WatchSlot};
 
@@ -490,4 +491,102 @@ fn forgetting_lets_the_folder_go_stops_the_watch_and_the_pref() {
         "the old folder no longer reports"
     );
     assert!(folder.path().exists(), "the files stay");
+}
+
+#[test]
+fn setup_is_asked_once_when_no_folder_is_remembered() {
+    let tmp = TempDir::new();
+    let prefs = prefs_in(&tmp);
+    assert!(setup_needed(&prefs));
+
+    // Choosing a folder answers the question for good.
+    let folder = TempDir::new();
+    let vault = VaultState::new();
+    let slot = WatchSlot::default();
+    let (sink, _rx) = sink();
+    let _ = adopt_choice_with(
+        &vault,
+        &prefs,
+        &slot,
+        Some(folder.path()),
+        sink,
+        QUIET,
+        WINDOW,
+    )
+    .unwrap();
+    assert!(!setup_needed(&prefs));
+
+    // Even once the folder is forgotten, the question is not asked again.
+    let _ = forget_choice(&vault, &prefs, &slot);
+    assert!(!setup_needed(&prefs));
+}
+
+#[test]
+fn a_remembered_folder_from_an_older_version_is_never_asked_about() {
+    let tmp = TempDir::new();
+    let prefs = prefs_in(&tmp);
+    prefs
+        .write(ROOT_PREF, Some(PrefValue::Text("/some/folder".to_owned())))
+        .unwrap();
+    assert!(!setup_needed(&prefs));
+}
+
+#[test]
+fn an_install_dir_or_anything_inside_it_is_refused() {
+    let install = Path::new("/apps/WeaveForge");
+    assert!(refuse_install_dir(Path::new("/apps/WeaveForge/data"), Some(install)).is_err());
+    assert!(refuse_install_dir(Path::new("/apps/WeaveForge"), Some(install)).is_err());
+    // Whole path components only: a sibling that shares a text prefix is fine.
+    assert!(refuse_install_dir(Path::new("/apps/WeaveForgeNotes"), Some(install)).is_ok());
+    assert!(refuse_install_dir(Path::new("/home/me/Docs"), Some(install)).is_ok());
+    assert!(refuse_install_dir(Path::new("/apps/WeaveForge/data"), None).is_ok());
+}
+
+#[test]
+fn skip_uses_weaveforge_in_documents() {
+    assert_eq!(
+        default_workspace_folder(Path::new("/home/me/Documents")),
+        Path::new("/home/me/Documents/WeaveForge")
+    );
+}
+
+#[test]
+fn an_existing_install_with_data_is_never_asked() {
+    let tmp = TempDir::new();
+    let prefs = prefs_in(&tmp);
+    let data = tmp.path().join("app-data");
+    fs::create_dir_all(data.join("local-pg")).unwrap();
+    fs::write(data.join("local-pg").join("PG_VERSION"), "16").unwrap();
+    assert!(setup_needed(&prefs));
+
+    note_earlier_data(&prefs, &data, None);
+
+    assert!(!setup_needed(&prefs));
+}
+
+#[test]
+fn an_older_electron_folder_counts_as_earlier_data() {
+    let tmp = TempDir::new();
+    let prefs = prefs_in(&tmp);
+    let data = tmp.path().join("app-data"); // not created yet, as on a fresh install
+    let old = tmp.path().join("old-electron");
+    fs::create_dir_all(&old).unwrap();
+    fs::write(old.join("Local Storage"), "x").unwrap();
+
+    note_earlier_data(&prefs, &data, Some(&old));
+
+    assert!(!setup_needed(&prefs));
+}
+
+#[test]
+fn a_fresh_install_with_no_data_is_still_asked() {
+    let tmp = TempDir::new();
+    let prefs = prefs_in(&tmp);
+    let data = tmp.path().join("app-data");
+    fs::create_dir_all(&data).unwrap(); // created but empty: nothing from an earlier run
+    let old = tmp.path().join("old-electron"); // missing
+
+    note_earlier_data(&prefs, &data, Some(&old));
+
+    assert!(setup_needed(&prefs));
 }

@@ -3,16 +3,21 @@
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 
+use tauri::Manager as _;
+
 use crate::commands::ShellError;
 use crate::prefs::Prefs;
 use crate::vault::{VaultEntry, VaultRoot, VaultSession, VaultState};
 use crate::vault_choice::{
-    Choice, adopt_choice, forget_choice, missing_remembered, retry_remembered,
+    Choice, adopt_choice, default_workspace_folder, forget_choice, missing_remembered,
+    retry_remembered, setup_needed,
 };
 use crate::vault_watcher::WatchSlot;
 
 /// Said when the bytes from the page are not valid base64; nothing is written.
 pub const BAD_BYTES: &str = "Those bytes could not be read.";
+/// Said when the Skip folder cannot be created.
+pub const NOT_CREATED: &str = "WeaveForge could not create that folder.";
 /// Said when a folder dialog is already open; the second pick is refused, not read as a cancel.
 pub const PICK_BUSY: &str = "A folder dialog is already open. Finish or close it first.";
 /// Said when the blocking task that ran a file operation panicked.
@@ -235,6 +240,79 @@ pub async fn vault_forget(
     let choice = tokio::task::spawn_blocking(move || forget_choice(&vault, &prefs, &watch))
         .await
         .map_err(|_| ShellError::from(TASK_FAILED.to_owned()))?;
+    log_warnings(&app, &choice);
+    Ok(choice)
+}
+
+/// What the first-open question needs: whether to ask, and where Skip puts the workspace.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceSetup {
+    /// Ask the reader where the workspace lives.
+    pub needed: bool,
+    /// The folder Skip uses; `None` when the Documents folder is unknown.
+    pub default_folder: Option<String>,
+}
+
+/// Said when the reader's Documents folder cannot be found, so Skip has nowhere to go.
+pub const NO_DOCUMENTS: &str =
+    "WeaveForge could not find your Documents folder. Pick a folder instead.";
+
+/// Whether the first-open question is due, and the folder Skip would use.
+///
+/// # Errors
+/// Never; a `Result` for the command shape.
+#[tauri::command]
+#[specta::specta]
+pub async fn workspace_setup(
+    app: tauri::AppHandle,
+    prefs: tauri::State<'_, Prefs>,
+) -> Result<WorkspaceSetup, ShellError> {
+    let prefs = prefs.inner().clone();
+    let needed = tokio::task::spawn_blocking(move || setup_needed(&prefs))
+        .await
+        .map_err(|_| ShellError::from(TASK_FAILED.to_owned()))?;
+    let default_folder = app.path().document_dir().ok().map(|documents| {
+        default_workspace_folder(&documents)
+            .to_string_lossy()
+            .into_owned()
+    });
+    Ok(WorkspaceSetup {
+        needed,
+        default_folder,
+    })
+}
+
+/// Skip on the first-open question: the workspace goes into `WeaveForge` in the reader's Documents
+/// folder, created if missing, through the same checks as a pick.
+///
+/// # Errors
+/// The reason that folder cannot hold a workspace; nothing changes.
+#[tauri::command]
+#[specta::specta]
+pub async fn workspace_skip(
+    app: tauri::AppHandle,
+    vault: tauri::State<'_, VaultState>,
+    prefs: tauri::State<'_, Prefs>,
+    watch: tauri::State<'_, WatchSlot>,
+) -> Result<Choice, ShellError> {
+    let documents = app
+        .path()
+        .document_dir()
+        .map_err(|_| ShellError::from(NO_DOCUMENTS.to_owned()))?;
+    let target = default_workspace_folder(&documents);
+    let vault = vault.inner().clone();
+    let prefs = prefs.inner().clone();
+    let watch = watch.inner().clone();
+    let sink = crate::change_sink(&app);
+    let choice = tokio::task::spawn_blocking(move || {
+        std::fs::create_dir_all(&target)
+            .map_err(|_| NOT_CREATED.to_owned())
+            .and_then(|()| adopt_choice(&vault, &prefs, &watch, Some(&target), sink))
+    })
+    .await
+    .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))
+    .map_err(ShellError::from)?;
     log_warnings(&app, &choice);
     Ok(choice)
 }
