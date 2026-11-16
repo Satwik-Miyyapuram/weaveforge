@@ -11,9 +11,11 @@
  * The test drives the connection: `drop()` is a socket loss (the library
  * reports CHANNEL_ERROR and rejoins by itself later, which `restore()` plays),
  * `serverClose()` is the server ending the channel (CLOSED, no library rejoin).
+ * A refused join reports `refuseJoinStatus`: CLOSED, or CHANNEL_ERROR with no
+ * library rejoin after it (an expired token or a denied topic).
  */
 
-type Status = "SUBSCRIBED" | "CHANNEL_ERROR" | "TIMED_OUT" | "CLOSED";
+export type Status = "SUBSCRIBED" | "CHANNEL_ERROR" | "TIMED_OUT" | "CLOSED";
 type Handler = (msg: { payload: unknown }) => void;
 
 export interface Sent {
@@ -24,6 +26,8 @@ export interface Sent {
 
 export class FakeChannel {
   joined = false;
+  /** The next this many sends on this channel fail even though it is joined. */
+  failSends = 0;
   private readonly handlers = new Map<string, Handler[]>();
   private statusCb: ((status: Status, err?: Error) => void) | null = null;
 
@@ -43,7 +47,8 @@ export class FakeChannel {
     this.statusCb = cb ?? null;
     this.server.subscribes += 1;
     if (this.server.refuseJoins) {
-      queueMicrotask(() => this.statusCb?.("CLOSED"));
+      const status = this.server.refuseJoinStatus;
+      queueMicrotask(() => this.statusCb?.(status));
       return this;
     }
     this.join();
@@ -55,6 +60,10 @@ export class FakeChannel {
     // A channel that is not joined has nowhere to push to (the real client
     // falls back to a REST call, which fails offline).
     if (!this.joined) return "error";
+    if (this.failSends > 0) {
+      this.failSends -= 1;
+      return "error";
+    }
     const wire = JSON.stringify(msg.payload);
     for (const peer of this.server.peersOf(this)) {
       queueMicrotask(() => peer.deliver(msg.event, JSON.parse(wire)));
@@ -82,6 +91,11 @@ export class FakeChannel {
   /** The server ends the channel. The library does not rejoin a closed one. */
   serverClose() {
     this.leave("CLOSED");
+  }
+
+  /** A status the library reports late, after the provider moved on. */
+  lateStatus(status: Status) {
+    this.statusCb?.(status);
   }
 
   handlerCount() {
@@ -117,6 +131,8 @@ export class FakeRealtime {
   unsubscribes = 0;
   /** Every join answers CLOSED (a server that keeps refusing). */
   refuseJoins = false;
+  /** What a refused join reports. */
+  refuseJoinStatus: Status = "CLOSED";
   /** setAuth rejects while this is set. */
   failAuth = false;
   private readonly members = new Map<string, Set<FakeChannel>>();

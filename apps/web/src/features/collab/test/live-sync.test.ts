@@ -11,7 +11,7 @@
 import { afterEach, beforeEach, mock, test } from "node:test";
 import assert from "node:assert/strict";
 import * as Y from "yjs";
-import { Awareness } from "y-protocols/awareness";
+import { Awareness, removeAwarenessStates } from "y-protocols/awareness";
 
 import { readyCore } from "@/lib/rust-core";
 import { RealtimeYjsProvider } from "../infrastructure/realtime-yjs-provider";
@@ -321,6 +321,144 @@ test("live: teardown cancels a pending rejoin", async () => {
   mock.timers.tick(60_000);
   await settle();
   assert.equal(server.subscribes, 1, "no join after destroy");
+});
+
+test("live: an errored join the library never retries is replaced after 10 s", async () => {
+  const server = new FakeRealtime();
+  const store = memoryCrdtStore();
+  const a = makeClient(server, store);
+  const b = makeClient(server, store);
+  await run();
+  assert.equal(server.subscribes, 2);
+
+  // An expired token or a denied topic: CHANNEL_ERROR, and no rejoin follows.
+  server.refuseJoins = true;
+  server.refuseJoinStatus = "CHANNEL_ERROR";
+  a.client.current().drop();
+  a.doc.getText("body").insert(0, "typed while refused");
+  await settle();
+  mock.timers.tick(9_999);
+  await settle();
+  assert.equal(a.client.channels.length, 1, "the library gets its 10 s first");
+  mock.timers.tick(1);
+  await settle();
+  assert.equal(server.unsubscribes, 1, "the dead channel is left");
+  mock.timers.tick(1_000);
+  await settle();
+  assert.equal(a.client.channels.length, 2, "a new channel after the first backoff");
+  assert.equal(server.subscribes, 3);
+
+  // Refused again: another 10 s, then a longer backoff.
+  server.refuseJoins = false;
+  mock.timers.tick(10_000);
+  await settle();
+  mock.timers.tick(1_999);
+  await settle();
+  assert.equal(server.subscribes, 3, "the second wait is 2 s");
+  mock.timers.tick(1);
+  await run();
+  assert.equal(server.subscribes, 4);
+  assert.ok(a.client.current().joined);
+  assert.equal(b.text(), "typed while refused");
+  await a.close();
+  await b.close();
+});
+
+test("live: the library's own rejoin inside 10 s leaves the channel alone", async () => {
+  const server = new FakeRealtime();
+  const store = memoryCrdtStore();
+  const a = makeClient(server, store);
+  await run();
+  const ch = a.client.current();
+  ch.drop();
+  await settle();
+  mock.timers.tick(5_000);
+  ch.restore();
+  await settle();
+  mock.timers.tick(60_000);
+  await settle();
+  assert.equal(a.client.channels.length, 1, "no second channel");
+  assert.equal(server.subscribes, 1);
+  assert.equal(server.unsubscribes, 0);
+  assert.ok(ch.joined);
+  await a.close();
+});
+
+test("live: a late status from a replaced channel is ignored", async () => {
+  const server = new FakeRealtime();
+  const store = memoryCrdtStore();
+  const a = makeClient(server, store);
+  const b = makeClient(server, store);
+  await run();
+  const old = a.client.current();
+  old.serverClose();
+  await settle();
+  mock.timers.tick(1_000);
+  await run();
+  assert.equal(a.client.channels.length, 2);
+  const errors = a.errors.length;
+  const subscribes = server.subscribes;
+
+  old.lateStatus("CHANNEL_ERROR");
+  old.lateStatus("CLOSED");
+  old.lateStatus("SUBSCRIBED");
+  await settle();
+  mock.timers.tick(60_000);
+  await settle();
+  assert.equal(a.errors.length, errors, JSON.stringify(a.errors));
+  assert.equal(server.subscribes, subscribes, "no rejoin from a stale channel");
+  assert.equal(a.client.channels.length, 2);
+
+  a.doc.getText("body").insert(0, "still live");
+  await run();
+  assert.equal(b.text(), "still live");
+  await a.close();
+  await b.close();
+});
+
+test("live: a send that fails on a joined channel is requeued in order", async () => {
+  const server = new FakeRealtime();
+  const store = memoryCrdtStore();
+  const a = makeClient(server, store);
+  const b = makeClient(server, store);
+  await run();
+
+  a.client.current().failSends = 1;
+  a.doc.getText("body").insert(0, "one ");
+  await run();
+  assert.equal(b.text(), "", "the failed send delivered nothing");
+  assert.ok(a.errors.some((e) => e.startsWith("send: ")), JSON.stringify(a.errors));
+
+  const text = a.doc.getText("body");
+  text.insert(text.length, "two");
+  await run();
+  assert.equal(b.text(), "one two");
+  assert.equal(itemsSentBy(server, a), 2, "the failed attempt, then one merged resend");
+  await a.close();
+  await b.close();
+});
+
+test("live: dropping a timed-out peer is not broadcast", async () => {
+  const server = new FakeRealtime();
+  const store = memoryCrdtStore();
+  const a = makeClient(server, store, { awareness: true });
+  const b = makeClient(server, store, { awareness: true });
+  b.awareness!.setLocalStateField("user", { name: "B" });
+  await run();
+  assert.ok(a.awareness!.getStates().has(b.doc.clientID));
+  const fromA = () => server.sent.filter((s) => s.event === "awareness" && a.client.channels.includes(s.from)).length;
+  const before = fromA();
+
+  // What Awareness's own sweep does when a peer has been silent for 30 s.
+  removeAwarenessStates(a.awareness!, [b.doc.clientID], "timeout");
+  await run();
+  assert.equal(fromA(), before, "A must not tell everyone that B left");
+
+  a.awareness!.setLocalStateField("user", { name: "A" });
+  await run();
+  assert.equal(fromA(), before + 1, "A's own change still goes out");
+  await a.close();
+  await b.close();
 });
 
 test("live: presence is not rebroadcast by the peers that receive it", async () => {

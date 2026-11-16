@@ -19,6 +19,8 @@ const COMPACT_THRESHOLD = 200;
 /** First wait before rejoining a channel the server closed; doubles per failure. */
 const REJOIN_BASE_MS = 1000;
 const REJOIN_MAX_MS = 30_000;
+/** How long the client gets to rejoin an errored channel before it is replaced. */
+const ERROR_REJOIN_MS = 10_000;
 /** The length of an update that carries nothing: no items, no deletions. */
 const EMPTY_UPDATE_LENGTH = 2;
 
@@ -88,15 +90,18 @@ export class RealtimeYjsProvider {
   private mergeTimer: ReturnType<typeof setTimeout> | null = null;
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
   private rejoinTimer: ReturnType<typeof setTimeout> | null = null;
+  private errorTimer: ReturnType<typeof setTimeout> | null = null;
   private rejoinAttempts = 0;
   private lastPersistedId = 0;
   private destroyed = false;
+  private readonly live: boolean;
   private awarenessHandler:
     | ((payload: { added: number[]; updated: number[]; removed: number[] }, origin: unknown) => void)
     | null = null;
 
   constructor(private readonly opts: RealtimeYjsProviderOptions) {
     const live = opts.live !== false;
+    this.live = live;
     if (live) this.join();
     opts.doc.on("update", this.onLocalUpdate);
     if (opts.awareness && live) this.bindAwareness(opts.awareness);
@@ -137,6 +142,7 @@ export class RealtimeYjsProvider {
           // A channel this provider has since replaced can still report.
           if (this.destroyed || channel !== this.channel) return;
           if (status === "SUBSCRIBED") {
+            this.clearErrorTimer();
             this.connected = true;
             this.rejoinAttempts = 0;
             this.opts.onConnected?.();
@@ -144,10 +150,12 @@ export class RealtimeYjsProvider {
           } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
             this.opts.onError?.("subscribe", `${status}${err ? `: ${err.message}` : ""}`);
             this.onDisconnected();
-            // The client rejoins an errored or timed-out channel by itself and
-            // reports SUBSCRIBED again. A closed one it drops from its registry,
-            // so that one is replaced here.
+            // A closed channel the client drops from its registry, so it is
+            // replaced here. An errored or timed-out one it usually rejoins by
+            // itself, but not always (a refused token or topic can end there),
+            // so it gets a while to report SUBSCRIBED before it is replaced too.
             if (status === "CLOSED") this.scheduleRejoin(() => this.join());
+            else this.watchErroredChannel(channel);
           }
         });
       })
@@ -157,6 +165,23 @@ export class RealtimeYjsProvider {
         // registered channel for a topic, so a new one would double the handlers.
         this.scheduleRejoin(() => this.connect(channel));
       });
+  }
+
+  private watchErroredChannel(channel: RealtimeChannel) {
+    if (this.errorTimer) return;
+    this.errorTimer = setTimeout(() => {
+      this.errorTimer = null;
+      if (this.destroyed || this.connected || channel !== this.channel) return;
+      // Dropped first, so whatever the old channel still reports is stale.
+      this.channel = null;
+      channel.unsubscribe().catch((err) => this.opts.onError?.("leave", formatError(err)));
+      this.scheduleRejoin(() => this.join());
+    }, ERROR_REJOIN_MS);
+  }
+
+  private clearErrorTimer() {
+    if (this.errorTimer) clearTimeout(this.errorTimer);
+    this.errorTimer = null;
   }
 
   private scheduleRejoin(retry: () => void) {
@@ -247,8 +272,12 @@ export class RealtimeYjsProvider {
       // What came from a peer, or was cleared on a disconnect, is not passed
       // on: every receiver used to re-broadcast every peer's cursor.
       if (origin === this) return;
-      const changed = added.concat(updated, removed);
-      const update = encodeAwarenessUpdate(awareness, changed);
+      // Only this client's own state is ours to announce. Awareness's sweep
+      // also drops peers that went quiet, and telling everyone that would mark
+      // a peer gone for clients that can still hear it.
+      const own = this.opts.doc.clientID;
+      if (!added.concat(updated, removed).includes(own)) return;
+      const update = encodeAwarenessUpdate(awareness, [own]);
       this.broadcast("awareness", { data: readyCore().encodeBase64(update) });
     };
     awareness.on("update", this.awarenessHandler);
@@ -271,7 +300,7 @@ export class RealtimeYjsProvider {
   private async flushOutbound() {
     this.mergeTimer = null;
     if (this.pending.length === 0 || this.destroyed) return;
-    if (!this.channel) {
+    if (!this.live) {
       // Solo: the updates were queued for a broadcast that is not happening.
       // Persistence runs on its own timer and has its own copy of them.
       this.pending = [];
@@ -281,7 +310,7 @@ export class RealtimeYjsProvider {
     // Offline they are held, as one update so a long outage costs one copy of
     // the edits rather than one per keystroke. `onJoined` sends them.
     this.pending = [merged];
-    if (!this.connected) return;
+    if (!this.connected || !this.channel) return;
     this.pending = [];
     const data = readyCore().encodeBase64(merged);
     try {
@@ -414,6 +443,7 @@ export class RealtimeYjsProvider {
     if (this.persistTimer) clearTimeout(this.persistTimer);
     if (this.rejoinTimer) clearTimeout(this.rejoinTimer);
     this.rejoinTimer = null;
+    this.clearErrorTimer();
     if (this.opts.awareness && this.awarenessHandler) {
       this.opts.awareness.off("update", this.awarenessHandler);
       try {
