@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, type CSSProperties, typ
 import { Handle, NodeResizer, Position, useReactFlow, type Node, type NodeProps } from "@xyflow/react";
 import { Markdown } from "@/components/markdown/markdown";
 import { MarkdownFieldEditor } from "@/components/markdown/markdown-field-editor";
+import { useVaultImageSource } from "@/lib/hooks/use-vault-markdown-source";
 import type { RawCanvasNode } from "../application/canvas-doc";
 
 /** A node as React Flow holds it: the stored object rides along in `data.raw`. */
@@ -50,6 +51,8 @@ function TextNode({ id, data, selected }: NodeProps<FlowNode>) {
   const { updateNodeData } = useReactFlow<FlowNode>();
   const [editing, setEditing] = useState(false);
   const raw = data.raw;
+  // Read mode shows the same pictures a note page does: `vault:` refs resolve to blob URLs.
+  const readSource = useVaultImageSource(raw.text ?? "");
   // Clicking elsewhere on the canvas deselects the node and ends the edit.
   useEffect(() => {
     if (!selected) setEditing(false);
@@ -73,7 +76,7 @@ function TextNode({ id, data, selected }: NodeProps<FlowNode>) {
         </div>
       ) : (
         <div className="canvas-node__body" onDoubleClick={() => setEditing(true)} title="Double-click to edit">
-          {raw.text ? <Markdown>{raw.text}</Markdown> : <p className="muted">Double-click to write.</p>}
+          {raw.text ? <Markdown>{readSource}</Markdown> : <p className="muted">Double-click to write.</p>}
         </div>
       )}
     </NodeFrame>

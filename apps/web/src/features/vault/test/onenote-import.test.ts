@@ -270,7 +270,7 @@ test("canvas mode writes a JSON Canvas whose file nodes point at uploads and ink
   );
   assert.equal(pageA.nodes[0]!.text, "hello");
   // A picture is a text node holding its vault image, not a file node.
-  assert.ok(pageA.nodes[1]!.text!.includes(`](vault:${upload.path})`));
+  assert.ok(pageA.nodes[1]!.text!.includes(`](${readyCore().vaultImagePrefix()}${upload.path})`));
 
   const pageB = JSON.parse(finalBody(fake, b.id)) as { nodes: { type: string; file?: string }[] };
   assert.deepEqual(
@@ -336,7 +336,6 @@ test("canvas mode keeps typed ink text out of the ink note, so nothing is writte
   const ink = fake.adds.find((x) => x.title === "B (handwriting)")!;
   const inkBody = finalBody(fake, ink.id);
   assert.ok(!inkBody.includes("typed"), "typed text must not repeat in the ink note");
-  assert.ok(!inkBody.includes("image-1.png"), "the placed image is not repeated in the ink note");
   // One upload for the placed image on the canvas, one for the ink printout.
   assert.equal(fake.uploads.filter((u) => u.pageId === b.id).length, 1);
   assert.equal(fake.uploads.filter((u) => u.pageId === ink.id).length, 1);

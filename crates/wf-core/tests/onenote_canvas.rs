@@ -407,9 +407,9 @@ fn ink_node_sits_at_its_onenote_position_not_stacked() {
 }
 
 #[test]
-fn ink_without_printout_is_placed_at_its_strokes_not_stacked() {
-    // A band-less page: the ink item must carry a position, so it is not
-    // pushed into the loose column at x = 0.
+fn positioned_ink_item_is_not_stacked() {
+    // canvas.rs honours a position the layout gives: an ink item with x and y
+    // lands there, not in the loose column that unpositioned items stack into.
     let layout = [
         text("Typed", Some(0.0), Some(0.0), Some(1000.0), Some(400.0)),
         OneNoteLayoutItem {

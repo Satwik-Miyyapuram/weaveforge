@@ -88,7 +88,7 @@ The **More → Import OneNote section…** item on the notes list runs it.
 - Attached files (PDFs, Office files) are not imported.
 - Handwriting inside a table cell is not collected.
 - Canvas mode: a picture is a text node holding a Markdown image of its vault
-  path, so it shows as the picture when the canvas renders Markdown images.
+  path. Read mode resolves it to the picture, as a note page does.
 - Canvas mode: an ink note holds only its printout in canvas mode; the page's
   typed text lives in the canvas text nodes.
 - Canvas mode: attached files are left off the canvas.
