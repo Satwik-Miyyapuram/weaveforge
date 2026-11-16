@@ -491,6 +491,8 @@ export type FolderDiff = ImportDiff & {
   seen?: Readonly<Record<string, SeenFile>>;
   /** Each note's stored title and body digest when the preview was taken, by id (`storedDigest`). */
   stored?: Readonly<Record<string, string>>;
+  /** Canvas paths matched to their page by body (`canvasRenameIds`): renamed or moved outside the app. */
+  canvasRenamed?: readonly string[];
 };
 
 export type { HeldReason };
@@ -500,12 +502,13 @@ export type HeldReasons = Readonly<Record<string, HeldReason>>;
 
 /** Paths of renamed notes in a diff, for the apply to retitle and hand back to the mirror. */
 export function renamedPaths(diff: FolderDiff): Set<string> {
-  return new Set(
-    readyCore().renamedOutsidePaths(
+  return new Set([
+    ...readyCore().renamedOutsidePaths(
       diff.seen ?? {},
       diff.entries.map((entry: ImportDiffEntry) => entry.entity.path),
     ),
-  );
+    ...(diff.canvasRenamed ?? []),
+  ]);
 }
 
 /** The part of a folder diff safe to take in without asking, the part a person must see, and why. */

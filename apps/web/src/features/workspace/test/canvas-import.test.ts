@@ -34,7 +34,7 @@ function memoryFs(files: Record<string, string>) {
     mkdirp: async () => undefined,
     list: async () => [],
     walk: async function* () {},
-    stat: async () => null,
+    stat: async (path: string) => (store.has(path) ? {} : null),
     rename: async (from: string, to: string) => {
       const text = store.get(from);
       if (text === undefined) throw new Error(`missing ${from}`);
@@ -259,4 +259,111 @@ test("a canvas renamed into a subfolder is matched to its page", () => {
   );
 
   assert.equal(ids.get(moved), "page-1");
+});
+
+/** A container holding one canvas page, which records what the apply writes to it. */
+function onePageContainer() {
+  const updates: Array<{ id: string; body: string }> = [];
+  const added: string[] = [];
+  const page = { id: "page-1", title: "Plan", body: BOARD, kind: "canvas" };
+  const container = {
+    projects: {
+      context: { projectId: "p1" },
+      listProjects: async () => [{ id: "p1", name: "Thesis" }],
+    },
+    workspace: { snapshot: async () => ({ vaultPages: [], papers: [] }) },
+    vault: {
+      getPage: async (id: string) => (id === page.id ? page : null),
+      manageVaultPage: {
+        add: async (input: { title: string }) => {
+          added.push(input.title);
+          return { id: "page-2" };
+        },
+        update: async (id: string, input: { body: string }) => {
+          updates.push({ id, body: input.body });
+        },
+      },
+    },
+  } as unknown as AppContainer;
+  return { container, updates, added };
+}
+
+test("an unchanged canvas moved to a subfolder keeps one page across two syncs", async () => {
+  const moved = `${projectRoot}/sub/Plan.canvas`;
+  const canonical = `${projectRoot}/Plan.canvas`;
+  const { fs, store } = memoryFs({ [moved]: BOARD });
+  const { container, updates, added } = onePageContainer();
+  setContainerForTests(container);
+  const entry = (path: string) =>
+    ({
+      action: "unchanged",
+      entity: { type: "vault_page", id: "page-1", kind: "canvas", title: "Plan", body: BOARD, path, fields: {} },
+
+    }) as unknown;
+
+  // Sync 1: the file came back under sub/ with its id from the rename match.
+  await applyEntries(
+    fs,
+    { entries: [entry(moved)], counts: {} } as unknown as ImportDiff,
+    {},
+    undefined,
+    new Set([moved]),
+  );
+  assert.equal(store.has(moved), false, "the moved copy is removed; the mirror writes the canonical path");
+  store.set(canonical, BOARD); // what the mirror writes after sync 1
+
+  // Sync 2: the canonical file is mapped and unchanged, so nothing is added.
+  await applyEntries(fs, { entries: [entry(canonical)], counts: {} } as unknown as ImportDiff, {});
+  assert.deepEqual(added, [], "no duplicate page is created");
+  assert.deepEqual(
+    [...store.keys()].filter((path) => path.endsWith(".canvas")),
+    [canonical],
+    "exactly one canvas file remains",
+  );
+  assert.ok(updates.every((u) => u.id === "page-1" && u.body === BOARD), "the page body is intact");
+});
+
+test("the mirror keeps a claim at a non-canonical path, so an edit still finds its id", async () => {
+  const { mirrorWorkspace } = await import("../application/parts-2");
+  const claimed = "My Plan (v2).canvas";
+  const mapPath = `${metaDir}/canvas-ids.json`;
+  const { fs, store } = memoryFs({
+    [`${projectRoot}/${claimed}`]: BOARD,
+    [mapPath]: JSON.stringify({ [claimed]: "page-1", "Gone.canvas": "page-1" }),
+  });
+  const snapshot = {
+    vaultPages: [
+      { id: "page-1", kind: "canvas", title: "Plan", body: BOARD },
+      { id: "page-2", kind: "canvas", title: "Other", body: BOARD },
+    ],
+    papers: [],
+  };
+  // The Rust mirror maps only canonical paths: here just Plan.canvas (page-2).
+  const core = {
+    projectDir: () => projectRoot,
+    serializeWorkspace: () => ({
+      files: { [mapPath]: JSON.stringify({ "Plan.canvas": "page-2" }), [`${projectRoot}/Plan.canvas`]: BOARD },
+      assets: [],
+    }),
+    planMirror: (serialized: { files: Record<string, string> }) => ({
+      written: Object.keys(serialized.files),
+      unchanged: 0,
+      removed: [],
+      heldBack: [],
+      mirrored: new Map(),
+      bases: new Map(),
+    }),
+  };
+
+  await mirrorWorkspace(
+    core as unknown as Parameters<typeof mirrorWorkspace>[0],
+    snapshot as unknown as Parameters<typeof mirrorWorkspace>[1],
+    fs,
+    { project: { id: "p1", name: "Thesis" } } as never,
+  );
+
+  assert.deepEqual(JSON.parse(store.get(mapPath) ?? "{}"), {
+    [claimed]: "page-1",
+    "Plan.canvas": "page-2",
+  }, "the claim survives, the mirror's canonical entry is added, the vanished file is dropped");
 });

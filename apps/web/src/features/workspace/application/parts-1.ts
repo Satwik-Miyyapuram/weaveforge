@@ -381,9 +381,9 @@ export async function applyEntries(
     const entry = raw.action === "conflict" ? settleConflict(core, raw, resolutions) : raw;
     if (!entry) continue;
 
-    if (entry.action === "conflict" || entry.action === "unchanged" || entry.action === "removed") {
-      continue;
-    }
+    if (entry.action === "conflict" || entry.action === "removed") continue;
+    // An unchanged canvas matched to its page by body is that page moved: the moved copy goes.
+    if (entry.action === "unchanged" && !(entry.entity.kind === "canvas" && renamed.has(entry.entity.path))) continue;
 
     if (entry.action === "created") {
       const path = entry.entity.path;
@@ -599,7 +599,14 @@ export async function diffAgainstWorkspace(
     core.renameSources(parsed, files, current),
   );
   const stored = readyCore().storedDigests(snapshot.vaultPages);
-  return { entries, counts: core.addCounts(readyCore().countActions(entries), json.counts), json, seen, stored };
+  return {
+    entries,
+    counts: core.addCounts(readyCore().countActions(entries), json.counts),
+    json,
+    seen,
+    stored,
+    canvasRenamed: [...renamed.keys()],
+  };
 }
 
 // --- folder-file-history ---
