@@ -54,6 +54,12 @@ boot snapshot paints the last screens as a picture meanwhile.
   and goes back to Normal on restore (`apps/shell/src/idle_memory.rs`, Windows,
   WebView2 runtime 1.0.1774 or newer). The page keeps running, so sync and
   timers go on. Other platforms do nothing.
+- Every PDF the person has open shares one pdf.js worker (`openPdfDocument` in
+  `lib/parts.ts`, used by the reader and ink). pdf.js otherwise starts a worker
+  per document, about 8 MB each, and the workspace keeps every PDF tab's
+  document open behind the visible one. The worker ends with the last document.
+  Search indexing and a dropped PDF keep their own worker, so background
+  parsing never waits in front of the page being read.
 
 ## Measuring
 
