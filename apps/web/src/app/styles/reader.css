@@ -94,6 +94,12 @@
   /* Less page chrome above the document, and room for the bottom tab bar. */
   .pdf-reader-scroll { max-height: calc(100dvh - 210px); padding: 8px; gap: 12px; }
 }
+/* In a workspace pane the reader fills the pane, down to the status bar. The
+   cap above is sized for the reader page's own header; in a pane it left a
+   band of empty space under the paper. */
+.workspace-shell .pdf-reader { flex: 1; height: 100%; min-height: 0; }
+.workspace-shell .pdf-reader-body { flex: 1; min-height: 0; }
+.workspace-shell .pdf-reader-scroll { max-height: none; }
 /* `F11`, focus: the paper and nothing else, the workspace's way. The reader
    lifts out of whatever hosts it — the reader screen, a workspace tab — and
    fills the window, so the host's headers, nav and split panes all go without
