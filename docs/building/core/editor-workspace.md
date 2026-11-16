@@ -58,8 +58,9 @@ needed. The shell in `apps/web/src/features/` calls the wrappers.
 has four roots: notes, papers, report and logbook. An Overleaf leaf sits under
 the same tree when the project is linked. The tree is derived, not stored, so it
 is rebuilt whenever the loaded entities change. The notes root lists canvases
-beside notes, and the explorer can create one (`CreateKind::Canvas` in
-`explorer_edit.rs`, the New canvas button), which opens in the canvas editor
+beside notes. The core can create one (`CreateKind::Canvas` in
+`explorer_edit.rs`), but 0.9.1 shows no New canvas button; an existing canvas
+opens in the canvas editor
 ([canvas](canvas.md)). A canvas tab and the last part of its breadcrumb show
 the `.canvas` suffix (`suffixFor` in `workspace-screen.tsx`, passed to
 `pane-view.tsx` and `breadcrumbs.tsx`).

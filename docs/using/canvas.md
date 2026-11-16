@@ -18,9 +18,10 @@ Obsidian and the reverse.
 
 ### Create a canvas
 
-1. In the notes tree, select a folder, then click **New canvas here**. You can
-   also click **New canvas** in the explorer header.
-2. Name the canvas. It opens in the editor pane.
+In 0.9.1 the explorer has no button to make a new canvas: a freeform page,
+where you put text, pictures and handwriting anywhere, comes in a later
+release. A `.canvas` file that is already in your notes, for example one
+imported from an Obsidian vault, still opens and saves as described below.
 
 A canvas is a normal entry in the notes tree. You can rename, move, tag and
 delete it the same way as a note.

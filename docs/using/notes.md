@@ -35,18 +35,6 @@ with `#hashtags`.
 2. Choose **Import zip…** or **Import folder…**.
 3. The result line reads, for example, `Imported 3 notes, 1 folder.`
 
-### Import a OneNote section
-
-1. In OneNote, export or copy the section's `.one` file.
-2. Click **More**, then **Import OneNote section…**, and pick the file.
-3. WeaveForge makes one note per page. Sub-pages sit under their parent page.
-4. Pictures come in as attachments. A page with handwriting comes in as an
-   ink note: each printout on the page becomes one ink page, with the printout
-   behind the strokes and the page's typed text in its text layer. A page
-   with more than 50 printouts splits into `<title> (part 2)` and so on.
-5. Attached files, such as PDFs, are not imported. The note says which file
-   was left out.
-
 ### Find a note
 
 1. Type in the **Search notes** box to search titles and text.
@@ -98,7 +86,6 @@ they overlap, your text is kept and theirs appears in the list as
 | **More** | Head of the list. Opens the import and wiki items |
 | **Import zip…** | **More** menu |
 | **Import folder…** | **More** menu |
-| **Import OneNote section…** | **More** menu |
 | **Wiki** | **More** menu. Opens the wiki |
 | **Search notes** | Search box in the head |
 | **Lists**, **Tags** | Filter row beside the list. A filter with no values is hidden |
