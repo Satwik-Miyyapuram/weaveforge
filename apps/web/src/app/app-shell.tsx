@@ -40,6 +40,7 @@ import { Button, CloseButton } from "@/components/button";
 import { loadCore, readyCore } from "@/lib/rust-core";
 import { CoreGate } from "./core-gate";
 import { KeepAliveProvider } from "./keep-alive";
+import { DetailHeaderExtrasContext } from "@/components/detail-header-extras";
 
 /* Both paint nothing and only matter once a folder is connected; the folder
    code they carry is loaded after the page rather than with every one. */
@@ -59,7 +60,7 @@ const GitAutoSync = dynamic(
   () => import("@/features/workspace/ui/git-auto-sync").then((m) => m.GitAutoSync),
   { ssr: false },
 );
-// Its dot: here for the phone's top bar and the projects screen; the sidebar mounts its own.
+// Its dot: here for the phone's top bar, a phone's detail headers and the projects screen; the sidebar mounts its own.
 const GitSyncDot = dynamic(
   () => import("@/features/workspace/ui/git-sync-dot").then((m) => m.GitSyncDot),
   { ssr: false },
@@ -290,13 +291,16 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
             {/* Papers is kept mounted beside the routes too (keep-alive.tsx),
                 so leaving it and coming back does not rebuild its grid. Not on
                 the phone layout, where memory is tightest. */}
-            <KeepAliveProvider pathname={pathname} projectId={current.id} enabled={breakpoint !== "mobile"}>
-              <SwipeViews disabled={detailView || editorRoute}>
-                <RoutePending>
-                  <PageTransition>{children}</PageTransition>
-                </RoutePending>
-              </SwipeViews>
-            </KeepAliveProvider>
+            {/* A phone's detail view hides the top bar above, so its own header shows the dot. */}
+            <DetailHeaderExtrasContext value={breakpoint === "mobile" ? <GitSyncDot /> : null}>
+              <KeepAliveProvider pathname={pathname} projectId={current.id} enabled={breakpoint !== "mobile"}>
+                <SwipeViews disabled={detailView || editorRoute}>
+                  <RoutePending>
+                    <PageTransition>{children}</PageTransition>
+                  </RoutePending>
+                </SwipeViews>
+              </KeepAliveProvider>
+            </DetailHeaderExtrasContext>
             {/* Beside the routes, not in `/workspace`'s page: it stays mounted
                 once opened, so coming back to it is instant. Keyed on the
                 project, so a switch drops the last project's tabs. */}

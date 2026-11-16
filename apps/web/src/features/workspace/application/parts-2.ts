@@ -6,7 +6,7 @@ import {
 } from "@/lib/desktop/desktop-bridge";
 import { loadCore, readyCore, type RustCore, typedCore } from "@/lib/rust-core";
 import { folderLock } from "./folder-lock";
-import { keepMirrorBases, writeTextAtomic } from "./parts-3";
+import { keepMirrorBases, readPulledDeletes, writePulledDeletes, writeTextAtomic } from "./parts-3";
 import { activeWorkspaceFs } from "./workspace-folder";
 import {
   type IWorkspaceFs,
@@ -104,9 +104,17 @@ export async function mirrorWorkspace(
     options.project,
     core.serializeWorkspace(snapshot, options.project),
   );
-  const { files, assets } = serialized;
-  const previousPaths = options.previousPaths ?? [];
   const { base } = options;
+  // A mirrored file a pull removed stays out until the reader settles it in the review.
+  const pulledDeletes = await readPulledDeletes(fs);
+  const held: string[] = [];
+  for (const path of pulledDeletes) {
+    if (!Object.hasOwn(serialized.files, path) || (await fs.stat(path).catch(() => null))) continue;
+    held.push(path);
+  }
+  const files = Object.fromEntries(Object.entries(serialized.files).filter(([path]) => !held.includes(path)));
+  const { assets } = serialized;
+  const previousPaths = (options.previousPaths ?? []).filter((path) => !held.includes(path));
 
   // The plan reads every file it may write, and a departed file only when a base digest
   // could make it a reader's edit; nothing else.
@@ -121,7 +129,7 @@ export async function mirrorWorkspace(
     if (text !== null) disk[path] = text;
   }
 
-  const plan = core.planMirror(serialized, previousPaths, base, disk);
+  const plan = core.planMirror({ ...serialized, files }, previousPaths, base, disk);
 
   const written = [...plan.written];
   for (const path of plan.written) {
@@ -153,12 +161,20 @@ export async function mirrorWorkspace(
   // Best-effort: a file already gone is the outcome asked for.
   for (const path of plan.removed) await fs.remove(path).catch(() => undefined);
 
+  // This project's entries not held this run were settled: put back, or deleted in the app.
+  const root = core.projectDir(options.project);
+  const stillPulled = [...pulledDeletes].filter((path) => held.includes(path) || !path.startsWith(`${root}/`));
+  await writePulledDeletes(fs, new Set(stillPulled));
+
+  // A held path keeps its base, so the folder watcher reads it as removed and the review offers it.
+  const mirrored: Record<string, string> = Object.fromEntries(plan.mirrored);
+  for (const path of held) mirrored[path] = base?.[path] ?? "";
   return {
     written,
     removed: plan.removed,
     unchanged,
-    heldBack: plan.heldBack,
-    mirrored: Object.fromEntries(plan.mirrored),
+    heldBack: [...plan.heldBack, ...held],
+    mirrored,
     bases: Object.fromEntries(plan.bases),
   };
 }

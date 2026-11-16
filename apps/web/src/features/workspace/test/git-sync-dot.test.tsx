@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { DetailHeaderExtras, DetailHeaderExtrasContext } from "@/components/detail-header-extras";
 import { GitSyncDotView, syncDot } from "../ui/git-sync-dot";
 
 const time = (at: number) => `T${at}`;
@@ -69,4 +70,31 @@ test("the app shell mounts the dot on every screen, not the document status bar"
   // The phone's top bar.
   const shell = src("../../../app/app-shell.tsx");
   assert.match(shell, /<div className="brand-right">\s*<GitSyncDot \/>/);
+});
+
+test("a phone's detail view shows the dot in its own header, given from the app shell", () => {
+  const src = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+  // The shell hands the dot down on the phone only; the sidebar has it on a desktop.
+  const shell = src("../../../app/app-shell.tsx");
+  assert.match(shell, /<DetailHeaderExtrasContext value=\{breakpoint === "mobile" \? <GitSyncDot \/> : null\}>/);
+  // Each detail view's header renders what it was given, without importing the workspace feature.
+  for (const rel of [
+    "../../papers/ui/paper-note.tsx",
+    "../../vault/ui/vault-screen/page-editor.tsx",
+    "../../experiments/ui/experiment-detail-screen.tsx",
+  ]) {
+    const file = src(rel);
+    assert.match(file, /<div className="record-actions">\s*<DetailHeaderExtras \/>/, rel);
+    assert.doesNotMatch(file, /features\/workspace\/ui/, rel);
+  }
+});
+
+test("the detail header extras render what the shell gave, and nothing without it", () => {
+  assert.equal(renderToStaticMarkup(<DetailHeaderExtras />), "");
+  const html = renderToStaticMarkup(
+    <DetailHeaderExtrasContext value={<span data-dot="yes" />}>
+      <DetailHeaderExtras />
+    </DetailHeaderExtrasContext>,
+  );
+  assert.equal(html, '<span data-dot="yes"></span>');
 });

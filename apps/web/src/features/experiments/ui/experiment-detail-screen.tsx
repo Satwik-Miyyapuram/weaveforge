@@ -12,6 +12,7 @@ import { getContainer } from "@/bootstrap";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { BackButton } from "@/components/back-button";
+import { DetailHeaderExtras } from "@/components/detail-header-extras";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { NoteComments, ShareButton } from "@/features/sharing";
 import { CommentsIcon } from "@/components/view-icons";
@@ -197,6 +198,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
             <span className="live-dot" title="Run in progress — auto-refreshing every 5s">● live</span>
           )}
           <div className="record-actions">
+            <DetailHeaderExtras />
             <ShareButton resourceType="experiment" resourceId={exp.id} title={`Share: ${exp.name}`} showLabel />
             <IconLink label="Comment" href="#record-comments">
               <CommentsIcon />

@@ -24,6 +24,7 @@ import { materializePaperBlobImages } from "../lib/parts";
 import { reconcileTagsFromBodyOrDefer } from "../lib/note-tags";
 import type { EditorHandle } from "@/components/editor-handle";
 import { BackButton } from "@/components/back-button";
+import { DetailHeaderExtras } from "@/components/detail-header-extras";
 import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { InkFocusButton, InkFocusExit, useInkFocus } from "@/components/ink-focus";
@@ -369,6 +370,7 @@ export function PaperNote({
         {readOnly && <PinnedPaperBadge ownerName={sharedByName} />}
         <StatusSelect value={paper.status} statuses={PAPER_STATUSES} disabled={readOnly || busy} onChange={(st) => void changeStatus(st)} label="Reading status" />
         <div className="record-actions">
+          <DetailHeaderExtras />
           {!readOnly && (
             // Without an identifier this opens the editor that adds one, rather
             // than sitting disabled with nowhere to go.
