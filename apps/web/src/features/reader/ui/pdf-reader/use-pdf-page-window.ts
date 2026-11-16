@@ -3,11 +3,14 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { readyCore } from "@/lib/rust-core";
 import { nearestFirst, type PageExtent } from "./render-order";
+import type { PdfDocument } from "./types";
 
 export interface UsePdfPageWindowOpts {
   rootRef: RefObject<HTMLElement | null>;
-  pdf: unknown;
+  pdf: PdfDocument | null;
   numPages: number;
+  /** The screen has been hidden a while (`useReleasedWhileHidden`): hold no painted pages. */
+  released: boolean;
   renderPage: (n: number) => Promise<void>;
   evictPage: (n: number) => void;
   onVisibleChange: (ratios: ReadonlyMap<number, number>) => void;
@@ -15,7 +18,7 @@ export interface UsePdfPageWindowOpts {
 
 /** Renders pages one viewport ahead, frees pages beyond the keep radius, reports on-screen ratios. */
 export function usePdfPageWindow(opts: UsePdfPageWindowOpts): void {
-  const { rootRef, pdf, numPages, renderPage, evictPage, onVisibleChange } = opts;
+  const { rootRef, pdf, numPages, released, renderPage, evictPage, onVisibleChange } = opts;
   const onVisibleChangeRef = useRef(onVisibleChange);
   useEffect(() => {
     onVisibleChangeRef.current = onVisibleChange;
@@ -24,6 +27,15 @@ export function usePdfPageWindow(opts: UsePdfPageWindowOpts): void {
   useEffect(() => {
     const root = rootRef.current;
     if (!root || !pdf || numPages === 0) return;
+    if (released) {
+      // Free every painted page and PDF.js's font and page caches; the pages in view
+      // paint again when the observers below start over on return.
+      for (let n = 1; n <= numPages; n++) evictPage(n);
+      pdf.cleanup().catch(() => {
+        /* a render still winding down; its page is freed on the next release */
+      });
+      return;
+    }
 
     const near = new Set<number>();
     // Every page counts as held, so one painted under an earlier observer is freed too.
@@ -76,5 +88,5 @@ export function usePdfPageWindow(opts: UsePdfPageWindowOpts): void {
       windowObserver.disconnect();
       visibleObserver.disconnect();
     };
-  }, [rootRef, pdf, numPages, renderPage, evictPage]);
+  }, [rootRef, pdf, numPages, released, renderPage, evictPage]);
 }

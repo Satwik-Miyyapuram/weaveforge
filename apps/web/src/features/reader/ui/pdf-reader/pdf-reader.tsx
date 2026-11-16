@@ -96,6 +96,7 @@ import { isMacPlatform } from "@/lib/parts";
 import { Button, IconButton } from "@/components/button";
 import { RowButton, Swatch, ToolButton } from "@/components/controls";
 import { ViewSwitch } from "@/components/view-switch";
+import { useReleasedWhileHidden } from "@/lib/hooks/use-released-while-hidden";
 import { useRovingToolbar } from "@/lib/hooks/use-roving-toolbar";
 
 export function PdfReader({
@@ -1116,10 +1117,12 @@ export function PdfReader({
     [viewport, suppressPageScroll],
   );
 
+  const released = useReleasedWhileHidden();
   usePdfPageWindow({
     rootRef: containerRef,
     pdf,
     numPages,
+    released,
     renderPage,
     evictPage,
     onVisibleChange,
