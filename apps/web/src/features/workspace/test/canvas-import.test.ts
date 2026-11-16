@@ -13,7 +13,7 @@ import type { IWorkspaceFs } from "@weaveforge/core";
 import type { ImportDiff } from "@weaveforge/wasm";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { applyEntries } from "../application/parts-1";
-import { claimImportedFile } from "../application/parts-3";
+import { claimImportedFile, writeTextAtomic } from "../application/parts-3";
 
 const BOARD = '{"nodes":[],"edges":[]}';
 
@@ -35,7 +35,12 @@ function memoryFs(files: Record<string, string>) {
     list: async () => [],
     walk: async function* () {},
     stat: async () => null,
-    rename: async () => undefined,
+    rename: async (from: string, to: string) => {
+      const text = store.get(from);
+      if (text === undefined) throw new Error(`missing ${from}`);
+      store.delete(from);
+      store.set(to, text);
+    },
   } as unknown as IWorkspaceFs;
   return { fs, store };
 }
@@ -66,10 +71,12 @@ function fakeContainer() {
 }
 
 let projectRoot = "";
+let metaDir = "";
 
 before(async () => {
   const core = await loadTestCore();
   projectRoot = core.projectDir({ id: "p1", name: "Thesis" });
+  metaDir = core.projectMetaDir(projectRoot);
 });
 
 after(() => setContainerForTests(null));
@@ -96,13 +103,85 @@ test("a canvas entry is created as a canvas page, not a markdown note", async ()
   assert.equal(added[0]?.body, BOARD, "the raw body is the page body");
 });
 
-test("claiming a canvas file writes nothing into it", async () => {
+/** The id map the claim writes, keyed by project-relative path. */
+function idMap(store: Map<string, string>): Record<string, string> {
+  const text = store.get(`${metaDir}/canvas-ids.json`);
+  return text === undefined ? {} : JSON.parse(text);
+}
+
+test("claiming a canvas file records its id in the map and never edits the file", async () => {
   const path = `${projectRoot}/notes/board.canvas`;
   const { fs, store } = memoryFs({ [path]: BOARD });
 
   const claimed = await claimImportedFile(fs, path, "page-1", projectRoot);
 
-  assert.equal(claimed, false, "a canvas is never stamped");
+  assert.equal(claimed, true);
   assert.equal(store.get(path), BOARD, "the raw JSON is untouched");
-  assert.deepEqual([...store.keys()], [path], "no manifest is written for it");
+  assert.deepEqual(idMap(store), { "notes/board.canvas": "page-1" });
+  const manifest = store.get(`${metaDir}/mirror.json`) ?? "";
+  assert.ok(manifest.includes("notes/board.canvas"), "the path is in the manifest");
+});
+
+test("claiming Board.canvas and a non-slug name keys the map by the exact path", async () => {
+  const board = `${projectRoot}/Board.canvas`;
+  const spaced = `${projectRoot}/My Plan (v2).canvas`;
+  const { fs, store } = memoryFs({ [board]: BOARD, [spaced]: BOARD });
+
+  assert.equal(await claimImportedFile(fs, board, "page-1", projectRoot), true);
+  assert.equal(await claimImportedFile(fs, spaced, "page-2", projectRoot), true);
+
+  assert.deepEqual(idMap(store), { "Board.canvas": "page-1", "My Plan (v2).canvas": "page-2" });
+});
+
+test("claiming a canvas in a subfolder keys it by its nested path", async () => {
+  const path = `${projectRoot}/a/b/deep.canvas`;
+  const { fs, store } = memoryFs({ [path]: BOARD });
+
+  assert.equal(await claimImportedFile(fs, path, "page-3", projectRoot), true);
+
+  assert.deepEqual(idMap(store), { "a/b/deep.canvas": "page-3" });
+});
+
+test("claiming the same canvas twice keeps one map entry", async () => {
+  const path = `${projectRoot}/notes/board.canvas`;
+  const { fs, store } = memoryFs({ [path]: BOARD });
+
+  await claimImportedFile(fs, path, "page-1", projectRoot);
+  await claimImportedFile(fs, path, "page-1", projectRoot);
+
+  assert.deepEqual(idMap(store), { "notes/board.canvas": "page-1" });
+});
+
+test("a broken id map is held: the claim writes nothing and keeps the bad file", async () => {
+  const path = `${projectRoot}/notes/board.canvas`;
+  const mapPath = `${metaDir}/canvas-ids.json`;
+  const { fs, store } = memoryFs({ [path]: BOARD, [mapPath]: "{not json" });
+
+  assert.equal(await claimImportedFile(fs, path, "page-1", projectRoot), false);
+  assert.equal(store.get(mapPath), "{not json", "the broken map is not overwritten");
+});
+
+test("a failed map write leaves the previous canvas id map whole", async () => {
+  const mapPath = `${metaDir}/canvas-ids.json`;
+  const old = '{"a.canvas":"page-1"}';
+  const { fs, store } = memoryFs({ [mapPath]: old });
+  const failing = {
+    ...fs,
+    writeFile: async () => {
+      throw new Error("disk full");
+    },
+  } as unknown as IWorkspaceFs;
+
+  await assert.rejects(writeTextAtomic(failing, mapPath, '{"a.canvas":"page-1","b.canvas":"page-2"}'));
+  assert.equal(store.get(mapPath), old, "the old map is still the one on disk");
+});
+
+test("an atomic map write replaces the map and leaves no temp file behind", async () => {
+  const mapPath = `${metaDir}/canvas-ids.json`;
+  const { fs, store } = memoryFs({ [mapPath]: "{}" });
+
+  await writeTextAtomic(fs, mapPath, '{"a.canvas":"page-1"}');
+
+  assert.equal(store.get(mapPath), '{"a.canvas":"page-1"}');
+  assert.deepEqual([...store.keys()].filter((key) => key.endsWith(".tmp")), []);
 });

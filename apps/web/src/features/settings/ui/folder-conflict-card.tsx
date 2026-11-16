@@ -132,8 +132,9 @@ export function FolderConflictCard({
           Keep this app&apos;s
         </Button>
         {/* Not offered for a type mismatch: the id in the file names a paper or an
-            experiment, so there is no note to write over. */}
-        {entry.kind !== "type-mismatch" && (
+            experiment, so there is no note to write over. Not offered for a broken
+            canvas id map: which page each canvas is cannot be known, so nothing imports. */}
+        {entry.kind !== "type-mismatch" && entry.kind !== "broken-map" && (
           <Button
             variant={chosen === "folder" ? "secondary" : "ghost"}
             aria-pressed={chosen === "folder"}

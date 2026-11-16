@@ -245,8 +245,11 @@ export type ChangeSide = "neither" | "folder" | "workspace" | "both" | "unknown"
  * both notes and either is a legitimate answer. `type-mismatch` cannot: the id
  * in the file belongs to a different kind of entity, so there is nothing to
  * update, and importing the file as a new note is the only safe outcome.
+ *
+ * `broken-map` means the canvas id map cannot be read, so which canvas is which
+ * page is unknown. Nothing may be imported until the map is repaired or removed.
  */
-export type ConflictKind = "both-changed" | "type-mismatch" | "markers";
+export type ConflictKind = "both-changed" | "type-mismatch" | "markers" | "broken-map";
 
 export interface ImportDiffEntry {
   action: ImportAction;

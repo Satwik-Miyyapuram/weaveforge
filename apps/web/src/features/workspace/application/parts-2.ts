@@ -5,6 +5,7 @@ import {
   type DesktopVaultSyncAction,
 } from "@/lib/desktop/desktop-bridge";
 import { loadCore, readyCore, type RustCore, typedCore } from "@/lib/rust-core";
+import { writeTextAtomic } from "./parts-3";
 import {
   type IWorkspaceFs,
   type MirrorResult,
@@ -72,7 +73,9 @@ export async function mirrorWorkspace(
   for (const path of plan.written) {
     const dir = parentDir(path);
     if (dir) await fs.mkdirp(dir);
-    await fs.writeFile(path, files[path] ?? "");
+    // The canvas id map is read on every import; a torn write would hold every canvas.
+    if (path.endsWith("/canvas-ids.json")) await writeTextAtomic(fs, path, files[path] ?? "");
+    else await fs.writeFile(path, files[path] ?? "");
   }
 
   let unchanged = plan.unchanged;
