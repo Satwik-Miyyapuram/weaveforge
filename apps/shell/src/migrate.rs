@@ -56,13 +56,13 @@ pub fn migrate_from_electron(
     now: SystemTime,
 ) -> io::Result<Outcome> {
     assert_separate(old_dir, new_dir)?;
-    if new_dir.join(DONE_MARKER).exists() {
-        return Ok(Outcome::Already);
-    }
     let present: Vec<&str> = ITEMS
         .into_iter()
         .filter(|i| old_dir.join(i).exists())
         .collect();
+    if new_dir.join(DONE_MARKER).exists() && !marker_allows_retry(new_dir, !present.is_empty()) {
+        return Ok(Outcome::Already);
+    }
     if present.is_empty() {
         write_done_marker(old_dir, new_dir, now, &[])?;
         return Ok(Outcome::Nothing);
@@ -257,10 +257,11 @@ fn stage_and_publish(
     for item in present {
         copy_tree(&old_dir.join(item), &staging.join(item))?;
     }
-    // From the first rename on, Electron warns that its data has moved.
+    // The old dir is only read, never marked: the Electron app must stay byte-identical so a rollback works.
     let at = iso_utc(now);
     let marker = serde_json::json!({ "to": new_dir.to_string_lossy(), "at": at });
-    fs::write(old_dir.join(MIGRATED_MARKER), marker.to_string())?;
+    fs::create_dir_all(new_dir)?;
+    fs::write(new_dir.join(MIGRATED_MARKER), marker.to_string())?;
     let aside = new_dir
         .join(".pre-migration")
         .join(at.replace([':', '.'], "-"));
@@ -274,6 +275,20 @@ fn stage_and_publish(
     }
     remove_tree(&staging)?;
     Ok(present.iter().map(|i| (*i).to_owned()).collect())
+}
+
+/// Whether an existing done marker still lets a run copy. A marker that copied something is final. A marker
+/// that copied nothing (an earlier start found no data) is retried once Electron's data is there. An unreadable
+/// marker stays final, as before.
+fn marker_allows_retry(new_dir: &Path, source_has_data: bool) -> bool {
+    let Some(marker) = fs::read_to_string(new_dir.join(DONE_MARKER))
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+    else {
+        return false;
+    };
+    let copied_nothing = marker["copied"].as_array().is_some_and(Vec::is_empty);
+    copied_nothing && source_has_data
 }
 
 /// Written last, atomically, so a crash before it means the next start copies again.
@@ -310,6 +325,24 @@ mod tests {
 
     fn read(path: &Path) -> String {
         fs::read_to_string(path).unwrap_or_default()
+    }
+
+    /// Every file under `dir` with its bytes, sorted, so a before/after compare catches any write.
+    fn snapshot(dir: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+        let mut out = Vec::new();
+        let mut stack = vec![dir.to_path_buf()];
+        while let Some(d) = stack.pop() {
+            for entry in fs::read_dir(&d).into_iter().flatten().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    stack.push(path);
+                } else {
+                    out.push((path.clone(), fs::read(&path).unwrap_or_default()));
+                }
+            }
+        }
+        out.sort();
+        out
     }
 
     /// An app data dir whose prefs name `workspace`, with a database in each place asked for.
@@ -375,6 +408,84 @@ mod tests {
         assert_eq!(old_pglite_dir(&data), Some(data.join("local-db")));
     }
 
+    /// Writes a done marker as an earlier run would have, with `copied` items.
+    fn write_marker(new: &Path, from: &Path, copied: &[&str]) {
+        let _ = fs::create_dir_all(new);
+        let body = serde_json::json!({
+            "from": from.to_string_lossy(),
+            "at": "2026-11-01T00:00:00.000Z",
+            "copied": copied,
+            "secretsLeftBehind": false,
+        });
+        let _ = fs::write(new.join(DONE_MARKER), body.to_string());
+    }
+
+    #[test]
+    fn empty_marker_from_a_missing_source_is_retried_when_data_exists() {
+        // The reported bug: the first start found no data at the wrong dir and wrote an empty marker,
+        // which then blocked every later run.
+        let (old, new) = temp("retry");
+        let _ = fs::create_dir_all(old.join("local-db"));
+        write_marker(&new, &old.join("missing"), &[]);
+        assert!(matches!(
+            migrate_from_electron(&old, &new, SystemTime::now()),
+            Ok(Outcome::Done(ref items)) if items == &["local-db".to_owned()]
+        ));
+        assert!(new.join("local-db").exists());
+    }
+
+    #[test]
+    fn retry_never_touches_the_native_database() {
+        // The native database (`local-pg`) may already hold the user's data, even an empty one from a bad
+        // first start. The file copy only writes PGlite and prefs items, so `local-pg` stays byte-identical.
+        let (old, new) = temp("retry-native");
+        let _ = fs::create_dir_all(old.join("local-db"));
+        let _ = fs::create_dir_all(new.join("local-pg"));
+        let _ = fs::write(new.join("local-pg").join("PG_VERSION"), "18");
+        write_marker(&new, &old.join("missing"), &[]);
+        assert!(matches!(
+            migrate_from_electron(&old, &new, SystemTime::now()),
+            Ok(Outcome::Done(_))
+        ));
+        assert_eq!(read(&new.join("local-pg").join("PG_VERSION")), "18");
+        assert!(!new.join("local-pg").join("local-db").exists());
+    }
+
+    #[test]
+    fn non_empty_marker_still_blocks_a_rerun() {
+        let (old, new) = temp("retry-done");
+        let _ = fs::create_dir_all(old.join("local-db"));
+        write_marker(&new, &old, &["local-db"]);
+        assert_eq!(
+            migrate_from_electron(&old, &new, SystemTime::now()).ok(),
+            Some(Outcome::Already)
+        );
+    }
+
+    #[test]
+    fn broken_pglite_backup_dirs_are_not_copied() {
+        let (old, new) = temp("broken");
+        let _ = fs::create_dir_all(old.join("local-db.broken-1700000000"));
+        let _ = fs::write(old.join("local-db.broken-1700000000").join("PG_VERSION"), "16");
+        let _ = fs::write(old.join("preferences.json"), "{}");
+        assert_eq!(
+            migrate_from_electron(&old, &new, SystemTime::now()).ok(),
+            Some(Outcome::Done(vec!["preferences.json".into()]))
+        );
+        assert!(!new.join("local-db.broken-1700000000").exists());
+    }
+
+    #[test]
+    fn preferences_carry_the_vault_root_over() {
+        let (old, new) = temp("prefs");
+        let prefs = serde_json::json!({ "vault-root": "C:\\Users\\Ada\\Vault", "vault-git": true });
+        let _ = fs::write(old.join("preferences.json"), prefs.to_string());
+        assert!(migrate_from_electron(&old, &new, SystemTime::now()).is_ok());
+        let copied: serde_json::Value =
+            serde_json::from_str(&read(&new.join("preferences.json"))).unwrap_or_default();
+        assert_eq!(copied, prefs);
+    }
+
     #[test]
     fn nothing_to_copy_writes_marker_then_already() {
         let (old, new) = temp("nothing");
@@ -396,7 +507,9 @@ mod tests {
         let _ = fs::write(old.join("local-db").join("base").join("1"), "pg");
         let _ = fs::write(old.join("preferences.json"), "{}");
         let _ = fs::write(old.join("secrets.json"), "sealed");
+        let before = snapshot(&old);
         let outcome = migrate_from_electron(&old, &new, SystemTime::now()).ok();
+        assert_eq!(snapshot(&old), before, "old Electron dir must be byte-identical");
         assert_eq!(
             outcome,
             Some(Outcome::Done(vec![
@@ -407,7 +520,8 @@ mod tests {
         assert_eq!(read(&new.join("local-db").join("base").join("1")), "pg");
         assert!(!new.join("secrets.json").exists());
         assert!(!new.join(STAGING_DIR).exists());
-        assert!(old.join(MIGRATED_MARKER).exists());
+        assert!(!old.join(MIGRATED_MARKER).exists(), "old dir gets no marker");
+        assert!(new.join(MIGRATED_MARKER).exists(), "marker lives in new dir");
         assert!(
             old.join("local-db").exists(),
             "old data is copied, never moved"

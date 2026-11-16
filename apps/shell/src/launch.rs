@@ -52,19 +52,36 @@ pub fn without_verbatim_prefix(path: &Path) -> PathBuf {
         .map_or_else(|| path.to_path_buf(), PathBuf::from)
 }
 
+/// Electron's package name: the release's `userData` is `<appData>/@weaveforge/desktop`, not the product name.
+const ELECTRON_PACKAGE_DIR: [&str; 2] = ["@weaveforge", "desktop"];
+
 /// Electron's data dir, to copy from on first start; `None` for `Dev`, which must never touch the installed
-/// app's data. Electron's `userData` is `<appData>/<productName>`, so the release copies from `WeaveForge` and the
-/// test build from `WeaveForge Dev`. Tauri's `config_dir` is that `<appData>` on every OS.
+/// app's data, and when no candidate holds Electron data. Tauri's `config_dir` is Electron's `<appData>` on every OS.
+///
+/// Candidates, first match wins: `<appData>/@weaveforge/desktop` (the package name, where the 0.9.0 release's
+/// data was found), then `<appData>/<productName>`. A candidate matches when it holds `local-db` or
+/// `preferences.json`. The test build (`DEV_PRODUCT_NAME`) only looks at its own product dir.
 #[must_use]
 pub fn electron_data_dir(
     source: &AppSource,
     product_name: &str,
     config_dir: &Path,
 ) -> Option<PathBuf> {
-    match source {
-        AppSource::Dev { .. } => None,
-        AppSource::Bundled { .. } => Some(config_dir.join(product_name)),
+    if matches!(source, AppSource::Dev { .. }) {
+        return None;
     }
+    let mut candidates = Vec::new();
+    if product_name != DEV_PRODUCT_NAME {
+        candidates.push(
+            ELECTRON_PACKAGE_DIR
+                .iter()
+                .fold(config_dir.to_path_buf(), |dir, part| dir.join(part)),
+        );
+    }
+    candidates.push(config_dir.join(product_name));
+    candidates
+        .into_iter()
+        .find(|dir| dir.join("local-db").exists() || dir.join("preferences.json").exists())
 }
 
 /// `Dev` keeps its MCP files in `~/.weaveforge/mcp-dev*`, never the installed app's. The side-by-side
@@ -181,18 +198,65 @@ mod tests {
         );
     }
 
-    #[test]
-    fn bundled_migrates_from_electron_user_data() {
-        let source = AppSource::Bundled {
+    /// A fresh config dir under the temp dir with `files` (relative paths) created inside it.
+    fn config_with(name: &str, files: &[&str]) -> PathBuf {
+        let config = std::env::temp_dir().join(format!("wf-launch-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&config);
+        for file in files {
+            let path = config.join(file);
+            let _ = std::fs::create_dir_all(path.parent().unwrap_or(&config));
+            let _ = std::fs::write(&path, "x");
+        }
+        config
+    }
+
+    fn bundled() -> AppSource {
+        AppSource::Bundled {
             resources: PathBuf::from("res"),
-        };
+        }
+    }
+
+    #[test]
+    fn electron_release_data_is_the_package_name_dir() {
+        // Electron's userData is `<appData>/@weaveforge/desktop` (package name), not the product name.
+        let config = config_with("pkg", &["@weaveforge/desktop/local-db/PG_VERSION"]);
         assert_eq!(
-            electron_data_dir(&source, "WeaveForge", Path::new("cfg")),
-            Some(PathBuf::from("cfg").join("WeaveForge"))
+            electron_data_dir(&bundled(), "WeaveForge", &config),
+            Some(config.join("@weaveforge").join("desktop"))
         );
+    }
+
+    #[test]
+    fn electron_release_data_falls_back_to_the_product_dir() {
+        let config = config_with("product", &["WeaveForge/preferences.json"]);
         assert_eq!(
-            electron_data_dir(&source, DEV_PRODUCT_NAME, Path::new("cfg")),
-            Some(PathBuf::from("cfg").join("WeaveForge Dev"))
+            electron_data_dir(&bundled(), "WeaveForge", &config),
+            Some(config.join("WeaveForge"))
+        );
+    }
+
+    #[test]
+    fn electron_data_none_when_no_candidate_has_data() {
+        let config = config_with("none", &["WeaveForge/unrelated.txt"]);
+        assert_eq!(electron_data_dir(&bundled(), "WeaveForge", &config), None);
+        assert_eq!(
+            electron_data_dir(&bundled(), "WeaveForge", &config.join("absent")),
+            None
+        );
+    }
+
+    #[test]
+    fn electron_dev_build_only_reads_its_own_product_dir() {
+        let config = config_with("dev", &["@weaveforge/desktop/local-db/PG_VERSION"]);
+        assert_eq!(
+            electron_data_dir(&bundled(), DEV_PRODUCT_NAME, &config),
+            None,
+            "the release's package dir must not feed the test build"
+        );
+        let config = config_with("dev-own", &["WeaveForge Dev/preferences.json"]);
+        assert_eq!(
+            electron_data_dir(&bundled(), DEV_PRODUCT_NAME, &config),
+            Some(config.join("WeaveForge Dev"))
         );
     }
 
