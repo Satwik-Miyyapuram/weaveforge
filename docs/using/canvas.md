@@ -103,6 +103,20 @@ kept. The presets 1 to 6 follow your theme, and a hex colour such as `#e0a030` i
 drawn as it is. You cannot change a card's colour here; edit the `.canvas` file in
 an editor or in Obsidian.
 
+### Excalidraw drawings
+
+- **Import Excalidraw** adds a drawing to the page you have open. Pick an
+  `.excalidraw` file or an Obsidian `.excalidraw.md` file. Hand drawing, lines
+  and shapes become pen strokes, text becomes text boxes, and pictures are
+  stored with the page. What was already on the page stays. Undo removes the
+  whole drawing in one step.
+- **Export Excalidraw** downloads the page as `page.excalidraw`, which opens
+  on excalidraw.com or in Obsidian's Excalidraw plugin. Strokes, text boxes,
+  pictures and arrows go across; other cards go as text.
+- What a drawing or a page has that the other side cannot show is named in
+  the status at the right of the toolbar, for example an element type the
+  canvas does not draw or a picture that could not be read.
+
 ### Save
 
 Changes save a moment after you stop editing. You do not need a save button.

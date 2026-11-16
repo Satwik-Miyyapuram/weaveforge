@@ -14,11 +14,20 @@ import {
 } from "react";
 import { readyCore } from "@/lib/rust-core";
 import { formatError } from "@/lib/format-error";
+import { downloadBlob } from "@/lib/parts";
 import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { useBlobObjectUrls, type BlobFetchers } from "@/lib/hooks/use-blob-object-urls";
 import { Button, IconButton } from "@/components/button";
 import { Select } from "@/components/select";
-import { makeNode, newCanvasId, nodeBox, parseCanvasFile, type CanvasFile, type RawCanvasNode } from "../application/canvas-doc";
+import {
+  isPicturePath,
+  makeNode,
+  newCanvasId,
+  nodeBox,
+  parseCanvasFile,
+  pictureOf,
+  type CanvasFile,
+} from "../application/canvas-doc";
 import { addNode, addStroke, moveItems, patchNode, removeItems, strokesOf } from "../application/freeform-edit";
 import {
   MIN_SIZE,
@@ -34,10 +43,11 @@ import { encodeStroke, eraseHits, strokeAt, type InkPoint } from "../application
 import { canRedo, canUndo, createHistory, record, redo, undo, type History } from "../application/canvas-history";
 import { CanvasSaver } from "../application/canvas-save";
 import { canvasKeyAction, focusesOnPress } from "../application/canvas-keys";
-import { CanvasCard, isPicturePath } from "./canvas-nodes";
+import { CanvasCard } from "./canvas-nodes";
 import { EdgeLayer } from "./canvas-edges";
 import { InkLayer, type InkDraft } from "./canvas-ink";
 import { loadNaturalSize, type CanvasImages } from "../application/canvas-images";
+import { exportDrawing, importDrawing } from "../application/excalidraw-transfer";
 
 export interface CanvasEditorProps {
   /** The canvas note's body: JSON Canvas text. */
@@ -104,15 +114,6 @@ function isImage(file: File): boolean {
   return file.type.startsWith("image/");
 }
 
-/** A stored picture path without the `vault:` prefix the file node carries. */
-function barePath(stored: string, prefix: string): string {
-  return stored.startsWith(prefix) ? stored.slice(prefix.length) : stored;
-}
-
-function pictureOf(raw: RawCanvasNode, prefix: string): string | undefined {
-  return raw.file && isPicturePath(raw.file) ? barePath(raw.file, prefix) : undefined;
-}
-
 /**
  * A freeform page: pan and zoom; text boxes, pictures, links, notes and
  * groups as cards; pen strokes on top. Changes save themselves through
@@ -132,6 +133,9 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
   // A failed write is shown but does not halt: the edit stays pending and saves on the next change or flush.
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pictureError, setPictureError] = useState<string | null>(null);
+  /** What the last Excalidraw import or export could not do, or the details it could not carry. */
+  const [transferNote, setTransferNote] = useState<string | null>(null);
+  const drawingInputRef = useRef<HTMLInputElement>(null);
   const [hist, setHist] = useState<History<CanvasFile>>(() => createHistory(initial.file));
   const file = hist.present;
   // The body never parsed and nothing valid has replaced it: show the error card, with no surface.
@@ -554,7 +558,31 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
     );
   }
 
-  const problem = loadError ?? saveError ?? pictureError;
+  const noteTransfer = (warnings: string[]) =>
+    setTransferNote(warnings.length === 0 ? null : `${warnings.length} ${warnings.length === 1 ? "detail" : "details"} could not carry over: ${warnings.join("; ")}`);
+
+  /** Adds an Excalidraw drawing to the page as one undoable step. */
+  const importDrawingFile = async (drawing: File) => {
+    try {
+      const result = await importDrawing(fileRef.current, await drawing.text(), images.store);
+      edit(() => result.file);
+      noteTransfer(result.warnings);
+    } catch (err) {
+      setTransferNote(`Could not import ${drawing.name}: ${formatError(err)}`);
+    }
+  };
+
+  const exportDrawingFile = async () => {
+    try {
+      const result = await exportDrawing(fileRef.current, images.fetch);
+      downloadBlob(new Blob([result.json], { type: "application/json" }), "page.excalidraw");
+      noteTransfer(result.warnings);
+    } catch (err) {
+      setTransferNote(`Could not export the page: ${formatError(err)}`);
+    }
+  };
+
+  const problem = loadError ?? saveError ?? pictureError ?? transferNote;
 
   return (
     <div
@@ -629,6 +657,24 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
             Add link
           </Button>
         </form>
+        <Button size="sm" onClick={() => drawingInputRef.current?.click()}>
+          Import Excalidraw
+        </Button>
+        <input
+          ref={drawingInputRef}
+          type="file"
+          accept=".excalidraw,.md,.json,application/json"
+          hidden
+          aria-label="Excalidraw drawing"
+          onChange={(event) => {
+            const drawing = event.target.files?.[0];
+            event.target.value = "";
+            if (drawing) void importDrawingFile(drawing);
+          }}
+        />
+        <Button size="sm" onClick={() => void exportDrawingFile()}>
+          Export Excalidraw
+        </Button>
         {problem ? (
           <span className="canvas-editor__status" role="alert">
             {problem}

@@ -52,6 +52,19 @@ export interface CanvasFile {
 /** The body of a canvas with nothing on it, byte for byte as Obsidian writes it. */
 export const EMPTY_CANVAS_TEXT = '{\n\t"nodes":[],\n\t"edges":[]\n}';
 
+const PICTURE_PATH = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i;
+
+/** Whether a file node's path is a picture, drawn as one, rather than a note or paper. */
+export function isPicturePath(path: string | undefined): boolean {
+  return path !== undefined && PICTURE_PATH.test(path);
+}
+
+/** A picture card's stored path, without the `vault:` prefix the node carries; none for other nodes. */
+export function pictureOf(raw: RawCanvasNode, prefix: string): string | undefined {
+  if (!raw.file || !isPicturePath(raw.file)) return undefined;
+  return raw.file.startsWith(prefix) ? raw.file.slice(prefix.length) : raw.file;
+}
+
 /** The node kinds the page draws; `unknown` is a later version's, shown as a plain card. */
 export type CanvasNodeKind = "text" | "file" | "link" | "group" | "unknown";
 

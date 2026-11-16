@@ -4,14 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Markdown } from "@/components/markdown/markdown";
 import { MarkdownFieldEditor } from "@/components/markdown/markdown-field-editor";
 import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
-import { nodeBox, nodeKind, nodeLabel, type CanvasNodeKind, type RawCanvasNode } from "../application/canvas-doc";
-
-const PICTURE_PATH = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i;
-
-/** Whether a file node's path is a picture, drawn as one, rather than a note or paper. */
-export function isPicturePath(path: string | undefined): boolean {
-  return path !== undefined && PICTURE_PATH.test(path);
-}
+import { isPicturePath, nodeBox, nodeKind, nodeLabel, type CanvasNodeKind, type RawCanvasNode } from "../application/canvas-doc";
 
 /** A preset colour (`1`..`6`) is styled by the theme; a hex one is the file's own. */
 function colorOf(color: string | undefined): { attr?: string; style?: CSSProperties } {

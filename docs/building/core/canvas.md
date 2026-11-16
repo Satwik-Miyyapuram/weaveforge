@@ -133,6 +133,14 @@ plain line merge.
 - `application/freeform-edit.ts`: pure edits on the file (`moveItems`,
   `patchNode`, `removeItems`, `addNode`, `addStroke`). Ids may be nodes or
   strokes.
+- `application/excalidraw-transfer.ts`: `importDrawing` and `exportDrawing`
+  around the core's Excalidraw calls. Import decodes each picture's data URL
+  (no `fetch`, so the CSP's `connect-src` does not matter), stores it through
+  the page's `store`, points its file node at it, gives any id the page
+  already uses a fresh one (edges follow), and appends the drawing's cards and
+  strokes after the page's own. Export reads each picture node (by
+  `pictureOf`, so notes and papers are never fetched) and embeds it; a picture
+  that cannot be read is left out and named in the warnings.
 - `application/freeform-geometry.ts`: sizes, zoom limits, `screenToPage` and
   `zoomAt`.
 - `application/canvas-doc.ts` also gives `nodeLabel`, a card's spoken name.
