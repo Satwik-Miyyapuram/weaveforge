@@ -25,6 +25,8 @@ import { WORKSPACE_PATH } from "@/lib/hooks/parts";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import { NoteSaves } from "@/features/editor-workspace/application/parts";
+import { LazyCanvasEditor } from "@/features/canvas";
+import { resolveCanvasFile } from "@/features/canvas/application/canvas-files";
 import { NoteTagEditor } from "./note-tag-editor";
 import { runNoteAction } from "./run-note-action";
 import { RowButton } from "@/components/controls";
@@ -61,7 +63,7 @@ export function PageEditor({
   sharedPage?: boolean;
   sharedByName?: string;
   canComment?: boolean;
-  notes?: { id: string; title: string }[];
+  notes?: { id: string; title: string; kind?: string | null }[];
   papers?: { id: string; title: string }[];
   sections?: { id: string; title: string }[];
   onCreateNote?: (title: string, opts?: { open?: boolean }) => void;
@@ -107,6 +109,8 @@ export function PageEditor({
   // three modes are the Editor's, drawn by the Editor's own document host:
   // Edit the source, Read the sheet with the pen down, Ink the ink surface.
   const ink = readyCore().isInkNoteBody(page.body);
+  // A canvas note's body is JSON Canvas: it opens in the canvas editor, never as text.
+  const canvas = page.kind === "canvas";
   const readBody = useMemo(() => readyCore().readableText(page.body), [page.body]);
   const canEditBody = !readOnly;
   const canEditTitle = canEditBody && !ink && !sharedPage;
@@ -132,6 +136,35 @@ export function PageEditor({
     basesRef.current.set(page.id, page.body);
   }, [page.id, page.body]);
 
+  /**
+   * Stores a body against the one its edit was built on (`baseBody` when the
+   * caller knows it, as the canvas does; else the last one stored) and
+   * resolves the body stored. Says so when theirs was kept as a conflict copy.
+   */
+  const storeBody = useCallback(
+    async (body: string, meta?: { sessionDigests?: readonly string[]; baseBody?: string }) => {
+      let conflictCopyId: string | undefined;
+      // `undefined`: the effect above has already set the loaded body as base.
+      const stored = await savesRef.current!.run(page.id, undefined, async (chained) => {
+        const base = meta?.baseBody ?? chained;
+        const saved = await getContainer().vault.manageVaultPage.update(page.id, {
+          body,
+          ...(base !== undefined ? { baseBody: base } : {}),
+          ...(meta?.sessionDigests ? { sessionDigests: meta.sessionDigests } : {}),
+        });
+        conflictCopyId = saved.conflictCopyId ?? undefined;
+        return saved.body;
+      });
+      if (conflictCopyId) {
+        setSaveError(
+          "Someone else changed this note at the same time. Your text was saved; theirs is kept as a conflict copy beside it.",
+        );
+      }
+      return stored;
+    },
+    [page.id],
+  );
+
   const saveBody = useCallback(
     async (nextBody: string, meta?: { sessionDigests: readonly string[] }) => {
       setSaveError(null);
@@ -140,30 +173,49 @@ export function PageEditor({
         const { body, uploadError } = await materializeBlobImagesInBody(nextBody, page.id, (id, blob, ext) =>
           vault.uploadAsset(id, blob, ext),
         );
-        let conflictCopyId: string | undefined;
-        // `undefined`: the effect above has already set the loaded body as base.
-        await savesRef.current!.run(page.id, undefined, async (base) => {
-          const saved = await vault.manageVaultPage.update(page.id, {
-            body,
-            ...(base !== undefined ? { baseBody: base } : {}),
-            ...(meta ? { sessionDigests: meta.sessionDigests } : {}),
-          });
-          conflictCopyId = saved.conflictCopyId ?? undefined;
-          return saved.body;
-        });
+        await storeBody(body, meta);
         if (modeRef.current === "read") await onChanged();
-        if (conflictCopyId) {
-          setSaveError(
-            "Someone else changed this note at the same time. Your text was saved; theirs is kept as a conflict copy beside it.",
-          );
-        }
         // The text is saved; a failed upload is still said out loud.
         if (uploadError) throw uploadError;
       } catch (err) {
         setSaveError(formatError(err));
       }
     },
-    [onChanged, page.id],
+    [onChanged, page.id, storeBody],
+  );
+
+  // A canvas saves through its own editor, which retries a failed write and
+  // reports it, so its save throws rather than settling into `saveError`. It
+  // names the body its change was built on and gets back the one stored.
+  const saveCanvas = useCallback(
+    async (body: string, base: string | undefined) => {
+      setSaveError(null);
+      return storeBody(body, { baseBody: base });
+    },
+    [storeBody],
+  );
+  /** The notes a canvas file node can name, at the paths the Editor gives them. */
+  const canvasTargets = useMemo(
+    () =>
+      notes
+        .filter((n) => n.id !== page.id)
+        .map((n) => ({
+          kind: "vault_page",
+          id: n.id,
+          title: n.title,
+          // As the workspace names them: a canvas note is kept as `.canvas`.
+          path: `notes/${n.title}${n.kind === "canvas" ? ".canvas" : ".note.md"}`,
+        })),
+    [notes, page.id],
+  );
+  const canvasPaths = useMemo(() => canvasTargets.map((t) => t.path), [canvasTargets]);
+  const openCanvasFile = useCallback(
+    (path: string) => {
+      const target = onOpenPage ? resolveCanvasFile(canvasTargets, path) : undefined;
+      if (target) onOpenPage!(target.id);
+      return target !== undefined;
+    },
+    [canvasTargets, onOpenPage],
   );
 
   /** The title is a plain input beside the shared body: it saves when left. */
@@ -275,12 +327,22 @@ export function PageEditor({
       <div className="record-grid">
         <div className="record-main">
           <RecordSection
-            label={ink ? "Pages" : "Text"}
+            label={canvas ? "Canvas" : ink ? "Pages" : "Text"}
             tag={
-              hasBody ? wordsLabel : undefined
+              hasBody && !canvas ? wordsLabel : undefined
             }
           >
-            {view === "read" && !hasBody && !ink ? (
+            {canvas ? (
+              <div className="record-doc record-doc--canvas">
+                <LazyCanvasEditor
+                  key={page.id}
+                  body={page.body}
+                  onSave={canEditBody ? saveCanvas : async () => undefined}
+                  filePaths={canvasPaths}
+                  onOpenFile={openCanvasFile}
+                />
+              </div>
+            ) : view === "read" && !hasBody && !ink ? (
               canEditBody ? (
                 <RowButton onClick={() => chooseMode("edit")}>
                   <span className="record-note-empty">Nothing written yet. Start typing — #hashtags and [[wikilinks]] join this note to the graph.</span>

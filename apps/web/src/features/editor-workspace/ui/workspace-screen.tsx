@@ -294,7 +294,7 @@ export function WorkspaceScreen() {
   documentsRef.current = documents;
 
   const save = useCallback(
-    async (tab: TabRef, body: string, meta?: { sessionDigests: readonly string[] }): Promise<string | void> => {
+    async (tab: TabRef, body: string, meta?: { sessionDigests?: readonly string[]; baseBody?: string }): Promise<string | void> => {
       // A body may only go back to the store once the full one has come in.
       // The editor is not mounted before that, but an editor that saved the
       // 320-character preview would overwrite the note with it — a loss the
@@ -312,17 +312,17 @@ export function WorkspaceScreen() {
         // `if (kind === …)` chain. It cannot live in `ui/kind.ts` — the values
         // are container calls, and that table is pure data — but it is the same
         // kind of per-kind column, and it is the one an ink note adds a row to.
-        // A note's save names the body the store held when it was sent (the
-        // last save's stored body, else the one the note loaded with), so an
-        // edit someone else saved since is merged in or kept as a copy, never
-        // overwritten. It resolves the stored body, which differs from the one
-        // sent when the store merged them.
+        // A note's save names the body its edit was built on (the canvas says
+        // which; else the last stored body, else the loaded one), so an edit
+        // someone else saved since is merged in or kept as a copy, never
+        // overwritten. It resolves the stored body, which differs when merged.
         const saveNote = (id: string, next: string) =>
-          noteSaves.run(id, doc?.body, async (base) => {
+          noteSaves.run(id, doc?.body, async (chained) => {
+            const base = meta?.baseBody ?? chained;
             const saved = await container.vault.manageVaultPage.update(id, {
               body: next,
               ...(base !== undefined ? { baseBody: base } : {}),
-              ...(meta ? { sessionDigests: meta.sessionDigests } : {}),
+              ...(meta?.sessionDigests ? { sessionDigests: meta.sessionDigests } : {}),
             });
             if (saved.conflictCopyId) {
               setError(
@@ -356,8 +356,8 @@ export function WorkspaceScreen() {
       } catch (err) {
         setDirty(true);
         setError(formatError(err));
-        // The live editor (the only caller that names its session's saves)
-        // must know the save failed: it takes back its saved-body mark and
+        // The live editor and the canvas (the callers that pass `meta`)
+        // must know the save failed: they retry, or take back a saved-body mark, and
         // keeps the edit dirty, and compaction must not trust the body.
         // Others fire and forget, so for them the notice is the report.
         if (meta) throw err;
@@ -532,7 +532,7 @@ export function WorkspaceScreen() {
       if (!doc) return <p className="muted">This document is no longer in the workspace.</p>;
       if (!doc.hydrated) return <HydratingDocument tab={tab} hydrate={hydrate} />;
       if (isCanvasDocument(doc)) {
-        return <CanvasDocument key={key} doc={doc} documents={documents ?? []} onSave={(body) => save(tab, body)} onOpen={openDoc} />;
+        return <CanvasDocument key={key} doc={doc} documents={documents ?? []} onSave={(body, base) => save(tab, body, { baseBody: base })} onOpen={openDoc} />;
       }
       return (
         <DocumentHost
@@ -598,6 +598,14 @@ export function WorkspaceScreen() {
       return shown ? breadcrumbs({ kind: shown.kind, id: shown.id }, tree, listsTree) : [];
     },
     [tree, listsTree, previewOf],
+  );
+  // A canvas is a note kept as `.canvas`, so its suffix is the file's, not the note kind's.
+  const suffixFor = useCallback(
+    (tab: TabRef) => {
+      const doc = byKey.get(readyCore().tabKey(tab));
+      return doc && isCanvasDocument(doc) ? ".canvas" : readyCore().kindSuffix(tab.kind);
+    },
+    [byKey],
   );
 
 
@@ -676,13 +684,15 @@ export function WorkspaceScreen() {
   const core = readyCore();
   const stats = core.bodyStats(activeBody);
 
+  // A canvas body is JSON: counting its words would count the JSON.
+  const activeCanvas = activeDoc !== undefined && isCanvasDocument(activeDoc);
   const values: Partial<Record<SegmentKey, string>> = activeDoc
     ? {
-        words: core.formatWords(stats.words),
-        chars: `${core.formatCount(stats.chars)} chars`,
+        words: activeCanvas ? undefined : core.formatWords(stats.words),
+        chars: activeCanvas ? undefined : `${core.formatCount(stats.chars)} chars`,
         cursor: activeMetrics?.cursor ? core.formatCursor(activeMetrics.cursor) : undefined,
         encoding: "UTF-8",
-        language: "Markdown",
+        language: activeCanvas ? "JSON Canvas" : "Markdown",
         branch: undefined,
       }
     : {};
@@ -745,6 +755,7 @@ export function WorkspaceScreen() {
         renderDocument={renderDocument}
         onInsertImage={onInsertImage}
         crumbsFor={crumbsFor}
+        suffixFor={suffixFor}
         onOpenCrumb={(crumb) => {
           if (!crumb.key) return;
           const [kind, ...rest] = crumb.key.split(":");

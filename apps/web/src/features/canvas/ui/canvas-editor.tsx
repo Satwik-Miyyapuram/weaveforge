@@ -43,8 +43,11 @@ type FlowEdge = Edge<{ raw: RawCanvasEdge }>;
 export interface CanvasEditorProps {
   /** The canvas note's body: JSON Canvas text. */
   body: string;
-  /** Writes the body through the note's normal save path. */
-  onSave: (body: string) => unknown;
+  /**
+   * Writes the body through the note's normal save path. `base` is the body
+   * the change was built on, for the store's merge; it may resolve the body stored.
+   */
+  onSave: (body: string, base: string | undefined) => unknown;
   /** Paths a file node can point to, offered while typing one. */
   filePaths: readonly string[];
   /** Opens what a file node points to; false when nothing matches. */
@@ -138,16 +141,32 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
   const [focusWithin, setFocusWithin] = useState(false);
   const [editing, setEditing] = useState(false);
   const deleteKeys = deleteKeysFor({ screenActive, focusWithin, editing });
+  // Puts a body from the store on screen.
+  const show = useCallback(
+    (text: string) => {
+      try {
+        const next = load(text);
+        fileRef.current = next.file;
+        setNodes(next.nodes);
+        setEdges(next.edges);
+        setLoadError(null);
+      } catch (err) {
+        setLoadError(formatError(err));
+      }
+    },
+    [setNodes, setEdges],
+  );
   const [saver] = useState(
     () =>
       new CanvasSaver({
         loaded: body,
-        write: (text) => {
+        write: (text, base) => {
           fileRef.current = parseCanvasFile(text);
-          return onSaveRef.current(text);
+          return onSaveRef.current(text, base);
         },
         onError: (err) => setSaveError(formatError(err)),
         onSaved: () => setSaveError(null),
+        onStored: show,
       }),
   );
   const readText = useCallback(() => canvasText(fileRef.current, nodesRef.current, edgesRef.current), []);
@@ -161,21 +180,12 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
   }, [body, loadError]);
 
   // The body changed outside this editor (another device, an import): show it.
-  // Our own saves echo back through here, and a change still waiting to save
-  // wins over an incoming body: both are left alone.
+  // Our own saves echo back through here and are left alone. While a change of
+  // ours is unsaved, theirs waits: our write names its base, the store merges
+  // (or keeps a conflict copy) and the saver shows the result.
   useEffect(() => {
-    if (saver.isOwnEcho(body) || saver.hasPending()) return;
-    saver.markLoaded(body);
-    try {
-      const next = load(body);
-      fileRef.current = next.file;
-      setNodes(next.nodes);
-      setEdges(next.edges);
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(formatError(err));
-    }
-  }, [body, saver, setNodes, setEdges]);
+    if (saver.receive(body)) show(body);
+  }, [body, saver, show]);
 
   // Save a moment after the last change. A broken body is never saved over.
   useEffect(() => {
@@ -194,7 +204,9 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
     return () => {
       window.removeEventListener("pagehide", save);
       window.removeEventListener("beforeunload", save);
+      // The last change gets one write; no retry or banner outlives the editor.
       saver.flush(readText);
+      saver.dispose();
     };
   }, [saver, readText]);
 
