@@ -480,3 +480,47 @@ fn counts_sum_to_the_number_of_entries() {
     assert_eq!(diff.counts.conflict, 1);
     assert_eq!(diff.counts.removed, 0);
 }
+
+// --------------------------------------------------------------- canvas id map
+
+#[test]
+fn a_canvas_file_takes_its_page_id_from_the_folder_id_map() {
+    let files = folder(&[
+        (
+            "MSc Thesis/notes/board.canvas",
+            "{\"nodes\":[],\"edges\":[]}",
+        ),
+        (
+            "MSc Thesis/.weaveforge/canvas-ids.json",
+            "{\"notes/board.canvas\":\"c1\"}",
+        ),
+    ]);
+    let parsed = parse_workspace_folder(&files);
+    assert_eq!(parsed.len(), 1, "the map itself is not an entity");
+    assert_eq!(parsed[0].id.as_deref(), Some("c1"));
+    assert_eq!(parsed[0].kind.as_deref(), Some("canvas"));
+}
+
+#[test]
+fn a_canvas_file_missing_from_the_id_map_has_no_id() {
+    let files = folder(&[
+        ("MSc Thesis/notes/board.canvas", "{}"),
+        (
+            "MSc Thesis/.weaveforge/canvas-ids.json",
+            "{\"notes/other.canvas\":\"c2\"}",
+        ),
+    ]);
+    let parsed = parse_workspace_folder(&files);
+    assert_eq!(parsed[0].id, None);
+}
+
+#[test]
+fn a_malformed_canvas_id_map_is_ignored() {
+    let files = folder(&[
+        ("MSc Thesis/notes/board.canvas", "{}"),
+        ("MSc Thesis/.weaveforge/canvas-ids.json", "{not json"),
+    ]);
+    let parsed = parse_workspace_folder(&files);
+    assert_eq!(parsed.len(), 1, "the canvas still imports");
+    assert_eq!(parsed[0].id, None);
+}

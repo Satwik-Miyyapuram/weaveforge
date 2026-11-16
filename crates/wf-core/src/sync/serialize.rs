@@ -72,10 +72,10 @@ pub fn serialize_workspace(
     let root = project_dir(project);
     let mut files = Vec::new();
     let mut assets = Vec::new();
-    write_notes(&mut files, &mut assets, snapshot, &root);
+    let canvases = write_notes(&mut files, &mut assets, snapshot, &root);
     write_outline(&mut files, &mut assets, snapshot, &root);
     write_research(&mut files, &mut assets, snapshot, &root);
-    write_meta(&mut files, snapshot, &root);
+    write_meta(&mut files, snapshot, &root, &canvases);
     put(
         &mut files,
         "README.md".to_owned(),
@@ -202,7 +202,8 @@ fn write_notes(
     assets: &mut Vec<SerializedAsset>,
     snapshot: &WorkspaceSnapshot,
     root: &str,
-) {
+) -> Vec<(String, String)> {
+    let mut canvases = Vec::new();
     let nodes: Vec<FolderNode> = snapshot
         .vault_pages
         .iter()
@@ -223,7 +224,9 @@ fn write_notes(
             field("created-at", text(&page.created_at)),
         ];
         if page.kind.as_deref() == Some("canvas") {
-            put(files, canvas_path_of(path), page.body.clone());
+            let canvas = canvas_path_of(path);
+            put(files, canvas.clone(), page.body.clone());
+            canvases.push((canvas, page.id.clone()));
         } else if is_ink_note_body(&page.body) {
             let (meta, body) = read_ink_note_body(&page.body);
             let mut fields = stamps;
@@ -251,6 +254,7 @@ fn write_notes(
             );
         }
     }
+    canvases
 }
 
 /// `.note.md` at the end of a path becomes `.ink.md`; any other path is kept.
@@ -263,6 +267,20 @@ fn ink_path_of(path: &str) -> String {
 fn canvas_path_of(path: &str) -> String {
     path.strip_suffix(".note.md")
         .map_or_else(|| path.to_owned(), |stem| format!("{stem}.canvas"))
+}
+
+/// Maps each canvas file, by its path relative to the project, to its page id.
+/// A raw `.canvas` file has no frontmatter to carry the id, so the import reads it here.
+fn canvas_id_map(canvases: &[(String, String)], root: &str) -> Value {
+    let prefix = format!("{root}/");
+    let map: serde_json::Map<String, Value> = canvases
+        .iter()
+        .map(|(path, id)| {
+            let relative = path.strip_prefix(&prefix).unwrap_or(path);
+            (relative.to_owned(), Value::String(id.clone()))
+        })
+        .collect();
+    Value::Object(map)
 }
 
 /// Reading lists and report sections, both nested by `parent_id`.
@@ -542,8 +560,18 @@ impl Formatter for JsPretty<'_> {
 }
 
 /// The three data files and the manifest, under the project's `.weaveforge/`.
-fn write_meta(files: &mut Vec<(String, String)>, snapshot: &WorkspaceSnapshot, root: &str) {
+fn write_meta(
+    files: &mut Vec<(String, String)>,
+    snapshot: &WorkspaceSnapshot,
+    root: &str,
+    canvases: &[(String, String)],
+) {
     let meta = project_meta_dir(root);
+    put(
+        files,
+        format!("{meta}/canvas-ids.json"),
+        stable_json(&canvas_id_map(canvases, root)),
+    );
     put(
         files,
         format!("{meta}/relations.json"),

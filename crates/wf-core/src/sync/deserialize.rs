@@ -265,12 +265,52 @@ pub fn parse_workspace_file(path: &str, content: &str) -> Option<ParsedEntity> {
 }
 
 /// Parse every file of a folder, keeping the ones that are entities.
+///
+/// A canvas takes its page id from the folder's `canvas-ids.json`, because its raw
+/// file has no frontmatter to carry one.
 #[must_use]
 pub fn parse_workspace_folder(files: &[(String, String)]) -> Vec<ParsedEntity> {
+    let canvas_ids = canvas_id_map(files);
     files
         .iter()
-        .filter_map(|(path, content)| parse_workspace_file(path, content))
+        .filter_map(|(path, content)| {
+            let mut parsed = parse_workspace_file(path, content)?;
+            if parsed.kind.as_deref() == Some("canvas") {
+                parsed.id = canvas_ids.get(path).cloned();
+            }
+            Some(parsed)
+        })
         .collect()
+}
+
+/// Canvas page ids by full file path, from every `<project>/.weaveforge/canvas-ids.json`.
+/// A malformed map is ignored, so its canvases import as new pages.
+fn canvas_id_map(files: &[(String, String)]) -> HashMap<String, String> {
+    let map_name = format!("{WORKSPACE_META_DIR}/canvas-ids.json");
+    let mut ids = HashMap::new();
+    for (path, content) in files {
+        let project = if *path == map_name {
+            ""
+        } else if let Some(project) = path.strip_suffix(&format!("/{map_name}")) {
+            project
+        } else {
+            continue;
+        };
+        let base = if project.is_empty() {
+            String::new()
+        } else {
+            format!("{project}/")
+        };
+        let Ok(Value::Object(map)) = serde_json::from_str::<Value>(content) else {
+            continue;
+        };
+        for (relative, id) in map {
+            if let Some(id) = id.as_str() {
+                let _ = ids.insert(format!("{base}{relative}"), id.to_owned());
+            }
+        }
+    }
+    ids
 }
 
 /// Compare parsed files with what is stored, by id.
