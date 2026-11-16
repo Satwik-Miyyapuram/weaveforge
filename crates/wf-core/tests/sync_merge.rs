@@ -557,6 +557,84 @@ fn ported_reports_a_field_both_sides_moved_differently() {
 }
 
 #[test]
+fn a_body_both_sides_edited_on_different_lines_merges_line_by_line() {
+    let base = row(json!({"body": "one
+two
+three"}));
+    let local = row(json!({"body": "ONE
+two
+three"}));
+    let remote = row(json!({"body": "one
+two
+THREE"}));
+    let result = merge_rows(&base, &local, &remote);
+    assert!(result.conflicts.is_empty());
+    assert_eq!(
+        result.merged["body"],
+        json!(
+            "ONE
+two
+THREE"
+        )
+    );
+}
+
+#[test]
+fn a_body_both_sides_edited_on_the_same_line_stays_a_conflict() {
+    let base = row(json!({"body": "one
+two"}));
+    let local = row(json!({"body": "one
+mine"}));
+    let remote = row(json!({"body": "one
+theirs"}));
+    let result = merge_rows(&base, &local, &remote);
+    assert_eq!(
+        result.conflicts,
+        vec![conflict(
+            "body",
+            json!(
+                "one
+two"
+            ),
+            json!(
+                "one
+mine"
+            ),
+            json!(
+                "one
+theirs"
+            )
+        )]
+    );
+    assert_eq!(
+        result.merged["body"],
+        json!(
+            "one
+theirs"
+        )
+    );
+}
+
+#[test]
+fn a_body_with_no_base_text_stays_a_conflict() {
+    let local = row(json!({"body": "mine"}));
+    let remote = row(json!({"body": "theirs"}));
+    let result = merge_rows(&Map::new(), &local, &remote);
+    assert_eq!(result.conflicts.len(), 1);
+}
+
+#[test]
+fn only_the_body_field_merges_by_line() {
+    let base = row(json!({"title": "a
+b"}));
+    let local = row(json!({"title": "A
+b"}));
+    let remote = row(json!({"title": "a
+B"}));
+    assert_eq!(merge_rows(&base, &local, &remote).conflicts.len(), 1);
+}
+
+#[test]
 fn ported_compares_structures_by_value() {
     let base = row(json!({"tags": ["a"]}));
     let local = row(json!({"tags": ["a"]}));

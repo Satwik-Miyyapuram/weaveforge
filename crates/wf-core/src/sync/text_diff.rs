@@ -15,7 +15,7 @@ pub const MARKER_SEPARATOR: &str = "=======";
 pub const MARKER_THEIRS: &str = ">>>>>>> the folder";
 
 /// Ceiling on the LCS table; past it the diff is one hunk holding both copies whole.
-const MAX_DIFF_CELLS: usize = 4_000_000;
+pub(crate) const MAX_DIFF_CELLS: usize = 4_000_000;
 
 /// Which side a diff line belongs to, or whether both sides agree on it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,7 +77,7 @@ pub enum HunkPick {
 }
 
 /// Normalises line endings to `\n` and splits; `""` is one empty line, as in JS.
-fn split_lines(text: &str) -> Vec<String> {
+pub(crate) fn split_lines(text: &str) -> Vec<String> {
     text.replace("\r\n", "\n")
         .replace('\r', "\n")
         .split('\n')
@@ -93,13 +93,13 @@ fn line(op: DiffOp, text: &str) -> DiffLine {
 }
 
 /// Suffix LCS lengths as a flat `(n + 1) x (m + 1)` table, so out-of-range reads are 0.
-struct Lcs {
+pub(crate) struct Lcs {
     cols: usize,
     cells: Vec<u32>,
 }
 
 impl Lcs {
-    fn at(&self, i: usize, j: usize) -> u32 {
+    pub(crate) fn at(&self, i: usize, j: usize) -> u32 {
         self.cells.get(i * self.cols + j).copied().unwrap_or(0)
     }
 
@@ -110,7 +110,7 @@ impl Lcs {
     }
 }
 
-fn lcs_table(ours: &[String], theirs: &[String]) -> Lcs {
+pub(crate) fn lcs_table(ours: &[String], theirs: &[String]) -> Lcs {
     let (n, m) = (ours.len(), theirs.len());
     let cols = m + 1;
     let mut table = Lcs {

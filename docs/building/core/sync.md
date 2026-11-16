@@ -162,6 +162,7 @@ These modules sit beside the ones above. Each rule is pure. TS keeps the I/O.
 | `project_pick` | `pick_project` | `pickProject` | — |
 | `serialize` | `serialize_workspace`, `WORKSPACE_SCHEMA_VERSION` | `serializeWorkspace` | `apps/web/src/features/workspace/application/parts-1.ts`, `apps/web/src/features/workspace/application/parts-2.ts`, `apps/web/src/features/export/application/export-user-data.ts` |
 | `text_diff` | `diff_body`, `merge_hunks`, `write_conflict_markers`, `has_conflict_markers` | `diffBody`, `mergeHunks`, `writeConflictMarkers`, `hasConflictMarkers` | `apps/web/src/features/offline-sync/ui/sync-issues-panel.tsx`, `apps/web/src/features/settings/ui/folder-conflict-card.tsx` |
+| `text_merge` | `merge_text`, `TextMerge` | native only | — (Rust callers: `merge_rows`, `repos::vault_page_guard`); see [text_merge.md](text_merge.md) |
 | `workspace_fs` | `WorkspaceFs` trait (nine methods), `FsKind`, `WorkspaceStat`, `FsError` | native only | — |
 
 Rules:
@@ -182,4 +183,5 @@ Rules:
 - `project_pick`: exact match on id, name or dir comes first, then partial name. Errors list the project names. `norm` trims, lowercases and folds JS `\s`.
 - `serialize`: `WORKSPACE_SCHEMA_VERSION` is `2`, stamped into `manifest.json`.
 - `text_diff`: markers are `<<<<<<< this app`, `=======` and `>>>>>>> the folder`. Past `MAX_DIFF_CELLS` (4,000,000) the diff is one hunk holding both copies whole.
+- `text_merge`: a three-way line merge. A run both sides changed differently is `Conflict`, never a guess. `merge_rows` merges a `body` both sides changed this way before it becomes a field conflict.
 - `workspace_fs`: nine methods, deliberately small. Paths are POSIX and relative. Adapters reject unsafe paths. No symlinks, modes, streams or watching. `modified_ms` is milliseconds since the Unix epoch.
