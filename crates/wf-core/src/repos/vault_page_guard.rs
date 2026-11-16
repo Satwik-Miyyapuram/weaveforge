@@ -88,6 +88,8 @@ fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
     let id = call.text(0).to_owned();
     let mut at = 0;
     let mut copy_id = None;
+    // The bodies kept as copies so far: a retry copies only text not yet kept.
+    let mut copied: Vec<String> = Vec::new();
     let mut missed: Option<Option<i64>> = None;
     for _ in 0..ATTEMPTS {
         let (version, existing) = match read(call, at, &id) {
@@ -95,6 +97,9 @@ fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
             Err(step) => return step,
         };
         at += 1;
+        // Without a version the write is unconditional, so an empty reply was
+        // the row policy refusing it, never a lost race: the same as when the
+        // version did not move.
         if missed == Some(version) {
             return RepoStep::fail_named(
                 "VaultPagePermissionError",
@@ -110,16 +115,19 @@ fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
             Plan::Keep => return finish(&existing, copy_id),
             Plan::Write(text) => text,
             Plan::CopyThenWrite => {
-                let copy = match conflict_copy(call, &existing) {
-                    Ok(copy) => copy,
-                    Err(step) => return step,
-                };
-                let saved = save(&call.sub(vec![copy.clone()], at));
-                if call.replies.len() <= at {
-                    return saved;
+                if !copied.contains(&existing.body) {
+                    let copy = match conflict_copy(call, &existing, copied.len()) {
+                        Ok(copy) => copy,
+                        Err(step) => return step,
+                    };
+                    let saved = save(&call.sub(vec![copy.clone()], at));
+                    if call.replies.len() <= at {
+                        return saved;
+                    }
+                    at += 1;
+                    copied.push(existing.body.clone());
+                    copy_id = copy.get("id").cloned();
                 }
-                at += 1;
-                copy_id = copy.get("id").cloned();
                 input.body.clone()
             }
         };
@@ -184,9 +192,12 @@ fn finish(page: &VaultPage, copy_id: Option<Value>) -> RepoStep {
     RepoStep::Done { value }
 }
 
-/// A new page beside `existing` holding the body it had, as `save` takes it.
-/// Its id is the same on every attempt, so a retry overwrites one copy.
-fn conflict_copy(call: &RepoCall, existing: &VaultPage) -> Result<Value, RepoStep> {
+/// The `n`th new page beside `existing` holding the body it had, as `save`
+/// takes it. The id is fixed per `n`, so a replayed step names the same copy.
+/// A retry that meets other clashing text makes another copy rather than
+/// overwrite this one: the newer text need not be built on the older (a plain
+/// update writes the body without a base).
+fn conflict_copy(call: &RepoCall, existing: &VaultPage, n: usize) -> Result<Value, RepoStep> {
     let input = NewVaultPageInput {
         title: copy_title(&existing.summary.title, call.now()),
         body: Some(existing.body.clone()),
@@ -194,7 +205,7 @@ fn conflict_copy(call: &RepoCall, existing: &VaultPage) -> Result<Value, RepoSte
         folder: None,
         sort_order: Some(existing.summary.sort_order),
     };
-    let page = create_vault_page(&input, &call.id(0), call.now())
+    let page = create_vault_page(&input, &call.id(n), call.now())
         .map_err(|e| RepoStep::fail_named("VaultPageValidationError", e))?;
     serde_json::to_value(page).map_err(RepoStep::fail)
 }
@@ -382,41 +393,51 @@ mod tests {
     }
 
     #[test]
-    fn a_retry_after_a_copy_reuses_the_copy_and_still_reports_it() {
-        let (base, mine) = (
-            "a
+    fn a_retry_that_meets_newer_clashing_text_keeps_both_their_texts() {
+        let (base, mine) = ("a
 b", "a
-MINE",
-        );
-        let mut replies = vec![row(
-            "a
-THEIRS", 4,
-        )];
+MINE");
+        let mut replies = vec![row("a
+THEIRS", 4)];
         let first = only(step(input(base, mine), replies.clone()));
-        let copy_id = first.body.unwrap()["id"].clone();
+        let first = first.body.unwrap();
+        assert_eq!(first["body"], "a
+THEIRS");
         replies.extend([Value::Null, json!([])]); // copy saved, write lost the race
-        replies.push(row(
-            "a
-THEIRS2",
-            5,
-        ));
+        replies.push(row("a
+THEIRS2", 5));
         let second = only(step(input(base, mine), replies.clone()));
         assert_eq!(second.action, RepoAction::Upsert);
         let second = second.body.unwrap();
-        assert_eq!(
-            second["id"], copy_id,
-            "one copy, overwritten, not a second one"
-        );
-        assert_eq!(
-            second["body"],
-            "a
-THEIRS2"
+        assert_eq!(second["body"], "a
+THEIRS2");
+        assert_ne!(
+            second["id"], first["id"],
+            "a second copy: overwriting the first would lose THEIRS"
         );
         replies.extend([Value::Null, json!([{ "id": "p1" }])]);
         assert_eq!(
             done(step(input(base, mine), replies))["conflictCopyId"],
-            copy_id
+            second["id"]
         );
+    }
+
+    #[test]
+    fn a_retry_that_meets_the_text_already_copied_makes_no_second_copy() {
+        let (base, mine) = ("a
+b", "a
+MINE");
+        let mut replies = vec![row("a
+THEIRS", 4)];
+        let copy_id = only(step(input(base, mine), replies.clone())).body.unwrap()["id"].clone();
+        // The race was lost to a change that left the body alone (a pin).
+        replies.extend([Value::Null, json!([]), row("a
+THEIRS", 5)]);
+        let write = only(step(input(base, mine), replies.clone()));
+        assert_eq!(write.action, RepoAction::Update);
+        assert!(filters(&write).contains(&("row_version".into(), json!(5))));
+        replies.push(json!([{ "id": "p1" }]));
+        assert_eq!(done(step(input(base, mine), replies))["conflictCopyId"], copy_id);
     }
 
     #[test]
@@ -440,6 +461,21 @@ THEIRS", 4,
     #[test]
     fn a_write_the_row_policy_hides_is_a_permission_error_not_a_race() {
         let replies = vec![row("a", 7), json!([]), row("a", 7)];
+        match step(input("a", "b"), replies) {
+            RepoStep::Fail { name, .. } => {
+                assert_eq!(name.as_deref(), Some("VaultPagePermissionError"));
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn an_unversioned_write_that_matches_nothing_is_refused_not_raced() {
+        // With no version to filter on, the write is unconditional: an empty
+        // reply cannot be a lost race, only the row policy refusing it.
+        let mut unversioned = row("a", 0);
+        unversioned["row_version"] = Value::Null;
+        let replies = vec![unversioned.clone(), json!([]), unversioned];
         match step(input("a", "b"), replies) {
             RepoStep::Fail { name, .. } => {
                 assert_eq!(name.as_deref(), Some("VaultPagePermissionError"));
