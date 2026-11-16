@@ -361,6 +361,45 @@ export interface WorkspaceData {
   withOverleaf?: () => Promise<WorkspaceData>;
 }
 
+/**
+ * A note's body saves from the workspace, one at a time per note.
+ *
+ * Each save names the body the store held when it was sent (its base), so the
+ * store can tell an edit made elsewhere from this one. Two saves of one note in
+ * flight at once both named the body from before either, so the second looked
+ * like an overwrite of someone else's edit. Here a save starts once the note's
+ * earlier ones have settled, and its base is the body the last one stored (a
+ * merged body included). `bases` is the workspace's map of full note bodies.
+ */
+export class NoteSaves {
+  private readonly tails = new Map<string, Promise<unknown>>();
+
+  constructor(private readonly bases: Map<string, string>) {}
+
+  /**
+   * Queue `write`, which sends a body against `base` and resolves the body the
+   * store then holds. `loaded` is the base when none is known yet: the body the
+   * workspace loaded the note with.
+   */
+  run(id: string, loaded: string | undefined, write: (base: string | undefined) => Promise<string>): Promise<string> {
+    const before = this.tails.get(id) ?? Promise.resolve();
+    const next = before
+      .catch(() => undefined)
+      .then(async () => {
+        const stored = await write(this.bases.get(id) ?? loaded);
+        this.bases.set(id, stored);
+        return stored;
+      });
+    this.tails.set(id, next);
+    void next
+      .catch(() => undefined)
+      .then(() => {
+        if (this.tails.get(id) === next) this.tails.delete(id);
+      });
+    return next;
+  }
+}
+
 /** The promise's value if it has already settled, else `undefined`, without waiting. */
 export async function ifSettled<T>(load: Promise<T>): Promise<T | undefined> {
   const notYet = Symbol("not yet");

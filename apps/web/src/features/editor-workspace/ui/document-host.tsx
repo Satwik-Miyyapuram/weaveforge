@@ -258,6 +258,8 @@ export function DocumentHost({
   const metricsRef = useRef(onMetrics);
   metricsRef.current = onMetrics;
   const reportMetrics = useMemo(() => dedupeMetrics((metrics) => metricsRef.current?.(metrics)), []);
+  // The ink and read views only save; the stored body is the live editor's to use.
+  const saveOnly = useCallback(async (next: string) => void (await onSave(next)), [onSave]);
   // The same for the error sink and the create handler: the editing description
   // below is read once, when the stack is built.
   const errorRef = useRef(onError);
@@ -408,7 +410,7 @@ export function DocumentHost({
         noteId={tab.id}
         body={surfaceBody(body, liveBody)}
         deps={getContainer().ink}
-        onSave={onSave}
+        onSave={saveOnly}
         paperId={sheetPaperId}
       />
     );
@@ -443,7 +445,7 @@ export function DocumentHost({
         ink={false}
         noteId={tab.id}
         body={body}
-        onSave={onSave}
+        onSave={saveOnly}
         onClickCapture={onReadClick}
         notes={links?.notes ?? []}
         papers={links?.papers ?? []}
@@ -457,7 +459,7 @@ export function DocumentHost({
   if (renderer === "markdown") {
     return (
       <div className="document-read" onClickCapture={onReadClick}>
-        <ImageSizeControl body={body} onSave={onSave}>
+        <ImageSizeControl body={body} onSave={saveOnly}>
           {renderMarkdown(body)}
         </ImageSizeControl>
       </div>
