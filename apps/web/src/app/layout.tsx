@@ -3,6 +3,7 @@ import { FONT_VARIABLES } from "./fonts";
 import "./globals.css";
 import { AuthProvider } from "@/features/auth/ui/auth-provider";
 import { AppShell } from "./app-shell";
+import { BootSnapshot } from "./boot-snapshot";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
 import { ThemeColorMeta } from "./theme-color-meta";
 import { WindowScrollbar } from "@/components/window-scrollbar";
@@ -81,6 +82,7 @@ export default function RootLayout({
         <DesktopTitleBar />
         <PlanWidgetTheme />
         <AuthProvider>
+          <BootSnapshot />
           <AppShell>{children}</AppShell>
         </AuthProvider>
       </body>

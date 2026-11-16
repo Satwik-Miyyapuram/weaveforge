@@ -46,9 +46,17 @@ function shell({ pathname, projectId = "p1", enabled = true, route }: At) {
     route !== undefined
       ? route
       : pathname === "/papers"
-        ? createElement(KeepAliveRoute, { path: "/papers", scope: "Papers" }, createElement(Screen))
-        : createElement("p", null, "other");
-  return createElement(KeepAliveProvider, { pathname, projectId, enabled }, createElement("main", null, page));
+        ? (
+          <KeepAliveRoute path="/papers" scope="Papers">
+            <Screen />
+          </KeepAliveRoute>
+        )
+        : <p>other</p>;
+  return (
+    <KeepAliveProvider pathname={pathname} projectId={projectId} enabled={enabled}>
+      <main>{page}</main>
+    </KeepAliveProvider>
+  );
 }
 
 async function mount(at: At): Promise<ReactTestRenderer> {
@@ -136,7 +144,11 @@ test("without a provider the route renders its screen in place", async () => {
   reset();
   let tree: ReactTestRenderer | undefined;
   await act(async () => {
-    tree = create(createElement(KeepAliveRoute, { path: "/papers", scope: "Papers" }, createElement(Screen)));
+    tree = create(
+      <KeepAliveRoute path="/papers" scope="Papers">
+        <Screen />
+      </KeepAliveRoute>,
+    );
   });
   assert.equal(hosts(tree!).length, 0);
   assert.equal(mounts, 1);
@@ -151,7 +163,11 @@ test("a render error in the kept screen stays inside its own boundary", async ()
   const original = console.error;
   console.error = () => {};
   try {
-    const route = createElement(KeepAliveRoute, { path: "/papers", scope: "Papers" }, createElement(Broken));
+    const route = (
+      <KeepAliveRoute path="/papers" scope="Papers">
+        <Broken />
+      </KeepAliveRoute>
+    );
     const tree = await mount({ pathname: "/papers", route });
     assert.ok(tree.root.findAll((n) => n.type === "main").length === 1, "the shell still renders");
     assert.match(JSON.stringify(tree.toJSON()), /Papers/);
@@ -163,7 +179,7 @@ test("a render error in the kept screen stays inside its own boundary", async ()
 
 test("useWhileShown keeps the last value seen on show while hidden", async () => {
   let active = true;
-  const harness = await renderHook((value: string) => useWhileShown(value), "?paper=a", {
+  const harness = await renderHook((value: string) => useWhileShown(value), "?paper=a" as string, {
     wrapper: (children: ReactNode) => createElement(ScreenActiveContext.Provider, { value: active }, children),
   });
   assert.equal(harness.current, "?paper=a");

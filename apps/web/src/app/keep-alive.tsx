@@ -126,13 +126,13 @@ export function useWhileShown<T>(value: T): T {
  * than the app-level error.
  */
 class KeptBoundary extends Component<{ scope: string; children: ReactNode }, { error: Error | null }> {
-  state: { error: Error | null } = { error: null };
+  override state: { error: Error | null } = { error: null };
 
   static getDerivedStateFromError(error: Error) {
     return { error };
   }
 
-  render() {
+  override render() {
     const { error } = this.state;
     if (!error) return this.props.children;
     return <RouteError scope={this.props.scope} error={error} reset={() => this.setState({ error: null })} />;

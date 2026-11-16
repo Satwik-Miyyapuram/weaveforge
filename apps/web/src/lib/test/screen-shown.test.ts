@@ -90,7 +90,7 @@ test("useScreenShown: marks once when ready, not on every render", async () => {
   reset();
   const heard: string[] = [];
   const off = onScreenShown((name) => heard.push(name));
-  const harness = await renderHook((ready: boolean) => useScreenShown("papers", ready), false);
+  const harness = await renderHook((ready: boolean) => useScreenShown("papers", ready), false as boolean);
   assert.deepEqual(heard, [], "not ready yet");
   await harness.rerender(true);
   await harness.rerender(true);
