@@ -14,6 +14,7 @@ import {
   DesktopWorkspaceFs,
   IsomorphicWorkspaceGit,
 } from "../infrastructure/parts";
+import { folderLock } from "./folder-lock";
 import {
   applyFolderImport,
   clearPendingAssets,
@@ -299,9 +300,6 @@ export function describeSync({ mirror, commit, commitError }: SyncOutcome): stri
   });
 }
 
-/** The sync writing right now; folder events wait for it so its own writes are not reported. */
-let syncInFlight: Promise<unknown> = Promise.resolve();
-
 /**
  * Write the workspace to the folder, then commit if versioning is on.
  *
@@ -309,9 +307,8 @@ let syncInFlight: Promise<unknown> = Promise.resolve();
  * produces no commit — which is what keeps the history readable.
  */
 export function syncToFolder(): Promise<SyncOutcome> {
-  const run = runSyncToFolder();
-  syncInFlight = run.catch(() => undefined);
-  return run;
+  // Under the folder lock, so a git pull or push is never moving the files this writes.
+  return folderLock.run(runSyncToFolder);
 }
 
 async function runSyncToFolder(): Promise<SyncOutcome> {
@@ -667,8 +664,9 @@ function reportFolderChanges(paths: readonly string[]): void {
   if (candidates.length === 0) return;
 
   void (async () => {
-    // A mirror run writes its files before its manifest; checked mid-run, every one reads as foreign.
-    await syncInFlight;
+    // A mirror run writes its files before its manifest, and a pull puts this
+    // machine's manifests back after its checkout: checked mid-way, files read wrongly.
+    await folderLock.idle();
     const fs = activeFs;
     const project = await activeProjectOrNull().catch(() => null);
     const base = fs && project ? await readMirrorBase(fs, (await loadCore()).projectDir(project)) : {};

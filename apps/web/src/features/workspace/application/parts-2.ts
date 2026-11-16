@@ -5,7 +5,9 @@ import {
   type DesktopVaultSyncAction,
 } from "@/lib/desktop/desktop-bridge";
 import { loadCore, readyCore, type RustCore, typedCore } from "@/lib/rust-core";
-import { writeTextAtomic } from "./parts-3";
+import { folderLock } from "./folder-lock";
+import { keepMirrorBases, writeTextAtomic } from "./parts-3";
+import { activeWorkspaceFs } from "./workspace-folder";
 import {
   type IWorkspaceFs,
   type MirrorResult,
@@ -447,20 +449,44 @@ export async function disconnectRemote(): Promise<void> {
   await bridge.clearSecret("git-sync-token");
 }
 
+/** Actions that can move the folder's tree: a pull and each conflict choice. */
+const MOVES_TREE: ReadonlySet<DesktopVaultSyncAction> = new Set(["pull", "keep-mine", "take-remote", "keep-both"]);
+
+/** Whether a reply says the tree moved, so this machine's manifests go back in. */
+const treeMoved = (reply: DesktopVaultSync) => reply.pull?.kind === "fast-forward" || reply.pull?.kind === "merged";
+
+/** One action, for a caller already holding the folder lock. */
+function remoteAction(bridge: Required<Pick<DesktopBridge, "vaultSync">>, action: DesktopVaultSyncAction) {
+  const fs = MOVES_TREE.has(action) ? activeWorkspaceFs() : null;
+  if (!fs) return bridge.vaultSync(action);
+  return keepMirrorBases(fs, () => bridge.vaultSync(action), treeMoved);
+}
+
+/**
+ * Run one action on the remote. Those that touch the folder (a pull, a push,
+ * a conflict choice) wait for the folder lock, so a mirror run is never
+ * writing the files git is moving. Reading the settings or the status does not.
+ */
 export function folderRemoteSync(action: DesktopVaultSyncAction): Promise<DesktopVaultSync> {
   const bridge = shell();
   if (!bridge) return Promise.reject(new Error(NO_SHELL));
-  return bridge.vaultSync(action);
+  if (!MOVES_TREE.has(action) && action !== "push") return bridge.vaultSync(action);
+  return folderLock.run(() => remoteAction(bridge, action));
 }
 
 /**
  * After a rejected push: pull, then push again, in one go. Stops after the
  * pull when it hits a conflict, so nothing is pushed until that is settled.
+ * Holds the folder lock across both, so no mirror run lands between them.
  */
 export async function pullThenPush(): Promise<{ pulled: DesktopVaultSync; pushed: DesktopVaultSync | null }> {
-  const pulled = await folderRemoteSync("pull");
-  if (pulled.pull?.kind === "conflict") return { pulled, pushed: null };
-  return { pulled, pushed: await folderRemoteSync("push") };
+  const bridge = shell();
+  if (!bridge) throw new Error(NO_SHELL);
+  return folderLock.run(async () => {
+    const pulled = await remoteAction(bridge, "pull");
+    if (pulled.pull?.kind === "conflict") return { pulled, pushed: null };
+    return { pulled, pushed: await remoteAction(bridge, "push") };
+  });
 }
 
 /** One line for the panel. */

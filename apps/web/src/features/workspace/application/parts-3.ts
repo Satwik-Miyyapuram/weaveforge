@@ -88,6 +88,35 @@ export async function readMirrorBase(
 }
 
 /**
+ * Run a git action that can move the folder's tree, keeping this machine's
+ * manifests as they were when it moved.
+ *
+ * The manifests are committed, so a pull brings the remote's, whose digests
+ * match the files that came in. The next mirror run would then read each
+ * pulled file as its own last write and put the database's older copy back.
+ * With this machine's manifests restored, a pulled file differs from its base:
+ * the mirror holds it back, and the folder watcher offers it for import.
+ */
+export async function keepMirrorBases<T>(
+  fs: IWorkspaceFs,
+  action: () => Promise<T>,
+  moved: (result: T) => boolean,
+): Promise<T> {
+  const dirs = (await fs.list("").catch(() => [])).filter((e) => e.kind === "dir").map((e) => e.path);
+  const paths = [MIRROR_MANIFEST_PATH, ...dirs.map(mirrorManifestPath)];
+  const kept = new Map<string, string>();
+  for (const path of paths) {
+    const text = await fs.readText(path).catch(() => null);
+    if (text !== null) kept.set(path, text);
+  }
+  const result = await action();
+  if (moved(result)) {
+    for (const [path, text] of kept) await fs.writeFile(path, text);
+  }
+  return result;
+}
+
+/**
  * Whether a JSON data file on disk is something the app wrote.
  *
  * The mirror writes `relations.json` and its neighbours whenever the data
