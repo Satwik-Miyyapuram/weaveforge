@@ -11,6 +11,7 @@ mod upstream;
 mod app_log;
 mod app_route;
 mod app_storage;
+mod app_update;
 mod auth_loopback;
 mod cmd_ink;
 mod cmd_tools;

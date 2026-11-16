@@ -80,6 +80,8 @@ fallible-iterator = "=0.2.0"
 
 # Desktop: git over https and ssh, and TLS from the platform (phase 4 design, decision 1).
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+# One-click updates (app_update): the updater plugin, signature check on, native TLS.
+tauri-plugin-updater = { version = "=2.14.1", default-features = false, features = ["native-tls-vendored"] }
 # Overleaf read (step 2.12c) clones with git2; same pin and features as the root workspace.
 git2 = { version = "=0.21.0", default-features = false, features = ["https", "ssh", "vendored-libgit2", "vendored-openssl"] }
 # Relays (step 2.9): the shell fetches papers, pages and APIs the page cannot reach.
