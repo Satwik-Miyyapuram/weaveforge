@@ -21,6 +21,10 @@ the workspace should go. **Choose folder** lets you pick one. **Skip** uses a
 across restarts and the question is not asked again, even after you disconnect
 the folder. You can change the folder later from Settings → Workspace.
 
+The question names the folder Skip would use. If the folder connects but the app
+has a warning about it, the question stays on screen with that warning until you
+choose **Continue**.
+
 If Skip cannot create that `WeaveForge` folder, WeaveForge tells you so and
 writes the reason to the app log. The folder shown in Settings → Workspace is
 always the one actually in use, so check it there after a failed Skip and pick
