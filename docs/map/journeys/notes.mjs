@@ -49,7 +49,7 @@ export default {
       chain: [
         { n: 1, layer: "ui", fn: "DocumentHost body", path: "apps/web/src/features/editor-workspace/ui/document-host.tsx", sym: "onSave={onSave}" },
         { n: 2, by: 1, layer: "ui", fn: "PageEditor.saveBody", path: PE, sym: "const saveBody = useCallback(" },
-        { n: 3, by: 2, layer: "service", fn: "vault.manageVaultPage.update", path: PE, sym: "await vault.manageVaultPage.update(page.id, { body });" },
+        { n: 3, by: 2, layer: "service", fn: "vault.manageVaultPage.update", path: PE, sym: "const saved = await vault.manageVaultPage.update(page.id, {" },
         facade(4, 3),
         ...tail(5, 4, "update", "fn update(call: &RepoCall) -> RepoStep {"),
       ],
