@@ -16,9 +16,12 @@ import {
 } from "../infrastructure/parts";
 import { folderLock } from "./folder-lock";
 import {
+  SYNC_TABLES,
   exportSyncTables,
   restoreSyncTables,
+  syncTableFile,
   syncTableFolderFiles,
+  syncTableRowsFromFolder,
   type SyncRow,
   type SyncTable,
   type SyncTableReader,
@@ -353,15 +356,71 @@ function restTableReader(client: ReturnType<typeof getDataClient>): SyncTableRea
  * already holds synced rows; a re-pull into an existing workspace keeps the incremental
  * folder import (previewFolderImport + applyFolderImport) and does not call this.
  */
-export async function restoreThenImport(input: {
+export async function restoreThenImport<T>(input: {
   store: SyncTableStore;
   tables: Partial<Record<SyncTable, SyncRow[]>>;
   preview: () => Promise<Parameters<typeof applyFolderImport>[0]>;
-  apply: (diff: Parameters<typeof applyFolderImport>[0]) => Promise<unknown>;
-}): Promise<void> {
+  apply: (diff: Parameters<typeof applyFolderImport>[0]) => Promise<T>;
+}): Promise<T> {
   await restoreSyncTables(input.tables, input.store);
   const diff = await input.preview();
-  await input.apply({ ...diff, json: undefined });
+  return input.apply({ ...diff, json: undefined });
+}
+
+type FolderImportDiff = Parameters<typeof applyFolderImport>[0];
+type FolderImportPicks = Parameters<typeof applyFolderImport>[1];
+type FolderImportResult = Awaited<ReturnType<typeof applyFolderImport>>;
+
+/** What the Apply button reads and writes. Each one is a seam so the branch is tested without a folder or a server. */
+export interface ImportSeams {
+  store: SyncTableStore;
+  folderTables: () => Promise<Partial<Record<SyncTable, SyncRow[]>> | null>;
+  preview: () => Promise<FolderImportDiff>;
+  apply: (diff: FolderImportDiff, picks: FolderImportPicks) => Promise<FolderImportResult>;
+}
+
+/** Table rows from the connected folder, or null when it has no table files. */
+async function connectedFolderTables(): Promise<Partial<Record<SyncTable, SyncRow[]>> | null> {
+  if (!activeFs) return null;
+  const projectRoot = (await loadCore()).projectDir(await activeProject());
+  const folder: Record<string, string> = {};
+  for (const table of SYNC_TABLES) {
+    const text = await activeFs.readText(`${projectRoot}/${syncTableFile(table)}`).catch(() => null);
+    if (text !== null) folder[syncTableFile(table)] = text;
+  }
+  return Object.keys(folder).length === 0 ? null : syncTableRowsFromFolder(folder);
+}
+
+function liveImportSeams(): ImportSeams {
+  return {
+    store: restTableStore(getDataClient()),
+    folderTables: connectedFolderTables,
+    preview: () => previewFolderImport(),
+    apply: (diff, picks) => applyFolderImport(diff, picks),
+  };
+}
+
+/**
+ * Apply a reviewed folder import. An empty workspace with table files in the folder
+ * restores the tables first (clone order); anything else is the plain apply, with the
+ * diff the user reviewed.
+ */
+export async function applyReviewedImport(
+  diff: FolderImportDiff,
+  picks: FolderImportPicks,
+  seams: ImportSeams = liveImportSeams(),
+): Promise<FolderImportResult> {
+  const tables = await seams.folderTables();
+  const empty = (await Promise.all(SYNC_TABLES.map((t) => seams.store.isEmpty(t)))).every(Boolean);
+  if (tables && empty) {
+    return restoreThenImport({
+      store: seams.store,
+      tables,
+      preview: seams.preview,
+      apply: (fresh) => seams.apply(fresh, picks),
+    });
+  }
+  return seams.apply(diff, picks);
 }
 
 /**
@@ -836,7 +895,7 @@ export async function previewFolderImport(
 /** Diff a ZIP the user picked, without connecting a folder. */
 export async function previewArchiveImport(
   bytes: Uint8Array,
-): Promise<ImportDiff & { skipped: SkippedFile[]; json: JsonDiff }> {
+): Promise<FolderImportDiff & { skipped: SkippedFile[]; json: JsonDiff }> {
   const { entries: inflated, oversize } = await unzipWithinLimits(bytes);
   const { safe, skipped } = sanitizeArchiveEntries(inflated);
   const entries = stripArchiveRoot(safe);
