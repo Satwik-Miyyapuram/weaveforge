@@ -179,6 +179,35 @@ test("setTitleBarColors forwards the two colours and does not throw when the com
   assert.equal(warned.length, 1);
 });
 
+test("setWindowIcon forwards the base64 PNG and does not throw when the command rejects", async () => {
+  const { cmds, calls } = fakeCommands({
+    windowIconSet: () => Promise.reject(new Error("ipc down")),
+  });
+  const warn = console.warn;
+  const warned: unknown[] = [];
+  console.warn = (...args: unknown[]) => {
+    warned.push(args);
+  };
+  try {
+    const bridge = desktopBridge(cmds, fakeEvents().events, info);
+    assert.doesNotThrow(() => bridge.setWindowIcon!("aGk="));
+    await tick();
+  } finally {
+    console.warn = warn;
+  }
+  assert.deepEqual(calls, [{ cmd: "windowIconSet", args: ["aGk="] }]);
+  assert.equal(warned.length, 1);
+});
+
+test("osUsesLightTheme returns the taskbar mode the command reports", async () => {
+  const { cmds, calls } = fakeCommands({
+    osUsesLightTheme: (() => Promise.resolve(false)) as unknown as Answer,
+  });
+  const bridge = desktopBridge(cmds, fakeEvents().events, info);
+  assert.equal(await bridge.osUsesLightTheme!(), false);
+  assert.deepEqual(calls, [{ cmd: "osUsesLightTheme", args: [] }]);
+});
+
 test("setWindowFocus forwards the boolean", async () => {
   const { cmds, calls } = fakeCommands();
   const bridge = desktopBridge(cmds, fakeEvents().events, info);

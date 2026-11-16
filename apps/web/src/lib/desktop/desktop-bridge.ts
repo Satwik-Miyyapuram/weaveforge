@@ -419,6 +419,10 @@ export interface DesktopBridge {
   onMenuChange?(cb: () => void): () => void;
   /** Tint the system's window buttons to the page: two `#rrggbb` colours. */
   setTitleBarColors?(colors: { background: string; ink: string }): void;
+  /** Whether the OS taskbar is in light mode. Optional: an installed shell may predate it. */
+  osUsesLightTheme?(): Promise<boolean>;
+  /** Set the window and taskbar icon to a base64 PNG. Optional, like the colours. */
+  setWindowIcon?(pngBase64: string): void;
   /**
    * The plan widget on the desktop: whether it is on, and the switch. Optional
    * because an installed shell may predate it; without it Settings says nothing
