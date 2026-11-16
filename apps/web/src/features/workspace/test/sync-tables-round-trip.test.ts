@@ -8,13 +8,20 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
+import { before, test } from "node:test";
+
+import type { WorkspaceSnapshot } from "@weaveforge/core";
+import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
+import type { RustCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { freshTestDb, testDb, type TestDb } from "../../../backend/test/pg-test-db";
+import { mirrorWorkspace } from "../application/parts-2";
 import {
   SYNC_TABLES,
   exportSyncTables,
   importSyncTables,
+  sqlTableReader,
   syncTableFile,
   syncTableFolderFiles,
   syncTableRowsFromFolder,
@@ -93,7 +100,7 @@ test("every synced table survives export to folder files and import into an empt
   const dst = await freshTestDb();
   await dst.sql(`insert into auth.users (id, email) values ($1, 'mirror@test.invalid')`, [uid]);
 
-  const exported = await exportSyncTables(src);
+  const exported = await exportSyncTables(sqlTableReader(src));
   const dir = await mkdtemp(path.join(os.tmpdir(), "sync-tables-"));
   try {
     // The folder is the only thing a clone receives: write its files, read them back, import them.
@@ -127,4 +134,43 @@ test("every synced table survives export to folder files and import into an empt
 
 test("the folder file for a table lives under .weaveforge/tables", () => {
   assert.equal(syncTableFile("papers"), ".weaveforge/tables/papers.json");
+});
+
+// The real folder path: the mirror writes the table files beside the workspace
+// files, the folder is read back as a clone would read it, and the rows come back.
+const MIRROR_PROJECT = { id: P, name: "Lab" };
+const MIRROR_AT = "2026-11-17T00:00:00.000Z";
+let mirrorCore: RustCore;
+before(async () => {
+  mirrorCore = await loadTestCore();
+});
+
+test("the mirror writes every table file into the folder and a clone rebuilds from them", async () => {
+  const src = await freshTestDb();
+  const uid = await src.createUser("mirror@test.invalid");
+  await seed(src, uid);
+  const tableFiles = syncTableFolderFiles(await exportSyncTables(sqlTableReader(src)));
+
+  const folder = new MemoryWorkspaceFs(() => MIRROR_AT);
+  const emptySnapshot: WorkspaceSnapshot = {
+    papers: [], vaultPages: [], readingLists: [], readingListItems: [],
+    reportSections: [], experiments: [], milestones: [], logEntries: [],
+    relations: [], tags: [], readerAnnotations: [], collectedAt: MIRROR_AT,
+  };
+  await mirrorWorkspace(mirrorCore, emptySnapshot, folder, { project: MIRROR_PROJECT, extraFiles: tableFiles });
+
+  const record = folder.toRecord();
+  const folderFiles: Record<string, string> = {};
+  for (const table of SYNC_TABLES) {
+    const file = syncTableFile(table);
+    assert.ok(record[file] !== undefined, `${file} is written into the folder`);
+    folderFiles[file] = record[file] as string;
+  }
+
+  const dst = await freshTestDb();
+  await dst.sql(`insert into auth.users (id, email) values ($1, 'mirror@test.invalid')`, [uid]);
+  await importSyncTables(dst, syncTableRowsFromFolder(folderFiles));
+  for (const table of SYNC_TABLES) {
+    assert.deepEqual(await snapshot(dst, table), await snapshot(src, table), `${table}: rows equal`);
+  }
 });

@@ -62,10 +62,18 @@ export function syncTableFile(table: string): string {
   return `.weaveforge/tables/${table}.json`;
 }
 
-/** Folder files for every synced table, path to JSON text. A table with no rows is written as `[]`. */
+/**
+ * Folder files for every synced table, path to JSON text. A table with no rows is
+ * written as `[]`. Rows are sorted by their text, so an unchanged table writes the
+ * same bytes and the folder's history shows only real changes.
+ */
 export function syncTableFolderFiles(rows: Partial<Record<SyncTable, SyncRow[]>>): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const table of SYNC_TABLES) out[syncTableFile(table)] = JSON.stringify(rows[table] ?? []);
+  for (const table of SYNC_TABLES) {
+    const texts = (rows[table] ?? []).map((row) => JSON.stringify(row)).sort();
+    // One row per line, so a changed row is a changed line in the folder's history.
+    out[syncTableFile(table)] = texts.length === 0 ? "[]" : `[\n${texts.join(",\n")}\n]\n`;
+  }
   return out;
 }
 
@@ -81,12 +89,20 @@ export function syncTableRowsFromFolder(
   return out;
 }
 
-export async function exportSyncTables(db: SyncSql): Promise<Record<SyncTable, SyncRow[]>> {
-  const out = {} as Record<SyncTable, SyncRow[]>;
-  for (const table of SYNC_TABLES) {
+/** All rows of one synced table. The app reads through its PostgREST client; tests read through SQL. */
+export type SyncTableReader = (table: SyncTable) => Promise<SyncRow[]>;
+
+/** A reader over a SQL connection: one `row_to_json` select per table. */
+export function sqlTableReader(db: SyncSql): SyncTableReader {
+  return async (table) => {
     const rows = await db.sql<{ row: SyncRow }>(`select row_to_json(t) as row from ${table} t`);
-    out[table] = rows.map((r) => r.row);
-  }
+    return rows.map((r) => r.row);
+  };
+}
+
+export async function exportSyncTables(read: SyncTableReader): Promise<Record<SyncTable, SyncRow[]>> {
+  const out = {} as Record<SyncTable, SyncRow[]>;
+  for (const table of SYNC_TABLES) out[table] = await read(table);
   return out;
 }
 

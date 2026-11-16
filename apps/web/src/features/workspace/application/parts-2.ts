@@ -95,15 +95,25 @@ export async function mirrorWorkspace(
     base?: Readonly<Record<string, string>>;
     /** Fetch a blob for an asset the folder references. */
     fetchAsset?(storagePath: string): Promise<Uint8Array | null>;
+    /**
+     * Extra files written beside the serialized workspace: the synced table files
+     * (`.weaveforge/tables/<table>.json`). They are merged here, after the Rust
+     * serializer returns, so the Rust writer does not change.
+     */
+    extraFiles?: Readonly<Record<string, string>>;
   },
 ): Promise<MirrorResult> {
-  const serialized = await keepClaimedCanvasIds(
+  const serializedWorkspace = await keepClaimedCanvasIds(
     fs,
     core,
     snapshot,
     options.project,
     core.serializeWorkspace(snapshot, options.project),
   );
+  const serialized = {
+    ...serializedWorkspace,
+    files: { ...serializedWorkspace.files, ...options.extraFiles },
+  };
   const { base } = options;
   // A mirrored file a pull removed stays out until the reader settles it in the review.
   const pulledDeletes = await readPulledDeletes(fs);

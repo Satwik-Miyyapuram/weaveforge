@@ -7,7 +7,7 @@ import { downloadLibraryPdfsOnce } from "@/features/reader/application/parts-1";
 import { desktop, type DesktopVaultRoot } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
-import { notifyEach, onWorkspaceChange } from "@/lib/parts";
+import { getDataClient, notifyEach, onWorkspaceChange } from "@/lib/parts";
 import { loadCore, readyCore } from "@/lib/rust-core";
 import {
   BrowserWorkspaceFs,
@@ -15,6 +15,7 @@ import {
   IsomorphicWorkspaceGit,
 } from "../infrastructure/parts";
 import { folderLock } from "./folder-lock";
+import { exportSyncTables, syncTableFolderFiles, type SyncRow, type SyncTableReader } from "./sync-tables";
 import {
   applyFolderImport,
   clearPendingAssets,
@@ -311,6 +312,29 @@ export function syncToFolder(): Promise<SyncOutcome> {
   return folderLock.run(runSyncToFolder);
 }
 
+/** PostgREST returns at most this many rows per request by default, so a table is read in pages. */
+const REST_PAGE = 1000;
+
+/**
+ * Every row of one synced table, through the app's data client. One GET per page;
+ * a table of up to one page is one request.
+ */
+function restTableReader(client: ReturnType<typeof getDataClient>): SyncTableReader {
+  return async (table) => {
+    const rows: SyncRow[] = [];
+    for (let from = 0; ; from += REST_PAGE) {
+      const { data, error } = await client
+        .from(table)
+        .select("*")
+        .range(from, from + REST_PAGE - 1);
+      if (error) throw new Error(`Could not read ${table} for the folder: ${error.message}`);
+      const page = (data ?? []) as SyncRow[];
+      rows.push(...page);
+      if (page.length < REST_PAGE) return rows;
+    }
+  };
+}
+
 async function runSyncToFolder(): Promise<SyncOutcome> {
   if (!activeFs) throw new Error("No folder is connected.");
   const fs = activeFs;
@@ -325,9 +349,14 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   const base = await readMirrorBase(fs, projectRoot);
   const previousPaths = Object.keys(base);
 
+  // The synced tables, one file each. A failed read throws here, before anything is
+  // written, so a table file is never removed just because the server did not answer.
+  const tableFiles = syncTableFolderFiles(await exportSyncTables(restTableReader(getDataClient())));
+
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
     project,
     previousPaths,
+    extraFiles: tableFiles,
     // The digests, not only the paths: a file whose content has moved on since
     // the app wrote it is the reader's, and the mirror must not write over it
     // before the import has had the chance to offer it.
