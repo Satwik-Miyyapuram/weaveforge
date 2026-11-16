@@ -1,4 +1,5 @@
-import { loadPdfLib, openPdfDocument } from "@/lib/parts";
+import { loadPdfLib } from "@/lib/parts";
+import { openPdfDocument } from "@/lib/pdf-worker";
 import { readyCore } from "@/lib/rust-core";
 import {
   INK_A4_HEIGHT,

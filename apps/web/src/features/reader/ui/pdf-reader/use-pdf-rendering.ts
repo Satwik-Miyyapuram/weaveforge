@@ -24,7 +24,8 @@ import {
   mapOutline,
   textItemsFromContent,
 } from "./pdf-document";
-import { openPdfDocument, relayPath } from "@/lib/parts";
+import { relayPath } from "@/lib/parts";
+import { openPdfDocument } from "@/lib/pdf-worker";
 
 export interface PdfRenderingDeps {
   url: string;
