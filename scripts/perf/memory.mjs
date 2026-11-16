@@ -71,7 +71,22 @@ async function processes() {
     t.privateMB = MB(t.privateMB * 1048576 + row.PrivateMemorySize64);
   }
   // The app's own processes beside the webview: the Tauri shell and the local Postgres.
-  const own = `Get-Process weaveforge-shell,postgres -ErrorAction SilentlyContinue | Select-Object ProcessName,WorkingSet64,PrivateMemorySize64 | ConvertTo-Json -Compress`;
+  // Only postgres whose parent chain reaches a weaveforge-shell: other Postgres on the machine is not ours.
+  const own = `
+$p = @(Get-CimInstance Win32_Process -Property ProcessId,ParentProcessId,Name -ErrorAction SilentlyContinue)
+$by = @{}; foreach ($x in $p) { $by[[int]$x.ProcessId] = $x }
+$shells = @($p | Where-Object { $_.Name -eq 'weaveforge-shell.exe' } | ForEach-Object { [int]$_.ProcessId })
+$pg = @()
+foreach ($x in @($p | Where-Object { $_.Name -eq 'postgres.exe' })) {
+  $cur = $x; $hops = 0
+  while ($cur -and $hops -lt 64) {
+    $up = [int]$cur.ParentProcessId
+    if ($shells -contains $up) { $pg += [int]$x.ProcessId; break }
+    $cur = $by[$up]; $hops++
+  }
+}
+$ids = @($shells) + @($pg)
+if ($ids.Count) { Get-Process -Id $ids -ErrorAction SilentlyContinue | Select-Object ProcessName,WorkingSet64,PrivateMemorySize64 | ConvertTo-Json -Compress }`;
   const ownRaw = execFileSync("powershell", ["-NoProfile", "-Command", own], { encoding: "utf8" }).trim();
   for (const row of ownRaw ? [].concat(JSON.parse(ownRaw)) : []) {
     const t = (byType[row.ProcessName === "postgres" ? "postgres" : "shell"] ??= { count: 0, workingSetMB: 0, privateMB: 0 });

@@ -123,27 +123,36 @@ async function open(root, password) {
     stdio: "ignore",
     env,
   });
-  await waitReady(child, port, password);
-  lap("spawnUntilReady");
-  const c = client(port, password);
-  await c.connect();
-  lap("connect");
-  await c.query(BOOTSTRAP);
-  lap("bootstrapSql");
-  await c.query(LEDGER);
-  const applied = new Set((await c.query("select name from weaveforge_migrations")).rows.map((r) => r.name));
-  lap("ledgerAndApplied");
-  t.migrationsRun = 0;
-  const pending = files.filter(([name]) => !applied.has(name));
-  if (pending.length) t.migrationsRun = await migrate(c, pending);
-  lap("pendingMigrations");
-  await c.query(USER_SQL, USER);
-  lap("localUser");
-  await c.end();
-  const stopAt = performance.now();
-  spawnSync(exe("pg_ctl"), ["stop", "-D", join(root, "data"), "-m", "fast", "-w"], { stdio: "ignore", env });
-  t.stop = Math.round((performance.now() - stopAt) * 10) / 10;
-  return t;
+  try {
+    await waitReady(child, port, password);
+    lap("spawnUntilReady");
+    const c = client(port, password);
+    await c.connect();
+    lap("connect");
+    await c.query(BOOTSTRAP);
+    lap("bootstrapSql");
+    await c.query(LEDGER);
+    const applied = new Set((await c.query("select name from weaveforge_migrations")).rows.map((r) => r.name));
+    lap("ledgerAndApplied");
+    t.migrationsRun = 0;
+    const pending = files.filter(([name]) => !applied.has(name));
+    if (pending.length) t.migrationsRun = await migrate(c, pending);
+    lap("pendingMigrations");
+    await c.query(USER_SQL, USER);
+    lap("localUser");
+    await c.end();
+    const stopAt = performance.now();
+    spawnSync(exe("pg_ctl"), ["stop", "-D", join(root, "data"), "-m", "fast", "-w"], { stdio: "ignore", env });
+    t.stop = Math.round((performance.now() - stopAt) * 10) / 10;
+    return t;
+  } finally {
+    // A failed open must not leave the scratch postgres running.
+    try {
+      spawnSync(exe("pg_ctl"), ["stop", "-D", join(root, "data"), "-m", "immediate", "-w"], { stdio: "ignore", env });
+    } catch {
+      child.kill();
+    }
+  }
 }
 
 const root = mkdtempSync(join(tmpdir(), "wf-db-start-"));
@@ -178,5 +187,5 @@ try {
     for (const k of keys) console.log(`  ${k.padEnd(20)} ${warmMedian[k]} ms`);
   }
 } finally {
-  rmSync(root, { recursive: true, force: true });
+  rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 }
