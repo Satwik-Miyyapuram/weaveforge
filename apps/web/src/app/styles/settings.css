@@ -285,6 +285,7 @@
 .github-code-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .github-code { font-family: var(--font-mono); font-size: var(--fs-h1); letter-spacing: 0.12em; padding: 4px 12px; border: var(--bw, 1px) solid var(--bw-line, var(--line)); border-radius: var(--r-control); background: var(--surface2); user-select: all; }
 .github-connect-waiting { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0; }
+.github-connect-reauth { margin: 0; font-weight: 600; color: var(--warn, var(--ink)); }
 .github-spinner { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: github-spin 1s linear infinite; }
 @keyframes github-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .github-spinner { animation: none; } }

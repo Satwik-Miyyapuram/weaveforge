@@ -16,8 +16,8 @@ use weaveforge_shell_lib::secrets::Secrets;
 use weaveforge_shell_lib::vault::{NO_ROOT, VaultState};
 use weaveforge_shell_lib::vault_sync::{
     NOT_AN_ACTION, SYNC_ACTIONS, SyncOps, SyncPull, SyncPush, SyncSettings, SyncStatus,
-    VaultSyncReply, check_git_remote_url, commit, connect_remote, git_reason, log, read_settings,
-    sync,
+    VaultSyncReply, check_git_remote_url, commit, connect_remote, git_reason, log, note_auth,
+    read_settings, sync,
 };
 use wf_store::git::policy::{GIT_OFF, RepoState};
 use wf_store::git::remote::{PullChoice, PullOutcome, PushOutcome, RemoteConfig, RemoteStatus};
@@ -153,6 +153,7 @@ fn settings(enabled: bool) -> SyncSettings {
         enabled,
         url: Some(URL.to_owned()),
         token: Some("ghp_tok".to_owned()),
+        needs_reconnect: false,
     }
 }
 
@@ -179,6 +180,7 @@ fn base(url: Option<&str>, has_token: bool) -> VaultSyncReply {
     VaultSyncReply {
         url: url.map(str::to_owned),
         has_token,
+        needs_reconnect: false,
         status: None,
         pull: None,
         push: None,
@@ -274,8 +276,42 @@ fn read_settings_reads_all_three_values() {
             enabled: true,
             url: Some(URL.to_owned()),
             token: Some("t".to_owned()),
+            needs_reconnect: false,
         }
     );
+}
+
+// note_auth
+
+#[tokio::test]
+async fn a_refused_github_token_asks_for_a_new_sign_in_and_a_good_sync_clears_it() {
+    let dir = TempDir::new();
+    let prefs = prefs_in(&dir);
+    let secrets = secrets();
+    let flagged = |prefs: &Prefs| read_settings(prefs, &secrets).needs_reconnect;
+    note_auth(&prefs, Some(URL), "push", Some("Git took too long."));
+    assert!(!flagged(&prefs));
+    note_auth(&prefs, Some("https://gitlab.com/me/n.git"), "pull", Some("The token was refused."));
+    assert!(!flagged(&prefs));
+    note_auth(&prefs, Some(URL), "pull", Some("The token was refused."));
+    assert!(flagged(&prefs));
+    let dir2 = TempDir::new();
+    let reply = sync(
+        &GitQueue::default(),
+        ops(probe_own),
+        Some(dir2.path().to_path_buf()),
+        "settings",
+        read_settings(&prefs, &secrets),
+        TIMEOUT,
+    )
+    .await
+    .unwrap();
+    assert!(reply.needs_reconnect);
+    note_auth(&prefs, Some(URL), "settings", None);
+    note_auth(&prefs, Some(URL), "status", None);
+    assert!(flagged(&prefs), "reading settings proves nothing about the token");
+    note_auth(&prefs, Some(URL), "push", None);
+    assert!(!flagged(&prefs));
 }
 
 #[test]
@@ -759,6 +795,7 @@ fn reply_with_only_status_has_no_pull_or_push_keys() {
         json!({
             "url": null,
             "hasToken": true,
+            "needsReconnect": false,
             "status": {"url": null, "branch": "main", "ahead": 0, "behind": 0}
         })
     );

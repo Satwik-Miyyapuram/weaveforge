@@ -8,8 +8,9 @@ use std::time::Duration;
 
 use upstream::{Reply, Upstream, response, serve};
 use weaveforge_shell_lib::github_connect::{
-    CANCELLED, DENIED, DeviceCode, EXPIRED, Endpoints, PollStep, ensure_repo, form, read_poll,
-    repo_name, request_code, user_login, wait_for_token,
+    CANCELLED, DENIED, DeviceCode, EXPIRED, Endpoints, PollStep, ensure_repo, existing_repo_name,
+    form, is_auth_failure, needs_github_reauth, read_poll, repo_name, request_code, user_login,
+    wait_for_token,
 };
 
 const TICK: Duration = Duration::from_millis(1);
@@ -90,9 +91,103 @@ fn repo_name_is_weaveforge_and_a_safe_slug() {
         repo_name(Some("  "), Some("Notes 2026")),
         "weaveforge-notes-2026"
     );
-    assert_eq!(repo_name(None, None), "weaveforge-notes");
     assert_eq!(repo_name(Some("--a__b..c--"), None), "weaveforge-a__b..c");
-    assert!(repo_name(Some(&"x".repeat(300)), None).len() <= 100);
+    assert_eq!(repo_name(Some("UPPER Case"), None), "weaveforge-upper-case");
+    assert_eq!(repo_name(Some("Été notes"), None), "weaveforge-t-notes");
+}
+
+#[test]
+fn repo_name_falls_back_to_workspace_when_nothing_usable_is_left() {
+    for (slug, folder) in [
+        (None, None),
+        (Some(""), Some("")),
+        (Some("!!!"), Some("   ")),
+        (Some("--..--"), None),
+        (None, Some("日本語")),
+    ] {
+        assert_eq!(repo_name(slug, folder), "weaveforge-workspace", "{slug:?} {folder:?}");
+    }
+}
+
+#[test]
+fn repo_name_is_always_valid_for_github() {
+    let long = "x".repeat(300);
+    let ends_in_dash = format!("{}-y", "a".repeat(88));
+    for input in [
+        long.as_str(),
+        ends_in_dash.as_str(),
+        "A/B\\C:D*E?F",
+        "a  b\tc",
+        "Ünïcödé Name",
+        "..hidden",
+        "name.git",
+    ] {
+        let name = repo_name(Some(input), None);
+        assert!(name.len() <= 100, "{input}: {name}");
+        assert!(name.starts_with("weaveforge-"), "{input}: {name}");
+        assert!(
+            name.chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || "-_.".contains(c)),
+            "{input}: {name}"
+        );
+        assert!(!name.ends_with(['-', '.']), "{input}: {name}");
+    }
+    assert_eq!(repo_name(Some(&long), None).len(), 100);
+    assert_eq!(repo_name(Some(&ends_in_dash), None), format!("weaveforge-{}", "a".repeat(88)));
+}
+
+// --- reconnect ---
+
+#[test]
+fn auth_failures_are_told_apart_from_other_failures() {
+    for reason in [
+        "The token was refused.",
+        "The remote asked for a sign-in; add a token.",
+        "unexpected http status code: 401",
+        "too many redirects or authentication replays",
+        "GitHub would not say who signed in (401 Unauthorized).",
+        "Bad credentials",
+    ] {
+        assert!(is_auth_failure(reason), "{reason}");
+    }
+    for reason in [
+        "failed to resolve address for github.com: No such host is known.",
+        "The remote has changes this folder does not. Pull first.",
+        "The remote asked for a sign-in from another host.",
+        "Git took too long.",
+        "",
+    ] {
+        assert!(!is_auth_failure(reason), "{reason}");
+    }
+}
+
+#[test]
+fn only_github_remotes_ask_for_a_github_sign_in() {
+    let refused = "The token was refused.";
+    assert!(needs_github_reauth(Some("https://github.com/me/notes.git"), refused));
+    assert!(needs_github_reauth(Some("https://GitHub.com/me/notes"), refused));
+    assert!(!needs_github_reauth(Some("https://gitlab.com/me/notes.git"), refused));
+    assert!(!needs_github_reauth(Some("https://github.com.evil.example/me/n"), refused));
+    assert!(!needs_github_reauth(None, refused));
+    assert!(!needs_github_reauth(Some("https://github.com/me/notes.git"), "Git took too long."));
+}
+
+#[test]
+fn reconnect_keeps_the_repo_the_account_already_syncs_to() {
+    let named = |url: &str, login: &str| existing_repo_name(Some(url), login);
+    assert_eq!(
+        named("https://github.com/Me/weaveforge-thesis.git", "me").as_deref(),
+        Some("weaveforge-thesis")
+    );
+    assert_eq!(
+        named("https://github.com/me/weaveforge-thesis", "me").as_deref(),
+        Some("weaveforge-thesis")
+    );
+    assert_eq!(named("https://github.com/other/notes.git", "me"), None);
+    assert_eq!(named("https://gitlab.com/me/notes.git", "me"), None);
+    assert_eq!(named("https://github.com/me/a/b.git", "me"), None);
+    assert_eq!(named("https://github.com/me/.git", "me"), None);
+    assert_eq!(existing_repo_name(None, "me"), None);
 }
 
 // --- device code ---

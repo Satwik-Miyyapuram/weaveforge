@@ -449,10 +449,29 @@ export async function disconnectRemote(): Promise<void> {
   await bridge.clearSecret("git-sync-token");
 }
 
-export function folderRemoteSync(action: DesktopVaultSyncAction): Promise<DesktopVaultSync> {
+const reauthListeners = new Set<() => void>();
+
+/** Called when a sync fails because GitHub wants a new sign-in. Answers the unsubscribe. */
+export function onGithubReauth(listener: () => void): () => void {
+  reauthListeners.add(listener);
+  return () => void reauthListeners.delete(listener);
+}
+
+/**
+ * Runs one sync action. When it fails, re-reads the settings: if the shell
+ * marked the GitHub token as refused, every `onGithubReauth` listener hears
+ * it, so a failed auto-sync never fails silently.
+ */
+export async function folderRemoteSync(action: DesktopVaultSyncAction): Promise<DesktopVaultSync> {
   const bridge = shell();
-  if (!bridge) return Promise.reject(new Error(NO_SHELL));
-  return bridge.vaultSync(action);
+  if (!bridge) throw new Error(NO_SHELL);
+  try {
+    return await bridge.vaultSync(action);
+  } catch (err) {
+    const settings = await bridge.vaultSync("settings").catch(() => null);
+    if (settings?.needsReconnect) for (const listener of [...reauthListeners]) listener();
+    throw err;
+  }
 }
 
 type GithubShell = DesktopBridge &
@@ -482,8 +501,8 @@ export function startGithubConnect(): Promise<DesktopGithubCode> {
 
 /**
  * Wait for the code to be entered, then let the shell make the private repo
- * and set it as the remote; connect it so git knows the remote too. Nothing
- * is pushed here: Push, or auto-sync, does that.
+ * (or, on a reconnect, keep the one already set) and set it as the remote;
+ * connect it so git knows the remote too. `uploadWorkspace` pushes next.
  */
 export async function finishGithubConnect(name: string | null): Promise<DesktopGithubConnected> {
   const bridge = githubShell();
@@ -491,6 +510,24 @@ export async function finishGithubConnect(name: string | null): Promise<DesktopG
   const connected = await bridge.githubConnectFinish(name);
   await bridge.vaultSync("connect");
   return connected;
+}
+
+/**
+ * The first upload after connecting. When the repo already has commits (a
+ * reused repo), pulls them in and pushes again. Rejects with a reason fit to
+ * show, so the caller can offer Retry.
+ */
+export async function uploadWorkspace(): Promise<void> {
+  const first = await folderRemoteSync("push");
+  if (first.push?.kind !== "rejected") return;
+  const { pulled, pushed } = await pullThenPush();
+  if (pulled.pull?.kind === "conflict") {
+    throw new Error(
+      `These files changed both here and on GitHub: ${pulled.pull.files.join(", ")}. ` +
+        "Pull under Settings → Workspace folder → Git remote, pick which copy to keep, then Retry.",
+    );
+  }
+  if (pushed?.push?.kind === "rejected") throw new Error(pushed.push.reason);
 }
 
 /** Stop waiting; the pending finish rejects as cancelled. */

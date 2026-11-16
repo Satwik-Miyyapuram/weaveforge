@@ -1146,6 +1146,8 @@ export type VaultSyncReply_Deserialize = {
 	url?: string | null,
 	/**  Whether a token is stored. */
 	hasToken: boolean,
+	/**  Whether GitHub refused the token and the reader must sign in again. */
+	needsReconnect: boolean,
 	/**  The remote's status, for `status` and `connect`. */
 	status?: SyncStatus_Deserialize | null,
 	/**  The pull's outcome, for `pull`. */
@@ -1160,6 +1162,8 @@ export type VaultSyncReply_Serialize = {
 	url: string | null,
 	/**  Whether a token is stored. */
 	hasToken: boolean,
+	/**  Whether GitHub refused the token and the reader must sign in again. */
+	needsReconnect: boolean,
 	/**  The remote's status, for `status` and `connect`. */
 	status?: SyncStatus_Serialize,
 	/**  The pull's outcome, for `pull`. */

@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/button";
 import { readStored, writeStored } from "@/lib/safe-storage";
-import { folderRemoteSync, githubConnectAvailable } from "@/features/workspace/application/parts-2";
+import {
+  folderRemoteSync,
+  githubConnectAvailable,
+  onGithubReauth,
+} from "@/features/workspace/application/parts-2";
 import { GithubConnect } from "./github-connect";
 
 /** Set once the card is answered: "skipped" or "connected". */
@@ -13,23 +17,38 @@ export const GITHUB_ONBOARDING_KEY = "weaveforge.githubOnboarding";
  * GitHub sync is on by default: once a workspace folder is chosen and has no
  * remote yet, this card offers it, with Connect GitHub first. Skip keeps
  * server sync and the card never comes back; Settings → Workspace folder
- * still has the button. Paints nothing in a browser or on an older shell.
+ * still has the button. When GitHub refuses the stored token, at start or
+ * on any later sync, the card comes back, even after Skip, to ask for a new
+ * sign-in. Paints nothing in a browser or on an older shell.
  */
 export function GithubOnboarding() {
   const [show, setShow] = useState(false);
+  const [reauth, setReauth] = useState(false);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    if (!githubConnectAvailable() || readStored(GITHUB_ONBOARDING_KEY)) return;
+    if (!githubConnectAvailable()) return;
     let live = true;
+    const ask = () => {
+      setReauth(true);
+      setDone(false);
+      setShow(true);
+    };
+    const answered = readStored(GITHUB_ONBOARDING_KEY);
     // Rejects when no folder is chosen yet: nothing to sync, so no card.
     void folderRemoteSync("settings")
       .then((reply) => {
-        if (live && !reply.url) setShow(true);
+        if (!live) return;
+        if (reply.needsReconnect) ask();
+        else if (!answered && !reply.url) setShow(true);
       })
       .catch(() => undefined);
+    const stop = onGithubReauth(() => {
+      if (live) ask();
+    });
     return () => {
       live = false;
+      stop();
     };
   }, []);
 
@@ -39,6 +58,28 @@ export function GithubOnboarding() {
     writeStored(GITHUB_ONBOARDING_KEY, answer);
     setShow(false);
   };
+
+  if (reauth) {
+    return (
+      <aside className="release-notice-banner github-onboarding" aria-label="Sign in to GitHub again">
+        <strong>Sync with GitHub paused</strong>
+        <GithubConnect
+          needsReconnect
+          onConnected={() => setDone(true)}
+          extra={
+            <Button variant="ghost" title="Ask again on the next sync" onClick={() => setShow(false)}>
+              Later
+            </Button>
+          }
+        />
+        {done && (
+          <Button variant="secondary" onClick={() => close("connected")}>
+            Done
+          </Button>
+        )}
+      </aside>
+    );
+  }
 
   return (
     <aside className="release-notice-banner github-onboarding" aria-label="Sync with GitHub">

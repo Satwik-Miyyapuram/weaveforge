@@ -11,6 +11,7 @@ import {
   folderRemoteSync,
   forgetRemoteToken,
   githubConnectAvailable,
+  onGithubReauth,
   pullThenPush,
   saveRemoteSyncSettings,
 } from "@/features/workspace/application/parts-2";
@@ -53,6 +54,8 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
   const [conflict, setConflict] = useState(false);
   // The last push was turned away because the remote has commits this machine lacks.
   const [pushRejected, setPushRejected] = useState(false);
+  // GitHub refused the stored token; Connect becomes Reconnect.
+  const [needsReconnect, setNeedsReconnect] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -62,10 +65,13 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
         setUrl(reply.url ?? "");
         setSavedUrl(reply.url ?? "");
         setHasToken(reply.hasToken);
+        setNeedsReconnect(reply.needsReconnect === true);
       })
       .catch(() => undefined);
+    const stop = onGithubReauth(() => setNeedsReconnect(true));
     return () => {
       live = false;
+      stop();
     };
   }, []);
 
@@ -87,6 +93,7 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
       setConflict(false);
       setPushRejected(false);
       const reply = await folderRemoteSync(action);
+      setNeedsReconnect(false);
       settle(reply, await describeRemoteSync(reply));
     });
 
@@ -102,6 +109,7 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
       setConflict(false);
       setPushRejected(false);
       const { pulled, pushed } = await pullThenPush();
+      setNeedsReconnect(false);
       const pullLine = await describeRemoteSync(pulled);
       if (!pushed) return settle(pulled, pullLine);
       if (pulled.pull?.kind === "fast-forward" || pulled.pull?.kind === "merged") onPulled?.();
@@ -121,10 +129,12 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
       </p>
       {githubConnectAvailable() && (
         <GithubConnect
+          needsReconnect={needsReconnect}
           onConnected={(done) => {
             setUrl(done.url);
             setSavedUrl(done.url);
             setHasToken(true);
+            setNeedsReconnect(false);
           }}
         />
       )}

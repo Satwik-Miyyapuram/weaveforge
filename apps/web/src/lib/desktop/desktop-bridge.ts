@@ -675,6 +675,8 @@ export type DesktopVaultSyncAction =
 export interface DesktopVaultSync {
   url: string | null;
   hasToken: boolean;
+  /** GitHub refused the token: sign in again. Absent on older shells. */
+  needsReconnect?: boolean;
   status?: { url: string | null; branch: string; ahead: number; behind: number };
   pull?:
     | { kind: "up-to-date" }

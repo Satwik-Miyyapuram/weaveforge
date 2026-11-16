@@ -299,11 +299,18 @@ To connect:
    `github.com/login/device`. **Copy** puts the code on the clipboard.
 2. Type the code on GitHub and allow WeaveForge. The app waits while you do
    this. **Cancel** stops the wait.
-3. The app makes a private repository named `weaveforge-<folder name>`. If you
-   already have a private repository with that name, it uses that one. It
-   refuses a public repository and one owned by someone else.
+3. The app makes a private repository named `weaveforge-<folder name>`. The
+   name is lowercased, and anything other than letters, digits, `-`, `_` and
+   `.` becomes `-`. It is at most 100 characters. When nothing usable is left,
+   the name is `weaveforge-workspace`. If you already have a private repository
+   with that name, it uses that one. It refuses a public repository and one
+   owned by someone else.
 4. The app turns folder history on and sets the repository as the remote. The
-   panel shows the repository's name. **Push** sends the folder.
+   panel shows the repository's name.
+5. The app uploads the workspace straight away. It shows **Uploading your
+   workspace…** and then **Synced.** You do not need to click **Push**. If the
+   repository already has commits, the app pulls them in first and then pushes.
+   If the upload fails, the panel says why and offers **Retry**.
 
 What the app keeps:
 
@@ -315,6 +322,18 @@ What the app keeps:
 
 If the code expires (after about 15 minutes) or you decline on GitHub, the panel
 says so. Click **Connect GitHub** again.
+
+### When GitHub needs you to sign in again
+
+If you revoke WeaveForge on GitHub, or the token stops working, the next pull or
+push fails. The app does not fail silently. **Settings → Workspace folder → Git
+remote** and the GitHub card both say **GitHub needs you to sign in again.** The
+card comes back even if you skipped it before. **Later** hides it until the next
+sync fails.
+
+Click **Reconnect**. The app runs the same code sign-in again and keeps syncing
+to the **same repository**. The message goes away after the sign-in, or after
+any pull or push that works.
 
 **Advanced** under the button keeps the old way: any https git host, with a URL
 and a token you paste.

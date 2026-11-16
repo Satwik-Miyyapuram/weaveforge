@@ -9,9 +9,11 @@ import {
   disconnectRemote,
   folderRemoteSync,
   forgetRemoteToken,
+  onGithubReauth,
   pullThenPush,
   remoteSyncAvailable,
   saveRemoteSyncSettings,
+  uploadWorkspace,
 } from "../application/parts-2";
 
 before(async () => {
@@ -163,4 +165,66 @@ test("pullThenPush stops after a conflicted pull and pushes nothing", async () =
   const { pushed } = await pullThenPush();
   assert.deepEqual(calls, [["sync", "pull"]]);
   assert.equal(pushed, null);
+});
+
+test("a failed sync re-reads the flag and tells listeners only when GitHub wants a sign-in", async () => {
+  let reauth = false;
+  const calls = fakeShell(async (action) => {
+    if (action === "push") throw new Error("The token was refused.");
+    return { url: "u", hasToken: true, needsReconnect: reauth };
+  });
+  let heard = 0;
+  const stop = onGithubReauth(() => (heard += 1));
+  await assert.rejects(folderRemoteSync("push"), /The token was refused\./);
+  assert.deepEqual(calls, [["sync", "push"], ["sync", "settings"]]);
+  assert.equal(heard, 0);
+  reauth = true;
+  await assert.rejects(folderRemoteSync("push"), /The token was refused\./);
+  assert.equal(heard, 1);
+  stop();
+  await assert.rejects(folderRemoteSync("push"));
+  assert.equal(heard, 1);
+});
+
+test("a failed re-read keeps the original error", async () => {
+  fakeShell(async (action) => {
+    throw new Error(action === "settings" ? "No folder." : "Could not reach github.com.");
+  });
+  await assert.rejects(folderRemoteSync("pull"), /Could not reach github\.com\./);
+});
+
+test("uploadWorkspace pushes once when the remote takes it", async () => {
+  const calls = fakeShell(async () => ({ url: "u", hasToken: true, push: { kind: "pushed" } }));
+  await uploadWorkspace();
+  assert.deepEqual(calls, [["sync", "push"]]);
+});
+
+test("uploadWorkspace pulls a reused repo's commits, then pushes again", async () => {
+  let pushes = 0;
+  const calls = fakeShell(async (action) => {
+    if (action === "pull") return { url: "u", hasToken: true, pull: { kind: "merged", oid: "a" } };
+    pushes += 1;
+    return {
+      url: "u",
+      hasToken: true,
+      push: pushes === 1 ? { kind: "rejected", reason: "Pull first." } : { kind: "pushed" },
+    };
+  });
+  await uploadWorkspace();
+  assert.deepEqual(calls, [["sync", "push"], ["sync", "pull"], ["sync", "push"]]);
+});
+
+test("uploadWorkspace names conflicted files and fails on a second rejection", async () => {
+  fakeShell(async (action) =>
+    action === "pull"
+      ? { url: "u", hasToken: true, pull: { kind: "conflict", files: ["a.md", "b.md"] } }
+      : { url: "u", hasToken: true, push: { kind: "rejected", reason: "Pull first." } },
+  );
+  await assert.rejects(uploadWorkspace(), /a\.md, b\.md/);
+  fakeShell(async (action) =>
+    action === "pull"
+      ? { url: "u", hasToken: true, pull: { kind: "up-to-date" } }
+      : { url: "u", hasToken: true, push: { kind: "rejected", reason: "Still behind." } },
+  );
+  await assert.rejects(uploadWorkspace(), /Still behind\./);
 });

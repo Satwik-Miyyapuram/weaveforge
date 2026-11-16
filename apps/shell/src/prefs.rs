@@ -22,6 +22,7 @@ pub const PREFERENCE_NAMES: [&str; 10] = [
     "plan-widget-bounds",
     "plan-widget-theme",
     "overleaf-links",
+    "github-reauth",
 ];
 
 /// Preferences the page may write. The page has no preference read.

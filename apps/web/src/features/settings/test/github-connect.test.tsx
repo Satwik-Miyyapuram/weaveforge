@@ -1,7 +1,8 @@
 /**
  * One-click "Connect GitHub": the panel shows the device code big, opens
- * GitHub, waits, then names the repo; the manual URL and token sit under
- * Advanced. The onboarding card is on by default and Skip keeps server sync.
+ * GitHub, waits, names the repo, then uploads the workspace at once; the
+ * manual URL and token sit under Advanced. The onboarding card is on by
+ * default and Skip keeps server sync. A refused token asks for a new sign-in.
  */
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
@@ -11,6 +12,7 @@ import { act, create, type ReactTestInstance, type ReactTestRenderer } from "rea
 import "@/lib/test/react-harness";
 import { FolderRemoteSyncPanel } from "../ui/folder-remote-sync-panel";
 import { GITHUB_ONBOARDING_KEY, GithubOnboarding } from "../ui/github-onboarding";
+import { folderRemoteSync } from "@/features/workspace/application/parts-2";
 
 const g = globalThis as { window?: unknown; navigator?: unknown };
 const original = { window: g.window, navigator: g.navigator };
@@ -35,8 +37,20 @@ interface Calls {
   cancel: number;
 }
 
-function stubWindow(opts: { url?: string | null; github?: boolean; stored?: Record<string, string> } = {}) {
+type Reply = Record<string, unknown>;
+
+function stubWindow(
+  opts: {
+    url?: string | null;
+    github?: boolean;
+    stored?: Record<string, string>;
+    reauth?: boolean;
+    /** Answers one action; `undefined` falls through to the settings reply. */
+    vault?: (action: string) => Promise<Reply> | undefined;
+  } = {},
+) {
   const calls: Calls = { opened: [], copied: [], sync: [], finish: [], cancel: 0 };
+  const state = { reauth: opts.reauth ?? false };
   const store: Record<string, string> = { ...opts.stored };
   let release: (v: typeof CONNECTED) => void = () => undefined;
   const finished = new Promise<typeof CONNECTED>((r) => (release = r));
@@ -65,7 +79,10 @@ function stubWindow(opts: { url?: string | null; github?: boolean; stored?: Reco
       fetchTitle: () => Promise.resolve({}),
       vaultSync: (action: string) => {
         calls.sync.push(action);
-        return Promise.resolve({ url: opts.url ?? null, hasToken: false });
+        return (
+          opts.vault?.(action) ??
+          Promise.resolve({ url: opts.url ?? null, hasToken: false, needsReconnect: state.reauth })
+        );
       },
       ...github,
     },
@@ -74,7 +91,7 @@ function stubWindow(opts: { url?: string | null; github?: boolean; stored?: Reco
     value: { clipboard: { writeText: (t: string) => (calls.copied.push(t), Promise.resolve()) } },
     configurable: true,
   });
-  return { calls, store, release };
+  return { calls, store, release, state };
 }
 
 const textOf = (node: ReactTestInstance): string =>
@@ -120,8 +137,159 @@ test("Connect GitHub shows the code big, opens GitHub, waits, then names the rep
   const text = textOf(tree.root);
   assert.match(text, /Connected to octo\/weaveforge-notes/);
   assert.ok(!text.includes("Waiting for GitHub"));
-  // The shell set the remote; the page connects it so git knows it too.
-  assert.ok(calls.sync.includes("connect"));
+  // The shell set the remote; the page connects it so git knows it too, then uploads.
+  assert.deepEqual(calls.sync.slice(-2), ["connect", "push"]);
+  assert.match(text, /Synced/);
+});
+
+test("the workspace uploads straight after connecting: Uploading, then Synced", async () => {
+  let pushed: (r: Reply) => void = () => undefined;
+  const { calls, release } = stubWindow({
+    vault: (action) => (action === "push" ? new Promise<Reply>((r) => (pushed = r)) : undefined),
+  });
+  const tree = await mount(createElement(FolderRemoteSyncPanel));
+  await click(tree, "Connect GitHub");
+  await act(async () => {
+    release(CONNECTED);
+    await settle();
+  });
+  assert.match(textOf(tree.root), /Uploading your workspace…/);
+  assert.ok(!textOf(tree.root).includes("Synced"));
+  assert.equal(calls.sync.filter((a) => a === "push").length, 1);
+  await act(async () => {
+    pushed({ url: CONNECTED.url, hasToken: true, push: { kind: "pushed" } });
+    await settle();
+  });
+  assert.match(textOf(tree.root), /Synced/);
+  assert.ok(!textOf(tree.root).includes("Uploading"));
+});
+
+test("a failed upload shows why, and Retry uploads again", async () => {
+  let fail = true;
+  const { calls, release } = stubWindow({
+    vault: (action) => {
+      if (action !== "push") return undefined;
+      if (fail) return Promise.reject(new Error("Could not reach github.com."));
+      return Promise.resolve({ url: CONNECTED.url, hasToken: true, push: { kind: "pushed" } });
+    },
+  });
+  const tree = await mount(createElement(FolderRemoteSyncPanel));
+  await click(tree, "Connect GitHub");
+  await act(async () => {
+    release(CONNECTED);
+    await settle();
+  });
+  assert.match(textOf(tree.root), /Could not reach github\.com\./);
+  assert.ok(!textOf(tree.root).includes("Synced"));
+  fail = false;
+  await click(tree, "Retry");
+  assert.equal(calls.sync.filter((a) => a === "push").length, 2);
+  assert.match(textOf(tree.root), /Synced/);
+  assert.ok(!textOf(tree.root).includes("Could not reach"));
+});
+
+test("an upload turned away by a repo with commits pulls first, then pushes", async () => {
+  let pushes = 0;
+  const { calls, release } = stubWindow({
+    vault: (action) => {
+      if (action === "pull") return Promise.resolve({ url: CONNECTED.url, hasToken: true, pull: { kind: "merged", oid: "a" } });
+      if (action !== "push") return undefined;
+      pushes += 1;
+      const push = pushes === 1 ? { kind: "rejected", reason: "Pull first." } : { kind: "pushed" };
+      return Promise.resolve({ url: CONNECTED.url, hasToken: true, push });
+    },
+  });
+  const tree = await mount(createElement(FolderRemoteSyncPanel));
+  await click(tree, "Connect GitHub");
+  await act(async () => {
+    release(CONNECTED);
+    await settle();
+  });
+  assert.deepEqual(calls.sync.slice(-3), ["push", "pull", "push"]);
+  assert.match(textOf(tree.root), /Synced/);
+});
+
+test("an upload stopped by files changed on both sides names them and offers Retry", async () => {
+  const { release } = stubWindow({
+    vault: (action) => {
+      if (action === "pull")
+        return Promise.resolve({ url: CONNECTED.url, hasToken: true, pull: { kind: "conflict", files: ["a.md"] } });
+      if (action === "push")
+        return Promise.resolve({ url: CONNECTED.url, hasToken: true, push: { kind: "rejected", reason: "Pull first." } });
+      return undefined;
+    },
+  });
+  const tree = await mount(createElement(FolderRemoteSyncPanel));
+  await click(tree, "Connect GitHub");
+  await act(async () => {
+    release(CONNECTED);
+    await settle();
+  });
+  assert.match(textOf(tree.root), /a\.md/);
+  assert.ok(button(tree, "Retry"));
+  assert.ok(!textOf(tree.root).includes("Synced"));
+});
+
+test("a refused token shows sign in again, and Reconnect reruns the device flow", async () => {
+  const { calls, release, state } = stubWindow({ url: CONNECTED.url, reauth: true });
+  const tree = await mount(createElement(FolderRemoteSyncPanel));
+  assert.match(textOf(tree.root), /GitHub needs you to sign in again/);
+  await click(tree, "Reconnect");
+  assert.match(textOf(tree.root), /ABCD-1234/);
+  assert.deepEqual(calls.finish, [null]);
+  state.reauth = false;
+  await act(async () => {
+    release(CONNECTED);
+    await settle();
+  });
+  assert.ok(!textOf(tree.root).includes("sign in again"));
+  assert.match(textOf(tree.root), /Synced/);
+});
+
+test("a pull that fails on a refused token flags Reconnect in the panel", async () => {
+  const { state } = stubWindow({
+    url: CONNECTED.url,
+    vault: (action) => (action === "pull" ? Promise.reject(new Error("The token was refused.")) : undefined),
+  });
+  const tree = await mount(createElement(FolderRemoteSyncPanel));
+  assert.ok(!textOf(tree.root).includes("sign in again"));
+  state.reauth = true;
+  await click(tree, "Pull");
+  assert.match(textOf(tree.root), /The token was refused\./);
+  assert.match(textOf(tree.root), /GitHub needs you to sign in again/);
+  assert.ok(button(tree, "Reconnect"));
+});
+
+test("the card comes back to ask for a sign-in, even after Skip, and mid-session", async () => {
+  const { state } = stubWindow({ url: CONNECTED.url, stored: { [GITHUB_ONBOARDING_KEY]: "skipped" } });
+  const tree = await mount(createElement(GithubOnboarding));
+  assert.equal(tree.toJSON(), null);
+  state.reauth = true;
+  // Any sync that fails (here a pull from elsewhere in the app) re-reads the flag.
+  await act(async () => {
+    await folderRemoteSync("pull").catch(() => undefined);
+    await settle();
+  });
+  // The stub pull succeeds, so nothing is raised yet; a failing one is.
+  assert.equal(tree.toJSON(), null);
+  const failing = stubWindow({
+    url: CONNECTED.url,
+    reauth: true,
+    stored: { [GITHUB_ONBOARDING_KEY]: "skipped" },
+    vault: (action) => (action === "push" ? Promise.reject(new Error("The token was refused.")) : undefined),
+  });
+  const card = await mount(createElement(GithubOnboarding));
+  assert.match(textOf(card.root), /GitHub needs you to sign in again/);
+  failing.state.reauth = false;
+  const later = await mount(createElement(GithubOnboarding));
+  assert.equal(later.toJSON(), null);
+  failing.state.reauth = true;
+  await act(async () => {
+    await folderRemoteSync("push").catch(() => undefined);
+    await settle();
+  });
+  assert.match(textOf(later.root), /GitHub needs you to sign in again/);
+  assert.ok(button(later, "Reconnect"));
 });
 
 test("Cancel stops the wait and tells the shell", async () => {

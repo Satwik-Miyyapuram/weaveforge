@@ -182,7 +182,8 @@ pub fn form(pairs: &[(&str, &str)]) -> String {
         .join("&")
 }
 
-/// `weaveforge-<slug>`: the project slug, else the folder name, else `notes`, made safe for GitHub.
+/// `weaveforge-<slug>`: the project slug, else the folder name, else `workspace`, made safe for
+/// GitHub (lowercase ASCII letters, digits, `-`, `_`, `.`; at most 100 characters).
 #[must_use]
 pub fn repo_name(slug: Option<&str>, folder: Option<&str>) -> String {
     let clean = |s: &str| {
@@ -204,10 +205,54 @@ pub fn repo_name(slug: Option<&str>, folder: Option<&str>) -> String {
         .flatten()
         .map(clean)
         .find(|s| !s.is_empty())
-        .unwrap_or_else(|| "notes".to_owned());
+        .unwrap_or_else(|| "workspace".to_owned());
     let mut name = format!("weaveforge-{base}");
     name.truncate(MAX_REPO_NAME);
     name.trim_end_matches(['-', '.']).to_owned()
+}
+
+/// The shell-only flag set when GitHub refused the stored token; the page then offers Reconnect.
+pub const REAUTH_PREF: &str = "github-reauth";
+
+/// Whether a git or GitHub failure means the token was refused or missing.
+#[must_use]
+pub fn is_auth_failure(reason: &str) -> bool {
+    let reason = reason.to_ascii_lowercase();
+    [
+        "token was refused",
+        "add a token",
+        "401",
+        "unauthorized",
+        "authentication",
+        "bad credentials",
+    ]
+    .iter()
+    .any(|sign| reason.contains(sign))
+}
+
+fn is_github(url: &Url) -> bool {
+    url.host_str()
+        .is_some_and(|host| host.eq_ignore_ascii_case("github.com"))
+}
+
+/// Whether `reason`, from a sync with the remote `url`, means GitHub wants a new sign-in.
+#[must_use]
+pub fn needs_github_reauth(url: Option<&str>, reason: &str) -> bool {
+    url.and_then(|u| Url::parse(u).ok())
+        .is_some_and(|u| is_github(&u))
+        && is_auth_failure(reason)
+}
+
+/// The repo name in `remote` when it is `https://github.com/<login>/<name>`, so a reconnect
+/// keeps syncing to the same repo.
+#[must_use]
+pub fn existing_repo_name(remote: Option<&str>, login: &str) -> Option<String> {
+    let url = Url::parse(remote?).ok().filter(is_github)?;
+    let mut parts = url.path_segments()?;
+    let (owner, name, rest) = (parts.next()?, parts.next()?, parts.next());
+    let name = name.strip_suffix(".git").unwrap_or(name);
+    (owner.eq_ignore_ascii_case(login) && !name.is_empty() && rest.is_none())
+        .then(|| name.to_owned())
 }
 
 fn join(base: &Url, path: &str) -> Result<Url, String> {
@@ -484,17 +529,26 @@ pub async fn github_connect_finish(
     )
     .await?;
     let login = user_login(&client, &ends, &token).await?;
-    let folder = crate::vault_sync::current_root(vault.inner())
+    let stored = prefs.inner().clone();
+    let remote = stored
+        .queued(|p| p.read("vault-git-remote"))
         .await
-        .and_then(|root| root.file_name().map(|n| n.to_string_lossy().into_owned()));
-    let repo = ensure_repo(
-        &client,
-        &ends,
-        &token,
-        &login,
-        &repo_name(name.as_deref(), folder.as_deref()),
-    )
-    .await?;
+        .ok()
+        .flatten();
+    let remote = match remote {
+        Some(PrefValue::Text(url)) => Some(url),
+        _ => None,
+    };
+    let name = match existing_repo_name(remote.as_deref(), &login) {
+        Some(same) => same,
+        None => {
+            let folder = crate::vault_sync::current_root(vault.inner())
+                .await
+                .and_then(|root| root.file_name().map(|n| n.to_string_lossy().into_owned()));
+            repo_name(name.as_deref(), folder.as_deref())
+        }
+    };
+    let repo = ensure_repo(&client, &ends, &token, &login, &name).await?;
     secrets
         .queued(move |s| s.write("git-sync-token", &token))
         .await?;
@@ -502,7 +556,8 @@ pub async fn github_connect_finish(
     prefs
         .queued(move |p| {
             p.write("vault-git", Some(PrefValue::Flag(true)))?;
-            p.write("vault-git-remote", Some(PrefValue::Text(url)))
+            p.write("vault-git-remote", Some(PrefValue::Text(url)))?;
+            p.write(REAUTH_PREF, None)
         })
         .await?;
     let mut slot = pending();
