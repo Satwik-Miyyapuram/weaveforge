@@ -43,6 +43,8 @@ test("a modal inside an inactive kept screen renders nothing", async () => {
     tree = create(inScreen(false));
   });
   assert.equal(tree!.toJSON(), null);
+  // Nor does it lock scrolling on the screen that is shown.
+  assert.notEqual((document.body.style as { overflow?: string }).overflow, "hidden");
   await act(async () => tree!.unmount());
 });
 

@@ -65,7 +65,7 @@ export function Modal({
   }, []);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !screenActive) return;
     // Locking the scroll takes the scrollbar away, which widens every element
     // behind the modal. That is not only a visible jump: `CardColumns` watches
     // its own width and re-deals the cards when the column count changes, so a
@@ -80,7 +80,7 @@ export function Modal({
       document.body.style.overflow = prevOverflow;
       document.body.style.paddingRight = prevPadding;
     };
-  }, [mounted]);
+  }, [mounted, screenActive]);
 
   useEffect(() => {
     if (!mounted || !dismissible || !onClose || !screenActive) return;
