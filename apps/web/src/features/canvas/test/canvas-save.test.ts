@@ -338,3 +338,51 @@ test("retries back off, doubling from the debounce delay", async () => {
   assert.equal(attempts, 3);
   assert.deepEqual(delays, [600, 1200, 2400], "each failed attempt doubles the wait before the next retry");
 });
+
+test("a save that keeps failing is reported once, not on every retry", async () => {
+  const timers = fakeTimers();
+  const errors: unknown[] = [];
+  const saver = new CanvasSaver({
+    write: () => Promise.reject(new Error("offline")),
+    onError: (e) => void errors.push(e),
+    schedule: timers.schedule,
+    unschedule: timers.unschedule,
+  });
+  let text = "A";
+  const read = () => text;
+  saver.touch(read);
+  text = "B";
+  saver.flush(read);
+  await tick();
+  for (let i = 0; i < 4; i++) {
+    timers.fire();
+    await tick();
+  }
+  assert.equal(errors.length, 1, "retries of the same failing text stay quiet");
+  text = "C";
+  saver.flush(read);
+  await tick();
+  assert.equal(errors.length, 1, "still failing: the banner is already up");
+});
+
+test("retries do not fill the echo memory with the same text", async () => {
+  const timers = fakeTimers();
+  const saver = new CanvasSaver({
+    write: (t) => (t === "B" ? Promise.reject(new Error("offline")) : undefined),
+    onError: () => undefined,
+    loaded: "A",
+    schedule: timers.schedule,
+    unschedule: timers.unschedule,
+  });
+  let text = "A";
+  const read = () => text;
+  saver.touch(read);
+  text = "B";
+  saver.flush(read);
+  await tick();
+  for (let i = 0; i < 10; i++) {
+    timers.fire();
+    await tick();
+  }
+  assert.equal(saver.isOwnEcho("A"), true, "the loaded body is still remembered after many retries");
+});

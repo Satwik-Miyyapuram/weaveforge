@@ -367,3 +367,43 @@ test("the mirror keeps a claim at a non-canonical path, so an edit still finds i
     "Plan.canvas": "page-2",
   }, "the claim survives, the mirror's canonical entry is added, the vanished file is dropped");
 });
+
+test("a claim is dropped once the mirror maps its page at the canonical path", async () => {
+  const { mirrorWorkspace } = await import("../application/parts-2");
+  const old = "Old Name.canvas";
+  const mapPath = `${metaDir}/canvas-ids.json`;
+  const { fs, store } = memoryFs({
+    [`${projectRoot}/${old}`]: BOARD,
+    [mapPath]: JSON.stringify({ [old]: "page-1" }),
+  });
+  const snapshot = {
+    vaultPages: [{ id: "page-1", kind: "canvas", title: "New Name", body: BOARD }],
+    papers: [],
+  };
+  // The page was renamed in the app: the mirror now maps it at New Name.canvas.
+  const core = {
+    projectDir: () => projectRoot,
+    serializeWorkspace: () => ({
+      files: { [mapPath]: JSON.stringify({ "New Name.canvas": "page-1" }), [`${projectRoot}/New Name.canvas`]: BOARD },
+      assets: [],
+    }),
+    planMirror: (serialized: { files: Record<string, string> }) => ({
+      written: Object.keys(serialized.files),
+      unchanged: 0,
+      removed: [],
+      heldBack: [],
+      mirrored: new Map(),
+      bases: new Map(),
+    }),
+  };
+
+  await mirrorWorkspace(
+    core as unknown as Parameters<typeof mirrorWorkspace>[0],
+    snapshot as unknown as Parameters<typeof mirrorWorkspace>[1],
+    fs,
+    { project: { id: "p1", name: "Thesis" } } as never,
+  );
+
+  assert.deepEqual(JSON.parse(store.get(mapPath) ?? "{}"), { "New Name.canvas": "page-1" },
+    "one path per page id: the stale file cannot overwrite the live page");
+});

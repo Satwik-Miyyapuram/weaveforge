@@ -84,9 +84,11 @@ export class CanvasSaver {
       return;
     }
     if (text === this.saved && !this.failed) return;
+    // A retry resends text already remembered; remembering it again would push older echoes out.
+    const retry = text === this.saved;
     this.saved = text;
     this.failed = false;
-    this.remember(text);
+    if (!retry) this.remember(text);
     this.send(text);
   }
 
@@ -119,12 +121,14 @@ export class CanvasSaver {
     };
     const failed = (err: unknown) => {
       // A failure of the latest text keeps it pending and retries it with backoff; an older failure is only reported.
+      // Only the first failure in a run is reported, so a long outage shows one banner, not one per retry.
+      const quiet = this.failures > 0;
       if (this.saved === text) {
         this.failed = true;
         this.failures += 1;
         this.retryLater();
       }
-      this.opts.onError(err);
+      if (!quiet) this.opts.onError(err);
     };
     try {
       Promise.resolve(this.opts.write(text)).then(landed, failed);

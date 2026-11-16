@@ -56,9 +56,11 @@ async function keepClaimedCanvasIds(
   const fresh = parseIdMap(serialized.files[mapPath] ?? "") ?? {};
   const live = new Set(snapshot.vaultPages.filter((page) => page.kind === "canvas").map((page) => page.id));
   const root = core.projectDir(project);
+  const mapped = new Set(Object.values(fresh));
   const kept: Record<string, string> = {};
   for (const [rel, id] of Object.entries(claimed)) {
-    if (Object.hasOwn(fresh, rel) || !live.has(id)) continue;
+    // One path per page id: once the mirror maps the page itself, a stale claimed file must not import over it.
+    if (Object.hasOwn(fresh, rel) || mapped.has(id) || !live.has(id)) continue;
     if (!(await fs.stat(`${root}/${rel}`).catch(() => null))) continue;
     kept[rel] = id;
   }
