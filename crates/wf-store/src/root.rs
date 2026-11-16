@@ -118,7 +118,10 @@ fn ensure_writable_with(
     let probe = root.join(format!(".weaveforge-write-probe-{}", std::process::id()));
     fs::write(&probe, b"").map_err(|_| RootError::CannotWrite)?;
     if let Err(error) = remove(&probe) {
-        eprintln!("[workspace] could not remove the write probe {}: {error}", probe.display());
+        eprintln!(
+            "[workspace] could not remove the write probe {}: {error}",
+            probe.display()
+        );
     }
     Ok(())
 }
