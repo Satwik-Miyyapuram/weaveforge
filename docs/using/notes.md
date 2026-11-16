@@ -41,9 +41,8 @@ with `#hashtags`.
 2. Click **More**, then **Import OneNote section…**, and pick the file.
 3. WeaveForge makes one note per page. Sub-pages sit under their parent page.
    To get each page as a canvas instead, pick **Import OneNote section as
-   canvas…**. Text sits where it sat on the page, and pictures and handwriting
-   appear as files on the canvas. Pictures show their vault path for now, not
-   the picture.
+   canvas…**. Text and pictures sit where they sat on the page, and handwriting
+   appears as an ink note file on the canvas.
 4. Pictures come in as attachments. A page with handwriting comes in as an
    ink note: each printout on the page becomes one ink page, with the printout
    behind the strokes and the page's typed text in its text layer. A page
