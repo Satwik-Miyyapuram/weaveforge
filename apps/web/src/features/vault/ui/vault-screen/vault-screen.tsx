@@ -55,6 +55,8 @@ export function VaultScreen() {
   const importZipRef = useRef<HTMLInputElement | null>(null);
   const importFolderRef = useRef<HTMLInputElement | null>(null);
   const importOneNoteRef = useRef<HTMLInputElement | null>(null);
+  // Set by the menu item that opened the OneNote picker: each page as a canvas.
+  const oneNoteAsCanvasRef = useRef(false);
   // File inputs stay mounted outside the modal so pickers survive dialog close.
   // Filters name lists and tags of one project, so each project keeps its own.
   const projectId = useProject().current?.id;
@@ -260,7 +262,9 @@ export function VaultScreen() {
     setImportMsg(null);
     setError(null);
     try {
-      const res = await importOneNoteSection(file, oneNoteImportDeps());
+      const canvas = oneNoteAsCanvasRef.current;
+      oneNoteAsCanvasRef.current = false;
+      const res = await importOneNoteSection(file, oneNoteImportDeps(), { canvas });
       const parts = [`Imported ${res.created} note${res.created === 1 ? "" : "s"}`];
       if (res.inkNotes) parts.push(`${res.inkNotes} handwriting`);
       if (res.images) parts.push(`${res.images} image${res.images === 1 ? "" : "s"}`);
@@ -399,7 +403,20 @@ export function VaultScreen() {
                   label: "Import OneNote section…",
                   disabled: importing,
                   title: "A OneNote .one section file: text, images and handwriting",
-                  onSelect: () => importOneNoteRef.current?.click(),
+                  onSelect: () => {
+                    oneNoteAsCanvasRef.current = false;
+                    importOneNoteRef.current?.click();
+                  },
+                },
+                {
+                  id: "import-onenote-canvas",
+                  label: "Import OneNote section as canvas…",
+                  disabled: importing,
+                  title: "A OneNote .one section file, each page as a canvas of its positioned pieces",
+                  onSelect: () => {
+                    oneNoteAsCanvasRef.current = true;
+                    importOneNoteRef.current?.click();
+                  },
                 },
                 { id: "sep", label: "", kind: "separator" as const },
                 { id: "wiki", label: "Wiki", onSelect: () => router.push("/wiki") },
