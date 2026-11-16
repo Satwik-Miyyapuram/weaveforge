@@ -1,6 +1,7 @@
 // Memory by part for WeaveForge Dev (CDP 9223), read-only. Usage: node scripts/perf/memory.mjs [--json] [--dump]
 // Prints the page's JS heap, wasm linear memory, DOM, canvases (attached and detached), images, workers
-// (PDF.js and others, with their heaps) and the working set of every WebView2 process by type.
+// (PDF.js and others, with their heaps) and the working set of every WebView2 process by type, plus
+// the shell and its local Postgres.
 // --dump adds Chromium's own split of each process (blink_gc, malloc, v8, cc tiles, gpu, web_cache...)
 // from a light memory-infra dump; it takes about 5 s.
 import { execFileSync } from "node:child_process";
@@ -65,6 +66,15 @@ async function processes() {
     const row = rows.find((r) => r.Id === info.id);
     if (!row) continue;
     const t = (byType[info.type] ??= { count: 0, workingSetMB: 0, privateMB: 0 });
+    t.count += 1;
+    t.workingSetMB = MB(t.workingSetMB * 1048576 + row.WorkingSet64);
+    t.privateMB = MB(t.privateMB * 1048576 + row.PrivateMemorySize64);
+  }
+  // The app's own processes beside the webview: the Tauri shell and the local Postgres.
+  const own = `Get-Process weaveforge-shell,postgres -ErrorAction SilentlyContinue | Select-Object ProcessName,WorkingSet64,PrivateMemorySize64 | ConvertTo-Json -Compress`;
+  const ownRaw = execFileSync("powershell", ["-NoProfile", "-Command", own], { encoding: "utf8" }).trim();
+  for (const row of ownRaw ? [].concat(JSON.parse(ownRaw)) : []) {
+    const t = (byType[row.ProcessName === "postgres" ? "postgres" : "shell"] ??= { count: 0, workingSetMB: 0, privateMB: 0 });
     t.count += 1;
     t.workingSetMB = MB(t.workingSetMB * 1048576 + row.WorkingSet64);
     t.privateMB = MB(t.privateMB * 1048576 + row.PrivateMemorySize64);

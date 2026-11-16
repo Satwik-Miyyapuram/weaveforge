@@ -138,6 +138,15 @@ close();
 
 Keep these scripts in the session scratchpad, not the repo.
 
+Two measuring scripts do live in the repo, in `scripts/perf/`:
+
+- `node scripts/perf/memory.mjs` (Dev running, read-only over CDP) prints
+  memory per part: JS heap, wasm, DOM, canvases, workers, and the working set
+  of every WebView2, shell and Postgres process.
+- `node scripts/perf/db-start.mjs --bin <postgres bin dir>` times each phase of
+  the local database start (initdb, spawn until ready, connect, migrate, local
+  user) on a scratch cluster in the temp dir. It never opens an app's data.
+
 Conventions:
 
 - Wrap `run()` bodies in `String.raw` so regexes and backslashes survive.

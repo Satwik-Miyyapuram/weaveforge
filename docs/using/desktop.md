@@ -307,6 +307,9 @@ The window has its own menu bar:
 - **Help**: Documentation, Keyboard shortcuts, Check for updates… and the
   version number, greyed out.
 
+On Windows, minimizing the window tells it to use less memory: it trims what
+it can rebuild, and gives the normal level back when you restore it.
+
 Menu navigation happens inside the page, not with `loadURL` — a load driven from
 the main process starts a fresh document, which would log an account-less copy
 straight back out.
