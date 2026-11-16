@@ -16,7 +16,7 @@ use crate::vault::iso_utc;
 /// Written into the new data dir when the copy is complete; its presence means "never again".
 pub const DONE_MARKER: &str = "migrated-from-electron";
 
-/// Written into the old dir once the copy is published, so Electron warns that its data has moved.
+/// Written into the new data dir once the copy is published. The old Electron dir is never written to.
 pub const MIGRATED_MARKER: &str = "migrated";
 
 /// What is copied from Electron's data dir, by name. `secrets.json` is not: Electron sealed it.

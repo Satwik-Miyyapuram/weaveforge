@@ -12,6 +12,8 @@ pub mod app_route;
 pub mod app_storage;
 pub mod auth_link;
 pub mod auth_loopback;
+pub mod cmd_import;
+pub mod old_db;
 pub mod cmd_ink;
 pub mod cmd_tools;
 pub mod cmd_vault;
@@ -345,13 +347,6 @@ fn native_db(
     resources: &std::path::Path,
     source: &launch::AppSource,
 ) -> Result<commands::NativeDb, String> {
-    // This build cannot read the old PGlite database. Opening an empty one would hide the old
-    // data, so it refuses until 0.9 (which can copy it) has run once.
-    if let Some(old) = migrate::old_pglite_dir(data)
-        && !data.join(OLD_DB_IMPORTED).exists()
-    {
-        return Err(old_db_message(&old));
-    }
     let bin_override = std::env::var_os("WEAVEFORGE_PG_BIN").map(PathBuf::from);
     // initdb cannot run postgres from a `\\?\` path, which Tauri's resource dir has on Windows.
     let resources = launch::without_verbatim_prefix(resources);
@@ -391,18 +386,6 @@ fn spawn_backups(app: &tauri::AppHandle, host: &commands::NativeDb) {
             }
         }
     });
-}
-
-/// Marker 0.9 wrote after copying the old PGlite database into the native one.
-const OLD_DB_IMPORTED: &str = "local-pg.imported";
-
-/// Why the database will not open while an old PGlite database is still uncopied.
-fn old_db_message(old: &std::path::Path) -> String {
-    format!(
-        "This WeaveForge can no longer read the old local database at {}. Install WeaveForge 0.9 \
-         and open it once to copy your data, then update again.",
-        old.display()
-    )
 }
 
 /// Opens the native database and manages its `LocalDb`. Any failure is reported through
