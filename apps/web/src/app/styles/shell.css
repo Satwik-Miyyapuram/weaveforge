@@ -49,6 +49,15 @@
   width: 100%;
 }
 
+/*
+ * A screen kept mounted while another is up (`keep-alive.tsx`). Out of layout
+ * entirely: its card columns keep their count at zero width (`card-columns.tsx`),
+ * so coming back is one layout pass, not a rebuild.
+ */
+.keep-alive-host:not([data-shown]) {
+  display: none;
+}
+
 .layout.has-nav {
   padding-left: var(--nav-inset);
 }
