@@ -8,7 +8,9 @@
  * opened where scripts/user-docs/views.json says and walked through the steps
  * by site.js. Readers watch it; they cannot edit it.
  *
- *   node scripts/build-user-docs.mjs
+ *   node scripts/build-user-docs.mjs            frames the production demo
+ *   node scripts/build-user-docs.mjs --local    frames http://127.0.0.1:4174/
+ *   DOCS_DEMO_URL=... overrides both.
  */
 
 import fs from "node:fs";
@@ -19,6 +21,7 @@ import { frontMatter } from "./lib/doc-freshness.mjs";
 import { ROOT } from "./lib/repo-stats.mjs";
 import {
   decorate,
+  demoUrl,
   fasterWay,
   listItems,
   noteSteps,
@@ -34,7 +37,7 @@ import {
 
 const SRC = path.join(ROOT, "docs/using");
 const OUT = path.join(ROOT, "docs/.site");
-const DEMO = process.env.DOCS_DEMO_URL ?? "http://127.0.0.1:4174/";
+const DEMO = demoUrl(process.env, process.argv.slice(2));
 // page -> { route, do, tasks: { <how-to id>: { route, do } } }: where its demo opens.
 const VIEWS = JSON.parse(fs.readFileSync(path.join(ROOT, "scripts/user-docs/views.json"), "utf8"));
 const [VIEW_W, VIEW_H] = [1280, 800];

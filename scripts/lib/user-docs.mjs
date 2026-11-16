@@ -136,3 +136,22 @@ export function noteSteps(body) {
     return n ? `${heading}<span class="docs-hand docs-aside-note">${n} step${n === 1 ? "" : "s"}</span>${rest}` : heading + rest;
   });
 }
+
+/**
+ * Where the docs' demo frames point. Production unless told otherwise: a build
+ * that forgot the flag must not frame localhost on the public site. DOCS_DEMO_URL
+ * wins over --local, so a staging build can still name its own host.
+ */
+export function demoUrl(env, argv) {
+  const value = env.DOCS_DEMO_URL ?? (argv.includes("--local") ? "http://127.0.0.1:4174/" : "https://demo.weaveforge.org/");
+  let protocol;
+  try {
+    protocol = new URL(value).protocol;
+  } catch {
+    protocol = "";
+  }
+  if (protocol !== "https:" && protocol !== "http:") {
+    throw new Error(`DOCS_DEMO_URL must be an absolute http(s) URL, got "${value}"`);
+  }
+  return value;
+}

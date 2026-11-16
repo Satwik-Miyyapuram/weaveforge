@@ -8,7 +8,7 @@
     "predev": "node scripts/copy-assets.mjs",
     "dev": "next dev --webpack --port 3300",
     "build": "next build --webpack",
-    "postbuild": "node scripts/finish-export.mjs",
+    "postbuild": "node scripts/finish-export.mjs && node scripts/write-docs-redirects.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
