@@ -107,6 +107,8 @@ tauri-plugin-deep-link = "=2.6.3"
 windows = { version = "=0.62.2", default-features = false, features = ["Win32_Foundation", "Win32_System_Environment", "Win32_System_SystemInformation", "Win32_System_Threading"] }
 # Windows Credential Manager store for keyring-core; search is not needed.
 windows-native-keyring-store = { version = "=1.1.0", default-features = false }
+# WebView2 memory target while minimized (idle_memory.rs). Same version wry already locks.
+webview2-com = "=0.39.1"
 
 # Database lock (step 5.3c): is the holder's pid alive. Same rustix the lockfile already has.
 [target.'cfg(all(unix, not(any(target_os = "android", target_os = "ios"))))'.dependencies]
