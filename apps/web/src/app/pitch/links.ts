@@ -17,3 +17,5 @@ export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "/";
  */
 export const DOCS_URL = "/docs/";
 export const REPO_URL = "https://github.com/Satwik-Miyyapuram/weaveforge";
+/** GitHub's latest release page; 0.9.1 is marked Latest and 0.9.0 is a pre-release. */
+export const RELEASES_URL = `${REPO_URL}/releases/latest`;

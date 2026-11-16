@@ -13,6 +13,7 @@
   "wiki": { "route": "wiki/" },
   "notes": { "route": "notes/" },
   "ink": { "route": "notes/", "do": ["open:β-VAE objective", "Ink"] },
+  "canvas": { "route": "notes/" },
   "paste": { "route": "settings/", "do": ["Editor and writing"] },
   "collaborative-editing": { "route": "notes/", "do": ["open:β-VAE objective"] },
   "logbook": { "route": "log/" },

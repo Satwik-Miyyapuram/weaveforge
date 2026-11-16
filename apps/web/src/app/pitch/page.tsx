@@ -2,7 +2,7 @@
 
 import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import s from "./scrolly.module.css";
-import { APP_URL, DOCS_URL, REPO_URL } from "./links";
+import { APP_URL, DOCS_URL, REPO_URL, RELEASES_URL } from "./links";
 import { SECTIONS } from "./sections";
 import "./looks.css";
 import { BrandMark, GitHubMark, ThemePicker, themeAttrs, useSiteTheme } from "./site-chrome";
@@ -78,6 +78,10 @@ export default function PitchPage() {
             <a className={k("btn cta-main btn-lg")} href={APP_URL}>Open the app</a>
             <a className={k("btn cta-alt btn-lg")} href={REPO_URL}>Read the source</a>
           </div>
+          <p className={s.lede} style={{ marginTop: 24 }}>
+            Get 0.9.1 from <a href={RELEASES_URL}>the latest release</a>.
+            New in 0.9.1: freeform pages, with ink and Excalidraw import and export.
+          </p>
         </section>
       </main>
 
@@ -242,7 +246,7 @@ function Hero() {
           <div
             key={c.t}
             className={k(`card tinted ${c.tone}`)}
-            style={{ "--i": i, transform: `rotate(${c.rot}deg)`, zIndex: i + 1 } as CSSProperties}
+            style={{ "--i": i, transform: theme === "crt" ? "none" : `rotate(${c.rot}deg)`, zIndex: i + 1 } as CSSProperties}
           >
             <Head label={c.label} chip={c.chip} tone={c.tone} title={c.t} />
             <span className={s.m}>{c.m}</span>
