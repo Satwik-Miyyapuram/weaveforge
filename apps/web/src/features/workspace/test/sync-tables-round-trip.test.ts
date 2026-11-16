@@ -1,0 +1,122 @@
+/**
+ * A folder-mirror clone must rebuild the whole database, not only notes,
+ * canvases, ink and assets. Seed every synced table in one database, export
+ * the rows to `.weaveforge/tables/<table>.json` files, import the files into an
+ * empty database, and expect the same rows back, table by table.
+ */
+import assert from "node:assert/strict";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+
+import { freshTestDb, testDb, type TestDb } from "../../../backend/test/pg-test-db";
+import {
+  SYNC_TABLES,
+  exportSyncTables,
+  importSyncTables,
+  syncTableFile,
+} from "../application/sync-tables";
+
+type Row = Record<string, unknown>;
+
+const P = "a0000000-0000-4000-8000-000000000001"; // project
+const PAPER_1 = "a0000000-0000-4000-8000-000000000002";
+const PAPER_2 = "a0000000-0000-4000-8000-000000000003";
+const TAG = "a0000000-0000-4000-8000-000000000004";
+const LIST = "a0000000-0000-4000-8000-000000000005";
+const NOTE = "a0000000-0000-4000-8000-000000000006";
+const SECTION = "a0000000-0000-4000-8000-000000000007";
+const ITEM = "a0000000-0000-4000-8000-000000000008";
+const EXPERIMENT = "a0000000-0000-4000-8000-000000000009";
+const FIELD = "a0000000-0000-4000-8000-00000000000a";
+
+/** One or more rows for every table in SYNC_TABLES. */
+async function seed(db: TestDb, uid: string): Promise<void> {
+  const q = (text: string, params: unknown[] = []) => db.sql(text, params);
+  await q(`insert into projects (id, user_id, name) values ($1, $2, 'Lab')`, [P, uid]);
+  await q(`insert into tags (id, user_id, project_id, name) values ($1, $2, $3, 'ml')`, [TAG, uid, P]);
+  await q(`insert into papers (id, user_id, project_id, title) values ($1, $2, $3, 'Paper one'), ($4, $2, $3, 'Paper two')`, [PAPER_1, uid, P, PAPER_2]);
+  await q(`insert into paper_tags (paper_id, tag_id) values ($1, $2)`, [PAPER_1, TAG]);
+  await q(`insert into vault_pages (id, user_id, project_id, title) values ($1, $2, $3, 'Note')`, [NOTE, uid, P]);
+  await q(`insert into reading_lists (id, user_id, project_id, name) values ($1, $2, $3, 'To read')`, [LIST, uid, P]);
+  await q(`insert into report_sections (id, user_id, project_id, title) values ($1, $2, $3, 'Results')`, [SECTION, uid, P]);
+  await q(`insert into reading_list_items (id, list_id, paper_id) values ($1, $2, $3)`, [ITEM, LIST, PAPER_1]);
+  await q(`insert into screening_decisions (item_id, reviewer_id, state) values ($1, $2, 'included')`, [ITEM, uid]);
+  await q(`insert into paper_relations (user_id, project_id, from_paper, to_paper, relation) values ($1, $2, $3, $4, 'cites')`, [uid, P, PAPER_1, PAPER_2]);
+  await q(`insert into experiments (id, user_id, project_id, name, related_paper) values ($1, $2, $3, 'Run 1', $4)`, [EXPERIMENT, uid, P, PAPER_1]);
+  await q(`insert into experiment_metric_names (id, name) values (1, 'loss')`);
+  await q(`insert into experiment_metric_points (experiment_id, user_id, metric_id, step, value) values ($1, $2, 1, 0, 0.5)`, [EXPERIMENT, uid]);
+  await q(
+    `insert into experiment_metric_chunks (experiment_id, user_id, metric_id, chunk_no, steps, "values", wall_times)
+     values ($1, $2, 1, 0, '{0,1}', '{0.5,0.4}', '{2026-01-01T00:00:00Z,2026-01-01T00:00:01Z}')`,
+    [EXPERIMENT, uid],
+  );
+  await q(`insert into milestones (id, user_id, project_id, title) values (gen_random_uuid(), $1, $2, 'Draft')`, [uid, P]);
+  await q(`insert into log_entries (user_id, project_id, body) values ($1, $2, 'Met advisor')`, [uid, P]);
+  await q(`insert into paper_field_defs (id, user_id, project_id, name, kind) values ($1, $2, $3, 'Score', 'number')`, [FIELD, uid, P]);
+  await q(`insert into paper_field_values (user_id, project_id, paper_id, field_id, value) values ($1, $2, $3, $4, '5'::jsonb)`, [uid, P, PAPER_1, FIELD]);
+  await q(`insert into paper_locus_anchors (user_id, project_id, paper_id, anchor_key, content) values ($1, $2, $3, 'p3', '{"page":3}'::jsonb)`, [uid, P, PAPER_1]);
+  await q(`insert into reader_annotations (user_id, project_id, paper_id, type, anchor, page_index) values ($1, $2, $3, 'highlight', '{"quote":"x"}'::jsonb, 2)`, [uid, P, PAPER_1]);
+  await q(`insert into annotation_pins (user_id, project_id, paper_id, report_section_id, annotation_key) values ($1, $2, $3, $4, 'k1')`, [uid, P, PAPER_1, SECTION]);
+  await q(`insert into annotation_quotation_types (user_id, project_id, paper_id, annotation_key, quotation_type) values ($1, $2, $3, 'k1', 'direct')`, [uid, P, PAPER_1]);
+  await q(`insert into citation_alert_tracks (user_id, project_id, paper_id) values ($1, $2, $3)`, [uid, P, PAPER_1]);
+  await q(`insert into lab_snapshots (user_id, project_id, title, content) values ($1, $2, 'Week 1', '{"v":1}'::jsonb)`, [uid, P]);
+  await q(`insert into blob_objects (user_id, bucket, path) values ($1, 'assets', 'p/diagram.webp')`, [uid]);
+}
+
+/**
+ * The sync stamps are the receiving database's own bookkeeping: its trigger
+ * sets server_seq and row_version on every write, so an import gets fresh ones.
+ * Everything else must match exactly.
+ */
+const LOCAL_STAMPS = ["server_seq", "row_version"];
+
+/** Rows as JSON text, sorted, so two databases compare by content. */
+async function snapshot(db: TestDb, table: string): Promise<string[]> {
+  const rows = await db.sql<Row>(`select * from ${table}`);
+  return rows
+    .map((row) => {
+      const kept = Object.fromEntries(Object.entries(row).filter(([k]) => !LOCAL_STAMPS.includes(k)));
+      return JSON.stringify(kept);
+    })
+    .sort();
+}
+
+test("every synced table survives export to folder files and import into an empty database", async () => {
+  const src = await testDb();
+  const uid = await src.createUser("mirror@test.invalid");
+  await seed(src, uid);
+
+  const dst = await freshTestDb();
+  await dst.sql(`insert into auth.users (id, email) values ($1, 'mirror@test.invalid')`, [uid]);
+
+  const exported = await exportSyncTables(src);
+  const dir = await mkdtemp(path.join(os.tmpdir(), "sync-tables-"));
+  try {
+    for (const table of SYNC_TABLES) {
+      const file = path.join(dir, syncTableFile(table));
+      await mkdir(path.dirname(file), { recursive: true });
+      await writeFile(file, JSON.stringify(exported[table] ?? []), "utf8");
+    }
+    const read: Record<string, Row[]> = {};
+    for (const table of SYNC_TABLES) {
+      read[table] = JSON.parse(await readFile(path.join(dir, syncTableFile(table)), "utf8"));
+    }
+    await importSyncTables(dst, read);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+
+  for (const table of SYNC_TABLES) {
+    const before = await snapshot(src, table);
+    const after = await snapshot(dst, table);
+    assert.equal(after.length, before.length, `${table}: row count`);
+    assert.ok(before.length > 0, `${table}: seed must contain a row`);
+    assert.deepEqual(after, before, `${table}: rows equal`);
+  }
+});
+
+test("the folder file for a table lives under .weaveforge/tables", () => {
+  assert.equal(syncTableFile("papers"), ".weaveforge/tables/papers.json");
+});
