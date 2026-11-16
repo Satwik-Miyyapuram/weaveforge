@@ -15,6 +15,7 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import * as Y from "yjs";
+import { Awareness } from "y-protocols/awareness";
 
 import { markSaved, reconcileWithBody } from "../domain/seed-document";
 import { RealtimeYjsProvider } from "../infrastructure/realtime-yjs-provider";
@@ -38,6 +39,14 @@ interface Link {
   joinTimeoutMs?: number;
   /** The token step before each join; one that never settles stalls the join. */
   setAuth?: () => Promise<unknown>;
+  /** Leaving never finishes: the channel is off the topic, but the promise hangs. */
+  hangUnsubscribe?: boolean;
+  /** This many `channel()` calls throw before one succeeds. */
+  channelThrows?: number;
+  /** Every channel errors right after it joins. */
+  failOnJoin?: boolean;
+  /** Give the client an awareness, as the editor does. */
+  awareness?: boolean;
 }
 
 /**
@@ -53,9 +62,14 @@ function bus() {
   };
   return {
     db(link: Link = {}) {
-      const state = { joins: 0, fail: () => {} };
+      const state = { joins: 0, joinedAt: [] as number[], fail: () => {} };
+      let throws = link.channelThrows ?? 0;
       const db = {
         channel: () => {
+          if (throws > 0) {
+            throws -= 1;
+            throw new Error("socket not ready");
+          }
           const handlers = new Map<string, Handler>();
           let left = false;
           const channel = {
@@ -70,7 +84,9 @@ function bus() {
                 if (left) return;
                 members.push(handlers);
                 state.joins += 1;
+                state.joinedAt.push(Date.now());
                 cb?.("SUBSCRIBED");
+                if (link.failOnJoin) setTimeout(() => state.fail(), 0);
               }, link.joinAfterMs ?? 0);
               state.fail = () => {
                 leave(handlers);
@@ -85,10 +101,10 @@ function bus() {
               }
               return "ok";
             },
-            unsubscribe: async () => {
+            unsubscribe: () => {
               left = true;
               leave(handlers);
-              return "ok";
+              return link.hangUnsubscribe ? new Promise<string>(() => {}) : Promise.resolve("ok");
             },
           };
           return channel;
@@ -106,8 +122,10 @@ function client(net: ReturnType<typeof bus>, id: number, log: Uint8Array[], body
   doc.clientID = id;
   let seeded = false;
   const socket = net.db(link);
+  const awareness = link.awareness ? new Awareness(doc) : undefined;
   const provider = new RealtimeYjsProvider({
     doc,
+    awareness,
     db: socket.db as never,
     crdtStore: {
       listAfter: async () => log.map((payload, i) => ({ id: i + 1, payload })),
@@ -122,9 +140,9 @@ function client(net: ReturnType<typeof bus>, id: number, log: Uint8Array[], body
       reconcileWithBody(doc, body, digest);
       seeded = true;
     },
-    timing: { joinTimeoutMs: link.joinTimeoutMs ?? 300, rejoinBaseMs: 50, rejoinMaxMs: 200 },
+    timing: { joinTimeoutMs: link.joinTimeoutMs ?? 300, rejoinBaseMs: 50, rejoinMaxMs: 200, stableMs: 1_000 },
   });
-  return { doc, provider, isSeeded: () => seeded, socket: socket.state };
+  return { doc, provider, awareness, isSeeded: () => seeded, socket: socket.state };
 }
 
 async function until(ok: () => boolean, label: string) {
@@ -294,4 +312,72 @@ test("sync: a channel that errors after joining rejoins and catches up", async (
   bob.doc.getText("body").insert(7, "2");
   await until(() => text(alice.doc) === "1abcdef2", "live again after the rejoin");
   await Promise.all([alice.provider.destroy(), bob.provider.destroy()]);
+});
+
+for (const [label, log, body] of [
+  ["a log rebuilt to a changed body", [savedLog("abcdef")], "abXdef"],
+  ["an empty log", [], "hello"],
+] as const) {
+  test(`sync: two clients that both seed alone (${label}) merge without a second copy`, async () => {
+    const net = bus();
+    let open = false;
+    const held = { setAuth: () => (open ? Promise.resolve() : new Promise(() => {})) };
+    const alice = client(net, 101, [...log], body, held);
+    const bob = client(net, 202, [...log], body, held);
+    await until(() => alice.isSeeded() && bob.isSeeded(), "both local seeds");
+    assert.equal(text(alice.doc), body);
+    assert.equal(text(bob.doc), body);
+
+    open = true;
+    await until(() => alice.socket.joins > 0 && bob.socket.joins > 0, "both joins");
+    await tick(300);
+    assert.equal(text(alice.doc), body, "one copy of the seed, not two");
+    assert.equal(text(bob.doc), body);
+    await Promise.all([alice.provider.destroy(), bob.provider.destroy()]);
+  });
+}
+
+test("sync: a leave that never finishes does not stop the rejoin", async () => {
+  const log = savedLog("abcdef");
+  const net = bus();
+  const alice = client(net, 101, [log], "abcdef");
+  const bob = client(net, 202, [log], "abcdef", { hangUnsubscribe: true });
+  await until(() => bob.isSeeded() && bob.socket.joins === 1, "bob joined");
+  bob.socket.fail();
+  await until(() => bob.socket.joins === 2, "bob's rejoin past the hung leave");
+  await Promise.all([alice.provider.destroy(), bob.provider.destroy()]);
+});
+
+test("sync: a channel that throws while joining is retried, and construction survives it", async () => {
+  const net = bus();
+  const bob = client(net, 202, [savedLog("abcdef")], "abcdef", { channelThrows: 1 });
+  await until(bob.isSeeded, "bob's seed");
+  await until(() => bob.socket.joins === 1, "bob's join on the second try");
+  await bob.provider.destroy();
+});
+
+test("sync: a channel that keeps failing right after it joins backs off", async () => {
+  const net = bus();
+  const bob = client(net, 202, [savedLog("abcdef")], "abcdef", { failOnJoin: true });
+  await until(() => bob.socket.joins >= 5, "five joins");
+  await bob.provider.destroy();
+  const at = bob.socket.joinedAt;
+  const gaps = at.slice(1).map((t, i) => t - (at[i] ?? t));
+  assert.ok((gaps[0] ?? 0) < 120, `first retry is quick: ${gaps.join(", ")}`);
+  assert.ok((gaps[3] ?? 0) >= 150, `later retries back off to the cap: ${gaps.join(", ")}`);
+});
+
+test("sync: a client announces its presence when it joins, not only when it changes", async () => {
+  const net = bus();
+  const log = savedLog("abcdef");
+  const alice = client(net, 101, [log], "abcdef", { awareness: true });
+  const bob = client(net, 202, [log], "abcdef", { awareness: true, joinAfterMs: 100 });
+  bob.awareness?.setLocalState({ name: "bob" });
+  await until(
+    () => (alice.awareness?.getStates().get(202) as { name?: string } | undefined)?.name === "bob",
+    "alice seeing bob",
+  );
+  await Promise.all([alice.provider.destroy(), bob.provider.destroy()]);
+  alice.awareness?.destroy();
+  bob.awareness?.destroy();
 });

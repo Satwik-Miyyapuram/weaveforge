@@ -25,6 +25,8 @@ const JOIN_TIMEOUT_MS = 8000;
 /** Rejoin delays double from the first to the cap, then stay there, forever. */
 const REJOIN_BASE_MS = 1000;
 const REJOIN_MAX_MS = 30_000;
+/** A channel up this long counts as stable: the next loss starts the backoff over. */
+const STABLE_MS = 30_000;
 
 /**
  * The sync handshake, on its own broadcast event. `hello` asks every peer for
@@ -89,7 +91,7 @@ export interface RealtimeYjsProviderOptions {
    */
   live?: boolean;
   /** Overrides the join timeout and rejoin backoff; tests shorten them. */
-  timing?: { joinTimeoutMs?: number; rejoinBaseMs?: number; rejoinMaxMs?: number };
+  timing?: { joinTimeoutMs?: number; rejoinBaseMs?: number; rejoinMaxMs?: number; stableMs?: number };
 }
 
 export class RealtimeYjsProvider {
@@ -101,6 +103,7 @@ export class RealtimeYjsProvider {
   private rejoins = 0;
   private joinTimer: ReturnType<typeof setTimeout> | null = null;
   private rejoinTimer: ReturnType<typeof setTimeout> | null = null;
+  private stableTimer: ReturnType<typeof setTimeout> | null = null;
   private pending: Uint8Array[] = [];
   private mergeTimer: ReturnType<typeof setTimeout> | null = null;
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -132,6 +135,16 @@ export class RealtimeYjsProvider {
    * joining, goes to `lost`, which retries: live sync always comes back.
    */
   private join() {
+    try {
+      this.joinOnce();
+    } catch (err) {
+      // The client, the channel or the token threw before any callback could:
+      // a failed join like any other, never a dead provider or constructor.
+      this.lost("join", formatError(err));
+    }
+  }
+
+  private joinOnce() {
     const attempt = ++this.attempt;
     const current = () => !this.destroyed && attempt === this.attempt;
     const opts = this.opts;
@@ -168,7 +181,11 @@ export class RealtimeYjsProvider {
           if (!current()) return;
           if (status === "SUBSCRIBED") {
             if (this.joinTimer) clearTimeout(this.joinTimer);
-            this.rejoins = 0;
+            // Start the backoff over only once the channel has stayed up: one
+            // that drops right after each join would otherwise retry at full rate.
+            this.stableTimer = setTimeout(() => {
+              this.rejoins = 0;
+            }, this.opts.timing?.stableMs ?? STABLE_MS);
             this.opts.onConnected?.();
             this.onJoined();
           } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
@@ -193,10 +210,15 @@ export class RealtimeYjsProvider {
     this.attempt += 1;
     this.subscribed = false;
     if (this.joinTimer) clearTimeout(this.joinTimer);
+    if (this.stableTimer) clearTimeout(this.stableTimer);
     this.windowOpen = false;
+    // Seeding alone is safe even when a peer seeds alone too: the seed is made
+    // deterministically from (log state, body) (`reconcileWithBody`), so two
+    // seeds of the same state are one operation and merge as one copy.
     this.maybeSeed();
-    // Join again only once this channel has left: supabase-js keys channels by
-    // topic and hands back the old one while it is still registered.
+    // Join again once this channel has left: supabase-js keys channels by topic
+    // and hands back the old one while it is still registered. A leave that
+    // never settles is waited on for one join timeout, no longer.
     const old = this.channel;
     this.channel = null;
     const left = old
@@ -208,9 +230,10 @@ export class RealtimeYjsProvider {
     const t = this.opts.timing;
     const delay = Math.min(t?.rejoinMaxMs ?? REJOIN_MAX_MS, (t?.rejoinBaseMs ?? REJOIN_BASE_MS) * 2 ** this.rejoins);
     this.rejoins += 1;
+    const leaveLimit = new Promise<void>((resolve) => setTimeout(resolve, t?.joinTimeoutMs ?? JOIN_TIMEOUT_MS));
     this.rejoinTimer = setTimeout(() => {
       this.rejoinTimer = null;
-      void left.then(() => {
+      void Promise.race([left, leaveLimit]).then(() => {
         if (!this.destroyed) this.join();
       });
     }, delay);
@@ -219,11 +242,17 @@ export class RealtimeYjsProvider {
   private bindAwareness(awareness: Awareness) {
     this.awarenessHandler = ({ added, updated, removed }) => {
       const changed = added.concat(updated, removed);
-      const update = encodeAwarenessUpdate(awareness, changed);
-      const data = readyCore().encodeBase64(update);
-      if (this.subscribed) void this.channel?.send({ type: "broadcast", event: "awareness", payload: { data } });
+      this.sendAwareness(changed);
     };
     awareness.on("update", this.awarenessHandler);
+  }
+
+  /** Broadcasts these clients' awareness states, when joined. */
+  private sendAwareness(clients: number[]) {
+    const awareness = this.opts.awareness;
+    if (!awareness || !this.subscribed || !this.channel) return;
+    const data = readyCore().encodeBase64(encodeAwarenessUpdate(awareness, clients));
+    void this.channel.send({ type: "broadcast", event: "awareness", payload: { data } });
   }
 
   private onLocalUpdate = (update: Uint8Array, origin: unknown) => {
@@ -283,6 +312,8 @@ export class RealtimeYjsProvider {
   private onJoined() {
     this.subscribed = true;
     this.sendSync({ type: "hello", id: this.opts.doc.clientID, seeded: this.seeded, sv: this.stateVector() });
+    // Presence set while away was never sent: show it to the peers now.
+    this.sendAwareness([this.opts.doc.clientID]);
     this.openWindow();
   }
 
@@ -481,6 +512,7 @@ export class RealtimeYjsProvider {
     if (this.fallbackTimer) clearTimeout(this.fallbackTimer);
     if (this.joinTimer) clearTimeout(this.joinTimer);
     if (this.rejoinTimer) clearTimeout(this.rejoinTimer);
+    if (this.stableTimer) clearTimeout(this.stableTimer);
     if (this.opts.awareness && this.awarenessHandler) {
       this.opts.awareness.off("update", this.awarenessHandler);
       try {
