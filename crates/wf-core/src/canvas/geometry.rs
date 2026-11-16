@@ -50,9 +50,12 @@ pub fn node_rect(node: &CanvasNode) -> CanvasRect {
 }
 
 /// The smallest box around every node, or `None` for an empty canvas: what "fit to view" shows.
+/// A node with no position (NaN) has no place to show, so it is left out.
 #[must_use]
 pub fn canvas_bounds(canvas: &Canvas) -> Option<CanvasRect> {
-    let mut rects = canvas.nodes.iter().map(node_rect);
+    let mut rects = canvas.nodes.iter().map(node_rect).filter(|r| {
+        r.x.is_finite() && r.y.is_finite() && r.width.is_finite() && r.height.is_finite()
+    });
     let first = rects.next()?;
     let (mut left, mut top, mut right, mut bottom) =
         (first.x, first.y, first.right(), first.bottom());
@@ -117,6 +120,30 @@ mod tests {
     #[test]
     fn bounds_of_an_empty_canvas_is_none() {
         assert_eq!(canvas_bounds(&Canvas::default()), None);
+    }
+
+    #[test]
+    fn bounds_leave_out_a_node_with_no_position() {
+        let c = canvas(vec![
+            node("a", "text", f64::NAN, 0.0, 10.0, 10.0),
+            node("b", "text", 5.0, 6.0, 20.0, 30.0),
+            node("c", "text", 0.0, f64::NAN, 10.0, 10.0),
+        ]);
+        assert_eq!(
+            canvas_bounds(&c),
+            Some(CanvasRect {
+                x: 5.0,
+                y: 6.0,
+                width: 20.0,
+                height: 30.0
+            })
+        );
+    }
+
+    #[test]
+    fn bounds_with_no_positioned_node_is_none() {
+        let c = canvas(vec![node("a", "text", f64::NAN, f64::NAN, 10.0, 10.0)]);
+        assert_eq!(canvas_bounds(&c), None);
     }
 
     #[test]

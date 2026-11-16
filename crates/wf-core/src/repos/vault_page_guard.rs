@@ -16,7 +16,9 @@
 //!
 //! A write that misses the version (someone saved in between) reads again and
 //! decides again, up to [`ATTEMPTS`] times. A retry that clashes again reuses
-//! the same copy, and a copy made on any attempt is reported. A missed write
+//! the same copy, and a copy made on any attempt is reported. Titles are
+//! unique per project, so a copy whose title is taken (a second copy in the
+//! same second, here or on another device) ends in a tag from its own id. A missed write
 //! whose re-read shows the same version was refused by the row policy.
 
 use serde::Deserialize;
@@ -74,10 +76,68 @@ fn reply_or_send(call: &RepoCall, at: usize, query: RepoQuery) -> Result<&Value,
     call.replies.get(at).ok_or_else(|| RepoStep::send(query))
 }
 
-/// The title of the copy that keeps the other side's text.
-fn copy_title(title: &str, now: &str) -> String {
+/// Postgres: a row with the same unique key already exists.
+const UNIQUE_VIOLATION: &str = "23505";
+
+/// The title of the copy that keeps the other side's text. `tag` tells apart
+/// copies made in the same second (empty for the first try).
+fn copy_title(title: &str, now: &str, tag: &str) -> String {
     let when = now.get(..19).unwrap_or(now).replace('T', " ");
-    format!("{title} (conflict copy {when})")
+    if tag.is_empty() {
+        return format!("{title} (conflict copy {when})");
+    }
+    format!("{title} (conflict copy {when}) {tag}")
+}
+
+/// The tag for try `level` of the copy with `id`: none, its first 8 characters,
+/// then the whole id, which no other page has.
+fn copy_tag(id: &str, level: usize) -> &str {
+    match level {
+        0 => "",
+        1 => id.get(..8).unwrap_or(id),
+        _ => id,
+    }
+}
+
+/// Saves the `n`th conflict copy from reply `at`; `Ok` holds the next reply
+/// offset and the copy's id. The unique title index refuses a title another
+/// page holds (23505), e.g. a copy another device made in the same second:
+/// the copy is then saved again with a tag from its own id.
+fn keep_copy(
+    call: &RepoCall,
+    mut at: usize,
+    existing: &VaultPage,
+    n: usize,
+) -> Result<(usize, Value), RepoStep> {
+    let id = call.id(n);
+    // A later copy in one call shares the first one's second: tag it at once.
+    let mut level = usize::from(n > 0);
+    loop {
+        let copy = conflict_copy(call, existing, &id, copy_tag(&id, level))?;
+        let Some(reply) = call.replies.get(at) else {
+            return Err(soft(save(&call.sub(vec![copy], at))));
+        };
+        at += 1;
+        let Some(error) = reply.get("error") else {
+            return Ok((at, json!(id)));
+        };
+        if level < 2 && call.reply_error_code(at - 1) == Some(UNIQUE_VIOLATION) {
+            level += 1;
+            continue;
+        }
+        let message = error.get("message").and_then(Value::as_str).unwrap_or("");
+        return Err(RepoStep::fail(message));
+    }
+}
+
+/// `step` with its queries made soft, so a refusal comes back as a reply.
+fn soft(step: RepoStep) -> RepoStep {
+    match step {
+        RepoStep::Send { queries } => RepoStep::Send {
+            queries: queries.into_iter().map(RepoQuery::soft).collect(),
+        },
+        other => other,
+    }
 }
 
 /// `update(id, { body, baseBody })` as a guarded save; `None` when the input is
@@ -121,17 +181,13 @@ fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
             Plan::Write(text) => text,
             Plan::CopyThenWrite => {
                 if !copied.contains(&existing.body) {
-                    let copy = match conflict_copy(call, &existing, copied.len()) {
-                        Ok(copy) => copy,
+                    let (next, id) = match keep_copy(call, at, &existing, copied.len()) {
+                        Ok(kept) => kept,
                         Err(step) => return step,
                     };
-                    let saved = save(&call.sub(vec![copy.clone()], at));
-                    if call.replies.len() <= at {
-                        return saved;
-                    }
-                    at += 1;
+                    at = next;
                     copied.push(existing.body.clone());
-                    copy_id = copy.get("id").cloned();
+                    copy_id = Some(id);
                 }
                 input.body.clone()
             }
@@ -197,21 +253,26 @@ fn finish(page: &VaultPage, copy_id: Option<Value>) -> RepoStep {
     RepoStep::Done { value }
 }
 
-/// The `n`th new page beside `existing` holding the body it had, as `save`
-/// takes it. The id is fixed per `n`, so a replayed step names the same copy.
+/// A new page `id` beside `existing` holding the body it had, as `save` takes
+/// it. The id is fixed per copy, so a replayed step names the same copy.
 /// A retry that meets other clashing text makes another copy rather than
 /// overwrite this one: the newer text need not be built on the older (a plain
 /// update writes the body without a base).
-fn conflict_copy(call: &RepoCall, existing: &VaultPage, n: usize) -> Result<Value, RepoStep> {
+fn conflict_copy(
+    call: &RepoCall,
+    existing: &VaultPage,
+    id: &str,
+    tag: &str,
+) -> Result<Value, RepoStep> {
     let input = NewVaultPageInput {
-        title: copy_title(&existing.summary.title, call.now()),
+        title: copy_title(&existing.summary.title, call.now(), tag),
         body: Some(existing.body.clone()),
         parent_id: existing.summary.parent_id.clone(),
         folder: None,
         kind: existing.summary.kind.clone(),
         sort_order: Some(existing.summary.sort_order),
     };
-    let page = create_vault_page(&input, &call.id(n), call.now())
+    let page = create_vault_page(&input, id, call.now())
         .map_err(|e| RepoStep::fail_named("VaultPageValidationError", e))?;
     serde_json::to_value(page).map_err(RepoStep::fail)
 }
@@ -517,6 +578,79 @@ THEIRS2"
             done(step(input(base, mine), replies))["conflictCopyId"],
             second["id"]
         );
+    }
+
+    #[test]
+    fn a_second_copy_in_one_call_gets_its_own_title() {
+        let (base, mine) = ("a\nb", "a\nMINE");
+        let mut replies = vec![row("a\nTHEIRS", 4)];
+        let first = only(step(input(base, mine), replies.clone())).body.unwrap();
+        replies.extend([Value::Null, json!([]), row("a\nTHEIRS2", 5)]);
+        let second = only(step(input(base, mine), replies)).body.unwrap();
+        let (first, second) = (first["title"].as_str(), second["title"].as_str());
+        assert_eq!(first, Some("Home (conflict copy 2026-11-12 09:00:00)"));
+        let id = call(json!(null), vec![]).id(1);
+        assert_eq!(
+            second,
+            Some(format!("Home (conflict copy 2026-11-12 09:00:00) {}", &id[..8]).as_str())
+        );
+    }
+
+    #[test]
+    fn the_copy_is_soft_and_a_title_taken_elsewhere_is_saved_again_tagged() {
+        let (base, mine) = ("a\nb", "a\nMINE");
+        let mut replies = vec![row("a\nTHEIRS", 4)];
+        let copy = only(step(input(base, mine), replies.clone()));
+        assert!(copy.soft, "a refused title must come back as a reply");
+        let id = copy.body.unwrap()["id"].clone();
+        // Another device made a copy with this title in the same second.
+        replies.push(json!({ "error": { "code": "23505", "message": "dup" } }));
+        let again = only(step(input(base, mine), replies.clone()));
+        assert_eq!(again.action, RepoAction::Upsert);
+        let again = again.body.unwrap();
+        assert_eq!(again["id"], id, "the same copy, under a new title");
+        let tag = &id.as_str().unwrap()[..8];
+        assert_eq!(
+            again["title"],
+            format!("Home (conflict copy 2026-11-12 09:00:00) {tag}")
+        );
+        // The short tag clashed too: the whole id is the last resort.
+        let mut twice = replies.clone();
+        twice.push(json!({ "error": { "code": "23505", "message": "dup" } }));
+        let last = only(step(input(base, mine), twice)).body.unwrap();
+        assert_eq!(
+            last["title"],
+            format!(
+                "Home (conflict copy 2026-11-12 09:00:00) {}",
+                id.as_str().unwrap()
+            )
+        );
+        replies.push(Value::Null);
+        let write = only(step(input(base, mine), replies.clone()));
+        assert_eq!(write.action, RepoAction::Update);
+        replies.push(json!([{ "id": "p1" }]));
+        assert_eq!(done(step(input(base, mine), replies))["conflictCopyId"], id);
+    }
+
+    #[test]
+    fn a_copy_refused_for_another_reason_fails_the_save() {
+        let replies = vec![
+            row("a\nTHEIRS", 4),
+            json!({ "error": { "code": "42501", "message": "denied" } }),
+        ];
+        match step(input("a\nb", "a\nMINE"), replies) {
+            RepoStep::Fail { message, .. } => assert_eq!(message, "denied"),
+            other => panic!("{other:?}"),
+        }
+        let mut thrice = vec![row("a\nTHEIRS", 4)];
+        thrice.extend(std::iter::repeat_n(
+            json!({ "error": { "code": "23505", "message": "dup" } }),
+            3,
+        ));
+        assert!(matches!(
+            step(input("a\nb", "a\nMINE"), thrice),
+            RepoStep::Fail { .. }
+        ));
     }
 
     #[test]

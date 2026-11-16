@@ -7,8 +7,10 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::canvas::{parse_canvas, validate};
 use crate::sync::instant::parse_instant;
 use crate::sync::text_merge::{TextMerge, merge_text};
+use crate::vault::page::CANVAS_KIND;
 
 /// Columns the sync machinery owns; the server is the only author of them.
 const RESERVED: [&str; 4] = ["id", "server_seq", "row_version", "created_at"];
@@ -52,6 +54,9 @@ pub fn merge_rows(
     let mut conflicts = Vec::new();
     // The TS walks a Set of local keys then remote keys: first-seen order.
     let mut seen = HashSet::new();
+    let canvas = [local, remote]
+        .iter()
+        .any(|row| row.get("kind").and_then(Value::as_str) == Some(CANVAS_KIND));
     let fields = local
         .keys()
         .chain(remote.keys())
@@ -88,7 +93,7 @@ pub fn merge_rows(
         if field == "body"
             && let (Some(Value::String(b)), Some(Value::String(l)), Some(Value::String(r))) =
                 (b, l, r)
-            && let TextMerge::Clean(text) = merge_text(b, l, r)
+            && let Some(text) = merged_body(b, l, r, canvas)
         {
             set_field(&mut merged, field, Some(&Value::String(text)));
             continue;
@@ -103,6 +108,24 @@ pub fn merge_rows(
     }
 
     MergeResult { merged, conflicts }
+}
+
+/// The clean line merge of a body, or `None` when the lines clash. A canvas
+/// merge must still parse, and every edge must still reach both its nodes.
+fn merged_body(base: &str, local: &str, remote: &str, canvas: bool) -> Option<String> {
+    let TextMerge::Clean(text) = merge_text(base, local, remote) else {
+        return None;
+    };
+    if canvas {
+        let parsed = parse_canvas(&text).ok()?;
+        if validate(&parsed)
+            .iter()
+            .any(|issue| issue.code == "missing-node")
+        {
+            return None;
+        }
+    }
+    Some(text)
 }
 
 /// Equality as the database means it: a missing value equals `null`, and
@@ -174,4 +197,62 @@ fn instant_text(text: &str) -> Option<i64> {
         return None;
     }
     parse_instant(text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn row(kind: Option<&str>, body: &str) -> Map<String, Value> {
+        let mut row = Map::new();
+        let _ = row.insert("body".into(), json!(body));
+        if let Some(kind) = kind {
+            let _ = row.insert("kind".into(), json!(kind));
+        }
+        row
+    }
+
+    fn merge(kind: Option<&str>, base: &str, local: &str, remote: &str) -> MergeResult {
+        merge_rows(&row(kind, base), &row(kind, local), &row(kind, remote))
+    }
+
+    #[test]
+    fn a_canvas_merge_that_leaves_an_edge_dangling_is_a_conflict() {
+        // Local drops node b; remote adds an edge to b on another line.
+        let base = "{\"nodes\":[\n{\"id\":\"a\"},\n{\"id\":\"b\"}\n],\n\"edges\":[\n\n]}";
+        let local = "{\"nodes\":[\n{\"id\":\"a\"}\n],\n\"edges\":[\n\n]}";
+        let remote = "{\"nodes\":[\n{\"id\":\"a\"},\n{\"id\":\"b\"}\n],\n\"edges\":[\n\
+            {\"id\":\"e\",\"fromNode\":\"a\",\"toNode\":\"b\"}\n]}";
+        // As plain text the lines merge cleanly.
+        assert!(merge(None, base, local, remote).conflicts.is_empty());
+        let result = merge(Some("canvas"), base, local, remote);
+        assert_eq!(result.conflicts.len(), 1);
+        assert_eq!(result.conflicts[0].field, "body");
+        assert_eq!(result.merged["body"], remote);
+    }
+
+    #[test]
+    fn a_canvas_merge_that_no_longer_parses_is_a_conflict() {
+        let base = "{\"nodes\":[\n\n\n\n]}";
+        let local = "{\"nodes\":[],\"x\":{\n\n\n\n}}";
+        let remote = "{\"nodes\":[\n\n{\"id\":\"a\"}\n\n]}";
+        assert!(merge(None, base, local, remote).conflicts.is_empty());
+        let result = merge(Some("canvas"), base, local, remote);
+        assert_eq!(result.conflicts.len(), 1);
+        assert_eq!(result.merged["body"], remote);
+    }
+
+    #[test]
+    fn a_canvas_merge_that_stays_whole_lands() {
+        let base = "{\"nodes\":[\n{\"id\":\"a\"},\n{\"id\":\"b\"},\n{\"id\":\"c\"}\n]}";
+        let local = "{\"nodes\":[\n{\"id\":\"A\"},\n{\"id\":\"b\"},\n{\"id\":\"c\"}\n]}";
+        let remote = "{\"nodes\":[\n{\"id\":\"a\"},\n{\"id\":\"b\"},\n{\"id\":\"C\"}\n]}";
+        let result = merge(Some("canvas"), base, local, remote);
+        assert!(result.conflicts.is_empty());
+        assert_eq!(
+            result.merged["body"],
+            "{\"nodes\":[\n{\"id\":\"A\"},\n{\"id\":\"b\"},\n{\"id\":\"C\"}\n]}"
+        );
+    }
 }
