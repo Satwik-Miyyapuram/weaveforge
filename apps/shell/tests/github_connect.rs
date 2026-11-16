@@ -105,7 +105,11 @@ fn repo_name_falls_back_to_workspace_when_nothing_usable_is_left() {
         (Some("--..--"), None),
         (None, Some("日本語")),
     ] {
-        assert_eq!(repo_name(slug, folder), "weaveforge-workspace", "{slug:?} {folder:?}");
+        assert_eq!(
+            repo_name(slug, folder),
+            "weaveforge-workspace",
+            "{slug:?} {folder:?}"
+        );
     }
 }
 
@@ -133,7 +137,10 @@ fn repo_name_is_always_valid_for_github() {
         assert!(!name.ends_with(['-', '.']), "{input}: {name}");
     }
     assert_eq!(repo_name(Some(&long), None).len(), 100);
-    assert_eq!(repo_name(Some(&ends_in_dash), None), format!("weaveforge-{}", "a".repeat(88)));
+    assert_eq!(
+        repo_name(Some(&ends_in_dash), None),
+        format!("weaveforge-{}", "a".repeat(88))
+    );
 }
 
 // --- reconnect ---
@@ -164,12 +171,27 @@ fn auth_failures_are_told_apart_from_other_failures() {
 #[test]
 fn only_github_remotes_ask_for_a_github_sign_in() {
     let refused = "The token was refused.";
-    assert!(needs_github_reauth(Some("https://github.com/me/notes.git"), refused));
-    assert!(needs_github_reauth(Some("https://GitHub.com/me/notes"), refused));
-    assert!(!needs_github_reauth(Some("https://gitlab.com/me/notes.git"), refused));
-    assert!(!needs_github_reauth(Some("https://github.com.evil.example/me/n"), refused));
+    assert!(needs_github_reauth(
+        Some("https://github.com/me/notes.git"),
+        refused
+    ));
+    assert!(needs_github_reauth(
+        Some("https://GitHub.com/me/notes"),
+        refused
+    ));
+    assert!(!needs_github_reauth(
+        Some("https://gitlab.com/me/notes.git"),
+        refused
+    ));
+    assert!(!needs_github_reauth(
+        Some("https://github.com.evil.example/me/n"),
+        refused
+    ));
     assert!(!needs_github_reauth(None, refused));
-    assert!(!needs_github_reauth(Some("https://github.com/me/notes.git"), "Git took too long."));
+    assert!(!needs_github_reauth(
+        Some("https://github.com/me/notes.git"),
+        "Git took too long."
+    ));
 }
 
 #[test]

@@ -12,12 +12,12 @@ use wf_store::git::remote::{
 use wf_store::git::repo::{FolderRepo, RepoError, probe};
 
 use crate::commands::ShellError;
-use crate::github_connect::{REAUTH_PREF, needs_github_reauth};
 use crate::git::{
     CommitReply, GIT_TIMED_OUT, GIT_TIMEOUT, GitQueue, GitQueueError, WorkspaceCommit,
     commit_vault_folder, log_limit, vault_file_log as git_vault_file_log,
     vault_log as git_vault_log, vault_read_at as git_vault_read_at,
 };
+use crate::github_connect::{REAUTH_PREF, needs_github_reauth};
 use crate::prefs::{PrefValue, Prefs};
 use crate::secrets::Secrets;
 use crate::vault::{NO_ROOT, VaultState};
@@ -206,10 +206,7 @@ pub fn read_settings(prefs: &Prefs, secrets: &Secrets) -> SyncSettings {
         enabled: matches!(prefs.read("vault-git"), Ok(Some(PrefValue::Flag(true)))),
         url: non_empty(pref_text(prefs, "vault-git-remote")),
         token: non_empty(secrets.read("git-sync-token").ok().flatten()),
-        needs_reconnect: matches!(
-            prefs.read(REAUTH_PREF),
-            Ok(Some(PrefValue::Flag(true)))
-        ),
+        needs_reconnect: matches!(prefs.read(REAUTH_PREF), Ok(Some(PrefValue::Flag(true)))),
     }
 }
 

@@ -291,7 +291,12 @@ async fn a_refused_github_token_asks_for_a_new_sign_in_and_a_good_sync_clears_it
     let flagged = |prefs: &Prefs| read_settings(prefs, &secrets).needs_reconnect;
     note_auth(&prefs, Some(URL), "push", Some("Git took too long."));
     assert!(!flagged(&prefs));
-    note_auth(&prefs, Some("https://gitlab.com/me/n.git"), "pull", Some("The token was refused."));
+    note_auth(
+        &prefs,
+        Some("https://gitlab.com/me/n.git"),
+        "pull",
+        Some("The token was refused."),
+    );
     assert!(!flagged(&prefs));
     note_auth(&prefs, Some(URL), "pull", Some("The token was refused."));
     assert!(flagged(&prefs));
@@ -309,7 +314,10 @@ async fn a_refused_github_token_asks_for_a_new_sign_in_and_a_good_sync_clears_it
     assert!(reply.needs_reconnect);
     note_auth(&prefs, Some(URL), "settings", None);
     note_auth(&prefs, Some(URL), "status", None);
-    assert!(flagged(&prefs), "reading settings proves nothing about the token");
+    assert!(
+        flagged(&prefs),
+        "reading settings proves nothing about the token"
+    );
     note_auth(&prefs, Some(URL), "push", None);
     assert!(!flagged(&prefs));
 }
