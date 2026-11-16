@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::canvas::{Canvas, CanvasNode, FreeStroke, canvas_text, write_ink};
+use crate::canvas::{canvas_text, write_ink, Canvas, CanvasNode, FreeStroke};
 use crate::ink::ink_page::{InkPage, InkTool};
 use crate::onenote::ink::colour_hex;
 
@@ -65,7 +65,10 @@ pub fn freeform_canvas(
     files: &BTreeMap<String, String>,
     strokes: &[FreeStroke],
 ) -> String {
-    let drafts: Vec<Draft> = layout.iter().filter_map(|item| draft(item, files)).collect();
+    let drafts: Vec<Draft> = layout
+        .iter()
+        .filter_map(|item| draft(item, files))
+        .collect();
 
     // Loose pieces go in a column under everything placed, so they never overlap it.
     let bottom = drafts
@@ -138,7 +141,10 @@ fn draft(item: &OneNoteLayoutItem, files: &BTreeMap<String, String>) -> Option<D
             }
             (Content::Text(item.text.clone()), DEFAULT_TEXT_HEIGHT)
         }
-        LayoutKind::Image => (Content::File(files.get(&item.key)?.clone()), DEFAULT_IMAGE_HEIGHT),
+        LayoutKind::Image => (
+            Content::File(files.get(&item.key)?.clone()),
+            DEFAULT_IMAGE_HEIGHT,
+        ),
     };
     Some(Draft {
         content,
@@ -181,7 +187,10 @@ pub fn ink_strokes(origin: (f64, f64), page: &InkPage, id_prefix: &str) -> Vec<F
                 .chunks_exact(2)
                 .map(|pair| (px(origin.0 + pair[0]), px(origin.1 + pair[1])))
                 .collect();
-            if points.is_empty() || stroke.points.len() % 2 == 1 || !stroke.points.iter().all(|v| v.is_finite()) {
+            if points.is_empty()
+                || stroke.points.len() % 2 == 1
+                || !stroke.points.iter().all(|v| v.is_finite())
+            {
                 return None;
             }
             // The stroke sits at its first point, rounded to whole pixels as the canvas
@@ -221,14 +230,16 @@ pub fn ink_strokes(origin: (f64, f64), page: &InkPage, id_prefix: &str) -> Vec<F
 /// A pixel offset as whole tenths of a pixel, saturating at the `i32` range.
 #[allow(clippy::cast_possible_truncation)]
 fn tenths_from(offset: f64) -> i32 {
-    (offset * 10.0).round().clamp(f64::from(i32::MIN), f64::from(i32::MAX)) as i32
+    (offset * 10.0)
+        .round()
+        .clamp(f64::from(i32::MIN), f64::from(i32::MAX)) as i32
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::canvas::{INK_FIELD, parse_canvas, read_ink};
-    use crate::ink::ink_page::{InkColour, InkShape, InkStroke, blank_ink_page};
+    use crate::canvas::{parse_canvas, read_ink, INK_FIELD};
+    use crate::ink::ink_page::{blank_ink_page, InkColour, InkShape, InkStroke};
     use crate::sync::ink_note::InkPaper;
 
     fn text(x: Option<f64>, y: Option<f64>, body: &str) -> OneNoteLayoutItem {
@@ -275,7 +286,11 @@ mod tests {
 
     #[test]
     fn positioned_text_lands_at_its_pixel_position() {
-        let canvas = parsed(&freeform_canvas(&[text(Some(127.0), Some(254.0), "typed")], &BTreeMap::new(), &[]));
+        let canvas = parsed(&freeform_canvas(
+            &[text(Some(127.0), Some(254.0), "typed")],
+            &BTreeMap::new(),
+            &[],
+        ));
         let node = &canvas.nodes[0];
         assert_eq!((node.kind.as_str(), node.x, node.y), ("text", 48.0, 96.0));
         assert_eq!((node.width, node.height), (96.0, 48.0));
@@ -286,7 +301,11 @@ mod tests {
     fn unpositioned_text_gets_the_default_size_and_stacks_under_placed_content() {
         let layout = [
             text(Some(0.0), Some(0.0), "placed"),
-            OneNoteLayoutItem { width: None, height: None, ..text(None, None, "loose") },
+            OneNoteLayoutItem {
+                width: None,
+                height: None,
+                ..text(None, None, "loose")
+            },
         ];
         let canvas = parsed(&freeform_canvas(&layout, &BTreeMap::new(), &[]));
         let loose = &canvas.nodes[1];
@@ -310,7 +329,11 @@ mod tests {
 
     #[test]
     fn blank_text_is_left_out() {
-        let canvas = parsed(&freeform_canvas(&[text(Some(0.0), Some(0.0), "  ")], &BTreeMap::new(), &[]));
+        let canvas = parsed(&freeform_canvas(
+            &[text(Some(0.0), Some(0.0), "  ")],
+            &BTreeMap::new(),
+            &[],
+        ));
         assert!(canvas.nodes.is_empty());
     }
 
@@ -322,7 +345,10 @@ mod tests {
         let node = &canvas.nodes[0];
         assert_eq!(node.kind, "file");
         assert_eq!(node.file.as_deref(), Some("attachments/abc.png"));
-        assert_eq!((node.x, node.y, node.width, node.height), (48.0, 48.0, 384.0, 288.0));
+        assert_eq!(
+            (node.x, node.y, node.width, node.height),
+            (48.0, 48.0, 384.0, 288.0)
+        );
     }
 
     #[test]
@@ -407,7 +433,10 @@ mod tests {
 
     #[test]
     fn freeform_output_round_trips_through_the_canvas_reader() {
-        let layout = [text(Some(127.0), Some(127.0), "typed"), image("image-1.png", None, None)];
+        let layout = [
+            text(Some(127.0), Some(127.0), "typed"),
+            image("image-1.png", None, None),
+        ];
         let files = BTreeMap::from([("image-1.png".to_owned(), "attachments/a.png".to_owned())]);
         let strokes = [stroke("s1", vec![10, 20, 30, 40])];
         let once = freeform_canvas(&layout, &files, &strokes);

@@ -5,8 +5,8 @@ use onenote_parser::contents::{Content, EmbeddedObject, Ink, Outline, OutlineIte
 use onenote_parser::page::{Page, PageContent};
 
 use crate::ink::ink_page::{
-    INK_A4_HEIGHT, INK_A4_WIDTH, INK_COORD_LIMIT, INK_PAGE_STROKE_BUDGET, InkColour, InkPage,
-    InkStroke, InkStrokeInput, InkTool, clamp_ink_page_size, make_ink_stroke,
+    clamp_ink_page_size, make_ink_stroke, InkColour, InkPage, InkStroke, InkStrokeInput, InkTool,
+    INK_A4_HEIGHT, INK_A4_WIDTH, INK_COORD_LIMIT, INK_PAGE_STROKE_BUDGET,
 };
 use crate::sync::ink_note::InkPaper;
 
@@ -411,7 +411,9 @@ pub(crate) fn colour_hex(colour: InkColour) -> String {
     PALETTE
         .iter()
         .find(|(palette, _)| *palette == colour)
-        .map_or("#000000".to_owned(), |(_, (r, g, b))| format!("#{r:02x}{g:02x}{b:02x}"))
+        .map_or("#000000".to_owned(), |(_, (r, g, b))| {
+            format!("#{r:02x}{g:02x}{b:02x}")
+        })
 }
 
 #[cfg(test)]
@@ -591,11 +593,9 @@ mod tests {
             .collect();
         let sheets = build_sheets(&raw, &bands);
         assert_eq!(sheets.len(), 2);
-        assert!(
-            sheets
-                .iter()
-                .all(|sheet| sheet.group == 0 && sheet.background.is_some())
-        );
+        assert!(sheets
+            .iter()
+            .all(|sheet| sheet.group == 0 && sheet.background.is_some()));
     }
 
     #[test]

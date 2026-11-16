@@ -3,22 +3,22 @@
 use std::collections::HashMap;
 use std::io::{Error, Read};
 
-use onenote_parser::FileSystem;
-use onenote_parser::Parser;
 use onenote_parser::contents::{
     Content, EmbeddedFile, Image, Outline, OutlineElement, OutlineItem, RichText, Table,
 };
 use onenote_parser::page::{Page, PageContent};
+use onenote_parser::FileSystem;
+use onenote_parser::Parser;
 use serde::{Deserialize, Serialize};
 use typed_path::{TypedPath, TypedPathBuf};
 
 use crate::bytea::encode_base64;
-use crate::ink::ink_page::{INK_A4_HEIGHT, INK_A4_WIDTH, InkPage};
+use crate::ink::ink_page::{InkPage, INK_A4_HEIGHT, INK_A4_WIDTH};
 
 mod freeform;
 mod ink;
 
-pub use freeform::{LayoutKind, OneNoteLayoutItem, freeform_canvas, ink_strokes};
+pub use freeform::{freeform_canvas, ink_strokes, LayoutKind, OneNoteLayoutItem};
 
 /// Canvas text for a freeform page: `layout` pieces, each image's vault path in
 /// `files`, and every ink page's strokes placed at its origin on the page.
@@ -389,10 +389,15 @@ fn outline_images<'a>(items: &'a [OutlineItem], out: &mut Vec<&'a Image>) {
         match item {
             OutlineItem::Group(group) => outline_images(group.outlines(), out),
             OutlineItem::Element(element) => {
-                out.extend(element.contents().iter().filter_map(|content| match content {
-                    Content::Image(image) => Some(image),
-                    _ => None,
-                }));
+                out.extend(
+                    element
+                        .contents()
+                        .iter()
+                        .filter_map(|content| match content {
+                            Content::Image(image) => Some(image),
+                            _ => None,
+                        }),
+                );
                 outline_images(element.children(), out);
             }
         }
@@ -737,7 +742,11 @@ fn image_extension(extension: Option<&str>) -> String {
         && ext
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit());
-    if valid { ext } else { "png".to_string() }
+    if valid {
+        ext
+    } else {
+        "png".to_string()
+    }
 }
 
 fn push_attachment(file: &EmbeddedFile, body: &mut Body) {
@@ -770,7 +779,7 @@ fn render(blocks: &[Block]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{LayoutKind, OneNoteLayoutItem, freeform_page_text};
+    use super::{freeform_page_text, LayoutKind, OneNoteLayoutItem};
     use std::collections::BTreeMap;
 
     #[test]
@@ -804,7 +813,14 @@ mod tests {
 
     #[test]
     fn placement_counts_non_finite_values_as_missing() {
-        let (x, y, w, h) = placement(Some(f32::NAN), Some(1.0), Some(f32::INFINITY), None, Some(f32::NAN), None);
+        let (x, y, w, h) = placement(
+            Some(f32::NAN),
+            Some(1.0),
+            Some(f32::INFINITY),
+            None,
+            Some(f32::NAN),
+            None,
+        );
         assert_eq!(x, None);
         assert_eq!(y, Some(127.0));
         assert_eq!((w, h), (None, None));
