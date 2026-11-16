@@ -45,6 +45,7 @@ import type { ExplorerSection } from "../application/parts";
 import { DocumentHost, type DocumentMetrics } from "./document-host";
 import { ExplorerPanel } from "./explorer-panel";
 import { useFocusMode } from "./use-focus-mode";
+import { HydratingDocument, useNoteBodies } from "./use-note-bodies";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import { PaneView, openTabs } from "./pane-view";
@@ -182,39 +183,12 @@ export function WorkspaceScreen() {
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
   const pendingRef = useRef(0);
-  // Full note bodies fetched so far, by id, so a reload does not throw them
-  // away; and the fetches in flight, so a tab rendered twice asks once.
-  const hydratedRef = useRef(new Map<string, string>());
-  const hydratingRef = useRef(new Set<string>());
-  // Fetch a note's full body the first time a tab needs it. The summary the
-  // set was built from is a preview; an editor seeded from it would save the
-  // cut back over the note.
-  const hydrate = useCallback((tab: TabRef) => {
-    if (hydratingRef.current.has(tab.id)) return;
-    hydratingRef.current.add(tab.id);
-    void getContainer()
-      .vault.getPage(tab.id)
-      .then((page) => {
-        if (!page) return;
-        hydratedRef.current.set(tab.id, page.body);
-        // Before the workspace has loaded there is nothing to patch: the load
-        // reads the body from `hydratedRef`.
-        setDocuments((current) =>
-          current?.map((doc) =>
-            doc.id === tab.id && doc.kind === tab.kind
-              ? { ...doc, body: page.body, hydrated: true }
-              : doc,
-          ) ?? current,
-        );
-      })
-      .catch((err) => setError(formatError(err)))
-      .finally(() => hydratingRef.current.delete(tab.id));
-  }, []);
+  const { bodies: hydrated, hydrate } = useNoteBodies(setDocuments, setError);
   // Each reload's number: late Overleaf rows apply only to the newest load.
   const loadRef = useRef(0);
   const reload = useCallback(async () => {
     const load = ++loadRef.current;
-    const data = await loadWorkspace(hydratedRef.current);
+    const data = await loadWorkspace(hydrated);
     const put = (next: WorkspaceData) => {
       setDocuments(next.documents);
       setCompletions(next.completions);
@@ -237,7 +211,7 @@ export function WorkspaceScreen() {
       },
     );
     return data;
-  }, []);
+  }, [hydrated]);
 
   useEffect(() => {
     let cancelled = false;
@@ -344,7 +318,7 @@ export function WorkspaceScreen() {
         };
         await writers[tab.kind]?.(tab.id, body);
         setDirty(false);
-        if (hasLazyBody(tab.kind)) hydratedRef.current.set(tab.id, body);
+        if (hasLazyBody(tab.kind)) hydrated.set(tab.id, body);
         setDocuments((current) =>
           (current ?? []).map((doc) =>
             doc.kind === tab.kind && doc.id === tab.id ? { ...doc, body, hydrated: true } : doc,
@@ -358,7 +332,7 @@ export function WorkspaceScreen() {
         setPending(pendingRef.current);
       }
     },
-    [],
+    [hydrated],
   );
 
   // The browser only honours the guard if the handler is registered before the
@@ -815,16 +789,4 @@ export function WorkspaceScreen() {
       ) : null}
     </div>
   );
-}
-
-/**
- * What a tab shows while its note's full body is on the way. Asking from an
- * effect rather than during render keeps the fetch off the render path and
- * runs it once per mount.
- */
-function HydratingDocument({ tab, hydrate }: { tab: TabRef; hydrate: (tab: TabRef) => void }) {
-  useEffect(() => {
-    hydrate(tab);
-  }, [tab, hydrate]);
-  return <ScreenLoader status="Loading note…" showTips={false} compact />;
 }
