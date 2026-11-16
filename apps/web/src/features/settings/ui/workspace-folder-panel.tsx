@@ -399,9 +399,14 @@ export function WorkspaceFolderPanel() {
           </div>
           {hasShell && (
             <ChangeFolderAction
-              onChanged={() => {
+              busy={busy}
+              run={run}
+              onChanged={(warnings) => {
                 setMissing(null);
                 setSession(folderSession());
+                setHistory([]);
+                setDiff(null);
+                showWarnings(warnings);
               }}
             />
           )}
