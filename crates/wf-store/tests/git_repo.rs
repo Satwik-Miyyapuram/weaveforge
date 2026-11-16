@@ -252,6 +252,70 @@ fn commit_all_untracks_root_meta_dir_added_earlier() {
     assert!(dir.path().join(".weaveforge").join("db").exists());
 }
 
+// A project's mirror manifest is this machine's record of its own last write.
+// Committed, a pull put the other machine's in its place, and restoring this
+// machine's left the folder dirty after every sync cycle.
+#[test]
+fn commit_all_keeps_project_mirror_manifest_out_and_status_clean() {
+    let dir = TempDir::new();
+    let repo = FolderRepo::new(dir.path());
+    repo.init().unwrap();
+    write(
+        dir.path(),
+        "thesis/.weaveforge/mirror.json",
+        b"{\"paths\":[]}",
+    );
+    write(dir.path(), "thesis/.weaveforge/tags.json", b"[]");
+    write(dir.path(), "thesis/a.md", b"a");
+    let _ = repo.commit_all("one", me()).unwrap();
+    assert_eq!(
+        tree_files(dir.path(), "HEAD"),
+        ["thesis/.weaveforge/tags.json", "thesis/a.md"]
+    );
+    write(
+        dir.path(),
+        "thesis/.weaveforge/mirror.json",
+        b"{\"paths\":[\"x\"]}",
+    );
+    assert!(paths(&repo).is_empty());
+    assert!(repo.commit_all("two", me()).unwrap().is_none());
+}
+
+#[test]
+fn commit_all_untracks_project_mirror_manifest_committed_earlier() {
+    let dir = TempDir::new();
+    let raw = Repository::init(dir.path()).unwrap();
+    write(
+        dir.path(),
+        "thesis/.weaveforge/mirror.json",
+        b"{\"paths\":[]}",
+    );
+    write(dir.path(), "thesis/a.md", b"a");
+    let mut index = raw.index().unwrap();
+    index
+        .add_path(Path::new("thesis/.weaveforge/mirror.json"))
+        .unwrap();
+    index.add_path(Path::new("thesis/a.md")).unwrap();
+    index.write().unwrap();
+    let tree = raw.find_tree(index.write_tree().unwrap()).unwrap();
+    let sig = git2::Signature::now("Tester", "t@example.com").unwrap();
+    let _oid = raw
+        .commit(Some("HEAD"), &sig, &sig, "raw", &tree, &[])
+        .unwrap();
+
+    let repo = FolderRepo::new(dir.path());
+    assert!(repo.commit_all("untrack", me()).unwrap().is_some());
+    assert_eq!(tree_files(dir.path(), "HEAD"), ["thesis/a.md"]);
+    assert!(dir.path().join("thesis/.weaveforge/mirror.json").exists());
+    write(
+        dir.path(),
+        "thesis/.weaveforge/mirror.json",
+        b"{\"paths\":[\"x\"]}",
+    );
+    assert!(paths(&repo).is_empty());
+    assert!(repo.commit_all("again", me()).unwrap().is_none());
+}
+
 #[test]
 fn commit_all_keeps_old_version_of_grown_tracked_file() {
     let dir = TempDir::new();

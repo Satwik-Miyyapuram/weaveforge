@@ -27,6 +27,8 @@ pub const IGNORED_FILES: [&str; 1] = ["desktop.ini"];
 /// LaTeX build byproducts, regenerated on every compile.
 pub const IGNORED_EXTENSIONS: [&str; 4] = [".aux", ".fdb_latexmk", ".fls", ".synctex.gz"];
 
+pub use wf_core::sync::git_policy::{MIRROR_MANIFEST_EXCLUDE, is_mirror_manifest};
+
 /// Why a path is kept out of folder history.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SkipReason {
@@ -87,6 +89,7 @@ pub fn decide_path(
         return Err(SkipReason::IgnoredDirectory);
     }
     if IGNORED_FILES.contains(&file_name.as_str())
+        || is_mirror_manifest(rel_path)
         || IGNORED_EXTENSIONS
             .iter()
             .any(|ext| file_name.ends_with(*ext))
