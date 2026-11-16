@@ -16,6 +16,13 @@ import { readyCore } from "@/lib/rust-core";
 const MERGE_MS = 200;
 const PERSIST_IDLE_MS = 5000;
 const COMPACT_THRESHOLD = 200;
+/** First wait before rejoining a channel the server closed; doubles per failure. */
+const REJOIN_BASE_MS = 1000;
+const REJOIN_MAX_MS = 30_000;
+/** How long the client gets to rejoin an errored channel before it is replaced. */
+const ERROR_REJOIN_MS = 10_000;
+/** The length of an update that carries nothing: no items, no deletions. */
+const EMPTY_UPDATE_LENGTH = 2;
 
 export interface RealtimeYjsProviderOptions {
   doc: Y.Doc;
@@ -71,64 +78,272 @@ export interface RealtimeYjsProviderOptions {
 }
 
 export class RealtimeYjsProvider {
-  private readonly channel: RealtimeChannel | null;
+  private channel: RealtimeChannel | null = null;
+  /**
+   * True only between SUBSCRIBED and the next error or close. Nothing is sent
+   * outside it: the client turns a send on a channel that is not joined into a
+   * REST call, which fails offline and dropped the edit.
+   */
+  private connected = false;
+  /** Local edits not yet broadcast. Kept merged into one update while offline. */
   private pending: Uint8Array[] = [];
   private mergeTimer: ReturnType<typeof setTimeout> | null = null;
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
+  private rejoinTimer: ReturnType<typeof setTimeout> | null = null;
+  private errorTimer: ReturnType<typeof setTimeout> | null = null;
+  private rejoinAttempts = 0;
   private lastPersistedId = 0;
   private destroyed = false;
-  private awarenessHandler: ((payload: { added: number[]; updated: number[]; removed: number[] }) => void) | null =
-    null;
+  private readonly live: boolean;
+  /** The channel last replaced, so a client handing it back is caught. */
+  private replaced: RealtimeChannel | null = null;
+  private awarenessHandler:
+    | ((payload: { added: number[]; updated: number[]; removed: number[] }, origin: unknown) => void)
+    | null = null;
 
   constructor(private readonly opts: RealtimeYjsProviderOptions) {
-    this.channel = opts.live === false ? null : this.join();
+    const live = opts.live !== false;
+    this.live = live;
+    if (live) this.join();
     opts.doc.on("update", this.onLocalUpdate);
-    if (opts.awareness && this.channel) this.bindAwareness(opts.awareness);
+    if (opts.awareness && live) this.bindAwareness(opts.awareness);
     void this.bootstrapFromStore();
   }
 
   /** Joins the document's broadcast topic. Only called when there is a socket. */
-  private join(): RealtimeChannel {
+  private join() {
+    this.openChannel().catch((err) => {
+      this.opts.onError?.("subscribe", formatError(err));
+      this.scheduleRejoin(() => this.join());
+    });
+  }
+
+  private async openChannel() {
     const opts = this.opts;
     // The socket, which after a cutover is not the same host as the data API.
     const db = getRealtimeClient(opts.db as SupabaseClient);
-    const channel = db.channel(`crdt:${opts.resourceType}:${opts.resourceId}`, {
-      config: { broadcast: { self: false }, private: true },
-    });
-    channel.on("broadcast", { event: "yjs" }, ({ payload }) => {
-      this.receive(() => this.onRemote(payload as { data?: string }));
-    });
-    channel.on("broadcast", { event: "awareness" }, ({ payload }) => {
-      this.receive(() => this.onAwarenessRemote(payload as { data?: string }));
-    });
-    // Token first, then join — see the note in `project-lww-invalidator`.
+    const make = () =>
+      db.channel(`crdt:${opts.resourceType}:${opts.resourceId}`, {
+        config: { broadcast: { self: false }, private: true },
+      });
+    let channel = make();
+    // The client still holds the channel being replaced: subscribing it again
+    // throws, and its handlers are bound to the old session. Remove it from
+    // the client, then ask for a fresh one straight away.
+    if (this.isOld(channel)) {
+      this.retire(channel);
+      await this.remove(channel);
+      if (this.destroyed) return;
+      channel = make();
+      if (this.isOld(channel)) {
+        // Still there: remove it again and retry on the backoff. Every retry
+        // removes it first, so this never gives up while the editor is open.
+        opts.onError?.("subscribe", "old channel still registered; removed, retrying");
+        void this.remove(channel);
+        this.scheduleRejoin(() => this.join());
+        return;
+      }
+    }
+    if (this.channel) this.replaced = this.channel;
+    this.channel = channel;
+    // A watch on the old channel would otherwise keep this one from being watched.
+    this.clearErrorTimer();
+    const on = <P>(event: string, handle: (payload: P) => void) =>
+      channel.on("broadcast", { event }, ({ payload }) => {
+        // An old channel the client still delivers to is not this session.
+        if (channel !== this.channel) return;
+        this.receive(() => handle(payload as P));
+      });
+    on<{ data?: string }>("yjs", (p) => this.onRemote(p));
+    on<{ data?: string }>("awareness", (p) => this.onAwarenessRemote(p));
+    on<{ sv?: string; from?: number }>("sync1", (p) => this.onSyncStep1(p));
+    on<{ to?: number; data?: string; sv?: string }>("sync2", (p) => this.onSyncStep2(p));
+    this.connect(channel);
+  }
+
+  /** Token first, then join — see the note in `project-lww-invalidator`. */
+  private connect(channel: RealtimeChannel) {
+    const db = getRealtimeClient(this.opts.db as SupabaseClient);
     void db.realtime
       .setAuth()
       .then(() => {
         // Torn down while the token was on its way: `destroy()` has already
         // left, and joining now would hold a channel nobody owns.
-        if (this.destroyed) return;
+        if (this.destroyed || channel !== this.channel) return;
         channel.subscribe((status, err) => {
           if (process.env.NODE_ENV !== "production") {
             console.debug(`[collab] ${channel.topic} → ${status}${err ? `: ${err.message}` : ""}`);
           }
-          if (this.destroyed) return;
-          if (status === "SUBSCRIBED") this.opts.onConnected?.();
-          else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          // A channel this provider has since replaced can still report.
+          if (this.destroyed || channel !== this.channel) return;
+          if (status === "SUBSCRIBED") {
+            this.clearErrorTimer();
+            this.connected = true;
+            this.rejoinAttempts = 0;
+            this.opts.onConnected?.();
+            this.onJoined();
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
             this.opts.onError?.("subscribe", `${status}${err ? `: ${err.message}` : ""}`);
+            this.onDisconnected();
+            // A closed channel the client drops from its registry, so it is
+            // replaced here. An errored or timed-out one it usually rejoins by
+            // itself, but not always (a refused token or topic can end there),
+            // so it gets a while to report SUBSCRIBED before it is replaced too.
+            if (status === "CLOSED") this.scheduleRejoin(() => this.join());
+            else this.watchErroredChannel(channel);
           }
         });
       })
-      .catch((err) => this.opts.onError?.("setAuth", formatError(err)));
-    return channel;
+      .catch((err) => {
+        this.opts.onError?.("setAuth", formatError(err));
+        // Same channel: it never subscribed, and the client hands back the
+        // registered channel for a topic, so a new one would double the handlers.
+        // A replaced channel would be skipped by connect, so join the current one.
+        this.scheduleRejoin(() => {
+          if (this.destroyed) return;
+          if (channel !== this.channel) this.join();
+          else this.connect(channel);
+        });
+      });
+  }
+
+  private watchErroredChannel(channel: RealtimeChannel) {
+    if (this.errorTimer) return;
+    this.errorTimer = setTimeout(() => {
+      this.errorTimer = null;
+      if (this.destroyed || this.connected || channel !== this.channel) return;
+      // Dropped first, so whatever the old channel still reports is stale.
+      this.retire(channel);
+      // Removed, not only left, so the client never hands it back for the topic.
+      void this.remove(channel);
+      this.scheduleRejoin(() => this.join());
+    }, ERROR_REJOIN_MS);
+  }
+
+  private isOld(channel: RealtimeChannel) {
+    return channel === this.channel || channel === this.replaced;
+  }
+
+  /** From here on, anything the channel reports is stale. */
+  private retire(channel: RealtimeChannel) {
+    this.replaced = channel;
+    if (this.channel === channel) this.channel = null;
+  }
+
+  /**
+   * Unsubscribes the channel and drops it from the client's registry. Only for
+   * replacing a channel: the editor joins the topic again, so the shared socket
+   * may disconnect for a moment until the next subscribe reconnects it.
+   */
+  private async remove(channel: RealtimeChannel) {
+    const db = getRealtimeClient(this.opts.db as SupabaseClient);
+    try {
+      await db.removeChannel(channel);
+    } catch (err) {
+      this.opts.onError?.("leave", formatError(err));
+    }
+  }
+
+  private clearErrorTimer() {
+    if (this.errorTimer) clearTimeout(this.errorTimer);
+    this.errorTimer = null;
+  }
+
+  private scheduleRejoin(retry: () => void) {
+    if (this.destroyed || this.rejoinTimer) return;
+    const wait = Math.min(REJOIN_MAX_MS, REJOIN_BASE_MS * 2 ** this.rejoinAttempts);
+    this.rejoinAttempts += 1;
+    this.rejoinTimer = setTimeout(() => {
+      this.rejoinTimer = null;
+      if (!this.destroyed) retry();
+    }, wait);
+  }
+
+  /**
+   * Joined, or joined again. Edits made while away go out first, then the two
+   * steps of a Yjs sync: this side's state vector asks each peer for what it
+   * lacks (step 1), and each answer carries the peer's own vector so this side
+   * can send back what the peer lacks (step 2). The queued edits travel ahead
+   * of step 1 on the same ordered channel, so the peer's vector already counts
+   * them and they go out once.
+   */
+  private onJoined() {
+    if (this.mergeTimer) clearTimeout(this.mergeTimer);
+    void this.flushOutbound();
+    const sv = readyCore().encodeBase64(Y.encodeStateVector(this.opts.doc));
+    this.broadcast("sync1", { sv, from: this.opts.doc.clientID });
+    this.sendOwnAwareness();
+  }
+
+  /**
+   * Peers seen over a connection that is gone are no longer known to be here.
+   * They are forgotten, clock included, rather than marked removed:
+   * `removeAwarenessStates` bumps their clock locally, and the state they send
+   * again on reconnect (at their unchanged clock) would then be ignored.
+   */
+  private onDisconnected() {
+    this.connected = false;
+    const awareness = this.opts.awareness;
+    if (!awareness) return;
+    const removed = [...awareness.getStates().keys()].filter((id) => id !== this.opts.doc.clientID);
+    if (removed.length === 0) return;
+    for (const id of removed) {
+      awareness.states.delete(id);
+      awareness.meta.delete(id);
+    }
+    const change = { added: [], updated: [], removed };
+    awareness.emit("change", [change, this]);
+    awareness.emit("update", [change, this]);
+  }
+
+  private onSyncStep1(payload: { sv?: string; from?: number }) {
+    if (!payload.sv || this.destroyed || payload.from === this.opts.doc.clientID) return;
+    const theirs = readyCore().decodeBase64(payload.sv);
+    const data = readyCore().encodeBase64(encodeStateAsUpdate(this.opts.doc, theirs));
+    const sv = readyCore().encodeBase64(Y.encodeStateVector(this.opts.doc));
+    this.broadcast("sync2", { to: payload.from, data, sv });
+    // The newcomer has not seen this side's presence yet.
+    this.sendOwnAwareness();
+  }
+
+  private onSyncStep2(payload: { to?: number; data?: string; sv?: string }) {
+    if (payload.to !== this.opts.doc.clientID || this.destroyed) return;
+    if (payload.data) Y.applyUpdate(this.opts.doc, readyCore().decodeBase64(payload.data), this);
+    if (!payload.sv) return;
+    const missing = encodeStateAsUpdate(this.opts.doc, readyCore().decodeBase64(payload.sv));
+    if (missing.length <= EMPTY_UPDATE_LENGTH) return;
+    this.broadcast("yjs", { data: readyCore().encodeBase64(missing) });
+  }
+
+  private broadcast(event: string, payload: Record<string, unknown>) {
+    if (!this.connected || !this.channel) return;
+    this.channel
+      .send({ type: "broadcast", event, payload })
+      .then((res) => {
+        if (res !== "ok") this.opts.onError?.("send", `${event} returned ${String(res)}`);
+      })
+      .catch((err) => this.opts.onError?.("send", formatError(err)));
+  }
+
+  private sendOwnAwareness() {
+    const awareness = this.opts.awareness;
+    if (!awareness || awareness.getLocalState() === null) return;
+    const update = encodeAwarenessUpdate(awareness, [this.opts.doc.clientID]);
+    this.broadcast("awareness", { data: readyCore().encodeBase64(update) });
   }
 
   private bindAwareness(awareness: Awareness) {
-    this.awarenessHandler = ({ added, updated, removed }) => {
-      const changed = added.concat(updated, removed);
-      const update = encodeAwarenessUpdate(awareness, changed);
-      const data = readyCore().encodeBase64(update);
-      void this.channel?.send({ type: "broadcast", event: "awareness", payload: { data } });
+    this.awarenessHandler = ({ added, updated, removed }, origin) => {
+      // What came from a peer, or was cleared on a disconnect, is not passed
+      // on: every receiver used to re-broadcast every peer's cursor.
+      if (origin === this) return;
+      // Only this client's own state is ours to announce. Awareness's sweep
+      // also drops peers that went quiet, and telling everyone that would mark
+      // a peer gone for clients that can still hear it.
+      const own = this.opts.doc.clientID;
+      if (!added.concat(updated, removed).includes(own)) return;
+      const update = encodeAwarenessUpdate(awareness, [own]);
+      this.broadcast("awareness", { data: readyCore().encodeBase64(update) });
     };
     awareness.on("update", this.awarenessHandler);
   }
@@ -150,21 +365,34 @@ export class RealtimeYjsProvider {
   private async flushOutbound() {
     this.mergeTimer = null;
     if (this.pending.length === 0 || this.destroyed) return;
-    if (!this.channel) {
+    if (!this.live) {
       // Solo: the updates were queued for a broadcast that is not happening.
       // Persistence runs on its own timer and has its own copy of them.
       this.pending = [];
       return;
     }
-    const merged = mergeUpdates(this.pending);
+    const merged = this.pending.length === 1 ? this.pending[0]! : mergeUpdates(this.pending);
+    // Offline they are held, as one update so a long outage costs one copy of
+    // the edits rather than one per keystroke. `onJoined` sends them.
+    this.pending = [merged];
+    if (!this.connected || !this.channel) return;
     this.pending = [];
     const data = readyCore().encodeBase64(merged);
     try {
       const res = await this.channel.send({ type: "broadcast", event: "yjs", payload: { data } });
-      if (res !== "ok") this.opts.onError?.("send", `broadcast returned ${String(res)}`);
+      if (res !== "ok") {
+        this.requeue(merged);
+        this.opts.onError?.("send", `broadcast returned ${String(res)}`);
+      }
     } catch (err) {
+      this.requeue(merged);
       this.opts.onError?.("send", formatError(err));
     }
+  }
+
+  /** A failed send goes out again with the next join; Yjs ignores a repeat. */
+  private requeue(update: Uint8Array) {
+    if (!this.destroyed) this.pending.unshift(update);
   }
 
   /** A peer's message is untrusted input: a malformed one is reported, never thrown. */
@@ -278,14 +506,22 @@ export class RealtimeYjsProvider {
     this.opts.doc.off("update", this.onLocalUpdate);
     if (this.mergeTimer) clearTimeout(this.mergeTimer);
     if (this.persistTimer) clearTimeout(this.persistTimer);
+    if (this.rejoinTimer) clearTimeout(this.rejoinTimer);
+    this.rejoinTimer = null;
+    this.clearErrorTimer();
     if (this.opts.awareness && this.awarenessHandler) {
       this.opts.awareness.off("update", this.awarenessHandler);
       try {
         removeAwarenessStates(this.opts.awareness, [this.opts.doc.clientID], this);
+        // Said before leaving, or peers keep this avatar for their 30 s
+        // presence timeout.
+        const gone = encodeAwarenessUpdate(this.opts.awareness, [this.opts.doc.clientID]);
+        this.broadcast("awareness", { data: readyCore().encodeBase64(gone) });
       } catch (err) {
         this.opts.onError?.("awareness", formatError(err));
       }
     }
+    this.connected = false;
 
     // Leave the channel *before* the awaits below, in this method's synchronous
     // prologue. Tearing down last meant the `phx_leave` went out after
