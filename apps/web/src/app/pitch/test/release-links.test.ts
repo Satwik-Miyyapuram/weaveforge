@@ -17,3 +17,13 @@ test("the outro offers the download through RELEASES_URL", () => {
   assert.match(page, /RELEASES_URL/);
   assert.match(page, /Get 0\.9\.1 from <a href=\{RELEASES_URL\}>/);
 });
+
+test("DOCS_URL points at the docs host, not a relative /docs/ route", () => {
+  assert.match(read("links.ts"), /export const DOCS_URL = "https:\/\/docs\.weaveforge\.org\/";/);
+});
+
+test("the pitch has no relative /docs/ links left", () => {
+  const page = read("page.tsx");
+  assert.doesNotMatch(page, /href="\/docs/);
+  assert.doesNotMatch(page, /href=\{"\/docs/);
+});
