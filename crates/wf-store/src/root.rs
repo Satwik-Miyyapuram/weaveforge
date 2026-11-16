@@ -80,10 +80,13 @@ pub fn verify_root(root: &Path) -> Result<RootState, RootError> {
 /// folder with someone's files gets a `WeaveForge/` inside it, and the result says where.
 pub fn workspace_root_for(chosen: &Path) -> Result<RootChoice, RootError> {
     match verify_root(chosen) {
-        Ok(state) => Ok(RootChoice {
-            root: chosen.to_path_buf(),
-            state,
-        }),
+        Ok(state) => {
+            ensure_writable(chosen)?;
+            Ok(RootChoice {
+                root: chosen.to_path_buf(),
+                state,
+            })
+        }
         Err(RootError::NotEmpty) => nest(chosen),
         Err(refusal) => Err(refusal),
     }
@@ -93,8 +96,17 @@ fn nest(chosen: &Path) -> Result<RootChoice, RootError> {
     let nested = chosen.join(WORKSPACE_SUBDIR);
     fs::create_dir_all(&nested).map_err(|_| RootError::CannotWrite)?;
     let state = verify_root(&nested)?;
+    ensure_writable(&nested)?;
     Ok(RootChoice {
         root: nested,
         state,
     })
+}
+
+/// Proves the folder takes a file, so a read-only folder is refused when it is chosen rather
+/// than on the first save. The probe is removed again; a dot-file never counts as a person's file.
+fn ensure_writable(root: &Path) -> Result<(), RootError> {
+    let probe = root.join(format!(".weaveforge-write-probe-{}", std::process::id()));
+    fs::write(&probe, b"").map_err(|_| RootError::CannotWrite)?;
+    fs::remove_file(&probe).map_err(|_| RootError::CannotWrite)
 }

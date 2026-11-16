@@ -146,3 +146,23 @@ fn root_error_texts_match_the_desktop_app() {
         "WeaveForge could not write inside that folder."
     );
 }
+
+#[test]
+fn choosing_an_empty_folder_leaves_no_probe_file_behind() {
+    let dir = TempDir::new();
+    let choice = workspace_root_for(dir.path()).unwrap();
+    assert_eq!(choice.root, dir.path());
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 0);
+}
+
+// A folder the app cannot write to is refused up front, not found out on the first save.
+#[cfg(unix)]
+#[test]
+fn folder_that_cannot_be_written_is_refused() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = TempDir::new();
+    fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o555)).unwrap();
+    let result = workspace_root_for(dir.path());
+    fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o755)).unwrap();
+    assert_eq!(result, Err(RootError::CannotWrite));
+}
