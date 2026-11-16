@@ -24,6 +24,7 @@ import {
 } from "../application/parts-2";
 import type { PenCaptureSession } from "../application/use-pen-capture";
 import type { InkPalette } from "../render/parts-1";
+import { useScreenActive } from "@/lib/hooks/use-screen-active";
 
 /** What the overlay needs from the host; the host owns the pen and the canvas. */
 export interface InkNativeOverlayDeps {
@@ -53,10 +54,14 @@ export interface InkNativeOverlayDeps {
 export function useInkNativeOverlay(deps: InkNativeOverlayDeps) {
   const { canvasRef, scrollRef, sheetRef, session, penOnly, handedness } = deps;
   const native = useMemo(() => nativeInkBridge(), []);
+  const active = useScreenActive();
 
-  /** The overlay inks only over the page: its box, kept current as it moves. */
+  /**
+   * The overlay inks only over the page: its box, kept current as it moves.
+   * None while the screen is hidden behind another, or the pen would ink there.
+   */
   useEffect(() => {
-    if (!native) return;
+    if (!native || !active) return;
     const canvas = canvasRef.current;
     const scroller = scrollRef.current;
     if (!canvas || !scroller) return;
@@ -82,7 +87,7 @@ export function useInkNativeOverlay(deps: InkNativeOverlayDeps) {
       window.removeEventListener("scroll", tell);
       native.clearViewport();
     };
-  }, [native, canvasRef, scrollRef, deps.scale]);
+  }, [native, active, canvasRef, scrollRef, deps.scale]);
 
   /** The overlay's wet stroke looks like the ink it will become. */
   useEffect(() => {

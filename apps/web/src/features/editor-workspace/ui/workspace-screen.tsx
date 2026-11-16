@@ -46,6 +46,8 @@ import { DocumentHost, type DocumentMetrics } from "./document-host";
 import { ExplorerPanel } from "./explorer-panel";
 import { useFocusMode } from "./use-focus-mode";
 import { HydratingDocument, useNoteBodies } from "./use-note-bodies";
+import { requestedTab, useReturnRefresh } from "./use-return-refresh";
+import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import { PaneView, openTabs } from "./pane-view";
@@ -67,15 +69,6 @@ function keepOpen<T>(byKey: Record<string, T>, open: ReadonlySet<string>): Recor
 
 function store(): Storage | undefined {
   return typeof localStorage === "undefined" ? undefined : localStorage;
-}
-
-/** The tab named by `?open=kind:id`, if the URL names one. */
-function requestedTab(): TabRef | null {
-  const raw = new URLSearchParams(window.location.search).get("open");
-  if (!raw) return null;
-  const [kind, ...rest] = raw.split(":");
-  const id = rest.join(":");
-  return kind && id ? { kind, id } : null;
 }
 
 /** How many closed tabs `⌘⇧T` can bring back. */
@@ -114,6 +107,7 @@ export function WorkspaceScreen() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [explorerHidden, setExplorerHidden] = useState(false);
   const { focus, toggleFocus } = useFocusMode();
+  const onScreen = useScreenActive();
   // `F2`: a count, so the explorer's rename starts once per press.
   const [renameRequest, setRenameRequest] = useState(0);
   // The chord handler is bound once; it reads the document on screen through
@@ -262,6 +256,8 @@ export function WorkspaceScreen() {
     setLayout(next);
     return next;
   }, [projectId]);
+  const openDoc = useCallback((doc: Document) => void apply(readyCore().openTab(layoutRef.current, openingTab(doc.kind, doc.id, doc.body))), [apply]);
+  useReturnRefresh(reload, openDoc, setError);
 
   const byKey = useMemo(
     () => new Map((documents ?? []).map((doc) => [readyCore().tabKey(doc), doc])),
@@ -634,6 +630,8 @@ export function WorkspaceScreen() {
   // On the window, not the shell: CodeMirror stops propagation of many keys,
   // and a shortcut must still work with focus inside it.
   useEffect(() => {
+    // Hidden behind another screen (`workspace-host.tsx`): its chords are not ours.
+    if (!onScreen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       // Only a chord this screen acts on is claimed: a ⌘-number with no tab
       // behind it falls through to the browser, which switches its own tabs.
@@ -670,7 +668,7 @@ export function WorkspaceScreen() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [apply, duplicateActive, toggleExplorer, toggleFocus, reopenTab]);
+  }, [onScreen, apply, duplicateActive, toggleExplorer, toggleFocus, reopenTab]);
 
   if (error && !documents) return <FormError>{error}</FormError>;
   if (!documents) return <ScreenLoader status="Loading workspace…" />;

@@ -14,6 +14,7 @@ import { ThemeSyncProvider } from "@/features/settings/ui/theme-sync-provider";
 import { OrgSetupGate } from "@/features/org/ui/org-setup-gate";
 import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
 import { useIsDetailView, useModuleRegistry, useWorkspaceRoute } from "@/lib/hooks/parts";
+import { WorkspaceHost } from "@/features/editor-workspace/ui/workspace-host";
 import { useNavFolded } from "@/lib/hooks/use-nav-fold";
 import { commandForChord, isTypingTarget } from "@/features/editor-workspace/application/parts";
 import { HeaderActions } from "./header-actions";
@@ -266,6 +267,10 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
                 <PageTransition>{children}</PageTransition>
               </RoutePending>
             </SwipeViews>
+            {/* Beside the routes, not in `/workspace`'s page: it stays mounted
+                once opened, so coming back to it is instant. Keyed on the
+                project, so a switch drops the last project's tabs. */}
+            <WorkspaceHost key={current.id} shown={editorRoute} />
           </div>
         ) : accountRoute ? (
           // No project, but this route does not need one. Rendered bare: SubNav,

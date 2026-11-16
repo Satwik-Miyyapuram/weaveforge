@@ -2763,3 +2763,17 @@
 
 /* Desk between pages, from the ink bar's page spacing (`--ink-page-gap`). */
 .ink-page-scroll > .ink-page + .ink-page { margin-top: var(--ink-page-gap, 0px); }
+
+/*
+ * The workspace while another screen is up (`workspace-host.tsx`): mounted, not
+ * shown. Fixed at the size it has on `/workspace` — the rail beside it — so its
+ * editors and PDF pages are not laid out again at another width on the way back.
+ */
+.workspace-host:not([data-shown]) {
+  position: fixed;
+  inset: var(--titlebar-h) 0 0 var(--nav-rail-width);
+  visibility: hidden;
+  content-visibility: hidden;
+  pointer-events: none;
+  z-index: -1;
+}

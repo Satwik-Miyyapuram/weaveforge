@@ -13,6 +13,7 @@ import { useEffect } from "react";
 import type { InkColour } from "@weaveforge/core";
 
 import { readyCore, typedCore } from "@/lib/rust-core";
+import { useScreenActive } from "@/lib/hooks/use-screen-active";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import type { InkBarTool } from "./ink-bar";
@@ -68,8 +69,11 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
     scrollRef,
     setZoom,
   } = deps;
+  const active = useScreenActive();
 
+  // Not while the screen is hidden behind another (`workspace-host.tsx`).
   useEffect(() => {
+    if (!active) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (typedCore().isEditableReaderTarget(event.target)) return;
       if (event.metaKey || event.ctrlKey) {
@@ -158,6 +162,7 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
+    active,
     send,
     onUndo,
     onRedo,

@@ -32,6 +32,7 @@ import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { InkBar } from "./ink-bar";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
+import { useScreenActive } from "@/lib/hooks/use-screen-active";
 
 export interface InkReaderProps {
   noteId: string;
@@ -200,8 +201,10 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
     return () => scroller.removeEventListener("wheel", onWheel);
   }, []);
 
-  // Keyboard zoom shortcuts (Ctrl++, Ctrl+-, Ctrl+0).
+  // Keyboard zoom shortcuts (Ctrl++, Ctrl+-, Ctrl+0), while this screen is on show.
+  const active = useScreenActive();
   useEffect(() => {
+    if (!active) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (typedCore().isEditableReaderTarget(e.target)) return;
       if (e.ctrlKey || e.metaKey) {
@@ -220,7 +223,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [active]);
 
   return (
     <div
