@@ -13,6 +13,8 @@
  * `serverClose()` is the server ending the channel (CLOSED, no library rejoin).
  * A refused join reports `refuseJoinStatus`: CLOSED, or CHANNEL_ERROR with no
  * library rejoin after it (an expired token or a denied topic).
+ * `reuseChannels` makes `channel()` return the topic's old channel, and
+ * `inject()` hands a broadcast to a channel's handlers whatever its state.
  */
 
 export type Status = "SUBSCRIBED" | "CHANNEL_ERROR" | "TIMED_OUT" | "CLOSED";
@@ -93,6 +95,11 @@ export class FakeChannel {
     this.leave("CLOSED");
   }
 
+  /** A broadcast the library still hands to this channel's handlers. */
+  inject(event: string, payload: unknown) {
+    for (const cb of this.handlers.get(event) ?? []) cb({ payload });
+  }
+
   /** A status the library reports late, after the provider moved on. */
   lateStatus(status: Status) {
     this.statusCb?.(status);
@@ -133,6 +140,8 @@ export class FakeRealtime {
   refuseJoins = false;
   /** What a refused join reports. */
   refuseJoinStatus: Status = "CLOSED";
+  /** `channel()` hands back the client's last channel (still registered). */
+  reuseChannels = false;
   /** setAuth rejects while this is set. */
   failAuth = false;
   private readonly members = new Map<string, Set<FakeChannel>>();
@@ -142,6 +151,7 @@ export class FakeRealtime {
     const channels: FakeChannel[] = [];
     const db = {
       channel: (topic: string) => {
+        if (this.reuseChannels && channels.length > 0) return channels[channels.length - 1]!;
         const ch = new FakeChannel(topic, this);
         channels.push(ch);
         return ch;

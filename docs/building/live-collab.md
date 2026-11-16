@@ -78,7 +78,7 @@ provider covers each case:
 
 | Status | Who rejoins |
 | --- | --- |
-| `CHANNEL_ERROR`, `TIMED_OUT` | Usually the library, on the same channel: `SUBSCRIBED` fires again and `onJoined()` runs. A refused join (expired token, denied topic) may never be retried, so if no `SUBSCRIBED` comes within 10 s (`ERROR_REJOIN_MS`) the provider leaves that channel and `join()` builds a new one. A late `SUBSCRIBED` on the old channel is then ignored. |
+| `CHANNEL_ERROR`, `TIMED_OUT` | Usually the library, on the same channel: `SUBSCRIBED` fires again and `onJoined()` runs. A refused join (expired token, denied topic) may never be retried, so if no `SUBSCRIBED` comes within 10 s (`ERROR_REJOIN_MS`) the provider leaves that channel and `join()` builds a new one. A late status or broadcast on the old channel is then ignored, and if the client hands the old channel back for the topic, it is not subscribed again: the join is retried after the backoff. |
 | `CLOSED` from the server | Nobody, unless we do. The library drops closed channels, so `join()` builds a new one. |
 | `setAuth()` rejected | We retry `connect()` on the *same* channel (no new handlers). |
 

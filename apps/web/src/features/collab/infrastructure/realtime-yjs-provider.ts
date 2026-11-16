@@ -95,6 +95,8 @@ export class RealtimeYjsProvider {
   private lastPersistedId = 0;
   private destroyed = false;
   private readonly live: boolean;
+  /** The channel last replaced, so a client handing it back is caught. */
+  private replaced: RealtimeChannel | null = null;
   private awarenessHandler:
     | ((payload: { added: number[]; updated: number[]; removed: number[] }, origin: unknown) => void)
     | null = null;
@@ -116,9 +118,23 @@ export class RealtimeYjsProvider {
     const channel = db.channel(`crdt:${opts.resourceType}:${opts.resourceId}`, {
       config: { broadcast: { self: false }, private: true },
     });
+    // The client still holds the channel being replaced: subscribing it again
+    // throws, and its handlers are already bound. Try again later instead.
+    if (channel === this.channel || channel === this.replaced) {
+      opts.onError?.("subscribe", "old channel still registered; retrying");
+      this.scheduleRejoin(() => this.join());
+      return;
+    }
+    if (this.channel) this.replaced = this.channel;
     this.channel = channel;
+    // A watch on the old channel would otherwise keep this one from being watched.
+    this.clearErrorTimer();
     const on = <P>(event: string, handle: (payload: P) => void) =>
-      channel.on("broadcast", { event }, ({ payload }) => this.receive(() => handle(payload as P)));
+      channel.on("broadcast", { event }, ({ payload }) => {
+        // An old channel the client still delivers to is not this session.
+        if (channel !== this.channel) return;
+        this.receive(() => handle(payload as P));
+      });
     on<{ data?: string }>("yjs", (p) => this.onRemote(p));
     on<{ data?: string }>("awareness", (p) => this.onAwarenessRemote(p));
     on<{ sv?: string; from?: number }>("sync1", (p) => this.onSyncStep1(p));
@@ -173,6 +189,7 @@ export class RealtimeYjsProvider {
       this.errorTimer = null;
       if (this.destroyed || this.connected || channel !== this.channel) return;
       // Dropped first, so whatever the old channel still reports is stale.
+      this.replaced = channel;
       this.channel = null;
       channel.unsubscribe().catch((err) => this.opts.onError?.("leave", formatError(err)));
       this.scheduleRejoin(() => this.join());
