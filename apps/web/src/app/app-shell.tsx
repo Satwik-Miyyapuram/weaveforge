@@ -25,6 +25,7 @@ import { JumpToPalette } from "@/components/jump-to-palette";
 import { ShortcutsHost } from "@/components/shortcuts-host";
 import { NavPendingProvider } from "@/lib/nav-pending";
 import { ShareDialogHost } from "@/features/sharing/ui/share-dialog-host";
+import { PageHeaderAccount } from "@/components/screen-head";
 import { RoutePending } from "./route-pending";
 import { SwipeViews } from "./swipe-views";
 import { StartupProvider } from "@/features/startup";
@@ -282,19 +283,12 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
           // No project, but this route does not need one. Rendered bare: SubNav,
           // SwipeViews and RoutePending are all project-view chrome, and
           // RoutePending drives nav-pending state that only makes sense there.
-          <>
-            <div className="project-picker-bar desktop-only">
-              <HeaderActions />
-            </div>
-            {children}
-          </>
+          // The account button goes in the screen's header row (ScreenHead).
+          <PageHeaderAccount.Provider value={<HeaderActions />}>{children}</PageHeaderAccount.Provider>
         ) : (
-          <>
-            <div className="project-picker-bar desktop-only">
-              <HeaderActions />
-            </div>
+          <PageHeaderAccount.Provider value={<HeaderActions />}>
             <ProjectsScreen />
-          </>
+          </PageHeaderAccount.Provider>
         )}
       </main>
     </div>
