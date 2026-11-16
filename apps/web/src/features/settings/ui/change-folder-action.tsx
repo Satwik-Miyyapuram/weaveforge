@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/button";
-import { chooseDesktopFolder } from "../application/workspace-folder";
+import { chooseDesktopFolder } from "@/features/workspace/application/workspace-folder";
 
 /** The note that sits beside Change folder: what moves, and what does not go away. */
 export const CHANGE_FOLDER_NOTE = "Moves where your files are mirrored; nothing is deleted.";
