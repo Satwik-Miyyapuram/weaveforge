@@ -11,11 +11,13 @@ import * as Y from "yjs";
 import {
   KEPT_LIVE_TEXT_HEADING,
   SAVED_BODIES_KEPT,
+  applyStoredBody,
   markSaved,
   rebuildTo,
   reconcileWithBody,
   savedDigests,
   seedIfEmpty,
+  unmarkSaved,
 } from "../domain/seed-document";
 import { readyCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
@@ -188,4 +190,37 @@ test("markSaved: concurrent marks of one digest collapse to one", () => {
   Y.applyUpdate(alice, Y.encodeStateAsUpdate(bob));
   markSaved(alice, "next");
   assert.deepEqual(savedDigests(alice), ["same", "next"]);
+});
+
+test("applyStoredBody: the store's merge reaches the document without undoing later typing", () => {
+  const doc = new Y.Doc();
+  doc.getText("body").insert(0, "line one\nline two");
+  const sent = Y.encodeStateAsUpdate(doc);
+  // Typed while the save was in flight.
+  doc.getText("body").insert(0, "new top\n");
+  // The store merged a line someone else had saved.
+  applyStoredBody(doc, sent, "line one\nline two\ntheir line");
+  assert.equal(text(doc), "new top\nline one\nline two\ntheir line");
+});
+
+test("applyStoredBody: two peers applying one stored body converge on one copy", () => {
+  const alice = new Y.Doc();
+  alice.getText("body").insert(0, "base");
+  const bob = new Y.Doc();
+  Y.applyUpdate(bob, Y.encodeStateAsUpdate(alice));
+  const sent = Y.encodeStateAsUpdate(alice);
+  applyStoredBody(alice, sent, "base plus");
+  applyStoredBody(bob, sent, "base plus");
+  Y.applyUpdate(alice, Y.encodeStateAsUpdate(bob));
+  Y.applyUpdate(bob, Y.encodeStateAsUpdate(alice));
+  assert.equal(text(alice), "base plus");
+  assert.equal(text(bob), "base plus");
+});
+
+test("unmarkSaved: a save that failed is no longer claimed", () => {
+  const doc = new Y.Doc();
+  markSaved(doc, "kept");
+  markSaved(doc, "failed");
+  unmarkSaved(doc, "failed");
+  assert.deepEqual(savedDigests(doc), ["kept"]);
 });

@@ -91,6 +91,16 @@ export function markSaved(doc: Y.Doc, digest: string): void {
   });
 }
 
+/** Forget a mark whose save did not land, so the body is not claimed as saved. */
+export function unmarkSaved(doc: Y.Doc, digest: string): void {
+  const saved = savedBodies(doc);
+  const marks = saved.toArray();
+  if (!marks.includes(digest)) return;
+  doc.transact(() => {
+    for (let i = marks.length - 1; i >= 0; i -= 1) if (marks[i] === digest) saved.delete(i, 1);
+  });
+}
+
 /**
  * A 32-bit FNV-1a hash of a document's state and a body, never the seed's
  * client id. The state is the snapshot, delete set included: two documents can
@@ -143,6 +153,24 @@ export function rebuildTo(doc: Y.Doc, body: string): void {
   });
   Y.applyUpdate(doc, Y.encodeStateAsUpdate(scratch, before));
   scratch.destroy();
+}
+
+/**
+ * Bring the body the store wrote into the document, when it differs from the
+ * one sent (the store merged in someone else's save).
+ *
+ * `sentState` is the document's state when the save was sent: the change from
+ * the sent text to the stored one is made against it and merged in, so text
+ * typed while the save was in flight is kept. Made with `rebuildTo`, so peers
+ * that do the same for one save make the same operation. Applied as a remote
+ * update: the body is already stored, and this is not an edit to save.
+ */
+export function applyStoredBody(doc: Y.Doc, sentState: Uint8Array, stored: string): void {
+  const sent = new Y.Doc();
+  Y.applyUpdate(sent, sentState);
+  rebuildTo(sent, stored);
+  Y.applyUpdate(doc, Y.encodeStateAsUpdate(sent, Y.encodeStateVectorFromUpdate(sentState)));
+  sent.destroy();
 }
 
 /** The heading over live text the stored body lacked, kept when it cannot tell which is newer. */

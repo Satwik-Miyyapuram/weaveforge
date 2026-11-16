@@ -166,3 +166,108 @@ test("seeding with a new body makes that the saved text", async () => {
   assert.equal(await saver.flush(), true);
   assert.deepEqual(saved, []);
 });
+
+test("a second write waits for the one in flight, so an older body cannot land last", async () => {
+  const started: string[] = [];
+  const releases: (() => void)[] = [];
+  const saver = new BodySaver(
+    {
+      delayMs: 60_000,
+      onError: () => undefined,
+      save: async (body) => {
+        started.push(body);
+        await new Promise<void>((resolve) => releases.push(resolve));
+      },
+    },
+    "stored",
+  );
+  saver.seeded("stored");
+  saver.schedule("first");
+  const first = saver.flush();
+  saver.schedule("second");
+  const second = saver.flush();
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.deepEqual(started, ["first"], "the second save must not start before the first lands");
+
+  releases.shift()?.();
+  await first;
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.deepEqual(started, ["first", "second"]);
+  releases.shift()?.();
+  assert.equal(await second, true);
+});
+
+test("close saves nothing when this editor made no edit", async () => {
+  const { saver, saved } = harness();
+  // A peer's text arrived; the peer saves it, not every reader.
+  saver.close("a peer's edit");
+  assert.equal(await saver.flush(), true);
+  assert.deepEqual(saved, []);
+});
+
+test("a body the store merged becomes the saved text", async () => {
+  const saved: string[] = [];
+  const saver = new BodySaver(
+    {
+      delayMs: 60_000,
+      onError: () => undefined,
+      save: async (body) => {
+        saved.push(body);
+        return `${body}\ntheirs`;
+      },
+    },
+    "stored",
+  );
+  saver.seeded("stored");
+  saver.schedule("mine");
+  assert.equal(await saver.flush(), true);
+  saver.schedule("mine\ntheirs");
+  assert.equal(await saver.flush(), true);
+  assert.deepEqual(saved, ["mine"], "the merged body is already stored");
+});
+
+test("prepare runs when the save is queued, even behind one in flight, and its result reaches save", async () => {
+  const log: string[] = [];
+  const releases: (() => void)[] = [];
+  const saver = new BodySaver<string>(
+    {
+      delayMs: 60_000,
+      onError: () => undefined,
+      prepare: (body) => {
+        log.push(`prepare ${body}`);
+        return `ctx ${body}`;
+      },
+      save: async (body, prepared) => {
+        log.push(`save ${body} with ${prepared}`);
+        await new Promise<void>((resolve) => releases.push(resolve));
+      },
+    },
+    "stored",
+  );
+  saver.seeded("stored");
+  saver.schedule("first");
+  const first = saver.flush();
+  saver.schedule("second");
+  // The editor closes now: its doc and channel are gone once this returns.
+  saver.close("second");
+  assert.deepEqual(log.slice(-1), ["prepare second"], "prepared while the editor is still open");
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  releases.shift()?.();
+  await first;
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  releases.shift()?.();
+  assert.equal(await saver.flush(), true);
+  assert.deepEqual(log, ["prepare first", "prepare second", "save first with ctx first", "save second with ctx second"]);
+});
+
+test("a peer's text arriving while an edit waits is saved with it, and alone it is not saved", async () => {
+  const { saver, saved } = harness();
+  saver.refresh("stored + peer");
+  assert.equal(await saver.flush(), true);
+  assert.deepEqual(saved, [], "a peer's text alone is the peer's to save");
+
+  saver.schedule("stored + mine");
+  saver.refresh("stored + mine + peer");
+  assert.equal(await saver.flush(), true);
+  assert.deepEqual(saved, ["stored + mine + peer"], "the pending save must not drop the peer's text");
+});
