@@ -129,6 +129,8 @@ function bus() {
           };
           return channel;
         },
+        // As supabase-js: leave, then drop the channel once the leave settles.
+        removeChannel: (channel: { unsubscribe: () => Promise<string> }) => channel.unsubscribe(),
         realtime: { setAuth: link.setAuth ?? (async () => undefined) },
       };
       return { db, state };
@@ -169,7 +171,7 @@ function client(net: ReturnType<typeof bus>, id: number, log: Uint8Array[], body
       }
     },
     onError: (stage, detail) => errors.push(`${stage}: ${detail}`),
-    timing: { joinTimeoutMs: link.joinTimeoutMs ?? 300, rejoinBaseMs: 50, rejoinMaxMs: 200, stableMs: 1_000 },
+    timing: { joinTimeoutMs: link.joinTimeoutMs ?? 300, rejoinBaseMs: 50, rejoinMaxMs: 200 },
   });
   return { doc, provider, awareness, errors, isSeeded: () => seeded, socket: socket.state };
 }
@@ -407,15 +409,19 @@ test("sync: a channel that throws while joining is retried, and construction sur
   await bob.provider.destroy();
 });
 
-test("sync: a channel that keeps failing right after it joins backs off", async () => {
+test("sync: a channel that keeps failing right after it joins is not replaced at full rate", async () => {
   const net = bus();
   const bob = client(net, 202, [savedLog("abcdef")], "abcdef", { failOnJoin: true });
   await until(() => bob.socket.joins >= 5, "five joins");
   await bob.provider.destroy();
   const at = bob.socket.joinedAt;
   const gaps = at.slice(1).map((t, i) => t - (at[i] ?? t));
-  assert.ok((gaps[0] ?? 0) < 120, `first retry is quick: ${gaps.join(", ")}`);
-  assert.ok((gaps[3] ?? 0) >= 150, `later retries back off to the cap: ${gaps.join(", ")}`);
+  // An errored channel first gets the join timeout (300 ms here) for the
+  // client's own rejoin, so it is never replaced faster than that.
+  assert.ok(
+    gaps.every((gap) => gap >= 290),
+    `every retry waits out the join timeout: ${gaps.join(", ")}`,
+  );
 });
 
 test("sync: a client announces its presence when it joins, not only when it changes", async () => {
