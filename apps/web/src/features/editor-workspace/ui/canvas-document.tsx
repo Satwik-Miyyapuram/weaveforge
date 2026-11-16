@@ -12,11 +12,6 @@ const CanvasEditor = dynamic(() => import("@/features/canvas/ui/canvas-editor"),
   loading: () => <ScreenLoader status="Loading canvas…" showTips={false} compact />,
 });
 
-/** Whether a workspace document is a canvas note (its path is `notes/<title>.canvas`). */
-export function isCanvasDocument(doc: Pick<Document, "kind" | "path">): boolean {
-  return doc.kind === "vault_page" && doc.path.endsWith(".canvas");
-}
-
 /** A canvas note in a pane: the canvas editor, its file nodes resolved against the workspace. */
 export function CanvasDocument({
   doc,

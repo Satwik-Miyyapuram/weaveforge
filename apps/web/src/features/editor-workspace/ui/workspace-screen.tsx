@@ -35,19 +35,19 @@ import {
   isCreatableKind,
   isDocumentKind,
   kindOwner,
-  linkGroupOf,
   openingTab,
   openModeFor,
-  outlineOf,
   segmentsFor,
 } from "@weaveforge/wasm";
 import type { PaneLayout, PaneSplit, TabRef, WorkspaceTreeNode } from "@weaveforge/wasm";
 import type { ExplorerSection } from "../application/parts";
-import { DocumentHost, type DocumentMetrics } from "./document-host";
-import { CanvasDocument, isCanvasDocument } from "./canvas-document";
+import { DocumentHost, isCanvasDocument, type DocumentMetrics } from "./document-host";
+import { CanvasDocument } from "./canvas-document";
 import { ExplorerPanel } from "./explorer-panel";
 import { useFocusMode } from "./use-focus-mode";
 import { HydratingDocument, useNoteBodies } from "./use-note-bodies";
+import { useLinkTargets } from "./use-link-targets";
+import { useOutline } from "./use-outline";
 import { requestedTab, useReturnRefresh } from "./use-return-refresh";
 import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { useScreenShown } from "@/lib/screen-shown";
@@ -385,34 +385,7 @@ export function WorkspaceScreen() {
   const active = readyCore().activeTabRef(layout);
   const activeKeyOf = active ? readyCore().tabKey(active) : undefined;
 
-  // Where Read mode's wikilinks can go. The same three lists `/notes` hands
-  // `VaultMarkdown`, built from the documents this screen already loaded. Which
-  // kind resolves against which list is `kind.ts`'s `linkGroup`, so a kind that
-  // cannot be linked to is left out rather than filtered by name here.
-  const links = useMemo(() => {
-    const rows = documents ?? [];
-    const inGroup = (group: "notes" | "papers" | "sections") =>
-      rows
-        .filter((doc) => linkGroupOf(doc.kind) === group)
-        .map((doc) => ({ id: doc.id, title: doc.title }));
-    return {
-      notes: inGroup("notes"),
-      papers: inGroup("papers"),
-      sections: inGroup("sections"),
-    };
-  }, [documents]);
-
-  // Every `#tag` the project uses, for completion: the ones written inline in
-  // any document plus the ones a paper carries as a field. Sorted so the list
-  // is stable between keystrokes.
-  const tags = useMemo(() => {
-    const all = new Set<string>();
-    for (const doc of documents ?? []) {
-      for (const tag of readyCore().extractHashtags(doc.body)) all.add(tag);
-      for (const tag of doc.tags ?? []) all.add(tag);
-    }
-    return [...all].sort();
-  }, [documents]);
+  const { links, tags } = useLinkTargets(documents);
 
   const openLink = useCallback(
     (tab: TabRef) => {
@@ -603,29 +576,7 @@ export function WorkspaceScreen() {
   const documentNodes = useMemo(() => readyCore().flattenTree(tree), [tree]);
   folderIdsRef.current = useMemo(() => readyCore().folderIdsOf(tree), [tree]);
 
-  // The Outline section: the headings of the document on screen, read from the
-  // same parse Read mode renders. Collapsed by default, and empty for a
-  // document with no headings. Tabs, not a second document: a heading row
-  // scrolls the pane rather than opening anything.
-  const outline = useMemo(() => {
-    const body = activeKeyOf ? metrics[activeKeyOf]?.text ?? byKey.get(activeKeyOf)?.body ?? "" : "";
-    return outlineOf(body).map<WorkspaceTreeNode>((heading, index) => ({
-      key: `outline:${index}:${heading.slug}`,
-      kind: "folder",
-      label: heading.text,
-      // The slug is the id the Read view writes, so a click finds the heading
-      // it names with no second parse and no offset table to keep in step.
-      path: heading.slug,
-      children: [],
-      headingLevel: heading.level,
-    }));
-  }, [activeKeyOf, byKey, metrics]);
-
-  /** A heading row scrolls the pane it belongs to; nothing opens. */
-  const jumpToHeading = useCallback((node: WorkspaceTreeNode) => {
-    if (!node.path) return;
-    document.getElementById(node.path)?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }, []);
+  const { outline, jumpToHeading } = useOutline(activeKeyOf ? metrics[activeKeyOf]?.text ?? byKey.get(activeKeyOf)?.body ?? "" : "");
 
   // The explorer's sections. Files is the mirror folder; Reading lists is a
   // view over the same documents; Outline is a view over the one on screen.

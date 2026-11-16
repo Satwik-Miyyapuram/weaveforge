@@ -399,25 +399,8 @@ fn diff_entity(
             ),
         );
     }
-    // A canvas page and a note never share an id: the canvas map cannot point at a note.
-    if (current.kind.as_deref() == Some("canvas")) != (entity.kind.as_deref() == Some("canvas")) {
-        let describe = |kind: Option<&str>| {
-            if kind == Some("canvas") {
-                "canvas page".to_owned()
-            } else {
-                "note".to_owned()
-            }
-        };
-        return conflict(
-            entity,
-            ConflictKind::TypeMismatch,
-            format!(
-                "The id in {} belongs to a {}, not a {}.",
-                entity.path,
-                describe(current.kind.as_deref()),
-                describe(entity.kind.as_deref())
-            ),
-        );
+    if let Some(mismatch) = canvas_kind_mismatch(entity, current) {
+        return mismatch;
     }
     let same_title = trim_js(&current.title) == trim_js(&entity.title);
     let same_body = trim_js(&current.body) == trim_js(&entity.body);
@@ -437,6 +420,33 @@ fn diff_entity(
         ),
         ChangeSide::Folder | ChangeSide::Unknown => action(entity, ImportAction::Updated),
     }
+}
+
+/// A canvas page and a note never share an id: the canvas map cannot point at a note.
+fn canvas_kind_mismatch(
+    entity: &ParsedEntity,
+    current: &ExistingEntity,
+) -> Option<ImportDiffEntry> {
+    if (current.kind.as_deref() == Some("canvas")) != (entity.kind.as_deref() == Some("canvas")) {
+        let describe = |kind: Option<&str>| {
+            if kind == Some("canvas") {
+                "canvas page".to_owned()
+            } else {
+                "note".to_owned()
+            }
+        };
+        return Some(conflict(
+            entity,
+            ConflictKind::TypeMismatch,
+            format!(
+                "The id in {} belongs to a {}, not a {}.",
+                entity.path,
+                describe(current.kind.as_deref()),
+                describe(entity.kind.as_deref())
+            ),
+        ));
+    }
+    None
 }
 
 fn action(entity: &ParsedEntity, action: ImportAction) -> ImportDiffEntry {
