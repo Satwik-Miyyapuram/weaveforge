@@ -21,7 +21,17 @@ the workspace should go. **Choose folder** lets you pick one. **Skip** uses a
 across restarts and the question is not asked again, even after you disconnect
 the folder. You can change the folder later from Settings → Workspace.
 
-If you already have WeaveForge data from an earlier version, you are not asked.
+If Skip cannot create that `WeaveForge` folder, WeaveForge tells you so and
+writes the reason to the app log. The folder shown in Settings → Workspace is
+always the one actually in use, so check it there after a failed Skip and pick
+another folder if needed.
+
+You are not asked if WeaveForge already has data from an earlier version: an
+older database, a folder remembered from an earlier version, or an Electron-era
+data folder with items the app migrates. Other files WeaveForge writes on any
+launch (its web view data, its log, its preferences file on their own) do not
+count, so a fresh install is asked. Quitting before you answer also means you
+are asked again on the next launch.
 
 ## What gets written
 
