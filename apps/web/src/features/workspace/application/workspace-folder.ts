@@ -44,7 +44,7 @@ import {
   splitOutsideEdits,
   writeMirrorManifest,
 } from "./parts-3";
-import { activeProject, activeProjectOrNull, watchForLoss } from "./parts";
+import { activeProject, activeProjectOrNull, isNoActiveProject, watchForLoss } from "./parts";
 import {
   mirrorWorkspace,
   readPreviewFolder,
@@ -374,8 +374,12 @@ const syncs: Coalescer = createCoalescer({
   onError: reportSyncError,
 });
 
-/** Log a folder sync that failed, for the app log. */
+/**
+ * Log a folder sync that failed, for the app log. No open project is not a
+ * failure: there is simply nothing to mirror yet, so it is not logged.
+ */
 export function reportSyncError(error: unknown): void {
+  if (isNoActiveProject(error)) return;
   logToApp({ level: "warn", source: "workspace-sync", message: "Folder sync failed", detail: formatError(error) });
 }
 

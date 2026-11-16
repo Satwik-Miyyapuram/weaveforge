@@ -31,14 +31,29 @@ export async function activeProjectOrNull(): Promise<WorkspaceProject | null> {
   return project ? { id: project.id, name: project.name } : null;
 }
 
+/** Shown when no project is open: a state to describe, not a failure. */
+export const NO_ACTIVE_PROJECT_MESSAGE =
+  "Each project has its own subfolder in the workspace folder. Open a project to write it.";
+
+/** Thrown when no project is open, so callers can tell it from a real failure. */
+export class NoActiveProjectError extends Error {
+  constructor() {
+    super(NO_ACTIVE_PROJECT_MESSAGE);
+    this.name = "NoActiveProjectError";
+  }
+}
+
+export function isNoActiveProject(error: unknown): error is NoActiveProjectError {
+  return error instanceof NoActiveProjectError;
+}
+
 export async function activeProject(): Promise<WorkspaceProject> {
   const project = await activeProjectOrNull();
   if (!project) {
     const id = getContainer().projects.context.projectId;
+    if (!id) throw new NoActiveProjectError();
     throw new Error(
-      id
-        ? `The open project (${id}) is not in the project list, so its folder cannot be named. Reopen it, then try again.`
-        : "Each project has its own subfolder in the workspace folder. Open a project to write it.",
+      `The open project (${id}) is not in the project list, so its folder cannot be named. Reopen it, then try again.`,
     );
   }
   return project;
