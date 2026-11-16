@@ -167,3 +167,79 @@ test("markLoaded replaces the baseline and drops a pending save", () => {
   s.timers.fire();
   assert.deepEqual(s.written, []);
 });
+
+test("a failed write keeps the change pending: the next touch saves the latest text", async () => {
+  const timers = fakeTimers();
+  const written: string[] = [];
+  const errors: unknown[] = [];
+  let failing = true;
+  let text = "A";
+  const saver = new CanvasSaver({
+    write: (t) => {
+      if (failing) return Promise.reject(new Error("disk full"));
+      written.push(t);
+      return undefined;
+    },
+    onError: (e) => void errors.push(e),
+    schedule: timers.schedule,
+    unschedule: timers.unschedule,
+  });
+  const read = () => text;
+  saver.touch(read);
+  text = "B";
+  saver.touch(read);
+  timers.fire();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(errors.length, 1, "the failure is reported");
+
+  failing = false;
+  text = "C";
+  saver.touch(read);
+  timers.fire();
+  assert.deepEqual(written, ["C"], "the next change saves everything, including the failed B");
+});
+
+test("a flush after a failed write retries the same text", async () => {
+  const written: string[] = [];
+  let failing = true;
+  const saver = new CanvasSaver({
+    write: (t) => {
+      if (failing) return Promise.reject(new Error("offline"));
+      written.push(t);
+      return undefined;
+    },
+    onError: () => undefined,
+    schedule: fakeTimers().schedule,
+    unschedule: fakeTimers().unschedule,
+  });
+  let text = "A";
+  const read = () => text;
+  saver.touch(read);
+  text = "B";
+  saver.flush(read);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  failing = false;
+  saver.flush(read);
+  assert.deepEqual(written, ["B"]);
+});
+
+test("a successful write reports saved so the editor can clear its banner", async () => {
+  let saved = 0;
+  const saver = new CanvasSaver({
+    write: () => undefined,
+    onError: () => undefined,
+    onSaved: () => {
+      saved += 1;
+    },
+    schedule: fakeTimers().schedule,
+    unschedule: fakeTimers().unschedule,
+  });
+  let text = "A";
+  const read = () => text;
+  saver.touch(read);
+  text = "B";
+  saver.flush(read);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(saved, 1);
+});

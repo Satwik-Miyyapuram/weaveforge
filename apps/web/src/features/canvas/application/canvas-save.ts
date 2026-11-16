@@ -15,6 +15,8 @@ export interface CanvasSaverOptions {
   write: (text: string) => unknown;
   /** Receives a failed read or write, as thrown. */
   onError: (error: unknown) => void;
+  /** Called when a write lands, so the editor can clear a save-failure banner. */
+  onSaved?: () => void;
   /** The body the canvas was loaded from; its echo is not a change. */
   loaded?: string;
   delayMs?: number;
@@ -73,12 +75,18 @@ export class CanvasSaver {
       return;
     }
     if (text === this.saved) return;
+    const previous = this.saved;
     this.saved = text;
     this.remember(text);
-    try {
-      Promise.resolve(this.opts.write(text)).catch(this.opts.onError);
-    } catch (err) {
+    // A failed write is not a halt: the text stays pending, so the next touch or flush writes it again.
+    const failed = (err: unknown) => {
+      if (this.saved === text) this.saved = previous;
       this.opts.onError(err);
+    };
+    try {
+      Promise.resolve(this.opts.write(text)).then(() => this.opts.onSaved?.(), failed);
+    } catch (err) {
+      failed(err);
     }
   }
 

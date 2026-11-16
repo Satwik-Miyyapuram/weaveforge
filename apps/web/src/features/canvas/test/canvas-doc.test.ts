@@ -138,3 +138,34 @@ test("groupCarry carries nothing when no group is dragged", () => {
     [],
   );
 });
+
+test("a node without x or y is drawn at a finite position, never NaN", () => {
+  const file: CanvasFile = {
+    nodes: [{ id: "n", type: "text", text: "no place", width: 250, height: 60 } as unknown as CanvasFile["nodes"][number]],
+    edges: [],
+  };
+  const { nodes } = toFlow(file);
+  assert.ok(Number.isFinite(nodes[0]?.position.x), "x is finite");
+  assert.ok(Number.isFinite(nodes[0]?.position.y), "y is finite");
+});
+
+test("saving a node that never had x or y writes no coordinates for it", () => {
+  const file: CanvasFile = {
+    nodes: [{ id: "n", type: "text", text: "no place", width: 250, height: 60 } as unknown as CanvasFile["nodes"][number]],
+    edges: [],
+  };
+  const out = fromFlow(file, toFlow(file).nodes, []);
+  const written = JSON.stringify(out.nodes[0]);
+  assert.ok(!written.includes('"x"') && !written.includes('"y"'), `no coordinate is invented: ${written}`);
+  assert.ok(!written.includes("null") && !written.includes("NaN"));
+});
+
+test("a non-finite flow position never reaches the file", () => {
+  const file: CanvasFile = {
+    nodes: [{ id: "n", type: "text", text: "t", x: 5, y: 7, width: 250, height: 60 }],
+    edges: [],
+  };
+  const flow = toFlow(file).nodes.map((node) => ({ ...node, position: { x: Number.NaN, y: Number.NaN } }));
+  const out = fromFlow(file, flow, []);
+  assert.deepEqual([out.nodes[0]?.x, out.nodes[0]?.y], [5, 7], "the stored coordinates stand");
+});

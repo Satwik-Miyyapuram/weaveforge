@@ -35,7 +35,7 @@ import {
   type RawCanvasEdge,
 } from "../application/canvas-doc";
 import { CanvasSaver } from "../application/canvas-save";
-import { deleteKeysFor } from "../application/canvas-keys";
+import { deleteKeysFor, focusesOnPress } from "../application/canvas-keys";
 import { CanvasActionsContext, NODE_TYPES, type FlowNode } from "./canvas-nodes";
 
 type FlowEdge = Edge<{ raw: RawCanvasEdge }>;
@@ -119,7 +119,10 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
       return { loaded: null, error: formatError(err) };
     }
   });
-  const [error, setError] = useState<string | null>(initial.error);
+  // A load error means the body is not a canvas: the editor halts and never saves over it.
+  const [loadError, setLoadError] = useState<string | null>(initial.error);
+  // A failed write is shown but does not halt: the edit stays pending and saves on the next change or flush.
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(initial.loaded?.nodes ?? []);
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(initial.loaded?.edges ?? []);
   const fileRef = useRef<CanvasFile>(initial.loaded?.file ?? { nodes: [], edges: [] });
@@ -143,18 +146,19 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
           fileRef.current = parseCanvasFile(text);
           return onSaveRef.current(text);
         },
-        onError: (err) => setError(formatError(err)),
+        onError: (err) => setSaveError(formatError(err)),
+        onSaved: () => setSaveError(null),
       }),
   );
   const readText = useCallback(() => canvasText(fileRef.current, nodesRef.current, edgesRef.current), []);
 
   const issues = useMemo(() => {
     try {
-      return error ? [] : readyCore().validateCanvasText(body);
+      return loadError ? [] : readyCore().validateCanvasText(body);
     } catch {
       return [];
     }
-  }, [body, error]);
+  }, [body, loadError]);
 
   // The body changed outside this editor (another device, an import): show it.
   // Our own saves echo back through here, and a change still waiting to save
@@ -167,21 +171,21 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
       fileRef.current = next.file;
       setNodes(next.nodes);
       setEdges(next.edges);
-      setError(null);
+      setLoadError(null);
     } catch (err) {
-      setError(formatError(err));
+      setLoadError(formatError(err));
     }
   }, [body, saver, setNodes, setEdges]);
 
   // Save a moment after the last change. A broken body is never saved over.
   useEffect(() => {
-    if (error) {
+    if (loadError) {
       saver.halt();
       return;
     }
     saver.resume();
     saver.touch(readText);
-  }, [nodes, edges, error, saver, readText]);
+  }, [nodes, edges, loadError, saver, readText]);
   // Leaving mid-wait still saves: closing the tab, navigating away, unmounting.
   useEffect(() => {
     const save = () => saver.flush(readText);
@@ -275,11 +279,11 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
 
   const actions = useMemo(() => ({ openFile: onOpenFile }), [onOpenFile]);
 
-  if (error && nodes.length === 0 && edges.length === 0 && initial.error) {
+  if (loadError && nodes.length === 0 && edges.length === 0 && initial.error) {
     return (
       <div className="canvas-editor canvas-editor--broken" role="alert">
         <p>This canvas cannot be shown, so it is left as it is.</p>
-        <p className="muted">{error}</p>
+        <p className="muted">{loadError}</p>
       </div>
     );
   }
@@ -288,6 +292,11 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
     <div
       className="canvas-editor"
       ref={wrapRef}
+      // Focusable so a press can move focus here; the delete keys need focus inside the canvas.
+      tabIndex={-1}
+      onMouseDown={(event) => {
+        if (focusesOnPress({ screenActive, textEntry: isTextEntry(event.target) })) wrapRef.current?.focus({ preventScroll: true });
+      }}
       onDoubleClick={onDoubleClick}
       onFocus={(event) => {
         setFocusWithin(true);
@@ -329,9 +338,9 @@ function CanvasSurface({ body, onSave, filePaths, onOpenFile }: CanvasEditorProp
             Add link
           </Button>
         </form>
-        {error ? (
+        {loadError ?? saveError ? (
           <span className="canvas-editor__status" role="alert">
-            {error}
+            {loadError ?? saveError}
           </span>
         ) : issues.length > 0 ? (
           <span className="canvas-editor__status muted" title={issues.map((issue: { message: string }) => issue.message).join("\n")}>

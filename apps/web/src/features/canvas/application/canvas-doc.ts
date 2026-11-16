@@ -120,7 +120,8 @@ export function toFlow(file: CanvasFile): { nodes: CanvasFlowNode[]; edges: Canv
   const nodes = file.nodes.map<CanvasFlowNode>((raw) => ({
     id: raw.id,
     type: KNOWN_KINDS.has(raw.type) ? (raw.type as CanvasNodeKind) : "unknown",
-    position: { x: raw.x, y: raw.y },
+    // A node with no x or y is drawn at 0 rather than NaN; saving keeps it coordinate-free until it is moved.
+    position: { x: finiteOr(raw.x, 0), y: finiteOr(raw.y, 0) },
     width: raw.width,
     height: raw.height,
     zIndex: raw.type === "group" ? 0 : 1,
@@ -144,7 +145,14 @@ export function toFlow(file: CanvasFile): { nodes: CanvasFlowNode[]; edges: Canv
 /** A number kept as read when it did not change, else rounded as Obsidian writes it. */
 function settle(next: number | null | undefined, stored: number): number {
   if (next === undefined || next === null || next === stored) return stored;
+  if (!Number.isFinite(next)) return stored;
+  // A node stored without a coordinate is drawn at 0; only a move away from 0 writes one.
+  if (!Number.isFinite(stored) && next === 0) return stored;
   return Math.round(next);
+}
+
+function finiteOr(value: number | undefined, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 /**
