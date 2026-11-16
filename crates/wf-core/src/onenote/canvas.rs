@@ -1,12 +1,15 @@
-//! Canvas view of an imported OneNote page. Positioned outlines become text
-//! nodes; images and ink notes become file nodes. Layout is kept in 0.1 mm, as
-//! OneNote stores it, and the canvas is written in pixels at 96 per inch, so one
-//! half inch of OneNote space is 48 canvas pixels.
+//! Canvas view of an imported OneNote page. Positioned outlines and pictures
+//! become text nodes (a picture as Markdown image syntax, since a canvas file
+//! node only shows workspace documents); ink notes become file nodes. Layout is
+//! kept in 0.1 mm, as OneNote stores it, and the canvas is written in pixels at
+//! 96 per inch, so one half inch of OneNote space is 48 canvas pixels.
 
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+
+use crate::vault::page::vault_image_markdown;
 
 /// Pixels per half inch on the canvas.
 const PX_PER_HALF_INCH: f64 = 48.0;
@@ -43,7 +46,7 @@ pub struct OneNoteLayoutItem {
     pub kind: LayoutKind,
     /// Image name, or `ink-N` for ink; empty for text.
     pub key: String,
-    /// Markdown for a text item; empty otherwise.
+    /// Markdown for a text item; alt text for an image; empty for ink.
     pub text: String,
     /// Left edge.
     pub x: Option<f64>,
@@ -113,7 +116,8 @@ fn draft(item: &OneNoteLayoutItem, files: &BTreeMap<String, String>) -> Option<D
             }
             Content::Text(item.text.clone())
         }
-        LayoutKind::Image | LayoutKind::Ink => Content::File(files.get(&item.key)?.clone()),
+        LayoutKind::Image => Content::Text(vault_image_markdown(files.get(&item.key)?, &item.text)),
+        LayoutKind::Ink => Content::File(files.get(&item.key)?.clone()),
     };
     let is_text = matches!(content, Content::Text(_));
     let default_width = DEFAULT_WIDTH;

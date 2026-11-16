@@ -414,7 +414,7 @@ fn push_image_layout(image: &Image, body: &mut Body, items: &mut Vec<OneNoteLayo
     items.push(OneNoteLayoutItem {
         kind: LayoutKind::Image,
         key: name,
-        text: String::new(),
+        text: image_alt(image),
         x,
         y,
         width,

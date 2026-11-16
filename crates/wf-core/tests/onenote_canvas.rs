@@ -156,11 +156,13 @@ fn image_and_ink_items_become_file_nodes_at_their_position() {
     );
     let nodes = nodes_of(&json);
 
+    // A picture is a text node holding its Markdown, since canvas file nodes
+    // only render workspace documents.
     let image = nodes
         .iter()
-        .find(|n| n["file"] == "user/p/pic.png")
+        .find(|n| n["text"] == "![image](vault:user/p/pic.png)")
         .expect("image node");
-    assert_eq!(image["type"], "file");
+    assert_eq!(image["type"], "text");
     assert_eq!((int(image, "x"), int(image, "y")), (48, 48));
     assert_eq!((int(image, "width"), int(image, "height")), (192, 144));
 
@@ -170,6 +172,22 @@ fn image_and_ink_items_become_file_nodes_at_their_position() {
         .expect("ink node");
     assert_eq!(ink["type"], "file");
     assert_eq!(int(ink, "width"), 378);
+}
+
+#[test]
+fn image_node_uses_the_item_text_as_alt_text() {
+    let layout = [OneNoteLayoutItem {
+        kind: LayoutKind::Image,
+        key: "image-1.png".to_string(),
+        text: "Sketch".to_string(),
+        x: Some(0.0),
+        y: Some(0.0),
+        width: Some(HALF_INCH),
+        height: Some(HALF_INCH),
+    }];
+    let json = page_canvas(&layout, &files(&[("image-1.png", "user/p/pic.png")]));
+    let nodes = nodes_of(&json);
+    assert_eq!(nodes[0]["text"], "![Sketch](vault:user/p/pic.png)");
 }
 
 #[test]
