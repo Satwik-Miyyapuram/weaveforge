@@ -66,26 +66,41 @@ export function savedDigests(doc: Y.Doc): string[] {
 }
 
 /**
- * Remember that the body with `digest` was saved from this document. Called
- * after the save lands, so a peer that receives the mark already holds the text
- * it names (Yjs applies one client's updates in order).
+ * Remember that the body with `digest` was saved from this document, as the
+ * newest mark. A peer that receives the mark already holds the text it names
+ * (Yjs applies one client's updates in order).
+ *
+ * Peers mark concurrently, so the array can hold a digest twice; each mark
+ * keeps only the newest copy of every digest, and the newest
+ * `SAVED_BODIES_KEPT` of those.
  */
 export function markSaved(doc: Y.Doc, digest: string): void {
   const saved = savedBodies(doc);
-  if (saved.toArray().includes(digest)) return;
+  const marks = saved.toArray();
+  const last = marks.length - 1;
+  if (last >= 0 && marks.indexOf(digest) === last && marks.length <= SAVED_BODIES_KEPT) return;
   doc.transact(() => {
     saved.push([digest]);
-    if (saved.length > SAVED_BODIES_KEPT) saved.delete(0, saved.length - SAVED_BODIES_KEPT);
+    const all = saved.toArray();
+    const kept = new Set<string>();
+    for (let i = all.length - 1; i >= 0; i -= 1) {
+      if (kept.has(all[i]) || kept.size >= SAVED_BODIES_KEPT) saved.delete(i, 1);
+      else kept.add(all[i]);
+    }
   });
 }
 
-/** A 32-bit FNV-1a hash of a state and a body, never the seed's client id. */
-function clientIdFor(stateVector: Uint8Array, body: string): number {
+/**
+ * A 32-bit FNV-1a hash of a document's state and a body, never the seed's
+ * client id. The state is the snapshot, delete set included: two documents can
+ * share a state vector while holding different text (a delete adds no clock).
+ */
+function clientIdFor(doc: Y.Doc, body: string): number {
   let hash = 0x811c9dc5;
   const mix = (byte: number) => {
     hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;
   };
-  stateVector.forEach(mix);
+  Y.encodeSnapshot(Y.snapshot(doc)).forEach(mix);
   for (let i = 0; i < body.length; i += 1) {
     const unit = body.charCodeAt(i);
     mix(unit & 0xff);
@@ -118,7 +133,7 @@ export function rebuildTo(doc: Y.Doc, body: string): void {
   }
   const scratch = new Y.Doc();
   Y.applyUpdate(scratch, Y.encodeStateAsUpdate(doc));
-  scratch.clientID = clientIdFor(Y.encodeStateVector(doc), body);
+  scratch.clientID = clientIdFor(doc, body);
   const before = Y.encodeStateVector(scratch);
   const text = scratch.getText("body");
   scratch.transact(() => {

@@ -12,6 +12,7 @@ import {
   KEPT_LIVE_TEXT_HEADING,
   SAVED_BODIES_KEPT,
   markSaved,
+  rebuildTo,
   reconcileWithBody,
   savedDigests,
   seedIfEmpty,
@@ -143,4 +144,48 @@ test("markSaved: remembers each digest once and only the newest ones", () => {
   assert.equal(kept.length, SAVED_BODIES_KEPT);
   assert.equal(kept[kept.length - 1], `d${SAVED_BODIES_KEPT + 3}`);
   assert.ok(!kept.includes("d0"), "the oldest fell off");
+});
+
+test("rebuildTo: the same state vector with different deletes still converges", () => {
+  // A delete adds no clock, so these two states share a state vector.
+  const origin = new Y.Doc();
+  origin.clientID = 7;
+  origin.getText("body").insert(0, "abcdef");
+  const alice = new Y.Doc();
+  Y.applyUpdate(alice, Y.encodeStateAsUpdate(origin));
+  origin.getText("body").delete(1, 1);
+  const bob = new Y.Doc();
+  Y.applyUpdate(bob, Y.encodeStateAsUpdate(origin));
+  assert.deepEqual(Y.encodeStateVector(alice), Y.encodeStateVector(bob));
+
+  // Alice inserts "X", Bob "bX": one id for two different operations.
+  rebuildTo(alice, "abXdef");
+  rebuildTo(bob, "abXdef");
+  Y.applyUpdate(alice, Y.encodeStateAsUpdate(bob));
+  Y.applyUpdate(bob, Y.encodeStateAsUpdate(alice));
+
+  assert.equal(text(alice), text(bob), "both peers hold the same text");
+});
+
+test("markSaved: saving an old body again makes it the newest", () => {
+  const doc = new Y.Doc();
+  markSaved(doc, "d0");
+  for (let i = 1; i < SAVED_BODIES_KEPT; i += 1) markSaved(doc, `d${i}`);
+  markSaved(doc, "d0");
+  markSaved(doc, "new");
+  const kept = savedDigests(doc);
+  assert.equal(kept.length, SAVED_BODIES_KEPT);
+  assert.equal(kept[kept.length - 2], "d0", "d0 moved to the end, not dropped");
+  assert.ok(!kept.includes("d1"), "the oldest other digest fell off");
+  assert.equal(new Set(kept).size, kept.length);
+});
+
+test("markSaved: concurrent marks of one digest collapse to one", () => {
+  const alice = new Y.Doc();
+  const bob = new Y.Doc();
+  markSaved(alice, "same");
+  markSaved(bob, "same");
+  Y.applyUpdate(alice, Y.encodeStateAsUpdate(bob));
+  markSaved(alice, "next");
+  assert.deepEqual(savedDigests(alice), ["same", "next"]);
 });
