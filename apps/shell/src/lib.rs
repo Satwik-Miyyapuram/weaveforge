@@ -692,28 +692,30 @@ pub(crate) fn open_outside(app: &tauri::AppHandle, url: &tauri::Url) {
     }
 }
 
-/// Listens for the sign-in redirect; a taken port is logged and marked, so the page asks for the link.
+/// Starts the sign-in listener at launch, retrying a busy port briefly; the sign-in page retries later on demand.
 #[cfg(desktop)]
 fn start_sign_in(app: &tauri::AppHandle) {
     let app = app.clone();
     let _task = tauri::async_runtime::spawn(async move {
-        match auth_loopback::bind().await {
-            Ok(listener) => {
-                let handle = app.clone();
-                auth_loopback::serve(listener, move |query| deliver_sign_in(&handle, query)).await;
-            }
-            Err(error) => {
-                use tauri::Manager as _;
-                if let Some(port) = app.try_state::<auth_loopback::SignInPort>() {
-                    port.mark_taken();
-                }
-                log_warn(
-                    &app,
-                    "sign-in",
-                    "The sign-in listener did not start",
-                    &error.to_string(),
-                );
-            }
+        use tauri::Manager as _;
+        let Some(port) = app.try_state::<auth_loopback::SignInPort>() else {
+            return;
+        };
+        let handle = app.clone();
+        let listening = auth_loopback::ensure_listening(
+            &port,
+            || auth_loopback::bind_port(auth_loopback::AUTH_LOOPBACK_PORT),
+            &auth_loopback::SIGN_IN_RETRY,
+            move |query| deliver_sign_in(&handle, query),
+        )
+        .await;
+        if !listening {
+            log_warn(
+                &app,
+                "sign-in",
+                "The sign-in listener did not start",
+                "The port is held by another program; sign-in will ask for the address to be pasted.",
+            );
         }
     });
 }
@@ -759,7 +761,7 @@ fn start_sign_in(app: &tauri::AppHandle) {
 
 /// Hands a sign-in query to the page and brings the window forward, as Electron did.
 /// A closed main window is reopened first.
-fn deliver_sign_in(app: &tauri::AppHandle, query: String) {
+pub(crate) fn deliver_sign_in(app: &tauri::AppHandle, query: String) {
     use tauri::{Emitter as _, Manager as _};
     if app.get_webview_window(MAIN_WINDOW).is_none() && open_main_window(app).is_err() {
         return;

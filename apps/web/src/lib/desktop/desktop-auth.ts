@@ -35,16 +35,6 @@ export const AUTH_LOOPBACK_URL = `http://127.0.0.1:${AUTH_LOOPBACK_PORT}/auth/ca
 export const AUTH_LINK_URL = "https://app.weaveforge.org/auth/app-callback";
 
 /**
- * The address a provider should return to.
- *
- * In a browser that is the origin itself, which is what it has always been. In
- * the desktop app it is the loopback listener, because the browser finishing
- * the flow is a different program from the one that started it — landing back
- * on the origin would sign the browser in and leave the app as it was.
- *
- * On a phone it is the app's sign-in link (`AUTH_LINK_URL`).
- */
-/**
  * The callback query in an address the reader pasted, or null when it is not
  * the loopback callback. Used when another program holds the loopback port, so
  * the browser's redirect never reaches this app: the reader copies the address
@@ -61,13 +51,23 @@ export function pastedSignInQuery(text: string): string | null {
   if (url.protocol !== "http:" || !loopback || url.port !== String(AUTH_LOOPBACK_PORT)) return null;
   if (url.pathname !== "/auth/callback") return null;
   const params = url.searchParams;
-  return params.has("code") || params.has("error") ? url.search : null;
+  return params.get("code") || params.get("error") ? url.search : null;
 }
 
 export function appOrigin(): string | undefined {
   return typeof window === "undefined" ? undefined : window.location.origin;
 }
 
+/**
+ * The address a provider should return to.
+ *
+ * In a browser that is the origin itself, which is what it has always been. In
+ * the desktop app it is the loopback listener, because the browser finishing
+ * the flow is a different program from the one that started it — landing back
+ * on the origin would sign the browser in and leave the app as it was.
+ *
+ * On a phone it is the app's sign-in link (`AUTH_LINK_URL`).
+ */
 export function authRedirectTo(): string | undefined {
   if (typeof window === "undefined") return undefined;
   const bridge = desktop();
