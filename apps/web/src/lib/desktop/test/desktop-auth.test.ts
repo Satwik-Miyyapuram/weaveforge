@@ -74,6 +74,7 @@ test("anything other than the loopback callback is not a sign-in", () => {
     "code=abc",
     `${AUTH_LOOPBACK_URL}`,
     `${AUTH_LOOPBACK_URL}?state=x`,
+    `${AUTH_LOOPBACK_URL}?code=`,
     "http://127.0.0.1:53683/auth/callback?code=abc",
     "http://127.0.0.1:53682/other?code=abc",
     "https://127.0.0.1:53682/auth/callback?code=abc",
