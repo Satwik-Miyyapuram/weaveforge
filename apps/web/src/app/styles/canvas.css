@@ -1,0 +1,77 @@
+/* Canvas notes (JSON Canvas, drawn by React Flow): the surface, its toolbar and the four node kinds. */
+.canvas-editor {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 320px;
+}
+.canvas-editor .react-flow {
+  flex: 1;
+  --xy-background-color: var(--bg);
+  --xy-background-pattern-color: var(--border);
+  --xy-edge-stroke: var(--muted);
+  --xy-edge-stroke-selected: var(--accent);
+  --xy-handle-background-color: var(--accent);
+  --xy-handle-border-color: var(--surface);
+  --xy-resize-background-color: var(--accent);
+  --xy-controls-button-background-color: var(--surface);
+  --xy-controls-button-background-color-hover: var(--surface2);
+  --xy-controls-button-color: var(--text);
+  --xy-controls-button-border-color: var(--border);
+  --xy-attribution-background-color: transparent;
+}
+.canvas-editor__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s1) var(--s2);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.canvas-editor__add { display: flex; gap: var(--s1); }
+.canvas-editor__add input { width: 12rem; }
+.canvas-editor__status { margin-left: auto; font-size: 0.85em; }
+.canvas-editor--broken { padding: var(--s4); }
+
+.canvas-node {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  color: var(--text);
+  overflow: hidden;
+}
+.canvas-node--group {
+  background: color-mix(in srgb, var(--surface2) 40%, transparent);
+  border-style: dashed;
+}
+.canvas-node[data-color="1"] { border-color: var(--s-danger); }
+.canvas-node[data-color="2"] { border-color: var(--s-warn); }
+.canvas-node[data-color="3"] { border-color: var(--s-warn); }
+.canvas-node[data-color="4"] { border-color: var(--s-good); }
+.canvas-node[data-color="5"] { border-color: var(--s-info); }
+.canvas-node[data-color="6"] { border-color: var(--accent); }
+.canvas-node__body {
+  height: 100%;
+  padding: var(--s2) var(--s3);
+  overflow: auto;
+  box-sizing: border-box;
+}
+.canvas-node__path { font-size: 0.8em; word-break: break-all; }
+.canvas-node__label {
+  position: absolute;
+  top: -1.9em;
+  left: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+}
+.canvas-node__handle { opacity: 0; }
+.canvas-node:hover .canvas-node__handle,
+.react-flow__node.selected .canvas-node__handle { opacity: 1; }
+.react-flow__node-group .canvas-node { overflow: visible; }
