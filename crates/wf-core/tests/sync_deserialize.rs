@@ -41,6 +41,7 @@ fn note_entity(id: Option<&str>, title: &str, body: &str, path: &str) -> ParsedE
         body: body.to_owned(),
         path: path.to_owned(),
         fields: Map::new(),
+        kind: None,
     }
 }
 
@@ -174,6 +175,18 @@ fn bookkeeping_beside_project_files_is_never_an_entity() {
     ]));
 
     assert!(parsed.is_empty());
+}
+
+// ------------------------------------------------------------------ canvas files
+
+#[test]
+fn a_canvas_file_is_read_back_as_a_canvas_page_with_its_raw_body() {
+    let body = "{\"nodes\":[],\"edges\":[]}";
+    let parsed = parse_workspace_file("MSc Thesis/notes/Board.canvas", body).expect("an entity");
+    assert_eq!(parsed.kind.as_deref(), Some("canvas"));
+    assert_eq!(parsed.title, "Board");
+    assert_eq!(parsed.body, body, "no frontmatter is read or added");
+    assert_eq!(parsed.id, None);
 }
 
 // ------------------------------------------------------------------ hard rules

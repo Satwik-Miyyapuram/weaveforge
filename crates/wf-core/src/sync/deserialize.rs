@@ -56,6 +56,9 @@ pub struct ParsedEntity {
     /// Every frontmatter field except the id, type and title.
     #[cfg_attr(feature = "specta", specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>))]
     pub fields: Map<String, Value>,
+    /// `canvas` for a `.canvas` file, which is read back as a canvas page; absent for a note.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
 }
 
 /// An entity as the workspace stores it.
@@ -202,10 +205,25 @@ pub struct ImportDiff {
 #[must_use]
 pub fn parse_workspace_file(path: &str, content: &str) -> Option<ParsedEntity> {
     let segments: Vec<&str> = path.split('/').collect();
-    if segments.contains(&WORKSPACE_META_DIR) || !path.ends_with(".md") {
+    if segments.contains(&WORKSPACE_META_DIR) {
         return None;
     }
     let file_name = segments.last().copied().unwrap_or(path);
+    if let Some(stem) = file_name.strip_suffix(".canvas") {
+        // A canvas is its whole file: no frontmatter, so no id to match it by.
+        return Some(ParsedEntity {
+            id: None,
+            entity_type: WorkspaceEntityType::VaultPage,
+            title: or_untitled(strip_id_suffix(stem)),
+            body: content.to_owned(),
+            path: path.to_owned(),
+            fields: Map::new(),
+            kind: Some("canvas".to_owned()),
+        });
+    }
+    if !path.ends_with(".md") {
+        return None;
+    }
     if file_name == "README.md" {
         return None;
     }
@@ -242,6 +260,7 @@ pub fn parse_workspace_file(path: &str, content: &str) -> Option<ParsedEntity> {
         body,
         path: path.to_owned(),
         fields,
+        kind: None,
     })
 }
 
@@ -420,6 +439,7 @@ mod tests {
             body: "B".into(),
             path: "notes/t.md".into(),
             fields: json!({"tags": ["a"]}).as_object().unwrap().clone(),
+            kind: None,
         };
         let value = json!({"type":"vault_page","title":"T","body":"B","path":"notes/t.md","fields":{"tags":["a"]}});
         assert_eq!(serde_json::to_value(&entity).unwrap(), value);
@@ -464,6 +484,7 @@ mod tests {
                 body: "B".into(),
                 path: "notes/t.md".into(),
                 fields: Map::new(),
+                kind: None,
             },
             reason: None,
             kind: Some(ConflictKind::BothChanged),

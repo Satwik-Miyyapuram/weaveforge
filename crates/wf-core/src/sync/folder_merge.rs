@@ -352,6 +352,7 @@ mod tests {
                 body: body.to_owned(),
                 path: "notes/n1.note.md".to_owned(),
                 fields,
+                kind: None,
             },
             reason: None,
             kind: Some(ConflictKind::BothChanged),

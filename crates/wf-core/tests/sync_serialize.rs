@@ -72,6 +72,35 @@ fn first_content(files: &[(String, String)]) -> &str {
         .map_or_else(|| panic!("no files"), |entry| entry.1.as_str())
 }
 
+// ----------------------------------------------------------------- canvas pages
+
+#[test]
+fn a_canvas_page_is_mirrored_as_its_raw_canvas_file() {
+    let body = "{
+	\"nodes\":[],
+	\"edges\":[]
+}";
+    let canvas = SnapshotVaultPage {
+        kind: Some("canvas".to_owned()),
+        ..note("c1", "Board", body)
+    };
+    let out = serialize_workspace(
+        &WorkspaceSnapshot {
+            vault_pages: vec![canvas],
+            ..snapshot()
+        },
+        &project(),
+    );
+    let path = out
+        .files
+        .iter()
+        .map(|entry| entry.0.as_str())
+        .find(|path| path.ends_with("/board.canvas"))
+        .expect("a .canvas file");
+    assert_eq!(file(&out.files, path), body, "the body is the whole file");
+    assert!(out.files.iter().all(|entry| !entry.0.ends_with(".note.md")));
+}
+
 // --------------------------------------------------------------- obsidian-interop
 
 #[test]

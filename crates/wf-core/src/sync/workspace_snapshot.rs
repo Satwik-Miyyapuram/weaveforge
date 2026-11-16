@@ -74,6 +74,8 @@ pub struct SnapshotVaultPage {
     pub body: String,
     /// Parent page id, for nested pages.
     pub parent_id: Option<String>,
+    /// `canvas` for a canvas page; absent for a note.
+    pub kind: Option<String>,
     /// Creation timestamp.
     #[serde(deserialize_with = "null_default")]
     pub created_at: String,

@@ -222,7 +222,9 @@ fn write_notes(
             field("updated-at", text(&page.updated_at)),
             field("created-at", text(&page.created_at)),
         ];
-        if is_ink_note_body(&page.body) {
+        if page.kind.as_deref() == Some("canvas") {
+            put(files, canvas_path_of(path), page.body.clone());
+        } else if is_ink_note_body(&page.body) {
             let (meta, body) = read_ink_note_body(&page.body);
             let mut fields = stamps;
             fields.extend(write_ink_note_meta(&meta));
@@ -255,6 +257,12 @@ fn write_notes(
 fn ink_path_of(path: &str) -> String {
     path.strip_suffix(".note.md")
         .map_or_else(|| path.to_owned(), |stem| format!("{stem}.ink.md"))
+}
+
+/// `.note.md` at the end of a path becomes `.canvas`: a canvas is written as its raw body.
+fn canvas_path_of(path: &str) -> String {
+    path.strip_suffix(".note.md")
+        .map_or_else(|| path.to_owned(), |stem| format!("{stem}.canvas"))
 }
 
 /// Reading lists and report sections, both nested by `parent_id`.
