@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { readyCore } from "@/lib/rust-core";
 import { nearestFirst, type PageExtent } from "./render-order";
+import type { PdfDocument } from "./types";
 
 export interface UsePdfPageWindowOpts {
   rootRef: RefObject<HTMLElement | null>;
-  pdf: unknown;
+  pdf: PdfDocument | null;
   numPages: number;
+  /** The screen has been hidden a while (`useReleasedWhileHidden`): hold no painted pages. */
+  released: boolean;
   renderPage: (n: number) => Promise<void>;
   evictPage: (n: number) => void;
   onVisibleChange: (ratios: ReadonlyMap<number, number>) => void;
@@ -15,15 +18,39 @@ export interface UsePdfPageWindowOpts {
 
 /** Renders pages one viewport ahead, frees pages beyond the keep radius, reports on-screen ratios. */
 export function usePdfPageWindow(opts: UsePdfPageWindowOpts): void {
-  const { rootRef, pdf, numPages, renderPage, evictPage, onVisibleChange } = opts;
+  const { rootRef, pdf, numPages, released, renderPage, evictPage, onVisibleChange } = opts;
   const onVisibleChangeRef = useRef(onVisibleChange);
   useEffect(() => {
     onVisibleChangeRef.current = onVisibleChange;
   });
+  // PDF.js rejects getPage/render while its worker-side cleanup is still running.
+  const cleanupRef = useRef<Promise<void> | null>(null);
+  const renderAfterCleanup = useCallback(
+    async (n: number) => {
+      if (cleanupRef.current) await cleanupRef.current;
+      return renderPage(n);
+    },
+    [renderPage],
+  );
 
   useEffect(() => {
     const root = rootRef.current;
     if (!root || !pdf || numPages === 0) return;
+    if (released) {
+      // Free every painted page and PDF.js's font and page caches; the pages in view
+      // paint again when the observers below start over on return.
+      for (let n = 1; n <= numPages; n++) evictPage(n);
+      const done: Promise<void> = pdf
+        .cleanup()
+        .catch(() => {
+          /* a render still winding down; its page is freed on the next release */
+        })
+        .then(() => {
+          if (cleanupRef.current === done) cleanupRef.current = null;
+        });
+      cleanupRef.current = done;
+      return;
+    }
 
     const near = new Set<number>();
     // Every page counts as held, so one painted under an earlier observer is freed too.
@@ -46,7 +73,7 @@ export function usePdfPageWindow(opts: UsePdfPageWindowOpts): void {
         }
         // Repaints after a zoom run one at a time, so the page in view goes first.
         const box = root.getBoundingClientRect();
-        for (const n of nearestFirst(entering, (box.top + box.bottom) / 2)) void renderPage(n);
+        for (const n of nearestFirst(entering, (box.top + box.bottom) / 2)) void renderAfterCleanup(n);
         for (const p of readyCore().pagesToEvict([...held], [...near])) {
           evictPage(p);
           held.delete(p);
@@ -76,5 +103,5 @@ export function usePdfPageWindow(opts: UsePdfPageWindowOpts): void {
       windowObserver.disconnect();
       visibleObserver.disconnect();
     };
-  }, [rootRef, pdf, numPages, renderPage, evictPage]);
+  }, [rootRef, pdf, numPages, released, renderAfterCleanup, evictPage]);
 }

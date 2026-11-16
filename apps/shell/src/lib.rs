@@ -25,6 +25,7 @@ pub mod embed;
 pub mod git;
 pub mod github_file;
 pub mod host;
+pub mod idle_memory;
 pub mod ink;
 pub mod launch;
 pub mod local_api;
@@ -640,6 +641,7 @@ pub(crate) fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     });
     builder
         .build()
+        .map(|window| idle_memory::watch(&window))
         .inspect_err(|error| {
             log_warn(
                 app,
@@ -648,7 +650,6 @@ pub(crate) fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
                 &error.to_string(),
             );
         })
-        .map(|_| ())
 }
 
 /// Opens a public http(s) address in the OS browser, by the same URL-shape rule as Electron's

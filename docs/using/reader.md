@@ -75,6 +75,11 @@ citations, those links are used. Otherwise the reader looks for `[n]` and
 `(Author year)` patterns and decides which convention the paper uses. A paper
 that mixes both is handled.
 
+A PDF left open in a workspace screen you have moved away from gives its
+painted pages back after a minute hidden. When you come back, the pages in view
+paint again, which can take a moment on a long paper. Quick hops away and back
+stay instant.
+
 Each annotation sync state is one of `local`, `synced`, `pending` or
 `conflict`. Ink undo holds up to 200 steps.
 
