@@ -9,6 +9,7 @@ import {
   disconnectRemote,
   folderRemoteSync,
   forgetRemoteToken,
+  githubSyncConnected,
   pullThenPush,
   remoteSyncAvailable,
   saveRemoteSyncSettings,
@@ -59,6 +60,25 @@ test("not available in a browser, or on a shell too old to sync", () => {
   assert.equal(remoteSyncAvailable(), false);
   fakeShell(reply());
   assert.equal(remoteSyncAvailable(), true);
+});
+
+test("GitHub sync counts as connected only with a saved URL and a held token", async () => {
+  delete (globalThis as { window?: unknown }).window;
+  assert.equal(await githubSyncConnected(), false, "no shell: nothing to connect");
+
+  fakeShell(reply());
+  assert.equal(await githubSyncConnected(), true, "URL and token both set");
+
+  fakeShell(reply({ hasToken: false }));
+  assert.equal(await githubSyncConnected(), false, "URL without a token");
+
+  fakeShell(reply({ url: null }));
+  assert.equal(await githubSyncConnected(), false, "token without a URL");
+});
+
+test("GitHub sync fails closed: when the shell cannot answer, it counts as connected", async () => {
+  fakeShell(() => Promise.reject(new Error("bridge went away")));
+  assert.equal(await githubSyncConnected(), true);
 });
 
 test("saving checks the URL first and stores nothing when it is not https", async () => {

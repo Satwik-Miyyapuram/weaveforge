@@ -442,6 +442,22 @@ export function remoteSyncAvailable(): boolean {
 }
 
 /**
+ * Whether GitHub sync is on: a remote URL is saved and a token is held. The
+ * vault-git preference itself is write-only from the page, so the URL and the
+ * token stand in for it. Fails closed: when the shell cannot answer, this says
+ * connected, so the workspace rows stay out of server sync until it can.
+ */
+export async function githubSyncConnected(): Promise<boolean> {
+  if (!shell()) return false;
+  try {
+    const remote = await folderRemoteSync("settings");
+    return remote.url !== null && remote.hasToken;
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Store the remote's URL, and the token when one was typed. An empty token
  * keeps the stored one; `null` forgets it. A URL that is not plain https is
  * refused before anything is stored. Answers the URL as stored.
