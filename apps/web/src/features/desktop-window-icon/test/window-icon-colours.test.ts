@@ -15,7 +15,20 @@ import {
   contrast,
   parseColour,
   pickWindowIconColours,
+  themeLogoColours,
 } from "../window-icon-colours";
+
+test("themeLogoColours follows the in-app logo: strokes --logo-ink else --accent, dot --text", () => {
+  const vars = (map: Record<string, string>) => (name: string) => map[name] ?? "";
+  assert.deepEqual(
+    themeLogoColours(vars({ "--logo-ink": " #ffe7c1", "--accent": "#5aa0d8", "--text": "#2b222b" })),
+    { ink: "#ffe7c1", dot: "#2b222b" },
+  );
+  assert.deepEqual(
+    themeLogoColours(vars({ "--logo-ink": "  ", "--accent": "#5aa0d8", "--text": "#2b222b" })),
+    { ink: "#5aa0d8", dot: "#2b222b" },
+  );
+});
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const themesDir = path.resolve(here, "..", "..", "..", "app", "themes");

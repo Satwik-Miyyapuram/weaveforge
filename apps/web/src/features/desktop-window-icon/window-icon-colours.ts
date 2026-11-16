@@ -64,6 +64,14 @@ function pickOne(theme: string | null | undefined, fallback: string, background:
   return fallback;
 }
 
+/**
+ * The theme's logo colours, by the in-app logo's rule (weave-forge-logo.tsx):
+ * strokes take `--logo-ink`, else `--accent`; the dot takes `--text`.
+ */
+export function themeLogoColours(read: (name: string) => string): IconColours {
+  return { ink: read("--logo-ink").trim() || read("--accent").trim(), dot: read("--text").trim() };
+}
+
 /** The icon colours for a theme's ink and dot on the taskbar of the given OS mode. */
 export function pickWindowIconColours(
   theme: { ink: string | null | undefined; dot: string | null | undefined },

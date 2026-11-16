@@ -11,7 +11,7 @@ import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
 import { recolourEmblem } from "./emblem-svg";
-import { parseColour, pickWindowIconColours, type OsMode } from "./window-icon-colours";
+import { pickWindowIconColours, themeLogoColours, type OsMode } from "./window-icon-colours";
 
 const EMBLEM_URL = "/icons/weave_forge.svg";
 /** Windows scales the icon down; 256 keeps it sharp at every taskbar size. */
@@ -71,10 +71,7 @@ export function useDesktopWindowIcon(): void {
       if (!mode) return;
       const style = getComputedStyle(document.documentElement);
       const colours = pickWindowIconColours(
-        {
-          ink: parseColour(style.getPropertyValue("--text")),
-          dot: parseColour(style.getPropertyValue("--accent")),
-        },
+        themeLogoColours((name) => style.getPropertyValue(name)),
         mode,
       );
       const png = await rasterise(recolourEmblem(await loadEmblem(), colours));
