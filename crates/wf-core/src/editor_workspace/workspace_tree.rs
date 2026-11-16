@@ -104,6 +104,9 @@ pub struct WorkspaceTreeNode {
     /// A note made as a folder: it holds notes and folders and opens nothing.
     #[serde(default, skip_serializing_if = "is_false")]
     pub folder: bool,
+    /// A canvas note: it opens in the canvas editor and mirrors as `.canvas`.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub canvas: bool,
 }
 
 fn is_false(value: &bool) -> bool {
@@ -126,6 +129,7 @@ impl WorkspaceTreeNode {
             inherited_from: None,
             heading_level: None,
             folder: false,
+            canvas: false,
         }
     }
 }
@@ -164,6 +168,9 @@ pub struct NoteNode {
     /// Whether the note is a folder.
     #[serde(default)]
     pub folder: bool,
+    /// Whether the note is a canvas.
+    #[serde(default)]
+    pub canvas: bool,
 }
 
 /// A report section in the report tree.
@@ -465,6 +472,7 @@ struct Row<'a> {
     parent_id: Option<&'a str>,
     kind: Option<WorkspaceEntityType>,
     folder: bool,
+    canvas: bool,
 }
 
 /// Build one root by nesting rows under their parents, with paths from `tree_paths`.
@@ -496,7 +504,9 @@ fn nested_root(
                 .cloned()
                 .unwrap_or_else(|| fallback.clone());
             // An ink note mirrors as `.ink.md` in the place a note would be.
-            let path = if kind == entity {
+            let path = if row.canvas {
+                canvas_path(&path)
+            } else if kind == entity {
                 path
             } else {
                 with_kind_suffix(&path, kind_suffix(kind))
@@ -509,6 +519,7 @@ fn nested_root(
             );
             node.id = Some(row.id.to_string());
             node.folder = row.folder;
+            node.canvas = row.canvas;
             node
         })
         .collect();
@@ -525,6 +536,19 @@ fn nested_root(
     );
     root.children = materialize_all(&roots, &base, &children, None);
     root
+}
+
+/// A canvas note mirrors as Obsidian's `.canvas` in the place a note would be:
+/// `notes/board.note.md` becomes `notes/board.canvas`.
+#[must_use]
+pub fn canvas_path(note_path: &str) -> String {
+    match note_path.strip_suffix(".md") {
+        Some(stem) => {
+            let stem = stem.strip_suffix(".note").unwrap_or(stem);
+            format!("{stem}.canvas")
+        }
+        None => note_path.to_string(),
+    }
 }
 
 /// Replace a trailing `.<letters>.md` with `.<suffix>.md`, as the TypeScript regex does.
@@ -603,6 +627,7 @@ pub fn build_workspace_tree(input: &WorkspaceTreeInput) -> Vec<WorkspaceTreeNode
             parent_id: note.parent_id.as_deref(),
             kind: note.kind,
             folder: note.folder,
+            canvas: note.canvas,
         })
         .collect();
     let section_rows: Vec<Row<'_>> = input
@@ -614,6 +639,7 @@ pub fn build_workspace_tree(input: &WorkspaceTreeInput) -> Vec<WorkspaceTreeNode
             parent_id: section.parent_id.as_deref(),
             kind: None,
             folder: false,
+            canvas: false,
         })
         .collect();
 
@@ -1079,6 +1105,7 @@ mod tests {
             parent_id: parent.map(str::to_string),
             kind: None,
             folder: false,
+            canvas: false,
         }
     }
 
@@ -1308,6 +1335,32 @@ mod tests {
         assert_eq!(method.key, "vault_page:a");
         assert_eq!(method.path, "notes/method/method.note.md");
         assert_eq!(method.children[0].path, "notes/method/baselines.note.md");
+    }
+
+    #[test]
+    fn a_canvas_note_is_marked_and_mirrors_as_dot_canvas() {
+        let mut board = note("c", "Board", Some("a"));
+        board.canvas = true;
+        let tree = build_workspace_tree(&WorkspaceTreeInput {
+            notes: vec![note("a", "Method", None), board],
+            ..Default::default()
+        });
+        let method = &tree[0].children[0];
+        assert!(!method.canvas);
+        let board = &method.children[0];
+        assert_eq!(board.kind, TreeNodeKind::VaultPage);
+        assert!(board.canvas);
+        assert_eq!(board.path, "notes/method/board.canvas");
+        let json = serde_json::to_value(method).unwrap();
+        assert!(json.get("canvas").is_none());
+        assert_eq!(json["children"][0]["canvas"], true);
+    }
+
+    #[test]
+    fn canvas_path_swaps_the_note_suffix() {
+        assert_eq!(canvas_path("notes/a.note.md"), "notes/a.canvas");
+        assert_eq!(canvas_path("notes/a.md"), "notes/a.canvas");
+        assert_eq!(canvas_path("notes"), "notes");
     }
 
     #[test]

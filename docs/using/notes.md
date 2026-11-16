@@ -154,6 +154,7 @@ queries, link resolution and template work.
 
 ## Related
 
+- [Canvas](canvas.md) — a board of notes, files and links in the same tree
 - [Papers](papers.md) — papers you cite from a note
 - [Citations, excerpts and Overleaf](citations-and-overleaf.md) — using notes and papers in the report
 - [Search](search.md) — finding notes and papers

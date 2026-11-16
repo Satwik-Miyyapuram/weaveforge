@@ -24,6 +24,8 @@ pub enum CreateKind {
     Folder,
     /// A report section.
     Section,
+    /// A canvas: a note whose body is a JSON Canvas board.
+    Canvas,
 }
 
 /// Which root a row belongs to.
@@ -71,6 +73,8 @@ pub struct DraftMakes {
     pub opens: bool,
     /// Whether it is saved as a folder.
     pub folder: bool,
+    /// Whether it is saved as a canvas.
+    pub canvas: bool,
 }
 
 /// The key of a root's row in the tree (its directory name).
@@ -111,7 +115,7 @@ pub fn root_of(node: &WorkspaceTreeNode) -> Option<EditableRoot> {
 /// The kinds each root's rows may be given as children; the first is the default.
 const fn creatable(root: EditableRoot) -> &'static [CreateKind] {
     match root {
-        EditableRoot::Notes => &[CreateKind::Note, CreateKind::Folder],
+        EditableRoot::Notes => &[CreateKind::Note, CreateKind::Folder, CreateKind::Canvas],
         EditableRoot::Report => &[CreateKind::Section],
     }
 }
@@ -230,6 +234,7 @@ pub const fn draft_placeholder(kind: CreateKind) -> &'static str {
         CreateKind::Note => "Note title",
         CreateKind::Folder => "Folder name",
         CreateKind::Section => "Section title",
+        CreateKind::Canvas => "Canvas title",
     }
 }
 
@@ -241,6 +246,7 @@ pub const fn draft_icon(kind: CreateKind) -> &'static str {
         CreateKind::Note => "notes",
         CreateKind::Folder => "folder",
         CreateKind::Section => "doc",
+        CreateKind::Canvas => "canvas",
     }
 }
 
@@ -252,11 +258,19 @@ pub const fn draft_makes(kind: CreateKind) -> DraftMakes {
             ink: false,
             opens: true,
             folder: false,
+            canvas: false,
         },
         CreateKind::Folder => DraftMakes {
             ink: false,
             opens: false,
             folder: true,
+            canvas: false,
+        },
+        CreateKind::Canvas => DraftMakes {
+            ink: false,
+            opens: true,
+            folder: false,
+            canvas: true,
         },
     }
 }
@@ -281,6 +295,7 @@ mod tests {
             inherited_from: None,
             heading_level: None,
             folder,
+            canvas: false,
         }
     }
 
@@ -319,7 +334,7 @@ mod tests {
         assert!(creatable_under(&note).is_empty());
         assert_eq!(
             creatable_under(&folder),
-            vec![CreateKind::Note, CreateKind::Folder]
+            vec![CreateKind::Note, CreateKind::Folder, CreateKind::Canvas]
         );
         let section = node(
             "report_section:s2",
@@ -418,7 +433,8 @@ mod tests {
             DraftMakes {
                 ink: false,
                 opens: false,
-                folder: true
+                folder: true,
+                canvas: false
             },
         );
         assert_eq!(
@@ -426,8 +442,39 @@ mod tests {
             DraftMakes {
                 ink: false,
                 opens: true,
-                folder: false
+                folder: false,
+                canvas: false
             },
+        );
+    }
+
+    #[test]
+    fn a_canvas_draft_lands_in_notes_opens_and_is_saved_as_a_canvas() {
+        assert_eq!(draft_placeholder(CreateKind::Canvas), "Canvas title");
+        assert_eq!(draft_icon(CreateKind::Canvas), "canvas");
+        assert_eq!(
+            draft_makes(CreateKind::Canvas),
+            DraftMakes {
+                ink: false,
+                opens: true,
+                folder: false,
+                canvas: true
+            },
+        );
+        assert_eq!(
+            creation_target(CreateKind::Canvas, None, &HashSet::new()).root,
+            EditableRoot::Notes
+        );
+        // A note's first kind stays the default for the new-file chord.
+        assert_eq!(creation_kind_for(Some("vault_page")), CreateKind::Note);
+        let canvas = node("vault_page:c1", TreeNodeKind::VaultPage, Some("c1"), false);
+        assert!(
+            creatable_under(&canvas).is_empty(),
+            "a canvas holds no children"
+        );
+        assert_eq!(
+            serde_json::to_string(&CreateKind::Canvas).unwrap(),
+            "\"canvas\""
         );
     }
 }

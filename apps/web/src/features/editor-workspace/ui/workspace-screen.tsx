@@ -43,6 +43,7 @@ import {
 import type { PaneLayout, PaneSplit, TabRef, WorkspaceTreeNode } from "@weaveforge/wasm";
 import type { ExplorerSection } from "../application/parts";
 import { DocumentHost, type DocumentMetrics } from "./document-host";
+import { CanvasDocument, isCanvasDocument } from "./canvas-document";
 import { ExplorerPanel } from "./explorer-panel";
 import { useFocusMode } from "./use-focus-mode";
 import { HydratingDocument, useNoteBodies } from "./use-note-bodies";
@@ -395,7 +396,7 @@ export function WorkspaceScreen() {
   // already opens rather than fails.
   const createNote = useCallback(
     async (
-      input: { title: string; parentId?: string; ink?: boolean; folder?: boolean },
+      input: { title: string; parentId?: string; ink?: boolean; folder?: boolean; canvas?: boolean },
       opts: { open?: boolean } = {},
     ) => {
       const wanted = readyCore().normalizeTitleKey(input.title);
@@ -413,6 +414,8 @@ export function WorkspaceScreen() {
               parentId: input.parentId,
               ...(body !== undefined ? { body } : {}),
               ...(input.folder ? { folder: true } : {}),
+              // A canvas starts as an empty board; the vault writes its body.
+              ...(input.canvas ? { kind: "canvas" as const } : {}),
             })
           ).id;
       if (!existing) await reload();
@@ -451,7 +454,7 @@ export function WorkspaceScreen() {
       }
       const makes = draftMakes(target.kind);
       await createNote(
-        { title, parentId: target.parentId ?? undefined, ink: makes.ink, folder: makes.folder },
+        { title, parentId: target.parentId ?? undefined, ink: makes.ink, folder: makes.folder, canvas: makes.canvas },
         { open: makes.opens },
       );
     },
@@ -520,6 +523,9 @@ export function WorkspaceScreen() {
       }
       if (!doc) return <p className="muted">This document is no longer in the workspace.</p>;
       if (!doc.hydrated) return <HydratingDocument tab={tab} hydrate={hydrate} />;
+      if (isCanvasDocument(doc)) {
+        return <CanvasDocument key={key} doc={doc} documents={documents ?? []} onSave={(body) => save(tab, body)} onOpen={openDoc} />;
+      }
       return (
         <DocumentHost
           tab={tab}
@@ -538,7 +544,7 @@ export function WorkspaceScreen() {
         />
       );
     },
-    [byKey, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate, previewOf, metrics, overleafPending],
+    [byKey, documents, openDoc, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate, previewOf, metrics, overleafPending],
   );
 
   // Insert ▾ → Picture in Text: a picture on disk at the caret of the focused

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::app_lib::page_text;
 use crate::sync::folder_layout::{WorkspaceEntityType, log_path};
-use crate::vault::page::normalize_title_key;
+use crate::vault::page::{CANVAS_KIND, normalize_title_key};
 
 use super::kind::{KINDS, member_rank};
 use super::workspace_tree::{
@@ -36,6 +36,8 @@ pub struct VaultRow {
     pub parent_id: Option<String>,
     /// Whether the note is a folder.
     pub folder: bool,
+    /// `canvas` for a canvas note; absent or anything else is a markdown note.
+    pub kind: Option<String>,
     /// The full body, when the page is hydrated.
     pub body: Option<String>,
     /// The first characters of the body, on a summary.
@@ -311,7 +313,11 @@ fn vault_document(page: &VaultRow, previous: &HashMap<&str, &str>) -> LoadedDocu
         title: page.title.clone(),
         body,
         hydrated,
-        path: format!("notes/{}.note.md", untitled(&page.title)),
+        path: if page.kind.as_deref() == Some(CANVAS_KIND) {
+            format!("notes/{}.canvas", untitled(&page.title))
+        } else {
+            format!("notes/{}.note.md", untitled(&page.title))
+        },
         parent_id: page.parent_id.clone(),
         tags: None,
     }
@@ -473,6 +479,7 @@ fn tree_input(input: &WorkspaceLoadInput) -> WorkspaceTreeInput {
                 parent_id: page.parent_id.clone(),
                 kind: Some(WorkspaceEntityType::VaultPage),
                 folder: page.folder,
+                canvas: page.kind.as_deref() == Some(CANVAS_KIND),
             })
             .collect(),
         papers: input
@@ -648,6 +655,24 @@ mod tests {
         assert_eq!(doc.body, "head");
         assert!(!doc.hydrated);
         assert_eq!(doc.path, "notes/Plan.note.md");
+    }
+
+    #[test]
+    fn a_canvas_note_is_marked_in_the_tree_and_takes_the_canvas_path() {
+        let mut board = note("c1", "Board");
+        board.kind = Some("canvas".to_owned());
+        let plain = note("n1", "Plan");
+        let input = WorkspaceLoadInput {
+            vault: vec![board.clone(), plain],
+            ..WorkspaceLoadInput::default()
+        };
+        let notes = tree_input(&input).notes;
+        assert!(notes[0].canvas);
+        assert!(!notes[1].canvas);
+        assert_eq!(
+            vault_document(&board, &HashMap::new()).path,
+            "notes/Board.canvas"
+        );
     }
 
     #[test]

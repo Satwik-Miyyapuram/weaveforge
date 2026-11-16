@@ -5,6 +5,7 @@ import {
   type DesktopVaultSyncAction,
 } from "@/lib/desktop/desktop-bridge";
 import { loadCore, readyCore, type RustCore, typedCore } from "@/lib/rust-core";
+import { writeTextAtomic } from "./parts-3";
 import {
   type IWorkspaceFs,
   type MirrorResult,
@@ -25,6 +26,52 @@ import {
 /** The folder that holds `path`, or "" for a root-level file such as README.md. */
 function parentDir(path: string): string {
   return path.split("/").slice(0, -1).join("/");
+}
+
+function parseIdMap(text: string): Record<string, string> | null {
+  try {
+    const value: unknown = JSON.parse(text);
+    return value !== null && typeof value === "object" ? (value as Record<string, string>) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The Rust mirror writes the canvas id map from canonical paths only, so a canvas claimed at
+ * a non-canonical path (`My Plan (v2).canvas`) would lose its id, and its next edit would
+ * re-import as a new page. Keep each claim whose file is still in the folder and whose page still exists.
+ */
+async function keepClaimedCanvasIds(
+  fs: IWorkspaceFs,
+  core: RustCore,
+  snapshot: WorkspaceSnapshot,
+  project: WorkspaceProject,
+  serialized: ReturnType<RustCore["serializeWorkspace"]>,
+): Promise<ReturnType<RustCore["serializeWorkspace"]>> {
+  const mapPath = Object.keys(serialized.files).find((path) => path.endsWith("/canvas-ids.json"));
+  if (mapPath === undefined) return serialized;
+  const claimed = parseIdMap(await fs.readText(mapPath).catch(() => "") ?? "");
+  if (claimed === null) return serialized;
+  const fresh = parseIdMap(serialized.files[mapPath] ?? "") ?? {};
+  const live = new Set(snapshot.vaultPages.filter((page) => page.kind === "canvas").map((page) => page.id));
+  const root = core.projectDir(project);
+  const mapped = new Set(Object.values(fresh));
+  const kept: Record<string, string> = {};
+  for (const [rel, id] of Object.entries(claimed)) {
+    // One path per page id: once the mirror maps the page itself, a stale claimed file must not import over it.
+    if (Object.hasOwn(fresh, rel) || mapped.has(id) || !live.has(id)) continue;
+    if (!(await fs.stat(`${root}/${rel}`).catch(() => null))) continue;
+    kept[rel] = id;
+  }
+  if (Object.keys(kept).length === 0) return serialized;
+  const merged = Object.fromEntries(
+    Object.entries({ ...fresh, ...kept }).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+  );
+  return {
+    ...serialized,
+    files: { ...serialized.files, [mapPath]: `${JSON.stringify(merged, null, 2)}\n` },
+  };
 }
 
 /**
@@ -48,7 +95,13 @@ export async function mirrorWorkspace(
     fetchAsset?(storagePath: string): Promise<Uint8Array | null>;
   },
 ): Promise<MirrorResult> {
-  const serialized = core.serializeWorkspace(snapshot, options.project);
+  const serialized = await keepClaimedCanvasIds(
+    fs,
+    core,
+    snapshot,
+    options.project,
+    core.serializeWorkspace(snapshot, options.project),
+  );
   const { files, assets } = serialized;
   const previousPaths = options.previousPaths ?? [];
   const { base } = options;
@@ -72,7 +125,9 @@ export async function mirrorWorkspace(
   for (const path of plan.written) {
     const dir = parentDir(path);
     if (dir) await fs.mkdirp(dir);
-    await fs.writeFile(path, files[path] ?? "");
+    // The canvas id map is read on every import; a torn write would hold every canvas.
+    if (path.endsWith("/canvas-ids.json")) await writeTextAtomic(fs, path, files[path] ?? "");
+    else await fs.writeFile(path, files[path] ?? "");
   }
 
   let unchanged = plan.unchanged;

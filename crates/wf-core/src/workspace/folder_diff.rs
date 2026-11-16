@@ -175,6 +175,8 @@ mod tests {
             body: String::new(),
             path: path.to_owned(),
             fields: serde_json::Map::new(),
+            kind: None,
+            canvas_map_broken: false,
         }
     }
 

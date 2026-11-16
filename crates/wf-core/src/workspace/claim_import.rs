@@ -30,6 +30,10 @@ pub fn plan_claim(
     path: &str,
     base: &IndexMap<String, String>,
 ) -> Option<ClaimPlan> {
+    if path.ends_with(".canvas") {
+        // A canvas is its raw JSON: frontmatter would corrupt it.
+        return None;
+    }
     let stamped = stamp_workspace_id(content, id)?;
     let digests = claim_digest(base, path, &stamped);
     Some(ClaimPlan { stamped, digests })
@@ -38,6 +42,13 @@ pub fn plan_claim(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_canvas_file_is_never_stamped_with_frontmatter() {
+        let base = IndexMap::new();
+        let canvas = "{\"nodes\":[],\"edges\":[]}";
+        assert_eq!(plan_claim(canvas, "c1", "notes/Board.canvas", &base), None);
+    }
 
     // it: "a hand-written file is stamped with the id it was imported as"
     #[test]

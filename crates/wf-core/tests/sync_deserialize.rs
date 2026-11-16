@@ -30,6 +30,15 @@ fn existing(id: &str, entity_type: WorkspaceEntityType, title: &str, body: &str)
         entity_type,
         title: title.to_owned(),
         body: body.to_owned(),
+        kind: None,
+    }
+}
+
+/// A stored canvas page, which has the `canvas` kind.
+fn canvas_existing(id: &str, title: &str, body: &str) -> ExistingEntity {
+    ExistingEntity {
+        kind: Some("canvas".to_owned()),
+        ..existing(id, WorkspaceEntityType::VaultPage, title, body)
     }
 }
 
@@ -41,6 +50,8 @@ fn note_entity(id: Option<&str>, title: &str, body: &str, path: &str) -> ParsedE
         body: body.to_owned(),
         path: path.to_owned(),
         fields: Map::new(),
+        kind: None,
+        canvas_map_broken: false,
     }
 }
 
@@ -174,6 +185,18 @@ fn bookkeeping_beside_project_files_is_never_an_entity() {
     ]));
 
     assert!(parsed.is_empty());
+}
+
+// ------------------------------------------------------------------ canvas files
+
+#[test]
+fn a_canvas_file_is_read_back_as_a_canvas_page_with_its_raw_body() {
+    let body = "{\"nodes\":[],\"edges\":[]}";
+    let parsed = parse_workspace_file("MSc Thesis/notes/Board.canvas", body).expect("an entity");
+    assert_eq!(parsed.kind.as_deref(), Some("canvas"));
+    assert_eq!(parsed.title, "Board");
+    assert_eq!(parsed.body, body, "no frontmatter is read or added");
+    assert_eq!(parsed.id, None);
 }
 
 // ------------------------------------------------------------------ hard rules
@@ -466,4 +489,97 @@ fn counts_sum_to_the_number_of_entries() {
     assert_eq!(diff.counts.updated, 1);
     assert_eq!(diff.counts.conflict, 1);
     assert_eq!(diff.counts.removed, 0);
+}
+
+// --------------------------------------------------------------- canvas id map
+
+#[test]
+fn a_canvas_file_takes_its_page_id_from_the_folder_id_map() {
+    let files = folder(&[
+        (
+            "MSc Thesis/notes/board.canvas",
+            "{\"nodes\":[],\"edges\":[]}",
+        ),
+        (
+            "MSc Thesis/.weaveforge/canvas-ids.json",
+            "{\"notes/board.canvas\":\"c1\"}",
+        ),
+    ]);
+    let parsed = parse_workspace_folder(&files);
+    assert_eq!(parsed.len(), 1, "the map itself is not an entity");
+    assert_eq!(parsed[0].id.as_deref(), Some("c1"));
+    assert_eq!(parsed[0].kind.as_deref(), Some("canvas"));
+}
+
+#[test]
+fn a_canvas_file_missing_from_the_id_map_has_no_id() {
+    let files = folder(&[
+        ("MSc Thesis/notes/board.canvas", "{}"),
+        (
+            "MSc Thesis/.weaveforge/canvas-ids.json",
+            "{\"notes/other.canvas\":\"c2\"}",
+        ),
+    ]);
+    let parsed = parse_workspace_folder(&files);
+    assert_eq!(parsed[0].id, None);
+}
+
+#[test]
+fn a_malformed_canvas_id_map_holds_its_canvases_as_a_conflict() {
+    let files = folder(&[
+        ("MSc Thesis/notes/board.canvas", "{}"),
+        ("MSc Thesis/.weaveforge/canvas-ids.json", "{not json"),
+    ]);
+    let parsed = parse_workspace_folder(&files);
+    assert_eq!(parsed.len(), 1);
+    assert!(parsed[0].canvas_map_broken);
+    let diff = diff_workspace(&parsed, &[], None);
+    assert_eq!(diff.entries[0].action, ImportAction::Conflict);
+    assert_eq!(diff.entries[0].kind, Some(ConflictKind::BrokenMap));
+}
+
+#[test]
+fn a_canvas_id_pointing_at_a_note_is_a_type_mismatch() {
+    let files = folder(&[
+        ("MSc Thesis/notes/board.canvas", "{}"),
+        (
+            "MSc Thesis/.weaveforge/canvas-ids.json",
+            "{\"notes/board.canvas\":\"n1\"}",
+        ),
+    ]);
+    let parsed = parse_workspace_folder(&files);
+    let diff = diff_workspace(
+        &parsed,
+        &[existing(
+            "n1",
+            WorkspaceEntityType::VaultPage,
+            "Note",
+            "body",
+        )],
+        None,
+    );
+    assert_eq!(diff.entries[0].action, ImportAction::Conflict);
+    assert_eq!(diff.entries[0].kind, Some(ConflictKind::TypeMismatch));
+}
+
+#[test]
+fn a_note_id_pointing_at_a_canvas_page_is_a_type_mismatch() {
+    let parsed = vec![note_entity(Some("c1"), "Note", "body", "notes/x.md")];
+    let diff = diff_workspace(&parsed, &[canvas_existing("c1", "Board", "{}")], None);
+    assert_eq!(diff.entries[0].action, ImportAction::Conflict);
+    assert_eq!(diff.entries[0].kind, Some(ConflictKind::TypeMismatch));
+}
+
+#[test]
+fn a_canvas_id_pointing_at_a_canvas_page_is_not_a_conflict() {
+    let files = folder(&[
+        ("MSc Thesis/notes/board.canvas", "{}"),
+        (
+            "MSc Thesis/.weaveforge/canvas-ids.json",
+            "{\"notes/board.canvas\":\"c1\"}",
+        ),
+    ]);
+    let parsed = parse_workspace_folder(&files);
+    let diff = diff_workspace(&parsed, &[canvas_existing("c1", "Board", "{}")], None);
+    assert_ne!(diff.entries[0].action, ImportAction::Conflict);
 }

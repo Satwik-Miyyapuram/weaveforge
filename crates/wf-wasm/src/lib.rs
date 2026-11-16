@@ -26,6 +26,7 @@ mod batch_annotation_ops;
 mod cache_invalidation;
 mod cache_policy;
 mod calendar_date;
+mod canvas;
 mod card_snippet;
 mod citation_alerts;
 mod clip_to_area;

@@ -6,6 +6,7 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 use serde_json::{Value, json};
+use wf_core::sync::deserialize::parse_workspace_folder;
 use wf_core::sync::folder_layout::{WORKSPACE_META_DIR, WorkspaceProject, log_path, project_dir};
 use wf_core::sync::frontmatter::read_frontmatter;
 use wf_core::sync::ink_note::{InkNoteMeta, default_ink_note_meta, write_ink_note_body};
@@ -70,6 +71,35 @@ fn first_content(files: &[(String, String)]) -> &str {
     files
         .first()
         .map_or_else(|| panic!("no files"), |entry| entry.1.as_str())
+}
+
+// ----------------------------------------------------------------- canvas pages
+
+#[test]
+fn a_canvas_page_is_mirrored_as_its_raw_canvas_file() {
+    let body = "{
+	\"nodes\":[],
+	\"edges\":[]
+}";
+    let canvas = SnapshotVaultPage {
+        kind: Some("canvas".to_owned()),
+        ..note("c1", "Board", body)
+    };
+    let out = serialize_workspace(
+        &WorkspaceSnapshot {
+            vault_pages: vec![canvas],
+            ..snapshot()
+        },
+        &project(),
+    );
+    let path = out
+        .files
+        .iter()
+        .map(|entry| entry.0.as_str())
+        .find(|path| path.ends_with("/board.canvas"))
+        .expect("a .canvas file");
+    assert_eq!(file(&out.files, path), body, "the body is the whole file");
+    assert!(out.files.iter().all(|entry| !entry.0.ends_with(".note.md")));
 }
 
 // --------------------------------------------------------------- obsidian-interop
@@ -500,5 +530,64 @@ fn counts_summarise_the_snapshot_for_the_export_manifest() {
             relations: 0,
             tags: 0,
         }
+    );
+}
+
+// ---------------------------------------------------------------- canvas id map
+
+#[test]
+fn canvas_ids_are_mapped_by_project_relative_path_under_the_meta_dir() {
+    let canvas = SnapshotVaultPage {
+        kind: Some("canvas".to_owned()),
+        ..note("c1", "Board", "{\"nodes\":[],\"edges\":[]}")
+    };
+    let out = serialize_workspace(
+        &WorkspaceSnapshot {
+            vault_pages: vec![canvas],
+            ..snapshot()
+        },
+        &project(),
+    );
+    let map_path = format!(
+        "{}/{WORKSPACE_META_DIR}/canvas-ids.json",
+        project_dir(&project())
+    );
+    let map: Value = serde_json::from_str(file(&out.files, &map_path)).expect("valid JSON");
+    assert_eq!(map, json!({ "notes/board.canvas": "c1" }));
+}
+
+#[test]
+fn a_deleted_canvas_drops_out_of_the_id_map() {
+    let out = serialize_workspace(&snapshot(), &project());
+    let map_path = format!(
+        "{}/{WORKSPACE_META_DIR}/canvas-ids.json",
+        project_dir(&project())
+    );
+    let map: Value = serde_json::from_str(file(&out.files, &map_path)).expect("valid JSON");
+    assert_eq!(map, json!({}));
+}
+
+#[test]
+fn a_mirrored_canvas_reimports_with_its_own_page_id() {
+    let canvas = SnapshotVaultPage {
+        kind: Some("canvas".to_owned()),
+        ..note("c1", "Board", "{\"nodes\":[],\"edges\":[]}")
+    };
+    let out = serialize_workspace(
+        &WorkspaceSnapshot {
+            vault_pages: vec![canvas],
+            ..snapshot()
+        },
+        &project(),
+    );
+    let parsed = parse_workspace_folder(&out.files);
+    let entity = parsed
+        .iter()
+        .find(|entity| entity.kind.as_deref() == Some("canvas"))
+        .expect("the canvas re-imports");
+    assert_eq!(
+        entity.id.as_deref(),
+        Some("c1"),
+        "no duplicate page on re-import"
     );
 }

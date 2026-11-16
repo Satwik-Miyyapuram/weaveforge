@@ -93,6 +93,13 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M8 7h8M8 11h8M8 15h5" />
     </>
   ),
+  canvas: (
+    <>
+      <rect x="3" y="4" width="7" height="6" rx="1" />
+      <rect x="14" y="14" width="7" height="6" rx="1" />
+      <path d="M10 7h4a2 2 0 0 1 2 2v5" />
+    </>
+  ),
   folder: (
     <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4l2 2.5h9A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18Z" />
   ),
