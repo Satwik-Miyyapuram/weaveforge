@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { desktop, type DesktopUpdate } from "@/lib/desktop/desktop-bridge";
 import { Button } from "@/components/button";
 import { FormError } from "@/components/form-error";
-import { AppUpdateSettings } from "@/features/app-update/ui/app-update-settings";
+import { AppUpdateSettings } from "@/features/app-update";
 
 /**
  * Updates, for the desktop window only.
