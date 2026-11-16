@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
-import { Outbox, OUTBOX_MAX_ATTEMPTS } from "../domain/outbox";
-import { SyncStateStore } from "../domain/sync-state";
+import { Outbox, OUTBOX_MAX_ATTEMPTS } from "../domain/parts-2";
+import { SyncStateStore } from "../domain/parts-3";
 import { localSqlDb, type LocalSqlDb } from "./local-sql";
 
 const open: LocalSqlDb[] = [];

@@ -18,6 +18,7 @@ function facadeWith(respond: (url: string, init: RequestInit) => Response, token
   const calls: { url: string; init: RequestInit }[] = [];
   const facade = new SettingsFacade({
     settings: {} as never,
+    preferences: {} as never,
     bibliography: {} as never,
     projectBibliography: {} as never,
     integrations: {} as never,

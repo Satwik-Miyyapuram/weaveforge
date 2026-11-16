@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  INDEX_MARKER_END,
-  INDEX_MARKER_START,
-  buildWikiIndex,
-  replaceWikiIndex,
-  type WikiPageRef,
-} from "../../../src/index.js";
+import { type WikiPageRef } from "../../../src/index.js";
+import * as wasm from "../../../../wf-wasm/src/index.ts";
+
+// Their TypeScript was removed; the Rust core is the implementation.
+const { buildWikiIndex, replaceWikiIndex } = wasm;
+// The block markers, as crates/wf-core/src/ai/wiki_index.rs writes them.
+const INDEX_MARKER_START = "<!-- weaveforge:wiki-index -->";
+const INDEX_MARKER_END = "<!-- /weaveforge:wiki-index -->";
 
 const now = () => "2026-08-05T00:00:00.000Z";
 const page = (id: string, title: string, aliases?: string[]): WikiPageRef => ({

@@ -1,28 +1,23 @@
 "use client";
 
-import { enumLabel } from "@/lib/enum-label";
+import { readyCore } from "@/lib/rust-core";
 import { useEffect, useMemo, useState } from "react";
-import {
-  findDuplicateGroups,
-  titleFixes,
-  type DuplicateGroup,
-  type PaperSummary,
-  type TitleFix,
-} from "@weaveforge/core";
+import { type PaperSummary } from "@weaveforge/core";
+import type { DuplicateGroup, TitleFix } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import type { LibraryTidyScan, TidyDuplicateGroup } from "@/container/facades/library-tidy";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
-import { useHiddenKeys } from "@/lib/toast";
+import { useHiddenKeys } from "@/lib/toast/index";
 import { mergeLater } from "./merge-later";
 import { paperKey } from "./remove-paper";
 
 /** What the tidy-up would offer for these papers. Pure, so the screen can count it cheaply. */
 function useLibraryTidy(papers: readonly PaperSummary[]) {
   return useMemo(
-    () => ({ titles: titleFixes(papers), duplicates: findDuplicateGroups([...papers]) }),
+    () => ({ titles: readyCore().titleFixes(papers), duplicates: readyCore().findDuplicateGroups([...papers]) }),
     [papers],
   );
 }
@@ -226,7 +221,7 @@ function TitleFixRow({
 
 function describe(p: (PaperSummary & { venue?: string }) | undefined): string {
   if (!p) return "";
-  return [p.year, p.venue, p.pdfPath ? "PDF" : null, enumLabel("paperStatus", p.status), p.doi ? `doi:${p.doi}` : null]
+  return [p.year, p.venue, p.pdfPath ? "PDF" : null, readyCore().enumLabel("paperStatus", p.status), p.doi ? `doi:${p.doi}` : null]
     .filter(Boolean)
     .join(" · ");
 }

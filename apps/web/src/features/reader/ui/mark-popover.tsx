@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import type { MarkActions } from "../application/mark-actions";
+import type { MarkActions } from "@weaveforge/wasm";
 import { AnchoredBar, COMMENT_PATH, CommentField, Glyph, type SelectionAnchor } from "./selection-create-bar";
 import { Swatch } from "@/components/controls";
 import { Button, IconButton } from "@/components/button";

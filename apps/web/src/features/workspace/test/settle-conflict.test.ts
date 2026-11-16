@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
-import { digestText, type ImportDiffEntry } from "@weaveforge/core";
+import { before, test } from "node:test";
+import type { ImportDiffEntry } from "@weaveforge/wasm";
+import { readyCore, type RustCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import {
-  keepBothTitle,
   mergeBothChanged,
   settleConflict,
 } from "../application/workspace-folder";
+
+let rs: RustCore;
+before(async () => {
+  rs = await loadTestCore();
+});
 
 const conflict: ImportDiffEntry = {
   action: "conflict",
@@ -22,32 +28,32 @@ const conflict: ImportDiffEntry = {
 };
 
 test("an unsettled conflict is left alone", () => {
-  assert.equal(settleConflict(conflict, {}), null);
-  assert.equal(settleConflict(conflict, { "notes/n1.note.md": "keep" }), null);
+  assert.equal(settleConflict(rs, conflict, {}), null);
+  assert.equal(settleConflict(rs, conflict, { "notes/n1.note.md": "keep" }), null);
   // Somebody else's conflict being settled does not settle this one.
-  assert.equal(settleConflict(conflict, { "notes/other.note.md": "folder" }), null);
+  assert.equal(settleConflict(rs, conflict, { "notes/other.note.md": "folder" }), null);
 });
 
 test("taking the folder's copy is an update to the same note", () => {
-  const settled = settleConflict(conflict, { "notes/n1.note.md": "folder" });
+  const settled = settleConflict(rs, conflict, { "notes/n1.note.md": "folder" });
   assert.equal(settled?.action, "updated");
   assert.equal(settled?.entity.id, "n1");
   assert.equal(settled?.entity.title, "Both of us edited this");
 });
 
 test("keeping both creates a note and never touches the existing one", () => {
-  const settled = settleConflict(conflict, { "notes/n1.note.md": "both" });
+  const settled = settleConflict(rs, conflict, { "notes/n1.note.md": "both" });
   assert.equal(settled?.action, "created");
   // The id is dropped, which is what stops the import writing over the very
   // note the user asked to keep.
   assert.equal(settled?.entity.id, undefined);
-  assert.equal(settled?.entity.title, keepBothTitle("Both of us edited this"));
+  assert.equal(settled?.entity.title, rs.keepBothTitle("Both of us edited this"));
   assert.equal(settled?.entity.body, "the folder's copy");
 });
 
 test("a type mismatch cannot be overwritten, whatever was asked", () => {
   const mismatch: ImportDiffEntry = { ...conflict, kind: "type-mismatch" };
-  const settled = settleConflict(mismatch, { "notes/n1.note.md": "folder" });
+  const settled = settleConflict(rs, mismatch, { "notes/n1.note.md": "folder" });
   // There is no note behind that id to update, so the only safe reading of
   // "take the folder's copy" is to import it as something new.
   assert.equal(settled?.action, "created");
@@ -56,12 +62,12 @@ test("a type mismatch cannot be overwritten, whatever was asked", () => {
 
 test("a type mismatch left alone is still left alone", () => {
   const mismatch: ImportDiffEntry = { ...conflict, kind: "type-mismatch" };
-  assert.equal(settleConflict(mismatch, {}), null);
+  assert.equal(settleConflict(rs, mismatch, {}), null);
 });
 
 test("entries that are not conflicts pass through untouched", () => {
   const update: ImportDiffEntry = { action: "updated", entity: conflict.entity };
-  assert.equal(settleConflict(update, { "notes/n1.note.md": "both" }), update);
+  assert.equal(settleConflict(rs, update, { "notes/n1.note.md": "both" }), update);
 });
 
 const noteContent = (fields: string, body: string, title = "Shared note") =>
@@ -81,10 +87,11 @@ const bothChanged: ImportDiffEntry = {
   },
 };
 
-const base = { fields: { title: "Shared note", tags: ["a"] }, bodyDigest: digestText("the original body") };
+const base = { fields: { title: "Shared note", tags: ["a"] }, bodyDigest: readyCore().digestText("the original body") };
 
 test("edits that do not collide are merged instead of asked about", () => {
   const merged = mergeBothChanged(
+    rs,
     bothChanged,
     base,
     noteContent("tags:\n  - a\n", "a body rewritten in the app"),
@@ -98,8 +105,9 @@ test("edits that do not collide are merged instead of asked about", () => {
 
 test("a body both sides rewrote stays a conflict, and says so", () => {
   const merged = mergeBothChanged(
+    rs,
     bothChanged,
-    { ...base, bodyDigest: digestText("something else entirely") },
+    { ...base, bodyDigest: readyCore().digestText("something else entirely") },
     noteContent("tags:\n  - a\n  - b\n", "a body rewritten in the app"),
   );
 
@@ -110,8 +118,9 @@ test("a body both sides rewrote stays a conflict, and says so", () => {
 
 test("several colliding fields are all named", () => {
   const merged = mergeBothChanged(
+    rs,
     { ...bothChanged, entity: { ...bothChanged.entity, title: "Their title" } },
-    { ...base, bodyDigest: digestText("something else entirely") },
+    { ...base, bodyDigest: readyCore().digestText("something else entirely") },
     noteContent("tags:\n  - a\n", "our rewrite", "Our title"),
   );
 
@@ -120,11 +129,11 @@ test("several colliding fields are all named", () => {
 });
 
 test("a folder with no recorded base is left exactly as it was", () => {
-  assert.equal(mergeBothChanged(bothChanged, undefined, noteContent("", "x")), bothChanged);
-  assert.equal(mergeBothChanged(bothChanged, base, undefined), bothChanged);
+  assert.equal(mergeBothChanged(rs, bothChanged, undefined, noteContent("", "x")), bothChanged);
+  assert.equal(mergeBothChanged(rs, bothChanged, base, undefined), bothChanged);
 });
 
 test("a type mismatch is not something a field merge can settle", () => {
   const mismatch: ImportDiffEntry = { ...bothChanged, kind: "type-mismatch" };
-  assert.equal(mergeBothChanged(mismatch, base, noteContent("", "x")), mismatch);
+  assert.equal(mergeBothChanged(rs, mismatch, base, noteContent("", "x")), mismatch);
 });

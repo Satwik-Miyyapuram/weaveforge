@@ -1,11 +1,11 @@
 "use client";
 
-import { humanise } from "@/lib/enum-label";
+import { readyCore } from "@/lib/rust-core";
 import { Select } from "@/components/select";
 
 /** "not_started" reads "Not started". */
 export function statusLabel(status: string): string {
-  return humanise(status);
+  return readyCore().humanise(status);
 }
 
 /** The one status pill, tinted from the shared status map on every card and page. */
@@ -15,18 +15,21 @@ export function StatusSelect<S extends string>({
   onChange,
   disabled,
   label,
+  title,
 }: {
   value: S;
   statuses: readonly S[];
   onChange: (status: S) => void;
   disabled?: boolean;
   label: string;
+  title?: string;
 }) {
   return (
     <Select
       className="status-select"
       value={value}
       disabled={disabled}
+      title={title}
       onChange={(e) => onChange(e.target.value as S)}
       aria-label={label}
     >

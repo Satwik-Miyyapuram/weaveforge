@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { PAPER_STATUSES, isPlaceholderTitle, titleFromFileName, type Paper, type PaperStatus, type PaperSummary } from "@weaveforge/core";
+import { PAPER_STATUSES, type Paper, type PaperStatus, type PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { paperKey, removePaper } from "./remove-paper";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { PaperCardThumbs } from "@/components/card-thumbs";
-import { cardSnippet } from "@/lib/card-snippet";
 import { PinnedPaperBadge } from "@/features/sharing";
 import { ListPicker } from "@/features/reading-lists";
 import { StatusSelect } from "@/components/status-select";
-import { removeLater } from "@/lib/toast";
+import { removeLater } from "@/lib/toast/index";
+import { readyCore } from "@/lib/rust-core";
+import { copyPaperAs } from "./copy-paper";
 
 /** Compact paper card in the grid; clicking opens the full note page. */
 export function PaperCard({
@@ -69,12 +70,12 @@ export function PaperCard({
   const metaBits = [
     // A page name ("Catalog Page", "PDF Full Text") is not the paper's title;
     // saying so beats letting it pass for one. Opening the paper lets it be fixed.
-    isPlaceholderTitle(paper.title) ? "Title not found — open to set it" : null,
+    readyCore().isPlaceholderTitle(paper.title) ? "Title not found — open to set it" : null,
     authorsLine || null,
     paper.year != null ? String(paper.year) : null,
   ].filter(Boolean) as string[];
 
-  const snippet = cardSnippet(paper.summary ?? "");
+  const snippet = readyCore().cardSnippet(paper.summary ?? "");
 
   return (
     <EntityCard
@@ -82,7 +83,7 @@ export function PaperCard({
       tone={paper.status}
       onActivate={onOpen}
       // Rows imported before titles were cleaned still carry the filename.
-      title={titleFromFileName(paper.title)}
+      title={readyCore().titleFromFileName(paper.title)}
       badge={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
       status={
         <StatusSelect
@@ -108,8 +109,12 @@ export function PaperCard({
             deleteDisabled={busy}
             deleteLabel={isPinned ? "Remove from library" : "Delete paper"}
             onDelete={isPinned ? unpin : readOnly ? undefined : remove}
-            extraItems={readOnly ? [] : [
-              { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "paper", id: paper.id }} /> },
+            extraItems={[
+              { id: "copy-reference", label: "Copy reference", onSelect: () => void copyPaperAs("reference", paper, getContainer().papers) },
+              { id: "copy-bibtex", label: "Copy BibTeX", onSelect: () => void copyPaperAs("bibtex", paper, getContainer().papers) },
+              ...(readOnly ? [] : [
+                { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "paper", id: paper.id }} /> },
+              ]),
             ]}
           />
         )

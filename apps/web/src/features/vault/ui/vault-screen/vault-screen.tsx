@@ -2,27 +2,32 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { normalizeTitleKey, type VaultPage, type VaultPageSummary } from "@weaveforge/core";
+import { type VaultPage, type VaultPageSummary } from "@weaveforge/core";
 import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoading } from "@/components/screen-loading";
-import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
-import { untitledTitle } from "../../application/untitled-title";
-import { importNotesFromFiles } from "../../application/import-notes";
-import { loadLinkTargets } from "../../application/load-link-targets";
-import { createNoteFromLink as createOrReuseNote } from "../../application/create-note-from-link";
+import { FileDropZone } from "@/components/file-drop-zone";
+import { loadPinnedOwnerNames } from "@/features/sharing/application/parts";
+import {
+  createNoteFromLink as createOrReuseNote,
+  importNotesFromFiles,
+  loadLinkTargets,
+  noteBacklinks,
+  scopeNotes,
+} from "../../application/parts";
+import { importOneNoteSection, oneNoteImportDeps } from "../../application/onenote-import";
 import { logToApp } from "@/lib/error-report/app-log";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
-import { emptyArray, emptyMap, emptySet } from "@/lib/empty";
+import { emptyArray, emptyMap, emptySet } from "@/lib/parts";
 import { useProject } from "@/features/projects";
-import { projectScopedKey, usePersistedState } from "@/lib/hooks/use-persisted-state";
+import { projectScopedKey, usePersistedState } from "@/lib/hooks/parts";
 import { formatError } from "@/lib/format-error";
-import { rememberRecentTarget } from "@/lib/recent-targets";
+import { readyCore } from "@/lib/rust-core";
+import { rememberRecentTarget } from "@/lib/parts-2";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { noteBodyText, isHydratedPage } from "./note-card";
 import { NoteCardGrid } from "./note-card-grid";
-import { noteBacklinks, noteTags, scopeNotes } from "../../application/note-derivations";
 import { openNoteBody } from "./open-note-body";
 import { PageEditor } from "./page-editor";
 import type { VaultViewData } from "./types";
@@ -49,6 +54,7 @@ export function VaultScreen() {
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const importZipRef = useRef<HTMLInputElement | null>(null);
   const importFolderRef = useRef<HTMLInputElement | null>(null);
+  const importOneNoteRef = useRef<HTMLInputElement | null>(null);
   // File inputs stay mounted outside the modal so pickers survive dialog close.
   // Filters name lists and tags of one project, so each project keeps its own.
   const projectId = useProject().current?.id;
@@ -218,7 +224,7 @@ export function VaultScreen() {
     setError(null);
     try {
       const page = await getContainer().vault.manageVaultPage.add({
-        title: untitledTitle(flat.map((p) => p.title)),
+        title: readyCore().uniqueTitle("Untitled", new Set(flat.map((p) => p.title).map(readyCore().normalizeTitleKey))),
       });
       setNewPageId(page.id);
       await load();
@@ -228,7 +234,7 @@ export function VaultScreen() {
     }
   }
 
-  async function onImportFiles(fileList: FileList | null) {
+  async function onImportFiles(fileList: FileList | readonly File[] | null) {
     if (!fileList || fileList.length === 0) return;
     setImporting(true);
     setImportMsg(null);
@@ -248,6 +254,29 @@ export function VaultScreen() {
     }
   }
 
+  async function onImportOneNote(file: File | null) {
+    if (!file) return;
+    setImporting(true);
+    setImportMsg(null);
+    setError(null);
+    try {
+      const res = await importOneNoteSection(file, oneNoteImportDeps());
+      const parts = [`Imported ${res.created} note${res.created === 1 ? "" : "s"}`];
+      if (res.inkNotes) parts.push(`${res.inkNotes} handwriting`);
+      if (res.images) parts.push(`${res.images} image${res.images === 1 ? "" : "s"}`);
+      if (res.warnings.length) parts.push(`${res.warnings.length} warning${res.warnings.length === 1 ? "" : "s"}`);
+      for (const w of res.warnings) {
+        logToApp({ level: "warn", source: "vault", message: w });
+      }
+      setImportMsg(`${parts.join(", ")}.`);
+      await load();
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setImporting(false);
+    }
+  }
+
   /**
    * `![[Note]]` transclusion: resolve a note title to its body for inlining.
    *
@@ -258,8 +287,8 @@ export function VaultScreen() {
    */
   const resolveEmbed = useCallback(
     (title: string) => {
-      const key = normalizeTitleKey(title);
-      const page = flat.find((p) => normalizeTitleKey(p.title) === key);
+      const key = readyCore().normalizeTitleKey(title);
+      const page = flat.find((p) => readyCore().normalizeTitleKey(p.title) === key);
       return page && isHydratedPage(page) ? page.body : null;
     },
     [flat],
@@ -295,7 +324,7 @@ export function VaultScreen() {
     [flat, ownedIds, pinnedSharedBy],
   );
 
-  const allTags = useMemo(() => noteTags(flat), [flat]);
+  const allTags = useMemo(() => readyCore().noteTags(flat), [flat]);
 
   const hasNotes = ownedNotes.length > 0 || pinnedPages.length > 0;
 
@@ -322,16 +351,23 @@ export function VaultScreen() {
 
   return (
     <section className="screen vault-screen">
+      {/* The list only: an open note's editor takes dropped images itself. */}
+      {!selectedId && !isSharedView && (
+        <FileDropZone
+          label="Drop .md files or a .zip to import notes"
+          onFiles={(files) => void onImportFiles(files.filter((f) => readyCore().isNoteImportFile(f.name)))}
+        />
+      )}
       {/* An open note is a record page, as a paper is: its own bar carries
           the way back and its actions, so the list head steps aside. */}
       {!selected && (
       <ScreenHead
         eyebrow={hasNotes ? `${ownedNotes.length} ${ownedNotes.length === 1 ? "note" : "notes"}` : undefined}
-        search={hasNotes ? { value: search, onChange: setSearch, label: "Search notes" } : undefined}
+        search={hasNotes ? { value: search, onChange: setSearch, label: "Search notes", helpId: "notes-search" } : undefined}
       >
         <Button
           variant="primary"
-         
+          data-help-id="notes-new"
           disabled={importing}
           onClick={() => void createUntitled()}
         >
@@ -358,6 +394,13 @@ export function VaultScreen() {
                   title: "A local folder of markdown notes",
                   onSelect: () => importFolderRef.current?.click(),
                 },
+                {
+                  id: "import-onenote",
+                  label: "Import OneNote section…",
+                  disabled: importing,
+                  title: "A OneNote .one section file: text, images and handwriting",
+                  onSelect: () => importOneNoteRef.current?.click(),
+                },
                 { id: "sep", label: "", kind: "separator" as const },
                 { id: "wiki", label: "Wiki", onSelect: () => router.push("/wiki") },
               ]}
@@ -371,6 +414,16 @@ export function VaultScreen() {
           accept=".zip,application/zip"
           onChange={(e) => {
             void onImportFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={importOneNoteRef}
+          type="file"
+          hidden
+          accept=".one"
+          onChange={(e) => {
+            void onImportOneNote(e.target.files?.[0] ?? null);
             e.target.value = "";
           }}
         />
@@ -400,6 +453,7 @@ export function VaultScreen() {
       {!error && !selected && hasNotes && (
         <FilterRow
           label="Filter notes"
+          helpId="notes-filters"
           facets={[
             {
               id: "fnlist",

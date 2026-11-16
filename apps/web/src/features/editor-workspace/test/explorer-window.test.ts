@@ -1,15 +1,23 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import type { ExplorerViewport, RowSlot } from "@weaveforge/wasm";
+
+import { readyCore } from "@/lib/rust-core";
+
 import {
   EXPLORER_FIRST_PAINT_ROWS,
   EXPLORER_OVERSCAN_ROWS,
+  EXPLORER_ROW_METRICS,
   EXPLORER_ROW_PX,
-  rowSlots,
-  type RowSlot,
-} from "../application/explorer-window";
+} from "../ui/explorer-window-constants";
 
 const H = EXPLORER_ROW_PX;
+
+/** The core's painted rows for one section, with the shared row metrics. */
+function rowSlots(count: number, viewport: ExplorerViewport | null, pinned: number[]): RowSlot[] {
+  return readyCore().rowSlots(count, viewport, pinned, EXPLORER_ROW_METRICS) as RowSlot[];
+}
 
 function painted(slots: RowSlot[]): number[] {
   return slots.flatMap((slot) => (slot.kind === "row" ? [slot.index] : []));

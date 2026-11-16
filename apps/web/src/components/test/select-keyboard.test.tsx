@@ -101,6 +101,19 @@ async function render(searchable: boolean, className?: string) {
   return { chosen, trigger, listbox, search, press, activeOption, options };
 }
 
+test("Select puts its title on the trigger, so a hover explains it", async () => {
+  let renderer!: ReturnType<typeof create>;
+  await act(async () => {
+    renderer = create(
+      createElement(Select, { value: "a", title: "Why this is off", "aria-label": "Pick", onChange: () => {} },
+        createElement("option", { value: "a" }, "Alpha")),
+      { createNodeMock: () => ({ getBoundingClientRect: () => TRIGGER, focus: () => {}, querySelector: () => null }) },
+    );
+  });
+  const trigger = renderer.root.find((n) => typeof n.type === "string" && (n.props as { role?: string }).role === "combobox");
+  assert.equal(trigger.props.title, "Why this is off");
+});
+
 test("Select search box: Enter chooses once", async () => {
   const view = await render(true);
   view.press(view.trigger(), "ArrowDown");

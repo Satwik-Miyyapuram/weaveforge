@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PAPER_STATUSES, type Paper, type PaperSummary, type ReadingList } from "@weaveforge/core";
-import { zoteroWriteBackMessage } from "@/features/reader/application/write-back-zotero-annotations";
+import { readyCore } from "@/lib/rust-core";
+import { rememberRecentTarget } from "@/lib/parts-2";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
@@ -16,12 +17,11 @@ import { AddPaperForm, addedPaperMessage } from "./add-paper-form";
 import { FilterRow } from "@/components/filter-row";
 import { ViewSwitch } from "@/components/view-switch";
 import { useProject } from "@/features/projects";
-import { projectScopedKey, usePersistedState } from "@/lib/hooks/use-persisted-state";
+import { projectScopedKey, usePersistedState } from "@/lib/hooks/parts";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
-import { emptyArray, emptyMap } from "@/lib/empty";
-import type { PapersScreenData } from "@/features/papers/application/load-papers-screen.use-case";
-import { rememberRecentTarget } from "@/lib/recent-targets";
+import { emptyArray, emptyMap } from "@/lib/parts";
+import type { PapersScreenData } from "@/features/papers/application/parts-1";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { PaperCard } from "./paper-card";
 import { LibraryTidyNotice } from "./library-tidy";
@@ -36,10 +36,15 @@ import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
 import { navTransition } from "@/lib/view-transition";
 import { Button } from "@/components/button";
-import { showToast, useHiddenKeys } from "@/lib/toast";
+import { showToast, useHiddenKeys } from "@/lib/toast/index";
 import { paperKey } from "./remove-paper";
-import { PdfDropZone } from "./pdf-drop-zone";
-import { summarizePdfDrop, type PdfDropOutcome } from "../application/paper-from-pdf";
+import { PaperDropZone } from "./pdf-drop-zone";
+import {
+  bibImportMessage,
+  type BibImportOutcome,
+  type PdfDropOutcome,
+  summarizePdfDrop,
+} from "../application/parts-2";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 
@@ -126,7 +131,7 @@ export function PapersScreen() {
       const { pushed, pulled, deletedLocal } = library;
       setSyncMsg(
         `Synced — pushed ${pushed}, pulled ${pulled}, removed ${deletedLocal} · ${annotations} annotations` +
-          `${zoteroWriteBackMessage(writeBack)}.`,
+          `${readyCore().zoteroWriteBackMessage(writeBack)}.`,
       );
       await load();
     } catch (err) {
@@ -194,6 +199,14 @@ export function PapersScreen() {
       showToast(message, open ? { label: "Open", run: () => openPaperById(open.id) } : undefined);
     },
     [load, openPaperById],
+  );
+
+  const onBibImported = useCallback(
+    (outcome: BibImportOutcome) => {
+      void load();
+      showToast(bibImportMessage(outcome));
+    },
+    [load],
   );
 
   const replace = useCallback(
@@ -392,7 +405,7 @@ export function PapersScreen() {
 
   return (
     <section className="screen papers-screen">
-      {!isSharedView && <PdfDropZone onDropped={onPdfsAdded} />}
+      {!isSharedView && <PaperDropZone onPdfs={onPdfsAdded} onBib={onBibImported} />}
       <ScreenHead
         eyebrow={papers.length > 0 ? `${papers.length} ${papers.length === 1 ? "paper" : "papers"} · ${readCount} read` : undefined}
         search={papers.length > 0 ? { value: search, onChange: setSearch, label: "Search papers" } : undefined}
@@ -452,6 +465,11 @@ export function PapersScreen() {
         <Modal title="Add paper" onClose={() => setComposeOpen(false)}>
           <AddPaperForm
             onPdfs={onPdfsAdded}
+            onBib={(outcome) => {
+              // Keep the form open while it lists skipped or broken entries.
+              if (outcome.skipped.length === 0 && outcome.problems.length === 0) setComposeOpen(false);
+              onBibImported(outcome);
+            }}
             onAdded={(paper, created) => {
               setComposeOpen(false);
               void load();

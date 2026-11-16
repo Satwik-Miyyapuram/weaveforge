@@ -4,10 +4,16 @@
 
 import type { Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { getReaderPdfByteCache } from "@/features/reader/application/resolve-paper-pdf-for-reader";
-import { pdfPageText } from "@/features/search/application/index-library-pdfs";
-import { scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
-import { addPaperFromPdf, type PdfDropDeps, type PdfDropOutcome, type PdfFileLike, type PdfText } from "../application/paper-from-pdf";
+import { getReaderPdfByteCache } from "@/features/reader/application/parts-3";
+import { readyCore } from "@/lib/rust-core";
+import {
+  addPaperFromPdf,
+  type PdfDropDeps,
+  type PdfDropOutcome,
+  type PdfFileLike,
+  type PdfText,
+  scaffoldNewPaperNote,
+} from "../application/parts-2";
 
 async function readPdf(bytes: ArrayBuffer): Promise<PdfText> {
   const lib = await import("pdfjs-dist");
@@ -16,7 +22,7 @@ async function readPdf(bytes: ArrayBuffer): Promise<PdfText> {
   const doc = await lib.getDocument({ data: bytes.slice(0) }).promise;
   try {
     const page = await doc.getPage(1);
-    const text = pdfPageText((await page.getTextContent()).items);
+    const text = readyCore().pdfPageText((await page.getTextContent()).items);
     const info = (await doc.getMetadata().catch(() => null))?.info as { Title?: unknown } | undefined;
     return { text, title: typeof info?.Title === "string" ? info.Title : undefined };
   } finally {

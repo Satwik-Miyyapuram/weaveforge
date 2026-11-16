@@ -1,9 +1,19 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { ReadingList, ReadingListTreeNode } from "@weaveforge/core";
 
-import { collectListIds, movedIds, reorderedIds } from "../ui/list-ui";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { runListAction } from "../ui/run-list-action";
+
+before(async () => {
+  await loadTestCore();
+});
+
+const collectListIds = (tree: ReadingListTreeNode[]) => readyCore().collectListIds(tree);
+const reorderedIds = (ids: string[], dragId: string, targetId: string) =>
+  readyCore().reorderedIds(ids, dragId, targetId);
+const movedIds = (ids: string[], id: string, step: -1 | 1) => readyCore().movedIds(ids, id, step);
 
 function node(id: string, children: ReadingListTreeNode[] = []): ReadingListTreeNode {
   return { list: { id, name: id, sortOrder: 0, createdAt: "" } as ReadingList, children };

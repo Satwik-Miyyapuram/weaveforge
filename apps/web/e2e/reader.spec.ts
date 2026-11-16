@@ -23,6 +23,9 @@ test.describe("PDF reader", () => {
   });
 
   test("renders a PDF and fits it to the container width by default", async ({ page }) => {
+    // The writing page beside each PDF page is on by default and takes half
+    // the width. Turn it off so this checks the fit against the whole container.
+    await page.addInitScript(() => localStorage.setItem("weaveforge.reader.writingPage", "0"));
     await gotoStable(page, `/reader?pdf=${encodeURIComponent(SAMPLE_PDF)}`);
 
     const canvas = page.locator(".pdf-reader-page canvas").first();
@@ -33,11 +36,20 @@ test.describe("PDF reader", () => {
 
     // The whole point of R0: the page must fit inside the scroll container
     // rather than overflowing it, which is what the old fixed 135% scale did.
+    // The first fit can be measured before the layout settles; the refit after
+    // the resize waits 160 ms. So poll until the ratio is in range, not once.
     const scroll = page.locator(".pdf-reader-scroll");
-    const pageWidth = (await canvas.boundingBox())!.width;
-    const hostWidth = (await scroll.boundingBox())!.width;
-    expect(pageWidth).toBeLessThanOrEqual(hostWidth + 1);
-    expect(pageWidth).toBeGreaterThan(hostWidth * 0.5);
+    const ratio = async () => {
+      const pageWidth = (await canvas.boundingBox())?.width ?? 0;
+      const hostWidth = (await scroll.boundingBox())?.width ?? 1;
+      return pageWidth / hostWidth;
+    };
+    await expect
+      .poll(async () => {
+        const r = await ratio();
+        return r > 0.5 && r <= 1.01 ? "fits" : `ratio ${r.toFixed(3)}`;
+      }, { timeout: 30_000 })
+      .toBe("fits");
   });
 
   test("zoom controls change the rendered page size", async ({ page }) => {
@@ -46,16 +58,23 @@ test.describe("PDF reader", () => {
     await expect(canvas).toBeVisible({ timeout: 60_000 });
     await expect.poll(async () => (await canvas.boundingBox())?.width ?? 0).toBeGreaterThan(0);
 
-    const before = (await canvas.boundingBox())!.width;
-    await page.getByRole("button", { name: "Zoom in" }).click();
-    await expect.poll(async () => (await canvas.boundingBox())!.width).toBeGreaterThan(before);
+    // A click that lands while the first render is still settling can be lost,
+    // so retry it until the page grows.
+    const width = async () => (await canvas.boundingBox())?.width ?? 0;
+    await expect(async () => {
+      const before = await width();
+      await page.getByRole("button", { name: "Zoom in" }).click();
+      await expect.poll(width, { timeout: 2_000 }).toBeGreaterThan(before);
+    }).toPass({ timeout: 30_000 });
 
     const zoomed = (await canvas.boundingBox())!.width;
     await page.getByRole("button", { name: "Zoom out" }).click();
     await expect.poll(async () => (await canvas.boundingBox())!.width).toBeLessThan(zoomed);
 
     // Fit width returns to the container, whatever the zoom history.
-    await page.getByRole("button", { name: "Fit width" }).click();
+    // Fit width sits in the zoom menu.
+    await page.getByRole("button", { name: "Zoom, fit and rotate" }).click();
+    await page.getByRole("menuitemradio", { name: "Fit width" }).click();
     const host = (await page.locator(".pdf-reader-scroll").boundingBox())!.width;
     await expect
       .poll(async () => (await canvas.boundingBox())!.width)
@@ -70,6 +89,8 @@ test.describe("PDF reader", () => {
     const span = page.locator(".pdf-reader-textlayer span[data-item-index]").first();
     await expect(span).toBeAttached({ timeout: 60_000 });
 
+    // The search box opens from the Find button.
+    await page.locator('button[aria-label="Find in document"]:enabled').first().click();
     const search = page.getByRole("searchbox", { name: "Find in document" });
     await search.fill("attention");
     await expect(page.locator(".pdf-reader-search-count")).not.toHaveText("0/0", {

@@ -7,7 +7,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { BlobNotFoundError, type IBlobStore } from "@weaveforge/core";
 
 import { withAppLogs } from "@/lib/error-report/test/capture-app-logs";
-import { keepFlushing, LocalFirstBlobStore } from "../local-first-blob-store";
+import { keepFlushing, LocalFirstBlobStore } from "../parts-1";
 import type { LocalQuery } from "../pglite-client";
 
 const MIGRATIONS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../../../../db/migrations-local");
@@ -38,7 +38,7 @@ class FakeServer implements IBlobStore {
 
 async function database(): Promise<LocalQuery> {
   const pg = new PGlite();
-  for (const file of ["0006_local_blobs.sql", "0009_local_blob_uploads.sql"]) {
+  for (const file of ["0006_local_blobs.sql", "0009_local_blob_uploads.sql", "0021_local_blobs_on_disk.sql"]) {
     await pg.exec(readFileSync(path.join(MIGRATIONS, file), "utf8"));
   }
   return async (sql, params) => (await pg.query(sql, params as unknown[])).rows;

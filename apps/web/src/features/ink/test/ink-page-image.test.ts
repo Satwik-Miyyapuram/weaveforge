@@ -12,27 +12,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  INK_A4_HEIGHT,
-  INK_A4_WIDTH,
-  blankInkPage,
-  decodeInkChunk,
-  encodeInkChunk,
-  inkAttachmentIndex,
-  joinInkTextLayer,
-  makeInkStroke,
-  pageFromChunk,
-  readInkChunkHeader,
-  withInkPageBackground,
-  type InkPage,
-} from "@weaveforge/core";
+import { INK_A4_HEIGHT, INK_A4_WIDTH, decodeInkChunk, encodeInkChunk, pageFromChunk, readInkChunkHeader, type InkPage } from "@weaveforge/core";
 
-import { inkChunkCodec } from "../application/ink-chunk-codec";
-import { InkPageBuffer } from "../application/page-buffer";
+import { inkChunkCodec } from "../application/parts-1";
+import { InkPageBuffer } from "../application/parts-3";
 import {
   imageFileFromClipboard,
   pageChunkWithBackground,
-} from "../application/page-background";
+} from "../application/parts-2";
+import { typedCore } from "@/lib/rust-core";
 
 /** The codec the app stores with, as the host and the worker both ask for it. */
 const codec = inkChunkCodec("deflate-raw") ?? undefined;
@@ -40,9 +28,9 @@ const codec = inkChunkCodec("deflate-raw") ?? undefined;
 /** A page with one stroke and one recognised line, so a re-pack has something to lose. */
 function pageWithInk(): InkPage {
   return {
-    ...blankInkPage("ruled"),
+    ...typedCore().blankInkPage("ruled"),
     strokes: [
-      makeInkStroke({
+      typedCore().makeInkStroke({
         points: [100, 100, 140, 160, 180, 120],
         pressures: [10, 20, 30],
         width: 5,
@@ -69,40 +57,40 @@ function pageWithInk(): InkPage {
  * ---------------------------------------------------------------------- */
 
 test("setting a page's image puts the background line first, and only once", () => {
-  const set = withInkPageBackground("hello\n\nworld", "a/b.png");
+  const set = typedCore().withInkPageBackground("hello\n\nworld", "a/b.png");
   assert.equal(set, "![page background](vault:a/b.png)\n\nhello\n\nworld");
 
   // Replacing is the same operation: there is never a second line.
-  const replaced = withInkPageBackground(set, "c/d.png");
+  const replaced = typedCore().withInkPageBackground(set, "c/d.png");
   assert.equal(replaced, "![page background](vault:c/d.png)\n\nhello\n\nworld");
   assert.equal(replaced.split("![page background]").length, 2);
 });
 
 test("clearing a page's image leaves the recognised text exactly as it was", () => {
-  const cleared = withInkPageBackground(
-    withInkPageBackground("line one\nline two", "a/b.png"),
+  const cleared = typedCore().withInkPageBackground(
+    typedCore().withInkPageBackground("line one\nline two", "a/b.png"),
     null,
   );
   assert.equal(cleared, "line one\nline two");
-  assert.equal(withInkPageBackground("", null), "");
+  assert.equal(typedCore().withInkPageBackground("", null), "");
 });
 
 test("the attachment index counts the page's place among the note's image refs", () => {
   const pages = [
-    withInkPageBackground("first", "a.png"),
+    typedCore().withInkPageBackground("first", "a.png"),
     "middle",
-    withInkPageBackground("third", "b.png"),
+    typedCore().withInkPageBackground("third", "b.png"),
   ];
-  const body = joinInkTextLayer(pages);
-  assert.equal(inkAttachmentIndex(body, "a.png"), 1);
-  assert.equal(inkAttachmentIndex(body, "b.png"), 2);
-  assert.equal(inkAttachmentIndex(body, null), 0);
+  const body = typedCore().joinInkTextLayer(pages);
+  assert.equal(typedCore().inkAttachmentIndex(body, "a.png"), 1);
+  assert.equal(typedCore().inkAttachmentIndex(body, "b.png"), 2);
+  assert.equal(typedCore().inkAttachmentIndex(body, null), 0);
 
   // A page inserted ahead moves them, which is why the index is counted from
   // the body rather than kept beside the page.
-  const moved = joinInkTextLayer([withInkPageBackground("new", "c.png"), ...pages]);
-  assert.equal(inkAttachmentIndex(moved, "a.png"), 2);
-  assert.equal(inkAttachmentIndex(moved, "c.png"), 1);
+  const moved = typedCore().joinInkTextLayer([typedCore().withInkPageBackground("new", "c.png"), ...pages]);
+  assert.equal(typedCore().inkAttachmentIndex(moved, "a.png"), 2);
+  assert.equal(typedCore().inkAttachmentIndex(moved, "c.png"), 1);
 });
 
 /* -------------------------------------------------------------------------
@@ -174,9 +162,9 @@ test("the host's chunk is compressed and one the worker can read back", async ()
   // something to compress. Below the threshold a body is stored raw on purpose
   // (§4.3), which is what the small pages elsewhere in this suite exercise.
   const page: InkPage = {
-    ...blankInkPage("blank"),
+    ...typedCore().blankInkPage("blank"),
     strokes: Array.from({ length: 40 }, (_unused, stroke) =>
-      makeInkStroke({
+      typedCore().makeInkStroke({
         points: Array.from({ length: 350 }, (_point, i) => [
           100 + stroke * 40 + (i % 30),
           100 + i * 2,
@@ -209,7 +197,7 @@ test("the host's chunk is compressed and one the worker can read back", async ()
  * ---------------------------------------------------------------------- */
 
 test("a page's buffer carries its attachment index into the next save", () => {
-  const buffer = new InkPageBuffer({ ...blankInkPage("blank"), background: 3 });
+  const buffer = new InkPageBuffer({ ...typedCore().blankInkPage("blank"), background: 3 });
   assert.equal(buffer.toPage().background, 3);
 
   // What the host's set-background does to the page the worker holds, so a

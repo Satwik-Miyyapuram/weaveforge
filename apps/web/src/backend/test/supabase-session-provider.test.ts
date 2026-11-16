@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { SupabaseSessionProvider } from "../providers/supabase-auth/session";
+import { SupabaseSessionProvider } from "../providers/supabase-auth/parts";
 
 type UserResult = { data: { user: { id: string } | null }; error: Error | null };
 

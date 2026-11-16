@@ -5,15 +5,18 @@
  * that stays inside the window, and a tool switch that leaves the page where
  * it was.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createElement, createRef, type ReactPortal } from "react";
 import { act, create, type ReactTestRenderer, type ReactTestInstance } from "react-test-renderer";
 
-import { InkBar } from "@/features/ink";
+import { InkBar } from "@/features/ink/ui/ink-bar";
 import { BarMenuList } from "../ui/ink-bar-menus";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

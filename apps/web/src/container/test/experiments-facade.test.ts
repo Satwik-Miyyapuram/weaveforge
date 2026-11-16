@@ -18,7 +18,7 @@ import type {
   MetricBudget,
 } from "@weaveforge/core";
 import { ExperimentsFacade } from "../facades/experiments";
-import type { ExperimentsScreenData } from "@/features/experiments/application/load-experiments-screen.use-case";
+import type { ExperimentsScreenData } from "@/features/experiments/application/parts";
 
 const NOW = Date.now();
 /** Comfortably past `STALE_RUNNING_MS`, so "quiet" is not a close call. */
@@ -29,6 +29,7 @@ function experiment(input: Partial<Experiment> & { id: string }): Experiment {
     name: input.id,
     status: "running",
     startedAt: LONG_AGO,
+    createdAt: LONG_AGO,
     artifacts: [],
     config: {},
     metrics: {},

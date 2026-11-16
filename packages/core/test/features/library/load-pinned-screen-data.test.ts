@@ -13,9 +13,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { loadPinnedScreenData } from "../../../src/features/library/application/load-pinned-screen-data.js";
-import type { LibraryPin } from "../../../src/features/library/domain/library-pin.js";
-import type { Share } from "../../../src/features/sharing/domain/share.js";
+import { loadPinnedScreenData } from "../../../src/features/library/application/parts.js";
+import type { LibraryPin } from "../../../src/features/library/domain/parts.js";
+import type { Share } from "../../../src/shared/core-contract.js";
 
 interface Item {
   id: string;
@@ -25,7 +25,7 @@ interface Item {
 const item = (id: string, title = `Item ${id}`): Item => ({ id, title });
 
 function pin(resourceType: LibraryPin["resourceType"], resourceId: string): LibraryPin {
-  return { id: `pin-${resourceId}`, projectId: "proj", resourceType, resourceId, ownerId: "alice" };
+  return { id: `pin-${resourceId}`, projectId: "proj", resourceType, resourceId, ownerId: "alice", userId: "me", createdAt: "2026-01-01T00:00:00.000Z" };
 }
 
 function share(resourceType: Share["resourceType"], resourceId: string): Share {

@@ -2,17 +2,11 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  QUOTATION_TYPE_LABELS,
-  type QuotationType,
-  type ReaderAnnotation,
-} from "@weaveforge/core";
-import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
-import {
-  annotationPinKey,
-  READER_ANNOTATION_COLORS,
-} from "../application/reader-annotation-helpers";
-import type { AnnotationBacklinkTarget } from "../application/annotation-backlinks";
+import { type QuotationType, type ReaderAnnotation } from "@weaveforge/core";
+import { QUOTATION_TYPE_LABELS } from "@/lib/parts";
+import { readyCore } from "@/lib/rust-core";
+import { READER_ANNOTATION_COLORS } from "../application/parts";
+import type { AnnotationBacklinkTarget } from "@weaveforge/wasm";
 import { Select } from "@/components/select";
 import { Button } from "@/components/button";
 import { RowButton, Swatch } from "@/components/controls";
@@ -87,7 +81,7 @@ export function AnnotationSidebar({
     const quote = (a.text || a.comment).trim();
     if (!quote) return;
     try {
-      await navigator.clipboard.writeText(formatQuoteCiteClipboard(quote, paperTitle));
+      await navigator.clipboard.writeText(readyCore().formatQuoteCiteClipboard(quote, paperTitle));
     } catch {
       /* clipboard may be unavailable */
     }
@@ -150,7 +144,7 @@ export function AnnotationSidebar({
       <ul className="pdf-reader-sidebar-list">
         {filtered.map((a) => {
           const qType = a.zoteroKey ? quotationTypes?.get(a.zoteroKey) : undefined;
-          const pinKey = annotationPinKey(a);
+          const pinKey = readyCore().annotationPinKey(a.id, a.zoteroKey);
           const pinnedSection = pinsByKey?.get(pinKey) ?? null;
           const localEditable = canEditLocal && a.origin === "local";
           return (
@@ -243,6 +237,7 @@ export function AnnotationSidebar({
                   <span className="muted">Pin to section</span>
                   <Select
                     aria-label="Pin annotation to report section"
+                    title="Attach this annotation to a report section so it shows there"
                     value={pinnedSection ?? ""}
                     disabled={busyId === a.id}
                     onChange={(e) => {

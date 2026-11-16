@@ -2,15 +2,10 @@
 
 import { useCallback, useState } from "react";
 import type { ReaderAnnotation } from "@weaveforge/core";
+import type { ReaderPrintNote, ReaderPrintPage } from "@weaveforge/wasm";
 
-import { strokePath } from "@/features/ink";
-import { layoutMarginNotes } from "../../application/margin-notes";
-import { projectPageAnnotationGeometry } from "../../application/project-annotation-geometry";
-import {
-  readerPrintDocument,
-  type ReaderPrintNote,
-  type ReaderPrintPage,
-} from "../../application/reader-print";
+import { readyCore } from "@/lib/rust-core";
+import { layoutMarginNotes } from "../../application/parts-2";
 import type { PdfDocument } from "./types";
 
 /**
@@ -89,8 +84,8 @@ export function useReaderPrint(deps: ReaderPrintDeps) {
             scale: PRINT_SCALE,
             rotation,
           };
-          const { boxes, strokes } = projectPageAnnotationGeometry({
-            annotations,
+          const { boxes, strokes } = readyCore().projectPageAnnotationGeometry({
+            annotations: [...annotations],
             pageNumber: n,
             contentHash,
             ...projection,
@@ -118,7 +113,7 @@ export function useReaderPrint(deps: ReaderPrintDeps) {
             ctx.restore();
           }
           for (const stroke of strokes) {
-            const d = strokePath(stroke);
+            const d = readyCore().strokePath(stroke.points);
             if (!d) continue;
             ctx.save();
             ctx.strokeStyle = stroke.color;
@@ -150,7 +145,7 @@ export function useReaderPrint(deps: ReaderPrintDeps) {
           pdfPage.cleanup();
         }
         for (const bitmap of await Promise.all(pictures.values())) bitmap?.close();
-        setPrintDoc({ title, html: readerPrintDocument({ title, pages, withComments }) });
+        setPrintDoc({ title, html: readyCore().readerPrintDocument({ title, pages, withComments }) });
       } finally {
         setPrinting(false);
       }

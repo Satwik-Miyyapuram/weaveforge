@@ -4,8 +4,10 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { accountLinks, type AccountLinksInput } from "../account-links";
+import { readyCore } from "@/lib/rust-core";
+import type { AccountLinksInput } from "@weaveforge/wasm";
 
+const { accountLinks } = readyCore();
 const base: AccountLinksInput = { hasProject: true };
 const ids = (input: Partial<AccountLinksInput> = {}) =>
   accountLinks({ ...base, ...input }).map((l) => l.id);

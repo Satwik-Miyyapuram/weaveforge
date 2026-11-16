@@ -1,14 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { LOG_KINDS, type LabSnapshot, type LogEntry, type LogKind } from "@weaveforge/core";
+import { type LabSnapshot, type LogEntry, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { removeLater, useHiddenKeys } from "@/lib/toast";
+import { removeLater, useHiddenKeys } from "@/lib/toast/index";
 import { Modal } from "@/components/modal";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/view-icons";
 import { ScreenLoading } from "@/components/screen-loading";
 import { AddLogEntryForm } from "./add-log-entry-form";
-import { collapseAlert } from "./collapse-alert";
 import { Select } from "@/components/select";
 import { LogMarkdown } from "./log-markdown";
 import { logImageUpload } from "./log-image-upload";
@@ -19,7 +18,7 @@ import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { NavIcon } from "@/app/nav-icon";
 import { CollabBodyHost } from "@/features/collab";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
-import { emptyArray } from "@/lib/empty";
+import { emptyArray } from "@/lib/parts";
 import { formatError } from "@/lib/format-error";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
@@ -28,6 +27,7 @@ import { bestEffort, removeLogEntry } from "../application/log-side-effects";
 import { Button, IconButton } from "@/components/button";
 import { RowButton } from "@/components/controls";
 import { PastCheckIns } from "./past-check-ins";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Logbook screen. Presentation + view-state only; all data access goes through
@@ -198,7 +198,7 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
   const [editing, setEditing] = useState(false);
   const hidden = useHiddenKeys().has(logKey(entry.id));
   const { headline, rest } = splitHeadline(entry.body);
-  const collapsed = collapseAlert(headline, rest);
+  const collapsed = useMemo(() => readyCore().collapseAlert(headline, rest), [headline, rest]);
   const [expanded, setExpanded] = useState(false);
 
   // Rule D-07: the entry goes at once; the delete runs when the Undo toast closes.
@@ -279,6 +279,8 @@ const LOG_PLACEHOLDER = "Today I… (markdown supported)";
 /** Names the editor by its label: a `<label for>` cannot point at CodeMirror's content. */
 const labelEditor = (labelId: string) => (view: { contentDOM: HTMLElement }) => {
   view.contentDOM.setAttribute("aria-labelledby", labelId);
+  // Edit swapped out the menu button, so focus would fall to the page body.
+  view.contentDOM.focus();
 };
 
 /** The key a log entry hides under while its Undo toast shows. */
@@ -349,7 +351,7 @@ function EditLogForm({
       <div className="field">
         <label htmlFor={`kind-${entry.id}`}>Kind</label>
         <Select id={`kind-${entry.id}`} value={kind} onChange={(e) => setKind(e.target.value as LogKind)}>
-          {LOG_KINDS.map((k) => (
+          {readyCore().LOG_KINDS.map((k) => (
             <option key={k} value={k}>{statusLabel(k)}</option>
           ))}
         </Select>
@@ -373,13 +375,9 @@ function EditLogForm({
 
 /** Entries grouped by day, newest day first, in the order they arrived. */
 function groupByDay(entries: readonly LogEntry[]): [string, LogEntry[]][] {
-  const byDay = new Map<string, LogEntry[]>();
-  for (const e of entries) {
-    const list = byDay.get(e.entryDate);
-    if (list) list.push(e);
-    else byDay.set(e.entryDate, [e]);
-  }
-  return [...byDay.entries()].sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0));
+  return readyCore()
+    .groupByDay(entries.map((e) => e.entryDate))
+    .map((group): [string, LogEntry[]] => [group.day, group.indexes.map((i) => entries[i] as LogEntry)]);
 }
 
 /** A yyyy-mm-dd read as a local calendar date, not UTC midnight. */
@@ -405,33 +403,16 @@ function timeOf(iso: string): string {
  * one-line entry is all headline. Heading and emphasis marks are dropped.
  */
 function splitHeadline(body: string): { headline: string; rest: string } {
-  const trimmed = body.trim();
-  const cut = trimmed.indexOf("\n");
-  const first = cut < 0 ? trimmed : trimmed.slice(0, cut);
-  const rest = cut < 0 ? "" : trimmed.slice(cut + 1).trim();
-  const headline = first.replace(/^#+\s*/, "").replace(/(\*\*|__|\*|`)(.+?)\1/g, "$2");
-  return { headline: headline || "Untitled entry", rest };
-}
-
-/** Consecutive days with an entry, counting back from today (or yesterday). */
-function streakDays(entries: readonly LogEntry[]): number {
-  const logged = new Set(entries.map((e) => e.entryDate));
-  const day = new Date();
-  if (!logged.has(ymdOf(day))) day.setDate(day.getDate() - 1);
-  let streak = 0;
-  while (logged.has(ymdOf(day))) {
-    streak++;
-    day.setDate(day.getDate() - 1);
-  }
-  return streak;
+  return readyCore().splitHeadline(body);
 }
 
 /** "62 entries · 9-day streak" above the title. */
 function logEyebrow(entries: readonly LogEntry[]): string | undefined {
-  if (!entries.length) return undefined;
-  const count = `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`;
-  const streak = streakDays(entries);
-  return streak > 1 ? `${count} · ${streak}-day streak` : count;
+  // Rust returns Option::None as null; the screen has always taken undefined.
+  return readyCore().logEyebrow(
+    entries.map((e) => e.entryDate),
+    ymdOf(new Date()),
+  ) ?? undefined;
 }
 
 /** The timeline's gutter: the day of the month, big, and its weekday. */
@@ -536,7 +517,7 @@ function LogKinds({
     <div className="card log-kinds">
       <h2>Kinds</h2>
       <ul>
-        {LOG_KINDS.map((k) => (
+        {readyCore().LOG_KINDS.map((k) => (
           <li key={k}>
             <RowButton current={active === k} aria-pressed={active === k} onClick={() => onPick(active === k ? null : k)}>
               <span className={`status status-${k}`}>{statusLabel(k)}</span>

@@ -2,10 +2,13 @@
 
 import type { LabSnapshot } from "@weaveforge/core";
 import { CommentsToggle } from "@/features/sharing";
+import { readyCore } from "@/lib/rust-core";
 
 /** Latest first, without touching the caller's list. */
 export function newestFirst(snapshots: readonly LabSnapshot[]): LabSnapshot[] {
-  return [...snapshots].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  return readyCore()
+    .newestFirstOrder(snapshots.map((s) => s.publishedAt))
+    .map((i) => snapshots[i] as LabSnapshot);
 }
 
 /**

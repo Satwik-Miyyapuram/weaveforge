@@ -1,66 +1,46 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { showToast } from "@/lib/toast";
+import { FileDropZone } from "@/components/file-drop-zone";
+import { showToast } from "@/lib/toast/index";
 import { formatError } from "@/lib/format-error";
-import type { PdfDropOutcome } from "../application/paper-from-pdf";
+import type { PdfDropOutcome } from "../application/parts-2";
+import { splitPaperDrop, type BibImportOutcome } from "../application/parts-2";
+import { addBibFile } from "./bib-import";
 import { addPdfFiles } from "./pdf-drop";
 
+/** One `.bib` after another, each with its own outcome; one failed file does not stop the rest. */
+async function importBibs(files: readonly File[], onBib: (outcome: BibImportOutcome) => void): Promise<void> {
+  for (const file of files) {
+    try {
+      onBib(await addBibFile(file));
+    } catch (err) {
+      showToast(`${file.name}: ${formatError(err)}`);
+    }
+  }
+}
+
 /**
- * Drop PDFs anywhere on Papers to add them (design D-21). Nothing shows until
- * a file is dragged over the window, so the screen keeps its space.
+ * Drop PDFs or `.bib` files anywhere on Papers to add them (design D-21),
+ * any number at once.
  */
-export function PdfDropZone({ onDropped }: { onDropped: (outcomes: PdfDropOutcome[]) => void }) {
-  const [over, setOver] = useState(false);
-  // dragenter and dragleave fire for every child crossed; count them.
-  const depth = useRef(0);
-  const dropped = useRef(onDropped);
-  dropped.current = onDropped;
-
-  useEffect(() => {
-    const isFiles = (e: DragEvent) => e.dataTransfer?.types.includes("Files") ?? false;
-    const enter = (e: DragEvent) => {
-      if (!isFiles(e)) return;
-      depth.current += 1;
-      setOver(true);
-    };
-    const leave = (e: DragEvent) => {
-      if (!isFiles(e)) return;
-      depth.current = Math.max(0, depth.current - 1);
-      if (depth.current === 0) setOver(false);
-    };
-    const overHandler = (e: DragEvent) => {
-      if (isFiles(e)) e.preventDefault();
-    };
-    const drop = (e: DragEvent) => {
-      if (!isFiles(e)) return;
-      e.preventDefault();
-      depth.current = 0;
-      setOver(false);
-      const files = Array.from(e.dataTransfer?.files ?? []);
-      if (files.length === 0) return;
-      showToast(files.length === 1 ? "Adding paper…" : `Adding ${files.length} files…`);
-      addPdfFiles(files).then((out) => dropped.current(out), (err) => showToast(formatError(err)));
-    };
-    document.addEventListener("dragenter", enter);
-    document.addEventListener("dragleave", leave);
-    document.addEventListener("dragover", overHandler);
-    document.addEventListener("drop", drop);
-    return () => {
-      document.removeEventListener("dragenter", enter);
-      document.removeEventListener("dragleave", leave);
-      document.removeEventListener("dragover", overHandler);
-      document.removeEventListener("drop", drop);
-    };
-  }, []);
-
+export function PaperDropZone({
+  onPdfs,
+  onBib,
+}: {
+  onPdfs: (outcomes: PdfDropOutcome[]) => void;
+  onBib: (outcome: BibImportOutcome) => void;
+}) {
   return (
-    <>
-      {over && (
-        <div className="pdf-drop-overlay" aria-hidden>
-          <p className="pdf-drop-label">Drop PDFs to add them as papers</p>
-        </div>
-      )}
-    </>
+    <FileDropZone
+      label="Drop PDFs or .bib files to add papers"
+      onFiles={(files) => {
+        const { pdfs, bibs } = splitPaperDrop(files);
+        if (pdfs.length > 0) {
+          showToast(pdfs.length === 1 ? "Adding paper…" : `Adding ${pdfs.length} files…`);
+          addPdfFiles(pdfs).then(onPdfs, (err) => showToast(formatError(err)));
+        }
+        void importBibs(bibs, onBib);
+      }}
+    />
   );
 }

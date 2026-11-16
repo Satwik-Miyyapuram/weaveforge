@@ -92,7 +92,7 @@ test("a storage listing failure stops the purge instead of reading as an empty b
 });
 
 test("sweeps the storage prefix in every blob bucket", async () => {
-  const { BLOB_STORAGE_BUCKETS } = await import("@/storage/server/blob-access");
+  const { readyCore } = await import("@/lib/rust-core");
   const { purgeUserBlobs } = await import("../purge-user-blobs");
   const listed: string[] = [];
   const admin = fakeAdmin();
@@ -104,7 +104,7 @@ test("sweeps the storage prefix in every blob bucket", async () => {
     remove: async () => ({ error: null }),
   })) as never;
   await purgeUserBlobs(admin as never, "u1", () => fakeStore as never);
-  assert.deepEqual(listed, [...BLOB_STORAGE_BUCKETS]);
+  assert.deepEqual(listed, [...readyCore().blobStorageBuckets()]);
 });
 
 test("a storage remove error stops the purge and keeps the registry (09-01)", async () => {

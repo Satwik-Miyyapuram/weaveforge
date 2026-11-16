@@ -1,16 +1,18 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { beforeEach, describe, it } from "node:test";
+import { before, beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IBlobStore } from "@weaveforge/core";
 
-import { LocalFirstBlobStore } from "../local-first-blob-store";
+import { ExperimentPush, keepPushing, LocalFirstBlobStore } from "../parts-1";
 import { withAppLogs } from "@/lib/error-report/test/capture-app-logs";
-import { ExperimentPush, keepPushing } from "../local-first-experiment-push";
 import type { LocalQuery } from "../pglite-client";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 const MIGRATIONS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../../../../db/migrations-local");
 const EXP = "11111111-1111-1111-1111-111111111111";
@@ -100,7 +102,7 @@ class Blobs implements IBlobStore {
 
 async function database(): Promise<LocalQuery> {
   const pg = new PGlite();
-  for (const file of ["0006_local_blobs.sql", "0009_local_blob_uploads.sql", "0013_local_metric_pushes.sql"]) {
+  for (const file of ["0006_local_blobs.sql", "0009_local_blob_uploads.sql", "0013_local_metric_pushes.sql", "0021_local_blobs_on_disk.sql"]) {
     await pg.exec(readFileSync(path.join(MIGRATIONS, file), "utf8"));
   }
   await pg.exec(`

@@ -11,7 +11,8 @@
  */
 
 import type { AiAccessSettings, AiActiveSession } from "@weaveforge/core";
-import { singleFlight } from "@/lib/cache/single-flight";
+import { singleFlight } from "@/lib/cache/parts";
+import { readyCore } from "@/lib/rust-core";
 import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 
 export interface PersistedMcpSession {
@@ -29,18 +30,10 @@ function toBufferSource(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
-const bytesToBase64 = (bytes: Uint8Array): string => {
-  let binary = "";
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary);
-};
+// Base64 codec lives in the Rust core; the core is loaded before any container exists.
+const bytesToBase64 = (bytes: Uint8Array): string => readyCore().encodeBase64(bytes);
 
-const base64ToBytes = (b64: string): Uint8Array => {
-  const binary = atob(b64);
-  const out = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-  return out;
-};
+const base64ToBytes = (b64: string): Uint8Array => readyCore().decodeBase64(b64);
 
 /**
  * Clears the stored blob only when it can never be read again: it does not

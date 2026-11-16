@@ -3,9 +3,14 @@
  * a failed load would hold the WASM heap until the tab closed.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
-import { WorkerEmbedder } from "../infrastructure/worker-embedder";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { WorkerEmbedder } from "../infrastructure/parts-3";
+
+before(async () => {
+  await loadTestCore();
+});
 
 type Listener = (event: { data: unknown }) => void;
 

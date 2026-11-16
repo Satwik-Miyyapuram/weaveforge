@@ -536,7 +536,7 @@
     <div class="facts">
       <div class="fact"><b>{{WEB_LINES}}</b><span>web app lines</span></div>
       <div class="fact"><b>{{CORE_LINES}}</b><span>core lines</span></div>
-      <div class="fact"><b>{{DESKTOP_LINES}}</b><span>desktop lines</span></div>
+      <div class="fact"><b>{{DESKTOP_LINES}}</b><span>shell lines</span></div>
       <div class="fact"><b>{{PYTHON_LINES}}</b><span>python sdk</span></div>
       <div class="fact"><b>{{MIGRATION_COUNT}}</b><span>migrations</span></div>
       <div class="fact"><b>{{WEB_SLICES}}</b><span>web features</span></div>
@@ -670,7 +670,7 @@ flowchart TB
 │   ├── backend/                   <i>provider wiring: postgrest | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
-├── <b>apps/desktop/src/</b>              <i>{{DESKTOP_LINES}} lines, {{DESKTOP_FILES}} files, main + preload only</i>
+├── <b>apps/shell/src/</b>              <i>{{DESKTOP_LINES}} lines, {{DESKTOP_FILES}} files, Tauri shell src/ only</i>
 │   ├── main.ts  preload.ts  channels.ts
 │   ├── local-db.ts  local-db-host.ts     <i>PGlite in the main process</i>
 │   ├── local-api-server.ts  local-api.ts <i>127.0.0.1:27123</i>

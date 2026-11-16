@@ -11,25 +11,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ToolbarSlot } from "@/components/toolbar-slot";
-import { isEditableTarget } from "@/lib/editable-target";
-import {
-  INK_A4_HEIGHT,
-  INK_A4_WIDTH,
-  INK_COLOURS,
-  INK_PEN_WIDTHS,
-  clampInkPageSize,
-  clampInkZoom,
-  inkPageFigures,
-  inkZoomIn,
-  inkZoomOut,
-  readInkNoteBody,
-  splitInkTextLayer,
-} from "@weaveforge/core";
-import { loadInkPages, type InkStoredPage } from "../application/ink-chunk-store";
-import { awaitInkWrites } from "../application/ink-pending-writes";
-import { INK_RENDER_COLOURS, readThemePalette, type InkPalette } from "../render/ink-palette";
+import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_COLOURS, INK_PEN_WIDTHS } from "@weaveforge/core";
+import { loadInkPages, type InkStoredPage } from "../application/parts-1";
+import { awaitInkWrites } from "../application/parts";
+import { INK_RENDER_COLOURS, readThemePalette, type InkPalette } from "../render/parts-1";
 import type { InkHostDeps } from "./ink-host-types";
-import { fitScale } from "./ink-page-math";
 import { InkPageStatic } from "./ink-page-static";
 import { pureInkPageText } from "./ink-sheet-underlay";
 import { useFlowedTextPages } from "./ink-text-flow";
@@ -43,6 +29,7 @@ import {
 } from "./use-ink-sheet-images";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 import { logToApp } from "@/lib/error-report/app-log";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import { InkBar } from "./ink-bar";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 
@@ -69,20 +56,20 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
   const [palette, setPalette] = useState<InkPalette>(INK_RENDER_COLOURS);
   const [pages, setPages] = useState<readonly InkStoredPage[] | null>(null);
 
-  const parsed = useMemo(() => readInkNoteBody(body), [body]);
+  const parsed = useMemo(() => readyCore().readInkNoteBody(body), [body]);
   const meta = parsed.meta;
   const textPages = useMemo(
-    () => splitInkTextLayer(parsed.text),
+    () => typedCore().splitInkTextLayer(parsed.text),
     [parsed.text],
   );
 
   const pageSize = useMemo(
-    () => clampInkPageSize(INK_A4_WIDTH, INK_A4_HEIGHT),
+    () => typedCore().clampInkPageSize(INK_A4_WIDTH, INK_A4_HEIGHT),
     [],
   );
 
   const scale = useMemo(
-    () => fitScale(containerWidth, pageSize.width) * zoom,
+    () => readyCore().fitScale(containerWidth, pageSize.width) * zoom,
     [containerWidth, pageSize.width, zoom],
   );
 
@@ -129,11 +116,11 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
 
   // Collect and load figures across all pages.
   const pageFiguresList = useMemo(
-    () => textPages.map((pageText) => inkPageFigures(pageText)),
+    () => textPages.map((pageText) => typedCore().inkPageFigures(pageText)),
     [textPages],
   );
   const allFigures = useMemo(
-    () => textPages.flatMap((pageText) => inkPageFigures(pageText)),
+    () => textPages.flatMap((pageText) => typedCore().inkPageFigures(pageText)),
     [textPages],
   );
 
@@ -206,7 +193,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
         else if (e.deltaMode === 2) dy *= 100;
         dy = Math.max(-200, Math.min(200, dy));
         const factor = Math.exp(-dy * 0.002);
-        setZoom((z) => clampInkZoom(z * factor));
+        setZoom((z) => readyCore().clampInkZoom(z * factor));
       }
     };
     scroller.addEventListener("wheel", onWheel, { passive: false });
@@ -216,15 +203,15 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
   // Keyboard zoom shortcuts (Ctrl++, Ctrl+-, Ctrl+0).
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (isEditableTarget(e.target)) return;
+      if (typedCore().isEditableReaderTarget(e.target)) return;
       if (e.ctrlKey || e.metaKey) {
         const key = e.key.toLowerCase();
         if (key === "+" || key === "=" || e.code === "Equal" || e.code === "NumpadAdd" || e.key === "Add") {
           e.preventDefault();
-          setZoom(inkZoomIn);
+          setZoom((z) => readyCore().inkZoomIn(z));
         } else if (key === "-" || key === "_" || e.code === "Minus" || e.code === "NumpadSubtract" || e.key === "Subtract") {
           e.preventDefault();
-          setZoom(inkZoomOut);
+          setZoom((z) => readyCore().inkZoomOut(z));
         } else if (key === "0" || e.code === "Digit0" || e.code === "Numpad0") {
           e.preventDefault();
           setZoom(1);

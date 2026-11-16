@@ -23,9 +23,15 @@ import {
   INK_PEN_WIDTH,
   INK_PEN_WIDTHS,
 } from "@weaveforge/core";
-import { INK_TOOL_CURSORS, inkToolCursor, readToolColours, type InkBarTool, type InkCursorInk } from "@/features/ink";
+import {
+  INK_TOOL_CURSORS,
+  type InkBarTool,
+  type InkCursorInk,
+  inkToolCursor,
+  readToolColours,
+} from "@/features/ink";
 import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
-import type { ReaderCreateTool } from "../../application/reader-annotation-helpers";
+import type { ReaderCreateTool } from "../../application/parts";
 
 const PEN_PREFS_KEY = "weaveforge.reader.pen";
 

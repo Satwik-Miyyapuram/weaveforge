@@ -1,8 +1,38 @@
-import { GitLabLogExporter } from "@/features/sync/infrastructure/gitlab-log-exporter";
-import { GitLabLogSyncIntegration } from "../providers/gitlab/log-sync-integration";
+import type { IIntegrationsStore } from "@/features/sync/domain/parts";
+import { GitLabLogExporter } from "@/features/sync/infrastructure/parts";
+import type { ILogSyncIntegration, LogEntry } from "@weaveforge/core";
 import type { WireIntegrationsDeps } from "../wire-integrations";
 import type { LogSyncIntegrationManifest } from "./types";
 
+// --- log-sync-integration ---
+export class GitLabLogSyncIntegration implements ILogSyncIntegration {
+  readonly providerId = "gitlab";
+  private readonly exporter: GitLabLogExporter;
+
+  constructor(
+    private readonly deps: {
+      projectId: () => string | null;
+      integrations: IIntegrationsStore;
+      exporter?: GitLabLogExporter;
+    },
+  ) {
+    this.exporter = deps.exporter ?? new GitLabLogExporter();
+  }
+
+  async pushLog(entry: LogEntry): Promise<void> {
+    const pid = this.deps.projectId();
+    if (!pid) return;
+    await this.exporter.push(await this.deps.integrations.get(pid, "gitlab"), entry);
+  }
+
+  async removeLog(entry: LogEntry): Promise<void> {
+    const pid = this.deps.projectId();
+    if (!pid) return;
+    await this.exporter.remove(await this.deps.integrations.get(pid, "gitlab"), entry);
+  }
+}
+
+// --- gitlab-log ---
 const GITLAB_FIELDS = [
   { key: "token" as const, label: "Token", type: "password" as const, placeholder: "glpat-… (api scope)" },
   { key: "repo" as const, label: "Repo", type: "text" as const, placeholder: "group/project (or numeric id)" },

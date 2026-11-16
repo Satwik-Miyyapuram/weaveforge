@@ -2,7 +2,7 @@ import type { Member, OrgMembershipView } from "@weaveforge/core";
 
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
-import { shouldSyncStandalone } from "./org-profile-state";
+import { readyCore } from "@/lib/rust-core";
 
 /** Where a profile refresh reads from. */
 export interface ProfileSources {
@@ -45,7 +45,7 @@ export async function loadProfileBundle(src: ProfileSources): Promise<ProfileBun
     }),
   ]);
 
-  if (!shouldSyncStandalone(mine, labs)) {
+  if (!readyCore().shouldSyncStandalone(mine, labs)) {
     return { profile: mine, team: members, labMembers: lab, memberships: labs };
   }
   try {
@@ -60,19 +60,4 @@ export async function loadProfileBundle(src: ProfileSources): Promise<ProfileBun
     warn("Standalone sync failed.", err);
     return { profile: mine, team: members, labMembers: lab, memberships: labs };
   }
-}
-
-/**
- * Lets only the latest of overlapping requests apply its answer. `begin` is
- * called when a request starts; the check it returns is true until a later
- * request begins.
- */
-export function latestGate(): { begin(): () => boolean } {
-  let seq = 0;
-  return {
-    begin() {
-      const mine = (seq += 1);
-      return () => mine === seq;
-    },
-  };
 }

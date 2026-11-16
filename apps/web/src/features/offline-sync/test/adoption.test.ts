@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import { LOCAL_USER_ID } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { testDb } from "../../../backend/test/pg-test-db";
 import { sqlRunner } from "./local-sql";
-import { Adoption, AlreadyAdoptedError } from "../domain/adoption";
-import { SyncStateStore } from "../domain/sync-state";
+import { Adoption, AlreadyAdoptedError } from "../domain/parts-1";
+import { SyncStateStore } from "../domain/parts-3";
+
+before(loadTestCore);
 
 // The harness hands back one database, so ids have to be unique across tests.
 let nextId = 0;

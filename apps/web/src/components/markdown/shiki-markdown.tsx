@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { highlightCodeBlock, type ColorMode } from "@/lib/shiki-render";
+import { highlightCodeBlock, type ColorMode } from "@/lib/parts-2";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
 import { renderMarkdownWithShiki, renderProseMarkdown, type MarkdownRenderOptions, type WikilinkResolver } from "@/components/markdown/markdown";

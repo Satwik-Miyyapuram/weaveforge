@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { rust } from "../../../src/shared/rust.js";
 
-import { FOLDER_DRAFTS_DIR, parseFolderDraft } from "../../../src/features/ai-assistant/index.js";
+import { FOLDER_DRAFTS_DIR } from "../../../src/index.js";
 
 const valid = {
   kind: "edit_vault_note",
@@ -18,7 +19,7 @@ test("drafts live under the workspace meta folder", () => {
 });
 
 test("a well-formed draft parses with its fields", () => {
-  const draft = parseFolderDraft(JSON.stringify(valid));
+  const draft = rust().parseFolderDraft(JSON.stringify(valid));
   assert.equal(draft?.kind, "edit_vault_note");
   assert.equal(draft?.resourceId, "note-1");
   assert.deepEqual(draft?.payload, { body: "New intro" });
@@ -27,7 +28,7 @@ test("a well-formed draft parses with its fields", () => {
 
 test("a draft without a tool is marked as from the local MCP", () => {
   const { tool: _tool, ...rest } = valid;
-  assert.equal(parseFolderDraft(JSON.stringify(rest))?.tool, "local-mcp");
+  assert.equal(rust().parseFolderDraft(JSON.stringify(rest))?.tool, "local-mcp");
 });
 
 test("anything that is not a draft is refused", () => {
@@ -43,13 +44,13 @@ test("anything that is not a draft is refused", () => {
   ];
   for (const input of bad) {
     const raw = typeof input === "string" ? input : JSON.stringify(input);
-    assert.equal(parseFolderDraft(raw), null, raw.slice(0, 60));
+    assert.equal(rust().parseFolderDraft(raw), null, raw.slice(0, 60));
   }
-  assert.equal(parseFolderDraft(JSON.stringify({ ...valid, content: "x".repeat(300_000) })), null);
+  assert.equal(rust().parseFolderDraft(JSON.stringify({ ...valid, content: "x".repeat(300_000) })), null);
 });
 
 test("a draft keeps the project it was written for, and drops a bad one", () => {
-  assert.equal(parseFolderDraft(JSON.stringify({ ...valid, projectId: "proj-1" }))?.projectId, "proj-1");
-  assert.equal(parseFolderDraft(JSON.stringify(valid))?.projectId, undefined);
-  assert.equal(parseFolderDraft(JSON.stringify({ ...valid, projectId: "x".repeat(513) })), null);
+  assert.equal(rust().parseFolderDraft(JSON.stringify({ ...valid, projectId: "proj-1" }))?.projectId, "proj-1");
+  assert.equal(rust().parseFolderDraft(JSON.stringify(valid))?.projectId, undefined);
+  assert.equal(rust().parseFolderDraft(JSON.stringify({ ...valid, projectId: "x".repeat(513) })), null);
 });

@@ -1,13 +1,19 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
+
 import type { Paper, ReaderAnnotation } from "@weaveforge/core";
-import { InMemoryReaderAnnotationRepository } from "@weaveforge/core/testing";
+import { InMemoryReaderAnnotationRepository } from "@core-test/in-memory";
 import {
   annotationsOwedToZotero,
   writeBackZoteroAnnotations,
-  zoteroWriteBackMessage,
   type ZoteroAnnotationPusher,
-} from "../application/write-back-zotero-annotations";
+} from "../application/parts-3";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function ann(over: Partial<ReaderAnnotation> = {}): ReaderAnnotation {
   return {
@@ -24,7 +30,6 @@ function ann(over: Partial<ReaderAnnotation> = {}): ReaderAnnotation {
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     syncState: "local",
-    zoteroVersion: null,
     ...over,
   };
 }
@@ -117,7 +122,7 @@ test("failures and conflicts are counted and reported, not swallowed", async () 
   assert.equal(summary.failed, 1);
   assert.equal(summary.conflicts, 1);
   assert.equal((await repo.list("p1")).find((r) => r.id === b.id)!.syncState, "conflict");
-  assert.match(zoteroWriteBackMessage(summary), /could not be sent \(Zotero create failed \(403\)\.\)/);
+  assert.match(readyCore().zoteroWriteBackMessage(summary), /could not be sent \(Zotero create failed \(403\)\.\)/);
 });
 
 test("a thrown push (no network) fails that paper's marks and carries on", async () => {
@@ -130,8 +135,8 @@ test("a thrown push (no network) fails that paper's marks and carries on", async
     pusher: { push: async () => { throw new Error("offline"); } },
   });
   assert.deepEqual(summary, { created: 0, updated: 0, conflicts: 0, failed: 1, firstError: "offline" });
-  assert.equal(zoteroWriteBackMessage(null), "");
-  assert.equal(zoteroWriteBackMessage({ created: 2, updated: 1, conflicts: 0, failed: 0 }), " · sent 3 annotations to Zotero");
+  assert.equal(readyCore().zoteroWriteBackMessage(null), "");
+  assert.equal(readyCore().zoteroWriteBackMessage({ created: 2, updated: 1, conflicts: 0, failed: 0 }), " · sent 3 annotations to Zotero");
 });
 
 test("a recorder or list failure on one paper does not stop the others (22-03)", async () => {

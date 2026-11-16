@@ -9,7 +9,7 @@ import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
 import "@/lib/test/react-harness";
-import { clearActiveProvider, setActiveProvider } from "@/features/ai-assistant/application/ai-provider-session";
+import { clearActiveProvider, setActiveProvider } from "@/features/ai-assistant/application/parts";
 import { AiProviderPanel } from "../ui/ai-provider-panel";
 
 type Log = { level: string; source: string; message: string; detail?: string };

@@ -5,13 +5,18 @@
  * check-ins newest first, each with the shared comments sheet, and the
  * supervisor's review panel opens the same sheet on the check-in they read.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { LabSnapshot } from "@weaveforge/core";
 import { PastCheckIns, newestFirst } from "../ui/past-check-ins";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const src = (rel: string) => readFileSync(fileURLToPath(new URL(`../../${rel}`, import.meta.url)), "utf8");
 const snap = (id: string, publishedAt: string) =>

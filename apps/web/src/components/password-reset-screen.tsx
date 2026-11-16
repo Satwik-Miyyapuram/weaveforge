@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/ui/auth-provider";
 import { FormError } from "@/components/form-error";
@@ -23,16 +23,20 @@ export function PasswordResetScreen() {
   const { user, loading, updatePassword } = useAuth();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busyRef.current) return;
+    busyRef.current = true;
     const data = new FormData(event.currentTarget);
     const password = String(data.get("password") ?? "");
     const confirmation = String(data.get("confirmation") ?? "");
     setError(null);
     if (password !== confirmation) {
+      busyRef.current = false;
       setError("The passwords do not match.");
       return;
     }
@@ -43,6 +47,7 @@ export function PasswordResetScreen() {
     } catch (err) {
       setError(formatError(err));
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
@@ -52,6 +57,7 @@ export function PasswordResetScreen() {
     return (
       <ResetShell title="Reset link unavailable">
         <FormError>This link is expired or has already been used. Request a new password reset email.</FormError>
+        <Button variant="link" href="/">Back to sign in</Button>
       </ResetShell>
     );
   }

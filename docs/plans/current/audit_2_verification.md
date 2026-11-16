@@ -22,7 +22,7 @@ first and quoted. Verdict vocabulary:
 ### Deployment context (checked first, because it changes two verdicts)
 
 This repository is **hosted on OCI**: PostgreSQL 16 + PostgREST + Caddy, with Supabase used
-**only for Auth**. There is no Supabase-hosted database. `apps/web/src/backend/config.ts:2`
+**only for Auth**. There is no Supabase-hosted database. `apps/web/src/backend/parts.ts:2`
 records the two data providers (`"supabase" | "postgres"`), `:22` says `dataUrl` is "Where the
 data API lives, when it is not Supabase's", and `:14-18` says the self-hosted PostgREST speaks
 the same protocol as Supabase's REST endpoint and validates the same JWT secret.

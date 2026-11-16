@@ -1,8 +1,14 @@
-import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
+import { emptyWorkspaceSnapshot as snapshot } from "@core-test/workspace-snapshot";
 import assert from "node:assert/strict";
-import test from "node:test";
-import type { PdfIndexSource, WorkspaceSnapshot } from "@weaveforge/core";
+import test, { before } from "node:test";
+import type { WorkspaceSnapshot } from "@weaveforge/core";
+import type { PdfIndexSource } from "@weaveforge/wasm";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const paper = (id: string, title: string) =>
   ({

@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { FOLDER_DRAFTS_DIR, type FolderDraft } from "@weaveforge/core";
-import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
+import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 
-import { importFolderDrafts, importFolderDraftsOnce } from "../application/import-folder-drafts";
+import { importFolderDrafts, importFolderDraftsOnce } from "../application/parts";
 
 const draft = { kind: "edit_vault_note", tool: "suggest_note_edit", resourceId: "note-1", content: "Tighter", payload: { body: "New" } };
 

@@ -1,25 +1,22 @@
 /** Page transitions through the View Transitions API: a crossfade (motion.css under :root[data-nav]), off when reduced or unsupported. */
+import { readyCore } from "@/lib/rust-core";
+
 export type NavKind = "forward" | "back" | "tab";
 
 const SETTLE_TIMEOUT_MS = 500;
 
 export type MotionTier = "off" | "calm" | "reactive" | "crt";
-type TierInput = { motion: string | undefined; theme: string | undefined; reducedMotion: boolean; supported: boolean };
-
-/** Calm by default, bigger with Reactive motion, stepped on CRT; off when reduced or unsupported. */
-export function motionTier(input: TierInput): MotionTier {
-  if (!input.supported || input.reducedMotion) return "off";
-  if (input.theme === "crt") return "crt";
-  return input.motion === "reactive" ? "reactive" : "calm";
-}
-
-export function transitionsOn(input: TierInput): boolean {
-  return motionTier(input) !== "off";
-}
 
 /** A plain left click that a link would follow in this window. */
 export function isPlainClick(e: Pick<MouseEvent, "button" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey" | "defaultPrevented">): boolean {
-  return !e.defaultPrevented && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+  return readyCore().isPlainClick({
+    button: e.button,
+    defaultPrevented: e.defaultPrevented,
+    metaKey: e.metaKey,
+    ctrlKey: e.ctrlKey,
+    shiftKey: e.shiftKey,
+    altKey: e.altKey,
+  });
 }
 
 type StartViewTransition = (update: () => Promise<void>) => { finished: Promise<void> };
@@ -33,12 +30,12 @@ function startFn(): StartViewTransition | null {
 function currentTier(): MotionTier {
   if (typeof document === "undefined") return "off";
   const root = document.documentElement;
-  return motionTier({
+  return readyCore().motionTier({
     motion: root.dataset.motion,
     theme: root.dataset.theme,
     reducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
     supported: startFn() !== null,
-  });
+  }) as MotionTier;
 }
 
 export function canTransition(): boolean {

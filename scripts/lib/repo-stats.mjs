@@ -150,12 +150,17 @@ export function switchCases(rel) {
   return [...read(rel).matchAll(/case "([a-z_]+)":/g)].map((match) => match[1]);
 }
 
+/** The local MCP server's tools as `{ name, description }`, read from `tool("name", "description", ...)` in Rust. */
+export function workspaceMcpTools() {
+  return [...read("apps/shell/src/local_http/mcp_tools.rs").matchAll(/\btool\(\s*"([a-z_]+)",\s*"((?:[^"\\]|\\.)*)"/g)].map(
+    (match) => ({ name: match[1], description: match[2] }),
+  );
+}
+
 /** The assistant's tools by kind, read from the dispatch and the desktop server. */
 export function mcpToolNames() {
   const relay = switchCases("apps/web/src/features/ai-assistant/infrastructure/mcp-browser-relay.ts");
-  const workspace = [...read("apps/desktop/src/local-mcp.ts").matchAll(/name: "([a-z_]+)"/g)]
-    .map((match) => match[1])
-    .filter((name) => name !== "weaveforge-workspace");
+  const workspace = workspaceMcpTools().map((tool) => tool.name);
   return {
     reads: relay.filter((tool) => !tool.startsWith("suggest_")),
     proposals: relay.filter((tool) => tool.startsWith("suggest_")),

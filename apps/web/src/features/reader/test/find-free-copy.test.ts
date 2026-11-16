@@ -1,19 +1,26 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { OpenAccessCandidate, OpenAccessLookup } from "@weaveforge/core";
 import {
-  describeFreeCopyFailure,
   findFreeCopy,
-  isWebArticle,
-  MAX_HTML_ATTEMPTS,
-  MAX_PDF_ATTEMPTS,
-  openAccessIdsOf,
   type FreeCopyDeps,
   type FreeCopyOutcome,
   type HtmlFetchResult,
   type PdfAttempt,
-} from "../application/find-free-copy";
-import type { PaperHtmlPage } from "../application/paper-html";
+} from "../application/parts-1";
+import type { PaperHtmlPage } from "@weaveforge/wasm";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
+
+before(loadTestCore);
+
+// Thin shims so the cases read as before; the logic lives in Rust.
+const describeFreeCopyFailure = (...args: Parameters<ReturnType<typeof readyCore>["describeFreeCopyFailure"]>) =>
+  readyCore().describeFreeCopyFailure(...args);
+const isWebArticle = (...args: Parameters<ReturnType<typeof readyCore>["isWebArticle"]>) =>
+  readyCore().isWebArticle(...args);
+const openAccessIdsOf = (...args: Parameters<ReturnType<typeof readyCore>["openAccessIdsOf"]>) =>
+  readyCore().openAccessIdsOf(...args);
 
 const pdf = (host: string): OpenAccessCandidate => ({ url: `https://${host}/p.pdf`, format: "pdf", source: "openalex" });
 const html = (host: string): OpenAccessCandidate => ({ url: `https://${host}/p`, format: "html", source: "openalex" });
@@ -84,8 +91,9 @@ test("attempts are bounded per format", async () => {
     },
   }));
   none(await findFreeCopy("p", {}, d));
-  assert.equal(d.tried.filter((u) => u.endsWith(".pdf")).length, MAX_PDF_ATTEMPTS);
-  assert.equal(d.tried.filter((u) => !u.endsWith(".pdf")).length, MAX_HTML_ATTEMPTS);
+  const limits = readyCore().freeCopyAttemptLimits();
+  assert.equal(d.tried.filter((u) => u.endsWith(".pdf")).length, limits.pdf);
+  assert.equal(d.tried.filter((u) => !u.endsWith(".pdf")).length, limits.html);
 });
 
 test("nowhere to keep a PDF stops the PDF attempts but still tries pages", async () => {

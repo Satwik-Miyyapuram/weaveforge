@@ -1,26 +1,8 @@
+import { rust } from "../../src/shared/rust.js";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MemoryWorkspaceFs } from "../../src/testing/memory-workspace-fs.js";
-import {
-  projectDir,
-  WORKSPACE_META_DIR,
-  WorkspacePathError,
-  diffWorkspace,
-  flatPath,
-  fromRelativeBlobLinks,
-  isSafeWorkspacePath,
-  logPath,
-  parseWorkspaceFolder,
-  readFrontmatter,
-  safeWorkspacePath,
-  serializeWorkspace,
-  slugFor,
-  toRelativeBlobLinks,
-  treePaths,
-  writeFrontmatter,
-  type ExistingEntity,
-  type WorkspaceSnapshot,
-} from "../../src/index.js";
+import { MemoryWorkspaceFs } from "../support/memory-workspace-fs.js";
+import { WORKSPACE_META_DIR, WorkspacePathError, isSafeWorkspacePath, safeWorkspacePath, type ExistingEntity, type WorkspaceSnapshot } from "../../src/index.js";
 
 function snapshot(over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
   return {
@@ -39,16 +21,16 @@ const note = (over: Record<string, unknown> = {}) =>
 // ------------------------------------------------------------------ paths
 
 test("slugs are filesystem-safe and readable", () => {
-  assert.equal(slugFor("Variational Autoencoders"), "variational-autoencoders");
-  assert.equal(slugFor("Café / Résumé"), "cafe-resume");
-  assert.equal(slugFor("   "), "untitled");
+  assert.equal(rust().slugFor("Variational Autoencoders"), "variational-autoencoders");
+  assert.equal(rust().slugFor("Café / Résumé"), "cafe-resume");
+  assert.equal(rust().slugFor("   "), "untitled");
 });
 
 test("Windows reserved names get a suffix so the folder is portable", () => {
   // `con.md` cannot be created on Windows; a folder that fails to round-trip
   // on one platform is not portable.
-  assert.equal(slugFor("CON"), "con-file");
-  assert.equal(slugFor("aux"), "aux-file");
+  assert.equal(rust().slugFor("CON"), "con-file");
+  assert.equal(rust().slugFor("aux"), "aux-file");
 });
 
 test("traversal is rejected, including Windows-style and absolute paths", () => {
@@ -61,7 +43,7 @@ test("traversal is rejected, including Windows-style and absolute paths", () => 
 });
 
 test("a note with children becomes a folder note", () => {
-  const paths = treePaths(
+  const paths = rust().treePaths(
     [
       { id: "root", title: "Method" },
       { id: "child", title: "Baselines", parentId: "root" },
@@ -74,7 +56,7 @@ test("a note with children becomes a folder note", () => {
 });
 
 test("slug collisions inside one directory are broken by id", () => {
-  const paths = treePaths(
+  const paths = rust().treePaths(
     [{ id: "a1", title: "Notes" }, { id: "b2", title: "Notes" }],
     "vault_page",
   );
@@ -83,7 +65,7 @@ test("slug collisions inside one directory are broken by id", () => {
 });
 
 test("a cyclic parent chain does not hang the layout", () => {
-  const paths = treePaths(
+  const paths = rust().treePaths(
     [{ id: "a", title: "A", parentId: "b" }, { id: "b", title: "B", parentId: "a" }],
     "vault_page",
   );
@@ -92,17 +74,17 @@ test("a cyclic parent chain does not hang the layout", () => {
 });
 
 test("logbook is dated into year/month folders", () => {
-  assert.match(logPath("l1", "2026-03-14"), /^logbook\/2026\/03\/2026-03-14--/);
+  assert.match(rust().logPath("l1", "2026-03-14"), /^logbook\/2026\/03\/2026-03-14--/);
 });
 
 // ------------------------------------------------------------ frontmatter
 
 test("frontmatter round-trips scalars and lists", () => {
-  const text = writeFrontmatter(
+  const text = rust().writeFrontmatter(
     { "weaveforge-id": "n1", title: "A, B", tags: ["x", "y"], year: 2017, done: true },
     "Body",
   );
-  const parsed = readFrontmatter(text);
+  const parsed = rust().readFrontmatter(text);
 
   assert.equal(parsed.frontmatter["weaveforge-id"], "n1");
   assert.equal(parsed.frontmatter.title, "A, B");
@@ -113,14 +95,14 @@ test("frontmatter round-trips scalars and lists", () => {
 });
 
 test("a file with no frontmatter is all body, not an error", () => {
-  const parsed = readFrontmatter("Just prose.");
+  const parsed = rust().readFrontmatter("Just prose.");
 
   assert.deepEqual(parsed.frontmatter, {});
   assert.equal(parsed.body, "Just prose.");
 });
 
 test("empty lists and undefined fields are omitted rather than emitted empty", () => {
-  const text = writeFrontmatter({ a: "x", b: undefined, c: [] }, "");
+  const text = rust().writeFrontmatter({ a: "x", b: undefined, c: [] }, "");
 
   assert.match(text, /a: x/);
   assert.doesNotMatch(text, /b:/);
@@ -130,7 +112,7 @@ test("empty lists and undefined fields are omitted rather than emitted empty", (
 // ------------------------------------------------------------- blob links
 
 test("blob refs become folder-relative so the folder renders in Obsidian", () => {
-  const { body, assets } = toRelativeBlobLinks(
+  const { body, assets } = rust().toRelativeBlobLinks(
     "![](vault:user-1/n1/diagram.png)",
     "notes/method/baselines.note.md",
   );
@@ -142,13 +124,15 @@ test("blob refs become folder-relative so the folder renders in Obsidian", () =>
 test("import re-anchors assets and never trusts a written storage path", () => {
   const body = "![](../assets/notes/other-user/n9/secret.png)";
 
-  // The resolver only knows files that were in the archive; anything else is
+  // The map only holds files that were in the archive; anything else is
   // left as written rather than turned into a storage path that could point at
   // another user's object.
-  const unresolved = fromRelativeBlobLinks(body, { resolve: () => null });
+  const unresolved = rust().fromRelativeBlobLinks(body, {});
   assert.equal(unresolved, body, "an unknown asset must not become a storage ref");
 
-  const reanchored = fromRelativeBlobLinks(body, { resolve: () => "me/n9/secret.png" });
+  const reanchored = rust().fromRelativeBlobLinks(body, {
+    "assets/notes/other-user/n9/secret.png": "me/n9/secret.png",
+  });
   assert.equal(reanchored, "![](vault:me/n9/secret.png)");
 });
 
@@ -157,13 +141,13 @@ test("import re-anchors assets and never trusts a written storage path", () => {
  * project once and prefix the paths they expect with its folder.
  */
 const PROJECT = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
-const ROOT = projectDir(PROJECT);
+const ROOT = rust().projectDir(PROJECT);
 const at = (path: string) => `${ROOT}/${path}`;
 
 // -------------------------------------------------------------- round trip
 
 test("serialize → parse preserves id, type, title, and body", () => {
-  const files = serializeWorkspace(
+  const files = rust().serializeWorkspace(
     snapshot({
       vaultPages: [note(), note({ id: "n2", title: "Baselines", parentId: "n1", body: "Second." })],
       papers: [
@@ -180,7 +164,7 @@ test("serialize → parse preserves id, type, title, and body", () => {
     PROJECT,
   ).files;
 
-  const parsed = parseWorkspaceFolder(files);
+  const parsed = rust().parseWorkspaceFolder(files);
   const byId = new Map(parsed.map((entity) => [entity.id, entity]));
 
   assert.equal(parsed.length, 4);
@@ -196,23 +180,23 @@ test("serializing twice is byte-identical, so git diffs stay meaningful", () => 
   const input = snapshot({ vaultPages: [note(), note({ id: "n2", title: "Other" })] });
 
   assert.deepEqual(
-    serializeWorkspace(input, PROJECT).files,
-    serializeWorkspace(input, PROJECT).files,
+    rust().serializeWorkspace(input, PROJECT).files,
+    rust().serializeWorkspace(input, PROJECT).files,
   );
 });
 
 test("metadata and README are written but are not entities", () => {
-  const files = serializeWorkspace(snapshot({ vaultPages: [note()] }), PROJECT).files;
+  const files = rust().serializeWorkspace(snapshot({ vaultPages: [note()] }), PROJECT).files;
 
   // The project's own bookkeeping, beside its files rather than at the root.
   assert.ok(files[at(`${WORKSPACE_META_DIR}/manifest.json`)]);
   assert.ok(files["README.md"]);
-  assert.equal(parseWorkspaceFolder(files).length, 1, "only the note is an entity");
+  assert.equal(rust().parseWorkspaceFolder(files).length, 1, "only the note is an entity");
 });
 
 test("the folder can be written to a filesystem and read back", async () => {
   const fs = new MemoryWorkspaceFs(() => "2026-08-05T00:00:00.000Z");
-  const { files } = serializeWorkspace(snapshot({ vaultPages: [note()] }), PROJECT);
+  const { files } = rust().serializeWorkspace(snapshot({ vaultPages: [note()] }), PROJECT);
   for (const [path, content] of Object.entries(files)) await fs.writeFile(path, content);
 
   const seen: string[] = [];
@@ -229,18 +213,18 @@ const existing = (over: Partial<ExistingEntity> = {}): ExistingEntity => ({
 });
 
 function parsedFrom(snap: WorkspaceSnapshot) {
-  return parseWorkspaceFolder(serializeWorkspace(snap, PROJECT).files);
+  return rust().parseWorkspaceFolder(rust().serializeWorkspace(snap, PROJECT).files);
 }
 
 test("an unchanged folder reports no writes", () => {
-  const diff = diffWorkspace(parsedFrom(snapshot({ vaultPages: [note()] })), [existing()]);
+  const diff = rust().diffWorkspace(parsedFrom(snapshot({ vaultPages: [note()] })), [existing()]);
 
   assert.equal(diff.counts.unchanged, 1);
   assert.equal(diff.counts.updated, 0);
 });
 
 test("an edited body is an update", () => {
-  const diff = diffWorkspace(
+  const diff = rust().diffWorkspace(
     parsedFrom(snapshot({ vaultPages: [note({ body: "Edited." })] })),
     [existing()],
   );
@@ -249,24 +233,24 @@ test("an edited body is an update", () => {
 });
 
 test("an unknown id is a creation, not an overwrite", () => {
-  const diff = diffWorkspace(parsedFrom(snapshot({ vaultPages: [note({ id: "elsewhere" })] })), []);
+  const diff = rust().diffWorkspace(parsedFrom(snapshot({ vaultPages: [note({ id: "elsewhere" })] })), []);
 
   assert.equal(diff.counts.created, 1);
 });
 
 test("a file with no id imports as new rather than being rejected", () => {
-  const parsed = parseWorkspaceFolder({ "notes/hand-written.md": "Typed straight into the folder." });
+  const parsed = rust().parseWorkspaceFolder({ "notes/hand-written.md": "Typed straight into the folder." });
 
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0]!.id, undefined);
-  assert.equal(diffWorkspace(parsed, []).counts.created, 1);
+  assert.equal(rust().diffWorkspace(parsed, []).counts.created, 1);
 });
 
 test("an id claiming a different entity type is a conflict, never a write", () => {
   // The attack this blocks: a crafted file naming an existing note's id but
   // declaring itself a paper, to overwrite that note on import.
-  const parsed = parseWorkspaceFolder(
-    serializeWorkspace(
+  const parsed = rust().parseWorkspaceFolder(
+    rust().serializeWorkspace(
       snapshot({
         papers: [
           { id: "n1", title: "Impostor", authors: [], tags: [], createdAt: "", updatedAt: "" } as never,
@@ -276,7 +260,7 @@ test("an id claiming a different entity type is a conflict, never a write", () =
     ).files,
   );
 
-  const diff = diffWorkspace(parsed, [existing()]);
+  const diff = rust().diffWorkspace(parsed, [existing()]);
 
   assert.equal(diff.counts.conflict, 1);
   assert.equal(diff.counts.updated, 0);
@@ -284,7 +268,7 @@ test("an id claiming a different entity type is a conflict, never a write", () =
 });
 
 test("the diff never reports an action it cannot justify", () => {
-  const diff = diffWorkspace(parsedFrom(snapshot({ vaultPages: [note()] })), [existing()]);
+  const diff = rust().diffWorkspace(parsedFrom(snapshot({ vaultPages: [note()] })), [existing()]);
   const total = Object.values(diff.counts).reduce((sum, n) => sum + n, 0);
 
   assert.equal(total, diff.entries.length);
@@ -293,7 +277,7 @@ test("the diff never reports an action it cannot justify", () => {
 test("a file neither side touched is unchanged even when its parse is lossy", () => {
   const parsed = [{ id: "n1", type: "vault_page" as const, title: "Method", body: "Body text.​", path: "p.md", fields: {} }];
   const existing = [{ id: "n1", type: "vault_page" as const, title: "Method", body: "Body text." }];
-  const diff = diffWorkspace(parsed as never, existing, { origin: () => "neither" });
+  const diff = rust().diffWorkspace(parsed as never, existing, { origin: () => "neither" });
   assert.equal(diff.counts.updated, 0);
   assert.equal(diff.counts.unchanged, 1);
 });

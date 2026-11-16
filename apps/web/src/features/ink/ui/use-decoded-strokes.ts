@@ -8,9 +8,9 @@ import {
   type InkStroke,
 } from "@weaveforge/core";
 import { logToApp } from "@/lib/error-report/app-log";
-import { perfEnd, perfEndAfterPaint, perfStart } from "@/lib/perf-marks";
-import { availableInkChunkCodec } from "../application/ink-chunk-codec";
-import type { InkStoredPage } from "../application/ink-chunk-store";
+import { perfEnd, perfEndAfterPaint, perfStart } from "@/lib/parts-2";
+import { availableInkChunkCodec } from "../application/parts-1";
+import type { InkStoredPage } from "../application/parts-1";
 
 export interface UseDecodedStrokesOptions {
   pages: readonly InkStoredPage[] | null;

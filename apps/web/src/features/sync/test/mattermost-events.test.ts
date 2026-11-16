@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { LogEntry, Milestone } from "@weaveforge/core";
-import { MattermostNotifier } from "../infrastructure/mattermost-notifier";
-import { mattermostChannelFor } from "../domain/mattermost-options";
-import type { Integration } from "../domain/integration";
-import type { IIntegrationsStore } from "../domain/sync-ports";
-import { MattermostNotificationIntegration } from "@/integrations/providers/mattermost/notification-integration";
+import { MattermostNotifier } from "../infrastructure/parts";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import type { IIntegrationsStore, Integration } from "../domain/parts";
+
+before(loadTestCore);
+import { MattermostNotificationIntegration } from "@/integrations/manifests/mattermost";
 
 const base: Integration = { provider: "mattermost", enabled: true, token: "t", repo: "https://chat.example.com", branch: "main-ch" };
 
@@ -61,7 +63,7 @@ test("per-event channels route each event, blank falls back to the default", asy
 
 test("same-channel mode ignores per-event channels", () => {
   const i: Integration = { ...base, options: { sameChannel: true, events: { dailyLogs: true }, channels: { dailyLogs: "logs-ch" } } };
-  assert.equal(mattermostChannelFor(i, "dailyLogs"), "main-ch");
+  assert.equal(readyCore().mattermostChannelFor(i, "dailyLogs"), "main-ch");
 });
 
 test("in the desktop app the shell sends the post, so the server needs no CORS rule", async () => {

@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { IBlobStore } from "@weaveforge/core";
-import { InMemoryBlobRegistry } from "@weaveforge/core/testing";
+import { InMemoryBlobRegistry } from "@core-test/in-memory";
 import { TieredBlobStore } from "../providers/tiered/tiered-blob-store";
 
 /** Minimal in-memory IBlobStore for tiered unit tests. */

@@ -1,6 +1,7 @@
 import { errorMessage, LOCAL_USER_ID } from "@weaveforge/core";
 
-import { decodeBytea } from "@/lib/bytea";
+
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * A PostgREST-shaped client over the local database.
@@ -64,44 +65,6 @@ type Row = Record<string, unknown>;
 
 const NOT_FOUND = "PGRST116";
 
-/** Only these operators reach SQL. An unknown one is a bug, not a fallback. */
-const OPERATORS: Record<string, string> = {
-  eq: "=",
-  neq: "<>",
-  gt: ">",
-  gte: ">=",
-  lt: "<",
-  lte: "<=",
-  like: "like",
-  ilike: "ilike",
-};
-
-/** Column and table names are never parameters, so they are checked instead. */
-function ident(name: string): string {
-  const trimmed = name.trim();
-  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmed)) {
-    throw new Error(`Not a column name the local database will accept: ${name}`);
-  }
-  return `"${trimmed}"`;
-}
-
-/** The right side of `is` is spliced into the SQL, so only these three pass. */
-function isLiteral(value: unknown): "null" | "true" | "false" {
-  const text = value === null ? "null" : String(value);
-  if (text === "null" || text === "true" || text === "false") return text;
-  throw new Error(`\`is\` takes null, true or false, not: ${text}`);
-}
-
-/** `"id, title"` and `"*"` both mean a projection; nothing here has joins. */
-function projection(columns: string): string {
-  const trimmed = columns.trim();
-  if (trimmed === "" || trimmed === "*") return "*";
-  return trimmed
-    .split(",")
-    .map((c) => (c.trim() === "*" ? "*" : ident(c)))
-    .join(", ");
-}
-
 const BYTEA_HEX = /^\\x(?:[0-9a-fA-F]{2})*$/;
 
 /**
@@ -128,11 +91,6 @@ export const JSON_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   paper_field_values: ["value"],
 };
 
-/** A Postgres array literal, each element quoted with `"` and `\` escaped. */
-export function pgArray(values: readonly unknown[]): string {
-  return `{${values.map((v) => `"${String(v).replace(/(["\\])/g, "\\$1")}"`).join(",")}}`;
-}
-
 /**
  * A value bound to a function argument.
  *
@@ -151,7 +109,7 @@ export function pgArray(values: readonly unknown[]): string {
  */
 function encodeArgument(value: unknown): string | number | boolean | Uint8Array | null {
   if (Array.isArray(value) && value.every((item) => item === null || typeof item !== "object")) {
-    return pgArray(value);
+    return readyCore().pgArray(value);
   }
   return encode(value);
 }
@@ -169,7 +127,7 @@ function encode(
 ): string | number | boolean | Uint8Array | null {
   if (value === null || value === undefined) return null;
   if (Array.isArray(value) && column && ARRAY_COLUMNS[column.table]?.includes(column.name)) {
-    return pgArray(value);
+    return readyCore().pgArray(value);
   }
   if (column && JSON_COLUMNS[column.table]?.includes(column.name)) return JSON.stringify(value);
   if (value instanceof Date) return value.toISOString();
@@ -180,44 +138,12 @@ function encode(
   // spelling is turned back into bytes here. A text column holding a string
   // that is `\x` and hex digits and nothing else would be misread, and no
   // column holds one.
-  if (typeof value === "string" && BYTEA_HEX.test(value)) return decodeBytea(value);
+  if (typeof value === "string" && BYTEA_HEX.test(value)) return readyCore().decodeBytea(value);
   if (typeof value === "object") return JSON.stringify(value);
   if (typeof value === "bigint") return Number(value);
   return value as string | number | boolean;
 }
 
-/**
- * Splits top-level comma-separated expressions, ignoring commas inside
- * parentheses like `col.in.(a,b)` and inside PostgREST's double-quoted values,
- * where `\` escapes the next character.
- */
-function splitTopLevel(expression: string): string[] {
-  const parts: string[] = [];
-  let current = "";
-  let depth = 0;
-  let quoted = false;
-  let escaped = false;
-  for (const ch of expression) {
-    if (quoted) {
-      current += ch;
-      if (escaped) escaped = false;
-      else if (ch === "\\") escaped = true;
-      else if (ch === '"') quoted = false;
-      continue;
-    }
-    if (ch === '"') quoted = true;
-    else if (ch === "(") depth++;
-    else if (ch === ")") depth--;
-    if (ch === "," && depth === 0) {
-      if (current.trim()) parts.push(current.trim());
-      current = "";
-    } else {
-      current += ch;
-    }
-  }
-  if (current.trim()) parts.push(current.trim());
-  return parts;
-}
 
 class Builder<T> implements PromiseLike<Reply<T>> {
   private readonly wheres: string[] = [];
@@ -279,7 +205,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
   }
 
   is(column: string, value: null | boolean): this {
-    this.wheres.push(`${ident(column)} is ${isLiteral(value)}`);
+    this.wheres.push(`${readyCore().ident(column)} is ${readyCore().isLiteral(value === null ? "null" : String(value))}`);
     return this;
   }
 
@@ -290,19 +216,19 @@ class Builder<T> implements PromiseLike<Reply<T>> {
       this.wheres.push("false");
       return this;
     }
-    this.wheres.push(`${ident(column)} in (${values.map((v) => this.hold(v, column)).join(", ")})`);
+    this.wheres.push(`${readyCore().ident(column)} in (${values.map((v) => this.hold(v, column)).join(", ")})`);
     return this;
   }
 
   not(column: string, operator: string, value: unknown): this {
     if (operator === "is") {
-      this.wheres.push(`${ident(column)} is not ${value === null ? "null" : String(value)}`);
+      this.wheres.push(`${readyCore().ident(column)} is not ${value === null ? "null" : String(value)}`);
       return this;
     }
     if (operator === "in") {
       const items =
         typeof value === "string"
-          ? value.replace(/^\(|\)$/g, "").split(",").map((s) => s.trim()).filter(Boolean)
+          ? readyCore().inItems(value)
           : Array.isArray(value)
             ? value
             : [value];
@@ -310,12 +236,12 @@ class Builder<T> implements PromiseLike<Reply<T>> {
         this.wheres.push("true");
         return this;
       }
-      this.wheres.push(`not (${ident(column)} in (${items.map((v) => this.hold(v, column)).join(", ")}))`);
+      this.wheres.push(`not (${readyCore().ident(column)} in (${items.map((v: unknown) => this.hold(v, column)).join(", ")}))`);
       return this;
     }
-    const sql = OPERATORS[operator];
+    const sql = readyCore().filterOperator(operator);
     if (!sql) throw new Error(`The local database has no "${operator}" filter.`);
-    this.wheres.push(`not (${ident(column)} ${sql} ${this.hold(value, column)})`);
+    this.wheres.push(`not (${readyCore().ident(column)} ${sql} ${this.hold(value, column)})`);
     return this;
   }
 
@@ -324,42 +250,39 @@ class Builder<T> implements PromiseLike<Reply<T>> {
     if (operator === "in") {
       const inner =
         typeof value === "string"
-          ? value.replace(/^\(|\)$/g, "").split(",").map((s) => s.trim()).filter(Boolean)
+          ? readyCore().inItems(value)
           : (value as unknown[]);
       return this.in(column, inner);
     }
-    const sql = OPERATORS[operator];
+    const sql = readyCore().filterOperator(operator);
     if (!sql) throw new Error(`The local database has no "${operator}" filter.`);
-    this.wheres.push(`${ident(column)} ${sql} ${this.hold(value, column)}`);
+    this.wheres.push(`${readyCore().ident(column)} ${sql} ${this.hold(value, column)}`);
     return this;
   }
 
   /** PostgREST's `"a.eq.1,b.is.null"`, which the app uses for two-sided lookups. */
   or(expression: string): this {
-    const parts = splitTopLevel(expression).map((clause) => {
+    const parts = readyCore().splitTopLevel(expression).map((clause: string) => {
       const [column = "", operator = "", ...rest] = clause.split(".");
       const joined = rest.join(".");
       // A double-quoted value is PostgREST's way to carry `,` `.` `(` `)` as text.
-      const raw = /^".*"$/s.test(joined) ? joined.slice(1, -1).replace(/\\(.)/gs, "$1") : joined;
-      if (operator === "is") return `${ident(column)} is ${isLiteral(raw.toLowerCase())}`;
+      const raw = readyCore().orValue(joined);
+      if (operator === "is") return `${readyCore().ident(column)} is ${readyCore().isLiteral(raw.toLowerCase())}`;
       if (operator === "in") {
-        const items = raw.replace(/^\(|\)$/g, "").split(",").map((s) => s.trim()).filter(Boolean);
+        const items = readyCore().inItems(raw);
         if (items.length === 0) return "false";
-        return `${ident(column)} in (${items.map((v) => this.hold(v, column)).join(", ")})`;
+        return `${readyCore().ident(column)} in (${items.map((v: unknown) => this.hold(v, column)).join(", ")})`;
       }
-      const sql = OPERATORS[operator];
+      const sql = readyCore().filterOperator(operator);
       if (!sql) throw new Error(`The local database has no "${operator}" filter.`);
-      return `${ident(column)} ${sql} ${this.hold(raw, column)}`;
+      return `${readyCore().ident(column)} ${sql} ${this.hold(raw, column)}`;
     });
     this.wheres.push(`(${parts.join(" or ")})`);
     return this;
   }
 
   order(column: string, options?: { ascending?: boolean; nullsFirst?: boolean }): this {
-    const direction = options?.ascending === false ? "desc" : "asc";
-    const nulls =
-      options?.nullsFirst === undefined ? "" : options.nullsFirst ? " nulls first" : " nulls last";
-    this.orders.push(`${ident(column)} ${direction}${nulls}`);
+    this.orders.push(readyCore().orderClause(column, options?.ascending, options?.nullsFirst));
     return this;
   }
 
@@ -377,8 +300,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
    * function" on the local backend only.
    */
   range(from: number, to: number): this {
-    this.limitTo = Math.max(0, to - from + 1);
-    this.offsetTo = Math.max(0, from);
+    [this.limitTo, this.offsetTo] = readyCore().rangeWindow(from, to) as [number, number];
     return this;
   }
 
@@ -425,24 +347,25 @@ class Builder<T> implements PromiseLike<Reply<T>> {
   }
 
   private tail(): string {
-    const order = this.orders.length ? ` order by ${this.orders.join(", ")}` : "";
-    const limit = this.limitTo === null ? "" : ` limit ${Number(this.limitTo)}`;
     // `offset` without `limit` is legal in Postgres, so a bare `.range(5, …)`
-    // still pages correctly.
-    const offset = this.offsetTo ? ` offset ${Number(this.offsetTo)}` : "";
-    return `${order}${limit}${offset}`;
+    // still pages correctly (wf-core `pglite_sql::tail_clause`).
+    return readyCore().tailClause(
+      this.orders.length ? this.orders.join(", ") : undefined,
+      this.limitTo ?? undefined,
+      this.offsetTo,
+    );
   }
 
   /** The statement, built last so every filter has already booked its parameter. */
   compile(): string {
-    const table = ident(this.table);
+    const table = readyCore().ident(this.table);
     const mutation = this.mutation;
 
     if (!mutation) {
       if (this.headOnly && this.counting) {
         return `select count(*)::int as count from ${table}${this.whereClause()}`;
       }
-      return `select ${projection(this.columns)} from ${table}${this.whereClause()}${this.tail()}`;
+      return `select ${readyCore().projection(this.columns)} from ${table}${this.whereClause()}${this.tail()}`;
     }
 
     if (mutation.verb === "delete") {
@@ -460,7 +383,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
         this.wheres[i] = (this.wheres[i] as string).replace(/\$(\d+)/g, (_, d) => `$${Number(d) + shift}`);
       }
       this.params.unshift(...entries.map(([c, v]) => encode(v, { table: this.table, name: c })));
-      const sets = entries.map(([c], i) => `${ident(c)} = $${i + 1}`);
+      const sets = entries.map(([c], i) => `${readyCore().ident(c)} = $${i + 1}`);
       return `update ${table} set ${sets.join(", ")}${this.whereClause()}${this.back()}`;
     }
 
@@ -472,21 +395,21 @@ class Builder<T> implements PromiseLike<Reply<T>> {
     const values = rows
       .map((row) => `(${columns.map((c) => this.hold(row[c] ?? null, c)).join(", ")})`)
       .join(", ");
-    const head = `insert into ${table} (${columns.map(ident).join(", ")}) values ${values}`;
+    const head = `insert into ${table} (${columns.map((c) => readyCore().ident(c)).join(", ")}) values ${values}`;
     if (mutation.verb === "insert") return `${head}${this.back()}`;
 
     const keys = (mutation.onConflict ?? "id").split(",").map((c) => c.trim());
     const updates = columns.filter((c) => !keys.includes(c));
     const conflict = updates.length
-      ? `on conflict (${keys.map(ident).join(", ")}) do update set ${updates
-          .map((c) => `${ident(c)} = excluded.${ident(c)}`)
+      ? `on conflict (${keys.map((k) => readyCore().ident(k)).join(", ")}) do update set ${updates
+          .map((c) => `${readyCore().ident(c)} = excluded.${readyCore().ident(c)}`)
           .join(", ")}`
-      : `on conflict (${keys.map(ident).join(", ")}) do nothing`;
+      : `on conflict (${keys.map((k) => readyCore().ident(k)).join(", ")}) do nothing`;
     return `${head} ${conflict}${this.back()}`;
   }
 
   private back(): string {
-    return this.returning ? ` returning ${projection(this.columns)}` : "";
+    return this.returning ? ` returning ${readyCore().projection(this.columns)}` : "";
   }
 
   async then<R1 = Reply<T>, R2 = never>(
@@ -580,10 +503,10 @@ export function createLocalClient(run: LocalQuery) {
     },
     async rpc(name: string, args: Record<string, unknown> = {}) {
       const names = Object.keys(args);
-      const call = names.map((n, i) => `${ident(n)} => $${i + 1}`).join(", ");
+      const call = names.map((n, i) => `${readyCore().ident(n)} => $${i + 1}`).join(", ");
       try {
         const rows = (await run(
-          `select * from ${ident(name)}(${call})`,
+          `select * from ${readyCore().ident(name)}(${call})`,
           names.map((n) => encodeArgument(args[n])),
         )) as Row[];
         // A function returning one scalar answers as PostgREST does: the value.

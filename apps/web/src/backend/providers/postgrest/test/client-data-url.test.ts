@@ -6,7 +6,7 @@ import {
   getRealtimeClient,
   namedNetworkFailure,
   resetDataClientForTests,
-} from "../client";
+} from "../parts-1";
 
 /**
  * Pointing REST at a self-hosted PostgREST while auth stays on Supabase.

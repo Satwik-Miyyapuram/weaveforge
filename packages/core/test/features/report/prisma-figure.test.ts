@@ -8,14 +8,12 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { rust } from "../../../src/shared/rust.js";
 
-import { prismaCounts } from "../../../src/features/reading-lists/domain/screening.js";
-import {
-  prismaCaveat,
-  prismaFigureTex,
-} from "../../../src/features/report/domain/prisma-figure.js";
 
-const counts = prismaCounts(
+
+
+const counts = rust().prismaCounts(
   [{ id: "a" }, { id: "b" }, { id: "c", duplicateOfItemId: "a" }],
   [
     {
@@ -46,7 +44,7 @@ const counts = prismaCounts(
 );
 
 test("the counts reach the boxes", () => {
-  const tex = prismaFigureTex(counts);
+  const tex = rust().prismaFigureTex(counts);
   assert.match(tex, /Records identified \(n = 3\)/);
   assert.match(tex, /Duplicates removed \(n = 1\)/);
   assert.match(tex, /Records screened \(n = 2\)/);
@@ -56,7 +54,7 @@ test("the counts reach the boxes", () => {
 });
 
 test("a reason a reviewer typed cannot end the document", () => {
-  const tex = prismaFigureTex(counts, {
+  const tex = rust().prismaFigureTex(counts, {
     reasons: [{ reason: "50% dropout & \\end{figure} #1", count: 2 }],
   });
   // One `\end{figure}`, at the end, where this file put it.
@@ -65,15 +63,15 @@ test("a reason a reviewer typed cannot end the document", () => {
 });
 
 test("a caption and label are the caller's to choose", () => {
-  const tex = prismaFigureTex(counts, { caption: "How we chose.", label: "fig:selection" });
+  const tex = rust().prismaFigureTex(counts, { caption: "How we chose.", label: "fig:selection" });
   assert.match(tex, /\\caption\{How we chose\.\}/);
   assert.match(tex, /\\label\{fig:selection\}/);
 });
 
 test("what is unsettled is said beside the figure, never inside it", () => {
-  assert.equal(prismaCaveat(counts), null);
-  const caveat = prismaCaveat({ ...counts, undecided: 4, conflicts: 1 });
+  assert.equal(rust().prismaCaveat(counts), null);
+  const caveat = rust().prismaCaveat({ ...counts, undecided: 4, conflicts: 1 });
   assert.match(String(caveat), /4 not yet screened/);
   assert.match(String(caveat), /1 where reviewers disagree/);
-  assert.doesNotMatch(prismaFigureTex({ ...counts, undecided: 4 }), /not yet screened/);
+  assert.doesNotMatch(rust().prismaFigureTex({ ...counts, undecided: 4 }), /not yet screened/);
 });

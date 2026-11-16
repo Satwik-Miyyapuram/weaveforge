@@ -1,36 +1,39 @@
 "use client";
 
-import { experimentHref } from "../application/experiment-href";
+import { isOfflineBuild } from "@/deployment/build-target";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { shortSha, type Experiment, type MetricPoint } from "@weaveforge/core";
+import { type Experiment, type MetricPoint } from "@weaveforge/core";
 import { artifactItems } from "./artifact-items";
+import { ArtifactPlaceholder } from "./artifact-placeholder";
 import { getContainer } from "@/bootstrap";
-import { commitUrl } from "@/features/sync";
-import { formatMetricCell, MetricChart } from "./metric-chart";
+import { MetricChart } from "./metric-chart";
 import { MetricGrid } from "./metric-grid";
 import { usePolledLoad } from "./use-polled-load";
-import { isAbsoluteUrl } from "../infrastructure/experiment-artifact-store";
+import { isTauriShell } from "../infrastructure/parts";
 import { FormError } from "@/components/form-error";
 import { Chip } from "@/components/controls";
+import { Modal } from "@/components/modal";
+import { PdfReader } from "@/features/reader";
 import { ImageViewer } from "@/components/image-viewer";
 import { formatError } from "@/lib/format-error";
-import { warnOnce } from "@/lib/error-report/warn-once";
+import { warnOnce } from "@/lib/error-report/parts";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number }) {
   const chips = [
     exp.branch ? <Chip key="branch"><em>branch</em> {exp.branch}</Chip> : null,
     exp.commitSha ? (
-      commitUrl(exp.repoUrl, exp.commitSha) ? (
-        <Chip key="commit" href={commitUrl(exp.repoUrl, exp.commitSha) ?? ""} target="_blank" rel="noreferrer">
-          <em>commit</em> {shortSha(exp.commitSha)}
+      readyCore().commitUrl(exp.repoUrl, exp.commitSha) ? (
+        <Chip key="commit" href={readyCore().commitUrl(exp.repoUrl, exp.commitSha) ?? ""} target="_blank" rel="noreferrer">
+          <em>commit</em> {readyCore().shortSha(exp.commitSha)}
         </Chip>
       ) : (
-        <Chip key="commit"><em>commit</em> {shortSha(exp.commitSha)}</Chip>
+        <Chip key="commit"><em>commit</em> {readyCore().shortSha(exp.commitSha)}</Chip>
       )
     ) : null,
-    exp.repoUrl ? (
-      <Chip key="repo" href={exp.repoUrl} target="_blank" rel="noreferrer">repo</Chip>
+    readyCore().repoWebUrl(exp.repoUrl) ? (
+      <Chip key="repo" href={readyCore().repoWebUrl(exp.repoUrl) ?? ""} target="_blank" rel="noreferrer">repo</Chip>
     ) : null,
     exp.relatedPaper ? <RelatedPaper key="paper" paperId={exp.relatedPaper} /> : null,
   ].filter(Boolean);
@@ -84,7 +87,7 @@ export function ExpMetricChips({ exp, limit }: { exp: Experiment; limit?: number
     <div className={limit != null ? "metric-chips chip-row--capped" : "metric-chips"}>
       {shown.map(([k, v]) => (
         <span key={k} className="metric-chip">
-          <em>{k}</em> {formatMetricCell(k, v)}
+          <em>{k}</em> {typedCore().formatMetricCell(k, v)}
         </span>
       ))}
       {hidden > 0 ? <span className="metric-chip chip-more">+{hidden}</span> : null}
@@ -102,11 +105,14 @@ export function ExpMetricChips({ exp, limit }: { exp: Experiment; limit?: number
  * seven days regardless of what is asked for, so every figure broke a week
  * after upload.
  */
-function useArtifactUrls(entries: string[]): (string | null)[] {
+function useArtifactUrls(entries: string[]): { urls: (string | null)[]; settled: boolean; retry: () => void } {
   // One slot per entry, in order: absolute links are ready now, paths once signed.
   const [resolved, setResolved] = useState<(string | null)[]>(() =>
-    entries.map((entry) => (isAbsoluteUrl(entry) ? entry : null)),
+    entries.map((entry) => (readyCore().isAbsoluteUrl(entry) ? readyCore().viewableArtifactUrl(entry, isTauriShell()) : null)),
   );
+  // True once signing finished or failed: a path still without a URL is then missing.
+  const [settled, setSettled] = useState(() => entries.every((entry) => readyCore().isAbsoluteUrl(entry)));
+  const [attempt, setAttempt] = useState(0);
 
   // NUL separator, written as an escape: a literal NUL byte in the source makes
   // git treat this whole file as binary and hides it from grep.
@@ -115,6 +121,7 @@ function useArtifactUrls(entries: string[]): (string | null)[] {
     let cancelled = false;
     if (entries.length === 0) {
       setResolved([]);
+      setSettled(true);
       return;
     }
     void getContainer()
@@ -124,6 +131,9 @@ function useArtifactUrls(entries: string[]): (string | null)[] {
       })
       .catch(() => {
         // Leave whatever resolved already rather than blanking the panel.
+      })
+      .finally(() => {
+        if (!cancelled) setSettled(true);
       });
     return () => {
       cancelled = true;
@@ -131,44 +141,70 @@ function useArtifactUrls(entries: string[]): (string | null)[] {
     // `key` stands in for the array: a new array of the same entries must not
     // re-sign on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, attempt]);
 
-  return resolved;
+  return { urls: resolved, settled, retry: () => setAttempt((n) => n + 1) };
 }
 
 export function Artifacts({ urls: entries, detail = false }: { urls: string[]; detail?: boolean }) {
-  const { images, links } = artifactItems(entries, useArtifactUrls(entries));
+  const { urls, settled, retry } = useArtifactUrls(entries);
+  const { images, pdfs, links, missing } = artifactItems(entries, urls, { settled, inShell: isTauriShell() });
   // Detail: a uniform responsive grid of fixed-ratio tiles. The old
   // column-masonry gave every figure a different height (contain-fit) and
   // flowed column-major, which read as "images spilling onto the next line"
   // on a narrow phone.
   const thumbClass = detail ? "artifact-figures" : "artifact-thumbs";
   const [open, setOpen] = useState<number | null>(null);
+  const [pdf, setPdf] = useState<{ url: string; label: string } | null>(null);
+  // Figures whose image failed to load; Retry clears them and re-signs.
+  const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set());
+  const [attempt, setAttempt] = useState(0);
+  const again = () => {
+    setFailed(new Set());
+    setAttempt((n) => n + 1);
+    retry();
+  };
   return (
     <div className="artifacts">
       {images.length > 0 && (
         <div className={thumbClass}>
-          {images.map(({ url, label }, i) => (
-            <a
-              key={url}
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              title={label}
-              className={detail ? "card artifact-card" : undefined}
-              onClick={(e) => {
-                // Modified clicks keep the browser's own open-in-tab behaviour.
-                if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
-                e.preventDefault();
-                e.stopPropagation();
-                setOpen(i);
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt={label} loading="lazy" />
-              {detail && <span className="artifact-caption">{label}</span>}
-            </a>
-          ))}
+          {images.map(({ url, label }, i) =>
+            failed.has(url) ? (
+              <ArtifactPlaceholder
+                key={url}
+                label={label}
+                reason="missing"
+                onRetry={again}
+                className={detail ? "card artifact-card artifact-missing" : "artifact-missing"}
+              />
+            ) : (
+              <a
+                key={url}
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                title={label}
+                className={detail ? "card artifact-card" : undefined}
+                onClick={(e) => {
+                  // Modified clicks keep the browser's own open-in-tab behaviour.
+                  if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setOpen(i);
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  key={attempt}
+                  src={url}
+                  alt={label}
+                  loading="lazy"
+                  onError={() => setFailed((prev) => new Set(prev).add(url))}
+                />
+                {detail && <span className="artifact-caption">{label}</span>}
+              </a>
+            ),
+          )}
         </div>
       )}
       {open !== null && (
@@ -179,14 +215,27 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
           onClose={() => setOpen(null)}
         />
       )}
-      {links.length > 0 && (
+      {(pdfs.length > 0 || links.length > 0) && (
         <div className="git-chips">
+          {pdfs.map((item) => (
+            <Chip key={item.url} title={`Open ${item.label}`} onClick={() => setPdf(item)}>
+              {item.label}
+            </Chip>
+          ))}
           {links.map(({ url, label }) => (
             <Chip key={url} href={url} target="_blank" rel="noreferrer">
               {label}
             </Chip>
           ))}
         </div>
+      )}
+      {missing.map((item, i) => (
+        <ArtifactPlaceholder key={`${item.label}-${i}`} label={item.label} reason={item.reason} onRetry={again} />
+      ))}
+      {pdf && (
+        <Modal title={pdf.label} onClose={() => setPdf(null)} className="artifact-pdf-modal">
+          <PdfReader url={pdf.url} paperTitle={pdf.label} />
+        </Modal>
       )}
     </div>
   );
@@ -245,8 +294,9 @@ export function MetricCurves({
 }
 
 export function ExperimentTitleLink({ exp }: { exp: Experiment }) {
+  const href = useMemo(() => readyCore().experimentHref(exp.id, isOfflineBuild()), [exp.id]);
   return (
-    <Link href={experimentHref(exp.id)} className="exp-title-link">
+    <Link href={href} className="exp-title-link">
       {exp.name}
     </Link>
   );

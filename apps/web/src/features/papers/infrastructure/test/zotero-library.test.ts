@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { normalizeZoteroLibrary } from "../zotero-web-api";
+import { before, describe, it } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { normalizeZoteroLibrary } from "../parts-3";
+
+before(async () => {
+  await loadTestCore();
+});
 
 describe("normalizeZoteroLibrary (10-21)", () => {
   it("turns the bare user id Zotero shows into a library path", () => {

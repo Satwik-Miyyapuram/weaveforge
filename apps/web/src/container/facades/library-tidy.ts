@@ -1,18 +1,13 @@
+import { loadCore } from "@/lib/rust-core";
 import {
-  findDuplicateGroups,
-  isConferenceCopy,
-  isPlaceholderTitle,
-  pickKeeper,
-  titleFixes,
-  type DuplicateGroup,
   type IPaperRepository,
   type MetadataResolver,
   type Paper,
   type PaperSummary,
-  type TitleFix,
   type UpdatePaperUseCase,
 } from "@weaveforge/core";
-import type { MergePapersUseCase } from "@/features/papers/application/merge-papers.use-case";
+import type { DuplicateGroup, TitleFix } from "@weaveforge/wasm";
+import type { MergePapersUseCase } from "@/features/papers/application/parts-1";
 
 /** A duplicate group as the screen shows it. */
 export interface TidyDuplicateGroup extends DuplicateGroup {
@@ -50,8 +45,9 @@ export class LibraryTidyFacade {
   ) {}
 
   async scan(): Promise<LibraryTidyScan> {
+    const core = await loadCore();
     const summaries = await this.deps.papers.listSummaries();
-    const groups = findDuplicateGroups(summaries);
+    const groups = core.findDuplicateGroups(summaries);
     // The summary projection has no venue, abstract or rating, and the keeper
     // is picked on them too. Only the grouped papers are read in full, which
     // in a tidy library is none. Read in parallel; a failed read only leaves
@@ -66,12 +62,12 @@ export class LibraryTidyFacade {
     const duplicates = groups.map((group): TidyDuplicateGroup => {
       const members = group.ids.map((id) => full.get(id)).filter((p): p is Paper => !!p);
       if (members.length !== group.ids.length) return group;
-      const keepId = pickKeeper(members).id;
-      const published = members.filter(isConferenceCopy);
+      const keepId = core.pickKeeper(members);
+      const published = members.filter((p) => core.isConferenceCopy(p));
       const conferenceId = published.length === 1 && published[0]!.id !== keepId ? published[0]!.id : undefined;
       return { ...group, keepId, ...(conferenceId ? { conferenceId } : {}) };
     });
-    return { titles: titleFixes(summaries), duplicates, papers };
+    return { titles: core.titleFixes(summaries), duplicates, papers };
   }
 
   /**
@@ -79,6 +75,7 @@ export class LibraryTidyFacade {
    * or the answer is itself a placeholder.
    */
   async lookUpTitle(lookup: NonNullable<TitleFix["lookup"]>): Promise<string | null> {
+    const core = await loadCore();
     const refs = [
       ...(lookup.doi ? [{ kind: "doi" as const, value: lookup.doi }] : []),
       ...(lookup.arxivId ? [{ kind: "arxiv" as const, value: lookup.arxivId }] : []),
@@ -86,7 +83,7 @@ export class LibraryTidyFacade {
     for (const ref of refs) {
       try {
         const title = (await this.deps.resolver.resolve(ref)).title?.trim();
-        if (title && !isPlaceholderTitle(title)) return title;
+        if (title && !core.isPlaceholderTitle(title)) return title;
       } catch {
         /* the next identifier, or no proposal */
       }

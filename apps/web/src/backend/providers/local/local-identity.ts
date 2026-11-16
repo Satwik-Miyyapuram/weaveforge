@@ -18,13 +18,19 @@
  */
 
 import { LOCAL_USER_ID } from "@weaveforge/core";
-import type { AuthChangeCallback, AuthUser, IAuthService } from "@weaveforge/core";
-import type { ICurrentUserProvider } from "@weaveforge/core";
+import type {
+  AuthChangeCallback,
+  AuthUser,
+  IAuthService,
+  ICurrentUserProvider,
+} from "@weaveforge/core";
+import type { LocalQuery } from "./pglite-client";
 
 import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
+import { readyCore } from "@/lib/rust-core";
 
 /** Where the choice is kept. The shell remembers it too, for the next launch. */
-const CHOICE_KEY = "weaveforge.local-mode";
+const choiceKey = (): string => readyCore().localModeKey();
 
 export const LOCAL_USER: AuthUser = {
   id: LOCAL_USER_ID,
@@ -36,14 +42,14 @@ export const LOCAL_USER: AuthUser = {
 /** Whether this window is working on the computer rather than on an account. */
 export function isLocalMode(): boolean {
   // A window with storage denied cannot remember a choice, so it has none.
-  return readStored(CHOICE_KEY) === "1";
+  return readyCore().localIsLocalMode(readStored(choiceKey()) ?? undefined);
 }
 
 /** Remember the choice. Reloading is the caller's job: the wiring is built once. */
 export function setLocalMode(on: boolean): void {
   // Storage denied: the window simply starts on the sign-in screen next time.
-  if (on) writeStored(CHOICE_KEY, "1");
-  else removeStored(CHOICE_KEY);
+  if (on) writeStored(choiceKey(), "1");
+  else removeStored(choiceKey());
 }
 
 const NEEDS_ACCOUNT =
@@ -104,14 +110,29 @@ export class LocalAuthService implements IAuthService {
   }
 }
 
+/**
+ * The user the shell applies to every local query: the local user, or the
+ * account this device was adopted by. Rows written with any other `user_id`
+ * fail row-level security.
+ */
+export async function deviceUserId(query: LocalQuery): Promise<string> {
+  const [row] = (await query(readyCore().localDeviceUserSql(), [])) as { id?: string | null }[];
+  return readyCore().localDeviceUserId(row?.id ?? undefined, LOCAL_USER_ID);
+}
+
 export class LocalSessionProvider implements ICurrentUserProvider {
-  /** The local-only user, or the account a synced device belongs to. */
-  constructor(private readonly userId: string = LOCAL_USER_ID) {}
+  private resolved: Promise<string> | null = null;
+
+  /** A fixed id (local-first account), or a lookup asked once (see `deviceUserId`). */
+  constructor(private readonly userId: string | (() => Promise<string>) = LOCAL_USER_ID) {}
 
   async getCurrentUserId(): Promise<string | null> {
-    return this.userId;
+    return this.requireUserId();
   }
   async requireUserId(): Promise<string> {
-    return this.userId;
+    if (typeof this.userId === "string") return this.userId;
+    // A failed lookup is forgotten so the next call asks again.
+    this.resolved ??= this.userId().catch((error: unknown) => { this.resolved = null; throw error; });
+    return this.resolved;
   }
 }

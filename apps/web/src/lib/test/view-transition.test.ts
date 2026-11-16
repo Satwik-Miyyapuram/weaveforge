@@ -1,25 +1,31 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { isPlainClick, motionTier, navTransition, transitionsOn } from "../view-transition";
+import { isPlainClick, navTransition } from "../view-transition";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 test("tiers: calm by default, reactive with the setting, CRT by theme, off when reduced or unsupported", () => {
   const base = { motion: undefined, theme: undefined, reducedMotion: false, supported: true };
-  assert.equal(motionTier(base), "calm");
-  assert.equal(motionTier({ ...base, motion: "reactive" }), "reactive");
-  assert.equal(motionTier({ ...base, theme: "crt" }), "crt");
-  assert.equal(motionTier({ ...base, theme: "crt", motion: "reactive" }), "crt");
-  assert.equal(motionTier({ ...base, theme: "brutal" }), "calm");
-  assert.equal(motionTier({ ...base, reducedMotion: true }), "off");
-  assert.equal(motionTier({ ...base, motion: "reactive", theme: "crt", reducedMotion: true }), "off");
-  assert.equal(motionTier({ ...base, supported: false }), "off");
+  const tier = (input: { motion: string | undefined; theme: string | undefined; reducedMotion: boolean; supported: boolean }) =>
+    readyCore().motionTier(input);
+  assert.equal(tier(base), "calm");
+  assert.equal(tier({ ...base, motion: "reactive" }), "reactive");
+  assert.equal(tier({ ...base, theme: "crt" }), "crt");
+  assert.equal(tier({ ...base, theme: "crt", motion: "reactive" }), "crt");
+  assert.equal(tier({ ...base, theme: "brutal" }), "calm");
+  assert.equal(tier({ ...base, reducedMotion: true }), "off");
+  assert.equal(tier({ ...base, motion: "reactive", theme: "crt", reducedMotion: true }), "off");
+  assert.equal(tier({ ...base, supported: false }), "off");
 });
 
 test("transitions run without the motion setting, never when reduced", () => {
   const base = { motion: undefined, theme: undefined, reducedMotion: false, supported: true };
-  assert.equal(transitionsOn(base), true);
-  assert.equal(transitionsOn({ ...base, reducedMotion: true }), false);
-  assert.equal(transitionsOn({ ...base, supported: false }), false);
+  assert.equal(readyCore().transitionsOn(base), true);
+  assert.equal(readyCore().transitionsOn({ ...base, reducedMotion: true }), false);
+  assert.equal(readyCore().transitionsOn({ ...base, supported: false }), false);
 });
 
 test("only a plain left click is taken over", () => {

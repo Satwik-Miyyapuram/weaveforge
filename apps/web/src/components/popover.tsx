@@ -27,6 +27,7 @@ export function Popover({
   portal = false,
   disabled = false,
   children,
+  helpId,
 }: {
   label: React.ReactNode;
   count?: number;
@@ -64,6 +65,8 @@ export function Popover({
   portal?: boolean;
   /** The panel, or a function of `close` when picking something should shut it. */
   children: React.ReactNode | ((close: () => void) => React.ReactNode);
+  /** `data-help-id` for the user docs' screenshot capture. */
+  helpId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -135,12 +138,13 @@ export function Popover({
   useEffect(() => {
     if (!shown) return;
     const trigger = triggerRef.current;
+    const panel = panelRef.current;
     // A click leaves focus on the panel so no row wears the keyboard ring; a key
     // press enters the row marked `data-autofocus` (the current choice), else the first.
-    const marked = openedByPointer.current ? null : panelRef.current?.querySelector<HTMLElement>("[data-autofocus]");
+    const marked = openedByPointer.current ? null : panel?.querySelector<HTMLElement>("[data-autofocus]");
     if (marked) marked.focus();
-    else focusFirstField(panelRef.current, { buttons: !openedByPointer.current });
-    return () => trigger?.focus();
+    else focusFirstField(panel, { buttons: !openedByPointer.current });
+    return () => restoreFocus(trigger, panel);
   }, [shown]);
 
   // Shared by every trigger; the open state is `aria-expanded`.
@@ -180,7 +184,7 @@ export function Popover({
       </Button>
     );
   return (
-    <div className="popover" ref={ref}>
+    <div className="popover" ref={ref} data-help-id={helpId}>
       {triggerButton}
       {open &&
         (() => {
@@ -209,4 +213,10 @@ export function Popover({
         })()}
     </div>
   );
+}
+
+/** On close, give focus back to the trigger unless a picked row moved it somewhere on purpose (a rename field, say). */
+export function restoreFocus(trigger: HTMLElement | null, panel: HTMLElement | null) {
+  const active = document.activeElement;
+  if (!active || active === document.body || panel?.contains(active)) trigger?.focus();
 }

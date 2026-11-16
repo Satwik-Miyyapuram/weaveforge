@@ -3,12 +3,14 @@
 import { useCallback, useMemo, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoading } from "@/components/screen-loading";
-import type { SharedItemDetail } from "@/features/sharing/application/load-shared-details";
-import { buildMemberNameMap } from "@/features/sharing/application/member-labels";
+import type {
+  LoadSharedWithMeScreenData,
+  SharedItemDetail,
+} from "@/features/sharing/application/parts";
+import { readyCore } from "@/lib/rust-core";
 import { SharedItemRenderer } from "@/features/sharing/ui/shared-item-renderer";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
-import { emptyArray, emptyMap } from "@/lib/empty";
-import type { LoadSharedWithMeScreenData } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
+import { emptyArray, emptyMap } from "@/lib/parts";
 import { FormError } from "@/components/form-error";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
@@ -45,7 +47,7 @@ type SharedWithMeView = {
 export function SharedWithMeScreen() {
   const loadScreen = useCallback(async (): Promise<SharedWithMeView> => {
     const data = await getContainer().sharing.loadSharedWithMeScreen();
-    return { items: data.items, nameOf: buildMemberNameMap(data.members) };
+    return { items: data.items, nameOf: readyCore().memberNameMap(data.members) };
   }, []);
 
   const { data, loading, error } = useScreenData("shared-with-me", loadScreen);
@@ -58,18 +60,23 @@ export function SharedWithMeScreen() {
 
   const [kindFilter, setKindFilter] = useState<SharedItemDetail["kind"] | "all">("all");
   const kinds = useMemo(() => [...new Set(items.map((it) => it.kind))], [items]);
+  // A filter whose kind is gone would hide every item with no control to reset it.
+  const activeKind = kindFilter !== "all" && !kinds.includes(kindFilter) ? "all" : kindFilter;
+  const visibleItems = useMemo(
+    () => (activeKind === "all" ? items : items.filter((it) => it.kind === activeKind)),
+    [items, activeKind],
+  );
   const ownerCount = useMemo(() => new Set(items.map((it) => it.ownerId)).size, [items]);
 
   const byOwner = useMemo(() => {
     const groups = new Map<string, SharedItemDetail[]>();
-    for (const it of items) {
-      if (kindFilter !== "all" && it.kind !== kindFilter) continue;
+    for (const it of visibleItems) {
       const arr = groups.get(it.ownerId) ?? [];
       arr.push(it);
       groups.set(it.ownerId, arr);
     }
     return [...groups.entries()];
-  }, [items, kindFilter]);
+  }, [visibleItems]);
 
   if (loading) {
     return <ScreenLoading status="Loading shared items…" />;
@@ -84,7 +91,7 @@ export function SharedWithMeScreen() {
         {kinds.length > 1 && (
           <SegmentedControl
             label="Filter by type"
-            value={kindFilter}
+            value={activeKind}
             onChange={setKindFilter}
             options={(["all", ...kinds] as const).map((k) => ({ value: k, label: k === "all" ? "All" : pluralLabel(k) }))}
           />
@@ -131,7 +138,7 @@ export function SharedWithMeScreen() {
         />
       )}
       {error && <FormError>{error}</FormError>}
-      {!error && items.length === 0 && (
+      {!error && visibleItems.length === 0 && (
         <EmptyState
           variant="first-run"
           icon={<NavIcon name="book" />}

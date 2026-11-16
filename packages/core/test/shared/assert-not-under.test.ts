@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assertNotUnder } from "../../src/shared/tree.js";
+import { assertNotUnder } from "../../src/shared/parts.js";
 
 const cycle = () => new Error("inside itself");
 

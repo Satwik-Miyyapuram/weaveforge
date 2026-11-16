@@ -1,7 +1,14 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { markActions, markPopoverShown } from "../mark-actions";
+import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
+
+const markActions = (ann: Parameters<ReturnType<typeof typedCore>["markActions"]>[0]) => typedCore().markActions(ann);
+const markPopoverShown = (ann: Parameters<ReturnType<typeof typedCore>["markPopoverShown"]>[0], tool: string) =>
+  typedCore().markPopoverShown(ann, tool);
 
 test("a mark with a comment offers Edit comment, prefilled", () => {
   assert.deepEqual(markActions({ type: "highlight", origin: "local", comment: "key claim" }), {

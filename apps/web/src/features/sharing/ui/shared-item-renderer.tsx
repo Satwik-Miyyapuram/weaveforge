@@ -1,20 +1,19 @@
 "use client";
 
-import { enumLabel } from "@/lib/enum-label";
 import type { Paper } from "@weaveforge/core";
-import { formatMetricCell, isEmptyPaperSummary } from "@weaveforge/core";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { CommentsToggle } from "@/features/sharing/ui/comments-toggle";
 import { SharedPaperImages } from "@/features/sharing/ui/shared-paper-images";
-import { sharedPaperAnnotationSummary } from "@/features/sharing/application/shared-paper-annotations";
 import { AddToLibraryButton } from "@/features/sharing/ui/add-to-library-button";
 import { DuplicateCopyButton } from "@/features/sharing/ui/duplicate-copy-button";
 import { sharedItemHref, sharedItemTypeLabel } from "@/features/sharing/ui/shared-item-routes";
 import { OpenIcon } from "@/components/view-icons";
 import { IconLink } from "@/components/button";
 import { Chip } from "@/components/controls";
-import type { SharedItemDetail } from "@/features/sharing/application/load-shared-details";
+import type { SharedItemDetail } from "@/features/sharing/application/parts";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 /** Resource kinds that only live as cards (no dedicated detail page for comments). */
 const CARD_COMMENTS = new Set(["milestone", "reading_list"]);
@@ -76,7 +75,7 @@ export function SharedItemRenderer({
                     and a number lost the precision every other surface shows
                     it with — `0.22` here against `0.2200` there, for the same
                     run. */}
-                <em>{k}</em> {formatMetricCell(k, v)}
+                <em>{k}</em> {typedCore().formatMetricCell(k, v)}
               </span>
             ))}
           </div>
@@ -171,7 +170,7 @@ function SharedPaperCard({
   ownerId: string;
   canComment: boolean;
 }) {
-  const hasSummary = !isEmptyPaperSummary(paper.summary);
+  const hasSummary = !readyCore().isEmptyPaperSummary(paper.summary);
   const snippet = hasSummary
     ? paper.summary!.replace(/\s+/g, " ").slice(0, 150) +
       (paper.summary!.length > 150 ? "…" : "")
@@ -204,7 +203,7 @@ function SharedPaperCard({
         )}
         <div className="metric-chips">
           <span className="metric-chip">
-            <em>status</em> {enumLabel("paperStatus", paper.status)}
+            <em>status</em> {readyCore().enumLabel("paperStatus", paper.status)}
           </span>
         </div>
         <SharedPaperImages metadata={paper.metadata} />
@@ -250,7 +249,7 @@ function SharedBy({ ownerName }: { ownerName: string }) {
 }
 
 export function SharedPaperAnnotations({ metadata }: { metadata?: Record<string, unknown> }) {
-  const summary = sharedPaperAnnotationSummary(metadata);
+  const summary = readyCore().sharedPaperAnnotationSummary(metadata);
   if (summary.count === 0) return null;
   return (
     <div className="shared-paper-annotations" aria-label="Shared annotations">

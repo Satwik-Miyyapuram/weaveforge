@@ -6,7 +6,7 @@ import {
   onLiveSyncChange,
   requestSync,
   type LiveSyncState,
-} from "../domain/live-sync";
+} from "../domain/parts-1";
 
 export function useLiveSync() {
   const [state, setState] = useState<LiveSyncState>(getLiveSyncState);

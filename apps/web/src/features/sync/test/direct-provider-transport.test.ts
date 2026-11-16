@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { GitClient } from "../infrastructure/git-client";
-import { GitLabLogExporter } from "../infrastructure/gitlab-log-exporter";
-import { MattermostNotifier } from "../infrastructure/mattermost-notifier";
-import type { Integration } from "../domain/integration";
+import test, { before } from "node:test";
+import { GitClient, GitLabLogExporter, MattermostNotifier } from "../infrastructure/parts";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import type { Integration } from "../domain/parts";
+
+before(loadTestCore);
 
 function ok(body: unknown = []): Response {
   return new Response(JSON.stringify(body), { status: 200 });

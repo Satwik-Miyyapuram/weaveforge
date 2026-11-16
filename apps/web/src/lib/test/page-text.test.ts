@@ -4,10 +4,13 @@
  * "has a body" — that is the bug that left every workspace tab on its
  * 320-character preview.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { isHydratedPage, noteBodyText } from "../page-text";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { isHydratedPage, noteBodyText } from "../parts";
+
+before(loadTestCore);
 
 const base = { id: "p1", title: "t", sortOrder: 0, createdAt: "", updatedAt: "" };
 

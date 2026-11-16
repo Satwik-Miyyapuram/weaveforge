@@ -4,9 +4,17 @@
  * that searched once used to keep them until the tab closed.
  */
 import assert from "node:assert/strict";
-import { afterEach, beforeEach, mock, test } from "node:test";
+import { afterEach, before, beforeEach, mock, test } from "node:test";
 
-import { IDLE_EVICT_MS, WorkerEmbedder } from "../infrastructure/worker-embedder";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
+import { WorkerEmbedder } from "../infrastructure/parts-3";
+
+let IDLE_EVICT_MS = 0;
+before(async () => {
+  await loadTestCore();
+  IDLE_EVICT_MS = readyCore().embedIdleEvictMs();
+});
 
 type Msg = { id: number; type: string; texts?: string[] };
 type Listener = (event: { data: unknown }) => void;

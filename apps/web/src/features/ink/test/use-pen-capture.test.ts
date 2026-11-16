@@ -6,17 +6,15 @@
  * them needs a device. The session's "no-render-during-stroke" tests live in
  * pen-capture-session.test.ts.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  CSS_PX_PER_MM,
-  InkPenGate,
-  PALM_CONTACT_AREA_MM2,
-  PALM_SECOND_TOUCH_MS,
-  contactAreaMm2,
-  type PenPointerEvent,
-} from "../index";
+import { InkPenGate, PALM_SECOND_TOUCH_MS } from "../application/parts-4";
+import { type PenPointerEvent } from "../application/use-pen-capture";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
+
+before(loadTestCore);
 
 /** A pointer event with sane defaults, so each test states only what it means. */
 function pointer(
@@ -38,18 +36,19 @@ function pointer(
 const bounds = { left: 0, top: 0, width: 1_000, height: 800 };
 
 test("contact area is converted from the CSS pixels a pointer reports", () => {
+  const { cssPxPerMm, palmContactAreaMm2 } = readyCore().inkContactConsts();
   assert.equal(
-    contactAreaMm2({ width: 1, height: 1 }),
-    (1 / CSS_PX_PER_MM) ** 2,
+    readyCore().contactAreaMm2({ width: 1, height: 1 }),
+    (1 / cssPxPerMm) ** 2,
   );
   assert.equal(
-    contactAreaMm2({ width: 0, height: 10 }),
+    readyCore().contactAreaMm2({ width: 0, height: 10 }),
     0,
     "a device with no contact box has none",
   );
   // 19 CSS px square is right at the 25 mm² threshold; 40 px square is a hand.
-  assert.ok(contactAreaMm2({ width: 40, height: 40 }) > PALM_CONTACT_AREA_MM2);
-  assert.ok(contactAreaMm2({ width: 5, height: 5 }) < PALM_CONTACT_AREA_MM2);
+  assert.ok(readyCore().contactAreaMm2({ width: 40, height: 40 }) > palmContactAreaMm2);
+  assert.ok(readyCore().contactAreaMm2({ width: 5, height: 5 }) < palmContactAreaMm2);
 });
 
 test("a pen draws immediately, and after it a touch only scrolls", () => {

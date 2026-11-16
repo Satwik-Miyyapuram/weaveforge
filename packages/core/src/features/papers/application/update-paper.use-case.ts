@@ -6,26 +6,23 @@
  * each class has a single reason to change (SRP).
  */
 
-import {
-  normalizeDoi,
-  PaperValidationError,
-  PAPER_STATUSES,
-  type Paper,
-  type PaperStatus,
-} from "../domain/paper.js";
-import type { IPaperRepository } from "../domain/paper-repository.js";
-import type { TagSource } from "../../tags/domain/tag.js";
-import type { ManageTagsUseCase } from "../../tags/application/manage-tags.use-case.js";
-import type { Clock } from "../../../shared/clock.js";
+import { PaperValidationError, PAPER_STATUSES, type Paper, type PaperStatus } from "../domain/parts.js";
+import type { IPaperRepository } from "../domain/parts.js";
+import type { ITagManager, TagSource } from "../../tags/domain/parts.js";
+import type { Clock } from "../../../shared/parts.js";
 import { NotFoundError } from "../../../shared/errors.js";
+import { rust } from "../../../shared/rust.js";
 
 export interface UpdatePaperDeps {
   repository: IPaperRepository;
-  tags: ManageTagsUseCase;
+  tags: ITagManager;
   clock: Clock;
 }
 
 export class UpdatePaperUseCase {
+  /** Tail of the update queue per paper id; see `enqueue`. */
+  private readonly queues = new Map<string, Promise<unknown>>();
+
   constructor(private readonly deps: UpdatePaperDeps) {}
 
   async setStatus(id: string, status: PaperStatus): Promise<Paper> {
@@ -40,19 +37,18 @@ export class UpdatePaperUseCase {
    * title has nothing to be listed, linked or cited by.
    */
   async setTitle(id: string, title: string): Promise<Paper> {
-    const trimmed = title.replace(/\s+/g, " ").trim();
+    const trimmed = rust().cleanPaperTitle(title);
     if (!trimmed) throw new PaperValidationError("A paper needs a title.");
     return this.mutate(id, (p) => ({ ...p, title: trimmed }));
   }
 
   /** Reader-authored summary. */
   async setSummary(id: string, summary: string): Promise<Paper> {
-    const trimmed = summary.trim();
-    return this.mutate(id, (p) => ({ ...p, summary: trimmed || undefined }));
+    return this.mutate(id, (p) => ({ ...p, summary: rust().cleanPaperSummary(summary) }));
   }
 
   async setRating(id: string, rating: number | undefined): Promise<Paper> {
-    if (rating != null && (rating < 1 || rating > 5)) {
+    if (rating != null && !rust().ratingInRange(rating)) {
       throw new PaperValidationError("Rating must be between 1 and 5.");
     }
     return this.mutate(id, (p) => ({ ...p, rating }));
@@ -70,7 +66,7 @@ export class UpdatePaperUseCase {
     id: string,
     identifiers: { doi?: string; arxivId?: string },
   ): Promise<Paper> {
-    const doi = normalizeDoi(identifiers.doi) || undefined;
+    const doi = rust().normalizeDoi(identifiers.doi) || undefined;
     const arxivId = identifiers.arxivId?.trim() || undefined;
     return this.mutate(id, (p) => ({ ...p, doi, arxivId }));
   }
@@ -86,8 +82,8 @@ export class UpdatePaperUseCase {
    * blank clears it.
    */
   async setPdfSource(id: string, url: string | undefined): Promise<Paper> {
-    const trimmed = url?.trim();
-    if (trimmed && !/^https:\/\//i.test(trimmed)) {
+    const trimmed = rust().cleanPdfAddress(url);
+    if (trimmed && !rust().isHttpsAddress(trimmed)) {
       throw new PaperValidationError("A PDF address must start with https://.");
     }
     return this.mutate(id, (p) => {
@@ -105,7 +101,7 @@ export class UpdatePaperUseCase {
 
   /** Record an uploaded image's storage path on the paper. */
   async addImage(id: string, path: string): Promise<Paper> {
-    const p = path.trim();
+    const p = rust().cleanImagePath(path);
     if (!p) throw new PaperValidationError("Image path is required.");
     return this.mutate(id, (paper) => ({
       ...paper,
@@ -125,10 +121,35 @@ export class UpdatePaperUseCase {
   }
 
   async remove(id: string): Promise<void> {
-    await this.deps.repository.delete(id);
+    return this.enqueue(id, () => this.deps.repository.delete(id));
   }
 
-  private async mutate(
+  private mutate(id: string, change: (p: Paper) => Paper): Promise<Paper> {
+    return this.enqueue(id, () => this.apply(id, change));
+  }
+
+  /**
+   * Updates to one paper run one after another. Two at once (a note save and a
+   * status change) each read the row, and the later save wrote the earlier,
+   * stale row back over the other's change. Different papers never wait.
+   * A delete waits for parked updates, so an update cannot write the row back after it.
+   */
+  private enqueue<T>(id: string, job: () => Promise<T>): Promise<T> {
+    const previous = this.queues.get(id) ?? Promise.resolve();
+    const run = previous.then(job);
+    // The tail never rejects, so one failed update does not block the next.
+    const tail = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.queues.set(id, tail);
+    void tail.then(() => {
+      if (this.queues.get(id) === tail) this.queues.delete(id);
+    });
+    return run;
+  }
+
+  private async apply(
     id: string,
     change: (p: Paper) => Paper,
   ): Promise<Paper> {
@@ -145,6 +166,5 @@ export class UpdatePaperUseCase {
 
 /** Storage paths of a paper's attached images (kept in metadata.images). */
 export function imagesOf(paper: Paper): string[] {
-  const raw = paper.metadata?.["images"];
-  return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+  return rust().imagesOf(paper.metadata);
 }

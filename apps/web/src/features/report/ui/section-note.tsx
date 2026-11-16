@@ -2,7 +2,7 @@
 
 import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { REPORT_STATUSES, type ReportSection, type ReportStatus } from "@weaveforge/core";
+import { materializeBlobImages, REPORT_STATUSES, type ReportSection, type ReportStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { BackButton } from "@/components/back-button";
 import { DocumentBody } from "@/components/document-body";
@@ -13,9 +13,9 @@ import type { EditorHandle } from "@/components/editor-handle";
 import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
-import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
-import { materializeReportBlobImages } from "../lib/report-images-md";
-import { sectionProgress, type SectionProgress } from "../lib/section-progress";
+import { useCitationFormatPreference } from "@/lib/hooks/parts";
+import type { SectionProgress } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { SectionRelatedExcerpts } from "./section-related-excerpts";
 import { ExperimentArtifactPicker } from "./experiment-artifact-picker";
 import { StatusSelect } from "@/components/status-select";
@@ -67,7 +67,7 @@ export function SectionNote({
   const [pickingArtifact, setPickingArtifact] = useState(false);
 
   const hasNotes = Boolean(section.notes?.trim());
-  const { words, target, pct: progress } = rolled ?? sectionProgress({ section, children: [] });
+  const { words, target, pct: progress } = rolled ?? readyCore().sectionProgress({ section, children: [] });
   const meta = [
     target ? `${words.toLocaleString()} / ${target.toLocaleString()} words` : `${words.toLocaleString()} words`,
     section.deadline ? `due ${section.deadline}` : null,
@@ -90,8 +90,12 @@ export function SectionNote({
       setSaveError(null);
       try {
         const report = getContainer().report;
-        const { body, uploadError } = await materializeReportBlobImages(nextBody, section.id, (id, blob, ext) =>
-          report.uploadImage(id, blob, ext),
+        const { body, uploadError } = await materializeBlobImages(
+          nextBody,
+          section.id,
+          (id, blob, ext) => report.uploadImage(id, blob, ext),
+          "reportimg:",
+          (text: string) => readyCore().normalizeMarkdownImageSyntax(text),
         );
         onReplace(await report.manageReportSection.setNotes(section.id, body));
         // The text is saved; a failed upload is still said out loud.
@@ -208,7 +212,7 @@ export function SectionNote({
               onError={setSaveError}
               insertItems={
                 editing && !busy
-                  ? [{ label: "Experiment artifact…", title: "Insert experiment artifact", onSelect: () => setPickingArtifact(true) }]
+                  ? [{ label: "Experiment figure or table…", title: "Insert an experiment figure or results table", onSelect: () => setPickingArtifact(true) }]
                   : undefined
               }
               moreSections={editing ? [citeAsSection(citationFormat, setCitationFormat)] : undefined}

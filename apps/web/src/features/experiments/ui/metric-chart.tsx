@@ -3,10 +3,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
-import { formatMetricValue } from "@weaveforge/core";
 import { EntityCard } from "@/components/entity-card";
 import { CardMenu } from "@/components/card-menu";
-import { axisSpec, plotHeight, plotTier } from "./plot-size";
 import {
   alignSeries,
   DEFAULT_COLORS,
@@ -19,11 +17,12 @@ import {
   type Prefs,
 } from "./metric-chart-data";
 import { Chip } from "@/components/controls";
+import { readyCore } from "@/lib/rust-core";
 
 export type { MetricSeries };
 
 // Lives in core so Node tests can import it without this file's CSS import.
-export { formatMetricCell } from "@weaveforge/core";
+
 
 interface MetricChartProps {
   /** Metric name from the SDK — used as the chart title. */
@@ -62,7 +61,7 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
   const [hover, setHover] = useState<Hover | null>(null);
   // Narrower cards step down chrome so the plot keeps most of the card.
   const [width, setWidth] = useState(0);
-  const tier = plotTier(width);
+  const tier = readyCore().plotTier(width);
   // Chrome drops by measured fit: max, then min, then legend names.
   const statsRef = useRef<HTMLSpanElement>(null);
   const legendRef = useRef<HTMLDivElement>(null);
@@ -108,22 +107,24 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
       const surface = readCssVar("--surface", "#ffffff");
       const w0 = Math.max(el.clientWidth || 0, 1);
       setWidth(w0);
-      const spec = axisSpec(plotTier(w0));
+      const spec = readyCore().axisSpec(readyCore().plotTier(w0));
       const font = `${spec.font}px system-ui, sans-serif`;
       const labelFont = `600 ${spec.font}px system-ui, sans-serif`;
 
       // Per run: faint raw line when smoothed, then the drawn line.
-      const data: uPlot.AlignedData = [prepared.steps];
+      // Gaps are `null` in both arrays; uPlot reads them as gaps, the number[] type just does not say so.
+      const asPlot = (values: readonly (number | null)[]): number[] => values as number[];
+      const data: uPlot.AlignedData = [asPlot(prepared.steps)];
       const seriesOpts: uPlot.Series[] = [{}];
       const owner: { id: string; main: boolean }[] = [];
       for (const r of prepared.runs) {
         const show = !hiddenRef.current.has(r.id);
         if (smooth > 0) {
-          data.push(r.values);
+          data.push(asPlot(r.values));
           seriesOpts.push({ label: `${r.label} raw`, stroke: `${r.color}40`, width: 1, spanGaps: true, show, points: { show: false } });
           owner.push({ id: r.id, main: false });
         }
-        data.push(emaSmooth(r.values, smooth));
+        data.push(asPlot(emaSmooth(r.values, smooth)));
         seriesOpts.push({ label: r.label, stroke: r.color, width: 2, spanGaps: true, show });
         owner.push({ id: r.id, main: true });
       }
@@ -141,7 +142,7 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
 
       const opts: uPlot.Options = {
         width: w0,
-        height: plotHeight(w0, baseHeight),
+        height: readyCore().plotHeight(w0, baseHeight),
         pxAlign: true,
         padding: [12, 14, 0, 0],
         scales: { x: { time: false }, y: { auto: true } },
@@ -198,7 +199,7 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
       resizeObserver = new ResizeObserver(() => {
         const w = el.clientWidth;
         if (w <= 0) return;
-        plotRef.current?.setSize({ width: w, height: plotHeight(w, baseHeight) });
+        plotRef.current?.setSize({ width: w, height: readyCore().plotHeight(w, baseHeight) });
         setWidth(w);
       });
       resizeObserver.observe(el);
@@ -267,16 +268,16 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
       meta={
         <span className="metric-chart-stats" ref={statsRef}>
           <span>
-            last <b>{formatMetricValue(metric, stats.last)}</b>
+            last <b>{readyCore().formatMetricValue(metric, stats.last)}</b>
           </span>
           {fit.stats >= 2 && (
             <span className="metric-chart-range">
-              min <b>{formatMetricValue(metric, stats.min)}</b>
+              min <b>{readyCore().formatMetricValue(metric, stats.min)}</b>
             </span>
           )}
           {fit.stats >= 3 && (
             <span className="metric-chart-range">
-              max <b>{formatMetricValue(metric, stats.max)}</b>
+              max <b>{readyCore().formatMetricValue(metric, stats.max)}</b>
             </span>
           )}
         </span>
@@ -307,7 +308,7 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
               <div key={row.label} className="metric-chart-tip-row">
                 <span className="metric-chart-swatch" style={{ background: row.color }} />
                 <span>{row.label}</span>
-                <b>{formatMetricValue(metric, row.value)}</b>
+                <b>{readyCore().formatMetricValue(metric, row.value)}</b>
               </div>
             ))}
           </div>

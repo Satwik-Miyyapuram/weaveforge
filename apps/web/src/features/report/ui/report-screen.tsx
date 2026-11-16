@@ -15,18 +15,18 @@ import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
-import { emptyArray, emptyMap } from "@/lib/empty";
+import { emptyArray, emptyMap } from "@/lib/parts";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
-import type { ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
+import type { ReportScreenData } from "@/features/report/application/parts";
 import { SectionNote } from "./section-note";
-import { rememberRecentTarget } from "@/lib/recent-targets";
+import { rememberRecentTarget } from "@/lib/parts-2";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { navTransition } from "@/lib/view-transition";
 import { SectionRow, SectionCard } from "./section-card";
 import { progressOf, collectSectionIds, patchSectionInTree, flattenParentOptions, sectionsEyebrow } from "./report-section-tree";
 import { Button } from "@/components/button";
-import { deferDelete, useHiddenKeys } from "@/lib/toast";
+import { deferDelete, useHiddenKeys } from "@/lib/toast/index";
 import { sectionKey } from "./remove-section";
 
 type ReportViewData = ReportScreenData & {

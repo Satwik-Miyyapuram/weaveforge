@@ -9,11 +9,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  clipSegmentToArea,
-  pointInArea,
-  type DrawArea,
-} from "../application/clip-to-area";
+import type { DrawArea } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
+
+const { clipSegmentToArea, pointInArea } = readyCore();
 
 /** A page: 100 wide, 200 tall, starting at (10, 20). */
 const AREA: DrawArea = { left: 10, top: 20, right: 110, bottom: 220 };

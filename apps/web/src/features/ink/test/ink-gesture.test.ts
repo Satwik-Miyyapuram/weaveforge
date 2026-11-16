@@ -2,10 +2,13 @@
  * The shared routing of a down and the shared cut at the paper's edge, which
  * Notes and the reader both run.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import { InkGesture, StrokeEdgeSplit, type InkDownContext } from "../application/ink-gesture";
+import { InkGesture, StrokeEdgeSplit, type InkDownContext } from "../application/parts-1";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 const target = () => ({ style: { cursor: "crosshair" } });
 const pen = (pointerId = 1, buttons = 1) => ({ pointerId, pointerType: "pen", button: 0, buttons, currentTarget: target() });

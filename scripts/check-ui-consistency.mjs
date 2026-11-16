@@ -108,7 +108,13 @@ const RULES = [
  * closed. A gate that cannot see the file the violation is in is not a gate.
  */
 const isSource = (name) => name.endsWith(".tsx") || name.endsWith(".ts");
-const files = UI_PATHS.flatMap((p) => walkFiles(path.join(root, p), isSource));
+// Overleaf's IDE files the app overrides, kept as upstream wrote them (AGPL-3.0), and
+// the shims that stand in for its packages inside it: its own Bootstrap controls, not
+// ours to restyle. The rest of the IDE is the third_party submodule.
+const VENDORED = ["ol-host/overrides", "ol-shims"].map((d) => path.join(root, "apps/web/src/features/report", d) + path.sep);
+const files = UI_PATHS.flatMap((p) => walkFiles(path.join(root, p), isSource)).filter(
+  (f) => !VENDORED.some((v) => f.startsWith(v)),
+);
 let failed = false;
 
 for (const rule of RULES) {

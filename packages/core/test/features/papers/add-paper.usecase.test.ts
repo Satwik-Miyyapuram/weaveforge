@@ -1,17 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
+import { InMemoryPaperRepository } from "../../support/in-memory.js";
 import {
   AddPaperUseCase,
+  type IMetadataSource,
   ImportPaperUseCase,
-} from "../../../src/features/papers/application/add-paper.use-case.js";
-import {
   MetadataResolutionError,
   MetadataResolver,
-  type IMetadataSource,
   type PaperRef,
-} from "../../../src/features/papers/application/metadata-source.js";
-import { fixedClock, seqIds } from "../../../src/testing/fakes.js";
+} from "../../../src/features/papers/application/parts-1.js";
+import { fixedClock, seqIds } from "../../support/clock.js";
 
 const clock = fixedClock("2026-06-24T12:00:00.000Z");
 

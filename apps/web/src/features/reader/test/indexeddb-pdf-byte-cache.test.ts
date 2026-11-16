@@ -9,7 +9,7 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { IndexedDbPdfByteCache } from "../infrastructure/indexeddb-pdf-byte-cache";
+import { IndexedDbPdfByteCache } from "../infrastructure/parts-1";
 
 interface Row {
   key: string;

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
+import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 
-import { removeProjectFolder } from "../application/remove-project-folder";
+import { removeProjectFolder } from "../application/parts";
 
 const project = { id: "ac0e9a12-0000-4000-8000-000000000000", name: "ZZ verify 082" };
 

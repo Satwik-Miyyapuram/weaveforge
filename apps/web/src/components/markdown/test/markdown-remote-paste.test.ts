@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { EditorSelection, EditorState, type TransactionSpec } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import { DEFAULT_PASTE_SETTINGS } from "@weaveforge/core";
 import { pendingInsertSupport } from "../markdown-pending-insert";
 import { afterUrlPaste, insertRemoteImage } from "../markdown-remote-paste";
+import { readyCore } from "@/lib/rust-core";
+
+const DEFAULT_PASTE_SETTINGS = readyCore().defaultPasteSettings();
 
 /** Just enough of an EditorView for the pending-insert helpers: state plus dispatch. */
 function fakeView(doc: string, caret = doc.length): { view: EditorView; doc: () => string } {

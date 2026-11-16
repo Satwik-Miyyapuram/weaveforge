@@ -1,60 +1,14 @@
-import type { Paper } from "@weaveforge/core";
+import type { BibliographyAnnotation, BibliographyAnnotationPull, Paper } from "@weaveforge/core";
+import type { ZoteroAnnotation } from "@weaveforge/wasm";
 
 /**
- * Zotero PDF annotation kinds from the Web API `annotationType` field.
- *
- * This is the complete set — verified against Zotero's own constants in
- * `chrome/content/zotero/xpcom/annotations.js` (ANNOTATION_TYPE_HIGHLIGHT 1,
- * NOTE 2, IMAGE 3, INK 4, UNDERLINE 5, TEXT 6) and the matching
- * `AnnotationType` union in `zotero/reader`.
- *
- * Note there is no `strikeout` — it looks like it belongs here but Zotero does
- * not have it, and inventing it would produce annotations that cannot be
- * written back.
+ * An annotation as cached on a paper (`metadata.annotations`). Older caches may
+ * lack `kind` and `tags`. The shape itself is Rust's `ZoteroAnnotation`.
  */
-export type ZoteroAnnotationType =
-  | "highlight"
-  | "underline"
-  | "note"
-  | "image"
-  | "ink"
-  | "text";
-
-/**
- * Parsed `annotationPosition` JSON from Zotero.
- * `pageIndex` is zero-based and must not be conflated with `page` (display label).
- *
- * Shape verified against `zotero/reader` `src/common/types.ts` (`PDFPosition`).
- * Rects are PDF user space with a bottom-left origin, never screen pixels.
- */
-export interface ZoteroAnnotationPosition {
-  pageIndex: number;
-  /** `[x1, y1, x2, y2]` per line box, on `pageIndex`. */
-  rects?: number[][];
-  /**
-   * Tail of a highlight that crosses a page break, living on `pageIndex + 1`.
-   * A renderer that reads only `rects` silently truncates such an annotation.
-   */
-  nextPageRects?: number[][];
-  /** Ink strokes. Distinct geometry from `rects` — needs a polyline, not a box. */
-  paths?: number[][];
-}
-
-export interface ZoteroAnnotation {
-  key?: string;
-  kind?: "annotation" | "note";
-  text?: string;
-  comment?: string;
-  color?: string;
-  page?: string;
-  tags: string[];
-  annotationType?: ZoteroAnnotationType;
-  annotationPosition?: ZoteroAnnotationPosition;
-  annotationSortIndex?: string;
-}
-
-/** An annotation as cached on a paper (`metadata.annotations`): older caches may lack `tags`. */
-export type StoredZoteroAnnotation = Omit<ZoteroAnnotation, "tags"> & { tags?: string[] };
+export type StoredZoteroAnnotation = Omit<ZoteroAnnotation, "kind" | "tags"> & {
+  kind?: ZoteroAnnotation["kind"];
+  tags?: string[];
+};
 
 export interface ZoteroSyncResult {
   pushed: number;
@@ -87,4 +41,27 @@ export interface ZoteroAnnotationPull {
 
 export interface IZoteroAnnotationPull {
   pull(): Promise<ZoteroAnnotationPull>;
+}
+
+/**
+ * Zotero's wasm annotation pull (nullable fields) to the core port shape
+ * (optional fields). `null` becomes `undefined`; nothing else changes.
+ */
+export function toBibliographyAnnotationPull(pull: ZoteroAnnotationPull): BibliographyAnnotationPull {
+  const byPaper = new Map<string, BibliographyAnnotation[]>();
+  for (const [paperKey, annotations] of pull.byPaper) {
+    byPaper.set(
+      paperKey,
+      annotations.map((a) => ({
+        key: a.key ?? undefined,
+        kind: a.kind,
+        text: a.text ?? undefined,
+        comment: a.comment ?? undefined,
+        color: a.color ?? undefined,
+        page: a.page ?? undefined,
+        tags: a.tags,
+      })),
+    );
+  }
+  return { byPaper, attachments: pull.attachments };
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Paper, ReportSection } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
+import { readyCore } from "@/lib/rust-core";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
@@ -90,7 +90,7 @@ export function SectionRelatedExcerpts({
                 </p>
                 <div className="section-excerpt-actions">
                   <Button variant="link"
-                    onClick={() => onInsert(formatQuoteCiteClipboard(quote, paper.title))}
+                    onClick={() => onInsert(readyCore().formatQuoteCiteClipboard(quote, paper.title))}
                   >
                     Insert
                   </Button>
@@ -99,7 +99,7 @@ export function SectionRelatedExcerpts({
                     variant="ghost" size="sm"
                     onClick={() => {
                       void navigator.clipboard
-                        .writeText(formatQuoteCiteClipboard(quote, paper.title))
+                        .writeText(readyCore().formatQuoteCiteClipboard(quote, paper.title))
                         .catch(() => setError("Clipboard unavailable"));
                     }}
                   >

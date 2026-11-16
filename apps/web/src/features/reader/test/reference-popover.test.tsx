@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create } from "react-test-renderer";
 import type { Paper } from "@weaveforge/core";
-import type { ResolvedReference } from "../application/reference-lookup";
+import type { ResolvedReference } from "../application/parts-2";
 import { ReferencePopover, type ReferencePopoverProps } from "../ui/reference-popover";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

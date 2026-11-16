@@ -1,17 +1,16 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { KIND_SUFFIX } from "@weaveforge/core";
 
 import {
-  FALLBACK_KIND,
-  KINDS,
   documentKind,
   documentSuffix,
   hasInkView,
   hasPdfView,
   isDocumentKind,
   kindIcon,
+  kindNames,
   kindOwner,
   kindSuffix,
   kindTintClass,
@@ -22,13 +21,16 @@ import {
   modesFor,
   openModeFor,
   openingTab,
-} from "../ui/kind";
+} from "@weaveforge/wasm";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { rendererFor } from "../ui/document-host";
 
 test("every kind the explorer can show has an icon and a suffix", () => {
-  for (const kind of KINDS) {
+  for (const kind of kindNames()) {
     if (kind === "folder") continue;
     assert.ok(kindIcon(kind), `${kind} has no icon`);
+    // The Overleaf row is a screen, not a file on disk.
+    if (kind === "overleaf") continue;
     assert.ok(kindSuffix(kind), `${kind} has no suffix`);
   }
 });
@@ -47,7 +49,7 @@ test("a folder is a grouping, not a file, so it carries no suffix", () => {
 test("a kind core has not taught the editor yet still renders as text", () => {
   // `packages/core` gaining an entity type must not break this screen: the
   // unknown kind reads as a plain text document with the fallback icon.
-  assert.equal(kindIcon("something_new"), kindIcon(FALLBACK_KIND));
+  assert.equal(kindIcon("something_new"), kindIcon("folder"));
   assert.equal(documentKind("something_new"), "text");
   assert.deepEqual(segmentsFor("something_new"), []);
 });
@@ -86,6 +88,13 @@ test("the PDF row is read and inked in one: the reader with the pen up, in every
   assert.equal(rendererFor("paper_pdf", "edit"), "pdf_ink");
   assert.equal(rendererFor("paper_pdf", "read"), "pdf_ink");
   assert.equal(rendererFor("paper_pdf", "ink"), "pdf_ink");
+});
+
+test("the Overleaf row mounts the Overleaf screen in every mode, with no Ink", () => {
+  assert.equal(rendererFor("overleaf", "edit"), "overleaf");
+  assert.equal(rendererFor("overleaf", "ink"), "overleaf");
+  assert.deepEqual(modesFor("overleaf"), ["edit"]);
+  assert.equal(kindIcon("overleaf"), "overleaf");
 });
 
 test("Ink on the PDF row is the PDF with the pen rail up; on a paper's notes an ink canvas", () => {

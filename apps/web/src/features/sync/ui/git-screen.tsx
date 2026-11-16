@@ -1,23 +1,23 @@
 "use client";
 
-import { formatRelative } from "@/lib/format-date";
-import { useCallback, useEffect, useState } from "react";
+import { formatError } from "@/lib/format-error";
+import { localOffset } from "@/lib/parts-1";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
-import type { Integration, SyncProvider } from "../domain/integration";
-import { gitConnection } from "../domain/integration-fields";
-import type { GitBranch, GitCommit } from "../infrastructure/git-client";
+import type { Integration, SyncProvider } from "../domain/parts";
+import { readyCore } from "@/lib/rust-core";
+import type { GitBranch, GitCommit } from "../infrastructure/parts";
 import { ScreenHead } from "@/components/screen-head";
 import { EmptyState } from "@/components/empty-state";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { NavIcon } from "@/app/nav-icon";
 import { ScreenLoader } from "@/components/weaveforge-loader";
-import { formatError } from "@/lib/format-error";
 import { Button } from "@/components/button";
 import { RowButton } from "@/components/controls";
 
 function repoWebUrl(i: Integration): string {
-  const { repo } = gitConnection(i);
+  const { repo } = readyCore().gitConnection(i);
   const host = i.provider === "github" ? "https://github.com" : "https://gitlab.com";
   return `${host}/${repo}`;
 }
@@ -34,6 +34,10 @@ export function GitScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tracking, setTracking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  // Drops a slower earlier load so it cannot overwrite a newer branch's commits.
+  const seq = useRef(0);
 
   const pickIntegration = useCallback(async (): Promise<Integration | null> => {
     if (!current) return null;
@@ -41,12 +45,13 @@ export function GitScreen() {
     const providers = getContainer().integrationConfig.gitRead as SyncProvider[];
     for (const p of providers) {
       const i = await store.get(current.id, p);
-      if (gitConnection(i).token && gitConnection(i).repo && i.enabled) return i;
+      if (readyCore().gitConnection(i).token && readyCore().gitConnection(i).repo && i.enabled) return i;
     }
     return null;
   }, [current]);
 
   const load = useCallback(async (br?: string) => {
+    const mine = ++seq.current;
     setLoading(true);
     setError(null);
     try {
@@ -60,26 +65,35 @@ export function GitScreen() {
         client.listBranches(i).catch(() => []),
         client.listCommits(i, useBranch),
       ]);
+      if (mine !== seq.current) return;
       setBranches(bs);
       setCommits(cs);
     } catch (err) {
+      if (mine !== seq.current) return;
       setError(formatError(err));
     } finally {
-      setLoading(false);
+      if (mine === seq.current) setLoading(false);
     }
   }, [pickIntegration]);
 
   useEffect(() => { void load(); }, [load]);
 
   async function track(c: GitCommit) {
-    if (!integration) return;
-    await getContainer().sync.manageExperiment.add({
-      name: c.message || c.shortSha,
-      branch,
-      commitSha: c.sha,
-      repoUrl: repoWebUrl(integration),
-    });
-    setError(`Tracked “${c.message}” as an experiment.`);
+    if (!integration || busy) return;
+    setBusy(true);
+    try {
+      await getContainer().sync.manageExperiment.add({
+        name: c.message || c.shortSha,
+        branch,
+        commitSha: c.sha,
+        repoUrl: repoWebUrl(integration),
+      });
+      setNotice(`Tracked “${c.message}” as an experiment.`);
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setBusy(false);
+    }
   }
 
   // An experiment often spans a whole branch, not one commit. Track the branch
@@ -101,7 +115,7 @@ export function GitScreen() {
     }
   }
 
-  const repo = integration ? gitConnection(integration).repo : "";
+  const repo = integration ? readyCore().gitConnection(integration).repo : "";
 
   return (
     <section className="screen git-screen">
@@ -135,6 +149,7 @@ export function GitScreen() {
         />
       )}
       {error && <p className="muted">{error}</p>}
+      {notice && <p className="muted" role="status">{notice}</p>}
 
       {integration && (
         <>
@@ -170,12 +185,12 @@ export function GitScreen() {
                     <div className="commit-main">
                       <span className="commit-msg">{c.message}</span>
                       <span className="commit-meta">
-                        <a className="commit-sha" href={c.url} target="_blank" rel="noreferrer">{c.shortSha}</a>
+                        <a className="commit-sha" href={c.url ?? undefined} target="_blank" rel="noreferrer">{c.shortSha}</a>
                         {c.author ? ` ${c.author}` : ""}
                         {c.date ? ` · ${shortDate(c.date)}` : ""}
                       </span>
                     </div>
-                    <Button size="sm" onClick={() => void track(c)}>
+                    <Button size="sm" onClick={() => void track(c)} disabled={busy}>
                       Track
                     </Button>
                   </li>
@@ -212,5 +227,5 @@ export function GitScreen() {
 
 /** A commit's time as the list shows it: "2h ago", or "20 Sep 2026" past a week. */
 function shortDate(iso: string): string {
-  return formatRelative(iso) || iso.slice(0, 10);
+  return readyCore().formatRelative(iso, new Date().toISOString(), localOffset(iso)) || iso.slice(0, 10);
 }

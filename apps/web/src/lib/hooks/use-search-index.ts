@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SearchHit, SearchQueryOptions } from "@weaveforge/core";
 import { getContainer, type AppContainer } from "@/bootstrap";
-import { SEMANTIC_CHANGED_EVENT } from "@/features/search/application/semantic-events";
+import { SEMANTIC_CHANGED_EVENT } from "@/features/search/application/parts";
 
 export type WorkspaceSearchFn = (query: string, options?: SearchQueryOptions) => readonly SearchHit[];
 
@@ -84,7 +84,7 @@ function useSearchIndexState(
           // the engine would otherwise ship on every page.
           if (container === getContainer) {
             void import("@/features/search/application/semantic-search").then((m) => m.restoreSemanticSearch());
-            void import("@/features/search/application/auto-index-library").then((m) => m.startAutoIndex());
+            void import("@/features/search/application/parts-1").then((m) => m.startAutoIndex());
           }
         })
         // Deliberately not `finally`, and deliberately not setting `ready` here.

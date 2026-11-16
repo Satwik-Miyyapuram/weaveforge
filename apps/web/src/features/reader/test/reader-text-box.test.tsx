@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
-import { grownTextRect, textBoxFromRect } from "../application/draft-local-annotation";
+import { grownTextRect, textBoxFromRect } from "@weaveforge/wasm";
 import { TextBoxEditor } from "../ui/annotation-overlay";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

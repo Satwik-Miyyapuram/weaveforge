@@ -2,15 +2,15 @@
 
 import { useEffect } from "react";
 import { getContainer } from "@/bootstrap";
-import { announceAiProposalsChanged } from "@/lib/ai-proposals-changed";
-import { showToast } from "@/lib/toast";
+import { announceAiProposalsChanged } from "@/lib/parts";
+import { showToast } from "@/lib/toast/index";
 import { useProject } from "@/features/projects";
 import {
   activeWorkspaceFs,
   onFolderConnected,
   onFolderDraftsChanged,
 } from "@/features/workspace/application/workspace-folder";
-import { importFolderDraftsOnce } from "../application/import-folder-drafts";
+import { importFolderDraftsOnce } from "../application/parts";
 
 /**
  * Pull the local MCP's suggestions into the review queue.

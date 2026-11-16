@@ -1,14 +1,12 @@
 import { zipSync, strToU8 } from "fflate";
 import {
-  serializeWorkspace,
-  vaultAssetPathsInBody,
-  workspaceSnapshotCounts,
   type WorkspaceProject,
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { activeProject } from "@/features/workspace/application/active-project";
-import { downloadBlob, zipToBlob } from "@/lib/blob-output";
+import { activeProject } from "@/features/workspace/application/parts";
+import { downloadBlob, zipToBlob } from "@/lib/parts";
+import { loadCore, readyCore } from "@/lib/rust-core";
 
 function jsonFile(value: unknown): Uint8Array {
   return strToU8(JSON.stringify(value, null, 2));
@@ -34,18 +32,15 @@ export async function buildExportFiles(
   snapshot: WorkspaceSnapshot,
   assets: ExportAssetReaders,
 ): Promise<Record<string, Uint8Array>> {
-  const counts = workspaceSnapshotCounts(snapshot);
+  const core = await loadCore();
+  const counts = core.workspaceSnapshotCounts(snapshot);
 
   const date = new Date().toISOString().slice(0, 10);
   const root = `weaveforge-export-${date}`;
   const files: Record<string, Uint8Array> = {};
 
-  const manifest = {
-    schemaVersion: 3,
-    exportedAt: snapshot.collectedAt,
-    app: "WeaveForge",
-    encryption: { exportedDecrypted: true, e2eeEnabled: false },
-    stats: {
+  files[`${root}/manifest.json`] = strToU8(
+    readyCore().exportManifestJson(snapshot.collectedAt, {
       notes: counts.notes,
       papers: counts.papers,
       readingLists: counts.readingLists,
@@ -55,27 +50,9 @@ export async function buildExportFiles(
       logEntries: counts.logEntries,
       relations: counts.relations,
       tags: counts.tags,
-    },
-  };
-
-  files[`${root}/manifest.json`] = jsonFile(manifest);
-  files[`${root}/README.txt`] = strToU8(
-    [
-      "WeaveForge data export",
-      `Exported at: ${manifest.exportedAt}`,
-      "",
-      "Layout:",
-      "  manifest.json     — schema + counts",
-      "  notes/pages.json  — vault notes",
-      "  notes/assets/     — embedded note images",
-      "  papers/index.json — papers",
-      "  papers/images/    — paper image attachments",
-      "  reading-lists/, report/, experiments/, plan/, logbook/",
-      "  relations.json, tags.json",
-      "",
-      "Content is plaintext JSON + binary assets.",
-    ].join("\n"),
+    }),
   );
+  files[`${root}/README.txt`] = strToU8(readyCore().exportReadme(snapshot.collectedAt));
 
   files[`${root}/notes/pages.json`] = jsonFile(snapshot.vaultPages);
   files[`${root}/papers/index.json`] = jsonFile(snapshot.papers);
@@ -91,16 +68,14 @@ export async function buildExportFiles(
   // Vault assets referenced in note bodies.
   const vaultPaths = new Set<string>();
   for (const page of snapshot.vaultPages) {
-    for (const path of vaultAssetPathsInBody(page.body)) vaultPaths.add(path);
+    for (const path of readyCore().vaultAssetPathsInBody(page.body)) vaultPaths.add(path);
   }
   if (vaultPaths.size > 0) {
     const blobs = await assets.fetchVaultAssets([...vaultPaths]);
     for (const [path, blob] of blobs) {
       if (!blob) continue;
-      const name = path.split("/").pop() ?? path;
-      const pageId = path.split("/")[1] ?? "unknown";
       const bytes = new Uint8Array(await blob.arrayBuffer());
-      files[`${root}/notes/assets/${pageId}/${name}`] = bytes;
+      files[readyCore().exportAssetPath(root, "notes/assets", path)] = bytes;
     }
   }
 
@@ -116,10 +91,8 @@ export async function buildExportFiles(
     const blobs = await assets.fetchPaperImages(paperImagePaths);
     for (const [path, blob] of blobs) {
       if (!blob) continue;
-      const name = path.split("/").pop() ?? path;
-      const paperId = path.split("/")[1] ?? "unknown";
       const bytes = new Uint8Array(await blob.arrayBuffer());
-      files[`${root}/papers/images/${paperId}/${name}`] = bytes;
+      files[readyCore().exportAssetPath(root, "papers/images", path)] = bytes;
     }
   }
 
@@ -139,7 +112,8 @@ export async function buildWorkspaceFolderFiles(
   // Inside the project's folder, exactly as the folder mirror writes it: an
   // export and a mirrored folder have to be the same tree, or re-importing one
   // of them finds none of its files where it left them.
-  const { files, assets: refs } = serializeWorkspace(snapshot, project);
+  const core = await loadCore();
+  const { files, assets: refs } = core.serializeWorkspace(snapshot, project);
   const out: Record<string, Uint8Array> = {};
   for (const [path, content] of Object.entries(files)) out[path] = strToU8(content);
 

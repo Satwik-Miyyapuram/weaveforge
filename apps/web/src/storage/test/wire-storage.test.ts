@@ -9,10 +9,10 @@ import path from "node:path";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { blobProviderForRuntime, wireStorage } from "../wire-storage";
+import { readyCore } from "@/lib/rust-core";
+import { SupabaseBlobStore, wireStorage } from "../wire-storage";
 import { HttpBlobStore } from "../providers/http/http-blob-store";
-import { SupabaseBlobStore } from "../providers/supabase/blob-store";
-import type { StorageConfig } from "../config";
+import type { BlobProviderId, StorageConfig } from "../config";
 
 const SRC = path.resolve(__dirname, "../..");
 
@@ -59,7 +59,7 @@ test("the browser storage wiring loads no AWS SDK (10-03)", () => {
 });
 
 test("the scan does see the SDK where it is imported, so the check above means something", () => {
-  const packages = runtimePackages(path.join(SRC, "storage/build-tiered-blob-store.ts"));
+  const packages = runtimePackages(path.join(SRC, "backend/account/purge-user-blobs.ts"));
   assert.ok([...packages.keys()].some((name) => name.startsWith("@aws-sdk/")));
 });
 
@@ -95,10 +95,10 @@ test("tiered storage off the browser points at the server builder rather than lo
 
 test("which blob provider the runtime uses (10-17)", () => {
   // The browser follows the inlined public setting, whatever config it was handed.
-  assert.equal(blobProviderForRuntime("supabase", { inBrowser: true, publicProvider: "tiered" }), "tiered");
-  assert.equal(blobProviderForRuntime("tiered", { inBrowser: true, publicProvider: undefined }), "tiered");
-  assert.equal(blobProviderForRuntime("supabase", { inBrowser: true, publicProvider: "" }), "supabase");
+  assert.equal(readyCore().blobProviderForRuntime("supabase", { inBrowser: true, publicProvider: "tiered" }) as BlobProviderId, "tiered");
+  assert.equal(readyCore().blobProviderForRuntime("tiered", { inBrowser: true, publicProvider: undefined }) as BlobProviderId, "tiered");
+  assert.equal(readyCore().blobProviderForRuntime("supabase", { inBrowser: true, publicProvider: "" }) as BlobProviderId, "supabase");
   // The server follows its config.
-  assert.equal(blobProviderForRuntime("supabase", { inBrowser: false, publicProvider: "tiered" }), "supabase");
-  assert.equal(blobProviderForRuntime("tiered", { inBrowser: false, publicProvider: undefined }), "tiered");
+  assert.equal(readyCore().blobProviderForRuntime("supabase", { inBrowser: false, publicProvider: "tiered" }) as BlobProviderId, "supabase");
+  assert.equal(readyCore().blobProviderForRuntime("tiered", { inBrowser: false, publicProvider: undefined }) as BlobProviderId, "tiered");
 });

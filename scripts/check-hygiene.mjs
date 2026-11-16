@@ -109,6 +109,10 @@ const OVERSIZED_ALLOWED = new Map([
   ],
 ]);
 
+/** Upstream files the app overrides, kept as upstream wrote them so they still diff cleanly. */
+const VENDORED = ["apps/web/src/features/report/ol-host/overrides/"];
+const vendored = (f) => VENDORED.some((p) => f.startsWith(p));
+
 {
   const over = [];
   const stale = [];
@@ -117,7 +121,7 @@ const OVERSIZED_ALLOWED = new Map([
   );
   for (const f of sources) {
     const lines = read(f).split("\n").length;
-    if (lines > MAX_FILE_LINES && !OVERSIZED_ALLOWED.has(f)) over.push(`${f} (${lines} lines)`);
+    if (lines > MAX_FILE_LINES && !OVERSIZED_ALLOWED.has(f) && !vendored(f)) over.push(`${f} (${lines} lines)`);
   }
   for (const f of OVERSIZED_ALLOWED.keys()) {
     if (!fs.existsSync(path.join(root, f)) || read(f).split("\n").length <= MAX_FILE_LINES) {
@@ -256,8 +260,13 @@ const OVERSIZED_ALLOWED = new Map([
   }
   // A path git is told to ignore is one the reader is meant to create — a doc
   // naming `.env.local` is right, and the file is absent on a clean checkout by
-  // design. Asked once for the whole set rather than once per path.
-  const ignored = new Set(checkIgnore(missing.map((line) => line.split(" ")[1])));
+  // design. Asked once for the whole set rather than once per path. Each path is
+  // also asked as a directory (`dir/`), since a `dir/` pattern does not match an
+  // absent path without the slash: an unbuilt output folder is still ignored.
+  const missingPaths = missing.map((line) => line.split(" ")[1]);
+  const ignored = new Set(
+    checkIgnore(missingPaths.flatMap((p) => [p, `${p}/`])).map((p) => p.replace(/\/$/, "")),
+  );
   const unexplained = missing.filter((line) => !ignored.has(line.split(" ")[1]));
   if (unexplained.length) {
     fail(

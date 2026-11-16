@@ -1,0 +1,13 @@
+# Build context for apps/relay/Dockerfile is the repo root, so Docker reads this
+# file (named after the Dockerfile) instead of a root .dockerignore. Send only
+# what the build copies; everything else (node_modules, apps/web, ...) stays out.
+*
+!Cargo.toml
+!Cargo.lock
+!crates
+!apps/shell
+!apps/relay
+**/target
+**/node_modules
+**/.env
+**/.env.*

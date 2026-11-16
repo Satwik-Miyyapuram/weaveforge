@@ -22,7 +22,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { EditorView } from "@codemirror/view";
-import { isInkNoteBody, vaultImageMarkdown } from "@weaveforge/core";
 
 import { getContainer } from "@/bootstrap";
 import type { EditorHandleRef } from "@/components/editor-handle";
@@ -35,14 +34,19 @@ import { CollabBodyHost } from "@/features/collab";
 import { InkHost } from "@/features/ink";
 import { PaperMarkdown, paperImageMarkdown } from "@/features/papers";
 import { PaperPdfPane } from "@/features/reader";
-import { ReportSectionMarkdown, reportImageMarkdown } from "@/features/report";
+import {
+  OVERLEAF_SIGN_IN_ROW,
+  OverleafProjectTab,
+  ReportOverleafScreen,
+  ReportSectionMarkdown,
+} from "@/features/report";
 import { NoteReadView, VaultMarkdown, type WikilinkEntry } from "@/features/vault";
 import { editorImageUpload } from "@/lib/editor-image-upload";
+import { readyCore } from "@/lib/rust-core";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
-import type { EditorCitationFormat } from "@/lib/citation-format-preference";
-import type { DocumentMode, TabRef } from "../application/pane-tree";
+import type { EditorCitationFormat } from "@/lib/parts";
+import type { DocumentMode, TabRef } from "@weaveforge/wasm";
 import { ImageSizeControl } from "@/components/image-size-control";
-import { documentKind, hasInkView, hasPdfView } from "./kind";
 import { useMdPreviewMode } from "@/lib/hooks/use-md-preview-mode";
 import { LivePreview } from "./md-live-preview";
 
@@ -132,7 +136,7 @@ export function cursorAt(view: EditorView): { line: number; col: number } {
 }
 
 /** Which of the renderers a (kind, mode) pair means. */
-export type RendererName = "editor" | "markdown" | "ink" | "pdf_ink" | "ink_reader";
+export type RendererName = "editor" | "markdown" | "ink" | "pdf_ink" | "ink_reader" | "overleaf";
 
 /**
  * The whole decision, as data.
@@ -149,14 +153,16 @@ export type RendererName = "editor" | "markdown" | "ink" | "pdf_ink" | "ink_read
  * different document from the one Ink was drawing on.
  */
 export function rendererFor(kind: string, mode: DocumentMode, body = ""): RendererName {
+  // The Overleaf row is a screen, the same in every mode.
+  if (readyCore().documentKind(kind) === "overleaf") return "overleaf";
   // A PDF row is read and inked in one: the reader with the pen rail up, in
   // every mode — same annotations, not a separate canvas.
-  if (documentKind(kind) === "pdf") return hasPdfView(kind) ? "pdf_ink" : "editor";
-  if (mode === "ink") return hasInkView(kind) ? "ink" : "editor";
+  if (readyCore().documentKind(kind) === "pdf") return readyCore().hasPdfView(kind) ? "pdf_ink" : "editor";
+  if (mode === "ink") return readyCore().hasInkView(kind) ? "ink" : "editor";
   if (mode === "read") {
     // A note written in ink is read as the sheet it was written on. A note
     // with no ink in it stays prose, which is what it is.
-    return documentKind(kind) === "ink" || (hasInkView(kind) && isInkNoteBody(body))
+    return readyCore().documentKind(kind) === "ink" || (readyCore().hasInkView(kind) && readyCore().isInkNoteBody(body))
       ? "ink_reader"
       : "markdown";
   }
@@ -178,7 +184,7 @@ function imageStore(kind: string, id: string): ImageStore | null {
     case "ink_page":
       return {
         store: (blob, ext) => getContainer().vault.uploadAsset(id, blob, ext),
-        toMarkdown: vaultImageMarkdown,
+        toMarkdown: readyCore().vaultImageMarkdown,
       };
     case "paper":
       return {
@@ -188,7 +194,7 @@ function imageStore(kind: string, id: string): ImageStore | null {
     case "report_section":
       return {
         store: (blob, ext) => getContainer().report.uploadImage(id, blob, ext),
-        toMarkdown: reportImageMarkdown,
+        toMarkdown: (path: string, alt = "image") => readyCore().markdownImage(`reportimg:${path}`, alt),
       };
     default:
       return null;
@@ -415,6 +421,15 @@ export function DocumentHost({
     return <NoteReadView ink noteId={tab.id} body={surfaceBody(body, liveBody)} paperId={sheetPaperId} />;
   }
 
+  if (renderer === "overleaf") {
+    // A project row opens its editor; the sign-in row opens the Overleaf screen.
+    return (
+      <div className="overleaf-tab">
+        {tab.id === OVERLEAF_SIGN_IN_ROW.id ? <ReportOverleafScreen /> : <OverleafProjectTab overleafId={tab.id} />}
+      </div>
+    );
+  }
+
   if (renderer === "pdf_ink") {
     // The reader's paper half, in the tab. The route is the same component
     // with a header around it; the PDF is not loaded twice.
@@ -473,6 +488,7 @@ export function DocumentHost({
         onViewCreated={liveWatch}
         onDocChange={onDocChange}
         handleRef={handleRef}
+        inlinePresence={false}
       />
     </LivePreview>
   );

@@ -2,12 +2,15 @@
  * The Windows Ink adapter: the helper's per-word evidence becomes a scored
  * line, and no engine line ever comes back as `1`, the mark of a correction.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import type { DesktopBridge, DesktopInkResult } from "@/lib/desktop/desktop-bridge";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
-import { createDesktopInkRecogniser } from "../application/recognisers";
+import { createDesktopInkRecogniser, INK_REPROBE_MS } from "../application/recognisers";
+
+before(loadTestCore);
 
 const bridge = (result: DesktopInkResult) =>
   ({ inkRecognise: async () => result }) as unknown as DesktopBridge;
@@ -67,4 +70,26 @@ test("a bridge throw is not cached; a resolved answer is (18-07)", async () => {
 
 test("no bridge is unavailable and asks nothing", async () => {
   assert.equal(await createDesktopInkRecogniser(() => null).available(), false);
+});
+
+test("a no is kept for a while, then asked again so turning Ink on needs no restart", async () => {
+  let clock = 0;
+  let calls = 0;
+  let on = false;
+  const bridge = {
+    inkAvailable: async () => {
+      calls += 1;
+      return on;
+    },
+  } as unknown as DesktopBridge;
+  const recogniser = createDesktopInkRecogniser(() => bridge, () => clock);
+  assert.equal(await recogniser.available(), false);
+  assert.equal(await recogniser.available(), false);
+  assert.equal(calls, 1, "the no stands inside the window");
+  on = true;
+  clock = INK_REPROBE_MS;
+  assert.equal(await recogniser.available(), true, "asked again after the window");
+  clock += 10 * INK_REPROBE_MS;
+  assert.equal(await recogniser.available(), true);
+  assert.equal(calls, 2, "a yes is kept");
 });

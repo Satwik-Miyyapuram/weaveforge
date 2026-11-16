@@ -5,7 +5,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { addDays, localIsoDate } from "../../src/shared/dates.js";
+import { localIsoDate } from "../../src/shared/parts.js";
+import { rust } from "../../src/shared/rust.js";
+
+const addDays = (iso: string, days: number): string => rust().addDays(iso, days);
 
 /** Run `body` with the process in another time zone, then put it back. */
 function inZone(zone: string, body: () => void): void {

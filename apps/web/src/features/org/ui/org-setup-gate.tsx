@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { ROLE_LABELS, type OrgInviteCodePlaintext } from "@weaveforge/core";
 import { useProfile } from "./profile-provider";
-import { needsOrgSetup } from "../application/org-profile-state";
-import { createOrg, joinOrg, previewOrgCode, regenerateOrgCode, continueStandalone } from "../infrastructure/org-api";
+import { readyCore } from "@/lib/rust-core";
+import { createOrg, joinOrg, previewOrgCode, regenerateOrgCode, continueStandalone } from "../infrastructure/parts";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 import { Select } from "@/components/select";
@@ -24,7 +24,7 @@ export function OrgSetupGate({ children }: { children: React.ReactNode }) {
   // answer `continueStandalone`, whose only implementation is an RPC. The
   // gate was unanswerable, so it is not asked.
   const hasOrgs = useCapability("org");
-  const needsSetup = needsOrgSetup({ hasOrgs, loading, profile, error });
+  const needsSetup = readyCore().needsOrgSetup({ hasOrgs, loading, profile, error });
 
   if (!needsSetup) return <>{children}</>;
 
@@ -285,6 +285,7 @@ function JoinLabForm({
           type="submit"
           variant="primary"
           disabled={busy || !code.trim() || missingSupervisor}
+          title={missingSupervisor ? "Choose a supervisor to continue" : !code.trim() ? "Enter the lab's join code" : undefined}
         >
           {busy ? "Joining…" : "Join lab"}
         </Button>
@@ -320,7 +321,10 @@ export function OrgCodesPanel({ orgId, orgName }: { orgId: string; orgName: stri
   return (
     <div className="org-codes-panel">
       <h4 className="settings-group">{orgName} — invite codes</h4>
-      <p className="muted">Codes are shown only when created or regenerated. Store them securely.</p>
+      <p className="muted">
+        Codes are shown only when created or regenerated. Store them securely. A new code replaces the
+        old one, which stops working.
+      </p>
       <ul className="org-code-list">
         {roles.map((r) => (
           <li key={r.id} className="org-code-row">
@@ -332,7 +336,7 @@ export function OrgCodesPanel({ orgId, orgName }: { orgId: string; orgName: stri
                 disabled={busy === r.id}
                 onClick={() => void regen(r.id)}
               >
-                {busy === r.id ? "…" : revealed[r.id] ? "Regenerate" : "Reveal"}
+                {busy === r.id ? "…" : revealed[r.id] ? "Regenerate" : "New code"}
               </Button>
               {revealed[r.id] && (
                 <Button

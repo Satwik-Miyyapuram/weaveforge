@@ -11,13 +11,13 @@ import { PinnedPaperBadge } from "@/features/sharing";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
-import { editedLabel } from "../lib/edited-label";
-import { countSectionSources } from "../lib/section-sources";
-import { sectionProgress, type SectionProgress } from "../lib/section-progress";
+import { editedLabel } from "../lib/parts";
+import type { SectionProgress } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 import { Markdown } from "@/components/markdown/markdown";
 import { StatusSelect } from "@/components/status-select";
-import { runReported } from "@/lib/run-reported";
-import { useHiddenKeys } from "@/lib/toast";
+import { runReported } from "@/lib/parts";
+import { useHiddenKeys } from "@/lib/toast/index";
 import { removeSectionLater, sectionKey } from "./remove-section";
 import { useRef, useState } from "react";
 import { IconButton } from "@/components/button";
@@ -73,7 +73,7 @@ export function SectionRow({
     <li id={`section-${s.id}`} className="section-node">
       <SectionCard
         section={s}
-        progress={sectionProgress(node)}
+        progress={readyCore().sectionProgress(node)}
         readOnly={readOnly}
         sharedByName={sharedByName}
         collapse={collapse}
@@ -145,8 +145,8 @@ export function SectionCard({
   onOpen?: (id: string) => void;
 }) {
   const hasNotes = Boolean(s.notes?.trim());
-  const sources = countSectionSources(s.notes);
-  const { words, target, pct: progress } = rolled ?? sectionProgress({ section: s, children: [] });
+  const sources = readyCore().countSectionSources(s.notes);
+  const { words, target, pct: progress } = rolled ?? readyCore().sectionProgress({ section: s, children: [] });
   const meta = [
     target ? `${words.toLocaleString()} / ${target.toLocaleString()} words` : `${words.toLocaleString()} words`,
     s.deadline ? `due ${s.deadline}` : null,
@@ -209,7 +209,11 @@ export function SectionCard({
               onKeyDown={(e) => {
                 e.stopPropagation();
                 if (e.key === "Enter") e.currentTarget.blur();
-                if (e.key === "Escape") setRenaming(false);
+                // Set before closing so the blur from unmounting the input does not commit the typed title.
+                if (e.key === "Escape") {
+                  cancelled.current = true;
+                  setRenaming(false);
+                }
               }}
               onKeyUp={(e) => e.stopPropagation()}
               onBlur={(e) => finishRename(e.currentTarget.value)}

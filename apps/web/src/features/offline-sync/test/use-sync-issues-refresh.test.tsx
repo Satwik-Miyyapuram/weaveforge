@@ -4,13 +4,16 @@
  * reload, because it re-read on conflict count alone. It now re-reads when a
  * cycle ends.
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create } from "react-test-renderer";
 
 import { useSyncIssues, type SyncIssues } from "../ui/use-sync-issues";
-import { setLiveSyncState } from "../domain/live-sync";
+import { setLiveSyncState } from "../domain/parts-1";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

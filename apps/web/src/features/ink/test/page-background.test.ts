@@ -3,15 +3,21 @@
  * sits inside it rather than being stretched to it.
  */
 
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
   A4_RASTER_HEIGHT,
   A4_RASTER_WIDTH,
   isPageSource,
-  placeOnSheet,
-} from "../application/page-background";
+} from "../application/parts-2";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
+
+const placeOnSheet = (sourceWidth: number, sourceHeight: number) =>
+  readyCore().placeOnSheet(sourceWidth, sourceHeight, A4_RASTER_WIDTH, A4_RASTER_HEIGHT);
 
 test("the sheet is A4 at 200 dpi", () => {
   assert.equal(A4_RASTER_WIDTH, 1654);
@@ -57,7 +63,7 @@ test("PDFs and images are page sources; anything else is not", () => {
 });
 
 test("a multi-page import opens the PDF once and closes it (18-04)", async () => {
-  const { pdfPageBackgrounds } = await import("../application/page-background");
+  const { pdfPageBackgrounds } = await import("../application/parts-2");
   const context = { fillStyle: "", fillRect() {}, drawImage() {} };
   class FakeCanvas {
     constructor(public width: number, public height: number) {}

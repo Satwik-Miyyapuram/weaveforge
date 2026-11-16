@@ -5,7 +5,8 @@
  * log line to explain it.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import type { AppContainer } from "@/bootstrap";
 
 import { loadOrgBatch } from "../startup-provider";
@@ -13,6 +14,8 @@ import { loadOrgBatch } from "../startup-provider";
 type Log = { level: string; source: string; message: string; detail?: string };
 
 const fail = (what: string) => () => Promise.reject(new Error(`${what} timed out`));
+
+before(async () => { await loadTestCore(); });
 
 test("every failed org read is logged and still falls back", async () => {
   const c = {

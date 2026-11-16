@@ -20,10 +20,10 @@
  */
 :root {
   /* What the floating phone bar takes from the bottom of a screen: its 10px
-     lift, the bar (icon, label, padding: about 74px) and 16px of air, plus
+     lift, the bar (icon, label, padding: about 56px) and 16px of air, plus
      the safe area. Screens pad by this so their last card scrolls clear of
      the bar (DA-95). The desktop sidebar does not float, so it is unused there. */
-  --nav-clear: calc(100px + env(safe-area-inset-bottom));
+  --nav-clear: calc(82px + env(safe-area-inset-bottom));
 }
 .nav {
   position: fixed;
@@ -38,7 +38,7 @@
   display: flex;
   flex-direction: row;
   gap: 2px;
-  padding: 8px 8px;
+  padding: 4px;
   border-radius: var(--r-pill);
   background: var(--glass-fill);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
@@ -64,9 +64,9 @@
    sides so "Search" and "Library" fit a fifth of a phone's width. */
 :root:root .nav .wf-nav {
   flex: 1; min-width: 0;
-  flex-direction: column; justify-content: center; gap: 4px;
+  flex-direction: column; justify-content: center; gap: 2px;
   font-size: var(--fs-micro); letter-spacing: -0.01em;
-  padding: 12px 2px; min-height: var(--touch-min);
+  padding: 4px 2px; min-height: var(--touch-min);
 }
 .nav .wf-nav .nav-icon {
   width: var(--nav-icon-size);
@@ -283,7 +283,7 @@
 
 }
 
-/* Workspace focus (`⌘⇧F`, editor-workspace.css): the rail goes with the rest
+/* Workspace focus (`F11`, editor-workspace.css): the rail goes with the rest
    of the chrome. The flag sits on `<html>` because the workspace screen is a
    child of the layout and cannot class its parent. Unsuffixed, like the
    zeroing in shell.css, so it holds at every width. */

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mergeRows } from "../../src/shared/three-way-merge.js";
+import * as wasm from "../../../wf-wasm/src/index.ts";
+
+// Their TypeScript was removed; the Rust core is the implementation.
+const { mergeRows } = wasm;
 
 const base = { id: "p1", title: "Draft", read: false, tags: ["a"], row_version: 3 };
 

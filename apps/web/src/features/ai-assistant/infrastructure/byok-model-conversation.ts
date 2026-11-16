@@ -3,6 +3,7 @@ import type {
   AiModelRequest,
   AiModelResponse,
 } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Bring-your-own-key model access, called straight from the browser.
@@ -16,6 +17,9 @@ import type {
  * calls, and Anthropic allows them behind an explicit opt-in header. Any
  * endpoint that refuses is simply not usable this way, which is a clearer
  * outcome than silently routing it through a server.
+ *
+ * The request shape and the reply parsing live in Rust (`ai::byok_wire`); this
+ * file keeps only the fetch, the timeout and the key in memory.
  */
 
 export type ProviderApi = "openai-chat" | "anthropic-messages" | "ollama";
@@ -45,12 +49,6 @@ interface ChatMessage {
   content: string;
 }
 
-function splitSystem(messages: readonly ChatMessage[]) {
-  const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
-  const rest = messages.filter((m) => m.role !== "system");
-  return { system, rest };
-}
-
 /**
  * One adapter over three wire formats. They differ only in where the system
  * prompt goes, how auth is presented, and where the text lands in the response.
@@ -70,7 +68,7 @@ export class ByokModelConversation implements AiModelAdapter {
 
   /** Local providers need no key; hosted ones are unusable without one. */
   get available(): boolean {
-    return this.descriptor.api === "ollama" || this.apiKey.trim().length > 0;
+    return readyCore().byokAvailable(this.descriptor, this.apiKey);
   }
 
   async complete(request: AiModelRequest): Promise<AiModelResponse> {
@@ -87,7 +85,7 @@ export class ByokModelConversation implements AiModelAdapter {
 
   private async send(request: AiModelRequest, signal: AbortSignal): Promise<AiModelResponse> {
     const messages = request.messages as readonly ChatMessage[];
-    const { url, headers, body } = this.buildRequest(messages);
+    const { url, headers, body } = readyCore().buildByokRequest(this.descriptor, this.apiKey, messages);
 
     const response = await this.fetchFn(url, {
       method: "POST",
@@ -100,82 +98,16 @@ export class ByokModelConversation implements AiModelAdapter {
       // Surface the provider's own message: "insufficient quota" or "model not
       // found" is far more use than a generic failure.
       const detail = await response.text().catch(() => "");
-      throw new Error(
-        `${this.descriptor.label} returned ${response.status}${detail ? `: ${detail.slice(0, 300)}` : ""}`,
-      );
+      throw new Error(readyCore().byokHttpError(this.descriptor.label, response.status, detail));
     }
 
-    const text = this.extractText(await response.json());
-    if (!text.trim()) throw new Error(`${this.descriptor.label} returned an empty response.`);
+    const text = readyCore().parseByokReply(this.descriptor.api, await response.json());
+    if (text === null) throw new Error(`${this.descriptor.label} returned an empty response.`);
     return {
       text,
       model: this.descriptor.model,
       provider: this.provider,
       sourceLinks: [],
     };
-  }
-
-  private buildRequest(messages: readonly ChatMessage[]): {
-    url: string;
-    headers: Record<string, string>;
-    body: Record<string, unknown>;
-  } {
-    const base = this.descriptor.baseUrl.replace(/\/+$/, "");
-    const { system, rest } = splitSystem(messages);
-
-    if (this.descriptor.api === "anthropic-messages") {
-      return {
-        url: `${base}/v1/messages`,
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": this.apiKey,
-          "anthropic-version": "2023-06-01",
-          // Anthropic blocks browser calls unless this opt-in is present.
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: {
-          model: this.descriptor.model,
-          max_tokens: 4096,
-          ...(system ? { system } : {}),
-          messages: rest,
-        },
-      };
-    }
-
-    if (this.descriptor.api === "ollama") {
-      return {
-        url: `${base}/api/chat`,
-        headers: { "content-type": "application/json" },
-        body: { model: this.descriptor.model, messages, stream: false },
-      };
-    }
-
-    return {
-      url: `${base}/v1/chat/completions`,
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${this.apiKey}`,
-      },
-      body: { model: this.descriptor.model, messages },
-    };
-  }
-
-  private extractText(payload: unknown): string {
-    const data = payload as Record<string, unknown>;
-
-    if (this.descriptor.api === "anthropic-messages") {
-      const content = data.content as { type?: string; text?: string }[] | undefined;
-      return (content ?? [])
-        .filter((block) => block.type === "text")
-        .map((block) => block.text ?? "")
-        .join("");
-    }
-
-    if (this.descriptor.api === "ollama") {
-      return ((data.message as { content?: string } | undefined)?.content ?? "").trim();
-    }
-
-    const choices = data.choices as { message?: { content?: string } }[] | undefined;
-    return (choices?.[0]?.message?.content ?? "").trim();
   }
 }

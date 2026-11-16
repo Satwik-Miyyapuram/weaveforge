@@ -5,11 +5,16 @@
  * link artifacts all reading "artifact", no copy on the run command, and an
  * activity row called "Logged" (design D22, DA-141).
  */
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { formatTicks } from "../ui/metric-chart-data";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(`../ui/${rel}`, import.meta.url)), "utf8");
 const detail = read("experiment-detail-screen.tsx");

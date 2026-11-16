@@ -1,17 +1,13 @@
+import { formatError } from "@/lib/format-error";
+import { typedCore } from "@/lib/rust-core";
+import { readCapped as readBody } from "@/lib/read-capped";
+import type { OutboundFetchLimits } from "@weaveforge/core";
 import { lookup } from "node:dns/promises";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { Readable } from "node:stream";
-import {
-  checkUrlShape,
-  isPublicAddress,
-  DEFAULT_FETCH_LIMITS,
-  type OutboundFetchLimits,
-} from "@weaveforge/core";
-import { describeRejection } from "./rejection-copy";
-import { formatError } from "@/lib/format-error";
-import { readCapped as readBody } from "@/lib/read-capped";
 
+// --- safe-fetch ---
 /**
  * Fetching a URL a visitor chose, from the server, without becoming a way into
  * the network.
@@ -101,6 +97,18 @@ async function resolveHost(hostname: string): Promise<string[]> {
   return results.map((entry) => entry.address);
 }
 
+/**
+ * A redirect's `location` as the WHATWG URL it names, relative to the response's own URL.
+ * `undefined` when the runtime's parser would refuse it.
+ */
+function resolveLocation(location: string, base: URL): string | undefined {
+  try {
+    return new URL(location, base).href;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Whether an address is v4, for the socket's `family`. */
 function familyOf(address: string): 4 | 6 {
   return address.includes(":") ? 6 : 4;
@@ -183,7 +191,8 @@ export async function pinnedRequest(input: PinnedRequestInput): Promise<Response
       },
       (res) => {
         const responseHeaders = new Headers();
-        for (const [key, value] of Object.entries(res.headers)) {
+        for (const key of Object.keys(res.headers)) {
+          const value = res.headers[key];
           if (Array.isArray(value)) for (const one of value) responseHeaders.append(key, one);
           else if (value !== undefined) responseHeaders.set(key, value);
         }
@@ -219,9 +228,9 @@ export async function checkUrlReachable(
   url: URL,
   resolve: (hostname: string) => Promise<string[]> = resolveHost,
 ): Promise<{ ok: true; address: string; family: 4 | 6 } | SafeFetchFailure> {
-  const shape = checkUrlShape(url);
+  const shape = typedCore().checkUrlShape(url);
   if (!shape.ok) {
-    return { ok: false, kind: "refused", status: 400, message: describeRejection(shape.reason!) };
+    return { ok: false, kind: "refused", status: 400, message: typedCore().describeUrlRejection(shape.reason!) };
   }
 
   let addresses: string[];
@@ -239,12 +248,12 @@ export async function checkUrlReachable(
   if (addresses.length === 0) {
     return { ok: false, kind: "unreachable", status: 502, message: "That host could not be resolved." };
   }
-  if (!addresses.every(isPublicAddress)) {
+  if (!addresses.every(typedCore().isPublicAddress)) {
     return {
       ok: false,
       kind: "refused",
       status: 400,
-      message: describeRejection("private-address"),
+      message: typedCore().describeUrlRejection("private-address"),
     };
   }
   const address = addresses[0]!;
@@ -265,7 +274,7 @@ export async function checkUrlReachable(
  */
 async function readCapped(response: Response, maxBytes: number): Promise<Uint8Array | null> {
   const declared = Number(response.headers.get("content-length") ?? "");
-  if (Number.isFinite(declared) && declared > maxBytes) return null;
+  if (typedCore().declaredLengthOverCap(declared, maxBytes)) return null;
 
   return readBody(response.body, maxBytes);
 }
@@ -279,7 +288,7 @@ async function readCapped(response: Response, maxBytes: number): Promise<Uint8Ar
  * the guard on the first URL then guards nothing.
  */
 export async function safeFetch(input: string, options: SafeFetchOptions = {}): Promise<SafeFetchResult> {
-  const limits = { ...DEFAULT_FETCH_LIMITS, ...options };
+  const limits = { ...typedCore().fetchLimits(), ...options };
   const started = Date.now();
 
   let url: URL;
@@ -288,10 +297,12 @@ export async function safeFetch(input: string, options: SafeFetchOptions = {}): 
     // port, so a colon followed by a digit does not count.
     url = new URL(/^[a-z][a-z0-9+.-]*:(?!\d)/i.test(input.trim()) ? input.trim() : `https://${input.trim()}`);
   } catch {
-    return { ok: false, kind: "refused", status: 400, message: describeRejection("not-a-url") };
+    return { ok: false, kind: "refused", status: 400, message: typedCore().describeUrlRejection("not-a-url") };
   }
 
-  for (let hop = 0; hop <= limits.maxRedirects; hop++) {
+  // The hop budget is `next_redirect`'s: it fails the redirect once the budget is spent, so this loop
+  // ends only by returning.
+  for (let hop = 0; ; hop++) {
     const remaining = limits.timeoutMs - (Date.now() - started);
     if (remaining <= 0) {
       return { ok: false, kind: "unreachable", status: 504, message: "That site took too long to answer." };
@@ -327,23 +338,20 @@ export async function safeFetch(input: string, options: SafeFetchOptions = {}): 
       };
     }
 
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get("location");
-      if (!location) {
-        return { ok: false, kind: "upstream", status: 502, message: "That site redirected to nowhere." };
-      }
+    // The join is WHATWG, as the runtime's own redirect following would do it. Rust only decides
+    // on the href it is given, so an unparseable location is `undefined` here and a failure there.
+    const location = response.headers.get("location") ?? undefined;
+    const resolved = location === undefined ? undefined : resolveLocation(location, url);
+    const step = typedCore().nextRedirect(response.status, location, resolved, hop, limits.maxRedirects);
+    if (step.kind !== "not-redirect") {
       // Cancel the redirect's own body; nothing here will read it.
       await response.body?.cancel().catch(() => {});
-      try {
-        url = new URL(location, url);
-      } catch {
-        return {
-          ok: false,
-          kind: "upstream",
-          status: 502,
-          message: `That site redirected somewhere unreadable: ${location.slice(0, 200)}`,
-        };
-      }
+    }
+    if (step.kind === "failed") {
+      return { ok: false, kind: "upstream", status: 502, message: step.message };
+    }
+    if (step.kind === "follow") {
+      url = new URL(step.url);
       continue;
     }
 
@@ -390,6 +398,4 @@ export async function safeFetch(input: string, options: SafeFetchOptions = {}): 
       body,
     };
   }
-
-  return { ok: false, kind: "upstream", status: 502, message: "That address redirected too many times." };
 }

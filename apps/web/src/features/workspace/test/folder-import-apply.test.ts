@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { applyFolderImport } from "../application/folder-import-apply";
+import { applyFolderImport } from "../application/parts-1";
 import { activeWorkspaceFs } from "../application/workspace-folder";
 
 test("an import with no folder connected says why instead of reporting nothing", async () => {

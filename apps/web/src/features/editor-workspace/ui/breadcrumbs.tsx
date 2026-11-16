@@ -8,9 +8,9 @@
  * carries the kind suffix, because the crumb *is* the path.
  */
 
-import type { Crumb } from "../application/breadcrumbs";
-import { kindSuffix } from "./kind";
+import type { Crumb } from "@weaveforge/wasm";
 import { Button } from "@/components/button";
+import { readyCore } from "@/lib/rust-core";
 
 export function Breadcrumbs({
   crumbs,
@@ -24,7 +24,7 @@ export function Breadcrumbs({
   onOpen?: (crumb: Crumb) => void;
 }) {
   if (crumbs.length === 0) return null;
-  const suffix = kind ? kindSuffix(kind) : null;
+  const suffix = kind ? readyCore().kindSuffix(kind) : null;
 
   return (
     <nav className="breadcrumbs" aria-label="Document path">

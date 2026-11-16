@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
-import { SupabaseAdminUserProvisioner } from "../admin-provisioner";
+import { SupabaseAdminUserProvisioner } from "../parts";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 function provisionerWith(profile: { data: unknown; error: unknown }) {
   const client = {
@@ -31,8 +34,7 @@ test("resolveCaller maps an existing profile", async () => {
   assert.deepEqual(await p.resolveCaller("token"), {
     id: "u1",
     email: "a@b.c",
-    fullName: undefined,
     role: "student",
-    supervisorId: undefined,
+    orgSetupComplete: false,
   });
 });

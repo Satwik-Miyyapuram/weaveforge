@@ -11,8 +11,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { AppLogInput } from "@/lib/error-report/app-log";
-import type { CycleResult } from "@/features/offline-sync/domain/sync-engine";
-import type { LiveSyncState } from "@/features/offline-sync/domain/live-sync";
+import type { CycleResult } from "@/features/offline-sync/domain/parts-3";
+import type { LiveSyncState } from "@/features/offline-sync/domain/parts-1";
 import {
   countOpenConflicts,
   createBootQueue,

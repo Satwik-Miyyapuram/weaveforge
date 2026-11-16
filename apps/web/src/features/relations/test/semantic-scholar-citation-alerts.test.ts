@@ -1,7 +1,14 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import { rankCitationAlerts, type CitationCandidate } from "@weaveforge/core";
-import { SemanticScholarCitationSource } from "../infrastructure/semantic-scholar-citation-source";
+import type { CitationCandidate } from "@weaveforge/core";
+import { typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import { SemanticScholarCitationSource } from "../infrastructure/parts";
+
+before(async () => {
+  await loadTestCore();
+});
+const rankCitationAlerts = <T extends CitationCandidate>(c: readonly T[]): T[] => typedCore().rankCitationAlerts(c) as T[];
 
 test("Semantic Scholar incoming citations page and map stable candidates", async () => {
   const urls: string[] = [];

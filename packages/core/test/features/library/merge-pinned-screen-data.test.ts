@@ -11,8 +11,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { mergePinnedScreenData } from "../../../src/features/library/application/merge-pinned-screen-data.js";
-import type { Share, ShareAccess } from "../../../src/features/sharing/domain/share.js";
+import { mergePinnedScreenData } from "../../../src/features/library/application/parts.js";
+import type { Share, ShareAccess } from "../../../src/shared/core-contract.js";
 
 interface Summary {
   id: string;

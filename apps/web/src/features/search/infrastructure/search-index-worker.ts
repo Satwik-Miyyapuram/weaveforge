@@ -1,10 +1,10 @@
 /// <reference lib="webworker" />
 
-import { searchRevision, type SearchDoc, type SearchSettings, type WorkspaceSnapshot } from "@weaveforge/core";
-import { projectStoredPdfTexts } from "../application/search-projection";
+import { type SearchDoc, type SearchSettings, type WorkspaceSnapshot } from "@weaveforge/core";
 import { buildSearchIndex } from "./minisearch-index";
-import { loadPdfTexts } from "./pdf-text-store";
+import { loadPdfTexts } from "./parts-2";
 import { formatError } from "@/lib/format-error";
+import { loadCore } from "@/lib/rust-core";
 
 /**
  * Building the search index, off the main thread.
@@ -46,7 +46,8 @@ async function project(
   snapshot: WorkspaceSnapshot,
   projectId: string | null,
 ): Promise<{ docs: SearchDoc[]; pdfPageCounts: [string, number][] }> {
-  return projectStoredPdfTexts(snapshot, await loadPdfTexts(projectId));
+  const core = await loadCore();
+  return core.projectStoredPdfTexts(snapshot, await loadPdfTexts(projectId));
 }
 
 self.addEventListener("message", (event: MessageEvent<BuildIndexRequest>) => {
@@ -54,8 +55,9 @@ self.addEventListener("message", (event: MessageEvent<BuildIndexRequest>) => {
   void (async () => {
     try {
       const { docs, pdfPageCounts } = await project(request.snapshot, request.projectId);
-      const revision = searchRevision(docs);
-      const index = buildSearchIndex(docs, revision, request.settings);
+      const core = await loadCore();
+      const revision = core.searchRevision(docs);
+      const index = buildSearchIndex(core, docs, revision, request.settings);
 
       post({
         id: request.id,

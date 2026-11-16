@@ -5,10 +5,27 @@
  * name only the tabs that are shown (design D21, DA-136).
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { railGroupText } from "../ui/rail-group-text";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
+
+type RailGroup = {
+  label: string;
+  labelWithout?: { tab: string; label: string };
+  hints: readonly (readonly [tab: string, text: string])[];
+};
+const railGroupText = (group: RailGroup, visible: ReadonlySet<string>, titles: readonly string[]) =>
+  readyCore().railGroupText(
+    { ...group, hints: group.hints.map(([tab, text]): [string, string] => [tab, text]) },
+    [...visible],
+    [...titles],
+  );
 
 const sync = {
   label: "Sync and integrations",
@@ -44,7 +61,10 @@ const read = (rel: string) => readFileSync(fileURLToPath(new URL(`../${rel}`, im
 test("the rail takes its words from the shown tabs", () => {
   const screen = read("ui/settings-screen.tsx");
   assert.doesNotMatch(screen, /hint: "Cloud, Zotero, calendar"/);
-  assert.match(screen, /railGroupText\(g, visible, userIntegrations\.map\(\(d\) => d\.title\)\)/);
+  assert.match(
+    screen,
+    /readyCore\(\)\.railGroupText\(\s*\{ \.\.\.g, hints: [^\n]*\},\s*\[\.\.\.visible\],\s*userIntegrations\.map\(\(d\) => d\.title\),?\s*\)/,
+  );
 });
 
 test("the account panel links to the web app and copies the whole Account ID", () => {

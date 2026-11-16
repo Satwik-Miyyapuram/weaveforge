@@ -1,21 +1,16 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
-import { digestText, projectDir } from "@weaveforge/core";
-import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
+import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 
-import {
-  MIRROR_MANIFEST_PATH,
-  jsonEditSince,
-  mirrorManifestPath,
-  baseDigest,
-  claimImportedFile,
-  createCoalescer,
-  followProjectRename,
-  nextManifest,
-  readMirrorBase,
-  writeMirrorManifest,
-} from "../application/mirror-manifest";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+import { MIRROR_MANIFEST_PATH, jsonEditSince, mirrorManifestPath, claimImportedFile, createCoalescer, followProjectRename, readMirrorBase, writeMirrorManifest } from "../application/parts-3";
+import { readyCore, typedCore } from "@/lib/rust-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * Two projects, because a manifest belongs to one.
@@ -25,8 +20,8 @@ import {
  */
 const PROJECT = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
 const OTHER = { id: "00000000-0000-4000-8000-0000000000aa", name: "Offline Trial" };
-const ROOT = projectDir(PROJECT);
-const OTHER_ROOT = projectDir(OTHER);
+const ROOT = typedCore().projectDir(PROJECT);
+const OTHER_ROOT = typedCore().projectDir(OTHER);
 
 /** The paths a project's manifest claims, in order. */
 async function manifestPaths(fs: MemoryWorkspaceFs, root = ROOT): Promise<string[]> {
@@ -99,13 +94,13 @@ test("non-string entries are dropped rather than trusted", async () => {
 
 test("the next manifest keeps what stayed, drops what left, adds what was written", () => {
   assert.deepEqual(
-    nextManifest(["kept.md", "gone.md"], { written: ["new.md"], removed: ["gone.md"] }).sort(),
+    readyCore().nextManifest(["kept.md", "gone.md"], { written: ["new.md"], removed: ["gone.md"] }).sort(),
     ["kept.md", "new.md"],
   );
 });
 
 test("a file rewritten in place is not listed twice", () => {
-  assert.deepEqual(nextManifest(["a.md"], { written: ["a.md"], removed: [] }), ["a.md"]);
+  assert.deepEqual(readyCore().nextManifest(["a.md"], { written: ["a.md"], removed: [] }), ["a.md"]);
 });
 
 /** A coalescer whose clock this test owns. */
@@ -230,7 +225,7 @@ test("a hand-written file is stamped with the id it was imported as", async () =
   // under its own name — instead of leaving the folder holding both copies.
   const base = await readMirrorBase(fs, ROOT);
   assert.deepEqual(Object.keys(base).sort(), ["notes/My idea.md", "notes/old.note.md"]);
-  assert.equal(base["notes/My idea.md"], baseDigest(stamped));
+  assert.equal(base["notes/My idea.md"], readyCore().digestText(stamped));
   assert.equal(base["notes/old.note.md"], "d0");
 });
 
@@ -301,11 +296,11 @@ test("a JSON data file is somebody's edit unless it still holds what the app wro
 
   // The manifest's digest is what the app wrote: the file matching it is the
   // app's own write, and is not news.
-  assert.equal(jsonEditSince({ [path]: digestText(written) }, path, written), false);
+  assert.equal(jsonEditSince({ [path]: readyCore().digestText(written) }, path, written), false);
 
   // A file that has moved on since is an edit, and so is a file with no record
   // at all — a hand-made one, or one an older layout wrote.
-  assert.equal(jsonEditSince({ [path]: digestText(written) }, path, '[{"id":"r1"}]'), true);
+  assert.equal(jsonEditSince({ [path]: readyCore().digestText(written) }, path, '[{"id":"r1"}]'), true);
   assert.equal(jsonEditSince({}, path, written), true);
 });
 
@@ -313,17 +308,17 @@ test("a renamed project carries its folder and manifest to the new name", async 
   const fs = new MemoryWorkspaceFs();
   const note = `${ROOT}/notes/a.md`;
   await fs.writeFile(note, "hello");
-  await writeMirrorManifest(fs, ROOT, [note], { [note]: digestText("hello") });
+  await writeMirrorManifest(fs, ROOT, [note], { [note]: readyCore().digestText("hello") });
   await fs.writeFile(`${OTHER_ROOT}/notes/b.md`, "other");
 
   const renamed = { ...PROJECT, name: "Thesis Final" };
-  const newRoot = projectDir(renamed);
+  const newRoot = typedCore().projectDir(renamed);
   assert.equal(await followProjectRename(fs, renamed), ROOT);
 
   const moved = `${newRoot}/notes/a.md`;
   assert.equal(await fs.readText(moved), "hello");
   assert.equal(await fs.stat(ROOT), null);
-  assert.deepEqual(await readMirrorBase(fs, newRoot), { [moved]: digestText("hello") });
+  assert.deepEqual(await readMirrorBase(fs, newRoot), { [moved]: readyCore().digestText("hello") });
   assert.equal(await fs.readText(`${OTHER_ROOT}/notes/b.md`), "other");
 });
 

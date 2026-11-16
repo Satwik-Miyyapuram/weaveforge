@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 
-import type { AuthUser } from "../domain/auth";
-import { nextAuthStep, type AuthTransitionInput } from "../domain/auth-transition";
+import type { AuthUser } from "../domain/parts";
+import { nextAuthStep, type AuthTransitionInput } from "../domain/parts";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * What the auth provider does when the session changes (32-16). The decision

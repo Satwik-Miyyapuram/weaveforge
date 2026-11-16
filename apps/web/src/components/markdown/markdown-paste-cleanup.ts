@@ -2,28 +2,14 @@
 
 import { EditorSelection, type ChangeSpec, type StateCommand } from "@codemirror/state";
 import { EditorView, type Command, type KeyBinding } from "@codemirror/view";
-import {
-  applyCommaPlacement,
-  cleanPastedText,
-  cleanPdfText,
-  cleanWrappedText,
-  pasteLandsInVerbatimContext,
-  tabSeparatedToMarkdownTable,
-  type CommaPlacement,
-  type PasteSettings,
-  type PdfTextOptions,
-} from "@weaveforge/core";
-import {
-  afterUrlPaste,
-  BARE_URL,
-  escapeLinkLabel,
-  type RemotePasteOptions,
-} from "@/components/markdown/markdown-remote-paste";
+import type { CommaPlacement, PasteSettings, PdfTextOptions } from "@weaveforge/wasm";
+import { afterUrlPaste, type RemotePasteOptions } from "@/components/markdown/markdown-remote-paste";
+import { readyCore } from "@/lib/rust-core";
 
 /**
  * Paste cleanup for the note editor.
  *
- * All the judgement lives in `@weaveforge/core/paste`, which is pure text in
+ * All the judgement lives in the Rust core (`wf_core::paste`), pure text in
  * and text out. This file is only the wiring: it decides *whether* a given
  * paste is eligible, and turns a cleaned string into a single CodeMirror
  * transaction.
@@ -32,7 +18,8 @@ import {
  * rewrite acceptable: one Ctrl+Z takes the whole paste back out, rather than
  * peeling off a rule at a time and leaving the writer somewhere in between.
  * Getting the untouched clipboard in is a separate, deliberate act —
- * Ctrl+Shift+V.
+ * Ctrl+Alt+Shift+V, "Paste as plain text". Ctrl+Shift+V pastes a web page or
+ * document with its formatting, as Markdown.
  */
 
 /**
@@ -57,15 +44,6 @@ function insertAsOneStep(view: EditorView, text: string): void {
 }
 
 /**
- * Makes a string safe to sit inside a link label. Single-line only; a label
- * spanning lines is not a label, and such a selection is pasted over normally.
- */
-function linkLabel(selected: string): string | null {
-  if (!selected || /[\r\n]/.test(selected)) return null;
-  return escapeLinkLabel(selected);
-}
-
-/**
  * Pasting a URL over selected text makes a link of it.
  *
  * CodeMirror's markdown package offers this, and it is why this handler is
@@ -83,7 +61,7 @@ function insertAsLink(view: EditorView, url: string): boolean {
   const labels = new Map<number, string>();
   for (const range of view.state.selection.ranges) {
     if (range.empty) continue;
-    const label = linkLabel(view.state.sliceDoc(range.from, range.to));
+    const label = readyCore().linkLabel(view.state.sliceDoc(range.from, range.to));
     if (label !== null) labels.set(range.from, label);
   }
   if (labels.size === 0) return false;
@@ -127,14 +105,14 @@ function handlePaste(
   if (!current.cleanOnPaste) return false;
 
   const document = view.state.doc.toString();
-  if (pasteLandsInVerbatimContext(document, view.state.selection.main.from)) return false;
+  if (readyCore().pasteLandsInVerbatimContext(document, view.state.selection.main.from)) return false;
 
-  const result = cleanPastedText(raw, current);
+  const result = readyCore().cleanPastedText(raw, current);
 
   // A cleaned URL dropped onto selected text becomes a link around it. Done
   // here rather than left to the markdown package, which would wrap the
   // clipboard's own spelling and put the tracker back.
-  if (BARE_URL.test(result.text)) {
+  if (readyCore().isBareUrl(result.text)) {
     if (insertAsLink(view, result.text)) {
       event.preventDefault();
       return true;
@@ -143,7 +121,7 @@ function handlePaste(
 
   // A URL that needed no cleaning still gets its title read, so the decision to
   // handle the paste here cannot be "did anything change".
-  const wantsRemote = options !== undefined && BARE_URL.test(result.text);
+  const wantsRemote = options !== undefined && readyCore().isBareUrl(result.text);
   if (!result.changed && !wantsRemote) return false;
 
   event.preventDefault();
@@ -198,7 +176,7 @@ function transformSelection(transform: (text: string) => string): StateCommand {
 
 /** Runs the automatic rules over the selection on demand. */
 export function cleanSelection(settings: () => PasteSettings): StateCommand {
-  return transformSelection((text) => cleanPastedText(text, { ...settings(), cleanOnPaste: true }).text);
+  return transformSelection((text) => readyCore().cleanPastedText(text, { ...settings(), cleanOnPaste: true }).text);
 }
 
 /**
@@ -208,7 +186,7 @@ export function cleanSelection(settings: () => PasteSettings): StateCommand {
  */
 export const cleanTerminalSelection: StateCommand = transformSelection(
   (text) =>
-    cleanWrappedText(text, {
+    readyCore().cleanWrappedText(text, {
       rejoin: "any",
       bullets: "markdown",
       // `$$` in terminal output is the shell's process id, not maths.
@@ -218,12 +196,12 @@ export const cleanTerminalSelection: StateCommand = transformSelection(
 
 /** Repairs text copied out of a PDF. */
 export function cleanPdfSelection(options: PdfTextOptions): StateCommand {
-  return transformSelection((text) => cleanPdfText(text, options).text);
+  return transformSelection((text) => readyCore().cleanPdfText(text, options).text);
 }
 
 /** Moves commas to the chosen side of a closing quote. */
 export function moveCommas(placement: CommaPlacement): StateCommand {
-  return transformSelection((text) => applyCommaPlacement(text, placement).text);
+  return transformSelection((text) => readyCore().applyCommaPlacement(text, placement).text);
 }
 
 /**
@@ -233,11 +211,52 @@ export function moveCommas(placement: CommaPlacement): StateCommand {
  * the automatic version switched off, and for text that arrived some other way.
  */
 const selectionToTable: StateCommand = transformSelection(
-  (text) => tabSeparatedToMarkdownTable(text).text,
+  (text) => readyCore().tabSeparatedToMarkdownTable(text).text,
 );
 
-/** Pastes the clipboard with no rules applied at all. */
-const pasteWithoutCleanup: Command = (view) => {
+/**
+ * What "Paste with formatting" inserts. Pure so it is testable without a
+ * clipboard: the HTML becomes Markdown, unless there is none, it converts to
+ * nothing, or the caret sits where Markdown would be wrong (a code block or
+ * math), in which case the plain text goes in as it came.
+ */
+export function formattedPasteText(
+  clip: { html: string | null; plain: string },
+  inVerbatim: boolean,
+  toMarkdown: (html: string) => string,
+): string {
+  if (inVerbatim || !clip.html || clip.html.length > MAX_CLEANED_PASTE * 4) return clip.plain;
+  const markdown = toMarkdown(clip.html);
+  return markdown.trim() ? markdown : clip.plain;
+}
+
+/** The clipboard's HTML (if any) and plain text. Empty on no permission. */
+async function readClipboard(): Promise<{ html: string | null; plain: string }> {
+  const clipboard = navigator.clipboard;
+  if (!clipboard) return { html: null, plain: "" };
+  try {
+    if (typeof clipboard.read === "function") {
+      const items = await clipboard.read();
+      let html: string | null = null;
+      let plain = "";
+      for (const item of items) {
+        if (html === null && item.types.includes("text/html")) html = await (await item.getType("text/html")).text();
+        if (!plain && item.types.includes("text/plain")) plain = await (await item.getType("text/plain")).text();
+      }
+      return { html, plain };
+    }
+  } catch {
+    // Fall through to plain text: some browsers refuse `read()` but allow `readText()`.
+  }
+  try {
+    return { html: null, plain: await clipboard.readText() };
+  } catch {
+    return { html: null, plain: "" };
+  }
+}
+
+/** "Paste as plain text": the clipboard exactly as it is, no cleanup. */
+export const pastePlainText: Command = (view) => {
   void navigator.clipboard
     ?.readText()
     .then((text) => {
@@ -248,6 +267,27 @@ const pasteWithoutCleanup: Command = (view) => {
       // command simply does nothing rather than reporting a failure the reader
       // cannot act on.
     });
+  return true;
+};
+
+/** "Paste with formatting": rich clipboard content as Markdown. */
+export const pasteWithFormatting: Command = (view) => {
+  void readClipboard().then((clip) => {
+    const inVerbatim = readyCore().pasteLandsInVerbatimContext(
+      view.state.doc.toString(),
+      view.state.selection.main.from,
+    );
+    // A conversion error (say, HTML over the size cap) falls back to the plain text.
+    const toMarkdown = (html: string) => {
+      try {
+        return readyCore().htmlToMarkdown(html);
+      } catch {
+        return "";
+      }
+    };
+    const text = formattedPasteText(clip, inVerbatim, toMarkdown);
+    if (text) insertAsOneStep(view, text);
+  });
   return true;
 };
 
@@ -268,7 +308,8 @@ export interface PasteCleanupOptions {
 /** Keys for the on-demand cleanups. */
 export function pasteCleanupKeymap(options: PasteCleanupOptions): KeyBinding[] {
   return [
-    { key: "Mod-Shift-v", run: pasteWithoutCleanup, preventDefault: true },
+    { key: "Mod-Shift-v", run: pasteWithFormatting, preventDefault: true },
+    { key: "Mod-Alt-Shift-v", run: pastePlainText, preventDefault: true },
     { key: "Mod-Alt-c", run: cleanSelection(options.settings), preventDefault: true },
     { key: "Mod-Alt-t", run: cleanTerminalSelection, preventDefault: true },
     {

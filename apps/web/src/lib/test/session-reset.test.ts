@@ -7,11 +7,17 @@
  * graph state) are on the list too (xstate-16).
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import { before, test } from "node:test";
 
-import { fetchBlobsCached } from "@/lib/cache/blob-fetch-cache";
-import { clearSessionCaches, registerDashboardUiCacheClear, registerSessionReset } from "@/lib/cache/clear-session-caches";
+import { fetchBlobsCached } from "@/lib/cache/parts-1";
+import { clearSessionCaches, registerDashboardUiCacheClear, registerSessionReset } from "@/lib/cache/parts";
 import { clearMermaidCache, mermaidCacheSize, renderMermaidBlock, setMermaidLoaderForTests, type MermaidModule } from "@/lib/mermaid-render";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+// The mermaid renderer reads the Rust core, so load it before any test runs.
+before(async () => {
+  await loadTestCore();
+});
 
 type Log = { level: string; source: string; message: string; detail?: string };
 

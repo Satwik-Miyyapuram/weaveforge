@@ -1,10 +1,11 @@
 import type {
   IShareRepository,
+  IVaultPageManager,
   IVaultPageRepository,
-  ManageVaultPageUseCase,
   VaultPage,
 } from "@weaveforge/core";
-import { LibraryPinError, shareCoversResource, vaultAssetPathsInBody } from "@weaveforge/core";
+import { LibraryPinError } from "@weaveforge/core";
+import { readyCore, typedCore } from "@/lib/rust-core";
 import type { IVaultAssetStore } from "@/features/vault/domain/vault-assets";
 import { logToApp } from "@/lib/error-report/app-log";
 
@@ -19,7 +20,7 @@ export class DuplicateSharedVaultPageUseCase {
     private readonly deps: {
       shares: IShareRepository;
       pages: IVaultPageRepository;
-      manageVaultPage: ManageVaultPageUseCase;
+      manageVaultPage: IVaultPageManager;
       assets: IVaultAssetStore;
     },
   ) {}
@@ -27,7 +28,7 @@ export class DuplicateSharedVaultPageUseCase {
   async execute(input: { resourceId: string; ownerId: string }): Promise<DuplicatedVaultPage> {
     const shares = await this.deps.shares.listSharedWithMe("vault_page");
     const allowed = shares.some((s) =>
-      shareCoversResource(s, "vault_page", input.resourceId, input.ownerId),
+      readyCore().shareCoversResource(s, "vault_page", input.resourceId, input.ownerId),
     );
     if (!allowed) {
       throw new LibraryPinError("This vault page is not shared with you.");
@@ -43,7 +44,7 @@ export class DuplicateSharedVaultPageUseCase {
       body: source.body,
     });
 
-    const paths = vaultAssetPathsInBody(source.body);
+    const paths = typedCore().vaultAssetPathsInBody(source.body);
     if (paths.length === 0) return { page, failedAssets: [] };
 
     // Each asset is an independent download-then-upload pair. Copying them one
@@ -52,10 +53,10 @@ export class DuplicateSharedVaultPageUseCase {
     // travel together. Rewrites are applied afterwards, in the body's own
     // order, so the result does not depend on which copy finished first.
     const copied = await Promise.all(
-      paths.map(async (oldPath) => {
+      paths.map(async (oldPath: string) => {
         try {
           const blob = await this.deps.assets.fetchBlob(oldPath);
-          const ext = oldPath.split(".").pop() ?? "bin";
+          const ext = readyCore().copyExtension(oldPath);
           return { oldPath, newPath: await this.deps.assets.upload(page.id, blob, ext) };
         } catch (err) {
           logToApp({
@@ -68,13 +69,8 @@ export class DuplicateSharedVaultPageUseCase {
         }
       }),
     );
-    const failedAssets = copied.filter((c) => c.newPath === null).map((c) => c.oldPath);
-
-    let body = source.body;
-    for (const entry of copied) {
-      if (entry.newPath === null) continue;
-      body = body.replaceAll(`vault:${entry.oldPath}`, `vault:${entry.newPath}`);
-    }
+    const { failedAssets, rewrites } = readyCore().planAssetCopies(copied);
+    const body = typedCore().replaceVaultAssetPaths(source.body, rewrites);
 
     if (body !== source.body) {
       return { page: await this.deps.manageVaultPage.update(page.id, { body }), failedAssets };

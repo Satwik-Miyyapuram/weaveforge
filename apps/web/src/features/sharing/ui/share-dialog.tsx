@@ -1,9 +1,8 @@
 "use client";
 
-import { enumOptions } from "@/lib/enum-label";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Member, Share, ShareableType, ShareAccess } from "@weaveforge/core";
-import { isBlanketShare, shareSupportsEditAccess } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { useProfile } from "@/features/org";
 import { Modal } from "@/components/modal";
@@ -44,8 +43,8 @@ export function ShareDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isBlanket = isBlanketShare(resourceId);
-  const supportsEdit = shareSupportsEditAccess(resourceType, resourceId);
+  const isBlanket = readyCore().isBlanketShare(resourceId);
+  const supportsEdit = readyCore().shareSupportsEditAccess(resourceType, resourceId);
 
   const reload = useCallback(async () => {
     setShares(await getContainer().sharing.manageSharing.listForResource(resourceType, resourceId));
@@ -120,7 +119,7 @@ export function ShareDialog({
   }
 
   // One order everywhere: view, comment, edit (D-16); edit only where it applies.
-  const accessOptions = enumOptions("shareAccess").filter((o) => supportsEdit || o.value !== "edit");
+  const accessOptions = readyCore().enumOptions("shareAccess").filter((o) => supportsEdit || o.value !== "edit");
   return (
     <Modal title={title} onClose={onClose}>
       {error && <FormError>{error}</FormError>}

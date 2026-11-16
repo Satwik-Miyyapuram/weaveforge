@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { DocumentSearchMatch, PageTextItem } from "@weaveforge/core";
+import type { DocumentSearchMatch, PageTextItem } from "@weaveforge/wasm";
 import { measureFindDomBoxes } from "../ui/find-overlay.js";
 
 test("measureFindDomBoxes returns null when document is undefined or DOM layout is unavailable", () => {

@@ -1,33 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  canJoinInkGroup,
-  inkPathsHitTest,
-  inkPathsInPolygon,
-  inkNoteWidthToPdfPoints,
-  screenPointToPdf,
-  shouldAppendInkPoint,
-  translateInkPaths,
-  INK_HIGHLIGHTER_WIDTH,
-  INK_DEFAULT_WIDTH,
-  type PageProjection,
-  type PageTextGeometry,
-  type ReaderAnnotation,
-  type ReaderPageSize,
-} from "@weaveforge/core";
+import { INK_HIGHLIGHTER_WIDTH, INK_DEFAULT_WIDTH, type PageProjection, type ReaderAnnotation } from "@weaveforge/core";
+import type { ReaderPageSize, PageTextGeometry } from "@weaveforge/wasm";
+import { readyCore } from "@/lib/rust-core";
 // The shared palm rules, through ink's public API: an ink note needs the same
 // three layers this reader already had, so they live in one place rather than in
 // two implementations that would drift.
-import { ERASER_CURSOR, ERASER_SCREEN_RADIUS, InkGesture, InkPenGate, StrokeEdgeSplit, type InkToolKind } from "@/features/ink";
+import { ERASER_CURSOR, ERASER_SCREEN_RADIUS } from "@/features/ink";
+import { InkGesture, StrokeEdgeSplit, type InkToolKind } from "@/features/ink/application/parts-1";
+import { InkPenGate } from "@/features/ink/application/parts-4";
 import {
   appendInkStroke,
   draftImageRegion,
   eraseInkPaths,
   draftInkAnnotation,
-} from "../../application/draft-local-annotation";
-import { PdfInkSampler, coalescedSamples } from "../../application/pdf-ink-sampler";
-import { isInkTool, type ReaderCreateTool } from "../../application/reader-annotation-helpers";
+} from "@weaveforge/wasm";
+import { PdfInkSampler, coalescedSamples } from "../../application/parts-2";
+import type { ReaderCreateTool } from "../../application/parts";
 import {
   EMPTY_ANNOTATIONS,
   INK_MOVE_THRESHOLD,
@@ -219,7 +209,7 @@ export function usePagePointer({
     // Rotation is part of the mapping, not a reason to refuse to draw: the
     // create tools used to switch off entirely at 90/180/270, which is exactly
     // the orientation a scanned landscape page is read in.
-    return screenPointToPdf(clientX - rect.left, clientY - rect.top, pageProjection(pageNumber));
+    return readyCore().screenPointToPdf(clientX - rect.left, clientY - rect.top, pageProjection(pageNumber));
   }
 
   /**
@@ -267,7 +257,7 @@ export function usePagePointer({
       const position = ann.anchor.zoteroPosition;
       if (!position?.paths?.length || position.pageIndex !== pageNumber - 1) return false;
       const nib = typeof position.width === "number" ? position.width : INK_DEFAULT_WIDTH;
-      return inkPathsHitTest(position.paths, x, y, radius + nib / 2);
+      return readyCore().inkPathsHitTest(position.paths, x, y, radius + nib / 2);
     });
   }
 
@@ -311,7 +301,7 @@ export function usePagePointer({
     const group = inkGroup.current;
 
     if (
-      canJoinInkGroup(group, { pageIndex, color: createColor, width: input.width, at: now }) &&
+      readyCore().canJoinInkGroup(group, { pageIndex, color: createColor, width: input.width, at: now }) &&
       group
     ) {
       const existing = annotations.find((a) => a.id === group.annotationId);
@@ -365,7 +355,7 @@ export function usePagePointer({
         ...ann.anchor,
         zoteroPosition: {
           ...position,
-          paths: translateInkPaths(position.paths, move.dx, move.dy),
+          paths: readyCore().translateInkPaths(position.paths, move.dx, move.dy),
         },
       });
     }
@@ -395,7 +385,7 @@ export function usePagePointer({
         if (ann.type !== "ink") return false;
         const position = ann.anchor.zoteroPosition;
         if (!position?.paths?.length || position.pageIndex !== pageNumber - 1) return false;
-        return inkPathsInPolygon(position.paths, polygon);
+        return readyCore().inkPathsInPolygon(position.paths, polygon);
       })
       .map((ann) => ann.id);
   }
@@ -409,7 +399,7 @@ export function usePagePointer({
    */
   const nibBase =
     createTool === "highlighter"
-      ? inkNoteWidthToPdfPoints(highlighterWidth)
+      ? readyCore().inkNoteWidthToPdfPoints(highlighterWidth)
       : inkWidth;
 
   function startErase(pageNumber: number, event: React.PointerEvent<HTMLDivElement>, pt: { x: number; y: number }) {
@@ -424,7 +414,7 @@ export function usePagePointer({
     if (createTool === "select") return "none";
     if (createTool === "lasso") return inkEditable ? "lasso" : "none";
     if (createTool === "erase") return "eraser";
-    if (isInkTool(createTool)) return "draw";
+    if (readyCore().isInkTool(createTool)) return "draw";
     return "region";
   }
 
@@ -479,7 +469,7 @@ export function usePagePointer({
       return;
     }
 
-    if (isInkTool(createTool)) {
+    if (readyCore().isInkTool(createTool)) {
       // One contact owns the stroke. Without this a palm landing mid-stroke on
       // a pen-less tablet would splice its own path into the same line.
       if (inkPointerId.current != null) return;
@@ -535,7 +525,7 @@ export function usePagePointer({
     if (lassoPointerId.current === event.pointerId) {
       // A loop is a shape, and samples inside the pointer's own jitter carry
       // none of it: the rule the stroke path uses keeps the polygon short too.
-      if (shouldAppendInkPoint(lasso.current, pt.x, pt.y)) {
+      if (readyCore().shouldAppendInkPoint(lasso.current, pt.x, pt.y)) {
         lasso.current.push(pt.x, pt.y);
         publishLasso(lasso.current);
       }
@@ -543,7 +533,7 @@ export function usePagePointer({
     }
 
     if (
-      isInkTool(createTool) &&
+      readyCore().isInkTool(createTool) &&
       inkPointerId.current === event.pointerId &&
       // A stroke in hand, *or* a pen that is off the paper: cutting the stroke at
       // the edge empties the path, and the return that starts the next one has
@@ -664,7 +654,7 @@ export function usePagePointer({
     // The persisted annotation takes over from here; drop the live preview so
     // the two cannot both be painted for a frame.
     clearDraft();
-    if (isInkTool(createTool) && inkPointerId.current === event.pointerId) {
+    if (readyCore().isInkTool(createTool) && inkPointerId.current === event.pointerId) {
       const path = [...ink.current.path];
       ink.current.clear();
       inkPointerId.current = null;

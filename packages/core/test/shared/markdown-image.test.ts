@@ -1,12 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  escapeMarkdownAltText,
-  imageAltFromFilename,
-  imageExtensionForMime,
-  markdownImage,
-} from "../../src/shared/markdown-image.js";
-import { vaultImageMarkdown } from "../../src/features/vault/domain/vault-page.js";
+import { rust } from "../../src/shared/rust.js";
+
+const markdownImage = (target: string, alt: string) => rust().markdownImage(target, alt);
+const imageAltFromFilename = (name?: string) => rust().imageAltFromFilename(name);
+const imageExtensionForMime = (mime: string) => rust().imageExtensionForMime(mime);
+
 
 test("a bracket in the alt text cannot end the label early", () => {
   // A screenshot named "figure [2].png" used to produce ![figure [2].png](…),
@@ -16,13 +15,13 @@ test("a bracket in the alt text cannot end the label early", () => {
 });
 
 test("the vault builder escapes too, not only the other two", () => {
-  assert.equal(vaultImageMarkdown("u/p/f.png", "figure [2]"), "![figure \\[2\\]](vault:u/p/f.png)");
+  assert.equal(rust().vaultImageMarkdown("u/p/f.png", "figure [2]"), "![figure \\[2\\]](vault:u/p/f.png)");
 });
 
 test("a multiline or empty alt text becomes something usable", () => {
-  assert.equal(escapeMarkdownAltText("two\nlines   here"), "two lines here");
-  assert.equal(escapeMarkdownAltText("   "), "image");
-  assert.equal(escapeMarkdownAltText(""), "image");
+  assert.equal(markdownImage("x.png", "two\nlines   here"), "![two lines here](x.png)");
+  assert.equal(markdownImage("x.png", "   "), "![image](x.png)");
+  assert.equal(markdownImage("x.png", ""), "![image](x.png)");
 });
 
 test("an alt text is derived from the file name, not copied from it", () => {

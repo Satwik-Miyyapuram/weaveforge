@@ -1,68 +1,65 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { extractHashtags, normalizeTitleKey } from "@weaveforge/core";
 
 import { getContainer } from "@/bootstrap";
 import type { EditorHandleRef } from "@/components/editor-handle";
-import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
-import { defaultInkNoteMeta, writeInkNoteBody } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
+import { requestShortcuts } from "@/lib/parts-2";
 
 import { useProject } from "@/features/projects";
 import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
-import { commandForChord, isTypingTarget } from "../application/keybindings";
-import { readLayout, writeLayout } from "../application/layout-storage";
-import { loadWorkspace, type Document } from "../application/workspace-load";
-import { bodyStats, formatCount, formatCursor, formatWords } from "../application/document-stats";
-import { breadcrumbs } from "../application/breadcrumbs";
-import { outlineOf } from "../application/outline";
 import {
-  activateTab,
-  activeTabRef,
-  closeTab,
-  closedTabs,
-  emptyLayout,
-  focusPane,
-  leaves,
-  moveTab,
-  hydrateTabModes,
-  keepOpen,
-  focusedTabCount,
-  layoutForCommand,
-  openTab,
-  openTabKeys,
-  pruneLayout,
-  setRatio,
-  setTabMode,
-  splitPane,
-  tabKey,
-  tabMode,
-  togglePreview,
-  isPreviewTab,
-  previewSource,
-  type PaneLayout,
-  type PaneSplit,
-  type TabRef,
-} from "../application/pane-tree";
-import { flattenTree, folderIdsOf, type WorkspaceTreeNode } from "../application/workspace-tree";
-import type { ExplorerSection } from "../application/explorer-state";
+  commandForChord,
+  type Document,
+  isTypingTarget,
+  loadWorkspace,
+  readHidden,
+  readLayout,
+  writeHidden,
+  writeLayout,
+} from "../application/parts";
+import {
+  breadcrumbs,
+  creationKindFor,
+  creationTarget,
+  type Draft,
+  draftMakes,
+  duplicatePlan,
+  hasInkView,
+  hasLazyBody,
+  isCreatableKind,
+  isDocumentKind,
+  kindOwner,
+  linkGroupOf,
+  openingTab,
+  openModeFor,
+  outlineOf,
+  segmentsFor,
+} from "@weaveforge/wasm";
+import type { PaneLayout, PaneSplit, TabRef, WorkspaceTreeNode } from "@weaveforge/wasm";
+import type { ExplorerSection } from "../application/parts";
 import { DocumentHost, type DocumentMetrics } from "./document-host";
 import { ExplorerPanel } from "./explorer-panel";
-import { creationKindFor, creationTarget, draftMakes, type Draft } from "../application/explorer-edit";
-import { readHidden, writeHidden } from "../application/explorer-state";
+import { useFocusMode } from "./use-focus-mode";
 import { FocusGlyph } from "@/components/focus-glyph";
+import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
-import { ShortcutsDialog } from "./shortcuts-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
-import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, linkGroupOf, openingTab, openModeFor, segmentsFor } from "./kind";
 import { FormError } from "@/components/form-error";
-import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
-import { shortcutLabel } from "@/lib/shortcut-label";
+import { DESKTOP_BREAKPOINT_PX, isMacPlatform } from "@/lib/parts";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { IconButton } from "@/components/button";
+
+/** `byKey` without the entries of documents no longer open; `byKey` itself when nothing closed. */
+function keepOpen<T>(byKey: Record<string, T>, open: ReadonlySet<string>): Record<string, T> {
+  const keys = Object.keys(byKey);
+  if (keys.every((key) => open.has(key))) return byKey;
+  return Object.fromEntries(keys.filter((key) => open.has(key)).map((key) => [key, byKey[key]!]));
+}
 
 /** The image button with no document under it: greyed, so never pressed. */
 
@@ -100,36 +97,21 @@ export function WorkspaceScreen() {
   const [tree, setTree] = useState<WorkspaceTreeNode[]>([]);
   const [listsTree, setListsTree] = useState<WorkspaceTreeNode[]>([]);
   const [membership, setMembership] = useState<ReadonlyMap<string, string[]>>(new Map());
-  const [layout, setLayout] = useState<PaneLayout>(() => emptyLayout());
+  const [layout, setLayout] = useState<PaneLayout>(() => readyCore().emptyLayout());
   // The layout a window keydown acts on, read without re-binding the listener.
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
   const [error, setError] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   /** Tabs closed this session, newest last, for `⌘⇧T`. */
   const closedRef = useRef<TabRef[]>([]);
   // The explorer's draft row: what it will make and where. Owned here so the
   // `⌘N` chord and the panel's own buttons start the same thing.
   const [draft, setDraft] = useState<Draft | null>(null);
   const [explorerHidden, setExplorerHidden] = useState(false);
-  // Focus: the document and nothing else. Per session, not per device — a
-  // window that reopens with every control hidden looks broken, not focused.
-  const [focus, setFocus] = useState(false);
-  const toggleFocus = useCallback(() => setFocus((current) => !current), []);
-  // The primary nav rail lives outside this screen (app-shell), so the flag is
-  // also put on the root element for nav.css to read.
-  useEffect(() => {
-    const root = document.documentElement;
-    if (focus) root.dataset.workspaceFocus = "";
-    else delete root.dataset.workspaceFocus;
-    // The desktop shell's own chrome — menu bar, title bar — goes with it.
-    desktop()?.setWindowFocus?.(focus);
-    return () => {
-      delete root.dataset.workspaceFocus;
-      desktop()?.setWindowFocus?.(false);
-    };
-  }, [focus]);
+  const { focus, toggleFocus } = useFocusMode();
+  // `F2`: a count, so the explorer's rename starts once per press.
+  const [renameRequest, setRenameRequest] = useState(0);
   // The chord handler is bound once; it reads the document on screen through
   // a ref rather than closing over a stale one.
   const activeDocRef = useRef<Document | undefined>(undefined);
@@ -149,6 +131,9 @@ export function WorkspaceScreen() {
     return () => query.removeEventListener("change", sync);
   }, []);
   const hasOpenTab = openTabs(layout).length > 0;
+  // A note open here can hold typing not yet saved; an outside edit to it waits for review.
+  const openNoteIds = openTabs(layout).flatMap((tab) => (hasInkView(tab.kind) ? [tab.id] : [])).join(" ");
+  useEffect(() => (openNoteIds ? holdOpenNotes(openNoteIds.split(" ")) : undefined), [openNoteIds]);
   useEffect(() => {
     if (phone && hasOpenTab) setExplorerHidden(true);
     // Only when the width crosses, or the first document arrives: the drawer
@@ -168,7 +153,7 @@ export function WorkspaceScreen() {
   // gone, which is what Insert → Image from file… checks for.
   const handles = useRef(new Map<string, EditorHandleRef>());
   const handleFor = useCallback((tab: TabRef): EditorHandleRef => {
-    const key = tabKey(tab);
+    const key = readyCore().tabKey(tab);
     let handle = handles.current.get(key);
     if (!handle) {
       handle = { current: null };
@@ -180,7 +165,7 @@ export function WorkspaceScreen() {
   // A closed tab's editor unmounts, so its handle and metrics go with it; a
   // tab switch hides rather than unmounts, and keeps both.
   useEffect(() => {
-    const open = openTabKeys(layout);
+    const open = readyCore().openTabKeys(layout);
     for (const key of handles.current.keys()) if (!open.has(key)) handles.current.delete(key);
     setMetrics((current) => keepOpen(current, open));
   }, [layout]);
@@ -190,6 +175,9 @@ export function WorkspaceScreen() {
   const [pending, setPending] = useState(0);
   // A write that failed leaves the document dirty — "Saved" would be a lie.
   const [dirty, setDirty] = useState(false);
+  // Read by the close guard, which is registered once.
+  const dirtyRef = useRef(false);
+  dirtyRef.current = dirty;
   const pendingRef = useRef(0);
   // Full note bodies fetched so far, by id, so a reload does not throw them
   // away; and the fetches in flight, so a tab rendered twice asks once.
@@ -215,20 +203,20 @@ export function WorkspaceScreen() {
         // layout outlives the documents in it. A tab restored with no mode was
         // never switched by hand, so it takes its document's opening mode: the
         // same answer a click on it in the explorer gets.
-        const open = new Set(loaded.map((doc) => tabKey(doc)));
-        const bodyOf = new Map(loaded.map((doc) => [tabKey(doc), doc.body]));
-        let restored = pruneLayout(readLayout(store(), projectId), (tab) => isPreviewTab(tab) || open.has(tabKey(tab)));
+        const open = new Set(loaded.map((doc) => readyCore().tabKey(doc)));
+        const bodyOf = new Map(loaded.map((doc) => [readyCore().tabKey(doc), doc.body]));
+        let restored = readyCore().pruneLayout(readLayout(store(), projectId), (tab) => readyCore().isPreviewTab(tab) || open.has(readyCore().tabKey(tab)));
         // `?open=kind:id` is how another screen hands a document over — the
         // note screen's Edit on a handwritten note, which only this screen can
         // write in. It opens on top of the restored panes, then leaves the URL
         // so a reload does not open it again.
         const requested = requestedTab();
-        if (requested && open.has(tabKey(requested))) {
-          restored = openTab(restored, requested);
+        if (requested && open.has(readyCore().tabKey(requested))) {
+          restored = readyCore().openTab(restored, requested);
           writeLayout(store(), restored, projectId);
         }
         if (requested) window.history.replaceState(null, "", window.location.pathname);
-        setLayout(hydrateTabModes(restored, (tab) => openModeFor(tab.kind, bodyOf.get(tabKey(tab)) ?? "")));
+        setLayout(readyCore().hydrateTabModes(restored, (tab) => openModeFor(tab.kind, bodyOf.get(readyCore().tabKey(tab)) ?? "")));
       } catch (err) {
         if (!cancelled) setError(formatError(err));
       }
@@ -239,7 +227,7 @@ export function WorkspaceScreen() {
   }, [reload, projectId]);
 
   const apply = useCallback((next: PaneLayout) => {
-    const gone = closedTabs(layoutRef.current, next);
+    const gone = readyCore().closedTabs(layoutRef.current, next);
     if (gone.length > 0) closedRef.current = [...closedRef.current, ...gone].slice(-CLOSED_TABS_KEPT);
     writeLayout(store(), next, projectId);
     setLayout(next);
@@ -247,22 +235,22 @@ export function WorkspaceScreen() {
   }, [projectId]);
 
   const byKey = useMemo(
-    () => new Map((documents ?? []).map((doc) => [tabKey(doc), doc])),
+    () => new Map((documents ?? []).map((doc) => [readyCore().tabKey(doc), doc])),
     [documents],
   );
 
   // The preview pane shows the last document focused outside it, so it keeps
   // its page while the person clicks into it.
   const previewOfRef = useRef<TabRef | undefined>(undefined);
-  const previewOf = previewSource(layout, previewOfRef.current);
+  const previewOf = readyCore().previewSource(layout, previewOfRef.current);
   previewOfRef.current = previewOf;
 
   const labelFor = useCallback(
     (tab: TabRef) => {
-      if (isPreviewTab(tab)) {
-        return previewOf ? `Preview · ${byKey.get(tabKey(previewOf))?.title || "Untitled"}` : "Preview";
+      if (readyCore().isPreviewTab(tab)) {
+        return previewOf ? `Preview · ${byKey.get(readyCore().tabKey(previewOf))?.title || "Untitled"}` : "Preview";
       }
-      return byKey.get(tabKey(tab))?.title || "Untitled";
+      return byKey.get(readyCore().tabKey(tab))?.title || "Untitled";
     },
     [byKey, previewOf],
   );
@@ -323,7 +311,7 @@ export function WorkspaceScreen() {
   // starts.
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (pendingRef.current <= 0) return;
+      if (pendingRef.current <= 0 && !dirtyRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -331,8 +319,8 @@ export function WorkspaceScreen() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);
 
-  const active = activeTabRef(layout);
-  const activeKeyOf = active ? tabKey(active) : undefined;
+  const active = readyCore().activeTabRef(layout);
+  const activeKeyOf = active ? readyCore().tabKey(active) : undefined;
 
   // Where Read mode's wikilinks can go. The same three lists `/notes` hands
   // `VaultMarkdown`, built from the documents this screen already loaded. Which
@@ -357,7 +345,7 @@ export function WorkspaceScreen() {
   const tags = useMemo(() => {
     const all = new Set<string>();
     for (const doc of documents ?? []) {
-      for (const tag of extractHashtags(doc.body)) all.add(tag);
+      for (const tag of readyCore().extractHashtags(doc.body)) all.add(tag);
       for (const tag of doc.tags ?? []) all.add(tag);
     }
     return [...all].sort();
@@ -368,7 +356,7 @@ export function WorkspaceScreen() {
       // A wikilink in Read mode opens the target's tab. There is no
       // click-to-edit at the caret: source and rendered positions do not map,
       // and pretending they do is where live-preview editors go wrong.
-      apply(openTab(layout, tab));
+      apply(readyCore().openTab(layout, tab));
     },
     [apply, layout],
   );
@@ -383,13 +371,13 @@ export function WorkspaceScreen() {
       input: { title: string; parentId?: string; ink?: boolean; folder?: boolean },
       opts: { open?: boolean } = {},
     ) => {
-      const wanted = normalizeTitleKey(input.title);
+      const wanted = readyCore().normalizeTitleKey(input.title);
       const existing = (documents ?? []).find(
-        (doc) => isCreatableKind(doc.kind) && normalizeTitleKey(doc.title) === wanted,
+        (doc) => isCreatableKind(doc.kind) && readyCore().normalizeTitleKey(doc.title) === wanted,
       );
       // An ink note is born with its header and no text layer; the host writes
       // the first page's chunk when there is a first stroke.
-      const body = input.ink ? writeInkNoteBody(defaultInkNoteMeta(), "") : undefined;
+      const body = input.ink ? readyCore().writeInkNoteBody(readyCore().defaultInkNoteMeta(), "") : undefined;
       const id = existing
         ? existing.id
         : (
@@ -402,10 +390,20 @@ export function WorkspaceScreen() {
           ).id;
       if (!existing) await reload();
       const kind = existing ? existing.kind : input.ink ? "ink_page" : "vault_page";
-      if (opts.open !== false) apply(openTab(layout, { kind, id }));
+      if (opts.open !== false) apply(readyCore().openTab(layout, { kind, id }));
     },
     [apply, documents, layout, reload],
   );
+
+  // `⌘D`: a copy of the note on screen, beside it, opened.
+  const duplicateActive = useCallback(async () => {
+    const doc = activeDocRef.current;
+    const plan = duplicatePlan(doc, documents ?? []);
+    if (!doc || !plan) return;
+    const { id } = await getContainer().vault.manageVaultPage.add({ ...plan, parentId: plan.parentId ?? undefined });
+    await reload();
+    apply(readyCore().openTab(layoutRef.current, { kind: doc.kind === "ink_page" ? "ink_page" : "vault_page", id }));
+  }, [apply, documents, reload]);
 
   /**
    * The explorer's draft row, submitted. A note or folder goes through
@@ -421,7 +419,7 @@ export function WorkspaceScreen() {
           parentId: target.parentId ?? undefined,
         });
         await reload();
-        apply(openTab(layout, { kind: "report_section", id: section.id }));
+        apply(readyCore().openTab(layout, { kind: "report_section", id: section.id }));
         return;
       }
       const makes = draftMakes(target.kind);
@@ -494,15 +492,15 @@ export function WorkspaceScreen() {
 
   const renderDocument = useCallback(
     (tab: TabRef) => {
-      if (isPreviewTab(tab)) {
-        const source = previewOf ? byKey.get(tabKey(previewOf)) : undefined;
+      if (readyCore().isPreviewTab(tab)) {
+        const source = previewOf ? byKey.get(readyCore().tabKey(previewOf)) : undefined;
         if (!previewOf || !source?.hydrated) return <p className="muted">Open a note to preview it.</p>;
         return (
           <DocumentHost
-            key={tabKey(previewOf)}
+            key={readyCore().tabKey(previewOf)}
             tab={previewOf}
             mode="read"
-            body={metrics[tabKey(previewOf)]?.text ?? source.body}
+            body={metrics[readyCore().tabKey(previewOf)]?.text ?? source.body}
             links={links}
             onSave={(body: string) => save(previewOf, body)}
             onOpenLink={openLink}
@@ -511,14 +509,14 @@ export function WorkspaceScreen() {
           />
         );
       }
-      const key = tabKey(tab);
+      const key = readyCore().tabKey(tab);
       const doc = byKey.get(key);
       if (!doc) return <p className="muted">This document is no longer in the workspace.</p>;
       if (!doc.hydrated) return <HydratingDocument tab={tab} hydrate={hydrate} />;
       return (
         <DocumentHost
           tab={tab}
-          mode={tabMode(tab)}
+          mode={readyCore().tabMode(tab)}
           body={doc.body}
           links={links}
           completions={completions}
@@ -554,8 +552,8 @@ export function WorkspaceScreen() {
 
   // One mount per open document, not per visible tab, so the same note in two
   // panes is the same editor twice rather than two documents.
-  const documentNodes = useMemo(() => flattenTree(tree), [tree]);
-  folderIdsRef.current = useMemo(() => folderIdsOf(tree), [tree]);
+  const documentNodes = useMemo(() => readyCore().flattenTree(tree), [tree]);
+  folderIdsRef.current = useMemo(() => readyCore().folderIdsOf(tree), [tree]);
 
   // The Outline section: the headings of the document on screen, read from the
   // same parse Read mode renders. Collapsed by default, and empty for a
@@ -597,7 +595,7 @@ export function WorkspaceScreen() {
   const crumbsFor = useCallback(
     (tab: TabRef) => {
       // The preview shows another document, so it shows that one's path.
-      const shown = isPreviewTab(tab) ? previewOf : tab;
+      const shown = readyCore().isPreviewTab(tab) ? previewOf : tab;
       return shown ? breadcrumbs({ kind: shown.kind, id: shown.id }, tree, listsTree) : [];
     },
     [tree, listsTree, previewOf],
@@ -607,8 +605,8 @@ export function WorkspaceScreen() {
   const openNode = useCallback(
     (node: WorkspaceTreeNode, options: { split: boolean }) => {
       if (!node.id || !isDocumentKind(node.kind) || node.folder) return;
-      const tab = openingTab(node.kind, node.id, byKey.get(tabKey({ kind: node.kind, id: node.id }))?.body);
-      apply(openTab(options.split ? splitPane(layout, layout.focusedPaneId, "row") : layout, tab));
+      const tab = openingTab(node.kind, node.id, byKey.get(readyCore().tabKey({ kind: node.kind, id: node.id }))?.body);
+      apply(readyCore().openTab(options.split ? readyCore().splitPane(layout, layout.focusedPaneId, "row") : layout, tab));
       setPaletteOpen(false);
     },
     [apply, layout, byKey],
@@ -616,70 +614,72 @@ export function WorkspaceScreen() {
 
   /** The newest closed tab whose document still exists and is not open again already. */
   const reopenTab = useCallback(() => {
-    const open = openTabKeys(layoutRef.current);
+    const open = readyCore().openTabKeys(layoutRef.current);
     while (closedRef.current.length > 0) {
       const tab = closedRef.current.at(-1)!;
       closedRef.current = closedRef.current.slice(0, -1);
-      if (byKey.has(tabKey(tab)) && !open.has(tabKey(tab))) return void apply(openTab(layoutRef.current, tab));
+      if (byKey.has(readyCore().tabKey(tab)) && !open.has(readyCore().tabKey(tab))) return void apply(readyCore().openTab(layoutRef.current, tab));
     }
   }, [apply, byKey]);
 
-  // Bound on the window rather than on the shell so a shortcut still works
-  // while focus is inside a CodeMirror instance, which stops propagation of
-  // plenty of keys on its way to handling them.
+  // On the window, not the shell: CodeMirror stops propagation of many keys,
+  // and a shortcut must still work with focus inside it.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       // Only a chord this screen acts on is claimed: a ⌘-number with no tab
       // behind it falls through to the browser, which switches its own tabs.
-      const command = commandForChord(event, focusedTabCount(layoutRef.current));
+      const command = commandForChord(event, readyCore().focusedTabCount(layoutRef.current));
       if (!command) return;
       if (isTypingTarget(event.target as HTMLElement | null)) return;
-      // Inside a document `⌘/` is CodeMirror's "toggle comment"; it has already
-      // run, so the sheet opens only from outside the text.
-      if (command === "show-shortcuts" && event.defaultPrevented) return;
+      // A key the document already handled (`⌘/` comment, `⌘B` bold, `⌘\`
+      // clear) is the document's; elsewhere the workspace meaning applies.
+      if (event.defaultPrevented) return;
+      // The palette and the app sidebar own these and listen for them unhandled.
+      if (command === "command-palette" || command === "workspace-search" || command === "toggle-sidebar") return;
       event.preventDefault();
 
       if (command === "quick-open") return setPaletteOpen(true);
-      if (command === "show-shortcuts") return setShortcutsOpen((open) => !open);
+      if (command === "duplicate-note") return void duplicateActive().catch((e) => setError(formatError(e)));
+      if (command === "rename-doc") return void (setExplorerHidden(false), setRenameRequest((n) => n + 1));
+      if (command === "show-shortcuts") return requestShortcuts("toggle");
       if (command === "reopen-tab") return reopenTab();
       if (command === "toggle-explorer") return toggleExplorer();
       if (command === "toggle-focus") return toggleFocus();
       if (command === "new-note") {
-        // Into the folder of the document on screen when it is a note or a
-        // section; otherwise the top of Notes. Never Papers. Which kind that is
-        // comes from the create table, so a new root states its own default.
+        // Into the on-screen note's or section's folder, else the top of Notes;
+        // never Papers. The create table picks the kind, so a root sets its own.
         const doc = activeDocRef.current;
         const kind = creationKindFor(doc);
         setDraft({ kind, ...creationTarget(kind, doc, folderIdsRef.current) });
         return;
       }
 
-      // Computed outside a state updater, so the storage write in `apply`
-      // runs once per chord (an updater may run twice).
-      const next = layoutForCommand(layoutRef.current, command);
+      // Outside a state updater, so `apply`'s storage write runs once per chord.
+      const next = readyCore().layoutForCommand(layoutRef.current, command);
       if (next !== layoutRef.current) apply(next);
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [apply, toggleExplorer, toggleFocus, reopenTab]);
+  }, [apply, duplicateActive, toggleExplorer, toggleFocus, reopenTab]);
 
   if (error && !documents) return <FormError>{error}</FormError>;
   if (!documents) return <ScreenLoader status="Loading workspace…" />;
 
   const activeDoc = activeKeyOf ? byKey.get(activeKeyOf) : undefined;
   activeDocRef.current = activeDoc;
-  const activeTab = activeTabRef(layout);
-  const activeMode = activeTab ? tabMode(activeTab) : undefined;
+  const activeTab = readyCore().activeTabRef(layout);
+  const activeMode = activeTab ? readyCore().tabMode(activeTab) : undefined;
   const activeMetrics = activeKeyOf ? metrics[activeKeyOf] : undefined;
   const activeBody = activeMetrics?.text ?? activeDoc?.body ?? "";
-  const stats = bodyStats(activeBody);
+  const core = readyCore();
+  const stats = core.bodyStats(activeBody);
 
   const values: Partial<Record<SegmentKey, string>> = activeDoc
     ? {
-        words: formatWords(stats.words),
-        chars: `${formatCount(stats.chars)} chars`,
-        cursor: activeMetrics?.cursor ? formatCursor(activeMetrics.cursor) : undefined,
+        words: core.formatWords(stats.words),
+        chars: `${core.formatCount(stats.chars)} chars`,
+        cursor: activeMetrics?.cursor ? core.formatCursor(activeMetrics.cursor) : undefined,
         encoding: "UTF-8",
         language: "Markdown",
         branch: undefined,
@@ -692,14 +692,14 @@ export function WorkspaceScreen() {
     >
       {focus ? (
         <span className="focus-exit">
-          <IconButton size="sm" label="Exit focus" tip={`Exit focus (${shortcutLabel("⌘⇧F")})`} onClick={toggleFocus}>
+          <IconButton size="sm" label="Exit focus" tip={`Exit focus (${readyCore().shortcutLabel("F11", isMacPlatform())})`} onClick={toggleFocus}>
             <FocusGlyph on />
           </IconButton>
         </span>
       ) : null}
       {explorerHidden ? (
         <span className="explorer-show">
-          <IconButton size="sm" label="Show explorer" tip={`Show explorer (${shortcutLabel("⌘B")})`} onClick={toggleExplorer}>
+          <IconButton size="sm" label="Show explorer" tip={`Show explorer (${readyCore().shortcutLabel("⌘B", isMacPlatform())})`} onClick={toggleExplorer}>
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="3" y="4" width="18" height="16" rx="2" />
             <path d="M9 4v16" />
@@ -711,6 +711,7 @@ export function WorkspaceScreen() {
         sections={sections}
         activeKey={activeKeyOf}
         activeDoc={activeDoc}
+        renameRequest={renameRequest}
         listNames={membership}
         onOpen={(selection) => {
           // Opening a document reads it: a note with ink in it opens on the
@@ -720,13 +721,13 @@ export function WorkspaceScreen() {
           // mode you leave it in.
           const doc = (documents ?? []).find((d) => d.kind === selection.kind && d.id === selection.id);
           if (phone) setExplorerHidden(true);
-          apply(openTab(layout, openingTab(selection.kind, selection.id, doc?.body)));
+          apply(readyCore().openTab(layout, openingTab(selection.kind, selection.id, doc?.body)));
         }}
         onStartNote={(paperId) => {
           // The paper document exists for every paper (it is the summary), so
           // "start note" is simply opening that tab — the same call the row's
           // own click makes. No new data path, and the button finally renders.
-          apply(openTab(layout, { kind: "paper", id: paperId }));
+          apply(readyCore().openTab(layout, { kind: "paper", id: paperId }));
         }}
         onRelease={jumpToHeading}
         draft={draft}
@@ -747,17 +748,18 @@ export function WorkspaceScreen() {
           if (!crumb.key) return;
           const [kind, ...rest] = crumb.key.split(":");
           const id = rest.join(":");
-          if (kind && id) apply(openTab(layout, { kind, id }));
+          if (kind && id) apply(readyCore().openTab(layout, { kind, id }));
         }}
-        onActivate={(paneId, index) => apply(activateTab(layout, paneId, index))}
-        onClose={(paneId, index) => apply(closeTab(layout, paneId, index))}
-        onFocus={(paneId) => apply(focusPane(layout, paneId))}
-        onSplit={(paneId, direction) => apply(splitPane(layout, paneId, direction))}
+        onActivate={(paneId, index) => apply(readyCore().activateTab(layout, paneId, index))}
+        onClose={(paneId, index) => apply(readyCore().closeTab(layout, paneId, index))}
+        onFocus={(paneId) => apply(readyCore().focusPane(layout, paneId))}
+        onSplit={(paneId, direction) => apply(readyCore().splitPane(layout, paneId, direction))}
+        onTabMenu={(paneId, index, command) => apply(readyCore().layoutForTabMenu(layout, paneId, index, command))}
         onToggleFocus={toggleFocus}
-        onDropTab={(from, toPaneId) => apply(moveTab(layout, from, toPaneId))}
-        onRatio={(split: PaneSplit, ratio) => apply(setRatio(layout, split, ratio))}
-        onTogglePreview={() => apply(togglePreview(layout))}
-        onSetMode={(tab, mode) => apply(setTabMode(layout, tab, mode))}
+        onDropTab={(from, toPaneId, toIndex) => apply(readyCore().moveTab(layout, from, toPaneId, toIndex))}
+        onRatio={(split: PaneSplit, ratio) => apply(readyCore().setRatio(layout, split, ratio))}
+        onTogglePreview={() => apply(readyCore().togglePreview(layout))}
+        onSetMode={(tab, mode) => apply(readyCore().setTabMode(layout, tab, mode))}
       />
       <StatusBar
         save={saveState({ pending, dirty })}
@@ -776,7 +778,6 @@ export function WorkspaceScreen() {
           onClose={() => setPaletteOpen(false)}
         />
       ) : null}
-      {shortcutsOpen ? <ShortcutsDialog onClose={() => setShortcutsOpen(false)} /> : null}
     </div>
   );
 }

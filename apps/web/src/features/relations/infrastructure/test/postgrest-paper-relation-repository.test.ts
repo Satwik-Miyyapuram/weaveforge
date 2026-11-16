@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { PostgrestPaperRelationRepository } from "../postgrest-paper-relation-repository";
+import type { IPaperRelationRepository } from "@weaveforge/core";
+
+import { projectUserCtx, rustRepository } from "@/backend/providers/postgrest/rust-repository";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 
 /**
@@ -23,7 +25,12 @@ function repo(answer: (sql: string, params: unknown[]) => unknown[]) {
     params.push(bound ?? []);
     return answer(statement, bound ?? []) as never;
   };
-  const r = new PostgrestPaperRelationRepository(createLocalClient(run) as unknown as SupabaseClient, { projectId: "p1" });
+  const r = rustRepository<IPaperRelationRepository>(
+    createLocalClient(run) as unknown as SupabaseClient,
+    "paper_relations",
+    ["getById", "list", "getGraph", "relationsFor", "findEdge", "save", "delete"],
+    projectUserCtx({ projectId: "p1" }),
+  );
   return { r, sql, params };
 }
 

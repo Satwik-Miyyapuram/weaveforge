@@ -1,9 +1,13 @@
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import { DEFAULT_GRAPH_SETTINGS, type Paper, type PaperRelation } from "@weaveforge/core";
-import { buildGraphData } from "../application/build-graph-data";
-import { tagColor } from "../domain/graph-palette";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 function paper(id: string, title: string, tags: string[] = []): Paper {
   return {
@@ -31,11 +35,11 @@ function relation(id: string, from: string, to: string): PaperRelation {
 
 describe("tagColor", () => {
   it("is stable for the same tag", () => {
-    assert.equal(tagColor("ml"), tagColor("ml"));
+    assert.equal(readyCore().tagColor("ml"), readyCore().tagColor("ml"));
   });
 
   it("differs for different tags", () => {
-    assert.notEqual(tagColor("ml"), tagColor("nlp"));
+    assert.notEqual(readyCore().tagColor("ml"), readyCore().tagColor("nlp"));
   });
 });
 
@@ -43,7 +47,7 @@ describe("buildGraphData", () => {
   it("builds citation edges in cites mode", () => {
     const papers = [paper("p1", "One"), paper("p2", "Two")];
     const relations = [relation("r1", "p1", "p2")];
-    const { data, neighbors } = buildGraphData(
+    const { data, neighbors } = readyCore().buildGraphData(
       papers,
       relations,
       { ...DEFAULT_GRAPH_SETTINGS, edgeMode: "cites", hideOrphans: false },
@@ -56,7 +60,7 @@ describe("buildGraphData", () => {
 
   it("hides orphan papers when hideOrphans is true", () => {
     const papers = [paper("p1", "Lonely"), paper("p2", "Also alone")];
-    const { data } = buildGraphData(
+    const { data } = readyCore().buildGraphData(
       papers,
       [],
       { ...DEFAULT_GRAPH_SETTINGS, edgeMode: "cites", hideOrphans: true },
@@ -69,7 +73,7 @@ describe("buildGraphData", () => {
       paper("p1", "A", ["ml"]),
       paper("p2", "B", ["ml", "nlp"]),
     ];
-    const { data } = buildGraphData(papers, [], {
+    const { data } = readyCore().buildGraphData(papers, [], {
       ...DEFAULT_GRAPH_SETTINGS,
       edgeMode: "tags",
       showConcepts: true,
@@ -87,7 +91,7 @@ describe("buildGraphData", () => {
       paper("p2", "B", ["common"]),
       paper("p3", "C", ["rare"]),
     ];
-    const { data } = buildGraphData(papers, [], {
+    const { data } = readyCore().buildGraphData(papers, [], {
       ...DEFAULT_GRAPH_SETTINGS,
       edgeMode: "tags",
       showConcepts: true,
@@ -101,7 +105,7 @@ describe("buildGraphData", () => {
 
   it("builds tagToPapers index", () => {
     const papers = [paper("p1", "A", ["x"]), paper("p2", "B", ["x", "y"])];
-    const { tagToPapers } = buildGraphData(papers, [], {
+    const { tagToPapers } = readyCore().buildGraphData(papers, [], {
       ...DEFAULT_GRAPH_SETTINGS,
       edgeMode: "tags",
       hideOrphans: false,
@@ -121,7 +125,7 @@ describe("buildGraphData", () => {
         updatedAt: "2026-01-01T00:00:00.000Z",
       },
     ];
-    const { data, tagToNotes } = buildGraphData([], [], {
+    const { data, tagToNotes } = readyCore().buildGraphData([], [], {
       ...DEFAULT_GRAPH_SETTINGS,
       edgeMode: "tags",
       showConcepts: true,
@@ -147,7 +151,7 @@ describe("buildGraphData wikilinks", () => {
       note("n1", "Alpha", "see [[Beta]] and [[One]]"),
       note("n2", "Beta", "back to [[alpha]]"),
     ];
-    const { data } = buildGraphData(papers, [], DEFAULT_GRAPH_SETTINGS, new Map(), [], notes);
+    const { data } = readyCore().buildGraphData(papers, [], DEFAULT_GRAPH_SETTINGS, new Map(), [], notes);
     const wl = data.links.filter((l) => l.kind === "wikilink");
     assert.ok(wl.some((l) => l.source === "n1" && l.target === "n2"), "note→note");
     assert.ok(wl.some((l) => l.source === "n1" && l.target === "p1"), "note→paper");
@@ -170,7 +174,7 @@ describe("buildGraphData wikilinks", () => {
         createdAt: "2026-01-01T00:00:00.000Z",
       },
     ];
-    const { data } = buildGraphData(
+    const { data } = readyCore().buildGraphData(
       papers,
       [],
       { ...DEFAULT_GRAPH_SETTINGS, hideOrphans: true },
@@ -190,7 +194,7 @@ describe("timeline layout inputs", () => {
   it("carries a publication year onto paper nodes, and omits one that is missing", () => {
     const dated: Paper = { ...paper("p1", "Dated"), year: 2017 };
     const undated = paper("p2", "Undated");
-    const { data } = buildGraphData(
+    const { data } = readyCore().buildGraphData(
       [dated, undated],
       [relation("r1", "p1", "p2")],
       DEFAULT_GRAPH_SETTINGS,
@@ -205,7 +209,7 @@ describe("timeline layout inputs", () => {
 
   it("ignores a year that is not a finite number", () => {
     const broken = { ...paper("p1", "Broken"), year: Number.NaN } as Paper;
-    const { data } = buildGraphData([broken], [], DEFAULT_GRAPH_SETTINGS);
+    const { data } = readyCore().buildGraphData([broken], [], DEFAULT_GRAPH_SETTINGS);
     assert.equal(data.nodes.find((n) => n.id === "p1")?.year, undefined);
   });
 });
@@ -228,7 +232,7 @@ describe("experiment nodes", () => {
   });
 
   it("draws a run attached to the paper it tests", () => {
-    const { data } = buildGraphData(
+    const { data } = readyCore().buildGraphData(
       [paper("p1", "One")],
       [],
       { ...DEFAULT_GRAPH_SETTINGS, hideOrphans: false },
@@ -249,7 +253,7 @@ describe("experiment nodes", () => {
   });
 
   it("draws a run with no paper as its own node, even with hideOrphans on", () => {
-    const { data } = buildGraphData(
+    const { data } = readyCore().buildGraphData(
       [paper("p1", "One")],
       [],
       { ...DEFAULT_GRAPH_SETTINGS, hideOrphans: true },
@@ -266,7 +270,7 @@ describe("experiment nodes", () => {
   it("keeps a run whose paper is not in the graph, without an edge to nowhere", () => {
     // The paper exists in the project but is not among the papers handed to the
     // builder — filtered out by a tag or list selection upstream.
-    const { data } = buildGraphData(
+    const { data } = readyCore().buildGraphData(
       [paper("p1", "One")],
       [],
       { ...DEFAULT_GRAPH_SETTINGS, hideOrphans: false },
@@ -281,7 +285,7 @@ describe("experiment nodes", () => {
   });
 
   it("folds a run's note into its node: wikilinks become edges from the run", () => {
-    const { data } = buildGraphData(
+    const { data } = readyCore().buildGraphData(
       [paper("p1", "One")],
       [],
       { ...DEFAULT_GRAPH_SETTINGS, hideOrphans: false },
@@ -310,7 +314,7 @@ describe("experiment nodes", () => {
     // the loop used to bump on the paper changed nothing the canvas reads. The
     // bump was removed and the claim replaced with one the data model actually
     // makes.
-    const { neighbors } = buildGraphData(
+    const { neighbors } = readyCore().buildGraphData(
       [paper("p1", "One")],
       [],
       { ...DEFAULT_GRAPH_SETTINGS, hideOrphans: false },
@@ -331,7 +335,7 @@ describe("experiment nodes", () => {
     ];
     const membership = new Map<string, Set<string>>([["l1", new Set(["p1", "p2"])]]);
 
-    const { data, neighbors, tagToPapers } = buildGraphData(
+    const { data, neighbors, tagToPapers } = readyCore().buildGraphData(
       papers,
       [],
       { ...DEFAULT_GRAPH_SETTINGS, showConcepts: true, includeListsAsConcepts: true, hideOrphans: false },
@@ -364,7 +368,7 @@ describe("experiment nodes", () => {
     ];
     const membership = new Map<string, Set<string>>([["l1", new Set(["p1"])]]);
 
-    const { data } = buildGraphData(
+    const { data } = readyCore().buildGraphData(
       papers,
       [],
       { ...DEFAULT_GRAPH_SETTINGS, showConcepts: true, includeListsAsConcepts: false, hideOrphans: false },

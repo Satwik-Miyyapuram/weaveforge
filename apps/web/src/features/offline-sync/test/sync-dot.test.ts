@@ -4,10 +4,13 @@
  * menu now says the state in words; the sidebar keeps no dot of its own.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import { before, test } from "node:test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { syncStatus } from "../domain/sync-status";
+import { syncStatus } from "../domain/parts";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 const now = new Date("2026-10-27T12:00:00");
 const base = { phase: "idle", enabled: true, isOnline: true, conflictsCount: 0, lastSyncAt: null } as const;

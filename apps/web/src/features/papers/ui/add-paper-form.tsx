@@ -1,17 +1,19 @@
 "use client";
 
-import { enumLabel } from "@/lib/enum-label";
-import { useMemo, useRef, useState } from "react";
-import { PAPER_STATUSES, parsePaperRef, type Paper, type PaperRef, type PaperStatus } from "@weaveforge/core";
+import { useEffect, useRef, useState } from "react";
+import { PAPER_STATUSES, type Paper, type PaperRef, type PaperStatus } from "@weaveforge/core";
+import type { PaperRef as WasmPaperRef } from "@weaveforge/wasm";
+import { loadCore, readyCore } from "@/lib/rust-core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
-import { scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
-import { useSubmit } from "@/lib/hooks/use-submit";
+import { scaffoldNewPaperNote } from "../application/parts-2";
+import { useSubmit } from "@/lib/hooks/parts";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 import { formatError } from "@/lib/format-error";
-import type { PdfDropOutcome } from "../application/paper-from-pdf";
+import type { BibImportOutcome, PdfDropOutcome } from "../application/parts-2";
 import { addPdfFiles } from "./pdf-drop";
+import { addBibFile } from "./bib-import";
 
 
 type RefKind = Exclude<PaperRef["kind"], "bibliographic">;
@@ -31,11 +33,12 @@ const REF_PLACEHOLDERS: Record<RefKind, string> = {
 };
 
 /** What the pasted value actually resolves to, for the hint under the field. */
-const DETECTED_LABELS: Record<RefKind, string> = {
+const DETECTED_LABELS: Record<PaperRef["kind"], string> = {
   url: "reading the page",
   arxiv: "arXiv",
   doi: "Crossref DOI",
   zotero: "Zotero",
+  bibliographic: "title search",
 };
 
 const REF_ORDER: RefKind[] = ["url", "arxiv", "doi", "zotero"];
@@ -53,11 +56,17 @@ export function addedPaperMessage(created: boolean): string {
 export function AddPaperForm({
   onAdded,
   onPdfs,
+  onBib,
 }: {
   onAdded?: (paper: Paper, created: boolean) => void;
   /** Offers a PDF picker; the outcomes are the caller's to announce. */
   onPdfs?: (outcomes: PdfDropOutcome[]) => void;
+  /** Offers a `.bib` picker; the form lists what was skipped, the caller announces the rest. */
+  onBib?: (outcome: BibImportOutcome) => void;
 }) {
+  const bibRef = useRef<HTMLInputElement>(null);
+  const [bibBusy, setBibBusy] = useState(false);
+  const [bibOutcome, setBibOutcome] = useState<BibImportOutcome | null>(null);
   const pdfRef = useRef<HTMLInputElement>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
@@ -69,10 +78,19 @@ export function AddPaperForm({
   // The picker states intent; the parser decides what was actually pasted, so
   // an abs link in the arXiv box resolves as arXiv. Shown so the researcher
   // sees which source will answer before submitting.
-  const detected = useMemo(
-    () => (refValue.trim() ? parsePaperRef(refKind, refValue) : null),
-    [refKind, refValue],
-  );
+  const [detected, setDetected] = useState<WasmPaperRef | null>(null);
+  useEffect(() => {
+    if (!refValue.trim()) {
+      setDetected(null);
+      return;
+    }
+    let live = true;
+    loadCore().then(
+      (core) => { if (live) setDetected(core.parsePaperRef(refKind, refValue)); },
+      () => { if (live) setDetected(null); },
+    );
+    return () => { live = false; };
+  }, [refKind, refValue]);
 
   const { busy, error, submit } = useSubmit(async () => {
     const papers = getContainer().papers;
@@ -105,6 +123,26 @@ export function AddPaperForm({
       setPdfBusy(false);
     }
   }
+
+  async function pickBib(input: HTMLInputElement) {
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file || !onBib) return;
+    setBibBusy(true);
+    setPdfError(null);
+    setBibOutcome(null);
+    try {
+      const outcome = await addBibFile(file);
+      setBibOutcome(outcome);
+      onBib(outcome);
+    } catch (err) {
+      setPdfError(formatError(err));
+    } finally {
+      setBibBusy(false);
+    }
+  }
+
+  const bibIssues = bibOutcome ? [...bibOutcome.skipped, ...bibOutcome.problems] : [];
 
   return (
     <form className="card add-form" onSubmit={submit}>
@@ -140,7 +178,7 @@ export function AddPaperForm({
             placeholder={REF_PLACEHOLDERS[refKind]}
             aria-describedby={detected ? "refValueHint" : undefined}
           />
-          {detected && detected.kind !== "bibliographic" && (
+          {detected && (
             <p id="refValueHint" className="muted field-hint">
               Recognized as {DETECTED_LABELS[detected.kind]}
               {detected.kind !== "url" ? ` — ${detected.value}` : ""}
@@ -156,7 +194,7 @@ export function AddPaperForm({
           >
             {PAPER_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {enumLabel("paperStatus", s)}
+                {readyCore().enumLabel("paperStatus", s)}
               </option>
             ))}
           </Select>
@@ -185,6 +223,36 @@ export function AddPaperForm({
             </Button>
           </div>
           <p id="pdfFileHint" className="muted field-hint">The DOI or title on its first page finds the paper. You can also drop PDFs on Papers.</p>
+        </div>
+      )}
+      {onBib && (
+        <div className="field">
+          <label htmlFor="bibFile">…or import a BibTeX file</label>
+          <input
+            ref={bibRef}
+            id="bibFile"
+            className="sr-only"
+            type="file"
+            accept=".bib,.bibtex,text/x-bibtex,application/x-bibtex"
+            disabled={bibBusy}
+            aria-describedby="bibFileHint"
+            onChange={(e) => void pickBib(e.currentTarget)}
+          />
+          <div>
+            <Button size="sm" disabled={bibBusy} onClick={() => bibRef.current?.click()}>
+              {bibBusy ? "Importing…" : "Choose .bib file…"}
+            </Button>
+          </div>
+          <p id="bibFileHint" className="muted field-hint">
+            Exports from Zotero, Mendeley, Google Scholar or Paperpile. From Paperpile: Settings → Export → BibTeX, then pick the downloaded file. Papers already in the library (same DOI or citation key) are skipped.
+          </p>
+          {bibIssues.length > 0 && (
+            <ul className="muted field-hint bib-import-issues" aria-label="Entries not imported">
+              {bibIssues.map((i, n) => (
+                <li key={n}>{i.key ? `${i.key} (line ${i.line})` : `Line ${i.line}`}: {i.reason}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
       {(pdfError ?? error) && <FormError>{pdfError ?? error}</FormError>}

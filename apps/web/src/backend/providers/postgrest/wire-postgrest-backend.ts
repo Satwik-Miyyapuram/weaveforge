@@ -1,92 +1,166 @@
-import type {
-  IAdminUserProvisioner,
-  IAuthService,
-  ICommentRepository,
-  ICurrentUserProvider,
-  IDashboardLayoutRepository,
-  IGraphSettingsRepository,
-  IExperimentRepository,
-  ILogEntryRepository,
-  IMemberRepository,
-  IMetricRepository,
-  IMilestoneRepository,
-  IPaperRelationRepository,
-  IPaperRepository,
-  IProjectBibliographyCollectionStore,
-  IProjectRepository,
-  IReadingListItemRepository,
-  IScreeningRepository,
-  IReadingListRepository,
-  IReportSectionRepository,
-  ISettingsRepository,
-  IShareRepository,
-  ISupervisionRepository,
-  ITagRepository,
-  IPaperTagRepository,
-  IVaultPageRepository,
-  ManageSettingsUseCase,
-  ILibraryPinRepository,
-  ICitationAlertTrackRepository,
-  IAnnotationPinRepository,
-  IAnnotationQuotationTypeRepository,
-  ILabSnapshotRepository,
-  IPaperFieldRepository,
-  IReaderAnnotationSink,
-  IReaderAnnotationSyncRecorder,
-  IReaderAnnotationProjectSource,
-  IReaderAnnotationSource,
-  IBlobStore,
-} from "@weaveforge/core";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { notifyWorkspaceChange } from "@/lib/workspace-changes";
-import { watchWrites } from "./watch-writes";
-import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@weaveforge/core";
-import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
-import { PostgrestDashboardLayoutRepository } from "@/features/dashboard/infrastructure/postgrest-dashboard-layout-repository";
-import { PostgrestGraphSettingsRepository } from "@/features/relations/infrastructure/postgrest-graph-settings-repository";
-import { PostgrestExperimentRepository } from "@/features/experiments/infrastructure/postgrest-experiment-repository";
-import { PostgrestMetricRepository } from "@/features/experiments/infrastructure/postgrest-metric-repository";
-import { PostgrestLogEntryRepository } from "@/features/logbook/infrastructure/postgrest-log-entry-repository";
-import { PostgrestMemberRepository } from "@/features/org/infrastructure/postgrest-member-repository";
-import { PostgrestSupervisionRepository } from "@/features/org/infrastructure/postgrest-supervision-repository";
-import { PostgrestPaperRepository } from "@/features/papers/infrastructure/postgrest-paper-repository";
-import { cachePaperRepository } from "@/features/papers/infrastructure/cached-paper-repository";
-import { PostgrestMilestoneRepository } from "@/features/plan/infrastructure/postgrest-milestone-repository";
-import { PostgrestProjectRepository } from "@/features/projects/infrastructure/postgrest-project-repository";
-import { ProjectZoteroStore } from "@/features/projects/infrastructure/project-zotero-store";
-import {
-  PostgrestReadingListRepository,
-  PostgrestReadingListItemRepository,
-} from "@/features/reading-lists/infrastructure/postgrest-reading-list-repository";
-import { PostgrestScreeningRepository } from "@/features/reading-lists/infrastructure/postgrest-screening-repository";
-import { PostgrestPaperRelationRepository } from "@/features/relations/infrastructure/postgrest-paper-relation-repository";
-import { PostgrestCitationAlertTrackRepository } from "@/features/relations/infrastructure/postgrest-citation-alert-track-repository";
-import { PostgrestAnnotationPinRepository } from "@/features/papers/infrastructure/postgrest-annotation-pin-repository";
-import { PostgrestAnnotationQuotationTypeRepository } from "@/features/papers/infrastructure/postgrest-annotation-quotation-type-repository";
-import { PostgrestLabSnapshotRepository } from "@/features/org/infrastructure/postgrest-lab-snapshot-repository";
-import { PostgrestReaderAnnotationRepository } from "@/features/reader/infrastructure/postgrest-reader-annotation-repository";
-import { PostgrestPaperFieldRepository } from "@/features/papers/infrastructure/postgrest-paper-field-repository";
-import { PostgrestReportSectionRepository } from "@/features/report/infrastructure/postgrest-report-section-repository";
-import { PostgrestVaultPageRepository } from "@/features/vault/infrastructure/postgrest-vault-page-repository";
-import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/postgrest-settings-repository";
+import type { BackendConfig } from "@/backend/parts";
 import { secretsStoreFor } from "@/backend/providers/secrets-store";
-import { PostgrestCommentRepository } from "@/features/sharing/infrastructure/postgrest-comment-repository";
-import { PostgrestShareRepository } from "@/features/sharing/infrastructure/postgrest-share-repository";
-import { PostgrestSharedReader } from "@/features/sharing/infrastructure/postgrest-shared-reader";
-import type { ISharedReader } from "@/features/sharing/domain/shared-reader";
-import { PostgrestIntegrationsStore } from "@/features/sync/infrastructure/postgrest-integrations-store";
-import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
-import { PostgrestTagRepository, PostgrestPaperTagRepository } from "@/features/tags";
-import { PostgrestLibraryPinRepository } from "@/features/library";
-import type { ProjectContext } from "@/lib/project-context";
-import { cacheRepo } from "@/lib/cache/cache-repo";
-import { systemClock } from "@/lib/system";
-import type { BackendConfig } from "@/backend/config";
-import { createDataClient } from "./client";
-import { SupabaseSessionProvider } from "../supabase-auth/session";
-import { SupabaseAdminUserProvisioner } from "../supabase-auth/admin-provisioner";
+import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
+import {
+  rustExperimentRepository,
+  rustMetricRepository,
+} from "@/features/experiments/infrastructure/parts";
+import {
+  labSnapshotRepository as rustLabSnapshotRepository,
+  supervisionRepository as rustSupervisionRepository,
+} from "@/features/org/infrastructure/parts";
+import { memberRepository as rustMemberRepository } from "@/features/org/infrastructure/postgrest-member-repository";
+import {
+  rustAnnotationPinRepository,
+  rustPaperFieldRepository,
+} from "@/features/papers/infrastructure/parts-1";
+import { rustPaperRepository } from "@/features/papers/infrastructure/postgrest-paper-repository";
+import { rustMilestoneRepository } from "@/features/plan/infrastructure/milestone-rows";
+import { rustReaderAnnotationRepository } from "@/features/reader/infrastructure/parts-1";
+import {
+  PostgrestSettingsRepository,
+  type IReleaseNoticesRepository,
+  type SettingsWrites,
+} from "@/features/settings/infrastructure/parts";
+import type { IIntegrationsStore } from "@/features/sync/domain/parts";
+import { cacheRepo } from "@/lib/cache/parts-1";
+import type { ProjectContext } from "@/lib/parts-2";
+import { readyCore, typedCore } from "@/lib/rust-core";
+import { notifyWorkspaceChange, systemClock } from "@/lib/parts";
 import { wireStorage } from "@/storage/wire-storage";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  type DashboardLayout,
+  type GraphPersistedState,
+  type IAdminUserProvisioner,
+  type IAnnotationPinRepository,
+  type IAnnotationQuotationTypeRepository,
+  type IAuthService,
+  type IBlobStore,
+  type ICitationAlertTrackRepository,
+  type ICommentRepository,
+  type ICurrentUserProvider,
+  type IDashboardLayoutRepository,
+  type IExperimentManager,
+  type IExperimentRepository,
+  type IGraphSettingsRepository,
+  type ILabSnapshotRepository,
+  type ILibraryPinRepository,
+  type ILogEntryManager,
+  type ILogEntryRepository,
+  type IMemberRepository,
+  type IMetricRepository,
+  type IMilestoneManager,
+  type IMilestoneRepository,
+  type IPaperFieldRepository,
+  type IPaperRelationRepository,
+  type IPaperRepository,
+  type IPaperTagRepository,
+  type IProjectBibliographyCollectionStore,
+  type IProjectManager,
+  type IProjectRepository,
+  type IReaderAnnotationProjectSource,
+  type IReaderAnnotationSink,
+  type IReaderAnnotationSource,
+  type IReaderAnnotationSyncRecorder,
+  type IReadingListItemRepository,
+  type IReadingListRepository,
+  type IReportSectionManager,
+  type IReportSectionRepository,
+  type IScreeningRepository,
+  type ReadingList,
+  type ISettingsRepository,
+  type IShareRepository,
+  type ISupervisionRepository,
+  type ITagManager,
+  type ITagRepository,
+  type IVaultPageManager,
+  type IVaultPageRepository,
+  type ManageSettingsUseCase,
+  ManageSettingsUseCase as ManageSettingsUseCaseClass,
+  type Milestone,
+  type MilestoneFilter,
+  type Project,
+  type ShareableType,
+} from "@weaveforge/core";
+import type { ISharedReader, SharedItem } from "../../../features/sharing/domain/shared-reader";
+import type { Integration, SyncProvider } from "../../../features/sync/domain/parts";
+import { SupabaseAdminUserProvisioner, SupabaseSessionProvider } from "../supabase-auth/parts";
+import { createDataClient } from "./parts-1";
+import { projectUserCtx, rustRepository, rustVaultPageRepository } from "./rust-repository";
+import { watchWrites } from "./watch-writes";
 
+export type { SharedItem } from "../../../features/sharing/domain/shared-reader";
+
+// --- cached-paper-repository ---
+/**
+ * What the read memo does with each repository method.
+ *
+ * A record over every method rather than two lists, so a method added to the
+ * port does not compile until someone decides. A write left off the list
+ * keeps the memo, and the next read paints the row as it was before.
+ */
+const PAPER_METHODS: Record<keyof IPaperRepository, "read" | "write" | "uncached"> = {
+  getById: "read",
+  list: "read",
+  listSummaries: "uncached",
+  findByArxivId: "uncached",
+  findByDoi: "uncached",
+  findByTitleKey: "uncached",
+  findIdentityByArxivId: "uncached",
+  findIdentityByDoi: "uncached",
+  save: "write",
+  delete: "write",
+  setTags: "write",
+  replaceSummary: "write",
+};
+
+function methods(kind: "read" | "write"): string[] {
+  return Object.entries(PAPER_METHODS)
+    .filter(([, value]) => value === kind)
+    .map(([name]) => name);
+}
+
+/** The paper repository behind the project-scoped read memo. */
+export function cachePaperRepository<R extends IPaperRepository>(inner: R, pid: () => string | null): R {
+  return cacheRepo(inner, methods("read"), methods("write"), pid, { resourceType: "paper" });
+}
+
+// --- rust-backed stores ---
+/** `project_integrations` per (project, provider), through the Rust step engine. */
+export function rustIntegrationsStore(db: SupabaseClient): IIntegrationsStore {
+  return rustRepository<IIntegrationsStore>(db, "project_integrations", ["get", "save"]);
+}
+
+/** `projects` through the Rust step engine; `save` stamps the signed-in user. */
+function rustProjectRepository(db: SupabaseClient, session: ICurrentUserProvider): IProjectRepository & IProjectManager {
+  return rustRepository<IProjectRepository & IProjectManager>(db, "projects", ["getById", "list", "save", "delete", "create", "remove"], async () => ({
+    userId: (await session.getCurrentUserId()) ?? undefined,
+  }));
+}
+
+/**
+ * The rows behind a set of shares, by id (per-item grants) or by owner (blanket
+ * grants). Rust plans the read (`repos/shared_items.rs`); no grants, no request.
+ */
+function rustSharedReader(db: SupabaseClient): ISharedReader {
+  return rustRepository<ISharedReader>(db, "shared_items", ["read"]);
+}
+
+/**
+ * Per-project Zotero collection (`projects.zotero_collection`). The API key and
+ * library are per user; only the target collection is per project.
+ */
+function rustProjectZoteroStore(db: SupabaseClient): IProjectBibliographyCollectionStore {
+  type Wire = { getCollection(projectId: string): Promise<string | null>; setCollection(projectId: string, collection: string | null): Promise<void> };
+  const repo = rustRepository<Wire>(db, "projects", ["getCollection", "setCollection"]);
+  return {
+    getCollection: async (projectId) => (await repo.getCollection(projectId)) ?? undefined,
+    setCollection: (projectId, collection) => repo.setCollection(projectId, collection),
+  };
+}
+
+// --- wire-postgrest-backend ---
 export interface WiredPostgrestBackend {
   readonly config: BackendConfig;
   readonly db: SupabaseClient;
@@ -94,32 +168,33 @@ export interface WiredPostgrestBackend {
   readonly auth: IAuthService;
   readonly adminProvisioner: IAdminUserProvisioner | null;
   readonly projectContext: ProjectContext;
-  readonly settingsRepository: ISettingsRepository;
+  readonly settingsRepository: ISettingsRepository & SettingsWrites;
+  readonly releaseNoticesRepository: IReleaseNoticesRepository;
   readonly manageSettings: ManageSettingsUseCase;
-  readonly projectRepository: IProjectRepository;
+  readonly projectRepository: IProjectRepository & IProjectManager;
   readonly dashboardLayoutRepository: IDashboardLayoutRepository;
   readonly graphSettingsRepository: IGraphSettingsRepository;
   readonly integrationsStore: IIntegrationsStore;
   readonly paperRepository: IPaperRepository;
-  readonly tagRepository: ITagRepository;
+  readonly tagRepository: ITagRepository & ITagManager;
   readonly paperTagRepository: IPaperTagRepository;
-  readonly logEntryRepository: ILogEntryRepository;
-  readonly reportSectionRepository: IReportSectionRepository;
+  readonly logEntryRepository: ILogEntryRepository & ILogEntryManager;
+  readonly reportSectionRepository: IReportSectionRepository & IReportSectionManager;
   readonly readingListRepository: IReadingListRepository;
   readonly readingListItemRepository: IReadingListItemRepository;
   readonly screeningRepository: IScreeningRepository;
   readonly paperRelationRepository: IPaperRelationRepository;
-  readonly experimentRepository: IExperimentRepository;
+  readonly experimentRepository: IExperimentRepository & IExperimentManager;
   readonly metricRepository: IMetricRepository;
   readonly shareRepository: IShareRepository;
   readonly commentRepository: ICommentRepository;
   readonly sharedReader: ISharedReader;
-  readonly milestoneRepository: IMilestoneRepository;
-  readonly memberRepository: IMemberRepository;
+  readonly milestoneRepository: IMilestoneRepository & IMilestoneManager;
+  readonly memberRepository: IMemberRepository & { assertCanCreate(role: string): Promise<void> };
   readonly supervisionRepository: ISupervisionRepository;
   readonly projectBibliographyCollection: IProjectBibliographyCollectionStore;
   readonly rawBlobStore: IBlobStore;
-  readonly rawVaultPageRepository: IVaultPageRepository;
+  readonly rawVaultPageRepository: IVaultPageRepository & IVaultPageManager;
   readonly libraryPinRepository: ILibraryPinRepository;
   readonly citationAlertTrackRepository: ICitationAlertTrackRepository;
   readonly annotationPinRepository: IAnnotationPinRepository;
@@ -148,7 +223,9 @@ export interface BackendParts {
   auth: IAuthService;
   blobStore: IBlobStore;
   /** Settings differ only in where the integration credentials are kept. */
-  settingsRepository: ISettingsRepository;
+  settingsRepository: ISettingsRepository & SettingsWrites;
+  /** Offline copies have no release notices; the server supplies them otherwise. */
+  releaseNotices?: IReleaseNoticesRepository;
 }
 
 export function wirePostgrestBackend(
@@ -181,42 +258,79 @@ export function wirePostgrestBackend(
 
   const settingsRepository =
     parts?.settingsRepository ?? new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
+  const releaseNoticesRepository =
+    parts?.releaseNotices ??
+    rustRepository<IReleaseNoticesRepository>(db, "release_notices", ["unseen"], async () => ({
+      userId: (await session.getCurrentUserId()) ?? undefined,
+    }));
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
   const projectRepository = cacheRepo(
-    new PostgrestProjectRepository(db, session),
+    rustProjectRepository(db, session),
     ["getById", "list"],
-    ["save", "delete"],
+    ["save", "delete", "create", "remove"],
     pid,
     { resourceType: "project" },
   );
   const dashboardLayoutRepository = cacheRepo(
-    new PostgrestDashboardLayoutRepository(db),
+    rustRepository<IDashboardLayoutRepository>(db, "dashboardLayout", ["get", "save"]),
     ["get"],
     ["save"],
     pid,
     { resourceType: "dashboard_layout" },
   );
   const graphSettingsRepository = cacheRepo(
-    new PostgrestGraphSettingsRepository(db),
+    rustRepository<IGraphSettingsRepository>(db, "graphSettings", ["get", "save"]),
     ["get"],
     ["save"],
     pid,
     { resourceType: "graph_settings" },
   );
-  const integrationsStore: IIntegrationsStore = new PostgrestIntegrationsStore(db);
-  const paperRepository = cachePaperRepository(new PostgrestPaperRepository(db, projectContext), pid);
+  const integrationsStore: IIntegrationsStore = rustIntegrationsStore(db);
+  const paperRepository = cachePaperRepository(rustPaperRepository(db, projectContext), pid);
 
   const tagPaperCache = new Map<string, Promise<unknown>>();
   const tagPaperSettled = new Map<string, unknown>();
+  // Tag membership writes (setManualTags, mergeTags, ...) go through the same
+  // cached repo so the tag cache and the write notification stay in one place.
   const tagRepository = cacheRepo(
-    new PostgrestTagRepository(db, projectContext),
-    ["getById", "findByName", "list", "listWithCounts"],
-    ["save", "delete"],
+    rustRepository<ITagRepository & ITagManager>(
+      db,
+      "tags",
+      [
+        "getById",
+        "findByName",
+        "list",
+        "listAll",
+        "listWithCounts",
+        "listForPaper",
+        "listPapersForTag",
+        "listPaperTagLinks",
+        "save",
+        "delete",
+        "setManualTags",
+        "mergeTags",
+        "removeManualTag",
+        "reconcileSources",
+        "mergeConcepts",
+        "refreshPaperCache",
+      ],
+      projectUserCtx(projectContext),
+    ),
+    ["getById", "findByName", "list", "listAll", "listWithCounts", "listForPaper", "listPapersForTag", "listPaperTagLinks"],
+    ["save", "delete", "setManualTags", "mergeTags", "removeManualTag", "reconcileSources", "mergeConcepts", "refreshPaperCache"],
     pid,
     { resourceType: "tag", sharedCache: tagPaperCache, sharedSettled: tagPaperSettled },
   );
   const paperTagRepository = cacheRepo(
-    new PostgrestPaperTagRepository(db),
+    rustRepository<IPaperTagRepository>(db, "paper_tags", [
+      "listForPaper",
+      "listForTag",
+      "listAll",
+      "link",
+      "unlink",
+      "unlinkBySource",
+      "reconcile",
+    ]),
     ["listForPaper", "listForTag", "listAll"],
     ["link", "unlink", "unlinkBySource", "reconcile"],
     pid,
@@ -224,16 +338,34 @@ export function wirePostgrestBackend(
   );
 
   const logEntryRepository = cacheRepo(
-    new PostgrestLogEntryRepository(db, projectContext),
+    rustRepository<ILogEntryRepository & ILogEntryManager>(db, "log_entries", ["getById", "list", "save", "delete", "add", "update", "remove"], projectUserCtx(projectContext)),
     ["getById", "list"],
-    ["save", "delete"],
+    ["save", "delete", "add", "update", "remove"],
     pid,
     { resourceType: "log_entry" },
   );
   const reportSectionRepository = cacheRepo(
-    new PostgrestReportSectionRepository(db, projectContext),
+    rustRepository<IReportSectionRepository & IReportSectionManager>(
+      db,
+      "report_sections",
+      [
+        "getById",
+        "list",
+        "getTree",
+        "save",
+        "delete",
+        "add",
+        "setTitle",
+        "setParent",
+        "setStatus",
+        "setProgress",
+        "setNotes",
+        "remove",
+      ],
+      projectUserCtx(projectContext),
+    ),
     ["getById", "list", "getTree"],
-    ["save", "delete"],
+    ["save", "delete", "add", "setTitle", "setParent", "setStatus", "setProgress", "setNotes", "remove"],
     pid,
     { resourceType: "report_section" },
   );
@@ -242,21 +374,35 @@ export function wirePostgrestBackend(
   // repository, so every consumer that wanted real note bodies — wiki, search,
   // export, the folder mirror — paid its own round trip on the same page.
   const rawVaultPageRepository = cacheRepo(
-    new PostgrestVaultPageRepository(db, projectContext),
+    rustVaultPageRepository(db, projectContext),
     ["getById", "list", "listSummaries", "getTree"],
-    ["save", "delete"],
+    ["save", "delete", "add", "update", "remove"],
     pid,
     { resourceType: "vault_page" },
   );
   const readingListRepository = cacheRepo(
-    new PostgrestReadingListRepository(db, projectContext),
+    rustRepository<IReadingListRepository & { listByIds(ids: readonly string[]): Promise<ReadingList[]> }>(
+      db,
+      "reading_lists",
+      ["getById", "listByIds", "list", "getTree", "save", "delete"],
+      projectUserCtx(projectContext),
+    ),
     ["getById", "list", "getTree"],
     ["save", "delete"],
     pid,
     { resourceType: "reading_list" },
   );
   const readingListItemRepository = cacheRepo(
-    new PostgrestReadingListItemRepository(db),
+    rustRepository<IReadingListItemRepository>(db, "reading_list_items", [
+      "listItems",
+      "listItemsForLists",
+      "listsForPaper",
+      "listsForNote",
+      "find",
+      "findNote",
+      "add",
+      "remove",
+    ] as (keyof IReadingListItemRepository & string)[]),
     ["listItems", "listItemsForLists", "listsForPaper", "find"],
     ["add", "remove"],
     pid,
@@ -264,44 +410,58 @@ export function wirePostgrestBackend(
   );
   // Not cached: a decision another reviewer records is the point of the screen,
   // and a cache would show you your own half of it until something evicted.
-  const screeningRepository = new PostgrestScreeningRepository(db);
+  const screeningRepository = rustRepository<IScreeningRepository>(db, "screening_decisions", [
+    "listForItems",
+    "record",
+    "remove",
+  ]);
 
   const paperRelationRepository = cacheRepo(
-    new PostgrestPaperRelationRepository(db, projectContext),
+    rustRepository<IPaperRelationRepository>(
+      db,
+      "paper_relations",
+      ["getById", "list", "getGraph", "relationsFor", "findEdge", "save", "delete"],
+      projectUserCtx(projectContext),
+    ),
     ["getById", "list", "getGraph", "relationsFor", "findEdge"],
     ["save", "delete"],
     pid,
     { resourceType: "paper_relation" },
   );
   const experimentRepository = cacheRepo(
-    new PostgrestExperimentRepository(db, projectContext),
+    rustExperimentRepository(db, projectContext),
     ["getById", "list"],
-    ["save", "patch", "delete"],
+    ["save", "patch", "delete", "add", "setStatus", "recordMetrics", "addArtifacts", "setResultNote", "remove"],
     pid,
     { resourceType: "experiment" },
   );
-  const metricRepository = new PostgrestMetricRepository(db);
+  const metricRepository = rustMetricRepository(db);
   const shareRepository = cacheRepo(
-    new PostgrestShareRepository(db, session),
+    rustRepository<IShareRepository>(
+      db,
+      "shares",
+      ["grant", "revoke", "listForResource", "listSharedWithMe"],
+      projectUserCtx(projectContext, session),
+    ),
     ["listForResource", "listSharedWithMe"],
     ["grant", "revoke"],
     pid,
     { resourceType: "share" },
   );
-  const commentRepository = new PostgrestCommentRepository(db);
+  const commentRepository = rustRepository<ICommentRepository>(db, "comments", ["list", "add", "remove", "setResolved"]);
   // What you can read depends on the grants, so a share change (yours or a
   // peer's broadcast) clears this memo with the share repository's.
   const sharedReader: ISharedReader = cacheRepo(
-    new PostgrestSharedReader(db),
+    rustSharedReader(db),
     ["read"],
     [],
     pid,
     { resourceType: "share" },
   );
   const milestoneRepository = cacheRepo(
-    new PostgrestMilestoneRepository(db, projectContext),
+    rustMilestoneRepository(db, projectContext),
     ["getById", "list"],
-    ["save", "delete"],
+    ["save", "delete", "add", "setStatus", "update", "remove"],
     pid,
     { resourceType: "milestone" },
   );
@@ -312,58 +472,73 @@ export function wirePostgrestBackend(
   // Membership rarely changes during a session, so it caches like the rest; the
   // org calls that change it (create, join, roles, new accounts) clear every memo.
   const memberRepository = cacheRepo(
-    new PostgrestMemberRepository(db, session),
+    rustMemberRepository(db, session),
     ["getMine", "listTeam", "listDirectory", "listLab"],
     [],
     pid,
   );
-  const supervisionRepository = new PostgrestSupervisionRepository(db);
-  const projectBibliographyCollection = new ProjectZoteroStore(db);
+  const supervisionRepository = rustSupervisionRepository(db);
+  const projectBibliographyCollection = rustProjectZoteroStore(db);
   const rawBlobStore = parts?.blobStore ?? wireStorage({ supabaseDb: db });
   const libraryPinRepository: ILibraryPinRepository = cacheRepo(
-    new PostgrestLibraryPinRepository(db, projectContext, session),
+    rustRepository<ILibraryPinRepository>(
+      db,
+      "library_pins",
+      ["pin", "unpin", "listForProject", "isPinned"],
+      projectUserCtx(projectContext, session),
+    ),
     ["listForProject", "isPinned"],
     ["pin", "unpin"],
     pid,
     { resourceType: "library_pin" },
   );
   const citationAlertTrackRepository: ICitationAlertTrackRepository = cacheRepo(
-    new PostgrestCitationAlertTrackRepository(db, projectContext, session),
+    rustRepository<ICitationAlertTrackRepository>(
+      db,
+      "citation_alert_tracks",
+      ["track", "untrack", "listForProject", "getByPaperId", "save"],
+      projectUserCtx(projectContext, session),
+    ),
     ["listForProject", "getByPaperId"],
     ["track", "untrack", "save"],
     pid,
     { resourceType: "citation_alert_track" },
   );
   const annotationPinRepository: IAnnotationPinRepository = cacheRepo(
-    new PostgrestAnnotationPinRepository(db, projectContext, session),
+    rustAnnotationPinRepository(db, projectContext, session),
     ["listForProject", "listForPaper", "listForSection"],
     ["save", "remove"],
     pid,
     { resourceType: "paper" },
   );
   const annotationQuotationTypeRepository: IAnnotationQuotationTypeRepository = cacheRepo(
-    new PostgrestAnnotationQuotationTypeRepository(db, projectContext, session),
+    rustRepository<IAnnotationQuotationTypeRepository>(
+      db,
+      "annotation_quotation_types",
+      ["save", "remove", "listForPaper"],
+      projectUserCtx(projectContext, session),
+    ),
     ["listForPaper"],
     ["save", "remove"],
     pid,
     { resourceType: "paper" },
   );
   const labSnapshotRepository: ILabSnapshotRepository = cacheRepo(
-    new PostgrestLabSnapshotRepository(db, projectContext, session),
+    rustLabSnapshotRepository(db, projectContext, session),
     ["listMine", "listForMember", "getById"],
     ["publish", "remove"],
     pid,
     { resourceType: "project" },
   );
   const readerAnnotationRepository = cacheRepo(
-    new PostgrestReaderAnnotationRepository(db, projectContext, session),
+    rustReaderAnnotationRepository(db, projectContext, session),
     ["list", "listForProject"],
     ["create", "update", "remove", "recordZoteroSync"],
     pid,
     { resourceType: "paper" },
   );
   const paperFieldRepository: IPaperFieldRepository = cacheRepo(
-    new PostgrestPaperFieldRepository(db, projectContext, session),
+    rustPaperFieldRepository(db, projectContext, session),
     ["listDefs", "listValuesForPaper", "listValuesForProject"],
     ["saveDef", "deleteDef", "setValue", "removeValue"],
     pid,
@@ -378,6 +553,7 @@ export function wirePostgrestBackend(
     adminProvisioner,
     projectContext,
     settingsRepository,
+    releaseNoticesRepository,
     manageSettings,
     projectRepository,
     dashboardLayoutRepository,

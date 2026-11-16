@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { PostgrestShareLinkRepository } from "../infrastructure/postgrest-share-link-repository";
+import { rustShareLinkRepository } from "@/backend/providers/postgrest/rust-repository";
 
 const row = {
   id: "l1",
@@ -34,7 +34,7 @@ const KEY_COLUMNS = /token_hash|dek_wrap|dek_epoch/;
 
 test("reading a link back never selects its key material (33-18)", async () => {
   const { db, selects } = recordingClient();
-  const repo = new PostgrestShareLinkRepository(db);
+  const repo = rustShareLinkRepository(db);
   const link = await repo.getById("l1");
   const links = await repo.listForResource("paper", "p1");
   assert.equal(selects.length, 2);

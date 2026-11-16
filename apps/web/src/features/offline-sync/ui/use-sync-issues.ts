@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { LocalRunner } from "@/backend/providers/local/local-runner";
-import { ConflictStore, deletionFor, type OpenConflict } from "../domain/conflicts";
-import { Outbox, type OutboxEntry } from "../domain/outbox";
+import { LocalRunner } from "@/backend/providers/local/parts";
+import { readyCore } from "@/lib/rust-core";
+import { ConflictStore, type OpenConflict } from "../domain/parts-1";
+import { Outbox, type OutboxEntry } from "../domain/parts-2";
 import { useLiveSync } from "./use-live-sync";
 
 /**
@@ -81,12 +82,18 @@ export function useSyncIssues(): SyncIssuesHandle {
     async (side: "local" | "remote") => {
       for (const conflict of issues.conflicts) {
         if (conflict.kind !== "edit") {
-          await resolveDeletion(conflict.id, deletionFor(conflict.kind, side));
+          await resolveDeletion(conflict.id, readyCore().deletionFor(conflict.kind, side));
           continue;
         }
         if (conflict.fields.length === 0) continue;
-        const picks: Record<string, "local" | "remote"> = {};
-        for (const f of conflict.fields) picks[f.field] = side;
+        const picks = Object.fromEntries(
+          readyCore()
+            .keepAllPicks(
+              conflict.fields.map((f) => f.field),
+              side,
+            )
+            .map((p) => [p.field, p.side]),
+        ) as Record<string, "local" | "remote">;
         await keep(conflict.id, picks);
       }
     },

@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
-import type { SharedItemDetail } from "../application/load-shared-details";
+import type { SharedItemDetail } from "../application/parts";
 import { SharedItemRenderer } from "../ui/shared-item-renderer";
 
 /**
@@ -21,6 +21,7 @@ const ITEMS: Record<string, SharedItemDetail> = {
     kind: "vault_page",
     id: "v1",
     title: "Notes",
+    status: "",
     vaultPage: { id: "v1", title: "Notes", body: "Some   body text", sortOrder: 0, createdAt: "", updatedAt: "" },
   } as unknown as SharedItemDetail,
   experiment: {
@@ -28,6 +29,7 @@ const ITEMS: Record<string, SharedItemDetail> = {
     kind: "experiment",
     id: "e1",
     title: "Run",
+    status: "",
     experiment: { id: "e1", name: "Run", hypothesis: "It works", metrics: { acc: 0.22 } },
   } as unknown as SharedItemDetail,
   milestone: { ...base, kind: "milestone", id: "m1", title: "Ship", status: "open" } as unknown as SharedItemDetail,

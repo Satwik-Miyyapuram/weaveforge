@@ -1,0 +1,26 @@
+[package]
+name = "wf-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "AGPL-3.0-only"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "=0.4.10"
+wf-core = { path = "../crates/wf-core" }
+
+# Not part of the root workspace: running cargo-fuzz needs nightly. Its lock is fuzz/Cargo.lock.
+# CI checks it with --locked: after a wf-core dependency bump, run
+# `cargo update -w --manifest-path fuzz/Cargo.toml`.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "sync_parsers"
+path = "fuzz_targets/sync_parsers.rs"
+test = false
+doc = false
+bench = false

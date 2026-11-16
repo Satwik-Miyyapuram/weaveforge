@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
 import type { DesktopOverleafSync, DesktopOverleafSyncRequest } from "@/lib/desktop/desktop-bridge";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 import {
   describeOverleafSync,
   overleafSync,
   overleafSyncAvailable,
   saveOverleafToken,
-} from "../application/overleaf-folder-sync";
+} from "../application/parts";
 
 function fakeShell() {
   const calls: unknown[][] = [];
@@ -48,12 +49,16 @@ test("requests go to the shell as typed; the token is trimmed and an empty one r
   ]);
 });
 
-test("one line per reply", () => {
+before(async () => {
+  await loadTestCore();
+});
+
+test("one line per reply", async () => {
   const base = { links: [], hasToken: true };
-  assert.equal(describeOverleafSync({ ...base, pull: { kind: "up-to-date" } }), "Already up to date.");
-  assert.equal(describeOverleafSync({ ...base, push: { kind: "pushed" } }), "Pushed.");
-  assert.equal(describeOverleafSync({ ...base, status: { url: null, branch: "master", ahead: 0, behind: 0 } }), "Not pulled yet.");
-  assert.equal(describeOverleafSync({ ...base, status: { url: "u", branch: "master", ahead: 0, behind: 0 } }), "In step with Overleaf.");
-  assert.equal(describeOverleafSync({ ...base, status: { url: "u", branch: "master", ahead: 1, behind: 2 } }), "1 commit to push, 2 to pull.");
-  assert.equal(describeOverleafSync(base), "");
+  assert.equal(await describeOverleafSync({ ...base, pull: { kind: "up-to-date" } }), "Already up to date.");
+  assert.equal(await describeOverleafSync({ ...base, push: { kind: "pushed" } }), "Pushed.");
+  assert.equal(await describeOverleafSync({ ...base, status: { url: null, branch: "master", ahead: 0, behind: 0 } }), "Not pulled yet.");
+  assert.equal(await describeOverleafSync({ ...base, status: { url: "u", branch: "master", ahead: 0, behind: 0 } }), "In step with Overleaf.");
+  assert.equal(await describeOverleafSync({ ...base, status: { url: "u", branch: "master", ahead: 1, behind: 2 } }), "1 commit to push, 2 to pull.");
+  assert.equal(await describeOverleafSync(base), "");
 });

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import { testDb } from "./pg-test-db";
-import { SYNCED_TABLES } from "../providers/local/local-first";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 
 /**
  * The change feed, against the real migrations.
@@ -12,6 +13,10 @@ import { SYNCED_TABLES } from "../providers/local/local-first";
  * the feed shows a caller only what they could have selected themselves.
  */
 describe("the sync change feed", () => {
+  before(async () => {
+    await loadTestCore();
+  });
+
   it("registers only tables that exist and carry a uuid id", async () => {
     const db = await testDb();
     const rows = await db.sql<{ table_name: string }>(
@@ -24,7 +29,7 @@ describe("the sync change feed", () => {
   it("keeps the desktop's local tables the same as the registry", async () => {
     const db = await testDb();
     const rows = await db.sql<{ table_name: string }>("select table_name from sync_tables order by table_name");
-    assert.deepEqual(rows.map((r) => r.table_name), [...SYNCED_TABLES].sort());
+    assert.deepEqual(rows.map((r) => r.table_name), [...readyCore().syncedTables()].sort());
   });
 
   it("stamps a watermark that moves on insert and again on update", async () => {

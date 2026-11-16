@@ -1,7 +1,18 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { before as beforeAll, test } from "node:test";
 
-import { CONTEXT, anchorAt, locateAnchor } from "../domain/text-anchor";
+import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+/** Characters of context kept either side of a quote (Rust `text_anchor::CONTEXT`). */
+const CONTEXT = 32;
+
+beforeAll(async () => {
+  await loadTestCore();
+});
+
+const anchorAt: ReturnType<typeof readyCore>["anchorAt"] = (...a) => readyCore().anchorAt(...a);
+const locateAnchor: ReturnType<typeof readyCore>["locateAnchor"] = (...a) => readyCore().locateAnchor(...a);
 
 test("an anchor round-trips to the span it was taken from", () => {
   const text = "Alpha beta gamma. Delta epsilon.";

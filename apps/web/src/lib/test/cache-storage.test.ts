@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clearCacheStorage } from "@/lib/cache-storage";
+import { clearCacheStorage } from "@/lib/parts";
 
 async function withCaches(stub: unknown, run: () => Promise<void>): Promise<void> {
   const g = globalThis as { caches?: unknown };

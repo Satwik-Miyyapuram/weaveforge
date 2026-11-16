@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { QUOTATION_TYPES, QUOTATION_TYPE_LABELS, type Paper, type QuotationType } from "@weaveforge/core";
+import { type Paper, type QuotationType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
-import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
+import { QUOTATION_TYPES, QUOTATION_TYPE_LABELS } from "@/lib/parts";
+import { readyCore } from "@/lib/rust-core";
 import type { StoredZoteroAnnotation } from "../domain/zotero";
 import { Button } from "@/components/button";
 import { Chip } from "@/components/controls";
@@ -54,7 +55,7 @@ export function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: 
     const quote = (a.text ?? a.comment ?? "").trim();
     if (!quote) return;
     try {
-      await navigator.clipboard.writeText(formatQuoteCiteClipboard(quote, paper.title));
+      await navigator.clipboard.writeText(readyCore().formatQuoteCiteClipboard(quote, paper.title));
       setMsg("Copied quote + [[cite]]");
       window.setTimeout(() => setMsg(null), 1500);
     } catch {

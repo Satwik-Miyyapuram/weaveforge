@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import {
-  buildOverleafExportPackage,
-  collectCitedKeys,
-  formatCitation,
-  formatPaperCitation,
-  resolveCiteKey,
-} from "../application/build-overleaf-export";
-import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
+import test, { before, mock } from "node:test";
+import { buildOverleafExportPackage } from "../application/parts";
+import type { Experiment, Paper, ReportSectionTreeNode } from "@weaveforge/core";
+import { paperCiteKeys } from "@weaveforge/wasm";
+import { readyCore, typedCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 const tree: ReportSectionTreeNode[] = [
   {
@@ -127,29 +128,29 @@ test("buildOverleafExportPackage prefers metadata.citeKey for \\cite keys", () =
 });
 
 test("formatCitation emits latex, pandoc, footnote, and raw forms", () => {
-  assert.equal(formatCitation("smith2020", "latex"), "\\cite{smith2020}");
-  assert.equal(formatCitation("smith2020", "pandoc"), "[@smith2020]");
-  assert.equal(formatCitation("smith2020", "footnote"), "[^smith2020]");
-  assert.equal(formatCitation("smith2020", "raw"), "smith2020");
+  assert.equal(typedCore().formatCitation("smith2020", "latex"), "\\cite{smith2020}");
+  assert.equal(typedCore().formatCitation("smith2020", "pandoc"), "[@smith2020]");
+  assert.equal(typedCore().formatCitation("smith2020", "footnote"), "[^smith2020]");
+  assert.equal(typedCore().formatCitation("smith2020", "raw"), "smith2020");
 });
 
 test("formatCitation returns empty string when the key is blank", () => {
-  assert.equal(formatCitation("", "latex"), "");
-  assert.equal(formatCitation("   ", "pandoc"), "");
+  assert.equal(typedCore().formatCitation("", "latex"), "");
+  assert.equal(typedCore().formatCitation("   ", "pandoc"), "");
 });
 
 test("formatCitation sanitises unsafe characters in raw keys", () => {
-  assert.equal(formatCitation("smith 2020}", "latex"), "\\cite{smith_2020_}");
-  assert.equal(formatCitation("a/b", "pandoc"), "[@a_b]");
+  assert.equal(typedCore().formatCitation("smith 2020}", "latex"), "\\cite{smith_2020_}");
+  assert.equal(typedCore().formatCitation("a/b", "pandoc"), "[@a_b]");
 });
 
 test("resolveCiteKey follows metadata → bibtex → extra → doi → arxiv → id", () => {
   assert.equal(
-    resolveCiteKey({ ...papers[0]!, metadata: { citeKey: "from_meta" } }),
+    typedCore().resolveCiteKey({ ...papers[0]!, metadata: { citeKey: "from_meta" } }),
     "from_meta",
   );
   assert.equal(
-    resolveCiteKey({
+    typedCore().resolveCiteKey({
       ...papers[0]!,
       bibtex: "@article{from_bib,\n  title={X}\n}",
       metadata: {},
@@ -157,29 +158,29 @@ test("resolveCiteKey follows metadata → bibtex → extra → doi → arxiv →
     "from_bib",
   );
   assert.equal(
-    resolveCiteKey({
+    typedCore().resolveCiteKey({
       ...papers[0]!,
       metadata: { extra: "Citation Key: from_extra" },
     }),
     "from_extra",
   );
   assert.equal(
-    resolveCiteKey({ ...papers[0]!, doi: "10.1000/xyz", metadata: {} }),
+    typedCore().resolveCiteKey({ ...papers[0]!, doi: "10.1000/xyz", metadata: {} }),
     "doi_10_1000_xyz",
   );
   assert.equal(
-    resolveCiteKey({ ...papers[0]!, arxivId: "2401.00001", metadata: {} }),
+    typedCore().resolveCiteKey({ ...papers[0]!, arxivId: "2401.00001", metadata: {} }),
     "arxiv_2401_00001",
   );
-  assert.equal(resolveCiteKey({ ...papers[0]!, metadata: {} }), "paper_p1");
+  assert.equal(typedCore().resolveCiteKey({ ...papers[0]!, metadata: {} }), "paper_p1");
 });
 
 test("formatPaperCitation uses the shared resolveCiteKey precedence", () => {
   const keyed = { ...papers[0]!, metadata: { citeKey: "attn" } };
-  assert.equal(formatPaperCitation(keyed, "latex"), "\\cite{attn}");
-  assert.equal(formatPaperCitation(keyed, "pandoc"), "[@attn]");
-  assert.equal(formatPaperCitation(keyed, "footnote"), "[^attn]");
-  assert.equal(formatPaperCitation(keyed, "raw"), "attn");
+  assert.equal(typedCore().formatPaperCitation(keyed, "latex"), "\\cite{attn}");
+  assert.equal(typedCore().formatPaperCitation(keyed, "pandoc"), "[@attn]");
+  assert.equal(typedCore().formatPaperCitation(keyed, "footnote"), "[^attn]");
+  assert.equal(typedCore().formatPaperCitation(keyed, "raw"), "attn");
 });
 
 /** Bibliography entry for a single paper, as written to references.bib. */
@@ -328,7 +329,111 @@ test("bibliographyScope 'cited' warns when the report cites nothing", () => {
 
 test("collectCitedKeys reads comma-separated cite lists", () => {
   assert.deepEqual(
-    [...collectCitedKeys("text \\cite{a, b} more \\cite{c}")].sort(),
+    [...typedCore().collectCitedKeys("text \\cite{a, b} more \\cite{c}")].sort(),
     ["a", "b", "c"],
   );
+});
+
+test("buildOverleafExportPackage turns results-table refs into a tabular from current runs", () => {
+  const withTable: ReportSectionTreeNode[] = [
+    { section: { ...tree[0]!.section, notes: "See:\n\n![Main results](exptable:e1)\n" }, children: [] },
+  ];
+  const experiments = [
+    { id: "e1", name: "run_a", metrics: { acc: 0.91 } },
+  ] as unknown as Experiment[];
+  const main = buildOverleafExportPackage(withTable, [], { title: "T", experiments })
+    .files.find((f) => f.path === "main.tex")!.contents;
+  assert.match(main, /\\begin\{tabular\}\{lr\}/);
+  assert.match(main, /run\\_a & 0\.9100 \\\\/);
+  assert.match(main, /\\caption\{Main results\}/);
+  assert.doesNotMatch(main, /exptable:/);
+});
+
+test("buildOverleafExportPackage output stays byte-identical to the Rust-built package", () => {
+  // Fixed clock: the Rust side only receives exportedAt, so the TS caller sets it here.
+  mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-12T00:00:00.000Z") });
+  const out = (() => {
+    try {
+      return buildOverleafExportPackage([], papers, { bibliographyScope: "all" });
+    } finally {
+      mock.timers.reset();
+    }
+  })();
+  const file = (path: string) => out.files.find((f) => f.path === path)?.contents;
+
+  // Empty report, one paper, scope "all": the golden fixture.
+  assert.equal(
+    file("main.tex"),
+    [
+      "% Generated by WeaveForge — Overleaf export package.",
+      "% This plaintext left the WeaveForge RLS boundary by explicit user action.",
+      "\\documentclass[11pt,a4paper]{report}",
+      "\\usepackage[utf8]{inputenc}",
+      "\\usepackage[T1]{fontenc}",
+      "\\usepackage{hyperref}",
+      "\\usepackage{graphicx}",
+      "\\usepackage[backend=biber,style=numeric]{biblatex}",
+      "\\addbibresource{references.bib}",
+      "\\title{WeaveForge report export}",
+      "\\author{}",
+      "\\date{\\today}",
+      "\\begin{document}",
+      "\\maketitle",
+      "\\tableofcontents",
+      "\\clearpage",
+      "\\nocite{*}",
+      "\\printbibliography",
+      "\\end{document}",
+    ].join("\n"),
+  );
+  const key = paperCiteKeys(papers)[0]!;
+  assert.equal(
+    file("references.bib"),
+    readyCore().joinBibtex([readyCore().paperToBibtex(papers[0]!, key)]),
+  );
+  assert.equal(
+    file("manifest.json"),
+    JSON.stringify(
+      {
+        schemaVersion: 1,
+        exportedAt: "2026-11-12T00:00:00.000Z",
+        app: "WeaveForge",
+        kind: "overleaf-export-package",
+        title: "WeaveForge report export",
+        bibliographyScope: "all",
+        files: ["main.tex", "references.bib"],
+        stats: { sections: 0, equationsApprox: 0, bibliographyEntries: 1, figures: 0 },
+        warnings: [],
+        note: "Upload these files to a new or existing Overleaf project. WeaveForge does not push to Overleaf.",
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+  assert.equal(
+    file("README.txt"),
+    [
+      "WeaveForge → Overleaf export package",
+      "Exported at: 2026-11-12T00:00:00.000Z",
+      "",
+      "Contents:",
+      "  main.tex         — report outline (+ section notes as LaTeX)",
+      "  references.bib   — your whole paper library; main.tex uses \\nocite{*} so every entry prints",
+      "  figures/         — images from section notes (if any)",
+      "  manifest.json    — export metadata and warnings",
+      "",
+      "How to use:",
+      "  1. Create a new Overleaf project (or open an existing one).",
+      "  2. Upload main.tex, references.bib, and the figures/ folder.",
+      "  3. Compile in Overleaf. Fix any warnings listed in manifest.json.",
+      "",
+      "Citations: [[Paper Title]] wikilinks in section notes become \\cite{…} when",
+      "the title matches a paper in your library (case-insensitive).",
+      "",
+      "Privacy: this ZIP contains plaintext. It left WeaveForge by your explicit export.",
+      "WeaveForge never stores this package or your Overleaf Git token in the browser export path.",
+      "",
+    ].join("\n"),
+  );
+  assert.deepEqual(out.warnings, ["Report has no sections — main.tex is an empty shell."]);
 });

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { DESKTOP_BREAKPOINT_PX, RAIL_COLLAPSE_BELOW_PX } from "@/lib/breakpoints";
+import { DESKTOP_BREAKPOINT_PX, RAIL_COLLAPSE_BELOW_PX } from "@/lib/parts";
 
 export type LayoutBreakpoint = "mobile" | "desktop";
 

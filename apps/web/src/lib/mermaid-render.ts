@@ -7,9 +7,9 @@
  * re-render. The server gets the escaped source back; diagrams draw on the
  * client.
  */
-import { escapeHtml } from "./escape-html";
 import { errorMessage } from "@weaveforge/core";
-import { registerSessionReset } from "@/lib/cache/clear-session-caches";
+import { registerSessionReset } from "@/lib/cache/parts";
+import { readyCore } from "@/lib/rust-core";
 
 export type MermaidModule = Pick<typeof import("pele/lazy"), "renderAsync">;
 
@@ -66,33 +66,6 @@ export function themePeleSvg(svg: string): string {
   });
 }
 
-/**
- * An id for a diagram from its source, so the same fence renders to the same
- * markup every time. A running counter made each render a different string,
- * which made React rewrite the body — and kill any link mid-click — whenever
- * a note with a diagram re-rendered for a reason that changed nothing.
- */
-function diagramId(code: string): string {
-  let hash = 0;
-  for (let i = 0; i < code.length; i++) hash = (hash * 31 + code.charCodeAt(i)) | 0;
-  return `wf-mermaid-${(hash >>> 0).toString(36)}`;
-}
-
-/**
- * Mermaid rejects `(`, `)` and `|` inside an unquoted `[label]` or `{label}`,
- * and a note about a VAE writes `Q[q(z|x)]` without thinking twice. Such a
- * label is quoted before it goes to the parser, which is what the author
- * meant; a label already quoted, or a shape whose brackets carry meaning
- * (`[(cylinder)]`, `[[subroutine]]`, `[/parallelogram/]`), is left alone.
- */
-export function quoteAwkwardLabels(code: string): string {
-  return code.replace(/([[{])([^[\]{}"\n]*?)([\]}])/g, (match, open: string, label: string, close: string) => {
-    if (!/[()|]/.test(label) || /^[(/\\]/.test(label) || /[(/\\]$/.test(label)) return match;
-    if ((open === "[" && close !== "]") || (open === "{" && close !== "}")) return match;
-    return `${open}"${label.replace(/"/g, "#quot;")}"${close}`;
-  });
-}
-
 function getMermaid(): Promise<MermaidModule> {
   if (!mermaidPromise) {
     mermaidPromise = customLoader ? customLoader() : import("pele/lazy");
@@ -116,9 +89,10 @@ export function isMermaidFence(info: string): boolean {
  */
 export async function renderMermaidBlock(code: string): Promise<string> {
   if (typeof document === "undefined") {
-    return `<pre class="md-code md-mermaid-source" data-lang="mermaid"><code>${escapeHtml(code)}</code></pre>`;
+    return `<pre class="md-code md-mermaid-source" data-lang="mermaid"><code>${readyCore().escapeHtml(code)}</code></pre>`;
   }
-  const source = quoteAwkwardLabels(code.trim());
+  // Mermaid rejects `(`, `)` and `|` inside an unquoted `[label]` or `{label}`; the Rust core quotes them.
+  const source = readyCore().mermaidRenderSource(code);
   const hit = renderCache.get(source);
   if (hit !== undefined) {
     renderCache.delete(source);
@@ -127,7 +101,7 @@ export async function renderMermaidBlock(code: string): Promise<string> {
   }
   try {
     const pele = await getMermaid();
-    const { svg } = await pele.renderAsync(source, { idPrefix: diagramId(source) });
+    const { svg } = await pele.renderAsync(source, { idPrefix: readyCore().mermaidDiagramId(source) });
     const html = `<div class="md-mermaid">${themePeleSvg(svg)}</div>`;
     renderCache.set(source, html);
     if (renderCache.size > MAX_CACHE_ENTRIES) {
@@ -140,7 +114,7 @@ export async function renderMermaidBlock(code: string): Promise<string> {
     // The message is shown, not tucked into a tooltip: a diagram that comes
     // back as its own source with nothing said looks like a renderer that
     // did not run, when it is a typo on line 3.
-    return `<div class="md-mermaid md-mermaid-error"><pre class="md-code" data-lang="mermaid"><code>${escapeHtml(code)}</code></pre><p class="md-mermaid-message">Mermaid: ${escapeHtml(message)}</p></div>`;
+    return `<div class="md-mermaid md-mermaid-error"><pre class="md-code" data-lang="mermaid"><code>${readyCore().escapeHtml(code)}</code></pre><p class="md-mermaid-message">Mermaid: ${readyCore().escapeHtml(message)}</p></div>`;
   }
 }
 

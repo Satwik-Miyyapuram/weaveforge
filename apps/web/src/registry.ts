@@ -1,13 +1,17 @@
-import type { FeatureModule, NavItem } from "@weaveforge/core";
+import { getAppConfig } from "@/deployment/app-config";
+import { isOfflineBuild } from "@/deployment/build-target";
 import {
   GENERATED_BUILTIN_MODULES,
   GENERATED_BUILTIN_SHELL_MODULES,
 } from "@/deployment/generated-registry";
-import { getAppConfig } from "@/deployment/app-config";
-import { isOfflineBuild } from "@/deployment/build-target";
-import { readIntegrationConfig, type IntegrationConfig } from "@/integrations/config";
-import type { WebFeatureModule } from "@/plugins/web-feature-module";
+import { type IntegrationConfig, readIntegrationConfig } from "@/integrations/config";
+import type { FeatureModule, NavItem } from "@weaveforge/core";
 
+// --- web-feature-module ---
+/** Web app feature module — same as core FeatureModule; routes use static app page.tsx files. */
+export type WebFeatureModule = FeatureModule;
+
+// --- registry ---
 const BUILTIN_MODULES = GENERATED_BUILTIN_MODULES as readonly FeatureModule[];
 const BUILTIN_SHELL_MODULES = GENERATED_BUILTIN_SHELL_MODULES as readonly FeatureModule[];
 

@@ -2,14 +2,17 @@
  * One Editor toolbar: a note in Text, a note in Ink and a PDF draw the same
  * controls in the same order. Only which ones are greyed differs.
  */
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
-import { InkBar } from "@/features/ink";
+import { InkBar } from "@/features/ink/ui/ink-bar";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(loadTestCore);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import {
-  experimentActivityAt,
   type Experiment,
   type MetricPoint,
 } from "@weaveforge/core";
@@ -10,12 +9,13 @@ import { getContainer } from "@/bootstrap";
 import { SortHeader } from "@/components/sort-header";
 import { Table } from "@/components/table";
 import { statusLabel } from "@/components/status-select";
-import { formatMetricCell, MetricChart } from "./metric-chart";
+import { MetricChart } from "./metric-chart";
 import { MetricGrid } from "./metric-grid";
 import { usePolledLoad } from "./use-polled-load";
 import {
   ExperimentTitleLink,
 } from "./experiment-panels";
+import { readyCore, typedCore } from "@/lib/rust-core";
 
 const PALETTE = [
   "#3e5a78", "#c2410c", "#0f766e", "#7c3aed",
@@ -33,11 +33,7 @@ function asNumber(v: unknown): number | null {
  * a per-card list can't answer.
  */
 export function CompareView({ experiments }: { experiments: Experiment[] }) {
-  const metricKeys = useMemo(() => {
-    const s = new Set<string>();
-    experiments.forEach((e) => Object.keys(e.metrics ?? {}).forEach((k) => s.add(k)));
-    return [...s].sort();
-  }, [experiments]);
+  const metricKeys = useMemo(() => readyCore().metricKeysOf(experiments), [experiments]);
 
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -110,7 +106,7 @@ export function CompareView({ experiments }: { experiments: Experiment[] }) {
                 <td>{statusLabel(e.status)}</td>
                 {metricKeys.map((k) => (
                   <td key={k}>
-                    {e.metrics?.[k] !== undefined ? formatMetricCell(k, e.metrics[k]) : "—"}
+                    {e.metrics?.[k] !== undefined ? typedCore().formatMetricCell(k, e.metrics[k]) : "—"}
                   </td>
                 ))}
               </tr>
@@ -125,7 +121,7 @@ export function CompareView({ experiments }: { experiments: Experiment[] }) {
 function OverlayCharts({ experiments }: { experiments: Experiment[] }) {
   /** Oldest first so uPlot draws newer runs on top of older ones. */
   const ordered = useMemo(
-    () => [...experiments].sort((a, b) => experimentActivityAt(a) - experimentActivityAt(b)),
+    () => [...experiments].sort((a, b) => readyCore().experimentActivityAt(a) - readyCore().experimentActivityAt(b)),
     [experiments],
   );
   const ids = ordered.map((e) => e.id).join(",");
@@ -155,7 +151,7 @@ function OverlayCharts({ experiments }: { experiments: Experiment[] }) {
           id: e.id,
           label: e.name,
           color: PALETTE[i % PALETTE.length] ?? "#3e5a78",
-          zOrder: experimentActivityAt(e),
+          zOrder: readyCore().experimentActivityAt(e),
           points: (hist[e.id] ?? []).filter((p) => p.metric === m),
         }))
         .filter((s) => s.points.length > 0),

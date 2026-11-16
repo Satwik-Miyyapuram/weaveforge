@@ -10,21 +10,11 @@
  */
 
 import { useCallback, useRef, useState } from "react";
-import {
-  EMPTY_INK_UNDO,
-  pushInkUndo,
-  refreshInkUndoAnnotation,
-  renameInkUndoId,
-  takeInkRedo,
-  takeInkUndo,
-  type InkUndoEntry,
-  type InkUndoPatch,
-  type InkUndoState,
-  type NewReaderAnnotation,
-  type ReaderAnnotation,
-} from "@weaveforge/core";
+import type { NewReaderAnnotation, ReaderAnnotation } from "@weaveforge/core";
+import type { InkUndoEntry, InkUndoPatch, InkUndoState } from "@weaveforge/wasm";
 
 import type { AnnotationActions } from "./use-annotation-actions";
+import { typedCore } from "@/lib/rust-core";
 
 type StrokeWrites = Pick<AnnotationActions, "persistDraft" | "removeLocal" | "saveAnchor">;
 type Writes = StrokeWrites & Partial<Pick<AnnotationActions, "updateLocal">>;
@@ -58,7 +48,7 @@ function draftFromAnnotation(ann: ReaderAnnotation): NewReaderAnnotation {
 /** The current values of the fields `patch` sets, so undo can put them back. */
 function patchBefore(ann: ReaderAnnotation, patch: InkUndoPatch): InkUndoPatch {
   const before: InkUndoPatch = {};
-  for (const key of Object.keys(patch) as (keyof InkUndoPatch)[]) {
+  for (const key of Object.keys(patch) as (keyof InkUndoPatch & keyof ReaderAnnotation)[]) {
     (before as Record<string, unknown>)[key] = ann[key];
   }
   return before;
@@ -80,7 +70,7 @@ export function useInkUndo(
 ): InkUndo {
   // The stack is a ref so a step can pop it synchronously and then await the
   // write; the counter re-renders whoever shows the undo/redo buttons.
-  const stack = useRef<InkUndoState>(EMPTY_INK_UNDO);
+  const stack = useRef<InkUndoState>(typedCore().EMPTY_INK_UNDO);
   const [, bump] = useState(0);
   const setState = useCallback((update: (s: InkUndoState) => InkUndoState) => {
     stack.current = update(stack.current);
@@ -98,7 +88,7 @@ export function useInkUndo(
     async (draft: NewReaderAnnotation) => {
       const created = await actionsRef.current.persistDraft(draft);
       if (created) {
-        setState((s) => pushInkUndo(s, { kind: "create", annotation: created }));
+        setState((s) => typedCore().pushInkUndo(s, { kind: "create", annotation: created }));
       }
       return created;
     },
@@ -111,7 +101,7 @@ export function useInkUndo(
       const removed = await actionsRef.current.removeLocal(id);
       // A failed delete was rolled back: there is nothing to undo.
       if (removed && ann) {
-        setState((s) => pushInkUndo(s, { kind: "remove", annotation: ann }));
+        setState((s) => typedCore().pushInkUndo(s, { kind: "remove", annotation: ann }));
       }
       return removed;
     },
@@ -126,7 +116,7 @@ export function useInkUndo(
         if (ann && (await actionsRef.current.removeLocal(id))) removed.push(ann);
       }
       if (removed.length > 0) {
-        setState((s) => pushInkUndo(s, { kind: "removeMany", annotations: removed }));
+        setState((s) => typedCore().pushInkUndo(s, { kind: "removeMany", annotations: removed }));
       }
     },
     [setState],
@@ -139,8 +129,8 @@ export function useInkUndo(
       if (!saved) return false;
       const after = { ...ann, anchor };
       setState((s) =>
-        refreshInkUndoAnnotation(
-          pushInkUndo(s, { kind: "anchor", id: ann.id, before: ann.anchor, after: anchor }),
+        typedCore().refreshInkUndoAnnotation(
+          typedCore().pushInkUndo(s, { kind: "anchor", id: ann.id, before: ann.anchor, after: anchor }),
           after,
         ),
       );
@@ -155,8 +145,8 @@ export function useInkUndo(
       await actionsRef.current.updateLocal?.(id, patch);
       if (!ann) return;
       setState((s) =>
-        refreshInkUndoAnnotation(
-          pushInkUndo(s, { kind: "update", id, before: patchBefore(ann, patch), after: patch }),
+        typedCore().refreshInkUndoAnnotation(
+          typedCore().pushInkUndo(s, { kind: "update", id, before: patchBefore(ann, patch), after: patch }),
           { ...ann, ...patch },
         ),
       );
@@ -170,16 +160,16 @@ export function useInkUndo(
     const recreate = async (ann: ReaderAnnotation) => {
       const created = await raw.persistDraft(draftFromAnnotation(ann));
       // Same id unless the store refused it; then the stack follows the new one.
-      if (created && created.id !== ann.id) setState((s) => renameInkUndoId(s, ann.id, created.id));
+      if (created && created.id !== ann.id) setState((s) => typedCore().renameInkUndoId(s, ann.id, created.id));
     };
     const remove = (ann: ReaderAnnotation) => raw.removeLocal(ann.id);
     switch (entry.kind) {
       case "create":
-        return direction === "undo" ? remove(entry.annotation) : recreate(entry.annotation);
+        return direction === "undo" ? remove(entry.annotation as ReaderAnnotation) : recreate(entry.annotation as ReaderAnnotation);
       case "remove":
-        return direction === "undo" ? recreate(entry.annotation) : remove(entry.annotation);
+        return direction === "undo" ? recreate(entry.annotation as ReaderAnnotation) : remove(entry.annotation as ReaderAnnotation);
       case "removeMany":
-        for (const ann of entry.annotations) {
+        for (const ann of entry.annotations as ReaderAnnotation[]) {
           if (direction === "undo") await recreate(ann);
           else await remove(ann);
         }
@@ -187,16 +177,16 @@ export function useInkUndo(
       case "anchor": {
         const target = annotationsRef.current.find((a) => a.id === entry.id);
         if (!target) return;
-        const anchor = direction === "undo" ? entry.before : entry.after;
+        const anchor = (direction === "undo" ? entry.before : entry.after) as ReaderAnnotation["anchor"];
         await raw.saveAnchor(target, anchor);
-        setState((s) => refreshInkUndoAnnotation(s, { ...target, anchor }));
+        setState((s) => typedCore().refreshInkUndoAnnotation(s, { ...target, anchor }));
         return;
       }
       case "update": {
         const target = annotationsRef.current.find((a) => a.id === entry.id);
         const patch = direction === "undo" ? entry.before : entry.after;
         await raw.updateLocal?.(entry.id, patch);
-        if (target) setState((s) => refreshInkUndoAnnotation(s, { ...target, ...patch }));
+        if (target) setState((s) => typedCore().refreshInkUndoAnnotation(s, { ...target, ...patch }));
         return;
       }
     }
@@ -206,7 +196,7 @@ export function useInkUndo(
     async (direction: "undo" | "redo") => {
       if (busy.current) return;
       const taken =
-        direction === "undo" ? takeInkUndo(stack.current) : takeInkRedo(stack.current);
+        direction === "undo" ? typedCore().takeInkUndo(stack.current) : typedCore().takeInkRedo(stack.current);
       if (!taken) return;
       setState(() => taken.state);
       busy.current = true;
@@ -219,7 +209,7 @@ export function useInkUndo(
     [apply, setState],
   );
 
-  const reset = useCallback(() => setState(() => EMPTY_INK_UNDO), [setState]);
+  const reset = useCallback(() => setState(() => typedCore().EMPTY_INK_UNDO), [setState]);
 
   return {
     persistDraft,

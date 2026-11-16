@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "active": true,
+    "resources": {
+      "../../db/migrations/*.sql": "app/migrations/",
+      "../../db/migrations-local/*.sql": "app/migrations-local/",
+      "../../plugins/weaveforge-research/mcp-server/index.mjs": "app/weaveforge-mcp.mjs",
+      "target/stage/postgres/": "postgres/",
+      "target/stage/native/": "native/",
+      "dist/web/": "web/"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libdbus-1-3"]
+      }
+    }
+  }
+}

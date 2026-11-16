@@ -2,6 +2,7 @@
 
 import { authHeaders } from "@/lib/auth-headers";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { relayUrl } from "@/lib/parts";
 
 /**
  * Fetching something from a third-party site on the reader's behalf.
@@ -33,7 +34,7 @@ async function failure(response: Response, fallback: string): Promise<Error> {
 
 const viaServer: OutboundFetch = {
   async title(url) {
-    const response = await fetch(`/api/fetch-url?as=title&url=${encodeURIComponent(url)}`, {
+    const response = await fetch(relayUrl(`/api/fetch-url?as=title&url=${encodeURIComponent(url)}`), {
       headers: await authHeaders(),
     });
     if (!response.ok) throw await failure(response, "That page could not be read.");
@@ -41,7 +42,7 @@ const viaServer: OutboundFetch = {
   },
 
   async image(url) {
-    const response = await fetch(`/api/fetch-url?as=image&url=${encodeURIComponent(url)}`, {
+    const response = await fetch(relayUrl(`/api/fetch-url?as=image&url=${encodeURIComponent(url)}`), {
       headers: await authHeaders(),
     });
     if (!response.ok) throw await failure(response, "That image could not be downloaded.");
