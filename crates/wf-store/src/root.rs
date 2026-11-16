@@ -106,7 +106,39 @@ fn nest(chosen: &Path) -> Result<RootChoice, RootError> {
 /// Proves the folder takes a file, so a read-only folder is refused when it is chosen rather
 /// than on the first save. The probe is removed again; a dot-file never counts as a person's file.
 fn ensure_writable(root: &Path) -> Result<(), RootError> {
+    ensure_writable_with(root, |probe| fs::remove_file(probe))
+}
+
+/// `ensure_writable` with the cleanup step given. The write is what proves the folder takes a file;
+/// a probe that writes but will not be removed still proves that, so only a warning is logged.
+fn ensure_writable_with(
+    root: &Path,
+    remove: impl FnOnce(&Path) -> std::io::Result<()>,
+) -> Result<(), RootError> {
     let probe = root.join(format!(".weaveforge-write-probe-{}", std::process::id()));
     fs::write(&probe, b"").map_err(|_| RootError::CannotWrite)?;
-    fs::remove_file(&probe).map_err(|_| RootError::CannotWrite)
+    if let Err(error) = remove(&probe) {
+        eprintln!("[workspace] could not remove the write probe {}: {error}", probe.display());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod probe_tests {
+    use super::*;
+
+    #[test]
+    fn a_probe_that_writes_but_will_not_be_removed_still_means_writable() {
+        let dir = std::env::temp_dir().join(format!("wf-probe-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let result = ensure_writable_with(&dir, |_| Err(std::io::Error::other("busy")));
+        let leftover = fs::read_dir(&dir).unwrap().count();
+        // Clean up what the test made: the probe the stub left behind, then the folder.
+        for entry in fs::read_dir(&dir).unwrap().flatten() {
+            let _ = fs::remove_file(entry.path());
+        }
+        let _ = fs::remove_dir(&dir);
+        assert_eq!(result, Ok(()));
+        assert_eq!(leftover, 1);
+    }
 }
