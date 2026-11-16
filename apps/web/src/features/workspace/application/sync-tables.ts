@@ -5,6 +5,10 @@
  *
  * Rows travel as `row_to_json` text, not as typed values, so timestamps keep
  * their full precision and the import reads them back unchanged.
+ *
+ * Limit (0.9.2): restoreSyncTables is for a fresh clone only. It refuses a database
+ * that already holds synced rows. A re-pull into an existing workspace keeps the
+ * incremental folder import (previewFolderImport + applyFolderImport).
  */
 
 export type SyncRow = Record<string, unknown>;

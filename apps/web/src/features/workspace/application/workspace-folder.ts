@@ -17,6 +17,7 @@ import {
 import { folderLock } from "./folder-lock";
 import {
   exportSyncTables,
+  restoreSyncTables,
   syncTableFolderFiles,
   type SyncRow,
   type SyncTable,
@@ -340,6 +341,27 @@ function restTableReader(client: ReturnType<typeof getDataClient>): SyncTableRea
       if (page.length < REST_PAGE) return rows;
     }
   };
+}
+
+/**
+ * Fresh-clone order: restore the synced tables into the empty database first, then
+ * diff the folder against what is now stored and apply that. Rows the tables already
+ * wrote are "unchanged" in the diff, and the JSON files for relations, tags and reading
+ * list items are dropped, so none of them is written a second time.
+ *
+ * Limit for 0.9.2: this is the clone path only. The restore refuses a database that
+ * already holds synced rows; a re-pull into an existing workspace keeps the incremental
+ * folder import (previewFolderImport + applyFolderImport) and does not call this.
+ */
+export async function restoreThenImport(input: {
+  store: SyncTableStore;
+  tables: Partial<Record<SyncTable, SyncRow[]>>;
+  preview: () => Promise<Parameters<typeof applyFolderImport>[0]>;
+  apply: (diff: Parameters<typeof applyFolderImport>[0]) => Promise<unknown>;
+}): Promise<void> {
+  await restoreSyncTables(input.tables, input.store);
+  const diff = await input.preview();
+  await input.apply({ ...diff, json: undefined });
 }
 
 /**

@@ -17,6 +17,7 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { freshTestDb, testDb, type TestDb } from "../../../backend/test/pg-test-db";
 import { mirrorWorkspace } from "../application/parts-2";
+import { restoreThenImport } from "../application/workspace-folder";
 import {
   SYNC_TABLES,
   exportSyncTables,
@@ -248,4 +249,41 @@ test("no synced table has an identity column that refuses explicit values", asyn
   );
   const synced = new Set<string>(SYNC_TABLES);
   assert.deepEqual(always.filter((c) => synced.has(c.table_name)), []);
+});
+
+test("a clone restores the tables first, then diffs the folder against the restored rows", async () => {
+  const src = await freshTestDb();
+  const uid = await src.createUser("order@test.invalid");
+  await seed(src, uid);
+  const rows = syncTableRowsFromFolder(syncTableFolderFiles(await exportSyncTables(sqlTableReader(src))));
+
+  const dst = await freshTestDb();
+  await dst.sql(`insert into auth.users (id, email) values ($1, 'order@test.invalid')`, [uid]);
+  const events: string[] = [];
+  const inner = pgliteStore(dst);
+  const store: SyncTableStore = {
+    isEmpty: (table) => inner.isEmpty(table),
+    insert: async (table, batch) => {
+      events.push(`insert:${table}`);
+      await inner.insert(table, batch);
+    },
+  };
+  let applied: unknown = "not applied";
+  await restoreThenImport({
+    store,
+    tables: rows,
+    preview: async () => {
+      events.push("preview");
+      return { entries: [], json: { entries: [{ kind: "relations" }], counts: {} } } as never;
+    },
+    apply: async (diff) => {
+      events.push("apply");
+      applied = diff;
+    },
+  });
+  const lastInsert = events.map((e, i) => (e.startsWith("insert:") ? i : -1)).reduce((a, b) => Math.max(a, b), -1);
+  assert.ok(lastInsert >= 0, "the restore wrote rows");
+  assert.ok(events.indexOf("preview") > lastInsert, "the folder is diffed after the restore");
+  assert.equal(events.at(-1), "apply");
+  assert.equal((applied as { json?: unknown }).json, undefined, "JSON rows the tables already wrote are not applied again");
 });
