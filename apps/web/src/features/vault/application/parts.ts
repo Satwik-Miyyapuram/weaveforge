@@ -62,7 +62,13 @@ export interface ImportVault {
   /** Titles of the project's notes, for clash checks. */
   pageTitles(): Promise<readonly string[]>;
   manageVaultPage: {
-    add(input: { title: string; body?: string; parentId?: string; folder?: boolean }): Promise<{ id: string }>;
+    add(input: {
+      title: string;
+      body?: string;
+      parentId?: string;
+      folder?: boolean;
+      kind?: "canvas";
+    }): Promise<{ id: string }>;
   };
 }
 

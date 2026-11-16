@@ -17,7 +17,13 @@ export interface OneNoteImportDeps {
   /** Parses the `.one` bytes; throws on a file that is not a OneNote section. */
   parse(bytes: Uint8Array, fileName: string): OneNoteSection;
   pageTitles(): Promise<readonly string[]>;
-  add(input: { title: string; body?: string; parentId?: string; folder?: boolean }): Promise<{ id: string }>;
+  add(input: {
+    title: string;
+    body?: string;
+    parentId?: string;
+    folder?: boolean;
+    kind?: "canvas";
+  }): Promise<{ id: string }>;
   update(id: string, body: string): Promise<void>;
   uploadAsset(pageId: string, blob: Blob, ext: string): Promise<string>;
   /** Draws a printout at `box` on a transparent page of the given size. */
@@ -37,21 +43,31 @@ export interface OneNoteImportResult {
   warnings: string[];
 }
 
+/** How an import lays out each OneNote page. */
+export interface OneNoteImportOptions {
+  /** Each page becomes a canvas of its positioned pieces instead of a note. */
+  canvas?: boolean;
+}
+
+type OneNotePage = OneNoteSection["pages"][number];
+
 /**
  * Imports one OneNote `.one` section into the vault: a note per page, nested
  * by outline level. A page with ink becomes one ink note, a printout per ink
- * page; one past the ink note's page limit splits into numbered parts.
+ * page; one past the ink note's page limit splits into numbered parts. With
+ * `canvas`, each page becomes a canvas instead, with its ink notes under it.
  * Pages go in sequentially so each child can take its parent's id.
  */
-export async function importOneNoteSection(file: File, deps: OneNoteImportDeps): Promise<OneNoteImportResult> {
+export async function importOneNoteSection(
+  file: File,
+  deps: OneNoteImportDeps,
+  options: OneNoteImportOptions = {},
+): Promise<OneNoteImportResult> {
+  const canvas = options.canvas === true;
   const section = deps.parse(new Uint8Array(await file.arrayBuffer()), file.name);
   const warnings: string[] = [...section.warnings];
 
-  const noteNames: string[] = [];
-  for (const page of section.pages) {
-    const parts = Math.max(1, Math.ceil(page.ink.length / INK_NOTE_MAX_PAGES));
-    for (let part = 1; part <= parts; part += 1) noteNames.push(`${partTitle(page.title, part)}.md`);
-  }
+  const noteNames = section.pages.flatMap((page) => pageNoteNames(page, canvas));
   const plan = readyCore().planImportTitles([], noteNames, await deps.pageTitles());
 
   // Stack of ancestors by level: the nearest earlier page with a lower level is the parent.
@@ -64,6 +80,18 @@ export async function importOneNoteSection(file: File, deps: OneNoteImportDeps):
   for (const page of section.pages) {
     while (stack.length && stack[stack.length - 1]!.level >= page.level) stack.pop();
     const parentId = stack.length ? stack[stack.length - 1]!.id : undefined;
+
+    if (canvas) {
+      const count = pageNoteNames(page, true).length;
+      const titles = plan.noteTitles.slice(nameIndex, nameIndex + count);
+      nameIndex += count;
+      const written = await writeCanvasPage(page, titles, parentId, deps, warnings);
+      stack.push({ level: page.level, id: written.id });
+      created += 1 + written.inkNotes;
+      inkNotes += written.inkNotes;
+      images += written.images;
+      continue;
+    }
 
     if (page.ink.length === 0) {
       const title = plan.noteTitles[nameIndex++]!;
@@ -94,6 +122,62 @@ export async function importOneNoteSection(file: File, deps: OneNoteImportDeps):
 
 function partTitle(title: string, part: number): string {
   return part === 1 ? title : `${title} (part ${part})`;
+}
+
+function handwritingTitle(title: string, part: number): string {
+  return part === 1 ? `${title} (handwriting)` : `${title} (handwriting, part ${part})`;
+}
+
+/** Note names a page needs for title clashes: its canvas first, then its ink parts. */
+function pageNoteNames(page: OneNotePage, canvas: boolean): string[] {
+  const inkParts = Math.ceil(page.ink.length / INK_NOTE_MAX_PAGES);
+  const names = canvas ? [page.title] : [];
+  const parts = canvas ? inkParts : Math.max(1, inkParts);
+  for (let part = 1; part <= parts; part += 1) {
+    names.push(canvas ? handwritingTitle(page.title, part) : partTitle(page.title, part));
+  }
+  return names.map((name) => `${name}.md`);
+}
+
+/**
+ * A page as a canvas. Its placed images upload first, its ink notes are
+ * written under the canvas, and the canvas body follows once every file has a
+ * path. An image that fails to upload is left off the canvas.
+ */
+async function writeCanvasPage(
+  page: OneNotePage,
+  titles: readonly string[],
+  parentId: string | undefined,
+  deps: OneNoteImportDeps,
+  warnings: string[],
+): Promise<{ id: string; inkNotes: number; images: number }> {
+  const [canvasTitle, ...inkTitles] = titles;
+  const canvas = await deps.add({ title: canvasTitle!, parentId, kind: "canvas" });
+  const files: Record<string, string> = {};
+  let images = 0;
+
+  // A printout behind ink lives in its ink note, so only placed images upload here.
+  const placed = new Set(page.layout.filter((item) => item.kind === "image").map((item) => item.key));
+  for (const image of page.images) {
+    if (!placed.has(image.name)) continue;
+    try {
+      files[image.name] = await deps.uploadAsset(canvas.id, imageBlob(image), extensionOf(image.name));
+      images += 1;
+    } catch {
+      warnings.push(`Image ${image.name} on "${canvasTitle}" not imported`);
+    }
+  }
+
+  for (const [index, title] of inkTitles.entries()) {
+    const start = index * INK_NOTE_MAX_PAGES;
+    const sheets = page.ink.slice(start, start + INK_NOTE_MAX_PAGES);
+    const note = await writeInkNote(title!, canvas.id, sheets, page.images, deps, warnings);
+    files[`ink-${index}`] = `notes/${title}.note.md`;
+    images += note.uploaded;
+  }
+
+  await deps.update(canvas.id, readyCore().oneNoteCanvasText(page.layout, files));
+  return { id: canvas.id, inkNotes: inkTitles.length, images };
 }
 
 /**
