@@ -27,8 +27,13 @@ and creates the notes itself.
     stroke goes to the band its middle falls in. Each band is one ink page
     (more if it has over `INK_PAGE_STROKE_BUDGET` strokes), with the printout
     placed as its background.
+- `crates/wf-core/src/onenote/canvas.rs`: `page_canvas(layout, files)` writes
+  a page's layout as JSON Canvas 1.0 text. Positions are 0.1 mm and become
+  pixels at 48 per half inch (96 per inch).
 - `crates/wf-core/tests/onenote_import.rs`: integration tests on a sample
   section in `tests/fixtures/onenote/`.
+- `crates/wf-core/tests/onenote_canvas.rs`: canvas layout tests, including the
+  sample section.
 
 ## How the app calls it
 
@@ -53,6 +58,22 @@ handwriting.
 
 The **More → Import OneNote section…** item on the notes list runs it.
 
+### Canvas mode
+
+**More → Import OneNote section as canvas…** runs the same import with
+`{ canvas: true }`. Each page becomes a canvas instead of a note:
+
+- `Page.layout` lists the page's positioned pieces in page order: outline text
+  (`text`), each picture that is not a printout (`image`, keyed by image name)
+  and one `ink` item per ink note part (`ink-N`). Offsets and sizes are kept
+  in 0.1 mm.
+- The canvas is created first, placed images upload, and each ink part is
+  written as a note under the canvas as `<Title> (handwriting)`. Then the canvas
+  body is set from `oneNoteCanvasText(layout, files)`, where `files` maps each
+  image name and `ink-N` to its vault path.
+- A picture whose upload fails is left off the canvas. Pieces without a
+  position stack in a column at x = 0, below the placed ones.
+
 ## What stays in TypeScript, and why
 
 - **Creating notes and uploading pictures.** These are database and storage
@@ -66,3 +87,8 @@ The **More → Import OneNote section…** item on the notes list runs it.
   read.
 - Attached files (PDFs, Office files) are not imported.
 - Handwriting inside a table cell is not collected.
+- Canvas mode: a picture is a text node holding a Markdown image of its vault
+  path. Read mode resolves it to the picture, as a note page does.
+- Canvas mode: an ink note holds only its printout in canvas mode; the page's
+  typed text lives in the canvas text nodes.
+- Canvas mode: attached files are left off the canvas.

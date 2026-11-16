@@ -40,6 +40,9 @@ with `#hashtags`.
 1. In OneNote, export or copy the section's `.one` file.
 2. Click **More**, then **Import OneNote section…**, and pick the file.
 3. WeaveForge makes one note per page. Sub-pages sit under their parent page.
+   To get each page as a canvas instead, pick **Import OneNote section as
+   canvas…**. Text and pictures sit where they sat on the page, and handwriting
+   appears as an ink note file on the canvas.
 4. Pictures come in as attachments. A page with handwriting comes in as an
    ink note: each printout on the page becomes one ink page, with the printout
    behind the strokes and the page's typed text in its text layer. A page
@@ -92,6 +95,7 @@ with `#hashtags`.
 | **Import zip…** | **More** menu |
 | **Import folder…** | **More** menu |
 | **Import OneNote section…** | **More** menu |
+| **Import OneNote section as canvas…** | **More** menu |
 | **Wiki** | **More** menu. Opens the wiki |
 | **Search notes** | Search box in the head |
 | **Lists**, **Tags** | Filter row beside the list. A filter with no values is hidden |

@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
 import { readyCore } from "@/lib/rust-core";
-import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
+import { useVaultImageSource } from "@/lib/hooks/use-vault-markdown-source";
 import { makeWikilinkResolver, useWikilinkClick, type CiteLinkEntry } from "@/lib/hooks/use-cite-links";
-import { assetOrNull, hashTargetId } from "./vault-markdown-helpers";
+import { hashTargetId } from "./vault-markdown-helpers";
 
 /** Minimal title/id pair for wikilink resolution. */
 export type WikilinkEntry = CiteLinkEntry;
@@ -24,13 +23,6 @@ function expandBodyEmbeds(body: string, resolveEmbed: (title: string) => string 
     if (inner != null) resolved.set(title, inner);
   }
   return readyCore().expandEmbeds(body, resolved);
-}
-
-const VAULT_ASSETS_BUCKET = "vault-assets";
-
-function stripUnresolvedVaultImages(body: string, paths: readonly string[], urls: Map<string, string>): string {
-  const next = readyCore().stripRegionMarkers(readyCore().normalizeMarkdownImageSyntax(body));
-  return readyCore().stripUnresolvedImageRefs(next, readyCore().vaultImagePrefix(), paths, [...urls.keys()]);
 }
 
 /**
@@ -66,28 +58,7 @@ export function VaultMarkdown({
 
   const onClick = useWikilinkClick(onCreateNote);
 
-  const paths = useMemo(() => readyCore().vaultAssetPathsInBody(source), [source]);
-
-  const fetchers = useMemo(
-    () => ({
-      cacheBucket: VAULT_ASSETS_BUCKET,
-      fetchOne: (path: string) => assetOrNull((p) => getContainer().vault.fetchAssetBlob(p), path),
-      fetchMany: (ps: readonly string[]) => getContainer().vault.fetchAssetBlobs(ps),
-    }),
-    [],
-  );
-
-  const urls = useBlobObjectUrls(paths, fetchers);
-
-  const resolved = useMemo(() => {
-    let next = stripUnresolvedVaultImages(source, paths, urls);
-    for (const path of paths) {
-      const url = urls.get(path);
-      if (!url) continue;
-      next = next.replaceAll(`${readyCore().vaultImagePrefix()}${path}`, url);
-    }
-    return next;
-  }, [source, paths, urls]);
+  const resolved = useVaultImageSource(source);
 
   // Scroll to `#heading` / `#^blockid` after render (Obsidian-style deep links).
   useEffect(() => {

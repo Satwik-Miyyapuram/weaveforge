@@ -133,7 +133,9 @@ function formatText(s: string, options?: MarkdownRenderOptions): string {
     .replace(/&lt;(https?:\/\/[^\s&<>]+)&gt;/g, (_m, href: string) => {
       return `<a href="${href}" target="_blank" rel="noreferrer">${href}</a>`;
     })
-    .replace(/(?<![="'>\w/])(https?:\/\/[^\s<]+)/g, (m: string) => {
+    // `blob:https://…` is an object URL for a picture, not an address: its origin
+    // sits inside the `src` the image rule just wrote, so it is left alone too.
+    .replace(/(?<![="'>\w/])(?<!blob:)(https?:\/\/[^\s<]+)/g, (m: string) => {
       let url = m;
       let tail = "";
       while (/[.,;:!?)]$/.test(url)) {

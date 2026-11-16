@@ -1,5 +1,6 @@
 //! OneNote `.one` section import: pages become Markdown, images and ink pages.
 
+use std::collections::HashMap;
 use std::io::{Error, Read};
 
 use onenote_parser::FileSystem;
@@ -13,8 +14,12 @@ use typed_path::{TypedPath, TypedPathBuf};
 
 use crate::bytea::encode_base64;
 use crate::ink::ink_page::{INK_A4_HEIGHT, INK_A4_WIDTH, InkPage};
+use crate::sync::ink_note::INK_NOTE_MAX_PAGES;
 
+mod canvas;
 mod ink;
+
+pub use canvas::{LayoutKind, OneNoteLayoutItem, page_canvas};
 
 /// Largest `.one` input accepted, in bytes.
 pub const ONENOTE_MAX_BYTES: usize = 64 * 1024 * 1024;
@@ -49,6 +54,8 @@ pub struct OneNotePage {
     pub images: Vec<OneNoteImage>,
     /// Ink pages, empty when the page has no ink.
     pub ink: Vec<OneNoteInkPage>,
+    /// Positioned pieces for the canvas view, in page order.
+    pub layout: Vec<OneNoteLayoutItem>,
 }
 
 /// One ink page of an imported OneNote page.
@@ -60,6 +67,10 @@ pub struct OneNoteInkPage {
     pub page: InkPage,
     /// Printout page drawn under the strokes, if any.
     pub background: Option<OneNoteBackground>,
+    /// Where this page's top-left corner sits on the OneNote page, in 0.1 mm.
+    pub origin_x: f64,
+    /// See `origin_x`.
+    pub origin_y: f64,
     /// Typed text that sat on this part of the OneNote page, as Markdown.
     pub text: String,
 }
@@ -180,6 +191,10 @@ struct Body {
     blocks: Vec<Block>,
     images: Vec<OneNoteImage>,
     warnings: Vec<String>,
+    /// Set for outline text alone: images are left to the page's layout.
+    text_only: bool,
+    /// Name of each image by address; `None` when it was skipped, so it is read and warned once.
+    known_images: HashMap<usize, Option<String>>,
 }
 
 /// One Markdown block; consecutive list items are joined without a blank line.
@@ -214,6 +229,7 @@ fn convert_page(page: &Page) -> (OneNotePage, Vec<String>) {
         .unwrap_or("Untitled page")
         .to_string();
     let level = u32::try_from(page.level().max(0)).unwrap_or(0);
+    let layout = page_layout(page, &ink, &mut body);
 
     let converted = OneNotePage {
         title,
@@ -221,6 +237,7 @@ fn convert_page(page: &Page) -> (OneNotePage, Vec<String>) {
         markdown,
         images: body.images,
         ink,
+        layout,
     };
     (converted, body.warnings)
 }
@@ -288,10 +305,144 @@ fn ink_pages(page: &Page, strokes: &[ink::RawStroke], body: &mut Body) -> Vec<On
                 width: rect.width,
                 height: rect.height,
             }),
+            origin_x: sheet.origin_x,
+            origin_y: sheet.origin_y,
             // Only a band's first page gets its text; the take leaves "" behind.
             text: std::mem::take(&mut texts[sheet.group]),
         })
         .collect()
+}
+
+/// Positioned pieces of a page for its canvas view: outline text, the images
+/// on the page, and one item per ink note part, in page order.
+fn page_layout(page: &Page, ink: &[OneNoteInkPage], body: &mut Body) -> Vec<OneNoteLayoutItem> {
+    let mut items = Vec::new();
+    for content in page.contents() {
+        match content {
+            PageContent::Outline(outline) => push_outline_layout(outline, body, &mut items),
+            // A background printout is part of its ink note, not a piece of its own.
+            PageContent::Image(image) if !image.is_background() => {
+                push_image_layout(image, body, &mut items);
+            }
+            _ => {}
+        }
+    }
+    let per_note = usize::try_from(INK_NOTE_MAX_PAGES).unwrap_or(usize::MAX);
+    for (part, sheets) in ink.chunks(per_note).enumerate() {
+        let Some(first) = sheets.first() else {
+            continue;
+        };
+        items.push(OneNoteLayoutItem {
+            kind: LayoutKind::Ink,
+            key: format!("ink-{part}"),
+            text: String::new(),
+            x: Some(first.origin_x),
+            y: Some(first.origin_y),
+            width: Some(first.page.width),
+            height: Some(first.page.height),
+        });
+    }
+    items
+}
+
+fn push_outline_layout(outline: &Outline, body: &mut Body, items: &mut Vec<OneNoteLayoutItem>) {
+    let mut text = Body {
+        text_only: true,
+        ..Body::default()
+    };
+    walk_outline(outline, &mut text);
+    let markdown = render(&text.blocks);
+    if !markdown.is_empty() {
+        let (x, y, width, height) = placement(
+            outline.offset_horizontal(),
+            outline.offset_vertical(),
+            outline.layout_max_width(),
+            outline.layout_max_height(),
+            None,
+            None,
+        );
+        items.push(OneNoteLayoutItem {
+            kind: LayoutKind::Text,
+            key: String::new(),
+            text: markdown,
+            x,
+            y,
+            width,
+            height,
+        });
+    }
+    let mut images = Vec::new();
+    outline_images(outline.items(), &mut images);
+    for image in images {
+        push_image_layout(image, body, items);
+    }
+}
+
+/// Every image inside an outline, at any depth.
+fn outline_images<'a>(items: &'a [OutlineItem], out: &mut Vec<&'a Image>) {
+    for item in items {
+        match item {
+            OutlineItem::Group(group) => outline_images(group.outlines(), out),
+            OutlineItem::Element(element) => {
+                out.extend(
+                    element
+                        .contents()
+                        .iter()
+                        .filter_map(|content| match content {
+                            Content::Image(image) => Some(image),
+                            _ => None,
+                        }),
+                );
+                outline_images(element.children(), out);
+            }
+        }
+    }
+}
+
+fn push_image_layout(image: &Image, body: &mut Body, items: &mut Vec<OneNoteLayoutItem>) {
+    let Some(name) = add_image_file(image, body) else {
+        return;
+    };
+    let (x, y, width, height) = placement(
+        image.offset_horizontal(),
+        image.offset_vertical(),
+        image.layout_max_width(),
+        image.layout_max_height(),
+        image.picture_width(),
+        image.picture_height(),
+    );
+    items.push(OneNoteLayoutItem {
+        kind: LayoutKind::Image,
+        key: name,
+        text: image_alt(image),
+        x,
+        y,
+        width,
+        height,
+    });
+}
+
+/// Geometry in 0.1 mm. Offsets and layout sizes are half inches and picture
+/// sizes are inches; a value that is not finite counts as missing.
+fn placement(
+    x: Option<f32>,
+    y: Option<f32>,
+    layout_width: Option<f32>,
+    layout_height: Option<f32>,
+    picture_width: Option<f32>,
+    picture_height: Option<f32>,
+) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
+    let half = ink::HALF_INCH_TENTHS_MM;
+    let inch = 2.0 * half;
+    let scaled = |value: Option<f32>, unit: f64| {
+        value.map(|v| f64::from(v) * unit).filter(|v| v.is_finite())
+    };
+    (
+        scaled(x, half),
+        scaled(y, half),
+        scaled(layout_width, half).or_else(|| scaled(picture_width, inch)),
+        scaled(layout_height, half).or_else(|| scaled(picture_height, inch)),
+    )
 }
 
 /// Where a background image sits on the OneNote page, in 0.1 mm.
@@ -509,6 +660,9 @@ fn cell_text(elements: &[OutlineElement]) -> String {
 }
 
 fn push_image(image: &Image, body: &mut Body) {
+    if body.text_only {
+        return;
+    }
     if let Some(name) = add_image_file(image, body) {
         body.blocks.push(Block {
             text: format!("![{}]({name})", image_alt(image)),
@@ -517,9 +671,19 @@ fn push_image(image: &Image, body: &mut Body) {
     }
 }
 
-/// Copies `image` into the page's images and returns its name, or warns and
-/// returns `None` when it is too large or unreadable.
+/// Copies `image` into the page's images once and returns its name, or warns
+/// and returns `None` when it is too large or unreadable.
 fn add_image_file(image: &Image, body: &mut Body) -> Option<String> {
+    let key = std::ptr::from_ref(image) as usize;
+    if let Some(known) = body.known_images.get(&key) {
+        return known.clone();
+    }
+    let name = store_image(image, body);
+    let _previous = body.known_images.insert(key, name.clone());
+    name
+}
+
+fn store_image(image: &Image, body: &mut Body) -> Option<String> {
     let name_hint = image.image_filename().unwrap_or("image").to_string();
     if image.size().is_some_and(|size| size > IMAGE_MAX_BYTES) {
         body.warnings

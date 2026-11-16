@@ -50,7 +50,7 @@ function fakeSection(
 /** Deps that record every call; `failUpload` makes uploadAsset reject. */
 function fakeDeps(opts: { failUpload?: boolean; section?: OneNoteSection } = {}) {
   let next = 0;
-  const adds: { title: string; body?: string; parentId?: string; folder?: boolean; id: string }[] = [];
+  const adds: { title: string; body?: string; parentId?: string; folder?: boolean; kind?: "canvas"; id: string }[] = [];
   const updates: { id: string; body: string }[] = [];
   const uploads: { pageId: string; ext: string; path: string }[] = [];
   const composed: { box: { x: number; y: number; width: number; height: number }; width: number; height: number }[] =
@@ -204,4 +204,192 @@ test("a failed upload warns, drops the image and still resolves (OneNote)", asyn
   // The ink still lands, on pages without a printout.
   assert.equal(fake.chunks.length, 2);
   for (const chunk of fake.chunks) assert.equal((await decodeInkChunk(chunk.bytes)).background, 0);
+});
+
+const CANVAS = { canvas: true };
+
+/**
+ * Page A: positioned text and a placed image. Page B: one ink sheet whose
+ * printout is its background, so the layout holds only the ink part.
+ */
+function canvasSection(): OneNoteSection {
+  const image = (name: string) => ({ name, alt: "pic", base64: PNG_BASE64 });
+  return {
+    name: "Lab",
+    warnings: [],
+    pages: [
+      {
+        title: "A",
+        level: 0,
+        markdown: "hello",
+        images: [image("image-1.png")],
+        ink: [],
+        layout: [
+          { kind: "text", key: "", text: "hello", x: 0, y: 0, width: 96, height: 48 },
+          { kind: "image", key: "image-1.png", text: "", x: 100, y: 100, width: 96, height: 96 },
+        ],
+      },
+      {
+        title: "B",
+        level: 0,
+        markdown: "",
+        images: [image("image-2.png")],
+        ink: [sheet("typed", "image-2.png")],
+        layout: [{ kind: "ink", key: "ink-0", text: "", x: 0, y: 0, width: 378, height: 504 }],
+      },
+    ],
+  } as unknown as OneNoteSection;
+}
+
+test("canvas mode makes each page a canvas, with its ink notes under it (OneNote)", async () => {
+  const fake = fakeDeps({ section: canvasSection() });
+  await importOneNoteSection(sectionFile(), fake.deps, CANVAS);
+
+  const a = fake.adds.find((x) => x.title === "A")!;
+  const b = fake.adds.find((x) => x.title === "B")!;
+  const ink = fake.adds.find((x) => x.title === "B (handwriting)")!;
+  assert.equal(a.kind, "canvas");
+  assert.equal(b.kind, "canvas");
+  assert.equal(ink.kind, undefined);
+  assert.equal(ink.parentId, b.id);
+  assert.equal(fake.adds.length, 3);
+});
+
+test("canvas mode writes a JSON Canvas whose file nodes point at uploads and ink notes (OneNote)", async () => {
+  const fake = fakeDeps({ section: canvasSection() });
+  await importOneNoteSection(sectionFile(), fake.deps, CANVAS);
+
+  const a = fake.adds.find((x) => x.title === "A")!;
+  const b = fake.adds.find((x) => x.title === "B")!;
+  const upload = fake.uploads.find((u) => u.pageId === a.id)!;
+
+  const pageA = JSON.parse(finalBody(fake, a.id)) as { nodes: { type: string; text?: string; file?: string }[] };
+  assert.deepEqual(
+    pageA.nodes.map((n) => n.type),
+    ["text", "text"],
+  );
+  assert.equal(pageA.nodes[0]!.text, "hello");
+  // A picture is a text node holding its vault image, not a file node.
+  assert.ok(pageA.nodes[1]!.text!.includes(`](${readyCore().vaultImagePrefix()}${upload.path})`));
+
+  const pageB = JSON.parse(finalBody(fake, b.id)) as { nodes: { type: string; file?: string }[] };
+  assert.deepEqual(
+    pageB.nodes.map((n) => n.file),
+    ["notes/B (handwriting).note.md"],
+  );
+});
+
+test("canvas mode uploads only the images placed on the canvas (OneNote)", async () => {
+  const fake = fakeDeps({ section: canvasSection() });
+  await importOneNoteSection(sectionFile(), fake.deps, CANVAS);
+
+  const a = fake.adds.find((x) => x.title === "A")!;
+  const b = fake.adds.find((x) => x.title === "B")!;
+  assert.equal(fake.uploads.filter((u) => u.pageId === a.id).length, 1);
+  // B's printout is the ink note's background, uploaded to the ink note, never to the canvas.
+  assert.equal(fake.uploads.filter((u) => u.pageId === b.id).length, 0);
+});
+
+test("canvas mode drops an image whose upload failed and keeps the ink part (OneNote)", async () => {
+  const fake = fakeDeps({ section: canvasSection(), failUpload: true });
+  const out = await importOneNoteSection(sectionFile(), fake.deps, CANVAS);
+
+  assert.ok(out.warnings.includes('Image image-1.png on "A" not imported'));
+  const a = fake.adds.find((x) => x.title === "A")!;
+  const b = fake.adds.find((x) => x.title === "B")!;
+  const pageA = JSON.parse(finalBody(fake, a.id)) as { nodes: { type: string }[] };
+  assert.deepEqual(
+    pageA.nodes.map((n) => n.type),
+    ["text"],
+  );
+  const pageB = JSON.parse(finalBody(fake, b.id)) as { nodes: { file?: string }[] };
+  assert.deepEqual(
+    pageB.nodes.map((n) => n.file),
+    ["notes/B (handwriting).note.md"],
+  );
+});
+
+test("canvas mode keeps typed ink text out of the ink note, so nothing is written twice (OneNote)", async () => {
+  const image = (name: string) => ({ name, alt: "pic", base64: PNG_BASE64 });
+  const section = {
+    name: "Lab",
+    warnings: [],
+    pages: [
+      {
+        title: "B",
+        level: 0,
+        markdown: "",
+        images: [image("image-1.png"), image("image-2.png")],
+        ink: [sheet("typed ![pic](image-1.png)", "image-2.png")],
+        layout: [
+          { kind: "text", key: "", text: "typed", x: 0, y: 0, width: 96, height: 48 },
+          { kind: "image", key: "image-1.png", text: "", x: 100, y: 100, width: 96, height: 96 },
+          { kind: "ink", key: "ink-0", text: "", x: 0, y: 0, width: 378, height: 504 },
+        ],
+      },
+    ],
+  } as unknown as OneNoteSection;
+  const fake = fakeDeps({ section });
+  await importOneNoteSection(sectionFile(), fake.deps, CANVAS);
+
+  const b = fake.adds.find((x) => x.title === "B")!;
+  const ink = fake.adds.find((x) => x.title === "B (handwriting)")!;
+  const inkBody = finalBody(fake, ink.id);
+  assert.ok(!inkBody.includes("typed"), "typed text must not repeat in the ink note");
+  // One upload for the placed image on the canvas, one for the ink printout.
+  assert.equal(fake.uploads.filter((u) => u.pageId === b.id).length, 1);
+  assert.equal(fake.uploads.filter((u) => u.pageId === ink.id).length, 1);
+});
+
+test("canvas mode points an ink file node at the path the workspace gives the note, even with a slash in the title (OneNote)", async () => {
+  const section = canvasSection();
+  section.pages[1]!.title = "Lab 1/2";
+  const fake = fakeDeps({ section });
+  await importOneNoteSection(sectionFile(), fake.deps, CANVAS);
+
+  const b = fake.adds.find((x) => x.title === "Lab 1/2")!;
+  const ink = fake.adds.find((x) => x.title === "Lab 1/2 (handwriting)")!;
+  assert.equal(ink.parentId, b.id);
+  const pageB = JSON.parse(finalBody(fake, b.id)) as { nodes: { file?: string }[] };
+  assert.deepEqual(
+    pageB.nodes.map((n) => n.file),
+    ["notes/Lab 1/2 (handwriting).note.md"],
+  );
+});
+
+test("canvas mode keeps markdown the layout has no text for (OneNote)", async () => {
+  const section = canvasSection();
+  section.pages[0]!.layout = section.pages[0]!.layout.filter((item) => item.kind !== "text");
+  section.pages[0]!.markdown = "only in markdown";
+  const fake = fakeDeps({ section });
+  await importOneNoteSection(sectionFile(), fake.deps, CANVAS);
+
+  const a = fake.adds.find((x) => x.title === "A")!;
+  const pageA = JSON.parse(finalBody(fake, a.id)) as { nodes: { type: string; text?: string }[] };
+  assert.ok(pageA.nodes.some((n) => n.type === "text" && n.text === "only in markdown"));
+});
+
+test("canvas mode warns when an ink note fails and still writes the canvas body (OneNote)", async () => {
+  const fake = fakeDeps({ section: canvasSection() });
+  fake.deps.writeChunk = async () => {
+    throw new Error("disk full");
+  };
+  const out = await importOneNoteSection(sectionFile(), fake.deps, CANVAS);
+
+  assert.ok(out.warnings.includes('Handwriting "B (handwriting)" on "B" not imported'));
+  const b = fake.adds.find((x) => x.title === "B")!;
+  const pageB = JSON.parse(finalBody(fake, b.id)) as { nodes: unknown[] };
+  assert.ok(Array.isArray(pageB.nodes));
+  assert.equal(out.inkNotes, 0);
+});
+
+test("canvas mode saves the body in Obsidian layout, one node per line (OneNote)", async () => {
+  const fake = fakeDeps({ section: canvasSection() });
+  await importOneNoteSection(sectionFile(), fake.deps, CANVAS);
+
+  const a = fake.adds.find((x) => x.title === "A")!;
+  const body = finalBody(fake, a.id);
+  const nodeLines = body.split("\n").filter((line) => line.includes('"type"'));
+  assert.equal(nodeLines.length, 2);
+  assert.equal(body, readyCore().normalizeCanvasText(body));
 });
