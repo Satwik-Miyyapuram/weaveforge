@@ -147,9 +147,9 @@
 }
 
 # The user docs' live demo app (docs/.site-demo, built by
-# scripts/user-docs/build-demo-app.mjs), for demo.weaveforge.org. Not live yet:
-# hosting waits for the owner's approval, and the tunnel needs an ingress rule
-# sending demo.weaveforge.org to 127.0.0.1:8081.
+# scripts/user-docs/build-demo-app.mjs), for demo.weaveforge.org. Live only once
+# the tunnel has an ingress rule sending demo.weaveforge.org to 127.0.0.1:8081
+# (see docs/running/docs-hosting.md).
 #
 # Its own port because the app uses absolute paths, so it needs a host root.
 # Static files only; the demo database runs in the reader's browser.
@@ -163,13 +163,38 @@
 	@rsc path *.txt
 	header @rsc Content-Type "text/plain; charset=utf-8"
 
-	# Hashed build output and the demo data never change under one name.
-	@immutable path /_next/static/* /_demo/*
+	# Next's hashed build output never changes under one name.
+	@immutable path /_next/static/*
 	header @immutable Cache-Control "public, max-age=31536000, immutable"
 
-	# The docs site on another host frames this one.
+	# /_demo/ (bridge.js, the demo database) is not hashed, so a year-long
+	# cache would pin a stale copy. An hour is short enough to pick up a redeploy.
+	@demo path /_demo/*
+	header @demo Cache-Control "public, max-age=3600"
+
+	# Only the docs site may frame the demo. X-Frame-Options cannot name a host,
+	# so the header is replaced by a CSP that does.
 	header -X-Frame-Options
+	header Content-Security-Policy "frame-ancestors https://docs.weaveforge.org"
 
 	try_files {path} {path}/index.html {path}.html
+	file_server
+}
+
+# The user help site (docs/.site, built by scripts/build-user-docs.mjs), for
+# docs.weaveforge.org. Plain HTML: clean URLs and no app-specific headers.
+:8082 {
+	encode zstd gzip
+	root * /srv/docs
+
+	# Pages change with each docs release; the CSS and JS are shared and short-lived.
+	@assets path /app/* *.css *.js
+	header @assets Cache-Control "public, max-age=3600"
+
+	# Nothing may frame the help site.
+	header Content-Security-Policy "frame-ancestors 'none'"
+	header X-Content-Type-Options "nosniff"
+
+	try_files {path} {path}.html {path}/index.html
 	file_server
 }

@@ -277,10 +277,14 @@ services:
       - "127.0.0.1:8080:8080"
       # The docs' demo app (see the :8081 site in the Caddyfile).
       - "127.0.0.1:8081:8081"
+      # The user help site (see the :8082 site in the Caddyfile).
+      - "127.0.0.1:8082:8082"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       # Copy of docs/.site-demo; empty until the demo is published.
       - ./demo-site:/srv/demo:ro
+      # Copy of docs/.site; empty until the docs are published.
+      - ./docs-site:/srv/docs:ro
       - caddy-data:/data
       - caddy-config:/config
 

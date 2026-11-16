@@ -1,8 +1,9 @@
 name: User docs build
 
 # Builds the user docs site (docs/.site) and its live demo app (docs/.site-demo)
-# and uploads both as workflow artifacts. It deploys nothing: hosting waits for
-# the owner's approval.
+# and uploads both as workflow artifacts. The deploy job copies them to the OCI
+# host, and runs only when the `deploy` input is ticked. Hosting stays off
+# until the go-live steps in docs/running/docs-hosting.md are done.
 
 on:
   workflow_dispatch:
@@ -12,6 +13,11 @@ on:
         type: string
         required: false
         default: "https://demo.weaveforge.org/"
+      deploy:
+        description: "Copy the built sites to the OCI host (needs the docs-hosting environment)"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -60,3 +66,43 @@ jobs:
           name: docs-demo
           path: docs/.site-demo
           retention-days: 14
+
+  deploy:
+    if: ${{ inputs.deploy }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Reviewers and the secrets below live on this environment, not the repo.
+    environment: docs-hosting
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: docs-site
+          path: docs/.site
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: docs-demo
+          path: docs/.site-demo
+
+      # The key and host list come from secrets and go to files under the runner
+      # temp dir. Nothing is echoed.
+      - name: Write the deploy key
+        env:
+          DEPLOY_SSH_KEY_CONTENT: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS_CONTENT: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          umask 077
+          printf '%s\n' "$DEPLOY_SSH_KEY_CONTENT" > "$RUNNER_TEMP/deploy_key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS_CONTENT" > "$RUNNER_TEMP/known_hosts"
+          echo "DEPLOY_SSH_KEY=$RUNNER_TEMP/deploy_key" >> "$GITHUB_ENV"
+          echo "DEPLOY_KNOWN_HOSTS=$RUNNER_TEMP/known_hosts" >> "$GITHUB_ENV"
+
+      - name: Copy the sites to the OCI host
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        run: node scripts/user-docs/deploy.mjs
