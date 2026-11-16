@@ -517,6 +517,10 @@ mod tests {
             Ok(())
         }
 
+        async fn commit(&mut self) -> Result<(), PgError> {
+            self.exec("COMMIT").await
+        }
+
         async fn query(&mut self, sql: &str, _params: &[Value]) -> Result<TextRows, PgError> {
             self.seen
                 .lock()

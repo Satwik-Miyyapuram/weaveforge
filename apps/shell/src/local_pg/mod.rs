@@ -87,4 +87,7 @@ pub trait Conn: Send {
         sql: &str,
         params: &[serde_json::Value],
     ) -> impl std::future::Future<Output = Result<TextRows, PgError>> + Send;
+
+    /// Sends COMMIT and fails unless the server reports that the transaction was committed.
+    fn commit(&mut self) -> impl std::future::Future<Output = Result<(), PgError>> + Send;
 }

@@ -356,6 +356,10 @@ mod tests {
             }
         }
 
+        async fn commit(&mut self) -> Result<(), PgError> {
+            self.exec("COMMIT").await
+        }
+
         async fn query(&mut self, sql: &str, params: &[Value]) -> Result<TextRows, PgError> {
             self.log.push(format!(
                 "{sql} | {}",
