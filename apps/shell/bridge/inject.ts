@@ -16,7 +16,12 @@ import { listen } from "./tauri-core";
 /** The generated menu and window commands this file calls. */
 type MenuCommands = Pick<
   typeof commands,
-  "menuModel" | "menuInvoke" | "titleBarColors" | "windowFocus"
+  | "menuModel"
+  | "menuInvoke"
+  | "titleBarColors"
+  | "windowFocus"
+  | "windowIconSet"
+  | "osUsesLightTheme"
 >;
 
 /** Every generated command this file hands to the bridge parts. */
@@ -110,6 +115,16 @@ export function desktopBridge(
         .then((reply) => unwrap(reply))
         .catch((error: unknown) => {
           console.warn("The title bar colours were not set:", error);
+        });
+    },
+    osUsesLightTheme: () => cmds.osUsesLightTheme(),
+    // Fire and forget, like the colours: a failed icon set is logged, the app keeps its icon.
+    setWindowIcon: (pngBase64) => {
+      void cmds
+        .windowIconSet(pngBase64)
+        .then((reply) => unwrap(reply))
+        .catch((error: unknown) => {
+          console.warn("The window icon was not set:", error);
         });
     },
     setWindowFocus: (on) => {

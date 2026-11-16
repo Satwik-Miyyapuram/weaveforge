@@ -8,20 +8,21 @@
          The emblem has no tile, so it is transparent in both.
       */
       .ink-stroke {
-        stroke: var(--logo-ink, #0F2540);
+        stroke: var(--logo-ink, #2B222B);
         transition: stroke 0.3s ease;
       }
       .ink-fill {
-        fill: var(--logo-ink, #0F2540);
+        fill: var(--logo-ink, #2B222B);
         transition: fill 0.3s ease;
       }
       .accent-fill {
-        fill: var(--logo-accent, #4B6FA5);
+        fill: var(--logo-accent, #1F6DAB);
         transition: fill 0.3s ease;
       }
       @media (prefers-color-scheme: dark) {
-        .ink-stroke { stroke: var(--logo-ink, #E8EEF7); }
-        .ink-fill { fill: var(--logo-ink, #E8EEF7); }
+        .ink-stroke { stroke: var(--logo-ink, #FFE7C1); }
+        .ink-fill { fill: var(--logo-ink, #FFE7C1); }
+        .accent-fill { fill: var(--logo-accent, #5AA0D8); }
       }
     </style>
   </defs>
