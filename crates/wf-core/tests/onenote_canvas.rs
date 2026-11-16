@@ -1,5 +1,7 @@
 //! Canvas layout of imported OneNote pages: positions, scale, file nodes and edge cases.
 
+#![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+
 use std::collections::BTreeMap;
 
 use serde_json::Value;
