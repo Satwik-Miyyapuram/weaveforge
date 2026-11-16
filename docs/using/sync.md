@@ -176,7 +176,7 @@ are held, not imported, and the conflict card says to repair or remove the file.
 
 On the desktop app, a folder with a git remote and a token syncs with it by
 itself: after each folder commit, at start, every 5 minutes, and when you come
-back online. The status bar shows **Synced**, **Syncing…**, **Offline** or
+back online. A dot at the foot of the sidebar (in the top bar on a phone) shows **Synced**, **Syncing…**, **Offline** or
 **Sync failed** with **Retry**. See
 [Syncing with GitHub on its own](workspace-folder.md#syncing-with-github-on-its-own).
 

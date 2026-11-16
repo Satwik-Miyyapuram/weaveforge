@@ -171,7 +171,9 @@ Only one sync runs at a time. A failed sync waits 30 seconds, then 1 minute,
 then 5 minutes before it tries again, and the first success resets that. While
 you are offline nothing runs. With no remote or no token it does nothing at all.
 
-The status bar under a document shows how it is going:
+A small dot shows how it is going on every screen: at the foot of the sidebar
+on a computer, and in the top bar on a phone. Where there is room it says it in
+words; in the folded sidebar and on a phone, hover or hold the dot to read them:
 
 | It says | Meaning |
 | --- | --- |

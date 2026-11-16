@@ -326,6 +326,21 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
 .sync-spin-icon { animation: sync-spin 1s linear infinite; }
 @keyframes sync-spin { to { transform: rotate(360deg); } }
 
+/* Git auto-sync: the folder and its remote. In the sidebar's foot on a desktop
+   and in the phone's top bar, so it shows on every screen; the rail and the
+   phone keep the dot and drop the words, which stay in its tooltip. */
+.git-sync-dot { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); }
+.nav-bottom .git-sync-dot { align-self: flex-start; margin: 0 16px 8px; }
+.git-sync-dot > [role="status"] { display: inline-flex; align-items: center; gap: 4px; }
+.git-sync-dot-mark { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.git-sync-dot[data-tone="good"] { color: var(--s-good); }
+.git-sync-dot[data-tone="info"] { color: var(--s-info); }
+.git-sync-dot[data-tone="muted"] { color: var(--muted); }
+.git-sync-dot[data-tone="danger"] { color: var(--s-danger); }
+.layout.nav-collapsed .nav-bottom .git-sync-dot { align-self: center; margin: 0 0 8px; }
+.layout.nav-collapsed .git-sync-dot-text,
+.brand-right .git-sync-dot-text { display: none; }
+
 /* The phone bar keeps every name (DA-84). It used to drop them below 461px,
    when "Experiments" was a slot of its own; the slots are now groups with
    short names (Library, Work, Write), which fit at 320px. */

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { GitSyncDotView, syncDot } from "../ui/git-sync-dot";
@@ -56,4 +58,15 @@ test("a failure carries its message as the tooltip and offers Retry", () => {
   assert.match(html, /data-tone="danger"/);
   assert.match(html, /title="Git sync failed: Pull first\. Next try at T9\."/);
   assert.match(html, /<button[^>]*>Retry<\/button>/);
+});
+
+test("the app shell mounts the dot on every screen, not the document status bar", () => {
+  const src = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+  const mount = /<GitSyncDot \/>/;
+  assert.doesNotMatch(src("../../editor-workspace/ui/status-bar.tsx"), /GitSyncDot/);
+  // The sidebar's foot on desktop.
+  assert.match(src("../../../app/tabbar.tsx"), mount);
+  // The phone's top bar.
+  const shell = src("../../../app/app-shell.tsx");
+  assert.match(shell, /<div className="brand-right">\s*<GitSyncDot \/>/);
 });

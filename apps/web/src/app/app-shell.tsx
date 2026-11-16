@@ -59,6 +59,11 @@ const GitAutoSync = dynamic(
   () => import("@/features/workspace/ui/git-auto-sync").then((m) => m.GitAutoSync),
   { ssr: false },
 );
+// Its dot: here for the phone's top bar and the projects screen; the sidebar mounts its own.
+const GitSyncDot = dynamic(
+  () => import("@/features/workspace/ui/git-sync-dot").then((m) => m.GitSyncDot),
+  { ssr: false },
+);
 const PdfTextFolderSync = dynamic(
   () => import("@/features/workspace/ui/pdf-text-folder-sync").then((m) => m.PdfTextFolderSync),
   { ssr: false },
@@ -263,6 +268,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
           <div className="brand mobile-only">
             <ProjectSwitcher />
             <div className="brand-right">
+              <GitSyncDot />
               <HeaderActions />
             </div>
           </div>
@@ -303,7 +309,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
           // The account button goes in the screen's header row (ScreenHead).
           <PageHeaderAccount.Provider value={<HeaderActions />}>{children}</PageHeaderAccount.Provider>
         ) : (
-          <PageHeaderAccount.Provider value={<HeaderActions />}>
+          <PageHeaderAccount.Provider value={<><GitSyncDot /><HeaderActions /></>}>
             <ProjectsScreen />
           </PageHeaderAccount.Provider>
         )}

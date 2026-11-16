@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * The status bar's git sync dot: whether the workspace folder is in step with
- * its remote. It reads the engine the app runs (`auto-sync.ts`) and paints
+ * The git sync dot: whether the workspace folder is in step with its remote.
+ * The app shell shows it on every screen: at the foot of the sidebar on a
+ * desktop, in the top bar on a phone. It reads the engine the app runs (`auto-sync.ts`) and paints
  * nothing when auto-sync is off: no folder, no remote, or no token.
  */
 
@@ -48,10 +49,10 @@ export function GitSyncDotView({
   const dot = syncDot(state, time);
   if (!dot) return null;
   return (
-    <span className="status-bar-sync" data-tone={dot.tone}>
+    <span className="git-sync-dot" data-tone={dot.tone}>
       <span role="status" aria-label={dot.label} title={dot.label}>
-        <span className="status-bar-dot" aria-hidden="true" />
-        {dot.text}
+        <span className="git-sync-dot-mark" aria-hidden="true" />
+        <span className="git-sync-dot-text">{dot.text}</span>
       </span>
       {state.kind === "error" ? (
         <Button variant="link" onClick={onRetry}>

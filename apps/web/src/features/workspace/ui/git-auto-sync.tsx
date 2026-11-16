@@ -8,7 +8,7 @@ import { folderSession, onFolderConnected, onVaultCommit } from "../application/
 
 /**
  * Runs git auto-sync for the desktop app's workspace folder. Paints nothing;
- * the status bar's dot shows what it is doing.
+ * the app shell's dot shows what it is doing.
  *
  * It starts with the app and asks each time whether there is anything to sync:
  * with no desktop folder, no remote or no token, a run is a quiet no-op. A
