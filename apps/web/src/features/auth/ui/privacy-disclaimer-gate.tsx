@@ -253,7 +253,7 @@ function LocalDbRecovery({ state }: { state: DesktopLocalDbState }) {
     }
   }, []);
   return (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12 }}>
       <p>
         The app’s own database on this computer could not be opened. This
         happens when a previous run was interrupted while writing to it.
@@ -271,7 +271,7 @@ function LocalDbRecovery({ state }: { state: DesktopLocalDbState }) {
         <summary className="muted">Technical detail</summary>
         <p
           className="muted"
-          style={{ fontFamily: "var(--font-mono)", fontSize: "0.85em" }}
+          style={{ fontFamily: "var(--font-mono)", fontSize: "0.85em", overflowWrap: "anywhere" }}
         >
           {state.failure}
         </p>
