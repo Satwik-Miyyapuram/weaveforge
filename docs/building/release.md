@@ -198,8 +198,14 @@ inputs are kept as artifacts (`proptest-regressions`, `fuzz-artifacts`).
 
 ### Desktop app (`vX.Y.Z`)
 
-There is no release-publishing workflow for the desktop app. Releases are built
-and uploaded by hand. A release goes out as a **pre-release first** and becomes
+Pushing a `vX.Y.Z` tag runs `release-desktop.yml`. It builds the signed x64
+installers on `windows-latest` and the arm64 ones natively on `windows-11-arm`,
+signs them with the `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repo secrets, writes `latest.json`, and
+creates the GitHub **pre-release** with the tag's CHANGELOG entry as notes
+(steps 4 to 6 below). To rebuild an existing tag, run it by hand
+(**Actions → Release desktop → Run workflow**) after deleting the old release.
+The manual steps below remain the fallback. A release goes out as a **pre-release first** and becomes
 **Latest** only after the release gate passes. The in-app updater reads
 `latest.json` from the Latest release (`releases/latest/download/latest.json`),
 so a pre-release is invisible to updaters until it is promoted.
