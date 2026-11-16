@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/features/auth/ui/auth-provider";
@@ -100,6 +100,11 @@ export function BootSnapshotView({
     } else if (moved) setDone(true);
   }, [done, snap, wrongUser, moved, onForget]);
 
+  // The click guard outlives the picture (it swallows the click that follows
+  // the dismissing press), so only unmounting clears it.
+  const clickGuardOff = useRef<(() => void) | null>(null);
+  useEffect(() => () => clickGuardOff.current?.(), []);
+
   useEffect(() => {
     if (!shown) return;
     if (typeof performance !== "undefined" && typeof performance.mark === "function") performance.mark(SHOWN_MARK);
@@ -117,12 +122,17 @@ export function BootSnapshotView({
     const swallow = (event: Event) => {
       event.preventDefault();
       event.stopPropagation();
-      const stopClick = (click: Event) => {
+      const guard = (click: Event) => {
         click.preventDefault();
         click.stopPropagation();
       };
-      host?.addEventListener("click", stopClick, { capture: true, once: true });
-      setTimeout(() => host?.removeEventListener("click", stopClick, { capture: true }), 1000);
+      clickGuardOff.current?.();
+      host?.addEventListener("click", guard, { capture: true, once: true });
+      const timeout = setTimeout(() => host?.removeEventListener("click", guard, { capture: true }), 1000);
+      clickGuardOff.current = () => {
+        clearTimeout(timeout);
+        host?.removeEventListener("click", guard, { capture: true });
+      };
       end();
     };
     const off = onScreenShown(end);

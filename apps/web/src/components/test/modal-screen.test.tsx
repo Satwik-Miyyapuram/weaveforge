@@ -1,6 +1,7 @@
 /**
  * A modal opened inside a kept screen that is hidden (Papers behind another
- * screen) renders nothing, so it cannot float over the screen on show.
+ * screen) stays mounted but hidden, so it cannot float over the screen on show
+ * and a half-filled form inside it is not lost.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -39,12 +40,15 @@ function inScreen(active: boolean) {
   );
 }
 
-test("a modal inside an inactive kept screen renders nothing", async () => {
+test("a modal inside an inactive kept screen is hidden, children kept", async () => {
   let tree: ReturnType<typeof create> | undefined;
   await act(async () => {
     tree = create(inScreen(false));
   });
-  assert.equal(tree!.toJSON(), null);
+  const root = tree!.toJSON() as { props: { hidden?: boolean; style?: { display?: string } } };
+  assert.equal(root.props.hidden, true);
+  assert.equal(root.props.style?.display, "none");
+  assert.ok(tree!.root.findByType("p"), "children stay mounted");
   // Nor does it lock scrolling on the screen that is shown.
   assert.notEqual((document.body.style as { overflow?: string }).overflow, "hidden");
   await act(async () => tree!.unmount());

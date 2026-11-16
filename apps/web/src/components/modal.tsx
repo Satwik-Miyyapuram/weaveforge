@@ -50,6 +50,7 @@ export function Modal({
   children: ReactNode;
 }) {
   // A modal inside a hidden kept screen must not float over the screen on show.
+  // Its children stay mounted (hidden), so a half-filled form survives.
   const screenActive = useScreenActive();
   const [mounted, setMounted] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -127,12 +128,14 @@ export function Modal({
     };
   }, [mounted]);
 
-  if (!mounted || !screenActive) return null;
+  if (!mounted) return null;
 
   return createPortal(
     <div
       className={`modal-backdrop modal-backdrop--${variant}`}
       role="presentation"
+      hidden={!screenActive}
+      style={screenActive ? undefined : { display: "none" }}
       onPointerDown={(e) => {
         pressedBackdropRef.current = e.target === e.currentTarget;
       }}
