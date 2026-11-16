@@ -7,6 +7,7 @@
 use serde_json::{Value, json};
 use wf_core::repo_query::{RepoAction, RepoCall, RepoCtx, RepoQuery, RepoStep};
 use wf_core::repos::vault_pages::step;
+use wf_core::sync::instant::{format_instant, parse_instant};
 
 #[derive(Default)]
 struct Table {
@@ -19,7 +20,9 @@ impl Table {
             rows: vec![json!({
                 "id": "p1", "title": "Plan", "body": body, "body_preview": null,
                 "parent_id": null, "pinned": false, "folder": false, "sort_order": 1.0,
-                "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z",
+                "created_at": "2026-01-01T00:00:00Z",
+                // Microseconds, as Postgres keeps them; reads see milliseconds.
+                "updated_at": "2026-01-01T00:00:00.000456Z",
                 "row_version": 1
             })],
         }
@@ -30,7 +33,31 @@ impl Table {
             .filters
             .iter()
             .filter(|f| f.column != "project_id")
-            .all(|f| row.get(&f.column) == Some(&f.value))
+            .all(|f| match f.op.as_str() {
+                "eq" => row.get(&f.column) == Some(&f.value),
+                "gte" | "lt" => {
+                    let at = |v: Option<&Value>| v.and_then(Value::as_str).and_then(parse_instant);
+                    let (Some(have), Some(bound)) = (at(row.get(&f.column)), at(Some(&f.value)))
+                    else {
+                        return false;
+                    };
+                    if f.op == "gte" {
+                        have >= bound
+                    } else {
+                        have < bound
+                    }
+                }
+                other => panic!("unexpected filter {other}"),
+            })
+    }
+
+    /// A row as the local database hands it out: times cut to milliseconds.
+    fn read(row: &Value) -> Value {
+        let mut row = row.clone();
+        if let Some(ms) = row["updated_at"].as_str().and_then(parse_instant) {
+            row["updated_at"] = json!(format_instant(ms));
+        }
+        row
     }
 
     fn answer(&mut self, query: &RepoQuery) -> Value {
@@ -39,8 +66,7 @@ impl Table {
                 .rows
                 .iter()
                 .find(|row| Self::matches(row, query))
-                .cloned()
-                .unwrap_or(Value::Null),
+                .map_or(Value::Null, Self::read),
             RepoAction::Update => {
                 let patch = query.body.clone().unwrap_or_default();
                 let mut hit = Vec::new();
@@ -179,4 +205,25 @@ fn a_save_with_no_one_else_writing_lands_in_one_read_and_one_write() {
     assert_eq!(laptop.call.replies.len(), 2);
     assert_eq!(table.body("p1"), "changed");
     assert_eq!(table.rows[0]["row_version"], 2);
+}
+
+#[test]
+fn an_edit_between_read_and_write_survives_the_version_coming_back() {
+    let mut table = Table::with_page(BASE);
+    let mut laptop = Save::new(
+        "laptop",
+        BASE,
+        "# Plan\n\nintro, rewritten\n\nmethods\n\nresults",
+    );
+    assert!(laptop.tick(&mut table).is_none()); // laptop has read version 1
+    // Another writer on this device saves (version 2), then the sync's ack sets
+    // the version back to the one the server gave: 1 again (ABA).
+    table.rows[0]["body"] = json!("# Plan\n\nintro\n\nmethods\n\nresults: 42%");
+    table.rows[0]["updated_at"] = json!("2026-11-16T09:59:00.500123Z");
+    table.rows[0]["row_version"] = json!(1);
+    let saved = laptop.finish(&mut table);
+
+    let both = "# Plan\n\nintro, rewritten\n\nmethods\n\nresults: 42%";
+    assert_eq!(table.body("p1"), both, "the other edit is merged, not lost");
+    assert_eq!(saved["body"], both);
 }

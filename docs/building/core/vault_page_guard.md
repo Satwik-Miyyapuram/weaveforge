@@ -14,10 +14,16 @@ result is the saved page plus `conflictCopyId` when a copy was made
 
 ## Rules
 
-- The page is read with its `row_version`, scoped to the project. The write is
-  `update ... where id and row_version` (only `where id` when the row has no
-  `row_version`) and returns the id. An empty reply means another writer won
-  the race.
+- The page is read with its `row_version` and `updated_at`, scoped to the
+  project. The write is `update ... where id and row_version` and
+  `updated_at` within the millisecond it read (`gte t`, `lt t + 1ms`; each
+  check is left out when the row lacks the column), and returns the id. An
+  empty reply means another writer won the race.
+- Why the time too: the sync's ack sets `row_version` back to the server's
+  number, so a local edit made between the read and the write can leave the
+  version as it was read (ABA). The time always moves. A range, not `eq`,
+  because the local database hands times out cut to milliseconds while it
+  keeps microseconds.
 - `plan(base, mine, theirs, session, canvas)` decides:
   - `theirs == mine`: keep, write nothing.
   - `theirs == base`, or the digest of `theirs` is in `sessionDigests`: write
@@ -29,7 +35,7 @@ result is the saved page plus `conflictCopyId` when a copy was made
     - clean: write the merged text;
     - conflict: conflict copy, then write `mine`.
 - After a lost race it reads again, up to `ATTEMPTS = 3` times.
-- A missed write whose re-read shows the same version is a row policy refusal:
+- A missed write whose re-read shows the same version and time is a row policy refusal:
   `VaultPagePermissionError`, "You may not edit the vault page \"{id}\".".
 - Out of attempts: `VaultPageConflictError`, "This note kept changing while it
   was being saved; your text is still in the editor.". A missing page is

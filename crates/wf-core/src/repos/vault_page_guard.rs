@@ -15,7 +15,10 @@
 //!   way, but a merge that no longer parses as a canvas counts as a clash.
 //!
 //! A write that misses the version (someone saved in between) reads again and
-//! decides again, up to [`ATTEMPTS`] times. A retry that clashes again reuses
+//! decides again, up to [`ATTEMPTS`] times. The write also names the
+//! `updated_at` it read (to the millisecond, all a local read gives): the
+//! sync's ack can set `row_version` back to the server's number, so an edit
+//! made in between could leave the version as it was read (ABA), never the time. A retry that clashes again reuses
 //! the same copy, and a copy made on any attempt is reported. Titles are
 //! unique per project, so a copy whose title is taken (a second copy in the
 //! same second, here or on another device) ends in a tag from its own id. A missed write
@@ -28,6 +31,7 @@ use super::vault_pages::{TABLE, VAULT_PAGE_COLUMNS, save, scoped};
 use crate::canvas::parse_canvas;
 use crate::repo_query::{RepoCall, RepoQuery, RepoStep};
 use crate::sync::change_origin::digest_text;
+use crate::sync::instant::{format_instant, parse_instant};
 use crate::sync::text_merge::{TextMerge, merge_text};
 use crate::vault::page::{CANVAS_KIND, NewVaultPageInput, VaultPage, create_vault_page};
 use crate::vault::page_row::{VaultPageRow, to_domain};
@@ -154,9 +158,9 @@ fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
     let mut copy_id = None;
     // The bodies kept as copies so far: a retry copies only text not yet kept.
     let mut copied: Vec<String> = Vec::new();
-    let mut missed: Option<Option<i64>> = None;
+    let mut missed: Option<Stamp> = None;
     for _ in 0..ATTEMPTS {
-        let (version, existing) = match read(call, at, &id) {
+        let (stamp, existing) = match read(call, at, &id) {
             Ok(read) => read,
             Err(step) => return step,
         };
@@ -164,7 +168,7 @@ fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
         // Without a version the write is unconditional, so an empty reply was
         // the row policy refusing it, never a lost race: the same as when the
         // version did not move.
-        if missed == Some(version) {
+        if missed == Some(stamp) {
             return RepoStep::fail_named(
                 "VaultPagePermissionError",
                 format!("You may not edit the vault page \"{id}\"."),
@@ -193,21 +197,19 @@ fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
             }
         };
         let now = call.now().to_owned();
-        let mut write = scoped(
+        let write = scoped(
             RepoQuery::update(TABLE, json!({ "body": text, "updated_at": now })),
             call,
         )
         .eq("id", id.as_str());
-        if let Some(version) = version {
-            write = write.eq("row_version", version);
-        }
+        let write = unchanged_since(write, stamp);
         let written = match reply_or_send(call, at, write.returning("id")) {
             Ok(written) => written,
             Err(step) => return step,
         };
         at += 1;
         if written.as_array().is_some_and(Vec::is_empty) {
-            missed = Some(version);
+            missed = Some(stamp);
             continue; // Someone saved in between, or the policy refused: read again.
         }
         let mut page = existing;
@@ -221,8 +223,25 @@ fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
     )
 }
 
-/// The page at reply `at` with its `row_version`, or the step that reads it.
-fn read(call: &RepoCall, at: usize, id: &str) -> Result<(Option<i64>, VaultPage), RepoStep> {
+/// What a write checks is unchanged: `row_version`, and `updated_at` in epoch
+/// milliseconds. Either is `None` when the row does not have it.
+type Stamp = (Option<i64>, Option<i64>);
+
+/// Narrows `write` to the row only while it still has `stamp`.
+fn unchanged_since(mut write: RepoQuery, stamp: Stamp) -> RepoQuery {
+    if let Some(version) = stamp.0 {
+        write = write.eq("row_version", version);
+    }
+    if let Some(ms) = stamp.1 {
+        write = write
+            .filter("gte", "updated_at", format_instant(ms))
+            .filter("lt", "updated_at", format_instant(ms + 1));
+    }
+    write
+}
+
+/// The page at reply `at` with its [`Stamp`], or the step that reads it.
+fn read(call: &RepoCall, at: usize, id: &str) -> Result<(Stamp, VaultPage), RepoStep> {
     let query = scoped(
         RepoQuery::select(TABLE, &format!("{VAULT_PAGE_COLUMNS},row_version")),
         call,
@@ -237,8 +256,12 @@ fn read(call: &RepoCall, at: usize, id: &str) -> Result<(Option<i64>, VaultPage)
         ));
     }
     let version = row.get("row_version").and_then(Value::as_i64);
+    let updated = row
+        .get("updated_at")
+        .and_then(Value::as_str)
+        .and_then(parse_instant);
     let row = serde_json::from_value::<VaultPageRow>(row.clone()).map_err(RepoStep::fail)?;
-    Ok((version, to_domain(&row)))
+    Ok(((version, updated), to_domain(&row)))
 }
 
 /// The saved page, naming the conflict copy when one was made.
@@ -359,7 +382,7 @@ mod tests {
     }
 
     #[test]
-    fn writes_only_if_the_version_is_unchanged() {
+    fn writes_only_if_the_version_and_time_are_unchanged() {
         let write = only(step(input("a", "b"), vec![row("a", 7)]));
         assert_eq!(write.action, RepoAction::Update);
         assert_eq!(write.body, Some(json!({ "body": "b", "updated_at": NOW })));
@@ -369,8 +392,12 @@ mod tests {
                 ("project_id".into(), json!("proj")),
                 ("id".into(), json!("p1")),
                 ("row_version".into(), json!(7)),
+                ("updated_at".into(), json!("2026-01-02T00:00:00.000Z")),
+                ("updated_at".into(), json!("2026-01-02T00:00:00.001Z")),
             ]
         );
+        let ops: Vec<&str> = write.filters.iter().map(|f| f.op.as_str()).collect();
+        assert_eq!(ops[3..], ["gte", "lt"]);
         assert_eq!(write.columns.as_deref(), Some("id"));
         let page = done(step(
             input("a", "b"),
