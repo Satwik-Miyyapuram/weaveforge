@@ -198,6 +198,16 @@ export interface DesktopBridge {
   retryVaultRoot?(): Promise<DesktopVaultRoot | null>;
   /** Stop using, watching and remembering the folder; answers any warnings. The files stay. */
   forgetVaultRoot?(): Promise<readonly string[]>;
+  /**
+   * Whether the first-open "where should your workspace live?" question is due, and
+   * the folder Skip would use. Absent on the Electron shell and in the browser.
+   */
+  workspaceSetup?(): Promise<DesktopWorkspaceSetup>;
+  /**
+   * Skip the first-open question: use `WeaveForge` in the reader's Documents folder
+   * (created if missing). Answers the folder in use, or rejects with why it cannot be used.
+   */
+  skipWorkspaceFolder?(): Promise<DesktopVaultRoot | null>;
   /** Read one file, or null when it is not there yet. */
   readVaultFile(path: string): Promise<string | null>;
   writeVaultFile(path: string, contents: string): Promise<void>;
@@ -648,6 +658,14 @@ export type DesktopSecretName = "ai-provider" | "overleaf-token" | "git-sync-tok
  * `apps/shell/src/prefs.rs`.
  */
 export type DesktopPreferenceName = "vault-git" | "vault-git-remote";
+
+/** What the first-open question needs from the shell. */
+export interface DesktopWorkspaceSetup {
+  /** Ask the reader where the workspace lives. */
+  needed: boolean;
+  /** Where Skip puts the workspace; null when the Documents folder is unknown. */
+  defaultFolder: string | null;
+}
 export type DesktopPreferenceValue = string | boolean | null;
 
 export interface DesktopUpdate {

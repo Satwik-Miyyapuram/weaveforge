@@ -4,7 +4,7 @@ import type {
 } from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import { downloadLibraryPdfsOnce } from "@/features/reader/application/parts-1";
-import { desktop } from "@/lib/desktop/desktop-bridge";
+import { desktop, type DesktopVaultRoot } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 import { notifyEach, onWorkspaceChange } from "@/lib/parts";
@@ -179,7 +179,8 @@ function adoptBrowserFolder(fs: BrowserWorkspaceFs, git: boolean): void {
  * (the folder is not watched, or could not be remembered) for the page to show.
  */
 export async function chooseDesktopFolder(options: {
-  git: boolean;
+  /** Set the git preference for this folder; omitted, the preference is left as it is. */
+  git?: boolean;
   /** Take up the remembered folder instead of opening a dialog. */
   reuse?: boolean;
   /** Try the remembered folder again after it was not available. */
@@ -193,6 +194,27 @@ export async function chooseDesktopFolder(options: {
       ? await bridge.vaultRoot()
       : await bridge.chooseVaultRoot();
   if (!root) return false;
+  return await connectDesktopFolder(bridge, root, options);
+}
+
+/**
+ * The first-open question's Skip: the workspace goes into `WeaveForge` in the
+ * reader's Documents folder. Same connection as a pick; the git preference is
+ * left alone. `false` when there is no desktop shell or Skip is not offered.
+ */
+export async function skipDesktopFolder(): Promise<false | { warnings: readonly string[] }> {
+  const bridge = desktop();
+  if (!bridge?.skipWorkspaceFolder) return false;
+  const root = await bridge.skipWorkspaceFolder();
+  if (!root) return false;
+  return await connectDesktopFolder(bridge, root, {});
+}
+
+async function connectDesktopFolder(
+  bridge: NonNullable<ReturnType<typeof desktop>>,
+  root: DesktopVaultRoot,
+  options: { git?: boolean; reuse?: boolean; retry?: boolean },
+): Promise<{ warnings: readonly string[] }> {
   activeFs = new DesktopWorkspaceFs(bridge);
   // No git in here for a desktop folder. The shell has the machine's own git
   // and, more to the point, can see what is *above* the folder -- which is the
@@ -204,7 +226,9 @@ export async function chooseDesktopFolder(options: {
   // up on the next launch keeps the history it was connected with. Only a
   // fresh choice says anything about it: reconnecting is not an answer to the
   // question, and must not be read as switching it off.
-  if (!options.reuse && !options.retry) await bridge.writePreference("vault-git", options.git);
+  if (options.git !== undefined && !options.reuse && !options.retry) {
+    await bridge.writePreference("vault-git", options.git);
+  }
   watchForChanges();
   // The folder is where the desktop copy keeps its PDFs; fill it in the
   // background so the papers open from disk, offline included.
