@@ -32,6 +32,7 @@ import { FormError } from "@/components/form-error";
 import { ScreenHead } from "@/components/screen-head";
 import { showToast } from "@/lib/toast/index";
 import { readyCore, typedCore } from "@/lib/rust-core";
+import { useScreenShown } from "@/lib/screen-shown";
 
 // Kept beside the repository memo on purpose (xapi-11): this holds the
 // *finalized* layout (supervisor defaults applied) and is read synchronously,
@@ -92,6 +93,8 @@ export function DashboardScreen() {
 
   const handleEnterComplete = useCallback(() => setCardsEntered(true), []);
   const contentReady = !statsLoading && !layoutLoading;
+  // Shown once the cards are laid out, from the device snapshot or live.
+  useScreenShown("dashboard", !layoutLoading);
   // Edits wait until project, layout and stats are all live.
   const fromSnapshot = Boolean(projectsFromSnapshot) || layoutFromSnapshot || statsFromSnapshot;
 

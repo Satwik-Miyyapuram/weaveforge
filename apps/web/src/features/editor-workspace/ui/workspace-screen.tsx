@@ -48,6 +48,7 @@ import { useFocusMode } from "./use-focus-mode";
 import { HydratingDocument, useNoteBodies } from "./use-note-bodies";
 import { requestedTab, useReturnRefresh } from "./use-return-refresh";
 import { useScreenActive } from "@/lib/hooks/use-screen-active";
+import { useScreenShown } from "@/lib/screen-shown";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import { PaneView, openTabs } from "./pane-view";
@@ -108,6 +109,7 @@ export function WorkspaceScreen() {
   const [explorerHidden, setExplorerHidden] = useState(false);
   const { focus, toggleFocus } = useFocusMode();
   const onScreen = useScreenActive();
+  useScreenShown("workspace", documents != null);
   // `F2`: a count, so the explorer's rename starts once per press.
   const [renameRequest, setRenameRequest] = useState(0);
   // The chord handler is bound once; it reads the document on screen through
