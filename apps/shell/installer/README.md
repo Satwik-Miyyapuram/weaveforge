@@ -9,7 +9,7 @@ uses these files. `tauri.conf.json` names them under `bundle.windows.nsis`:
   (`installerHooks`): before install and before uninstall, it closes a running
   WeaveForge (the Electron `WeaveForge.exe` or the Tauri `weaveforge-shell.exe`),
   so the sign-in port and the files are free.
-- The installer and uninstaller icons are `icons/icon.ico`.
+- The installer and uninstaller icons are `icons/icon.ico`. They are static and do not follow the theme. The running app sets its own window and taskbar icon at runtime (see `docs/building/core/shell.md`).
 
 The uninstaller and the in-app updater (which runs the same NSIS file) use the
 same art. Look at `tauri.conf.json` for the exact keys.
