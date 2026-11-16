@@ -1,0 +1,134 @@
+/**
+ * Every row of every synced table, one JSON file per table under
+ * `.weaveforge/tables/`. A folder-mirror clone rebuilds the database from these
+ * files: export writes them, import reads them back parents first.
+ *
+ * Rows travel as `row_to_json` text, not as typed values, so timestamps keep
+ * their full precision and the import reads them back unchanged.
+ */
+
+export type SyncRow = Record<string, unknown>;
+
+/** The one database call this module needs; the test database and the app's connection both fit. */
+export interface SyncSql {
+  sql: <T = Record<string, unknown>>(query: string, params?: unknown[]) => Promise<T[]>;
+}
+
+/**
+ * Synced tables in foreign-key order: each table comes after every table its
+ * rows point at. Self-references (`SELF_REFERENCE`) are handled per row.
+ * The order is checked against the real foreign keys by
+ * `sync-tables-fk-order.test.ts`.
+ */
+export const SYNC_TABLES = [
+  "projects",
+  "experiment_metric_names",
+  "papers",
+  "tags",
+  "paper_tags",
+  "vault_pages",
+  "reading_lists",
+  "report_sections",
+  "reading_list_items",
+  "screening_decisions",
+  "paper_relations",
+  "experiments",
+  "experiment_metric_points",
+  "experiment_metric_chunks",
+  "milestones",
+  "log_entries",
+  "paper_field_defs",
+  "paper_field_values",
+  "paper_locus_anchors",
+  "reader_annotations",
+  "annotation_pins",
+  "annotation_quotation_types",
+  "citation_alert_tracks",
+  "lab_snapshots",
+  "blob_objects",
+] as const;
+
+export type SyncTable = (typeof SYNC_TABLES)[number];
+
+/** The column of a table that points at another row of the same table. */
+export const SELF_REFERENCE: Partial<Record<SyncTable, string>> = {
+  vault_pages: "parent_id",
+  reading_lists: "parent_id",
+  report_sections: "parent_id",
+  reading_list_items: "duplicate_of_item_id",
+};
+
+export function syncTableFile(table: string): string {
+  return `.weaveforge/tables/${table}.json`;
+}
+
+export async function exportSyncTables(db: SyncSql): Promise<Record<SyncTable, SyncRow[]>> {
+  const out = {} as Record<SyncTable, SyncRow[]>;
+  for (const table of SYNC_TABLES) {
+    const rows = await db.sql<{ row: SyncRow }>(`select row_to_json(t) as row from ${table} t`);
+    out[table] = rows.map((r) => r.row);
+  }
+  return out;
+}
+
+export async function importSyncTables(
+  db: SyncSql,
+  files: Partial<Record<SyncTable, SyncRow[]>>,
+): Promise<void> {
+  for (const table of SYNC_TABLES) {
+    const columns = await writableColumns(db, table);
+    const list = columns.map((c) => `"${c}"`).join(", ");
+    const rows = orderBySelfReference(files[table] ?? [], SELF_REFERENCE[table]);
+    for (const row of rows) {
+      // Stored generated columns (e.g. paper_tags.id) are recomputed by the database, so they are not written.
+      // OVERRIDING SYSTEM VALUE keeps identity columns as exported.
+      await db.sql(
+        `insert into ${table} (${list}) overriding system value
+         select ${list} from json_populate_record(null::${table}, $1::json)`,
+        [JSON.stringify(row)],
+      );
+    }
+  }
+}
+
+/** Columns a row can be written to: everything except stored generated columns. */
+async function writableColumns(db: SyncSql, table: string): Promise<string[]> {
+  const rows = await db.sql<{ column_name: string }>(
+    `select column_name from information_schema.columns
+     where table_schema = 'public' and table_name = $1 and is_generated = 'NEVER'
+     order by ordinal_position`,
+    [table],
+  );
+  return rows.map((r) => r.column_name);
+}
+
+/**
+ * Put rows so each row comes after the row its `column` points at. Rows whose
+ * parent is not in the list (or is null) can go first. A cycle cannot be
+ * imported in any order and throws.
+ */
+export function orderBySelfReference(rows: SyncRow[], column: string | undefined): SyncRow[] {
+  if (!column) return rows;
+  const ids = new Set(rows.map((r) => String(r.id)));
+  const placed = new Set<string>();
+  const out: SyncRow[] = [];
+  let pending = rows;
+  while (pending.length > 0) {
+    const next: SyncRow[] = [];
+    for (const row of pending) {
+      const parent = row[column];
+      const waiting = parent != null && ids.has(String(parent)) && !placed.has(String(parent));
+      if (waiting) {
+        next.push(row);
+      } else {
+        out.push(row);
+        placed.add(String(row.id));
+      }
+    }
+    if (next.length === pending.length) {
+      throw new Error(`sync rows form a cycle through ${column}`);
+    }
+    pending = next;
+  }
+  return out;
+}
