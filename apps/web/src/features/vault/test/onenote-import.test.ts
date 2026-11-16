@@ -266,10 +266,11 @@ test("canvas mode writes a JSON Canvas whose file nodes point at uploads and ink
   const pageA = JSON.parse(finalBody(fake, a.id)) as { nodes: { type: string; text?: string; file?: string }[] };
   assert.deepEqual(
     pageA.nodes.map((n) => n.type),
-    ["text", "file"],
+    ["text", "text"],
   );
   assert.equal(pageA.nodes[0]!.text, "hello");
-  assert.equal(pageA.nodes[1]!.file, upload.path);
+  // A picture is a text node holding its vault image, not a file node.
+  assert.ok(pageA.nodes[1]!.text!.includes(`](vault:${upload.path})`));
 
   const pageB = JSON.parse(finalBody(fake, b.id)) as { nodes: { type: string; file?: string }[] };
   assert.deepEqual(
