@@ -65,7 +65,7 @@ export default function PitchPage() {
       </header>
 
       <main>
-        <Hero />
+        <Hero crt={theme === "crt"} />
         <ChainAct />
         <ExperimentsAct />
         <LabsAct />
@@ -220,7 +220,7 @@ const DECK = [
   { label: "report", chip: "Not started", tone: "c-none", t: "3.2 Graph-prior module", m: "0 / 2,400 words · 3 runs attached", rot: 2 },
 ];
 
-function Hero() {
+function Hero({ crt }: { crt: boolean }) {
   return (
     <section id="overview" className={k("wrap hero")} data-section="overview">
       <div className={s["hero-copy"]}>
@@ -246,7 +246,7 @@ function Hero() {
           <div
             key={c.t}
             className={k(`card tinted ${c.tone}`)}
-            style={{ "--i": i, transform: theme === "crt" ? "none" : `rotate(${c.rot}deg)`, zIndex: i + 1 } as CSSProperties}
+            style={{ "--i": i, transform: crt ? "none" : `rotate(${c.rot}deg)`, zIndex: i + 1 } as CSSProperties}
           >
             <Head label={c.label} chip={c.chip} tone={c.tone} title={c.t} />
             <span className={s.m}>{c.m}</span>

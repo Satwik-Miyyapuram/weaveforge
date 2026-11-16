@@ -17,5 +17,5 @@ test("the CRT look sets --tilt to 0deg", () => {
 
 test("the deck does not rotate its cards in the CRT look", () => {
   const page = read("page.tsx");
-  assert.match(page, /theme === "crt" \? "none" : `rotate\(\$\{c\.rot\}deg\)`/);
+  assert.match(page, /crt \? "none" : `rotate\(\$\{c\.rot\}deg\)`/);
 });
