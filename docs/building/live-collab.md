@@ -67,16 +67,18 @@ same update arriving twice (live and again in a `sync2`) changes nothing.
 
 While not connected, `flushOutbound()` keeps the merged update in `pending`
 instead of sending it. A send that fails or returns anything but `"ok"` puts
-the update back at the front. On the next `SUBSCRIBED`, `onJoined()` sends it
-once. The sync step catches anything the queue does not cover.
+the update back at the front; it goes out merged with the next edit, or on the
+next `SUBSCRIBED`, when `onJoined()` sends the queue once. The sync step catches
+anything the queue does not cover.
 
 ## Reconnect
 
-Two cases, because the Realtime library handles one of them:
+The Realtime library rejoins some channels by itself and not others, so the
+provider covers each case:
 
 | Status | Who rejoins |
 | --- | --- |
-| `CHANNEL_ERROR`, `TIMED_OUT` | The library, on the same channel. `SUBSCRIBED` fires again and `onJoined()` runs. |
+| `CHANNEL_ERROR`, `TIMED_OUT` | Usually the library, on the same channel: `SUBSCRIBED` fires again and `onJoined()` runs. A refused join (expired token, denied topic) may never be retried, so if no `SUBSCRIBED` comes within 10 s (`ERROR_REJOIN_MS`) the provider leaves that channel and `join()` builds a new one. A late `SUBSCRIBED` on the old channel is then ignored. |
 | `CLOSED` from the server | Nobody, unless we do. The library drops closed channels, so `join()` builds a new one. |
 | `setAuth()` rejected | We retry `connect()` on the *same* channel (no new handlers). |
 
@@ -86,8 +88,9 @@ a channel that is no longer current is ignored.
 
 ## Presence
 
-- Our own awareness changes are broadcast; remote ones (origin is the
-  provider) are not echoed back.
+- Only this client's own awareness state is broadcast. Remote states (origin
+  is the provider) are not echoed back, and neither is Awareness's own sweep
+  dropping a peer that went quiet: other clients may still hear that peer.
 - On disconnect every other client's state is forgotten (both `states` and
   `meta`, so its next update is accepted when we are back) and a `change` event
   fires, so the avatars clear.
@@ -97,8 +100,9 @@ a channel that is no longer current is ignored.
 
 ## Persistence
 
-- After 5 s with no local edit (`PERSIST_IDLE_MS`), `persistTail()` appends the
-  doc's full state to `crdt_updates`. Teardown forces one last append.
+- 5 s after the first local edit of a burst (`PERSIST_IDLE_MS`; later edits do
+  not push it back), `persistTail()` appends the doc's full state to
+  `crdt_updates`. Teardown forces one last append.
 - When the tail reaches 200 rows (`COMPACT_THRESHOLD`) and the body is durable,
   the log is compacted. See the compaction notes in
   [collaborative-editing.md](../using/collaborative-editing.md).
@@ -106,7 +110,7 @@ a channel that is no longer current is ignored.
 
 ## Teardown
 
-`destroy()` clears the merge, persist and rejoin timers, sends the presence
+`destroy()` clears the merge, persist, rejoin and errored-channel timers, sends the presence
 removal, unbinds the doc and awareness listeners, unsubscribes the channel and
 writes the final tail. After it, no listener, channel or timer is left.
 
@@ -116,14 +120,16 @@ writes the final tail. After it, no listener, channel or timer is left.
 runs real providers and real `Y.Doc`s over
 [`fake-realtime.ts`](../../apps/web/src/features/collab/test/fake-realtime.ts),
 an in-memory broadcast server that can drop a socket, close a channel, refuse
-joins or refuse a token. It covers:
+joins (CLOSED, or CHANNEL_ERROR with no library retry), refuse a token, fail a
+send, or report a late status on a replaced channel. It covers:
 
 - convergence;
 - offline merge;
 - exactly-once resend on reconnect;
 - a late joiner;
 - reload equality;
-- backoff;
+- backoff, and replacing an errored channel the library gave up on;
+- stale status and failed sends;
 - presence;
 - leak-free teardown.
 
@@ -132,3 +138,9 @@ Run it from `apps/web`:
 ```sh
 node ./scripts/run-tests.mjs src/features/collab/test/live-sync.test.ts
 ```
+
+## Known gaps
+
+- Every peer answers a `sync1` with its own `sync2`, so a join costs one reply
+  per peer, and N peers rejoining together cost N² replies. Fine for a few
+  editors; letting one peer answer is the follow-up for larger groups.

@@ -139,11 +139,13 @@ signing in later leaves it where it is.
   bytes; RLS and encryption at rest are the boundary. See [SECURITY.md](../SECURITY.md).
 - **Text only.** The title, tags and a note's Kind are ordinary fields with
   ordinary last-write-wins behaviour.
-- **Offline edits wait for the connection, not forever.** Edits made while the
-  channel is down are held in memory and merged into everyone's document when it
-  comes back, with no reopen. If you close the note before then, they are still
-  in the saved body and the stored history, and reach the others when they next
-  open it.
+- **Offline edits wait for the connection, not forever.** Edits made while only
+  live sync is down are held in the open editor and merged into everyone's
+  document when it comes back, with no reopen. The note still saves as usual, so
+  closing it early keeps your text and the others get it when they next open it.
+  When you are fully offline, the saves fail too: the editor keeps trying with
+  your next edit, but once you close it, edits whose save never succeeded are
+  not retried and can be lost. Keep the note open until you are back online.
 
 ## Related
 
