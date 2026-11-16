@@ -73,7 +73,10 @@ pub async fn old_db_import_finish(
 /// Whether an old database is waiting to be imported: one is found and no import has finished.
 #[tauri::command]
 #[specta::specta]
-#[allow(clippy::needless_pass_by_value, reason = "tauri passes the handle by value")]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "tauri passes the handle by value"
+)]
 pub fn old_db_status(app: tauri::AppHandle) -> Result<bool, ShellError> {
     use tauri::Manager;
     let data = app
