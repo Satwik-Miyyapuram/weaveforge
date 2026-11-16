@@ -23,7 +23,7 @@ use crate::vault::page_query::{
 };
 use crate::vault::page_row::{VaultPageRow, to_domain, to_row, to_summary_domain};
 
-const TABLE: &str = "vault_pages";
+pub(super) const TABLE: &str = "vault_pages";
 
 /// How many ids one `in` filter carries; the list travels in the URL.
 const ID_CHUNK: usize = 200;
@@ -49,14 +49,14 @@ pub fn step(method: &str, call: &RepoCall) -> Option<RepoStep> {
         "titleTaken" => title_taken(call),
         "save" => save(call),
         "add" => add(call),
-        "update" => update(call),
+        "update" => super::vault_page_guard::update(call).unwrap_or_else(|| update(call)),
         "delete" | "remove" => delete(call),
         _ => return None,
     })
 }
 
 /// The project filter every query carries when a project is selected.
-fn scoped(query: RepoQuery, call: &RepoCall) -> RepoQuery {
+pub(super) fn scoped(query: RepoQuery, call: &RepoCall) -> RepoQuery {
     match call.ctx.project_id.as_deref().filter(|p| !p.is_empty()) {
         Some(pid) => query.eq("project_id", pid),
         None => query,
@@ -281,7 +281,7 @@ fn title_taken(call: &RepoCall) -> RepoStep {
 
 /// `save(page)`: upserts the row. `updated_at` is the server's; `project_id` is added when a
 /// project is selected.
-fn save(call: &RepoCall) -> RepoStep {
+pub(super) fn save(call: &RepoCall) -> RepoStep {
     if call.replies.is_empty() {
         let page: VaultPage = match call.parse(0) {
             Ok(page) => page,
