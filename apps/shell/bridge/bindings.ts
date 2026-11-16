@@ -51,6 +51,21 @@ export const commands = {
 	 */
 	vaultChoose: () => typedError<Choice_Serialize, ShellError_Serialize>(__TAURI_INVOKE("vault_choose")),
 	/**
+	 *  Whether the first-open question is due, and the folder Skip would use.
+	 * 
+	 *  # Errors
+	 *  Never; a `Result` for the command shape.
+	 */
+	workspaceSetup: () => typedError<WorkspaceSetup_Serialize, ShellError_Serialize>(__TAURI_INVOKE("workspace_setup")),
+	/**
+	 *  Skip on the first-open question: the workspace goes into `WeaveForge` in the reader's Documents
+	 *  folder, created if missing, through the same checks as a pick.
+	 * 
+	 *  # Errors
+	 *  The reason that folder cannot hold a workspace; nothing changes.
+	 */
+	workspaceSkip: () => typedError<Choice_Serialize, ShellError_Serialize>(__TAURI_INVOKE("workspace_skip")),
+	/**
 	 *  The remembered folder while none is in use, so the page can say it is not available.
 	 * 
 	 *  # Errors
@@ -1096,6 +1111,25 @@ export type WorkspaceCommit = {
 	author: string,
 	/**  First line of the message. */
 	message: string,
+};
+
+/**  What the first-open question needs: whether to ask, and where Skip puts the workspace. */
+export type WorkspaceSetup = WorkspaceSetup_Serialize | WorkspaceSetup_Deserialize;
+
+/**  What the first-open question needs: whether to ask, and where Skip puts the workspace. */
+export type WorkspaceSetup_Deserialize = {
+	/**  Ask the reader where the workspace lives. */
+	needed: boolean,
+	/**  The folder Skip uses; `None` when the Documents folder is unknown. */
+	defaultFolder?: string | null,
+};
+
+/**  What the first-open question needs: whether to ask, and where Skip puts the workspace. */
+export type WorkspaceSetup_Serialize = {
+	/**  Ask the reader where the workspace lives. */
+	needed: boolean,
+	/**  The folder Skip uses; `None` when the Documents folder is unknown. */
+	defaultFolder: string | null,
 };
 
 /**  What came back (TS `{status, body, headers}`). */

@@ -191,6 +191,16 @@ fn start_stores(app: &tauri::AppHandle) {
         .map(|h| h.to_string_lossy().into_owned())
         .unwrap_or_default();
     let prefs = prefs::Prefs::new(data.join("preferences.json"));
+    // Before start_local_db creates the data folder: existing users are not asked the first-open question.
+    let electron = paths
+        .config_dir()
+        .ok()
+        .zip(paths.resource_dir().ok())
+        .and_then(|(config, resources)| {
+            let source = launch::app_source(resources);
+            launch::electron_data_dir(&source, &app.package_info().name, &config)
+        });
+    vault_choice::note_earlier_data(&prefs, &data, electron.as_deref());
     let vault = vault::VaultState::new();
     let _ = vault_choice::restore_remembered(&vault, &prefs);
     let secrets = secrets::Secrets::new(native_store(), app.config().identifier.clone());

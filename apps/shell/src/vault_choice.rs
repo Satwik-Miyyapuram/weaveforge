@@ -1,14 +1,25 @@
 //! Moving the workspace to a folder the reader picked: the session, the remembered folder and the folder watch move together.
 
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use wf_store::root::WORKSPACE_SUBDIR;
+
+use crate::migrate;
 use crate::prefs::{PrefValue, Prefs};
 use crate::vault::{VaultRoot, VaultState};
 use crate::vault_watcher::{ChangeSink, VaultWatcher, WatchSlot};
 
 /// The preference that remembers the workspace folder between runs.
 pub const ROOT_PREF: &str = "vault-root";
+
+/// Set once the reader has answered the first-open question (picked a folder or skipped).
+pub const ASKED_PREF: &str = "workspace-asked";
+
+/// Said when a pick lands inside the app's own install folder, which is never a workspace.
+pub const INSIDE_INSTALL: &str =
+    "That folder is inside the WeaveForge app folder. Pick a folder outside the app.";
 
 /// Said (logged) when the folder works but could not be remembered for the next start.
 pub const NOT_REMEMBERED: &str =
@@ -104,6 +115,75 @@ pub fn restore_remembered(vault: &VaultState, prefs: &Prefs) -> Option<VaultRoot
     restored
 }
 
+/// Whether the first-open question should be asked: no folder is remembered and the reader has
+/// not answered it before. A folder remembered from an older version counts as an answer.
+#[must_use]
+pub fn setup_needed(prefs: &Prefs) -> bool {
+    remembered(prefs).is_none()
+        && !matches!(prefs.read(ASKED_PREF), Ok(Some(PrefValue::Flag(true))))
+}
+
+/// Marks the first-open question as answered when the reader already has a database from an
+/// earlier run, or the Electron-era data folder holds a named artifact the app migrates. Files
+/// the app writes on any launch (webview, log, preferences) do not count. Call it before the
+/// database opens, since opening it creates the folder. Existing users are never asked.
+pub fn note_earlier_data(prefs: &Prefs, data_dir: &Path, electron_dir: Option<&Path>) {
+    let earlier = migrate::old_pglite_dir(data_dir).is_some()
+        || electron_dir.is_some_and(has_migratable_item);
+    if earlier {
+        mark_asked(prefs);
+    }
+}
+
+/// Writes the answered flag. A failed write is logged; the next start asks again.
+fn mark_asked(prefs: &Prefs) {
+    if prefs
+        .write(ASKED_PREF, Some(PrefValue::Flag(true)))
+        .is_err()
+    {
+        eprintln!("[vault] could not record that the workspace question was answered");
+    }
+}
+
+/// Whether `dir` holds an entry the migration would carry over (see `migrate::ITEMS`).
+fn has_migratable_item(dir: &Path) -> bool {
+    migrate::ITEMS.iter().any(|item| dir.join(item).exists())
+}
+
+/// The folder Skip uses: `WeaveForge` inside the reader's Documents folder.
+#[must_use]
+pub fn default_workspace_folder(documents: &Path) -> PathBuf {
+    documents.join(WORKSPACE_SUBDIR)
+}
+
+/// Refuses a folder that is the app's install folder or inside it. Both paths are resolved first
+/// (`..` and, on Windows, letter case), so a spelling of the same folder cannot slip past. Whole
+/// path components only, so a sibling that shares the text prefix is allowed. `None` (install
+/// folder unknown) refuses nothing.
+///
+/// # Errors
+/// The reader-facing reason; the pick changes nothing.
+pub fn refuse_install_dir(chosen: &Path, install: Option<&Path>) -> Result<(), String> {
+    let Some(install) = install else {
+        return Ok(());
+    };
+    let chosen = fs::canonicalize(chosen).unwrap_or_else(|_| chosen.to_path_buf());
+    let install = fs::canonicalize(install).unwrap_or_else(|_| install.to_path_buf());
+    if chosen.starts_with(&install) {
+        Err(INSIDE_INSTALL.to_owned())
+    } else {
+        Ok(())
+    }
+}
+
+/// The folder the running app was installed into (its executable's folder).
+#[must_use]
+pub fn current_install_dir() -> Option<PathBuf> {
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(Path::to_path_buf))
+}
+
 /// The remembered folder, as text; `None` when none is remembered.
 fn remembered(prefs: &Prefs) -> Option<String> {
     match prefs.read(ROOT_PREF) {
@@ -179,6 +259,7 @@ fn adopt_inner(
             warnings: Vec::new(),
         });
     };
+    refuse_install_dir(chosen, current_install_dir().as_deref())?;
     let mut session = vault.lock();
     let root = session.choose(Some(chosen))?;
     let old = slot.take();
@@ -193,6 +274,8 @@ fn adopt_inner(
         {
             warnings.push(NOT_REMEMBERED.to_owned());
         }
+        // Answered now, so the first-open question is not asked again.
+        mark_asked(prefs);
         match start(Path::new(&picked.path), sink) {
             Ok(watcher) => slot.set(Some(watcher)),
             Err(reason) => warnings.push(reason),

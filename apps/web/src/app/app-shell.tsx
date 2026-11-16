@@ -50,6 +50,10 @@ const FolderChangeNote = dynamic(
   () => import("@/features/workspace/ui/folder-change-note").then((m) => m.FolderChangeNote),
   { ssr: false },
 );
+const WorkspaceSetupDialog = dynamic(
+  () => import("@/features/workspace/ui/workspace-setup-dialog").then((m) => m.WorkspaceSetupDialog),
+  { ssr: false },
+);
 const PdfTextFolderSync = dynamic(
   () => import("@/features/workspace/ui/pdf-text-folder-sync").then((m) => m.PdfTextFolderSync),
   { ssr: false },
@@ -97,6 +101,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     re-ask on every switch. See the component for why this is
                     not in the Settings panel. */}
                 <WorkspaceFolderRestore />
+                <WorkspaceSetupDialog />
                 <FolderChangeNote />
                 <ToastHost />
                 <ContextMenuHost />

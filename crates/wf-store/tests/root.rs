@@ -146,3 +146,46 @@ fn root_error_texts_match_the_desktop_app() {
         "WeaveForge could not write inside that folder."
     );
 }
+
+#[test]
+fn choosing_an_empty_folder_leaves_no_probe_file_behind() {
+    let dir = TempDir::new();
+    let choice = workspace_root_for(dir.path()).unwrap();
+    assert_eq!(choice.root, dir.path());
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 0);
+}
+
+// A folder the app cannot write to is refused up front, not found out on the first save.
+#[cfg(unix)]
+#[test]
+fn folder_that_cannot_be_written_is_refused() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = TempDir::new();
+    fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o555)).unwrap();
+    let result = workspace_root_for(dir.path());
+    fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o755)).unwrap();
+    assert_eq!(result, Err(RootError::CannotWrite));
+}
+
+// Windows ignores the read-only flag on folders, so the folder is denied file and subfolder
+// creation with an ACL instead. Denying all write (W) also blocks listing the folder, which
+// would fail earlier as NotAFolder; (WD,AD) blocks only creation. Everyone (S-1-1-0) is denied;
+// the deny is removed again before the folder is cleaned up.
+#[cfg(windows)]
+#[test]
+fn folder_that_cannot_be_written_is_refused() {
+    use std::process::Command;
+    let dir = TempDir::new();
+    let denied = Command::new("icacls")
+        .arg(dir.path())
+        .args(["/deny", "*S-1-1-0:(OI)(CI)(WD,AD)"])
+        .status()
+        .unwrap();
+    assert!(denied.success());
+    let result = workspace_root_for(dir.path());
+    let _ = Command::new("icacls")
+        .arg(dir.path())
+        .args(["/remove:d", "*S-1-1-0"])
+        .status();
+    assert_eq!(result, Err(RootError::CannotWrite));
+}

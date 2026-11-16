@@ -13,6 +13,30 @@ without WeaveForge installed.
 
 Settings → Workspace is where all of this lives.
 
+## Choosing the folder on first open
+
+The first time the desktop app opens with no folder chosen, it asks once where
+the workspace should go. **Choose folder** lets you pick one. **Skip** uses a
+`WeaveForge` folder inside your Documents folder. Either answer is remembered
+across restarts and the question is not asked again, even after you disconnect
+the folder. You can change the folder later from Settings → Workspace.
+
+The question names the folder Skip would use. If the folder connects but the app
+has a warning about it, the question stays on screen with that warning until you
+choose **Continue**.
+
+If Skip cannot create that `WeaveForge` folder, WeaveForge tells you so and
+writes the reason to the app log. The folder shown in Settings → Workspace is
+always the one actually in use, so check it there after a failed Skip and pick
+another folder if needed.
+
+You are not asked if WeaveForge already has data from an earlier version: an
+older database, a folder remembered from an earlier version, or an Electron-era
+data folder with items the app migrates. Other files WeaveForge writes on any
+launch (its web view data, its log, its preferences file on their own) do not
+count, so a fresh install is asked. Quitting before you answer also means you
+are asked again on the next launch.
+
 ## What gets written
 
 One directory per kind of thing — `notes/`, `papers/`, `reading-lists/`,

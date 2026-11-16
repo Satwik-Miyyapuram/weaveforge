@@ -16,6 +16,7 @@ import type {
   DesktopVaultEntry,
   DesktopVaultRoot,
   DesktopVaultSync,
+  DesktopWorkspaceSetup,
   DesktopZoteroReply,
 } from "@/lib/desktop/desktop-bridge";
 import { fromBase64, toBase64, unwrap } from "./bridge";
@@ -72,6 +73,8 @@ export interface DesktopCommands {
   vaultMissing(): Promise<Result<string | null>>;
   vaultRetry(): Promise<Result<VaultChoice>>;
   vaultForget(): Promise<Result<VaultChoice>>;
+  workspaceSetup(): Promise<Result<DesktopWorkspaceSetup>>;
+  workspaceSkip(): Promise<Result<VaultChoice>>;
   vaultRead(path: string): Promise<Result<string | null>>;
   vaultWrite(path: string, contents: string): Promise<Result<null>>;
   vaultWriteIf(path: string, contents: string, expected: string | null): Promise<Result<boolean>>;
@@ -289,6 +292,8 @@ export type DesktopShim = Pick<
   | "missingVaultRoot"
   | "retryVaultRoot"
   | "forgetVaultRoot"
+  | "workspaceSetup"
+  | "skipWorkspaceFolder"
   | "readVaultFile"
   | "writeVaultFile"
   | "writeVaultFileIf"
@@ -527,6 +532,8 @@ export function desktopShim(
     missingVaultRoot: async () => unwrap(await cmds.vaultMissing()),
     retryVaultRoot: async () => choiceRoot(unwrap(await cmds.vaultRetry())),
     forgetVaultRoot: async () => unwrap(await cmds.vaultForget()).warnings,
+    workspaceSetup: async () => unwrap(await cmds.workspaceSetup()),
+    skipWorkspaceFolder: async () => choiceRoot(unwrap(await cmds.workspaceSkip())),
     readVaultFile: async (path) => unwrap(await cmds.vaultRead(path)),
     writeVaultFile: async (path, contents) => {
       unwrap(await cmds.vaultWrite(path, contents));
