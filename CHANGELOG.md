@@ -22,7 +22,7 @@ tracks at once.
 
 ### iOS
 
-## [0.9.0] - 2026-11-13
+## [0.9.0] - 2026-11-16
 
 Desktop (`v0.9.0`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
 
@@ -35,6 +35,7 @@ Desktop (`v0.9.0`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays
 - **Changed:** A refreshed design across screens, with clearer feedback.
 - **Changed:** Smoother ink: steadier strokes, no jitter on reload, and an eraser that removes one stroke at a time on papers.
 - **Changed:** Lower memory use at start-up and while idle.
+- **Changed:** Going back to the workspace from another screen is instant: open documents stay as they were, with no reload.
 - **Fixed:** Security hardening across storage, sharing, sign-in tokens, settings secrets and database access.
 - **Fixed:** Many reader, markdown, search, sync and dashboard bugs.
 - **Fixed:** The workspace opens without waiting on Overleaf, and restored tabs open with their notes instead of loading twice.
