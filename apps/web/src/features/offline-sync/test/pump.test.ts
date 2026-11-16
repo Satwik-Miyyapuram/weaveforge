@@ -136,6 +136,40 @@ describe("the outbox pump", () => {
     assert.deepEqual(entry!.payload, { id: ROW, title: "Mine", read: true });
   });
 
+  it("settles an edit whose reply was lost, once, when it is sent again", async () => {
+    const db = await projectsDb();
+    const outbox = new Outbox(db);
+    const conflicts = new ConflictStore(db);
+    const base = { id: ROW, title: "Draft", read: false };
+    const mine = { ...base, title: "Mine" };
+    await outbox.append({
+      table: "projects",
+      rowId: ROW,
+      op: "update",
+      payload: mine,
+      basePayload: base,
+      baseVersion: 2,
+    });
+    const seen: OutboxEntry[] = [];
+    // The server took the write (version 3) but the reply never came: offline.
+    // Sent again, the guard on version 2 misses and the server hands back my own row.
+    const pump = new OutboxPump(
+      outbox,
+      transport(
+        [{ status: "offline" }, { status: "conflict", serverVersion: 3, serverRow: mine }],
+        seen,
+      ),
+      conflicts,
+    );
+
+    assert.equal((await pump.run()).stoppedBecause, "offline");
+    await pump.run();
+
+    assert.equal(seen.length, 2);
+    assert.deepEqual(await conflicts.openConflicts(), []);
+    assert.deepEqual(await outbox.pending(), [], "nothing is sent a third time");
+  });
+
   it("keeps an edit to a row deleted elsewhere when there is no one to ask", async () => {
     const outbox = await withOps(1);
     await new OutboxPump(
