@@ -196,3 +196,63 @@ test("provider: a well-formed remote update is applied", async () => {
   assert.deepEqual(h.errors, []);
   await provider.destroy();
 });
+
+test("provider: a setAuth retry on a replaced channel still joins", async () => {
+  const h = harness();
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const subscribed: string[] = [];
+    let auths = 0;
+    const db = {
+      channel: (topic: string) => {
+        const ch = {
+          topic,
+          on() {
+            return ch;
+          },
+          subscribe() {
+            subscribed.push(topic);
+            return ch;
+          },
+          send: async () => "ok",
+          unsubscribe: async () => "ok",
+        };
+        return ch;
+      },
+      removeChannel: async () => "ok",
+      realtime: {
+        setAuth: () => {
+          auths += 1;
+          // 1st: refused. 2nd: the replacement's token never arrives. 3rd+: fine.
+          if (auths === 1) return Promise.reject(new Error("token refused"));
+          if (auths === 2) return new Promise<void>(() => {});
+          return Promise.resolve();
+        },
+      },
+    };
+    const doc = new Y.Doc();
+    const provider = new RealtimeYjsProvider({
+      doc,
+      db: db as never,
+      crdtStore: h.crdtStore as never,
+      resourceType: "vault_page",
+      resourceId: "abc",
+      projectId: "p1",
+      authorId: "u1",
+      onError: (stage, detail) => h.errors.push(`${stage}: ${detail}`),
+    });
+    await settle();
+    assert.ok(h.errors.some((e) => e.startsWith("setAuth: ")), JSON.stringify(h.errors));
+
+    // The channel is replaced while the first retry is still waiting.
+    (provider as unknown as { join(): void }).join();
+    await settle();
+    mock.timers.tick(1_000);
+    await settle();
+
+    assert.equal(subscribed.length, 1, `a join after the replaced retry; saw ${JSON.stringify(subscribed)}`);
+    await provider.destroy();
+  } finally {
+    mock.timers.reset();
+  }
+});

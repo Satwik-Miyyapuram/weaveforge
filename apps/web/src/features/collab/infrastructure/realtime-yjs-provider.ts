@@ -198,7 +198,12 @@ export class RealtimeYjsProvider {
         this.opts.onError?.("setAuth", formatError(err));
         // Same channel: it never subscribed, and the client hands back the
         // registered channel for a topic, so a new one would double the handlers.
-        this.scheduleRejoin(() => this.connect(channel));
+        // A replaced channel would be skipped by connect, so join the current one.
+        this.scheduleRejoin(() => {
+          if (this.destroyed) return;
+          if (channel !== this.channel) this.join();
+          else this.connect(channel);
+        });
       });
   }
 
@@ -227,8 +232,8 @@ export class RealtimeYjsProvider {
 
   /**
    * Unsubscribes the channel and drops it from the client's registry. Only for
-   * replacing a channel: this editor joins the topic again right after, so the
-   * registry (and the shared socket) is not left empty by it.
+   * replacing a channel: the editor joins the topic again, so the shared socket
+   * may disconnect for a moment until the next subscribe reconnects it.
    */
   private async remove(channel: RealtimeChannel) {
     const db = getRealtimeClient(this.opts.db as SupabaseClient);
