@@ -267,3 +267,35 @@ test("an Overleaf tab keeps the workspace toolbar row (tabs never jump) but has 
   assert.match(note, /class="workspace-toolbar/);
   assert.match(note, /aria-label="Mode"/);
 });
+
+test("a tab and its last crumb take the suffix the screen gives, so a canvas reads .canvas", async () => {
+  const { PaneView } = await import("../ui/pane-view");
+  const noop = () => {};
+  const layout = readyCore().openTab(readyCore().emptyLayout(), { kind: "vault_page", id: "c1" });
+  const pane = (suffixFor?: () => string | null) =>
+    renderToStaticMarkup(
+      <PaneView
+        layout={layout}
+        labelFor={() => "Plan"}
+        crumbsFor={() => [{ label: "Notes" }, { label: "Plan", current: true }]}
+        suffixFor={suffixFor}
+        renderDocument={() => null}
+        onActivate={noop}
+        onClose={noop}
+        onFocus={noop}
+        onSplit={noop}
+        onDropTab={noop}
+        onRatio={noop}
+        onSetMode={noop}
+        onTogglePreview={noop}
+      />,
+    );
+  const canvas = pane(() => ".canvas");
+  assert.match(canvas, /pane-tab-ext">\.canvas</);
+  assert.match(canvas, /breadcrumb-ext">\.canvas</);
+  assert.doesNotMatch(canvas, /\.note\.md/);
+  // Without one, the kind's own suffix stands.
+  const note = pane();
+  assert.match(note, /pane-tab-ext">\.note\.md</);
+  assert.match(note, /breadcrumb-ext">\.note\.md</);
+});

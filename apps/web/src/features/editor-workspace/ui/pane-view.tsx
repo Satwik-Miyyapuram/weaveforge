@@ -79,6 +79,8 @@ export interface PaneViewProps extends PaneActions {
   renderDocument: (tab: TabRef) => ReactNode;
   /** The path to a document, for the strip above the pane. */
   crumbsFor?: (tab: TabRef) => readonly Crumb[];
+  /** The file suffix after a tab's title; by default its kind's. */
+  suffixFor?: (tab: TabRef) => string | null;
   /** A crumb click: open the document the crumb names. */
   onOpenCrumb?: (crumb: Crumb) => void;
   /** Insert a picture from disk into the focused document (Text only). */
@@ -174,6 +176,7 @@ function PaneLeafView({
   labelFor,
   renderDocument,
   crumbsFor,
+  suffixFor = (tab) => readyCore().kindSuffix(tab.kind),
   onOpenCrumb,
   onActivate,
   onClose,
@@ -205,7 +208,7 @@ function PaneLeafView({
         <div className="pane-tab-scroll" role="tablist" aria-label="Open documents">
         {leaf.tabs.map((tab, index) => {
           const isActive = index === leaf.activeIndex;
-          const suffix = readyCore().kindSuffix(tab.kind);
+          const suffix = suffixFor(tab);
           const run = runs[index]!;
           const group = leaf.groups?.find((g) => g.id === tab.group);
           return (
@@ -300,7 +303,7 @@ function PaneLeafView({
           crumb *is* the path. */}
       {showing ? (
         <div className="pane-crumbs">
-          <Breadcrumbs crumbs={crumbs} kind={showing.kind} onOpen={onOpenCrumb} />
+          <Breadcrumbs crumbs={crumbs} suffix={suffixFor(showing)} onOpen={onOpenCrumb} />
           {/* In Ink the mode switch lives here, in the note, not in the toolbar. */}
           {!focus && !readyCore().isPreviewTab(showing) && showing.kind !== "overleaf" ? (
             <PaneModeSwitch tab={showing} onSetMode={onSetMode} />

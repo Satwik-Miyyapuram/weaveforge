@@ -111,7 +111,7 @@ export function VaultScreen() {
   const paperEntries = data?.paperEntries ?? emptyArray<{ id: string; title: string }>();
   const sectionEntries = data?.sectionEntries ?? emptyArray<{ id: string; title: string }>();
   const noteEntries = useMemo(
-    () => flat.map((p) => ({ id: p.id, title: p.title })),
+    () => flat.map((p) => ({ id: p.id, title: p.title, kind: p.kind })),
     [flat],
   );
   const backlinks = useMemo(() => noteBacklinks(flat, selectedId), [selectedId, flat]);
