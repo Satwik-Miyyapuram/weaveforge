@@ -353,6 +353,19 @@ export interface WorkspaceData {
   tree: WorkspaceTreeNode[];
   listsTree: WorkspaceTreeNode[];
   membership: ReadonlyMap<string, string[]>;
+  /**
+   * Set when the Overleaf rows were still on their way: the same assembly with
+   * them in. The Overleaf list is a network call, and the workspace does not
+   * wait on it to show the documents it already has.
+   */
+  withOverleaf?: () => Promise<WorkspaceData>;
+}
+
+/** The promise's value if it has already settled, else `undefined`, without waiting. */
+export async function ifSettled<T>(load: Promise<T>): Promise<T | undefined> {
+  const notYet = Symbol("not yet");
+  const first = await Promise.race([load, Promise.resolve(notYet)]);
+  return first === notYet ? undefined : (first as T);
 }
 
 /**
@@ -368,7 +381,9 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
   // here describe the same project's folder.
   const projectRoot = await activeProjectRoot();
   const container = getContainer();
-  const [vault, papers, report, lists, log, overleaf] = await Promise.all([
+  // Overleaf is asked for alongside the reads but not waited on with them.
+  const overleafRows = sectionOr(overleafSidebarRows(), "overleaf", []);
+  const [vault, papers, report, lists, log] = await Promise.all([
     container.vault.loadScreenData(),
     sectionOr(container.papers.loadScreenData(), "papers", null),
     sectionOr(container.report.loadScreenData(), "report", null),
@@ -378,7 +393,6 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
     // — and caught, because a logbook that will not load must not take Notes,
     // Papers and the Report down with it.
     sectionOr(container.logbook.loadEntries(), "log", null),
-    sectionOr(overleafSidebarRows(), "overleaf", []),
   ]);
 
   const listRows = lists?.lists ?? [];
@@ -393,16 +407,22 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
         )
       : [];
 
-  return readyCore().assembleWorkspace({
-    projectRoot,
-    vault: vault.flat,
-    papers: papers?.papers ?? [],
-    reportSections: report?.flat ?? [],
-    listsLoaded: Boolean(lists),
-    lists: listRows,
-    listItems,
-    logs: log ?? [],
-    overleaf,
-    hydrated: [...hydrated].map(([id, body]) => ({ id, body })),
-  });
+  // `hydrated` is read when each assembly runs, so the later one keeps the
+  // bodies fetched in between.
+  const assemble = (overleaf: Awaited<typeof overleafRows>): WorkspaceData =>
+    readyCore().assembleWorkspace({
+      projectRoot,
+      vault: vault.flat,
+      papers: papers?.papers ?? [],
+      reportSections: report?.flat ?? [],
+      listsLoaded: Boolean(lists),
+      lists: listRows,
+      listItems,
+      logs: log ?? [],
+      overleaf,
+      hydrated: [...hydrated].map(([id, body]) => ({ id, body })),
+    });
+  const overleaf = await ifSettled(overleafRows);
+  if (overleaf !== undefined) return assemble(overleaf);
+  return { ...assemble([]), withOverleaf: async () => assemble(await overleafRows) };
 }

@@ -90,10 +90,19 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   // live list replaces it when the database is up.
   const [saved] = useState(() => readDeviceSnapshot<Project[]>(SNAPSHOT));
   const [projects, setProjects] = useState<Project[]>(() => saved ?? []);
-  const [currentId, setCurrentId] = useState<string | null>(null);
+  // The project open at the last run is current on the first render, not after
+  // an effect: a parent's effects run after its children's, so every screen's
+  // first load ran with no project and then again once it arrived. Its screen
+  // caches are its own, so this first open keeps them.
+  const [currentId, setCurrentId] = useState<string | null>(() => {
+    const stored = readStored(STORAGE_KEY);
+    const id = stored && saved?.some((p) => p.id === stored) ? stored : null;
+    if (id) getContainer().projects.context.projectId = id;
+    return id;
+  });
   const [loading, setLoading] = useState(() => saved == null);
   const [fromSnapshot, setFromSnapshot] = useState(() => saved != null);
-  const selectedRef = useRef<string | null>(null);
+  const selectedRef = useRef<string | null>(currentId);
 
   const apply = useCallback((id: string | null) => {
     // The background PDF run belongs to the project it started in (xstate-03).
@@ -118,8 +127,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const stored = readStored(STORAGE_KEY);
-    if (stored && saved?.some((p) => p.id === stored)) apply(stored);
+    if (selectedRef.current) getContainer().projects.watchProject(selectedRef.current);
     void loadInitialProject({
       refresh,
       storedId: () => readStored(STORAGE_KEY),

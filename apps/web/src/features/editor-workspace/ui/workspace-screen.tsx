@@ -18,6 +18,7 @@ import {
   loadWorkspace,
   readHidden,
   readLayout,
+  type WorkspaceData,
   writeHidden,
   writeLayout,
 } from "../application/parts";
@@ -97,6 +98,8 @@ export function WorkspaceScreen() {
   const [tree, setTree] = useState<WorkspaceTreeNode[]>([]);
   const [listsTree, setListsTree] = useState<WorkspaceTreeNode[]>([]);
   const [membership, setMembership] = useState<ReadonlyMap<string, string[]>>(new Map());
+  // The Overleaf rows come after the rest; until then an Overleaf tab waits.
+  const [overleafPending, setOverleafPending] = useState(false);
   const [layout, setLayout] = useState<PaneLayout>(() => readyCore().emptyLayout());
   // The layout a window keydown acts on, read without re-binding the listener.
   const layoutRef = useRef(layout);
@@ -183,29 +186,81 @@ export function WorkspaceScreen() {
   // away; and the fetches in flight, so a tab rendered twice asks once.
   const hydratedRef = useRef(new Map<string, string>());
   const hydratingRef = useRef(new Set<string>());
+  // Fetch a note's full body the first time a tab needs it. The summary the
+  // set was built from is a preview; an editor seeded from it would save the
+  // cut back over the note.
+  const hydrate = useCallback((tab: TabRef) => {
+    if (hydratingRef.current.has(tab.id)) return;
+    hydratingRef.current.add(tab.id);
+    void getContainer()
+      .vault.getPage(tab.id)
+      .then((page) => {
+        if (!page) return;
+        hydratedRef.current.set(tab.id, page.body);
+        // Before the workspace has loaded there is nothing to patch: the load
+        // reads the body from `hydratedRef`.
+        setDocuments((current) =>
+          current?.map((doc) =>
+            doc.id === tab.id && doc.kind === tab.kind
+              ? { ...doc, body: page.body, hydrated: true }
+              : doc,
+          ) ?? current,
+        );
+      })
+      .catch((err) => setError(formatError(err)))
+      .finally(() => hydratingRef.current.delete(tab.id));
+  }, []);
+  // Each reload's number: late Overleaf rows apply only to the newest load.
+  const loadRef = useRef(0);
   const reload = useCallback(async () => {
+    const load = ++loadRef.current;
     const data = await loadWorkspace(hydratedRef.current);
-    setDocuments(data.documents);
-    setCompletions(data.completions);
-    setTree(data.tree);
-    setListsTree(data.listsTree);
-    setMembership(data.membership);
-    return data.documents;
+    const put = (next: WorkspaceData) => {
+      setDocuments(next.documents);
+      setCompletions(next.completions);
+      setTree(next.tree);
+      setListsTree(next.listsTree);
+      setMembership(next.membership);
+    };
+    put(data);
+    setOverleafPending(Boolean(data.withOverleaf));
+    data.withOverleaf?.().then(
+      (next) => {
+        if (load !== loadRef.current) return;
+        put(next);
+        setOverleafPending(false);
+      },
+      (err: unknown) => {
+        if (load !== loadRef.current) return;
+        setOverleafPending(false);
+        setError(formatError(err));
+      },
+    );
+    return data;
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const loaded = await reload();
+        // The restored tabs' note bodies load alongside the workspace, not
+        // after it, so the tabs open with their text rather than a loader.
+        const saved = readLayout(store(), projectId);
+        for (const tab of readyCore().closedTabs(saved, readyCore().emptyLayout())) {
+          if (hasLazyBody(tab.kind)) hydrate(tab);
+        }
+        const data = await reload();
         if (cancelled) return;
+        const loaded = data.documents;
         // Restore last session's panes, minus tabs whose entity is gone — a
         // layout outlives the documents in it. A tab restored with no mode was
         // never switched by hand, so it takes its document's opening mode: the
         // same answer a click on it in the explorer gets.
         const open = new Set(loaded.map((doc) => readyCore().tabKey(doc)));
         const bodyOf = new Map(loaded.map((doc) => [readyCore().tabKey(doc), doc.body]));
-        let restored = readyCore().pruneLayout(readLayout(store(), projectId), (tab) => readyCore().isPreviewTab(tab) || open.has(readyCore().tabKey(tab)));
+        // An Overleaf tab whose rows are still coming is kept, not pruned.
+        const late = (tab: TabRef) => Boolean(data.withOverleaf) && tab.kind === "overleaf";
+        let restored = readyCore().pruneLayout(saved, (tab) => readyCore().isPreviewTab(tab) || open.has(readyCore().tabKey(tab)) || late(tab));
         // `?open=kind:id` is how another screen hands a document over — the
         // note screen's Edit on a handwritten note, which only this screen can
         // write in. It opens on top of the restored panes, then leaves the URL
@@ -224,7 +279,7 @@ export function WorkspaceScreen() {
     return () => {
       cancelled = true;
     };
-  }, [reload, projectId]);
+  }, [reload, hydrate, projectId]);
 
   const apply = useCallback((next: PaneLayout) => {
     const gone = readyCore().closedTabs(layoutRef.current, next);
@@ -467,29 +522,6 @@ export function WorkspaceScreen() {
     [createNote],
   );
 
-  // Fetch a note's full body the first time a tab needs it. The summary the
-  // set was built from is a preview; an editor seeded from it would save the
-  // cut back over the note.
-  const hydrate = useCallback((tab: TabRef) => {
-    if (hydratingRef.current.has(tab.id)) return;
-    hydratingRef.current.add(tab.id);
-    void getContainer()
-      .vault.getPage(tab.id)
-      .then((page) => {
-        if (!page) return;
-        hydratedRef.current.set(tab.id, page.body);
-        setDocuments((current) =>
-          (current ?? []).map((doc) =>
-            doc.id === tab.id && doc.kind === tab.kind
-              ? { ...doc, body: page.body, hydrated: true }
-              : doc,
-          ),
-        );
-      })
-      .catch((err) => setError(formatError(err)))
-      .finally(() => hydratingRef.current.delete(tab.id));
-  }, []);
-
   const renderDocument = useCallback(
     (tab: TabRef) => {
       if (readyCore().isPreviewTab(tab)) {
@@ -511,6 +543,9 @@ export function WorkspaceScreen() {
       }
       const key = readyCore().tabKey(tab);
       const doc = byKey.get(key);
+      if (!doc && overleafPending && tab.kind === "overleaf") {
+        return <ScreenLoader status="Loading Overleaf…" showTips={false} compact />;
+      }
       if (!doc) return <p className="muted">This document is no longer in the workspace.</p>;
       if (!doc.hydrated) return <HydratingDocument tab={tab} hydrate={hydrate} />;
       return (
@@ -531,7 +566,7 @@ export function WorkspaceScreen() {
         />
       );
     },
-    [byKey, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate, previewOf, metrics],
+    [byKey, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate, previewOf, metrics, overleafPending],
   );
 
   // Insert ▾ → Picture in Text: a picture on disk at the caret of the focused
