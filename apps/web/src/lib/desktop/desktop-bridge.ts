@@ -34,6 +34,14 @@ export interface DesktopLocalDbState {
   restoredFrom?: string | null;
 }
 
+/** What the shell did for one table of the 0.8 import. */
+export interface DesktopOldDbReport {
+  table: string;
+  inserted: number;
+  skipped: number;
+  alreadyDone: boolean;
+}
+
 export interface DesktopBridge {
   /** Version of the desktop shell, so a mismatch can be reported rather than crash. */
   readonly version: string;
@@ -161,6 +169,19 @@ export interface DesktopBridge {
    */
   localDbState(): Promise<DesktopLocalDbState>;
   resetLocalDb(): Promise<void>;
+
+  /**
+   * Bringing the 0.8 (Electron) database over. Optional: a shell without them
+   * has no old data to import. `oldDbStatus` is true while old data exists that
+   * has not been imported; `oldDbTar` is that data directory as base64 of a tar;
+   * the import then runs table by table (parents first) and `oldDbImportFinish`
+   * is called only after every table has succeeded. The old directory is read,
+   * never written.
+   */
+  oldDbStatus?(): Promise<boolean>;
+  oldDbTar?(): Promise<string>;
+  oldDbImportTable?(table: string, rows: unknown[]): Promise<DesktopOldDbReport>;
+  oldDbImportFinish?(tables: string[]): Promise<void>;
 
   /**
    * Offline attachment bytes as files in the app's data folder, one per
