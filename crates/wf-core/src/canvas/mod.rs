@@ -64,10 +64,18 @@ pub struct CanvasNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background_style: Option<String>,
     /// Left edge, in canvas pixels. NaN when the file has none (`validate` reports it).
-    #[serde(default = "absent", skip_serializing_if = "is_absent", serialize_with = "whole")]
+    #[serde(
+        default = "absent",
+        skip_serializing_if = "is_absent",
+        serialize_with = "whole"
+    )]
     pub x: f64,
     /// Top edge, in canvas pixels. NaN when the file has none (`validate` reports it).
-    #[serde(default = "absent", skip_serializing_if = "is_absent", serialize_with = "whole")]
+    #[serde(
+        default = "absent",
+        skip_serializing_if = "is_absent",
+        serialize_with = "whole"
+    )]
     pub y: f64,
     /// Width, in canvas pixels.
     #[serde(default, serialize_with = "whole")]
@@ -276,7 +284,8 @@ mod tests {
 
     #[test]
     fn missing_coordinates_are_not_written_back_as_zero() {
-        let text = r#"{"nodes":[{"id":"a","type":"text","text":"hi","width":10,"height":10}],"edges":[]}"#;
+        let text =
+            r#"{"nodes":[{"id":"a","type":"text","text":"hi","width":10,"height":10}],"edges":[]}"#;
         let canvas = parse_canvas(text).unwrap();
         let again: Value = serde_json::from_str(&canvas_text(&canvas)).unwrap();
         assert_eq!(again["nodes"][0].get("x"), None);
