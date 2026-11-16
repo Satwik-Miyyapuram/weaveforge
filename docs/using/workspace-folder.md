@@ -156,6 +156,34 @@ else's repository. Their history is not ours to write into, and a stray commit
 in it is noticed long after it is easy to explain. A folder with no repository
 gets one of its own.
 
+## Syncing with GitHub on its own
+
+Once the folder has a remote and a token (Settings → **Workspace**), the
+desktop app pulls and then pushes by itself. You do not press anything. It
+syncs:
+
+- about 10 seconds after the app commits the folder, so a burst of edits goes up
+  as one sync;
+- when the app starts, and every 5 minutes after;
+- when you come back to the window, and when your computer is back online.
+
+Only one sync runs at a time. A failed sync waits 30 seconds, then 1 minute,
+then 5 minutes before it tries again, and the first success resets that. While
+you are offline nothing runs. With no remote or no token it does nothing at all.
+
+The status bar under a document shows how it is going:
+
+| It says | Meaning |
+| --- | --- |
+| **Synced 14:02** | In step with the remote at that time. **· pulled changes** means something came in. |
+| **Syncing…** | A pull and push is running. |
+| **Offline** | No network. It syncs as soon as you are back. |
+| **Sync failed** · **Retry** | Hover for the reason and the next try. **Retry** tries now. |
+
+Nothing shows when auto-sync is off. A pull is the same pull the **Pull** button
+does: when both sides changed the same file, it stops before pushing and the dot
+says how many files. Choose which copy to keep in Settings → **Workspace**.
+
 ## Safety
 
 - Paths are folded and checked before any write: `..`, absolute paths, and drive

@@ -55,6 +55,10 @@ const WorkspaceSetupDialog = dynamic(
   () => import("@/features/workspace/ui/workspace-setup-dialog").then((m) => m.WorkspaceSetupDialog),
   { ssr: false },
 );
+const GitAutoSync = dynamic(
+  () => import("@/features/workspace/ui/git-auto-sync").then((m) => m.GitAutoSync),
+  { ssr: false },
+);
 const PdfTextFolderSync = dynamic(
   () => import("@/features/workspace/ui/pdf-text-folder-sync").then((m) => m.PdfTextFolderSync),
   { ssr: false },
@@ -106,6 +110,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     not in the Settings panel. */}
                 <WorkspaceFolderRestore />
                 <WorkspaceSetupDialog />
+                <GitAutoSync />
                 <FolderChangeNote />
                 <ToastHost />
                 <ContextMenuHost />

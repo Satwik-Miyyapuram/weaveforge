@@ -172,6 +172,14 @@ A canvas in the workspace folder has one extra case. It is matched to its canvas
 through `.weaveforge/canvas-ids.json`. If that file cannot be read, the canvases
 are held, not imported, and the conflict card says to repair or remove the file.
 
+### The folder and GitHub
+
+On the desktop app, a folder with a git remote and a token syncs with it by
+itself: after each folder commit, at start, every 5 minutes, and when you come
+back online. The status bar shows **Synced**, **Syncing…**, **Offline** or
+**Sync failed** with **Retry**. See
+[Syncing with GitHub on its own](workspace-folder.md#syncing-with-github-on-its-own).
+
 
 ## Syncing to your account
 

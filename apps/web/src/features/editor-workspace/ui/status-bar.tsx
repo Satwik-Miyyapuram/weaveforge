@@ -12,6 +12,7 @@
  */
 
 import { CheckIcon } from "@/components/view-icons";
+import { GitSyncDot } from "@/features/workspace/ui/git-sync-dot";
 
 /**
  * What the save indicator says.
@@ -89,6 +90,7 @@ export function StatusBar({
         )}
         {saveLabel(save)}
       </span>
+      <GitSyncDot />
       <span className="status-bar-spacer" />
       {shown.map(({ key, value }) => (
         <span className="status-bar-segment" key={key} data-segment={key}>

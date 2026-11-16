@@ -380,7 +380,16 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
     });
   }
 
+  if (commit) notifyEach(commitListeners, "vault-commit");
   return { mirror, commit, commitError };
+}
+
+const commitListeners = new Set<() => void>();
+
+/** Called after each sync that made a folder commit; git auto-sync pushes it. */
+export function onVaultCommit(listener: () => void): () => void {
+  commitListeners.add(listener);
+  return () => commitListeners.delete(listener);
 }
 
 export const SYNC_DEBOUNCE_MS = 1_500;

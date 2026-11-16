@@ -1849,6 +1849,13 @@
   background: currentColor;
 }
 
+/* Git auto-sync: the folder's remote, beside the save state. */
+.status-bar-sync[data-tone="good"] { color: var(--s-good); }
+.status-bar-sync[data-tone="info"] { color: var(--s-info); }
+.status-bar-sync[data-tone="muted"] { color: var(--muted); }
+.status-bar-sync[data-tone="danger"] { color: var(--s-danger); }
+.status-bar-sync > [role="status"] { display: inline-flex; align-items: center; gap: 4px; }
+
 .status-bar-spacer { flex: 1; }
 
 .status-bar-segment {
