@@ -24,6 +24,7 @@ import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { WORKSPACE_PATH } from "@/lib/hooks/parts";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
+import { NoteSaves } from "@/features/editor-workspace/application/parts";
 import { NoteTagEditor } from "./note-tag-editor";
 import { runNoteAction } from "./run-note-action";
 import { RowButton } from "@/components/controls";
@@ -121,11 +122,14 @@ export function PageEditor({
    * arriving mid-edit or mid-stroke would shut the surface under the writer,
    * so Edit and Ink refresh once they are put away (`chooseMode`).
    */
-  // The body this editor started from or last sent: a save names it, so an
-  // edit someone else saved since is merged in or kept as a copy.
-  const baseRef = useRef(page.body);
+  // The body the store last held: a save names it, so an edit someone else
+  // saved since is merged in or kept as a copy. Saves of a note run one at a
+  // time, each against the body the last one stored (a merged one included).
+  const basesRef = useRef(new Map<string, string>());
+  const savesRef = useRef<NoteSaves | null>(null);
+  savesRef.current ??= new NoteSaves(basesRef.current);
   useEffect(() => {
-    baseRef.current = page.body;
+    basesRef.current.set(page.id, page.body);
   }, [page.id, page.body]);
 
   const saveBody = useCallback(
@@ -136,14 +140,19 @@ export function PageEditor({
         const { body, uploadError } = await materializeBlobImagesInBody(nextBody, page.id, (id, blob, ext) =>
           vault.uploadAsset(id, blob, ext),
         );
-        const saved = await vault.manageVaultPage.update(page.id, {
-          body,
-          baseBody: baseRef.current,
-          ...(meta ? { sessionDigests: meta.sessionDigests } : {}),
+        let conflictCopyId: string | undefined;
+        // `undefined`: the effect above has already set the loaded body as base.
+        await savesRef.current!.run(page.id, undefined, async (base) => {
+          const saved = await vault.manageVaultPage.update(page.id, {
+            body,
+            ...(base !== undefined ? { baseBody: base } : {}),
+            ...(meta ? { sessionDigests: meta.sessionDigests } : {}),
+          });
+          conflictCopyId = saved.conflictCopyId ?? undefined;
+          return saved.body;
         });
-        baseRef.current = body;
         if (modeRef.current === "read") await onChanged();
-        if (saved.conflictCopyId) {
+        if (conflictCopyId) {
           setSaveError(
             "Someone else changed this note at the same time. Your text was saved; theirs is kept as a conflict copy beside it.",
           );
