@@ -16,7 +16,7 @@ use crate::vault::iso_utc;
 /// Written into the new data dir when the copy is complete; its presence means "never again".
 pub const DONE_MARKER: &str = "migrated-from-electron";
 
-/// Written into the old dir once the copy is published, so Electron warns that its data has moved.
+/// Written into the new data dir once the copy is published. The old Electron dir is never written to.
 pub const MIGRATED_MARKER: &str = "migrated";
 
 /// What is copied from Electron's data dir, by name. `secrets.json` is not: Electron sealed it.
@@ -56,13 +56,13 @@ pub fn migrate_from_electron(
     now: SystemTime,
 ) -> io::Result<Outcome> {
     assert_separate(old_dir, new_dir)?;
-    if new_dir.join(DONE_MARKER).exists() {
-        return Ok(Outcome::Already);
-    }
     let present: Vec<&str> = ITEMS
         .into_iter()
         .filter(|i| old_dir.join(i).exists())
         .collect();
+    if new_dir.join(DONE_MARKER).exists() && !marker_allows_retry(new_dir, !present.is_empty()) {
+        return Ok(Outcome::Already);
+    }
     if present.is_empty() {
         write_done_marker(old_dir, new_dir, now, &[])?;
         return Ok(Outcome::Nothing);
@@ -134,24 +134,65 @@ fn db_dirs_to_lock(old_dir: &Path) -> Vec<PathBuf> {
 }
 
 fn workspace_db_dir(old_dir: &Path) -> Option<PathBuf> {
+    let db = configured_root(old_dir)?
+        .join(WORKSPACE_META_DIR)
+        .join("db");
+    db.exists().then_some(db)
+}
+
+/// Where the old PGlite database is, or why there is none to import.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OldDb {
+    /// A PGlite data dir (has `PG_VERSION`) to import.
+    Found(PathBuf),
+    /// The configured workspace folder is missing (unplugged or moved). Nothing is imported until
+    /// the user reconnects it or picks it again; the app's `local-db` is never used in its place.
+    WorkspaceMissing(PathBuf),
+    /// No old database at all.
+    None,
+}
+
+/// The old PGlite database to import: the workspace's when it holds one (Electron moves it there
+/// once a folder is chosen), else the app's own `local-db`. A configured workspace folder that is
+/// missing gives `WorkspaceMissing` rather than falling back to the stale app copy.
+#[must_use]
+pub fn old_db_state(data_dir: &Path) -> OldDb {
+    let is_db = |dir: &Path| dir.join("PG_VERSION").is_file();
+    let app_db = data_dir.join("local-db");
+    if let Some(root) = configured_root(data_dir) {
+        let ws_db = root.join(WORKSPACE_META_DIR).join("db");
+        if is_db(&ws_db) {
+            return OldDb::Found(ws_db);
+        }
+        if !root.is_dir() {
+            return OldDb::WorkspaceMissing(root);
+        }
+    }
+    if is_db(&app_db) {
+        OldDb::Found(app_db)
+    } else {
+        OldDb::None
+    }
+}
+
+/// The importable old database dir, or `None` while none is found or the workspace is missing.
+#[must_use]
+pub fn old_pglite_dir(data_dir: &Path) -> Option<PathBuf> {
+    match old_db_state(data_dir) {
+        OldDb::Found(dir) => Some(dir),
+        OldDb::WorkspaceMissing(_) | OldDb::None => None,
+    }
+}
+
+/// The non-empty `vault-root` from Electron's preferences, as a path.
+fn configured_root(old_dir: &Path) -> Option<PathBuf> {
     let text = fs::read_to_string(old_dir.join("preferences.json")).ok()?;
     let prefs: serde_json::Value = serde_json::from_str(&text).ok()?;
     let root = prefs
         .get("vault-root")?
         .as_str()
         .filter(|r| !r.is_empty())?;
-    let db = Path::new(root).join(WORKSPACE_META_DIR).join("db");
-    db.exists().then_some(db)
-}
-
-/// The old PGlite database to copy into the native one: the workspace's when it holds one
-/// (Electron moves it there once a folder is chosen), else the app's own `local-db`.
-#[must_use]
-pub fn old_pglite_dir(data_dir: &Path) -> Option<PathBuf> {
-    let is_db = |dir: &PathBuf| dir.join("PG_VERSION").is_file();
-    workspace_db_dir(data_dir)
-        .filter(is_db)
-        .or_else(|| Some(data_dir.join("local-db")).filter(is_db))
+    Some(PathBuf::from(root))
 }
 
 /// Locks each dir. `Ok(Err(reason))` when one is busy, after releasing the ones taken.
@@ -257,10 +298,11 @@ fn stage_and_publish(
     for item in present {
         copy_tree(&old_dir.join(item), &staging.join(item))?;
     }
-    // From the first rename on, Electron warns that its data has moved.
+    // The old dir is only read, never marked: the Electron app must stay byte-identical so a rollback works.
     let at = iso_utc(now);
     let marker = serde_json::json!({ "to": new_dir.to_string_lossy(), "at": at });
-    fs::write(old_dir.join(MIGRATED_MARKER), marker.to_string())?;
+    fs::create_dir_all(new_dir)?;
+    fs::write(new_dir.join(MIGRATED_MARKER), marker.to_string())?;
     let aside = new_dir
         .join(".pre-migration")
         .join(at.replace([':', '.'], "-"));
@@ -274,6 +316,20 @@ fn stage_and_publish(
     }
     remove_tree(&staging)?;
     Ok(present.iter().map(|i| (*i).to_owned()).collect())
+}
+
+/// Whether an existing done marker still lets a run copy. A marker that copied something is final. A marker
+/// that copied nothing (an earlier start found no data) is retried once Electron's data is there. An unreadable
+/// marker stays final, as before.
+fn marker_allows_retry(new_dir: &Path, source_has_data: bool) -> bool {
+    let Some(marker) = fs::read_to_string(new_dir.join(DONE_MARKER))
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+    else {
+        return false;
+    };
+    let copied_nothing = marker["copied"].as_array().is_some_and(Vec::is_empty);
+    copied_nothing && source_has_data
 }
 
 /// Written last, atomically, so a crash before it means the next start copies again.
@@ -312,12 +368,31 @@ mod tests {
         fs::read_to_string(path).unwrap_or_default()
     }
 
+    /// Every file under `dir` with its bytes, sorted, so a before/after compare catches any write.
+    fn snapshot(dir: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+        let mut out = Vec::new();
+        let mut stack = vec![dir.to_path_buf()];
+        while let Some(d) = stack.pop() {
+            for entry in fs::read_dir(&d).into_iter().flatten().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    stack.push(path);
+                } else {
+                    out.push((path.clone(), fs::read(&path).unwrap_or_default()));
+                }
+            }
+        }
+        out.sort();
+        out
+    }
+
     /// An app data dir whose prefs name `workspace`, with a database in each place asked for.
     fn data_with(name: &str, app_db: bool, ws_db: bool) -> (PathBuf, PathBuf) {
         let (data, _) = temp(name);
         let workspace = data.parent().map(|p| p.join("ws")).unwrap_or_default();
         let prefs = serde_json::json!({ "vault-root": workspace.to_string_lossy() });
         let _ = fs::write(data.join("preferences.json"), prefs.to_string());
+        let _ = fs::create_dir_all(&workspace);
         for (on, dir) in [
             (app_db, data.join("local-db")),
             (ws_db, workspace.join(WORKSPACE_META_DIR).join("db")),
@@ -375,6 +450,152 @@ mod tests {
         assert_eq!(old_pglite_dir(&data), Some(data.join("local-db")));
     }
 
+    fn pg_dir(dir: &Path) {
+        let _ = fs::create_dir_all(dir);
+        let _ = fs::write(dir.join("PG_VERSION"), "18");
+    }
+
+    /// Case a: a workspace DB plus a tiny stale app `local-db` must read the workspace.
+    #[test]
+    fn old_state_workspace_beats_stale_app_db() {
+        let (data, ws) = data_with("old-stale", true, true);
+        assert_eq!(
+            old_db_state(&data),
+            OldDb::Found(ws.join(WORKSPACE_META_DIR).join("db"))
+        );
+    }
+
+    /// Case d: custom folder with spaces, non-ASCII and backslashes in the stored path.
+    #[test]
+    fn old_state_custom_root_with_spaces_and_non_ascii() {
+        let (data, _) = temp("old-unicode");
+        let root = data.parent().unwrap().join("Ünïcode folder ő spaces");
+        pg_dir(&root.join(WORKSPACE_META_DIR).join("db"));
+        let prefs = serde_json::json!({ "vault-root": root.to_string_lossy() });
+        let _ = fs::write(data.join("preferences.json"), prefs.to_string());
+        assert_eq!(
+            old_db_state(&data),
+            OldDb::Found(root.join(WORKSPACE_META_DIR).join("db"))
+        );
+    }
+
+    /// Case c: an unplugged or missing vault-root is pending, never a silent local-db import.
+    #[test]
+    fn old_state_missing_root_is_pending_not_local_db() {
+        let (data, _) = temp("old-missing");
+        let root = data.parent().unwrap().join("unplugged");
+        pg_dir(&data.join("local-db"));
+        let prefs = serde_json::json!({ "vault-root": root.to_string_lossy() });
+        let _ = fs::write(data.join("preferences.json"), prefs.to_string());
+        assert_eq!(old_db_state(&data), OldDb::WorkspaceMissing(root.clone()));
+        assert_eq!(old_pglite_dir(&data), None);
+    }
+
+    /// Case c, no app DB either: still pending, the notice names the folder.
+    #[test]
+    fn old_state_missing_root_without_app_db_is_pending() {
+        let (data, _) = temp("old-missing-bare");
+        let root = data.parent().unwrap().join("gone");
+        let prefs = serde_json::json!({ "vault-root": root.to_string_lossy() });
+        let _ = fs::write(data.join("preferences.json"), prefs.to_string());
+        assert_eq!(old_db_state(&data), OldDb::WorkspaceMissing(root));
+    }
+
+    /// No prefs and no DB: nothing to import.
+    #[test]
+    fn old_state_new_user_has_no_source() {
+        let (data, _) = temp("old-state-new");
+        assert_eq!(old_db_state(&data), OldDb::None);
+    }
+
+    /// Case b, app DB only: root exists with no workspace DB, the app one is used.
+    #[test]
+    fn old_state_app_db_when_root_exists_without_workspace_db() {
+        let (data, _) = data_with("old-state-app", true, false);
+        assert_eq!(old_db_state(&data), OldDb::Found(data.join("local-db")));
+    }
+
+    /// Writes a done marker as an earlier run would have, with `copied` items.
+    fn write_marker(new: &Path, from: &Path, copied: &[&str]) {
+        let _ = fs::create_dir_all(new);
+        let body = serde_json::json!({
+            "from": from.to_string_lossy(),
+            "at": "2026-11-01T00:00:00.000Z",
+            "copied": copied,
+            "secretsLeftBehind": false,
+        });
+        let _ = fs::write(new.join(DONE_MARKER), body.to_string());
+    }
+
+    #[test]
+    fn empty_marker_from_a_missing_source_is_retried_when_data_exists() {
+        // The reported bug: the first start found no data at the wrong dir and wrote an empty marker,
+        // which then blocked every later run.
+        let (old, new) = temp("retry");
+        let _ = fs::create_dir_all(old.join("local-db"));
+        write_marker(&new, &old.join("missing"), &[]);
+        assert!(matches!(
+            migrate_from_electron(&old, &new, SystemTime::now()),
+            Ok(Outcome::Done(ref items)) if items == &["local-db".to_owned()]
+        ));
+        assert!(new.join("local-db").exists());
+    }
+
+    #[test]
+    fn retry_never_touches_the_native_database() {
+        // The native database (`local-pg`) may already hold the user's data, even an empty one from a bad
+        // first start. The file copy only writes PGlite and prefs items, so `local-pg` stays byte-identical.
+        let (old, new) = temp("retry-native");
+        let _ = fs::create_dir_all(old.join("local-db"));
+        let _ = fs::create_dir_all(new.join("local-pg"));
+        let _ = fs::write(new.join("local-pg").join("PG_VERSION"), "18");
+        write_marker(&new, &old.join("missing"), &[]);
+        assert!(matches!(
+            migrate_from_electron(&old, &new, SystemTime::now()),
+            Ok(Outcome::Done(_))
+        ));
+        assert_eq!(read(&new.join("local-pg").join("PG_VERSION")), "18");
+        assert!(!new.join("local-pg").join("local-db").exists());
+    }
+
+    #[test]
+    fn non_empty_marker_still_blocks_a_rerun() {
+        let (old, new) = temp("retry-done");
+        let _ = fs::create_dir_all(old.join("local-db"));
+        write_marker(&new, &old, &["local-db"]);
+        assert_eq!(
+            migrate_from_electron(&old, &new, SystemTime::now()).ok(),
+            Some(Outcome::Already)
+        );
+    }
+
+    #[test]
+    fn broken_pglite_backup_dirs_are_not_copied() {
+        let (old, new) = temp("broken");
+        let _ = fs::create_dir_all(old.join("local-db.broken-1700000000"));
+        let _ = fs::write(
+            old.join("local-db.broken-1700000000").join("PG_VERSION"),
+            "16",
+        );
+        let _ = fs::write(old.join("preferences.json"), "{}");
+        assert_eq!(
+            migrate_from_electron(&old, &new, SystemTime::now()).ok(),
+            Some(Outcome::Done(vec!["preferences.json".into()]))
+        );
+        assert!(!new.join("local-db.broken-1700000000").exists());
+    }
+
+    #[test]
+    fn preferences_carry_the_vault_root_over() {
+        let (old, new) = temp("prefs");
+        let prefs = serde_json::json!({ "vault-root": "C:\\Users\\Ada\\Vault", "vault-git": true });
+        let _ = fs::write(old.join("preferences.json"), prefs.to_string());
+        assert!(migrate_from_electron(&old, &new, SystemTime::now()).is_ok());
+        let copied: serde_json::Value =
+            serde_json::from_str(&read(&new.join("preferences.json"))).unwrap_or_default();
+        assert_eq!(copied, prefs);
+    }
+
     #[test]
     fn nothing_to_copy_writes_marker_then_already() {
         let (old, new) = temp("nothing");
@@ -396,7 +617,13 @@ mod tests {
         let _ = fs::write(old.join("local-db").join("base").join("1"), "pg");
         let _ = fs::write(old.join("preferences.json"), "{}");
         let _ = fs::write(old.join("secrets.json"), "sealed");
+        let before = snapshot(&old);
         let outcome = migrate_from_electron(&old, &new, SystemTime::now()).ok();
+        assert_eq!(
+            snapshot(&old),
+            before,
+            "old Electron dir must be byte-identical"
+        );
         assert_eq!(
             outcome,
             Some(Outcome::Done(vec![
@@ -407,7 +634,14 @@ mod tests {
         assert_eq!(read(&new.join("local-db").join("base").join("1")), "pg");
         assert!(!new.join("secrets.json").exists());
         assert!(!new.join(STAGING_DIR).exists());
-        assert!(old.join(MIGRATED_MARKER).exists());
+        assert!(
+            !old.join(MIGRATED_MARKER).exists(),
+            "old dir gets no marker"
+        );
+        assert!(
+            new.join(MIGRATED_MARKER).exists(),
+            "marker lives in new dir"
+        );
         assert!(
             old.join("local-db").exists(),
             "old data is copied, never moved"

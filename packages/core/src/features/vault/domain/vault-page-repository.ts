@@ -22,12 +22,23 @@ export interface EditVaultPageInput {
   parentId?: string | null;
   /** Pin or unpin the note. Absent leaves it. */
   pinned?: boolean;
+  /**
+   * The body the editor started from. Sent with `body` and nothing else, it
+   * makes the save version-guarded: an edit someone else saved since is merged
+   * in, or kept as a conflict copy, never overwritten (`repos::vault_page_guard`).
+   */
+  baseBody?: string;
+  /** Digests of bodies this editor's live session saved; they are not someone else's edit. */
+  sessionDigests?: readonly string[];
 }
+
+/** The stored page after an edit; `conflictCopyId` names the copy a clashing edit was kept in. */
+export type EditedVaultPage = VaultPage & { conflictCopyId?: string };
 
 /** Vault-page writes that validate and apply changes (the Rust `vault_pages` arms). */
 export interface IVaultPageManager {
   add(input: NewVaultPageInput): Promise<VaultPage>;
-  update(id: string, input: EditVaultPageInput): Promise<VaultPage>;
+  update(id: string, input: EditVaultPageInput): Promise<EditedVaultPage>;
   remove(id: string): Promise<void>;
 }
 

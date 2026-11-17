@@ -11,6 +11,7 @@ use std::sync::LazyLock;
 use regex_lite::Regex;
 use serde::{Deserialize, Serialize};
 
+use crate::canvas::{Canvas, canvas_text};
 use crate::js_collate::locale_compare;
 use crate::papers::js_regex::compile;
 use crate::papers::paper::extract_hashtags;
@@ -471,6 +472,9 @@ pub struct VaultPageSummary {
     pub pinned: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub folder: Option<bool>,
+    /// `Some("canvas")` for a canvas note (the body is JSON Canvas); absent for a markdown note.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
     pub sort_order: f64,
     pub created_at: String,
     pub updated_at: String,
@@ -499,8 +503,20 @@ pub struct NewVaultPageInput {
     pub parent_id: Option<String>,
     #[serde(default)]
     pub folder: Option<bool>,
+    /// `canvas` makes a canvas note; anything else a markdown note.
+    #[serde(default)]
+    pub kind: Option<String>,
     #[serde(default)]
     pub sort_order: Option<f64>,
+}
+
+/// The `kind` of a canvas note (`vault_pages.kind`, migration 0157).
+pub const CANVAS_KIND: &str = "canvas";
+
+/// Keeps only the canvas kind: a note is stored as `note` or NULL and both read as no kind.
+#[must_use]
+pub fn canvas_kind(kind: Option<&str>) -> Option<String> {
+    (kind == Some(CANVAS_KIND)).then(|| CANVAS_KIND.to_owned())
 }
 
 /// The fields a page tree is built from; both `VaultPage` and `VaultPageSummary` have them.
@@ -568,6 +584,7 @@ pub fn create_vault_page(
     if title.is_empty() {
         return Err("Page title is required.".to_owned());
     }
+    let kind = canvas_kind(input.kind.as_deref());
     Ok(VaultPage {
         summary: VaultPageSummary {
             id: id.to_owned(),
@@ -576,11 +593,15 @@ pub fn create_vault_page(
             parent_id: input.parent_id.clone(),
             pinned: None,
             folder: input.folder.filter(|folder| *folder),
+            kind: kind.clone(),
             sort_order: input.sort_order.unwrap_or(0.0),
             created_at: now.to_owned(),
             updated_at: now.to_owned(),
         },
-        body: input.body.clone().unwrap_or_default(),
+        body: match (&kind, &input.body) {
+            (Some(_), None) => canvas_text(&Canvas::default()),
+            (_, body) => body.clone().unwrap_or_default(),
+        },
     })
 }
 
@@ -947,6 +968,7 @@ mod tests {
             body: None,
             parent_id: None,
             folder: None,
+            kind: None,
             sort_order: None,
         }
     }
@@ -959,6 +981,7 @@ mod tests {
             parent_id: parent.map(str::to_owned),
             pinned: None,
             folder: None,
+            kind: None,
             sort_order,
             created_at: "t".to_owned(),
             updated_at: "t".to_owned(),
@@ -991,6 +1014,38 @@ mod tests {
         folder.folder = Some(false);
         let made = create_vault_page(&folder, "p3", "now").unwrap();
         assert_eq!(made.summary.folder, None);
+    }
+
+    #[test]
+    fn create_canvas_keeps_kind_and_starts_from_an_empty_canvas() {
+        let mut input = new_input("Board");
+        input.kind = Some(CANVAS_KIND.to_owned());
+        let made = create_vault_page(&input, "c1", "now").unwrap();
+        assert_eq!(made.summary.kind.as_deref(), Some("canvas"));
+        assert_eq!(
+            made.body,
+            "{
+	\"nodes\":[],
+	\"edges\":[]
+}"
+        );
+        let json = serde_json::to_value(&made).unwrap();
+        assert_eq!(json["kind"], "canvas");
+        // A canvas body given by the caller (an import) is kept as is.
+        input.body = Some("{\"nodes\":[]}".to_owned());
+        let made = create_vault_page(&input, "c2", "now").unwrap();
+        assert_eq!(made.body, "{\"nodes\":[]}");
+    }
+
+    #[test]
+    fn create_drops_note_and_unknown_kinds() {
+        for kind in ["note", "board", ""] {
+            let mut input = new_input("N");
+            input.kind = Some(kind.to_owned());
+            let made = create_vault_page(&input, "n", "now").unwrap();
+            assert_eq!(made.summary.kind, None, "{kind}");
+            assert!(serde_json::to_value(&made).unwrap().get("kind").is_none());
+        }
     }
 
     #[test]

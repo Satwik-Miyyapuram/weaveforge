@@ -37,3 +37,25 @@ test("'All notes' is labelled only under a Pinned section (34-25)", () => {
 test("nothing to show renders nothing (34-25)", () => {
   assert.deepEqual(headings(0, 0, 0), []);
 });
+
+test("a canvas card says Canvas, never its JSON", async () => {
+  // CardColumns lays out on the client, so the card is rendered on its own.
+  const { NoteCard } = await import("../ui/vault-screen/note-card");
+  const body = '{"nodes":[{"id":"a","type":"text","text":"#idea"}],"edges":[]}';
+  const card = (kind: string | null) =>
+    renderToStaticMarkup(
+      createElement(NoteCard, {
+        page: { ...n("c1"), kind, bodyPreview: body } as VaultPageSummary,
+        // Read-only: no menu, so no Share button reaching for the app container.
+        readOnly: true,
+        onOpen: () => {},
+        onChanged: () => {},
+      }),
+    );
+  const canvas = card("canvas");
+  assert.match(canvas, />Canvas</);
+  assert.doesNotMatch(canvas, /nodes/);
+  assert.doesNotMatch(canvas, /idea/, "no hashtags read out of the JSON");
+  // A plain note with the same body still shows its text.
+  assert.match(card(null), /nodes/);
+});

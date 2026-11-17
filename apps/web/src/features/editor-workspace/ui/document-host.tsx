@@ -26,7 +26,7 @@ import type { EditorView } from "@codemirror/view";
 import { getContainer } from "@/bootstrap";
 import type { EditorHandleRef } from "@/components/editor-handle";
 import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
-import { CollabBodyHost } from "@/features/collab";
+import { CollabBodyHost, type SaveBody } from "@/features/collab";
 // The features' public APIs, not their `ui/` folders: a feature may reach a
 // sibling only through its index (CONTRIBUTING.md § SOLID). A paper's
 // `paperimg:` and a section's `reportimg:` resolve here because the resolvers
@@ -49,6 +49,7 @@ import type { DocumentMode, TabRef } from "@weaveforge/wasm";
 import { ImageSizeControl } from "@/components/image-size-control";
 import { useMdPreviewMode } from "@/lib/hooks/use-md-preview-mode";
 import { LivePreview } from "./md-live-preview";
+import type { Document } from "../application/parts";
 
 /** What the active renderer tells the pane about itself. */
 export interface DocumentMetrics {
@@ -93,7 +94,7 @@ export interface DocumentHostProps {
   completions?: CiteCompletion[];
   /** `#tag` completions: every tag the project already uses. */
   tags?: readonly string[];
-  onSave: (body: string) => Promise<void>;
+  onSave: SaveBody;
   /** The renderer reporting on itself — see `DocumentMetrics`. */
   onMetrics?: (metrics: DocumentMetrics) => void;
   /**
@@ -170,6 +171,11 @@ export function rendererFor(kind: string, mode: DocumentMode, body = ""): Render
 }
 
 type ImageStore = Pick<Parameters<typeof editorImageUpload>[0], "store" | "toMarkdown">;
+
+/** Whether a workspace document is a canvas note (its path is `notes/<title>.canvas`). */
+export function isCanvasDocument(doc: Pick<Document, "kind" | "path">): boolean {
+  return doc.kind === "vault_page" && doc.path.endsWith(".canvas");
+}
 
 /**
  * How each kind stores a pasted or dropped image, and the markdown it writes.
@@ -258,6 +264,8 @@ export function DocumentHost({
   const metricsRef = useRef(onMetrics);
   metricsRef.current = onMetrics;
   const reportMetrics = useMemo(() => dedupeMetrics((metrics) => metricsRef.current?.(metrics)), []);
+  // The ink and read views only save; the stored body is the live editor's to use.
+  const saveOnly = useCallback(async (next: string) => void (await onSave(next)), [onSave]);
   // The same for the error sink and the create handler: the editing description
   // below is read once, when the stack is built.
   const errorRef = useRef(onError);
@@ -408,7 +416,7 @@ export function DocumentHost({
         noteId={tab.id}
         body={surfaceBody(body, liveBody)}
         deps={getContainer().ink}
-        onSave={onSave}
+        onSave={saveOnly}
         paperId={sheetPaperId}
       />
     );
@@ -443,7 +451,7 @@ export function DocumentHost({
         ink={false}
         noteId={tab.id}
         body={body}
-        onSave={onSave}
+        onSave={saveOnly}
         onClickCapture={onReadClick}
         notes={links?.notes ?? []}
         papers={links?.papers ?? []}
@@ -457,7 +465,7 @@ export function DocumentHost({
   if (renderer === "markdown") {
     return (
       <div className="document-read" onClickCapture={onReadClick}>
-        <ImageSizeControl body={body} onSave={onSave}>
+        <ImageSizeControl body={body} onSave={saveOnly}>
           {renderMarkdown(body)}
         </ImageSizeControl>
       </div>

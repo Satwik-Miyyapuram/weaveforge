@@ -10,8 +10,10 @@ use std::sync::Arc;
 pub mod app_log;
 pub mod app_route;
 pub mod app_storage;
+pub mod app_update;
 pub mod auth_link;
 pub mod auth_loopback;
+pub mod cmd_import;
 pub mod cmd_ink;
 pub mod cmd_tools;
 pub mod cmd_vault;
@@ -25,6 +27,7 @@ pub mod embed;
 pub mod git;
 pub mod github_file;
 pub mod host;
+pub mod idle_memory;
 pub mod ink;
 pub mod launch;
 pub mod local_api;
@@ -37,6 +40,7 @@ pub mod mcp_bridge;
 pub mod menu;
 pub mod migrate;
 pub mod model_cache;
+pub mod old_db;
 pub mod outside_gate;
 pub mod overleaf_links;
 pub mod overleaf_live;
@@ -58,6 +62,7 @@ pub mod vault_search;
 pub mod vault_sync;
 pub mod vault_watch;
 pub mod vault_watcher;
+pub mod window_icon;
 pub mod zotero_local;
 
 pub use wf_relay::{fetch, relay, tls};
@@ -115,6 +120,9 @@ pub fn run() -> tauri::Result<()> {
     // Sign-in returns through an App Link on phones (phase 4, step 4.5).
     #[cfg(mobile)]
     let builder = builder.plugin(tauri_plugin_deep_link::init());
+    // One-click updates (app_update): desktop only; the config's pubkey gates the checks.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     let app = builder
         .invoke_handler(commands::specta_builder().invoke_handler())
         .setup(|app| {
@@ -127,6 +135,7 @@ pub fn run() -> tauri::Result<()> {
             open_main_window(app.handle())?;
             plan_widget_window::open_at_start(app.handle());
             start_sign_in(app.handle());
+            app_update::start(app.handle());
             Ok(())
         })
         .register_asynchronous_uri_scheme_protocol(
@@ -184,6 +193,16 @@ fn start_stores(app: &tauri::AppHandle) {
         .map(|h| h.to_string_lossy().into_owned())
         .unwrap_or_default();
     let prefs = prefs::Prefs::new(data.join("preferences.json"));
+    // Before start_local_db creates the data folder: existing users are not asked the first-open question.
+    let electron = paths
+        .config_dir()
+        .ok()
+        .zip(paths.resource_dir().ok())
+        .and_then(|(config, resources)| {
+            let source = launch::app_source(resources);
+            launch::electron_data_dir(&source, &app.package_info().name, &config)
+        });
+    vault_choice::note_earlier_data(&prefs, &data, electron.as_deref());
     let vault = vault::VaultState::new();
     let _ = vault_choice::restore_remembered(&vault, &prefs);
     let secrets = secrets::Secrets::new(native_store(), app.config().identifier.clone());
@@ -344,13 +363,6 @@ fn native_db(
     resources: &std::path::Path,
     source: &launch::AppSource,
 ) -> Result<commands::NativeDb, String> {
-    // This build cannot read the old PGlite database. Opening an empty one would hide the old
-    // data, so it refuses until 0.9 (which can copy it) has run once.
-    if let Some(old) = migrate::old_pglite_dir(data)
-        && !data.join(OLD_DB_IMPORTED).exists()
-    {
-        return Err(old_db_message(&old));
-    }
     let bin_override = std::env::var_os("WEAVEFORGE_PG_BIN").map(PathBuf::from);
     // initdb cannot run postgres from a `\\?\` path, which Tauri's resource dir has on Windows.
     let resources = launch::without_verbatim_prefix(resources);
@@ -390,18 +402,6 @@ fn spawn_backups(app: &tauri::AppHandle, host: &commands::NativeDb) {
             }
         }
     });
-}
-
-/// Marker 0.9 wrote after copying the old PGlite database into the native one.
-const OLD_DB_IMPORTED: &str = "local-pg.imported";
-
-/// Why the database will not open while an old PGlite database is still uncopied.
-fn old_db_message(old: &std::path::Path) -> String {
-    format!(
-        "This WeaveForge can no longer read the old local database at {}. Install WeaveForge 0.9 \
-         and open it once to copy your data, then update again.",
-        old.display()
-    )
 }
 
 /// Opens the native database and manages its `LocalDb`. Any failure is reported through
@@ -640,6 +640,7 @@ pub(crate) fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     });
     builder
         .build()
+        .map(|window| idle_memory::watch(&window))
         .inspect_err(|error| {
             log_warn(
                 app,
@@ -648,7 +649,6 @@ pub(crate) fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
                 &error.to_string(),
             );
         })
-        .map(|_| ())
 }
 
 /// Opens a public http(s) address in the OS browser, by the same URL-shape rule as Electron's
@@ -686,28 +686,30 @@ pub(crate) fn open_outside(app: &tauri::AppHandle, url: &tauri::Url) {
     }
 }
 
-/// Listens for the sign-in redirect; a taken port is logged and marked, so the page asks for the link.
+/// Starts the sign-in listener at launch, retrying a busy port briefly; the sign-in page retries later on demand.
 #[cfg(desktop)]
 fn start_sign_in(app: &tauri::AppHandle) {
     let app = app.clone();
     let _task = tauri::async_runtime::spawn(async move {
-        match auth_loopback::bind().await {
-            Ok(listener) => {
-                let handle = app.clone();
-                auth_loopback::serve(listener, move |query| deliver_sign_in(&handle, query)).await;
-            }
-            Err(error) => {
-                use tauri::Manager as _;
-                if let Some(port) = app.try_state::<auth_loopback::SignInPort>() {
-                    port.mark_taken();
-                }
-                log_warn(
-                    &app,
-                    "sign-in",
-                    "The sign-in listener did not start",
-                    &error.to_string(),
-                );
-            }
+        use tauri::Manager as _;
+        let Some(port) = app.try_state::<auth_loopback::SignInPort>() else {
+            return;
+        };
+        let handle = app.clone();
+        let listening = auth_loopback::ensure_listening(
+            &port,
+            || auth_loopback::bind_port(auth_loopback::AUTH_LOOPBACK_PORT),
+            &auth_loopback::SIGN_IN_RETRY,
+            move |query| deliver_sign_in(&handle, query),
+        )
+        .await;
+        if !listening {
+            log_warn(
+                &app,
+                "sign-in",
+                "The sign-in listener did not start",
+                "The port is held by another program; sign-in will ask for the address to be pasted.",
+            );
         }
     });
 }
@@ -753,7 +755,7 @@ fn start_sign_in(app: &tauri::AppHandle) {
 
 /// Hands a sign-in query to the page and brings the window forward, as Electron did.
 /// A closed main window is reopened first.
-fn deliver_sign_in(app: &tauri::AppHandle, query: String) {
+pub(crate) fn deliver_sign_in(app: &tauri::AppHandle, query: String) {
     use tauri::{Emitter as _, Manager as _};
     if app.get_webview_window(MAIN_WINDOW).is_none() && open_main_window(app).is_err() {
         return;

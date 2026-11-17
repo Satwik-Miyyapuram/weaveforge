@@ -41,6 +41,20 @@ Callers in `apps/web` use `readyCore().vaultImagePrefix()`. Core code uses
 `RUST_VALIDATION_NAMES`, so an error thrown by the glue passes `instanceof`
 the same way the other validation errors do.
 
+## Kind
+
+`vault_pages.kind` is `'note'`, `'canvas'` or NULL. Migration
+`db/migrations/0157_vault_pages_kind.sql` adds it with the check
+`kind is null or kind in ('note','canvas')`. NULL reads as a note. wf-core
+`CANVAS_KIND` (`"canvas"`, `vault/page.rs`) names the canvas value, and
+`create_vault_page` starts a canvas from an empty canvas text. A canvas body is
+JSON Canvas text, see [canvas](canvas.md).
+
+## Guarded save
+
+An edit that carries `baseBody` is merged instead of overwritten. See
+[vault_page_guard](vault_page_guard.md).
+
 ## Not ported
 
 Nothing was missing from Rust. `page.rs` and `page_row.rs` already hold the

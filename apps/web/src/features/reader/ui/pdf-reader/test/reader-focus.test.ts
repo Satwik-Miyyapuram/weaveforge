@@ -56,3 +56,11 @@ test("a press on the page focuses the reader", () => {
 test("a press on a focusable control inside the reader leaves it to that control", () => {
   assert.equal(pointerFocusTarget(el(annotationButton), el(root)), null);
 });
+
+test("a reader on a hidden screen never owns the keys, even with focus on the body", () => {
+  // The workspace and Papers stay mounted while another screen is up; Delete
+  // there must not remove an annotation selected in a reader nobody can see.
+  assert.equal(ownsReaderFocus(body as never, body as never, [root as never], false), false);
+  assert.equal(ownsReaderFocus(page as never, body as never, [root as never], false), false);
+  assert.equal(ownsReaderFocus(body as never, body as never, [root as never], true), true);
+});

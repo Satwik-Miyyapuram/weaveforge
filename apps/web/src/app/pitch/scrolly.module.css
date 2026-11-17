@@ -4,7 +4,7 @@
 /* `clip`, not `hidden`: it stops a stray wide element panning the whole page
    sideways on a phone without making `.page` a scroll box, which would break
    the sticky header and stages. */
-.page { min-height: 100vh; overflow-x: clip; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.55; }
+.page { min-height: 100vh; overflow-x: clip; display: flow-root; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.55; }
 .page[data-look="crt"]::after {
   content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
   background: repeating-linear-gradient(to bottom, var(--scanline) 0 1px, transparent 1px 3px);

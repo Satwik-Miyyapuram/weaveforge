@@ -34,6 +34,14 @@ export interface DesktopLocalDbState {
   restoredFrom?: string | null;
 }
 
+/** What the shell did for one table of the 0.8 import. */
+export interface DesktopOldDbReport {
+  table: string;
+  inserted: number;
+  skipped: number;
+  alreadyDone: boolean;
+}
+
 export interface DesktopBridge {
   /** Version of the desktop shell, so a mismatch can be reported rather than crash. */
   readonly version: string;
@@ -163,6 +171,19 @@ export interface DesktopBridge {
   resetLocalDb(): Promise<void>;
 
   /**
+   * Bringing the 0.8 (Electron) database over. Optional: a shell without them
+   * has no old data to import. `oldDbStatus` is true while old data exists that
+   * has not been imported; `oldDbTar` is that data directory as base64 of a tar;
+   * the import then runs table by table (parents first) and `oldDbImportFinish`
+   * is called only after every table has succeeded. The old directory is read,
+   * never written.
+   */
+  oldDbStatus?(): Promise<boolean>;
+  oldDbTar?(): Promise<string>;
+  oldDbImportTable?(table: string, rows: unknown[]): Promise<DesktopOldDbReport>;
+  oldDbImportFinish?(tables: string[]): Promise<void>;
+
+  /**
    * Offline attachment bytes as files in the app's data folder, one per
    * `(bucket, path)`, so the local database holds only the index. The shell
    * names each file by a hash of the pair; the page never names a disk path.
@@ -198,6 +219,16 @@ export interface DesktopBridge {
   retryVaultRoot?(): Promise<DesktopVaultRoot | null>;
   /** Stop using, watching and remembering the folder; answers any warnings. The files stay. */
   forgetVaultRoot?(): Promise<readonly string[]>;
+  /**
+   * Whether the first-open "where should your workspace live?" question is due, and
+   * the folder Skip would use. Absent on the Electron shell and in the browser.
+   */
+  workspaceSetup?(): Promise<DesktopWorkspaceSetup>;
+  /**
+   * Skip the first-open question: use `WeaveForge` in the reader's Documents folder
+   * (created if missing). Answers the folder in use, or rejects with why it cannot be used.
+   */
+  skipWorkspaceFolder?(): Promise<DesktopVaultRoot | null>;
   /** Read one file, or null when it is not there yet. */
   readVaultFile(path: string): Promise<string | null>;
   writeVaultFile(path: string, contents: string): Promise<void>;
@@ -419,6 +450,10 @@ export interface DesktopBridge {
   onMenuChange?(cb: () => void): () => void;
   /** Tint the system's window buttons to the page: two `#rrggbb` colours. */
   setTitleBarColors?(colors: { background: string; ink: string }): void;
+  /** Whether the OS taskbar is in light mode. Optional: an installed shell may predate it. */
+  osUsesLightTheme?(): Promise<boolean>;
+  /** Set the window and taskbar icon to a base64 PNG. Optional, like the colours. */
+  setWindowIcon?(pngBase64: string): void;
   /**
    * The plan widget on the desktop: whether it is on, and the switch. Optional
    * because an installed shell may predate it; without it Settings says nothing
@@ -428,6 +463,44 @@ export interface DesktopBridge {
   setPlanWidget?(on: boolean): Promise<DesktopPlanWidget>;
   /** The theme's colours for the widget, each a `#rrggbb`, keyed as the widget's own CSS variables. */
   setPlanWidgetTheme?(palette: Record<string, string>): void;
+
+  /**
+   * One-click updates of the installed window. The shell checks on its own
+   * (quietly, shortly after start and every six hours); the page asks for the
+   * current state, asks for a check, and installs a release that was found.
+   *
+   * `installDesktopUpdate` ends with the window restarting, so its answer is
+   * only seen when the install failed. Absent on shells that predate it; those
+   * fall back to `checkUpdate`, which opens the release page instead.
+   */
+  appUpdateStatus?(): Promise<DesktopAppUpdate>;
+  appUpdateCheck?(): Promise<DesktopAppUpdate>;
+  appUpdateInstall?(): Promise<DesktopAppUpdate>;
+  /** Called on every state change the shell makes on its own; returns the way to stop listening. */
+  onAppUpdate?(cb: (status: DesktopAppUpdate) => void): () => void;
+}
+
+/** Where the installed window stands with its own updates. Mirrors the shell's `AppUpdateStatus`. */
+export type DesktopAppUpdatePhase =
+  | "unsupported"
+  | "idle"
+  | "checking"
+  | "upToDate"
+  | "available"
+  | "downloading"
+  | "installing"
+  | "failed";
+
+export interface DesktopAppUpdate {
+  phase: DesktopAppUpdatePhase;
+  /** The version running now. */
+  current: string;
+  /** The release found, when there is one. */
+  version: string | null;
+  /** Download progress, 0 to 100, when the size is known. */
+  percent: number | null;
+  /** Why the last check or install failed, fit to show. */
+  error: string | null;
 }
 
 /** One of the app's own folders: `artifacts`, `models` or `log`. */
@@ -648,6 +721,14 @@ export type DesktopSecretName = "ai-provider" | "overleaf-token" | "git-sync-tok
  * `apps/shell/src/prefs.rs`.
  */
 export type DesktopPreferenceName = "vault-git" | "vault-git-remote";
+
+/** What the first-open question needs from the shell. */
+export interface DesktopWorkspaceSetup {
+  /** Ask the reader where the workspace lives. */
+  needed: boolean;
+  /** Where Skip puts the workspace; null when the Documents folder is unknown. */
+  defaultFolder: string | null;
+}
 export type DesktopPreferenceValue = string | boolean | null;
 
 export interface DesktopUpdate {

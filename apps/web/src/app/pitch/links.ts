@@ -9,11 +9,11 @@
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "/";
 
 /**
- * Documentation and source.
- *
- * `/docs/` is relative on purpose: on the exported site the docs are a sibling
- * route, and inside the product `/docs` redirects to the docs host. One link
- * that is correct in both places.
+ * Documentation. The help docs live on their own host; the pitch's /docs
+ * route only redirects there.
  */
-export const DOCS_URL = "/docs/";
+export const DOCS_URL = "https://docs.weaveforge.org/";
+/** Source code. */
 export const REPO_URL = "https://github.com/Satwik-Miyyapuram/weaveforge";
+/** GitHub's latest release page; 0.9.1 is marked Latest and 0.9.0 is a pre-release. */
+export const RELEASES_URL = `${REPO_URL}/releases/latest`;

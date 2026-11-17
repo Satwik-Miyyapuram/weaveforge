@@ -166,6 +166,67 @@ fn ink_recogniser_path_is_per_platform_and_architecture() {
     assert_eq!(ink_recogniser_path("windows", "x86", root), None);
 }
 
+/// A fresh resources folder with one helper file per `rid` in `present`.
+fn resources_with(name: &str, present: &[&str]) -> PathBuf {
+    let root = std::env::temp_dir().join(format!("wf-ink-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    for rid in present {
+        let dir = root.join("native").join("ink-recogniser").join(rid);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("ink-recogniser.exe"), b"exe").unwrap();
+    }
+    root
+}
+
+fn helper(root: &Path, rid: &str) -> PathBuf {
+    root.join("native")
+        .join("ink-recogniser")
+        .join(rid)
+        .join("ink-recogniser.exe")
+}
+
+#[test]
+fn arm64_falls_back_to_the_x64_helper_when_only_that_is_shipped() {
+    let root = resources_with("x64-only", &["win-x64"]);
+    assert_eq!(
+        ink_recogniser_path("windows", "aarch64", &root),
+        Some(helper(&root, "win-x64")),
+        "a release that ships only win-x64 must still start on ARM64 (emulated)"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn arm64_prefers_its_native_helper_when_it_is_shipped() {
+    let root = resources_with("both", &["win-arm64", "win-x64"]);
+    assert_eq!(
+        ink_recogniser_path("windows", "aarch64", &root),
+        Some(helper(&root, "win-arm64"))
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn arm64_with_no_helper_names_the_native_path() {
+    let root = resources_with("none", &[]);
+    assert_eq!(
+        ink_recogniser_path("windows", "aarch64", &root),
+        Some(helper(&root, "win-arm64")),
+        "with nothing on disk the log should name the native file it looked for"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn x64_never_picks_the_arm64_helper() {
+    let root = resources_with("x64-host", &["win-arm64", "win-x64"]);
+    assert_eq!(
+        ink_recogniser_path("windows", "x86_64", &root),
+        Some(helper(&root, "win-x64"))
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_request_is_correlated_by_id_and_answered_with_its_lines() {
     let Fixture {

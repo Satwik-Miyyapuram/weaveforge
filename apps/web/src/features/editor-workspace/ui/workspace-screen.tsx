@@ -16,6 +16,7 @@ import {
   type Document,
   isTypingTarget,
   loadWorkspace,
+  NoteSaves,
   readHidden,
   readLayout,
   type WorkspaceData,
@@ -34,20 +35,22 @@ import {
   isCreatableKind,
   isDocumentKind,
   kindOwner,
-  linkGroupOf,
   openingTab,
   openModeFor,
-  outlineOf,
   segmentsFor,
 } from "@weaveforge/wasm";
 import type { PaneLayout, PaneSplit, TabRef, WorkspaceTreeNode } from "@weaveforge/wasm";
 import type { ExplorerSection } from "../application/parts";
-import { DocumentHost, type DocumentMetrics } from "./document-host";
+import { DocumentHost, isCanvasDocument, type DocumentMetrics } from "./document-host";
+import { CanvasDocument } from "./canvas-document";
 import { ExplorerPanel } from "./explorer-panel";
 import { useFocusMode } from "./use-focus-mode";
 import { HydratingDocument, useNoteBodies } from "./use-note-bodies";
+import { useLinkTargets } from "./use-link-targets";
+import { useOutline } from "./use-outline";
 import { requestedTab, useReturnRefresh } from "./use-return-refresh";
 import { useScreenActive } from "@/lib/hooks/use-screen-active";
+import { useScreenShown } from "@/lib/screen-shown";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import { PaneView, openTabs } from "./pane-view";
@@ -108,6 +111,7 @@ export function WorkspaceScreen() {
   const [explorerHidden, setExplorerHidden] = useState(false);
   const { focus, toggleFocus } = useFocusMode();
   const onScreen = useScreenActive();
+  useScreenShown("workspace", documents != null);
   // `F2`: a count, so the explorer's rename starts once per press.
   const [renameRequest, setRenameRequest] = useState(0);
   // The chord handler is bound once; it reads the document on screen through
@@ -178,6 +182,12 @@ export function WorkspaceScreen() {
   dirtyRef.current = dirty;
   const pendingRef = useRef(0);
   const { bodies: hydrated, hydrate } = useNoteBodies(setDocuments, setError);
+  // One save of a note at a time, each naming the body the last one stored.
+  // Made once and kept: a new one would drop the queues of saves in flight.
+  // `hydrated` is `useNoteBodies`'s ref map, the same map every render.
+  const noteSavesRef = useRef<NoteSaves | null>(null);
+  noteSavesRef.current ??= new NoteSaves(hydrated);
+  const noteSaves = noteSavesRef.current;
   // Each reload's number: late Overleaf rows apply only to the newest load.
   const loadRef = useRef(0);
   const reload = useCallback(async () => {
@@ -284,7 +294,7 @@ export function WorkspaceScreen() {
   documentsRef.current = documents;
 
   const save = useCallback(
-    async (tab: TabRef, body: string) => {
+    async (tab: TabRef, body: string, meta?: { sessionDigests?: readonly string[]; baseBody?: string }): Promise<string | void> => {
       // A body may only go back to the store once the full one has come in.
       // The editor is not mounted before that, but an editor that saved the
       // 320-character preview would overwrite the note with it — a loss the
@@ -302,33 +312,61 @@ export function WorkspaceScreen() {
         // `if (kind === …)` chain. It cannot live in `ui/kind.ts` — the values
         // are container calls, and that table is pure data — but it is the same
         // kind of per-kind column, and it is the one an ink note adds a row to.
+        // A note's save names the body its edit was built on (the canvas says
+        // which; else the last stored body, else the loaded one), so an edit
+        // someone else saved since is merged in or kept as a copy, never
+        // overwritten. It resolves the stored body, which differs when merged.
+        const saveNote = (id: string, next: string) =>
+          noteSaves.run(id, doc?.body, async (chained) => {
+            const base = meta?.baseBody ?? chained;
+            const saved = await container.vault.manageVaultPage.update(id, {
+              body: next,
+              ...(base !== undefined ? { baseBody: base } : {}),
+              ...(meta?.sessionDigests ? { sessionDigests: meta.sessionDigests } : {}),
+            });
+            if (saved.conflictCopyId) {
+              setError(
+                "Someone else changed this note at the same time. Your text was saved; theirs is kept as a conflict copy beside it.",
+              );
+              void reload();
+            }
+            return saved.body;
+          });
         const writers: Record<string, (id: string, next: string) => Promise<unknown>> = {
-          vault_page: (id, next) => container.vault.manageVaultPage.update(id, { body: next }),
+          vault_page: saveNote,
           // An ink note is a vault page whose body starts with the ink header (§4.1).
-          ink_page: (id, next) => container.vault.manageVaultPage.update(id, { body: next }),
+          ink_page: saveNote,
           paper: (id, next) => container.papers.updatePaper.setSummary(id, next),
           report_section: (id, next) => container.report.manageReportSection.setNotes(id, next),
           // A log entry is markdown, so the editor's text *is* the entry's body.
           // The kind is not ours to write: see LogbookFacade.saveEntryBody.
           log_entry: (id, next) => container.logbook.saveEntryBody(id, next),
         };
-        await writers[tab.kind]?.(tab.id, body);
+        const result = await writers[tab.kind]?.(tab.id, body);
+        const stored = typeof result === "string" ? result : body;
         setDirty(false);
-        if (hasLazyBody(tab.kind)) hydrated.set(tab.id, body);
+        // A note's queue keeps its stored body; another kind keeps the one sent.
+        if (hasLazyBody(tab.kind) && typeof result !== "string") hydrated.set(tab.id, body);
         setDocuments((current) =>
           (current ?? []).map((doc) =>
-            doc.kind === tab.kind && doc.id === tab.id ? { ...doc, body, hydrated: true } : doc,
+            doc.kind === tab.kind && doc.id === tab.id ? { ...doc, body: stored, hydrated: true } : doc,
           ),
         );
+        return stored;
       } catch (err) {
         setDirty(true);
         setError(formatError(err));
+        // The live editor and the canvas (the callers that pass `meta`)
+        // must know the save failed: they retry, or take back a saved-body mark, and
+        // keeps the edit dirty, and compaction must not trust the body.
+        // Others fire and forget, so for them the notice is the report.
+        if (meta) throw err;
       } finally {
         pendingRef.current -= 1;
         setPending(pendingRef.current);
       }
     },
-    [hydrated],
+    [hydrated, noteSaves, reload],
   );
 
   // The browser only honours the guard if the handler is registered before the
@@ -347,34 +385,7 @@ export function WorkspaceScreen() {
   const active = readyCore().activeTabRef(layout);
   const activeKeyOf = active ? readyCore().tabKey(active) : undefined;
 
-  // Where Read mode's wikilinks can go. The same three lists `/notes` hands
-  // `VaultMarkdown`, built from the documents this screen already loaded. Which
-  // kind resolves against which list is `kind.ts`'s `linkGroup`, so a kind that
-  // cannot be linked to is left out rather than filtered by name here.
-  const links = useMemo(() => {
-    const rows = documents ?? [];
-    const inGroup = (group: "notes" | "papers" | "sections") =>
-      rows
-        .filter((doc) => linkGroupOf(doc.kind) === group)
-        .map((doc) => ({ id: doc.id, title: doc.title }));
-    return {
-      notes: inGroup("notes"),
-      papers: inGroup("papers"),
-      sections: inGroup("sections"),
-    };
-  }, [documents]);
-
-  // Every `#tag` the project uses, for completion: the ones written inline in
-  // any document plus the ones a paper carries as a field. Sorted so the list
-  // is stable between keystrokes.
-  const tags = useMemo(() => {
-    const all = new Set<string>();
-    for (const doc of documents ?? []) {
-      for (const tag of readyCore().extractHashtags(doc.body)) all.add(tag);
-      for (const tag of doc.tags ?? []) all.add(tag);
-    }
-    return [...all].sort();
-  }, [documents]);
+  const { links, tags } = useLinkTargets(documents);
 
   const openLink = useCallback(
     (tab: TabRef) => {
@@ -393,7 +404,7 @@ export function WorkspaceScreen() {
   // already opens rather than fails.
   const createNote = useCallback(
     async (
-      input: { title: string; parentId?: string; ink?: boolean; folder?: boolean },
+      input: { title: string; parentId?: string; ink?: boolean; folder?: boolean; canvas?: boolean },
       opts: { open?: boolean } = {},
     ) => {
       const wanted = readyCore().normalizeTitleKey(input.title);
@@ -411,6 +422,8 @@ export function WorkspaceScreen() {
               parentId: input.parentId,
               ...(body !== undefined ? { body } : {}),
               ...(input.folder ? { folder: true } : {}),
+              // A canvas starts as an empty board; the vault writes its body.
+              ...(input.canvas ? { kind: "canvas" as const } : {}),
             })
           ).id;
       if (!existing) await reload();
@@ -449,7 +462,7 @@ export function WorkspaceScreen() {
       }
       const makes = draftMakes(target.kind);
       await createNote(
-        { title, parentId: target.parentId ?? undefined, ink: makes.ink, folder: makes.folder },
+        { title, parentId: target.parentId ?? undefined, ink: makes.ink, folder: makes.folder, canvas: makes.canvas },
         { open: makes.opens },
       );
     },
@@ -518,6 +531,9 @@ export function WorkspaceScreen() {
       }
       if (!doc) return <p className="muted">This document is no longer in the workspace.</p>;
       if (!doc.hydrated) return <HydratingDocument tab={tab} hydrate={hydrate} />;
+      if (isCanvasDocument(doc)) {
+        return <CanvasDocument key={key} doc={doc} documents={documents ?? []} onSave={(body, base) => save(tab, body, { baseBody: base })} onOpen={openDoc} />;
+      }
       return (
         <DocumentHost
           tab={tab}
@@ -526,7 +542,7 @@ export function WorkspaceScreen() {
           links={links}
           completions={completions}
           tags={tags}
-          onSave={(body: string) => save(tab, body)}
+          onSave={(body, meta) => save(tab, body, meta)}
           onMetrics={(next) => setMetrics((current) => ({ ...current, [key]: next }))}
           onOpenLink={openLink}
           onCreateNote={createMode === "create" ? createFromLink : undefined}
@@ -536,7 +552,7 @@ export function WorkspaceScreen() {
         />
       );
     },
-    [byKey, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate, previewOf, metrics, overleafPending],
+    [byKey, documents, openDoc, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate, previewOf, metrics, overleafPending],
   );
 
   // Insert ▾ → Picture in Text: a picture on disk at the caret of the focused
@@ -560,29 +576,7 @@ export function WorkspaceScreen() {
   const documentNodes = useMemo(() => readyCore().flattenTree(tree), [tree]);
   folderIdsRef.current = useMemo(() => readyCore().folderIdsOf(tree), [tree]);
 
-  // The Outline section: the headings of the document on screen, read from the
-  // same parse Read mode renders. Collapsed by default, and empty for a
-  // document with no headings. Tabs, not a second document: a heading row
-  // scrolls the pane rather than opening anything.
-  const outline = useMemo(() => {
-    const body = activeKeyOf ? metrics[activeKeyOf]?.text ?? byKey.get(activeKeyOf)?.body ?? "" : "";
-    return outlineOf(body).map<WorkspaceTreeNode>((heading, index) => ({
-      key: `outline:${index}:${heading.slug}`,
-      kind: "folder",
-      label: heading.text,
-      // The slug is the id the Read view writes, so a click finds the heading
-      // it names with no second parse and no offset table to keep in step.
-      path: heading.slug,
-      children: [],
-      headingLevel: heading.level,
-    }));
-  }, [activeKeyOf, byKey, metrics]);
-
-  /** A heading row scrolls the pane it belongs to; nothing opens. */
-  const jumpToHeading = useCallback((node: WorkspaceTreeNode) => {
-    if (!node.path) return;
-    document.getElementById(node.path)?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }, []);
+  const { outline, jumpToHeading } = useOutline(activeKeyOf ? metrics[activeKeyOf]?.text ?? byKey.get(activeKeyOf)?.body ?? "" : "");
 
   // The explorer's sections. Files is the mirror folder; Reading lists is a
   // view over the same documents; Outline is a view over the one on screen.
@@ -604,6 +598,14 @@ export function WorkspaceScreen() {
       return shown ? breadcrumbs({ kind: shown.kind, id: shown.id }, tree, listsTree) : [];
     },
     [tree, listsTree, previewOf],
+  );
+  // A canvas is a note kept as `.canvas`, so its suffix is the file's, not the note kind's.
+  const suffixFor = useCallback(
+    (tab: TabRef) => {
+      const doc = byKey.get(readyCore().tabKey(tab));
+      return doc && isCanvasDocument(doc) ? ".canvas" : readyCore().kindSuffix(tab.kind);
+    },
+    [byKey],
   );
 
 
@@ -682,13 +684,15 @@ export function WorkspaceScreen() {
   const core = readyCore();
   const stats = core.bodyStats(activeBody);
 
+  // A canvas body is JSON: counting its words would count the JSON.
+  const activeCanvas = activeDoc !== undefined && isCanvasDocument(activeDoc);
   const values: Partial<Record<SegmentKey, string>> = activeDoc
     ? {
-        words: core.formatWords(stats.words),
-        chars: `${core.formatCount(stats.chars)} chars`,
+        words: activeCanvas ? undefined : core.formatWords(stats.words),
+        chars: activeCanvas ? undefined : `${core.formatCount(stats.chars)} chars`,
         cursor: activeMetrics?.cursor ? core.formatCursor(activeMetrics.cursor) : undefined,
         encoding: "UTF-8",
-        language: "Markdown",
+        language: activeCanvas ? "JSON Canvas" : "Markdown",
         branch: undefined,
       }
     : {};
@@ -751,6 +755,7 @@ export function WorkspaceScreen() {
         renderDocument={renderDocument}
         onInsertImage={onInsertImage}
         crumbsFor={crumbsFor}
+        suffixFor={suffixFor}
         onOpenCrumb={(crumb) => {
           if (!crumb.key) return;
           const [kind, ...rest] = crumb.key.split(":");

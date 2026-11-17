@@ -50,6 +50,7 @@ const EXPLORER_DRAG_TYPE = "application/x-weaveforge-node";
 
 const NEW_HERE: { kind: CreateKind; label: string; icon: React.ReactNode }[] = [
   { kind: "note", label: "New note here", icon: <NavIcon name="notes" /> },
+  { kind: "canvas", label: "New page here", icon: <NavIcon name="canvas" /> },
   { kind: "section", label: "New section here", icon: <NavIcon name="doc" /> },
   { kind: "folder", label: "New folder here", icon: <FolderIcon /> },
 ];
@@ -427,6 +428,9 @@ export function ExplorerPanel({
             <>
               <IconButton size="sm" label="New note" onClick={() => startDraft("note")}>
                 <NavIcon name="notes" />
+              </IconButton>
+              <IconButton size="sm" label="New page" onClick={() => startDraft("canvas")}>
+                <NavIcon name="canvas" />
               </IconButton>
               <IconButton size="sm" label="New folder" onClick={() => startDraft("folder")}>
                 <FolderIcon />

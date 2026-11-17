@@ -2,7 +2,7 @@
 covers:
   - apps/web/src/features/vault
   - crates/wf-core/src/vault
-checked: 2026-11-14
+checked: 2026-11-16
 ---
 # Notes
 
@@ -35,18 +35,6 @@ with `#hashtags`.
 2. Choose **Import zip…** or **Import folder…**.
 3. The result line reads, for example, `Imported 3 notes, 1 folder.`
 
-### Import a OneNote section
-
-1. In OneNote, export or copy the section's `.one` file.
-2. Click **More**, then **Import OneNote section…**, and pick the file.
-3. WeaveForge makes one note per page. Sub-pages sit under their parent page.
-4. Pictures come in as attachments. A page with handwriting comes in as an
-   ink note: each printout on the page becomes one ink page, with the printout
-   behind the strokes and the page's typed text in its text layer. A page
-   with more than 50 printouts splits into `<title> (part 2)` and so on.
-5. Attached files, such as PDFs, are not imported. The note says which file
-   was left out.
-
 ### Find a note
 
 1. Type in the **Search notes** box to search titles and text.
@@ -68,6 +56,13 @@ with `#hashtags`.
 3. Click **Undo** before the toast closes to keep the note.
 4. When the toast closes, or you click its close button, the note is deleted.
 5. If the delete fails, the note comes back and a toast says so.
+
+### When two places save at once
+
+If someone else saves the same note while you do, the two texts are merged. If
+they overlap, your text is kept and theirs appears in the list as
+"<title> (conflict copy <date> <time>)". See
+[a note or canvas edited in two places](sync.md#a-note-or-canvas-edited-in-two-places).
 
 ### Remove a shared note from your library
 
@@ -91,7 +86,6 @@ with `#hashtags`.
 | **More** | Head of the list. Opens the import and wiki items |
 | **Import zip…** | **More** menu |
 | **Import folder…** | **More** menu |
-| **Import OneNote section…** | **More** menu |
 | **Wiki** | **More** menu. Opens the wiki |
 | **Search notes** | Search box in the head |
 | **Lists**, **Tags** | Filter row beside the list. A filter with no values is hidden |
@@ -116,6 +110,7 @@ with `#hashtags`.
 | `Loading notes…` | Screen is loading |
 | `Opening note…` | A note is opening |
 | `"<title>" deleted` | Delete toast |
+| `Someone else changed this note at the same time. Your text was saved; theirs is kept as a conflict copy beside it.` | Two places saved the same note and the texts overlapped |
 
 ### Sections on an open note
 
@@ -154,6 +149,7 @@ queries, link resolution and template work.
 
 ## Related
 
+- [Canvas](canvas.md) — a board of notes, files and links in the same tree
 - [Papers](papers.md) — papers you cite from a note
 - [Citations, excerpts and Overleaf](citations-and-overleaf.md) — using notes and papers in the report
 - [Search](search.md) — finding notes and papers

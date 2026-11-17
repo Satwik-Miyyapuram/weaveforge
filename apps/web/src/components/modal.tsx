@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { CloseButton } from "./button";
 
 const FOCUSABLE = 'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])';
@@ -48,6 +49,9 @@ export function Modal({
   onKeyDown?: (e: ReactKeyboardEvent<HTMLDivElement>) => void;
   children: ReactNode;
 }) {
+  // A modal inside a hidden kept screen must not float over the screen on show.
+  // Its children stay mounted (hidden), so a half-filled form survives.
+  const screenActive = useScreenActive();
   const [mounted, setMounted] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
@@ -62,7 +66,7 @@ export function Modal({
   }, []);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !screenActive) return;
     // Locking the scroll takes the scrollbar away, which widens every element
     // behind the modal. That is not only a visible jump: `CardColumns` watches
     // its own width and re-deals the cards when the column count changes, so a
@@ -77,17 +81,17 @@ export function Modal({
       document.body.style.overflow = prevOverflow;
       document.body.style.paddingRight = prevPadding;
     };
-  }, [mounted]);
+  }, [mounted, screenActive]);
 
   useEffect(() => {
-    if (!mounted || !dismissible || !onClose) return;
+    if (!mounted || !dismissible || !onClose || !screenActive) return;
     const close = onClose;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") close();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [mounted, dismissible, onClose]);
+  }, [mounted, dismissible, onClose, screenActive]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -130,6 +134,8 @@ export function Modal({
     <div
       className={`modal-backdrop modal-backdrop--${variant}`}
       role="presentation"
+      hidden={!screenActive}
+      style={screenActive ? undefined : { display: "none" }}
       onPointerDown={(e) => {
         pressedBackdropRef.current = e.target === e.currentTarget;
       }}

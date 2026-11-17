@@ -10,9 +10,8 @@ import { RouteNotFound } from "@/app/route-not-found";
  * lands here rather than on the host's own page.
  *
  * Two links differ from the app's copy, and both have to:
- *   - the docs are a sibling route on this site (`/docs/`), not the separate
- *     origin the product links to, so they go through `next/link` and pick up
- *     the `basePath` the deploy is built with;
+ *   - the docs live on their own host (docs.weaveforge.org), so the link is
+ *     absolute and goes out as a plain anchor;
  *   - `/papers` is not a route on this site at all. It is a screen of the
  *     product, one origin over, so it is built from APP_URL
  *     (`NEXT_PUBLIC_APP_URL`, set by .github/workflows/pages.yml). A relative
@@ -32,9 +31,9 @@ export default function NotFound() {
           <a className="btn-secondary" href={`${APP_URL}papers`}>
             Browse the papers
           </a>
-          <Link className="btn-secondary" href="/docs/">
+          <a className="btn-secondary" href="https://docs.weaveforge.org/">
             Read the docs
-          </Link>
+          </a>
         </>
       }
     />

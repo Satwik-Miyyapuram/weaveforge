@@ -1,9 +1,18 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useModuleRegistry } from "@/lib/hooks/parts";
 import { readyCore } from "@/lib/rust-core";
+
+/**
+ * The account button, supplied by the shell only where no project is open
+ * (Home, and the account screens). Those screens have no sidebar to hold it,
+ * so the header's action row takes it, after the screen's own actions. On a
+ * project page this stays `null` and the sidebar (desktop) or the phone bar
+ * holds the button instead.
+ */
+export const PageHeaderAccount = createContext<ReactNode>(null);
 
 /**
  * The header every list screen opens with: an optional title, a row of
@@ -39,6 +48,7 @@ export function ScreenHead({
 }) {
   const pathname = usePathname() ?? "/";
   const registry = useModuleRegistry();
+  const account = useContext(PageHeaderAccount);
   const hidden = title
     ? null
     : (readyCore().labelForPath(pathname, [registry.homeNavItem, ...registry.allModules.flatMap((m) => m.navItems)]) ?? null);
@@ -64,6 +74,7 @@ export function ScreenHead({
             />
           )}
           {children}
+          {account && <div className="project-picker-bar desktop-only">{account}</div>}
         </div>
       </div>
       {note}

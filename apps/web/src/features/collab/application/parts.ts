@@ -4,6 +4,17 @@ import type { Peer } from "../domain/presence";
 
 // --- body-saver ---
 /**
+ * Writes a collaborative document's body to its row. `sessionDigests` names the
+ * bodies this document's live sessions saved, so the store can tell a peer's
+ * save from someone else's edit (`repos::vault_page_guard`). It may resolve the
+ * body the store now holds, when that differs from the one sent (a merge).
+ */
+export type SaveBody = (
+  body: string,
+  meta?: { sessionDigests: readonly string[] },
+) => Promise<string | void>;
+
+/**
  * Writes a collaborative document's text back to its row: debounced while
  * typing, at once on `flush()`, and one last time on `close()`.
  *
@@ -14,9 +25,12 @@ import type { Peer } from "../domain/presence";
  *  - the saved text only moves once a save resolves, so a failed save stays
  *    dirty and is retried;
  *  - a save already in flight (the debounce's, or the one `close()` starts) is
- *    awaited instead of reported as done or fired a second time.
+ *    awaited instead of reported as done or fired a second time;
+ *  - saves run one at a time, so an older body never lands after a newer one;
+ *  - `close()` saves only an edit this editor made and has not saved: a peer's
+ *    text is the peer's to save.
  */
-export class BodySaver {
+export class BodySaver<P = undefined> {
   private lastSaved: string;
   private ready = false;
   private pending: string | null = null;
@@ -25,7 +39,14 @@ export class BodySaver {
 
   constructor(
     private readonly deps: {
-      save: (body: string) => Promise<void>;
+      /**
+       * Runs when a save is queued, before any earlier one has settled: what
+       * must happen while the editor is still open (the close-save's included)
+       * goes here. Its result is handed to `save`.
+       */
+      prepare?: (body: string) => P;
+      /** Resolves the body the store holds, when it is not the one sent. */
+      save: (body: string, prepared: P) => Promise<string | void>;
       /** A save failed. Never thrown: callers fire saves without awaiting them. */
       onError: (err: unknown) => void;
       delayMs: number;
@@ -56,6 +77,14 @@ export class BodySaver {
     this.timer = setTimeout(() => void this.flush(), this.deps.delayMs);
   }
 
+  /**
+   * Someone else's text arrived. It is theirs to save, but an edit of this
+   * editor still waiting is saved with it, or that save would drop it.
+   */
+  refresh(body: string): void {
+    if (this.pending !== null) this.schedule(body);
+  }
+
   /** Write the pending body now; resolves `true` once the newest text is stored. */
   flush(): Promise<boolean> {
     this.clearTimer();
@@ -65,11 +94,12 @@ export class BodySaver {
     return this.write(body);
   }
 
-  /** The editor is going away: save `current` if it is an edit. */
+  /** The editor is going away: save `current` if this editor has an unsaved edit. */
   close(current: string): void {
     this.clearTimer();
+    const edited = this.pending !== null;
     this.pending = null;
-    if (this.isEdit(current)) void this.write(current);
+    if (edited && this.isEdit(current)) void this.write(current);
   }
 
   private isEdit(body: string): boolean {
@@ -77,9 +107,18 @@ export class BodySaver {
   }
 
   private write(body: string): Promise<boolean> {
-    const run = this.deps.save(body).then(
-      () => {
-        this.lastSaved = body;
+    const before = this.inFlight ?? Promise.resolve(true);
+    let prepared: P;
+    try {
+      prepared = this.deps.prepare ? this.deps.prepare(body) : (undefined as P);
+    } catch (err) {
+      this.pending ??= body;
+      this.deps.onError(err);
+      return Promise.resolve(false);
+    }
+    const run = before.then(() => this.deps.save(body, prepared)).then(
+      (stored) => {
+        this.lastSaved = typeof stored === "string" ? stored : body;
         return true;
       },
       (err: unknown) => {

@@ -15,7 +15,6 @@ import {
   noteBacklinks,
   scopeNotes,
 } from "../../application/parts";
-import { importOneNoteSection, oneNoteImportDeps } from "../../application/onenote-import";
 import { logToApp } from "@/lib/error-report/app-log";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
@@ -54,7 +53,6 @@ export function VaultScreen() {
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const importZipRef = useRef<HTMLInputElement | null>(null);
   const importFolderRef = useRef<HTMLInputElement | null>(null);
-  const importOneNoteRef = useRef<HTMLInputElement | null>(null);
   // File inputs stay mounted outside the modal so pickers survive dialog close.
   // Filters name lists and tags of one project, so each project keeps its own.
   const projectId = useProject().current?.id;
@@ -111,7 +109,7 @@ export function VaultScreen() {
   const paperEntries = data?.paperEntries ?? emptyArray<{ id: string; title: string }>();
   const sectionEntries = data?.sectionEntries ?? emptyArray<{ id: string; title: string }>();
   const noteEntries = useMemo(
-    () => flat.map((p) => ({ id: p.id, title: p.title })),
+    () => flat.map((p) => ({ id: p.id, title: p.title, kind: p.kind })),
     [flat],
   );
   const backlinks = useMemo(() => noteBacklinks(flat, selectedId), [selectedId, flat]);
@@ -254,29 +252,6 @@ export function VaultScreen() {
     }
   }
 
-  async function onImportOneNote(file: File | null) {
-    if (!file) return;
-    setImporting(true);
-    setImportMsg(null);
-    setError(null);
-    try {
-      const res = await importOneNoteSection(file, oneNoteImportDeps());
-      const parts = [`Imported ${res.created} note${res.created === 1 ? "" : "s"}`];
-      if (res.inkNotes) parts.push(`${res.inkNotes} handwriting`);
-      if (res.images) parts.push(`${res.images} image${res.images === 1 ? "" : "s"}`);
-      if (res.warnings.length) parts.push(`${res.warnings.length} warning${res.warnings.length === 1 ? "" : "s"}`);
-      for (const w of res.warnings) {
-        logToApp({ level: "warn", source: "vault", message: w });
-      }
-      setImportMsg(`${parts.join(", ")}.`);
-      await load();
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setImporting(false);
-    }
-  }
-
   /**
    * `![[Note]]` transclusion: resolve a note title to its body for inlining.
    *
@@ -394,13 +369,6 @@ export function VaultScreen() {
                   title: "A local folder of markdown notes",
                   onSelect: () => importFolderRef.current?.click(),
                 },
-                {
-                  id: "import-onenote",
-                  label: "Import OneNote section…",
-                  disabled: importing,
-                  title: "A OneNote .one section file: text, images and handwriting",
-                  onSelect: () => importOneNoteRef.current?.click(),
-                },
                 { id: "sep", label: "", kind: "separator" as const },
                 { id: "wiki", label: "Wiki", onSelect: () => router.push("/wiki") },
               ]}
@@ -414,16 +382,6 @@ export function VaultScreen() {
           accept=".zip,application/zip"
           onChange={(e) => {
             void onImportFiles(e.target.files);
-            e.target.value = "";
-          }}
-        />
-        <input
-          ref={importOneNoteRef}
-          type="file"
-          hidden
-          accept=".one"
-          onChange={(e) => {
-            void onImportOneNote(e.target.files?.[0] ?? null);
             e.target.value = "";
           }}
         />

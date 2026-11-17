@@ -54,6 +54,8 @@ pub enum ConflictKind {
     TypeMismatch,
     /// The file still holds this app's conflict markers.
     Markers,
+    /// The folder's canvas id map cannot be read, so its canvases are held.
+    BrokenMap,
 }
 
 impl ConflictKind {
@@ -64,6 +66,7 @@ impl ConflictKind {
             Self::BothChanged => "both-changed",
             Self::TypeMismatch => "type-mismatch",
             Self::Markers => "markers",
+            Self::BrokenMap => "broken-map",
         }
     }
 }

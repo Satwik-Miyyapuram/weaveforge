@@ -7,6 +7,9 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [ai](ai.md) | Pure helpers behind the AI assistant: prompt fencing and the wiki index. |
 | [bytea](bytea.md) | Bytea `\x` hex and base64 codecs for storage and sync payloads. |
 | [report-results-tables](report-results-tables.md) | Live `exptable:` results-table refs in report notes: parse, serialise and resolve to Markdown or LaTeX. |
+| [canvas](canvas.md) | JSON Canvas text: lenient lossless read, canonical write, validation, bounds and group members. |
+| [text_merge](text_merge.md) | Three-way line merge of two edits of one note body. |
+| [vault_page_guard](vault_page_guard.md) | Guarded page save: merge against the base, conflict copies, lost-race retries. |
 | [dashboard](dashboard.md) | Dashboard rules ported from `packages/core/src/features/dashboard/domain`. |
 | [editor-workspace](editor-workspace.md) | The editor workspace: pane layout, tab groups and the explorer tree. |
 | [error-report](error-report.md) | Error-report helpers: making a report safe to send and keep it readable. |

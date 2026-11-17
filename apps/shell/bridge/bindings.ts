@@ -13,6 +13,17 @@ export const commands = {
 	dbState: () => typedError<DbState_Serialize, ShellError_Serialize>(__TAURI_INVOKE("db_state")),
 	/**  Resets the local database. */
 	dbReset: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("db_reset")),
+	/**  Imports one batch of rows into `table`. */
+	oldDbImportTable: (table: string, rows: unknown[]) => typedError<ImportReport, ShellError_Serialize>(__TAURI_INVOKE("old_db_import_table", { table, rows })),
+	/**  Writes the import marker once every table in `tables` is done. */
+	oldDbImportFinish: (tables: string[]) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("old_db_import_finish", { tables })),
+	/**  Whether an old database is waiting to be imported: one is found and no import has finished. */
+	oldDbStatus: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("old_db_status")),
+	/**
+	 *  The old PGlite dir as a base64 tar, for PGlite's `loadDataDir`. Read-only: the old dir is
+	 *  never written, and the tar is built in memory.
+	 */
+	oldDbTar: () => typedError<string, ShellError_Serialize>(__TAURI_INVOKE("old_db_tar")),
 	/**  Calls a local-API channel on the Rust local API, as `ipcRenderer.invoke` did under Electron. */
 	localApiCall: (channel: string, args: unknown[]) => typedError<unknown, ShellError_Serialize>(__TAURI_INVOKE("local_api_call", { channel, args })),
 	/**  Reads one offline file as standard base64; `null` when it is missing. */
@@ -50,6 +61,21 @@ export const commands = {
 	 *  The reason the picked folder cannot hold a workspace; nothing changes.
 	 */
 	vaultChoose: () => typedError<Choice_Serialize, ShellError_Serialize>(__TAURI_INVOKE("vault_choose")),
+	/**
+	 *  Whether the first-open question is due, and the folder Skip would use.
+	 * 
+	 *  # Errors
+	 *  Never; a `Result` for the command shape.
+	 */
+	workspaceSetup: () => typedError<WorkspaceSetup_Serialize, ShellError_Serialize>(__TAURI_INVOKE("workspace_setup")),
+	/**
+	 *  Skip on the first-open question: the workspace goes into `WeaveForge` in the reader's Documents
+	 *  folder, created if missing, through the same checks as a pick.
+	 * 
+	 *  # Errors
+	 *  The reason that folder cannot hold a workspace; nothing changes.
+	 */
+	workspaceSkip: () => typedError<Choice_Serialize, ShellError_Serialize>(__TAURI_INVOKE("workspace_skip")),
 	/**
 	 *  The remembered folder while none is in use, so the page can say it is not available.
 	 * 
@@ -191,8 +217,17 @@ export const commands = {
 	 *  When the releases could not be fetched, so the page can say the check failed.
 	 */
 	updateCheck: () => typedError<Update | null, ShellError_Serialize>(__TAURI_INVOKE("update_check")),
+	/**  The status now, for the page on load. */
+	appUpdateStatus: () => __TAURI_INVOKE<AppUpdateStatus_Serialize>("app_update_status"),
+	/**  Asks for a newer release now. */
+	appUpdateCheck: () => __TAURI_INVOKE<AppUpdateStatus_Serialize>("app_update_check"),
+	/**  Downloads and runs the offered release. */
+	appUpdateInstall: () => __TAURI_INVOKE<AppUpdateStatus_Serialize>("app_update_install"),
 	/**
-	 *  Whether a sign-in redirect can reach the app; when not, the page asks for the address to be pasted.
+	 *  Whether a sign-in redirect can reach the app; starts the listener first if it is not up.
+	 * 
+	 *  The sign-in page asks this when it opens, so a port that was busy at launch
+	 *  is retried then.
 	 * 
 	 *  # Errors
 	 *  Never.
@@ -363,6 +398,15 @@ export const commands = {
 	 *  Returns an error when the window refuses the change.
 	 */
 	windowFocus: (focus: boolean) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("window_focus", { focus })),
+	/**  Whether the OS taskbar is in light mode, read from the user's registry. */
+	osUsesLightTheme: () => __TAURI_INVOKE<boolean>("os_uses_light_theme"),
+	/**
+	 *  Sets the window and taskbar icon from the page's base64 PNG.
+	 * 
+	 *  # Errors
+	 *  Returns an error when the bytes are not a PNG or the window refuses the icon.
+	 */
+	windowIconSet: (pngBase64: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("window_icon_set", { pngBase64 })),
 	/**
 	 *  Whether the widget can be shown here, and whether it is on.
 	 * 
@@ -461,6 +505,37 @@ export type AppLogText = {
 	complete: boolean,
 };
 
+/**  What the page needs to draw the notice and the Settings row. */
+export type AppUpdateStatus = AppUpdateStatus_Serialize | AppUpdateStatus_Deserialize;
+
+/**  What the page needs to draw the notice and the Settings row. */
+export type AppUpdateStatus_Deserialize = {
+	/**  Where the cycle is now. */
+	phase: Phase,
+	/**  The version running now, `major.minor.patch`. */
+	current: string,
+	/**  The newer version offered, when there is one. */
+	version?: string | null,
+	/**  Download progress, 0 to 100, when the size is known. */
+	percent?: number | null,
+	/**  A message the page can show as it is. */
+	error?: string | null,
+};
+
+/**  What the page needs to draw the notice and the Settings row. */
+export type AppUpdateStatus_Serialize = {
+	/**  Where the cycle is now. */
+	phase: Phase,
+	/**  The version running now, `major.minor.patch`. */
+	current: string,
+	/**  The newer version offered, when there is one. */
+	version: string | null,
+	/**  Download progress, 0 to 100, when the size is known. */
+	percent: number | null,
+	/**  A message the page can show as it is. */
+	error: string | null,
+};
+
 /**  What a pick did. */
 export type Choice = Choice_Serialize | Choice_Deserialize;
 
@@ -550,6 +625,18 @@ export type ImageReply = {
 	contentType: string,
 	/**  The final URL after redirects. */
 	url: string,
+};
+
+/**  What one table's import call did, as the frontend sees it. */
+export type ImportReport = {
+	/**  The table name. */
+	table: string,
+	/**  Rows written by this call. One batch, so it fits a JS number. */
+	inserted: number,
+	/**  Rows already present and left alone. */
+	skipped: number,
+	/**  Whether an earlier run already finished this table. */
+	alreadyDone: boolean,
 };
 
 /**  Pen state forwarded to the helper for haptic feedback. */
@@ -838,6 +925,25 @@ export type OverleafSyncReply_Serialize = {
 	push?: SyncPush,
 };
 
+/**  Where the shell is in the update cycle. */
+export type Phase = 
+/**  No updater configured (no signing key yet) or a dev build: nothing is checked. */
+"unsupported" | 
+/**  Configured, nothing asked yet. */
+"idle" | 
+/**  Asking the manifest. */
+"checking" | 
+/**  The manifest has no newer release. */
+"upToDate" | 
+/**  A newer release is known and waiting for one click. */
+"available" | 
+/**  The installer is downloading; `percent` says how far. */
+"downloading" | 
+/**  The installer is running; the app is about to close and reopen. */
+"installing" | 
+/**  The last check or install failed; `error` says so and a retry is allowed. */
+"failed";
+
 /**  The plan widget, as `DesktopPlanWidget` in apps/web/src/lib/desktop/desktop-bridge.ts. */
 export type PlanWidgetStatePayload = {
 	/**  False where the shell cannot put a window on the desktop (not Windows). */
@@ -1031,6 +1137,25 @@ export type WorkspaceCommit = {
 	author: string,
 	/**  First line of the message. */
 	message: string,
+};
+
+/**  What the first-open question needs: whether to ask, and where Skip puts the workspace. */
+export type WorkspaceSetup = WorkspaceSetup_Serialize | WorkspaceSetup_Deserialize;
+
+/**  What the first-open question needs: whether to ask, and where Skip puts the workspace. */
+export type WorkspaceSetup_Deserialize = {
+	/**  Ask the reader where the workspace lives. */
+	needed: boolean,
+	/**  The folder Skip uses; `None` when the Documents folder is unknown. */
+	defaultFolder?: string | null,
+};
+
+/**  What the first-open question needs: whether to ask, and where Skip puts the workspace. */
+export type WorkspaceSetup_Serialize = {
+	/**  Ask the reader where the workspace lives. */
+	needed: boolean,
+	/**  The folder Skip uses; `None` when the Documents folder is unknown. */
+	defaultFolder: string | null,
 };
 
 /**  What came back (TS `{status, body, headers}`). */

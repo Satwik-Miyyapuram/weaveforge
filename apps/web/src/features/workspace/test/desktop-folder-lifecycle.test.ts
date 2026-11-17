@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
 import {
+  autoApplyScheduled,
   chooseDesktopFolder,
   closeFolder,
   disconnectFolder,
+  externalChanges,
   folderSession,
   missingDesktopFolder,
+  skipDesktopFolder,
 } from "../application/workspace-folder";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
@@ -15,18 +18,30 @@ before(async () => {
 });
 
 /** A shell with a remembered folder that may be missing, and a log of what it was asked. */
-function fakeShell(answers: { missing?: string | null; retry?: { path: string; warnings?: string[] } | null; forget?: string[] }) {
+function fakeShell(answers: { missing?: string | null; retry?: { path: string; warnings?: string[] } | null; forget?: string[]; skip?: { path: string; warnings?: string[] } | null }) {
   const asked: string[] = [];
   const prefs: [string, unknown][] = [];
+  let vaultListener: ((paths: string[]) => void) | null = null;
   const bridge = {
     fetchTitle: () => Promise.resolve(null),
+    // The outside edit the watcher reads before it holds: a file that exists, in the folder.
+    readVaultFile: (path: string) => Promise.resolve(path === "notes/outside.md" ? "edited outside" : null),
     vaultRoot: () => Promise.resolve({ path: "/vault" }),
     chooseVaultRoot: () => Promise.resolve({ path: "/picked", warnings: ["The folder history could not be started."] }),
     writePreference: (key: string, value: unknown) => {
       prefs.push([key, value]);
       return Promise.resolve();
     },
-    onVaultChange: () => () => {},
+    onVaultChange: (listener: (paths: string[]) => void) => {
+      vaultListener = listener;
+      return () => {
+        vaultListener = null;
+      };
+    },
+    skipWorkspaceFolder: () => {
+      asked.push("skip");
+      return Promise.resolve(answers.skip ?? null);
+    },
     missingVaultRoot: () => {
       asked.push("missing");
       return Promise.resolve(answers.missing ?? null);
@@ -41,7 +56,7 @@ function fakeShell(answers: { missing?: string | null; retry?: { path: string; w
     },
   };
   (globalThis as { window?: unknown }).window = { weaveforge: bridge };
-  return { asked, prefs };
+  return { asked, prefs, emit: (paths: string[]) => vaultListener?.(paths) };
 }
 
 test("a missing remembered folder is named, and a failed retry connects nothing", async (t) => {
@@ -81,4 +96,34 @@ test("disconnecting with no folder connected asks the shell nothing", async () =
   const shell = fakeShell({});
   assert.deepEqual(await disconnectFolder(), []);
   assert.deepEqual(shell.asked, []);
+});
+
+test("the Skip answer connects the WeaveForge folder, with its warnings", async (t) => {
+  t.after(closeFolder);
+  const shell = fakeShell({ skip: { path: "/Docs/WeaveForge", warnings: ["not watched"] } });
+  assert.deepEqual(await skipDesktopFolder(), { warnings: ["not watched"] });
+  assert.equal(folderSession()?.kind, "desktop");
+  assert.deepEqual(shell.asked, ["skip"]);
+});
+
+test("Skip with no folder from the shell connects nothing", async (t) => {
+  t.after(closeFolder);
+  fakeShell({ skip: null });
+  assert.equal(await skipDesktopFolder(), false);
+  assert.equal(folderSession(), null);
+});
+
+test("connecting a folder while one is open drops the first one's held edits and waiting auto-apply", async (t) => {
+  t.after(closeFolder);
+  const shell = fakeShell({});
+  assert.notEqual(await chooseDesktopFolder({ git: false }), false);
+  shell.emit(["notes/outside.md"]);
+  // The watcher reads the file before it holds it, so wait for the hold rather than assume it.
+  for (let i = 0; i < 50 && externalChanges().length === 0 && !autoApplyScheduled(); i++) {
+    await new Promise((done) => setTimeout(done, 20));
+  }
+  assert.ok(externalChanges().length > 0 || autoApplyScheduled(), "the outside edit was held or scheduled");
+  assert.notEqual(await chooseDesktopFolder({ git: false }), false);
+  assert.deepEqual(externalChanges(), []);
+  assert.equal(autoApplyScheduled(), false);
 });

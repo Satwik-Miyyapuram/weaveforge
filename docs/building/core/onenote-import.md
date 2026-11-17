@@ -51,7 +51,9 @@ handwriting.
    (`composeOnPage`), uploaded, and set as that page's background. A page
    with more than `INK_NOTE_MAX_PAGES` ink pages splits into numbered parts.
 
-The **More → Import OneNote section…** item on the notes list runs it.
+No menu item runs it in 0.9.1: the import is held back until it can write a
+freeform page, so `importOneNoteSection` in
+`apps/web/src/features/vault/application/onenote-import.ts` has no caller in the UI yet.
 
 ## What stays in TypeScript, and why
 

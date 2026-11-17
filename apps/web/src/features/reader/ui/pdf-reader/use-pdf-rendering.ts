@@ -25,6 +25,7 @@ import {
   textItemsFromContent,
 } from "./pdf-document";
 import { relayPath } from "@/lib/parts";
+import { openPdfDocument } from "@/lib/pdf-worker";
 
 export interface PdfRenderingDeps {
   url: string;
@@ -252,7 +253,7 @@ useEffect(() => {
         source = objectBytes ? { data: objectBytes } : { url: safeUrl };
       }
       if (cancelled) return;
-      task = lib.getDocument({
+      task = openPdfDocument(lib, {
         ...source,
         isEvalSupported: false,
         ...(Object.keys(httpHeaders).length ? { httpHeaders, withCredentials: false } : {}),

@@ -1,0 +1,158 @@
+/* Canvas notes (JSON Canvas, drawn as a freeform page): the toolbar, the pannable surface, cards, ink and edges. */
+.canvas-editor {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 320px;
+  background: var(--bg);
+}
+.canvas-editor:focus { outline: none; }
+.canvas-editor__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s1) var(--s2);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.canvas-editor__modes { display: flex; gap: var(--s1); }
+.canvas-editor__modes button[aria-pressed="true"] {
+  background: var(--surface2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.canvas-editor__zoom { min-width: 3.5em; text-align: center; font-variant-numeric: tabular-nums; }
+.canvas-editor__add { display: flex; flex-wrap: wrap; gap: var(--s1); }
+.canvas-editor__add input { width: 12rem; max-width: 100%; }
+.canvas-editor__status { margin-left: auto; font-size: 0.85em; }
+.canvas-editor--broken { padding: var(--s4); }
+
+/* The pannable area: the page layer moves and scales inside it. */
+.canvas-surface {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 24px 24px;
+  cursor: default;
+}
+.canvas-surface[data-mode="pen"],
+.canvas-surface[data-mode="eraser"] { cursor: crosshair; }
+.canvas-surface[data-mode="type"] { cursor: text; }
+.canvas-page {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+
+.canvas-node {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  color: var(--text);
+  overflow: hidden;
+  user-select: text;
+}
+.canvas-node--selected { outline: 2px solid var(--accent); outline-offset: 2px; }
+.canvas-node--group {
+  background: color-mix(in srgb, var(--surface2) 40%, transparent);
+  border-style: dashed;
+  overflow: visible;
+}
+.canvas-node[data-color="1"] { border-color: var(--s-danger); }
+.canvas-node[data-color="2"] { border-color: var(--s-warn); }
+.canvas-node[data-color="3"] { border-color: var(--s-warn); }
+.canvas-node[data-color="4"] { border-color: var(--s-good); }
+.canvas-node[data-color="5"] { border-color: var(--s-info); }
+.canvas-node[data-color="6"] { border-color: var(--accent); }
+.canvas-node__body {
+  height: 100%;
+  padding: var(--s2) var(--s3);
+  overflow: auto;
+  box-sizing: border-box;
+}
+.canvas-node__editor { cursor: text; }
+.canvas-node__path { font-size: 0.8em; word-break: break-all; }
+.canvas-node__picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+.canvas-node__label {
+  position: absolute;
+  top: -1.9em;
+  left: 0;
+  max-width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+}
+.canvas-node__resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  background: var(--accent);
+  border-top-left-radius: var(--r-control);
+  cursor: nwse-resize;
+}
+
+/* Pen strokes sit above the cards and pass clicks through to them. */
+.canvas-ink {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+.canvas-ink__stroke {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* A highlighter shows the text under it. */
+.canvas-ink__stroke--highlighter { stroke-opacity: 0.35; mix-blend-mode: multiply; }
+.canvas-ink__stroke--selected { opacity: 0.6; }
+.canvas-ink__stroke--draft { opacity: 0.85; }
+
+/* Straight edges sit under the cards. */
+.canvas-edges {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+.canvas-edges__line { stroke: var(--muted); stroke-width: 2; fill: none; }
+.canvas-edges__line[data-color="1"] { stroke: var(--s-danger); }
+.canvas-edges__line[data-color="2"] { stroke: var(--s-warn); }
+.canvas-edges__line[data-color="3"] { stroke: var(--s-warn); }
+.canvas-edges__line[data-color="4"] { stroke: var(--s-good); }
+.canvas-edges__line[data-color="5"] { stroke: var(--s-info); }
+.canvas-edges__line[data-color="6"] { stroke: var(--accent); }
+.canvas-edges__arrow { fill: var(--muted); }
+.canvas-edges__label { fill: var(--muted); font-size: var(--fs); }
+
+@media (max-width: 600px) {
+  .canvas-editor__status { margin-left: 0; }
+  .canvas-editor__add input { width: 100%; }
+}

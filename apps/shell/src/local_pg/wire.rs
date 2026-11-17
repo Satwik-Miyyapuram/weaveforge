@@ -273,17 +273,42 @@ impl PgConn {
     }
 }
 
-impl Conn for PgConn {
-    async fn exec(&mut self, sql: &str) -> Result<(), PgError> {
+impl PgConn {
+    /// Runs simple-protocol statements and returns the command tag of the last one (for example
+    /// `COMMIT` or `ROLLBACK`). The tag is empty when the server sent none.
+    async fn exec_tag(&mut self, sql: &str) -> Result<String, PgError> {
         frontend::query(sql, &mut self.write).map_err(io)?;
         self.send().await?;
         let mut first = None;
+        let mut tag = String::new();
         loop {
             match self.next().await? {
+                backend::Message::CommandComplete(body) => {
+                    tag = body.tag().map_err(io)?.to_owned();
+                }
                 backend::Message::ErrorResponse(body) => keep_first(&mut first, error_from(&body)),
-                backend::Message::ReadyForQuery(_) => return first_error(first),
+                backend::Message::ReadyForQuery(_) => return first_error(first).map(|()| tag),
                 _ => {}
             }
+        }
+    }
+}
+
+impl Conn for PgConn {
+    async fn exec(&mut self, sql: &str) -> Result<(), PgError> {
+        self.exec_tag(sql).await.map(|_| ())
+    }
+
+    /// Sends COMMIT and checks the tag. A COMMIT on an aborted transaction is answered with
+    /// `ROLLBACK`, not an error, so the tag is the only signal that the work was kept.
+    async fn commit(&mut self) -> Result<(), PgError> {
+        let tag = self.exec_tag("COMMIT").await?;
+        if tag == "COMMIT" {
+            Ok(())
+        } else {
+            Err(PgError::local(format!(
+                "COMMIT did not commit; the server answered {tag:?} (the transaction was aborted)"
+            )))
         }
     }
 

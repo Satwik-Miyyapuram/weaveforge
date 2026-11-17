@@ -18,6 +18,7 @@ import {
 } from "@weaveforge/core";
 import type { ConflictResolution, ImportDiff, ImportDiffEntry } from "@weaveforge/wasm";
 import {
+  canvasRenameIds,
   claimImportedFile,
   readMirrorBase,
   readMirrorBases,
@@ -380,9 +381,9 @@ export async function applyEntries(
     const entry = raw.action === "conflict" ? settleConflict(core, raw, resolutions) : raw;
     if (!entry) continue;
 
-    if (entry.action === "conflict" || entry.action === "unchanged" || entry.action === "removed") {
-      continue;
-    }
+    if (entry.action === "conflict" || entry.action === "removed") continue;
+    // An unchanged canvas matched to its page by body is that page moved: the moved copy goes.
+    if (entry.action === "unchanged" && !(entry.entity.kind === "canvas" && renamed.has(entry.entity.path))) continue;
 
     if (entry.action === "created") {
       const path = entry.entity.path;
@@ -400,6 +401,8 @@ export async function applyEntries(
         const page = await container.vault.manageVaultPage.add({
           title: entry.entity.title,
           body: await reanchorAssets(entry.entity.body, "new", owned),
+          // A raw .canvas file comes back as a canvas page, not a markdown note.
+          ...(entry.entity.kind === "canvas" ? { kind: "canvas" as const } : {}),
         });
         id = page.id;
         created += 1;
@@ -438,7 +441,10 @@ export async function applyEntries(
       continue;
     }
     // The note is whole in the workspace now; the mirror writes it at the path its title gives.
-    await fs.remove(path).catch(() => undefined);
+    // A canvas is never deleted here: claimed, it keeps its id until the mirror replaces it,
+    // and the mirror removes only a claimed file still unchanged, in the run that rewrites it.
+    if (entry.entity.kind === "canvas") await claimImportedFile(fs, path, page.id, projectRoot).catch(() => false);
+    else await fs.remove(path).catch(() => undefined);
   }
 
   pendingAssets = new Map();
@@ -478,6 +484,20 @@ export function titleFromFileName(path: string): string {
 // --- folder-diff ---
 /** What importing a folder or a ZIP would change in the workspace. */
 
+/** The canvas id map from a folder, by project-relative path. Unreadable reads as empty. */
+function canvasIdMapFrom(files: Readonly<Record<string, string>>, metaDir: string): Record<string, string> {
+  const text = files[`${metaDir}/canvas-ids.json`];
+  if (text === undefined) return {};
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, string>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 export async function diffAgainstWorkspace(
   files: Record<string, string>,
   assets: Map<string, Uint8Array>,
@@ -504,6 +524,8 @@ export async function diffAgainstWorkspace(
     ...snapshot.vaultPages.map((page) => ({
       id: page.id,
       type: "vault_page" as const,
+      // A canvas page and a note are different kinds; the diff holds the file to that.
+      kind: page.kind,
       title: page.title,
       body: page.body,
     })),
@@ -521,7 +543,21 @@ export async function diffAgainstWorkspace(
   const ownedStorage = readyCore().ownedStorage([...owned]);
   const noteIds = new Set(snapshot.vaultPages.map((page) => page.id));
   // Only notes import; an experiment or paper file would otherwise read as a new note.
-  const parsed = readyCore().importableEntities(core.parseWorkspaceFolder(files), noteIds).map((entity) => ({
+  const importable = readyCore().importableEntities(core.parseWorkspaceFolder(files), noteIds);
+  // A canvas renamed outside the app has no id yet; match it by content to the page it came from.
+  const projectRoot = core.projectDir(project);
+  const canvasPages = snapshot.vaultPages.filter((page) => page.kind === "canvas");
+  const renamed = canvasRenameIds(
+    files,
+    projectRoot,
+    canvasPages.map((page) => ({ id: page.id, kind: page.kind, body: page.body })),
+    importable,
+    canvasIdMapFrom(files, core.projectMetaDir(projectRoot)),
+  );
+  const parsed = importable.map((raw) => {
+    const id = renamed.get(raw.path);
+    return id === undefined ? raw : { ...raw, id };
+  }).map((entity) => ({
     ...entity,
     // Restore links to assets this account already owns before comparing.
     // Without it every note holding an image reads as changed on every import,
@@ -566,7 +602,14 @@ export async function diffAgainstWorkspace(
     core.renameSources(parsed, files, current),
   );
   const stored = readyCore().storedDigests(snapshot.vaultPages);
-  return { entries, counts: core.addCounts(readyCore().countActions(entries), json.counts), json, seen, stored };
+  return {
+    entries,
+    counts: core.addCounts(readyCore().countActions(entries), json.counts),
+    json,
+    seen,
+    stored,
+    canvasRenamed: [...renamed.keys()],
+  };
 }
 
 // --- folder-file-history ---

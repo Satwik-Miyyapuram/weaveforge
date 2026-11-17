@@ -12,6 +12,7 @@ import {
 import { usePathname } from "next/navigation";
 import { useProject } from "@/features/projects";
 import { hasScreenCacheForPath, perfNow, recordPerf, recordPerfSince } from "@/lib/parts";
+import { markNavStart } from "@/lib/screen-shown";
 
 const PENDING_TIMEOUT_MS = 12_000;
 
@@ -51,6 +52,7 @@ export function NavPendingProvider({ children }: { children: React.ReactNode }) 
     (path: string) => {
       const dest = pathFromHref(path);
       if (dest === pathnameRef.current) return;
+      markNavStart();
       pendingSinceRef.current = perfNow();
       setTargetPath(dest);
       const cacheHit = hasScreenCacheForPath(dest, projectId);
@@ -93,7 +95,13 @@ export function NavPendingProvider({ children }: { children: React.ReactNode }) 
     }
 
     document.addEventListener("click", onClick, true);
-    return () => document.removeEventListener("click", onClick, true);
+    // Back and forward do not pass through `beginNavigation`; the next screen
+    // shown is still timed from here.
+    window.addEventListener("popstate", markNavStart);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      window.removeEventListener("popstate", markNavStart);
+    };
   }, [beginNavigation]);
 
   useEffect(() => {

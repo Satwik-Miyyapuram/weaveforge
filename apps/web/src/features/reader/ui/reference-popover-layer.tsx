@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { VIEWPORT_PAD } from "@/components/viewport-pad";
+import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 
 const GAP = 6;
@@ -114,13 +115,16 @@ export function PopoverLayer({ anchorKey, anchor, onRequestClose, children }: Po
     return () => restoreRef.current?.focus?.({ preventScroll: true });
   }, []);
 
+  // A kept-alive Papers screen that is hidden must not react to Escape.
+  const screenActive = useScreenActive();
   useEffect(() => {
+    if (!screenActive) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onRequestClose();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onRequestClose]);
+  }, [onRequestClose, screenActive]);
 
   useDismissOnOutside(true, onRequestClose, panelRef);
 

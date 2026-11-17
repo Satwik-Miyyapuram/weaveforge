@@ -10,6 +10,7 @@ import { ThesisLoaderScreen } from "@/components/weaveforge-loader";
 import { ProjectProvider, ProjectSwitcher, ProjectsScreen, useProject } from "@/features/projects";
 import { ProfileProvider } from "@/features/org";
 import { PrivacyDisclaimerGate } from "@/features/auth/ui/privacy-disclaimer-gate";
+import { OldDbImportGate } from "@/features/startup/ui/old-db-import-gate";
 import { ThemeSyncProvider } from "@/features/settings/ui/theme-sync-provider";
 import { OrgSetupGate } from "@/features/org/ui/org-setup-gate";
 import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
@@ -25,6 +26,7 @@ import { JumpToPalette } from "@/components/jump-to-palette";
 import { ShortcutsHost } from "@/components/shortcuts-host";
 import { NavPendingProvider } from "@/lib/nav-pending";
 import { ShareDialogHost } from "@/features/sharing/ui/share-dialog-host";
+import { PageHeaderAccount } from "@/components/screen-head";
 import { RoutePending } from "./route-pending";
 import { SwipeViews } from "./swipe-views";
 import { StartupProvider } from "@/features/startup";
@@ -32,10 +34,12 @@ import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
 import { ToastHost } from "@/components/toast-host";
 import { ReleaseNoticeBanner } from "@/features/release-notices/ui/release-notice-banner";
+import { AppUpdateNotice } from "@/features/app-update/ui/app-update-notice";
 import { ContextMenuHost } from "@/components/context-menu";
 import { Button, CloseButton } from "@/components/button";
 import { loadCore, readyCore } from "@/lib/rust-core";
 import { CoreGate } from "./core-gate";
+import { KeepAliveProvider } from "./keep-alive";
 
 /* Both paint nothing and only matter once a folder is connected; the folder
    code they carry is loaded after the page rather than with every one. */
@@ -45,6 +49,10 @@ const WorkspaceFolderRestore = dynamic(
 );
 const FolderChangeNote = dynamic(
   () => import("@/features/workspace/ui/folder-change-note").then((m) => m.FolderChangeNote),
+  { ssr: false },
+);
+const WorkspaceSetupDialog = dynamic(
+  () => import("@/features/workspace/ui/workspace-setup-dialog").then((m) => m.WorkspaceSetupDialog),
   { ssr: false },
 );
 const PdfTextFolderSync = dynamic(
@@ -87,6 +95,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <ProfileProvider key={user.id}>
             {/* E2EE unlock gate removed: data is stored plaintext, so the shell
                 renders straight through after auth. */}
+            {/* Holds the workspace back while 0.8 data is brought over, so nothing
+                below reads an empty database first. */}
+            <OldDbImportGate>
             <ThemeSyncProvider>
               <OrgSetupGate>
                 {/* Above the project-scoped shell, so it runs once: the folder
@@ -94,11 +105,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     re-ask on every switch. See the component for why this is
                     not in the Settings panel. */}
                 <WorkspaceFolderRestore />
+                <WorkspaceSetupDialog />
                 <FolderChangeNote />
                 <ToastHost />
                 <ContextMenuHost />
                 {expired && <SessionExpiredPrompt />}
                 <ReleaseNoticeBanner />
+                <AppUpdateNotice />
                 {/* Keyed on the session epoch: after signing back in, every
                     screen that loaded while signed out loads again. */}
                 <ProjectProvider key={sessionEpoch}>
@@ -109,6 +122,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </ProjectProvider>
               </OrgSetupGate>
             </ThemeSyncProvider>
+            </OldDbImportGate>
           </ProfileProvider>
         </PrivacyDisclaimerGate>
     </StartupProvider>
@@ -262,11 +276,16 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
                 that made the Library look like six tabs rather than one section
                 of a sidebar. */}
             {!detailView && !editorRoute && breakpoint === "mobile" && <SubNav />}
-            <SwipeViews disabled={detailView || editorRoute}>
-              <RoutePending>
-                <PageTransition>{children}</PageTransition>
-              </RoutePending>
-            </SwipeViews>
+            {/* Papers is kept mounted beside the routes too (keep-alive.tsx),
+                so leaving it and coming back does not rebuild its grid. Not on
+                the phone layout, where memory is tightest. */}
+            <KeepAliveProvider pathname={pathname} projectId={current.id} enabled={breakpoint !== "mobile"}>
+              <SwipeViews disabled={detailView || editorRoute}>
+                <RoutePending>
+                  <PageTransition>{children}</PageTransition>
+                </RoutePending>
+              </SwipeViews>
+            </KeepAliveProvider>
             {/* Beside the routes, not in `/workspace`'s page: it stays mounted
                 once opened, so coming back to it is instant. Keyed on the
                 project, so a switch drops the last project's tabs. */}
@@ -276,19 +295,12 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
           // No project, but this route does not need one. Rendered bare: SubNav,
           // SwipeViews and RoutePending are all project-view chrome, and
           // RoutePending drives nav-pending state that only makes sense there.
-          <>
-            <div className="project-picker-bar desktop-only">
-              <HeaderActions />
-            </div>
-            {children}
-          </>
+          // The account button goes in the screen's header row (ScreenHead).
+          <PageHeaderAccount.Provider value={<HeaderActions />}>{children}</PageHeaderAccount.Provider>
         ) : (
-          <>
-            <div className="project-picker-bar desktop-only">
-              <HeaderActions />
-            </div>
+          <PageHeaderAccount.Provider value={<HeaderActions />}>
             <ProjectsScreen />
-          </>
+          </PageHeaderAccount.Provider>
         )}
       </main>
     </div>

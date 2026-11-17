@@ -2,7 +2,7 @@
 covers:
   - apps/shell
   - apps/android
-checked: 2026-11-14
+checked: 2026-11-16
 ---
 # The desktop app
 
@@ -182,6 +182,18 @@ that opens the release page. Nothing is installed without you.
 If the check cannot reach GitHub the section says **Could not check for
 updates. Try again.** and the window keeps working.
 
+### Coming from 0.8
+
+0.8 kept your offline data in a different local database. The first time 0.9.1
+opens, it brings that data over by itself: a screen says **Bringing over your
+0.8 data…** and counts the tables as they go. You do not need to install
+anything in between or open the app twice.
+
+The old data is only read, never changed or deleted. If something goes wrong
+the screen shows what failed and a **Retry** button; retrying is safe, because
+rows already brought over are skipped. Once every table is through, the app
+notes that the import is done and does not run it again.
+
 ## A folder on your disk
 
 The desktop app can point WeaveForge at any folder you pick and keep it mirrored
@@ -280,6 +292,20 @@ rather than duplicating it, so a script that retries a flush is safe. Artifacts
 are the exception — they are blobs, and the local API only knows how to run
 SQL — so figures logged this way have nowhere to go offline.
 
+## Opening on your last screen
+
+When the window opens, the screen you left is there straight away, while the
+app starts behind it. That first look is a picture of the screen you last saw.
+You cannot click or type in it, and it is swapped for the live screen as soon
+as the app is ready, usually within a second or two. Click or press a key
+before then and the picture goes; that first click is not passed on, so nothing
+you do lands on it.
+
+The picture is kept only on this computer, only for the last three screens of
+the project you had open, and only for the version of the app that drew it.
+Signing out removes it. A different account, a new version, or a screen that
+was too big to keep simply opens the normal way, with the loading screen.
+
 ## Updates
 
 The window checks GitHub releases for a newer version when **Settings → Updates**
@@ -306,6 +332,9 @@ The window has its own menu bar:
 - **Window**: Minimize, Maximize and Close window.
 - **Help**: Documentation, Keyboard shortcuts, Check for updates… and the
   version number, greyed out.
+
+On Windows, minimizing the window tells it to use less memory: it trims what
+it can rebuild, and gives the normal level back when you restore it.
 
 Menu navigation happens inside the page, not with `loadURL` — a load driven from
 the main process starts a fresh document, which would log an account-less copy

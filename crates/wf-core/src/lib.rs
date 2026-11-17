@@ -7,6 +7,7 @@ pub mod bytea;
 pub mod cache_invalidation;
 pub mod cache_policy;
 pub mod calendar_date;
+pub mod canvas;
 pub mod card_snippet;
 pub mod collab;
 pub mod dashboard;

@@ -39,4 +39,5 @@ pub mod showcase_seed;
 pub mod supervision;
 pub mod tags;
 pub mod user_settings;
+pub mod vault_page_guard;
 pub mod vault_pages;

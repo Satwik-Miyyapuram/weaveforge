@@ -39,6 +39,8 @@ import { Button } from "@/components/button";
 import { showToast, useHiddenKeys } from "@/lib/toast/index";
 import { paperKey } from "./remove-paper";
 import { PaperDropZone } from "./pdf-drop-zone";
+import { useWhileShown } from "@/app/keep-alive";
+import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import {
   bibImportMessage,
   type BibImportOutcome,
@@ -56,7 +58,10 @@ type PapersLayout = "cards" | "list";
  */
 export function PapersScreen() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  // Kept mounted behind other screens (`app/keep-alive.tsx`): while hidden,
+  // the URL belongs to the screen on show, so hold the last one seen here.
+  const searchParams = useWhileShown(useSearchParams());
+  const onScreen = useScreenActive();
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   // Resolved after mount: the server has no shell, and disagreeing with it on
@@ -405,7 +410,8 @@ export function PapersScreen() {
 
   return (
     <section className="screen papers-screen">
-      {!isSharedView && <PaperDropZone onPdfs={onPdfsAdded} onBib={onBibImported} />}
+      {/* Its listeners are document-wide, so only while Papers is on show. */}
+      {!isSharedView && onScreen && <PaperDropZone onPdfs={onPdfsAdded} onBib={onBibImported} />}
       <ScreenHead
         eyebrow={papers.length > 0 ? `${papers.length} ${papers.length === 1 ? "paper" : "papers"} · ${readCount} read` : undefined}
         search={papers.length > 0 ? { value: search, onChange: setSearch, label: "Search papers" } : undefined}

@@ -5,6 +5,7 @@ use std::sync::Arc;
 use serde_json::Value;
 
 use crate::local_pg::host::{PgEngine, PgHost};
+use crate::local_pg::import::TableReport;
 
 /// The native Postgres database.
 pub type NativeDb = Arc<PgHost<PgEngine>>;
@@ -105,6 +106,31 @@ impl LocalDb {
         self.native()?.reset().await.map_err(ShellError::from)
     }
 
+    /// Imports `rows` into `table` on the owner session; each call commits or rolls back on its own.
+    pub async fn import_table(
+        &self,
+        table: &str,
+        rows: &[Value],
+    ) -> Result<TableReport, ShellError> {
+        self.native()?
+            .import_table(table, rows)
+            .await
+            .map_err(ShellError::from)
+    }
+
+    /// Writes the import marker in the data dir once every table in `tables` is in the ledger.
+    pub async fn import_finish(
+        &self,
+        tables: &[String],
+        marker: &std::path::Path,
+    ) -> Result<(), ShellError> {
+        let names: Vec<&str> = tables.iter().map(String::as_str).collect();
+        self.native()?
+            .import_done(&names, marker)
+            .await
+            .map_err(ShellError::from)
+    }
+
     /// Closes the native database.
     pub async fn shutdown(&self) {
         if let Ok(native) = &self.native {
@@ -136,7 +162,7 @@ pub async fn db_query(
 }
 
 /// Unwraps the TypeScript-facing params into plain JSON.
-fn json_params(params: Vec<Json>) -> Result<Vec<Value>, ShellError> {
+pub(crate) fn json_params(params: Vec<Json>) -> Result<Vec<Value>, ShellError> {
     params
         .into_iter()
         .map(serde_json::to_value)
@@ -214,11 +240,16 @@ pub async fn db_reset(db: tauri::State<'_, LocalDb>) -> Result<(), ShellError> {
 
 /// The command set, shared by the app (invoke handler) and the bindings export.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "the command list is data")]
 pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
         db_query,
         db_state,
         db_reset,
+        crate::cmd_import::old_db_import_table,
+        crate::cmd_import::old_db_import_finish,
+        crate::cmd_import::old_db_status,
+        crate::cmd_import::old_db_tar,
         local_api_call,
         crate::local_files::local_file_read,
         crate::local_files::local_file_write,
@@ -229,6 +260,8 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::secrets::secret_clear,
         crate::cmd_vault::vault_root,
         crate::cmd_vault::vault_choose,
+        crate::cmd_vault::workspace_setup,
+        crate::cmd_vault::workspace_skip,
         crate::cmd_vault::vault_missing,
         crate::cmd_vault::vault_retry,
         crate::cmd_vault::vault_forget,
@@ -249,6 +282,9 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::paste_commands::fetch_image,
         crate::cmd_tools::zotero_local,
         crate::cmd_tools::update_check,
+        crate::app_update::app_update_status,
+        crate::app_update::app_update_check,
+        crate::app_update::app_update_install,
         crate::auth_loopback::sign_in_listening,
         crate::cmd_tools::app_log_report,
         crate::cmd_tools::app_log_read,
@@ -274,6 +310,8 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::menu::commands::menu_invoke,
         crate::menu::commands::title_bar_colors,
         crate::menu::commands::window_focus,
+        crate::window_icon::os_uses_light_theme,
+        crate::window_icon::window_icon_set,
         crate::plan_widget_window::plan_widget_state,
         crate::plan_widget_window::plan_widget_set,
         crate::plan_widget_window::plan_widget_theme,

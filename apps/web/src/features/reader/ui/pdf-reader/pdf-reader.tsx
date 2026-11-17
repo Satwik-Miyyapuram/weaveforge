@@ -53,6 +53,7 @@ import { AnnotationSidebar } from "../annotation-sidebar";
 import { SelectionCreateBar, boxAnchor, selectionAnchor, type SelectionAnchor } from "../selection-create-bar";
 import { MarkPopover } from "../mark-popover";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { ToolbarSlot } from "@/components/toolbar-slot";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink } from "./overlays";
@@ -96,6 +97,7 @@ import { isMacPlatform } from "@/lib/parts";
 import { Button, IconButton } from "@/components/button";
 import { RowButton, Swatch, ToolButton } from "@/components/controls";
 import { ViewSwitch } from "@/components/view-switch";
+import { useReleasedWhileHidden } from "@/lib/hooks/use-released-while-hidden";
 import { useRovingToolbar } from "@/lib/hooks/use-roving-toolbar";
 
 export function PdfReader({
@@ -338,6 +340,9 @@ export function PdfReader({
 
   // Window-level shortcuts: Undo/Redo, Search, Delete annotation, Full-screen focus,
   // and Viewport zoom / navigation commands (Ctrl++, Ctrl+-, Ctrl+0, +, -, etc.)
+  const screenActive = useScreenActive();
+  const screenActiveRef = useRef(screenActive);
+  screenActiveRef.current = screenActive;
   const keysRef = useRef({
     inkUndo,
     removeLocal,
@@ -368,7 +373,7 @@ export function PdfReader({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || typedCore().isEditableReaderTarget(event.target)) return;
-      if (!ownsReaderFocus(document.activeElement, document.body, [rootRef.current, chromeRef.current])) return;
+      if (!ownsReaderFocus(document.activeElement, document.body, [rootRef.current, chromeRef.current], screenActiveRef.current)) return;
       const k = keysRef.current;
       const key = event.key.toLowerCase();
       const mod = (event.ctrlKey || event.metaKey) && !event.altKey;
@@ -1116,10 +1121,12 @@ export function PdfReader({
     [viewport, suppressPageScroll],
   );
 
+  const released = useReleasedWhileHidden();
   usePdfPageWindow({
     rootRef: containerRef,
     pdf,
     numPages,
+    released,
     renderPage,
     evictPage,
     onVisibleChange,

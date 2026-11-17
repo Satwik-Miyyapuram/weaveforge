@@ -323,6 +323,41 @@ test("onVaultWatchLost listens to vault-watch-lost and passes the reason on", as
   assert.deepEqual(seen, ["gone"]);
 });
 
+test("the one-click update commands pass the status through without a Result wrapper", async () => {
+  const status = { phase: "available", current: "0.9.1", version: "0.9.2", percent: null, error: null };
+  const plain = (value: unknown) => async () => value as Reply;
+  const { cmds, calls } = fakeCommands({
+    appUpdateStatus: plain(status),
+    appUpdateCheck: plain({ ...status, phase: "upToDate", version: null }),
+    appUpdateInstall: plain({ ...status, phase: "installing" }),
+  });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  assert.deepEqual(await shim.appUpdateStatus?.(), status);
+  assert.equal((await shim.appUpdateCheck?.())?.phase, "upToDate");
+  assert.equal((await shim.appUpdateInstall?.())?.phase, "installing");
+  assert.deepEqual(
+    calls.map((c) => c.cmd),
+    ["appUpdateStatus", "appUpdateCheck", "appUpdateInstall"],
+  );
+});
+
+test("onAppUpdate listens to app-update, passes statuses on, and stops once", async () => {
+  const { cmds } = fakeCommands();
+  const fake = fakeEvents();
+  const seen: string[] = [];
+  const stop = desktopShim(cmds, fake.events).onAppUpdate?.((s) => seen.push(s.phase));
+  assert.deepEqual(fake.listens.map((l) => l.event), ["app-update"]);
+  fake.listens[0]!.handler({ phase: "downloading", current: "0.9.1", version: "0.9.2", percent: 10, error: null });
+  fake.listens[0]!.handler("junk");
+  fake.listens[0]!.handler(null);
+  await new Promise((resolve) => setImmediate(resolve));
+  stop?.();
+  stop?.();
+  fake.listens[0]!.handler({ phase: "failed" });
+  assert.deepEqual(seen, ["downloading"]);
+  assert.equal(fake.unlistenCount(), 1);
+});
+
 test("onVaultChange drops non-string items and skips an empty batch", () => {
   const { cmds } = fakeCommands();
   const fake = fakeEvents();

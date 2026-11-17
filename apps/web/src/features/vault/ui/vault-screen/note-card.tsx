@@ -43,8 +43,9 @@ export function NoteCard({
   /** Why the last pin failed, shown on the card. */
   const [error, setError] = useState<string | null>(null);
   const hidden = useHiddenKeys().has(noteKey(page.id));
-  const preview = noteBodyText(page);
-  const excerpt = readyCore().cardSnippet(readyCore().readableText(preview));
+  // A canvas body is JSON Canvas: its card says what it is, not the raw JSON.
+  const preview = page.kind === "canvas" ? "" : noteBodyText(page);
+  const excerpt = page.kind === "canvas" ? "Canvas" : readyCore().cardSnippet(readyCore().readableText(preview));
   const tags = useMemo(() => readyCore().extractHashtags(preview), [preview]);
 
   async function togglePin() {

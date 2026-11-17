@@ -373,10 +373,6 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
      stroke glyphs inside a 24×24 box with margins. Equal boxes therefore read
      as unequal: the tile carries the ink of the full square. `--icon-size`
      rather than `+3px` is what makes the two look the same weight. */
-  /* No tile. The mark draws its own rounded square (`<rect fill="var(--surface2)">`),
-     which in a column of line icons reads as a highlighted, selected chip rather
-     than as the app. The strokes are the mark; the tile was a background. */
-  .nav-head .app-logo rect { display: none; }
   /* Sized so the *ink* matches the icons, not the box. Once the tile is gone the
      strokes occupy only about 55% of the 512 viewBox (x 129–394, y 103–431), so a
      16px box would render roughly 9px of drawing — much smaller than the 19px

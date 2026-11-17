@@ -26,6 +26,20 @@ and passes in names, sizes and digests.
 - `workspace/sync_report.rs`: `describeSync`, the one line the panel shows after
   a folder sync. Counts and the commit outcome come in; a refused commit is said,
   not read as "up to date". The write and the commit stay in TypeScript.
+- `claim_import.rs` and the folder parse (`sync/deserialize.rs`): a `.canvas`
+  file parses as a canvas page with no frontmatter, and `plan_claim` never
+  stamps one. Its id comes from
+  `.weaveforge/canvas-ids.json`. A map that cannot be read sets
+  `canvas_map_broken`, which raises the `BrokenMap` conflict ("The canvas id map
+  for {path} cannot be read, so the canvas is held. Repair or remove
+  .weaveforge/canvas-ids.json.") and is never importable. See [canvas](canvas.md).
+- A canvas renamed in the folder is matched by its content (`canvasRenameIds`).
+  On import its file is claimed (`claimImportedFile`) instead of removed, so it
+  keeps its id until the mirror writes it again; the mirror removes a claimed
+  file only while it is unchanged, in the run that rewrites it. Text files are written atomically (`writeTextAtomic`:
+  write `<path>.tmp`, then rename); if the rename fails, the temp file is
+  removed and the file is written directly. Both live in
+  `apps/web/src/features/workspace/application/parts-1.ts` and `parts-3.ts`.
 - `sync/blob_links.rs` (`workspace_bodies`): which bodies can carry an image
   reference, vault page bodies first, then paper summaries.
 

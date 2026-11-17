@@ -10,21 +10,19 @@
 
 import type { Crumb } from "@weaveforge/wasm";
 import { Button } from "@/components/button";
-import { readyCore } from "@/lib/rust-core";
 
 export function Breadcrumbs({
   crumbs,
-  kind,
+  suffix,
   onOpen,
 }: {
   crumbs: readonly Crumb[];
-  /** The kind of the document on screen, for the suffix on the last crumb. */
-  kind?: string;
+  /** The file suffix of the document on screen, shown on the last crumb. */
+  suffix?: string | null;
   /** A crumb that names a document can be clicked to open it. */
   onOpen?: (crumb: Crumb) => void;
 }) {
   if (crumbs.length === 0) return null;
-  const suffix = kind ? readyCore().kindSuffix(kind) : null;
 
   return (
     <nav className="breadcrumbs" aria-label="Document path">

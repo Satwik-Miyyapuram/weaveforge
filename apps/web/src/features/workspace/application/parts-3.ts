@@ -298,6 +298,8 @@ export async function claimImportedFile(
   id: string,
   projectRoot: string,
 ): Promise<boolean> {
+  // A canvas is pure JSON Canvas: its id lives in the mirror's canvas-ids.json, never in the file.
+  if (path.endsWith(".canvas")) return claimCanvasFile(fs, path, id, projectRoot);
   let content: string;
   try {
     content = await fs.readText(path);
@@ -315,6 +317,119 @@ export async function claimImportedFile(
   const bases = await readMirrorBases(fs, projectRoot);
   await writeMirrorManifest(fs, projectRoot, Object.keys(plan.digests), plan.digests, bases);
   return true;
+}
+
+// --- canvas-ids ---
+/** The file, under the project's meta folder, that maps each canvas to its page id. */
+const CANVAS_ID_MAP = "canvas-ids.json";
+
+function canvasIdMapPath(projectRoot: string): string {
+  return `${typedCore().projectMetaDir(projectRoot)}/${CANVAS_ID_MAP}`;
+}
+
+/**
+ * Write text so a reader sees the old file or the new one, never half of each.
+ * The canvas id map is read on every import; a torn write would hold every canvas.
+ */
+export async function writeTextAtomic(fs: IWorkspaceFs, path: string, text: string): Promise<void> {
+  const temp = `${path}.tmp`;
+  await fs.writeFile(temp, text);
+  try {
+    await fs.rename(temp, path);
+  } catch {
+    // A lock (Windows, antivirus, OneDrive) can refuse the rename: write in place, leave no temp behind.
+    await fs.remove(temp).catch(() => undefined);
+    await fs.writeFile(path, text);
+  }
+}
+
+/**
+ * The project's canvas id map by full path, or `broken` when the file is present
+ * but not a JSON object. A broken map is never overwritten by a claim.
+ */
+export async function readCanvasIdMap(
+  fs: IWorkspaceFs,
+  projectRoot: string,
+): Promise<{ entries: Record<string, string>; broken: boolean }> {
+  const text = await fs.readText(canvasIdMapPath(projectRoot)).catch(() => null);
+  if (text === null) return { entries: {}, broken: false };
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return { entries: {}, broken: true };
+    }
+    return { entries: parsed as Record<string, string>, broken: false };
+  } catch {
+    return { entries: {}, broken: true };
+  }
+}
+
+/**
+ * Record a claimed canvas in the id map and in the manifest. The map is app-owned and
+ * is rewritten on every mirror, so the claimed file becomes a mapped canvas, and the
+ * manifest digest makes the mirror replace the file rather than keep a copy.
+ */
+async function claimCanvasFile(fs: IWorkspaceFs, path: string, id: string, projectRoot: string): Promise<boolean> {
+  const prefix = `${projectRoot}/`;
+  if (!path.startsWith(prefix)) return false;
+  let content: string;
+  try {
+    content = await fs.readText(path);
+  } catch {
+    return false;
+  }
+  const map = await readCanvasIdMap(fs, projectRoot);
+  if (map.broken) return false;
+  const key = path.slice(prefix.length);
+  const next = Object.fromEntries(Object.entries({ ...map.entries, [key]: id }).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  await writeTextAtomic(fs, canvasIdMapPath(projectRoot), `${JSON.stringify(next, null, 2)}
+`);
+  const bases = await readMirrorBases(fs, projectRoot);
+  await writeMirrorManifest(fs, projectRoot, [path], { [path]: readyCore().digestText(content) }, bases);
+  return true;
+}
+
+/**
+ * Canvases in the folder with no id yet that are a canvas page the mirror has lost:
+ * the file was renamed outside the app, so its content matches a mapped page whose
+ * path is gone. Returns the page id for each such path.
+ */
+export function canvasRenameIds(
+  files: Readonly<Record<string, string>>,
+  projectRoot: string,
+  pages: ReadonlyArray<{ id: string; kind?: string; body: string }>,
+  parsed: ReadonlyArray<{ path: string; kind?: string; id?: string; body: string }>,
+  map: Readonly<Record<string, string>>,
+): Map<string, string> {
+  const unmapped = parsed.filter((entity) => entity.kind === "canvas" && !entity.id);
+  const result = new Map<string, string>();
+  if (unmapped.length === 0) return result;
+  const bodies = new Map(pages.filter((page) => page.kind === "canvas").map((page) => [page.id, page.body]));
+  // Digest of a page whose mapped file is gone -> the ids with that body.
+  const lost = new Map<string, string[]>();
+  for (const [key, id] of Object.entries(map)) {
+    const path = `${projectRoot}/${key}`;
+    if (files[path] !== undefined) continue;
+    const body = bodies.get(id);
+    if (body === undefined) continue;
+    const digest = readyCore().digestText(body);
+    lost.set(digest, [...(lost.get(digest) ?? []), id]);
+  }
+  // Digest -> the unmapped canvas files with that body.
+  const fresh = new Map<string, string[]>();
+  for (const entity of unmapped) {
+    const digest = readyCore().digestText(entity.body);
+    fresh.set(digest, [...(fresh.get(digest) ?? []), entity.path]);
+  }
+  // Only a one-to-one match is a rename. Two lost pages, or two new files, with the
+  // same body could be either way round, so neither is assigned.
+  for (const [digest, paths] of fresh) {
+    const ids = lost.get(digest) ?? [];
+    const [path] = paths;
+    const [id] = ids;
+    if (paths.length === 1 && ids.length === 1 && path !== undefined && id !== undefined) result.set(path, id);
+  }
+  return result;
 }
 
 // --- open-notes ---
@@ -384,6 +499,8 @@ export type FolderDiff = ImportDiff & {
   seen?: Readonly<Record<string, SeenFile>>;
   /** Each note's stored title and body digest when the preview was taken, by id (`storedDigest`). */
   stored?: Readonly<Record<string, string>>;
+  /** Canvas paths matched to their page by body (`canvasRenameIds`): renamed or moved outside the app. */
+  canvasRenamed?: readonly string[];
 };
 
 export type { HeldReason };
@@ -393,12 +510,13 @@ export type HeldReasons = Readonly<Record<string, HeldReason>>;
 
 /** Paths of renamed notes in a diff, for the apply to retitle and hand back to the mirror. */
 export function renamedPaths(diff: FolderDiff): Set<string> {
-  return new Set(
-    readyCore().renamedOutsidePaths(
+  return new Set([
+    ...readyCore().renamedOutsidePaths(
       diff.seen ?? {},
       diff.entries.map((entry: ImportDiffEntry) => entry.entity.path),
     ),
-  );
+    ...(diff.canvasRenamed ?? []),
+  ]);
 }
 
 /** The part of a folder diff safe to take in without asking, the part a person must see, and why. */

@@ -6,7 +6,7 @@ This monorepo ships **four release tracks**, one tag prefix each. Do not mix the
 |---|---|---|---|---|
 | Tag | `vX.Y.Z` | `py-vX.Y.Z` | `android-vX.Y.Z` | `ios-vX.Y.Z` |
 | Covers | Tauri shell (`apps/shell`) + the offline web build and local Postgres inside it | The `weaveforge` SDK on PyPI | Native app (`apps/android`) | WKWebView shell (`apps/ios`) |
-| Artifact | Windows x64 MSI and NSIS installers | PyPI wheel + sdist | `WeaveForge-<v>-Android.apk` | `WeaveForge-<v>-iOS.ipa` (unsigned) |
+| Artifact | Windows x64 and arm64 MSI and NSIS installers | PyPI wheel + sdist | `WeaveForge-<v>-Android.apk` | `WeaveForge-<v>-iOS.ipa` (unsigned) |
 | Workflow | None yet. Publishing is manual, see below | `publish-python.yml` | `android.yml` | `ios.yml` |
 | Changelog | [`../../CHANGELOG.md`](../../CHANGELOG.md) | Same | Same | Same |
 
@@ -17,7 +17,8 @@ the MCP bridge and a pinned Postgres build inside the installer. CI builds the W
 every run of the `shell-bundle-windows` job in `.github/workflows/ci.yml`, but
 no workflow publishes them. Releasing the desktop app is a manual step today.
 
-Only Windows x64 is built for the desktop app. macOS and Linux are not built.
+Windows x64 and arm64 are both published for the desktop app (v0.9.0 shipped
+setup.exe and msi for each). macOS and Linux are not built.
 
 The Node sidecar shipped in 0.9 only to import old PGlite data, and is now
 removed. A user still on the old PGlite database must install 0.9 and open it
@@ -98,20 +99,30 @@ toolchain pinned by the repo (`rustup show` installs it), and PowerShell.
    node apps/shell/scripts/stage-postgres.mjs (Join-Path $env:TEMP $name) apps/shell/target/stage
    ```
 
-4. Build the Windows ink recogniser (repo root). It is staged into
-   `apps/shell/target/stage/native/` and ships under `native/`. The stage step
-   fails if the exe is missing:
+4. Build the Windows ink recogniser helpers (repo root). They are staged into
+   `apps/shell/target/stage/native/` and ship under `native/`. Build both
+   arches once; then stage for each installer you are about to build (step 5).
+   The stage step fails if a required exe is missing. An arm64 installer also
+   needs the x64 helper, because `ink_recogniser_path` falls back to it:
 
    ```powershell
-   node apps/shell/scripts/build-ink-recogniser.mjs --arch=x64
+   node apps/shell/scripts/build-ink-recogniser.mjs
+   # x64 installer
    node apps/shell/scripts/stage-ink-recogniser.mjs apps/shell/target/stage --arch=x64
+   # arm64 installer (stages win-arm64 and the win-x64 fallback). Clear
+   # apps/shell/target/stage/native/ink-recogniser first so the x64 installer
+   # built earlier does not carry win-arm64, and the arm64 one carries only what it needs.
+   node apps/shell/scripts/stage-ink-recogniser.mjs apps/shell/target/stage --arch=arm64
    ```
 
-5. Build the installers (from `apps/shell`):
+5. Build the installers (from `apps/shell`). Build the x64 installer after
+   staging x64 (step 4), and the arm64 installer after staging arm64:
 
    ```powershell
    cd apps/shell
    npm run tauri -- build --bundles msi,nsis --config tauri.bundle.json
+   # arm64 (unverified until the first arm64 build; run after staging arm64)
+   npm run tauri -- build --bundles msi,nsis --config tauri.bundle.json --target aarch64-pc-windows-msvc
    cd ../..
    ```
 
@@ -187,12 +198,23 @@ inputs are kept as artifacts (`proptest-regressions`, `fuzz-artifacts`).
 
 ### Desktop app (`vX.Y.Z`)
 
-There is no release-publishing workflow for the desktop app. Publishing is
-manual today.
+Pushing a `vX.Y.Z` tag runs `release-desktop.yml`. It builds the signed x64
+installers on `windows-latest` and the arm64 ones natively on `windows-11-arm`,
+signs them with the `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repo secrets, writes `latest.json`, and
+creates the GitHub **pre-release** with the tag's CHANGELOG entry as notes
+(steps 4 to 6 below). To rebuild an existing tag, run it by hand
+(**Actions → Release desktop → Run workflow**) after deleting the old release.
+The manual steps below remain the fallback. A release goes out as a **pre-release first** and becomes
+**Latest** only after the release gate passes. The in-app updater reads
+`latest.json` from the Latest release (`releases/latest/download/latest.json`),
+so a pre-release is invisible to updaters until it is promoted.
 
-1. PR: bump `version` in `apps/shell/tauri.conf.json`. It still says 0.1.0; set
-   it to the real release version. Add the entry under
-   `### Desktop` in [`../../CHANGELOG.md`](../../CHANGELOG.md). Leave
+1. PR: set the release version in `version` in `apps/shell/tauri.conf.json`. The
+   release scripts read that file. The shell crate's `apps/shell/Cargo.toml`
+   inherits its version (`version.workspace = true`); if it ever sets its own
+   `[package] version`, the scripts fail when it differs from the tag. Add the entry under `### Desktop` in
+   [`../../CHANGELOG.md`](../../CHANGELOG.md). Leave
    `python/weaveforge/__init__.py` alone unless the SDK itself changed.
 2. Merge when CI is green.
 3. On `main`:
@@ -201,15 +223,54 @@ manual today.
    git tag vX.Y.Z
    git push origin vX.Y.Z
    ```
-4. Build the installers with the steps in
-   [Desktop (Windows) build](#desktop-windows-build). The CI job does not
-   upload its installers. Build them locally with those steps.
-5. Create the GitHub release and attach the MSI and NSIS files:
-   ```bash
-   gh release create vX.Y.Z "target/release/bundle/msi/<file>.msi" "target/release/bundle/nsis/<file>-setup.exe" --title "WeaveForge vX.Y.Z" --notes-file <notes.md>
+4. Set the updater signing variables before any build. The private key stays on
+   the release machine. Never print it, paste it, or commit it:
+   ```powershell
+   $env:TAURI_SIGNING_PRIVATE_KEY = "$env:USERPROFILE\.tauri\weaveforge-updater.key"
+   $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "<key password>"
    ```
-6. Write the notes on the release.
-7. Publish the in-app release notice. The `## [X.Y.Z]` section (no `v`) must exist in
+   Build the installers with the steps in
+   [Desktop (Windows) build](#desktop-windows-build) for x64. Then build arm64
+   (**unverified until first arm64 build**: these steps have not yet produced a
+   signed arm64 installer): stage and build the ink recogniser with
+   `--arch=arm64`, and build the installer with `--target aarch64-pc-windows-msvc`.
+   Build one architecture at a
+   time and delete `apps/shell/target/stage` between them. With
+   `createUpdaterArtifacts` on (`tauri.bundle.json`), each NSIS build writes a
+   `*-setup.exe.sig` beside the installer. Keep it.
+5. Write `latest.json` from the two signed installers. The script reads each
+   `.sig` file, takes the URLs from the tag, and writes `latest.json` into the
+   same folder. It fails if a `.sig` is missing or not a minisign signature, or
+   if a version differs from the tag:
+   ```powershell
+   node apps/shell/scripts/write-latest-json.mjs vX.Y.Z <folder-with-both-setup-exe-and-sig>
+   ```
+6. Create the GitHub release as a **pre-release** (not Latest). Attach the MSI
+   and `*-setup.exe` for x64 and arm64, their `.sig` files, and `latest.json`:
+   ```bash
+   gh release create vX.Y.Z --prerelease --title "WeaveForge vX.Y.Z" --notes-file <notes.md> <assets...>
+   ```
+7. Run the upgrade smoke checklist on a real x64 and a real arm64 machine. Install
+   the pre-release over an installed 0.8.14 build:
+   - Upgrading over 0.8.14 keeps all data (workspaces, papers, notes).
+   - Google sign-in works after the upgrade.
+   - The installer is branded WeaveForge (name and icon).
+   - Ink works on x64 and on arm64 (arm64 unverified until the first arm64 build).
+   - The taskbar icon is visible.
+   - The update notice appears. Before promotion, check it with a WeaveForge Dev
+     build whose updater endpoint points at this pre-release's `latest.json`.
+     Confirm it again on a real install after promotion.
+8. Promote to Latest only after the gate passes and the checklist is done:
+   ```bash
+   npm run check:release-assets -- vX.Y.Z
+   gh release edit vX.Y.Z --prerelease=false --latest
+   ```
+   The gate is read-only. It fails if either setup.exe, its `.sig`, or
+   `latest.json` is missing, or if `latest.json` does not have version `X.Y.Z`,
+   or its URLs or signatures do not match this tag's assets. Do not promote on a
+   failed gate.
+9. Write the notes on the release.
+10. Publish the in-app release notice. The `## [X.Y.Z]` section (no `v`) must exist in
    [`../../CHANGELOG.md`](../../CHANGELOG.md) first. Preview, then insert:
    ```bash
    WF_OCI_SSH=<user@host> npm run release:notice -- X.Y.Z
@@ -217,10 +278,13 @@ manual today.
    ```
    See [Release notices](core/release-notices.md).
 
-The installers are **not code-signed**. Windows will warn on first run. There is
-no updater signing and no updater config in `apps/shell/tauri.conf.json` or
-`apps/shell/tauri.bundle.json`. Signing and updater setup are **not set up yet**.
-Do not describe the installers as verified.
+**Users on 0.9.0 must install 0.9.1 by hand, once.** 0.9.0 shipped without the
+updater, so it cannot update itself. From 0.9.1 on, updates are one click.
+
+The installers are **not code-signed**, so Windows warns on first run. Updates
+are verified differently: the app installs an update only when its `.sig` matches
+the public key in `apps/shell/tauri.conf.json`. Do not describe the installers as
+verified by Windows.
 
 ## Web app (no product tag)
 

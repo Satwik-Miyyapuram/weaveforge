@@ -21,6 +21,7 @@ import {
 } from "@/lib/cache/parts-2";
 import { cacheRepo, closeAppDb } from "@/lib/cache/parts-1";
 import { ProjectContext } from "@/features/projects/ui/project-provider";
+import { ScreenActiveContext } from "@/lib/hooks/use-screen-active";
 import { createFakeIndexedDb } from "./fake-indexeddb.js";
 import { renderHook } from "./react-harness.js";
 
@@ -401,5 +402,91 @@ test("screen data: a screen mounted after a hover prefetch does not fetch again 
   await harness.flush();
   assert.equal(harness.current.data?.label, "rows");
   assert.equal(fetches, 1);
+  await harness.unmount();
+});
+
+test("screen data: a stale memory cache is shown at once and refreshed behind it", async () => {
+  clearAllScreenCaches();
+  setScreenCache(CACHE_KEY, { label: "stale" }, 0);
+  const network = deferred<Payload>();
+  const harness = await renderHook(() => useScreenData<Payload>(SCREEN, () => network.promise), undefined, {
+    wrapper: withProject,
+  });
+  assert.equal(harness.current.data?.label, "stale", "painted from the cache, not a loader");
+  assert.equal(harness.current.loading, false);
+  network.resolve({ label: "fresh" });
+  await harness.flush();
+  assert.equal(harness.current.data?.label, "fresh");
+  await harness.unmount();
+});
+
+function withProjectAt(active: () => boolean) {
+  return (children: ReactNode) =>
+    withProject(createElement(ScreenActiveContext.Provider, { value: active() }, children));
+}
+
+test("screen data: a kept-alive screen reloads when it comes back, and only then", async () => {
+  clearAllScreenCaches();
+  let active = true;
+  let loads = 0;
+  const harness = await renderHook(
+    () =>
+      useScreenData<Payload>(SCREEN, async () => {
+        loads += 1;
+        return { label: `load ${loads}` };
+      }),
+    undefined,
+    { wrapper: withProjectAt(() => active) },
+  );
+  await harness.flush();
+  assert.equal(loads, 1);
+  active = false;
+  await harness.rerender(undefined);
+  // An app write while it was hidden clears its cache (cache_invalidation).
+  clearScreenCachesForScreens(PROJECT_ID, [SCREEN]);
+  await harness.flush();
+  assert.equal(loads, 1, "a hidden screen does not fetch");
+  active = true;
+  await harness.rerender(undefined);
+  await harness.flush();
+  assert.equal(loads, 2, "back on show, the cleared payload is fetched again");
+  assert.equal(harness.current.data?.label, "load 2");
+  await harness.unmount();
+});
+
+test("screen data: coming back inside the freshness window does not fetch", async () => {
+  clearAllScreenCaches();
+  let active = true;
+  let loads = 0;
+  const harness = await renderHook(
+    () =>
+      useScreenData<Payload>(SCREEN, async () => {
+        loads += 1;
+        return { label: "x" };
+      }),
+    undefined,
+    { wrapper: withProjectAt(() => active) },
+  );
+  await harness.flush();
+  active = false;
+  await harness.rerender(undefined);
+  active = true;
+  await harness.rerender(undefined);
+  await harness.flush();
+  assert.equal(loads, 1);
+  await harness.unmount();
+});
+
+test("screen data: marks the screen shown once its data is on screen", async () => {
+  clearAllScreenCaches();
+  performance.clearMarks();
+  const network = deferred<Payload>();
+  const harness = await renderHook(() => useScreenData<Payload>(SCREEN, () => network.promise), undefined, {
+    wrapper: withProject,
+  });
+  assert.equal(performance.getEntriesByName(`wf:screen:${SCREEN}:shown`, "mark").length, 0, "loader still up");
+  network.resolve({ label: "fresh" });
+  await harness.flush();
+  assert.equal(performance.getEntriesByName(`wf:screen:${SCREEN}:shown`, "mark").length, 1);
   await harness.unmount();
 });

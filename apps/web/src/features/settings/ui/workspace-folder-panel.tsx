@@ -41,9 +41,15 @@ import { FolderRemoteSyncPanel } from "./folder-remote-sync-panel";
 import { overleafSyncAvailable } from "@/features/overleaf/application/parts";
 import { OverleafSyncPanel } from "./overleaf-sync-panel";
 import { FolderFileHistory } from "./folder-file-history";
+import { ChangeFolderAction } from "./change-folder-action";
 import { SkippedFiles } from "./skipped-files";
 import type { SkippedFile } from "@/features/workspace/application/parts-2";
-import { folderWatchLost, onFolderWatchLost } from "@/features/workspace/application/parts";
+import {
+  folderWatchLost,
+  isNoActiveProject,
+  NO_ACTIVE_PROJECT_MESSAGE,
+  onFolderWatchLost,
+} from "@/features/workspace/application/parts";
 
 const FolderConflictCard = dynamic(
   () => import("./folder-conflict-card").then((m) => m.FolderConflictCard),
@@ -372,7 +378,13 @@ export function WorkspaceFolderPanel() {
               disabled={busy !== null || !current}
               onClick={() =>
                 void run("sync", async () => {
-                  setStatus(describeSync(await syncToFolder()));
+                  try {
+                    setStatus(describeSync(await syncToFolder()));
+                  } catch (err) {
+                    // No open project is a state to describe, not a failed sync.
+                    if (!isNoActiveProject(err)) throw err;
+                    setStatus(NO_ACTIVE_PROJECT_MESSAGE);
+                  }
                   setHistory(await folderHistory());
                 })
               }
@@ -396,6 +408,19 @@ export function WorkspaceFolderPanel() {
               Disconnect
             </Button>
           </div>
+          {hasShell && (
+            <ChangeFolderAction
+              busy={busy}
+              run={run}
+              onChanged={(warnings) => {
+                setMissing(null);
+                setSession(folderSession());
+                setHistory([]);
+                setDiff(null);
+                showWarnings(warnings);
+              }}
+            />
+          )}
           {history.length > 0 && (
             <ul className="wiki-lint-list">
               {history.map((commit) => (

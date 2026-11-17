@@ -49,6 +49,29 @@
   width: 100%;
 }
 
+/*
+ * A screen kept mounted while another is up (`keep-alive.tsx`). Out of layout
+ * entirely: its card columns keep their count at zero width (`card-columns.tsx`),
+ * so coming back is one layout pass, not a rebuild.
+ */
+.keep-alive-host:not([data-shown]) {
+  display: none;
+}
+
+/*
+ * The last screen, painted over the loader while the app starts
+ * (`boot-snapshot.tsx`). A picture: it takes no input and goes as soon as the
+ * live screen is up.
+ */
+.boot-snapshot {
+  position: fixed;
+  inset: var(--titlebar-h, 0px) 0 0 0;
+  z-index: var(--z-modal);
+  overflow: hidden;
+  background: var(--bg);
+  pointer-events: none;
+}
+
 .layout.has-nav {
   padding-left: var(--nav-inset);
 }

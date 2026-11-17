@@ -57,8 +57,8 @@ test("seed: two independent clients converge on one copy", () => {
 });
 
 test("seed: a document with history is never seeded over", () => {
-  // The replayed CRDT log is the truth. Seeding on top of it appended the
-  // row's body to text the log already carried.
+  // Seeding on top of a replayed log appended the row's body to text the log
+  // already carried. Disagreements are reconciled instead (seed-reconcile tests).
   const doc = new Y.Doc();
   doc.getText("body").insert(0, "edited by hand, and since persisted");
   const seeded = seedIfEmpty(doc, "the row's stale body");

@@ -3,10 +3,12 @@ import { FONT_VARIABLES } from "./fonts";
 import "./globals.css";
 import { AuthProvider } from "@/features/auth/ui/auth-provider";
 import { AppShell } from "./app-shell";
+import { BootSnapshot } from "./boot-snapshot";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
 import { ThemeColorMeta } from "./theme-color-meta";
 import { WindowScrollbar } from "@/components/window-scrollbar";
 import { DesktopTitleBar, TITLE_BAR_BOOT_SCRIPT } from "@/components/desktop-title-bar";
+import { DesktopWindowIcon } from "@/features/desktop-window-icon";
 import { PlanWidgetTheme } from "@/components/plan-widget-theme";
 import { ReactiveMotion } from "./reactive-motion";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
@@ -17,9 +19,18 @@ export const metadata: Metadata = {
   title: "WeaveForge",
   description: "A private research environment for literature, experiments, and logs.",
   manifest: "/manifest.webmanifest",
+  // The SVG themes itself from the OS colour scheme. Browsers without SVG favicons
+  // get a PNG for their scheme: the light emblem, or the light-ink variant on dark.
   // iOS ignores an SVG touch icon and screenshots the page instead, so the home
   // screen gets a 180px PNG (full-bleed; iOS rounds the corners itself).
-  icons: { icon: "/icons/weave_forge.svg", apple: "/icons/apple-touch-icon.png" },
+  icons: {
+    icon: [
+      { url: "/icons/weave_forge.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-512.png", type: "image/png", media: "(prefers-color-scheme: light)" },
+      { url: "/icons/icon-512-dark.png", type: "image/png", media: "(prefers-color-scheme: dark)" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
+  },
   appleWebApp: { capable: true, title: "WeaveForge", statusBarStyle: "black-translucent" },
   // Next 14 writes only the unprefixed `mobile-web-app-capable`; older iPadOS
   // still needs Apple's name to open the home-screen app without Safari's bars.
@@ -79,8 +90,10 @@ export default function RootLayout({
         <SyncLoop />
         <WindowScrollbar />
         <DesktopTitleBar />
+        <DesktopWindowIcon />
         <PlanWidgetTheme />
         <AuthProvider>
+          <BootSnapshot />
           <AppShell>{children}</AppShell>
         </AuthProvider>
       </body>

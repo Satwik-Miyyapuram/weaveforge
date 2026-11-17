@@ -708,6 +708,8 @@
   box-shadow: var(--sh-sm);
   color: #12110f;
 }
+/* The brand mark is never framed, in the brutal themes either. */
+:root:root .empty-mark:has(> .empty-logo) { background: none; border: 0; box-shadow: none; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.vault-screen, .superv-screen) .empty-mark { background: var(--chip-reading); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-screen .empty-mark { background: var(--chip-skimmed); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-screen .empty-mark { background: var(--chip-read); }

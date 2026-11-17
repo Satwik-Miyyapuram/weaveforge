@@ -160,6 +160,11 @@
   max-height: min(78vh, 1100px);
   border: 1px solid var(--border);
 }
+/* A canvas on a record page: a fixed reading-height board, as it has no text height to grow with. */
+.record-doc--canvas {
+  height: min(78vh, 1100px);
+  border: 1px solid var(--border);
+}
 .record-main .summary,
 .record-note { font-size: var(--fs-lg); line-height: 1.75; margin: 0; }
 .record-abstract {

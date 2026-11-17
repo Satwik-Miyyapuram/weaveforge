@@ -11,9 +11,10 @@ use serde_json::{Map, Value};
 use crate::commands::ShellError;
 
 /// Every preference the shell keeps.
-pub const PREFERENCE_NAMES: [&str; 9] = [
+pub const PREFERENCE_NAMES: [&str; 10] = [
     "sync-target",
     "vault-root",
+    "workspace-asked",
     "vault-git",
     "vault-git-remote",
     "local-api",

@@ -70,6 +70,7 @@
     "@uiw/codemirror-themes": "^4.25.12",
     "@weaveforge/core": "*",
     "@weaveforge/wasm": "*",
+    "@xyflow/react": "12.12.0",
     "abort-controller": "^3.0.0",
     "bootstrap": "^5.3.8",
     "classnames": "^2.5.1",
