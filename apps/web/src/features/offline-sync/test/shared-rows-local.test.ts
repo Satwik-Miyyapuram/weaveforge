@@ -168,6 +168,31 @@ describe("grant and revoke mark and unmark at once, before any cycle", () => {
     await editPaper(sql, PAPER);
     assert.deepEqual(await owedWhileConnected(sql), []);
   });
+
+  it("a marker write that throws after a grant still resolves with the share", async () => {
+    const failing = {
+      mark: async () => {
+        throw new Error("database locked");
+      },
+      unmark: async () => {},
+    };
+    const shares = withShareMarks(fakeShareRepository(), failing);
+    const share = await shares.grant({ recipientId: OTHER_USER, resourceType: "paper", resourceId: PAPER });
+    assert.equal(share.id, SHARE);
+  });
+
+  it("a marker write that throws after a revoke still resolves, and the server revoke stands", async () => {
+    const failing = {
+      mark: async () => {},
+      unmark: async () => {
+        throw new Error("database locked");
+      },
+    };
+    const repo = fakeShareRepository();
+    const shares = withShareMarks(repo, failing);
+    await shares.revoke(SHARE);
+    assert.deepEqual(repo.revoked, [SHARE]);
+  });
 });
 
 describe("GitHub toggle does nothing to the watermark (needs wasm)", () => {

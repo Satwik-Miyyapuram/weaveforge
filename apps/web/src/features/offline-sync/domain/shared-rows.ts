@@ -1,3 +1,5 @@
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 import type { SyncTransport } from "./parts";
 import type { SqlRunner } from "./parts-2";
 
@@ -92,20 +94,36 @@ export async function reconcileSharedRows(
  * A share repository whose grants and revokes also set and clear the marker.
  *
  * The marker is written only after the server has taken the change, so a
- * failed grant or revoke leaves the marker as it was. A failed marker write
- * after a successful grant throws; the next reconcile sets it right.
+ * failed grant or revoke leaves the marker as it was. The server's answer is
+ * what the caller sees: a marker write that fails after the server took the
+ * change is logged and swallowed, so the grant still resolves with its share.
+ * The marker is then stale until the next connected cycle's reconcile fixes it.
  */
 export function withShareMarks<T extends ShareWrites>(repo: T, marks: ShareMarks): T {
+  const settleMarker = async (write: () => Promise<void>) => {
+    try {
+      await write();
+    } catch (err) {
+      logToApp({
+        level: "warn",
+        source: "sync",
+        message: "A shared-row marker write failed after the server took the share change",
+        detail: describeRejection(err),
+      });
+    }
+  };
   return {
     ...repo,
     grant: async (input: Parameters<T["grant"]>[0]) => {
       const share = await repo.grant(input);
-      await marks.mark({ shareId: share.id, resourceType: share.resourceType, resourceId: share.resourceId });
+      await settleMarker(() =>
+        marks.mark({ shareId: share.id, resourceType: share.resourceType, resourceId: share.resourceId }),
+      );
       return share;
     },
     revoke: async (id: string) => {
       await repo.revoke(id);
-      await marks.unmark(id);
+      await settleMarker(() => marks.unmark(id));
     },
   } as T;
 }
