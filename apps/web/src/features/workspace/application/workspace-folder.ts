@@ -1,4 +1,4 @@
-import { ASSET_DIR, NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type MirrorResult, type JsonDiff, type WorkspaceCommit } from "@weaveforge/core";
+import { NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type MirrorResult, type WorkspaceCommit } from "@weaveforge/core";
 import type {
   ImportDiff,
 } from "@weaveforge/wasm";
@@ -16,23 +16,20 @@ import {
 } from "../infrastructure/parts";
 import { folderLock } from "./folder-lock";
 import {
-  SYNC_TABLES,
-  exportSyncTables,
-  restoreSyncTables,
-  syncTableFile,
-  syncTableFolderFiles,
-  syncTableRowsFromFolder,
-  type SyncRow,
-  type SyncTable,
-  type SyncTableReader,
-  type SyncTableStore,
-} from "./sync-tables";
+  restTableReader,
+  restTableStore,
+  type FolderImportDiff,
+  type FolderImportPicks,
+  type FolderImportResult,
+  type ImportSeams,
+} from "./workspace-folder-tables";
+import { applyReviewedFolderImport, connectedFolderTables } from "./workspace-folder-apply";
+import { exportSyncTables, syncTableFolderFiles } from "./sync-tables";
 import {
   applyFolderImport,
   clearPendingAssets,
   type ConflictPicks,
   type ConflictResolution,
-  diffAgainstWorkspace,
   type FileHistorySource,
   gitFileHistory,
   keepWorkspaceCopy,
@@ -52,21 +49,13 @@ import {
   jsonEditSince,
   onNoteClosed,
   readMirrorBase,
-  readMirrorBases,
   renamedPaths,
   splitOutsideEdits,
   writeMirrorManifest,
 } from "./parts-3";
 import { activeProject, activeProjectOrNull, isNoActiveProject, watchForLoss } from "./parts";
-import {
-  mirrorWorkspace,
-  readPreviewFolder,
-  sanitizeArchiveEntries,
-  SKIP_TOO_BIG,
-  type SkippedFile,
-  stripArchiveRoot,
-  unzipWithinLimits,
-} from "./parts-2";
+import { mirrorWorkspace } from "./parts-2";
+import { previewConnectedFolder, type FolderPreview } from "./workspace-folder-preview";
 
 /**
  * The workspace folder as the app uses it.
@@ -323,122 +312,23 @@ export function syncToFolder(): Promise<SyncOutcome> {
   return folderLock.run(runSyncToFolder);
 }
 
-/** PostgREST returns at most this many rows per request by default, so a table is read in pages. */
-const REST_PAGE = 1000;
-
-/**
- * Every row of one synced table, through the app's data client. One GET per page;
- * a table of up to one page is one request.
- */
-function restTableReader(client: ReturnType<typeof getDataClient>): SyncTableReader {
-  return async (table) => {
-    const rows: SyncRow[] = [];
-    for (let from = 0; ; from += REST_PAGE) {
-      const { data, error } = await client
-        .from(table)
-        .select("*")
-        .range(from, from + REST_PAGE - 1);
-      if (error) throw new Error(`Could not read ${table} for the folder: ${error.message}`);
-      const page = (data ?? []) as SyncRow[];
-      rows.push(...page);
-      if (page.length < REST_PAGE) return rows;
-    }
-  };
-}
-
-/**
- * Fresh-clone order: restore the synced tables into the empty database first, then
- * diff the folder against what is now stored and apply that. Rows the tables already
- * wrote are "unchanged" in the diff, and the JSON files for relations, tags and reading
- * list items are dropped, so none of them is written a second time.
- *
- * Limit for 0.9.2: this is the clone path only. The restore refuses a database that
- * already holds synced rows; a re-pull into an existing workspace keeps the incremental
- * folder import (previewFolderImport + applyFolderImport) and does not call this.
- */
-export async function restoreThenImport<T>(input: {
-  store: SyncTableStore;
-  tables: Partial<Record<SyncTable, SyncRow[]>>;
-  preview: () => Promise<Parameters<typeof applyFolderImport>[0]>;
-  apply: (diff: Parameters<typeof applyFolderImport>[0]) => Promise<T>;
-}): Promise<T> {
-  await restoreSyncTables(input.tables, input.store);
-  const diff = await input.preview();
-  return input.apply({ ...diff, json: undefined });
-}
-
-type FolderImportDiff = Parameters<typeof applyFolderImport>[0];
-type FolderImportPicks = Parameters<typeof applyFolderImport>[1];
-type FolderImportResult = Awaited<ReturnType<typeof applyFolderImport>>;
-
-/** What the Apply button reads and writes. Each one is a seam so the branch is tested without a folder or a server. */
-export interface ImportSeams {
-  store: SyncTableStore;
-  folderTables: () => Promise<Partial<Record<SyncTable, SyncRow[]>> | null>;
-  preview: () => Promise<FolderImportDiff>;
-  apply: (diff: FolderImportDiff, picks: FolderImportPicks) => Promise<FolderImportResult>;
-}
-
-/** Table rows from the connected folder, or null when it has no table files. */
-async function connectedFolderTables(): Promise<Partial<Record<SyncTable, SyncRow[]>> | null> {
-  if (!activeFs) return null;
-  const projectRoot = (await loadCore()).projectDir(await activeProject());
-  const folder: Record<string, string> = {};
-  for (const table of SYNC_TABLES) {
-    const text = await activeFs.readText(`${projectRoot}/${syncTableFile(table)}`).catch(() => null);
-    if (text !== null) folder[syncTableFile(table)] = text;
-  }
-  return Object.keys(folder).length === 0 ? null : syncTableRowsFromFolder(folder);
-}
 
 function liveImportSeams(): ImportSeams {
   return {
     store: restTableStore(getDataClient()),
-    folderTables: connectedFolderTables,
+    folderTables: () => connectedFolderTables(activeFs),
     preview: () => previewFolderImport(),
     apply: (diff, picks) => applyFolderImport(diff, picks),
   };
 }
 
-/**
- * Apply a reviewed folder import. An empty workspace with table files in the folder
- * restores the tables first (clone order); anything else is the plain apply, with the
- * diff the user reviewed.
- */
-export async function applyReviewedImport(
+/** Apply a reviewed folder import, through the live seams unless a caller passes its own. */
+export function applyReviewedImport(
   diff: FolderImportDiff,
   picks: FolderImportPicks,
   seams: ImportSeams = liveImportSeams(),
 ): Promise<FolderImportResult> {
-  const tables = await seams.folderTables();
-  const empty = (await Promise.all(SYNC_TABLES.map((t) => seams.store.isEmpty(t)))).every(Boolean);
-  if (tables && empty) {
-    return restoreThenImport({
-      store: seams.store,
-      tables,
-      preview: seams.preview,
-      apply: (fresh) => seams.apply(fresh, picks),
-    });
-  }
-  return seams.apply(diff, picks);
-}
-
-/**
- * Restore target through the app's data client: a table is empty when one read
- * returns no row, and each chunk is one plain POST with explicit values.
- */
-export function restTableStore(client: ReturnType<typeof getDataClient>): SyncTableStore {
-  return {
-    async isEmpty(table: SyncTable) {
-      const { data, error } = await client.from(table).select("*").range(0, 0);
-      if (error) throw new Error(`Could not check ${table} before restore: ${error.message}`);
-      return (data ?? []).length === 0;
-    },
-    async insert(table: SyncTable, rows: SyncRow[]) {
-      const { error } = await client.from(table).insert(rows);
-      if (error) throw new Error(`Could not restore ${table}: ${error.message}`);
-    },
-  };
+  return applyReviewedFolderImport(diff, picks, seams);
 }
 
 async function runSyncToFolder(): Promise<SyncOutcome> {
@@ -867,54 +757,14 @@ export async function restoreFolderFile(oid: string, path: string): Promise<void
   await activeFs.writeFile(path, text);
 }
 
-/**
- * Read the connected folder and diff it against the workspace.
- *
- * Preview only — nothing is written. This is the "edit in Obsidian, pull back
- * in" direction, and seeing "12 updated, 1 conflict" before committing to it is
- * the whole point.
- */
-export async function previewFolderImport(
-  only?: ReadonlySet<string>,
-): Promise<FolderDiff & { json: JsonDiff; skipped: SkippedFile[] }> {
+/** Read the connected folder and diff it against the workspace. Preview only. */
+export async function previewFolderImport(only?: ReadonlySet<string>): Promise<FolderPreview> {
   if (!activeFs) throw new Error("No folder is connected.");
-
-  const project = await activeProject();
-  await followProjectRename(activeFs, project);
-  const core = await loadCore();
-  const projectRoot = core.projectDir(project);
-  const base = await readMirrorBase(activeFs, projectRoot);
-  const bases = await readMirrorBases(activeFs, projectRoot);
-
-  const hasProjectDir = (await activeFs.stat(projectRoot).catch(() => null)) !== null;
-  const { files, assets, jsonFiles, skipped } = await readPreviewFolder(activeFs, projectRoot, hasProjectDir, only);
-
-  return { ...(await diffAgainstWorkspace(files, assets, project, base, bases, jsonFiles)), skipped };
+  return previewConnectedFolder(activeFs, only);
 }
 
-/** Diff a ZIP the user picked, without connecting a folder. */
-export async function previewArchiveImport(
-  bytes: Uint8Array,
-): Promise<FolderImportDiff & { skipped: SkippedFile[]; json: JsonDiff }> {
-  const { entries: inflated, oversize } = await unzipWithinLimits(bytes);
-  const { safe, skipped } = sanitizeArchiveEntries(inflated);
-  const entries = stripArchiveRoot(safe);
-
-  const decoder = new TextDecoder();
-  const files: Record<string, string> = {};
-  const assets = new Map<string, Uint8Array>();
-  for (const entry of entries) {
-    if (entry.path.endsWith(".md")) files[entry.path] = decoder.decode(entry.bytes);
-    else if (entry.path.startsWith(`${ASSET_DIR}/`)) assets.set(entry.path, entry.bytes);
-  }
-
-  return {
-    ...(await diffAgainstWorkspace(files, assets, await activeProject())),
-    skipped: [...oversize.map((path) => ({ path, reason: SKIP_TOO_BIG })), ...skipped],
-  };
-}
-
-
+export { previewArchiveImport } from "./workspace-folder-preview";
+export { restoreThenImport, restTableStore, type ImportSeams } from "./workspace-folder-tables";
 
 export {
   mergeBothChanged,
@@ -924,5 +774,3 @@ export {
 };
 
 export { applyFolderImport, writeMarkersFor } from "./parts-1";
-
-
