@@ -54,6 +54,16 @@ export type { ConflictPicks, ConflictResolution } from "@weaveforge/wasm";
  * edges, tags and list membership each belong to the feature that owns them, and
  * this is the one place that has to see all three at once.
  */
+/**
+ * Keeps removals only when the file belongs to the project the workspace is
+ * showing. The stores hold every project's rows, so another project's file never
+ * lists them and they would all read as dropped.
+ */
+export function scopeJsonRemovals(entries: readonly JsonDiffEntry[], isActiveProject: boolean): JsonDiffEntry[] {
+  if (isActiveProject) return [...entries];
+  return entries.filter((entry) => entry.action !== "removed");
+}
+
 export async function jsonDiff(
   folderFiles: Readonly<Record<string, string>>,
   current: Readonly<Record<string, string>>,
@@ -96,7 +106,8 @@ export async function jsonDiff(
       }).entries as JsonDiffEntry[]),
     );
   }
-  return { entries, counts: core.countJsonActions(entries) };
+  const scoped = scopeJsonRemovals(entries, project.id === c.projects.context.projectId);
+  return { entries: scoped, counts: core.countJsonActions(scoped) };
 }
 
 /**

@@ -24,6 +24,7 @@ import {
   importSyncTables,
   OMITTED_GENERATED,
   restoreSyncTables,
+  syncKeyColumns,
   sqlTableReader,
   type SyncRow,
   type SyncTable,
@@ -190,6 +191,10 @@ function pgliteStore(db: TestDb): SyncTableStore {
       const rows = await db.sql<{ n: number }>(`select count(*)::int as n from ${table}`);
       return rows[0]?.n === 0;
     },
+    async keys(table: SyncTable) {
+      const cols = syncKeyColumns(table).map((c) => `"${c}"`).join(", ");
+      return db.sql<SyncRow>(`select ${cols} from ${table}`);
+    },
     async insert(table: SyncTable, rows: SyncRow[]) {
       const cols = [...new Set(rows.flatMap((row) => Object.keys(row)))];
       const list = cols.map((c) => `"${c}"`).join(", ");
@@ -216,12 +221,23 @@ test("the restore into an empty database through plain inserts rebuilds every ta
   }
 });
 
-test("a restore refuses a database that already has synced rows", async () => {
+test("a restore refuses a database that holds rows the folder does not have", async () => {
   const src = await freshTestDb();
   const uid = await src.createUser("restore2@test.invalid");
   await seed(src, uid);
   const rows = syncTableRowsFromFolder(syncTableFolderFiles(await exportSyncTables(sqlTableReader(src))));
-  await assert.rejects(restoreSyncTables(rows, pgliteStore(src)), /already has rows/);
+  // The database holds the projects; a folder without them is a database with rows the folder lacks.
+  await assert.rejects(restoreSyncTables({ ...rows, projects: [] }, pgliteStore(src)), /already has rows/);
+});
+
+test("a restore into the database the folder was exported from keeps every row and writes nothing new", async () => {
+  const src = await freshTestDb();
+  const uid = await src.createUser("restore3@test.invalid");
+  await seed(src, uid);
+  const before = await snapshot(src, "papers");
+  const rows = syncTableRowsFromFolder(syncTableFolderFiles(await exportSyncTables(sqlTableReader(src))));
+  await restoreSyncTables(rows, pgliteStore(src));
+  assert.deepEqual(await snapshot(src, "papers"), before, "an already-restored table is not written again");
 });
 
 test("the generated columns left out of a restore are exactly the stored generated columns of synced tables", async () => {
@@ -263,6 +279,7 @@ test("a clone restores the tables first, then diffs the folder against the resto
   const inner = pgliteStore(dst);
   const store: SyncTableStore = {
     isEmpty: (table) => inner.isEmpty(table),
+    keys: (table) => inner.keys(table),
     insert: async (table, batch) => {
       events.push(`insert:${table}`);
       await inner.insert(table, batch);

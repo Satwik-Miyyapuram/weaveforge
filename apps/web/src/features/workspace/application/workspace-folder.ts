@@ -23,8 +23,8 @@ import {
   type FolderImportResult,
   type ImportSeams,
 } from "./workspace-folder-tables";
-import { applyReviewedFolderImport, connectedFolderTables } from "./workspace-folder-apply";
-import { exportSyncTables, syncTableFolderFiles } from "./sync-tables";
+import { applyReviewedFolderImport, connectedFolderTables, folderRestoreMarker } from "./workspace-folder-apply";
+import { exportSyncTablesStable, syncTableFolderFiles } from "./sync-tables";
 import {
   applyFolderImport,
   clearPendingAssets,
@@ -319,6 +319,7 @@ function liveImportSeams(): ImportSeams {
     folderTables: () => connectedFolderTables(activeFs),
     preview: () => previewFolderImport(),
     apply: (diff, picks) => applyFolderImport(diff, picks),
+    restoreMarker: folderRestoreMarker(() => activeFs),
   };
 }
 
@@ -347,7 +348,8 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
 
   // The synced tables, one file each. A failed read throws here, before anything is
   // written, so a table file is never removed just because the server did not answer.
-  const tableFiles = syncTableFolderFiles(await exportSyncTables(restTableReader(getDataClient())));
+  // Stable: two passes must agree, so a write during the read cannot mix two moments.
+  const tableFiles = syncTableFolderFiles(await exportSyncTablesStable(restTableReader(getDataClient())));
 
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
     project,

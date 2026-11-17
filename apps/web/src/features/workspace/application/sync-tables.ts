@@ -6,9 +6,10 @@
  * Rows travel as `row_to_json` text, not as typed values, so timestamps keep
  * their full precision and the import reads them back unchanged.
  *
- * Limit (0.9.2): restoreSyncTables is for a fresh clone only. It refuses a database
- * that already holds synced rows. A re-pull into an existing workspace keeps the
- * incremental folder import (previewFolderImport + applyFolderImport).
+ * Limit (0.9.2): restoreSyncTables is for a fresh clone, or for resuming one that
+ * stopped partway. It refuses a database holding rows the folder does not have. A
+ * re-pull into an existing workspace keeps the incremental folder import
+ * (previewFolderImport + applyFolderImport).
  */
 
 export type SyncRow = Record<string, unknown>;
@@ -62,6 +63,18 @@ export const SELF_REFERENCE: Partial<Record<SyncTable, string>> = {
   reading_list_items: "duplicate_of_item_id",
 };
 
+/** Composite primary keys. Every other synced table is keyed by `id`. */
+const COMPOSITE_KEY: Partial<Record<SyncTable, readonly string[]>> = {
+  paper_tags: ["paper_id", "tag_id", "source"],
+  experiment_metric_points: ["experiment_id", "metric_id", "step"],
+  experiment_metric_chunks: ["experiment_id", "metric_id", "chunk_no"],
+};
+
+/** The primary-key columns of a synced table: a stable row order for paged reads. */
+export function syncKeyColumns(table: SyncTable): readonly string[] {
+  return COMPOSITE_KEY[table] ?? ["id"];
+}
+
 export function syncTableFile(table: string): string {
   return `.weaveforge/tables/${table}.json`;
 }
@@ -108,6 +121,23 @@ export async function exportSyncTables(read: SyncTableReader): Promise<Record<Sy
   const out = {} as Record<SyncTable, SyncRow[]>;
   for (const table of SYNC_TABLES) out[table] = await read(table);
   return out;
+}
+
+/**
+ * Every table read twice; the export is returned once two passes agree, so a write
+ * that lands during the read cannot leave the folder with rows from two moments.
+ */
+export async function exportSyncTablesStable(
+  read: SyncTableReader,
+  attempts = 3,
+): Promise<Record<SyncTable, SyncRow[]>> {
+  let previous = await exportSyncTables(read);
+  for (let i = 1; i < attempts; i++) {
+    const next = await exportSyncTables(read);
+    if (JSON.stringify(next) === JSON.stringify(previous)) return next;
+    previous = next;
+  }
+  throw new Error("The database changed while the folder was being written. Try the sync again.");
 }
 
 export async function importSyncTables(
@@ -178,32 +208,45 @@ export const OMITTED_GENERATED: Partial<Record<SyncTable, readonly string[]>> = 
   paper_tags: ["id"],
 };
 
-/** The writes a restore needs from a store, whether PostgREST or a test double. */
+/** The reads and writes a restore needs from a store, whether PostgREST or a test double. */
 export interface SyncTableStore {
   /** True when the table has no rows for this user yet. */
   isEmpty(table: SyncTable): Promise<boolean>;
+  /** The key columns (`syncKeyColumns`) of every row the table holds for this user. */
+  keys(table: SyncTable): Promise<SyncRow[]>;
   insert(table: SyncTable, rows: SyncRow[]): Promise<void>;
 }
 
 const INSERT_CHUNK = 500;
 
+/** A row's primary key as one string, so folder rows and stored rows compare by key. */
+function keyOf(row: SyncRow, table: SyncTable): string {
+  return JSON.stringify(syncKeyColumns(table).map((c) => String(row[c])));
+}
+
 /**
- * Restore every synced table into a store, parents first, with plain inserts.
- * Refuses a store that already has rows, so a restore never meets a primary-key
- * conflict halfway through.
+ * Restore every synced table into a store, parents first. Retryable: a store that
+ * already holds some folder rows (from a restore that failed halfway) gets only the
+ * rows it lacks. A stored row the folder does not have is refused before any insert,
+ * so the restore never silently keeps or overwrites rows it did not write.
  */
 export async function restoreSyncTables(
   tables: Partial<Record<SyncTable, SyncRow[]>>,
   store: SyncTableStore,
 ): Promise<void> {
+  const missing: Partial<Record<SyncTable, SyncRow[]>> = {};
   for (const table of SYNC_TABLES) {
-    if (!(await store.isEmpty(table))) {
-      throw new Error(`Cannot restore: ${table} already has rows. Restore into an empty database.`);
+    const folderRows = tables[table] ?? [];
+    const folderKeys = new Set(folderRows.map((r) => keyOf(r, table)));
+    const storedKeys = new Set((await store.keys(table)).map((r) => keyOf(r, table)));
+    if ([...storedKeys].some((k) => !folderKeys.has(k))) {
+      throw new Error(`Cannot restore: ${table} already has rows the folder does not have. Restore into an empty database.`);
     }
+    missing[table] = folderRows.filter((r) => !storedKeys.has(keyOf(r, table)));
   }
   for (const table of SYNC_TABLES) {
     const omitted = new Set(OMITTED_GENERATED[table] ?? []);
-    const rows = orderBySelfReference(tables[table] ?? [], SELF_REFERENCE[table])
+    const rows = orderBySelfReference(missing[table] ?? [], SELF_REFERENCE[table])
       .map((row) => Object.fromEntries(Object.entries(row).filter(([k]) => !omitted.has(k))));
     for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
       await store.insert(table, rows.slice(i, i + INSERT_CHUNK));
