@@ -39,6 +39,7 @@ import {
   PrefetchingAddPaperUseCase,
   reportCitationAlertError,
   RoutedInkChunkStore,
+  inkChunkStoreFor,
   VaultAssetStore,
   WebCryptoShareLinkTokenHasher,
   wireBackend,
@@ -85,7 +86,12 @@ import {
   InkFacade,
   type AppContainer,
 } from "@/container/facades";
-import { BlobInkChunkStore, FsInkChunkStore } from "@/features/ink/infrastructure/parts";
+import {
+  BlobInkChunkStore,
+  CopyOnReadInkChunkStore,
+  FsInkChunkStore,
+  UnavailableInkChunkStore,
+} from "@/features/ink/infrastructure/parts";
 import {
   activeWorkspaceFs,
   closeFolder,
@@ -180,8 +186,23 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // can be chosen or forgotten while the app is running.
   const fsInkChunks = new FsInkChunkStore(activeWorkspaceFs);
   const blobInkChunks = new BlobInkChunkStore(encryptedBlobStore, backend.session);
+  // On the desktop the folder is the only home: the bucket is read once per
+  // page to migrate legacy ink (copy-on-read), and nothing is written to it.
+  // Without a folder the desktop has nowhere for ink. The web is unchanged.
+  const copyOnReadInkChunks = new CopyOnReadInkChunkStore(fsInkChunks, blobInkChunks);
+  const unavailableInkChunks = new UnavailableInkChunkStore();
   const inkChunkStore = new RoutedInkChunkStore(
-    () => (activeWorkspaceFs() ? fsInkChunks : blobInkChunks),
+    () => {
+      const onDesktop = desktop() !== null;
+      return inkChunkStoreFor(
+        { folderOpen: Boolean(activeWorkspaceFs()), desktop: onDesktop },
+        {
+          folder: onDesktop ? copyOnReadInkChunks : fsInkChunks,
+          bucket: blobInkChunks,
+          unavailable: unavailableInkChunks,
+        },
+      );
+    },
     folderRestored,
   );
 

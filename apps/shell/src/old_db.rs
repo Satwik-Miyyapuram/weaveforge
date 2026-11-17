@@ -6,8 +6,9 @@ use std::io;
 use std::path::Path;
 use std::time::SystemTime;
 
-/// PGlite 0.5.x runs PostgreSQL 17. A dir written by another major version cannot be read by it.
-pub const SUPPORTED_PG_MAJOR: &str = "17";
+/// PGlite 0.5.x runs PostgreSQL 18; every release from 0.7.0 to 0.8.14 shipped PGlite 0.5.8.
+/// A dir written by another major version cannot be read by it.
+pub const SUPPORTED_PG_MAJOR: &str = "18";
 
 /// A ustar tar of the dir's files and folders, as PGlite's `loadDataDir` reads it. Paths are
 /// relative to `root`; entries are sorted so the output is stable.
@@ -23,6 +24,8 @@ pub fn archive(root: &Path) -> io::Result<Vec<u8>> {
             continue;
         }
         let data = fs::read(&path)?;
+        let size = fs::metadata(&path)?.len();
+        check_read(&name, size, &data)?;
         let mtime = fs::metadata(&path)?
             .modified()
             .ok()
@@ -34,6 +37,18 @@ pub fn archive(root: &Path) -> io::Result<Vec<u8>> {
     }
     out.resize(out.len() + 1024, 0);
     Ok(out)
+}
+
+/// Refuses a read that came back shorter than the file's size, the same check the migrate copy
+/// makes, so a file that changed or was cut short is never archived as if it were whole.
+fn check_read(name: &str, size: u64, data: &[u8]) -> io::Result<()> {
+    if data.len() as u64 == size {
+        return Ok(());
+    }
+    Err(io::Error::new(
+        io::ErrorKind::UnexpectedEof,
+        format!("read {} of {size} bytes of {name}", data.len()),
+    ))
 }
 
 /// Reads the old dir at `dir` as a tar for PGlite. Refuses a missing dir and a dir from another
@@ -146,7 +161,7 @@ mod tests {
     }
 
     fn fixture(dir: &Path) {
-        fs::write(dir.join("PG_VERSION"), "17\n").unwrap();
+        fs::write(dir.join("PG_VERSION"), "18\n").unwrap();
         fs::create_dir_all(dir.join("base/1")).unwrap();
         fs::write(dir.join("base/1/rows"), b"row data").unwrap();
         fs::create_dir_all(dir.join("pg_wal")).unwrap();
@@ -157,7 +172,7 @@ mod tests {
         let dir = scratch("contents");
         fixture(&dir);
         let entries = parse(&archive(&dir).unwrap());
-        assert_eq!(entries.get("PG_VERSION"), Some(&Some(b"17\n".to_vec())));
+        assert_eq!(entries.get("PG_VERSION"), Some(&Some(b"18\n".to_vec())));
         assert_eq!(
             entries.get("base/1/rows"),
             Some(&Some(b"row data".to_vec()))
@@ -208,6 +223,23 @@ mod tests {
         );
     }
 
+    /// Every release from 0.7.0 to 0.8.14 shipped PGlite 0.5.8, which writes PostgreSQL 18.
+    #[test]
+    fn a_dir_written_by_pglite_0_5_is_read() {
+        let dir = scratch("pg18");
+        fixture(&dir);
+        assert!(read_old_db(&dir).is_ok());
+    }
+
+    #[test]
+    fn a_pg17_dir_is_refused() {
+        let dir = scratch("pg17");
+        fixture(&dir);
+        fs::write(dir.join("PG_VERSION"), "17\n").unwrap();
+        let err = read_old_db(&dir).unwrap_err();
+        assert!(err.to_string().contains("PostgreSQL 17"), "{err}");
+    }
+
     #[test]
     fn other_pg_major_is_refused() {
         let dir = scratch("version");
@@ -215,5 +247,13 @@ mod tests {
         fs::write(dir.join("PG_VERSION"), "16\n").unwrap();
         let err = read_old_db(&dir).unwrap_err();
         assert!(err.to_string().contains("PostgreSQL 16"), "{err}");
+    }
+
+    #[test]
+    fn a_short_read_is_an_error_and_a_full_one_passes() {
+        assert!(check_read("base/1/rows", 8, b"row data").is_ok());
+        let err = check_read("base/1/rows", 8, b"row").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::UnexpectedEof);
+        assert!(err.to_string().contains("read 3 of 8 bytes"), "{err}");
     }
 }

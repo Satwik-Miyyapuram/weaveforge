@@ -273,8 +273,10 @@ fn diff_rows(
             None if stale => ImportAction::Unchanged,
             None => ImportAction::Created,
             Some(stored) if stale || same_row(row, stored) => ImportAction::Unchanged,
-            Some(_) if side == ChangeSide::Both => ImportAction::Conflict,
-            Some(_) => ImportAction::Updated,
+            // Only a folder-side edit is safe to apply. Both sides moved, or nobody
+            // can say who did: ask, never overwrite on a guess.
+            Some(_) if side == ChangeSide::Folder => ImportAction::Updated,
+            Some(_) => ImportAction::Conflict,
         };
         let mut next = entry(parsed, action, Some(row), current.unwrap_or(row));
         if action == ImportAction::Conflict {
@@ -289,18 +291,32 @@ fn diff_rows(
     entries
 }
 
-/// Entries for stored rows the file no longer lists: removals, or silence when stale.
-fn diff_removals(parsed: &ParsedJsonData, existing: &[JsonRow], stale: bool) -> Vec<JsonDiffEntry> {
+/// Entries for stored rows the file no longer lists.
+///
+/// Only a folder-only edit makes a drop a removal. When the workspace also moved
+/// the file, the workspace may have edited that row since the last sync, so the
+/// drop is a conflict to settle, never a removal. Otherwise it is silence.
+fn diff_removals(
+    parsed: &ParsedJsonData,
+    existing: &[JsonRow],
+    side: ChangeSide,
+) -> Vec<JsonDiffEntry> {
     let listed: HashSet<&str> = parsed.rows.iter().filter_map(row_id).collect();
     existing
         .iter()
         .filter(|current| !row_id(current).is_some_and(|id| listed.contains(id)))
-        .map(|current| {
-            if stale {
-                entry(parsed, ImportAction::Unchanged, Some(current), current)
-            } else {
-                entry(parsed, ImportAction::Removed, None, current)
+        .map(|current| match side {
+            ChangeSide::Folder => entry(parsed, ImportAction::Removed, None, current),
+            ChangeSide::Both => {
+                let mut next = entry(parsed, ImportAction::Conflict, None, current);
+                next.reason = Some(format!(
+                    "{} dropped this row in the folder while the workspace also changed the file since they last agreed.",
+                    parsed.path
+                ));
+                next.conflict_kind = Some(ConflictKind::BothChanged);
+                next
             }
+            _ => entry(parsed, ImportAction::Unchanged, Some(current), current),
         })
         .collect()
 }
@@ -311,12 +327,15 @@ fn diff_removals(parsed: &ParsedJsonData, existing: &[JsonRow], stale: bool) -> 
 ///
 /// - an id nothing has is a creation, unless the folder is stale,
 /// - a row that matches is unchanged,
-/// - a row that differs is an update when the folder moved it, unchanged when
-///   the workspace did, and a conflict when both did,
-/// - a stored row the file no longer lists is a removal, unless the folder is stale.
+/// - a row that differs is an update only when the folder moved the file,
+///   unchanged when the workspace did, and a conflict otherwise (both moved, or
+///   no manifest says who did),
+/// - a stored row the file no longer lists is a removal only when only the folder
+///   moved the file; when both did it is a conflict, and unknown or
+///   workspace-side changes never remove.
 ///
-/// `origin` says who changed the file since the last sync. Without it, every
-/// difference is the reader's to judge.
+/// `origin` says who changed the file since the last sync. Without it, the
+/// side is unknown: nothing is overwritten or removed, differences are conflicts.
 #[must_use]
 pub fn diff_json_data(
     parsed: &ParsedJsonData,
@@ -332,7 +351,7 @@ pub fn diff_json_data(
         .collect();
 
     let mut entries = diff_rows(parsed, &by_id, side, stale);
-    entries.extend(diff_removals(parsed, existing, stale));
+    entries.extend(diff_removals(parsed, existing, side));
     let counts = count_json_actions(&entries);
     JsonDiff { entries, counts }
 }

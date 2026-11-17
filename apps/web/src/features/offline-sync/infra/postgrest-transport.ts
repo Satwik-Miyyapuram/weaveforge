@@ -3,6 +3,9 @@ import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
 import type { OutboxEntry } from "../domain/parts-2";
 import type { RemoteChange, SendOutcome, SyncTransport } from "../domain/parts";
+import type { ShareRef } from "../domain/shared-rows";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * What the transport needs to reach PostgREST.
@@ -131,6 +134,31 @@ export class PostgrestTransport implements SyncTransport {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * The shares this account owns, live now. Null when they cannot be read, or
+   * the reply is not a list: the caller then keeps its markers as they are.
+   */
+  async ownShares(accountId: string): Promise<ShareRef[] | null> {
+    if (!UUID.test(accountId)) return null;
+    const reply = await this.readOrBlank({
+      method: "GET",
+      path: `/shares?owner_id=eq.${accountId}&select=id,resource_type,resource_id`,
+    });
+    if (reply.status !== 200) return null;
+    let rows: unknown;
+    try {
+      rows = JSON.parse(reply.body);
+    } catch {
+      return null;
+    }
+    if (!Array.isArray(rows)) return null;
+    return rows.map((row: { id: string; resource_type: string; resource_id: string | null }) => ({
+      shareId: row.id,
+      resourceType: row.resource_type,
+      resourceId: row.resource_id ?? null,
+    }));
   }
 
   /** The write itself. Each op shape guards on the version it was based on. */

@@ -35,6 +35,9 @@ with `#hashtags`.
 2. Choose **Import zip…** or **Import folder…**.
 3. The result line reads, for example, `Imported 3 notes, 1 folder.`
 
+To bring in a OneNote section instead, choose **Import OneNote section…** in the
+same **More** menu. See [Import a OneNote section](onenote-import.md).
+
 ### Find a note
 
 1. Type in the **Search notes** box to search titles and text.

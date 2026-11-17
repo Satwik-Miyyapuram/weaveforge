@@ -311,6 +311,22 @@ export class RoutedInkChunkStore implements InkChunkStore {
   async list(noteId: string) {
     return (await this.store()).list(noteId);
   }
+  async prepareNote(noteId: string, declared: readonly string[]) {
+    await (await this.store()).prepareNote?.(noteId, declared);
+  }
+}
+
+/**
+ * Which ink store answers now. On the desktop ink is folder-only: the folder
+ * store when a folder is open, otherwise nothing. Elsewhere the folder store
+ * is used when a folder is open and the bucket otherwise, as before.
+ */
+export function inkChunkStoreFor(
+  state: { folderOpen: boolean; desktop: boolean },
+  stores: { folder: InkChunkStore; bucket: InkChunkStore; unavailable: InkChunkStore },
+): InkChunkStore {
+  if (!state.desktop) return state.folderOpen ? stores.folder : stores.bucket;
+  return state.folderOpen ? stores.folder : stores.unavailable;
 }
 
 // --- vault-asset-store ---

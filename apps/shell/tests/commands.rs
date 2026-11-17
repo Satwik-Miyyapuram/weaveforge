@@ -32,13 +32,23 @@ fn db_state_is_camel_case() {
         failure: None,
         data_dir: "/x".into(),
         restored_from: None,
+        recreated_empty: false,
+        kept_aside: None,
     };
     assert_eq!(
         serde_json::to_value(state).unwrap(),
-        json!({"failure": null, "dataDir": "/x", "restoredFrom": null})
+        json!({
+            "failure": null,
+            "dataDir": "/x",
+            "restoredFrom": null,
+            "recreatedEmpty": false,
+            "keptAside": null
+        })
     );
     let parsed: DbState = serde_json::from_value(json!({"failure": "f", "dataDir": "/y"})).unwrap();
     assert_eq!(parsed.restored_from, None);
+    assert!(!parsed.recreated_empty);
+    assert_eq!(parsed.kept_aside, None);
 }
 
 #[test]

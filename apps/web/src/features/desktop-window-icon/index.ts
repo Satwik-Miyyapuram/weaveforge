@@ -10,7 +10,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
-import { recolourEmblem } from "./emblem-svg";
+import { recolourEmblem, taskbarEmblem } from "./emblem-svg";
 import { pickWindowIconColours, themeLogoColours, type OsMode } from "./window-icon-colours";
 
 const EMBLEM_URL = "/icons/weave_forge.svg";
@@ -74,7 +74,7 @@ export function useDesktopWindowIcon(): void {
         themeLogoColours((name) => style.getPropertyValue(name)),
         mode,
       );
-      const png = await rasterise(recolourEmblem(await loadEmblem(), colours));
+      const png = await rasterise(taskbarEmblem(recolourEmblem(await loadEmblem(), colours)));
       if (!stopped) setIcon(png);
     };
     const applyLogged = () => {

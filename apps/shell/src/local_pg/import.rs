@@ -8,6 +8,8 @@
 //!
 //! Keyed tables insert with `ON CONFLICT ON CONSTRAINT <primary key>`, so a native row with the
 //! same key is kept and only that conflict is skipped. Any other unique violation is an error.
+//! A skipped row must equal the native row it collided with; if one differs, the table fails and
+//! rolls back, so old data is never dropped without a word.
 //! The marker file is written last, after every table is in the ledger, and is synced to disk.
 
 use std::collections::BTreeSet;
@@ -35,6 +37,11 @@ const COLUMNS_SQL: &str = "SELECT a.attname, a.attidentity FROM pg_attribute a \
 const PK_SQL: &str = "SELECT conname FROM pg_constraint \
     WHERE conrelid = $1::regclass AND contype = 'p'";
 
+const PK_COLUMNS_SQL: &str = "SELECT a.attname FROM pg_constraint c \
+    CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord) \
+    JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum \
+    WHERE c.conrelid = $1::regclass AND c.contype = 'p' ORDER BY k.ord";
+
 const SEQUENCES_SQL: &str = "SELECT a.attname, d.objid::regclass::text FROM pg_depend d \
     JOIN pg_class s ON s.oid = d.objid AND s.relkind = 'S' \
     JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid \
@@ -56,6 +63,8 @@ pub struct Shape {
     pub identity_always: bool,
     /// The primary key's constraint name, when the table has one.
     pub primary_key: Option<String>,
+    /// The primary key's columns, in key order. Empty when the table has no primary key.
+    pub primary_key_columns: Vec<String>,
     /// Each serial or identity column, with its sequence as `regclass` text.
     pub sequences: Vec<(String, String)>,
 }
@@ -77,6 +86,10 @@ pub async fn describe<C: Conn>(conn: &mut C, table: &str) -> Result<Shape, PgErr
     }
     let pk = conn.query(PK_SQL, std::slice::from_ref(&reg)).await?;
     let primary_key = pk.rows.first().map(|row| cell(row, 0));
+    let pk_cols = conn
+        .query(PK_COLUMNS_SQL, std::slice::from_ref(&reg))
+        .await?;
+    let primary_key_columns = pk_cols.rows.iter().map(|row| cell(row, 0)).collect();
     let seq = conn
         .query(SEQUENCES_SQL, std::slice::from_ref(&reg))
         .await?;
@@ -89,6 +102,7 @@ pub async fn describe<C: Conn>(conn: &mut C, table: &str) -> Result<Shape, PgErr
         columns,
         identity_always,
         primary_key,
+        primary_key_columns,
         sequences,
     })
 }
@@ -118,6 +132,37 @@ pub fn insert_sql(table: &str, shape: &Shape) -> String {
     });
     format!(
         "INSERT INTO {t} ({cols}){overriding} SELECT {cols} FROM jsonb_populate_recordset(NULL::{t}, $1::jsonb){conflict} RETURNING 1"
+    )
+}
+
+/// Counts the rows of a batch whose native row, found by primary key, differs in any writable
+/// column. Runs after the batch insert, so rows the batch inserted match themselves and count 0.
+/// `$1` is the batch's JSON array, as for `insert_sql`.
+#[must_use]
+pub fn differ_sql(table: &str, shape: &Shape) -> String {
+    let t = quote_ident(table);
+    let join = shape
+        .primary_key_columns
+        .iter()
+        .map(|c| format!("n.{0} = s.{0}", quote_ident(c)))
+        .collect::<Vec<_>>()
+        .join(" AND ");
+    let native = shape
+        .columns
+        .iter()
+        .map(|c| format!("n.{}", quote_ident(c)))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let source = shape
+        .columns
+        .iter()
+        .map(|c| format!("s.{}", quote_ident(c)))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "WITH s AS (SELECT * FROM jsonb_populate_recordset(NULL::{t}, $1::jsonb)) \
+         SELECT count(*)::bigint FROM s JOIN {t} n ON {join} \
+         WHERE ({native}) IS DISTINCT FROM ({source})"
     )
 }
 
@@ -232,6 +277,31 @@ pub async fn import_table<C: Conn>(
     outcome
 }
 
+/// Refuses the table when a skipped row differs from the native row with the same key, so a
+/// conflicting row is never silently dropped.
+async fn refuse_differing_rows<C: Conn>(
+    conn: &mut C,
+    table: &str,
+    shape: &Shape,
+    json: String,
+) -> Result<(), PgError> {
+    let differ = conn
+        .query(&differ_sql(table, shape), &[Value::String(json)])
+        .await?;
+    let differing = differ
+        .rows
+        .first()
+        .and_then(|row| cell(row, 0).parse::<u64>().ok())
+        .unwrap_or(u64::MAX);
+    if differing > 0 {
+        return Err(PgError::local(format!(
+            "{table}: {differing} skipped row(s) differ from the native row with the same key; \
+             the table was not imported"
+        )));
+    }
+    Ok(())
+}
+
 async fn import_in_transaction<C: Conn>(
     conn: &mut C,
     table: &str,
@@ -265,7 +335,7 @@ async fn import_in_transaction<C: Conn>(
     };
     for batch in pack_batches(rows, BATCH_BYTES)? {
         let got = u64::try_from(
-            conn.query(&sql, &[Value::String(batch.json)])
+            conn.query(&sql, &[Value::String(batch.json.clone())])
                 .await?
                 .rows
                 .len(),
@@ -273,7 +343,11 @@ async fn import_in_transaction<C: Conn>(
         .unwrap_or(u64::MAX);
         let sent = u64::try_from(batch.rows).unwrap_or(u64::MAX);
         report.inserted += got;
-        report.skipped += sent.saturating_sub(got);
+        let skipped = sent.saturating_sub(got);
+        report.skipped += skipped;
+        if skipped > 0 {
+            refuse_differing_rows(conn, table, &shape, batch.json).await?;
+        }
     }
     for (column, sequence) in &shape.sequences {
         let _ = conn
@@ -464,6 +538,7 @@ mod tests {
             columns: vec!["a b".into(), "id".into()],
             identity_always: false,
             primary_key: Some("my pk".into()),
+            primary_key_columns: vec!["id".into()],
             sequences: vec![],
         };
         let sql = insert_sql("my \"t\"", &shape);
@@ -708,7 +783,7 @@ mod tests {
             c.exec("INSERT INTO serial_t (id, body) VALUES (1, 'native')")
                 .await?;
             let src = vec![
-                json!({ "id": 1, "body": "old" }),
+                json!({ "id": 1, "body": "native" }),
                 json!({ "id": 2, "body": "b" }),
             ];
             let report = import_table(&mut c, "serial_t", &src).await?;
@@ -716,6 +791,40 @@ mod tests {
             assert_eq!(
                 scalar(&mut c, "SELECT body FROM serial_t WHERE id = 1").await?,
                 "native"
+            );
+            Ok::<(), PgError>(())
+        }
+        .await;
+        finish(server, root, r).await
+    }
+
+    #[tokio::test]
+    async fn real_keyed_table_fails_when_a_skipped_row_differs() -> Result<(), PgError> {
+        // Guards: a skipped old row that differs from the native row with its key being dropped
+        // without a word. The table must fail and roll back, leaving the native row and no ledger row.
+        let Some((server, root)) = start("differ").await? else {
+            return Ok(());
+        };
+        let r = async {
+            let mut c = server.connect().await?;
+            c.exec(SCHEMA).await?;
+            c.exec("INSERT INTO serial_t (id, body) VALUES (1, 'native')")
+                .await?;
+            let src = vec![
+                json!({ "id": 1, "body": "old" }),
+                json!({ "id": 2, "body": "b" }),
+            ];
+            let err = import_table(&mut c, "serial_t", &src).await.unwrap_err();
+            assert!(err.to_string().contains("serial_t"), "{err}");
+            assert!(err.to_string().contains("1 skipped row"), "{err}");
+            assert_eq!(scalar(&mut c, "SELECT count(*) FROM serial_t").await?, "1");
+            assert_eq!(
+                scalar(&mut c, "SELECT body FROM serial_t WHERE id = 1").await?,
+                "native"
+            );
+            assert_eq!(
+                scalar(&mut c, "SELECT count(*) FROM wf_import.done").await?,
+                "0"
             );
             Ok::<(), PgError>(())
         }

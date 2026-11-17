@@ -157,8 +157,18 @@ plain line merge.
 - The editor workspace hosts it in `editor-workspace/ui/canvas-document.tsx`
   and the Notes page in `vault/ui/vault-screen/page-editor.tsx`.
 
+## OneNote import
+
+The `onenote` module writes freeform pages through the canvas code:
+`freeform_canvas` in `crates/wf-core/src/onenote/freeform.rs` builds the body
+from text and file nodes, and `write_ink` puts the strokes into `wfInk`. The
+TS import in `apps/web/src/features/vault/application/onenote-import.ts` sends
+each page's body through `normalizeCanvasText`. See
+[onenote-import](onenote-import.md).
+
 ## Related
 
 - [Canvas (using)](../../using/canvas.md)
+- [OneNote import (using)](../../using/onenote-import.md)
 - [Editor workspace](editor-workspace.md) creates canvases from the explorer.
 - [Sync](sync.md) writes a canvas as a `.canvas` file.

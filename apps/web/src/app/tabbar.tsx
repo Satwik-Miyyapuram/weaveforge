@@ -28,6 +28,11 @@ const PdfIndexChip = dynamic(
   () => import("@/features/search/ui/pdf-index-chip").then((m) => m.PdfIndexChip),
   { ssr: false },
 );
+// Lazy too: it reads the git auto-sync engine, which paints nothing until a folder syncs.
+const GitSyncDot = dynamic(
+  () => import("@/features/workspace/ui/git-sync-dot").then((m) => m.GitSyncDot),
+  { ssr: false },
+);
 
 /**
  * Primary navigation, rendered from the module registry. One markup, two
@@ -261,6 +266,7 @@ export function TabBar({
             <HeaderActions inbox={false} alone={collapsed} />
           </div>
           <PdfIndexChip />
+          <GitSyncDot />
           <LocalModeBadge />
         </div>
       )}
