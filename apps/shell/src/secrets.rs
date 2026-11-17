@@ -1,6 +1,6 @@
 //! Secrets in the OS keychain through keyring-core (design: phase-2-desktop.md § 2.8).
 
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
 use keyring_core::CredentialStore;
 
@@ -70,6 +70,8 @@ pub struct Secrets {
     service: String,
     /// One write or clear at a time, in the order they were asked (the lock is FIFO).
     writes: Arc<tokio::sync::Mutex<()>>,
+    /// Held for each keychain read-modify-write, so a legacy migration never interleaves with a write or clear.
+    storage: Arc<Mutex<()>>,
     /// The workspace whose tokens are in use, or `None` before any workspace is open.
     open: Arc<RwLock<Option<String>>>,
 }
@@ -82,6 +84,7 @@ impl Secrets {
             store,
             service: service.into(),
             writes: Arc::new(tokio::sync::Mutex::new(())),
+            storage: Arc::new(Mutex::new(())),
             open: Arc::new(RwLock::new(None)),
         }
     }
@@ -115,48 +118,63 @@ impl Secrets {
     }
 
     /// The stored value, or `None` when nothing is stored or it cannot be read. With a workspace
-    /// open, a workspace token found under the old unscoped name moves into the workspace.
+    /// open, a token that only the old unscoped name holds is copied into the workspace on first
+    /// use. The unscoped token is kept, so every other workspace can still inherit it.
     pub fn read(&self, name: &str) -> Result<Option<String>, SecretError> {
         known(&SECRET_NAMES, name)?;
+        let _storage = self.lock_storage();
         let Some(workspace) = self.scoped_workspace(name) else {
             return Ok(self.read_user(name));
         };
         let scoped = scoped_key(&workspace, name);
-        if let Some(value) = self.read_user(&scoped) {
-            return Ok(Some(value));
+        match self.lookup(&scoped) {
+            Ok(Some(value)) => return Ok(Some(value)),
+            // Unreadable, not absent: report nothing, and never copy over a slot that may hold a token.
+            Err(()) => return Ok(None),
+            Ok(None) => {}
         }
-        let Some(value) = self.read_user(name) else {
+        // A workspace that cleared this token stays cleared. An unreadable marker counts as set.
+        if !matches!(self.lookup(&migrated_key(&workspace, name)), Ok(None)) {
+            return Ok(None);
+        }
+        let Ok(Some(value)) = self.lookup(name) else {
             return Ok(None);
         };
-        self.migrate(name, &scoped, &value);
+        // Best effort: if the copy fails, the next read copies again.
+        let _ = self.write_user(&scoped, &value);
         Ok(Some(value))
     }
 
-    /// Stores `value` under `name`, replacing any earlier value.
+    /// Stores `value` under `name`, replacing any earlier value. The unscoped token is never
+    /// touched, so other workspaces keep theirs.
     pub fn write(&self, name: &str, value: &str) -> Result<(), SecretError> {
         known(&SECRET_NAMES, name)?;
         if value.is_empty() {
             return Err(SecretError::EmptyValue);
         }
-        match self.scoped_workspace(name) {
-            None => self.write_user(name, value),
-            Some(workspace) => {
-                self.write_user(&scoped_key(&workspace, name), value)?;
-                // Retire the unscoped copy so no other workspace can read it.
-                let _ = self.delete_user(name);
-                Ok(())
-            }
-        }
+        let _storage = self.lock_storage();
+        let user = match self.scoped_workspace(name) {
+            None => name.to_owned(),
+            Some(workspace) => scoped_key(&workspace, name),
+        };
+        self.write_user(&user, value)
     }
 
-    /// Forgets `name`. Forgetting something never stored, or with no keychain, succeeds.
+    /// Forgets `name`. Forgetting something never stored, or with no keychain, succeeds. In a
+    /// workspace it forgets only that workspace's token and records that the workspace cleared it,
+    /// so the unscoped token is never re-imported there. The unscoped token is never touched.
     pub fn clear(&self, name: &str) -> Result<(), SecretError> {
         known(&SECRET_NAMES, name)?;
+        let _storage = self.lock_storage();
         match self.scoped_workspace(name) {
             None => self.delete_user(name),
             Some(workspace) => {
-                self.delete_user(&scoped_key(&workspace, name))?;
-                self.delete_user(name)
+                if self.store.is_none() {
+                    return Ok(());
+                }
+                // The marker goes first: if it cannot be written, nothing is forgotten and the token stays.
+                self.write_user(&migrated_key(&workspace, name), "cleared")?;
+                self.delete_user(&scoped_key(&workspace, name))
             }
         }
     }
@@ -200,22 +218,29 @@ impl Secrets {
         }
     }
 
-    /// Moves `value` from the unscoped key to the workspace key. The unscoped key is deleted only
-    /// after the workspace copy reads back equal; any failure leaves it in place.
-    fn migrate(&self, legacy: &str, scoped: &str, value: &str) {
-        if self.write_user(scoped, value).is_err() {
-            return;
-        }
-        if self.read_user(scoped).as_deref() == Some(value) {
-            let _ = self.delete_user(legacy);
+    /// Holds the storage lock for one read-modify-write. The queue lock does not cover direct
+    /// calls, and it is already held by `queued` while the work runs, so it cannot be taken here.
+    fn lock_storage(&self) -> MutexGuard<'_, ()> {
+        self.storage.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// The password under the keychain user `user`: `Ok(None)` when it is absent or there is no
+    /// keychain, `Err` when the keychain could not be asked.
+    fn lookup(&self, user: &str) -> Result<Option<String>, ()> {
+        let Some(entry) = self.entry(user) else {
+            return Ok(None);
+        };
+        let entry = entry.map_err(|_| ())?;
+        match entry.get_password() {
+            Ok(value) => Ok(Some(value)),
+            Err(keyring_core::Error::NoEntry) => Ok(None),
+            Err(_) => Err(()),
         }
     }
 
     /// The password under the keychain user `user`, or `None` when absent or unreadable.
     fn read_user(&self, user: &str) -> Option<String> {
-        self.entry(user)
-            .and_then(Result::ok)
-            .and_then(|entry| entry.get_password().ok())
+        self.lookup(user).ok().flatten()
     }
 
     fn write_user(&self, user: &str, value: &str) -> Result<(), SecretError> {
@@ -248,6 +273,12 @@ impl Secrets {
 /// The keychain user for a workspace secret.
 fn scoped_key(workspace: &str, name: &str) -> String {
     format!("{workspace}/{name}")
+}
+
+/// The keychain user that records a workspace cleared `name`. "migrated" is not a secret name, so
+/// it cannot collide with a scoped key.
+fn migrated_key(workspace: &str, name: &str) -> String {
+    format!("{workspace}/migrated/{name}")
 }
 
 /// A workspace id is non-empty and made of letters, digits and dashes.
