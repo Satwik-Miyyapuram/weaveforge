@@ -9,3 +9,15 @@ export const LOST_DB_SYNC_MESSAGE =
 export function folderWriteBlockedByLostDb(state: { recreatedEmpty?: boolean } | null | undefined): boolean {
   return state?.recreatedEmpty === true;
 }
+
+/** The banner text for a database recreated empty, or null when there is nothing to say. */
+export function lostDbNotice(
+  state: { recreatedEmpty?: boolean; keptAside?: string | null } | null | undefined,
+): { title: string; body: string } | null {
+  if (!folderWriteBlockedByLostDb(state)) return null;
+  const where = state?.keptAside ? ` kept aside at ${state.keptAside}` : " kept aside on this computer";
+  return {
+    title: "The local database was recreated empty.",
+    body: `Your old data was${where}. Folder sync is paused until you restart the app.`,
+  };
+}

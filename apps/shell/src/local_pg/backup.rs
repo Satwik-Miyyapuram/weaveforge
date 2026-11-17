@@ -64,8 +64,12 @@ fn day_number(day: &str) -> Option<i64> {
     Some(era * 146_097 + doe - 719_468)
 }
 
+/// The pinned-good copy: the newest backup that loaded with user rows. It sits beside the rotation,
+/// never in it, so pruning cannot remove it.
+pub const PINNED: &str = "local-pg-pinned-good.dump";
+
 fn is_backup(name: &str) -> bool {
-    name.starts_with(PREFIX) && name.ends_with(SUFFIX)
+    name.starts_with(PREFIX) && name.ends_with(SUFFIX) && name != PINNED
 }
 
 /// The backups in `dir`, newest first; none for a folder that is not there.
@@ -154,13 +158,42 @@ impl Backups {
         }
     }
 
-    /// Every backup in every place, newest first; a restore tries them in this order.
+    /// Every backup in every place, newest first; a restore tries them in this order. Each place's
+    /// pinned-good copy comes last, after the rotation, as the fallback of last resort.
     #[must_use]
     pub fn all(&self) -> Vec<PathBuf> {
         let mut all: Vec<PathBuf> = self.dirs.iter().flat_map(|d| list(d)).collect();
         // Newest by name, not by place: the stamp is the same clock everywhere.
         all.sort_by(|a, b| b.file_name().cmp(&a.file_name()));
+        // The pinned copies come after every rotated one, newest pin first across the places.
+        let mut pinned: Vec<PathBuf> = self
+            .dirs
+            .iter()
+            .map(|d| d.join(PINNED))
+            .filter(|p| p.is_file())
+            .collect();
+        pinned.sort_by_key(|p| {
+            std::cmp::Reverse(std::fs::metadata(p).and_then(|m| m.modified()).ok())
+        });
+        all.extend(pinned);
         all
+    }
+
+    /// Copies `dump` over the pinned-good slot beside it, written beside and renamed over, so an
+    /// interrupted pin leaves the previous pin in place.
+    ///
+    /// # Errors
+    /// Fails when the copy or the rename fails.
+    pub fn pin(&self, dump: &Path) -> Result<(), PgError> {
+        let dir = dump.parent().unwrap_or_else(|| Path::new("."));
+        let target = dir.join(PINNED);
+        let part = dir.join(format!("{PINNED}.part"));
+        std::fs::copy(dump, &part)
+            .and_then(|_| std::fs::rename(&part, &target))
+            .map_err(|e| {
+                let _ = std::fs::remove_file(&part);
+                PgError::local(e.to_string())
+            })
     }
 
     fn prune(&self, dir: &Path) {
@@ -345,6 +378,67 @@ mod tests {
             .collect();
         assert_eq!(kept, want);
         let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_pinned_backup_is_outside_rotation_and_the_last_resort() -> Result<(), PgError> {
+        const DAY: u64 = 86_400;
+        let dir = temp("pinned");
+        let backups = Backups {
+            dirs: vec![dir.clone()],
+            keep: 1,
+            daily_keep: 0,
+            weekly_keep: 0,
+        };
+        let good = backups.take(at(DAY), write_dump).await?;
+        backups.pin(&good[0])?;
+        // Newer backups rotate the pinned one's source out, but never the pin itself.
+        for day in 2..6 {
+            let _ = backups.take(at(day * DAY), write_dump).await?;
+        }
+        assert_eq!(
+            names(&list(&dir)),
+            [file_name(at(5 * DAY))],
+            "the pinned file is not in the rotation listing"
+        );
+        assert_eq!(
+            names(&backups.all()),
+            [file_name(at(5 * DAY)), PINNED.to_owned()],
+            "the pinned file is the last restore candidate"
+        );
+        assert_eq!(std::fs::read(dir.join(PINNED)).ok(), Some(b"dump".to_vec()));
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[test]
+    fn pinned_copies_across_places_are_tried_newest_first() -> Result<(), PgError> {
+        let a = temp("pin-order-a");
+        let b = temp("pin-order-b");
+        for dir in [&a, &b] {
+            std::fs::create_dir_all(dir).map_err(|e| PgError::local(e.to_string()))?;
+        }
+        std::fs::write(a.join(PINNED), b"older").map_err(|e| PgError::local(e.to_string()))?;
+        std::fs::write(b.join(PINNED), b"newer").map_err(|e| PgError::local(e.to_string()))?;
+        let base = SystemTime::UNIX_EPOCH + Duration::from_secs(1_000_000);
+        let set = |path: PathBuf, when: SystemTime| {
+            std::fs::File::options()
+                .write(true)
+                .open(path)
+                .and_then(|f| f.set_modified(when))
+                .map_err(|e| PgError::local(e.to_string()))
+        };
+        set(a.join(PINNED), base)?;
+        set(b.join(PINNED), base + Duration::from_secs(60))?;
+        let backups = Backups::new(vec![a.clone(), b.clone()]);
+        assert_eq!(
+            backups.all(),
+            vec![b.join(PINNED), a.join(PINNED)],
+            "the newer pinned copy is tried first, whatever place it is in"
+        );
+        let _ = std::fs::remove_dir_all(&a);
+        let _ = std::fs::remove_dir_all(&b);
         Ok(())
     }
 

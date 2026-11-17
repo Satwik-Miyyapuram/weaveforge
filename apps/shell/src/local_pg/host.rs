@@ -65,6 +65,11 @@ pub trait Engine: Send + Sync {
     fn recreated_empty(&self) -> bool {
         false
     }
+
+    /// Where the old data was kept when the database was recreated empty, so the page can name it.
+    fn kept_aside(&self) -> Option<String> {
+        None
+    }
 }
 
 /// The real engine: a private Postgres server under `root`, from the binaries in `bin`.
@@ -74,6 +79,7 @@ pub struct PgEngine {
     backups: Option<Backups>,
     restored: Mutex<Option<String>>,
     recreated: AtomicBool,
+    kept_aside: Mutex<Option<String>>,
 }
 
 impl PgEngine {
@@ -87,6 +93,7 @@ impl PgEngine {
             backups,
             restored: Mutex::new(None),
             recreated: AtomicBool::new(false),
+            kept_aside: Mutex::new(None),
         }
     }
 
@@ -95,6 +102,20 @@ impl PgEngine {
     /// data dir is there without a cluster). A fresh install with no backups returns `false`.
     /// The backups are left as they are either way.
     async fn restore_if_missing(&self) -> Result<bool, PgError> {
+        let bin = &self.bin;
+        self.restore_with(|dir, dump| async move {
+            super::restore::load_dump(bin, &dir, &dump).await
+        })
+        .await
+    }
+
+    /// `restore_if_missing` with the loader injected, so a test can drive the restore without a
+    /// real Postgres. `load` is `restore::load_dump` in production.
+    async fn restore_with<F, Fut>(&self, load: F) -> Result<bool, PgError>
+    where
+        F: Fn(PathBuf, PathBuf) -> Fut,
+        Fut: Future<Output = Result<bool, PgError>>,
+    {
         super::restore::clear_leftovers(&self.root);
         if self.root.join("data").join("PG_VERSION").is_file() {
             return Ok(false);
@@ -103,23 +124,51 @@ impl PgEngine {
         let had_data = self.root.join("data").exists();
         let dumps = self.backups.as_ref().map(Backups::all).unwrap_or_default();
         if dumps.is_empty() {
+            if had_data {
+                self.keep_data_aside()?;
+            }
             return Ok(had_data);
         }
         self.discard()?;
-        let bin = &self.bin;
-        let from =
-            super::restore::restore_newest_good(&self.root, &dumps, |dir, dump| async move {
-                super::restore::load_dump(bin, &dir, &dump).await
-            })
-            .await?;
+        let from = super::restore::restore_newest_good(&self.root, &dumps, load).await?;
         match from {
             Some(from) => {
+                // Only a dump that loaded with user rows is pinned as the good copy; an empty one
+                // must not replace an earlier pin. A failed pin keeps the restore standing.
+                if from.has_data {
+                    if let Some(backups) = &self.backups {
+                        if let Err(e) = backups.pin(&from.dump) {
+                            eprintln!(
+                                "[local-db] could not pin the restored backup: {}",
+                                e.message
+                            );
+                        }
+                    }
+                }
                 *self.restored.lock().unwrap_or_else(PoisonError::into_inner) =
-                    Some(from.to_string_lossy().into_owned());
+                    Some(from.dump.to_string_lossy().into_owned());
                 Ok(false)
             }
             None => Ok(true),
         }
+    }
+
+    /// Renames the data dir with no cluster in it to `data.failed-<stamp>` under the root, so the
+    /// path reported as kept aside holds the old files and a fresh cluster can be made.
+    fn keep_data_aside(&self) -> Result<(), PgError> {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis());
+        let aside = self.root.join(format!("data.failed-{stamp}"));
+        std::fs::rename(self.root.join("data"), &aside)
+            .map_err(|e| PgError::local(format!("could not keep the old data aside: {e}")))?;
+        self.keep_aside_at(&aside);
+        Ok(())
+    }
+
+    fn keep_aside_at(&self, path: &Path) {
+        *self.kept_aside.lock().unwrap_or_else(PoisonError::into_inner) =
+            Some(path.to_string_lossy().into_owned());
     }
 }
 
@@ -159,8 +208,10 @@ impl Engine for PgEngine {
         let aside = self
             .root
             .with_file_name(format!("{name}.discarded-{stamp}"));
-        std::fs::rename(&self.root, aside)
-            .map_err(|e| PgError::local(format!("could not move the database aside: {e}")))
+        std::fs::rename(&self.root, &aside)
+            .map_err(|e| PgError::local(format!("could not move the database aside: {e}")))?;
+        self.keep_aside_at(&aside);
+        Ok(())
     }
 
     async fn dump(&self, server: &PgServer, file: PathBuf) -> Result<(), PgError> {
@@ -180,6 +231,13 @@ impl Engine for PgEngine {
 
     fn recreated_empty(&self) -> bool {
         self.recreated.load(Ordering::Acquire)
+    }
+
+    fn kept_aside(&self) -> Option<String> {
+        self.kept_aside
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 }
 
@@ -525,6 +583,7 @@ impl<E: Engine> PgHost<E> {
             data_dir: self.engine.data_dir(),
             restored_from: self.engine.restored_from(),
             recreated_empty: self.engine.recreated_empty(),
+            kept_aside: self.engine.kept_aside(),
         }
     }
 
@@ -983,6 +1042,8 @@ mod tests {
         let engine = PgEngine::new(PathBuf::new(), root.clone(), None);
         engine.discard().map_err(|e| e.message)?;
         assert!(!root.exists());
+        let kept = engine.kept_aside().ok_or("the moved dir is reported")?;
+        assert!(Path::new(&kept).join("data").join("PG_VERSION").is_file());
         let moved: Vec<_> = std::fs::read_dir(&tmp)
             .map_err(|e| e.to_string())?
             .filter_map(Result::ok)
@@ -1065,9 +1126,75 @@ mod tests {
         let tmp = lost_tmp("no-cluster");
         let root = tmp.join("local-pg");
         std::fs::create_dir_all(root.join("data")).unwrap_or_default();
+        std::fs::write(root.join("data").join("marker"), b"old").unwrap_or_default();
         let engine = PgEngine::new(PathBuf::new(), root.clone(), None);
         assert!(engine.restore_if_missing().await.unwrap_or(false));
-        assert!(root.join("data").is_dir(), "the old data dir must survive");
+        assert!(!root.join("data").exists(), "the old data dir is moved out of the way");
+        let aside = PathBuf::from(engine.kept_aside().unwrap_or_default());
+        assert!(aside.starts_with(&root), "the old data is kept under the root");
+        assert!(
+            aside.join("marker").is_file(),
+            "the reported path still holds the old files"
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    /// A loader for the restore tests: the pinned copy fails to load, rotated dumps load with the
+    /// user rows `has_rows` says. No Postgres is started.
+    async fn stub_load(scratch: PathBuf, dump: PathBuf, has_rows: bool) -> Result<bool, PgError> {
+        use super::super::backup::PINNED;
+        if dump.file_name().is_some_and(|n| n == PINNED) {
+            return Err(PgError::local("pg_restore failed: pinned"));
+        }
+        std::fs::create_dir_all(scratch.join("data")).map_err(|e| PgError::local(e.to_string()))?;
+        Ok(has_rows)
+    }
+
+    #[tokio::test]
+    async fn an_empty_rotation_dump_never_overwrites_the_pinned_good_copy() {
+        use super::super::backup::PINNED;
+        let tmp = lost_tmp("empty-rotation");
+        let root = tmp.join("local-pg");
+        let dir = tmp.join("backups");
+        std::fs::create_dir_all(&dir).unwrap_or_default();
+        std::fs::write(dir.join("local-pg-2026-11-16T000000.dump"), b"empty").unwrap_or_default();
+        std::fs::write(dir.join(PINNED), b"good").unwrap_or_default();
+        let engine = PgEngine::new(
+            PathBuf::new(),
+            root.clone(),
+            Some(Backups::new(vec![dir.clone()])),
+        );
+        let lost = engine
+            .restore_with(|scratch, dump| stub_load(scratch, dump, false))
+            .await;
+        assert!(!lost.unwrap_or(true), "an empty rotation dump restores, it is not lost data");
+        assert!(root.join("data").is_dir(), "the empty database is restored");
+        assert_eq!(
+            std::fs::read(dir.join(PINNED)).unwrap_or_default(),
+            b"good",
+            "the pinned copy is unchanged"
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn a_restored_dump_with_rows_is_pinned() {
+        use super::super::backup::PINNED;
+        let tmp = lost_tmp("pin-with-rows");
+        let root = tmp.join("local-pg");
+        let dir = tmp.join("backups");
+        std::fs::create_dir_all(&dir).unwrap_or_default();
+        std::fs::write(dir.join("local-pg-2026-11-16T000000.dump"), b"rows").unwrap_or_default();
+        let engine = PgEngine::new(
+            PathBuf::new(),
+            root.clone(),
+            Some(Backups::new(vec![dir.clone()])),
+        );
+        let lost = engine
+            .restore_with(|scratch, dump| stub_load(scratch, dump, true))
+            .await;
+        assert!(!lost.unwrap_or(true));
+        assert_eq!(std::fs::read(dir.join(PINNED)).unwrap_or_default(), b"rows");
         let _ = std::fs::remove_dir_all(&tmp);
     }
 

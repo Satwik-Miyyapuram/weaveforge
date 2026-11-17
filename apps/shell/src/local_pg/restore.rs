@@ -38,10 +38,18 @@ pub fn clear_leftovers(root: &Path) {
     }
 }
 
+/// The dump a restore rebuilt `root` from, and whether that database holds user rows. A restore
+/// with `has_data` false is an empty database: the caller must not treat its dump as a good backup.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Restored {
+    pub dump: PathBuf,
+    pub has_data: bool,
+}
+
 /// Tries `dumps` newest first, loading each into a scratch folder with `load`, which returns whether
 /// the loaded database holds user data. The first with data is renamed to `root` and returned. A
 /// newest dump that is empty never wins over an older one with data: when no dump has data, the
-/// newest that loaded is restored. `None` when none loaded.
+/// newest that loaded is restored with `has_data` false. `None` when none loaded.
 ///
 /// # Errors
 /// `root` already exists (a restore never replaces data), or the rename into place failed.
@@ -49,7 +57,7 @@ pub async fn restore_newest_good<F, Fut>(
     root: &Path,
     dumps: &[PathBuf],
     load: F,
-) -> Result<Option<PathBuf>, PgError>
+) -> Result<Option<Restored>, PgError>
 where
     F: Fn(PathBuf, PathBuf) -> Fut,
     Fut: Future<Output = Result<bool, PgError>>,
@@ -73,7 +81,10 @@ where
                     let _ = std::fs::remove_dir_all(&spare);
                 }
                 move_into(&dir, root)?;
-                return Ok(Some(dump.clone()));
+                return Ok(Some(Restored {
+                    dump: dump.clone(),
+                    has_data: true,
+                }));
             }
             Ok(false) if empty.is_none() => empty = Some((dir, dump.clone())),
             _ => {
@@ -84,7 +95,10 @@ where
     match empty {
         Some((dir, dump)) => {
             move_into(&dir, root)?;
-            Ok(Some(dump))
+            Ok(Some(Restored {
+                dump,
+                has_data: false,
+            }))
         }
         None => Ok(None),
     }
@@ -180,7 +194,9 @@ mod tests {
             }
         })
         .await?;
-        assert_eq!(got, Some(dumps[1].clone()));
+        let got = got.ok_or_else(|| PgError::local("nothing restored"))?;
+        assert_eq!(got.dump, dumps[1]);
+        assert!(got.has_data);
         assert_eq!(*tried.borrow(), dumps[..2]);
         let from = std::fs::read_to_string(root.join("data").join("from")).map_err(|e| io(&e))?;
         assert!(from.ends_with("mid.dump"));
@@ -201,9 +217,9 @@ mod tests {
         let root = tmp.join("local-pg");
         std::fs::create_dir_all(&tmp).map_err(|e| io(&e))?;
         let fail = |_dir: PathBuf, _dump: PathBuf| async { Err(PgError::local("broken")) };
-        assert_eq!(restore_newest_good(&root, &[], fail).await?, None);
+        assert!(restore_newest_good(&root, &[], fail).await?.is_none());
         let dumps = [tmp.join("a.dump")];
-        assert_eq!(restore_newest_good(&root, &dumps, fail).await?, None);
+        assert!(restore_newest_good(&root, &dumps, fail).await?.is_none());
         assert!(!root.exists());
         let _ = std::fs::remove_dir_all(&tmp);
         Ok(())
@@ -238,7 +254,9 @@ mod tests {
             Ok(dump.ends_with("old.dump"))
         })
         .await?;
-        assert_eq!(got, Some(dumps[1].clone()));
+        let got = got.ok_or_else(|| PgError::local("nothing restored"))?;
+        assert_eq!(got.dump, dumps[1]);
+        assert!(got.has_data);
         let from = std::fs::read_to_string(root.join("data").join("from")).map_err(|e| io(&e))?;
         assert!(from.ends_with("old.dump"));
         let _ = std::fs::remove_dir_all(&tmp);
@@ -256,7 +274,9 @@ mod tests {
             Ok(false)
         })
         .await?;
-        assert_eq!(got, Some(dumps[0].clone()));
+        let got = got.ok_or_else(|| PgError::local("nothing restored"))?;
+        assert_eq!(got.dump, dumps[0]);
+        assert!(!got.has_data);
         assert!(root.join("data").is_dir());
         let names: Vec<String> = std::fs::read_dir(&tmp)
             .map_err(|e| io(&e))?
@@ -314,7 +334,9 @@ mod tests {
                 load_dump(bin, &dir, &dump).await
             })
             .await?;
-        assert_eq!(from, Some(dump));
+        let from = from.ok_or_else(|| PgError::local("nothing restored"))?;
+        assert_eq!(from.dump, dump);
+        assert!(from.has_data);
         let server = PgServer::start(bin, &root).await?;
         let mut conn = server.connect().await?;
         let rows = conn

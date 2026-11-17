@@ -23,6 +23,8 @@ pub fn archive(root: &Path) -> io::Result<Vec<u8>> {
             continue;
         }
         let data = fs::read(&path)?;
+        let size = fs::metadata(&path)?.len();
+        check_read(&name, size, &data)?;
         let mtime = fs::metadata(&path)?
             .modified()
             .ok()
@@ -34,6 +36,18 @@ pub fn archive(root: &Path) -> io::Result<Vec<u8>> {
     }
     out.resize(out.len() + 1024, 0);
     Ok(out)
+}
+
+/// Refuses a read that came back shorter than the file's size, the same check the migrate copy
+/// makes, so a file that changed or was cut short is never archived as if it were whole.
+fn check_read(name: &str, size: u64, data: &[u8]) -> io::Result<()> {
+    if data.len() as u64 == size {
+        return Ok(());
+    }
+    Err(io::Error::new(
+        io::ErrorKind::UnexpectedEof,
+        format!("read {} of {size} bytes of {name}", data.len()),
+    ))
 }
 
 /// Reads the old dir at `dir` as a tar for PGlite. Refuses a missing dir and a dir from another
@@ -215,5 +229,13 @@ mod tests {
         fs::write(dir.join("PG_VERSION"), "16\n").unwrap();
         let err = read_old_db(&dir).unwrap_err();
         assert!(err.to_string().contains("PostgreSQL 16"), "{err}");
+    }
+
+    #[test]
+    fn a_short_read_is_an_error_and_a_full_one_passes() {
+        assert!(check_read("base/1/rows", 8, b"row data").is_ok());
+        let err = check_read("base/1/rows", 8, b"row").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::UnexpectedEof);
+        assert!(err.to_string().contains("read 3 of 8 bytes"), "{err}");
     }
 }
