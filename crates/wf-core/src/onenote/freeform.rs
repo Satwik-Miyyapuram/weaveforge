@@ -173,6 +173,13 @@ fn bound(value: f64) -> f64 {
     value.round().clamp(-COORD_LIMIT, COORD_LIMIT)
 }
 
+/// Stroke pressure 0..=255 as the canvas stores it.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn pressure_byte(value: f64) -> u8 {
+    // The clamp keeps the value in 0..=255, so the cast is exact.
+    value.round().clamp(0.0, 255.0) as u8
+}
+
 /// Strokes of an ink page placed at `origin` (0.1 mm on the OneNote page), in canvas
 /// pixels. Points that are not finite are dropped; a stroke left with no points is dropped.
 #[must_use]
@@ -182,9 +189,9 @@ pub fn ink_strokes(origin: (f64, f64), page: &InkPage, id_prefix: &str) -> Vec<F
         .enumerate()
         .filter_map(|(index, stroke)| {
             let id = format!("{id_prefix}-{}", index + 1);
-            let points: Vec<(f64, f64)> = stroke
-                .points
-                .chunks_exact(2)
+            let (pairs, _) = stroke.points.as_chunks::<2>();
+            let points: Vec<(f64, f64)> = pairs
+                .iter()
                 .map(|pair| (px(origin.0 + pair[0]), px(origin.1 + pair[1])))
                 .collect();
             if points.is_empty()
@@ -201,11 +208,7 @@ pub fn ink_strokes(origin: (f64, f64), page: &InkPage, id_prefix: &str) -> Vec<F
                 .flat_map(|&(px_x, px_y)| [tenths_from(px_x - x), tenths_from(px_y - y)])
                 .collect();
             let r = if stroke.pressures.len() == points.len() {
-                stroke
-                    .pressures
-                    .iter()
-                    .map(|v| v.round().clamp(0.0, 255.0) as u8)
-                    .collect()
+                stroke.pressures.iter().map(|&v| pressure_byte(v)).collect()
             } else {
                 Vec::new()
             };

@@ -22,6 +22,7 @@ pub use freeform::{LayoutKind, OneNoteLayoutItem, freeform_canvas, ink_strokes};
 
 /// Canvas text for a freeform page: `layout` pieces, each image's vault path in
 /// `files`, and every ink page's strokes placed at its origin on the page.
+#[must_use]
 pub fn freeform_page_text(
     layout: &[OneNoteLayoutItem],
     files: &std::collections::BTreeMap<String, String>,
