@@ -76,9 +76,9 @@ test("GitHub sync counts as connected only with a saved URL and a held token", a
   assert.equal(await githubSyncConnected(), false, "token without a URL");
 });
 
-test("GitHub sync fails closed: when the shell cannot answer, it counts as connected", async () => {
+test("GitHub sync fails closed: when the shell cannot answer, it throws rather than answering", async () => {
   fakeShell(() => Promise.reject(new Error("bridge went away")));
-  assert.equal(await githubSyncConnected(), true);
+  await assert.rejects(githubSyncConnected(), /bridge went away/);
 });
 
 test("saving checks the URL first and stores nothing when it is not https", async () => {
