@@ -1,5 +1,7 @@
 "use client";
 
+import type { DesktopSecretName } from "./desktop-secret-name";
+
 /**
  * What the desktop build adds, and how the web build asks whether it is there.
  *
@@ -745,19 +747,7 @@ export interface DesktopVaultEntry {
   modifiedAt: string;
 }
 
-/**
- * The secrets the page may name. Mirrored in `apps/shell/src/secrets.rs`
- * (`PAGE_WRITABLE`), which also keeps `local-api-token` for the shell alone, and lets the page
- * write but never read back `overleaf-token` or `git-sync-token`. The workspace names are kept
- * per open workspace and need one to be open.
- */
-export type DesktopSecretName =
-  | "ai-provider"
-  | "overleaf-token"
-  | "git-sync-token"
-  | "zotero-api-key"
-  | "mattermost-token"
-  | "repo-link-token";
+export type { DesktopSecretName } from "./desktop-secret-name";
 
 /**
  * The shell preferences the page may write. Equal to `PAGE_WRITABLE` in
