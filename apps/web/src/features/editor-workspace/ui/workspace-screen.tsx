@@ -701,7 +701,6 @@ export function WorkspaceScreen() {
     : {};
 
   if (breakpoint === "phone") return <OpenOnLargerScreen what="The workspace" />;
-
   return (
     <div
       className={`workspace-shell${explorerHidden ? " is-explorer-hidden" : ""}${focus ? " is-focus" : ""}${phone ? " is-phone" : ""}`}
