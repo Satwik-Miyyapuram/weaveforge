@@ -38,8 +38,10 @@ pub fn clear_leftovers(root: &Path) {
     }
 }
 
-/// Tries `dumps` in order, loading each into a scratch folder with `load`; the first that loads is
-/// renamed to `root` and returned. `None` when there were none or every one failed.
+/// Tries `dumps` newest first, loading each into a scratch folder with `load`, which returns whether
+/// the loaded database holds user data. The first with data is renamed to `root` and returned. A
+/// newest dump that is empty never wins over an older one with data: when no dump has data, the
+/// newest that loaded is restored. `None` when none loaded.
 ///
 /// # Errors
 /// `root` already exists (a restore never replaces data), or the rename into place failed.
@@ -50,7 +52,7 @@ pub async fn restore_newest_good<F, Fut>(
 ) -> Result<Option<PathBuf>, PgError>
 where
     F: Fn(PathBuf, PathBuf) -> Fut,
-    Fut: Future<Output = Result<(), PgError>>,
+    Fut: Future<Output = Result<bool, PgError>>,
 {
     if root.exists() {
         return Err(PgError::local(format!(
@@ -61,31 +63,56 @@ where
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_millis());
+    // The newest dump that loaded but held no user data, kept only while no later one has data.
+    let mut empty: Option<(PathBuf, PathBuf)> = None;
     for (i, dump) in dumps.iter().enumerate() {
         let dir = scratch(root, stamp, i);
-        if load(dir.clone(), dump.clone()).await.is_ok() {
-            std::fs::rename(&dir, root).map_err(|e| {
-                PgError::local(format!("could not move the restored database in: {e}"))
-            })?;
-            return Ok(Some(dump.clone()));
+        match load(dir.clone(), dump.clone()).await {
+            Ok(true) => {
+                if let Some((spare, _)) = empty.take() {
+                    let _ = std::fs::remove_dir_all(&spare);
+                }
+                move_into(&dir, root)?;
+                return Ok(Some(dump.clone()));
+            }
+            Ok(false) if empty.is_none() => empty = Some((dir, dump.clone())),
+            _ => {
+                let _ = std::fs::remove_dir_all(&dir);
+            }
         }
-        let _ = std::fs::remove_dir_all(&dir);
     }
-    Ok(None)
+    match empty {
+        Some((dir, dump)) => {
+            move_into(&dir, root)?;
+            Ok(Some(dump))
+        }
+        None => Ok(None),
+    }
 }
 
+fn move_into(dir: &Path, root: &Path) -> Result<(), PgError> {
+    std::fs::rename(dir, root)
+        .map_err(|e| PgError::local(format!("could not move the restored database in: {e}")))
+}
+
+/// Rows in the public tables other than the migrations ledger: a dump of an emptied database must
+/// not count as the user's data.
+const USER_ROWS_SQL: &str = "select coalesce(sum(n), 0)::text from (select (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from %I.%I', n.nspname, c.relname), false, true, '')))[1]::text::bigint as n from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relname <> 'weaveforge_migrations') t";
+
 /// Loads `dump` into a new cluster under `dir` and checks it answers; the server is stopped either way.
+/// Returns whether the database holds user rows.
 ///
 /// # Errors
-/// Any step's error: initdb, start, the roles, `pg_restore`, or the check query.
-pub async fn load_dump(bin: &Path, dir: &Path, dump: &Path) -> Result<(), PgError> {
+/// Any step's error: initdb, start, the roles, `pg_restore`, or the check queries.
+pub async fn load_dump(bin: &Path, dir: &Path, dump: &Path) -> Result<bool, PgError> {
     let server = PgServer::start(bin, dir).await?;
     let result = load_into(&server, dump).await;
     let stopped = server.stop().await;
-    result.and(stopped)
+    let has_data = result?;
+    stopped.map(|()| has_data)
 }
 
-async fn load_into(server: &PgServer, dump: &Path) -> Result<(), PgError> {
+async fn load_into(server: &PgServer, dump: &Path) -> Result<bool, PgError> {
     let mut conn = server.connect().await?;
     let roles = conn.exec(db::ROLES_SQL).await;
     let _ = conn.close().await;
@@ -94,10 +121,19 @@ async fn load_into(server: &PgServer, dump: &Path) -> Result<(), PgError> {
     let mut conn = server.connect().await?;
     let check = conn
         .query("select count(*) from weaveforge_migrations", &[])
-        .await
-        .map(|_| ());
+        .await;
+    let rows = match check {
+        Ok(_) => conn.query(USER_ROWS_SQL, &[]).await,
+        Err(err) => Err(err),
+    };
     let _ = conn.close().await;
-    check
+    let rows = rows?;
+    let count = rows
+        .rows
+        .first()
+        .and_then(|r| r.first().cloned().flatten())
+        .unwrap_or_default();
+    Ok(count.parse::<i64>().unwrap_or(0) > 0)
 }
 
 #[cfg(test)]
@@ -139,7 +175,8 @@ mod tests {
                     dir.join("data").join("from"),
                     dump.to_string_lossy().as_bytes(),
                 )
-                .map_err(|e| io(&e))
+                .map_err(|e| io(&e))?;
+                Ok(true)
             }
         })
         .await?;
@@ -177,10 +214,56 @@ mod tests {
         let tmp = temp("over");
         let root = tmp.join("local-pg");
         std::fs::create_dir_all(root.join("data")).map_err(|e| io(&e))?;
-        let ok = |_dir: PathBuf, _dump: PathBuf| async { Ok(()) };
+        let ok = |_dir: PathBuf, _dump: PathBuf| async { Ok(true) };
         let got = restore_newest_good(&root, &[tmp.join("a.dump")], ok).await;
         assert!(got.is_err_and(|e| e.message.starts_with("refusing to restore over")));
         assert!(root.join("data").is_dir());
+        let _ = std::fs::remove_dir_all(&tmp);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn an_empty_newest_dump_yields_to_an_older_one_with_data() -> Result<(), PgError> {
+        let tmp = temp("empty-newest");
+        let root = tmp.join("local-pg");
+        std::fs::create_dir_all(&tmp).map_err(|e| io(&e))?;
+        let dumps = [tmp.join("new.dump"), tmp.join("old.dump")];
+        let got = restore_newest_good(&root, &dumps, |dir, dump| async move {
+            std::fs::create_dir_all(dir.join("data")).map_err(|e| io(&e))?;
+            std::fs::write(
+                dir.join("data").join("from"),
+                dump.to_string_lossy().as_bytes(),
+            )
+            .map_err(|e| io(&e))?;
+            Ok(dump.ends_with("old.dump"))
+        })
+        .await?;
+        assert_eq!(got, Some(dumps[1].clone()));
+        let from = std::fs::read_to_string(root.join("data").join("from")).map_err(|e| io(&e))?;
+        assert!(from.ends_with("old.dump"));
+        let _ = std::fs::remove_dir_all(&tmp);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn when_no_dump_has_data_the_newest_loaded_one_is_kept() -> Result<(), PgError> {
+        let tmp = temp("all-empty");
+        let root = tmp.join("local-pg");
+        std::fs::create_dir_all(&tmp).map_err(|e| io(&e))?;
+        let dumps = [tmp.join("new.dump"), tmp.join("old.dump")];
+        let got = restore_newest_good(&root, &dumps, |dir, _dump| async move {
+            std::fs::create_dir_all(dir.join("data")).map_err(|e| io(&e))?;
+            Ok(false)
+        })
+        .await?;
+        assert_eq!(got, Some(dumps[0].clone()));
+        assert!(root.join("data").is_dir());
+        let names: Vec<String> = std::fs::read_dir(&tmp)
+            .map_err(|e| io(&e))?
+            .filter_map(|e| e.ok()?.file_name().into_string().ok())
+            .filter(|n| n.starts_with("local-pg"))
+            .collect();
+        assert_eq!(names, ["local-pg"]);
         let _ = std::fs::remove_dir_all(&tmp);
         Ok(())
     }

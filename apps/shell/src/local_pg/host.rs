@@ -59,6 +59,12 @@ pub trait Engine: Send + Sync {
     fn restored_from(&self) -> Option<String> {
         None
     }
+
+    /// Whether this run started an empty database over data that was lost: backups existed but
+    /// none loaded, or the data dir was there without a cluster. The page must say so.
+    fn recreated_empty(&self) -> bool {
+        false
+    }
 }
 
 /// The real engine: a private Postgres server under `root`, from the binaries in `bin`.
@@ -67,6 +73,7 @@ pub struct PgEngine {
     root: PathBuf,
     backups: Option<Backups>,
     restored: Mutex<Option<String>>,
+    recreated: AtomicBool,
 }
 
 impl PgEngine {
@@ -79,24 +86,25 @@ impl PgEngine {
             root,
             backups,
             restored: Mutex::new(None),
+            recreated: AtomicBool::new(false),
         }
     }
 
-    /// Rebuilds `root` from a backup when it has no database; a fresh one starts when no backup
-    /// loads, as the sidecar did. The backups are left as they are either way.
-    async fn restore_if_missing(&self) -> Result<(), PgError> {
+    /// Rebuilds `root` from the newest backup that holds data, when it has no database. Returns
+    /// `true` when data was lost: a new database starts empty over it (no backup loads, or the
+    /// data dir is there without a cluster). A fresh install with no backups returns `false`.
+    /// The backups are left as they are either way.
+    async fn restore_if_missing(&self) -> Result<bool, PgError> {
         super::restore::clear_leftovers(&self.root);
-        let Some(backups) = &self.backups else {
-            return Ok(());
-        };
         if self.root.join("data").join("PG_VERSION").is_file() {
-            return Ok(());
+            return Ok(false);
         }
-        let dumps = backups.all();
+        // A data dir with no cluster (a failed first start, say) is kept aside, never deleted.
+        let had_data = self.root.join("data").exists();
+        let dumps = self.backups.as_ref().map(Backups::all).unwrap_or_default();
         if dumps.is_empty() {
-            return Ok(());
+            return Ok(had_data);
         }
-        // A root with no database (a failed first start, say) is kept aside, never deleted.
         self.discard()?;
         let bin = &self.bin;
         let from =
@@ -104,11 +112,14 @@ impl PgEngine {
                 super::restore::load_dump(bin, &dir, &dump).await
             })
             .await?;
-        if let Some(from) = from {
-            *self.restored.lock().unwrap_or_else(PoisonError::into_inner) =
-                Some(from.to_string_lossy().into_owned());
+        match from {
+            Some(from) => {
+                *self.restored.lock().unwrap_or_else(PoisonError::into_inner) =
+                    Some(from.to_string_lossy().into_owned());
+                Ok(false)
+            }
+            None => Ok(true),
         }
-        Ok(())
     }
 }
 
@@ -117,7 +128,8 @@ impl Engine for PgEngine {
     type Handle = PgServer;
 
     async fn open(&self) -> Result<(PgConn, PgServer), PgError> {
-        self.restore_if_missing().await?;
+        let lost = self.restore_if_missing().await?;
+        self.recreated.store(lost, Ordering::Release);
         let server = PgServer::start(&self.bin, &self.root).await?;
         match server.connect().await {
             Ok(conn) => Ok((conn, server)),
@@ -164,6 +176,10 @@ impl Engine for PgEngine {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
+    }
+
+    fn recreated_empty(&self) -> bool {
+        self.recreated.load(Ordering::Acquire)
     }
 }
 
@@ -508,6 +524,7 @@ impl<E: Engine> PgHost<E> {
             failure: self.failure(),
             data_dir: self.engine.data_dir(),
             restored_from: self.engine.restored_from(),
+            recreated_empty: self.engine.recreated_empty(),
         }
     }
 
@@ -1018,5 +1035,58 @@ mod tests {
         assert!(!marker.exists());
         let _ = std::fs::remove_dir_all(&dir);
         Ok(())
+    }
+
+    fn lost_tmp(name: &str) -> PathBuf {
+        let tmp = std::env::temp_dir().join(format!(
+            "wf-host-lost-{name}-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos())
+        ));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap_or_default();
+        tmp
+    }
+
+    #[tokio::test]
+    async fn a_fresh_install_with_no_backups_is_not_flagged() {
+        let tmp = lost_tmp("fresh");
+        let root = tmp.join("local-pg");
+        let engine = PgEngine::new(PathBuf::new(), root.clone(), None);
+        assert!(!engine.restore_if_missing().await.unwrap_or(true));
+        assert!(!root.join("data").exists());
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn a_data_dir_without_a_cluster_is_flagged_and_kept() {
+        let tmp = lost_tmp("no-cluster");
+        let root = tmp.join("local-pg");
+        std::fs::create_dir_all(root.join("data")).unwrap_or_default();
+        let engine = PgEngine::new(PathBuf::new(), root.clone(), None);
+        assert!(engine.restore_if_missing().await.unwrap_or(false));
+        assert!(root.join("data").is_dir(), "the old data dir must survive");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn a_backup_that_fails_to_load_is_flagged_and_left_in_place() {
+        let tmp = lost_tmp("bad-restore");
+        let root = tmp.join("local-pg");
+        let backups_dir = tmp.join("backups");
+        std::fs::create_dir_all(&backups_dir).unwrap_or_default();
+        let dump = backups_dir.join("local-pg-2026-11-16T000000.dump");
+        std::fs::write(&dump, b"not a dump").unwrap_or_default();
+        let engine = PgEngine::new(
+            tmp.join("no-such-bin"),
+            root.clone(),
+            Some(Backups::new(vec![backups_dir.clone()])),
+        );
+        assert!(engine.restore_if_missing().await.unwrap_or(false));
+        assert!(!root.join("data").join("PG_VERSION").exists());
+        assert!(dump.is_file(), "a backup that fails to load is never deleted");
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

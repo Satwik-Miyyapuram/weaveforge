@@ -208,6 +208,21 @@ fn take_locks(dirs: &[PathBuf], now: SystemTime) -> io::Result<Result<Locks, Str
     Ok(Ok(taken))
 }
 
+/// A copy that wrote fewer bytes than the source holds is a failed copy: the migration must stop
+/// rather than publish a truncated file as if it had moved.
+fn check_copied(to: &Path, copied: u64, want: u64) -> io::Result<()> {
+    if copied == want {
+        return Ok(());
+    }
+    Err(io::Error::new(
+        io::ErrorKind::UnexpectedEof,
+        format!(
+            "copy to {} wrote {copied} of {want} bytes",
+            to.display()
+        ),
+    ))
+}
+
 /// `fs.cpSync` with `errorOnExist`, `force: false`, `preserveTimestamps`: never overwrites; files keep their times;
 /// symlinks are recreated as links, not followed (so a loop or a dangling link cannot break the copy).
 fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
@@ -229,7 +244,8 @@ fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
             format!("{} exists", to.display()),
         ));
     }
-    let _bytes = fs::copy(from, to)?;
+    let copied = fs::copy(from, to)?;
+    check_copied(to, copied, meta.len())?;
     let mut times = fs::FileTimes::new().set_modified(meta.modified()?);
     if let Ok(accessed) = meta.accessed() {
         times = times.set_accessed(accessed);
@@ -403,6 +419,16 @@ mod tests {
             }
         }
         (data, workspace)
+    }
+
+    #[test]
+    fn a_short_copy_is_an_error_and_a_full_one_passes() {
+        let (dir, _) = temp("copy-check");
+        let to = dir.join("file.bin");
+        assert!(check_copied(&to, 10, 10).is_ok());
+        let err = check_copied(&to, 4, 10).expect_err("a truncated copy must fail");
+        assert_eq!(err.kind(), io::ErrorKind::UnexpectedEof);
+        assert!(err.to_string().contains("4 of 10"));
     }
 
     #[test]

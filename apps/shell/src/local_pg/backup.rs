@@ -18,6 +18,8 @@ const SUFFIX: &str = ".dump";
 pub const DEFAULT_KEEP: usize = 3;
 /// Beyond those, the newest of this many most recent days.
 pub const DAILY_KEEP: usize = 7;
+/// Beyond those, the newest of this many most recent weeks (seven-day spans from the epoch).
+pub const WEEKLY_KEEP: usize = 8;
 
 /// The file a backup taken at `now` is named: UTC, sortable, legal everywhere.
 #[must_use]
@@ -48,6 +50,20 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
     (yoe + era * 400 + i64::from(month <= 2), month, day)
 }
 
+/// Days since the epoch of a `YYYY-MM-DD` stamp (Hinnant's `days_from_civil`); `None` if malformed.
+fn day_number(day: &str) -> Option<i64> {
+    let y: i64 = day.get(0..4)?.parse().ok()?;
+    let m: i64 = day.get(5..7)?.parse().ok()?;
+    let d: i64 = day.get(8..10)?.parse().ok()?;
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let mp = if m > 2 { m - 3 } else { m + 9 };
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    Some(era * 146_097 + doe - 719_468)
+}
+
 fn is_backup(name: &str) -> bool {
     name.starts_with(PREFIX) && name.ends_with(SUFFIX)
 }
@@ -75,6 +91,8 @@ pub struct Backups {
     pub keep: usize,
     /// Beyond those, the newest of this many most recent days.
     pub daily_keep: usize,
+    /// Beyond those, the newest of this many most recent weeks, so a month-old good backup survives.
+    pub weekly_keep: usize,
 }
 
 impl Backups {
@@ -85,6 +103,7 @@ impl Backups {
             dirs,
             keep: DEFAULT_KEEP,
             daily_keep: DAILY_KEEP,
+            weekly_keep: WEEKLY_KEEP,
         }
     }
 
@@ -148,10 +167,18 @@ impl Backups {
         let files = list(dir);
         let mut kept: Vec<&PathBuf> = files.iter().take(self.keep).collect();
         let mut days: Vec<String> = Vec::new();
+        let mut weeks: Vec<i64> = Vec::new();
         for file in &files {
-            // `local-pg-YYYY-MM-DD…`: newest first, so the first seen of a day is its newest.
+            // `local-pg-YYYY-MM-DD…`: newest first, so the first seen of a day or week is its newest.
             let name = file.file_name().and_then(|n| n.to_str()).unwrap_or("");
             let day: String = name.chars().skip(PREFIX.len()).take(10).collect();
+            if let Some(number) = day_number(&day) {
+                let week = number.div_euclid(7);
+                if !weeks.contains(&week) && weeks.len() < self.weekly_keep {
+                    weeks.push(week);
+                    kept.push(file);
+                }
+            }
             if days.contains(&day) || days.len() >= self.daily_keep {
                 continue;
             }
@@ -270,6 +297,7 @@ mod tests {
             dirs: vec![dir.clone()],
             keep: 2,
             daily_keep: 3,
+            weekly_keep: 0,
         };
         // Two a day for five days; times sort by name.
         for day in 0..5 {
@@ -292,5 +320,40 @@ mod tests {
         assert_eq!(kept, want);
         let _ = std::fs::remove_dir_all(&dir);
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn keeps_the_newest_of_the_recent_weeks_beyond_the_daily_tier() -> Result<(), PgError> {
+        const DAY: u64 = 86_400;
+        let dir = temp("weekly");
+        let backups = Backups {
+            dirs: vec![dir.clone()],
+            keep: 1,
+            daily_keep: 0,
+            weekly_keep: 3,
+        };
+        // One a week for ten weeks: only the newest three weeks survive.
+        for week in 0..10 {
+            let _ = backups
+                .take(at(week * 7 * DAY + 3_600), write_dump)
+                .await?;
+        }
+        let kept = names(&list(&dir));
+        let want: Vec<String> = [9, 8, 7]
+            .iter()
+            .map(|w| file_name(at(w * 7 * DAY + 3_600)))
+            .collect();
+        assert_eq!(kept, want);
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[test]
+    fn day_numbers_follow_the_calendar() {
+        assert_eq!(day_number("1970-01-01"), Some(0));
+        assert_eq!(day_number("1970-01-02"), Some(1));
+        assert_eq!(day_number("2000-03-01"), Some(11_017));
+        assert_eq!(day_number("2026-11-05"), Some(20_762));
+        assert_eq!(day_number("nope"), None);
     }
 }

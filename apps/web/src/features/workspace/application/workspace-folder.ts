@@ -15,6 +15,7 @@ import {
   IsomorphicWorkspaceGit,
 } from "../infrastructure/parts";
 import { folderLock } from "./folder-lock";
+import { LOST_DB_SYNC_MESSAGE, folderWriteBlockedByLostDb } from "./folder-lost-db-guard";
 import {
   restTableReader,
   restTableStore,
@@ -312,7 +313,6 @@ export function syncToFolder(): Promise<SyncOutcome> {
   return folderLock.run(runSyncToFolder);
 }
 
-
 function liveImportSeams(): ImportSeams {
   return {
     store: restTableStore(getDataClient()),
@@ -333,6 +333,7 @@ export function applyReviewedImport(
 
 async function runSyncToFolder(): Promise<SyncOutcome> {
   if (!activeFs) throw new Error("No folder is connected.");
+  if (folderWriteBlockedByLostDb(await desktop()?.localDbState())) throw new Error(LOST_DB_SYNC_MESSAGE);
   const fs = activeFs;
   const container = getContainer();
   const project = await activeProject();

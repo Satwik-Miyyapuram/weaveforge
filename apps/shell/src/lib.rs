@@ -385,7 +385,7 @@ fn native_db(
 }
 
 /// How often the native database is backed up while it changes.
-const BACKUP_EVERY: std::time::Duration = std::time::Duration::from_secs(600);
+const BACKUP_EVERY: std::time::Duration = std::time::Duration::from_secs(120);
 
 /// Backs up the native database every `BACKUP_EVERY` when it changed; quitting takes the last one.
 fn spawn_backups(app: &tauri::AppHandle, host: &commands::NativeDb) {
