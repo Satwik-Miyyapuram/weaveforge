@@ -190,8 +190,9 @@ function pgliteStore(db: TestDb): SyncTableStore {
       const rows = await db.sql<{ n: number }>(`select count(*)::int as n from ${table}`);
       return rows[0]?.n === 0;
     },
-    async rows(table: SyncTable) {
-      return db.sql<SyncRow>(`select * from ${table}`);
+    async rows(table: SyncTable, columns: readonly string[]) {
+      const list = columns.map((c) => `"${c}"`).join(", ");
+      return db.sql<SyncRow>(`select ${list} from ${table}`);
     },
     async insert(table: SyncTable, rows: SyncRow[]) {
       const cols = [...new Set(rows.flatMap((row) => Object.keys(row)))];
@@ -277,7 +278,7 @@ test("a clone restores the tables first, then diffs the folder against the resto
   const inner = pgliteStore(dst);
   const store: SyncTableStore = {
     isEmpty: (table) => inner.isEmpty(table),
-    rows: (table) => inner.rows(table),
+    rows: (table, columns) => inner.rows(table, columns),
     insert: async (table, batch) => {
       events.push(`insert:${table}`);
       await inner.insert(table, batch);

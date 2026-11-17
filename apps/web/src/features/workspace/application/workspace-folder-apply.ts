@@ -7,7 +7,15 @@
 import type { IWorkspaceFs } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
 import { activeProject } from "./parts";
-import { SYNC_TABLES, syncTableFile, syncTableRowsFromFolder, type SyncRow, type SyncTable } from "./sync-tables";
+import {
+  RestoreRefusedError,
+  SYNC_TABLES,
+  syncTableFile,
+  syncTableRowsFromFolder,
+  type RestoreConflict,
+  type SyncRow,
+  type SyncTable,
+} from "./sync-tables";
 import {
   restoreThenImport,
   type FolderImportDiff,
@@ -21,10 +29,11 @@ import {
 const RESTORE_MARKER = ".weaveforge/restore-pending.json";
 
 /**
- * The restore marker at the workspace root. The restore covers every project, so the
- * marker is not per project: a restore that stopped partway resumes whichever project is
- * open. The folder is looked up on each call, so the seam can be built before a folder is
- * connected; with no folder, nothing is pending and nothing can be set.
+ * The restore marker at the workspace root. It records the project the restore belongs to,
+ * because the folder's table files are per project: a restore that stopped partway resumes
+ * only when that project is open. The folder is looked up on each call, so the seam can be
+ * built before a folder is connected; with no folder, nothing is pending and nothing can be set.
+ * A marker that cannot be read is treated as no pending restore.
  */
 export function folderRestoreMarker(fs: () => IWorkspaceFs | null): RestoreMarker {
   const markerPath = async (): Promise<{ file: IWorkspaceFs; path: string } | null> => {
@@ -33,15 +42,22 @@ export function folderRestoreMarker(fs: () => IWorkspaceFs | null): RestoreMarke
     return { file, path: RESTORE_MARKER };
   };
   return {
-    async isPending() {
+    async pendingFor() {
       const marker = await markerPath();
-      if (!marker) return false;
-      return (await marker.file.readText(marker.path).catch(() => null)) !== null;
+      if (!marker) return null;
+      const text = await marker.file.readText(marker.path).catch(() => null);
+      if (text === null) return null;
+      try {
+        const projectId = (JSON.parse(text) as { projectId?: unknown }).projectId;
+        return typeof projectId === "string" ? projectId : null;
+      } catch {
+        return null;
+      }
     },
-    async set() {
+    async set(projectId: string) {
       const marker = await markerPath();
       if (!marker) throw new Error("No folder is connected.");
-      await marker.file.writeFile(marker.path, "{}\n");
+      await marker.file.writeFile(marker.path, `${JSON.stringify({ projectId })}\n`);
     },
     async clear() {
       const marker = await markerPath();
@@ -70,20 +86,38 @@ export async function applyReviewedFolderImport(
   seams: ImportSeams,
 ): Promise<FolderImportResult> {
   const tables = await seams.folderTables();
-  // A pending marker means an earlier restore stopped partway: resume it even though the database has rows.
-  const pending = (await seams.restoreMarker?.isPending()) ?? false;
-  const empty = pending || (await Promise.all(SYNC_TABLES.map((t) => seams.store.isEmpty(t)))).every(Boolean);
+  const projectId = await seams.activeProjectId();
+  const pendingFor = (await seams.restoreMarker?.pendingFor()) ?? null;
+  if (pendingFor !== null && pendingFor !== projectId) {
+    // The unfinished restore is another project's. Its folder tables are not this project's, so it stays pending.
+    seams.onRestoreSkipped?.(
+      `A table restore for project ${pendingFor} stopped partway and is not finished. It resumes when that project is open. This project's tables were not restored.`,
+    );
+    return seams.apply(diff, picks);
+  }
+  // A pending marker for this project means an earlier restore stopped partway: resume it even though the database has rows.
+  const empty = pendingFor === projectId || (await Promise.all(SYNC_TABLES.map((t) => seams.store.isEmpty(t)))).every(Boolean);
   if (tables && empty) {
-    await seams.restoreMarker?.set();
-    const result = await restoreThenImport({
-      store: seams.store,
-      tables,
-      preview: seams.preview,
-      apply: (fresh) => seams.apply(fresh, picks),
-      onRestoreConflicts: seams.onRestoreConflicts,
-    });
-    await seams.restoreMarker?.clear();
-    return result;
+    await seams.restoreMarker?.set(projectId);
+    let conflicts: RestoreConflict[] = [];
+    try {
+      const result = await restoreThenImport({
+        store: seams.store,
+        tables,
+        preview: seams.preview,
+        apply: (fresh) => seams.apply(fresh, picks),
+        onRestoreConflicts: (found) => {
+          conflicts = found;
+          seams.onRestoreConflicts?.(found);
+        },
+      });
+      await seams.restoreMarker?.clear();
+      return conflicts.length > 0 ? { ...result, restoreConflicts: conflicts } : result;
+    } catch (error) {
+      // The database refused this restore; retrying it cannot succeed, so the marker goes and Apply stops resuming it.
+      if (error instanceof RestoreRefusedError) await seams.restoreMarker?.clear();
+      throw error;
+    }
   }
   return seams.apply(diff, picks);
 }

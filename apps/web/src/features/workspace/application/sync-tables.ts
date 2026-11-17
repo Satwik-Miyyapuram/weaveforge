@@ -212,8 +212,8 @@ export const OMITTED_GENERATED: Partial<Record<SyncTable, readonly string[]>> = 
 export interface SyncTableStore {
   /** True when the table has no rows for this user yet. */
   isEmpty(table: SyncTable): Promise<boolean>;
-  /** Every row the table holds for this user, whole, so a restore can compare content. */
-  rows(table: SyncTable): Promise<SyncRow[]>;
+  /** Every row the table holds for this user, reading only the named columns. */
+  rows(table: SyncTable, columns: readonly string[]): Promise<SyncRow[]>;
   insert(table: SyncTable, rows: SyncRow[]): Promise<void>;
 }
 
@@ -221,6 +221,20 @@ export interface SyncTableStore {
 export interface RestoreConflict {
   table: SyncTable;
   key: SyncRow;
+}
+
+/**
+ * Columns the server writes on every row (the sync_stamp trigger, migrations 0118/0119).
+ * They are bookkeeping, not content, so a restore never compares them.
+ */
+export const SERVER_STAMPED = ["server_seq", "row_version"] as const;
+
+/** A restore refused because the database holds rows the folder does not have. Nothing was written. */
+export class RestoreRefusedError extends Error {
+  constructor(table: SyncTable) {
+    super(`Cannot restore: ${table} already has rows the folder does not have. Restore into an empty database.`);
+    this.name = "RestoreRefusedError";
+  }
 }
 
 const INSERT_CHUNK = 500;
@@ -235,11 +249,24 @@ function keyFields(row: SyncRow, table: SyncTable): SyncRow {
   return Object.fromEntries(syncKeyColumns(table).map((c) => [c, row[c]]));
 }
 
-/** Key-sorted JSON of a row's content, without the columns the database computes. */
-function contentOf(row: SyncRow, table: SyncTable): string {
-  const omitted = new Set(OMITTED_GENERATED[table] ?? []);
-  const sorted = Object.keys(row).filter((k) => !omitted.has(k)).sort();
-  return JSON.stringify(sorted.map((k) => [k, row[k]]));
+/** The key columns plus the folder's content columns: what a restore reads from the store. */
+function comparedColumns(table: SyncTable, folderRows: SyncRow[]): string[] {
+  const skip = new Set<string>([...(OMITTED_GENERATED[table] ?? []), ...SERVER_STAMPED]);
+  const folderColumns = new Set(folderRows.flatMap((r) => Object.keys(r)));
+  const content = [...folderColumns].filter((c) => !skip.has(c));
+  return [...new Set([...syncKeyColumns(table), ...content])];
+}
+
+/**
+ * True when a stored row and a folder row differ in a column both have. A column only one
+ * side has (added after the export, or not in the folder) is not compared. Server stamps
+ * and database-computed columns never count as content.
+ */
+function contentDiffers(stored: SyncRow, folder: SyncRow, table: SyncTable): boolean {
+  const skip = new Set<string>([...(OMITTED_GENERATED[table] ?? []), ...SERVER_STAMPED]);
+  return Object.keys(stored).some(
+    (k) => !skip.has(k) && k in folder && JSON.stringify(stored[k]) !== JSON.stringify(folder[k]),
+  );
 }
 
 /**
@@ -259,14 +286,15 @@ export async function restoreSyncTables(
   for (const table of SYNC_TABLES) {
     const folderRows = tables[table] ?? [];
     const folderByKey = new Map(folderRows.map((r) => [keyOf(r, table), r]));
-    const stored = await store.rows(table);
+    // An empty table has nothing to compare, so it is not read.
+    const stored = (await store.isEmpty(table)) ? [] : await store.rows(table, comparedColumns(table, folderRows));
     const storedKeys = new Set(stored.map((r) => keyOf(r, table)));
     if ([...storedKeys].some((k) => !folderByKey.has(k))) {
-      throw new Error(`Cannot restore: ${table} already has rows the folder does not have. Restore into an empty database.`);
+      throw new RestoreRefusedError(table);
     }
     for (const row of stored) {
       const folderRow = folderByKey.get(keyOf(row, table));
-      if (folderRow && contentOf(row, table) !== contentOf(folderRow, table)) {
+      if (folderRow && contentDiffers(row, folderRow, table)) {
         conflicts.push({ table, key: keyFields(row, table) });
       }
     }

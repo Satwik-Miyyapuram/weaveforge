@@ -64,16 +64,34 @@ export async function restoreThenImport<T>(input: {
 
 export type FolderImportDiff = Parameters<typeof applyFolderImport>[0];
 export type FolderImportPicks = Parameters<typeof applyFolderImport>[1];
-export type FolderImportResult = Awaited<ReturnType<typeof applyFolderImport>>;
+export type FolderImportResult = Awaited<ReturnType<typeof applyFolderImport>> & {
+  /** Stored rows the restore kept because they differ from the folder. Absent when there are none. */
+  restoreConflicts?: RestoreConflict[];
+};
+
+/** How many conflicting rows a warning names before it counts the rest. */
+const NAMED_CONFLICTS = 20;
 
 /**
- * A restore in progress. Set before the first insert and cleared once the import is
- * applied, so a restore that failed halfway resumes on the next Apply even though the
- * database already holds some of its rows.
+ * A conflict list as one line for a log: the first 20 rows by table and key, then the count
+ * of any left out.
+ */
+export function describeRestoreConflicts(conflicts: RestoreConflict[]): string {
+  const named = conflicts.slice(0, NAMED_CONFLICTS).map((c) => `${c.table} ${JSON.stringify(c.key)}`);
+  const more = conflicts.length - named.length;
+  if (more > 0) named.push(`and ${more} more`);
+  return named.join("; ");
+}
+
+/**
+ * A restore in progress. Set before the first insert, naming the project being restored,
+ * and cleared once the import is applied. A restore that failed halfway resumes on the next
+ * Apply in that same project, even though the database already holds some of its rows.
  */
 export interface RestoreMarker {
-  isPending(): Promise<boolean>;
-  set(): Promise<void>;
+  /** The project id the pending restore belongs to, or null when none is pending. */
+  pendingFor(): Promise<string | null>;
+  set(projectId: string): Promise<void>;
   clear(): Promise<void>;
 }
 
@@ -81,11 +99,15 @@ export interface RestoreMarker {
 export interface ImportSeams {
   store: SyncTableStore;
   folderTables: () => Promise<Partial<Record<SyncTable, SyncRow[]>> | null>;
+  /** The active project's id. The restore marker is only resumed in the project it was set for. */
+  activeProjectId: () => Promise<string>;
   preview: () => Promise<FolderImportDiff>;
   apply: (diff: FolderImportDiff, picks: FolderImportPicks) => Promise<FolderImportResult>;
   restoreMarker?: RestoreMarker;
   /** Named when a restore keeps stored rows that differ from the folder. */
   onRestoreConflicts?: (conflicts: RestoreConflict[]) => void;
+  /** Named when a pending restore belongs to another project, so the restore is skipped. */
+  onRestoreSkipped?: (message: string) => void;
 }
 
 /**
@@ -99,8 +121,8 @@ export function restTableStore(client: DataClient): SyncTableStore {
       if (error) throw new Error(`Could not check ${table} before restore: ${error.message}`);
       return (data ?? []).length === 0;
     },
-    rows(table: SyncTable) {
-      return pagedRows(client, table, "*");
+    rows(table: SyncTable, columns: readonly string[]) {
+      return pagedRows(client, table, columns.join(","));
     },
     async insert(table: SyncTable, rows: SyncRow[]) {
       const { error } = await client.from(table).insert(rows);

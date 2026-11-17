@@ -14,6 +14,7 @@ import {
 import { folderLock } from "./folder-lock";
 import {
   restTableReader,
+  describeRestoreConflicts,
   restTableStore,
   type FolderImportDiff,
   type FolderImportPicks,
@@ -316,8 +317,10 @@ function liveImportSeams(): ImportSeams {
     folderTables: () => connectedFolderTables(activeFs),
     preview: () => previewFolderImport(),
     apply: (diff, picks) => applyFolderImport(diff, picks),
+    activeProjectId: async () => (await activeProject()).id,
     restoreMarker: folderRestoreMarker(() => activeFs),
     onRestoreConflicts: warnRestoreConflicts,
+    onRestoreSkipped: warnRestoreSkipped,
   };
 }
 
@@ -327,8 +330,13 @@ function warnRestoreConflicts(conflicts: RestoreConflict[]): void {
     level: "warn",
     source: "workspace-sync",
     message: `Restore kept ${conflicts.length} stored row(s) that differ from the folder`,
-    detail: conflicts.map((c) => `${c.table} ${JSON.stringify(c.key)}`).join("; "),
+    detail: describeRestoreConflicts(conflicts),
   });
+}
+
+/** A pending restore belongs to another project, so this Apply did not restore the tables. Say so. */
+function warnRestoreSkipped(message: string): void {
+  logToApp({ level: "warn", source: "workspace-sync", message, detail: "" });
 }
 
 /** Apply a reviewed folder import, through the live seams unless a caller passes its own. */
