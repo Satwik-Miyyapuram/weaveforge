@@ -3,6 +3,8 @@ import type {
   DesktopBridge,
   DesktopCommit,
   DesktopCommitResult,
+  DesktopGithubCode,
+  DesktopGithubConnected,
   DesktopInkHaptics,
   DesktopInkResult,
   DesktopLocalApi,
@@ -95,6 +97,9 @@ export interface DesktopCommands {
   vaultFileLog(path: string, limit: number | null): Promise<Result<DesktopCommit[]>>;
   vaultReadAt(oid: string, path: string): Promise<Result<string | null>>;
   vaultSync(action: string): Promise<Result<DesktopVaultSync>>;
+  githubConnectStart(): Promise<Result<DesktopGithubCode>>;
+  githubConnectFinish(name: string | null): Promise<Result<DesktopGithubConnected>>;
+  githubConnectCancel(): Promise<Result<null>>;
   fetchTitle(url: string): Promise<Result<{ title: string; url: string }>>;
   fetchImage(
     url: string,
@@ -310,6 +315,9 @@ export type DesktopShim = Pick<
   | "vaultFileLog"
   | "vaultReadAt"
   | "vaultSync"
+  | "githubConnectStart"
+  | "githubConnectFinish"
+  | "githubConnectCancel"
   | "fetchTitle"
   | "fetchImage"
   | "zoteroLocal"
@@ -567,6 +575,11 @@ export function desktopShim(
     vaultFileLog: async (path, limit) => unwrap(await cmds.vaultFileLog(path, limit)),
     vaultReadAt: async (oid, path) => unwrap(await cmds.vaultReadAt(oid, path)),
     vaultSync: async (action) => unwrap(await cmds.vaultSync(action)),
+    githubConnectStart: async () => unwrap(await cmds.githubConnectStart()),
+    githubConnectFinish: async (name) => unwrap(await cmds.githubConnectFinish(name)),
+    githubConnectCancel: async () => {
+      unwrap(await cmds.githubConnectCancel());
+    },
     fetchTitle: async (url) => unwrap(await cmds.fetchTitle(url)),
     fetchImage: async (url) => {
       const image = unwrap(await cmds.fetchImage(url));

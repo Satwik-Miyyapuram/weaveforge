@@ -147,6 +147,11 @@ A file deleted on the other computer stays deleted and is listed in Settings →
 **Workspace**: choose **Put back** there to restore it, or delete the item in the
 app as well.
 
+To sync the folder to another machine, push that history to a git remote.
+**Connect GitHub** under Settings → Workspace folder → **Git remote** makes a
+private repository for it in one step; see
+[Syncing to your own GitHub](sync.md#syncing-to-your-own-github).
+
 ## Safety
 
 - Paths are checked before any write: `..` and absolute paths are refused.
