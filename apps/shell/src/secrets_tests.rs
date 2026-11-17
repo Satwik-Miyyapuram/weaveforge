@@ -1,10 +1,13 @@
 //! Workspace-scoped secrets: each workspace sees only its own tokens, the page can only write
-//! them into an open workspace, and an unscoped token from 0.9.2 moves into the workspace on
-//! first use without being lost or leaking into another workspace.
+//! them into an open workspace, and an unscoped token from 0.9.2 is copied into each workspace on
+//! first use. The unscoped token is never deleted, so every other workspace can still inherit it,
+//! and a workspace that cleared a token never re-imports it.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use std::sync::Arc;
+use std::sync::{Arc, mpsc};
+use std::thread;
+use std::time::Duration;
 
 use keyring_core::CredentialStore;
 use keyring_core::mock::Cred;
@@ -118,7 +121,7 @@ fn a_workspace_id_must_be_a_plain_key_part() {
 }
 
 #[test]
-fn upgrade_moves_an_unscoped_token_into_the_open_workspace() {
+fn upgrade_copies_an_unscoped_token_into_the_open_workspace() {
     // 0.9.2 wrote the tokens under their fixed names, with no workspace scope.
     let st = store();
     let s = secrets(&st);
@@ -129,8 +132,6 @@ fn upgrade_moves_an_unscoped_token_into_the_open_workspace() {
     assert_eq!(s.read("git-sync-token"), Ok(Some("old-git".to_owned())));
     assert_eq!(s.read("overleaf-token"), Ok(Some("old-ov".to_owned())));
 
-    assert_eq!(raw(&st, "git-sync-token"), None, "old key removed");
-    assert_eq!(raw(&st, "overleaf-token"), None, "old key removed");
     assert_eq!(
         raw(&st, &format!("{WS_A}/git-sync-token")).as_deref(),
         Some("old-git")
@@ -139,13 +140,24 @@ fn upgrade_moves_an_unscoped_token_into_the_open_workspace() {
         raw(&st, &format!("{WS_A}/overleaf-token")).as_deref(),
         Some("old-ov")
     );
+    assert_eq!(
+        raw(&st, "git-sync-token").as_deref(),
+        Some("old-git"),
+        "the unscoped token is kept for other workspaces"
+    );
+    assert_eq!(
+        raw(&st, "overleaf-token").as_deref(),
+        Some("old-ov"),
+        "the unscoped token is kept for other workspaces"
+    );
 }
 
 #[test]
-fn upgrade_is_idempotent_and_never_reaches_another_workspace() {
+fn every_workspace_inherits_the_unscoped_token() {
     let st = store();
     let s = secrets(&st);
     s.write("git-sync-token", "old-git").expect("old write");
+
     s.set_open_workspace(Some(WS_A)).expect("open a");
     assert_eq!(s.read("git-sync-token"), Ok(Some("old-git".to_owned())));
     assert_eq!(s.read("git-sync-token"), Ok(Some("old-git".to_owned())));
@@ -153,16 +165,60 @@ fn upgrade_is_idempotent_and_never_reaches_another_workspace() {
     s.set_open_workspace(Some(WS_B)).expect("open b");
     assert_eq!(
         s.read("git-sync-token"),
-        Ok(None),
-        "b must not inherit a's token"
+        Ok(Some("old-git".to_owned())),
+        "b inherits the token that 0.9.2 shared"
+    );
+}
+
+#[test]
+fn clearing_in_one_workspace_leaves_the_other_and_never_reimports() {
+    let st = store();
+    let s = secrets(&st);
+    s.write("git-sync-token", "old-git").expect("old write");
+
+    s.set_open_workspace(Some(WS_A)).expect("open a");
+    s.page_clear("git-sync-token").expect("clear a");
+    assert_eq!(s.read("git-sync-token"), Ok(None));
+    assert_eq!(s.read("git-sync-token"), Ok(None), "a stays cleared");
+    assert_eq!(
+        raw(&st, &format!("{WS_A}/git-sync-token")),
+        None,
+        "a cleared token never comes back"
+    );
+    assert_eq!(
+        raw(&st, "git-sync-token").as_deref(),
+        Some("old-git"),
+        "clear never touches the unscoped token"
     );
 
-    s.set_open_workspace(Some(WS_A)).expect("back to a");
+    s.set_open_workspace(Some(WS_B)).expect("open b");
+    assert_eq!(
+        s.read("git-sync-token"),
+        Ok(Some("old-git".to_owned())),
+        "b still inherits it"
+    );
+}
+
+#[test]
+fn writing_in_a_workspace_leaves_the_unscoped_token_for_others() {
+    let st = store();
+    let s = secrets(&st);
+    s.write("git-sync-token", "old-git").expect("old write");
+    s.set_open_workspace(Some(WS_A)).expect("open");
+    s.page_write("git-sync-token", "new-git").expect("write");
+
+    assert_eq!(s.read("git-sync-token"), Ok(Some("new-git".to_owned())));
+    assert_eq!(
+        raw(&st, "git-sync-token").as_deref(),
+        Some("old-git"),
+        "a write never touches the unscoped token"
+    );
+    s.set_open_workspace(Some(WS_B)).expect("open b");
     assert_eq!(s.read("git-sync-token"), Ok(Some("old-git".to_owned())));
 }
 
 #[test]
-fn a_failed_read_leaves_the_old_key_for_the_next_read() {
+fn a_failed_legacy_read_is_retried_on_the_next_read() {
     let st = store();
     let s = secrets(&st);
     s.write("git-sync-token", "old-git").expect("old write");
@@ -179,45 +235,116 @@ fn a_failed_read_leaves_the_old_key_for_the_next_read() {
         "the failed read reads as nothing"
     );
     assert_eq!(
-        raw(&st, "git-sync-token").as_deref(),
-        Some("old-git"),
-        "old key kept"
+        raw(&st, &format!("{WS_A}/git-sync-token")),
+        None,
+        "nothing was copied from a failed read"
     );
 
     assert_eq!(s.read("git-sync-token"), Ok(Some("old-git".to_owned())));
-    assert_eq!(raw(&st, "git-sync-token"), None);
 }
 
 #[test]
-fn clearing_a_workspace_token_also_retires_the_unscoped_one() {
-    let st = store();
-    let s = secrets(&st);
-    s.write("git-sync-token", "old-git").expect("old write");
-    s.set_open_workspace(Some(WS_A)).expect("open");
-    s.page_clear("git-sync-token").expect("clear");
-
-    assert_eq!(s.read("git-sync-token"), Ok(None));
-    assert_eq!(
-        raw(&st, "git-sync-token"),
-        None,
-        "a cleared token never comes back"
-    );
-    s.set_open_workspace(Some(WS_B)).expect("open b");
-    assert_eq!(s.read("git-sync-token"), Ok(None));
-}
-
-#[test]
-fn writing_in_a_workspace_retires_the_unscoped_key() {
+fn an_unreadable_workspace_slot_is_never_overwritten_by_the_unscoped_token() {
     let st = store();
     let s = secrets(&st);
     s.write("git-sync-token", "old-git").expect("old write");
     s.set_open_workspace(Some(WS_A)).expect("open");
     s.page_write("git-sync-token", "new-git").expect("write");
+    inject(
+        &st,
+        &format!("{WS_A}/git-sync-token"),
+        keyring_core::Error::PlatformFailure("boom".into()),
+    );
 
-    assert_eq!(raw(&st, "git-sync-token"), None);
+    assert_eq!(
+        s.read("git-sync-token"),
+        Ok(None),
+        "an unreadable slot reads as nothing"
+    );
+    assert_eq!(
+        raw(&st, &format!("{WS_A}/git-sync-token")).as_deref(),
+        Some("new-git"),
+        "the stored workspace token survives"
+    );
+}
+
+#[test]
+fn an_unreadable_cleared_marker_does_not_reimport_the_unscoped_token() {
+    let st = store();
+    let s = secrets(&st);
+    s.write("git-sync-token", "old-git").expect("old write");
+    s.set_open_workspace(Some(WS_A)).expect("open");
+    s.page_clear("git-sync-token").expect("clear");
+    inject(
+        &st,
+        &format!("{WS_A}/migrated/git-sync-token"),
+        keyring_core::Error::PlatformFailure("boom".into()),
+    );
+
+    assert_eq!(
+        s.read("git-sync-token"),
+        Ok(None),
+        "an unreadable marker fails closed"
+    );
+    assert_eq!(s.read("git-sync-token"), Ok(None), "still cleared");
+}
+
+#[test]
+fn a_write_waits_for_a_migration_in_flight() {
+    let st = store();
+    let s = secrets(&st);
+    s.write("git-sync-token", "old-git").expect("old write");
+    s.set_open_workspace(Some(WS_A)).expect("open");
+
+    // Holding the storage lock stands in for a read that is migrating right now.
+    let migration = s.storage.lock().unwrap_or_else(|e| e.into_inner());
+    let (done, finished) = mpsc::channel();
+    let writer = s.clone();
+    let handle = thread::spawn(move || {
+        writer
+            .page_write("git-sync-token", "new-git")
+            .expect("write");
+        done.send(()).expect("signal");
+    });
+    assert!(
+        finished.recv_timeout(Duration::from_millis(150)).is_err(),
+        "the write must wait behind the migration"
+    );
+    drop(migration);
+    finished
+        .recv_timeout(Duration::from_secs(5))
+        .expect("write finishes once the migration is done");
+    handle.join().expect("join");
+
     assert_eq!(s.read("git-sync-token"), Ok(Some("new-git".to_owned())));
-    s.set_open_workspace(Some(WS_B)).expect("open b");
+}
+
+#[test]
+fn a_clear_waits_for_a_migration_in_flight_and_stays_cleared() {
+    let st = store();
+    let s = secrets(&st);
+    s.write("git-sync-token", "old-git").expect("old write");
+    s.set_open_workspace(Some(WS_A)).expect("open");
+
+    let migration = s.storage.lock().unwrap_or_else(|e| e.into_inner());
+    let (done, finished) = mpsc::channel();
+    let clearer = s.clone();
+    let handle = thread::spawn(move || {
+        clearer.page_clear("git-sync-token").expect("clear");
+        done.send(()).expect("signal");
+    });
+    assert!(
+        finished.recv_timeout(Duration::from_millis(150)).is_err(),
+        "the clear must wait behind the migration"
+    );
+    drop(migration);
+    finished
+        .recv_timeout(Duration::from_secs(5))
+        .expect("clear finishes once the migration is done");
+    handle.join().expect("join");
+
     assert_eq!(s.read("git-sync-token"), Ok(None));
+    assert_eq!(raw(&st, &format!("{WS_A}/git-sync-token")), None);
 }
 
 #[test]
