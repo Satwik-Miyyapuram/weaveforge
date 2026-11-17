@@ -2,6 +2,7 @@ import { localOffset } from "@/lib/parts-1";
 import { readyCore } from "@/lib/rust-core";
 import type { LiveSyncState } from "./parts-1";
 import type { OutboxEntry } from "./parts-2";
+import type { ShareRef } from "./shared-rows";
 
 export type { SyncDotState } from "@weaveforge/wasm";
 
@@ -68,6 +69,11 @@ export interface SyncTransport {
    * read. Optional: without it, rows an earlier version lost are not re-sent.
    */
   missingIds?(table: string, ids: string[]): Promise<string[] | null>;
+  /**
+   * The shares this account owns, live now, or null when they cannot be read.
+   * Optional: without it, the shared-row markers are left as they are.
+   */
+  ownShares?(accountId: string): Promise<ShareRef[] | null>;
 }
 
 // --- sync-status ---

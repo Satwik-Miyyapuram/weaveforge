@@ -585,6 +585,10 @@ export type DbState_Deserialize = {
 	dataDir: string,
 	/**  The backup this run's database was rebuilt from, when it was. */
 	restoredFrom?: string | null,
+	/**  True when this run started an empty database over lost data, so the page must warn. */
+	recreatedEmpty?: boolean,
+	/**  Where the old data was kept aside when the database was recreated empty. */
+	keptAside?: string | null,
 };
 
 /**  The local database's health, as `DesktopLocalDbState` in apps/web/src/lib/desktop/desktop-bridge.ts. */
@@ -595,6 +599,10 @@ export type DbState_Serialize = {
 	dataDir: string,
 	/**  The backup this run's database was rebuilt from, when it was. */
 	restoredFrom: string | null,
+	/**  True when this run started an empty database over lost data, so the page must warn. */
+	recreatedEmpty: boolean,
+	/**  Where the old data was kept aside when the database was recreated empty. */
+	keptAside: string | null,
 };
 
 /**  What the page learns about a loaded model. */

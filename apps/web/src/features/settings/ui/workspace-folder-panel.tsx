@@ -6,7 +6,7 @@ import type { ImportDiff } from "@weaveforge/wasm";
 import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import {
-  applyFolderImport,
+  applyReviewedImport,
   chooseDesktopFolder,
   chooseFolder,
   disconnectFolder,
@@ -572,7 +572,7 @@ function ImportPreview({
           onClick={() => {
             setBusy(true);
             setError(null);
-            void applyFolderImport(diff, resolutions)
+            void applyReviewedImport(diff, resolutions)
               .then((result) =>
                 onApplied(`Imported ${result.created} new and ${result.updated} changed note(s).`),
               )

@@ -26,9 +26,11 @@ test("the NSIS icons, art and hooks named in tauri.conf.json exist", () => {
   assert.equal(nsis.installMode, "currentUser");
 });
 
-test("the installer art has the sizes NSIS expects", () => {
-  assert.deepEqual(bmpSize(nsis.headerImage), { width: 150, height: 57 });
-  assert.deepEqual(bmpSize(nsis.sidebarImage), { width: 164, height: 314 });
+// NSIS stretches each bitmap to its control (150x57 and 164x314 at 100% scale). The art is
+// twice that, so a 150-200% display scales it down and stays sharp instead of blowing it up.
+test("the installer art is twice the size of the NSIS controls", () => {
+  assert.deepEqual(bmpSize(nsis.headerImage), { width: 300, height: 114 });
+  assert.deepEqual(bmpSize(nsis.sidebarImage), { width: 328, height: 628 });
 });
 
 test("the hooks close both the Electron and the Tauri app before install and uninstall", () => {

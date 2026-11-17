@@ -50,6 +50,7 @@ const DEVICE_ONLY_TABLES = new Map([
   ["sync_outbox", "device-local outbox (migrations-local)"],
   ["sync_conflicts", "device-local conflict log (migrations-local)"],
   ["sync_state", "device-local sync watermark (migrations-local)"],
+  ["sync_shared_rows", "device-local shared-row marker (migrations-local)"],
   ["offline_projects", "device-local offline scope (migrations-local)"],
   ["offline_blobs", "device-local blob cache (migrations-local)"],
   ["local_blobs", "device-local blob store (migrations-local)"],

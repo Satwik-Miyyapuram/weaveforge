@@ -111,15 +111,33 @@ test("which side moved decides between an update, silence and a conflict", () =>
   assert.equal(both.counts.conflict, 1);
   assert.equal(both.entries[0]!.conflictKind, "both-changed");
 
-  // No manifest to consult — an older folder, another machine: the reader judges.
-  assert.equal(rust().diffJsonData(parsed, stored).counts.updated, 1);
+  // No manifest to consult: nobody can say who moved it, so the stored row is
+  // never overwritten on a guess. It is a conflict for the reader to settle.
+  const unknown = rust().diffJsonData(parsed, stored);
+  assert.equal(unknown.counts.updated, 0);
+  assert.equal(unknown.counts.conflict, 1);
+});
+
+test("an unknown origin never deletes a stored row", () => {
+  const parsed = rust().parseJsonData("p", '[{"id":"r1"}]', "relations");
+  assert.ok(parsed);
+  const stored = [{ id: "r1" }, { id: "gone" }];
+  const diffs = [
+    rust().diffJsonData(parsed, stored),
+    rust().diffJsonData(parsed, stored, { origin: () => "unknown" }),
+  ];
+  for (const diff of diffs) {
+    assert.equal(diff.counts.removed, 0);
+    assert.equal(diff.counts.unchanged, 2);
+  }
 });
 
 test("a row the file stopped listing is a removal, reported and not applied", () => {
   const parsed = rust().parseJsonData("p", '[{"id":"r1"}]', "relations");
   assert.ok(parsed);
 
-  const diff = rust().diffJsonData(parsed, [{ id: "r1" }, { id: "gone" }]);
+  // Only a folder-side edit makes a drop the reader's to apply.
+  const diff = rust().diffJsonData(parsed, [{ id: "r1" }, { id: "gone" }], { origin: () => "folder" });
   assert.equal(diff.counts.removed, 1);
   assert.equal(diff.entries.find((entry) => entry.action === "removed")!.existing.id, "gone");
 });

@@ -1,25 +1,27 @@
-import { ASSET_DIR, NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type MirrorResult, type JsonDiff, type WorkspaceCommit } from "@weaveforge/core";
-import type {
-  ImportDiff,
-} from "@weaveforge/wasm";
+import { NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type MirrorResult, type WorkspaceCommit } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { downloadLibraryPdfsOnce } from "@/features/reader/application/parts-1";
 import { desktop, type DesktopVaultRoot } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
-import { notifyEach, onWorkspaceChange } from "@/lib/parts";
+import { getDataClient, notifyEach, onWorkspaceChange } from "@/lib/parts";
 import { loadCore, readyCore } from "@/lib/rust-core";
 import {
   BrowserWorkspaceFs,
   DesktopWorkspaceFs,
   IsomorphicWorkspaceGit,
 } from "../infrastructure/parts";
+import { folderLock } from "./folder-lock";
+import { LOST_DB_SYNC_MESSAGE, folderWriteBlockedByLostDb } from "./folder-lost-db-guard";
+// Type-only: the import, restore and table modules load on first use, so they stay
+// out of the first-load bundle of every route that reaches the app container.
+import type { FolderImportDiff, FolderImportPicks, FolderImportResult, ImportSeams } from "./workspace-folder-tables";
+import type { RestoreConflict } from "./sync-tables";
 import {
   applyFolderImport,
   clearPendingAssets,
   type ConflictPicks,
   type ConflictResolution,
-  diffAgainstWorkspace,
   type FileHistorySource,
   gitFileHistory,
   keepWorkspaceCopy,
@@ -39,21 +41,13 @@ import {
   jsonEditSince,
   onNoteClosed,
   readMirrorBase,
-  readMirrorBases,
   renamedPaths,
   splitOutsideEdits,
   writeMirrorManifest,
 } from "./parts-3";
 import { activeProject, activeProjectOrNull, isNoActiveProject, watchForLoss } from "./parts";
-import {
-  mirrorWorkspace,
-  readPreviewFolder,
-  sanitizeArchiveEntries,
-  SKIP_TOO_BIG,
-  type SkippedFile,
-  stripArchiveRoot,
-  unzipWithinLimits,
-} from "./parts-2";
+import { mirrorWorkspace } from "./parts-2";
+import type { FolderPreview } from "./workspace-folder-preview";
 
 /**
  * The workspace folder as the app uses it.
@@ -299,9 +293,6 @@ export function describeSync({ mirror, commit, commitError }: SyncOutcome): stri
   });
 }
 
-/** The sync writing right now; folder events wait for it so its own writes are not reported. */
-let syncInFlight: Promise<unknown> = Promise.resolve();
-
 /**
  * Write the workspace to the folder, then commit if versioning is on.
  *
@@ -309,13 +300,53 @@ let syncInFlight: Promise<unknown> = Promise.resolve();
  * produces no commit — which is what keeps the history readable.
  */
 export function syncToFolder(): Promise<SyncOutcome> {
-  const run = runSyncToFolder();
-  syncInFlight = run.catch(() => undefined);
-  return run;
+  // Under the folder lock, so a git pull or push is never moving the files this writes.
+  return folderLock.run(runSyncToFolder);
+}
+
+async function liveImportSeams(): Promise<ImportSeams> {
+  const [{ restTableStore, describeRestoreConflicts }, { connectedFolderTables, folderRestoreMarker }] =
+    await Promise.all([import("./workspace-folder-tables"), import("./workspace-folder-apply")]);
+  return {
+    store: restTableStore(getDataClient()),
+    folderTables: () => connectedFolderTables(activeFs),
+    preview: () => previewFolderImport(),
+    apply: (diff, picks) => applyFolderImport(diff, picks),
+    activeProjectId: async () => (await activeProject()).id,
+    restoreMarker: folderRestoreMarker(() => activeFs),
+    onRestoreConflicts: (conflicts) => warnRestoreConflicts(conflicts, describeRestoreConflicts(conflicts)),
+    onRestoreSkipped: warnRestoreSkipped,
+  };
+}
+
+/** A restore kept stored rows that differ from the folder. Name them, so the user can see what was not overwritten. */
+function warnRestoreConflicts(conflicts: RestoreConflict[], detail: string): void {
+  logToApp({
+    level: "warn",
+    source: "workspace-sync",
+    message: `Restore kept ${conflicts.length} stored row(s) that differ from the folder`,
+    detail,
+  });
+}
+
+/** A pending restore belongs to another project, so this Apply did not restore the tables. Say so. */
+function warnRestoreSkipped(message: string): void {
+  logToApp({ level: "warn", source: "workspace-sync", message, detail: "" });
+}
+
+/** Apply a reviewed folder import, through the live seams unless a caller passes its own. */
+export async function applyReviewedImport(
+  diff: FolderImportDiff,
+  picks: FolderImportPicks,
+  seams?: ImportSeams,
+): Promise<FolderImportResult> {
+  const { applyReviewedFolderImport } = await import("./workspace-folder-apply");
+  return applyReviewedFolderImport(diff, picks, seams ?? (await liveImportSeams()));
 }
 
 async function runSyncToFolder(): Promise<SyncOutcome> {
   if (!activeFs) throw new Error("No folder is connected.");
+  if (folderWriteBlockedByLostDb(await desktop()?.localDbState())) throw new Error(LOST_DB_SYNC_MESSAGE);
   const fs = activeFs;
   const container = getContainer();
   const project = await activeProject();
@@ -328,9 +359,17 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   const base = await readMirrorBase(fs, projectRoot);
   const previousPaths = Object.keys(base);
 
+  // The synced tables, one file each. A failed read throws here, before anything is
+  // written, so a table file is never removed just because the server did not answer.
+  // Stable: two passes must agree, so a write during the read cannot mix two moments.
+  const [{ exportSyncTablesStable, syncTableFolderFiles }, { restTableReader }] =
+    await Promise.all([import("./sync-tables"), import("./workspace-folder-tables")]);
+  const tableFiles = syncTableFolderFiles(await exportSyncTablesStable(restTableReader(getDataClient())));
+
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
     project,
     previousPaths,
+    extraFiles: tableFiles,
     // The digests, not only the paths: a file whose content has moved on since
     // the app wrote it is the reader's, and the mirror must not write over it
     // before the import has had the chance to offer it.
@@ -380,7 +419,16 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
     });
   }
 
+  if (commit) notifyEach(commitListeners, "vault-commit");
   return { mirror, commit, commitError };
+}
+
+const commitListeners = new Set<() => void>();
+
+/** Called after each sync that made a folder commit; git auto-sync pushes it. */
+export function onVaultCommit(listener: () => void): () => void {
+  commitListeners.add(listener);
+  return () => commitListeners.delete(listener);
 }
 
 export const SYNC_DEBOUNCE_MS = 1_500;
@@ -658,8 +706,9 @@ function reportFolderChanges(paths: readonly string[]): void {
   if (candidates.length === 0) return;
 
   void (async () => {
-    // A mirror run writes its files before its manifest; checked mid-run, every one reads as foreign.
-    await syncInFlight;
+    // A mirror run writes its files before its manifest, and a pull puts this
+    // machine's manifests back after its checkout: checked mid-way, files read wrongly.
+    await folderLock.idle();
     const fs = activeFs;
     const project = await activeProjectOrNull().catch(() => null);
     const base = fs && project ? await readMirrorBase(fs, (await loadCore()).projectDir(project)) : {};
@@ -725,54 +774,19 @@ export async function restoreFolderFile(oid: string, path: string): Promise<void
   await activeFs.writeFile(path, text);
 }
 
-/**
- * Read the connected folder and diff it against the workspace.
- *
- * Preview only — nothing is written. This is the "edit in Obsidian, pull back
- * in" direction, and seeing "12 updated, 1 conflict" before committing to it is
- * the whole point.
- */
-export async function previewFolderImport(
-  only?: ReadonlySet<string>,
-): Promise<FolderDiff & { json: JsonDiff; skipped: SkippedFile[] }> {
-  if (!activeFs) throw new Error("No folder is connected.");
-
-  const project = await activeProject();
-  await followProjectRename(activeFs, project);
-  const core = await loadCore();
-  const projectRoot = core.projectDir(project);
-  const base = await readMirrorBase(activeFs, projectRoot);
-  const bases = await readMirrorBases(activeFs, projectRoot);
-
-  const hasProjectDir = (await activeFs.stat(projectRoot).catch(() => null)) !== null;
-  const { files, assets, jsonFiles, skipped } = await readPreviewFolder(activeFs, projectRoot, hasProjectDir, only);
-
-  return { ...(await diffAgainstWorkspace(files, assets, project, base, bases, jsonFiles)), skipped };
+/** Read the connected folder and diff it against the workspace. Preview only. */
+export async function previewFolderImport(only?: ReadonlySet<string>): Promise<FolderPreview> {
+  const fs = activeFs;
+  if (!fs) throw new Error("No folder is connected.");
+  const { previewConnectedFolder } = await import("./workspace-folder-preview");
+  return previewConnectedFolder(fs, only);
 }
 
-/** Diff a ZIP the user picked, without connecting a folder. */
-export async function previewArchiveImport(
-  bytes: Uint8Array,
-): Promise<ImportDiff & { skipped: SkippedFile[]; json: JsonDiff }> {
-  const { entries: inflated, oversize } = await unzipWithinLimits(bytes);
-  const { safe, skipped } = sanitizeArchiveEntries(inflated);
-  const entries = stripArchiveRoot(safe);
+/** Diff a workspace archive against the workspace. Preview only. */
+export const previewArchiveImport: typeof import("./workspace-folder-preview").previewArchiveImport = async (bytes) =>
+  (await import("./workspace-folder-preview")).previewArchiveImport(bytes);
 
-  const decoder = new TextDecoder();
-  const files: Record<string, string> = {};
-  const assets = new Map<string, Uint8Array>();
-  for (const entry of entries) {
-    if (entry.path.endsWith(".md")) files[entry.path] = decoder.decode(entry.bytes);
-    else if (entry.path.startsWith(`${ASSET_DIR}/`)) assets.set(entry.path, entry.bytes);
-  }
-
-  return {
-    ...(await diffAgainstWorkspace(files, assets, await activeProject())),
-    skipped: [...oversize.map((path) => ({ path, reason: SKIP_TOO_BIG })), ...skipped],
-  };
-}
-
-
+export type { ImportSeams } from "./workspace-folder-tables";
 
 export {
   mergeBothChanged,
@@ -782,5 +796,3 @@ export {
 };
 
 export { applyFolderImport, writeMarkersFor } from "./parts-1";
-
-

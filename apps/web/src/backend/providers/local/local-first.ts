@@ -18,6 +18,7 @@ import type { LocalFirstAccount } from "./local-first-marker";
 import { ExperimentPush, keepFlushing, keepPushing, LocalFirstBlobStore } from "./parts-1";
 import { LocalSessionProvider } from "./local-identity";
 import { localRunnerQuery } from "./parts";
+import { SharedRowMarks } from "@/features/offline-sync/domain/shared-rows";
 
 /**
  * Local-first: a signed-in desktop works on its own database and syncs it.
@@ -115,5 +116,10 @@ export function localFirstParts(
     auth: new SupabaseAuthService(server),
     settingsRepository: new PostgrestSettingsRepository(db, session, secretsStoreFor(server)),
     blobStore,
+    shareMarks: new SharedRowMarks({
+      exec: async (sql, params) => {
+        await query(sql, params ?? []);
+      },
+    }),
   };
 }

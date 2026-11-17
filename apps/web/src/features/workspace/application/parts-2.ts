@@ -5,7 +5,9 @@ import {
   type DesktopVaultSyncAction,
 } from "@/lib/desktop/desktop-bridge";
 import { loadCore, readyCore, type RustCore, typedCore } from "@/lib/rust-core";
-import { writeTextAtomic } from "./parts-3";
+import { folderLock } from "./folder-lock";
+import { keepMirrorBases, readPulledDeletes, writePulledDeletes, writeTextAtomic } from "./parts-3";
+import { activeWorkspaceFs } from "./workspace-folder";
 import {
   type IWorkspaceFs,
   type MirrorResult,
@@ -93,18 +95,36 @@ export async function mirrorWorkspace(
     base?: Readonly<Record<string, string>>;
     /** Fetch a blob for an asset the folder references. */
     fetchAsset?(storagePath: string): Promise<Uint8Array | null>;
+    /**
+     * Extra files written beside the serialized workspace: the synced table files
+     * (`.weaveforge/tables/<table>.json`). They are merged here, after the Rust
+     * serializer returns, so the Rust writer does not change.
+     */
+    extraFiles?: Readonly<Record<string, string>>;
   },
 ): Promise<MirrorResult> {
-  const serialized = await keepClaimedCanvasIds(
+  const serializedWorkspace = await keepClaimedCanvasIds(
     fs,
     core,
     snapshot,
     options.project,
     core.serializeWorkspace(snapshot, options.project),
   );
-  const { files, assets } = serialized;
-  const previousPaths = options.previousPaths ?? [];
+  const serialized = {
+    ...serializedWorkspace,
+    files: { ...serializedWorkspace.files, ...options.extraFiles },
+  };
   const { base } = options;
+  // A mirrored file a pull removed stays out until the reader settles it in the review.
+  const pulledDeletes = await readPulledDeletes(fs);
+  const held: string[] = [];
+  for (const path of pulledDeletes) {
+    if (!Object.hasOwn(serialized.files, path) || (await fs.stat(path).catch(() => null))) continue;
+    held.push(path);
+  }
+  const files = Object.fromEntries(Object.entries(serialized.files).filter(([path]) => !held.includes(path)));
+  const { assets } = serialized;
+  const previousPaths = (options.previousPaths ?? []).filter((path) => !held.includes(path));
 
   // The plan reads every file it may write, and a departed file only when a base digest
   // could make it a reader's edit; nothing else.
@@ -119,7 +139,7 @@ export async function mirrorWorkspace(
     if (text !== null) disk[path] = text;
   }
 
-  const plan = core.planMirror(serialized, previousPaths, base, disk);
+  const plan = core.planMirror({ ...serialized, files }, previousPaths, base, disk);
 
   const written = [...plan.written];
   for (const path of plan.written) {
@@ -151,12 +171,20 @@ export async function mirrorWorkspace(
   // Best-effort: a file already gone is the outcome asked for.
   for (const path of plan.removed) await fs.remove(path).catch(() => undefined);
 
+  // This project's entries not held this run were settled: put back, or deleted in the app.
+  const root = core.projectDir(options.project);
+  const stillPulled = [...pulledDeletes].filter((path) => held.includes(path) || !path.startsWith(`${root}/`));
+  await writePulledDeletes(fs, new Set(stillPulled));
+
+  // A held path keeps its base, so the folder watcher reads it as removed and the review offers it.
+  const mirrored: Record<string, string> = Object.fromEntries(plan.mirrored);
+  for (const path of held) mirrored[path] = base?.[path] ?? "";
   return {
     written,
     removed: plan.removed,
     unchanged,
-    heldBack: plan.heldBack,
-    mirrored: Object.fromEntries(plan.mirrored),
+    heldBack: [...plan.heldBack, ...held],
+    mirrored,
     bases: Object.fromEntries(plan.bases),
   };
 }
@@ -414,6 +442,18 @@ export function remoteSyncAvailable(): boolean {
 }
 
 /**
+ * Whether GitHub sync is on: a remote URL is saved and a token is held. The
+ * vault-git preference itself is write-only from the page, so the URL and the
+ * token stand in for it. A failed read throws rather than answering: the sync
+ * engine then aborts the cycle, so no push or pull runs on an unknown scope.
+ */
+export async function githubSyncConnected(): Promise<boolean> {
+  if (!shell()) return false;
+  const remote = await folderRemoteSync("settings");
+  return remote.url !== null && remote.hasToken;
+}
+
+/**
  * Store the remote's URL, and the token when one was typed. An empty token
  * keeps the stored one; `null` forgets it. A URL that is not plain https is
  * refused before anything is stored. Answers the URL as stored.
@@ -447,20 +487,44 @@ export async function disconnectRemote(): Promise<void> {
   await bridge.clearSecret("git-sync-token");
 }
 
+/** Actions that can move the folder's tree: a pull and each conflict choice. */
+const MOVES_TREE: ReadonlySet<DesktopVaultSyncAction> = new Set(["pull", "keep-mine", "take-remote", "keep-both"]);
+
+/** Whether a reply says the tree moved, so this machine's manifests go back in. */
+const treeMoved = (reply: DesktopVaultSync) => reply.pull?.kind === "fast-forward" || reply.pull?.kind === "merged";
+
+/** One action, for a caller already holding the folder lock. */
+function remoteAction(bridge: Required<Pick<DesktopBridge, "vaultSync">>, action: DesktopVaultSyncAction) {
+  const fs = MOVES_TREE.has(action) ? activeWorkspaceFs() : null;
+  if (!fs) return bridge.vaultSync(action);
+  return keepMirrorBases(fs, () => bridge.vaultSync(action), treeMoved);
+}
+
+/**
+ * Run one action on the remote. Those that touch the folder (a pull, a push,
+ * a conflict choice) wait for the folder lock, so a mirror run is never
+ * writing the files git is moving. Reading the settings or the status does not.
+ */
 export function folderRemoteSync(action: DesktopVaultSyncAction): Promise<DesktopVaultSync> {
   const bridge = shell();
   if (!bridge) return Promise.reject(new Error(NO_SHELL));
-  return bridge.vaultSync(action);
+  if (!MOVES_TREE.has(action) && action !== "push") return bridge.vaultSync(action);
+  return folderLock.run(() => remoteAction(bridge, action));
 }
 
 /**
  * After a rejected push: pull, then push again, in one go. Stops after the
  * pull when it hits a conflict, so nothing is pushed until that is settled.
+ * Holds the folder lock across both, so no mirror run lands between them.
  */
 export async function pullThenPush(): Promise<{ pulled: DesktopVaultSync; pushed: DesktopVaultSync | null }> {
-  const pulled = await folderRemoteSync("pull");
-  if (pulled.pull?.kind === "conflict") return { pulled, pushed: null };
-  return { pulled, pushed: await folderRemoteSync("push") };
+  const bridge = shell();
+  if (!bridge) throw new Error(NO_SHELL);
+  return folderLock.run(async () => {
+    const pulled = await remoteAction(bridge, "pull");
+    if (pulled.pull?.kind === "conflict") return { pulled, pushed: null };
+    return { pulled, pushed: await remoteAction(bridge, "push") };
+  });
 }
 
 /** One line for the panel. */

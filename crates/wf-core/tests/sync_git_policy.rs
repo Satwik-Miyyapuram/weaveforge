@@ -395,6 +395,21 @@ fn desktop_ini_is_ignored_wherever_it_appears() {
 }
 
 #[test]
+fn project_mirror_manifest_is_this_machines_and_never_synced() {
+    assert_eq!(
+        reason_for("thesis/.weaveforge/mirror.json", SMALL),
+        Some(GitSyncSkipReason::IgnoredFile)
+    );
+    assert_eq!(
+        reason_for("Thesis\\.WeaveForge\\Mirror.json", SMALL),
+        Some(GitSyncSkipReason::IgnoredFile)
+    );
+    // The other project records travel with the project.
+    assert!(included("thesis/.weaveforge/tags.json"));
+    assert!(included("thesis/mirror.json"));
+}
+
+#[test]
 fn a_file_named_like_an_ignored_folder_is_synced() {
     assert!(included("notes/dist"));
     assert!(included("notes/node_modules"));

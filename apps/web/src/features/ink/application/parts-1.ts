@@ -254,6 +254,29 @@ export interface InkChunkStore {
    * order is the whole truth.
    */
   list(noteId: string): Promise<string[] | null>;
+  /**
+   * Called once per load, before any read, with the note's declared page
+   * order. A store that migrates from a legacy home settles the note here;
+   * every other store leaves it out.
+   */
+  prepareNote?(noteId: string, declared: readonly string[]): Promise<void>;
+}
+
+/**
+ * Where a note records that its legacy bucket pages are all in the folder, so
+ * the bucket is never asked about that note again.
+ */
+export interface InkMigrationMarks {
+  isMigrated(noteId: string): Promise<boolean>;
+  markMigrated(noteId: string): Promise<void>;
+}
+
+/** The desktop has no workspace folder open, so ink has nowhere to be read from. */
+export class InkNoFolderError extends Error {
+  constructor() {
+    super("ink: open a workspace folder to use ink notes on the desktop");
+    this.name = "InkNoFolderError";
+  }
 }
 
 /** One page as the host loads it: its chunk id, its bytes, and its paper. */
@@ -281,6 +304,7 @@ export async function loadInkPages(
   noteId: string,
   meta: InkNoteMeta,
 ): Promise<InkStoredPage[]> {
+  await store.prepareNote?.(noteId, meta.pageOrder);
   const present = (await store.list(noteId)) ?? [];
   // Declared order is kept even where a chunk is missing — a page that lost
   // its file is an empty page, not a vanished one — then the orphans follow.
@@ -303,8 +327,17 @@ export async function loadInkPages(
 
 
 /** A store that forgets on reload. Tests, and the fallback where nothing else is wired. */
-export class MemoryInkChunkStore implements InkChunkStore {
+export class MemoryInkChunkStore implements InkChunkStore, InkMigrationMarks {
   private readonly chunks = new Map<string, Uint8Array>();
+  private readonly migrated = new Set<string>();
+
+  async isMigrated(noteId: string): Promise<boolean> {
+    return this.migrated.has(noteId);
+  }
+
+  async markMigrated(noteId: string): Promise<void> {
+    this.migrated.add(noteId);
+  }
 
   async read(noteId: string, chunkId: string): Promise<Uint8Array | null> {
     return this.chunks.get(typedCore().inkChunkPath(noteId, chunkId)) ?? null;

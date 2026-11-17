@@ -9,6 +9,7 @@ import { LOCAL_USER_ID } from "@weaveforge/core";
 import { SyncEngine, SyncStateStore } from "../domain/parts-3";
 import { PostgrestTransport } from "../infra/postgrest-transport";
 import { readBackendConfig } from "@/backend/parts";
+import { githubSyncConnected } from "@/features/workspace/application/parts-2";
 
 /**
  * Sync, as the settings screen sees it.
@@ -81,5 +82,5 @@ export function syncEngine(accessToken: () => Promise<string | null>): SyncEngin
     apiKey: config.supabaseAnonKey ?? "",
     accessToken,
   });
-  return new SyncEngine(new LocalRunner(), transport, LOCAL_USER_ID);
+  return new SyncEngine(new LocalRunner(), transport, LOCAL_USER_ID, undefined, githubSyncConnected);
 }

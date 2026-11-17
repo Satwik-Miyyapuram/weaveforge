@@ -137,7 +137,7 @@ mod tests {
         assert!(!pending(&data), "no old db means nothing pending");
         let old = data.join("local-db");
         std::fs::create_dir_all(&old).unwrap();
-        std::fs::write(old.join("PG_VERSION"), "17\n").unwrap();
+        std::fs::write(old.join("PG_VERSION"), "18\n").unwrap();
         assert!(pending(&data));
         std::fs::write(data.join(IMPORTED_MARKER), "").unwrap();
         assert!(!pending(&data), "the marker means the import finished");

@@ -35,11 +35,13 @@ import { PasswordResetScreen } from "@/components/password-reset-screen";
 import { ToastHost } from "@/components/toast-host";
 import { ReleaseNoticeBanner } from "@/features/release-notices/ui/release-notice-banner";
 import { AppUpdateNotice } from "@/features/app-update/ui/app-update-notice";
+import { LostDbNotice } from "@/features/workspace/ui/lost-db-notice";
 import { ContextMenuHost } from "@/components/context-menu";
 import { Button, CloseButton } from "@/components/button";
 import { loadCore, readyCore } from "@/lib/rust-core";
 import { CoreGate } from "./core-gate";
 import { KeepAliveProvider } from "./keep-alive";
+import { DetailHeaderExtrasContext } from "@/components/detail-header-extras";
 
 /* Both paint nothing and only matter once a folder is connected; the folder
    code they carry is loaded after the page rather than with every one. */
@@ -53,6 +55,15 @@ const FolderChangeNote = dynamic(
 );
 const WorkspaceSetupDialog = dynamic(
   () => import("@/features/workspace/ui/workspace-setup-dialog").then((m) => m.WorkspaceSetupDialog),
+  { ssr: false },
+);
+const GitAutoSync = dynamic(
+  () => import("@/features/workspace/ui/git-auto-sync").then((m) => m.GitAutoSync),
+  { ssr: false },
+);
+// Its dot: here for the phone's top bar, a phone's detail headers and the projects screen; the sidebar mounts its own.
+const GitSyncDot = dynamic(
+  () => import("@/features/workspace/ui/git-sync-dot").then((m) => m.GitSyncDot),
   { ssr: false },
 );
 const PdfTextFolderSync = dynamic(
@@ -106,12 +117,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     not in the Settings panel. */}
                 <WorkspaceFolderRestore />
                 <WorkspaceSetupDialog />
+                <GitAutoSync />
                 <FolderChangeNote />
                 <ToastHost />
                 <ContextMenuHost />
                 {expired && <SessionExpiredPrompt />}
                 <ReleaseNoticeBanner />
                 <AppUpdateNotice />
+                <LostDbNotice />
                 {/* Keyed on the session epoch: after signing back in, every
                     screen that loaded while signed out loads again. */}
                 <ProjectProvider key={sessionEpoch}>
@@ -258,6 +271,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
           <div className="brand mobile-only">
             <ProjectSwitcher />
             <div className="brand-right">
+              <GitSyncDot />
               <HeaderActions />
             </div>
           </div>
@@ -279,13 +293,16 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
             {/* Papers is kept mounted beside the routes too (keep-alive.tsx),
                 so leaving it and coming back does not rebuild its grid. Not on
                 the phone layout, where memory is tightest. */}
-            <KeepAliveProvider pathname={pathname} projectId={current.id} enabled={breakpoint !== "mobile"}>
-              <SwipeViews disabled={detailView || editorRoute}>
-                <RoutePending>
-                  <PageTransition>{children}</PageTransition>
-                </RoutePending>
-              </SwipeViews>
-            </KeepAliveProvider>
+            {/* A phone's detail view hides the top bar above, so its own header shows the dot. */}
+            <DetailHeaderExtrasContext value={breakpoint === "mobile" ? <GitSyncDot /> : null}>
+              <KeepAliveProvider pathname={pathname} projectId={current.id} enabled={breakpoint !== "mobile"}>
+                <SwipeViews disabled={detailView || editorRoute}>
+                  <RoutePending>
+                    <PageTransition>{children}</PageTransition>
+                  </RoutePending>
+                </SwipeViews>
+              </KeepAliveProvider>
+            </DetailHeaderExtrasContext>
             {/* Beside the routes, not in `/workspace`'s page: it stays mounted
                 once opened, so coming back to it is instant. Keyed on the
                 project, so a switch drops the last project's tabs. */}
@@ -298,7 +315,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
           // The account button goes in the screen's header row (ScreenHead).
           <PageHeaderAccount.Provider value={<HeaderActions />}>{children}</PageHeaderAccount.Provider>
         ) : (
-          <PageHeaderAccount.Provider value={<HeaderActions />}>
+          <PageHeaderAccount.Provider value={<><GitSyncDot /><HeaderActions /></>}>
             <ProjectsScreen />
           </PageHeaderAccount.Provider>
         )}
