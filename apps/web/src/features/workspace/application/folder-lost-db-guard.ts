@@ -1,3 +1,5 @@
+import type { DesktopLocalDbState } from "@/lib/desktop/desktop-bridge";
+
 /** The message a sync throws while the database is one that was started empty over lost data. */
 export const LOST_DB_SYNC_MESSAGE =
   "The local database was recreated empty, so the folder is not written over until the app restarts with its data.";
@@ -12,7 +14,7 @@ export function folderWriteBlockedByLostDb(state: { recreatedEmpty?: boolean } |
 
 /** The banner text for a database recreated empty, or null when there is nothing to say. */
 export function lostDbNotice(
-  state: { recreatedEmpty?: boolean; keptAside?: string | null } | null | undefined,
+  state: Partial<DesktopLocalDbState> | null | undefined,
 ): { title: string; body: string } | null {
   if (!folderWriteBlockedByLostDb(state)) return null;
   const where = state?.keptAside ? ` kept aside at ${state.keptAside}` : " kept aside on this computer";
