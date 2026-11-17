@@ -113,7 +113,10 @@ impl Secrets {
             Some(id) if valid_workspace_id(id) => Some(id.to_owned()),
             Some(_) => return Err(SecretError::BadWorkspace),
         };
-        *self.open.write().unwrap_or_else(|e| e.into_inner()) = next;
+        *self
+            .open
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = next;
         Ok(())
     }
 
@@ -206,7 +209,10 @@ impl Secrets {
         if DEVICE_NAMES.contains(&name) {
             return None;
         }
-        self.open.read().unwrap_or_else(|e| e.into_inner()).clone()
+        self.open
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
     }
 
     /// Refuses a workspace secret when no workspace is open.
@@ -221,7 +227,9 @@ impl Secrets {
     /// Holds the storage lock for one read-modify-write. The queue lock does not cover direct
     /// calls, and it is already held by `queued` while the work runs, so it cannot be taken here.
     fn lock_storage(&self) -> MutexGuard<'_, ()> {
-        self.storage.lock().unwrap_or_else(|e| e.into_inner())
+        self.storage
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// The password under the keychain user `user`: `Ok(None)` when it is absent or there is no

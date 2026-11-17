@@ -19,9 +19,8 @@ shows is described here.
 > Your notes sync to your own private GitHub repository. GitHub holds your
 > synced files; the WeaveForge server only relays live shared sessions.
 
-That sentence is the intended onboarding wording. The onboarding screen that
-shows it is **not on this branch** (`feat/091-gh-autosync`), so do not read it
-as shipped behaviour here.
+The onboarding screen shows this wording the first time a folder is chosen; see
+[Syncing to your own GitHub](#syncing-to-your-own-github).
 
 Two things move, on different paths:
 
@@ -150,18 +149,82 @@ flowchart LR
 With the network off, the app keeps working on the local database. Queued
 operations go up in order when the network returns.
 
+## Syncing to your own GitHub
+
+In the desktop app, the workspace folder can sync through **your own private
+GitHub repository** instead of our server. Our server then only relays live
+sessions and items you share.
+
+The first time a folder is chosen, the app offers it, with **Connect GitHub**
+first. **Skip** keeps server sync, and the offer does not come back. You can
+connect later from **Settings → Workspace folder → Git remote**.
+
+| for | against |
+| --- | --- |
+| You own the data and its full history. | You need a GitHub account. |
+| It works when our server is down. | GitHub can read what is in your private repository. |
+| Any git tool can read the folder. | It syncs every few seconds, not instantly. |
+
+To connect:
+
+1. Click **Connect GitHub**. The app shows a code in big letters and opens
+   `github.com/login/device`. **Copy** puts the code on the clipboard.
+2. Type the code on GitHub and allow WeaveForge. The app waits while you do
+   this. **Cancel** stops the wait.
+3. The app makes a private repository named `weaveforge-<folder name>`. The
+   name is lowercased, and anything other than letters, digits, `-`, `_` and
+   `.` becomes `-`. It is at most 100 characters. When nothing usable is left,
+   the name is `weaveforge-workspace`. If you already have a private repository
+   with that name, it uses that one. It refuses a public repository and one
+   owned by someone else.
+4. The app turns folder history on and sets the repository as the remote. The
+   panel shows the repository's name.
+5. The app uploads the workspace straight away. It shows **Uploading your
+   workspace…** and then **Synced.** You do not need to click **Push**. If the
+   repository already has commits, the app pulls them in first and then pushes.
+   If the upload fails, the panel says why and offers **Retry**.
+
+What the app keeps:
+
+- **The GitHub token** stays in this machine's keychain, as the same secret a
+  typed token uses. The page never sees it. It may read and write your
+  repositories (GitHub's `repo` scope), because that is the narrowest scope
+  that can create a private repository.
+- **No client secret.** Sign-in uses GitHub's device flow, which needs none.
+
+If the code expires (after about 15 minutes) or you decline on GitHub, the panel
+says so. Click **Connect GitHub** again.
+
+### When GitHub needs you to sign in again
+
+If you revoke WeaveForge on GitHub, or the token stops working, the next pull or
+push fails. The app does not fail silently. **Settings → Workspace folder → Git
+remote** and the GitHub card both say **GitHub needs you to sign in again.** The
+card comes back even if you skipped it before. **Later** hides it until the next
+sync fails.
+
+Click **Reconnect**. The app runs the same code sign-in again and keeps syncing
+to the **same repository**. The message goes away after the sign-in, or after
+any pull or push that works.
+
+**Advanced** under the button keeps the old way: any https git host, with a URL
+and a token you paste.
+
 ## What is not synced
 
-- **The database as a file.** Only its contents travel.
-- **The Markdown folder as a sync channel.** It is a local mirror. Folder history
-  in git is a separate option, covered in
-  [the workspace folder](workspace-folder.md#keeping-a-history).
-- **Your workspace choice.** Which folder you picked is a property of this
-  machine.
+- **The database as a file.** Only its contents travel. Two devices do not
+  exchange database bytes.
+- **The Markdown folder, through our server.** It is a local mirror, not a
+  server sync channel. To sync it between machines, connect it to git (see
+  [Syncing to your own GitHub](#syncing-to-your-own-github)). Folder history, on once
+  connected, commits after each write and declines to commit into a repository it does
+  not own.
+- **Your workspace choice itself.** Which folder you picked is a property of
+  this machine, like a window position.
+- **Anything, while the app is closed.**
 
 ## Known scope limits
 
-- The onboarding wording at the top of this page is not on this branch.
 - What works offline beyond the local database (PDFs, graphs) is not covered here.
 - Which folder you picked does not sync between machines.
 

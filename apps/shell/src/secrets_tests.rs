@@ -297,7 +297,10 @@ fn a_write_waits_for_a_migration_in_flight() {
     s.set_open_workspace(Some(WS_A)).expect("open");
 
     // Holding the storage lock stands in for a read that is migrating right now.
-    let migration = s.storage.lock().unwrap_or_else(|e| e.into_inner());
+    let migration = s
+        .storage
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let (done, finished) = mpsc::channel();
     let writer = s.clone();
     let handle = thread::spawn(move || {
@@ -326,7 +329,10 @@ fn a_clear_waits_for_a_migration_in_flight_and_stays_cleared() {
     s.write("git-sync-token", "old-git").expect("old write");
     s.set_open_workspace(Some(WS_A)).expect("open");
 
-    let migration = s.storage.lock().unwrap_or_else(|e| e.into_inner());
+    let migration = s
+        .storage
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let (done, finished) = mpsc::channel();
     let clearer = s.clone();
     let handle = thread::spawn(move || {

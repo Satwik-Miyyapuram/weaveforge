@@ -1,6 +1,8 @@
 import {
   desktop,
   type DesktopBridge,
+  type DesktopGithubCode,
+  type DesktopGithubConnected,
   type DesktopVaultSync,
   type DesktopVaultSyncAction,
 } from "@/lib/desktop/desktop-bridge";
@@ -487,6 +489,14 @@ export async function disconnectRemote(): Promise<void> {
   await bridge.clearSecret("git-sync-token");
 }
 
+const reauthListeners = new Set<() => void>();
+
+/** Called when a sync fails because GitHub wants a new sign-in. Answers the unsubscribe. */
+export function onGithubReauth(listener: () => void): () => void {
+  reauthListeners.add(listener);
+  return () => void reauthListeners.delete(listener);
+}
+
 /** Actions that can move the folder's tree: a pull and each conflict choice. */
 const MOVES_TREE: ReadonlySet<DesktopVaultSyncAction> = new Set(["pull", "keep-mine", "take-remote", "keep-both"]);
 
@@ -501,15 +511,97 @@ function remoteAction(bridge: Required<Pick<DesktopBridge, "vaultSync">>, action
 }
 
 /**
+ * Runs one remote step. When it fails, re-reads the settings: if the shell
+ * marked the GitHub token as refused, every `onGithubReauth` listener hears
+ * it, so a failed auto-sync never fails silently.
+ */
+async function reportingReauth<T>(
+  bridge: Required<Pick<DesktopBridge, "vaultSync">>,
+  run: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await run();
+  } catch (err) {
+    const settings = await bridge.vaultSync("settings").catch(() => null);
+    if (settings?.needsReconnect) for (const listener of [...reauthListeners]) listener();
+    throw err;
+  }
+}
+
+/**
  * Run one action on the remote. Those that touch the folder (a pull, a push,
  * a conflict choice) wait for the folder lock, so a mirror run is never
  * writing the files git is moving. Reading the settings or the status does not.
  */
-export function folderRemoteSync(action: DesktopVaultSyncAction): Promise<DesktopVaultSync> {
+export async function folderRemoteSync(action: DesktopVaultSyncAction): Promise<DesktopVaultSync> {
   const bridge = shell();
+  if (!bridge) throw new Error(NO_SHELL);
+  return reportingReauth(bridge, () =>
+    MOVES_TREE.has(action) || action === "push"
+      ? folderLock.run(() => remoteAction(bridge, action))
+      : bridge.vaultSync(action),
+  );
+}
+
+type GithubShell = DesktopBridge &
+  Required<Pick<DesktopBridge, "vaultSync" | "githubConnectStart" | "githubConnectFinish" | "githubConnectCancel">>;
+
+function githubShell(): GithubShell | null {
+  const bridge = shell();
+  return bridge &&
+    typeof bridge.githubConnectStart === "function" &&
+    typeof bridge.githubConnectFinish === "function" &&
+    typeof bridge.githubConnectCancel === "function"
+    ? (bridge as GithubShell)
+    : null;
+}
+
+/** The shell can sign in to GitHub and make the repo itself. */
+export function githubConnectAvailable(): boolean {
+  return githubShell() !== null;
+}
+
+/** Ask GitHub for the device code the user types at `verificationUri`. */
+export function startGithubConnect(): Promise<DesktopGithubCode> {
+  const bridge = githubShell();
   if (!bridge) return Promise.reject(new Error(NO_SHELL));
-  if (!MOVES_TREE.has(action) && action !== "push") return bridge.vaultSync(action);
-  return folderLock.run(() => remoteAction(bridge, action));
+  return bridge.githubConnectStart();
+}
+
+/**
+ * Wait for the code to be entered, then let the shell make the private repo
+ * (or, on a reconnect, keep the one already set) and set it as the remote;
+ * connect it so git knows the remote too. `uploadWorkspace` pushes next.
+ */
+export async function finishGithubConnect(name: string | null): Promise<DesktopGithubConnected> {
+  const bridge = githubShell();
+  if (!bridge) throw new Error(NO_SHELL);
+  const connected = await bridge.githubConnectFinish(name);
+  await bridge.vaultSync("connect");
+  return connected;
+}
+
+/**
+ * The first upload after connecting. When the repo already has commits (a
+ * reused repo), pulls them in and pushes again. Rejects with a reason fit to
+ * show, so the caller can offer Retry.
+ */
+export async function uploadWorkspace(): Promise<void> {
+  const first = await folderRemoteSync("push");
+  if (first.push?.kind !== "rejected") return;
+  const { pulled, pushed } = await pullThenPush();
+  if (pulled.pull?.kind === "conflict") {
+    throw new Error(
+      `These files changed both here and on GitHub: ${pulled.pull.files.join(", ")}. ` +
+        "Pull under Settings → Workspace folder → Git remote, pick which copy to keep, then Retry.",
+    );
+  }
+  if (pushed?.push?.kind === "rejected") throw new Error(pushed.push.reason);
+}
+
+/** Stop waiting; the pending finish rejects as cancelled. */
+export async function cancelGithubConnect(): Promise<void> {
+  await githubShell()?.githubConnectCancel();
 }
 
 /**
@@ -520,11 +612,13 @@ export function folderRemoteSync(action: DesktopVaultSyncAction): Promise<Deskto
 export async function pullThenPush(): Promise<{ pulled: DesktopVaultSync; pushed: DesktopVaultSync | null }> {
   const bridge = shell();
   if (!bridge) throw new Error(NO_SHELL);
-  return folderLock.run(async () => {
-    const pulled = await remoteAction(bridge, "pull");
-    if (pulled.pull?.kind === "conflict") return { pulled, pushed: null };
-    return { pulled, pushed: await remoteAction(bridge, "push") };
-  });
+  return reportingReauth(bridge, () =>
+    folderLock.run(async () => {
+      const pulled = await remoteAction(bridge, "pull");
+      if (pulled.pull?.kind === "conflict") return { pulled, pushed: null };
+      return { pulled, pushed: await remoteAction(bridge, "push") };
+    }),
+  );
 }
 
 /** One line for the panel. */

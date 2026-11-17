@@ -22,6 +22,13 @@ tracks at once.
 
 ### iOS
 
+## [0.9.2] - 2026-11-17
+
+Desktop (`v0.9.2`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **Added:** Connect your own GitHub account with one click, and sync your workspace to a repository you own.
+
 ## [0.9.1] - 2026-11-16
 
 Desktop (`v0.9.1`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.

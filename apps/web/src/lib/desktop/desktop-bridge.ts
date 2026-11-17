@@ -1,5 +1,7 @@
 "use client";
 
+import type { DesktopSecretName } from "./desktop-secret-name";
+
 /**
  * What the desktop build adds, and how the web build asks whether it is there.
  *
@@ -270,6 +272,19 @@ export interface DesktopBridge {
    * as `hasToken`). Rejects with a message fit to show. Absent on older shells.
    */
   vaultSync?(action: DesktopVaultSyncAction): Promise<DesktopVaultSync>;
+  /**
+   * One-click GitHub: ask GitHub for a device code to show. Absent on older shells.
+   */
+  githubConnectStart?(): Promise<DesktopGithubCode>;
+  /**
+   * Wait until the code is entered on GitHub, then make (or reuse) the private
+   * repo `weaveforge-<name>`, keep the token in the keychain and set the remote.
+   * `name` is the project slug; null uses the folder's name. Rejects with a
+   * message fit to show: declined, expired, cancelled.
+   */
+  githubConnectFinish?(name: string | null): Promise<DesktopGithubConnected>;
+  /** Stop waiting for the code. */
+  githubConnectCancel?(): Promise<void>;
   /**
    * Overleaf projects synced into folders of the vault over Overleaf's git
    * bridge. The shell keeps the links and reads the `overleaf-token` itself.
@@ -666,6 +681,8 @@ export type DesktopVaultSyncAction =
 export interface DesktopVaultSync {
   url: string | null;
   hasToken: boolean;
+  /** GitHub refused the token: sign in again. Absent on older shells. */
+  needsReconnect?: boolean;
   status?: { url: string | null; branch: string; ahead: number; behind: number };
   pull?:
     | { kind: "up-to-date" }
@@ -673,6 +690,23 @@ export interface DesktopVaultSync {
     | { kind: "merged"; oid: string }
     | { kind: "conflict"; files: string[] };
   push?: { kind: "pushed" } | { kind: "up-to-date" } | { kind: "rejected"; reason: string };
+}
+
+/** Mirrors `GithubConnectStart` in the shell's `github_connect.rs`. */
+export interface DesktopGithubCode {
+  userCode: string;
+  verificationUri: string;
+  expiresIn: number;
+}
+
+/** Mirrors `GithubConnected` in the shell's `github_connect.rs`. */
+export interface DesktopGithubConnected {
+  login: string;
+  /** owner/name */
+  repo: string;
+  url: string;
+  /** False when a private repo of that name already existed and is reused. */
+  created: boolean;
 }
 
 export type DesktopOverleafSyncRequest =
@@ -713,19 +747,7 @@ export interface DesktopVaultEntry {
   modifiedAt: string;
 }
 
-/**
- * The secrets the page may name. Mirrored in `apps/shell/src/secrets.rs`
- * (`PAGE_WRITABLE`), which also keeps `local-api-token` for the shell alone, and lets the page
- * write but never read back `overleaf-token` or `git-sync-token`. The workspace names are kept
- * per open workspace and need one to be open.
- */
-export type DesktopSecretName =
-  | "ai-provider"
-  | "overleaf-token"
-  | "git-sync-token"
-  | "zotero-api-key"
-  | "mattermost-token"
-  | "repo-link-token";
+export type { DesktopSecretName } from "./desktop-secret-name";
 
 /**
  * The shell preferences the page may write. Equal to `PAGE_WRITABLE` in
