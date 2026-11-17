@@ -56,6 +56,10 @@ pub(crate) struct Sheet {
     pub(crate) background: Option<Rect>,
     /// Index of the band this sheet belongs to.
     pub(crate) group: usize,
+    /// Page position of this sheet's corner, in 0.1 mm: a sheet point plus
+    /// the origin is the same point on the OneNote page.
+    pub(crate) origin_x: f64,
+    pub(crate) origin_y: f64,
 }
 
 /// Every ink stroke on `page`, in OneNote page coordinates.
@@ -83,12 +87,16 @@ pub(crate) fn band_index(tops: &[f64], y: f64) -> usize {
 /// shares one page size.
 pub(crate) fn build_sheets(raw: &[RawStroke], bands: &[Rect]) -> Vec<Sheet> {
     if bands.is_empty() {
+        let paths: Vec<Vec<(f64, f64)>> = raw.iter().map(|stroke| stroke.points.clone()).collect();
+        let (dx, dy) = fit_shift(&paths);
         return build_pages(raw)
             .into_iter()
             .map(|page| Sheet {
                 page,
                 background: None,
                 group: 0,
+                origin_x: -dx,
+                origin_y: -dy,
             })
             .collect();
     }
@@ -125,7 +133,12 @@ fn band_sheets(
 ) {
     let limit = f64::from(INK_COORD_LIMIT);
     {
-        let extent = bounds(indices.iter().flat_map(|&i| raw[i].points.iter()));
+        let extent = bounds(
+            indices
+                .iter()
+                .flat_map(|&i| raw[i].points.iter())
+                .filter(|p| is_finite_point(p)),
+        );
         let (ox, oy) = extent.map_or((band.x, band.y), |(min_x, min_y, _, _)| {
             (band.x.min(min_x - MARGIN), band.y.min(min_y - MARGIN))
         });
@@ -148,7 +161,11 @@ fn band_sheets(
                 let points = stroke
                     .points
                     .iter()
-                    .flat_map(|&(x, y)| [whole_coord(x - ox, limit), whole_coord(y - oy, limit)])
+                    .filter(|p| is_finite_point(p))
+                    .filter_map(|&(x, y)| {
+                        Some((whole_coord(x - ox, limit)?, whole_coord(y - oy, limit)?))
+                    })
+                    .flat_map(|(x, y)| [x, y])
                     .collect();
                 ink_stroke(stroke, points, index)
             })
@@ -164,6 +181,8 @@ fn band_sheets(
             },
             background: Some(placed),
             group,
+            origin_x: ox,
+            origin_y: oy,
         };
         if strokes.is_empty() {
             sheets.push(sheet(Vec::new()));
@@ -294,8 +313,8 @@ pub(crate) fn place_points(
         .collect()
 }
 
-/// Shifts paths so no coordinate is negative (to a 5 mm margin), then rounds and clamps.
-pub(crate) fn fit_to_page(paths: &mut [Vec<(f64, f64)>]) {
+/// The shift `fit_to_page` applies: enough to lift any negative coordinate to the margin.
+fn fit_shift(paths: &[Vec<(f64, f64)>]) -> (f64, f64) {
     let min_x = paths
         .iter()
         .flatten()
@@ -308,19 +327,31 @@ pub(crate) fn fit_to_page(paths: &mut [Vec<(f64, f64)>]) {
         .fold(f64::INFINITY, f64::min);
     let dx = if min_x < 0.0 { MARGIN - min_x } else { 0.0 };
     let dy = if min_y < 0.0 { MARGIN - min_y } else { 0.0 };
+    (dx, dy)
+}
+
+/// A point with both coordinates finite. Points that are not are dropped.
+fn is_finite_point(point: &(f64, f64)) -> bool {
+    point.0.is_finite() && point.1.is_finite()
+}
+
+/// Shifts paths so no coordinate is negative (to a 5 mm margin), then rounds and clamps.
+/// Non-finite points are dropped first.
+pub(crate) fn fit_to_page(paths: &mut [Vec<(f64, f64)>]) {
+    for path in paths.iter_mut() {
+        path.retain(is_finite_point);
+    }
+    let (dx, dy) = fit_shift(paths);
     let limit = f64::from(INK_COORD_LIMIT);
     for point in paths.iter_mut().flatten() {
-        point.0 = whole_coord(point.0 + dx, limit);
-        point.1 = whole_coord(point.1 + dy, limit);
+        point.0 = (point.0 + dx).round().clamp(0.0, limit);
+        point.1 = (point.1 + dy).round().clamp(0.0, limit);
     }
 }
 
-fn whole_coord(value: f64, limit: f64) -> f64 {
-    if value.is_finite() {
-        value.round().clamp(0.0, limit)
-    } else {
-        0.0
-    }
+/// A whole-unit page coordinate, or `None` when the value is not finite.
+fn whole_coord(value: f64, limit: f64) -> Option<f64> {
+    value.is_finite().then(|| value.round().clamp(0.0, limit))
 }
 
 fn build_pages(raw: &[RawStroke]) -> Vec<InkPage> {
@@ -390,6 +421,16 @@ pub(crate) fn nearest_colour(rgb: (i64, i64, i64)) -> InkColour {
     best
 }
 
+/// Hex colour of a palette colour, as a canvas stroke writes it.
+pub(crate) fn colour_hex(colour: InkColour) -> String {
+    PALETTE
+        .iter()
+        .find(|(palette, _)| *palette == colour)
+        .map_or("#000000".to_owned(), |(_, (r, g, b))| {
+            format!("#{r:02x}{g:02x}{b:02x}")
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -417,6 +458,29 @@ mod tests {
         let mut paths = vec![vec![(1.0e9, 0.0)]];
         fit_to_page(&mut paths);
         assert!((paths[0][0].0 - f64::from(INK_COORD_LIMIT)).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn whole_coord_drops_non_finite_instead_of_zeroing() {
+        assert_eq!(whole_coord(f64::NAN, 10.0), None);
+        assert_eq!(whole_coord(f64::INFINITY, 10.0), None);
+        assert_eq!(whole_coord(4.6, 10.0), Some(5.0));
+        assert_eq!(whole_coord(1.0e9, 10.0), Some(10.0));
+    }
+
+    #[test]
+    fn fit_to_page_drops_non_finite_points() {
+        let mut paths = vec![vec![(f64::NAN, 1.0), (5.0, 5.0)]];
+        fit_to_page(&mut paths);
+        assert_eq!(paths[0], vec![(5.0, 5.0)]);
+    }
+
+    #[test]
+    fn band_sheets_drop_non_finite_points_only() {
+        let bands = [a4_at(127.0)];
+        let raw = vec![stroke(&[(f64::NAN, 1.0), (500.0, 400.0), (600.0, 500.0)])];
+        let sheets = build_sheets(&raw, &bands);
+        assert_eq!(sheets[0].page.strokes[0].points.len(), 4);
     }
 
     fn stroke(points: &[(f64, f64)]) -> RawStroke {
@@ -476,6 +540,41 @@ mod tests {
         assert_eq!(&sheets[1].page.strokes[0].points[..2], &[373.0, 300.0]);
         assert!((sheets[1].page.width - 2100.0).abs() < f64::EPSILON);
         assert!((sheets[1].page.height - 2970.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn band_sheet_origin_is_where_its_page_corner_sits_on_the_page() {
+        // origin + sheet point = page point, so a sheet's origin is its page
+        // position: the band corner, or further out for ink in the margin.
+        let bands = [a4_at(127.0), a4_at(3200.0)];
+        let raw = vec![
+            stroke(&[(500.0, 400.0), (600.0, 500.0)]),
+            stroke(&[(500.0, 3500.0), (600.0, 3600.0)]),
+        ];
+        let sheets = build_sheets(&raw, &bands);
+        assert_eq!((sheets[0].origin_x, sheets[0].origin_y), (127.0, 127.0));
+        assert_eq!((sheets[1].origin_x, sheets[1].origin_y), (127.0, 3200.0));
+        let margin = build_sheets(
+            &[stroke(&[(27.0, 500.0), (3000.0, 600.0)])],
+            &[a4_at(127.0)],
+        );
+        assert_eq!((margin[0].origin_x, margin[0].origin_y), (-23.0, 127.0));
+    }
+
+    #[test]
+    fn band_less_origin_maps_sheet_points_back_to_page_points() {
+        let raw = vec![stroke(&[(-10.0, -20.0), (5.0, 5.0)])];
+        let sheets = build_sheets(&raw, &[]);
+        let sheet = &sheets[0];
+        assert_eq!((sheet.origin_x, sheet.origin_y), (-60.0, -70.0));
+        let points = &sheet.page.strokes[0].points;
+        assert_eq!(
+            (points[0] + sheet.origin_x, points[1] + sheet.origin_y),
+            (-10.0, -20.0)
+        );
+
+        let plain = build_sheets(&[stroke(&[(10.0, 10.0)])], &[]);
+        assert_eq!((plain[0].origin_x, plain[0].origin_y), (0.0, 0.0));
     }
 
     #[test]
