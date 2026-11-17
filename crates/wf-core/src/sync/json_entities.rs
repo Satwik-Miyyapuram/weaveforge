@@ -291,19 +291,28 @@ fn diff_rows(
     entries
 }
 
-/// Entries for stored rows the file no longer lists: removals when the folder
-/// is known to have moved the file, otherwise silence.
-fn diff_removals(parsed: &ParsedJsonData, existing: &[JsonRow], known: bool) -> Vec<JsonDiffEntry> {
+/// Entries for stored rows the file no longer lists.
+///
+/// Only a folder-only edit makes a drop a removal. When the workspace also moved
+/// the file, the workspace may have edited that row since the last sync, so the
+/// drop is a conflict to settle, never a removal. Otherwise it is silence.
+fn diff_removals(parsed: &ParsedJsonData, existing: &[JsonRow], side: ChangeSide) -> Vec<JsonDiffEntry> {
     let listed: HashSet<&str> = parsed.rows.iter().filter_map(row_id).collect();
     existing
         .iter()
         .filter(|current| !row_id(current).is_some_and(|id| listed.contains(id)))
-        .map(|current| {
-            if !known {
-                entry(parsed, ImportAction::Unchanged, Some(current), current)
-            } else {
-                entry(parsed, ImportAction::Removed, None, current)
+        .map(|current| match side {
+            ChangeSide::Folder => entry(parsed, ImportAction::Removed, None, current),
+            ChangeSide::Both => {
+                let mut next = entry(parsed, ImportAction::Conflict, None, current);
+                next.reason = Some(format!(
+                    "{} dropped this row in the folder while the workspace also changed the file since they last agreed.",
+                    parsed.path
+                ));
+                next.conflict_kind = Some(ConflictKind::BothChanged);
+                next
             }
+            _ => entry(parsed, ImportAction::Unchanged, Some(current), current),
         })
         .collect()
 }
@@ -317,8 +326,9 @@ fn diff_removals(parsed: &ParsedJsonData, existing: &[JsonRow], known: bool) -> 
 /// - a row that differs is an update only when the folder moved the file,
 ///   unchanged when the workspace did, and a conflict otherwise (both moved, or
 ///   no manifest says who did),
-/// - a stored row the file no longer lists is a removal only when the folder
-///   moved the file (or both did); unknown or workspace-side changes never remove.
+/// - a stored row the file no longer lists is a removal only when only the folder
+///   moved the file; when both did it is a conflict, and unknown or
+///   workspace-side changes never remove.
 ///
 /// `origin` says who changed the file since the last sync. Without it, the
 /// side is unknown: nothing is overwritten or removed, differences are conflicts.
@@ -331,15 +341,13 @@ pub fn diff_json_data(
     let side = origin.map_or(ChangeSide::Unknown, |f| f(&parsed.path));
     // The file is stale, not edited: rows sync added or dropped since the mirror are not the reader's.
     let stale = matches!(side, ChangeSide::Workspace | ChangeSide::Neither);
-    // A drop is the reader's only when the folder side is known to have moved the file.
-    let known_folder_edit = matches!(side, ChangeSide::Folder | ChangeSide::Both);
     let by_id: HashMap<&str, &JsonRow> = existing
         .iter()
         .filter_map(|row| row_id(row).map(|id| (id, row)))
         .collect();
 
     let mut entries = diff_rows(parsed, &by_id, side, stale);
-    entries.extend(diff_removals(parsed, existing, known_folder_edit));
+    entries.extend(diff_removals(parsed, existing, side));
     let counts = count_json_actions(&entries);
     JsonDiff { entries, counts }
 }

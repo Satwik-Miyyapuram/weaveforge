@@ -7,6 +7,7 @@ import {
   syncKeyColumns,
   type SyncRow,
   type SyncTable,
+  type RestoreConflict,
   type SyncTableReader,
   type SyncTableStore,
 } from "./sync-tables";
@@ -27,7 +28,7 @@ async function pagedRows(client: DataClient, table: SyncTable, columns: string):
     for (const column of syncKeyColumns(table)) query = query.order(column);
     const { data, error } = await query.range(from, from + REST_PAGE - 1);
     if (error) throw new Error(`Could not read ${table}: ${error.message}`);
-    const page = (data ?? []) as SyncRow[];
+    const page = (data ?? []) as unknown as SyncRow[];
     rows.push(...page);
     if (page.length < REST_PAGE) return rows;
   }
@@ -53,8 +54,10 @@ export async function restoreThenImport<T>(input: {
   tables: Partial<Record<SyncTable, SyncRow[]>>;
   preview: () => Promise<Parameters<typeof applyFolderImport>[0]>;
   apply: (diff: Parameters<typeof applyFolderImport>[0]) => Promise<T>;
+  onRestoreConflicts?: (conflicts: RestoreConflict[]) => void;
 }): Promise<T> {
-  await restoreSyncTables(input.tables, input.store);
+  const conflicts = await restoreSyncTables(input.tables, input.store);
+  if (conflicts.length > 0) input.onRestoreConflicts?.(conflicts);
   const diff = await input.preview();
   return input.apply({ ...diff, json: undefined });
 }
@@ -81,11 +84,13 @@ export interface ImportSeams {
   preview: () => Promise<FolderImportDiff>;
   apply: (diff: FolderImportDiff, picks: FolderImportPicks) => Promise<FolderImportResult>;
   restoreMarker?: RestoreMarker;
+  /** Named when a restore keeps stored rows that differ from the folder. */
+  onRestoreConflicts?: (conflicts: RestoreConflict[]) => void;
 }
 
 /**
  * Restore target through the app's data client. A table is empty when one read returns
- * no row; the keys read pages through every stored row; each chunk is one plain POST.
+ * no row; the rows read pages through every stored row; each chunk is one plain POST.
  */
 export function restTableStore(client: DataClient): SyncTableStore {
   return {
@@ -94,8 +99,8 @@ export function restTableStore(client: DataClient): SyncTableStore {
       if (error) throw new Error(`Could not check ${table} before restore: ${error.message}`);
       return (data ?? []).length === 0;
     },
-    keys(table: SyncTable) {
-      return pagedRows(client, table, syncKeyColumns(table).join(","));
+    rows(table: SyncTable) {
+      return pagedRows(client, table, "*");
     },
     async insert(table: SyncTable, rows: SyncRow[]) {
       const { error } = await client.from(table).insert(rows);

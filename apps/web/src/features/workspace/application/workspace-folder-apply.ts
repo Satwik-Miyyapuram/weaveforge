@@ -21,16 +21,16 @@ import {
 const RESTORE_MARKER = ".weaveforge/restore-pending.json";
 
 /**
- * The restore marker as a file in the active project's folder. The folder is looked up
- * on each call, so the seam can be built before a folder is connected; with no folder,
- * nothing is pending and nothing can be set.
+ * The restore marker at the workspace root. The restore covers every project, so the
+ * marker is not per project: a restore that stopped partway resumes whichever project is
+ * open. The folder is looked up on each call, so the seam can be built before a folder is
+ * connected; with no folder, nothing is pending and nothing can be set.
  */
 export function folderRestoreMarker(fs: () => IWorkspaceFs | null): RestoreMarker {
   const markerPath = async (): Promise<{ file: IWorkspaceFs; path: string } | null> => {
     const file = fs();
     if (!file) return null;
-    const projectRoot = (await loadCore()).projectDir(await activeProject());
-    return { file, path: `${projectRoot}/${RESTORE_MARKER}` };
+    return { file, path: RESTORE_MARKER };
   };
   return {
     async isPending() {
@@ -80,6 +80,7 @@ export async function applyReviewedFolderImport(
       tables,
       preview: seams.preview,
       apply: (fresh) => seams.apply(fresh, picks),
+      onRestoreConflicts: seams.onRestoreConflicts,
     });
     await seams.restoreMarker?.clear();
     return result;

@@ -1,7 +1,4 @@
 import { NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type MirrorResult, type WorkspaceCommit } from "@weaveforge/core";
-import type {
-  ImportDiff,
-} from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import { downloadLibraryPdfsOnce } from "@/features/reader/application/parts-1";
 import { desktop, type DesktopVaultRoot } from "@/lib/desktop/desktop-bridge";
@@ -24,7 +21,7 @@ import {
   type ImportSeams,
 } from "./workspace-folder-tables";
 import { applyReviewedFolderImport, connectedFolderTables, folderRestoreMarker } from "./workspace-folder-apply";
-import { exportSyncTablesStable, syncTableFolderFiles } from "./sync-tables";
+import { exportSyncTablesStable, syncTableFolderFiles, type RestoreConflict } from "./sync-tables";
 import {
   applyFolderImport,
   clearPendingAssets,
@@ -320,7 +317,18 @@ function liveImportSeams(): ImportSeams {
     preview: () => previewFolderImport(),
     apply: (diff, picks) => applyFolderImport(diff, picks),
     restoreMarker: folderRestoreMarker(() => activeFs),
+    onRestoreConflicts: warnRestoreConflicts,
   };
+}
+
+/** A restore kept stored rows that differ from the folder. Name them, so the user can see what was not overwritten. */
+function warnRestoreConflicts(conflicts: RestoreConflict[]): void {
+  logToApp({
+    level: "warn",
+    source: "workspace-sync",
+    message: `Restore kept ${conflicts.length} stored row(s) that differ from the folder`,
+    detail: conflicts.map((c) => `${c.table} ${JSON.stringify(c.key)}`).join("; "),
+  });
 }
 
 /** Apply a reviewed folder import, through the live seams unless a caller passes its own. */

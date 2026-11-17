@@ -240,6 +240,25 @@ fn an_unknown_origin_never_deletes_a_stored_row() {
 }
 
 #[test]
+fn a_drop_the_workspace_also_edited_is_a_conflict_never_a_removal() {
+    // Both sides moved the file: the folder dropped a row the workspace may have
+    // edited since the last sync. Removing it on a guess would lose that edit.
+    let parsed = parse(r#"[{"id":"r1"}]"#, WorkspaceJsonKind::Relations);
+    let stored = [row(json!({"id": "r1"})), row(json!({"id": "gone"}))];
+
+    let both = with_origin(ChangeSide::Both);
+    let diff = diff_json_data(&parsed, &stored, Some(&both));
+    assert_eq!(diff.counts.removed, 0, "a drop under Both is never a removal");
+    assert_eq!(diff.counts.conflict, 1);
+    let conflict = diff
+        .entries
+        .iter()
+        .find(|entry| entry.action == ImportAction::Conflict && entry.existing.get("id") == Some(&json!("gone")))
+        .expect("the dropped row is a conflict");
+    assert_eq!(conflict.conflict_kind, Some(ConflictKind::BothChanged));
+}
+
+#[test]
 fn a_row_the_file_stopped_listing_is_a_removal_reported_and_not_applied() {
     let parsed = parse(r#"[{"id":"r1"}]"#, WorkspaceJsonKind::Relations);
     let stored = [row(json!({"id": "r1"})), row(json!({"id": "gone"}))];

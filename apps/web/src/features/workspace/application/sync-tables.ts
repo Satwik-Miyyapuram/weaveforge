@@ -212,9 +212,15 @@ export const OMITTED_GENERATED: Partial<Record<SyncTable, readonly string[]>> = 
 export interface SyncTableStore {
   /** True when the table has no rows for this user yet. */
   isEmpty(table: SyncTable): Promise<boolean>;
-  /** The key columns (`syncKeyColumns`) of every row the table holds for this user. */
-  keys(table: SyncTable): Promise<SyncRow[]>;
+  /** Every row the table holds for this user, whole, so a restore can compare content. */
+  rows(table: SyncTable): Promise<SyncRow[]>;
   insert(table: SyncTable, rows: SyncRow[]): Promise<void>;
+}
+
+/** A stored row whose key matches a folder row but whose content differs. It is left as stored. */
+export interface RestoreConflict {
+  table: SyncTable;
+  key: SyncRow;
 }
 
 const INSERT_CHUNK = 500;
@@ -224,23 +230,45 @@ function keyOf(row: SyncRow, table: SyncTable): string {
   return JSON.stringify(syncKeyColumns(table).map((c) => String(row[c])));
 }
 
+/** A row's key columns as an object, for naming a conflict. */
+function keyFields(row: SyncRow, table: SyncTable): SyncRow {
+  return Object.fromEntries(syncKeyColumns(table).map((c) => [c, row[c]]));
+}
+
+/** Key-sorted JSON of a row's content, without the columns the database computes. */
+function contentOf(row: SyncRow, table: SyncTable): string {
+  const omitted = new Set(OMITTED_GENERATED[table] ?? []);
+  const sorted = Object.keys(row).filter((k) => !omitted.has(k)).sort();
+  return JSON.stringify(sorted.map((k) => [k, row[k]]));
+}
+
 /**
  * Restore every synced table into a store, parents first. Retryable: a store that
  * already holds some folder rows (from a restore that failed halfway) gets only the
  * rows it lacks. A stored row the folder does not have is refused before any insert,
  * so the restore never silently keeps or overwrites rows it did not write.
+ * A stored row with the same key but different content is not overwritten; it is
+ * returned so the caller can name it.
  */
 export async function restoreSyncTables(
   tables: Partial<Record<SyncTable, SyncRow[]>>,
   store: SyncTableStore,
-): Promise<void> {
+): Promise<RestoreConflict[]> {
   const missing: Partial<Record<SyncTable, SyncRow[]>> = {};
+  const conflicts: RestoreConflict[] = [];
   for (const table of SYNC_TABLES) {
     const folderRows = tables[table] ?? [];
-    const folderKeys = new Set(folderRows.map((r) => keyOf(r, table)));
-    const storedKeys = new Set((await store.keys(table)).map((r) => keyOf(r, table)));
-    if ([...storedKeys].some((k) => !folderKeys.has(k))) {
+    const folderByKey = new Map(folderRows.map((r) => [keyOf(r, table), r]));
+    const stored = await store.rows(table);
+    const storedKeys = new Set(stored.map((r) => keyOf(r, table)));
+    if ([...storedKeys].some((k) => !folderByKey.has(k))) {
       throw new Error(`Cannot restore: ${table} already has rows the folder does not have. Restore into an empty database.`);
+    }
+    for (const row of stored) {
+      const folderRow = folderByKey.get(keyOf(row, table));
+      if (folderRow && contentOf(row, table) !== contentOf(folderRow, table)) {
+        conflicts.push({ table, key: keyFields(row, table) });
+      }
     }
     missing[table] = folderRows.filter((r) => !storedKeys.has(keyOf(r, table)));
   }
@@ -252,4 +280,5 @@ export async function restoreSyncTables(
       await store.insert(table, rows.slice(i, i + INSERT_CHUNK));
     }
   }
+  return conflicts;
 }

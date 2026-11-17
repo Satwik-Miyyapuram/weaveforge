@@ -24,7 +24,6 @@ import {
   importSyncTables,
   OMITTED_GENERATED,
   restoreSyncTables,
-  syncKeyColumns,
   sqlTableReader,
   type SyncRow,
   type SyncTable,
@@ -191,9 +190,8 @@ function pgliteStore(db: TestDb): SyncTableStore {
       const rows = await db.sql<{ n: number }>(`select count(*)::int as n from ${table}`);
       return rows[0]?.n === 0;
     },
-    async keys(table: SyncTable) {
-      const cols = syncKeyColumns(table).map((c) => `"${c}"`).join(", ");
-      return db.sql<SyncRow>(`select ${cols} from ${table}`);
+    async rows(table: SyncTable) {
+      return db.sql<SyncRow>(`select * from ${table}`);
     },
     async insert(table: SyncTable, rows: SyncRow[]) {
       const cols = [...new Set(rows.flatMap((row) => Object.keys(row)))];
@@ -279,7 +277,7 @@ test("a clone restores the tables first, then diffs the folder against the resto
   const inner = pgliteStore(dst);
   const store: SyncTableStore = {
     isEmpty: (table) => inner.isEmpty(table),
-    keys: (table) => inner.keys(table),
+    rows: (table) => inner.rows(table),
     insert: async (table, batch) => {
       events.push(`insert:${table}`);
       await inner.insert(table, batch);
