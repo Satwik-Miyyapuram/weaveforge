@@ -23,6 +23,7 @@ import type { InkSave } from "./use-ink-worker-rpc";
 import { type InkNoteMeta } from "@weaveforge/core";
 
 import {
+  InkNoFolderError,
   loadInkPages,
   type InkChunkStore,
   type InkStoredPage,
@@ -60,6 +61,9 @@ export const INK_SAVE_DELAY_MS = 1200;
 /** Shown when the sidecar load failed: no page is known, so nothing is saved. */
 export const INK_LOAD_FAILED =
   "This note's ink could not be loaded, so nothing drawn here will be saved. Close and reopen the note to try again.";
+/** Shown on the desktop when no workspace folder is open: ink lives in the folder. */
+export const INK_NEEDS_FOLDER =
+  "Open a workspace folder to see this note's ink. On the desktop, ink is stored in the folder.";
 /** Shown when a page's save failed: what is on screen may not be stored. */
 export const INK_SAVE_FAILED =
   "The last change to this note's ink could not be saved. Keep the note open and draw again to retry.";
@@ -203,7 +207,7 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
       })
       .catch((err: unknown) => {
         logToApp({ level: "error", source: "ink", message: `Could not load the ink of ${noteId}`, detail: String(err) });
-        if (live) setLoadError(INK_LOAD_FAILED);
+        if (live) setLoadError(err instanceof InkNoFolderError ? INK_NEEDS_FOLDER : INK_LOAD_FAILED);
       });
     return () => {
       live = false;

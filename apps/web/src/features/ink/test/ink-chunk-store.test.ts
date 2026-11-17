@@ -10,6 +10,7 @@ import { BlobNotFoundError, type IBlobFetcher } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 
 import {
+  InkNoFolderError,
   MemoryInkChunkStore,
   loadInkPages,
 } from "../application/parts-1";
@@ -181,6 +182,16 @@ test("on the desktop with no folder open, ink goes nowhere: never the bucket", a
   await assert.rejects(unavailable.read(NOTE, id), /open a workspace folder/);
   await assert.rejects(unavailable.list(NOTE), /open a workspace folder/);
   assert.equal(bucket.size, 0);
+});
+
+test("on the desktop with no folder, the host load fails with InkNoFolderError, not a generic error", async () => {
+  const unavailable = new UnavailableInkChunkStore();
+  const meta = typedCore().defaultInkNoteMeta();
+  await assert.rejects(loadInkPages(unavailable, NOTE, meta), (err: unknown) => {
+    assert.ok(err instanceof InkNoFolderError);
+    assert.match((err as Error).message, /open a workspace folder/);
+    return true;
+  });
 });
 
 test("a folder page missing on disk is copied from the bucket on first read; the bucket keeps its copy", async () => {

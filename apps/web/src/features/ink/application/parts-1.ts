@@ -256,6 +256,14 @@ export interface InkChunkStore {
   list(noteId: string): Promise<string[] | null>;
 }
 
+/** The desktop has no workspace folder open, so ink has nowhere to be read from. */
+export class InkNoFolderError extends Error {
+  constructor() {
+    super("ink: open a workspace folder to use ink notes on the desktop");
+    this.name = "InkNoFolderError";
+  }
+}
+
 /** One page as the host loads it: its chunk id, its bytes, and its paper. */
 export interface InkStoredPage {
   chunkId: string;

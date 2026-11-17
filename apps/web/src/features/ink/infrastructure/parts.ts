@@ -5,7 +5,7 @@ import {
   type ICurrentUserProvider,
   type IWorkspaceFs,
 } from "@weaveforge/core";
-import type { InkChunkStore } from "../application/parts-1";
+import { InkNoFolderError, type InkChunkStore } from "../application/parts-1";
 
 // --- blob-ink-chunk-store ---
 /**
@@ -81,20 +81,17 @@ export class BlobInkChunkStore implements InkChunkStore {
  * every call fails loudly; the bucket is never used on the desktop.
  */
 export class UnavailableInkChunkStore implements InkChunkStore {
-  private static readonly MESSAGE =
-    "ink: open a workspace folder to use ink notes on the desktop";
-
   async read(): Promise<never> {
-    throw new Error(UnavailableInkChunkStore.MESSAGE);
+    throw new InkNoFolderError();
   }
   async write(): Promise<never> {
-    throw new Error(UnavailableInkChunkStore.MESSAGE);
+    throw new InkNoFolderError();
   }
   async remove(): Promise<never> {
-    throw new Error(UnavailableInkChunkStore.MESSAGE);
+    throw new InkNoFolderError();
   }
   async list(): Promise<never> {
-    throw new Error(UnavailableInkChunkStore.MESSAGE);
+    throw new InkNoFolderError();
   }
 }
 
