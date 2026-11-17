@@ -195,8 +195,8 @@ describe("grant and revoke mark and unmark at once, before any cycle", () => {
   });
 });
 
-describe("GitHub toggle does nothing to the watermark (needs wasm)", () => {
-  it("GitHub toggle does nothing to the watermark", async () => {
+describe("GitHub toggle moves the watermark only on disconnect (needs wasm)", () => {
+  it("turning GitHub off rewinds the watermark to 0, so skipped rows are read again", async () => {
     const sql = await localSqlDb();
     await sql.exec("update sync_state set watermark = 42");
     const net = server([]);
@@ -204,6 +204,6 @@ describe("GitHub toggle does nothing to the watermark (needs wasm)", () => {
     await new SyncEngine(sql, net, LOCAL_USER_ID, undefined, async () => false).cycle();
     await new SyncEngine(sql, net, LOCAL_USER_ID, undefined, async () => true).cycle();
     const row = await sql.queryOne<{ watermark: number }>("select watermark from sync_state");
-    assert.equal(Number(row?.watermark), 42);
+    assert.equal(Number(row?.watermark), 0);
   });
 });

@@ -31,7 +31,8 @@ function recording(changes: RemoteChange[] = []): Recorder {
 
 async function freshDevice() {
   const db = await testDb();
-  await db.sql("update sync_state set account_id = null, watermark = 0");
+  await db.sql("update sync_state set account_id = null, watermark = 0, github_scope = false");
+  await db.sql("delete from projects where id = $1", [ROW]);
   await db.sql("delete from sync_outbox");
   await db.sql("insert into auth.users (id, email) values ($1, $2) on conflict do nothing", [
     LOCAL_USER_ID,
@@ -75,8 +76,8 @@ describe("S1: a transient scope failure never moves the watermark", () => {
 
     assert.deepEqual(net.tables, [], "nothing may be sent on an unknown scope");
     assert.deepEqual(net.pulls, [], "nothing may be pulled on an unknown scope");
-    const [{ watermark }] = await db.sql<{ watermark: string }>("select watermark from sync_state");
-    assert.equal(Number(watermark), 0);
+    const [state] = await db.sql<{ watermark: string }>("select watermark from sync_state");
+    assert.equal(Number(state!.watermark), 0);
   });
 
   it("re-reads skipped workspace rows after GitHub is disconnected (no data loss)", async () => {

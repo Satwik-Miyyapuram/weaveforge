@@ -196,6 +196,20 @@ export class SyncStateStore {
     );
   }
 
+  /**
+   * Remember whether GitHub sync was on at this cycle.
+   *
+   * Turning it off rewinds the watermark to 0 in the same statement: rows the
+   * feed carried while connected were skipped (they are owed to GitHub), and
+   * they must be read again now that the device takes them.
+   */
+  async setGithubScope(connected: boolean): Promise<void> {
+    await this.sql.exec(
+      "update sync_state set watermark = case when github_scope and not $1 then 0 else watermark end, github_scope = $1",
+      [connected],
+    );
+  }
+
   /** Record whose account this device now syncs with. */
   async adopt(accountId: string): Promise<void> {
     await this.sql.exec("update sync_state set account_id = $1", [accountId]);
@@ -305,6 +319,7 @@ export class SyncEngine {
     // Throws when the answer is unknown: the cycle is abandoned before anything
     // is sent or pulled, so no watermark moves on a guess.
     const connected = await this.githubConnected();
+    await this.state.setGithubScope(connected);
     // Which rows are shared decides what is owed while connected, so the markers
     // are set from the server first. A failed read keeps the markers as they are.
     if (connected) {
