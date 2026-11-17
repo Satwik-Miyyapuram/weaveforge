@@ -2,14 +2,26 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { DESKTOP_BREAKPOINT_PX, RAIL_COLLAPSE_BELOW_PX } from "@/lib/parts";
+import { DESKTOP_BREAKPOINT_PX, PHONE_BREAKPOINT_PX, RAIL_COLLAPSE_BELOW_PX } from "@/lib/parts";
 
-export type LayoutBreakpoint = "mobile" | "desktop";
+/**
+ * `phone` below 600px, `mobile` from there to just under 900px, `desktop` from
+ * 900px. Only `phone` is new: `mobile` and `desktop` keep their 900px edge, so a
+ * caller that means "not desktop" must check `!== "desktop"`, not `=== "mobile"`.
+ */
+export type LayoutBreakpoint = "phone" | "mobile" | "desktop";
 
 /** Entrance animation when crossing the app-wide layout breakpoint. */
 export type NavEnterAnim = "rise" | "slide" | null;
 
 const MQ = `(min-width: ${DESKTOP_BREAKPOINT_PX}px)`;
+const PHONE_MQ = `(min-width: ${PHONE_BREAKPOINT_PX}px)`;
+
+/** The step, from the answers to the 900px and the 600px queries. */
+export function breakpointFor(atDesktop: boolean, atLeastPhone: boolean): LayoutBreakpoint {
+  if (atDesktop) return "desktop";
+  return atLeastPhone ? "mobile" : "phone";
+}
 
 /**
  * The width below which the sidebar starts as the rail.
@@ -23,7 +35,7 @@ const RAIL_MQ = `(min-width: ${RAIL_COLLAPSE_BELOW_PX}px)`;
 
 function readBreakpoint(): LayoutBreakpoint {
   if (typeof window === "undefined") return "desktop";
-  return window.matchMedia(MQ).matches ? "desktop" : "mobile";
+  return breakpointFor(window.matchMedia(MQ).matches, window.matchMedia(PHONE_MQ).matches);
 }
 
 /**
@@ -52,11 +64,16 @@ export function useLayoutBreakpoint() {
 
   useEffect(() => {
     const mq = window.matchMedia(MQ);
+    const phoneMq = window.matchMedia(PHONE_MQ);
     const railMq = window.matchMedia(RAIL_MQ);
+    const current = () => breakpointFor(mq.matches, phoneMq.matches);
 
-    const apply = (next: LayoutBreakpoint, animate: boolean) => {
+    // The entrance animation belongs to the 900px step only: phone and mobile
+    // are both the same mobile layout kind, so moving between them animates nothing.
+    const apply = (next: LayoutBreakpoint) => {
       if (next === bpRef.current) return;
-      if (animate) {
+      const crossedDesktop = (next === "desktop") !== (bpRef.current === "desktop");
+      if (crossedDesktop) {
         setNavEnter(next === "desktop" ? "slide" : "rise");
         window.setTimeout(() => setNavEnter(null), LAYOUT_TRANSITION_MS);
       }
@@ -64,13 +81,13 @@ export function useLayoutBreakpoint() {
       setBreakpoint(next);
     };
 
-    bpRef.current = mq.matches ? "desktop" : "mobile";
+    bpRef.current = current();
     setBreakpoint(bpRef.current);
     readyRef.current = true;
 
     const onChange = () => {
       if (!readyRef.current) return;
-      apply(mq.matches ? "desktop" : "mobile", true);
+      apply(current());
     };
 
     // No entrance animation for this one: collapsing to the rail is a change of
@@ -79,9 +96,11 @@ export function useLayoutBreakpoint() {
     const onRailChange = () => setRailByDefault(!railMq.matches);
 
     mq.addEventListener("change", onChange);
+    phoneMq.addEventListener("change", onChange);
     railMq.addEventListener("change", onRailChange);
     return () => {
       mq.removeEventListener("change", onChange);
+      phoneMq.removeEventListener("change", onChange);
       railMq.removeEventListener("change", onRailChange);
     };
   }, []);

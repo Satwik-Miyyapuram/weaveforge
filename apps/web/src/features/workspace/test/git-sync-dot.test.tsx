@@ -76,7 +76,7 @@ test("a phone's detail view shows the dot in its own header, given from the app 
   const src = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
   // The shell hands the dot down on the phone only; the sidebar has it on a desktop.
   const shell = src("../../../app/app-shell.tsx");
-  assert.match(shell, /<DetailHeaderExtrasContext value=\{breakpoint === "mobile" \? <GitSyncDot \/> : null\}>/);
+  assert.match(shell, /<DetailHeaderExtrasContext value=\{breakpoint !== "desktop" \? <GitSyncDot \/> : null\}>/);
   // Each detail view's header renders what it was given, without importing the workspace feature.
   for (const rel of [
     "../../papers/ui/paper-note.tsx",

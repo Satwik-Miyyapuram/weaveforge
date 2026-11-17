@@ -16,6 +16,8 @@ import { FormError } from "@/components/form-error";
 import { overleafPapers } from "./overleaf-papers";
 import { Button } from "@/components/button";
 import { isTauriShell } from "@/features/experiments/infrastructure/parts";
+import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
+import { OpenOnLargerScreen } from "@/lib/ui/open-on-larger-screen";
 
 /**
  * Overleaf tab — one list of Overleaf projects (Write, PDF, Outline) + ZIP export.
@@ -58,6 +60,8 @@ export function ReportOverleafScreen() {
     if (canShowWorkshop({ localMode: getContainer().auth.isLocalMode(), shell })) setWorkshop({ shell });
   }, []);
 
+  const { breakpoint } = useLayoutBreakpoint();
+
   const tree = data?.tree ?? emptyArray<ReportSectionTreeNode>();
   const papers = data?.papers ?? emptyArray<Paper>();
 
@@ -84,13 +88,17 @@ export function ReportOverleafScreen() {
         onOpenChange={setExportOpen}
       />
 
-      {mounted && (
-        <OverleafWorkspace
-          workshop={workshop !== null}
-          inShell={workshop?.shell ?? false}
-          projectId={current?.id ?? null}
-          onExport={() => setExportOpen(true)}
-        />
+      {breakpoint === "phone" ? (
+        <OpenOnLargerScreen what="The Overleaf editor" />
+      ) : (
+        mounted && (
+          <OverleafWorkspace
+            workshop={workshop !== null}
+            inShell={workshop?.shell ?? false}
+            projectId={current?.id ?? null}
+            onExport={() => setExportOpen(true)}
+          />
+        )
       )}
     </section>
   );
