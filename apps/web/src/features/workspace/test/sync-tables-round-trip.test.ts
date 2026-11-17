@@ -17,7 +17,7 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { freshTestDb, testDb, type TestDb } from "../../../backend/test/pg-test-db";
 import { mirrorWorkspace } from "../application/parts-2";
-import { restoreThenImport } from "../application/workspace-folder";
+import { restoreThenImport } from "../application/workspace-folder-tables";
 import {
   SYNC_TABLES,
   exportSyncTables,

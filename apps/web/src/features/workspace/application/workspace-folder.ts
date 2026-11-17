@@ -13,17 +13,15 @@ import {
 } from "../infrastructure/parts";
 import { folderLock } from "./folder-lock";
 import { LOST_DB_SYNC_MESSAGE, folderWriteBlockedByLostDb } from "./folder-lost-db-guard";
-import {
-  restTableReader,
-  describeRestoreConflicts,
-  restTableStore,
-  type FolderImportDiff,
-  type FolderImportPicks,
-  type FolderImportResult,
-  type ImportSeams,
+// Type-only: the import, restore and table modules load on first use, so they stay
+// out of the first-load bundle of every route that reaches the app container.
+import type {
+  FolderImportDiff,
+  FolderImportPicks,
+  FolderImportResult,
+  ImportSeams,
 } from "./workspace-folder-tables";
-import { applyReviewedFolderImport, connectedFolderTables, folderRestoreMarker } from "./workspace-folder-apply";
-import { exportSyncTablesStable, syncTableFolderFiles, type RestoreConflict } from "./sync-tables";
+import type { RestoreConflict } from "./sync-tables";
 import {
   applyFolderImport,
   clearPendingAssets,
@@ -54,7 +52,7 @@ import {
 } from "./parts-3";
 import { activeProject, activeProjectOrNull, isNoActiveProject, watchForLoss } from "./parts";
 import { mirrorWorkspace } from "./parts-2";
-import { previewConnectedFolder, type FolderPreview } from "./workspace-folder-preview";
+import type { FolderPreview } from "./workspace-folder-preview";
 
 /**
  * The workspace folder as the app uses it.
@@ -311,7 +309,9 @@ export function syncToFolder(): Promise<SyncOutcome> {
   return folderLock.run(runSyncToFolder);
 }
 
-function liveImportSeams(): ImportSeams {
+async function liveImportSeams(): Promise<ImportSeams> {
+  const [{ restTableStore, describeRestoreConflicts }, { connectedFolderTables, folderRestoreMarker }] =
+    await Promise.all([import("./workspace-folder-tables"), import("./workspace-folder-apply")]);
   return {
     store: restTableStore(getDataClient()),
     folderTables: () => connectedFolderTables(activeFs),
@@ -319,18 +319,18 @@ function liveImportSeams(): ImportSeams {
     apply: (diff, picks) => applyFolderImport(diff, picks),
     activeProjectId: async () => (await activeProject()).id,
     restoreMarker: folderRestoreMarker(() => activeFs),
-    onRestoreConflicts: warnRestoreConflicts,
+    onRestoreConflicts: (conflicts) => warnRestoreConflicts(conflicts, describeRestoreConflicts(conflicts)),
     onRestoreSkipped: warnRestoreSkipped,
   };
 }
 
 /** A restore kept stored rows that differ from the folder. Name them, so the user can see what was not overwritten. */
-function warnRestoreConflicts(conflicts: RestoreConflict[]): void {
+function warnRestoreConflicts(conflicts: RestoreConflict[], detail: string): void {
   logToApp({
     level: "warn",
     source: "workspace-sync",
     message: `Restore kept ${conflicts.length} stored row(s) that differ from the folder`,
-    detail: describeRestoreConflicts(conflicts),
+    detail,
   });
 }
 
@@ -340,12 +340,13 @@ function warnRestoreSkipped(message: string): void {
 }
 
 /** Apply a reviewed folder import, through the live seams unless a caller passes its own. */
-export function applyReviewedImport(
+export async function applyReviewedImport(
   diff: FolderImportDiff,
   picks: FolderImportPicks,
-  seams: ImportSeams = liveImportSeams(),
+  seams?: ImportSeams,
 ): Promise<FolderImportResult> {
-  return applyReviewedFolderImport(diff, picks, seams);
+  const { applyReviewedFolderImport } = await import("./workspace-folder-apply");
+  return applyReviewedFolderImport(diff, picks, seams ?? (await liveImportSeams()));
 }
 
 async function runSyncToFolder(): Promise<SyncOutcome> {
@@ -366,6 +367,10 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   // The synced tables, one file each. A failed read throws here, before anything is
   // written, so a table file is never removed just because the server did not answer.
   // Stable: two passes must agree, so a write during the read cannot mix two moments.
+  const [{ exportSyncTablesStable, syncTableFolderFiles }, { restTableReader }] = await Promise.all([
+    import("./sync-tables"),
+    import("./workspace-folder-tables"),
+  ]);
   const tableFiles = syncTableFolderFiles(await exportSyncTablesStable(restTableReader(getDataClient())));
 
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
@@ -778,12 +783,21 @@ export async function restoreFolderFile(oid: string, path: string): Promise<void
 
 /** Read the connected folder and diff it against the workspace. Preview only. */
 export async function previewFolderImport(only?: ReadonlySet<string>): Promise<FolderPreview> {
-  if (!activeFs) throw new Error("No folder is connected.");
-  return previewConnectedFolder(activeFs, only);
+  const fs = activeFs;
+  if (!fs) throw new Error("No folder is connected.");
+  const { previewConnectedFolder } = await import("./workspace-folder-preview");
+  return previewConnectedFolder(fs, only);
 }
 
-export { previewArchiveImport } from "./workspace-folder-preview";
-export { restoreThenImport, restTableStore, type ImportSeams } from "./workspace-folder-tables";
+/** Diff a workspace archive against the workspace. Preview only. */
+export async function previewArchiveImport(
+  bytes: Uint8Array,
+): ReturnType<typeof import("./workspace-folder-preview").previewArchiveImport> {
+  const preview = await import("./workspace-folder-preview");
+  return preview.previewArchiveImport(bytes);
+}
+
+export type { ImportSeams } from "./workspace-folder-tables";
 
 export {
   mergeBothChanged,
