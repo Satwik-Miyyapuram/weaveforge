@@ -167,8 +167,15 @@ fn numbers_compare_as_json_stringify_prints_them() {
     let same = [row(json!({"id": "r1", "w": 0, "n": 1, "x": [0.5]}))];
     let other = [row(json!({"id": "r1", "w": 0, "n": 2, "x": [0.5]}))];
 
+    // A real difference is an update once the folder is known to have moved it.
+    let folder = with_origin(ChangeSide::Folder);
     assert_eq!(diff_json_data(&parsed, &same, None).counts.unchanged, 1);
-    assert_eq!(diff_json_data(&parsed, &other, None).counts.updated, 1);
+    assert_eq!(
+        diff_json_data(&parsed, &other, Some(&folder))
+            .counts
+            .updated,
+        1
+    );
 }
 
 #[test]
