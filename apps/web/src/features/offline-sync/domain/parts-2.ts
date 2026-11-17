@@ -3,7 +3,7 @@ import type { PullFacts } from "@weaveforge/wasm";
 import type { ConflictStore } from "./parts-1";
 import type { RemoteChange, SyncTransport } from "./parts";
 import type { SyncStateStore } from "./parts-3";
-import { SHARED_ROW_KINDS, shouldSyncRowKind } from "./sync-scope";
+import { SHARE_RESOURCE_TYPE, SHARING_KINDS, shouldApplyPulled } from "./sync-scope";
 
 // --- outbox ---
 /**
@@ -92,6 +92,22 @@ function toEntries(rows: OutboxRow[]): OutboxEntry[] {
 const COLUMNS =
   "seq, op_id, table_name, row_id, op, payload, base_version, base_payload, attempts, last_error";
 
+/**
+ * The ops owed to the server while GitHub is connected: sharing's own rows
+ * (parameter $2, comma-separated), and any row with a share op still queued
+ * for it. The share lookup is the only sharing signal this device has, since
+ * the local database keeps no shares table.
+ */
+const SHARE_TYPE_CASE = `(case sync_outbox.table_name ${Object.entries(SHARE_RESOURCE_TYPE)
+  .map(([table, type]) => `when '${table}' then '${type}'`)
+  .join(" ")} end)`;
+
+const OWED_WHILE_CONNECTED = `table_name = any(string_to_array('${SHARING_KINDS.join(",")}', ','))
+  or exists (select 1 from sync_outbox s
+              where s.table_name = 'shares' and s.dead_at is null
+                and s.payload->>'resource_id' = sync_outbox.row_id::text
+                and s.payload->>'resource_type' = ${SHARE_TYPE_CASE})`;
+
 export class Outbox {
   constructor(private readonly sql: SqlRunner) {}
 
@@ -123,20 +139,59 @@ export class Outbox {
    * design exists to avoid.
    */
   async pending(limit = 100, githubConnected = false): Promise<OutboxEntry[]> {
-    // With GitHub connected only the shared kinds are owed to the server; the
-    // workspace rows stay in the outbox untouched for when it is turned off.
+    // With GitHub connected only the shared ops are owed to the server; the
+    // workspace rows stay in the outbox (one op per row, see coalesceWorkspace)
+    // for when it is turned off.
     const rows = githubConnected
       ? await this.sql.query<OutboxRow>(
           `select ${COLUMNS} from sync_outbox
-            where dead_at is null and table_name = any(string_to_array($2, ','))
+            where dead_at is null and (${OWED_WHILE_CONNECTED})
             order by seq limit $1`,
-          [Math.max(1, limit), SHARED_ROW_KINDS.join(",")],
+          [Math.max(1, limit)],
         )
       : await this.sql.query<OutboxRow>(
           `select ${COLUMNS} from sync_outbox where dead_at is null order by seq limit $1`,
           [Math.max(1, limit)],
         );
     return toEntries(rows);
+  }
+
+  /**
+   * While GitHub is connected, the workspace ops are never sent, so each row
+   * needs one op rather than one per edit (the outbox would grow with every
+   * keystroke for as long as GitHub stays on). The row keeps its first op's
+   * kind and base, which is what the server must be checked against, and the
+   * latest payload, which is the state the row is in.
+   */
+  async coalesceWorkspace(githubConnected: boolean): Promise<void> {
+    if (!githubConnected) return;
+    await this.sql.exec(
+      `with firsts as (
+         select distinct on (table_name, row_id) table_name, row_id, op, base_version, base_payload
+           from sync_outbox
+          where dead_at is null and not (${OWED_WHILE_CONNECTED})
+          order by table_name, row_id, seq
+       )
+       update sync_outbox set
+         op = case when f.op = 'insert' and sync_outbox.op = 'update' then 'insert' else sync_outbox.op end,
+         base_version = case when sync_outbox.op = 'insert' or (f.op = 'insert' and sync_outbox.op = 'update')
+                             then null else f.base_version end,
+         base_payload = case when sync_outbox.op = 'insert' or (f.op = 'insert' and sync_outbox.op = 'update')
+                             then null else f.base_payload end
+         from firsts f
+        where f.table_name = sync_outbox.table_name and f.row_id = sync_outbox.row_id
+          and sync_outbox.dead_at is null
+          and sync_outbox.seq = (select max(m.seq) from sync_outbox m
+                                  where m.table_name = sync_outbox.table_name
+                                    and m.row_id = sync_outbox.row_id and m.dead_at is null)`,
+    );
+    await this.sql.exec(
+      `delete from sync_outbox
+        where dead_at is null and not (${OWED_WHILE_CONNECTED})
+          and seq < (select max(m.seq) from sync_outbox m
+                      where m.table_name = sync_outbox.table_name
+                        and m.row_id = sync_outbox.row_id and m.dead_at is null)`,
+    );
   }
 
   /** The server took it; it is no longer owed. */
@@ -291,6 +346,8 @@ export class Puller {
     private readonly state: SyncStateStore,
     private readonly transport: SyncTransport,
     private readonly conflicts?: ConflictStore,
+    /** Whose rows this device owns; needed to tell shared-in rows from its own while GitHub is connected. */
+    private readonly localUserId = "",
   ) {
     this.outbox = new Outbox(sql);
   }
@@ -304,8 +361,10 @@ export class Puller {
     const changes = await this.transport.changesSince(watermark, pageSize);
     let failed: Held[] = [];
     for (const change of changes) {
-      // Out-of-scope kinds are read past, not applied; the watermark still moves over them.
-      if (!shouldSyncRowKind(change.table, githubConnected)) continue;
+      // Rows this device must not take are read past. The watermark moves over
+      // them only because switching GitHub off rewinds it (SyncEngine.cycle),
+      // so they are read again when they are wanted.
+      if (!shouldApplyPulled(change, this.localUserId, githubConnected)) continue;
       if (await this.tryApply(change, failed)) applied += 1;
     }
     const summary = readyCore().pullSummary({

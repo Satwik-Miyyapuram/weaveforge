@@ -3,7 +3,6 @@ import type { ConflictRoute } from "@weaveforge/wasm";
 import { Adoption, type AdoptionRequest, type AdoptionResult, ConflictStore } from "./parts-1";
 import { Outbox, type OutboxEntry, Puller, type PullResult, type SqlRunner } from "./parts-2";
 import type { SendOutcome, SyncTransport } from "./parts";
-import { shouldSyncRowKind } from "./sync-scope";
 
 // --- pump ---
 /**
@@ -196,6 +195,22 @@ export class SyncStateStore {
     );
   }
 
+  /**
+   * Record whether the last pull ran with GitHub connected. Switching it off
+   * rewinds the watermark to zero, in the same statement: while it was on the
+   * feed's workspace rows were passed over (they belong to the vault), so they
+   * are read again now that this device should hold them.
+   */
+  async setGithubScope(connected: boolean): Promise<void> {
+    if (connected) {
+      await this.sql.exec("update sync_state set github_scope = true");
+      return;
+    }
+    await this.sql.exec(
+      "update sync_state set watermark = case when github_scope then 0 else watermark end, github_scope = false",
+    );
+  }
+
   /** Record whose account this device now syncs with. */
   async adopt(accountId: string): Promise<void> {
     await this.sql.exec("update sync_state set account_id = $1", [accountId]);
@@ -265,7 +280,7 @@ export class SyncEngine {
     this.state = new SyncStateStore(sql);
     this.conflicts = new ConflictStore(sql);
     this.pump = new OutboxPump(new Outbox(sql), transport, this.conflicts);
-    this.puller = new Puller(sql, this.state, transport, this.conflicts);
+    this.puller = new Puller(sql, this.state, transport, this.conflicts, localUserId);
     this.adoption = new Adoption(sql, localUserId);
   }
 
@@ -300,7 +315,11 @@ export class SyncEngine {
    */
   async cycle(): Promise<CycleResult> {
     await this.conflicts.recheck();
+    // Throws when the answer is unknown: the cycle is abandoned before anything
+    // is sent or pulled, so no watermark moves on a guess.
     const connected = await this.githubConnected();
+    await this.state.setGithubScope(connected);
+    await new Outbox(this.sql).coalesceWorkspace(connected);
     await this.recoverUnsent(connected);
     const pushed = await this.push(connected);
     // Nothing to pull if the network just refused the push — the pull would
@@ -332,7 +351,8 @@ export class SyncEngine {
    * A server that cannot be read leaves the question open for the next cycle.
    */
   private async recoverUnsent(githubConnected: boolean): Promise<void> {
-    if (!this.transport.missingIds) return;
+    // Recovery queues workspace rows; while GitHub owns the workspace it waits.
+    if (githubConnected || !this.transport.missingIds) return;
     const state = await this.sql.queryOne<{ account_id: string | null; resend_checked_at: string | null }>(
       "select account_id, resend_checked_at from sync_state",
     );
@@ -346,7 +366,6 @@ export class SyncEngine {
       return;
     const tables = await this.sql.query<{ t: string }>("select sync_tables_parent_first() as t");
     for (const { t } of tables) {
-      if (!shouldSyncRowKind(t, githubConnected)) continue;
       const rows = await this.sql.query<{ id: string }>("select sync_unsent_candidates($1, $2) as id", [
         t,
         state.account_id,
