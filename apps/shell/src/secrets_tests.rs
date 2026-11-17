@@ -5,14 +5,14 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use std::sync::{Arc, mpsc};
+use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::Duration;
 
-use keyring_core::CredentialStore;
 use keyring_core::mock::Cred;
+use keyring_core::CredentialStore;
 
-use super::{PAGE_WRITABLE, SecretError, Secrets};
+use super::{SecretError, Secrets, PAGE_WRITABLE};
 
 const SERVICE: &str = "org.weaveforge.test";
 const WS_A: &str = "0c6f2a1e-7d3b-5f1a-9a2e-000000000001";
@@ -297,7 +297,10 @@ fn a_write_waits_for_a_migration_in_flight() {
     s.set_open_workspace(Some(WS_A)).expect("open");
 
     // Holding the storage lock stands in for a read that is migrating right now.
-    let migration = s.storage.lock().unwrap_or_else(|e| e.into_inner());
+    let migration = s
+        .storage
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let (done, finished) = mpsc::channel();
     let writer = s.clone();
     let handle = thread::spawn(move || {
@@ -326,7 +329,10 @@ fn a_clear_waits_for_a_migration_in_flight_and_stays_cleared() {
     s.write("git-sync-token", "old-git").expect("old write");
     s.set_open_workspace(Some(WS_A)).expect("open");
 
-    let migration = s.storage.lock().unwrap_or_else(|e| e.into_inner());
+    let migration = s
+        .storage
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let (done, finished) = mpsc::channel();
     let clearer = s.clone();
     let handle = thread::spawn(move || {
