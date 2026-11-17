@@ -248,12 +248,18 @@ fn a_drop_the_workspace_also_edited_is_a_conflict_never_a_removal() {
 
     let both = with_origin(ChangeSide::Both);
     let diff = diff_json_data(&parsed, &stored, Some(&both));
-    assert_eq!(diff.counts.removed, 0, "a drop under Both is never a removal");
+    assert_eq!(
+        diff.counts.removed, 0,
+        "a drop under Both is never a removal"
+    );
     assert_eq!(diff.counts.conflict, 1);
     let conflict = diff
         .entries
         .iter()
-        .find(|entry| entry.action == ImportAction::Conflict && entry.existing.get("id") == Some(&json!("gone")))
+        .find(|entry| {
+            entry.action == ImportAction::Conflict
+                && entry.existing.get("id") == Some(&json!("gone"))
+        })
         .expect("the dropped row is a conflict");
     assert_eq!(conflict.conflict_kind, Some(ConflictKind::BothChanged));
 }

@@ -296,7 +296,11 @@ fn diff_rows(
 /// Only a folder-only edit makes a drop a removal. When the workspace also moved
 /// the file, the workspace may have edited that row since the last sync, so the
 /// drop is a conflict to settle, never a removal. Otherwise it is silence.
-fn diff_removals(parsed: &ParsedJsonData, existing: &[JsonRow], side: ChangeSide) -> Vec<JsonDiffEntry> {
+fn diff_removals(
+    parsed: &ParsedJsonData,
+    existing: &[JsonRow],
+    side: ChangeSide,
+) -> Vec<JsonDiffEntry> {
     let listed: HashSet<&str> = parsed.rows.iter().filter_map(row_id).collect();
     existing
         .iter()

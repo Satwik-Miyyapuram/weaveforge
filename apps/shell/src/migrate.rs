@@ -216,10 +216,7 @@ fn check_copied(to: &Path, copied: u64, want: u64) -> io::Result<()> {
     }
     Err(io::Error::new(
         io::ErrorKind::UnexpectedEof,
-        format!(
-            "copy to {} wrote {copied} of {want} bytes",
-            to.display()
-        ),
+        format!("copy to {} wrote {copied} of {want} bytes", to.display()),
     ))
 }
 

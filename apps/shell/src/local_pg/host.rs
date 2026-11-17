@@ -113,9 +113,9 @@ impl PgEngine {
     /// The backups are left as they are either way.
     async fn restore_if_missing(&self) -> Result<bool, PgError> {
         let bin = &self.bin;
-        self.restore_with(|dir, dump| async move {
-            super::restore::load_dump(bin, &dir, &dump).await
-        })
+        self.restore_with(
+            |dir, dump| async move { super::restore::load_dump(bin, &dir, &dump).await },
+        )
         .await
     }
 
@@ -177,8 +177,10 @@ impl PgEngine {
     }
 
     fn keep_aside_at(&self, path: &Path) {
-        *self.kept_aside.lock().unwrap_or_else(PoisonError::into_inner) =
-            Some(path.to_string_lossy().into_owned());
+        *self
+            .kept_aside
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = Some(path.to_string_lossy().into_owned());
     }
 }
 
@@ -769,8 +771,11 @@ mod tests {
             } else {
                 "empty"
             };
-            std::fs::write(file, format!("{rows}-{}", self.dumps.load(Ordering::SeqCst)))
-                .map_err(|e| PgError::local(e.to_string()))
+            std::fs::write(
+                file,
+                format!("{rows}-{}", self.dumps.load(Ordering::SeqCst)),
+            )
+            .map_err(|e| PgError::local(e.to_string()))
         }
 
         async fn has_user_rows(&self, _conn: &mut FakeConn) -> Result<bool, PgError> {
@@ -1050,7 +1055,11 @@ mod tests {
         let written = host.backup_if_changed(t2).await.map_err(|e| e.message)?;
         assert_eq!(written.len(), 1, "the empty dump still goes into rotation");
         let pin = std::fs::read(dir.join(PINNED)).map_err(|e| e.to_string())?;
-        assert_eq!(pin, b"rows-1".to_vec(), "the pin keeps the last dump with rows");
+        assert_eq!(
+            pin,
+            b"rows-1".to_vec(),
+            "the pin keeps the last dump with rows"
+        );
         let _ = std::fs::remove_dir_all(&dir);
         Ok(())
     }
@@ -1066,9 +1075,17 @@ mod tests {
         engine.fail_probes.store(1, Ordering::SeqCst);
         let t2 = UNIX_EPOCH + std::time::Duration::from_secs(5_000);
         let written = host.backup_if_changed(t2).await.map_err(|e| e.message)?;
-        assert_eq!(written.len(), 1, "a failed row check does not fail the backup");
+        assert_eq!(
+            written.len(),
+            1,
+            "a failed row check does not fail the backup"
+        );
         let pin = std::fs::read(dir.join(PINNED)).map_err(|e| e.to_string())?;
-        assert_eq!(pin, b"rows-1".to_vec(), "a failed check leaves the pin alone");
+        assert_eq!(
+            pin,
+            b"rows-1".to_vec(),
+            "a failed check leaves the pin alone"
+        );
         let _ = std::fs::remove_dir_all(&dir);
         Ok(())
     }
@@ -1238,9 +1255,15 @@ mod tests {
         std::fs::write(root.join("data").join("marker"), b"old").unwrap_or_default();
         let engine = PgEngine::new(PathBuf::new(), root.clone(), None);
         assert!(engine.restore_if_missing().await.unwrap_or(false));
-        assert!(!root.join("data").exists(), "the old data dir is moved out of the way");
+        assert!(
+            !root.join("data").exists(),
+            "the old data dir is moved out of the way"
+        );
         let aside = PathBuf::from(engine.kept_aside().unwrap_or_default());
-        assert!(aside.starts_with(&root), "the old data is kept under the root");
+        assert!(
+            aside.starts_with(&root),
+            "the old data is kept under the root"
+        );
         assert!(
             aside.join("marker").is_file(),
             "the reported path still holds the old files"
@@ -1276,7 +1299,10 @@ mod tests {
         let lost = engine
             .restore_with(|scratch, dump| stub_load(scratch, dump, false))
             .await;
-        assert!(!lost.unwrap_or(true), "an empty rotation dump restores, it is not lost data");
+        assert!(
+            !lost.unwrap_or(true),
+            "an empty rotation dump restores, it is not lost data"
+        );
         assert!(root.join("data").is_dir(), "the empty database is restored");
         assert_eq!(
             std::fs::read(dir.join(PINNED)).unwrap_or_default(),
@@ -1322,7 +1348,10 @@ mod tests {
         );
         assert!(engine.restore_if_missing().await.unwrap_or(false));
         assert!(!root.join("data").join("PG_VERSION").exists());
-        assert!(dump.is_file(), "a backup that fails to load is never deleted");
+        assert!(
+            dump.is_file(),
+            "a backup that fails to load is never deleted"
+        );
         let _ = std::fs::remove_dir_all(&tmp);
     }
 }

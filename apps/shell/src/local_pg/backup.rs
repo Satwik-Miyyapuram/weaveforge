@@ -380,9 +380,7 @@ mod tests {
         };
         // One a week for ten weeks: only the newest three weeks survive.
         for week in 0..10 {
-            let _ = backups
-                .take(at(week * 7 * DAY + 3_600), write_dump)
-                .await?;
+            let _ = backups.take(at(week * 7 * DAY + 3_600), write_dump).await?;
         }
         let kept = names(&list(&dir));
         let want: Vec<String> = [9, 8, 7]

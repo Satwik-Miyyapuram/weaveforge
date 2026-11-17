@@ -87,8 +87,14 @@ fn ink_sidecar_survives_push_and_clone_byte_for_byte() {
     let restored = FolderRepo::new(b_dir.path());
     let _ = pull(&restored, &cfg(&url)).unwrap();
 
-    assert_eq!(fs::read(restored.root().join(sidecar(PAGE_A))).unwrap(), page_a());
-    assert_eq!(fs::read(restored.root().join(sidecar(PAGE_B))).unwrap(), page_b());
+    assert_eq!(
+        fs::read(restored.root().join(sidecar(PAGE_A))).unwrap(),
+        page_a()
+    );
+    assert_eq!(
+        fs::read(restored.root().join(sidecar(PAGE_B))).unwrap(),
+        page_b()
+    );
 
     // Nothing under `.ink/` is left untracked on the clone: the restored
     // folder is clean, so the next sync has nothing to push or stage.
