@@ -15,12 +15,7 @@ import { folderLock } from "./folder-lock";
 import { LOST_DB_SYNC_MESSAGE, folderWriteBlockedByLostDb } from "./folder-lost-db-guard";
 // Type-only: the import, restore and table modules load on first use, so they stay
 // out of the first-load bundle of every route that reaches the app container.
-import type {
-  FolderImportDiff,
-  FolderImportPicks,
-  FolderImportResult,
-  ImportSeams,
-} from "./workspace-folder-tables";
+import type { FolderImportDiff, FolderImportPicks, FolderImportResult, ImportSeams } from "./workspace-folder-tables";
 import type { RestoreConflict } from "./sync-tables";
 import {
   applyFolderImport,
@@ -367,10 +362,8 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   // The synced tables, one file each. A failed read throws here, before anything is
   // written, so a table file is never removed just because the server did not answer.
   // Stable: two passes must agree, so a write during the read cannot mix two moments.
-  const [{ exportSyncTablesStable, syncTableFolderFiles }, { restTableReader }] = await Promise.all([
-    import("./sync-tables"),
-    import("./workspace-folder-tables"),
-  ]);
+  const [{ exportSyncTablesStable, syncTableFolderFiles }, { restTableReader }] =
+    await Promise.all([import("./sync-tables"), import("./workspace-folder-tables")]);
   const tableFiles = syncTableFolderFiles(await exportSyncTablesStable(restTableReader(getDataClient())));
 
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
@@ -790,12 +783,8 @@ export async function previewFolderImport(only?: ReadonlySet<string>): Promise<F
 }
 
 /** Diff a workspace archive against the workspace. Preview only. */
-export async function previewArchiveImport(
-  bytes: Uint8Array,
-): ReturnType<typeof import("./workspace-folder-preview").previewArchiveImport> {
-  const preview = await import("./workspace-folder-preview");
-  return preview.previewArchiveImport(bytes);
-}
+export const previewArchiveImport: typeof import("./workspace-folder-preview").previewArchiveImport = async (bytes) =>
+  (await import("./workspace-folder-preview")).previewArchiveImport(bytes);
 
 export type { ImportSeams } from "./workspace-folder-tables";
 
