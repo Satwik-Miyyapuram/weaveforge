@@ -17,6 +17,7 @@ use crate::git::{
     commit_vault_folder, log_limit, vault_file_log as git_vault_file_log,
     vault_log as git_vault_log, vault_read_at as git_vault_read_at,
 };
+use crate::github_connect::{REAUTH_PREF, needs_github_reauth};
 use crate::prefs::{PrefValue, Prefs};
 use crate::secrets::Secrets;
 use crate::vault::{NO_ROOT, VaultState};
@@ -51,6 +52,8 @@ pub struct SyncSettings {
     pub url: Option<String>,
     /// The sign-in token, if any.
     pub token: Option<String>,
+    /// Whether GitHub refused the token and the reader must sign in again.
+    pub needs_reconnect: bool,
 }
 
 /// The git operations a sync runs, so tests can swap them.
@@ -183,6 +186,8 @@ pub struct VaultSyncReply {
     pub url: Option<String>,
     /// Whether a token is stored.
     pub has_token: bool,
+    /// Whether GitHub refused the token and the reader must sign in again.
+    pub needs_reconnect: bool,
     /// The remote's status, for `status` and `connect`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<SyncStatus>,
@@ -201,7 +206,20 @@ pub fn read_settings(prefs: &Prefs, secrets: &Secrets) -> SyncSettings {
         enabled: matches!(prefs.read("vault-git"), Ok(Some(PrefValue::Flag(true)))),
         url: non_empty(pref_text(prefs, "vault-git-remote")),
         token: non_empty(secrets.read("git-sync-token").ok().flatten()),
+        needs_reconnect: matches!(prefs.read(REAUTH_PREF), Ok(Some(PrefValue::Flag(true)))),
     }
+}
+
+/// After a sync `action` with the remote `url`: flags a refused GitHub token for Reconnect, and
+/// clears the flag once an action that reached the remote worked. Write errors are ignored; the
+/// next sync tries again.
+pub fn note_auth(prefs: &Prefs, url: Option<&str>, action: &str, failure: Option<&str>) {
+    let value = match failure {
+        Some(reason) if needs_github_reauth(url, reason) => Some(PrefValue::Flag(true)),
+        None if !matches!(action, "settings" | "status") => None,
+        _ => return,
+    };
+    let _ = prefs.write(REAUTH_PREF, value);
 }
 
 fn pref_text(prefs: &Prefs, name: &str) -> Option<String> {
@@ -310,6 +328,7 @@ fn base_reply(settings: &SyncSettings) -> VaultSyncReply {
     VaultSyncReply {
         url: settings.url.clone(),
         has_token: settings.token.as_deref().is_some_and(|t| !t.is_empty()),
+        needs_reconnect: settings.needs_reconnect,
         status: None,
         pull: None,
         push: None,
@@ -403,7 +422,7 @@ fn pull_choice(action: &str) -> Option<PullChoice> {
 /// The folder's path, if a folder is chosen.
 ///
 /// Locks in a blocking task: a file command may hold the lock through a long write.
-async fn current_root(vault: &VaultState) -> Option<PathBuf> {
+pub(crate) async fn current_root(vault: &VaultState) -> Option<PathBuf> {
     let vault = vault.clone();
     tokio::task::spawn_blocking(move || vault.lock().root().map(|root| PathBuf::from(root.path)))
         .await
@@ -491,7 +510,8 @@ pub async fn vault_sync(
         .await
         .map_err(ShellError::from)?;
     let root = current_root(vault.inner()).await;
-    sync(
+    let url = settings.url.clone();
+    let result = sync(
         queue.inner(),
         GIT_SYNC_OPS,
         root,
@@ -499,8 +519,21 @@ pub async fn vault_sync(
         settings,
         GIT_TIMEOUT,
     )
-    .await
-    .map_err(ShellError::from)
+    .await;
+    let failure = result.as_ref().err().cloned();
+    let reached = !matches!(action.as_str(), "settings" | "status");
+    let _ = prefs
+        .queued(move |p| {
+            note_auth(p, url.as_deref(), &action, failure.as_deref());
+            Ok(())
+        })
+        .await;
+    result
+        .map(|mut reply| {
+            reply.needs_reconnect &= !reached;
+            reply
+        })
+        .map_err(ShellError::from)
 }
 
 /// Mirrors the chosen folder into its history now, when history is on.
