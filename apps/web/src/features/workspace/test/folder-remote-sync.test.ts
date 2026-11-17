@@ -9,10 +9,13 @@ import {
   disconnectRemote,
   folderRemoteSync,
   forgetRemoteToken,
+  githubSyncConnected,
   pullThenPush,
   remoteSyncAvailable,
   saveRemoteSyncSettings,
 } from "../application/parts-2";
+import { folderLock } from "../application/folder-lock";
+import { syncToFolder } from "../application/workspace-folder";
 
 before(async () => {
   await loadTestCore();
@@ -57,6 +60,25 @@ test("not available in a browser, or on a shell too old to sync", () => {
   assert.equal(remoteSyncAvailable(), false);
   fakeShell(reply());
   assert.equal(remoteSyncAvailable(), true);
+});
+
+test("GitHub sync counts as connected only with a saved URL and a held token", async () => {
+  delete (globalThis as { window?: unknown }).window;
+  assert.equal(await githubSyncConnected(), false, "no shell: nothing to connect");
+
+  fakeShell(reply());
+  assert.equal(await githubSyncConnected(), true, "URL and token both set");
+
+  fakeShell(reply({ hasToken: false }));
+  assert.equal(await githubSyncConnected(), false, "URL without a token");
+
+  fakeShell(reply({ url: null }));
+  assert.equal(await githubSyncConnected(), false, "token without a URL");
+});
+
+test("GitHub sync fails closed: when the shell cannot answer, it counts as connected", async () => {
+  fakeShell(() => Promise.reject(new Error("bridge went away")));
+  assert.equal(await githubSyncConnected(), true);
 });
 
 test("saving checks the URL first and stores nothing when it is not https", async () => {
@@ -163,4 +185,85 @@ test("pullThenPush stops after a conflicted pull and pushes nothing", async () =
   const { pushed } = await pullThenPush();
   assert.deepEqual(calls, [["sync", "pull"]]);
   assert.equal(pushed, null);
+});
+
+/** A promise and the hand that settles it. */
+function gate() {
+  let open!: () => void;
+  const done = new Promise<void>((resolve) => (open = resolve));
+  return { done, open };
+}
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+const answer = (action: DesktopVaultSyncAction): DesktopVaultSync =>
+  action === "pull"
+    ? { url: "u", hasToken: true, pull: { kind: "up-to-date" } }
+    : { url: "u", hasToken: true, push: { kind: "pushed" } };
+
+test("a manual pull waits for whoever holds the folder", async () => {
+  const calls = fakeShell(async (action) => answer(action));
+  const held = gate();
+  const holder = folderLock.run(() => held.done);
+  const pull = folderRemoteSync("pull");
+  await tick();
+  assert.deepEqual(calls, []);
+  held.open();
+  await Promise.all([holder, pull]);
+  assert.deepEqual(calls, [["sync", "pull"]]);
+});
+
+test("auto sync takes the same lock, and holds it across its pull and its push", async () => {
+  const log: string[] = [];
+  fakeShell(async (action) => {
+    log.push(action);
+    return answer(action);
+  });
+  const held = gate();
+  const holder = folderLock.run(() => held.done);
+  const auto = pullThenPush();
+  const manual = folderRemoteSync("push").then(() => log.push("manual done"));
+  await tick();
+  assert.deepEqual(log, []);
+  held.open();
+  await Promise.all([holder, auto, manual]);
+  assert.deepEqual(log, ["pull", "push", "push", "manual done"]);
+});
+
+test("a mirror started beside a pull runs after it, never during it", async () => {
+  const log: string[] = [];
+  const pulling = gate();
+  fakeShell(async (action) => {
+    log.push(`${action} start`);
+    if (action === "pull") await pulling.done;
+    log.push(`${action} end`);
+    return answer(action);
+  });
+  const sync = pullThenPush();
+  // No folder is connected in a test, so the mirror fails as soon as it runs: the failure marks when.
+  const mirror = syncToFolder().catch(() => log.push("mirror ran"));
+  await tick();
+  assert.deepEqual(log, ["pull start"]);
+  pulling.open();
+  await Promise.all([sync, mirror]);
+  assert.deepEqual(log, ["pull start", "pull end", "push start", "push end", "mirror ran"]);
+});
+
+test("a failed pull lets the next folder writer in", async () => {
+  fakeShell(async () => {
+    throw new Error("network down");
+  });
+  await assert.rejects(pullThenPush(), /network down/);
+  assert.equal(await folderLock.run(async () => "next"), "next");
+});
+
+test("reading the remote's settings and status does not wait for the folder", async () => {
+  const calls = fakeShell(reply());
+  const held = gate();
+  const holder = folderLock.run(() => held.done);
+  await folderRemoteSync("settings");
+  await folderRemoteSync("status");
+  assert.deepEqual(calls, [["sync", "settings"], ["sync", "status"]]);
+  held.open();
+  await holder;
 });

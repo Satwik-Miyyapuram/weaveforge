@@ -32,6 +32,10 @@ export interface DesktopLocalDbState {
   dataDir: string;
   /** The backup this run's database was rebuilt from, when it was. */
   restoredFrom?: string | null;
+  /** True when this run started an empty database over lost data: the folder must not be written over. */
+  recreatedEmpty?: boolean;
+  /** Where the old data was kept aside when the database was recreated empty. */
+  keptAside?: string | null;
 }
 
 /** What the shell did for one table of the 0.8 import. */

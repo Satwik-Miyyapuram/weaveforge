@@ -3,6 +3,7 @@ import type { ConflictRoute } from "@weaveforge/wasm";
 import { Adoption, type AdoptionRequest, type AdoptionResult, ConflictStore } from "./parts-1";
 import { Outbox, type OutboxEntry, Puller, type PullResult, type SqlRunner } from "./parts-2";
 import type { SendOutcome, SyncTransport } from "./parts";
+import { shouldSyncRowKind } from "./sync-scope";
 
 // --- pump ---
 /**
@@ -44,11 +45,11 @@ export class OutboxPump {
     private readonly conflicts?: ConflictStore,
   ) {}
 
-  async run(limit = 100): Promise<PumpResult> {
+  async run(limit = 100, githubConnected = false): Promise<PumpResult> {
     const result: PumpResult = { sent: 0, conflicts: [], stoppedBecause: null };
     // A row whose op stalled sends nothing more this run: a later op would guard on a stale base.
     const stalled = new Set<string>();
-    for (const entry of await this.outbox.pending(limit)) {
+    for (const entry of await this.outbox.pending(limit, githubConnected)) {
       const key = `${entry.table}:${entry.rowId}`;
       if (stalled.has(key)) continue;
       const outcome = await this.attempt(entry);
@@ -254,6 +255,12 @@ export class SyncEngine {
     private readonly transport: SyncTransport,
     localUserId: string,
     private readonly quota: SyncQuota = unlimitedSync,
+    /**
+     * Whether GitHub sync is on for this device. When it is, server row sync
+     * carries only shared items and the relay. Off by default: without GitHub,
+     * everything syncs as it always has.
+     */
+    private readonly githubConnected: () => Promise<boolean> = async () => false,
   ) {
     this.state = new SyncStateStore(sql);
     this.conflicts = new ConflictStore(sql);
@@ -279,7 +286,7 @@ export class SyncEngine {
     const result = await this.adoption.run(request);
     // The backfill just queued every row, so there is nothing unsent to look for.
     await this.sql.exec("update sync_state set resend_checked_at = now()");
-    await this.push();
+    await this.push(await this.githubConnected());
     return result;
   }
 
@@ -293,8 +300,9 @@ export class SyncEngine {
    */
   async cycle(): Promise<CycleResult> {
     await this.conflicts.recheck();
-    await this.recoverUnsent();
-    const pushed = await this.push();
+    const connected = await this.githubConnected();
+    await this.recoverUnsent(connected);
+    const pushed = await this.push(connected);
     // Nothing to pull if the network just refused the push — the pull would
     // only fail the same way, and a thrown pull loses the push's report.
     if (!readyCore().shouldPullAfterPush({ stoppedOffline: pushed.stoppedBecause === "offline" })) {
@@ -303,11 +311,11 @@ export class SyncEngine {
     // Page until caught up, so a device's first download (everything the
     // account has) arrives in one cycle rather than one page per tick. Bounded,
     // so a feed that keeps growing cannot hold the cycle forever.
-    let pulled = await this.puller.pull();
+    let pulled = await this.puller.pull(undefined, connected);
     let applied = pulled.applied;
     let pages = 1;
     while (readyCore().shouldFetchNextPage({ more: pulled.more, page: pages, maxPages: MAX_PAGES_PER_CYCLE })) {
-      pulled = await this.puller.pull();
+      pulled = await this.puller.pull(undefined, connected);
       applied += pulled.applied;
       pages += 1;
     }
@@ -323,7 +331,7 @@ export class SyncEngine {
    * the server, and the ones it does not hold go up as inserts, parents first.
    * A server that cannot be read leaves the question open for the next cycle.
    */
-  private async recoverUnsent(): Promise<void> {
+  private async recoverUnsent(githubConnected: boolean): Promise<void> {
     if (!this.transport.missingIds) return;
     const state = await this.sql.queryOne<{ account_id: string | null; resend_checked_at: string | null }>(
       "select account_id, resend_checked_at from sync_state",
@@ -338,6 +346,7 @@ export class SyncEngine {
       return;
     const tables = await this.sql.query<{ t: string }>("select sync_tables_parent_first() as t");
     for (const { t } of tables) {
+      if (!shouldSyncRowKind(t, githubConnected)) continue;
       const rows = await this.sql.query<{ id: string }>("select sync_unsent_candidates($1, $2) as id", [
         t,
         state.account_id,
@@ -354,10 +363,10 @@ export class SyncEngine {
     await this.sql.exec("update sync_state set resend_checked_at = now()");
   }
 
-  private async push(): Promise<PumpResult> {
+  private async push(githubConnected: boolean): Promise<PumpResult> {
     const total: PumpResult = { sent: 0, conflicts: [], stoppedBecause: null };
     for (let round = 0; round < MAX_PUSH_ROUNDS; round += 1) {
-      const step = await this.pump.run();
+      const step = await this.pump.run(undefined, githubConnected);
       total.sent += step.sent;
       total.conflicts.push(...step.conflicts);
       total.stoppedBecause = step.stoppedBecause;

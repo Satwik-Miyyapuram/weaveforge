@@ -64,6 +64,14 @@ export function testDb(): Promise<TestDb> {
   return shared;
 }
 
+/**
+ * A second, empty database with the same schema, for tests that move rows from
+ * one database into another.
+ */
+export function freshTestDb(): Promise<TestDb> {
+  return build();
+}
+
 async function build(): Promise<TestDb> {
   const db = await PGlite.create({ extensions: { pgcrypto } });
   await db.exec(LOCAL_BOOTSTRAP_SQL);

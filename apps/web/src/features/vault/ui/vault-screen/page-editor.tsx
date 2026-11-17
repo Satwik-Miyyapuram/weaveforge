@@ -13,6 +13,7 @@ import type { EditorHandle } from "@/components/editor-handle";
 import { CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
 import { BackButton } from "@/components/back-button";
+import { DetailHeaderExtras } from "@/components/detail-header-extras";
 import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { DocumentToolbar } from "@/components/document-toolbar";
@@ -280,6 +281,7 @@ export function PageEditor({
         {sharedPage && <span className="record-mono record-bar-id">Shared</span>}
         {sharedByName && <PinnedPaperBadge ownerName={sharedByName} />}
         <div className="record-actions">
+          <DetailHeaderExtras />
           {/* Writing here starts from the Edit / Read / Ink switch over the
               note; Open in editor leaves for the full Editor with its tabs and
               sidebar. */}

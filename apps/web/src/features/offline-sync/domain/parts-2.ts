@@ -3,6 +3,7 @@ import type { PullFacts } from "@weaveforge/wasm";
 import type { ConflictStore } from "./parts-1";
 import type { RemoteChange, SyncTransport } from "./parts";
 import type { SyncStateStore } from "./parts-3";
+import { SHARED_ROW_KINDS, shouldSyncRowKind } from "./sync-scope";
 
 // --- outbox ---
 /**
@@ -121,11 +122,20 @@ export class Outbox {
    * work somebody did, and deleting it would be the one failure mode this whole
    * design exists to avoid.
    */
-  async pending(limit = 100): Promise<OutboxEntry[]> {
-    const rows = await this.sql.query<OutboxRow>(
-      `select ${COLUMNS} from sync_outbox where dead_at is null order by seq limit $1`,
-      [Math.max(1, limit)],
-    );
+  async pending(limit = 100, githubConnected = false): Promise<OutboxEntry[]> {
+    // With GitHub connected only the shared kinds are owed to the server; the
+    // workspace rows stay in the outbox untouched for when it is turned off.
+    const rows = githubConnected
+      ? await this.sql.query<OutboxRow>(
+          `select ${COLUMNS} from sync_outbox
+            where dead_at is null and table_name = any(string_to_array($2, ','))
+            order by seq limit $1`,
+          [Math.max(1, limit), SHARED_ROW_KINDS.join(",")],
+        )
+      : await this.sql.query<OutboxRow>(
+          `select ${COLUMNS} from sync_outbox where dead_at is null order by seq limit $1`,
+          [Math.max(1, limit)],
+        );
     return toEntries(rows);
   }
 
@@ -288,12 +298,14 @@ export class Puller {
   private readonly outbox: Outbox;
   private synced: Set<string> | null = null;
 
-  async pull(pageSize = 500): Promise<PullResult> {
+  async pull(pageSize = 500, githubConnected = false): Promise<PullResult> {
     const { watermark } = await this.state.read();
     let applied = await this.retryHeld();
     const changes = await this.transport.changesSince(watermark, pageSize);
     let failed: Held[] = [];
     for (const change of changes) {
+      // Out-of-scope kinds are read past, not applied; the watermark still moves over them.
+      if (!shouldSyncRowKind(change.table, githubConnected)) continue;
       if (await this.tryApply(change, failed)) applied += 1;
     }
     const summary = readyCore().pullSummary({

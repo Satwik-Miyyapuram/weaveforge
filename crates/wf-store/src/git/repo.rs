@@ -11,7 +11,8 @@ use git2::{
 
 use crate::git::policy::{
     CommitAction, FileState, IGNORED_DIRS, IGNORED_EXTENSIONS, IGNORED_FILES, MAX_FILE_BYTES,
-    RepoState, decide_commit, decide_path, describe_changes,
+    MIRROR_MANIFEST_EXCLUDE, RepoState, decide_commit, decide_path, describe_changes,
+    is_mirror_manifest,
 };
 
 /// A lock this old is not a git still running.
@@ -107,6 +108,7 @@ pub(crate) fn write_excludes(repo: &Repository) -> Result<(), RepoError> {
     wanted.extend(IGNORED_DIRS.iter().map(|dir| format!("{dir}/")));
     wanted.extend(IGNORED_FILES.iter().map(|name| (*name).to_owned()));
     wanted.extend(IGNORED_EXTENSIONS.iter().map(|ext| format!("*{ext}")));
+    wanted.push(MIRROR_MANIFEST_EXCLUDE.to_owned());
     let present: Vec<&str> = current
         .split('\n')
         .map(|line| line.trim_end_matches('\r'))
@@ -261,7 +263,7 @@ impl FolderRepo {
             let Ok(path) = entry.path() else {
                 continue;
             };
-            if format!("/{path}").starts_with("/.weaveforge/") {
+            if format!("/{path}").starts_with("/.weaveforge/") || is_mirror_manifest(path) {
                 continue;
             }
             let Some(state) = change_state(entry.status()) else {
@@ -334,6 +336,16 @@ impl FolderRepo {
         write_excludes(&repo)?;
         let mut index = repo.index()?;
         index.remove_dir(Path::new(".weaveforge"), 0)?;
+        // A manifest an older version committed leaves the index, so this commit drops it.
+        let manifests: Vec<PathBuf> = index
+            .iter()
+            .map(|entry| String::from_utf8_lossy(&entry.path).into_owned())
+            .filter(|path| is_mirror_manifest(path))
+            .map(PathBuf::from)
+            .collect();
+        for path in manifests {
+            index.remove_path(&path)?;
+        }
         let root = self.root.clone();
         let max = self.max_file_bytes;
         let mut policy = |path: &Path, _spec: &[u8]| -> i32 {

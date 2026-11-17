@@ -18,6 +18,8 @@ const SUFFIX: &str = ".dump";
 pub const DEFAULT_KEEP: usize = 3;
 /// Beyond those, the newest of this many most recent days.
 pub const DAILY_KEEP: usize = 7;
+/// Beyond those, the newest of this many most recent weeks (seven-day spans from the epoch).
+pub const WEEKLY_KEEP: usize = 8;
 
 /// The file a backup taken at `now` is named: UTC, sortable, legal everywhere.
 #[must_use]
@@ -48,8 +50,26 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
     (yoe + era * 400 + i64::from(month <= 2), month, day)
 }
 
+/// Days since the epoch of a `YYYY-MM-DD` stamp (Hinnant's `days_from_civil`); `None` if malformed.
+fn day_number(day: &str) -> Option<i64> {
+    let y: i64 = day.get(0..4)?.parse().ok()?;
+    let m: i64 = day.get(5..7)?.parse().ok()?;
+    let d: i64 = day.get(8..10)?.parse().ok()?;
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let mp = if m > 2 { m - 3 } else { m + 9 };
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    Some(era * 146_097 + doe - 719_468)
+}
+
+/// The pinned-good copy: the newest backup that loaded with user rows. It sits beside the rotation,
+/// never in it, so pruning cannot remove it.
+pub const PINNED: &str = "local-pg-pinned-good.dump";
+
 fn is_backup(name: &str) -> bool {
-    name.starts_with(PREFIX) && name.ends_with(SUFFIX)
+    name.starts_with(PREFIX) && name.ends_with(SUFFIX) && name != PINNED
 }
 
 /// The backups in `dir`, newest first; none for a folder that is not there.
@@ -75,6 +95,8 @@ pub struct Backups {
     pub keep: usize,
     /// Beyond those, the newest of this many most recent days.
     pub daily_keep: usize,
+    /// Beyond those, the newest of this many most recent weeks, so a month-old good backup survives.
+    pub weekly_keep: usize,
 }
 
 impl Backups {
@@ -85,6 +107,7 @@ impl Backups {
             dirs,
             keep: DEFAULT_KEEP,
             daily_keep: DAILY_KEEP,
+            weekly_keep: WEEKLY_KEEP,
         }
     }
 
@@ -135,23 +158,65 @@ impl Backups {
         }
     }
 
-    /// Every backup in every place, newest first; a restore tries them in this order.
+    /// Every backup in every place, newest first; a restore tries them in this order. Each place's
+    /// pinned-good copy comes last, after the rotation, as the fallback of last resort.
     #[must_use]
     pub fn all(&self) -> Vec<PathBuf> {
         let mut all: Vec<PathBuf> = self.dirs.iter().flat_map(|d| list(d)).collect();
         // Newest by name, not by place: the stamp is the same clock everywhere.
         all.sort_by(|a, b| b.file_name().cmp(&a.file_name()));
+        // The pinned copies come after every rotated one, newest pin first across the places.
+        let mut pinned: Vec<PathBuf> = self
+            .dirs
+            .iter()
+            .map(|d| d.join(PINNED))
+            .filter(|p| p.is_file())
+            .collect();
+        pinned.sort_by_key(|p| {
+            std::cmp::Reverse(std::fs::metadata(p).and_then(|m| m.modified()).ok())
+        });
+        all.extend(pinned);
         all
+    }
+
+    /// Copies `dump` over the pinned-good slot beside it, written beside and renamed over, so an
+    /// interrupted pin leaves the previous pin in place. The copy takes the dump's modified time
+    /// (copies only keep it on some systems), so pins order by the age of the data they hold.
+    ///
+    /// # Errors
+    /// Fails when the copy, the time, or the rename fails.
+    pub fn pin(&self, dump: &Path) -> Result<(), PgError> {
+        let dir = dump.parent().unwrap_or_else(|| Path::new("."));
+        let target = dir.join(PINNED);
+        let part = dir.join(format!("{PINNED}.part"));
+        let when = std::fs::metadata(dump)
+            .and_then(|m| m.modified())
+            .map_err(|e| PgError::local(e.to_string()))?;
+        std::fs::copy(dump, &part)
+            .and_then(|_| set_modified(&part, when))
+            .and_then(|()| std::fs::rename(&part, &target))
+            .map_err(|e| {
+                let _ = std::fs::remove_file(&part);
+                PgError::local(e.to_string())
+            })
     }
 
     fn prune(&self, dir: &Path) {
         let files = list(dir);
         let mut kept: Vec<&PathBuf> = files.iter().take(self.keep).collect();
         let mut days: Vec<String> = Vec::new();
+        let mut weeks: Vec<i64> = Vec::new();
         for file in &files {
-            // `local-pg-YYYY-MM-DD…`: newest first, so the first seen of a day is its newest.
+            // `local-pg-YYYY-MM-DD…`: newest first, so the first seen of a day or week is its newest.
             let name = file.file_name().and_then(|n| n.to_str()).unwrap_or("");
             let day: String = name.chars().skip(PREFIX.len()).take(10).collect();
+            if let Some(number) = day_number(&day) {
+                let week = number.div_euclid(7);
+                if !weeks.contains(&week) && weeks.len() < self.weekly_keep {
+                    weeks.push(week);
+                    kept.push(file);
+                }
+            }
             if days.contains(&day) || days.len() >= self.daily_keep {
                 continue;
             }
@@ -164,6 +229,14 @@ impl Backups {
             }
         }
     }
+}
+
+/// Sets a file's modified time, so a copy can keep its source's age on every system.
+fn set_modified(path: &Path, when: SystemTime) -> std::io::Result<()> {
+    std::fs::File::options()
+        .write(true)
+        .open(path)
+        .and_then(|f| f.set_modified(when))
 }
 
 #[cfg(test)]
@@ -270,6 +343,7 @@ mod tests {
             dirs: vec![dir.clone()],
             keep: 2,
             daily_keep: 3,
+            weekly_keep: 0,
         };
         // Two a day for five days; times sort by name.
         for day in 0..5 {
@@ -292,5 +366,114 @@ mod tests {
         assert_eq!(kept, want);
         let _ = std::fs::remove_dir_all(&dir);
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn keeps_the_newest_of_the_recent_weeks_beyond_the_daily_tier() -> Result<(), PgError> {
+        const DAY: u64 = 86_400;
+        let dir = temp("weekly");
+        let backups = Backups {
+            dirs: vec![dir.clone()],
+            keep: 1,
+            daily_keep: 0,
+            weekly_keep: 3,
+        };
+        // One a week for ten weeks: only the newest three weeks survive.
+        for week in 0..10 {
+            let _ = backups
+                .take(at(week * 7 * DAY + 3_600), write_dump)
+                .await?;
+        }
+        let kept = names(&list(&dir));
+        let want: Vec<String> = [9, 8, 7]
+            .iter()
+            .map(|w| file_name(at(w * 7 * DAY + 3_600)))
+            .collect();
+        assert_eq!(kept, want);
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_pinned_backup_is_outside_rotation_and_the_last_resort() -> Result<(), PgError> {
+        const DAY: u64 = 86_400;
+        let dir = temp("pinned");
+        let backups = Backups {
+            dirs: vec![dir.clone()],
+            keep: 1,
+            daily_keep: 0,
+            weekly_keep: 0,
+        };
+        let good = backups.take(at(DAY), write_dump).await?;
+        backups.pin(&good[0])?;
+        // Newer backups rotate the pinned one's source out, but never the pin itself.
+        for day in 2..6 {
+            let _ = backups.take(at(day * DAY), write_dump).await?;
+        }
+        assert_eq!(
+            names(&list(&dir)),
+            [file_name(at(5 * DAY))],
+            "the pinned file is not in the rotation listing"
+        );
+        assert_eq!(
+            names(&backups.all()),
+            [file_name(at(5 * DAY)), PINNED.to_owned()],
+            "the pinned file is the last restore candidate"
+        );
+        assert_eq!(std::fs::read(dir.join(PINNED)).ok(), Some(b"dump".to_vec()));
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[test]
+    fn pinned_copies_across_places_are_tried_newest_first() -> Result<(), PgError> {
+        let a = temp("pin-order-a");
+        let b = temp("pin-order-b");
+        for dir in [&a, &b] {
+            std::fs::create_dir_all(dir).map_err(|e| PgError::local(e.to_string()))?;
+        }
+        std::fs::write(a.join(PINNED), b"older").map_err(|e| PgError::local(e.to_string()))?;
+        std::fs::write(b.join(PINNED), b"newer").map_err(|e| PgError::local(e.to_string()))?;
+        let base = SystemTime::UNIX_EPOCH + Duration::from_secs(1_000_000);
+        set_modified(&a.join(PINNED), base).map_err(|e| PgError::local(e.to_string()))?;
+        set_modified(&b.join(PINNED), base + Duration::from_secs(60))
+            .map_err(|e| PgError::local(e.to_string()))?;
+        let backups = Backups::new(vec![a.clone(), b.clone()]);
+        assert_eq!(
+            backups.all(),
+            vec![b.join(PINNED), a.join(PINNED)],
+            "the newer pinned copy is tried first, whatever place it is in"
+        );
+        let _ = std::fs::remove_dir_all(&a);
+        let _ = std::fs::remove_dir_all(&b);
+        Ok(())
+    }
+
+    #[test]
+    fn a_pin_carries_the_age_of_the_dump_it_copies() -> Result<(), PgError> {
+        let dir = temp("pin-age");
+        std::fs::create_dir_all(&dir).map_err(|e| PgError::local(e.to_string()))?;
+        let dump = dir.join(file_name(at(5)));
+        std::fs::write(&dump, b"dump").map_err(|e| PgError::local(e.to_string()))?;
+        let when = at(3_000_000);
+        set_modified(&dump, when).map_err(|e| PgError::local(e.to_string()))?;
+        let backups = Backups::new(vec![dir.clone()]);
+        backups.pin(&dump)?;
+        let pinned = std::fs::metadata(dir.join(PINNED))
+            .and_then(|m| m.modified())
+            .map_err(|e| PgError::local(e.to_string()))?;
+        assert_eq!(pinned, when, "the pin is as old as the dump it copies");
+        assert!(!dir.join(format!("{PINNED}.part")).exists());
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[test]
+    fn day_numbers_follow_the_calendar() {
+        assert_eq!(day_number("1970-01-01"), Some(0));
+        assert_eq!(day_number("1970-01-02"), Some(1));
+        assert_eq!(day_number("2000-03-01"), Some(11_017));
+        assert_eq!(day_number("2026-11-05"), Some(20_762));
+        assert_eq!(day_number("nope"), None);
     }
 }

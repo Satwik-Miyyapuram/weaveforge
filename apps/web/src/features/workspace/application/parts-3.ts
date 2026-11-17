@@ -88,6 +88,129 @@ export async function readMirrorBase(
 }
 
 /**
+ * Mirrored files a pull removed, which the mirror must not write back.
+ *
+ * Kept in the root `.weaveforge` folder, which git and the folder watcher both
+ * leave alone: it is this machine's record, like the database beside it.
+ */
+export const PULLED_DELETES_PATH = `${WORKSPACE_META_DIR}/pulled-deletes.json`;
+
+/** The paths a pull removed and the reader has not settled yet; none when unreadable. */
+export async function readPulledDeletes(fs: IWorkspaceFs): Promise<Set<string>> {
+  const text = await fs.readText(PULLED_DELETES_PATH).catch(() => null);
+  try {
+    const parsed: unknown = text === null ? [] : JSON.parse(text);
+    return new Set(Array.isArray(parsed) ? parsed.filter((p): p is string => typeof p === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/** Write the list back, sorted; an empty list removes the file. Skips a write that changes nothing. */
+export async function writePulledDeletes(fs: IWorkspaceFs, paths: ReadonlySet<string>): Promise<void> {
+  const before = await readPulledDeletes(fs);
+  if (before.size === paths.size && [...paths].every((p) => before.has(p))) return;
+  if (paths.size === 0) {
+    await fs.remove(PULLED_DELETES_PATH).catch(() => undefined);
+    return;
+  }
+  await fs.mkdirp(WORKSPACE_META_DIR);
+  await fs.writeFile(PULLED_DELETES_PATH, `${JSON.stringify([...paths].sort(), null, 2)}\n`);
+}
+
+/**
+ * Run a git action that can move the folder's tree, keeping this machine's
+ * manifests as they were when it moved.
+ *
+ * Git keeps the project manifests out of history, but a folder committed by an
+ * older version still carries them, and a pull brings the remote's, whose
+ * digests match the files that came in. The next mirror run would then read
+ * each pulled file as its own last write and put the database's older copy
+ * back. With this machine's manifests restored, a pulled file differs from its
+ * base: the mirror holds it back, and the folder watcher offers it for import.
+ *
+ * Two more things a moved tree needs:
+ * - A mirrored file the pull removed is a delete made on the other machine. It
+ *   goes on the pulled-deletes list, so the mirror leaves it out and the
+ *   review offers the removal instead of the mirror writing it back.
+ * - A project folder new to this machine has no manifest, so the mirror would
+ *   overwrite its pulled files. It gets one naming every file with no digest:
+ *   each file that differs from the database is held back for import.
+ */
+export async function keepMirrorBases<T>(
+  fs: IWorkspaceFs,
+  action: () => Promise<T>,
+  moved: (result: T) => boolean,
+): Promise<T> {
+  const dirs = await topLevelDirs(fs);
+  const paths = [MIRROR_MANIFEST_PATH, ...dirs.map(mirrorManifestPath)];
+  const kept = new Map<string, string>();
+  for (const path of paths) {
+    const text = await fs.readText(path).catch(() => null);
+    if (text !== null) kept.set(path, text);
+  }
+  const mirroredBefore = await presentMirroredPaths(fs, kept);
+  const result = await action();
+  if (moved(result)) {
+    for (const [path, text] of kept) await fs.writeFile(path, text);
+    await recordPulledDeletes(fs, mirroredBefore);
+    await baseNewProjectFolders(fs, new Set(dirs), kept);
+  }
+  return result;
+}
+
+/** Top-level folders, without the root `.weaveforge`. */
+async function topLevelDirs(fs: IWorkspaceFs): Promise<string[]> {
+  const entries = await fs.list("").catch(() => []);
+  return entries.filter((e) => e.kind === "dir" && e.path !== WORKSPACE_META_DIR).map((e) => e.path);
+}
+
+/** Every path the kept manifests name that is on disk now. */
+async function presentMirroredPaths(fs: IWorkspaceFs, kept: ReadonlyMap<string, string>): Promise<string[]> {
+  const present: string[] = [];
+  for (const text of kept.values()) {
+    for (const path of Object.keys(readyCore().readMirrorBase(text))) {
+      if (await fs.stat(path).catch(() => null)) present.push(path);
+    }
+  }
+  return present;
+}
+
+/** Adds the mirrored files the action removed to the pulled-deletes list. */
+async function recordPulledDeletes(fs: IWorkspaceFs, before: readonly string[]): Promise<void> {
+  const gone: string[] = [];
+  for (const path of before) {
+    if (!(await fs.stat(path).catch(() => null))) gone.push(path);
+  }
+  if (gone.length === 0) return;
+  await writePulledDeletes(fs, new Set([...(await readPulledDeletes(fs)), ...gone]));
+}
+
+/**
+ * A base for each project folder the action brought: new, or holding a
+ * project `.weaveforge` folder but no manifest. A folder that was already
+ * here and is no project is left alone.
+ */
+async function baseNewProjectFolders(
+  fs: IWorkspaceFs,
+  before: ReadonlySet<string>,
+  kept: ReadonlyMap<string, string>,
+): Promise<void> {
+  for (const dir of await topLevelDirs(fs)) {
+    const manifest = mirrorManifestPath(dir);
+    if (kept.has(manifest)) continue;
+    const isProject = await fs.stat(typedCore().projectMetaDir(dir)).catch(() => null);
+    if (before.has(dir) && !isProject) continue;
+    if (await fs.stat(manifest).catch(() => null)) continue;
+    const files: string[] = [];
+    for await (const entry of fs.walk(dir)) {
+      if (entry.path !== manifest) files.push(entry.path);
+    }
+    if (files.length > 0) await writeMirrorManifest(fs, dir, files);
+  }
+}
+
+/**
  * Whether a JSON data file on disk is something the app wrote.
  *
  * The mirror writes `relations.json` and its neighbours whenever the data

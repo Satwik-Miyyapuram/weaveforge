@@ -28,6 +28,10 @@ pub const GIT_SYNC_IGNORED_FILES: &[&str] = &["desktop.ini"];
 /// LaTeX build byproducts: regenerated on every compile, so never worth history.
 pub const GIT_SYNC_IGNORED_EXTENSIONS: &[&str] = &[".aux", ".fdb_latexmk", ".fls", ".synctex.gz"];
 
+/// The git exclude line for every project's mirror manifest: this machine's record of its
+/// own last write, so another machine's copy must never come in with a pull.
+pub const MIRROR_MANIFEST_EXCLUDE: &str = "**/.weaveforge/mirror.json";
+
 /// Why a path is kept out of git. The string form matches the TypeScript.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -80,6 +84,16 @@ pub fn is_under_ignored_folder(rel_path: &str) -> bool {
     })
 }
 
+/// True for `<any folder>/.weaveforge/mirror.json`, a mirror manifest kept out of git.
+#[must_use]
+pub fn is_mirror_manifest(rel_path: &str) -> bool {
+    let segments = segments_of(rel_path);
+    matches!(
+        segments.as_slice(),
+        [.., meta, name] if meta.as_str() == WORKSPACE_META_DIR && name.as_str() == "mirror.json"
+    )
+}
+
 /// Decide whether one workspace-relative path goes into git. Backslashes are
 /// accepted so a Windows path matches the same rules. A size that is not a
 /// finite non-negative number cannot be checked against the cap, so it is skipped.
@@ -97,6 +111,7 @@ pub fn decide_git_sync_path(
         return GitSyncDecision::Skip(GitSyncSkipReason::IgnoredDirectory);
     }
     if GIT_SYNC_IGNORED_FILES.contains(&file_name.as_str())
+        || is_mirror_manifest(rel_path)
         || GIT_SYNC_IGNORED_EXTENSIONS
             .iter()
             .any(|ext| file_name.ends_with(*ext))

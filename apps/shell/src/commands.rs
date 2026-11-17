@@ -42,6 +42,12 @@ pub struct DbState {
     /// The backup this run's database was rebuilt from, when it was.
     #[serde(default)]
     pub restored_from: Option<String>,
+    /// True when this run started an empty database over lost data, so the page must warn.
+    #[serde(default)]
+    pub recreated_empty: bool,
+    /// Where the old data was kept aside when the database was recreated empty.
+    #[serde(default)]
+    pub kept_aside: Option<String>,
 }
 
 /// A JSON value as the database sends it (`$bigint` / `$bytes` tagged). TypeScript sees `unknown`;
@@ -144,6 +150,8 @@ impl LocalDb {
             failure: Some(failure),
             data_dir: self.data_dir.clone(),
             restored_from: None,
+            recreated_empty: false,
+            kept_aside: None,
         }
     }
 }
