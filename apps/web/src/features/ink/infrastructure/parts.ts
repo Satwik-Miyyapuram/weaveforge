@@ -85,16 +85,16 @@ export class BlobInkChunkStore implements InkChunkStore {
  * every call fails loudly; the bucket is never used on the desktop.
  */
 export class UnavailableInkChunkStore implements InkChunkStore {
-  async read(): Promise<never> {
+  async read(_noteId: string, _chunkId: string): Promise<never> {
     throw new InkNoFolderError();
   }
-  async write(): Promise<never> {
+  async write(_noteId: string, _chunkId: string, _bytes: Uint8Array): Promise<never> {
     throw new InkNoFolderError();
   }
-  async remove(): Promise<never> {
+  async remove(_noteId: string, _chunkId: string): Promise<never> {
     throw new InkNoFolderError();
   }
-  async list(): Promise<never> {
+  async list(_noteId: string): Promise<never> {
     throw new InkNoFolderError();
   }
 }
