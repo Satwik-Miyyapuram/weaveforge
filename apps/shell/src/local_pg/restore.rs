@@ -42,7 +42,9 @@ pub fn clear_leftovers(root: &Path) {
 /// with `has_data` false is an empty database: the caller must not treat its dump as a good backup.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Restored {
+    /// The dump the database was rebuilt from.
     pub dump: PathBuf,
+    /// Whether the rebuilt database holds user rows.
     pub has_data: bool,
 }
 

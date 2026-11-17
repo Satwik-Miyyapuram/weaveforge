@@ -80,7 +80,7 @@ fn ink_sidecar_survives_push_and_clone_byte_for_byte() {
     write_bytes(writer.root(), &sidecar(PAGE_A), &page_a());
     write_bytes(writer.root(), &sidecar(PAGE_B), &page_b());
     let _ = writer.commit_all("ink", ME).unwrap();
-    push(&writer, &cfg(&url)).unwrap();
+    let _ = push(&writer, &cfg(&url)).unwrap();
 
     // A clone restores the folder from the remote, into an empty folder.
     let b_dir = TempDir::new();
