@@ -537,12 +537,18 @@ impl<E: Engine> PgHost<E> {
         }
     }
 
-    /// Imports one table with one transaction (the owner session's unit of work). The query lock is
-    /// held for this call only, so the page never waits on a whole import.
+    /// Imports one batch of a table with one transaction (the owner session's unit of work); `last`
+    /// marks the table's final batch. The query lock is held for this call only, so the page never
+    /// waits on a whole import.
     ///
     /// # Errors
     /// A message for the page: the open failure, or the import's refusal.
-    pub async fn import_table(&self, table: &str, rows: &[Value]) -> Result<TableReport, String> {
+    pub async fn import_table(
+        &self,
+        table: &str,
+        rows: &[Value],
+        last: bool,
+    ) -> Result<TableReport, String> {
         let mut inner = self.inner.lock().await;
         if inner.closed {
             return Err(CLOSED.to_owned());
@@ -551,7 +557,7 @@ impl<E: Engine> PgHost<E> {
         let Some(open) = inner.open.as_mut() else {
             return Err(OPEN_FAILED.to_owned());
         };
-        let result = import::import_table(&mut open.conn, table, rows).await;
+        let result = import::import_table(&mut open.conn, table, rows, last).await;
         self.drop_if_broken(&mut inner, &result).await;
         let report = result.map_err(|e| e.message)?;
         if report.inserted > 0 {
@@ -1191,9 +1197,9 @@ mod tests {
     {
         let (engine, host) = host();
         // The fake reports no columns, so each import refuses; the open and the rollback are what is checked.
-        let first = host.import_table("notes", &[json!({"id": 1})]).await;
+        let first = host.import_table("notes", &[json!({"id": 1})], true).await;
         assert!(first.is_err());
-        let second = host.import_table("papers", &[]).await;
+        let second = host.import_table("papers", &[], true).await;
         assert!(second.is_err());
         assert_eq!(engine.opens.load(Ordering::SeqCst), 1);
         assert_eq!(engine.closes.load(Ordering::SeqCst), 0);

@@ -6,13 +6,26 @@
  * before children, and the shell is told to finish only after every table has
  * succeeded. A failure throws before the finish, so no marker is written and a
  * retry runs the whole import again (the shell skips rows already in place).
+ *
+ * Nothing crosses the bridge as one huge value: the tar arrives in parts, rows
+ * are read a page at a time, and a big table goes over in several sends, the
+ * last one flagged so the shell marks the table done only then. A table without
+ * a primary key goes in one send, since a retry could not skip its rows.
  */
+
+/** One part of the old database tar, as the shell sends it. */
+export interface OldDbTarPart {
+  /** This part's bytes, base64. */
+  data: string;
+  /** How many parts the tar has. */
+  parts: number;
+}
 
 /** The shell commands this import calls. */
 export interface OldDbShell {
   status(): Promise<boolean>;
-  tar(): Promise<string>;
-  importTable(table: string, rows: unknown[]): Promise<unknown>;
+  tarPart(index: number): Promise<OldDbTarPart>;
+  importTable(table: string, rows: unknown[], last: boolean): Promise<unknown>;
   finish(tables: string[]): Promise<void>;
 }
 
@@ -34,9 +47,13 @@ export interface OldDbProgress {
 
 export interface OldDbDeps {
   shell: OldDbShell;
-  /** Opens the old data directory, given as the bytes of a tar. */
-  open(tar: Uint8Array): Promise<OldDbDatabase>;
+  /** Opens the old data directory, given as a tar. */
+  open(tar: Blob): Promise<OldDbDatabase>;
   onProgress?(progress: OldDbProgress): void;
+  /** Rows read per query. */
+  pageRows?: number;
+  /** A send closes once its rows' JSON reaches this many characters. */
+  sendChars?: number;
 }
 
 export type OldDbOutcome =
@@ -50,15 +67,16 @@ export type OldDbOutcome =
  */
 export async function importOldDb(deps: OldDbDeps): Promise<OldDbOutcome> {
   if (!(await deps.shell.status())) return { imported: false };
-  const db = await deps.open(base64ToBytes(await deps.shell.tar()));
+  const db = await deps.open(await readTar(deps.shell));
   try {
     const tables = await tablesParentFirst(db);
+    const keyed = await keyedTables(db);
+    await importUserIds(deps, db);
     for (const [i, table] of tables.entries()) {
       deps.onProgress?.({ table, index: i + 1, total: tables.length });
-      const { rows } = await db.query(`SELECT * FROM ${quoteIdent(table)}`);
-      await deps.shell.importTable(table, rows.map(encodeRow));
+      await importTable(deps, db, table, keyed.has(table));
     }
-    await deps.shell.finish(tables);
+    await deps.shell.finish([AUTH_USERS, ...tables]);
     return { imported: true, tables };
   } finally {
     await db.close().catch(() => {});
@@ -66,13 +84,91 @@ export async function importOldDb(deps: OldDbDeps): Promise<OldDbOutcome> {
 }
 
 /** Opens the tar in PGlite. The package loads only here, so the import can be tested without it. */
-export async function openOldDb(tar: Uint8Array): Promise<OldDbDatabase> {
+export async function openOldDb(tar: Blob): Promise<OldDbDatabase> {
   const { PGlite } = await import("@electric-sql/pglite");
-  const pg = await PGlite.create({ loadDataDir: new Blob([tar as BlobPart]) });
+  const pg = await PGlite.create({ loadDataDir: tar });
   return {
     query: (sql) => pg.query<Record<string, unknown>>(sql),
     close: () => pg.close(),
   };
+}
+
+const PAGE_ROWS = 200;
+const SEND_CHARS = 8 << 20;
+const AUTH_USERS = "auth.users";
+
+/**
+ * Sends the old `auth.users` ids before any table, since old rows reference them by foreign key.
+ * Only ids go over: the other columns take their defaults, and the local user already there is skipped.
+ */
+async function importUserIds(deps: OldDbDeps, db: OldDbDatabase): Promise<void> {
+  const { rows } = await db.query("SELECT id::text AS id FROM auth.users ORDER BY id");
+  await deps.shell.importTable(
+    AUTH_USERS,
+    rows.map((row) => ({ id: String(row.id) })),
+    true,
+  );
+}
+
+/** Fetches the tar part by part; each part is decoded before the next arrives. */
+async function readTar(shell: OldDbShell): Promise<Blob> {
+  const first = await shell.tarPart(0);
+  const parts: BlobPart[] = [base64ToBytes(first.data) as BlobPart];
+  for (let i = 1; i < first.parts; i++) {
+    parts.push(base64ToBytes((await shell.tarPart(i)).data) as BlobPart);
+  }
+  return new Blob(parts);
+}
+
+/**
+ * Reads `table` a page at a time (in ctid order, so each page starts where the
+ * last ended) and sends the rows in parts of about `sendChars` characters. The
+ * final send carries `last`, even when it is empty. A keyless table is sent in
+ * one call.
+ */
+async function importTable(
+  deps: OldDbDeps,
+  db: OldDbDatabase,
+  table: string,
+  keyed: boolean,
+): Promise<void> {
+  const pageRows = deps.pageRows ?? PAGE_ROWS;
+  const sendChars = deps.sendChars ?? SEND_CHARS;
+  let batch: unknown[] = [];
+  let chars = 0;
+  let after = "(0,0)";
+  for (;;) {
+    const { rows } = await db.query(
+      `SELECT ctid::text AS ${CTID}, * FROM ${quoteIdent(table)} ` +
+        `WHERE ctid > '${after}'::tid ORDER BY ctid LIMIT ${pageRows}`,
+    );
+    for (const { [CTID]: ctid, ...row } of rows) {
+      after = String(ctid);
+      const encoded = encodeRow(row);
+      batch.push(encoded);
+      chars += JSON.stringify(encoded).length;
+      if (keyed && chars >= sendChars) {
+        await deps.shell.importTable(table, batch, false);
+        batch = [];
+        chars = 0;
+      }
+    }
+    if (rows.length < pageRows) break;
+  }
+  await deps.shell.importTable(table, batch, true);
+}
+
+/** Column name for the row position; no app table has a column by this name. */
+const CTID = "__wf_ctid";
+
+const KEYED_SQL = `SELECT c.relname AS tablename
+FROM pg_index i
+JOIN pg_class c ON c.oid = i.indrelid
+WHERE i.indisprimary AND c.relnamespace = 'public'::regnamespace`;
+
+/** The public tables that have a primary key. */
+async function keyedTables(db: OldDbDatabase): Promise<Set<string>> {
+  return new Set((await db.query(KEYED_SQL)).rows.map((r) => String(r.tablename)));
 }
 
 const TABLES_SQL =

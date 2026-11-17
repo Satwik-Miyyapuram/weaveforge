@@ -4,6 +4,7 @@
 //! owner session in `local_pg::host` does the writes; `import_finish` writes the marker last.
 
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use base64::Engine as _;
 use serde::Serialize;
@@ -44,16 +45,20 @@ impl From<TableReport> for ImportReport {
     }
 }
 
-/// Imports one batch of rows into `table`.
+/// Imports one batch of rows into `table`. `last` marks the table's final batch; only then is the
+/// table recorded as done, so a big table can arrive in several calls.
 #[tauri::command]
 #[specta::specta]
 pub async fn old_db_import_table(
     db: tauri::State<'_, LocalDb>,
     table: String,
     rows: Vec<Json>,
+    last: bool,
 ) -> Result<ImportReport, ShellError> {
     let rows = json_params(rows)?;
-    db.import_table(&table, &rows).await.map(ImportReport::from)
+    db.import_table(&table, &rows, last)
+        .await
+        .map(ImportReport::from)
 }
 
 /// Writes the import marker once every table in `tables` is done.
@@ -88,11 +93,71 @@ pub fn old_db_status(app: tauri::AppHandle) -> Result<bool, ShellError> {
     Ok(pending(&data))
 }
 
-/// The old PGlite dir as a base64 tar, for PGlite's `loadDataDir`. Read-only: the old dir is
-/// never written, and the tar is built in memory.
+/// Bytes per tar part. One base64 string of the whole tar can pass V8's string limit (~512 MiB)
+/// and crash the page, so the tar crosses the bridge in parts this size.
+const TAR_PART_BYTES: usize = 16 << 20;
+
+/// The tar built by part 0, kept until its last part is read.
+static TAR: Mutex<Option<Arc<Vec<u8>>>> = Mutex::new(None);
+
+/// One part of the old database tar.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct TarPart {
+    /// This part's bytes, base64.
+    pub data: String,
+    /// How many parts the tar has.
+    pub parts: u32,
+}
+
+/// Part `index` of the old PGlite dir as a tar, for PGlite's `loadDataDir`. Part 0 builds the tar
+/// in memory and keeps it; the last part frees it. Read-only: the old dir is never written.
 #[tauri::command]
 #[specta::specta]
-pub async fn old_db_tar(app: tauri::AppHandle) -> Result<String, ShellError> {
+pub async fn old_db_tar_part(app: tauri::AppHandle, index: u32) -> Result<TarPart, ShellError> {
+    let tar = if index == 0 {
+        let tar = Arc::new(build_tar(&app).await?);
+        *lock_tar() = Some(Arc::clone(&tar));
+        tar
+    } else {
+        lock_tar().clone().ok_or_else(|| {
+            ShellError::from("the old database tar is gone; start the import again".to_string())
+        })?
+    };
+    let parts = part_count(tar.len(), TAR_PART_BYTES);
+    let Some(bytes) = tar_part(&tar, index, TAR_PART_BYTES) else {
+        return Err(ShellError::from(format!(
+            "tar part {index} is out of range ({parts} parts)"
+        )));
+    };
+    let data = base64::engine::general_purpose::STANDARD.encode(bytes);
+    if index + 1 >= parts {
+        *lock_tar() = None;
+    }
+    Ok(TarPart { data, parts })
+}
+
+fn lock_tar() -> std::sync::MutexGuard<'static, Option<Arc<Vec<u8>>>> {
+    TAR.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// Parts needed for `len` bytes; an empty tar still has one (empty) part.
+fn part_count(len: usize, size: usize) -> u32 {
+    u32::try_from(len.div_ceil(size).max(1)).unwrap_or(u32::MAX)
+}
+
+/// The bytes of part `index`, or `None` past the end.
+fn tar_part(tar: &[u8], index: u32, size: usize) -> Option<&[u8]> {
+    if index >= part_count(tar.len(), size) {
+        return None;
+    }
+    let start = usize::try_from(index).ok()?.checked_mul(size)?;
+    Some(&tar[start..tar.len().min(start + size)])
+}
+
+/// Builds the old database tar in memory.
+async fn build_tar(app: &tauri::AppHandle) -> Result<Vec<u8>, ShellError> {
     use tauri::Manager;
     let data = app
         .path()
@@ -112,11 +177,10 @@ pub async fn old_db_tar(app: tauri::AppHandle) -> Result<String, ShellError> {
             ));
         }
     };
-    let bytes = tokio::task::spawn_blocking(move || old_db::read_old_db(&dir))
+    tokio::task::spawn_blocking(move || old_db::read_old_db(&dir))
         .await
         .map_err(|e| ShellError::from(e.to_string()))?
-        .map_err(|e| ShellError::from(e.to_string()))?;
-    Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
+        .map_err(|e| ShellError::from(e.to_string()))
 }
 
 /// True while an old database is found under `data` and the import marker is not there yet.
@@ -150,7 +214,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let db = LocalDb::new(Err("no postgres".to_string()), "data".to_string());
-        assert!(db.import_table("notes", &[]).await.is_err());
+        assert!(db.import_table("notes", &[], true).await.is_err());
         assert!(
             db.import_finish(&["notes".to_string()], &dir.join(IMPORTED_MARKER))
                 .await
@@ -158,6 +222,22 @@ mod tests {
         );
         assert!(!dir.join(IMPORTED_MARKER).exists());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn tar_parts_cover_the_tar_in_order_and_stop_at_the_end() {
+        // Guards: a lost or repeated byte at a part edge, which corrupts the old database.
+        let tar: Vec<u8> = (0..=255u8).cycle().take(10).collect();
+        assert_eq!(part_count(10, 4), 3);
+        let joined: Vec<u8> = (0..3)
+            .flat_map(|i| tar_part(&tar, i, 4).unwrap().to_vec())
+            .collect();
+        assert_eq!(joined, tar);
+        assert_eq!(tar_part(&tar, 2, 4).unwrap().len(), 2);
+        assert!(tar_part(&tar, 3, 4).is_none());
+        assert_eq!(part_count(8, 4), 2, "an exact fit adds no empty part");
+        assert_eq!(part_count(0, 4), 1);
+        assert_eq!(tar_part(&[], 0, 4), Some(&[][..]));
     }
 
     #[test]

@@ -54,6 +54,16 @@ pub fn quote_ident(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))
 }
 
+/// Quotes a table name. Old tables are in `public`, so a name is one identifier, except
+/// `auth.users`: the old rows reference its ids, so it is imported first, into the `auth` schema.
+#[must_use]
+pub fn quote_table(table: &str) -> String {
+    if table == "auth.users" {
+        return "\"auth\".\"users\"".to_owned();
+    }
+    quote_ident(table)
+}
+
 /// What the importer needs to know about a table, read from the catalog.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Shape {
@@ -74,7 +84,7 @@ pub struct Shape {
 /// # Errors
 /// Fails when the table does not exist or the connection is broken.
 pub async fn describe<C: Conn>(conn: &mut C, table: &str) -> Result<Shape, PgError> {
-    let reg = Value::String(quote_ident(table));
+    let reg = Value::String(quote_table(table));
     let cols = conn.query(COLUMNS_SQL, std::slice::from_ref(&reg)).await?;
     let mut columns = Vec::with_capacity(cols.rows.len());
     let mut identity_always = false;
@@ -107,6 +117,20 @@ pub async fn describe<C: Conn>(conn: &mut C, table: &str) -> Result<Shape, PgErr
     })
 }
 
+/// Keeps only the columns some row carries. A column added after the old app (for example
+/// `local_blobs.on_disk`) is then left to its default; `jsonb_populate_recordset` would fill it
+/// with NULL. A key the row sends as null still writes NULL. An empty batch keeps every column.
+fn only_sent_columns(mut shape: Shape, rows: &[Value]) -> Shape {
+    if rows.is_empty() {
+        return shape;
+    }
+    shape.columns.retain(|c| {
+        rows.iter()
+            .any(|row| row.as_object().is_some_and(|o| o.contains_key(c)))
+    });
+    shape
+}
+
 /// The text of one cell, or empty for SQL null.
 fn cell(row: &[Option<String>], i: usize) -> String {
     row.get(i).and_then(Clone::clone).unwrap_or_default()
@@ -115,7 +139,7 @@ fn cell(row: &[Option<String>], i: usize) -> String {
 /// The batch insert. `$1` is a JSON array of rows, expanded against the table's own column types.
 #[must_use]
 pub fn insert_sql(table: &str, shape: &Shape) -> String {
-    let t = quote_ident(table);
+    let t = quote_table(table);
     let cols = shape
         .columns
         .iter()
@@ -140,7 +164,7 @@ pub fn insert_sql(table: &str, shape: &Shape) -> String {
 /// `$1` is the batch's JSON array, as for `insert_sql`.
 #[must_use]
 pub fn differ_sql(table: &str, shape: &Shape) -> String {
-    let t = quote_ident(table);
+    let t = quote_table(table);
     let join = shape
         .primary_key_columns
         .iter()
@@ -170,7 +194,7 @@ pub fn differ_sql(table: &str, shape: &Shape) -> String {
 /// below the sequence's MINVALUE. `$1` is the sequence.
 #[must_use]
 pub fn reset_sql(table: &str, column: &str) -> String {
-    let t = quote_ident(table);
+    let t = quote_table(table);
     let c = quote_ident(column);
     format!(
         "SELECT setval($1::regclass, GREATEST((SELECT COALESCE(MAX({c}), 0)::bigint + 1 FROM {t}), \
@@ -253,9 +277,11 @@ pub async fn done_tables<C: Conn>(conn: &mut C) -> Result<BTreeSet<String>, PgEr
     Ok(out.rows.iter().map(|row| cell(row, 0)).collect())
 }
 
-/// Imports one table in one transaction, then records it in the ledger in that same transaction.
-/// A table the ledger already has is skipped. On any failure the transaction is rolled back and
-/// the table stays pending.
+/// Imports one batch of a table's rows in one transaction. With `last`, the table's sequences are
+/// reset and it is recorded in the ledger in that same transaction; earlier batches leave it
+/// pending, so a big table can arrive in several calls. A table the ledger already has is skipped.
+/// On any failure the transaction is rolled back and the table stays pending; a retry sends the
+/// batches again and the rows already in place are skipped.
 ///
 /// # Errors
 /// Fails when the table is missing or has no writable columns, a batch is refused (for example a
@@ -264,10 +290,14 @@ pub async fn import_table<C: Conn>(
     conn: &mut C,
     table: &str,
     rows: &[Value],
+    last: bool,
 ) -> Result<TableReport, PgError> {
     ensure_ledger(conn).await?;
     conn.exec("BEGIN").await?;
-    let outcome = match import_in_transaction(conn, table, rows).await {
+    // Old rows go in as they were: the native sync triggers would drop tombstoned rows, restamp
+    // versions and queue every row for upload. Reverts at COMMIT or ROLLBACK.
+    conn.exec("SET LOCAL session_replication_role = replica").await?;
+    let outcome = match import_in_transaction(conn, table, rows, last).await {
         Ok(report) => conn.commit().await.map(|()| report),
         Err(e) => Err(e),
     };
@@ -302,10 +332,36 @@ async fn refuse_differing_rows<C: Conn>(
     Ok(())
 }
 
+/// Tables where the new app writes rows before the import runs, and the old row replaces the
+/// native one with the same key: the blank seeded device state, and the blank profile made for
+/// each user. The old values (synced account, watermark, name, role) are the ones to keep.
+const OLD_WINS: &[&str] = &["sync_state", "profiles"];
+
+/// Registries the migrations fill. Old rows add only the names missing; native rows stay.
+const NATIVE_WINS: &[&str] = &["sync_tables"];
+
+/// Never imported: an old migration name the new runner has not applied would mark it as run.
+const NOT_IMPORTED: &[&str] = &["weaveforge_migrations"];
+
+/// `insert_sql`, but a row whose key is already there is overwritten with the old values.
+fn old_wins_sql(table: &str, shape: &Shape) -> String {
+    let set = shape
+        .columns
+        .iter()
+        .map(|c| format!("{0} = EXCLUDED.{0}", quote_ident(c)))
+        .collect::<Vec<_>>()
+        .join(", ");
+    insert_sql(table, shape).replace(
+        " DO NOTHING RETURNING 1",
+        &format!(" DO UPDATE SET {set} RETURNING 1"),
+    )
+}
+
 async fn import_in_transaction<C: Conn>(
     conn: &mut C,
     table: &str,
     rows: &[Value],
+    last: bool,
 ) -> Result<TableReport, PgError> {
     let name = table.to_owned();
     let done = conn
@@ -322,11 +378,27 @@ async fn import_in_transaction<C: Conn>(
             already_done: true,
         });
     }
-    let shape = describe(conn, table).await?;
+    let shape = only_sent_columns(describe(conn, table).await?, rows);
     if shape.columns.is_empty() {
         return Err(PgError::local(format!("no writable columns for {table}")));
     }
-    let sql = insert_sql(table, &shape);
+    if !last && shape.primary_key.is_none() {
+        // A committed batch of a keyless table cannot be told apart on a retry, so it would be
+        // inserted twice. Such a table must arrive in one call.
+        return Err(PgError::local(format!(
+            "{table} has no primary key, so it must be imported in one call"
+        )));
+    }
+    let rows = if NOT_IMPORTED.contains(&table) {
+        &[][..]
+    } else {
+        rows
+    };
+    let sql = if OLD_WINS.contains(&table) {
+        old_wins_sql(table, &shape)
+    } else {
+        insert_sql(table, &shape)
+    };
     let mut report = TableReport {
         table: name.clone(),
         inserted: 0,
@@ -345,9 +417,12 @@ async fn import_in_transaction<C: Conn>(
         report.inserted += got;
         let skipped = sent.saturating_sub(got);
         report.skipped += skipped;
-        if skipped > 0 {
+        if skipped > 0 && !NATIVE_WINS.contains(&table) {
             refuse_differing_rows(conn, table, &shape, batch.json).await?;
         }
+    }
+    if !last {
+        return Ok(report);
     }
     for (column, sequence) in &shape.sequences {
         let _ = conn
@@ -378,7 +453,7 @@ pub async fn import_tables<C: Conn>(
 ) -> Result<Vec<TableReport>, PgError> {
     let mut reports = Vec::with_capacity(tables.len());
     for (table, rows) in tables {
-        reports.push(import_table(conn, table, rows).await?);
+        reports.push(import_table(conn, table, rows, true).await?);
     }
     let done = done_tables(conn).await?;
     let names: Vec<&str> = tables.iter().map(|(t, _)| *t).collect();
@@ -417,7 +492,19 @@ mod tests {
         CREATE TABLE gen_only (b int GENERATED ALWAYS AS (1) STORED);
         CREATE TABLE log_t (seq serial, body text);
         CREATE TABLE uniq_t (id int PRIMARY KEY, code text UNIQUE);
-        CREATE TABLE minv (id bigint GENERATED BY DEFAULT AS IDENTITY (MINVALUE 100 START 100) PRIMARY KEY, body text);";
+        CREATE TABLE minv (id bigint GENERATED BY DEFAULT AS IDENTITY (MINVALUE 100 START 100) PRIMARY KEY, body text);
+        CREATE TABLE newcol_t (id int PRIMARY KEY, body text, flag boolean NOT NULL DEFAULT false);
+        CREATE SCHEMA auth;
+        CREATE TABLE auth.users (id uuid PRIMARY KEY, email text, created_at timestamptz NOT NULL DEFAULT now());
+        CREATE TABLE owned_t (id int PRIMARY KEY, user_id uuid NOT NULL REFERENCES auth.users(id));
+        CREATE TABLE sync_state (id boolean PRIMARY KEY DEFAULT true CHECK (id), watermark bigint NOT NULL DEFAULT 0, account_id uuid);
+        INSERT INTO sync_state (id) VALUES (true);
+        CREATE TABLE sync_tables (table_name text PRIMARY KEY, added_at timestamptz NOT NULL DEFAULT now());
+        INSERT INTO sync_tables VALUES ('papers', '2020-01-01');
+        CREATE TABLE profiles (user_id text PRIMARY KEY, full_name text NOT NULL DEFAULT '');
+        INSERT INTO profiles (user_id) VALUES ('local');
+        CREATE TABLE weaveforge_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());
+        INSERT INTO weaveforge_migrations VALUES ('0001.sql', '2020-01-01');";
 
     /// A real server for one test, or None when `WF_REAL_PG_BIN` is unset (the test then passes
     /// without running, as the other real-Postgres tests do).
@@ -534,6 +621,8 @@ mod tests {
     fn identifiers_with_quotes_and_spaces_are_quoted() {
         // Guards: a table or column name with a quote or a space breaking the SQL.
         assert_eq!(quote_ident("my \"t\""), "\"my \"\"t\"\"\"");
+        assert_eq!(quote_table("auth.users"), "\"auth\".\"users\"");
+        assert_eq!(quote_table("a.b"), "\"a.b\"");
         let shape = Shape {
             columns: vec!["a b".into(), "id".into()],
             identity_always: false,
@@ -599,18 +688,21 @@ mod tests {
                 &mut c,
                 "serial_t",
                 &rows(3, |i| json!({ "id": i + 1, "body": "s" })),
+                true,
             )
             .await?;
             let _ = import_table(
                 &mut c,
                 "ident_t",
                 &rows(3, |i| json!({ "id": i + 1, "body": "i" })),
+                true,
             )
             .await?;
             let _ = import_table(
                 &mut c,
                 "gen_t",
                 &rows(3, |i| json!({ "id": i + 1, "a": i + 1, "b": 999 })),
+                true,
             )
             .await?;
             assert_eq!(
@@ -634,7 +726,7 @@ mod tests {
                 "4"
             );
             assert!(
-                import_table(&mut c, "gen_only", &rows(1, |_| json!({ "b": 1 })))
+                import_table(&mut c, "gen_only", &rows(1, |_| json!({ "b": 1 })), true)
                     .await
                     .is_err()
             );
@@ -661,6 +753,7 @@ mod tests {
                 &mut c,
                 "serial_t",
                 &rows(3, |i| json!({ "id": i + 1, "body": "s" })),
+                true,
             )
             .await?;
             assert_eq!(
@@ -675,6 +768,7 @@ mod tests {
                 &mut c,
                 "minv",
                 &rows(3, |i| json!({ "id": i + 1, "body": "m" })),
+                true,
             )
             .await?;
             assert_eq!(
@@ -705,14 +799,14 @@ mod tests {
                 "needs two INSERTs"
             );
             let mut f = Faulty::open(&server, Fault::TerminateAtInsert(2)).await?;
-            assert!(import_table(&mut f, "log_t", &src).await.is_err());
+            assert!(import_table(&mut f, "log_t", &src, true).await.is_err());
             let mut c = server.connect().await?;
             assert_eq!(scalar(&mut c, "SELECT count(*) FROM log_t").await?, "0");
             assert_eq!(
                 scalar(&mut c, "SELECT count(*) FROM wf_import.done").await?,
                 "0"
             );
-            let again = import_table(&mut c, "log_t", &src).await?;
+            let again = import_table(&mut c, "log_t", &src, true).await?;
             assert_eq!(again.inserted, 10);
             assert_eq!(scalar(&mut c, "SELECT count(*) FROM log_t").await?, "10");
             Ok::<(), PgError>(())
@@ -734,11 +828,60 @@ mod tests {
             drop(c);
             let src = rows(3, |i| json!({ "id": i + 1, "body": "s" }));
             let mut f = Faulty::open(&server, Fault::TerminateAtInsert(1)).await?;
-            assert!(import_table(&mut f, "serial_t", &src).await.is_err());
+            assert!(import_table(&mut f, "serial_t", &src, true).await.is_err());
             let mut c = server.connect().await?;
             assert_eq!(scalar(&mut c, "SELECT count(*) FROM serial_t").await?, "0");
-            let again = import_table(&mut c, "serial_t", &src).await?;
+            let again = import_table(&mut c, "serial_t", &src, true).await?;
             assert_eq!(again.inserted, 3);
+            Ok::<(), PgError>(())
+        }
+        .await;
+        finish(server, root, r).await
+    }
+
+    #[tokio::test]
+    async fn real_table_in_several_calls_is_done_only_after_the_last_and_reruns_skip()
+    -> Result<(), PgError> {
+        // Guards: a big table sent in parts being marked done after its first part, which would
+        // make a rerun skip the rest; and a keyless table split into parts, which a rerun would
+        // duplicate.
+        let Some((server, root)) = start("parts").await? else {
+            return Ok(());
+        };
+        let r = async {
+            let mut c = server.connect().await?;
+            c.exec(SCHEMA).await?;
+            let all = rows(6, |i| json!({ "id": i + 1, "body": "p" }));
+            let first = import_table(&mut c, "serial_t", &all[..3], false).await?;
+            assert_eq!(first.inserted, 3);
+            assert_eq!(
+                scalar(&mut c, "SELECT count(*) FROM wf_import.done").await?,
+                "0",
+                "pending until the last part"
+            );
+            // A rerun after a crash sends every part again from the start.
+            let again = import_table(&mut c, "serial_t", &all[..3], false).await?;
+            assert!(!again.already_done);
+            assert_eq!((again.inserted, again.skipped), (0, 3));
+            let last = import_table(&mut c, "serial_t", &all[3..], true).await?;
+            assert_eq!(last.inserted, 3);
+            assert_eq!(scalar(&mut c, "SELECT count(*) FROM serial_t").await?, "6");
+            assert_eq!(
+                scalar(&mut c, "SELECT row_count FROM wf_import.done").await?,
+                "3"
+            );
+            assert_eq!(
+                scalar(
+                    &mut c,
+                    "INSERT INTO serial_t (body) VALUES ('new') RETURNING id"
+                )
+                .await?,
+                "7",
+                "sequence reset on the last part"
+            );
+            let log = rows(2, |i| json!({ "seq": i + 1, "body": "l" }));
+            assert!(import_table(&mut c, "log_t", &log, false).await.is_err());
+            assert_eq!(scalar(&mut c, "SELECT count(*) FROM log_t").await?, "0");
             Ok::<(), PgError>(())
         }
         .await;
@@ -759,10 +902,10 @@ mod tests {
             drop(c);
             let src = rows(5, |i| json!({ "seq": i + 1, "body": "x" }));
             let mut f = Faulty::open(&server, Fault::CommitThenFail).await?;
-            assert!(import_table(&mut f, "log_t", &src).await.is_err());
+            assert!(import_table(&mut f, "log_t", &src, true).await.is_err());
             let mut c = server.connect().await?;
             assert_eq!(scalar(&mut c, "SELECT count(*) FROM log_t").await?, "5");
-            let again = import_table(&mut c, "log_t", &src).await?;
+            let again = import_table(&mut c, "log_t", &src, true).await?;
             assert!(again.already_done, "the ledger row committed with the rows");
             assert_eq!(scalar(&mut c, "SELECT count(*) FROM log_t").await?, "5");
             Ok::<(), PgError>(())
@@ -786,7 +929,7 @@ mod tests {
                 json!({ "id": 1, "body": "native" }),
                 json!({ "id": 2, "body": "b" }),
             ];
-            let report = import_table(&mut c, "serial_t", &src).await?;
+            let report = import_table(&mut c, "serial_t", &src, true).await?;
             assert_eq!((report.inserted, report.skipped), (1, 1));
             assert_eq!(
                 scalar(&mut c, "SELECT body FROM serial_t WHERE id = 1").await?,
@@ -814,7 +957,9 @@ mod tests {
                 json!({ "id": 1, "body": "old" }),
                 json!({ "id": 2, "body": "b" }),
             ];
-            let err = import_table(&mut c, "serial_t", &src).await.unwrap_err();
+            let err = import_table(&mut c, "serial_t", &src, true)
+                .await
+                .unwrap_err();
             assert!(err.to_string().contains("serial_t"), "{err}");
             assert!(err.to_string().contains("1 skipped row"), "{err}");
             assert_eq!(scalar(&mut c, "SELECT count(*) FROM serial_t").await?, "1");
@@ -844,11 +989,229 @@ mod tests {
             c.exec(SCHEMA).await?;
             c.exec("INSERT INTO uniq_t VALUES (1, 'X')").await?;
             let src = vec![json!({ "id": 2, "code": "X" })];
-            assert!(import_table(&mut c, "uniq_t", &src).await.is_err());
+            assert!(import_table(&mut c, "uniq_t", &src, true).await.is_err());
             assert_eq!(scalar(&mut c, "SELECT count(*) FROM uniq_t").await?, "1");
             assert_eq!(
                 scalar(&mut c, "SELECT count(*) FROM wf_import.done").await?,
                 "0"
+            );
+            Ok::<(), PgError>(())
+        }
+        .await;
+        finish(server, root, r).await
+    }
+
+    #[tokio::test]
+    async fn real_old_auth_users_import_before_the_rows_that_reference_them() -> Result<(), PgError>
+    {
+        // Guards: rows owned by the old signed-in account refused by the auth.users foreign key,
+        // because only public tables were imported. The local user already in place is skipped,
+        // not refused, when only ids are sent.
+        let Some((server, root)) = start("authusers").await? else {
+            return Ok(());
+        };
+        let r = async {
+            let mut c = server.connect().await?;
+            c.exec(SCHEMA).await?;
+            let local = "00000000-0000-4000-8000-000000000001";
+            let account = "8d731734-bdcd-4f08-b648-efd15fdf75da";
+            c.exec(&format!(
+                "INSERT INTO auth.users (id, email) VALUES ('{local}', 'local@device')"
+            ))
+            .await?;
+            let users = vec![json!({ "id": local }), json!({ "id": account })];
+            let report = import_table(&mut c, "auth.users", &users, true).await?;
+            assert_eq!((report.inserted, report.skipped), (1, 1));
+            let _ = import_table(
+                &mut c,
+                "owned_t",
+                &[json!({ "id": 1, "user_id": account })],
+                true,
+            )
+            .await?;
+            assert_eq!(
+                scalar(
+                    &mut c,
+                    "SELECT count(*) FROM auth.users WHERE email = 'local@device'"
+                )
+                .await?,
+                "1"
+            );
+            Ok::<(), PgError>(())
+        }
+        .await;
+        finish(server, root, r).await
+    }
+
+    #[tokio::test]
+    async fn real_old_registry_rows_add_only_the_missing_names() -> Result<(), PgError> {
+        // Guards: the migrations fill sync_tables, so old rows differing only in added_at were
+        // refused and the whole import stopped.
+        let Some((server, root)) = start("registry").await? else {
+            return Ok(());
+        };
+        let r = async {
+            let mut c = server.connect().await?;
+            c.exec(SCHEMA).await?;
+            let old = vec![
+                json!({ "table_name": "papers", "added_at": "2024-05-01T00:00:00Z" }),
+                json!({ "table_name": "notes", "added_at": "2024-05-01T00:00:00Z" }),
+            ];
+            let report = import_table(&mut c, "sync_tables", &old, true).await?;
+            assert_eq!((report.inserted, report.skipped), (1, 1));
+            assert_eq!(
+                scalar(&mut c, "SELECT added_at::date::text FROM sync_tables WHERE table_name = 'papers'").await?,
+                "2020-01-01"
+            );
+            Ok::<(), PgError>(())
+        }
+        .await;
+        finish(server, root, r).await
+    }
+
+    #[tokio::test]
+    async fn real_old_profile_replaces_the_provisioned_one() -> Result<(), PgError> {
+        // Guards: the new app makes a blank profile for each user, so the old profile (name,
+        // role) was refused as differing and the whole import stopped.
+        let Some((server, root)) = start("profiles").await? else {
+            return Ok(());
+        };
+        let r = async {
+            let mut c = server.connect().await?;
+            c.exec(SCHEMA).await?;
+            let old = vec![
+                json!({ "user_id": "local", "full_name": "Old Name" }),
+                json!({ "user_id": "account", "full_name": "Account" }),
+            ];
+            let report = import_table(&mut c, "profiles", &old, true).await?;
+            assert_eq!((report.inserted, report.skipped), (2, 0));
+            assert_eq!(
+                scalar(&mut c, "SELECT string_agg(full_name, ',' ORDER BY user_id) FROM profiles").await?,
+                "Account,Old Name"
+            );
+            Ok::<(), PgError>(())
+        }
+        .await;
+        finish(server, root, r).await
+    }
+
+    #[tokio::test]
+    async fn real_old_migration_list_is_not_imported() -> Result<(), PgError> {
+        // Guards: an old migration name the new runner has not applied would mark it as run.
+        let Some((server, root)) = start("migrations").await? else {
+            return Ok(());
+        };
+        let r = async {
+            let mut c = server.connect().await?;
+            c.exec(SCHEMA).await?;
+            let old = vec![
+                json!({ "name": "0001.sql", "applied_at": "2024-05-01T00:00:00Z" }),
+                json!({ "name": "9999.sql", "applied_at": "2024-05-01T00:00:00Z" }),
+            ];
+            let report = import_table(&mut c, "weaveforge_migrations", &old, true).await?;
+            assert_eq!((report.inserted, report.skipped), (0, 0));
+            assert_eq!(
+                scalar(&mut c, "SELECT string_agg(name || '@' || applied_at::date, ',') FROM weaveforge_migrations").await?,
+                "0001.sql@2020-01-01"
+            );
+            assert!(import_table(&mut c, "weaveforge_migrations", &old, true).await?.already_done);
+            Ok::<(), PgError>(())
+        }
+        .await;
+        finish(server, root, r).await
+    }
+
+    #[tokio::test]
+    async fn real_old_sync_state_replaces_the_blank_seeded_row() -> Result<(), PgError> {
+        // Guards: the new app seeds a blank sync_state row, so the old row (account and
+        // watermark) was refused as differing and the whole import stopped.
+        let Some((server, root)) = start("syncstate").await? else {
+            return Ok(());
+        };
+        let r = async {
+            let mut c = server.connect().await?;
+            c.exec(SCHEMA).await?;
+            let account = "8d731734-bdcd-4f08-b648-efd15fdf75da";
+            let old = vec![json!({ "id": true, "watermark": 42, "account_id": account })];
+            let report = import_table(&mut c, "sync_state", &old, true).await?;
+            assert_eq!((report.inserted, report.skipped), (1, 0));
+            assert_eq!(
+                scalar(&mut c, "SELECT watermark || ':' || account_id FROM sync_state").await?,
+                format!("42:{account}")
+            );
+            Ok::<(), PgError>(())
+        }
+        .await;
+        finish(server, root, r).await
+    }
+
+    #[tokio::test]
+    async fn real_old_rows_go_in_as_they_were_without_firing_triggers() -> Result<(), PgError> {
+        // Guards: the native sync triggers ran on imported rows. One dropped rows that also had a
+        // tombstone, others restamped row_version, so the import stopped with "skipped row(s)
+        // differ" (milestones) and would have queued every old row for upload.
+        let Some((server, root)) = start("triggers").await? else {
+            return Ok(());
+        };
+        let r = async {
+            let mut c = server.connect().await?;
+            c.exec(SCHEMA).await?;
+            c.exec(
+                "CREATE TABLE trig_t (id int PRIMARY KEY, row_version int NOT NULL DEFAULT 0);
+                 CREATE FUNCTION drop_odd() RETURNS trigger LANGUAGE plpgsql AS $$
+                 BEGIN IF new.id % 2 = 1 THEN RETURN NULL; END IF;
+                 new.row_version := 999; RETURN new; END $$;
+                 CREATE TRIGGER drop_odd BEFORE INSERT ON trig_t FOR EACH ROW EXECUTE FUNCTION drop_odd();",
+            )
+            .await?;
+            let old = vec![
+                json!({ "id": 1, "row_version": 3 }),
+                json!({ "id": 2, "row_version": 5 }),
+            ];
+            let report = import_table(&mut c, "trig_t", &old, true).await?;
+            assert_eq!((report.inserted, report.skipped), (2, 0));
+            assert_eq!(
+                scalar(&mut c, "SELECT string_agg(id || ':' || row_version, ',' ORDER BY id) FROM trig_t").await?,
+                "1:3,2:5"
+            );
+            c.exec("INSERT INTO trig_t VALUES (4, 0)").await?;
+            assert_eq!(
+                scalar(&mut c, "SELECT row_version::text FROM trig_t WHERE id = 4").await?,
+                "999",
+                "triggers fire again after the import"
+            );
+            Ok::<(), PgError>(())
+        }
+        .await;
+        finish(server, root, r).await
+    }
+
+    #[tokio::test]
+    async fn real_column_missing_from_old_rows_takes_its_default() -> Result<(), PgError> {
+        // Guards: a column added after 0.8 (local_blobs.on_disk, NOT NULL DEFAULT false) filled
+        // with NULL instead of its default, refusing the whole import. A key sent as null stays
+        // null, and a retry of the same rows is skipped rather than refused as differing.
+        let Some((server, root)) = start("newcol").await? else {
+            return Ok(());
+        };
+        let r = async {
+            let mut c = server.connect().await?;
+            c.exec(SCHEMA).await?;
+            let src = vec![
+                json!({ "id": 1, "body": "a" }),
+                json!({ "id": 2, "body": null }),
+            ];
+            let _ = import_table(&mut c, "newcol_t", &src, false).await?;
+            let again = import_table(&mut c, "newcol_t", &src, true).await?;
+            assert_eq!((again.inserted, again.skipped), (0, 2));
+            assert_eq!(
+                scalar(
+                    &mut c,
+                    "SELECT string_agg(id || ':' || coalesce(body, 'NULL') || ':' || flag, ',' \
+                     ORDER BY id) FROM newcol_t"
+                )
+                .await?,
+                "1:a:false,2:NULL:false"
             );
             Ok::<(), PgError>(())
         }
@@ -942,7 +1305,7 @@ mod tests {
             )
             .await?;
             let src = rows(2, |i| json!({ "my id": i + 1, "b d": "v" }));
-            let report = import_table(&mut c, "we\"ird $$ name", &src).await?;
+            let report = import_table(&mut c, "we\"ird $$ name", &src, true).await?;
             assert_eq!(report.inserted, 2);
             assert_eq!(
                 scalar(

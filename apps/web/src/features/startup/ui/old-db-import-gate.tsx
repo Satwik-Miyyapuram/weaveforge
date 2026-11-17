@@ -85,14 +85,14 @@ function oldDbShell(): OldDbShell | null {
   if (
     !bridge ||
     !bridge.oldDbStatus ||
-    !bridge.oldDbTar ||
+    !bridge.oldDbTarPart ||
     !bridge.oldDbImportTable ||
     !bridge.oldDbImportFinish
   )
     return null;
   return {
     status: bridge.oldDbStatus.bind(bridge),
-    tar: bridge.oldDbTar.bind(bridge),
+    tarPart: bridge.oldDbTarPart.bind(bridge),
     importTable: bridge.oldDbImportTable.bind(bridge),
     finish: bridge.oldDbImportFinish.bind(bridge),
   };
