@@ -136,12 +136,21 @@ async fn load_into(server: &PgServer, dump: &Path) -> Result<bool, PgError> {
     let check = conn
         .query("select count(*) from weaveforge_migrations", &[])
         .await;
-    let rows = match check {
-        Ok(_) => conn.query(USER_ROWS_SQL, &[]).await,
+    let has_data = match check {
+        Ok(_) => has_user_rows(&mut conn).await,
         Err(err) => Err(err),
     };
     let _ = conn.close().await;
-    let rows = rows?;
+    has_data
+}
+
+/// Whether the public tables hold user rows. Restore uses it to pick a dump and backup uses it to
+/// pin one, so both agree on what counts.
+///
+/// # Errors
+/// The count query's error.
+pub async fn has_user_rows<C: Conn>(conn: &mut C) -> Result<bool, PgError> {
+    let rows = conn.query(USER_ROWS_SQL, &[]).await?;
     let count = rows
         .rows
         .first()

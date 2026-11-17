@@ -52,6 +52,16 @@ pub trait Engine: Send + Sync {
         file: PathBuf,
     ) -> impl Future<Output = Result<(), PgError>> + Send;
 
+    /// Whether the open database holds user rows: the same test restore uses to pick a dump, so a
+    /// backup pins the kind of dump restore would keep.
+    ///
+    /// # Errors
+    /// The check query's error.
+    fn has_user_rows(
+        &self,
+        conn: &mut Self::Conn,
+    ) -> impl Future<Output = Result<bool, PgError>> + Send;
+
     /// Where the data lives, as `DbState.dataDir` reports it.
     fn data_dir(&self) -> String;
 
@@ -187,6 +197,10 @@ impl Engine for PgEngine {
                 Err(err)
             }
         }
+    }
+
+    async fn has_user_rows(&self, conn: &mut PgConn) -> Result<bool, PgError> {
+        super::restore::has_user_rows(conn).await
     }
 
     async fn close(&self, conn: PgConn, server: PgServer) {
@@ -348,16 +362,16 @@ impl<E: Engine> PgHost<E> {
     /// # Errors
     /// The dump's error, when no place got a backup.
     pub async fn backup_if_changed(&self, now: SystemTime) -> Result<Vec<PathBuf>, PgError> {
-        let inner = self.inner.lock().await;
-        self.backup_locked(&inner, now).await
+        let mut inner = self.inner.lock().await;
+        self.backup_locked(&mut inner, now).await
     }
 
     async fn backup_locked(
         &self,
-        inner: &Inner<E>,
+        inner: &mut Inner<E>,
         now: SystemTime,
     ) -> Result<Vec<PathBuf>, PgError> {
-        let (Some(backups), Some(open)) = (&self.backups, &inner.open) else {
+        let (Some(backups), Some(open)) = (&self.backups, &mut inner.open) else {
             return Ok(Vec::new());
         };
         if !self.changed.swap(false, Ordering::AcqRel) {
@@ -369,7 +383,35 @@ impl<E: Engine> PgHost<E> {
         if result.is_err() {
             self.changed.store(true, Ordering::Release);
         }
+        if let Ok(written) = &result
+            && !written.is_empty()
+        {
+            self.pin_if_rows(backups, &mut open.conn, written).await;
+        }
         result
+    }
+
+    /// Pins each dump just written when the open database holds user rows, so a run of empty dumps
+    /// cannot push out the last good copy. A failed check or pin is logged; the backup stands.
+    async fn pin_if_rows(&self, backups: &Backups, conn: &mut E::Conn, written: &[PathBuf]) {
+        match self.engine.has_user_rows(conn).await {
+            Ok(true) => {
+                for dump in written {
+                    if let Err(e) = backups.pin(dump) {
+                        self.log_line(&format!(
+                            "[local-db] could not pin the backup {}: {}",
+                            dump.display(),
+                            e.message
+                        ));
+                    }
+                }
+            }
+            Ok(false) => {}
+            Err(e) => self.log_line(&format!(
+                "[local-db] could not check the database for rows, so the backup was not pinned: {}",
+                e.message
+            )),
+        }
     }
 
     /// Runs `job` on each open, after the migrations and before any query.
@@ -616,7 +658,7 @@ impl<E: Engine> PgHost<E> {
         if inner.closed {
             return;
         }
-        if let Err(e) = self.backup_locked(&inner, SystemTime::now()).await {
+        if let Err(e) = self.backup_locked(&mut inner, SystemTime::now()).await {
             self.log_line(&format!("[local-db] backup on quit failed: {}", e.message));
         }
         inner.closed = true;
@@ -630,11 +672,12 @@ impl<E: Engine> PgHost<E> {
 #[cfg(test)]
 mod tests {
     use std::sync::Mutex;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     use serde_json::json;
 
     use super::super::TextRows;
+    use super::super::backup::PINNED;
     use super::*;
 
     /// Every statement the fake saw, shared with the test.
@@ -684,6 +727,8 @@ mod tests {
         fail_opens: AtomicUsize,
         dumps: AtomicUsize,
         fail_dumps: AtomicUsize,
+        has_rows: AtomicBool,
+        fail_probes: AtomicUsize,
     }
 
     impl Engine for Arc<FakeEngine> {
@@ -719,7 +764,21 @@ mod tests {
                 let _ = self.fail_dumps.fetch_sub(1, Ordering::SeqCst);
                 return Err(PgError::local("pg_dump failed"));
             }
-            std::fs::write(file, b"dump").map_err(|e| PgError::local(e.to_string()))
+            let rows = if self.has_rows.load(Ordering::SeqCst) {
+                "rows"
+            } else {
+                "empty"
+            };
+            std::fs::write(file, format!("{rows}-{}", self.dumps.load(Ordering::SeqCst)))
+                .map_err(|e| PgError::local(e.to_string()))
+        }
+
+        async fn has_user_rows(&self, _conn: &mut FakeConn) -> Result<bool, PgError> {
+            if self.fail_probes.load(Ordering::SeqCst) > 0 {
+                let _ = self.fail_probes.fetch_sub(1, Ordering::SeqCst);
+                return Err(PgError::local("row check failed"));
+            }
+            Ok(self.has_rows.load(Ordering::SeqCst))
         }
 
         fn data_dir(&self) -> String {
@@ -960,6 +1019,56 @@ mod tests {
                 .is_empty()
         );
         assert_eq!(engine.dumps.load(Ordering::SeqCst), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_backup_with_rows_is_pinned() -> Result<(), String> {
+        let (engine, host, dir) = backed_up("pin-rows");
+        engine.has_rows.store(true, Ordering::SeqCst);
+        let _ = host.query("insert into t values (1)", &[]).await?;
+        let t = UNIX_EPOCH + std::time::Duration::from_secs(4_000);
+        let written = host.backup_if_changed(t).await.map_err(|e| e.message)?;
+        assert_eq!(written.len(), 1);
+        let pin = std::fs::read(dir.join(PINNED)).map_err(|e| e.to_string())?;
+        assert_eq!(pin, b"rows-1".to_vec());
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_backup_of_an_emptied_database_does_not_replace_the_pin() -> Result<(), String> {
+        let (engine, host, dir) = backed_up("pin-emptied");
+        engine.has_rows.store(true, Ordering::SeqCst);
+        let _ = host.query("insert into t values (1)", &[]).await?;
+        let t1 = UNIX_EPOCH + std::time::Duration::from_secs(4_000);
+        let _ = host.backup_if_changed(t1).await.map_err(|e| e.message)?;
+        engine.has_rows.store(false, Ordering::SeqCst);
+        let _ = host.query("delete from t", &[]).await?;
+        let t2 = UNIX_EPOCH + std::time::Duration::from_secs(5_000);
+        let written = host.backup_if_changed(t2).await.map_err(|e| e.message)?;
+        assert_eq!(written.len(), 1, "the empty dump still goes into rotation");
+        let pin = std::fs::read(dir.join(PINNED)).map_err(|e| e.to_string())?;
+        assert_eq!(pin, b"rows-1".to_vec(), "the pin keeps the last dump with rows");
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_failed_row_check_leaves_the_pin_and_the_backup_stands() -> Result<(), String> {
+        let (engine, host, dir) = backed_up("pin-probe");
+        engine.has_rows.store(true, Ordering::SeqCst);
+        let _ = host.query("insert into t values (1)", &[]).await?;
+        let t1 = UNIX_EPOCH + std::time::Duration::from_secs(4_000);
+        let _ = host.backup_if_changed(t1).await.map_err(|e| e.message)?;
+        let _ = host.query("insert into t values (2)", &[]).await?;
+        engine.fail_probes.store(1, Ordering::SeqCst);
+        let t2 = UNIX_EPOCH + std::time::Duration::from_secs(5_000);
+        let written = host.backup_if_changed(t2).await.map_err(|e| e.message)?;
+        assert_eq!(written.len(), 1, "a failed row check does not fail the backup");
+        let pin = std::fs::read(dir.join(PINNED)).map_err(|e| e.to_string())?;
+        assert_eq!(pin, b"rows-1".to_vec(), "a failed check leaves the pin alone");
         let _ = std::fs::remove_dir_all(&dir);
         Ok(())
     }
