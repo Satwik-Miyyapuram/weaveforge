@@ -15,6 +15,7 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [error-report](error-report.md) | Error-report helpers: making a report safe to send and keep it readable. |
 | [ink](ink.md) | Ink geometry: smoothing, curves, nib widths, zoom and the live stroke packer. |
 | [recognise](recognise.md) | Recognition helpers: the unsure threshold, confidence mapping, hint words, engine rank and the page summary. |
+| [github-connect](github-connect.md) | One-click GitHub sync: the OAuth device flow and the private repo for the workspace folder. |
 | [integrations](integrations.md) | Integration provider selection and runtime gates. |
 | [logbook](logbook.md) | Pure helpers behind the logbook. |
 | [markdown_link](markdown_link.md) | Markdown link helpers for pasted URLs: the bare-URL check, label escaping and `[label](url)`. |
