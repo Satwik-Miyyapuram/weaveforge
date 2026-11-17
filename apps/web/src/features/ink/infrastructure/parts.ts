@@ -75,6 +75,76 @@ export class BlobInkChunkStore implements InkChunkStore {
   }
 }
 
+// --- unavailable-ink-chunk-store ---
+/**
+ * The desktop with no workspace folder open. Ink has nowhere to go there, so
+ * every call fails loudly; the bucket is never used on the desktop.
+ */
+export class UnavailableInkChunkStore implements InkChunkStore {
+  private static readonly MESSAGE =
+    "ink: open a workspace folder to use ink notes on the desktop";
+
+  async read(): Promise<never> {
+    throw new Error(UnavailableInkChunkStore.MESSAGE);
+  }
+  async write(): Promise<never> {
+    throw new Error(UnavailableInkChunkStore.MESSAGE);
+  }
+  async remove(): Promise<never> {
+    throw new Error(UnavailableInkChunkStore.MESSAGE);
+  }
+  async list(): Promise<never> {
+    throw new Error(UnavailableInkChunkStore.MESSAGE);
+  }
+}
+
+// --- copy-on-read-ink-chunk-store ---
+/**
+ * The desktop's folder store, with the legacy bucket behind it for migration.
+ *
+ * A page the folder lacks is read from the bucket once, written into the
+ * folder, and read back from the folder before it is returned. The bucket is
+ * never written or removed here, so the server copy is left alone. Writes and
+ * removes go to the folder only.
+ */
+export class CopyOnReadInkChunkStore implements InkChunkStore {
+  constructor(
+    private readonly folder: InkChunkStore,
+    private readonly bucket: InkChunkStore,
+  ) {}
+
+  async read(noteId: string, chunkId: string): Promise<Uint8Array | null> {
+    const local = await this.folder.read(noteId, chunkId);
+    if (local) return local;
+    const legacy = await this.bucket.read(noteId, chunkId);
+    if (!legacy) return null;
+    await this.folder.write(noteId, chunkId, legacy);
+    const copied = await this.folder.read(noteId, chunkId);
+    if (!copied || !sameBytes(copied, legacy)) {
+      throw new Error(`ink: copy of page ${chunkId} did not read back from the folder`);
+    }
+    return legacy;
+  }
+
+  write(noteId: string, chunkId: string, bytes: Uint8Array): Promise<void> {
+    return this.folder.write(noteId, chunkId, bytes);
+  }
+
+  remove(noteId: string, chunkId: string): Promise<void> {
+    return this.folder.remove(noteId, chunkId);
+  }
+
+  list(noteId: string): Promise<string[] | null> {
+    return this.folder.list(noteId);
+  }
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 // --- fs-ink-chunk-store ---
 /**
  * Chunks in the workspace folder: `.ink/<weaveforge-id>/<ulid>.inkb` (§4.1).

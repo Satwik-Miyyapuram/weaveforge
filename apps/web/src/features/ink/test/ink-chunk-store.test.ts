@@ -13,8 +13,13 @@ import {
   MemoryInkChunkStore,
   loadInkPages,
 } from "../application/parts-1";
-import { BlobInkChunkStore, FsInkChunkStore } from "../infrastructure/parts";
-import { RoutedInkChunkStore } from "../../../container/parts";
+import {
+  BlobInkChunkStore,
+  CopyOnReadInkChunkStore,
+  FsInkChunkStore,
+  UnavailableInkChunkStore,
+} from "../infrastructure/parts";
+import { RoutedInkChunkStore, inkChunkStoreFor } from "../../../container/parts";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
@@ -160,6 +165,63 @@ test("a note saved before this change loads, saves and reloads the same", async 
   await store.write(NOTE, a, new Uint8Array([7]));
   const [again] = await loadInkPages(store, NOTE, meta);
   assert.deepEqual([...again!.chunk!], [7]);
+});
+
+test("on the desktop with no folder open, ink goes nowhere: never the bucket", async () => {
+  const folder = new MemoryInkChunkStore();
+  const bucket = new MemoryInkChunkStore();
+  const unavailable = new UnavailableInkChunkStore();
+  const stores = { folder, bucket, unavailable };
+  assert.equal(inkChunkStoreFor({ folderOpen: true, desktop: true }, stores), folder);
+  assert.equal(inkChunkStoreFor({ folderOpen: false, desktop: true }, stores), unavailable);
+  assert.equal(inkChunkStoreFor({ folderOpen: false, desktop: false }, stores), bucket);
+
+  const id = typedCore().newInkChunkId();
+  await assert.rejects(unavailable.write(NOTE, id, new Uint8Array([1])), /open a workspace folder/);
+  await assert.rejects(unavailable.read(NOTE, id), /open a workspace folder/);
+  await assert.rejects(unavailable.list(NOTE), /open a workspace folder/);
+  assert.equal(bucket.size, 0);
+});
+
+test("a folder page missing on disk is copied from the bucket on first read; the bucket keeps its copy", async () => {
+  const folder = new MemoryInkChunkStore();
+  const bucket = new MemoryInkChunkStore();
+  const id = typedCore().newInkChunkId();
+  await bucket.write(NOTE, id, new Uint8Array([8, 9]));
+  const store = new CopyOnReadInkChunkStore(folder, bucket);
+  assert.deepEqual([...(await store.read(NOTE, id))!], [8, 9]);
+  assert.deepEqual([...(await folder.read(NOTE, id))!], [8, 9]);
+  assert.deepEqual([...(await bucket.read(NOTE, id))!], [8, 9]);
+  assert.deepEqual(await store.list(NOTE), [id]);
+});
+
+test("the bucket is read at most once per page: a copied page is read from the folder after that", async () => {
+  class CountingBucket extends MemoryInkChunkStore {
+    reads = 0;
+    override async read(noteId: string, chunkId: string): Promise<Uint8Array | null> {
+      this.reads += 1;
+      return super.read(noteId, chunkId);
+    }
+  }
+  const folder = new MemoryInkChunkStore();
+  const bucket = new CountingBucket();
+  const id = typedCore().newInkChunkId();
+  await bucket.write(NOTE, id, new Uint8Array([1]));
+  const store = new CopyOnReadInkChunkStore(folder, bucket);
+  await store.read(NOTE, id);
+  await store.read(NOTE, id);
+  assert.equal(bucket.reads, 1);
+});
+
+test("copy-on-read: a page in neither home is empty, and a failed bucket read throws rather than reading empty", async () => {
+  const folder = new MemoryInkChunkStore();
+  const absent = typedCore().newInkChunkId();
+  const broken = typedCore().newInkChunkId();
+  const bucket = new FailingReads(new Set([broken]));
+  const store = new CopyOnReadInkChunkStore(folder, bucket);
+  assert.equal(await store.read(NOTE, absent), null);
+  await assert.rejects(store.read(NOTE, broken), /EIO/);
+  assert.equal(folder.size, 0);
 });
 
 /** A blob fetcher whose reads answer with `fail`, and a session with one user. */

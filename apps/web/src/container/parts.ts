@@ -313,6 +313,19 @@ export class RoutedInkChunkStore implements InkChunkStore {
   }
 }
 
+/**
+ * Which ink store answers now. On the desktop ink is folder-only: the folder
+ * store when a folder is open, otherwise nothing. Elsewhere the folder store
+ * is used when a folder is open and the bucket otherwise, as before.
+ */
+export function inkChunkStoreFor(
+  state: { folderOpen: boolean; desktop: boolean },
+  stores: { folder: InkChunkStore; bucket: InkChunkStore; unavailable: InkChunkStore },
+): InkChunkStore {
+  if (!state.desktop) return state.folderOpen ? stores.folder : stores.bucket;
+  return state.folderOpen ? stores.folder : stores.unavailable;
+}
+
 // --- vault-asset-store ---
 /** Private vault image storage — `{userId}/{pageId}/{uuid}.{ext}`. */
 export class VaultAssetStore extends BucketAssetStore implements IVaultAssetStore {
