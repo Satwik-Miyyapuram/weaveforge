@@ -276,6 +276,23 @@ fn is_under_ignored_folder_is_true_only_for_paths_below_an_ignored_folder() {
 }
 
 #[test]
+fn only_the_root_settings_json_is_synced_out_of_the_meta_folder() {
+    assert!(!is_under_ignored_folder(".weaveforge/settings.json"));
+    assert!(!is_under_ignored_folder(".WeaveForge\\Settings.JSON"));
+    assert!(is_under_ignored_folder(".weaveforge/device.json"));
+    assert!(is_under_ignored_folder(".weaveforge/sub/settings.json"));
+    assert!(!is_under_ignored_folder("notes/.weaveforge/settings.json"));
+    assert_eq!(
+        decide_path(".weaveforge/settings.json", Some(10), MAX_FILE_BYTES),
+        Ok(())
+    );
+    assert_eq!(
+        decide_path(".weaveforge/device.json", Some(10), MAX_FILE_BYTES),
+        Err(SkipReason::IgnoredDirectory)
+    );
+}
+
+#[test]
 fn describe_changes_on_an_empty_list_says_no_changes() {
     assert_eq!(describe_changes(&[]), "No changes");
 }

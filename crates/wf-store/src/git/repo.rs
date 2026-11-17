@@ -11,9 +11,15 @@ use git2::{
 
 use crate::git::policy::{
     CommitAction, FileState, IGNORED_DIRS, IGNORED_EXTENSIONS, IGNORED_FILES, MAX_FILE_BYTES,
-    MIRROR_MANIFEST_EXCLUDE, RepoState, decide_commit, decide_path, describe_changes,
-    is_mirror_manifest,
+    MIRROR_MANIFEST_EXCLUDE, ROOT_SETTINGS_FILE, RepoState, decide_commit, decide_path,
+    describe_changes, is_mirror_manifest,
 };
+
+/// Message of the empty commit `init` makes in a new folder.
+const ROOT_COMMIT_MESSAGE: &str = "Start WeaveForge folder history";
+
+/// The exclude line older versions wrote to hide the whole `.weaveforge` folder.
+const LEGACY_WEAVEFORGE_EXCLUDE: &str = "/.weaveforge/";
 
 /// A lock this old is not a git still running.
 pub const STALE_LOCK_SECS: u64 = 5 * 60;
@@ -99,17 +105,53 @@ pub fn probe(root: &Path) -> RepoState {
     }
 }
 
+/// Makes an empty root commit when HEAD is unborn. An existing history is left untouched.
+///
+/// The commit is fixed in time (epoch 0) so every folder makes the same root SHA. Folders
+/// that share a root can fast-forward each other; with per-folder timestamps they would
+/// hold unrelated histories and every pull would merge.
+fn make_root_commit(repo: &Repository) -> Result<(), RepoError> {
+    let unborn = match repo.head() {
+        Ok(_) => false,
+        Err(error) => matches!(error.code(), ErrorCode::UnbornBranch | ErrorCode::NotFound),
+    };
+    if !unborn {
+        return Ok(());
+    }
+    let tree_id = repo.treebuilder(None)?.write()?;
+    let tree = repo.find_tree(tree_id)?;
+    let time = git2::Time::new(0, 0);
+    let sig = git2::Signature::new(MIRROR_AUTHOR.name, MIRROR_AUTHOR.email, &time)?;
+    let _ = repo.commit(Some("HEAD"), &sig, &sig, ROOT_COMMIT_MESSAGE, &tree, &[])?;
+    Ok(())
+}
+
 /// Keeps the folder's `.git/info/exclude` holding every wanted line, leaving user lines alone.
 pub(crate) fn write_excludes(repo: &Repository) -> Result<(), RepoError> {
     let info = repo.path().join("info");
     let file = info.join("exclude");
     let current = fs::read_to_string(&file).unwrap_or_default();
-    let mut wanted = vec!["/.weaveforge/".to_owned()];
+    // Older versions excluded the whole `.weaveforge` folder. That line would also hide
+    // the root settings.json, which a later negation cannot re-include, so it is dropped.
+    let had_whole_folder = current.split('\n').any(|line| {
+        line.trim_end_matches('\r') == LEGACY_WEAVEFORGE_EXCLUDE
+    });
+    let mut text = if had_whole_folder {
+        current
+            .split('\n')
+            .filter(|line| line.trim_end_matches('\r') != LEGACY_WEAVEFORGE_EXCLUDE)
+            .collect::<Vec<&str>>()
+            .join("\n")
+    } else {
+        current.clone()
+    };
+    let mut wanted = vec!["/.weaveforge/*".to_owned()];
+    wanted.push(format!("!/.weaveforge/{ROOT_SETTINGS_FILE}"));
     wanted.extend(IGNORED_DIRS.iter().map(|dir| format!("{dir}/")));
     wanted.extend(IGNORED_FILES.iter().map(|name| (*name).to_owned()));
     wanted.extend(IGNORED_EXTENSIONS.iter().map(|ext| format!("*{ext}")));
     wanted.push(MIRROR_MANIFEST_EXCLUDE.to_owned());
-    let present: Vec<&str> = current
+    let present: Vec<&str> = text
         .split('\n')
         .map(|line| line.trim_end_matches('\r'))
         .collect();
@@ -117,10 +159,9 @@ pub(crate) fn write_excludes(repo: &Repository) -> Result<(), RepoError> {
         .iter()
         .filter(|line| !present.contains(&line.as_str()))
         .collect();
-    if missing.is_empty() {
+    if missing.is_empty() && !had_whole_folder {
         return Ok(());
     }
-    let mut text = current.clone();
     if !text.is_empty() && !text.ends_with('\n') {
         text.push('\n');
     }
@@ -228,8 +269,11 @@ impl FolderRepo {
     /// When git cannot create the repository.
     pub fn init(&self) -> Result<(), RepoError> {
         let Some(git_dir) = &self.git_dir else {
-            let _repo = Repository::init(&self.root)?;
-            return Ok(());
+            let repo = Repository::init_opts(
+                &self.root,
+                RepositoryInitOptions::new().initial_head(&self.branch),
+            )?;
+            return make_root_commit(&repo);
         };
         // Created bare and switched to non-bare: libgit2 given a work tree
         // elsewhere writes a `.git` link file into it, and the folder must
@@ -242,7 +286,7 @@ impl FolderRepo {
                 .initial_head(&self.branch),
         )?;
         repo.config()?.set_bool("core.bare", false)?;
-        Ok(())
+        make_root_commit(&repo)
     }
 
     /// Changes since the last commit, sorted by path.
@@ -350,9 +394,6 @@ impl FolderRepo {
         let max = self.max_file_bytes;
         let mut policy = |path: &Path, _spec: &[u8]| -> i32 {
             let rel = path.to_string_lossy().replace('\\', "/");
-            if rel.starts_with(".weaveforge/") {
-                return 1;
-            }
             let size = fs::symlink_metadata(root.join(path))
                 .ok()
                 .map(|meta| meta.len());

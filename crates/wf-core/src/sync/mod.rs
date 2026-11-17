@@ -65,5 +65,6 @@ pub mod sync_phase;
 pub mod sync_state;
 pub mod text_diff;
 pub mod text_merge;
+pub mod tier_merge;
 pub mod workspace_fs;
 pub mod workspace_snapshot;

@@ -126,11 +126,24 @@ fn push_twice_is_up_to_date() {
 }
 
 #[test]
-fn push_unborn_is_up_to_date() {
+fn push_of_a_folder_with_no_repo_initialises_it_and_pushes_the_root() {
+    // prepare() runs init(), which now makes the root commit, so the root is what gets pushed.
     let (_bare, url) = bare();
     let (_dir, repo) = folder();
+    assert_eq!(push(&repo, &cfg(&url)).unwrap(), PushOutcome::Pushed);
+    assert_eq!(remote_main(&url), head_of(&repo));
+    assert!(repo.is_repo());
+}
+
+#[test]
+fn push_of_only_the_root_commit_pushes_the_root() {
+    // init now makes an empty root commit, so an initialised folder has something to push.
+    let (_bare, url) = bare();
+    let (_dir, repo) = folder();
+    repo.init().unwrap();
+    assert_eq!(push(&repo, &cfg(&url)).unwrap(), PushOutcome::Pushed);
+    assert!(remote_main(&url).is_some());
     assert_eq!(push(&repo, &cfg(&url)).unwrap(), PushOutcome::UpToDate);
-    assert_eq!(remote_main(&url), None);
 }
 
 #[test]

@@ -110,7 +110,46 @@ fn init_twice_keeps_history() {
     write(dir.path(), "a.md", b"one");
     let _ = repo.commit_all("first", me()).unwrap();
     repo.init().unwrap();
-    assert_eq!(repo.log(None, None).len(), 1);
+    // The empty root commit from the first init, then the first commit.
+    assert_eq!(repo.log(None, None).len(), 2);
+}
+
+#[test]
+fn init_on_an_unborn_folder_makes_one_empty_root_commit() {
+    let dir = TempDir::new();
+    let repo = FolderRepo::new(dir.path());
+    repo.init().unwrap();
+    let log = repo.log(None, None);
+    assert_eq!(log.len(), 1);
+    assert!(tree_files(dir.path(), "HEAD").is_empty());
+}
+
+#[test]
+fn init_on_a_repo_with_history_adds_no_root_commit() {
+    let dir = TempDir::new();
+    let repo = FolderRepo::new(dir.path());
+    repo.init().unwrap();
+    write(dir.path(), "a.md", b"a");
+    let _ = repo.commit_all("one", me()).unwrap();
+    let before = repo.log(None, None).len();
+    repo.init().unwrap();
+    assert_eq!(repo.log(None, None).len(), before);
+    assert_eq!(before, 2, "the root commit and the one commit");
+}
+
+#[test]
+fn root_settings_json_is_committed_and_device_json_is_not() {
+    let dir = TempDir::new();
+    let repo = FolderRepo::new(dir.path());
+    repo.init().unwrap();
+    write(dir.path(), ".weaveforge/settings.json", b"{}");
+    write(dir.path(), ".weaveforge/device.json", b"{}");
+    write(dir.path(), "a.md", b"a");
+    let _ = repo.commit_all("tier", me()).unwrap();
+    assert_eq!(
+        tree_files(dir.path(), "HEAD"),
+        [".weaveforge/settings.json", "a.md"]
+    );
 }
 
 #[test]
@@ -353,9 +392,35 @@ fn write_excludes_is_idempotent() {
     write(dir.path(), "b.md", b"b");
     let _ = repo.commit_all("two", me()).unwrap();
     let text = exclude_text(dir.path());
-    for line in ["/.weaveforge/", "node_modules/", "desktop.ini", "*.aux"] {
+    for line in [
+        "/.weaveforge/*",
+        "!/.weaveforge/settings.json",
+        "node_modules/",
+        "desktop.ini",
+        "*.aux",
+    ] {
         assert_eq!(text.lines().filter(|l| *l == line).count(), 1, "{line}");
     }
+    assert!(!text.lines().any(|l| l == "/.weaveforge/"));
+}
+
+#[test]
+fn legacy_whole_folder_exclude_is_replaced_and_user_lines_kept() {
+    let dir = TempDir::new();
+    let repo = FolderRepo::new(dir.path());
+    repo.init().unwrap();
+    fs::write(
+        dir.path().join(".git").join("info").join("exclude"),
+        "mine/\n/.weaveforge/\n",
+    )
+    .unwrap();
+    write(dir.path(), "a.md", b"a");
+    let _ = repo.commit_all("one", me()).unwrap();
+    let text = exclude_text(dir.path());
+    assert!(text.starts_with("mine/\n"));
+    assert!(!text.lines().any(|l| l == "/.weaveforge/"));
+    assert!(text.lines().any(|l| l == "/.weaveforge/*"));
+    assert!(text.lines().any(|l| l == "!/.weaveforge/settings.json"));
 }
 
 #[test]
@@ -425,9 +490,12 @@ fn log_is_newest_first_and_limited() {
         write(dir.path(), &format!("{msg}.md"), b"x");
         let _ = repo.commit_all(msg, me()).unwrap();
     }
-    assert_eq!(messages(&repo.log(None, None)), ["three", "two", "one"]);
+    assert_eq!(
+        messages(&repo.log(None, None)),
+        ["three", "two", "one", "Start WeaveForge folder history"]
+    );
     assert_eq!(repo.log(Some(2), None).len(), 2);
-    assert_eq!(repo.log(Some(0), None).len(), 3);
+    assert_eq!(repo.log(Some(0), None).len(), 4);
 }
 
 #[test]
@@ -440,7 +508,10 @@ fn log_orders_same_second_commits_child_first() {
             write(dir.path(), &format!("{msg}.md"), b"x");
             let _ = repo.commit_all(msg, me()).unwrap();
         }
-        assert_eq!(messages(&repo.log(None, None)), ["three", "two", "one"]);
+        assert_eq!(
+            messages(&repo.log(None, None)),
+            ["three", "two", "one", "Start WeaveForge folder history"]
+        );
     }
 }
 
@@ -499,8 +570,11 @@ fn log_filters_by_path() {
 fn log_empty_for_unborn_or_no_repo() {
     let dir = TempDir::new();
     let repo = FolderRepo::new(dir.path());
-    repo.init().unwrap();
+    // A folder with no repository has no log at all.
     assert!(repo.log(None, None).is_empty());
+    repo.init().unwrap();
+    // After init the only commit is the empty root, which has no files.
+    assert_eq!(repo.log(None, None).len(), 1);
     let plain = TempDir::new();
     write(plain.path(), "a.md", b"a");
     assert!(FolderRepo::new(plain.path()).log(None, None).is_empty());

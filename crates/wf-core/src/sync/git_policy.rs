@@ -25,6 +25,10 @@ pub const GIT_SYNC_IGNORED_DIRS: &[&str] = &[
 /// File names never synced, wherever they appear. Case-insensitive.
 pub const GIT_SYNC_IGNORED_FILES: &[&str] = &["desktop.ini"];
 
+/// The one file under the root `.weaveforge` folder that git carries: tier fields.
+/// `device.json` and everything else in that folder stays local.
+pub const ROOT_SETTINGS_FILE: &str = "settings.json";
+
 /// LaTeX build byproducts: regenerated on every compile, so never worth history.
 pub const GIT_SYNC_IGNORED_EXTENSIONS: &[&str] = &[".aux", ".fdb_latexmk", ".fls", ".synctex.gz"];
 
@@ -72,11 +76,13 @@ fn segments_of(rel_path: &str) -> Vec<String> {
 pub fn is_under_ignored_folder(rel_path: &str) -> bool {
     let segments = segments_of(rel_path);
     // The root `.weaveforge` folder is this machine's database; `notes/.weaveforge` is not.
+    // Its root `settings.json` is the one file shared through git (tier fields).
     if segments
         .first()
         .is_some_and(|first| first.as_str() == WORKSPACE_META_DIR)
     {
-        return true;
+        let shared = segments.len() == 2 && segments[1].as_str() == ROOT_SETTINGS_FILE;
+        return !shared;
     }
     segments.split_last().is_some_and(|(_, dirs)| {
         dirs.iter()

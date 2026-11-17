@@ -27,7 +27,7 @@ pub const IGNORED_FILES: [&str; 1] = ["desktop.ini"];
 /// LaTeX build byproducts, regenerated on every compile.
 pub const IGNORED_EXTENSIONS: [&str; 4] = [".aux", ".fdb_latexmk", ".fls", ".synctex.gz"];
 
-pub use wf_core::sync::git_policy::{MIRROR_MANIFEST_EXCLUDE, is_mirror_manifest};
+pub use wf_core::sync::git_policy::{MIRROR_MANIFEST_EXCLUDE, ROOT_SETTINGS_FILE, is_mirror_manifest};
 
 /// Why a path is kept out of folder history.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,11 +57,13 @@ fn segments_of(rel_path: &str) -> Vec<String> {
 pub fn is_under_ignored_folder(rel_path: &str) -> bool {
     let segments = segments_of(rel_path);
     // The root `.weaveforge` folder is this machine's database; `notes/.weaveforge` is not.
+    // Its root `settings.json` is the one file shared through git (tier fields).
     if segments
         .first()
         .is_some_and(|first| first.as_str() == WORKSPACE_META_DIR)
     {
-        return true;
+        let shared = segments.len() == 2 && segments[1].as_str() == ROOT_SETTINGS_FILE;
+        return !shared;
     }
     match segments.split_last() {
         Some((_, folders)) => folders
