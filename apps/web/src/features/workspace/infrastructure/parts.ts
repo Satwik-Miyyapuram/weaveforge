@@ -529,7 +529,12 @@ export class IsomorphicWorkspaceGit implements IWorkspaceGit {
     const git = await this.git();
     const { kept, skipped } = await this.classify(await this.status());
     if (skipped.length > 0) {
-      console.warn(`[git-sync] ${skipped.length} changed file(s) not committed (size cap or ignored)`);
+      // Name them: a file left out of history must be findable, not just counted.
+      const shown = skipped.slice(0, 10).join(", ");
+      const more = skipped.length > 10 ? ` and ${skipped.length - 10} more` : "";
+      console.warn(
+        `[git-sync] ${skipped.length} changed file(s) not committed (size cap or ignored): ${shown}${more}`,
+      );
     }
     await this.unstageOutOfScope(new Set(kept.map((change) => change.path)), new Set(skipped));
 

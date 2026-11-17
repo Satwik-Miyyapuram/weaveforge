@@ -174,6 +174,26 @@ test("commitAll skips ignored folders and oversized files, so they never reach h
   assert.equal(await git.readAt(commit.oid, "notes/huge.bin"), null);
 });
 
+test("commitAll names the oversized file it left out, so a missing file is not silent (G9)", async () => {
+  const { fs, git } = await repo({ maxFileBytes: 10 });
+  await fs.writeFile("notes/a.md", "keep");
+  await fs.writeFile("notes/huge.bin", new Uint8Array(11));
+
+  const warnings: string[] = [];
+  const warn = console.warn;
+  console.warn = (...args: unknown[]) => void warnings.push(args.map(String).join(" "));
+  try {
+    await git.commitAll("first", author);
+  } finally {
+    console.warn = warn;
+  }
+
+  assert.ok(
+    warnings.some((line) => line.includes("notes/huge.bin")),
+    `expected the skipped path in a warning, got: ${JSON.stringify(warnings)}`,
+  );
+});
+
 test("commitAll with only ignored changes commits nothing", async () => {
   const { fs, git } = await repo();
   await fs.writeFile("notes/a.md", "keep");

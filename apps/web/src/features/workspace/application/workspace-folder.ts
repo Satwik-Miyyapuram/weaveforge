@@ -1,7 +1,4 @@
 import { NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type MirrorResult, type WorkspaceCommit } from "@weaveforge/core";
-import type {
-  ImportDiff,
-} from "@weaveforge/wasm";
 import { getContainer } from "@/bootstrap";
 import { downloadLibraryPdfsOnce } from "@/features/reader/application/parts-1";
 import { desktop, type DesktopVaultRoot } from "@/lib/desktop/desktop-bridge";
@@ -18,14 +15,15 @@ import { folderLock } from "./folder-lock";
 import { LOST_DB_SYNC_MESSAGE, folderWriteBlockedByLostDb } from "./folder-lost-db-guard";
 import {
   restTableReader,
+  describeRestoreConflicts,
   restTableStore,
   type FolderImportDiff,
   type FolderImportPicks,
   type FolderImportResult,
   type ImportSeams,
 } from "./workspace-folder-tables";
-import { applyReviewedFolderImport, connectedFolderTables } from "./workspace-folder-apply";
-import { exportSyncTables, syncTableFolderFiles } from "./sync-tables";
+import { applyReviewedFolderImport, connectedFolderTables, folderRestoreMarker } from "./workspace-folder-apply";
+import { exportSyncTablesStable, syncTableFolderFiles, type RestoreConflict } from "./sync-tables";
 import {
   applyFolderImport,
   clearPendingAssets,
@@ -319,7 +317,26 @@ function liveImportSeams(): ImportSeams {
     folderTables: () => connectedFolderTables(activeFs),
     preview: () => previewFolderImport(),
     apply: (diff, picks) => applyFolderImport(diff, picks),
+    activeProjectId: async () => (await activeProject()).id,
+    restoreMarker: folderRestoreMarker(() => activeFs),
+    onRestoreConflicts: warnRestoreConflicts,
+    onRestoreSkipped: warnRestoreSkipped,
   };
+}
+
+/** A restore kept stored rows that differ from the folder. Name them, so the user can see what was not overwritten. */
+function warnRestoreConflicts(conflicts: RestoreConflict[]): void {
+  logToApp({
+    level: "warn",
+    source: "workspace-sync",
+    message: `Restore kept ${conflicts.length} stored row(s) that differ from the folder`,
+    detail: describeRestoreConflicts(conflicts),
+  });
+}
+
+/** A pending restore belongs to another project, so this Apply did not restore the tables. Say so. */
+function warnRestoreSkipped(message: string): void {
+  logToApp({ level: "warn", source: "workspace-sync", message, detail: "" });
 }
 
 /** Apply a reviewed folder import, through the live seams unless a caller passes its own. */
@@ -348,7 +365,8 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
 
   // The synced tables, one file each. A failed read throws here, before anything is
   // written, so a table file is never removed just because the server did not answer.
-  const tableFiles = syncTableFolderFiles(await exportSyncTables(restTableReader(getDataClient())));
+  // Stable: two passes must agree, so a write during the read cannot mix two moments.
+  const tableFiles = syncTableFolderFiles(await exportSyncTablesStable(restTableReader(getDataClient())));
 
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
     project,
