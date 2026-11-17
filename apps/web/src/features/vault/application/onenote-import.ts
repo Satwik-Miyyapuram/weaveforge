@@ -9,6 +9,8 @@ export interface OneNoteImportDeps {
   pageTitles(): Promise<readonly string[]>;
   add(input: { title: string; parentId?: string; kind: "canvas" }): Promise<{ id: string }>;
   update(id: string, body: string): Promise<void>;
+  /** Deletes a page this import created, when the import has to be undone. */
+  remove(id: string): Promise<void>;
   uploadAsset(pageId: string, blob: Blob, ext: string): Promise<string>;
 }
 
@@ -22,7 +24,9 @@ export interface OneNoteImportResult {
  * Imports one OneNote `.one` section into the vault. Each OneNote page becomes
  * one freeform page (a canvas): typed text at its OneNote position, pictures as
  * file nodes and handwriting as ink strokes. Outline levels nest the pages.
- * Pages go in sequentially so each child can take its parent's id.
+ * Pages go in sequentially so each child can take its parent's id. A failed
+ * write removes the pages this import already made, then rethrows, so a
+ * half-imported section does not stay in the vault.
  */
 export async function importOneNoteSection(file: File, deps: OneNoteImportDeps): Promise<OneNoteImportResult> {
   const section = deps.parse(new Uint8Array(await file.arrayBuffer()), file.name);
@@ -35,22 +39,44 @@ export async function importOneNoteSection(file: File, deps: OneNoteImportDeps):
 
   // Stack of ancestors by level: the nearest earlier page with a lower level is the parent.
   const stack: { level: number; id: string }[] = [];
+  const created: string[] = [];
   let images = 0;
 
-  for (const [index, page] of section.pages.entries()) {
-    while (stack.length && stack[stack.length - 1]!.level >= page.level) stack.pop();
-    const parentId = stack.length ? stack[stack.length - 1]!.id : undefined;
+  try {
+    for (const [index, page] of section.pages.entries()) {
+      while (stack.length && stack[stack.length - 1]!.level >= page.level) stack.pop();
+      const parentId = stack.length ? stack[stack.length - 1]!.id : undefined;
 
-    const { id } = await deps.add({ title: titles[index]!, parentId, kind: "canvas" });
-    stack.push({ level: page.level, id });
+      const { id } = await deps.add({ title: titles[index]!, parentId, kind: "canvas" });
+      created.push(id);
+      stack.push({ level: page.level, id });
 
-    const files = await uploadPictures(id, page, deps, warnings);
-    images += Object.keys(files).length;
-    const text = readyCore().oneNoteFreeformText(page.layout, files, page.ink);
-    await deps.update(id, readyCore().normalizeCanvasText(text));
+      const files = await uploadPictures(id, page, deps, warnings);
+      images += Object.keys(files).length;
+      const text = readyCore().oneNoteFreeformText(page.layout, files, page.ink);
+      await deps.update(id, readyCore().normalizeCanvasText(text));
+    }
+  } catch (error) {
+    await rollback(created, deps);
+    throw error;
   }
 
   return { created: section.pages.length, images, warnings };
+}
+
+/**
+ * Removes the pages made so far, newest first, so a child goes before its
+ * parent. Best effort: a page that cannot be removed is left behind rather
+ * than masking the error that caused the rollback.
+ */
+async function rollback(ids: readonly string[], deps: OneNoteImportDeps): Promise<void> {
+  for (const id of [...ids].reverse()) {
+    try {
+      await deps.remove(id);
+    } catch {
+      // Keep removing the rest; the original write error is what the user sees.
+    }
+  }
 }
 
 /**
@@ -85,7 +111,10 @@ function extensionOf(name: string): string {
 }
 
 function decodeBase64(base64: string): Uint8Array<ArrayBuffer> {
-  return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 /** Wires the import to the running app's vault facade. */
@@ -98,6 +127,7 @@ export function oneNoteImportDeps(): OneNoteImportDeps {
     update: async (id, body) => {
       await container.vault.manageVaultPage.update(id, { body });
     },
+    remove: (id) => container.vault.manageVaultPage.remove(id),
     uploadAsset: (pageId, blob, ext) => container.vault.uploadAsset(pageId, blob, ext),
   };
 }

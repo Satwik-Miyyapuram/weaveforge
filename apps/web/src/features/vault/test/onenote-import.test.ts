@@ -64,21 +64,29 @@ function fakeSection(): OneNoteSection {
   } as unknown as OneNoteSection;
 }
 
-/** Deps that record every call; `failUpload` makes uploadAsset reject. */
-function fakeDeps(opts: { failUpload?: boolean } = {}) {
+/**
+ * Deps that record every call. `failUpload` makes uploadAsset reject;
+ * `failAddTitle` makes add reject for that page title.
+ */
+function fakeDeps(opts: { failUpload?: boolean; failAddTitle?: string } = {}) {
   let next = 0;
   const adds: { title: string; parentId?: string; kind?: string; folder?: boolean; id: string }[] = [];
   const updates: { id: string; body: string }[] = [];
   const uploads: { pageId: string; ext: string; path: string }[] = [];
+  const removed: string[] = [];
   const deps: OneNoteImportDeps = {
     parse: () => fakeSection(),
     async pageTitles() {
       return ["Taken"];
     },
     async add(input) {
+      if (opts.failAddTitle === input.title) throw new Error("write refused");
       const id = `id-${next++}`;
       adds.push({ ...input, id });
       return { id };
+    },
+    async remove(id) {
+      removed.push(id);
     },
     async update(id, body) {
       updates.push({ id, body });
@@ -90,7 +98,7 @@ function fakeDeps(opts: { failUpload?: boolean } = {}) {
       return path;
     },
   };
-  return { deps, adds, updates, uploads };
+  return { deps, adds, updates, uploads, removed };
 }
 
 function sectionFile(): File {
@@ -192,4 +200,14 @@ test("a failed upload warns, drops the picture and keeps the text (OneNote)", as
   assert.ok(canvas.nodes.some((n) => n.type === "text" && n.text === "typed"));
   // The page itself still lands.
   assert.equal(out.created, 3);
+});
+
+test("a failed page write removes the pages already made, newest first, then rethrows (OneNote)", async () => {
+  const fake = fakeDeps({ failAddTitle: "C" });
+
+  await assert.rejects(importOneNoteSection(sectionFile(), fake.deps), /write refused/);
+
+  // A and B were created before C failed; B (the child) goes first.
+  const [idA, idB] = [fake.adds[0]!.id, fake.adds[1]!.id];
+  assert.deepEqual(fake.removed, [idB, idA]);
 });

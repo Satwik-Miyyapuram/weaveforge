@@ -23,14 +23,18 @@ canvas's top-level `wfInk` field.
     picture's name.
   - `placement` converts OneNote's offsets and sizes into 0.1 mm. A value that
     is missing or not finite stays missing, so the item has no place on the
-    page.
+    page. Picture sizes are read as half-inch units, the same as outline sizes,
+    as the parser documents. Only outline sizes are checked against the fixture;
+    no fixture has a picture, so the picture unit is not verified on real data.
   - Keeps links only for `http`, `https` and `mailto`. Other links stay as
     plain text.
   - Moves page indent levels so the shallowest page is level 0.
   - Rejects files over `ONENOTE_MAX_BYTES` (64 MiB) and pictures over 20 MiB.
   - Turns an attached file into a line that says it was not imported.
-  - `freeform_page_text` places each ink sheet's strokes at the sheet's origin
-    and hands everything to `freeform_canvas`.
+  - `freeform_page_text` adds one `image` item per ink sheet that has a
+    background, at the sheet's origin plus the background rect, so the printout
+    sits behind its strokes. It places each ink sheet's strokes at the sheet's
+    origin and hands everything to `freeform_canvas`.
 - `crates/wf-core/src/onenote/freeform.rs`: builds the canvas.
   - `freeform_canvas(layout, files, strokes)` writes the JSON Canvas text. A
     text item becomes a text node. An image item becomes a file node whose
@@ -48,6 +52,9 @@ canvas's top-level `wfInk` field.
   - Places strokes from their outline and ink offsets, in 0.1 mm, and groups
     them into sheets by printout. Each sheet records its origin
     (`origin_x`, `origin_y`) on the OneNote page.
+  - Non-finite stroke points are dropped (`whole_coord` returns none for them,
+    and `fit_to_page` drops them before fitting), so a bad point cannot become
+    a 0 on the page.
   - `colour_hex` maps OneNote colours to hex colours.
 - `crates/wf-core/tests/onenote_import.rs`: integration tests on a sample
   section in `tests/fixtures/onenote/`.
@@ -77,6 +84,10 @@ The freeform path reads `layout`, `images` and `ink`. It does not read
    picture is left out; the rest of the page still imports.
 3. The page's text and ink are built with `oneNoteFreeformText`, normalised
    with `normalizeCanvasText`, and written to the canvas body.
+4. If any add or update throws, `rollback` removes the pages created so far,
+   newest first (a child before its parent), then the error is rethrown. Each
+   removal is best effort: a page that cannot be removed is left, and the
+   original error still reaches the caller.
 
 The UI entry is **Import OneNote section…** in the notes More menu
 (`apps/web/src/features/vault/ui/vault-screen/vault-screen.tsx`).
@@ -92,5 +103,7 @@ The UI entry is **Import OneNote section…** in the notes More menu
   read.
 - Attached files (PDFs, Office files) are not imported.
 - Handwriting inside a table cell is not collected.
+- Pictures inside a table cell are not imported. A table is one text node, and
+  the canvas path uploads only pictures that have their own layout item.
 - Alt text is not kept. A canvas file node has no alt field, so a picture's
   alt text is dropped.

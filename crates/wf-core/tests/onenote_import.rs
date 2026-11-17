@@ -78,6 +78,42 @@ fn links_render_as_markdown_and_levels_start_at_zero() {
     );
 }
 
+#[test]
+fn truncated_input_errors_or_imports_without_panicking() {
+    // Every cut must be handled: an error, or a partial section, never a panic.
+    for cut in [0, 1, 8, 64, 512, 4096, FIXTURE.len() / 2, FIXTURE.len() - 1] {
+        let _ = import_section(&FIXTURE[..cut], "cut.one");
+    }
+    assert!(import_section(&FIXTURE[..0], "cut.one").is_err());
+    assert!(import_section(&FIXTURE[..64], "cut.one").is_err());
+}
+
+#[test]
+fn non_ascii_file_names_import() {
+    let section = import_section(FIXTURE, "Notizen – résumé 日本.one").expect("fixture imports");
+    assert!(!section.pages.is_empty());
+}
+
+#[test]
+fn background_printouts_are_sheet_backgrounds_with_an_image_file() {
+    let section = import_section(FIXTURE, FIXTURE_NAME).expect("fixture imports");
+    for page in &section.pages {
+        for sheet in &page.ink {
+            if let Some(background) = &sheet.background {
+                assert!(!background.name.is_empty());
+                assert!(background.width > 0.0 && background.height > 0.0);
+                assert!(
+                    page.images
+                        .iter()
+                        .any(|image| image.name == background.name),
+                    "background {} has no image file",
+                    background.name
+                );
+            }
+        }
+    }
+}
+
 /// The page's typed text, wherever it landed: the body or its ink sheets.
 fn page_text(page: &OneNotePage) -> String {
     let sheets = page.ink.iter().map(|sheet| sheet.text.as_str());

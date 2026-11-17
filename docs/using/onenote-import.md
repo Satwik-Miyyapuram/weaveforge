@@ -36,6 +36,9 @@ rename, move and delete like any other page.
 - **Handwriting** comes across as pen strokes. A highlighter stroke stays a
   highlighter. Text that OneNote recognised from your handwriting is not added
   again, because the strokes already show it.
+- **Printed or scanned pages** that you wrote on in OneNote come across as a
+  picture behind the handwriting, so the strokes sit on the page they were
+  written on.
 
 ## When something is left out
 
@@ -46,6 +49,7 @@ rename, move and delete like any other page.
 - Only one section at a time. A whole notebook is not read in one go; import
   each section file.
 - A picture's alt text (the description OneNote keeps for it) is not kept.
+- A picture inside a table is left out. The table's text is kept.
 
 ## Good to know
 
@@ -54,6 +58,9 @@ rename, move and delete like any other page.
   gets a different name.
 - The import works on section files up to 64 MB. A picture over 20 MB is not
   imported.
+- If the import stops part way because a page could not be written, the pages
+  it had already made are removed again, so no half-imported section is left.
+  Your existing pages are not touched.
 - Handwriting is kept as ink strokes. Pressure is stored but not drawn yet, so
   strokes look the same at every pressure.
 

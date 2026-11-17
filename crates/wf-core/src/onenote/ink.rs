@@ -133,7 +133,12 @@ fn band_sheets(
 ) {
     let limit = f64::from(INK_COORD_LIMIT);
     {
-        let extent = bounds(indices.iter().flat_map(|&i| raw[i].points.iter()));
+        let extent = bounds(
+            indices
+                .iter()
+                .flat_map(|&i| raw[i].points.iter())
+                .filter(|p| is_finite_point(p)),
+        );
         let (ox, oy) = extent.map_or((band.x, band.y), |(min_x, min_y, _, _)| {
             (band.x.min(min_x - MARGIN), band.y.min(min_y - MARGIN))
         });
@@ -156,7 +161,11 @@ fn band_sheets(
                 let points = stroke
                     .points
                     .iter()
-                    .flat_map(|&(x, y)| [whole_coord(x - ox, limit), whole_coord(y - oy, limit)])
+                    .filter(|p| is_finite_point(p))
+                    .filter_map(|&(x, y)| {
+                        Some((whole_coord(x - ox, limit)?, whole_coord(y - oy, limit)?))
+                    })
+                    .flat_map(|(x, y)| [x, y])
                     .collect();
                 ink_stroke(stroke, points, index)
             })
@@ -321,22 +330,28 @@ fn fit_shift(paths: &[Vec<(f64, f64)>]) -> (f64, f64) {
     (dx, dy)
 }
 
+/// A point with both coordinates finite. Points that are not are dropped.
+fn is_finite_point(point: &(f64, f64)) -> bool {
+    point.0.is_finite() && point.1.is_finite()
+}
+
 /// Shifts paths so no coordinate is negative (to a 5 mm margin), then rounds and clamps.
+/// Non-finite points are dropped first.
 pub(crate) fn fit_to_page(paths: &mut [Vec<(f64, f64)>]) {
+    for path in paths.iter_mut() {
+        path.retain(is_finite_point);
+    }
     let (dx, dy) = fit_shift(paths);
     let limit = f64::from(INK_COORD_LIMIT);
     for point in paths.iter_mut().flatten() {
-        point.0 = whole_coord(point.0 + dx, limit);
-        point.1 = whole_coord(point.1 + dy, limit);
+        point.0 = (point.0 + dx).round().clamp(0.0, limit);
+        point.1 = (point.1 + dy).round().clamp(0.0, limit);
     }
 }
 
-fn whole_coord(value: f64, limit: f64) -> f64 {
-    if value.is_finite() {
-        value.round().clamp(0.0, limit)
-    } else {
-        0.0
-    }
+/// A whole-unit page coordinate, or `None` when the value is not finite.
+fn whole_coord(value: f64, limit: f64) -> Option<f64> {
+    value.is_finite().then(|| value.round().clamp(0.0, limit))
 }
 
 fn build_pages(raw: &[RawStroke]) -> Vec<InkPage> {
@@ -443,6 +458,29 @@ mod tests {
         let mut paths = vec![vec![(1.0e9, 0.0)]];
         fit_to_page(&mut paths);
         assert!((paths[0][0].0 - f64::from(INK_COORD_LIMIT)).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn whole_coord_drops_non_finite_instead_of_zeroing() {
+        assert_eq!(whole_coord(f64::NAN, 10.0), None);
+        assert_eq!(whole_coord(f64::INFINITY, 10.0), None);
+        assert_eq!(whole_coord(4.6, 10.0), Some(5.0));
+        assert_eq!(whole_coord(1.0e9, 10.0), Some(10.0));
+    }
+
+    #[test]
+    fn fit_to_page_drops_non_finite_points() {
+        let mut paths = vec![vec![(f64::NAN, 1.0), (5.0, 5.0)]];
+        fit_to_page(&mut paths);
+        assert_eq!(paths[0], vec![(5.0, 5.0)]);
+    }
+
+    #[test]
+    fn band_sheets_drop_non_finite_points_only() {
+        let bands = [a4_at(127.0)];
+        let raw = vec![stroke(&[(f64::NAN, 1.0), (500.0, 400.0), (600.0, 500.0)])];
+        let sheets = build_sheets(&raw, &bands);
+        assert_eq!(sheets[0].page.strokes[0].points.len(), 4);
     }
 
     fn stroke(points: &[(f64, f64)]) -> RawStroke {

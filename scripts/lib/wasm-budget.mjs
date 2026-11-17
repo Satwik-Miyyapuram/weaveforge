@@ -166,12 +166,13 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   ceiling, agreed with the maintainer; shrinking it stays a follow-up.
 // - OneNote import (D1): ~2664.4 KB gzipped, Windows build. ~152 KB from the
 //   onenote_parser crate (OneNote file format, default features off) and
-//   wf-core's onenote module (outline to Markdown, ink to InkPage). 2680 KB is
-//   this feature's ceiling, pending the maintainer's OK; moving the parser to
-//   a separate lazily loaded module would avoid it.
+//   wf-core's onenote module (outline to Markdown, ink to InkPage). 2680 KB was
+//   this feature's ceiling at the time. Moving the parser and its module to a
+//   separate lazily loaded module would avoid that growth.
 // - OneNote printout pages: ~2683.4 KB gzipped, Windows build. ~3.4 KB from
 //   splitting a page's ink into one ink page per printout, each with its
-//   placed background. 2688 KB, pending the maintainer's OK like the line above.
+//   placed background. 2688 KB is the ceiling approved for this feature, measured
+//   at the size above.
 export const WASM_GZIP_BUDGET = 2688 * 1024;
 
 /**

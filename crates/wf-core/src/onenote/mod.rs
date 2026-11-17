@@ -28,6 +28,20 @@ pub fn freeform_page_text(
     files: &std::collections::BTreeMap<String, String>,
     ink: &[OneNoteInkPage],
 ) -> String {
+    // A printout sits behind everything else, so its image goes first.
+    let backgrounds = ink.iter().filter_map(|sheet| {
+        let background = sheet.background.as_ref()?;
+        Some(OneNoteLayoutItem {
+            kind: LayoutKind::Image,
+            key: background.name.clone(),
+            text: String::new(),
+            x: Some(sheet.origin_x + background.x),
+            y: Some(sheet.origin_y + background.y),
+            width: Some(background.width),
+            height: Some(background.height),
+        })
+    });
+    let items: Vec<OneNoteLayoutItem> = backgrounds.chain(layout.iter().cloned()).collect();
     let strokes: Vec<crate::canvas::FreeStroke> = ink
         .iter()
         .enumerate()
@@ -39,7 +53,7 @@ pub fn freeform_page_text(
             )
         })
         .collect();
-    freeform_canvas(layout, files, &strokes)
+    freeform_canvas(&items, files, &strokes)
 }
 
 /// Largest `.one` input accepted, in bytes.
@@ -294,19 +308,27 @@ fn ink_pages(page: &Page, strokes: &[ink::RawStroke], body: &mut Body) -> Vec<On
     }
 
     let tops: Vec<f64> = bands.iter().map(|band| band.y).collect();
-    let mut texts = vec![String::new(); bands.len().max(1)];
-    for (group, text) in texts.iter_mut().enumerate() {
-        body.blocks.clear();
-        for content in page.contents() {
+    // Each piece of content belongs to one band, found once here.
+    let placed: Vec<(usize, &PageContent)> = page
+        .contents()
+        .iter()
+        .filter_map(|content| {
             let top = match content {
                 PageContent::Outline(outline) => outline.offset_vertical(),
                 PageContent::Image(image) if !image.is_background() => image.offset_vertical(),
                 PageContent::EmbeddedFile(file) => file.offset_vertical(),
-                _ => continue,
+                _ => return None,
             };
             let band = top.map_or(0, |y| {
                 ink::band_index(&tops, f64::from(y) * ink::HALF_INCH_TENTHS_MM)
             });
+            Some((band, content))
+        })
+        .collect();
+    let mut texts = vec![String::new(); bands.len().max(1)];
+    for (group, text) in texts.iter_mut().enumerate() {
+        body.blocks.clear();
+        for &(band, content) in &placed {
             if band == group {
                 push_content(content, body);
             }
@@ -389,20 +411,18 @@ fn outline_images<'a>(items: &'a [OutlineItem], out: &mut Vec<&'a Image>) {
     for item in items {
         match item {
             OutlineItem::Group(group) => outline_images(group.outlines(), out),
-            OutlineItem::Element(element) => {
-                out.extend(
-                    element
-                        .contents()
-                        .iter()
-                        .filter_map(|content| match content {
-                            Content::Image(image) => Some(image),
-                            _ => None,
-                        }),
-                );
-                outline_images(element.children(), out);
-            }
+            OutlineItem::Element(element) => element_images(element, out),
         }
     }
+}
+
+fn element_images<'a>(element: &'a OutlineElement, out: &mut Vec<&'a Image>) {
+    for content in element.contents() {
+        if let Content::Image(image) = content {
+            out.push(image);
+        }
+    }
+    outline_images(element.children(), out);
 }
 
 fn push_image_layout(image: &Image, body: &mut Body, items: &mut Vec<OneNoteLayoutItem>) {
@@ -428,8 +448,13 @@ fn push_image_layout(image: &Image, body: &mut Body, items: &mut Vec<OneNoteLayo
     });
 }
 
-/// Geometry in 0.1 mm. Offsets and layout sizes are half inches and picture
-/// sizes are inches; a value that is not finite counts as missing.
+/// One OneNote measurement in 0.1 mm; a value that is not finite counts as missing.
+fn scaled(value: Option<f32>, unit: f64) -> Option<f64> {
+    value.map(|v| f64::from(v) * unit).filter(|v| v.is_finite())
+}
+
+/// Geometry in 0.1 mm. Offsets, layout sizes and picture sizes are all half
+/// inches per the onenote_parser docs; a value that is not finite counts as missing.
 fn placement(
     x: Option<f32>,
     y: Option<f32>,
@@ -439,32 +464,25 @@ fn placement(
     picture_height: Option<f32>,
 ) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
     let half = ink::HALF_INCH_TENTHS_MM;
-    let inch = 2.0 * half;
-    let scaled = |value: Option<f32>, unit: f64| {
-        value.map(|v| f64::from(v) * unit).filter(|v| v.is_finite())
-    };
     (
         scaled(x, half),
         scaled(y, half),
-        scaled(layout_width, half).or_else(|| scaled(picture_width, inch)),
-        scaled(layout_height, half).or_else(|| scaled(picture_height, inch)),
+        scaled(layout_width, half).or_else(|| scaled(picture_width, half)),
+        scaled(layout_height, half).or_else(|| scaled(picture_height, half)),
     )
 }
 
 /// Where a background image sits on the OneNote page, in 0.1 mm.
 fn background_rect(image: &Image) -> ink::Rect {
-    let half_inch = ink::HALF_INCH_TENTHS_MM;
-    let offset = |value: Option<f32>| value.map_or(0.0, |v| f64::from(v) * half_inch);
-    // Layout sizes are in half-inches, picture sizes in inches.
+    let half = ink::HALF_INCH_TENTHS_MM;
     let size = |layout: Option<f32>, picture: Option<f32>, fallback: f64| {
-        layout
-            .map(|v| f64::from(v) * half_inch)
-            .or_else(|| picture.map(|v| f64::from(v) * 2.0 * half_inch))
+        scaled(layout, half)
+            .or_else(|| scaled(picture, half))
             .unwrap_or(fallback)
     };
     ink::Rect {
-        x: offset(image.offset_horizontal()),
-        y: offset(image.offset_vertical()),
+        x: scaled(image.offset_horizontal(), half).unwrap_or(0.0),
+        y: scaled(image.offset_vertical(), half).unwrap_or(0.0),
         width: size(
             image.layout_max_width(),
             image.picture_width(),
@@ -617,16 +635,14 @@ fn escape_leading(line: &str) -> String {
 }
 
 fn push_table(table: &Table, body: &mut Body) {
-    let rows: Vec<Vec<String>> = table
-        .contents()
-        .iter()
-        .map(|row| {
-            row.contents()
-                .iter()
-                .map(|cell| cell_text(cell.contents()))
-                .collect()
-        })
-        .collect();
+    let mut rows: Vec<Vec<String>> = Vec::new();
+    for row in table.contents() {
+        let mut cells = Vec::new();
+        for cell in row.contents() {
+            cells.push(cell_text(cell.contents()));
+        }
+        rows.push(cells);
+    }
     let cols = rows.iter().map(Vec::len).max().unwrap_or(0);
     if cols == 0 {
         return;
@@ -648,17 +664,17 @@ fn push_table(table: &Table, body: &mut Body) {
     });
 }
 
-/// Plain text of a table cell with pipes escaped and line breaks flattened.
+/// Markdown of a table cell with pipes escaped and line breaks flattened.
+/// Pictures in a cell are not imported: a table's text is a text node, and a
+/// link to a picture the canvas never uploads would be broken.
 fn cell_text(elements: &[OutlineElement]) -> String {
-    let text = elements
-        .iter()
-        .flat_map(OutlineElement::contents)
-        .filter_map(|content| match content {
-            Content::RichText(rich) => Some(rich_markdown(rich)),
-            _ => None,
-        })
-        .collect::<Vec<_>>()
-        .join(" ");
+    let mut parts = Vec::new();
+    for content in elements.iter().flat_map(OutlineElement::contents) {
+        if let Content::RichText(rich) = content {
+            parts.push(rich_markdown(rich));
+        }
+    }
+    let text = parts.join(" ");
     text.replace(['\r', '\n', '\u{b}'], " ")
         .replace('|', "\\|")
         .trim()
@@ -776,7 +792,9 @@ fn render(blocks: &[Block]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{LayoutKind, OneNoteLayoutItem, freeform_page_text};
+    use super::{
+        LayoutKind, OneNoteBackground, OneNoteInkPage, OneNoteLayoutItem, freeform_page_text,
+    };
     use std::collections::BTreeMap;
 
     #[test]
@@ -797,15 +815,55 @@ mod tests {
         assert!(!text.contains("wfInk"));
     }
 
+    #[test]
+    fn ink_page_background_becomes_an_image_node_behind_the_ink() {
+        let sheet = OneNoteInkPage {
+            page: crate::ink::ink_page::InkPage {
+                width: 2100.0,
+                height: 2970.0,
+                paper: crate::sync::ink_note::InkPaper::Blank,
+                background: 0.0,
+                strokes: Vec::new(),
+                lines: Vec::new(),
+            },
+            background: Some(OneNoteBackground {
+                name: "image-1.png".to_owned(),
+                x: 0.0,
+                y: 0.0,
+                width: 2100.0,
+                height: 2970.0,
+            }),
+            origin_x: 127.0,
+            origin_y: 254.0,
+            text: String::new(),
+        };
+        let files = BTreeMap::from([("image-1.png".to_owned(), "attachments/p.png".to_owned())]);
+        let text = freeform_page_text(&[], &files, &[sheet]);
+        let canvas = crate::canvas::parse_canvas(&text).expect("valid canvas");
+        assert_eq!(canvas.nodes.len(), 1);
+        let node = &canvas.nodes[0];
+        assert_eq!(node.kind, "file");
+        assert_eq!(node.file.as_deref(), Some("attachments/p.png"));
+        assert_eq!((node.x, node.y), (48.0, 96.0));
+    }
+
     use super::placement;
 
     #[test]
     fn placement_scales_offsets_and_sizes_to_tenths_of_a_millimetre() {
-        // Offsets and layout sizes are half inches (127 tenths of a mm);
-        // picture sizes are inches (254).
+        // Offsets, layout sizes and picture sizes are all half inches
+        // (127 tenths of a mm each), per the onenote_parser docs.
         let (x, y, w, h) = placement(Some(2.0), Some(3.0), Some(4.0), None, None, Some(1.5));
         assert_eq!((x, y), (Some(254.0), Some(381.0)));
-        assert_eq!((w, h), (Some(508.0), Some(381.0)));
+        assert_eq!((w, h), (Some(508.0), Some(190.5)));
+    }
+
+    #[test]
+    fn placement_ignores_non_finite_picture_size_and_uses_layout_first() {
+        let (_, _, w, h) = placement(None, None, None, Some(f32::INFINITY), Some(2.0), None);
+        assert_eq!((w, h), (Some(254.0), None));
+        let (_, _, w, _) = placement(None, None, Some(1.0), None, Some(9.0), None);
+        assert_eq!(w, Some(127.0));
     }
 
     #[test]
