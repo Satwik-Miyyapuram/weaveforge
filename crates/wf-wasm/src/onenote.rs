@@ -1,7 +1,7 @@
 //! wasm exports for `onenote` (TS: `features/vault/application/onenote-import.ts`).
 
-use wasm_bindgen::prelude::{wasm_bindgen, JsError};
 use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::{JsError, wasm_bindgen};
 use wf_core::onenote;
 
 use super::to_js;

@@ -3,22 +3,22 @@
 use std::collections::HashMap;
 use std::io::{Error, Read};
 
+use onenote_parser::FileSystem;
+use onenote_parser::Parser;
 use onenote_parser::contents::{
     Content, EmbeddedFile, Image, Outline, OutlineElement, OutlineItem, RichText, Table,
 };
 use onenote_parser::page::{Page, PageContent};
-use onenote_parser::FileSystem;
-use onenote_parser::Parser;
 use serde::{Deserialize, Serialize};
 use typed_path::{TypedPath, TypedPathBuf};
 
 use crate::bytea::encode_base64;
-use crate::ink::ink_page::{InkPage, INK_A4_HEIGHT, INK_A4_WIDTH};
+use crate::ink::ink_page::{INK_A4_HEIGHT, INK_A4_WIDTH, InkPage};
 
 mod freeform;
 mod ink;
 
-pub use freeform::{freeform_canvas, ink_strokes, LayoutKind, OneNoteLayoutItem};
+pub use freeform::{LayoutKind, OneNoteLayoutItem, freeform_canvas, ink_strokes};
 
 /// Canvas text for a freeform page: `layout` pieces, each image's vault path in
 /// `files`, and every ink page's strokes placed at its origin on the page.
@@ -742,11 +742,7 @@ fn image_extension(extension: Option<&str>) -> String {
         && ext
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit());
-    if valid {
-        ext
-    } else {
-        "png".to_string()
-    }
+    if valid { ext } else { "png".to_string() }
 }
 
 fn push_attachment(file: &EmbeddedFile, body: &mut Body) {
@@ -779,7 +775,7 @@ fn render(blocks: &[Block]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{freeform_page_text, LayoutKind, OneNoteLayoutItem};
+    use super::{LayoutKind, OneNoteLayoutItem, freeform_page_text};
     use std::collections::BTreeMap;
 
     #[test]

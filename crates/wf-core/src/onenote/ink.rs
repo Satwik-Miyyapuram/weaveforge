@@ -5,8 +5,8 @@ use onenote_parser::contents::{Content, EmbeddedObject, Ink, Outline, OutlineIte
 use onenote_parser::page::{Page, PageContent};
 
 use crate::ink::ink_page::{
-    clamp_ink_page_size, make_ink_stroke, InkColour, InkPage, InkStroke, InkStrokeInput, InkTool,
-    INK_A4_HEIGHT, INK_A4_WIDTH, INK_COORD_LIMIT, INK_PAGE_STROKE_BUDGET,
+    INK_A4_HEIGHT, INK_A4_WIDTH, INK_COORD_LIMIT, INK_PAGE_STROKE_BUDGET, InkColour, InkPage,
+    InkStroke, InkStrokeInput, InkTool, clamp_ink_page_size, make_ink_stroke,
 };
 use crate::sync::ink_note::InkPaper;
 
@@ -593,9 +593,11 @@ mod tests {
             .collect();
         let sheets = build_sheets(&raw, &bands);
         assert_eq!(sheets.len(), 2);
-        assert!(sheets
-            .iter()
-            .all(|sheet| sheet.group == 0 && sheet.background.is_some()));
+        assert!(
+            sheets
+                .iter()
+                .all(|sheet| sheet.group == 0 && sheet.background.is_some())
+        );
     }
 
     #[test]

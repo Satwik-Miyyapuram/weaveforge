@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::canvas::{canvas_text, write_ink, Canvas, CanvasNode, FreeStroke};
+use crate::canvas::{Canvas, CanvasNode, FreeStroke, canvas_text, write_ink};
 use crate::ink::ink_page::{InkPage, InkTool};
 use crate::onenote::ink::colour_hex;
 
@@ -238,8 +238,8 @@ fn tenths_from(offset: f64) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::canvas::{parse_canvas, read_ink, INK_FIELD};
-    use crate::ink::ink_page::{blank_ink_page, InkColour, InkShape, InkStroke};
+    use crate::canvas::{INK_FIELD, parse_canvas, read_ink};
+    use crate::ink::ink_page::{InkColour, InkShape, InkStroke, blank_ink_page};
     use crate::sync::ink_note::InkPaper;
 
     fn text(x: Option<f64>, y: Option<f64>, body: &str) -> OneNoteLayoutItem {
