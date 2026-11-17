@@ -145,15 +145,14 @@ impl PgEngine {
             Some(from) => {
                 // Only a dump that loaded with user rows is pinned as the good copy; an empty one
                 // must not replace an earlier pin. A failed pin keeps the restore standing.
-                if from.has_data {
-                    if let Some(backups) = &self.backups {
-                        if let Err(e) = backups.pin(&from.dump) {
-                            eprintln!(
-                                "[local-db] could not pin the restored backup: {}",
-                                e.message
-                            );
-                        }
-                    }
+                if from.has_data
+                    && let Some(backups) = &self.backups
+                    && let Err(e) = backups.pin(&from.dump)
+                {
+                    eprintln!(
+                        "[local-db] could not pin the restored backup: {}",
+                        e.message
+                    );
                 }
                 *self.restored.lock().unwrap_or_else(PoisonError::into_inner) =
                     Some(from.dump.to_string_lossy().into_owned());

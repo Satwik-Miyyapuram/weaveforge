@@ -277,6 +277,31 @@ pub async fn import_table<C: Conn>(
     outcome
 }
 
+/// Refuses the table when a skipped row differs from the native row with the same key, so a
+/// conflicting row is never silently dropped.
+async fn refuse_differing_rows<C: Conn>(
+    conn: &mut C,
+    table: &str,
+    shape: &Shape,
+    json: String,
+) -> Result<(), PgError> {
+    let differ = conn
+        .query(&differ_sql(table, shape), &[Value::String(json)])
+        .await?;
+    let differing = differ
+        .rows
+        .first()
+        .and_then(|row| cell(row, 0).parse::<u64>().ok())
+        .unwrap_or(u64::MAX);
+    if differing > 0 {
+        return Err(PgError::local(format!(
+            "{table}: {differing} skipped row(s) differ from the native row with the same key; \
+             the table was not imported"
+        )));
+    }
+    Ok(())
+}
+
 async fn import_in_transaction<C: Conn>(
     conn: &mut C,
     table: &str,
@@ -321,20 +346,7 @@ async fn import_in_transaction<C: Conn>(
         let skipped = sent.saturating_sub(got);
         report.skipped += skipped;
         if skipped > 0 {
-            let differ = conn
-                .query(&differ_sql(table, &shape), &[Value::String(batch.json)])
-                .await?;
-            let differing = differ
-                .rows
-                .first()
-                .and_then(|row| cell(row, 0).parse::<u64>().ok())
-                .unwrap_or(u64::MAX);
-            if differing > 0 {
-                return Err(PgError::local(format!(
-                    "{table}: {differing} skipped row(s) differ from the native row with the same key; \
-                     the table was not imported"
-                )));
-            }
+            refuse_differing_rows(conn, table, &shape, batch.json).await?;
         }
     }
     for (column, sequence) in &shape.sequences {
