@@ -11,7 +11,7 @@ use serde_json::{Map, Value};
 use crate::commands::ShellError;
 
 /// Every preference the shell keeps.
-pub const PREFERENCE_NAMES: [&str; 10] = [
+pub const PREFERENCE_NAMES: [&str; 11] = [
     "sync-target",
     "vault-root",
     "workspace-asked",
@@ -22,6 +22,7 @@ pub const PREFERENCE_NAMES: [&str; 10] = [
     "plan-widget-bounds",
     "plan-widget-theme",
     "overleaf-links",
+    "github-reauth",
 ];
 
 /// Preferences the page may write. The page has no preference read.

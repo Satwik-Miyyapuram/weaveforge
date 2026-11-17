@@ -25,6 +25,7 @@ pub mod embed;
 #[path = "embed_phone.rs"]
 pub mod embed;
 pub mod git;
+pub mod github_connect;
 pub mod github_file;
 pub mod host;
 pub mod idle_memory;

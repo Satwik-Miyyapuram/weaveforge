@@ -18,6 +18,7 @@ mod cmd_tools;
 mod cmd_vault;
 mod commands;
 mod git;
+mod github_connect;
 mod ink;
 mod local_artifacts;
 mod mattermost;

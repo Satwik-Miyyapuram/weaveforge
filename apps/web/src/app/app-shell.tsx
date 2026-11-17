@@ -66,6 +66,11 @@ const GitSyncDot = dynamic(
   () => import("@/features/workspace/ui/git-sync-dot").then((m) => m.GitSyncDot),
   { ssr: false },
 );
+/* Desktop only, and only until answered once. */
+const GithubOnboarding = dynamic(
+  () => import("@/features/settings/ui/github-onboarding").then((m) => m.GithubOnboarding),
+  { ssr: false },
+);
 const PdfTextFolderSync = dynamic(
   () => import("@/features/workspace/ui/pdf-text-folder-sync").then((m) => m.PdfTextFolderSync),
   { ssr: false },
@@ -119,6 +124,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <WorkspaceSetupDialog />
                 <GitAutoSync />
                 <FolderChangeNote />
+                <GithubOnboarding />
                 <ToastHost />
                 <ContextMenuHost />
                 {expired && <SessionExpiredPrompt />}
