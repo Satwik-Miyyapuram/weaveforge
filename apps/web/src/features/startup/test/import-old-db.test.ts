@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   importOldDb,
+  importOldDbOnce,
   type OldDbDatabase,
   type OldDbProgress,
   type OldDbShell,
@@ -267,4 +268,35 @@ test("the old auth.users ids go over first, as ids only, before any table", asyn
     rows: [{ id: "local" }, { id: "account" }],
     last: true,
   });
+});
+
+test("two callers at once share one import: one finish, latest caller gets progress", async () => {
+  const { db } = fakeDb(tables, foreignKeys);
+  const { shell, calls } = fakeShell();
+  const firstSeen: string[] = [];
+  const secondSeen: string[] = [];
+  const open = async () => db;
+  const first = importOldDbOnce({ shell, open, onProgress: (p) => firstSeen.push(p.table) });
+  const second = importOldDbOnce({ shell, open, onProgress: (p) => secondSeen.push(p.table) });
+
+  assert.equal(first, second);
+  assert.deepEqual(await second, { imported: true, tables: ["notes", "users", "orders"] });
+  assert.equal(calls.filter((call) => call.startsWith("finish")).length, 1);
+  assert.deepEqual(firstSeen, []);
+  assert.deepEqual(secondSeen, ["notes", "users", "orders"]);
+});
+
+test("after a failed shared import, the next caller starts a fresh one", async () => {
+  const { db } = fakeDb(tables, foreignKeys);
+  const failing = new Set(["users"]);
+  const { shell, calls } = fakeShell({ failing });
+  const open = async () => db;
+  await assert.rejects(importOldDbOnce({ shell, open }), /disk full on users/);
+
+  failing.clear();
+  assert.deepEqual(await importOldDbOnce({ shell, open }), {
+    imported: true,
+    tables: ["notes", "users", "orders"],
+  });
+  assert.equal(calls.filter((call) => call.startsWith("finish")).length, 1);
 });

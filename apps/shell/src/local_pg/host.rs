@@ -558,6 +558,8 @@ impl<E: Engine> PgHost<E> {
             return Err(OPEN_FAILED.to_owned());
         };
         let result = import::import_table(&mut open.conn, table, rows, last).await;
+        // An imported sync_state can name the old account, so the next query re-reads the user.
+        inner.user = None;
         self.drop_if_broken(&mut inner, &result).await;
         let report = result.map_err(|e| e.message)?;
         if report.inserted > 0 {
@@ -931,6 +933,18 @@ mod tests {
         let _ = host.query("update sync_state set x = 1", &[]).await?;
         let _ = host.query("select 1", &[]).await?;
         assert_eq!(count(&engine, "select account_id"), 2);
+        let _ = host.query("select 2", &[]).await?;
+        assert_eq!(count(&engine, "select account_id"), 2);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn an_import_rereads_the_user() -> Result<(), String> {
+        let (engine, host) = host();
+        let _ = host.query("select 1", &[]).await?;
+        assert_eq!(count(&engine, "select account_id"), 1);
+        // An imported sync_state names the old account, so the next query must not run as the cached one.
+        let _ = host.import_table("sync_state", &[], true).await;
         let _ = host.query("select 2", &[]).await?;
         assert_eq!(count(&engine, "select account_id"), 2);
         Ok(())

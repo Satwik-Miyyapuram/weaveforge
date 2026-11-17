@@ -83,6 +83,22 @@ export async function importOldDb(deps: OldDbDeps): Promise<OldDbOutcome> {
   }
 }
 
+let running: Promise<OldDbOutcome> | null = null;
+let listener: OldDbDeps["onProgress"];
+
+/**
+ * {@link importOldDb}, but a call made while one is running joins it instead of
+ * starting a second import over the same tables. The latest caller gets the
+ * progress. Once the run settles, the next call starts afresh.
+ */
+export function importOldDbOnce(deps: OldDbDeps): Promise<OldDbOutcome> {
+  listener = deps.onProgress;
+  running ??= importOldDb({ ...deps, onProgress: (p) => listener?.(p) }).finally(() => {
+    running = null;
+  });
+  return running;
+}
+
 /** Opens the tar in PGlite. The package loads only here, so the import can be tested without it. */
 export async function openOldDb(tar: Blob): Promise<OldDbDatabase> {
   const { PGlite } = await import("@electric-sql/pglite");

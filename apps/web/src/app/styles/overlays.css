@@ -313,7 +313,8 @@
 .release-notice-banner {
   position: fixed;
   left: 50%;
-  top: max(16px, env(safe-area-inset-top));
+  /* Below the desktop title bar, whose menus it would otherwise cover. */
+  top: calc(var(--titlebar-h, 0px) + max(16px, env(safe-area-inset-top)));
   transform: translateX(-50%);
   z-index: 900;
   display: flex;

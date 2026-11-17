@@ -12,6 +12,9 @@ const nav = read("../styles/nav.css");
 const titleBar = read("../styles/title-bar.css");
 const states = read("../styles/states.css");
 const workspace = read("../styles/editor-workspace.css");
+const overlays = read("../styles/overlays.css");
+const graph = read("../styles/graph.css");
+const experiments = read("../styles/experiments.css");
 
 /** Declarations of the rule whose selector list is exactly `selector`. */
 function rule(css: string, selector: string): string {
@@ -22,6 +25,16 @@ function rule(css: string, selector: string): string {
 
 test("native controls inherit the app font (DA-01, E05)", () => {
   assert.match(rule(base, "button, input, select, textarea"), /font:\s*inherit;/);
+});
+
+test("top banners sit below the title bar, not over its menus", () => {
+  assert.match(rule(overlays, ".release-notice-banner"), /top:\s*calc\(var\(--titlebar-h,\s*0px\)\s*\+/);
+});
+
+test("full-screen views start below the title bar, not over its menus", () => {
+  // env(titlebar-area-height) is 0 on Windows, so only --titlebar-h holds the bar's height.
+  assert.match(rule(graph, ".graph-focus"), /inset:\s*var\(--titlebar-h,\s*0px\)\s+0\s+0\s+0/);
+  assert.match(rule(experiments, ".image-viewer"), /inset:\s*var\(--titlebar-h,\s*0px\)\s+0\s+0\s+0/);
 });
 
 test("focused controls are not hidden under the title bar (DA-02, E18)", () => {
