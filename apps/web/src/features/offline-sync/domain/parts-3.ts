@@ -3,6 +3,7 @@ import type { ConflictRoute } from "@weaveforge/wasm";
 import { Adoption, type AdoptionRequest, type AdoptionResult, ConflictStore } from "./parts-1";
 import { Outbox, type OutboxEntry, Puller, type PullResult, type SqlRunner } from "./parts-2";
 import type { SendOutcome, SyncTransport } from "./parts";
+import { reconcileSharedRows, SharedRowMarks } from "./shared-rows";
 
 // --- pump ---
 /**
@@ -195,22 +196,6 @@ export class SyncStateStore {
     );
   }
 
-  /**
-   * Record whether the last pull ran with GitHub connected. Switching it off
-   * rewinds the watermark to zero, in the same statement: while it was on the
-   * feed's workspace rows were passed over (they belong to the vault), so they
-   * are read again now that this device should hold them.
-   */
-  async setGithubScope(connected: boolean): Promise<void> {
-    if (connected) {
-      await this.sql.exec("update sync_state set github_scope = true");
-      return;
-    }
-    await this.sql.exec(
-      "update sync_state set watermark = case when github_scope then 0 else watermark end, github_scope = false",
-    );
-  }
-
   /** Record whose account this device now syncs with. */
   async adopt(accountId: string): Promise<void> {
     await this.sql.exec("update sync_state set account_id = $1", [accountId]);
@@ -260,6 +245,7 @@ export interface CycleResult {
 
 export class SyncEngine {
   private readonly state: SyncStateStore;
+  private readonly marks: SharedRowMarks;
   private readonly pump: OutboxPump;
   private readonly puller: Puller;
   private readonly adoption: Adoption;
@@ -278,6 +264,7 @@ export class SyncEngine {
     private readonly githubConnected: () => Promise<boolean> = async () => false,
   ) {
     this.state = new SyncStateStore(sql);
+    this.marks = new SharedRowMarks(sql);
     this.conflicts = new ConflictStore(sql);
     this.pump = new OutboxPump(new Outbox(sql), transport, this.conflicts);
     this.puller = new Puller(sql, this.state, transport, this.conflicts, localUserId);
@@ -318,7 +305,12 @@ export class SyncEngine {
     // Throws when the answer is unknown: the cycle is abandoned before anything
     // is sent or pulled, so no watermark moves on a guess.
     const connected = await this.githubConnected();
-    await this.state.setGithubScope(connected);
+    // Which rows are shared decides what is owed while connected, so the markers
+    // are set from the server first. A failed read keeps the markers as they are.
+    if (connected) {
+      const { accountId } = await this.state.read();
+      if (accountId) await reconcileSharedRows(this.marks, this.transport, accountId);
+    }
     await new Outbox(this.sql).coalesceWorkspace(connected);
     await this.recoverUnsent(connected);
     const pushed = await this.push(connected);

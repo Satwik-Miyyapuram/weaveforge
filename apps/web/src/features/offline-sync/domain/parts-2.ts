@@ -94,19 +94,21 @@ const COLUMNS =
 
 /**
  * The ops owed to the server while GitHub is connected: sharing's own rows
- * (parameter $2, comma-separated), and any row with a share op still queued
- * for it. The share lookup is the only sharing signal this device has, since
- * the local database keeps no shares table.
+ * (parameter $2, comma-separated), and any row that is shared. A row counts as
+ * shared while `sync_shared_rows` (0023) holds a marker for it. That marker
+ * mirrors the server's shares: reconciled each connected cycle, and set or
+ * cleared at once by this device's grant and revoke. A type-wide share
+ * (resource_id null) covers every row of its type.
  */
 const SHARE_TYPE_CASE = `(case sync_outbox.table_name ${Object.entries(SHARE_RESOURCE_TYPE)
   .map(([table, type]) => `when '${table}' then '${type}'`)
   .join(" ")} end)`;
 
+// A type-wide share (resource_id null) covers every row of its type.
 const OWED_WHILE_CONNECTED = `table_name = any(string_to_array('${SHARING_KINDS.join(",")}', ','))
-  or exists (select 1 from sync_outbox s
-              where s.table_name = 'shares' and s.dead_at is null
-                and s.payload->>'resource_id' = sync_outbox.row_id::text
-                and s.payload->>'resource_type' = ${SHARE_TYPE_CASE})`;
+  or exists (select 1 from sync_shared_rows m
+              where m.resource_type = ${SHARE_TYPE_CASE}
+                and (m.resource_id is null or m.resource_id = sync_outbox.row_id))`;
 
 export class Outbox {
   constructor(private readonly sql: SqlRunner) {}
@@ -244,7 +246,11 @@ export class Outbox {
     return toEntries(rows);
   }
 
-  /** Forget what this device owed for a row; a merge now speaks for it. */
+  /**
+   * Forget what this device owed for a row; a merge now speaks for it. The
+   * share marker is not touched: it mirrors the server's shares (see
+   * reconcileSharedRows), not this outbox.
+   */
   async dropRow(table: string, rowId: string): Promise<void> {
     await this.sql.exec(
       "delete from sync_outbox where table_name = $1 and row_id = $2 and dead_at is null",
@@ -361,9 +367,7 @@ export class Puller {
     const changes = await this.transport.changesSince(watermark, pageSize);
     let failed: Held[] = [];
     for (const change of changes) {
-      // Rows this device must not take are read past. The watermark moves over
-      // them only because switching GitHub off rewinds it (SyncEngine.cycle),
-      // so they are read again when they are wanted.
+      // Rows this device must not take are read past; the watermark moves over them.
       if (!shouldApplyPulled(change, this.localUserId, githubConnected)) continue;
       if (await this.tryApply(change, failed)) applied += 1;
     }
