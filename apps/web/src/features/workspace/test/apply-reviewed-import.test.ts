@@ -164,7 +164,7 @@ test("a pending marker for another project skips the restore with a message and 
   });
   await applyReviewedImport(h.reviewed as never, h.resolutions as never, h.seams);
   assert.equal(h.log.length, 2, "one skip message, then the plain apply");
-  assert.match(h.log[0], /^skipped:.*proj-a/, "the message names the project the restore belongs to");
+  assert.match(h.log[0] ?? "", /^skipped:.*proj-a/, "the message names the project the restore belongs to");
   assert.equal(h.log[1], PLAIN_APPLY, "the folder apply still runs, with its JSON");
   assert.equal(h.log.some((l) => l.startsWith("insert:")), false, "nothing is restored");
   assert.equal(h.log.includes("marker:clear"), false, "the marker is kept for its own project");
@@ -225,7 +225,7 @@ test("a failed restore resumes after the user switches project back, and not in 
     restoreMarker: marker,
   });
   await applyReviewedImport(other.reviewed as never, other.resolutions as never, other.seams);
-  assert.match(other.log[0], /^skipped:/, "proj-b is told the restore is skipped");
+  assert.match(other.log[0] ?? "", /^skipped:/, "proj-b is told the restore is skipped");
   assert.equal(other.log[1], PLAIN_APPLY, "proj-b gets the plain apply");
   assert.equal(files.size, 1, "the marker is kept for proj-a");
 
