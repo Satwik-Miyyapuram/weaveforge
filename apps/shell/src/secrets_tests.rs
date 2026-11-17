@@ -32,11 +32,7 @@ fn secrets(store: &Arc<CredentialStore>) -> Secrets {
 
 /// The password filed under `user` in the OS store, read without going through `Secrets`.
 fn raw(store: &Arc<CredentialStore>, user: &str) -> Option<String> {
-    store
-        .build(SERVICE, user, None)
-        .ok()?
-        .get_password()
-        .ok()
+    store.build(SERVICE, user, None).ok()?.get_password().ok()
 }
 
 /// Makes the next keychain call on `user` fail once with `err`.
@@ -62,7 +58,10 @@ fn workspaces_do_not_see_each_others_tokens() {
     let s = secrets(&st);
     s.set_open_workspace(Some(WS_A)).expect("open a");
     s.page_write("git-sync-token", "token-a").expect("write a");
-    assert_eq!(raw(&st, &format!("{WS_A}/git-sync-token")).as_deref(), Some("token-a"));
+    assert_eq!(
+        raw(&st, &format!("{WS_A}/git-sync-token")).as_deref(),
+        Some("token-a")
+    );
 
     s.set_open_workspace(Some(WS_B)).expect("open b");
     assert_eq!(s.read("git-sync-token"), Ok(None));
@@ -89,7 +88,11 @@ fn every_workspace_name_is_refused_without_an_open_workspace() {
     let st = store();
     let s = secrets(&st);
     for name in WORKSPACE_NAMES {
-        assert_eq!(s.page_write(name, "x"), Err(SecretError::NoWorkspace), "{name}");
+        assert_eq!(
+            s.page_write(name, "x"),
+            Err(SecretError::NoWorkspace),
+            "{name}"
+        );
         assert_eq!(s.page_clear(name), Err(SecretError::NoWorkspace), "{name}");
     }
     assert_eq!(raw(&st, "git-sync-token"), None);
@@ -108,7 +111,10 @@ fn a_workspace_id_must_be_a_plain_key_part() {
     }
     s.set_open_workspace(Some(WS_A)).expect("a uuid is fine");
     s.set_open_workspace(None).expect("closing is fine");
-    assert_eq!(s.page_write("git-sync-token", "x"), Err(SecretError::NoWorkspace));
+    assert_eq!(
+        s.page_write("git-sync-token", "x"),
+        Err(SecretError::NoWorkspace)
+    );
 }
 
 #[test]
@@ -145,7 +151,11 @@ fn upgrade_is_idempotent_and_never_reaches_another_workspace() {
     assert_eq!(s.read("git-sync-token"), Ok(Some("old-git".to_owned())));
 
     s.set_open_workspace(Some(WS_B)).expect("open b");
-    assert_eq!(s.read("git-sync-token"), Ok(None), "b must not inherit a's token");
+    assert_eq!(
+        s.read("git-sync-token"),
+        Ok(None),
+        "b must not inherit a's token"
+    );
 
     s.set_open_workspace(Some(WS_A)).expect("back to a");
     assert_eq!(s.read("git-sync-token"), Ok(Some("old-git".to_owned())));
@@ -163,8 +173,16 @@ fn a_failed_read_leaves_the_old_key_for_the_next_read() {
     );
 
     s.set_open_workspace(Some(WS_A)).expect("open");
-    assert_eq!(s.read("git-sync-token"), Ok(None), "the failed read reads as nothing");
-    assert_eq!(raw(&st, "git-sync-token").as_deref(), Some("old-git"), "old key kept");
+    assert_eq!(
+        s.read("git-sync-token"),
+        Ok(None),
+        "the failed read reads as nothing"
+    );
+    assert_eq!(
+        raw(&st, "git-sync-token").as_deref(),
+        Some("old-git"),
+        "old key kept"
+    );
 
     assert_eq!(s.read("git-sync-token"), Ok(Some("old-git".to_owned())));
     assert_eq!(raw(&st, "git-sync-token"), None);
@@ -179,7 +197,11 @@ fn clearing_a_workspace_token_also_retires_the_unscoped_one() {
     s.page_clear("git-sync-token").expect("clear");
 
     assert_eq!(s.read("git-sync-token"), Ok(None));
-    assert_eq!(raw(&st, "git-sync-token"), None, "a cleared token never comes back");
+    assert_eq!(
+        raw(&st, "git-sync-token"),
+        None,
+        "a cleared token never comes back"
+    );
     s.set_open_workspace(Some(WS_B)).expect("open b");
     assert_eq!(s.read("git-sync-token"), Ok(None));
 }

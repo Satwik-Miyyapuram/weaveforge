@@ -241,7 +241,8 @@ fn page_read_returns_ai_provider_and_refuses_other_names_even_when_stored() {
 fn page_write_and_clear_work_for_overleaf_and_git_sync_tokens() {
     let store = mock();
     let s = secrets(&store);
-    s.set_open_workspace(Some("ws-test")).expect("open workspace");
+    s.set_open_workspace(Some("ws-test"))
+        .expect("open workspace");
     for name in ["overleaf-token", "git-sync-token"] {
         s.page_write(name, "tok").expect("page_write");
         assert_eq!(s.read(name), Ok(Some("tok".to_owned())), "{name}");
