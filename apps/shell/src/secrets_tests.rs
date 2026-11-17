@@ -5,14 +5,14 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use std::sync::{mpsc, Arc};
+use std::sync::{Arc, mpsc};
 use std::thread;
 use std::time::Duration;
 
-use keyring_core::mock::Cred;
 use keyring_core::CredentialStore;
+use keyring_core::mock::Cred;
 
-use super::{SecretError, Secrets, PAGE_WRITABLE};
+use super::{PAGE_WRITABLE, SecretError, Secrets};
 
 const SERVICE: &str = "org.weaveforge.test";
 const WS_A: &str = "0c6f2a1e-7d3b-5f1a-9a2e-000000000001";
