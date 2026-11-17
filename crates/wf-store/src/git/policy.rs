@@ -27,7 +27,9 @@ pub const IGNORED_FILES: [&str; 1] = ["desktop.ini"];
 /// LaTeX build byproducts, regenerated on every compile.
 pub const IGNORED_EXTENSIONS: [&str; 4] = [".aux", ".fdb_latexmk", ".fls", ".synctex.gz"];
 
-pub use wf_core::sync::git_policy::{MIRROR_MANIFEST_EXCLUDE, ROOT_SETTINGS_FILE, is_mirror_manifest};
+pub use wf_core::sync::git_policy::{
+    MIRROR_MANIFEST_EXCLUDE, ROOT_SETTINGS_FILE, is_mirror_manifest,
+};
 
 /// Why a path is kept out of folder history.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

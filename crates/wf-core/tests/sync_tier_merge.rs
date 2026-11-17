@@ -94,8 +94,18 @@ fn equal_ids_are_not_a_conflict() {
 
 #[test]
 fn two_different_ids_keep_the_smaller_and_flag_a_conflict_in_either_order() {
-    let big = fields(Some("f0000000-0000-5000-8000-000000000000"), Tier::Local, 0, None);
-    let small = fields(Some("0a000000-0000-5000-8000-000000000000"), Tier::Local, 0, None);
+    let big = fields(
+        Some("f0000000-0000-5000-8000-000000000000"),
+        Tier::Local,
+        0,
+        None,
+    );
+    let small = fields(
+        Some("0a000000-0000-5000-8000-000000000000"),
+        Tier::Local,
+        0,
+        None,
+    );
     let one = merge(&big, &small);
     let two = merge(&small, &big);
     assert_eq!(one.fields.workspace_id, two.fields.workspace_id);
@@ -122,14 +132,19 @@ fn fields_strategy() -> impl Strategy<Value = TierFields> {
         proptest::option::of(prop_oneof![Just("a".to_owned()), Just("b".to_owned())]),
         tier_strategy(),
         0_u64..4,
-        proptest::option::of(prop_oneof![Just("alice".to_owned()), Just("bob".to_owned())]),
+        proptest::option::of(prop_oneof![
+            Just("alice".to_owned()),
+            Just("bob".to_owned())
+        ]),
     )
-        .prop_map(|(workspace_id, tier, tier_epoch, tier_account)| TierFields {
-            workspace_id,
-            tier,
-            tier_epoch,
-            tier_account,
-        })
+        .prop_map(
+            |(workspace_id, tier, tier_epoch, tier_account)| TierFields {
+                workspace_id,
+                tier,
+                tier_epoch,
+                tier_account,
+            },
+        )
 }
 
 proptest! {

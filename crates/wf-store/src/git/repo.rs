@@ -133,9 +133,9 @@ pub(crate) fn write_excludes(repo: &Repository) -> Result<(), RepoError> {
     let current = fs::read_to_string(&file).unwrap_or_default();
     // Older versions excluded the whole `.weaveforge` folder. That line would also hide
     // the root settings.json, which a later negation cannot re-include, so it is dropped.
-    let had_whole_folder = current.split('\n').any(|line| {
-        line.trim_end_matches('\r') == LEGACY_WEAVEFORGE_EXCLUDE
-    });
+    let had_whole_folder = current
+        .split('\n')
+        .any(|line| line.trim_end_matches('\r') == LEGACY_WEAVEFORGE_EXCLUDE);
     let mut text = if had_whole_folder {
         current
             .split('\n')
