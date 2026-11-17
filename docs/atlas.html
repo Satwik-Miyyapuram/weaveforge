@@ -542,11 +542,11 @@
       into either one.
     </p>
     <div class="facts">
-      <div class="fact"><b>234,867</b><span>web app lines</span></div>
+      <div class="fact"><b>235,267</b><span>web app lines</span></div>
       <div class="fact"><b>24,655</b><span>core lines</span></div>
       <div class="fact"><b>5,394</b><span>shell lines</span></div>
       <div class="fact"><b>3,375</b><span>python sdk</span></div>
-      <div class="fact"><b>157</b><span>migrations</span></div>
+      <div class="fact"><b>158</b><span>migrations</span></div>
       <div class="fact"><b>35</b><span>web features</span></div>
     </div>
   </header>
@@ -669,8 +669,8 @@ flowchart TB
 │   ├── config/                    <i>defineConfig + plugin contract</i>
 │   └── shared/                    <i>clock, dates, three-way-merge, tree, repository</i>
 │
-├── <b>apps/web/src/</b>                 <i>234,867 lines</i>
-│   ├── <u>app/</u>                      <i>25 pages + 1 API routes</i>
+├── <b>apps/web/src/</b>                 <i>235,267 lines</i>
+│   ├── <u>app/</u>                      <i>25 pages + 2 API routes</i>
 │   ├── <u>features/</u>                 <i>35 slices — core's 19 plus the web-only ones:</i>
 │   │                              <i>offline-sync, sync, workspace, editor-workspace,</i>
 │   │                              <i>auth, search, export, overleaf, reader, startup,</i>
@@ -695,7 +695,7 @@ flowchart TB
 │   ├── integrations/              <i>lightning · keras callbacks</i>
 │   └── tracking.py  container.py  cli.py
 │
-├── <b>db/migrations/</b>           <i>0001 → 0159, 8,435 lines</i>
+├── <b>db/migrations/</b>           <i>0001 → 0160, 8,478 lines</i>
 ├── <b>scripts/</b>                       <i>113 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
 └── <b>docs/</b>                          <i>206 files, 37,527 lines</i>
@@ -908,7 +908,7 @@ sequenceDiagram
 </pre>
       </div>
 
-      <h3>The 1 API routes, by why they exist</h3>
+      <h3>The 2 API routes, by why they exist</h3>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Group</th><th>Routes</th><th>Reason it is not a direct query</th></tr></thead>
@@ -986,7 +986,7 @@ flowchart TB
   BRIDGE["preload.ts<br/>window.weaveforge<br/>one bridge object, 26 members"]
 
   subgraph main["Main process"]
-    DB["local-db.ts<br/>PGlite + the 157 migrations"]
+    DB["local-db.ts<br/>PGlite + the 158 migrations"]
     FOLDER["vault-folder.ts<br/>read / write / list / stat"]
     WATCH["vault-watch.ts<br/>notices outside edits"]
     GIT["vault-git.ts<br/>commit history"]
@@ -1291,7 +1291,7 @@ flowchart TB
     <section id="data">
       <h2>Data layer</h2>
       <p>
-        157 numbered migrations, applied in order, by all three backends. Access control is in
+        158 numbered migrations, applied in order, by all three backends. Access control is in
         the database rather than in the app: a missing check in a React component is a bug, a
         missing RLS policy is a breach, so the policy is the one that decides.
       </p>
