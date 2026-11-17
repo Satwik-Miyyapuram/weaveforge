@@ -43,3 +43,14 @@ test("DELETE /api/workspaces/[id]/server-data: fails closed when the auth config
     /NEXT_PUBLIC_SUPABASE_URL is not configured/,
   );
 });
+
+test("DELETE /api/workspaces/[id]/server-data: a malformed workspace id in the path is 400", async () => {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "http://auth.invalid";
+  process.env.NEXT_PUBLIC_DATA_URL = "http://data.invalid";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-test";
+  // Next passes the path segment already decoded.
+  for (const bad of ["w 1", "w.1", "../x", "w:1"]) {
+    const res = await DELETE(deleteRequest({ authorization: "Bearer t" }), params(bad));
+    assert.equal(res.status, 400, bad);
+  }
+});

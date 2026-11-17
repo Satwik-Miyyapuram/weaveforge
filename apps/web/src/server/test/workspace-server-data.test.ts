@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  checkWorkspaceUpload,
+  createTombstoneReader,
   handleWorkspaceServerDataDelete,
   isUploadStale,
+  isWorkspaceId,
   type ServerDataDeps,
 } from "../workspace-server-data";
 
@@ -93,4 +96,74 @@ test("uploads below the tombstone epoch are stale; equal or newer are accepted",
   assert.equal(isUploadStale(5, 4), true);
   assert.equal(isUploadStale(5, 5), false);
   assert.equal(isUploadStale(5, 6), false);
+});
+
+test("a workspace id is letters, digits, underscore or dash, as the shell's id rule", () => {
+  for (const id of ["w1", "A_b-9", "0123456789abcdef0123456789abcdef"]) {
+    assert.equal(isWorkspaceId(id), true, id);
+  }
+  for (const id of ["", "w 1", "w.1", "w/1", "../x", "w%2F1", "w:1", "w\n1", "é"]) {
+    assert.equal(isWorkspaceId(id), false, JSON.stringify(id));
+  }
+});
+
+test("DELETE with a bad workspace id is 400 and writes nothing, even when authenticated", async () => {
+  for (const bad of ["w 1", "w.1", "../x", "w%2F1"]) {
+    const { value, calls } = deps();
+    const res = await handleWorkspaceServerDataDelete(request("?epoch=3", AUTH), bad, value);
+    assert.equal(res.status, 400, bad);
+    assert.equal(calls.length, 0, bad);
+  }
+});
+
+test("an upload whose epoch is below the workspace tombstone is rejected with 409", async () => {
+  const read = async () => 5;
+  const res = await checkWorkspaceUpload({ workspaceId: WORKSPACE, epoch: 4, bearer: "good-token", readTombstoneEpoch: read });
+  assert.equal(res?.status, 409);
+});
+
+test("an upload at or above the tombstone epoch, or with no tombstone, is allowed", async () => {
+  const at = await checkWorkspaceUpload({ workspaceId: WORKSPACE, epoch: 5, bearer: "t", readTombstoneEpoch: async () => 5 });
+  const above = await checkWorkspaceUpload({ workspaceId: WORKSPACE, epoch: 6, bearer: "t", readTombstoneEpoch: async () => 5 });
+  const none = await checkWorkspaceUpload({ workspaceId: WORKSPACE, epoch: 0, bearer: "t", readTombstoneEpoch: async () => null });
+  assert.equal(at, null);
+  assert.equal(above, null);
+  assert.equal(none, null);
+});
+
+test("an upload is refused with 500 when the tombstone cannot be read (fails closed)", async () => {
+  const res = await checkWorkspaceUpload({
+    workspaceId: WORKSPACE,
+    epoch: 9,
+    bearer: "t",
+    readTombstoneEpoch: async () => {
+      throw new Error("postgrest down");
+    },
+  });
+  assert.equal(res?.status, 500);
+});
+
+test("the tombstone reader reads the caller's own row and returns its epoch or null", async () => {
+  const realFetch = globalThis.fetch;
+  const seen: Array<{ url: string; auth: string | null }> = [];
+  let body = '[{"epoch":5}]';
+  let status = 200;
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    seen.push({ url: String(input), auth: new Headers(init?.headers).get("authorization") });
+    return new Response(body, { status });
+  }) as typeof fetch;
+  try {
+    const read = createTombstoneReader({ dataUrl: "https://data.test/", anonKey: "anon" });
+    assert.equal(await read({ workspaceId: "w1", bearer: "good-token" }), 5);
+    assert.equal(seen[0]?.url, "https://data.test/workspace_tombstones?select=epoch&workspace_id=eq.w1");
+    assert.equal(seen[0]?.auth, "Bearer good-token");
+
+    body = "[]";
+    assert.equal(await read({ workspaceId: "w1", bearer: "good-token" }), null);
+
+    status = 500;
+    await assert.rejects(() => read({ workspaceId: "w1", bearer: "good-token" }));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

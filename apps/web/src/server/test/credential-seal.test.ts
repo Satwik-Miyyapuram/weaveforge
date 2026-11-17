@@ -60,6 +60,19 @@ test("a legacy envelope without AAD stays readable under a binding and is re-sea
   assert.equal(openCredential(resealed, KEY, BINDING), PLAIN);
 });
 
+test("stripping the bound marker from a bound envelope does not make it open", () => {
+  const sealed = JSON.parse(sealCredential(PLAIN, KEY, BINDING)) as Record<string, unknown>;
+  delete sealed.bound;
+  assert.throws(() => openCredential(JSON.stringify(sealed), KEY, BINDING), /could not be decrypted/);
+  assert.throws(() => openCredential(JSON.stringify(sealed), KEY), /could not be decrypted/);
+});
+
+test("adding the bound marker to a legacy envelope does not make it open under a binding", () => {
+  const forged = JSON.parse(NODE_ENVELOPE) as Record<string, unknown>;
+  forged.bound = true;
+  assert.throws(() => openCredential(JSON.stringify(forged), KEY, BINDING), /could not be decrypted/);
+});
+
 test("wrong key, missing key, non-JSON and short ciphertext are rejected", () => {
   assert.throws(() => openCredential(NODE_ENVELOPE, "other"), /could not be decrypted/);
   assert.throws(() => openCredential(NODE_ENVELOPE, undefined), /OVERLEAF_CREDENTIAL_KEY/);
