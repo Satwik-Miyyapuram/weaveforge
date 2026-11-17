@@ -162,7 +162,7 @@ pub async fn db_query(
 }
 
 /// Unwraps the TypeScript-facing params into plain JSON.
-fn json_params(params: Vec<Json>) -> Result<Vec<Value>, ShellError> {
+pub(crate) fn json_params(params: Vec<Json>) -> Result<Vec<Value>, ShellError> {
     params
         .into_iter()
         .map(serde_json::to_value)

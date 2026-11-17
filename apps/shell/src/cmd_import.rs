@@ -7,10 +7,9 @@ use std::path::Path;
 
 use base64::Engine as _;
 use serde::Serialize;
-use serde_json::Value;
 use specta::Type;
 
-use crate::commands::{LocalDb, ShellError};
+use crate::commands::{Json, LocalDb, ShellError, json_params};
 use crate::local_pg::import::TableReport;
 use crate::migrate::{self, OldDb};
 use crate::old_db;
@@ -24,9 +23,11 @@ pub const IMPORTED_MARKER: &str = "local-pg.imported";
 pub struct ImportReport {
     /// The table name.
     pub table: String,
-    /// Rows written by this call.
+    /// Rows written by this call. One batch, so it fits a JS number.
+    #[specta(type = u32)]
     pub inserted: u64,
     /// Rows already present and left alone.
+    #[specta(type = u32)]
     pub skipped: u64,
     /// Whether an earlier run already finished this table.
     pub already_done: bool,
@@ -49,8 +50,9 @@ impl From<TableReport> for ImportReport {
 pub async fn old_db_import_table(
     db: tauri::State<'_, LocalDb>,
     table: String,
-    rows: Vec<Value>,
+    rows: Vec<Json>,
 ) -> Result<ImportReport, ShellError> {
+    let rows = json_params(rows)?;
     db.import_table(&table, &rows).await.map(ImportReport::from)
 }
 

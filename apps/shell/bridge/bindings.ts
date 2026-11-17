@@ -224,7 +224,10 @@ export const commands = {
 	/**  Downloads and runs the offered release. */
 	appUpdateInstall: () => __TAURI_INVOKE<AppUpdateStatus_Serialize>("app_update_install"),
 	/**
-	 *  Whether a sign-in redirect can reach the app; when not, the page asks for the address to be pasted.
+	 *  Whether a sign-in redirect can reach the app; starts the listener first if it is not up.
+	 * 
+	 *  The sign-in page asks this when it opens, so a port that was busy at launch
+	 *  is retried then.
 	 * 
 	 *  # Errors
 	 *  Never.
@@ -571,18 +574,6 @@ export type CommitReply_Serialize = {
 	reason?: string,
 };
 
-/**  What one table's import call did, as the frontend sees it. */
-export type ImportReport = {
-	/**  The table name. */
-	table: string,
-	/**  Rows written by this call. */
-	inserted: number,
-	/**  Rows already present and left alone. */
-	skipped: number,
-	/**  Whether an earlier run already finished this table. */
-	alreadyDone: boolean,
-};
-
 /**  The local database's health, as `DesktopLocalDbState` in apps/web/src/lib/desktop/desktop-bridge.ts. */
 export type DbState = DbState_Serialize | DbState_Deserialize;
 
@@ -634,6 +625,18 @@ export type ImageReply = {
 	contentType: string,
 	/**  The final URL after redirects. */
 	url: string,
+};
+
+/**  What one table's import call did, as the frontend sees it. */
+export type ImportReport = {
+	/**  The table name. */
+	table: string,
+	/**  Rows written by this call. One batch, so it fits a JS number. */
+	inserted: number,
+	/**  Rows already present and left alone. */
+	skipped: number,
+	/**  Whether an earlier run already finished this table. */
+	alreadyDone: boolean,
 };
 
 /**  Pen state forwarded to the helper for haptic feedback. */
