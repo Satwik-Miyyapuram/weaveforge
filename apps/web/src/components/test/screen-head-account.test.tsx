@@ -80,8 +80,8 @@ test("the project picker no longer draws a separate top bar for the account", ()
   const handed =
     shell.match(/<PageHeaderAccount\.Provider value=\{(?:<HeaderActions \/>|<><GitSyncDot \/><HeaderActions \/><\/>)\}>/g)?.length ?? 0;
   assert.equal(handed, 2, "both page-header account slots hand HeaderActions to the header");
-  // The one left over is the mobile-only brand bar, gated on the mobile breakpoint.
+  // The one left over is the mobile-only brand bar, gated off the desktop breakpoint.
   assert.equal(rendered - handed, 1, "only the mobile brand bar renders HeaderActions outside the header");
-  assert.match(shell, /breakpoint === "mobile"[\s\S]{0,200}<HeaderActions \/>/);
+  assert.match(shell, /breakpoint !== "desktop"[\s\S]{0,200}<HeaderActions \/>/);
   assert.match(src("components/screen-head.tsx"), /project-picker-bar desktop-only/);
 });

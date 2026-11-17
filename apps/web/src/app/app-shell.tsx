@@ -267,7 +267,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
             with CSS gave every switcher a second copy holding its own state.
             No lab chip: beside the project name it left neither room, and the
             account menu switches labs. */}
-        {breakpoint === "mobile" && !detailView && (
+        {breakpoint !== "desktop" && !detailView && (
           <div className="brand mobile-only">
             <ProjectSwitcher />
             <div className="brand-right">
@@ -289,13 +289,13 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
                 content is chrome that says nothing new — and it was the row
                 that made the Library look like six tabs rather than one section
                 of a sidebar. */}
-            {!detailView && !editorRoute && breakpoint === "mobile" && <SubNav />}
+            {!detailView && !editorRoute && breakpoint !== "desktop" && <SubNav />}
             {/* Papers is kept mounted beside the routes too (keep-alive.tsx),
                 so leaving it and coming back does not rebuild its grid. Not on
                 the phone layout, where memory is tightest. */}
             {/* A phone's detail view hides the top bar above, so its own header shows the dot. */}
-            <DetailHeaderExtrasContext value={breakpoint === "mobile" ? <GitSyncDot /> : null}>
-              <KeepAliveProvider pathname={pathname} projectId={current.id} enabled={breakpoint !== "mobile"}>
+            <DetailHeaderExtrasContext value={breakpoint !== "desktop" ? <GitSyncDot /> : null}>
+              <KeepAliveProvider pathname={pathname} projectId={current.id} enabled={breakpoint === "desktop"}>
                 <SwipeViews disabled={detailView || editorRoute}>
                   <RoutePending>
                     <PageTransition>{children}</PageTransition>

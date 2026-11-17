@@ -53,3 +53,24 @@ test("the phone bar shows each item's name, not icons alone (DA-84)", () => {
   const css = read("app/styles/nav.css");
   assert.ok(!/@media \(max-width: 460px\)\s*\{\s*\.nav-link \.nav-label \{ display: none; \}/.test(css));
 });
+
+test("below 600px the Workspace and Overleaf pages show the open-on-larger-screen panel, not the editor (Q-6)", async () => {
+  const { buildModuleRegistry } = await import("../registry");
+  const r = buildModuleRegistry();
+  const items = [...r.topNavItems, ...r.navGroups.flatMap((g) => g.items)];
+  const pathOf = (label: string) => items.find((i) => i.label === label)?.path;
+  // The panel stands in for these two pages, so both must be real pages.
+  assert.equal(pathOf("Workspace"), "/workspace");
+  assert.equal(pathOf("Overleaf"), "/report/overleaf");
+  for (const rel of ["features/editor-workspace/ui/workspace-screen.tsx", "features/report/ui/report-overleaf-screen.tsx"]) {
+    const source = read(rel);
+    assert.match(source, /import \{ OpenOnLargerScreen \} from "@\/lib\/ui\/open-on-larger-screen";/, rel);
+    assert.match(source, /breakpoint === "phone"/, rel);
+  }
+});
+
+test("the phone panel is one shared component with no links of its own (Q-6)", () => {
+  const panel = read("lib/ui/open-on-larger-screen.tsx");
+  assert.match(panel, /export function OpenOnLargerScreen\(/);
+  assert.doesNotMatch(panel, /href=|<a\b|router\.push|<Link\b/);
+});

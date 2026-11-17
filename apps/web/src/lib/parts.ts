@@ -106,6 +106,14 @@ export function blobToDataUrl(blob: Blob): Promise<string> {
 export const DESKTOP_BREAKPOINT_PX = 900;
 
 /**
+ * Below this width (a phone; dp on Android) the multi-pane workspace and the
+ * Overleaf report editor give way to the "open on a tablet or desktop" panel.
+ * At and above it a tablet keeps the full screens.
+ * Keep in sync with `hooks/use-layout-breakpoint.ts`.
+ */
+export const PHONE_BREAKPOINT_PX = 600;
+
+/**
  * Below this width the desktop sidebar *starts* collapsed, as the icon rail.
  *
  * The 216px sidebar earns its width when there is room for it. Between the 900px

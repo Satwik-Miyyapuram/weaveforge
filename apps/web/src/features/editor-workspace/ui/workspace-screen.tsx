@@ -60,6 +60,8 @@ import { FormError } from "@/components/form-error";
 import { DESKTOP_BREAKPOINT_PX, isMacPlatform } from "@/lib/parts";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { IconButton } from "@/components/button";
+import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
+import { OpenOnLargerScreen } from "@/lib/ui/open-on-larger-screen";
 
 /** `byKey` without the entries of documents no longer open; `byKey` itself when nothing closed. */
 function keepOpen<T>(byKey: Record<string, T>, open: ReadonlySet<string>): Record<string, T> {
@@ -132,6 +134,7 @@ export function WorkspaceScreen() {
     query.addEventListener("change", sync);
     return () => query.removeEventListener("change", sync);
   }, []);
+  const { breakpoint } = useLayoutBreakpoint();
   const hasOpenTab = openTabs(layout).length > 0;
   // A note open here can hold typing not yet saved; an outside edit to it waits for review.
   const openNoteIds = openTabs(layout).flatMap((tab) => (hasInkView(tab.kind) ? [tab.id] : [])).join(" ");
@@ -696,6 +699,8 @@ export function WorkspaceScreen() {
         branch: undefined,
       }
     : {};
+
+  if (breakpoint === "phone") return <OpenOnLargerScreen what="The workspace" />;
 
   return (
     <div
