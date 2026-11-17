@@ -3,12 +3,13 @@
 //
 // The emblem has no tile, so the output is transparent. Each size is rendered by
 // headless Edge with a transparent page background. An .ico cannot follow the OS
-// theme, so the static icon uses the C1 CRT light-mode colours (plum ink, CRT blue
-// dot) with a thin cream (#FFE7C1) halo, which keeps it visible on a dark taskbar as
-// well as a light one. The running app sets its own window icon (see the shell
+// theme, so the static icon uses one mid-luminance blue ink and an orange dot that
+// both reach 3:1 on a light and a dark taskbar; there is no halo or outline. Each
+// size is cropped to the emblem and its strokes are thickened as the size drops, so
+// small sizes stay legible. The running app sets its own window icon (see the shell
 // window-icon command). Override the ink with --ink <#hex>.
 //
-// Usage: node apps/shell/scripts/build-icons.mjs [--ink #2B222B]
+// Usage: node apps/shell/scripts/build-icons.mjs [--ink #2F7FC1]
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -20,9 +21,10 @@ const repo = path.resolve(here, "..", "..", "..");
 const source = path.join(repo, "apps", "web", "public", "icons", "weave_forge.svg");
 const outDir = path.join(here, "..", "icons");
 
-const DEFAULT_INK = "#2B222B"; // C1 CRT light-mode ink
-const ACCENT = "#1F6DAB"; // C1 CRT blue dot
-const HALO = "#FFE7C1"; // C1 cream halo, so the plum ink reads on a dark taskbar
+const DEFAULT_INK = "#2F7FC1"; // blue: 3.8:1 on #f3f3f3 and on #202020
+const ACCENT = "#E0662F"; // orange dot: 3.1:1 on #f3f3f3, 4.7:1 on #202020
+// The emblem's box at the thickest weights, squared, in the 512 viewBox.
+const CROP = "94 90 340 340";
 const ICO_SIZES = [16, 24, 32, 48, 64, 256];
 const PNG_SIZE = 512;
 
@@ -32,28 +34,31 @@ if (!/^#[0-9a-fA-F]{6}$/.test(ink)) throw new Error(`--ink must be #rrggbb, got 
 
 const edge = process.env.EDGE_PATH ?? "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 
-// The halo is a dilated copy of the emblem's alpha, filled cream and drawn behind it.
-// Its width is 1px at the small sizes and 3px at 256, measured in the 512 viewBox.
-function haloFilter(size) {
-  const px = size >= 256 ? 3 : 1;
-  const radius = (512 * px) / size;
-  return `<filter id="halo" filterUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">` +
-    `<feMorphology in="SourceAlpha" operator="dilate" radius="${radius}" result="grown"/>` +
-    `<feFlood flood-color="${HALO}"/><feComposite in2="grown" operator="in" result="halo"/>` +
-    `<feMerge><feMergeNode in="halo"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
+// Stroke widths [document outline, graph lines, node radius] in the 512 viewBox.
+// The source draws 22 / 12 / 22; scaled to a taskbar those strokes fall under a pixel.
+function weights(size) {
+  if (size <= 24) return [36, 26, 33];
+  if (size <= 32) return [30, 21, 29];
+  if (size <= 64) return [26, 16, 25];
+  return [24, 14, 24];
 }
 
 // Fixed colours for a raster: replace the CSS variables with literal values and drop
 // the OS-theme block, so the render does not depend on the machine's colour scheme.
+// Then crop to the emblem and set the stroke widths for `size`.
 function flatSvg(svg, size) {
+  const [outline, line, radius] = weights(size);
   const flat = svg
     .replace(/@media \(prefers-color-scheme: dark\)\s*\{[\s\S]*?\n\s*\}/, "")
     .replace(/var\(--logo-ink, [^)]*\)/g, ink)
     .replace(/var\(--logo-accent, [^)]*\)/g, ACCENT)
     .replace(/<svg ([^>]*)width="100%" height="100%"/, `<svg $1width="${size}" height="${size}"`)
-    .replace("</defs>", `${haloFilter(size)}</defs><g filter="url(#halo)">`)
-    .replace("</svg>", "</g></svg>");
+    .replace('viewBox="0 0 512 512"', `viewBox="${CROP}"`)
+    .replace('stroke-width="22"', `stroke-width="${outline}"`)
+    .replace(/stroke-width="12"/g, `stroke-width="${line}"`)
+    .replace(/ r="22"/g, ` r="${radius}"`);
   if (/var\(--/.test(flat)) throw new Error("unresolved CSS variable in the emblem");
+  if (!flat.includes(CROP)) throw new Error("the emblem viewBox is not 0 0 512 512");
   return flat;
 }
 

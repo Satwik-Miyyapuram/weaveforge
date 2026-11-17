@@ -130,67 +130,79 @@ test("icon.ico carries every required size", () => {
   }
 });
 
-// C1 CRT palette (the static, app-closed icon). The .ico is one image for every
-// Windows surface, so it carries the light-mode ink and dot plus a cream halo that
-// keeps it visible on a dark taskbar or Explorer.
-const LIGHT_INK = [0x2b, 0x22, 0x2b];
-const CRT_BLUE = [0x1f, 0x6d, 0xab];
-const CREAM = [0xff, 0xe7, 0xc1];
+// Static (app-closed) icon colours. The .ico is one image for every Windows surface,
+// so both colours sit at mid luminance and reach 3:1 on a light and a dark taskbar,
+// with no halo or outline around the emblem.
+const INK = [0x2f, 0x7f, 0xc1];
+const DOT = [0xe0, 0x66, 0x2f];
 const DARK_BG = [0x20, 0x20, 0x20];
 const LIGHT_BG = [0xf3, 0xf3, 0xf3];
 const PALETTE_TOLERANCE = 40; // per-channel distance; antialiased edges sit between colours
+const MIN_SPAN = 0.85; // the emblem's inked box spans this share of the frame: cropped tight
 
 function near(rgb, target, tolerance = PALETTE_TOLERANCE) {
   return rgb.every((v, i) => Math.abs(v - target[i]) <= tolerance);
 }
 
-// Counts opaque pixels (alpha >= 128) whose colour is near each palette colour.
-// At 16px the emblem strokes are under one pixel wide, so the ink antialiases to a
-// lighter plum (darkest measured #574C45 against #2B222B). Below 32px the ink
-// tolerance is widened to 56; the blue dot is only required at 32px and up.
-const SMALL_INK_TOLERANCE = 56;
+// Counts opaque pixels (alpha >= 128) near each colour, and pixels near neither
+// (a halo or outline would show up there).
 function paletteCounts({ width, height, rgba }) {
-  const inkTolerance = width < 32 ? SMALL_INK_TOLERANCE : PALETTE_TOLERANCE;
-  const counts = { ink: 0, dot: 0, halo: 0 };
+  const counts = { ink: 0, dot: 0, other: 0 };
   for (let i = 0; i < width * height; i += 1) {
     if (rgba[i * 4 + 3] < 128) continue;
     const rgb = [rgba[i * 4], rgba[i * 4 + 1], rgba[i * 4 + 2]];
-    if (near(rgb, LIGHT_INK, inkTolerance)) counts.ink += 1;
-    if (near(rgb, CRT_BLUE)) counts.dot += 1;
-    if (near(rgb, CREAM)) counts.halo += 1;
+    if (near(rgb, INK)) counts.ink += 1;
+    else if (near(rgb, DOT)) counts.dot += 1;
+    else counts.other += 1;
   }
   return counts;
 }
 
-test("icon.ico uses the C1 palette: plum ink, CRT blue dot and a cream halo at every size", () => {
-  for (const entry of icoEntries(fs.readFileSync(icoPath))) {
-    const decoded = decodePng(entry.png);
-    const { corners, opaqueShare } = measure(decoded);
-    const counts = paletteCounts(decoded);
-    const width = decoded.width;
-    const label = `${width}px`;
-    assert.deepEqual(corners, [0, 0, 0, 0], `${label} has an opaque corner: a tile is behind the emblem`);
-    assert.ok(opaqueShare >= MIN_OPAQUE_SHARE, `${label} inked share ${opaqueShare.toFixed(3)} is below ${MIN_OPAQUE_SHARE}`);
-    assert.ok(opaqueShare <= MAX_OPAQUE_SHARE, `${label} inked share ${opaqueShare.toFixed(3)} is above ${MAX_OPAQUE_SHARE}: a tile covers the emblem`);
-    assert.ok(counts.ink > 0, `${label} has no plum ink (#2B222B) pixels`);
-    assert.ok(counts.halo > 0, `${label} has no cream halo (#FFE7C1) pixels`);
-    if (width >= 32) assert.ok(counts.dot > 0, `${label} has no CRT blue dot (#1F6DAB) pixels`);
+// The inked box (alpha >= 128) as a share of the frame's width and height.
+function span({ width, height, rgba }) {
+  let [x0, y0, x1, y1] = [width, height, -1, -1];
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (rgba[(y * width + x) * 4 + 3] < 128) continue;
+      x0 = Math.min(x0, x);
+      y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x);
+      y1 = Math.max(y1, y);
+    }
+  }
+  return Math.max((x1 - x0 + 1) / width, (y1 - y0 + 1) / height);
+}
+
+function checkIcon(decoded) {
+  const { corners, opaqueShare } = measure(decoded);
+  const counts = paletteCounts(decoded);
+  const label = `${decoded.width}px`;
+  const inked = counts.ink + counts.dot + counts.other;
+  assert.deepEqual(corners, [0, 0, 0, 0], `${label} has an opaque corner: a tile is behind the emblem`);
+  assert.ok(opaqueShare >= MIN_OPAQUE_SHARE, `${label} inked share ${opaqueShare.toFixed(3)} is below ${MIN_OPAQUE_SHARE}`);
+  assert.ok(opaqueShare <= MAX_OPAQUE_SHARE, `${label} inked share ${opaqueShare.toFixed(3)} is above ${MAX_OPAQUE_SHARE}: a tile covers the emblem`);
+  assert.ok(counts.ink > 0, `${label} has no ink (#2F7FC1) pixels`);
+  assert.ok(counts.dot > 0, `${label} has no dot (#E0662F) pixels`);
+  assert.ok(counts.other / inked < 0.05, `${label} has ${counts.other} of ${inked} inked pixels off the palette: a halo or outline`);
+  assert.ok(span(decoded) >= MIN_SPAN, `${label} emblem spans ${span(decoded).toFixed(2)} of the frame, below ${MIN_SPAN}`);
+}
+
+test("icon.ico is the cropped emblem in ink and dot only, at every size", () => {
+  for (const entry of icoEntries(fs.readFileSync(icoPath))) checkIcon(decodePng(entry.png));
+});
+
+test("the ink and dot each read on a light and a dark taskbar", () => {
+  for (const [name, rgb] of [["ink", INK], ["dot", DOT]]) {
+    assert.ok(contrast(rgb, LIGHT_BG) >= MIN_CONTRAST, `${name} does not read on #f3f3f3`);
+    assert.ok(contrast(rgb, DARK_BG) >= MIN_CONTRAST, `${name} does not read on #202020`);
   }
 });
 
-test("the C1 colours read on the taskbars they are meant for", () => {
-  assert.ok(contrast(LIGHT_INK, LIGHT_BG) >= MIN_CONTRAST, "plum ink does not read on #f3f3f3");
-  assert.ok(contrast(CREAM, DARK_BG) >= MIN_CONTRAST, "cream halo does not read on #202020");
-  assert.ok(contrast(CRT_BLUE, LIGHT_BG) >= MIN_CONTRAST, "CRT blue dot does not read on #f3f3f3");
-});
-
-test("icon.png is the 512px transparent emblem with the C1 palette and halo", () => {
+test("icon.png is the 512px cropped emblem in ink and dot only", () => {
   const decoded = decodePng(fs.readFileSync(path.join(shell, "icons", "icon.png")));
   assert.equal(decoded.width, 512);
   assert.equal(decoded.height, 512);
-  assert.deepEqual(measure(decoded).corners, [0, 0, 0, 0]);
-  const counts = paletteCounts(decoded);
-  assert.ok(counts.ink > 0 && counts.dot > 0 && counts.halo > 0, `icon.png palette counts ${JSON.stringify(counts)}`);
+  checkIcon(decoded);
 });
 
 test("every icon path in tauri.conf.json exists", () => {
