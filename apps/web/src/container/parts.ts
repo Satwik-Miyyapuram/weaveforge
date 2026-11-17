@@ -311,6 +311,9 @@ export class RoutedInkChunkStore implements InkChunkStore {
   async list(noteId: string) {
     return (await this.store()).list(noteId);
   }
+  async prepareNote(noteId: string, declared: readonly string[]) {
+    await (await this.store()).prepareNote?.(noteId, declared);
+  }
 }
 
 /**
