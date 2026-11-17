@@ -6,8 +6,9 @@ use std::io;
 use std::path::Path;
 use std::time::SystemTime;
 
-/// PGlite 0.5.x runs PostgreSQL 17. A dir written by another major version cannot be read by it.
-pub const SUPPORTED_PG_MAJOR: &str = "17";
+/// PGlite 0.5.x runs PostgreSQL 18; every release from 0.7.0 to 0.8.14 shipped PGlite 0.5.8.
+/// A dir written by another major version cannot be read by it.
+pub const SUPPORTED_PG_MAJOR: &str = "18";
 
 /// A ustar tar of the dir's files and folders, as PGlite's `loadDataDir` reads it. Paths are
 /// relative to `root`; entries are sorted so the output is stable.
@@ -160,7 +161,7 @@ mod tests {
     }
 
     fn fixture(dir: &Path) {
-        fs::write(dir.join("PG_VERSION"), "17\n").unwrap();
+        fs::write(dir.join("PG_VERSION"), "18\n").unwrap();
         fs::create_dir_all(dir.join("base/1")).unwrap();
         fs::write(dir.join("base/1/rows"), b"row data").unwrap();
         fs::create_dir_all(dir.join("pg_wal")).unwrap();
@@ -171,7 +172,7 @@ mod tests {
         let dir = scratch("contents");
         fixture(&dir);
         let entries = parse(&archive(&dir).unwrap());
-        assert_eq!(entries.get("PG_VERSION"), Some(&Some(b"17\n".to_vec())));
+        assert_eq!(entries.get("PG_VERSION"), Some(&Some(b"18\n".to_vec())));
         assert_eq!(
             entries.get("base/1/rows"),
             Some(&Some(b"row data".to_vec()))
@@ -220,6 +221,23 @@ mod tests {
             err.to_string().starts_with("no old local database at"),
             "{err}"
         );
+    }
+
+    /// Every release from 0.7.0 to 0.8.14 shipped PGlite 0.5.8, which writes PostgreSQL 18.
+    #[test]
+    fn a_dir_written_by_pglite_0_5_is_read() {
+        let dir = scratch("pg18");
+        fixture(&dir);
+        assert!(read_old_db(&dir).is_ok());
+    }
+
+    #[test]
+    fn a_pg17_dir_is_refused() {
+        let dir = scratch("pg17");
+        fixture(&dir);
+        fs::write(dir.join("PG_VERSION"), "17\n").unwrap();
+        let err = read_old_db(&dir).unwrap_err();
+        assert!(err.to_string().contains("PostgreSQL 17"), "{err}");
     }
 
     #[test]
