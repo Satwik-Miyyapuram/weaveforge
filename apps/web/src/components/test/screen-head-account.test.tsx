@@ -76,7 +76,9 @@ test("the project picker no longer draws a separate top bar for the account", ()
   assert.doesNotMatch(shell, /project-picker-bar/);
   // The page-header renders are handed to the header's account slot, so they cannot draw above it.
   const rendered = shell.match(/<HeaderActions \/>/g)?.length ?? 0;
-  const handed = shell.match(/<PageHeaderAccount\.Provider value=\{<HeaderActions \/>\}>/g)?.length ?? 0;
+  // The project-less slot also carries the git sync dot, so it is a fragment.
+  const handed =
+    shell.match(/<PageHeaderAccount\.Provider value=\{(?:<HeaderActions \/>|<><GitSyncDot \/><HeaderActions \/><\/>)\}>/g)?.length ?? 0;
   assert.equal(handed, 2, "both page-header account slots hand HeaderActions to the header");
   // The one left over is the mobile-only brand bar, gated on the mobile breakpoint.
   assert.equal(rendered - handed, 1, "only the mobile brand bar renders HeaderActions outside the header");
