@@ -296,7 +296,8 @@ pub async fn import_table<C: Conn>(
     conn.exec("BEGIN").await?;
     // Old rows go in as they were: the native sync triggers would drop tombstoned rows, restamp
     // versions and queue every row for upload. Reverts at COMMIT or ROLLBACK.
-    conn.exec("SET LOCAL session_replication_role = replica").await?;
+    conn.exec("SET LOCAL session_replication_role = replica")
+        .await?;
     let outcome = match import_in_transaction(conn, table, rows, last).await {
         Ok(report) => conn.commit().await.map(|()| report),
         Err(e) => Err(e),
@@ -1060,7 +1061,11 @@ mod tests {
             let report = import_table(&mut c, "sync_tables", &old, true).await?;
             assert_eq!((report.inserted, report.skipped), (1, 1));
             assert_eq!(
-                scalar(&mut c, "SELECT added_at::date::text FROM sync_tables WHERE table_name = 'papers'").await?,
+                scalar(
+                    &mut c,
+                    "SELECT added_at::date::text FROM sync_tables WHERE table_name = 'papers'"
+                )
+                .await?,
                 "2020-01-01"
             );
             Ok::<(), PgError>(())
@@ -1086,7 +1091,11 @@ mod tests {
             let report = import_table(&mut c, "profiles", &old, true).await?;
             assert_eq!((report.inserted, report.skipped), (2, 0));
             assert_eq!(
-                scalar(&mut c, "SELECT string_agg(full_name, ',' ORDER BY user_id) FROM profiles").await?,
+                scalar(
+                    &mut c,
+                    "SELECT string_agg(full_name, ',' ORDER BY user_id) FROM profiles"
+                )
+                .await?,
                 "Account,Old Name"
             );
             Ok::<(), PgError>(())
@@ -1136,7 +1145,11 @@ mod tests {
             let report = import_table(&mut c, "sync_state", &old, true).await?;
             assert_eq!((report.inserted, report.skipped), (1, 0));
             assert_eq!(
-                scalar(&mut c, "SELECT watermark || ':' || account_id FROM sync_state").await?,
+                scalar(
+                    &mut c,
+                    "SELECT watermark || ':' || account_id FROM sync_state"
+                )
+                .await?,
                 format!("42:{account}")
             );
             Ok::<(), PgError>(())
