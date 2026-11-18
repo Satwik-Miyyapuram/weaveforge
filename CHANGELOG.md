@@ -22,6 +22,16 @@ tracks at once.
 
 ### iOS
 
+## [0.9.3] - 2026-11-18
+
+Desktop (`v0.9.3`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **Fixed:** Your 0.8 data now shows straight after it is brought over, including all projects, instead of an empty workspace.
+- **Fixed:** A large 0.8 database is brought over in parts, without per-table conflicts.
+- **Fixed:** Pop-ups and side panels no longer cover the title bar and menu.
+- **Added:** Rename a project from its card menu; its workspace folder follows the new name.
+
 ## [0.9.2] - 2026-11-17
 
 Desktop (`v0.9.2`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
