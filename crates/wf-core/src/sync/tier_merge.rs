@@ -19,7 +19,9 @@ pub enum Tier {
 /// The fields of `settings.json` that decide tier and identity.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TierFields {
-    /// UUID of the folder. `None` until a root commit exists to derive it from.
+    /// Random UUID v4 of the folder, stamped once at first open (see
+    /// `WorkspaceSettings::ensure_workspace_id`). `None` only in a file
+    /// written before the stamp.
     pub workspace_id: Option<String>,
     /// The sharing tier.
     pub tier: Tier,

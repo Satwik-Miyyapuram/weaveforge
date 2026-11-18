@@ -13,6 +13,22 @@ Source: `crates/wf-core/src/settings/`
 - `user_appearance.rs`: normalises the appearance preferences.
 - `theme_config.rs`: parses the uploadable theme config file. It checks colours, font stacks and lengths against allowlists and caps the file at 64 KB.
 - `integration_credentials.rs`: reads integration fields and checks whether an integration is connected. It also converts the legacy credentials layout.
+- `workspace_settings.rs`: reads and writes the shared workspace file `.weaveforge/settings.json` (workspace id, tier, tier epoch, tier account and server hint). It keeps fields it does not know, so an older or newer app can share the file.
+
+### The workspace id
+
+Each workspace folder gets its own id: a random UUID version 4. The desktop
+shell makes it the first time the folder opens (`stamp_workspace_id` in
+`apps/shell/src/cmd_vault.rs`) and saves it in `.weaveforge/settings.json`
+through `WorkspaceSettings::ensure_workspace_id`. Later opens read it back and
+never change it, so the id stays the same across restarts. Two folders never
+share an id, even when their git history starts the same way.
+
+The file is committed with the rest of the workspace (the git exclude list lets
+`settings.json` through), so a clone on another computer sees the same id. If
+two copies were stamped before they ever synced, the tier merge keeps the
+smaller id. The id lives in this one file on purpose, so later work on the
+workspace files (lane L7) can adopt it without a second source.
 
 `mod.rs` describes the module as user settings (the uploadable theme config
 file and appearance preferences), pure rules only.
