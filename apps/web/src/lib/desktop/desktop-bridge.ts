@@ -186,11 +186,7 @@ export interface DesktopBridge {
    */
   oldDbStatus?(): Promise<boolean>;
   oldDbTarPart?(index: number): Promise<{ data: string; parts: number }>;
-  oldDbImportTable?(
-    table: string,
-    rows: unknown[],
-    last: boolean,
-  ): Promise<DesktopOldDbReport>;
+  oldDbImportTable?(table: string, rows: unknown[], last: boolean): Promise<DesktopOldDbReport>;
   oldDbImportFinish?(tables: string[]): Promise<void>;
 
   /**
