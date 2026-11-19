@@ -42,6 +42,7 @@ pub mod menu;
 pub mod migrate;
 pub mod model_cache;
 pub mod old_db;
+pub mod open_workspace;
 pub mod outside_gate;
 pub mod overleaf_links;
 pub mod overleaf_live;

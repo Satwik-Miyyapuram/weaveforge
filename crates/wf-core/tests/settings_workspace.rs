@@ -3,7 +3,9 @@
 
 #![allow(clippy::panic, clippy::expect_used)]
 
-use wf_core::settings::workspace_settings::{SettingsError, WorkspaceSettings};
+use wf_core::settings::workspace_settings::{
+    SettingsError, WorkspaceSettings, tier_from_name, tier_name,
+};
 use wf_core::sync::tier_merge::Tier;
 
 #[test]
@@ -130,4 +132,36 @@ fn a_non_string_id_is_refused() {
         WorkspaceSettings::parse(r#"{"workspaceId": 5}"#),
         Err(SettingsError::BadField("workspaceId"))
     );
+}
+
+#[test]
+fn set_tier_bumps_the_epoch_once_and_keeps_id_and_unknown_fields() {
+    let text = r#"{"workspaceId":"abc","tier":"local","tierEpoch":3,"theme":"x"}"#;
+    let mut settings = WorkspaceSettings::parse(text).expect("parse");
+    assert!(settings.set_tier(Tier::Sharing, Some("acct"), Some("weaveforge.org")));
+    assert_eq!(settings.tier.tier_epoch, 4);
+    assert_eq!(settings.tier.tier, Tier::Sharing);
+    assert_eq!(settings.tier.tier_account.as_deref(), Some("acct"));
+    assert_eq!(settings.server_hint.as_deref(), Some("weaveforge.org"));
+    assert_eq!(settings.tier.workspace_id.as_deref(), Some("abc"));
+    let rewritten = settings.to_text().expect("to_text");
+    assert!(rewritten.contains("\"theme\""));
+}
+
+#[test]
+fn set_tier_with_nothing_new_changes_nothing() {
+    let text = r#"{"workspaceId":"abc","tier":"local","tierEpoch":3,"theme":"x"}"#;
+    let mut settings = WorkspaceSettings::parse(text).expect("parse");
+    assert!(!settings.set_tier(Tier::Local, None, None));
+    assert_eq!(settings.tier.tier_epoch, 3);
+}
+
+#[test]
+fn tier_names_round_trip_and_unknown_names_are_refused() {
+    for tier in [Tier::Local, Tier::LocalWeb, Tier::Sharing] {
+        assert_eq!(tier_from_name(tier_name(tier)), Some(tier));
+    }
+    assert_eq!(tier_from_name("Local"), None);
+    assert_eq!(tier_from_name(""), None);
+    assert_eq!(tier_from_name("server"), None);
 }

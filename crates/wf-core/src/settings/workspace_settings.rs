@@ -112,6 +112,28 @@ impl WorkspaceSettings {
         self.tier.workspace_id = Some(fresh.to_owned());
         true
     }
+
+    /// Moves the workspace to `tier`, set by `account` on the server named by `server_hint`.
+    /// Any change bumps `tierEpoch` by one, so other devices see it as the newer decision.
+    /// Returns false, and changes nothing, when all three already match.
+    pub fn set_tier(
+        &mut self,
+        tier: Tier,
+        account: Option<&str>,
+        server_hint: Option<&str>,
+    ) -> bool {
+        if self.tier.tier == tier
+            && self.tier.tier_account.as_deref() == account
+            && self.server_hint.as_deref() == server_hint
+        {
+            return false;
+        }
+        self.tier.tier = tier;
+        self.tier.tier_account = account.map(str::to_owned);
+        self.server_hint = server_hint.map(str::to_owned);
+        self.tier.tier_epoch = self.tier.tier_epoch.saturating_add(1);
+        true
+    }
 }
 
 /// A string field. Absent, null and empty all read as `None`.
@@ -131,12 +153,7 @@ fn text_field(
 fn tier_field(map: &Map<String, Value>) -> Result<Tier, SettingsError> {
     match map.get(TIER) {
         None | Some(Value::Null) => Ok(Tier::Local),
-        Some(Value::String(name)) => match name.as_str() {
-            "local" => Ok(Tier::Local),
-            "local-web" => Ok(Tier::LocalWeb),
-            "sharing" => Ok(Tier::Sharing),
-            _ => Err(SettingsError::BadField(TIER)),
-        },
+        Some(Value::String(name)) => tier_from_name(name).ok_or(SettingsError::BadField(TIER)),
         Some(_) => Err(SettingsError::BadField(TIER)),
     }
 }
@@ -153,10 +170,21 @@ fn optional_text(value: &Option<String>) -> Value {
     value.clone().map_or(Value::Null, Value::String)
 }
 
-fn tier_name(tier: Tier) -> &'static str {
+/// The file name of a tier: "local", "local-web" or "sharing".
+pub fn tier_name(tier: Tier) -> &'static str {
     match tier {
         Tier::Local => "local",
         Tier::LocalWeb => "local-web",
         Tier::Sharing => "sharing",
+    }
+}
+
+/// The tier with this file name. The match is exact and case-sensitive; any other name gives `None`.
+pub fn tier_from_name(name: &str) -> Option<Tier> {
+    match name {
+        "local" => Some(Tier::Local),
+        "local-web" => Some(Tier::LocalWeb),
+        "sharing" => Some(Tier::Sharing),
+        _ => None,
     }
 }

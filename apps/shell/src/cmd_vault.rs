@@ -212,6 +212,7 @@ fn scope_secrets_to(session: &VaultSession, secrets: &Secrets) -> Result<(), Str
     secrets
         .set_open_workspace(None)
         .map_err(|error| error.to_string())?;
+    crate::open_workspace::remember(None);
     if session.root().is_none() {
         return Ok(());
     }
@@ -235,6 +236,7 @@ fn stamp_workspace_id(session: &VaultSession) -> Result<String, String> {
             .map_err(|_| SETTINGS_REFUSED.to_owned())?;
         session.write_text(SETTINGS_PATH, &text)?;
     }
+    crate::open_workspace::remember(Some(&settings));
     settings
         .tier
         .workspace_id

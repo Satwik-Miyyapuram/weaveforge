@@ -98,6 +98,21 @@ export const commands = {
 	 */
 	vaultForget: () => typedError<Choice_Serialize, ShellError_Serialize>(__TAURI_INVOKE("vault_forget")),
 	/**
+	 *  The open workspace's id and tier, or nothing when no folder is open.
+	 * 
+	 *  # Errors
+	 *  Never; the answer is always `Ok`.
+	 */
+	workspaceTier: () => typedError<OpenTier_Serialize | null, ShellError_Serialize>(__TAURI_INVOKE("workspace_tier")),
+	/**
+	 *  Moves the open workspace to `tier` and writes `settings.json` (epoch + 1).
+	 *  The page passes the signed-in account and the server host; the workspace comes from the open folder.
+	 * 
+	 *  # Errors
+	 *  No folder open, an unknown tier, or the file could not be read or written; nothing changes.
+	 */
+	workspaceSetTier: (tier: string, account: string | null, serverHint: string | null) => typedError<OpenTier_Serialize, ShellError_Serialize>(__TAURI_INVOKE("workspace_set_tier", { tier, account, serverHint })),
+	/**
 	 *  Reads a text file in the chosen folder.
 	 * 
 	 *  # Errors
@@ -916,6 +931,37 @@ export type ModelDownload_Serialize = {
 	done: number | null,
 	/**  The file's full size, when the upstream said. */
 	total: number | null,
+};
+
+/**  The open workspace's id and tier, as the page sees them. */
+export type OpenTier = OpenTier_Serialize | OpenTier_Deserialize;
+
+/**  The open workspace's id and tier, as the page sees them. */
+export type OpenTier_Deserialize = {
+	/**  Random v4 id from `settings.json`. */
+	workspaceId: string,
+	/**  "local", "local-web" or "sharing". */
+	tier: string,
+	/**  Bumped on every tier change; one per decision, so it fits a JS number. */
+	tierEpoch: number,
+	/**  The account that set the tier, if any. */
+	tierAccount?: string | null,
+	/**  Host of the server profile used to raise the tier, if any. */
+	serverHint?: string | null,
+};
+
+/**  The open workspace's id and tier, as the page sees them. */
+export type OpenTier_Serialize = {
+	/**  Random v4 id from `settings.json`. */
+	workspaceId: string,
+	/**  "local", "local-web" or "sharing". */
+	tier: string,
+	/**  Bumped on every tier change; one per decision, so it fits a JS number. */
+	tierEpoch: number,
+	/**  The account that set the tier, if any. */
+	tierAccount: string | null,
+	/**  Host of the server profile used to raise the tier, if any. */
+	serverHint: string | null,
 };
 
 /**  One text file of the project. */
