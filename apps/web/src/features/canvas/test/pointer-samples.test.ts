@@ -32,3 +32,21 @@ test("a dense run of samples is not thinned: no distance filter", () => {
   const dispatched = ev(10, 0, { getCoalescedEvents: () => run });
   assert.equal(pointerSamples(dispatched).length, 51);
 });
+
+test("a React synthetic event reads the coalesced samples from its nativeEvent", () => {
+  // React's PointerEvent wrapper has no getCoalescedEvents; dropping to the
+  // dispatch alone turned fast canvas strokes into straight chords.
+  const a = ev(1, 1);
+  const b = ev(2, 2);
+  const native = ev(3, 3, { getCoalescedEvents: () => [a, b] });
+  const synthetic = { ...ev(3, 3), nativeEvent: native };
+  assert.deepEqual(pointerSamples(synthetic).map((e) => e.clientX), [1, 2, 3]);
+});
+
+test("a coalesced list that already ends with the dispatch does not repeat it", () => {
+  // Chromium (WebView2) includes the dispatched sample as the last coalesced entry.
+  const a = ev(1, 1);
+  const last = ev(4, 4);
+  const dispatched = ev(4, 4, { getCoalescedEvents: () => [a, last] });
+  assert.deepEqual(pointerSamples(dispatched).map((e) => e.clientX), [1, 4]);
+});
