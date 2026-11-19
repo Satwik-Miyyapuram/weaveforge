@@ -27,7 +27,9 @@ use tokio_tungstenite::tungstenite::{self, Message};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use wf_relay_server::collab::hub::{self, Hub};
 use wf_relay_server::collab::protocol::update_frame;
-use wf_relay_server::collab::store::{DocRow, DocStatus, MemoryStore, NewGrant, SharedDocStore};
+use wf_relay_server::collab::store::{
+    DocRow, DocStatus, GrantRow, MemoryStore, NewGrant, SharedDocStore,
+};
 use wf_relay_server::collab::update_log::log_path;
 use wf_relay_server::collab::{
     Authenticator, BoxFut, Clock, CollabConfig, CollabState, Permission, routes,
