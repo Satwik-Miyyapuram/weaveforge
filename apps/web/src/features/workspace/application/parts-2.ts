@@ -143,13 +143,22 @@ export async function mirrorWorkspace(
 
   const plan = core.planMirror({ ...serialized, files }, options.seen, base, disk);
 
-  const written = [...plan.written];
+  const written: string[] = [];
+  const changedSincePlan: string[] = [];
   for (const path of plan.written) {
+    // The plan read the folder before this write. A file that changed since then (a reader,
+    // a pull, another app) is not overwritten; the next run decides from what is on disk now.
+    const now = await fs.readText(path).catch(() => null);
+    if (now !== (disk[path] ?? null)) {
+      changedSincePlan.push(path);
+      continue;
+    }
     const dir = parentDir(path);
     if (dir) await fs.mkdirp(dir);
     // The canvas id map is read on every import; a torn write would hold every canvas.
     if (path.endsWith("/canvas-ids.json")) await writeTextAtomic(fs, path, files[path] ?? "");
     else await fs.writeFile(path, files[path] ?? "");
+    written.push(path);
   }
 
   let unchanged = plan.unchanged;
@@ -178,6 +187,11 @@ export async function mirrorWorkspace(
   // A held path keeps its base, so the folder watcher reads it as removed and the review offers it.
   const mirrored: Record<string, string> = Object.fromEntries(plan.mirrored);
   for (const path of held) mirrored[path] = base?.[path] ?? "";
+  // A file that changed since the plan was not written: it keeps its last base, so the next run compares it again.
+  for (const path of changedSincePlan) {
+    if (base?.[path] === undefined) delete mirrored[path];
+    else mirrored[path] = base[path];
+  }
   return {
     written,
     removed: plan.removed,
