@@ -73,13 +73,26 @@ test("an empty stroke has no outline and no path data", () => {
   assert.equal(outlinePathData([]), "");
 });
 
-test("outline path data is a closed M/L path", () => {
+test("outline path data is a closed path of quadratic curves through edge midpoints", () => {
   const d = outlinePathData([
     [0, 0],
     [10, 0],
     [10, 10],
   ]);
-  assert.equal(d, "M0 0 L10 0 L10 10 Z");
+  // Starts at the midpoint of the closing edge, one Q per outline point, then Z.
+  assert.equal(d, "M5 5 Q0 0 5 0 Q10 0 10 5 Q10 10 5 5 Z");
+  assert.doesNotMatch(d, /L/);
+});
+
+test("outline path data has no straight segments and always closes, however many points", () => {
+  const ring = Array.from({ length: 40 }, (_, i) => {
+    const a = (i / 40) * Math.PI * 2;
+    return [50 + 20 * Math.cos(a), 50 + 20 * Math.sin(a)] as [number, number];
+  });
+  const d = outlinePathData(ring);
+  assert.doesNotMatch(d, /L/, "outline must be curved, not faceted");
+  assert.equal((d.match(/Q/g) ?? []).length, ring.length);
+  assert.ok(d.endsWith(" Z"));
 });
 
 test("the setting picks the renderer; anything unknown stays classic", () => {
@@ -111,7 +124,8 @@ test("a settled stroke's outline is half the width from its centreline at the mi
 
 test("freehandPathFromFlat outlines flat x,y pairs as one closed path, and empty input has none", () => {
   const d = freehandPathFromFlat([0, 0, 50, 0, 100, 0], WIDTH);
-  assert.match(d, /^M[-\d.e]+ [-\d.e]+ L/);
+  assert.match(d, /^M[-\d.e]+ [-\d.e]+ Q/);
+  assert.doesNotMatch(d, /L/);
   assert.ok(d.endsWith(" Z"));
   assert.equal(freehandPathFromFlat([], WIDTH), "");
 });

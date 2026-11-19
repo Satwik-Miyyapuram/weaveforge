@@ -108,13 +108,25 @@ export function freehandPathFromFlat(
   );
 }
 
-/** The outline as SVG path data (`M … L … Z`), for `new Path2D(d)` and SVG `d`. */
+/**
+ * The outline as closed SVG path data, for `new Path2D(d)` and SVG `d`. Each
+ * outline point is a quadratic control point and the curve runs through the
+ * midpoints between neighbours (perfect-freehand's README recipe), so the edge
+ * is smooth rather than a polygon of straight `L` segments.
+ */
 export function outlinePathData(outline: FreehandOutline): string {
-  if (outline.length === 0) return "";
-  const parts: string[] = [];
-  for (let i = 0; i < outline.length; i++) {
-    const [x, y] = outline[i]!;
-    parts.push(`${i === 0 ? "M" : "L"}${x} ${y}`);
+  const n = outline.length;
+  if (n === 0) return "";
+  const mid = (a: readonly [number, number], b: readonly [number, number]): [number, number] => [
+    (a[0] + b[0]) / 2,
+    (a[1] + b[1]) / 2,
+  ];
+  const start = mid(outline[n - 1]!, outline[0]!);
+  const parts: string[] = [`M${start[0]} ${start[1]}`];
+  for (let i = 0; i < n; i++) {
+    const p = outline[i]!;
+    const m = mid(p, outline[(i + 1) % n]!);
+    parts.push(`Q${p[0]} ${p[1]} ${m[0]} ${m[1]}`);
   }
   return `${parts.join(" ")} Z`;
 }
