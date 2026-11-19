@@ -22,6 +22,17 @@ tracks at once.
 
 ### iOS
 
+## [0.9.5] - 2026-11-19
+
+Desktop (`v0.9.5`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **Changed:** Papers, reader annotations, reading lists and settings are kept as files in your workspace folder.
+- **Fixed:** Importing a folder keeps each item's identity, so re-importing does not create duplicates.
+- **Fixed:** Folder sync never removes or overwrites your files when a file is renamed outside the app.
+- **Added:** `[[Wiki links]]` in ink notes open the linked note from the reader.
+- **Fixed:** The explorer panel keeps the width you drag it to after a restart.
+
 ## [0.9.4] - 2026-11-19
 
 Desktop (`v0.9.4`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
