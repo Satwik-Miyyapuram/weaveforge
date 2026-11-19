@@ -355,11 +355,9 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   const core = await loadCore();
   const projectRoot = core.projectDir(project);
   const snapshot = await container.workspace.snapshot();
-  // This project's manifest, and only this project's: the paths the folder was last
-  // synced with. Sync never removes a file, so the manifest only records what was written.
+  // This project's manifest, and only this project's: the paths last synced. Sync never removes.
   const base = await readMirrorBase(fs, projectRoot);
   const previousPaths = Object.keys(base);
-
   // The synced tables, one file each. A failed read throws here, before anything is
   // written, so a table file is never removed just because the server did not answer.
   // Stable: two passes must agree, so a write during the read cannot mix two moments.
@@ -367,13 +365,10 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
     await Promise.all([import("./sync-tables"), import("./workspace-folder-tables")]);
   const tableFiles = syncTableFolderFiles(await exportSyncTablesStable(restTableReader(getDataClient())));
 
-  // Read with the record, before any await: a database replace or import that forgets the record
-  // while this run is in flight makes its result stale, and recordSessionSeen then drops it.
-  const startedAt = sessionGeneration();
+  const startedAt = sessionGeneration(); // before the await: a DB replace mid-run makes this run stale
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
     project,
-    // What this session already mirrored: an existing file is rewritten only for an item changed since.
-    seen: sessionSeen(project.id),
+    seen: sessionSeen(project.id), // rewrite an existing file only if changed this session
     extraFiles: tableFiles,
     // The digests, not only the paths: a file whose content has moved on since
     // the app wrote it is the reader's, and the mirror must not write over it
