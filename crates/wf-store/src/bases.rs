@@ -96,7 +96,7 @@ impl BaseStore {
         yjs_state: Option<&[u8]>,
     ) -> Result<String, BaseError> {
         let digest = canonical_digest(text);
-        let _ = self.conn.execute(
+        self.conn.execute(
             "INSERT INTO bases (item_id, text, digest, yjs_state, updated_at) \
              VALUES (?1, ?2, ?3, ?4, ?5) \
              ON CONFLICT(item_id) DO UPDATE SET \

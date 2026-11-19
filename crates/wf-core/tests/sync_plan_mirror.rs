@@ -54,7 +54,7 @@ fn note(id: &str, title: &str, body: &str) -> SnapshotVaultPage {
 fn options(project: &WorkspaceProject) -> MirrorOptions<'_> {
     MirrorOptions {
         project,
-        previous_paths: &[],
+        seen: None,
         base: None,
         fetch_asset: None,
     }
@@ -65,45 +65,30 @@ fn text<F: WorkspaceFs + ?Sized>(fs: &F, path: &str) -> String {
     fs.read_text(path).unwrap_or_default()
 }
 
-/// Runs both on `fs`'s current contents: the plan from read-only text, then the real mirror.
-/// Returns (plan, mirror result) so each test can compare them and inspect either.
+/// The in-session record a mirror leaves for the next one: path -> digest of the DB content.
+fn seen_of(served: &[(String, String)]) -> HashMap<String, String> {
+    served.iter().cloned().collect()
+}
+
+/// Runs both on the folder's current contents: the plan from read-only text, then the real
+/// mirror. Returns (plan, mirror result) so each test can compare them and inspect either.
 fn both(
     fs: &mut MemoryWorkspaceFs,
     input: &WorkspaceSnapshot,
-    previous: &[String],
+    seen: Option<&HashMap<String, String>>,
     base: Option<&HashMap<String, String>>,
 ) -> (MirrorResult, MirrorResult) {
     let project = thesis();
     let serialized = serialize_workspace(input, &project);
-    let assets: Vec<String> = serialized
-        .assets
-        .iter()
-        .map(|asset| asset.folder_path.clone())
-        .collect();
-    let present: Vec<&str> = serialized
-        .files
-        .iter()
-        .map(|(path, _)| path.as_str())
-        .chain(assets.iter().map(String::as_str))
-        .collect();
     let mut disk = HashMap::new();
-    let departed_with_base = previous
-        .iter()
-        .filter(|path| !present.contains(&path.as_str()))
-        .filter(|path| base.is_some_and(|b| b.contains_key(path.as_str())));
-    for path in serialized
-        .files
-        .iter()
-        .map(|(path, _)| path)
-        .chain(departed_with_base)
-    {
+    for (path, _) in &serialized.files {
         if let Ok(text) = fs.read_text(path) {
             let _ = disk.insert(path.clone(), text);
         }
     }
-    let plan = plan_mirror(&serialized.files, &assets, previous, base, &disk).expect("plan");
+    let plan = plan_mirror(&serialized.files, seen, base, &disk).expect("plan");
     let opts = MirrorOptions {
-        previous_paths: previous,
+        seen,
         base,
         ..options(&project)
     };
@@ -119,7 +104,7 @@ fn a_fresh_folder_plans_every_write() {
         note("n2", "Results", "Two"),
     ]);
 
-    let (plan, mirrored) = both(&mut fs, &snap, &[], None);
+    let (plan, mirrored) = both(&mut fs, &snap, None, None);
 
     assert_eq!(plan, mirrored);
     assert!(plan.written.contains(&at("notes/method.note.md")));
@@ -135,7 +120,7 @@ fn an_unchanged_folder_plans_nothing() {
     let (plan, mirrored) = both(
         &mut fs,
         &snap,
-        &first.written,
+        Some(&seen_of(&first.served)),
         Some(&digest_map(&first.mirrored)),
     );
 
@@ -161,7 +146,7 @@ fn a_new_export_time_alone_plans_no_write() {
     let (plan, mirrored) = both(
         &mut fs,
         &later_snap,
-        &first.written,
+        Some(&seen_of(&first.served)),
         Some(&digest_map(&first.mirrored)),
     );
 
@@ -183,7 +168,7 @@ fn a_reader_edit_is_held_in_the_plan() {
     let (plan, mirrored) = both(
         &mut fs,
         &changed,
-        &first.written,
+        Some(&seen_of(&first.served)),
         Some(&digest_map(&first.mirrored)),
     );
 
@@ -192,7 +177,7 @@ fn a_reader_edit_is_held_in_the_plan() {
 }
 
 #[test]
-fn a_departed_file_is_planned_for_removal() {
+fn a_departed_file_is_never_planned_for_removal() {
     let project = thesis();
     let mut fs = MemoryWorkspaceFs::new();
     let snap = with_notes(vec![note("n1", "Method", "One"), note("n2", "Gone", "Bye")]);
@@ -202,16 +187,17 @@ fn a_departed_file_is_planned_for_removal() {
     let (plan, mirrored) = both(
         &mut fs,
         &only_n1,
-        &first.written,
+        Some(&seen_of(&first.served)),
         Some(&digest_map(&first.mirrored)),
     );
 
     assert_eq!(plan, mirrored);
-    assert!(plan.removed.contains(&at("notes/gone.note.md")));
+    assert!(plan.removed.is_empty());
+    assert!(!plan.written.contains(&at("notes/gone.note.md")));
 }
 
 #[test]
-fn a_departed_but_edited_file_is_held() {
+fn a_departed_but_edited_file_is_left_alone() {
     let project = thesis();
     let mut fs = MemoryWorkspaceFs::new();
     let snap = with_notes(vec![note("n1", "Method", "One"), note("n2", "Gone", "Bye")]);
@@ -224,27 +210,28 @@ fn a_departed_but_edited_file_is_held() {
     let (plan, mirrored) = both(
         &mut fs,
         &only_n1,
-        &first.written,
+        Some(&seen_of(&first.served)),
         Some(&digest_map(&first.mirrored)),
     );
 
     assert_eq!(plan, mirrored);
-    assert_eq!(plan.held_back, vec![path]);
+    assert!(plan.held_back.is_empty());
     assert!(plan.removed.is_empty());
 }
 
 #[test]
-fn a_departed_file_without_base_is_removed_unread() {
+fn a_departed_file_without_base_is_never_removed() {
     let project = thesis();
     let mut fs = MemoryWorkspaceFs::new();
     let snap = with_notes(vec![note("n1", "Method", "One"), note("n2", "Gone", "Bye")]);
     let first = mirror_workspace(&snap, &mut fs, options(&project)).expect("first");
     let only_n1 = with_notes(vec![note("n1", "Method", "One")]);
 
-    let (plan, mirrored) = both(&mut fs, &only_n1, &first.written, None);
+    let (plan, mirrored) = both(&mut fs, &only_n1, Some(&seen_of(&first.served)), None);
 
     assert_eq!(plan, mirrored);
-    assert!(plan.removed.contains(&at("notes/gone.note.md")));
+    assert!(plan.removed.is_empty());
+    assert!(!plan.written.contains(&at("notes/gone.note.md")));
 }
 
 #[test]
@@ -252,14 +239,10 @@ fn an_asset_path_is_never_removed() {
     let project = thesis();
     let mut fs = MemoryWorkspaceFs::new();
     let snap = with_notes(vec![note("n1", "Method", "![](vault:u1/n1/a.png)")]);
-    let first = mirror_workspace(&snap, &mut fs, options(&project)).expect("first");
-    let asset = serialize_workspace(&snap, &project).assets[0]
-        .folder_path
-        .clone();
-    let previous = [first.written.clone(), vec![asset.clone()]].concat();
+    let _ = mirror_workspace(&snap, &mut fs, options(&project)).expect("first");
 
-    let (plan, mirrored) = both(&mut fs, &snap, &previous, None);
+    let (plan, mirrored) = both(&mut fs, &with_notes(vec![]), None, None);
 
     assert_eq!(plan, mirrored);
-    assert!(!plan.removed.contains(&asset));
+    assert!(plan.removed.is_empty());
 }
