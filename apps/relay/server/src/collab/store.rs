@@ -3,10 +3,11 @@
 
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use wf_core::sync::instant::format_instant;
+use wf_core::sync::instant::{format_instant, parse_instant};
 
 use crate::collab::{BoxFut, Permission};
 use crate::postgrest::{UserDb, eq};
@@ -209,6 +210,24 @@ fn grant_covers(g: &GrantRow, row: &DocRow, item_id: &str, user: &str) -> bool {
             || (g.scope == "project" && Some(g.target_id.as_str()) == row.project_id.as_deref()))
 }
 
+/// Whether grant `g` has run out by `now_ms`. A grant with no expiry never lapses.
+/// An expiry that does not parse counts as lapsed, so a bad value fails closed.
+fn grant_lapsed(g: &GrantRow, now_ms: i64) -> bool {
+    g.expires_at
+        .as_deref()
+        .is_some_and(|at| parse_instant(at).is_none_or(|ms| ms <= now_ms))
+}
+
+/// Epoch milliseconds now. A clock that reads before 1970 counts as far future,
+/// so every grant with an expiry lapses rather than living on.
+fn now_millis() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_millis()).ok())
+        .unwrap_or(i64::MAX)
+}
+
 impl SharedDocStore for MemoryStore {
     fn load<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<Option<DocRow>, String>> {
         Box::pin(async move {
@@ -342,9 +361,11 @@ impl SharedDocStore for MemoryStore {
                 .grants
                 .lock()
                 .map_err(|_| "store lock poisoned".to_owned())?;
+            let now_ms = now_millis();
             let best = grants
                 .iter()
                 .filter(|g| grant_covers(g, row, item_id, user))
+                .filter(|g| !grant_lapsed(g, now_ms))
                 .filter_map(|g| Permission::parse(&g.permission))
                 .max();
             Ok(best)

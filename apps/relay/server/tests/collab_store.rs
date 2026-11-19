@@ -250,6 +250,51 @@ async fn pg_access_calls_rpc() {
 }
 
 #[tokio::test]
+async fn expired_grant_gives_no_access() {
+    let store = MemoryStore::new();
+    store
+        .seed(&doc_row("item-1", "owner-1", vec![]))
+        .await
+        .unwrap();
+
+    let mut expired = grant("owner-1", "item", "item-1", "u-expired", Permission::Edit);
+    expired.expires_at = Some("2001-01-01T00:00:00Z".to_owned());
+    store.create_grant(&expired).await.unwrap();
+
+    let mut live = grant("owner-1", "item", "item-1", "u-live", Permission::Edit);
+    live.expires_at = Some("2999-01-01T00:00:00Z".to_owned());
+    store.create_grant(&live).await.unwrap();
+
+    let forever = grant("owner-1", "item", "item-1", "u-forever", Permission::View);
+    store.create_grant(&forever).await.unwrap();
+
+    assert_eq!(store.access("item-1", "u-expired").await.unwrap(), None);
+    assert_eq!(
+        store.access("item-1", "u-live").await.unwrap(),
+        Some(Permission::Edit)
+    );
+    assert_eq!(
+        store.access("item-1", "u-forever").await.unwrap(),
+        Some(Permission::View)
+    );
+}
+
+#[tokio::test]
+async fn unparseable_grant_expiry_gives_no_access() {
+    let store = MemoryStore::new();
+    store
+        .seed(&doc_row("item-1", "owner-1", vec![]))
+        .await
+        .unwrap();
+
+    let mut odd = grant("owner-1", "item", "item-1", "u-odd", Permission::Edit);
+    odd.expires_at = Some("next tuesday".to_owned());
+    store.create_grant(&odd).await.unwrap();
+
+    assert_eq!(store.access("item-1", "u-odd").await.unwrap(), None);
+}
+
+#[tokio::test]
 async fn pg_save_state_filters_epoch() {
     let up = serve(vec![(
         "/rest/v1/shared_docs",
