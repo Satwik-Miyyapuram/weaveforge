@@ -43,6 +43,7 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [wf-wasm](wf-wasm.md) | `wf-core` compiled to wasm for the browser and Node; its build and checks. |
 | [wf-bindings](wf-bindings.md) | Writes the TypeScript types for Rust types that cross into the UI. |
 | [wf-store](wf-store.md) | Native I/O crate (never wasm): workspace folder, git history, remote sync, embeddings. |
+| [laws](laws.md) | File-safety laws: what writes, trash, renames, note reads and git excludes may do to the folder, each with its test and mutation result. |
 | [shell](shell.md) | The Tauri desktop and phone shell crate (`apps/shell`). |
 | [relay](relay.md) | The relay crates (`apps/relay`): shared fetches and the relay server. |
 | [puller_plan](puller_plan.md) | Pull decisions for the offline-sync Puller: page summary, apply and tombstone steps, unique-clash parsing. |

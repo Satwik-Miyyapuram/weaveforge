@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
-use crate::checked_write::{PREV_SUFFIX, write_temp};
+use crate::checked_write::PREV_SUFFIX;
 
 use wf_core::workspace::{UnsafePath, safe_workspace_path};
 
@@ -167,26 +167,21 @@ impl Vault {
 
     /// Replace a file's bytes, creating parent folders; never leaves a torn file behind.
     ///
-    /// The data goes to a temp file beside the target, which is then renamed over it.
+    /// This is the checked write with no expected digest (law V9 in
+    /// `docs/building/core/laws.md`): the bytes on disk when it starts count as seen, and a
+    /// change another process makes before the swap is kept as a conflict copy.
     ///
     /// # Errors
     /// Refused paths, escapes, or any write or rename failure (the temp file is removed).
     pub fn write_file(&self, rel: &str, data: &[u8]) -> Result<(), VaultError> {
-        let target = self.resolve(rel)?;
-        if let Some(parent) = target.parent() {
-            fs::create_dir_all(parent).map_err(|source| io_err("create folder", rel, source))?;
-        }
-        let temp = temp_beside(&target);
-        let outcome = write_temp(&temp, data).and_then(|()| fs::rename(&temp, &target));
-        outcome.map_err(|source| {
-            // The temp may never have been created; removing a missing file is the same outcome.
-            let _ = fs::remove_file(&temp);
-            io_err("write", rel, source)
-        })
+        self.write_file_with_hook(rel, data, &mut || {})
     }
 
     /// Remove a file, or a folder when `recursive`; a missing path is not an error.
     /// A link to a folder is removed as a link; its target is left alone.
+    ///
+    /// This is a plain unlink for temp files, internal state, caches and rename sources. A
+    /// delete the user asked for goes through [`Vault::delete_to_trash`] (law V8).
     ///
     /// # Errors
     /// Refused paths, escapes, a folder without `recursive`, or any removal failure.
