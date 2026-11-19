@@ -171,6 +171,7 @@ fn optional_text(value: &Option<String>) -> Value {
 }
 
 /// The file name of a tier: "local", "local-web" or "sharing".
+#[must_use]
 pub fn tier_name(tier: Tier) -> &'static str {
     match tier {
         Tier::Local => "local",
@@ -180,6 +181,7 @@ pub fn tier_name(tier: Tier) -> &'static str {
 }
 
 /// The tier with this file name. The match is exact and case-sensitive; any other name gives `None`.
+#[must_use]
 pub fn tier_from_name(name: &str) -> Option<Tier> {
     match name {
         "local" => Some(Tier::Local),
