@@ -14,6 +14,7 @@ import { isLocalMode } from "@/backend/providers/local/local-identity";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/button";
 import { RowButton } from "@/components/controls";
+import type { Project } from "@weaveforge/core";
 
 // Lazy: this screen sits in the root layout, which has a tight JS budget.
 const ConfirmDialog = dynamic(() => import("@/components/confirm-dialog").then((m) => m.ConfirmDialog), { ssr: false });
@@ -57,6 +58,23 @@ export function ProjectsScreen() {
     await removeLocalFolder(removing);
     if (current?.id === removing.id) setProject(null);
     setRemoving(null);
+    await refresh();
+  });
+
+  const [renaming, setRenaming] = useState<Project | null>(null);
+  const [newName, setNewName] = useState("");
+  const { busy: renameBusy, error: renameError, submit: rename } = useSubmit(async () => {
+    if (!renaming) return;
+    const [{ renameProject }, { activeWorkspaceFs }] = await Promise.all([
+      import("../application/rename-project"),
+      import("@/features/workspace/application/workspace-folder"),
+    ]);
+    const projects = getContainer().projects;
+    await renameProject(renaming, newName, {
+      save: (p) => projects.saveProject(p),
+      fs: activeWorkspaceFs(),
+    });
+    setRenaming(null);
     await refresh();
   });
 
@@ -120,6 +138,21 @@ export function ProjectsScreen() {
         </Modal>
       )}
 
+      {renaming && (
+        <Modal title="Rename project" onClose={() => setRenaming(null)}>
+          <form className="add-form" onSubmit={rename}>
+            <div className="field">
+              <label htmlFor="prename">Name</label>
+              <input id="prename" value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus required />
+            </div>
+            {renameError && <FormError>{renameError}</FormError>}
+            <Button type="submit" variant="primary" disabled={renameBusy}>
+              {renameBusy ? "Renaming…" : "Rename"}
+            </Button>
+          </form>
+        </Modal>
+      )}
+
       {loading && <ScreenLoader status="Loading projects…" />}
 
       {!loading && projects.length === 0 && (
@@ -161,6 +194,16 @@ export function ProjectsScreen() {
                 name={p.name}
                 onDelete={() => setRemoving(p)}
                 deleteLabel="Delete project"
+                extraItems={[
+                  {
+                    id: "rename",
+                    label: "Rename",
+                    onSelect: () => {
+                      setNewName(p.name);
+                      setRenaming(p);
+                    },
+                  },
+                ]}
               />
             </li>
           ))}

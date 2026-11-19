@@ -108,3 +108,4 @@ live on the OCI server.
 | `0155` | Overleaf Workshop sessions: the Overleaf cookie kept sealed server-side; the client holds only the row id |
 | `0156` | Release notices: rows inserted per release, users read them; dismissal in `user_settings.last_release_notice_seen` |
 | `0157` | `vault_pages.kind`: `note` (markdown body) or `canvas` (JSON Canvas body, Obsidian `.canvas`); NULL reads as a note |
+| `0161` | Files-first server tables: `grants`, `shared_docs` (co-editing), `sdk_inbox`; access/restore/claim RPCs |

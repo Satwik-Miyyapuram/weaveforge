@@ -4,6 +4,7 @@
 use serde_json::{Value, json};
 
 use super::sdk::{SDK_PREFIX, route_sdk_request};
+use super::sdk_files;
 use super::token::grant_permissions;
 use super::{
     Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission, SaveArtifact, SdkQuery,
@@ -50,6 +51,16 @@ pub async fn route_local_request(
     };
     if path.starts_with(SDK_PREFIX) && !allowed(Permission::Experiments) {
         return denied(Permission::Experiments);
+    }
+
+    if request.method == "POST"
+        && path
+            .strip_prefix(SDK_PREFIX)
+            .map(|r| r.trim_end_matches('/'))
+            == Some("metrics")
+        && sdk_files::enabled()
+    {
+        return sdk_files::append_metrics_to_files(deps.vault, &request.body).await;
     }
 
     if let Some(query) = deps.query

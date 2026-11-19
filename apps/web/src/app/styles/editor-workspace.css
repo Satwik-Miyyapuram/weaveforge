@@ -779,6 +779,12 @@
   overflow: hidden;
 }
 
+/* Folded as far as it goes and still too wide: wrap onto a second row rather than clip. */
+.workspace-toolbar[data-wrap] {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
 /* The focused document's own tools (the ink bar), brought up from its pane. */
 .workspace-toolbar-doc {
   display: flex;

@@ -26,7 +26,8 @@ impl std::error::Error for UnsafePath {}
 /// Backslashes fold first so a zip written on Windows cannot carry `..\..\etc` past the check.
 ///
 /// # Errors
-/// Returns [`UnsafePath`] for empty, absolute, drive-prefixed, `..` or segmentless paths.
+/// Returns [`UnsafePath`] for empty, absolute, drive-prefixed, `..` or segmentless paths, and
+/// for a segment Windows cannot store: a reserved device name or a trailing dot or space.
 pub fn safe_workspace_path(path: &str) -> Result<String, UnsafePath> {
     let folded = path.replace('\\', "/");
     let normalized = folded.strip_prefix("./").unwrap_or(folded.as_str());
@@ -42,6 +43,9 @@ pub fn safe_workspace_path(path: &str) -> Result<String, UnsafePath> {
             // Checked on every segment: `././C:` hides a drive from a check on the whole path,
             // and on Windows joining any `C:` segment replaces the root.
             _ if has_drive_prefix(segment) => return Err(refuse()),
+            // Windows drops trailing dots and spaces and maps device names to devices, so a
+            // file written under such a name lands somewhere else, or nowhere.
+            _ if is_windows_unstorable(segment) => return Err(refuse()),
             _ => parts.push(segment),
         }
     }
@@ -55,6 +59,26 @@ pub fn safe_workspace_path(path: &str) -> Result<String, UnsafePath> {
 #[must_use]
 pub fn is_safe_workspace_path(path: &str) -> bool {
     safe_workspace_path(path).is_ok()
+}
+
+/// A segment Windows cannot store as written: a device name (`CON`, `COM1`, `LPT9`, ...) with or
+/// without an extension in any case, or a name ending in a dot or a space.
+fn is_windows_unstorable(segment: &str) -> bool {
+    if segment.ends_with('.') || segment.ends_with(' ') {
+        return true;
+    }
+    let stem = segment
+        .split('.')
+        .next()
+        .unwrap_or(segment)
+        .trim_end_matches(' ');
+    let stem = stem.to_ascii_uppercase();
+    let numbered = |prefix: &str| {
+        stem.strip_prefix(prefix).is_some_and(|digits| {
+            matches!(digits, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
+        })
+    };
+    matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL") || numbered("COM") || numbered("LPT")
 }
 
 /// A Windows drive prefix such as `C:`; checked so `C:foo` is never treated as relative.
@@ -77,7 +101,6 @@ mod tests {
             ("a/b/", "a/b"),
             ("././a", "a"),
             ("a\\b\\c.md", "a/b/c.md"),
-            ("...", "..."),
             ("a/..b/c", "a/..b/c"),
             ("notities/ü.md", "notities/ü.md"),
         ];
@@ -117,6 +140,44 @@ mod tests {
         for input in cases {
             assert!(safe_workspace_path(input).is_err(), "input: {input:?}");
             assert!(!is_safe_workspace_path(input), "input: {input:?}");
+        }
+    }
+
+    #[test]
+    fn refuses_windows_reserved_names_in_any_segment_case_and_extension() {
+        let names = ["CON", "prn", "Aux", "NUL", "com1", "COM9", "lpt1", "LPT9"];
+        for name in names {
+            for input in [
+                name.to_owned(),
+                format!("{name}.md"),
+                format!("{name}.tar.gz"),
+                format!("notes/{name}"),
+                format!("notes/{name}.txt"),
+                format!("notes/{}/x.md", name.to_lowercase()),
+            ] {
+                assert!(safe_workspace_path(&input).is_err(), "input: {input:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn refuses_trailing_dot_or_space_in_any_segment() {
+        for input in ["a.", "notes/a.md.", "notes/a ", "notes/a /x", "notes/x. /y"] {
+            assert!(safe_workspace_path(input).is_err(), "input: {input:?}");
+        }
+    }
+
+    #[test]
+    fn keeps_names_that_only_look_reserved() {
+        for input in [
+            "CONSOLE.md",
+            "notes/nul-log.md",
+            "COM10.md",
+            "lpt.md",
+            "a.b/c",
+            "a..b/c",
+        ] {
+            assert!(safe_workspace_path(input).is_ok(), "input: {input:?}");
         }
     }
 

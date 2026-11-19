@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { createAutoSync, wireAutoSync } from "../application/auto-sync";
+import { createAutoSync, showAutoSync, wireAutoSync } from "../application/auto-sync";
 import { folderRemoteSync, pullThenPush, remoteSyncAvailable } from "../application/parts-2";
 import { folderSession, onFolderConnected, onVaultCommit } from "../application/workspace-folder";
 
@@ -25,10 +25,12 @@ export function GitAutoSync() {
       now: Date.now,
     });
     const unwire = wireAutoSync(engine, { onCommit: onVaultCommit, target: window });
+    const hide = showAutoSync(engine);
     const offConnected = onFolderConnected(() => engine.nudge());
     return () => {
       offConnected();
       unwire();
+      hide();
     };
   }, []);
 

@@ -416,6 +416,7 @@ test("the mirror keeps a claim at a non-canonical path, so an edit still finds i
       heldBack: [],
       mirrored: new Map(),
       bases: new Map(),
+      served: new Map(),
     }),
   };
 
@@ -458,6 +459,7 @@ test("a claim is dropped once the mirror maps its page at the canonical path", a
       heldBack: [],
       mirrored: new Map(),
       bases: new Map(),
+      served: new Map(),
     }),
   };
 

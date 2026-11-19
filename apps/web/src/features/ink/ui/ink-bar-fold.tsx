@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * The one toolbar's fold (priority+): it never wraps. As it narrows, stages go
+ * The one toolbar's fold (priority+): it wraps only as a last resort. As it narrows, stages go
  * on one at a time — the pills shrink, then page, zoom, Recognise, Insert,
  * Find and Undo move into More, Preview and Split into Layout ▾, the quick
  * colours into the pen's swatch, and last Focus into Layout ▾ too.
@@ -59,8 +59,11 @@ export function fitFold(apply: (on: readonly FoldStage[]) => void, overflows: ()
   return on;
 }
 
-/** Fit the toolbar's fold to its width, and again whenever it or its contents change. */
-export function useToolbarFold(ref: RefObject<HTMLElement | null>) {
+/**
+ * Fit the toolbar's fold to its width, and again whenever it or its contents change.
+ * A new `key` re-fits a bar that was remounted (the bar is unmounted in ink focus); a bar still too wide once fully folded wraps (`data-wrap`) rather than clips.
+ */
+export function useToolbarFold(ref: RefObject<HTMLElement | null>, key?: unknown) {
   useEffect(() => {
     const bar = ref.current;
     if (!bar || typeof ResizeObserver === "undefined") return;
@@ -70,9 +73,11 @@ export function useToolbarFold(ref: RefObject<HTMLElement | null>) {
       return Boolean(ink && ink.scrollWidth > ink.clientWidth + 0.5);
     };
     const fit = () => {
+      delete bar.dataset.wrap;
       const on = fitFold((stages) => {
         bar.dataset.fold = stages.join(" ");
       }, overflows);
+      if (overflows()) bar.dataset.wrap = "";
       if (foldMoves(on)) bar.dataset.moved = "";
       else delete bar.dataset.moved;
     };
@@ -93,7 +98,7 @@ export function useToolbarFold(ref: RefObject<HTMLElement | null>) {
       resize.disconnect();
       mutate.disconnect();
     };
-  }, [ref]);
+  }, [ref, key]);
 }
 
 /** The bars that fold: the Editor's, and a document's own outside it. */

@@ -1,6 +1,8 @@
 //! JSON Canvas against files laid out as Obsidian writes them: a canvas read and written back
 //! is byte for byte the same, plugin fields included, and the samples break no rule.
 
+use proptest::prelude::*;
+use serde_json::{Map, Value, json};
 use wf_core::canvas::{canvas_bounds, canvas_text, group_members, parse_canvas, validate};
 
 const SAMPLE: &str = include_str!("fixtures/canvas/obsidian-sample.canvas");
@@ -61,4 +63,33 @@ fn a_crlf_copy_still_reads_and_is_written_back_with_lf() {
     let crlf = SAMPLE.replace('\n', "\r\n");
     let canvas = parse_canvas(&crlf).unwrap();
     assert_eq!(canvas_text(&canvas), SAMPLE);
+}
+
+proptest! {
+    /// Law: a node of a type this version does not know, with fields it does
+    /// not know, is kept whole by a read and write, and a second write changes
+    /// nothing.
+    #[test]
+    fn canvas_unknown_node_kept(
+        kind in "x[a-z]{1,10}",
+        fields in proptest::collection::btree_map("zz[a-zA-Z]{1,8}", prop_oneof![
+            "[ -~]{0,12}".prop_map(Value::from),
+            (-1_000_000i64..1_000_000).prop_map(Value::from),
+            any::<bool>().prop_map(Value::from),
+        ], 0..5),
+    ) {
+        let mut node = Map::new();
+        let _ = node.insert("id".into(), json!("n1"));
+        let _ = node.insert("type".into(), json!(kind));
+        for key in ["x", "y", "width", "height"] {
+            let _ = node.insert(key.into(), json!(10));
+        }
+        node.extend(fields);
+        let original = json!({"nodes": [node], "edges": []});
+        let canvas = parse_canvas(&original.to_string()).unwrap();
+        let written = canvas_text(&canvas);
+        let again: Value = serde_json::from_str(&written).unwrap();
+        prop_assert_eq!(&again, &original);
+        prop_assert_eq!(canvas_text(&parse_canvas(&written).unwrap()), written);
+    }
 }

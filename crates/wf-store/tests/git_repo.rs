@@ -217,6 +217,52 @@ fn commit_all_returns_head_commit() {
     );
 }
 
+// The message names what the commit holds, so a status entry it never commits is not counted.
+#[test]
+fn commit_described_names_one_modified_file_only() {
+    let dir = TempDir::new();
+    let repo = FolderRepo::new(dir.path());
+    repo.init().unwrap();
+    write(dir.path(), "a.txt", b"one");
+    let _ = repo.commit_all("first", me()).unwrap();
+    write(dir.path(), "a.txt", b"two");
+    let c = repo.commit_described(me()).unwrap().unwrap();
+    assert_eq!(c.message, "1 changed");
+}
+
+#[test]
+fn commit_described_counts_new_files_as_added() {
+    let dir = TempDir::new();
+    let repo = FolderRepo::new(dir.path());
+    repo.init().unwrap();
+    write(dir.path(), "a.md", b"a");
+    write(dir.path(), "b.md", b"b");
+    let c = repo.commit_described(me()).unwrap().unwrap();
+    assert_eq!(c.message, "2 added");
+}
+
+#[test]
+fn commit_described_ignores_tracked_ignored_file_in_message() {
+    let dir = TempDir::new();
+    let raw = Repository::init(dir.path()).unwrap();
+    write(dir.path(), "node_modules/x.js", b"x");
+    write(dir.path(), "a.txt", b"one");
+    let mut index = raw.index().unwrap();
+    index.add_path(Path::new("node_modules/x.js")).unwrap();
+    index.add_path(Path::new("a.txt")).unwrap();
+    index.write().unwrap();
+    let tree = raw.find_tree(index.write_tree().unwrap()).unwrap();
+    let sig = git2::Signature::now("Tester", "t@example.com").unwrap();
+    let _oid = raw
+        .commit(Some("HEAD"), &sig, &sig, "raw", &tree, &[])
+        .unwrap();
+
+    let repo = FolderRepo::new(dir.path());
+    write(dir.path(), "a.txt", b"two");
+    let c = repo.commit_described(me()).unwrap().unwrap();
+    assert_eq!(c.message, "1 changed");
+}
+
 #[test]
 fn commit_all_excludes_policy_refused_files() {
     let dir = TempDir::new();

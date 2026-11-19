@@ -13,6 +13,7 @@ import type {
   WorkspaceSnapshot,
 } from "@weaveforge/core";
 import { collectWorkspaceSnapshot } from "@weaveforge/core";
+import { forgetSessionSeen } from "@/features/workspace/application/folder-session-seen";
 
 /**
  * One read of the whole project, for the consumers that need all of it: the
@@ -84,8 +85,12 @@ export class WorkspaceFacade {
     return this.inFlight;
   }
 
-  /** Drop the baseline, so the next read is a full one. */
+  /**
+   * Drop the baseline, so the next read is a full one. The folder mirror's in-session
+   * record goes too: the next mirror starts from nothing and rewrites no existing file.
+   */
   resetSnapshotBaseline(): void {
     this.previous = null;
+    forgetSessionSeen();
   }
 }

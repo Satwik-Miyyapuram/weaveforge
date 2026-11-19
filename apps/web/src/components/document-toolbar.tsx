@@ -53,7 +53,7 @@ export function DocumentToolbar({ lead, editor, onError, insertItems, moreSectio
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   // Folds into More like the Editor's bar; never clips.
   const bar = useRef<HTMLDivElement>(null);
-  useToolbarFold(bar);
+  useToolbarFold(bar, focus);
 
   function insertImage(file: File) {
     const handle = editor?.current;

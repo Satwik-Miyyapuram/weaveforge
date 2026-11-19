@@ -7,10 +7,6 @@ export type LocalDbCommands = Pick<
   | "dbQuery"
   | "dbState"
   | "dbReset"
-  | "oldDbStatus"
-  | "oldDbTar"
-  | "oldDbImportTable"
-  | "oldDbImportFinish"
 >;
 
 /** The local database part of `window.weaveforge`. */
@@ -19,10 +15,6 @@ export type LocalDbBridge = Pick<
   | "queryLocalDb"
   | "localDbState"
   | "resetLocalDb"
-  | "oldDbStatus"
-  | "oldDbTar"
-  | "oldDbImportTable"
-  | "oldDbImportFinish"
 >;
 
 /** Wraps the generated commands as the local database part of `DesktopBridge`. */
@@ -35,13 +27,6 @@ export function localDbBridge(cmds: LocalDbCommands): LocalDbBridge {
     localDbState: async () => unwrap(await cmds.dbState()),
     resetLocalDb: async () => {
       unwrap(await cmds.dbReset());
-    },
-    oldDbStatus: async () => unwrap(await cmds.oldDbStatus()),
-    oldDbTar: async () => unwrap(await cmds.oldDbTar()),
-    oldDbImportTable: async (table, rows) =>
-      unwrap(await cmds.oldDbImportTable(table, rows)),
-    oldDbImportFinish: async (tables) => {
-      unwrap(await cmds.oldDbImportFinish(tables));
     },
   };
 }
