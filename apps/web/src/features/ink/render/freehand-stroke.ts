@@ -62,3 +62,11 @@ export function freedrawCurves(d: string): {
 export function parseInkRenderer(raw: unknown): InkRendererKind {
   return raw === "freehand" ? "freehand" : DEFAULT_INK_RENDERER;
 }
+
+/**
+ * The dev flag that shows the A/B renderer buttons on the canvas. Only the
+ * literal `"on"` shows them, so an unset or stale value keeps the UI as it is.
+ */
+export function parseInkABOn(raw: unknown): boolean {
+  return raw === "on";
+}

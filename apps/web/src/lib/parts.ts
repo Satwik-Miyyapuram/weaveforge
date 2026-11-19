@@ -4,7 +4,7 @@ import { localBackendParts } from "@/backend/providers/local/parts";
 import { createDataClient } from "@/backend/providers/postgrest/parts-1";
 import type { CitationFormat } from "@/features/overleaf/application/parts";
 import { hasScreenCacheData, screenCacheKey } from "@/lib/cache/parts-2";
-import { type InkRendererKind, parseInkRenderer } from "@/features/ink/render/freehand-stroke";
+import { type InkRendererKind, parseInkABOn, parseInkRenderer } from "@/features/ink/render/freehand-stroke";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { type AppLogInput, logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
@@ -320,6 +320,13 @@ export function readInkRenderer(): InkRendererKind {
 
 export function writeInkRenderer(kind: InkRendererKind): void {
   writeStored(INK_RENDERER_STORAGE_KEY, kind);
+}
+
+/** Dev flag (per device): `thesis.inkAB` = "on" shows the A/B renderer buttons on the canvas. */
+const INK_AB_STORAGE_KEY = "thesis.inkAB";
+
+export function readInkABOn(): boolean {
+  return parseInkABOn(readStored(INK_AB_STORAGE_KEY));
 }
 
 // --- latest-gate ---

@@ -5,6 +5,7 @@ import {
   DEFAULT_INK_RENDERER,
   freedrawCurves,
   freehandPathFromFlat,
+  parseInkABOn,
   parseInkRenderer,
 } from "../render/freehand-stroke";
 import { freedrawPath, getFreeDrawSvgPath } from "../render/excalidraw-freedraw";
@@ -80,4 +81,12 @@ test("a tiny stroke at 2 px and 4 px gives a finite, closed outline", () => {
     assert.doesNotMatch(d, /NaN|Infinity/);
     assert.ok(d.endsWith("Z"));
   }
+});
+
+test("the A/B dev flag shows the buttons only when set to on", () => {
+  assert.equal(parseInkABOn("on"), true);
+  assert.equal(parseInkABOn("off"), false);
+  assert.equal(parseInkABOn(null), false);
+  assert.equal(parseInkABOn(undefined), false);
+  assert.equal(parseInkABOn("ON"), false);
 });
