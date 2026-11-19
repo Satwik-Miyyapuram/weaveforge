@@ -1,6 +1,7 @@
 import { getContainer } from "@/bootstrap";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import { loadCore, readyCore, type RustCore } from "@/lib/rust-core";
+import { folderLock } from "./folder-lock";
 import { forgetSessionSeen } from "./folder-session-seen";
 import {
   type IWorkspaceFs,
@@ -349,6 +350,9 @@ export async function applyFolderImport(
 
   // The import changed the database to match the folder: the next mirror starts from an
   // empty record, so it rewrites no existing file (the folder already holds the imported ids).
+  // A mirror already running from before the import must finish before the record is cleared,
+  // or it could record digests after the clear. The import holds no lock itself, so this cannot wait on itself.
+  await folderLock.idle();
   forgetSessionSeen();
   await syncToFolder().catch(() => undefined);
   return { created: result.created, updated: result.updated, moved: result.moved };
