@@ -81,9 +81,3 @@ not listed.
 
 The folder watch ignores `.wfprev` links and this device's `.weaveforge/` files. When the
 OS drops events it emits `vault-watch-overflow`; the page answers with `watcher_rescan`.
-
-## Web helper
-
-`apps/web/src/features/workspace/infrastructure/file-repos.ts` gives each entity kind a
-small repository over these commands: `get`, `list`, `save` (sends the hash the file was
-read at), `create`, `remove`, `rename`. Read-only and duplicate files are never saved.
