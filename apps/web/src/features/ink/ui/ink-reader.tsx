@@ -136,7 +136,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
   const sheetImages = useInkSheetImageUrls(parsed.text, paperId);
   const resolveImageSrc = useStableResolver(sheetImages.resolveImageSrc);
   // `[[links]]` read as links, as in a typed note's Read view (DA-101).
-  const { resolveWikilink } = useWikilinkNavigation();
+  const { resolveWikilink, onWikilinkClick } = useWikilinkNavigation();
 
   // Measure container width for responsive scaling.
   useEffect(() => {
@@ -282,6 +282,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
                 pureText={flowedText[index] ?? ""}
                 resolveImageSrc={resolveImageSrc}
                 resolveWikilink={resolveWikilink}
+                onWikilinkClick={onWikilinkClick}
                 strokes={strokesMap.get(index)}
                 palette={palette}
               />

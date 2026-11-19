@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { renderMarkdownPlain, type WikilinkResolver } from "@/components/markdown/markdown";
 import { loadedMathRenderer, loadMathRenderer } from "@/components/markdown/math-renderer";
 import { upgradeMermaidFences } from "@/lib/mermaid-render";
@@ -28,7 +28,8 @@ export async function loadMathOrLog(load: () => Promise<unknown> = loadMathRende
  *
  * `pointer-events: none` and `user-select: none` ensure that all pointer events
  * (stylus, touch, mouse) pass cleanly to the ink canvas so freehand writing,
- * highlighting and drawing work seamlessly over the text.
+ * highlighting and drawing work seamlessly over the text. The read sheet has
+ * no pen, so there its links alone take clicks (`onWikilinkClick`).
  */
 
 /**
@@ -82,11 +83,17 @@ export function InkSheetTextUnderlay({
   scale,
   resolveImageSrc,
   resolveWikilink,
+  onWikilinkClick,
 }: {
   text: string;
   scale: number;
   /** `[[target]]` → its link. Without one a wikilink shows as its own source. */
   resolveWikilink?: WikilinkResolver;
+  /**
+   * Follows a clicked link. Only where no pen owns the sheet (the read
+   * sheet): with it the links take clicks, the rest of the text still does not.
+   */
+  onWikilinkClick?: (event: MouseEvent<HTMLElement>) => void;
   /**
    * `vault:`/`paperimg:` src → a fetchable URL, or null to drop the image.
    *
@@ -146,7 +153,8 @@ export function InkSheetTextUnderlay({
       // the figure stayed missing while Read mode showed it.
       key={html}
       ref={ref}
-      className="ink-sheet-text-underlay markdown"
+      className={`ink-sheet-text-underlay markdown${onWikilinkClick ? " ink-links-live" : ""}`}
+      onClick={onWikilinkClick}
       style={{
         position: "absolute",
         top: 0,
