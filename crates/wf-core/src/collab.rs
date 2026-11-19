@@ -4,6 +4,8 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
+use crate::sync::text_diff::{diff_body, DiffOp};
+
 /// Someone else in a document, as the presence avatars show them (TS `Peer`).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -82,6 +84,41 @@ pub fn should_persist_body(ready: bool, next: &str, last_saved: &str) -> bool {
     ready && next != last_saved
 }
 
+/// One line step of a plan that turns one text into another.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "op", rename_all = "lowercase")]
+pub enum TextOp {
+    /// A line both texts have, at this point.
+    Keep { text: String },
+    /// A line only the base text has.
+    Delete { text: String },
+    /// A line only the new text has.
+    Insert { text: String },
+}
+
+/// The line steps that turn a base text into the theirs text.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct DiffPlan {
+    /// The steps, in document order.
+    pub ops: Vec<TextOp>,
+}
+
+/// Plans the line edits that turn `base` into `theirs`. Pure planning on the body line diff
+/// (`sync::text_diff`); the caller applies the plan and writes the result.
+#[must_use]
+pub fn collab_diff_plan(base: &str, theirs: &str) -> DiffPlan {
+    let ops = diff_body(base, theirs)
+        .lines
+        .into_iter()
+        .map(|line| match line.op {
+            DiffOp::Same => TextOp::Keep { text: line.text },
+            DiffOp::Ours => TextOp::Delete { text: line.text },
+            DiffOp::Theirs => TextOp::Insert { text: line.text },
+        })
+        .collect();
+    DiffPlan { ops }
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -125,5 +162,87 @@ mod tests {
         }];
         assert!(same_peers(&a, &a.clone()));
         assert!(!same_peers(&a, &[]));
+    }
+
+    /// Joins the texts a plan keeps or deletes, which must rebuild `base`.
+    fn base_of(plan: &DiffPlan) -> String {
+        plan.ops
+            .iter()
+            .filter_map(|op| match op {
+                TextOp::Keep { text } | TextOp::Delete { text } => Some(text.as_str()),
+                TextOp::Insert { .. } => None,
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// Joins the texts a plan keeps or inserts, which must rebuild `theirs`.
+    fn theirs_of(plan: &DiffPlan) -> String {
+        plan.ops
+            .iter()
+            .filter_map(|op| match op {
+                TextOp::Keep { text } | TextOp::Insert { text } => Some(text.as_str()),
+                TextOp::Delete { .. } => None,
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn identical_texts_plan_only_keeps() {
+        let plan = collab_diff_plan("a\nb\n", "a\nb\n");
+        assert!(plan.ops.iter().all(|op| matches!(op, TextOp::Keep { .. })));
+    }
+
+    #[test]
+    fn insertion_and_deletion_are_planned() {
+        let plan = collab_diff_plan("one\ntwo\n", "one\nthree\n");
+        assert!(plan.ops.contains(&TextOp::Delete { text: "two".into() }));
+        assert!(plan.ops.contains(&TextOp::Insert {
+            text: "three".into()
+        }));
+        assert!(plan.ops.contains(&TextOp::Keep { text: "one".into() }));
+    }
+
+    #[test]
+    fn empty_base_plans_only_inserts() {
+        let plan = collab_diff_plan("", "x\ny");
+        assert_eq!(theirs_of(&plan), "x\ny");
+        assert!(!plan
+            .ops
+            .iter()
+            .any(|op| matches!(op, TextOp::Insert { text } if text.is_empty())));
+    }
+
+    #[test]
+    fn plan_rebuilds_both_texts_on_generated_inputs() {
+        // Deterministic LCG, so the property run is the same every time.
+        let mut seed: u64 = 0x9e37_79b9_7f4a_7c15;
+        let mut next = move |n: u64| {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            (seed >> 33) % n
+        };
+        let words = ["alpha", "beta", "", "gamma", "delta"];
+        for _ in 0..200 {
+            let mut make = |len: u64| {
+                (0..len)
+                    .map(|_| words[next(5) as usize])
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            };
+            let base = make(next(8));
+            let theirs = make(next(8));
+            let plan = collab_diff_plan(&base, &theirs);
+            assert_eq!(
+                base_of(&plan),
+                base.replace("\r\n", "\n").replace('\r', "\n")
+            );
+            assert_eq!(
+                theirs_of(&plan),
+                theirs.replace("\r\n", "\n").replace('\r', "\n")
+            );
+        }
     }
 }
