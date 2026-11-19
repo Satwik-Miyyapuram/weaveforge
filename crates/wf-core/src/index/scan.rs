@@ -4,6 +4,7 @@
 use serde_json::Value;
 
 use super::store::{IndexEntry, IndexStore, Relation};
+use crate::papers::paper_file::{PAPER_TYPE, parse_paper_file};
 use crate::sync::deserialize::parse_workspace_file;
 use crate::sync::frontmatter::{
     FileKind, canonical_digest, file_header, file_kind, frontmatter_list,
@@ -43,8 +44,10 @@ pub fn entry_from_file(path: &str, text: &str) -> Option<IndexEntry> {
             wiki_links(text),
         ),
     };
+    let id = id.unwrap_or_default();
+    let relations = paper_relations(&kind_name, &id, text);
     Some(IndexEntry {
-        id: id.unwrap_or_default(),
+        id,
         path: path.to_owned(),
         kind: kind_name,
         project_id: project_of(path),
@@ -56,7 +59,25 @@ pub fn entry_from_file(path: &str, text: &str) -> Option<IndexEntry> {
         duplicate: false,
         conflict_of: header.conflict_of,
         digest: canonical_digest(text),
+        relations,
     })
+}
+
+/// The outgoing relations a paper file declares in its frontmatter; none for other kinds.
+fn paper_relations(kind: &str, id: &str, text: &str) -> Vec<Relation> {
+    if kind != PAPER_TYPE {
+        return Vec::new();
+    }
+    parse_paper_file(text)
+        .map(|paper| paper.relations)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|row| Relation {
+            source_id: id.to_owned(),
+            target_id: row.to,
+            relation_type: row.relation_type,
+        })
+        .collect()
 }
 
 /// The first path segment when the path has more than one segment and that

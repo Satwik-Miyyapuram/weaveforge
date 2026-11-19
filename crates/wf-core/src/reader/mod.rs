@@ -8,6 +8,7 @@ pub mod annotation_draft;
 pub mod annotation_geometry;
 pub mod annotation_helpers;
 pub mod annotation_rows;
+pub mod annotations_file;
 pub mod batch_annotation_ops;
 pub mod build_locus_link;
 pub mod citation_spans;

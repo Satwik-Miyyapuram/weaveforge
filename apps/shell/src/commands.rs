@@ -274,6 +274,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::cmd_files::base_set,
         crate::cmd_files::index_get,
         crate::cmd_files::index_list,
+        crate::cmd_files::index_relations_graph,
         crate::cmd_files::watcher_rescan,
         crate::cmd_files::git_pull_now,
         crate::cmd_files::git_file_history,

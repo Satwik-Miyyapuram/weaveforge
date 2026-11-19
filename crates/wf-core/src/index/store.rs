@@ -30,6 +30,9 @@ pub struct IndexEntry {
     pub conflict_of: Option<String>,
     /// Digest of the file's canonical text.
     pub digest: String,
+    /// Relations the file itself declares (a paper's frontmatter `relations`).
+    #[serde(default)]
+    pub relations: Vec<Relation>,
 }
 
 /// A typed link between two entities.
@@ -143,14 +146,23 @@ impl IndexStore {
             .extend(rows.into_iter().map(|row| (project_id.to_owned(), row)));
     }
 
-    /// Relations where `id` is the source or the target.
+    /// Relations where `id` is the source or the target: each project's
+    /// `relations.json` rows, then the rows files declare themselves. A target no
+    /// file declares is kept (`get` gives None for it). A relation declared in
+    /// both places, or twice, is listed once.
     #[must_use]
     pub fn relations_of(&self, id: &str) -> Vec<&Relation> {
-        self.relations
-            .iter()
-            .map(|(_, row)| row)
-            .filter(|row| row.source_id == id || row.target_id == id)
-            .collect()
+        let mut out: Vec<&Relation> = Vec::new();
+        for row in self.relations.iter().map(|(_, row)| row).chain(
+            self.by_path
+                .values()
+                .flat_map(|entry| entry.relations.iter()),
+        ) {
+            if (row.source_id == id || row.target_id == id) && !out.contains(&row) {
+                out.push(row);
+            }
+        }
+        out
     }
 
     /// Every entry whose id is shared by another live file.
