@@ -7,7 +7,7 @@ use serde_json::{Map, Value, json};
 use wf_core::ai::proposal_file::{parse_proposal_file, render_audit_line, render_proposal_file};
 use wf_core::overleaf::link_file::{OverleafLink, parse_overleaf_link, render_overleaf_link};
 use wf_core::settings::secret_guard::{
-    NOT_CONFIG_DIRS, SecretRefused, check_config_write, is_config_path,
+    NOT_CONFIG_DIRS, SecretRefused, check_config_bytes, check_config_write, is_config_path,
 };
 use wf_core::settings::settings_file::{apply_patch, parse_settings, render_settings};
 use wf_core::sync::folder_layout::{DEVICE_SETTINGS_PATH, SETTINGS_PATH};
@@ -157,6 +157,22 @@ fn config_paths_ignore_case_and_depth() {
     ] {
         assert!(!is_config_path(path), "{path}");
     }
+}
+
+/// Bytes written or moved onto a config path get the same check as text; a config
+/// file that is not UTF-8 cannot be checked, so it is refused too.
+#[test]
+fn config_bytes_checked_like_text() {
+    let secret = br#"{"git":{"token":"x"}}"#;
+    assert!(check_config_bytes(SETTINGS_PATH, secret).is_err());
+    assert!(check_config_bytes(".WeaveForge/ai/x.JSON", secret).is_err());
+    assert!(check_config_bytes(SETTINGS_PATH, br#"{"theme":"crt"}"#).is_ok());
+    assert!(check_config_bytes(SETTINGS_PATH, &[0xff, 0xfe, 0x00]).is_err());
+    // Anything that is not a config file passes untouched, binary or not.
+    assert!(check_config_bytes("papers/x.pdf", &[0xff, 0xfe, 0x00]).is_ok());
+    assert!(check_config_bytes("notes/token.json", secret).is_ok());
+    let err = check_config_bytes(SETTINGS_PATH, secret).unwrap_err();
+    assert!(!err.to_string().contains("\"x\""), "never the value");
 }
 
 /// The PDF text cache copies a paper's own words; a paper that prints something

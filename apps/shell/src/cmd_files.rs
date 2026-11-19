@@ -293,6 +293,8 @@ pub async fn file_write_bytes(
     let watch = watch.inner().clone();
     on_vault(state.inner(), move |vault| {
         check_len(bytes.len(), MAX_BLOB_BYTES)?;
+        wf_core::settings::secret_guard::check_config_bytes(&path, &bytes)
+            .map_err(|e| e.to_string())?;
         watch.note_self_write(&path, &bytes);
         vault
             .write_bytes_checked(&path, &bytes, expected_hash.as_deref())
@@ -339,6 +341,12 @@ pub async fn file_rename(
 ) -> Result<bool, ShellError> {
     let (watch, index) = (watch.inner().clone(), index.inner().clone());
     on_vault(state.inner(), move |vault| {
+        // A rename onto a config path is a write of the moved file there: check it first.
+        if wf_core::settings::secret_guard::is_config_path(&to) {
+            let bytes = vault.read_file(&from).map_err(|e| e.to_string())?;
+            wf_core::settings::secret_guard::check_config_bytes(&to, &bytes)
+                .map_err(|e| e.to_string())?;
+        }
         watch.note_self_remove(&from);
         // The moved file is our write too. It is noted before the rename so the watcher cannot
         // report it as an external edit first. The conflict copy's name is only known after the

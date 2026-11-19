@@ -60,8 +60,10 @@ the core has loaded.
 ## Where secrets go
 
 Secrets live in the system keychain (`apps/shell/src/secrets.rs`), never in a
-workspace file. The shell's `file_write` command runs `check_config_write` on
-every write to a config file (any `.json` or `.jsonl` below a `.weaveforge/`
+workspace file. The shell's `file_write` command runs `check_config_write`, and
+`file_write_bytes` and `file_rename` run `check_config_bytes` on the bytes that
+land at the destination (a config file that is not UTF-8 is refused,
+`config_bytes_checked_like_text`), on every write to a config file (any `.json` or `.jsonl` below a `.weaveforge/`
 folder at any depth, and any `.overleaf.json`), so a secret is refused before it
 reaches the disk or git. Case is ignored and trailing dots and spaces are
 dropped from each part of the path, since Windows and macOS open the same file

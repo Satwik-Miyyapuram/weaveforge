@@ -211,6 +211,22 @@ pub fn check_config_write(path: &str, contents: &str) -> Result<(), SecretRefuse
     Ok(())
 }
 
+/// [`check_config_write`] for raw bytes: a binary write or a rename that lands on
+/// `path`. A config file that is not UTF-8 cannot be checked, so it is refused.
+///
+/// # Errors
+///
+/// [`SecretRefused`] when a config file would hold a secret or is not UTF-8 text.
+pub fn check_config_bytes(path: &str, bytes: &[u8]) -> Result<(), SecretRefused> {
+    if !is_config_path(path) {
+        return Ok(());
+    }
+    let text = std::str::from_utf8(bytes).map_err(|_| SecretRefused {
+        location: "binary data that cannot be checked".to_owned(),
+    })?;
+    check_config_write(path, text)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
