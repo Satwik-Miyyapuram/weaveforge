@@ -8,6 +8,11 @@
  *
  * Units: points and the returned outline are in the stroke's own units (0.1 mm).
  * Pressure goes in as 0–1; the stroke's pressure is 0–255.
+ *
+ * Pressure is held at the midpoint (`FREEHAND_PRESSURE`) on both the wet and the
+ * settled stroke. Settled strokes carry no pressure (the Rust render path drops
+ * it), so a stroke that used live pressure would change width on release. At the
+ * midpoint the width is the nib's width for both, and the classic capsule's.
  */
 
 import { getStroke, type StrokeOptions } from "perfect-freehand";
@@ -20,10 +25,15 @@ export const DEFAULT_INK_RENDERER: InkRendererKind = "classic";
 export const PEN_EASING = (t: number): number =>
   0.65 * t + 0.35 * Math.sin((t * Math.PI) / 2);
 
+/** Midpoint pressure, on the 0–255 stored scale (0.5 after `freehandOutline`). */
+export const FREEHAND_PRESSURE = 127.5;
+
 /**
- * The tldraw "draw" pen, with `size` = the stroke width, so a freehand stroke
- * is the same diameter as the classic capsule it replaces. A highlighter keeps
- * pressure out of its width (`thinning: 0`), as the classic highlighter does.
+ * The tldraw "draw" pen. Perfect-freehand's radius at pressure p is
+ * `size * easing(0.5 - thinning * (0.5 - p))`, so for the pen `size` is scaled
+ * to give a radius of `width / 2` at the midpoint pressure, the classic capsule's
+ * diameter. A highlighter has `thinning: 0`, and the library then takes its
+ * radius as `size / 2` with no easing, so its `size` is the width itself.
  */
 export function tldrawPenOptions(
   width: number,
@@ -32,7 +42,7 @@ export function tldrawPenOptions(
   highlighter = false,
 ): StrokeOptions {
   return {
-    size: width,
+    size: highlighter ? width : width / (2 * PEN_EASING(0.5)),
     thinning: highlighter ? 0 : 0.62,
     streamline: 0.62,
     smoothing: 0.62,
@@ -77,8 +87,8 @@ export function freehandOutline(
 
 /**
  * The outline of a settled stroke, as SVG path data, from flat `x, y` pairs (the
- * shape `InkRenderStroke.points` carries). A settled stroke has no pressure, so
- * every point is full pressure.
+ * shape `InkRenderStroke.points` carries). Every point is at the midpoint
+ * pressure, the same as the wet stroke (see the header).
  */
 export function freehandPathFromFlat(
   points: readonly number[],
@@ -88,7 +98,7 @@ export function freehandPathFromFlat(
   const count = points.length >> 1;
   const x = new Array<number>(count);
   const y = new Array<number>(count);
-  const pressure = new Array<number>(count).fill(255);
+  const pressure = new Array<number>(count).fill(FREEHAND_PRESSURE);
   for (let i = 0; i < count; i++) {
     x[i] = points[2 * i]!;
     y[i] = points[2 * i + 1]!;

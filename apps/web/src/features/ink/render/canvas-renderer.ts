@@ -44,6 +44,7 @@ import {
 import { readyCore } from "@/lib/rust-core";
 import {
   DEFAULT_INK_RENDERER,
+  FREEHAND_PRESSURE,
   freehandOutline,
   type InkRendererKind,
 } from "./freehand-stroke";
@@ -406,12 +407,15 @@ export function paintStroke(
  * Same colour, alpha and halo rules as `paintStroke`; the shape differs. A halo
  * grows the stroke's width by `2 * grow`, which is an approximation of the
  * capsule halo, not the same geometry. Returns the segments drawn.
+ * `_pressure` is not read: the outline is held at the midpoint pressure, the
+ * same as the settled stroke (see `freehand-stroke.ts`). It stays in the
+ * signature so the two painters share a call shape.
  */
 export function paintFreehandStroke(
   context: Context2dLike,
   x: Float32Array,
   y: Float32Array,
-  pressure: Uint8Array,
+  _pressure: Uint8Array,
   stroke: { width: number; tool: string; colour: InkColour },
   highlighter: boolean,
   palette: InkPalette = INK_RENDER_COLOURS,
@@ -422,7 +426,7 @@ export function paintFreehandStroke(
   if (count === 0) return 0;
   const grow = halo?.grow ?? 0;
   const outline = freehandOutline(
-    { x, y, pressure },
+    { x, y, pressure: new Array<number>(count).fill(FREEHAND_PRESSURE) },
     stroke.width + 2 * grow,
     { last, simulatePressure: false, highlighter },
   );

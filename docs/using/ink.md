@@ -144,7 +144,10 @@ off by default. It is for comparing two ways of drawing the same ink. The
 classic renderer draws capsules; the freehand one fills a smooth outline around
 each stroke's points, both while you write and once the stroke is saved to the
 page. The switch applies to the next ink page you open, not the one already
-open. Freehand always draws on the Canvas 2D path, not WebGL, while you write.
+open, so change it and then reload the app before comparing. Freehand always draws
+on the Canvas 2D path, not WebGL, while you write. Its width does not follow
+pressure, in either state: a stroke is the pen's width throughout, as the classic
+renderer draws it. Printing a PDF's ink stays classic in both settings.
 The switch changes only how strokes look; the saved ink is the same either way.
 
 ## Stuck?

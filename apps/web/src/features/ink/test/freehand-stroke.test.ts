@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   DEFAULT_INK_RENDERER,
+  PEN_EASING,
   freehandOutline,
   freehandPathFromFlat,
   outlinePathData,
@@ -90,8 +91,22 @@ test("the setting picks the renderer; anything unknown stays classic", () => {
   assert.equal(parseInkRenderer(1), "classic");
 });
 
-test("the pen is sized at the stroke width itself, not 1 + width * 1.2", () => {
-  assert.equal(tldrawPenOptions(WIDTH, true, false).size, WIDTH);
+test("the pen is sized so a stroke at the midpoint pressure is the stroke width across", () => {
+  // radius = size * PEN_EASING(0.5 - thinning * (0.5 - p)); at p = 0.5 that is size * PEN_EASING(0.5).
+  assert.equal(tldrawPenOptions(WIDTH, true, false).size, WIDTH / (2 * PEN_EASING(0.5)));
+});
+
+test("a settled stroke's outline is half the width from its centreline at the midpoint pressure, within 10 %", () => {
+  // A straight run along y = 0: the outline's extent across the run is the half-width.
+  const flat: number[] = [];
+  for (let x = 0; x <= 200; x += 5) flat.push(x, 0);
+  const d = freehandPathFromFlat(flat, WIDTH);
+  const pts = [...d.matchAll(/(-?[\d.e]+) (-?[\d.e]+)/g)].map((m) => [Number(m[1]), Number(m[2])] as const);
+  const middle = pts.filter(([x]) => x > 60 && x < 140).map(([, y]) => y);
+  const top = Math.max(...middle);
+  const bottom = Math.min(...middle);
+  assert.ok(Math.abs(top - WIDTH / 2) <= WIDTH / 2 * 0.1, `upper edge ${top} is not WIDTH / 2`);
+  assert.ok(Math.abs(bottom + WIDTH / 2) <= WIDTH / 2 * 0.1, `lower edge ${bottom} is not -WIDTH / 2`);
 });
 
 test("freehandPathFromFlat outlines flat x,y pairs as one closed path, and empty input has none", () => {

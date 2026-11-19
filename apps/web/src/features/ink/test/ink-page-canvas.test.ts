@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 import type { InkRenderStroke } from "../ui/ink-strokes";
 import { drawInkStrokes } from "../ui/ink-page-canvas";
+import { settledStrokePath } from "../ui/ink-strokes";
 
 class FakePath2D {
   d: string | undefined;
@@ -19,6 +20,12 @@ interface Call {
   args: unknown[];
 }
 
+interface FillRecord {
+  path: unknown;
+  fillStyle: string;
+  globalAlpha: number;
+}
+
 interface StrokeRecord {
   path: unknown;
   strokeStyle: string;
@@ -29,7 +36,9 @@ interface StrokeRecord {
 function recordingContext(width = 800, height = 1000) {
   const calls: Call[] = [];
   const strokes: StrokeRecord[] = [];
+  const fills: FillRecord[] = [];
   let strokeStyle = "";
+  let fillStyle = "";
   let lineWidth = 1;
   let globalAlpha = 1;
   let lineCap = "";
@@ -44,6 +53,12 @@ function recordingContext(width = 800, height = 1000) {
     },
     set strokeStyle(val: string) {
       strokeStyle = val;
+    },
+    get fillStyle() {
+      return fillStyle;
+    },
+    set fillStyle(val: string) {
+      fillStyle = val;
     },
     get lineWidth() {
       return lineWidth;
@@ -75,6 +90,10 @@ function recordingContext(width = 800, height = 1000) {
     clearRect(x: number, y: number, w: number, h: number) {
       calls.push({ name: "clearRect", args: [x, y, w, h] });
     },
+    fill(path?: unknown) {
+      calls.push({ name: "fill", args: [path] });
+      fills.push({ path, fillStyle, globalAlpha });
+    },
     stroke(path?: unknown) {
       calls.push({ name: "stroke", args: [path] });
       strokes.push({
@@ -90,6 +109,7 @@ function recordingContext(width = 800, height = 1000) {
     ctx: ctx as unknown as CanvasRenderingContext2D,
     calls,
     strokes,
+    fills,
   };
 }
 
@@ -161,4 +181,23 @@ test("drawInkStrokes calls setTransform with unitsToPx scale and sets lineCap/li
   assert.deepEqual(setTransformCall.args, [2.5, 0, 0, 2.5, 0, 0]);
   assert.equal(ctx.lineCap, "round");
   assert.equal(ctx.lineJoin, "round");
+});
+
+test("drawInkStrokes in freehand fills each stroke's settled outline and strokes none", () => {
+  const { ctx, fills, strokes } = recordingContext();
+  const input: InkRenderStroke[] = [
+    { points: [0, 0, 50, 0, 100, 20], width: 10, colour: "#000000", highlighter: false },
+    { points: [0, 40, 50, 40], width: 15, colour: "#ffff00", highlighter: true },
+  ];
+
+  drawInkStrokes(ctx, input, 1, "freehand");
+
+  assert.equal(strokes.length, 0, "freehand strokes no centreline");
+  assert.equal(fills.length, 2, "one fill per stroke");
+  assert.deepEqual(
+    (fills[0]!.path as FakePath2D).d,
+    settledStrokePath(input[0]!.points, 10, "freehand", false),
+  );
+  assert.equal(fills[0]!.fillStyle, "#000000");
+  assert.equal(fills[1]!.globalAlpha, HIGHLIGHTER_ALPHA, "highlighter fill is translucent");
 });
