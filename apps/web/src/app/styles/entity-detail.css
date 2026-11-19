@@ -191,6 +191,12 @@ a.related-paper-url:hover { text-decoration: underline; }
   overflow: hidden;
 }
 
+/* Folded as far as it goes and still too wide: wrap onto a second row rather than clip. */
+.document-toolbar[data-wrap] {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
 .brave-graph-warning {
   display: flex; align-items: flex-start; gap: 12px;
   padding: 8px 12px; margin: 0 0 8px; border-radius: var(--r-control);

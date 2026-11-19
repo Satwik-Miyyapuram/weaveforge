@@ -476,9 +476,34 @@ pub async fn ensure_repo(
 /// cancel bumps `TURN`, which stops any `finish` still waiting on the old code.
 static PENDING: Mutex<Option<(u64, DeviceCode)>> = Mutex::new(None);
 static TURN: AtomicU64 = AtomicU64::new(0);
+/// The answer of the turn's `finish`, so a retried call does not poll a spent code again.
+static FINISHED: tokio::sync::Mutex<Option<(u64, GithubConnected)>> =
+    tokio::sync::Mutex::const_new(None);
 
 fn pending() -> std::sync::MutexGuard<'static, Option<(u64, DeviceCode)>> {
     PENDING.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// Runs `run` once per connect turn: a second call for the same turn (Tauri retries a
+/// long invoke over postMessage) waits for the first and gets its answer instead of
+/// polling a device code GitHub already spent.
+async fn once_per_turn<T: Clone, E, F>(
+    slot: &tokio::sync::Mutex<Option<(u64, T)>>,
+    turn: u64,
+    run: F,
+) -> Result<T, E>
+where
+    F: std::future::Future<Output = Result<T, E>>,
+{
+    let mut done = slot.lock().await;
+    if let Some((t, value)) = done.as_ref()
+        && *t == turn
+    {
+        return Ok(value.clone());
+    }
+    let value = run.await?;
+    *done = Some((turn, value.clone()));
+    Ok(value)
 }
 
 /// Starts the device flow and answers the code for the page to show.
@@ -513,9 +538,29 @@ pub async fn github_connect_finish(
     secrets: tauri::State<'_, Secrets>,
     name: Option<String>,
 ) -> Result<GithubConnected, ShellError> {
-    let (turn, code) = pending()
-        .clone()
-        .ok_or_else(|| ShellError::from(NOT_STARTED.to_owned()))?;
+    // Read the turn before `pending()`: the first run clears it when it ends.
+    let turn = TURN.load(Ordering::SeqCst);
+    let answer = once_per_turn(&FINISHED, turn, async {
+        let (code_turn, code) = pending()
+            .clone()
+            .ok_or_else(|| ShellError::from(NOT_STARTED.to_owned()))?;
+        finish_inner(&vault, &prefs, &secrets, name, code_turn, code).await
+    })
+    .await;
+    if let Err(err) = &answer {
+        eprintln!("[github-connect] finish failed: {}", err.message);
+    }
+    answer
+}
+
+async fn finish_inner(
+    vault: &VaultState,
+    prefs: &Prefs,
+    secrets: &Secrets,
+    name: Option<String>,
+    turn: u64,
+    code: DeviceCode,
+) -> Result<GithubConnected, ShellError> {
     let client = relay_client().map_err(|_| ShellError::from(UNREACHABLE.to_owned()))?;
     let ends = Endpoints::production()?;
     let stale = move || TURN.load(Ordering::SeqCst) != turn;
@@ -529,7 +574,7 @@ pub async fn github_connect_finish(
     )
     .await?;
     let login = user_login(&client, &ends, &token).await?;
-    let stored = prefs.inner().clone();
+    let stored = prefs.clone();
     let remote = stored
         .queued(|p| p.read("vault-git-remote"))
         .await
@@ -542,7 +587,7 @@ pub async fn github_connect_finish(
     let name = match existing_repo_name(remote.as_deref(), &login) {
         Some(same) => same,
         None => {
-            let folder = crate::vault_sync::current_root(vault.inner())
+            let folder = crate::vault_sync::current_root(vault)
                 .await
                 .and_then(|root| root.file_name().map(|n| n.to_string_lossy().into_owned()));
             repo_name(name.as_deref(), folder.as_deref())
@@ -594,5 +639,38 @@ mod tests {
             assert_eq!(CLIENT_ID, "Ov23liGTr77x2QN93Qmw");
         }
         assert!(!CLIENT_ID.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_second_finish_for_the_same_turn_reuses_the_first_answer() {
+        let slot = tokio::sync::Mutex::new(None);
+        let first = once_per_turn(&slot, 7, async { Ok::<_, String>(1u32) }).await;
+        assert_eq!(first, Ok(1));
+        let second = once_per_turn(&slot, 7, async {
+            Err::<u32, String>("polled again".to_owned())
+        })
+        .await;
+        assert_eq!(second, Ok(1));
+    }
+
+    #[tokio::test]
+    async fn a_new_turn_runs_again() {
+        let slot = tokio::sync::Mutex::new(None);
+        let first = once_per_turn(&slot, 7, async { Ok::<_, String>(1u32) }).await;
+        assert_eq!(first, Ok(1));
+        let second = once_per_turn(&slot, 8, async { Ok::<_, String>(2u32) }).await;
+        assert_eq!(second, Ok(2));
+    }
+
+    #[tokio::test]
+    async fn a_failed_finish_is_not_cached() {
+        let slot = tokio::sync::Mutex::new(None);
+        let first = once_per_turn(&slot, 9, async {
+            Err::<u32, String>("declined".to_owned())
+        })
+        .await;
+        assert_eq!(first, Err("declined".to_owned()));
+        let second = once_per_turn(&slot, 9, async { Ok::<_, String>(3u32) }).await;
+        assert_eq!(second, Ok(3));
     }
 }

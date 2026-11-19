@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/button";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import {
-  importOldDb,
+  importOldDbOnce,
   openOldDb,
   type OldDbShell,
 } from "../application/import-old-db";
@@ -39,14 +39,19 @@ export function OldDbImportGate({ children }: { children: ReactNode }) {
           return;
         }
         if (live) setPhase({ kind: "importing", table: "", index: 0, total: 0 });
-        await importOldDb({
+        const outcome = await importOldDbOnce({
           shell,
           open: openOldDb,
           onProgress: (progress) => {
             if (live) setPhase({ kind: "importing", ...progress });
           },
         });
-        if (live) setPhase({ kind: "done" });
+        // Providers above this gate already asked who the user is, before the
+        // import brought the old account in; a reload makes them ask again.
+        // It runs even if the gate unmounted meanwhile: a remount would see
+        // nothing left to import and show the stale user.
+        if (outcome.imported) window.location.reload();
+        else if (live) setPhase({ kind: "done" });
       } catch (error) {
         if (live) setPhase({ kind: "failed", message: messageOf(error) });
       }
@@ -85,14 +90,14 @@ function oldDbShell(): OldDbShell | null {
   if (
     !bridge ||
     !bridge.oldDbStatus ||
-    !bridge.oldDbTar ||
+    !bridge.oldDbTarPart ||
     !bridge.oldDbImportTable ||
     !bridge.oldDbImportFinish
   )
     return null;
   return {
     status: bridge.oldDbStatus.bind(bridge),
-    tar: bridge.oldDbTar.bind(bridge),
+    tarPart: bridge.oldDbTarPart.bind(bridge),
     importTable: bridge.oldDbImportTable.bind(bridge),
     finish: bridge.oldDbImportFinish.bind(bridge),
   };

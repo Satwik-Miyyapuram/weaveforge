@@ -22,6 +22,22 @@ tracks at once.
 
 ### iOS
 
+## [0.9.3] - 2026-11-18
+
+Desktop (`v0.9.3`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **Fixed:** Your 0.8 data now shows straight after it is brought over, including all projects, instead of an empty workspace.
+- **Fixed:** A large 0.8 database is brought over in parts, without per-table conflicts.
+- **Fixed:** Pop-ups and side panels no longer cover the title bar and menu.
+- **Added:** Rename a project from its card menu; its workspace folder follows the new name.
+- **Fixed:** Connecting GitHub finishes reliably, and the sync status dot shows what sync is doing.
+- **Fixed:** The document toolbar refits after focus and wraps instead of clipping.
+- **Fixed:** Overleaf errors show the HTTP status and the server's message.
+- **Fixed:** Ink recognition no longer opens a console window on Windows.
+- **Added:** Press Ctrl+V in the PDF reader to place a copied image on the page.
+- **Changed:** OneNote import accepts files up to 512 MiB.
+
 ## [0.9.2] - 2026-11-17
 
 Desktop (`v0.9.2`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.

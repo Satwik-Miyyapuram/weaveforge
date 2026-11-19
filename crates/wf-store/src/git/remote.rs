@@ -12,7 +12,6 @@ use git2::{
     Signature, Tree, TreeWalkMode, TreeWalkResult,
 };
 
-use crate::git::policy::{FileState, describe_changes};
 use crate::git::repo::{Author, FolderRepo, RepoError, write_excludes};
 
 /// Name of the remote WeaveForge adds; the user's own remotes (e.g. origin) are never touched.
@@ -511,8 +510,7 @@ fn commit_pending(repo: &FolderRepo) -> Result<(), RepoError> {
     if changes.is_empty() {
         return Ok(());
     }
-    let states: Vec<FileState> = changes.iter().map(|change| change.state).collect();
-    let _committed = repo.commit_all(&describe_changes(&states), SYNC_AUTHOR)?;
+    let _committed = repo.commit_described(SYNC_AUTHOR)?;
     Ok(())
 }
 

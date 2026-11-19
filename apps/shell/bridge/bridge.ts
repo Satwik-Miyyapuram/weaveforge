@@ -8,7 +8,7 @@ export type LocalDbCommands = Pick<
   | "dbState"
   | "dbReset"
   | "oldDbStatus"
-  | "oldDbTar"
+  | "oldDbTarPart"
   | "oldDbImportTable"
   | "oldDbImportFinish"
 >;
@@ -20,7 +20,7 @@ export type LocalDbBridge = Pick<
   | "localDbState"
   | "resetLocalDb"
   | "oldDbStatus"
-  | "oldDbTar"
+  | "oldDbTarPart"
   | "oldDbImportTable"
   | "oldDbImportFinish"
 >;
@@ -37,9 +37,9 @@ export function localDbBridge(cmds: LocalDbCommands): LocalDbBridge {
       unwrap(await cmds.dbReset());
     },
     oldDbStatus: async () => unwrap(await cmds.oldDbStatus()),
-    oldDbTar: async () => unwrap(await cmds.oldDbTar()),
-    oldDbImportTable: async (table, rows) =>
-      unwrap(await cmds.oldDbImportTable(table, rows)),
+    oldDbTarPart: async (index) => unwrap(await cmds.oldDbTarPart(index)),
+    oldDbImportTable: async (table, rows, last) =>
+      unwrap(await cmds.oldDbImportTable(table, rows, last)),
     oldDbImportFinish: async (tables) => {
       unwrap(await cmds.oldDbImportFinish(tables));
     },

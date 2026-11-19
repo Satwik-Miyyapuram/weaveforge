@@ -67,7 +67,10 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
         setHasToken(reply.hasToken);
         setNeedsReconnect(reply.needsReconnect === true);
       })
-      .catch(() => undefined);
+      .catch((err: unknown) => {
+        // A settings read that fails says why, rather than leaving the panel blank.
+        if (live) setError(formatError(err));
+      });
     const stop = onGithubReauth(() => setNeedsReconnect(true));
     return () => {
       live = false;

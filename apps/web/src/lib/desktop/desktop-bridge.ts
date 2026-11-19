@@ -177,14 +177,16 @@ export interface DesktopBridge {
   /**
    * Bringing the 0.8 (Electron) database over. Optional: a shell without them
    * has no old data to import. `oldDbStatus` is true while old data exists that
-   * has not been imported; `oldDbTar` is that data directory as base64 of a tar;
-   * the import then runs table by table (parents first) and `oldDbImportFinish`
-   * is called only after every table has succeeded. The old directory is read,
-   * never written.
+   * has not been imported; `oldDbTarPart` returns that data directory as a tar,
+   * one base64 part at a time (part 0 first, which also gives the part count);
+   * the import then runs table by table (parents first), a big table in several
+   * `oldDbImportTable` calls with `last` set on its final one, and
+   * `oldDbImportFinish` is called only after every table has succeeded. The old
+   * directory is read, never written.
    */
   oldDbStatus?(): Promise<boolean>;
-  oldDbTar?(): Promise<string>;
-  oldDbImportTable?(table: string, rows: unknown[]): Promise<DesktopOldDbReport>;
+  oldDbTarPart?(index: number): Promise<{ data: string; parts: number }>;
+  oldDbImportTable?(table: string, rows: unknown[], last: boolean): Promise<DesktopOldDbReport>;
   oldDbImportFinish?(tables: string[]): Promise<void>;
 
   /**

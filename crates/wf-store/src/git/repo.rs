@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use git2::{
-    DiffOptions, ErrorCode, IndexAddOption, Oid, Repository, RepositoryInitOptions, Sort, Status,
-    StatusOptions,
+    Delta, DiffOptions, ErrorCode, IndexAddOption, Oid, Repository, RepositoryInitOptions, Sort,
+    Status, StatusOptions,
 };
 
 use crate::git::policy::{
@@ -295,6 +295,24 @@ impl FolderRepo {
         message: &str,
         author: Author<'_>,
     ) -> Result<Option<Commit>, RepoError> {
+        self.commit_with(Some(message), author)
+    }
+
+    /// Commits every permitted change with a message describing what the commit holds;
+    /// `Ok(None)` when nothing changed.
+    ///
+    /// # Errors
+    /// When git cannot write the commit; a stale `index.lock` is named in the error.
+    pub fn commit_described(&self, author: Author<'_>) -> Result<Option<Commit>, RepoError> {
+        self.commit_with(None, author)
+    }
+
+    /// `message` of `None` describes the staged tree against its parent instead.
+    fn commit_with(
+        &self,
+        message: Option<&str>,
+        author: Author<'_>,
+    ) -> Result<Option<Commit>, RepoError> {
         match self.stage_and_commit(message, author) {
             Ok(None) => Ok(None),
             Ok(Some(oid)) => {
@@ -329,7 +347,7 @@ impl FolderRepo {
     /// Stages permitted changes and commits them; `Ok(None)` when there is nothing to commit.
     fn stage_and_commit(
         &self,
-        message: &str,
+        message: Option<&str>,
         author: Author<'_>,
     ) -> Result<Option<Oid>, RepoError> {
         let repo = self.open()?;
@@ -387,9 +405,37 @@ impl FolderRepo {
         }
         let sig = git2::Signature::now(author.name, author.email)?;
         let tree = repo.find_tree(tree_id)?;
+        let message = match message {
+            Some(message) => message.to_owned(),
+            // Describe what this commit adds, not what the status list says is dirty.
+            None => {
+                let parent_tree = parent.as_ref().map(git2::Commit::tree).transpose()?;
+                Self::describe_tree_diff(&repo, parent_tree.as_ref(), &tree)?
+            }
+        };
         let parents: Vec<&git2::Commit<'_>> = parent.iter().collect();
-        let oid = repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parents)?;
+        let oid = repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &parents)?;
         Ok(Some(oid))
+    }
+
+    /// Mirror-style message for what `tree` changes against `parent`, renames counted once.
+    fn describe_tree_diff(
+        repo: &Repository,
+        parent: Option<&git2::Tree<'_>>,
+        tree: &git2::Tree<'_>,
+    ) -> Result<String, RepoError> {
+        let mut diff = repo.diff_tree_to_tree(parent, Some(tree), None)?;
+        diff.find_similar(None)?;
+        let mut states = Vec::new();
+        for delta in diff.deltas() {
+            states.push(match delta.status() {
+                Delta::Added | Delta::Copied => FileState::Added,
+                Delta::Deleted => FileState::Deleted,
+                Delta::Modified | Delta::Typechange | Delta::Renamed => FileState::Modified,
+                _ => continue,
+            });
+        }
+        Ok(describe_changes(&states))
     }
 
     /// Names a stale `index.lock` when it blocks the commit; otherwise returns `error` as is.
@@ -532,8 +578,7 @@ pub fn commit_vault(root: &Path, enabled: bool) -> CommitOutcome {
             reason: None,
         };
     }
-    let states: Vec<FileState> = changes.iter().map(|change| change.state).collect();
-    match repo.commit_all(&describe_changes(&states), MIRROR_AUTHOR) {
+    match repo.commit_described(MIRROR_AUTHOR) {
         Ok(commit) => CommitOutcome {
             commit,
             reason: None,

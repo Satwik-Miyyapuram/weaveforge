@@ -175,9 +175,9 @@
 }
 .graph-wrap canvas { display: block; }
 
-/* Full-bleed focus mode: graph fills the viewport, controls float as overlays. */
+/* Full-bleed focus mode: graph fills the viewport below the title bar, controls float as overlays. */
 .graph-focus {
-  position: fixed; inset: 0; z-index: var(--z-overlay); overflow: hidden;
+  position: fixed; inset: var(--titlebar-h, 0px) 0 0 0; z-index: var(--z-overlay); overflow: hidden;
   background: radial-gradient(circle at 50% 42%, var(--surface2), var(--surface));
 }
 .graph-focus .graph-wrap.fill {

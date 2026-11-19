@@ -56,7 +56,7 @@ rename, move and delete like any other page.
 - The import adds pages to your notes. It does not change or remove pages you
   already have. If a page has the same name as one in your notes, the new page
   gets a different name.
-- The import works on section files up to 64 MB. A picture over 20 MB is not
+- The import works on section files up to 512 MB. A picture over 20 MB is not
   imported.
 - If the import stops part way because a page could not be written, the pages
   it had already made are removed again, so no half-imported section is left.
