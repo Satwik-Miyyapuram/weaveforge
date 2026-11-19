@@ -167,7 +167,7 @@ pub fn render_list_file(file: &ListFile) -> Result<String, ListFileError> {
         out.push_str("items:\n");
         for entry in &file.entries {
             out.push_str("  - ");
-            out.push_str(&entry_line(entry));
+            out.push_str(&entry_line(entry)?);
             out.push('\n');
         }
     }
@@ -220,11 +220,9 @@ fn splice_entries(text: &str, file: &ListFile) -> Result<String, ListFileError> 
     let mut items: Vec<String> = Vec::new();
     if !file.entries.is_empty() {
         items.push(format!("{ITEMS}:"));
-        items.extend(
-            file.entries
-                .iter()
-                .map(|e| format!("  - {}", entry_line(e))),
-        );
+        for entry in &file.entries {
+            items.push(format!("  - {}", entry_line(entry)?));
+        }
     }
     match lines.iter().position(|l| is_items_key(l)) {
         Some(at) => {
@@ -270,11 +268,16 @@ fn items_block_end(lines: &[String], at: usize) -> usize {
 
 /// One entry as single-line JSON. U+2028 and U+2029 are escaped too, because the
 /// frontmatter reader treats them as line ends.
-fn entry_line(entry: &ListEntry) -> String {
-    serde_json::to_string(entry)
-        .unwrap_or_default()
+///
+/// # Errors
+///
+/// [`ListFileError::BadEntry`] when the entry cannot be serialised. The caller then writes
+/// nothing, rather than an empty `items` line that would drop the entry.
+fn entry_line(entry: &ListEntry) -> Result<String, ListFileError> {
+    let json = serde_json::to_string(entry).map_err(|e| ListFileError::BadEntry(e.to_string()))?;
+    Ok(json
         .replace('\u{2028}', "\\u2028")
-        .replace('\u{2029}', "\\u2029")
+        .replace('\u{2029}', "\\u2029"))
 }
 
 /// Every decision in the file, in file order.

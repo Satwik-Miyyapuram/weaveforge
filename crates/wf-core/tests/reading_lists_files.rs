@@ -126,6 +126,28 @@ fn reason_with_newline_and_quote() {
 }
 
 #[test]
+fn written_entry_is_one_complete_line() {
+    // A written entry is always one full JSON object on its own `  - ` line, never an
+    // empty line that would silently drop it.
+    let mut d = decision(
+        "d1",
+        "item-1",
+        ScreeningState::Excluded,
+        "2026-11-19T10:00:00Z",
+    );
+    d.reason = Some("line one\nline two \u{2028}\u{2029} \"quoted\"".to_owned());
+    let text = record_decision(LIST, &d).unwrap();
+    let item_lines: Vec<&str> = text
+        .lines()
+        .filter(|line| line.starts_with("  - "))
+        .collect();
+    assert_eq!(item_lines.len(), 1);
+    let value: serde_json::Value = serde_json::from_str(&item_lines[0][4..]).unwrap();
+    assert_eq!(value["id"], "d1");
+    assert_eq!(value["reason"], d.reason.clone().unwrap());
+}
+
+#[test]
 fn empty_list() {
     let text = "---\nwf: 3\ntitle: Empty\n---\n";
     assert_eq!(list_decisions(text).unwrap(), vec![]);
