@@ -34,6 +34,10 @@ serde-wasm-bindgen = "=0.6.5"
 js-sys = "=0.3.106"
 # Search text rules (phase 1): NFD/NFC and general categories for \p{L}/\p{N}.
 unicode-normalization = "=0.1.26"
+# Files-first (0.9.4): SHA-256 of the canonical text names a file version (already in the lock).
+sha2 = "=0.10.9"
+# Files-first (0.9.4): the base store and the rebuildable cache, SQLite compiled in.
+rusqlite = { version = "=0.43.0", features = ["bundled"] }
 unicode-properties = { version = "=0.1.4", default-features = false, features = ["general-category"] }
 # WHATWG URL parsing, the same rules as the JS `URL` class (already in the lock via git2).
 url = "=2.5.8"

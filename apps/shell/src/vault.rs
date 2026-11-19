@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use wf_store::checked_write::WriteOutcome;
 use wf_store::root::{RootState, verify_root, workspace_root_for};
 use wf_store::vault::{Entry, EntryKind, TEMP_SUFFIX, Vault, VaultError, WALK_DEPTH_MAX};
 
@@ -207,6 +208,8 @@ impl VaultSession {
 
     /// `write_text` only while the file still says `expected` (`None` = still
     /// missing). `Ok(false)` = it changed since the caller read it; nothing written.
+    /// Texts are compared by canonical digest (NFC, LF) and the write is the checked,
+    /// atomic one, so a change landing between the check and the rename is not lost.
     ///
     /// # Errors
     /// As `read_text` and `write_text`.
@@ -216,11 +219,16 @@ impl VaultSession {
         contents: &str,
         expected: Option<&str>,
     ) -> Result<bool, String> {
-        if self.read_text(rel)?.as_deref() != expected {
-            return Ok(false);
+        let vault = self.vault()?;
+        check_size(contents.len(), MAX_TEXT_BYTES)?;
+        // A missing file has the digest "", so `None` means create only if still absent.
+        let digest =
+            expected.map_or_else(String::new, wf_core::sync::frontmatter::canonical_digest);
+        match vault.write_text_checked(rel, contents, Some(&digest)) {
+            Ok(WriteOutcome::Written { .. }) => Ok(true),
+            Ok(WriteOutcome::Changed { .. }) => Ok(false),
+            Err(e) => Err(message(&e)),
         }
-        self.write_text(rel, contents)?;
-        Ok(true)
     }
 
     /// Same as `write_text` with `MAX_BLOB_BYTES`.
@@ -273,7 +281,11 @@ impl VaultSession {
         root
     }
 
-    fn vault(&self) -> Result<&Vault, String> {
+    /// The chosen folder's vault.
+    ///
+    /// # Errors
+    /// No folder chosen yet.
+    pub(crate) fn vault(&self) -> Result<&Vault, String> {
         self.current
             .as_ref()
             .map(|(_, vault)| vault)

@@ -20,6 +20,8 @@ pub mod experiment_artifacts;
 pub mod experiment_status;
 pub mod experiments;
 pub mod heading_slug;
+/// In-memory index of workspace files, rebuilt from the files.
+pub mod index;
 pub mod ink;
 pub mod integrations;
 pub mod js_collate;

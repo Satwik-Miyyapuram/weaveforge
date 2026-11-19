@@ -233,6 +233,16 @@ fn rename_missing_source_is_not_found() {
 }
 
 #[test]
+fn rename_refuses_an_existing_target_and_keeps_both_files() {
+    let mut fs = fixed();
+    fs.write_file("a.md", b"source").expect("write");
+    fs.write_file("b.md", b"target").expect("write");
+    assert!(matches!(fs.rename("a.md", "b.md"), Err(FsError::Io(_))));
+    assert_eq!(fs.read_file("a.md"), Ok(b"source".to_vec()));
+    assert_eq!(fs.read_file("b.md"), Ok(b"target".to_vec()));
+}
+
+#[test]
 fn rename_to_an_unsafe_target_keeps_the_source() {
     let mut fs = fixed();
     fs.write_file("a.md", b"hi").expect("write");

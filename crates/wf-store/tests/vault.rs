@@ -309,7 +309,7 @@ fn mkdirp_creates_nested_folders_and_is_repeatable() {
 }
 
 #[test]
-fn rename_moves_creates_parents_and_replaces_targets() {
+fn rename_moves_creates_parents_and_refuses_existing_targets() {
     let dir = TempDir::new();
     let v = vault_in(&dir);
 
@@ -320,8 +320,12 @@ fn rename_moves_creates_parents_and_replaces_targets() {
 
     v.write_file("p.md", b"old").unwrap();
     v.write_file("q.md", b"new").unwrap();
-    v.rename("q.md", "p.md").unwrap();
-    assert_eq!(v.read_text("p.md").unwrap(), "new");
+    assert_eq!(
+        v.rename("q.md", "p.md").unwrap_err().io_kind(),
+        Some(std::io::ErrorKind::AlreadyExists)
+    );
+    assert_eq!(v.read_text("p.md").unwrap(), "old");
+    assert_eq!(v.read_text("q.md").unwrap(), "new");
 
     assert_eq!(
         v.rename("nope.md", "z.md").unwrap_err().io_kind(),
@@ -549,4 +553,29 @@ fn too_large_has_no_io_kind() {
         max: 5,
     };
     assert_eq!(err.io_kind(), None);
+}
+
+#[test]
+fn list_hides_wfprev_leftovers_but_not_user_files_that_only_contain_the_word() {
+    let dir = TempDir::new();
+    put(&dir.path().join("y.md.wfprev"), b"displaced");
+    put(&dir.path().join("y.md.2.wfprev"), b"displaced");
+    put(&dir.path().join("wfprev-notes.md"), b"mine");
+    let v = vault_in(&dir);
+
+    let entries = v.list("").unwrap();
+    let listed = names(&entries);
+    assert!(!listed.contains(&"y.md.wfprev"));
+    assert!(!listed.contains(&"y.md.2.wfprev"));
+    assert!(listed.contains(&"wfprev-notes.md"));
+}
+
+#[test]
+fn rename_case_only_keeps_the_file() {
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+    v.write_file("Notes.md", b"same file").unwrap();
+    // On a case-insensitive file system `to` already exists, but it is the same file.
+    v.rename("Notes.md", "notes.md").unwrap();
+    assert_eq!(v.read_text("notes.md").unwrap(), "same file");
 }

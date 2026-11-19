@@ -2,9 +2,8 @@
 //!
 //! Limits, as in the desktop app: checking that a path stays inside the root and acting on
 //! it are two steps, so another process swapping in a link between them can still escape;
-//! writes rename a temp file over the target without an fsync, so power loss can lose the
-//! latest write; temp files a crash leaves behind are hidden from listings but not swept
-//! yet; and a file name near the filesystem's length limit cannot get a temp sibling.
+//! and a file name near the filesystem's length limit cannot get a temp sibling. Temp files a
+//! crash leaves behind are hidden from listings and swept once stale.
 
 use std::collections::{HashSet, VecDeque};
 use std::ffi::OsString;
@@ -13,6 +12,8 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
+
+use crate::checked_write::{PREV_SUFFIX, write_temp};
 
 use wf_core::workspace::{UnsafePath, safe_workspace_path};
 
@@ -176,7 +177,7 @@ impl Vault {
             fs::create_dir_all(parent).map_err(|source| io_err("create folder", rel, source))?;
         }
         let temp = temp_beside(&target);
-        let outcome = fs::write(&temp, data).and_then(|()| fs::rename(&temp, &target));
+        let outcome = write_temp(&temp, data).and_then(|()| fs::rename(&temp, &target));
         outcome.map_err(|source| {
             // The temp may never have been created; removing a missing file is the same outcome.
             let _ = fs::remove_file(&temp);
@@ -239,7 +240,8 @@ impl Vault {
             let Ok(name) = child.file_name().into_string() else {
                 continue;
             };
-            if name.ends_with(TEMP_SUFFIX) {
+            // Generated temps and `.wfprev` leftovers of a crashed or settled write are not files.
+            if is_generated_temp(&name) || name.ends_with(PREV_SUFFIX) {
                 continue;
             }
             let rel = if at.is_empty() {
@@ -301,13 +303,24 @@ impl Vault {
         })
     }
 
-    /// Move a file to a new path, creating its parent folders and replacing any file there.
+    /// Move a file to a new path, creating its parent folders. An existing file at `to` is
+    /// never replaced: the move is refused. A case-only rename of the file itself is allowed.
     ///
     /// # Errors
-    /// Refused or escaping paths (checked `to` first, then `from`), or the rename failing.
+    /// Refused or escaping paths (checked `to` first, then `from`), a `to` that already exists
+    /// (`AlreadyExists`), or the rename failing.
     pub fn rename(&self, from: &str, to: &str) -> Result<(), VaultError> {
         let dest = self.resolve(to)?;
         let src = self.resolve(from)?;
+        let clash = fs::symlink_metadata(&dest).is_ok()
+            && fs::canonicalize(&dest).ok() != fs::canonicalize(&src).ok();
+        if clash {
+            return Err(io_err(
+                "rename",
+                to,
+                io::Error::new(io::ErrorKind::AlreadyExists, "the target already exists"),
+            ));
+        }
         if let Some(parent) = dest.parent() {
             fs::create_dir_all(parent).map_err(|source| io_err("create folder", to, source))?;
         }
@@ -379,7 +392,7 @@ impl Vault {
     }
 
     /// Map a relative path to an absolute one inside the root, or refuse it.
-    fn resolve(&self, rel: &str) -> Result<PathBuf, VaultError> {
+    pub(crate) fn resolve(&self, rel: &str) -> Result<PathBuf, VaultError> {
         let safe = safe_workspace_path(rel)?;
         let target = safe
             .split('/')
@@ -395,7 +408,7 @@ fn decode_text(bytes: &[u8]) -> String {
     String::from_utf8_lossy(body).into_owned()
 }
 
-fn io_err(op: &'static str, path: &str, source: io::Error) -> VaultError {
+pub(crate) fn io_err(op: &'static str, path: &str, source: io::Error) -> VaultError {
     VaultError::Io {
         op,
         path: path.to_owned(),
@@ -417,8 +430,24 @@ fn is_dir_link(_meta: &fs::Metadata) -> bool {
     false
 }
 
+/// Whether `name` is a temp file this crate generated: `<name>.<pid>.<seq>.wftmp` (see
+/// [`temp_beside`]). A user's own file that merely ends in `.wftmp` is not one of these.
+pub(crate) fn is_generated_temp(name: &str) -> bool {
+    let Some(stem) = name.strip_suffix(TEMP_SUFFIX) else {
+        return false;
+    };
+    let Some((rest, seq)) = stem.rsplit_once('.') else {
+        return false;
+    };
+    let Some((original, pid)) = rest.rsplit_once('.') else {
+        return false;
+    };
+    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    !original.is_empty() && digits(pid) && digits(seq)
+}
+
 /// A unique sibling of `target` named `<file name>.<pid>.<seq>.wftmp`.
-fn temp_beside(target: &Path) -> PathBuf {
+pub(crate) fn temp_beside(target: &Path) -> PathBuf {
     let seq = TEMP_SEQ.fetch_add(1, Ordering::Relaxed);
     let mut name: OsString = target
         .file_name()

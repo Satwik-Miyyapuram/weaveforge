@@ -13,6 +13,7 @@ mod app_route;
 mod app_storage;
 mod app_update;
 mod auth_loopback;
+mod cmd_files;
 mod cmd_ink;
 mod cmd_tools;
 mod cmd_vault;

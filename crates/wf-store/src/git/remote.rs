@@ -128,7 +128,58 @@ fn status_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<RemoteStatus
 /// # Errors
 /// When git cannot read or write the folder, or the remote cannot be reached.
 pub fn pull(repo: &FolderRepo, config: &RemoteConfig) -> Result<PullOutcome, RepoError> {
-    pull_inner(repo, config, None).map_err(|e| redact_error(e, config))
+    pull_inner(repo, config, None, &Cell::new(None)).map_err(|e| redact_error(e, config))
+}
+
+/// What a pull did, with the workspace paths it wrote.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PullBatch {
+    /// What the pull did.
+    pub outcome: PullOutcome,
+    /// Paths the pull added, changed or removed, sorted; empty when nothing came in.
+    pub paths: Vec<String>,
+}
+
+/// Like [`pull`], and lists the paths the pull wrote (the `pull-batch` event). This folder's
+/// own pending changes are committed first and are not listed.
+///
+/// # Errors
+/// As [`pull`].
+pub fn pull_listing(repo: &FolderRepo, config: &RemoteConfig) -> Result<PullBatch, RepoError> {
+    let before = Cell::new(None);
+    let outcome = pull_inner(repo, config, None, &before).map_err(|e| redact_error(e, config))?;
+    let paths = match outcome {
+        PullOutcome::FastForward { .. } | PullOutcome::Merged { .. } => {
+            let r = repo.open()?;
+            match head_oid(&r)? {
+                Some(after) => changed_paths(&r, before.get(), after)?,
+                None => Vec::new(),
+            }
+        }
+        PullOutcome::UpToDate | PullOutcome::Conflict { .. } => Vec::new(),
+    };
+    Ok(PullBatch { outcome, paths })
+}
+
+/// Paths that differ between commit `old` (`None` = the empty tree) and commit `new`, sorted.
+///
+/// # Errors
+/// When git cannot read either commit.
+pub fn changed_paths(r: &Repository, old: Option<Oid>, new: Oid) -> Result<Vec<String>, RepoError> {
+    let old_tree = old
+        .map(|oid| r.find_commit(oid).and_then(|commit| commit.tree()))
+        .transpose()?;
+    let new_tree = r.find_commit(new)?.tree()?;
+    let diff = r.diff_tree_to_tree(old_tree.as_ref(), Some(&new_tree), None)?;
+    let mut paths = BTreeSet::new();
+    for delta in diff.deltas() {
+        for file in [delta.old_file(), delta.new_file()] {
+            if let Some(path) = file.path().and_then(Path::to_str) {
+                let _ = paths.insert(path.replace('\\', "/"));
+            }
+        }
+    }
+    Ok(paths.into_iter().collect())
 }
 
 /// How to settle files changed on both sides.
@@ -154,13 +205,14 @@ pub fn pull_resolving(
     config: &RemoteConfig,
     choice: PullChoice,
 ) -> Result<PullOutcome, RepoError> {
-    pull_inner(repo, config, Some(choice)).map_err(|e| redact_error(e, config))
+    pull_inner(repo, config, Some(choice), &Cell::new(None)).map_err(|e| redact_error(e, config))
 }
 
 fn pull_inner(
     repo: &FolderRepo,
     config: &RemoteConfig,
     choice: Option<PullChoice>,
+    before: &Cell<Option<Oid>>,
 ) -> Result<PullOutcome, RepoError> {
     let r = prepare(repo, config)?;
     commit_pending(repo)?;
@@ -168,6 +220,7 @@ fn pull_inner(
         return Ok(PullOutcome::UpToDate);
     };
     let head = head_oid(&r)?;
+    before.set(head);
     if let Some(h) = head
         && (h == theirs || r.graph_descendant_of(h, theirs)?)
     {

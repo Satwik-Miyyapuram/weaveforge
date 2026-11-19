@@ -623,3 +623,28 @@ proptest! {
         prop_assert!(!out.contains(&secret), "{out}");
     }
 }
+
+#[test]
+fn local_meta_is_an_allowlist() {
+    use wf_core::sync::git_policy::is_local_meta;
+    for synced in [
+        ".weaveforge/settings.json",
+        ".weaveforge/workspace.json",
+        ".weaveforge/tags.json",
+        ".weaveforge/ai/x.md",
+        "notes/.weaveforge/db",
+        "a.md",
+    ] {
+        assert!(!is_local_meta(synced), "{synced}");
+    }
+    for local in [
+        ".weaveforge/mcp.json",
+        ".weaveforge/db/x",
+        ".weaveforge/workspace.db",
+        ".weaveforge/mirror.json",
+        ".weaveforge/ai",
+        ".weaveforge/cache.sqlite",
+    ] {
+        assert!(is_local_meta(local), "{local}");
+    }
+}

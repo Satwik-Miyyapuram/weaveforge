@@ -23,6 +23,8 @@ embeddings = ["dep:ort", "dep:tokenizers"]
 [dependencies]
 git2.workspace = true
 ort = { workspace = true, optional = true }
+rusqlite.workspace = true
+sha2.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokenizers = { workspace = true, optional = true }

@@ -13,6 +13,7 @@ pub mod app_storage;
 pub mod app_update;
 pub mod auth_link;
 pub mod auth_loopback;
+pub mod cmd_files;
 pub mod cmd_import;
 pub mod cmd_ink;
 pub mod cmd_tools;
@@ -212,6 +213,7 @@ fn start_stores(app: &tauri::AppHandle) {
     let _ = app.manage(secrets);
     let _ = app.manage(app_log::AppLog::new(&logs, &home));
     let _ = app.manage(git::GitQueue::default());
+    let _ = app.manage(cmd_files::IndexSlot::default());
     let _ = app.manage(embed::EmbedSlot::default());
     let _ = app.manage(auth_loopback::SignInPort::default());
     let _ = app.manage(local_files::LocalFiles::new(data.join("local-files")));
@@ -224,10 +226,24 @@ pub const VAULT_CHANGED_EVENT: &str = "vault-changed";
 pub(crate) fn change_sink(app: &tauri::AppHandle) -> vault_watcher::ChangeSink {
     use tauri::Emitter as _;
     let emitter = app.clone();
-    Arc::new(move |paths: Vec<String>| {
-        let _ = emitter.emit(VAULT_CHANGED_EVENT, paths);
+    Arc::new(move |mut paths: Vec<String>| {
+        use tauri::Manager as _;
+        if let Some(index) = emitter.try_state::<cmd_files::IndexSlot>() {
+            index.invalidate();
+        }
+        let before = paths.len();
+        paths.retain(|path| path != vault_watcher::OVERFLOW_MARK);
+        if paths.len() != before {
+            let _ = emitter.emit(VAULT_WATCH_OVERFLOW_EVENT, ());
+        }
+        if !paths.is_empty() {
+            let _ = emitter.emit(VAULT_CHANGED_EVENT, paths);
+        }
     })
 }
+
+/// The event that tells the page the OS dropped folder events; it answers with `watcher_rescan`.
+pub const VAULT_WATCH_OVERFLOW_EVENT: &str = "vault-watch-overflow";
 
 /// The event that tells the page, with the reason, that the folder watch has stopped seeing changes.
 pub const VAULT_WATCH_LOST_EVENT: &str = "vault-watch-lost";
