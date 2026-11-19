@@ -394,11 +394,19 @@ impl Vault {
             let _ = fs::remove_file(prev);
             return;
         }
-        let Ok(copy) = self.free_path(&conflict_copy_path(rel, &compact_stamp(now_ms()))) else {
-            return;
-        };
-        if let Ok(dest) = self.resolve(&copy) {
-            let _ = copy_prev_to(prev, &dest);
+        let outcome = self
+            .free_path(&conflict_copy_path(rel, &compact_stamp(now_ms())))
+            .and_then(|copy| self.resolve(&copy))
+            .map_err(|error| error.to_string())
+            .and_then(|dest| copy_prev_to(prev, &dest).map_err(|error| error.to_string()));
+        if let Err(error) = outcome {
+            // The `.wfprev` stays, so the replaced bytes are still on disk. Say so rather than
+            // drop the failure.
+            eprintln!(
+                "wf-store: could not keep the replaced bytes of {rel} as a conflict copy; \
+                 they remain in {}: {error}",
+                prev.display()
+            );
         }
     }
 }
@@ -406,15 +414,80 @@ impl Vault {
 /// Write a real copy of `prev` to the new file `dest`, then remove `prev`. A copy is never a hard
 /// link, so changing one of the two files cannot change the other.
 fn copy_prev_to(prev: &Path, dest: &Path) -> io::Result<()> {
+    copy_prev_with(prev, dest, |file| file.sync_all())
+}
+
+/// `copy_prev_to` with the step that finishes the copy (the fsync) passed in. When writing or
+/// finishing fails, the partial `dest` is removed and `prev` is kept, so no half copy is left
+/// behind as a conflict copy.
+fn copy_prev_with(
+    prev: &Path,
+    dest: &Path,
+    finish: impl FnOnce(&fs::File) -> io::Result<()>,
+) -> io::Result<()> {
     let bytes = fs::read(prev)?;
     let mut file = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(dest)?;
-    file.write_all(&bytes)?;
-    file.sync_all()?;
+    let copied = file.write_all(&bytes).and_then(|()| finish(&file));
     drop(file);
+    if let Err(error) = copied {
+        let _ = fs::remove_file(dest);
+        return Err(error);
+    }
     fs::remove_file(prev)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    /// A fresh directory under the system temp dir, unique per test run.
+    fn scratch(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "wf-copy-prev-{name}-{}-{nanos}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn copy_prev_copies_the_bytes_and_removes_prev() {
+        let dir = scratch("ok");
+        let prev = dir.join("file.md.wfprev");
+        let dest = dir.join("conflict.md");
+        fs::write(&prev, b"replaced bytes").unwrap();
+
+        copy_prev_to(&prev, &dest).unwrap();
+
+        assert_eq!(fs::read(&dest).unwrap(), b"replaced bytes");
+        assert!(!prev.exists());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_failed_finish_removes_the_partial_copy_and_keeps_prev() {
+        let dir = scratch("fail");
+        let prev = dir.join("file.md.wfprev");
+        let dest = dir.join("conflict.md");
+        fs::write(&prev, b"the only copy").unwrap();
+
+        let result = copy_prev_with(&prev, &dest, |_| {
+            Err(io::Error::other("injected sync failure"))
+        });
+
+        assert!(result.is_err());
+        assert!(!dest.exists(), "a partial conflict copy must not be left");
+        assert_eq!(fs::read(&prev).unwrap(), b"the only copy");
+        fs::remove_dir_all(&dir).unwrap();
+    }
 }
 
 /// The outcome of a write that put the new bytes at `target`, with their digest read back.
