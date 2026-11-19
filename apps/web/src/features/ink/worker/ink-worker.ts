@@ -22,6 +22,11 @@ import { inkChunkCodec } from "../application/parts-1";
 import { boundsUnion, type InkBounds, InkPageBuffer } from "../application/parts-3";
 import { InkStrokeIndex } from "../application/stroke-index";
 import { CanvasInkRenderer } from "../render/canvas-renderer";
+import {
+  DEFAULT_INK_RENDERER,
+  type InkRendererKind,
+  parseInkRenderer,
+} from "../render/freehand-stroke";
 import type { InkLiveStroke, InkPalette, InkRenderer } from "../render/parts-1";
 import { supportsWebglInk, WebglInkRenderer } from "../render/webgl-renderer";
 import {
@@ -231,6 +236,8 @@ const state = {
   height: INK_A4_HEIGHT,
   dpr: 1,
   mode: "transfer" as InkTransferMode,
+  /** The A/B renderer, fixed for this page's worker (see `init`). */
+  inkRenderer: DEFAULT_INK_RENDERER as InkRendererKind,
   frame: 0,
   running: false,
   disposed: false,
@@ -466,6 +473,9 @@ function startRenderer(delegating: boolean): void {
   let renderer: InkRenderer | null = null;
   let reason = "";
   try {
+    // The freehand A/B draws outlines on Canvas 2D only; WebGL has no outline path yet.
+    if (state.inkRenderer === "freehand")
+      throw new Error("freehand renderer draws on Canvas 2D");
     if (!supportsWebglInk(canvas)) throw new Error("WebGL2 is unavailable");
     // The shaders are compiled on a throwaway canvas first. A canvas that has
     // given out a WebGL context can never give out a 2D one, so a driver that
@@ -499,7 +509,10 @@ function startRenderer(delegating: boolean): void {
     // that already gave out a WebGL context cannot give out a 2D one, but a
     // canvas that *refused* WebGL still can, which is the case this serves.
     try {
-      renderer = new CanvasInkRenderer({ canvas });
+      renderer = new CanvasInkRenderer({
+        canvas,
+        renderer: state.inkRenderer,
+      });
     } catch (error) {
       reason += `; ${errorMessage(error)}`;
     }
@@ -579,6 +592,7 @@ function handleMessage(message: InkWorkerMessage): void {
         state.dpr = message.dpr;
         state.mode = message.mode;
         state.codec = inkChunkCodec(message.codec);
+        state.inkRenderer = parseInkRenderer(message.inkRenderer);
         // The path decides the context attributes, and they are immutable after the
         // first `getContext` (§6.2.8) — so this is decided once, by whether the
         // presenter is delegating, and a presenter that appears later means a new

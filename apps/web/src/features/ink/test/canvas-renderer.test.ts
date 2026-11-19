@@ -13,6 +13,7 @@ import {
   CanvasInkRenderer,
   HIGHLIGHTER_ALPHA,
   cssInkColour,
+  paintFreehandStroke,
   type Canvas2dLike,
   type Context2dLike,
 } from "../render/canvas-renderer";
@@ -146,4 +147,25 @@ test("it refuses a canvas with no 2D context", () => {
       }),
     /Canvas 2D is unavailable/,
   );
+});
+
+test("freehand paints a stroke as one closed outline fill, never a stroked path", () => {
+  const { canvas, calls, fills } = recordingCanvas();
+  const context = canvas.getContext("2d") as Context2dLike;
+  const x = Float32Array.from([10, 20, 30, 40, 50, 60]);
+  const y = Float32Array.from([10, 30, 10, 30, 10, 30]);
+  const pressure = Uint8Array.from([200, 200, 200, 200, 200, 200]);
+  const drawn = paintFreehandStroke(
+    context,
+    x,
+    y,
+    pressure,
+    { width: 6, tool: "pen", colour: "text" },
+    false,
+  );
+  assert.equal(drawn, x.length - 1);
+  assert.equal(calls.filter((c) => c.name === "fill").length, 1);
+  assert.equal(calls.filter((c) => c.name === "stroke").length, 0);
+  assert.ok(calls.some((c) => c.name === "closePath"));
+  assert.equal(fills.length, 1);
 });

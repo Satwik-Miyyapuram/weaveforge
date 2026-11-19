@@ -4,6 +4,7 @@ import { localBackendParts } from "@/backend/providers/local/parts";
 import { createDataClient } from "@/backend/providers/postgrest/parts-1";
 import type { CitationFormat } from "@/features/overleaf/application/parts";
 import { hasScreenCacheData, screenCacheKey } from "@/lib/cache/parts-2";
+import { type InkRendererKind, parseInkRenderer } from "@/features/ink/render/freehand-stroke";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { type AppLogInput, logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
@@ -304,6 +305,21 @@ export function readInkHapticsOn(): boolean {
 
 export function writeInkHapticsOn(on: boolean): void {
   writeStored(STORAGE_KEY, on ? "on" : "off");
+}
+
+// --- ink-renderer-preference ---
+/**
+ * Which ink renderer a new ink page uses: `classic` (default) or `freehand`
+ * (perfect-freehand outline, for the A/B). Per device, read when the page opens.
+ */
+const INK_RENDERER_STORAGE_KEY = "thesis.inkRenderer";
+
+export function readInkRenderer(): InkRendererKind {
+  return parseInkRenderer(readStored(INK_RENDERER_STORAGE_KEY));
+}
+
+export function writeInkRenderer(kind: InkRendererKind): void {
+  writeStored(INK_RENDERER_STORAGE_KEY, kind);
 }
 
 // --- latest-gate ---

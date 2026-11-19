@@ -42,6 +42,11 @@ import {
   strokeCurveAt,
 } from "./parts-1";
 import { readyCore } from "@/lib/rust-core";
+import {
+  DEFAULT_INK_RENDERER,
+  freehandOutline,
+  type InkRendererKind,
+} from "./freehand-stroke";
 
 /** The 2D context, whichever canvas it came from. */
 export type Context2dLike =
@@ -59,6 +64,8 @@ export interface CanvasInkRendererOptions {
   canvas: Canvas2dLike;
   /** Where an export target comes from. Injected so a test needs no DOM. */
   createCanvas?: (width: number, height: number) => Canvas2dLike;
+  /** `freehand` fills perfect-freehand outlines instead of capsules (A/B, flagged). */
+  renderer?: InkRendererKind;
 }
 
 export const HIGHLIGHTER_ALPHA = 0.35;
@@ -108,9 +115,11 @@ export class CanvasInkRenderer implements InkRenderer {
   /** Strokes below this index are on the sheet's SVG; see `setShown`. */
   private shown = 0;
   private shift: InkShift = { x: 0, y: 0 };
+  private kind: InkRendererKind;
 
   constructor(options: CanvasInkRendererOptions) {
     this.canvas = options.canvas;
+    this.kind = options.renderer ?? DEFAULT_INK_RENDERER;
     this.createCanvas =
       options.createCanvas ??
       ((width, height) =>
@@ -140,6 +149,11 @@ export class CanvasInkRenderer implements InkRenderer {
 
   setPalette(palette: InkPalette): void {
     this.palette = { ...INK_RENDER_COLOURS, ...palette };
+  }
+
+  /** Switch between capsules and perfect-freehand outlines. Takes effect on the next draw. */
+  setRenderer(kind: InkRendererKind): void {
+    this.kind = kind;
   }
 
   setBackground(image: InkBackgroundImage | null): void {
@@ -272,6 +286,8 @@ export class CanvasInkRenderer implements InkRenderer {
     }
 
     this.drawn = 0;
+    const paintStrokeFn =
+      this.kind === "freehand" ? paintFreehandStroke : paintStroke;
     // The selection's halo first, under everything: the same capsules grown
     // by a few device pixels in the accent colour, shifted by the drag.
     const haloPageUnits = INK_SELECTION_HALO_PX / Math.max(k, 0.0001);
@@ -281,7 +297,7 @@ export class CanvasInkRenderer implements InkRenderer {
         if (!stroke || !this.selected.has(index)) continue;
         context.save();
         context.translate(this.shift.x, this.shift.y);
-        this.drawn += paintStroke(
+        this.drawn += paintStrokeFn(
           context,
           stroke.x,
           stroke.y,
@@ -308,7 +324,7 @@ export class CanvasInkRenderer implements InkRenderer {
           context.save();
           context.translate(this.shift.x, this.shift.y);
         }
-        this.drawn += paintStroke(
+        this.drawn += paintStrokeFn(
           context,
           stroke.x,
           stroke.y,
@@ -322,7 +338,7 @@ export class CanvasInkRenderer implements InkRenderer {
     }
     if (this.live) {
       const live = this.live;
-      this.drawn += paintStroke(
+      this.drawn += paintStrokeFn(
         context,
         live.x,
         live.y,
@@ -382,6 +398,48 @@ export function paintStroke(
   }
   // One fill per stroke with the non-zero rule: overlapping capsules of the same
   // stroke paint once, which is what keeps a translucent highlighter even.
+  context.fill("nonzero");
+  return count - 1;
+}
+
+/**
+ * Fill one stroke as its perfect-freehand outline (`renderer: "freehand"`).
+ * Same colour, alpha and halo rules as `paintStroke`; the shape differs. A halo
+ * grows the stroke's width by `2 * grow`, which is an approximation of the
+ * capsule halo, not the same geometry. Returns the segments drawn.
+ */
+export function paintFreehandStroke(
+  context: Context2dLike,
+  x: Float32Array,
+  y: Float32Array,
+  pressure: Uint8Array,
+  stroke: { width: number; tool: string; colour: InkColour },
+  highlighter: boolean,
+  palette: InkPalette = INK_RENDER_COLOURS,
+  halo?: { alpha: number; grow: number },
+): number {
+  const count = x.length;
+  if (count === 0) return 0;
+  const grow = halo?.grow ?? 0;
+  const outline = freehandOutline(
+    { x, y, pressure },
+    stroke.width + 2 * grow,
+    { last: true, simulatePressure: false },
+  );
+  if (outline.length === 0) return 0;
+  context.fillStyle = cssInkColour(
+    stroke.colour,
+    halo ? halo.alpha : highlighter ? HIGHLIGHTER_ALPHA : 1,
+    palette,
+  );
+  context.beginPath();
+  const [x0, y0] = outline[0]!;
+  context.moveTo(x0, y0);
+  for (let i = 1; i < outline.length; i += 1) {
+    const [px, py] = outline[i]!;
+    context.lineTo(px, py);
+  }
+  context.closePath();
   context.fill("nonzero");
   return count - 1;
 }
