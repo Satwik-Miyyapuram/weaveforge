@@ -597,6 +597,12 @@
   pointer-events: none;
 }
 
+/* The outlined (freehand) halo is a filled shape, not a stroke. */
+.ink-stroke-halo--fill {
+  fill: var(--accent);
+  stroke: none;
+}
+
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-bar-group,
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-swatches,
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill {

@@ -740,6 +740,39 @@ mod tests {
     }
 
     #[test]
+    fn a_dense_freehand_stroke_keeps_every_sample() {
+        // A raw freehand stroke: thousands of whole-unit samples, under the u16 cap.
+        const SAMPLES: usize = 5_000;
+        let mut points = Vec::with_capacity(SAMPLES * 2);
+        for i in 0..SAMPLES {
+            points.push(500.0 + (i % 900) as f64);
+            points.push(800.0 + ((i * 7) % 300) as f64);
+        }
+        let mut page = blank_ink_page(InkPaper::Blank);
+        page.strokes = vec![stroke(points.clone())];
+        let body = encode_ink_chunk_body(&page).unwrap();
+        let info = check_ink_chunk_body(&body).unwrap();
+        assert_eq!(info.layout.point_count, SAMPLES as u32);
+        assert_eq!(info.layout.stroke_count, 1);
+        // Each point is six bytes: dx, dy, pressure (Int16 each). Decode the deltas back.
+        let base = info.layout.points as usize;
+        let field = |i: usize, offset: usize| {
+            let at = base + i * 6 + offset;
+            i16::from_le_bytes([body[at], body[at + 1]])
+        };
+        let (mut x, mut y) = (0_i16, 0_i16);
+        for i in 0..SAMPLES {
+            x = if i == 0 { field(i, 0) } else { x.wrapping_add(field(i, 0)) };
+            y = if i == 0 { field(i, 2) } else { y.wrapping_add(field(i, 2)) };
+            assert_eq!(
+                (f64::from(x), f64::from(y)),
+                (points[2 * i], points[2 * i + 1]),
+                "sample {i} decodes to its stored whole unit"
+            );
+        }
+    }
+
+    #[test]
     fn oversized_pages_are_refused_and_budget_sums() {
         let mut page = blank_ink_page(InkPaper::Blank);
         page.strokes = vec![stroke(vec![0.0; 65_536 * 2])];

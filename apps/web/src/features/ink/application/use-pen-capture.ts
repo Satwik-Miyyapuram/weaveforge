@@ -30,6 +30,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type InkColour, type InkHand } from "@weaveforge/core";
+import { readInkRenderer } from "@/lib/parts";
 
 import { CaptureStream, type FilteredNibSample } from "./parts-2";
 import {
@@ -434,6 +435,8 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
           codec: "deflate-raw",
           // Immutable once the context exists, so it is decided here (§6.2.6).
           delegating: presenter !== null,
+          // Read per page open: the A/B setting applies from the next ink page.
+          inkRenderer: readInkRenderer(),
         },
         offscreen ? [offscreen] : [],
       );

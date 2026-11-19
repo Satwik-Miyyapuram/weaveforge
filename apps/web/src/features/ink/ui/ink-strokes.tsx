@@ -20,9 +20,47 @@
  * writing it was laid on, and the pen stays legible through the tint.
  */
 
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
+import { freehandPathFromFlat, type InkRendererKind } from "../render/freehand-stroke";
+import { readInkRenderer } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
+
+const settledPaths = new WeakMap<
+  readonly number[],
+  Map<string, { pressures: readonly number[] | undefined; d: string | null }>
+>();
+
+/**
+ * The path a settled stroke is drawn with. `classic` is the capsule path from
+ * the Rust core (stroked); `freehand` is the perfect-freehand outline (filled),
+ * drawn with the stroke's `pressures` (0-255) when it has them. Exported so the
+ * choice is one function, tested on its own.
+ *
+ * Built once per points array, renderer and width: a stroke's arrays are
+ * replaced, never edited, when it changes, so a rerender (a selection, a theme
+ * change) reuses the path.
+ */
+export function settledStrokePath(
+  points: readonly number[],
+  width: number,
+  renderer: InkRendererKind,
+  pressures?: readonly number[],
+): string | null {
+  let byKey = settledPaths.get(points);
+  if (!byKey) {
+    byKey = new Map();
+    settledPaths.set(points, byKey);
+  }
+  const key = renderer === "freehand" ? `freehand|${width}` : "classic";
+  const cached = byKey.get(key);
+  if (cached && cached.pressures === pressures) return cached.d;
+  const d = renderer === "freehand"
+    ? freehandPathFromFlat(points, width, pressures)
+    : readyCore().strokePath(points);
+  byKey.set(key, { pressures, d });
+  return d;
+}
 
 /** One stroke, ready to draw: geometry in the caller's space, colour resolved. */
 export interface InkRenderStroke {
@@ -32,6 +70,8 @@ export interface InkRenderStroke {
   points: readonly number[];
   /** Nib width, in the same space as `points`. */
   width: number;
+  /** Pressure per point, 0-255, when the stroke has it (the freehand outline uses it). */
+  pressures?: readonly number[];
   /** A resolved CSS colour. An ink note resolves its token through the palette. */
   colour: string;
   /** Wide and translucent, drawn over the pen — the tool, not the width. */
@@ -86,15 +126,36 @@ export function InkStrokes({
   selectedIds,
   haloGrow = 0,
 }: InkStrokesProps) {
+  // Read after mount, not during render: the server has no setting, so the first
+  // render is classic on both sides and the choice lands without a hydration
+  // mismatch. The setting applies to the next ink page opened. Known cost: with
+  // `freehand` on, a page's strokes paint as capsules for its first frame, then
+  // as outlines. A lazy initialiser would remove the flash but render
+  // differently on the server and the client, so the flash is kept.
+  const [renderer, setRenderer] = useState<InkRendererKind>("classic");
+  useEffect(() => setRenderer(readInkRenderer()), []);
   if (strokes.length === 0) return null;
   const selected = new Set(selectedIds ?? []);
+  const outlined = renderer === "freehand";
 
   const draw = (stroke: InkRenderStroke, key: string) => {
-    const d = readyCore().strokePath(stroke.points);
+    const d = settledStrokePath(stroke.points, stroke.width, renderer, stroke.pressures);
     if (!d) return null;
     const styled = stroke.highlighter && Boolean(highlighterClassName);
     const held = stroke.id != null && selected.has(stroke.id) && haloGrow > 0;
-    const path = (
+    // A freehand stroke is an outline, so it is filled; a capsule is a centreline
+    // and is stroked. Either way the caller's colour and the highlighter rules
+    // are the same.
+    const path = outlined ? (
+      <path
+        key={key}
+        d={d}
+        className={styled ? highlighterClassName : undefined}
+        fill={stroke.colour}
+        stroke="none"
+        fillOpacity={stroke.highlighter && !styled ? HIGHLIGHTER_ALPHA : undefined}
+      />
+    ) : (
       <path
         key={key}
         d={d}
@@ -116,6 +177,17 @@ export function InkStrokes({
     // The halo goes under its stroke, wider by `haloGrow` either side: the same
     // shape as the sheet's lasso selection, and the same shape as the stroke, so
     // it reads as "this line" rather than as a frame around a place.
+    if (outlined) {
+      return (
+        <g key={key}>
+          <path
+            className="ink-stroke-halo ink-stroke-halo--fill"
+            d={settledStrokePath(stroke.points, stroke.width + haloGrow * 2, renderer, stroke.pressures) ?? undefined}
+          />
+          {path}
+        </g>
+      );
+    }
     return (
       <g key={key}>
         <path

@@ -70,6 +70,11 @@ export type InkWorkerMessage =
        */
       codec?: "identity" | "deflate-raw";
       /**
+       * The A/B renderer for this page. Read once here: `freehand` draws
+       * perfect-freehand outlines on Canvas 2D. Anything else is `classic`.
+       */
+      inkRenderer?: "classic" | "freehand";
+      /**
        * Whether the Delegated Ink Trail is drawing the wet tail.
        *
        * It chooses the context's `desynchronized` attribute, which is immutable, so
