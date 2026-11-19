@@ -47,6 +47,7 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [puller_plan](puller_plan.md) | Pull decisions for the offline-sync Puller: page summary, apply and tombstone steps, unique-clash parsing. |
 | [vault](vault.md) | Vault (notes) domain rules. |
 | [page_query](page_query.md) | Vault page query text for PostgREST: LIKE and PostgREST escaping, title ILIKE pattern, missing `body_preview` check. |
+| [tier-upgrade](tier-upgrade.md) | First 0.9.4 start: turn the 0.9.2 local-mode and account flags into the workspace tier, once. |
 | [workspace](workspace.md) | Workspace path rules shared by every adapter: relative, normalized, never leaving the root. |
 | [lexical_concepts](lexical_concepts.md) | Lexical concept extraction with no model: harvest, merge, rank and the `maxConcepts` cap. |
 | [model_extraction](model_extraction.md) | Model concept extraction: the prompt, batch limits, request builder and merge/cap. |
