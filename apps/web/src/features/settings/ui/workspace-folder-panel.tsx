@@ -42,7 +42,7 @@ import { overleafSyncAvailable } from "@/features/overleaf/application/parts";
 import { OverleafSyncPanel } from "./overleaf-sync-panel";
 import { FolderFileHistory } from "./folder-file-history";
 import { ChangeFolderAction } from "./change-folder-action";
-import { SkippedFiles } from "./skipped-files";
+import { notImportedNote, SkippedFiles } from "./skipped-files";
 import type { SkippedFile } from "@/features/workspace/application/parts-2";
 import {
   folderWatchLost,
@@ -134,7 +134,7 @@ export function WorkspaceFolderPanel() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [history, setHistory] = useState<readonly WorkspaceCommit[]>([]);
-  const [diff, setDiff] = useState<(ImportDiff & { skipped?: SkippedFile[] }) | null>(null);
+  const [diff, setDiff] = useState<(ImportDiff & { skipped?: SkippedFile[]; refused?: readonly SkippedFile[] }) | null>(null);
   const archiveInput = useRef<HTMLInputElement | null>(null);
   // Resolved after mount: the server has no shell, and disagreeing would be a hydration mismatch.
   const [hasShell, setHasShell] = useState(false);
@@ -513,7 +513,7 @@ function ImportPreview({
   diff,
   onApplied,
 }: {
-  diff: ImportDiff & { skipped?: SkippedFile[] };
+  diff: ImportDiff & { skipped?: SkippedFile[]; refused?: readonly SkippedFile[] };
   onApplied: (message: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -540,7 +540,7 @@ function ImportPreview({
         {diff.counts.unchanged} unchanged · {diff.counts.conflict} conflict
         {diff.counts.conflict === 1 ? "" : "s"}
       </p>
-      <SkippedFiles skipped={diff.skipped ?? []} />
+      <SkippedFiles skipped={[...(diff.skipped ?? []), ...(diff.refused ?? [])]} />
 
       {conflicts.length > 0 && (
         <ul className="wiki-lint-list">
@@ -574,7 +574,9 @@ function ImportPreview({
             setError(null);
             void applyReviewedImport(diff, resolutions)
               .then((result) =>
-                onApplied(`Imported ${result.created} new and ${result.updated} changed note(s).`),
+                onApplied(
+                  `Imported ${result.created} new and ${result.updated} changed note(s).${notImportedNote(result.refused ?? [])}`,
+                ),
               )
               .catch((err) => setError(formatError(err)))
               .finally(() => setBusy(false));
