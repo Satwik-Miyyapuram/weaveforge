@@ -1029,6 +1029,20 @@
   background: var(--accent);
 }
 
+/* The explorer's right edge, over its border: the pane divider's look, placed
+   on the column line rather than as a grid cell so the shell's grid stays two
+   columns. Transparent until hovered, since the panel already draws a border. */
+.explorer-resizer {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--workspace-explorer) - 2px);
+  z-index: 4;
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  touch-action: none;
+}
+
 .pane {
   display: flex;
   flex: 1;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import { getContainer } from "@/bootstrap";
 import type { EditorHandleRef } from "@/components/editor-handle";
@@ -17,9 +17,12 @@ import {
   isTypingTarget,
   loadWorkspace,
   NoteSaves,
+  EXPLORER_WIDTH_DEFAULT,
+  readExplorerWidth,
   readHidden,
   readLayout,
   type WorkspaceData,
+  writeExplorerWidth,
   writeHidden,
   writeLayout,
 } from "../application/parts";
@@ -44,6 +47,7 @@ import type { ExplorerSection } from "../application/parts";
 import { DocumentHost, isCanvasDocument, type DocumentMetrics } from "./document-host";
 import { CanvasDocument } from "./canvas-document";
 import { ExplorerPanel } from "./explorer-panel";
+import { ExplorerResizer } from "./explorer-resizer";
 import { useFocusMode } from "./use-focus-mode";
 import { HydratingDocument, useNoteBodies } from "./use-note-bodies";
 import { useLinkTargets } from "./use-link-targets";
@@ -119,6 +123,13 @@ export function WorkspaceScreen() {
   const activeDocRef = useRef<Document | undefined>(undefined);
   const folderIdsRef = useRef<ReadonlySet<string>>(new Set());
   useEffect(() => setExplorerHidden(readHidden(store())), []);
+  // The explorer's dragged width, per device like `hidden`.
+  const [explorerWidth, setExplorerWidth] = useState(EXPLORER_WIDTH_DEFAULT);
+  useEffect(() => setExplorerWidth(readExplorerWidth(store())), []);
+  const resizeExplorer = useCallback((width: number) => {
+    setExplorerWidth(width);
+    writeExplorerWidth(store(), width);
+  }, []);
   // On a phone there is no room for the explorer beside a document: at 375px
   // the two shared the width, the tree's labels truncated to a letter and the
   // PDF's own toolbar sat over the page. There the explorer is a drawer over
@@ -700,6 +711,7 @@ export function WorkspaceScreen() {
   return (
     <div
       className={`workspace-shell${explorerHidden ? " is-explorer-hidden" : ""}${focus ? " is-focus" : ""}${phone ? " is-phone" : ""}`}
+      style={{ "--workspace-explorer": `${explorerWidth}px` } as CSSProperties}
     >
       {focus ? (
         <span className="focus-exit">
@@ -748,6 +760,9 @@ export function WorkspaceScreen() {
         onMove={moveNode}
         onHide={toggleExplorer}
       />
+      {explorerHidden || phone || focus ? null : (
+        <ExplorerResizer width={explorerWidth} onWidth={resizeExplorer} />
+      )}
       <PaneView
         focus={focus}
         layout={layout}
