@@ -2,7 +2,7 @@
 
 /** Static ink page: ink is drawn to a canvas, only near the viewport. */
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState, type MouseEvent } from "react";
 import type { FigureGeometry, InkStroke } from "@weaveforge/core";
 import type { InkPalette } from "../render/parts-1";
 import type { WikilinkResolver } from "@/components/markdown/markdown";
@@ -35,6 +35,8 @@ export interface InkPageStaticProps {
   resolveImageSrc?: (src: string) => string | null;
   /** `[[target]]` → its link, so the sheet reads links as Read mode does. */
   resolveWikilink?: WikilinkResolver;
+  /** Follows a clicked `[[link]]`; without it the sheet's links take no clicks. */
+  onWikilinkClick?: (event: MouseEvent<HTMLElement>) => void;
   /** Ink strokes on this page. */
   strokes?: readonly InkStroke[];
   /** Theme palette. */
@@ -54,6 +56,7 @@ export const InkPageStatic = memo(function InkPageStatic({
   pureText,
   resolveImageSrc,
   resolveWikilink,
+  onWikilinkClick,
   strokes,
   palette,
   onLoadError,
@@ -117,6 +120,7 @@ export const InkPageStatic = memo(function InkPageStatic({
             scale={scale}
             resolveImageSrc={resolveImageSrc}
             resolveWikilink={resolveWikilink}
+            onWikilinkClick={onWikilinkClick}
           />
         ) : null}
         {near ? (

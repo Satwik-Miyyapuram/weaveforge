@@ -2574,6 +2574,8 @@
    underlay's line rhythm (one row per source line, roughly) so the page flow
    estimate in ink-text-flow stays close to what is drawn. */
 .ink-sheet-text-underlay { max-width: none; }
+/* The read sheet has no pen: its links take clicks, the text around them does not. */
+.ink-sheet-text-underlay.ink-links-live a[href] { pointer-events: auto; }
 /* `.ink-sheet` in the selector outranks markdown.css's own block margins. */
 .ink-sheet .ink-sheet-text-underlay :is(p, ul, ol, li, h1, h2, h3, h4, h5, h6, pre, table, blockquote, .callout, .math-display, .md-mermaid) {
   margin: 0;
