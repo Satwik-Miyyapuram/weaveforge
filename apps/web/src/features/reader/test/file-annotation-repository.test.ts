@@ -12,7 +12,12 @@ before(async () => {
 });
 
 const ROOT = "thesis";
-const FILE = `${ROOT}/papers/pdf/p-1.annotations.json`;
+const FILE = `${ROOT}/papers/Attention.annotations.json`;
+const PAPERS: Record<string, string> = {
+  "p-1": `${ROOT}/papers/Attention.paper.md`,
+  "p-2": `${ROOT}/papers/Other.paper.md`,
+};
+const paperFileOf = async (paperId: string) => PAPERS[paperId] ?? null;
 
 function draft(overrides: Partial<NewReaderAnnotation> = {}): NewReaderAnnotation {
   return {
@@ -27,10 +32,10 @@ function draft(overrides: Partial<NewReaderAnnotation> = {}): NewReaderAnnotatio
 
 function setup() {
   const fs = new MemoryWorkspaceFs();
-  return { fs, repo: new FileReaderAnnotationRepository(fs, ROOT) };
+  return { fs, repo: new FileReaderAnnotationRepository(fs, ROOT, paperFileOf) };
 }
 
-test("create writes the paper's annotations file next to the PDF", async () => {
+test("create writes the sidecar next to the paper file, under the paper's name", async () => {
   const { fs, repo } = setup();
   const made = await repo.create("p-1", draft({ id: "a1", color: " " }));
   assert.equal(made.color, "#ffd400");
@@ -40,6 +45,25 @@ test("create writes the paper's annotations file next to the PDF", async () => {
   assert.deepEqual(rows.map((r) => r.id), ["a1"]);
   assert.deepEqual(await repo.list("p-1"), [made]);
   assert.deepEqual(await repo.list("other"), []);
+});
+
+test("an unknown paper lists nothing and create refuses it; no file is written", async () => {
+  const { fs, repo } = setup();
+  assert.deepEqual(await repo.list("missing"), []);
+  await assert.rejects(repo.create("missing", draft({ id: "a1" })), NotFoundError);
+  assert.equal(await fs.stat(`${ROOT}/papers`), null);
+});
+
+test("a renamed paper file takes its annotations by name, never by id", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const paths: Record<string, string> = { "p-1": `${ROOT}/papers/Attention.paper.md` };
+  const repo = new FileReaderAnnotationRepository(fs, ROOT, async (id) => paths[id] ?? null);
+  await repo.create("p-1", draft({ id: "a1" }));
+  await fs.rename(FILE, `${ROOT}/papers/Renamed.annotations.json`);
+  paths["p-1"] = `${ROOT}/papers/Renamed.paper.md`;
+  assert.deepEqual((await repo.list("p-1")).map((a) => a.id), ["a1"]);
+  await repo.update("a1", { comment: "x" });
+  assert.equal(await fs.stat(FILE), null);
 });
 
 test("create rejects a bad type and a live id", async () => {
@@ -72,7 +96,7 @@ test("remove deletes the row and keeps the others", async () => {
 test("an id in two annotations files: update and remove are refused, neither file changes", async () => {
   const { fs, repo } = setup();
   await repo.create("p-1", draft({ id: "a1" }));
-  const other = `${ROOT}/papers/pdf/p-2.annotations.json`;
+  const other = `${ROOT}/papers/Other.annotations.json`;
   const text = await fs.readText(FILE);
   await fs.writeFile(other, text);
   await assert.rejects(repo.update("a1", { comment: "x" }), (error: unknown) => {
@@ -141,7 +165,7 @@ test("law: an annotation written outside the app between read and write is never
   await fc.assert(
     fc.asyncProperty(ids, fc.stringMatching(/^ext-[a-z]{1,6}$/), async (made, external) => {
       const fs = new RacingFs();
-      const repo = new FileReaderAnnotationRepository(fs, ROOT);
+      const repo = new FileReaderAnnotationRepository(fs, ROOT, paperFileOf);
       for (const id of made) await repo.create("p-1", draft({ id }));
       fs.race = async () => {
         const rows = JSON.parse(await fs.readText(FILE)) as unknown[];

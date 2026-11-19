@@ -593,16 +593,32 @@ fn split_extension(rel: &str) -> (&str, &str) {
     }
 }
 
-/// Sidecar annotations file for a paper: `p/papers/x.pdf` -> `p/papers/x.annotations.json`.
-#[must_use]
-pub fn annotations_path(paper_rel: &str) -> String {
-    format!("{}.annotations.json", split_extension(paper_rel).0)
+/// Extensions of two parts that name a kind; a sidecar drops the whole of it.
+const COMPOUND_EXTENSIONS: [&str; 1] = [".paper.md"];
+
+/// `rel` without its extension, a compound one (`x.paper.md` -> `x`) included.
+fn sidecar_stem(rel: &str) -> &str {
+    COMPOUND_EXTENSIONS
+        .iter()
+        .find_map(|ext| {
+            rel.strip_suffix(ext)
+                .filter(|stem| !stem.ends_with('/') && !stem.is_empty())
+        })
+        .unwrap_or_else(|| split_extension(rel).0)
 }
 
-/// Sidecar comments file for an item: `p/notes/x.md` -> `p/notes/x.comments.json`.
+/// Sidecar annotations file for a paper, by the paper's own name:
+/// `p/papers/x.pdf` or `p/papers/x.paper.md` -> `p/papers/x.annotations.json`.
+#[must_use]
+pub fn annotations_path(paper_rel: &str) -> String {
+    format!("{}.annotations.json", sidecar_stem(paper_rel))
+}
+
+/// Sidecar comments file for an item: `p/notes/x.md` -> `p/notes/x.comments.json`,
+/// `p/papers/x.paper.md` -> `p/papers/x.comments.json`.
 #[must_use]
 pub fn comments_path(item_rel: &str) -> String {
-    format!("{}.comments.json", split_extension(item_rel).0)
+    format!("{}.comments.json", sidecar_stem(item_rel))
 }
 
 /// Metrics chunk of one run and batch inside an experiment folder.

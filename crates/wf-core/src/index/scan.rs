@@ -65,7 +65,7 @@ pub fn entry_from_file(path: &str, text: &str) -> Option<IndexEntry> {
 
 /// The outgoing relations a paper file declares in its frontmatter; none for other kinds.
 fn paper_relations(kind: &str, id: &str, text: &str) -> Vec<Relation> {
-    if kind != PAPER_TYPE {
+    if kind != PAPER_TYPE || id.is_empty() {
         return Vec::new();
     }
     parse_paper_file(text)

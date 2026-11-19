@@ -5,6 +5,7 @@ import type { Paper } from "@weaveforge/core";
 import { ConflictError } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { typedCore } from "@/lib/rust-core";
 import { FilePaperRepository } from "../infrastructure/file-paper-repository";
 
 before(async () => {
@@ -168,6 +169,147 @@ test("a file from a newer app is never overwritten", async () => {
   assert.equal(await fs.readText(path), text);
 });
 
+// ---- Identity by path, names, failures, CRLF (review rows L1L2 P1/P2) ----
+
+test("a new file is named after the title only; a second paper of that title gets -2", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ id: "p-1" }));
+  await repo.save(paper({ id: "p-2" }));
+  const paths: string[] = [];
+  for await (const entry of fs.walk(`${ROOT}/papers`)) paths.push(entry.path);
+  paths.sort();
+  assert.equal(paths.length, 2, paths.join(", "));
+  for (const path of paths) assert.ok(!path.includes("--"), `no id in ${path}`);
+  assert.ok(paths.some((path) => path.endsWith("-2.paper.md")), paths.join(", "));
+  assert.equal((await repo.getById("p-1"))?.id, "p-1");
+  assert.equal((await repo.getById("p-2"))?.id, "p-2");
+});
+
+test("a file with no weaveforge-id is the paper at its path; a write adds no id", async () => {
+  const { fs, repo } = setup();
+  const path = `${ROOT}/papers/Hand made.paper.md`;
+  await fs.writeFile(path, '---\nweaveforge-type: "paper"\ntitle: "Hand made"\nstatus: "to_read"\n---\nnotes\n');
+  const [listed] = await repo.list();
+  assert.equal(listed?.id, path);
+  assert.equal((await repo.getById(path))?.title, "Hand made");
+  await repo.setTags(path, ["x"], "2026-03-01");
+  const after = await fs.readText(path);
+  assert.doesNotMatch(after, /weaveforge-id/);
+  assert.match(after, /notes/);
+  assert.deepEqual((await repo.getById(path))?.tags, ["x"]);
+});
+
+test("writeIds: false writes no id; the paper is then known by its path", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const repo = new FilePaperRepository(fs, ROOT, { writeIds: false });
+  await repo.save(paper());
+  const path = await onlyFile(fs);
+  assert.doesNotMatch(await fs.readText(path), /weaveforge-id/);
+  assert.equal((await repo.list())[0]?.id, path);
+  assert.equal(await repo.pathOf(path), path);
+});
+
+test("failures() names each file that is not a paper; list still skips it", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper());
+  await fs.writeFile(`${ROOT}/papers/broken.paper.md`, "no frontmatter");
+  const failures = await repo.failures();
+  assert.deepEqual(failures.map((f) => f.path), [`${ROOT}/papers/broken.paper.md`]);
+  assert.ok(failures[0]!.error.length > 0);
+  assert.equal((await repo.list()).length, 1);
+});
+
+test("a CRLF file stays CRLF after setTags", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper());
+  const path = await onlyFile(fs);
+  await fs.writeFile(path, (await fs.readText(path)).replace(/\n/g, "\r\n") + "Body\r\n");
+  await repo.setTags("p-1", ["ml"], "2026-03-01");
+  const after = await fs.readText(path);
+  assert.doesNotMatch(after.replace(/\r\n/g, ""), /\n/, "every line ends in CRLF");
+  assert.match(after, /Body\r\n$/);
+});
+
+test("a file without createdAt never gets an empty createdAt written", async () => {
+  const { fs, repo } = setup();
+  const path = `${ROOT}/papers/Bare.paper.md`;
+  await fs.writeFile(path, '---\nweaveforge-id: "p-9"\nweaveforge-type: "paper"\ntitle: "Bare"\nstatus: "to_read"\n---\n');
+  await repo.setTags("p-9", ["x"], "2026-03-01");
+  assert.doesNotMatch(await fs.readText(path), /createdAt|created-at|created: ""/i);
+});
+
+test("delete trashes the paper, its annotations and comments sidecars and its PDF together", async () => {
+  const { fs, repo } = setup();
+  const pdf = `${ROOT}/papers/pdf/attention.pdf`;
+  await fs.writeFile(pdf, "%PDF");
+  await repo.save(paper({ pdfPath: pdf }));
+  const path = await onlyFile(fs);
+  const stem = path.slice(0, -".paper.md".length);
+  await fs.writeFile(`${stem}.annotations.json`, "[]\n");
+  await fs.writeFile(`${stem}.comments.json`, "[]\n");
+  await repo.delete("p-1");
+  for (const gone of [path, `${stem}.annotations.json`, `${stem}.comments.json`, pdf]) {
+    assert.equal(await fs.stat(gone), null, `${gone} moved`);
+  }
+  const moved = await trashed(fs);
+  assert.equal(moved.length, 4, moved.join(", "));
+  const day = moved[0]!.split("/").slice(0, 3).join("/");
+  for (const entry of moved) assert.ok(entry.startsWith(`${day}/`), "one day folder");
+});
+
+test("delete keeps a PDF another paper still uses, and never touches one outside the workspace", async () => {
+  const { fs, repo } = setup();
+  const pdf = `${ROOT}/papers/pdf/shared.pdf`;
+  await fs.writeFile(pdf, "%PDF");
+  await repo.save(paper({ id: "p-1", title: "One", pdfPath: pdf }));
+  await repo.save(paper({ id: "p-2", title: "Two", pdfPath: pdf }));
+  await repo.save(paper({ id: "p-3", title: "Three", pdfPath: "../outside.pdf" }));
+  await repo.delete("p-1");
+  await repo.delete("p-3");
+  assert.equal(await fs.readText(pdf), "%PDF");
+});
+
+test("delete never overwrites a trash file that appears after it looked (time-of-check gap)", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const repo = new FilePaperRepository(fs, ROOT);
+  await repo.save(paper());
+  const path = await onlyFile(fs);
+  const first = typedCore().trashPathFor(path, Date.now(), 1);
+  await fs.writeFile(first, "someone else's file");
+  const stat = fs.stat.bind(fs);
+  fs.stat = async (target) => (target.startsWith(".weaveforge/trash") ? null : stat(target));
+  await repo.delete("p-1");
+  assert.equal(await fs.readText(first), "someone else's file");
+  fs.stat = stat;
+  const moved = await trashed(fs);
+  assert.equal(moved.length, 2, moved.join(", "));
+  assert.ok(moved.some((entry) => entry.endsWith("-2.paper.md")), moved.join(", "));
+});
+
+/** A file system whose next conditional write first lets "another app" edit the file. */
+class RacingFs extends MemoryWorkspaceFs {
+  race: (() => Promise<void>) | null = null;
+
+  override async writeTextIf(path: string, text: string, expected: string | null): Promise<boolean> {
+    const race = this.race;
+    this.race = null;
+    if (race) await race();
+    return super.writeTextIf(path, text, expected);
+  }
+}
+
+test("setTags racing an outside edit keeps that edit", async () => {
+  const fs = new RacingFs();
+  const repo = new FilePaperRepository(fs, ROOT);
+  await repo.save(paper());
+  const path = await onlyFile(fs);
+  fs.race = async () => fs.writeFile(path, (await fs.readText(path)) + "Outside edit.\n");
+  await repo.setTags("p-1", ["ml"], "2026-03-01");
+  const after = await fs.readText(path);
+  assert.match(after, /Outside edit\./);
+  assert.deepEqual((await repo.getById("p-1"))?.tags, ["ml"]);
+});
+
 // ---- Laws (fast-check) ----
 
 const text = fc.string({ maxLength: 20 });
@@ -217,7 +359,7 @@ test("law: delete moves exactly that paper's file to the trash and changes no ot
       const before = new Map<string, string>();
       for await (const entry of fs.walk(`${ROOT}/papers`)) before.set(entry.path, await fs.readText(entry.path));
       const id = `p-${pick % count}`;
-      const [gone] = [...before.keys()].filter((path) => path.endsWith(`--${id}.paper.md`));
+      const [gone] = [...before].filter(([, text]) => text.includes(`weaveforge-id: "${id}"`)).map(([path]) => path);
       await repo.delete(id);
       for (const [path, text] of before) {
         if (path === gone) assert.equal(await fs.stat(path), null);

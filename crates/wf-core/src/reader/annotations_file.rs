@@ -1,9 +1,10 @@
 //! A paper's annotations as one workspace file (files-first, L2):
-//! the existing sidecar of the paper's PDF (`x.pdf` -> `x.annotations.json`).
+//! a sidecar next to the paper file, under its name (`x.paper.md` -> `x.annotations.json`).
 //!
 //! The file is one JSON array of annotation objects, sorted by `id`, two-space
 //! indented, ending in a newline. Only `id` is read; every other key is kept as it
-//! is. An empty file reads as no annotations. An edit made outside the app is
+//! is. An empty file reads as no annotations; two rows with one id are refused,
+//! never resolved by dropping one. An edit made outside the app is
 //! merged row by row, by `id`, against the base the app last read.
 
 use std::collections::BTreeSet;
@@ -12,7 +13,7 @@ use std::fmt;
 use serde::Serialize;
 use serde_json::{Map, Value};
 
-use crate::sync::folder_layout::{annotations_path, paper_pdf_path};
+use crate::sync::folder_layout::annotations_path;
 use crate::sync::frontmatter::canonical_text;
 use crate::sync::merge::{Conflict, merge_rows};
 
@@ -28,6 +29,8 @@ pub enum AnnotationsFileError {
     NotAnArray,
     /// The row at this index is not an object with a non-empty string `id`.
     BadRow(usize),
+    /// Two rows share this id (a hand or git merge). Never resolved by dropping one.
+    DuplicateId(String),
 }
 
 impl fmt::Display for AnnotationsFileError {
@@ -36,6 +39,7 @@ impl fmt::Display for AnnotationsFileError {
             Self::NotJson(error) => write!(f, "The annotations file is not JSON: {error}"),
             Self::NotAnArray => write!(f, "The annotations file is not a JSON array."),
             Self::BadRow(index) => write!(f, "Annotation {index} has no id."),
+            Self::DuplicateId(id) => write!(f, "Two annotations share the id {id}."),
         }
     }
 }
@@ -49,10 +53,12 @@ pub struct AnnotationsMerge {
     pub conflicts: Vec<(String, Vec<Conflict>)>,
 }
 
-/// `<project>/papers/pdf/<paper-id>.annotations.json` (no project prefix for `""`).
+/// The sidecar next to the paper file, under the paper's own name:
+/// `p/papers/X.paper.md` -> `p/papers/X.annotations.json`. No id is in the path,
+/// so a rename in another editor keeps the pairing by name.
 #[must_use]
-pub fn annotations_file_path(paper_id: &str, project_root: &str) -> String {
-    annotations_path(&paper_pdf_path(paper_id, project_root))
+pub fn annotations_file_path(paper_path: &str) -> String {
+    annotations_path(paper_path)
 }
 
 /// Parses an annotations file. Empty or blank text is no annotations.
@@ -70,11 +76,19 @@ pub fn parse_annotations(text: &str) -> Result<Vec<AnnotationRow>, AnnotationsFi
     let Value::Array(items) = value else {
         return Err(AnnotationsFileError::NotAnArray);
     };
+    let mut seen = BTreeSet::new();
     items
         .into_iter()
         .enumerate()
         .map(|(index, item)| match item {
-            Value::Object(row) if row_id(&row).is_some_and(|id| !id.is_empty()) => Ok(row),
+            Value::Object(row) => match row_id(&row) {
+                Some(id) if id.is_empty() => Err(AnnotationsFileError::BadRow(index)),
+                Some(id) if !seen.insert(id.to_owned()) => {
+                    Err(AnnotationsFileError::DuplicateId(id.to_owned()))
+                }
+                Some(_) => Ok(row),
+                None => Err(AnnotationsFileError::BadRow(index)),
+            },
             _ => Err(AnnotationsFileError::BadRow(index)),
         })
         .collect()

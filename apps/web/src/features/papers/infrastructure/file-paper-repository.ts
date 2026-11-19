@@ -6,7 +6,7 @@ import type {
   PaperIdentity,
   PaperSummary,
 } from "@weaveforge/core";
-import { ConflictError } from "@weaveforge/core";
+import { ConflictError, isSafeWorkspacePath } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
 
 /** A paper file as read from the folder. */
@@ -16,28 +16,54 @@ interface PaperFileRead {
   paper: Paper;
 }
 
+/** A `.paper.md` file the repository could not read, and why. */
+export interface PaperFileFailure {
+  path: string;
+  error: string;
+}
+
+/** Options for {@link FilePaperRepository}. */
+export interface FilePaperRepositoryOptions {
+  /**
+   * Write `weaveforge-id` into new files (default true). When false a new file
+   * carries no id and the paper is known by its path; the id the caller passed to
+   * `save` is then not kept, so only use it once nothing keys data by paper id.
+   */
+  writeIds?: boolean;
+}
+
 /** How often a write re-reads and tries again when the file changed under it. */
 const WRITE_ATTEMPTS = 3;
-/** How many numbered trash names (`x.paper.md`, `x-2.paper.md`, …) a delete tries. */
-const TRASH_NAME_ATTEMPTS = 1000;
+/** How many numbered names (`x`, `x-2`, …) a new file or a trash move tries. */
+const NAME_ATTEMPTS = 1000;
+const PAPER_SUFFIX = ".paper.md";
 
 /**
- * Papers as workspace files (files-first L1): one `<slug>--<id>.paper.md` per paper
- * under `<project>/papers/`, with the paper's fields in frontmatter and the reader's
- * notes as the body. No database.
+ * Papers as workspace files (files-first L1): one `<title slug>.paper.md` per paper
+ * under `<project>/papers/` (`-2`, `-3`, … when two papers share a title), with the
+ * paper's fields in frontmatter and the reader's notes as the body. No database.
+ *
+ * A paper is identified by its file: its id is the file's `weaveforge-id` when it
+ * has one, else the file's path. The file name never holds an id.
  *
  * Parsing and writing are the Rust `paperRowFromFile` / `writePaperRow`, so a write
- * keeps the body, relations and every key the app does not own. A file that is not
- * a paper, or is from a newer app, is skipped on read and refused on write.
+ * keeps the body, line endings, relations and every key the app does not own. A
+ * file that is not a paper is left out of reads and reported by `failures()`; one
+ * from a newer app is refused on write.
  *
  * Each call reads the folder; the desktop index (`index_list("paper", …)`) is the
  * faster path once the bridge exposes it.
  */
 export class FilePaperRepository implements IPaperRepository {
+  private readonly writeIds: boolean;
+
   constructor(
     private readonly fs: IWorkspaceFs,
     private readonly projectRoot: string,
-  ) {}
+    options: FilePaperRepositoryOptions = {},
+  ) {
+    this.writeIds = options.writeIds ?? true;
+  }
 
   async getById(id: string): Promise<Paper | null> {
     return (await this.find((paper) => paper.id === id))?.paper ?? null;
@@ -55,7 +81,7 @@ export class FilePaperRepository implements IPaperRepository {
       const doi = typedCore().normalizeDoi(filter.doi);
       items = items.filter((p) => p.doi === doi);
     }
-    return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return items.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
   }
 
   async listSummaries(): Promise<PaperSummary[]> {
@@ -84,6 +110,16 @@ export class FilePaperRepository implements IPaperRepository {
     return identityOf(await this.findByDoi(doi));
   }
 
+  /** The file that holds paper `id`, or null; refuses when more than one does. */
+  async pathOf(id: string): Promise<string | null> {
+    return (await this.findById(id))?.path ?? null;
+  }
+
+  /** Every `.paper.md` file that could not be read as a paper, with the reason. */
+  async failures(): Promise<PaperFileFailure[]> {
+    return (await this.scan()).failures;
+  }
+
   async save(entity: Paper): Promise<void> {
     await this.write(entity.id, () => toRow(entity), true);
   }
@@ -105,10 +141,24 @@ export class FilePaperRepository implements IPaperRepository {
     return this.writeIf(read.path, text, read.text);
   }
 
-  /** Moves the paper's file to `.weaveforge/trash/<day>/<path>`; never unlinks it. */
+  /**
+   * Moves the paper's file, its annotations and comments sidecars and its PDF to
+   * `.weaveforge/trash/<day>/<path>`, all under one day; never unlinks. The PDF is
+   * left when another paper still points at it or it is not a workspace path.
+   */
   async delete(id: string): Promise<void> {
     const read = await this.findById(id);
-    if (read) await this.moveToTrash(read.path);
+    if (!read) return;
+    const core = typedCore();
+    const now = Date.now();
+    await this.moveToTrash(read.path, now);
+    for (const sidecar of [core.annotationsFilePath(read.path), core.commentsFilePath(read.path)]) {
+      if (await this.fs.stat(sidecar)) await this.moveToTrash(sidecar, now);
+    }
+    const pdf = read.paper.pdfPath;
+    if (!pdf || !isSafeWorkspacePath(pdf) || !(await this.fs.stat(pdf))) return;
+    const others = (await this.readAll()).some((other) => other.paper.pdfPath === pdf);
+    if (!others) await this.moveToTrash(pdf, now);
   }
 
   /**
@@ -126,15 +176,23 @@ export class FilePaperRepository implements IPaperRepository {
       if (!read && !create) return;
       const row = rowFor(read?.paper ?? null);
       if (!row) return;
+      if (!read && !this.writeIds) delete row.id;
       const text = typedCore().writePaperRow(read?.text ?? null, stripUndefined(row));
-      const path = read?.path ?? this.newPath(id, String(row.title ?? ""));
+      const path = read?.path ?? (await this.newPath(String(row.title ?? "")));
       if (await this.writeIf(path, text, read?.text ?? null)) return;
     }
     throw new ConflictError(`Paper ${id} kept changing on disk; not saved.`);
   }
 
-  private newPath(id: string, title: string): string {
-    return typedCore().flatPath("paper", id, title, this.projectRoot);
+  /** `<papers>/<title slug>.paper.md`, or the first free `-n` name. */
+  private async newPath(title: string): Promise<string> {
+    const core = typedCore();
+    const base = `${core.entityDir("paper", this.projectRoot)}/${core.slugFor(title, "untitled")}`;
+    for (let n = 1; n <= NAME_ATTEMPTS; n += 1) {
+      const path = n === 1 ? `${base}${PAPER_SUFFIX}` : `${base}-${n}${PAPER_SUFFIX}`;
+      if (!(await this.fs.stat(path))) return path;
+    }
+    throw new ConflictError(`${base}${PAPER_SUFFIX}: no free name; not saved.`);
   }
 
   /** Writes only if the file is still `expected`; without `writeTextIf` it refuses. */
@@ -146,14 +204,16 @@ export class FilePaperRepository implements IPaperRepository {
     return this.fs.writeTextIf(path, text, expected);
   }
 
-  /** Renames `path` to the first free trash name for today (`-2`, `-3`, … on a clash). */
-  private async moveToTrash(path: string): Promise<void> {
+  /**
+   * Renames `path` to the first free trash name for `now` (`-2`, `-3`, … on a
+   * clash). The name is claimed by an exclusive create first, so a file that
+   * appears there between a look and the rename is never overwritten.
+   */
+  private async moveToTrash(path: string, now: number): Promise<void> {
     const core = typedCore();
-    const now = Date.now();
-    for (let n = 1; n <= TRASH_NAME_ATTEMPTS; n += 1) {
+    for (let n = 1; n <= NAME_ATTEMPTS; n += 1) {
       const target = core.trashPathFor(path, now, n);
-      if (await this.fs.stat(target)) continue;
-      await this.fs.mkdirp(parentOf(target));
+      if (!(await this.writeIf(target, "", null))) continue;
       await this.fs.rename(path, target);
       return;
     }
@@ -175,22 +235,27 @@ export class FilePaperRepository implements IPaperRepository {
     return reads[0] ?? null;
   }
 
-  /** Every readable paper file under `<project>/papers/`, in walk order. */
   private async readAll(): Promise<PaperFileRead[]> {
+    return (await this.scan()).reads;
+  }
+
+  /** Every `.paper.md` under `<project>/papers/`, in walk order: read, or why not. */
+  private async scan(): Promise<{ reads: PaperFileRead[]; failures: PaperFileFailure[] }> {
     const core = typedCore();
     const dir = core.entityDir("paper", this.projectRoot);
-    if (!(await this.fs.stat(dir))) return [];
     const reads: PaperFileRead[] = [];
+    const failures: PaperFileFailure[] = [];
+    if (!(await this.fs.stat(dir))) return { reads, failures };
     for await (const entry of this.fs.walk(dir)) {
-      if (!entry.path.endsWith(".paper.md")) continue;
+      if (!entry.path.endsWith(PAPER_SUFFIX)) continue;
       const text = await this.fs.readText(entry.path);
       try {
-        reads.push({ path: entry.path, text, paper: fromRow(core.paperRowFromFile(text)) });
-      } catch {
-        // Not a paper file: shown by the index, never written by this repository.
+        reads.push({ path: entry.path, text, paper: fromRow(core.paperRowFromFile(text), entry.path) });
+      } catch (error) {
+        failures.push({ path: entry.path, error: error instanceof Error ? error.message : String(error) });
       }
     }
-    return reads;
+    return { reads, failures };
   }
 }
 
@@ -203,9 +268,12 @@ function stripUndefined(row: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(row).filter(([, value]) => value !== undefined));
 }
 
-/** The row a file holds as a `Paper`; a file without stamps sorts first. */
-function fromRow(row: Record<string, unknown>): Paper {
-  return { createdAt: "", updatedAt: "", ...row } as unknown as Paper;
+/**
+ * The row a file holds as a `Paper`: a file without `weaveforge-id` is the paper
+ * at `path`. A missing stamp stays missing, so a write never adds an empty one.
+ */
+function fromRow(row: Record<string, unknown>, path: string): Paper {
+  return { ...row, id: typeof row.id === "string" && row.id ? row.id : path } as unknown as Paper;
 }
 
 function parentOf(path: string): string {
