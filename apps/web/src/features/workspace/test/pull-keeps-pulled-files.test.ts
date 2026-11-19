@@ -10,9 +10,10 @@ import { mirrorWorkspace } from "../application/parts-2";
 import { keepMirrorBases, readMirrorBase, writeMirrorManifest } from "../application/parts-3";
 
 // A pull brings the remote's manifest along with the remote's files, and that
-// manifest's digests match what came in. Left as it is, the next mirror run
-// reads every pulled file as its own last write and puts the database's older
-// copy back over it. These tests pin the guard that keeps the pulled files.
+// manifest's digests match what came in. The mirror must not treat a pulled file
+// as its own last write: the first mirror after start rewrites nothing that
+// already exists, and a later rewrite happens only for an edit made in the app
+// during the same session. Sync never removes a file.
 
 let core: RustCore;
 before(async () => {
@@ -31,11 +32,15 @@ const snapshot = (over: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot => (
 const note = (id: string, title: string, body = "") =>
   ({ id, title, body, sortOrder: 0, createdAt: "", updatedAt: "" }) as never;
 
-/** Mirror a snapshot into a folder and record its manifest, as a sync run does. */
-async function mirrorRun(fs: MemoryWorkspaceFs, input: WorkspaceSnapshot) {
+/** Mirror a snapshot into a folder and record its manifest, as a sync run does. `seen` is this session's record. */
+async function mirrorRun(
+  fs: MemoryWorkspaceFs,
+  input: WorkspaceSnapshot,
+  seen?: Readonly<Record<string, string>>,
+) {
   const root = core.projectDir(PROJECT);
   const base = await readMirrorBase(fs, root);
-  const result = await mirrorWorkspace(core, input, fs, { project: PROJECT, previousPaths: Object.keys(base), base });
+  const result = await mirrorWorkspace(core, input, fs, { project: PROJECT, seen, base });
   await writeMirrorManifest(fs, root, Object.keys(result.mirrored), result.mirrored);
   return result;
 }
@@ -62,19 +67,11 @@ async function setUp() {
 
 const moved = (reply: { pull?: { kind: string } }) => reply.pull?.kind === "fast-forward" || reply.pull?.kind === "merged";
 
-test("without the guard, the next mirror writes the database's older copy over a pulled file", async () => {
+test("the first mirror after start does not overwrite a pulled file", async () => {
   const { folder, pull, notePath } = await setUp();
   await pull("fast-forward");
   await mirrorRun(folder, local);
-  assert.match(folder.toRecord()[notePath] ?? "", /What this machine last wrote/);
-});
-
-test("with the guard, the pulled file survives the next mirror and is held back for import", async () => {
-  const { folder, pull, notePath } = await setUp();
-  await keepMirrorBases(folder, () => pull("fast-forward"), moved);
-  const result = await mirrorRun(folder, local);
   assert.match(folder.toRecord()[notePath] ?? "", /A line written on the other machine/);
-  assert.ok(result.heldBack.includes(notePath), "held back, so the folder watcher's import offers it");
 });
 
 test("a pull that moved nothing leaves the manifest as it is", async () => {
@@ -114,71 +111,46 @@ function gitPull(folder: MemoryWorkspaceFs, other: MemoryWorkspaceFs) {
 }
 
 const both = snapshot({ vaultPages: [note("n1", "Method", "Kept."), note("n2", "Results", "Deleted on the other machine.")] });
-const onlyMethod = snapshot({ vaultPages: [note("n1", "Method", "Kept.")] });
 
-/** Both machines had both notes; the other machine then deleted Results and pushed. */
-async function setUpRemoteDelete() {
+test("a note deleted on the other machine is written back from the database, and nothing else is removed", async () => {
   const folder = new MemoryWorkspaceFs(() => AT);
   await mirrorRun(folder, both);
   const other = new MemoryWorkspaceFs(() => AT);
   await mirrorRun(other, both);
-  await mirrorRun(other, onlyMethod);
   const deleted = Object.keys(folder.toRecord()).find((p) => p.endsWith(".md") && folder.toRecord()[p]?.includes("Deleted on the other"));
-  assert.ok(deleted, "this machine has the note the other deleted");
-  assert.ok(!Object.hasOwn(other.toRecord(), deleted as string), "the other machine removed it");
-  return { folder, pull: gitPull(folder, other), deleted: deleted as string };
-}
+  assert.ok(deleted, "this machine has the note the other will delete");
+  await other.remove(deleted as string);
+  await gitPull(folder, other)();
+  assert.ok(!Object.hasOwn(folder.toRecord(), deleted as string), "the pull removed it");
 
-test("without the guard, a note deleted on the other machine comes back at the next mirror", async () => {
-  const { folder, pull, deleted } = await setUpRemoteDelete();
-  await pull();
-  assert.ok(!Object.hasOwn(folder.toRecord(), deleted), "the pull removed it");
-  await mirrorRun(folder, both);
-  assert.ok(Object.hasOwn(folder.toRecord(), deleted), "the mirror wrote it back");
-});
-
-test("with the guard, a note deleted on the other machine stays deleted and waits for review", async () => {
-  const { folder, pull, deleted } = await setUpRemoteDelete();
-  await keepMirrorBases(folder, pull, moved);
-  const first = await mirrorRun(folder, both);
-  assert.ok(!Object.hasOwn(folder.toRecord(), deleted), "not written back");
-  assert.ok(first.heldBack.includes(deleted), "held, so the review offers the removal");
-  assert.ok(Object.hasOwn(await readMirrorBase(folder, core.projectDir(PROJECT)), deleted), "still in the base, so the watcher reads it as removed");
-  const second = await mirrorRun(folder, both);
-  assert.ok(!Object.hasOwn(folder.toRecord(), deleted), "still not written back on the next run");
-  assert.ok(second.heldBack.includes(deleted));
-});
-
-test("putting the note back ends the hold", async () => {
-  const { folder, pull, deleted } = await setUpRemoteDelete();
-  await keepMirrorBases(folder, pull, moved);
-  await mirrorRun(folder, both);
-  await folder.writeFile(deleted, "Put back by the reader.");
   const run = await mirrorRun(folder, both);
-  assert.ok(!run.heldBack.includes(deleted) || folder.toRecord()[deleted] === "Put back by the reader.");
-  // With the hold over, a later delete in the folder is an ordinary one again.
-  await folder.remove(deleted);
-  await mirrorRun(folder, both);
-  assert.ok(Object.hasOwn(folder.toRecord(), deleted), "no longer held as a pulled delete");
+  assert.ok(Object.hasOwn(folder.toRecord(), deleted as string), "the database restores the missing file");
+  assert.deepEqual(run.removed, [], "no file is removed");
 });
 
-test("deleting the note in the app ends the hold and drops it from the base", async () => {
-  const { folder, pull, deleted } = await setUpRemoteDelete();
-  await keepMirrorBases(folder, pull, moved);
-  await mirrorRun(folder, both);
-  const run = await mirrorRun(folder, onlyMethod);
-  assert.ok(!run.heldBack.includes(deleted));
-  assert.ok(!Object.hasOwn(await readMirrorBase(folder, core.projectDir(PROJECT)), deleted));
-  assert.ok(!Object.hasOwn(folder.toRecord(), deleted));
-  // The note comes back in the app later: an ordinary write, not a held delete.
-  await mirrorRun(folder, both);
-  assert.ok(Object.hasOwn(folder.toRecord(), deleted));
+test("a file the database never had is never removed", async () => {
+  const folder = new MemoryWorkspaceFs(() => AT);
+  await mirrorRun(folder, local);
+  const extra = `${core.projectDir(PROJECT)}/notes/extra.note.md`;
+  await folder.writeFile(extra, "Written by the reader, not in the database.");
+  await mirrorRun(folder, snapshot());
+  assert.equal(folder.toRecord()[extra], "Written by the reader, not in the database.");
+});
+
+test("an edit made in the app this session rewrites its file", async () => {
+  const folder = new MemoryWorkspaceFs(() => AT);
+  const first = await mirrorRun(folder, local);
+  const notePath = Object.keys(first.mirrored).find((p) => p.endsWith("/notes/method.note.md"));
+  assert.ok(notePath, "the note was mirrored");
+
+  const edited = snapshot({ vaultPages: [note("n1", "Method", "Edited in the app.")] });
+  await mirrorRun(folder, edited, first.served);
+  assert.match(folder.toRecord()[notePath as string] ?? "", /Edited in the app\./);
 });
 
 /** A machine that never mirrored the project, pulling the other's folder. */
 async function setUpNewProject() {
   const folder = new MemoryWorkspaceFs(() => AT);
-  await folder.writeFile("papers/reading.md", "A folder of the reader's own, not a project.");
   const other = new MemoryWorkspaceFs(() => AT);
   await mirrorRun(other, remote);
   const notePath = Object.keys(other.toRecord()).find((p) => p.endsWith(".md") && other.toRecord()[p]?.includes("other machine"));
@@ -186,18 +158,9 @@ async function setUpNewProject() {
   return { folder, pull: gitPull(folder, other), notePath: notePath as string };
 }
 
-test("without the guard, a project folder new to this machine is overwritten by the next mirror", async () => {
+test("a project folder new to this machine keeps its pulled files through the next mirror", async () => {
   const { folder, pull, notePath } = await setUpNewProject();
   await pull();
   await mirrorRun(folder, local);
-  assert.match(folder.toRecord()[notePath] ?? "", /What this machine last wrote/);
-});
-
-test("with the guard, a project folder new to this machine keeps its pulled files for import", async () => {
-  const { folder, pull, notePath } = await setUpNewProject();
-  await keepMirrorBases(folder, pull, moved);
-  const run = await mirrorRun(folder, local);
   assert.match(folder.toRecord()[notePath] ?? "", /A line written on the other machine/);
-  assert.ok(run.heldBack.includes(notePath), "held back, so the import offers it");
-  assert.ok(!Object.hasOwn(folder.toRecord(), "papers/.weaveforge/mirror.json"), "a folder that was already there is left alone");
 });

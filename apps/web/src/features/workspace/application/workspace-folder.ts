@@ -1,4 +1,4 @@
-import { NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type MirrorResult, type WorkspaceCommit } from "@weaveforge/core";
+import { NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type WorkspaceCommit } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { downloadLibraryPdfsOnce } from "@/features/reader/application/parts-1";
 import { desktop, type DesktopVaultRoot } from "@/lib/desktop/desktop-bridge";
@@ -46,7 +46,8 @@ import {
   writeMirrorManifest,
 } from "./parts-3";
 import { activeProject, activeProjectOrNull, isNoActiveProject, watchForLoss } from "./parts";
-import { mirrorWorkspace } from "./parts-2";
+import { mirrorWorkspace, type WebMirrorResult } from "./parts-2";
+import { recordSessionSeen, sessionSeen } from "./folder-session-seen";
 import type { FolderPreview } from "./workspace-folder-preview";
 
 /**
@@ -277,7 +278,7 @@ export function closeFolder(): void {
 }
 
 export interface SyncOutcome {
-  mirror: MirrorResult;
+  mirror: WebMirrorResult;
   commit: WorkspaceCommit | null;
   /** Why no commit was made, when git refused or failed. */
   commitError?: string;
@@ -354,8 +355,8 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   const core = await loadCore();
   const projectRoot = core.projectDir(project);
   const snapshot = await container.workspace.snapshot();
-  // This project's manifest, and only this project's: the paths in it are the
-  // files the removal pass below is allowed to touch.
+  // This project's manifest, and only this project's: the paths the folder was last
+  // synced with. Sync never removes a file, so the manifest only records what was written.
   const base = await readMirrorBase(fs, projectRoot);
   const previousPaths = Object.keys(base);
 
@@ -368,7 +369,8 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
 
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
     project,
-    previousPaths,
+    // What this session already mirrored: an existing file is rewritten only for an item changed since.
+    seen: sessionSeen(project.id),
     extraFiles: tableFiles,
     // The digests, not only the paths: a file whose content has moved on since
     // the app wrote it is the reader's, and the mirror must not write over it
@@ -380,6 +382,7 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
       return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
     },
   });
+  recordSessionSeen(project.id, mirror.served);
   await writeMirrorManifest(
     fs,
     projectRoot,

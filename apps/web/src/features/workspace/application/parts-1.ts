@@ -1,6 +1,7 @@
 import { getContainer } from "@/bootstrap";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import { loadCore, readyCore, type RustCore } from "@/lib/rust-core";
+import { forgetSessionSeen } from "./folder-session-seen";
 import {
   type IWorkspaceFs,
   type IWorkspaceGit,
@@ -346,6 +347,9 @@ export async function applyFolderImport(
     ...appliedJson,
   ], options.expected ?? {});
 
+  // The import changed the database to match the folder: the next mirror starts from an
+  // empty record, so it rewrites no existing file (the folder already holds the imported ids).
+  forgetSessionSeen();
   await syncToFolder().catch(() => undefined);
   return { created: result.created, updated: result.updated, moved: result.moved };
 }
