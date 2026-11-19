@@ -17,6 +17,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use wf_core::sync::instant::parse_instant;
 use yrs::Update;
 use yrs::updates::decoder::Decode;
 
@@ -301,7 +302,7 @@ fn grant_permission(body: &GrantBody) -> Result<Permission, Response> {
     if body
         .expires_at
         .as_deref()
-        .is_some_and(|at| !is_timestamp(at))
+        .is_some_and(|at| parse_instant(at).is_none() || !day_exists(at))
     {
         return Err(bad_request("expires_at must be an RFC 3339 timestamp."));
     }
@@ -322,43 +323,24 @@ fn is_uuid(value: &str) -> bool {
         })
 }
 
-/// True for `YYYY-MM-DDTHH:MM:SS`, an optional fraction, then `Z` or a `+HH:MM` / `-HH:MM` offset.
-fn is_timestamp(value: &str) -> bool {
-    let bytes = value.as_bytes();
-    let Some((head, mut rest)) = bytes.split_at_checked(19) else {
+/// Whether the `YYYY-MM-DD` date at the start of `value` exists. `parse_instant` rolls day 30
+/// of February forward, but Postgres refuses that date, so grants check it here.
+/// Call only after `parse_instant` accepted `value`, so the digits are known to be there.
+fn day_exists(value: &str) -> bool {
+    let field =
+        |range: std::ops::Range<usize>| value.get(range).and_then(|s| s.parse::<u32>().ok());
+    let (Some(year), Some(month), Some(day)) = (field(0..4), field(5..7), field(8..10)) else {
         return false;
     };
-    let head_ok = head.iter().enumerate().all(|(index, byte)| match index {
-        4 | 7 => *byte == b'-',
-        10 => *byte == b'T',
-        13 | 16 => *byte == b':',
-        _ => byte.is_ascii_digit(),
-    });
-    if !head_ok {
-        return false;
-    }
-    if let Some(fraction) = rest.strip_prefix(b".") {
-        let digits = fraction
-            .iter()
-            .take_while(|byte| byte.is_ascii_digit())
-            .count();
-        if digits == 0 {
-            return false;
-        }
-        rest = &fraction[digits..];
-    }
-    match rest {
-        [b'Z'] => true,
-        [b'+' | b'-', offset @ ..] => {
-            offset.len() == 5
-                && offset[2] == b':'
-                && offset
-                    .iter()
-                    .enumerate()
-                    .all(|(index, byte)| index == 2 || byte.is_ascii_digit())
-        }
-        _ => false,
-    }
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let last = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return false,
+    };
+    (1..=last).contains(&day)
 }
 
 /// `POST /grants`: an item grant needs the caller to own the document.

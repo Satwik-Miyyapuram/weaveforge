@@ -87,6 +87,23 @@ fn split_records(bytes: &[u8]) -> (Vec<Vec<u8>>, usize) {
     (out, good)
 }
 
+/// Writes `tail` to a new `<log>.<nanos>.bad` file beside the log and fsyncs it. The name does
+/// not end in `.ylog`, so the side file is never listed as a document log.
+fn keep_aside(path: &Path, tail: &[u8]) -> io::Result<()> {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_nanos())
+        .unwrap_or(0);
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let side = path.with_file_name(format!("{name}.{nanos}.bad"));
+    let mut file = OpenOptions::new().write(true).create_new(true).open(side)?;
+    file.write_all(tail)?;
+    file.sync_all()
+}
+
 /// An open update log for one document.
 pub struct UpdateLog {
     path: PathBuf,
@@ -112,6 +129,9 @@ impl UpdateLog {
         let bytes = fs::read(&path)?;
         let (_, good) = split_records(&bytes);
         if good < bytes.len() {
+            // Records after a bad header cannot be framed again, so cutting drops them. Keep
+            // the cut bytes beside the log first, so nothing is lost on disk.
+            keep_aside(&path, &bytes[good..])?;
             let cut = OpenOptions::new().write(true).open(&path)?;
             cut.set_len(good as u64)?;
             cut.sync_data()?;
@@ -155,5 +175,64 @@ impl UpdateLog {
             Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(()),
             Err(err) => Err(err),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scratch_dir(name: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|elapsed| elapsed.as_nanos())
+            .unwrap_or(0);
+        let dir = std::env::temp_dir().join(format!("ylog-{name}-{}-{nanos}", std::process::id()));
+        fs::create_dir_all(&dir).expect("create scratch dir");
+        dir
+    }
+
+    fn record(body: &[u8]) -> Vec<u8> {
+        let len = u32::try_from(body.len()).expect("short body");
+        let mut out = len.to_le_bytes().to_vec();
+        out.extend_from_slice(body);
+        out
+    }
+
+    #[test]
+    fn mid_file_corruption_keeps_valid_prefix_and_moves_tail_aside() {
+        let dir = scratch_dir("midfile");
+        let path = log_path(&dir, "doc1").expect("safe id");
+        // One good record, then a corrupt length header followed by a valid record.
+        let bad_tail = [u32::MAX.to_le_bytes().to_vec(), record(b"xy")].concat();
+        fs::write(&path, [record(b"abc"), bad_tail.clone()].concat()).expect("write log");
+
+        let log = UpdateLog::open(&dir, "doc1").expect("open log");
+        assert_eq!(fs::metadata(&path).expect("log meta").len(), 7);
+        assert_eq!(log.read_all().expect("read"), vec![b"abc".to_vec()]);
+        drop(log);
+
+        // The cut bytes are kept in a side file, not discarded.
+        let file_name = path
+            .file_name()
+            .expect("log name")
+            .to_string_lossy()
+            .into_owned();
+        let sides: Vec<PathBuf> = fs::read_dir(&dir)
+            .expect("list dir")
+            .map(|entry| entry.expect("entry").path())
+            .filter(|p| {
+                let name = p.file_name().expect("name").to_string_lossy().into_owned();
+                name.starts_with(&format!("{file_name}.")) && name.ends_with(".bad")
+            })
+            .collect();
+        assert_eq!(sides.len(), 1, "expected one side file, got {sides:?}");
+        assert_eq!(fs::read(&sides[0]).expect("read side file"), bad_tail);
+
+        for side in &sides {
+            fs::remove_file(side).expect("remove side file");
+        }
+        fs::remove_file(&path).expect("remove log");
+        fs::remove_dir(&dir).expect("remove scratch dir");
     }
 }
