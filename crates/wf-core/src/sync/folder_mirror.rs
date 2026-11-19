@@ -610,9 +610,11 @@ impl<F: WorkspaceFs + ?Sized> Run<'_, F> {
         }
     }
 
+    /// No base entry means the mirror cannot prove the copy is untouched, so it counts as edited:
+    /// the file is held, never overwritten.
     fn edited_since_base(&self, path: &str, content: &str, known: Option<&str>) -> bool {
         let Some(recorded) = self.base.and_then(|base| base.get(path)) else {
-            return false;
+            return true;
         };
         let on_disk = match known {
             Some(text) => text.to_owned(),

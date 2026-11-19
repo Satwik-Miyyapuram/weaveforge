@@ -346,6 +346,8 @@ export async function applyReviewedImport(
 }
 
 async function runSyncToFolder(): Promise<SyncOutcome> {
+  // Read before the first await: a DB replace at any point during this run makes it stale.
+  const startedAt = sessionGeneration();
   if (!activeFs) throw new Error("No folder is connected.");
   if (folderWriteBlockedByLostDb(await desktop()?.localDbState())) throw new Error(LOST_DB_SYNC_MESSAGE);
   const fs = activeFs;
@@ -365,7 +367,6 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
     await Promise.all([import("./sync-tables"), import("./workspace-folder-tables")]);
   const tableFiles = syncTableFolderFiles(await exportSyncTablesStable(restTableReader(getDataClient())));
 
-  const startedAt = sessionGeneration(); // before the await: a DB replace mid-run makes this run stale
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
     project,
     seen: sessionSeen(project.id), // rewrite an existing file only if changed this session

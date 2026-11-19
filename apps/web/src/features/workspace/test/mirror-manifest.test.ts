@@ -317,7 +317,9 @@ test("a renamed project carries its folder and manifest to the new name", async 
 
   const moved = `${newRoot}/notes/a.md`;
   assert.equal(await fs.readText(moved), "hello");
-  assert.equal(await fs.stat(ROOT), null);
+  // Copy, not move: the old folder is kept whole until the reader removes it.
+  assert.equal(await fs.readText(note), "hello");
+  assert.ok(await fs.stat(mirrorManifestPath(ROOT)), "the old manifest is kept too");
   assert.deepEqual(await readMirrorBase(fs, newRoot), { [moved]: readyCore().digestText("hello") });
   assert.equal(await fs.readText(`${OTHER_ROOT}/notes/b.md`), "other");
 });

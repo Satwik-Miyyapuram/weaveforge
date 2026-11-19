@@ -334,19 +334,6 @@ fn native_store() -> Option<Arc<keyring_core::CredentialStore>> {
     store
 }
 
-/// Copies the old Electron app's data into `data` once. `Some(reason)` when the database must stay closed.
-fn migration_blocker(old: &std::path::Path, data: &std::path::Path) -> Option<String> {
-    match migrate::migrate_from_electron(old, data, std::time::SystemTime::now()) {
-        Ok(migrate::Outcome::Busy(reason)) => Some(format!(
-            "the old WeaveForge app is running; close it, then restart WeaveForge so its data can be copied ({reason})"
-        )),
-        Ok(_) => None,
-        Err(e) => Some(format!(
-            "could not copy the old WeaveForge app's data, so the database stays closed: {e}"
-        )),
-    }
-}
-
 /// The lock name the native database holds while this app has it open.
 const NATIVE_LOCK_APP: &str = "weaveforge-native-db";
 
@@ -411,16 +398,7 @@ fn start_local_db(app: &tauri::AppHandle) {
     let db = match (paths.app_data_dir(), paths.resource_dir()) {
         (Ok(data), Ok(resources)) => {
             let source = launch::app_source(resources.clone());
-            let product = app.package_info().name.clone();
-            let old = paths
-                .config_dir()
-                .ok()
-                .and_then(|c| launch::electron_data_dir(&source, &product, &c));
-            // Copied before the database opens, so it never reads a half-copied or empty one.
-            let native = match old.as_deref().and_then(|old| migration_blocker(old, &data)) {
-                Some(reason) => Err(reason),
-                None => native_db(app, &data, &resources, &source),
-            };
+            let native = native_db(app, &data, &resources, &source);
             if let Err(reason) = &native {
                 local_api::warn(app, reason);
             }
