@@ -25,6 +25,24 @@ export function sessionSecretName(profileId: string): string {
 
 type SessionMap = Record<string, string>;
 
+/**
+ * Pending work per secret name. Every call for one profile runs after the
+ * previous one, so a read-modify-write cannot overlap another and drop a key.
+ */
+const queues = new Map<string, Promise<void>>();
+
+function inOrder<T>(name: string, task: () => Promise<T>): Promise<T> {
+  const run = (queues.get(name) ?? Promise.resolve()).then(task);
+  queues.set(
+    name,
+    run.then(
+      () => undefined,
+      () => undefined,
+    ),
+  );
+  return run;
+}
+
 /** A corrupt or non-object value reads as an empty session, never a throw. */
 function parseMap(raw: string | null): SessionMap {
   if (!raw) return {};
@@ -47,24 +65,30 @@ export function createSessionKeychainStorage(
   const load = async (): Promise<SessionMap> => parseMap(await port.get(name));
 
   return {
-    async getItem(key) {
-      const map = await load();
-      const value = Object.prototype.hasOwnProperty.call(map, key) ? map[key] : undefined;
-      return typeof value === "string" ? value : null;
+    getItem(key) {
+      return inOrder(name, async () => {
+        const map = await load();
+        const value = Object.prototype.hasOwnProperty.call(map, key) ? map[key] : undefined;
+        return typeof value === "string" ? value : null;
+      });
     },
-    async setItem(key, value) {
-      const map = await load();
-      map[key] = value;
-      await port.set(name, JSON.stringify(map));
-    },
-    async removeItem(key) {
-      const map = await load();
-      delete map[key];
-      if (Object.keys(map).length === 0) {
-        await port.remove(name);
-      } else {
+    setItem(key, value) {
+      return inOrder(name, async () => {
+        const map = await load();
+        map[key] = value;
         await port.set(name, JSON.stringify(map));
-      }
+      });
+    },
+    removeItem(key) {
+      return inOrder(name, async () => {
+        const map = await load();
+        delete map[key];
+        if (Object.keys(map).length === 0) {
+          await port.remove(name);
+        } else {
+          await port.set(name, JSON.stringify(map));
+        }
+      });
     },
   };
 }

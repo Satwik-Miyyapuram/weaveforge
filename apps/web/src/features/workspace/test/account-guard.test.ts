@@ -35,4 +35,18 @@ describe("accountGuard", () => {
       reason: "account-mismatch",
     });
   });
+
+  it("pauses local-web when signed out", () => {
+    assert.deepEqual(accountGuard({ tier: "local-web", account: "u1", sessionUserId: null }), {
+      allowed: false,
+      reason: "signed-out",
+    });
+  });
+
+  it("pauses local-web when a different account is signed in", () => {
+    assert.deepEqual(accountGuard({ tier: "local-web", account: "u1", sessionUserId: "u2" }), {
+      allowed: false,
+      reason: "account-mismatch",
+    });
+  });
 });

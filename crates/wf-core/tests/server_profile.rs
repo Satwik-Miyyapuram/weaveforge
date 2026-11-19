@@ -127,3 +127,13 @@ fn server_link_rejects_an_http_url() {
         Err(ServerProfileError::NotHttps)
     );
 }
+
+#[test]
+fn server_link_rejects_a_repeated_url() {
+    assert_eq!(
+        parse_server_link(
+            "weaveforge://server?url=https%3A%2F%2Fwf.example.org&url=https%3A%2F%2Fevil.example.org"
+        ),
+        Err(ServerProfileError::Invalid)
+    );
+}

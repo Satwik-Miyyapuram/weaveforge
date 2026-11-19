@@ -74,4 +74,24 @@ describe("createSessionKeychainStorage", () => {
     await storage.setItem("a", "1");
     assert.equal(await storage.getItem("a"), "1");
   });
+
+  it("keeps both keys when two setItem calls overlap", async () => {
+    const storage = createSessionKeychainStorage(memoryPort(), "p1");
+    const first = storage.setItem("a", "1");
+    const second = storage.setItem("b", "2");
+    await Promise.all([first, second]);
+    assert.equal(await storage.getItem("a"), "1");
+    assert.equal(await storage.getItem("b"), "2");
+  });
+
+  it("keeps a key written while another key is being removed", async () => {
+    const port = memoryPort();
+    const storage = createSessionKeychainStorage(port, "p1");
+    await storage.setItem("a", "1");
+    const removal = storage.removeItem("a");
+    const write = storage.setItem("b", "2");
+    await Promise.all([removal, write]);
+    assert.equal(await storage.getItem("a"), null);
+    assert.equal(await storage.getItem("b"), "2");
+  });
 });

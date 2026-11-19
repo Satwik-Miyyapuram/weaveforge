@@ -43,8 +43,7 @@ pub fn parse_server_origin(input: &str) -> Result<String, ServerProfileError> {
     if !url.username().is_empty() || url.password().is_some() {
         return Err(ServerProfileError::HasCredentials);
     }
-    if (url.path() != "" && url.path() != "/") || url.query().is_some() || url.fragment().is_some()
-    {
+    if url.path() != "/" || url.query().is_some() || url.fragment().is_some() {
         return Err(ServerProfileError::HasPathOrQuery);
     }
     Ok(url.origin().ascii_serialization())
@@ -60,7 +59,12 @@ pub fn parse_server_link(link: &str) -> Result<ServerLink, ServerProfileError> {
     let mut name = None;
     for (key, value) in url.query_pairs() {
         match key.as_ref() {
-            "url" => origin_value = Some(value.into_owned()),
+            "url" => {
+                if origin_value.is_some() {
+                    return Err(ServerProfileError::Invalid);
+                }
+                origin_value = Some(value.into_owned());
+            }
             "name" => name = Some(value.trim().to_owned()).filter(|v| !v.is_empty()),
             _ => {}
         }
