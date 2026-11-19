@@ -260,6 +260,30 @@ async fn evict_if_idle(state: &CollabState, room: &Arc<Room>) {
     }
 }
 
+/// Counts a client into `room` and returns its subscription, the epoch and the format version.
+/// `None` when the room is no longer the open one. Under the room lock, so a removal cannot land
+/// between the check and the count.
+pub async fn admit(
+    hub: &Hub,
+    room: &Arc<Room>,
+) -> Option<(tokio::sync::broadcast::Receiver<Event>, i64, i64)> {
+    let mut inner = room.inner.lock().await;
+    if !hub.is_current(room) {
+        return None;
+    }
+    inner.clients += 1;
+    Some((room.tx.subscribe(), inner.epoch, inner.format_version))
+}
+
+/// Drops `room` from the hub when no client is counted into it. Under the room lock, so a client
+/// cannot be admitted between the check and the removal.
+pub async fn remove_if_idle(hub: &Hub, room: &Arc<Room>) {
+    let inner = room.inner.lock().await;
+    if inner.clients == 0 {
+        hub.remove_if_same(room);
+    }
+}
+
 /// Saves every open room, then forgets the idle ones. Errors are logged and skipped.
 pub async fn persist_all(state: &CollabState) {
     for room in state.hub.rooms() {

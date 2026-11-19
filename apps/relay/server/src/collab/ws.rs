@@ -173,7 +173,7 @@ async fn run_client(
     let id = state.hub.next_client_id();
     let now = state.clock.now_ms();
     // A room evicted since it was opened is refused: the client reconnects and gets a fresh one.
-    let Some((mut rx, epoch, format_version)) = join(&state, &room).await else {
+    let Some((mut rx, epoch, format_version)) = hub::admit(&state.hub, &room).await else {
         close(&mut socket).await;
         return;
     };
@@ -190,20 +190,6 @@ async fn run_client(
     }
     close(&mut socket).await;
     leave(&state, &room).await;
-}
-
-/// Counts the client in and subscribes it, under the room lock so no event is missed and the
-/// room cannot be evicted in between. `None` when the room is no longer the open one.
-async fn join(
-    state: &CollabState,
-    room: &Arc<Room>,
-) -> Option<(broadcast::Receiver<Event>, i64, i64)> {
-    let mut inner = room.inner.lock().await;
-    if !state.hub.is_current(room) {
-        return None;
-    }
-    inner.clients += 1;
-    Some((room.tx.subscribe(), inner.epoch, inner.format_version))
 }
 
 /// Sends `rejoin` (stale epoch: false) or `hello` (true).
@@ -521,9 +507,8 @@ async fn leave(state: &CollabState, room: &Arc<Room>) {
     }
     // Only this room is removed: a newer room for the same item must stay open.
     // A closing room stays for `sweep_closing`.
-    let still_idle = room.inner.lock().await.clients == 0;
-    if still_idle && !closing {
-        state.hub.remove_if_same(room);
+    if !closing {
+        hub::remove_if_idle(&state.hub, room).await;
     }
 }
 

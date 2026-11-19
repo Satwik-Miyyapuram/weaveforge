@@ -460,7 +460,13 @@ async fn update_log_replayed_after_restart() {
     relay.stop();
 
     // A restart: same log dir and store, no save happened before the crash.
-    let restarted = build_state(dir.path(), store.clone(), PERSIST);
+    let restarted = build_state(
+        dir.path(),
+        store.clone(),
+        PERSIST,
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
     assert_eq!(hub::recover(&restarted).await, 1);
     let row = store.doc(ITEM).expect("doc row");
     assert_eq!(text_of(&row.state), "hello");
@@ -482,7 +488,13 @@ async fn digest_log_survives_restart() {
     drop(owner);
     relay.stop();
 
-    let restarted = build_state(dir.path(), store.clone(), PERSIST);
+    let restarted = build_state(
+        dir.path(),
+        store.clone(),
+        PERSIST,
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
     assert_eq!(hub::recover(&restarted).await, 1);
     let row = store.doc(ITEM).expect("doc row");
     assert!(map_has(&row.state, "digest-1"));
@@ -971,4 +983,54 @@ async fn revoke_refuses_grant_id_that_is_not_a_uuid() {
     let url = relay.url("/grants/not-a-uuid");
     let (status, _) = http(reqwest::Method::DELETE, &url, OWNER_TOKEN, None).await;
     assert_eq!(status, 400);
+}
+
+/// Rounds the join-versus-idle-release race runs for.
+const RACE_ROUNDS: usize = 300;
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn join_racing_idle_release_never_strands_a_client() {
+    let dir = TempDir::new("join-race");
+    let store = Arc::new(MemoryStore::new());
+    let now = Arc::new(AtomicI64::new(START_MS));
+    let state = build_state(dir.path(), store, PERSIST, GRANT_CHECK_IDLE, now);
+    let race = async {
+        for _ in 0..RACE_ROUNDS {
+            let row = DocRow {
+                item_id: ITEM.to_owned(),
+                owner: OWNER.to_owned(),
+                kind: "canvas".to_owned(),
+                project_id: None,
+                workspace_id: None,
+                epoch: 1,
+                format_version: 1,
+                state: Vec::new(),
+                status: DocStatus::Open,
+            };
+            let room = hub::open_room(&state, row).await.expect("open room");
+            let joiner = {
+                let (state, room) = (state.clone(), room.clone());
+                tokio::spawn(async move { hub::admit(&state.hub, &room).await.is_some() })
+            };
+            let releaser = {
+                let (state, room) = (state.clone(), room.clone());
+                tokio::spawn(async move { hub::remove_if_idle(&state.hub, &room).await })
+            };
+            let joined = joiner.await.expect("join task");
+            releaser.await.expect("release task");
+            // A client counted into the room must find the room still open: the idle
+            // release cannot remove a room that has a client.
+            if joined {
+                assert!(
+                    state.hub.is_current(&room),
+                    "a joined client was left outside the hub"
+                );
+            }
+            // Clear the round so the next one opens a fresh room.
+            let _ = state.hub.remove(ITEM);
+        }
+    };
+    tokio::time::timeout(Duration::from_secs(60), race)
+        .await
+        .expect("race rounds finish");
 }
