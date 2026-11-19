@@ -46,6 +46,36 @@ export function writeHidden(store: Storage | undefined, hidden: boolean): void {
     // Storage is a convenience; the panel works without it.
   }
 }
+
+const WIDTH_KEY = "weaveforge.explorer.width";
+/** The `--workspace-explorer` default in editor-workspace.css. */
+export const EXPLORER_WIDTH_DEFAULT = 260;
+export const EXPLORER_WIDTH_MIN = 180;
+export const EXPLORER_WIDTH_MAX = 600;
+
+/** A whole-pixel width inside the bounds; not a number means the default. */
+export function clampExplorerWidth(width: number): number {
+  if (!Number.isFinite(width)) return EXPLORER_WIDTH_DEFAULT;
+  return Math.min(EXPLORER_WIDTH_MAX, Math.max(EXPLORER_WIDTH_MIN, Math.round(width)));
+}
+
+/** The panel's dragged width on this device, like `readHidden`. */
+export function readExplorerWidth(store: Storage | undefined): number {
+  try {
+    const saved = store?.getItem(WIDTH_KEY);
+    return saved ? clampExplorerWidth(Number(saved)) : EXPLORER_WIDTH_DEFAULT;
+  } catch {
+    return EXPLORER_WIDTH_DEFAULT;
+  }
+}
+
+export function writeExplorerWidth(store: Storage | undefined, width: number): void {
+  try {
+    store?.setItem(WIDTH_KEY, String(width));
+  } catch {
+    // Storage is a convenience; the panel works without it.
+  }
+}
 export const SECTIONS_STORAGE_KEY = "weaveforge.explorer.sections";
 
 export interface KeyValueStore {
