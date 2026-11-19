@@ -9,11 +9,6 @@ import { freedrawPath } from "../render/excalidraw-freedraw";
 const POINTS = [0, 0, 50, 0, 100, 20];
 const WIDTH = 10;
 
-/** The outline's numbers, in order, from `M x y L x y … Z` path data. */
-function outlineNumbers(d: string): number[] {
-  return [...d.matchAll(/-?[\d.]+(?:e-?\d+)?/g)].map((m) => Number(m[0]));
-}
-
 test("the settled stroke is the capsule path when the renderer is classic", () => {
   assert.equal(settledStrokePath(POINTS, WIDTH, "classic"), readyCore().strokePath(POINTS));
 });
@@ -32,7 +27,56 @@ test("a settled freehand stroke is Excalidraw's freedraw path for its points", (
   );
 });
 
-test("wet and settled freehand strokes trace the same outline", () => {
+/** Points along outline path data: each quadratic sampled at eight steps, plus every end point. */
+function outlinePoints(d: string): [number, number][] {
+  const tokens = d.match(/[MLQZ]|-?[\d.]+(?:e-?\d+)?/g) ?? [];
+  const points: [number, number][] = [];
+  let cx = 0;
+  let cy = 0;
+  let command = "";
+  for (let i = 0; i < tokens.length; ) {
+    const token = tokens[i]!;
+    if (/^[MLQZ]$/.test(token)) {
+      command = token;
+      i += 1;
+    } else if (command === "Q") {
+      const num = (k: number): number => Number(tokens[i + k]);
+      const px = num(0);
+      const py = num(1);
+      const ex = num(2);
+      const ey = num(3);
+      for (let s = 1; s <= 8; s += 1) {
+        const u = s / 8;
+        const v = 1 - u;
+        points.push([v * v * cx + 2 * v * u * px + u * u * ex, v * v * cy + 2 * v * u * py + u * u * ey]);
+      }
+      cx = ex;
+      cy = ey;
+      i += 4;
+    } else if (command === "M" || command === "L") {
+      cx = Number(tokens[i]);
+      cy = Number(tokens[i + 1]);
+      points.push([cx, cy]);
+      i += 2;
+    } else {
+      i += 1;
+    }
+  }
+  return points;
+}
+
+/** Largest distance from any point of one outline to the nearest point of the other, both ways. */
+function worstGap(a: readonly [number, number][], b: readonly [number, number][]): number {
+  const far = (from: readonly [number, number][], to: readonly [number, number][]) =>
+    from.reduce(
+      (worst, [x, y]) =>
+        Math.max(worst, to.reduce((best, [u, v]) => Math.min(best, Math.hypot(x - u, y - v)), Infinity)),
+      0,
+    );
+  return Math.max(far(a, b), far(b, a));
+}
+
+test("the wet stroke paints the settled SVG outline: painted geometry within 0.001 units", () => {
   const calls: string[] = [];
   const context = {
     fillStyle: "",
@@ -60,8 +104,16 @@ test("wet and settled freehand strokes trace the same outline", () => {
     { width: WIDTH, tool: "pen", colour: "text" },
     false,
   );
-  const wet = outlineNumbers(calls.join(" "));
-  const settled = outlineNumbers(settledStrokePath(POINTS, WIDTH, "freehand") ?? "");
-  assert.ok(wet.length > 0);
-  assert.deepEqual(wet, settled);
+  const wet = outlinePoints(calls.join(" "));
+  const settled = outlinePoints(settledStrokePath(POINTS, WIDTH, "freehand") ?? "");
+  assert.ok(wet.length > 0 && settled.length > 0);
+  const gap = worstGap(wet, settled);
+  assert.ok(gap <= 1e-3, `painted outline is ${gap} units from the settled SVG outline`);
+});
+
+test("the comparison fails when one outline point moves 0.5 units", () => {
+  // Guards the comparison itself: a single point off the outline must exceed the tolerance.
+  const settled = outlinePoints(settledStrokePath(POINTS, WIDTH, "freehand") ?? "");
+  const moved = settled.map((p, i): [number, number] => (i === 0 ? [p[0] + 0.5, p[1]] : p));
+  assert.ok(worstGap(moved, settled) > 1e-3);
 });

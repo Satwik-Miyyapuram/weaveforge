@@ -335,8 +335,9 @@ export class CanvasInkRenderer implements InkRenderer {
     if (this.live) {
       const live = this.live;
       const highlighter = live.header.tool === "highlighter";
-      // The live stroke is still being written: its end is open (`last: false`),
-      // so the freehand outline does not close and redraw as finished each frame.
+      // The live stroke is repainted from its points so far, with the default
+      // `last` (true): the freehand outline is closed at the newest point and
+      // redrawn from scratch each frame. It is not passed `last: false`.
       this.drawn +=
         this.kind === "freehand"
           ? paintFreehandStroke(

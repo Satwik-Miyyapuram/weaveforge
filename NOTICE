@@ -84,6 +84,13 @@ with AGPL-3.0 may not.
     of the fields the function reads, and non-null index assertions satisfy
     strict TypeScript. The options and path logic are unchanged.
 
+  perfect-freehand 1.2.0 (npm dependency, not copied)
+    https://github.com/steveruizok/perfect-freehand
+    MIT License. Copyright Steve Ruiz. Pinned exactly to 1.2.0 in
+    apps/web/package.json. Its getStroke is called by
+    apps/web/src/features/ink/render/excalidraw-freedraw.ts. The golden output
+    was generated with 1.2.3 and is reproduced exactly by 1.2.0.
+
   Planned, not yet vendored -- see docs/internal/plans/completed/pdf-viewer-plan.md §1.2:
 
   Zotero Reader (selective vendoring: selection geometry, text-layer
