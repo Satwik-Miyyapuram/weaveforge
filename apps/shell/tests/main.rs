@@ -25,6 +25,7 @@ mod local_artifacts;
 mod mattermost;
 mod menu;
 mod model_cache;
+mod no_electron_copy;
 mod overleaf_links;
 mod overleaf_read;
 mod plan_widget;

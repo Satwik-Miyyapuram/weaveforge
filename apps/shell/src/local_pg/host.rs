@@ -76,6 +76,9 @@ pub trait Engine: Send + Sync {
         false
     }
 
+    /// Flags the database as recreated empty by Start fresh, which the reopen cannot see.
+    fn mark_recreated(&self) {}
+
     /// Where the old data was kept when the database was recreated empty, so the page can name it.
     fn kept_aside(&self) -> Option<String> {
         None
@@ -175,6 +178,11 @@ impl PgEngine {
         Ok(())
     }
 
+    /// Keeps the flag once set: a reopen after Start fresh must not clear it.
+    fn record_open(&self, lost: bool) {
+        self.recreated.fetch_or(lost, Ordering::AcqRel);
+    }
+
     fn keep_aside_at(&self, path: &Path) {
         *self
             .kept_aside
@@ -189,7 +197,7 @@ impl Engine for PgEngine {
 
     async fn open(&self) -> Result<(PgConn, PgServer), PgError> {
         let lost = self.restore_if_missing().await?;
-        self.recreated.store(lost, Ordering::Release);
+        self.record_open(lost);
         let server = PgServer::start(&self.bin, &self.root).await?;
         match server.connect().await {
             Ok(conn) => Ok((conn, server)),
@@ -246,6 +254,10 @@ impl Engine for PgEngine {
 
     fn recreated_empty(&self) -> bool {
         self.recreated.load(Ordering::Acquire)
+    }
+
+    fn mark_recreated(&self) {
+        self.recreated.store(true, Ordering::Release);
     }
 
     fn kept_aside(&self) -> Option<String> {
@@ -656,6 +668,7 @@ impl<E: Engine> PgHost<E> {
         }
         inner.user = None;
         self.engine.discard().map_err(|e| e.message)?;
+        self.engine.mark_recreated();
         self.set_failure(None);
         Ok(())
     }
@@ -1286,6 +1299,24 @@ mod tests {
         assert!(
             aside.join("marker").is_file(),
             "the reported path still holds the old files"
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn a_start_fresh_keeps_the_database_flagged_until_restart() {
+        let tmp = lost_tmp("start-fresh");
+        let root = tmp.join("local-pg");
+        std::fs::create_dir_all(root.join("data")).unwrap_or_default();
+        let engine = PgEngine::new(PathBuf::new(), root.clone(), None);
+        engine.discard().expect("discard moves the database aside");
+        engine.mark_recreated();
+        // The reopen after Start fresh finds no backups and no data dir, so it reports nothing
+        // lost on its own. The empty database it starts must still be flagged.
+        engine.record_open(false);
+        assert!(
+            engine.recreated_empty(),
+            "a reset database stays flagged so folder writes stay blocked"
         );
         let _ = std::fs::remove_dir_all(&tmp);
     }

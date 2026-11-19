@@ -338,6 +338,14 @@ export async function applyFolderImport(
   if (!fs) throw new Error("No workspace folder is connected. Connect one in Settings, then import again.");
   if (options.fs && options.fs !== fs) throw new Error("The folder changed before its edits were taken in.");
 
+  // The import changed the database to match the folder: the next mirror starts from an
+  // empty record, so it rewrites no existing file (the folder already holds the imported ids).
+  // A mirror already running from before the import must finish before the record is cleared,
+  // or it could record digests after the clear. The import holds no lock itself, so this cannot wait on itself.
+  // Both happen before anything is applied, so no mirror run can record digests in between.
+  await folderLock.idle();
+  forgetSessionSeen();
+
   const result = await applyEntries(fs, diff, resolutions, options.stored, options.renamed);
   const appliedJson = await applyJsonEntries(diff.json);
   // What was applied, the two sides now agree on: the folder's text becomes
@@ -348,12 +356,6 @@ export async function applyFolderImport(
     ...appliedJson,
   ], options.expected ?? {});
 
-  // The import changed the database to match the folder: the next mirror starts from an
-  // empty record, so it rewrites no existing file (the folder already holds the imported ids).
-  // A mirror already running from before the import must finish before the record is cleared,
-  // or it could record digests after the clear. The import holds no lock itself, so this cannot wait on itself.
-  await folderLock.idle();
-  forgetSessionSeen();
   await syncToFolder().catch(() => undefined);
   return { created: result.created, updated: result.updated, moved: result.moved };
 }
@@ -481,10 +483,9 @@ export async function applyEntries(
       continue;
     }
     // The note is whole in the workspace now; the mirror writes it at the path its title gives.
-    // A canvas is never deleted here: claimed, it keeps its id until the mirror replaces it,
-    // and the mirror removes only a claimed file still unchanged, in the run that rewrites it.
+    // Nothing is removed here: the renamed file is the reader's only copy until then, so a duplicate is kept, never a loss.
+    // A canvas is claimed, so it keeps its id until the mirror replaces it.
     if (entry.entity.kind === "canvas") await claimImportedFile(fs, path, page.id, projectRoot).catch(() => false);
-    else await fs.remove(path).catch(() => undefined);
   }
 
   pendingAssets = new Map();

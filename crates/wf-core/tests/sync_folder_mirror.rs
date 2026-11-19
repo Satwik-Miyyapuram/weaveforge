@@ -803,6 +803,39 @@ fn a_readers_edit_is_held_back_on_the_one_read_it_took_to_see_it() {
 }
 
 #[test]
+fn a_reader_edit_with_no_base_entry_is_held_back_not_overwritten() {
+    let project = thesis();
+    let mut fs = CountingFs::new();
+    let first = mirror_workspace(
+        &with_notes(vec![note("n1", "Method", "One")]),
+        &mut fs,
+        options(&project),
+    )
+    .expect("first");
+    let seen = seen_of(&first.served);
+    let path = at("notes/method.note.md");
+    let edited = format!("{}\nThe reader's line.\n", text(&fs, &path));
+    fs.write_file(&path, edited.as_bytes()).expect("edit");
+
+    // No base entry for the path, but this process saw the item change in the DB: the reader's
+    // on-disk copy must be held, not overwritten.
+    let opts = MirrorOptions {
+        seen: Some(&seen),
+        base: None,
+        ..options(&project)
+    };
+    let second = mirror_workspace(
+        &with_notes(vec![note("n1", "Method", "Two")]),
+        &mut fs,
+        opts,
+    )
+    .expect("second");
+
+    assert_eq!(second.held_back, vec![path.clone()]);
+    assert_eq!(text(&fs, &path), edited);
+}
+
+#[test]
 fn a_file_that_is_gone_or_cannot_be_read_is_written() {
     let project = thesis();
     let mut fs = MemoryWorkspaceFs::new();
