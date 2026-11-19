@@ -3,6 +3,12 @@ import type { SkippedFile } from "@/features/workspace/application/parts-2";
 /** How many left-out files are named before the rest is only counted. */
 const SHOWN = 10;
 
+/** The files an import refused as it ran, each with the reason, to follow its "Imported …" line. */
+export function notImportedNote(refused: readonly SkippedFile[]): string {
+  if (refused.length === 0) return "";
+  return ` Not imported: ${refused.map((file) => `${file.path} (${file.reason})`).join("; ")}.`;
+}
+
 /** The files an import preview left out, each with the reason. */
 export function SkippedFiles({ skipped }: { skipped: readonly SkippedFile[] }) {
   if (skipped.length === 0) return null;

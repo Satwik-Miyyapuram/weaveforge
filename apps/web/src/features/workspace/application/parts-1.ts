@@ -27,6 +27,7 @@ import {
   writeMirrorManifest,
 } from "./parts-3";
 import type { FolderDiff } from "./parts-3";
+import type { SkippedFile } from "./parts-2";
 import {
   activeProject,
   activeProjectOrNull,
@@ -293,6 +294,42 @@ let pendingAssets = new Map<string, Uint8Array>();
  */
 const unclaimed = new Map<string, string>();
 
+/**
+ * Files an apply refused, by path: the id each declared and why. The file is left as it is,
+ * so the next preview would offer it as new again; `setAsideRefused` lists it with the reason instead.
+ */
+const refusedFiles = new Map<string, { id: string; reason: string }>();
+
+/**
+ * @internal exported for tests.
+ * Takes the files an earlier apply refused out of a preview's new notes, each with its reason.
+ * A file whose declared id has changed since is offered again.
+ */
+export function setAsideRefused<T extends ImportDiff>(diff: T): T & { refused: SkippedFile[] } {
+  const refused: SkippedFile[] = [];
+  const entries = diff.entries.filter((entry: ImportDiffEntry) => {
+    const held = entry.action === "created" ? refusedFiles.get(entry.entity.path) : undefined;
+    if (!held) return true;
+    if (held.id !== entry.entity.id) {
+      refusedFiles.delete(entry.entity.path);
+      return true;
+    }
+    refused.push({ path: entry.entity.path, reason: held.reason });
+    return false;
+  });
+  return { ...diff, entries, counts: { ...diff.counts, created: diff.counts.created - refused.length }, refused };
+}
+
+/** Why the repo refused a file's declared id, or null when the error is about something else. */
+async function idRefusal(error: unknown, id: string | undefined): Promise<string | null> {
+  if (!id || !(error instanceof Error)) return null;
+  if (error.name === "VaultPageValidationError" && error.message.includes(`"${id}"`)) return "id not valid";
+  if (error.name !== "VaultPageIdTakenError") return null;
+  // The repo reads only this project; a note in another one holds the id unseen.
+  const holder = await getContainer().vault.getPage(id).catch(() => null);
+  return `id already used by ${holder?.title ?? "another note"}`;
+}
+
 export function setPendingAssets(assets: Map<string, Uint8Array>): void {
   pendingAssets = assets;
 }
@@ -333,7 +370,7 @@ export async function applyFolderImport(
   diff: ImportDiff & { json?: JsonDiff },
   resolutions: Readonly<Record<string, ConflictResolution>> = {},
   options: ApplyOptions = {},
-): Promise<{ created: number; updated: number; moved: string[] }> {
+): Promise<{ created: number; updated: number; moved: string[]; refused: SkippedFile[] }> {
   const fs = activeWorkspaceFs();
   if (!fs) throw new Error("No workspace folder is connected. Connect one in Settings, then import again.");
   if (options.fs && options.fs !== fs) throw new Error("The folder changed before its edits were taken in.");
@@ -355,7 +392,7 @@ export async function applyFolderImport(
   await folderLock.idle();
   forgetSessionSeen();
   await syncToFolder().catch(() => undefined);
-  return { created: result.created, updated: result.updated, moved: result.moved };
+  return { created: result.created, updated: result.updated, moved: result.moved, refused: result.refused };
 }
 
 /**
@@ -381,7 +418,7 @@ export async function writeMarkersFor(entry: ImportDiffEntry): Promise<boolean> 
 
 /**
  * @internal exported for tests.
- * `refused` lists paths not imported because another note already holds the id the file declares.
+ * `refused` lists files not imported because the id each declares is not valid or another note holds it.
  */
 export async function applyEntries(
   fs: IWorkspaceFs,
@@ -389,7 +426,7 @@ export async function applyEntries(
   resolutions: Readonly<Record<string, ConflictResolution>>,
   stored?: Readonly<Record<string, string>>,
   renamed: ReadonlySet<string> = new Set(),
-): Promise<{ created: number; updated: number; appliedPaths: string[]; moved: string[]; refused: string[] }> {
+): Promise<{ created: number; updated: number; appliedPaths: string[]; moved: string[]; refused: SkippedFile[] }> {
   const core = await loadCore();
   const container = getContainer();
   const owned = ownedAssetFolderPaths(workspaceBodies(await container.workspace.snapshot()));
@@ -398,7 +435,7 @@ export async function applyEntries(
   let updated = 0;
   const appliedPaths: string[] = [];
   const moved: string[] = [];
-  const refused: string[] = [];
+  const refused: SkippedFile[] = [];
 
   for (const raw of diff.entries) {
     const entry = raw.action === "conflict" ? settleConflict(core, raw, resolutions) : raw;
@@ -436,13 +473,13 @@ export async function applyEntries(
           });
         } catch (error) {
           // Note ids are unique across every project, so the repo refuses one another note
-          // holds (a note copied from another project, say). That file is left as it is,
-          // never given a new id, and the rest of the batch still goes in.
-          if (error instanceof Error && error.name === "VaultPageIdTakenError") {
-            refused.push(path);
-            continue;
-          }
-          throw error;
+          // holds (a note copied from another project, say), or one that is not an id at all.
+          // That file is left as it is, never given a new id, and the rest of the batch still goes in.
+          const reason = await idRefusal(error, entry.entity.id);
+          if (reason === null || !entry.entity.id) throw error;
+          refused.push({ path, reason });
+          refusedFiles.set(path, { id: entry.entity.id, reason });
+          continue;
         }
         id = page.id;
         created += 1;
@@ -647,13 +684,16 @@ export async function diffAgainstWorkspace(
     core.renameSources(parsed, files, current),
   );
   const stored = readyCore().storedDigests(snapshot.vaultPages);
+  // A file refused before is listed with its reason, not offered as a new note again.
+  const { entries: offered, refused } = setAsideRefused({ entries, counts: readyCore().countActions(entries) });
   return {
-    entries,
-    counts: core.addCounts(readyCore().countActions(entries), json.counts),
+    entries: offered,
+    counts: core.addCounts(readyCore().countActions(offered), json.counts),
     json,
     seen,
     stored,
     canvasRenamed: [...renamed.keys()],
+    refused,
   };
 }
 

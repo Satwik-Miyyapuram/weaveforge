@@ -174,7 +174,7 @@ test("an id another note holds is refused, not given a new id, and the rest of t
   const batch = { entries: [...createdWithId().entries, other], counts: { created: 2 } } as ImportDiff;
 
   const result = await applyEntries(fs, batch, {});
-  assert.deepEqual(result.refused, [inkPath]);
+  assert.deepEqual(result.refused, [{ path: inkPath, reason: "id already used by Someone else" }]);
   assert.equal(result.created, 1);
   assert.equal(added.length, 2);
   assert.equal(added[0]?.id, FILE_ID);
