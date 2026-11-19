@@ -21,41 +21,23 @@ export const PEN_EASING = (t: number): number =>
   0.65 * t + 0.35 * Math.sin((t * Math.PI) / 2);
 
 /**
- * The tldraw "draw" pen. `size` is `1 + width * 1.2` in tldraw's own terms; the
- * `width` argument here is our stroke width (0.1 mm).
+ * The tldraw "draw" pen, with `size` = the stroke width, so a freehand stroke
+ * is the same diameter as the classic capsule it replaces. A highlighter keeps
+ * pressure out of its width (`thinning: 0`), as the classic highlighter does.
  */
 export function tldrawPenOptions(
   width: number,
   last: boolean,
   simulatePressure: boolean,
+  highlighter = false,
 ): StrokeOptions {
   return {
-    size: 1 + width * 1.2,
-    thinning: 0.62,
+    size: width,
+    thinning: highlighter ? 0 : 0.62,
     streamline: 0.62,
     smoothing: 0.62,
     simulatePressure,
     easing: PEN_EASING,
-    last,
-  };
-}
-
-/**
- * Excalidraw's freedraw, kept as a named reference only. Nothing wires it.
- * `size = strokeWidth * 4.25`, streamline is per element (0.5 here, the
- * library default), and `t => sin(t * PI / 2)` easing.
- */
-export function excalidrawFreedrawOptions(
-  width: number,
-  last: boolean,
-): StrokeOptions {
-  return {
-    size: width * 4.25,
-    thinning: 0.6,
-    smoothing: 0.5,
-    streamline: 0.5,
-    simulatePressure: false,
-    easing: (t: number) => Math.sin((t * Math.PI) / 2),
     last,
   };
 }
@@ -78,7 +60,7 @@ export type FreehandOutline = readonly (readonly [number, number])[];
 export function freehandOutline(
   points: FreehandPoints,
   width: number,
-  options: { last: boolean; simulatePressure: boolean },
+  options: { last: boolean; simulatePressure: boolean; highlighter?: boolean },
 ): FreehandOutline {
   const count = Math.min(points.x.length, points.y.length, points.pressure.length);
   if (count === 0) return [];
@@ -86,8 +68,34 @@ export function freehandOutline(
   for (let i = 0; i < count; i++) {
     input[i] = [points.x[i]!, points.y[i]!, points.pressure[i]! / 255];
   }
-  const outline = getStroke(input, tldrawPenOptions(width, options.last, options.simulatePressure));
+  const outline = getStroke(
+    input,
+    tldrawPenOptions(width, options.last, options.simulatePressure, options.highlighter),
+  );
   return outline as unknown as FreehandOutline;
+}
+
+/**
+ * The outline of a settled stroke, as SVG path data, from flat `x, y` pairs (the
+ * shape `InkRenderStroke.points` carries). A settled stroke has no pressure, so
+ * every point is full pressure.
+ */
+export function freehandPathFromFlat(
+  points: readonly number[],
+  width: number,
+  highlighter = false,
+): string {
+  const count = points.length >> 1;
+  const x = new Array<number>(count);
+  const y = new Array<number>(count);
+  const pressure = new Array<number>(count).fill(255);
+  for (let i = 0; i < count; i++) {
+    x[i] = points[2 * i]!;
+    y[i] = points[2 * i + 1]!;
+  }
+  return outlinePathData(
+    freehandOutline({ x, y, pressure }, width, { last: true, simulatePressure: false, highlighter }),
+  );
 }
 
 /** The outline as SVG path data (`M … L … Z`), for `new Path2D(d)` and SVG `d`. */

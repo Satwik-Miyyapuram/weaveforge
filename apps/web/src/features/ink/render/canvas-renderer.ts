@@ -151,11 +151,6 @@ export class CanvasInkRenderer implements InkRenderer {
     this.palette = { ...INK_RENDER_COLOURS, ...palette };
   }
 
-  /** Switch between capsules and perfect-freehand outlines. Takes effect on the next draw. */
-  setRenderer(kind: InkRendererKind): void {
-    this.kind = kind;
-  }
-
   setBackground(image: InkBackgroundImage | null): void {
     this.background = image;
   }
@@ -338,15 +333,19 @@ export class CanvasInkRenderer implements InkRenderer {
     }
     if (this.live) {
       const live = this.live;
-      this.drawn += paintStrokeFn(
-        context,
-        live.x,
-        live.y,
-        live.pressure,
-        live.header,
-        live.header.tool === "highlighter",
-        this.palette,
-      );
+      const highlighter = live.header.tool === "highlighter";
+      // The live stroke is still being written: its end is open (`last: false`),
+      // so the freehand outline does not close and redraw as finished each frame.
+      this.drawn +=
+        this.kind === "freehand"
+          ? paintFreehandStroke(
+              context, live.x, live.y, live.pressure, live.header,
+              highlighter, this.palette, undefined, false,
+            )
+          : paintStroke(
+              context, live.x, live.y, live.pressure, live.header,
+              highlighter, this.palette,
+            );
     }
     context.restore();
   }
@@ -417,6 +416,7 @@ export function paintFreehandStroke(
   highlighter: boolean,
   palette: InkPalette = INK_RENDER_COLOURS,
   halo?: { alpha: number; grow: number },
+  last = true,
 ): number {
   const count = x.length;
   if (count === 0) return 0;
@@ -424,7 +424,7 @@ export function paintFreehandStroke(
   const outline = freehandOutline(
     { x, y, pressure },
     stroke.width + 2 * grow,
-    { last: true, simulatePressure: false },
+    { last, simulatePressure: false, highlighter },
   );
   if (outline.length === 0) return 0;
   context.fillStyle = cssInkColour(

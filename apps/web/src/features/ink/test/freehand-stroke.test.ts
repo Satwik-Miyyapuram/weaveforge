@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   DEFAULT_INK_RENDERER,
   freehandOutline,
+  freehandPathFromFlat,
   outlinePathData,
   parseInkRenderer,
   tldrawPenOptions,
@@ -87,4 +88,32 @@ test("the setting picks the renderer; anything unknown stays classic", () => {
   assert.equal(parseInkRenderer("FREEHAND"), "classic");
   assert.equal(parseInkRenderer(undefined), "classic");
   assert.equal(parseInkRenderer(1), "classic");
+});
+
+test("the pen is sized at the stroke width itself, not 1 + width * 1.2", () => {
+  assert.equal(tldrawPenOptions(WIDTH, true, false).size, WIDTH);
+});
+
+test("freehandPathFromFlat outlines flat x,y pairs as one closed path, and empty input has none", () => {
+  const d = freehandPathFromFlat([0, 0, 50, 0, 100, 0], WIDTH);
+  assert.match(d, /^M[-\d.e]+ [-\d.e]+ L/);
+  assert.ok(d.endsWith(" Z"));
+  assert.equal(freehandPathFromFlat([], WIDTH), "");
+});
+
+test("a highlighter keeps its full width at the thin end; a pen thins there", () => {
+  const xs = Array.from({ length: 21 }, (_, i) => i * 5);
+  const pressure = xs.map((_, i) => (i < 10 ? 255 : 20));
+  const input = {
+    x: Float32Array.from(xs),
+    y: Float32Array.from(xs.map(() => 0)),
+    pressure: Uint8Array.from(pressure),
+  };
+  const farEnd = (outline: readonly (readonly [number, number])[]) =>
+    outline.filter(([x]) => x > 65 && x < 80).map(([, y]) => Math.abs(y));
+  const highlighter = farEnd(freehandOutline(input, WIDTH, { last: true, simulatePressure: false, highlighter: true }));
+  const pen = farEnd(freehandOutline(input, WIDTH, { last: true, simulatePressure: false }));
+  assert.ok(highlighter.length > 0);
+  assert.ok(highlighter.every((y) => y >= WIDTH / 2 - 0.05), "highlighter half-width stays at WIDTH / 2");
+  assert.ok(pen.some((y) => y < WIDTH / 2 - 0.5), "pen half-width thins under pressure");
 });

@@ -141,10 +141,11 @@ On a Mac, Ctrl means ⌘.
 
 Settings, Editor, "Pen and handwriting" has a "Freehand ink outline" switch,
 off by default. It is for comparing two ways of drawing the same ink. The
-classic renderer draws capsules; the freehand one draws a smooth outline around
-each stroke's points. The switch applies to the next ink page you open, not the
-one already open. Freehand always draws on the Canvas 2D path, not WebGL. The
-switch changes only how strokes look; the saved ink is the same either way.
+classic renderer draws capsules; the freehand one fills a smooth outline around
+each stroke's points, both while you write and once the stroke is saved to the
+page. The switch applies to the next ink page you open, not the one already
+open. Freehand always draws on the Canvas 2D path, not WebGL, while you write.
+The switch changes only how strokes look; the saved ink is the same either way.
 
 ## Stuck?
 

@@ -169,3 +169,20 @@ test("freehand paints a stroke as one closed outline fill, never a stroked path"
   assert.ok(calls.some((c) => c.name === "closePath"));
   assert.equal(fills.length, 1);
 });
+
+test("by default the renderer paints capsules, not outlines", () => {
+  const { canvas, calls } = recordingCanvas();
+  const renderer = new CanvasInkRenderer({ canvas });
+  renderer.setStrokes(new InkPageBuffer(page(["pen"])).allStrokes());
+  renderer.draw();
+  assert.ok(calls.some((c) => c.name === "arc"), "capsules are drawn with round caps");
+});
+
+test("with renderer freehand the renderer paints each stroke as a closed outline", () => {
+  const { canvas, calls } = recordingCanvas();
+  const renderer = new CanvasInkRenderer({ canvas, renderer: "freehand" });
+  renderer.setStrokes(new InkPageBuffer(page(["pen"])).allStrokes());
+  renderer.draw();
+  assert.ok(calls.some((c) => c.name === "closePath"), "the outline is closed");
+  assert.ok(!calls.some((c) => c.name === "arc"), "no capsule caps are drawn");
+});
