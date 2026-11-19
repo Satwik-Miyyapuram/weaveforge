@@ -517,7 +517,7 @@ async fn ws_grant_checked_on_update() {
     let (status, _) = http(reqwest::Method::DELETE, &url, OWNER_TOKEN, None).await;
     assert_eq!(status, 200);
 
-    // The revoke makes every socket in the affected room re-check at once, so `denied` comes first.
+    // The revoke makes every socket in the affected room re-check, so `denied` comes first.
     // (Read before sending: on Windows a reset from the closed socket can drop unread frames.)
     let denied = expect_json(&mut guest, "denied").await;
     assert_eq!(denied["reason"], "revoked");

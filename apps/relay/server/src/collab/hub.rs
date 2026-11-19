@@ -65,6 +65,10 @@ pub struct Room {
     /// The item the document belongs to.
     pub item_id: String,
     /// The project the item belongs to, when it has one (project grants target it).
+    ///
+    /// Copied from the row when the room opens and not refreshed after that. If the item moves to
+    /// another project while the room is open, a revoke on the new project does not reach this
+    /// room until it closes and reopens. Accepted: item-level grants still reach it.
     pub project_id: Option<String>,
     /// The mutable state.
     pub inner: tokio::sync::Mutex<RoomInner>,
