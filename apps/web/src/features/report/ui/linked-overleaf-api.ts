@@ -32,7 +32,15 @@ export async function api(path: string, init?: RequestInit) {
     ...init,
     headers: { ...(await authHeaders({ "Content-Type": "application/json" })), ...(init?.headers ?? {}) },
   });
-  const payload = await response.json().catch(() => ({})) as { error?: string; reports?: LinkedReport[]; report?: LinkedReport; connection?: { id: string } };
-  if (!response.ok) throw new Error(payload.error ?? "Overleaf request failed.");
+  const text = await response.text().catch(() => "");
+  let payload: { error?: string; reports?: LinkedReport[]; report?: LinkedReport; connection?: { id: string } } = {};
+  try { payload = JSON.parse(text) ?? {}; } catch { /* not JSON: the raw text is the detail */ }
+  if (!response.ok) throw overleafRequestError(response.status, payload.error, text);
   return payload;
+}
+
+/** A failed relay call, naming its status and the server's own words (#698). */
+export function overleafRequestError(status: number, error: unknown, body: string): Error {
+  const detail = (typeof error === "string" && error.trim() ? error : body).trim().slice(0, 300);
+  return new Error(`Overleaf request failed (HTTP ${status})${detail ? `: ${detail}` : "."}`);
 }

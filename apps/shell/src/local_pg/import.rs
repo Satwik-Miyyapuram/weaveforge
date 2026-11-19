@@ -401,7 +401,7 @@ async fn import_in_transaction<C: Conn>(
         insert_sql(table, &shape)
     };
     let mut report = TableReport {
-        table: name.clone(),
+        table: name,
         inserted: 0,
         skipped: 0,
         already_done: false,
@@ -422,9 +422,19 @@ async fn import_in_transaction<C: Conn>(
             refuse_differing_rows(conn, table, &shape, batch.json).await?;
         }
     }
-    if !last {
-        return Ok(report);
+    if last {
+        finish_table(conn, table, &shape, report.inserted).await?;
     }
+    Ok(report)
+}
+
+/// After the last batch: moves the table's sequences past the imported ids and marks it done.
+async fn finish_table<C: Conn>(
+    conn: &mut C,
+    table: &str,
+    shape: &Shape,
+    inserted: u64,
+) -> Result<(), PgError> {
     for (column, sequence) in &shape.sequences {
         let _ = conn
             .query(
@@ -436,10 +446,10 @@ async fn import_in_transaction<C: Conn>(
     let _ = conn
         .query(
             "INSERT INTO wf_import.done (table_name, row_count) VALUES ($1, $2::bigint)",
-            &[Value::String(name), Value::from(report.inserted)],
+            &[Value::String(table.to_owned()), Value::from(inserted)],
         )
         .await?;
-    Ok(report)
+    Ok(())
 }
 
 /// Imports the tables in the order given (parents first), stopping at the first failure, then

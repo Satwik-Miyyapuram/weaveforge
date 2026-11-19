@@ -78,6 +78,7 @@ import { CitationTextLayer } from "./citation-text-layer";
 import { FindMarks, FindOverlay } from "../find-overlay";
 import { TargetHighlightOverlay } from "./target-highlight-overlay";
 import { ownsReaderFocus, pointerFocusTarget } from "./reader-focus";
+import { readerPasteImage } from "./reader-paste";
 import { ReferencesPanel } from "../references-panel";
 
 import type {
@@ -443,6 +444,30 @@ export function PdfReader({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  /**
+   * Ctrl+V of an image (a screenshot, a copied picture) lays it on the page in
+   * view, as Insert > Picture does. Only while the reader owns focus and the
+   * paste is not aimed at a text field.
+   */
+  const addPictureRef = useRef(addPicture);
+  addPictureRef.current = addPicture;
+  const canPasteRef = useRef(canCreate);
+  canPasteRef.current = canCreate;
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      const file = readerPasteImage(event, {
+        canCreate: canPasteRef.current,
+        editableTarget: typedCore().isEditableReaderTarget(event.target),
+        ownsFocus: ownsReaderFocus(document.activeElement, document.body, [rootRef.current, chromeRef.current], screenActiveRef.current),
+      });
+      if (!file) return;
+      event.preventDefault();
+      void addPictureRef.current(file);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
   }, []);
 
   /**

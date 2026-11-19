@@ -8,7 +8,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
+import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
+import { FOLD_STAGES } from "@/features/ink/ui/ink-bar-fold";
 import { DocumentToolbar, citeAsSection } from "../document-toolbar";
 
 const src = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
@@ -78,4 +80,49 @@ test("Cite as is one radio per format, the current one checked", () => {
   assert.deepEqual(section.items.filter((i) => i.checked).map((i) => i.label), ["LaTeX \\cite{}"]);
   section.items[0]!.onSelect();
   assert.deepEqual(picked, ["wikilink"]);
+});
+
+test("a too-narrow strip folds and wraps again after focus toggles off and on", () => {
+  const g = globalThis as Record<string, unknown>;
+  (g as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  const names = ["ResizeObserver", "MutationObserver", "requestAnimationFrame", "cancelAnimationFrame"];
+  const saved = names.map((name) => [name, g[name]] as const);
+  class Idle {
+    observe() {}
+    disconnect() {}
+  }
+  Object.assign(g, { ResizeObserver: Idle, MutationObserver: Idle, requestAnimationFrame: () => 0, cancelAnimationFrame: () => {} });
+  const bars: Record<string, string | undefined>[] = [];
+  // Always 200px wide against a 100px bar: nothing fits, so the fold runs out and it wraps.
+  const node = (type: string) => {
+    if (type !== "div") return null;
+    const dataset: Record<string, string | undefined> = {};
+    bars.push(dataset);
+    return { dataset, clientWidth: 100, scrollWidth: 200, querySelector: () => null };
+  };
+  const view = (focus: boolean) => (
+    <DocumentToolbar focus={focus} onError={() => undefined}>
+      <p>body</p>
+    </DocumentToolbar>
+  );
+  try {
+    let tree!: ReactTestRenderer;
+    act(() => {
+      tree = create(view(false), { createNodeMock: (element) => node(String(element.type)) });
+    });
+    act(() => {
+      tree.update(view(true));
+    });
+    act(() => {
+      tree.update(view(false));
+    });
+    assert.equal(bars.length, 2);
+    assert.equal(bars[1]!.fold, FOLD_STAGES.join(" "));
+    assert.equal(bars[1]!.wrap, "");
+  } finally {
+    for (const [name, value] of saved) {
+      if (value === undefined) delete g[name];
+      else g[name] = value;
+    }
+  }
 });
