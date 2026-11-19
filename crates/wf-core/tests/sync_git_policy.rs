@@ -519,6 +519,25 @@ fn is_under_ignored_folder_is_true_only_below_an_ignored_folder() {
 }
 
 #[test]
+fn only_the_root_settings_json_is_synced_out_of_the_meta_folder() {
+    assert!(!is_under_ignored_folder(".weaveforge/settings.json"));
+    assert!(!is_under_ignored_folder(".WeaveForge\\Settings.JSON"));
+    assert!(is_under_ignored_folder(".weaveforge/device.json"));
+    assert!(is_under_ignored_folder(".weaveforge/settings.json/extra"));
+    assert!(is_under_ignored_folder(".weaveforge/sub/settings.json"));
+    // A nested `.weaveforge` folder is not the database folder and is not ignored by this rule.
+    assert!(!is_under_ignored_folder("notes/.weaveforge/settings.json"));
+    assert_eq!(
+        decide_git_sync_path(".weaveforge/settings.json", 10.0, MB),
+        GitSyncDecision::Include
+    );
+    assert_eq!(
+        decide_git_sync_path(".weaveforge/device.json", 10.0, MB),
+        GitSyncDecision::Skip(GitSyncSkipReason::IgnoredDirectory)
+    );
+}
+
+#[test]
 fn an_https_remote_url_is_accepted_and_normalised() {
     assert_eq!(
         check_git_remote_url(Some("  https://github.com/me/notes.git ")),

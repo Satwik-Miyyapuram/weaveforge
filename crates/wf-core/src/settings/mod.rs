@@ -4,3 +4,4 @@ pub mod integration_credentials;
 pub mod theme_config;
 pub mod user_appearance;
 pub mod user_settings;
+pub mod workspace_settings;

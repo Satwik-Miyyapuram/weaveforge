@@ -4,9 +4,11 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 
 use tauri::Manager as _;
+use wf_core::settings::workspace_settings::{SETTINGS_PATH, WorkspaceSettings};
 
 use crate::commands::ShellError;
 use crate::prefs::Prefs;
+use crate::secrets::Secrets;
 use crate::vault::{VaultEntry, VaultRoot, VaultSession, VaultState};
 use crate::vault_choice::{
     Choice, adopt_choice, default_workspace_folder, forget_choice, missing_remembered,
@@ -134,8 +136,22 @@ pub async fn remove(state: &VaultState, path: String) -> Result<(), String> {
 #[specta::specta]
 pub async fn vault_root(
     state: tauri::State<'_, VaultState>,
+    secrets: tauri::State<'_, Secrets>,
 ) -> Result<Option<VaultRoot>, ShellError> {
-    Ok(root(state.inner()).await)
+    // Scoping here also covers a folder restored at launch, which never passes through a pick.
+    let vault = state.inner().clone();
+    let secrets = secrets.inner().clone();
+    let root = tokio::task::spawn_blocking(move || {
+        let session = vault.lock();
+        if let Err(warning) = scope_secrets_to(&session, &secrets) {
+            eprintln!("[vault] {warning}");
+        }
+        session.root()
+    })
+    .await
+    .ok()
+    .flatten();
+    Ok(root)
 }
 
 /// Asks the reader for a workspace folder in a native dialog and moves the workspace there.
@@ -152,6 +168,7 @@ pub async fn vault_choose(
     vault: tauri::State<'_, VaultState>,
     prefs: tauri::State<'_, Prefs>,
     watch: tauri::State<'_, WatchSlot>,
+    secrets: tauri::State<'_, Secrets>,
 ) -> Result<Choice, ShellError> {
     // The dialog is modal; this also refuses a second pick that slips in while one is open.
     let Some(_choosing) = Choosing::start() else {
@@ -161,9 +178,11 @@ pub async fn vault_choose(
     let vault = vault.inner().clone();
     let prefs = prefs.inner().clone();
     let watch = watch.inner().clone();
+    let secrets = secrets.inner().clone();
     let sink = crate::change_sink(&app);
     let choice = tokio::task::spawn_blocking(move || {
         adopt_choice(&vault, &prefs, &watch, picked.as_deref(), sink)
+            .map(|choice| scoped(choice, &vault, &secrets))
     })
     .await
     .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))
@@ -178,6 +197,77 @@ fn log_warnings(app: &tauri::AppHandle, choice: &Choice) {
     for warning in &choice.warnings {
         crate::log_vault_warning(app, warning, path);
     }
+}
+
+/// Said when the folder's settings file cannot be read or written; its saved tokens are not used.
+pub const SETTINGS_REFUSED: &str =
+    "WeaveForge could not read this folder's settings file, so its saved tokens are not used.";
+
+/// Scopes the keychain tokens to the open folder, using its workspace id from the settings file.
+/// Any failure closes the scope first, so an earlier folder's tokens never serve this one.
+///
+/// # Errors
+/// The reason the folder's id could not be read or stamped, or the keychain refused the id.
+fn scope_secrets_to(session: &VaultSession, secrets: &Secrets) -> Result<(), String> {
+    secrets
+        .set_open_workspace(None)
+        .map_err(|error| error.to_string())?;
+    crate::open_workspace::remember(None);
+    if session.root().is_none() {
+        return Ok(());
+    }
+    let id = stamp_workspace_id(session)?;
+    secrets
+        .set_open_workspace(Some(&id))
+        .map_err(|error| error.to_string())
+}
+
+/// The open folder's workspace id. A folder without one gets a random id, written once into
+/// `.weaveforge/settings.json`; a stored id is kept as it is.
+fn stamp_workspace_id(session: &VaultSession) -> Result<String, String> {
+    let mut settings = match session.read_text(SETTINGS_PATH)? {
+        None => WorkspaceSettings::new_folder(),
+        Some(text) => WorkspaceSettings::parse(&text).map_err(|_| SETTINGS_REFUSED.to_owned())?,
+    };
+    let fresh = random_uuid().map_err(|_| SETTINGS_REFUSED.to_owned())?;
+    if settings.ensure_workspace_id(&fresh) {
+        let text = settings
+            .to_text()
+            .map_err(|_| SETTINGS_REFUSED.to_owned())?;
+        session.write_text(SETTINGS_PATH, &text)?;
+    }
+    crate::open_workspace::remember(Some(&settings));
+    settings
+        .tier
+        .workspace_id
+        .ok_or_else(|| SETTINGS_REFUSED.to_owned())
+}
+
+/// Runs the scope on a choice's folder and turns a failure into a warning on that choice.
+/// Call it on the blocking thread that holds the choice's session work.
+fn scoped(mut choice: Choice, vault: &VaultState, secrets: &Secrets) -> Choice {
+    let session = vault.lock();
+    if let Err(warning) = scope_secrets_to(&session, secrets) {
+        choice.warnings.push(warning);
+    }
+    choice
+}
+
+/// A random version-4 UUID as text. A copy of the helper in `local_http::mcp_suggest`, which is private there.
+fn random_uuid() -> Result<String, String> {
+    let mut bytes = [0_u8; 16];
+    getrandom::fill(&mut bytes).map_err(|err| err.to_string())?;
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+    Ok(format!(
+        "{}-{}-{}-{}-{}",
+        &hex[0..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..32]
+    ))
 }
 
 /// The remembered folder while none is in use, so the page can say it is not available.
@@ -208,16 +298,20 @@ pub async fn vault_retry(
     vault: tauri::State<'_, VaultState>,
     prefs: tauri::State<'_, Prefs>,
     watch: tauri::State<'_, WatchSlot>,
+    secrets: tauri::State<'_, Secrets>,
 ) -> Result<Choice, ShellError> {
     let vault = vault.inner().clone();
     let prefs = prefs.inner().clone();
     let watch = watch.inner().clone();
+    let secrets = secrets.inner().clone();
     let sink = crate::change_sink(&app);
-    let choice =
-        tokio::task::spawn_blocking(move || retry_remembered(&vault, &prefs, &watch, sink))
-            .await
-            .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))
-            .map_err(ShellError::from)?;
+    let choice = tokio::task::spawn_blocking(move || {
+        retry_remembered(&vault, &prefs, &watch, sink)
+            .map(|choice| scoped(choice, &vault, &secrets))
+    })
+    .await
+    .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))
+    .map_err(ShellError::from)?;
     log_warnings(&app, &choice);
     Ok(choice)
 }
@@ -233,13 +327,18 @@ pub async fn vault_forget(
     vault: tauri::State<'_, VaultState>,
     prefs: tauri::State<'_, Prefs>,
     watch: tauri::State<'_, WatchSlot>,
+    secrets: tauri::State<'_, Secrets>,
 ) -> Result<Choice, ShellError> {
     let vault = vault.inner().clone();
     let prefs = prefs.inner().clone();
     let watch = watch.inner().clone();
-    let choice = tokio::task::spawn_blocking(move || forget_choice(&vault, &prefs, &watch))
-        .await
-        .map_err(|_| ShellError::from(TASK_FAILED.to_owned()))?;
+    let secrets = secrets.inner().clone();
+    // No folder is left open, so the scope closes.
+    let choice = tokio::task::spawn_blocking(move || {
+        scoped(forget_choice(&vault, &prefs, &watch), &vault, &secrets)
+    })
+    .await
+    .map_err(|_| ShellError::from(TASK_FAILED.to_owned()))?;
     log_warnings(&app, &choice);
     Ok(choice)
 }
@@ -306,6 +405,7 @@ pub async fn workspace_skip(
     vault: tauri::State<'_, VaultState>,
     prefs: tauri::State<'_, Prefs>,
     watch: tauri::State<'_, WatchSlot>,
+    secrets: tauri::State<'_, Secrets>,
 ) -> Result<Choice, ShellError> {
     let documents = app
         .path()
@@ -315,10 +415,12 @@ pub async fn workspace_skip(
     let vault = vault.inner().clone();
     let prefs = prefs.inner().clone();
     let watch = watch.inner().clone();
+    let secrets = secrets.inner().clone();
     let sink = crate::change_sink(&app);
     let choice = tokio::task::spawn_blocking(move || {
         create_skip_folder(&target)
             .and_then(|()| adopt_choice(&vault, &prefs, &watch, Some(&target), sink))
+            .map(|choice| scoped(choice, &vault, &secrets))
     })
     .await
     .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))
@@ -520,4 +622,133 @@ pub async fn vault_remove(
     })
     .await
     .map_err(ShellError::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::sync::Arc;
+
+    use keyring_core::CredentialStore;
+
+    use super::scope_secrets_to;
+    use super::{SETTINGS_PATH, SETTINGS_REFUSED, Secrets, VaultSession, WorkspaceSettings};
+    use crate::secrets::SecretError;
+
+    const SERVICE: &str = "org.weaveforge.cmdvault-test";
+    const TOKEN: &str = "git-sync-token";
+
+    fn store() -> Arc<CredentialStore> {
+        keyring_core::mock::Store::new().expect("mock store")
+    }
+
+    fn secrets(store: &Arc<CredentialStore>) -> Secrets {
+        Secrets::new(Some(Arc::clone(store)), SERVICE)
+    }
+
+    /// A clean folder under the temp dir, unique to this test.
+    fn folder(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("wf-cmdvault-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("folder");
+        dir
+    }
+
+    /// Opens `dir` the way the shell does: adopt the folder, then scope the keychain to it.
+    fn open(session: &mut VaultSession, secrets: &Secrets, dir: &Path) -> Result<(), String> {
+        if session.adopt(Some(dir))?.is_none() {
+            return Err("folder not adopted".to_owned());
+        }
+        scope_secrets_to(session, secrets)
+    }
+
+    fn stored_id(session: &VaultSession) -> Option<String> {
+        let text = session
+            .read_text(SETTINGS_PATH)
+            .expect("read settings")
+            .expect("settings file");
+        WorkspaceSettings::parse(&text)
+            .expect("parse settings")
+            .tier
+            .workspace_id
+    }
+
+    #[test]
+    fn two_folders_keep_their_own_tokens_and_ids_across_reopen() {
+        let store = store();
+        let secrets = secrets(&store);
+        let (a, b) = (folder("two-a"), folder("two-b"));
+        let mut session = VaultSession::new();
+
+        open(&mut session, &secrets, &a).expect("open a");
+        let id_a = stored_id(&session).expect("id a");
+        secrets.write(TOKEN, "token-a").expect("write a");
+
+        open(&mut session, &secrets, &b).expect("open b");
+        assert_ne!(stored_id(&session).as_deref(), Some(id_a.as_str()));
+        assert_eq!(secrets.read(TOKEN).expect("read b"), None);
+        secrets.write(TOKEN, "token-b").expect("write b");
+
+        open(&mut session, &secrets, &a).expect("reopen a");
+        assert_eq!(stored_id(&session), Some(id_a));
+        assert_eq!(
+            secrets.read(TOKEN).expect("read a"),
+            Some("token-a".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_first_open_stamps_a_version_four_id_and_later_opens_keep_it() {
+        let store = store();
+        let secrets = secrets(&store);
+        let dir = folder("stamp");
+        let mut session = VaultSession::new();
+
+        open(&mut session, &secrets, &dir).expect("open");
+        let id = stored_id(&session).expect("stamped id");
+        assert_eq!(id.len(), 36);
+        assert_eq!(id.as_bytes()[14], b'4');
+
+        open(&mut session, &secrets, &dir).expect("reopen");
+        assert_eq!(stored_id(&session), Some(id));
+    }
+
+    #[test]
+    fn a_malformed_settings_file_is_refused_left_unchanged_and_keeps_the_scope_closed() {
+        let store = store();
+        let secrets = secrets(&store);
+        let dir = folder("malformed");
+        let settings = dir.join(SETTINGS_PATH);
+        fs::create_dir_all(settings.parent().expect("parent")).expect("settings dir");
+        fs::write(&settings, "{").expect("write malformed");
+        let mut session = VaultSession::new();
+
+        assert_eq!(
+            open(&mut session, &secrets, &dir),
+            Err(SETTINGS_REFUSED.to_owned())
+        );
+        assert_eq!(fs::read_to_string(&settings).expect("reread"), "{");
+        assert_eq!(
+            secrets.page_write(TOKEN, "x"),
+            Err(SecretError::NoWorkspace)
+        );
+    }
+
+    #[test]
+    fn forgetting_the_folder_closes_its_token_scope() {
+        let store = store();
+        let secrets = secrets(&store);
+        let dir = folder("forget");
+        let mut session = VaultSession::new();
+
+        open(&mut session, &secrets, &dir).expect("open");
+        secrets.write(TOKEN, "token").expect("write");
+        session.forget();
+        scope_secrets_to(&session, &secrets).expect("scope after forget");
+        assert_eq!(
+            secrets.page_write(TOKEN, "x"),
+            Err(SecretError::NoWorkspace)
+        );
+    }
 }

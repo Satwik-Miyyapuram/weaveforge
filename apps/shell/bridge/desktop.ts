@@ -21,6 +21,7 @@ import type {
   DesktopWorkspaceSetup,
   DesktopZoteroReply,
 } from "@/lib/desktop/desktop-bridge";
+import type { DesktopOpenTier } from "@/lib/desktop/desktop-open-tier";
 import { fromBase64, toBase64, unwrap } from "./bridge";
 import type { AppUpdateStatus, AppUpdateStatus_Serialize, commands } from "./bindings";
 
@@ -77,6 +78,8 @@ export interface DesktopCommands {
   vaultForget(): Promise<Result<VaultChoice>>;
   workspaceSetup(): Promise<Result<DesktopWorkspaceSetup>>;
   workspaceSkip(): Promise<Result<VaultChoice>>;
+  workspaceTier(): Promise<Result<DesktopOpenTier | null>>;
+  workspaceSetTier(tier: string, account: string | null, serverHint: string | null): Promise<Result<DesktopOpenTier>>;
   vaultRead(path: string): Promise<Result<string | null>>;
   vaultWrite(path: string, contents: string): Promise<Result<null>>;
   vaultWriteIf(path: string, contents: string, expected: string | null): Promise<Result<boolean>>;
@@ -299,6 +302,8 @@ export type DesktopShim = Pick<
   | "forgetVaultRoot"
   | "workspaceSetup"
   | "skipWorkspaceFolder"
+  | "workspaceTier"
+  | "setWorkspaceTier"
   | "readVaultFile"
   | "writeVaultFile"
   | "writeVaultFileIf"
@@ -542,6 +547,9 @@ export function desktopShim(
     forgetVaultRoot: async () => unwrap(await cmds.vaultForget()).warnings,
     workspaceSetup: async () => unwrap(await cmds.workspaceSetup()),
     skipWorkspaceFolder: async () => choiceRoot(unwrap(await cmds.workspaceSkip())),
+    workspaceTier: async () => unwrap(await cmds.workspaceTier()),
+    setWorkspaceTier: async (tier, account, serverHint) =>
+      unwrap(await cmds.workspaceSetTier(tier, account, serverHint)),
     readVaultFile: async (path) => unwrap(await cmds.vaultRead(path)),
     writeVaultFile: async (path, contents) => {
       unwrap(await cmds.vaultWrite(path, contents));

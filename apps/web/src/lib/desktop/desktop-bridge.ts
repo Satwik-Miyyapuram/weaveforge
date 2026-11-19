@@ -1,5 +1,6 @@
 "use client";
 
+import type { DesktopOpenTier } from "./desktop-open-tier";
 import type { DesktopSecretName } from "./desktop-secret-name";
 
 /**
@@ -235,6 +236,10 @@ export interface DesktopBridge {
    * (created if missing). Answers the folder in use, or rejects with why it cannot be used.
    */
   skipWorkspaceFolder?(): Promise<DesktopVaultRoot | null>;
+  /** The open workspace's id and tier, or null with no folder open. Absent on the Electron shell. */
+  workspaceTier?(): Promise<DesktopOpenTier | null>;
+  /** Move the open workspace to `tier` (settings.json, epoch + 1) for this account and server host. */
+  setWorkspaceTier?(tier: string, account: string | null, serverHint: string | null): Promise<DesktopOpenTier>;
   /** Read one file, or null when it is not there yet. */
   readVaultFile(path: string): Promise<string | null>;
   writeVaultFile(path: string, contents: string): Promise<void>;

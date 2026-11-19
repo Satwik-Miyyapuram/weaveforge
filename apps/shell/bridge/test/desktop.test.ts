@@ -270,6 +270,24 @@ test("writeVaultFileIf passes the expected text and answers whether it wrote", a
   assert.deepEqual(calls, [{ cmd: "vaultWriteIf", args: ["a.md", "x", null] }]);
 });
 
+test("workspaceTier and setWorkspaceTier pass through the shell's answer", async () => {
+  const tier = { workspaceId: "w", tier: "local", tierEpoch: 0, tierAccount: null, serverHint: null };
+  const { cmds, calls } = fakeCommands({
+    workspaceTier: { status: "ok", data: tier },
+    workspaceSetTier: { status: "ok", data: { ...tier, tier: "sharing" } },
+  });
+  const shim = desktopShim(cmds, fakeEvents().events);
+  assert.deepEqual(await shim.workspaceTier?.(), tier);
+  assert.deepEqual(
+    await shim.setWorkspaceTier?.("sharing", "acct", "weaveforge.org"),
+    { ...tier, tier: "sharing" },
+  );
+  assert.deepEqual(calls, [
+    { cmd: "workspaceTier", args: [] },
+    { cmd: "workspaceSetTier", args: ["sharing", "acct", "weaveforge.org"] },
+  ]);
+});
+
 test("readSecret passes the name", async () => {
   const { cmds, calls } = fakeCommands({
     secretRead: { status: "ok", data: "tok" },
