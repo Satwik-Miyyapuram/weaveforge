@@ -11,8 +11,8 @@ use git2::{
 
 use crate::git::policy::{
     CommitAction, FileState, IGNORED_DIRS, IGNORED_EXTENSIONS, IGNORED_FILES, MAX_FILE_BYTES,
-    MIRROR_MANIFEST_EXCLUDE, RepoState, decide_commit, decide_path, describe_changes,
-    is_mirror_manifest,
+    MIRROR_MANIFEST_EXCLUDE, RepoState, STALE_META_EXCLUDE, decide_commit, decide_path,
+    describe_changes, is_local_meta, is_mirror_manifest, meta_exclude_lines,
 };
 
 /// A lock this old is not a git still running.
@@ -99,12 +99,24 @@ pub fn probe(root: &Path) -> RepoState {
     }
 }
 
-/// Keeps the folder's `.git/info/exclude` holding every wanted line, leaving user lines alone.
+/// Keeps the folder's `.git/info/exclude` holding every wanted line, leaving user lines
+/// alone. The stale whole-folder `/.weaveforge/` line older versions wrote is dropped, so
+/// the synced `.weaveforge/*.json` files can enter history.
 pub(crate) fn write_excludes(repo: &Repository) -> Result<(), RepoError> {
     let info = repo.path().join("info");
     let file = info.join("exclude");
-    let current = fs::read_to_string(&file).unwrap_or_default();
-    let mut wanted = vec!["/.weaveforge/".to_owned()];
+    let read = fs::read_to_string(&file).unwrap_or_default();
+    let had_stale = read
+        .split('\n')
+        .any(|line| line.trim_end_matches('\r') == STALE_META_EXCLUDE);
+    let current: String = if had_stale {
+        read.split_inclusive('\n')
+            .filter(|line| line.trim_end_matches(['\r', '\n']) != STALE_META_EXCLUDE)
+            .collect()
+    } else {
+        read
+    };
+    let mut wanted = meta_exclude_lines();
     wanted.extend(IGNORED_DIRS.iter().map(|dir| format!("{dir}/")));
     wanted.extend(IGNORED_FILES.iter().map(|name| (*name).to_owned()));
     wanted.extend(IGNORED_EXTENSIONS.iter().map(|ext| format!("*{ext}")));
@@ -117,7 +129,7 @@ pub(crate) fn write_excludes(repo: &Repository) -> Result<(), RepoError> {
         .iter()
         .filter(|line| !present.contains(&line.as_str()))
         .collect();
-    if missing.is_empty() {
+    if missing.is_empty() && !had_stale {
         return Ok(());
     }
     let mut text = current.clone();
@@ -263,7 +275,7 @@ impl FolderRepo {
             let Ok(path) = entry.path() else {
                 continue;
             };
-            if format!("/{path}").starts_with("/.weaveforge/") || is_mirror_manifest(path) {
+            if is_local_meta(path) || is_mirror_manifest(path) {
                 continue;
             }
             let Some(state) = change_state(entry.status()) else {
@@ -335,12 +347,12 @@ impl FolderRepo {
         let repo = self.open()?;
         write_excludes(&repo)?;
         let mut index = repo.index()?;
-        index.remove_dir(Path::new(".weaveforge"), 0)?;
-        // A manifest an older version committed leaves the index, so this commit drops it.
+        // Local `.weaveforge` state and any manifest an older version committed leave the
+        // index, so this commit drops them.
         let manifests: Vec<PathBuf> = index
             .iter()
             .map(|entry| String::from_utf8_lossy(&entry.path).into_owned())
-            .filter(|path| is_mirror_manifest(path))
+            .filter(|path| is_local_meta(path) || is_mirror_manifest(path))
             .map(PathBuf::from)
             .collect();
         for path in manifests {
@@ -350,7 +362,7 @@ impl FolderRepo {
         let max = self.max_file_bytes;
         let mut policy = |path: &Path, _spec: &[u8]| -> i32 {
             let rel = path.to_string_lossy().replace('\\', "/");
-            if rel.starts_with(".weaveforge/") {
+            if is_local_meta(&rel) {
                 return 1;
             }
             let size = fs::symlink_metadata(root.join(path))

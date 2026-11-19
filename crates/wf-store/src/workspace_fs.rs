@@ -84,7 +84,8 @@ impl WorkspaceFs for Vault {
         Vault::stat(self, path).map(to_stat)
     }
 
-    /// Move a file, creating its parent folders and replacing any file at `to`.
+    /// Move a file, creating its parent folders. An existing file at `to` is refused, not
+    /// replaced (best-effort: a file created at `to` in the same instant is not detected).
     /// A failure names `from` when the source is missing, else `to`.
     fn rename(&mut self, from: &str, to: &str) -> Result<(), FsError> {
         Vault::rename(self, from, to).map_err(|err| {

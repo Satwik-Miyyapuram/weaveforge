@@ -353,7 +353,7 @@ fn write_excludes_is_idempotent() {
     write(dir.path(), "b.md", b"b");
     let _ = repo.commit_all("two", me()).unwrap();
     let text = exclude_text(dir.path());
-    for line in ["/.weaveforge/", "node_modules/", "desktop.ini", "*.aux"] {
+    for line in ["/.weaveforge/*", "!/.weaveforge/settings.json", "node_modules/", "desktop.ini", "*.aux"] {
         assert_eq!(text.lines().filter(|l| *l == line).count(), 1, "{line}");
     }
 }
@@ -567,4 +567,47 @@ fn commit_vault_paths() {
             .reason
             .is_some_and(|r| r.contains("inside the repository at"))
     );
+}
+
+#[test]
+fn synced_meta_files_are_committed_and_local_state_is_not() {
+    let dir = TempDir::new();
+    let repo = FolderRepo::new(dir.path());
+    repo.init().unwrap();
+    write(dir.path(), "a.md", b"a");
+    write(dir.path(), ".weaveforge/settings.json", b"{}");
+    write(dir.path(), ".weaveforge/workspace.json", b"{}");
+    write(dir.path(), ".weaveforge/ai/prompt.md", b"p");
+    write(dir.path(), ".weaveforge/mcp.json", b"{\"token\":\"x\"}");
+    write(dir.path(), ".weaveforge/db/data.bin", b"db");
+    write(dir.path(), ".weaveforge/cache.sqlite", b"c");
+    let _ = repo.commit_all("one", me()).unwrap();
+    assert_eq!(
+        tree_files(dir.path(), "HEAD"),
+        [
+            ".weaveforge/ai/prompt.md",
+            ".weaveforge/settings.json",
+            ".weaveforge/workspace.json",
+            "a.md"
+        ]
+    );
+}
+
+#[test]
+fn stale_whole_folder_exclude_line_is_replaced() {
+    let dir = TempDir::new();
+    let repo = FolderRepo::new(dir.path());
+    repo.init().unwrap();
+    fs::write(
+        dir.path().join(".git").join("info").join("exclude"),
+        "mine/\n/.weaveforge/\n",
+    )
+    .unwrap();
+    write(dir.path(), ".weaveforge/settings.json", b"{}");
+    let _ = repo.commit_all("one", me()).unwrap();
+    let text = exclude_text(dir.path());
+    assert!(text.starts_with("mine/\n"));
+    assert!(!text.lines().any(|l| l == "/.weaveforge/"));
+    assert!(text.lines().any(|l| l == "!/.weaveforge/settings.json"));
+    assert_eq!(tree_files(dir.path(), "HEAD"), [".weaveforge/settings.json"]);
 }

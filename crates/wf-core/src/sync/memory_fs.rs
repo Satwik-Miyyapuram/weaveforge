@@ -167,6 +167,10 @@ impl WorkspaceFs for MemoryWorkspaceFs {
     fn rename(&mut self, from: &str, to: &str) -> Result<(), FsError> {
         let source = safe_workspace_path(from)?;
         let target = safe_workspace_path(to)?;
+        // Like the vault's rename, an existing file at `to` is refused, not replaced.
+        if source != target && self.files.contains_key(&target) {
+            return Err(FsError::Io(format!("the target already exists: {to}")));
+        }
         let bytes = self
             .files
             .remove(&source)

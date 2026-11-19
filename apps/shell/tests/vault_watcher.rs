@@ -327,3 +327,13 @@ fn a_halted_watch_does_not_say_its_folder_is_lost() {
     assert!(matches!(got, Err(RecvTimeoutError::Timeout)));
     drop(taken);
 }
+
+#[test]
+fn checked_write_links_and_device_files_are_ignored() {
+    assert!(is_ignored("notes/a.md.wfprev"));
+    assert!(is_ignored(".weaveforge/local/bases.sqlite"));
+    assert!(is_ignored(".weaveforge/cache.db"));
+    assert!(!is_ignored(".weaveforge/settings.json"));
+    assert!(!is_ignored("proj/.weaveforge/relations.json"));
+    assert!(!is_ignored("notes/a.md"));
+}

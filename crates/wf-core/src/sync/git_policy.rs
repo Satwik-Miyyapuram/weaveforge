@@ -32,6 +32,59 @@ pub const GIT_SYNC_IGNORED_EXTENSIONS: &[&str] = &[".aux", ".fdb_latexmk", ".fls
 /// own last write, so another machine's copy must never come in with a pull.
 pub const MIRROR_MANIFEST_EXCLUDE: &str = "**/.weaveforge/mirror.json";
 
+/// Files directly in the root `.weaveforge/` folder that sync through git
+/// (files-first, 0.9.4): the workspace format, settings and shared lists.
+pub const SYNCED_META_FILES: &[&str] = &[
+    "workspace.json",
+    "settings.json",
+    "tags.json",
+    "fields.json",
+    "quotation-types.json",
+];
+
+/// Folders in the root `.weaveforge/` folder that sync through git.
+pub const SYNCED_META_DIRS: &[&str] = &["ai"];
+
+/// The git exclude lines for the root `.weaveforge/` folder: everything stays on
+/// this machine except [`SYNCED_META_FILES`] and [`SYNCED_META_DIRS`]. An
+/// allowlist, so the local database, backups and tokens kept there never sync.
+#[must_use]
+pub fn meta_exclude_lines() -> Vec<String> {
+    let mut lines = vec![format!("/{WORKSPACE_META_DIR}/*")];
+    lines.extend(
+        SYNCED_META_FILES
+            .iter()
+            .map(|name| format!("!/{WORKSPACE_META_DIR}/{name}")),
+    );
+    lines.extend(
+        SYNCED_META_DIRS
+            .iter()
+            .map(|dir| format!("!/{WORKSPACE_META_DIR}/{dir}/")),
+    );
+    lines
+}
+
+/// The exclude line older versions wrote, which kept the whole root
+/// `.weaveforge/` folder out of git; it is removed so the synced files can enter.
+pub const STALE_META_EXCLUDE: &str = "/.weaveforge/";
+
+/// True for a path inside the root `.weaveforge/` folder that stays on this
+/// machine: anything not in [`SYNCED_META_FILES`] or [`SYNCED_META_DIRS`].
+/// `notes/.weaveforge/...` is a project folder and is not matched.
+#[must_use]
+pub fn is_local_meta(rel_path: &str) -> bool {
+    let segments = segments_of(rel_path);
+    match segments.as_slice() {
+        [meta, name] if meta.as_str() == WORKSPACE_META_DIR => {
+            !SYNCED_META_FILES.contains(&name.as_str())
+        }
+        [meta, dir, _, ..] if meta.as_str() == WORKSPACE_META_DIR => {
+            !SYNCED_META_DIRS.contains(&dir.as_str())
+        }
+        _ => false,
+    }
+}
+
 /// Why a path is kept out of git. The string form matches the TypeScript.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -70,14 +123,11 @@ fn segments_of(rel_path: &str) -> Vec<String> {
 /// name, so `notes/dist` is not matched but `notes/dist/x.md` is.
 #[must_use]
 pub fn is_under_ignored_folder(rel_path: &str) -> bool {
-    let segments = segments_of(rel_path);
-    // The root `.weaveforge` folder is this machine's database; `notes/.weaveforge` is not.
-    if segments
-        .first()
-        .is_some_and(|first| first.as_str() == WORKSPACE_META_DIR)
-    {
+    // Most of the root `.weaveforge` folder is this machine's own state; `notes/.weaveforge` is not.
+    if is_local_meta(rel_path) {
         return true;
     }
+    let segments = segments_of(rel_path);
     segments.split_last().is_some_and(|(_, dirs)| {
         dirs.iter()
             .any(|dir| GIT_SYNC_IGNORED_DIRS.contains(&dir.as_str()))

@@ -4,6 +4,9 @@
 /// Native sentence embeddings matching transformers.js q8 models.
 #[cfg(feature = "embeddings")]
 pub mod embed;
+pub mod bases;
+pub mod checked_write;
+pub mod files;
 pub mod git;
 pub mod root;
 pub mod vault;
