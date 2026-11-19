@@ -39,11 +39,13 @@ export class FileScreeningRepository implements IScreeningRepository {
   }
 
   /** The file's decisions, or none when it cannot be read, so one damaged list
-   *  never hides the others. A damaged file is never written. */
+   *  never hides the others. A damaged file is never written, and it is reported
+   *  to the console so the damage is not silent. */
   private readable(file: ListFile): ScreeningDecision[] {
     try {
       return readyCore().screeningInListFile(file.text) as ScreeningDecision[];
-    } catch {
+    } catch (error) {
+      console.warn(`Reading-list file ${file.path} could not be read for screening; skipped.`, error);
       return [];
     }
   }
@@ -60,7 +62,6 @@ export class FileScreeningRepository implements IScreeningRepository {
     for (const file of await this.files.listFiles()) {
       if (!this.readable(file).some((d) => d.id === id)) continue;
       await this.files.write(file.path, core.removeFromListFile(file.text, id), file.hash);
-      return;
     }
   }
 }

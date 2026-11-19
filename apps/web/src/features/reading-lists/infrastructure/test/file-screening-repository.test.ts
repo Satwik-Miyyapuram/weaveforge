@@ -59,6 +59,34 @@ test("listForItems gives the latest decision per item, reviewer and stage, and o
   assert.deepEqual(await repo.listForItems([]), []);
 });
 
+test("remove takes the id out of every file that holds it, not only the first", async () => {
+  const { port, texts } = memoryPort({ "a.md": LIST, "b.md": LIST }, { "a.md": ["i1"] });
+  const repo = new FileScreeningRepository(port);
+  await repo.record(decision("d1", "i1", "included", "2026-11-19T10:00:00Z"));
+  texts.set("b.md", texts.get("a.md")!);
+  await repo.remove("d1");
+  assert.ok(!texts.get("a.md")!.includes('"id":"d1"'));
+  assert.ok(!texts.get("b.md")!.includes('"id":"d1"'), "the second file keeps the removed id");
+});
+
+test("a damaged list file is reported, not silently skipped", async () => {
+  const damaged = "---\nwf: 3\nitems:\n  - {\"not\":\"a decision\"}\n---\n";
+  const { port } = memoryPort({ "bad.md": damaged, "good.md": LIST }, { "good.md": ["i1"] });
+  const repo = new FileScreeningRepository(port);
+  const warnings: unknown[][] = [];
+  const warn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args);
+  };
+  try {
+    await repo.listForItems(["i1"]);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(warnings.length, 1);
+  assert.match(String(warnings[0]![0]), /bad\.md/);
+});
+
 test("remove takes the entry out of whichever file holds it", async () => {
   const { port, texts } = memoryPort({ "a.md": LIST, "b.md": LIST }, { "a.md": ["i1"], "b.md": ["i2"] });
   const repo = new FileScreeningRepository(port);
