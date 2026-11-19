@@ -6,6 +6,14 @@
 //! as a `.wfprev` sibling until the write is confirmed; if another process changed the file in
 //! the meantime, those bytes move to a conflict copy so nothing is lost. Deletes go to the
 //! workspace trash and renames never overwrite a file.
+//!
+//! A create-only write (expected `Some("")` on a missing file) is linked into place with
+//! `hard_link`, which fails if the file appeared since the check, so it never replaces anything.
+//!
+//! Known window: a replace write runs `make_prev` and then the rename as two steps. A file another
+//! process writes between those two steps is replaced by the rename, and its bytes are not kept
+//! (`.wfprev` only holds what was on disk before the write). Closing it needs a no-replace swap
+//! (renameat2 / MoveFileExW), which is not implemented.
 
 use std::ffi::OsString;
 use std::fs;
@@ -122,10 +130,26 @@ impl Vault {
             return Err(io_err("write", rel, source));
         }
         before_swap();
-        // Best-effort window: a write by another process between `make_prev` and the rename
-        // below is replaced by the rename, and its bytes are not kept in `.wfprev`, which only
-        // holds what was on disk before. A no-replace swap (renameat2 / MoveFileExW) would
-        // close it; tracked as a PR follow-up (see the files-first notes in the PR body).
+        if disk.is_none() && expected == Some("") {
+            match fs::hard_link(&temp, &target) {
+                Ok(()) => {
+                    let _ = fs::remove_file(&temp);
+                    return written(&target, rel, text);
+                }
+                Err(source) if source.kind() == io::ErrorKind::AlreadyExists => {
+                    let _ = fs::remove_file(&temp);
+                    let now = read_disk(&target, rel)?;
+                    return Ok(WriteOutcome::Changed {
+                        disk_hash: now.map(|bytes| hash_of(&bytes, text)).unwrap_or_default(),
+                    });
+                }
+                // No hard links on this file system: fall through to the replace path, which
+                // still checks first and keeps the window described in the module doc.
+                Err(_) => {}
+            }
+        }
+        // Known window (module doc): a write by another process between `make_prev` and the
+        // rename is replaced by the rename and its bytes are not kept.
         let prev = match make_prev(&target) {
             Ok(prev) => prev,
             Err(source) => {
@@ -149,10 +173,7 @@ impl Vault {
             // as failed. The replaced bytes stay in `prev`, which is never deleted by a sweep.
             let _ = self.settle_prev(rel, &prev, &displaced, text);
         }
-        let now = fs::read(&target).map_err(|source| io_err("read", rel, source))?;
-        Ok(WriteOutcome::Written {
-            hash: hash_of(&now, text),
-        })
+        written(&target, rel, text)
     }
 
     /// Move a file into the workspace trash; returns the trashed path, relative to the root.
@@ -338,6 +359,14 @@ impl Vault {
 }
 
 /// The bytes without a leading UTF-8 byte order mark.
+/// The outcome of a write that put the new bytes at `target`, with their digest read back.
+fn written(target: &Path, rel: &str, text: bool) -> Result<WriteOutcome, VaultError> {
+    let now = fs::read(target).map_err(|source| io_err("read", rel, source))?;
+    Ok(WriteOutcome::Written {
+        hash: hash_of(&now, text),
+    })
+}
+
 fn strip_bom(bytes: &[u8]) -> &[u8] {
     bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes)
 }

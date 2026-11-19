@@ -119,6 +119,28 @@ fn write_expecting_absent_creates_only_when_still_absent() {
 }
 
 #[test]
+fn create_only_write_never_replaces_a_file_that_appears_in_the_window() {
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    let path = at(&dir, "late.md");
+    // The file is missing at check time and appears between the temp write and the swap.
+    let outcome = vault
+        .write_checked_with_hook("late.md", b"mine", true, Some(""), &mut || {
+            fs::write(&path, "DISK").unwrap();
+        })
+        .unwrap();
+    assert_eq!(
+        outcome,
+        WriteOutcome::Changed {
+            disk_hash: canonical_digest("DISK")
+        }
+    );
+    assert_eq!(fs::read_to_string(at(&dir, "late.md")).unwrap(), "DISK");
+    // Nothing else is left behind: no temp, no `.wfprev`, no conflict copy.
+    assert_eq!(names_containing(dir.path(), ""), vec!["late.md".to_owned()]);
+}
+
+#[test]
 fn file_write_bytes_checked_changed() {
     let dir = TempDir::new();
     let vault = vault_in(&dir);
