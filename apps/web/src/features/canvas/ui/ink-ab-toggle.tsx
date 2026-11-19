@@ -1,4 +1,5 @@
 import type { InkRendererKind } from "@/features/ink/render/freehand-stroke";
+import { SegmentedControl } from "@/components/segmented-control";
 
 /**
  * Dev-only A/B switch for the ink renderer on the canvas. Renders nothing unless
@@ -10,23 +11,16 @@ export function InkABToggle(props: {
   onChange: (kind: InkRendererKind) => void;
 }) {
   if (!props.visible) return null;
-  const options: [InkRendererKind, string][] = [
-    ["classic", "A"],
-    ["freehand", "B"],
-  ];
   return (
-    <div className="canvas-editor__ab" role="group" aria-label="Ink renderer (dev A/B)">
-      {options.map(([kind, label]) => (
-        <button
-          key={kind}
-          type="button"
-          aria-pressed={props.renderer === kind}
-          title={kind === "classic" ? "Classic capsule renderer" : "Freehand (perfect-freehand) renderer"}
-          onClick={() => props.onChange(kind)}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
+    <SegmentedControl
+      className="canvas-editor__ab"
+      label="Ink renderer (dev A/B)"
+      value={props.renderer}
+      onChange={props.onChange}
+      options={[
+        { value: "classic", label: "A", title: "Classic capsule renderer" },
+        { value: "freehand", label: "B", title: "Freehand (Excalidraw freedraw) renderer" },
+      ]}
+    />
   );
 }
