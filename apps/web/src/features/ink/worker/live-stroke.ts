@@ -38,7 +38,15 @@ export interface LiveStroke {
  * The most points the page format holds per stroke (the Rust `INK_STROKE_MAX_POINTS`).
  * A raw stroke that reaches it is split (`takeRawOverflow`), never packed.
  */
-const RAW_STROKE_MAX_POINTS = 65_535;
+export const RAW_STROKE_MAX_POINTS = 65_535;
+
+/** The cap `takeRawOverflow` uses; only tests lower it, so a split test stays fast. */
+let rawStrokeCap = RAW_STROKE_MAX_POINTS;
+
+/** Test hook: set the raw point cap; no argument restores `RAW_STROKE_MAX_POINTS`. */
+export function setRawStrokeCapForTest(cap = RAW_STROKE_MAX_POINTS): void {
+  rawStrokeCap = cap;
+}
 
 /** What the live packer holds so far, as plain arrays. */
 function packedSoFar(packer: LiveInkStrokePacker): PackedInkStroke {
@@ -67,7 +75,7 @@ export function realSoFar(stroke: LiveStroke): PackedInkStroke {
  * Call it right after `appendSamples`, when there is no predicted tail.
  */
 export function takeRawOverflow(stroke: LiveStroke): LiveStroke | null {
-  const cap = RAW_STROKE_MAX_POINTS;
+  const cap = rawStrokeCap;
   if (!stroke.raw || stroke.realSamples <= cap) return null;
   const next = newLiveStroke(stroke.header, true);
   for (let i = cap - 1; i < stroke.realSamples; i += 1) {

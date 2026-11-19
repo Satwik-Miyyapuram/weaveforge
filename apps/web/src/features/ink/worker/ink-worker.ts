@@ -57,7 +57,9 @@ export {
   type LiveStroke,
   liveForRenderer,
   newLiveStroke,
+  RAW_STROKE_MAX_POINTS,
   replacePredictedTail,
+  setRawStrokeCapForTest,
   takeRawOverflow,
 } from "./live-stroke";
 

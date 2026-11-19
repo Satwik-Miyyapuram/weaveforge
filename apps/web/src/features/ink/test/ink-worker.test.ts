@@ -33,6 +33,7 @@ let newLiveStroke: typeof import("../worker/ink-worker").newLiveStroke;
 let appendSamples: typeof import("../worker/ink-worker").appendSamples;
 let replacePredictedTail: typeof import("../worker/ink-worker").replacePredictedTail;
 let takeRawOverflow: typeof import("../worker/ink-worker").takeRawOverflow;
+let worker: typeof import("../worker/ink-worker");
 
 before(async () => {
   (globalThis as { self?: unknown }).self = {
@@ -43,7 +44,7 @@ before(async () => {
     // Frames are queued, not run: a test runs them with `runFrames`.
     requestAnimationFrame: (cb: () => void) => frames.push(cb),
   };
-  const worker = await import("../worker/ink-worker");
+  worker = await import("../worker/ink-worker");
   liveForRenderer = worker.liveForRenderer;
   newLiveStroke = worker.newLiveStroke;
   appendSamples = worker.appendSamples;
@@ -766,16 +767,16 @@ test("freehand rounds the predicted tail like the real samples; classic keeps it
   );
 });
 
-test("a freehand stroke past the point cap splits; it never turns into a packed stroke", () => {
-  const cap = 65_535;
+test("a freehand stroke past the point cap splits; it never turns into a packed stroke", (t) => {
+  // The real cap is the page format's limit; a small one keeps this test fast.
+  assert.equal(worker.RAW_STROKE_MAX_POINTS, 65_535, "the cap matches INK_STROKE_MAX_POINTS");
+  const cap = 100;
+  worker.setRawStrokeCapForTest(cap);
+  t.after(() => worker.setRawStrokeCapForTest());
   const count = cap + 40;
-  const points: number[] = [];
-  const pressures: number[] = [];
-  for (let i = 0; i < count; i += 1) {
-    // Dense and nearly straight: a packer would drop most of these.
-    points.push(10 + (i % 3000) * 0.1, 10 + Math.floor(i / 3000));
-    pressures.push(0.5);
-  }
+  // Dense and nearly straight: a packer would drop most of these.
+  const points = Array.from({ length: count }, (_, i) => [10 + (i % 30) * 0.1, 10 + Math.floor(i / 30)]).flat();
+  const pressures = new Array<number>(count).fill(0.5);
   const live = newLiveStroke(header(), true);
   appendSamples(live, batch(points.slice(0, cap * 2), pressures.slice(0, cap)));
   assert.equal(takeRawOverflow(live), null, "at the cap the stroke is still whole");
@@ -787,7 +788,6 @@ test("a freehand stroke past the point cap splits; it never turns into a packed 
   assert.equal(next.raw, true);
   assert.equal(next.realSamples, count - cap + 1, "the new stroke starts at the last kept sample");
   assert.deepEqual(next.points.slice(0, 2), live.points.slice(cap * 2 - 2, cap * 2));
-
   freshWith("freehand");
   const b = batch(points, pressures);
   stroke(b.buffer, b.count);
