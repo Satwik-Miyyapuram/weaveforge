@@ -44,11 +44,10 @@ import {
 import { readyCore } from "@/lib/rust-core";
 import {
   DEFAULT_INK_RENDERER,
-  FREEHAND_PRESSURE,
-  freehandOutline,
+  freedrawCurves,
   type InkRendererKind,
-  outlineCurves,
 } from "./freehand-stroke";
+import { freedrawPath } from "./excalidraw-freedraw";
 
 /** The 2D context, whichever canvas it came from. */
 export type Context2dLike =
@@ -342,7 +341,7 @@ export class CanvasInkRenderer implements InkRenderer {
         this.kind === "freehand"
           ? paintFreehandStroke(
               context, live.x, live.y, live.pressure, live.header,
-              highlighter, this.palette, undefined, false,
+              highlighter, this.palette, undefined,
             )
           : paintStroke(
               context, live.x, live.y, live.pressure, live.header,
@@ -426,24 +425,18 @@ export function paintFreehandStroke(
   const count = x.length;
   if (count === 0) return 0;
   const grow = halo?.grow ?? 0;
-  const outline = freehandOutline(
-    { x, y, pressure: new Array<number>(count).fill(FREEHAND_PRESSURE) },
-    stroke.width + 2 * grow,
-    { last, simulatePressure: false, highlighter },
-  );
-  if (outline.length === 0) return 0;
+  const curves = freedrawCurves(freedrawPath(x, y, stroke.width + 2 * grow, last));
+  if (curves === null) return 0;
   context.fillStyle = cssInkColour(
     stroke.colour,
     halo ? halo.alpha : highlighter ? HIGHLIGHTER_ALPHA : 1,
     palette,
   );
-  // Quadratic curves through the outline's midpoints, the same geometry as the
-  // settled SVG path (`outlinePathData`), so a wet stroke matches its settled form.
-  const curves = outlineCurves(outline);
-  if (curves === null) return 0;
+  // The same curves as the settled SVG path (Excalidraw's `d`), so a wet stroke matches its settled form.
   context.beginPath();
   context.moveTo(curves.start[0], curves.start[1]);
   for (const [cx, cy, mx, my] of curves.curves) context.quadraticCurveTo(cx, cy, mx, my);
+  context.lineTo(curves.start[0], curves.start[1]);
   context.closePath();
   context.fill("nonzero");
   return count - 1;

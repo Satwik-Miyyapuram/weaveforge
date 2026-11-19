@@ -196,7 +196,7 @@ test("drawInkStrokes in freehand fills each stroke's settled outline and strokes
   assert.equal(fills.length, 2, "one fill per stroke");
   assert.deepEqual(
     (fills[0]!.path as FakePath2D).d,
-    settledStrokePath(input[0]!.points, 10, "freehand", false),
+    settledStrokePath(input[0]!.points, 10, "freehand"),
   );
   assert.equal(fills[0]!.fillStyle, "#000000");
   assert.equal(fills[1]!.globalAlpha, HIGHLIGHTER_ALPHA, "highlighter fill is translucent");

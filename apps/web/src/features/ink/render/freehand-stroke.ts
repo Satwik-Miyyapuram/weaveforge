@@ -1,150 +1,58 @@
 /**
- * The perfect-freehand outline of a stroke, behind the `inkRenderer` setting.
+ * The `freehand` renderer, behind the `inkRenderer` setting. Its outline is
+ * Excalidraw's freedraw path, copied verbatim in `excalidraw-freedraw.ts` (MIT;
+ * perfect-freehand does the stroke maths). `classic` keeps the capsule renderer.
  *
- * `classic` keeps the capsule renderer. `freehand` fills the outline that
- * perfect-freehand (MIT; used by tldraw and Excalidraw) draws around the same
- * points. The presets are the library settings tldraw and Excalidraw ship with,
- * copied as they are, with no tuning of our own.
- *
- * Units: points and the returned outline are in the stroke's own units (0.1 mm).
- * Pressure goes in as 0–1; the stroke's pressure is 0–255.
- *
- * Pressure is held at the midpoint (`FREEHAND_PRESSURE`) on both the wet and the
- * settled stroke. Settled strokes carry no pressure (the Rust render path drops
- * it), so a stroke that used live pressure would change width on release. At the
- * midpoint the width is the nib's width for both, and the classic capsule's.
+ * Units: points and the returned path are in the stroke's own units (0.1 mm on
+ * paper, px on the canvas).
  */
 
-import { getStroke, type StrokeOptions } from "perfect-freehand";
+import { freedrawPath } from "./excalidraw-freedraw";
 
 export const INK_RENDERERS = ["classic", "freehand"] as const;
 export type InkRendererKind = (typeof INK_RENDERERS)[number];
 export const DEFAULT_INK_RENDERER: InkRendererKind = "classic";
 
-/** The easing tldraw uses for pen strokes: 65 % linear, 35 % sine. */
-export const PEN_EASING = (t: number): number =>
-  0.65 * t + 0.35 * Math.sin((t * Math.PI) / 2);
-
-/** Midpoint pressure, on the 0–255 stored scale (0.5 after `freehandOutline`). */
-export const FREEHAND_PRESSURE = 127.5;
-
-/**
- * The tldraw "draw" pen. Perfect-freehand's radius at pressure p is
- * `size * easing(0.5 - thinning * (0.5 - p))`, so for the pen `size` is scaled
- * to give a radius of `width / 2` at the midpoint pressure, the classic capsule's
- * diameter. A highlighter has `thinning: 0`, and the library then takes its
- * radius as `size / 2` with no easing, so its `size` is the width itself.
- */
-export function tldrawPenOptions(
-  width: number,
-  last: boolean,
-  simulatePressure: boolean,
-  highlighter = false,
-): StrokeOptions {
-  return {
-    size: highlighter ? width : width / (2 * PEN_EASING(0.5)),
-    thinning: highlighter ? 0 : 0.62,
-    streamline: 0.5,
-    smoothing: 0.5,
-    simulatePressure,
-    easing: PEN_EASING,
-    last,
-  };
-}
-
-/** The parallel point arrays a stroke carries. */
-export interface FreehandPoints {
-  x: ArrayLike<number>;
-  y: ArrayLike<number>;
-  /** 0–255, as stored. */
-  pressure: ArrayLike<number>;
-}
-
-/** The outline polygon, closed by the caller (its last point is not the first). */
-export type FreehandOutline = readonly (readonly [number, number])[];
-
-/**
- * The outline of one stroke. The points go to perfect-freehand raw: no filter
- * or simplification of ours runs first. A stroke with no points has no outline.
- */
-export function freehandOutline(
-  points: FreehandPoints,
-  width: number,
-  options: { last: boolean; simulatePressure: boolean; highlighter?: boolean },
-): FreehandOutline {
-  const count = Math.min(points.x.length, points.y.length, points.pressure.length);
-  if (count === 0) return [];
-  const input: [number, number, number][] = new Array(count);
-  for (let i = 0; i < count; i++) {
-    input[i] = [points.x[i]!, points.y[i]!, points.pressure[i]! / 255];
-  }
-  const outline = getStroke(
-    input,
-    tldrawPenOptions(width, options.last, options.simulatePressure, options.highlighter),
-  );
-  return outline as unknown as FreehandOutline;
-}
-
-/**
- * The outline of a settled stroke, as SVG path data, from flat `x, y` pairs (the
- * shape `InkRenderStroke.points` carries). Every point is at the midpoint
- * pressure, the same as the wet stroke (see the header).
- */
-export function freehandPathFromFlat(
-  points: readonly number[],
-  width: number,
-  highlighter = false,
-): string {
+/** The settled stroke's path (SVG `d`) from flat `x, y` pairs, as Excalidraw draws it. */
+export function freehandPathFromFlat(points: readonly number[], width: number): string {
   const count = points.length >> 1;
   const x = new Array<number>(count);
   const y = new Array<number>(count);
-  const pressure = new Array<number>(count).fill(FREEHAND_PRESSURE);
   for (let i = 0; i < count; i++) {
     x[i] = points[2 * i]!;
     y[i] = points[2 * i + 1]!;
   }
-  return outlinePathData(
-    freehandOutline({ x, y, pressure }, width, { last: true, simulatePressure: false, highlighter }),
-  );
+  return freedrawPath(x, y, width, true);
 }
 
 /**
- * The outline as closed SVG path data, for `new Path2D(d)` and SVG `d`. Each
- * outline point is a quadratic control point and the curve runs through the
- * midpoints between neighbours (perfect-freehand's README recipe), so the edge
- * is smooth rather than a polygon of straight `L` segments.
+ * Excalidraw's path data as the parts a canvas painter replays: the opening
+ * point, one quadratic curve per `Q` (`[control x, control y, end x, end y]`),
+ * then the closing line and close. Null for an empty or unreadable path. The
+ * wet painter draws these, so it traces the same geometry as the settled SVG.
  */
-export function outlinePathData(outline: FreehandOutline): string {
-  const curves = outlineCurves(outline);
-  if (curves === null) return "";
-  const parts: string[] = [`M${curves.start[0]} ${curves.start[1]}`];
-  for (const [cx, cy, mx, my] of curves.curves) parts.push(`Q${cx} ${cy} ${mx} ${my}`);
-  return `${parts.join(" ")} Z`;
-}
-
-/**
- * The outline as quadratic curves, shared by the SVG path (settled) and the
- * canvas painter (wet) so both trace the same geometry. `start` is the midpoint
- * that opens the loop; each curve is `[control x, control y, end x, end y]`.
- * Null for an empty outline.
- */
-export function outlineCurves(outline: FreehandOutline): {
+export function freedrawCurves(d: string): {
   start: [number, number];
   curves: [number, number, number, number][];
 } | null {
-  const n = outline.length;
-  if (n === 0) return null;
-  const mid = (a: readonly [number, number], b: readonly [number, number]): [number, number] => [
-    (a[0] + b[0]) / 2,
-    (a[1] + b[1]) / 2,
-  ];
+  const tokens = d.match(/[MQLZ]|-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?/g);
+  if (!tokens || tokens[0] !== "M") return null;
+  const start: [number, number] = [Number(tokens[1]), Number(tokens[2])];
   const curves: [number, number, number, number][] = [];
-  for (let i = 0; i < n; i++) {
-    const p = outline[i]!;
-    const m = mid(p, outline[(i + 1) % n]!);
-    curves.push([p[0], p[1], m[0], m[1]]);
+  let command = "";
+  for (let i = 3; i < tokens.length; ) {
+    const token = tokens[i]!;
+    if (token === "Q" || token === "L" || token === "Z") {
+      command = token;
+      i += 1;
+    } else if (command === "Q") {
+      curves.push([Number(tokens[i]), Number(tokens[i + 1]), Number(tokens[i + 2]), Number(tokens[i + 3])]);
+      i += 4;
+    } else {
+      i += 1;
+    }
   }
-  return { start: mid(outline[n - 1]!, outline[0]!), curves };
+  return { start, curves };
 }
 
 /**

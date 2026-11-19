@@ -66,7 +66,7 @@ export function drawInkStrokes(
   const renderStroke = (stroke: InkRenderStroke) => {
     let path = pathCache.get(stroke.points);
     if (!path) {
-      const d = settledStrokePath(stroke.points, stroke.width, renderer, stroke.highlighter);
+      const d = settledStrokePath(stroke.points, stroke.width, renderer);
       if (!d) return;
       path = new Path2D(d);
       pathCache.set(stroke.points, path);

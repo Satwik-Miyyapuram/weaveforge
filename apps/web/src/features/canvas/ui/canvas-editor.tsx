@@ -14,7 +14,8 @@ import {
 } from "react";
 import { readyCore } from "@/lib/rust-core";
 import { formatError } from "@/lib/format-error";
-import { downloadBlob } from "@/lib/parts";
+import { downloadBlob, readInkRenderer } from "@/lib/parts";
+import type { InkRendererKind } from "@/features/ink/render/freehand-stroke";
 import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { useBlobObjectUrls, type BlobFetchers } from "@/lib/hooks/use-blob-object-urls";
 import { Button, IconButton } from "@/components/button";
@@ -157,6 +158,8 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [view, setView] = useState<PageView>(DEFAULT_VIEW);
   const [draft, setDraft] = useState<InkDraft | null>(null);
+  /** Read once when the page opens, like the paper ink renderer. */
+  const [renderer] = useState<InkRendererKind>(() => readInkRenderer());
   const gestureRef = useRef<Gesture | null>(null);
   // The pointer the gesture belongs to: a second finger or pen is ignored until it ends.
   const pointerRef = useRef<number | null>(null);
@@ -389,7 +392,7 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
     if (mode === "pen") {
       const first = { x: at.x, y: at.y, pressure: event.pressure > 0 ? event.pressure : 0.5 };
       startGesture(event, { kind: "ink", points: [first], colour, width });
-      setDraft({ points: [first], colour, width });
+      setDraft({ points: [first], colour, width, tool: "pen" });
       return;
     }
     if (mode === "eraser") {
@@ -437,7 +440,7 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
       setView({ ...g.view, x: g.view.x + screen.x - g.screen.x, y: g.view.y + screen.y - g.screen.y });
     } else if (g.kind === "ink") {
       g.points.push({ x: at.x, y: at.y, pressure: event.pressure > 0 ? event.pressure : 0.5 });
-      setDraft({ points: g.points.slice(), colour: g.colour, width: g.width });
+      setDraft({ points: g.points.slice(), colour: g.colour, width: g.width, tool: "pen" });
     } else if (g.kind === "erase") {
       eraseAt(at);
     } else if (g.kind === "move") {
@@ -717,7 +720,7 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
               />
             );
           })}
-          <InkLayer strokes={strokesOf(file)} selected={live} draft={draft} />
+          <InkLayer strokes={strokesOf(file)} selected={live} draft={draft} renderer={renderer} />
         </div>
       </div>
     </div>

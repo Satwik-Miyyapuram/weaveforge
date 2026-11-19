@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { paintFreehandStroke, type Context2dLike } from "../render/canvas-renderer";
 import { readyCore } from "@/lib/rust-core";
 import { settledStrokePath } from "../ui/ink-strokes";
+import { freedrawPath } from "../render/excalidraw-freedraw";
 
 const POINTS = [0, 0, 50, 0, 100, 20];
 const WIDTH = 10;
@@ -24,14 +25,11 @@ test("the settled stroke is a perfect-freehand outline when the renderer is free
   assert.notEqual(d, readyCore().strokePath(POINTS));
 });
 
-test("a settled freehand stroke is WIDTH across: its outline sits WIDTH / 2 either side of a straight run", () => {
-  const flat = Array.from({ length: 21 }, (_, k) => [k * 10, 0]).flat();
-  const numbers = outlineNumbers(settledStrokePath(flat, WIDTH, "freehand") ?? "");
-  const ys = numbers.filter((_, i) => i % 2 === 1);
-  const top = Math.max(...ys);
-  const bottom = Math.min(...ys);
-  assert.ok(Math.abs(top - WIDTH / 2) <= (WIDTH / 2) * 0.1, `upper edge ${top}`);
-  assert.ok(Math.abs(bottom + WIDTH / 2) <= (WIDTH / 2) * 0.1, `lower edge ${bottom}`);
+test("a settled freehand stroke is Excalidraw's freedraw path for its points", () => {
+  assert.equal(
+    settledStrokePath(POINTS, WIDTH, "freehand"),
+    freedrawPath([0, 50, 100], [0, 0, 20], WIDTH, true),
+  );
 });
 
 test("wet and settled freehand strokes trace the same outline", () => {
@@ -44,6 +42,9 @@ test("wet and settled freehand strokes trace the same outline", () => {
     },
     quadraticCurveTo(cx: number, cy: number, x: number, y: number) {
       calls.push(`Q${cx} ${cy} ${x} ${y}`);
+    },
+    lineTo(x: number, y: number) {
+      calls.push(`L${x} ${y}`);
     },
     closePath() {},
     fill() {},

@@ -35,10 +35,9 @@ export function settledStrokePath(
   points: readonly number[],
   width: number,
   renderer: InkRendererKind,
-  highlighter = false,
 ): string | null {
   return renderer === "freehand"
-    ? freehandPathFromFlat(points, width, highlighter)
+    ? freehandPathFromFlat(points, width)
     : readyCore().strokePath(points);
 }
 
@@ -114,7 +113,7 @@ export function InkStrokes({
   const outlined = renderer === "freehand";
 
   const draw = (stroke: InkRenderStroke, key: string) => {
-    const d = settledStrokePath(stroke.points, stroke.width, renderer, stroke.highlighter);
+    const d = settledStrokePath(stroke.points, stroke.width, renderer);
     if (!d) return null;
     const styled = stroke.highlighter && Boolean(highlighterClassName);
     const held = stroke.id != null && selected.has(stroke.id) && haloGrow > 0;
@@ -157,7 +156,7 @@ export function InkStrokes({
         <g key={key}>
           <path
             className="ink-stroke-halo ink-stroke-halo--fill"
-            d={settledStrokePath(stroke.points, stroke.width + haloGrow * 2, renderer, stroke.highlighter) ?? undefined}
+            d={settledStrokePath(stroke.points, stroke.width + haloGrow * 2, renderer) ?? undefined}
           />
           {path}
         </g>
