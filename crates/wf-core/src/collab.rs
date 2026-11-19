@@ -89,11 +89,20 @@ pub fn should_persist_body(ready: bool, next: &str, last_saved: &str) -> bool {
 #[serde(tag = "op", rename_all = "lowercase")]
 pub enum TextOp {
     /// A line both texts have, at this point.
-    Keep { text: String },
+    Keep {
+        /// The line, without its line break.
+        text: String,
+    },
     /// A line only the base text has.
-    Delete { text: String },
+    Delete {
+        /// The line, without its line break.
+        text: String,
+    },
     /// A line only the new text has.
-    Insert { text: String },
+    Insert {
+        /// The line, without its line break.
+        text: String,
+    },
 }
 
 /// The line steps that turn a base text into the theirs text.

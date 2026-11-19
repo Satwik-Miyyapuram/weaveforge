@@ -401,7 +401,7 @@ fn matched_ids<'a>(
                 && !taken.contains(current.id.as_str())
         });
         if let Some(current) = found {
-            taken.insert(current.id.as_str());
+            let _ = taken.insert(current.id.as_str());
             *slot = Some(current.id.as_str());
         }
     }
@@ -416,7 +416,7 @@ fn matched_ids<'a>(
                 && trim_js(&current.body) == body
         });
         if let (Some(current), None) = (same.next(), same.next()) {
-            taken.insert(current.id.as_str());
+            let _ = taken.insert(current.id.as_str());
             *slot = Some(current.id.as_str());
         }
     }
