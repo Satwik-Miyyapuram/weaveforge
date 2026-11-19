@@ -53,6 +53,7 @@ fn existing() -> ExistingEntity {
         title: "Method".to_owned(),
         body: "Body text.".to_owned(),
         kind: None,
+        path: None,
     }
 }
 

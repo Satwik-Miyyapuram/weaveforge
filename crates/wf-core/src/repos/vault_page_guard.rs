@@ -294,6 +294,8 @@ fn conflict_copy(
         folder: None,
         kind: existing.summary.kind.clone(),
         sort_order: Some(existing.summary.sort_order),
+        id: None,
+        created_at: None,
     };
     let page = create_vault_page(&input, id, call.now())
         .map_err(|e| RepoStep::fail_named("VaultPageValidationError", e))?;

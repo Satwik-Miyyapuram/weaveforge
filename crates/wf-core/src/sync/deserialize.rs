@@ -5,7 +5,7 @@
 //! folder named `constructor` or `__proto__` resolves to a prototype member. Here
 //! such a name is simply not a directory.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
@@ -81,6 +81,10 @@ pub struct ExistingEntity {
     /// `canvas` for a canvas page; absent for a note.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
+    /// The folder path the workspace writes this entity to. A file whose id was
+    /// taken out is matched back to its entity by this path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
 }
 
 /// What an import would do with one parsed file.
@@ -341,15 +345,82 @@ pub fn diff_workspace(
         .iter()
         .map(|entity| (entity.id.as_str(), entity))
         .collect();
+    let ids = matched_ids(parsed, existing, &by_id);
     let entries: Vec<ImportDiffEntry> = parsed
         .iter()
-        .map(|entity| diff_entity(entity, &by_id, origin))
+        .zip(ids)
+        .map(|(entity, id)| match id {
+            Some(id) => {
+                let entity = ParsedEntity {
+                    id: Some(id.to_owned()),
+                    ..entity.clone()
+                };
+                diff_entity(&entity, &by_id, origin)
+            }
+            None => diff_entity(entity, &by_id, origin),
+        })
         .collect();
     let mut counts = ActionCounts::default();
     for entry in &entries {
         counts.add(entry.action, 1);
     }
     ImportDiff { entries, counts }
+}
+
+/// The stored id each file without one belongs to, so import never mints a new
+/// id over an entity the folder already holds.
+///
+/// A file that declares an id keeps it, known or not. A file without one is
+/// matched first by the path the workspace writes its entity to, then by an
+/// identical non-empty body held by exactly one entity. Each entity is matched
+/// once, and never when another file declares its id. No match mints a new id.
+fn matched_ids<'a>(
+    parsed: &[ParsedEntity],
+    existing: &'a [ExistingEntity],
+    by_id: &HashMap<&str, &'a ExistingEntity>,
+) -> Vec<Option<&'a str>> {
+    let mut taken: HashSet<&str> = parsed
+        .iter()
+        .filter_map(|entity| entity.id.as_deref())
+        .filter(|id| !id.is_empty())
+        .filter_map(|id| by_id.get(id).map(|current| current.id.as_str()))
+        .collect();
+    let unclaimed = |entity: &ParsedEntity| entity.id.as_deref().is_none_or(str::is_empty);
+    let same_kind = |entity: &ParsedEntity, current: &ExistingEntity| {
+        current.entity_type == entity.entity_type && current.kind == entity.kind
+    };
+    let mut ids: Vec<Option<&'a str>> = vec![None; parsed.len()];
+    // Path first, over every file, so a content match never takes a note its own file sits on.
+    for (slot, entity) in ids.iter_mut().zip(parsed) {
+        if !unclaimed(entity) {
+            continue;
+        }
+        let found = existing.iter().rev().find(|current| {
+            current.path.as_deref() == Some(entity.path.as_str())
+                && same_kind(entity, current)
+                && !taken.contains(current.id.as_str())
+        });
+        if let Some(current) = found {
+            taken.insert(current.id.as_str());
+            *slot = Some(current.id.as_str());
+        }
+    }
+    for (slot, entity) in ids.iter_mut().zip(parsed) {
+        let body = trim_js(&entity.body);
+        if !unclaimed(entity) || slot.is_some() || body.is_empty() {
+            continue;
+        }
+        let mut same = existing.iter().filter(|current| {
+            same_kind(entity, current)
+                && !taken.contains(current.id.as_str())
+                && trim_js(&current.body) == body
+        });
+        if let (Some(current), None) = (same.next(), same.next()) {
+            taken.insert(current.id.as_str());
+            *slot = Some(current.id.as_str());
+        }
+    }
+    ids
 }
 
 fn diff_entity(
