@@ -27,9 +27,14 @@ fn milestone(fields: &[(&str, &str)], body: &str) -> String {
 fn feed_of(text: &str) -> (String, bool) {
     let file = parse_entity_file(text);
     assert!(file.is_some(), "not an entity file: {text}");
-    let Some(file) = file else { return (String::new(), false) };
+    let Some(file) = file else {
+        return (String::new(), false);
+    };
     let read = milestone_feed_item(&file, Some("Thesis"));
-    (milestones_to_ics(&[read.item], false, 1, NOW), read.bad_date)
+    (
+        milestones_to_ics(&[read.item], false, 1, NOW),
+        read.bad_date,
+    )
 }
 
 proptest! {
@@ -98,7 +103,11 @@ fn no_milestones_valid_calendar() {
 fn token_rotated_changes_every_url() {
     let old = plan_feed_urls("https://api.example", "old-token", false, 1.0);
     let new = plan_feed_urls("https://api.example", "new-token", false, 1.0);
-    for (a, b) in [(&old.ics, &new.ics), (&old.webcal, &new.webcal), (&old.widget, &new.widget)] {
+    for (a, b) in [
+        (&old.ics, &new.ics),
+        (&old.webcal, &new.webcal),
+        (&old.widget, &new.widget),
+    ] {
         assert_ne!(a, b);
         assert!(!b.contains("old-token"));
     }

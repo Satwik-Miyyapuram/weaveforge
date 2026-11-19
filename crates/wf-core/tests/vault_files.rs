@@ -113,7 +113,10 @@ fn created_at_comes_from_the_file() {
 fn empty_note_round_trips() {
     let file = note(Map::new(), "");
     let text = render_entity_file(&file);
-    assert_eq!(text, "---\nweaveforge-id: abc123-0000\nweaveforge-type: vault_page\nwf: 3\n---\n");
+    assert_eq!(
+        text,
+        "---\nweaveforge-id: abc123-0000\nweaveforge-type: vault_page\nwf: 3\n---\n"
+    );
     assert_eq!(parse_entity_file(&text), Some(file));
 }
 

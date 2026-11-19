@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
-use crate::sync::text_diff::{diff_body, DiffOp};
+use crate::sync::text_diff::{DiffOp, diff_body};
 
 /// Someone else in a document, as the presence avatars show them (TS `Peer`).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -217,10 +217,12 @@ mod tests {
     fn empty_base_plans_only_inserts() {
         let plan = collab_diff_plan("", "x\ny");
         assert_eq!(theirs_of(&plan), "x\ny");
-        assert!(!plan
-            .ops
-            .iter()
-            .any(|op| matches!(op, TextOp::Insert { text } if text.is_empty())));
+        assert!(
+            !plan
+                .ops
+                .iter()
+                .any(|op| matches!(op, TextOp::Insert { text } if text.is_empty()))
+        );
     }
 
     #[test]

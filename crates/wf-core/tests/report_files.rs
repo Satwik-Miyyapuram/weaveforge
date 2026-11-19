@@ -4,7 +4,9 @@
 
 use proptest::prelude::*;
 use serde_json::{Map, Value};
-use wf_core::report::section_file::{parent_cycles, section_order, section_parent, set_section_order};
+use wf_core::report::section_file::{
+    parent_cycles, section_order, section_parent, set_section_order,
+};
 use wf_core::sync::entity_file::{EntityFile, parse_entity_file, render_entity_file};
 
 fn section(order: Option<f64>, extra: &[(&str, &str)], body: &str) -> String {
@@ -98,7 +100,10 @@ fn reorder_of_plain_markdown_is_refused() {
 fn parent_cycle_is_badged_and_parent_read_from_file() {
     let a = section(Some(1.0), &[("parent", "b")], "");
     let parsed = parse_entity_file(&a);
-    assert_eq!(parsed.as_ref().and_then(section_parent), Some("b".to_owned()));
+    assert_eq!(
+        parsed.as_ref().and_then(section_parent),
+        Some("b".to_owned())
+    );
     let links = vec![
         ("a".to_owned(), Some("b".to_owned())),
         ("b".to_owned(), Some("a".to_owned())),
