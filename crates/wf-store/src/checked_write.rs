@@ -143,8 +143,9 @@ impl Vault {
                         disk_hash: now.map(|bytes| hash_of(&bytes, text)).unwrap_or_default(),
                     });
                 }
-                // No hard links on this file system: fall through to the replace path, which
-                // still checks first and keeps the window described in the module doc.
+                // Any other link error (no hard-link support, a cross-device or permission
+                // failure) falls back to the replace path, which still checks first and keeps
+                // the window described in the module doc.
                 Err(_) => {}
             }
         }
@@ -358,7 +359,6 @@ impl Vault {
     }
 }
 
-/// The bytes without a leading UTF-8 byte order mark.
 /// The outcome of a write that put the new bytes at `target`, with their digest read back.
 fn written(target: &Path, rel: &str, text: bool) -> Result<WriteOutcome, VaultError> {
     let now = fs::read(target).map_err(|source| io_err("read", rel, source))?;
@@ -367,6 +367,7 @@ fn written(target: &Path, rel: &str, text: bool) -> Result<WriteOutcome, VaultEr
     })
 }
 
+/// The bytes without a leading UTF-8 byte order mark.
 fn strip_bom(bytes: &[u8]) -> &[u8] {
     bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes)
 }
