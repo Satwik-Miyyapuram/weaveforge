@@ -25,6 +25,8 @@ const SECRET_KEY_ENDINGS: &[&str] = &[
     "credential",
     "credentials",
     "bearer",
+    // The legacy `semanticScholarKey` settings column; a bare `key` ending would catch `sortKey`.
+    "scholarkey",
 ];
 
 /// Prefixes of well-known token formats; each must be followed by at least
@@ -240,6 +242,8 @@ mod tests {
             "client-secret",
             "password",
             "cookie",
+            "zoteroApiKey",
+            "semanticScholarKey",
         ] {
             assert!(is_secret_key(k), "{k}");
         }

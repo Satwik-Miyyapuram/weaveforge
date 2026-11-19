@@ -65,6 +65,27 @@ fn legacy_secret_in_array_is_left_and_still_refused() {
     assert!(render_settings(&kept).is_err());
 }
 
+/// Every integration credential field the settings types name (`CredentialSettings`,
+/// `IntegrationsBag`) is refused in a config file, and moved out of a legacy one.
+#[test]
+fn integration_credential_fields_are_secrets() {
+    for settings in [
+        json!({"zoteroApiKey": "k"}),
+        json!({"semanticScholarKey": "k"}),
+        json!({"integrations": {"zotero": {"apiKey": "k"}}}),
+        json!({"integrations": {"semantic-scholar": {"apiKey": "k"}}}),
+    ] {
+        let settings = obj(settings);
+        assert!(render_settings(&settings).is_err(), "{settings:?}");
+        assert_eq!(split_legacy_secrets(&settings).1.len(), 1, "{settings:?}");
+    }
+    let library = obj(json!({"zoteroLibrary": "users/1"}));
+    assert!(
+        render_settings(&library).is_ok(),
+        "the library path is not a secret"
+    );
+}
+
 #[test]
 fn settings_round_trip() {
     let settings =
