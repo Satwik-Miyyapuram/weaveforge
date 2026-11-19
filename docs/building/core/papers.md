@@ -84,19 +84,33 @@ Source: `crates/wf-core/src/papers/`
 
 ## Paper files (files-first)
 
-Each paper is one file, `<project>/papers/<slug>--<id-suffix>.paper.md`. The paper's
-fields sit in frontmatter (`weaveforge-id`, `weaveforge-type: paper`, then kebab-case
-keys such as `arxiv-id`, `pdf-path`, `read-at`); the body is the reader's notes.
+Each paper is one file, `<project>/papers/<title slug>.paper.md` (`-2`, `-3`, … when two
+papers share a title). The paper's fields sit in frontmatter (`weaveforge-type: paper`,
+then kebab-case keys such as `arxiv-id`, `pdf-path`, `read-at`); the body is the
+reader's notes. A paper is identified by its file: its id is the optional
+`weaveforge-id` when the file has one, else the file's path. No file name holds an id.
 
 - Rust: `crates/wf-core/src/papers/paper_file.rs`. `parse_paper_file` and
   `render_paper_file` read and write the file; `paper_row` gives the `Paper` row
-  (camelCase); `write_paper_row(existing, row)` writes a row into a file, keeping
-  everything the row does not carry. A file with `wf` above `FORMAT_VERSION` is refused.
+  (camelCase, no `id` when the file has none); `write_paper_row(existing, row)` writes a
+  row into a file, keeping everything the row does not carry. An existing file keeps its
+  own id (or none); a new file gets `row.id`, or no id line when the row has none. A CRLF
+  file stays CRLF, and text is written as given (no Unicode normalization). A file with
+  `wf` above `FORMAT_VERSION` is refused.
 - wasm: `paperRowFromFile`, `writePaperRow` (`crates/wf-wasm/src/paper_files.rs`).
 - TS: `FilePaperRepository` (`apps/web/src/features/papers/infrastructure/file-paper-repository.ts`)
   implements `IPaperRepository` over `IWorkspaceFs`. Every write is conditional
   (`writeTextIf`); when the file changed since it was read, the write reads again and
-  re-applies, up to 3 times, then throws `ConflictError`.
+  re-applies, up to 3 times, then throws `ConflictError`. A `.paper.md` that is not a
+  paper is left out of reads and listed by `failures()`. `writeIds: false` writes no
+  id into new files. `delete(id)` moves the paper file, its `x.annotations.json` and
+  `x.comments.json` and its PDF to the trash under one day; the PDF stays when another
+  paper uses it or it is not a workspace path. Each trash name is claimed by an
+  exclusive create before the rename, so a file that appears there is never overwritten.
+- Annotation pins: `FileAnnotationPinRepository`
+  (`apps/web/src/features/papers/infrastructure/file-annotation-pin-repository.ts`)
+  keeps a project's pins in `<project>/.weaveforge/annotation-pins.json`, one row per
+  (paper, annotation key).
 - Relations: the index reads each paper's `relations`. The shell command
   `index_relations_graph(rootId, depth)` returns the nodes within `depth` hops (both
   directions, at most 5) and the edges between them. A target no file declares comes
@@ -113,7 +127,16 @@ keys such as `arxiv-id`, `pdf-path`, `read-at`); the body is the reader's notes.
 | A file from a newer app is never written | `newer_file_is_not_written`; TS "a file from a newer app is never overwritten" |
 | `getById(save(p)) == p` | TS fast-check "law: getById(save(p)) == p" (`apps/web/src/features/papers/test/file-paper-repository.test.ts`) |
 | `save` never drops the body or unknown keys of the file it rewrites | TS fast-check "law: save never drops the body or unknown keys …" |
-| A write never removes a file; `delete(id)` moves that paper's file, and only it, to `.weaveforge/trash/<day>/<path>` (a name clash gets `-2`, `-3`, …) | TS fast-check "law: delete moves exactly that paper's file to the trash …"; TS "delete moves the file to the workspace trash; it never unlinks", "deleting the same path twice keeps both copies in the trash" |
+| A write never removes a file; `delete(id)` moves that paper's file to `.weaveforge/trash/<day>/<path>` (a name clash gets `-2`, `-3`, …) | TS fast-check "law: delete moves exactly that paper's file to the trash …"; TS "delete moves the file to the workspace trash; it never unlinks", "deleting the same path twice keeps both copies in the trash" |
+| `delete` also trashes the paper's sidecars and its PDF, under one day; a PDF another paper uses, or one outside the workspace, stays | TS "delete trashes the paper, its annotations and comments sidecars and its PDF together", "delete keeps a PDF another paper still uses, and never touches one outside the workspace" |
+| A trash file that appears after `delete` looked is never overwritten | TS "delete never overwrites a trash file that appears after it looked (time-of-check gap)" |
+| A new file is named after the title only; a clash gets `-2` | TS "a new file is named after the title only; a second paper of that title gets -2" |
+| A file without `weaveforge-id` is the paper at its path and a write adds no id | `file_without_id_reads_and_is_not_given_one`, `new_file_without_id_has_no_id_line`; TS "a file with no weaveforge-id is the paper at its path; a write adds no id" |
+| A CRLF file stays CRLF; text is not normalized | `crlf_file_reads_like_lf_and_stays_crlf`, `body_is_not_normalized`; TS "a CRLF file stays CRLF after setTags" |
+| A missing timestamp is never written as an empty one | TS "a file without createdAt never gets an empty createdAt written" |
+| A file that is not a paper is reported, never silently lost | TS "failures() names each file that is not a paper; list still skips it" |
+| An edit made outside the app between a read and a write is kept | TS "setTags racing an outside edit keeps that edit" |
+| Pins answer like a map keyed by (paper, annotation key); a pin row added outside the app is kept | TS fast-check "law: the file repository answers like a map keyed by (paper, annotation)" (`apps/web/src/features/papers/test/file-annotation-pin-repository.test.ts`); TS "a row added outside the app between read and write is kept" (`apps/web/src/lib/test/json-rows-file.test.ts`) |
 | When two files claim one id, no write or delete touches either file; the error names both paths | TS "two files with one id: every write is refused and neither file changes" |
 | A write happens only if the file is still what was read; a workspace without a conditional write (`writeTextIf`) is refused, never written blind | TS "without a conditional write the repository refuses to write" |
 | A relation declared in a paper file and in `relations.json` is listed once by `relations_of` | `relation_in_file_and_relations_json_counts_once` (`crates/wf-core/tests/papers_files.rs`) |

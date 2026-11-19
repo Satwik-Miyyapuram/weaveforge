@@ -228,17 +228,73 @@ fn not_a_paper_is_refused() {
         parse_paper_file("no frontmatter"),
         Err(PaperFileError::NoFrontmatter)
     );
-    assert_eq!(
-        parse_paper_file("---\ntitle: x\n---\n"),
-        Err(PaperFileError::MissingId)
-    );
 }
 
 #[test]
-fn crlf_file_reads_like_lf() {
+fn file_without_id_reads_and_is_not_given_one() {
+    // A paper made in another editor: no weaveforge-id. It is identified by its path.
+    let text = "---\ntitle: Made in Obsidian\n---\nnotes\n";
+    let file = parse(text);
+    assert_eq!(file.id, "");
+    let back = paper_row(&file);
+    assert_eq!(back.get("id"), None);
+    assert_eq!(back.get("title"), Some(&json!("Made in Obsidian")));
+    // The app passes the path as the row id; it is never written into the file.
+    let written = write_paper_row(
+        Some(text),
+        &row(json!({"id": "p/papers/Made in Obsidian.paper.md", "title": "Renamed"})),
+    )
+    .expect("writes");
+    assert!(!written.contains("weaveforge-id"));
+    assert!(written.ends_with("---\nnotes\n"));
+}
+
+#[test]
+fn existing_id_is_kept_over_the_row_id() {
+    let text = "---\nweaveforge-id: p-9\nweaveforge-type: paper\n---\n";
+    let written =
+        write_paper_row(Some(text), &row(json!({"id": "p/papers/x.paper.md"}))).expect("writes");
+    assert_eq!(parse(&written).id, "p-9");
+}
+
+#[test]
+fn new_file_without_id_has_no_id_line() {
+    let written = new_file(&row(json!({"title": "T"})));
+    assert!(!written.contains("weaveforge-id"));
+    assert!(written.starts_with("---\nweaveforge-type: paper\n"));
+}
+
+#[test]
+fn crlf_file_reads_like_lf_and_stays_crlf() {
     let text = new_file(&full_row());
     let crlf = text.replace('\n', "\r\n");
-    assert_eq!(parse(&crlf), parse(&text));
+    assert_eq!(paper_row(&parse(&crlf)), paper_row(&parse(&text)));
+    assert_eq!(parse(&crlf).body, parse(&text).body);
+    let mut changed = full_row();
+    let _ = changed.insert("tags".to_owned(), json!(["new"]));
+    let written = write_paper_row(Some(&crlf), &changed).expect("writes");
+    assert_eq!(written, new_file(&changed).replace('\n', "\r\n"));
+}
+
+#[test]
+fn body_is_not_normalized() {
+    // NFD "e" + combining acute, as a macOS paste leaves it. A write must not churn it.
+    let text = "---\nweaveforge-id: p-1\nweaveforge-type: paper\n---\ncafe\u{301}\n";
+    let written = write_paper_row(Some(text), &row(json!({"id": "p-1"}))).expect("writes");
+    assert!(written.ends_with("---\ncafe\u{301}\n"));
+}
+
+#[test]
+fn row_is_the_complete_owned_state() {
+    // A field the row lacks is removed: callers pass whole rows, never patches.
+    let text = new_file(&full_row());
+    let partial = row(json!({"id": "p-1", "title": "only"}));
+    let after = paper_row(&parse(
+        &write_paper_row(Some(&text), &partial).expect("writes"),
+    ));
+    assert_eq!(after.get("abstract"), None);
+    assert_eq!(after.get("bibtex"), None);
+    assert_eq!(after.get("title"), Some(&json!("only")));
 }
 
 #[test]
@@ -292,7 +348,8 @@ fn unknown_entry() -> impl Strategy<Value = String> {
 
 fn paper_file() -> impl Strategy<Value = PaperFile> {
     (
-        "[a-z0-9-]{1,12}",
+        // Empty: a file with no weaveforge-id (identified by its path).
+        "[a-z0-9-]{0,12}",
         0..=FORMAT_VERSION + 2,
         prop::collection::btree_map(
             prop::sample::select(VALUE_KEYS.to_vec()),
@@ -303,10 +360,12 @@ fn paper_file() -> impl Strategy<Value = PaperFile> {
         prop::collection::vec(relation(), 0..3),
         prop::collection::vec(unknown_entry(), 0..3),
         text(),
+        any::<bool>(),
     )
         .prop_map(
-            |(id, wf, values, tags, relations, unknown, body)| PaperFile {
+            |(id, wf, values, tags, relations, unknown, body, crlf)| PaperFile {
                 id,
+                crlf,
                 wf,
                 values: values
                     .into_iter()
@@ -346,6 +405,7 @@ proptest! {
         let written = write_paper_row(Some(&text), &row).expect("writes");
         let after = parse_paper_file(&written).expect("parses");
         for raw in &paper.unknown {
+            let raw = if paper.crlf { raw.replace('\n', "\r\n") } else { raw.clone() };
             prop_assert!(written.contains(raw.as_str()));
         }
         prop_assert_eq!(after.unknown, paper.unknown);
