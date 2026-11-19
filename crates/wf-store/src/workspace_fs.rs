@@ -55,9 +55,8 @@ impl WorkspaceFs for Vault {
         Vault::write_file(self, path, data).map_err(|err| to_fs_error(path, err))
     }
 
-    /// Move a file, or a folder when `recursive`, into the workspace trash (`Vault::remove`).
-    /// A missing path is `Ok`: `Vault::remove` already treats it as removed, which matches the
-    /// TS memory fs.
+    /// Remove a file, or a folder when `recursive`. A missing path is `Ok`: `Vault::remove`
+    /// already treats it as removed, which matches the TS memory fs.
     fn remove(&mut self, path: &str, recursive: bool) -> Result<(), FsError> {
         Vault::remove(self, path, recursive).map_err(|err| to_fs_error(path, err))
     }

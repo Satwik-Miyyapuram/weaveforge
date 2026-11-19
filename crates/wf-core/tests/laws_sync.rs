@@ -67,7 +67,7 @@ fn instant() -> impl Strategy<Value = String> {
         })
 }
 
-/// A note file the app would write: id, type, title, created-at, then other fields.
+/// A note file as older versions wrote it: id, type, title, created-at, then other fields.
 fn note(id: &str, created: &str, extra: &[(String, Value)], body: &str) -> String {
     let mut all = vec![
         ("weaveforge-id".to_owned(), Value::from(id)),
@@ -89,16 +89,20 @@ proptest! {
         prop_assert_eq!(write_frontmatter(&again, &parsed.body), file);
     }
 
-    /// Law S2: reading a file keeps the id it declares and never makes one up.
+    /// Law S2: a file is known by its path. Reading it never mints an id, and never changes
+    /// one it read: a file without an id stays without one.
     #[test]
-    fn s2_parse_keeps_the_files_id(id in id(), created in instant(), extra in fields(), body in "\\PC{0,40}") {
-        let with_id = note(&id, &created, &extra, &body);
-        let parsed = parse_workspace_file("notes/a.md", &with_id).unwrap();
-        prop_assert_eq!(parsed.id, Some(id));
-
+    fn s2_parse_never_mints_an_id(id in id(), created in instant(), extra in fields(), body in "\\PC{0,40}") {
         let bare = write_frontmatter(&extra, &body);
         let parsed = parse_workspace_file("notes/a.md", &bare).unwrap();
+        prop_assert_eq!(parsed.path.as_str(), "notes/a.md");
         prop_assert_eq!(parsed.id, None);
+
+        // An older file that still declares an id reads back with that id, unchanged.
+        let with_id = note(&id, &created, &extra, &body);
+        let parsed = parse_workspace_file("notes/a.md", &with_id).unwrap();
+        prop_assert_eq!(parsed.path.as_str(), "notes/a.md");
+        prop_assert_eq!(parsed.id, Some(id));
     }
 
     /// Law S3: `created-at` comes from the file, unchanged.
@@ -108,10 +112,10 @@ proptest! {
         prop_assert_eq!(parsed.fields.get("created-at"), Some(&Value::from(created)));
     }
 
-    /// Law S4: stamping an id leaves a file that already has one alone, whatever its line
-    /// endings or byte-order mark.
+    /// Law S4: stamping never changes an id it did not read: a file that declares one is left
+    /// alone, whatever its line endings or byte-order mark.
     #[test]
-    fn s4_stamp_never_replaces_an_id(
+    fn s4_stamp_never_changes_a_read_id(
         id in id(),
         other in id(),
         created in instant(),

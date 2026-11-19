@@ -209,15 +209,10 @@ impl Vault {
         before_swap: &mut dyn FnMut(),
     ) -> Result<(), VaultError> {
         // `None` takes whatever is on disk now as the expected bytes, so a change landing
-        // while the write runs is kept as a conflict copy instead of being replaced.
-        match self.write_checked_with_hook(rel, data, false, None, before_swap)? {
-            WriteOutcome::Written { .. } => Ok(()),
-            _ => Err(io_err(
-                "write",
-                rel,
-                io::Error::other("the file changed while it was being written"),
-            )),
-        }
+        // while the write runs is kept as a conflict copy instead of being replaced. With no
+        // expected digest the write never reports `Changed`, so the outcome carries nothing.
+        self.write_checked_with_hook(rel, data, false, None, before_swap, &mut || {})
+            .map(drop)
     }
 
     /// Move a file into the workspace trash; returns the trashed path, relative to the root.
@@ -226,7 +221,8 @@ impl Vault {
     /// Refused paths, escapes, a missing file, or a failed move.
     pub fn delete_to_trash(&self, rel: &str) -> Result<String, VaultError> {
         let target = self.resolve(rel)?;
-        if !target.exists() {
+        // `symlink_metadata`, not `exists`: a dangling link is still a file the user can delete.
+        if fs::symlink_metadata(&target).is_err() {
             return Err(io_err(
                 "delete",
                 rel,

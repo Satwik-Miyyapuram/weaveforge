@@ -138,7 +138,7 @@ proptest! {
         let crashed = catch_unwind(AssertUnwindSafe(|| {
             vault.write_checked_with_hook(TARGET, &new, false, Some(&bytes_digest(&old)), &mut || {
                 panic!("simulated crash before the swap");
-            })
+            }, &mut || {})
         }));
 
         prop_assert!(crashed.is_err());
@@ -201,19 +201,19 @@ proptest! {
         prop_assert_eq!(snapshot(dir.path()), want);
     }
 
-    /// Law V8: a remove never destroys a file outside the trash. The file, or a whole folder,
-    /// moves into the trash with its bytes; every other file is untouched.
+    /// Law V8: a user delete never destroys a file. The file, or a whole folder, moves into
+    /// the trash with its bytes; every other file is untouched.
     #[test]
-    fn v8_remove_moves_into_the_trash(others in others(), content in bytes(), whole_folder in any::<bool>()) {
+    fn v8_user_delete_moves_into_the_trash(others in others(), content in bytes(), whole_folder in any::<bool>()) {
         let dir = folder(&others, Some(&content));
         let before = snapshot(dir.path());
         let vault = Vault::new(dir.path().to_path_buf());
         let folder_gone = whole_folder && others.keys().any(|rel| rel.starts_with("sub/"));
 
         if folder_gone {
-            vault.remove("sub", true).unwrap();
+            let _ = vault.delete_to_trash("sub").unwrap();
         } else {
-            vault.remove(TARGET, false).unwrap();
+            let _ = vault.delete_to_trash(TARGET).unwrap();
         }
 
         let day = today();
@@ -289,17 +289,41 @@ proptest! {
     }
 }
 
-/// Law V8, the one exception: a path already in the trash is removed for good (emptying it).
+/// Law V8 scope: `Vault::remove` is the plain unlink for temp files, internal state, caches
+/// and rename sources, so it never fills the trash. User deletes call `delete_to_trash`.
 #[test]
-fn v8_remove_inside_the_trash_empties_it() {
+fn v8_plain_remove_does_not_fill_the_trash() {
     let dir = TempDir::new();
-    let trashed = trash_path("a.md", &today());
-    put(&dir.path().join(&trashed), b"old");
+    put(&dir.path().join("notes/a.md.1.2.wftmp"), b"temp");
+    put(&dir.path().join(".weaveforge/state.json"), b"{}");
     put(&dir.path().join("keep.md"), b"keep");
     let vault = Vault::new(dir.path().to_path_buf());
 
-    vault.remove(&trashed, false).unwrap();
+    vault.remove("notes/a.md.1.2.wftmp", false).unwrap();
+    vault.remove(".weaveforge/state.json", false).unwrap();
 
     let want = BTreeMap::from([("keep.md".to_owned(), b"keep".to_vec())]);
     assert_eq!(snapshot(dir.path()), want);
+}
+
+/// Law V8 edge: a dangling link is still something the user can delete; it moves into the
+/// trash instead of failing as missing.
+#[test]
+fn v8_user_delete_takes_a_dangling_link() {
+    let dir = TempDir::new();
+    let link = dir.path().join("broken.md");
+    #[cfg(unix)]
+    let made = std::os::unix::fs::symlink(dir.path().join("gone.md"), &link);
+    #[cfg(windows)]
+    let made = std::os::windows::fs::symlink_file(dir.path().join("gone.md"), &link);
+    if made.is_err() {
+        // Windows without symlink rights (no developer mode): nothing to test here.
+        return;
+    }
+    let vault = Vault::new(dir.path().to_path_buf());
+
+    let trashed = vault.delete_to_trash("broken.md").unwrap();
+
+    assert!(fs::symlink_metadata(&link).is_err());
+    assert!(fs::symlink_metadata(dir.path().join(&trashed)).is_ok());
 }

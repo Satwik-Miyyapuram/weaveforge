@@ -15,7 +15,6 @@ use std::time::SystemTime;
 
 use crate::checked_write::PREV_SUFFIX;
 
-use wf_core::sync::folder_layout::TRASH_DIR;
 use wf_core::workspace::{UnsafePath, safe_workspace_path};
 
 /// Marks a write in progress; listings skip these so a crash mid-write shows no ghost file.
@@ -178,14 +177,14 @@ impl Vault {
         self.write_file_with_hook(rel, data, &mut || {})
     }
 
-    /// Remove a file, or a folder when `recursive`, by moving it into the workspace trash; a
-    /// missing path is not an error (law V8 in `docs/building/core/laws.md`).
+    /// Remove a file, or a folder when `recursive`; a missing path is not an error.
+    /// A link to a folder is removed as a link; its target is left alone.
     ///
-    /// Only a path already inside the trash is deleted for good, which is how the trash is
-    /// emptied. A link to a folder is removed as a link; its target is left alone.
+    /// This is a plain unlink for temp files, internal state, caches and rename sources. A
+    /// delete the user asked for goes through [`Vault::delete_to_trash`] (law V8).
     ///
     /// # Errors
-    /// Refused paths, escapes, a folder without `recursive`, or any move or removal failure.
+    /// Refused paths, escapes, a folder without `recursive`, or any removal failure.
     pub fn remove(&self, rel: &str, recursive: bool) -> Result<(), VaultError> {
         let target = self.resolve(rel)?;
         let meta = match fs::symlink_metadata(&target) {
@@ -193,25 +192,17 @@ impl Vault {
             Err(source) if source.kind() == io::ErrorKind::NotFound => return Ok(()),
             Err(source) => return Err(io_err("remove", rel, source)),
         };
-        if meta.is_dir() && !is_dir_link(&meta) && !recursive {
-            return Err(io_err(
-                "remove",
-                rel,
-                io::Error::new(
-                    io::ErrorKind::IsADirectory,
-                    "a folder needs recursive removal",
-                ),
-            ));
-        }
-        if !is_dir_link(&meta) && !target.starts_with(self.resolve(TRASH_DIR)?) {
-            return self.delete_to_trash(rel).map(drop);
-        }
         let outcome = if is_dir_link(&meta) {
             fs::remove_dir(&target)
-        } else if meta.is_dir() {
+        } else if !meta.is_dir() {
+            fs::remove_file(&target)
+        } else if recursive {
             fs::remove_dir_all(&target)
         } else {
-            fs::remove_file(&target)
+            Err(io::Error::new(
+                io::ErrorKind::IsADirectory,
+                "a folder needs recursive removal",
+            ))
         };
         outcome.map_err(|source| io_err("remove", rel, source))
     }
