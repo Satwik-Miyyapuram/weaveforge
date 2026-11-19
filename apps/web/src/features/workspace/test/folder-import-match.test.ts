@@ -8,6 +8,7 @@ import { after, before, test } from "node:test";
 
 import type { AppContainer } from "@/bootstrap";
 import { setContainerForTests } from "@/bootstrap";
+import type { ImportDiffEntry } from "@weaveforge/wasm";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { diffAgainstWorkspace } from "../application/parts-1";
 
@@ -47,7 +48,7 @@ test("a file whose frontmatter id was deleted is the same note, matched by its p
   assert.ok(!edited.includes(NOTE_ID));
 
   const diff = await diffAgainstWorkspace({ [notePath]: edited }, new Map(), PROJECT);
-  const entry = diff.entries.find((e) => e.entity.path === notePath);
+  const entry = diff.entries.find((e: ImportDiffEntry) => e.entity.path === notePath);
   assert.equal(entry?.action, "updated");
   assert.equal(entry?.entity.id, NOTE_ID);
   assert.equal(diff.counts.created ?? 0, 0);
@@ -56,7 +57,7 @@ test("a file whose frontmatter id was deleted is the same note, matched by its p
 test("a file moved and stripped of its id is the same note, matched by its body", async () => {
   const moved = notePath.replace(/\/([^/]+)$/, "/archive/$1");
   const diff = await diffAgainstWorkspace({ [moved]: withoutId(noteFile) }, new Map(), PROJECT);
-  const entry = diff.entries.find((e) => e.entity.path === moved);
+  const entry = diff.entries.find((e: ImportDiffEntry) => e.entity.path === moved);
   assert.equal(entry?.entity.id, NOTE_ID);
   assert.notEqual(entry?.action, "created");
   assert.equal(diff.counts.created ?? 0, 0);
