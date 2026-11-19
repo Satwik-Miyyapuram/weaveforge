@@ -115,20 +115,36 @@ export function freehandPathFromFlat(
  * is smooth rather than a polygon of straight `L` segments.
  */
 export function outlinePathData(outline: FreehandOutline): string {
+  const curves = outlineCurves(outline);
+  if (curves === null) return "";
+  const parts: string[] = [`M${curves.start[0]} ${curves.start[1]}`];
+  for (const [cx, cy, mx, my] of curves.curves) parts.push(`Q${cx} ${cy} ${mx} ${my}`);
+  return `${parts.join(" ")} Z`;
+}
+
+/**
+ * The outline as quadratic curves, shared by the SVG path (settled) and the
+ * canvas painter (wet) so both trace the same geometry. `start` is the midpoint
+ * that opens the loop; each curve is `[control x, control y, end x, end y]`.
+ * Null for an empty outline.
+ */
+export function outlineCurves(outline: FreehandOutline): {
+  start: [number, number];
+  curves: [number, number, number, number][];
+} | null {
   const n = outline.length;
-  if (n === 0) return "";
+  if (n === 0) return null;
   const mid = (a: readonly [number, number], b: readonly [number, number]): [number, number] => [
     (a[0] + b[0]) / 2,
     (a[1] + b[1]) / 2,
   ];
-  const start = mid(outline[n - 1]!, outline[0]!);
-  const parts: string[] = [`M${start[0]} ${start[1]}`];
+  const curves: [number, number, number, number][] = [];
   for (let i = 0; i < n; i++) {
     const p = outline[i]!;
     const m = mid(p, outline[(i + 1) % n]!);
-    parts.push(`Q${p[0]} ${p[1]} ${m[0]} ${m[1]}`);
+    curves.push([p[0], p[1], m[0], m[1]]);
   }
-  return `${parts.join(" ")} Z`;
+  return { start: mid(outline[n - 1]!, outline[0]!), curves };
 }
 
 /**

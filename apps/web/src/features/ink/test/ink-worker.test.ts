@@ -714,3 +714,23 @@ test("freehand saves every real sample on lift; classic still simplifies the sam
   const classic = last("stroke-committed").points.length / 2;
   assert.ok(classic < 241, `classic packs the stroke (${classic} points kept of 241)`);
 });
+
+test("a saved freehand stroke reloads with every sample, at the stored whole-unit precision", async () => {
+  const { points, pressures } = denseWave();
+  const b = batch(points, pressures.map((p) => p / 255));
+  freshWith("freehand");
+  stroke(b.buffer, b.count);
+  const committed = last("stroke-committed").points;
+  assert.equal(committed.length, points.length, "every real sample is committed");
+
+  send({ type: "save-page", requestId: 3 });
+  await settle();
+  const page = pageFromChunk(await decodeInkChunk(last("page-saved").bytes));
+  const reloaded = page.strokes[0]!.points;
+  assert.equal(reloaded.length, committed.length, "no sample is lost on save");
+  assert.deepEqual(
+    Array.from(reloaded),
+    Array.from(committed, (v) => Math.round(v)),
+    "the file keeps each coordinate rounded to whole units, nothing else changes",
+  );
+});

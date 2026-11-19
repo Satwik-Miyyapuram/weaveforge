@@ -42,8 +42,8 @@ test("wet and settled freehand strokes trace the same outline", () => {
     moveTo(x: number, y: number) {
       calls.push(`M${x} ${y}`);
     },
-    lineTo(x: number, y: number) {
-      calls.push(`L${x} ${y}`);
+    quadraticCurveTo(cx: number, cy: number, x: number, y: number) {
+      calls.push(`Q${cx} ${cy} ${x} ${y}`);
     },
     closePath() {},
     fill() {},

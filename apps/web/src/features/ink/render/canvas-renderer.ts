@@ -47,6 +47,7 @@ import {
   FREEHAND_PRESSURE,
   freehandOutline,
   type InkRendererKind,
+  outlineCurves,
 } from "./freehand-stroke";
 
 /** The 2D context, whichever canvas it came from. */
@@ -436,13 +437,13 @@ export function paintFreehandStroke(
     halo ? halo.alpha : highlighter ? HIGHLIGHTER_ALPHA : 1,
     palette,
   );
+  // Quadratic curves through the outline's midpoints, the same geometry as the
+  // settled SVG path (`outlinePathData`), so a wet stroke matches its settled form.
+  const curves = outlineCurves(outline);
+  if (curves === null) return 0;
   context.beginPath();
-  const [x0, y0] = outline[0]!;
-  context.moveTo(x0, y0);
-  for (let i = 1; i < outline.length; i += 1) {
-    const [px, py] = outline[i]!;
-    context.lineTo(px, py);
-  }
+  context.moveTo(curves.start[0], curves.start[1]);
+  for (const [cx, cy, mx, my] of curves.curves) context.quadraticCurveTo(cx, cy, mx, my);
   context.closePath();
   context.fill("nonzero");
   return count - 1;
