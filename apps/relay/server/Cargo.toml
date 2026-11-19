@@ -11,9 +11,9 @@ publish.workspace = true
 [dependencies]
 wf-relay = { path = "../wf-relay" }
 wf-core = { path = "../../../crates/wf-core" }
-axum = { version = "=0.8.4", default-features = false, features = ["http1", "json", "multipart", "query", "tokio"] }
+axum = { version = "=0.8.4", default-features = false, features = ["http1", "json", "multipart", "query", "tokio", "ws"] }
 tower-http = { version = "=0.6.11", default-features = false, features = ["cors"] }
-tokio = { version = "=1.54.1", features = ["macros", "net", "rt-multi-thread", "signal", "time"] }
+tokio = { version = "=1.54.1", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 reqwest = { version = "=0.13.5", default-features = false, features = ["native-tls-vendored"] }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.154"
@@ -26,10 +26,15 @@ url = "=2.5.8"
 getrandom = "=0.4.3"
 # AES-256-GCM for stored credentials, as the web's credential-crypto does.
 aes-gcm = { version = "=0.10.3", default-features = false, features = ["aes", "alloc"] }
+# Co-editing (L8): the relay keeps one Yjs document per shared item.
+yrs = "=0.28.1"
 
 [dev-dependencies]
 tower = { version = "=0.5.3", default-features = false, features = ["util"] }
 tokio = { version = "=1.54.1", features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
+# A WebSocket client for the co-editing socket tests (same version axum uses).
+tokio-tungstenite = { version = "=0.26.2", default-features = false, features = ["connect", "handshake"] }
+futures-util = { version = "=0.3.34", default-features = false, features = ["sink", "std"] }
 
 [lints]
 workspace = true

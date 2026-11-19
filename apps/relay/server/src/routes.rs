@@ -32,6 +32,7 @@ use crate::limiter::RateLimiter;
 use crate::org_routes;
 use crate::sdk;
 use crate::sdk_artifacts::{self, ARTIFACT_BODY_LIMIT};
+use crate::sdk_inbox;
 use crate::sdk_metrics;
 use crate::settings::SettingsConfig;
 use crate::storage::StorageConfig;
@@ -95,6 +96,8 @@ pub fn app(state: Arc<AppState>) -> Router {
             "/api/sdk/metrics",
             post(sdk_metrics::metrics_post).delete(sdk_metrics::metrics_delete),
         )
+        .route("/api/sdk/inbox", get(sdk_inbox::inbox_get))
+        .route("/api/sdk/inbox/ack", post(sdk_inbox::inbox_ack))
         .route(
             "/api/org/codes",
             get(org_routes::codes_get).post(org_routes::codes_post),
