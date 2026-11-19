@@ -18,6 +18,8 @@ import {
   gitBlobSha,
   type RemoteHead,
   WebClone,
+  type WebCloneOptions,
+  type WebLocks,
   WEB_CLONE_MANIFEST,
 } from "../infrastructure/opfs-clone";
 
@@ -37,6 +39,10 @@ class FakeRemote implements GitRemote {
   commits: Array<{ parent: string; changes: string[] }> = [];
   blobsFetched = 0;
   down = false;
+  /** Each blob download takes a few ticks, so two tabs can interleave. */
+  slowBlobs = false;
+  /** Runs once, while the next blob is in flight (a save made during the fetch). */
+  onBlob: (() => Promise<void>) | null = null;
   private n = 0;
 
   constructor(initial: Record<string, string>) {
@@ -67,6 +73,10 @@ class FakeRemote implements GitRemote {
   async blob(sha: string): Promise<Uint8Array> {
     this.up();
     this.blobsFetched++;
+    if (this.slowBlobs) await new Promise((resolve) => setTimeout(resolve, 5));
+    const hook = this.onBlob;
+    this.onBlob = null;
+    if (hook) await hook();
     for (const bytes of this.files.values()) if (sha1(bytes) === sha) return bytes;
     throw new Error(`no blob ${sha}`);
   }
@@ -79,17 +89,52 @@ class FakeRemote implements GitRemote {
   }
 }
 
+const LOCK_NAME = "ws-test";
+const clock = () => Date.UTC(2026, 10, 20, 10, 12, 0);
+
+function options(shared: string[] = [], locks?: WebLocks, lease = { held: false }): WebCloneOptions {
+  let tick = 0;
+  return {
+    isShared: (path) => shared.includes(path),
+    leaseHeld: () => lease.held,
+    now: () => clock() + tick++,
+    lockName: LOCK_NAME,
+    locks,
+  };
+}
+
 function setup(initial: Record<string, string>, shared: string[] = []) {
   const remote = new FakeRemote(initial);
   const fs = new MemoryWorkspaceFs();
-  let lease = false;
-  let clock = Date.UTC(2026, 10, 20, 10, 12, 0);
-  const clone = new WebClone(fs, remote, {
-    isShared: (path) => shared.includes(path),
-    leaseHeld: () => lease,
-    now: () => clock++,
-  });
-  return { remote, fs, clone, setLease: (held: boolean) => (lease = held) };
+  const lease = { held: false };
+  const clone = new WebClone(fs, remote, options(shared, undefined, lease));
+  return { remote, fs, clone, setLease: (held: boolean) => (lease.held = held) };
+}
+
+/** A lock manager with the navigator.locks contract: one holder per name, FIFO. */
+function fakeLocks(): WebLocks & { names: string[] } {
+  const tails = new Map<string, Promise<unknown>>();
+  const names: string[] = [];
+  return {
+    names,
+    request<T>(name: string, callback: () => Promise<T>): Promise<T> {
+      names.push(name);
+      const run = (tails.get(name) ?? Promise.resolve()).then(callback);
+      tails.set(name, run.catch(() => undefined));
+      return run;
+    },
+  };
+}
+
+/** Two tabs of one workspace: the same OPFS and the same remote, one clone each. */
+function twoTabs(initial: Record<string, string>, locks?: WebLocks) {
+  const remote = new FakeRemote(initial);
+  remote.slowBlobs = true;
+  const fs = new MemoryWorkspaceFs();
+  const lease = { held: false };
+  const a = new WebClone(fs, remote, options([], locks, lease));
+  const b = new WebClone(fs, remote, options([], locks, lease));
+  return { remote, fs, a, b };
 }
 
 async function localFiles(fs: MemoryWorkspaceFs): Promise<Record<string, string>> {
@@ -228,6 +273,61 @@ test("the clone's own bookkeeping is never pushed", async () => {
   await clone.sync("nothing");
   assert.equal(remote.text(WEB_CLONE_MANIFEST), null);
   assert.equal(remote.commits.length, 0);
+});
+
+test("a save made while a pull fetches the remote bytes is never overwritten", async () => {
+  const { remote, fs, clone } = setup({ "a.md": "base" });
+  await clone.clone();
+  await clone.read("a.md");
+  remote.push({ "a.md": "remote" });
+  remote.onBlob = () => fs.writeFile("a.md", "saved during fetch");
+  const result = await clone.pull();
+  assert.equal(await fs.readText("a.md"), "saved during fetch");
+  assert.equal(result.conflicts.length, 1);
+  assert.equal(await fs.readText(result.conflicts[0]!), "remote");
+  await clone.sync("after");
+  assert.equal(remote.text("a.md"), "saved during fetch");
+  assert.equal(await clone.unpushed(), 0);
+});
+
+test("two tabs reading different files both keep their fetched flags in the manifest", async () => {
+  for (const locks of [fakeLocks(), undefined]) {
+    const { fs, a, b } = twoTabs({ "x.md": "X", "y.md": "Y" }, locks);
+    await a.clone();
+    await Promise.all([a.read("x.md"), b.read("y.md")]);
+    const manifest = JSON.parse(await fs.readText(WEB_CLONE_MANIFEST)) as {
+      files: Record<string, { fetched: boolean }>;
+    };
+    assert.equal(manifest.files["x.md"]!.fetched, true);
+    assert.equal(manifest.files["y.md"]!.fetched, true);
+  }
+});
+
+test("pulls and saves go through one lock per workspace", async () => {
+  const locks = fakeLocks();
+  const remote = new FakeRemote({ "a.md": "A" });
+  const clone = new WebClone(new MemoryWorkspaceFs(), remote, options([], locks));
+  await clone.clone();
+  await clone.read("a.md");
+  await clone.sync("lock");
+  assert.ok(locks.names.length > 0);
+  assert.ok(locks.names.every((name) => name === `weaveforge-web-clone:${LOCK_NAME}`), locks.names.join(","));
+});
+
+test("conflict copies keep compound extensions: foo.conflict-<stamp>.ink.md", async () => {
+  const { remote, fs, clone } = setup({ "n/foo.ink.md": "base", "n/x.annotations.json": "base" });
+  await clone.clone();
+  await clone.read("n/foo.ink.md");
+  await clone.read("n/x.annotations.json");
+  await fs.writeFile("n/foo.ink.md", "web ink");
+  await fs.writeFile("n/x.annotations.json", "web notes");
+  remote.push({ "n/foo.ink.md": "desk ink", "n/x.annotations.json": "desk notes" });
+  const result = await clone.sync("compound");
+  assert.deepEqual(result.conflicts, [
+    "n/foo.conflict-20261120T101200Z.ink.md",
+    "n/x.conflict-20261120T101200Z.annotations.json",
+  ]);
+  assert.equal(await fs.readText("n/foo.conflict-20261120T101200Z.ink.md"), "web ink");
 });
 
 /*

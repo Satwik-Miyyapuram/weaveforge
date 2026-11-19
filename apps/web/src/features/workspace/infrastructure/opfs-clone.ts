@@ -15,6 +15,11 @@ import type { IWorkspaceFs } from "@weaveforge/core";
  * ever reset or force-pushed. Shared-item files are left out of commits unless
  * this tab holds the write-back lease (D-8a).
  *
+ * Pulls, pushes, fetches and manifest writes run under one lock per workspace
+ * (`navigator.locks`, or an in-tab mutex where that is missing), so two tabs
+ * never interleave on the manifest. A pull also re-hashes a file just before it
+ * writes it, so an editor save made while the bytes were in flight is kept.
+ *
  * The remote is a port (`GitRemote`): `github-remote.ts` speaks GitHub's REST
  * Git Data API, which browsers may call directly, unlike git's own HTTP
  * protocol.
@@ -50,10 +55,19 @@ export interface GitRemote {
   commit(parent: string, changes: readonly FileChange[], message: string): Promise<CommitOutcome>;
 }
 
+/** The part of `navigator.locks` the clone uses. */
+export interface WebLocks {
+  request<T>(name: string, callback: () => Promise<T>): Promise<T>;
+}
+
 export interface WebCloneOptions {
   isShared(path: string): boolean;
   leaseHeld(): boolean;
   now(): number;
+  /** Names the workspace's lock: one per workspace, shared by all its tabs. */
+  lockName: string;
+  /** Defaults to `navigator.locks`, else an in-tab mutex. */
+  locks?: WebLocks;
 }
 
 interface Entry {
@@ -71,6 +85,21 @@ export interface SyncResult {
   conflicts: string[];
 }
 
+/** Serializes calls made by this tab; used when `navigator.locks` is missing. */
+const tabTails = new Map<string, Promise<unknown>>();
+const tabLocks: WebLocks = {
+  request<T>(name: string, callback: () => Promise<T>): Promise<T> {
+    const run = (tabTails.get(name) ?? Promise.resolve()).then(callback);
+    tabTails.set(name, run.catch(() => undefined));
+    return run;
+  },
+};
+
+function defaultLocks(): WebLocks {
+  const nav = globalThis.navigator as { locks?: WebLocks } | undefined;
+  return nav?.locks ?? tabLocks;
+}
+
 /** Git's blob id: SHA-1 of `blob <size>\0<bytes>`. */
 export async function gitBlobSha(bytes: Uint8Array): Promise<string> {
   const header = new TextEncoder().encode(`blob ${bytes.byteLength}\0`);
@@ -86,20 +115,48 @@ function compactStamp(ms: number): string {
   return new Date(ms).toISOString().slice(0, 19).replace(/[-:]/g, "") + "Z";
 }
 
+/** Two-part extensions that name a file type; a conflict copy goes before them. */
+const COMPOUND_EXTENSIONS = [".ink.md", ".annotations.json"];
+
+/** Where the extension of `path` starts, or -1 when the file has none. */
+function extensionStart(path: string): number {
+  const slash = path.lastIndexOf("/");
+  const name = path.slice(slash + 1);
+  for (const ext of COMPOUND_EXTENSIONS) {
+    if (name.length > ext.length && name.endsWith(ext)) return path.length - ext.length;
+  }
+  const dot = name.lastIndexOf(".");
+  return dot <= 0 ? -1 : slash + 1 + dot;
+}
+
 /** `dir/name.ext` -> `dir/name<suffix>.ext`; a dot in a folder name is not an extension. */
 function withSuffix(path: string, suffix: string): string {
-  const slash = path.lastIndexOf("/");
-  const dot = path.lastIndexOf(".");
-  if (dot <= slash + 1) return `${path}${suffix}`;
-  return `${path.slice(0, dot)}${suffix}${path.slice(dot)}`;
+  const at = extensionStart(path);
+  if (at < 0) return `${path}${suffix}`;
+  return `${path.slice(0, at)}${suffix}${path.slice(at)}`;
+}
+
+/** A path's local blob id (null when gone) and its bytes, when present. */
+interface LocalState {
+  sha: string | null;
+  bytes: Uint8Array | null;
 }
 
 export class WebClone {
+  private readonly locks: WebLocks;
+
   constructor(
     private readonly fs: IWorkspaceFs,
     private readonly remote: GitRemote,
     private readonly options: WebCloneOptions,
-  ) {}
+  ) {
+    this.locks = options.locks ?? defaultLocks();
+  }
+
+  /** Runs `work` alone across this workspace's tabs. */
+  private exclusive<T>(work: () => Promise<T>): Promise<T> {
+    return this.locks.request(`weaveforge-web-clone:${this.options.lockName}`, work);
+  }
 
   private async manifest(): Promise<Manifest> {
     if (!(await this.fs.stat(WEB_CLONE_MANIFEST))) throw new Error("The workspace is not cloned yet.");
@@ -117,10 +174,12 @@ export class WebClone {
 
   /** Record the remote tree; no file bytes are fetched. */
   async clone(): Promise<void> {
-    const head = await this.remote.head();
-    const files: Record<string, Entry> = {};
-    for (const file of head.files) files[file.path] = { sha: file.sha, fetched: false };
-    await this.save({ head: head.commit, files });
+    return this.exclusive(async () => {
+      const head = await this.remote.head();
+      const files: Record<string, Entry> = {};
+      for (const file of head.files) files[file.path] = { sha: file.sha, fetched: false };
+      await this.save({ head: head.commit, files });
+    });
   }
 
   /** Every path the clone knows on the remote, fetched or not. */
@@ -130,31 +189,35 @@ export class WebClone {
 
   /** A file's bytes, fetched from the remote the first time. */
   async read(path: string): Promise<Uint8Array> {
-    const manifest = await this.manifest();
-    const entry = manifest.files[path];
-    if (entry && !entry.fetched && !(await this.fs.stat(path))) {
-      const bytes = await this.remote.blob(entry.sha);
-      await this.fs.writeFile(path, bytes);
-      entry.fetched = true;
-      await this.save(manifest);
-      return bytes;
-    }
-    return this.fs.readFile(path);
+    return this.exclusive(async () => {
+      const manifest = await this.manifest();
+      const entry = manifest.files[path];
+      if (entry && !entry.fetched && !(await this.fs.stat(path))) {
+        const bytes = await this.remote.blob(entry.sha);
+        await this.fs.writeFile(path, bytes);
+        entry.fetched = true;
+        await this.save(manifest);
+        return bytes;
+      }
+      return this.fs.readFile(path);
+    });
   }
 
   /** Delete a file, fetched or not, so the next push deletes it on the remote. */
   async remove(path: string): Promise<void> {
-    const manifest = await this.manifest();
-    const entry = manifest.files[path];
-    if (entry) {
-      entry.fetched = true;
-      await this.save(manifest);
-    }
-    await this.fs.remove(path);
+    return this.exclusive(async () => {
+      const manifest = await this.manifest();
+      const entry = manifest.files[path];
+      if (entry) {
+        entry.fetched = true;
+        await this.save(manifest);
+      }
+      await this.fs.remove(path);
+    });
   }
 
   /** The local blob id of a path: its bytes, the remote's for an unfetched file, or null when gone. */
-  private async localSha(path: string, entry: Entry | undefined): Promise<{ sha: string | null; bytes: Uint8Array | null }> {
+  private async localSha(path: string, entry: Entry | undefined): Promise<LocalState> {
     const bytes = await this.bytesAt(path);
     if (bytes) return { sha: await gitBlobSha(bytes), bytes };
     if (entry && !entry.fetched) return { sha: entry.sha, bytes: null };
@@ -199,34 +262,71 @@ export class WebClone {
   }
 
   /**
+   * Put the remote's text at `path`. The bytes are fetched before anything is
+   * written, and the local file is hashed again just before the write. If it
+   * changed since `seen` (a save made during the fetch), nothing is overwritten:
+   * the local text stays at `path` and the remote text goes to a conflict copy,
+   * which the next push sends with the rest.
+   */
+  private async takeRemote(
+    path: string,
+    theirs: string,
+    seen: LocalState,
+    keepSeenCopy: boolean,
+    remoteShas: Map<string, string>,
+    manifest: Manifest,
+    conflicts: string[],
+  ): Promise<void> {
+    const incoming = await this.remote.blob(theirs);
+    const now = await this.localSha(path, manifest.files[path]);
+    const taken = (candidate: string) => candidate in manifest.files || remoteShas.has(candidate);
+    if (now.sha !== seen.sha) {
+      const copy = await this.freeConflictPath(path, taken);
+      await this.fs.writeFile(copy, incoming);
+      conflicts.push(copy);
+    } else {
+      if (keepSeenCopy && seen.bytes) {
+        const copy = await this.freeConflictPath(path, taken);
+        await this.fs.writeFile(copy, seen.bytes);
+        conflicts.push(copy);
+      }
+      await this.fs.writeFile(path, incoming);
+    }
+    manifest.files[path] = { sha: theirs, fetched: true };
+  }
+
+  /**
    * Take in the remote's changes. A local edit is never lost: a file changed
    * on both sides keeps the remote text at its path and the local text in a
    * conflict copy; a file deleted remotely but edited here stays.
    */
   async pull(): Promise<SyncResult> {
+    return this.exclusive(() => this.pullLocked());
+  }
+
+  private async pullLocked(): Promise<SyncResult> {
     const manifest = await this.manifest();
     const head = await this.remote.head();
     const conflicts: string[] = [];
     if (head.commit === manifest.head) return { conflicts };
-    const remote = new Map(head.files.map((f) => [f.path, f.sha]));
-    const paths = new Set([...Object.keys(manifest.files), ...remote.keys()]);
+    const remoteShas = new Map(head.files.map((f) => [f.path, f.sha]));
+    const paths = new Set([...Object.keys(manifest.files), ...remoteShas.keys()]);
     for (const path of [...paths].sort()) {
       const entry = manifest.files[path];
       const base = entry?.sha ?? null;
-      const theirs = remote.get(path) ?? null;
+      const theirs = remoteShas.get(path) ?? null;
       if (theirs === base) continue;
       const local = await this.localSha(path, entry);
       const lazy = !!entry && !entry.fetched && !local.bytes;
       if (local.sha === base) {
         // Unchanged here: take theirs.
         if (theirs === null) {
-          if (local.bytes) await this.fs.remove(path);
+          if (local.bytes && (await this.localSha(path, entry)).sha === base) await this.fs.remove(path);
           delete manifest.files[path];
         } else if (lazy || (!entry && !local.bytes)) {
           manifest.files[path] = { sha: theirs, fetched: false };
         } else {
-          await this.fs.writeFile(path, await this.remote.blob(theirs));
-          manifest.files[path] = { sha: theirs, fetched: true };
+          await this.takeRemote(path, theirs, local, false, remoteShas, manifest, conflicts);
         }
       } else if (local.sha === theirs) {
         if (theirs === null) delete manifest.files[path];
@@ -235,13 +335,7 @@ export class WebClone {
         // Deleted there, edited here: keep the file; it is now a local addition.
         delete manifest.files[path];
       } else {
-        if (local.bytes) {
-          const copy = await this.freeConflictPath(path, (p) => p in manifest.files || remote.has(p));
-          await this.fs.writeFile(copy, local.bytes);
-          conflicts.push(copy);
-        }
-        await this.fs.writeFile(path, await this.remote.blob(theirs));
-        manifest.files[path] = { sha: theirs, fetched: true };
+        await this.takeRemote(path, theirs, local, true, remoteShas, manifest, conflicts);
       }
     }
     manifest.head = head.commit;
@@ -251,6 +345,10 @@ export class WebClone {
 
   /** Push local changes fast-forward only; `behind` when the remote moved. */
   async push(message: string): Promise<CommitOutcome | { kind: "clean" }> {
+    return this.exclusive(() => this.pushLocked(message));
+  }
+
+  private async pushLocked(message: string): Promise<CommitOutcome | { kind: "clean" }> {
     const manifest = await this.manifest();
     const changes = (await this.changesIn(manifest)).filter((c) => this.pushable(c));
     if (changes.length === 0) return { kind: "clean" };
@@ -267,12 +365,14 @@ export class WebClone {
 
   /** Pull, then push; a push that loses a race pulls and pushes once more. */
   async sync(message: string): Promise<SyncResult> {
-    const conflicts = (await this.pull()).conflicts;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const pushed = await this.push(message);
-      if (pushed.kind !== "behind") return { conflicts };
-      conflicts.push(...(await this.pull()).conflicts);
-    }
-    throw new Error("The remote kept moving; try again.");
+    return this.exclusive(async () => {
+      const conflicts = (await this.pullLocked()).conflicts;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const pushed = await this.pushLocked(message);
+        if (pushed.kind !== "behind") return { conflicts };
+        conflicts.push(...(await this.pullLocked()).conflicts);
+      }
+      throw new Error("The remote kept moving; try again.");
+    });
   }
 }
