@@ -1,8 +1,9 @@
 "use client";
 
+import { memo } from "react";
 import { decodeStroke, type InkPoint, type InkStroke } from "../application/freeform-ink";
 import type { InkRendererKind } from "../../ink/render/freehand-stroke";
-import { inkFreedrawPath } from "../../ink/render/excalidraw-freedraw";
+import { inkFreedrawPath, isSimulatedPressure } from "../../ink/render/excalidraw-freedraw";
 import { resolveInkColour, type ThemeInk } from "../../ink/render/resolve-ink-colour";
 
 /** The stroke's centre line as an SVG path, in page coordinates. A single point is drawn as a dot. */
@@ -30,16 +31,32 @@ export function canvasStrokePath(
   renderer: InkRendererKind,
 ): string {
   if (renderer === "classic" || points.length < 2) return pathFor(points);
-  // Mouse input reports pressure 0.5 (stored as about 128); a real pen uses its pressure.
-  const simulatePressure = Math.abs((points[0]?.pressure ?? 0.5) - 0.5) <= 1 / 255;
+  // Mouse input reports pressure 0.5 (stored as about 128) at every point; a real
+  // pen uses its pressure, even when one sample happens to be at the midpoint.
+  const pressures = points.map((p) => p.pressure);
   return inkFreedrawPath(
     points.map((p) => [p.x, p.y]),
-    points.map((p) => p.pressure),
+    pressures,
     width,
-    simulatePressure,
+    isSimulatedPressure(pressures),
     // Wet and settled take the same path, so the stroke does not change on release.
     true,
   );
+}
+
+const settledPaths = new WeakMap<InkStroke, { renderer: InkRendererKind; d: string }>();
+
+/**
+ * A settled stroke's path, built once per stroke and renderer. Strokes are
+ * replaced, never edited, so a redraw (a draft move, a selection, a theme
+ * change) reuses the path instead of decoding and outlining every stroke again.
+ */
+export function settledCanvasPath(stroke: InkStroke, renderer: InkRendererKind): string {
+  const cached = settledPaths.get(stroke);
+  if (cached && cached.renderer === renderer) return cached.d;
+  const d = canvasStrokePath(decodeStroke(stroke), stroke.w, stroke.t, renderer);
+  settledPaths.set(stroke, { renderer, d });
+  return d;
 }
 
 /** A stroke's classes: a highlighter is drawn translucent (pressure is stored, not drawn). */
@@ -60,7 +77,7 @@ export interface InkDraft {
  * The page's ink: every stroke, the selected ones marked, and the stroke being
  * drawn. Stored colours are canonical (Paper); they draw through the live theme.
  */
-export function InkLayer({
+export const InkLayer = memo(function InkLayer({
   strokes,
   selected,
   draft,
@@ -76,13 +93,13 @@ export function InkLayer({
   return (
     <svg className="canvas-ink" aria-hidden="true">
       {strokes.map((stroke) => {
-        const points = decodeStroke(stroke);
-        if (points.length === 0) return null;
+        const d = settledCanvasPath(stroke, renderer);
+        if (d === "") return null;
         const colour = resolveInkColour(stroke.c, ink);
         return (
           <path
             key={stroke.id}
-            d={canvasStrokePath(points, stroke.w, stroke.t, renderer)}
+            d={d}
             stroke={colour}
             strokeWidth={stroke.w}
             style={renderer === "freehand" ? outlineStyle(colour) : undefined}
@@ -101,4 +118,4 @@ export function InkLayer({
       ) : null}
     </svg>
   );
-}
+});

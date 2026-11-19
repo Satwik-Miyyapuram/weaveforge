@@ -218,8 +218,8 @@ export interface LiveStroke {
 }
 
 /**
- * Above this many points a stroke is saved packed, as the page format holds at most
- * this many per stroke (the Rust `INK_STROKE_MAX_POINTS`).
+ * The most points the page format holds per stroke (the Rust `INK_STROKE_MAX_POINTS`).
+ * A raw stroke that reaches it is split (`takeRawOverflow`), never packed.
  */
 const RAW_STROKE_MAX_POINTS = 65_535;
 
@@ -230,13 +230,43 @@ function packedSoFar(packer: LiveInkStrokePacker): PackedInkStroke {
 
 /** The real samples as the stroke keeps them: every one if `raw`, else what the packer kept. */
 function realSoFar(stroke: LiveStroke): PackedInkStroke {
-  if (stroke.raw && stroke.realSamples <= RAW_STROKE_MAX_POINTS) {
+  if (stroke.raw) {
     return {
       points: stroke.points.slice(0, stroke.realSamples * 2),
       pressures: stroke.pressures.slice(0, stroke.realSamples),
     };
   }
   return packedSoFar(stroke.packer);
+}
+
+/**
+ * Split a raw stroke that has passed the point cap: the stroke keeps its first
+ * `RAW_STROKE_MAX_POINTS` samples and the rest move to a new live stroke, which
+ * starts at the last kept sample so the line stays joined. Null when the stroke
+ * fits. Raw vs packed is decided when the stroke begins and never changes, so
+ * the outline does not change shape mid-stroke. The cost: a stroke this long
+ * saves as two strokes and undoes in two steps.
+ *
+ * Call it right after `appendSamples`, when there is no predicted tail.
+ */
+export function takeRawOverflow(stroke: LiveStroke): LiveStroke | null {
+  const cap = RAW_STROKE_MAX_POINTS;
+  if (!stroke.raw || stroke.realSamples <= cap) return null;
+  const next = newLiveStroke(stroke.header, true);
+  for (let i = cap - 1; i < stroke.realSamples; i += 1) {
+    const x = stroke.points[i * 2]!;
+    const y = stroke.points[i * 2 + 1]!;
+    const pressure = stroke.pressures[i]!;
+    next.points.push(x, y);
+    next.pressures.push(pressure);
+    next.packer.push(x, y, pressure);
+  }
+  next.realSamples = stroke.realSamples - cap + 1;
+  stroke.points.length = cap * 2;
+  stroke.pressures.length = cap;
+  stroke.realSamples = cap;
+  stroke.changed = true;
+  return next;
 }
 
 /** A stroke the pen has just put down, with nothing in it yet. */
@@ -336,15 +366,19 @@ export function appendSamples(stroke: LiveStroke, payload: InkSamplePayload): vo
   stroke.changed = true;
 }
 
-/** Replace the predicted tail: truncate to the last real sample, then append. */
-function replacePredictedTail(
+/**
+ * Replace the predicted tail: truncate to the last real sample, then append.
+ * A raw stroke rounds the tail to whole units, as `appendSamples` rounds the
+ * real samples.
+ */
+export function replacePredictedTail(
   stroke: LiveStroke,
   payload: InkSamplePayload,
 ): void {
   stroke.points.length = stroke.realSamples * 2;
   stroke.pressures.length = stroke.realSamples;
   eachInkSample(payload, (x, y, pressure) => {
-    stroke.points.push(x, y);
+    stroke.points.push(stroke.raw ? Math.round(x) : x, stroke.raw ? Math.round(y) : y);
     stroke.pressures.push(readyCore().inkPenPressureByte(pressure));
   });
   stroke.changed = true;
@@ -607,6 +641,14 @@ function routeInput(message: InkWorkerMessage) {
   };
 }
 
+/** Commit each full part of a raw live stroke past the cap, drawing on with the rest. */
+function commitRawOverflow(): void {
+  for (let next = state.live && takeRawOverflow(state.live); next; next = takeRawOverflow(next)) {
+    commitStroke(state.live!);
+    state.live = next;
+  }
+}
+
 function handleMessage(message: InkWorkerMessage): void {
   try {
     const plan = readyCore().inkWorkerRoute(routeInput(message));
@@ -634,19 +676,24 @@ function handleMessage(message: InkWorkerMessage): void {
       case "stroke-begin": {
         state.live = newLiveStroke(message.header, state.inkRenderer === "freehand");
         appendSamples(state.live, message.sample);
+        commitRawOverflow();
         ensureLoop();
         break;
       }
       case "samples": {
         if (!state.live) break;
         if (plan.predicted) replacePredictedTail(state.live, message.sample);
-        else appendSamples(state.live, message.sample);
+        else {
+          appendSamples(state.live, message.sample);
+          commitRawOverflow();
+        }
         break;
       }
       case "stroke-end": {
+        if (!state.live) break;
+        appendSamples(state.live, message.sample);
+        commitRawOverflow();
         const live = state.live;
-        if (!live) break;
-        appendSamples(live, message.sample);
         commitStroke(live);
         state.live = null;
         state.renderer?.setLive(null);

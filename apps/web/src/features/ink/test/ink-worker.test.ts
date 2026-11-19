@@ -31,6 +31,8 @@ let listener: Listener | null = null;
 let liveForRenderer: typeof import("../worker/ink-worker").liveForRenderer;
 let newLiveStroke: typeof import("../worker/ink-worker").newLiveStroke;
 let appendSamples: typeof import("../worker/ink-worker").appendSamples;
+let replacePredictedTail: typeof import("../worker/ink-worker").replacePredictedTail;
+let takeRawOverflow: typeof import("../worker/ink-worker").takeRawOverflow;
 
 before(async () => {
   (globalThis as { self?: unknown }).self = {
@@ -45,6 +47,8 @@ before(async () => {
   liveForRenderer = worker.liveForRenderer;
   newLiveStroke = worker.newLiveStroke;
   appendSamples = worker.appendSamples;
+  replacePredictedTail = worker.replacePredictedTail;
+  takeRawOverflow = worker.takeRawOverflow;
 });
 
 function send(message: InkWorkerMessage): void {
@@ -741,4 +745,54 @@ test("a saved freehand stroke reloads with every sample, at the stored whole-uni
     Array.from(committed, (v) => Math.round(v)),
     "the file keeps each coordinate rounded to whole units, nothing else changes",
   );
+});
+
+test("freehand rounds the predicted tail like the real samples; classic keeps it as sampled", () => {
+  const real = batch([10.4, 20.6, 30.2, 40.7], [0.5, 0.5]);
+  const tail = batch([50.6, 60.4, 70.5, 80.25], [0.5, 0.5]);
+  const freehand = newLiveStroke(header(), true);
+  appendSamples(freehand, real);
+  replacePredictedTail(freehand, tail);
+  const wet = liveForRenderer(freehand);
+  assert.deepEqual(Array.from(wet.x.subarray(wet.realCount)), [51, 71]);
+  assert.deepEqual(Array.from(wet.y.subarray(wet.realCount)), [60, 80]);
+
+  const classic = newLiveStroke(header(), false);
+  appendSamples(classic, real);
+  replacePredictedTail(classic, tail);
+  assert.deepEqual(
+    classic.points.slice(4),
+    [50.6, 60.4, 70.5, 80.25].map((v) => Math.fround(v)),
+  );
+});
+
+test("a freehand stroke past the point cap splits; it never turns into a packed stroke", () => {
+  const cap = 65_535;
+  const count = cap + 40;
+  const points: number[] = [];
+  const pressures: number[] = [];
+  for (let i = 0; i < count; i += 1) {
+    // Dense and nearly straight: a packer would drop most of these.
+    points.push(10 + (i % 3000) * 0.1, 10 + Math.floor(i / 3000));
+    pressures.push(0.5);
+  }
+  const live = newLiveStroke(header(), true);
+  appendSamples(live, batch(points.slice(0, cap * 2), pressures.slice(0, cap)));
+  assert.equal(takeRawOverflow(live), null, "at the cap the stroke is still whole");
+  appendSamples(live, batch(points.slice(cap * 2), pressures.slice(cap)));
+  const next = takeRawOverflow(live);
+  assert.ok(next, "past the cap the rest goes to a new stroke");
+  assert.equal(live.realSamples, cap);
+  assert.equal(liveForRenderer(live).realCount, cap, "the first part is drawn raw, every sample");
+  assert.equal(next.raw, true);
+  assert.equal(next.realSamples, count - cap + 1, "the new stroke starts at the last kept sample");
+  assert.deepEqual(next.points.slice(0, 2), live.points.slice(cap * 2 - 2, cap * 2));
+
+  freshWith("freehand");
+  const b = batch(points, pressures);
+  stroke(b.buffer, b.count);
+  const committed = events("stroke-committed");
+  assert.equal(committed.length, 2, "one stroke of the cap, then the rest");
+  assert.equal(committed[0]!.points.length / 2, cap);
+  assert.equal(committed[1]!.points.length / 2, count - cap + 1);
 });

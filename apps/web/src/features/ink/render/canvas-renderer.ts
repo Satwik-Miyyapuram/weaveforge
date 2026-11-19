@@ -44,6 +44,7 @@ import {
 import { readyCore } from "@/lib/rust-core";
 import {
   DEFAULT_INK_RENDERER,
+  FreehandOutlineCache,
   freedrawCurves,
   type InkRendererKind,
 } from "./freehand-stroke";
@@ -94,6 +95,7 @@ export class CanvasInkRenderer implements InkRenderer {
   ) => Canvas2dLike;
   private context: Context2dLike | null;
   private strokes = new Map<number, InkStrokeGeometry>();
+  private readonly outlines = new FreehandOutlineCache();
   private order: number[] = [];
   private live: InkLiveStroke | null = null;
   private transform: InkViewTransform = {
@@ -158,6 +160,7 @@ export class CanvasInkRenderer implements InkRenderer {
 
   setStrokes(strokes: readonly (InkStrokeGeometry | null)[]): void {
     this.strokes.clear();
+    this.outlines.clear();
     this.order = [];
     strokes.forEach((stroke, index) => {
       if (stroke) this.appendStroke(stroke, index);
@@ -168,10 +171,12 @@ export class CanvasInkRenderer implements InkRenderer {
   appendStroke(stroke: InkStrokeGeometry, index = this.nextIndex): void {
     this.nextIndex = index + 1;
     this.strokes.set(index, stroke);
+    this.outlines.forget(index);
     this.order.push(index);
   }
 
   removeStroke(index: number): void {
+    this.outlines.forget(index);
     if (!this.strokes.delete(index)) return;
     const at = this.order.indexOf(index);
     if (at >= 0) this.order.splice(at, 1);
@@ -227,6 +232,7 @@ export class CanvasInkRenderer implements InkRenderer {
 
   dispose(): void {
     this.strokes.clear();
+    this.outlines.clear();
     this.order = [];
     this.live = null;
     this.background = null;
@@ -282,8 +288,24 @@ export class CanvasInkRenderer implements InkRenderer {
     }
 
     this.drawn = 0;
-    const paintStrokeFn =
-      this.kind === "freehand" ? paintFreehandStroke : paintStroke;
+    // A settled stroke's freehand outline comes from the cache, keyed by its
+    // index; the live stroke changes every frame, so it is built afresh.
+    const paintSettled = (
+      index: number,
+      stroke: InkStrokeGeometry,
+      look: { width: number; tool: string; colour: InkColour },
+      highlighter: boolean,
+      halo?: { alpha: number; grow: number },
+    ): number =>
+      this.kind === "freehand"
+        ? paintFreehandStroke(
+            context, stroke.x, stroke.y, stroke.pressure, look, highlighter,
+            this.palette, halo, true, { cache: this.outlines, id: index },
+          )
+        : paintStroke(
+            context, stroke.x, stroke.y, stroke.pressure, look, highlighter,
+            this.palette, halo,
+          );
     // The selection's halo first, under everything: the same capsules grown
     // by a few device pixels in the accent colour, shifted by the drag.
     const haloPageUnits = INK_SELECTION_HALO_PX / Math.max(k, 0.0001);
@@ -293,14 +315,11 @@ export class CanvasInkRenderer implements InkRenderer {
         if (!stroke || !this.selected.has(index)) continue;
         context.save();
         context.translate(this.shift.x, this.shift.y);
-        this.drawn += paintStrokeFn(
-          context,
-          stroke.x,
-          stroke.y,
-          stroke.pressure,
+        this.drawn += paintSettled(
+          index,
+          stroke,
           { ...stroke, colour: "accent" },
           false,
-          this.palette,
           { alpha: 0.3, grow: haloPageUnits },
         );
         context.restore();
@@ -320,15 +339,7 @@ export class CanvasInkRenderer implements InkRenderer {
           context.save();
           context.translate(this.shift.x, this.shift.y);
         }
-        this.drawn += paintStrokeFn(
-          context,
-          stroke.x,
-          stroke.y,
-          stroke.pressure,
-          stroke,
-          highlighter,
-          this.palette,
-        );
+        this.drawn += paintSettled(index, stroke, stroke, highlighter);
         if (held) context.restore();
       }
     }
@@ -408,25 +419,28 @@ export function paintStroke(
  * Same colour, alpha and halo rules as `paintStroke`; the shape differs. A halo
  * grows the stroke's width by `2 * grow`, which is an approximation of the
  * capsule halo, not the same geometry. Returns the segments drawn.
- * `_pressure` is not read: the outline is held at the midpoint pressure, the
- * same as the settled stroke (see `freehand-stroke.ts`). It stays in the
- * signature so the two painters share a call shape.
+ * `pressure` is the stored byte per point; a stroke with none off the midpoint
+ * draws as a mouse stroke (see `freedrawPath`). `cached` reuses the stroke's
+ * outline from a `FreehandOutlineCache` instead of building it again.
  */
 export function paintFreehandStroke(
   context: Context2dLike,
   x: Float32Array,
   y: Float32Array,
-  _pressure: Uint8Array,
+  pressure: Uint8Array,
   stroke: { width: number; tool: string; colour: InkColour },
   highlighter: boolean,
   palette: InkPalette = INK_RENDER_COLOURS,
   halo?: { alpha: number; grow: number },
   last = true,
+  cached?: { cache: FreehandOutlineCache; id: number },
 ): number {
   const count = x.length;
   if (count === 0) return 0;
-  const grow = halo?.grow ?? 0;
-  const curves = freedrawCurves(freedrawPath(x, y, stroke.width + 2 * grow, last));
+  const width = stroke.width + 2 * (halo?.grow ?? 0);
+  const curves = cached
+    ? cached.cache.outline(cached.id, x, y, pressure, width, last)
+    : freedrawCurves(freedrawPath(x, y, width, last, pressure));
   if (curves === null) return 0;
   context.fillStyle = cssInkColour(
     stroke.colour,

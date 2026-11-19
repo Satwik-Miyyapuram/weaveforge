@@ -105,7 +105,7 @@ test("the wet stroke paints the settled SVG outline: painted geometry within 0.0
     false,
   );
   const wet = outlinePoints(calls.join(" "));
-  const settled = outlinePoints(settledStrokePath(POINTS, WIDTH, "freehand") ?? "");
+  const settled = outlinePoints(settledStrokePath(POINTS, WIDTH, "freehand", [255, 255, 255]) ?? "");
   assert.ok(wet.length > 0 && settled.length > 0);
   const gap = worstGap(wet, settled);
   assert.ok(gap <= 1e-3, `painted outline is ${gap} units from the settled SVG outline`);
@@ -116,4 +116,14 @@ test("the comparison fails when one outline point moves 0.5 units", () => {
   const settled = outlinePoints(settledStrokePath(POINTS, WIDTH, "freehand") ?? "");
   const moved = settled.map((p, i): [number, number] => (i === 0 ? [p[0] + 0.5, p[1]] : p));
   assert.ok(worstGap(moved, settled) > 1e-3);
+});
+
+test("a settled freehand stroke draws with its pressure, and the path is built once", () => {
+  const points = [0, 0, 50, 0, 100, 20];
+  const mid = settledStrokePath(points, WIDTH, "freehand");
+  const pen = settledStrokePath(points, WIDTH, "freehand", [40, 200, 90]);
+  assert.notEqual(pen, mid, "real pressure changes the outline");
+  assert.equal(settledStrokePath(points, WIDTH, "freehand", [128, 128, 128]), mid, "midpoint pressure is the mouse outline");
+  assert.equal(settledStrokePath(points, WIDTH, "freehand", [40, 200, 90]), pen);
+  assert.notEqual(settledStrokePath(points, WIDTH + 4, "freehand"), mid, "the halo width is its own path");
 });

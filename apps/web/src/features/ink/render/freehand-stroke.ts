@@ -14,7 +14,11 @@ export type InkRendererKind = (typeof INK_RENDERERS)[number];
 export const DEFAULT_INK_RENDERER: InkRendererKind = "classic";
 
 /** The settled stroke's path (SVG `d`) from flat `x, y` pairs, as Excalidraw draws it. */
-export function freehandPathFromFlat(points: readonly number[], width: number): string {
+export function freehandPathFromFlat(
+  points: readonly number[],
+  width: number,
+  pressures?: ArrayLike<number>,
+): string {
   const count = points.length >> 1;
   const x = new Array<number>(count);
   const y = new Array<number>(count);
@@ -22,7 +26,7 @@ export function freehandPathFromFlat(points: readonly number[], width: number): 
     x[i] = points[2 * i]!;
     y[i] = points[2 * i + 1]!;
   }
-  return freedrawPath(x, y, width, true);
+  return freedrawPath(x, y, width, true, pressures);
 }
 
 /**
@@ -53,6 +57,59 @@ export function freedrawCurves(d: string): {
     }
   }
   return { start, curves };
+}
+
+export type FreehandCurves = NonNullable<ReturnType<typeof freedrawCurves>>;
+
+interface OutlineEntry {
+  count: number;
+  width: number;
+  last: boolean;
+  curves: FreehandCurves | null;
+}
+
+/**
+ * Settled freehand outlines, so a repaint replays cached curves instead of
+ * building the path and parsing it again. An entry is keyed by the stroke's id
+ * and reused while the point count, width and `last` match. Two entries per id:
+ * the stroke and its selection halo (whose width changes with zoom).
+ *
+ * The key does not see points edited in place (a moved selection keeps its
+ * count), so the owner calls `forget` whenever a stroke's points change.
+ */
+export class FreehandOutlineCache {
+  private readonly entries = new Map<number, OutlineEntry[]>();
+
+  outline(
+    id: number,
+    x: ArrayLike<number>,
+    y: ArrayLike<number>,
+    pressure: ArrayLike<number>,
+    width: number,
+    last: boolean,
+  ): FreehandCurves | null {
+    const count = x.length;
+    const list = this.entries.get(id) ?? [];
+    const at = list.findIndex((e) => e.count === count && e.width === width && e.last === last);
+    if (at >= 0) {
+      const hit = list[at]!;
+      if (at > 0) list.unshift(...list.splice(at, 1));
+      return hit.curves;
+    }
+    const curves = freedrawCurves(freedrawPath(x, y, width, last, pressure));
+    list.unshift({ count, width, last, curves });
+    list.length = Math.min(list.length, 2);
+    this.entries.set(id, list);
+    return curves;
+  }
+
+  forget(id: number): void {
+    this.entries.delete(id);
+  }
+
+  clear(): void {
+    this.entries.clear();
+  }
 }
 
 /**

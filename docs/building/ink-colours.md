@@ -74,6 +74,8 @@ fast-check:
   colours are slots, so they keep their theme value instead.
 - **Ink note pages** resolve tokens through the theme, but a plain hex stroke
   there is still drawn as stored.
+- **White ink on dark themes.** White drawn on Paper maps to near black on a
+  dark theme. This is intended: it keeps its contrast with the page, as on Paper.
 
 ## Related work
 

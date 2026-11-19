@@ -258,11 +258,13 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
   const fetchers = useMemo<BlobFetchers>(() => ({ fetchOne: (path) => images.fetch(path) }), [images]);
   const pictureUrls = useBlobObjectUrls(picturePaths, fetchers);
 
+  // One stroke list per file, so the memoised ink layer and its path cache hit.
+  const inkStrokes = useMemo(() => strokesOf(file), [file]);
   /** Selection without ids that no longer exist (after undo or a remote change). */
   const live = useMemo(() => {
-    const ids = new Set<string>([...file.nodes.map((node) => node.id), ...strokesOf(file).map((stroke) => stroke.id)]);
+    const ids = new Set<string>([...file.nodes.map((node) => node.id), ...inkStrokes.map((stroke) => stroke.id)]);
     return new Set([...selected].filter((id) => ids.has(id)));
-  }, [file, selected]);
+  }, [file, inkStrokes, selected]);
 
   // One history entry per edit: `record` for discrete changes, `preview` while a gesture or typing changes the
   // page without an entry, and `commit` to close a gesture with the file it started from.
@@ -780,7 +782,7 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
               />
             );
           })}
-          <InkLayer strokes={strokesOf(file)} selected={live} draft={draft} renderer={renderer} ink={ink} />
+          <InkLayer strokes={inkStrokes} selected={live} draft={draft} renderer={renderer} ink={ink} />
         </div>
       </div>
     </div>

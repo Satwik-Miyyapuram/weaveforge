@@ -186,3 +186,24 @@ test("with renderer freehand the renderer paints each stroke as a closed outline
   assert.ok(calls.some((c) => c.name === "closePath"), "the outline is closed");
   assert.ok(!calls.some((c) => c.name === "arc"), "no capsule caps are drawn");
 });
+
+test("freehand reuses a stroke's outline until the stroke is replaced, then sees moved points", () => {
+  const { canvas, calls } = recordingCanvas();
+  const renderer = new CanvasInkRenderer({ canvas, renderer: "freehand" });
+  const strokes = new InkPageBuffer(page(["pen"])).allStrokes();
+  renderer.setStrokes(strokes);
+  const starts = () => calls.filter((c) => c.name === "moveTo").map((c) => c.args[0] as number);
+  renderer.draw();
+  renderer.draw();
+  const [first, second] = starts();
+  assert.equal(first, second, "an unchanged stroke draws the same outline");
+
+  // A moved selection edits the points in place, then replaces the stroke.
+  const geometry = strokes[0]!;
+  for (let i = 0; i < geometry.x.length; i += 1) geometry.x[i] = geometry.x[i]! + 100;
+  renderer.removeStroke(0);
+  renderer.appendStroke(geometry, 0);
+  calls.length = 0;
+  renderer.draw();
+  assert.ok(Math.abs(starts()[0]! - (first! + 100)) < 1, "the moved stroke is drawn where it now is");
+});

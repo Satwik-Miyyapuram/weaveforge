@@ -30,3 +30,9 @@ test("no strokes, or every stroke hidden, is empty", () => {
   assert.deepEqual(readyCore().toRenderStrokes(undefined, INK_RENDER_COLOURS), []);
   assert.deepEqual(readyCore().toRenderStrokes([stroke("black", "pen")], INK_RENDER_COLOURS, new Set([0])), []);
 });
+
+test("carries each stroke's own pressures, so a freehand outline can use them", () => {
+  const pen = { ...stroke("black", "pen"), pressures: [40, 200] } as unknown as InkStroke;
+  const [out] = readyCore().toRenderStrokes([pen], INK_RENDER_COLOURS);
+  assert.equal(out!.pressures, pen.pressures, "the same array, so a cache keyed on it still hits");
+});

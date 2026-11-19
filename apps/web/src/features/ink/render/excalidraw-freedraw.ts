@@ -136,22 +136,38 @@ export function inkFreedrawPath(
 }
 
 /**
- * A stroke from flat `x`, `y` arrays, for paper ink. Settled strokes carry no
- * pressure, so every point is at the midpoint and the mouse options apply.
- * `last` is the same for the wet and the settled stroke.
+ * True when a stroke's pressures carry no pen data: none at all, or every one
+ * at the midpoint (to within one byte), which is what a mouse or touch sends.
+ * Decided from the whole stroke, so a pen whose first sample happens to be at
+ * 0.5 still draws with its pressure.
+ */
+export function isSimulatedPressure(pressures: ArrayLike<number>): boolean {
+  for (let i = 0; i < pressures.length; i++) {
+    if (Math.abs(pressures[i]! - 0.5) > 1 / 255) return false;
+  }
+  return true;
+}
+
+/**
+ * A stroke from flat `x`, `y` arrays, for paper ink. `pressure` is the stored
+ * byte per point (0-255). A pen stroke draws with it; with no pressure, or one
+ * of the wrong length, every point is at the midpoint and the mouse options
+ * apply. `last` is the same for the wet and the settled stroke.
  */
 export function freedrawPath(
   x: ArrayLike<number>,
   y: ArrayLike<number>,
   width: number,
   last: boolean,
+  pressure?: ArrayLike<number>,
 ): string {
   const count = Math.min(x.length, y.length);
+  const real = pressure !== undefined && pressure.length === count;
   const points: number[][] = [];
   const pressures: number[] = [];
   for (let i = 0; i < count; i++) {
     points.push([x[i]!, y[i]!]);
-    pressures.push(0.5);
+    pressures.push(real ? pressure[i]! / 255 : 0.5);
   }
-  return inkFreedrawPath(points, pressures, width, true, last);
+  return inkFreedrawPath(points, pressures, width, isSimulatedPressure(pressures), last);
 }

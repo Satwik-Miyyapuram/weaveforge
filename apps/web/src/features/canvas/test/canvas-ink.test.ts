@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import type { InkPoint, InkStroke } from "../application/freeform-ink";
-import { canvasStrokePath, pathFor, strokeClass } from "../ui/canvas-ink";
+import { decodeStroke, encodeStroke, type InkPoint, type InkStroke } from "../application/freeform-ink";
+import { inkFreedrawPath } from "../../ink/render/excalidraw-freedraw";
+import { canvasStrokePath, pathFor, settledCanvasPath, strokeClass } from "../ui/canvas-ink";
 
 const pen: InkStroke = { id: "s1", x: 0, y: 0, w: 2, c: "#000000", t: "pen", p: [0, 0] };
 
@@ -207,4 +208,29 @@ test("a fast zig-zag keeps the gap between its legs open at every canvas preset"
     // Halfway between the legs, 60 px above the bottom corner at x 122 (26 px gap): paper, not ink.
     assert.equal(winding(o, [122, 140]), 0, `${w} px preset: the legs fuse at the corner`);
   }
+});
+
+test("a pen stroke whose first sample is at mid pressure still draws with its real pressure", () => {
+  const pts = slowLine().map((p, i) => ({ ...p, pressure: i === 0 ? 0.5 : 0.85 }));
+  const mouse = slowLine().map((p) => ({ ...p, pressure: 0.5 }));
+  const d = canvasStrokePath(pts, 8, "pen", "freehand");
+  assert.notEqual(d, canvasStrokePath(mouse, 8, "pen", "freehand"));
+  assert.equal(
+    d,
+    inkFreedrawPath(pts.map((p) => [p.x, p.y]), pts.map((p) => p.pressure), 8, false, true),
+  );
+});
+
+test("a settled stroke's path is computed once per stroke and renderer", () => {
+  const stroke = encodeStroke({ id: "c1", width: 2, colour: "#000000", points: circle(30, 40) });
+  const first = settledCanvasPath(stroke, "freehand");
+  assert.equal(first, canvasStrokePath(decodeStroke(stroke), 2, "pen", "freehand"));
+  // Strokes are immutable: an in-place edit is not seen, which shows the cache answered.
+  (stroke.p as number[])[2] = 999;
+  assert.equal(settledCanvasPath(stroke, "freehand"), first);
+  // Another renderer is another path.
+  assert.equal(settledCanvasPath(stroke, "classic"), pathFor(decodeStroke(stroke)));
+  // A new stroke object (an edit replaces the stroke) is computed afresh.
+  const moved = { ...stroke, x: stroke.x + 10 };
+  assert.notEqual(settledCanvasPath(moved, "freehand"), first);
 });
