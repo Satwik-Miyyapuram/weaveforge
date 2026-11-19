@@ -532,7 +532,10 @@ fn save_over(name: &str, disk: &[u8], text: &str) -> Vec<u8> {
         .write_text_checked(
             name,
             text,
-            Some(&canonical_digest(&String::from_utf8_lossy(disk))),
+            // The checked write hashes the text a reader sees: BOM stripped.
+            Some(&canonical_digest(&String::from_utf8_lossy(
+                disk.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(disk),
+            ))),
         )
         .unwrap();
     assert!(

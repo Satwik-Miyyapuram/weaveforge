@@ -380,7 +380,8 @@ impl SharedDocStore for MemoryStore {
                     .lock()
                     .map_err(|_| "store lock poisoned".to_owned())?;
                 *next += 1;
-                format!("grant-{}", *next)
+                // UUID-shaped, as Postgres makes them: the revoke route refuses any other id.
+                format!("00000000-0000-4000-8000-{:012x}", *next)
             };
             let row = GrantRow {
                 id,
