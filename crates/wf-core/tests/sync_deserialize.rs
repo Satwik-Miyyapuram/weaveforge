@@ -364,6 +364,29 @@ fn stamped_file_parses_back_as_that_entity() {
 }
 
 #[test]
+fn a_file_id_nothing_stores_is_created_under_the_file_id_beside_another_entity() {
+    // The stored entity at this path is n2; the file declares n1. The id comes from
+    // the file, so n1 is created as declared and the stored n2 is not matched to it.
+    let stored = vec![existing(
+        "n2",
+        WorkspaceEntityType::VaultPage,
+        "Method",
+        "stored body",
+    )];
+    let parsed = vec![note_entity(
+        Some("n1"),
+        "Method",
+        "file body",
+        "notes/n1.note.md",
+    )];
+    let diff = diff_workspace(&parsed, &stored, None);
+
+    assert_eq!(diff.entries[0].action, ImportAction::Created);
+    assert_eq!(diff.entries[0].entity.id.as_deref(), Some("n1"));
+    assert_eq!(diff.counts.created, 1);
+}
+
+#[test]
 fn a_folder_edit_is_an_update() {
     let diff = diff_with_side(&[folder_note()], &stored(), ChangeSide::Folder);
 
