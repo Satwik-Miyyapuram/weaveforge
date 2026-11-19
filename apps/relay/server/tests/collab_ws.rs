@@ -26,6 +26,7 @@ use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http::HeaderValue;
 use tokio_tungstenite::tungstenite::{self, Message};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
+use wf_core::sync::instant::format_instant;
 use wf_relay_server::collab::hub::{self, Hub};
 use wf_relay_server::collab::protocol::update_frame;
 use wf_relay_server::collab::store::{
@@ -46,6 +47,8 @@ const ITEM: &str = "doc-item";
 const Q1: &str = "?epoch=1&format=1";
 const RECV: Duration = Duration::from_secs(5);
 const PERSIST: Duration = Duration::from_millis(50);
+/// The idle-socket grant timer for tests that do not exercise it (it never fires in a test).
+const GRANT_CHECK_IDLE: Duration = Duration::from_secs(3600);
 const LEASE_MS: i64 = 90_000;
 const START_MS: i64 = 1_000_000;
 
@@ -101,6 +104,7 @@ fn build_state(
     dir: &Path,
     store: Arc<dyn SharedDocStore>,
     persist_every: Duration,
+    grant_check_every: Duration,
 ) -> Arc<CollabState> {
     Arc::new(CollabState {
         config: CollabConfig {
@@ -108,6 +112,7 @@ fn build_state(
             persist_every,
             lease_ms: LEASE_MS,
             grant_cache_ms: 0,
+            grant_check_every,
         },
         store,
         auth: Arc::new(Tokens(HashMap::from([
@@ -128,7 +133,17 @@ struct Relay {
 
 impl Relay {
     async fn start(dir: &Path, store: Arc<dyn SharedDocStore>, persist_every: Duration) -> Self {
-        let state = build_state(dir, store, persist_every);
+        Self::start_with(dir, store, persist_every, GRANT_CHECK_IDLE).await
+    }
+
+    /// Like `start`, with idle sockets re-reading their grant every `grant_check_every`.
+    async fn start_with(
+        dir: &Path,
+        store: Arc<dyn SharedDocStore>,
+        persist_every: Duration,
+        grant_check_every: Duration,
+    ) -> Self {
+        let state = build_state(dir, store, persist_every, grant_check_every);
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
         let port = listener.local_addr().expect("local addr").port();
         let app = routes::router(state.clone());
@@ -760,6 +775,47 @@ async fn ws_revoke_rechecks_only_affected_rooms() {
     // A grant on ITEM does not touch OTHER's room: it must not be rechecked.
     let quiet = tokio::time::timeout(Duration::from_millis(500), recv_text(&mut other)).await;
     assert!(quiet.is_err(), "unrelated room was rechecked: {quiet:?}");
+}
+
+/// An idle socket (no frames sent) is told `revoked` and closed once its grant lapses: only the
+/// grant timer can notice, because nothing else reaches the room.
+#[tokio::test]
+async fn ws_idle_socket_closes_when_grant_lapses() {
+    let dir = TempDir::new("grant-lapse");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    // Store expiry is wall-clock time, so the grant lapses about a second from now.
+    let now_ms = i64::try_from(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("after epoch")
+            .as_millis(),
+    )
+    .expect("fits in i64");
+    let grant = NewGrant {
+        owner: OWNER.to_owned(),
+        scope: "item".to_owned(),
+        target_id: ITEM.to_owned(),
+        grantee_user: GUEST.to_owned(),
+        permission: Permission::Edit,
+        expires_at: Some(format_instant(now_ms + 1_000)),
+    };
+    store.create_grant(&grant).await.expect("create grant");
+    let relay = Relay::start_with(
+        dir.path(),
+        store.clone(),
+        PERSIST,
+        Duration::from_millis(50),
+    )
+    .await;
+
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+    let denied = expect_json(&mut guest, "denied").await;
+    assert_eq!(denied["reason"], "revoked");
+    expect_close(&mut guest).await;
 }
 
 #[tokio::test]

@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, Query, State};
@@ -29,6 +30,8 @@ enum Next {
     Frame(Option<Result<Message, axum::Error>>),
     /// An event from the room.
     Event(Result<Event, broadcast::error::RecvError>),
+    /// The grant timer fired: the client's access is re-read even if it sent nothing.
+    GrantCheck,
 }
 
 /// One connected client's view of the document.
@@ -231,10 +234,16 @@ async fn pump(
     socket: &mut WebSocket,
     rx: &mut broadcast::Receiver<Event>,
 ) {
+    // A zero period would panic in `interval`; the floor only guards a misconfiguration.
+    let period = state.config.grant_check_every.max(Duration::from_millis(1));
+    let mut grant_timer = tokio::time::interval(period);
+    // The first tick is immediate, and the grant was just checked at join: skip it.
+    let _ = grant_timer.tick().await;
     loop {
         let next = tokio::select! {
             frame = socket.recv() => Next::Frame(frame),
             event = rx.recv() => Next::Event(event),
+            _ = grant_timer.tick() => Next::GrantCheck,
         };
         let keep_going = match next {
             Next::Frame(Some(Ok(message))) => {
@@ -244,6 +253,7 @@ async fn pump(
             Next::Event(Ok(event)) => on_event(state, room, client, socket, event).await,
             Next::Event(Err(broadcast::error::RecvError::Lagged(_))) => true,
             Next::Event(Err(broadcast::error::RecvError::Closed)) => false,
+            Next::GrantCheck => recheck(state, room, client, socket).await,
         };
         if !keep_going {
             break;
