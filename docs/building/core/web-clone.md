@@ -24,8 +24,11 @@ storage (OPFS), so it works on the same files as the desktop app.
 4. `pull()` takes in the remote's changes, file by file:
    - changed only there: take theirs (an unopened file stays unopened);
    - changed on both sides: the remote text stays at the path, the web text is written beside it
-     as `<name>.conflict-<YYYYMMDDTHHMMSSZ>.<ext>` (the desktop's `conflict_copy_path` name),
-     with `-2`, `-3` added when that name is taken;
+     as `<name>.conflict-<YYYYMMDDTHHMMSSZ>.<ext>`, with `-2`, `-3` added when that name is taken.
+     The extension is the whole type for `.ink.md` and `.annotations.json`
+     (`foo.conflict-<stamp>.ink.md`), else the last dot;
+   - before a file is written, its local text is hashed again: an editor save made while the bytes
+     were being fetched is kept, and the remote text goes to a conflict copy instead;
    - deleted there, edited here: the file stays, as a new local file;
    - deleted here, changed there: the remote file comes back.
 5. `push(message)` makes one commit on top of the manifest's head: blobs (`POST /git/blobs`), a
@@ -34,6 +37,9 @@ storage (OPFS), so it works on the same files as the desktop app.
    on: the push returns `behind` and nothing is changed locally.
 6. `sync(message)` pulls, pushes, and on `behind` pulls and pushes once more, then gives up with an
    error. Nothing is ever reset or force-pushed.
+7. Pulls, pushes, fetches and manifest writes run under one lock per workspace
+   (`weaveforge-web-clone:<lockName>` via `navigator.locks`, else an in-tab queue), so two tabs
+   never interleave on the manifest.
 
 Shared-item files are left out of pushes unless this tab holds the write-back lease (D-8a): the
 `isShared` and `leaseHeld` options. The lease protocol itself is not built yet.
