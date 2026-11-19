@@ -44,8 +44,8 @@ export function tldrawPenOptions(
   return {
     size: highlighter ? width : width / (2 * PEN_EASING(0.5)),
     thinning: highlighter ? 0 : 0.62,
-    streamline: 0.62,
-    smoothing: 0.62,
+    streamline: 0.5,
+    smoothing: 0.5,
     simulatePressure,
     easing: PEN_EASING,
     last,

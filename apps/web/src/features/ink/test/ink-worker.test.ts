@@ -660,3 +660,57 @@ test("live ink only grows: drawn points never move, and lifting the pen changes 
   ]).flat();
   assert.deepEqual(committed, frames[frames.length - 1], "the saved stroke is the last live frame");
 });
+
+/** A dense wavy line, sampled as a pen does: about one sample every 2 px. */
+function denseWave(): { points: number[]; pressures: number[] } {
+  const points: number[] = [];
+  const pressures: number[] = [];
+  for (let i = 0; i <= 240; i += 1) {
+    const t = i / 240;
+    points.push(100 + t * 400 + 7 * Math.cos(t * 40), 300 + 9 * Math.sin(t * 40));
+    pressures.push(128);
+  }
+  return { points, pressures };
+}
+
+/** As `fresh`, but with the renderer named, as the page's init does. */
+function freshWith(inkRenderer: "freehand" | "classic"): void {
+  posted.length = 0;
+  send({
+    type: "init",
+    canvas: null,
+    width: 400,
+    height: 600,
+    dpr: 1,
+    mode: "clone",
+    codec: "identity",
+    inkRenderer,
+  });
+  send({ type: "load-page", pageIndex: 0, chunk: null });
+}
+
+test("freehand draws every real sample live: no simplification while the pen is down", () => {
+  const { points, pressures } = denseWave();
+  const stroke = newLiveStroke(header(), true);
+  appendSamples(stroke, batch(points, pressures.map((p) => p / 255)));
+  const live = liveForRenderer(stroke);
+  assert.equal(live.realCount, 241, "all 241 digitiser samples are drawn");
+  assert.deepEqual(
+    Array.from(live.x.subarray(0, 241)),
+    points.filter((_, i) => i % 2 === 0).map(Math.fround),
+  );
+});
+
+test("freehand saves every real sample on lift; classic still simplifies the same stroke", () => {
+  const { points, pressures } = denseWave();
+  const b = batch(points, pressures.map((p) => p / 255));
+
+  freshWith("freehand");
+  stroke(b.buffer, b.count);
+  assert.equal(last("stroke-committed").points.length / 2, 241, "freehand saves all 241 samples");
+
+  fresh();
+  stroke(b.buffer, b.count);
+  const classic = last("stroke-committed").points.length / 2;
+  assert.ok(classic < 241, `classic packs the stroke (${classic} points kept of 241)`);
+});

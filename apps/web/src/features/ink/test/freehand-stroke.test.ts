@@ -146,3 +146,9 @@ test("a highlighter keeps its full width at the thin end; a pen thins there", ()
   assert.ok(highlighter.every((y) => y >= WIDTH / 2 - 0.05), "highlighter half-width stays at WIDTH / 2");
   assert.ok(pen.some((y) => y < WIDTH / 2 - 0.5), "pen half-width thins under pressure");
 });
+
+test("the freehand pen keeps streamline and smoothing at 0.5, close to tldraw, so corners stay sharp", () => {
+  const options = tldrawPenOptions(WIDTH, true, false);
+  assert.equal(options.streamline, 0.5);
+  assert.equal(options.smoothing, 0.5);
+});

@@ -208,17 +208,39 @@ export interface LiveStroke {
   realSamples: number;
   /** Samples arrived since the renderer last got this stroke; a frame without new ones repacks nothing (19-09). */
   changed: boolean;
-  /** The real samples, packed as they arrive: what is drawn and what is saved. */
+  /** The real samples, packed as they arrive: what is drawn and what is saved, unless `raw`. */
   packer: LiveInkStrokePacker;
+  /**
+   * Freehand keeps every real sample, drawn and saved, so the outline has the
+   * pen's own density. Classic keeps what the packer simplifies to.
+   */
+  raw: boolean;
 }
+
+/**
+ * Above this many points a stroke is saved packed, as the page format holds at most
+ * this many per stroke (the Rust `INK_STROKE_MAX_POINTS`).
+ */
+const RAW_STROKE_MAX_POINTS = 65_535;
 
 /** What the live packer holds so far, as plain arrays. */
 function packedSoFar(packer: LiveInkStrokePacker): PackedInkStroke {
   return { points: Array.from(packer.points()), pressures: Array.from(packer.pressures()) };
 }
 
+/** The real samples as the stroke keeps them: every one if `raw`, else what the packer kept. */
+function realSoFar(stroke: LiveStroke): PackedInkStroke {
+  if (stroke.raw && stroke.realSamples <= RAW_STROKE_MAX_POINTS) {
+    return {
+      points: stroke.points.slice(0, stroke.realSamples * 2),
+      pressures: stroke.pressures.slice(0, stroke.realSamples),
+    };
+  }
+  return packedSoFar(stroke.packer);
+}
+
 /** A stroke the pen has just put down, with nothing in it yet. */
-export function newLiveStroke(header: InkStrokeHeader): LiveStroke {
+export function newLiveStroke(header: InkStrokeHeader, raw = false): LiveStroke {
   return {
     header,
     points: [],
@@ -226,6 +248,7 @@ export function newLiveStroke(header: InkStrokeHeader): LiveStroke {
     realSamples: 0,
     changed: true,
     packer: typedCore().createInkStrokePacker({ tolerance: INK_PACK_TOLERANCE }),
+    raw,
   };
 }
 
@@ -332,7 +355,7 @@ function replacePredictedTail(
  */
 export function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
   const real = stroke.realSamples;
-  const { points, pressures } = packedSoFar(stroke.packer);
+  const { points, pressures } = realSoFar(stroke);
   const realCount = points.length / 2;
   const tail = stroke.points.length / 2 - real;
   const count = realCount + tail;
@@ -365,7 +388,7 @@ function commitStroke(stroke: LiveStroke): void {
   let rawPressures: readonly number[] = stroke.pressures.slice(0, real);
   let shape: InkShape = "none";
   // What was drawn live is what is saved, unless the mark is replaced below.
-  let packed = packedSoFar(stroke.packer);
+  let packed = realSoFar(stroke);
   if (stroke.header.tool === "shape") {
     // The shape tool snaps on lift (§6.3): the mark is fitted here, once, and what
     // is stored is the fitted path with a flat pressure, so a rectangle is a
@@ -605,7 +628,7 @@ function handleMessage(message: InkWorkerMessage): void {
         void loadPage(state, message, post).then(ensureLoop);
         break;
       case "stroke-begin": {
-        state.live = newLiveStroke(message.header);
+        state.live = newLiveStroke(message.header, state.inkRenderer === "freehand");
         appendSamples(state.live, message.sample);
         ensureLoop();
         break;
