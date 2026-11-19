@@ -18,6 +18,7 @@ mod cmd_ink;
 mod cmd_tools;
 mod cmd_vault;
 mod commands;
+mod device_settings;
 mod git;
 mod github_connect;
 mod ink;

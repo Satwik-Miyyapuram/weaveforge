@@ -42,6 +42,13 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `readyCore()` throws until `loadCore()` has resolved, so call it only after
 the core has loaded.
 
+The desktop shell reads and patches the device settings file with the
+`device_settings_read` and `device_settings_patch` commands
+(`apps/shell/src/device_settings.rs`). Both take and return JSON object text. A
+missing file reads as `{}`. A patch goes through `apply_patch` and
+`render_settings`, so a secret is refused, and it writes only over the file it
+read, so a corrupt file is never overwritten (`apps/shell/tests/device_settings.rs`).
+
 ## What stays in TypeScript, and why
 
 - **Persistence and use cases.** Loading and saving settings and credentials

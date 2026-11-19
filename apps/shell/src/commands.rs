@@ -266,6 +266,8 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::secrets::secret_read,
         crate::secrets::secret_write,
         crate::secrets::secret_clear,
+        crate::device_settings::device_settings_read,
+        crate::device_settings::device_settings_patch,
         crate::cmd_files::file_write,
         crate::cmd_files::file_write_bytes,
         crate::cmd_files::file_delete,

@@ -224,7 +224,7 @@ pub fn build_index(vault: &Vault) -> IndexStore {
 }
 
 /// Runs `job` with the chosen folder's vault in a blocking task.
-async fn on_vault<T, F>(state: &VaultState, job: F) -> Result<T, ShellError>
+pub(crate) async fn on_vault<T, F>(state: &VaultState, job: F) -> Result<T, ShellError>
 where
     T: Send + 'static,
     F: FnOnce(&Vault) -> Result<T, String> + Send + 'static,
