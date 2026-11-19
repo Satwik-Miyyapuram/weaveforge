@@ -62,3 +62,14 @@ fn base_store_replaces_and_removes() {
     assert!(!store.remove("item-1").unwrap());
     assert_eq!(store.get("item-1").unwrap(), None);
 }
+
+#[test]
+fn base_store_set_reports_a_failed_write() {
+    let dir = TempDir::new();
+    let store = BaseStore::open(dir.path()).unwrap();
+    // Another connection drops the table under the open store, so the next write must fail.
+    let other =
+        rusqlite::Connection::open(dir.path().join(".weaveforge/local/bases.sqlite")).unwrap();
+    other.execute_batch("DROP TABLE bases").unwrap();
+    assert!(store.set("item-1", "hello", None).is_err());
+}
