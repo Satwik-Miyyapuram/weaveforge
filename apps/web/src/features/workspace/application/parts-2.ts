@@ -19,6 +19,9 @@ import {
 } from "@weaveforge/core";
 
 // --- folder-mirror ---
+/** A mirror run's result, plus the record of path -> DB digest that the next run in this session compares against. */
+export type WebMirrorResult = MirrorResult & { readonly served: Readonly<Record<string, string>> };
+
 /**
  * Keeping the folder in step with the database, with the decisions made in Rust.
  *
@@ -79,10 +82,10 @@ async function keepClaimedCanvasIds(
 }
 
 /**
- * Write a snapshot to the folder, removing files that no longer belong. Same contract
- * as the TS `mirrorWorkspace` it replaces: unchanged files are not rewritten, a file the
- * reader edited since the last run is held back, and only paths the last run wrote can
- * be removed.
+ * Write a snapshot to the folder. Sync never removes a file. An existing file is rewritten
+ * only when its item changed in the app during this session (`seen` is the record of what
+ * this session last mirrored); unchanged files are kept byte-for-byte, and a file the
+ * reader edited since the last run is held back.
  */
 export async function mirrorWorkspace(
   core: RustCore,
@@ -91,8 +94,11 @@ export async function mirrorWorkspace(
   options: {
     /** The project this snapshot belongs to; every path is inside its folder. */
     project: WorkspaceProject;
-    /** Paths written by the previous run, so departures can be detected. */
-    previousPaths?: readonly string[];
+    /**
+     * path -> digest of the DB content as this session last mirrored it. Absent on the first
+     * run after start, after a DB replace, and after an import: nothing existing is rewritten then.
+     */
+    seen?: Readonly<Record<string, string>>;
     /** The digest of each path the last run wrote, from the project's manifest. */
     base?: Readonly<Record<string, string>>;
     /** Fetch a blob for an asset the folder references. */
@@ -104,7 +110,7 @@ export async function mirrorWorkspace(
      */
     extraFiles?: Readonly<Record<string, string>>;
   },
-): Promise<MirrorResult> {
+): Promise<WebMirrorResult> {
   const serializedWorkspace = await keepClaimedCanvasIds(
     fs,
     core,
@@ -126,30 +132,33 @@ export async function mirrorWorkspace(
   }
   const files = Object.fromEntries(Object.entries(serialized.files).filter(([path]) => !held.includes(path)));
   const { assets } = serialized;
-  const previousPaths = (options.previousPaths ?? []).filter((path) => !held.includes(path));
 
-  // The plan reads every file it may write, and a departed file only when a base digest
-  // could make it a reader's edit; nothing else.
-  const present = new Set([...Object.keys(files), ...assets.map((asset) => asset.folderPath)]);
-  const departedWithBase = previousPaths.filter(
-    (path) => !present.has(path) && base !== undefined && Object.hasOwn(base, path),
-  );
+  // The plan reads every file it may write, and nothing else. There are no removals to read for.
   // No prototype, so a path can never collide with an inherited key.
   const disk: Record<string, string> = Object.create(null);
-  for (const path of [...Object.keys(files), ...departedWithBase]) {
+  for (const path of Object.keys(files)) {
     const text = await fs.readText(path).catch(() => null);
     if (text !== null) disk[path] = text;
   }
 
-  const plan = core.planMirror({ ...serialized, files }, previousPaths, base, disk);
+  const plan = core.planMirror({ ...serialized, files }, options.seen, base, disk);
 
-  const written = [...plan.written];
+  const written: string[] = [];
+  const changedSincePlan: string[] = [];
   for (const path of plan.written) {
+    // The plan read the folder before this write. A file that changed since then (a reader,
+    // a pull, another app) is not overwritten; the next run decides from what is on disk now.
+    const now = await fs.readText(path).catch(() => null);
+    if (now !== (disk[path] ?? null)) {
+      changedSincePlan.push(path);
+      continue;
+    }
     const dir = parentDir(path);
     if (dir) await fs.mkdirp(dir);
     // The canvas id map is read on every import; a torn write would hold every canvas.
     if (path.endsWith("/canvas-ids.json")) await writeTextAtomic(fs, path, files[path] ?? "");
     else await fs.writeFile(path, files[path] ?? "");
+    written.push(path);
   }
 
   let unchanged = plan.unchanged;
@@ -170,9 +179,6 @@ export async function mirrorWorkspace(
     }
   }
 
-  // Best-effort: a file already gone is the outcome asked for.
-  for (const path of plan.removed) await fs.remove(path).catch(() => undefined);
-
   // This project's entries not held this run were settled: put back, or deleted in the app.
   const root = core.projectDir(options.project);
   const stillPulled = [...pulledDeletes].filter((path) => held.includes(path) || !path.startsWith(`${root}/`));
@@ -181,6 +187,11 @@ export async function mirrorWorkspace(
   // A held path keeps its base, so the folder watcher reads it as removed and the review offers it.
   const mirrored: Record<string, string> = Object.fromEntries(plan.mirrored);
   for (const path of held) mirrored[path] = base?.[path] ?? "";
+  // A file that changed since the plan was not written: it keeps its last base, so the next run compares it again.
+  for (const path of changedSincePlan) {
+    if (base?.[path] === undefined) delete mirrored[path];
+    else mirrored[path] = base[path];
+  }
   return {
     written,
     removed: plan.removed,
@@ -188,6 +199,8 @@ export async function mirrorWorkspace(
     heldBack: [...plan.heldBack, ...held],
     mirrored,
     bases: Object.fromEntries(plan.bases),
+    // The record the next run in this session compares against: every path and its DB digest.
+    served: Object.fromEntries(plan.served),
   };
 }
 

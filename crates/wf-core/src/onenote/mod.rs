@@ -56,8 +56,8 @@ pub fn freeform_page_text(
     freeform_canvas(&items, files, &strokes)
 }
 
-/// Largest `.one` input accepted, in bytes.
-pub const ONENOTE_MAX_BYTES: usize = 64 * 1024 * 1024;
+/// Largest `.one` input accepted, in bytes (512 MiB; larger sections were refused, #699).
+pub const ONENOTE_MAX_BYTES: usize = 512 * 1024 * 1024;
 /// Largest embedded image copied into the import, in bytes.
 const IMAGE_MAX_BYTES: u64 = 20 * 1024 * 1024;
 
@@ -140,9 +140,14 @@ pub struct OneNoteImage {
     pub base64: String,
 }
 
+/// Whether a `.one` input of `len` bytes is over the size cap.
+fn too_large(len: u64) -> bool {
+    len > ONENOTE_MAX_BYTES as u64
+}
+
 /// Parses a `.one` section into pages; `file_name` is only used in messages.
 pub fn import_section(bytes: &[u8], file_name: &str) -> Result<OneNoteSection, String> {
-    if bytes.len() > ONENOTE_MAX_BYTES {
+    if too_large(bytes.len() as u64) {
         return Err(format!(
             "OneNote section is larger than {} MiB",
             ONENOTE_MAX_BYTES / (1024 * 1024)
@@ -796,6 +801,13 @@ mod tests {
         LayoutKind, OneNoteBackground, OneNoteInkPage, OneNoteLayoutItem, freeform_page_text,
     };
     use std::collections::BTreeMap;
+
+    #[test]
+    fn size_cap_accepts_100_mib_and_refuses_513_mib() {
+        use super::too_large;
+        assert!(!too_large(100 * 1024 * 1024));
+        assert!(too_large(513 * 1024 * 1024));
+    }
 
     #[test]
     fn freeform_page_text_places_layout_items_and_reads_back() {

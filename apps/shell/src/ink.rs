@@ -268,12 +268,16 @@ pub struct InkOptions {
 #[must_use]
 pub fn process_spawner(on_stderr: Arc<dyn Fn(&str) + Send + Sync>) -> Spawner {
     Arc::new(move |path: &Path| -> io::Result<HelperIo> {
-        let mut child = Command::new(path)
+        let mut command = Command::new(path);
+        let _ = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .kill_on_drop(true)
-            .spawn()?;
+            .kill_on_drop(true);
+        // The helper is a console exe; without this Windows opens a console window for it (#700).
+        #[cfg(windows)]
+        let _ = command.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
+        let mut child = command.spawn()?;
         if let Some(stderr) = child.stderr.take() {
             drop(tokio::spawn(forward_stderr(stderr, Arc::clone(&on_stderr))));
         }

@@ -119,6 +119,35 @@ fn write_expecting_absent_creates_only_when_still_absent() {
 }
 
 #[test]
+fn create_only_write_never_replaces_a_file_that_appears_in_the_window() {
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    let path = at(&dir, "late.md");
+    // The file is missing at check time and appears between the temp write and the swap.
+    let outcome = vault
+        .write_checked_with_hook(
+            "late.md",
+            b"mine",
+            true,
+            Some(""),
+            &mut || {
+                fs::write(&path, "DISK").unwrap();
+            },
+            &mut || {},
+        )
+        .unwrap();
+    assert_eq!(
+        outcome,
+        WriteOutcome::Changed {
+            disk_hash: canonical_digest("DISK")
+        }
+    );
+    assert_eq!(fs::read_to_string(at(&dir, "late.md")).unwrap(), "DISK");
+    // Nothing else is left behind: no temp, no `.wfprev`, no conflict copy.
+    assert_eq!(names_containing(dir.path(), ""), vec!["late.md".to_owned()]);
+}
+
+#[test]
 fn file_write_bytes_checked_changed() {
     let dir = TempDir::new();
     let vault = vault_in(&dir);
@@ -147,9 +176,16 @@ fn file_write_rename_window_displaced_copy() {
     };
     let path = at(&dir, "v.md");
     let outcome = vault
-        .write_checked_with_hook("v.md", b"v3", true, Some(h1.as_str()), &mut || {
-            fs::write(&path, "v2 from other").unwrap();
-        })
+        .write_checked_with_hook(
+            "v.md",
+            b"v3",
+            true,
+            Some(h1.as_str()),
+            &mut || {
+                fs::write(&path, "v2 from other").unwrap();
+            },
+            &mut || {},
+        )
         .unwrap();
     assert!(matches!(outcome, WriteOutcome::Written { .. }));
     assert_eq!(fs::read_to_string(at(&dir, "v.md")).unwrap(), "v3");
@@ -380,4 +416,94 @@ fn bytes_write_expecting_absent_never_overwrites() {
         }
     );
     assert_eq!(fs::read(at(&dir, "copy.conflict.md")).unwrap(), b"OTHER");
+}
+
+#[test]
+fn replace_write_refuses_when_another_process_replaces_the_file_after_make_prev() {
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    let WriteOutcome::Written { hash: h1 } = vault.write_text_checked("w.md", "v1", None).unwrap()
+    else {
+        panic!("first write should succeed");
+    };
+    let path = at(&dir, "w.md");
+    let other = at(&dir, "w.other");
+    // Another process writes its own file and renames it over the target after `.wfprev` was
+    // made, so the target is a new file that the rename of this write would silently replace.
+    let outcome = vault
+        .write_checked_with_hook(
+            "w.md",
+            b"v3",
+            true,
+            Some(h1.as_str()),
+            &mut || {},
+            &mut || {
+                fs::write(&other, "v2 from other").unwrap();
+                fs::rename(&other, &path).unwrap();
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        outcome,
+        WriteOutcome::Changed {
+            disk_hash: canonical_digest("v2 from other")
+        }
+    );
+    // The other process's bytes survive, and the refused write leaves no temp or `.wfprev`.
+    assert_eq!(fs::read_to_string(&path).unwrap(), "v2 from other");
+    assert_eq!(names_containing(dir.path(), ""), vec!["w.md".to_owned()]);
+}
+
+/// Put `disk` on disk, save `text` over it expecting `disk`, and return the bytes now on disk.
+fn save_over(name: &str, disk: &[u8], text: &str) -> Vec<u8> {
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    put(&at(&dir, name), disk);
+    let outcome = vault
+        .write_text_checked(
+            name,
+            text,
+            Some(&canonical_digest(&String::from_utf8_lossy(disk))),
+        )
+        .unwrap();
+    assert!(
+        matches!(outcome, WriteOutcome::Written { .. }),
+        "{outcome:?}"
+    );
+    fs::read(at(&dir, name)).unwrap()
+}
+
+#[test]
+fn save_keeps_crlf_and_rewrites_only_the_changed_line() {
+    let out = save_over("crlf.md", b"a\r\nb\r\nc\r\n", "a\nB\nc\n");
+    assert_eq!(out, b"a\r\nB\r\nc\r\n");
+}
+
+#[test]
+fn save_without_changes_leaves_crlf_bytes_untouched() {
+    let out = save_over("same.md", b"a\r\nb\r\n", "a\nb\n");
+    assert_eq!(out, b"a\r\nb\r\n");
+}
+
+#[test]
+fn save_keeps_a_byte_order_mark() {
+    let out = save_over("bom.md", b"\xEF\xBB\xBFa\nb\n", "a\nc\n");
+    assert_eq!(out, b"\xEF\xBB\xBFa\nc\n");
+}
+
+#[test]
+fn save_keeps_nfd_bytes_of_unchanged_lines() {
+    let disk = "cafe\u{301}\nx\n".as_bytes();
+    let out = save_over("nfd.md", disk, "caf\u{e9}\ny\n");
+    assert_eq!(out, "cafe\u{301}\ny\n".as_bytes());
+}
+
+#[test]
+fn save_of_a_new_file_writes_the_text_as_given() {
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    let _ = vault
+        .write_text_checked("new.md", "a\nb\n", Some(""))
+        .unwrap();
+    assert_eq!(fs::read(at(&dir, "new.md")).unwrap(), b"a\nb\n");
 }

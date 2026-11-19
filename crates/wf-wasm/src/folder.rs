@@ -251,36 +251,31 @@ pub fn add_counts_js(
 }
 
 /// [`wf_core::sync::folder_mirror::plan_mirror`] for JS: what mirroring `serialized` into the
-/// folder would do, without touching it. `disk` holds the folder's text for every file path and
-/// for every previous path that is not present but has a `base` entry; a missing key is a
-/// missing file. Assets are not fetched: their folder paths only count as present, so they are
-/// never removed. Returns the `MirrorResult` (`mirrored` and `bases` as `[path, value][]`).
+/// folder would do, without touching it. `seen` is the in-session record (path -> digest) from
+/// the previous mirror of this process, or `undefined` on the first mirror after start.
+/// `disk` holds the folder's text for every file path; a missing key is a missing file.
+/// Sync never deletes, so there are no removals. Returns the `MirrorResult` (`mirrored`,
+/// `bases` and `served` as `[path, value][]`).
 ///
 /// # Errors
 ///
 /// Fails when an argument has the wrong shape.
 #[wasm_bindgen(js_name = planMirror, unchecked_return_type = "B.MirrorResult")]
 pub fn plan_mirror_js(
-    #[wasm_bindgen(
-        unchecked_param_type = "{ files: Readonly<Record<string, string>>; assets: readonly B.SerializedAsset[] }"
-    )]
+    #[wasm_bindgen(unchecked_param_type = "{ files: Readonly<Record<string, string>> }")]
     serialized: &JsValue,
-    #[wasm_bindgen(unchecked_param_type = "readonly string[]")] previous_paths: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>> | undefined")]
+    seen: JsValue,
     #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>> | undefined")]
     base: JsValue,
     #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>>")] disk: JsValue,
 ) -> Result<JsValue, JsValue> {
     let files = Object::entries(get(serialized, "files")?.unchecked_ref());
-    let asset_paths: Array = Array::from(&get(serialized, "assets")?)
-        .iter()
-        .map(|asset| get(&asset, "folderPath"))
-        .collect::<Result<_, _>>()?;
     let files: Vec<(String, String)> = serde_wasm_bindgen::from_value(files.into())?;
-    let asset_paths: Vec<String> = serde_wasm_bindgen::from_value(asset_paths.into())?;
-    let previous_paths: Vec<String> = serde_wasm_bindgen::from_value(previous_paths)?;
+    let seen: Option<HashMap<String, String>> = serde_wasm_bindgen::from_value(seen)?;
     let base: Option<HashMap<String, String>> = serde_wasm_bindgen::from_value(base)?;
     let disk: HashMap<String, String> = serde_wasm_bindgen::from_value(disk)?;
-    let plan = plan_mirror(&files, &asset_paths, &previous_paths, base.as_ref(), &disk)
+    let plan = plan_mirror(&files, seen.as_ref(), base.as_ref(), &disk)
         .map_err(|err| serde_wasm_bindgen::Error::new(err.to_string()))?;
     Ok(to_js(&plan)?)
 }

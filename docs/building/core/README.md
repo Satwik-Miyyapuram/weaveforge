@@ -48,6 +48,7 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [puller_plan](puller_plan.md) | Pull decisions for the offline-sync Puller: page summary, apply and tombstone steps, unique-clash parsing. |
 | [vault](vault.md) | Vault (notes) domain rules. |
 | [page_query](page_query.md) | Vault page query text for PostgREST: LIKE and PostgREST escaping, title ILIKE pattern, missing `body_preview` check. |
+| [web-clone](web-clone.md) | The web app's OPFS clone of the workspace repo: lazy blobs, fast-forward pushes, conflict copies, in-memory GitHub token. |
 | [workspace](workspace.md) | Workspace path rules shared by every adapter: relative, normalized, never leaving the root. |
 | [lexical_concepts](lexical_concepts.md) | Lexical concept extraction with no model: harvest, merge, rank and the `maxConcepts` cap. |
 | [model_extraction](model_extraction.md) | Model concept extraction: the prompt, batch limits, request builder and merge/cap. |

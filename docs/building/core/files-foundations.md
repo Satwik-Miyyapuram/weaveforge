@@ -17,8 +17,10 @@ write a file only if it still has the hash the caller read.
   files are hashed byte for byte.
 - The write goes to a temp file, is flushed to disk, and the old file is kept as a
   `.wfprev` hard link (a copy where links fail) before the rename. After the rename the
-  file is hashed again. If another program changed it in that short window, its text is
-  saved as a conflict copy, so nothing is lost.
+  file is hashed again. If another program changed it before the old file was kept, its
+  text is saved as a conflict copy. A write that lands between keeping the old file and the
+  rename is replaced and not kept (a known window; closing it needs a no-replace swap that
+  is not implemented yet), so "nothing is lost" holds only outside that window.
 - The result is `Written { hash }`, or `Changed { disk_hash }` when the file moved on.
   Nothing is written in that case; the caller merges and tries again.
 - A crash at any moment leaves the old or the new file, never half of one

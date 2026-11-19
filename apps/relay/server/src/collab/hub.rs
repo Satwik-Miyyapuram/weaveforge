@@ -65,6 +65,12 @@ pub struct Room {
     /// The item the document belongs to.
     pub item_id: String,
     /// The project the item belongs to, when it has one (project grants target it).
+    ///
+    /// Copied from the row when the room opens and not refreshed after that. The relay sets it at
+    /// seed and never changes it, so this only matters if the row's project is changed directly in
+    /// the database while the room is open: a revoke on the new project then does not push a
+    /// recheck to this room until it closes and reopens (update checks still read the row).
+    /// Item-level grants still reach it.
     pub project_id: Option<String>,
     /// The mutable state.
     pub inner: tokio::sync::Mutex<RoomInner>,

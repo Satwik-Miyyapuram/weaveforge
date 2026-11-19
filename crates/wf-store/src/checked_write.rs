@@ -6,6 +6,15 @@
 //! as a `.wfprev` sibling until the write is confirmed; if another process changed the file in
 //! the meantime, those bytes move to a conflict copy so nothing is lost. Deletes go to the
 //! workspace trash and renames never overwrite a file.
+//!
+//! On a file system with hard links, a create-only write (expected `Some("")` on a missing file)
+//! is linked into place with `hard_link`, which fails if the file appeared since the check, so it
+//! never replaces anything. Where linking fails, it takes the replace path below instead.
+//!
+//! Narrowed window: a replace write re-checks the hash after `.wfprev` is made and before the
+//! rename, and refuses if the file changed. A file another process writes between that re-check
+//! and the rename is still replaced, and its bytes are not kept. Closing that last gap needs a
+//! no-replace swap (renameat2 / MoveFileExW), which is not implemented.
 
 use std::ffi::OsString;
 use std::fs;
@@ -76,7 +85,7 @@ impl Vault {
         expected: Option<&str>,
     ) -> Result<WriteOutcome, VaultError> {
         let data = canonical_text(text);
-        self.write_checked_with_hook(rel, data.as_bytes(), true, expected, &mut || {})
+        self.write_checked_with_hook(rel, data.as_bytes(), true, expected, &mut || {}, &mut || {})
     }
 
     /// Write bytes to a file if it still matches `expected` (`None` writes unconditionally).
@@ -89,12 +98,13 @@ impl Vault {
         bytes: &[u8],
         expected: Option<&str>,
     ) -> Result<WriteOutcome, VaultError> {
-        self.write_checked_with_hook(rel, bytes, false, expected, &mut || {})
+        self.write_checked_with_hook(rel, bytes, false, expected, &mut || {}, &mut || {})
     }
 
-    /// [`Vault::write_text_checked`] and [`Vault::write_bytes_checked`] with a hook that runs
-    /// after the temp file is written and before it is swapped in; tests use it to simulate
-    /// another process editing the file in that window.
+    /// [`Vault::write_text_checked`] and [`Vault::write_bytes_checked`] with two hooks:
+    /// `before_swap` runs after the temp file is written, and `after_prev` runs after the replaced
+    /// bytes are kept as `.wfprev`, just before the re-check. Tests use them to simulate another
+    /// process editing the file in those windows.
     ///
     /// # Errors
     /// Refused paths, escapes, or any filesystem failure.
@@ -106,6 +116,7 @@ impl Vault {
         text: bool,
         expected: Option<&str>,
         before_swap: &mut dyn FnMut(),
+        after_prev: &mut dyn FnMut(),
     ) -> Result<WriteOutcome, VaultError> {
         let target = self.resolve(rel)?;
         let disk = read_disk(&target, rel)?;
@@ -116,16 +127,36 @@ impl Vault {
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent).map_err(|source| io_err("create folder", rel, source))?;
         }
+        let bytes = if text {
+            keep_disk_form(disk.as_deref(), data)
+        } else {
+            data.to_vec()
+        };
         let temp = temp_beside(&target);
-        if let Err(source) = write_temp(&temp, data) {
+        if let Err(source) = write_temp(&temp, &bytes) {
             let _ = fs::remove_file(&temp);
             return Err(io_err("write", rel, source));
         }
         before_swap();
-        // Best-effort window: a write by another process between `make_prev` and the rename
-        // below is replaced by the rename, and its bytes are not kept in `.wfprev`, which only
-        // holds what was on disk before. A no-replace swap (renameat2 / MoveFileExW) would
-        // close it; tracked as a PR follow-up (see the files-first notes in the PR body).
+        if disk.is_none() && expected == Some("") {
+            match fs::hard_link(&temp, &target) {
+                Ok(()) => {
+                    let _ = fs::remove_file(&temp);
+                    return written(&target, rel, text);
+                }
+                Err(source) if source.kind() == io::ErrorKind::AlreadyExists => {
+                    let _ = fs::remove_file(&temp);
+                    let now = read_disk(&target, rel)?;
+                    return Ok(WriteOutcome::Changed {
+                        disk_hash: now.map(|bytes| hash_of(&bytes, text)).unwrap_or_default(),
+                    });
+                }
+                // Any other link error (no hard-link support, a cross-device or permission
+                // failure) falls back to the replace path, which still checks first and keeps
+                // the window described in the module doc.
+                Err(_) => {}
+            }
+        }
         let prev = match make_prev(&target) {
             Ok(prev) => prev,
             Err(source) => {
@@ -133,6 +164,19 @@ impl Vault {
                 return Err(io_err("write", rel, source));
             }
         };
+        after_prev();
+        // Re-check right before the rename. A change since the first check is refused, and the
+        // bytes it left on disk are kept, not replaced. A write that lands after this re-check
+        // and before the rename is still replaced (module doc).
+        let now = read_disk(&target, rel)?;
+        if let Some(outcome) = check_expected(now.as_deref(), text, expected) {
+            let _ = fs::remove_file(&temp);
+            if let Some(prev) = prev {
+                let displaced = expected.unwrap_or_default();
+                let _ = self.settle_prev(rel, &prev, displaced, text);
+            }
+            return Ok(outcome);
+        }
         if let Err(source) = fs::rename(&temp, &target) {
             let _ = fs::remove_file(&temp);
             if let Some(prev) = &prev {
@@ -149,10 +193,7 @@ impl Vault {
             // as failed. The replaced bytes stay in `prev`, which is never deleted by a sweep.
             let _ = self.settle_prev(rel, &prev, &displaced, text);
         }
-        let now = fs::read(&target).map_err(|source| io_err("read", rel, source))?;
-        Ok(WriteOutcome::Written {
-            hash: hash_of(&now, text),
-        })
+        written(&target, rel, text)
     }
 
     /// Move a file into the workspace trash; returns the trashed path, relative to the root.
@@ -336,6 +377,95 @@ impl Vault {
         fs::rename(prev, &dest).map_err(|source| io_err("rename", rel, source))
     }
 }
+
+/// The outcome of a write that put the new bytes at `target`, with their digest read back.
+fn written(target: &Path, rel: &str, text: bool) -> Result<WriteOutcome, VaultError> {
+    let now = fs::read(target).map_err(|source| io_err("read", rel, source))?;
+    Ok(WriteOutcome::Written {
+        hash: hash_of(&now, text),
+    })
+}
+
+/// The bytes to write for a text save of `canonical` (LF, NFC). Where the file already exists,
+/// the lines the save did not change keep their stored bytes (line ending and Unicode form), and
+/// a byte order mark is kept, so a save rewrites only what changed. A new file, a file that is not
+/// UTF-8, or a change too large to align line by line gets the canonical text, with the file's
+/// line ending when there is one.
+fn keep_disk_form(disk: Option<&[u8]>, canonical: &[u8]) -> Vec<u8> {
+    const BOM: &[u8] = b"\xEF\xBB\xBF";
+    let Some(disk) = disk else {
+        return canonical.to_vec();
+    };
+    let (bom, body) = match disk.strip_prefix(BOM) {
+        Some(rest) => (BOM, rest),
+        None => (&[][..], disk),
+    };
+    let (Ok(old), Ok(new)) = (std::str::from_utf8(body), std::str::from_utf8(canonical)) else {
+        return canonical.to_vec();
+    };
+    let eol = if old.contains("\r\n") { "\r\n" } else { "\n" };
+    let old_lines: Vec<&str> = old.split_inclusive('\n').collect();
+    let new_lines: Vec<&str> = new.split_inclusive('\n').collect();
+    // A line matches when its canonical content and its line ending presence are the same.
+    let key = |line: &str| {
+        (
+            canonical_text(line.strip_suffix('\n').unwrap_or(line)),
+            line.ends_with('\n'),
+        )
+    };
+    let old_keys: Vec<_> = old_lines.iter().map(|line| key(line)).collect();
+    let new_keys: Vec<_> = new_lines.iter().map(|line| key(line)).collect();
+    let (n, m) = (old_keys.len(), new_keys.len());
+    if n.saturating_mul(m) > MAX_ALIGN_CELLS {
+        let mut out = bom.to_vec();
+        out.extend_from_slice(new.replace('\n', eol).as_bytes());
+        return out;
+    }
+    // Longest common subsequence of lines, from the end, so the walk below can go forwards.
+    let cell = |i: usize, j: usize| i * (m + 1) + j;
+    let mut lcs = vec![0u32; (n + 1) * (m + 1)];
+    for i in (0..n).rev() {
+        for j in (0..m).rev() {
+            lcs[cell(i, j)] = if old_keys[i] == new_keys[j] {
+                lcs[cell(i + 1, j + 1)] + 1
+            } else {
+                lcs[cell(i + 1, j)].max(lcs[cell(i, j + 1)])
+            };
+        }
+    }
+    let mut out = bom.to_vec();
+    let (mut i, mut j) = (0, 0);
+    while i < n && j < m {
+        if old_keys[i] == new_keys[j] {
+            out.extend_from_slice(old_lines[i].as_bytes());
+            i += 1;
+            j += 1;
+        } else if lcs[cell(i + 1, j)] >= lcs[cell(i, j + 1)] {
+            i += 1;
+        } else {
+            push_new_line(&mut out, new_lines[j], eol);
+            j += 1;
+        }
+    }
+    for line in &new_lines[j..] {
+        push_new_line(&mut out, line, eol);
+    }
+    out
+}
+
+/// Append a line of the new text with the file's line ending, or none when it has none.
+fn push_new_line(out: &mut Vec<u8>, line: &str, eol: &str) {
+    match line.strip_suffix('\n') {
+        Some(content) => {
+            out.extend_from_slice(content.as_bytes());
+            out.extend_from_slice(eol.as_bytes());
+        }
+        None => out.extend_from_slice(line.as_bytes()),
+    }
+}
+
+/// Largest line-alignment table `keep_disk_form` builds; beyond it the whole text is rewritten.
+const MAX_ALIGN_CELLS: usize = 4_000_000;
 
 /// The bytes without a leading UTF-8 byte order mark.
 fn strip_bom(bytes: &[u8]) -> &[u8] {
