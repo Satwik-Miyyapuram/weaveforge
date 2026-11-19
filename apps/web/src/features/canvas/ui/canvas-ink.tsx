@@ -2,7 +2,7 @@
 
 import { decodeStroke, type InkPoint, type InkStroke } from "../application/freeform-ink";
 import type { InkRendererKind } from "../../ink/render/freehand-stroke";
-import { excalidrawStrokeWidth, getFreeDrawSvgPath } from "../../ink/render/excalidraw-freedraw";
+import { inkFreedrawPath } from "../../ink/render/excalidraw-freedraw";
 
 /** The stroke's centre line as an SVG path, in page coordinates. A single point is drawn as a dot. */
 export function pathFor(points: readonly InkPoint[]): string {
@@ -18,8 +18,9 @@ function outlineStyle(colour: string): { fill: string; stroke: string } {
 
 /**
  * The stroke's drawn path. `classic` is the centre-line polyline; `freehand` is
- * Excalidraw's freedraw path (the verbatim copy in ink/render/excalidraw-freedraw),
- * so a sparse or jittered stroke reads as a curve. The stored points are not changed.
+ * Excalidraw's freedraw path with our OneNote-matched options (INK_FREEDRAW in
+ * ink/render/excalidraw-freedraw), so a sparse or jittered stroke reads as a
+ * curve. The stored points are not changed.
  */
 export function canvasStrokePath(
   points: readonly InkPoint[],
@@ -28,16 +29,16 @@ export function canvasStrokePath(
   renderer: InkRendererKind,
 ): string {
   if (renderer === "classic" || points.length < 2) return pathFor(points);
-  // Mouse input reports pressure 0.5 (stored as about 128): Excalidraw simulates pressure then.
+  // Mouse input reports pressure 0.5 (stored as about 128); a real pen uses its pressure.
   const simulatePressure = Math.abs((points[0]?.pressure ?? 0.5) - 0.5) <= 1 / 255;
-  return getFreeDrawSvgPath({
-    points: points.map((p) => [p.x, p.y]),
-    pressures: points.map((p) => p.pressure),
-    strokeWidth: excalidrawStrokeWidth(width),
+  return inkFreedrawPath(
+    points.map((p) => [p.x, p.y]),
+    points.map((p) => p.pressure),
+    width,
     simulatePressure,
     // Wet and settled take the same path, so the stroke does not change on release.
-    lastCommittedPoint: [0, 0],
-  });
+    true,
+  );
 }
 
 /** A stroke's classes: a highlighter is drawn translucent (pressure is stored, not drawn). */

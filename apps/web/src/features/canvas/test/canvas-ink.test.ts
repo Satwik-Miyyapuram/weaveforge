@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 
 import type { InkPoint, InkStroke } from "../application/freeform-ink";
 import { canvasStrokePath, pathFor, strokeClass } from "../ui/canvas-ink";
-import { excalidrawStrokeWidth, getFreeDrawSvgPath } from "../../ink/render/excalidraw-freedraw";
 
 const pen: InkStroke = { id: "s1", x: 0, y: 0, w: 2, c: "#000000", t: "pen", p: [0, 0] };
 
@@ -35,27 +34,15 @@ test("classic keeps the polyline exactly", () => {
   assert.equal(canvasStrokePath(pts, 2, "pen", "classic"), pathFor(pts));
 });
 
-/** Excalidraw's freedraw path for the same points at the mapped width, as the wiring must produce. */
-function excalidrawPath(pts: InkPoint[], width: number): string {
-  const simulate = Math.abs((pts[0]?.pressure ?? 0.5) - 0.5) <= 1 / 255;
-  return getFreeDrawSvgPath({
-    points: pts.map((p) => [p.x, p.y]),
-    pressures: pts.map((p) => p.pressure),
-    strokeWidth: excalidrawStrokeWidth(width),
-    simulatePressure: simulate,
-    lastCommittedPoint: [0, 0],
-  });
-}
-
-test("freehand is Excalidraw's freedraw path for the same points (2 px and 4 px)", () => {
-  const pts = circle(30, 40);
-  assert.equal(canvasStrokePath(pts, 2, "pen", "freehand"), excalidrawPath(pts, 2));
-  assert.equal(canvasStrokePath(pts, 4, "pen", "freehand"), excalidrawPath(pts, 4));
-});
-
-test("freehand uses real pen pressure when the first point is not the mouse midpoint", () => {
-  const pts = circle(30, 40).map((p, i) => ({ ...p, pressure: 0.2 + (i / 30) * 0.6 }));
-  assert.equal(canvasStrokePath(pts, 8, "pen", "freehand"), excalidrawPath(pts, 8));
+test("freehand real pen pressure sets the width: firm is wider than light, mid matches the mouse", () => {
+  const line = (pressure: number) => slowLine().map((p) => ({ ...p, pressure }));
+  const w = 8;
+  const light = meanWidth(canvasStrokePath(line(0.2), w, "pen", "freehand"), 200);
+  const firm = meanWidth(canvasStrokePath(line(0.8), w, "pen", "freehand"), 200);
+  const mid = meanWidth(canvasStrokePath(line(0.51), w, "pen", "freehand"), 200);
+  const mouse = meanWidth(canvasStrokePath(slowLine(), w, "pen", "freehand"), 200);
+  assert.ok(firm > 1.5 * light, `firm ${firm.toFixed(2)} vs light ${light.toFixed(2)}`);
+  assert.ok(Math.abs(mid - mouse) <= 0.15 * mouse, `pen mid ${mid.toFixed(2)} vs mouse ${mouse.toFixed(2)}`);
 });
 
 test("freehand closes with one straight segment (Excalidraw's Z) and draws curves", () => {
@@ -126,29 +113,64 @@ function meanWidth(d: string, length: number): number {
   return Math.abs(twice) / 2 / length;
 }
 
-/** A slow stroke: samples 1 px apart, mouse pressure. */
-function slowLine(): InkPoint[] {
-  return Array.from({ length: 201 }, (_, i) => ({ x: 100 + i, y: 100, pressure: 0.5 }));
+/**
+ * OneNote's drawn body width over its nominal pen width, measured by replaying
+ * one SendInput stroke file into OneNote (Pen 0.25 mm, 1.89 device px at DPR 2)
+ * and taking the median cross-section: 2.5 px on slow curves, circles, stars
+ * and minimum loops, so about 1.32 times the nominal width, at any speed.
+ */
+const ONENOTE_BODY_RATIO = 1.32;
+
+/** A mouse line `length` px long, samples `step` px apart (1 = slow, 8 = a fast 4 ms pointer). */
+function mouseLine(step: number, length = 400): InkPoint[] {
+  const n = Math.round(length / step);
+  return Array.from({ length: n + 1 }, (_, i) => ({ x: 100 + (i * length) / n, y: 100, pressure: 0.5 }));
 }
-function slowArc(): InkPoint[] {
-  const r = 80;
-  const n = Math.round(Math.PI * r);
+function slowLine(): InkPoint[] {
+  return mouseLine(1, 200);
+}
+/** An arc of radius 160 through `turn` radians, samples `step` px apart. */
+function mouseArc(step: number, turn: number): InkPoint[] {
+  const r = 160;
+  const n = Math.round((turn * r) / step);
   return Array.from({ length: n + 1 }, (_, i) => {
-    const a = (i / n) * Math.PI;
-    return { x: 200 + Math.cos(a) * r, y: 200 + Math.sin(a) * r, pressure: 0.5 };
+    const a = (i / n) * turn;
+    return { x: 300 + Math.cos(a) * r, y: 300 + Math.sin(a) * r, pressure: 0.5 };
   });
 }
 
-test("a slow freehand line and curve are drawn at the preset width, every canvas preset", () => {
+/** Outline area of a path, by the shoelace sum over its number pairs. */
+function area(d: string): number {
+  return meanWidth(d, 1);
+}
+
+test("a mouse freehand line and curve are OneNote's width at every canvas preset, slow or fast", () => {
+  // Body width = extra area of a stroke twice as long over its extra length, so the end caps cancel.
   for (const w of CANVAS_PEN_WIDTHS) {
-    for (const [name, pts, length] of [
-      ["line", slowLine(), 200],
-      ["curve", slowArc(), Math.PI * 80],
-    ] as const) {
-      const drawn = meanWidth(canvasStrokePath(pts, w, "pen", "freehand"), length);
+    for (const step of [1, 8]) {
+      for (const [name, short, long, extra] of [
+        ["line", mouseLine(step, 400), mouseLine(step, 800), 400],
+        ["curve", mouseArc(step, Math.PI / 2), mouseArc(step, Math.PI), (Math.PI / 2) * 160],
+      ] as const) {
+        const draw = (pts: InkPoint[]) => area(canvasStrokePath(pts, w, "pen", "freehand"));
+        const drawn = (draw(long) - draw(short)) / extra;
+        assert.ok(
+          Math.abs(drawn / w - ONENOTE_BODY_RATIO) <= 0.1 * ONENOTE_BODY_RATIO,
+          `${w} px preset, ${name} sampled every ${step} px: drawn ${drawn.toFixed(2)} px (${(drawn / w).toFixed(2)}x)`,
+        );
+      }
+    }
+  }
+});
+
+test("a mouse freehand stroke keeps one width whatever the sample spacing", () => {
+  for (const w of CANVAS_PEN_WIDTHS) {
+    const dense = meanWidth(canvasStrokePath(mouseLine(1), w, "pen", "freehand"), 400);
+    for (const step of [4, 10, 25]) {
+      const sparse = meanWidth(canvasStrokePath(mouseLine(step), w, "pen", "freehand"), 400);
       assert.ok(
-        Math.abs(drawn - w) <= 0.15 * w,
-        `${w} px preset, slow ${name}: drawn ${drawn.toFixed(2)} px`,
+        Math.abs(sparse - dense) <= 0.05 * dense,
+        `${w} px preset: ${step} px spacing ${sparse.toFixed(2)} vs dense ${dense.toFixed(2)}`,
       );
     }
   }

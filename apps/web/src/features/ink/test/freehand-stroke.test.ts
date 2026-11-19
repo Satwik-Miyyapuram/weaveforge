@@ -10,11 +10,7 @@ import {
 } from "../render/freehand-stroke";
 import { INK_PEN_WIDTHS } from "@weaveforge/core";
 
-import {
-  excalidrawStrokeWidth,
-  freedrawPath,
-  getFreeDrawSvgPath,
-} from "../render/excalidraw-freedraw";
+import { freedrawPath } from "../render/excalidraw-freedraw";
 import { canvasStrokePath } from "../../canvas/ui/canvas-ink";
 
 const WIDTH = 4;
@@ -46,24 +42,6 @@ test("a settled paper stroke is Excalidraw's freedraw path for its flat points",
 
 test("empty input has no path", () => {
   assert.equal(freehandPathFromFlat([], WIDTH), "");
-});
-
-test("the paper path is Excalidraw's own function output on simulated pressure at the mapped width, 2 and 4 units", () => {
-  const flat = flatCircle(20, 30);
-  const x = flat.filter((_, i) => i % 2 === 0);
-  const y = flat.filter((_, i) => i % 2 === 1);
-  for (const width of [2, 4]) {
-    assert.equal(
-      freehandPathFromFlat(flat, width),
-      getFreeDrawSvgPath({
-        points: x.map((v, i) => [v, y[i]!]),
-        pressures: x.map(() => 0.5),
-        strokeWidth: excalidrawStrokeWidth(width),
-        simulatePressure: true,
-        lastCommittedPoint: [0, 0],
-      }),
-    );
-  }
 });
 
 test("freedrawCurves reads Excalidraw's path back as a start, quadratic curves and a close", () => {
@@ -107,7 +85,7 @@ test("the outline turns by under 5 degrees at every join of a tiny stroke at 8 u
   // join in its body at width 2 and width 4 (width 4: curve 66 of 99, on the
   // inner outline edge, outline radius 24-56 around r 40). It is not an end cap,
   // so it is not excluded; the bound is not loosened for it.
-  // Since strokes are drawn at the pen width (excalidrawStrokeWidth), these
+  // Since strokes are drawn near the pen width (INK_FREEDRAW), these
   // features are as small as the pen itself below 8 units, and the worst
   // join grows: r 1 circle 10.4 / 7.1 / 5.2 / 4.2 degrees and the 3-point
   // stroke 12.1 / 8.1 / 6.0 / 5.0 at widths 1 / 2 / 3 / 4. Recorded, not bounded.
@@ -164,23 +142,28 @@ function meanWidth(d: string, length: number): number {
   return Math.abs(twice) / 2 / length;
 }
 
-test("a slow paper line and curve are drawn at the nib width, every paper preset", () => {
-  // Paper points and widths are in the note's unit (0.1 mm); samples 1 unit apart.
-  const line: number[] = [];
-  for (let i = 0; i <= 200; i++) line.push(100 + i, 100);
-  const arc: number[] = [];
-  const n = Math.round(Math.PI * 80);
-  for (let i = 0; i <= n; i++) {
-    const a = (i / n) * Math.PI;
-    arc.push(200 + Math.cos(a) * 80, 200 + Math.sin(a) * 80);
-  }
-  for (const w of INK_PEN_WIDTHS) {
-    for (const [name, flat, length] of [
-      ["line", line, 200],
-      ["curve", arc, Math.PI * 80],
-    ] as const) {
-      const drawn = meanWidth(freehandPathFromFlat(flat, w), length);
-      assert.ok(Math.abs(drawn - w) <= 0.15 * w, `nib ${w / 10} mm, slow ${name}: drawn ${drawn.toFixed(2)}`);
+test("a paper line and curve are OneNote's width (1.32 x nib), slow or fast, every paper preset", () => {
+  // Paper points and widths are in the note's unit (0.1 mm); samples 1 or 8 units apart.
+  for (const step of [1, 8]) {
+    const line: number[] = [];
+    for (let i = 0; i <= 400 / step; i++) line.push(100 + i * step, 100);
+    const arc: number[] = [];
+    const n = Math.round((Math.PI * 160) / step);
+    for (let i = 0; i <= n; i++) {
+      const a = (i / n) * Math.PI;
+      arc.push(300 + Math.cos(a) * 160, 300 + Math.sin(a) * 160);
+    }
+    for (const w of INK_PEN_WIDTHS) {
+      for (const [name, flat, length] of [
+        ["line", line, 400],
+        ["curve", arc, Math.PI * 160],
+      ] as const) {
+        const drawn = meanWidth(freehandPathFromFlat(flat, w), length);
+        assert.ok(
+          Math.abs(drawn / w - 1.32) <= 0.132,
+          `nib ${w / 10} mm, ${name} every ${step}: drawn ${drawn.toFixed(2)} (${(drawn / w).toFixed(2)}x)`,
+        );
+      }
     }
   }
 });

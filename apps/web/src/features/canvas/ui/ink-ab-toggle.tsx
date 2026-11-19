@@ -3,7 +3,7 @@ import { SegmentedControl } from "@/components/segmented-control";
 
 /**
  * Dev-only A/B switch for the ink renderer on the canvas. Renders nothing unless
- * `visible` (the `thesis.inkAB` dev flag). A is `classic`, B is `freehand`.
+ * `visible` (the `thesis.inkAB` dev flag). A is `freehand`, B is `classic`.
  */
 export function InkABToggle(props: {
   visible: boolean;
@@ -18,8 +18,8 @@ export function InkABToggle(props: {
       value={props.renderer}
       onChange={props.onChange}
       options={[
-        { value: "classic", label: "A", title: "Classic capsule renderer" },
-        { value: "freehand", label: "B", title: "Freehand (Excalidraw freedraw) renderer" },
+        { value: "freehand", label: "A", title: "Freehand (Excalidraw freedraw) renderer" },
+        { value: "classic", label: "B", title: "Classic capsule renderer" },
       ]}
     />
   );

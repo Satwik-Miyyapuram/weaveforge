@@ -8,7 +8,8 @@
  *
  * The options and the path function are Excalidraw's, unchanged. The only edits:
  * the element argument is a plain object of the fields the function reads, and
- * the types are kept in the signature, and index reads carry non-null assertions.
+ * the types are kept in the signature, and index reads carry non-null assertions,
+ * and an optional `overrides` argument replaces options (INK_FREEDRAW, below).
  *
  * MIT License
  *
@@ -44,7 +45,7 @@ export interface FreedrawElement {
   lastCommittedPoint: unknown;
 }
 
-export function getFreeDrawSvgPath(element: FreedrawElement) {
+export function getFreeDrawSvgPath(element: FreedrawElement, overrides?: Partial<StrokeOptions>) {
   const inputPoints = element.simulatePressure
     ? element.points
     : element.points.length
@@ -60,6 +61,7 @@ export function getFreeDrawSvgPath(element: FreedrawElement) {
     streamline: 0.5,
     easing: (t) => Math.sin((t * Math.PI) / 2), // https://easings.net/#easeOutSine
     last: !!element.lastCommittedPoint, // LastCommittedPoint is added on pointerup
+    ...overrides,
   };
 
   return getSvgPathFromStroke(getStroke(inputPoints as number[][], options));
@@ -98,42 +100,45 @@ function getSvgPathFromStroke(points: number[][]): string {
 }
 
 /**
- * The Excalidraw strokeWidth that draws a stroke `width` units wide.
+ * Our ink's freedraw options, the one place they are tuned. The target is
+ * OneNote's pen, measured by replaying one SendInput stroke file into OneNote
+ * and into the app: its body is about 1.32 times the nominal width at every
+ * speed and sample spacing (Pen 0.25 mm drew 2.5 device px for 1.89 nominal).
  *
- * Excalidraw's strokeWidth is a style step (thin 1, bold 2, extra bold 4), not
- * a width: perfect-freehand gets size = strokeWidth * 4.25, and with simulated
- * pressure the drawn width also depends on how far apart the samples are
- * relative to that size. Passing our pen width straight in drew strokes 4 to 8
- * times too wide, which fused the legs of a fast zig-zag into blobs.
- *
- * This solves for the size at which a slow line, sampled 1 unit apart, is
- * `width` wide: there the simulated pressure settles at 1 - 1/size (0 once
- * size <= 1) and perfect-freehand's radius is
- * size * easeOutSine(0.5 - thinning * (0.5 - pressure)). Faster strokes still
- * thin out, as in Excalidraw (thinning 0.6). Canvas (px) and paper (0.1 mm)
- * both use it, each in its own unit.
+ * Mouse (simulated pressure): Excalidraw's thinning 0.6 made the width depend
+ * on sample spacing relative to size, so a thin pen at pointer speed saturated
+ * to half its width. Thinning 0 draws a constant width equal to `size`.
+ * Real pen: Excalidraw's thinning 0.6, so pressure still sets the width; at
+ * pressure 0.5 the radius is size * sin(pi / 4), so the size is scaled down by
+ * sqrt 2 to draw the mouse's width at mid pressure.
  */
-export function excalidrawStrokeWidth(width: number): number {
-  if (!(width > 0)) return 0;
-  const drawn = (size: number) => {
-    const pressure = size > 1 ? 1 - 1 / size : 0;
-    return 2 * size * Math.sin(((0.5 - 0.6 * (0.5 - pressure)) * Math.PI) / 2);
-  };
-  // drawn() grows with size, and size = 2 * width already draws wider than width.
-  let lo = 0;
-  let hi = 2 * width;
-  for (let i = 0; i < 40; i++) {
-    const mid = (lo + hi) / 2;
-    if (drawn(mid) < width) lo = mid;
-    else hi = mid;
-  }
-  return (lo + hi) / 2 / 4.25;
+export const INK_FREEDRAW = {
+  /** OneNote's drawn body width over the nominal pen width. */
+  widthRatio: 1.35,
+  mouse: { thinning: 0, smoothing: 0.5, streamline: 0.5 },
+  pen: { thinning: 0.6, smoothing: 0.5, streamline: 0.5 },
+} as const;
+
+/** The freedraw outline of a stroke `width` units wide, with INK_FREEDRAW's options. */
+export function inkFreedrawPath(
+  points: number[][],
+  pressures: number[],
+  width: number,
+  simulatePressure: boolean,
+  last: boolean,
+): string {
+  const drawn = Math.max(0, width) * INK_FREEDRAW.widthRatio;
+  const tuned = simulatePressure ? INK_FREEDRAW.mouse : INK_FREEDRAW.pen;
+  return getFreeDrawSvgPath(
+    { points, pressures, strokeWidth: 0, simulatePressure, lastCommittedPoint: last ? [0, 0] : null },
+    { ...tuned, size: simulatePressure ? drawn : drawn / Math.SQRT2 },
+  );
 }
 
 /**
  * A stroke from flat `x`, `y` arrays, for paper ink. Settled strokes carry no
- * pressure, so every point is at the midpoint and Excalidraw's simulated
- * pressure applies. `last` is the same for the wet and the settled stroke.
+ * pressure, so every point is at the midpoint and the mouse options apply.
+ * `last` is the same for the wet and the settled stroke.
  */
 export function freedrawPath(
   x: ArrayLike<number>,
@@ -148,11 +153,5 @@ export function freedrawPath(
     points.push([x[i]!, y[i]!]);
     pressures.push(0.5);
   }
-  return getFreeDrawSvgPath({
-    points,
-    pressures,
-    strokeWidth: excalidrawStrokeWidth(width),
-    simulatePressure: true,
-    lastCommittedPoint: last ? [0, 0] : null,
-  });
+  return inkFreedrawPath(points, pressures, width, true, last);
 }
