@@ -1034,3 +1034,62 @@ async fn join_racing_idle_release_never_strands_a_client() {
         .await
         .expect("race rounds finish");
 }
+
+#[tokio::test]
+async fn renew_after_demotion_from_owner_is_lost() {
+    let dir = TempDir::new("demoted-renew");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let owner_grant = NewGrant {
+        owner: OWNER.to_owned(),
+        scope: "item".to_owned(),
+        target_id: ITEM.to_owned(),
+        grantee_user: GUEST.to_owned(),
+        permission: Permission::Owner,
+        expires_at: None,
+    };
+    let grant_id = store
+        .create_grant(&owner_grant)
+        .await
+        .expect("create owner grant")
+        .id;
+    let relay = Relay::start_with(
+        dir.path(),
+        store.clone(),
+        PERSIST,
+        Duration::from_millis(50),
+    )
+    .await;
+
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+    send_text(&mut guest, r#"{"type":"lease.acquire","device":"d1"}"#).await;
+    let _granted = expect_json(&mut guest, "lease.granted").await;
+
+    // Demote the guest to edit mid-lease: the owner grant goes, an edit grant replaces it.
+    store
+        .revoke_grant(OWNER, &grant_id)
+        .await
+        .expect("revoke owner grant");
+    store
+        .create_grant(&NewGrant {
+            permission: Permission::Edit,
+            ..owner_grant
+        })
+        .await
+        .expect("create edit grant");
+
+    // The recheck demotes the socket and gives the lease up (lease.handover reaches the room).
+    let (handover, renew) = tokio::time::timeout(Duration::from_secs(10), async {
+        let handover = expect_json(&mut guest, "lease.handover").await;
+        send_text(&mut guest, r#"{"type":"lease.renew","device":"d1"}"#).await;
+        let renew = expect_json(&mut guest, "lease.lost").await;
+        (handover, renew)
+    })
+    .await
+    .expect("demotion releases the lease and the renew is answered");
+    assert_eq!(handover["type"], "lease.handover");
+    assert_eq!(renew["type"], "lease.lost");
+}

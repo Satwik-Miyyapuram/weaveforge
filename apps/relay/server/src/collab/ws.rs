@@ -306,7 +306,7 @@ async fn on_update(
     let now = state.clock.now_ms();
     if now.saturating_sub(client.last_check) >= state.config.grant_cache_ms {
         match state.store.access(&room.item_id, &client.user).await {
-            Ok(Some(permission)) => client.grant(permission, now),
+            Ok(Some(permission)) => apply_grant(state, room, client, permission, now).await,
             Ok(None) => {
                 let _ = send_text(socket, protocol::denied_json("revoked")).await;
                 return false;
@@ -374,6 +374,10 @@ async fn on_text(
     match control {
         Control::Acquire { device } => acquire(state, room, client, socket, &device).await,
         Control::Renew { device } => {
+            // A demoted holder cannot extend the lease it no longer may hold.
+            if !client.permission.can_hold_lease() {
+                return send_text(socket, protocol::lease_reply_json(&LeaseReply::Lost)).await;
+            }
             let reply = {
                 let mut inner = room.inner.lock().await;
                 inner
@@ -396,6 +400,28 @@ async fn on_text(
             }
             true
         }
+    }
+}
+
+/// Applies a fresh grant check. A holder that may no longer hold the lease gives it up here, so
+/// its renew is refused and the other clients see the handover.
+async fn apply_grant(
+    state: &CollabState,
+    room: &Room,
+    client: &mut Client,
+    permission: Permission,
+    now: i64,
+) {
+    client.grant(permission, now);
+    if permission.can_hold_lease() {
+        return;
+    }
+    let released = room.inner.lock().await.lease.release_user(&client.user);
+    if released {
+        if let Err(error) = state.store.set_writer(&room.item_id, None, None).await {
+            eprintln!("collab writer {}: {error}", room.item_id);
+        }
+        room.send(Event::Text(protocol::event_json("lease.handover")));
     }
 }
 
@@ -475,7 +501,7 @@ async fn recheck(
     let now = state.clock.now_ms();
     match state.store.access(&room.item_id, &client.user).await {
         Ok(Some(permission)) => {
-            client.grant(permission, now);
+            apply_grant(state, room, client, permission, now).await;
             true
         }
         Ok(None) => {
