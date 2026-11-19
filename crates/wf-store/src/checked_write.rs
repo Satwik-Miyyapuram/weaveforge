@@ -7,8 +7,9 @@
 //! the meantime, those bytes move to a conflict copy so nothing is lost. Deletes go to the
 //! workspace trash and renames never overwrite a file.
 //!
-//! A create-only write (expected `Some("")` on a missing file) is linked into place with
-//! `hard_link`, which fails if the file appeared since the check, so it never replaces anything.
+//! On a file system with hard links, a create-only write (expected `Some("")` on a missing file)
+//! is linked into place with `hard_link`, which fails if the file appeared since the check, so it
+//! never replaces anything. Where linking fails, it takes the replace path below instead.
 //!
 //! Known window: a replace write runs `make_prev` and then the rename as two steps. A file another
 //! process writes between those two steps is replaced by the rename, and its bytes are not kept
