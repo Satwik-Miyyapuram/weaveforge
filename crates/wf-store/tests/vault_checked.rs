@@ -291,7 +291,7 @@ fn non_utf8_conflict_copy_is_byte_identical() {
     let dir = TempDir::new();
     let vault = vault_in(&dir);
     let disk: &[u8] = &[0xff, 0xfe, b'\n', b'x', 0x80];
-    vault.write_bytes_checked("bin.md", disk, None).unwrap();
+    let _ = vault.write_bytes_checked("bin.md", disk, None).unwrap();
     let MergeWrite::Conflict { conflict_copy, .. } =
         vault.write_text_merging("bin.md", "a", "b").unwrap()
     else {
