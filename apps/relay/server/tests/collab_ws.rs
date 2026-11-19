@@ -982,6 +982,28 @@ async fn grant_refuses_expires_at_that_is_not_a_timestamp() {
 }
 
 #[tokio::test]
+async fn grant_refuses_expires_at_that_is_an_impossible_date() {
+    let dir = TempDir::new("grant-impossible-date");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    // Shaped like a timestamp but not a real one: each must be a 400, not a 500 from Postgres.
+    let url = relay.url("/grants");
+    let grantee = "6f1c2a3e-4b5d-4e6f-8a7b-9c0d1e2f3a4b";
+    for expires in [
+        "2099-13-01T00:00:00Z",
+        "2099-02-30T00:00:00Z",
+        "2099-02-29T00:00:00Z",
+    ] {
+        let body = json!({"scope": "item", "target_id": ITEM, "grantee_user": grantee,
+            "permission": "edit", "expires_at": expires});
+        let (status, _) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(body)).await;
+        assert_eq!(status, 400, "accepted {expires}");
+    }
+}
+
+#[tokio::test]
 async fn revoke_refuses_grant_id_that_is_not_a_uuid() {
     let dir = TempDir::new("revoke-id");
     let store = Arc::new(MemoryStore::new());
