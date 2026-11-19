@@ -1056,3 +1056,49 @@ fn an_existing_file_that_cannot_be_read_is_never_overwritten() {
     assert!(!second.written.contains(&path), "an unreadable existing file must not be written");
     assert_eq!(fs.inner.read_text(&path).expect("still there"), on_disk);
 }
+
+#[test]
+fn a_reader_edit_seen_by_a_skipped_mirror_still_holds_back_a_later_in_app_edit() {
+    let project = thesis();
+    let mut fs = MemoryWorkspaceFs::new();
+    let path = at("notes/method.note.md");
+
+    // Run 1: the mirror writes the note as the DB holds it.
+    let first = mirror_workspace(&with_notes(vec![note("n1", "Method", "Body")]), &mut fs, options(&project))
+        .expect("first");
+    // The reader edits the file outside the app.
+    fs.write_file(&path, b"Reader edit").expect("reader edit");
+
+    // Run 2: DB unchanged this session, so the file is skipped. Its base must stay the
+    // last text the mirror wrote, not the reader's text.
+    let seen_1 = seen_of(&first.served);
+    let base_1 = digest_map(&first.mirrored);
+    let skipped = mirror_workspace(
+        &with_notes(vec![note("n1", "Method", "Body")]),
+        &mut fs,
+        MirrorOptions {
+            seen: Some(&seen_1),
+            base: Some(&base_1),
+            ..options(&project)
+        },
+    )
+    .expect("skipped");
+    assert!(!skipped.written.contains(&path));
+    assert_eq!(text(&fs, &path), "Reader edit");
+
+    // Run 3: an in-app edit this session. The reader's text must hold the mirror back.
+    let seen_2 = seen_of(&skipped.served);
+    let base_2 = digest_map(&skipped.mirrored);
+    let edited = mirror_workspace(
+        &with_notes(vec![note("n1", "Method", "Edited in app")]),
+        &mut fs,
+        MirrorOptions {
+            seen: Some(&seen_2),
+            base: Some(&base_2),
+            ..options(&project)
+        },
+    )
+    .expect("edited");
+    assert!(edited.held_back.contains(&path), "reader's edit must be held, not overwritten");
+    assert_eq!(text(&fs, &path), "Reader edit");
+}
