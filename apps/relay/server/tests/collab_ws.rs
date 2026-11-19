@@ -277,7 +277,7 @@ async fn wait_for_deleted(store: &MemoryStore, item: &str) {
 
 /// Polls (up to 2 s) until the update log for `item` has bytes in it.
 async fn wait_for_log(dir: &Path, item: &str) {
-    let path = log_path(dir, item);
+    let path = log_path(dir, item).expect("test item id names a log");
     for _ in 0..200 {
         if std::fs::metadata(&path).is_ok_and(|meta| meta.len() > 0) {
             return;
@@ -814,4 +814,69 @@ async fn grant_refuses_grantee_that_is_not_a_uuid() {
     });
     let (status, _) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(good)).await;
     assert_eq!(status, 200);
+}
+
+#[tokio::test]
+async fn seed_refuses_item_id_that_cannot_name_a_log() {
+    let dir = TempDir::new("seed-unsafe-id");
+    let store = Arc::new(MemoryStore::new());
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let url = relay.url("/shared-docs/doc%2F1");
+    let body = json!({"kind": "canvas"});
+    let (status, _) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(body)).await;
+    assert_eq!(status, 400);
+}
+
+#[tokio::test]
+async fn seed_refuses_document_that_is_closing() {
+    let dir = TempDir::new("seed-closing");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    store
+        .set_status(ITEM, DocStatus::Closing)
+        .await
+        .expect("mark closing");
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let url = relay.url(&format!("/shared-docs/{ITEM}"));
+    let (status, _) = http(
+        reqwest::Method::POST,
+        &url,
+        OWNER_TOKEN,
+        Some(json!({"kind": "canvas"})),
+    )
+    .await;
+    assert_eq!(status, 409);
+}
+
+#[tokio::test]
+async fn grant_refuses_expires_at_that_is_not_a_timestamp() {
+    let dir = TempDir::new("grant-expiry");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let url = relay.url("/grants");
+    let grantee = "6f1c2a3e-4b5d-4e6f-8a7b-9c0d1e2f3a4b";
+    let bad = json!({"scope": "item", "target_id": ITEM, "grantee_user": grantee,
+        "permission": "edit", "expires_at": "next tuesday"});
+    let (status, _) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(bad)).await;
+    assert_eq!(status, 400);
+    let good = json!({"scope": "item", "target_id": ITEM, "grantee_user": grantee,
+        "permission": "edit", "expires_at": "2099-01-01T00:00:00Z"});
+    let (status, _) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(good)).await;
+    assert_eq!(status, 200);
+}
+
+#[tokio::test]
+async fn revoke_refuses_grant_id_that_is_not_a_uuid() {
+    let dir = TempDir::new("revoke-id");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let url = relay.url("/grants/not-a-uuid");
+    let (status, _) = http(reqwest::Method::DELETE, &url, OWNER_TOKEN, None).await;
+    assert_eq!(status, 400);
 }

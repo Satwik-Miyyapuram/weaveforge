@@ -31,7 +31,7 @@ pub type BoxFut<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 pub enum Permission {
     /// Read only.
     View,
-    /// Read, and write comments (comments are document updates).
+    /// Read only, for now: comment writes are refused until comments have their own channel.
     Comment,
     /// Read and write.
     Edit,
@@ -40,16 +40,18 @@ pub enum Permission {
 }
 
 impl Permission {
-    /// Whether this caller may send document updates.
+    /// Whether this caller may send document updates. Comment-only callers may not: their
+    /// updates would reach the owner's file through the write-back lease.
     #[must_use]
     pub fn can_write(self) -> bool {
-        self >= Self::Comment
+        self >= Self::Edit
     }
 
-    /// Whether this caller may hold the write-back lease.
+    /// Whether this caller may hold the write-back lease: only the owner writes back into
+    /// the owner's workspace files.
     #[must_use]
     pub fn can_hold_lease(self) -> bool {
-        self >= Self::Edit
+        self == Self::Owner
     }
 
     /// Parses `view`, `comment`, `edit` or `owner`.

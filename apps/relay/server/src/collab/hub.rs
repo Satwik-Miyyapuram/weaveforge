@@ -151,8 +151,16 @@ impl Hub {
         map.entry(room.item_id.clone()).or_insert(room).clone()
     }
 
+    /// Whether `room` is still the open room for its item (not evicted or replaced).
+    #[must_use]
+    pub fn is_current(&self, room: &Arc<Room>) -> bool {
+        self.map()
+            .get(&room.item_id)
+            .is_some_and(|open| Arc::ptr_eq(open, room))
+    }
+
     /// Removes the hub entry only if it is still `room` (not a newer room for the item).
-    fn remove_if_same(&self, room: &Arc<Room>) {
+    pub fn remove_if_same(&self, room: &Arc<Room>) {
         let mut map = self.map();
         if map
             .get(&room.item_id)
@@ -176,9 +184,13 @@ fn encode_full(doc: &Doc) -> Vec<u8> {
         .encode_state_as_update_v1(&StateVector::default())
 }
 
-/// Deletes the item's log file; a missing file is fine.
+/// Deletes the item's log file; a missing file is fine. An id that cannot name a log file
+/// never had one, so there is nothing to delete.
 fn remove_log(dir: &Path, item_id: &str) -> Result<(), String> {
-    match std::fs::remove_file(log_path(dir, item_id)) {
+    let Some(path) = log_path(dir, item_id) else {
+        return Ok(());
+    };
+    match std::fs::remove_file(path) {
         Ok(()) => Ok(()),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(err) => Err(err.to_string()),
