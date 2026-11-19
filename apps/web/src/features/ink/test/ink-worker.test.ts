@@ -731,7 +731,9 @@ test("a saved freehand stroke reloads with every sample, at the stored whole-uni
 
   send({ type: "save-page", requestId: 3 });
   await settle();
-  const page = pageFromChunk(await decodeInkChunk(last("page-saved").bytes));
+  const savedBytes = last("page-saved").bytes;
+  assert.ok(savedBytes);
+  const page = pageFromChunk(await decodeInkChunk(savedBytes));
   const reloaded = page.strokes[0]!.points;
   assert.equal(reloaded.length, committed.length, "no sample is lost on save");
   assert.deepEqual(
