@@ -529,8 +529,17 @@ impl<F: WorkspaceFs + ?Sized> Run<'_, F> {
         if let Some(note_base) = vault_page_base(path, content) {
             upsert(&mut self.result.bases, path, note_base);
         }
-        // One read answers both "is it there" and "what does it say"; an error is missing.
-        if let Ok(current) = self.fs.read_text(path) {
+        // One read answers both "is it there" and "what does it say". A file that exists but
+        // cannot be read is skipped: we never overwrite what we cannot see.
+        let current = match self.fs.read_text(path) {
+            Ok(text) => Some(text),
+            Err(_) if self.fs.stat(path).is_some() => {
+                self.result.unchanged += 1;
+                return Ok(());
+            }
+            Err(_) => None,
+        };
+        if let Some(current) = current {
             if current == content || unstamped(path, &current) == unstamped(path, content) {
                 upsert(&mut self.result.mirrored, path, digest_text(&current));
                 self.result.unchanged += 1;

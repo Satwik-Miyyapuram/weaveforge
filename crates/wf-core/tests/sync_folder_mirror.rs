@@ -984,3 +984,75 @@ fn an_item_unchanged_in_session_keeps_its_file_bytes() {
         other.to_vec()
     );
 }
+
+/// Delegates to a memory filesystem, but cannot read one path although it exists.
+struct UnreadableFs {
+    inner: MemoryWorkspaceFs,
+    unreadable: String,
+}
+
+impl WorkspaceFs for UnreadableFs {
+    fn read_file(&self, path: &str) -> Result<Vec<u8>, FsError> {
+        self.inner.read_file(path)
+    }
+
+    fn read_text(&self, path: &str) -> Result<String, FsError> {
+        if path == self.unreadable {
+            return Err(FsError::Io("locked by another process".to_owned()));
+        }
+        self.inner.read_text(path)
+    }
+
+    fn write_file(&mut self, path: &str, data: &[u8]) -> Result<(), FsError> {
+        self.inner.write_file(path, data)
+    }
+
+    fn remove(&mut self, path: &str, recursive: bool) -> Result<(), FsError> {
+        self.inner.remove(path, recursive)
+    }
+
+    fn mkdirp(&mut self, path: &str) -> Result<(), FsError> {
+        self.inner.mkdirp(path)
+    }
+
+    fn list(&self, dir: &str) -> Result<Vec<WorkspaceStat>, FsError> {
+        self.inner.list(dir)
+    }
+
+    fn walk(&self, dir: &str) -> Result<Vec<WorkspaceStat>, FsError> {
+        self.inner.walk(dir)
+    }
+
+    fn stat(&self, path: &str) -> Option<WorkspaceStat> {
+        self.inner.stat(path)
+    }
+
+    fn rename(&mut self, from: &str, to: &str) -> Result<(), FsError> {
+        self.inner.rename(from, to)
+    }
+}
+
+#[test]
+fn an_existing_file_that_cannot_be_read_is_never_overwritten() {
+    let project = thesis();
+    let mut mem = MemoryWorkspaceFs::new();
+    let first = mirror_workspace(&with_notes(vec![note("n1", "Method", "Body")]), &mut mem, options(&project))
+        .expect("first");
+    let seen = seen_of(&first.served);
+    let base = digest_map(&first.mirrored);
+    let path = at("notes/method.note.md");
+    let on_disk = mem.read_text(&path).expect("on disk");
+
+    // The user's copy is still there; only the read fails. The DB changed in-app this session.
+    let mut fs = UnreadableFs { inner: mem, unreadable: path.clone() };
+    let edited = with_notes(vec![note("n1", "Method", "Edited in app")]);
+    let opts = MirrorOptions {
+        seen: Some(&seen),
+        base: Some(&base),
+        ..options(&project)
+    };
+    let second = mirror_workspace(&edited, &mut fs, opts).expect("second");
+
+    assert!(!second.written.contains(&path), "an unreadable existing file must not be written");
+    assert_eq!(fs.inner.read_text(&path).expect("still there"), on_disk);
+}
