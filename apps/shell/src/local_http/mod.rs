@@ -24,6 +24,7 @@ pub mod mcp_tools;
 pub mod rewrite;
 pub mod route;
 pub mod sdk;
+pub mod sdk_files;
 pub mod server;
 pub mod token;
 

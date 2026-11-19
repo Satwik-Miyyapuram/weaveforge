@@ -244,7 +244,7 @@ fn looks_like_jwt(token: &str) -> bool {
 }
 
 /// Lower-case hex SHA-256 of the token's UTF-8 bytes (`hashApiToken`).
-fn token_hash_hex(token: &str) -> String {
+pub(crate) fn token_hash_hex(token: &str) -> String {
     Sha256::digest(token.as_bytes())
         .iter()
         .map(|byte| format!("{byte:02x}"))

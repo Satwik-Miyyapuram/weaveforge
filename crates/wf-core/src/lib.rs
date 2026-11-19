@@ -112,6 +112,7 @@ pub mod mcp_config_rewrite;
 pub mod member_rows;
 pub mod membership_row;
 pub mod metric_chart_data;
+pub mod metric_csv;
 pub mod metric_rows;
 pub mod nav_open_groups;
 pub mod overleaf_export_package;
