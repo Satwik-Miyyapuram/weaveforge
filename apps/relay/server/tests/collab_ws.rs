@@ -94,7 +94,11 @@ impl Clock for ManualClock {
 }
 
 /// The shared state for a relay over `store`, logging under `dir`.
-fn build_state(dir: &Path, store: Arc<dyn SharedDocStore>, persist_every: Duration) -> Arc<CollabState> {
+fn build_state(
+    dir: &Path,
+    store: Arc<dyn SharedDocStore>,
+    persist_every: Duration,
+) -> Arc<CollabState> {
     Arc::new(CollabState {
         config: CollabConfig {
             log_dir: dir.to_path_buf(),
@@ -712,7 +716,10 @@ async fn ws_grant_check_failure_closes_socket() {
     expect_close(&mut guest).await;
     hub::persist_all(&relay.state).await;
     let saved = text_of(&store.doc(ITEM).expect("doc row").state);
-    assert!(!saved.contains("after"), "update applied while access unknown");
+    assert!(
+        !saved.contains("after"),
+        "update applied while access unknown"
+    );
 }
 
 #[tokio::test]
@@ -778,7 +785,8 @@ async fn seed_refuses_document_owned_by_another_user() {
 
     let url = relay.url(&format!("/shared-docs/{ITEM}"));
     let body = json!({"kind": "canvas"});
-    let (guest_status, _) = http(reqwest::Method::POST, &url, GUEST_TOKEN, Some(body.clone())).await;
+    let (guest_status, _) =
+        http(reqwest::Method::POST, &url, GUEST_TOKEN, Some(body.clone())).await;
     assert_eq!(guest_status, 409);
     let (owner_status, _) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(body)).await;
     assert_eq!(owner_status, 200);

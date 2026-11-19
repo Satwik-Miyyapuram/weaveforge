@@ -128,7 +128,10 @@ pub async fn inbox_ack(
     );
     let db = user_db(&state, &caller);
     let claimed = format!("eq.{device}");
-    match db.delete("sdk_inbox", &[("id", list), ("claimed_by", claimed)]).await {
+    match db
+        .delete("sdk_inbox", &[("id", list), ("claimed_by", claimed)])
+        .await
+    {
         Ok(()) => json_response(200, &json!({"ok": true})),
         Err(err) => db_failure(&err, "sdk-inbox"),
     }

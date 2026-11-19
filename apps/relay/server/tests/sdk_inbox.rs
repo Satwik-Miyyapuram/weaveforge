@@ -154,7 +154,12 @@ async fn sdk_inbox_ack_idempotent() {
     )]))
     .await;
     for _ in 0..2 {
-        let req = request("POST", "/api/sdk/inbox/ack", SESSION, r#"{"ids":[1,2],"device":"d1"}"#);
+        let req = request(
+            "POST",
+            "/api/sdk/inbox/ack",
+            SESSION,
+            r#"{"ids":[1,2],"device":"d1"}"#,
+        );
         let response = app(state(&up)).oneshot(req).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
     }
@@ -175,7 +180,12 @@ async fn sdk_inbox_ack_idempotent() {
 
 #[tokio::test]
 async fn sdk_inbox_ack_empty_skips_db() {
-    let req = request("POST", "/api/sdk/inbox/ack", SESSION, r#"{"ids":[],"device":"d1"}"#);
+    let req = request(
+        "POST",
+        "/api/sdk/inbox/ack",
+        SESSION,
+        r#"{"ids":[],"device":"d1"}"#,
+    );
     let (status, body, seen) = call(with_auth(vec![]), req).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body, json!({"ok": true}));
@@ -246,7 +256,11 @@ async fn sdk_inbox_ack_only_deletes_rows_claimed_by_device() {
         .into_iter()
         .find(|s| s.method == "DELETE")
         .unwrap();
-    assert!(delete.target.contains("claimed_by=eq.laptop"), "{}", delete.target);
+    assert!(
+        delete.target.contains("claimed_by=eq.laptop"),
+        "{}",
+        delete.target
+    );
 }
 
 #[tokio::test]
@@ -271,7 +285,12 @@ async fn enqueue_refuses_oversize_body() {
     let data_url = format!("http://127.0.0.1:{}/rest/v1", up.port);
     let db = UserDb::new(&client, &data_url, "anon", "tok");
     let big = "x".repeat(256 * 1024 + 1);
-    let response = enqueue(&db, "metrics", Some(json!({"experiment_id": "e1", "note": big}))).await;
+    let response = enqueue(
+        &db,
+        "metrics",
+        Some(json!({"experiment_id": "e1", "note": big})),
+    )
+    .await;
     assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
     assert!(up.seen().is_empty());
 }
