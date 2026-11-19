@@ -47,7 +47,7 @@ import {
 } from "./parts-3";
 import { activeProject, activeProjectOrNull, isNoActiveProject, watchForLoss } from "./parts";
 import { mirrorWorkspace, type WebMirrorResult } from "./parts-2";
-import { recordSessionSeen, sessionSeen } from "./folder-session-seen";
+import { recordSessionSeen, sessionGeneration, sessionSeen } from "./folder-session-seen";
 import type { FolderPreview } from "./workspace-folder-preview";
 
 /**
@@ -367,6 +367,9 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
     await Promise.all([import("./sync-tables"), import("./workspace-folder-tables")]);
   const tableFiles = syncTableFolderFiles(await exportSyncTablesStable(restTableReader(getDataClient())));
 
+  // Read with the record, before any await: a database replace or import that forgets the record
+  // while this run is in flight makes its result stale, and recordSessionSeen then drops it.
+  const startedAt = sessionGeneration();
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
     project,
     // What this session already mirrored: an existing file is rewritten only for an item changed since.
@@ -382,7 +385,7 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
       return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
     },
   });
-  recordSessionSeen(project.id, mirror.served);
+  recordSessionSeen(project.id, mirror.served, startedAt);
   await writeMirrorManifest(
     fs,
     projectRoot,
