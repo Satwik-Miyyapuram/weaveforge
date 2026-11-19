@@ -264,7 +264,8 @@ pub fn add_counts_js(
 pub fn plan_mirror_js(
     #[wasm_bindgen(unchecked_param_type = "{ files: Readonly<Record<string, string>> }")]
     serialized: &JsValue,
-    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>> | undefined")] seen: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>> | undefined")]
+    seen: JsValue,
     #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>> | undefined")]
     base: JsValue,
     #[wasm_bindgen(unchecked_param_type = "Readonly<Record<string, string>>")] disk: JsValue,

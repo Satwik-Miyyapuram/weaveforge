@@ -120,7 +120,11 @@ mod tests {
     #[test]
     fn drain_then_ack_names_stored_rows_only() {
         let fixture = Fixture::new("ack");
-        let rows = [row(4), json!({"id": 5, "kind": "metrics", "payload": {}}), row(6)];
+        let rows = [
+            row(4),
+            json!({"id": 5, "kind": "metrics", "payload": {}}),
+            row(6),
+        ];
         let reply = drain(&fixture.vault, &rows).expect("drain");
         assert_eq!(reply.batches, 3);
         assert_eq!(serde_json::to_value(&reply.acked).ok(), Some(json!([4, 6])));

@@ -42,6 +42,7 @@ import type {
   IPaperRelationRepository,
   IPaperRepository,
   IProjectRepository,
+  Project,
   IReadingListRepository,
   IReportSectionRepository,
   ISupervisionRepository,
@@ -265,6 +266,10 @@ export class ProjectsFacade {
 
   listProjects() {
     return this.deps.projects.list();
+  }
+
+  saveProject(project: Project) {
+    return this.deps.projects.save(project);
   }
 
   get manageProject() {

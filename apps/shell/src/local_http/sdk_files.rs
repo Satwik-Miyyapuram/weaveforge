@@ -87,10 +87,8 @@ mod tests {
 
     impl Fixture {
         fn new(name: &str) -> Self {
-            let root = std::env::temp_dir().join(format!(
-                "wf-shell-sdk-files-{}-{name}",
-                std::process::id()
-            ));
+            let root = std::env::temp_dir()
+                .join(format!("wf-shell-sdk-files-{}-{name}", std::process::id()));
             let _ = fs::remove_dir_all(&root);
             fs::create_dir_all(root.join(".weaveforge")).expect("create workspace");
             fs::create_dir_all(root.join("experiments")).expect("create experiments");

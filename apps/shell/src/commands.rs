@@ -113,13 +113,15 @@ impl LocalDb {
     }
 
     /// Imports `rows` into `table` on the owner session; each call commits or rolls back on its own.
+    /// `last` marks the table's final batch.
     pub async fn import_table(
         &self,
         table: &str,
         rows: &[Value],
+        last: bool,
     ) -> Result<TableReport, ShellError> {
         self.native()?
-            .import_table(table, rows)
+            .import_table(table, rows, last)
             .await
             .map_err(ShellError::from)
     }
@@ -254,10 +256,6 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         db_query,
         db_state,
         db_reset,
-        crate::cmd_import::old_db_import_table,
-        crate::cmd_import::old_db_import_finish,
-        crate::cmd_import::old_db_status,
-        crate::cmd_import::old_db_tar,
         local_api_call,
         crate::local_files::local_file_read,
         crate::local_files::local_file_write,

@@ -6,9 +6,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { useRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
-import { FOLD_STAGES, FoldedItems, fitFold, foldMoves, foldedFind, parseFold, type FoldStage } from "../ui/ink-bar-fold";
+import { FOLD_STAGES, FoldedItems, fitFold, foldMoves, foldedFind, parseFold, useToolbarFold, type FoldStage } from "../ui/ink-bar-fold";
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /** A bar that needs `need` stages before it fits. */
 const bar = (need: number) => {
@@ -141,4 +145,95 @@ test("Find in More is greyed while the toolbar's Find is disabled or missing", (
   assert.equal(foldedFind(inToolbar({ disabled: true, click: () => {} }).from), undefined);
   assert.equal(foldedFind(inToolbar(null).from), undefined);
   assert.equal(foldedFind(null), undefined);
+});
+
+type Dataset = Record<string, string | undefined>;
+
+/** A bar 100px wide; `scroll` says how wide its contents are at the fold it now has. */
+function fakeBar(scroll: (dataset: Dataset) => number) {
+  const dataset: Dataset = {};
+  return {
+    dataset,
+    clientWidth: 100,
+    get scrollWidth() {
+      return scroll(dataset);
+    },
+    querySelector: () => null,
+  };
+}
+
+const stages = (dataset: Dataset) => (dataset.fold ?? "").split(" ").filter(Boolean).length;
+
+/** Observers that never fire, and no frames: the hook's first fit runs in the effect. */
+function withBrowser(run: () => void) {
+  const g = globalThis as Record<string, unknown>;
+  const names = ["ResizeObserver", "MutationObserver", "requestAnimationFrame", "cancelAnimationFrame"];
+  const saved = names.map((name) => [name, g[name]] as const);
+  class Idle {
+    observe() {}
+    disconnect() {}
+  }
+  Object.assign(g, { ResizeObserver: Idle, MutationObserver: Idle, requestAnimationFrame: () => 0, cancelAnimationFrame: () => {} });
+  try {
+    run();
+  } finally {
+    for (const [name, value] of saved) {
+      if (value === undefined) delete g[name];
+      else g[name] = value;
+    }
+  }
+}
+
+/** A toolbar that mounts its bar only while `focus` is off, as DocumentToolbar does. */
+function Probe({ focus }: { focus: boolean }) {
+  const bar = useRef<HTMLDivElement>(null);
+  useToolbarFold(bar, focus);
+  return focus ? null : <div ref={bar} />;
+}
+
+test("a bar still too wide after every fold stage wraps rather than clips", () => {
+  withBrowser(() => {
+    const bar = fakeBar(() => 200);
+    act(() => {
+      create(<Probe focus={false} />, { createNodeMock: () => bar });
+    });
+    assert.equal(bar.dataset.fold, FOLD_STAGES.join(" "));
+    assert.equal(bar.dataset.wrap, "");
+  });
+});
+
+test("a bar that fits once folded does not wrap", () => {
+  withBrowser(() => {
+    const bar = fakeBar((dataset) => (stages(dataset) >= 2 ? 100 : 200));
+    act(() => {
+      create(<Probe focus={false} />, { createNodeMock: () => bar });
+    });
+    assert.equal(bar.dataset.fold, "zoom pages");
+    assert.equal(bar.dataset.wrap, undefined);
+  });
+});
+
+test("a remounted bar after a focus toggle is fitted again", () => {
+  withBrowser(() => {
+    const mounted: Dataset[] = [];
+    const scroll = (dataset: Dataset) => (stages(dataset) >= 2 ? 100 : 200);
+    let tree!: ReactTestRenderer;
+    act(() => {
+      tree = create(<Probe focus={false} />, {
+        createNodeMock: () => {
+          const bar = fakeBar(scroll);
+          mounted.push(bar.dataset);
+          return bar;
+        },
+      });
+    });
+    act(() => {
+      tree.update(<Probe focus />);
+    });
+    act(() => {
+      tree.update(<Probe focus={false} />);
+    });
+    assert.equal(mounted.length, 2);
+    assert.equal(mounted[1]!.fold, "zoom pages");
+  });
 });

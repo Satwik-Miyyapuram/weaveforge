@@ -1,16 +1,20 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { postgresFiles, stagePostgres } from "./stage-postgres.mjs";
+import { fileURLToPath } from "node:url";
+import { assertPostgresMajor, postgresFiles, stagePostgres } from "./stage-postgres.mjs";
 
-function tree(files) {
+const SCRIPT = fileURLToPath(new URL("./stage-postgres.mjs", import.meta.url));
+
+function tree(files, version = "18.6") {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "wf-pg-stage-"));
   for (const rel of files) {
     const p = path.join(root, ...rel.split("/"));
     fs.mkdirSync(path.dirname(p), { recursive: true });
-    fs.writeFileSync(p, rel);
+    fs.writeFileSync(p, rel === "build-manifest.json" ? JSON.stringify({ source: { version } }) : rel);
   }
   return root;
 }
@@ -28,6 +32,7 @@ const WIN = [
   "share/extension/pgcrypto.control", "share/extension/pgcrypto--1.3--1.4.sql",
   "share/extension/hstore.control", "share/extension/pgcrypto_extra.control", "share/doc/README",
   "include/postgres.h", "dependency-notices/openssl/LICENSE.txt", "COPYRIGHT", "LICENSE", "source-input.json",
+  "build-manifest.json",
 ];
 
 test("keeps the tools, their libraries, two extensions and the licences; drops the rest", () => {
@@ -37,7 +42,7 @@ test("keeps the tools, their libraries, two extensions and the licences; drops t
       "COPYRIGHT", "LICENSE",
       "bin/icuuc78.dll", "bin/initdb.exe", "bin/libpq.dll", "bin/libssl-3-x64.dll",
       "bin/pg_ctl.exe", "bin/pg_dump.exe", "bin/pg_restore.exe", "bin/postgres.exe", "bin/zstd.dll",
-      "dependency-notices/openssl/LICENSE.txt",
+      "build-manifest.json", "dependency-notices/openssl/LICENSE.txt",
       "lib/dict_snowball.dll", "lib/latin2_and_win1250.dll", "lib/pgcrypto.dll", "lib/plpgsql.dll", "lib/utf8_and_win.dll",
       "share/extension/pgcrypto--1.3--1.4.sql", "share/extension/pgcrypto.control",
       "share/extension/plpgsql--1.0.sql", "share/extension/plpgsql.control",
@@ -84,9 +89,59 @@ test("staging copies the files under <out>/postgres and replaces an old stage", 
     assert.equal(target, path.join(out, "postgres"));
     assert.equal(fs.readFileSync(path.join(target, "bin", "postgres.exe"), "utf8"), "bin/postgres.exe");
     assert.ok(!fs.existsSync(path.join(target, "bin", "stale.dll")));
-    assert.equal(files.length, 25);
+    assert.equal(files.length, 26);
   } finally {
     fs.rmSync(dist, { recursive: true, force: true });
     fs.rmSync(out, { recursive: true, force: true });
+  }
+});
+
+test("a major other than 18 is refused by name, and nothing is staged", () => {
+  const dist = tree(WIN, "16.15");
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), "wf-pg-out-"));
+  try {
+    assert.throws(() => stagePostgres(dist, out, "win32"), /Postgres 16\.15 .* is major 16; the installer ships major 18/);
+    assert.ok(!fs.existsSync(path.join(out, "postgres")));
+  } finally {
+    fs.rmSync(dist, { recursive: true, force: true });
+    fs.rmSync(out, { recursive: true, force: true });
+  }
+});
+
+test("assertPostgresMajor accepts 18.x and reports the full version", () => {
+  const dir = tree(WIN, "18.6");
+  try {
+    assert.equal(assertPostgresMajor(dir), "18.6");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a stage without a manifest, or with no version in it, is refused", () => {
+  const none = tree(WIN.filter((f) => f !== "build-manifest.json"));
+  const bare = tree(WIN);
+  fs.writeFileSync(path.join(bare, "build-manifest.json"), JSON.stringify({ source: {} }));
+  try {
+    assert.throws(() => assertPostgresMajor(none), /no build-manifest\.json/);
+    assert.throws(() => assertPostgresMajor(bare), /has no source\.version/);
+  } finally {
+    fs.rmSync(none, { recursive: true, force: true });
+    fs.rmSync(bare, { recursive: true, force: true });
+  }
+});
+
+test("--check fails the bundle gate on a Postgres 16 stage and passes on 18", () => {
+  const old = tree(WIN, "16.15");
+  const good = tree(WIN, "18.6");
+  try {
+    const bad = spawnSync(process.execPath, [SCRIPT, "--check", old], { encoding: "utf8" });
+    assert.notEqual(bad.status, 0);
+    assert.match(bad.stderr, /is major 16/);
+    const ok = spawnSync(process.execPath, [SCRIPT, "--check", good], { encoding: "utf8" });
+    assert.equal(ok.status, 0, ok.stderr);
+    assert.match(ok.stdout, /Postgres 18\.6 is major 18/);
+  } finally {
+    fs.rmSync(old, { recursive: true, force: true });
+    fs.rmSync(good, { recursive: true, force: true });
   }
 });

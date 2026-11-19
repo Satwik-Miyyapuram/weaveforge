@@ -54,7 +54,10 @@ pub async fn route_local_request(
     }
 
     if request.method == "POST"
-        && path.strip_prefix(SDK_PREFIX).map(|r| r.trim_end_matches('/')) == Some("metrics")
+        && path
+            .strip_prefix(SDK_PREFIX)
+            .map(|r| r.trim_end_matches('/'))
+            == Some("metrics")
         && sdk_files::enabled()
     {
         return sdk_files::append_metrics_to_files(deps.vault, &request.body).await;

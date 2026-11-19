@@ -13,17 +13,6 @@ export const commands = {
 	dbState: () => typedError<DbState_Serialize, ShellError_Serialize>(__TAURI_INVOKE("db_state")),
 	/**  Resets the local database. */
 	dbReset: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("db_reset")),
-	/**  Imports one batch of rows into `table`. */
-	oldDbImportTable: (table: string, rows: unknown[]) => typedError<ImportReport, ShellError_Serialize>(__TAURI_INVOKE("old_db_import_table", { table, rows })),
-	/**  Writes the import marker once every table in `tables` is done. */
-	oldDbImportFinish: (tables: string[]) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("old_db_import_finish", { tables })),
-	/**  Whether an old database is waiting to be imported: one is found and no import has finished. */
-	oldDbStatus: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("old_db_status")),
-	/**
-	 *  The old PGlite dir as a base64 tar, for PGlite's `loadDataDir`. Read-only: the old dir is
-	 *  never written, and the tar is built in memory.
-	 */
-	oldDbTar: () => typedError<string, ShellError_Serialize>(__TAURI_INVOKE("old_db_tar")),
 	/**  Calls a local-API channel on the Rust local API, as `ipcRenderer.invoke` did under Electron. */
 	localApiCall: (channel: string, args: unknown[]) => typedError<unknown, ShellError_Serialize>(__TAURI_INVOKE("local_api_call", { channel, args })),
 	/**  Reads one offline file as standard base64; `null` when it is missing. */
@@ -677,18 +666,6 @@ export type ImageReply = {
 	contentType: string,
 	/**  The final URL after redirects. */
 	url: string,
-};
-
-/**  What one table's import call did, as the frontend sees it. */
-export type ImportReport = {
-	/**  The table name. */
-	table: string,
-	/**  Rows written by this call. One batch, so it fits a JS number. */
-	inserted: number,
-	/**  Rows already present and left alone. */
-	skipped: number,
-	/**  Whether an earlier run already finished this table. */
-	alreadyDone: boolean,
 };
 
 /**  Pen state forwarded to the helper for haptic feedback. */
