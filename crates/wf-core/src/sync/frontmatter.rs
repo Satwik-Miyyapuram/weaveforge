@@ -81,7 +81,7 @@ pub fn frontmatter_list(fm: &Map<String, Value>, key: &str) -> Vec<String> {
 
 /// Returns the text of a `---` fenced block and the body after it, if fenced.
 /// Mirrors the TS regex `^﻿?---\r?\n([\s\S]*?)\r?\n---\r?\n?`.
-fn split_fences(content: &str) -> Option<(&str, &str)> {
+pub(crate) fn split_fences(content: &str) -> Option<(&str, &str)> {
     let text = content.strip_prefix('\u{feff}').unwrap_or(content);
     let after_open = text.strip_prefix("---")?;
     let after_open = after_open
