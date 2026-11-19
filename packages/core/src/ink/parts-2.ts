@@ -227,11 +227,11 @@ export const INK_BACKGROUND_ALT = "page background";
 const BACKGROUND_LINE = /^!\[page background\]\(vault:([^)\s]+)\)$/;
 
 /* -------------------------------------------------------------------------
- * The sidecar on disk
+ * The strokes on disk: `notes/foo.ink.md` keeps its pages in `notes/foo.ink/`
  * ---------------------------------------------------------------------- */
 
-/** Top-level sidecar directory, beside the mirrored folders. */
-export const INK_SIDECAR_DIR = ".ink";
+/** The old top-level `.ink/<weaveforge-id>/` folder, read only by the one-time migration. */
+export const LEGACY_INK_DIR = ".ink";
 
 /** Chunk file extension: one page, columnar binary, compressed. */
 export const INK_CHUNK_EXT = ".inkb";

@@ -29,7 +29,7 @@ export const ENTITY_DIRS: Record<WorkspaceEntityType, string> = {
   vault_page: "notes",
   // An ink note is a note: it lives in the same tree, reads in the same pane and
   // resolves `[[links]]` against the same table. Only its body differs — the
-  // strokes are beside it in `.ink/<id>/`, never in the markdown (§4.6).
+  // strokes are beside it in `<name>.ink/`, never in the markdown (§4.6).
   ink_page: "notes",
   paper: "papers",
   reading_list: "reading-lists",
@@ -55,7 +55,7 @@ export const ENTITY_DIRS: Record<WorkspaceEntityType, string> = {
 export const KIND_SUFFIX: Record<WorkspaceEntityType, string> = {
   vault_page: "note",
   // `.ink.md`: the note is still markdown — the text layer is the body, and the
-  // strokes are per-page binary chunks in the `.ink/<id>/` sidecar (§4.1).
+  // strokes are per-page binary chunks in the `<name>.ink/` folder beside it (§4.1).
   ink_page: "ink",
   paper: "paper",
   reading_list: "list",
@@ -182,7 +182,7 @@ export function parseWorkspaceFile(path: string, content: string): ParsedEntity 
   // An ink note is stored as a note whose body starts with the ink header (see
   // `ink-note.ts`), so the folder's `ink_page` comes back as a `vault_page` with
   // its frontmatter ink keys folded into that line. The importer then treats it
-  // as the note it is, and the strokes stay in `.ink/<id>/` where they were.
+  // as the note it is, and the strokes stay in `<name>.ink/` where they were.
   if (type === INK_NOTE_TYPE) {
     return {
       id: rust().frontmatterString(frontmatter, "weaveforge-id"),

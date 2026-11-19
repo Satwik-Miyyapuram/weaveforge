@@ -436,7 +436,7 @@ pub enum FileKind {
     MetricsChunk,
     /// An AI audit chunk (`.weaveforge/ai/audit/*.jsonl`).
     AiAudit,
-    /// An ink stroke file (`.ink/*.inkb`).
+    /// An ink stroke file (`<note>.ink/*.inkb`, or the legacy `.ink/<id>/*.inkb`).
     Ink,
     /// Root-level workspace JSON under `.weaveforge/`.
     WorkspaceMeta,
@@ -454,7 +454,13 @@ pub fn file_kind(path: &str) -> FileKind {
         FileKind::Comments
     } else if name == ".overleaf.json" {
         FileKind::Overleaf
-    } else if path.ends_with(".inkb") && path.split('/').any(|seg| seg == ".ink") {
+    } else if path.ends_with(".inkb")
+        && (path
+            .rsplit('/')
+            .nth(1)
+            .is_some_and(crate::ink::ink_paths::is_ink_strokes_segment)
+            || path.split('/').any(|segment| segment == ".ink"))
+    {
         FileKind::Ink
     } else if path.ends_with(".jsonl") && path.starts_with(".weaveforge/ai/audit/") {
         FileKind::AiAudit

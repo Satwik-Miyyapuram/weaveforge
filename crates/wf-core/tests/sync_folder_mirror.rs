@@ -676,14 +676,15 @@ fn the_same_protection_covers_the_projects_json_data_files() {
 }
 
 #[test]
-fn the_mirror_never_reaches_into_the_ink_sidecar() {
+fn the_mirror_never_reaches_into_a_strokes_folder() {
     let project = thesis();
     let mut fs = MemoryWorkspaceFs::new();
-    // A page of somebody's handwriting, written by the ink store rather than by the
-    // mirror, which is the whole reason this holds.
-    let ink_path = ".ink/n1/01JCHUNK0000000000000000.inkb";
-    fs.mkdirp(".ink/n1").expect("mkdir");
-    fs.write_file(ink_path, &[1_u8, 2, 3]).expect("ink");
+    // A page of somebody's handwriting beside its note, written by the ink store
+    // rather than by the mirror, which is the whole reason this holds.
+    let ink_dir = at("notes/method.ink");
+    let ink_path = format!("{ink_dir}/01JCHUNK0000000000000000.inkb");
+    fs.mkdirp(&ink_dir).expect("mkdir");
+    fs.write_file(&ink_path, &[1_u8, 2, 3]).expect("ink");
 
     let first = mirror_workspace(
         &with_notes(vec![note("n1", "Method", "")]),
@@ -692,7 +693,7 @@ fn the_mirror_never_reaches_into_the_ink_sidecar() {
     )
     .expect("first");
     let seen = seen_of(&first.served);
-    assert!(first.written.iter().all(|path| !path.starts_with(".ink/")));
+    assert!(first.written.iter().all(|path| !path.starts_with(&ink_dir)));
 
     // The note goes; the strokes stay. Sync never deletes, so neither the note nor a
     // chunk is removed.
@@ -703,7 +704,7 @@ fn the_mirror_never_reaches_into_the_ink_sidecar() {
     let second = mirror_workspace(&snapshot(), &mut fs, opts).expect("second");
     assert!(second.removed.is_empty());
     assert!(fs.stat(&at("notes/method.note.md")).is_some());
-    assert!(fs.stat(ink_path).is_some());
+    assert!(fs.stat(&ink_path).is_some());
 }
 
 #[test]

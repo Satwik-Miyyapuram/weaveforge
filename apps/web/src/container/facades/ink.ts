@@ -1,8 +1,8 @@
 /**
  * Ink notes: where a note's stroke chunks live, and which engine reads them.
  *
- * The chunk store is routed per call — the workspace folder's `.ink/` when one
- * is open, the encrypted asset bucket otherwise — so an ink note follows the
+ * The chunk store is routed per call — the `<name>.ink/` folder beside the note
+ * when a workspace folder is open, the encrypted asset bucket otherwise — so an ink note follows the
  * same rule as every other page: on disk if there is a disk, in the vault if
  * not. The recogniser is chosen once per session by core's selector, in §5.2's
  * order, from the candidates this build can offer. Every candidate reads on this
