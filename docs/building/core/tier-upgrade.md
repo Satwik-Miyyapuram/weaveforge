@@ -26,7 +26,7 @@ runs it first, before the 0.8 data import. The work is in
   0.9.2 downgrade still opens local mode (no data or choice is lost).
 
 The done key makes it run once. A later start never changes the tier again,
-even after the flags are gone.
+even though the old flag stays.
 
 If writing the tier fails (for example, no folder is open yet), the flags and
 the done key stay as they were. The old flags still work, and the next start
@@ -39,6 +39,9 @@ tries again.
   profile work (Lane L).
 - Offering to connect a git remote on a fresh install. `upgradeTier` returns
   `freshInstall: true` for the setup screen to use.
+- Per-workspace done key. `weaveforge.tier-upgraded` is per page, but the tier
+  is per workspace folder. A second 0.9.2 workspace opened later gets no tier
+  until the folder-switch lane keys the done mark by workspace id.
 - Removing the local-first marker. It still decides whether the window is
   wired local-first, so it stays until that wiring reads the tier.
 
