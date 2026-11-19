@@ -8,8 +8,13 @@
 //! - Reading back gives every written point, merged and sorted.
 //! - An inbox row is acked only once its data is on disk; a row that cannot
 //!   be stored stays in the inbox.
+//! - A batch is stored whole or not at all: every chunk is written to a temp
+//!   file before any is moved into place.
 
 use std::collections::HashMap;
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 use sha2::{Digest as _, Sha256};
@@ -17,8 +22,8 @@ use wf_core::metric_csv::{CsvMetric, decode, encode, merge_chunks};
 use wf_core::sync::entity_file::parse_entity_file;
 use wf_core::sync::folder_layout::metrics_chunk_path;
 
-use crate::checked_write::WriteOutcome;
-use crate::vault::{EntryKind, Vault, VaultError};
+use crate::checked_write::{WriteOutcome, write_temp};
+use crate::vault::{EntryKind, Vault, VaultError, io_err, temp_beside};
 
 /// The run name used when a point names none.
 pub const DEFAULT_RUN: &str = "main";
@@ -101,7 +106,11 @@ pub fn read_metrics(vault: &Vault, experiment_dir: &str) -> Result<MetricsRead, 
         if entry.kind != EntryKind::File || !entry.path.ends_with(".csv") {
             continue;
         }
-        match vault.read_text(&entry.path).ok().and_then(|t| decode(&t).ok()) {
+        match vault
+            .read_text(&entry.path)
+            .ok()
+            .and_then(|t| decode(&t).ok())
+        {
             Some(rows) => chunks.push(rows),
             None => bad_chunks.push(entry.path),
         }
@@ -126,7 +135,10 @@ pub fn experiment_dirs(vault: &Vault) -> Result<HashMap<String, String>, VaultEr
         if entry.kind != EntryKind::File || !dir.contains("experiments/") {
             continue;
         }
-        let Some(file) = vault.read_text(&entry.path).ok().and_then(|t| parse_entity_file(&t))
+        let Some(file) = vault
+            .read_text(&entry.path)
+            .ok()
+            .and_then(|t| parse_entity_file(&t))
         else {
             continue;
         };
@@ -162,9 +174,10 @@ pub fn apply_inbox_rows(
     let mut report = DrainReport::default();
     for row in rows {
         let id = row.get("id").and_then(Value::as_i64);
-        match id.ok_or_else(|| "row has no id".to_owned()).and_then(|id| {
-            store_row(vault, id, row, dirs)
-        }) {
+        match id
+            .ok_or_else(|| "row has no id".to_owned())
+            .and_then(|id| store_row(vault, id, row, dirs))
+        {
             Ok(writes) => {
                 for write in writes {
                     match write {
@@ -253,12 +266,83 @@ pub fn store_metric_points(
     if let Some(((_, run), _)) = groups.iter().find(|((_, run), _)| !is_safe_segment(run)) {
         return Err(format!("bad run name {run:?}"));
     }
-    groups
-        .iter()
-        .map(|((dir, run), rows)| {
-            write_chunk(vault, dir, run, batch_id, rows).map_err(|e| e.to_string())
-        })
-        .collect()
+    if !is_safe_segment(batch_id) {
+        return Err(format!("bad batch id {batch_id:?}"));
+    }
+    // Write every chunk to a temp file first, then publish them all, so a
+    // failed write leaves no part of the batch behind.
+    let mut staged = Vec::with_capacity(groups.len());
+    for ((dir, run), rows) in &groups {
+        let path = metrics_chunk_path(dir, run, batch_id);
+        match stage(vault, &path, encode(rows).as_bytes()) {
+            Ok(pair) => staged.push(pair),
+            Err(e) => {
+                discard(&staged);
+                return Err(e.to_string());
+            }
+        }
+    }
+    publish(&staged)
+}
+
+/// A chunk written to a temp file beside its final path: `(temp, target)`.
+type Staged = (PathBuf, PathBuf);
+
+fn stage(vault: &Vault, rel: &str, bytes: &[u8]) -> Result<Staged, VaultError> {
+    let target = vault.resolve(rel)?;
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|source| io_err("create folder", rel, source))?;
+    }
+    let temp = temp_beside(&target);
+    if let Err(source) = write_temp(&temp, bytes) {
+        let _ = fs::remove_file(&temp);
+        return Err(io_err("write", rel, source));
+    }
+    Ok((temp, target))
+}
+
+fn discard(staged: &[Staged]) {
+    for (temp, _) in staged {
+        let _ = fs::remove_file(temp);
+    }
+}
+
+/// Moves every staged chunk into place without replacing one that exists.
+/// On a failure the chunks placed by this call are removed again.
+fn publish(staged: &[Staged]) -> Result<Vec<ChunkWrite>, String> {
+    let mut out = Vec::with_capacity(staged.len());
+    for (i, (temp, target)) in staged.iter().enumerate() {
+        match place(temp, target) {
+            Ok(write) => out.push(write),
+            Err(e) => {
+                discard(&staged[i..]);
+                for ((_, placed), write) in staged.iter().zip(&out) {
+                    if *write == ChunkWrite::Written {
+                        let _ = fs::remove_file(placed);
+                    }
+                }
+                return Err(format!("could not store chunk {}: {e}", target.display()));
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// A hard link never replaces an existing chunk; where links are not
+/// supported, a checked rename does the same job (a chunk is never edited,
+/// so a racing writer of the same batch wrote the same bytes).
+fn place(temp: &Path, target: &Path) -> io::Result<ChunkWrite> {
+    let write = match fs::hard_link(temp, target) {
+        Ok(()) => ChunkWrite::Written,
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => ChunkWrite::AlreadyPresent,
+        Err(_) if fs::symlink_metadata(target).is_ok() => ChunkWrite::AlreadyPresent,
+        Err(_) => {
+            fs::rename(temp, target)?;
+            return Ok(ChunkWrite::Written);
+        }
+    };
+    let _ = fs::remove_file(temp);
+    Ok(write)
 }
 
 fn to_metric(point: &Value) -> Option<CsvMetric> {

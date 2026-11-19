@@ -394,13 +394,50 @@ async fn publish_bad_token_400() {
     assert!(calls(&up, SHARED_DOCS).is_empty());
 }
 
+/// Asserts publish wrote with two statements that each check on their own:
+/// an insert that never replaces a row, then an update filtered by owner.
+/// No owner is read first, so no other publish can slip in between.
+fn assert_conditional_writes(sent: &[Seen]) {
+    assert_eq!(
+        sent.len(),
+        2,
+        "insert-if-absent, then owner-filtered update"
+    );
+    let insert = &sent[0];
+    assert_eq!(insert.method, "POST");
+    assert!(
+        insert.target.contains("on_conflict=item_id"),
+        "{}",
+        insert.target
+    );
+    assert!(
+        insert
+            .header("prefer")
+            .is_some_and(|prefer| prefer.contains("resolution=ignore-duplicates")),
+        "the insert never replaces another owner's row"
+    );
+    let update = &sent[1];
+    assert_eq!(update.method, "PATCH");
+    assert!(
+        update.target.contains("item_id=eq.feed-1"),
+        "{}",
+        update.target
+    );
+    assert!(update.target.contains("owner=eq.u1"), "{}", update.target);
+    assert!(
+        sent.iter().all(|seen| seen.method != "GET"),
+        "no owner select"
+    );
+}
+
 #[tokio::test]
 async fn publish_refuses_other_owner_403() {
     let up = serve(vec![
         (AUTH_USER, vec![json_reply(200, r#"{"id":"u1"}"#)]),
         (
             SHARED_DOCS,
-            vec![json_reply(200, r#"[{"owner":"u2","kind":"feed"}]"#)],
+            // The insert is skipped (u2 owns the row); the owner-filtered update matches nothing.
+            vec![json_reply(201, ""), json_reply(200, "[]")],
         ),
     ])
     .await;
@@ -408,7 +445,7 @@ async fn publish_refuses_other_owner_403() {
     let (status, _, reply) = send(&up, "POST", PUBLISH, Some(SESSION), &body).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert_eq!(reply, r#"{"error":"Not your feed."}"#);
-    assert_eq!(calls(&up, SHARED_DOCS).len(), 1, "no upsert after refusal");
+    assert_conditional_writes(&calls(&up, SHARED_DOCS));
 }
 
 #[tokio::test]
@@ -418,8 +455,8 @@ async fn publish_sends_hash_not_token() {
         (
             SHARED_DOCS,
             vec![
-                json_reply(200, "[]"),
-                json_reply(201, r#"[{"item_id":"feed-1"}]"#),
+                json_reply(201, ""),
+                json_reply(200, r#"[{"item_id":"feed-1"}]"#),
             ],
         ),
     ])
@@ -430,22 +467,22 @@ async fn publish_sends_hash_not_token() {
     assert_eq!(reply, r#"{"ok":true}"#);
 
     let sent = calls(&up, SHARED_DOCS);
-    assert_eq!(sent.len(), 2);
-    let upsert = &sent[1];
-    assert_eq!(upsert.method, "POST");
-    assert!(
-        upsert.target.contains("on_conflict=item_id"),
-        "{}",
-        upsert.target
-    );
-    let row: Value = serde_json::from_slice(&upsert.body).expect("json");
+    assert_conditional_writes(&sent);
+    let row: Value = serde_json::from_slice(&sent[0].body).expect("json");
     assert_eq!(row["item_id"], FEED_ID);
     assert_eq!(row["owner"], "u1");
-    assert_eq!(row["kind"], "feed");
-    assert_eq!(row["feed_token_hash"], hash_hex(FEED_TOKEN));
-    let state = row["state"].as_str().expect("state");
-    let stored: Value = serde_json::from_slice(&decode_bytea(state)).expect("json");
-    assert_eq!(stored["items"][0]["title"], "Chapter draft");
+    let patch: Value = serde_json::from_slice(&sent[1].body).expect("json");
+    assert!(
+        patch.get("owner").is_none(),
+        "the update never changes the owner"
+    );
+    for written in [&row, &patch] {
+        assert_eq!(written["kind"], "feed");
+        assert_eq!(written["feed_token_hash"], hash_hex(FEED_TOKEN));
+        let state = written["state"].as_str().expect("state");
+        let stored: Value = serde_json::from_slice(&decode_bytea(state)).expect("json");
+        assert_eq!(stored["items"][0]["title"], "Chapter draft");
+    }
 
     for seen in up.seen() {
         assert!(!seen.target.contains(FEED_TOKEN), "{}", seen.target);

@@ -114,44 +114,33 @@ pub async fn publish(
         return error_response(400, "Invalid feed id or token.");
     }
 
-    let db = service_db(&state);
-    match db
-        .select(
-            SHARED_DOCS,
-            &[
-                ("select", "owner".to_owned()),
-                ("item_id", eq(&request.feed_id)),
-            ],
-        )
-        .await
-    {
-        Ok(rows) => {
-            let foreign = rows.iter().any(|row| {
-                row.get("owner").and_then(Value::as_str) != Some(caller.user_id.as_str())
-            });
-            if foreign {
-                return error_response(403, "Not your feed.");
-            }
-        }
-        Err(err) => return db_failure(&err, "plan-feed-publish"),
-    }
-
     let Ok(doc) = serde_json::to_vec(&FeedDoc {
         items: request.items,
     }) else {
         return error_response(500, "Could not encode the feed.");
     };
-    let row = json!({
-        "item_id": request.feed_id,
-        "owner": caller.user_id,
+    let feed = json!({
         "kind": "feed",
         "feed_token_hash": token_hash_hex(&request.token),
         "state": encode_bytea(&doc),
     });
-    match db
-        .upsert(SHARED_DOCS, &row, &[("on_conflict", "item_id".to_owned())])
-        .await
-    {
+    let mut row = feed.clone();
+    row["item_id"] = json!(request.feed_id);
+    row["owner"] = json!(caller.user_id);
+
+    // Two writes, each checked by the database on its own, so no other
+    // publish can land between a check and a write: the insert never
+    // replaces an existing row, and the update only touches the caller's.
+    let db = service_db(&state);
+    if let Err(err) = db.insert_ignore(SHARED_DOCS, &row, "item_id").await {
+        return db_failure(&err, "plan-feed-publish");
+    }
+    let mine = [
+        ("item_id", eq(&request.feed_id)),
+        ("owner", eq(&caller.user_id)),
+    ];
+    match db.update_returning(SHARED_DOCS, &mine, &feed).await {
+        Ok(rows) if rows.is_empty() => error_response(403, "Not your feed."),
         Ok(_) => json_response(200, &json!({"ok": true})),
         Err(err) => db_failure(&err, "plan-feed-publish"),
     }

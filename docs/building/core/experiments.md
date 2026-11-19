@@ -61,7 +61,13 @@ main,10,"val ""loss"", smoothed",0.44,2026-11-19T10:00:00Z
   stored stays in the inbox (`drain_then_ack_lists_every_stored_row`, and
   `drain_then_ack_names_stored_rows_only` in `apps/shell/src/cmd_experiments.rs`).
 - **A bad point writes nothing** (`local_post_with_a_bad_point_writes_nothing`).
-- **Size**: 100,000 steps of one metric take REPO_GROWTH on disk
+- **A batch is stored whole or not at all**: every chunk goes to a temp file
+  before any is moved into place, so a failed write in a later run leaves no
+  chunk of the batch, and the retry stores all of it
+  (`a_later_group_failing_leaves_no_partial_batch`).
+- **Size**: 100,000 steps of three metrics (300,000 points in 300 chunks)
+  take 14,411,170 bytes of CSV and 1,790,378 bytes of git objects after one
+  commit; the test fails above 16 MiB of git objects
   (`repo_growth_100k_steps`).
 
 ## Not done yet

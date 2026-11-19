@@ -106,8 +106,17 @@ fn duplicate_batch_dropped() {
 fn unsafe_run_or_batch_names_are_refused() {
     let tmp = TempDir::new();
     let vault = vault_in(tmp.path());
-    for (run, batch) in [("..", "b"), ("r", "../x"), ("a/b", "b"), ("", "b"), ("r", ".hidden")] {
-        assert!(write_chunk(&vault, EXP, run, batch, &[]).is_err(), "{run} {batch}");
+    for (run, batch) in [
+        ("..", "b"),
+        ("r", "../x"),
+        ("a/b", "b"),
+        ("", "b"),
+        ("r", ".hidden"),
+    ] {
+        assert!(
+            write_chunk(&vault, EXP, run, batch, &[]).is_err(),
+            "{run} {batch}"
+        );
     }
 }
 
@@ -215,6 +224,49 @@ fn local_post_with_a_bad_point_writes_nothing() {
     assert!(read_metrics(&vault, EXP).unwrap().rows.is_empty());
 }
 
+/// Every file under `dir`, temps included; a missing folder has none.
+fn files_under(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            out.extend(files_under(&path));
+        } else {
+            out.push(path);
+        }
+    }
+    out
+}
+
+#[test]
+fn a_later_group_failing_leaves_no_partial_batch() {
+    let tmp = TempDir::new();
+    experiment_file(tmp.path(), &format!("{EXP}.md"), "exp-1");
+    let vault = vault_in(tmp.path());
+    let dirs = experiment_dirs(&vault).unwrap();
+    let points = vec![
+        json!({"experiment_id": "exp-1", "run": "a", "metric": "loss", "step": 1, "value": 0.5}),
+        json!({"experiment_id": "exp-1", "run": "b", "metric": "loss", "step": 1, "value": 0.4}),
+    ];
+    // A file where run `b`'s folder should be makes the second group's write fail.
+    let metrics = tmp.path().join(EXP).join("metrics");
+    std::fs::create_dir_all(&metrics).unwrap();
+    std::fs::write(metrics.join("b"), "blocker").unwrap();
+    let batch = local_batch_id(&points);
+    assert!(store_metric_points(&vault, &batch, &points, &dirs).is_err());
+    assert_eq!(files_under(&metrics), vec![metrics.join("b")]);
+    assert!(read_metrics(&vault, EXP).unwrap().rows.is_empty());
+    // Once the blocker is gone, the retry stores the whole batch.
+    std::fs::remove_file(metrics.join("b")).unwrap();
+    let writes = store_metric_points(&vault, &batch, &points, &dirs).unwrap();
+    assert_eq!(writes, vec![ChunkWrite::Written, ChunkWrite::Written]);
+    assert_eq!(read_metrics(&vault, EXP).unwrap().rows.len(), 2);
+    assert_eq!(files_under(&metrics).len(), 2);
+}
+
 #[test]
 fn artifact_rows_become_files() {
     let tmp = TempDir::new();
@@ -225,8 +277,13 @@ fn artifact_rows_become_files() {
         "payload": {"experiment_id": "exp-1", "name": "model card", "url": "https://x"}});
     let report = apply_inbox_rows(&vault, &[row.clone()], &dirs);
     assert_eq!(report.ack, vec![9]);
-    let stored = vault.read_text(&format!("{EXP}/artifacts/main/a9.json")).unwrap();
-    assert_eq!(serde_json::from_str::<Value>(&stored).unwrap(), row["payload"]);
+    let stored = vault
+        .read_text(&format!("{EXP}/artifacts/main/a9.json"))
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&stored).unwrap(),
+        row["payload"]
+    );
     assert_eq!(apply_inbox_rows(&vault, &[row], &dirs).ack, vec![9]);
 }
 
