@@ -374,10 +374,11 @@ async fn on_text(
         }
         Control::Final { device } => {
             let (released, closing) = release_lease(state, room, &device).await;
-            if released && closing {
-                if let Err(error) = hub::close_doc(state, &room.item_id).await {
-                    eprintln!("collab close {}: {error}", room.item_id);
-                }
+            if released
+                && closing
+                && let Err(error) = hub::close_doc(state, &room.item_id).await
+            {
+                eprintln!("collab close {}: {error}", room.item_id);
             }
             true
         }
@@ -402,14 +403,13 @@ async fn acquire(
             .acquire(device, &client.user, state.clock.now_ms())
     };
     let sent = send_text(socket, protocol::lease_reply_json(&reply)).await;
-    if let LeaseReply::Granted { until_ms } = reply {
-        if let Err(error) = state
+    if let LeaseReply::Granted { until_ms } = reply
+        && let Err(error) = state
             .store
             .set_writer(&room.item_id, Some(device), Some(until_ms))
             .await
-        {
-            eprintln!("collab writer {}: {error}", room.item_id);
-        }
+    {
+        eprintln!("collab writer {}: {error}", room.item_id);
     }
     sent
 }
@@ -488,10 +488,8 @@ async fn leave(state: &CollabState, room: &Room) {
         return;
     }
     // A closing doc is being deleted; saving it again would write to a dead row.
-    if !closing {
-        if let Err(error) = hub::persist_room(state, room).await {
-            eprintln!("collab persist {}: {error}", room.item_id);
-        }
+    if !closing && let Err(error) = hub::persist_room(state, room).await {
+        eprintln!("collab persist {}: {error}", room.item_id);
     }
     let still_idle = room.inner.lock().await.clients == 0;
     if still_idle {

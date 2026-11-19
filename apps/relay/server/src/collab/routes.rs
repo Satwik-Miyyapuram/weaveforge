@@ -1,4 +1,8 @@
 //! HTTP routes for co-editing: the socket, seeding, restore, unshare and grants.
+#![allow(
+    clippy::result_large_err,
+    reason = "handlers return an early axum Response as the error"
+)]
 
 use std::collections::HashMap;
 use std::sync::Arc;
