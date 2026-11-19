@@ -1,13 +1,15 @@
 //! Keeps secrets out of workspace config files (files-first, L7).
 //!
 //! Secrets (API keys, git and Overleaf tokens, passwords) live in the OS keychain.
-//! Config files (`.weaveforge/**/*.json`, `.weaveforge/**/*.jsonl`, `.overleaf.json`)
+//! Config files (`**/.weaveforge/**/*.json`, `**/.weaveforge/**/*.jsonl`, `.overleaf.json`)
 //! sync through git, so a write that would put a secret in one is refused. A value
 //! counts as a secret when its key names one (`apiKey`, `token`, `password`, ...) or
 //! when it has the shape of a known token (`sk-...`, `ghp_...`, a private key, ...).
 //! The refusal names where the secret sits, never its value. Pure: no I/O.
 
 use serde_json::Value;
+
+use crate::sync::folder_layout::WORKSPACE_META_DIR;
 
 /// Key endings that name a secret, compared lowercase with `-` and `_` removed.
 /// Endings, not substrings, so `tokenizer` and `keyboard` stay fine.
@@ -142,16 +144,30 @@ pub fn check_value(value: &Value) -> Result<(), SecretRefused> {
     }
 }
 
-/// Whether `path` (workspace-relative) is a config file guarded by [`check_config_write`].
+/// Whether `path` (workspace-relative) is a config file guarded by [`check_config_write`]:
+/// any `.overleaf.json`, and any `.json` or `.jsonl` file below a `.weaveforge` folder at
+/// any depth. Case is ignored and trailing dots and spaces are dropped from each part,
+/// because Windows and macOS open the same file under those spellings.
 #[must_use]
 pub fn is_config_path(path: &str) -> bool {
-    let path = path.replace('\\', "/");
-    let path = path.trim_start_matches("./");
-    let name = path.rsplit('/').next().unwrap_or(path);
+    let parts = path_parts(path);
+    let Some((name, dirs)) = parts.split_last() else {
+        return false;
+    };
     if name == ".overleaf.json" {
         return true;
     }
-    path.starts_with(".weaveforge/") && (name.ends_with(".json") || name.ends_with(".jsonl"))
+    dirs.iter().any(|dir| dir == WORKSPACE_META_DIR)
+        && (name.ends_with(".json") || name.ends_with(".jsonl"))
+}
+
+/// The parts of `path` as the file system compares them: lowercase, trailing dots and
+/// spaces dropped, empty and `.` parts skipped.
+fn path_parts(path: &str) -> Vec<String> {
+    path.split(['/', '\\'])
+        .map(|part| part.trim_end_matches(['.', ' ']).to_lowercase())
+        .filter(|part| !part.is_empty())
+        .collect()
 }
 
 /// Checks a write of `contents` to `path`. Paths that are not config files pass.

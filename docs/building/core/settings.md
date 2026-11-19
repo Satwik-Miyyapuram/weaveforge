@@ -61,8 +61,11 @@ the core has loaded.
 
 Secrets live in the system keychain (`apps/shell/src/secrets.rs`), never in a
 workspace file. The shell's `file_write` command runs `check_config_write` on
-every write to a config file (any `.json` or `.jsonl` under `.weaveforge/`, and
-any `.overleaf.json`), so a secret is refused before it reaches the disk or git.
+every write to a config file (any `.json` or `.jsonl` below a `.weaveforge/`
+folder at any depth, and any `.overleaf.json`), so a secret is refused before it
+reaches the disk or git. Case is ignored and trailing dots and spaces are
+dropped from each part of the path, since Windows and macOS open the same file
+under those spellings (`config_paths_ignore_case_and_depth`).
 A machine without a keychain keeps the secret in memory for the session only
 (`no_store_write_read_clear_behave_as_no_keychain` in
 `apps/shell/tests/secrets.rs`).

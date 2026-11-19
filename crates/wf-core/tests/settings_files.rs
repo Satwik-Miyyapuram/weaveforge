@@ -127,6 +127,36 @@ fn config_paths() {
     assert!(check_config_write("notes/a.md", "token: x").is_ok());
 }
 
+/// Windows and macOS folders ignore case and Windows drops trailing dots and
+/// spaces, so every spelling that lands on a config file is guarded, at any depth.
+#[test]
+fn config_paths_ignore_case_and_depth() {
+    for path in [
+        ".WeaveForge/Settings.JSON",
+        ".weaveforge/ai/proposals/deep/er/x.json",
+        "projects/thesis/.weaveforge/mirror.json",
+        ".\\.weaveforge\\ai\\audit\\b.JSONL",
+        "./.weaveforge/settings.json",
+        ".weaveforge./settings.json",
+        ".weaveforge /settings.json.",
+        "R/.Overleaf.JSON",
+    ] {
+        assert!(is_config_path(path), "{path}");
+        assert!(
+            check_config_write(path, r#"{"token":"x"}"#).is_err(),
+            "{path}"
+        );
+    }
+    for path in [
+        "notes/weaveforge/a.json",
+        "notes/.weaveforge.md",
+        ".weaveforge/notes.md",
+        "",
+    ] {
+        assert!(!is_config_path(path), "{path}");
+    }
+}
+
 const SECRET_KEYS: [&str; 8] = [
     "token",
     "apiKey",
