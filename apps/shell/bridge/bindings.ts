@@ -35,6 +35,20 @@ export const commands = {
 	/**  Forgets a secret the page may write. */
 	secretClear: (name: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_clear", { name })),
 	/**
+	 *  Reads this machine's settings (JSON object text).
+	 * 
+	 *  # Errors
+	 *  No folder chosen, or the file cannot be read or is not a JSON object.
+	 */
+	deviceSettingsRead: () => typedError<string, ShellError_Serialize>(__TAURI_INVOKE("device_settings_read")),
+	/**
+	 *  Patches this machine's settings with `patch` (JSON object text); returns the result.
+	 * 
+	 *  # Errors
+	 *  See [`patch_device_settings`]; also no folder chosen.
+	 */
+	deviceSettingsPatch: (patch: string) => typedError<string, ShellError_Serialize>(__TAURI_INVOKE("device_settings_patch", { patch })),
+	/**
 	 *  The chosen workspace folder, or nothing when none is chosen.
 	 * 
 	 *  # Errors

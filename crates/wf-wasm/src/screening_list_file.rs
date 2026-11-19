@@ -65,8 +65,8 @@ pub fn remove_from_list_file_js(text: &str, id: &str) -> Result<String, JsError>
     list_file::remove_decision(text, id).map_err(js_error)
 }
 
-/// [`mark_missing`](list_file::mark_missing): entries whose item is not in `known_items`
-/// are marked missing, never dropped.
+/// [`mark_missing`](list_file::mark_missing): entries whose `[[link]]` points at no note
+/// in `known_items` (also links) are marked missing, never dropped.
 ///
 /// # Errors
 ///

@@ -6,13 +6,84 @@ use proptest::prelude::*;
 use serde_json::{Map, Value, json};
 use wf_core::ai::proposal_file::{parse_proposal_file, render_audit_line, render_proposal_file};
 use wf_core::overleaf::link_file::{OverleafLink, parse_overleaf_link, render_overleaf_link};
-use wf_core::settings::secret_guard::{SecretRefused, check_config_write, is_config_path};
-use wf_core::settings::settings_file::{apply_patch, parse_settings, render_settings};
+use wf_core::settings::secret_guard::{
+    NOT_CONFIG_DIRS, SecretRefused, check_config_bytes, check_config_write, is_config_path,
+};
+use wf_core::settings::settings_file::{
+    apply_patch, parse_settings, render_settings, split_legacy_secrets,
+};
 use wf_core::sync::folder_layout::{DEVICE_SETTINGS_PATH, SETTINGS_PATH};
 use wf_core::sync::git_policy::is_local_meta;
 
 fn obj(value: Value) -> Map<String, Value> {
     value.as_object().cloned().unwrap()
+}
+
+#[test]
+fn legacy_secrets_split_out() {
+    let token = "sk-ant-abcdefghijklmnopqrstu";
+    let settings = obj(json!({
+        "theme": "crt",
+        "zoteroApiKey": "zk",
+        "integrations": {"zotero": {"apiKey": "k", "library": "users/1"}},
+        "note": token,
+        "cleared": {"token": ""},
+    }));
+    let (kept, moved) = split_legacy_secrets(&settings);
+    assert_eq!(
+        kept,
+        obj(json!({
+            "theme": "crt",
+            "integrations": {"zotero": {"library": "users/1"}},
+            "cleared": {"token": ""},
+        }))
+    );
+    assert_eq!(
+        moved,
+        obj(json!({
+            "zoteroApiKey": "zk",
+            "integrations.zotero.apiKey": "k",
+            "note": token,
+        }))
+    );
+    assert!(render_settings(&kept).is_ok());
+}
+
+#[test]
+fn legacy_secrets_none_leaves_settings_as_is() {
+    let settings = obj(json!({"theme": "crt", "reader": {"zoom": 1.25}, "maxTokens": 4}));
+    let (kept, moved) = split_legacy_secrets(&settings);
+    assert_eq!(kept, settings);
+    assert!(moved.is_empty());
+}
+
+#[test]
+fn legacy_secret_in_array_is_left_and_still_refused() {
+    let settings = obj(json!({"keys": ["ghp_abcdefghijklmnopqrstuvwxyz"]}));
+    let (kept, moved) = split_legacy_secrets(&settings);
+    assert!(moved.is_empty());
+    assert!(render_settings(&kept).is_err());
+}
+
+/// Every integration credential field the settings types name (`CredentialSettings`,
+/// `IntegrationsBag`) is refused in a config file, and moved out of a legacy one.
+#[test]
+fn integration_credential_fields_are_secrets() {
+    for settings in [
+        json!({"zoteroApiKey": "k"}),
+        json!({"semanticScholarKey": "k"}),
+        json!({"integrations": {"zotero": {"apiKey": "k"}}}),
+        json!({"integrations": {"semantic-scholar": {"apiKey": "k"}}}),
+    ] {
+        let settings = obj(settings);
+        assert!(render_settings(&settings).is_err(), "{settings:?}");
+        assert_eq!(split_legacy_secrets(&settings).1.len(), 1, "{settings:?}");
+    }
+    let library = obj(json!({"zoteroLibrary": "users/1"}));
+    assert!(
+        render_settings(&library).is_ok(),
+        "the library path is not a secret"
+    );
 }
 
 #[test]
@@ -125,6 +196,79 @@ fn config_paths() {
     }
     // A note is not a config file, so the word token in it is fine.
     assert!(check_config_write("notes/a.md", "token: x").is_ok());
+}
+
+/// Windows and macOS folders ignore case and Windows drops trailing dots and
+/// spaces, so every spelling that lands on a config file is guarded, at any depth.
+#[test]
+fn config_paths_ignore_case_and_depth() {
+    for path in [
+        ".WeaveForge/Settings.JSON",
+        ".weaveforge/ai/proposals/deep/er/x.json",
+        "projects/thesis/.weaveforge/mirror.json",
+        ".\\.weaveforge\\ai\\audit\\b.JSONL",
+        "./.weaveforge/settings.json",
+        ".weaveforge./settings.json",
+        ".weaveforge /settings.json.",
+        "R/.Overleaf.JSON",
+    ] {
+        assert!(is_config_path(path), "{path}");
+        assert!(
+            check_config_write(path, r#"{"token":"x"}"#).is_err(),
+            "{path}"
+        );
+    }
+    for path in [
+        "notes/weaveforge/a.json",
+        "notes/.weaveforge.md",
+        ".weaveforge/notes.md",
+        "",
+    ] {
+        assert!(!is_config_path(path), "{path}");
+    }
+}
+
+/// Bytes written or moved onto a config path get the same check as text; a config
+/// file that is not UTF-8 cannot be checked, so it is refused too.
+#[test]
+fn config_bytes_checked_like_text() {
+    let secret = br#"{"git":{"token":"x"}}"#;
+    assert!(check_config_bytes(SETTINGS_PATH, secret).is_err());
+    assert!(check_config_bytes(".WeaveForge/ai/x.JSON", secret).is_err());
+    assert!(check_config_bytes(SETTINGS_PATH, br#"{"theme":"crt"}"#).is_ok());
+    assert!(check_config_bytes(SETTINGS_PATH, &[0xff, 0xfe, 0x00]).is_err());
+    // Anything that is not a config file passes untouched, binary or not.
+    assert!(check_config_bytes("papers/x.pdf", &[0xff, 0xfe, 0x00]).is_ok());
+    assert!(check_config_bytes("notes/token.json", secret).is_ok());
+    let err = check_config_bytes(SETTINGS_PATH, secret).unwrap_err();
+    assert!(!err.to_string().contains("\"x\""), "never the value");
+}
+
+/// The PDF text cache copies a paper's own words; a paper that prints something
+/// token-shaped must still be cached. It is the one listed exception.
+#[test]
+fn pdf_text_cache_is_not_config() {
+    let page = r#"{"paperId":"p1","pages":["key ghp_abcdefghijklmnopqrstuvwxyz0123456789"]}"#;
+    for path in [
+        ".weaveforge/cache/pdf-text/-/p1.json",
+        ".weaveforge/cache/pdf-text/proj-1/p%2F1.json",
+        ".WeaveForge/Cache/PDF-Text/-/p1.json",
+    ] {
+        assert!(!is_config_path(path), "{path}");
+        assert!(check_config_write(path, page).is_ok(), "{path}");
+    }
+    assert_eq!(NOT_CONFIG_DIRS, [".weaveforge/cache/pdf-text"]);
+    // Only that folder: its neighbours and look-alikes stay guarded.
+    for path in [
+        ".weaveforge/cache/settings.json",
+        ".weaveforge/cache/pdf-text.json",
+        ".weaveforge/cache/pdf-textx/a.json",
+        "notes/.weaveforge/cache/pdf-text/a.json",
+        SETTINGS_PATH,
+    ] {
+        assert!(is_config_path(path), "{path}");
+        assert!(check_config_write(path, page).is_err(), "{path}");
+    }
 }
 
 const SECRET_KEYS: [&str; 8] = [
