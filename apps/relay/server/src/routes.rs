@@ -137,12 +137,18 @@ pub fn app(state: Arc<AppState>) -> Router {
             get(credentials::credentials_get).post(credentials::credentials_post),
         )
         .route("/api/report-issue", post(report_issue::report_issue))
-        .route("/api/plan/feed/{token}/{file}", get(plan_feed::plan_feed))
-        .route("/api/plan/feed/publish", post(plan_feed::publish))
+        .merge(plan_feed_routes())
         .merge(account_routes())
         .merge(integration_routes())
         .layer(cors)
         .with_state(state)
+}
+
+/// The plan feed: calendar and widget links, and the publish route.
+fn plan_feed_routes() -> Router<Arc<AppState>> {
+    Router::new()
+        .route("/api/plan/feed/{token}/{file}", get(plan_feed::plan_feed))
+        .route("/api/plan/feed/publish", post(plan_feed::publish))
 }
 
 /// Account deletion and admin user creation.

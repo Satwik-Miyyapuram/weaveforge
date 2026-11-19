@@ -12,7 +12,8 @@ use wf_store::files::metrics_csv::{
     ChunkWrite, experiment_dirs, local_batch_id, store_metric_points,
 };
 
-use super::LocalApiResponse;
+use super::sdk::SDK_PREFIX;
+use super::{LocalApiRequest, LocalApiResponse};
 use crate::vault::VaultState;
 
 /// The web route's cap on points per request.
@@ -24,6 +25,24 @@ const TASK_FAILED: &str = "The metrics could not be written.";
 #[must_use]
 pub fn enabled() -> bool {
     std::env::var("WF_METRICS_FILES").is_ok_and(|value| value == "1")
+}
+
+/// Answers a local `POST /api/sdk/metrics` from files when [`enabled`];
+/// `None` leaves every other request to the database routes.
+pub async fn route(
+    vault: &VaultState,
+    request: &LocalApiRequest,
+    path: &str,
+) -> Option<LocalApiResponse> {
+    let metrics = request.method == "POST"
+        && path
+            .strip_prefix(SDK_PREFIX)
+            .map(|r| r.trim_end_matches('/'))
+            == Some("metrics");
+    if !metrics || !enabled() {
+        return None;
+    }
+    Some(append_metrics_to_files(vault, &request.body).await)
 }
 
 /// The SDK routes' error shape: `{"error": message}`.
@@ -60,7 +79,7 @@ pub async fn append_metrics_to_files(vault: &VaultState, body: &str) -> LocalApi
     .unwrap_or_else(|_| Err((500, TASK_FAILED.to_owned())));
     match written {
         Ok((count, writes)) => {
-            let fresh = writes.iter().any(|w| *w == ChunkWrite::Written);
+            let fresh = writes.contains(&ChunkWrite::Written);
             LocalApiResponse::json(
                 200,
                 &json!({ "ok": true, "received": count, "stored": if fresh { count } else { 0 } }),
@@ -87,10 +106,8 @@ mod tests {
 
     impl Fixture {
         fn new(name: &str) -> Self {
-            let root = std::env::temp_dir().join(format!(
-                "wf-shell-sdk-files-{}-{name}",
-                std::process::id()
-            ));
+            let root = std::env::temp_dir()
+                .join(format!("wf-shell-sdk-files-{}-{name}", std::process::id()));
             let _ = fs::remove_dir_all(&root);
             fs::create_dir_all(root.join(".weaveforge")).expect("create workspace");
             fs::create_dir_all(root.join("experiments")).expect("create experiments");
