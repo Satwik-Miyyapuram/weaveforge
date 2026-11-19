@@ -1,4 +1,4 @@
-// Static checks for db/migrations/0162 and its rollback. No database is needed:
+// Static checks for db/held/0162 and its rollback. No database is needed:
 // the forward migration must record exactly the direct write grants it removes
 // (to authenticated and to PUBLIC), and the rollback must restore only those rows,
 // then drop the record table.
@@ -9,8 +9,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const forward = readFileSync(join(root, "db/migrations/0162_legacy_write_revoke.sql"), "utf8");
-const rollback = readFileSync(join(root, "db/migrations-rollback/0162_legacy_write_revoke.sql"), "utf8");
+const forward = readFileSync(join(root, "db/held/0162_legacy_write_revoke.sql"), "utf8");
+const rollback = readFileSync(join(root, "db/held/0162_legacy_write_revoke.rollback.sql"), "utf8");
 
 test("forward 0162 records direct grants only, read from the table ACL", () => {
   assert.match(forward, /create table if not exists public\.legacy_write_grants_0162/);
