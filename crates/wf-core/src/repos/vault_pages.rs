@@ -281,6 +281,12 @@ fn title_taken(call: &RepoCall) -> RepoStep {
 /// `save(page)`: upserts the row. `updated_at` is the server's; `project_id` is added when a
 /// project is selected.
 pub(super) fn save(call: &RepoCall) -> RepoStep {
+    save_with(call, false)
+}
+
+/// [`save`], or with `insert` a soft plain insert, which a row already holding the id refuses
+/// (its error comes back as the reply) instead of being overwritten.
+fn save_with(call: &RepoCall, insert: bool) -> RepoStep {
     if call.replies.is_empty() {
         let page: VaultPage = match call.parse(0) {
             Ok(page) => page,
@@ -296,7 +302,12 @@ pub(super) fn save(call: &RepoCall) -> RepoStep {
         ) {
             let _ = obj.insert("project_id".into(), json!(pid));
         }
-        return RepoStep::send(RepoQuery::upsert(TABLE, row));
+        let query = if insert {
+            RepoQuery::insert(TABLE, row).soft()
+        } else {
+            RepoQuery::upsert(TABLE, row)
+        };
+        return RepoStep::send(query);
     }
     RepoStep::unit()
 }
@@ -310,12 +321,24 @@ fn delete(call: &RepoCall) -> RepoStep {
 }
 
 /// Saves `page` after `skip` replies; once the save reply is in, the saved page is the result.
-fn save_then_done(call: &RepoCall, skip: usize, page: &VaultPage) -> RepoStep {
+/// `from_file` saves with [`save_with`]'s insert, so a clash on the file's id is refused.
+fn save_then_done(call: &RepoCall, skip: usize, page: &VaultPage, from_file: bool) -> RepoStep {
     if call.replies.len() > skip {
-        return RepoStep::done(page);
+        if !from_file {
+            return RepoStep::done(page);
+        }
+        return match call.reply_error_code(skip) {
+            Some(UNIQUE_VIOLATION) => id_taken(&page.summary.id),
+            Some(_) => RepoStep::fail(
+                call.replies[skip]["error"]["message"]
+                    .as_str()
+                    .unwrap_or("The note could not be saved."),
+            ),
+            None => RepoStep::done(page),
+        };
     }
     match serde_json::to_value(page) {
-        Ok(value) => save(&call.sub(vec![value], skip)),
+        Ok(value) => save_with(&call.sub(vec![value], skip), from_file),
         Err(e) => RepoStep::fail(e),
     }
 }
@@ -419,13 +442,17 @@ fn add(call: &RepoCall) -> RepoStep {
         None => 0,
     };
     match assert_title_unique(call, skip, &page.summary.title, None) {
-        Ok(skip) => save_then_done(call, skip, &page),
+        Ok(skip) => save_then_done(call, skip, &page, file_id.is_some()),
         Err(step) => step,
     }
 }
 
-/// Refuses a file-given id that is not a UUID or that any row already holds. `Ok` holds the next
-/// reply offset; `Err` is the refusal or the query to send.
+/// The unique-key violation Postgres reports when a row already holds the id.
+const UNIQUE_VIOLATION: &str = "23505";
+
+/// Refuses a file-given id that is not a UUID or that a note or a paper already holds. The
+/// checks read only the rows RLS shows this user; the insert is what settles a clash with a row
+/// they cannot see. `Ok` holds the next reply offset; `Err` is the refusal or the query to send.
 fn assert_id_free(call: &RepoCall, id: &str) -> Result<usize, RepoStep> {
     if !crate::mcp::is_uuid(id) {
         return Err(RepoStep::fail_named(
@@ -434,15 +461,27 @@ fn assert_id_free(call: &RepoCall, id: &str) -> Result<usize, RepoStep> {
         ));
     }
     match call.replies.first() {
-        None => Err(RepoStep::send(
-            RepoQuery::select(TABLE, "id").eq("id", id).maybe_single(),
-        )),
-        Some(Value::Null) => Ok(1),
-        Some(_) => Err(RepoStep::fail_named(
-            "VaultPageIdTakenError",
-            format!("Another note already has the id \"{id}\"; the file was not imported."),
-        )),
+        None => return Err(id_lookup(TABLE, id)),
+        Some(Value::Null) => {}
+        Some(_) => return Err(id_taken(id)),
     }
+    match call.replies.get(1) {
+        None => Err(id_lookup("papers", id)),
+        Some(Value::Null) => Ok(2),
+        Some(_) => Err(id_taken(id)),
+    }
+}
+
+/// The unscoped query that finds whether `table` already holds `id`.
+fn id_lookup(table: &str, id: &str) -> RepoStep {
+    RepoStep::send(RepoQuery::select(table, "id").eq("id", id).maybe_single())
+}
+
+fn id_taken(id: &str) -> RepoStep {
+    RepoStep::fail_named(
+        "VaultPageIdTakenError",
+        format!("Another note or paper already has the id \"{id}\"; the file was not imported."),
+    )
 }
 
 /// Whether `value` starts with a `YYYY-MM-DD` date, as an ISO timestamp does.
@@ -529,7 +568,7 @@ fn update(call: &RepoCall) -> RepoStep {
         updated.summary.pinned = Some(pinned);
     }
     updated.summary.updated_at = call.now().to_owned();
-    save_then_done(call, next, &updated)
+    save_then_done(call, next, &updated, false)
 }
 
 #[cfg(test)]
@@ -902,17 +941,27 @@ mod tests {
         assert_eq!(q.filters[0].column, "id");
         assert_eq!(q.filters[0].value, json!(FILE_ID));
         assert_eq!(q.single, RepoSingle::Maybe);
-        // Then the title check, then the save with the file's id and created-at.
-        let q = only(step("add", &call(args.clone(), vec![Value::Null], Some("proj"))).unwrap());
+        // Then the papers check, then the title check, then the save with the file's id and created-at.
+        let q = only(
+            step(
+                "add",
+                &call(args.clone(), vec![Value::Null, Value::Null], Some("proj")),
+            )
+            .unwrap(),
+        );
         assert_eq!(q.filters[1].op, "ilike");
         let q = only(
             step(
                 "add",
-                &call(args.clone(), vec![Value::Null, json!([])], Some("proj")),
+                &call(
+                    args.clone(),
+                    vec![Value::Null, Value::Null, json!([])],
+                    Some("proj"),
+                ),
             )
             .unwrap(),
         );
-        assert_eq!(q.action, RepoAction::Upsert);
+        assert_eq!(q.action, RepoAction::Insert);
         let body = q.body.unwrap();
         assert_eq!(body["id"], FILE_ID);
         assert_eq!(body["created_at"], FILE_CREATED);
@@ -921,7 +970,7 @@ mod tests {
                 "add",
                 &call(
                     args,
-                    vec![Value::Null, json!([]), Value::Null],
+                    vec![Value::Null, Value::Null, json!([]), Value::Null],
                     Some("proj"),
                 ),
             )
@@ -943,6 +992,83 @@ mod tests {
         );
         assert!(msg.contains(FILE_ID), "{msg}");
         assert_eq!(name.as_deref(), Some("VaultPageIdTakenError"));
+    }
+
+    #[test]
+    fn add_checks_the_papers_table_for_a_file_id_after_vault_pages() {
+        let args = vec![json!({"title": "Ink", "id": FILE_ID})];
+        let q = only(step("add", &call(args, vec![Value::Null], Some("proj"))).unwrap());
+        assert_eq!(q.table, "papers");
+        assert_eq!(q.filters[0].column, "id");
+        assert_eq!(q.filters[0].value, json!(FILE_ID));
+        assert_eq!(q.single, RepoSingle::Maybe);
+    }
+
+    #[test]
+    fn add_refuses_a_file_id_a_paper_holds() {
+        let args = vec![json!({"title": "Ink", "id": FILE_ID})];
+        let (msg, name) = fail(
+            step(
+                "add",
+                &call(
+                    args,
+                    vec![Value::Null, json!({"id": FILE_ID})],
+                    Some("proj"),
+                ),
+            )
+            .unwrap(),
+        );
+        assert!(msg.contains(FILE_ID), "{msg}");
+        assert_eq!(name.as_deref(), Some("VaultPageIdTakenError"));
+    }
+
+    #[test]
+    fn add_inserts_a_file_id_so_a_row_it_cannot_see_is_still_refused() {
+        // The id checks read only the rows RLS shows this user. A plain insert (not an upsert,
+        // which would overwrite a row it cannot see) is refused by the unique key whoever owns it.
+        let args = vec![json!({"title": "Ink", "id": FILE_ID})];
+        let q = only(
+            step(
+                "add",
+                &call(
+                    args,
+                    vec![Value::Null, json!([]), Value::Null],
+                    Some("proj"),
+                ),
+            )
+            .unwrap(),
+        );
+        assert_eq!(q.action, RepoAction::Insert);
+        assert!(
+            q.soft,
+            "the insert must be soft so its error comes back as a reply"
+        );
+    }
+
+    #[test]
+    fn add_maps_a_unique_violation_on_the_file_id_to_id_taken() {
+        let args = vec![json!({"title": "Ink", "id": FILE_ID})];
+        let replies = vec![
+            Value::Null,
+            json!([]),
+            json!({"error": {"code": "23505", "message": "duplicate key"}}),
+        ];
+        let (msg, name) = fail(step("add", &call(args, replies, Some("proj"))).unwrap());
+        assert!(msg.contains(FILE_ID), "{msg}");
+        assert_eq!(name.as_deref(), Some("VaultPageIdTakenError"));
+    }
+
+    #[test]
+    fn add_fails_with_the_message_of_any_other_insert_error() {
+        let args = vec![json!({"title": "Ink", "id": FILE_ID})];
+        let replies = vec![
+            Value::Null,
+            json!([]),
+            json!({"error": {"code": "42501", "message": "row-level security"}}),
+        ];
+        let (msg, name) = fail(step("add", &call(args, replies, Some("proj"))).unwrap());
+        assert!(msg.contains("row-level security"), "{msg}");
+        assert_eq!(name, None);
     }
 
     #[test]
