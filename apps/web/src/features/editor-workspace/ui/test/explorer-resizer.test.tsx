@@ -21,12 +21,19 @@ import {
 
 function mount(width: number) {
   const seen: number[] = [];
+  const saved: number[] = [];
   let root!: ReturnType<typeof create>;
   act(() => {
-    root = create(createElement(ExplorerResizer, { width, onWidth: (w: number) => seen.push(w) }));
+    root = create(
+      createElement(ExplorerResizer, {
+        width,
+        onWidth: (w: number) => seen.push(w),
+        onCommit: (w: number) => saved.push(w),
+      }),
+    );
   });
   const handle = root.root.findByProps({ role: "separator" }) as ReactTestInstance;
-  return { seen, handle };
+  return { seen, saved, handle };
 }
 
 function pointer(type: string, clientX: number): Event {
@@ -46,7 +53,7 @@ test("dragging the edge follows the pointer from where it was grabbed", () => {
   const win = new EventTarget();
   (globalThis as { window?: unknown }).window = win;
   try {
-    const { seen, handle } = mount(300);
+    const { seen, saved, handle } = mount(300);
     act(() => {
       handle.props.onPointerDown({
         clientX: 500,
@@ -57,9 +64,12 @@ test("dragging the edge follows the pointer from where it was grabbed", () => {
     });
     win.dispatchEvent(pointer("pointermove", 540));
     win.dispatchEvent(pointer("pointermove", 400));
+    assert.deepEqual(saved, [], "nothing is saved while the pointer moves");
     win.dispatchEvent(pointer("pointerup", 400));
     win.dispatchEvent(pointer("pointermove", 9999));
+    win.dispatchEvent(pointer("pointerup", 9999));
     assert.deepEqual(seen, [340, 200]);
+    assert.deepEqual(saved, [200], "saved once, on release, with the last width");
   } finally {
     delete (globalThis as { window?: unknown }).window;
   }
@@ -69,7 +79,7 @@ test("dragging past either bound clamps", () => {
   const win = new EventTarget();
   (globalThis as { window?: unknown }).window = win;
   try {
-    const { seen, handle } = mount(300);
+    const { seen, saved, handle } = mount(300);
     act(() => {
       handle.props.onPointerDown({
         clientX: 300,
@@ -82,13 +92,14 @@ test("dragging past either bound clamps", () => {
     win.dispatchEvent(pointer("pointermove", 5000));
     win.dispatchEvent(pointer("pointercancel", 0));
     assert.deepEqual(seen, [EXPLORER_WIDTH_MIN, EXPLORER_WIDTH_MAX]);
+    assert.deepEqual(saved, [EXPLORER_WIDTH_MAX], "a cancelled drag saves where it ended");
   } finally {
     delete (globalThis as { window?: unknown }).window;
   }
 });
 
 test("arrow keys step the width, Home and End go to the bounds; other keys do nothing", () => {
-  const { seen, handle } = mount(300);
+  const { seen, saved, handle } = mount(300);
   const key = (k: string) => {
     let prevented = false;
     handle.props.onKeyDown({ key: k, preventDefault: () => (prevented = true) });
@@ -105,12 +116,34 @@ test("arrow keys step the width, Home and End go to the bounds; other keys do no
     EXPLORER_WIDTH_MIN,
     EXPLORER_WIDTH_MAX,
   ]);
+  assert.deepEqual(saved, seen, "each key press saves at once");
+});
+
+test("a click without a move saves nothing", () => {
+  const win = new EventTarget();
+  (globalThis as { window?: unknown }).window = win;
+  try {
+    const { saved, handle } = mount(300);
+    act(() => {
+      handle.props.onPointerDown({
+        clientX: 300,
+        pointerId: 1,
+        preventDefault() {},
+        currentTarget: { setPointerCapture() {} },
+      });
+    });
+    win.dispatchEvent(pointer("pointerup", 300));
+    assert.deepEqual(saved, []);
+  } finally {
+    delete (globalThis as { window?: unknown }).window;
+  }
 });
 
 test("double-click resets to the default width", () => {
-  const { seen, handle } = mount(512);
+  const { seen, saved, handle } = mount(512);
   handle.props.onDoubleClick();
   assert.deepEqual(seen, [EXPLORER_WIDTH_DEFAULT]);
+  assert.deepEqual(saved, [EXPLORER_WIDTH_DEFAULT]);
 });
 
 test("clamp keeps whole pixels inside the bounds", () => {

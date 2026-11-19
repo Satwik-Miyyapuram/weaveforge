@@ -126,10 +126,7 @@ export function WorkspaceScreen() {
   // The explorer's dragged width, per device like `hidden`.
   const [explorerWidth, setExplorerWidth] = useState(EXPLORER_WIDTH_DEFAULT);
   useEffect(() => setExplorerWidth(readExplorerWidth(store())), []);
-  const resizeExplorer = useCallback((width: number) => {
-    setExplorerWidth(width);
-    writeExplorerWidth(store(), width);
-  }, []);
+  const keepExplorerWidth = useCallback((width: number) => writeExplorerWidth(store(), width), []);
   // On a phone there is no room for the explorer beside a document: at 375px
   // the two shared the width, the tree's labels truncated to a letter and the
   // PDF's own toolbar sat over the page. There the explorer is a drawer over
@@ -761,7 +758,7 @@ export function WorkspaceScreen() {
         onHide={toggleExplorer}
       />
       {explorerHidden || phone || focus ? null : (
-        <ExplorerResizer width={explorerWidth} onWidth={resizeExplorer} />
+        <ExplorerResizer width={explorerWidth} onWidth={setExplorerWidth} onCommit={keepExplorerWidth} />
       )}
       <PaneView
         focus={focus}
