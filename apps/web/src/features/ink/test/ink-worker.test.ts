@@ -695,9 +695,15 @@ test("freehand draws every real sample live: no simplification while the pen is 
   appendSamples(stroke, batch(points, pressures.map((p) => p / 255)));
   const live = liveForRenderer(stroke);
   assert.equal(live.realCount, 241, "all 241 digitiser samples are drawn");
+  // Freehand rounds each real sample to the stored whole unit at capture, so the
+  // wet stroke is the stroke that is saved.
   assert.deepEqual(
     Array.from(live.x.subarray(0, 241)),
-    points.filter((_, i) => i % 2 === 0).map(Math.fround),
+    points.filter((_, i) => i % 2 === 0).map((v) => Math.round(v)),
+  );
+  assert.deepEqual(
+    Array.from(live.y.subarray(0, 241)),
+    points.filter((_, i) => i % 2 === 1).map((v) => Math.round(v)),
   );
 });
 

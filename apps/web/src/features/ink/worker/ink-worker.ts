@@ -321,7 +321,11 @@ export function appendSamples(stroke: LiveStroke, payload: InkSamplePayload): vo
   stroke.points.length = end * 2;
   stroke.pressures.length = end;
   let index = 0;
-  eachInkSample(payload, (x, y, pressure) => {
+  eachInkSample(payload, (sx, sy, pressure) => {
+    // A raw (freehand) stroke is stored at whole units, so round here: the wet
+    // stroke then matches the saved one exactly. Classic keeps the digitiser value.
+    const x = stroke.raw ? Math.round(sx) : sx;
+    const y = stroke.raw ? Math.round(sy) : sy;
     stroke.points[(start + index) * 2] = x;
     stroke.points[(start + index) * 2 + 1] = y;
     stroke.pressures[start + index] = readyCore().inkPenPressureByte(pressure);
