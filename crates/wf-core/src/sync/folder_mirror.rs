@@ -534,6 +534,7 @@ impl<F: WorkspaceFs + ?Sized> Run<'_, F> {
         let current = match self.fs.read_text(path) {
             Ok(text) => Some(text),
             Err(_) if self.fs.stat(path).is_some() => {
+                self.keep_base(path);
                 self.result.unchanged += 1;
                 return Ok(());
             }
@@ -548,7 +549,7 @@ impl<F: WorkspaceFs + ?Sized> Run<'_, F> {
             // An existing file is rewritten only for an item this process saw in the DB and that
             // changed since (a same-session in-app edit). Anything else on disk is kept as it is.
             if !self.changed_in_session(path, &db_digest) {
-                upsert(&mut self.result.mirrored, path, digest_text(&current));
+                self.keep_base(path);
                 self.result.unchanged += 1;
                 return Ok(());
             }
@@ -601,6 +602,14 @@ impl<F: WorkspaceFs + ?Sized> Run<'_, F> {
     }
 
     /// Whether the folder's copy of `path` changed since the base digest was recorded.
+    /// Leaves an existing file alone and keeps its recorded base. The base must stay the text the
+    /// mirror last wrote, so a reader's edit is still seen as an edit on a later run.
+    fn keep_base(&mut self, path: &str) {
+        if let Some(recorded) = self.base.and_then(|base| base.get(path)) {
+            upsert(&mut self.result.mirrored, path, recorded.clone());
+        }
+    }
+
     fn edited_since_base(&self, path: &str, content: &str, known: Option<&str>) -> bool {
         let Some(recorded) = self.base.and_then(|base| base.get(path)) else {
             return false;
