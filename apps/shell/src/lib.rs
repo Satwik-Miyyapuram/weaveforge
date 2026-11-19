@@ -13,6 +13,7 @@ pub mod app_storage;
 pub mod app_update;
 pub mod auth_link;
 pub mod auth_loopback;
+pub mod cmd_experiments;
 pub mod cmd_files;
 pub mod cmd_import;
 pub mod cmd_ink;

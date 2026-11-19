@@ -13,6 +13,7 @@ pub mod conflict_route;
 pub mod conflict_settle;
 pub mod deserialize;
 pub mod device_session;
+pub mod entity_file;
 pub mod folder_layout;
 pub mod folder_merge;
 pub mod folder_mirror;

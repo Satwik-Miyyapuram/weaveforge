@@ -138,6 +138,7 @@ pub fn app(state: Arc<AppState>) -> Router {
         )
         .route("/api/report-issue", post(report_issue::report_issue))
         .route("/api/plan/feed/{token}/{file}", get(plan_feed::plan_feed))
+        .route("/api/plan/feed/publish", post(plan_feed::publish))
         .merge(account_routes())
         .merge(integration_routes())
         .layer(cors)

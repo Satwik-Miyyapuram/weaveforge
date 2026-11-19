@@ -35,6 +35,8 @@ tokio = { version = "=1.54.1", features = ["io-util", "macros", "net", "rt", "rt
 # A WebSocket client for the co-editing socket tests (same version axum uses).
 tokio-tungstenite = { version = "=0.26.2", default-features = false, features = ["connect", "handshake"] }
 futures-util = { version = "=0.3.34", default-features = false, features = ["sink", "std"] }
+# Property tests for the feed token lookup (the hash, never the token, goes upstream).
+proptest.workspace = true
 
 [lints]
 workspace = true

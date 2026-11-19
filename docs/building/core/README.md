@@ -73,6 +73,9 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [account](account.md) | Account links and menu, provisioning and purge, auth transitions, backend/home config, update check. |
 | [release-notices](release-notices.md) | In-app release notice: the unseen-version rule, per-account dismissal and how to publish a notice. |
 | [markdown-helpers](markdown-helpers.md) | Markdown formatting, image refs, widths and alt text, Mermaid labels, heading slugs, anchors, snippets. |
+| [notes-report](notes-report.md) | Notes and report sections as workspace files: the file shape, outline order, parent cycles and the note repository. |
+| [experiments](experiments.md) | Experiment metrics as CSV chunk files: the format, the local route and the inbox drain. |
+| [plan-logbook](plan-logbook.md) | Milestones as workspace files and the calendar feed published from them. |
 | [experiments-lab](experiments-lab.md) | Experiment rows and status, metric charts, plot sizes, lab snapshots and data export files. |
 | [rows-and-tags](rows-and-tags.md) | Member, project and library-pin rows, tag counts and tones, sync fields, paper notes. |
 | [text-formatting](text-formatting.md) | Status text, enum labels, JS-style collation, dates, app log lines and error statuses. |
