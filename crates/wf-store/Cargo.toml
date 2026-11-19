@@ -29,3 +29,6 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokenizers = { workspace = true, optional = true }
 wf-core.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

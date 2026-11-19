@@ -259,7 +259,8 @@ impl VaultSession {
         Ok(self.vault()?.stat(rel).map(entry_payload))
     }
 
-    /// Not recursive. A missing file succeeds, as with TS `force: true`.
+    /// Moves the file into the workspace trash; not recursive. A missing file succeeds, as
+    /// with TS `force: true`.
     ///
     /// # Errors
     /// No root, a refused path, or a folder (never removed recursively).

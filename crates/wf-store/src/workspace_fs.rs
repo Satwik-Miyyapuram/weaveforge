@@ -49,13 +49,15 @@ impl WorkspaceFs for Vault {
         Vault::read_text(self, path).map_err(|err| to_fs_error(path, err))
     }
 
-    /// Replace a file's bytes atomically, creating parent folders.
+    /// Replace a file's bytes atomically, creating parent folders; a change made while the
+    /// write runs is kept as a conflict copy (`Vault::write_file`).
     fn write_file(&mut self, path: &str, data: &[u8]) -> Result<(), FsError> {
         Vault::write_file(self, path, data).map_err(|err| to_fs_error(path, err))
     }
 
-    /// Remove a file, or a folder when `recursive`. A missing path is `Ok`: `Vault::remove`
-    /// already treats it as removed, which matches the TS memory fs.
+    /// Move a file, or a folder when `recursive`, into the workspace trash (`Vault::remove`).
+    /// A missing path is `Ok`: `Vault::remove` already treats it as removed, which matches the
+    /// TS memory fs.
     fn remove(&mut self, path: &str, recursive: bool) -> Result<(), FsError> {
         Vault::remove(self, path, recursive).map_err(|err| to_fs_error(path, err))
     }

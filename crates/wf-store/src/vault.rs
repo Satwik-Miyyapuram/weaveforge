@@ -13,8 +13,9 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
-use crate::checked_write::{PREV_SUFFIX, write_temp};
+use crate::checked_write::PREV_SUFFIX;
 
+use wf_core::sync::folder_layout::TRASH_DIR;
 use wf_core::workspace::{UnsafePath, safe_workspace_path};
 
 /// Marks a write in progress; listings skip these so a crash mid-write shows no ghost file.
@@ -167,29 +168,24 @@ impl Vault {
 
     /// Replace a file's bytes, creating parent folders; never leaves a torn file behind.
     ///
-    /// The data goes to a temp file beside the target, which is then renamed over it.
+    /// This is the checked write with no expected digest (law V9 in
+    /// `docs/building/core/laws.md`): the bytes on disk when it starts count as seen, and a
+    /// change another process makes before the swap is kept as a conflict copy.
     ///
     /// # Errors
     /// Refused paths, escapes, or any write or rename failure (the temp file is removed).
     pub fn write_file(&self, rel: &str, data: &[u8]) -> Result<(), VaultError> {
-        let target = self.resolve(rel)?;
-        if let Some(parent) = target.parent() {
-            fs::create_dir_all(parent).map_err(|source| io_err("create folder", rel, source))?;
-        }
-        let temp = temp_beside(&target);
-        let outcome = write_temp(&temp, data).and_then(|()| fs::rename(&temp, &target));
-        outcome.map_err(|source| {
-            // The temp may never have been created; removing a missing file is the same outcome.
-            let _ = fs::remove_file(&temp);
-            io_err("write", rel, source)
-        })
+        self.write_file_with_hook(rel, data, &mut || {})
     }
 
-    /// Remove a file, or a folder when `recursive`; a missing path is not an error.
-    /// A link to a folder is removed as a link; its target is left alone.
+    /// Remove a file, or a folder when `recursive`, by moving it into the workspace trash; a
+    /// missing path is not an error (law V8 in `docs/building/core/laws.md`).
+    ///
+    /// Only a path already inside the trash is deleted for good, which is how the trash is
+    /// emptied. A link to a folder is removed as a link; its target is left alone.
     ///
     /// # Errors
-    /// Refused paths, escapes, a folder without `recursive`, or any removal failure.
+    /// Refused paths, escapes, a folder without `recursive`, or any move or removal failure.
     pub fn remove(&self, rel: &str, recursive: bool) -> Result<(), VaultError> {
         let target = self.resolve(rel)?;
         let meta = match fs::symlink_metadata(&target) {
@@ -197,17 +193,25 @@ impl Vault {
             Err(source) if source.kind() == io::ErrorKind::NotFound => return Ok(()),
             Err(source) => return Err(io_err("remove", rel, source)),
         };
+        if meta.is_dir() && !is_dir_link(&meta) && !recursive {
+            return Err(io_err(
+                "remove",
+                rel,
+                io::Error::new(
+                    io::ErrorKind::IsADirectory,
+                    "a folder needs recursive removal",
+                ),
+            ));
+        }
+        if !is_dir_link(&meta) && !target.starts_with(self.resolve(TRASH_DIR)?) {
+            return self.delete_to_trash(rel).map(drop);
+        }
         let outcome = if is_dir_link(&meta) {
             fs::remove_dir(&target)
-        } else if !meta.is_dir() {
-            fs::remove_file(&target)
-        } else if recursive {
+        } else if meta.is_dir() {
             fs::remove_dir_all(&target)
         } else {
-            Err(io::Error::new(
-                io::ErrorKind::IsADirectory,
-                "a folder needs recursive removal",
-            ))
+            fs::remove_file(&target)
         };
         outcome.map_err(|source| io_err("remove", rel, source))
     }

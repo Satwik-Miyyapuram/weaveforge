@@ -71,6 +71,8 @@ missing_docs = "deny"
 # deny, not forbid: the shell's phone entry point (lib.rs `mobile_entry`) comes from a
 # Tauri macro that emits `no_mangle` and JNI glue, and needs a local allow.
 unsafe_code = "deny"
+# `cfg(kani)` gates the Kani proofs of the file-safety laws (docs/building/core/laws.md).
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }
 
 [workspace.lints.clippy]
 unwrap_used = "deny"
