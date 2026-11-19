@@ -679,10 +679,11 @@ async fn epoch_bumped_after_restore() {
     assert_eq!(fresh_hello["epoch"], 2);
 }
 
-/// Delegates to a `MemoryStore`; `access` fails while `fail` is set.
+/// Delegates to a `MemoryStore`; `access` fails while `fail` is set, `set_writer` while `fail_writer` is.
 struct AccessFails {
     inner: Arc<MemoryStore>,
     fail: AtomicBool,
+    fail_writer: AtomicBool,
 }
 
 impl SharedDocStore for AccessFails {
@@ -721,7 +722,12 @@ impl SharedDocStore for AccessFails {
         device: Option<&'a str>,
         until_ms: Option<i64>,
     ) -> BoxFut<'a, Result<(), String>> {
-        self.inner.set_writer(item_id, device, until_ms)
+        Box::pin(async move {
+            if self.fail_writer.load(Ordering::SeqCst) {
+                return Err("writer store down".to_owned());
+            }
+            self.inner.set_writer(item_id, device, until_ms).await
+        })
     }
     fn delete<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
         self.inner.delete(item_id)
@@ -766,6 +772,7 @@ async fn ws_grant_check_failure_closes_socket() {
     let failing = Arc::new(AccessFails {
         inner: store.clone(),
         fail: AtomicBool::new(false),
+        fail_writer: AtomicBool::new(false),
     });
     let relay = Relay::start(dir.path(), failing.clone(), PERSIST).await;
 
@@ -800,6 +807,7 @@ async fn ws_revoke_rechecks_only_affected_rooms() {
     let failing = Arc::new(AccessFails {
         inner: store.clone(),
         fail: AtomicBool::new(false),
+        fail_writer: AtomicBool::new(false),
     });
     let relay = Relay::start(dir.path(), failing.clone(), PERSIST).await;
 
@@ -1092,4 +1100,49 @@ async fn renew_after_demotion_from_owner_is_lost() {
     .expect("demotion releases the lease and the renew is answered");
     assert_eq!(handover["type"], "lease.handover");
     assert_eq!(renew["type"], "lease.lost");
+}
+
+#[tokio::test]
+async fn lease_not_granted_when_writer_record_fails() {
+    let dir = TempDir::new("writer-fails");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    store
+        .create_grant(&NewGrant {
+            owner: OWNER.to_owned(),
+            scope: "item".to_owned(),
+            target_id: ITEM.to_owned(),
+            grantee_user: GUEST.to_owned(),
+            permission: Permission::Owner,
+            expires_at: None,
+        })
+        .await
+        .expect("create owner grant");
+    let failing = Arc::new(AccessFails {
+        inner: store.clone(),
+        fail: AtomicBool::new(false),
+        fail_writer: AtomicBool::new(false),
+    });
+    let relay = Relay::start(dir.path(), failing.clone(), PERSIST).await;
+
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+
+    tokio::time::timeout(Duration::from_secs(10), async {
+        // The record of the lease cannot be written, so the grant is refused and not kept.
+        failing.fail_writer.store(true, Ordering::SeqCst);
+        send_text(&mut guest, r#"{"type":"lease.acquire","device":"d1"}"#).await;
+        let denied = expect_json(&mut guest, "denied").await;
+        assert_eq!(denied["reason"], "storage");
+
+        // A different device can take the lease, so nothing was left held by d1.
+        failing.fail_writer.store(false, Ordering::SeqCst);
+        send_text(&mut guest, r#"{"type":"lease.acquire","device":"d2"}"#).await;
+        let granted = expect_json(&mut guest, "lease.granted").await;
+        assert_eq!(granted["type"], "lease.granted");
+    })
+    .await
+    .expect("refused acquire leaves no lease behind");
 }

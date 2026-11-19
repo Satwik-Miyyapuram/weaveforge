@@ -442,7 +442,8 @@ async fn acquire(
             .lease
             .acquire(device, &client.user, state.clock.now_ms())
     };
-    let sent = send_text(socket, protocol::lease_reply_json(&reply)).await;
+    // Record the holder before telling the client it has the lease. If the record fails, the
+    // grant is rolled back so no unrecorded holder blocks other devices.
     if let LeaseReply::Granted { until_ms } = reply
         && let Err(error) = state
             .store
@@ -450,8 +451,10 @@ async fn acquire(
             .await
     {
         eprintln!("collab writer {}: {error}", room.item_id);
+        let _rolled_back = room.inner.lock().await.lease.release(device, &client.user);
+        return send_text(socket, protocol::denied_json("storage")).await;
     }
-    sent
+    send_text(socket, protocol::lease_reply_json(&reply)).await
 }
 
 /// Clears the lease when `device` and `user` hold it; returns (released, doc is closing).
