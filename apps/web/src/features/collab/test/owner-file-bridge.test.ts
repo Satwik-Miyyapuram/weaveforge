@@ -216,3 +216,28 @@ test("conflict copy is named from the path, not an id", () => {
     "notes/day one (conflict 2026-11-19T10-00-00).md",
   );
 });
+
+test("conflict copy keeps compound extensions whole", () => {
+  const stamp = "2026-11-19T10-00-00";
+  assert.equal(
+    conflictCopyPath("notes/day one.ink.md", stamp),
+    `notes/day one (conflict ${stamp}).ink.md`,
+  );
+  assert.equal(
+    conflictCopyPath("notes/x.annotations.json", stamp),
+    `notes/x (conflict ${stamp}).annotations.json`,
+  );
+});
+
+test("conflict copy ignores a dot in a folder name", () => {
+  assert.equal(
+    conflictCopyPath("my.notes/day one", "2026-11-19T10-00-00"),
+    "my.notes/day one (conflict 2026-11-19T10-00-00)",
+  );
+});
+
+test("conflict copy refuses a stamp Windows cannot use in a file name", () => {
+  for (const stamp of ["2026:11:19", "a<b", "a>b", 'a"b', "a|b", "a?b", "a*b", "a/b", "a\\b", "a\u0001b", "", "stamp.", "stamp "]) {
+    assert.throws(() => conflictCopyPath("notes/a.md", stamp), /stamp/, `stamp ${JSON.stringify(stamp)}`);
+  }
+});
