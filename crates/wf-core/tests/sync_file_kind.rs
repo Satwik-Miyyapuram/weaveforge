@@ -59,6 +59,15 @@ fn file_kind_by_path() {
     assert_eq!(file_kind("p/notes/x.comments.json"), FileKind::Comments);
     assert_eq!(file_kind("e/.overleaf.json"), FileKind::Overleaf);
     assert_eq!(file_kind("p/.ink/n1/0001.inkb"), FileKind::Ink);
+    assert_eq!(file_kind("p/notes/foo.ink/0001.inkb"), FileKind::Ink);
+    assert_ne!(file_kind("p/notes/foo.inkb"), FileKind::Ink);
+    assert_ne!(file_kind("p/notes/foo.ink.md/0001.inkb"), FileKind::Ink);
+    // A user's folder that only ends in `.ink`: a page must sit directly in a strokes folder.
+    assert_ne!(file_kind("p/research.ink/deep/0001.inkb"), FileKind::Ink);
+    assert_eq!(
+        file_kind("p/research.ink/chapter.ink/0001.inkb"),
+        FileKind::Ink
+    );
     assert_eq!(
         file_kind(".weaveforge/ai/audit/2026-11/b1.jsonl"),
         FileKind::AiAudit

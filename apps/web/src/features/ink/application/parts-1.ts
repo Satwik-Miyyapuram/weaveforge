@@ -236,8 +236,8 @@ export async function pipeThrough(
  * nothing about pages; `loadInkPages` is what turns the note's declared order
  * plus whatever chunks exist into the page list the host shows.
  *
- * Three stores answer this port: the workspace folder's `.ink/<id>/` directory
- * when one is open, the encrypted blob bucket the vault's assets already use
+ * Three stores answer this port: the `<name>.ink/` folder beside the note's
+ * `<name>.ink.md` when a workspace folder is open, the encrypted blob bucket the vault's assets already use
  * otherwise, and memory for tests. The host cannot tell them apart, which is
  * the point — an ink note is an ink note whether it sits on disk or in the database.
  */
@@ -340,7 +340,7 @@ export class MemoryInkChunkStore implements InkChunkStore, InkMigrationMarks {
   }
 
   async read(noteId: string, chunkId: string): Promise<Uint8Array | null> {
-    return this.chunks.get(typedCore().inkChunkPath(noteId, chunkId)) ?? null;
+    return this.chunks.get(memoryKey(noteId, chunkId)) ?? null;
   }
 
   async write(
@@ -348,20 +348,18 @@ export class MemoryInkChunkStore implements InkChunkStore, InkMigrationMarks {
     chunkId: string,
     bytes: Uint8Array,
   ): Promise<void> {
-    this.chunks.set(typedCore().inkChunkPath(noteId, chunkId), bytes.slice());
+    this.chunks.set(memoryKey(noteId, chunkId), bytes.slice());
   }
 
   async remove(noteId: string, chunkId: string): Promise<void> {
-    this.chunks.delete(typedCore().inkChunkPath(noteId, chunkId));
+    this.chunks.delete(memoryKey(noteId, chunkId));
   }
 
   async list(noteId: string): Promise<string[]> {
-    const prefix = typedCore().inkChunkPath(noteId, typedCore().newInkChunkId()).replace(/[^/]+$/, "");
+    const prefix = memoryKey(noteId, "");
     const ids: string[] = [];
-    for (const path of this.chunks.keys()) {
-      if (!path.startsWith(prefix)) continue;
-      const id = readyCore().inkChunkIdOfFileName(path.slice(prefix.length));
-      if (id) ids.push(id);
+    for (const key of this.chunks.keys()) {
+      if (key.startsWith(prefix)) ids.push(key.slice(prefix.length));
     }
     return ids.sort();
   }
@@ -369,6 +367,11 @@ export class MemoryInkChunkStore implements InkChunkStore, InkMigrationMarks {
   get size(): number {
     return this.chunks.size;
   }
+}
+
+/** A memory store has no files: a note's pages are keyed `<note id>/<chunk id>`. */
+function memoryKey(noteId: string, chunkId: string): string {
+  return `${noteId}/${chunkId}`;
 }
 
 // --- ink-gesture ---

@@ -82,7 +82,7 @@ pub const ENTITY_DIRS: &[(WorkspaceEntityType, &str)] = &[
 /// A hint only: frontmatter and the directory decide what a file is.
 pub const KIND_SUFFIX: &[(WorkspaceEntityType, &str)] = &[
     (WorkspaceEntityType::VaultPage, "note"),
-    // `.ink.md`: still markdown; the strokes are in the `.ink/<id>/` sidecar.
+    // `.ink.md`: still markdown; the strokes are in the `<name>.ink/` folder beside it.
     (WorkspaceEntityType::InkPage, "ink"),
     (WorkspaceEntityType::Paper, "paper"),
     (WorkspaceEntityType::ReadingList, "list"),

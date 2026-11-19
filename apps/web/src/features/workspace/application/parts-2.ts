@@ -8,6 +8,7 @@ import {
 } from "@/lib/desktop/desktop-bridge";
 import { loadCore, readyCore, type RustCore, typedCore } from "@/lib/rust-core";
 import { folderLock } from "./folder-lock";
+import { moveInkStrokes } from "./ink-strokes-move";
 import { keepMirrorBases, readPulledDeletes, writePulledDeletes, writeTextAtomic } from "./parts-3";
 import { activeWorkspaceFs } from "./workspace-folder";
 import {
@@ -170,8 +171,12 @@ export async function mirrorWorkspace(
     }
   }
 
+  // A renamed ink note takes its strokes folder along before the old file goes;
+  // when the folder cannot move, the old file stays so the strokes keep a note.
+  const keptForInk = await moveInkStrokes(core, fs, files, plan.removed);
+  const removed = plan.removed.filter((path) => !keptForInk.includes(path));
   // Best-effort: a file already gone is the outcome asked for.
-  for (const path of plan.removed) await fs.remove(path).catch(() => undefined);
+  for (const path of removed) await fs.remove(path).catch(() => undefined);
 
   // This project's entries not held this run were settled: put back, or deleted in the app.
   const root = core.projectDir(options.project);
@@ -181,9 +186,11 @@ export async function mirrorWorkspace(
   // A held path keeps its base, so the folder watcher reads it as removed and the review offers it.
   const mirrored: Record<string, string> = Object.fromEntries(plan.mirrored);
   for (const path of held) mirrored[path] = base?.[path] ?? "";
+  // A kept ink note stays in the manifest, so the next run removes it again.
+  for (const path of keptForInk) mirrored[path] = base?.[path] ?? "";
   return {
     written,
-    removed: plan.removed,
+    removed,
     unchanged,
     heldBack: [...plan.heldBack, ...held],
     mirrored,
