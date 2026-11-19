@@ -282,6 +282,10 @@ export interface NewVaultPageInput {
   /** `canvas` makes a canvas note: its body is JSON Canvas (Obsidian `.canvas`). */
   kind?: "canvas";
   sortOrder?: number;
+  /** The id a workspace file already declares (`weaveforge-id`); absent mints one. A taken id is refused. */
+  id?: string;
+  /** The `created-at` a workspace file already declares; absent means now. */
+  createdAt?: string;
 }
 
 /**

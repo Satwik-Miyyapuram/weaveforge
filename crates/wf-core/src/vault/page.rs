@@ -508,6 +508,12 @@ pub struct NewVaultPageInput {
     pub kind: Option<String>,
     #[serde(default)]
     pub sort_order: Option<f64>,
+    /// The id a workspace file already declares (`weaveforge-id`). Absent: a fresh id is minted.
+    #[serde(default)]
+    pub id: Option<String>,
+    /// The `created-at` a workspace file already declares. Absent: the page is created now.
+    #[serde(default)]
+    pub created_at: Option<String>,
 }
 
 /// The `kind` of a canvas note (`vault_pages.kind`, migration 0157).
@@ -970,6 +976,8 @@ mod tests {
             folder: None,
             kind: None,
             sort_order: None,
+            id: None,
+            created_at: None,
         }
     }
 

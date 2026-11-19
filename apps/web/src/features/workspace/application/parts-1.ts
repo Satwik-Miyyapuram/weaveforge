@@ -379,14 +379,17 @@ export async function writeMarkersFor(entry: ImportDiffEntry): Promise<boolean> 
   return writeConflictMarkersTo(await loadCore(), fs, entry);
 }
 
-/** @internal exported for tests */
+/**
+ * @internal exported for tests.
+ * `refused` lists paths not imported because another note already holds the id the file declares.
+ */
 export async function applyEntries(
   fs: IWorkspaceFs,
   diff: ImportDiff,
   resolutions: Readonly<Record<string, ConflictResolution>>,
   stored?: Readonly<Record<string, string>>,
   renamed: ReadonlySet<string> = new Set(),
-): Promise<{ created: number; updated: number; appliedPaths: string[]; moved: string[] }> {
+): Promise<{ created: number; updated: number; appliedPaths: string[]; moved: string[]; refused: string[] }> {
   const core = await loadCore();
   const container = getContainer();
   const owned = ownedAssetFolderPaths(workspaceBodies(await container.workspace.snapshot()));
@@ -395,6 +398,7 @@ export async function applyEntries(
   let updated = 0;
   const appliedPaths: string[] = [];
   const moved: string[] = [];
+  const refused: string[] = [];
 
   for (const raw of diff.entries) {
     const entry = raw.action === "conflict" ? settleConflict(core, raw, resolutions) : raw;
@@ -417,12 +421,29 @@ export async function applyEntries(
         id = made.id;
         updated += 1;
       } else {
-        const page = await container.vault.manageVaultPage.add({
-          title: entry.entity.title,
-          body: await reanchorAssets(entry.entity.body, "new", owned),
-          // A raw .canvas file comes back as a canvas page, not a markdown note.
-          ...(entry.entity.kind === "canvas" ? { kind: "canvas" as const } : {}),
-        });
+        const createdAt = entry.entity.fields?.["created-at"];
+        let page: { id: string };
+        try {
+          page = await container.vault.manageVaultPage.add({
+            title: entry.entity.title,
+            body: await reanchorAssets(entry.entity.body, "new", owned),
+            // A raw .canvas file comes back as a canvas page, not a markdown note.
+            ...(entry.entity.kind === "canvas" ? { kind: "canvas" as const } : {}),
+            // A file that already declares an id keeps it, and its created-at: the id comes
+            // from the file and is never replaced.
+            ...(entry.entity.id ? { id: entry.entity.id } : {}),
+            ...(typeof createdAt === "string" ? { createdAt } : {}),
+          });
+        } catch (error) {
+          // Note ids are unique across every project, so the repo refuses one another note
+          // holds (a note copied from another project, say). That file is left as it is,
+          // never given a new id, and the rest of the batch still goes in.
+          if (error instanceof Error && error.name === "VaultPageIdTakenError") {
+            refused.push(path);
+            continue;
+          }
+          throw error;
+        }
         id = page.id;
         created += 1;
       }
@@ -467,7 +488,7 @@ export async function applyEntries(
   }
 
   pendingAssets = new Map();
-  return { created, updated, appliedPaths, moved };
+  return { created, updated, appliedPaths, moved, refused };
 }
 
 /**
@@ -539,6 +560,14 @@ export async function diffAgainstWorkspace(
 ): Promise<FolderDiff & { json: JsonDiff }> {
   const core = await loadCore();
   const snapshot = await getContainer().workspace.snapshot();
+  // What the mirror would write from the workspace as it stands now. Compared
+  // against the same base as the folder's copy, this is what says whether the
+  // difference came from out there or in here.
+  const current = core.serializeWorkspace(snapshot, project).files;
+  // Where the mirror writes each entity: a file that lost its id is matched back by it.
+  const writtenAt = new Map(
+    core.parseWorkspaceFolder(current).flatMap((entity) => (entity.id ? [[entity.id, entity.path] as const] : [])),
+  );
   const existing = [
     ...snapshot.vaultPages.map((page) => ({
       id: page.id,
@@ -547,12 +576,14 @@ export async function diffAgainstWorkspace(
       kind: page.kind,
       title: page.title,
       body: page.body,
+      path: writtenAt.get(page.id),
     })),
     ...snapshot.papers.map((paper) => ({
       id: paper.id,
       type: "paper" as const,
       title: paper.title,
       body: paper.summary ?? "",
+      path: writtenAt.get(paper.id),
     })),
   ];
 
@@ -584,11 +615,6 @@ export async function diffAgainstWorkspace(
     // spells the same reference `vault:…`.
     body: core.fromRelativeBlobLinks(entity.body, ownedStorage),
   }));
-
-  // What the mirror would write from the workspace as it stands now. Compared
-  // against the same base as the folder's copy, this is what says whether the
-  // difference came from out there or in here.
-  const current = core.serializeWorkspace(snapshot, project).files;
 
   const diff = core.diffWorkspace(parsed, existing, {
     origin: (path) =>
