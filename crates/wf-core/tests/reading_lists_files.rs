@@ -3,7 +3,7 @@
 
 use proptest::prelude::*;
 use wf_core::reading_lists::list_file::{
-    ListFileError, effective_decisions, list_decisions, mark_missing, read_list_file,
+    ListFileError, effective_decisions, item_key, list_decisions, mark_missing, read_list_file,
     record_decision, remove_decision,
 };
 use wf_core::reading_lists::screening::{ScreeningDecision, ScreeningStage, ScreeningState};
@@ -26,7 +26,7 @@ fn decision(id: &str, item: &str, state: ScreeningState, at: &str) -> ScreeningD
 fn screening_decision_saved_to_list_file() {
     let d = decision(
         "d1",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Included,
         "2026-11-19T10:00:00Z",
     );
@@ -44,13 +44,13 @@ fn screening_decision_saved_to_list_file() {
 fn same_paper_decided_twice() {
     let first = decision(
         "d1",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Unsure,
         "2026-11-19T10:00:00Z",
     );
     let second = decision(
         "d2",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Excluded,
         "2026-11-19T11:00:00Z",
     );
@@ -66,13 +66,13 @@ fn same_paper_decided_twice() {
 fn recording_the_same_id_again_replaces_it() {
     let d = decision(
         "d1",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Unsure,
         "2026-11-19T10:00:00Z",
     );
     let changed = decision(
         "d1",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Included,
         "2026-11-19T10:05:00Z",
     );
@@ -84,24 +84,24 @@ fn recording_the_same_id_again_replaces_it() {
 fn paper_removed_from_library() {
     let kept = decision(
         "d1",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Included,
         "2026-11-19T10:00:00Z",
     );
     let gone = decision(
         "d2",
-        "item-2",
+        "[[Paper 2]]",
         ScreeningState::Excluded,
         "2026-11-19T10:00:00Z",
     );
     let text = record_decision(&record_decision(LIST, &kept).unwrap(), &gone).unwrap();
-    let text = mark_missing(&text, &["item-1".to_owned()]).unwrap();
+    let text = mark_missing(&text, &["[[Paper 1]]".to_owned()]).unwrap();
     let file = read_list_file(&text).unwrap();
     assert_eq!(file.entries.len(), 2, "the entry is kept");
     assert!(!file.entries[0].missing);
     assert!(file.entries[1].missing, "and marked missing");
     // The paper comes back: the mark goes away.
-    let text = mark_missing(&text, &["item-1".to_owned(), "item-2".to_owned()]).unwrap();
+    let text = mark_missing(&text, &["[[Paper 1]]".to_owned(), "[[Paper 2]]".to_owned()]).unwrap();
     assert!(
         read_list_file(&text)
             .unwrap()
@@ -115,7 +115,7 @@ fn paper_removed_from_library() {
 fn reason_with_newline_and_quote() {
     let mut d = decision(
         "d1",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Excluded,
         "2026-11-19T10:00:00Z",
     );
@@ -131,7 +131,7 @@ fn empty_list() {
     assert_eq!(list_decisions(text).unwrap(), vec![]);
     let d = decision(
         "d1",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Included,
         "2026-11-19T10:00:00Z",
     );
@@ -144,7 +144,7 @@ fn empty_list() {
 fn file_without_version_gets_one() {
     let d = decision(
         "d1",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Included,
         "2026-11-19T10:00:00Z",
     );
@@ -158,7 +158,7 @@ fn newer_format_is_read_but_never_written() {
     assert!(list_decisions(newer).is_ok());
     let d = decision(
         "d1",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Included,
         "2026-11-19T10:00:00Z",
     );
@@ -181,7 +181,7 @@ fn damaged_entry_is_refused_not_dropped() {
     ));
     let d = decision(
         "d2",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Included,
         "2026-11-19T10:00:00Z",
     );
@@ -196,10 +196,19 @@ fn arb_text() -> impl Strategy<Value = String> {
     proptest::collection::vec(any::<char>(), 0..24).prop_map(|cs| cs.into_iter().collect())
 }
 
+/// A link to one of three paper notes. `Just`, because `[[` in a string strategy is a regex.
+fn paper_link() -> impl Strategy<Value = String> {
+    prop_oneof![
+        Just("[[Paper A]]".to_owned()),
+        Just("[[Paper B]]".to_owned()),
+        Just("[[Paper C]]".to_owned())
+    ]
+}
+
 fn arb_decision() -> impl Strategy<Value = ScreeningDecision> {
     (
         "[a-z0-9]{1,6}",
-        prop_oneof!["item-a", "item-b", "item-c"],
+        paper_link(),
         prop_oneof!["r1", "r2"],
         prop_oneof![
             Just(ScreeningStage::TitleAbstract),
@@ -276,7 +285,7 @@ proptest! {
     #[test]
     fn law_mark_missing_keeps_decisions(
         ds in proptest::collection::vec(arb_decision(), 0..8),
-        known in proptest::collection::vec(prop_oneof!["item-a", "item-b"], 0..3),
+        known in proptest::collection::vec(paper_link(), 0..3),
     ) {
         let mut text = LIST.to_owned();
         for d in &ds {
@@ -294,7 +303,7 @@ proptest! {
 
 /// Obsidian properties the app does not model: spaced keys, block scalars, comments,
 /// nested lists and maps, and `items` sitting between them.
-const OBSIDIAN: &str = "---\nwf: 3\nDue date: 2026-12-01\ndescription: |\n  line one\n  line two\n# kept comment\ncssclasses:\n  - wide\n  - dark\nitems:\n  - {\"id\":\"d0\",\"item\":\"item-0\",\"reviewer\":\"r1\",\"stage\":\"title_abstract\",\"decision\":\"unsure\",\"added\":\"2026-11-18T10:00:00Z\"}\nnested:\n  a: 1\n  b: \"two\"\ntags: [x, \"y z\"]\n---\nBody.\n";
+const OBSIDIAN: &str = "---\nwf: 3\nDue date: 2026-12-01\ndescription: |\n  line one\n  line two\n# kept comment\ncssclasses:\n  - wide\n  - dark\nitems:\n  - {\"id\":\"d0\",\"item\":\"[[Paper 0]]\",\"reviewer\":\"r1\",\"stage\":\"title_abstract\",\"decision\":\"unsure\",\"added\":\"2026-11-18T10:00:00Z\"}\nnested:\n  a: 1\n  b: \"two\"\ntags: [x, \"y z\"]\n---\nBody.\n";
 
 /// The frontmatter lines outside the `items` block, as written.
 fn other_head_lines(text: &str) -> Vec<String> {
@@ -326,7 +335,7 @@ fn obsidian_properties_survive_every_write() {
     let before = other_head_lines(OBSIDIAN);
     let d = decision(
         "d1",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Included,
         "2026-11-19T10:00:00Z",
     );
@@ -360,7 +369,7 @@ fn crlf_list_file_stays_crlf() {
     let crlf = OBSIDIAN.replace('\n', "\r\n");
     let d = decision(
         "d1",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Included,
         "2026-11-19T10:00:00Z",
     );
@@ -376,13 +385,13 @@ fn crlf_list_file_stays_crlf() {
 fn later_instant_wins_across_precision_and_offsets() {
     let whole = decision(
         "a",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Excluded,
         "2026-11-19T10:00:00Z",
     );
     let half = decision(
         "b",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Included,
         "2026-11-19T10:00:00.500Z",
     );
@@ -392,11 +401,84 @@ fn later_instant_wins_across_precision_and_offsets() {
     // 10:30 at +01:00 is 09:30Z, earlier than 10:00Z, though it sorts later as text.
     let offset = decision(
         "c",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Included,
         "2026-11-19T10:30:00+01:00",
     );
     for pair in [[whole.clone(), offset.clone()], [offset, whole]] {
         assert_eq!(effective_decisions(&pair)[0].id, "a");
     }
+}
+
+#[test]
+fn an_entry_names_its_paper_by_link_not_by_id() {
+    let by_id = "---\nwf: 3\nitems:\n  - {\"id\":\"d1\",\"item\":\"item-1\",\"reviewer\":\"r1\",\"stage\":\"title_abstract\",\"decision\":\"unsure\",\"added\":\"2026-11-19T10:00:00Z\"}\n---\n";
+    assert!(matches!(
+        list_decisions(by_id),
+        Err(ListFileError::BadEntry(_))
+    ));
+    let d = decision(
+        "d1",
+        "item-1",
+        ScreeningState::Included,
+        "2026-11-19T10:00:00Z",
+    );
+    assert!(matches!(
+        record_decision(LIST, &d),
+        Err(ListFileError::BadEntry(_))
+    ));
+    assert_eq!(read_list_file(LIST).unwrap().entries, vec![]);
+}
+
+#[test]
+fn links_to_the_same_note_are_one_item() {
+    assert_eq!(item_key("[[Smith 2024]]"), Some("smith 2024".to_owned()));
+    assert_eq!(
+        item_key("[[smith 2024|Smith]]"),
+        Some("smith 2024".to_owned())
+    );
+    assert_eq!(
+        item_key("[[Smith 2024#Intro]]"),
+        Some("smith 2024".to_owned())
+    );
+    assert_eq!(
+        item_key(" [[papers/Smith 2024.md]] "),
+        Some("papers/smith 2024".to_owned())
+    );
+    assert_eq!(item_key("item-1"), None);
+    assert_eq!(item_key("[[]]"), None);
+    assert_eq!(item_key("[[a]] and [[b]]"), None);
+    let early = decision(
+        "a",
+        "[[Smith 2024]]",
+        ScreeningState::Unsure,
+        "2026-11-19T10:00:00Z",
+    );
+    let late = decision(
+        "b",
+        "[[smith 2024|Smith]]",
+        ScreeningState::Included,
+        "2026-11-19T11:00:00Z",
+    );
+    assert_eq!(
+        effective_decisions(&[early.clone(), late.clone()]),
+        vec![late.clone()]
+    );
+    let text = record_decision(&record_decision(LIST, &early).unwrap(), &late).unwrap();
+    let marked = mark_missing(&text, &["[[SMITH 2024]]".to_owned()]).unwrap();
+    assert!(
+        read_list_file(&marked)
+            .unwrap()
+            .entries
+            .iter()
+            .all(|e| !e.missing)
+    );
+    let marked = mark_missing(&text, &["[[Jones 2023]]".to_owned()]).unwrap();
+    assert!(
+        read_list_file(&marked)
+            .unwrap()
+            .entries
+            .iter()
+            .all(|e| e.missing)
+    );
 }
