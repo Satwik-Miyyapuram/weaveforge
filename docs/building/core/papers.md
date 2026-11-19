@@ -82,6 +82,42 @@ core has loaded.
 
 Source: `crates/wf-core/src/papers/`
 
+## Paper files (files-first)
+
+Each paper is one file, `<project>/papers/<slug>--<id-suffix>.paper.md`. The paper's
+fields sit in frontmatter (`weaveforge-id`, `weaveforge-type: paper`, then kebab-case
+keys such as `arxiv-id`, `pdf-path`, `read-at`); the body is the reader's notes.
+
+- Rust: `crates/wf-core/src/papers/paper_file.rs`. `parse_paper_file` and
+  `render_paper_file` read and write the file; `paper_row` gives the `Paper` row
+  (camelCase); `write_paper_row(existing, row)` writes a row into a file, keeping
+  everything the row does not carry. A file with `wf` above `FORMAT_VERSION` is refused.
+- wasm: `paperRowFromFile`, `writePaperRow` (`crates/wf-wasm/src/paper_files.rs`).
+- TS: `FilePaperRepository` (`apps/web/src/features/papers/infrastructure/file-paper-repository.ts`)
+  implements `IPaperRepository` over `IWorkspaceFs`. Every write is conditional
+  (`writeTextIf`); when the file changed since it was read, the write reads again and
+  re-applies, up to 3 times, then throws `ConflictError`.
+- Relations: the index reads each paper's `relations`. The shell command
+  `index_relations_graph(rootId, depth)` returns the nodes within `depth` hops (both
+  directions, at most 5) and the edges between them. A target no file declares comes
+  back with `missing: true`. Papers of one project are `index_list("paper", project)`.
+
+### Laws
+
+| Law | Test |
+| --- | --- |
+| `parse(render(p)) == p` | `law_parse_render_is_identity` (`crates/wf-core/tests/papers_files.rs`) |
+| `render(parse(f)) == f` for canonical `f` | `law_render_parse_is_identity` |
+| A write keeps unknown keys byte for byte, the body and the relations | `law_write_keeps_what_it_does_not_own` |
+| Writing the row a file reads as gives back that row | `law_write_of_own_row_is_identity` |
+| A file from a newer app is never written | `newer_file_is_not_written`; TS "a file from a newer app is never overwritten" |
+| `getById(save(p)) == p` | TS fast-check "law: getById(save(p)) == p" (`apps/web/src/features/papers/test/file-paper-repository.test.ts`) |
+| `save` never drops the body or unknown keys of the file it rewrites | TS fast-check "law: save never drops the body or unknown keys …" |
+| A write never removes a file; `delete(id)` moves that paper's file, and only it, to `.weaveforge/trash/<day>/<path>` (a name clash gets `-2`, `-3`, …) | TS fast-check "law: delete moves exactly that paper's file to the trash …"; TS "delete moves the file to the workspace trash; it never unlinks", "deleting the same path twice keeps both copies in the trash" |
+| When two files claim one id, no write or delete touches either file; the error names both paths | TS "two files with one id: every write is refused and neither file changes" |
+| A write happens only if the file is still what was read; a workspace without a conditional write (`writeTextIf`) is refused, never written blind | TS "without a conditional write the repository refuses to write" |
+| A relation declared in a paper file and in `relations.json` is listed once by `relations_of` | `relation_in_file_and_relations_json_counts_once` (`crates/wf-core/tests/papers_files.rs`) |
+
 ## More paper modules
 
 | Module | Rust fn | wasm export | TS caller |

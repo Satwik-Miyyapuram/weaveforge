@@ -82,6 +82,7 @@ mod overleaf_text_ot;
 mod page_background;
 mod palette_groups;
 mod palette_sort;
+mod paper_files;
 mod paper_relation;
 mod papers_bib_import;
 mod papers_library_tidy;

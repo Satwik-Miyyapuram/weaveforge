@@ -77,6 +77,7 @@ not listed.
 | `file_rename` | Checked rename |
 | `base_get`, `base_set` | Read or store an item's base |
 | `index_get`, `index_list` | One indexed file by id; all of one kind, optionally per project |
+| `index_relations_graph` | The relation graph around one id, both directions, at most 5 hops |
 | `watcher_rescan` | Rebuilds the index and re-sends every path as `vault-changed` batches of 500 |
 | `git_pull_now` | Pulls and emits one `pull-batch` event with the written paths |
 | `git_file_history` | The commits that changed one file |

@@ -4,6 +4,7 @@
 use std::sync::{Arc, Mutex, PoisonError};
 
 use tauri::Emitter as _;
+use wf_core::index::graph::{RelationGraph, relation_graph};
 use wf_core::index::{IndexEntry, IndexStore, scan::index_files};
 use wf_core::sync::frontmatter::{FileKind, file_kind};
 use wf_core::sync::git_policy::is_local_meta;
@@ -442,6 +443,94 @@ pub async fn index_list(
                 .into_iter()
                 .map(IndexItem::from)
                 .collect()
+        }))
+    })
+    .await
+}
+
+/// The deepest `index_relations_graph` walk; a larger depth is clamped to this.
+pub const MAX_GRAPH_DEPTH: u32 = 5;
+
+/// One node of a relation graph.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphNodeItem {
+    /// The item id.
+    pub id: String,
+    /// The title, when a file declares the id.
+    pub title: Option<String>,
+    /// The kind, when a file declares the id.
+    pub kind: Option<String>,
+    /// True when no file declares the id (a dangling relation target).
+    pub missing: bool,
+}
+
+/// One relation between two ids.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphEdgeItem {
+    /// The id the relation starts from.
+    pub source_id: String,
+    /// The id the relation points to.
+    pub target_id: String,
+    /// The relation's type, such as `cites`.
+    pub relation_type: String,
+}
+
+/// The nodes within some hops of a root (root first) and the relations between them.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphReply {
+    /// Nodes in the order they were reached.
+    pub nodes: Vec<GraphNodeItem>,
+    /// Each relation once.
+    pub edges: Vec<GraphEdgeItem>,
+}
+
+impl From<RelationGraph> for GraphReply {
+    fn from(graph: RelationGraph) -> Self {
+        Self {
+            nodes: graph
+                .nodes
+                .into_iter()
+                .map(|node| GraphNodeItem {
+                    id: node.id,
+                    title: node.title,
+                    kind: node.kind,
+                    missing: node.missing,
+                })
+                .collect(),
+            edges: graph
+                .edges
+                .into_iter()
+                .map(|edge| GraphEdgeItem {
+                    source_id: edge.source_id,
+                    target_id: edge.target_id,
+                    relation_type: edge.relation_type,
+                })
+                .collect(),
+        }
+    }
+}
+
+/// The relations around `root_id`, both directions, at most `depth` hops
+/// (clamped to [`MAX_GRAPH_DEPTH`]), read from the paper files' `relations`.
+///
+/// # Errors
+/// No folder chosen.
+#[tauri::command]
+#[specta::specta]
+pub async fn index_relations_graph(
+    state: tauri::State<'_, VaultState>,
+    index: tauri::State<'_, IndexSlot>,
+    root_id: String,
+    depth: u32,
+) -> Result<GraphReply, ShellError> {
+    let index = index.inner().clone();
+    let hops = usize::try_from(depth.min(MAX_GRAPH_DEPTH)).unwrap_or(0);
+    on_vault(state.inner(), move |vault| {
+        Ok(index.with(vault, |store| {
+            GraphReply::from(relation_graph(store, &root_id, hops))
         }))
     })
     .await
