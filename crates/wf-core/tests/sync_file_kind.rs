@@ -52,7 +52,10 @@ fn conflict_of_read_from_header() {
 
 #[test]
 fn file_kind_by_path() {
-    assert_eq!(file_kind("p/papers/x.annotations.json"), FileKind::Annotations);
+    assert_eq!(
+        file_kind("p/papers/x.annotations.json"),
+        FileKind::Annotations
+    );
     assert_eq!(file_kind("p/notes/x.comments.json"), FileKind::Comments);
     assert_eq!(file_kind("e/.overleaf.json"), FileKind::Overleaf);
     assert_eq!(file_kind("p/.ink/n1/0001.inkb"), FileKind::Ink);
@@ -66,7 +69,10 @@ fn file_kind_by_path() {
         file_kind(".weaveforge/settings.json"),
         FileKind::WorkspaceMeta
     );
-    assert_eq!(file_kind(".weaveforge/ai/proposals/x.json"), FileKind::Other);
+    assert_eq!(
+        file_kind(".weaveforge/ai/proposals/x.json"),
+        FileKind::Other
+    );
     assert_eq!(file_kind("p/notes/a.md"), FileKind::Markdown);
     assert_eq!(file_kind("p/a.canvas"), FileKind::Canvas);
     assert_eq!(file_kind("p/a.pdf"), FileKind::Other);
@@ -78,7 +84,10 @@ fn layout_paths() {
         conflict_copy_path("p/notes/a.md", "20261118T101502Z"),
         "p/notes/a.conflict-20261118T101502Z.md"
     );
-    assert_eq!(conflict_copy_path("v1.2/readme", "S"), "v1.2/readme.conflict-S");
+    assert_eq!(
+        conflict_copy_path("v1.2/readme", "S"),
+        "v1.2/readme.conflict-S"
+    );
     assert_eq!(numbered_path("a/b.md", 2), "a/b-2.md");
     assert_eq!(numbered_path("a/b.md", 1), "a/b.md");
     assert_eq!(

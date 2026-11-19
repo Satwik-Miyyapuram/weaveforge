@@ -399,10 +399,11 @@ pub fn canonical_text(text: &str) -> String {
 pub fn bytes_digest(bytes: &[u8]) -> String {
     use sha2::Digest as _;
     let hash = sha2::Sha256::digest(bytes);
-    hash.iter().fold(String::with_capacity(64), |mut out, byte| {
-        out.push_str(&format!("{byte:02x}"));
-        out
-    })
+    hash.iter()
+        .fold(String::with_capacity(64), |mut out, byte| {
+            out.push_str(&format!("{byte:02x}"));
+            out
+        })
 }
 
 /// Lowercase hex SHA-256 of [`canonical_text`]: the version name of a text
@@ -457,9 +458,13 @@ pub fn file_kind(path: &str) -> FileKind {
         FileKind::Ink
     } else if path.ends_with(".jsonl") && path.starts_with(".weaveforge/ai/audit/") {
         FileKind::AiAudit
-    } else if path.ends_with(".csv") && (path.contains("/metrics/") || path.starts_with("metrics/")) {
+    } else if path.ends_with(".csv") && (path.contains("/metrics/") || path.starts_with("metrics/"))
+    {
         FileKind::MetricsChunk
-    } else if path.strip_prefix(".weaveforge/").is_some_and(|rest| path.ends_with(".json") && !rest.contains('/')) {
+    } else if path
+        .strip_prefix(".weaveforge/")
+        .is_some_and(|rest| path.ends_with(".json") && !rest.contains('/'))
+    {
         FileKind::WorkspaceMeta
     } else if path.ends_with(".md") {
         FileKind::Markdown
@@ -523,7 +528,10 @@ fn json_header(text: &str) -> FileHeader {
     FileHeader {
         wf: map.get("wf").and_then(Value::as_u64),
         id: map.get("id").and_then(Value::as_str).map(str::to_owned),
-        conflict_of: map.get("conflict_of").and_then(Value::as_str).map(str::to_owned),
+        conflict_of: map
+            .get("conflict_of")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
         read_only: false,
     }
 }

@@ -3,7 +3,6 @@
 //! Ported from `packages/core/src/workspace/parts.ts` and `git-gate.ts`; the
 //! TypeScript stays the reference until the port lands. `describe_changes` is in wf-core.
 
-
 /// Largest file folder history takes; bigger files are skipped and reported.
 pub const MAX_FILE_BYTES: u64 = 25 * 1024 * 1024;
 

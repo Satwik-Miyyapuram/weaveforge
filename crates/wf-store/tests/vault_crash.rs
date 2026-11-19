@@ -47,7 +47,9 @@ fn crash_child_writer() {
     let checked = std::env::var_os("WF_CRASH_CHECKED").is_some();
     let write = |bytes: &[u8]| {
         if checked {
-            let _ = vault.write_bytes_checked(TARGET, bytes, None).expect("checked write");
+            let _ = vault
+                .write_bytes_checked(TARGET, bytes, None)
+                .expect("checked write");
         } else {
             vault.write_file(TARGET, bytes).expect("write");
         }

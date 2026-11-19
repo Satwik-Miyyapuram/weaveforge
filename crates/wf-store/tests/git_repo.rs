@@ -353,7 +353,13 @@ fn write_excludes_is_idempotent() {
     write(dir.path(), "b.md", b"b");
     let _ = repo.commit_all("two", me()).unwrap();
     let text = exclude_text(dir.path());
-    for line in ["/.weaveforge/*", "!/.weaveforge/settings.json", "node_modules/", "desktop.ini", "*.aux"] {
+    for line in [
+        "/.weaveforge/*",
+        "!/.weaveforge/settings.json",
+        "node_modules/",
+        "desktop.ini",
+        "*.aux",
+    ] {
         assert_eq!(text.lines().filter(|l| *l == line).count(), 1, "{line}");
     }
 }
@@ -609,5 +615,8 @@ fn stale_whole_folder_exclude_line_is_replaced() {
     assert!(text.starts_with("mine/\n"));
     assert!(!text.lines().any(|l| l == "/.weaveforge/"));
     assert!(text.lines().any(|l| l == "!/.weaveforge/settings.json"));
-    assert_eq!(tree_files(dir.path(), "HEAD"), [".weaveforge/settings.json"]);
+    assert_eq!(
+        tree_files(dir.path(), "HEAD"),
+        [".weaveforge/settings.json"]
+    );
 }

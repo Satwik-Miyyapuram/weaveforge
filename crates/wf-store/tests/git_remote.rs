@@ -12,8 +12,8 @@ use std::path::Path;
 use git2::{Oid, Repository};
 use wf_store::git::remote::{
     PULL_FIRST, PullChoice, PullOutcome, PushOutcome, RemoteConfig, RemoteStatus, describe_pull,
-    describe_push, pull, pull_listing, pull_resolving, push, redact_secret, redact_secret_for, rejection_reason,
-    remote_status, token_may_go_to,
+    describe_push, pull, pull_listing, pull_resolving, push, redact_secret, redact_secret_for,
+    rejection_reason, remote_status, token_may_go_to,
 };
 use wf_store::git::repo::{Author, FolderRepo};
 
@@ -711,7 +711,11 @@ fn pull_batch_event_lists_written_paths() {
     assert_eq!(push(&a, &cfg(&url)).unwrap(), PushOutcome::Pushed);
     write(b.root(), "mine.md", "local");
     let batch = pull_listing(&b, &cfg(&url)).unwrap();
-    assert!(matches!(batch.outcome, PullOutcome::Merged { .. }), "{:?}", batch.outcome);
+    assert!(
+        matches!(batch.outcome, PullOutcome::Merged { .. }),
+        "{:?}",
+        batch.outcome
+    );
     assert_eq!(batch.paths, ["notes/two.md", "one.md"]);
     let again = pull_listing(&b, &cfg(&url)).unwrap();
     assert_eq!(again.outcome, PullOutcome::UpToDate);

@@ -9,12 +9,16 @@ use wf_core::sync::frontmatter::FORMAT_VERSION;
 mod support {
     /// A note with a valid frontmatter block.
     pub fn note(id: &str, title: &str, body: &str) -> String {
-        format!("---\nweaveforge-id: {id}\nweaveforge-type: vault_page\ntitle: {title}\n---\n\n{body}\n")
+        format!(
+            "---\nweaveforge-id: {id}\nweaveforge-type: vault_page\ntitle: {title}\n---\n\n{body}\n"
+        )
     }
 
     /// A note with an inline tag list.
     pub fn tagged(id: &str, tags: &str) -> String {
-        format!("---\nweaveforge-id: {id}\nweaveforge-type: vault_page\ntags: [{tags}]\n---\n\nbody\n")
+        format!(
+            "---\nweaveforge-id: {id}\nweaveforge-type: vault_page\ntags: [{tags}]\n---\n\nbody\n"
+        )
     }
 
     /// The first entry for `id` in `store`, failing the test if absent.
@@ -78,7 +82,10 @@ fn wiki_links_and_backlinks() {
 
     let n1 = note("n1", "One", "base");
     let n2 = note("n2", "Two", body);
-    let store = index_files([("p/notes/n1.md", n1.as_str()), ("p/notes/n2.md", n2.as_str())]);
+    let store = index_files([
+        ("p/notes/n1.md", n1.as_str()),
+        ("p/notes/n2.md", n2.as_str()),
+    ]);
 
     assert_eq!(
         store.by_path("p/notes/n2.md").map(|e| e.links.clone()),
@@ -100,7 +107,11 @@ fn list_by_kind_and_project() {
 
     assert_eq!(store.list("", None).len(), 3);
     assert_eq!(store.list("*", Some("p")).len(), 2);
-    let papers: Vec<&str> = store.list("paper", None).iter().map(|e| e.id.as_str()).collect();
+    let papers: Vec<&str> = store
+        .list("paper", None)
+        .iter()
+        .map(|e| e.id.as_str())
+        .collect();
     assert_eq!(papers, vec!["c"]);
     let q_notes: Vec<&str> = store
         .list("vault_page", Some("q"))

@@ -147,8 +147,7 @@ pub struct PullBatch {
 /// As [`pull`].
 pub fn pull_listing(repo: &FolderRepo, config: &RemoteConfig) -> Result<PullBatch, RepoError> {
     let before = Cell::new(None);
-    let outcome =
-        pull_inner(repo, config, None, &before).map_err(|e| redact_error(e, config))?;
+    let outcome = pull_inner(repo, config, None, &before).map_err(|e| redact_error(e, config))?;
     let paths = match outcome {
         PullOutcome::FastForward { .. } | PullOutcome::Merged { .. } => {
             let r = repo.open()?;
@@ -166,11 +165,7 @@ pub fn pull_listing(repo: &FolderRepo, config: &RemoteConfig) -> Result<PullBatc
 ///
 /// # Errors
 /// When git cannot read either commit.
-pub fn changed_paths(
-    r: &Repository,
-    old: Option<Oid>,
-    new: Oid,
-) -> Result<Vec<String>, RepoError> {
+pub fn changed_paths(r: &Repository, old: Option<Oid>, new: Oid) -> Result<Vec<String>, RepoError> {
     let old_tree = old
         .map(|oid| r.find_commit(oid).and_then(|commit| commit.tree()))
         .transpose()?;

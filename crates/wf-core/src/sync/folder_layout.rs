@@ -654,12 +654,19 @@ pub fn trash_path(rel: &str, date: &str) -> String {
 #[must_use]
 pub fn compact_stamp(ms: i64) -> String {
     let iso = crate::sync::instant::format_instant(ms);
-    let base: String = iso.chars().take(19).filter(|c| !matches!(c, '-' | ':')).collect();
+    let base: String = iso
+        .chars()
+        .take(19)
+        .filter(|c| !matches!(c, '-' | ':'))
+        .collect();
     format!("{base}Z")
 }
 
 /// UTC day for folder names: `2026-11-18`.
 #[must_use]
 pub fn day_stamp(ms: i64) -> String {
-    crate::sync::instant::format_instant(ms).chars().take(10).collect()
+    crate::sync::instant::format_instant(ms)
+        .chars()
+        .take(10)
+        .collect()
 }

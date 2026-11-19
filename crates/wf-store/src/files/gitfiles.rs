@@ -80,10 +80,7 @@ fn ensure_file(path: &Path, wanted: &[&str]) -> io::Result<usize> {
         block.push_str(line);
         block.push('\n');
     }
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)?;
+    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
     file.write_all(block.as_bytes())?;
     Ok(missing.len())
 }

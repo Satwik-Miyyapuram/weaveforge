@@ -31,7 +31,10 @@ fn gitfiles_appends_missing_lines_only() {
 
     let again = ensure_gitfiles(dir.path()).unwrap();
     assert_eq!(again, GitFilesReport::default());
-    assert_eq!(fs::read_to_string(dir.path().join(".gitignore")).unwrap(), text);
+    assert_eq!(
+        fs::read_to_string(dir.path().join(".gitignore")).unwrap(),
+        text
+    );
 }
 
 #[test]

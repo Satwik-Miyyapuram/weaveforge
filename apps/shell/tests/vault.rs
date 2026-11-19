@@ -504,7 +504,13 @@ fn write_text_if_compares_canonical_text() {
     let dir = TempDir::new();
     let session = session_at(dir.path());
     assert_eq!(session.write_text_if("c.md", "one\r\n", None), Ok(true));
-    assert_eq!(session.write_text_if("c.md", "two\n", Some("one\n")), Ok(true));
-    assert_eq!(session.write_text_if("c.md", "three\n", Some("one\n")), Ok(false));
+    assert_eq!(
+        session.write_text_if("c.md", "two\n", Some("one\n")),
+        Ok(true)
+    );
+    assert_eq!(
+        session.write_text_if("c.md", "three\n", Some("one\n")),
+        Ok(false)
+    );
     assert_eq!(session.read_text("c.md"), Ok(Some("two\n".to_owned())));
 }
