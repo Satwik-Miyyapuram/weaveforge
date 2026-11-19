@@ -3,7 +3,8 @@
     clippy::expect_used,
     clippy::panic,
     missing_docs,
-    unused_results
+    unused_results,
+    clippy::result_large_err
 )]
 
 //! Co-editing socket tests (files-first L8): handshake, update log replay after a
