@@ -632,7 +632,7 @@ export async function diffAgainstWorkspace(
   // A file both sides changed is only a conflict if the changes collide. Most
   // do not: a tag added in Obsidian and a paragraph rewritten here are two
   // edits to one note, not two answers to one question.
-  const entries = diff.entries.map((entry) =>
+  const entries = diff.entries.map((entry: ImportDiffEntry) =>
     mergeBothChanged(core, entry, bases[entry.entity.path], current[entry.entity.path]),
   );
 
