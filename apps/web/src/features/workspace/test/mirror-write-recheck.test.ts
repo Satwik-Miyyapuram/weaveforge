@@ -39,7 +39,7 @@ class AppearingFs extends MemoryWorkspaceFs {
   constructor(private readonly target: string) {
     super(() => AT);
   }
-  async readText(path: string): Promise<string> {
+  override async readText(path: string): Promise<string> {
     try {
       return await super.readText(path);
     } catch (error) {
