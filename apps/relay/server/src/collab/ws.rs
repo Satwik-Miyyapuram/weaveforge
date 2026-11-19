@@ -16,6 +16,7 @@ use crate::collab::hub::{self, Event, Room, RoomInner};
 use crate::collab::lease::LeaseReply;
 use crate::collab::protocol::{self, Control, Incoming};
 use crate::collab::store::{DocRow, DocStatus};
+use crate::collab::update_log::is_safe_item_id;
 use crate::collab::{CollabState, Permission};
 
 const STORAGE_FAILED: &str = "Storage failed.";
@@ -103,6 +104,10 @@ pub async fn ws_handler(
     let Some(user) = state.auth.user_for(token).await else {
         return refuse(StatusCode::UNAUTHORIZED, "Invalid session.");
     };
+    // An id that cannot name a log file cannot be a document, so refuse it before any work.
+    if !is_safe_item_id(&item_id) {
+        return refuse(StatusCode::NOT_FOUND, "No such document.");
+    }
     let row = match state.store.load(&item_id).await {
         Ok(Some(row)) => row,
         Ok(None) => return refuse(StatusCode::NOT_FOUND, "No such document."),
@@ -164,7 +169,11 @@ async fn run_client(
     };
     let id = state.hub.next_client_id();
     let now = state.clock.now_ms();
-    let (mut rx, epoch, format_version) = join(&room).await;
+    // A room evicted since it was opened is refused: the client reconnects and gets a fresh one.
+    let Some((mut rx, epoch, format_version)) = join(&state, &room).await else {
+        close(&mut socket).await;
+        return;
+    };
     let mut client = Client::new(
         id,
         user,
@@ -180,11 +189,18 @@ async fn run_client(
     leave(&state, &room).await;
 }
 
-/// Counts the client in and subscribes it, under one lock so no event is missed.
-async fn join(room: &Room) -> (broadcast::Receiver<Event>, i64, i64) {
+/// Counts the client in and subscribes it, under the room lock so no event is missed and the
+/// room cannot be evicted in between. `None` when the room is no longer the open one.
+async fn join(
+    state: &CollabState,
+    room: &Arc<Room>,
+) -> Option<(broadcast::Receiver<Event>, i64, i64)> {
     let mut inner = room.inner.lock().await;
+    if !state.hub.is_current(room) {
+        return None;
+    }
     inner.clients += 1;
-    (room.tx.subscribe(), inner.epoch, inner.format_version)
+    Some((room.tx.subscribe(), inner.epoch, inner.format_version))
 }
 
 /// Sends `rejoin` (stale epoch: false) or `hello` (true).
@@ -364,16 +380,18 @@ async fn on_text(
         Control::Renew { device } => {
             let reply = {
                 let mut inner = room.inner.lock().await;
-                inner.lease.renew(&device, state.clock.now_ms())
+                inner
+                    .lease
+                    .renew(&device, &client.user, state.clock.now_ms())
             };
             send_text(socket, protocol::lease_reply_json(&reply)).await
         }
         Control::Release { device } => {
-            let _ = release_lease(state, room, &device).await;
+            let _ = release_lease(state, room, &device, &client.user).await;
             true
         }
         Control::Final { device } => {
-            let (released, closing) = release_lease(state, room, &device).await;
+            let (released, closing) = release_lease(state, room, &device, &client.user).await;
             if released
                 && closing
                 && let Err(error) = hub::close_doc(state, &room.item_id).await
@@ -414,11 +432,11 @@ async fn acquire(
     sent
 }
 
-/// Clears the lease when `device` holds it; returns (released, doc is closing).
-async fn release_lease(state: &CollabState, room: &Room, device: &str) -> (bool, bool) {
+/// Clears the lease when `device` and `user` hold it; returns (released, doc is closing).
+async fn release_lease(state: &CollabState, room: &Room, device: &str, user: &str) -> (bool, bool) {
     let (released, closing) = {
         let mut inner = room.inner.lock().await;
-        let released = inner.lease.release(device);
+        let released = inner.lease.release(device, user);
         (released, inner.status == DocStatus::Closing)
     };
     if released {
@@ -478,7 +496,7 @@ async fn recheck(
 }
 
 /// Counts the client out; the last one out saves the document and drops the room.
-async fn leave(state: &CollabState, room: &Room) {
+async fn leave(state: &CollabState, room: &Arc<Room>) {
     let (idle, closing) = {
         let mut inner = room.inner.lock().await;
         inner.clients = inner.clients.saturating_sub(1);
@@ -491,9 +509,10 @@ async fn leave(state: &CollabState, room: &Room) {
     if !closing && let Err(error) = hub::persist_room(state, room).await {
         eprintln!("collab persist {}: {error}", room.item_id);
     }
+    // Only this room is removed: a newer room for the same item must stay open.
     let still_idle = room.inner.lock().await.clients == 0;
     if still_idle {
-        let _ = state.hub.remove(&room.item_id);
+        state.hub.remove_if_same(room);
     }
 }
 

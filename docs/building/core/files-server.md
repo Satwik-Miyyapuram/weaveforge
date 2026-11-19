@@ -21,8 +21,9 @@ access to someone else's document.
 | `GET /grants?target_id=…` | List your grants for one item or project. |
 | `DELETE /grants/{id}` | Revoke. Everyone connected re-checks their access at once; a revoked user is told `revoked` and disconnected. |
 
-Expired and revoked grants stop counting straight away (the SQL function
-`shared_doc_access` checks both). Grants by share link are stored but not used
+Revoked grants stop counting straight away. Expired grants stop counting on the
+next update a socket sends (the SQL function `shared_doc_access` checks the
+expiry); an open socket with no edits is not re-checked on a timer yet. Grants by share link are stored but not used
 by the live socket yet.
 
 ## Shared documents: editing together

@@ -52,15 +52,44 @@ fn lease_renew_rejected_from_non_holder() {
         book.acquire("A", "u1", 0),
         LeaseReply::Granted { until_ms: 90_000 }
     );
-    assert_eq!(book.renew("B", 1_000), LeaseReply::Lost);
+    assert_eq!(book.renew("B", "u2", 1_000), LeaseReply::Lost);
     assert_eq!(
         book.live_holder(1_000).map(|l| l.device.as_str()),
         Some("A")
     );
     assert_eq!(
-        book.renew("A", 50_000),
+        book.renew("A", "u1", 50_000),
         LeaseReply::Granted { until_ms: 140_000 }
     );
+}
+
+#[test]
+fn lease_renew_rejected_same_device_other_user() {
+    let mut book = LeaseBook::new(90_000);
+    assert_eq!(
+        book.acquire("A", "u1", 0),
+        LeaseReply::Granted { until_ms: 90_000 }
+    );
+    // A device id is client-supplied, so the same string from another user is not the holder.
+    assert_eq!(book.renew("A", "u2", 1_000), LeaseReply::Lost);
+    assert_eq!(book.live_holder(1_000).map(|l| l.user.as_str()), Some("u1"));
+}
+
+#[test]
+fn lease_acquire_rejected_same_device_other_user() {
+    let mut book = LeaseBook::new(90_000);
+    assert_eq!(
+        book.acquire("A", "u1", 0),
+        LeaseReply::Granted { until_ms: 90_000 }
+    );
+    assert_eq!(
+        book.acquire("A", "u2", 1_000),
+        LeaseReply::Denied {
+            holder: "A".to_owned(),
+            until_ms: 90_000
+        }
+    );
+    assert_eq!(book.live_holder(1_000).map(|l| l.user.as_str()), Some("u1"));
 }
 
 #[test]
@@ -70,7 +99,7 @@ fn lease_lapse_stops_writer() {
         book.acquire("A", "u1", 0),
         LeaseReply::Granted { until_ms: 90_000 }
     );
-    assert_eq!(book.renew("A", 90_000), LeaseReply::Lost);
+    assert_eq!(book.renew("A", "u1", 90_000), LeaseReply::Lost);
     assert!(book.live_holder(90_000).is_none());
     assert_eq!(
         book.acquire("B", "u2", 90_000),
@@ -85,26 +114,27 @@ fn lease_release_only_by_holder() {
         book.acquire("A", "u1", 0),
         LeaseReply::Granted { until_ms: 90_000 }
     );
-    assert!(!book.release("B"));
+    assert!(!book.release("B", "u2"));
+    assert!(!book.release("A", "u2"));
     assert_eq!(
         book.live_holder(1_000).map(|l| l.device.as_str()),
         Some("A")
     );
-    assert!(book.release("A"));
+    assert!(book.release("A", "u1"));
     assert!(book.live_holder(1_000).is_none());
-    assert!(!book.release("A"));
+    assert!(!book.release("A", "u1"));
 }
 
 #[test]
 fn update_log_round_trip() {
     let dir = temp_dir("round-trip");
-    let mut log = UpdateLog::open(&dir, "doc/1").unwrap();
+    let mut log = UpdateLog::open(&dir, "doc-1").unwrap();
     log.append(b"one").unwrap();
     log.append(b"two").unwrap();
     log.append(b"three").unwrap();
     drop(log);
 
-    let reopened = UpdateLog::open(&dir, "doc/1").unwrap();
+    let reopened = UpdateLog::open(&dir, "doc-1").unwrap();
     assert_eq!(
         reopened.read_all().unwrap(),
         vec![b"one".to_vec(), b"two".to_vec(), b"three".to_vec()]
@@ -115,14 +145,14 @@ fn update_log_round_trip() {
 #[test]
 fn update_log_torn_tail_ignored() {
     let dir = temp_dir("torn-tail");
-    let mut log = UpdateLog::open(&dir, "doc/1").unwrap();
+    let mut log = UpdateLog::open(&dir, "doc-1").unwrap();
     log.append(b"first").unwrap();
     log.append(b"second").unwrap();
 
     // A length prefix of 5 with only one byte of body: a crash mid-write.
     let mut raw = OpenOptions::new()
         .append(true)
-        .open(log_path(&dir, "doc/1"))
+        .open(log_path(&dir, "doc-1").unwrap())
         .unwrap();
     raw.write_all(&[5, 0, 0, 0, 1]).unwrap();
     drop(raw);
@@ -135,11 +165,49 @@ fn update_log_torn_tail_ignored() {
 }
 
 #[test]
+fn update_log_torn_tail_truncated_on_open_so_append_survives() {
+    let dir = temp_dir("torn-then-append");
+    let mut log = UpdateLog::open(&dir, "doc/1").unwrap();
+    log.append(b"first").unwrap();
+    drop(log);
+
+    // A crash mid-write leaves a length prefix of 5 with one body byte.
+    let mut raw = OpenOptions::new()
+        .append(true)
+        .open(log_path(&dir, "doc/1").unwrap())
+        .unwrap();
+    raw.write_all(&[5, 0, 0, 0, 1]).unwrap();
+    drop(raw);
+
+    // Reopening cuts the torn bytes, so the next append is readable after a restart.
+    let mut reopened = UpdateLog::open(&dir, "doc/1").unwrap();
+    reopened.append(b"second").unwrap();
+    drop(reopened);
+
+    let again = UpdateLog::open(&dir, "doc/1").unwrap();
+    assert_eq!(
+        again.read_all().unwrap(),
+        vec![b"first".to_vec(), b"second".to_vec()]
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn unsafe_item_ids_have_no_log_path() {
+    let dir = PathBuf::from("logs");
+    assert!(log_path(&dir, "doc.1").is_none());
+    assert!(log_path(&dir, "a/b").is_none());
+    assert!(log_path(&dir, "").is_none());
+    assert!(log_path(&dir, &"x".repeat(129)).is_none());
+    assert!(log_path(&dir, "doc-1_ok").is_some());
+}
+
+#[test]
 fn update_log_truncate_and_list() {
     let dir = temp_dir("truncate-list");
-    let mut log = UpdateLog::open(&dir, "doc/1:é").unwrap();
+    let mut log = UpdateLog::open(&dir, "doc-1").unwrap();
     log.append(b"x").unwrap();
-    assert_eq!(list_logs(&dir).unwrap(), vec!["doc/1:é".to_owned()]);
+    assert_eq!(list_logs(&dir).unwrap(), vec!["doc-1".to_owned()]);
 
     log.truncate().unwrap();
     assert!(log.read_all().unwrap().is_empty());
@@ -201,6 +269,16 @@ fn parse_control_cases() {
         None
     );
     assert_eq!(parse_control("not json"), None);
+}
+
+#[test]
+fn only_edit_and_above_write_and_only_owner_holds_lease() {
+    assert!(!Permission::View.can_write());
+    assert!(!Permission::Comment.can_write());
+    assert!(Permission::Edit.can_write());
+    assert!(Permission::Owner.can_write());
+    assert!(!Permission::Edit.can_hold_lease());
+    assert!(Permission::Owner.can_hold_lease());
 }
 
 #[test]

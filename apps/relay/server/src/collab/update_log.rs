@@ -7,11 +7,28 @@ use std::path::{Path, PathBuf};
 /// File extension of a document's log.
 const EXT: &str = ".ylog";
 
-/// The log file for `item_id` under `dir` (the id's bytes, as lowercase hex).
+/// Longest item id that may name a log file.
+const MAX_ID_LEN: usize = 128;
+
+/// Whether `item_id` may name a log file: 1 to 128 ASCII letters, digits, `-` or `_`.
 #[must_use]
-pub fn log_path(dir: &Path, item_id: &str) -> PathBuf {
+pub fn is_safe_item_id(item_id: &str) -> bool {
+    !item_id.is_empty()
+        && item_id.len() <= MAX_ID_LEN
+        && item_id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+}
+
+/// The log file for `item_id` under `dir` (the id's bytes, as lowercase hex). `None` when the
+/// id is not safe to name a file from.
+#[must_use]
+pub fn log_path(dir: &Path, item_id: &str) -> Option<PathBuf> {
+    if !is_safe_item_id(item_id) {
+        return None;
+    }
     let hex: String = item_id.bytes().map(|b| format!("{b:02x}")).collect();
-    dir.join(format!("{hex}{EXT}"))
+    Some(dir.join(format!("{hex}{EXT}")))
 }
 
 /// The item id a log file belongs to; `None` for any other file.
@@ -51,6 +68,25 @@ pub fn list_logs(dir: &Path) -> io::Result<Vec<String>> {
     Ok(items)
 }
 
+/// The complete records at the start of `bytes`, and the byte length they span. Anything after
+/// that is a torn record from a crash mid-append.
+fn split_records(bytes: &[u8]) -> (Vec<Vec<u8>>, usize) {
+    let mut out = Vec::new();
+    let mut good = 0;
+    let mut rest: &[u8] = bytes;
+    while let Some((head, tail)) = rest.split_first_chunk::<4>() {
+        let len = usize::try_from(u32::from_le_bytes(*head)).unwrap_or(usize::MAX);
+        if tail.len() < len {
+            break;
+        }
+        let (body, next) = tail.split_at(len);
+        out.push(body.to_vec());
+        good += 4 + len;
+        rest = next;
+    }
+    (out, good)
+}
+
 /// An open update log for one document.
 pub struct UpdateLog {
     path: PathBuf,
@@ -58,15 +94,28 @@ pub struct UpdateLog {
 }
 
 impl UpdateLog {
-    /// Opens the log for `item_id` under `dir`, creating it (and `dir`) if needed.
+    /// Opens the log for `item_id` under `dir`, creating it (and `dir`) if needed. A torn tail
+    /// left by a crash is cut off first, so later appends follow complete records.
     pub fn open(dir: &Path, item_id: &str) -> io::Result<Self> {
         fs::create_dir_all(dir)?;
-        let path = log_path(dir, item_id);
+        let path = log_path(dir, item_id).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "item id is not a safe file name",
+            )
+        })?;
         let file = OpenOptions::new()
             .create(true)
             .append(true)
             .read(true)
             .open(&path)?;
+        let bytes = fs::read(&path)?;
+        let (_, good) = split_records(&bytes);
+        if good < bytes.len() {
+            let cut = OpenOptions::new().write(true).open(&path)?;
+            cut.set_len(good as u64)?;
+            cut.sync_data()?;
+        }
         Ok(Self { path, file })
     }
 
@@ -86,18 +135,7 @@ impl UpdateLog {
     /// Every complete update in the file, in order; a torn tail is ignored.
     pub fn read_all(&self) -> io::Result<Vec<Vec<u8>>> {
         let bytes = fs::read(&self.path)?;
-        let mut out = Vec::new();
-        let mut rest: &[u8] = &bytes;
-        while let Some((head, tail)) = rest.split_first_chunk::<4>() {
-            let len = usize::try_from(u32::from_le_bytes(*head)).unwrap_or(usize::MAX);
-            if tail.len() < len {
-                break;
-            }
-            let (body, next) = tail.split_at(len);
-            out.push(body.to_vec());
-            rest = next;
-        }
-        Ok(out)
+        Ok(split_records(&bytes).0)
     }
 
     /// Empties the log, after its updates are saved.

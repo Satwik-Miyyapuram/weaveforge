@@ -24,6 +24,7 @@ use crate::auth::{bearer_token, require_session};
 use crate::collab::hub::{self, Event, Room};
 use crate::collab::protocol::event_json;
 use crate::collab::store::{DocRow, DocStatus, NewGrant};
+use crate::collab::update_log::is_safe_item_id;
 use crate::collab::ws::ws_handler;
 use crate::collab::{Authenticator, BoxFut, CollabState, Permission};
 use crate::config::Config;
@@ -168,6 +169,9 @@ async fn seed(
     Json(body): Json<SeedBody>,
 ) -> Result<Response, Response> {
     let user = signed_in(&state, &headers).await?;
+    if !is_safe_item_id(&item_id) {
+        return Err(bad_request("Item id is not a valid document id."));
+    }
     let bytes = seed_state(&body)?;
     let row = DocRow {
         item_id,
@@ -192,11 +196,15 @@ async fn seed(
         .await
         .map_err(|error| storage_failed("seed", &error))?;
     match stored {
-        Some(doc) if doc.owner == row.owner => Ok(Json(json!({ "ok": true })).into_response()),
-        Some(_) => Err(json_error(
+        Some(doc) if doc.owner != row.owner => Err(json_error(
             StatusCode::CONFLICT,
             "Document is owned by another user.",
         )),
+        // A closing doc is being deleted; re-sharing it now would race that delete.
+        Some(doc) if doc.status == DocStatus::Closing => {
+            Err(json_error(StatusCode::CONFLICT, "Document is closing."))
+        }
+        Some(_) => Ok(Json(json!({ "ok": true })).into_response()),
         None => Err(storage_failed("seed", "seeded row not found")),
     }
 }
@@ -290,6 +298,13 @@ fn grant_permission(body: &GrantBody) -> Result<Permission, Response> {
     if !is_uuid(&body.grantee_user) {
         return Err(bad_request("grantee_user must be a user id."));
     }
+    if body
+        .expires_at
+        .as_deref()
+        .is_some_and(|at| !is_timestamp(at))
+    {
+        return Err(bad_request("expires_at must be an RFC 3339 timestamp."));
+    }
     Permission::parse(&body.permission)
         .filter(|permission| *permission != Permission::Owner)
         .ok_or_else(|| bad_request("Unknown permission."))
@@ -305,6 +320,45 @@ fn is_uuid(value: &str) -> bool {
                 byte.is_ascii_hexdigit()
             }
         })
+}
+
+/// True for `YYYY-MM-DDTHH:MM:SS`, an optional fraction, then `Z` or a `+HH:MM` / `-HH:MM` offset.
+fn is_timestamp(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    let Some((head, mut rest)) = bytes.split_at_checked(19) else {
+        return false;
+    };
+    let head_ok = head.iter().enumerate().all(|(index, byte)| match index {
+        4 | 7 => *byte == b'-',
+        10 => *byte == b'T',
+        13 | 16 => *byte == b':',
+        _ => byte.is_ascii_digit(),
+    });
+    if !head_ok {
+        return false;
+    }
+    if let Some(fraction) = rest.strip_prefix(b".") {
+        let digits = fraction
+            .iter()
+            .take_while(|byte| byte.is_ascii_digit())
+            .count();
+        if digits == 0 {
+            return false;
+        }
+        rest = &fraction[digits..];
+    }
+    match rest {
+        [b'Z'] => true,
+        [b'+' | b'-', offset @ ..] => {
+            offset.len() == 5
+                && offset[2] == b':'
+                && offset
+                    .iter()
+                    .enumerate()
+                    .all(|(index, byte)| index == 2 || byte.is_ascii_digit())
+        }
+        _ => false,
+    }
 }
 
 /// `POST /grants`: an item grant needs the caller to own the document.
@@ -360,6 +414,9 @@ async fn revoke_grant(
     headers: HeaderMap,
 ) -> Result<Response, Response> {
     let user = signed_in(&state, &headers).await?;
+    if !is_uuid(&id) {
+        return Err(bad_request("Unknown grant."));
+    }
     let revoked = state
         .store
         .revoke_grant(&user, &id)

@@ -47,13 +47,14 @@ impl LeaseBook {
         }
     }
 
-    /// Grants the lease if it is free, lapsed or already ours; otherwise denies it.
+    /// Grants the lease if it is free, lapsed or already held by this device and user;
+    /// otherwise denies it. A device id is client-supplied, so it only counts with its user.
     #[must_use]
     pub fn acquire(&mut self, device: &str, user: &str, now_ms: i64) -> LeaseReply {
         if let Some(held) = self
             .current
             .as_ref()
-            .filter(|held| now_ms < held.until_ms && held.device != device)
+            .filter(|held| now_ms < held.until_ms && (held.device != device || held.user != user))
         {
             return LeaseReply::Denied {
                 holder: held.device.clone(),
@@ -69,9 +70,9 @@ impl LeaseBook {
         LeaseReply::Granted { until_ms }
     }
 
-    /// Extends the lease for the holder while it is live; anything else is `Lost`.
+    /// Extends the lease for the holder (device and user) while it is live; anything else is `Lost`.
     #[must_use]
-    pub fn renew(&mut self, device: &str, now_ms: i64) -> LeaseReply {
+    pub fn renew(&mut self, device: &str, user: &str, now_ms: i64) -> LeaseReply {
         let Some(held) = self.current.as_ref() else {
             return LeaseReply::Lost;
         };
@@ -80,7 +81,7 @@ impl LeaseBook {
             self.current = None;
             return LeaseReply::Lost;
         }
-        if held.device != device {
+        if held.device != device || held.user != user {
             return LeaseReply::Lost;
         }
         let until_ms = now_ms.saturating_add(self.lease_ms);
@@ -91,13 +92,13 @@ impl LeaseBook {
         LeaseReply::Granted { until_ms }
     }
 
-    /// Clears the lease if `device` holds it (lapsed or not); true when cleared.
+    /// Clears the lease if `device` and `user` hold it (lapsed or not); true when cleared.
     #[must_use]
-    pub fn release(&mut self, device: &str) -> bool {
+    pub fn release(&mut self, device: &str, user: &str) -> bool {
         let ours = self
             .current
             .as_ref()
-            .is_some_and(|held| held.device == device);
+            .is_some_and(|held| held.device == device && held.user == user);
         if ours {
             self.current = None;
         }
