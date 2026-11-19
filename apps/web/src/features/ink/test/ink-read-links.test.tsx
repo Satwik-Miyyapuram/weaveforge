@@ -1,7 +1,7 @@
 /**
- * An ink note read as its sheet shows `[[links]]` as links, like any note's
- * Read view, and its typed text is not hidden under a placed figure (design
- * D19, DA-101).
+ * An ink note read as its sheet, or open in the ink editor, shows `[[links]]`
+ * as links, like any note's Read view, and its typed text is not hidden under
+ * a placed figure (design D19, DA-101).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
+import { InkRail, type InkRailProps } from "../ui/ink-rail";
 import { InkSheetTextUnderlay } from "../ui/ink-sheet-underlay";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -24,6 +25,26 @@ function underlayHtml(props: Parameters<typeof InkSheetTextUnderlay>[0]): string
   const html = (tree.root.findByType("div").props.dangerouslySetInnerHTML as { __html: string }).__html;
   act(() => tree.unmount());
   return html;
+}
+
+/** Observers that never fire: node has none, and the rail watches its size. */
+function withObservers<T>(run: () => T): T {
+  const g = globalThis as Record<string, unknown>;
+  const names = ["ResizeObserver", "MutationObserver"];
+  const saved = names.map((name) => [name, g[name]] as const);
+  class Idle {
+    observe() {}
+    disconnect() {}
+  }
+  Object.assign(g, { ResizeObserver: Idle, MutationObserver: Idle });
+  try {
+    return run();
+  } finally {
+    for (const [name, value] of saved) {
+      if (value === undefined) delete g[name];
+      else g[name] = value;
+    }
+  }
 }
 
 test("a wikilink on the sheet renders as a link, not its brackets", () => {
@@ -41,6 +62,52 @@ test("the read sheet resolves links against the note catalogue", () => {
   assert.match(reader, /useWikilinkNavigation\(/);
   assert.match(reader, /resolveWikilink=\{resolveWikilink\}/);
   assert.match(src("../ui/ink-page-static.tsx"), /resolveWikilink=\{resolveWikilink\}/);
+});
+
+test("the editor's neighbouring pages show a wikilink as a link", () => {
+  const props: InkRailProps = {
+    children: null,
+    scrollRef: { current: null },
+    pageIndex: 0,
+    pageCount: 2,
+    pageSize: { width: 2100, height: 2970 },
+    scale: 0.5,
+    paper: "plain",
+    pages: null,
+    ghosts: new Map(),
+    flowedText: ["", "See [[Cluster cheat-sheet]]"],
+    resolveWikilink: () => ({ href: "/notes?page=n1", unresolved: false }),
+  };
+  // A bare stand-in for the DOM the rail's layout effects touch.
+  const createNodeMock = () => ({
+    closest: () => null,
+    querySelector: () => null,
+    addEventListener() {},
+    removeEventListener() {},
+  });
+  const html = withObservers(() => {
+    let tree!: ReactTestRenderer;
+    act(() => {
+      tree = create(createElement(InkRail, props), { createNodeMock });
+    });
+    const out = tree.root
+      .findAll((n) => n.type === "div" && n.props.dangerouslySetInnerHTML != null)
+      .map((n) => (n.props.dangerouslySetInnerHTML as { __html: string }).__html)
+      .join("");
+    act(() => tree.unmount());
+    return out;
+  });
+  assert.match(html, /<a class="wikilink" href="\/notes\?page=n1" data-wikilink="1">Cluster cheat-sheet<\/a>/);
+  assert.doesNotMatch(html, /\[\[/);
+});
+
+test("the editor's live page resolves links against the note catalogue", () => {
+  const host = src("../ui/ink-host.tsx");
+  assert.match(host, /useWikilinkNavigation\(/);
+  const underlay = host.slice(host.indexOf("<InkSheetTextUnderlay"));
+  assert.match(underlay.slice(0, underlay.indexOf("/>")), /resolveWikilink=\{resolveWikilink\}/);
+  const rail = host.slice(host.indexOf("<InkRail"));
+  assert.match(rail.slice(0, rail.indexOf(">\n")), /resolveWikilink=\{resolveWikilink\}/);
 });
 
 test("typed text paints above a placed figure, on the read sheet and the editor", () => {

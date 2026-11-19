@@ -35,6 +35,7 @@ import { PromptDialog } from "@/components/prompt-dialog";
 import { ToolbarSlot } from "@/components/toolbar-slot";
 import { INK_A4_HEIGHT, INK_A4_WIDTH, type InkHand, type InkPaper, type InkNoteMeta, type RecognisedLine } from "@weaveforge/core";
 import { readyCore, typedCore } from "@/lib/rust-core";
+import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 
 import {
   INK_RENDER_COLOURS,
@@ -494,6 +495,8 @@ export function InkHost({
     deps,
     paperId,
   });
+  // `[[title]]` on the sheet renders as a link, as the Read view's does.
+  const { resolveWikilink } = useWikilinkNavigation();
 
   /** The bar's image button: a figure, of which a page may hold any number. */
   const onAddImageToCurrentPage = useCallback(() => imageInputRef.current?.click(), []);
@@ -672,6 +675,7 @@ export function InkHost({
         flowedText={flowedText}
         figureUrls={figureUrls}
         resolveImageSrc={resolveImageSrc}
+        resolveWikilink={resolveWikilink}
         palette={palette}
       >
         <InkPage
@@ -733,6 +737,7 @@ export function InkHost({
                 text={pureText}
                 scale={scale}
                 resolveImageSrc={resolveImageSrc}
+                resolveWikilink={resolveWikilink}
               />
               <InkPageInk
                 strokes={sheetStrokes}
