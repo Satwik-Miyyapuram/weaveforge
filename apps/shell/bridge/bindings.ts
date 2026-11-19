@@ -13,20 +13,6 @@ export const commands = {
 	dbState: () => typedError<DbState_Serialize, ShellError_Serialize>(__TAURI_INVOKE("db_state")),
 	/**  Resets the local database. */
 	dbReset: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("db_reset")),
-	/**
-	 *  Imports one batch of rows into `table`. `last` marks the table's final batch; only then is the
-	 *  table recorded as done, so a big table can arrive in several calls.
-	 */
-	oldDbImportTable: (table: string, rows: unknown[], last: boolean) => typedError<ImportReport, ShellError_Serialize>(__TAURI_INVOKE("old_db_import_table", { table, rows, last })),
-	/**  Writes the import marker once every table in `tables` is done. */
-	oldDbImportFinish: (tables: string[]) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("old_db_import_finish", { tables })),
-	/**  Whether an old database is waiting to be imported: one is found and no import has finished. */
-	oldDbStatus: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("old_db_status")),
-	/**
-	 *  Part `index` of the old PGlite dir as a tar, for PGlite's `loadDataDir`. Part 0 builds the tar
-	 *  in memory and keeps it; the last part frees it. Read-only: the old dir is never written.
-	 */
-	oldDbTarPart: (index: number) => typedError<TarPart, ShellError_Serialize>(__TAURI_INVOKE("old_db_tar_part", { index })),
 	/**  Calls a local-API channel on the Rust local API, as `ipcRenderer.invoke` did under Electron. */
 	localApiCall: (channel: string, args: unknown[]) => typedError<unknown, ShellError_Serialize>(__TAURI_INVOKE("local_api_call", { channel, args })),
 	/**  Reads one offline file as standard base64; `null` when it is missing. */
@@ -682,18 +668,6 @@ export type ImageReply = {
 	url: string,
 };
 
-/**  What one table's import call did, as the frontend sees it. */
-export type ImportReport = {
-	/**  The table name. */
-	table: string,
-	/**  Rows written by this call. One batch, so it fits a JS number. */
-	inserted: number,
-	/**  Rows already present and left alone. */
-	skipped: number,
-	/**  Whether an earlier run already finished this table. */
-	alreadyDone: boolean,
-};
-
 /**  Pen state forwarded to the helper for haptic feedback. */
 export type InkHapticsMessage = 
 /**  The active pen tool changed. */
@@ -1113,14 +1087,6 @@ export type SyncStatus_Serialize = {
 	ahead: number,
 	/**  Commits the remote has that this folder lacks. */
 	behind: number,
-};
-
-/**  One part of the old database tar. */
-export type TarPart = {
-	/**  This part's bytes, base64. */
-	data: string,
-	/**  How many parts the tar has. */
-	parts: number,
 };
 
 /**  A page title and the final URL it was read from. */
