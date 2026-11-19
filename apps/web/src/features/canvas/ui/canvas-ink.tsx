@@ -2,7 +2,7 @@
 
 import { decodeStroke, type InkPoint, type InkStroke } from "../application/freeform-ink";
 import type { InkRendererKind } from "../../ink/render/freehand-stroke";
-import { getFreeDrawSvgPath } from "../../ink/render/excalidraw-freedraw";
+import { excalidrawStrokeWidth, getFreeDrawSvgPath } from "../../ink/render/excalidraw-freedraw";
 
 /** The stroke's centre line as an SVG path, in page coordinates. A single point is drawn as a dot. */
 export function pathFor(points: readonly InkPoint[]): string {
@@ -33,7 +33,7 @@ export function canvasStrokePath(
   return getFreeDrawSvgPath({
     points: points.map((p) => [p.x, p.y]),
     pressures: points.map((p) => p.pressure),
-    strokeWidth: width,
+    strokeWidth: excalidrawStrokeWidth(width),
     simulatePressure,
     // Wet and settled take the same path, so the stroke does not change on release.
     lastCommittedPoint: [0, 0],

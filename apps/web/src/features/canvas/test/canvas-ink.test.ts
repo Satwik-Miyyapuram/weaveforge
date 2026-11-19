@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import type { InkPoint, InkStroke } from "../application/freeform-ink";
 import { canvasStrokePath, pathFor, strokeClass } from "../ui/canvas-ink";
-import { getFreeDrawSvgPath } from "../../ink/render/excalidraw-freedraw";
+import { excalidrawStrokeWidth, getFreeDrawSvgPath } from "../../ink/render/excalidraw-freedraw";
 
 const pen: InkStroke = { id: "s1", x: 0, y: 0, w: 2, c: "#000000", t: "pen", p: [0, 0] };
 
@@ -35,13 +35,13 @@ test("classic keeps the polyline exactly", () => {
   assert.equal(canvasStrokePath(pts, 2, "pen", "classic"), pathFor(pts));
 });
 
-/** Excalidraw's freedraw path for the same points, as the wiring must produce. */
+/** Excalidraw's freedraw path for the same points at the mapped width, as the wiring must produce. */
 function excalidrawPath(pts: InkPoint[], width: number): string {
   const simulate = Math.abs((pts[0]?.pressure ?? 0.5) - 0.5) <= 1 / 255;
   return getFreeDrawSvgPath({
     points: pts.map((p) => [p.x, p.y]),
     pressures: pts.map((p) => p.pressure),
-    strokeWidth: width,
+    strokeWidth: excalidrawStrokeWidth(width),
     simulatePressure: simulate,
     lastCommittedPoint: [0, 0],
   });
@@ -102,4 +102,87 @@ test("a highlighter and a pen share one outline; only the CSS opacity differs", 
     canvasStrokePath(pts, 2, "highlighter", "freehand"),
     canvasStrokePath(pts, 2, "pen", "freehand"),
   );
+});
+
+/** The canvas bar's pen presets, px (canvas-editor.tsx PEN_WIDTHS). */
+const CANVAS_PEN_WIDTHS = [2, 4, 8, 16];
+
+/** The outline's points, read from the path's number pairs (ends and control points). */
+function outlinePoints(d: string): [number, number][] {
+  const n = (d.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+  const out: [number, number][] = [];
+  for (let i = 0; i + 1 < n.length; i += 2) out.push([n[i]!, n[i + 1]!]);
+  return out;
+}
+
+/** Mean drawn width: outline area over centreline length. */
+function meanWidth(d: string, length: number): number {
+  const o = outlinePoints(d);
+  let twice = 0;
+  o.forEach(([x, y], i) => {
+    const [qx, qy] = o[(i + 1) % o.length]!;
+    twice += x * qy - qx * y;
+  });
+  return Math.abs(twice) / 2 / length;
+}
+
+/** A slow stroke: samples 1 px apart, mouse pressure. */
+function slowLine(): InkPoint[] {
+  return Array.from({ length: 201 }, (_, i) => ({ x: 100 + i, y: 100, pressure: 0.5 }));
+}
+function slowArc(): InkPoint[] {
+  const r = 80;
+  const n = Math.round(Math.PI * r);
+  return Array.from({ length: n + 1 }, (_, i) => {
+    const a = (i / n) * Math.PI;
+    return { x: 200 + Math.cos(a) * r, y: 200 + Math.sin(a) * r, pressure: 0.5 };
+  });
+}
+
+test("a slow freehand line and curve are drawn at the preset width, every canvas preset", () => {
+  for (const w of CANVAS_PEN_WIDTHS) {
+    for (const [name, pts, length] of [
+      ["line", slowLine(), 200],
+      ["curve", slowArc(), Math.PI * 80],
+    ] as const) {
+      const drawn = meanWidth(canvasStrokePath(pts, w, "pen", "freehand"), length);
+      assert.ok(
+        Math.abs(drawn - w) <= 0.15 * w,
+        `${w} px preset, slow ${name}: drawn ${drawn.toFixed(2)} px`,
+      );
+    }
+  }
+});
+
+/** Nonzero winding of the outline around a point: inside the filled stroke when not 0. */
+function winding(o: [number, number][], [px, py]: [number, number]): number {
+  let wn = 0;
+  o.forEach(([ax, ay], i) => {
+    const [bx, by] = o[(i + 1) % o.length]!;
+    const side = (bx - ax) * (py - ay) - (px - ax) * (by - ay);
+    if (ay <= py && by > py && side > 0) wn++;
+    else if (ay > py && by <= py && side < 0) wn--;
+  });
+  return wn;
+}
+
+test("a fast zig-zag keeps the gap between its legs open at every canvas preset", () => {
+  // About 2 px/ms sampled every 4 ms: legs 100 px tall, 22 px apart at the base.
+  const pts: InkPoint[] = [];
+  const corners: [number, number][] = [];
+  for (let k = 0; k <= 6; k++) corners.push([100 + k * 22, k % 2 === 0 ? 100 : 200]);
+  for (let k = 0; k + 1 < corners.length; k++) {
+    const [ax, ay] = corners[k]!;
+    const [bx, by] = corners[k + 1]!;
+    const steps = Math.ceil(Math.hypot(bx - ax, by - ay) / 8.7);
+    for (let i = 0; i < steps; i++) {
+      pts.push({ x: ax + ((bx - ax) * i) / steps, y: ay + ((by - ay) * i) / steps, pressure: 0.5 });
+    }
+  }
+  pts.push({ x: corners.at(-1)![0], y: corners.at(-1)![1], pressure: 0.5 });
+  for (const w of CANVAS_PEN_WIDTHS) {
+    const o = outlinePoints(canvasStrokePath(pts, w, "pen", "freehand"));
+    // Halfway between the legs, 60 px above the bottom corner at x 122 (26 px gap): paper, not ink.
+    assert.equal(winding(o, [122, 140]), 0, `${w} px preset: the legs fuse at the corner`);
+  }
 });

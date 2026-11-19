@@ -98,6 +98,39 @@ function getSvgPathFromStroke(points: number[][]): string {
 }
 
 /**
+ * The Excalidraw strokeWidth that draws a stroke `width` units wide.
+ *
+ * Excalidraw's strokeWidth is a style step (thin 1, bold 2, extra bold 4), not
+ * a width: perfect-freehand gets size = strokeWidth * 4.25, and with simulated
+ * pressure the drawn width also depends on how far apart the samples are
+ * relative to that size. Passing our pen width straight in drew strokes 4 to 8
+ * times too wide, which fused the legs of a fast zig-zag into blobs.
+ *
+ * This solves for the size at which a slow line, sampled 1 unit apart, is
+ * `width` wide: there the simulated pressure settles at 1 - 1/size (0 once
+ * size <= 1) and perfect-freehand's radius is
+ * size * easeOutSine(0.5 - thinning * (0.5 - pressure)). Faster strokes still
+ * thin out, as in Excalidraw (thinning 0.6). Canvas (px) and paper (0.1 mm)
+ * both use it, each in its own unit.
+ */
+export function excalidrawStrokeWidth(width: number): number {
+  if (!(width > 0)) return 0;
+  const drawn = (size: number) => {
+    const pressure = size > 1 ? 1 - 1 / size : 0;
+    return 2 * size * Math.sin(((0.5 - 0.6 * (0.5 - pressure)) * Math.PI) / 2);
+  };
+  // drawn() grows with size, and size = 2 * width already draws wider than width.
+  let lo = 0;
+  let hi = 2 * width;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (drawn(mid) < width) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2 / 4.25;
+}
+
+/**
  * A stroke from flat `x`, `y` arrays, for paper ink. Settled strokes carry no
  * pressure, so every point is at the midpoint and Excalidraw's simulated
  * pressure applies. `last` is the same for the wet and the settled stroke.
@@ -118,7 +151,7 @@ export function freedrawPath(
   return getFreeDrawSvgPath({
     points,
     pressures,
-    strokeWidth: width,
+    strokeWidth: excalidrawStrokeWidth(width),
     simulatePressure: true,
     lastCommittedPoint: last ? [0, 0] : null,
   });
