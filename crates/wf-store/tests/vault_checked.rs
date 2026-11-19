@@ -167,7 +167,9 @@ fn file_write_bytes_checked_changed() {
 }
 
 #[test]
-fn file_write_rename_window_displaced_copy() {
+fn in_place_change_before_swap_is_refused_and_leaves_no_copy() {
+    // Another process writes the same file in place (same inode) after the first check. The
+    // `.wfprev` made afterwards is a hard link to that file, so it is not a displaced copy.
     let dir = TempDir::new();
     let vault = vault_in(&dir);
     let WriteOutcome::Written { hash: h1 } = vault.write_text_checked("v.md", "v1", None).unwrap()
@@ -181,6 +183,39 @@ fn file_write_rename_window_displaced_copy() {
             b"v3",
             true,
             Some(h1.as_str()),
+            &mut || {
+                fs::write(&path, "v2 from other").unwrap();
+            },
+            &mut || {},
+        )
+        .unwrap();
+    assert_eq!(
+        outcome,
+        WriteOutcome::Changed {
+            disk_hash: canonical_digest("v2 from other")
+        }
+    );
+    assert_eq!(
+        fs::read_to_string(at(&dir, "v.md")).unwrap(),
+        "v2 from other"
+    );
+    assert_eq!(names_containing(dir.path(), ""), vec!["v.md".to_owned()]);
+}
+
+#[test]
+fn unconditional_write_keeps_bytes_another_process_wrote_in_place() {
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    let WriteOutcome::Written { .. } = vault.write_text_checked("v.md", "v1", None).unwrap() else {
+        panic!("first write should succeed");
+    };
+    let path = at(&dir, "v.md");
+    let outcome = vault
+        .write_checked_with_hook(
+            "v.md",
+            b"v3",
+            true,
+            None,
             &mut || {
                 fs::write(&path, "v2 from other").unwrap();
             },
@@ -449,9 +484,43 @@ fn replace_write_refuses_when_another_process_replaces_the_file_after_make_prev(
             disk_hash: canonical_digest("v2 from other")
         }
     );
-    // The other process's bytes survive, and the refused write leaves no temp or `.wfprev`.
+    // The other process's bytes survive. The replaced bytes ("v1") were the only copy left, so they
+    // are kept as a real conflict copy; no `.wfprev` or temp is left behind.
     assert_eq!(fs::read_to_string(&path).unwrap(), "v2 from other");
-    assert_eq!(names_containing(dir.path(), ""), vec!["w.md".to_owned()]);
+    let copies = names_containing(dir.path(), ".conflict-");
+    assert_eq!(copies.len(), 1);
+    assert_eq!(fs::read_to_string(at(&dir, &copies[0])).unwrap(), "v1");
+    assert!(names_containing(dir.path(), PREV_SUFFIX).is_empty());
+    assert!(names_containing(dir.path(), ".wftmp").is_empty());
+}
+
+#[test]
+fn replace_write_read_error_after_prev_leaves_no_temp() {
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    let WriteOutcome::Written { hash: h1 } = vault.write_text_checked("r.md", "v1", None).unwrap()
+    else {
+        panic!("first write should succeed");
+    };
+    let path = at(&dir, "r.md");
+    // The re-check cannot read the target: it is now a directory, not a file.
+    let result = vault.write_checked_with_hook(
+        "r.md",
+        b"v3",
+        true,
+        Some(h1.as_str()),
+        &mut || {},
+        &mut || {
+            fs::remove_file(&path).unwrap();
+            fs::create_dir(&path).unwrap();
+        },
+    );
+    assert!(result.is_err());
+    assert!(names_containing(dir.path(), ".wftmp").is_empty());
+    // The replaced bytes are not lost: they stay in `.wfprev`.
+    let prevs = names_containing(dir.path(), PREV_SUFFIX);
+    assert_eq!(prevs.len(), 1);
+    assert_eq!(fs::read_to_string(at(&dir, &prevs[0])).unwrap(), "v1");
 }
 
 /// Put `disk` on disk, save `text` over it expecting `disk`, and return the bytes now on disk.
@@ -489,6 +558,16 @@ fn save_without_changes_leaves_crlf_bytes_untouched() {
 fn save_keeps_a_byte_order_mark() {
     let out = save_over("bom.md", b"\xEF\xBB\xBFa\nb\n", "a\nc\n");
     assert_eq!(out, b"\xEF\xBB\xBFa\nc\n");
+}
+
+#[test]
+fn save_keeps_crlf_and_nfd_bytes_of_unchanged_lines() {
+    let out = save_over(
+        "crlf-nfd.md",
+        "cafe\u{301}\r\nx\r\n".as_bytes(),
+        "caf\u{e9}\ny\n",
+    );
+    assert_eq!(out, "cafe\u{301}\r\ny\r\n".as_bytes());
 }
 
 #[test]
