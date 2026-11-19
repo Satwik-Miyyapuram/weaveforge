@@ -107,9 +107,13 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
       // Copy into a fresh buffer: a Uint8Array view over a larger ArrayBuffer
       // would otherwise write the whole backing store.
       await writable.write(typeof data === "string" ? data : new Uint8Array(data));
-    } finally {
-      await writable.close();
+    } catch (error) {
+      // A failed write (a full disk) must not leave part of the new bytes:
+      // abort drops the swap file, so the old bytes stay.
+      await writable.abort().catch(() => undefined);
+      throw error;
     }
+    await writable.close();
   }
 
   async remove(path: string, options?: { recursive?: boolean }): Promise<void> {
