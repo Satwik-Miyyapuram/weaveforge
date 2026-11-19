@@ -85,15 +85,17 @@ fn rejects_a_query_or_fragment() {
 #[test]
 fn rejects_empty_and_unparseable_input() {
     assert_eq!(parse_server_origin("   "), Err(ServerProfileError::Invalid));
-    assert_eq!(parse_server_origin("not a url"), Err(ServerProfileError::Invalid));
+    assert_eq!(
+        parse_server_origin("not a url"),
+        Err(ServerProfileError::Invalid)
+    );
 }
 
 #[test]
 fn parses_a_server_link_with_url_and_name() {
-    let link = parse_server_link(
-        "weaveforge://server?url=https%3A%2F%2Fwf.example.org&name=Lab%20server",
-    )
-    .unwrap();
+    let link =
+        parse_server_link("weaveforge://server?url=https%3A%2F%2Fwf.example.org&name=Lab%20server")
+            .unwrap();
     assert_eq!(link.origin, "https://wf.example.org");
     assert_eq!(link.name.as_deref(), Some("Lab server"));
 }
