@@ -8,6 +8,7 @@ import {
   openOldDb,
   type OldDbShell,
 } from "../application/import-old-db";
+import { browserUpgradeDeps, upgradeTier } from "../application/upgrade-tier";
 
 type Phase =
   | { kind: "checking" }
@@ -33,6 +34,9 @@ export function OldDbImportGate({ children }: { children: ReactNode }) {
     }
     let live = true;
     (async () => {
+      // Tier first (modes-093 section 12). A failure keeps the old flags,
+      // which still work, and the next start tries again.
+      await upgradeTier(browserUpgradeDeps()).catch(() => undefined);
       try {
         if (!(await shell.status())) {
           if (live) setPhase({ kind: "done" });
