@@ -45,6 +45,8 @@ import {
   type Size,
 } from "../application/freeform-geometry";
 import { encodeStroke, eraseHits, strokeAt, type InkPoint } from "../application/freeform-ink";
+import { defaultPenColour } from "../application/pen-colour";
+import { readThemePalette } from "@/features/ink/render/parts-1";
 import { canRedo, canUndo, createHistory, record, redo, undo, type History } from "../application/canvas-history";
 import { CanvasSaver } from "../application/canvas-save";
 import { canvasKeyAction, focusesOnPress } from "../application/canvas-keys";
@@ -88,7 +90,6 @@ type Gesture =
 
 const EMPTY_FILE: CanvasFile = { nodes: [], edges: [] };
 const DEFAULT_VIEW: PageView = { x: 0, y: 0, zoom: 1 };
-const DEFAULT_COLOUR = "#1f2328";
 const PEN_WIDTHS = [2, 4, 8, 16];
 const DEFAULT_WIDTH = 4;
 /** The eraser reaches this many screen pixels, whatever the zoom. */
@@ -154,7 +155,10 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
   const editBaseRef = useRef<CanvasFile | null>(null);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [mode, setMode] = useState<Mode>("select");
-  const [colour, setColour] = useState(DEFAULT_COLOUR);
+  /** Starts at the theme's text colour, read once when the page opens. */
+  const [colour, setColour] = useState(() =>
+    defaultPenColour(typeof document === "undefined" ? null : readThemePalette(document)),
+  );
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [view, setView] = useState<PageView>(DEFAULT_VIEW);
   const [draft, setDraft] = useState<InkDraft | null>(null);
