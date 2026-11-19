@@ -32,6 +32,7 @@ mod prefs;
 mod protocol_range;
 mod range;
 mod secrets;
+mod settings_secrets;
 mod temp_dir;
 mod update_check;
 mod vault;

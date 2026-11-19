@@ -4,7 +4,7 @@
 
 use serde_json::{Map, Value};
 
-use super::secret_guard::{SecretRefused, check_value};
+use super::secret_guard::{SecretRefused, check_value, contains_token, is_secret_key};
 
 /// Why a config file could not be read or written. Nothing is written in any case.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -110,4 +110,45 @@ pub fn apply_patch(current: &Map<String, Value>, patch: &Map<String, Value>) -> 
         }
     }
     next
+}
+
+/// Splits out secrets an older version left in a settings object: every
+/// secret-named key with a non-empty string and every token-shaped string, in
+/// nested objects at any depth. Returns the object without them and the moved
+/// values keyed by dotted location. Secrets inside arrays are not moved;
+/// [`render_settings`] still refuses them, so the caller leaves such a file alone.
+#[must_use]
+pub fn split_legacy_secrets(
+    settings: &Map<String, Value>,
+) -> (Map<String, Value>, Map<String, Value>) {
+    let mut moved = Map::new();
+    let kept = split_at(settings, "", &mut moved);
+    (kept, moved)
+}
+
+fn split_at(
+    map: &Map<String, Value>,
+    at: &str,
+    moved: &mut Map<String, Value>,
+) -> Map<String, Value> {
+    let mut kept = Map::new();
+    for (key, value) in map {
+        let here = if at.is_empty() {
+            key.clone()
+        } else {
+            format!("{at}.{key}")
+        };
+        match value {
+            Value::String(s) if (is_secret_key(key) && !s.is_empty()) || contains_token(s) => {
+                let _ = moved.insert(here, value.clone());
+            }
+            Value::Object(inner) => {
+                let _ = kept.insert(key.clone(), Value::Object(split_at(inner, &here, moved)));
+            }
+            _ => {
+                let _ = kept.insert(key.clone(), value.clone());
+            }
+        }
+    }
+    kept
 }

@@ -56,6 +56,7 @@ pub mod prefs;
 pub mod protocol;
 pub mod range;
 pub mod secrets;
+pub mod settings_secrets;
 pub mod shim;
 pub mod update_check;
 pub mod vault;
@@ -208,6 +209,10 @@ fn start_stores(app: &tauri::AppHandle) {
     let vault = vault::VaultState::new();
     let _ = vault_choice::restore_remembered(&vault, &prefs);
     let secrets = secrets::Secrets::new(native_store(), app.config().identifier.clone());
+    let _ = tauri::async_runtime::spawn(settings_secrets::move_for_open_vault(
+        vault.clone(),
+        secrets.clone(),
+    ));
     let _ = app.manage(prefs);
     let _ = app.manage(vault);
     let _ = app.manage(secrets);

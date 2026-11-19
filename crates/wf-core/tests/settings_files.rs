@@ -9,12 +9,60 @@ use wf_core::overleaf::link_file::{OverleafLink, parse_overleaf_link, render_ove
 use wf_core::settings::secret_guard::{
     NOT_CONFIG_DIRS, SecretRefused, check_config_bytes, check_config_write, is_config_path,
 };
-use wf_core::settings::settings_file::{apply_patch, parse_settings, render_settings};
+use wf_core::settings::settings_file::{
+    apply_patch, parse_settings, render_settings, split_legacy_secrets,
+};
 use wf_core::sync::folder_layout::{DEVICE_SETTINGS_PATH, SETTINGS_PATH};
 use wf_core::sync::git_policy::is_local_meta;
 
 fn obj(value: Value) -> Map<String, Value> {
     value.as_object().cloned().unwrap()
+}
+
+#[test]
+fn legacy_secrets_split_out() {
+    let token = "sk-ant-abcdefghijklmnopqrstu";
+    let settings = obj(json!({
+        "theme": "crt",
+        "zoteroApiKey": "zk",
+        "integrations": {"zotero": {"apiKey": "k", "library": "users/1"}},
+        "note": token,
+        "cleared": {"token": ""},
+    }));
+    let (kept, moved) = split_legacy_secrets(&settings);
+    assert_eq!(
+        kept,
+        obj(json!({
+            "theme": "crt",
+            "integrations": {"zotero": {"library": "users/1"}},
+            "cleared": {"token": ""},
+        }))
+    );
+    assert_eq!(
+        moved,
+        obj(json!({
+            "zoteroApiKey": "zk",
+            "integrations.zotero.apiKey": "k",
+            "note": token,
+        }))
+    );
+    assert!(render_settings(&kept).is_ok());
+}
+
+#[test]
+fn legacy_secrets_none_leaves_settings_as_is() {
+    let settings = obj(json!({"theme": "crt", "reader": {"zoom": 1.25}, "maxTokens": 4}));
+    let (kept, moved) = split_legacy_secrets(&settings);
+    assert_eq!(kept, settings);
+    assert!(moved.is_empty());
+}
+
+#[test]
+fn legacy_secret_in_array_is_left_and_still_refused() {
+    let settings = obj(json!({"keys": ["ghp_abcdefghijklmnopqrstuvwxyz"]}));
+    let (kept, moved) = split_legacy_secrets(&settings);
+    assert!(moved.is_empty());
+    assert!(render_settings(&kept).is_err());
 }
 
 #[test]

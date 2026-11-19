@@ -7,12 +7,14 @@ use keyring_core::CredentialStore;
 use crate::commands::ShellError;
 
 /// Every secret the shell keeps. Adding one is a reviewed change.
-pub const SECRET_NAMES: [&str; 5] = [
+pub const SECRET_NAMES: [&str; 6] = [
     "ai-provider",
     "local-api-token",
     "overleaf-token",
     "git-sync-token",
     "overleaf-session",
+    // Secrets moved out of an older settings.json (`settings_secrets.rs`); shell only.
+    "settings-legacy",
 ];
 /// Secrets the page may read back.
 pub const PAGE_READABLE: [&str; 1] = ["ai-provider"];

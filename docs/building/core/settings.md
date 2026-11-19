@@ -75,6 +75,16 @@ A machine without a keychain keeps the secret in memory for the session only
 (`no_store_write_read_clear_behave_as_no_keychain` in
 `apps/shell/tests/secrets.rs`).
 
+A `settings.json` written by an older version may still hold a secret. When a
+workspace opens, the shell moves each one to the `settings-legacy` keychain
+entry, one JSON object keyed by where the value sat (for example
+`integrations.zotero.apiKey`), then rewrites the file without them
+(`apps/shell/src/settings_secrets.rs`; `split_legacy_secrets` in
+`settings_file.rs`). The file changes only after the keychain holds the values
+and only if nobody changed it meanwhile. Without a keychain, or with a secret
+inside a list, the file is left as it is (`apps/shell/tests/settings_secrets.rs`,
+`legacy_secrets_split_out` in `settings_files.rs`).
+
 ## Laws
 
 Each law is a property test in `crates/wf-core/tests/settings_files.rs`.
