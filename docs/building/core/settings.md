@@ -65,7 +65,10 @@ every write to a config file (any `.json` or `.jsonl` below a `.weaveforge/`
 folder at any depth, and any `.overleaf.json`), so a secret is refused before it
 reaches the disk or git. Case is ignored and trailing dots and spaces are
 dropped from each part of the path, since Windows and macOS open the same file
-under those spellings (`config_paths_ignore_case_and_depth`).
+under those spellings (`config_paths_ignore_case_and_depth`). The one exception
+is `NOT_CONFIG_DIRS`: the root `.weaveforge/cache/pdf-text/` folder holds copies
+of papers' own text, which may print something token-shaped, so it is not a
+config folder (`pdf_text_cache_is_not_config`).
 A machine without a keychain keeps the secret in memory for the session only
 (`no_store_write_read_clear_behave_as_no_keychain` in
 `apps/shell/tests/secrets.rs`).

@@ -144,6 +144,13 @@ pub fn check_value(value: &Value) -> Result<(), SecretRefused> {
     }
 }
 
+/// Workspace folders under `.weaveforge/` that hold copies of document text, not
+/// config, so [`is_config_path`] never matches below them. The PDF text cache
+/// (`apps/web/src/features/search/application/parts-1.ts`) stores a paper's own
+/// words, and a paper that prints a token-shaped string must still be cached.
+/// Each entry is a root-relative folder; add one only for such copied content.
+pub const NOT_CONFIG_DIRS: &[&str] = &[".weaveforge/cache/pdf-text"];
+
 /// Whether `path` (workspace-relative) is a config file guarded by [`check_config_write`]:
 /// any `.overleaf.json`, and any `.json` or `.jsonl` file below a `.weaveforge` folder at
 /// any depth. Case is ignored and trailing dots and spaces are dropped from each part,
@@ -151,6 +158,12 @@ pub fn check_value(value: &Value) -> Result<(), SecretRefused> {
 #[must_use]
 pub fn is_config_path(path: &str) -> bool {
     let parts = path_parts(path);
+    if NOT_CONFIG_DIRS
+        .iter()
+        .any(|dir| parts.starts_with(&path_parts(dir)))
+    {
+        return false;
+    }
     let Some((name, dirs)) = parts.split_last() else {
         return false;
     };

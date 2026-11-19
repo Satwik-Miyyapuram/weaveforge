@@ -6,7 +6,9 @@ use proptest::prelude::*;
 use serde_json::{Map, Value, json};
 use wf_core::ai::proposal_file::{parse_proposal_file, render_audit_line, render_proposal_file};
 use wf_core::overleaf::link_file::{OverleafLink, parse_overleaf_link, render_overleaf_link};
-use wf_core::settings::secret_guard::{SecretRefused, check_config_write, is_config_path};
+use wf_core::settings::secret_guard::{
+    NOT_CONFIG_DIRS, SecretRefused, check_config_write, is_config_path,
+};
 use wf_core::settings::settings_file::{apply_patch, parse_settings, render_settings};
 use wf_core::sync::folder_layout::{DEVICE_SETTINGS_PATH, SETTINGS_PATH};
 use wf_core::sync::git_policy::is_local_meta;
@@ -154,6 +156,33 @@ fn config_paths_ignore_case_and_depth() {
         "",
     ] {
         assert!(!is_config_path(path), "{path}");
+    }
+}
+
+/// The PDF text cache copies a paper's own words; a paper that prints something
+/// token-shaped must still be cached. It is the one listed exception.
+#[test]
+fn pdf_text_cache_is_not_config() {
+    let page = r#"{"paperId":"p1","pages":["key ghp_abcdefghijklmnopqrstuvwxyz0123456789"]}"#;
+    for path in [
+        ".weaveforge/cache/pdf-text/-/p1.json",
+        ".weaveforge/cache/pdf-text/proj-1/p%2F1.json",
+        ".WeaveForge/Cache/PDF-Text/-/p1.json",
+    ] {
+        assert!(!is_config_path(path), "{path}");
+        assert!(check_config_write(path, page).is_ok(), "{path}");
+    }
+    assert_eq!(NOT_CONFIG_DIRS, [".weaveforge/cache/pdf-text"]);
+    // Only that folder: its neighbours and look-alikes stay guarded.
+    for path in [
+        ".weaveforge/cache/settings.json",
+        ".weaveforge/cache/pdf-text.json",
+        ".weaveforge/cache/pdf-textx/a.json",
+        "notes/.weaveforge/cache/pdf-text/a.json",
+        SETTINGS_PATH,
+    ] {
+        assert!(is_config_path(path), "{path}");
+        assert!(check_config_write(path, page).is_err(), "{path}");
     }
 }
 
