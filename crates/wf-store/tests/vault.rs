@@ -563,7 +563,8 @@ fn list_hides_wfprev_leftovers_but_not_user_files_that_only_contain_the_word() {
     put(&dir.path().join("wfprev-notes.md"), b"mine");
     let v = vault_in(&dir);
 
-    let listed = names(&v.list("").unwrap());
+    let entries = v.list("").unwrap();
+    let listed = names(&entries);
     assert!(!listed.contains(&"y.md.wfprev"));
     assert!(!listed.contains(&"y.md.2.wfprev"));
     assert!(listed.contains(&"wfprev-notes.md"));
