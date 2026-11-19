@@ -126,10 +126,10 @@ test("deleting the same path twice keeps both copies in the trash", async () => 
   await repo.delete("p-1");
   const copies = await trashed(fs);
   assert.equal(copies.length, 2, copies.join(", "));
-  assert.ok(copies.some((c) => c.endsWith("-2.paper.md")), copies.join(", "));
+  assert.ok(copies.some((c) => /-2(\.paper)?\.md$/.test(c)), copies.join(", "));
   const texts = await Promise.all(copies.map((c) => fs.readText(c)));
-  assert.ok(texts.some((t) => t.includes("summary: first")));
-  assert.ok(texts.some((t) => t.includes("summary: second")));
+  assert.ok(texts.some((t) => /summary: "?first"?$/m.test(t)), texts.join("\n"));
+  assert.ok(texts.some((t) => /summary: "?second"?$/m.test(t)), texts.join("\n"));
 });
 
 test("two files with one id: every write is refused and neither file changes", async () => {
@@ -217,7 +217,9 @@ test("law: delete moves exactly that paper's file to the trash and changes no ot
       const before = new Map<string, string>();
       for await (const entry of fs.walk(`${ROOT}/papers`)) before.set(entry.path, await fs.readText(entry.path));
       const id = `p-${pick % count}`;
-      const [gone] = [...before.keys()].filter((path) => path.endsWith(`--${id}.paper.md`));
+      // Found by the id the file carries, not by its name: the name's id suffix drops the dash.
+      const [gone] = [...before].filter(([, body]) => body.includes(`weaveforge-id: "${id}"`)).map(([path]) => path);
+      assert.ok(gone, `a file carries ${id}`);
       await repo.delete(id);
       for (const [path, text] of before) {
         if (path === gone) assert.equal(await fs.stat(path), null);
