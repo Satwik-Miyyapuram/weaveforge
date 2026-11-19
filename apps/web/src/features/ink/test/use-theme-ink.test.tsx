@@ -11,7 +11,7 @@ import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { INK_RENDER_COLOURS } from "../render/parts-1";
 import { PAPER_INK_THEME } from "../render/map-ink-colour";
 import type { ThemeInk } from "../render/resolve-ink-colour";
-import { useThemeInk } from "../ui/use-theme-ink";
+import { useThemeInk } from "../render/use-theme-ink";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

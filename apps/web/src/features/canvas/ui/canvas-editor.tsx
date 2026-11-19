@@ -47,7 +47,7 @@ import {
 import { encodeStroke, eraseHits, strokeAt, type InkPoint } from "../application/freeform-ink";
 import { DEFAULT_PEN_COLOUR } from "../application/pen-colour";
 import { canonicalInkColour, resolveInkColour } from "@/features/ink/render/resolve-ink-colour";
-import { useThemeInk } from "@/features/ink/ui/use-theme-ink";
+import { useThemeInk } from "@/features/ink/render/use-theme-ink";
 import { canRedo, canUndo, createHistory, record, redo, undo, type History } from "../application/canvas-history";
 import { CanvasSaver } from "../application/canvas-save";
 import { canvasKeyAction, focusesOnPress } from "../application/canvas-keys";

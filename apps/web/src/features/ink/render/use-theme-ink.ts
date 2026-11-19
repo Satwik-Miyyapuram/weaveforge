@@ -12,9 +12,9 @@
 import { useEffect, useRef, useState } from "react";
 import { readyCore } from "@/lib/rust-core";
 import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
-import { PAPER_INK_THEME } from "../render/map-ink-colour";
-import { readThemePalette } from "../render/parts-1";
-import { inkThemeOf, PAPER_INK_PALETTE, type ThemeInk } from "../render/resolve-ink-colour";
+import { PAPER_INK_THEME } from "./map-ink-colour";
+import { readThemePalette } from "./parts-1";
+import { inkThemeOf, PAPER_INK_PALETTE, type ThemeInk } from "./resolve-ink-colour";
 
 const PAPER: ThemeInk = { palette: PAPER_INK_PALETTE, theme: PAPER_INK_THEME };
 
