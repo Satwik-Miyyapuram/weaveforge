@@ -168,12 +168,19 @@ impl Vault {
         // Re-check right before the rename. A change since the first check is refused, and the
         // bytes it left on disk are kept, not replaced. A write that lands after this re-check
         // and before the rename is still replaced (module doc).
-        let now = read_disk(&target, rel)?;
+        let now = match read_disk(&target, rel) {
+            Ok(now) => now,
+            Err(error) => {
+                // Nothing was renamed. The temp goes; `.wfprev` stays, because the file on disk is
+                // unknown and the prev may hold the only copy of the replaced bytes.
+                let _ = fs::remove_file(&temp);
+                return Err(error);
+            }
+        };
         if let Some(outcome) = check_expected(now.as_deref(), text, expected) {
             let _ = fs::remove_file(&temp);
             if let Some(prev) = prev {
-                let displaced = expected.unwrap_or_default();
-                let _ = self.settle_prev(rel, &prev, displaced, text);
+                self.release_refused_prev(rel, &prev, now.as_deref());
             }
             return Ok(outcome);
         }
@@ -374,8 +381,40 @@ impl Vault {
         }
         let copy = self.free_path(&conflict_copy_path(rel, &compact_stamp(now_ms())))?;
         let dest = self.resolve(&copy)?;
-        fs::rename(prev, &dest).map_err(|source| io_err("rename", rel, source))
+        copy_prev_to(prev, &dest).map_err(|source| io_err("write", rel, source))
     }
+
+    /// Drop the `.wfprev` of a refused write. When its bytes equal what is on disk now, it is only
+    /// another name for the live file (a hard link), so it is removed. Otherwise the replaced bytes
+    /// are the only copy left, and they are kept as a conflict copy that is a real file. If the copy
+    /// cannot be made, the `.wfprev` stays.
+    fn release_refused_prev(&self, rel: &str, prev: &Path, now: Option<&[u8]>) {
+        let same_as_disk = matches!((fs::read(prev), now), (Ok(kept), Some(now)) if kept == now);
+        if same_as_disk {
+            let _ = fs::remove_file(prev);
+            return;
+        }
+        let Ok(copy) = self.free_path(&conflict_copy_path(rel, &compact_stamp(now_ms()))) else {
+            return;
+        };
+        if let Ok(dest) = self.resolve(&copy) {
+            let _ = copy_prev_to(prev, &dest);
+        }
+    }
+}
+
+/// Write a real copy of `prev` to the new file `dest`, then remove `prev`. A copy is never a hard
+/// link, so changing one of the two files cannot change the other.
+fn copy_prev_to(prev: &Path, dest: &Path) -> io::Result<()> {
+    let bytes = fs::read(prev)?;
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(dest)?;
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    drop(file);
+    fs::remove_file(prev)
 }
 
 /// The outcome of a write that put the new bytes at `target`, with their digest read back.
@@ -408,10 +447,11 @@ fn keep_disk_form(disk: Option<&[u8]>, canonical: &[u8]) -> Vec<u8> {
     let new_lines: Vec<&str> = new.split_inclusive('\n').collect();
     // A line matches when its canonical content and its line ending presence are the same.
     let key = |line: &str| {
-        (
-            canonical_text(line.strip_suffix('\n').unwrap_or(line)),
-            line.ends_with('\n'),
-        )
+        let content = match line.strip_suffix('\n') {
+            Some(rest) => rest.strip_suffix('\r').unwrap_or(rest),
+            None => line,
+        };
+        (canonical_text(content), line.ends_with('\n'))
     };
     let old_keys: Vec<_> = old_lines.iter().map(|line| key(line)).collect();
     let new_keys: Vec<_> = new_lines.iter().map(|line| key(line)).collect();
