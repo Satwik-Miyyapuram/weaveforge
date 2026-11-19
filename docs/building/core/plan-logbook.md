@@ -71,4 +71,8 @@ is lane L11.
   `never_published_404` in `apps/relay/server/tests/plan_feed.rs`).
 - **The token never reaches the database query, only its hash**
   (`upstream_query_names_hash_never_token`, property test on random tokens).
+- **Publishing never replaces another user's feed**: the insert skips an
+  existing row and the update is filtered by owner, so the check and the
+  write are one statement each, with no read in between
+  (`publish_refuses_other_owner_403`, `publish_sends_hash_not_token`).
 - **A save never overwrites a file changed on disk since it was read.**
