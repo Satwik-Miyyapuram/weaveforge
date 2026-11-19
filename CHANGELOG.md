@@ -22,6 +22,15 @@ tracks at once.
 
 ### iOS
 
+## [0.9.4] - 2026-11-19
+
+Desktop (`v0.9.4`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **Fixed:** Folder sync never deletes a file, and never overwrites an existing file unless you edited that item in the app in the same session.
+- **Fixed:** A file that cannot be read is never overwritten by sync.
+- **Changed:** The 0.8 to 0.9 database import is removed. Your old 0.8 database and files are not touched.
+
 ## [0.9.3] - 2026-11-18
 
 Desktop (`v0.9.3`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.

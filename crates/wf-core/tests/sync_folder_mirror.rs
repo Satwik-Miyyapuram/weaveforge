@@ -65,10 +65,15 @@ fn row(id: &str) -> JsonRow {
     json!({ "id": id }).as_object().cloned().unwrap_or_default()
 }
 
+/// The in-session record a mirror leaves for the next one: path -> digest of the DB content.
+fn seen_of(served: &[(String, String)]) -> HashMap<String, String> {
+    served.iter().cloned().collect()
+}
+
 fn options(project: &WorkspaceProject) -> MirrorOptions<'_> {
     MirrorOptions {
         project,
-        previous_paths: &[],
+        seen: None,
         base: None,
         fetch_asset: None,
     }
@@ -253,7 +258,7 @@ fn a_later_run_with_nothing_new_writes_nothing_though_the_clock_moved() {
 fn an_edit_rewrites_only_the_file_that_changed() {
     let project = thesis();
     let mut fs = MemoryWorkspaceFs::new();
-    let _ = mirror_workspace(
+    let first = mirror_workspace(
         &with_notes(vec![
             note("n1", "Method", "One"),
             note("n2", "Other", "Two"),
@@ -262,6 +267,7 @@ fn an_edit_rewrites_only_the_file_that_changed() {
         options(&project),
     )
     .expect("first");
+    let seen = seen_of(&first.served);
 
     let result = mirror_workspace(
         &with_notes(vec![
@@ -269,7 +275,10 @@ fn an_edit_rewrites_only_the_file_that_changed() {
             note("n2", "Other", "Two"),
         ]),
         &mut fs,
-        options(&project),
+        MirrorOptions {
+            seen: Some(&seen),
+            ..options(&project)
+        },
     )
     .expect("second");
 
@@ -277,7 +286,7 @@ fn an_edit_rewrites_only_the_file_that_changed() {
 }
 
 #[test]
-fn a_deleted_entity_file_is_removed() {
+fn sync_never_deletes_a_file_the_snapshot_no_longer_holds() {
     let project = thesis();
     let mut fs = MemoryWorkspaceFs::new();
     let first = mirror_workspace(
@@ -286,16 +295,22 @@ fn a_deleted_entity_file_is_removed() {
         options(&project),
     )
     .expect("first");
+    let seen = seen_of(&first.served);
 
-    let opts = MirrorOptions {
-        previous_paths: &first.written,
-        ..options(&project)
-    };
-    let result = mirror_workspace(&with_notes(vec![note("n1", "Method", "")]), &mut fs, opts)
-        .expect("second");
+    let result = mirror_workspace(
+        &with_notes(vec![note("n1", "Method", "")]),
+        &mut fs,
+        MirrorOptions {
+            seen: Some(&seen),
+            ..options(&project)
+        },
+    )
+    .expect("second");
 
-    assert!(result.removed.contains(&at("notes/gone.note.md")));
-    assert!(fs.stat(&at("notes/gone.note.md")).is_none());
+    // Deleting from the folder lost data when the DB was partial or fresh. Only the
+    // user deletes files; the mirror keeps every file it wrote.
+    assert!(result.removed.is_empty());
+    assert!(fs.stat(&at("notes/gone.note.md")).is_some());
 }
 
 #[test]
@@ -313,8 +328,9 @@ fn files_the_mirror_does_not_own_are_left_alone() {
         options(&project),
     )
     .expect("first");
+    let seen = seen_of(&first.served);
     let opts = MirrorOptions {
-        previous_paths: &first.written,
+        seen: Some(&seen),
         ..options(&project)
     };
     let _ = mirror_workspace(&snapshot(), &mut fs, opts).expect("second");
@@ -459,6 +475,7 @@ fn a_file_edited_since_the_last_mirror_is_left_alone_and_reported() {
         options(&project),
     )
     .expect("first");
+    let seen = seen_of(&first.served);
     let path = at("notes/method.note.md");
     assert!(first.written.contains(&path));
 
@@ -468,7 +485,7 @@ fn a_file_edited_since_the_last_mirror_is_left_alone_and_reported() {
 
     let base = digest_map(&first.mirrored);
     let opts = MirrorOptions {
-        previous_paths: &first.written,
+        seen: Some(&seen),
         base: Some(&base),
         ..options(&project)
     };
@@ -520,7 +537,7 @@ fn a_file_the_mirror_never_wrote_is_still_written_beside_and_nothing_is_held() {
 }
 
 #[test]
-fn an_edited_file_whose_entity_left_the_workspace_is_not_deleted() {
+fn an_edited_file_whose_entity_left_the_workspace_is_left_untouched() {
     let project = thesis();
     let mut fs = MemoryWorkspaceFs::new();
     let first = mirror_workspace(
@@ -529,6 +546,7 @@ fn an_edited_file_whose_entity_left_the_workspace_is_not_deleted() {
         options(&project),
     )
     .expect("first");
+    let seen = seen_of(&first.served);
     let gone = at("notes/gone.note.md");
     let edited = format!("{}\nStill wanted.\n", text(&fs, &gone));
     fs.write_file(&gone, edited.as_bytes()).expect("edit");
@@ -536,7 +554,7 @@ fn an_edited_file_whose_entity_left_the_workspace_is_not_deleted() {
     // The note is deleted in the app; the folder's copy was edited first.
     let base = digest_map(&first.mirrored);
     let opts = MirrorOptions {
-        previous_paths: &first.written,
+        seen: Some(&seen),
         base: Some(&base),
         ..options(&project)
     };
@@ -548,7 +566,8 @@ fn an_edited_file_whose_entity_left_the_workspace_is_not_deleted() {
         edited,
         "a deletion does not take an edit with it"
     );
-    assert_eq!(second.held_back, vec![gone.clone()]);
+    // Sync no longer visits departed files, so there is nothing to hold or remove.
+    assert!(second.held_back.is_empty());
     assert!(second.removed.is_empty());
 }
 
@@ -562,13 +581,14 @@ fn an_edit_the_import_has_applied_no_longer_holds_the_mirror_back() {
         options(&project),
     )
     .expect("first");
+    let seen = seen_of(&first.served);
     let path = at("notes/method.note.md");
     fs.write_file(&path, b"the reader's version").expect("edit");
 
     // The import applies that edit: the workspace now holds what the folder holds.
     let base = digest_map(&first.mirrored);
     let opts = MirrorOptions {
-        previous_paths: &first.written,
+        seen: Some(&seen),
         base: Some(&base),
         ..options(&project)
     };
@@ -589,7 +609,7 @@ fn an_edit_the_import_has_applied_no_longer_holds_the_mirror_back() {
     let mut agreed_base = digest_map(&first.mirrored);
     let _ = agreed_base.insert(path.clone(), digest_text(&text(&fs, &path)));
     let opts = MirrorOptions {
-        previous_paths: &first.written,
+        seen: Some(&seen),
         base: Some(&agreed_base),
         ..options(&project)
     };
@@ -623,6 +643,7 @@ fn the_same_protection_covers_the_projects_json_data_files() {
         options(&project),
     )
     .expect("first");
+    let seen = seen_of(&first.served);
     let path = at(".weaveforge/relations.json");
     assert!(first.written.contains(&path));
 
@@ -633,13 +654,13 @@ fn the_same_protection_covers_the_projects_json_data_files() {
 
     let base = digest_map(&first.mirrored);
     let opts = MirrorOptions {
-        previous_paths: &first.written,
+        seen: Some(&seen),
         base: Some(&base),
         ..options(&project)
     };
     let second = mirror_workspace(
         &WorkspaceSnapshot {
-            relations: vec![row("r1")],
+            relations: vec![row("r1"), row("r3")],
             ..snapshot()
         },
         &mut fs,
@@ -670,17 +691,18 @@ fn the_mirror_never_reaches_into_the_ink_sidecar() {
         options(&project),
     )
     .expect("first");
+    let seen = seen_of(&first.served);
     assert!(first.written.iter().all(|path| !path.starts_with(".ink/")));
 
-    // The note goes; the strokes stay. A chunk is never in `previousPaths`, so a
-    // mirror run cannot name it as one of its own departed files.
+    // The note goes; the strokes stay. Sync never deletes, so neither the note nor a
+    // chunk is removed.
     let opts = MirrorOptions {
-        previous_paths: &first.written,
+        seen: Some(&seen),
         ..options(&project)
     };
     let second = mirror_workspace(&snapshot(), &mut fs, opts).expect("second");
-    assert!(second.removed.iter().all(|path| !path.starts_with(".ink/")));
-    assert!(second.removed.contains(&at("notes/method.note.md")));
+    assert!(second.removed.is_empty());
+    assert!(fs.stat(&at("notes/method.note.md")).is_some());
     assert!(fs.stat(ink_path).is_some());
 }
 
@@ -693,6 +715,7 @@ fn the_root_readme_rewritten_by_another_projects_mirror_is_not_held_back() {
     };
     let mut fs = MemoryWorkspaceFs::new();
     let first = mirror_workspace(&snapshot(), &mut fs, options(&project)).expect("first");
+    let seen = seen_of(&first.served);
     let _ = mirror_workspace(
         &WorkspaceSnapshot {
             collected_at: "2026-08-06T00:00:00.000Z".to_owned(),
@@ -705,7 +728,7 @@ fn the_root_readme_rewritten_by_another_projects_mirror_is_not_held_back() {
 
     let base = digest_map(&first.mirrored);
     let opts = MirrorOptions {
-        previous_paths: &first.written,
+        seen: Some(&seen),
         base: Some(&base),
         ..options(&project)
     };
@@ -750,6 +773,7 @@ fn a_readers_edit_is_held_back_on_the_one_read_it_took_to_see_it() {
         options(&project),
     )
     .expect("first");
+    let seen = seen_of(&first.served);
     let path = at("notes/method.note.md");
     let edited = format!("{}\nThe reader's line.\n", text(&fs, &path));
     fs.write_file(&path, edited.as_bytes()).expect("edit");
@@ -757,7 +781,7 @@ fn a_readers_edit_is_held_back_on_the_one_read_it_took_to_see_it() {
 
     let base = digest_map(&first.mirrored);
     let opts = MirrorOptions {
-        previous_paths: &first.written,
+        seen: Some(&seen),
         base: Some(&base),
         ..options(&project)
     };
@@ -784,12 +808,13 @@ fn a_file_that_is_gone_or_cannot_be_read_is_written() {
     let mut fs = MemoryWorkspaceFs::new();
     let snap = with_notes(vec![note("n1", "Method", "Body")]);
     let first = mirror_workspace(&snap, &mut fs, options(&project)).expect("first");
+    let seen = seen_of(&first.served);
     let path = at("notes/method.note.md");
     fs.remove(&path, false).expect("remove");
 
     let base = digest_map(&first.mirrored);
     let opts = MirrorOptions {
-        previous_paths: &first.written,
+        seen: Some(&seen),
         base: Some(&base),
         ..options(&project)
     };
@@ -841,7 +866,7 @@ fn a_manifest_whose_generated_at_alone_changed_is_unchanged() {
 }
 
 #[test]
-fn a_note_whose_only_difference_is_an_export_line_is_rewritten() {
+fn a_note_with_an_export_line_is_left_alone_without_an_in_session_edit() {
     let project = thesis();
     let mut fs = MemoryWorkspaceFs::new();
     let snap = with_notes(vec![note("n1", "Method", "Body")]);
@@ -853,11 +878,8 @@ fn a_note_whose_only_difference_is_an_export_line_is_rewritten() {
 
     let second = mirror_workspace(&snap, &mut fs, options(&project)).expect("second");
 
-    assert!(
-        second.written.contains(&path),
-        "only README and manifest ignore their export time"
-    );
-    assert!(!text(&fs, &path).contains("Exported x."));
+    assert!(!second.written.contains(&path));
+    assert!(text(&fs, &path).contains("Exported x."));
 }
 
 #[test]
@@ -879,7 +901,7 @@ fn a_write_failure_propagates() {
 }
 
 #[test]
-fn a_remove_failure_is_ignored() {
+fn a_departed_file_is_left_in_place_and_no_remove_is_attempted() {
     let project = thesis();
     let mut fs = FailingFs {
         inner: MemoryWorkspaceFs::new(),
@@ -892,18 +914,208 @@ fn a_remove_failure_is_ignored() {
         options(&project),
     )
     .expect("first");
+    let seen = seen_of(&first.served);
     fs.fail_removes = true;
 
     let opts = MirrorOptions {
-        previous_paths: &first.written,
+        seen: Some(&seen),
         ..options(&project)
     };
     let result = mirror_workspace(&with_notes(vec![note("n1", "Method", "")]), &mut fs, opts)
         .expect("a failed remove is not a failed mirror");
 
-    assert!(result.removed.contains(&at("notes/gone.note.md")));
+    assert!(result.removed.is_empty());
     assert!(
         fs.inner.stat(&at("notes/gone.note.md")).is_some(),
-        "the failed remove left the file in place"
+        "sync never removes a departed file"
     );
+}
+
+/// Fresh or partial DB bytes must never rewrite a file the user already has: the first
+/// mirror after start has no in-session record, so an existing file stays byte-identical.
+#[test]
+fn a_first_mirror_after_start_never_rewrites_an_existing_file() {
+    let project = thesis();
+    let mut fs = MemoryWorkspaceFs::new();
+    let old = b"---\nweaveforge-id: old-id\ncreated-at: 2020-01-01\n---\nOld body\n";
+    fs.write_file(&at("notes/method.note.md"), old)
+        .expect("seed");
+
+    let result = mirror_workspace(
+        &with_notes(vec![note("n1", "Method", "Fresh body")]),
+        &mut fs,
+        options(&project),
+    )
+    .expect("mirror");
+
+    assert!(!result.written.contains(&at("notes/method.note.md")));
+    assert_eq!(
+        fs.read_file(&at("notes/method.note.md")).expect("read"),
+        old.to_vec()
+    );
+}
+
+/// An item the DB did not change in this session keeps its file bytes even when the
+/// file differs from the DB rendering.
+#[test]
+fn an_item_unchanged_in_session_keeps_its_file_bytes() {
+    let project = thesis();
+    let mut fs = MemoryWorkspaceFs::new();
+    let snap = with_notes(vec![note("n1", "Method", "Body")]);
+    let first = mirror_workspace(&snap, &mut fs, options(&project)).expect("first");
+    let seen = seen_of(&first.served);
+    let other = b"Hand-edited elsewhere.\n";
+    fs.write_file(&at("notes/method.note.md"), other)
+        .expect("seed");
+
+    let result = mirror_workspace(
+        &snap,
+        &mut fs,
+        MirrorOptions {
+            seen: Some(&seen),
+            ..options(&project)
+        },
+    )
+    .expect("second");
+
+    assert!(result.written.is_empty());
+    assert_eq!(
+        fs.read_file(&at("notes/method.note.md")).expect("read"),
+        other.to_vec()
+    );
+}
+
+/// Delegates to a memory filesystem, but cannot read one path although it exists.
+struct UnreadableFs {
+    inner: MemoryWorkspaceFs,
+    unreadable: String,
+}
+
+impl WorkspaceFs for UnreadableFs {
+    fn read_file(&self, path: &str) -> Result<Vec<u8>, FsError> {
+        self.inner.read_file(path)
+    }
+
+    fn read_text(&self, path: &str) -> Result<String, FsError> {
+        if path == self.unreadable {
+            return Err(FsError::Io("locked by another process".to_owned()));
+        }
+        self.inner.read_text(path)
+    }
+
+    fn write_file(&mut self, path: &str, data: &[u8]) -> Result<(), FsError> {
+        self.inner.write_file(path, data)
+    }
+
+    fn remove(&mut self, path: &str, recursive: bool) -> Result<(), FsError> {
+        self.inner.remove(path, recursive)
+    }
+
+    fn mkdirp(&mut self, path: &str) -> Result<(), FsError> {
+        self.inner.mkdirp(path)
+    }
+
+    fn list(&self, dir: &str) -> Result<Vec<WorkspaceStat>, FsError> {
+        self.inner.list(dir)
+    }
+
+    fn walk(&self, dir: &str) -> Result<Vec<WorkspaceStat>, FsError> {
+        self.inner.walk(dir)
+    }
+
+    fn stat(&self, path: &str) -> Option<WorkspaceStat> {
+        self.inner.stat(path)
+    }
+
+    fn rename(&mut self, from: &str, to: &str) -> Result<(), FsError> {
+        self.inner.rename(from, to)
+    }
+}
+
+#[test]
+fn an_existing_file_that_cannot_be_read_is_never_overwritten() {
+    let project = thesis();
+    let mut mem = MemoryWorkspaceFs::new();
+    let first = mirror_workspace(
+        &with_notes(vec![note("n1", "Method", "Body")]),
+        &mut mem,
+        options(&project),
+    )
+    .expect("first");
+    let seen = seen_of(&first.served);
+    let base = digest_map(&first.mirrored);
+    let path = at("notes/method.note.md");
+    let on_disk = mem.read_text(&path).expect("on disk");
+
+    // The user's copy is still there; only the read fails. The DB changed in-app this session.
+    let mut fs = UnreadableFs {
+        inner: mem,
+        unreadable: path.clone(),
+    };
+    let edited = with_notes(vec![note("n1", "Method", "Edited in app")]);
+    let opts = MirrorOptions {
+        seen: Some(&seen),
+        base: Some(&base),
+        ..options(&project)
+    };
+    let second = mirror_workspace(&edited, &mut fs, opts).expect("second");
+
+    assert!(
+        !second.written.contains(&path),
+        "an unreadable existing file must not be written"
+    );
+    assert_eq!(fs.inner.read_text(&path).expect("still there"), on_disk);
+}
+
+#[test]
+fn a_reader_edit_seen_by_a_skipped_mirror_still_holds_back_a_later_in_app_edit() {
+    let project = thesis();
+    let mut fs = MemoryWorkspaceFs::new();
+    let path = at("notes/method.note.md");
+
+    // Run 1: the mirror writes the note as the DB holds it.
+    let first = mirror_workspace(
+        &with_notes(vec![note("n1", "Method", "Body")]),
+        &mut fs,
+        options(&project),
+    )
+    .expect("first");
+    // The reader edits the file outside the app.
+    fs.write_file(&path, b"Reader edit").expect("reader edit");
+
+    // Run 2: DB unchanged this session, so the file is skipped. Its base must stay the
+    // last text the mirror wrote, not the reader's text.
+    let seen_1 = seen_of(&first.served);
+    let base_1 = digest_map(&first.mirrored);
+    let skipped = mirror_workspace(
+        &with_notes(vec![note("n1", "Method", "Body")]),
+        &mut fs,
+        MirrorOptions {
+            seen: Some(&seen_1),
+            base: Some(&base_1),
+            ..options(&project)
+        },
+    )
+    .expect("skipped");
+    assert!(!skipped.written.contains(&path));
+    assert_eq!(text(&fs, &path), "Reader edit");
+
+    // Run 3: an in-app edit this session. The reader's text must hold the mirror back.
+    let seen_2 = seen_of(&skipped.served);
+    let base_2 = digest_map(&skipped.mirrored);
+    let edited = mirror_workspace(
+        &with_notes(vec![note("n1", "Method", "Edited in app")]),
+        &mut fs,
+        MirrorOptions {
+            seen: Some(&seen_2),
+            base: Some(&base_2),
+            ..options(&project)
+        },
+    )
+    .expect("edited");
+    assert!(
+        edited.held_back.contains(&path),
+        "reader's edit must be held, not overwritten"
+    );
+    assert_eq!(text(&fs, &path), "Reader edit");
 }

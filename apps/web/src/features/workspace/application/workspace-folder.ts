@@ -1,4 +1,4 @@
-import { NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type MirrorResult, type WorkspaceCommit } from "@weaveforge/core";
+import { NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type WorkspaceCommit } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { downloadLibraryPdfsOnce } from "@/features/reader/application/parts-1";
 import { desktop, type DesktopVaultRoot } from "@/lib/desktop/desktop-bridge";
@@ -46,7 +46,8 @@ import {
   writeMirrorManifest,
 } from "./parts-3";
 import { activeProject, activeProjectOrNull, isNoActiveProject, watchForLoss } from "./parts";
-import { mirrorWorkspace } from "./parts-2";
+import { mirrorWorkspace, type WebMirrorResult } from "./parts-2";
+import { recordSessionSeen, sessionGeneration, sessionSeen } from "./folder-session-seen";
 import type { FolderPreview } from "./workspace-folder-preview";
 
 /**
@@ -277,7 +278,7 @@ export function closeFolder(): void {
 }
 
 export interface SyncOutcome {
-  mirror: MirrorResult;
+  mirror: WebMirrorResult;
   commit: WorkspaceCommit | null;
   /** Why no commit was made, when git refused or failed. */
   commitError?: string;
@@ -354,11 +355,9 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   const core = await loadCore();
   const projectRoot = core.projectDir(project);
   const snapshot = await container.workspace.snapshot();
-  // This project's manifest, and only this project's: the paths in it are the
-  // files the removal pass below is allowed to touch.
+  // This project's manifest, and only this project's: the paths last synced. Sync never removes.
   const base = await readMirrorBase(fs, projectRoot);
   const previousPaths = Object.keys(base);
-
   // The synced tables, one file each. A failed read throws here, before anything is
   // written, so a table file is never removed just because the server did not answer.
   // Stable: two passes must agree, so a write during the read cannot mix two moments.
@@ -366,9 +365,10 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
     await Promise.all([import("./sync-tables"), import("./workspace-folder-tables")]);
   const tableFiles = syncTableFolderFiles(await exportSyncTablesStable(restTableReader(getDataClient())));
 
+  const startedAt = sessionGeneration(); // before the await: a DB replace mid-run makes this run stale
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
     project,
-    previousPaths,
+    seen: sessionSeen(project.id), // rewrite an existing file only if changed this session
     extraFiles: tableFiles,
     // The digests, not only the paths: a file whose content has moved on since
     // the app wrote it is the reader's, and the mirror must not write over it
@@ -380,6 +380,7 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
       return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
     },
   });
+  recordSessionSeen(project.id, mirror.served, startedAt);
   await writeMirrorManifest(
     fs,
     projectRoot,
