@@ -3,6 +3,7 @@
 import { decodeStroke, type InkPoint, type InkStroke } from "../application/freeform-ink";
 import type { InkRendererKind } from "../../ink/render/freehand-stroke";
 import { inkFreedrawPath } from "../../ink/render/excalidraw-freedraw";
+import { resolveInkColour, type ThemeInk } from "../../ink/render/resolve-ink-colour";
 
 /** The stroke's centre line as an SVG path, in page coordinates. A single point is drawn as a dot. */
 export function pathFor(points: readonly InkPoint[]): string {
@@ -55,30 +56,36 @@ export interface InkDraft {
   tool: string;
 }
 
-/** The page's ink: every stroke, the selected ones marked, and the stroke being drawn. */
+/**
+ * The page's ink: every stroke, the selected ones marked, and the stroke being
+ * drawn. Stored colours are canonical (Paper); they draw through the live theme.
+ */
 export function InkLayer({
   strokes,
   selected,
   draft,
   renderer,
+  ink,
 }: {
   strokes: readonly InkStroke[];
   selected: ReadonlySet<string>;
   draft: InkDraft | null;
   renderer: InkRendererKind;
+  ink: ThemeInk;
 }) {
   return (
     <svg className="canvas-ink" aria-hidden="true">
       {strokes.map((stroke) => {
         const points = decodeStroke(stroke);
         if (points.length === 0) return null;
+        const colour = resolveInkColour(stroke.c, ink);
         return (
           <path
             key={stroke.id}
             d={canvasStrokePath(points, stroke.w, stroke.t, renderer)}
-            stroke={stroke.c}
+            stroke={colour}
             strokeWidth={stroke.w}
-            style={renderer === "freehand" ? outlineStyle(stroke.c) : undefined}
+            style={renderer === "freehand" ? outlineStyle(colour) : undefined}
             className={strokeClass(stroke, selected.has(stroke.id))}
           />
         );
@@ -86,9 +93,9 @@ export function InkLayer({
       {draft && draft.points.length > 0 ? (
         <path
           d={canvasStrokePath(draft.points, draft.width, draft.tool, renderer)}
-          stroke={draft.colour}
+          stroke={resolveInkColour(draft.colour, ink)}
           strokeWidth={draft.width}
-          style={renderer === "freehand" ? outlineStyle(draft.colour) : undefined}
+          style={renderer === "freehand" ? outlineStyle(resolveInkColour(draft.colour, ink)) : undefined}
           className="canvas-ink__stroke canvas-ink__stroke--draft"
         />
       ) : null}

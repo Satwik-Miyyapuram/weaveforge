@@ -45,8 +45,9 @@ import {
   type Size,
 } from "../application/freeform-geometry";
 import { encodeStroke, eraseHits, strokeAt, type InkPoint } from "../application/freeform-ink";
-import { defaultPenColour } from "../application/pen-colour";
-import { readThemePalette } from "@/features/ink/render/parts-1";
+import { DEFAULT_PEN_COLOUR } from "../application/pen-colour";
+import { canonicalInkColour, resolveInkColour } from "@/features/ink/render/resolve-ink-colour";
+import { useThemeInk } from "@/features/ink/ui/use-theme-ink";
 import { canRedo, canUndo, createHistory, record, redo, undo, type History } from "../application/canvas-history";
 import { CanvasSaver } from "../application/canvas-save";
 import { canvasKeyAction, focusesOnPress } from "../application/canvas-keys";
@@ -155,10 +156,9 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
   const editBaseRef = useRef<CanvasFile | null>(null);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [mode, setMode] = useState<Mode>("select");
-  /** Starts at the theme's text colour, read once when the page opens. */
-  const [colour, setColour] = useState(() =>
-    defaultPenColour(typeof document === "undefined" ? null : readThemePalette(document)),
-  );
+  /** Canonical (Paper) hex; drawn and shown through the live theme. Starts at the text colour. */
+  const [colour, setColour] = useState(DEFAULT_PEN_COLOUR);
+  const ink = useThemeInk();
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [view, setView] = useState<PageView>(DEFAULT_VIEW);
   const [draft, setDraft] = useState<InkDraft | null>(null);
@@ -665,7 +665,12 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
             </IconButton>
           ))}
         </div>
-        <input type="color" aria-label="Pen colour" value={colour} onChange={(event) => setColour(event.target.value)} />
+        <input
+          type="color"
+          aria-label="Pen colour"
+          value={resolveInkColour(colour, ink)}
+          onChange={(event) => setColour(canonicalInkColour(event.target.value, ink.theme))}
+        />
         <Select aria-label="Pen width" value={width} onChange={(event) => setWidth(Number(event.target.value))}>
           {PEN_WIDTHS.map((w) => (
             <option key={w} value={w}>
@@ -775,7 +780,7 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
               />
             );
           })}
-          <InkLayer strokes={strokesOf(file)} selected={live} draft={draft} renderer={renderer} />
+          <InkLayer strokes={strokesOf(file)} selected={live} draft={draft} renderer={renderer} ink={ink} />
         </div>
       </div>
     </div>

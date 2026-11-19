@@ -25,8 +25,8 @@ import {
   type ToolColourId,
   useToolColours,
 } from "@/features/ink";
-import { INK_RENDER_COLOURS } from "@/features/ink/render/webgl-renderer";
-import { readThemePalette, type InkPalette } from "@/features/ink/render/parts-1";
+import { PAPER_INK_PALETTE } from "@/features/ink/render/resolve-ink-colour";
+import type { InkPalette } from "@/features/ink/render/parts-1";
 import { useReaderPrint } from "./use-reader-print";
 import { getContainer } from "@/bootstrap";
 import {
@@ -185,13 +185,12 @@ export function PdfReader({
    *
    * The bar's swatches are the ink note's colour *names* (`INK_COLOURS`), so
    * the paper's ink is written in the same vocabulary the note is; this is the
-   * one place a name becomes the hex a `ReaderAnnotation` carries. The palette
-   * is read off the document once, after mount — reading it during render would
-   * both touch the DOM there and paint a different colour on the client's first
-   * pass than the static export's.
+   * one place a name becomes the hex a `ReaderAnnotation` carries. That hex is
+   * canonical: the Paper palette, whatever the theme, because the page under
+   * the mark is white and the stored colour must not depend on the theme the
+   * mark was made in (docs/building/ink-colours.md).
    */
-  const [inkPalette, setInkPalette] = useState<InkPalette>(INK_RENDER_COLOURS);
-  useEffect(() => setInkPalette(readThemePalette(document)), []);
+  const inkPalette: InkPalette = PAPER_INK_PALETTE;
   const hexOf = (colour: InkColour) => readyCore().paletteHex(inkPalette, colour);
   /** The tool whose colour the create actions draw with right now. */
   const colourTool = colourToolFor({ penOpen, penTool: pen.prefs.tool, pickedTool });
