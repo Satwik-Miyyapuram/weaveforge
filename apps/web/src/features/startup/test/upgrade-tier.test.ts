@@ -18,7 +18,6 @@ function fakeDeps(flag: string | null, account: OldAccount | null, failWrite = f
     done: () => state.done,
     markDone: () => void (state.done = true),
     localModeFlag: () => state.flag,
-    removeLocalModeFlag: () => void (state.flag = null),
     oldAccount: () => account,
     setTier: async (tier, acc) => {
       if (failWrite) throw new Error("no folder open");
@@ -46,11 +45,11 @@ describe("tierFromOldFlags", () => {
 });
 
 describe("upgradeTier", () => {
-  it("writes local and removes the flag", async () => {
+  it("writes local and keeps the flag so a 0.9.2 downgrade still finds local mode", async () => {
     const { deps, state } = fakeDeps("1", null);
     assert.deepEqual(await upgradeTier(deps), { ran: true, tier: "local", freshInstall: false });
     assert.deepEqual(state.writes, [{ tier: "local", account: null }]);
-    assert.equal(state.flag, null);
+    assert.equal(state.flag, "1");
     assert.equal(state.moved, 0);
   });
 

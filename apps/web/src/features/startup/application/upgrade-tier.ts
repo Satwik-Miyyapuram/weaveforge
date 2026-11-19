@@ -2,7 +2,7 @@ import { rememberTier, type Tier } from "@/deployment/open-tier";
 import { localFirstAccount } from "@/backend/providers/local/local-first-marker";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readyCore } from "@/lib/rust-core";
-import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
+import { readStored, writeStored } from "@/lib/safe-storage";
 
 /**
  * The first 0.9.4 start gives the open workspace a tier from the flags 0.9.2
@@ -22,7 +22,6 @@ export interface UpgradeTierDeps {
   markDone(): void;
   /** The old `weaveforge.local-mode` flag: "1" when the person chose local. */
   localModeFlag(): string | null;
-  removeLocalModeFlag(): void;
   /** A Supabase session or a local-first account marker, or null for neither. */
   oldAccount(): OldAccount | null;
   /** Writes the tier to `settings.json` and the page's mirror. */
@@ -50,9 +49,9 @@ export async function upgradeTier(deps: UpgradeTierDeps): Promise<UpgradeTierOut
   const account = deps.oldAccount();
   const { tier, freshInstall } = tierFromOldFlags(deps.localModeFlag(), account);
   if (tier === "sharing") await deps.moveSession?.();
-  // A failed write leaves the flags and the done key alone, so the next start retries.
+  // The old flag stays: a 0.9.2 build opened on this folder still finds its local mode.
+  // A failed write leaves the done key alone, so the next start retries.
   await deps.setTier(tier, tier === "sharing" ? (account?.id ?? null) : null);
-  deps.removeLocalModeFlag();
   deps.markDone();
   return { ran: true, tier, freshInstall };
 }
@@ -78,7 +77,6 @@ export function browserUpgradeDeps(): UpgradeTierDeps {
     done: () => readStored(TIER_UPGRADED_KEY) === "1",
     markDone: () => writeStored(TIER_UPGRADED_KEY, "1"),
     localModeFlag: () => readStored(localModeKey()),
-    removeLocalModeFlag: () => removeStored(localModeKey()),
     oldAccount: () => {
       const marker = localFirstAccount();
       if (marker) return { id: marker.id };

@@ -22,7 +22,8 @@ runs it first, before the 0.8 data import. The work is in
 
 - `tierFromOldFlags` is the table above.
 - `upgradeTier` writes the tier through the desktop shell and the page's
-  mirror, removes the local-mode flag and sets `weaveforge.tier-upgraded`.
+  mirror and sets `weaveforge.tier-upgraded`. The local-mode flag is kept so a
+  0.9.2 downgrade still opens local mode (no data or choice is lost).
 
 The done key makes it run once. A later start never changes the tier again,
 even after the flags are gone.
