@@ -112,11 +112,24 @@ export async function flushBeforeClose(
   if (unsaved !== null) await write(unsaved);
 }
 
+/** Two-part extensions that name a file type; the conflict stamp goes before them. */
+const COMPOUND_EXTENSIONS = [".ink.md", ".annotations.json"];
+
+/** Characters Windows forbids in a file name, plus control characters. */
+const UNSAFE_IN_FILE_NAME = /[<>:"/\\|?*\u0000-\u001f]/;
+
 /** `notes/day one.md` becomes `notes/day one (conflict <stamp>).md`. */
 export function conflictCopyPath(relPath: string, stamp: string): string {
+  if (stamp === "" || UNSAFE_IN_FILE_NAME.test(stamp) || /[. ]$/.test(stamp)) {
+    throw new Error(`conflict stamp ${JSON.stringify(stamp)} is not a safe file name part`);
+  }
   const slash = relPath.lastIndexOf("/");
   const dir = slash === -1 ? "" : relPath.slice(0, slash + 1);
   const name = relPath.slice(slash + 1);
+  const compound = COMPOUND_EXTENSIONS.find((ext) => name.length > ext.length && name.endsWith(ext));
+  if (compound) {
+    return `${dir}${name.slice(0, -compound.length)} (conflict ${stamp})${compound}`;
+  }
   const dot = name.lastIndexOf(".");
   const stem = dot <= 0 ? name : name.slice(0, dot);
   const ext = dot <= 0 ? "" : name.slice(dot);
