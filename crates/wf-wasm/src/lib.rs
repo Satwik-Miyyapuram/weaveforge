@@ -145,6 +145,7 @@ mod report_markdown_to_latex;
 mod report_records;
 mod report_results_presence;
 mod report_results_tables;
+mod screening_list_file;
 mod screening_records;
 mod search_acronyms;
 mod search_document;

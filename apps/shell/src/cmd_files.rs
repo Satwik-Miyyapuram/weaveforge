@@ -264,6 +264,8 @@ pub async fn file_write(
     let (watch, index) = (watch.inner().clone(), index.inner().clone());
     on_vault(state.inner(), move |vault| {
         check_len(contents.len(), MAX_TEXT_BYTES)?;
+        wf_core::settings::secret_guard::check_config_write(&path, &contents)
+            .map_err(|e| e.to_string())?;
         let text = wf_core::sync::frontmatter::canonical_text(&contents);
         watch.note_self_write(&path, text.as_bytes());
         let outcome = vault
