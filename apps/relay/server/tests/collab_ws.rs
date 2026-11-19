@@ -105,6 +105,7 @@ fn build_state(
     store: Arc<dyn SharedDocStore>,
     persist_every: Duration,
     grant_check_every: Duration,
+    now: Arc<AtomicI64>,
 ) -> Arc<CollabState> {
     Arc::new(CollabState {
         config: CollabConfig {
@@ -119,7 +120,7 @@ fn build_state(
             (OWNER_TOKEN.to_owned(), OWNER.to_owned()),
             (GUEST_TOKEN.to_owned(), GUEST.to_owned()),
         ]))),
-        clock: Arc::new(ManualClock(Arc::new(AtomicI64::new(START_MS)))),
+        clock: Arc::new(ManualClock(now)),
         hub: Hub::new(),
     })
 }
@@ -129,6 +130,8 @@ struct Relay {
     state: Arc<CollabState>,
     port: u16,
     server: JoinHandle<()>,
+    /// The relay's clock (Unix ms); the test moves it to lapse leases.
+    now: Arc<AtomicI64>,
 }
 
 impl Relay {
@@ -143,7 +146,8 @@ impl Relay {
         persist_every: Duration,
         grant_check_every: Duration,
     ) -> Self {
-        let state = build_state(dir, store, persist_every, grant_check_every);
+        let now = Arc::new(AtomicI64::new(START_MS));
+        let state = build_state(dir, store, persist_every, grant_check_every, now.clone());
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
         let port = listener.local_addr().expect("local addr").port();
         let app = routes::router(state.clone());
@@ -154,6 +158,7 @@ impl Relay {
             state,
             port,
             server,
+            now,
         }
     }
 
@@ -510,6 +515,37 @@ async fn unshare_waits_for_final_writeback() {
     send_text(&mut owner, r#"{"type":"lease.final","device":"d1"}"#).await;
     let _closed = expect_json(&mut owner, "closed").await;
     expect_close(&mut owner).await;
+    wait_for_deleted(&store, ITEM).await;
+}
+
+/// A closing doc whose holder stalls (no `lease.final`) is deleted once the lease lapses: nothing
+/// else can finish the unshare, so the sweep must not leave the row closing forever.
+#[tokio::test]
+async fn closing_doc_with_lapsed_lease_is_swept() {
+    let dir = TempDir::new("closing-sweep");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, text_update("doc")).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    send_text(&mut owner, r#"{"type":"lease.acquire","device":"d1"}"#).await;
+    let _granted = expect_json(&mut owner, "lease.granted").await;
+
+    let url = relay.url(&format!("/shared-docs/{ITEM}"));
+    let (status, _) = http(reqwest::Method::DELETE, &url, OWNER_TOKEN, None).await;
+    assert_eq!(status, 202);
+    // The holder stalls. While its lease is live the doc waits for the write-back.
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(
+        store.doc(ITEM).is_some(),
+        "closing doc deleted under a live lease"
+    );
+
+    // The lease lapses: the sweep now finishes the unshare.
+    relay.now.store(START_MS + LEASE_MS + 1, Ordering::SeqCst);
     wait_for_deleted(&store, ITEM).await;
 }
 

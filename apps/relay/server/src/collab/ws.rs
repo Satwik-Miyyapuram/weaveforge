@@ -520,8 +520,9 @@ async fn leave(state: &CollabState, room: &Arc<Room>) {
         eprintln!("collab persist {}: {error}", room.item_id);
     }
     // Only this room is removed: a newer room for the same item must stay open.
+    // A closing room stays for `sweep_closing`.
     let still_idle = room.inner.lock().await.clients == 0;
-    if still_idle {
+    if still_idle && !closing {
         state.hub.remove_if_same(room);
     }
 }

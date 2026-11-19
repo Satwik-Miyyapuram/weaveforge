@@ -250,11 +250,12 @@ pub async fn persist_room(state: &CollabState, room: &Room) -> Result<(), String
     Ok(())
 }
 
-/// Drops the room from the hub when nobody is connected and nothing is unsaved.
+/// Drops the room from the hub when nobody is connected and nothing is unsaved. A closing room
+/// stays until `sweep_closing` settles it, or it would never be swept.
 async fn evict_if_idle(state: &CollabState, room: &Arc<Room>) {
     let inner = room.inner.lock().await;
     // Checked under the room lock, so a client joining now cannot miss the removal.
-    if inner.clients == 0 && !inner.dirty {
+    if inner.clients == 0 && !inner.dirty && inner.status != DocStatus::Closing {
         state.hub.remove_if_same(room);
     }
 }
@@ -295,9 +296,13 @@ async fn recover_one(state: &CollabState, item_id: &str) -> Result<bool, String>
         remove_log(&state.config.log_dir, item_id)?;
         return Ok(false);
     };
+    let closing = row.status == DocStatus::Closing;
     let room = open_room(state, row).await?;
     persist_room(state, &room).await?;
-    let _ = state.hub.remove(item_id);
+    // A closing room stays open for `sweep_closing` to settle.
+    if !closing {
+        let _ = state.hub.remove(item_id);
+    }
     Ok(true)
 }
 
@@ -310,6 +315,7 @@ pub fn spawn_persist_loop(state: Arc<CollabState>) -> tokio::task::JoinHandle<()
         loop {
             let _ = ticker.tick().await;
             persist_all(&state).await;
+            sweep_closing(&state).await;
         }
     })
 }
@@ -322,6 +328,21 @@ pub async fn close_doc(state: &CollabState, item_id: &str) -> Result<(), String>
         room.send(Event::Close(event_json("closed")));
     }
     Ok(())
+}
+
+/// Finishes unshares that nothing can complete: a closing room with no live lease (its holder
+/// stalled or died before `lease.final`) is closed. Errors are logged and the room is retried.
+pub async fn sweep_closing(state: &CollabState) {
+    let now = state.clock.now_ms();
+    for room in state.hub.rooms() {
+        let stranded = {
+            let inner = room.inner.lock().await;
+            inner.status == DocStatus::Closing && inner.lease.live_holder(now).is_none()
+        };
+        if stranded && let Err(err) = close_doc(state, &room.item_id).await {
+            eprintln!("sweep {}: {err}", room.item_id);
+        }
+    }
 }
 
 /// Replaces a doc's state, bumps its epoch and drops the open room so clients rejoin.
