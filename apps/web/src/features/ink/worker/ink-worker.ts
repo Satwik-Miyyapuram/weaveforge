@@ -19,13 +19,7 @@ import { boundsUnion, type InkBounds, InkPageBuffer } from "../application/parts
 import { InkStrokeIndex } from "../application/stroke-index";
 import { CanvasInkRenderer } from "../render/canvas-renderer";
 import { freedrawShapeKey, type FreedrawShape } from "../render/excalidraw-freedraw";
-import {
-  DEFAULT_INK_RENDERER,
-  type InkRendererKind,
-  parseInkRenderer,
-} from "../render/freehand-stroke";
 import type { InkPalette, InkRenderer } from "../render/parts-1";
-import { supportsWebglInk, WebglInkRenderer } from "../render/webgl-renderer";
 import { inkClock } from "../application/ink-latency";
 import {
   clearSelection,
@@ -189,15 +183,12 @@ export function addStrokes(
  *
  * What this worker owns:
  *
- * - the canvas, through `transferControlToOffscreen`, and the WebGL2 context on it
- *   with the attributes §6.2.8 chooses **per path** — `desynchronized: false` while
- *   the delegated trail is drawing the wet tail, `true` when it is not;
+ * - the canvas, through `transferControlToOffscreen`, and its Canvas 2D context;
  * - the page's geometry ({@link InkPageBuffer}) and the R-tree over it
  *   ({@link InkStrokeIndex}), so a pick never costs the main thread a milisecond;
  * - the live stroke, with its predicted tail **replaced rather than committed**;
- * - packing the stroke as it is drawn with the Rust core's live packer, which only
- *   ever appends points, so ink on the page never moves and lifting the pen
- *   stores exactly the last frame drawn;
+ * - the stroke as it is drawn is what is saved, so lifting the pen stores
+ *   exactly the last frame drawn;
  * - a one-byte progress counter every frame, which is what the delegated trail
  *   reads to decide whether the worker is rendering behind (§6.2.6).
  *
@@ -219,11 +210,6 @@ const state = {
   height: INK_A4_HEIGHT,
   dpr: 1,
   mode: "transfer" as InkTransferMode,
-  /** The A/B renderer, fixed for this page's worker (see `init`). */
-  inkRenderer: DEFAULT_INK_RENDERER as InkRendererKind,
-  /** Ink tuning, fixed for this page's worker like the renderer. */
-  wetDesynchronized: true,
-  forceBackend: "auto" as "auto" | "webgl2" | "2d",
   /**
    * The freehand shape knobs of the last stroke-begin, kept as one object while
    * they are unchanged: the renderer's outline cache matches it by identity.
@@ -384,8 +370,8 @@ function ensureLoop(): void {
   scope.requestAnimationFrame(tick);
 }
 
-/** Bring up the renderer, with the attributes this path needs. */
-function startRenderer(delegating: boolean): void {
+/** Bring up the Canvas 2D renderer on the page canvas. */
+function startRenderer(): void {
   const canvas = state.canvas;
   if (!canvas) {
     // Headless: the canvas could not be transferred, or there is none. The page
@@ -396,52 +382,9 @@ function startRenderer(delegating: boolean): void {
   let renderer: InkRenderer | null = null;
   let reason = "";
   try {
-    // The freehand A/B draws outlines on Canvas 2D only; WebGL has no outline path yet.
-    if (state.inkRenderer === "freehand")
-      throw new Error("freehand renderer draws on Canvas 2D");
-    if (state.forceBackend === "2d") throw new Error("ink tuning forces Canvas 2D");
-    if (!supportsWebglInk(canvas)) throw new Error("WebGL2 is unavailable");
-    // The shaders are compiled on a throwaway canvas first. A canvas that has
-    // given out a WebGL context can never give out a 2D one, so a driver that
-    // rejects the shaders has to be found before the real canvas is asked for
-    // anything — otherwise the failure takes the Canvas 2D fallback with it.
-    if (typeof OffscreenCanvas !== "undefined")
-      new WebglInkRenderer({ canvas: new OffscreenCanvas(1, 1) }).dispose();
-    renderer = new WebglInkRenderer({
-      canvas,
-      delegating,
-      desynchronized: !delegating && state.wetDesynchronized,
-      onContextLifecycle: (state_) => {
-        post(
-          state_ === "lost"
-            ? { type: "context-lost" }
-            : { type: "context-restored", backend: "webgl2" },
-        );
-        if (state_ === "restored") {
-          // Everything is reconstructible from the page buffer, so recovery is
-          // "re-upload", never "recover the user's data" (§6.2.9).
-          state.renderer?.setStrokes(state.buffer.allStrokes());
-          if (state.live) state.live.changed = true;
-          ensureLoop();
-        }
-      },
-    });
+    renderer = new CanvasInkRenderer({ canvas, shape: () => state.shape });
   } catch (error) {
     reason = errorMessage(error);
-  }
-  if (!renderer && state.forceBackend !== "webgl2") {
-    // The Canvas 2D path (§6.2.9): the same contract, drawn with paths. A canvas
-    // that already gave out a WebGL context cannot give out a 2D one, but a
-    // canvas that *refused* WebGL still can, which is the case this serves.
-    try {
-      renderer = new CanvasInkRenderer({
-        canvas,
-        renderer: state.inkRenderer,
-        shape: () => state.shape,
-      });
-    } catch (error) {
-      reason += `; ${errorMessage(error)}`;
-    }
   }
   if (!renderer) {
     // The pen keeps working when nothing can draw: a lost renderer is a degraded
@@ -521,7 +464,7 @@ function strokeShape(current: FreedrawShape | undefined, tuning: InkStrokeTuning
   return current && freedrawShapeKey(current) === freedrawShapeKey(next) ? current : next;
 }
 
-/** Commit each full part of a raw live stroke past the cap, drawing on with the rest. */
+/** Commit each full part of a live stroke past the cap, drawing on with the rest. */
 function commitRawOverflow(): void {
   for (let next = state.live && takeRawOverflow(state.live); next; next = takeRawOverflow(next)) {
     commitStroke(state.live!);
@@ -541,14 +484,7 @@ function handleMessage(message: InkWorkerMessage): void {
         state.dpr = message.dpr;
         state.mode = message.mode;
         state.codec = inkChunkCodec(message.codec);
-        state.inkRenderer = parseInkRenderer(message.inkRenderer);
-        state.wetDesynchronized = message.wetDesynchronized ?? true;
-        state.forceBackend = message.forceBackend ?? "auto";
-        // The path decides the context attributes, and they are immutable after the
-        // first `getContext` (§6.2.8) — so this is decided once, by whether the
-        // presenter is delegating, and a presenter that appears later means a new
-        // canvas rather than a changed attribute.
-        startRenderer(message.delegating ?? false);
+        startRenderer();
         ensureLoop();
         break;
       }
@@ -557,11 +493,7 @@ function handleMessage(message: InkWorkerMessage): void {
         break;
       case "stroke-begin": {
         state.shape = strokeShape(state.shape, message.tuning);
-        state.live = newLiveStroke(
-          message.header,
-          state.inkRenderer === "freehand",
-          inkInputFilter(message.tuning),
-        );
+        state.live = newLiveStroke(message.header, inkInputFilter(message.tuning));
         state.pendingSince ??= message.sentAt ?? null;
         appendSamples(state.live, message.sample);
         commitRawOverflow();

@@ -1,24 +1,10 @@
 /**
- * The Canvas 2D fallback: the same `InkRenderer` contract, drawn with paths.
+ * The ink renderer: Canvas 2D, the only one.
  *
- * This is what a page looks like where WebGL2 is unavailable or has been lost
- * for good (§6.2.9): a Chromebook with GPU rasterisation blocked, a remote
- * desktop, a browser flag. It is not the fast path and does not try to be —
- * every frame repaints every stroke — but the *result* must be the WebGL
- * renderer's, pixel for pixel where a path can manage it, because the note is
- * the same note whichever backend drew it.
- *
- * Two of the WebGL renderer's rules survive the translation:
- *
- * - **A stroke is capsules, not a `lineTo` polyline.** Width varies per point
- *   with pressure and speed (D3), and a polyline has one width. Each segment is
- *   a filled quad with round caps — the same geometry `packStrokeInstances`
- *   sends the GPU — so the taper matches.
- * - **The highlighter is deduped per stroke.** Where the GPU uses the stencil,
- *   this builds each highlighter stroke as one path and fills it once at 35 %,
- *   so a stroke's own overlapping capsules do not darken. Two crossing
- *   highlighter strokes still darken where they cross; the WebGL pass dedupes
- *   per frame rather than per stroke, and the difference is not one a note shows.
+ * Each stroke is filled as its Excalidraw freedraw (perfect-freehand) outline,
+ * the same curves the settled SVG path uses, so a wet stroke matches its
+ * settled form. A highlighter stroke is one fill per stroke at 35 %, so the
+ * stroke's own overlaps do not darken.
  *
  * `capture` draws into a fresh offscreen canvas rather than reading back this
  * one, for the reason the interface gives.
@@ -29,7 +15,6 @@ import type { InkColour } from "@weaveforge/core";
 import type { InkStrokeGeometry } from "../application/parts-3";
 import {
   INK_RENDER_COLOURS,
-  INK_SEGMENT_SUBDIVISIONS,
   INK_SELECTION_HALO_PX,
   type InkBackgroundImage,
   type InkLiveStroke,
@@ -38,16 +23,9 @@ import {
   type InkRenderStats,
   type InkShift,
   type InkViewTransform,
-  radiusAt,
-  strokeCurveAt,
 } from "./parts-1";
 import { readyCore } from "@/lib/rust-core";
-import {
-  DEFAULT_INK_RENDERER,
-  FreehandOutlineCache,
-  freedrawCurves,
-  type InkRendererKind,
-} from "./freehand-stroke";
+import { FreehandOutlineCache, freedrawCurves } from "./freehand-stroke";
 import { freedrawPath, type FreedrawShape } from "./excalidraw-freedraw";
 
 /** The 2D context, whichever canvas it came from. */
@@ -66,8 +44,6 @@ export interface CanvasInkRendererOptions {
   canvas: Canvas2dLike;
   /** Where an export target comes from. Injected so a test needs no DOM. */
   createCanvas?: (width: number, height: number) => Canvas2dLike;
-  /** `freehand` fills perfect-freehand outlines instead of capsules (A/B, flagged). */
-  renderer?: InkRendererKind;
   /**
    * The freehand stroke-shape knobs in force, read at every paint so a change
    * shows from the next frame. Undefined draws the defaults.
@@ -123,12 +99,10 @@ export class CanvasInkRenderer implements InkRenderer {
   /** Strokes below this index are on the sheet's SVG; see `setShown`. */
   private shown = 0;
   private shift: InkShift = { x: 0, y: 0 };
-  private kind: InkRendererKind;
   private readonly shape: () => FreedrawShape | undefined;
 
   constructor(options: CanvasInkRendererOptions) {
     this.canvas = options.canvas;
-    this.kind = options.renderer ?? DEFAULT_INK_RENDERER;
     this.shape = options.shape ?? (() => undefined);
     this.createCanvas =
       options.createCanvas ??
@@ -257,7 +231,7 @@ export class CanvasInkRenderer implements InkRenderer {
     /**
      * On screen: only the wet ink, the stroke being written and a held
      * selection. The page's image and finished strokes are the sheet's own
-     * DOM (§ink-page-ink), as the WebGL renderer's on-screen frame is.
+     * DOM (§ink-page-ink).
      */
     wetOnly = false,
   ): void {
@@ -305,16 +279,11 @@ export class CanvasInkRenderer implements InkRenderer {
       highlighter: boolean,
       halo?: { alpha: number; grow: number },
     ): number =>
-      this.kind === "freehand"
-        ? paintFreehandStroke(
-            context, stroke.x, stroke.y, stroke.pressure, look, highlighter,
-            this.palette, halo, true, { cache: this.outlines, id: index }, shape,
-          )
-        : paintStroke(
-            context, stroke.x, stroke.y, stroke.pressure, look, highlighter,
-            this.palette, halo,
-          );
-    // The selection's halo first, under everything: the same capsules grown
+      paintFreehandStroke(
+        context, stroke.x, stroke.y, stroke.pressure, look, highlighter,
+        this.palette, halo, true, { cache: this.outlines, id: index }, shape,
+      );
+    // The selection's halo first, under everything: the same outlines grown
     // by a few device pixels in the accent colour, shifted by the drag.
     const haloPageUnits = INK_SELECTION_HALO_PX / Math.max(k, 0.0001);
     if (this.selected.size > 0) {
@@ -333,8 +302,7 @@ export class CanvasInkRenderer implements InkRenderer {
         context.restore();
       }
     }
-    // Pen strokes first, then highlighters over them at 35 %: the WebGL order,
-    // which is the real highlighter's — it tints what is already on the paper.
+    // Pen strokes first, then highlighters over them at 35 %. This order is the real highlighter's — it tints what is already on the paper.
     for (const pass of ["pen", "highlighter"] as const) {
       for (const index of this.order) {
         const stroke = this.strokes.get(index);
@@ -357,76 +325,18 @@ export class CanvasInkRenderer implements InkRenderer {
       // The live stroke is repainted from its points so far, with the default
       // `last` (true): the freehand outline is closed at the newest point and
       // redrawn from scratch each frame. It is not passed `last: false`.
-      this.drawn +=
-        this.kind === "freehand"
-          ? paintFreehandStroke(
-              context, live.x, live.y, live.pressure, live.header,
-              highlighter, this.palette, undefined, true, undefined, shape,
-            )
-          : paintStroke(
-              context, live.x, live.y, live.pressure, live.header,
-              highlighter, this.palette,
-            );
+      this.drawn += paintFreehandStroke(
+        context, live.x, live.y, live.pressure, live.header,
+        highlighter, this.palette, undefined, true, undefined, shape,
+      );
     }
     context.restore();
   }
 }
 
 /**
- * Fill one stroke as a union of capsules. Returns the segments drawn.
- * `halo` draws it as a selection halo instead: `grow` page units wider on
- * every side, at `alpha`.
- */
-export function paintStroke(
-  context: Context2dLike,
-  x: Float32Array,
-  y: Float32Array,
-  pressure: Uint8Array,
-  stroke: { width: number; tool: string; colour: InkColour },
-  highlighter: boolean,
-  palette: InkPalette = INK_RENDER_COLOURS,
-  halo?: { alpha: number; grow: number },
-): number {
-  const count = x.length;
-  if (count === 0) return 0;
-  const input = {
-    x,
-    y,
-    pressure,
-    width: stroke.width,
-  };
-  const grow = halo?.grow ?? 0;
-  context.fillStyle = cssInkColour(
-    stroke.colour,
-    halo ? halo.alpha : highlighter ? HIGHLIGHTER_ALPHA : 1,
-    palette,
-  );
-  context.beginPath();
-  if (count === 1) {
-    context.arc(x[0]!, y[0]!, radiusAt(input, 0) + grow, 0, Math.PI * 2);
-    context.fill();
-    return 1;
-  }
-  // The same spline the GPU path draws, so the two backends agree to the pixel.
-  for (let i = 0; i + 1 < count; i += 1) {
-    let a = strokeCurveAt(input, i, 0);
-    for (let k = 1; k <= INK_SEGMENT_SUBDIVISIONS; k += 1) {
-      const b = strokeCurveAt(input, i, k / INK_SEGMENT_SUBDIVISIONS);
-      capsule(context, a.x, a.y, a.r + grow, b.x, b.y, b.r + grow);
-      a = b;
-    }
-  }
-  // One fill per stroke with the non-zero rule: overlapping capsules of the same
-  // stroke paint once, which is what keeps a translucent highlighter even.
-  context.fill("nonzero");
-  return count - 1;
-}
-
-/**
- * Fill one stroke as its perfect-freehand outline (`renderer: "freehand"`).
- * Same colour, alpha and halo rules as `paintStroke`; the shape differs. A halo
- * grows the stroke's width by `2 * grow`, which is an approximation of the
- * capsule halo, not the same geometry. Returns the segments drawn.
+ * Fill one stroke as its perfect-freehand outline. A halo grows the stroke's
+ * width by `2 * grow`. Returns the segments drawn.
  * `pressure` is the stored byte per point; a stroke with none off the midpoint
  * draws as a mouse stroke (see `freedrawPath`). `cached` reuses the stroke's
  * outline from a `FreehandOutlineCache` instead of building it again. `shape`
@@ -501,34 +411,4 @@ export function paintPaper(
       }
     }
   }
-}
-
-/** One segment as a closed capsule outline, appended to the current path. */
-function capsule(
-  context: Context2dLike,
-  ax: number,
-  ay: number,
-  ra: number,
-  bx: number,
-  by: number,
-  rb: number,
-): void {
-  const dx = bx - ax;
-  const dy = by - ay;
-  const length = Math.hypot(dx, dy);
-  if (length < 1e-3) {
-    context.moveTo(ax + ra, ay);
-    context.arc(ax, ay, ra, 0, Math.PI * 2);
-    return;
-  }
-  const angle = Math.atan2(dy, dx);
-  // A round cap at each end and the two tangent edges between them. With
-  // differing radii the edges are not quite parallel, which is the taper.
-  context.moveTo(
-    ax + Math.cos(angle + Math.PI / 2) * ra,
-    ay + Math.sin(angle + Math.PI / 2) * ra,
-  );
-  context.arc(ax, ay, ra, angle + Math.PI / 2, angle - Math.PI / 2);
-  context.arc(bx, by, rb, angle - Math.PI / 2, angle + Math.PI / 2);
-  context.closePath();
 }

@@ -15,12 +15,10 @@ import {
 } from "react";
 import { readyCore } from "@/lib/rust-core";
 import { formatError } from "@/lib/format-error";
-import { downloadBlob, readInkABOn, readInkRenderer } from "@/lib/parts";
-import { InkABToggle } from "./ink-ab-toggle";
+import { downloadBlob } from "@/lib/parts";
 import { isTextEntry, useSpaceHeld } from "./use-space-held";
 import { isPanPress, midpoint } from "../application/canvas-pan";
 import { pointerSamples } from "../application/pointer-samples";
-import type { InkRendererKind } from "@/features/ink/render/freehand-stroke";
 import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { useBlobObjectUrls, type BlobFetchers } from "@/lib/hooks/use-blob-object-urls";
 import { Button, IconButton } from "@/components/button";
@@ -170,12 +168,6 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [view, setView] = useState<PageView>(DEFAULT_VIEW);
   const [draft, setDraft] = useState<InkDraft | null>(null);
-  /** Read once when the page opens, like the paper ink renderer. */
-  const [renderer, setRenderer] = useState<InkRendererKind>(() => readInkRenderer());
-  /** Dev flag: shows the A/B buttons. Read once when the page opens. */
-  const [abVisible] = useState(() => readInkABOn());
-  /** A/B is per open page: the device default (`writeInkRenderer`) stays as the user set it. */
-  const chooseRenderer = (kind: InkRendererKind) => setRenderer(kind);
   const gestureRef = useRef<Gesture | null>(null);
   /** Space held: a drag with the left button pans (mouse or touch, never pen). */
   const spaceRef = useSpaceHeld();
@@ -667,7 +659,6 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
       onPaste={onPaste}
     >
       <div className="canvas-editor__bar" role="toolbar" aria-label="Canvas">
-        <InkABToggle visible={abVisible} renderer={renderer} onChange={chooseRenderer} />
         <div className="canvas-editor__modes" role="group" aria-label="Mode">
           {MODES.map(({ mode: m, label, icon }) => (
             <IconButton key={m} label={label} size="sm" aria-pressed={mode === m} onClick={() => chooseMode(m)}>
@@ -790,7 +781,7 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
               />
             );
           })}
-          <InkLayer strokes={inkStrokes} selected={live} draft={draft} renderer={renderer} ink={ink} />
+          <InkLayer strokes={inkStrokes} selected={live} draft={draft} ink={ink} />
         </div>
       </div>
     </div>

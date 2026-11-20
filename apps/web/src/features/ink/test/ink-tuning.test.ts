@@ -22,9 +22,7 @@ test("nothing stored gives the defaults", () => {
 });
 
 test("the shipped defaults keep today's behaviour, with the wet layer raised", () => {
-  assert.equal(DEFAULT_INK_TUNING.wetDesynchronized, true);
   assert.equal(DEFAULT_INK_TUNING.wetLayerAboveSvg, true);
-  assert.equal(DEFAULT_INK_TUNING.forceBackend, "auto");
   assert.equal(DEFAULT_INK_TUNING.presenterTimeoutMs, 500);
   assert.equal(DEFAULT_INK_TUNING.delegateNavigatorInk, true);
   assert.equal(DEFAULT_INK_TUNING.prediction, true);
@@ -49,12 +47,11 @@ test("numbers are clamped to their range and non-numbers fall back", () => {
   assert.equal(parseInkTuning({ wetDpr: 0 }).wetDpr, 0);
 });
 
-test("flags and choices accept only their own values", () => {
+test("removed keys are dropped, not read back", () => {
   const t = parseInkTuning({ wetDesynchronized: "no", forceBackend: "vulkan", renderer: "freehand" });
-  assert.equal(t.wetDesynchronized, true);
-  assert.equal(t.forceBackend, "auto");
-  assert.equal(t.renderer, "freehand");
-  assert.equal(parseInkTuning({ forceBackend: "2d", wetLayerAboveSvg: false }).forceBackend, "2d");
+  assert.equal("renderer" in t, false);
+  assert.equal("forceBackend" in t, false);
+  assert.equal("wetDesynchronized" in t, false);
   assert.equal(parseInkTuning({ wetLayerAboveSvg: false }).wetLayerAboveSvg, false);
 });
 

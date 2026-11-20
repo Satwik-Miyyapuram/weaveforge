@@ -114,7 +114,7 @@ function recordingContext(width = 800, height = 1000) {
 }
 
 test("drawInkStrokes draws pens before highlighters regardless of input order", () => {
-  const { ctx, strokes } = recordingContext();
+  const { ctx, fills } = recordingContext();
   const input: InkRenderStroke[] = [
     {
       points: [0, 0, 10, 10, 20, 20],
@@ -132,15 +132,13 @@ test("drawInkStrokes draws pens before highlighters regardless of input order", 
 
   drawInkStrokes(ctx, input, 1);
 
-  assert.equal(strokes.length, 2);
-  assert.equal(strokes[0]?.strokeStyle, "#000000", "pen drawn first");
-  assert.equal(strokes[0]?.lineWidth, 2);
-  assert.equal(strokes[1]?.strokeStyle, "#ffff00", "highlighter drawn second");
-  assert.equal(strokes[1]?.lineWidth, 15);
+  assert.equal(fills.length, 2);
+  assert.equal(fills[0]?.fillStyle, "#000000", "pen drawn first");
+  assert.equal(fills[1]?.fillStyle, "#ffff00", "highlighter drawn second");
 });
 
 test("drawInkStrokes sets highlighter globalAlpha to HIGHLIGHTER_ALPHA, pen to 1, and resets globalAlpha to 1 at the end", () => {
-  const { ctx, strokes } = recordingContext();
+  const { ctx, fills } = recordingContext();
   const input: InkRenderStroke[] = [
     {
       points: [0, 0, 10, 10, 20, 20],
@@ -158,8 +156,8 @@ test("drawInkStrokes sets highlighter globalAlpha to HIGHLIGHTER_ALPHA, pen to 1
 
   drawInkStrokes(ctx, input, 1);
 
-  assert.equal(strokes[0]?.globalAlpha, 1, "pen alpha is 1");
-  assert.equal(strokes[1]?.globalAlpha, HIGHLIGHTER_ALPHA, "highlighter alpha is HIGHLIGHTER_ALPHA");
+  assert.equal(fills[0]?.globalAlpha, 1, "pen alpha is 1");
+  assert.equal(fills[1]?.globalAlpha, HIGHLIGHTER_ALPHA, "highlighter alpha is HIGHLIGHTER_ALPHA");
   assert.equal(ctx.globalAlpha, 1, "globalAlpha reset to 1 at the end");
 });
 
@@ -183,20 +181,20 @@ test("drawInkStrokes calls setTransform with unitsToPx scale and sets lineCap/li
   assert.equal(ctx.lineJoin, "round");
 });
 
-test("drawInkStrokes in freehand fills each stroke's settled outline and strokes none", () => {
+test("drawInkStrokes fills each stroke's settled outline and strokes none", () => {
   const { ctx, fills, strokes } = recordingContext();
   const input: InkRenderStroke[] = [
     { points: [0, 0, 50, 0, 100, 20], width: 10, colour: "#000000", highlighter: false },
     { points: [0, 40, 50, 40], width: 15, colour: "#ffff00", highlighter: true },
   ];
 
-  drawInkStrokes(ctx, input, 1, "freehand");
+  drawInkStrokes(ctx, input, 1);
 
-  assert.equal(strokes.length, 0, "freehand strokes no centreline");
+  assert.equal(strokes.length, 0, "no centreline is stroked");
   assert.equal(fills.length, 2, "one fill per stroke");
   assert.deepEqual(
     (fills[0]!.path as FakePath2D).d,
-    settledStrokePath(input[0]!.points, 10, "freehand"),
+    settledStrokePath(input[0]!.points, 10),
   );
   assert.equal(fills[0]!.fillStyle, "#000000");
   assert.equal(fills[1]!.globalAlpha, HIGHLIGHTER_ALPHA, "highlighter fill is translucent");

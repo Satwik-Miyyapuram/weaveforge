@@ -9,12 +9,11 @@
  *
  * - next stroke: `prediction`, `predictionMs`, `wetLayerAboveSvg`,
  *   `presenterTimeoutMs`, `delegateNavigatorInk`, the input knobs
- *   (`inputSmoothing`, `resampleSpacing`, both renderers) and the shape knobs
+ *   (`inputSmoothing`, `resampleSpacing`) and the shape knobs
  *   (`thinning`, `smoothing`, `streamline`, `taperStart`, `taperEnd`,
- *   `pressureGamma`, `minWidth`: the freehand renderer only; classic draws a
- *   constant-width nib). A shape change redraws the page's freehand strokes too;
- * - next page open (the worker and its context are made then): `wetDesynchronized`,
- *   `forceBackend`, `renderer`, `wetDpr`;
+ *   `pressureGamma`, `minWidth`; they always apply, as freehand is the only
+ *   renderer). A shape change redraws the page's freehand strokes too;
+ * - next page open (the worker is made then): `wetDpr`;
  * - stored only, for later: `holdToShapeMs`.
  *
  * The dev panel (`ink-tuning-panel.tsx`) is the only writer besides a hand edit.
@@ -25,15 +24,9 @@ import { workspaceSettings } from "@/features/settings/application/workspace-set
 
 export const INK_TUNING_KEY = ["ink", "tuning"] as const;
 
-export type InkForceBackend = "auto" | "webgl2" | "2d";
-export type InkTuningRenderer = "setting" | "classic" | "freehand";
-
 export interface InkTuning {
-  /** Latency: `desynchronized` on the fallback path's WebGL context. */
-  wetDesynchronized: boolean;
   /** Latency: raise the wet canvas over the sheet's SVG for the stroke. */
   wetLayerAboveSvg: boolean;
-  forceBackend: InkForceBackend;
   /** How long a stroke waits for the OS ink presenter before drawing itself. */
   presenterTimeoutMs: number;
   /** Ask for `navigator.ink` at all. */
@@ -57,15 +50,12 @@ export interface InkTuning {
   predictionMs: number;
   /** Drop a sample closer than this (0.1 mm) to the last one kept; 0 is off. */
   resampleSpacing: number;
-  renderer: InkTuningRenderer;
   /** Hold the pen still this long at a stroke's end to snap it to a shape; 0 is off. */
   holdToShapeMs: number;
 }
 
 export const DEFAULT_INK_TUNING: Readonly<InkTuning> = Object.freeze({
-  wetDesynchronized: true,
   wetLayerAboveSvg: true,
-  forceBackend: "auto",
   presenterTimeoutMs: 500,
   delegateNavigatorInk: true,
   wetDpr: 0,
@@ -80,7 +70,6 @@ export const DEFAULT_INK_TUNING: Readonly<InkTuning> = Object.freeze({
   prediction: true,
   predictionMs: 0,
   resampleSpacing: 0,
-  renderer: "setting",
   holdToShapeMs: 0,
 });
 
@@ -105,13 +94,10 @@ export const INK_TUNING_RANGES: Record<NumberKey, { min: number; max: number; st
 };
 
 export const INK_TUNING_BOOLS: readonly BoolKey[] = [
-  "wetDesynchronized",
   "wetLayerAboveSvg",
   "delegateNavigatorInk",
   "prediction",
 ];
-export const INK_FORCE_BACKENDS: readonly InkForceBackend[] = ["auto", "webgl2", "2d"];
-export const INK_TUNING_RENDERERS: readonly InkTuningRenderer[] = ["setting", "classic", "freehand"];
 
 function clampNumber(key: NumberKey, value: unknown): number {
   const fallback = DEFAULT_INK_TUNING[key];
@@ -119,10 +105,6 @@ function clampNumber(key: NumberKey, value: unknown): number {
   const range = INK_TUNING_RANGES[key];
   if (range.zeroMeans !== undefined && value === 0) return 0;
   return Math.min(range.max, Math.max(range.min, value));
-}
-
-function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
-  return (allowed as readonly unknown[]).includes(value) ? (value as T) : fallback;
 }
 
 /** Any stored value to a full, in-range tuning. */
@@ -134,8 +116,6 @@ export function parseInkTuning(raw: unknown): InkTuning {
   for (const key of INK_TUNING_BOOLS) {
     if (typeof src[key] === "boolean") out[key] = src[key];
   }
-  out.forceBackend = oneOf(src.forceBackend, INK_FORCE_BACKENDS, DEFAULT_INK_TUNING.forceBackend);
-  out.renderer = oneOf(src.renderer, INK_TUNING_RENDERERS, DEFAULT_INK_TUNING.renderer);
   return out;
 }
 

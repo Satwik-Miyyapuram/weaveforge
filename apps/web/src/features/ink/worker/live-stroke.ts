@@ -1,5 +1,5 @@
-import { readyCore, typedCore } from "@/lib/rust-core";
-import { INK_PACK_TOLERANCE, type LiveInkStrokePacker, type PackedInkStroke } from "@weaveforge/core";
+import { readyCore } from "@/lib/rust-core";
+import type { PackedInkStroke } from "@weaveforge/core";
 import { eachInkSample, type InkSamplePayload, type InkStrokeHeader } from "../application/capture-protocol";
 import type { InkLiveStroke } from "../render/parts-1";
 
@@ -23,15 +23,8 @@ export interface LiveStroke {
    * The next real batch truncates back to here.
    */
   realSamples: number;
-  /** Samples arrived since the renderer last got this stroke; a frame without new ones repacks nothing (19-09). */
+  /** Samples arrived since the renderer last got this stroke; a frame without new ones changes nothing (19-09). */
   changed: boolean;
-  /** The real samples, packed as they arrive: what is drawn and what is saved, unless `raw`. */
-  packer: LiveInkStrokePacker;
-  /**
-   * Freehand keeps every real sample, drawn and saved, so the outline has the
-   * pen's own density. Classic keeps what the packer simplifies to.
-   */
-  raw: boolean;
   /** What the renderer is handed, reused frame to frame; made on the first frame. */
   wet?: WetBuffers;
   /** The input knobs (`ink.tuning`) this stroke began with; absent when both are off. */
@@ -144,7 +137,7 @@ export class InkInputFilter {
 
 /**
  * The most points the page format holds per stroke (the Rust `INK_STROKE_MAX_POINTS`).
- * A raw stroke that reaches it is split (`takeRawOverflow`), never packed.
+ * A stroke that reaches it is split (`takeRawOverflow`).
  */
 export const RAW_STROKE_MAX_POINTS = 65_535;
 
@@ -156,43 +149,29 @@ export function setRawStrokeCapForTest(cap = RAW_STROKE_MAX_POINTS): void {
   rawStrokeCap = cap;
 }
 
-/** What the live packer holds so far, as plain arrays. */
-function packedSoFar(packer: LiveInkStrokePacker): PackedInkStroke {
-  return { points: Array.from(packer.points()), pressures: Array.from(packer.pressures()) };
-}
-
-/** The real samples as the stroke keeps them: every one if `raw`, else what the packer kept. */
+/** The real samples as the stroke keeps them. */
 export function realSoFar(stroke: LiveStroke): PackedInkStroke {
-  if (stroke.raw) {
-    return {
-      points: stroke.points.slice(0, stroke.realSamples * 2),
-      pressures: stroke.pressures.slice(0, stroke.realSamples),
-    };
-  }
-  return packedSoFar(stroke.packer);
+  return {
+    points: stroke.points.slice(0, stroke.realSamples * 2),
+    pressures: stroke.pressures.slice(0, stroke.realSamples),
+  };
 }
 
 /**
- * Split a raw stroke that has passed the point cap: the stroke keeps its first
+ * Split a stroke that has passed the point cap: the stroke keeps its first
  * `RAW_STROKE_MAX_POINTS` samples and the rest move to a new live stroke, which
  * starts at the last kept sample so the line stays joined. Null when the stroke
- * fits. Raw vs packed is decided when the stroke begins and never changes, so
- * the outline does not change shape mid-stroke. The cost: a stroke this long
- * saves as two strokes and undoes in two steps.
+ * fits. The cost: a stroke this long saves as two strokes and undoes in two steps.
  *
  * Call it right after `appendSamples`, when there is no predicted tail.
  */
 export function takeRawOverflow(stroke: LiveStroke): LiveStroke | null {
   const cap = rawStrokeCap;
-  if (!stroke.raw || stroke.realSamples <= cap) return null;
-  const next = newLiveStroke(stroke.header, true, stroke.input);
+  if (stroke.realSamples <= cap) return null;
+  const next = newLiveStroke(stroke.header, stroke.input);
   for (let i = cap - 1; i < stroke.realSamples; i += 1) {
-    const x = stroke.points[i * 2]!;
-    const y = stroke.points[i * 2 + 1]!;
-    const pressure = stroke.pressures[i]!;
-    next.points.push(x, y);
-    next.pressures.push(pressure);
-    next.packer.push(x, y, pressure);
+    next.points.push(stroke.points[i * 2]!, stroke.points[i * 2 + 1]!);
+    next.pressures.push(stroke.pressures[i]!);
   }
   next.realSamples = stroke.realSamples - cap + 1;
   stroke.points.length = cap * 2;
@@ -205,7 +184,6 @@ export function takeRawOverflow(stroke: LiveStroke): LiveStroke | null {
 /** A stroke the pen has just put down, with nothing in it yet. */
 export function newLiveStroke(
   header: InkStrokeHeader,
-  raw = false,
   input: InkInputFilter | null = null,
 ): LiveStroke {
   return {
@@ -214,8 +192,6 @@ export function newLiveStroke(
     pressures: [],
     realSamples: 0,
     changed: true,
-    packer: typedCore().createInkStrokePacker({ tolerance: INK_PACK_TOLERANCE }),
-    raw,
     input,
   };
 }
@@ -259,20 +235,15 @@ export function finishSamples(stroke: LiveStroke): void {
 }
 
 function keepSample(stroke: LiveStroke, at: number, sx: number, sy: number, pressure: number): void {
-  // A raw (freehand) stroke is stored at whole units, so round here: the wet
-  // stroke then matches the saved one exactly. Classic keeps the digitiser value.
-  const x = stroke.raw ? Math.round(sx) : sx;
-  const y = stroke.raw ? Math.round(sy) : sy;
-  stroke.points[at * 2] = x;
-  stroke.points[at * 2 + 1] = y;
+  // Stored at whole units, so the wet stroke matches the saved one exactly.
+  stroke.points[at * 2] = Math.round(sx);
+  stroke.points[at * 2 + 1] = Math.round(sy);
   stroke.pressures[at] = readyCore().inkPenPressureByte(pressure);
-  stroke.packer.push(x, y, stroke.pressures[at]);
 }
 
 /**
  * Replace the predicted tail: truncate to the last real sample, then append.
- * A raw stroke rounds the tail to whole units, as `appendSamples` rounds the
- * real samples.
+ * The tail is rounded to whole units, as `appendSamples` rounds the real samples.
  */
 export function replacePredictedTail(
   stroke: LiveStroke,
@@ -285,7 +256,7 @@ export function replacePredictedTail(
     input?.preview(px, py);
     const x = input ? input.x : px;
     const y = input ? input.y : py;
-    stroke.points.push(stroke.raw ? Math.round(x) : x, stroke.raw ? Math.round(y) : y);
+    stroke.points.push(Math.round(x), Math.round(y));
     stroke.pressures.push(readyCore().inkPenPressureByte(pressure));
   });
   stroke.changed = true;
@@ -294,53 +265,27 @@ export function replacePredictedTail(
 /**
  * The live stroke as the renderer takes it.
  *
- * The real samples are what the packer has kept, which `commitStroke` saves as
- * they are, so lifting the pen changes nothing on screen. The predicted tail is
- * kept out of the packer and drawn after, as sampled.
+ * The real samples are saved as they are, so lifting the pen changes nothing on
+ * screen. The predicted tail is drawn after them, as sampled.
  *
- * `changedFrom` is the first point that differs from the last frame's, so the
- * WebGL renderer repacks from there rather than assuming only the newest
- * segments moved: a raw stroke only appends (or is cut back), so it is where the
- * new samples start; a classic stroke is compared point by point, because the
- * packer may revise kept points anywhere.
+ * `changedFrom` is the first point that differs from the last frame's. Real
+ * samples are only ever appended (or cut back at the point cap), so that is
+ * where the new samples start.
  */
 export function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
   const real = stroke.realSamples;
   const tail = Math.max(0, stroke.points.length / 2 - real);
   const wet = (stroke.wet ??= newWetBuffers(stroke.header));
   const drawn = wet.drawn;
-  let changedFrom: number;
-  let realCount: number;
-  if (stroke.raw) {
-    // Raw samples are only ever appended (or cut back at the point cap), so
-    // the prefix already copied is still right: copy only the new ones.
-    realCount = real;
-    growWet(wet, realCount + tail);
-    changedFrom = Math.min(wet.copied, realCount);
-    for (let i = changedFrom; i < realCount; i += 1) {
-      wet.x[i] = stroke.points[i * 2]!;
-      wet.y[i] = stroke.points[i * 2 + 1]!;
-      wet.pressure[i] = stroke.pressures[i] ?? 128;
-    }
-    wet.copied = realCount;
-  } else {
-    // Not append-only, and cannot be without a new core API: the packer moves
-    // its last point with the pen and may revise the kept ones, and `points()`
-    // copies the whole stroke out of wasm on every call, so the packed part is
-    // rewritten each frame, into the same buffers. A `points_from(i)` in core
-    // (and a wasm rebuild) would make it incremental. Meanwhile the copy finds
-    // the first point that really changed, so the GPU repack stays local.
-    const points = stroke.packer.points();
-    const pressures = stroke.packer.pressures();
-    realCount = points.length / 2;
-    growWet(wet, realCount + tail);
-    changedFrom = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < realCount; i += 1) {
-      if (setWet(wet, i, points[i * 2]!, points[i * 2 + 1]!, pressures[i] ?? 128, drawn)) {
-        changedFrom = Math.min(changedFrom, i);
-      }
-    }
+  const realCount = real;
+  growWet(wet, realCount + tail);
+  let changedFrom = Math.min(wet.copied, realCount);
+  for (let i = changedFrom; i < realCount; i += 1) {
+    wet.x[i] = stroke.points[i * 2]!;
+    wet.y[i] = stroke.points[i * 2 + 1]!;
+    wet.pressure[i] = stroke.pressures[i] ?? 128;
   }
+  wet.copied = realCount;
   for (let i = 0; i < tail; i += 1) {
     const at = realCount + i;
     if (setWet(wet, at, stroke.points[(real + i) * 2]!, stroke.points[(real + i) * 2 + 1]!, stroke.pressures[real + i] ?? 128, drawn)) {
@@ -361,9 +306,8 @@ export function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
 
 /**
  * The wet stroke's buffers, kept on the live stroke between frames (perf
- * review I1/I2). `live` is the one object the renderer gets every frame: the
- * WebGL renderer packs incrementally only while it sees the same object, and
- * a fresh one per frame made it repack (and re-upload) the whole stroke.
+ * review I1/I2). `live` is the one object the renderer gets every frame, so a
+ * fresh one per frame is not allocated.
  */
 export interface WetBuffers {
   x: Float32Array;

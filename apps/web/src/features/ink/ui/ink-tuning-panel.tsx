@@ -9,17 +9,13 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/button";
 import {
   DEFAULT_INK_TUNING,
-  INK_FORCE_BACKENDS,
   INK_TUNING_BOOLS,
   INK_TUNING_RANGES,
-  INK_TUNING_RENDERERS,
   inkTuningSettingsJson,
   readInkTuning,
   resetInkTuning,
   setInkTuning,
   useInkTuning,
-  type InkForceBackend,
-  type InkTuningRenderer,
 } from "../application/ink-tuning";
 import { inkLatency } from "../application/ink-latency";
 
@@ -89,19 +85,7 @@ export function InkTuningPanel({ backend, delegating }: Props) {
           {key}
         </label>
       ))}
-      <label className="graph-slider-row">
-        forceBackend
-        <select value={tuning.forceBackend} onChange={(event) => setInkTuning({ forceBackend: event.target.value as InkForceBackend })}>
-          {INK_FORCE_BACKENDS.map((value) => <option key={value} value={value}>{value}</option>)}
-        </select>
-      </label>
-      <label className="graph-slider-row">
-        renderer
-        <select value={tuning.renderer} onChange={(event) => setInkTuning({ renderer: event.target.value as InkTuningRenderer })}>
-          {INK_TUNING_RENDERERS.map((value) => <option key={value} value={value}>{value}</option>)}
-        </select>
-      </label>
-      <small>Shape knobs (thinning to minWidth) draw on the freehand renderer only; holdToShapeMs is not wired yet.</small>
+      <small>Shape knobs (thinning to minWidth) apply to every stroke; holdToShapeMs is not wired yet.</small>
       {ranges.map(([key, range]) => (
         <label key={key} className="graph-slider-row" title={inkTuningRangeLabel(key)}>
           {key}: {tuning[key] === 0 && range.zeroMeans ? range.zeroMeans : tuning[key]} <small>{inkTuningRangeLabel(key)}</small>

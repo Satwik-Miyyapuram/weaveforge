@@ -83,21 +83,12 @@ export type InkWorkerMessage =
        */
       codec?: "identity" | "deflate-raw";
       /**
-       * The A/B renderer for this page. Read once here: `freehand` draws
-       * perfect-freehand outlines on Canvas 2D. Anything else is `classic`.
-       */
-      inkRenderer?: "classic" | "freehand";
-      /**
        * Whether the Delegated Ink Trail is drawing the wet tail.
        *
        * It chooses the context's `desynchronized` attribute, which is immutable, so
        * it has to be known before the first `getContext` (§6.2.6, §6.2.8).
        */
       delegating?: boolean;
-      /** `ink.tuning.wetDesynchronized`: off keeps the fallback context synchronized. */
-      wetDesynchronized?: boolean;
-      /** `ink.tuning.forceBackend`: `2d` skips WebGL2, `webgl2` skips the 2D fallback. */
-      forceBackend?: "auto" | "webgl2" | "2d";
     }
   | { type: "stroke-begin"; header: InkStrokeHeader; sample: InkSamplePayload; sentAt?: number; tuning?: InkStrokeTuning }
   | {
@@ -274,8 +265,6 @@ export type InkWorkerEvent =
     }
   /** The page's undo depth changed, so the bar can enable its buttons. */
   | { type: "history"; undo: number; redo: number }
-  | { type: "context-lost" }
-  | { type: "context-restored"; backend: "webgl2" | "canvas2d" | "none" }
   /** The last thing the worker says: every save it had in flight has gone out. */
   | { type: "disposed" }
   | { type: "error"; message: string };

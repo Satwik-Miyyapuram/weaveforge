@@ -30,7 +30,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type InkColour, type InkHand } from "@weaveforge/core";
-import { readInkRenderer } from "@/lib/parts";
 
 import { inkClock, recordInkLatency } from "./ink-latency";
 import { inkWetDpr, readInkTuning } from "./ink-tuning";
@@ -171,7 +170,6 @@ export interface UsePenCaptureOptions {
   /** The worker's frame counter, for the trail's "is it behind?" check. */
   onFrame?: (frame: number) => void;
   onBackend?: (backend: "webgl2" | "canvas2d" | "none") => void;
-  onContextLost?: () => void;
   /**
    * Every worker event, after the hook has taken what it needs.
    *
@@ -406,12 +404,6 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
             for (const buffer of message.buffers)
               poolRef.current.release(buffer);
             break;
-          case "context-lost":
-            callbacksRef.current.onContextLost?.();
-            break;
-          case "context-restored":
-            setBackend(message.backend);
-            break;
           case "error":
             // The pen must keep working when the worker cannot draw: a lost
             // renderer is a degraded note, not a lost one.
@@ -452,10 +444,6 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
           codec: "deflate-raw",
           // Immutable once the context exists, so it is decided here (§6.2.6).
           delegating: presenter !== null,
-          // Read per page open: the A/B setting applies from the next ink page.
-          inkRenderer: tuning.renderer === "setting" ? readInkRenderer() : tuning.renderer,
-          wetDesynchronized: tuning.wetDesynchronized,
-          forceBackend: tuning.forceBackend,
         },
         offscreen ? [offscreen] : [],
       );
