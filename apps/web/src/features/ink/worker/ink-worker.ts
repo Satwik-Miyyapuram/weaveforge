@@ -472,6 +472,15 @@ function commitRawOverflow(): void {
   }
 }
 
+/**
+ * A page change ends the stroke in progress: it was begun on the page that is
+ * leaving, so it cannot be packed into the one that arrives (finding 2).
+ */
+function endLiveStroke(): void {
+  state.live = null;
+  state.renderer?.setLive(null);
+}
+
 function handleMessage(message: InkWorkerMessage): void {
   try {
     const plan = readyCore().inkWorkerRoute(routeInput(message));
@@ -489,6 +498,7 @@ function handleMessage(message: InkWorkerMessage): void {
         break;
       }
       case "load-page":
+        endLiveStroke();
         void loadPage(state, message, post).then(ensureLoop);
         break;
       case "stroke-begin": {
@@ -554,6 +564,7 @@ function handleMessage(message: InkWorkerMessage): void {
       case "replace-page":
         // A page recognised before a page turn belongs to the old page (21-01);
         // the route drops it.
+        endLiveStroke();
         installPage(state, message.page, post);
         break;
       case "lasso":
