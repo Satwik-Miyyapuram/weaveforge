@@ -737,3 +737,42 @@ test("a freehand stroke past the point cap splits; it never turns into a packed 
   assert.equal(committed[0]!.points.length / 2, cap);
   assert.equal(committed[1]!.points.length / 2, count - cap + 1);
 });
+
+/** One stroke of raw (x, y) samples at pressure 0.5, and the points the worker kept (null: none). */
+function keptStroke(pairs: readonly (readonly [number, number])[]): number[] | null {
+  fresh();
+  const b = batch(pairs.flat(), pairs.map(() => 0.5));
+  stroke(b.buffer, b.count);
+  const kept = events("stroke-committed");
+  return kept.length === 1 ? Array.from(kept[0]!.points) : null;
+}
+
+test("a single tap is kept as a dot: two points, so the renderer draws it", () => {
+  const points = keptStroke([[100, 100]]);
+  assert.ok(points && points.length >= 4, `a tap is kept, got ${JSON.stringify(points)}`);
+});
+
+test("two identical samples are kept as a dot", () => {
+  const points = keptStroke([
+    [100, 100],
+    [100, 100],
+  ]);
+  assert.ok(points && points.length >= 4, `identical samples are kept, got ${JSON.stringify(points)}`);
+});
+
+test("three samples within half a pixel are kept as a dot", () => {
+  const points = keptStroke([
+    [100, 100],
+    [100.3, 100.2],
+    [99.8, 100.4],
+  ]);
+  assert.ok(points && points.length >= 4, `a jitter dot is kept, got ${JSON.stringify(points)}`);
+});
+
+test("a 2-sample short dash is kept", () => {
+  const points = keptStroke([
+    [100, 100],
+    [106, 100],
+  ]);
+  assert.ok(points && points.length >= 4, `a short dash is kept, got ${JSON.stringify(points)}`);
+});

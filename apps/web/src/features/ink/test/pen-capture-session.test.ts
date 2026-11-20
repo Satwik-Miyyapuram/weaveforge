@@ -575,3 +575,13 @@ test("predicted samples do not bend the real stroke through the filter", () => {
   );
   assert.ok(worst < 1e-9, `prediction moved a real point by ${worst}`);
 });
+
+test("a pen tap with no move posts its one sample, so the worker has a dot to keep", () => {
+  const harness = sessionHarness();
+  harness.session.pointerDown(pointer({ pointerType: "pen", pointerId: 3, clientX: 40, clientY: 50, t: 0 }));
+  harness.session.pointerUp(pointer({ pointerType: "pen", pointerId: 3, clientX: 40, clientY: 50, t: 20, pressure: 0 }));
+  const types = harness.messages.map((message) => message.type);
+  assert.ok(types.includes("stroke-begin"), `the tap begins a stroke, got ${types.join(",")}`);
+  assert.ok(types.includes("stroke-end"), `the tap ends a stroke, got ${types.join(",")}`);
+  assert.equal(harness.stroke.points.length, 2, `the tap's sample is posted, got ${JSON.stringify(harness.stroke.points)}`);
+});
