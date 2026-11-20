@@ -195,7 +195,7 @@ impl PgEngine {
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |d| d.as_millis());
-        let aside = self.root.join(format!("data.failed-{stamp}"));
+        let aside = unused_path(self.root.join(format!("data.failed-{stamp}")));
         std::fs::rename(self.root.join("data"), &aside)
             .map_err(|e| PgError::local(format!("could not keep the old data aside: {e}")))?;
         self.keep_aside_at(&aside);
@@ -219,9 +219,10 @@ impl PgEngine {
             || "local-pg".to_owned(),
             |n| n.to_string_lossy().into_owned(),
         );
-        let aside = self
-            .root
-            .with_file_name(format!("{name}.discarded-{stamp}"));
+        let aside = unused_path(
+            self.root
+                .with_file_name(format!("{name}.discarded-{stamp}")),
+        );
         std::fs::rename(&self.root, &aside)
             .map_err(|e| PgError::local(format!("could not move the database aside: {e}")))?;
         self.keep_aside_at(&aside);
@@ -737,6 +738,22 @@ impl<E: Engine> PgHost<E> {
             self.engine.close(open.conn, open.handle).await;
         }
     }
+}
+
+/// `base`, or `base-1`, `base-2`, … when a folder by that name is already there: two moves aside
+/// in the same millisecond must not collide.
+fn unused_path(base: PathBuf) -> PathBuf {
+    if !base.exists() {
+        return base;
+    }
+    (1..)
+        .map(|i| {
+            let mut name = base.clone().into_os_string();
+            name.push(format!("-{i}"));
+            PathBuf::from(name)
+        })
+        .find(|path| !path.exists())
+        .unwrap_or(base)
 }
 
 #[cfg(test)]
@@ -1369,6 +1386,21 @@ mod tests {
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
+    #[test]
+    fn an_aside_name_already_taken_gets_a_number() {
+        let tmp = lost_tmp("aside-name-taken");
+        let base = tmp.join("local-pg.discarded-1");
+        assert_eq!(unused_path(base.clone()), base, "a free name is kept");
+        std::fs::create_dir_all(&base).unwrap_or_default();
+        std::fs::create_dir_all(tmp.join("local-pg.discarded-1-1")).unwrap_or_default();
+        assert_eq!(
+            unused_path(base),
+            tmp.join("local-pg.discarded-1-2"),
+            "a taken name moves on to the next free number"
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
     #[tokio::test]
     async fn a_start_fresh_is_not_undone_by_restoring_a_backup_on_reopen() {
         let tmp = lost_tmp("start-fresh-reopen");
@@ -1409,9 +1441,13 @@ mod tests {
                 .unwrap_or(true)
         );
         std::fs::remove_dir_all(root.join("data")).unwrap_or_default();
-        let _ = engine
+        let restored = engine
             .restore_with(|scratch, dump| stub_load(scratch, dump, true))
             .await;
+        assert!(
+            restored.is_ok(),
+            "a second move aside in the same millisecond still works"
+        );
         assert!(
             root.join("data").is_dir(),
             "a spent choice no longer blocks a restore"
