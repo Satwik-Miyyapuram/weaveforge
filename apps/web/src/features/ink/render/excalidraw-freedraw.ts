@@ -35,6 +35,7 @@
  */
 
 import { getStroke, type StrokeOptions } from "perfect-freehand";
+import { smoothKeepingCorners } from "./corner-smoothing";
 
 /** The fields of an Excalidraw freedraw element that the path function reads. */
 export interface FreedrawElement {
@@ -115,8 +116,8 @@ function getSvgPathFromStroke(points: number[][]): string {
 export const INK_FREEDRAW = {
   /** OneNote's drawn body width over the nominal pen width. */
   widthRatio: 1.35,
-  mouse: { thinning: 0, smoothing: 0.5, streamline: 0.5 },
-  pen: { thinning: 0.6, smoothing: 0.5, streamline: 0.5 },
+  mouse: { thinning: 0, smoothing: 0.5, streamline: 0.15 },
+  pen: { thinning: 0.6, smoothing: 0.5, streamline: 0.15 },
 } as const;
 
 /**
@@ -155,7 +156,11 @@ export function freedrawShapeKey(shape: FreedrawShape = DEFAULT_FREEDRAW_SHAPE):
   ].join(",");
 }
 
-/** The freedraw outline of a stroke `width` units wide, with INK_FREEDRAW's options and `shape`'s knobs. */
+/**
+ * The freedraw outline of a stroke `width` units wide, with INK_FREEDRAW's options and `shape`'s knobs.
+ * The points are smoothed first, corners kept (corner-smoothing.ts), so a low streamline
+ * draws sharp corners without following every shake of the hand.
+ */
 export function inkFreedrawPath(
   points: number[][],
   pressures: number[],
@@ -180,7 +185,7 @@ export function inkFreedrawPath(
       ? pressures
       : pressures.map((p) => Math.max(shape.minWidth, p) ** shape.pressureGamma);
   return getFreeDrawSvgPath(
-    { points, pressures: reshaped, strokeWidth: 0, simulatePressure, lastCommittedPoint: last ? [0, 0] : null },
+    { points: smoothKeepingCorners(points), pressures: reshaped, strokeWidth: 0, simulatePressure, lastCommittedPoint: last ? [0, 0] : null },
     options,
   );
 }

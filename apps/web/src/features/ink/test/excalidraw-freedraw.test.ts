@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
+import { smoothKeepingCorners } from "../render/corner-smoothing";
 import {
   freedrawPath,
   getFreeDrawSvgPath,
@@ -107,4 +108,67 @@ test("pressure is real once any sample leaves the midpoint, not only the first",
   assert.equal(isSimulatedPressure([128 / 255, 0.5]), true);
   assert.equal(isSimulatedPressure([0.5, 0.5, 0.8]), false);
   assert.equal(isSimulatedPressure([0.2]), false);
+});
+
+// A "V" whose corner sits at y = 100, sampled every 5 units like a quick pen stroke.
+const V: number[][] = [
+  ...Array.from({ length: 21 }, (_, i) => [i * 2.5, i * 5]),
+  ...Array.from({ length: 20 }, (_, i) => [52.5 + i * 2.5, 95 - i * 5]),
+];
+
+function lowestY(d: string): number {
+  const nums = d.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
+  return Math.max(...nums.filter((_, i) => i % 2 === 1));
+}
+
+test("the default ink reaches a sharp corner instead of rounding it off, mouse and pen", () => {
+  for (const simulatePressure of [true, false]) {
+    for (const width of [1, 2, 4]) {
+      const d = inkFreedrawPath(V, V.map(() => 0.6), width, simulatePressure, true);
+      assert.ok(lowestY(d) > 99.5, `width ${width}, ${simulatePressure ? "mouse" : "pen"}: tip at ${lowestY(d)}`);
+    }
+  }
+});
+
+/** A circle of radius 40 about (50, 50), each sample nudged by up to `noise` units like a shaky hand. */
+function shakyCircle(noise: number): number[][] {
+  let seed = 7;
+  const jitter = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5) * 2 * noise;
+  return Array.from({ length: 121 }, (_, i) => {
+    const a = (i / 120) * 2 * Math.PI;
+    return [50 + 40 * Math.cos(a) + jitter(), 50 + 40 * Math.sin(a) + jitter()];
+  });
+}
+
+/** How much the outer edge's distance from the centre wanders: 0 for a true circle. */
+function wobble(d: string): number {
+  const nums = d.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
+  const radii: number[] = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const r = Math.hypot(nums[i]! - 50, nums[i + 1]! - 50);
+    if (r > 40) radii.push(r);
+  }
+  const mean = radii.reduce((a, b) => a + b, 0) / radii.length;
+  return Math.sqrt(radii.reduce((a, r) => a + (r - mean) ** 2, 0) / radii.length);
+}
+
+test("a shaky circle wobbles less with the default ink than with the old raw points at streamline 0.5", () => {
+  const old = { thinning: 0, smoothing: 0.5, streamline: 0.5, size: 2 * 1.35 };
+  for (const noise of [0.5, 1]) {
+    const pts = shakyCircle(noise);
+    const press = pts.map(() => 0.5);
+    const now = wobble(inkFreedrawPath(pts, press, 2, true, true));
+    const raw = { points: pts, pressures: press, strokeWidth: 0, simulatePressure: true, lastCommittedPoint: [0, 0] };
+    const before = wobble(getFreeDrawSvgPath(raw as FreedrawElement, old));
+    assert.ok(now < before, `noise ${noise}: wobble ${now} vs ${before} before`);
+  }
+});
+
+test("smoothing keeps a corner point and both ends where they were drawn", () => {
+  const out = smoothKeepingCorners(V);
+  assert.equal(out.length, V.length);
+  assert.deepEqual(out[0], V[0]);
+  assert.deepEqual(out[20], V[20]);
+  assert.deepEqual(out.at(-1), V.at(-1));
+  assert.deepEqual(smoothKeepingCorners([[0, 0], [1, 1]]), [[0, 0], [1, 1]]);
 });
