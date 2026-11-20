@@ -31,6 +31,8 @@ export interface InkHostDeps {
 export interface InkHostProps {
   /** The note whose sidecar holds the pages. */
   noteId: string;
+  /** The note's title, which names its printed and exported pages. */
+  title?: string;
   /** The note's body: the ink header and the recognised text layer. */
   body: string;
   deps: InkHostDeps;

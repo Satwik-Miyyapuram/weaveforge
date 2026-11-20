@@ -87,6 +87,8 @@ export interface DocumentLinks {
 export interface DocumentHostProps {
   tab: TabRef;
   mode: DocumentMode;
+  /** The document's title, which names an ink note's printed and exported pages. */
+  title?: string;
   body: string;
   /** Where a read-mode wikilink can go. The same lists `/notes` passes. */
   links?: DocumentLinks;
@@ -178,6 +180,17 @@ export function isCanvasDocument(doc: Pick<Document, "kind" | "path">): boolean 
 }
 
 /**
+ * The suffix a tab and its breadcrumb show: the file the document is kept in.
+ * A canvas note is a `.canvas` file and a note written in ink an `.ink.md` one
+ * (the files are named from the body), so neither shows its kind's `.note.md`.
+ */
+export function fileSuffixFor(doc: Pick<Document, "kind" | "path" | "body"> | undefined, kind: string): string | null {
+  if (doc && isCanvasDocument(doc)) return ".canvas";
+  if (doc?.kind === "vault_page" && readyCore().isInkNoteBody(doc.body)) return readyCore().kindSuffix("ink_page");
+  return readyCore().kindSuffix(kind);
+}
+
+/**
  * How each kind stores a pasted or dropped image, and the markdown it writes.
  *
  * The per-kind column `ui/kind.ts` cannot hold, because the values are
@@ -243,6 +256,7 @@ export function surfaceBody(saved: string, live: string | null): string {
 export function DocumentHost({
   tab,
   mode,
+  title,
   body,
   links,
   completions,
@@ -414,6 +428,7 @@ export function DocumentHost({
     return (
       <InkHost
         noteId={tab.id}
+        title={title}
         body={surfaceBody(body, liveBody)}
         deps={getContainer().ink}
         onSave={saveOnly}
