@@ -787,7 +787,7 @@ async fn shared_state_post_requires_owner() {
     let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
 
     let url = relay.url(&format!("/shared-docs/{ITEM}/state"));
-    let body = json!({"kind": "canvas", "encoding": "json", "state": {"n": 1}});
+    let body = json!({"kind": "feed", "encoding": "json", "state": {"n": 1}});
     let (guest_status, _) =
         http(reqwest::Method::POST, &url, GUEST_TOKEN, Some(body.clone())).await;
     assert_eq!(guest_status, 403);
@@ -795,6 +795,52 @@ async fn shared_state_post_requires_owner() {
     let (owner_status, reply) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(body)).await;
     assert_eq!(owner_status, 200);
     assert_eq!(reply["epoch"], 2);
+}
+
+#[tokio::test]
+async fn restore_feed_stores_json_state() {
+    let dir = TempDir::new("restore-feed");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let url = relay.url(&format!("/shared-docs/{ITEM}/state"));
+    let body = json!({"kind": "feed", "encoding": "json", "state": {"n": 1}});
+    let (status, reply) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(body)).await;
+    assert_eq!(status, 200);
+    assert_eq!(reply["epoch"], 2);
+
+    let row = store.load(ITEM).await.expect("load").expect("row");
+    assert_eq!(
+        row.state,
+        serde_json::to_vec(&json!({"n": 1})).expect("json")
+    );
+}
+
+#[tokio::test]
+async fn restore_rejects_encoding_that_does_not_match_kind() {
+    let dir = TempDir::new("restore-kind");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let url = relay.url(&format!("/shared-docs/{ITEM}/state"));
+    // A canvas is a Yjs document: JSON is not a valid restore for it.
+    let json_canvas = json!({"kind": "canvas", "encoding": "json", "state": {"n": 1}});
+    let (status, _) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(json_canvas)).await;
+    assert_eq!(status, 400);
+    // A feed is JSON: a Yjs state is not a valid restore for it.
+    let yjs_feed = json!({
+        "kind": "feed",
+        "encoding": "yjs-state",
+        "state": STANDARD.encode(text_update("x")),
+    });
+    let (status, _) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(yjs_feed)).await;
+    assert_eq!(status, 400);
+
+    let row = store.load(ITEM).await.expect("load").expect("row");
+    assert_eq!(row.epoch, 1);
+    assert!(row.state.is_empty());
 }
 
 #[tokio::test]
