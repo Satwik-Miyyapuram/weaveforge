@@ -2,6 +2,7 @@
 //! The hub map lock is only held for a quick lookup, insert or remove, never across an await.
 
 use std::collections::HashMap;
+use std::io;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -52,6 +53,8 @@ pub struct RoomInner {
     pub status: DocStatus,
     /// True when updates are in the log but not yet saved.
     pub dirty: bool,
+    /// Bumped on every applied update, so a save can tell whether updates arrived while it ran.
+    pub version: u64,
     /// The write-back lease.
     pub lease: LeaseBook,
     /// The update log on disk.
@@ -72,6 +75,8 @@ pub struct Room {
     /// recheck to this room until it closes and reopens (update checks still read the row).
     /// Item-level grants still reach it.
     pub project_id: Option<String>,
+    /// Held by one save at a time, so an older snapshot cannot land after a newer one.
+    pub saving: tokio::sync::Mutex<()>,
     /// The mutable state.
     pub inner: tokio::sync::Mutex<RoomInner>,
     /// Fan-out to the clients.
@@ -90,6 +95,8 @@ impl Room {
 pub struct Hub {
     rooms: Mutex<HashMap<String, Arc<Room>>>,
     next_client: AtomicU64,
+    /// Held for a whole `open_room`, so two opens of one item cannot both cut and replay its log.
+    open_gate: Mutex<()>,
 }
 
 impl Hub {
@@ -143,6 +150,13 @@ impl Hub {
     /// The room map, even when a panic poisoned its lock.
     fn map(&self) -> MutexGuard<'_, HashMap<String, Arc<Room>>> {
         self.rooms.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Serialises room opening: the guard is held without an await, so it never crosses one.
+    fn open_gate(&self) -> MutexGuard<'_, ()> {
+        self.open_gate
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Inserts `room` unless one is already open for its item; returns the one in the map.
@@ -201,6 +215,9 @@ fn remove_log(dir: &Path, item_id: &str) -> Result<(), String> {
 pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, String> {
     let item_id = row.item_id;
     let project_id = row.project_id;
+    // Held to the end of this fn (no await inside): the check below and the log open/replay
+    // cannot interleave with another open of the same item.
+    let _gate = state.hub.open_gate();
     if let Some(room) = state.hub.get(&item_id) {
         return Ok(room);
     }
@@ -209,10 +226,14 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
         apply_bytes(&doc, &row.state)?;
     }
     let log = UpdateLog::open(&state.config.log_dir, &item_id).map_err(|err| err.to_string())?;
-    let replayed = log.read_all().map_err(|err| err.to_string())?;
-    for update in &replayed {
-        apply_bytes(&doc, update)?;
-    }
+    // Replayed one record at a time, so a long log is not read into memory in full.
+    let mut replayed = false;
+    log.for_each(|update| {
+        apply_bytes(&doc, update).map_err(io::Error::other)?;
+        replayed = true;
+        Ok(())
+    })
+    .map_err(|err| err.to_string())?;
     let inner = RoomInner {
         doc,
         epoch: row.epoch,
@@ -220,7 +241,8 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
         kind: row.kind,
         owner: row.owner,
         status: row.status,
-        dirty: !replayed.is_empty(),
+        dirty: replayed,
+        version: 0,
         lease: LeaseBook::new(state.config.lease_ms),
         log,
         clients: 0,
@@ -228,6 +250,7 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
     let room = Arc::new(Room {
         item_id,
         project_id,
+        saving: tokio::sync::Mutex::new(()),
         inner: tokio::sync::Mutex::new(inner),
         tx: tokio::sync::broadcast::channel(BROADCAST_CAPACITY).0,
     });
@@ -236,15 +259,22 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
 
 /// Saves the room's full state and empties its log, when anything changed since the last save.
 pub async fn persist_room(state: &CollabState, room: &Room) -> Result<(), String> {
+    // One save at a time per room: otherwise an older snapshot could be written after a newer one.
+    let _saving = room.saving.lock().await;
+    let (bytes, epoch, version) = {
+        let inner = room.inner.lock().await;
+        if !inner.dirty {
+            return Ok(());
+        }
+        (encode_full(&inner.doc), inner.epoch, inner.version)
+    };
+    // The room lock is released during the store write, so clients keep sending updates.
+    state.store.save_state(&room.item_id, epoch, &bytes).await?;
     let mut inner = room.inner.lock().await;
-    if !inner.dirty {
+    // Updates that arrived during the save are not in `bytes`: keep their log and the dirty flag.
+    if inner.version != version {
         return Ok(());
     }
-    let bytes = encode_full(&inner.doc);
-    state
-        .store
-        .save_state(&room.item_id, inner.epoch, &bytes)
-        .await?;
     inner.log.truncate().map_err(|err| err.to_string())?;
     inner.dirty = false;
     Ok(())

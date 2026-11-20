@@ -193,6 +193,28 @@ fn update_log_torn_tail_truncated_on_open_so_append_survives() {
 }
 
 #[test]
+fn update_log_for_each_streams_records_in_order() {
+    let dir = temp_dir("for-each");
+    let mut log = UpdateLog::open(&dir, "doc-each").unwrap();
+    log.append(b"one").unwrap();
+    log.append(b"two").unwrap();
+    log.append(b"three").unwrap();
+
+    let mut seen = Vec::new();
+    log.for_each(|update| {
+        seen.push(update.to_vec());
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(seen, log.read_all().unwrap());
+    assert_eq!(
+        seen,
+        vec![b"one".to_vec(), b"two".to_vec(), b"three".to_vec()]
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn unsafe_item_ids_have_no_log_path() {
     let dir = PathBuf::from("logs");
     assert!(log_path(&dir, "doc.1").is_none());

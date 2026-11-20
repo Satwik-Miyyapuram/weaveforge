@@ -659,7 +659,17 @@ async fn oversized_awareness_is_not_relayed() {
         .expect("guest joins");
     let _hello = next_json(&mut guest).await;
 
-    send_frame(&mut guest, awareness_frame(70_000)).await;
+    let oversized = awareness_frame(70_000);
+    // classify() ignores undecodable frames, so without this check the test could pass even with
+    // no size cap. The frame must parse as a real awareness message for the cap to be what drops it.
+    assert!(
+        matches!(
+            <yrs::sync::Message as yrs::updates::decoder::Decode>::decode_v1(&oversized),
+            Ok(yrs::sync::Message::Awareness(_))
+        ),
+        "test frame is not a decodable awareness message"
+    );
+    send_frame(&mut guest, oversized).await;
     send_frame(&mut guest, AWARENESS_QUERY.to_vec()).await;
 
     // Frames arrive in order, so the first binary frame the owner sees must be the small one.
@@ -962,6 +972,120 @@ impl SharedDocStore for AccessFails {
     fn revoke_item_grants<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
         self.inner.revoke_item_grants(item_id)
     }
+}
+
+/// Delegates to a `MemoryStore`; `save_state` announces itself on `entered` and waits for `release`.
+struct GatedSave {
+    inner: Arc<MemoryStore>,
+    entered: Arc<tokio::sync::Notify>,
+    release: Arc<tokio::sync::Notify>,
+}
+
+impl SharedDocStore for GatedSave {
+    fn load<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<Option<DocRow>, String>> {
+        self.inner.load(item_id)
+    }
+    fn seed<'a>(&'a self, row: &'a DocRow) -> BoxFut<'a, Result<(), String>> {
+        self.inner.seed(row)
+    }
+    fn save_state<'a>(
+        &'a self,
+        item_id: &'a str,
+        epoch: i64,
+        state: &'a [u8],
+    ) -> BoxFut<'a, Result<(), String>> {
+        Box::pin(async move {
+            self.entered.notify_one();
+            self.release.notified().await;
+            self.inner.save_state(item_id, epoch, state).await
+        })
+    }
+    fn replace_state<'a>(
+        &'a self,
+        item_id: &'a str,
+        kind: &'a str,
+        state: &'a [u8],
+    ) -> BoxFut<'a, Result<i64, String>> {
+        self.inner.replace_state(item_id, kind, state)
+    }
+    fn set_status<'a>(
+        &'a self,
+        item_id: &'a str,
+        status: DocStatus,
+    ) -> BoxFut<'a, Result<(), String>> {
+        self.inner.set_status(item_id, status)
+    }
+    fn set_writer<'a>(
+        &'a self,
+        item_id: &'a str,
+        device: Option<&'a str>,
+        until_ms: Option<i64>,
+    ) -> BoxFut<'a, Result<(), String>> {
+        self.inner.set_writer(item_id, device, until_ms)
+    }
+    fn delete<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
+        self.inner.delete(item_id)
+    }
+    fn access<'a>(
+        &'a self,
+        item_id: &'a str,
+        user: &'a str,
+    ) -> BoxFut<'a, Result<Option<Permission>, String>> {
+        self.inner.access(item_id, user)
+    }
+    fn create_grant<'a>(&'a self, grant: &'a NewGrant) -> BoxFut<'a, Result<GrantRow, String>> {
+        self.inner.create_grant(grant)
+    }
+    fn list_grants<'a>(
+        &'a self,
+        owner: &'a str,
+        target_id: Option<&'a str>,
+    ) -> BoxFut<'a, Result<Vec<GrantRow>, String>> {
+        self.inner.list_grants(owner, target_id)
+    }
+    fn revoke_grant<'a>(
+        &'a self,
+        owner: &'a str,
+        id: &'a str,
+    ) -> BoxFut<'a, Result<Option<String>, String>> {
+        self.inner.revoke_grant(owner, id)
+    }
+    fn revoke_item_grants<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
+        self.inner.revoke_item_grants(item_id)
+    }
+}
+
+/// The room lock is free while a save is in flight, so clients keep sending updates during a slow
+/// store write (the save only holds the lock to snapshot the doc).
+#[tokio::test]
+async fn room_lock_is_free_while_a_save_is_in_flight() {
+    let dir = TempDir::new("save-gap");
+    let mem = Arc::new(MemoryStore::new());
+    seed(&mem, ITEM, Vec::new()).await;
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let store = Arc::new(GatedSave {
+        inner: mem.clone(),
+        entered: entered.clone(),
+        release: release.clone(),
+    });
+    let state = build_state(dir.path(), store, Duration::from_secs(3600));
+    let row = mem.load(ITEM).await.expect("load").expect("row");
+    let room = hub::open_room(&state, row).await.expect("open room");
+    room.inner.lock().await.dirty = true;
+    let saver = {
+        let state = state.clone();
+        let room = room.clone();
+        tokio::spawn(async move { hub::persist_room(&state, &room).await })
+    };
+    tokio::time::timeout(RECV, entered.notified())
+        .await
+        .expect("save started");
+    // The guard is dropped inside this statement: the save needs the lock to finish.
+    let acquired = tokio::time::timeout(RECV, room.inner.lock()).await.is_ok();
+    release.notify_one();
+    saver.await.expect("saver joins").expect("persist succeeds");
+    assert!(acquired, "room lock was held across the store save");
 }
 
 #[tokio::test]
