@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ClipboardEvent,
   type DragEvent,
   type MouseEvent as ReactMouseEvent,
@@ -45,7 +46,8 @@ import {
   type Size,
 } from "../application/freeform-geometry";
 import { encodeStroke, eraseHits, strokeAt, type InkPoint } from "../application/freeform-ink";
-import { DEFAULT_PEN_COLOUR } from "../application/pen-colour";
+import { CANVAS_PEN_COLOUR_KEY, DEFAULT_PEN_COLOUR, penColourFrom } from "../application/pen-colour";
+import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { canonicalInkColour, resolveInkColour } from "@/features/ink/render/resolve-ink-colour";
 import { useThemeInk } from "@/features/ink/render/use-theme-ink";
 import { canRedo, canUndo, createHistory, record, redo, undo, type History } from "../application/canvas-history";
@@ -88,6 +90,10 @@ type Gesture =
   | { kind: "erase"; base: CanvasFile }
   | { kind: "move"; base: CanvasFile; ids: ReadonlySet<string>; origin: Point }
   | { kind: "resize"; base: CanvasFile; id: string; origin: Point; size: Size; picture: boolean };
+
+const subscribeSettings = (listener: () => void) => workspaceSettings.subscribe(listener);
+const readPenColour = () => penColourFrom(workspaceSettings.get(CANVAS_PEN_COLOUR_KEY));
+const serverPenColour = () => DEFAULT_PEN_COLOUR;
 
 const EMPTY_FILE: CanvasFile = { nodes: [], edges: [] };
 const DEFAULT_VIEW: PageView = { x: 0, y: 0, zoom: 1 };
@@ -157,7 +163,9 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [mode, setMode] = useState<Mode>("select");
   /** Canonical (Paper) hex; drawn and shown through the live theme. Starts at the text colour. */
-  const [colour, setColour] = useState(DEFAULT_PEN_COLOUR);
+  // Kept in the workspace settings file, so the pen keeps its colour across sessions.
+  const colour = useSyncExternalStore(subscribeSettings, readPenColour, serverPenColour);
+  const setColour = useCallback((next: string) => workspaceSettings.set(CANVAS_PEN_COLOUR_KEY, next), []);
   const ink = useThemeInk();
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [view, setView] = useState<PageView>(DEFAULT_VIEW);

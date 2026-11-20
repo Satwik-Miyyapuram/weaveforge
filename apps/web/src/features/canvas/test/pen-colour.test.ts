@@ -12,9 +12,19 @@ import { parseHex } from "culori";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { INK_RENDER_COLOURS, type InkPalette } from "@/features/ink/render/parts-1";
 import { inkThemeOf, resolveInkColour } from "@/features/ink/render/resolve-ink-colour";
-import { DEFAULT_PEN_COLOUR } from "../application/pen-colour";
+import { DEFAULT_PEN_COLOUR, penColourFrom } from "../application/pen-colour";
 
 before(loadTestCore);
+
+test("a stored hex is the pen colour, lower-cased", () => {
+  assert.equal(penColourFrom("#AABBCC"), "#aabbcc");
+});
+
+test("anything else falls back to the default pen", () => {
+  for (const raw of [undefined, null, 3, "red", "#abc", "#gggggg", "#aabbccdd", {}]) {
+    assert.equal(penColourFrom(raw), DEFAULT_PEN_COLOUR);
+  }
+});
 
 test("the default pen is a hex the colour input and Excalidraw export accept", () => {
   assert.match(DEFAULT_PEN_COLOUR, /^#[0-9a-f]{6}$/);

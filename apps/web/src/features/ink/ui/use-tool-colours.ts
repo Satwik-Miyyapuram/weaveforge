@@ -1,6 +1,10 @@
 /**
- * Each drawing tool's own colour and its own five quick colours, remembered on
- * this device.
+ * Each drawing tool's own colour and its own five quick colours.
+ *
+ * The colours are kept in the workspace's `.weaveforge/settings.json` under
+ * `ink.toolColours`, so they travel with the workspace and survive restarts.
+ * localStorage keeps a copy for a window with no folder and for the migration
+ * from old keys; the file's value wins when it has one.
  *
  * One key holds every tool, so the pen, the highlighter, a highlight, an
  * underline and a text box each keep the colour they were last given. Every
@@ -22,7 +26,11 @@ import { useSyncExternalStore } from "react";
 import { INK_COLOURS, type InkColour } from "@weaveforge/core";
 
 import { READER_ANNOTATION_COLORS } from "@/features/reader/application/parts";
+import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { readStored, readStoredJson, writeStoredJson } from "@/lib/safe-storage";
+
+/** Where the colours live in the workspace settings file. */
+export const TOOL_COLOURS_SETTINGS_KEY = ["ink", "toolColours"] as const;
 
 const TOOL_COLOUR_KEY = "weaveforge.ink.tool-colours";
 const LEGACY_PEN_PREFS_KEY = "weaveforge.reader.pen";
@@ -159,20 +167,26 @@ function readLegacy(): LegacyPen {
 // One cache for the window, so every pane reads the same object.
 let cache: ToolColours | null = null;
 const listeners = new Set<() => void>();
+// The settings value the cache was built from, so our own write does not drop the cache.
+let seen: unknown = undefined;
 
 function load(): ToolColours {
   if (cache) return cache;
-  const stored = readStoredJson<unknown>(TOOL_COLOUR_KEY, null);
+  const fromFile = workspaceSettings.get(TOOL_COLOURS_SETTINGS_KEY);
+  seen = fromFile;
+  const stored = fromFile ?? readStoredJson<unknown>(TOOL_COLOUR_KEY, null);
   cache = resolveToolColours(stored, readLegacy());
   // Migrate now (or fill in a missing tool). The pen preference is rewritten without its colour, so the old
   // key cannot be trusted to hold it on the next launch.
-  if (!isWellFormed(stored)) writeStoredJson(TOOL_COLOUR_KEY, cache);
+  if (fromFile === undefined && !isWellFormed(stored)) writeStoredJson(TOOL_COLOUR_KEY, cache);
   return cache;
 }
 
 function commit(next: ToolColours) {
   cache = next;
   writeStoredJson(TOOL_COLOUR_KEY, next);
+  seen = next;
+  workspaceSettings.set(TOOL_COLOURS_SETTINGS_KEY, next);
   notify();
 }
 
@@ -187,6 +201,13 @@ export function setToolQuickSlot(id: ToolColourId, slot: number, colour: InkColo
 function notify() {
   for (const listener of listeners) listener();
 }
+
+/** The settings file changed (loaded, edited by hand, pulled): read it afresh. */
+workspaceSettings.subscribe(() => {
+  if (workspaceSettings.get(TOOL_COLOURS_SETTINGS_KEY) === seen) return;
+  cache = null;
+  notify();
+});
 
 /** Another window wrote the key (or cleared storage): read it afresh. */
 function onStorage(event: StorageEvent) {
@@ -217,4 +238,5 @@ export function useToolColours(): ToolColours {
 /** Tests only: forget the cache so the next read starts from storage. */
 export function resetToolColoursCacheForTests() {
   cache = null;
+  seen = undefined;
 }
