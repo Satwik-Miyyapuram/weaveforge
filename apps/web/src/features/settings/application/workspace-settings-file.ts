@@ -9,6 +9,8 @@ import type { IWorkspaceFs } from "@weaveforge/core";
 export const SETTINGS_PATH = ".weaveforge/settings.json";
 export const SETTINGS_VERSION = 1;
 export const SETTINGS_WRITE_DELAY_MS = 500;
+/** The longest wait between retries of a refused save. */
+const SETTINGS_RETRY_MAX_MS = 60_000;
 export type SettingsKey = readonly string[];
 export type SettingsDoc = Record<string, unknown>;
 export type SettingsState = "missing" | "ready" | "locked";
@@ -81,6 +83,7 @@ export class WorkspaceSettingsFile {
   private pending = new Map<string, PendingSet>();
   private generation = 0;
   private timer: unknown = null;
+  private failedSaves = 0;
   private writing: Promise<void> = Promise.resolve();
   private listeners = new Set<() => void>();
   private readonly deps: SettingsDeps;
@@ -209,6 +212,7 @@ export class WorkspaceSettingsFile {
         if (ok) {
           this.lastText = text;
           this.stateValue = "ready";
+          this.failedSaves = 0;
           if (this.generation === gen) this.pending.clear();
           else this.scheduleWrite();
           return;
@@ -218,8 +222,19 @@ export class WorkspaceSettingsFile {
         if (this.state() === "locked") return;
       }
       this.deps.warn(`${SETTINGS_PATH} kept changing; settings will be saved on the next change.`);
+      this.retryLater();
     } catch (err) {
       this.deps.warn(`settings not saved: ${err instanceof Error ? err.message : String(err)}`);
+      this.retryLater();
     }
+  }
+
+  /** Keeps unsaved edits alive: retries after a delay that doubles per failed save, capped. */
+  private retryLater(): void {
+    if (this.pending.size === 0 || this.stateValue === "locked" || !this.deps.fs()) return;
+    const ms = Math.min(this.delayMs * 2 ** this.failedSaves, SETTINGS_RETRY_MAX_MS);
+    this.failedSaves++;
+    this.clearTimer();
+    this.timer = this.schedule(() => void this.flush(), ms);
   }
 }
