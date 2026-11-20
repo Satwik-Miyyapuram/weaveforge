@@ -337,12 +337,15 @@ export async function moveInkStrokes(fs: IWorkspaceFs, fromNote: string, toNote:
     return;
   }
   if (from === to || !(await fs.stat(from))) return;
+  // A case-only rename may name the same folder (Windows, macOS): the page found at
+  // the new place can be the page itself, so nothing is removed.
+  const sameFolderMaybe = from.toLowerCase() === to.toLowerCase();
   await fs.mkdirp(to);
   for (const entry of await fs.list(from)) {
     if (entry.kind !== "file") continue;
     const dest = `${to}/${entry.path.split("/").pop() ?? ""}`;
     if (!(await fs.stat(dest))) await fs.writeFile(dest, await fs.readFile(entry.path));
-    await fs.remove(entry.path);
+    if (!sameFolderMaybe) await fs.remove(entry.path);
   }
 }
 

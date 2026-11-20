@@ -6,6 +6,7 @@ import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import type { RustCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
+import { moveInkStrokes } from "../application/parts-1";
 import { mirrorWorkspace } from "../application/parts-2";
 import { readMirrorBase, writeMirrorManifest } from "../application/parts-3";
 
@@ -94,4 +95,27 @@ test("a rename that fails leaves no twin and is tried again on the next run", as
   assert.notEqual(newPath, oldPath);
   assert.match(fs.toRecord()[newPath] ?? "", /Methods/);
   assert.deepEqual([...(await fs.readFile(`${core.inkStrokesDir(newPath)}/01J.inkb`))], [1, 2, 3]);
+});
+
+test("a rename that only changes case keeps every stroke on a case-insensitive disk", async () => {
+  const disk = new MemoryWorkspaceFs(() => AT);
+  // Windows and macOS: Methods and methods are one file.
+  const fold = (path: string) => path.toLowerCase();
+  const fs = {
+    readFile: (path: string) => disk.readFile(fold(path)),
+    writeFile: (path: string, data: Uint8Array | string) => disk.writeFile(fold(path), data),
+    remove: (path: string, options?: { recursive?: boolean }) => disk.remove(fold(path), options),
+    mkdirp: (path: string) => disk.mkdirp(fold(path)),
+    list: (dir: string) => disk.list(fold(dir)),
+    stat: (path: string) => disk.stat(fold(path)),
+  } as unknown as MemoryWorkspaceFs;
+  const root = core.projectDir(PROJECT);
+  const from = `${root}/notes/Methods.note.md`;
+  const to = `${root}/notes/methods.note.md`;
+  await fs.mkdirp(core.inkStrokesDir(from));
+  await fs.writeFile(`${core.inkStrokesDir(from)}/01J.inkb`, new Uint8Array([1, 2, 3]));
+
+  await moveInkStrokes(fs, from, to);
+
+  assert.deepEqual([...(await fs.readFile(`${core.inkStrokesDir(to)}/01J.inkb`))], [1, 2, 3]);
 });
