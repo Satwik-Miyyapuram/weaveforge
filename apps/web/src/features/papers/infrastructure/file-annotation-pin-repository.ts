@@ -8,6 +8,7 @@ import { typedCore } from "@/lib/rust-core";
 
 const ANNOTATIONS_SUFFIX = ".annotations.json";
 const PINS_SUFFIX = ".pins.json";
+const MAX_EDIT_ATTEMPTS = 5;
 
 /** One row of `<stem>.pins.json`, as the Rust exporter writes it (`PinRow`). */
 interface PinRow {
@@ -26,6 +27,9 @@ export interface IPinPaperSource {
  * paper's PDF (`x.pdf` -> `x.pins.json`), a bare array of rows. No database.
  */
 export class FileAnnotationPinRepository implements IAnnotationPinRepository {
+  /** The last queued edit per pins file path. */
+  private readonly tails = new Map<string, Promise<unknown>>();
+
   constructor(
     private readonly fs: IWorkspaceFs,
     private readonly projectRoot: string,
@@ -33,24 +37,23 @@ export class FileAnnotationPinRepository implements IAnnotationPinRepository {
   ) {}
 
   async save({ paperId, annotationKey, reportSectionId }: SaveAnnotationPinInput): Promise<AnnotationPin> {
-    const path = this.path(paperId);
-    const rows = await this.read(path);
-    let row = rows.find((r) => r.annotation_key === annotationKey);
-    if (row) {
-      row.report_section_id = reportSectionId;
-    } else {
-      row = { annotation_key: annotationKey, report_section_id: reportSectionId, created_at: new Date().toISOString() };
-      rows.push(row);
-    }
-    await this.write(path, rows);
-    return toPin(paperId, row);
+    return this.edit(paperId, (rows) => {
+      let row = rows.find((r) => r.annotation_key === annotationKey);
+      if (row) {
+        row.report_section_id = reportSectionId;
+      } else {
+        row = { annotation_key: annotationKey, report_section_id: reportSectionId, created_at: new Date().toISOString() };
+        rows.push(row);
+      }
+      return { rows, result: toPin(paperId, row) };
+    });
   }
 
   async remove(paperId: string, annotationKey: string): Promise<void> {
-    const path = this.path(paperId);
-    const rows = await this.read(path);
-    const kept = rows.filter((row) => row.annotation_key !== annotationKey);
-    if (kept.length !== rows.length) await this.write(path, kept);
+    await this.edit(paperId, (rows) => {
+      const kept = rows.filter((row) => row.annotation_key !== annotationKey);
+      return { rows: kept.length === rows.length ? null : kept, result: undefined };
+    });
   }
 
   async listForProject(): Promise<AnnotationPin[]> {
@@ -79,9 +82,34 @@ export class FileAnnotationPinRepository implements IAnnotationPinRepository {
     return parsePins(path, await this.fs.readText(path));
   }
 
-  private async write(path: string, rows: PinRow[]): Promise<void> {
+  /**
+   * One read-modify-write of a paper's pins. Edits to the same file run one after another
+   * (a save read before another save wrote would drop that save's row), and each write is
+   * conditional on the text it was based on, so a change from outside is retried, not lost.
+   * `change` returns `rows: null` when nothing needs writing.
+   */
+  private edit<T>(paperId: string, change: (rows: PinRow[]) => { rows: PinRow[] | null; result: T }): Promise<T> {
+    const path = this.path(paperId);
+    const run = (this.tails.get(path) ?? Promise.resolve()).then(() => this.editFile(path, change));
+    this.tails.set(path, run.catch(() => undefined));
+    return run;
+  }
+
+  private async editFile<T>(path: string, change: (rows: PinRow[]) => { rows: PinRow[] | null; result: T }): Promise<T> {
+    for (let attempt = 1; ; attempt++) {
+      const text = (await this.fs.stat(path)) ? await this.fs.readText(path) : null;
+      const { rows, result } = change(text === null ? [] : parsePins(path, text));
+      if (rows === null) return result;
+      if (await this.writeIfUnchanged(path, JSON.stringify(rows, null, 2), text)) return result;
+      if (attempt >= MAX_EDIT_ATTEMPTS) throw new Error(`pins file kept changing during the save (${path})`);
+    }
+  }
+
+  private async writeIfUnchanged(path: string, text: string, expected: string | null): Promise<boolean> {
     await this.fs.mkdirp(path.slice(0, path.lastIndexOf("/")));
-    await this.fs.writeFile(path, JSON.stringify(rows, null, 2));
+    if (this.fs.writeTextIf) return this.fs.writeTextIf(path, text, expected);
+    await this.fs.writeFile(path, text);
+    return true;
   }
 }
 

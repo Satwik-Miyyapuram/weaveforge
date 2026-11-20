@@ -39,6 +39,27 @@ test("save twice on the same key updates the row in place", async () => {
   assert.deepEqual(rows.map((r) => r.report_section_id), ["s2"]);
 });
 
+test("two concurrent saves on one paper keep both pins", async () => {
+  const { repo } = setup();
+  await Promise.all([
+    repo.save({ paperId: "p-1", annotationKey: "a", reportSectionId: "s1" }),
+    repo.save({ paperId: "p-1", annotationKey: "b", reportSectionId: "s1" }),
+  ]);
+  const keys = (await repo.listForPaper("p-1")).map((p) => p.annotationKey).sort();
+  assert.deepEqual(keys, ["a", "b"]);
+});
+
+test("a save and a remove on one paper, run together, both land", async () => {
+  const { repo } = setup();
+  await repo.save({ paperId: "p-1", annotationKey: "x", reportSectionId: "s1" });
+  await Promise.all([
+    repo.save({ paperId: "p-1", annotationKey: "a", reportSectionId: "s1" }),
+    repo.remove("p-1", "x"),
+  ]);
+  const keys = (await repo.listForPaper("p-1")).map((p) => p.annotationKey);
+  assert.deepEqual(keys, ["a"]);
+});
+
 test("remove of an absent pin is a no-op", async () => {
   const { fs, repo } = setup();
   await repo.remove("p-1", "missing");
