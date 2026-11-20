@@ -842,3 +842,52 @@ test("a pen still down when the page changes does not land its stroke on the new
   await settle();
   assert.equal(last("page-saved").strokes, 0, "the old page's stroke is not on the new page");
 });
+
+test("an aborted stroke is dropped, not left drawn and then committed by a late stroke-end", async () => {
+  fresh();
+  strokeId += 1;
+  const h = header();
+  const samples = new Float32Array(3 * INK_SAMPLE_STRIDE);
+  for (let i = 0; i < 3; i += 1) {
+    samples[i * INK_SAMPLE_STRIDE] = 10 + i * 30;
+    samples[i * INK_SAMPLE_STRIDE + 1] = 50;
+    samples[i * INK_SAMPLE_STRIDE + 2] = 0.5;
+    samples[i * INK_SAMPLE_STRIDE + 3] = i;
+  }
+  send({ type: "stroke-begin", header: h, sample: { buffer: samples, count: 3 } });
+  await settle();
+  send({ type: "stroke-abort", header: h });
+  send({
+    type: "stroke-end",
+    header: h,
+    sample: { buffer: new Float32Array(0), count: 0 },
+  });
+  send({ type: "save-page", requestId: 6 });
+  await settle();
+  assert.equal(last("page-saved").strokes, 0, "a palm-cancelled stroke is not saved");
+});
+
+test("an abort for another stroke leaves the live stroke alone", async () => {
+  fresh();
+  strokeId += 1;
+  const h = header();
+  const other = { ...h, strokeId: h.strokeId + 100 };
+  const samples = new Float32Array(3 * INK_SAMPLE_STRIDE);
+  for (let i = 0; i < 3; i += 1) {
+    samples[i * INK_SAMPLE_STRIDE] = 10 + i * 30;
+    samples[i * INK_SAMPLE_STRIDE + 1] = 50;
+    samples[i * INK_SAMPLE_STRIDE + 2] = 0.5;
+    samples[i * INK_SAMPLE_STRIDE + 3] = i;
+  }
+  send({ type: "stroke-begin", header: h, sample: { buffer: samples, count: 3 } });
+  await settle();
+  send({ type: "stroke-abort", header: other });
+  send({
+    type: "stroke-end",
+    header: h,
+    sample: { buffer: new Float32Array(0), count: 0 },
+  });
+  send({ type: "save-page", requestId: 7 });
+  await settle();
+  assert.equal(last("page-saved").strokes, 1, "a stale abort does not drop the live stroke");
+});

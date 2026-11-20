@@ -482,6 +482,17 @@ function endLiveStroke(): void {
 }
 
 function handleMessage(message: InkWorkerMessage): void {
+  // An abort is answered here, not by the route: the route has no abort kind
+  // and would ignore it, leaving the cancelled stroke drawn (finding 3). Only
+  // the stroke it names is dropped, so a stale abort cannot cut a new stroke.
+  if (message.type === "stroke-abort") {
+    if (state.live?.header.strokeId === message.header.strokeId) {
+      endLiveStroke();
+      // One more frame repaints the canvas without the cancelled fragment.
+      ensureLoop();
+    }
+    return;
+  }
   try {
     const plan = readyCore().inkWorkerRoute(routeInput(message));
     if (plan.action === "ignore") return;

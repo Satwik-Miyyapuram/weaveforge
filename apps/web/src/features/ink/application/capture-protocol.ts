@@ -100,6 +100,12 @@ export type InkWorkerMessage =
       sentAt?: number;
     }
   | { type: "stroke-end"; header: InkStrokeHeader; sample: InkSamplePayload }
+  /**
+   * The pen session cancelled the stroke it began (a palm, a gesture taking
+   * over): drop it without saving. Nothing is committed, so the worker never
+   * draws the fragment as ink.
+   */
+  | { type: "stroke-abort"; header: InkStrokeHeader }
   | { type: "samples-returned"; buffers: ArrayBuffer[] }
   | { type: "viewport"; transform: InkViewportTransform }
   | { type: "resize"; width: number; height: number; dpr: number }
@@ -419,6 +425,15 @@ export class InkSampleWriter {
     this.buffer[at + 2] = pressure;
     this.buffer[at + 3] = t;
     this.used += 1;
+  }
+
+  /**
+   * Drop the stroke in progress: its unsent samples are discarded, so none can
+   * ride on the next stroke's begin, and the worker is told to drop it too.
+   */
+  abort(header: InkStrokeHeader): void {
+    this.used = 0;
+    this.options.post({ type: "stroke-abort", header });
   }
 
   /**

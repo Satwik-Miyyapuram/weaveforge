@@ -246,8 +246,10 @@ export class PenCaptureSession {
 
   /** Discard the stroke in progress, because a palm decision arrived late. */
   abort(): void {
+    const header = this.header;
     this.clear();
     this.deps.stream.resetFilter();
+    if (header) this.deps.writer.abort(header);
   }
 
   /** Once per frame: get the pending samples to the worker. */

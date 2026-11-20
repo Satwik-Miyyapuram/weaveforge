@@ -117,6 +117,24 @@ function sessionHarness(
   return harness;
 }
 
+test("abort tells the worker to drop the live stroke, not leave it drawn", () => {
+  const harness = sessionHarness();
+  harness.session.pointerDown(pointer({ pointerType: "pen", pointerId: 11, t: 0 }));
+  harness.session.pointerRawUpdate(
+    pointer({ pointerType: "pen", pointerId: 11, clientX: 120, clientY: 120, t: 8 }),
+  );
+  harness.session.flush();
+  const begin = harness.messages.find((m) => m.type === "stroke-begin");
+  assert.ok(begin && begin.type === "stroke-begin", "the stroke was begun");
+
+  harness.session.abort();
+
+  assert.equal(harness.session.active, false);
+  const abort = harness.messages.at(-1);
+  assert.ok(abort && abort.type === "stroke-abort", `abort posts stroke-abort, got ${abort?.type}`);
+  assert.equal(abort.header.strokeId, begin.header.strokeId, "it names the stroke that was live");
+});
+
 test("a 240 Hz stroke through the session touches the screen once, at the end", () => {
   const harness = sessionHarness();
   const down = pointer({ pointerType: "pen", pointerId: 7, t: 0 });
