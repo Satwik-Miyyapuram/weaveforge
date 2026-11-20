@@ -433,7 +433,7 @@ export class InkSampleWriter {
    */
   abort(header: InkStrokeHeader): void {
     this.used = 0;
-    this.options.post({ type: "stroke-abort", header });
+    this.options.post({ type: "stroke-abort", header }, []);
   }
 
   /**
