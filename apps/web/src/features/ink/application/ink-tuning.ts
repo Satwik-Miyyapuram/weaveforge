@@ -61,7 +61,7 @@ export const DEFAULT_INK_TUNING: Readonly<InkTuning> = Object.freeze({
   wetDpr: 0,
   thinning: 0.6,
   smoothing: 0.5,
-  streamline: 0.5,
+  streamline: 0.15,
   taperStart: 0,
   taperEnd: 0,
   pressureGamma: 1,
