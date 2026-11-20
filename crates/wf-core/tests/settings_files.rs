@@ -118,6 +118,8 @@ fn config_paths() {
         DEVICE_SETTINGS_PATH,
         ".weaveforge/ai/audit/2026-11/b.jsonl",
         "r/.overleaf.json",
+        ".weaveforge/settings.JSON",
+        ".weaveforge/ai/audit/2026-11/B.JSONL",
     ] {
         assert!(is_config_path(path), "{path}");
     }
@@ -126,6 +128,49 @@ fn config_paths() {
     }
     // A note is not a config file, so the word token in it is fine.
     assert!(check_config_write("notes/a.md", "token: x").is_ok());
+}
+
+/// Plurals and case variants of a secret key name a secret too. Names that only look
+/// similar (`sortKeys`, `tokenizers`) pass.
+#[test]
+fn secret_key_plurals_and_variants_refused() {
+    for key in [
+        "apiKeys",
+        "accessTokens",
+        "secretKeys",
+        "API_KEYS",
+        "client-secrets",
+        "secretKey",
+        "signingKey",
+        "authKey",
+    ] {
+        let text = format!(r#"{{"{key}":"abc"}}"#);
+        assert!(check_config_write(SETTINGS_PATH, &text).is_err(), "{key}");
+    }
+    for key in ["sortKeys", "tokenizers", "keyboards"] {
+        let text = format!(r#"{{"{key}":"abc"}}"#);
+        assert!(check_config_write(SETTINGS_PATH, &text).is_ok(), "{key}");
+    }
+}
+
+/// A secret key holding a non-string value (an array, number, object or boolean) is
+/// still a secret; only an absent or empty value is fine.
+#[test]
+fn secret_key_with_non_string_value_refused() {
+    for text in [
+        r#"{"token":["hunter2"]}"#,
+        r#"{"apiKey":12345}"#,
+        r#"{"password":{"v":"x"}}"#,
+        r#"{"cookie":true}"#,
+    ] {
+        assert!(check_config_write(SETTINGS_PATH, text).is_err(), "{text}");
+    }
+    for text in [
+        r#"{"token":null,"apiKey":""}"#,
+        r#"{"apiKeys":[],"token":{}}"#,
+    ] {
+        assert!(check_config_write(SETTINGS_PATH, text).is_ok(), "{text}");
+    }
 }
 
 const SECRET_KEYS: [&str; 8] = [

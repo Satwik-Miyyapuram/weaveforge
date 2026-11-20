@@ -23,6 +23,9 @@ const SECRET_KEY_ENDINGS: &[&str] = &[
     "credential",
     "credentials",
     "bearer",
+    "secretkey",
+    "signingkey",
+    "authkey",
 ];
 
 /// Prefixes of well-known token formats; each must be followed by at least
@@ -71,7 +74,11 @@ pub fn is_secret_key(key: &str) -> bool {
         .filter(|c| *c != '-' && *c != '_')
         .flat_map(char::to_lowercase)
         .collect();
-    SECRET_KEY_ENDINGS.iter().any(|end| norm.ends_with(end))
+    // A plural (`apiKeys`, `accessTokens`) names the same secret as its singular.
+    let singular = norm.strip_suffix('s').unwrap_or(&norm);
+    SECRET_KEY_ENDINGS
+        .iter()
+        .any(|end| norm.ends_with(end) || singular.ends_with(end))
 }
 
 fn is_token_char(c: char) -> bool {
@@ -114,6 +121,17 @@ fn join(base: &str, key: &str) -> String {
     }
 }
 
+/// A value that holds no secret: null, an empty string, or an empty array or object.
+fn is_blank(value: &Value) -> bool {
+    match value {
+        Value::Null => true,
+        Value::String(s) => s.is_empty(),
+        Value::Array(items) => items.is_empty(),
+        Value::Object(map) => map.is_empty(),
+        _ => false,
+    }
+}
+
 fn find_at(value: &Value, at: &str) -> Option<String> {
     match value {
         Value::String(s) => contains_token(s).then(|| at.to_owned()),
@@ -123,7 +141,7 @@ fn find_at(value: &Value, at: &str) -> Option<String> {
             .find_map(|(i, v)| find_at(v, &format!("{at}[{i}]"))),
         Value::Object(map) => map.iter().find_map(|(k, v)| {
             let here = join(at, k);
-            let named = is_secret_key(k) && v.as_str().is_some_and(|s| !s.is_empty());
+            let named = is_secret_key(k) && !is_blank(v);
             if named { Some(here) } else { find_at(v, &here) }
         }),
         _ => None,
@@ -151,6 +169,7 @@ pub fn is_config_path(path: &str) -> bool {
     if name == ".overleaf.json" {
         return true;
     }
+    let name = name.to_lowercase();
     path.starts_with(".weaveforge/") && (name.ends_with(".json") || name.ends_with(".jsonl"))
 }
 
