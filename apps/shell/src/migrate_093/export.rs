@@ -2,11 +2,11 @@
 //! Files are paired by path only: sidecars take their stem from the paper's path, and paper
 //! facts are frontmatter properties on the paper file. No file or property is keyed by id.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use wf_core::sync::folder_layout::{annotations_path, comments_path};
+use wf_core::sync::folder_layout::{annotations_path, comments_path, pins_path};
 use wf_core::sync::frontmatter::{frontmatter_string, read_frontmatter, write_frontmatter};
 
 use super::rules::{Stored, decide, is_trashed, migrated_copy_path, parse_rfc3339};
@@ -41,6 +41,17 @@ pub struct CommentRow {
     /// The comment text.
     pub body: String,
     /// When the comment was made (ISO-8601 UTC).
+    pub created_at: String,
+}
+
+/// One user pin on a paper's annotation (0.9.2 `annotation_pins`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PinRow {
+    /// The annotation the pin is on.
+    pub annotation_key: String,
+    /// The report section it is pinned to, if any.
+    pub report_section_id: Option<String>,
+    /// When it was pinned (ISO-8601 UTC).
     pub created_at: String,
 }
 
@@ -129,6 +140,8 @@ pub struct PaperExport {
     pub annotations: Vec<AnnotationRow>,
     /// Comments on the paper.
     pub comments: Vec<CommentRow>,
+    /// User pins on the paper's annotations.
+    pub pins: Vec<PinRow>,
     /// Pin and screening facts for the paper.
     pub facts: PaperFacts,
 }
@@ -161,6 +174,21 @@ pub fn comments_document(rows: &[CommentRow]) -> String {
 /// The text is not a list of comment rows.
 pub fn read_comments(text: &str) -> Result<Vec<CommentRow>, String> {
     serde_json::from_str(text).map_err(|err| format!("comments sidecar is not valid: {err}"))
+}
+
+/// Serialises rows as the pins sidecar.
+#[must_use]
+pub fn pins_document(rows: &[PinRow]) -> String {
+    // A list of plain structs cannot fail to serialise.
+    serde_json::to_string_pretty(rows).unwrap_or_default()
+}
+
+/// Reads a pins sidecar.
+///
+/// # Errors
+/// The text is not a list of pin rows.
+pub fn read_pins(text: &str) -> Result<Vec<PinRow>, String> {
+    serde_json::from_str(text).map_err(|err| format!("pins sidecar is not valid: {err}"))
 }
 
 /// The screening of a paper: the latest decision wins. Every state is checked, so an unknown
@@ -219,7 +247,7 @@ pub fn apply_paper_facts(content: &str, facts: &PaperFacts) -> String {
     let mut changed = false;
     for (key, value) in &wanted {
         if parsed.frontmatter.get(key) != Some(value) {
-            parsed.frontmatter.insert(key.clone(), value.clone());
+            let _ = parsed.frontmatter.insert(key.clone(), value.clone());
             changed = true;
         }
     }
@@ -308,6 +336,7 @@ pub fn export_paper<F: WorkspaceFiles + ?Sized>(
     }
     let has_data = !item.annotations.is_empty()
         || !item.comments.is_empty()
+        || !item.pins.is_empty()
         || !wanted_fields(&item.facts).is_empty();
     if !has_data {
         return Ok(0);
@@ -334,8 +363,16 @@ pub fn export_paper<F: WorkspaceFiles + ?Sized>(
             &comments_document(&item.comments),
             &item.updated_at,
         )?;
+    let pins = !item.pins.is_empty()
+        && write_sidecar(
+            files,
+            &trash,
+            &pins_path(paper_rel),
+            &pins_document(&item.pins),
+            &item.updated_at,
+        )?;
     let facts = write_facts(files, paper_rel, &item.facts)?;
-    Ok(usize::from(annotations) + usize::from(comments) + usize::from(facts))
+    Ok(usize::from(annotations) + usize::from(comments) + usize::from(pins) + usize::from(facts))
 }
 
 /// Reads the export back. Passes when the paper holds its pin and screening and each non-empty
@@ -368,6 +405,11 @@ pub fn verify_paper<F: WorkspaceFiles + ?Sized>(
             !item.comments.is_empty(),
             comments_path(paper_rel),
             comments_document(&item.comments),
+        ),
+        (
+            !item.pins.is_empty(),
+            pins_path(paper_rel),
+            pins_document(&item.pins),
         ),
     ];
     for (wanted, rel, document) in sidecars {
@@ -468,6 +510,7 @@ pub fn plan_exports(
     comments: &[Value],
     pins: &[Value],
     screening: &[Value],
+    annotation_pins: &[Value],
 ) -> ExportPlan {
     let mut path_counts: BTreeMap<String, usize> = BTreeMap::new();
     for paper in papers {
@@ -475,6 +518,7 @@ pub fn plan_exports(
             .entry(paper_path(&text_field(paper, "title")))
             .or_default() += 1;
     }
+    let paper_ids: BTreeSet<String> = papers.iter().map(|paper| text_field(paper, "id")).collect();
     let mut plan = ExportPlan::default();
     for paper in papers {
         let id = text_field(paper, "id");
@@ -489,6 +533,16 @@ pub fn plan_exports(
             })
             .collect();
         let pinned = matching(pins, "resource_id", &id).next().is_some();
+        let pins_here: Vec<PinRow> = matching(annotation_pins, "paper_id", &id)
+            .map(|row| PinRow {
+                annotation_key: text_field(row, "annotation_key"),
+                report_section_id: row
+                    .get("report_section_id")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+                created_at: text_field(row, "created_at"),
+            })
+            .collect();
         let decisions: Vec<ScreeningDecision> = matching(screening, "paper_id", &id)
             .map(screening_decision)
             .collect();
@@ -499,7 +553,11 @@ pub fn plan_exports(
                 None
             }
         };
-        if annotations_here.is_empty() && comments_here.is_empty() && !pinned && screened.is_none()
+        if annotations_here.is_empty()
+            && comments_here.is_empty()
+            && !pinned
+            && pins_here.is_empty()
+            && screened.is_none()
         {
             continue;
         }
@@ -512,6 +570,7 @@ pub fn plan_exports(
         let updated_at = annotations_here
             .iter()
             .map(|row| row.updated_at.as_str())
+            .chain(pins_here.iter().map(|row| row.created_at.as_str()))
             .max()
             .unwrap_or_default()
             .to_owned();
@@ -521,11 +580,21 @@ pub fn plan_exports(
                 updated_at,
                 annotations: annotations_here,
                 comments: comments_here,
+                pins: pins_here,
                 facts: PaperFacts {
                     pinned,
                     screening: screened,
                 },
             },
+        ));
+    }
+    let orphan_pins = annotation_pins
+        .iter()
+        .filter(|row| !paper_ids.contains(&text_field(row, "paper_id")))
+        .count();
+    if orphan_pins > 0 {
+        plan.skipped.push(format!(
+            "{orphan_pins} annotation pin(s) on a paper that is not in the library, so they were not exported"
         ));
     }
     plan

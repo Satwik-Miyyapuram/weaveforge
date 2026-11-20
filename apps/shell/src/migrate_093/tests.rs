@@ -4,13 +4,13 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 
 use serde_json::json;
-use wf_core::sync::folder_layout::{annotations_path, comments_path, trash_path};
+use wf_core::sync::folder_layout::{annotations_path, comments_path, pins_path, trash_path};
 
 use super::export::{
-    AnnotationRow, CommentRow, PaperExport, PaperFacts, PaperScreening, Screening,
+    AnnotationRow, CommentRow, PaperExport, PaperFacts, PaperScreening, PinRow, Screening,
     ScreeningDecision, annotations_document, apply_paper_facts, comments_document, export_paper,
-    paper_path, pick_screening, plan_exports, read_annotations, read_comments, read_paper_facts,
-    verify_paper,
+    paper_path, pick_screening, pins_document, plan_exports, read_annotations, read_comments,
+    read_paper_facts, read_pins, verify_paper,
 };
 use super::rules::{
     Decision, LegacyShare, ShareSink, Stored, decide, is_trashed, migrated_copy_path,
@@ -409,8 +409,10 @@ fn sample_comment() -> CommentRow {
 
 fn sample_export() -> PaperExport {
     PaperExport {
+        updated_at: "2026-01-01T00:00:00Z".to_owned(),
         annotations: vec![sample_annotation()],
         comments: vec![sample_comment()],
+        pins: Vec::new(),
         facts: PaperFacts {
             pinned: true,
             screening: Some(PaperScreening {
@@ -559,7 +561,7 @@ fn plan_pairs_rows_by_id_and_refuses_shared_titles() {
         json!({"paper_id": "p4", "decided_at": "2026-11-01T10:00:00Z", "state": "maybe-ish", "reason": null}),
     ];
 
-    let plan = plan_exports(&papers, &annotations, &comments, &pins, &screening);
+    let plan = plan_exports(&papers, &annotations, &comments, &pins, &screening, &[]);
 
     let written: Vec<String> = plan.papers.iter().map(|(rel, _)| rel.clone()).collect();
     assert_eq!(written, vec![paper_path("Attention"), paper_path("Lonely")]);
@@ -609,7 +611,7 @@ fn export_rerun_is_idempotent() {
 fn sidecar_pairs_by_stem() {
     let paper = "papers/attention.paper.md";
     let files = FakeFiles::with(&[(paper, "---\ntitle: Attention\n---\nbody\n")]);
-    export_paper(&files, paper, &sample_export()).expect("export");
+    let _ = export_paper(&files, paper, &sample_export()).expect("export");
 
     let annotations = annotations_path(paper);
     let comments = comments_path(paper);
@@ -649,8 +651,10 @@ fn export_with_data_needs_its_paper_file() {
         "no sidecar without its paper"
     );
     let empty = PaperExport {
+        updated_at: "2026-01-01T00:00:00Z".to_owned(),
         annotations: vec![],
         comments: vec![],
+        pins: vec![],
         facts: PaperFacts::default(),
     };
     assert_eq!(export_paper(&files, "papers/none.paper.md", &empty), Ok(0));
@@ -664,7 +668,7 @@ fn edited_sidecar_is_kept_and_the_export_lands_beside_it() {
         (paper, "---\ntitle: Attention\n---\nbody\n"),
         (sidecar.as_str(), "[]"),
     ]);
-    export_paper(&files, paper, &sample_export()).expect("export");
+    let _ = export_paper(&files, paper, &sample_export()).expect("export");
     assert_eq!(
         files.text(&sidecar).as_deref(),
         Some("[]"),
@@ -685,7 +689,7 @@ fn edited_sidecar_is_kept_and_the_export_lands_beside_it() {
 fn verify_reads_back_what_was_written() {
     let paper = "papers/attention.paper.md";
     let files = FakeFiles::with(&[(paper, "---\ntitle: Attention\n---\nbody\n")]);
-    export_paper(&files, paper, &sample_export()).expect("export");
+    let _ = export_paper(&files, paper, &sample_export()).expect("export");
     assert_eq!(verify_paper(&files, paper, &sample_export()), Ok(()));
 
     let _previous = files
@@ -695,5 +699,159 @@ fn verify_reads_back_what_was_written() {
     assert!(
         verify_paper(&files, paper, &sample_export()).is_err(),
         "a sidecar that differs fails the check"
+    );
+}
+
+// ---- Annotation pins ----
+
+fn sample_pin(key: &str) -> PinRow {
+    PinRow {
+        annotation_key: key.into(),
+        report_section_id: Some("sec-1".into()),
+        created_at: "2026-11-18T09:30:00.000Z".into(),
+    }
+}
+
+#[test]
+fn pins_round_trip() {
+    let rows = vec![
+        sample_pin("a"),
+        PinRow {
+            report_section_id: None,
+            ..sample_pin("b")
+        },
+    ];
+    assert_eq!(read_pins(&pins_document(&rows)), Ok(rows));
+}
+
+#[test]
+fn pins_export_and_verify() {
+    let paper = "papers/x.paper.md";
+    let files = FakeFiles::with(&[(paper, "---\ntitle: X\n---\nbody\n")]);
+    let export = PaperExport {
+        updated_at: "2026-01-01T00:00:00Z".to_owned(),
+        annotations: vec![sample_annotation()],
+        comments: vec![],
+        pins: vec![sample_pin("a"), sample_pin("b")],
+        facts: PaperFacts::default(),
+    };
+    let _ = export_paper(&files, paper, &export).expect("export");
+    assert_eq!(verify_paper(&files, paper, &export), Ok(()));
+    let stored = files.text(&pins_path(paper)).expect("pins sidecar written");
+    assert_eq!(read_pins(&stored), Ok(export.pins.clone()));
+}
+
+#[test]
+fn no_pins_no_pins_file() {
+    let paper = "papers/x.paper.md";
+    let files = FakeFiles::with(&[(paper, "body\n")]);
+    let export = PaperExport {
+        updated_at: "2026-01-01T00:00:00Z".to_owned(),
+        annotations: vec![sample_annotation()],
+        comments: vec![],
+        pins: vec![],
+        facts: PaperFacts::default(),
+    };
+    let _ = export_paper(&files, paper, &export).expect("export");
+    assert!(
+        files.text(&pins_path(paper)).is_none(),
+        "no pins file without pins"
+    );
+    assert_eq!(verify_paper(&files, paper, &export), Ok(()));
+}
+
+#[test]
+fn many_pins() {
+    let paper = "papers/x.paper.md";
+    let files = FakeFiles::with(&[(paper, "body\n")]);
+    let rows: Vec<PinRow> = (0..500).map(|i| sample_pin(&format!("k{i}"))).collect();
+    let export = PaperExport {
+        updated_at: "2026-01-01T00:00:00Z".to_owned(),
+        annotations: vec![sample_annotation()],
+        comments: vec![],
+        pins: rows.clone(),
+        facts: PaperFacts::default(),
+    };
+    let _ = export_paper(&files, paper, &export).expect("export");
+    assert_eq!(verify_paper(&files, paper, &export), Ok(()));
+    let stored = files.text(&pins_path(paper)).expect("pins sidecar written");
+    assert_eq!(read_pins(&stored), Ok(rows));
+}
+
+#[test]
+fn pins_only_paper() {
+    let paper = "papers/x.paper.md";
+    let files = FakeFiles::with(&[(paper, "body\n")]);
+    let export = PaperExport {
+        updated_at: "2026-01-01T00:00:00Z".to_owned(),
+        annotations: vec![],
+        comments: vec![],
+        pins: vec![sample_pin("a")],
+        facts: PaperFacts::default(),
+    };
+    assert!(
+        export_paper(&files, paper, &export).expect("export") > 0,
+        "a pin alone is data"
+    );
+    assert!(files.text(&pins_path(paper)).is_some(), "pins file written");
+    assert_eq!(verify_paper(&files, paper, &export), Ok(()));
+}
+
+#[test]
+fn pins_on_trashed_paper() {
+    let paper = "papers/x.paper.md";
+    let mut files = FakeFiles::with(&[(paper, "body\n")]);
+    files.trash.push(trash_path(paper, "2026-11-18"));
+    let export = PaperExport {
+        updated_at: "2026-01-01T00:00:00Z".to_owned(),
+        annotations: vec![],
+        comments: vec![],
+        pins: vec![sample_pin("a")],
+        facts: PaperFacts::default(),
+    };
+    assert_eq!(export_paper(&files, paper, &export), Ok(0));
+    assert!(
+        files.text(&pins_path(paper)).is_none(),
+        "no pins file beside a trashed paper"
+    );
+    assert_eq!(verify_paper(&files, paper, &export), Ok(()));
+}
+
+#[test]
+fn pins_on_deleted_paper() {
+    let papers: Vec<serde_json::Value> = vec![];
+    let annotation_pins = vec![json!({
+        "paper_id": "p9",
+        "annotation_key": "k",
+        "report_section_id": null,
+        "created_at": "2026-11-18T09:30:00Z"
+    })];
+    let plan = plan_exports(&papers, &[], &[], &[], &[], &annotation_pins);
+    assert!(plan.papers.is_empty(), "no paper, no export");
+    assert_eq!(plan.skipped.len(), 1, "skipped: {:?}", plan.skipped);
+    assert!(
+        plan.skipped[0].contains("annotation pin"),
+        "skipped: {:?}",
+        plan.skipped
+    );
+}
+
+#[test]
+fn missing_pins_file_fails_verify() {
+    let paper = "papers/x.paper.md";
+    let files = FakeFiles::with(&[(paper, "body\n")]);
+    let export = PaperExport {
+        updated_at: "2026-01-01T00:00:00Z".to_owned(),
+        annotations: vec![],
+        comments: vec![],
+        pins: vec![sample_pin("a")],
+        facts: PaperFacts::default(),
+    };
+    let _ = export_paper(&files, paper, &export).expect("export");
+    let _removed = files.files.borrow_mut().remove(&pins_path(paper));
+    let err = verify_paper(&files, paper, &export).expect_err("missing pins file must fail");
+    assert!(
+        err.contains(&pins_path(paper)),
+        "error names the file: {err}"
     );
 }

@@ -29,6 +29,8 @@ const ANNOTATIONS_SQL: &str = "SELECT paper_id, type, color, text, comment, tags
 const COMMENTS_SQL: &str =
     "SELECT resource_id, body, created_at FROM comments WHERE resource_type = 'paper'";
 const PINS_SQL: &str = "SELECT resource_id FROM library_pins WHERE resource_type = 'paper'";
+const ANNOTATION_PINS_SQL: &str =
+    "SELECT paper_id, annotation_key, report_section_id, created_at FROM annotation_pins";
 const SCREENING_SQL: &str = "SELECT rli.paper_id AS paper_id, sd.state AS state, sd.reason AS reason, sd.decided_at AS decided_at FROM screening_decisions sd JOIN reading_list_items rli ON rli.id = sd.item_id";
 
 /// The workspace files a migration step reads and writes.
@@ -275,8 +277,16 @@ pub async fn migrate_093_run(
     let annotations = db.query(ANNOTATIONS_SQL.to_owned(), Vec::new()).await?;
     let comments = db.query(COMMENTS_SQL.to_owned(), Vec::new()).await?;
     let pins = db.query(PINS_SQL.to_owned(), Vec::new()).await?;
+    let annotation_pins = db.query(ANNOTATION_PINS_SQL.to_owned(), Vec::new()).await?;
     let screening = db.query(SCREENING_SQL.to_owned(), Vec::new()).await?;
-    let plan = plan_exports(&papers, &annotations, &comments, &pins, &screening);
+    let plan = plan_exports(
+        &papers,
+        &annotations,
+        &comments,
+        &pins,
+        &screening,
+        &annotation_pins,
+    );
     with_session(&state, move |session| {
         let (written, errors) = export_papers(session, &plan.papers);
         let verified = errors.is_empty()
