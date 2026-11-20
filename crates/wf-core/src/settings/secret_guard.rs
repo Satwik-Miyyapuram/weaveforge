@@ -169,6 +169,7 @@ pub fn is_config_path(path: &str) -> bool {
     if name == ".overleaf.json" {
         return true;
     }
+    let name = name.to_lowercase();
     path.starts_with(".weaveforge/") && (name.ends_with(".json") || name.ends_with(".jsonl"))
 }
 

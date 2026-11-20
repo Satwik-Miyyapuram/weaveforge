@@ -118,6 +118,8 @@ fn config_paths() {
         DEVICE_SETTINGS_PATH,
         ".weaveforge/ai/audit/2026-11/b.jsonl",
         "r/.overleaf.json",
+        ".weaveforge/settings.JSON",
+        ".weaveforge/ai/audit/2026-11/B.JSONL",
     ] {
         assert!(is_config_path(path), "{path}");
     }
