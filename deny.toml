@@ -54,6 +54,7 @@ skip = [
   { crate = "getrandom@0.3", reason = "ahash and rand 0.9 via tokenizers on 0.3; uuid on 0.4" },
   { crate = "r-efi@5", reason = "getrandom 0.3 (UEFI only), see above" },
   { crate = "openssl-probe@0.1", reason = "git2 0.21 on 0.1; native-tls (ort-sys build download) on 0.2" },
+  { crate = "fallible-iterator@0.2", reason = "postgres-protocol 0.6 on 0.2; rusqlite 0.43 on 0.3" },
 ]
 
 [sources]
