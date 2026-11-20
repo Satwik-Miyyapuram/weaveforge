@@ -151,6 +151,26 @@ fn secret_key_plurals_and_variants_refused() {
     }
 }
 
+/// A secret key holding a non-string value (an array, number, object or boolean) is
+/// still a secret; only an absent or empty value is fine.
+#[test]
+fn secret_key_with_non_string_value_refused() {
+    for text in [
+        r#"{"token":["hunter2"]}"#,
+        r#"{"apiKey":12345}"#,
+        r#"{"password":{"v":"x"}}"#,
+        r#"{"cookie":true}"#,
+    ] {
+        assert!(check_config_write(SETTINGS_PATH, text).is_err(), "{text}");
+    }
+    for text in [
+        r#"{"token":null,"apiKey":""}"#,
+        r#"{"apiKeys":[],"token":{}}"#,
+    ] {
+        assert!(check_config_write(SETTINGS_PATH, text).is_ok(), "{text}");
+    }
+}
+
 const SECRET_KEYS: [&str; 8] = [
     "token",
     "apiKey",
