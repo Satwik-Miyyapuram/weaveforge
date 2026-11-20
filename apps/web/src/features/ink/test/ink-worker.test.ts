@@ -8,127 +8,34 @@ import assert from "node:assert/strict";
 
 import { decodeInkChunk, INK_PACK_TOLERANCE, pageFromChunk } from "@weaveforge/core";
 
-import type {
-  InkStrokeHeader,
-  InkWorkerEvent,
-  InkWorkerMessage,
-} from "../application/capture-protocol";
+import type { InkWorkerEvent, InkWorkerMessage } from "../application/capture-protocol";
 import { INK_SAMPLE_STRIDE } from "../application/capture-protocol";
 import { readyCore, typedCore } from "@/lib/rust-core";
+import {
+  appendSamples,
+  draw,
+  events,
+  frames,
+  fresh,
+  header,
+  last,
+  liveForRenderer,
+  loadInkWorker,
+  newLiveStroke,
+  nextHeader,
+  penDown,
+  penUp,
+  posted,
+  replacePredictedTail,
+  runFrames,
+  send,
+  settle,
+  stroke,
+  takeRawOverflow,
+  worker,
+} from "./ink-worker-harness";
 
-type Listener = (event: { data: InkWorkerMessage }) => void;
-
-const posted: InkWorkerEvent[] = [];
-const frames: (() => void)[] = [];
-
-/** Run queued frames, and the frames they ask for, up to `limit` rounds. */
-function runFrames(limit = 10): void {
-  for (let round = 0; round < limit && frames.length > 0; round += 1) {
-    for (const frame of frames.splice(0, frames.length)) frame();
-  }
-}
-let listener: Listener | null = null;
-let liveForRenderer: typeof import("../worker/ink-worker").liveForRenderer;
-let newLiveStroke: typeof import("../worker/ink-worker").newLiveStroke;
-let appendSamples: typeof import("../worker/ink-worker").appendSamples;
-let replacePredictedTail: typeof import("../worker/ink-worker").replacePredictedTail;
-let takeRawOverflow: typeof import("../worker/ink-worker").takeRawOverflow;
-let worker: typeof import("../worker/ink-worker");
-
-before(async () => {
-  (globalThis as { self?: unknown }).self = {
-    postMessage: (event: InkWorkerEvent) => posted.push(event),
-    addEventListener: (_type: string, fn: Listener) => {
-      listener = fn;
-    },
-    // Frames are queued, not run: a test runs them with `runFrames`.
-    requestAnimationFrame: (cb: () => void) => frames.push(cb),
-  };
-  worker = await import("../worker/ink-worker");
-  liveForRenderer = worker.liveForRenderer;
-  newLiveStroke = worker.newLiveStroke;
-  appendSamples = worker.appendSamples;
-  replacePredictedTail = worker.replacePredictedTail;
-  takeRawOverflow = worker.takeRawOverflow;
-});
-
-function send(message: InkWorkerMessage): void {
-  assert.ok(listener, "the worker registered its listener");
-  listener({ data: message });
-}
-
-function events<T extends InkWorkerEvent["type"]>(
-  type: T,
-): Extract<InkWorkerEvent, { type: T }>[] {
-  return posted.filter((event) => event.type === type) as Extract<
-    InkWorkerEvent,
-    { type: T }
-  >[];
-}
-
-function last<T extends InkWorkerEvent["type"]>(
-  type: T,
-): Extract<InkWorkerEvent, { type: T }> {
-  const all = events(type);
-  assert.ok(all.length > 0, `a ${type} event was posted`);
-  return all[all.length - 1]!;
-}
-
-/** Wait for the worker's async work (save, load) to settle. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-
-let strokeId = 0;
-const header = (tool: InkStrokeHeader["tool"] = "pen"): InkStrokeHeader => ({
-  strokeId,
-  pageIndex: 0,
-  tool,
-  width: 6,
-  colour: "text",
-});
-
-/** Send one whole stroke in a single batch. */
-function stroke(
-  samples: Float32Array,
-  count: number,
-  tool: InkStrokeHeader["tool"] = "pen",
-): void {
-  strokeId += 1;
-  const h = header(tool);
-  const empty = { buffer: new Float32Array(0), count: 0 };
-  send({ type: "stroke-begin", header: h, sample: { buffer: samples, count } });
-  send({ type: "stroke-end", header: h, sample: empty });
-}
-
-/** Draw one stroke as a straight line from (x0, y) rightwards. */
-function draw(
-  x0: number,
-  y: number,
-  count = 6,
-  tool: InkStrokeHeader["tool"] = "pen",
-): void {
-  const samples = new Float32Array(count * INK_SAMPLE_STRIDE);
-  for (let i = 0; i < count; i += 1) {
-    samples[i * INK_SAMPLE_STRIDE] = x0 + i * 30;
-    samples[i * INK_SAMPLE_STRIDE + 1] = y;
-    samples[i * INK_SAMPLE_STRIDE + 2] = 0.5;
-    samples[i * INK_SAMPLE_STRIDE + 3] = i;
-  }
-  stroke(samples, count, tool);
-}
-
-function fresh(): void {
-  posted.length = 0;
-  send({
-    type: "init",
-    canvas: null,
-    width: 400,
-    height: 600,
-    dpr: 1,
-    mode: "clone",
-    codec: "identity",
-  });
-  send({ type: "load-page", pageIndex: 0, chunk: null });
-}
+before(loadInkWorker);
 
 test("a stroke commits, is a draw step, and undo takes it back", () => {
   fresh();
@@ -514,8 +421,7 @@ test("the loop runs for a whole live stroke and idles after it (19-05)", async (
   fresh();
   await settle();
   runFrames();
-  strokeId += 1;
-  const h = header();
+  const h = nextHeader();
   const one = new Float32Array([10, 10, 0.5, 0]);
   send({ type: "stroke-begin", header: h, sample: { buffer: one, count: 1 } });
   runFrames(3);
@@ -545,8 +451,7 @@ test("transferred sample buffers still come back once the loop idled (19-05)", a
   await settle();
   runFrames();
   posted.length = 0;
-  strokeId += 1;
-  const h = header();
+  const h = nextHeader();
   send({ type: "stroke-begin", header: h, sample: { buffer: new Float32Array([10, 10, 0.5, 0]), count: 1 } });
   send({ type: "stroke-end", header: h, sample: { buffer: new Float32Array([20, 10, 0.5, 1]), count: 1 } });
   runFrames();
@@ -610,8 +515,7 @@ test("live ink only grows: drawn points never move, and lifting the pen changes 
     points.push(1000 + i * 2.5 + 6 * Math.cos(a), 1000 + 6 * Math.sin(a));
     pressures.push(0.3 + 0.4 * Math.sin((i / 140) * Math.PI));
   }
-  strokeId += 1;
-  const h = header();
+  const h = nextHeader();
   const live = newLiveStroke(h);
   const frames: number[][] = [];
   for (let at = 0; at < points.length / 2; at += 3) {
@@ -796,17 +700,7 @@ test("a save whose encode fails answers its own request id, so the host can sett
   globals.CompressionStream = BrokenStream;
   globals.DecompressionStream = BrokenStream;
   try {
-    posted.length = 0;
-    send({
-      type: "init",
-      canvas: null,
-      width: 400,
-      height: 600,
-      dpr: 1,
-      mode: "clone",
-      codec: "deflate-raw",
-    });
-    send({ type: "load-page", pageIndex: 0, chunk: null });
+    fresh("deflate-raw");
     for (let i = 0; i < 1300; i += 1) draw(10, (i % 500) + 5);
     send({ type: "save-page", requestId: 21 });
     await settle();
@@ -821,23 +715,10 @@ test("a save whose encode fails answers its own request id, so the host can sett
 
 test("a pen still down when the page changes does not land its stroke on the new page", async () => {
   fresh();
-  strokeId += 1;
-  const h = header();
-  const samples = new Float32Array(3 * INK_SAMPLE_STRIDE);
-  for (let i = 0; i < 3; i += 1) {
-    samples[i * INK_SAMPLE_STRIDE] = 10 + i * 30;
-    samples[i * INK_SAMPLE_STRIDE + 1] = 50;
-    samples[i * INK_SAMPLE_STRIDE + 2] = 0.5;
-    samples[i * INK_SAMPLE_STRIDE + 3] = i;
-  }
-  send({ type: "stroke-begin", header: h, sample: { buffer: samples, count: 3 } });
+  const h = penDown();
   send({ type: "load-page", pageIndex: 1, chunk: null });
   await settle();
-  send({
-    type: "stroke-end",
-    header: h,
-    sample: { buffer: new Float32Array(0), count: 0 },
-  });
+  penUp(h);
   send({ type: "save-page", requestId: 5 });
   await settle();
   assert.equal(last("page-saved").strokes, 0, "the old page's stroke is not on the new page");
@@ -845,23 +726,10 @@ test("a pen still down when the page changes does not land its stroke on the new
 
 test("an aborted stroke is dropped, not left drawn and then committed by a late stroke-end", async () => {
   fresh();
-  strokeId += 1;
-  const h = header();
-  const samples = new Float32Array(3 * INK_SAMPLE_STRIDE);
-  for (let i = 0; i < 3; i += 1) {
-    samples[i * INK_SAMPLE_STRIDE] = 10 + i * 30;
-    samples[i * INK_SAMPLE_STRIDE + 1] = 50;
-    samples[i * INK_SAMPLE_STRIDE + 2] = 0.5;
-    samples[i * INK_SAMPLE_STRIDE + 3] = i;
-  }
-  send({ type: "stroke-begin", header: h, sample: { buffer: samples, count: 3 } });
+  const h = penDown();
   await settle();
   send({ type: "stroke-abort", header: h });
-  send({
-    type: "stroke-end",
-    header: h,
-    sample: { buffer: new Float32Array(0), count: 0 },
-  });
+  penUp(h);
   send({ type: "save-page", requestId: 6 });
   await settle();
   assert.equal(last("page-saved").strokes, 0, "a palm-cancelled stroke is not saved");
@@ -869,24 +737,11 @@ test("an aborted stroke is dropped, not left drawn and then committed by a late 
 
 test("an abort for another stroke leaves the live stroke alone", async () => {
   fresh();
-  strokeId += 1;
-  const h = header();
+  const h = penDown();
   const other = { ...h, strokeId: h.strokeId + 100 };
-  const samples = new Float32Array(3 * INK_SAMPLE_STRIDE);
-  for (let i = 0; i < 3; i += 1) {
-    samples[i * INK_SAMPLE_STRIDE] = 10 + i * 30;
-    samples[i * INK_SAMPLE_STRIDE + 1] = 50;
-    samples[i * INK_SAMPLE_STRIDE + 2] = 0.5;
-    samples[i * INK_SAMPLE_STRIDE + 3] = i;
-  }
-  send({ type: "stroke-begin", header: h, sample: { buffer: samples, count: 3 } });
   await settle();
   send({ type: "stroke-abort", header: other });
-  send({
-    type: "stroke-end",
-    header: h,
-    sample: { buffer: new Float32Array(0), count: 0 },
-  });
+  penUp(h);
   send({ type: "save-page", requestId: 7 });
   await settle();
   assert.equal(last("page-saved").strokes, 1, "a stale abort does not drop the live stroke");
