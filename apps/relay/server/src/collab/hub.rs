@@ -90,6 +90,8 @@ impl Room {
 pub struct Hub {
     rooms: Mutex<HashMap<String, Arc<Room>>>,
     next_client: AtomicU64,
+    /// Held for a whole `open_room`, so two opens of one item cannot both cut and replay its log.
+    open_gate: Mutex<()>,
 }
 
 impl Hub {
@@ -143,6 +145,11 @@ impl Hub {
     /// The room map, even when a panic poisoned its lock.
     fn map(&self) -> MutexGuard<'_, HashMap<String, Arc<Room>>> {
         self.rooms.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Serialises room opening: the guard is held without an await, so it never crosses one.
+    fn open_gate(&self) -> MutexGuard<'_, ()> {
+        self.open_gate.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Inserts `room` unless one is already open for its item; returns the one in the map.
@@ -201,6 +208,9 @@ fn remove_log(dir: &Path, item_id: &str) -> Result<(), String> {
 pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, String> {
     let item_id = row.item_id;
     let project_id = row.project_id;
+    // Held to the end of this fn (no await inside): the check below and the log open/replay
+    // cannot interleave with another open of the same item.
+    let _gate = state.hub.open_gate();
     if let Some(room) = state.hub.get(&item_id) {
         return Ok(room);
     }
