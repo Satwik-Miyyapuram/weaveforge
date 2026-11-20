@@ -128,6 +128,29 @@ fn config_paths() {
     assert!(check_config_write("notes/a.md", "token: x").is_ok());
 }
 
+/// Plurals and case variants of a secret key name a secret too. Names that only look
+/// similar (`sortKeys`, `tokenizers`) pass.
+#[test]
+fn secret_key_plurals_and_variants_refused() {
+    for key in [
+        "apiKeys",
+        "accessTokens",
+        "secretKeys",
+        "API_KEYS",
+        "client-secrets",
+        "secretKey",
+        "signingKey",
+        "authKey",
+    ] {
+        let text = format!(r#"{{"{key}":"abc"}}"#);
+        assert!(check_config_write(SETTINGS_PATH, &text).is_err(), "{key}");
+    }
+    for key in ["sortKeys", "tokenizers", "keyboards"] {
+        let text = format!(r#"{{"{key}":"abc"}}"#);
+        assert!(check_config_write(SETTINGS_PATH, &text).is_ok(), "{key}");
+    }
+}
+
 const SECRET_KEYS: [&str; 8] = [
     "token",
     "apiKey",

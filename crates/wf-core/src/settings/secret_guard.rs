@@ -23,6 +23,9 @@ const SECRET_KEY_ENDINGS: &[&str] = &[
     "credential",
     "credentials",
     "bearer",
+    "secretkey",
+    "signingkey",
+    "authkey",
 ];
 
 /// Prefixes of well-known token formats; each must be followed by at least
@@ -71,7 +74,11 @@ pub fn is_secret_key(key: &str) -> bool {
         .filter(|c| *c != '-' && *c != '_')
         .flat_map(char::to_lowercase)
         .collect();
-    SECRET_KEY_ENDINGS.iter().any(|end| norm.ends_with(end))
+    // A plural (`apiKeys`, `accessTokens`) names the same secret as its singular.
+    let singular = norm.strip_suffix('s').unwrap_or(&norm);
+    SECRET_KEY_ENDINGS
+        .iter()
+        .any(|end| norm.ends_with(end) || singular.ends_with(end))
 }
 
 fn is_token_char(c: char) -> bool {
