@@ -44,6 +44,38 @@ pub struct CommentRow {
     pub created_at: String,
 }
 
+/// Where comments that do not belong to an exported paper are written, inside the workspace.
+pub const UNMAPPED_COMMENTS_PATH: &str = ".weaveforge/comments-unmapped.json";
+/// The version of the unmapped comments file.
+pub const UNMAPPED_COMMENTS_VERSION: u32 = 1;
+
+/// One 0.9.2 comment row that is not on an exported paper, kept whole in the unmapped file.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnmappedCommentRow {
+    /// The 0.9.2 comment id.
+    pub id: String,
+    /// What the comment is on (for example `paper` or `vault_page`).
+    pub resource_type: String,
+    /// The id of the resource the comment is on.
+    pub resource_id: String,
+    /// Who wrote the comment.
+    pub author_id: String,
+    /// The comment text.
+    pub body: String,
+    /// When the comment was made (ISO-8601 UTC).
+    pub created_at: String,
+    /// The quoted text the comment is anchored to, if any.
+    pub anchor_quote: Option<String>,
+    /// Text just before the anchor, if any.
+    pub anchor_prefix: Option<String>,
+    /// Text just after the anchor, if any.
+    pub anchor_suffix: Option<String>,
+    /// The comment this one replies to, if it is a reply.
+    pub parent_id: Option<String>,
+    /// When the comment was resolved, if it was.
+    pub resolved_at: Option<String>,
+}
+
 /// One user pin on a paper's annotation (0.9.2 `annotation_pins`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PinRow {
@@ -174,6 +206,37 @@ pub fn comments_document(rows: &[CommentRow]) -> String {
 /// The text is not a list of comment rows.
 pub fn read_comments(text: &str) -> Result<Vec<CommentRow>, String> {
     serde_json::from_str(text).map_err(|err| format!("comments sidecar is not valid: {err}"))
+}
+
+/// Serialises the unmapped comments as `{"version": 1, "rows": [...]}`.
+#[must_use]
+pub fn unmapped_comments_document(rows: &[UnmappedCommentRow]) -> String {
+    // A list of plain structs cannot fail to serialise.
+    serde_json::to_string_pretty(&serde_json::json!({
+        "version": UNMAPPED_COMMENTS_VERSION,
+        "rows": rows,
+    }))
+    .unwrap_or_default()
+}
+
+/// Reads the unmapped comments file.
+///
+/// # Errors
+/// The text is not valid JSON or not a list of rows, or its version is not supported.
+pub fn read_unmapped_comments(text: &str) -> Result<Vec<UnmappedCommentRow>, String> {
+    let value: Value = serde_json::from_str(text)
+        .map_err(|err| format!("comments-unmapped is not valid: {err}"))?;
+    let version = value
+        .get("version")
+        .and_then(Value::as_u64)
+        .unwrap_or_default();
+    if version != u64::from(UNMAPPED_COMMENTS_VERSION) {
+        return Err(format!(
+            "comments-unmapped version {version} is not supported"
+        ));
+    }
+    let rows = value.get("rows").cloned().unwrap_or(Value::Null);
+    serde_json::from_value(rows).map_err(|err| format!("comments-unmapped is not valid: {err}"))
 }
 
 /// Serialises rows as the pins sidecar.
@@ -430,6 +493,53 @@ fn sidecar_holds<F: WorkspaceFiles + ?Sized>(
         || files.read(&kept)?.as_deref() == Some(document))
 }
 
+/// Writes the unmapped comments file when there are rows. Returns whether a file was written.
+///
+/// # Errors
+/// The workspace cannot be read or written, or the file holds other text.
+pub fn export_unmapped<F: WorkspaceFiles + ?Sized>(
+    files: &F,
+    rows: &[UnmappedCommentRow],
+) -> Result<usize, String> {
+    if rows.is_empty() {
+        return Ok(0);
+    }
+    let trash = files.trash_entries()?;
+    let updated_at = rows
+        .iter()
+        .map(|row| row.created_at.as_str())
+        .max()
+        .unwrap_or_default();
+    let written = write_sidecar(
+        files,
+        &trash,
+        UNMAPPED_COMMENTS_PATH,
+        &unmapped_comments_document(rows),
+        updated_at,
+    )?;
+    Ok(usize::from(written))
+}
+
+/// Reads the unmapped comments file back and checks it holds the exported rows.
+///
+/// # Errors
+/// The file is missing, or it does not hold exactly the exported rows.
+pub fn verify_unmapped<F: WorkspaceFiles + ?Sized>(
+    files: &F,
+    rows: &[UnmappedCommentRow],
+) -> Result<(), String> {
+    if rows.is_empty() {
+        return Ok(());
+    }
+    let text = files
+        .read(UNMAPPED_COMMENTS_PATH)?
+        .ok_or_else(|| format!("{UNMAPPED_COMMENTS_PATH} is missing"))?;
+    if read_unmapped_comments(&text)? != rows {
+        return Err("comments-unmapped mismatch".to_owned());
+    }
+    Ok(())
+}
+
 /// What the export will write, gathered from the 0.9.2 rows.
 #[derive(Debug, Default)]
 pub struct ExportPlan {
@@ -437,6 +547,10 @@ pub struct ExportPlan {
     pub papers: Vec<(String, PaperExport)>,
     /// One line per paper that could not be exported, with the reason.
     pub skipped: Vec<String>,
+    /// Comment rows not on an exported paper, written to the unmapped comments file.
+    pub unmapped_comments: Vec<UnmappedCommentRow>,
+    /// How many unmapped comment rows there are per resource type, for the report.
+    pub unmapped_counts: BTreeMap<String, usize>,
 }
 
 /// The paper's file path, as the workspace writes papers: `papers/<title>.paper.md`.
@@ -492,6 +606,23 @@ fn annotation_row(row: &Value) -> AnnotationRow {
     }
 }
 
+fn unmapped_comment(row: &Value) -> UnmappedCommentRow {
+    let optional = |key: &str| row.get(key).and_then(Value::as_str).map(str::to_owned);
+    UnmappedCommentRow {
+        id: text_field(row, "id"),
+        resource_type: text_field(row, "resource_type"),
+        resource_id: text_field(row, "resource_id"),
+        author_id: text_field(row, "author_id"),
+        body: text_field(row, "body"),
+        created_at: text_field(row, "created_at"),
+        anchor_quote: optional("anchor_quote"),
+        anchor_prefix: optional("anchor_prefix"),
+        anchor_suffix: optional("anchor_suffix"),
+        parent_id: optional("parent_id"),
+        resolved_at: optional("resolved_at"),
+    }
+}
+
 fn screening_decision(row: &Value) -> ScreeningDecision {
     ScreeningDecision {
         decided_at: text_field(row, "decided_at"),
@@ -520,6 +651,7 @@ pub fn plan_exports(
     }
     let paper_ids: BTreeSet<String> = papers.iter().map(|paper| text_field(paper, "id")).collect();
     let mut plan = ExportPlan::default();
+    let mut exported_ids: BTreeSet<String> = BTreeSet::new();
     for paper in papers {
         let id = text_field(paper, "id");
         let rel = paper_path(&text_field(paper, "title"));
@@ -527,6 +659,7 @@ pub fn plan_exports(
             .map(annotation_row)
             .collect();
         let comments_here: Vec<CommentRow> = matching(comments, "resource_id", &id)
+            .filter(|row| text_field(row, "resource_type") == "paper")
             .map(|row| CommentRow {
                 body: text_field(row, "body"),
                 created_at: text_field(row, "created_at"),
@@ -574,6 +707,7 @@ pub fn plan_exports(
             .max()
             .unwrap_or_default()
             .to_owned();
+        let _new = exported_ids.insert(id);
         plan.papers.push((
             rel,
             PaperExport {
@@ -596,6 +730,23 @@ pub fn plan_exports(
         plan.skipped.push(format!(
             "{orphan_pins} annotation pin(s) on a paper that is not in the library, so they were not exported"
         ));
+    }
+    // Every comment row not on an exported paper goes to the unmapped file, so none is lost.
+    plan.unmapped_comments = comments
+        .iter()
+        .filter(|row| {
+            let on_exported_paper = text_field(row, "resource_type") == "paper"
+                && exported_ids.contains(&text_field(row, "resource_id"));
+            !on_exported_paper
+        })
+        .map(unmapped_comment)
+        .collect();
+    // Counted per type for the report only: a written unmapped file is not a skip.
+    for row in &plan.unmapped_comments {
+        *plan
+            .unmapped_counts
+            .entry(row.resource_type.clone())
+            .or_default() += 1;
     }
     plan
 }

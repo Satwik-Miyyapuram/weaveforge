@@ -8,9 +8,10 @@ use wf_core::sync::folder_layout::{annotations_path, comments_path, pins_path, t
 
 use super::export::{
     AnnotationRow, CommentRow, PaperExport, PaperFacts, PaperScreening, PinRow, Screening,
-    ScreeningDecision, annotations_document, apply_paper_facts, comments_document, export_paper,
-    paper_path, pick_screening, pins_document, plan_exports, read_annotations, read_comments,
-    read_paper_facts, read_pins, verify_paper,
+    ScreeningDecision, UNMAPPED_COMMENTS_PATH, UnmappedCommentRow, annotations_document,
+    apply_paper_facts, comments_document, export_paper, export_unmapped, paper_path,
+    pick_screening, pins_document, plan_exports, read_annotations, read_comments, read_paper_facts,
+    read_pins, read_unmapped_comments, unmapped_comments_document, verify_paper, verify_unmapped,
 };
 use super::rules::{
     Decision, LegacyShare, ShareSink, Stored, decide, is_trashed, migrated_copy_path,
@@ -553,7 +554,7 @@ fn plan_pairs_rows_by_id_and_refuses_shared_titles() {
                "updated_at": "2026-11-18T09:00:00Z"}),
     ];
     let comments = vec![
-        json!({"resource_id": "p1", "body": "second look", "created_at": "2026-11-17T08:30:00Z"}),
+        json!({"resource_type": "paper", "resource_id": "p1", "body": "second look", "created_at": "2026-11-17T08:30:00Z"}),
     ];
     let pins = vec![json!({"resource_id": "p4"})];
     let screening = vec![
@@ -854,4 +855,137 @@ fn missing_pins_file_fails_verify() {
         err.contains(&pins_path(paper)),
         "error names the file: {err}"
     );
+}
+
+// ---- Unmapped comments ----
+
+fn sample_unmapped(id: &str) -> UnmappedCommentRow {
+    UnmappedCommentRow {
+        id: id.into(),
+        resource_type: "vault_page".into(),
+        resource_id: "v1".into(),
+        author_id: "u1".into(),
+        body: "a note on the page".into(),
+        created_at: "2026-11-17T08:30:00.000Z".into(),
+        anchor_quote: Some("quoted".into()),
+        anchor_prefix: None,
+        anchor_suffix: None,
+        parent_id: None,
+        resolved_at: None,
+    }
+}
+
+#[test]
+fn unmapped_empty_writes_no_file() {
+    let files = FakeFiles::default();
+    assert_eq!(export_unmapped(&files, &[]), Ok(0));
+    assert!(files.text(UNMAPPED_COMMENTS_PATH).is_none(), "no file");
+    assert_eq!(verify_unmapped(&files, &[]), Ok(()));
+}
+
+#[test]
+fn unmapped_mixed_types_split_by_paper_in_library() {
+    let papers = vec![json!({"id": "p1", "title": "Attention"})];
+    let comments = vec![
+        json!({"id": "c1", "resource_type": "vault_page", "resource_id": "v1", "author_id": "u1",
+               "body": "page note", "created_at": "2026-11-17T08:30:00Z"}),
+        json!({"id": "c2", "resource_type": "paper", "resource_id": "p1", "author_id": "u1",
+               "body": "paper note", "created_at": "2026-11-17T08:31:00Z"}),
+        json!({"id": "c3", "resource_type": "paper", "resource_id": "p9", "author_id": "u1",
+               "body": "orphan note", "created_at": "2026-11-17T08:32:00Z"}),
+    ];
+    let plan = plan_exports(&papers, &[], &comments, &[], &[], &[]);
+
+    assert_eq!(plan.papers.len(), 1);
+    assert_eq!(
+        plan.papers[0].1.comments.len(),
+        1,
+        "library paper keeps its sidecar row"
+    );
+    let ids: Vec<&str> = plan
+        .unmapped_comments
+        .iter()
+        .map(|row| row.id.as_str())
+        .collect();
+    assert_eq!(ids, vec!["c1", "c3"]);
+    assert_eq!(plan.unmapped_counts.get("paper"), Some(&1));
+    assert_eq!(plan.unmapped_counts.get("vault_page"), Some(&1));
+    assert!(
+        plan.skipped.is_empty(),
+        "unmapped rows are not skips: {:?}",
+        plan.skipped
+    );
+
+    let files = FakeFiles::default();
+    assert_eq!(export_unmapped(&files, &plan.unmapped_comments), Ok(1));
+    assert_eq!(verify_unmapped(&files, &plan.unmapped_comments), Ok(()));
+}
+
+#[test]
+fn unmapped_thread_reply_and_anchors_round_trip() {
+    let root = sample_unmapped("c1");
+    let reply = UnmappedCommentRow {
+        id: "c2".into(),
+        author_id: "u2".into(),
+        body: "agreed".into(),
+        anchor_prefix: Some("before ".into()),
+        anchor_suffix: Some(" after".into()),
+        parent_id: Some("c1".into()),
+        resolved_at: Some("2026-11-18T10:00:00Z".into()),
+        ..sample_unmapped("c2")
+    };
+    let rows = vec![root, reply];
+    assert_eq!(
+        read_unmapped_comments(&unmapped_comments_document(&rows)),
+        Ok(rows.clone())
+    );
+
+    let files = FakeFiles::default();
+    assert_eq!(export_unmapped(&files, &rows), Ok(1));
+    assert_eq!(verify_unmapped(&files, &rows), Ok(()));
+}
+
+#[test]
+fn unmapped_five_hundred_rows_round_trip() {
+    let rows: Vec<UnmappedCommentRow> = (0..500)
+        .map(|index| sample_unmapped(&format!("c{index}")))
+        .collect();
+    let document = unmapped_comments_document(&rows);
+    assert_eq!(read_unmapped_comments(&document), Ok(rows.clone()));
+
+    let files = FakeFiles::default();
+    assert_eq!(export_unmapped(&files, &rows), Ok(1));
+    assert_eq!(verify_unmapped(&files, &rows), Ok(()));
+}
+
+#[test]
+fn unmapped_verify_mismatch_is_an_error() {
+    let rows = vec![sample_unmapped("c1")];
+    let files = FakeFiles::default();
+    assert_eq!(export_unmapped(&files, &rows), Ok(1));
+    let _previous = files.files.borrow_mut().insert(
+        UNMAPPED_COMMENTS_PATH.into(),
+        unmapped_comments_document(&[sample_unmapped("c2")]),
+    );
+    let err = verify_unmapped(&files, &rows).expect_err("edited file must fail verify");
+    assert!(err.contains("comments-unmapped mismatch"), "error: {err}");
+}
+
+#[test]
+fn unmapped_missing_file_fails_verify() {
+    let rows = vec![sample_unmapped("c1")];
+    let files = FakeFiles::default();
+    let err = verify_unmapped(&files, &rows).expect_err("missing file must fail");
+    assert!(
+        err.contains(UNMAPPED_COMMENTS_PATH),
+        "error names the file: {err}"
+    );
+}
+
+#[test]
+fn unmapped_unsupported_version_is_refused() {
+    let err = read_unmapped_comments(r#"{"version": 2, "rows": []}"#)
+        .expect_err("version 2 must be refused");
+    assert_eq!(err, "comments-unmapped version 2 is not supported");
+    assert!(read_unmapped_comments("{").is_err(), "bad JSON is refused");
 }
