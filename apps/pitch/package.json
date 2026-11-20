@@ -9,7 +9,7 @@
     "dev": "next dev --webpack --port 3300",
     "build": "next build --webpack",
     "postbuild": "node scripts/finish-export.mjs && node scripts/write-docs-redirects.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "@weaveforge/core": "*",

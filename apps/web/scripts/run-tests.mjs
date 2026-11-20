@@ -10,13 +10,16 @@
  *
  *   npm run test --workspace @weaveforge/web
  *   npm run test --workspace @weaveforge/web -- --test-name-pattern startup
+ *   node ./scripts/run-tests.mjs src/features/ink     (one feature)
  *
  * It also preloads the Rust core (src/lib/test/preload-core.mts).
  */
 
 import { spawn } from "node:child_process";
+import { statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { testArgs } from "./lib/test-args.mjs";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -29,13 +32,11 @@ const child = spawn(
     "--import",
     "./src/lib/test/preload-core.mts",
     "--test",
-    ...process.argv.slice(2),
-    // Named test files run alone; otherwise the whole suite. Two patterns
-    // rather than a brace expansion: node's test-runner glob does not expand
-    // `{ts,tsx}`, and a pattern that matches nothing is ignored.
-    ...(process.argv.slice(2).some((a) => /\.test\.tsx?$/.test(a))
-      ? []
-      : ["src/**/*.test.ts", "src/**/*.test.tsx"]),
+    // Named files or directories run alone; otherwise the whole suite.
+    ...testArgs(process.argv.slice(2), {
+      isDir: (p) => statSync(path.resolve(appRoot, p), { throwIfNoEntry: false })?.isDirectory() ?? false,
+      env: process.env,
+    }),
   ],
   {
     cwd: appRoot,
