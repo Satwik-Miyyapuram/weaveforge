@@ -672,7 +672,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
       }
       sessionRef.current!.cancel(event.pointerId);
     },
-    [toGateEvent],
+    [],
   );
 
   const setPenOnly = useCallback((value: boolean) => {
