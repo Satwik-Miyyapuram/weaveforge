@@ -2,8 +2,8 @@
  * Bringing back a file that already declares a `weaveforge-id` the workspace
  * does not know (an ink note from another machine, say).
  *
- * The note must keep the file's id and created-at, so its strokes in
- * `.ink/<id>/` are found; the import must not touch the file or write ink
+ * The note must keep the file's id and created-at, so its strokes beside it in
+ * `notes/<name>.ink/` (ink-by-name) are found; the import must not touch the file or write ink
  * under any other id; and an id another row holds is refused, never re-IDed.
  */
 import assert from "node:assert/strict";
@@ -15,7 +15,7 @@ import type { IWorkspaceFs } from "@weaveforge/core";
 import type { ImportDiff, ImportDiffEntry } from "@weaveforge/wasm";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { applyEntries } from "../application/parts-1";
-import { CopyOnReadInkChunkStore, FsInkChunkStore } from "@/features/ink/infrastructure/parts";
+import { CopyOnReadInkChunkStore, FolderInkNotes, FsInkChunkStore } from "@/features/ink/infrastructure/parts";
 
 const FILE_ID = "4e64e8a9-cb73-418a-9909-00c3507060c3";
 const FILE_CREATED = "2026-11-18T14:45:32.123Z";
@@ -40,10 +40,18 @@ function memoryFs(files: Record<string, string | Uint8Array>) {
     writeFile: async (path: string, data: Uint8Array | string) => void store.set(path, data),
     remove: async (path: string) => void store.delete(path),
     mkdirp: async () => undefined,
-    list: async (dir: string) =>
-      [...store.keys()]
-        .filter((p) => p.startsWith(`${dir}/`) && !p.slice(dir.length + 1).includes("/"))
-        .map((path) => ({ path, kind: "file" as const })),
+    list: async (dir: string) => {
+      const prefix = dir === "" ? "" : `${dir}/`;
+      const children = new Map<string, "file" | "dir">();
+      for (const p of store.keys()) {
+        if (!p.startsWith(prefix)) continue;
+        const rest = p.slice(prefix.length);
+        const slash = rest.indexOf("/");
+        if (slash === -1) children.set(p, "file");
+        else children.set(prefix + rest.slice(0, slash), "dir");
+      }
+      return [...children].map(([path, kind]) => ({ path, kind }));
+    },
     walk: async function* () {},
     stat: async (path: string) =>
       store.has(path) || [...store.keys()].some((p) => p.startsWith(`${path}/`)) ? { kind: "file" } : null,
@@ -115,8 +123,7 @@ function createdWithId(): ImportDiff {
 function inkFolder() {
   return memoryFs({
     [inkPath]: inkFile,
-    [`.ink/${FILE_ID}/${CHUNK}.inkb`]: STROKES,
-    [`.ink/${FILE_ID}/migrated`]: "legacy bucket ink copied into this folder\n",
+    [`${projectRoot}/notes/losses.ink/${CHUNK}.inkb`]: STROKES,
   });
 }
 
@@ -155,11 +162,11 @@ test("the note's strokes are found under its id and no ink is written under anot
       throw new Error("the bucket must not be asked");
     },
   } as never;
-  const ink = new CopyOnReadInkChunkStore(new FsInkChunkStore(() => fs), bucket);
+  const ink = new CopyOnReadInkChunkStore(new FsInkChunkStore(() => fs, new FolderInkNotes(() => fs)), bucket);
   await ink.prepareNote(noteId, [CHUNK]);
   assert.deepEqual(await ink.read(noteId, CHUNK), STROKES);
-  const inkPaths = [...store.keys()].filter((p) => p.startsWith(".ink/"));
-  assert.deepEqual(inkPaths.filter((p) => !p.startsWith(`.ink/${FILE_ID}/`)), []);
+  const strokePaths = [...store.keys()].filter((p) => p.includes(".ink/"));
+  assert.ok(strokePaths.every((p) => p.startsWith(`${projectRoot}/notes/losses.ink/`)));
 });
 
 test("an id another note holds is refused, not given a new id, and the rest of the batch goes on", async () => {
