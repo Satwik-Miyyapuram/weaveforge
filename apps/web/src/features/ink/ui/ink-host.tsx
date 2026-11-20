@@ -54,7 +54,9 @@ import { InkFigures } from "./ink-figures";
 import { InkSheetTextUnderlay } from "./ink-sheet-underlay";
 import { useInkSelection } from "./use-ink-selection";
 import { InkPage } from "./ink-page";
-import { cachedRect } from "./rect-cache";
+import { useSheetProjection } from "./use-sheet-projection";
+import { useUnmountEndsStroke } from "./use-unmount-ends-stroke";
+import { useLatestRef } from "./use-latest-ref";
 import { InkRail } from "./ink-rail";
 import { InkStoreAlert } from "./ink-store-alert";
 import { InkTextLayer } from "./ink-text-layer";
@@ -104,10 +106,7 @@ export function InkHost({
    * This is that question with a live answer: it decides whether the page the
    * work was for is still the one in front of the user.
    */
-  const pageIndexRef = useRef(pageIndex);
-  useEffect(() => {
-    pageIndexRef.current = pageIndex;
-  }, [pageIndex]);
+  const pageIndexRef = useLatestRef(pageIndex);
   const [showTextLayer, setShowTextLayer] = useState<boolean>(false);
   const { tool, setTool, cursorMode, enterCursor, colour, onColourChange, onPenApproach, ...widths } =
     useInkPrefs();
@@ -196,37 +195,11 @@ export function InkHost({
     pageCount,
     pageIndex,
   });
-  /**
-   * Client coordinates to page units. The one projection everything shares.
-   * Against the sheet, not the canvas: the canvas is only the visible part.
-   */
-  const project = useCallback((clientX: number, clientY: number) => {
-    const sheet = sheetRef.current;
-    if (!sheet) return null;
-    // Every coalesced sample projects; a cached rect keeps that off layout (perf I3).
-    const box = cachedRect(sheet);
-    return {
-      x: ((clientX - box.left) / Math.max(box.width, 1)) * pageSize.width,
-      y: ((clientY - box.top) / Math.max(box.height, 1)) * pageSize.height,
-    };
-  }, [pageSize.height, pageSize.width]);
+  /** Client coordinates to page units (§use-sheet-projection). */
+  const project = useSheetProjection(sheetRef, pageSize);
 
-  /**
-   * Unmount, in order: the in-progress stroke ends first, then the store's last
-   * flush posts the save, then the pen disposes the worker. Effects clean up in
-   * declaration order, so this effect is declared before the store's and the
-   * pen's. A save posted after the pen has gone would queue and never send.
-   */
-  const endStrokeRef = useRef<() => void>(() => {});
-  const unmountedRef = useRef(false);
-  useEffect(() => {
-    // Reset on mount: Strict Mode runs this cleanup and then mounts again.
-    unmountedRef.current = false;
-    return () => {
-      endStrokeRef.current();
-      unmountedRef.current = true;
-    };
-  }, []);
+  /** Declared before the store and the pen: see §use-unmount-ends-stroke. */
+  const { endStrokeRef, unmountedRef } = useUnmountEndsStroke();
 
   /**
    * The note's own saves (§use-ink-note-store): the header and body written
