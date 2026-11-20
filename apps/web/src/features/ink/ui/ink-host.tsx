@@ -211,6 +211,23 @@ export function InkHost({
   }, [pageSize.height, pageSize.width]);
 
   /**
+   * Unmount, in order: the in-progress stroke ends first, then the store's last
+   * flush posts the save, then the pen disposes the worker. Effects clean up in
+   * declaration order, so this effect is declared before the store's and the
+   * pen's. A save posted after the pen has gone would queue and never send.
+   */
+  const endStrokeRef = useRef<() => void>(() => {});
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    // Reset on mount: Strict Mode runs this cleanup and then mounts again.
+    unmountedRef.current = false;
+    return () => {
+      endStrokeRef.current();
+      unmountedRef.current = true;
+    };
+  }, []);
+
+  /**
    * The note's own saves (§use-ink-note-store): the header and body written
    * late, the sidecar loaded once, a blank page appended on ask. Placed here
    * because the pen below needs `scheduleSave` and the store needs the RPC's
@@ -278,6 +295,9 @@ export function InkHost({
     onEvent,
     onPenApproach,
     onStrokeEnd: () => {
+      // A stroke acknowledged after unmount was already saved at teardown; a
+      // timer started now would post into a pen that has gone.
+      if (unmountedRef.current) return;
       // One state change per stroke, as the hook's doc comment promises.
       setStrokes((count) => count + 1);
       scheduleSave();
@@ -289,6 +309,11 @@ export function InkHost({
   // The worker's door, handed to the RPC hook's asks: the pen exists now, and
   // every ask runs after this render.
   sendRef.current = (message, transfer) => send(message, transfer);
+  // The store's timer is what its unmount flush writes; a stroke ended here
+  // must start it, since the stroke's own ack comes after the flush.
+  endStrokeRef.current = () => {
+    if (pen.session.endStroke()) scheduleSave();
+  };
 
   /**
    * Whether a stroke is in flight, by ref: the scroll watcher asks this

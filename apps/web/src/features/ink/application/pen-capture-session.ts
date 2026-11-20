@@ -244,6 +244,18 @@ export class PenCaptureSession {
     this.deps.onStrokeEnd?.(header, points, pressures);
   }
 
+  /**
+   * End the stroke in progress and keep it, as a lift does, without touching
+   * the pointer's gate. For teardown: the stroke must reach the worker before
+   * the host's last save is posted. True when a stroke was ended.
+   */
+  endStroke(): boolean {
+    if (!this.active || !this.header) return false;
+    this.deps.writer.flush("stroke-end", this.header);
+    this.clear();
+    return true;
+  }
+
   /** Discard the stroke in progress, because a palm decision arrived late. */
   abort(): void {
     const header = this.header;

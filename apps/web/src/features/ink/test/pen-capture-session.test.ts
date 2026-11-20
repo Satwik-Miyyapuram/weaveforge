@@ -638,3 +638,26 @@ test("a pen tap with no move posts its one sample, so the worker has a dot to ke
   assert.ok(types.includes("stroke-end"), `the tap ends a stroke, got ${types.join(",")}`);
   assert.equal(harness.stroke.points.length, 2, `the tap's sample is posted, got ${JSON.stringify(harness.stroke.points)}`);
 });
+
+test("ending the stroke on unmount sends stroke-end, so the host saves what was drawn", () => {
+  const harness = sessionHarness();
+  harness.session.pointerDown(pointer({ pointerType: "pen", pointerId: 12, t: 0 }));
+  harness.session.pointerRawUpdate(
+    pointer({ pointerType: "pen", pointerId: 12, clientX: 120, clientY: 120, t: 8 }),
+  );
+  harness.session.flush();
+
+  const ended = harness.session.endStroke();
+
+  assert.equal(ended, true, "a stroke in progress is ended");
+  assert.equal(harness.session.active, false, "the session is idle afterwards");
+  assert.equal(harness.messages.at(-1)?.type, "stroke-end", "the last message ends the stroke");
+});
+
+test("ending the stroke with none in progress sends nothing", () => {
+  const harness = sessionHarness();
+  const before = harness.messages.length;
+
+  assert.equal(harness.session.endStroke(), false);
+  assert.equal(harness.messages.length, before, "no message is posted");
+});
