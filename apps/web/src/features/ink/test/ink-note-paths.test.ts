@@ -106,7 +106,7 @@ test("a note with no file in the folder has no strokes, and a write to it fails 
   assert.equal(await store.read(ID, page), null);
   assert.equal(await store.list(ID), null);
   await assert.rejects(store.write(ID, page, bytes(1)), /no file in the workspace folder/);
-  assert.deepEqual(await filesUnder(fs, ""), {});
+  assert.deepEqual(await filesUnder(fs, "thesis--2a3407"), {});
 });
 
 test("a note the mirror has not written yet is written by a folder sync, then the page lands beside it", async () => {
