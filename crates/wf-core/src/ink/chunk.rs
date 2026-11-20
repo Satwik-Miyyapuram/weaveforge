@@ -762,8 +762,16 @@ mod tests {
         };
         let (mut x, mut y) = (0_i16, 0_i16);
         for i in 0..SAMPLES {
-            x = if i == 0 { field(i, 0) } else { x.wrapping_add(field(i, 0)) };
-            y = if i == 0 { field(i, 2) } else { y.wrapping_add(field(i, 2)) };
+            x = if i == 0 {
+                field(i, 0)
+            } else {
+                x.wrapping_add(field(i, 0))
+            };
+            y = if i == 0 {
+                field(i, 2)
+            } else {
+                y.wrapping_add(field(i, 2))
+            };
             assert_eq!(
                 (f64::from(x), f64::from(y)),
                 (points[2 * i], points[2 * i + 1]),
