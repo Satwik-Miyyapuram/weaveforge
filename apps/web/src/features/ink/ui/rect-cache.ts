@@ -10,13 +10,15 @@
  */
 export interface RectCache {
   rect(el: Element): DOMRect;
+  /** Forget every rect: for moves no event announces, like a page flip. */
+  drop(): void;
 }
 
 export function createRectCache(
   target: EventTarget | null,
   Observer: typeof ResizeObserver | undefined,
 ): RectCache {
-  if (!target) return { rect: (el) => el.getBoundingClientRect() };
+  if (!target) return { rect: (el) => el.getBoundingClientRect(), drop: () => {} };
   let rects = new WeakMap<Element, DOMRect>();
   const observed = new WeakSet<Element>();
   const drop = () => {
@@ -39,6 +41,7 @@ export function createRectCache(
       }
       return rect;
     },
+    drop,
   };
 }
 
@@ -51,4 +54,9 @@ export function cachedRect(el: Element): DOMRect {
     typeof ResizeObserver === "undefined" ? undefined : ResizeObserver,
   );
   return shared.rect(el);
+}
+
+/** Drop the app's cached rects after a move no event announces. */
+export function dropCachedRects(): void {
+  shared?.drop();
 }
