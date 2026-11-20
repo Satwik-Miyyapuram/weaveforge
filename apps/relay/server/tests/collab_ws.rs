@@ -614,7 +614,7 @@ async fn save_at_stale_epoch_is_an_error() {
 /// Appends `value` as a lib0 varuint.
 fn varuint(mut value: usize, out: &mut Vec<u8>) {
     loop {
-        let byte = (value & 0x7f) as u8;
+        let byte = u8::try_from(value & 0x7f).expect("seven bits fit a byte");
         value >>= 7;
         if value == 0 {
             out.push(byte);

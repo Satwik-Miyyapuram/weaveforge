@@ -322,5 +322,5 @@ pub async fn migrate_093_run(
 pub async fn migrate_093_status(
     state: tauri::State<'_, VaultState>,
 ) -> Result<MigrateReply, ShellError> {
-    with_session(&state, |session| status_of(session)).await
+    with_session(&state, status_of).await
 }
