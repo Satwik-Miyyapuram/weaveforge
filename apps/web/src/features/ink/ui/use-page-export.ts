@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { type FigureGeometry, type InkPage as InkPageModel, type InkStroke } from "@weaveforge/core";
 
-import { blobToDataUrl, downloadBlob, readInkRenderer } from "@/lib/parts";
+import { blobToDataUrl, downloadBlob } from "@/lib/parts";
 import { renderMarkdownPlain } from "@/components/markdown/markdown";
 import type { InkSvgFigure } from "@weaveforge/wasm";
 import { loadInOrder } from "../application/parts";
@@ -190,7 +190,7 @@ async function savedPageInk(
     bitmap.close();
   }
   if (drawn.length > 0) {
-    drawInkStrokes(context, drawn, PNG_EXPORT_SCALE, readInkRenderer(), readInkTuning());
+    drawInkStrokes(context, drawn, PNG_EXPORT_SCALE, readInkTuning());
   }
   return new Promise<Blob | null>((resolve) =>
     canvas.toBlob((blob) => {
