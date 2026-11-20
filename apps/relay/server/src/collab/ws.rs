@@ -392,6 +392,7 @@ fn apply_locked(inner: &mut RoomInner, update: &[u8]) -> Result<(), &'static str
         .apply_update(decoded)
         .map_err(|_| "bad-update")?;
     inner.dirty = true;
+    inner.version = inner.version.wrapping_add(1);
     // A failed log write does not stop the broadcast: the doc is dirty, so the
     // full state is saved on the next persist and the change is not lost.
     if let Err(error) = inner.log.append(update) {

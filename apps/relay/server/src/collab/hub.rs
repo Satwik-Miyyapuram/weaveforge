@@ -52,6 +52,8 @@ pub struct RoomInner {
     pub status: DocStatus,
     /// True when updates are in the log but not yet saved.
     pub dirty: bool,
+    /// Bumped on every applied update, so a save can tell whether updates arrived while it ran.
+    pub version: u64,
     /// The write-back lease.
     pub lease: LeaseBook,
     /// The update log on disk.
@@ -72,6 +74,8 @@ pub struct Room {
     /// recheck to this room until it closes and reopens (update checks still read the row).
     /// Item-level grants still reach it.
     pub project_id: Option<String>,
+    /// Held by one save at a time, so an older snapshot cannot land after a newer one.
+    pub saving: tokio::sync::Mutex<()>,
     /// The mutable state.
     pub inner: tokio::sync::Mutex<RoomInner>,
     /// Fan-out to the clients.
@@ -233,6 +237,7 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
         owner: row.owner,
         status: row.status,
         dirty: !replayed.is_empty(),
+        version: 0,
         lease: LeaseBook::new(state.config.lease_ms),
         log,
         clients: 0,
@@ -240,6 +245,7 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
     let room = Arc::new(Room {
         item_id,
         project_id,
+        saving: tokio::sync::Mutex::new(()),
         inner: tokio::sync::Mutex::new(inner),
         tx: tokio::sync::broadcast::channel(BROADCAST_CAPACITY).0,
     });
@@ -248,15 +254,22 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
 
 /// Saves the room's full state and empties its log, when anything changed since the last save.
 pub async fn persist_room(state: &CollabState, room: &Room) -> Result<(), String> {
+    // One save at a time per room: otherwise an older snapshot could be written after a newer one.
+    let _saving = room.saving.lock().await;
+    let (bytes, epoch, version) = {
+        let inner = room.inner.lock().await;
+        if !inner.dirty {
+            return Ok(());
+        }
+        (encode_full(&inner.doc), inner.epoch, inner.version)
+    };
+    // The room lock is released during the store write, so clients keep sending updates.
+    state.store.save_state(&room.item_id, epoch, &bytes).await?;
     let mut inner = room.inner.lock().await;
-    if !inner.dirty {
+    // Updates that arrived during the save are not in `bytes`: keep their log and the dirty flag.
+    if inner.version != version {
         return Ok(());
     }
-    let bytes = encode_full(&inner.doc);
-    state
-        .store
-        .save_state(&room.item_id, inner.epoch, &bytes)
-        .await?;
     inner.log.truncate().map_err(|err| err.to_string())?;
     inner.dirty = false;
     Ok(())
