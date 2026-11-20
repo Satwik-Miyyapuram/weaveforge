@@ -73,6 +73,24 @@ with AGPL-3.0 may not.
     apps/web/scripts/copy-pdf-worker.mjs and is therefore redistributed as
     part of any deployment of this application. Not modified.
 
+  Excalidraw freedraw path (copied code)
+    https://github.com/excalidraw/excalidraw
+    MIT License. Copyright (c) 2020 Excalidraw.
+    Tag v0.18.1, commit a2ec2889babf7d2295469c6d90ebe77fae57df84,
+    packages/excalidraw/renderer/renderElement.ts (getFreeDrawSvgPath, med,
+    TO_FIXED_PRECISION, getSvgPathFromStroke). Copied into
+    apps/web/src/features/ink/render/excalidraw-freedraw.ts, which carries the
+    full MIT notice. Local modifications: the element argument is an interface
+    of the fields the function reads, and non-null index assertions satisfy
+    strict TypeScript. The options and path logic are unchanged.
+
+  perfect-freehand 1.2.0 (npm dependency, not copied)
+    https://github.com/steveruizok/perfect-freehand
+    MIT License. Copyright Steve Ruiz. Pinned exactly to 1.2.0 in
+    apps/web/package.json. Its getStroke is called by
+    apps/web/src/features/ink/render/excalidraw-freedraw.ts. The golden output
+    was generated with 1.2.3 and is reproduced exactly by 1.2.0.
+
   Planned, not yet vendored -- see docs/internal/plans/completed/pdf-viewer-plan.md §1.2:
 
   Zotero Reader (selective vendoring: selection geometry, text-layer

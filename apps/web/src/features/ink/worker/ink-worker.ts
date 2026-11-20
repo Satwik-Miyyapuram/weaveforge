@@ -7,13 +7,8 @@ import {
   type InkChunkCodec,
   type InkShape,
   type InkStroke,
-  type LiveInkStrokePacker,
-  type PackedInkStroke,
 } from "@weaveforge/core";
 import {
-  eachInkSample,
-  type InkSamplePayload,
-  type InkStrokeHeader,
   type InkTransferMode,
   type InkWorkerEvent,
   type InkWorkerMessage,
@@ -22,7 +17,12 @@ import { inkChunkCodec } from "../application/parts-1";
 import { boundsUnion, type InkBounds, InkPageBuffer } from "../application/parts-3";
 import { InkStrokeIndex } from "../application/stroke-index";
 import { CanvasInkRenderer } from "../render/canvas-renderer";
-import type { InkLiveStroke, InkPalette, InkRenderer } from "../render/parts-1";
+import {
+  DEFAULT_INK_RENDERER,
+  type InkRendererKind,
+  parseInkRenderer,
+} from "../render/freehand-stroke";
+import type { InkPalette, InkRenderer } from "../render/parts-1";
 import { supportsWebglInk, WebglInkRenderer } from "../render/webgl-renderer";
 import {
   clearSelection,
@@ -42,6 +42,26 @@ import {
   savePage,
   undo,
 } from "./ink-page-logic";
+import {
+  appendSamples,
+  type LiveStroke,
+  liveForRenderer,
+  newLiveStroke,
+  realSoFar,
+  replacePredictedTail,
+  takeRawOverflow,
+} from "./live-stroke";
+
+export {
+  appendSamples,
+  type LiveStroke,
+  liveForRenderer,
+  newLiveStroke,
+  RAW_STROKE_MAX_POINTS,
+  replacePredictedTail,
+  setRawStrokeCapForTest,
+  takeRawOverflow,
+} from "./live-stroke";
 
 // --- ink-background ---
 /// <reference lib="webworker" />
@@ -187,43 +207,6 @@ export function addStrokes(
 // The codec lives with the rest of the chunk plumbing rather than here: the
 // host writes a page's chunk too, when its background changes (§4.8).
 
-/** The stroke being drawn: raw samples, with its predicted tail marked off. */
-export interface LiveStroke {
-  header: InkStrokeHeader;
-  points: number[];
-  pressures: number[];
-  /**
-   * Samples that came from the digitiser rather than from prediction.
-   *
-   * `getPredictedEvents()` extrapolates one or two frames ahead, and the worker
-   * draws that tail so the ink keeps up with the nib. It must never be committed:
-   * a prediction is a guess about a hand, and a saved guess is a corrupted note.
-   * The next real batch truncates back to here.
-   */
-  realSamples: number;
-  /** Samples arrived since the renderer last got this stroke; a frame without new ones repacks nothing (19-09). */
-  changed: boolean;
-  /** The real samples, packed as they arrive: what is drawn and what is saved. */
-  packer: LiveInkStrokePacker;
-}
-
-/** What the live packer holds so far, as plain arrays. */
-function packedSoFar(packer: LiveInkStrokePacker): PackedInkStroke {
-  return { points: Array.from(packer.points()), pressures: Array.from(packer.pressures()) };
-}
-
-/** A stroke the pen has just put down, with nothing in it yet. */
-export function newLiveStroke(header: InkStrokeHeader): LiveStroke {
-  return {
-    header,
-    points: [],
-    pressures: [],
-    realSamples: 0,
-    changed: true,
-    packer: typedCore().createInkStrokePacker({ tolerance: INK_PACK_TOLERANCE }),
-  };
-}
-
 /** What the worker holds. Fields rather than a class: it is a process, not an object. */
 const state = {
   canvas: null as OffscreenCanvas | null,
@@ -231,6 +214,8 @@ const state = {
   height: INK_A4_HEIGHT,
   dpr: 1,
   mode: "transfer" as InkTransferMode,
+  /** The A/B renderer, fixed for this page's worker (see `init`). */
+  inkRenderer: DEFAULT_INK_RENDERER as InkRendererKind,
   frame: 0,
   running: false,
   disposed: false,
@@ -278,79 +263,6 @@ function post(event: InkWorkerEvent, transfer: Transferable[] = []): void {
   scope.postMessage(event, transfer);
 }
 
-/**
- * Read a batch into the live stroke, keeping any predicted tail behind it.
- *
- * The arrays are grown once per batch and written by index; a per-sample push of an
- * object would be the same garbage the batched protocol exists to avoid, one thread
- * over. `realSamples` is what separates digitiser truth from prediction.
- */
-export function appendSamples(stroke: LiveStroke, payload: InkSamplePayload): void {
-  const start = stroke.realSamples;
-  const end = start + payload.count;
-  stroke.points.length = end * 2;
-  stroke.pressures.length = end;
-  let index = 0;
-  eachInkSample(payload, (x, y, pressure) => {
-    stroke.points[(start + index) * 2] = x;
-    stroke.points[(start + index) * 2 + 1] = y;
-    stroke.pressures[start + index] = readyCore().inkPenPressureByte(pressure);
-    stroke.packer.push(x, y, stroke.pressures[start + index]);
-    index += 1;
-  });
-  stroke.realSamples = end;
-  stroke.changed = true;
-}
-
-/** Replace the predicted tail: truncate to the last real sample, then append. */
-function replacePredictedTail(
-  stroke: LiveStroke,
-  payload: InkSamplePayload,
-): void {
-  stroke.points.length = stroke.realSamples * 2;
-  stroke.pressures.length = stroke.realSamples;
-  eachInkSample(payload, (x, y, pressure) => {
-    stroke.points.push(x, y);
-    stroke.pressures.push(readyCore().inkPenPressureByte(pressure));
-  });
-  stroke.changed = true;
-}
-
-/**
- * The live stroke as the renderer takes it.
- *
- * The real samples are what the packer has kept, which `commitStroke` saves as
- * they are, so lifting the pen changes nothing on screen. The predicted tail is
- * kept out of the packer and drawn after, as sampled.
- */
-export function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
-  const real = stroke.realSamples;
-  const { points, pressures } = packedSoFar(stroke.packer);
-  const realCount = points.length / 2;
-  const tail = stroke.points.length / 2 - real;
-  const count = realCount + tail;
-  const x = new Float32Array(count);
-  const y = new Float32Array(count);
-  const pressure = new Uint8Array(count);
-  for (let i = 0; i < realCount; i += 1) {
-    x[i] = points[i * 2]!;
-    y[i] = points[i * 2 + 1]!;
-    pressure[i] = pressures[i] ?? 128;
-  }
-  for (let i = 0; i < tail; i += 1) {
-    x[realCount + i] = stroke.points[(real + i) * 2]!;
-    y[realCount + i] = stroke.points[(real + i) * 2 + 1]!;
-    pressure[realCount + i] = stroke.pressures[real + i] ?? 128;
-  }
-  return {
-    header: stroke.header,
-    x,
-    y,
-    pressure,
-    realCount,
-  };
-}
-
 /** Pack the finished stroke into the page, and tell the main thread what was kept. */
 function commitStroke(stroke: LiveStroke): void {
   const real = stroke.realSamples;
@@ -358,7 +270,7 @@ function commitStroke(stroke: LiveStroke): void {
   let rawPressures: readonly number[] = stroke.pressures.slice(0, real);
   let shape: InkShape = "none";
   // What was drawn live is what is saved, unless the mark is replaced below.
-  let packed = packedSoFar(stroke.packer);
+  let packed = realSoFar(stroke);
   if (stroke.header.tool === "shape") {
     // The shape tool snaps on lift (§6.3): the mark is fitted here, once, and what
     // is stored is the fitted path with a flat pressure, so a rectangle is a
@@ -466,6 +378,9 @@ function startRenderer(delegating: boolean): void {
   let renderer: InkRenderer | null = null;
   let reason = "";
   try {
+    // The freehand A/B draws outlines on Canvas 2D only; WebGL has no outline path yet.
+    if (state.inkRenderer === "freehand")
+      throw new Error("freehand renderer draws on Canvas 2D");
     if (!supportsWebglInk(canvas)) throw new Error("WebGL2 is unavailable");
     // The shaders are compiled on a throwaway canvas first. A canvas that has
     // given out a WebGL context can never give out a 2D one, so a driver that
@@ -499,7 +414,10 @@ function startRenderer(delegating: boolean): void {
     // that already gave out a WebGL context cannot give out a 2D one, but a
     // canvas that *refused* WebGL still can, which is the case this serves.
     try {
-      renderer = new CanvasInkRenderer({ canvas });
+      renderer = new CanvasInkRenderer({
+        canvas,
+        renderer: state.inkRenderer,
+      });
     } catch (error) {
       reason += `; ${errorMessage(error)}`;
     }
@@ -567,6 +485,14 @@ function routeInput(message: InkWorkerMessage) {
   };
 }
 
+/** Commit each full part of a raw live stroke past the cap, drawing on with the rest. */
+function commitRawOverflow(): void {
+  for (let next = state.live && takeRawOverflow(state.live); next; next = takeRawOverflow(next)) {
+    commitStroke(state.live!);
+    state.live = next;
+  }
+}
+
 function handleMessage(message: InkWorkerMessage): void {
   try {
     const plan = readyCore().inkWorkerRoute(routeInput(message));
@@ -579,6 +505,7 @@ function handleMessage(message: InkWorkerMessage): void {
         state.dpr = message.dpr;
         state.mode = message.mode;
         state.codec = inkChunkCodec(message.codec);
+        state.inkRenderer = parseInkRenderer(message.inkRenderer);
         // The path decides the context attributes, and they are immutable after the
         // first `getContext` (§6.2.8) — so this is decided once, by whether the
         // presenter is delegating, and a presenter that appears later means a new
@@ -591,21 +518,26 @@ function handleMessage(message: InkWorkerMessage): void {
         void loadPage(state, message, post).then(ensureLoop);
         break;
       case "stroke-begin": {
-        state.live = newLiveStroke(message.header);
+        state.live = newLiveStroke(message.header, state.inkRenderer === "freehand");
         appendSamples(state.live, message.sample);
+        commitRawOverflow();
         ensureLoop();
         break;
       }
       case "samples": {
         if (!state.live) break;
         if (plan.predicted) replacePredictedTail(state.live, message.sample);
-        else appendSamples(state.live, message.sample);
+        else {
+          appendSamples(state.live, message.sample);
+          commitRawOverflow();
+        }
         break;
       }
       case "stroke-end": {
+        if (!state.live) break;
+        appendSamples(state.live, message.sample);
+        commitRawOverflow();
         const live = state.live;
-        if (!live) break;
-        appendSamples(live, message.sample);
         commitStroke(live);
         state.live = null;
         state.renderer?.setLive(null);

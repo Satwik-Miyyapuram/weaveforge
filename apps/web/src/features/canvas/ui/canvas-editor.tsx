@@ -14,7 +14,12 @@ import {
 } from "react";
 import { readyCore } from "@/lib/rust-core";
 import { formatError } from "@/lib/format-error";
-import { downloadBlob } from "@/lib/parts";
+import { downloadBlob, readInkABOn, readInkRenderer } from "@/lib/parts";
+import { InkABToggle } from "./ink-ab-toggle";
+import { isTextEntry, useSpaceHeld } from "./use-space-held";
+import { isPanPress, midpoint } from "../application/canvas-pan";
+import { pointerSamples } from "../application/pointer-samples";
+import type { InkRendererKind } from "@/features/ink/render/freehand-stroke";
 import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { useBlobObjectUrls, type BlobFetchers } from "@/lib/hooks/use-blob-object-urls";
 import { Button, IconButton } from "@/components/button";
@@ -40,6 +45,9 @@ import {
   type Size,
 } from "../application/freeform-geometry";
 import { encodeStroke, eraseHits, strokeAt, type InkPoint } from "../application/freeform-ink";
+import { DEFAULT_PEN_COLOUR } from "../application/pen-colour";
+import { canonicalInkColour, resolveInkColour } from "@/features/ink/render/resolve-ink-colour";
+import { useThemeInk } from "@/features/ink/render/use-theme-ink";
 import { canRedo, canUndo, createHistory, record, redo, undo, type History } from "../application/canvas-history";
 import { CanvasSaver } from "../application/canvas-save";
 import { canvasKeyAction, focusesOnPress } from "../application/canvas-keys";
@@ -74,7 +82,8 @@ interface Point {
 
 /** What a pointer is doing between press and release. `base` is the file at the start, for one history entry. */
 type Gesture =
-  | { kind: "pan"; screen: Point; view: PageView }
+  /** `fingers`: a two-finger pan, which follows the midpoint of the two touches. */
+  | { kind: "pan"; screen: Point; view: PageView; fingers?: boolean }
   | { kind: "ink"; points: InkPoint[]; colour: string; width: number }
   | { kind: "erase"; base: CanvasFile }
   | { kind: "move"; base: CanvasFile; ids: ReadonlySet<string>; origin: Point }
@@ -82,7 +91,6 @@ type Gesture =
 
 const EMPTY_FILE: CanvasFile = { nodes: [], edges: [] };
 const DEFAULT_VIEW: PageView = { x: 0, y: 0, zoom: 1 };
-const DEFAULT_COLOUR = "#1f2328";
 const PEN_WIDTHS = [2, 4, 8, 16];
 const DEFAULT_WIDTH = 4;
 /** The eraser reaches this many screen pixels, whatever the zoom. */
@@ -104,11 +112,6 @@ const MODES: { mode: Mode; label: string; icon: ReactNode }[] = [
   { mode: "pen", label: "Pen", icon: <Glyph d="M4 20l1.2-4.2L15.8 5.2a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L8.2 18.8z" /> },
   { mode: "eraser", label: "Eraser", icon: <Glyph d="M3 17l8.5-8.5a2 2 0 0 1 2.8 0l4.2 4.2a2 2 0 0 1 0 2.8L14 21H8zM7 12l5 5" /> },
 ];
-
-/** Whether keys typed at `target` go into a field or a card's text, not the canvas. */
-function isTextEntry(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [contenteditable]") !== null);
-}
 
 function isImage(file: File): boolean {
   return file.type.startsWith("image/");
@@ -153,11 +156,23 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
   const editBaseRef = useRef<CanvasFile | null>(null);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [mode, setMode] = useState<Mode>("select");
-  const [colour, setColour] = useState(DEFAULT_COLOUR);
+  /** Canonical (Paper) hex; drawn and shown through the live theme. Starts at the text colour. */
+  const [colour, setColour] = useState(DEFAULT_PEN_COLOUR);
+  const ink = useThemeInk();
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [view, setView] = useState<PageView>(DEFAULT_VIEW);
   const [draft, setDraft] = useState<InkDraft | null>(null);
+  /** Read once when the page opens, like the paper ink renderer. */
+  const [renderer, setRenderer] = useState<InkRendererKind>(() => readInkRenderer());
+  /** Dev flag: shows the A/B buttons. Read once when the page opens. */
+  const [abVisible] = useState(() => readInkABOn());
+  /** A/B is per open page: the device default (`writeInkRenderer`) stays as the user set it. */
+  const chooseRenderer = (kind: InkRendererKind) => setRenderer(kind);
   const gestureRef = useRef<Gesture | null>(null);
+  /** Space held: a drag with the left button pans (mouse or touch, never pen). */
+  const spaceRef = useSpaceHeld();
+  /** Touch pointers on the surface, by pointer id, in screen points. */
+  const touchesRef = useRef(new Map<number, Point>());
   // The pointer the gesture belongs to: a second finger or pen is ignored until it ends.
   const pointerRef = useRef<number | null>(null);
   const [filePath, setFilePath] = useState("");
@@ -243,11 +258,13 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
   const fetchers = useMemo<BlobFetchers>(() => ({ fetchOne: (path) => images.fetch(path) }), [images]);
   const pictureUrls = useBlobObjectUrls(picturePaths, fetchers);
 
+  // One stroke list per file, so the memoised ink layer and its path cache hit.
+  const inkStrokes = useMemo(() => strokesOf(file), [file]);
   /** Selection without ids that no longer exist (after undo or a remote change). */
   const live = useMemo(() => {
-    const ids = new Set<string>([...file.nodes.map((node) => node.id), ...strokesOf(file).map((stroke) => stroke.id)]);
+    const ids = new Set<string>([...file.nodes.map((node) => node.id), ...inkStrokes.map((stroke) => stroke.id)]);
     return new Set([...selected].filter((id) => ids.has(id)));
-  }, [file, selected]);
+  }, [file, inkStrokes, selected]);
 
   // One history entry per edit: `record` for discrete changes, `preview` while a gesture or typing changes the
   // page without an entry, and `commit` to close a gesture with the file it started from.
@@ -370,8 +387,26 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
     });
   };
 
+  /** A second finger turns the touch into a two-finger pan. Any draw or move in progress is dropped first. */
+  const startTwoFingerPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const g = gestureRef.current;
+    if (g?.kind === "ink") setDraft(null);
+    else if (g && (g.kind === "erase" || g.kind === "move" || g.kind === "resize")) commit(g.base);
+    const [a, b] = [...touchesRef.current.values()];
+    gestureRef.current = { kind: "pan", screen: midpoint(a!, b!), view, fingers: true };
+    pointerRef.current = event.pointerId;
+  };
+
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (isTextEntry(event.target) || gestureRef.current !== null) return;
+    if (isTextEntry(event.target)) return;
+    if (event.pointerType === "touch") {
+      touchesRef.current.set(event.pointerId, local(event.clientX, event.clientY));
+      if (touchesRef.current.size >= 2) {
+        startTwoFingerPan(event);
+        return;
+      }
+    }
+    if (gestureRef.current !== null) return;
     if (focusesOnPress({ screenActive, textEntry: false })) wrapperRef.current?.focus({ preventScroll: true });
     if (editingId !== null) endEdit();
     const target = event.target instanceof Element ? event.target : null;
@@ -379,7 +414,7 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
     const at = pageAt(event.clientX, event.clientY);
     const screen = local(event.clientX, event.clientY);
 
-    if (event.button === 1) {
+    if (isPanPress({ button: event.button, pointerType: event.pointerType, spaceHeld: spaceRef.current })) {
       event.preventDefault();
       startGesture(event, { kind: "pan", screen, view });
       return;
@@ -389,7 +424,7 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
     if (mode === "pen") {
       const first = { x: at.x, y: at.y, pressure: event.pressure > 0 ? event.pressure : 0.5 };
       startGesture(event, { kind: "ink", points: [first], colour, width });
-      setDraft({ points: [first], colour, width });
+      setDraft({ points: [first], colour, width, tool: "pen" });
       return;
     }
     if (mode === "eraser") {
@@ -424,20 +459,35 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
       createText(at);
       return;
     }
+    // A pen on empty page never pans; it only clears the selection (no drag).
     setSelected(new Set());
+    if (event.pointerType === "pen") return;
     startGesture(event, { kind: "pan", screen, view });
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const g = gestureRef.current;
-    if (!g || event.pointerId !== pointerRef.current) return;
     const screen = local(event.clientX, event.clientY);
+    if (touchesRef.current.has(event.pointerId)) touchesRef.current.set(event.pointerId, screen);
+    if (!g) return;
+    if (g.kind === "pan" && g.fingers) {
+      const [a, b] = [...touchesRef.current.values()];
+      if (!a || !b) return;
+      const mid = midpoint(a, b);
+      setView({ ...g.view, x: g.view.x + mid.x - g.screen.x, y: g.view.y + mid.y - g.screen.y });
+      return;
+    }
+    if (event.pointerId !== pointerRef.current) return;
     const at = screenToPage(view, screen);
     if (g.kind === "pan") {
       setView({ ...g.view, x: g.view.x + screen.x - g.screen.x, y: g.view.y + screen.y - g.screen.y });
     } else if (g.kind === "ink") {
-      g.points.push({ x: at.x, y: at.y, pressure: event.pressure > 0 ? event.pressure : 0.5 });
-      setDraft({ points: g.points.slice(), colour: g.colour, width: g.width });
+      // Every digitiser sample merged into this move is kept, not just the dispatch.
+      for (const sample of pointerSamples(event)) {
+        const p = pageAt(sample.clientX, sample.clientY);
+        g.points.push({ x: p.x, y: p.y, pressure: sample.pressure > 0 ? sample.pressure : 0.5 });
+      }
+      setDraft({ points: g.points.slice(), colour: g.colour, width: g.width, tool: "pen" });
     } else if (g.kind === "erase") {
       eraseAt(at);
     } else if (g.kind === "move") {
@@ -455,6 +505,15 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
   };
 
   const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch") {
+      touchesRef.current.delete(event.pointerId);
+      const g = gestureRef.current;
+      if (g?.kind === "pan" && g.fingers && touchesRef.current.size < 2) {
+        gestureRef.current = null;
+        pointerRef.current = null;
+        return;
+      }
+    }
     const g = gestureRef.current;
     if (!g || event.pointerId !== pointerRef.current) return;
     gestureRef.current = null;
@@ -600,6 +659,7 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
       onPaste={onPaste}
     >
       <div className="canvas-editor__bar" role="toolbar" aria-label="Canvas">
+        <InkABToggle visible={abVisible} renderer={renderer} onChange={chooseRenderer} />
         <div className="canvas-editor__modes" role="group" aria-label="Mode">
           {MODES.map(({ mode: m, label, icon }) => (
             <IconButton key={m} label={label} size="sm" aria-pressed={mode === m} onClick={() => chooseMode(m)}>
@@ -607,7 +667,12 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
             </IconButton>
           ))}
         </div>
-        <input type="color" aria-label="Pen colour" value={colour} onChange={(event) => setColour(event.target.value)} />
+        <input
+          type="color"
+          aria-label="Pen colour"
+          value={resolveInkColour(colour, ink)}
+          onChange={(event) => setColour(canonicalInkColour(event.target.value, ink.theme))}
+        />
         <Select aria-label="Pen width" value={width} onChange={(event) => setWidth(Number(event.target.value))}>
           {PEN_WIDTHS.map((w) => (
             <option key={w} value={w}>
@@ -717,7 +782,7 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
               />
             );
           })}
-          <InkLayer strokes={strokesOf(file)} selected={live} draft={draft} />
+          <InkLayer strokes={inkStrokes} selected={live} draft={draft} renderer={renderer} ink={ink} />
         </div>
       </div>
     </div>
