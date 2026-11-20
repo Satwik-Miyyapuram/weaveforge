@@ -139,8 +139,8 @@ export function InkHost({
   const textPagesRef = useRef<string[]>(
     typedCore().splitInkTextLayer(readyCore().readInkNoteBody(body).text),
   );
-  /** The current page's flowed text, for the print (assigned in render below). */
-  const pageTextRef = useRef("");
+  /** Every page's flowed text, for the print (assigned in render below). */
+  const flowedTextRef = useRef<readonly string[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   /**
@@ -483,7 +483,10 @@ export function InkHost({
     pageSize,
     palette,
     fetchBlob: deps.assets.fetchBlob,
-    pageText: pageTextRef,
+    pageTexts: flowedTextRef,
+    pageCount,
+    savedStrokes: strokesMap,
+    root: wrapRef,
     scale,
     paper,
   });
@@ -562,7 +565,7 @@ export function InkHost({
     ensurePageCount,
   );
   const pureText = flowedText[pageIndex] ?? "";
-  pageTextRef.current = pureText;
+  flowedTextRef.current = flowedText;
 
   const lines: readonly RecognisedLine[] = recognised?.lines ?? [];
   const confidence = recognised?.confidence ?? 0;
