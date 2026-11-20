@@ -159,6 +159,8 @@ pub trait SharedDocStore: Send + Sync {
         owner: &'a str,
         id: &'a str,
     ) -> BoxFut<'a, Result<Option<String>, String>>;
+    /// Revokes every live grant on the item `item_id` (project grants are left alone).
+    fn revoke_item_grants<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>>;
 }
 
 /// An in-memory store for tests and local runs.
@@ -272,12 +274,13 @@ impl SharedDocStore for MemoryStore {
                     _ => false,
                 }
             };
-            if written {
-                *self
-                    .saves
-                    .lock()
-                    .map_err(|_| "store lock poisoned".to_owned())? += 1;
+            if !written {
+                return Err(format!("save_state: no row for {item_id} at epoch {epoch}"));
             }
+            *self
+                .saves
+                .lock()
+                .map_err(|_| "store lock poisoned".to_owned())? += 1;
             Ok(())
         })
     }
@@ -443,6 +446,22 @@ impl SharedDocStore for MemoryStore {
             }))
         })
     }
+
+    fn revoke_item_grants<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
+        Box::pin(async move {
+            let mut grants = self
+                .grants
+                .lock()
+                .map_err(|_| "store lock poisoned".to_owned())?;
+            for grant in grants
+                .iter_mut()
+                .filter(|g| g.scope == "item" && g.target_id == item_id && g.revoked_at.is_none())
+            {
+                grant.revoked_at = Some("revoked".to_owned());
+            }
+            Ok(())
+        })
+    }
 }
 
 /// The PostgREST spelling of `bytes`: `\x` then lowercase hex.
@@ -594,10 +613,16 @@ impl SharedDocStore for PgStore {
         Box::pin(async move {
             let query = [("item_id", eq(item_id)), ("epoch", eq(&epoch.to_string()))];
             let patch = json!({ "state": bytea_hex(state) });
-            self.db()
-                .update("shared_docs", &query, &patch)
+            // A PATCH that matches no row (stale epoch, or the row is gone) must not look saved.
+            let changed = self
+                .db()
+                .update_returning("shared_docs", &query, &patch)
                 .await
-                .map_err(|err| err.message)
+                .map_err(|err| err.message)?;
+            if changed.is_empty() {
+                return Err(format!("save_state: no row for {item_id} at epoch {epoch}"));
+            }
+            Ok(())
         })
     }
 
@@ -753,6 +778,21 @@ impl SharedDocStore for PgStore {
                 Value::String(target) => Ok(Some(target)),
                 _ => Err("revoke_grant: unexpected reply".to_owned()),
             }
+        })
+    }
+
+    fn revoke_item_grants<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
+        Box::pin(async move {
+            let query = [
+                ("scope", eq("item")),
+                ("target_id", eq(item_id)),
+                ("revoked_at", "is.null".to_owned()),
+            ];
+            let patch = json!({ "revoked_at": format_instant(now_millis()) });
+            self.db()
+                .update("grants", &query, &patch)
+                .await
+                .map_err(|err| err.message)
         })
     }
 }
