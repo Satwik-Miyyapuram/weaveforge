@@ -207,6 +207,42 @@ impl PgEngine {
         let _ = self.recreated.fetch_or(lost, Ordering::AcqRel);
     }
 
+    /// Moves the root aside and returns where it went; None when there was no root.
+    fn move_aside(&self) -> Result<Option<PathBuf>, PgError> {
+        if !self.root.exists() {
+            return Ok(None);
+        }
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis());
+        let name = self.root.file_name().map_or_else(
+            || "local-pg".to_owned(),
+            |n| n.to_string_lossy().into_owned(),
+        );
+        let aside = self
+            .root
+            .with_file_name(format!("{name}.discarded-{stamp}"));
+        std::fs::rename(&self.root, &aside)
+            .map_err(|e| PgError::local(format!("could not move the database aside: {e}")))?;
+        self.keep_aside_at(&aside);
+        Ok(Some(aside))
+    }
+
+    /// Moves the old data back to the root when no backup replaced it, so a failed restore never
+    /// leaves it only in the aside dir. A no-op once something holds the root again.
+    fn put_back(&self, aside: Option<&Path>) {
+        let Some(aside) = aside else {
+            return;
+        };
+        if self.root.exists() || std::fs::rename(aside, &self.root).is_err() {
+            return;
+        }
+        *self
+            .kept_aside
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = None;
+    }
+
     fn keep_aside_at(&self, path: &Path) {
         *self
             .kept_aside
@@ -243,42 +279,6 @@ impl Engine for PgEngine {
 
     fn discard(&self) -> Result<(), PgError> {
         self.move_aside().map(|_| ())
-    }
-
-    /// Moves the root aside and returns where it went; None when there was no root.
-    fn move_aside(&self) -> Result<Option<PathBuf>, PgError> {
-        if !self.root.exists() {
-            return Ok(None);
-        }
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |d| d.as_millis());
-        let name = self.root.file_name().map_or_else(
-            || "local-pg".to_owned(),
-            |n| n.to_string_lossy().into_owned(),
-        );
-        let aside = self
-            .root
-            .with_file_name(format!("{name}.discarded-{stamp}"));
-        std::fs::rename(&self.root, &aside)
-            .map_err(|e| PgError::local(format!("could not move the database aside: {e}")))?;
-        self.keep_aside_at(&aside);
-        Ok(Some(aside))
-    }
-
-    /// Moves the old data back to the root when no backup replaced it, so a failed restore never
-    /// leaves it only in the aside dir. A no-op once something holds the root again.
-    fn put_back(&self, aside: Option<&Path>) {
-        let Some(aside) = aside else {
-            return;
-        };
-        if self.root.exists() || std::fs::rename(aside, &self.root).is_err() {
-            return;
-        }
-        *self
-            .kept_aside
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner) = None;
     }
 
     async fn dump(&self, server: &PgServer, file: PathBuf) -> Result<(), PgError> {
