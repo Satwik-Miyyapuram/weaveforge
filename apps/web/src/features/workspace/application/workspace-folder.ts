@@ -41,6 +41,7 @@ import {
   jsonEditSince,
   onNoteClosed,
   readMirrorBase,
+  renamedFromPaths,
   renamedPaths,
   splitOutsideEdits,
   writeMirrorManifest,
@@ -627,6 +628,7 @@ function scheduleAutoApply(): void {
         expected: seenDigests(diff),
         stored: diff.stored,
         renamed: renamedPaths(diff),
+        renamedFrom: renamedFromPaths(diff),
       });
             // A note written in the app since the preview was left alone; the next look sees both sides moved.
             if (result.moved.length > 0) {

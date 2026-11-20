@@ -652,6 +652,15 @@ export function renamedPaths(diff: FolderDiff): Set<string> {
   ]);
 }
 
+/** Each renamed note's new path to the path it lived at before. */
+export function renamedFromPaths(diff: FolderDiff): Map<string, string> {
+  const from = new Map<string, string>();
+  for (const [path, seen] of Object.entries(diff.seen ?? {})) {
+    if (seen.renamedFrom) from.set(path, seen.renamedFrom);
+  }
+  return from;
+}
+
 /** The part of a folder diff safe to take in without asking, the part a person must see, and why. */
 export function splitOutsideEdits(
   diff: FolderDiff,
