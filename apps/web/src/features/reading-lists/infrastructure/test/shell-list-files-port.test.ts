@@ -63,6 +63,27 @@ test("write with the current hash succeeds and the hash changes", async () => {
   assert.notEqual(after!.hash, before!.hash);
 });
 
+test("write is refused when another writer changes the file after the hash check", async () => {
+  const { fs, port } = await setup({ "thesis/reading-lists/a.list.md": LIST });
+  const [before] = await port.listFiles();
+  const other = "---\nwf: 3\ntitle: Other writer\n---\n";
+  // The shell's compare-and-write sees the other writer's text, not the one the hash was taken from.
+  const racing = Object.assign(Object.create(fs), {
+    writeTextIf: async (path: string, text: string, expected: string | null) => {
+      await fs.writeFile(path, other);
+      if ((await fs.readText(path)) !== expected) return false;
+      await fs.writeFile(path, text);
+      return true;
+    },
+  });
+  const racePort = new WorkspaceListFilesPort(racing, "thesis");
+  await assert.rejects(
+    racePort.write("thesis/reading-lists/a.list.md", "mine", before!.hash),
+    /list file changed on disk; not overwritten/,
+  );
+  assert.equal(await fs.readText("thesis/reading-lists/a.list.md"), other);
+});
+
 test("fileForItem returns null when no list holds the item", async () => {
   const { port } = await setup({ "thesis/reading-lists/a.list.md": LIST });
   assert.equal(await port.fileForItem("i1"), null);

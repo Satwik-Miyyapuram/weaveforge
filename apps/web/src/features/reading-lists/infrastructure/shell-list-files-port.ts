@@ -40,12 +40,20 @@ export class WorkspaceListFilesPort implements ListFilesPort {
     return null;
   }
 
+  /**
+   * Writes only if the file still hashes to `expectedHash`. The compare-and-write is one
+   * `writeTextIf` call (the shell checks the text it was given against the disk and writes
+   * in the same call), so a change that lands after the hash check still refuses.
+   */
   async write(path: string, text: string, expectedHash: string): Promise<void> {
-    const currentHash = await sha256Hex(await this.fs.readText(path));
-    if (currentHash !== expectedHash) {
+    const current = await this.fs.readText(path);
+    if ((await sha256Hex(current)) !== expectedHash) {
       throw new Error(`list file changed on disk; not overwritten: ${path}`);
     }
-    await this.fs.writeFile(path, text);
+    const written = this.fs.writeTextIf
+      ? await this.fs.writeTextIf(path, text, current)
+      : (await this.fs.writeFile(path, text), true);
+    if (!written) throw new Error(`list file changed on disk; not overwritten: ${path}`);
   }
 
   /** Recursive walk, one `list` call per folder; missing folder lists nothing. */
