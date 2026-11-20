@@ -249,7 +249,7 @@ impl Vault {
         if let Some(parent) = dest.parent() {
             fs::create_dir_all(parent).map_err(|source| io_err("create folder", to, source))?;
         }
-        fs::rename(&src, &dest).map_err(|source| io_err("rename", from, source))?;
+        move_without_replace(&src, &dest).map_err(|source| io_err("rename", from, source))?;
         Ok(aside_rel)
     }
 
@@ -606,6 +606,23 @@ fn is_other_file(src_real: &Path, dest: &Path) -> bool {
     !fs::canonicalize(dest).is_ok_and(|real| real.as_path() == src_real)
 }
 
+/// Moves `src` to `dest`, never replacing a file at `dest`. A hard link is the atomic
+/// no-replace step (it refuses an existing name on NTFS and POSIX), then the old name goes.
+/// A case-only rename of the same file is the one case that must rename over its own name.
+fn move_without_replace(src: &Path, dest: &Path) -> io::Result<()> {
+    match fs::hard_link(src, dest) {
+        Ok(()) => fs::remove_file(src),
+        Err(err) if err.kind() == io::ErrorKind::AlreadyExists && is_same_file(src, dest) => {
+            fs::rename(src, dest)
+        }
+        Err(err) => Err(err),
+    }
+}
+
+fn is_same_file(a: &Path, b: &Path) -> bool {
+    matches!((fs::canonicalize(a), fs::canonicalize(b)), (Ok(x), Ok(y)) if x == y)
+}
+
 /// Current time as milliseconds since the Unix epoch.
 fn now_ms() -> i64 {
     let ms = SystemTime::now()
@@ -653,4 +670,45 @@ fn is_stale_temp(entry: &fs::DirEntry, cutoff: SystemTime) -> bool {
         .metadata()
         .and_then(|meta| meta.modified())
         .is_ok_and(|modified| modified <= cutoff)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::move_without_replace;
+    use std::fs;
+
+    #[test]
+    fn move_refuses_an_existing_destination_and_keeps_both_files() {
+        let dir = std::env::temp_dir().join(format!("wf-nr-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("src.md");
+        let dest = dir.join("dest.md");
+        fs::write(&src, "moved").unwrap();
+        fs::write(&dest, "created in the race window").unwrap();
+
+        let err = move_without_replace(&src, &dest).expect_err("must not replace");
+        assert_eq!(err.kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(
+            fs::read_to_string(&dest).unwrap(),
+            "created in the race window"
+        );
+        assert_eq!(fs::read_to_string(&src).unwrap(), "moved");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn move_to_a_free_destination_removes_the_source() {
+        let dir = std::env::temp_dir().join(format!("wf-nr-free-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("src.md");
+        let dest = dir.join("dest.md");
+        fs::write(&src, "moved").unwrap();
+
+        move_without_replace(&src, &dest).unwrap();
+        assert!(!src.exists());
+        assert_eq!(fs::read_to_string(&dest).unwrap(), "moved");
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
