@@ -136,6 +136,13 @@ impl VaultWatch {
         self.note(path, None, now);
     }
 
+    /// The app's write or delete of `path` did not happen; drops its note so an outside
+    /// change to the same path is reported.
+    pub fn forget_self(&mut self, path: &str) {
+        let key = (self.normalize)(path);
+        let _ = self.mine.remove(&key);
+    }
+
     /// Whether a report for `path` could be our own echo, so its contents are worth reading.
     #[must_use]
     pub fn expects(&self, path: &str) -> bool {

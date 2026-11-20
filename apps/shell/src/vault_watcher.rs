@@ -142,6 +142,11 @@ impl VaultWatcher {
     pub fn note_self_remove(&self, rel: &str) {
         lock(&self.shared).note_self_remove(rel, Instant::now());
     }
+
+    /// The app's write or delete of `rel` failed; its note is dropped.
+    pub fn forget_self(&self, rel: &str) {
+        lock(&self.shared).forget_self(rel);
+    }
 }
 
 impl Drop for VaultWatcher {
@@ -223,6 +228,18 @@ impl WatchSlot {
             .as_ref()
         {
             watcher.note_self_remove(rel);
+        }
+    }
+
+    /// The app's write or delete of `rel` failed; does nothing when no watch runs.
+    pub fn forget_self(&self, rel: &str) {
+        if let Some(watcher) = self
+            .running
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_ref()
+        {
+            watcher.forget_self(rel);
         }
     }
 }
