@@ -144,9 +144,11 @@ async fn memory_save_state_needs_matching_epoch() {
     let store = MemoryStore::new();
     store.seed(&doc_row("item-1", "u1", vec![1])).await.unwrap();
 
-    // Wrong epoch (row is at 1): nothing written.
-    store.save_state("item-1", 2, &[9]).await.unwrap();
+    // Wrong epoch (row is at 1): an error, nothing written, nothing counted.
+    let err = store.save_state("item-1", 2, &[9]).await.unwrap_err();
+    assert!(err.contains("no row for item-1 at epoch 2"), "{err}");
     assert_eq!(store.doc("item-1").unwrap().state, vec![1]);
+    assert_eq!(store.saves(), 0);
 
     // Matching epoch: written and counted.
     store.save_state("item-1", 1, &[9]).await.unwrap();
