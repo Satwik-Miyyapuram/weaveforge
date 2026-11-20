@@ -265,6 +265,8 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::secrets::secret_write,
         crate::secrets::secret_clear,
         crate::cmd_experiments::sdk_inbox_drain,
+        crate::migrate_093::migrate_093_run,
+        crate::migrate_093::migrate_093_status,
         crate::cmd_files::file_write,
         crate::cmd_files::file_write_bytes,
         crate::cmd_files::file_delete,
