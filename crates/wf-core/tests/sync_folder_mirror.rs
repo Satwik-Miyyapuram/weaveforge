@@ -268,6 +268,9 @@ fn an_edit_rewrites_only_the_file_that_changed() {
     )
     .expect("first");
     let seen = seen_of(&first.served);
+    // The manifest the app writes after every mirror: without a base the mirror cannot prove
+    // the file is untouched and holds it (H1), as the production caller always passes one.
+    let base = digest_map(&first.mirrored);
 
     let result = mirror_workspace(
         &with_notes(vec![
@@ -277,6 +280,7 @@ fn an_edit_rewrites_only_the_file_that_changed() {
         &mut fs,
         MirrorOptions {
             seen: Some(&seen),
+            base: Some(&base),
             ..options(&project)
         },
     )
