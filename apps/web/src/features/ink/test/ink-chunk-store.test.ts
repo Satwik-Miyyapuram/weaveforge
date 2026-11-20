@@ -33,7 +33,7 @@ const NOTE_PATH = "p/notes/sketch.ink.md";
 
 /** A folder holding the note's markdown, as the mirror writes it. */
 async function inkNoteFolder(): Promise<MemoryWorkspaceFs> {
-  const fs = await inkNoteFolder();
+  const fs = new MemoryWorkspaceFs();
   await fs.mkdirp("p/notes");
   await fs.writeFile(NOTE_PATH, `---\nweaveforge-id: ${NOTE}\nweaveforge-type: ink_page\n---\n`);
   return fs;
