@@ -132,6 +132,27 @@ test("a write the disk refuses keeps the old bytes and reaches the caller (opfs_
   assert.equal(file.aborted, 1);
 });
 
+// A file changed since the caller read it is refused and left alone, as the desktop
+// adapter refuses (the shell's checked write). Without this, note and milestone saves
+// overwrite an external edit.
+test("writeTextIf writes only while the file still reads as the caller last saw it", async () => {
+  const { fs } = workspace();
+  await fs.writeFile("notes/a.md", "read");
+  assert.equal(await fs.writeTextIf("notes/a.md", "app", "edited outside"), false);
+  assert.equal(await fs.readText("notes/a.md"), "read");
+  assert.equal(await fs.writeTextIf("notes/a.md", "app", "read"), true);
+  assert.equal(await fs.readText("notes/a.md"), "app");
+});
+
+test("writeTextIf with expected null writes only while the file is still missing", async () => {
+  const { fs } = workspace();
+  await fs.writeFile("notes/a.md", "someone else's");
+  assert.equal(await fs.writeTextIf("notes/a.md", "app", null), false);
+  assert.equal(await fs.readText("notes/a.md"), "someone else's");
+  assert.equal(await fs.writeTextIf("notes/new.md", "app", null), true);
+  assert.equal(await fs.readText("notes/new.md"), "app");
+});
+
 test("recursive remove still clears a folder", async () => {
   const { fs } = workspace();
   await fs.writeFile("project/notes/a.md", "x");
