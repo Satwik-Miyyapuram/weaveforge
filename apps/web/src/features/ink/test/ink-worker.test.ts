@@ -737,3 +737,157 @@ test("a freehand stroke past the point cap splits; it never turns into a packed 
   assert.equal(committed[0]!.points.length / 2, cap);
   assert.equal(committed[1]!.points.length / 2, count - cap + 1);
 });
+
+/** One stroke of raw (x, y) samples at pressure 0.5, and the points the worker kept (null: none). */
+function keptStroke(pairs: readonly (readonly [number, number])[]): number[] | null {
+  fresh();
+  const b = batch(pairs.flat(), pairs.map(() => 0.5));
+  stroke(b.buffer, b.count);
+  const kept = events("stroke-committed");
+  return kept.length === 1 ? Array.from(kept[0]!.points) : null;
+}
+
+test("a single tap is kept as a dot: two points, so the renderer draws it", () => {
+  const points = keptStroke([[100, 100]]);
+  assert.ok(points && points.length >= 4, `a tap is kept, got ${JSON.stringify(points)}`);
+});
+
+test("two identical samples are kept as a dot", () => {
+  const points = keptStroke([
+    [100, 100],
+    [100, 100],
+  ]);
+  assert.ok(points && points.length >= 4, `identical samples are kept, got ${JSON.stringify(points)}`);
+});
+
+test("three samples within half a pixel are kept as a dot", () => {
+  const points = keptStroke([
+    [100, 100],
+    [100.3, 100.2],
+    [99.8, 100.4],
+  ]);
+  assert.ok(points && points.length >= 4, `a jitter dot is kept, got ${JSON.stringify(points)}`);
+});
+
+test("a 2-sample short dash is kept", () => {
+  const points = keptStroke([
+    [100, 100],
+    [106, 100],
+  ]);
+  assert.ok(points && points.length >= 4, `a short dash is kept, got ${JSON.stringify(points)}`);
+});
+
+test("a save whose encode fails answers its own request id, so the host can settle it", async () => {
+  // Breaks the deflate codec's encoder: inkChunkCodec only checks that the
+  // stream constructors exist, and the encode then throws inside savePage. The
+  // codec only runs for a body at or above the 64 KB raw threshold, so the page
+  // is filled first.
+  const globals = globalThis as {
+    CompressionStream?: unknown;
+    DecompressionStream?: unknown;
+  };
+  const savedCompression = globals.CompressionStream;
+  const savedDecompression = globals.DecompressionStream;
+  class BrokenStream {
+    constructor() {
+      throw new Error("encoder broke");
+    }
+  }
+  globals.CompressionStream = BrokenStream;
+  globals.DecompressionStream = BrokenStream;
+  try {
+    posted.length = 0;
+    send({
+      type: "init",
+      canvas: null,
+      width: 400,
+      height: 600,
+      dpr: 1,
+      mode: "clone",
+      codec: "deflate-raw",
+    });
+    send({ type: "load-page", pageIndex: 0, chunk: null });
+    for (let i = 0; i < 1300; i += 1) draw(10, (i % 500) + 5);
+    send({ type: "save-page", requestId: 21 });
+    await settle();
+    const error = last("error") as InkWorkerEvent & { requestId?: number };
+    assert.equal(error.requestId, 21, "the error names the save that failed");
+    assert.equal(events("page-saved").length, 0, "a failed save posts no page-saved");
+  } finally {
+    globals.CompressionStream = savedCompression;
+    globals.DecompressionStream = savedDecompression;
+  }
+});
+
+test("a pen still down when the page changes does not land its stroke on the new page", async () => {
+  fresh();
+  strokeId += 1;
+  const h = header();
+  const samples = new Float32Array(3 * INK_SAMPLE_STRIDE);
+  for (let i = 0; i < 3; i += 1) {
+    samples[i * INK_SAMPLE_STRIDE] = 10 + i * 30;
+    samples[i * INK_SAMPLE_STRIDE + 1] = 50;
+    samples[i * INK_SAMPLE_STRIDE + 2] = 0.5;
+    samples[i * INK_SAMPLE_STRIDE + 3] = i;
+  }
+  send({ type: "stroke-begin", header: h, sample: { buffer: samples, count: 3 } });
+  send({ type: "load-page", pageIndex: 1, chunk: null });
+  await settle();
+  send({
+    type: "stroke-end",
+    header: h,
+    sample: { buffer: new Float32Array(0), count: 0 },
+  });
+  send({ type: "save-page", requestId: 5 });
+  await settle();
+  assert.equal(last("page-saved").strokes, 0, "the old page's stroke is not on the new page");
+});
+
+test("an aborted stroke is dropped, not left drawn and then committed by a late stroke-end", async () => {
+  fresh();
+  strokeId += 1;
+  const h = header();
+  const samples = new Float32Array(3 * INK_SAMPLE_STRIDE);
+  for (let i = 0; i < 3; i += 1) {
+    samples[i * INK_SAMPLE_STRIDE] = 10 + i * 30;
+    samples[i * INK_SAMPLE_STRIDE + 1] = 50;
+    samples[i * INK_SAMPLE_STRIDE + 2] = 0.5;
+    samples[i * INK_SAMPLE_STRIDE + 3] = i;
+  }
+  send({ type: "stroke-begin", header: h, sample: { buffer: samples, count: 3 } });
+  await settle();
+  send({ type: "stroke-abort", header: h });
+  send({
+    type: "stroke-end",
+    header: h,
+    sample: { buffer: new Float32Array(0), count: 0 },
+  });
+  send({ type: "save-page", requestId: 6 });
+  await settle();
+  assert.equal(last("page-saved").strokes, 0, "a palm-cancelled stroke is not saved");
+});
+
+test("an abort for another stroke leaves the live stroke alone", async () => {
+  fresh();
+  strokeId += 1;
+  const h = header();
+  const other = { ...h, strokeId: h.strokeId + 100 };
+  const samples = new Float32Array(3 * INK_SAMPLE_STRIDE);
+  for (let i = 0; i < 3; i += 1) {
+    samples[i * INK_SAMPLE_STRIDE] = 10 + i * 30;
+    samples[i * INK_SAMPLE_STRIDE + 1] = 50;
+    samples[i * INK_SAMPLE_STRIDE + 2] = 0.5;
+    samples[i * INK_SAMPLE_STRIDE + 3] = i;
+  }
+  send({ type: "stroke-begin", header: h, sample: { buffer: samples, count: 3 } });
+  await settle();
+  send({ type: "stroke-abort", header: other });
+  send({
+    type: "stroke-end",
+    header: h,
+    sample: { buffer: new Float32Array(0), count: 0 },
+  });
+  send({ type: "save-page", requestId: 7 });
+  await settle();
+  assert.equal(last("page-saved").strokes, 1, "a stale abort does not drop the live stroke");
+});

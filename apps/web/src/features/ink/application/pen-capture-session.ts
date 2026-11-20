@@ -244,10 +244,34 @@ export class PenCaptureSession {
     this.deps.onStrokeEnd?.(header, points, pressures);
   }
 
+  /**
+   * End the stroke in progress and keep it, as a lift does, without touching
+   * the pointer's gate. For teardown: the stroke must reach the worker before
+   * the host's last save is posted. True when a stroke was ended.
+   */
+  endStroke(): boolean {
+    if (!this.active || !this.header) return false;
+    this.deps.writer.flush("stroke-end", this.header);
+    this.clear();
+    return true;
+  }
+
   /** Discard the stroke in progress, because a palm decision arrived late. */
   abort(): void {
+    const header = this.header;
     this.clear();
     this.deps.stream.resetFilter();
+    if (header) this.deps.writer.abort(header);
+  }
+
+  /**
+   * The OS cancelled a pointer (a palm, a gesture taking over a touch). Unlike a
+   * lift, the stroke is not kept: what was drawn so far is discarded, and the
+   * gate's claim is released so the next pointer can draw.
+   */
+  cancel(pointerId: number): void {
+    if (this.pointerId === pointerId) this.abort();
+    this.deps.gate.end(pointerId);
   }
 
   /** Once per frame: get the pending samples to the worker. */

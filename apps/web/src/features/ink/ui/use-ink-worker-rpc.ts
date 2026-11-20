@@ -70,7 +70,9 @@ export function useInkWorkerRpc(deps: InkWorkerRpcDeps) {
   const [sheetInk, setSheetInk] = useState<InkSheetInk | null>(null);
   const requestSeq = useRef(0);
   const pendingModel = useRef(new Map<number, (page: InkPage) => void>());
-  const pendingSave = useRef(new Map<number, (save: InkSave) => void>());
+  const pendingSave = useRef(
+    new Map<number, { resolve: (save: InkSave) => void; reject: (err: Error) => void }>(),
+  );
   const pendingExport = useRef(new Map<number, (png: Blob | null) => void>());
 
   /** The worker's non-pen replies, matched to what asked for them. */
@@ -93,7 +95,7 @@ export function useInkWorkerRpc(deps: InkWorkerRpcDeps) {
         pendingModel.current.delete(event.requestId);
         break;
       case "page-saved":
-        pendingSave.current.get(event.requestId)?.({
+        pendingSave.current.get(event.requestId)?.resolve({
           bytes: event.bytes,
           pageIndex: event.pageIndex,
           cleared: event.cleared,
@@ -109,7 +111,7 @@ export function useInkWorkerRpc(deps: InkWorkerRpcDeps) {
         // settles as "nothing to write" for no page, so persist neither writes
         // nor removes a chunk; an export settles as no image. A model ask is
         // dropped: its callers only act on an answer.
-        for (const resolve of pendingSave.current.values())
+        for (const { resolve } of pendingSave.current.values())
           resolve({ bytes: null, pageIndex: -1, cleared: false });
         for (const resolve of pendingExport.current.values()) resolve(null);
         pendingSave.current.clear();
@@ -125,6 +127,12 @@ export function useInkWorkerRpc(deps: InkWorkerRpcDeps) {
         // says "none" for the backend, and this says why, where a developer
         // tools console will show it. Nothing else in the app hears it.
         console.error(`ink: the renderer failed — ${event.message}`);
+        // A failed ask must not leave its caller waiting: the save is rejected
+        // so the note reports it as unsaved (21-18).
+        if (event.requestId !== undefined) {
+          pendingSave.current.get(event.requestId)?.reject(new Error(event.message));
+          pendingSave.current.delete(event.requestId);
+        }
         break;
       default:
         break;
@@ -142,9 +150,9 @@ export function useInkWorkerRpc(deps: InkWorkerRpcDeps) {
 
   /** A request the worker answers by id: the page's chunk bytes. */
   const requestSave = useCallback(() => {
-    return new Promise<InkSave>((resolve) => {
+    return new Promise<InkSave>((resolve, reject) => {
       const requestId = ++requestSeq.current;
-      pendingSave.current.set(requestId, resolve);
+      pendingSave.current.set(requestId, { resolve, reject });
       send({ type: "save-page", requestId });
     });
   }, [send]);

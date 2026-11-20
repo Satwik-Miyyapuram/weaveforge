@@ -472,7 +472,27 @@ function commitRawOverflow(): void {
   }
 }
 
+/**
+ * A page change ends the stroke in progress: it was begun on the page that is
+ * leaving, so it cannot be packed into the one that arrives (finding 2).
+ */
+function endLiveStroke(): void {
+  state.live = null;
+  state.renderer?.setLive(null);
+}
+
 function handleMessage(message: InkWorkerMessage): void {
+  // An abort is answered here, not by the route: the route has no abort kind
+  // and would ignore it, leaving the cancelled stroke drawn (finding 3). Only
+  // the stroke it names is dropped, so a stale abort cannot cut a new stroke.
+  if (message.type === "stroke-abort") {
+    if (state.live?.header.strokeId === message.header.strokeId) {
+      endLiveStroke();
+      // One more frame repaints the canvas without the cancelled fragment.
+      ensureLoop();
+    }
+    return;
+  }
   try {
     const plan = readyCore().inkWorkerRoute(routeInput(message));
     if (plan.action === "ignore") return;
@@ -489,6 +509,7 @@ function handleMessage(message: InkWorkerMessage): void {
         break;
       }
       case "load-page":
+        endLiveStroke();
         void loadPage(state, message, post).then(ensureLoop);
         break;
       case "stroke-begin": {
@@ -535,6 +556,7 @@ function handleMessage(message: InkWorkerMessage): void {
           .catch((error: unknown) =>
             post({
               type: "error",
+              requestId: message.requestId,
               message: errorMessage(error),
             }),
           )
@@ -553,6 +575,7 @@ function handleMessage(message: InkWorkerMessage): void {
       case "replace-page":
         // A page recognised before a page turn belongs to the old page (21-01);
         // the route drops it.
+        endLiveStroke();
         installPage(state, message.page, post);
         break;
       case "lasso":

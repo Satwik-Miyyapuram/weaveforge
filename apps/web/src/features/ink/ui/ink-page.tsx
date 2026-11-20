@@ -526,7 +526,12 @@ export function InkPage({
         return;
       }
       if (cursorMode) return;
-      penHandlers.onPointerUp(event);
+      // A palm or touch cancel discards what was drawn; a pen cancel is a lift that keeps it.
+      if (event.type === "pointercancel" && event.pointerType !== "pen") {
+        penHandlers.onPointerCancel(event);
+      } else {
+        penHandlers.onPointerUp(event);
+      }
     },
     [cursorMode, onFigureDrop, onLasso, onMoveSelection, penHandlers, project, publishLasso, tool, touchUp],
   );

@@ -291,3 +291,17 @@ test("a failed background load is reported, not swallowed", () => {
   });
   assert.match(text, /blob:background/);
 });
+
+test("a tap kept as two identical points is a filled dot, not nothing", () => {
+  const { drawn } = renderPage({
+    index: 0,
+    pageSize: PAGE,
+    scale: SCALE,
+    paper: "blank",
+    strokes: [typedCore().makeInkStroke({ points: [7, 8, 7, 8], pressures: [128, 128] })],
+  });
+  assert.equal(drawn.length, 1);
+  const box = extent(drawn[0]!.d ?? "");
+  assert.ok(box.maxX - box.minX > 0 && box.maxY - box.minY > 0, "the dot has an area");
+  assert.ok(box.minX <= 7 && box.maxX >= 7 && box.minY <= 8 && box.maxY >= 8, "the dot covers its point");
+});

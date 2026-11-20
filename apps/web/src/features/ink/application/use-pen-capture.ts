@@ -670,7 +670,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         clearTimeout(deferTimer.current);
         deferTimer.current = null;
       }
-      sessionRef.current!.pointerUp(toGateEvent(event));
+      sessionRef.current!.cancel(event.pointerId);
     },
     [toGateEvent],
   );
