@@ -135,6 +135,41 @@ test("abort tells the worker to drop the live stroke, not leave it drawn", () =>
   assert.equal(abort.header.strokeId, begin.header.strokeId, "it names the stroke that was live");
 });
 
+test("a stroke the OS cancels mid-way is discarded: nothing is committed or saved", () => {
+  const harness = sessionHarness();
+  harness.session.pointerDown(pointer({ pointerType: "pen", pointerId: 13, t: 0 }));
+  for (let i = 1; i <= 10; i += 1) {
+    harness.session.pointerRawUpdate(
+      pointer({ pointerType: "pen", pointerId: 13, clientX: 100 + i * 10, clientY: 100, t: i * 8 }),
+    );
+    harness.session.flush();
+  }
+  harness.session.cancel(13);
+
+  assert.equal(harness.session.active, false);
+  assert.equal(harness.committed.length, 0, "a cancelled fragment is not a stroke");
+  assert.equal(
+    harness.messages.some((m) => m.type === "stroke-end"),
+    false,
+    "the worker is not asked to commit it",
+  );
+  assert.equal(harness.messages.at(-1)?.type, "stroke-abort");
+});
+
+test("a pen lift keeps the stroke it ends, which is how a pen cancel is handled", () => {
+  const harness = sessionHarness();
+  harness.session.pointerDown(pointer({ pointerType: "pen", pointerId: 14, t: 0 }));
+  for (let i = 1; i <= 10; i += 1) {
+    harness.session.pointerRawUpdate(
+      pointer({ pointerType: "pen", pointerId: 14, clientX: 100 + i * 10, clientY: 100, t: i * 8 }),
+    );
+    harness.session.flush();
+  }
+  harness.session.pointerUp(pointer({ pointerType: "pen", pointerId: 14, clientX: 200, clientY: 100, t: 90 }));
+
+  assert.equal(harness.messages.at(-1)?.type, "stroke-end", "the lift hands the stroke to the worker");
+});
+
 test("a 240 Hz stroke through the session touches the screen once, at the end", () => {
   const harness = sessionHarness();
   const down = pointer({ pointerType: "pen", pointerId: 7, t: 0 });

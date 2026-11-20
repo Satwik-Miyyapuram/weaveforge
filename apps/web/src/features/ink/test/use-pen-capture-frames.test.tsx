@@ -115,3 +115,20 @@ test("a cancelled pointer stops the pump", () => {
   assert.equal(frames.size, 0);
   act(() => root.unmount());
 });
+
+test("a touch cancelled after it moved drops the stroke and frees the next pointer", () => {
+  frames.clear();
+  const { get, root } = mount();
+  const touch = (t: number, x = 10) =>
+    ({ ...pointer(t, x), pointerType: "touch" }) as unknown as React.PointerEvent<HTMLCanvasElement>;
+  act(() => get().handlers.onPointerDown(touch(1_000)));
+  act(() => get().handlers.onPointerMove(touch(1_008, 14)));
+  act(() => get().handlers.onPointerCancel(touch(1_016, 18)));
+  runFrame();
+  assert.equal(get().session.active, false, "the cancelled touch's stroke is not still in progress");
+  assert.equal(frames.size, 0, "no frame is requested for it");
+
+  act(() => get().handlers.onPointerDown(pointer(2_000)));
+  assert.equal(get().session.active, true, "a pen after the cancel can draw");
+  act(() => root.unmount());
+});

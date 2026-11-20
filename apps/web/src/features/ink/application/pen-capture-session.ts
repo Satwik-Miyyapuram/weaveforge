@@ -252,6 +252,16 @@ export class PenCaptureSession {
     if (header) this.deps.writer.abort(header);
   }
 
+  /**
+   * The OS cancelled a pointer (a palm, a gesture taking over a touch). Unlike a
+   * lift, the stroke is not kept: what was drawn so far is discarded, and the
+   * gate's claim is released so the next pointer can draw.
+   */
+  cancel(pointerId: number): void {
+    if (this.pointerId === pointerId) this.abort();
+    this.deps.gate.end(pointerId);
+  }
+
   /** Once per frame: get the pending samples to the worker. */
   flush(): void {
     if (!this.header) return;
