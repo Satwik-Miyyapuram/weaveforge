@@ -29,6 +29,7 @@ import {
 } from "./ink-page-pointer";
 import type { InkPageProps } from "./ink-page-props";
 import { inkSheetRuleStyle } from "./ink-sheet-underlay";
+import { cachedRect } from "./rect-cache";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
 export type { InkPageProps } from "./ink-page-props";
@@ -419,7 +420,7 @@ export function InkPage({
       // where the pen crosses onto it. Sideways the paper is open: the writing
       // margin is part of the sheet.
       if (route === "draw" && ensurePage && (penActive?.() || edge.current.outside)) {
-        const box = sheetRef.current?.getBoundingClientRect();
+        const box = sheetRef.current ? cachedRect(sheetRef.current) : undefined;
         const area = box ? { left: -Infinity, right: Infinity, top: box.top, bottom: box.bottom } : null;
         const step = edge.current.move({ x: event.clientX, y: event.clientY }, area);
         if (step.kind === "exit") {
