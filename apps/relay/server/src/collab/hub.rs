@@ -153,10 +153,10 @@ impl Hub {
 
     /// Whether `room` is still the open room for its item (not evicted or replaced).
     #[must_use]
-    pub fn is_current(&self, room: &Arc<Room>) -> bool {
+    pub fn is_current(&self, room: &Room) -> bool {
         self.map()
             .get(&room.item_id)
-            .is_some_and(|open| Arc::ptr_eq(open, room))
+            .is_some_and(|open| std::ptr::eq(&**open, room))
     }
 
     /// Removes the hub entry only if it is still `room` (not a newer room for the item).
