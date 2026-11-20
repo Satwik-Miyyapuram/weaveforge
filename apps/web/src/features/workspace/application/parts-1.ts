@@ -325,7 +325,7 @@ export interface ApplyOptions {
  * new note's folder, then the old page is removed once its copy is there. A page already at
  * the new place is kept as it is. Two names that share one folder move nothing.
  */
-async function moveInkStrokes(fs: IWorkspaceFs, fromNote: string, toNote: string): Promise<void> {
+export async function moveInkStrokes(fs: IWorkspaceFs, fromNote: string, toNote: string): Promise<void> {
   if (!fromNote.endsWith(".md") || !toNote.endsWith(".md")) return;
   let from: string;
   let to: string;
