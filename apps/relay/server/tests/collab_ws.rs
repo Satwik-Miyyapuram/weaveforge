@@ -588,6 +588,52 @@ async fn ws_grant_checked_on_update() {
 }
 
 #[tokio::test]
+async fn lagged_client_rechecks_after_revoke() {
+    let dir = TempDir::new("lagged");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let grant_id = grant_edit(&store, ITEM).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+
+    // The guest does not read while the owner floods the room. The guest's receiver lags
+    // past the broadcast capacity, and the revoke's Recheck event is dropped with the lag.
+    let big = "x".repeat(64 * 1024);
+    for i in 0..200 {
+        send_frame(&mut owner, update_frame(map_update(&format!("a{i}"), &big))).await;
+    }
+    let url = relay.url(&format!("/grants/{grant_id}"));
+    let (status, _) = http(reqwest::Method::DELETE, &url, OWNER_TOKEN, None).await;
+    assert_eq!(status, 200);
+    for i in 0..400 {
+        send_frame(&mut owner, update_frame(map_update(&format!("b{i}"), &big))).await;
+    }
+
+    // Once the guest reads again it must be told it was denied, not keep receiving updates.
+    loop {
+        match recv(&mut guest).await {
+            Some(Message::Text(text)) => {
+                let value: Value = serde_json::from_str(text.as_str()).expect("json frame");
+                if value["type"] == "denied" {
+                    assert_eq!(value["reason"], "revoked");
+                    return;
+                }
+            }
+            Some(_) => {}
+            None => panic!("guest socket closed without a denied frame"),
+        }
+    }
+}
+
+#[tokio::test]
 async fn persist_every_2s() {
     let production = CollabConfig::production(PathBuf::from("unused"));
     assert_eq!(production.persist_every, Duration::from_secs(2));

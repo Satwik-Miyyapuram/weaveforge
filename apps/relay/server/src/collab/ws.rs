@@ -246,7 +246,10 @@ async fn pump(
             }
             Next::Frame(_) => false,
             Next::Event(Ok(event)) => on_event(state, room, client, socket, event).await,
-            Next::Event(Err(broadcast::error::RecvError::Lagged(_))) => true,
+            // A lag can drop the Recheck event a revoke sent, so re-read access now.
+            Next::Event(Err(broadcast::error::RecvError::Lagged(_))) => {
+                recheck(state, room, client, socket).await
+            }
             Next::Event(Err(broadcast::error::RecvError::Closed)) => false,
         };
         if !keep_going {
