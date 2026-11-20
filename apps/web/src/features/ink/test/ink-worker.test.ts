@@ -776,3 +776,45 @@ test("a 2-sample short dash is kept", () => {
   ]);
   assert.ok(points && points.length >= 4, `a short dash is kept, got ${JSON.stringify(points)}`);
 });
+
+test("a save whose encode fails answers its own request id, so the host can settle it", async () => {
+  // Breaks the deflate codec's encoder: inkChunkCodec only checks that the
+  // stream constructors exist, and the encode then throws inside savePage. The
+  // codec only runs for a body at or above the 64 KB raw threshold, so the page
+  // is filled first.
+  const globals = globalThis as {
+    CompressionStream?: unknown;
+    DecompressionStream?: unknown;
+  };
+  const savedCompression = globals.CompressionStream;
+  const savedDecompression = globals.DecompressionStream;
+  class BrokenStream {
+    constructor() {
+      throw new Error("encoder broke");
+    }
+  }
+  globals.CompressionStream = BrokenStream;
+  globals.DecompressionStream = BrokenStream;
+  try {
+    posted.length = 0;
+    send({
+      type: "init",
+      canvas: null,
+      width: 400,
+      height: 600,
+      dpr: 1,
+      mode: "clone",
+      codec: "deflate-raw",
+    });
+    send({ type: "load-page", pageIndex: 0, chunk: null });
+    for (let i = 0; i < 1300; i += 1) draw(10, (i % 500) + 5);
+    send({ type: "save-page", requestId: 21 });
+    await settle();
+    const error = last("error") as InkWorkerEvent & { requestId?: number };
+    assert.equal(error.requestId, 21, "the error names the save that failed");
+    assert.equal(events("page-saved").length, 0, "a failed save posts no page-saved");
+  } finally {
+    globals.CompressionStream = savedCompression;
+    globals.DecompressionStream = savedDecompression;
+  }
+});

@@ -267,7 +267,8 @@ export type InkWorkerEvent =
   | { type: "history"; undo: number; redo: number }
   /** The last thing the worker says: every save it had in flight has gone out. */
   | { type: "disposed" }
-  | { type: "error"; message: string };
+  /** `requestId` is set when the failed work was an ask, so its caller can settle. */
+  | { type: "error"; message: string; requestId?: number };
 
 /** How a flushed buffer reaches the worker. */
 export type InkTransferMode =

@@ -535,6 +535,7 @@ function handleMessage(message: InkWorkerMessage): void {
           .catch((error: unknown) =>
             post({
               type: "error",
+              requestId: message.requestId,
               message: errorMessage(error),
             }),
           )
