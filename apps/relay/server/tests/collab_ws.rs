@@ -499,6 +499,61 @@ async fn unshare_waits_for_final_writeback() {
 }
 
 #[tokio::test]
+async fn unshare_revokes_item_grants() {
+    let dir = TempDir::new("unshare-grants");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, text_update("doc")).await;
+    let _grant_id = grant_edit(&store, ITEM).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let url = relay.url(&format!("/shared-docs/{ITEM}"));
+    let (status, body) = http(reqwest::Method::DELETE, &url, OWNER_TOKEN, None).await;
+    assert_eq!(status, 200);
+    assert_eq!(body["status"], "deleted");
+
+    // A re-share with the same item id must not bring the old grant back.
+    seed(&store, ITEM, Vec::new()).await;
+    let refused = join(relay.port, ITEM, GUEST_TOKEN, Q1).await;
+    assert_http_status(refused, 403);
+}
+
+#[tokio::test]
+async fn closing_doc_refuses_guests() {
+    let dir = TempDir::new("closing-guests");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, text_update("doc")).await;
+    let _grant_id = grant_edit(&store, ITEM).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    send_text(&mut owner, r#"{"type":"lease.acquire","device":"d1"}"#).await;
+    let _granted = expect_json(&mut owner, "lease.granted").await;
+
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins before unshare");
+    let _hello = next_json(&mut guest).await;
+
+    let url = relay.url(&format!("/shared-docs/{ITEM}"));
+    let (status, body) = http(reqwest::Method::DELETE, &url, OWNER_TOKEN, None).await;
+    assert_eq!(status, 202);
+    assert_eq!(body["status"], "closing");
+
+    // The connected guest is told to re-check, and a new join is refused while closing.
+    let denied = expect_json(&mut guest, "denied").await;
+    assert_eq!(denied["reason"], "revoked");
+    let refused = join(relay.port, ITEM, GUEST_TOKEN, Q1).await;
+    assert_http_status(refused, 403);
+
+    send_text(&mut owner, r#"{"type":"lease.final","device":"d1"}"#).await;
+    let _closed = expect_json(&mut owner, "closed").await;
+    wait_for_deleted(&store, ITEM).await;
+}
+
+#[tokio::test]
 async fn ws_grant_checked_on_update() {
     let dir = TempDir::new("revoke");
     let store = Arc::new(MemoryStore::new());
@@ -691,6 +746,9 @@ impl SharedDocStore for AccessFails {
         id: &'a str,
     ) -> BoxFut<'a, Result<Option<String>, String>> {
         self.inner.revoke_grant(owner, id)
+    }
+    fn revoke_item_grants<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
+        self.inner.revoke_item_grants(item_id)
     }
 }
 

@@ -235,8 +235,17 @@ async fn unshare(
         .set_status(&item_id, DocStatus::Closing)
         .await
         .map_err(|error| storage_failed("unshare", &error))?;
+    // Revoke first, so a guest who reconnects (or re-checks) cannot get in during the close.
+    state
+        .store
+        .revoke_item_grants(&item_id)
+        .await
+        .map_err(|error| storage_failed("unshare", &error))?;
     let live = match state.hub.get(&item_id) {
-        Some(room) => mark_closing(&state, &room).await,
+        Some(room) => {
+            room.send(Event::Recheck);
+            mark_closing(&state, &room).await
+        }
         None => false,
     };
     if live {

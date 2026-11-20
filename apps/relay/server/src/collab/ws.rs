@@ -119,6 +119,10 @@ pub async fn ws_handler(
     if row.kind == "feed" {
         return refuse(StatusCode::CONFLICT, "Feeds are not co-edited.");
     }
+    // A closing doc is being deleted: only its owner may still connect (to finish the close).
+    if row.status == DocStatus::Closing && row.owner != user {
+        return refuse(StatusCode::FORBIDDEN, "No access.");
+    }
     let permission = match state.store.access(&item_id, &user).await {
         Ok(Some(permission)) => permission,
         Ok(None) => return refuse(StatusCode::FORBIDDEN, "No access."),
