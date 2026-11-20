@@ -9,6 +9,7 @@ import {
   type InkStroke,
 } from "@weaveforge/core";
 import {
+  type InkStrokeTuning,
   type InkTransferMode,
   type InkWorkerEvent,
   type InkWorkerMessage,
@@ -17,6 +18,7 @@ import { inkChunkCodec } from "../application/parts-1";
 import { boundsUnion, type InkBounds, InkPageBuffer } from "../application/parts-3";
 import { InkStrokeIndex } from "../application/stroke-index";
 import { CanvasInkRenderer } from "../render/canvas-renderer";
+import { freedrawShapeKey, type FreedrawShape } from "../render/excalidraw-freedraw";
 import {
   DEFAULT_INK_RENDERER,
   type InkRendererKind,
@@ -45,6 +47,8 @@ import {
 } from "./ink-page-logic";
 import {
   appendSamples,
+  finishSamples,
+  inkInputFilter,
   type LiveStroke,
   liveForRenderer,
   newLiveStroke,
@@ -220,6 +224,11 @@ const state = {
   /** Ink tuning, fixed for this page's worker like the renderer. */
   wetDesynchronized: true,
   forceBackend: "auto" as "auto" | "webgl2" | "2d",
+  /**
+   * The freehand shape knobs of the last stroke-begin, kept as one object while
+   * they are unchanged: the renderer's outline cache matches it by identity.
+   */
+  shape: undefined as FreedrawShape | undefined,
   /** The oldest posted batch not yet drawn (`sentAt`), for the latency figure. */
   pendingSince: null as number | null,
   frame: 0,
@@ -428,6 +437,7 @@ function startRenderer(delegating: boolean): void {
       renderer = new CanvasInkRenderer({
         canvas,
         renderer: state.inkRenderer,
+        shape: () => state.shape,
       });
     } catch (error) {
       reason += `; ${errorMessage(error)}`;
@@ -496,6 +506,21 @@ function routeInput(message: InkWorkerMessage) {
   };
 }
 
+/** The shape knobs of a stroke's tuning, reusing `current` when they are the same. */
+function strokeShape(current: FreedrawShape | undefined, tuning: InkStrokeTuning | undefined): FreedrawShape | undefined {
+  if (!tuning) return undefined;
+  const next: FreedrawShape = {
+    thinning: tuning.thinning,
+    smoothing: tuning.smoothing,
+    streamline: tuning.streamline,
+    taperStart: tuning.taperStart,
+    taperEnd: tuning.taperEnd,
+    pressureGamma: tuning.pressureGamma,
+    minWidth: tuning.minWidth,
+  };
+  return current && freedrawShapeKey(current) === freedrawShapeKey(next) ? current : next;
+}
+
 /** Commit each full part of a raw live stroke past the cap, drawing on with the rest. */
 function commitRawOverflow(): void {
   for (let next = state.live && takeRawOverflow(state.live); next; next = takeRawOverflow(next)) {
@@ -531,7 +556,12 @@ function handleMessage(message: InkWorkerMessage): void {
         void loadPage(state, message, post).then(ensureLoop);
         break;
       case "stroke-begin": {
-        state.live = newLiveStroke(message.header, state.inkRenderer === "freehand");
+        state.shape = strokeShape(state.shape, message.tuning);
+        state.live = newLiveStroke(
+          message.header,
+          state.inkRenderer === "freehand",
+          inkInputFilter(message.tuning),
+        );
         state.pendingSince ??= message.sentAt ?? null;
         appendSamples(state.live, message.sample);
         commitRawOverflow();
@@ -551,6 +581,7 @@ function handleMessage(message: InkWorkerMessage): void {
       case "stroke-end": {
         if (!state.live) break;
         appendSamples(state.live, message.sample);
+        finishSamples(state.live);
         commitRawOverflow();
         const live = state.live;
         commitStroke(live);

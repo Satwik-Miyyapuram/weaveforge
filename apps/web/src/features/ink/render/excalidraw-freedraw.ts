@@ -119,19 +119,69 @@ export const INK_FREEDRAW = {
   pen: { thinning: 0.6, smoothing: 0.5, streamline: 0.5 },
 } as const;
 
-/** The freedraw outline of a stroke `width` units wide, with INK_FREEDRAW's options. */
+/**
+ * The stroke-shape knobs of the ink tuning (`ink.tuning` in the workspace
+ * settings), freehand renderer only. At the defaults the outline is exactly
+ * INK_FREEDRAW's pen. `thinning` applies to a real pen only (the mouse keeps a
+ * constant width); `pressureGamma` and `minWidth` reshape the pen's pressure as
+ * `max(minWidth, p) ** pressureGamma`; the tapers are perfect-freehand's, in
+ * the stroke's own units, 0 for none.
+ */
+export interface FreedrawShape {
+  thinning: number;
+  smoothing: number;
+  streamline: number;
+  taperStart: number;
+  taperEnd: number;
+  pressureGamma: number;
+  minWidth: number;
+}
+
+export const DEFAULT_FREEDRAW_SHAPE: Readonly<FreedrawShape> = Object.freeze({
+  thinning: INK_FREEDRAW.pen.thinning,
+  smoothing: INK_FREEDRAW.pen.smoothing,
+  streamline: INK_FREEDRAW.pen.streamline,
+  taperStart: 0,
+  taperEnd: 0,
+  pressureGamma: 1,
+  minWidth: 0,
+});
+
+/** A cache key for a shape: equal keys draw equal outlines. */
+export function freedrawShapeKey(shape: FreedrawShape = DEFAULT_FREEDRAW_SHAPE): string {
+  return [
+    shape.thinning, shape.smoothing, shape.streamline, shape.taperStart,
+    shape.taperEnd, shape.pressureGamma, shape.minWidth,
+  ].join(",");
+}
+
+/** The freedraw outline of a stroke `width` units wide, with INK_FREEDRAW's options and `shape`'s knobs. */
 export function inkFreedrawPath(
   points: number[][],
   pressures: number[],
   width: number,
   simulatePressure: boolean,
   last: boolean,
+  shape: FreedrawShape = DEFAULT_FREEDRAW_SHAPE,
 ): string {
   const drawn = Math.max(0, width) * INK_FREEDRAW.widthRatio;
-  const tuned = simulatePressure ? INK_FREEDRAW.mouse : INK_FREEDRAW.pen;
+  const options: Partial<StrokeOptions> = {
+    thinning: simulatePressure ? INK_FREEDRAW.mouse.thinning : shape.thinning,
+    smoothing: shape.smoothing,
+    streamline: shape.streamline,
+    size: simulatePressure ? drawn : drawn / Math.SQRT2,
+  };
+  if (shape.taperStart > 0 || shape.taperEnd > 0) {
+    options.start = { taper: shape.taperStart };
+    options.end = { taper: shape.taperEnd };
+  }
+  const reshaped =
+    simulatePressure || (shape.pressureGamma === 1 && shape.minWidth === 0)
+      ? pressures
+      : pressures.map((p) => Math.max(shape.minWidth, p) ** shape.pressureGamma);
   return getFreeDrawSvgPath(
-    { points, pressures, strokeWidth: 0, simulatePressure, lastCommittedPoint: last ? [0, 0] : null },
-    { ...tuned, size: simulatePressure ? drawn : drawn / Math.SQRT2 },
+    { points, pressures: reshaped, strokeWidth: 0, simulatePressure, lastCommittedPoint: last ? [0, 0] : null },
+    options,
   );
 }
 
@@ -160,6 +210,7 @@ export function freedrawPath(
   width: number,
   last: boolean,
   pressure?: ArrayLike<number>,
+  shape?: FreedrawShape,
 ): string {
   const count = Math.min(x.length, y.length);
   const real = pressure !== undefined && pressure.length === count;
@@ -169,5 +220,5 @@ export function freedrawPath(
     points.push([x[i]!, y[i]!]);
     pressures.push(real ? pressure[i]! / 255 : 0.5);
   }
-  return inkFreedrawPath(points, pressures, width, isSimulatedPressure(pressures), last);
+  return inkFreedrawPath(points, pressures, width, isSimulatedPressure(pressures), last, shape);
 }

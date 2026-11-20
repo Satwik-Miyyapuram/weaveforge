@@ -8,10 +8,12 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/button";
 import {
+  DEFAULT_INK_TUNING,
   INK_FORCE_BACKENDS,
   INK_TUNING_BOOLS,
   INK_TUNING_RANGES,
   INK_TUNING_RENDERERS,
+  inkTuningSettingsJson,
   readInkTuning,
   resetInkTuning,
   setInkTuning,
@@ -24,6 +26,15 @@ import { inkLatency } from "../application/ink-latency";
 /** True for the panel's hotkey: Ctrl+Alt+Shift+I. */
 export function isInkTuningHotkey(event: Pick<KeyboardEvent, "ctrlKey" | "altKey" | "shiftKey" | "code">): boolean {
   return event.ctrlKey && event.altKey && event.shiftKey && event.code === "KeyI";
+}
+
+/** A number knob's range and default, as the panel lists it: `(0–1, default 0.6)`. */
+export function inkTuningRangeLabel(key: keyof typeof INK_TUNING_RANGES): string {
+  const range = INK_TUNING_RANGES[key];
+  const fallback = DEFAULT_INK_TUNING[key];
+  const low = range.zeroMeans ? `0 (${range.zeroMeans}) or ${range.min}` : String(range.min);
+  const shown = fallback === 0 && range.zeroMeans ? range.zeroMeans : String(fallback);
+  return `(${low}–${range.max}, default ${shown})`;
 }
 
 type Props = { backend: string | null; delegating: boolean };
@@ -90,9 +101,10 @@ export function InkTuningPanel({ backend, delegating }: Props) {
           {INK_TUNING_RENDERERS.map((value) => <option key={value} value={value}>{value}</option>)}
         </select>
       </label>
+      <small>Shape knobs (thinning to minWidth) draw on the freehand renderer only; holdToShapeMs is not wired yet.</small>
       {ranges.map(([key, range]) => (
-        <label key={key} className="graph-slider-row">
-          {key}: {tuning[key] === 0 && range.zeroMeans ? range.zeroMeans : tuning[key]}
+        <label key={key} className="graph-slider-row" title={inkTuningRangeLabel(key)}>
+          {key}: {tuning[key] === 0 && range.zeroMeans ? range.zeroMeans : tuning[key]} <small>{inkTuningRangeLabel(key)}</small>
           <input
             type="range"
             min={range.zeroMeans ? 0 : range.min}
@@ -105,7 +117,7 @@ export function InkTuningPanel({ backend, delegating }: Props) {
       ))}
       <div style={{ display: "flex", gap: 8 }}>
         <Button variant="link" onClick={() => resetInkTuning()}>Reset to defaults</Button>
-        <Button variant="link" onClick={() => void navigator.clipboard?.writeText(JSON.stringify(readInkTuning(), null, 2))}>
+        <Button variant="link" onClick={() => void navigator.clipboard?.writeText(inkTuningSettingsJson(readInkTuning()))}>
           Copy JSON
         </Button>
       </div>

@@ -52,6 +52,7 @@ import {
   type InkRenderStats,
   type InkShift,
   type InkViewTransform,
+  liveRepackFrom,
   packStrokeInstances,
   strokeInstanceCount,
   usesHighlighterPass,
@@ -408,8 +409,9 @@ export class WebglInkRenderer implements InkRenderer {
     // sets the tangent the previous segment curves with, a predicted tail that
     // was replaced rather than extended changes the last few outright, and the
     // segment before *that* was packed as the stroke's end, with no neighbour
-    // after it, and now has one.
-    this.livePacked = Math.max(0, Math.min(this.livePacked, segments) - 2);
+    // after it, and now has one. When smoothing or the packer moved an earlier
+    // point, `changedFrom` says so and the repack starts there instead.
+    this.livePacked = liveRepackFrom(this.livePacked, segments, stroke.changedFrom);
     const from = this.livePacked * INK_SEGMENT_SUBDIVISIONS;
     const written = packStrokeInstances(
       {

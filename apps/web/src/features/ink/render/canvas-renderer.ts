@@ -48,7 +48,7 @@ import {
   freedrawCurves,
   type InkRendererKind,
 } from "./freehand-stroke";
-import { freedrawPath } from "./excalidraw-freedraw";
+import { freedrawPath, type FreedrawShape } from "./excalidraw-freedraw";
 
 /** The 2D context, whichever canvas it came from. */
 export type Context2dLike =
@@ -68,6 +68,11 @@ export interface CanvasInkRendererOptions {
   createCanvas?: (width: number, height: number) => Canvas2dLike;
   /** `freehand` fills perfect-freehand outlines instead of capsules (A/B, flagged). */
   renderer?: InkRendererKind;
+  /**
+   * The freehand stroke-shape knobs in force, read at every paint so a change
+   * shows from the next frame. Undefined draws the defaults.
+   */
+  shape?: () => FreedrawShape | undefined;
 }
 
 export const HIGHLIGHTER_ALPHA = 0.35;
@@ -119,10 +124,12 @@ export class CanvasInkRenderer implements InkRenderer {
   private shown = 0;
   private shift: InkShift = { x: 0, y: 0 };
   private kind: InkRendererKind;
+  private readonly shape: () => FreedrawShape | undefined;
 
   constructor(options: CanvasInkRendererOptions) {
     this.canvas = options.canvas;
     this.kind = options.renderer ?? DEFAULT_INK_RENDERER;
+    this.shape = options.shape ?? (() => undefined);
     this.createCanvas =
       options.createCanvas ??
       ((width, height) =>
@@ -288,6 +295,7 @@ export class CanvasInkRenderer implements InkRenderer {
     }
 
     this.drawn = 0;
+    const shape = this.shape();
     // A settled stroke's freehand outline comes from the cache, keyed by its
     // index; the live stroke changes every frame, so it is built afresh.
     const paintSettled = (
@@ -300,7 +308,7 @@ export class CanvasInkRenderer implements InkRenderer {
       this.kind === "freehand"
         ? paintFreehandStroke(
             context, stroke.x, stroke.y, stroke.pressure, look, highlighter,
-            this.palette, halo, true, { cache: this.outlines, id: index },
+            this.palette, halo, true, { cache: this.outlines, id: index }, shape,
           )
         : paintStroke(
             context, stroke.x, stroke.y, stroke.pressure, look, highlighter,
@@ -353,7 +361,7 @@ export class CanvasInkRenderer implements InkRenderer {
         this.kind === "freehand"
           ? paintFreehandStroke(
               context, live.x, live.y, live.pressure, live.header,
-              highlighter, this.palette, undefined,
+              highlighter, this.palette, undefined, true, undefined, shape,
             )
           : paintStroke(
               context, live.x, live.y, live.pressure, live.header,
@@ -421,7 +429,8 @@ export function paintStroke(
  * capsule halo, not the same geometry. Returns the segments drawn.
  * `pressure` is the stored byte per point; a stroke with none off the midpoint
  * draws as a mouse stroke (see `freedrawPath`). `cached` reuses the stroke's
- * outline from a `FreehandOutlineCache` instead of building it again.
+ * outline from a `FreehandOutlineCache` instead of building it again. `shape`
+ * is the tuning's stroke-shape knobs; undefined draws the defaults.
  */
 export function paintFreehandStroke(
   context: Context2dLike,
@@ -434,13 +443,14 @@ export function paintFreehandStroke(
   halo?: { alpha: number; grow: number },
   last = true,
   cached?: { cache: FreehandOutlineCache; id: number },
+  shape?: FreedrawShape,
 ): number {
   const count = x.length;
   if (count === 0) return 0;
   const width = stroke.width + 2 * (halo?.grow ?? 0);
   const curves = cached
-    ? cached.cache.outline(cached.id, x, y, pressure, width, last)
-    : freedrawCurves(freedrawPath(x, y, width, last, pressure));
+    ? cached.cache.outline(cached.id, x, y, pressure, width, last, shape)
+    : freedrawCurves(freedrawPath(x, y, width, last, pressure, shape));
   if (curves === null) return 0;
   context.fillStyle = cssInkColour(
     stroke.colour,
