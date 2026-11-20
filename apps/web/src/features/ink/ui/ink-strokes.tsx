@@ -23,6 +23,8 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 import { freehandPathFromFlat, type InkRendererKind } from "../render/freehand-stroke";
+import { freedrawShapeKey, type FreedrawShape } from "../render/excalidraw-freedraw";
+import { useInkTuning } from "../application/ink-tuning";
 import { readInkRenderer } from "@/lib/parts";
 import { readyCore } from "@/lib/rust-core";
 
@@ -34,10 +36,11 @@ const settledPaths = new WeakMap<
 /**
  * The path a settled stroke is drawn with. `classic` is the capsule path from
  * the Rust core (stroked); `freehand` is the perfect-freehand outline (filled),
- * drawn with the stroke's `pressures` (0-255) when it has them. Exported so the
+ * drawn with the stroke's `pressures` (0-255) when it has them and `shape`'s
+ * knobs (the ink tuning; undefined is the defaults). Exported so the
  * choice is one function, tested on its own.
  *
- * Built once per points array, renderer and width: a stroke's arrays are
+ * Built once per points array, renderer, width and shape: a stroke's arrays are
  * replaced, never edited, when it changes, so a rerender (a selection, a theme
  * change) reuses the path.
  */
@@ -46,17 +49,18 @@ export function settledStrokePath(
   width: number,
   renderer: InkRendererKind,
   pressures?: readonly number[],
+  shape?: FreedrawShape,
 ): string | null {
   let byKey = settledPaths.get(points);
   if (!byKey) {
     byKey = new Map();
     settledPaths.set(points, byKey);
   }
-  const key = renderer === "freehand" ? `freehand|${width}` : "classic";
+  const key = renderer === "freehand" ? `freehand|${width}|${freedrawShapeKey(shape)}` : "classic";
   const cached = byKey.get(key);
   if (cached && cached.pressures === pressures) return cached.d;
   const d = renderer === "freehand"
-    ? freehandPathFromFlat(points, width, pressures)
+    ? freehandPathFromFlat(points, width, pressures, shape)
     : readyCore().strokePath(points);
   byKey.set(key, { pressures, d });
   return d;
@@ -134,12 +138,15 @@ export function InkStrokes({
   // differently on the server and the client, so the flash is kept.
   const [renderer, setRenderer] = useState<InkRendererKind>("classic");
   useEffect(() => setRenderer(readInkRenderer()), []);
+  // The tuning's stroke-shape knobs (dev panel); the server snapshot is the defaults.
+  const tuning = useInkTuning();
   if (strokes.length === 0) return null;
   const selected = new Set(selectedIds ?? []);
   const outlined = renderer === "freehand";
+  const shape = outlined ? tuning : undefined;
 
   const draw = (stroke: InkRenderStroke, key: string) => {
-    const d = settledStrokePath(stroke.points, stroke.width, renderer, stroke.pressures);
+    const d = settledStrokePath(stroke.points, stroke.width, renderer, stroke.pressures, shape);
     if (!d) return null;
     const styled = stroke.highlighter && Boolean(highlighterClassName);
     const held = stroke.id != null && selected.has(stroke.id) && haloGrow > 0;
@@ -182,7 +189,7 @@ export function InkStrokes({
         <g key={key}>
           <path
             className="ink-stroke-halo ink-stroke-halo--fill"
-            d={settledStrokePath(stroke.points, stroke.width + haloGrow * 2, renderer, stroke.pressures) ?? undefined}
+            d={settledStrokePath(stroke.points, stroke.width + haloGrow * 2, renderer, stroke.pressures, shape) ?? undefined}
           />
           {path}
         </g>

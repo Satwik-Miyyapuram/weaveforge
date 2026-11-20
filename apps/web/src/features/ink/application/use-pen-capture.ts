@@ -33,7 +33,7 @@ import { type InkColour, type InkHand } from "@weaveforge/core";
 import { readInkRenderer } from "@/lib/parts";
 
 import { inkClock, recordInkLatency } from "./ink-latency";
-import { readInkTuning } from "./ink-tuning";
+import { inkWetDpr, readInkTuning } from "./ink-tuning";
 
 import { CaptureStream, type FilteredNibSample } from "./parts-2";
 import {
@@ -300,9 +300,12 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
       // Each batch is stamped so the worker can say how old it was when drawn.
       post: (message, transfer) =>
         post(
-          message.type === "samples" || message.type === "stroke-begin"
-            ? { ...message, sentAt: inkClock() }
-            : message,
+          message.type === "stroke-begin"
+            ? // The stroke's tuning rides its begin, so a knob applies from the next stroke.
+              { ...message, sentAt: inkClock(), tuning: readInkTuning() }
+            : message.type === "samples"
+              ? { ...message, sentAt: inkClock() }
+              : message,
           transfer ?? [],
         ),
     });
@@ -332,6 +335,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         presenterRef.current === null &&
         !delegatedContextRef.current &&
         !(callbacksRef.current.delegating?.() ?? false),
+      predictionMs: () => readInkTuning().predictionMs,
     });
   }
 
@@ -438,7 +442,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
           canvas: offscreen,
           width: Math.max(1, Math.round(box.width)),
           height: Math.max(1, Math.round(box.height)),
-          dpr: typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
+          dpr: inkWetDpr(tuning.wetDpr, typeof window === "undefined" ? 1 : window.devicePixelRatio || 1),
           // The worker only returns buffers it was given by transfer; in clone mode
           // the memory never left this thread and returning it would pool an array
           // that is still in use here.

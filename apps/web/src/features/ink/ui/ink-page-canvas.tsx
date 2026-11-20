@@ -7,6 +7,8 @@ import type { InkStroke } from "@weaveforge/core";
 import { INK_RENDER_COLOURS, type InkPalette } from "../render/parts-1";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 import type { InkRendererKind } from "../render/freehand-stroke";
+import { freedrawShapeKey, type FreedrawShape } from "../render/excalidraw-freedraw";
+import { readInkTuning } from "../application/ink-tuning";
 import { readInkRenderer } from "@/lib/parts";
 import { perfEnd, perfStart } from "@/lib/parts-2";
 import { readyCore } from "@/lib/rust-core";
@@ -24,7 +26,8 @@ export interface InkPageCanvasProps {
 }
 
 // One Path2D cache per renderer: a stroke's capsule and its outline are different paths.
-const pathCaches: Record<InkRendererKind, WeakMap<readonly number[], Path2D>> = {
+// An outline is kept with its shape key, so a changed tuning rebuilds it.
+const pathCaches: Record<InkRendererKind, WeakMap<readonly number[], { key: string; path: Path2D }>> = {
   classic: new WeakMap(),
   freehand: new WeakMap(),
 };
@@ -54,6 +57,7 @@ export function drawInkStrokes(
   strokes: readonly InkRenderStroke[],
   unitsToPx: number,
   renderer: InkRendererKind = "classic",
+  shape?: FreedrawShape,
 ): void {
   ctx.setTransform(unitsToPx, 0, 0, unitsToPx, 0, 0);
   const width = ctx.canvas ? (unitsToPx > 0 ? ctx.canvas.width / unitsToPx : ctx.canvas.width) : 0;
@@ -63,13 +67,15 @@ export function drawInkStrokes(
   ctx.lineJoin = "round";
 
   const pathCache = pathCaches[renderer];
+  const key = renderer === "freehand" ? freedrawShapeKey(shape) : "";
   const renderStroke = (stroke: InkRenderStroke) => {
-    let path = pathCache.get(stroke.points);
+    const hit = pathCache.get(stroke.points);
+    let path = hit?.key === key ? hit.path : undefined;
     if (!path) {
-      const d = settledStrokePath(stroke.points, stroke.width, renderer, stroke.pressures);
+      const d = settledStrokePath(stroke.points, stroke.width, renderer, stroke.pressures, shape);
       if (!d) return;
       path = new Path2D(d);
-      pathCache.set(stroke.points, path);
+      pathCache.set(stroke.points, { key, path });
     }
     ctx.globalAlpha = stroke.highlighter ? HIGHLIGHTER_ALPHA : 1;
     if (renderer === "freehand") {
@@ -100,6 +106,7 @@ export function paintInkCanvas(
   unitsToPx: number,
   mode: InkCanvasMode,
   renderer: InkRendererKind = "classic",
+  shape?: FreedrawShape,
 ): void {
   if (width <= 0 || height <= 0 || drawn.length === 0) return;
 
@@ -111,7 +118,7 @@ export function paintInkCanvas(
     const offCtx = off.getContext("2d");
     if (!offCtx) return;
     const t = perfStart();
-    drawInkStrokes(offCtx, drawn, unitsToPx, renderer);
+    drawInkStrokes(offCtx, drawn, unitsToPx, renderer, shape);
     perfEnd("ink:page-paint", t, drawn.length);
     // Size the DOM canvas before transferring the image bitmap.
     canvas.width = width;
@@ -129,7 +136,7 @@ export function paintInkCanvas(
   canvas.width = width;
   canvas.height = height;
   const t = perfStart();
-  drawInkStrokes(ctx, drawn, unitsToPx, renderer);
+  drawInkStrokes(ctx, drawn, unitsToPx, renderer, shape);
   perfEnd("ink:page-paint", t, drawn.length);
 }
 
@@ -186,7 +193,7 @@ export const InkPageCanvas = memo(function InkPageCanvas({
     const width = Math.round(pageSize.width * scale * dpr);
     const height = Math.round(pageSize.height * scale * dpr);
     // Read at each paint, not per render: the setting applies to the next ink page opened.
-    paintInkCanvas(canvas, drawn, width, height, scale * dpr, modeRef.current, readInkRenderer());
+    paintInkCanvas(canvas, drawn, width, height, scale * dpr, modeRef.current, readInkRenderer(), readInkTuning());
   }, [drawn, pageSize.width, pageSize.height, scale]);
 
   if (drawn.length === 0) return null;

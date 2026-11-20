@@ -7,12 +7,15 @@
  * so a change applies on the next stroke or the next page open, whichever is
  * when the knob is read:
  *
- * - next stroke: `prediction`, `wetLayerAboveSvg`, `presenterTimeoutMs`,
- *   `delegateNavigatorInk`;
+ * - next stroke: `prediction`, `predictionMs`, `wetLayerAboveSvg`,
+ *   `presenterTimeoutMs`, `delegateNavigatorInk`, the input knobs
+ *   (`inputSmoothing`, `resampleSpacing`, both renderers) and the shape knobs
+ *   (`thinning`, `smoothing`, `streamline`, `taperStart`, `taperEnd`,
+ *   `pressureGamma`, `minWidth`: the freehand renderer only; classic draws a
+ *   constant-width nib). A shape change redraws the page's freehand strokes too;
  * - next page open (the worker and its context are made then): `wetDesynchronized`,
- *   `forceBackend`, `renderer`;
- * - stored only, for the A/B work that reads them next: the stroke-shape knobs,
- *   `wetDpr` and `holdToShapeMs`.
+ *   `forceBackend`, `renderer`, `wetDpr`;
+ * - stored only, for later: `holdToShapeMs`.
  *
  * The dev panel (`ink-tuning-panel.tsx`) is the only writer besides a hand edit.
  */
@@ -44,11 +47,15 @@ export interface InkTuning {
   taperEnd: number;
   pressureGamma: number;
   minWidth: number;
-  /** Input smoothing window in samples; 0 means the built-in. */
+  /** Input smoothing: average each position with this many previous ones; 0 is off. */
   inputSmoothing: number;
   prediction: boolean;
-  /** Prediction horizon; 0 means the built-in. */
+  /**
+   * Cap on how far ahead the browser's predicted samples may reach; 0 takes all
+   * it gives. It can only shorten the browser's prediction, not extend it.
+   */
   predictionMs: number;
+  /** Drop a sample closer than this (0.1 mm) to the last one kept; 0 is off. */
   resampleSpacing: number;
   renderer: InkTuningRenderer;
   /** Hold the pen still this long at a stroke's end to snap it to a shape; 0 is off. */
@@ -152,6 +159,21 @@ export function setInkTuning(patch: Partial<InkTuning>): void {
 /** Back to the defaults: the key leaves the settings file. */
 export function resetInkTuning(): void {
   workspaceSettings.set(INK_TUNING_KEY, undefined);
+}
+
+/** The wet layer's device pixel ratio: `wetDpr`, or `device` when it is 0 (the device's own). */
+export function inkWetDpr(wetDpr: number, device: number): number {
+  return wetDpr > 0 ? wetDpr : device;
+}
+
+/**
+ * The tuning as the settings file holds it (`{ "ink": { "tuning": … } }`), for
+ * the panel's Copy JSON: pasted into an empty `.weaveforge/settings.json` it is
+ * the whole file, and into a full one it is the `ink` entry to merge.
+ */
+export function inkTuningSettingsJson(tuning: InkTuning): string {
+  const [outer, inner] = INK_TUNING_KEY;
+  return JSON.stringify({ [outer]: { [inner]: tuning } }, null, 2);
 }
 
 export function subscribeInkTuning(listener: () => void): () => void {

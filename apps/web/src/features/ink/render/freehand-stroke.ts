@@ -7,7 +7,7 @@
  * paper, px on the canvas).
  */
 
-import { freedrawPath } from "./excalidraw-freedraw";
+import { freedrawPath, type FreedrawShape } from "./excalidraw-freedraw";
 
 export const INK_RENDERERS = ["classic", "freehand"] as const;
 export type InkRendererKind = (typeof INK_RENDERERS)[number];
@@ -18,6 +18,7 @@ export function freehandPathFromFlat(
   points: readonly number[],
   width: number,
   pressures?: ArrayLike<number>,
+  shape?: FreedrawShape,
 ): string {
   const count = points.length >> 1;
   const x = new Array<number>(count);
@@ -26,7 +27,7 @@ export function freehandPathFromFlat(
     x[i] = points[2 * i]!;
     y[i] = points[2 * i + 1]!;
   }
-  return freedrawPath(x, y, width, true, pressures);
+  return freedrawPath(x, y, width, true, pressures, shape);
 }
 
 /**
@@ -65,13 +66,14 @@ interface OutlineEntry {
   count: number;
   width: number;
   last: boolean;
+  shape: FreedrawShape | undefined;
   curves: FreehandCurves | null;
 }
 
 /**
  * Settled freehand outlines, so a repaint replays cached curves instead of
  * building the path and parsing it again. An entry is keyed by the stroke's id
- * and reused while the point count, width and `last` match. Two entries per id:
+ * and reused while the point count, width, `last` and shape (by identity) match. Two entries per id:
  * the stroke and its selection halo (whose width changes with zoom).
  *
  * The key does not see points edited in place (a moved selection keeps its
@@ -87,17 +89,18 @@ export class FreehandOutlineCache {
     pressure: ArrayLike<number>,
     width: number,
     last: boolean,
+    shape?: FreedrawShape,
   ): FreehandCurves | null {
     const count = x.length;
     const list = this.entries.get(id) ?? [];
-    const at = list.findIndex((e) => e.count === count && e.width === width && e.last === last);
+    const at = list.findIndex((e) => e.count === count && e.width === width && e.last === last && e.shape === shape);
     if (at >= 0) {
       const hit = list[at]!;
       if (at > 0) list.unshift(...list.splice(at, 1));
       return hit.curves;
     }
-    const curves = freedrawCurves(freedrawPath(x, y, width, last, pressure));
-    list.unshift({ count, width, last, curves });
+    const curves = freedrawCurves(freedrawPath(x, y, width, last, pressure, shape));
+    list.unshift({ count, width, last, shape, curves });
     list.length = Math.min(list.length, 2);
     this.entries.set(id, list);
     return curves;

@@ -26,6 +26,7 @@
 
 import type { InkColour, InkPage, InkStroke } from "@weaveforge/core";
 
+import type { FreedrawShape } from "../render/excalidraw-freedraw";
 import type { InkPalette } from "../render/parts-1";
 
 /** `x, y, pressure, t` per sample. */
@@ -44,6 +45,18 @@ export interface InkStrokeHeader {
   tool: "pen" | "highlighter" | "shape";
   /** The palette name the stroke paints with. Never a hex: the shader indexes it. */
   colour: InkColour;
+}
+
+/**
+ * The `ink.tuning` knobs the worker reads, sent with each stroke so a change in
+ * the dev panel applies from the next stroke. The shape is the freehand outline's;
+ * `inputSmoothing` is a moving average over that many raw samples (0 or 1 is
+ * off) and `resampleSpacing` drops real samples closer than that (page units, 0
+ * is off) to the last one kept.
+ */
+export interface InkStrokeTuning extends FreedrawShape {
+  inputSmoothing: number;
+  resampleSpacing: number;
 }
 
 /** Messages the main thread sends the worker. */
@@ -86,7 +99,7 @@ export type InkWorkerMessage =
       /** `ink.tuning.forceBackend`: `2d` skips WebGL2, `webgl2` skips the 2D fallback. */
       forceBackend?: "auto" | "webgl2" | "2d";
     }
-  | { type: "stroke-begin"; header: InkStrokeHeader; sample: InkSamplePayload; sentAt?: number }
+  | { type: "stroke-begin"; header: InkStrokeHeader; sample: InkSamplePayload; sentAt?: number; tuning?: InkStrokeTuning }
   | {
       type: "samples";
       header: InkStrokeHeader;
