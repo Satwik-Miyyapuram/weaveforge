@@ -121,3 +121,12 @@ test("a file in the exporter's shape reads back unchanged", async () => {
   await repo.remove("p-1", "k2");
   assert.equal(await fs.readText(FILE), text);
 });
+
+test("a paper id that is not a safe file name is refused, never read from another path", async () => {
+  const { repo } = setup();
+  await assert.rejects(repo.listForPaper("../x"), /not a valid paper id/);
+  await assert.rejects(
+    repo.save({ paperId: "../x", annotationKey: "k1", reportSectionId: "s1" }),
+    /not a valid paper id/,
+  );
+});
