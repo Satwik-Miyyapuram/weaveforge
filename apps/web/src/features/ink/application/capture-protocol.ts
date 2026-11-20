@@ -81,13 +81,19 @@ export type InkWorkerMessage =
        * it has to be known before the first `getContext` (§6.2.6, §6.2.8).
        */
       delegating?: boolean;
+      /** `ink.tuning.wetDesynchronized`: off keeps the fallback context synchronized. */
+      wetDesynchronized?: boolean;
+      /** `ink.tuning.forceBackend`: `2d` skips WebGL2, `webgl2` skips the 2D fallback. */
+      forceBackend?: "auto" | "webgl2" | "2d";
     }
-  | { type: "stroke-begin"; header: InkStrokeHeader; sample: InkSamplePayload }
+  | { type: "stroke-begin"; header: InkStrokeHeader; sample: InkSamplePayload; sentAt?: number }
   | {
       type: "samples";
       header: InkStrokeHeader;
       sample: InkSamplePayload;
       predicted?: boolean;
+      /** When the pen posted it (`inkClock`), for the input-to-draw figure. */
+      sentAt?: number;
     }
   | { type: "stroke-end"; header: InkStrokeHeader; sample: InkSamplePayload }
   | { type: "samples-returned"; buffers: ArrayBuffer[] }
@@ -197,7 +203,13 @@ export interface InkViewportTransform {
 /** Messages the worker sends the main thread. All are tiny, none are per-sample. */
 export type InkWorkerEvent =
   | { type: "ready"; backend: "webgl2" | "canvas2d" | "none" }
-  | { type: "frame"; frame: number; strokeId: number }
+  | {
+      type: "frame";
+      frame: number;
+      strokeId: number;
+      /** Age of the oldest batch this frame drew, from its `sentAt`; absent when none was waiting. */
+      inputToDrawMs?: number;
+    }
   | {
       type: "stroke-committed";
       header: InkStrokeHeader;

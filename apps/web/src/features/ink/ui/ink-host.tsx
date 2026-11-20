@@ -48,6 +48,7 @@ import {
   type InkStoredPage,
 } from "../application/parts-1";
 import { InkBar } from "./ink-bar";
+import { InkTuningPanel } from "./ink-tuning-panel";
 import { InkSelectionChip } from "./ink-selection-chip";
 import { InkFigures } from "./ink-figures";
 import { InkSheetTextUnderlay } from "./ink-sheet-underlay";
@@ -661,6 +662,9 @@ export function InkHost({
           onPageGap={setPageGap}
         />
       </ToolbarSlot>
+      {process.env.NODE_ENV !== "production" && (
+        <InkTuningPanel backend={pen.backend} delegating={pen.delegating} />
+      )}
       {/* The rail: continuous multi-page scroll with background active page switching. */}
       <InkRail
         scrollRef={scrollRef}

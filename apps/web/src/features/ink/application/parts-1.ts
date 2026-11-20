@@ -563,11 +563,13 @@ export async function requestInkPresenter(
   nav: InkNavigatorLike | null | undefined = typeof navigator === "undefined"
     ? null
     : (navigator as unknown as InkNavigatorLike),
+  /** How long to wait for the presenter (`ink.tuning.presenterTimeoutMs`). */
+  timeoutMs = 500,
 ): Promise<InkPresenterLike | null> {
   const ink = nav?.ink;
   if (!ink || typeof ink.requestPresenter !== "function") return null;
   try {
-    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 500));
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs));
     const presenter = await Promise.race([
       ink.requestPresenter({ presentationArea: area }),
       timeout,

@@ -32,6 +32,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type InkColour, type InkHand } from "@weaveforge/core";
 import { readInkRenderer } from "@/lib/parts";
 
+import { inkClock, recordInkLatency } from "./ink-latency";
+import { readInkTuning } from "./ink-tuning";
+
 import { CaptureStream, type FilteredNibSample } from "./parts-2";
 import {
   InkSamplePool,
@@ -294,7 +297,14 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
     const writer = new InkSampleWriter({
       pool: poolRef.current,
       mode: transferMode(),
-      post: (message, transfer) => post(message, transfer ?? []),
+      // Each batch is stamped so the worker can say how old it was when drawn.
+      post: (message, transfer) =>
+        post(
+          message.type === "samples" || message.type === "stroke-begin"
+            ? { ...message, sentAt: inkClock() }
+            : message,
+          transfer ?? [],
+        ),
     });
     sessionRef.current = new PenCaptureSession({
       gate: gateRef.current,
@@ -318,6 +328,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
       onStrokeEnd: (header, points, pressures) =>
         callbacksRef.current.onStrokeEnd?.(header, points, pressures),
       predict: () =>
+        readInkTuning().prediction &&
         presenterRef.current === null &&
         !delegatedContextRef.current &&
         !(callbacksRef.current.delegating?.() ?? false),
@@ -377,6 +388,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
             callbacksRef.current.onBackend?.(message.backend);
             break;
           case "frame":
+            if (message.inputToDrawMs !== undefined) recordInkLatency(message.inputToDrawMs);
             callbacksRef.current.onFrame?.(message.frame);
             break;
           case "stroke-committed":
@@ -419,6 +431,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         offscreen = null;
       }
       const box = canvas.getBoundingClientRect();
+      const tuning = readInkTuning();
       worker.postMessage(
         {
           type: "init",
@@ -436,7 +449,9 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
           // Immutable once the context exists, so it is decided here (§6.2.6).
           delegating: presenter !== null,
           // Read per page open: the A/B setting applies from the next ink page.
-          inkRenderer: readInkRenderer(),
+          inkRenderer: tuning.renderer === "setting" ? readInkRenderer() : tuning.renderer,
+          wetDesynchronized: tuning.wetDesynchronized,
+          forceBackend: tuning.forceBackend,
         },
         offscreen ? [offscreen] : [],
       );
@@ -476,8 +491,12 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
     // context attributes; without a trail option the worker starts at once.
     const begin = () => {
       const trail = callbacksRef.current.trail;
-      if (trail) {
-        void (trail.request ?? requestInkPresenter)(canvas).then(start, () =>
+      const tuning = readInkTuning();
+      if (trail && tuning.delegateNavigatorInk) {
+        const request =
+          trail.request ??
+          ((area: Element) => requestInkPresenter(area, undefined, tuning.presenterTimeoutMs));
+        void request(canvas).then(start, () =>
           start(null),
         );
       } else {

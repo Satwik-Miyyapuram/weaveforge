@@ -19,6 +19,8 @@
 import { useCallback, useRef, useState } from "react";
 
 import { InkGesture, StrokeEdgeSplit } from "../application/parts-1";
+import { readInkTuning } from "../application/ink-tuning";
+import { setWetLayerAbove } from "../application/wet-layer";
 import {
   claimPointer,
   ERASER_CURSOR,
@@ -330,6 +332,8 @@ export function InkPage({
         inkGesture.current.up(event.pointerId);
         return;
       }
+      // The canvas's parent is its dock: raised over the sheet for the stroke.
+      setWetLayerAbove(event.currentTarget.parentElement, true, readInkTuning().wetLayerAboveSvg);
       penHandlers.onPointerDown(event);
     },
     [
@@ -462,6 +466,7 @@ export function InkPage({
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       const route = inkGesture.current.up(event.pointerId);
       edge.current.end();
+      setWetLayerAbove(event.currentTarget.parentElement, false, true);
       if (event.pointerType === "touch" && touchUp(event)) return;
       if (figureTap.current) {
         figureTap.current = false;

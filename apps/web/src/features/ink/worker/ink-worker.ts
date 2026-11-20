@@ -24,6 +24,7 @@ import {
 } from "../render/freehand-stroke";
 import type { InkPalette, InkRenderer } from "../render/parts-1";
 import { supportsWebglInk, WebglInkRenderer } from "../render/webgl-renderer";
+import { inkClock } from "../application/ink-latency";
 import {
   clearSelection,
   deleteSelection,
@@ -216,6 +217,11 @@ const state = {
   mode: "transfer" as InkTransferMode,
   /** The A/B renderer, fixed for this page's worker (see `init`). */
   inkRenderer: DEFAULT_INK_RENDERER as InkRendererKind,
+  /** Ink tuning, fixed for this page's worker like the renderer. */
+  wetDesynchronized: true,
+  forceBackend: "auto" as "auto" | "webgl2" | "2d",
+  /** The oldest posted batch not yet drawn (`sentAt`), for the latency figure. */
+  pendingSince: null as number | null,
   frame: 0,
   running: false,
   disposed: false,
@@ -345,10 +351,13 @@ function tick(): void {
     state.renderer?.setLive(liveForRenderer(state.live));
   }
   state.renderer?.draw();
+  const since = state.pendingSince;
+  state.pendingSince = null;
   post({
     type: "frame",
     frame: state.frame,
     strokeId: state.live?.header.strokeId ?? 0,
+    ...(since === null ? {} : { inputToDrawMs: inkClock() - since }),
   });
   if (state.returns.length > 0) {
     const buffers = state.returns.splice(0, state.returns.length);
@@ -381,6 +390,7 @@ function startRenderer(delegating: boolean): void {
     // The freehand A/B draws outlines on Canvas 2D only; WebGL has no outline path yet.
     if (state.inkRenderer === "freehand")
       throw new Error("freehand renderer draws on Canvas 2D");
+    if (state.forceBackend === "2d") throw new Error("ink tuning forces Canvas 2D");
     if (!supportsWebglInk(canvas)) throw new Error("WebGL2 is unavailable");
     // The shaders are compiled on a throwaway canvas first. A canvas that has
     // given out a WebGL context can never give out a 2D one, so a driver that
@@ -391,6 +401,7 @@ function startRenderer(delegating: boolean): void {
     renderer = new WebglInkRenderer({
       canvas,
       delegating,
+      desynchronized: !delegating && state.wetDesynchronized,
       onContextLifecycle: (state_) => {
         post(
           state_ === "lost"
@@ -409,7 +420,7 @@ function startRenderer(delegating: boolean): void {
   } catch (error) {
     reason = errorMessage(error);
   }
-  if (!renderer) {
+  if (!renderer && state.forceBackend !== "webgl2") {
     // The Canvas 2D path (§6.2.9): the same contract, drawn with paths. A canvas
     // that already gave out a WebGL context cannot give out a 2D one, but a
     // canvas that *refused* WebGL still can, which is the case this serves.
@@ -506,6 +517,8 @@ function handleMessage(message: InkWorkerMessage): void {
         state.mode = message.mode;
         state.codec = inkChunkCodec(message.codec);
         state.inkRenderer = parseInkRenderer(message.inkRenderer);
+        state.wetDesynchronized = message.wetDesynchronized ?? true;
+        state.forceBackend = message.forceBackend ?? "auto";
         // The path decides the context attributes, and they are immutable after the
         // first `getContext` (§6.2.8) — so this is decided once, by whether the
         // presenter is delegating, and a presenter that appears later means a new
@@ -519,6 +532,7 @@ function handleMessage(message: InkWorkerMessage): void {
         break;
       case "stroke-begin": {
         state.live = newLiveStroke(message.header, state.inkRenderer === "freehand");
+        state.pendingSince ??= message.sentAt ?? null;
         appendSamples(state.live, message.sample);
         commitRawOverflow();
         ensureLoop();
@@ -526,6 +540,7 @@ function handleMessage(message: InkWorkerMessage): void {
       }
       case "samples": {
         if (!state.live) break;
+        state.pendingSince ??= message.sentAt ?? null;
         if (plan.predicted) replacePredictedTail(state.live, message.sample);
         else {
           appendSamples(state.live, message.sample);

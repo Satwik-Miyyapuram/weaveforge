@@ -2188,6 +2188,12 @@
   z-index: 1;
 }
 
+/* While the pen is down (`wetLayerAboveSvg`, ink tuning) nothing on the sheet
+   sits over the live ink: the overlays (2), the chip anchor (4) stay below. */
+.ink-canvas-dock[data-wet-above] {
+  z-index: 5;
+}
+
 .ink-page {
   position: relative;
   display: flex;
