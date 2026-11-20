@@ -44,6 +44,8 @@ const TOKEN_PREFIXES: &[&str] = &[
     "AKIA",
 ];
 const MIN_TOKEN_TAIL: usize = 16;
+/// Key prefixes that name a size or count (`maxTokens`, `numKeys`).
+const COUNT_PREFIXES: &[&str] = &["max", "min", "num", "count"];
 
 /// A write refused because it would store a secret. `location` says where (for
 /// example `ai.provider.apiKey`), never what.
@@ -75,10 +77,13 @@ pub fn is_secret_key(key: &str) -> bool {
         .flat_map(char::to_lowercase)
         .collect();
     // A plural (`apiKeys`, `accessTokens`) names the same secret as its singular.
+    // Count and limit keys (`maxTokens`, `tokenLimit`) are sizes, not secrets, so
+    // the plural rule does not apply to them.
+    let is_count = COUNT_PREFIXES.iter().any(|p| norm.starts_with(p)) || norm.ends_with("limit");
     let singular = norm.strip_suffix('s').unwrap_or(&norm);
     SECRET_KEY_ENDINGS
         .iter()
-        .any(|end| norm.ends_with(end) || singular.ends_with(end))
+        .any(|end| norm.ends_with(end) || (!is_count && singular.ends_with(end)))
 }
 
 fn is_token_char(c: char) -> bool {
@@ -226,6 +231,33 @@ mod tests {
             "passwordHint",
         ] {
             assert!(!is_secret_key(k), "{k}");
+        }
+    }
+
+    #[test]
+    fn count_keys_are_not_secrets() {
+        for k in [
+            "maxTokens",
+            "minTokens",
+            "numTokens",
+            "countTokens",
+            "tokenLimit",
+        ] {
+            assert!(!is_secret_key(k), "{k}");
+        }
+    }
+
+    #[test]
+    fn token_named_secrets_are_refused() {
+        for k in [
+            "apiToken",
+            "accessToken",
+            "githubToken",
+            "token",
+            "accessTokens",
+            "maxToken",
+        ] {
+            assert!(is_secret_key(k), "{k}");
         }
     }
 
