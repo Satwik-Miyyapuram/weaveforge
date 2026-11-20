@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 
 import { getContainer } from "@/bootstrap";
 import type { EditorHandleRef } from "@/components/editor-handle";
@@ -57,6 +57,7 @@ import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { useScreenShown } from "@/lib/screen-shown";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
+import { getInkSaveStatus, subscribeInkSaveStatus } from "@/features/ink/application/parts";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
@@ -185,6 +186,9 @@ export function WorkspaceScreen() {
   const [pending, setPending] = useState(0);
   // A write that failed leaves the document dirty — "Saved" would be a lie.
   const [dirty, setDirty] = useState(false);
+  // Ink saves run outside this component's counters: a stroke's debounce and its
+  // write count as pending, and a failed ink write counts as dirty.
+  const inkSave = useSyncExternalStore(subscribeInkSaveStatus, getInkSaveStatus, getInkSaveStatus);
   // Read by the close guard, which is registered once.
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
@@ -786,7 +790,7 @@ export function WorkspaceScreen() {
         onSetMode={(tab, mode) => apply(readyCore().setTabMode(layout, tab, mode))}
       />
       <StatusBar
-        save={saveState({ pending, dirty })}
+        save={saveState({ pending: pending + inkSave.pending, dirty: dirty || inkSave.failed })}
         segments={
           activeDoc
             ? segmentsFor(activeMode === "ink" && hasInkView(activeDoc.kind) ? "ink_page" : activeDoc.kind)
