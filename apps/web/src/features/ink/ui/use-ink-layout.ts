@@ -16,6 +16,7 @@ import type { InkWorkerMessage } from "../application/capture-protocol";
 import { inkWetDpr, readInkTuning } from "../application/ink-tuning";
 import { backingRatio, type InkPalette, readThemePalette } from "../render/parts-1";
 import { readyCore } from "@/lib/rust-core";
+import { dropCachedRects } from "./rect-cache";
 
 /** What the layout needs from the host. */
 /**
@@ -300,6 +301,9 @@ export function useInkLayout(deps: InkLayoutDeps) {
       // buffer but its commit has not come back yet, so nothing is scheduled.
       flushSave(true);
       flushSync(() => setPageIndex(target));
+      // The live sheet and canvas moved to the new slot with no scroll or
+      // resize, so their cached rects are the old page's.
+      dropCachedRects();
       return true;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

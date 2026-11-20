@@ -56,6 +56,19 @@ test("a pointerdown, pointerup, scroll or resize drops the cached rect", () => {
   }
 });
 
+// Row g (seam): a page flip moves the live sheet to the next slot with no
+// scroll, resize or DOM pointer event, so the flip itself must drop the rects
+// or the stroke's edge check keeps the old page's box and never re-enters.
+test("drop() forgets every cached rect", () => {
+  const { cache } = setup();
+  const { el, reads, move } = element();
+  cache.rect(el);
+  move(77);
+  cache.drop();
+  assert.equal(cache.rect(el).left, 77);
+  assert.equal(reads(), 2);
+});
+
 test("the element resizing drops the cached rect", () => {
   const { cache } = setup();
   const { el, reads } = element();
