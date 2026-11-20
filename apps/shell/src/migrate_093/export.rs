@@ -635,6 +635,7 @@ fn screening_decision(row: &Value) -> ScreeningDecision {
 /// paper's id in memory only. Papers whose path is shared with another paper are skipped, so
 /// their data is never mixed into one file. Papers with nothing to export are left out.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "one pass over the 0.9.2 rows; split in 0.9.6")]
 pub fn plan_exports(
     papers: &[Value],
     annotations: &[Value],
