@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
+import { typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { WorkspaceListFilesPort } from "../shell-list-files-port";
 
@@ -87,4 +88,21 @@ test("write is refused when another writer changes the file after the hash check
 test("fileForItem returns null when no list holds the item", async () => {
   const { port } = await setup({ "thesis/reading-lists/a.list.md": LIST });
   assert.equal(await port.fileForItem("i1"), null);
+});
+
+test("fileForItem finds the list holding an item that has an entry", async () => {
+  const held = typedCore().recordInListFile(LIST, {
+    id: "d1",
+    itemId: "i1",
+    reviewerId: "ana",
+    stage: "title_abstract",
+    state: "excluded",
+    decidedAt: "2026-11-19T10:00:00.000Z",
+  });
+  const { port } = await setup({
+    "thesis/reading-lists/a.list.md": LIST,
+    "thesis/reading-lists/b.list.md": held,
+  });
+  assert.equal((await port.fileForItem("i1"))?.path, "thesis/reading-lists/b.list.md");
+  assert.equal(await port.fileForItem("i2"), null);
 });

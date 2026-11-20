@@ -2,7 +2,7 @@
  * The shell's list-file port: finds `<project>/reading-lists/**\/*.list.md` through
  * the workspace fs and hashes each text, so a write over a changed file is refused.
  */
-import { type IWorkspaceFs, type ScreeningDecision } from "@weaveforge/core";
+import { type IWorkspaceFs } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 import type { ListFile, ListFilesPort } from "./file-screening-repository";
 
@@ -26,16 +26,15 @@ export class WorkspaceListFilesPort implements ListFilesPort {
     return files;
   }
 
+  /** The first list file with an entry for the item, whatever its state. */
   async fileForItem(itemId: string): Promise<ListFile | null> {
     const core = readyCore();
     for (const file of await this.listFiles()) {
-      let decisions: ScreeningDecision[];
       try {
-        decisions = core.screeningInListFile(file.text) as ScreeningDecision[];
+        if (core.listFileHoldsItem(file.text, itemId)) return file;
       } catch {
         continue;
       }
-      if (decisions.some((d) => d.itemId === itemId)) return file;
     }
     return null;
   }
