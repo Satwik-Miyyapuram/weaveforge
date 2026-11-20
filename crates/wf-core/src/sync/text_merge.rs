@@ -47,7 +47,26 @@ fn too_big(base: &[String], side: &[String]) -> bool {
     base.len().saturating_mul(side.len()) > MAX_DIFF_CELLS
 }
 
-/// Merges `mine` and `theirs`, both edited from `base`.
+/// True when base line `bk` is the end of the text: past the last line, or
+/// the empty line a trailing newline leaves.
+fn at_tail(base: &[String], bk: usize) -> bool {
+    bk == base.len() || (bk + 1 == base.len() && base.get(bk).is_some_and(String::is_empty))
+}
+
+/// Both sides appended at the end: keep both, without repeating a shared start.
+fn append_both(out: &mut Vec<String>, mine: &[String], theirs: &[String]) {
+    if theirs.starts_with(mine) {
+        out.extend_from_slice(theirs);
+    } else if mine.starts_with(theirs) {
+        out.extend_from_slice(mine);
+    } else {
+        out.extend_from_slice(mine);
+        out.extend_from_slice(theirs);
+    }
+}
+
+/// Merges `mine` and `theirs`, both edited from `base`. Lines both sides
+/// appended at the end are kept, mine first, rather than called a conflict.
 #[must_use]
 pub fn merge_text(base: &str, mine: &str, theirs: &str) -> TextMerge {
     if mine == theirs || base == theirs {
@@ -81,6 +100,8 @@ pub fn merge_text(base: &str, mine: &str, theirs: &str) -> TextMerge {
             out.extend_from_slice(theirs_run);
         } else if theirs_run == base_run || mine_run == theirs_run {
             out.extend_from_slice(mine_run);
+        } else if base_run.is_empty() && at_tail(&b, bk) {
+            append_both(&mut out, mine_run, theirs_run);
         } else {
             return TextMerge::Conflict;
         }
@@ -146,8 +167,22 @@ mod tests {
     }
 
     #[test]
-    fn both_appending_different_lines_conflicts() {
-        assert_eq!(merge_text("a", "a\nmine", "a\ntheirs"), TextMerge::Conflict);
+    fn merge_both_append_is_clean() {
+        assert_eq!(clean("a", "a\nmine", "a\ntheirs"), "a\nmine\ntheirs");
+        assert_eq!(
+            clean("a\n", "a\nmine\n", "a\ntheirs\n"),
+            "a\nmine\ntheirs\n"
+        );
+        assert_eq!(clean("a", "a\nx", "a\nx\ny"), "a\nx\ny");
+        assert_eq!(clean("a", "a\nx\ny", "a\nx"), "a\nx\ny");
+    }
+
+    #[test]
+    fn both_inserting_mid_text_still_conflicts() {
+        assert_eq!(
+            merge_text("a\nb", "a\nm\nb", "a\nt\nb"),
+            TextMerge::Conflict
+        );
     }
 
     #[test]

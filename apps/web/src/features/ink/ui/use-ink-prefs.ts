@@ -18,7 +18,7 @@ import {
 } from "@weaveforge/core";
 
 import type { InkBarTool } from "./ink-bar";
-import { setToolColour, useToolColours } from "./use-tool-colours";
+import { setToolColour, setWidthForColour, useToolColours, widthInForce } from "./use-tool-colours";
 
 /** The two tools that put ink on paper, as opposed to pointing or erasing. */
 export const PEN_MODE_TOOLS = ["pen", "highlighter"] as const;
@@ -58,8 +58,11 @@ export function useInkPrefs() {
   const [tool, setToolState] = useState<InkBarTool | "shape">("pen");
   // Each tool's colour lives in the shared store, so every pane sees the same one.
   const toolColours = useToolColours();
-  const [width, setWidthState] = useState<number>(INK_PEN_WIDTH);
-  const [highlighterWidth, setHighlighterWidth] = useState<number>(INK_HIGHLIGHTER_WIDTH);
+  // A colour's quick slot can carry its own width; without one, the last width chosen here applies.
+  const [penWidth, setWidthState] = useState<number>(INK_PEN_WIDTH);
+  const [markerWidth, setMarkerWidth] = useState<number>(INK_HIGHLIGHTER_WIDTH);
+  const width = widthInForce(toolColours.pen, penWidth);
+  const highlighterWidth = widthInForce(toolColours.highlighter, markerWidth);
 
   /**
    * The last pen mode the user chose, which is what the pen returns to.
@@ -109,14 +112,21 @@ export function useInkPrefs() {
     [tool, setTool],
   );
 
-  /** A pen width is chosen; like a pen colour, it returns the tool to the pen. */
+  /** A pen width is chosen, and kept by the colour's slot; like a pen colour, it returns the tool to the pen. */
   const onWidth = useCallback(
     (next: number) => {
       setWidthState(next);
+      setWidthForColour("pen", next);
       setTool("pen");
     },
     [setTool],
   );
+
+  /** A highlighter width is chosen, and kept by the colour's slot. */
+  const setHighlighterWidth = useCallback((next: number) => {
+    setMarkerWidth(next);
+    setWidthForColour("highlighter", next);
+  }, []);
 
   return {
     tool,

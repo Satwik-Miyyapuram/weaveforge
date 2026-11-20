@@ -31,6 +31,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type InkColour, type InkHand } from "@weaveforge/core";
 
+import { inkClock, recordInkLatency } from "./ink-latency";
+import { inkWetDpr, readInkTuning } from "./ink-tuning";
+
 import { CaptureStream, type FilteredNibSample } from "./parts-2";
 import {
   InkSamplePool,
@@ -167,7 +170,6 @@ export interface UsePenCaptureOptions {
   /** The worker's frame counter, for the trail's "is it behind?" check. */
   onFrame?: (frame: number) => void;
   onBackend?: (backend: "webgl2" | "canvas2d" | "none") => void;
-  onContextLost?: () => void;
   /**
    * Every worker event, after the hook has taken what it needs.
    *
@@ -293,7 +295,17 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
     const writer = new InkSampleWriter({
       pool: poolRef.current,
       mode: transferMode(),
-      post: (message, transfer) => post(message, transfer ?? []),
+      // Each batch is stamped so the worker can say how old it was when drawn.
+      post: (message, transfer) =>
+        post(
+          message.type === "stroke-begin"
+            ? // The stroke's tuning rides its begin, so a knob applies from the next stroke.
+              { ...message, sentAt: inkClock(), tuning: readInkTuning() }
+            : message.type === "samples"
+              ? { ...message, sentAt: inkClock() }
+              : message,
+          transfer ?? [],
+        ),
     });
     sessionRef.current = new PenCaptureSession({
       gate: gateRef.current,
@@ -317,9 +329,11 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
       onStrokeEnd: (header, points, pressures) =>
         callbacksRef.current.onStrokeEnd?.(header, points, pressures),
       predict: () =>
+        readInkTuning().prediction &&
         presenterRef.current === null &&
         !delegatedContextRef.current &&
         !(callbacksRef.current.delegating?.() ?? false),
+      predictionMs: () => readInkTuning().predictionMs,
     });
   }
 
@@ -376,6 +390,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
             callbacksRef.current.onBackend?.(message.backend);
             break;
           case "frame":
+            if (message.inputToDrawMs !== undefined) recordInkLatency(message.inputToDrawMs);
             callbacksRef.current.onFrame?.(message.frame);
             break;
           case "stroke-committed":
@@ -388,12 +403,6 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
           case "samples-returned":
             for (const buffer of message.buffers)
               poolRef.current.release(buffer);
-            break;
-          case "context-lost":
-            callbacksRef.current.onContextLost?.();
-            break;
-          case "context-restored":
-            setBackend(message.backend);
             break;
           case "error":
             // The pen must keep working when the worker cannot draw: a lost
@@ -418,13 +427,14 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         offscreen = null;
       }
       const box = canvas.getBoundingClientRect();
+      const tuning = readInkTuning();
       worker.postMessage(
         {
           type: "init",
           canvas: offscreen,
           width: Math.max(1, Math.round(box.width)),
           height: Math.max(1, Math.round(box.height)),
-          dpr: typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
+          dpr: inkWetDpr(tuning.wetDpr, typeof window === "undefined" ? 1 : window.devicePixelRatio || 1),
           // The worker only returns buffers it was given by transfer; in clone mode
           // the memory never left this thread and returning it would pool an array
           // that is still in use here.
@@ -473,8 +483,12 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
     // context attributes; without a trail option the worker starts at once.
     const begin = () => {
       const trail = callbacksRef.current.trail;
-      if (trail) {
-        void (trail.request ?? requestInkPresenter)(canvas).then(start, () =>
+      const tuning = readInkTuning();
+      if (trail && tuning.delegateNavigatorInk) {
+        const request =
+          trail.request ??
+          ((area: Element) => requestInkPresenter(area, undefined, tuning.presenterTimeoutMs));
+        void request(canvas).then(start, () =>
           start(null),
         );
       } else {
@@ -656,9 +670,9 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         clearTimeout(deferTimer.current);
         deferTimer.current = null;
       }
-      sessionRef.current!.pointerUp(toGateEvent(event));
+      sessionRef.current!.cancel(event.pointerId);
     },
-    [toGateEvent],
+    [],
   );
 
   const setPenOnly = useCallback((value: boolean) => {

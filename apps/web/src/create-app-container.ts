@@ -89,13 +89,16 @@ import {
 import {
   BlobInkChunkStore,
   CopyOnReadInkChunkStore,
+  FolderInkNotes,
   FsInkChunkStore,
   UnavailableInkChunkStore,
 } from "@/features/ink/infrastructure/parts";
+import { folderLock } from "@/features/workspace/application/folder-lock";
 import {
   activeWorkspaceFs,
   closeFolder,
   folderRestored,
+  syncToFolder,
 } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { loadCore } from "@/lib/rust-core";
@@ -181,10 +184,15 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // Signs artifact paths on read. Nothing stores a signed URL: SigV4 caps one
   // at seven days, so a stored link is a link with a deadline.
   const experimentArtifactStore = new ExperimentArtifactStore(encryptedBlobStore, backend.session);
-  // Ink chunks follow the page: the folder's `.ink/` when one is open, the
-  // encrypted asset bucket otherwise (§4.1). Routed per call, since a folder
-  // can be chosen or forgotten while the app is running.
-  const fsInkChunks = new FsInkChunkStore(activeWorkspaceFs);
+  // Ink chunks follow the page: in the folder beside the note's file
+  // (`foo.note.md` -> `foo.note.ink/`, legacy `foo.ink.md` -> `foo.ink/`) when one is open, the encrypted asset bucket
+  // otherwise (§4.1). Routed per call, since a folder can be chosen or
+  // forgotten while the app is running.
+  const inkNotes = new FolderInkNotes(activeWorkspaceFs, {
+    run: (fn) => folderLock.run(fn),
+    syncFolder: syncToFolder,
+  });
+  const fsInkChunks = new FsInkChunkStore(activeWorkspaceFs, inkNotes, (fn) => folderLock.run(fn));
   const blobInkChunks = new BlobInkChunkStore(encryptedBlobStore, backend.session);
   // On the desktop the folder is the only home: the bucket is read once per
   // page to migrate legacy ink (copy-on-read), and nothing is written to it.

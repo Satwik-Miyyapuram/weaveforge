@@ -16,6 +16,7 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [ink](ink.md) | Ink geometry: smoothing, curves, nib widths, zoom and the live stroke packer. |
 | [recognise](recognise.md) | Recognition helpers: the unsure threshold, confidence mapping, hint words, engine rank and the page summary. |
 | [github-connect](github-connect.md) | One-click GitHub sync: the OAuth device flow and the private repo for the workspace folder. |
+| [files-server](files-server.md) | Files-first server: grants, live shared docs over WebSocket, write-back lease and the SDK inbox. |
 | [integrations](integrations.md) | Integration provider selection and runtime gates. |
 | [logbook](logbook.md) | Pure helpers behind the logbook. |
 | [markdown_link](markdown_link.md) | Markdown link helpers for pasted URLs: the bare-URL check, label escaping and `[label](url)`. |
@@ -47,6 +48,7 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [puller_plan](puller_plan.md) | Pull decisions for the offline-sync Puller: page summary, apply and tombstone steps, unique-clash parsing. |
 | [vault](vault.md) | Vault (notes) domain rules. |
 | [page_query](page_query.md) | Vault page query text for PostgREST: LIKE and PostgREST escaping, title ILIKE pattern, missing `body_preview` check. |
+| [web-clone](web-clone.md) | The web app's OPFS clone of the workspace repo: lazy blobs, fast-forward pushes, conflict copies, in-memory GitHub token. |
 | [workspace](workspace.md) | Workspace path rules shared by every adapter: relative, normalized, never leaving the root. |
 | [lexical_concepts](lexical_concepts.md) | Lexical concept extraction with no model: harvest, merge, rank and the `maxConcepts` cap. |
 | [model_extraction](model_extraction.md) | Model concept extraction: the prompt, batch limits, request builder and merge/cap. |
@@ -71,6 +73,9 @@ The core is pure Rust in `crates/wf-core`. The app reaches it through wasm via `
 | [account](account.md) | Account links and menu, provisioning and purge, auth transitions, backend/home config, update check. |
 | [release-notices](release-notices.md) | In-app release notice: the unseen-version rule, per-account dismissal and how to publish a notice. |
 | [markdown-helpers](markdown-helpers.md) | Markdown formatting, image refs, widths and alt text, Mermaid labels, heading slugs, anchors, snippets. |
+| [notes-report](notes-report.md) | Notes and report sections as workspace files: the file shape, outline order, parent cycles and the note repository. |
+| [experiments](experiments.md) | Experiment metrics as CSV chunk files: the format, the local route and the inbox drain. |
+| [plan-logbook](plan-logbook.md) | Milestones as workspace files and the calendar feed published from them. |
 | [experiments-lab](experiments-lab.md) | Experiment rows and status, metric charts, plot sizes, lab snapshots and data export files. |
 | [rows-and-tags](rows-and-tags.md) | Member, project and library-pin rows, tag counts and tones, sync fields, paper notes. |
 | [text-formatting](text-formatting.md) | Status text, enum labels, JS-style collation, dates, app log lines and error statuses. |

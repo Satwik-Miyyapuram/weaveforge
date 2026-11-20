@@ -107,9 +107,27 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
       // Copy into a fresh buffer: a Uint8Array view over a larger ArrayBuffer
       // would otherwise write the whole backing store.
       await writable.write(typeof data === "string" ? data : new Uint8Array(data));
-    } finally {
-      await writable.close();
+    } catch (error) {
+      // A failed write (a full disk) must not leave part of the new bytes:
+      // abort drops the swap file, so the old bytes stay.
+      await writable.abort().catch(() => undefined);
+      throw error;
     }
+    await writable.close();
+  }
+
+  /**
+   * Compares the file's text with what the caller read, then writes. Same rule as the
+   * desktop adapter's fallback: a missing file reads as null. The browser has no atomic
+   * compare-and-swap, so the window is the length of one read; no outside edit is lost
+   * to a stale save, which is what matters here.
+   */
+  async writeTextIf(path: string, text: string, expected: string | null): Promise<boolean> {
+    const handle = await this.fileFor(path, false);
+    const current = handle ? await (await handle.getFile()).text() : null;
+    if (current !== expected) return false;
+    await this.writeFile(path, text);
+    return true;
   }
 
   async remove(path: string, options?: { recursive?: boolean }): Promise<void> {

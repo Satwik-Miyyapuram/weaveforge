@@ -4,6 +4,7 @@
 use serde_json::{Value, json};
 
 use super::sdk::{SDK_PREFIX, route_sdk_request};
+use super::sdk_files;
 use super::token::grant_permissions;
 use super::{
     Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission, SaveArtifact, SdkQuery,
@@ -50,6 +51,10 @@ pub async fn route_local_request(
     };
     if path.starts_with(SDK_PREFIX) && !allowed(Permission::Experiments) {
         return denied(Permission::Experiments);
+    }
+
+    if let Some(answered) = sdk_files::route(deps.vault, request, &path).await {
+        return answered;
     }
 
     if let Some(query) = deps.query

@@ -16,6 +16,9 @@ targets = [
 [advisories]
 version = 2
 yanked = "deny"
+ignore = [
+  { id = "RUSTSEC-2026-0215", reason = "smallstr is unmaintained, not vulnerable; pulled in by yrs 0.28.1 (pinned =0.28.1 in server/Cargo.toml) with no release that drops it. Revisit when yrs ships a release without smallstr, or on any new yrs version." },
+]
 
 [licenses]
 version = 2
@@ -52,6 +55,9 @@ wildcards = "deny"
 allow-wildcard-paths = true
 skip = [
   { crate = "syn@2", reason = "openssl-macros (native-tls for reqwest) still on syn 2; build-time only" },
+  { crate = "base64@0.22", reason = "axum's ws feature (tungstenite handshake) pins base64 0.22; hyper-util is on 0.23" },
+  { crate = "getrandom@0.3", reason = "tungstenite's rand 0.9 (ws mask keys) is on getrandom 0.3; the server uses 0.4" },
+  { crate = "hashbrown@0.14", reason = "yrs (co-editing) uses dashmap 6, which is on hashbrown 0.14" },
 ]
 
 [sources]

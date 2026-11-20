@@ -13,20 +13,6 @@ export const commands = {
 	dbState: () => typedError<DbState_Serialize, ShellError_Serialize>(__TAURI_INVOKE("db_state")),
 	/**  Resets the local database. */
 	dbReset: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("db_reset")),
-	/**
-	 *  Imports one batch of rows into `table`. `last` marks the table's final batch; only then is the
-	 *  table recorded as done, so a big table can arrive in several calls.
-	 */
-	oldDbImportTable: (table: string, rows: unknown[], last: boolean) => typedError<ImportReport, ShellError_Serialize>(__TAURI_INVOKE("old_db_import_table", { table, rows, last })),
-	/**  Writes the import marker once every table in `tables` is done. */
-	oldDbImportFinish: (tables: string[]) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("old_db_import_finish", { tables })),
-	/**  Whether an old database is waiting to be imported: one is found and no import has finished. */
-	oldDbStatus: () => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("old_db_status")),
-	/**
-	 *  Part `index` of the old PGlite dir as a tar, for PGlite's `loadDataDir`. Part 0 builds the tar
-	 *  in memory and keeps it; the last part frees it. Read-only: the old dir is never written.
-	 */
-	oldDbTarPart: (index: number) => typedError<TarPart, ShellError_Serialize>(__TAURI_INVOKE("old_db_tar_part", { index })),
 	/**  Calls a local-API channel on the Rust local API, as `ipcRenderer.invoke` did under Electron. */
 	localApiCall: (channel: string, args: unknown[]) => typedError<unknown, ShellError_Serialize>(__TAURI_INVOKE("local_api_call", { channel, args })),
 	/**  Reads one offline file as standard base64; `null` when it is missing. */
@@ -48,6 +34,116 @@ export const commands = {
 	secretWrite: (name: string, value: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_write", { name, value })),
 	/**  Forgets a secret the page may write. */
 	secretClear: (name: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_clear", { name })),
+	/**
+	 *  Writes claimed SDK inbox rows into the experiment folders and returns the
+	 *  ids that are safe to ack.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, or the workspace cannot be listed.
+	 */
+	sdkInboxDrain: (rows: unknown[]) => typedError<InboxDrainReply, ShellError_Serialize>(__TAURI_INVOKE("sdk_inbox_drain", { rows })),
+	/**
+	 *  Exports the 0.9.2 data into workspace files, verifies it, and writes the report. Shares are
+	 *  counted, not granted: the grant sink is not wired, so any grantable share keeps the
+	 *  migration incomplete.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, the database cannot be read, or the report cannot be written.
+	 */
+	migrate093Run: () => typedError<MigrateReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("migrate_093_run")),
+	/**
+	 *  Where the migration stands, and its report if one exists.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, or the report cannot be read.
+	 */
+	migrate093Status: () => typedError<MigrateReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("migrate_093_status")),
+	/**
+	 *  Writes a text file atomically if it still has digest `expected_hash` (`None` = always).
+	 * 
+	 *  # Errors
+	 *  No folder chosen, a refused path, contents over the size cap, or a filesystem failure.
+	 */
+	fileWrite: (path: string, contents: string, expectedHash: string | null) => typedError<FileWriteReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("file_write", { path, contents, expectedHash })),
+	/**
+	 *  Writes a binary file atomically if it still has digest `expected_hash` (`None` = always).
+	 * 
+	 *  # Errors
+	 *  No folder chosen, a refused path, bytes over the size cap, or a filesystem failure.
+	 */
+	fileWriteBytes: (path: string, bytes: number[], expectedHash: string | null) => typedError<FileWriteReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("file_write_bytes", { path, bytes, expectedHash })),
+	/**
+	 *  Moves a file to `.weaveforge/trash/<day>/`.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, a refused or missing path, or a filesystem failure.
+	 */
+	fileDelete: (path: string) => typedError<TrashReply, ShellError_Serialize>(__TAURI_INVOKE("file_delete", { path })),
+	/**
+	 *  Renames a file inside the workspace; an existing target is kept as a conflict copy.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, a refused path, or a filesystem failure.
+	 */
+	fileRename: (from: string, to: string) => typedError<boolean, ShellError_Serialize>(__TAURI_INVOKE("file_rename", { from, to })),
+	/**
+	 *  The stored base of `item_id`, if any.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, or the base store cannot be read.
+	 */
+	baseGet: (itemId: string) => typedError<BaseReply_Serialize | null, ShellError_Serialize>(__TAURI_INVOKE("base_get", { itemId })),
+	/**
+	 *  Stores `text` (and a Yjs snapshot) as the base of `item_id`.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, or the base store cannot be written.
+	 */
+	baseSet: (itemId: string, text: string, yjsState: number[] | null) => typedError<DigestReply, ShellError_Serialize>(__TAURI_INVOKE("base_set", { itemId, text, yjsState })),
+	/**
+	 *  The indexed file that declares `id`, if any.
+	 * 
+	 *  # Errors
+	 *  No folder chosen.
+	 */
+	indexGet: (id: string) => typedError<IndexItem_Serialize | null, ShellError_Serialize>(__TAURI_INVOKE("index_get", { id })),
+	/**
+	 *  The indexed files of one kind, optionally in one project.
+	 * 
+	 *  # Errors
+	 *  No folder chosen.
+	 */
+	indexList: (kind: string, projectId: string | null) => typedError<IndexItem_Serialize[], ShellError_Serialize>(__TAURI_INVOKE("index_list", { kind, projectId })),
+	/**
+	 *  The relations around `root_id`, both directions, at most `depth` hops
+	 *  (clamped to [`MAX_GRAPH_DEPTH`]), read from the paper files' `relations`.
+	 * 
+	 *  # Errors
+	 *  No folder chosen.
+	 */
+	indexRelationsGraph: (rootId: string, depth: number) => typedError<GraphReply_Serialize, ShellError_Serialize>(__TAURI_INVOKE("index_relations_graph", { rootId, depth })),
+	/**
+	 *  Rebuilds the index and re-reports every file under `scope` (`workspace` or `dir:<path>`)
+	 *  as `vault-changed` batches; used after a `vault-watch-overflow`.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, or a refused folder.
+	 */
+	watcherRescan: (scope: string) => typedError<RescanReply, ShellError_Serialize>(__TAURI_INVOKE("watcher_rescan", { scope })),
+	/**
+	 *  Pulls now and emits one `pull-batch` event listing the paths the pull wrote.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, a refused remote URL, or git failed (token removed from the reason).
+	 */
+	gitPullNow: () => typedError<PullNowReply, ShellError_Serialize>(__TAURI_INVOKE("git_pull_now")),
+	/**
+	 *  The commits that changed `path`, newest first.
+	 * 
+	 *  # Errors
+	 *  No folder chosen.
+	 */
+	gitFileHistory: (path: string) => typedError<FileHistory, ShellError_Serialize>(__TAURI_INVOKE("git_file_history", { path })),
 	/**
 	 *  The chosen workspace folder, or nothing when none is chosen.
 	 * 
@@ -561,6 +657,35 @@ export type AppUpdateStatus_Serialize = {
 	error: string | null,
 };
 
+/**  A stored base, as the page sees it. */
+export type BaseReply = BaseReply_Serialize | BaseReply_Deserialize;
+
+/**  A stored base, as the page sees it. */
+export type BaseReply_Deserialize = {
+	/**  Canonical text. */
+	text: string,
+	/**  Digest of the canonical text. */
+	digest: string,
+	/**  Encoded Yjs state, when stored. */
+	yjsState?: number[] | null,
+};
+
+/**  A stored base, as the page sees it. */
+export type BaseReply_Serialize = {
+	/**  Canonical text. */
+	text: string,
+	/**  Digest of the canonical text. */
+	digest: string,
+	/**  Encoded Yjs state, when stored. */
+	yjsState: number[] | null,
+};
+
+/**  The file on disk no longer matched the expected digest. */
+export type ChangedFile = {
+	/**  Digest of the file on disk now; empty when it is missing. */
+	diskHash: string,
+};
+
 /**  What a pick did. */
 export type Choice = Choice_Serialize | Choice_Deserialize;
 
@@ -630,6 +755,12 @@ export type DbState_Serialize = {
 	keptAside: string | null,
 };
 
+/**  The digest `base_set` stored. */
+export type DigestReply = {
+	/**  Digest of the canonical text. */
+	digest: string,
+};
+
 /**  What the page learns about a loaded model. */
 export type EmbedInfo = {
 	/**  The length of each vector. */
@@ -649,6 +780,39 @@ export type EntryKindPayload =
 "file" | 
 /**  A folder. */
 "dir";
+
+/**  One commit that touched a file. */
+export type FileCommit = {
+	/**  Full commit id. */
+	sha: string,
+	/**  Author time, ISO 8601. */
+	at: string,
+};
+
+/**  A file's history, newest first. */
+export type FileHistory = {
+	/**  The commits. */
+	commits: FileCommit[],
+};
+
+/**  What a checked write did: `hash` when written, `changed` when the file moved on. */
+export type FileWriteReply = FileWriteReply_Serialize | FileWriteReply_Deserialize;
+
+/**  What a checked write did: `hash` when written, `changed` when the file moved on. */
+export type FileWriteReply_Deserialize = {
+	/**  Digest of the file on disk after the write; `None` when nothing was written. */
+	hash?: string | null,
+	/**  Set when the file no longer matched `expected_hash`; nothing was written. */
+	changed?: ChangedFile | null,
+};
+
+/**  What a checked write did: `hash` when written, `changed` when the file moved on. */
+export type FileWriteReply_Serialize = {
+	/**  Digest of the file on disk after the write; `None` when nothing was written. */
+	hash: string | null,
+	/**  Set when the file no longer matched `expected_hash`; nothing was written. */
+	changed: ChangedFile | null,
+};
 
 /**  What the page shows while the reader approves. */
 export type GithubConnectStart = {
@@ -672,6 +836,62 @@ export type GithubConnected = {
 	created: boolean,
 };
 
+/**  One relation between two ids. */
+export type GraphEdgeItem = {
+	/**  The id the relation starts from. */
+	sourceId: string,
+	/**  The id the relation points to. */
+	targetId: string,
+	/**  The relation's type, such as `cites`. */
+	relationType: string,
+};
+
+/**  One node of a relation graph. */
+export type GraphNodeItem = GraphNodeItem_Serialize | GraphNodeItem_Deserialize;
+
+/**  One node of a relation graph. */
+export type GraphNodeItem_Deserialize = {
+	/**  The item id. */
+	id: string,
+	/**  The title, when a file declares the id. */
+	title?: string | null,
+	/**  The kind, when a file declares the id. */
+	kind?: string | null,
+	/**  True when no file declares the id (a dangling relation target). */
+	missing: boolean,
+};
+
+/**  One node of a relation graph. */
+export type GraphNodeItem_Serialize = {
+	/**  The item id. */
+	id: string,
+	/**  The title, when a file declares the id. */
+	title: string | null,
+	/**  The kind, when a file declares the id. */
+	kind: string | null,
+	/**  True when no file declares the id (a dangling relation target). */
+	missing: boolean,
+};
+
+/**  The nodes within some hops of a root (root first) and the relations between them. */
+export type GraphReply = GraphReply_Serialize | GraphReply_Deserialize;
+
+/**  The nodes within some hops of a root (root first) and the relations between them. */
+export type GraphReply_Deserialize = {
+	/**  Nodes in the order they were reached. */
+	nodes: GraphNodeItem_Deserialize[],
+	/**  Each relation once. */
+	edges: GraphEdgeItem[],
+};
+
+/**  The nodes within some hops of a root (root first) and the relations between them. */
+export type GraphReply_Serialize = {
+	/**  Nodes in the order they were reached. */
+	nodes: GraphNodeItem_Serialize[],
+	/**  Each relation once. */
+	edges: GraphEdgeItem[],
+};
+
 /**  An image's bytes, its media type and the final URL it was read from. */
 export type ImageReply = {
 	/**  The body as standard base64 with padding. */
@@ -682,16 +902,75 @@ export type ImageReply = {
 	url: string,
 };
 
-/**  What one table's import call did, as the frontend sees it. */
-export type ImportReport = {
-	/**  The table name. */
-	table: string,
-	/**  Rows written by this call. One batch, so it fits a JS number. */
-	inserted: number,
-	/**  Rows already present and left alone. */
-	skipped: number,
-	/**  Whether an earlier run already finished this table. */
-	alreadyDone: boolean,
+/**  What one drain stored. */
+export type InboxDrainReply = {
+	/**  Rows handed in. */
+	batches: number,
+	/**  Inbox row ids (numbers) whose data is on disk; post these to the ack route. */
+	acked: unknown,
+	/**  Files that were already on disk (a row fetched again after a lost ack). */
+	duplicates: number,
+	/**  Rows left in the inbox, each with the reason. */
+	skipped: string[],
+};
+
+/**  One indexed file, as the page sees it. */
+export type IndexItem = IndexItem_Serialize | IndexItem_Deserialize;
+
+/**  One indexed file, as the page sees it. */
+export type IndexItem_Deserialize = {
+	/**  The entity id the file declares. */
+	id: string,
+	/**  Workspace path. */
+	path: string,
+	/**  Entity kind. */
+	kind: string,
+	/**  Project folder, if any. */
+	projectId?: string | null,
+	/**  Title. */
+	title: string,
+	/**  Tags. */
+	tags: string[],
+	/**  Ids the body links to. */
+	links: string[],
+	/**  Declared `wf` format version, if any. */
+	wf?: number | null,
+	/**  True when the file must not be written. */
+	readOnly: boolean,
+	/**  True when another file shares this id. */
+	duplicate: boolean,
+	/**  The id this file is a conflict copy of, if any. */
+	conflictOf?: string | null,
+	/**  Digest of the canonical text. */
+	digest: string,
+};
+
+/**  One indexed file, as the page sees it. */
+export type IndexItem_Serialize = {
+	/**  The entity id the file declares. */
+	id: string,
+	/**  Workspace path. */
+	path: string,
+	/**  Entity kind. */
+	kind: string,
+	/**  Project folder, if any. */
+	projectId: string | null,
+	/**  Title. */
+	title: string,
+	/**  Tags. */
+	tags: string[],
+	/**  Ids the body links to. */
+	links: string[],
+	/**  Declared `wf` format version, if any. */
+	wf: number | null,
+	/**  True when the file must not be written. */
+	readOnly: boolean,
+	/**  True when another file shares this id. */
+	duplicate: boolean,
+	/**  The id this file is a conflict copy of, if any. */
+	conflictOf: string | null,
+	/**  Digest of the canonical text. */
+	digest: string,
 };
 
 /**  Pen state forwarded to the helper for haptic feedback. */
@@ -898,6 +1177,34 @@ export type MenuItem_Serialize = {
 	command?: string,
 };
 
+/**  Reply of `migrate_093_status` and `migrate_093_run`. */
+export type MigrateReply = MigrateReply_Serialize | MigrateReply_Deserialize;
+
+/**  Reply of `migrate_093_status` and `migrate_093_run`. */
+export type MigrateReply_Deserialize = {
+	/**  Where the migration stands. */
+	state: MigrateState,
+	/**  The report's workspace path, once one is written. */
+	report_path?: string | null,
+};
+
+/**  Reply of `migrate_093_status` and `migrate_093_run`. */
+export type MigrateReply_Serialize = {
+	/**  Where the migration stands. */
+	state: MigrateState,
+	/**  The report's workspace path, once one is written. */
+	report_path: string | null,
+};
+
+/**  Where the migration stands. */
+export type MigrateState = 
+/**  No report yet. */
+"not_started" | 
+/**  A report exists, but something is pending or failed, so the 0.9.2 database must be kept. */
+"incomplete" | 
+/**  Every row is in files, every grant is in, and the report says so. The database may go. */
+"verified";
+
 /**  One download's progress, as the page reads it. Sizes are bytes. */
 export type ModelDownload = ModelDownload_Serialize | ModelDownload_Deserialize;
 
@@ -1005,6 +1312,20 @@ export type PlanWidgetStatePayload = {
 	supported: boolean,
 	/**  Whether the widget is on. */
 	enabled: boolean,
+};
+
+/**  What `git_pull_now` did. */
+export type PullNowReply = {
+	/**  True when remote changes came in. */
+	pulled: boolean,
+	/**  The paths the pull wrote, sorted. */
+	paths: string[],
+};
+
+/**  How many `vault-changed` batches a rescan sent. */
+export type RescanReply = {
+	/**  Batch count. */
+	batches: number,
 };
 
 /**  Whether a chosen root is brand new or already holds a workspace. */
@@ -1115,20 +1436,18 @@ export type SyncStatus_Serialize = {
 	behind: number,
 };
 
-/**  One part of the old database tar. */
-export type TarPart = {
-	/**  This part's bytes, base64. */
-	data: string,
-	/**  How many parts the tar has. */
-	parts: number,
-};
-
 /**  A page title and the final URL it was read from. */
 export type TitleReply = {
 	/**  The page's `<title>`. */
 	title: string,
 	/**  The final URL after redirects. */
 	url: string,
+};
+
+/**  Where a deleted file went. */
+export type TrashReply = {
+	/**  Workspace path of the file under `.weaveforge/trash/`. */
+	trashedTo: string,
 };
 
 /**  A newer release (TS `Update`). */

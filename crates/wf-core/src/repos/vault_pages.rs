@@ -391,19 +391,71 @@ fn assert_not_under(
 }
 
 /// `add(input)`: validates the page, refuses a title another page holds, then saves it.
+///
+/// A workspace file that already declares an id (and created-at) keeps them: an imported file
+/// must never be re-IDed. That id is refused when it is not a UUID or when any row already holds
+/// it (unscoped, since the save upserts on the id and would overwrite that row).
 fn add(call: &RepoCall) -> RepoStep {
     let input: NewVaultPageInput = match call.parse(0) {
         Ok(input) => input,
         Err(e) => return RepoStep::fail(e),
     };
-    let page = match create_vault_page(&input, &call.id(0), call.now()) {
+    let file_id = input.id.as_deref().filter(|id| !id.is_empty());
+    let id = file_id.map_or_else(|| call.id(0), str::to_owned);
+    let mut page = match create_vault_page(&input, &id, call.now()) {
         Ok(page) => page,
         Err(e) => return RepoStep::fail_named("VaultPageValidationError", e),
     };
-    match assert_title_unique(call, 0, &page.summary.title, None) {
+    if let Some(created) = input
+        .created_at
+        .as_deref()
+        .filter(|c| looks_like_timestamp(c))
+    {
+        created.clone_into(&mut page.summary.created_at);
+    }
+    let skip = match file_id.map(|id| assert_id_free(call, id)) {
+        Some(Err(step)) => return step,
+        Some(Ok(skip)) => skip,
+        None => 0,
+    };
+    match assert_title_unique(call, skip, &page.summary.title, None) {
         Ok(skip) => save_then_done(call, skip, &page),
         Err(step) => step,
     }
+}
+
+/// Refuses a file-given id that is not a UUID or that any row already holds. `Ok` holds the next
+/// reply offset; `Err` is the refusal or the query to send.
+fn assert_id_free(call: &RepoCall, id: &str) -> Result<usize, RepoStep> {
+    if !crate::mcp::is_uuid(id) {
+        return Err(RepoStep::fail_named(
+            "VaultPageValidationError",
+            format!("The file's weaveforge-id \"{id}\" is not a valid id."),
+        ));
+    }
+    match call.replies.first() {
+        None => Err(RepoStep::send(
+            RepoQuery::select(TABLE, "id").eq("id", id).maybe_single(),
+        )),
+        Some(Value::Null) => Ok(1),
+        Some(_) => Err(RepoStep::fail_named(
+            "VaultPageIdTakenError",
+            format!("Another note already has the id \"{id}\"; the file was not imported."),
+        )),
+    }
+}
+
+/// Whether `value` starts with a `YYYY-MM-DD` date, as an ISO timestamp does.
+fn looks_like_timestamp(value: &str) -> bool {
+    let b = value.as_bytes();
+    b.len() >= 10
+        && b.iter().take(10).enumerate().all(|(i, c)| {
+            if i == 4 || i == 7 {
+                *c == b'-'
+            } else {
+                c.is_ascii_digit()
+            }
+        })
 }
 
 /// The fields `update` changes. An absent field is left alone; `parentId: null` moves the page
@@ -835,6 +887,83 @@ mod tests {
         let args = vec![json!({"title": "Sampling", "parentId": "f1"})];
         let q = only(step("add", &call(args, vec![json!([])], None)).unwrap());
         assert_eq!(q.body.unwrap()["folder"], false);
+    }
+
+    const FILE_ID: &str = "4e64e8a9-cb73-418a-9909-00c3507060c3";
+    const FILE_CREATED: &str = "2026-11-18T14:45:32.123Z";
+
+    #[test]
+    fn add_keeps_the_id_and_created_at_a_file_gives() {
+        let args = vec![json!({"title": "Ink", "id": FILE_ID, "createdAt": FILE_CREATED})];
+        // First: is the id free anywhere? Not scoped to the project, since the save upserts on id.
+        let q = only(step("add", &call(args.clone(), vec![], Some("proj"))).unwrap());
+        assert_eq!(q.table, "vault_pages");
+        assert_eq!(q.filters.len(), 1);
+        assert_eq!(q.filters[0].column, "id");
+        assert_eq!(q.filters[0].value, json!(FILE_ID));
+        assert_eq!(q.single, RepoSingle::Maybe);
+        // Then the title check, then the save with the file's id and created-at.
+        let q = only(step("add", &call(args.clone(), vec![Value::Null], Some("proj"))).unwrap());
+        assert_eq!(q.filters[1].op, "ilike");
+        let q = only(
+            step(
+                "add",
+                &call(args.clone(), vec![Value::Null, json!([])], Some("proj")),
+            )
+            .unwrap(),
+        );
+        assert_eq!(q.action, RepoAction::Upsert);
+        let body = q.body.unwrap();
+        assert_eq!(body["id"], FILE_ID);
+        assert_eq!(body["created_at"], FILE_CREATED);
+        let value = done(
+            step(
+                "add",
+                &call(
+                    args,
+                    vec![Value::Null, json!([]), Value::Null],
+                    Some("proj"),
+                ),
+            )
+            .unwrap(),
+        );
+        assert_eq!(value["id"], FILE_ID);
+        assert_eq!(value["createdAt"], FILE_CREATED);
+    }
+
+    #[test]
+    fn add_refuses_an_id_another_row_holds() {
+        let args = vec![json!({"title": "Ink", "id": FILE_ID})];
+        let (msg, name) = fail(
+            step(
+                "add",
+                &call(args, vec![json!({"id": FILE_ID})], Some("proj")),
+            )
+            .unwrap(),
+        );
+        assert!(msg.contains(FILE_ID), "{msg}");
+        assert_eq!(name.as_deref(), Some("VaultPageIdTakenError"));
+    }
+
+    #[test]
+    fn add_refuses_an_id_that_is_not_a_uuid_and_sends_nothing() {
+        let args = vec![json!({"title": "Ink", "id": "not-an-id"})];
+        let (msg, name) = fail(step("add", &call(args, vec![], None)).unwrap());
+        assert!(msg.contains("not-an-id"), "{msg}");
+        assert_eq!(name.as_deref(), Some("VaultPageValidationError"));
+    }
+
+    #[test]
+    fn add_ignores_a_created_at_that_is_not_a_timestamp() {
+        let args = vec![json!({"title": "Ink", "id": FILE_ID, "createdAt": "yesterday"})];
+        let value = done(
+            step(
+                "add",
+                &call(args, vec![Value::Null, json!([]), Value::Null], None),
+            )
+            .unwrap(),
+        );
+        assert_eq!(value["createdAt"], NOW);
     }
 
     #[test]

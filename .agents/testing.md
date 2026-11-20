@@ -4,6 +4,26 @@ Every change is proven before it is reported: a test that fails without it, or
 numbers and a screenshot from the running app. A claim without evidence is a
 guess.
 
+## 0. Tiers: run the cheap gates first
+
+Only the tiers that compile Rust or run a full suite wait for the build lock
+(`%TEMP%\wf-build-lock\owner.txt`). Run them in this order and fix every
+failure from one tier in one batch before you move on.
+
+| Tier | What | Lock | Command |
+| --- | --- | --- | --- |
+| 0 | eslint, tsgo typecheck, every `check:boundaries` gate (one by one), `check:docs`, `cargo fmt --check` | no | `npm run preflight` (~70 s, 3 at a time; `WF_PREFLIGHT_JOBS=1` uses less RAM) |
+| 1 | unit tests scoped to the feature | no | `node ./scripts/run-tests.mjs src/features/<name>` in `apps/web`; `cargo test -p <crate> -j1` |
+| 2 | clippy, cargo build, the full suite, `git push` (pre-push hook) | yes | `npm run check:pre-push`, `npm run check:rust -- --local` |
+| 3 | WeaveForge Dev build + Dev matrix (§3–4) | yes | once per release |
+
+- The typecheck is tsgo (`@typescript/native-preview`): it is about 5× faster
+  than tsc and reports the same errors. Do not add tsc back.
+- `run-tests.mjs` caps test files at 4 at once (`WF_TEST_CONCURRENCY`
+  overrides) so the full suite stays under ~3 GB. A directory argument runs
+  only the tests under it. Never leave a test run behind; kill it if you stop.
+- The pre-push hook still runs everything. Push only after tier 0 is green.
+
 ## 1. Unit tests and typecheck
 
 The Rust bindings, the WASM package (`packages/wf-wasm/pkg`) and the docs map

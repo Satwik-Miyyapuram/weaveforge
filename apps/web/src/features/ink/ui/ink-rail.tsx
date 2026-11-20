@@ -27,6 +27,7 @@
 import { useLayoutEffect, useMemo, useRef, type CSSProperties } from "react";
 import type { InkStroke } from "@weaveforge/core";
 import type { InkPalette } from "../render/parts-1";
+import type { WikilinkResolver } from "@/components/markdown/markdown";
 import { InkPageStatic } from "./ink-page-static";
 import { pureInkPageText } from "./ink-sheet-underlay";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
@@ -69,6 +70,8 @@ export interface InkRailProps {
    * beside it.
    */
   resolveImageSrc?: (src: string) => string | null;
+  /** `[[title]]` → a link, so the pages beside the live one show links too. */
+  resolveWikilink?: WikilinkResolver;
   /** Theme palette. */
   palette?: InkPalette;
   /** Everything else the live page needs, as the page component takes it. */
@@ -90,6 +93,7 @@ export function InkRail(props: InkRailProps) {
     flowedText,
     figureUrls,
     resolveImageSrc,
+    resolveWikilink,
     palette,
     children,
     pageGap = 0,
@@ -177,6 +181,7 @@ export function InkRail(props: InkRailProps) {
             figureUrls={figureUrls}
             pureText={pureTextList[index]}
             resolveImageSrc={resolveImageSrc}
+            resolveWikilink={resolveWikilink}
             strokes={strokesMap?.get(index)}
             palette={palette}
           />

@@ -19,15 +19,21 @@ test("every tool has a default colour and five quick colours", () => {
   for (const id of TOOL_COLOUR_IDS) {
     assert.equal(DEFAULT_TOOL_COLOURS[id].quick.length, 5, id);
   }
-  assert.deepEqual(DEFAULT_TOOL_COLOURS.pen, { colour: "text", quick: ["text", "accent", "red", "blue", "green"] });
+  assert.deepEqual(DEFAULT_TOOL_COLOURS.pen, {
+    colour: "text",
+    quick: ["text", "accent", "red", "blue", "green"],
+    widths: [null, null, null, null, null],
+  });
   assert.deepEqual(DEFAULT_TOOL_COLOURS.highlighter, {
     colour: "yellow",
     quick: ["yellow", "green", "pink", "blue", "orange"],
+    widths: [null, null, null, null, null],
   });
   assert.deepEqual(DEFAULT_TOOL_COLOURS.highlight, DEFAULT_TOOL_COLOURS.highlighter);
   assert.deepEqual(DEFAULT_TOOL_COLOURS.underline, {
     colour: "red",
     quick: ["red", "blue", "green", "purple", "text"],
+    widths: [null, null, null, null, null],
   });
   assert.deepEqual(DEFAULT_TOOL_COLOURS.text, DEFAULT_TOOL_COLOURS.pen);
 });
@@ -41,7 +47,11 @@ test("with no new key, the pen's colour and quick list migrate from the old keys
     colour: "blue",
     quick: ["pink", "yellow", "text", "danger", "purple"],
   });
-  assert.deepEqual(migrated.pen, { colour: "blue", quick: ["pink", "yellow", "text", "danger", "purple"] });
+  assert.deepEqual(migrated.pen, {
+    colour: "blue",
+    quick: ["pink", "yellow", "text", "danger", "purple"],
+    widths: [null, null, null, null, null],
+  });
   // Only the pen migrates; the other tools keep their defaults.
   assert.deepEqual(migrated.highlighter, DEFAULT_TOOL_COLOURS.highlighter);
   assert.deepEqual(migrated.underline, DEFAULT_TOOL_COLOURS.underline);

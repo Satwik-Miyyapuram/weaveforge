@@ -78,8 +78,32 @@ export function postgresFiles(dist, platform) {
   return keep.sort();
 }
 
+/** The Postgres major the installer ships (release-desktop.yml stages `postgresql-18.x`). */
+export const SHIPPED_MAJOR = 18;
+
+/**
+ * Throws unless the Postgres in `dir` (an extracted dist, or a stage's `postgres/`) is the shipped
+ * major, read from its `build-manifest.json`. Refusing here stops a stale Postgres 16 from ever
+ * reaching an installer, where the 18 cluster on user machines cannot start with it.
+ * @param {string} dir directory holding `build-manifest.json`
+ * @param {number} [major] the major required
+ * @returns {string} the full version, e.g. "18.6"
+ */
+export function assertPostgresMajor(dir, major = SHIPPED_MAJOR) {
+  const file = path.join(dir, "build-manifest.json");
+  if (!fs.existsSync(file)) throw new Error(`no build-manifest.json in ${dir}: cannot tell the Postgres major`);
+  const version = JSON.parse(fs.readFileSync(file, "utf8"))?.source?.version;
+  if (typeof version !== "string") throw new Error(`build-manifest.json in ${dir} has no source.version`);
+  const got = Number(version.split(".")[0]);
+  if (got !== major) {
+    throw new Error(`Postgres ${version} in ${dir} is major ${got}; the installer ships major ${major}. Restage ${major}.x.`);
+  }
+  return version;
+}
+
 /** Copies the kept files to `<out>/postgres/`, replacing what a previous run staged there. */
 export function stagePostgres(dist, out, platform = process.platform) {
+  assertPostgresMajor(dist);
   const files = postgresFiles(dist, platform);
   const target = path.join(out, "postgres");
   fs.rmSync(target, { recursive: true, force: true });
@@ -93,6 +117,12 @@ export function stagePostgres(dist, out, platform = process.platform) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
+  if (args[0] === "--check") {
+    // Bundle-time gate: `--check <out-dir>/postgres` fails unless the staged Postgres is the shipped major.
+    const version = assertPostgresMajor(path.resolve(args[1] ?? "apps/shell/target/stage/postgres"));
+    console.log(`staged Postgres ${version} is major ${SHIPPED_MAJOR}`);
+    process.exit(0);
+  }
   const flag = args.indexOf("--platform");
   const platform = flag >= 0 ? args.splice(flag, 2)[1] : process.platform;
   const [dist, out] = args;

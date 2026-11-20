@@ -17,6 +17,7 @@ import {
 import {
   BlobInkChunkStore,
   CopyOnReadInkChunkStore,
+  FolderInkNotes,
   FsInkChunkStore,
   UnavailableInkChunkStore,
 } from "../infrastructure/parts";
@@ -27,6 +28,20 @@ import { loadTestCore } from "@/lib/test/load-test-core";
 before(loadTestCore);
 
 const NOTE ="01HZZZZZZZZZZZZZZZZZZZZZZZ";
+/** The note's file: its strokes sit beside it in `p/notes/sketch.ink/`. */
+const NOTE_PATH = "p/notes/sketch.ink.md";
+
+/** A folder holding the note's markdown, as the mirror writes it. */
+async function inkNoteFolder(): Promise<MemoryWorkspaceFs> {
+  const fs = new MemoryWorkspaceFs();
+  await fs.mkdirp("p/notes");
+  await fs.writeFile(NOTE_PATH, `---\nweaveforge-id: ${NOTE}\nweaveforge-type: ink_page\n---\n`);
+  return fs;
+}
+
+function folderStore(fs: MemoryWorkspaceFs): FsInkChunkStore {
+  return new FsInkChunkStore(() => fs, new FolderInkNotes(() => fs));
+}
 
 test("chunkIdOfFileName accepts only <ulid>.inkb", () => {
   const id = typedCore().newInkChunkId();
@@ -49,19 +64,19 @@ test("the memory store round-trips, lists, and removes", async () => {
   assert.deepEqual(await store.list(NOTE), [b]);
 });
 
-test("the folder store writes under .ink/<note>/ and lists only chunks", async () => {
-  const fs = new MemoryWorkspaceFs();
-  const store = new FsInkChunkStore(() => fs);
+test("the folder store writes beside the note file, in <name>.ink/, and lists only chunks", async () => {
+  const fs = await inkNoteFolder();
+  const store = folderStore(fs);
   const id = typedCore().newInkChunkId();
   await store.write(NOTE, id, new Uint8Array([7, 7]));
-  assert.notEqual(await fs.stat(typedCore().inkChunkPath(NOTE, id)), null);
-  await fs.writeFile(`.ink/${NOTE}/thumb.png`, new Uint8Array([0]));
+  assert.notEqual(await fs.stat(typedCore().inkChunkPath(NOTE_PATH, id)), null);
+  await fs.writeFile("p/notes/sketch.ink/thumb.png", new Uint8Array([0]));
   assert.deepEqual(await store.list(NOTE), [id]);
   assert.deepEqual([...(await store.read(NOTE, id))!], [7, 7]);
   assert.equal(await store.read(NOTE, typedCore().newInkChunkId()), null);
   await store.remove(NOTE, id);
   assert.equal(await store.read(NOTE, id), null);
-  assert.equal(await new FsInkChunkStore(() => null).read(NOTE, id), null);
+  assert.equal(await new FsInkChunkStore(() => null, new FolderInkNotes(() => null)).read(NOTE, id), null);
 });
 
 test("the routed store delegates each call to whichever store is picked now", async () => {
@@ -106,8 +121,8 @@ test("loadInkPages keeps declared order, appends orphans, and makes one page fro
 });
 
 test("strokes from two sides are kept together, and settling one never clears the other", async () => {
-  const fs = new MemoryWorkspaceFs();
-  const store = new FsInkChunkStore(() => fs);
+  const fs = await inkNoteFolder();
+  const store = folderStore(fs);
   // Two sides' pages for one note. Ids are minted per page, so the two sets
   // cannot collide and neither write replaces the other.
   const ours = typedCore().newInkChunkId();
@@ -295,8 +310,8 @@ function metaWith(pageOrder: string[]) {
 }
 
 test("migration: a copied note is marked, and an erased page stays erased without asking the bucket", async () => {
-  const fs = new MemoryWorkspaceFs();
-  const folder = new FsInkChunkStore(() => fs);
+  const fs = await inkNoteFolder();
+  const folder = folderStore(fs);
   const bucket = new CountedBucket();
   const id = typedCore().newInkChunkId();
   await bucket.write(NOTE, id, new Uint8Array([8, 9]));
@@ -304,7 +319,7 @@ test("migration: a copied note is marked, and an erased page stays erased withou
 
   const [page] = await loadInkPages(store, NOTE, metaWith([id]));
   assert.deepEqual([...page!.chunk!], [8, 9]);
-  assert.deepEqual([...(await fs.readFile(typedCore().inkChunkPath(NOTE, id)))], [8, 9]);
+  assert.deepEqual([...(await fs.readFile(typedCore().inkChunkPath(NOTE_PATH, id)))], [8, 9]);
   assert.equal(await folder.isMigrated(NOTE), true, "every declared page copied and read back: marked");
   assert.deepEqual(await folder.list(NOTE), [id], "the marker is not a page");
 
@@ -315,25 +330,25 @@ test("migration: a copied note is marked, and an erased page stays erased withou
   assert.equal(again!.chunk, null, "the erased page loads empty");
   assert.ok(!again!.unreadable);
   assert.equal(bucket.reads, 0, "a marked note never consults the bucket");
-  assert.equal(await fs.stat(typedCore().inkChunkPath(NOTE, id)), null, "nothing was copied back");
+  assert.equal(await fs.stat(typedCore().inkChunkPath(NOTE_PATH, id)), null, "nothing was copied back");
 
   // A fresh store (an app restart) reads the marker from the folder, not memory.
-  const restarted = new CopyOnReadInkChunkStore(new FsInkChunkStore(() => fs), bucket);
+  const restarted = new CopyOnReadInkChunkStore(folderStore(fs), bucket);
   const [cold] = await loadInkPages(restarted, NOTE, metaWith([id]));
   assert.equal(cold!.chunk, null);
   assert.equal(bucket.reads, 0);
 });
 
 test("migration: a chunk a git pull deleted stays deleted once the note is marked", async () => {
-  const fs = new MemoryWorkspaceFs();
-  const folder = new FsInkChunkStore(() => fs);
+  const fs = await inkNoteFolder();
+  const folder = folderStore(fs);
   const bucket = new CountedBucket();
   const id = typedCore().newInkChunkId();
   await bucket.write(NOTE, id, new Uint8Array([1]));
   const store = new CopyOnReadInkChunkStore(folder, bucket);
   await loadInkPages(store, NOTE, metaWith([id]));
   // Another device erased the page; the pull removes the file under us.
-  await fs.remove(typedCore().inkChunkPath(NOTE, id));
+  await fs.remove(typedCore().inkChunkPath(NOTE_PATH, id));
   bucket.reads = 0;
   const [page] = await loadInkPages(store, NOTE, metaWith([id]));
   assert.equal(page!.chunk, null);
@@ -341,8 +356,8 @@ test("migration: a chunk a git pull deleted stays deleted once the note is marke
 });
 
 test("migration: a legacy page whose bucket read fails leaves the note unmarked and that page unreadable", async () => {
-  const fs = new MemoryWorkspaceFs();
-  const folder = new FsInkChunkStore(() => fs);
+  const fs = await inkNoteFolder();
+  const folder = folderStore(fs);
   const legacy = typedCore().newInkChunkId();
   const { store: bucket } = signedOutBucket();
   const store = new CopyOnReadInkChunkStore(folder, bucket);
@@ -351,25 +366,30 @@ test("migration: a legacy page whose bucket read fails leaves the note unmarked 
   assert.equal(await folder.isMigrated(NOTE), false);
 });
 
-test("offline / signed out: a new note's first page saves and reloads, and the note is marked", async () => {
-  const fs = new MemoryWorkspaceFs();
-  const folder = new FsInkChunkStore(() => fs);
+test("offline / signed out: a new note's first page saves and reloads, and no empty strokes folder is made before it", async () => {
+  const fs = await inkNoteFolder();
+  const folder = folderStore(fs);
   const bucket = signedOutBucket();
   const store = new CopyOnReadInkChunkStore(folder, bucket.store);
   // A note made in 0.9.2: its header declares no pages.
   const [first] = await loadInkPages(store, NOTE, metaWith([]));
   assert.ok(!first!.unreadable, "a page minted here was never in the bucket");
   assert.equal(bucket.reads(), 0);
-  assert.equal(await folder.isMigrated(NOTE), true, "nothing declared, nothing to copy: marked");
+  assert.equal(await fs.stat("p/notes/sketch.ink"), null, "nothing declared, nothing to copy: no folder, no marker");
   await store.write(NOTE, first!.chunkId, new Uint8Array([4, 2]));
+  assert.notEqual(await fs.stat(`p/notes/sketch.ink/${first!.chunkId}.inkb`), null, "the first stroke makes the folder");
   const [reloaded] = await loadInkPages(store, NOTE, metaWith([first!.chunkId]));
   assert.deepEqual([...reloaded!.chunk!], [4, 2]);
+  // After a restart (a new store), the page is still read from the folder, never the bucket.
+  const restarted = new CopyOnReadInkChunkStore(folderStore(fs), bucket.store);
+  const [again] = await loadInkPages(restarted, NOTE, metaWith([first!.chunkId]));
+  assert.deepEqual([...again!.chunk!], [4, 2]);
   assert.equal(bucket.reads(), 0);
 });
 
 test("offline / signed out: a page added to a legacy note saves, even while the legacy page cannot be read", async () => {
-  const fs = new MemoryWorkspaceFs();
-  const folder = new FsInkChunkStore(() => fs);
+  const fs = await inkNoteFolder();
+  const folder = folderStore(fs);
   const bucket = signedOutBucket();
   const store = new CopyOnReadInkChunkStore(folder, bucket.store);
   const legacy = typedCore().newInkChunkId();
@@ -393,9 +413,9 @@ test("offline / signed out: a page added to a legacy note saves, even while the 
 });
 
 test("migration: a chunk that lands between the folder check and the copy is not overwritten", async () => {
-  const fs = new MemoryWorkspaceFs();
+  const fs = await inkNoteFolder();
   const id = typedCore().newInkChunkId();
-  const path = typedCore().inkChunkPath(NOTE, id);
+  const path = typedCore().inkChunkPath(NOTE_PATH, id);
   /** A folder whose first miss is followed at once by a git pull that brings the chunk. */
   class PulledUnderUs extends FsInkChunkStore {
     writes = 0;
@@ -404,7 +424,7 @@ test("migration: a chunk that lands between the folder check and the copy is not
       const bytes = await super.read(noteId, chunkId);
       if (!bytes && !this.pulled) {
         this.pulled = true;
-        await fs.mkdirp(typedCore().inkSidecarDir(NOTE));
+        await fs.mkdirp(typedCore().inkStrokesDir(NOTE_PATH));
         await fs.writeFile(path, new Uint8Array([7, 7, 7]));
       }
       return bytes;
@@ -414,7 +434,7 @@ test("migration: a chunk that lands between the folder check and the copy is not
       return super.write(noteId, chunkId, bytes);
     }
   }
-  const folder = new PulledUnderUs(() => fs);
+  const folder = new PulledUnderUs(() => fs, new FolderInkNotes(() => fs));
   const bucket = new MemoryInkChunkStore();
   await bucket.write(NOTE, id, new Uint8Array([1]));
   const store = new CopyOnReadInkChunkStore(folder, bucket);

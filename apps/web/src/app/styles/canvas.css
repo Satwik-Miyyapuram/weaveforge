@@ -128,7 +128,7 @@
   stroke-linejoin: round;
 }
 /* A highlighter shows the text under it. */
-.canvas-ink__stroke--highlighter { stroke-opacity: 0.35; mix-blend-mode: multiply; }
+.canvas-ink__stroke--highlighter { stroke-opacity: 0.35; fill-opacity: 0.35; mix-blend-mode: multiply; }
 .canvas-ink__stroke--selected { opacity: 0.6; }
 .canvas-ink__stroke--draft { opacity: 0.85; }
 

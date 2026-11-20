@@ -18,6 +18,7 @@ no network or database code. The app passes data in and gets data out.
 - `model_concepts.rs`: parses model-concept extraction output.
 - `model_router.rs`: chooses which model handles a request.
 - `proposal_apply.rs`: applies a proposal to its target.
+- `proposal_file.rs`: how proposals and audit log lines are written as files (files-first). A proposal is one JSON object; an audit chunk is one JSON object per line. Both sit under `.weaveforge/ai/`, which syncs, so the MCP server and every device read the same proposals. Secrets are refused (see [settings](settings.md#laws)). It picks no file names.
 - `proposal_preview.rs`: builds the preview a user sees before applying.
 - `retrieval.rs`: selects and ranks excerpts for a question.
 - `untrusted_context.rs`: neutralises and fences untrusted text before it reaches a model.

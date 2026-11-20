@@ -60,6 +60,17 @@ pub fn paper_html_path_js(paper_id: &str, project_root: Option<String>) -> Strin
     folder_layout::paper_html_path(paper_id, project_root.as_deref().unwrap_or(""))
 }
 
+/// The `n`th trash name for `rel` removed at `now_ms`:
+/// [`numbered_path`](folder_layout::numbered_path) of [`trash_path`](folder_layout::trash_path)
+/// on the UTC [`day_stamp`](folder_layout::day_stamp), e.g. `.weaveforge/trash/2026-11-19/a/b-2.md`.
+/// The names the desktop `file_delete` uses.
+#[wasm_bindgen(js_name = trashPathFor)]
+pub fn trash_path_for_js(rel: &str, now_ms: f64, n: u32) -> String {
+    #[allow(clippy::cast_possible_truncation)]
+    let day = folder_layout::day_stamp(now_ms as i64);
+    folder_layout::numbered_path(&folder_layout::trash_path(rel, &day), n)
+}
+
 /// [`folder_key`](folder_layout::folder_key) (TS `folderSegments` joined with `/`): the folder
 /// of one picked file's relative path.
 #[wasm_bindgen(js_name = folderKey)]

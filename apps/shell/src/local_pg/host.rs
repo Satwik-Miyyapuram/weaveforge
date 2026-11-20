@@ -25,6 +25,9 @@ const OPEN_FAILED: &str = "The local database could not be opened.";
 const HEALTHY: &str = "The local database opened normally; there is nothing to reset.";
 const BAD_QUERY: &str = "A query is a string of SQL and a list of plain values.";
 const CLOSED: &str = "local database: closed";
+/// Written in the data root by Start fresh until its new cluster exists, so a reopen does not
+/// rebuild the old data from a backup.
+const START_FRESH: &str = "start-fresh";
 
 /// Opens, closes and moves aside one database. [`PgEngine`] is the real one; tests use a fake.
 pub trait Engine: Send + Sync {
@@ -74,6 +77,15 @@ pub trait Engine: Send + Sync {
     /// none loaded, or the data dir was there without a cluster. The page must say so.
     fn recreated_empty(&self) -> bool {
         false
+    }
+
+    /// Records that the database was recreated empty by Start fresh, so the choice survives a
+    /// reopen (and a restart) and no backup is loaded over it.
+    ///
+    /// # Errors
+    /// The record could not be written; the choice is then not kept.
+    fn mark_recreated(&self) -> Result<(), PgError> {
+        Ok(())
     }
 
     /// Where the old data was kept when the database was recreated empty, so the page can name it.
@@ -128,7 +140,13 @@ impl PgEngine {
     {
         super::restore::clear_leftovers(&self.root);
         if self.root.join("data").join("PG_VERSION").is_file() {
+            // A cluster exists, so any Start fresh choice has been carried out.
+            let _ = std::fs::remove_file(self.root.join(START_FRESH));
             return Ok(false);
+        }
+        // Start fresh was chosen and its cluster is not up yet: no backup is loaded over it.
+        if self.root.join(START_FRESH).is_file() {
+            return Ok(true);
         }
         // A data dir with no cluster (a failed first start, say) is kept aside, never deleted.
         let had_data = self.root.join("data").exists();
@@ -139,8 +157,14 @@ impl PgEngine {
             }
             return Ok(had_data);
         }
-        self.discard()?;
-        let from = super::restore::restore_newest_good(&self.root, &dumps, load).await?;
+        let aside = self.move_aside()?;
+        let from = match super::restore::restore_newest_good(&self.root, &dumps, load).await {
+            Ok(from) => from,
+            Err(e) => {
+                self.put_back(aside.as_deref());
+                return Err(e);
+            }
+        };
         match from {
             Some(from) => {
                 // Only a dump that loaded with user rows is pinned as the good copy; an empty one
@@ -158,7 +182,10 @@ impl PgEngine {
                     Some(from.dump.to_string_lossy().into_owned());
                 Ok(false)
             }
-            None => Ok(true),
+            None => {
+                self.put_back(aside.as_deref());
+                Ok(true)
+            }
         }
     }
 
@@ -168,11 +195,53 @@ impl PgEngine {
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |d| d.as_millis());
-        let aside = self.root.join(format!("data.failed-{stamp}"));
+        let aside = unused_path(self.root.join(format!("data.failed-{stamp}")));
         std::fs::rename(self.root.join("data"), &aside)
             .map_err(|e| PgError::local(format!("could not keep the old data aside: {e}")))?;
         self.keep_aside_at(&aside);
         Ok(())
+    }
+
+    /// Keeps the flag once set: a reopen after Start fresh must not clear it.
+    fn record_open(&self, lost: bool) {
+        let _ = self.recreated.fetch_or(lost, Ordering::AcqRel);
+    }
+
+    /// Moves the root aside and returns where it went; None when there was no root.
+    fn move_aside(&self) -> Result<Option<PathBuf>, PgError> {
+        if !self.root.exists() {
+            return Ok(None);
+        }
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis());
+        let name = self.root.file_name().map_or_else(
+            || "local-pg".to_owned(),
+            |n| n.to_string_lossy().into_owned(),
+        );
+        let aside = unused_path(
+            self.root
+                .with_file_name(format!("{name}.discarded-{stamp}")),
+        );
+        std::fs::rename(&self.root, &aside)
+            .map_err(|e| PgError::local(format!("could not move the database aside: {e}")))?;
+        self.keep_aside_at(&aside);
+        Ok(Some(aside))
+    }
+
+    /// Moves the old data back to the root when no backup replaced it, so a failed restore never
+    /// leaves it only in the aside dir. A no-op once something holds the root again.
+    fn put_back(&self, aside: Option<&Path>) {
+        let Some(aside) = aside else {
+            return;
+        };
+        if self.root.exists() || std::fs::rename(aside, &self.root).is_err() {
+            return;
+        }
+        *self
+            .kept_aside
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = None;
     }
 
     fn keep_aside_at(&self, path: &Path) {
@@ -189,7 +258,7 @@ impl Engine for PgEngine {
 
     async fn open(&self) -> Result<(PgConn, PgServer), PgError> {
         let lost = self.restore_if_missing().await?;
-        self.recreated.store(lost, Ordering::Release);
+        self.record_open(lost);
         let server = PgServer::start(&self.bin, &self.root).await?;
         match server.connect().await {
             Ok(conn) => Ok((conn, server)),
@@ -210,23 +279,7 @@ impl Engine for PgEngine {
     }
 
     fn discard(&self) -> Result<(), PgError> {
-        if !self.root.exists() {
-            return Ok(());
-        }
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |d| d.as_millis());
-        let name = self.root.file_name().map_or_else(
-            || "local-pg".to_owned(),
-            |n| n.to_string_lossy().into_owned(),
-        );
-        let aside = self
-            .root
-            .with_file_name(format!("{name}.discarded-{stamp}"));
-        std::fs::rename(&self.root, &aside)
-            .map_err(|e| PgError::local(format!("could not move the database aside: {e}")))?;
-        self.keep_aside_at(&aside);
-        Ok(())
+        self.move_aside().map(|_| ())
     }
 
     async fn dump(&self, server: &PgServer, file: PathBuf) -> Result<(), PgError> {
@@ -246,6 +299,14 @@ impl Engine for PgEngine {
 
     fn recreated_empty(&self) -> bool {
         self.recreated.load(Ordering::Acquire)
+    }
+
+    fn mark_recreated(&self) -> Result<(), PgError> {
+        std::fs::create_dir_all(&self.root)
+            .and_then(|()| std::fs::write(self.root.join(START_FRESH), b""))
+            .map_err(|e| PgError::local(format!("could not record the start fresh: {e}")))?;
+        self.recreated.store(true, Ordering::Release);
+        Ok(())
     }
 
     fn kept_aside(&self) -> Option<String> {
@@ -656,6 +717,7 @@ impl<E: Engine> PgHost<E> {
         }
         inner.user = None;
         self.engine.discard().map_err(|e| e.message)?;
+        self.engine.mark_recreated().map_err(|e| e.message)?;
         self.set_failure(None);
         Ok(())
     }
@@ -676,6 +738,22 @@ impl<E: Engine> PgHost<E> {
             self.engine.close(open.conn, open.handle).await;
         }
     }
+}
+
+/// `base`, or `base-1`, `base-2`, … when a folder by that name is already there: two moves aside
+/// in the same millisecond must not collide.
+fn unused_path(base: PathBuf) -> PathBuf {
+    if !base.exists() {
+        return base;
+    }
+    (1..)
+        .map(|i| {
+            let mut name = base.clone().into_os_string();
+            name.push(format!("-{i}"));
+            PathBuf::from(name)
+        })
+        .find(|path| !path.exists())
+        .unwrap_or(base)
 }
 
 #[cfg(test)]
@@ -1286,6 +1364,127 @@ mod tests {
         assert!(
             aside.join("marker").is_file(),
             "the reported path still holds the old files"
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn a_start_fresh_keeps_the_database_flagged_until_restart() {
+        let tmp = lost_tmp("start-fresh");
+        let root = tmp.join("local-pg");
+        std::fs::create_dir_all(root.join("data")).unwrap_or_default();
+        let engine = PgEngine::new(PathBuf::new(), root.clone(), None);
+        engine.discard().expect("discard moves the database aside");
+        engine.mark_recreated().expect("the choice is recorded");
+        // The reopen after Start fresh finds no backups and no data dir, so it reports nothing
+        // lost on its own. The empty database it starts must still be flagged.
+        engine.record_open(false);
+        assert!(
+            engine.recreated_empty(),
+            "a reset database stays flagged so folder writes stay blocked"
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn an_aside_name_already_taken_gets_a_number() {
+        let tmp = lost_tmp("aside-name-taken");
+        let base = tmp.join("local-pg.discarded-1");
+        assert_eq!(unused_path(base.clone()), base, "a free name is kept");
+        std::fs::create_dir_all(&base).unwrap_or_default();
+        std::fs::create_dir_all(tmp.join("local-pg.discarded-1-1")).unwrap_or_default();
+        assert_eq!(
+            unused_path(base),
+            tmp.join("local-pg.discarded-1-2"),
+            "a taken name moves on to the next free number"
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn a_start_fresh_is_not_undone_by_restoring_a_backup_on_reopen() {
+        let tmp = lost_tmp("start-fresh-reopen");
+        let root = tmp.join("local-pg");
+        let dir = tmp.join("backups");
+        std::fs::create_dir_all(root.join("data")).unwrap_or_default();
+        std::fs::write(root.join("data").join("PG_VERSION"), "17").unwrap_or_default();
+        std::fs::create_dir_all(&dir).unwrap_or_default();
+        let dump = dir.join("local-pg-2026-11-16T000000.dump");
+        std::fs::write(&dump, b"rows").unwrap_or_default();
+        let engine = PgEngine::new(
+            PathBuf::new(),
+            root.clone(),
+            Some(Backups::new(vec![dir.clone()])),
+        );
+        engine.discard().expect("discard moves the database aside");
+        engine.mark_recreated().expect("the choice is recorded");
+        // The reopen after Start fresh: a backup exists, but it must not be loaded over the choice.
+        let lost = engine
+            .restore_with(|scratch, dump| stub_load(scratch, dump, true))
+            .await;
+        assert!(
+            lost.unwrap_or(false),
+            "the start-fresh database is still flagged"
+        );
+        assert!(
+            !root.join("data").exists(),
+            "no backup is restored over a start-fresh"
+        );
+        assert!(dump.is_file(), "the backup is left as it is");
+        // Once a cluster exists the choice is spent: a later data loss restores as before.
+        std::fs::create_dir_all(root.join("data")).unwrap_or_default();
+        std::fs::write(root.join("data").join("PG_VERSION"), "17").unwrap_or_default();
+        assert!(
+            !engine
+                .restore_with(|s, d| stub_load(s, d, true))
+                .await
+                .unwrap_or(true)
+        );
+        std::fs::remove_dir_all(root.join("data")).unwrap_or_default();
+        let restored = engine
+            .restore_with(|scratch, dump| stub_load(scratch, dump, true))
+            .await;
+        assert!(
+            restored.is_ok(),
+            "a second move aside in the same millisecond still works"
+        );
+        assert!(
+            root.join("data").is_dir(),
+            "a spent choice no longer blocks a restore"
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn a_failed_restore_puts_the_old_data_back_under_the_root() {
+        let tmp = lost_tmp("failed-restore");
+        let root = tmp.join("local-pg");
+        let dir = tmp.join("backups");
+        std::fs::create_dir_all(root.join("data")).unwrap_or_default();
+        std::fs::write(root.join("data").join("marker"), b"old").unwrap_or_default();
+        std::fs::create_dir_all(&dir).unwrap_or_default();
+        std::fs::write(dir.join("local-pg-2026-11-16T000000.dump"), b"rows").unwrap_or_default();
+        let engine = PgEngine::new(
+            PathBuf::new(),
+            root.clone(),
+            Some(Backups::new(vec![dir.clone()])),
+        );
+        let lost = engine
+            .restore_with(|_scratch, _dump| async {
+                Err::<bool, PgError>(PgError::local("pg_restore failed"))
+            })
+            .await;
+        assert!(
+            lost.unwrap_or(false),
+            "no backup loaded, so the database is still reported lost"
+        );
+        assert!(
+            root.join("data").join("marker").is_file(),
+            "the old data is back under the root, not only in the aside dir"
+        );
+        assert!(
+            engine.kept_aside().is_none(),
+            "nothing is reported kept aside once it is back"
         );
         let _ = std::fs::remove_dir_all(&tmp);
     }

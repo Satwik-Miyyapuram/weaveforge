@@ -597,6 +597,12 @@
   pointer-events: none;
 }
 
+/* The outlined (freehand) halo is a filled shape, not a stroke. */
+.ink-stroke-halo--fill {
+  fill: var(--accent);
+  stroke: none;
+}
+
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-bar-group,
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-swatches,
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill {
@@ -1033,6 +1039,20 @@
 .pane-divider:hover,
 .pane-divider:focus-visible {
   background: var(--accent);
+}
+
+/* The explorer's right edge, over its border: the pane divider's look, placed
+   on the column line rather than as a grid cell so the shell's grid stays two
+   columns. Transparent until hovered, since the panel already draws a border. */
+.explorer-resizer {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--workspace-explorer) - 2px);
+  z-index: 4;
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  touch-action: none;
 }
 
 .pane {
@@ -2168,6 +2188,12 @@
   z-index: 1;
 }
 
+/* While the pen is down (`wetLayerAboveSvg`, ink tuning) nothing on the sheet
+   sits over the live ink: the overlays (2), the chip anchor (4) stay below. */
+.ink-canvas-dock[data-wet-above] {
+  z-index: 5;
+}
+
 .ink-page {
   position: relative;
   display: flex;
@@ -2580,6 +2606,8 @@
    underlay's line rhythm (one row per source line, roughly) so the page flow
    estimate in ink-text-flow stays close to what is drawn. */
 .ink-sheet-text-underlay { max-width: none; }
+/* The read sheet has no pen: its links take clicks, the text around them does not. */
+.ink-sheet-text-underlay.ink-links-live a[href] { pointer-events: auto; }
 /* `.ink-sheet` in the selector outranks markdown.css's own block margins. */
 .ink-sheet .ink-sheet-text-underlay :is(p, ul, ol, li, h1, h2, h3, h4, h5, h6, pre, table, blockquote, .callout, .math-display, .md-mermaid) {
   margin: 0;

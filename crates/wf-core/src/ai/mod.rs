@@ -16,6 +16,7 @@ pub mod model_extraction;
 pub mod model_router;
 pub mod proposal_apply;
 pub mod proposal_draft;
+pub mod proposal_file;
 pub mod proposal_inputs;
 pub mod proposal_payload;
 pub mod proposal_preview;

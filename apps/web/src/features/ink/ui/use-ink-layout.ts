@@ -9,12 +9,14 @@
  * and every scroll costs one message, not a page-sized re-raster (§6.2.1).
  */
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
+import { inkWetDpr, readInkTuning } from "../application/ink-tuning";
 import { backingRatio, type InkPalette, readThemePalette } from "../render/parts-1";
 import { readyCore } from "@/lib/rust-core";
+import { dropCachedRects } from "./rect-cache";
 
 /** What the layout needs from the host. */
 /**
@@ -78,6 +80,8 @@ export function useInkLayout(deps: InkLayoutDeps) {
     setView,
     setPalette,
   } = deps;
+  /** The `wetDpr` knob, read once: like the context, it applies from the next page open. */
+  const wetDpr = useState(() => readInkTuning().wetDpr)[0];
 
   /**
    * The ink palette follows the theme. The swatches in the bar are painted with
@@ -123,10 +127,11 @@ export function useInkLayout(deps: InkLayoutDeps) {
     if (!canvas || !sheet || !scroller) return;
     const box = canvas.getBoundingClientRect();
     // The backing store is capped, so a deep zoom softens rather than vanishes.
+    // `wetDpr` (ink tuning) overrides the device's ratio, from the next page open.
     const dpr = backingRatio(
       box.width,
       box.height,
-      window.devicePixelRatio || 1,
+      inkWetDpr(wetDpr, window.devicePixelRatio || 1),
     );
     const camera = () => {
       const canvasBox = canvas.getBoundingClientRect();
@@ -149,7 +154,7 @@ export function useInkLayout(deps: InkLayoutDeps) {
     // layout gets the layout again; `view` and `pageSize` because the canvas
     // was just resized to them.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [backend, scale, send, view, pageSize, pageIndex]);
+  }, [backend, scale, send, view, pageSize, pageIndex, wetDpr]);
 
   /**
    * The rail's scroll watcher: scrolling past the live page's own slot
@@ -296,6 +301,9 @@ export function useInkLayout(deps: InkLayoutDeps) {
       // buffer but its commit has not come back yet, so nothing is scheduled.
       flushSave(true);
       flushSync(() => setPageIndex(target));
+      // The live sheet and canvas moved to the new slot with no scroll or
+      // resize, so their cached rects are the old page's.
+      dropCachedRects();
       return true;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

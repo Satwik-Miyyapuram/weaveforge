@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import { getContainer } from "@/bootstrap";
 import type { EditorHandleRef } from "@/components/editor-handle";
@@ -17,9 +17,12 @@ import {
   isTypingTarget,
   loadWorkspace,
   NoteSaves,
+  EXPLORER_WIDTH_DEFAULT,
+  readExplorerWidth,
   readHidden,
   readLayout,
   type WorkspaceData,
+  writeExplorerWidth,
   writeHidden,
   writeLayout,
 } from "../application/parts";
@@ -44,7 +47,9 @@ import type { ExplorerSection } from "../application/parts";
 import { DocumentHost, isCanvasDocument, type DocumentMetrics } from "./document-host";
 import { CanvasDocument } from "./canvas-document";
 import { ExplorerPanel } from "./explorer-panel";
+import { ExplorerResizer } from "./explorer-resizer";
 import { useFocusMode } from "./use-focus-mode";
+import { CLOSED_TABS_KEPT, keepOpen, store } from "./workspace-screen-support";
 import { HydratingDocument, useNoteBodies } from "./use-note-bodies";
 import { useLinkTargets } from "./use-link-targets";
 import { useOutline } from "./use-outline";
@@ -53,6 +58,7 @@ import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { useScreenShown } from "@/lib/screen-shown";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
+import { useInkSaveStatus } from "./use-ink-save-status";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
@@ -61,21 +67,7 @@ import { DESKTOP_BREAKPOINT_PX, isMacPlatform } from "@/lib/parts";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { IconButton } from "@/components/button";
 
-/** `byKey` without the entries of documents no longer open; `byKey` itself when nothing closed. */
-function keepOpen<T>(byKey: Record<string, T>, open: ReadonlySet<string>): Record<string, T> {
-  const keys = Object.keys(byKey);
-  if (keys.every((key) => open.has(key))) return byKey;
-  return Object.fromEntries(keys.filter((key) => open.has(key)).map((key) => [key, byKey[key]!]));
-}
-
 /** The image button with no document under it: greyed, so never pressed. */
-
-function store(): Storage | undefined {
-  return typeof localStorage === "undefined" ? undefined : localStorage;
-}
-
-/** How many closed tabs `⌘⇧T` can bring back. */
-const CLOSED_TABS_KEPT = 20;
 
 /**
  * The desktop editor: the workspace as a stack of explorer sections and a set
@@ -119,6 +111,10 @@ export function WorkspaceScreen() {
   const activeDocRef = useRef<Document | undefined>(undefined);
   const folderIdsRef = useRef<ReadonlySet<string>>(new Set());
   useEffect(() => setExplorerHidden(readHidden(store())), []);
+  // The explorer's dragged width, per device like `hidden`.
+  const [explorerWidth, setExplorerWidth] = useState(EXPLORER_WIDTH_DEFAULT);
+  useEffect(() => setExplorerWidth(readExplorerWidth(store())), []);
+  const keepExplorerWidth = useCallback((width: number) => writeExplorerWidth(store(), width), []);
   // On a phone there is no room for the explorer beside a document: at 375px
   // the two shared the width, the tree's labels truncated to a letter and the
   // PDF's own toolbar sat over the page. There the explorer is a drawer over
@@ -177,6 +173,7 @@ export function WorkspaceScreen() {
   const [pending, setPending] = useState(0);
   // A write that failed leaves the document dirty — "Saved" would be a lie.
   const [dirty, setDirty] = useState(false);
+  const inkSave = useInkSaveStatus();
   // Read by the close guard, which is registered once.
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
@@ -538,6 +535,7 @@ export function WorkspaceScreen() {
         <DocumentHost
           tab={tab}
           mode={readyCore().tabMode(tab)}
+          title={doc.title}
           body={doc.body}
           links={links}
           completions={completions}
@@ -700,6 +698,7 @@ export function WorkspaceScreen() {
   return (
     <div
       className={`workspace-shell${explorerHidden ? " is-explorer-hidden" : ""}${focus ? " is-focus" : ""}${phone ? " is-phone" : ""}`}
+      style={{ "--workspace-explorer": `${explorerWidth}px` } as CSSProperties}
     >
       {focus ? (
         <span className="focus-exit">
@@ -748,6 +747,9 @@ export function WorkspaceScreen() {
         onMove={moveNode}
         onHide={toggleExplorer}
       />
+      {explorerHidden || phone || focus ? null : (
+        <ExplorerResizer width={explorerWidth} onWidth={setExplorerWidth} onCommit={keepExplorerWidth} />
+      )}
       <PaneView
         focus={focus}
         layout={layout}
@@ -774,7 +776,7 @@ export function WorkspaceScreen() {
         onSetMode={(tab, mode) => apply(readyCore().setTabMode(layout, tab, mode))}
       />
       <StatusBar
-        save={saveState({ pending, dirty })}
+        save={saveState({ pending: pending + inkSave.pending, dirty: dirty || inkSave.failed })}
         segments={
           activeDoc
             ? segmentsFor(activeMode === "ink" && hasInkView(activeDoc.kind) ? "ink_page" : activeDoc.kind)

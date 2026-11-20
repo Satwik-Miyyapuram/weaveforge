@@ -13,7 +13,8 @@ pub mod app_storage;
 pub mod app_update;
 pub mod auth_link;
 pub mod auth_loopback;
-pub mod cmd_import;
+pub mod cmd_experiments;
+pub mod cmd_files;
 pub mod cmd_ink;
 pub mod cmd_tools;
 pub mod cmd_vault;
@@ -40,8 +41,8 @@ pub mod mattermost;
 pub mod mcp_bridge;
 pub mod menu;
 pub mod migrate;
+pub mod migrate_093;
 pub mod model_cache;
-pub mod old_db;
 pub mod outside_gate;
 pub mod overleaf_links;
 pub mod overleaf_live;
@@ -54,6 +55,7 @@ pub mod plan_widget_window;
 pub mod prefs;
 pub mod protocol;
 pub mod range;
+pub mod second_launch;
 pub mod secrets;
 pub mod shim;
 pub mod update_check;
@@ -112,7 +114,14 @@ mod mobile_entry {
 /// Starts the shell window and blocks until it closes.
 pub fn run() -> tauri::Result<()> {
     install_tls_provider();
-    let builder = tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // One app per user (desktop): a second launch exits and brings this one forward. Registered
+    // first, as the plugin asks, so the second process stops before it opens a store or a port.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+        on_second_launch(app, &argv);
+    }));
+    let builder = builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init());
     // The pen surface over the WebView (phase 4, step 4.3a); desktops ink in the web app.
@@ -212,6 +221,7 @@ fn start_stores(app: &tauri::AppHandle) {
     let _ = app.manage(secrets);
     let _ = app.manage(app_log::AppLog::new(&logs, &home));
     let _ = app.manage(git::GitQueue::default());
+    let _ = app.manage(cmd_files::IndexSlot::default());
     let _ = app.manage(embed::EmbedSlot::default());
     let _ = app.manage(auth_loopback::SignInPort::default());
     let _ = app.manage(local_files::LocalFiles::new(data.join("local-files")));
@@ -224,10 +234,24 @@ pub const VAULT_CHANGED_EVENT: &str = "vault-changed";
 pub(crate) fn change_sink(app: &tauri::AppHandle) -> vault_watcher::ChangeSink {
     use tauri::Emitter as _;
     let emitter = app.clone();
-    Arc::new(move |paths: Vec<String>| {
-        let _ = emitter.emit(VAULT_CHANGED_EVENT, paths);
+    Arc::new(move |mut paths: Vec<String>| {
+        use tauri::Manager as _;
+        if let Some(index) = emitter.try_state::<cmd_files::IndexSlot>() {
+            index.invalidate();
+        }
+        let before = paths.len();
+        paths.retain(|path| path != vault_watcher::OVERFLOW_MARK);
+        if paths.len() != before {
+            let _ = emitter.emit(VAULT_WATCH_OVERFLOW_EVENT, ());
+        }
+        if !paths.is_empty() {
+            let _ = emitter.emit(VAULT_CHANGED_EVENT, paths);
+        }
     })
 }
+
+/// The event that tells the page the OS dropped folder events; it answers with `watcher_rescan`.
+pub const VAULT_WATCH_OVERFLOW_EVENT: &str = "vault-watch-overflow";
 
 /// The event that tells the page, with the reason, that the folder watch has stopped seeing changes.
 pub const VAULT_WATCH_LOST_EVENT: &str = "vault-watch-lost";
@@ -336,19 +360,6 @@ fn native_store() -> Option<Arc<keyring_core::CredentialStore>> {
     store
 }
 
-/// Copies the old Electron app's data into `data` once. `Some(reason)` when the database must stay closed.
-fn migration_blocker(old: &std::path::Path, data: &std::path::Path) -> Option<String> {
-    match migrate::migrate_from_electron(old, data, std::time::SystemTime::now()) {
-        Ok(migrate::Outcome::Busy(reason)) => Some(format!(
-            "the old WeaveForge app is running; close it, then restart WeaveForge so its data can be copied ({reason})"
-        )),
-        Ok(_) => None,
-        Err(e) => Some(format!(
-            "could not copy the old WeaveForge app's data, so the database stays closed: {e}"
-        )),
-    }
-}
-
 /// The lock name the native database holds while this app has it open.
 const NATIVE_LOCK_APP: &str = "weaveforge-native-db";
 
@@ -413,16 +424,7 @@ fn start_local_db(app: &tauri::AppHandle) {
     let db = match (paths.app_data_dir(), paths.resource_dir()) {
         (Ok(data), Ok(resources)) => {
             let source = launch::app_source(resources.clone());
-            let product = app.package_info().name.clone();
-            let old = paths
-                .config_dir()
-                .ok()
-                .and_then(|c| launch::electron_data_dir(&source, &product, &c));
-            // Copied before the database opens, so it never reads a half-copied or empty one.
-            let native = match old.as_deref().and_then(|old| migration_blocker(old, &data)) {
-                Some(reason) => Err(reason),
-                None => native_db(app, &data, &resources, &source),
-            };
+            let native = native_db(app, &data, &resources, &source);
             if let Err(reason) = &native {
                 local_api::warn(app, reason);
             }
@@ -769,6 +771,34 @@ pub(crate) fn deliver_sign_in(app: &tauri::AppHandle, query: String) {
             &error.to_string(),
         );
     }
+    bring_main_window_forward(app, "sign-in");
+}
+
+/// A second launch (desktop): the main window comes forward (reopened if closed) and the
+/// launch's arguments, if any, go to the page as `second_launch::SECOND_LAUNCH_EVENT`.
+#[cfg(desktop)]
+fn on_second_launch(app: &tauri::AppHandle, argv: &[String]) {
+    use tauri::{Emitter as _, Manager as _};
+    if app.get_webview_window(MAIN_WINDOW).is_none() && open_main_window(app).is_err() {
+        return;
+    }
+    bring_main_window_forward(app, "shell");
+    let args = second_launch::forwarded_args(argv);
+    if !args.is_empty()
+        && let Err(error) = app.emit_to(MAIN_WINDOW, second_launch::SECOND_LAUNCH_EVENT, args)
+    {
+        log_warn(
+            app,
+            "shell",
+            "A second launch's arguments did not reach the page",
+            &error.to_string(),
+        );
+    }
+}
+
+/// Unminimizes, shows and focuses the main window; a failure is logged under `area`.
+fn bring_main_window_forward(app: &tauri::AppHandle, area: &str) {
+    use tauri::Manager as _;
     // Phone windows cannot be minimized.
     #[cfg(desktop)]
     let unminimize = |window: &tauri::WebviewWindow| window.unminimize();
@@ -781,7 +811,7 @@ pub(crate) fn deliver_sign_in(app: &tauri::AppHandle, query: String) {
     {
         log_warn(
             app,
-            "sign-in",
+            area,
             "The window could not come forward",
             &error.to_string(),
         );

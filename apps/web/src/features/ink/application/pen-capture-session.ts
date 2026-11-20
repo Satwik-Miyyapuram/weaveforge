@@ -81,6 +81,8 @@ export interface PenCaptureDeps {
   ) => void;
   /** Whether predicted events may be used: false while delegating (§6.2.6). */
   predict?: () => boolean;
+  /** How far ahead (ms) a predicted sample may reach; 0 or absent takes all the browser gives. */
+  predictionMs?: () => number;
   /** A pointer whose stroke a late palm decision cancelled. */
   onCancelled?: (pointerId: number) => void;
 }
@@ -172,7 +174,12 @@ export class PenCaptureSession {
    * coalesced list drops the newest sample every frame.
    */
   pointerRawUpdate(event: PenPointerEvent): void {
-    if (!this.active || event.pointerId !== this.pointerId) return;
+    if (this.pointerId === null || event.pointerId !== this.pointerId) return;
+    // A gesture whose first point has not landed yet is still waiting to begin.
+    if (!this.active) {
+      this.beginStroke(event);
+      return;
+    }
     this.newest = event;
     const rows: RawRow[] = safeEvents(event.getCoalescedEvents?.bind(event)).map(
       (sample) => this.rawRow(sample, 0),
@@ -185,7 +192,11 @@ export class PenCaptureSession {
     // are flushed on their own so the worker can tell them from real ones and
     // replace the tail rather than commit it.
     if (this.predicts) {
-      const predicted = safeEvents(event.getPredictedEvents?.bind(event));
+      const predicted = predictedWithin(
+        safeEvents(event.getPredictedEvents?.bind(event)),
+        event,
+        this.deps.predictionMs?.() ?? 0,
+      );
       if (predicted.length > 0) {
         // The real samples pending in the writer go out first, as their own
         // message. A flush carries everything in the buffer under one flag, so
@@ -233,10 +244,34 @@ export class PenCaptureSession {
     this.deps.onStrokeEnd?.(header, points, pressures);
   }
 
+  /**
+   * End the stroke in progress and keep it, as a lift does, without touching
+   * the pointer's gate. For teardown: the stroke must reach the worker before
+   * the host's last save is posted. True when a stroke was ended.
+   */
+  endStroke(): boolean {
+    if (!this.active || !this.header) return false;
+    this.deps.writer.flush("stroke-end", this.header);
+    this.clear();
+    return true;
+  }
+
   /** Discard the stroke in progress, because a palm decision arrived late. */
   abort(): void {
+    const header = this.header;
     this.clear();
     this.deps.stream.resetFilter();
+    if (header) this.deps.writer.abort(header);
+  }
+
+  /**
+   * The OS cancelled a pointer (a palm, a gesture taking over a touch). Unlike a
+   * lift, the stroke is not kept: what was drawn so far is discarded, and the
+   * gate's claim is released so the next pointer can draw.
+   */
+  cancel(pointerId: number): void {
+    if (this.pointerId === pointerId) this.abort();
+    this.deps.gate.end(pointerId);
   }
 
   /** Once per frame: get the pending samples to the worker. */
@@ -263,12 +298,14 @@ export class PenCaptureSession {
     this.realSamples = 0;
     this.newest = event;
     this.deps.stream.resetFilter();
-    // A stroke whose first sample does not land on the page is not a stroke: the
-    // pen came down on the paper's margin or outside it, and telling the worker
-    // to begin one would leave it waiting for a stroke that never arrives.
+    // A first sample that does not land on the page yet (the pen came down on the
+    // margin, or the sheet is not measured) must not cost the stroke. The gesture
+    // stays pending on its pointer and begins on the first move that lands; a
+    // gesture that never lands is released on pointer-up with no stroke sent.
+    // Telling the worker to begin before a point exists would leave it waiting
+    // for samples that never arrive.
     if (this.postBatch([this.rawRow(event, CAPTURE_FLAG_FIRST | CAPTURE_FLAG_DISPATCHED)], event) === 0) {
-      this.clear();
-      this.deps.gate.end(event.pointerId);
+      this.header = null;
       return;
     }
     this.deps.writer.flush("stroke-begin", this.header);
@@ -349,6 +386,31 @@ export class PenCaptureSession {
 /** The clock for a sample with no time of its own. */
 function now(): number {
   return typeof performance === "undefined" ? Date.now() : performance.now();
+}
+
+/** An event's time: `t` when the caller set one, else the platform's `timeStamp`. */
+function eventTime(event: PenPointerEvent): number {
+  if (typeof event.t === "number") return event.t;
+  return (event as unknown as { timeStamp?: number }).timeStamp ?? Number.NaN;
+}
+
+/**
+ * The predicted events no more than `ms` ahead of `dispatched`: the
+ * `predictionMs` knob. 0 keeps them all; so does an unknown time. It can only
+ * shorten the browser's prediction, never extend it.
+ */
+export function predictedWithin(
+  predicted: PenPointerEvent[],
+  dispatched: PenPointerEvent,
+  ms: number,
+): PenPointerEvent[] {
+  if (!(ms > 0)) return predicted;
+  const base = eventTime(dispatched);
+  if (!Number.isFinite(base)) return predicted;
+  return predicted.filter((sample) => {
+    const time = eventTime(sample);
+    return !Number.isFinite(time) || time - base <= ms;
+  });
 }
 
 /** Coalesced/predicted lists are optional and may throw on a synthetic event. */

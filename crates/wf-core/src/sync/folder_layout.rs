@@ -82,7 +82,7 @@ pub const ENTITY_DIRS: &[(WorkspaceEntityType, &str)] = &[
 /// A hint only: frontmatter and the directory decide what a file is.
 pub const KIND_SUFFIX: &[(WorkspaceEntityType, &str)] = &[
     (WorkspaceEntityType::VaultPage, "note"),
-    // `.ink.md`: still markdown; the strokes are in the `.ink/<id>/` sidecar.
+    // `.ink.md`: still markdown; the strokes are in the `<name>.ink/` folder beside it.
     (WorkspaceEntityType::InkPage, "ink"),
     (WorkspaceEntityType::Paper, "paper"),
     (WorkspaceEntityType::ReadingList, "list"),
@@ -563,4 +563,116 @@ pub fn pick_project_folder(dirs: &[String], exact: &str, tail: &str) -> Option<S
         (Some(only), None) => Some(only.clone()),
         _ => None,
     }
+}
+
+/// Settings file of a workspace.
+pub const SETTINGS_PATH: &str = ".weaveforge/settings.json";
+
+/// Workspace identity file.
+pub const WORKSPACE_JSON_PATH: &str = ".weaveforge/workspace.json";
+
+/// This device's local settings; never synced.
+pub const DEVICE_SETTINGS_PATH: &str = ".weaveforge/local/device.json";
+
+/// Local bases database; never synced.
+pub const BASES_DB_PATH: &str = ".weaveforge/local/bases.sqlite";
+
+/// Local search and cache database; never synced.
+pub const CACHE_DB_PATH: &str = ".weaveforge/cache/cache.sqlite";
+
+/// Trash folder for removed files, one dated subfolder per day.
+pub const TRASH_DIR: &str = ".weaveforge/trash";
+
+/// Splits `rel` into the path before its extension and the extension (dot included).
+/// Only the last `.` of the file name counts; a leading dot is not an extension.
+fn split_extension(rel: &str) -> (&str, &str) {
+    let dir_end = rel.rfind('/').map_or(0, |i| i + 1);
+    match rel[dir_end..].rfind('.') {
+        Some(i) if i > 0 => (&rel[..dir_end + i], &rel[dir_end + i..]),
+        _ => (rel, ""),
+    }
+}
+
+/// Sidecar annotations file for a paper: `p/papers/x.pdf` -> `p/papers/x.annotations.json`.
+#[must_use]
+pub fn annotations_path(paper_rel: &str) -> String {
+    format!("{}.annotations.json", split_extension(paper_rel).0)
+}
+
+/// Sidecar pins file for a paper: `p/papers/x.pdf` -> `p/papers/x.pins.json`.
+#[must_use]
+pub fn pins_path(paper_rel: &str) -> String {
+    format!("{}.pins.json", split_extension(paper_rel).0)
+}
+
+/// Sidecar comments file for an item: `p/notes/x.md` -> `p/notes/x.comments.json`.
+#[must_use]
+pub fn comments_path(item_rel: &str) -> String {
+    format!("{}.comments.json", split_extension(item_rel).0)
+}
+
+/// Metrics chunk of one run and batch inside an experiment folder.
+#[must_use]
+pub fn metrics_chunk_path(experiment_dir: &str, run: &str, batch_id: &str) -> String {
+    format!("{experiment_dir}/metrics/{run}/{batch_id}.csv")
+}
+
+/// AI audit chunk for one month and batch.
+#[must_use]
+pub fn ai_audit_chunk_path(year_month: &str, batch_id: &str) -> String {
+    format!(".weaveforge/ai/audit/{year_month}/{batch_id}.jsonl")
+}
+
+/// The Overleaf link file of a project; the root when `project_dir` is empty.
+#[must_use]
+pub fn overleaf_path(project_dir: &str) -> String {
+    if project_dir.is_empty() {
+        ".overleaf.json".to_owned()
+    } else {
+        format!("{project_dir}/.overleaf.json")
+    }
+}
+
+/// Name of a conflict copy: `dir/name.ext` -> `dir/name.conflict-<stamp>.ext`.
+#[must_use]
+pub fn conflict_copy_path(rel: &str, stamp: &str) -> String {
+    let (stem, ext) = split_extension(rel);
+    format!("{stem}.conflict-{stamp}{ext}")
+}
+
+/// Name of the `n`th copy of a file; `n <= 1` keeps the name: `a/b.md`, 2 -> `a/b-2.md`.
+#[must_use]
+pub fn numbered_path(rel: &str, n: u32) -> String {
+    if n <= 1 {
+        return rel.to_owned();
+    }
+    let (stem, ext) = split_extension(rel);
+    format!("{stem}-{n}{ext}")
+}
+
+/// Where a removed file goes: `.weaveforge/trash/<date>/<rel>`.
+#[must_use]
+pub fn trash_path(rel: &str, date: &str) -> String {
+    format!("{TRASH_DIR}/{date}/{rel}")
+}
+
+/// Compact UTC stamp for file names: `2026-11-18T10:15:02.123Z` -> `20261118T101502Z`.
+#[must_use]
+pub fn compact_stamp(ms: i64) -> String {
+    let iso = crate::sync::instant::format_instant(ms);
+    let base: String = iso
+        .chars()
+        .take(19)
+        .filter(|c| !matches!(c, '-' | ':'))
+        .collect();
+    format!("{base}Z")
+}
+
+/// UTC day for folder names: `2026-11-18`.
+#[must_use]
+pub fn day_stamp(ms: i64) -> String {
+    crate::sync::instant::format_instant(ms)
+        .chars()
+        .take(10)
+        .collect()
 }

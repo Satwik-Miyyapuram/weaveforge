@@ -18,7 +18,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
-import { awaitInkWrites, trackInkWrite } from "../application/parts";
+import { awaitInkWrites, beginInkSave, trackInkWrite } from "../application/parts";
+import { decideInkWrite } from "./ink-save-decision";
 import type { InkSave } from "./use-ink-worker-rpc";
 import { type InkNoteMeta } from "@weaveforge/core";
 
@@ -119,12 +120,21 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
   );
 
   /** The body as the header and text layer now stand. Never rejects: a failure is reported. */
-  const saveBody = useCallback(async () => {
-    if (!pagesRef.current || !onSave) return;
+  const saveBodyOk = useCallback(async (): Promise<boolean> => {
+    if (!pagesRef.current || !onSave) return true;
     const { meta, body: next } = noteBody();
     metaRef.current = meta;
-    await onSave(next).catch(reportSaveFailure);
+    try {
+      await onSave(next);
+      return true;
+    } catch (err) {
+      reportSaveFailure(err);
+      return false;
+    }
   }, [noteBody, onSave, metaRef, pagesRef, reportSaveFailure]);
+  const saveBody = useCallback(async () => {
+    await saveBodyOk();
+  }, [saveBodyOk]);
 
   /**
    * Bumped after each chunk write. The page list is a ref, so a written chunk
@@ -138,7 +148,18 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
   const runPersist = useCallback(() => {
     persistRef.current().catch(reportSaveFailure);
   }, [reportSaveFailure]);
+  /**
+   * The save cycle the status bar shows as "saving": opened by the first stroke
+   * that arms the debounce, settled when the write it leads to has landed.
+   */
+  const saveTicket = useRef<((ok: boolean) => void) | null>(null);
+  const takeSaveTicket = useCallback(() => {
+    const settle = saveTicket.current ?? beginInkSave();
+    saveTicket.current = null;
+    return settle;
+  }, []);
   const scheduleSave = useCallback(() => {
+    if (!saveTicket.current) saveTicket.current = beginInkSave();
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       saveTimer.current = null;
@@ -148,30 +169,40 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
 
   /** Write the current page's chunk, then the body. */
   const persist = useCallback(async () => {
+    const settle = takeSaveTicket();
     const pages = pagesRef.current;
     const current = pages?.[pageIndex];
-    if (!pages || !current) return;
+    if (!pages || !current) {
+      settle(false);
+      return;
+    }
     const write = (async () => {
-      const saved = await requestSave();
-      // A page whose chunk failed to read still has its strokes in the store;
-      // writing or removing it would lose them (18-01). The body is still saved.
-      const writable = !current.unreadable;
-      if (writable && saved.bytes) {
-        await chunks.write(noteId, current.chunkId, saved.bytes);
-        current.chunk = saved.bytes;
-        setChunkVersion((v) => v + 1);
-      } else if (writable && saved.cleared && saved.pageIndex === pageIndex && current.chunk) {
-        // The last stroke went: drop the stored page so it does not come back.
-        await chunks.remove(noteId, current.chunkId);
-        current.chunk = null;
-        setChunkVersion((v) => v + 1);
+      let ok = false;
+      try {
+        const saved = await requestSave();
+        const decision = decideInkWrite(current, saved, pageIndex);
+        if (decision.action === "write" && saved.bytes) {
+          await chunks.write(noteId, current.chunkId, saved.bytes);
+          current.chunk = saved.bytes;
+          setChunkVersion((v) => v + 1);
+        } else if (decision.action === "remove") {
+          // The last stroke went: drop the stored page so it does not come back.
+          await chunks.remove(noteId, current.chunkId);
+          current.chunk = null;
+          setChunkVersion((v) => v + 1);
+        }
+        // Unsaved strokes (unreadable page, worker not ready) must not settle ok.
+        ok = (await saveBodyOk()) && decision.ok;
+      } catch (err) {
+        // A failed chunk write is reported; the status bar stays unsaved.
+        reportSaveFailure(err);
       }
-      await saveBody();
+      settle(ok);
     })();
     // Registered so whatever reads this note next waits for it (§ink-pending-writes).
     trackInkWrite(noteId, write);
     await write;
-  }, [chunks, noteId, pageIndex, requestSave, saveBody, pagesRef]);
+  }, [chunks, noteId, pageIndex, requestSave, saveBodyOk, pagesRef, takeSaveTicket, reportSaveFailure]);
   persistRef.current = persist;
 
   /**

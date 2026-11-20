@@ -6,7 +6,7 @@ use std::sync::Arc;
 use axum::body::to_bytes;
 use axum::extract::{Request, State};
 use axum::http::HeaderMap;
-use axum::http::header::CONTENT_LENGTH;
+use axum::http::header::{CONTENT_LENGTH, CONTENT_TYPE};
 use axum::response::Response;
 use base64::Engine as _;
 use base64::engine::{DecodePaddingMode, GeneralPurpose, GeneralPurposeConfig};
@@ -15,7 +15,8 @@ use wf_core::storage::blob_access::{MAX_BLOB_BYTES, base64_byte_length, is_safe_
 
 use crate::routes::AppState;
 use crate::safe_error::SERVER_FAULT;
-use crate::sdk::{error_response, json_response, parse_body};
+use crate::sdk::{error_response, json_response, parse_body, user_db};
+use crate::sdk_inbox;
 
 /// Largest JSON body: base64 of the blob limit plus a margin (`MAX_BODY_BYTES` in TS).
 pub const ARTIFACT_BODY_LIMIT: usize = 34_956_630;
@@ -29,6 +30,8 @@ const DECODED_EMPTY: &str = "dataBase64 decoded to no bytes.";
 const TOO_LARGE_REQUEST: &str = "Request body exceeds 33 MB.";
 const TOO_LARGE_ARTIFACT: &str = "Artifact exceeds the 25 MB limit.";
 const BAD_JSON: &str = "Invalid JSON body.";
+const INBOX_NOT_JSON: &str =
+    "Artifact files are not accepted while the inbox is on; send JSON metadata.";
 
 /// A validated upload: the path segments, the content type and the decoded bytes.
 struct Artifact {
@@ -44,6 +47,11 @@ pub async fn artifacts_post(State(state): State<Arc<AppState>>, request: Request
         Ok(who) => who,
         Err(response) => return response,
     };
+    // With the inbox on, only JSON metadata is queued; file uploads are refused.
+    let inbox = sdk_inbox::enabled();
+    if inbox && !is_json(request.headers()) {
+        return error_response(415, INBOX_NOT_JSON);
+    }
     // Before buffering, so an oversized body is refused on its declared length.
     if exceeds_declared_limit(request.headers()) {
         return error_response(413, TOO_LARGE_REQUEST);
@@ -51,6 +59,10 @@ pub async fn artifacts_post(State(state): State<Arc<AppState>>, request: Request
     let Ok(bytes) = to_bytes(request.into_body(), ARTIFACT_BODY_LIMIT).await else {
         return error_response(413, TOO_LARGE_REQUEST);
     };
+    if inbox {
+        let db = user_db(&state, &who);
+        return sdk_inbox::enqueue(&db, "artifacts", parse_body(&bytes)).await;
+    }
     let fields = match parse_body(&bytes) {
         Some(Value::Object(fields)) => fields,
         // An array counts as an object with no keys, as in the Next route.
@@ -78,6 +90,15 @@ pub async fn artifacts_post(State(state): State<Arc<AppState>>, request: Request
     }
     // A path has no expiry; the reader mints a short-lived URL when it needs one.
     json_response(200, &json!({"path": path, "url": path}))
+}
+
+/// Whether the request declares `application/json` (parameters ignored).
+fn is_json(headers: &HeaderMap) -> bool {
+    headers
+        .get(CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(';').next())
+        .is_some_and(|media| media.trim().eq_ignore_ascii_case("application/json"))
 }
 
 /// Whether the declared `Content-Length` is already over the body limit.

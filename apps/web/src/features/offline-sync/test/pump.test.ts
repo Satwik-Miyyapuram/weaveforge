@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { after, before, describe, it } from "node:test";
+import { afterEach, before, describe, it } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { Outbox, OUTBOX_MAX_ATTEMPTS } from "../domain/parts-2";
 import { OutboxPump } from "../domain/parts-3";
@@ -13,8 +13,8 @@ before(async () => {
 });
 
 const open: LocalSqlDb[] = [];
-after(async () => {
-  for (const db of open) await db.close();
+afterEach(async () => {
+  await Promise.all(open.splice(0).map((db) => db.close()));
 });
 
 const ROW = "00000000-0000-4000-8000-00000000000a";

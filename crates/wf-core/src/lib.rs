@@ -20,6 +20,8 @@ pub mod experiment_artifacts;
 pub mod experiment_status;
 pub mod experiments;
 pub mod heading_slug;
+/// In-memory index of workspace files, rebuilt from the files.
+pub mod index;
 pub mod ink;
 pub mod integrations;
 pub mod js_collate;
@@ -110,6 +112,7 @@ pub mod mcp_config_rewrite;
 pub mod member_rows;
 pub mod membership_row;
 pub mod metric_chart_data;
+pub mod metric_csv;
 pub mod metric_rows;
 pub mod nav_open_groups;
 pub mod overleaf_export_package;

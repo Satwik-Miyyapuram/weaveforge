@@ -18,6 +18,7 @@ stay in TypeScript.
 - `error_redact`: Overleaf error text made safe to show. The token and any URL
   credentials are removed, and the text is capped at 500 UTF-16 units.
 - `export_path`: the export path guard and the missing-figure warning.
+- `link_file`: the `.overleaf.json` file in a report folder (files-first): connection name, project id, title, entry file, URL, enabled and last fetch. It has no token field; the token stays in the keychain under the connection name. Unknown fields are refused, and a token-shaped value is refused by the settings secret guard (see [settings](settings.md#laws)).
 - `text_ot`: ShareJS "text" operations, the format Overleaf's editor uses.
 - `upload`: the root folder id from Overleaf's join answer.
 - `upload_reason`: the `: <message>` suffix an upload failure shows, read from Overleaf's answer body.

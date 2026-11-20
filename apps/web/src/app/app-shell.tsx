@@ -10,7 +10,6 @@ import { ThesisLoaderScreen } from "@/components/weaveforge-loader";
 import { ProjectProvider, ProjectSwitcher, ProjectsScreen, useProject } from "@/features/projects";
 import { ProfileProvider } from "@/features/org";
 import { PrivacyDisclaimerGate } from "@/features/auth/ui/privacy-disclaimer-gate";
-import { OldDbImportGate } from "@/features/startup/ui/old-db-import-gate";
 import { ThemeSyncProvider } from "@/features/settings/ui/theme-sync-provider";
 import { OrgSetupGate } from "@/features/org/ui/org-setup-gate";
 import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
@@ -75,6 +74,10 @@ const PdfTextFolderSync = dynamic(
   () => import("@/features/workspace/ui/pdf-text-folder-sync").then((m) => m.PdfTextFolderSync),
   { ssr: false },
 );
+const WorkspaceSettingsSync = dynamic(
+  () => import("@/features/workspace/ui/workspace-settings-sync").then((m) => m.WorkspaceSettingsSync),
+  { ssr: false },
+);
 const FolderDraftInbox = dynamic(
   () => import("@/features/ai-assistant/ui/folder-draft-inbox").then((m) => m.FolderDraftInbox),
   { ssr: false },
@@ -111,9 +114,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <ProfileProvider key={user.id}>
             {/* E2EE unlock gate removed: data is stored plaintext, so the shell
                 renders straight through after auth. */}
-            {/* Holds the workspace back while 0.8 data is brought over, so nothing
-                below reads an empty database first. */}
-            <OldDbImportGate>
             <ThemeSyncProvider>
               <OrgSetupGate>
                 {/* Above the project-scoped shell, so it runs once: the folder
@@ -124,6 +124,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <WorkspaceSetupDialog />
                 <GitAutoSync />
                 <FolderChangeNote />
+                <WorkspaceSettingsSync />
                 <GithubOnboarding />
                 <ToastHost />
                 <ContextMenuHost />
@@ -141,7 +142,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </ProjectProvider>
               </OrgSetupGate>
             </ThemeSyncProvider>
-            </OldDbImportGate>
           </ProfileProvider>
         </PrivacyDisclaimerGate>
     </StartupProvider>

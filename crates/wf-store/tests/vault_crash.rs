@@ -44,11 +44,21 @@ fn crash_child_writer() {
     };
     let vault = Vault::new(PathBuf::from(root));
     let (a, b) = (version_a(), version_b());
-    vault.write_file(TARGET, &a).expect("first write");
+    let checked = std::env::var_os("WF_CRASH_CHECKED").is_some();
+    let write = |bytes: &[u8]| {
+        if checked {
+            let _ = vault
+                .write_bytes_checked(TARGET, bytes, None)
+                .expect("checked write");
+        } else {
+            vault.write_file(TARGET, bytes).expect("write");
+        }
+    };
+    write(&a);
     fs::write(vault.root().join("ready"), b"1").expect("ready marker");
     loop {
-        vault.write_file(TARGET, &a).expect("write a");
-        vault.write_file(TARGET, &b).expect("write b");
+        write(&a);
+        write(&b);
     }
 }
 
@@ -63,8 +73,12 @@ fn xorshift(state: &mut u64) -> u64 {
 }
 
 /// Starts a child writer under `root`, spawned from this test binary.
-fn spawn_child(root: &Path) -> Child {
-    Command::new(std::env::current_exe().expect("current test binary"))
+fn spawn_child(root: &Path, checked: bool) -> Child {
+    let mut command = Command::new(std::env::current_exe().expect("current test binary"));
+    if checked {
+        let _ = command.env("WF_CRASH_CHECKED", "1");
+    }
+    command
         .args([
             "crash_child_writer",
             "--exact",
@@ -97,9 +111,9 @@ fn wait_for_ready(root: &Path, child: &mut Child) {
 
 /// Runs one round: starts a child, waits until it is writing, kills it after a seeded
 /// 1..=40 ms, and returns the root for inspection. The root is removed on drop.
-fn kill_writer_at_seeded_moment(round: u32) -> TempDir {
+fn kill_writer_at_seeded_moment(round: u32, checked: bool) -> TempDir {
     let root = TempDir::new();
-    let mut child = spawn_child(root.path());
+    let mut child = spawn_child(root.path(), checked);
     wait_for_ready(root.path(), &mut child);
     let mut state = SEED ^ u64::from(round);
     let delay_ms = 1 + xorshift(&mut state) % 40;
@@ -137,7 +151,7 @@ fn ok<T>(result: Result<T, FsError>, what: &str) -> T {
 #[test]
 fn killed_writer_never_leaves_a_torn_file() {
     for round in 0..ROUNDS {
-        let root = kill_writer_at_seeded_moment(round);
+        let root = kill_writer_at_seeded_moment(round, false);
         let bytes =
             fs::read(root.path().join(TARGET)).expect("target exists after the first write");
         assert_whole_version(&bytes, round);
@@ -147,12 +161,24 @@ fn killed_writer_never_leaves_a_torn_file() {
     }
 }
 
+/// The checked write (temp, fsync, `.wfprev` link, rename) killed at seeded moments also
+/// leaves the old or the new version, never a partial one.
+#[test]
+fn file_write_crash_mid_rename() {
+    for round in 0..ROUNDS {
+        let root = kill_writer_at_seeded_moment(round + 500, true);
+        let bytes =
+            fs::read(root.path().join(TARGET)).expect("target exists after the first write");
+        assert_whole_version(&bytes, round + 500);
+    }
+}
+
 /// A kill may leave a `*.wftmp` sibling; listings must skip it and the target stays whole.
 /// One is planted too, so the skip is exercised even when the kill lands between writes.
 #[test]
 fn leftover_temp_file_is_not_listed_as_a_note() {
     let round = 1000;
-    let root = kill_writer_at_seeded_moment(round);
+    let root = kill_writer_at_seeded_moment(round, false);
     let planted = root
         .path()
         .join(format!("notes/target.md.1.0{TEMP_SUFFIX}"));

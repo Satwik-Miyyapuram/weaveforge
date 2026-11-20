@@ -71,6 +71,7 @@ skip = [
   { crate = "darling@0.20", reason = "derive_builder via tokenizers; build-time only" },
   { crate = "darling_core@0.20", reason = "darling 0.20, see above; build-time only" },
   { crate = "darling_macro@0.20", reason = "darling 0.20, see above; build-time only" },
+  { crate = "fallible-iterator@0.2", reason = "postgres-protocol 0.6 on 0.2; rusqlite 0.43 (wf-store) on 0.3" },
   { crate = "getrandom@0.3", reason = "tauri 2.12 on 0.3; uuid already on 0.4" },
   { crate = "hashbrown@0.12", reason = "indexmap 1 via schemars 0.8 (tauri-utils config schema)" },
   { crate = "indexmap@1", reason = "schemars 0.8 (tauri-utils config schema) still on indexmap 1" },

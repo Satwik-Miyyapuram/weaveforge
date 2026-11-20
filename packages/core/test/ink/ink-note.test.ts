@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 
 
 import { rust } from "../../src/shared/rust.js";
-import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_NOTE_MAX_PAGES, INK_NOTE_TYPE, INK_PAGE_STROKE_BUDGET, INK_SIDECAR_DIR, INK_STROKE_MAX_POINTS } from "../../src/ink/parts-2.js";
+import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_NOTE_MAX_PAGES, INK_NOTE_TYPE, INK_PAGE_STROKE_BUDGET, INK_STROKE_MAX_POINTS, LEGACY_INK_DIR } from "../../src/ink/parts-2.js";
 
 /** Chunk ids that are valid by construction (26 Crockford characters). */
 const CHUNK_A = "01JABC0DEF0GH0JK0MN0PQ0RST";
@@ -105,15 +105,31 @@ test("a note with no recognised text at all is one empty page, not zero", () => 
   assert.deepEqual(rust().splitInkTextLayer(rust().joinInkTextLayer(["", ""])), ["", ""]);
 });
 
-test("the sidecar lives under .ink/<note id>, keyed by id so a rename cannot orphan it", () => {
-  assert.equal(rust().inkSidecarDir("01JNOTE"), `${INK_SIDECAR_DIR}/01JNOTE`);
-  const path = rust().inkChunkPath("01JNOTE", CHUNK_A);
-  assert.equal(path, `.ink/01JNOTE/${CHUNK_A}.inkb`);
-  assert.deepEqual(rust().parseInkChunkPath(path), { noteId: "01JNOTE", chunkId: CHUNK_A });
-  assert.equal(rust().parseInkChunkPath(".ink/01JNOTE/not-a-chunk.inkb"), null);
-  assert.equal(rust().parseInkChunkPath("notes/01JNOTE/x.inkb"), null);
-  assert.equal(rust().parseInkChunkPath(".ink/01JNOTE/x.inkb/extra"), null);
+test("the strokes sit in a folder named after the note file, paired by name alone", () => {
+  assert.equal(rust().inkStrokesDir("p/notes/foo.ink.md"), "p/notes/foo.ink");
+  const path = rust().inkChunkPath("p/notes/foo.ink.md", CHUNK_A);
+  assert.equal(path, `p/notes/foo.ink/${CHUNK_A}.inkb`);
+  assert.deepEqual(rust().parseInkChunkPath(path), { notePath: "p/notes/foo.ink.md", chunkId: CHUNK_A });
+  assert.equal(rust().parseInkChunkPath("p/notes/foo.ink/not-a-chunk.inkb"), null);
+  assert.equal(rust().parseInkChunkPath(`p/notes/foo/${CHUNK_A}.inkb`), null);
   assert.equal(rust().parseInkChunkPath(""), null);
+});
+
+test("every markdown note has a strokes folder beside it, no .ink.md needed", () => {
+  assert.equal(rust().inkStrokesDir("p/notes/foo.note.md"), "p/notes/foo.note.ink");
+  assert.equal(rust().inkStrokesDir("p/notes/foo.paper.md"), "p/notes/foo.paper.ink");
+  assert.equal(rust().inkStrokesDir("p/notes/foo.md"), "p/notes/foo.ink");
+  const path = rust().inkChunkPath("p/notes/foo.note.md", CHUNK_A);
+  assert.equal(path, `p/notes/foo.note.ink/${CHUNK_A}.inkb`);
+  assert.deepEqual(rust().parseInkChunkPath(path), { notePath: "p/notes/foo.note.md", chunkId: CHUNK_A });
+});
+
+test("the old id-keyed folder is only the migration's source, never a note's strokes", () => {
+  assert.equal(rust().legacyInkDir("01JNOTE"), `${LEGACY_INK_DIR}/01JNOTE`);
+  assert.equal(rust().parseInkChunkPath(`.ink/01JNOTE/${CHUNK_A}.inkb`), null);
+  for (const bad of ["p/foo.txt", "p/.md", "../foo.ink.md", "/p/foo.ink.md", "p/.ink.md", ""]) {
+    assert.throws(() => rust().inkStrokesDir(bad), /unusable note path/, bad);
+  }
 });
 
 test("a path-shaped id is refused rather than woven into the folder", () => {
@@ -121,9 +137,9 @@ test("a path-shaped id is refused rather than woven into the folder", () => {
   assert.equal(rust().isInkNoteId("../escape"), false);
   assert.equal(rust().isInkNoteId("a/b"), false);
   assert.equal(rust().isInkNoteId(""), false);
-  assert.throws(() => rust().inkSidecarDir("../escape"), /unusable note id/);
-  assert.throws(() => rust().inkChunkPath("01JNOTE", "../../etc/passwd"), /unusable chunk id/);
-  assert.equal(rust().parseInkChunkPath(".ink/../escape/01JABC0DEF0GH0JK0MN0PQ0RS.inkb"), null);
+  assert.throws(() => rust().legacyInkDir("../escape"), /unusable note id/);
+  assert.throws(() => rust().inkChunkPath("p/foo.ink.md", "../../etc/passwd"), /unusable chunk id/);
+  assert.equal(rust().parseInkChunkPath(`../escape.ink/${CHUNK_A}.inkb`), null);
 });
 
 test("a chunk id is a ULID: twenty-six characters, sortable by creation", () => {

@@ -12,6 +12,6 @@
   },
   "scripts": {
     "test": "node --import tsx --test \"test/**/*.test.ts\"",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
   }
 }

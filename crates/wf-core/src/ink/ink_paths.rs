@@ -1,12 +1,25 @@
-//! Ink note sidecar paths and chunk ids. Port of the path and id half of
+//! Ink note stroke paths and chunk ids. Port of the path and id half of
 //! `packages/core/src/ink/parts-2.ts` (`isInkNoteId` to `newInkChunkId`).
+//!
+//! Every markdown note can hold ink. Its strokes live in a folder named after the
+//! note's file: `notes/foo.note.md` keeps its pages in `notes/foo.note.ink/<ulid>.inkb`,
+//! and a legacy `notes/foo.ink.md` in `notes/foo.ink/`. The pair is made by file
+//! name alone, so a note whose id changes still finds its strokes.
 
 use serde::Serialize;
 
 use crate::sync::ink_note::is_ink_chunk_id;
+use crate::workspace::safe_workspace_path;
 
-/// Top-level sidecar directory, beside the mirrored folders.
-pub const INK_SIDECAR_DIR: &str = ".ink";
+/// The old top-level `.ink/<weaveforge-id>/` folder. Read only by the one-time
+/// migration into the per-note folder; nothing finds strokes here any more.
+pub const LEGACY_INK_DIR: &str = ".ink";
+
+/// The extension of an ink note's text file.
+pub const INK_NOTE_EXT: &str = ".ink.md";
+
+/// The extension of an ink note's strokes folder.
+pub const INK_STROKES_DIR_EXT: &str = ".ink";
 
 /// Chunk file extension: one page, columnar binary, compressed.
 pub const INK_CHUNK_EXT: &str = ".inkb";
@@ -14,12 +27,12 @@ pub const INK_CHUNK_EXT: &str = ".inkb";
 /// Crockford base32 alphabet: one character per five bits.
 const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-/// The note and chunk a sidecar path names.
+/// The note and chunk a strokes path names.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InkChunkPath {
-    /// The note id, the sidecar directory name.
-    pub note_id: String,
+    /// The note's path: `foo.note.ink` names `foo.note.md`, a bare `foo.ink` names `foo.ink.md`.
+    pub note_path: String,
     /// The chunk id, the filename without its extension.
     pub chunk_id: String,
 }
@@ -33,31 +46,61 @@ pub fn is_ink_note_id(id: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
 }
 
-/// `.ink/<weaveforge-id>`, keyed by id so a rename never orphans strokes.
-///
-/// # Errors
-///
-/// Fails when `note_id` is not a safe id.
-pub fn ink_sidecar_dir(note_id: &str) -> Result<String, String> {
-    if !is_ink_note_id(note_id) {
-        return Err(unusable("note id", note_id));
-    }
-    Ok(format!("{INK_SIDECAR_DIR}/{note_id}"))
+/// Whether a folder name holds ink strokes: `foo.ink`, or the legacy `.ink`.
+#[must_use]
+pub fn is_ink_strokes_segment(segment: &str) -> bool {
+    segment.ends_with(INK_STROKES_DIR_EXT)
 }
 
-/// `.ink/<weaveforge-id>/<ulid>.inkb`, one page of one note.
+/// The folder beside a note that holds its pages: drop `.md`, then add `.ink`
+/// unless the name already ends in it. `x/foo.note.md` -> `x/foo.note.ink`,
+/// `x/foo.md` -> `x/foo.ink`, and a legacy `x/foo.ink.md` -> `x/foo.ink`.
 ///
 /// # Errors
 ///
-/// Fails when `chunk_id` is not a chunk id, or `note_id` is not a safe id.
-pub fn ink_chunk_path(note_id: &str, chunk_id: &str) -> Result<String, String> {
+/// Fails when `note_path` is not a normalized, workspace-relative `<name>.md` path.
+pub fn ink_strokes_dir(note_path: &str) -> Result<String, String> {
+    let stem = note_path.strip_suffix(".md").unwrap_or_default();
+    let name = stem.rsplit('/').next().unwrap_or_default();
+    let usable = !name.is_empty()
+        && name != INK_STROKES_DIR_EXT
+        && safe_workspace_path(note_path).as_deref() == Ok(note_path);
+    if !usable {
+        return Err(unusable("note path", note_path));
+    }
+    if stem.ends_with(INK_STROKES_DIR_EXT) {
+        Ok(stem.to_owned())
+    } else {
+        Ok(format!("{stem}{INK_STROKES_DIR_EXT}"))
+    }
+}
+
+/// `x/foo.ink/<ulid>.inkb`, one page of one note.
+///
+/// # Errors
+///
+/// Fails when `chunk_id` is not a chunk id, or `note_path` is not an ink note path.
+pub fn ink_chunk_path(note_path: &str, chunk_id: &str) -> Result<String, String> {
     if !is_ink_chunk_id(chunk_id) {
         return Err(unusable("chunk id", chunk_id));
     }
     Ok(format!(
         "{}/{chunk_id}{INK_CHUNK_EXT}",
-        ink_sidecar_dir(note_id)?
+        ink_strokes_dir(note_path)?
     ))
+}
+
+/// `.ink/<weaveforge-id>`: where strokes lived before they moved beside their note.
+/// Only the one-time migration reads it.
+///
+/// # Errors
+///
+/// Fails when `note_id` is not a safe id.
+pub fn legacy_ink_dir(note_id: &str) -> Result<String, String> {
+    if !is_ink_note_id(note_id) {
+        return Err(unusable("note id", note_id));
+    }
+    Ok(format!("{LEGACY_INK_DIR}/{note_id}"))
 }
 
 fn unusable(what: &str, id: &str) -> String {
@@ -66,19 +109,30 @@ fn unusable(what: &str, id: &str) -> String {
     format!("ink: unusable {what} {quoted}")
 }
 
-/// The note and chunk a sidecar path names, or `None` for anything else.
+/// The note and chunk a strokes path names, or `None` for anything else,
+/// including a page in the legacy `.ink/<id>/` folder.
 ///
 /// Leading slashes are ignored, as the TypeScript does.
 #[must_use]
 pub fn parse_ink_chunk_path(path: &str) -> Option<InkChunkPath> {
-    let rest = path.trim_start_matches('/').strip_prefix(".ink/")?;
-    let (note_id, file) = rest.split_once('/')?;
+    let (dir, file) = path.trim_start_matches('/').rsplit_once('/')?;
     let chunk_id = file.strip_suffix(INK_CHUNK_EXT)?;
-    if chunk_id.contains('/') || !is_ink_note_id(note_id) || !is_ink_chunk_id(chunk_id) {
+    if !is_ink_chunk_id(chunk_id) {
+        return None;
+    }
+    // `foo.note.ink` belongs to `foo.note.md`; a bare `foo.ink` to the legacy
+    // `foo.ink.md` (a plain `foo.md` shares that folder, so the name is ambiguous).
+    let stem = dir.strip_suffix(INK_STROKES_DIR_EXT)?;
+    let note_path = if stem.rsplit('/').next().is_some_and(|n| n.contains('.')) {
+        format!("{stem}.md")
+    } else {
+        format!("{dir}.md")
+    };
+    if ink_strokes_dir(&note_path).ok()? != dir {
         return None;
     }
     Some(InkChunkPath {
-        note_id: note_id.to_owned(),
+        note_path,
         chunk_id: chunk_id.to_owned(),
     })
 }
@@ -193,29 +247,102 @@ pub fn new_ink_chunk_id(now_ms: f64, random_bytes: &[u8]) -> Result<String, Stri
 mod tests {
     use super::{
         InkChunkBlobSpec, InkChunkPath, ink_chunk_blob_key, ink_chunk_blob_spec,
-        ink_chunk_ids_in_listing, ink_chunk_path, ink_sidecar_dir, is_ink_note_id,
-        new_ink_chunk_id, parse_ink_chunk_path,
+        ink_chunk_ids_in_listing, ink_chunk_path, ink_strokes_dir, is_ink_note_id,
+        is_ink_strokes_segment, legacy_ink_dir, new_ink_chunk_id, parse_ink_chunk_path,
     };
     use crate::sync::ink_note::is_ink_chunk_id;
 
     const CHUNK_A: &str = "01JABC0DEF0GH0JK0MN0PQ0RST";
 
     #[test]
-    fn sidecar_lives_under_dot_ink_keyed_by_id() {
-        assert_eq!(ink_sidecar_dir("01JNOTE"), Ok(".ink/01JNOTE".to_owned()));
-        let path = ink_chunk_path("01JNOTE", CHUNK_A).unwrap_or_default();
-        assert_eq!(path, format!(".ink/01JNOTE/{CHUNK_A}.inkb"));
+    fn strokes_sit_in_a_folder_named_after_the_note_file() {
+        assert_eq!(
+            ink_strokes_dir("p/notes/foo.ink.md"),
+            Ok("p/notes/foo.ink".to_owned())
+        );
+        let path = ink_chunk_path("p/notes/foo.ink.md", CHUNK_A).unwrap_or_default();
+        assert_eq!(path, format!("p/notes/foo.ink/{CHUNK_A}.inkb"));
         assert_eq!(
             parse_ink_chunk_path(&path),
             Some(InkChunkPath {
-                note_id: "01JNOTE".to_owned(),
+                note_path: "p/notes/foo.ink.md".to_owned(),
                 chunk_id: CHUNK_A.to_owned(),
             })
         );
-        assert_eq!(parse_ink_chunk_path(".ink/01JNOTE/not-a-chunk.inkb"), None);
-        assert_eq!(parse_ink_chunk_path("notes/01JNOTE/x.inkb"), None);
-        assert_eq!(parse_ink_chunk_path(".ink/01JNOTE/x.inkb/extra"), None);
+        assert_eq!(parse_ink_chunk_path("notes/foo.ink/not-a-chunk.inkb"), None);
+        assert_eq!(
+            parse_ink_chunk_path(&format!("notes/foo/{CHUNK_A}.inkb")),
+            None
+        );
+        assert_eq!(
+            parse_ink_chunk_path(&format!("notes/foo.ink/x/{CHUNK_A}.inkb")),
+            None
+        );
         assert_eq!(parse_ink_chunk_path(""), None);
+    }
+
+    #[test]
+    fn every_markdown_note_has_a_strokes_folder_beside_it() {
+        for (note, dir) in [
+            ("notes/foo.note.md", "notes/foo.note.ink"),
+            ("notes/foo.paper.md", "notes/foo.paper.ink"),
+            ("notes/foo.md", "notes/foo.ink"),
+            ("foo.md", "foo.ink"),
+            ("notes/foo.v2.note.md", "notes/foo.v2.note.ink"),
+            // A legacy ink note keeps the folder it always had.
+            ("notes/foo.ink.md", "notes/foo.ink"),
+        ] {
+            assert_eq!(ink_strokes_dir(note), Ok(dir.to_owned()), "{note}");
+        }
+        let path = ink_chunk_path("p/foo.note.md", CHUNK_A).unwrap_or_default();
+        assert_eq!(path, format!("p/foo.note.ink/{CHUNK_A}.inkb"));
+        assert_eq!(
+            parse_ink_chunk_path(&path),
+            Some(InkChunkPath {
+                note_path: "p/foo.note.md".to_owned(),
+                chunk_id: CHUNK_A.to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn the_old_id_keyed_folder_is_not_a_strokes_folder() {
+        // `.ink/<id>/` is read only by the one-time migration, never as a note's strokes.
+        assert_eq!(
+            parse_ink_chunk_path(&format!(".ink/01JNOTE/{CHUNK_A}.inkb")),
+            None
+        );
+        assert_eq!(parse_ink_chunk_path(&format!(".ink/{CHUNK_A}.inkb")), None);
+        assert_eq!(legacy_ink_dir("01JNOTE"), Ok(".ink/01JNOTE".to_owned()));
+    }
+
+    #[test]
+    fn only_a_safe_markdown_note_path_names_a_strokes_folder() {
+        for bad in [
+            "p/foo.txt",
+            "p/foo.ink",
+            "p/.md",
+            "../foo.md",
+            "../foo.ink.md",
+            "/p/foo.ink.md",
+            "p/.ink.md",
+            "",
+            "C:/foo.ink.md",
+            "p//foo.ink.md",
+        ] {
+            assert!(
+                matches!(ink_strokes_dir(bad), Err(e) if e.contains("unusable note path")),
+                "{bad}"
+            );
+        }
+        assert_eq!(
+            parse_ink_chunk_path(&format!("../x.ink/{CHUNK_A}.inkb")),
+            None
+        );
+        assert_eq!(
+            parse_ink_chunk_path(&format!("p/.ink/{CHUNK_A}.inkb")),
+            None
+        );
     }
 
     #[test]
@@ -227,17 +354,22 @@ mod tests {
         assert!(is_ink_note_id(&"a".repeat(64)));
         assert!(!is_ink_note_id(&"a".repeat(65)));
         assert!(matches!(
-            ink_sidecar_dir("../escape"),
+            legacy_ink_dir("../escape"),
             Err(e) if e.contains("unusable note id")
         ));
         assert!(matches!(
-            ink_chunk_path("01JNOTE", "../../etc/passwd"),
+            ink_chunk_path("p/foo.ink.md", "../../etc/passwd"),
             Err(e) if e.contains("unusable chunk id")
         ));
-        assert_eq!(
-            parse_ink_chunk_path(".ink/../escape/01JABC0DEF0GH0JK0MN0PQ0RS.inkb"),
-            None
-        );
+    }
+
+    #[test]
+    fn a_folder_segment_ending_in_dot_ink_holds_strokes() {
+        assert!(is_ink_strokes_segment("foo.ink"));
+        assert!(is_ink_strokes_segment(".ink"));
+        assert!(!is_ink_strokes_segment("foo.ink.md"));
+        assert!(!is_ink_strokes_segment("ink"));
+        assert!(!is_ink_strokes_segment("foo.inkb"));
     }
 
     #[test]
@@ -314,15 +446,15 @@ mod tests {
         );
     }
 
-    // it: "the folder store writes under .ink/<note>/ and lists only chunks"
+    // it: "the folder store writes under <note>.ink/ and lists only chunks"
     #[test]
     fn a_listing_keeps_only_chunk_files_and_sorts_them() {
         let later = "01JABC0DEF0GH0JK0MN0PQ0RSZ";
         let paths = vec![
-            format!(".ink/01JNOTE/{later}.inkb"),
-            ".ink/01JNOTE/thumb.png".to_owned(),
-            format!(".ink/01JNOTE/{CHUNK_A}.inkb"),
-            ".ink/01JNOTE/notes.inkb".to_owned(),
+            format!("notes/a.ink/{later}.inkb"),
+            "notes/a.ink/thumb.png".to_owned(),
+            format!("notes/a.ink/{CHUNK_A}.inkb"),
+            "notes/a.ink/notes.inkb".to_owned(),
         ];
         assert_eq!(
             ink_chunk_ids_in_listing(&paths),

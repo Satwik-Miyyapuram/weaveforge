@@ -19,6 +19,8 @@
 import { useCallback, useRef, useState } from "react";
 
 import { InkGesture, StrokeEdgeSplit } from "../application/parts-1";
+import { readInkTuning } from "../application/ink-tuning";
+import { setWetLayerAbove } from "../application/wet-layer";
 import {
   claimPointer,
   ERASER_CURSOR,
@@ -27,8 +29,10 @@ import {
   releasePointer,
   type TouchPoint,
 } from "./ink-page-pointer";
+import { joinPoint } from "./ink-edge-join";
 import type { InkPageProps } from "./ink-page-props";
 import { inkSheetRuleStyle } from "./ink-sheet-underlay";
+import { cachedRect } from "./rect-cache";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
 export type { InkPageProps } from "./ink-page-props";
@@ -246,6 +250,8 @@ export function InkPage({
 
   /** The stroke against the live sheet's top and bottom; shared with the reader. */
   const edge = useRef(new StrokeEdgeSplit());
+  /** Where the last stroke left its sheet, so the next page's stroke starts there. */
+  const exitAt = useRef<{ x: number; y: number } | null>(null);
 
   /** The same pointer event moved to `at`. */
   const atPoint = (
@@ -329,6 +335,8 @@ export function InkPage({
         inkGesture.current.up(event.pointerId);
         return;
       }
+      // The canvas's parent is its dock: raised over the sheet for the stroke.
+      setWetLayerAbove(event.currentTarget.parentElement, true, readInkTuning().wetLayerAboveSvg);
       penHandlers.onPointerDown(event);
     },
     [
@@ -419,10 +427,11 @@ export function InkPage({
       // where the pen crosses onto it. Sideways the paper is open: the writing
       // margin is part of the sheet.
       if (route === "draw" && ensurePage && (penActive?.() || edge.current.outside)) {
-        const box = sheetRef.current?.getBoundingClientRect();
+        const box = sheetRef.current ? cachedRect(sheetRef.current) : undefined;
         const area = box ? { left: -Infinity, right: Infinity, top: box.top, bottom: box.bottom } : null;
         const step = edge.current.move({ x: event.clientX, y: event.clientY }, area);
         if (step.kind === "exit") {
+          exitAt.current = step.at;
           penHandlers.onPointerUp(atPoint(event, step.at));
           ensurePage(event.clientX, event.clientY);
           return;
@@ -432,12 +441,22 @@ export function InkPage({
           return;
         }
         if (step.kind === "enter") {
+          // Pages that abut: the stroke picks up exactly where it left the old
+          // sheet, and this move's samples are on the new page, so they draw.
+          const joined = box ? joinPoint(exitAt.current, box) : null;
+          exitAt.current = null;
+          if (joined) {
+            penHandlers.onPointerDown(atPoint(event, joined));
+            penHandlers.onPointerMove(event);
+            return;
+          }
           // Not forwarded as a move: its coalesced samples lie in the gap.
           penHandlers.onPointerDown(atPoint(event, step.at));
           return;
         }
       } else {
         edge.current.begin({ x: event.clientX, y: event.clientY });
+        exitAt.current = null;
       }
       penHandlers.onPointerMove(event);
     },
@@ -461,6 +480,7 @@ export function InkPage({
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       const route = inkGesture.current.up(event.pointerId);
       edge.current.end();
+      setWetLayerAbove(event.currentTarget.parentElement, false, true);
       if (event.pointerType === "touch" && touchUp(event)) return;
       if (figureTap.current) {
         figureTap.current = false;
@@ -506,7 +526,12 @@ export function InkPage({
         return;
       }
       if (cursorMode) return;
-      penHandlers.onPointerUp(event);
+      // A palm or touch cancel discards what was drawn; a pen cancel is a lift that keeps it.
+      if (event.type === "pointercancel" && event.pointerType !== "pen") {
+        penHandlers.onPointerCancel(event);
+      } else {
+        penHandlers.onPointerUp(event);
+      }
     },
     [cursorMode, onFigureDrop, onLasso, onMoveSelection, penHandlers, project, publishLasso, tool, touchUp],
   );

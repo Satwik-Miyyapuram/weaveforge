@@ -34,6 +34,9 @@ pub struct MirrorResult {
     pub held_back: Vec<String>,
     /// Note bases, in write order.
     pub bases: Vec<(String, VaultPageBase)>,
+    /// Digest of the DB content of every file in the snapshot, by path. The caller keeps it as the
+    /// next run's `seen`: the only record of what this process has already seen in the DB.
+    pub served: Vec<(String, String)>,
 }
 
 /// Fetches a blob for an asset by its storage path.
@@ -43,8 +46,10 @@ pub type FetchAsset<'a> = &'a mut dyn FnMut(&str) -> Option<Vec<u8>>;
 pub struct MirrorOptions<'a> {
     /// The project this snapshot belongs to; every path is written inside its folder.
     pub project: &'a WorkspaceProject,
-    /// Paths written by the previous run, so departures can be detected.
-    pub previous_paths: &'a [String],
+    /// What this process saw in the DB at the previous mirror: path -> digest of that content.
+    /// `None` on the first mirror after start and after any DB replace or import. An existing
+    /// file is rewritten only when its item changed since this record (a same-session in-app edit).
+    pub seen: Option<&'a HashMap<String, String>>,
     /// The digest of each path the last run wrote; tells a reader's edit from a difference.
     pub base: Option<&'a HashMap<String, String>>,
     /// Fetches a blob for an asset the folder references.
@@ -66,6 +71,7 @@ pub fn mirror_workspace<F: WorkspaceFs + ?Sized>(
     let mut run = Run {
         fs,
         base: options.base,
+        seen: options.seen,
         result: MirrorResult::default(),
         held: HashSet::new(),
     };
@@ -75,18 +81,7 @@ pub fn mirror_workspace<F: WorkspaceFs + ?Sized>(
     if let Some(fetch) = options.fetch_asset.as_deref_mut() {
         run.mirror_assets(&serialized.assets, fetch)?;
     }
-    let present: HashSet<&str> = serialized
-        .files
-        .iter()
-        .map(|(path, _)| path.as_str())
-        .chain(
-            serialized
-                .assets
-                .iter()
-                .map(|asset| asset.folder_path.as_str()),
-        )
-        .collect();
-    run.remove_departed(options.previous_paths, &present);
+    // Sync never deletes: a file the snapshot no longer holds stays where it is.
     Ok(run.result)
 }
 
@@ -444,9 +439,8 @@ mod manifest_tests {
 
 /// What [`mirror_workspace`] would do, without touching a folder: the caller has read
 /// the folder's text into `disk` (path -> text; a missing key is a missing file) for every
-/// path in `files`, and for every previous path that is not present but has a `base`
-/// entry. Assets are not fetched or written; their folder paths only count as present,
-/// so they are never removed. `written` and `removed` are the writes and removals to apply.
+/// path in `files`. `seen` is the in-session record from the previous mirror (see
+/// [`MirrorOptions::seen`]). `written` are the writes to apply; nothing is removed.
 ///
 /// # Errors
 ///
@@ -454,8 +448,7 @@ mod manifest_tests {
 /// mirror steps unchanged.
 pub fn plan_mirror(
     files: &[(String, String)],
-    asset_paths: &[String],
-    previous_paths: &[String],
+    seen: Option<&HashMap<String, String>>,
     base: Option<&HashMap<String, String>>,
     disk: &HashMap<String, String>,
 ) -> Result<MirrorResult, FsError> {
@@ -463,18 +456,13 @@ pub fn plan_mirror(
     let mut run = Run {
         fs: &mut fs,
         base,
+        seen,
         result: MirrorResult::default(),
         held: HashSet::new(),
     };
     for (path, content) in files {
         run.mirror_file(path, content)?;
     }
-    let present: HashSet<&str> = files
-        .iter()
-        .map(|(path, _)| path.as_str())
-        .chain(asset_paths.iter().map(String::as_str))
-        .collect();
-    run.remove_departed(previous_paths, &present);
     Ok(run.result)
 }
 
@@ -528,20 +516,40 @@ impl WorkspaceFs for PlanFs<'_> {
 struct Run<'a, F: ?Sized> {
     fs: &'a mut F,
     base: Option<&'a HashMap<String, String>>,
+    seen: Option<&'a HashMap<String, String>>,
     result: MirrorResult,
     held: HashSet<String>,
 }
 
 impl<F: WorkspaceFs + ?Sized> Run<'_, F> {
     fn mirror_file(&mut self, path: &str, content: &str) -> Result<(), FsError> {
-        upsert(&mut self.result.mirrored, path, digest_text(content));
+        let db_digest = digest_text(content);
+        upsert(&mut self.result.mirrored, path, db_digest.clone());
+        upsert(&mut self.result.served, path, db_digest.clone());
         if let Some(note_base) = vault_page_base(path, content) {
             upsert(&mut self.result.bases, path, note_base);
         }
-        // One read answers both "is it there" and "what does it say"; an error is missing.
-        if let Ok(current) = self.fs.read_text(path) {
+        // One read answers both "is it there" and "what does it say". A file that exists but
+        // cannot be read is skipped: we never overwrite what we cannot see.
+        let current = match self.fs.read_text(path) {
+            Ok(text) => Some(text),
+            Err(_) if self.fs.stat(path).is_some() => {
+                self.keep_base(path);
+                self.result.unchanged += 1;
+                return Ok(());
+            }
+            Err(_) => None,
+        };
+        if let Some(current) = current {
             if current == content || unstamped(path, &current) == unstamped(path, content) {
                 upsert(&mut self.result.mirrored, path, digest_text(&current));
+                self.result.unchanged += 1;
+                return Ok(());
+            }
+            // An existing file is rewritten only for an item this process saw in the DB and that
+            // changed since (a same-session in-app edit). Anything else on disk is kept as it is.
+            if !self.changed_in_session(path, &db_digest) {
+                self.keep_base(path);
                 self.result.unchanged += 1;
                 return Ok(());
             }
@@ -586,26 +594,27 @@ impl<F: WorkspaceFs + ?Sized> Run<'_, F> {
         Ok(())
     }
 
-    fn remove_departed(&mut self, previous: &[String], present: &HashSet<&str>) {
-        for path in previous {
-            if present.contains(path.as_str()) {
-                continue;
-            }
-            // A reader's edit outlives the entity it came from.
-            if self.edited_since_base(path, "", None) {
-                self.hold(path);
-                continue;
-            }
-            // Best-effort: a file already gone is the outcome asked for.
-            let _ = self.fs.remove(path, false);
-            self.result.removed.push(path.clone());
-        }
+    /// Whether this process saw `path` in the DB at the previous mirror and the item has changed since.
+    fn changed_in_session(&self, path: &str, db_digest: &str) -> bool {
+        self.seen
+            .and_then(|seen| seen.get(path))
+            .is_some_and(|prior| prior != db_digest)
     }
 
     /// Whether the folder's copy of `path` changed since the base digest was recorded.
+    /// Leaves an existing file alone and keeps its recorded base. The base must stay the text the
+    /// mirror last wrote, so a reader's edit is still seen as an edit on a later run.
+    fn keep_base(&mut self, path: &str) {
+        if let Some(recorded) = self.base.and_then(|base| base.get(path)) {
+            upsert(&mut self.result.mirrored, path, recorded.clone());
+        }
+    }
+
+    /// No base entry means the mirror cannot prove the copy is untouched, so it counts as edited:
+    /// the file is held, never overwritten.
     fn edited_since_base(&self, path: &str, content: &str, known: Option<&str>) -> bool {
         let Some(recorded) = self.base.and_then(|base| base.get(path)) else {
-            return false;
+            return true;
         };
         let on_disk = match known {
             Some(text) => text.to_owned(),

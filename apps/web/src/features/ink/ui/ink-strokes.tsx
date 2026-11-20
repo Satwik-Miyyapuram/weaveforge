@@ -22,7 +22,43 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
-import { readyCore } from "@/lib/rust-core";
+import { freehandPathFromFlat } from "../render/freehand-stroke";
+import { freedrawShapeKey, type FreedrawShape } from "../render/excalidraw-freedraw";
+import { useInkTuning } from "../application/ink-tuning";
+
+const settledPaths = new WeakMap<
+  readonly number[],
+  Map<string, { pressures: readonly number[] | undefined; d: string | null }>
+>();
+
+/**
+ * The path a settled stroke is drawn with: the perfect-freehand outline (filled),
+ * drawn with the stroke's `pressures` (0-255) when it has them and `shape`'s
+ * knobs (the ink tuning; undefined is the defaults). Exported so the
+ * choice is one function, tested on its own.
+ *
+ * Built once per points array, width and shape: a stroke's arrays are
+ * replaced, never edited, when it changes, so a rerender (a selection, a theme
+ * change) reuses the path.
+ */
+export function settledStrokePath(
+  points: readonly number[],
+  width: number,
+  pressures?: readonly number[],
+  shape?: FreedrawShape,
+): string | null {
+  let byKey = settledPaths.get(points);
+  if (!byKey) {
+    byKey = new Map();
+    settledPaths.set(points, byKey);
+  }
+  const key = `${width}|${freedrawShapeKey(shape)}`;
+  const cached = byKey.get(key);
+  if (cached && cached.pressures === pressures) return cached.d;
+  const d = freehandPathFromFlat(points, width, pressures, shape);
+  byKey.set(key, { pressures, d });
+  return d;
+}
 
 /** One stroke, ready to draw: geometry in the caller's space, colour resolved. */
 export interface InkRenderStroke {
@@ -32,6 +68,8 @@ export interface InkRenderStroke {
   points: readonly number[];
   /** Nib width, in the same space as `points`. */
   width: number;
+  /** Pressure per point, 0-255, when the stroke has it (the freehand outline uses it). */
+  pressures?: readonly number[];
   /** A resolved CSS colour. An ink note resolves its token through the palette. */
   colour: string;
   /** Wide and translucent, drawn over the pen — the tool, not the width. */
@@ -86,45 +124,35 @@ export function InkStrokes({
   selectedIds,
   haloGrow = 0,
 }: InkStrokesProps) {
+  // The tuning's stroke-shape knobs (dev panel); the server snapshot is the defaults.
+  const tuning = useInkTuning();
   if (strokes.length === 0) return null;
   const selected = new Set(selectedIds ?? []);
 
   const draw = (stroke: InkRenderStroke, key: string) => {
-    const d = readyCore().strokePath(stroke.points);
+    const d = settledStrokePath(stroke.points, stroke.width, stroke.pressures, tuning);
     if (!d) return null;
     const styled = stroke.highlighter && Boolean(highlighterClassName);
     const held = stroke.id != null && selected.has(stroke.id) && haloGrow > 0;
+    // The outline is a filled shape; the caller's colour and the highlighter rules are the same.
     const path = (
       <path
         key={key}
         d={d}
         className={styled ? highlighterClassName : undefined}
-        stroke={stroke.colour}
-        strokeWidth={stroke.width}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-        // A highlighter is the same centreline at its own width, tinted: the
-        // model holds no alpha, and one is not needed. A surface that styles
-        // its own highlighters says so with `highlighterClassName`, and then
-        // its class carries the whole look — alpha here as well would dim it
-        // twice.
-        strokeOpacity={stroke.highlighter && !styled ? HIGHLIGHTER_ALPHA : undefined}
+        fill={stroke.colour}
+        stroke="none"
+        fillOpacity={stroke.highlighter && !styled ? HIGHLIGHTER_ALPHA : undefined}
       />
     );
     if (!held) return path;
     // The halo goes under its stroke, wider by `haloGrow` either side: the same
-    // shape as the sheet's lasso selection, and the same shape as the stroke, so
-    // it reads as "this line" rather than as a frame around a place.
+    // shape as the stroke, so it reads as "this line" rather than as a frame.
     return (
       <g key={key}>
         <path
-          className="ink-stroke-halo"
-          d={d}
-          strokeWidth={stroke.width + haloGrow * 2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
+          className="ink-stroke-halo ink-stroke-halo--fill"
+          d={settledStrokePath(stroke.points, stroke.width + haloGrow * 2, stroke.pressures, tuning) ?? undefined}
         />
         {path}
       </g>

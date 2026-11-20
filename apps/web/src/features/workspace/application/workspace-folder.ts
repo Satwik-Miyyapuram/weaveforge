@@ -1,4 +1,4 @@
-import { NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type MirrorResult, type WorkspaceCommit } from "@weaveforge/core";
+import { NoOpWorkspaceGit, type IWorkspaceFs, type IWorkspaceGit, type WorkspaceCommit } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { downloadLibraryPdfsOnce } from "@/features/reader/application/parts-1";
 import { desktop, type DesktopVaultRoot } from "@/lib/desktop/desktop-bridge";
@@ -41,13 +41,16 @@ import {
   jsonEditSince,
   onNoteClosed,
   readMirrorBase,
+  renamedFromPaths,
   renamedPaths,
   splitOutsideEdits,
   writeMirrorManifest,
 } from "./parts-3";
 import { activeProject, activeProjectOrNull, isNoActiveProject, watchForLoss } from "./parts";
 import { mirrorWorkspace } from "./parts-2";
+import { recordSessionSeen, sessionGeneration, sessionSeen } from "./folder-session-seen";
 import type { FolderPreview } from "./workspace-folder-preview";
+import type { SyncOutcome } from "./workspace-folder-sync-report";
 
 /**
  * The workspace folder as the app uses it.
@@ -276,22 +279,7 @@ export function closeFolder(): void {
   clearPendingAssets();
 }
 
-export interface SyncOutcome {
-  mirror: MirrorResult;
-  commit: WorkspaceCommit | null;
-  /** Why no commit was made, when git refused or failed. */
-  commitError?: string;
-}
-
-/** One line for the panel; a failed commit is said, not read as "up to date" (wf-core `workspace::sync_report`). */
-export function describeSync({ mirror, commit, commitError }: SyncOutcome): string {
-  return readyCore().describeSync({
-    written: mirror.written.length,
-    removed: mirror.removed.length,
-    commitMessage: commit?.message ?? null,
-    commitError: commitError ?? null,
-  });
-}
+export { describeSync, type SyncOutcome } from "./workspace-folder-sync-report";
 
 /**
  * Write the workspace to the folder, then commit if versioning is on.
@@ -345,6 +333,8 @@ export async function applyReviewedImport(
 }
 
 async function runSyncToFolder(): Promise<SyncOutcome> {
+  // Read before the first await: a DB replace at any point during this run makes it stale.
+  const startedAt = sessionGeneration();
   if (!activeFs) throw new Error("No folder is connected.");
   if (folderWriteBlockedByLostDb(await desktop()?.localDbState())) throw new Error(LOST_DB_SYNC_MESSAGE);
   const fs = activeFs;
@@ -354,11 +344,9 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   const core = await loadCore();
   const projectRoot = core.projectDir(project);
   const snapshot = await container.workspace.snapshot();
-  // This project's manifest, and only this project's: the paths in it are the
-  // files the removal pass below is allowed to touch.
+  // This project's manifest, and only this project's: the paths last synced. Sync never removes.
   const base = await readMirrorBase(fs, projectRoot);
   const previousPaths = Object.keys(base);
-
   // The synced tables, one file each. A failed read throws here, before anything is
   // written, so a table file is never removed just because the server did not answer.
   // Stable: two passes must agree, so a write during the read cannot mix two moments.
@@ -368,7 +356,7 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
 
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
     project,
-    previousPaths,
+    seen: sessionSeen(project.id), // rewrite an existing file only if changed this session
     extraFiles: tableFiles,
     // The digests, not only the paths: a file whose content has moved on since
     // the app wrote it is the reader's, and the mirror must not write over it
@@ -380,6 +368,7 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
       return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
     },
   });
+  recordSessionSeen(project.id, mirror.served, startedAt);
   await writeMirrorManifest(
     fs,
     projectRoot,
@@ -625,6 +614,7 @@ function scheduleAutoApply(): void {
         expected: seenDigests(diff),
         stored: diff.stored,
         renamed: renamedPaths(diff),
+        renamedFrom: renamedFromPaths(diff),
       });
             // A note written in the app since the preview was left alone; the next look sees both sides moved.
             if (result.moved.length > 0) {

@@ -6,6 +6,8 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
+import fc from "fast-check";
+
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 import { BrowserWorkspaceFs } from "../infrastructure/parts";
@@ -28,12 +30,27 @@ class FakeFile {
       text: async () => new TextDecoder().decode(bytes),
     };
   }
+  /** Set to make the next write fail this way (a full disk, say). */
+  failWrite: DOMException | null = null;
+  aborted = 0;
+  /** Like the browser: writes go to a swap file that only `close` makes real. */
   async createWritable() {
+    let staged: Uint8Array | null = null;
     return {
       write: async (data: string | Uint8Array) => {
-        this.bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+        const failure = this.failWrite;
+        this.failWrite = null;
+        staged = new Uint8Array(0);
+        if (failure) throw failure;
+        staged = typeof data === "string" ? new TextEncoder().encode(data) : data;
       },
-      close: async () => undefined,
+      close: async () => {
+        if (staged) this.bytes = staged;
+      },
+      abort: async () => {
+        this.aborted++;
+        staged = null;
+      },
     };
   }
 }
@@ -105,9 +122,61 @@ test("a rename whose delete fails says so rather than leaving two copies quietly
   await assert.rejects(() => fs.rename("old.md", "new.md"));
 });
 
+test("a write the disk refuses keeps the old bytes and reaches the caller (opfs_quota_exceeded)", async () => {
+  const { root, fs } = workspace();
+  await fs.writeFile("a.md", "old body");
+  const file = root.children.get("a.md") as FakeFile;
+  file.failWrite = new DOMException("Quota exceeded.", "QuotaExceededError");
+  await assert.rejects(() => fs.writeFile("a.md", "new body"), { name: "QuotaExceededError" });
+  assert.equal(await fs.readText("a.md"), "old body");
+  assert.equal(file.aborted, 1);
+});
+
+// A file changed since the caller read it is refused and left alone, as the desktop
+// adapter refuses (the shell's checked write). Without this, note and milestone saves
+// overwrite an external edit.
+test("writeTextIf writes only while the file still reads as the caller last saw it", async () => {
+  const { fs } = workspace();
+  await fs.writeFile("notes/a.md", "read");
+  assert.equal(await fs.writeTextIf("notes/a.md", "app", "edited outside"), false);
+  assert.equal(await fs.readText("notes/a.md"), "read");
+  assert.equal(await fs.writeTextIf("notes/a.md", "app", "read"), true);
+  assert.equal(await fs.readText("notes/a.md"), "app");
+});
+
+test("writeTextIf with expected null writes only while the file is still missing", async () => {
+  const { fs } = workspace();
+  await fs.writeFile("notes/a.md", "someone else's");
+  assert.equal(await fs.writeTextIf("notes/a.md", "app", null), false);
+  assert.equal(await fs.readText("notes/a.md"), "someone else's");
+  assert.equal(await fs.writeTextIf("notes/new.md", "app", null), true);
+  assert.equal(await fs.readText("notes/new.md"), "app");
+});
+
 test("recursive remove still clears a folder", async () => {
   const { fs } = workspace();
   await fs.writeFile("project/notes/a.md", "x");
   await fs.remove("project", { recursive: true });
   assert.equal(await fs.stat("project/notes/a.md"), null);
+});
+
+test("law: the last write to each path is what a read returns", async () => {
+  const segment = fc.constantFrom("a", "b", "notes", "x.md");
+  const path = fc.array(segment, { minLength: 1, maxLength: 3 }).map((parts) => parts.join("/"));
+  await fc.assert(
+    fc.asyncProperty(fc.array(fc.tuple(path, fc.uint8Array({ maxLength: 64 })), { maxLength: 20 }), async (writes) => {
+      const { fs } = workspace();
+      const last = new Map<string, Uint8Array>();
+      for (const [at, bytes] of writes) {
+        // A path that is already a folder, or under a file, is refused; skip those.
+        try {
+          await fs.writeFile(at, bytes);
+          last.set(at, bytes);
+        } catch {
+          continue;
+        }
+      }
+      for (const [at, bytes] of last) assert.deepEqual([...(await fs.readFile(at))], [...bytes]);
+    }),
+  );
 });

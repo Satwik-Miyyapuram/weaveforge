@@ -98,6 +98,39 @@ KEEP decision, not a gap.
   `rust().webdavSupports` and `rust().trimmedOrNone`. The fetch and the
   URL builders (`resolveUrl`, `buildProxiedUrl`) stay in TS and are injected.
 
+## Annotation files (files-first)
+
+A paper's reader annotations are one JSON file next to its PDF, named after it by the
+existing sidecar rule (`x.pdf` -> `x.annotations.json`, `folder_layout::annotations_path`):
+an array of rows sorted by id. No new file name is keyed by id.
+
+- Rust: `crates/wf-core/src/reader/annotations_file.rs`. `parse_annotations`,
+  `render_annotations`, `annotations_file_path` and `merge_annotations(base, local, disk)`
+  (per-row three-way merge; a conflict keeps the disk value and is reported).
+- wasm: `parseAnnotationsFile`, `renderAnnotationsFile`, `annotationsFilePath`
+  (`crates/wf-wasm/src/paper_files.rs`).
+- TS: `FileReaderAnnotationRepository`
+  (`apps/web/src/features/reader/infrastructure/file-annotation-repository.ts`)
+  implements `IReaderAnnotationSource` and `IReaderAnnotationSink`. Each change reads
+  the file, applies itself to what is there and writes only if the file is unchanged
+  (`writeTextIf`); otherwise it reads again and re-applies, up to 5 times.
+
+### Laws
+
+| Law | Test |
+| --- | --- |
+| `parse(render(rows))` is `rows` sorted by id; render is stable | `law_render_parse_round_trip` (`crates/wf-core/tests/reader_files.rs`) |
+| `merge(b, x, x) == x` | `law_merge_same_sides` |
+| `merge(b, b, r) == r` and `merge(b, l, b) == l`, with no conflicts | `law_merge_one_side_unchanged` |
+| A row new on either side is never lost by a merge | `law_merge_keeps_new_rows` |
+| `list(create(d))` contains the new annotation | TS fast-check "law: list(create(d)) contains the new annotation" (`apps/web/src/features/reader/test/file-annotation-repository.test.ts`) |
+| An annotation written outside the app between a read and a write is never lost | TS fast-check "law: an annotation written outside the app …" |
+| When two annotations files hold one id, `update` and `remove` change neither file; the error names both | TS "an id in two annotations files: update and remove are refused, neither file changes" |
+| A write happens only if the file is still what was read; a workspace without `writeTextIf` is refused, never written blind | TS "without a conditional write the repository refuses to write" |
+| `remove(id)` drops only that row; the file and every other row stay | TS "remove deletes the row and keeps the others" |
+| A row edited on one side and removed on the other is kept by the merge | `edit_beats_delete_and_conflict_keeps_disk` |
+| The annotations file is the PDF's sidecar by name | `file_path_is_the_pdf_sidecar` |
+
 ## Related
 
 - [Overleaf core](overleaf.md) for the other module with network I/O kept in TS.

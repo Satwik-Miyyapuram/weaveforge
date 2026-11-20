@@ -3,8 +3,6 @@
 //! Ported from `packages/core/src/workspace/parts.ts` and `git-gate.ts`; the
 //! TypeScript stays the reference until the port lands. `describe_changes` is in wf-core.
 
-use wf_core::workspace::WORKSPACE_META_DIR;
-
 /// Largest file folder history takes; bigger files are skipped and reported.
 pub const MAX_FILE_BYTES: u64 = 25 * 1024 * 1024;
 
@@ -27,7 +25,10 @@ pub const IGNORED_FILES: [&str; 1] = ["desktop.ini"];
 /// LaTeX build byproducts, regenerated on every compile.
 pub const IGNORED_EXTENSIONS: [&str; 4] = [".aux", ".fdb_latexmk", ".fls", ".synctex.gz"];
 
-pub use wf_core::sync::git_policy::{MIRROR_MANIFEST_EXCLUDE, is_mirror_manifest};
+pub use wf_core::sync::git_policy::{
+    MIRROR_MANIFEST_EXCLUDE, STALE_META_EXCLUDE, is_local_meta, is_mirror_manifest,
+    meta_exclude_lines,
+};
 
 /// Why a path is kept out of folder history.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -55,14 +56,11 @@ fn segments_of(rel_path: &str) -> Vec<String> {
 /// True when a path sits below an ignored folder.
 #[must_use]
 pub fn is_under_ignored_folder(rel_path: &str) -> bool {
-    let segments = segments_of(rel_path);
-    // The root `.weaveforge` folder is this machine's database; `notes/.weaveforge` is not.
-    if segments
-        .first()
-        .is_some_and(|first| first.as_str() == WORKSPACE_META_DIR)
-    {
+    // Most of the root `.weaveforge` folder is this machine's own state; `notes/.weaveforge` is not.
+    if is_local_meta(rel_path) {
         return true;
     }
+    let segments = segments_of(rel_path);
     match segments.split_last() {
         Some((_, folders)) => folders
             .iter()

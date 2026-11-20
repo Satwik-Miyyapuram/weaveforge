@@ -9,6 +9,8 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use wf_core::sync::git_policy::is_local_meta;
+use wf_store::checked_write::PREV_SUFFIX;
 use wf_store::vault::TEMP_SUFFIX;
 
 use crate::vault_watch::{
@@ -140,6 +142,11 @@ impl VaultWatcher {
     pub fn note_self_remove(&self, rel: &str) {
         lock(&self.shared).note_self_remove(rel, Instant::now());
     }
+
+    /// The app's write or delete of `rel` failed; its note is dropped.
+    pub fn forget_self(&self, rel: &str) {
+        lock(&self.shared).forget_self(rel);
+    }
 }
 
 impl Drop for VaultWatcher {
@@ -223,6 +230,18 @@ impl WatchSlot {
             watcher.note_self_remove(rel);
         }
     }
+
+    /// The app's write or delete of `rel` failed; does nothing when no watch runs.
+    pub fn forget_self(&self, rel: &str) {
+        if let Some(watcher) = self
+            .running
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_ref()
+        {
+            watcher.forget_self(rel);
+        }
+    }
 }
 
 /// `path` relative to `root` as '/'-joined segments, or None when it is outside `root`,
@@ -244,11 +263,20 @@ pub fn relative_path(root: &Path, path: &Path) -> Option<String> {
 }
 
 /// True for paths the page never needs to hear about: atomic-write temp files
-/// (ending in `wf_store::vault::TEMP_SUFFIX`) and anything under `.git/` (or `.git` itself).
+/// (ending in `wf_store::vault::TEMP_SUFFIX`), checked-write `.wfprev` links, anything
+/// under `.git/` (or `.git` itself), and this device's own `.weaveforge/` files.
 #[must_use]
 pub fn is_ignored(rel: &str) -> bool {
-    rel.ends_with(TEMP_SUFFIX) || rel == ".git" || rel.starts_with(".git/")
+    rel.ends_with(TEMP_SUFFIX)
+        || rel.ends_with(PREV_SUFFIX)
+        || rel == ".git"
+        || rel.starts_with(".git/")
+        || is_local_meta(rel)
 }
+
+/// The path a batch carries when the OS dropped events and the folder needs a rescan;
+/// no real path holds a NUL, so it never names a file.
+pub const OVERFLOW_MARK: &str = "\0overflow";
 
 /// Locks the shared batcher; a poisoned lock still holds usable state.
 fn lock(shared: &Mutex<VaultWatch>) -> MutexGuard<'_, VaultWatch> {
@@ -323,6 +351,10 @@ fn handle_event(
     // Opening a file to read it is not a change.
     if matches!(event.kind, EventKind::Access(_)) {
         return;
+    }
+    // The OS queue overflowed: events were lost, so the page must rescan.
+    if event.need_rescan() {
+        lock(shared).saw(OVERFLOW_MARK, None, Instant::now());
     }
     for path in &event.paths {
         let Some(rel) = roots.iter().find_map(|root| relative_path(root, path)) else {

@@ -176,11 +176,22 @@ async function presentMirroredPaths(fs: IWorkspaceFs, kept: ReadonlyMap<string, 
   return present;
 }
 
+/** Only a file that is really missing counts; any other stat failure says nothing about the file. */
+async function isMissing(fs: IWorkspaceFs, path: string): Promise<boolean> {
+  try {
+    return (await fs.stat(path)) === null;
+  } catch (error) {
+    const name = (error as { name?: unknown; code?: unknown }).name;
+    const code = (error as { code?: unknown }).code;
+    return name === "NotFoundError" || code === "ENOENT";
+  }
+}
+
 /** Adds the mirrored files the action removed to the pulled-deletes list. */
 async function recordPulledDeletes(fs: IWorkspaceFs, before: readonly string[]): Promise<void> {
   const gone: string[] = [];
   for (const path of before) {
-    if (!(await fs.stat(path).catch(() => null))) gone.push(path);
+    if (await isMissing(fs, path)) gone.push(path);
   }
   if (gone.length === 0) return;
   await writePulledDeletes(fs, new Set([...(await readPulledDeletes(fs)), ...gone]));
@@ -243,12 +254,22 @@ export async function readMirrorBases(
   return readyCore().readMirrorBases(text ?? undefined);
 }
 
+/** Copy one file's bytes to `to` unless something already sits there. Nothing is overwritten or removed. */
+async function copyIfAbsent(fs: IWorkspaceFs, from: string, to: string): Promise<void> {
+  const bytes = await fs.readFile(from).catch(() => null);
+  if (bytes === null) return; // gone since the walk
+  if ((await fs.readFile(to).catch(() => null)) !== null) return; // kept as it is; the source stays too
+  await fs.mkdirp(to.slice(0, to.lastIndexOf("/")));
+  await fs.writeFile(to, bytes);
+}
+
 /**
- * Carry a renamed project's folder over to its new `slug--id6` name.
+ * Carry a renamed project's folder over to its new `slug--id6` name, by copying.
  *
  * Without this the new name has no manifest, so the mirror writes a second full
- * copy and edits made in the old folder are never imported. Returns the old
- * folder when one was moved.
+ * copy and edits made in the old folder are never imported. The old folder is
+ * kept whole: it is the only copy of the reader's files until they check the new one.
+ * Returns the old folder when one was copied.
  */
 export async function followProjectRename(
   fs: IWorkspaceFs,
@@ -263,23 +284,23 @@ export async function followProjectRename(
   const old = typedCore().pickRenamedFolder(dirs, tail);
   if (old === undefined) return null;
   const moved = (path: string) => core.movedPath(old, root, path);
+  const newManifest = mirrorManifestPath(root);
 
   const files: string[] = [];
   for await (const entry of fs.walk(old)) files.push(entry.path);
   for (const path of files) {
     const to = moved(path);
-    await fs.mkdirp(to.slice(0, to.lastIndexOf("/")));
-    await fs.rename(path, to);
+    if (to === newManifest) continue; // the manifest is rekeyed below, never copied as it is
+    await copyIfAbsent(fs, path, to);
   }
 
-  const manifest = mirrorManifestPath(root);
-  const text = await fs.readText(manifest).catch(() => null);
-  // An unreadable manifest is left as it is: the files still moved, and the next run re-learns them.
-  const rekeyed = text === null ? undefined : core.rekeyManifestText(text, old, root);
-  if (rekeyed !== undefined) {
-    await fs.writeFile(manifest, rekeyed).catch(() => undefined);
+  // Only when the new folder has no manifest yet: an existing one is the new folder's own record.
+  // An unreadable old manifest is skipped; the next run re-learns those files.
+  const text = await fs.readText(mirrorManifestPath(old)).catch(() => null);
+  if (text !== null && (await fs.stat(newManifest)) === null) {
+    const rekeyed = core.rekeyManifestText(text, old, root);
+    if (rekeyed !== undefined) await fs.writeFile(newManifest, rekeyed).catch(() => undefined);
   }
-  await fs.remove(old, { recursive: true }).catch(() => undefined);
   return old;
 }
 
@@ -298,7 +319,7 @@ export async function writeMirrorManifest(
   const file = mirrorManifestPath(projectRoot);
   const current = await fs.readText(file).catch(() => null);
   if (current !== null && core.sameManifestIgnoringStamp(current, next)) return;
-  await fs.writeFile(file, next);
+  await writeTextAtomic(fs, file, next);
 }
 
 export interface Coalescer {
@@ -640,6 +661,15 @@ export function renamedPaths(diff: FolderDiff): Set<string> {
     ),
     ...(diff.canvasRenamed ?? []),
   ]);
+}
+
+/** Each renamed note's new path to the path it lived at before. */
+export function renamedFromPaths(diff: FolderDiff): Map<string, string> {
+  const from = new Map<string, string>();
+  for (const [path, seen] of Object.entries(diff.seen ?? {})) {
+    if (seen.renamedFrom) from.set(path, seen.renamedFrom);
+  }
+  return from;
 }
 
 /** The part of a folder diff safe to take in without asking, the part a person must see, and why. */

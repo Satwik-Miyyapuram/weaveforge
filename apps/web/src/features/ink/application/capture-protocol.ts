@@ -26,6 +26,7 @@
 
 import type { InkColour, InkPage, InkStroke } from "@weaveforge/core";
 
+import type { FreedrawShape } from "../render/excalidraw-freedraw";
 import type { InkPalette } from "../render/parts-1";
 
 /** `x, y, pressure, t` per sample. */
@@ -44,6 +45,18 @@ export interface InkStrokeHeader {
   tool: "pen" | "highlighter" | "shape";
   /** The palette name the stroke paints with. Never a hex: the shader indexes it. */
   colour: InkColour;
+}
+
+/**
+ * The `ink.tuning` knobs the worker reads, sent with each stroke so a change in
+ * the dev panel applies from the next stroke. The shape is the freehand outline's;
+ * `inputSmoothing` is a moving average over that many raw samples (0 or 1 is
+ * off) and `resampleSpacing` drops real samples closer than that (page units, 0
+ * is off) to the last one kept.
+ */
+export interface InkStrokeTuning extends FreedrawShape {
+  inputSmoothing: number;
+  resampleSpacing: number;
 }
 
 /** Messages the main thread sends the worker. */
@@ -77,14 +90,22 @@ export type InkWorkerMessage =
        */
       delegating?: boolean;
     }
-  | { type: "stroke-begin"; header: InkStrokeHeader; sample: InkSamplePayload }
+  | { type: "stroke-begin"; header: InkStrokeHeader; sample: InkSamplePayload; sentAt?: number; tuning?: InkStrokeTuning }
   | {
       type: "samples";
       header: InkStrokeHeader;
       sample: InkSamplePayload;
       predicted?: boolean;
+      /** When the pen posted it (`inkClock`), for the input-to-draw figure. */
+      sentAt?: number;
     }
   | { type: "stroke-end"; header: InkStrokeHeader; sample: InkSamplePayload }
+  /**
+   * The pen session cancelled the stroke it began (a palm, a gesture taking
+   * over): drop it without saving. Nothing is committed, so the worker never
+   * draws the fragment as ink.
+   */
+  | { type: "stroke-abort"; header: InkStrokeHeader }
   | { type: "samples-returned"; buffers: ArrayBuffer[] }
   | { type: "viewport"; transform: InkViewportTransform }
   | { type: "resize"; width: number; height: number; dpr: number }
@@ -192,7 +213,13 @@ export interface InkViewportTransform {
 /** Messages the worker sends the main thread. All are tiny, none are per-sample. */
 export type InkWorkerEvent =
   | { type: "ready"; backend: "webgl2" | "canvas2d" | "none" }
-  | { type: "frame"; frame: number; strokeId: number }
+  | {
+      type: "frame";
+      frame: number;
+      strokeId: number;
+      /** Age of the oldest batch this frame drew, from its `sentAt`; absent when none was waiting. */
+      inputToDrawMs?: number;
+    }
   | {
       type: "stroke-committed";
       header: InkStrokeHeader;
@@ -244,11 +271,10 @@ export type InkWorkerEvent =
     }
   /** The page's undo depth changed, so the bar can enable its buttons. */
   | { type: "history"; undo: number; redo: number }
-  | { type: "context-lost" }
-  | { type: "context-restored"; backend: "webgl2" | "canvas2d" | "none" }
   /** The last thing the worker says: every save it had in flight has gone out. */
   | { type: "disposed" }
-  | { type: "error"; message: string };
+  /** `requestId` is set when the failed work was an ask, so its caller can settle. */
+  | { type: "error"; message: string; requestId?: number };
 
 /** How a flushed buffer reaches the worker. */
 export type InkTransferMode =
@@ -399,6 +425,15 @@ export class InkSampleWriter {
     this.buffer[at + 2] = pressure;
     this.buffer[at + 3] = t;
     this.used += 1;
+  }
+
+  /**
+   * Drop the stroke in progress: its unsent samples are discarded, so none can
+   * ride on the next stroke's begin, and the worker is told to drop it too.
+   */
+  abort(header: InkStrokeHeader): void {
+    this.used = 0;
+    this.options.post({ type: "stroke-abort", header }, []);
   }
 
   /**

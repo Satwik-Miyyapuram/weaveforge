@@ -81,7 +81,7 @@ pub fn frontmatter_list(fm: &Map<String, Value>, key: &str) -> Vec<String> {
 
 /// Returns the text of a `---` fenced block and the body after it, if fenced.
 /// Mirrors the TS regex `^﻿?---\r?\n([\s\S]*?)\r?\n---\r?\n?`.
-fn split_fences(content: &str) -> Option<(&str, &str)> {
+pub(crate) fn split_fences(content: &str) -> Option<(&str, &str)> {
     let text = content.strip_prefix('\u{feff}').unwrap_or(content);
     let after_open = text.strip_prefix("---")?;
     let after_open = after_open
@@ -379,4 +379,173 @@ fn trim_js(text: &str) -> &str {
 
 fn trim_start_js(text: &str) -> &str {
     text.trim_start_matches(is_js_whitespace)
+}
+
+/// The workspace file format this build writes (`wf: 3`). A file that says a
+/// newer version opens read-only.
+pub const FORMAT_VERSION: u64 = 3;
+
+/// The canonical form two copies of a text file are compared in: Unicode NFC,
+/// and every CRLF or lone CR turned into LF.
+#[must_use]
+pub fn canonical_text(text: &str) -> String {
+    use unicode_normalization::UnicodeNormalization as _;
+    let lf = text.replace("\r\n", "\n").replace('\r', "\n");
+    lf.nfc().collect()
+}
+
+/// Lowercase hex SHA-256 of `bytes`: the version name of a binary file.
+#[must_use]
+pub fn bytes_digest(bytes: &[u8]) -> String {
+    use sha2::Digest as _;
+    let hash = sha2::Sha256::digest(bytes);
+    hash.iter()
+        .fold(String::with_capacity(64), |mut out, byte| {
+            out.push_str(&format!("{byte:02x}"));
+            out
+        })
+}
+
+/// Lowercase hex SHA-256 of [`canonical_text`]: the version name of a text
+/// file, used for bases, the digest log and a checked write's expected hash.
+#[must_use]
+pub fn canonical_digest(text: &str) -> String {
+    bytes_digest(canonical_text(text).as_bytes())
+}
+
+/// True when the two texts are the same once both are in canonical form.
+#[must_use]
+pub fn canonical_eq(a: &str, b: &str) -> bool {
+    a == b || canonical_text(a) == canonical_text(b)
+}
+
+/// Which kind of workspace file a path names; decides where its version and id live.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileKind {
+    /// A note (`.md`).
+    Markdown,
+    /// A freeform page (`.canvas`).
+    Canvas,
+    /// An Overleaf project link (`.overleaf.json`).
+    Overleaf,
+    /// Paper annotations (`.annotations.json`).
+    Annotations,
+    /// Item comments (`.comments.json`).
+    Comments,
+    /// A metrics chunk CSV under an experiment's `metrics/` folder.
+    MetricsChunk,
+    /// An AI audit chunk (`.weaveforge/ai/audit/*.jsonl`).
+    AiAudit,
+    /// An ink stroke file (`<note>.ink/*.inkb`, or the legacy `.ink/<id>/*.inkb`).
+    Ink,
+    /// Root-level workspace JSON under `.weaveforge/`.
+    WorkspaceMeta,
+    /// Anything else.
+    Other,
+}
+
+/// Classifies `path` (workspace-relative, `/` separated) by its name and folders.
+#[must_use]
+pub fn file_kind(path: &str) -> FileKind {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    if path.ends_with(".annotations.json") {
+        FileKind::Annotations
+    } else if path.ends_with(".comments.json") {
+        FileKind::Comments
+    } else if name == ".overleaf.json" {
+        FileKind::Overleaf
+    } else if path.ends_with(".inkb")
+        && (path
+            .rsplit('/')
+            .nth(1)
+            .is_some_and(crate::ink::ink_paths::is_ink_strokes_segment)
+            || path.split('/').any(|segment| segment == ".ink"))
+    {
+        FileKind::Ink
+    } else if path.ends_with(".jsonl") && path.starts_with(".weaveforge/ai/audit/") {
+        FileKind::AiAudit
+    } else if path.ends_with(".csv") && (path.contains("/metrics/") || path.starts_with("metrics/"))
+    {
+        FileKind::MetricsChunk
+    } else if path
+        .strip_prefix(".weaveforge/")
+        .is_some_and(|rest| path.ends_with(".json") && !rest.contains('/'))
+    {
+        FileKind::WorkspaceMeta
+    } else if path.ends_with(".md") {
+        FileKind::Markdown
+    } else if path.ends_with(".canvas") {
+        FileKind::Canvas
+    } else {
+        FileKind::Other
+    }
+}
+
+/// Version, id and conflict origin read from a file's own header.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FileHeader {
+    /// Format version the file declares (`wf`), if any.
+    pub wf: Option<u64>,
+    /// Stable id: `weaveforge-id` in a note, top-level `id` in JSON; none for workspace meta.
+    pub id: Option<String>,
+    /// Path of the file this copy was split from (`conflict_of`), if any.
+    pub conflict_of: Option<String>,
+    /// True when `wf` is newer than [`FORMAT_VERSION`], so the file must not be written.
+    pub read_only: bool,
+}
+
+/// Reads the version, id and conflict origin of `text`, a file at `path`.
+#[must_use]
+pub fn file_header(path: &str, text: &str) -> FileHeader {
+    let mut header = match file_kind(path) {
+        FileKind::Markdown => markdown_header(text),
+        FileKind::Canvas | FileKind::Overleaf => json_header(text),
+        FileKind::WorkspaceMeta => {
+            let mut meta = json_header(text);
+            meta.id = None;
+            meta
+        }
+        _ => FileHeader::default(),
+    };
+    header.read_only = header.wf.is_some_and(|v| v > FORMAT_VERSION);
+    header
+}
+
+/// Header fields of a note's frontmatter.
+fn markdown_header(text: &str) -> FileHeader {
+    let fm = read_frontmatter(text).frontmatter;
+    FileHeader {
+        wf: fm.get("wf").and_then(|value| match value {
+            Value::String(s) => s.parse().ok(),
+            other => other.as_u64(),
+        }),
+        id: frontmatter_string(&fm, "weaveforge-id"),
+        conflict_of: frontmatter_string(&fm, "conflict_of"),
+        read_only: false,
+    }
+}
+
+/// Header fields of a JSON object; invalid JSON or a non-object gives no fields.
+fn json_header(text: &str) -> FileHeader {
+    let map = match serde_json::from_str::<Value>(text) {
+        Ok(Value::Object(map)) => map,
+        _ => return FileHeader::default(),
+    };
+    FileHeader {
+        wf: map.get("wf").and_then(Value::as_u64),
+        id: map.get("id").and_then(Value::as_str).map(str::to_owned),
+        conflict_of: map
+            .get("conflict_of")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+        read_only: false,
+    }
+}
+
+/// True when `path` is a conflict or migration copy (`*.conflict-<ts>.<ext>` or
+/// `*.migrated-0.9.4.<ext>`), which never counts as a duplicate id.
+#[must_use]
+pub fn is_conflict_copy(path: &str) -> bool {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    name.contains(".conflict-") || name.contains(".migrated-0.9.4.")
 }

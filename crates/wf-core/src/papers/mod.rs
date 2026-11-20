@@ -16,6 +16,7 @@ pub mod paper;
 pub mod paper_drop;
 pub mod paper_field;
 pub mod paper_field_row;
+pub mod paper_file;
 pub mod paper_image;
 pub mod paper_merge;
 pub mod paper_preview;

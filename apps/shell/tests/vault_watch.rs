@@ -413,6 +413,19 @@ fn our_own_delete_is_not_news() {
 }
 
 #[test]
+fn a_forgotten_note_no_longer_hides_an_outside_delete() {
+    // A delete that failed leaves the file in place; the note for it must go, or a later
+    // outside delete of the same path would be taken for our echo.
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_remove("gone.md", clock.now());
+    w.forget_self("gone.md");
+    assert!(!w.expects("gone.md"));
+    w.saw("gone.md", None, clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["gone.md"]);
+}
+
+#[test]
 fn a_file_recreated_by_someone_else_after_our_delete_is_reported() {
     let clock = Clock::new();
     let mut w = watch();

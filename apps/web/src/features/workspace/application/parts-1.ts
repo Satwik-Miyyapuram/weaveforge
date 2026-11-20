@@ -1,6 +1,8 @@
 import { getContainer } from "@/bootstrap";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import { loadCore, readyCore, type RustCore } from "@/lib/rust-core";
+import { folderLock } from "./folder-lock";
+import { forgetSessionSeen } from "./folder-session-seen";
 import {
   type IWorkspaceFs,
   type IWorkspaceGit,
@@ -313,6 +315,38 @@ export interface ApplyOptions {
   stored?: Readonly<Record<string, string>>;
   /** Paths that are renames (`renamedPaths`): retitled from the new name, then left to the mirror to write. */
   renamed?: ReadonlySet<string>;
+  /** New path to the path the renamed note lived at (`renamedFromPaths`): its stroke folder follows it. */
+  renamedFrom?: ReadonlyMap<string, string>;
+}
+
+/**
+ * A renamed note takes its strokes with it (every note can hold ink): the pages in its
+ * strokes folder (`notes/<old>.note.ink/`, or a legacy `notes/<old>.ink/`) are copied to the
+ * new note's folder, then the old page is removed once its copy is there. A page already at
+ * the new place is kept as it is. Two names that share one folder move nothing.
+ */
+export async function moveInkStrokes(fs: IWorkspaceFs, fromNote: string, toNote: string): Promise<void> {
+  if (!fromNote.endsWith(".md") || !toNote.endsWith(".md")) return;
+  let from: string;
+  let to: string;
+  try {
+    from = readyCore().inkStrokesDir(fromNote);
+    to = readyCore().inkStrokesDir(toNote);
+  } catch {
+    // Not a note path the strokes rule accepts: there is no strokes folder to move.
+    return;
+  }
+  if (from === to || !(await fs.stat(from))) return;
+  // A case-only rename may name the same folder (Windows, macOS): the page found at
+  // the new place can be the page itself, so nothing is removed.
+  const sameFolderMaybe = from.toLowerCase() === to.toLowerCase();
+  await fs.mkdirp(to);
+  for (const entry of await fs.list(from)) {
+    if (entry.kind !== "file") continue;
+    const dest = `${to}/${entry.path.split("/").pop() ?? ""}`;
+    if (!(await fs.stat(dest))) await fs.writeFile(dest, await fs.readFile(entry.path));
+    if (!sameFolderMaybe) await fs.remove(entry.path);
+  }
 }
 
 /** A note's title and body as one digest: what an update would overwrite. */
@@ -336,7 +370,15 @@ export async function applyFolderImport(
   if (!fs) throw new Error("No workspace folder is connected. Connect one in Settings, then import again.");
   if (options.fs && options.fs !== fs) throw new Error("The folder changed before its edits were taken in.");
 
-  const result = await applyEntries(fs, diff, resolutions, options.stored, options.renamed);
+  // The import changed the database to match the folder: the next mirror starts from an
+  // empty record, so it rewrites no existing file (the folder already holds the imported ids).
+  // A mirror already running from before the import must finish before the record is cleared,
+  // or it could record digests after the clear. The import holds no lock itself, so this cannot wait on itself.
+  // Both happen before anything is applied, so no mirror run can record digests in between.
+  await folderLock.idle();
+  forgetSessionSeen();
+
+  const result = await applyEntries(fs, diff, resolutions, options.stored, options.renamed, options.renamedFrom);
   const appliedJson = await applyJsonEntries(diff.json);
   // What was applied, the two sides now agree on: the folder's text becomes
   // the base, or the mirror would keep holding those files back for an edit
@@ -371,14 +413,18 @@ export async function writeMarkersFor(entry: ImportDiffEntry): Promise<boolean> 
   return writeConflictMarkersTo(await loadCore(), fs, entry);
 }
 
-/** @internal exported for tests */
+/**
+ * @internal exported for tests.
+ * `refused` lists paths not imported because another note already holds the id the file declares.
+ */
 export async function applyEntries(
   fs: IWorkspaceFs,
   diff: ImportDiff,
   resolutions: Readonly<Record<string, ConflictResolution>>,
   stored?: Readonly<Record<string, string>>,
   renamed: ReadonlySet<string> = new Set(),
-): Promise<{ created: number; updated: number; appliedPaths: string[]; moved: string[] }> {
+  renamedFrom: ReadonlyMap<string, string> = new Map(),
+): Promise<{ created: number; updated: number; appliedPaths: string[]; moved: string[]; refused: string[] }> {
   const core = await loadCore();
   const container = getContainer();
   const owned = ownedAssetFolderPaths(workspaceBodies(await container.workspace.snapshot()));
@@ -387,6 +433,7 @@ export async function applyEntries(
   let updated = 0;
   const appliedPaths: string[] = [];
   const moved: string[] = [];
+  const refused: string[] = [];
 
   for (const raw of diff.entries) {
     const entry = raw.action === "conflict" ? settleConflict(core, raw, resolutions) : raw;
@@ -409,12 +456,29 @@ export async function applyEntries(
         id = made.id;
         updated += 1;
       } else {
-        const page = await container.vault.manageVaultPage.add({
-          title: entry.entity.title,
-          body: await reanchorAssets(entry.entity.body, "new", owned),
-          // A raw .canvas file comes back as a canvas page, not a markdown note.
-          ...(entry.entity.kind === "canvas" ? { kind: "canvas" as const } : {}),
-        });
+        const createdAt = entry.entity.fields?.["created-at"];
+        let page: { id: string };
+        try {
+          page = await container.vault.manageVaultPage.add({
+            title: entry.entity.title,
+            body: await reanchorAssets(entry.entity.body, "new", owned),
+            // A raw .canvas file comes back as a canvas page, not a markdown note.
+            ...(entry.entity.kind === "canvas" ? { kind: "canvas" as const } : {}),
+            // A file that already declares an id keeps it, and its created-at: the id comes
+            // from the file and is never replaced.
+            ...(entry.entity.id ? { id: entry.entity.id } : {}),
+            ...(typeof createdAt === "string" ? { createdAt } : {}),
+          });
+        } catch (error) {
+          // Note ids are unique across every project, so the repo refuses one another note
+          // holds (a note copied from another project, say). That file is left as it is,
+          // never given a new id, and the rest of the batch still goes in.
+          if (error instanceof Error && error.name === "VaultPageIdTakenError") {
+            refused.push(path);
+            continue;
+          }
+          throw error;
+        }
         id = page.id;
         created += 1;
       }
@@ -452,14 +516,15 @@ export async function applyEntries(
       continue;
     }
     // The note is whole in the workspace now; the mirror writes it at the path its title gives.
-    // A canvas is never deleted here: claimed, it keeps its id until the mirror replaces it,
-    // and the mirror removes only a claimed file still unchanged, in the run that rewrites it.
+    // Nothing is removed here: the renamed file is the reader's only copy until then, so a duplicate is kept, never a loss.
+    // A canvas is claimed, so it keeps its id until the mirror replaces it.
     if (entry.entity.kind === "canvas") await claimImportedFile(fs, path, page.id, projectRoot).catch(() => false);
-    else await fs.remove(path).catch(() => undefined);
+    const from = renamedFrom.get(path);
+    if (from) await moveInkStrokes(fs, from, path);
   }
 
   pendingAssets = new Map();
-  return { created, updated, appliedPaths, moved };
+  return { created, updated, appliedPaths, moved, refused };
 }
 
 /**
@@ -531,6 +596,14 @@ export async function diffAgainstWorkspace(
 ): Promise<FolderDiff & { json: JsonDiff }> {
   const core = await loadCore();
   const snapshot = await getContainer().workspace.snapshot();
+  // What the mirror would write from the workspace as it stands now. Compared
+  // against the same base as the folder's copy, this is what says whether the
+  // difference came from out there or in here.
+  const current = core.serializeWorkspace(snapshot, project).files;
+  // Where the mirror writes each entity: a file that lost its id is matched back by it.
+  const writtenAt = new Map(
+    core.parseWorkspaceFolder(current).flatMap((entity) => (entity.id ? [[entity.id, entity.path] as const] : [])),
+  );
   const existing = [
     ...snapshot.vaultPages.map((page) => ({
       id: page.id,
@@ -539,12 +612,14 @@ export async function diffAgainstWorkspace(
       kind: page.kind,
       title: page.title,
       body: page.body,
+      path: writtenAt.get(page.id),
     })),
     ...snapshot.papers.map((paper) => ({
       id: paper.id,
       type: "paper" as const,
       title: paper.title,
       body: paper.summary ?? "",
+      path: writtenAt.get(paper.id),
     })),
   ];
 
@@ -577,11 +652,6 @@ export async function diffAgainstWorkspace(
     body: core.fromRelativeBlobLinks(entity.body, ownedStorage),
   }));
 
-  // What the mirror would write from the workspace as it stands now. Compared
-  // against the same base as the folder's copy, this is what says whether the
-  // difference came from out there or in here.
-  const current = core.serializeWorkspace(snapshot, project).files;
-
   const diff = core.diffWorkspace(parsed, existing, {
     origin: (path) =>
       core.changedSide({
@@ -598,7 +668,7 @@ export async function diffAgainstWorkspace(
   // A file both sides changed is only a conflict if the changes collide. Most
   // do not: a tag added in Obsidian and a paragraph rewritten here are two
   // edits to one note, not two answers to one question.
-  const entries = diff.entries.map((entry) =>
+  const entries = diff.entries.map((entry: ImportDiffEntry) =>
     mergeBothChanged(core, entry, bases[entry.entity.path], current[entry.entity.path]),
   );
 

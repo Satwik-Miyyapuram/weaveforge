@@ -31,6 +31,15 @@ fn existing(id: &str, entity_type: WorkspaceEntityType, title: &str, body: &str)
         title: title.to_owned(),
         body: body.to_owned(),
         kind: None,
+        path: None,
+    }
+}
+
+/// A stored note the mirror writes at `path`.
+fn note_at(id: &str, title: &str, body: &str, path: &str) -> ExistingEntity {
+    ExistingEntity {
+        path: Some(path.to_owned()),
+        ..existing(id, WorkspaceEntityType::VaultPage, title, body)
     }
 }
 
@@ -364,6 +373,29 @@ fn stamped_file_parses_back_as_that_entity() {
 }
 
 #[test]
+fn a_file_id_nothing_stores_is_created_under_the_file_id_beside_another_entity() {
+    // The stored entity at this path is n2; the file declares n1. The id comes from
+    // the file, so n1 is created as declared and the stored n2 is not matched to it.
+    let stored = vec![existing(
+        "n2",
+        WorkspaceEntityType::VaultPage,
+        "Method",
+        "stored body",
+    )];
+    let parsed = vec![note_entity(
+        Some("n1"),
+        "Method",
+        "file body",
+        "notes/n1.note.md",
+    )];
+    let diff = diff_workspace(&parsed, &stored, None);
+
+    assert_eq!(diff.entries[0].action, ImportAction::Created);
+    assert_eq!(diff.entries[0].entity.id.as_deref(), Some("n1"));
+    assert_eq!(diff.counts.created, 1);
+}
+
+#[test]
 fn a_folder_edit_is_an_update() {
     let diff = diff_with_side(&[folder_note()], &stored(), ChangeSide::Folder);
 
@@ -582,4 +614,178 @@ fn a_canvas_id_pointing_at_a_canvas_page_is_not_a_conflict() {
     let parsed = parse_workspace_folder(&files);
     let diff = diff_workspace(&parsed, &[canvas_existing("c1", "Board", "{}")], None);
     assert_ne!(diff.entries[0].action, ImportAction::Conflict);
+}
+
+// ------------------------------------------------- a file keeps the id it had
+
+#[test]
+fn a_hand_renamed_file_keeps_its_id() {
+    let stored = vec![note_at(
+        "n1",
+        "Method",
+        "We ran three seeds.",
+        "notes/method.md",
+    )];
+    let parsed = vec![note_entity(
+        Some("n1"),
+        "Method",
+        "We ran three seeds.",
+        "notes/our-method.md",
+    )];
+    let diff = diff_workspace(&parsed, &stored, None);
+
+    assert_eq!(diff.entries[0].action, ImportAction::Unchanged);
+    assert_eq!(diff.entries[0].entity.id.as_deref(), Some("n1"));
+    assert_eq!(diff.counts.created, 0);
+}
+
+#[test]
+fn a_file_whose_frontmatter_id_was_deleted_keeps_its_id_by_path() {
+    let stored = vec![note_at(
+        "n1",
+        "Method",
+        "We ran three seeds.",
+        "notes/method.md",
+    )];
+    let parsed = vec![note_entity(
+        None,
+        "Method",
+        "We ran five seeds.",
+        "notes/method.md",
+    )];
+    let diff = diff_workspace(&parsed, &stored, None);
+
+    assert_eq!(diff.entries[0].action, ImportAction::Updated);
+    assert_eq!(diff.entries[0].entity.id.as_deref(), Some("n1"));
+    assert_eq!(diff.counts.created, 0);
+}
+
+#[test]
+fn a_moved_file_with_no_id_keeps_its_id_by_content() {
+    let stored = vec![note_at(
+        "n1",
+        "Method",
+        "We ran three seeds.",
+        "notes/method.md",
+    )];
+    let parsed = vec![note_entity(
+        None,
+        "Method",
+        "We ran three seeds.",
+        "notes/archive/method.md",
+    )];
+    let diff = diff_workspace(&parsed, &stored, None);
+
+    assert_eq!(diff.entries[0].action, ImportAction::Unchanged);
+    assert_eq!(diff.entries[0].entity.id.as_deref(), Some("n1"));
+    assert_eq!(diff.counts.created, 0);
+}
+
+#[test]
+fn a_moved_file_with_its_id_keeps_that_id() {
+    let stored = vec![note_at(
+        "n1",
+        "Method",
+        "We ran three seeds.",
+        "notes/method.md",
+    )];
+    let parsed = vec![note_entity(
+        Some("n1"),
+        "Method",
+        "We ran five seeds.",
+        "notes/archive/method.md",
+    )];
+    let diff = diff_workspace(&parsed, &stored, None);
+
+    assert_eq!(diff.entries[0].action, ImportAction::Updated);
+    assert_eq!(diff.entries[0].entity.id.as_deref(), Some("n1"));
+}
+
+#[test]
+fn a_path_whose_note_another_file_claims_by_id_is_not_matched_again() {
+    // The note moved with its id; a new file now sits at its old path.
+    let stored = vec![note_at(
+        "n1",
+        "Method",
+        "We ran three seeds.",
+        "notes/method.md",
+    )];
+    let parsed = vec![
+        note_entity(
+            Some("n1"),
+            "Method",
+            "We ran three seeds.",
+            "notes/archive/method.md",
+        ),
+        note_entity(None, "Method", "A new page.", "notes/method.md"),
+    ];
+    let diff = diff_workspace(&parsed, &stored, None);
+
+    assert_eq!(diff.entries[1].action, ImportAction::Created);
+    assert_eq!(diff.entries[1].entity.id, None);
+}
+
+#[test]
+fn content_two_notes_share_mints_a_new_id_rather_than_guess() {
+    let stored = vec![
+        note_at("n1", "One", "Same words.", "notes/one.md"),
+        note_at("n2", "Two", "Same words.", "notes/two.md"),
+    ];
+    let parsed = vec![note_entity(None, "Three", "Same words.", "notes/three.md")];
+    let diff = diff_workspace(&parsed, &stored, None);
+
+    assert_eq!(diff.entries[0].action, ImportAction::Created);
+    assert_eq!(diff.entries[0].entity.id, None);
+}
+
+#[test]
+fn an_empty_body_never_matches_by_content() {
+    let stored = vec![note_at("n1", "One", "", "notes/one.md")];
+    let parsed = vec![note_entity(None, "Fresh", "  ", "notes/fresh.md")];
+    let diff = diff_workspace(&parsed, &stored, None);
+
+    assert_eq!(diff.entries[0].action, ImportAction::Created);
+    assert_eq!(diff.entries[0].entity.id, None);
+}
+
+#[test]
+fn one_note_is_matched_to_one_file_only() {
+    let stored = vec![note_at(
+        "n1",
+        "Method",
+        "We ran three seeds.",
+        "notes/method.md",
+    )];
+    let parsed = vec![
+        note_entity(None, "Method", "We ran three seeds.", "notes/method.md"),
+        note_entity(None, "Method copy", "We ran three seeds.", "notes/copy.md"),
+    ];
+    let diff = diff_workspace(&parsed, &stored, None);
+
+    assert_eq!(diff.entries[0].entity.id.as_deref(), Some("n1"));
+    assert_eq!(diff.entries[1].action, ImportAction::Created);
+    assert_eq!(diff.entries[1].entity.id, None);
+}
+
+#[test]
+fn a_path_held_by_another_type_is_not_matched() {
+    let stored = vec![ExistingEntity {
+        path: Some("notes/method.md".to_owned()),
+        ..existing(
+            "p1",
+            WorkspaceEntityType::Paper,
+            "Method",
+            "We ran three seeds.",
+        )
+    }];
+    let parsed = vec![note_entity(
+        None,
+        "Method",
+        "We ran three seeds.",
+        "notes/method.md",
+    )];
+    let diff = diff_workspace(&parsed, &stored, None);
+
+    assert_eq!(diff.entries[0].action, ImportAction::Created);
+    assert_eq!(diff.entries[0].entity.id, None);
 }

@@ -39,7 +39,7 @@ async function dump(fs: MemoryWorkspaceFs): Promise<Record<string, string>> {
 /** Runs both mirrors with the same input and asserts the result and the folder match. */
 async function step(tsFs: MemoryWorkspaceFs, rsFs: MemoryWorkspaceFs, input: WorkspaceSnapshot, opts: Opts) {
   const ts = await tsMirrorWorkspace(input, tsFs, opts);
-  const rs = await mirrorWorkspace(core, input, rsFs, opts);
+  const { served: _served, ...rs } = await mirrorWorkspace(core, input, rsFs, opts);
   assert.deepEqual(rs, ts);
   assert.deepEqual(await dump(rsFs), await dump(tsFs));
   return ts;
@@ -70,7 +70,6 @@ test("a second run with nothing new matches", async () => {
   const first = await step(a, b, input, { project: PROJECT });
   await step(a, b, input, {
     project: PROJECT,
-    previousPaths: Object.keys(first.mirrored),
     base: first.mirrored,
   });
 });
@@ -82,80 +81,12 @@ test("a new export time alone matches", async () => {
   const first = await step(a, b, input, { project: PROJECT });
   await step(a, b, { ...input, collectedAt: "2026-09-01T00:00:00.000Z" }, {
     project: PROJECT,
-    previousPaths: Object.keys(first.mirrored),
     base: first.mirrored,
   });
 });
 
-test("a reader's edit is held back the same way", async () => {
-  const a = new MemoryWorkspaceFs(() => AT);
-  const b = new MemoryWorkspaceFs(() => AT);
-  const first = await step(a, b, snapshot({ vaultPages: [note("n1", "Method", "One")] }), { project: PROJECT });
-  const notePath = Object.keys(first.mirrored).find((p) => p.endsWith("/notes/method.note.md"));
-  assert.ok(notePath, "note path");
-  await editOnBoth(a, b, notePath);
-
-  const second = await step(a, b, snapshot({ vaultPages: [note("n1", "Method", "One changed in the app")] }), {
-    project: PROJECT,
-    previousPaths: Object.keys(first.mirrored),
-    base: first.mirrored,
-  });
-  assert.equal(second.heldBack.length, 1);
-});
-
-test("departed files are removed or held the same way", async () => {
-  const a = new MemoryWorkspaceFs(() => AT);
-  const b = new MemoryWorkspaceFs(() => AT);
-  const first = await step(
-    a,
-    b,
-    snapshot({ vaultPages: [note("n1", "Method", "One"), note("n2", "Results", "Two"), note("n3", "Third", "Three")] }),
-    { project: PROJECT },
-  );
-  await editOnBoth(a, b, at("notes/third.note.md"));
-
-  const second = await step(a, b, snapshot({ vaultPages: [note("n1", "Method", "One")] }), {
-    project: PROJECT,
-    previousPaths: Object.keys(first.mirrored),
-    base: first.mirrored,
-  });
-  assert.ok(second.removed.includes(at("notes/results.note.md")));
-  assert.ok(second.heldBack.includes(at("notes/third.note.md")));
-});
-
-test("a departed file without a base is removed the same way", async () => {
-  const a = new MemoryWorkspaceFs(() => AT);
-  const b = new MemoryWorkspaceFs(() => AT);
-  const first = await step(
-    a,
-    b,
-    snapshot({ vaultPages: [note("n1", "Method", "One"), note("n2", "Results", "Two")] }),
-    { project: PROJECT },
-  );
-  await step(a, b, snapshot({ vaultPages: [note("n1", "Method", "One")] }), {
-    project: PROJECT,
-    previousPaths: first.written,
-  });
-});
-
-test("assets are fetched and kept the same way", async () => {
-  const a = new MemoryWorkspaceFs(() => AT);
-  const b = new MemoryWorkspaceFs(() => AT);
-  const withImage = snapshot({ vaultPages: [note("n1", "Method", "![](vault:u1/n1/a.png)")] });
-  const first = await step(a, b, withImage, { project: PROJECT, fetchAsset });
-  const second = await step(a, b, withImage, {
-    project: PROJECT,
-    fetchAsset,
-    previousPaths: first.written,
-    base: first.mirrored,
-  });
-  await step(a, b, snapshot({ vaultPages: [note("n1", "Method", "No image")] }), {
-    project: PROJECT,
-    fetchAsset: fetchNothing,
-    previousPaths: [...new Set([...second.written, ...first.written])],
-    base: first.mirrored,
-  });
-});
+// Removal and held-back cases are not compared: sync no longer removes, and the legacy
+// TS mirror still does, so the two diverge on purpose. The Rust tests pin that behaviour.
 
 test("an unfetchable asset matches", async () => {
   const a = new MemoryWorkspaceFs(() => AT);

@@ -52,6 +52,9 @@ pub async fn metrics_post(
         Err(response) => return response,
     };
     let db = user_db(&state, &user);
+    if crate::sdk_inbox::enabled() {
+        return crate::sdk_inbox::enqueue(&db, "metrics", parse_body(&body)).await;
+    }
     ingest_metrics(&db, parse_body(&body), now_ms()).await
 }
 

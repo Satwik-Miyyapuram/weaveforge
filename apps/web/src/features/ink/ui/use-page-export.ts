@@ -1,15 +1,19 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { type FigureGeometry, type InkPage as InkPageModel } from "@weaveforge/core";
+import { type FigureGeometry, type InkPage as InkPageModel, type InkStroke } from "@weaveforge/core";
 
 import { blobToDataUrl, downloadBlob } from "@/lib/parts";
 import { renderMarkdownPlain } from "@/components/markdown/markdown";
-import type { InkPrintFigure, InkSvgFigure } from "@weaveforge/wasm";
+import type { InkSvgFigure } from "@weaveforge/wasm";
 import { loadInOrder } from "../application/parts";
+import { readInkTuning } from "../application/ink-tuning";
+import { drawInkStrokes } from "./ink-page-canvas";
+import { inkPrintPagesDocument, pageUnderlayHtml, findPageUnderlay, type InkPrintPageLayers } from "./ink-print-pages";
 import type { InkPalette } from "../render/parts-1";
 import { INK_UNDERLAY, inkSheetRuleStyle, loadMathOrLog } from "./ink-sheet-underlay";
 import { readyCore, toWasmInkPage, typedCore } from "@/lib/rust-core";
+import { exportBaseName } from "./export-name";
 
 /**
  * The app's stylesheets as the print document links them: the linked ones by
@@ -57,8 +61,10 @@ export interface PageExportDeps {
   requestExport: (scale?: number, transparent?: boolean) => Promise<Blob | null>;
   /** The worker's strokes for the current page, for the vector export. */
   requestModel: () => Promise<InkPageModel>;
-  /** The note's id, which names the file. */
+  /** The note's id, which names the file when the note has no usable title. */
   noteId: string;
+  /** The note's title, which names the file. */
+  title?: string;
   /** 0-based, so the file says `page-1`. */
   pageIndex: number;
   /** The pages' text layers, where a page's background attachment is named. */
@@ -69,8 +75,17 @@ export interface PageExportDeps {
   palette: InkPalette;
   /** The vault, for the background bytes a vector export embeds. */
   fetchBlob: (path: string) => Promise<Blob>;
-  /** The current page's flowed text, which the print sets under the ink. */
-  pageText: { readonly current: string };
+  /** Every page's flowed text, which the print sets under each page's ink. */
+  pageTexts: { readonly current: readonly string[] };
+  /** How many pages the note has; the print sets every one on its own sheet. */
+  pageCount: number;
+  /** Every page's saved strokes, for the pages the worker is not holding. */
+  savedStrokes: ReadonlyMap<number, readonly InkStroke[]>;
+  /**
+   * The host's own root. The print reads the sheets' rendered text inside it
+   * only: other notes can be mounted beside it (kept-alive tabs, a split).
+   */
+  root: { readonly current: HTMLElement | null };
   /** Pixels per page unit the sheet is laid out at, which the print keeps. */
   scale: number;
   /** The paper the sheet is drawn on (`paper-${paper}`). */
@@ -154,6 +169,43 @@ async function composeWithFigures(
 }
 
 /**
+ * A page the worker is not holding, as the worker's transparent export would
+ * draw it: its background image (if any) over the whole page, then its saved
+ * strokes, drawn by the same code the page's canvas uses. `null` for a page
+ * with neither.
+ */
+async function savedPageInk(
+  strokes: readonly InkStroke[],
+  background: Blob | null,
+  pageSize: { width: number; height: number },
+  palette: InkPalette,
+): Promise<Blob | null> {
+  const drawn = readyCore().toRenderStrokes(strokes, palette);
+  if (drawn.length === 0 && !background) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(pageSize.width * PNG_EXPORT_SCALE);
+  canvas.height = Math.round(pageSize.height * PNG_EXPORT_SCALE);
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  if (background) {
+    const bitmap = await createImageBitmap(background);
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+  }
+  if (drawn.length > 0) {
+    drawInkStrokes(context, drawn, PNG_EXPORT_SCALE, readInkTuning());
+  }
+  return new Promise<Blob | null>((resolve) =>
+    canvas.toBlob((blob) => {
+      // Drop the backing store now, not at the next collection.
+      canvas.width = 0;
+      canvas.height = 0;
+      resolve(blob);
+    }, "image/png"),
+  );
+}
+
+/**
  * Getting the current page out of the editor: the print preview, a full-page
  * PNG, and the page as vector SVG.
  *
@@ -169,16 +221,21 @@ export function usePageExport(deps: PageExportDeps) {
     requestExport,
     requestModel,
     noteId,
+    title,
     pageIndex,
     textPages,
     pageSize,
     palette,
     fetchBlob,
-    pageText,
+    pageTexts,
+    pageCount,
+    savedStrokes,
+    root,
     scale,
     paper,
   } = deps;
-  const fileBase = `${noteId}-page-${pageIndex + 1}`;
+  const baseName = exportBaseName(title, noteId);
+  const fileBase = `${baseName}-page-${pageIndex + 1}`;
 
   /**
    * The worker's raster with the page's figures composed in, for the PNG. The
@@ -209,7 +266,7 @@ export function usePageExport(deps: PageExportDeps) {
   const closePrint = useCallback(() => setPrintDoc(null), []);
 
   /**
-   * The page for paper: every layer of the sheet, not the raster alone.
+   * The note for paper: every page on its own sheet, every layer of each, not the raster alone.
    *
    * The text is the underlay's own markup where the sheet is on screen (so a
    * Mermaid diagram already upgraded prints as the diagram), or the markdown
@@ -219,58 +276,91 @@ export function usePageExport(deps: PageExportDeps) {
    * white is left out, and the print document lays its own paper down.
    */
   const onPrint = useCallback(async () => {
-    const text = pageText.current;
-    // `data-page` is the 0-based index; the live page and its static slot
-    // both carry it, and the live one is the one whose fences have upgraded.
-    const live =
-      document.querySelector<HTMLElement>(
-        `.ink-page-live[data-page="${pageIndex}"] .ink-sheet-text-underlay`,
-      ) ??
-      document.querySelector<HTMLElement>(
-        `.ink-page[data-page="${pageIndex}"] .ink-sheet-text-underlay`,
-      );
-    // The live underlay is preferred, and it has already waited for KaTeX. The
-    // fallback renders the markdown afresh for a page that is not on screen, and
-    // maths there would come out as the placeholder unless the renderer is in
-    // memory — so it is fetched first when the text has any. This callback is
-    // already async, so waiting costs nothing visible.
-    if (!live && text.trim() && readyCore().containsMath(text)) {
-      await loadMathOrLog();
+    const host = root.current;
+    const count = Math.max(pageCount, 1);
+    const texts = pageTexts.current;
+    // A page whose sheet is in this host prints its own rendered text, which
+    // has already waited for KaTeX; any other page's markdown is rendered
+    // afresh, and maths there would come out as the placeholder unless the
+    // renderer is in memory, so it is fetched first.
+    for (let index = 0; index < count; index += 1) {
+      const text = texts[index] ?? "";
+      if (!findPageUnderlay(host, index) && text.trim() && readyCore().containsMath(text)) {
+        await loadMathOrLog();
+        break;
+      }
     }
-    const underlayHtml = live?.innerHTML ?? (text.trim() ? renderMarkdownPlain(text) : "");
-    // The figures are in the page's own text layer, not in the flowed prose,
-    // which is the text with its figure lines already taken out.
-    // A missing attachment is a figure the page does not draw.
-    const figures: InkPrintFigure[] = await loadInOrder(
-      typedCore().inkPageFigures(textPages.current[pageIndex] ?? ""),
-      async ({ path, ...geometry }) => ({
-        ...geometry,
-        url: await blobToDataUrl(await fetchBlob(path)),
-      }),
-    );
-    const ink = await requestExport(PNG_EXPORT_SCALE, true);
-    const title = `${noteId} — page ${pageIndex + 1}`;
-    setPrintDoc({
-      title,
-      html: readyCore().inkPrintDocument({
-        title,
-        pageSize,
-        scale,
-        paper,
-        underlayHtml,
-        underlay: {
-          padX: INK_UNDERLAY.padX(scale),
-          padY: INK_UNDERLAY.padY(scale),
-          fontSize: INK_UNDERLAY.fontSize(scale),
-          lineHeight: INK_UNDERLAY.lineHeight,
-        },
-        rule: inkSheetRuleStyle(scale),
+    const pages: InkPrintPageLayers[] = [];
+    for (let index = 0; index < count; index += 1) {
+      const layer = textPages.current[index] ?? "";
+      // The figures are in the page's own text layer, not in the flowed prose.
+      // A missing attachment is a figure the page does not draw.
+      const figures = await loadInOrder(
+        typedCore().inkPageFigures(layer),
+        async ({ path, ...geometry }) => ({
+          ...geometry,
+          url: await blobToDataUrl(await fetchBlob(path)),
+        }),
+      );
+      // The current page's ink comes from the worker, which runs ahead of its
+      // save; every other page's from its saved strokes. Asked transparent:
+      // the print document lays its own paper down.
+      let ink: Blob | null;
+      if (index === pageIndex) {
+        ink = await requestExport(PNG_EXPORT_SCALE, true);
+      } else {
+        const path = typedCore().inkPageBackground(layer);
+        let background: Blob | null = null;
+        if (path) {
+          try {
+            background = await fetchBlob(path);
+          } catch {
+            // A missing attachment is a page without its background.
+          }
+        }
+        ink = await savedPageInk(savedStrokes.get(index) ?? [], background, pageSize, palette);
+      }
+      pages.push({
+        underlayHtml: pageUnderlayHtml(host, index, texts[index] ?? "", renderMarkdownPlain),
         figures,
         inkUrl: ink ? await blobToDataUrl(ink) : undefined,
-        styleSheets: documentStyleSheets(document),
-      }),
+        paper,
+      });
+    }
+    setPrintDoc({
+      title: baseName,
+      html: inkPrintPagesDocument(
+        {
+          title: baseName,
+          pageSize,
+          scale,
+          underlay: {
+            padX: INK_UNDERLAY.padX(scale),
+            padY: INK_UNDERLAY.padY(scale),
+            fontSize: INK_UNDERLAY.fontSize(scale),
+            lineHeight: INK_UNDERLAY.lineHeight,
+          },
+          rule: inkSheetRuleStyle(scale),
+          styleSheets: documentStyleSheets(document),
+        },
+        pages,
+      ),
     });
-  }, [fetchBlob, noteId, pageIndex, pageSize, pageText, paper, requestExport, scale, textPages]);
+  }, [
+    fetchBlob,
+    baseName,
+    pageCount,
+    pageIndex,
+    pageSize,
+    pageTexts,
+    palette,
+    paper,
+    requestExport,
+    root,
+    savedStrokes,
+    scale,
+    textPages,
+  ]);
 
   /**
    * The page as SVG: the strokes themselves, not a picture of them.
@@ -306,10 +396,10 @@ export function usePageExport(deps: PageExportDeps) {
       palette,
       backgroundDataUrl,
       figures,
-      title: `${noteId} — page ${pageIndex + 1}`,
+      title: `${baseName} — page ${pageIndex + 1}`,
     });
     downloadBlob(new Blob([svg], { type: "image/svg+xml" }), `${fileBase}.svg`);
-  }, [fetchBlob, fileBase, noteId, pageIndex, palette, requestModel, textPages]);
+  }, [baseName, fetchBlob, fileBase, pageIndex, palette, requestModel, textPages]);
 
   return { onExportPng, onPrint, onExportSvg, printDoc, closePrint };
 }
