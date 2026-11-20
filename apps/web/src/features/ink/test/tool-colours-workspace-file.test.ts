@@ -59,7 +59,7 @@ async function open(files: Map<string, string>) {
 function fullColours(pen: string): ToolColours {
   return {
     ...DEFAULT_TOOL_COLOURS,
-    pen: { colour: pen as ToolColours["pen"]["colour"], quick: [...DEFAULT_TOOL_COLOURS.pen.quick] },
+    pen: { ...DEFAULT_TOOL_COLOURS.pen, colour: pen as ToolColours["pen"]["colour"] },
   };
 }
 
