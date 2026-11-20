@@ -22,6 +22,10 @@ use crate::collab::{CollabState, Permission};
 const STORAGE_FAILED: &str = "Storage failed.";
 /// Largest client message the socket accepts; a larger one closes the socket.
 const MAX_MESSAGE_BYTES: usize = 2 * 1024 * 1024;
+/// Largest awareness (presence) frame relayed to the others; larger ones are dropped.
+const MAX_RELAY_BYTES: usize = 64 * 1024;
+/// Awareness frames one client may relay per second; the rest are dropped.
+const MAX_RELAYS_PER_SEC: u32 = 100;
 
 /// What the socket loop woke up for.
 enum Next {
@@ -41,6 +45,10 @@ struct Client {
     format_version: i64,
     /// When the grant was last checked (Unix ms).
     last_check: i64,
+    /// Start of the current one-second relay window (Unix ms).
+    relay_window: i64,
+    /// Awareness frames relayed in the current window.
+    relay_count: u32,
 }
 
 impl Client {
@@ -60,7 +68,19 @@ impl Client {
             client_format,
             format_version,
             last_check: now,
+            relay_window: now,
+            relay_count: 0,
         }
+    }
+
+    /// Counts one relayed frame against this client's per-second budget.
+    fn take_relay_slot(&mut self, now: i64) -> bool {
+        if now.saturating_sub(self.relay_window) >= 1_000 {
+            self.relay_window = now;
+            self.relay_count = 0;
+        }
+        self.relay_count += 1;
+        self.relay_count <= MAX_RELAYS_PER_SEC
     }
 
     /// Takes a fresh grant check result.
@@ -289,6 +309,10 @@ async fn on_binary(
             send(socket, Message::Binary(protocol::sync_step2(diff).into())).await
         }
         Some(Incoming::Relay) => {
+            // Presence is not stored, so an oversized or flooding client only costs the others.
+            if bytes.len() > MAX_RELAY_BYTES || !client.take_relay_slot(state.clock.now_ms()) {
+                return true;
+            }
             room.send(Event::Binary {
                 from: client.id,
                 bytes,
@@ -314,6 +338,11 @@ async fn on_update(
     socket: &mut WebSocket,
     update: Vec<u8>,
 ) -> bool {
+    if !state.hub.is_current(room) {
+        // Evicted or replaced (restore): the update would be logged to a room nobody saves.
+        let _ = send_text(socket, protocol::denied_json("stale")).await;
+        return false;
+    }
     let now = state.clock.now_ms();
     if now.saturating_sub(client.last_check) >= state.config.grant_cache_ms {
         match state.store.access(&room.item_id, &client.user).await {

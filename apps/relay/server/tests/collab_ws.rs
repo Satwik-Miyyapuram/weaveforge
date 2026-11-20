@@ -369,6 +369,17 @@ async fn expect_json(ws: &mut Ws, kind: &str) -> Value {
     }
 }
 
+/// The next binary frame (text frames skipped), as bytes.
+async fn next_binary(ws: &mut Ws) -> Vec<u8> {
+    loop {
+        match recv(ws).await.expect("a frame") {
+            Message::Binary(bytes) => return bytes.to_vec(),
+            Message::Close(_) => panic!("socket closed before a binary frame"),
+            _ => {}
+        }
+    }
+}
+
 /// Reads until the socket closes.
 async fn expect_close(ws: &mut Ws) {
     while let Some(message) = recv(ws).await {
@@ -598,6 +609,102 @@ async fn save_at_stale_epoch_is_an_error() {
     let missing = store.save_state("no-such-item", 1, &text_update("x")).await;
     assert!(missing.is_err(), "a save to a missing row reported success");
     assert_eq!(store.doc(ITEM).expect("doc row").state, before);
+}
+
+/// Appends `value` as a lib0 varuint.
+fn varuint(mut value: usize, out: &mut Vec<u8>) {
+    loop {
+        let byte = (value & 0x7f) as u8;
+        value >>= 7;
+        if value == 0 {
+            out.push(byte);
+            return;
+        }
+        out.push(byte | 0x80);
+    }
+}
+
+/// A y-protocols awareness frame whose one client state is about `json_len` bytes.
+fn awareness_frame(json_len: usize) -> Vec<u8> {
+    let state = format!("{{\"pad\":\"{}\"}}", "a".repeat(json_len));
+    let mut body = Vec::new();
+    varuint(1, &mut body);
+    varuint(7, &mut body);
+    varuint(1, &mut body);
+    varuint(state.len(), &mut body);
+    body.extend_from_slice(state.as_bytes());
+    let mut frame = vec![1u8];
+    varuint(body.len(), &mut frame);
+    frame.extend(body);
+    frame
+}
+
+/// Awareness query: a one-byte presence frame that the server relays as-is.
+const AWARENESS_QUERY: &[u8] = &[3];
+
+#[tokio::test]
+async fn oversized_awareness_is_not_relayed() {
+    let dir = TempDir::new("awareness-size");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let _grant = grant_edit(&store, ITEM).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+
+    send_frame(&mut guest, awareness_frame(70_000)).await;
+    send_frame(&mut guest, AWARENESS_QUERY.to_vec()).await;
+
+    // Frames arrive in order, so the first binary frame the owner sees must be the small one.
+    let first = next_binary(&mut owner).await;
+    assert_eq!(
+        first, AWARENESS_QUERY,
+        "an oversized awareness frame was relayed"
+    );
+}
+
+#[tokio::test]
+async fn awareness_flood_is_rate_limited() {
+    let dir = TempDir::new("awareness-rate");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let _grant = grant_edit(&store, ITEM).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+
+    for _ in 0..300 {
+        send_frame(&mut guest, AWARENESS_QUERY.to_vec()).await;
+    }
+    // Quiet period: count every frame the owner receives. A one-second window can split the
+    // burst in two on a slow machine, so the bound is two windows' worth, not one.
+    let mut relayed = 0;
+    while let Ok(Some(Ok(message))) =
+        tokio::time::timeout(Duration::from_millis(500), owner.next()).await
+    {
+        if matches!(message, Message::Binary(_)) {
+            relayed += 1;
+        }
+    }
+    assert!(relayed > 0, "no awareness frame was relayed");
+    assert!(
+        relayed <= 200,
+        "relayed {relayed} of 300 awareness frames from one client"
+    );
 }
 
 #[tokio::test]
