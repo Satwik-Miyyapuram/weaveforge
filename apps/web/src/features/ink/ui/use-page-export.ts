@@ -13,6 +13,7 @@ import { inkPrintPagesDocument, pageUnderlayHtml, findPageUnderlay, type InkPrin
 import type { InkPalette } from "../render/parts-1";
 import { INK_UNDERLAY, inkSheetRuleStyle, loadMathOrLog } from "./ink-sheet-underlay";
 import { readyCore, toWasmInkPage, typedCore } from "@/lib/rust-core";
+import { exportBaseName } from "./export-name";
 
 /**
  * The app's stylesheets as the print document links them: the linked ones by
@@ -60,8 +61,10 @@ export interface PageExportDeps {
   requestExport: (scale?: number, transparent?: boolean) => Promise<Blob | null>;
   /** The worker's strokes for the current page, for the vector export. */
   requestModel: () => Promise<InkPageModel>;
-  /** The note's id, which names the file. */
+  /** The note's id, which names the file when the note has no usable title. */
   noteId: string;
+  /** The note's title, which names the file. */
+  title?: string;
   /** 0-based, so the file says `page-1`. */
   pageIndex: number;
   /** The pages' text layers, where a page's background attachment is named. */
@@ -218,6 +221,7 @@ export function usePageExport(deps: PageExportDeps) {
     requestExport,
     requestModel,
     noteId,
+    title,
     pageIndex,
     textPages,
     pageSize,
@@ -230,7 +234,8 @@ export function usePageExport(deps: PageExportDeps) {
     scale,
     paper,
   } = deps;
-  const fileBase = `${noteId}-page-${pageIndex + 1}`;
+  const baseName = exportBaseName(title, noteId);
+  const fileBase = `${baseName}-page-${pageIndex + 1}`;
 
   /**
    * The worker's raster with the page's figures composed in, for the PNG. The
@@ -322,12 +327,11 @@ export function usePageExport(deps: PageExportDeps) {
         paper,
       });
     }
-    const title = noteId;
     setPrintDoc({
-      title,
+      title: baseName,
       html: inkPrintPagesDocument(
         {
-          title,
+          title: baseName,
           pageSize,
           scale,
           underlay: {
@@ -344,7 +348,7 @@ export function usePageExport(deps: PageExportDeps) {
     });
   }, [
     fetchBlob,
-    noteId,
+    baseName,
     pageCount,
     pageIndex,
     pageSize,
@@ -392,10 +396,10 @@ export function usePageExport(deps: PageExportDeps) {
       palette,
       backgroundDataUrl,
       figures,
-      title: `${noteId} — page ${pageIndex + 1}`,
+      title: `${baseName} — page ${pageIndex + 1}`,
     });
     downloadBlob(new Blob([svg], { type: "image/svg+xml" }), `${fileBase}.svg`);
-  }, [fetchBlob, fileBase, noteId, pageIndex, palette, requestModel, textPages]);
+  }, [baseName, fetchBlob, fileBase, pageIndex, palette, requestModel, textPages]);
 
   return { onExportPng, onPrint, onExportSvg, printDoc, closePrint };
 }

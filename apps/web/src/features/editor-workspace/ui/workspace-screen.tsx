@@ -44,7 +44,7 @@ import {
 } from "@weaveforge/wasm";
 import type { PaneLayout, PaneSplit, TabRef, WorkspaceTreeNode } from "@weaveforge/wasm";
 import type { ExplorerSection } from "../application/parts";
-import { DocumentHost, isCanvasDocument, type DocumentMetrics } from "./document-host";
+import { DocumentHost, fileSuffixFor, isCanvasDocument, type DocumentMetrics } from "./document-host";
 import { CanvasDocument } from "./canvas-document";
 import { ExplorerPanel } from "./explorer-panel";
 import { ExplorerResizer } from "./explorer-resizer";
@@ -535,6 +535,7 @@ export function WorkspaceScreen() {
         <DocumentHost
           tab={tab}
           mode={readyCore().tabMode(tab)}
+          title={doc.title}
           body={doc.body}
           links={links}
           completions={completions}
@@ -596,12 +597,9 @@ export function WorkspaceScreen() {
     },
     [tree, listsTree, previewOf],
   );
-  // A canvas is a note kept as `.canvas`, so its suffix is the file's, not the note kind's.
+  // A canvas or ink note shows its file's suffix, not the note kind's.
   const suffixFor = useCallback(
-    (tab: TabRef) => {
-      const doc = byKey.get(readyCore().tabKey(tab));
-      return doc && isCanvasDocument(doc) ? ".canvas" : readyCore().kindSuffix(tab.kind);
-    },
+    (tab: TabRef) => fileSuffixFor(byKey.get(readyCore().tabKey(tab)), tab.kind),
     [byKey],
   );
 

@@ -90,6 +90,7 @@ export type { InkHostDeps, InkHostPage, InkHostProps } from "./ink-host-types";
 
 export function InkHost({
   noteId,
+  title,
   body,
   deps,
   initialPage = 0,
@@ -466,17 +467,16 @@ export function InkHost({
   /**
    * The page as a PNG download, the page on paper, and the page as vectors.
    *
-   * The blob comes back from the worker's offscreen target, never from a
-   * readback of the live canvas (§6.2.12). Printing goes through the same
-   * raster rather than through the DOM, because what the user sees is a
-   * *window* onto the sheet — the canvas is the size of the viewport, not the
-   * page (§6.2.14) — so printing the screen would crop the page to whatever
-   * happened to be scrolled into view.
+   * The blob comes from the worker's offscreen target, never a readback of the
+   * live canvas (§6.2.12). Printing uses that raster, not the DOM: the canvas is
+   * a viewport-sized window onto the sheet (§6.2.14), so a screen print crops.
+   * The files are named by the note's title.
    */
   const { onExportPng, onPrint, onExportSvg, printDoc, closePrint } = usePageExport({
     requestExport,
     requestModel,
     noteId,
+    title,
     pageIndex,
     textPages: textPagesRef,
     pageSize,

@@ -1,8 +1,17 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { dedupeMetrics, isInAppHref, rendererFor, surfaceBody, tabForHref, type DocumentMetrics } from "../ui/document-host";
+import {
+  dedupeMetrics,
+  fileSuffixFor,
+  isInAppHref,
+  rendererFor,
+  surfaceBody,
+  tabForHref,
+  type DocumentMetrics,
+} from "../ui/document-host";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { readyCore } from "@/lib/rust-core";
 
 before(loadTestCore);
 
@@ -79,4 +88,19 @@ test("Ink opens on the text just typed, not the last saved body (E35)", () => {
   assert.equal(surfaceBody("old", ""), "");
   // Nothing typed yet: the saved body.
   assert.equal(surfaceBody("saved", null), "saved");
+});
+
+// A note written in ink is stored as `<title>.ink.md` (the serializer picks the
+// file from the body), so its tab and breadcrumb name that file, as a canvas
+// names its `.canvas` file.
+test("the suffix names the file the note is kept in: .ink.md, .canvas or the kind's", () => {
+  const note = (path: string, body: string) => ({ kind: "vault_page", path, body });
+  assert.equal(fileSuffixFor(note("notes/sketch.note.md", `${INK_HEADER}\n`), "vault_page"), ".ink.md");
+  assert.equal(fileSuffixFor(note("notes/plan.note.md", PLAIN_NOTE), "vault_page"), ".note.md");
+  assert.equal(fileSuffixFor(note("notes/board.canvas", "{}"), "vault_page"), ".canvas");
+  // A document not loaded yet falls back to its kind.
+  assert.equal(fileSuffixFor(undefined, "vault_page"), ".note.md");
+  assert.equal(fileSuffixFor(undefined, "ink_page"), ".ink.md");
+  // Only a note's body picks the file: a paper's ink summary stays a paper.
+  assert.equal(fileSuffixFor({ kind: "paper", path: "p", body: INK_HEADER }, "paper"), readyCore().kindSuffix("paper"));
 });
