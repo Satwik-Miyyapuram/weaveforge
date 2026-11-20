@@ -474,7 +474,7 @@ fn a_non_finite_number_is_omitted_and_a_finite_one_is_written_bare() {
 }
 
 #[test]
-fn an_ink_note_keeps_its_note_md_path_with_its_header_in_frontmatter() {
+fn an_ink_note_is_mirrored_as_ink_md_with_no_note_md_twin() {
     let meta = InkNoteMeta {
         page_order: vec!["01JABCDEFGHJKMNPQRSTVWXYZ0".to_owned()],
         recognised: 0.5,
@@ -489,12 +489,12 @@ fn an_ink_note_keeps_its_note_md_path_with_its_header_in_frontmatter() {
         &project(),
     );
     assert!(
-        !out.files.iter().any(|entry| entry.0.ends_with(".ink.md")),
-        "every note takes ink; it is not moved to .ink.md"
+        !out.files.iter().any(|entry| entry.0.ends_with(".note.md")),
+        "a .note.md twin of an existing .ink.md carries the same id, which closes the note's ink"
     );
-    let ink = out.files.iter().find(|entry| entry.0.ends_with(".note.md"));
+    let ink = out.files.iter().find(|entry| entry.0.ends_with(".ink.md"));
     let content = ink.map_or_else(
-        || panic!("an ink note keeps its .note.md path"),
+        || panic!("an ink note is written as .ink.md"),
         |entry| entry.1.as_str(),
     );
     assert!(content.contains("weaveforge-type: ink_page"));

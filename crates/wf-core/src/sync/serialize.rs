@@ -234,7 +234,7 @@ fn write_notes(
             write_entry(
                 files,
                 assets,
-                path.to_owned(),
+                ink_path_of(path),
                 &page.id,
                 WorkspaceEntityType::InkPage,
                 fields,
@@ -254,6 +254,13 @@ fn write_notes(
         }
     }
     canvases
+}
+
+/// `.note.md` at the end of a path becomes `.ink.md`, so an ink note keeps the one file it has
+/// on disk; a `.note.md` twin would carry the same id and close the note's ink.
+fn ink_path_of(path: &str) -> String {
+    path.strip_suffix(".note.md")
+        .map_or_else(|| path.to_owned(), |stem| format!("{stem}.ink.md"))
 }
 
 /// `.note.md` at the end of a path becomes `.canvas`: a canvas is written as its raw body.
