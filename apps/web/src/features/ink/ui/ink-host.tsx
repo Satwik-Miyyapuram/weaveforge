@@ -56,6 +56,7 @@ import { useInkSelection } from "./use-ink-selection";
 import { InkPage } from "./ink-page";
 import { cachedRect } from "./rect-cache";
 import { InkRail } from "./ink-rail";
+import { InkStoreAlert } from "./ink-store-alert";
 import { InkTextLayer } from "./ink-text-layer";
 import { useSheetTextPages } from "./ink-text-flow";
 import { useDecodedStrokes } from "./use-decoded-strokes";
@@ -693,6 +694,7 @@ export function InkHost({
       {process.env.NODE_ENV !== "production" && (
         <InkTuningPanel backend={pen.backend} delegating={pen.delegating} />
       )}
+      <InkStoreAlert message={loadError} />
       {/* The rail: continuous multi-page scroll with background active page switching. */}
       <InkRail
         scrollRef={scrollRef}
@@ -797,7 +799,7 @@ export function InkHost({
         lines={lines}
         confidence={confidence}
         progress={progress}
-        unavailable={loadError ?? unavailable}
+        unavailable={unavailable}
         onAccept={onAccept}
         rawText={pureText}
       />
