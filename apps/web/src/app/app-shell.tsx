@@ -74,6 +74,10 @@ const PdfTextFolderSync = dynamic(
   () => import("@/features/workspace/ui/pdf-text-folder-sync").then((m) => m.PdfTextFolderSync),
   { ssr: false },
 );
+const WorkspaceSettingsSync = dynamic(
+  () => import("@/features/workspace/ui/workspace-settings-sync").then((m) => m.WorkspaceSettingsSync),
+  { ssr: false },
+);
 const FolderDraftInbox = dynamic(
   () => import("@/features/ai-assistant/ui/folder-draft-inbox").then((m) => m.FolderDraftInbox),
   { ssr: false },
@@ -120,6 +124,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <WorkspaceSetupDialog />
                 <GitAutoSync />
                 <FolderChangeNote />
+                <WorkspaceSettingsSync />
                 <GithubOnboarding />
                 <ToastHost />
                 <ContextMenuHost />
