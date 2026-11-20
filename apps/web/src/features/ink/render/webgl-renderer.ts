@@ -66,6 +66,7 @@ import {
 import { ensureCaptureTarget, releaseCaptureTarget, type CaptureTarget } from "./webgl-offscreen";
 import { InkBatches, type Batch } from "./webgl-batches";
 import { linkProgram, pageScissor } from "./webgl-support";
+import { wetContextAttributes } from "./webgl-context";
 export { INK_RENDER_COLOURS } from "./parts-1";
 
 /**
@@ -85,6 +86,8 @@ export interface WebglInkRendererOptions {
   canvas: OffscreenCanvas | HTMLCanvasElement;
   /** The path the delegated trail is on, which decides `desynchronized` (§6.2.6). */
   delegating?: boolean;
+  /** Overrides `desynchronized` (ink tuning `wetDesynchronized`); defaults to `!delegating`. */
+  desynchronized?: boolean;
   /** Called when the context is lost, and again when it comes back. */
   onContextLifecycle?: (state: "lost" | "restored") => void;
 }
@@ -184,14 +187,10 @@ export class WebglInkRenderer implements InkRenderer {
     // surface, the rulings — so the ink lands on whatever the theme paints and
     // dark mode needs no work here. Premultiplied, because that is what the
     // compositor blends fastest and what the shader writes.
-    const attributes: WebGLContextAttributes = {
-      alpha: true,
-      antialias: false,
-      stencil: true,
-      desynchronized: !options.delegating,
-      preserveDrawingBuffer: false,
-      premultipliedAlpha: true,
-    };
+    const attributes = wetContextAttributes({
+      delegating: options.delegating ?? false,
+      wetDesynchronized: options.desynchronized ?? true,
+    });
     const gl = options.canvas.getContext(
       "webgl2",
       attributes,

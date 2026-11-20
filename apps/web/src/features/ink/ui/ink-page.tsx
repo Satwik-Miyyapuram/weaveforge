@@ -19,6 +19,8 @@
 import { useCallback, useRef, useState } from "react";
 
 import { InkGesture, StrokeEdgeSplit } from "../application/parts-1";
+import { readInkTuning } from "../application/ink-tuning";
+import { setWetLayerAbove } from "../application/wet-layer";
 import {
   claimPointer,
   ERASER_CURSOR,
@@ -30,6 +32,7 @@ import {
 import { joinPoint } from "./ink-edge-join";
 import type { InkPageProps } from "./ink-page-props";
 import { inkSheetRuleStyle } from "./ink-sheet-underlay";
+import { cachedRect } from "./rect-cache";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
 export type { InkPageProps } from "./ink-page-props";
@@ -332,6 +335,8 @@ export function InkPage({
         inkGesture.current.up(event.pointerId);
         return;
       }
+      // The canvas's parent is its dock: raised over the sheet for the stroke.
+      setWetLayerAbove(event.currentTarget.parentElement, true, readInkTuning().wetLayerAboveSvg);
       penHandlers.onPointerDown(event);
     },
     [
@@ -422,7 +427,7 @@ export function InkPage({
       // where the pen crosses onto it. Sideways the paper is open: the writing
       // margin is part of the sheet.
       if (route === "draw" && ensurePage && (penActive?.() || edge.current.outside)) {
-        const box = sheetRef.current?.getBoundingClientRect();
+        const box = sheetRef.current ? cachedRect(sheetRef.current) : undefined;
         const area = box ? { left: -Infinity, right: Infinity, top: box.top, bottom: box.bottom } : null;
         const step = edge.current.move({ x: event.clientX, y: event.clientY }, area);
         if (step.kind === "exit") {
@@ -475,6 +480,7 @@ export function InkPage({
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       const route = inkGesture.current.up(event.pointerId);
       edge.current.end();
+      setWetLayerAbove(event.currentTarget.parentElement, false, true);
       if (event.pointerType === "touch" && touchUp(event)) return;
       if (figureTap.current) {
         figureTap.current = false;

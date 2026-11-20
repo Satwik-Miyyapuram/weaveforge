@@ -48,11 +48,13 @@ import {
   type InkStoredPage,
 } from "../application/parts-1";
 import { InkBar } from "./ink-bar";
+import { InkTuningPanel } from "./ink-tuning-panel";
 import { InkSelectionChip } from "./ink-selection-chip";
 import { InkFigures } from "./ink-figures";
 import { InkSheetTextUnderlay } from "./ink-sheet-underlay";
 import { useInkSelection } from "./use-ink-selection";
 import { InkPage } from "./ink-page";
+import { cachedRect } from "./rect-cache";
 import { InkRail } from "./ink-rail";
 import { InkTextLayer } from "./ink-text-layer";
 import { useSheetTextPages } from "./ink-text-flow";
@@ -200,7 +202,8 @@ export function InkHost({
   const project = useCallback((clientX: number, clientY: number) => {
     const sheet = sheetRef.current;
     if (!sheet) return null;
-    const box = sheet.getBoundingClientRect();
+    // Every coalesced sample projects; a cached rect keeps that off layout (perf I3).
+    const box = cachedRect(sheet);
     return {
       x: ((clientX - box.left) / Math.max(box.width, 1)) * pageSize.width,
       y: ((clientY - box.top) / Math.max(box.height, 1)) * pageSize.height,
@@ -659,6 +662,9 @@ export function InkHost({
           onPageGap={setPageGap}
         />
       </ToolbarSlot>
+      {process.env.NODE_ENV !== "production" && (
+        <InkTuningPanel backend={pen.backend} delegating={pen.delegating} />
+      )}
       {/* The rail: continuous multi-page scroll with background active page switching. */}
       <InkRail
         scrollRef={scrollRef}

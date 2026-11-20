@@ -32,6 +32,8 @@ export interface LiveStroke {
    * pen's own density. Classic keeps what the packer simplifies to.
    */
   raw: boolean;
+  /** What the renderer is handed, reused frame to frame; made on the first frame. */
+  wet?: WetBuffers;
 }
 
 /**
@@ -162,28 +164,83 @@ export function replacePredictedTail(
  */
 export function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
   const real = stroke.realSamples;
-  const { points, pressures } = realSoFar(stroke);
-  const realCount = points.length / 2;
-  const tail = stroke.points.length / 2 - real;
-  const count = realCount + tail;
-  const x = new Float32Array(count);
-  const y = new Float32Array(count);
-  const pressure = new Uint8Array(count);
-  for (let i = 0; i < realCount; i += 1) {
-    x[i] = points[i * 2]!;
-    y[i] = points[i * 2 + 1]!;
-    pressure[i] = pressures[i] ?? 128;
+  const tail = Math.max(0, stroke.points.length / 2 - real);
+  const wet = (stroke.wet ??= newWetBuffers(stroke.header));
+  let realCount: number;
+  if (stroke.raw) {
+    // Raw samples are only ever appended (or cut back at the point cap), so
+    // the prefix already copied is still right: copy only the new ones.
+    realCount = real;
+    growWet(wet, realCount + tail);
+    for (let i = Math.min(wet.copied, realCount); i < realCount; i += 1) {
+      wet.x[i] = stroke.points[i * 2]!;
+      wet.y[i] = stroke.points[i * 2 + 1]!;
+      wet.pressure[i] = stroke.pressures[i] ?? 128;
+    }
+    wet.copied = realCount;
+  } else {
+    // The packer moves its last point with the pen and may revise the kept
+    // ones, and `points()` already copies the whole stroke out of wasm, so the
+    // packed part is rewritten each frame, into the same buffers.
+    const points = stroke.packer.points();
+    const pressures = stroke.packer.pressures();
+    realCount = points.length / 2;
+    growWet(wet, realCount + tail);
+    for (let i = 0; i < realCount; i += 1) {
+      wet.x[i] = points[i * 2]!;
+      wet.y[i] = points[i * 2 + 1]!;
+      wet.pressure[i] = pressures[i] ?? 128;
+    }
   }
   for (let i = 0; i < tail; i += 1) {
-    x[realCount + i] = stroke.points[(real + i) * 2]!;
-    y[realCount + i] = stroke.points[(real + i) * 2 + 1]!;
-    pressure[realCount + i] = stroke.pressures[real + i] ?? 128;
+    wet.x[realCount + i] = stroke.points[(real + i) * 2]!;
+    wet.y[realCount + i] = stroke.points[(real + i) * 2 + 1]!;
+    wet.pressure[realCount + i] = stroke.pressures[real + i] ?? 128;
   }
-  return {
-    header: stroke.header,
-    x,
-    y,
-    pressure,
-    realCount,
-  };
+  const count = realCount + tail;
+  const live = wet.live;
+  live.header = stroke.header;
+  live.x = wet.x.subarray(0, count);
+  live.y = wet.y.subarray(0, count);
+  live.pressure = wet.pressure.subarray(0, count);
+  live.realCount = realCount;
+  return live;
+}
+
+/**
+ * The wet stroke's buffers, kept on the live stroke between frames (perf
+ * review I1/I2). `live` is the one object the renderer gets every frame: the
+ * WebGL renderer packs incrementally only while it sees the same object, and
+ * a fresh one per frame made it repack (and re-upload) the whole stroke.
+ */
+export interface WetBuffers {
+  x: Float32Array;
+  y: Float32Array;
+  pressure: Uint8Array;
+  /** Raw samples already copied in; the prefix that need not be copied again. */
+  copied: number;
+  live: InkLiveStroke;
+}
+
+function newWetBuffers(header: InkStrokeHeader): WetBuffers {
+  const x = new Float32Array(256);
+  const y = new Float32Array(256);
+  const pressure = new Uint8Array(256);
+  return { x, y, pressure, copied: 0, live: { header, x, y, pressure, realCount: 0 } };
+}
+
+/** Grow by doubling, keeping what is in the buffers. */
+function growWet(wet: WetBuffers, count: number): void {
+  if (count <= wet.x.length) return;
+  let size = wet.x.length;
+  while (size < count) size *= 2;
+  const x = new Float32Array(size);
+  const y = new Float32Array(size);
+  const pressure = new Uint8Array(size);
+  x.set(wet.x);
+  y.set(wet.y);
+  pressure.set(wet.pressure);
+  wet.x = x;
+  wet.y = y;
+  wet.pressure = pressure;
 }
