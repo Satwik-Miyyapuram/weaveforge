@@ -1,5 +1,5 @@
 // The handwriting-feel knobs of `ink.tuning` are wired: changing each one
-// changes what is drawn. Pure tests, no wasm (fakes stand in for the packer).
+// changes what is drawn. Pure tests, no wasm.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
@@ -105,30 +105,12 @@ test("the panel lists each knob's range and default", () => {
 
 const header = { strokeId: 1, width: 4, tool: "pen", colour: "black" } as unknown as LiveStroke["header"];
 
-function classicStroke(read: () => Float64Array): LiveStroke {
-  return {
-    header,
-    points: [],
-    pressures: [],
-    realSamples: 0,
-    changed: true,
-    packer: { push() {}, points: read, pressures: () => new Float64Array(0) },
-    raw: false,
-  } as unknown as LiveStroke;
+function liveStroke(): LiveStroke {
+  return { header, points: [], pressures: [], realSamples: 0, changed: true } as unknown as LiveStroke;
 }
 
-test("a classic stroke reports the first point the packer revised", () => {
-  let flat = new Float64Array([0, 0, 1, 1, 2, 2, 3, 3, 4, 4]);
-  const stroke = classicStroke(() => flat);
-  assert.equal(liveForRenderer(stroke).changedFrom, 0, "first frame: everything is new");
-  flat = new Float64Array([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5]);
-  assert.equal(liveForRenderer(stroke).changedFrom, 5, "appended: only the new point");
-  flat = new Float64Array([0, 0, 1, 9, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6]);
-  assert.equal(liveForRenderer(stroke).changedFrom, 1, "an earlier point moved");
-});
-
-test("a raw stroke reports where its new samples start", () => {
-  const stroke = { ...classicStroke(() => new Float64Array(0)), raw: true } as LiveStroke;
+test("a live stroke reports where its new samples start", () => {
+  const stroke = liveStroke();
   for (let i = 0; i < 4; i += 1) stroke.points.push(i, i);
   stroke.realSamples = 4;
   assert.equal(liveForRenderer(stroke).changedFrom, 0);
@@ -137,7 +119,7 @@ test("a raw stroke reports where its new samples start", () => {
   assert.equal(liveForRenderer(stroke).changedFrom, 4);
 });
 
-// A reference packer with the WebGL one's locality: segment k (point k to k+1)
+// A reference repacker with the same locality: segment k (point k to k+1)
 // reads points k-1..k+2 (its end tangents), so moving point c changes segments
 // c-2..c+1.
 function segment(xs: number[], k: number): string {

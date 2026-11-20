@@ -36,7 +36,7 @@ test("strokes and the draft draw in the theme's colours; the stored colour stays
   let root!: ReactTestRenderer;
   act(() => {
     root = create(
-      createElement(InkLayer, { strokes: [stroke], selected: new Set<string>(), draft, renderer: "classic", ink: darkInk() }),
+      createElement(InkLayer, { strokes: [stroke], selected: new Set<string>(), draft, ink: darkInk() }),
     );
   });
   const paths = root.root.findAllByType("path");

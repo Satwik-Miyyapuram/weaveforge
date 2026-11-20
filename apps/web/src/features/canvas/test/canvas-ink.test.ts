@@ -30,25 +30,20 @@ function circle(n: number, radius: number, jitter = 0): InkPoint[] {
   return out;
 }
 
-test("classic keeps the polyline exactly", () => {
-  const pts = circle(60, 40);
-  assert.equal(canvasStrokePath(pts, 2, "pen", "classic"), pathFor(pts));
-});
-
 test("freehand real pen pressure sets the width: firm is wider than light, mid matches the mouse", () => {
   const line = (pressure: number) => slowLine().map((p) => ({ ...p, pressure }));
   const w = 8;
-  const light = meanWidth(canvasStrokePath(line(0.2), w, "pen", "freehand"), 200);
-  const firm = meanWidth(canvasStrokePath(line(0.8), w, "pen", "freehand"), 200);
-  const mid = meanWidth(canvasStrokePath(line(0.51), w, "pen", "freehand"), 200);
-  const mouse = meanWidth(canvasStrokePath(slowLine(), w, "pen", "freehand"), 200);
+  const light = meanWidth(canvasStrokePath(line(0.2), w, "pen"), 200);
+  const firm = meanWidth(canvasStrokePath(line(0.8), w, "pen"), 200);
+  const mid = meanWidth(canvasStrokePath(line(0.51), w, "pen"), 200);
+  const mouse = meanWidth(canvasStrokePath(slowLine(), w, "pen"), 200);
   assert.ok(firm > 1.5 * light, `firm ${firm.toFixed(2)} vs light ${light.toFixed(2)}`);
   assert.ok(Math.abs(mid - mouse) <= 0.15 * mouse, `pen mid ${mid.toFixed(2)} vs mouse ${mouse.toFixed(2)}`);
 });
 
 test("freehand closes with one straight segment (Excalidraw's Z) and draws curves", () => {
   for (const spacing of [60, 20]) {
-    const d = canvasStrokePath(circle(spacing, 40), 2, "pen", "freehand");
+    const d = canvasStrokePath(circle(spacing, 40), 2, "pen");
     assert.match(d, /^M/);
     assert.match(d, /Q/);
     assert.equal(d.match(/ L /g)?.length, 1, "only the closing L");
@@ -58,7 +53,7 @@ test("freehand closes with one straight segment (Excalidraw's Z) and draws curve
 
 test("freehand sparse and jittered input still draws curves, not facets", () => {
   for (const pts of [circle(14, 40), circle(120, 40, 0.8)]) {
-    const d = canvasStrokePath(pts, 2, "pen", "freehand");
+    const d = canvasStrokePath(pts, 2, "pen");
     assert.equal(d.match(/ L /g)?.length, 1, "no facet: only the closing L");
     assert.doesNotMatch(d, /NaN/);
   }
@@ -67,28 +62,28 @@ test("freehand sparse and jittered input still draws curves, not facets", () => 
 test("wet and settled use the same path for the same points", () => {
   const pts = circle(30, 40);
   assert.equal(
-    canvasStrokePath(pts, 2, "pen", "freehand"),
-    canvasStrokePath([...pts], 2, "pen", "freehand"),
+    canvasStrokePath(pts, 2, "pen"),
+    canvasStrokePath([...pts], 2, "pen"),
   );
 });
 
 test("the path function leaves the stored points untouched", () => {
   const pts = circle(30, 40);
   const before = JSON.stringify(pts);
-  canvasStrokePath(pts, 2, "pen", "freehand");
+  canvasStrokePath(pts, 2, "pen");
   assert.equal(JSON.stringify(pts), before);
 });
 
-test("a single point is a dot in both renderers", () => {
+test("a single point is a dot", () => {
   const one = [{ x: 5, y: 6, pressure: 0.5 }];
-  assert.equal(canvasStrokePath(one, 2, "pen", "freehand"), pathFor(one));
+  assert.equal(canvasStrokePath(one, 2, "pen"), pathFor(one));
 });
 
 test("a highlighter and a pen share one outline; only the CSS opacity differs", () => {
   const pts = circle(30, 40);
   assert.equal(
-    canvasStrokePath(pts, 2, "highlighter", "freehand"),
-    canvasStrokePath(pts, 2, "pen", "freehand"),
+    canvasStrokePath(pts, 2, "highlighter"),
+    canvasStrokePath(pts, 2, "pen"),
   );
 });
 
@@ -153,7 +148,7 @@ test("a mouse freehand line and curve are OneNote's width at every canvas preset
         ["line", mouseLine(step, 400), mouseLine(step, 800), 400],
         ["curve", mouseArc(step, Math.PI / 2), mouseArc(step, Math.PI), (Math.PI / 2) * 160],
       ] as const) {
-        const draw = (pts: InkPoint[]) => area(canvasStrokePath(pts, w, "pen", "freehand"));
+        const draw = (pts: InkPoint[]) => area(canvasStrokePath(pts, w, "pen"));
         const drawn = (draw(long) - draw(short)) / extra;
         assert.ok(
           Math.abs(drawn / w - ONENOTE_BODY_RATIO) <= 0.1 * ONENOTE_BODY_RATIO,
@@ -166,9 +161,9 @@ test("a mouse freehand line and curve are OneNote's width at every canvas preset
 
 test("a mouse freehand stroke keeps one width whatever the sample spacing", () => {
   for (const w of CANVAS_PEN_WIDTHS) {
-    const dense = meanWidth(canvasStrokePath(mouseLine(1), w, "pen", "freehand"), 400);
+    const dense = meanWidth(canvasStrokePath(mouseLine(1), w, "pen"), 400);
     for (const step of [4, 10, 25]) {
-      const sparse = meanWidth(canvasStrokePath(mouseLine(step), w, "pen", "freehand"), 400);
+      const sparse = meanWidth(canvasStrokePath(mouseLine(step), w, "pen"), 400);
       assert.ok(
         Math.abs(sparse - dense) <= 0.05 * dense,
         `${w} px preset: ${step} px spacing ${sparse.toFixed(2)} vs dense ${dense.toFixed(2)}`,
@@ -204,7 +199,7 @@ test("a fast zig-zag keeps the gap between its legs open at every canvas preset"
   }
   pts.push({ x: corners.at(-1)![0], y: corners.at(-1)![1], pressure: 0.5 });
   for (const w of CANVAS_PEN_WIDTHS) {
-    const o = outlinePoints(canvasStrokePath(pts, w, "pen", "freehand"));
+    const o = outlinePoints(canvasStrokePath(pts, w, "pen"));
     // Halfway between the legs, 60 px above the bottom corner at x 122 (26 px gap): paper, not ink.
     assert.equal(winding(o, [122, 140]), 0, `${w} px preset: the legs fuse at the corner`);
   }
@@ -213,24 +208,22 @@ test("a fast zig-zag keeps the gap between its legs open at every canvas preset"
 test("a pen stroke whose first sample is at mid pressure still draws with its real pressure", () => {
   const pts = slowLine().map((p, i) => ({ ...p, pressure: i === 0 ? 0.5 : 0.85 }));
   const mouse = slowLine().map((p) => ({ ...p, pressure: 0.5 }));
-  const d = canvasStrokePath(pts, 8, "pen", "freehand");
-  assert.notEqual(d, canvasStrokePath(mouse, 8, "pen", "freehand"));
+  const d = canvasStrokePath(pts, 8, "pen");
+  assert.notEqual(d, canvasStrokePath(mouse, 8, "pen"));
   assert.equal(
     d,
     inkFreedrawPath(pts.map((p) => [p.x, p.y]), pts.map((p) => p.pressure), 8, false, true),
   );
 });
 
-test("a settled stroke's path is computed once per stroke and renderer", () => {
+test("a settled stroke's path is computed once per stroke", () => {
   const stroke = encodeStroke({ id: "c1", width: 2, colour: "#000000", points: circle(30, 40) });
-  const first = settledCanvasPath(stroke, "freehand");
-  assert.equal(first, canvasStrokePath(decodeStroke(stroke), 2, "pen", "freehand"));
+  const first = settledCanvasPath(stroke);
+  assert.equal(first, canvasStrokePath(decodeStroke(stroke), 2, "pen"));
   // Strokes are immutable: an in-place edit is not seen, which shows the cache answered.
   (stroke.p as number[])[2] = 999;
-  assert.equal(settledCanvasPath(stroke, "freehand"), first);
-  // Another renderer is another path.
-  assert.equal(settledCanvasPath(stroke, "classic"), pathFor(decodeStroke(stroke)));
+  assert.equal(settledCanvasPath(stroke), first);
   // A new stroke object (an edit replaces the stroke) is computed afresh.
   const moved = { ...stroke, x: stroke.x + 10 };
-  assert.notEqual(settledCanvasPath(moved, "freehand"), first);
+  assert.notEqual(settledCanvasPath(moved), first);
 });

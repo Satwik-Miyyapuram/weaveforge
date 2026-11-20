@@ -37,7 +37,7 @@ Each file below owns one part:
 - `js_math`: JavaScript `Math` semantics where Rust differs, so geometry matches.
 - `one_euro`: the 1-Euro pen filter, a port of the TypeScript wrapper.
 - `page_background`: where a page background sits on the A4 sheet. `is_pdf` and `is_page_source` (wasm `inkIsPdf`, `inkIsPageSource`) say whether a file is a PDF, or any page source (a PDF or an image), by MIME or a `.pdf` name in any case.
-- `page_scissor`: the WebGL page scissor box, `[x, y, w, h]` in device pixels with GL's bottom-up rows (wasm `inkPageScissor`). The GL `scissor` call stays in TypeScript (`render/webgl-support.ts`).
+- `page_scissor`: the WebGL page scissor box, `[x, y, w, h]` in device pixels with GL's bottom-up rows (wasm `inkPageScissor`). The WebGL renderer was removed in 0.9.5, so the app no longer calls this export.
 - `page_history`: one undo order for a page's strokes and figures.
 - `page_math`: the fit, the selection's text and the figure hit test.
 - `page_text`: the page text once handwriting is recognised.
@@ -48,7 +48,7 @@ Each file below owns one part:
 - `native_stroke`: `flat_stroke_samples` (wasm `inkFlatStrokeSamples`) turns a native shell's flat stroke into CSS-pixel samples, clamping pressure and dropping a partial tail. One call per stroke at pen-lift.
 - `recognise`: confidence mapping and the other pure parts of recognition. `band_union` (wasm `inkBandUnion`) spans the y-bands of a line's strokes, or is none when there are none.
 - `recognition_request`: builds the request the page sends to the desktop recogniser (`buildInkRequest`, flattening strokes to x, y, pressure) and checks the request the desktop reads (`read_ink_request`).
-- `render_instances`: the WebGL stroke renderer's maths: instance count, the packer that writes each span's capsule instances (`pack_stroke_instances`), the backing-store ratio and the highlighter-pass test. The GL calls, buffers and canvas stay in TypeScript (`render/ink-renderer.ts`, `render/webgl-renderer.ts`), so this is a THIN port.
+- `render_instances`: the WebGL stroke renderer's maths: instance count, the packer that writes each span's capsule instances (`pack_stroke_instances`), the backing-store ratio and the highlighter-pass test. The WebGL renderer that drew these instances was removed in 0.9.5; the SVG and SDF paths still use the packing maths through `render/parts-1.ts`.
 - `render_strokes`: the strokes in the shape the one renderer takes, with colour names resolved.
 - `segment`: groups a page's strokes into the lines a recogniser reads.
 - `shape_snap`: fits a line, rect, ellipse or arrow to a freehand mark.
@@ -78,7 +78,7 @@ Examples of exports:
 - Palette: `paletteCss`, `paletteHex`, `paletteName`, `parseCssColour`, `samePalette`, from `ink_palette.rs`. Their TS types are declared in Rust.
 - Native argb: `inkArgbHex(colour, alpha)`, from `ink_palette.rs`. It reads the Rust light theme (`LIGHT_THEME` in `palette.rs`) and answers `#aarrggbb` for the native shell's pen. A test in `native-bridge.test.ts` pins that table against `INK_RENDER_COLOURS`.
 - Palm rule: `contactAreaMm2`, from `ink_palette.rs`. Its wrapper takes a `{ width, height }` pointer event.
-- Render instances: `inkStrokeInstanceCount`, `packInkStrokeInstances`, `inkBackingRatio`, `usesInkHighlighterPass`, from `ink_render_instances.rs`. Their TS types are declared in Rust. `packInkStrokeInstances` returns a `Float64Array`; `ink-renderer.ts` narrows it into the `Float32Array` the GL buffer takes. `strokeInstanceCount`, `backingRatio`, `usesHighlighterPass` and `packStrokeInstances` in `ink-renderer.ts` call these through `readyCore()`, so the core must be loaded before the WebGL renderer or the layout hook runs. Tests preload it with `before(loadTestCore)`.
+- Render instances: `inkStrokeInstanceCount`, `packInkStrokeInstances`, `inkBackingRatio`, `usesInkHighlighterPass`, from `ink_render_instances.rs`. Their TS types are declared in Rust. `packInkStrokeInstances` returns a `Float64Array`; `ink-renderer.ts` narrows it into the `Float32Array` the GL buffer takes. `strokeInstanceCount`, `backingRatio`, `usesHighlighterPass` and `packStrokeInstances` in `ink-renderer.ts` call these through `readyCore()`, so the core must be loaded before the layout hook runs. Tests preload it with `before(loadTestCore)`.
 
 The palette functions take the palette as an object of colour name to `[r, g, b]`. The wrapper turns it into ordered pairs for the wasm side, so a name that appears twice resolves as the JavaScript object does. `ink-palette.ts` and `pen-gate.ts` call these through `readyCore()`, so they need the core loaded first.
 
@@ -107,7 +107,7 @@ The app's ink worker, renderers and storage are in TypeScript too. These files t
 - `application/ink-pending-writes.ts`: tracks in-flight save promises by note.
 - `application/load-in-order.ts`: runs async JavaScript loaders and collects their results.
 - `application/stroke-index.ts`: wraps a `flatbush` R-tree over the JavaScript page buffer.
-- `render/canvas-renderer.ts`, `render/webgl-batches.ts`, `render/webgl-offscreen.ts`, `render/webgl-renderer.ts`, `render/webgl-shaders.ts`, `render/webgl-support.ts`: draw to canvas or WebGL.
+- `render/canvas-renderer.ts`: the only ink renderer. It fills freehand outlines on a Canvas 2D context.
 - `infrastructure/routed-ink-chunk-store.ts`: reads and writes chunks through storage I/O.
 - `worker/ink-background.ts`, `worker/ink-export.ts`, `worker/ink-paste.ts`: handle worker messages over fetch and storage.
 

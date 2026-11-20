@@ -9,12 +9,8 @@ import { freedrawPath } from "../render/excalidraw-freedraw";
 const POINTS = [0, 0, 50, 0, 100, 20];
 const WIDTH = 10;
 
-test("the settled stroke is the capsule path when the renderer is classic", () => {
-  assert.equal(settledStrokePath(POINTS, WIDTH, "classic"), readyCore().strokePath(POINTS));
-});
-
-test("the settled stroke is a perfect-freehand outline when the renderer is freehand", () => {
-  const d = settledStrokePath(POINTS, WIDTH, "freehand") ?? "";
+test("the settled stroke is a perfect-freehand outline, not the core capsule path", () => {
+  const d = settledStrokePath(POINTS, WIDTH) ?? "";
   assert.match(d, /^M/);
   assert.ok(d.endsWith(" Z"));
   assert.notEqual(d, readyCore().strokePath(POINTS));
@@ -22,7 +18,7 @@ test("the settled stroke is a perfect-freehand outline when the renderer is free
 
 test("a settled freehand stroke is Excalidraw's freedraw path for its points", () => {
   assert.equal(
-    settledStrokePath(POINTS, WIDTH, "freehand"),
+    settledStrokePath(POINTS, WIDTH),
     freedrawPath([0, 50, 100], [0, 0, 20], WIDTH, true),
   );
 });
@@ -105,7 +101,7 @@ test("the wet stroke paints the settled SVG outline: painted geometry within 0.0
     false,
   );
   const wet = outlinePoints(calls.join(" "));
-  const settled = outlinePoints(settledStrokePath(POINTS, WIDTH, "freehand", [255, 255, 255]) ?? "");
+  const settled = outlinePoints(settledStrokePath(POINTS, WIDTH, [255, 255, 255]) ?? "");
   assert.ok(wet.length > 0 && settled.length > 0);
   const gap = worstGap(wet, settled);
   assert.ok(gap <= 1e-3, `painted outline is ${gap} units from the settled SVG outline`);
@@ -113,17 +109,17 @@ test("the wet stroke paints the settled SVG outline: painted geometry within 0.0
 
 test("the comparison fails when one outline point moves 0.5 units", () => {
   // Guards the comparison itself: a single point off the outline must exceed the tolerance.
-  const settled = outlinePoints(settledStrokePath(POINTS, WIDTH, "freehand") ?? "");
+  const settled = outlinePoints(settledStrokePath(POINTS, WIDTH) ?? "");
   const moved = settled.map((p, i): [number, number] => (i === 0 ? [p[0] + 0.5, p[1]] : p));
   assert.ok(worstGap(moved, settled) > 1e-3);
 });
 
 test("a settled freehand stroke draws with its pressure, and the path is built once", () => {
   const points = [0, 0, 50, 0, 100, 20];
-  const mid = settledStrokePath(points, WIDTH, "freehand");
-  const pen = settledStrokePath(points, WIDTH, "freehand", [40, 200, 90]);
+  const mid = settledStrokePath(points, WIDTH);
+  const pen = settledStrokePath(points, WIDTH, [40, 200, 90]);
   assert.notEqual(pen, mid, "real pressure changes the outline");
-  assert.equal(settledStrokePath(points, WIDTH, "freehand", [128, 128, 128]), mid, "midpoint pressure is the mouse outline");
-  assert.equal(settledStrokePath(points, WIDTH, "freehand", [40, 200, 90]), pen);
-  assert.notEqual(settledStrokePath(points, WIDTH + 4, "freehand"), mid, "the halo width is its own path");
+  assert.equal(settledStrokePath(points, WIDTH, [128, 128, 128]), mid, "midpoint pressure is the mouse outline");
+  assert.equal(settledStrokePath(points, WIDTH, [40, 200, 90]), pen);
+  assert.notEqual(settledStrokePath(points, WIDTH + 4), mid, "the halo width is its own path");
 });

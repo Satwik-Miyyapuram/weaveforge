@@ -1,17 +1,7 @@
-/**
- * The `freehand` renderer, behind the `inkRenderer` setting. Its outline is
- * Excalidraw's freedraw path, copied verbatim in `excalidraw-freedraw.ts` (MIT;
- * perfect-freehand does the stroke maths). `classic` keeps the capsule renderer.
- *
- * Units: points and the returned path are in the stroke's own units (0.1 mm on
- * paper, px on the canvas).
- */
+// The ink renderer's stroke outline: Excalidraw's freedraw path, copied verbatim
+// in excalidraw-freedraw.ts (MIT; perfect-freehand does the stroke maths).
 
 import { freedrawPath, type FreedrawShape } from "./excalidraw-freedraw";
-
-export const INK_RENDERERS = ["classic", "freehand"] as const;
-export type InkRendererKind = (typeof INK_RENDERERS)[number];
-export const DEFAULT_INK_RENDERER: InkRendererKind = "classic";
 
 /** The settled stroke's path (SVG `d`) from flat `x, y` pairs, as Excalidraw draws it. */
 export function freehandPathFromFlat(
@@ -113,20 +103,4 @@ export class FreehandOutlineCache {
   clear(): void {
     this.entries.clear();
   }
-}
-
-/**
- * The setting's value from storage or a form. Anything but `"freehand"` is
- * `classic`, so a stale or mistyped value never switches the renderer.
- */
-export function parseInkRenderer(raw: unknown): InkRendererKind {
-  return raw === "freehand" ? "freehand" : DEFAULT_INK_RENDERER;
-}
-
-/**
- * The dev flag that shows the A/B renderer buttons on the canvas. Only the
- * literal `"on"` shows them, so an unset or stale value keeps the UI as it is.
- */
-export function parseInkABOn(raw: unknown): boolean {
-  return raw === "on";
 }

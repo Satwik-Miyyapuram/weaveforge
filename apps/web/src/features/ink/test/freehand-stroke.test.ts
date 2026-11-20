@@ -1,13 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import {
-  DEFAULT_INK_RENDERER,
-  freedrawCurves,
-  freehandPathFromFlat,
-  parseInkABOn,
-  parseInkRenderer,
-} from "../render/freehand-stroke";
+import { freedrawCurves, freehandPathFromFlat } from "../render/freehand-stroke";
 import { INK_PEN_WIDTHS } from "@weaveforge/core";
 
 import { freedrawPath } from "../render/excalidraw-freedraw";
@@ -23,15 +17,6 @@ function flatCircle(n: number, radius: number): number[] {
   }
   return out;
 }
-
-test("the setting picks the renderer; anything unknown stays classic", () => {
-  assert.equal(DEFAULT_INK_RENDERER, "classic");
-  assert.equal(parseInkRenderer("freehand"), "freehand");
-  assert.equal(parseInkRenderer("classic"), "classic");
-  assert.equal(parseInkRenderer("FREEHAND"), "classic");
-  assert.equal(parseInkRenderer(undefined), "classic");
-  assert.equal(parseInkRenderer(1), "classic");
-});
 
 test("a settled paper stroke is Excalidraw's freedraw path for its flat points", () => {
   const flat = flatCircle(30, 40);
@@ -121,14 +106,6 @@ test("a tiny stroke at 2 px and 4 px gives a finite, closed outline", () => {
   }
 });
 
-test("the A/B dev flag shows the buttons only when set to on", () => {
-  assert.equal(parseInkABOn("on"), true);
-  assert.equal(parseInkABOn("off"), false);
-  assert.equal(parseInkABOn(null), false);
-  assert.equal(parseInkABOn(undefined), false);
-  assert.equal(parseInkABOn("ON"), false);
-});
-
 /** Mean drawn width: outline area (from the path's number pairs) over centreline length. */
 function meanWidth(d: string, length: number): number {
   const n = (d.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
@@ -173,6 +150,6 @@ test("paper and canvas map a width to the same outline", () => {
   const pts = [];
   for (let i = 0; i < flat.length; i += 2) pts.push({ x: flat[i]!, y: flat[i + 1]!, pressure: 0.5 });
   for (const w of [1, 3, 4, 16]) {
-    assert.equal(freehandPathFromFlat(flat, w), canvasStrokePath(pts, w, "pen", "freehand"));
+    assert.equal(freehandPathFromFlat(flat, w), canvasStrokePath(pts, w, "pen"));
   }
 });

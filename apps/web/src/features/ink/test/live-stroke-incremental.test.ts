@@ -1,7 +1,7 @@
 // The wet stroke handed to the renderer every frame (perf review I1/I2): one
 // stable object per live stroke, buffers reused, and only the new raw samples
 // copied, so per-frame work tracks the new points, not the stroke's length.
-// Built by hand (no wasm): a fake packer stands in for the Rust one.
+// Built by hand (no wasm).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
@@ -28,8 +28,6 @@ function rawStroke(points: number[], pressures: number[] = []): LiveStroke {
     pressures,
     realSamples: 0,
     changed: true,
-    packer: { push() {}, points: () => new Float64Array(0), pressures: () => new Float64Array(0) },
-    raw: true,
   };
 }
 
@@ -95,27 +93,4 @@ test("a raw stroke cut back at the point cap still draws its kept samples", () =
   const live = liveForRenderer(stroke);
   assert.equal(live.realCount, 6);
   assert.deepEqual(Array.from(live.x), [0, 1, 2, 3, 4, 5]);
-});
-
-test("a classic stroke draws what the packer kept, then the tail, in the same object", () => {
-  let kept = [0, 0, 10, 10];
-  const stroke: LiveStroke = {
-    ...rawStroke([0, 0, 5, 5, 10, 10]),
-    raw: false,
-    realSamples: 3,
-    packer: {
-      push() {},
-      points: () => Float64Array.from(kept),
-      pressures: () => Float64Array.from({ length: kept.length / 2 }, () => 128),
-    },
-  };
-  const first = liveForRenderer(stroke);
-  assert.deepEqual(Array.from(first.x), [0, 10]);
-  kept = [0, 0, 10, 10, 20, 0];
-  stroke.points.push(30, 0);
-  stroke.pressures.push(128);
-  const second = liveForRenderer(stroke);
-  assert.equal(second, first);
-  assert.equal(second.realCount, 3);
-  assert.deepEqual(Array.from(second.x), [0, 10, 20, 30]);
 });

@@ -10,7 +10,7 @@ import { createElement } from "react";
 import { act, create, type ReactTestRenderer, type ReactTestInstance } from "react-test-renderer";
 
 import { PaletteDockButton } from "@/components/palette-dock";
-import { INK_RENDER_COLOURS } from "@/features/ink/render/webgl-renderer";
+import { INK_RENDER_COLOURS } from "@/features/ink/render/parts-1";
 import { InkBar } from "@/features/ink/ui/ink-bar";
 import { readyCore } from "@/lib/rust-core";
 import { InsertMenu, PageField, ViewMenu, WritingPageItem, ZoomPresets } from "../ui/ink-bar-view";

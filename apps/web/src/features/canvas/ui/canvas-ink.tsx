@@ -2,7 +2,6 @@
 
 import { memo } from "react";
 import { decodeStroke, type InkPoint, type InkStroke } from "../application/freeform-ink";
-import type { InkRendererKind } from "../../ink/render/freehand-stroke";
 import { inkFreedrawPath, isSimulatedPressure } from "../../ink/render/excalidraw-freedraw";
 import { resolveInkColour, type ThemeInk } from "../../ink/render/resolve-ink-colour";
 
@@ -19,18 +18,12 @@ function outlineStyle(colour: string): { fill: string; stroke: string } {
 }
 
 /**
- * The stroke's drawn path. `classic` is the centre-line polyline; `freehand` is
- * Excalidraw's freedraw path with our OneNote-matched options (INK_FREEDRAW in
- * ink/render/excalidraw-freedraw), so a sparse or jittered stroke reads as a
- * curve. The stored points are not changed.
+ * The stroke's drawn path: Excalidraw's freedraw path with our OneNote-matched
+ * options (INK_FREEDRAW in ink/render/excalidraw-freedraw), so a sparse or jittered
+ * stroke reads as a curve. The stored points are not changed.
  */
-export function canvasStrokePath(
-  points: readonly InkPoint[],
-  width: number,
-  tool: string,
-  renderer: InkRendererKind,
-): string {
-  if (renderer === "classic" || points.length < 2) return pathFor(points);
+export function canvasStrokePath(points: readonly InkPoint[], width: number, tool: string): string {
+  if (points.length < 2) return pathFor(points);
   // Mouse input reports pressure 0.5 (stored as about 128) at every point; a real
   // pen uses its pressure, even when one sample happens to be at the midpoint.
   const pressures = points.map((p) => p.pressure);
@@ -44,18 +37,18 @@ export function canvasStrokePath(
   );
 }
 
-const settledPaths = new WeakMap<InkStroke, { renderer: InkRendererKind; d: string }>();
+const settledPaths = new WeakMap<InkStroke, string>();
 
 /**
- * A settled stroke's path, built once per stroke and renderer. Strokes are
- * replaced, never edited, so a redraw (a draft move, a selection, a theme
- * change) reuses the path instead of decoding and outlining every stroke again.
+ * A settled stroke's path, built once per stroke. Strokes are replaced, never
+ * edited, so a redraw (a draft move, a selection, a theme change) reuses the
+ * path instead of decoding and outlining every stroke again.
  */
-export function settledCanvasPath(stroke: InkStroke, renderer: InkRendererKind): string {
+export function settledCanvasPath(stroke: InkStroke): string {
   const cached = settledPaths.get(stroke);
-  if (cached && cached.renderer === renderer) return cached.d;
-  const d = canvasStrokePath(decodeStroke(stroke), stroke.w, stroke.t, renderer);
-  settledPaths.set(stroke, { renderer, d });
+  if (cached !== undefined) return cached;
+  const d = canvasStrokePath(decodeStroke(stroke), stroke.w, stroke.t);
+  settledPaths.set(stroke, d);
   return d;
 }
 
@@ -81,19 +74,17 @@ export const InkLayer = memo(function InkLayer({
   strokes,
   selected,
   draft,
-  renderer,
   ink,
 }: {
   strokes: readonly InkStroke[];
   selected: ReadonlySet<string>;
   draft: InkDraft | null;
-  renderer: InkRendererKind;
   ink: ThemeInk;
 }) {
   return (
     <svg className="canvas-ink" aria-hidden="true">
       {strokes.map((stroke) => {
-        const d = settledCanvasPath(stroke, renderer);
+        const d = settledCanvasPath(stroke);
         if (d === "") return null;
         const colour = resolveInkColour(stroke.c, ink);
         return (
@@ -102,17 +93,17 @@ export const InkLayer = memo(function InkLayer({
             d={d}
             stroke={colour}
             strokeWidth={stroke.w}
-            style={renderer === "freehand" ? outlineStyle(colour) : undefined}
+            style={outlineStyle(colour)}
             className={strokeClass(stroke, selected.has(stroke.id))}
           />
         );
       })}
       {draft && draft.points.length > 0 ? (
         <path
-          d={canvasStrokePath(draft.points, draft.width, draft.tool, renderer)}
+          d={canvasStrokePath(draft.points, draft.width, draft.tool)}
           stroke={resolveInkColour(draft.colour, ink)}
           strokeWidth={draft.width}
-          style={renderer === "freehand" ? outlineStyle(resolveInkColour(draft.colour, ink)) : undefined}
+          style={outlineStyle(resolveInkColour(draft.colour, ink))}
           className="canvas-ink__stroke canvas-ink__stroke--draft"
         />
       ) : null}

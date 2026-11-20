@@ -1,5 +1,5 @@
-//! The WebGL scissor box for a page. A port of `pageScissor` in
-//! `apps/web/src/features/ink/render/webgl-support.ts`.
+//! The scissor box for a page. A port of `pageScissor` from the WebGL ink
+//! renderer, which was removed in 0.9.5; the app no longer calls this.
 
 use super::js_math;
 
