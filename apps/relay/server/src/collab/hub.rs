@@ -2,6 +2,7 @@
 //! The hub map lock is only held for a quick lookup, insert or remove, never across an await.
 
 use std::collections::HashMap;
+use std::io;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -225,10 +226,14 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
         apply_bytes(&doc, &row.state)?;
     }
     let log = UpdateLog::open(&state.config.log_dir, &item_id).map_err(|err| err.to_string())?;
-    let replayed = log.read_all().map_err(|err| err.to_string())?;
-    for update in &replayed {
-        apply_bytes(&doc, update)?;
-    }
+    // Replayed one record at a time, so a long log is not read into memory in full.
+    let mut replayed = false;
+    log.for_each(|update| {
+        apply_bytes(&doc, update).map_err(io::Error::other)?;
+        replayed = true;
+        Ok(())
+    })
+    .map_err(|err| err.to_string())?;
     let inner = RoomInner {
         doc,
         epoch: row.epoch,
@@ -236,7 +241,7 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
         kind: row.kind,
         owner: row.owner,
         status: row.status,
-        dirty: !replayed.is_empty(),
+        dirty: replayed,
         version: 0,
         lease: LeaseBook::new(state.config.lease_ms),
         log,
