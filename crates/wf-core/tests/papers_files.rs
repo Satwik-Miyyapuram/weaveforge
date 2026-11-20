@@ -18,7 +18,7 @@ mod support {
 
     /// A JSON object literal as a row.
     pub fn row(value: Value) -> Map<String, Value> {
-        value.as_object().expect("object").clone()
+        serde_json::from_value(value).expect("object")
     }
 
     /// Writes `row` as a new file.

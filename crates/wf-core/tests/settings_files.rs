@@ -11,8 +11,9 @@ use wf_core::settings::settings_file::{apply_patch, parse_settings, render_setti
 use wf_core::sync::folder_layout::{DEVICE_SETTINGS_PATH, SETTINGS_PATH};
 use wf_core::sync::git_policy::is_local_meta;
 
+#[cfg(test)]
 fn obj(value: Value) -> Map<String, Value> {
-    value.as_object().cloned().unwrap()
+    serde_json::from_value(value).unwrap()
 }
 
 #[test]
@@ -161,6 +162,7 @@ fn arb_plain() -> impl Strategy<Value = Value> {
 }
 
 /// Puts `key: value` at a nested spot of `root`, walking down by `steps`.
+#[cfg(test)]
 fn plant(root: &mut Map<String, Value>, steps: &[usize], key: &str, value: Value) {
     let mut here = root;
     for step in steps {

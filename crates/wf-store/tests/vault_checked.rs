@@ -524,6 +524,7 @@ fn replace_write_read_error_after_prev_leaves_no_temp() {
 }
 
 /// Put `disk` on disk, save `text` over it expecting `disk`, and return the bytes now on disk.
+#[cfg(test)]
 fn save_over(name: &str, disk: &[u8], text: &str) -> Vec<u8> {
     let dir = TempDir::new();
     let vault = vault_in(&dir);

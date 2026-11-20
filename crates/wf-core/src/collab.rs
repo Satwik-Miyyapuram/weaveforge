@@ -237,14 +237,15 @@ mod tests {
         };
         let words = ["alpha", "beta", "", "gamma", "delta"];
         for _ in 0..200 {
-            let mut make = |len: u64| {
+            let make = |next: &mut dyn FnMut(u64) -> u64| {
+                let len = next(8);
                 (0..len)
-                    .map(|_| words[next(5) as usize])
+                    .map(|_| words[usize::try_from(next(5)).unwrap_or(0)])
                     .collect::<Vec<_>>()
                     .join("\n")
             };
-            let base = make(next(8));
-            let theirs = make(next(8));
+            let base = make(&mut next);
+            let theirs = make(&mut next);
             let plan = collab_diff_plan(&base, &theirs);
             assert_eq!(
                 base_of(&plan),

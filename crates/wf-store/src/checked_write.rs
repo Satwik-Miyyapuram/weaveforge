@@ -109,6 +109,10 @@ impl Vault {
     /// # Errors
     /// Refused paths, escapes, or any filesystem failure.
     #[doc(hidden)]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one ordered write-recheck-swap sequence; splitting it hides the safety order"
+    )]
     pub fn write_checked_with_hook(
         &self,
         rel: &str,

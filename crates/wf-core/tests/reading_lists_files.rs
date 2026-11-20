@@ -297,6 +297,7 @@ proptest! {
 const OBSIDIAN: &str = "---\nwf: 3\nDue date: 2026-12-01\ndescription: |\n  line one\n  line two\n# kept comment\ncssclasses:\n  - wide\n  - dark\nitems:\n  - {\"id\":\"d0\",\"item\":\"item-0\",\"reviewer\":\"r1\",\"stage\":\"title_abstract\",\"decision\":\"unsure\",\"added\":\"2026-11-18T10:00:00Z\"}\nnested:\n  a: 1\n  b: \"two\"\ntags: [x, \"y z\"]\n---\nBody.\n";
 
 /// The frontmatter lines outside the `items` block, as written.
+#[cfg(test)]
 fn other_head_lines(text: &str) -> Vec<String> {
     let text = text.replace("\r\n", "\n");
     let head = text
