@@ -135,6 +135,8 @@ export class FileCommentRepository implements ICommentRepository {
 
   /** `x.annotations.json` next to the PDF becomes `x.comments.json`. */
   private paperPath(paperId: string): string {
+    // The id becomes a file name; same rule as the Rust is_safe_id in reader/github_repo_path.rs (letters, digits, `_`, `-`).
+    if (!/^[A-Za-z0-9_-]+$/.test(paperId)) throw new Error(`not a valid paper id: ${paperId}`);
     const annotations = typedCore().annotationsFilePath(paperId, this.projectRoot);
     return annotations.slice(0, -ANNOTATIONS_SUFFIX.length) + COMMENTS_SUFFIX;
   }

@@ -116,6 +116,20 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
     await writable.close();
   }
 
+  /**
+   * Compares the file's text with what the caller read, then writes. Same rule as the
+   * desktop adapter's fallback: a missing file reads as null. The browser has no atomic
+   * compare-and-swap, so the window is the length of one read; no outside edit is lost
+   * to a stale save, which is what matters here.
+   */
+  async writeTextIf(path: string, text: string, expected: string | null): Promise<boolean> {
+    const handle = await this.fileFor(path, false);
+    const current = handle ? await (await handle.getFile()).text() : null;
+    if (current !== expected) return false;
+    await this.writeFile(path, text);
+    return true;
+  }
+
   async remove(path: string, options?: { recursive?: boolean }): Promise<void> {
     const [parent, name] = (await loadCore()).splitLeaf(safeWorkspacePath(path));
     const dir = await this.dirFor(parent, false);

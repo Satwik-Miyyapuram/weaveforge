@@ -176,11 +176,22 @@ async function presentMirroredPaths(fs: IWorkspaceFs, kept: ReadonlyMap<string, 
   return present;
 }
 
+/** Only a file that is really missing counts; any other stat failure says nothing about the file. */
+async function isMissing(fs: IWorkspaceFs, path: string): Promise<boolean> {
+  try {
+    return (await fs.stat(path)) === null;
+  } catch (error) {
+    const name = (error as { name?: unknown; code?: unknown }).name;
+    const code = (error as { code?: unknown }).code;
+    return name === "NotFoundError" || code === "ENOENT";
+  }
+}
+
 /** Adds the mirrored files the action removed to the pulled-deletes list. */
 async function recordPulledDeletes(fs: IWorkspaceFs, before: readonly string[]): Promise<void> {
   const gone: string[] = [];
   for (const path of before) {
-    if (!(await fs.stat(path).catch(() => null))) gone.push(path);
+    if (await isMissing(fs, path)) gone.push(path);
   }
   if (gone.length === 0) return;
   await writePulledDeletes(fs, new Set([...(await readPulledDeletes(fs)), ...gone]));

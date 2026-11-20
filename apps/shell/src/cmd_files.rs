@@ -269,13 +269,28 @@ pub async fn file_write(
             .map_err(|e| e.to_string())?;
         let text = wf_core::sync::frontmatter::canonical_text(&contents);
         watch.note_self_write(&path, text.as_bytes());
-        let outcome = vault
+        let reply = vault
             .write_text_checked(&path, &contents, expected_hash.as_deref())
-            .map_err(|e| e.to_string())?;
+            .map(FileWriteReply::from)
+            .map_err(|e| e.to_string());
+        let reply = settle_write(&watch, &path, reply)?;
         index.invalidate();
-        Ok(FileWriteReply::from(outcome))
+        Ok(reply)
     })
     .await
+}
+
+/// Drops the note a write made when nothing landed: the write failed, or the file had changed
+/// and was not written. An outside change to `path` must not be taken for that write's echo.
+fn settle_write(
+    watch: &WatchSlot,
+    path: &str,
+    reply: Result<FileWriteReply, String>,
+) -> Result<FileWriteReply, String> {
+    if !reply.as_ref().is_ok_and(|r| r.hash.is_some()) {
+        watch.forget_self(path);
+    }
+    reply
 }
 
 /// Writes a binary file atomically if it still has digest `expected_hash` (`None` = always).
@@ -295,10 +310,11 @@ pub async fn file_write_bytes(
     on_vault(state.inner(), move |vault| {
         check_len(bytes.len(), MAX_BLOB_BYTES)?;
         watch.note_self_write(&path, &bytes);
-        vault
+        let reply = vault
             .write_bytes_checked(&path, &bytes, expected_hash.as_deref())
             .map(FileWriteReply::from)
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string());
+        settle_write(&watch, &path, reply)
     })
     .await
 }
@@ -318,7 +334,10 @@ pub async fn file_delete(
     let (watch, index) = (watch.inner().clone(), index.inner().clone());
     on_vault(state.inner(), move |vault| {
         watch.note_self_remove(&path);
-        let trashed_to = vault.delete_to_trash(&path).map_err(|e| e.to_string())?;
+        let trashed_to = vault
+            .delete_to_trash(&path)
+            .map_err(|e| e.to_string())
+            .inspect_err(|_| watch.forget_self(&path))?;
         index.invalidate();
         Ok(TrashReply { trashed_to })
     })
@@ -349,7 +368,11 @@ pub async fn file_rename(
         }
         let aside = vault
             .rename_checked(&from, &to)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())
+            .inspect_err(|_| {
+                watch.forget_self(&from);
+                watch.forget_self(&to);
+            })?;
         if let Some(copy) = aside.as_deref()
             && let Ok(bytes) = vault.read_file(copy)
         {

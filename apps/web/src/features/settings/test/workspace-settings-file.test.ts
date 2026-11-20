@@ -227,6 +227,58 @@ test("debounce: second set cancels the first timer and one flush writes once", a
   assert.equal(readDoc(files).a, 2);
 });
 
+// After two refused writes the pending edit must not wait for the next change: a retry is
+// scheduled, each refusal backs off longer, and the first retry that succeeds saves it.
+test("a refused save retries on a growing backoff timer until it lands", async () => {
+  const files = new Map<string, string>([[P, '{"version":1}']]);
+  const warnings: string[] = [];
+  const { fs } = store(files, warnings);
+  let refuse = true;
+  const realWriteTextIf = fs.writeTextIf!.bind(fs);
+  const flaky = { ...fs, writeTextIf: (p: string, t: string, e: string | null) => (refuse ? Promise.resolve(false) : realWriteTextIf(p, t, e)) };
+  // Live timers only: cancel removes a handle, as a real clearTimeout would.
+  const live = new Map<number, { fn: () => void; ms: number }>();
+  let next = 0;
+  const s = new WorkspaceSettingsFile({
+    fs: () => flaky as unknown as IWorkspaceFs,
+    warn: (m: string) => warnings.push(m),
+    delayMs: 100,
+    schedule: (fn: () => void, ms: number) => {
+      live.set(++next, { fn, ms });
+      return next;
+    },
+    cancel: (h: unknown) => {
+      live.delete(h as number);
+    },
+  });
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  const fireNext = async () => {
+    const [id, timer] = [...live][0] ?? [];
+    if (id === undefined || !timer) throw new Error("no retry scheduled");
+    live.delete(id);
+    timer.fn();
+    await settle();
+    return timer.ms;
+  };
+
+  await s.load();
+  s.set(["ink", "toolColours"], "kept");
+  await s.flush();
+  const first = [...live.values()].map((t) => t.ms);
+  assert.equal(live.size, 1, "the refused save schedules a retry");
+
+  const firstDelay = await fireNext();
+  const secondDelay = [...live.values()].map((t) => t.ms)[0] ?? 0;
+  assert.equal(live.size, 1, "the refused retry schedules another");
+  assert.ok(secondDelay > firstDelay, `backoff grows: ${first} then ${secondDelay}`);
+  assert.equal(files.get(P), '{"version":1}', "nothing was written while refused");
+
+  refuse = false;
+  await fireNext();
+  assert.equal(readDoc(files).ink.toolColours, "kept", "the retry that succeeds saves the edit");
+  assert.equal(live.size, 0, "no retry once saved");
+});
+
 test("no folder: set works in memory, flush is quiet, no schedule", async () => {
   const scheduleCalls: number[] = [];
   const s = new WorkspaceSettingsFile({
