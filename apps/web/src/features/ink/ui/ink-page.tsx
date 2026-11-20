@@ -27,6 +27,7 @@ import {
   releasePointer,
   type TouchPoint,
 } from "./ink-page-pointer";
+import { joinPoint } from "./ink-edge-join";
 import type { InkPageProps } from "./ink-page-props";
 import { inkSheetRuleStyle } from "./ink-sheet-underlay";
 import { readyCore, typedCore } from "@/lib/rust-core";
@@ -246,6 +247,8 @@ export function InkPage({
 
   /** The stroke against the live sheet's top and bottom; shared with the reader. */
   const edge = useRef(new StrokeEdgeSplit());
+  /** Where the last stroke left its sheet, so the next page's stroke starts there. */
+  const exitAt = useRef<{ x: number; y: number } | null>(null);
 
   /** The same pointer event moved to `at`. */
   const atPoint = (
@@ -423,6 +426,7 @@ export function InkPage({
         const area = box ? { left: -Infinity, right: Infinity, top: box.top, bottom: box.bottom } : null;
         const step = edge.current.move({ x: event.clientX, y: event.clientY }, area);
         if (step.kind === "exit") {
+          exitAt.current = step.at;
           penHandlers.onPointerUp(atPoint(event, step.at));
           ensurePage(event.clientX, event.clientY);
           return;
@@ -432,12 +436,22 @@ export function InkPage({
           return;
         }
         if (step.kind === "enter") {
+          // Pages that abut: the stroke picks up exactly where it left the old
+          // sheet, and this move's samples are on the new page, so they draw.
+          const joined = box ? joinPoint(exitAt.current, box) : null;
+          exitAt.current = null;
+          if (joined) {
+            penHandlers.onPointerDown(atPoint(event, joined));
+            penHandlers.onPointerMove(event);
+            return;
+          }
           // Not forwarded as a move: its coalesced samples lie in the gap.
           penHandlers.onPointerDown(atPoint(event, step.at));
           return;
         }
       } else {
         edge.current.begin({ x: event.clientX, y: event.clientY });
+        exitAt.current = null;
       }
       penHandlers.onPointerMove(event);
     },
