@@ -47,9 +47,10 @@ import {
   writeMirrorManifest,
 } from "./parts-3";
 import { activeProject, activeProjectOrNull, isNoActiveProject, watchForLoss } from "./parts";
-import { mirrorWorkspace, type WebMirrorResult } from "./parts-2";
+import { mirrorWorkspace } from "./parts-2";
 import { recordSessionSeen, sessionGeneration, sessionSeen } from "./folder-session-seen";
 import type { FolderPreview } from "./workspace-folder-preview";
+import type { SyncOutcome } from "./workspace-folder-sync-report";
 
 /**
  * The workspace folder as the app uses it.
@@ -278,22 +279,7 @@ export function closeFolder(): void {
   clearPendingAssets();
 }
 
-export interface SyncOutcome {
-  mirror: WebMirrorResult;
-  commit: WorkspaceCommit | null;
-  /** Why no commit was made, when git refused or failed. */
-  commitError?: string;
-}
-
-/** One line for the panel; a failed commit is said, not read as "up to date" (wf-core `workspace::sync_report`). */
-export function describeSync({ mirror, commit, commitError }: SyncOutcome): string {
-  return readyCore().describeSync({
-    written: mirror.written.length,
-    removed: mirror.removed.length,
-    commitMessage: commit?.message ?? null,
-    commitError: commitError ?? null,
-  });
-}
+export { describeSync, type SyncOutcome } from "./workspace-folder-sync-report";
 
 /**
  * Write the workspace to the folder, then commit if versioning is on.
