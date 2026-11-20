@@ -115,10 +115,19 @@ test("the strokes sit in a folder named after the note file, paired by name alon
   assert.equal(rust().parseInkChunkPath(""), null);
 });
 
+test("every markdown note has a strokes folder beside it, no .ink.md needed", () => {
+  assert.equal(rust().inkStrokesDir("p/notes/foo.note.md"), "p/notes/foo.note.ink");
+  assert.equal(rust().inkStrokesDir("p/notes/foo.paper.md"), "p/notes/foo.paper.ink");
+  assert.equal(rust().inkStrokesDir("p/notes/foo.md"), "p/notes/foo.ink");
+  const path = rust().inkChunkPath("p/notes/foo.note.md", CHUNK_A);
+  assert.equal(path, `p/notes/foo.note.ink/${CHUNK_A}.inkb`);
+  assert.deepEqual(rust().parseInkChunkPath(path), { notePath: "p/notes/foo.note.md", chunkId: CHUNK_A });
+});
+
 test("the old id-keyed folder is only the migration's source, never a note's strokes", () => {
   assert.equal(rust().legacyInkDir("01JNOTE"), `${LEGACY_INK_DIR}/01JNOTE`);
   assert.equal(rust().parseInkChunkPath(`.ink/01JNOTE/${CHUNK_A}.inkb`), null);
-  for (const bad of ["p/foo.md", "../foo.ink.md", "/p/foo.ink.md", "p/.ink.md", ""]) {
+  for (const bad of ["p/foo.txt", "p/.md", "../foo.ink.md", "/p/foo.ink.md", "p/.ink.md", ""]) {
     assert.throws(() => rust().inkStrokesDir(bad), /unusable note path/, bad);
   }
 });

@@ -366,7 +366,7 @@ test("migration: a legacy page whose bucket read fails leaves the note unmarked 
   assert.equal(await folder.isMigrated(NOTE), false);
 });
 
-test("offline / signed out: a new note's first page saves and reloads, and the note is marked", async () => {
+test("offline / signed out: a new note's first page saves and reloads, and no empty strokes folder is made before it", async () => {
   const fs = await inkNoteFolder();
   const folder = folderStore(fs);
   const bucket = signedOutBucket();
@@ -375,10 +375,15 @@ test("offline / signed out: a new note's first page saves and reloads, and the n
   const [first] = await loadInkPages(store, NOTE, metaWith([]));
   assert.ok(!first!.unreadable, "a page minted here was never in the bucket");
   assert.equal(bucket.reads(), 0);
-  assert.equal(await folder.isMigrated(NOTE), true, "nothing declared, nothing to copy: marked");
+  assert.equal(await fs.stat("p/notes/sketch.ink"), null, "nothing declared, nothing to copy: no folder, no marker");
   await store.write(NOTE, first!.chunkId, new Uint8Array([4, 2]));
+  assert.notEqual(await fs.stat(`p/notes/sketch.ink/${first!.chunkId}.inkb`), null, "the first stroke makes the folder");
   const [reloaded] = await loadInkPages(store, NOTE, metaWith([first!.chunkId]));
   assert.deepEqual([...reloaded!.chunk!], [4, 2]);
+  // After a restart (a new store), the page is still read from the folder, never the bucket.
+  const restarted = new CopyOnReadInkChunkStore(folderStore(fs), bucket.store);
+  const [again] = await loadInkPages(restarted, NOTE, metaWith([first!.chunkId]));
+  assert.deepEqual([...again!.chunk!], [4, 2]);
   assert.equal(bucket.reads(), 0);
 });
 
