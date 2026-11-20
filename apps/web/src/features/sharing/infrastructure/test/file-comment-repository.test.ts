@@ -218,3 +218,12 @@ function row(id: string, createdAt: string): Record<string, unknown> {
     resolved_at: null,
   };
 }
+
+test("a paper id that is not a safe file name is refused, never read from another path", async () => {
+  const { repo } = setup();
+  await assert.rejects(repo.list("paper", "../x"), /not a valid paper id/);
+  await assert.rejects(
+    repo.add({ resourceType: "paper", resourceId: "a/b", body: "hi" } as never),
+    /not a valid paper id/,
+  );
+});
