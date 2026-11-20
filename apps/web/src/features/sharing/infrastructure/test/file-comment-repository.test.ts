@@ -30,6 +30,13 @@ class MemoryCommentPort implements CommentFilePort {
     this.files.set(path, text);
   }
 
+  /** Compare-and-write: writes only when the file still holds `expected` (null = absent). */
+  async writeIf(path: string, text: string, expected: string | null): Promise<boolean> {
+    if ((this.files.get(path) ?? null) !== expected) return false;
+    this.files.set(path, text);
+    return true;
+  }
+
   async listPaperIds(): Promise<string[]> {
     const sample = paperFile("p-1");
     const prefix = sample.slice(0, sample.lastIndexOf("/") + 1);
@@ -58,9 +65,9 @@ test("lists nothing when no file exists", async () => {
 test("add on a paper writes the sidecar array", async () => {
   const { port, repo } = setup();
   const made = await repo.add({ resourceType: "paper", resourceId: "p-1", body: "nice" });
-  assert.equal(made.id, "p-1:0");
+  assert.equal(typeof made.id, "string");
   assert.deepEqual(JSON.parse(port.files.get(paperFile("p-1")) ?? "[]"), [
-    { body: "nice", created_at: made.createdAt },
+    { id: made.id, body: "nice", created_at: made.createdAt },
   ]);
   assert.deepEqual(await repo.list("paper", "p-1"), [made]);
 });
@@ -125,6 +132,46 @@ test("remove of a root also removes its replies", async () => {
   await repo.remove(root.id);
   await repo.remove("missing");
   assert.deepEqual((await repo.list("vault_page", "v-1")).map((c) => c.id), [other.id]);
+});
+
+test("removing a paper comment does not move the ids of the others", async () => {
+  const { repo } = setup();
+  const first = await repo.add({ resourceType: "paper", resourceId: "p-1", body: "a" });
+  const second = await repo.add({ resourceType: "paper", resourceId: "p-1", body: "b" });
+  await repo.remove(first.id);
+  // The second row keeps its stored id, so removing it by that id still hits it.
+  assert.deepEqual((await repo.list("paper", "p-1")).map((c) => c.id), [second.id]);
+  await repo.remove(second.id);
+  assert.deepEqual(await repo.list("paper", "p-1"), []);
+});
+
+test("editing a comment after deleting an earlier one still hits the right row", async () => {
+  const { repo } = setup();
+  const gone = await repo.add({ resourceType: "vault_page", resourceId: "v-1", body: "gone" });
+  const keep = await repo.add({ resourceType: "vault_page", resourceId: "v-1", body: "keep" });
+  await repo.remove(gone.id);
+  assert.equal(typeof (await repo.setResolved(keep.id, true)), "string");
+  const [only] = await repo.list("vault_page", "v-1");
+  assert.equal(only!.id, keep.id);
+  assert.notEqual(only!.resolvedAt, null);
+});
+
+test("two writers adding to the same paper file both keep their rows", async () => {
+  const { port, repo } = setup();
+  const other = new FileCommentRepository(port, ROOT);
+  const original = port.writeIf.bind(port);
+  let raced = false;
+  // The first compare-and-write loses to a whole second add that lands in between.
+  port.writeIf = async (path: string, text: string, expected: string | null) => {
+    if (!raced) {
+      raced = true;
+      await other.add({ resourceType: "paper", resourceId: "p-1", body: "from other" });
+    }
+    return original(path, text, expected);
+  };
+  await repo.add({ resourceType: "paper", resourceId: "p-1", body: "from repo" });
+  const bodies = (await repo.list("paper", "p-1")).map((c) => c.body).sort();
+  assert.deepEqual(bodies, ["from other", "from repo"]);
 });
 
 test("a malformed file throws 'comments file is not valid'", async () => {

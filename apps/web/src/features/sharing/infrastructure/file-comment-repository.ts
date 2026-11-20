@@ -3,17 +3,25 @@ import { typedCore } from "@/lib/rust-core";
 
 const ANNOTATIONS_SUFFIX = ".annotations.json";
 const COMMENTS_SUFFIX = ".comments.json";
+const MAX_ATTEMPTS = 5;
 
 /** File operations this repository needs; `readFile` gives null when missing. */
 export interface CommentFilePort {
   readFile(path: string): Promise<string | null>;
   writeFile(path: string, text: string): Promise<void>;
+  /** Writes only while the file still holds `expected` (null = absent); false when it changed. */
+  writeIf(path: string, text: string, expected: string | null): Promise<boolean>;
   /** Ids of the papers that have a `<stem>.comments.json` sidecar. */
   listPaperIds(): Promise<string[]>;
 }
 
-/** A paper comment as the Rust exporter writes it (no anchor, reply or resolve). */
+/**
+ * A paper comment as it is stored. `id` lives in the row, so it never shifts when another
+ * row is removed. Rows written before ids existed have none; they get `<paper>:<index>`
+ * on read and a real id the next time the file is written.
+ */
 interface PaperRow {
+  id: string;
   body: string;
   created_at: string;
 }
@@ -42,7 +50,7 @@ export class FileCommentRepository implements ICommentRepository {
   async list(resourceType: string, resourceId: string): Promise<Comment[]> {
     if (resourceType === "paper") {
       const rows = await this.readPaper(resourceId);
-      return rows.map((row, index) => paperComment(resourceId, row, index)).sort(byCreated);
+      return rows.map((row) => paperComment(resourceId, row)).sort(byCreated);
     }
     const rows = (await this.readUnmapped()).filter((r) => r.resource_type === resourceType && r.resource_id === resourceId);
     return rows.map(toComment).sort(byCreated);
@@ -53,18 +61,9 @@ export class FileCommentRepository implements ICommentRepository {
     if (input.resourceType === "paper") {
       // The sidecar has no parent or anchor fields; refuse rather than drop them.
       if (input.parentId || input.anchor) throw new Error("paper comments hold no reply or anchor");
-      const rows = await this.readPaper(input.resourceId);
-      const row: PaperRow = { body: input.body, created_at: now };
-      await this.writePaper(input.resourceId, [...rows, row]);
-      return paperComment(input.resourceId, row, rows.length);
-    }
-    const rows = await this.readUnmapped();
-    if (input.parentId) {
-      const parent = rows.find((r) => r.id === input.parentId);
-      const sameResource = parent?.resource_type === input.resourceType && parent.resource_id === input.resourceId;
-      if (!parent || parent.parent_id || !sameResource) {
-        throw new Error("a reply answers a comment on the same resource");
-      }
+      const row: PaperRow = { id: crypto.randomUUID(), body: input.body, created_at: now };
+      await this.mutatePaper(input.resourceId, (rows) => [...rows, row]);
+      return paperComment(input.resourceId, row);
     }
     const row: UnmappedRow = {
       id: crypto.randomUUID(),
@@ -79,38 +78,57 @@ export class FileCommentRepository implements ICommentRepository {
       parent_id: input.parentId ?? null,
       resolved_at: null,
     };
-    await this.writeUnmapped([...rows, row]);
+    await this.mutateUnmapped((rows) => {
+      if (input.parentId) {
+        const parent = rows.find((r) => r.id === input.parentId);
+        const sameResource = parent?.resource_type === input.resourceType && parent.resource_id === input.resourceId;
+        if (!parent || parent.parent_id || !sameResource) {
+          throw new Error("a reply answers a comment on the same resource");
+        }
+      }
+      return [...rows, row];
+    });
     return toComment(row);
   }
 
   async remove(id: string): Promise<void> {
-    const rows = await this.readUnmapped();
-    const kept = rows.filter((row) => row.id !== id && row.parent_id !== id);
-    if (kept.length !== rows.length) await this.writeUnmapped(kept);
+    await this.mutateUnmapped((rows) => {
+      const kept = rows.filter((row) => row.id !== id && row.parent_id !== id);
+      return kept.length === rows.length ? null : kept;
+    });
     for (const paperId of await this.port.listPaperIds()) {
-      const paper = await this.readPaper(paperId);
-      const left = paper.filter((_, index) => `${paperId}:${index}` !== id);
-      if (left.length !== paper.length) await this.writePaper(paperId, left);
+      await this.mutatePaper(paperId, (rows) => {
+        const left = rows.filter((row) => row.id !== id);
+        return left.length === rows.length ? null : left;
+      });
     }
   }
 
   async setResolved(id: string, resolved: boolean): Promise<string | null> {
-    const rows = await this.readUnmapped();
-    const target = rows.find((row) => row.id === id);
-    if (!target) {
+    const state = { found: false, reply: false, resolvedAt: null as string | null };
+    await this.mutateUnmapped((rows) => {
+      const target = rows.find((row) => row.id === id);
+      state.found = target !== undefined;
+      if (!target) return null;
+      if (target.parent_id) {
+        state.reply = true;
+        return null;
+      }
+      target.resolved_at = resolved ? new Date().toISOString() : null;
+      state.resolvedAt = target.resolved_at;
+      return rows;
+    });
+    if (!state.found) {
       if (await this.isPaperComment(id)) throw new Error("paper comments cannot be resolved");
       throw new Error(`comment ${id} not found`);
     }
-    if (target.parent_id) throw new Error("resolve the thread, not a reply");
-    target.resolved_at = resolved ? new Date().toISOString() : null;
-    await this.writeUnmapped(rows);
-    return target.resolved_at;
+    if (state.reply) throw new Error("resolve the thread, not a reply");
+    return state.resolvedAt;
   }
 
   private async isPaperComment(id: string): Promise<boolean> {
     for (const paperId of await this.port.listPaperIds()) {
-      const paper = await this.readPaper(paperId);
-      if (paper.some((_, index) => `${paperId}:${index}` === id)) return true;
+      if ((await this.readPaper(paperId)).some((row) => row.id === id)) return true;
     }
     return false;
   }
@@ -127,36 +145,60 @@ export class FileCommentRepository implements ICommentRepository {
 
   private async readPaper(paperId: string): Promise<PaperRow[]> {
     const path = this.paperPath(paperId);
-    const text = await this.port.readFile(path);
-    if (text === null) return [];
-    const parsed: unknown = parseJson(text, path);
-    if (!Array.isArray(parsed) || !parsed.every(isPaperRow)) throw invalid(path);
-    return parsed;
-  }
-
-  private async writePaper(paperId: string, rows: PaperRow[]): Promise<void> {
-    await this.port.writeFile(this.paperPath(paperId), JSON.stringify(rows, null, 2));
+    return parsePaper(paperId, path, await this.port.readFile(path));
   }
 
   private async readUnmapped(): Promise<UnmappedRow[]> {
     const path = this.unmappedPath();
-    const text = await this.port.readFile(path);
-    if (text === null) return [];
-    const file = parseJson(text, path);
-    if (!isRecord(file) || !Array.isArray(file.rows)) throw invalid(path);
-    if (file.version !== UNMAPPED_VERSION) {
-      if (typeof file.version === "number") {
-        throw new Error(`comments-unmapped version ${file.version} is not supported`);
-      }
-      throw invalid(path);
-    }
-    if (!file.rows.every(isUnmappedRow)) throw invalid(path);
-    return file.rows;
+    return parseUnmapped(path, await this.port.readFile(path));
   }
 
-  private async writeUnmapped(rows: UnmappedRow[]): Promise<void> {
-    await this.port.writeFile(this.unmappedPath(), JSON.stringify({ version: UNMAPPED_VERSION, rows }, null, 2));
+  /** Read, change, compare-and-write; a change that lost the race is re-read and re-applied. */
+  private async mutatePaper(paperId: string, change: (rows: PaperRow[]) => PaperRow[] | null): Promise<void> {
+    const path = this.paperPath(paperId);
+    await this.mutate(path, (text) => {
+      const next = change(parsePaper(paperId, path, text));
+      return next === null ? null : JSON.stringify(next, null, 2);
+    });
   }
+
+  private async mutateUnmapped(change: (rows: UnmappedRow[]) => UnmappedRow[] | null): Promise<void> {
+    const path = this.unmappedPath();
+    await this.mutate(path, (text) => {
+      const next = change(parseUnmapped(path, text));
+      return next === null ? null : JSON.stringify({ version: UNMAPPED_VERSION, rows: next }, null, 2);
+    });
+  }
+
+  private async mutate(path: string, change: (text: string | null) => string | null): Promise<void> {
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+      const current = await this.port.readFile(path);
+      const next = change(current);
+      if (next === null || (await this.port.writeIf(path, next, current))) return;
+    }
+    throw new Error(`comments file changed while writing; not saved: ${path}`);
+  }
+}
+
+function parsePaper(paperId: string, path: string, text: string | null): PaperRow[] {
+  if (text === null) return [];
+  const parsed = parseJson(text, path);
+  if (!Array.isArray(parsed) || !parsed.every(isPaperRow)) throw invalid(path);
+  return parsed.map((row, index) => ({ ...row, id: row.id ?? `${paperId}:${index}` }));
+}
+
+function parseUnmapped(path: string, text: string | null): UnmappedRow[] {
+  if (text === null) return [];
+  const file = parseJson(text, path);
+  if (!isRecord(file) || !Array.isArray(file.rows)) throw invalid(path);
+  if (file.version !== UNMAPPED_VERSION) {
+    if (typeof file.version === "number") {
+      throw new Error(`comments-unmapped version ${file.version} is not supported`);
+    }
+    throw invalid(path);
+  }
+  if (!file.rows.every(isUnmappedRow)) throw invalid(path);
+  return file.rows;
 }
 
 function parseJson(text: string, path: string): unknown {
@@ -175,8 +217,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isPaperRow(value: unknown): value is PaperRow {
-  return isRecord(value) && typeof value.body === "string" && typeof value.created_at === "string";
+function isPaperRow(value: unknown): value is Omit<PaperRow, "id"> & { id?: string } {
+  return (
+    isRecord(value) &&
+    (value.id === undefined || typeof value.id === "string") &&
+    typeof value.body === "string" &&
+    typeof value.created_at === "string"
+  );
 }
 
 function isUnmappedRow(value: unknown): value is UnmappedRow {
@@ -186,9 +233,9 @@ function isUnmappedRow(value: unknown): value is UnmappedRow {
   return strings.every((k) => typeof value[k] === "string") && nullable.every((k) => value[k] === null || typeof value[k] === "string");
 }
 
-function paperComment(resourceId: string, row: PaperRow, index: number): Comment {
+function paperComment(resourceId: string, row: PaperRow): Comment {
   const none = { anchor: null, parentId: null, resolvedAt: null };
-  return { id: `${resourceId}:${index}`, authorId: "", resourceType: "paper", resourceId, body: row.body, createdAt: row.created_at, ...none };
+  return { id: row.id, authorId: "", resourceType: "paper", resourceId, body: row.body, createdAt: row.created_at, ...none };
 }
 
 function toComment(row: UnmappedRow): Comment {
