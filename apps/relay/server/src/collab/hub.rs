@@ -149,7 +149,9 @@ impl Hub {
 
     /// Serialises room opening: the guard is held without an await, so it never crosses one.
     fn open_gate(&self) -> MutexGuard<'_, ()> {
-        self.open_gate.lock().unwrap_or_else(PoisonError::into_inner)
+        self.open_gate
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Inserts `room` unless one is already open for its item; returns the one in the map.
