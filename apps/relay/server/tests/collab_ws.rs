@@ -659,7 +659,17 @@ async fn oversized_awareness_is_not_relayed() {
         .expect("guest joins");
     let _hello = next_json(&mut guest).await;
 
-    send_frame(&mut guest, awareness_frame(70_000)).await;
+    let oversized = awareness_frame(70_000);
+    // classify() ignores undecodable frames, so without this check the test could pass even with
+    // no size cap. The frame must parse as a real awareness message for the cap to be what drops it.
+    assert!(
+        matches!(
+            <yrs::sync::Message as yrs::updates::decoder::Decode>::decode_v1(&oversized),
+            Ok(yrs::sync::Message::Awareness(_))
+        ),
+        "test frame is not a decodable awareness message"
+    );
+    send_frame(&mut guest, oversized).await;
     send_frame(&mut guest, AWARENESS_QUERY.to_vec()).await;
 
     // Frames arrive in order, so the first binary frame the owner sees must be the small one.
