@@ -588,6 +588,19 @@ async fn ws_grant_checked_on_update() {
 }
 
 #[tokio::test]
+async fn save_at_stale_epoch_is_an_error() {
+    let store = MemoryStore::new();
+    seed(&store, ITEM, text_update("kept")).await;
+    let before = store.doc(ITEM).expect("doc row").state;
+
+    let stale = store.save_state(ITEM, 2, &text_update("stale")).await;
+    assert!(stale.is_err(), "a stale-epoch save reported success");
+    let missing = store.save_state("no-such-item", 1, &text_update("x")).await;
+    assert!(missing.is_err(), "a save to a missing row reported success");
+    assert_eq!(store.doc(ITEM).expect("doc row").state, before);
+}
+
+#[tokio::test]
 async fn lagged_client_rechecks_after_revoke() {
     let dir = TempDir::new("lagged");
     let store = Arc::new(MemoryStore::new());

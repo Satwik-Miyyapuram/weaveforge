@@ -274,12 +274,13 @@ impl SharedDocStore for MemoryStore {
                     _ => false,
                 }
             };
-            if written {
-                *self
-                    .saves
-                    .lock()
-                    .map_err(|_| "store lock poisoned".to_owned())? += 1;
+            if !written {
+                return Err(format!("save_state: no row for {item_id} at epoch {epoch}"));
             }
+            *self
+                .saves
+                .lock()
+                .map_err(|_| "store lock poisoned".to_owned())? += 1;
             Ok(())
         })
     }
@@ -612,10 +613,16 @@ impl SharedDocStore for PgStore {
         Box::pin(async move {
             let query = [("item_id", eq(item_id)), ("epoch", eq(&epoch.to_string()))];
             let patch = json!({ "state": bytea_hex(state) });
-            self.db()
-                .update("shared_docs", &query, &patch)
+            // A PATCH that matches no row (stale epoch, or the row is gone) must not look saved.
+            let changed = self
+                .db()
+                .update_returning("shared_docs", &query, &patch)
                 .await
-                .map_err(|err| err.message)
+                .map_err(|err| err.message)?;
+            if changed.is_empty() {
+                return Err(format!("save_state: no row for {item_id} at epoch {epoch}"));
+            }
+            Ok(())
         })
     }
 
