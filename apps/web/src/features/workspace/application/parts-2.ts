@@ -94,7 +94,8 @@ async function followRenamedNotes(
   seen: Readonly<Record<string, string>> | undefined,
   base: Readonly<Record<string, string>> | undefined,
 ) {
-  if (!seen || !base) return { seen, base };
+  const retry: Record<string, { to: string; digest: string; written: string }> = {};
+  if (!seen || !base) return { seen, base, retry };
   const idOf = (text: string) => {
     try {
       const id = core.readFrontmatter(text).frontmatter["weaveforge-id"];
@@ -124,12 +125,14 @@ async function followRenamedNotes(
       await moveInkStrokes(fs, old, to);
       await fs.rename(old, to);
     } catch {
-      continue; // The old file stays; the next run tries again.
+      // The old file stays and the new path is not written, so no twin; the next run tries again.
+      retry[old] = { to, digest, written };
+      continue;
     }
     nextSeen[to] = digest;
     nextBase[to] = written;
   }
-  return { seen: nextSeen, base: nextBase };
+  return { seen: nextSeen, base: nextBase, retry };
 }
 
 /**
@@ -181,10 +184,12 @@ export async function mirrorWorkspace(
     if (!Object.hasOwn(serialized.files, path) || (await fs.stat(path).catch(() => null))) continue;
     held.push(path);
   }
-  const files = Object.fromEntries(Object.entries(serialized.files).filter(([path]) => !held.includes(path)));
+  const unheld = Object.fromEntries(Object.entries(serialized.files).filter(([path]) => !held.includes(path)));
   const { assets } = serialized;
   // A note renamed in the app: its file and strokes follow the new name, so no same-id twin is left.
-  const { seen, base: renamedBase } = await followRenamedNotes(core, fs, files, options.seen, base);
+  const { seen, base: renamedBase, retry } = await followRenamedNotes(core, fs, unheld, options.seen, base);
+  const waiting = new Set(Object.values(retry).map(({ to }) => to));
+  const files = Object.fromEntries(Object.entries(unheld).filter(([path]) => !waiting.has(path)));
 
   // The plan reads every file it may write, and nothing else. There are no removals to read for.
   // No prototype, so a path can never collide with an inherited key.
@@ -245,6 +250,12 @@ export async function mirrorWorkspace(
     if (base?.[path] === undefined) delete mirrored[path];
     else mirrored[path] = base[path];
   }
+  // A rename that failed keeps its old path in both records, so the next run sees it and tries again.
+  const served: Record<string, string> = Object.fromEntries(plan.served);
+  for (const [old, { digest, written: last }] of Object.entries(retry)) {
+    served[old] = digest;
+    mirrored[old] = last;
+  }
   return {
     written,
     removed: plan.removed,
@@ -253,7 +264,7 @@ export async function mirrorWorkspace(
     mirrored,
     bases: Object.fromEntries(plan.bases),
     // The record the next run in this session compares against: every path and its DB digest.
-    served: Object.fromEntries(plan.served),
+    served,
   };
 }
 
