@@ -157,8 +157,14 @@ impl PgEngine {
             }
             return Ok(had_data);
         }
-        self.discard()?;
-        let from = super::restore::restore_newest_good(&self.root, &dumps, load).await?;
+        let aside = self.move_aside()?;
+        let from = match super::restore::restore_newest_good(&self.root, &dumps, load).await {
+            Ok(from) => from,
+            Err(e) => {
+                self.put_back(aside.as_deref());
+                return Err(e);
+            }
+        };
         match from {
             Some(from) => {
                 // Only a dump that loaded with user rows is pinned as the good copy; an empty one
@@ -176,7 +182,10 @@ impl PgEngine {
                     Some(from.dump.to_string_lossy().into_owned());
                 Ok(false)
             }
-            None => Ok(true),
+            None => {
+                self.put_back(aside.as_deref());
+                Ok(true)
+            }
         }
     }
 
@@ -233,8 +242,13 @@ impl Engine for PgEngine {
     }
 
     fn discard(&self) -> Result<(), PgError> {
+        self.move_aside().map(|_| ())
+    }
+
+    /// Moves the root aside and returns where it went; None when there was no root.
+    fn move_aside(&self) -> Result<Option<PathBuf>, PgError> {
         if !self.root.exists() {
-            return Ok(());
+            return Ok(None);
         }
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -249,7 +263,22 @@ impl Engine for PgEngine {
         std::fs::rename(&self.root, &aside)
             .map_err(|e| PgError::local(format!("could not move the database aside: {e}")))?;
         self.keep_aside_at(&aside);
-        Ok(())
+        Ok(Some(aside))
+    }
+
+    /// Moves the old data back to the root when no backup replaced it, so a failed restore never
+    /// leaves it only in the aside dir. A no-op once something holds the root again.
+    fn put_back(&self, aside: Option<&Path>) {
+        let Some(aside) = aside else {
+            return;
+        };
+        if self.root.exists() || std::fs::rename(aside, &self.root).is_err() {
+            return;
+        }
+        *self
+            .kept_aside
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = None;
     }
 
     async fn dump(&self, server: &PgServer, file: PathBuf) -> Result<(), PgError> {
@@ -1386,6 +1415,40 @@ mod tests {
         assert!(
             root.join("data").is_dir(),
             "a spent choice no longer blocks a restore"
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[tokio::test]
+    async fn a_failed_restore_puts_the_old_data_back_under_the_root() {
+        let tmp = lost_tmp("failed-restore");
+        let root = tmp.join("local-pg");
+        let dir = tmp.join("backups");
+        std::fs::create_dir_all(root.join("data")).unwrap_or_default();
+        std::fs::write(root.join("data").join("marker"), b"old").unwrap_or_default();
+        std::fs::create_dir_all(&dir).unwrap_or_default();
+        std::fs::write(dir.join("local-pg-2026-11-16T000000.dump"), b"rows").unwrap_or_default();
+        let engine = PgEngine::new(
+            PathBuf::new(),
+            root.clone(),
+            Some(Backups::new(vec![dir.clone()])),
+        );
+        let lost = engine
+            .restore_with(|_scratch, _dump| async {
+                Err::<bool, PgError>(PgError::local("pg_restore failed"))
+            })
+            .await;
+        assert!(
+            lost.unwrap_or(false),
+            "no backup loaded, so the database is still reported lost"
+        );
+        assert!(
+            root.join("data").join("marker").is_file(),
+            "the old data is back under the root, not only in the aside dir"
+        );
+        assert!(
+            engine.kept_aside().is_none(),
+            "nothing is reported kept aside once it is back"
         );
         let _ = std::fs::remove_dir_all(&tmp);
     }
