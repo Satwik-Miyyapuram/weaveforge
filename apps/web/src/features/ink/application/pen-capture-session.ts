@@ -174,7 +174,12 @@ export class PenCaptureSession {
    * coalesced list drops the newest sample every frame.
    */
   pointerRawUpdate(event: PenPointerEvent): void {
-    if (!this.active || event.pointerId !== this.pointerId) return;
+    if (this.pointerId === null || event.pointerId !== this.pointerId) return;
+    // A gesture whose first point has not landed yet is still waiting to begin.
+    if (!this.active) {
+      this.beginStroke(event);
+      return;
+    }
     this.newest = event;
     const rows: RawRow[] = safeEvents(event.getCoalescedEvents?.bind(event)).map(
       (sample) => this.rawRow(sample, 0),
@@ -269,12 +274,14 @@ export class PenCaptureSession {
     this.realSamples = 0;
     this.newest = event;
     this.deps.stream.resetFilter();
-    // A stroke whose first sample does not land on the page is not a stroke: the
-    // pen came down on the paper's margin or outside it, and telling the worker
-    // to begin one would leave it waiting for a stroke that never arrives.
+    // A first sample that does not land on the page yet (the pen came down on the
+    // margin, or the sheet is not measured) must not cost the stroke. The gesture
+    // stays pending on its pointer and begins on the first move that lands; a
+    // gesture that never lands is released on pointer-up with no stroke sent.
+    // Telling the worker to begin before a point exists would leave it waiting
+    // for samples that never arrive.
     if (this.postBatch([this.rawRow(event, CAPTURE_FLAG_FIRST | CAPTURE_FLAG_DISPATCHED)], event) === 0) {
-      this.clear();
-      this.deps.gate.end(event.pointerId);
+      this.header = null;
       return;
     }
     this.deps.writer.flush("stroke-begin", this.header);

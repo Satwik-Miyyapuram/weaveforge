@@ -166,6 +166,28 @@ test("a 240 Hz stroke through the session touches the screen once, at the end", 
   assert.equal(harness.committed.length, 1, "one acknowledgement, one render");
 });
 
+test("a first press that cannot be placed yet does not cost the whole stroke", () => {
+  // The sheet is not measured on the very first press, so project() gives null.
+  let measured = false;
+  const harness = sessionHarness({
+    project: (x, y) => (measured ? { x: x * 10, y: y * 10 } : null),
+  });
+  harness.session.pointerDown(pointer({ pointerType: "pen", pointerId: 9, t: 0 }));
+  measured = true;
+  for (let i = 1; i <= 20; i += 1) {
+    harness.session.pointerRawUpdate(
+      pointer({ pointerType: "pen", pointerId: 9, clientX: 100 + i, clientY: 100 + i, t: i * 4 }),
+    );
+    harness.session.flush();
+  }
+  harness.session.pointerUp(
+    pointer({ pointerType: "pen", pointerId: 9, clientX: 130, clientY: 130, t: 100 }),
+  );
+  const types = harness.messages.map((message) => message.type);
+  assert.ok(types.includes("stroke-begin"), `the stroke must begin on a placed point, got ${types.join(",")}`);
+  assert.ok(types.includes("stroke-end"), `the stroke must end, got ${types.join(",")}`);
+});
+
 test("coalesced events are consumed with the dispatched one, not instead of it", () => {
   const harness = sessionHarness();
   harness.session.pointerDown(
