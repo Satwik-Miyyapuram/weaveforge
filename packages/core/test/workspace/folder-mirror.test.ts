@@ -374,18 +374,19 @@ test("the same protection covers the project's JSON data files", async () => {
   assert.match((await fs.readText(path)) ?? "", /r2/, "the hand-added edge survives the sync");
 });
 
-test("the mirror never reaches into the ink sidecar", async () => {
+test("the mirror never reaches into a strokes folder", async () => {
   const fs = new MemoryWorkspaceFs();
-  // A page of somebody's handwriting, written by the ink store rather than by
-  // the mirror -- which is the whole reason this holds.
-  const inkPath = ".ink/n1/01JCHUNK0000000000000000.inkb";
-  await fs.mkdirp(".ink/n1");
+  // A page of somebody's handwriting beside its note, written by the ink store
+  // rather than by the mirror -- which is the whole reason this holds.
+  const inkDir = at("notes/method.ink");
+  const inkPath = `${inkDir}/01JCHUNK0000000000000000.inkb`;
+  await fs.mkdirp(inkDir);
   await fs.writeFile(inkPath, new Uint8Array([1, 2, 3]));
 
   const first = await mirrorWorkspace(snapshot({ vaultPages: [note("n1", "Method")] }), fs, {
     project: THESIS,
   });
-  assert.deepEqual(first.written.filter((path) => path.startsWith(".ink/")), []);
+  assert.deepEqual(first.written.filter((path) => path.startsWith(inkDir)), []);
 
   // The note goes; the strokes stay. A chunk is never in `previousPaths`, so a
   // mirror run cannot name it as one of its own departed files.
@@ -393,7 +394,7 @@ test("the mirror never reaches into the ink sidecar", async () => {
     project: THESIS,
     previousPaths: first.written,
   });
-  assert.deepEqual(second.removed.filter((path) => path.startsWith(".ink/")), []);
+  assert.deepEqual(second.removed.filter((path) => path.startsWith(inkDir)), []);
   assert.ok(second.removed.includes(at("notes/method.note.md")));
   assert.notEqual(await fs.stat(inkPath), null);
 });

@@ -194,7 +194,7 @@ export async function mirrorWorkspace(
   }
   return {
     written,
-    removed: plan.removed,
+    removed,
     unchanged,
     heldBack: [...plan.heldBack, ...held],
     mirrored,

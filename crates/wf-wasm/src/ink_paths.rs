@@ -15,30 +15,40 @@ pub fn is_ink_note_id_js(id: &str) -> bool {
     ink_paths::is_ink_note_id(id)
 }
 
-/// [`ink_sidecar_dir`](ink_paths::ink_sidecar_dir).
+/// [`ink_strokes_dir`](ink_paths::ink_strokes_dir): `x/foo.ink.md` -> `x/foo.ink`.
+///
+/// # Errors
+///
+/// Fails when `notePath` is not an ink note path.
+#[wasm_bindgen(js_name = inkStrokesDir)]
+pub fn ink_strokes_dir_js(note_path: &str) -> JsResult<String> {
+    ink_paths::ink_strokes_dir(note_path).map_err(serde_wasm_bindgen::Error::new)
+}
+
+/// [`legacy_ink_dir`](ink_paths::legacy_ink_dir): `.ink/<id>`, read by the migration only.
 ///
 /// # Errors
 ///
 /// Fails when `noteId` is not a safe id.
-#[wasm_bindgen(js_name = inkSidecarDir)]
-pub fn ink_sidecar_dir_js(note_id: &str) -> JsResult<String> {
-    ink_paths::ink_sidecar_dir(note_id).map_err(serde_wasm_bindgen::Error::new)
+#[wasm_bindgen(js_name = legacyInkDir)]
+pub fn legacy_ink_dir_js(note_id: &str) -> JsResult<String> {
+    ink_paths::legacy_ink_dir(note_id).map_err(serde_wasm_bindgen::Error::new)
 }
 
 /// [`ink_chunk_path`](ink_paths::ink_chunk_path).
 ///
 /// # Errors
 ///
-/// Fails when `chunkId` or `noteId` is unusable.
+/// Fails when `chunkId` or `notePath` is unusable.
 #[wasm_bindgen(js_name = inkChunkPath)]
-pub fn ink_chunk_path_js(note_id: &str, chunk_id: &str) -> JsResult<String> {
-    ink_paths::ink_chunk_path(note_id, chunk_id).map_err(serde_wasm_bindgen::Error::new)
+pub fn ink_chunk_path_js(note_path: &str, chunk_id: &str) -> JsResult<String> {
+    ink_paths::ink_chunk_path(note_path, chunk_id).map_err(serde_wasm_bindgen::Error::new)
 }
 
-/// [`parse_ink_chunk_path`](ink_paths::parse_ink_chunk_path): `{ noteId, chunkId }`, or `null`.
+/// [`parse_ink_chunk_path`](ink_paths::parse_ink_chunk_path): `{ notePath, chunkId }`, or `null`.
 #[wasm_bindgen(
     js_name = parseInkChunkPath,
-    unchecked_return_type = "{ noteId: string; chunkId: string } | null"
+    unchecked_return_type = "{ notePath: string; chunkId: string } | null"
 )]
 pub fn parse_ink_chunk_path_js(path: &str) -> JsResult<JsValue> {
     match ink_paths::parse_ink_chunk_path(path) {

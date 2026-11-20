@@ -1,10 +1,13 @@
 import { readyCore, typedCore } from "@/lib/rust-core";
 import {
   BlobNotFoundError,
+  LEGACY_INK_DIR,
   type IBlobFetcher,
   type ICurrentUserProvider,
   type IWorkspaceFs,
+  type WorkspaceStat,
 } from "@weaveforge/core";
+import { logToApp } from "@/lib/error-report/app-log";
 import {
   InkNoFolderError,
   type InkChunkStore,
@@ -29,10 +32,9 @@ export class BlobInkChunkStore implements InkChunkStore {
   ) {}
 
   private async path(noteId: string, chunkId: string): Promise<string> {
-    // Ids are checked before the user, as they were before the key moved to
-    // Rust: a bad note id reports first, then a bad chunk id.
-    readyCore().inkSidecarDir(noteId);
-    readyCore().inkChunkPath(noteId, chunkId);
+    // Ids are checked before the user: the key builder checks the note id,
+    // then the chunk id, whatever user it is given.
+    readyCore().inkChunkBlobKey("-", noteId, chunkId);
     const userId = await this.session.requireUserId();
     return readyCore().inkChunkBlobKey(userId, noteId, chunkId);
   }
@@ -225,8 +227,193 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 // --- fs-ink-chunk-store ---
+/** Runs folder work under the folder lock; the identity where there is none. */
+export type InkFolderRun = <T>(fn: () => Promise<T>) => Promise<T>;
+
+const unlocked: InkFolderRun = (fn) => fn();
+
+/** Finds the file an ink note lives in, so its strokes can be found beside it. */
+export interface InkNoteLocator {
+  /** The note's `.ink.md` path in the workspace folder, or `null` when it has none. */
+  pathOf(noteId: string): Promise<string | null>;
+}
+
+/** Something the ink folder scan wants the user to see in the app log. */
+export interface InkFolderReport {
+  level: "info" | "warn" | "error";
+  message: string;
+  detail?: string;
+}
+
+export interface FolderInkNotesOptions {
+  /** The folder lock; every read and write of the folder runs inside it. */
+  run?: InkFolderRun;
+  /**
+   * Writes the notes to the folder. Asked once, outside the lock, when a note
+   * is not on disk yet (a note made a moment ago, before the mirror ran).
+   */
+  syncFolder?: () => Promise<unknown>;
+  /** Where findings go; the app log by default. */
+  report?: (entry: InkFolderReport) => void;
+}
+
 /**
- * Chunks in the workspace folder: `.ink/<weaveforge-id>/<ulid>.inkb` (§4.1).
+ * Ink notes by their file: `notes/foo.ink.md` keeps its pages in `notes/foo.ink/`.
+ *
+ * Strokes pair with a note by file name only. The note id is just how the app
+ * asks; it is turned into a path by reading the `weaveforge-id` of the
+ * `.ink.md` files on disk, so a note that is renamed, or that comes back from
+ * an import under a new id, finds the strokes that sit beside its file.
+ *
+ * A scan also runs the one-time move out of the old `.ink/<weaveforge-id>/`
+ * folder: it COPIES the pages beside the note, checks each copy by hash, and
+ * never writes, moves or deletes anything in the old folder. Stroke folders no
+ * note owns are reported, never deleted.
+ */
+export class FolderInkNotes implements InkNoteLocator {
+  private readonly paths = new Map<string, string>();
+  private readonly reported = new Set<string>();
+
+  constructor(
+    private readonly fs: () => IWorkspaceFs | null,
+    private readonly options: FolderInkNotesOptions = {},
+  ) {}
+
+  async pathOf(noteId: string): Promise<string | null> {
+    const fs = this.fs();
+    if (!fs) return null;
+    const run = this.options.run ?? unlocked;
+    const found = await run(() => this.find(fs, noteId));
+    if (found || !this.options.syncFolder) return found;
+    try {
+      await this.options.syncFolder();
+    } catch (err) {
+      // The sync reports its own failure; the note is just not on disk yet.
+      this.report("warn", `ink: could not write note ${noteId} to the folder`, String(err));
+      return null;
+    }
+    return run(() => this.find(fs, noteId));
+  }
+
+  /** The cached path while that file still carries the id, else a fresh scan. */
+  private async find(fs: IWorkspaceFs, noteId: string): Promise<string | null> {
+    const cached = this.paths.get(noteId);
+    if (cached && (await idOfNote(fs, cached)) === noteId) return cached;
+    this.paths.delete(noteId);
+    await this.scan(fs);
+    return this.paths.get(noteId) ?? null;
+  }
+
+  private async scan(fs: IWorkspaceFs): Promise<void> {
+    const claims = new Map<string, string[]>();
+    const unpaired: string[] = [];
+    await walkNotes(fs, "", async (entry, kind) => {
+      if (kind === "unpaired") {
+        unpaired.push(entry.path);
+        return;
+      }
+      const id = await idOfNote(fs, entry.path);
+      if (id) claims.set(id, [...(claims.get(id) ?? []), entry.path]);
+    });
+    const notes = new Map<string, string>();
+    for (const [id, paths] of claims) {
+      if (paths.length === 1) {
+        notes.set(id, paths[0]!);
+        continue;
+      }
+      // A copied file keeps the id. Strokes go to neither note rather than into the wrong one's folder.
+      this.report(
+        "error",
+        `ink: ${paths.join(" and ")} all carry weaveforge-id ${id}; their strokes stay closed until each has its own id`,
+      );
+    }
+    this.paths.clear();
+    for (const [id, path] of notes) this.paths.set(id, path);
+    for (const [id, path] of notes) {
+      try {
+        await this.migrate(fs, id, path);
+      } catch (err) {
+        this.report("error", `ink: could not copy ${typedCore().legacyInkDir(id)} beside ${path}`, String(err));
+      }
+    }
+    await this.reportStrays(fs, claims, unpaired);
+  }
+
+  /**
+   * Copy `.ink/<id>/` into the note's own folder, once. A page the folder
+   * already holds is never overwritten, so a copy cut off half way is finished
+   * on the next scan. When every page is across, a record under
+   * `.weaveforge/` says so, and the old folder is never copied again -- not
+   * even after the user deletes the note's folder.
+   */
+  private async migrate(fs: IWorkspaceFs, id: string, notePath: string): Promise<void> {
+    if (!typedCore().isInkNoteId(id)) return;
+    const legacy = typedCore().legacyInkDir(id);
+    const record = `${INK_MIGRATED_RECORDS}/${id}`;
+    if (!(await fs.stat(legacy)) || (await fs.stat(record))) return;
+    const files = (await fs.list(legacy)).filter((entry) => entry.kind === "file").map((entry) => entry.path);
+    if (readyCore().inkChunkIdsInListing(files).length === 0) return;
+    const target = typedCore().inkStrokesDir(notePath);
+    const present = new Set<string>();
+    if (await fs.stat(target)) {
+      for (const entry of await fs.list(target)) {
+        const name = baseName(entry.path);
+        // A `.part` is our own unfinished copy; only a whole page counts as there.
+        if (name.endsWith(PART)) await fs.remove(entry.path);
+        else present.add(name);
+      }
+    }
+    const copy = files.filter((path) => {
+      const name = baseName(path);
+      if (present.has(name)) return false;
+      return name === MIGRATED_MARKER || readyCore().inkChunkIdOfFileName(name) !== null;
+    });
+    await fs.mkdirp(target);
+    for (const source of copy) {
+      try {
+        await copyByHash(fs, source, `${target}/${baseName(source)}`);
+      } catch (err) {
+        // Every page copied so far is whole and checked, so it stays; the next scan carries on.
+        if (present.size === 0) await removeIfEmpty(fs, target);
+        throw err;
+      }
+      present.add(baseName(source));
+    }
+    await fs.mkdirp(INK_MIGRATED_RECORDS);
+    await fs.writeFile(record, `${target}\n`);
+    if (copy.length > 0) {
+      this.report("info", `ink: copied ${copy.length} file(s) from ${legacy} to ${target}; ${legacy} is left as it was`);
+    }
+  }
+
+  private async reportStrays(
+    fs: IWorkspaceFs,
+    claims: ReadonlyMap<string, readonly string[]>,
+    unpaired: readonly string[],
+  ): Promise<void> {
+    for (const dir of unpaired) {
+      const files = (await fs.list(dir)).filter((entry) => entry.kind === "file").map((entry) => entry.path);
+      if (readyCore().inkChunkIdsInListing(files).length === 0) continue;
+      this.report("warn", `ink: ${dir} holds strokes but there is no ${dir}.md beside it; it was left as it is`);
+    }
+    if (!(await fs.stat(LEGACY_INK_DIR))) return;
+    for (const entry of await fs.list(LEGACY_INK_DIR)) {
+      if (entry.kind !== "dir" || claims.has(baseName(entry.path))) continue;
+      this.report("warn", `ink: ${entry.path} holds strokes but no note has id ${baseName(entry.path)}; it was left as it is`);
+    }
+  }
+
+  private report(level: InkFolderReport["level"], message: string, detail?: string): void {
+    if (this.reported.has(message)) return;
+    this.reported.add(message);
+    const entry: InkFolderReport = detail === undefined ? { level, message } : { level, message, detail };
+    if (this.options.report) this.options.report(entry);
+    else logToApp({ ...entry, source: "ink" });
+  }
+}
+
+/**
+ * Chunks in the workspace folder, beside their note: `notes/foo.ink/<ulid>.inkb`.
  *
  * The folder is the mirror the user can see, sync and put under git, so this
  * is the store that makes an ink note an ordinary file. It lists the directory,
@@ -238,49 +425,45 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
  * nothing here removes a directory -- so settling the text of a note that both
  * sides drew on leaves every page where it was, and the two sets are drawn
  * together.
+ *
+ * The note id is turned into the note's file by `notes`; nothing here finds
+ * strokes by id. A note with no file has no strokes, and writing to it fails.
  */
 export class FsInkChunkStore implements InkChunkStore, InkMigrationMarks {
-  constructor(private readonly fs: () => IWorkspaceFs | null) {}
-
-  private require(): IWorkspaceFs {
-    const fs = this.fs();
-    if (!fs) throw new Error("ink: no workspace folder is open");
-    return fs;
-  }
+  constructor(
+    private readonly fs: () => IWorkspaceFs | null,
+    private readonly notes: InkNoteLocator,
+    private readonly run: InkFolderRun = unlocked,
+  ) {}
 
   async read(noteId: string, chunkId: string): Promise<Uint8Array | null> {
-    const fs = this.fs();
-    if (!fs) return null;
-    const path = typedCore().inkChunkPath(noteId, chunkId);
-    if (!(await fs.stat(path))) return null;
-    return fs.readFile(path);
+    return this.at(noteId, () => null, async (fs, note) => {
+      const path = typedCore().inkChunkPath(note, chunkId);
+      return (await fs.stat(path)) ? fs.readFile(path) : null;
+    });
   }
 
-  async write(
-    noteId: string,
-    chunkId: string,
-    bytes: Uint8Array,
-  ): Promise<void> {
-    const fs = this.require();
-    await fs.mkdirp(typedCore().inkSidecarDir(noteId));
-    await fs.writeFile(typedCore().inkChunkPath(noteId, chunkId), bytes);
+  async write(noteId: string, chunkId: string, bytes: Uint8Array): Promise<void> {
+    return this.at(noteId, noFile(noteId), async (fs, note) => {
+      await fs.mkdirp(typedCore().inkStrokesDir(note));
+      await fs.writeFile(typedCore().inkChunkPath(note, chunkId), bytes);
+    }, true);
   }
 
   async remove(noteId: string, chunkId: string): Promise<void> {
-    const fs = this.require();
-    const path = typedCore().inkChunkPath(noteId, chunkId);
-    if (await fs.stat(path)) await fs.remove(path);
+    return this.at(noteId, () => undefined, async (fs, note) => {
+      const path = typedCore().inkChunkPath(note, chunkId);
+      if (await fs.stat(path)) await fs.remove(path);
+    }, true);
   }
 
   async list(noteId: string): Promise<string[] | null> {
-    const fs = this.fs();
-    if (!fs) return null;
-    const dir = typedCore().inkSidecarDir(noteId);
-    if (!(await fs.stat(dir))) return [];
-    const files = (await fs.list(dir))
-      .filter((entry) => entry.kind === "file")
-      .map((entry) => entry.path);
-    return readyCore().inkChunkIdsInListing(files);
+    return this.at(noteId, () => null, async (fs, note) => {
+      const dir = typedCore().inkStrokesDir(note);
+      if (!(await fs.stat(dir))) return [];
+      const files = (await fs.list(dir)).filter((entry) => entry.kind === "file").map((entry) => entry.path);
+      return readyCore().inkChunkIdsInListing(files);
+    });
   }
 
   /**
@@ -289,21 +472,133 @@ export class FsInkChunkStore implements InkChunkStore, InkMigrationMarks {
    * it is not a `.inkb`, so `list` never reads it as a page.
    */
   async isMigrated(noteId: string): Promise<boolean> {
-    const fs = this.fs();
-    if (!fs) return false;
-    return (await fs.stat(migratedMarkerPath(noteId))) !== null;
+    return this.at(noteId, () => false, async (fs, note) => (await fs.stat(markerPath(note))) !== null);
   }
 
   async markMigrated(noteId: string): Promise<void> {
-    const fs = this.require();
-    await fs.mkdirp(typedCore().inkSidecarDir(noteId));
-    await fs.writeFile(
-      migratedMarkerPath(noteId),
-      "legacy bucket ink copied into this folder\n",
-    );
+    return this.at(noteId, noFile(noteId), async (fs, note) => {
+      await fs.mkdirp(typedCore().inkStrokesDir(note));
+      await fs.writeFile(markerPath(note), "legacy bucket ink copied into this folder\n");
+    }, true);
+  }
+
+  /**
+   * Runs `op` on the note's path under the lock, after checking the note file
+   * is still there. A note renamed between finding it and taking the lock is
+   * looked up once more, so a page never lands beside a name the note left.
+   */
+  private async at<T>(
+    noteId: string,
+    missing: () => T,
+    op: (fs: IWorkspaceFs, notePath: string) => Promise<T>,
+    needsFolder = false,
+  ): Promise<T> {
+    const fs = this.fs();
+    if (!fs) {
+      if (needsFolder) throw new Error("ink: no workspace folder is open");
+      return missing();
+    }
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const note = await this.notes.pathOf(noteId);
+      if (!note) break;
+      const done = await this.run(async () =>
+        (await fs.stat(note)) ? { value: await op(fs, note) } : null,
+      );
+      if (done) return done.value;
+    }
+    return missing();
   }
 }
 
-function migratedMarkerPath(noteId: string): string {
-  return `${typedCore().inkSidecarDir(noteId)}/migrated`;
+const MIGRATED_MARKER = "migrated";
+
+function markerPath(notePath: string): string {
+  return `${typedCore().inkStrokesDir(notePath)}/${MIGRATED_MARKER}`;
+}
+
+function noFile(noteId: string): () => never {
+  return () => {
+    throw new Error(`ink: note ${noteId} has no file in the workspace folder yet`);
+  };
+}
+
+function baseName(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
+}
+
+/** The `weaveforge-id` of a note file, or `null` when it has none or cannot be read. */
+async function idOfNote(fs: IWorkspaceFs, path: string): Promise<string | null> {
+  try {
+    if (!(await fs.stat(path))) return null;
+    const id = typedCore().readFrontmatter(await fs.readText(path)).frontmatter["weaveforge-id"];
+    return typeof id === "string" && id ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Every `*.ink.md` under `dir` (as "note"), and every `*.ink/` folder with no
+ * `*.ink.md` beside it (as "unpaired"). A `foo.ink/` beside `foo.ink.md` holds
+ * that note's strokes and is not entered; an unpaired one may be a user's own
+ * folder, so it is entered too. Hidden entries -- `.git`, the old `.ink/` --
+ * are not entered.
+ */
+async function walkNotes(
+  fs: IWorkspaceFs,
+  dir: string,
+  visit: (entry: WorkspaceStat, kind: "note" | "unpaired") => Promise<void>,
+): Promise<void> {
+  const entries = await fs.list(dir);
+  const files = new Set(entries.filter((entry) => entry.kind === "file").map((entry) => baseName(entry.path)));
+  for (const entry of entries) {
+    const name = baseName(entry.path);
+    if (name.startsWith(".")) continue;
+    if (entry.kind === "dir") {
+      if (name.endsWith(INK_STROKES_SUFFIX)) {
+        if (files.has(`${name}.md`)) continue;
+        await visit(entry, "unpaired");
+      }
+      await walkNotes(fs, entry.path, visit);
+    } else if (name.endsWith(`${INK_STROKES_SUFFIX}.md`)) {
+      await visit(entry, "note");
+    }
+  }
+}
+
+const INK_STROKES_SUFFIX = ".ink";
+/** One empty-ish file per note id whose `.ink/<id>/` has been copied beside the note. */
+const INK_MIGRATED_RECORDS = ".weaveforge/ink-migrated";
+const PART = ".part";
+
+/** Writes `destination` through a `.part` file and checks it by hash, so it is either whole or absent. */
+async function copyByHash(fs: IWorkspaceFs, source: string, destination: string): Promise<void> {
+  const bytes = await fs.readFile(source);
+  const want = await sha256(bytes);
+  const part = `${destination}${PART}`;
+  try {
+    await fs.writeFile(part, bytes);
+    if ((await sha256(await fs.readFile(part))) !== want) throw new Error(`${part} did not read back the same as ${source}`);
+    await fs.rename(part, destination);
+  } catch (err) {
+    await fs.remove(part).catch(() => {});
+    throw err;
+  }
+  if ((await sha256(await fs.readFile(destination))) !== want) {
+    await fs.remove(destination).catch(() => {});
+    throw new Error(`${destination} did not read back the same as ${source}`);
+  }
+}
+
+async function removeIfEmpty(fs: IWorkspaceFs, dir: string): Promise<void> {
+  try {
+    if ((await fs.stat(dir)) && (await fs.list(dir)).length === 0) await fs.remove(dir, { recursive: true });
+  } catch {
+    // An empty folder left behind holds nothing.
+  }
+}
+
+async function sha256(bytes: Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as BufferSource));
+  return Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
 }

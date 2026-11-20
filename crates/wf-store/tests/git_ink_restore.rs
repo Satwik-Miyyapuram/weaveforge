@@ -1,5 +1,5 @@
-//! Ink sidecars under `.ink/` survive a push and a clone: a fresh folder that pulls
-//! the remote gets the same chunk bytes back, and nothing under `.ink/` is ignored.
+//! Ink pages in a note's `<name>.ink/` folder survive a push and a clone: a fresh folder
+//! that pulls the remote gets the same chunk bytes back, and no strokes folder is ignored.
 #![allow(clippy::unwrap_used, clippy::panic)]
 
 #[cfg(test)]
@@ -56,12 +56,14 @@ fn page_b() -> Vec<u8> {
 }
 
 fn sidecar(rel_id: &str) -> String {
-    format!(".ink/{NOTE}/{rel_id}.inkb")
+    format!("p/notes/{NOTE}.ink/{rel_id}.inkb")
 }
 
 #[test]
 fn ink_sidecar_is_not_ignored_by_sync_policy() {
     assert!(!is_under_ignored_folder(&sidecar(PAGE_A)));
+    assert!(!is_under_ignored_folder(&format!("p/notes/{NOTE}.ink")));
+    // The legacy folder the migration copies from is kept and synced as it was.
     assert!(!is_under_ignored_folder(".ink"));
 }
 
@@ -69,7 +71,7 @@ fn ink_sidecar_is_not_ignored_by_sync_policy() {
 fn ink_sidecar_survives_push_and_clone_byte_for_byte() {
     let (_remote_dir, url) = bare();
 
-    // The machine that drew the ink: two pages in the note's `.ink/` folder.
+    // The machine that drew the ink: two pages in the note's strokes folder.
     let a_dir = TempDir::new();
     let writer = FolderRepo::new(a_dir.path());
     writer.init().unwrap();
@@ -96,7 +98,7 @@ fn ink_sidecar_survives_push_and_clone_byte_for_byte() {
         page_b()
     );
 
-    // Nothing under `.ink/` is left untracked on the clone: the restored
+    // Nothing in the strokes folder is left untracked on the clone: the restored
     // folder is clean, so the next sync has nothing to push or stage.
     assert!(restored.status().unwrap().is_empty());
 }

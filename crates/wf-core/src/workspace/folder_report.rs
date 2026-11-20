@@ -8,6 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ai::folder_draft::FOLDER_DRAFTS_DIR;
+use crate::ink::ink_paths::is_ink_strokes_segment;
 use crate::sync::folder_layout::id_suffix;
 use crate::sync::json_entities::is_app_owned_path;
 
@@ -47,6 +48,23 @@ fn subfolder_suffix(path: &str) -> Option<&str> {
     ok.then_some(tail)
 }
 
+/// A note's strokes folder (`foo.ink/`, or the legacy `.ink/`) or a page file in it. Ink pages
+/// belong to their `.ink.md` note, so they are never a separate outside edit. Only the paths
+/// are known here, so a user's own `research.ink/` folder counts for its page files alone;
+/// its notes and subfolders are still reported.
+fn is_in_ink_strokes_folder(path: &str) -> bool {
+    if path.split('/').any(|segment| segment == ".ink") {
+        return true;
+    }
+    let mut segments = path.rsplit('/');
+    let name = segments.next().unwrap_or(path);
+    if is_ink_strokes_segment(name) {
+        return true;
+    }
+    let is_page = name.ends_with(".inkb") || name == "migrated" || name.ends_with(".part");
+    is_page && segments.next().is_some_and(is_ink_strokes_segment)
+}
+
 /// Sort the reported paths for the caller: drafts, app machinery, other projects, and candidates.
 #[must_use]
 pub fn triage_reported_paths(input: &TriageInput) -> TriageVerdict {
@@ -64,7 +82,7 @@ pub fn triage_reported_paths(input: &TriageInput) -> TriageVerdict {
             drafts = true;
             continue;
         }
-        if is_app_owned_path(path) {
+        if is_app_owned_path(path) || is_in_ink_strokes_folder(path) {
             continue;
         }
         if let (Some(suffix), Some(found)) = (&suffix, subfolder_suffix(path))
@@ -100,6 +118,40 @@ mod tests {
         let verdict = triage(&["README.md", ".git/config", "notes/a.note.md"], None);
         assert!(!verdict.drafts);
         assert_eq!(verdict.candidates, vec!["notes/a.note.md"]);
+    }
+
+    #[test]
+    fn an_ink_notes_strokes_folder_is_not_reported() {
+        let verdict = triage(
+            &[
+                "p/notes/foo.ink",
+                "p/notes/foo.ink/01JABC0DEF0GH0JK0MN0PQ0RST.inkb",
+                "p/notes/foo.ink/migrated",
+                ".ink/01JNOTE/01JABC0DEF0GH0JK0MN0PQ0RST.inkb",
+                "p/notes/foo.ink.md",
+            ],
+            None,
+        );
+        assert_eq!(verdict.candidates, vec!["p/notes/foo.ink.md"]);
+    }
+
+    #[test]
+    fn a_users_folder_that_only_ends_in_ink_is_still_reported() {
+        let verdict = triage(
+            &[
+                "p/research.ink/chapter.note.md",
+                "p/research.ink/deep/plan.md",
+                "p/research.ink/chapter.ink/01JABC0DEF0GH0JK0MN0PQ0RST.inkb",
+            ],
+            None,
+        );
+        assert_eq!(
+            verdict.candidates,
+            vec![
+                "p/research.ink/chapter.note.md",
+                "p/research.ink/deep/plan.md"
+            ]
+        );
     }
 
     #[test]

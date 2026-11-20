@@ -2,6 +2,16 @@
 
 The ink core does the geometry of handwriting. It smooths a pen stroke, turns it into curves, sets the nib width, packs points for storage, and decides what a lasso or an eraser touches.
 
+## Strokes on disk
+
+An ink note pairs with its strokes by file name, never by note id. `notes/foo.ink.md` holds the text layer and, in its front matter, `ink-page-order`. Its pages are in the folder beside it, one file per page: `notes/foo.ink/<ulid>.inkb`.
+
+- `FolderInkNotes` (`apps/web/src/features/ink/infrastructure/parts.ts`) finds a note's file by scanning the folder for `*.ink.md` and reading each `weaveforge-id`. The id finds the file; the file's name finds the strokes. When two files carry one id (a copied note), neither gets strokes and the scan logs an error naming both, so a write never lands in the wrong note's folder.
+- A folder `foo.ink/` holds strokes only when `foo.ink.md` sits beside it. Any other folder whose name ends in `.ink` is an ordinary folder: the scan looks inside it for notes, and reports it only if it holds page files.
+- Renaming or moving a note in the app moves its strokes folder too (`apps/web/src/features/workspace/application/ink-strokes-move.ts`, called by the mirror before it removes the old file). Each page is written to `<name>.part`, read back, renamed into place and read back again. Until every page is copied, a failure removes only what this run wrote and the old note file stays, so the next sync tries again. After that the copy is never removed: an old page that cannot be deleted is left and reported. A run cut off half way resumes. A folder at the new name that holds anything other than same-bytes copies of the old pages is never overwritten. A rename that changes only letter case goes through a temporary `<name>.ink.moving` folder.
+- Deleting a note leaves its strokes folder. A scan reports a `foo.ink/` with no `foo.ink.md` and leaves it.
+- Migration: strokes used to live in `.ink/<weaveforge-id>/`. A scan copies each page the sibling folder lacks through a `.part` file, checks it by SHA-256, and leaves `.ink/` as it was. A page already in the sibling folder is never overwritten, so a copy cut off half way is finished next time. When every page is across, the scan writes `.weaveforge/ink-migrated/<id>` and never copies that `.ink/<id>/` again, even if the sibling folder is later deleted. A `.ink/<id>/` with no note is reported, never deleted.
+
 ## What lives in Rust
 
 The module is `wf_core::ink`. Its `mod.rs` says it is "ink geometry: smoothing, curves, nib widths, zoom and the live stroke packer", a port of `packages/core/src/ink`.
@@ -21,7 +31,7 @@ Each file below owns one part:
 - `ink_constants`: the tuning numbers of width, zoom, smooth, segment, decode and figure. The core TS modules still hold these as their own constants; there is no wasm export.
 - `ink_engine`: facts about the ink engines this build knows.
 - `ink_page`: the page model and text-layer helpers.
-- `ink_paths`: sidecar paths and chunk ids for ink notes. `chunk_id_of_file_name` (wasm `inkChunkIdOfFileName`, called through `readyCore()`) gives the id a file name carries, only for a valid `<ulid>.inkb`. `ink_chunk_blob_key` (wasm `inkChunkBlobKey`) builds the blob key `<user>/<note>/ink/<ulid>.inkb`, `ink_chunk_blob_spec` (wasm `inkChunkBlobSpec`) gives the `vault-assets` bucket and octet-stream type, and `ink_chunk_ids_in_listing` (wasm `inkChunkIdsInListing`) keeps and sorts the chunk ids in a folder listing. The blob and folder stores in `apps/web/src/features/ink/infrastructure/parts.ts` do only the fetch, upload, stat and list calls.
+- `ink_paths`: stroke paths and chunk ids for ink notes. `ink_strokes_dir` (wasm `inkStrokesDir`) gives the strokes folder of a note file, `notes/foo.ink.md` -> `notes/foo.ink`, and `ink_chunk_path` (wasm `inkChunkPath`) one page in it, `notes/foo.ink/<ulid>.inkb`. `legacy_ink_dir` (wasm `legacyInkDir`) gives the old `.ink/<weaveforge-id>` folder, read only by the one-time migration. `chunk_id_of_file_name` (wasm `inkChunkIdOfFileName`, called through `readyCore()`) gives the id a file name carries, only for a valid `<ulid>.inkb`. `ink_chunk_blob_key` (wasm `inkChunkBlobKey`) builds the blob key `<user>/<note>/ink/<ulid>.inkb`, `ink_chunk_blob_spec` (wasm `inkChunkBlobSpec`) gives the `vault-assets` bucket and octet-stream type, and `ink_chunk_ids_in_listing` (wasm `inkChunkIdsInListing`) keeps and sorts the chunk ids in a folder listing. The blob and folder stores in `apps/web/src/features/ink/infrastructure/parts.ts` do only the fetch, upload, stat and list calls.
 - `ink_print`: a page as a printable HTML document.
 - `ink_svg`: a page as an SVG document.
 - `js_math`: JavaScript `Math` semantics where Rust differs, so geometry matches.
