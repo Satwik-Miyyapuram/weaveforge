@@ -290,6 +290,18 @@ pub fn list_decisions(text: &str) -> Result<Vec<ScreeningDecision>, ListFileErro
         .collect())
 }
 
+/// Whether the list has any entry about `item`, whatever its decision.
+///
+/// # Errors
+///
+/// As [`read_list_file`].
+pub fn holds_item(text: &str, item: &str) -> Result<bool, ListFileError> {
+    Ok(read_list_file(text)?
+        .entries
+        .iter()
+        .any(|entry| entry.item == item))
+}
+
 /// Whether time `a` is the same as or after `b`. Both are compared as instants when
 /// both parse as RFC 3339 (so `.500Z` beats `Z` and offsets count); otherwise as text.
 fn not_earlier(a: &str, b: &str) -> bool {

@@ -78,3 +78,14 @@ pub fn mark_missing_in_list_file_js(
 ) -> Result<String, JsError> {
     list_file::mark_missing(text, &known_items).map_err(js_error)
 }
+
+/// [`holds_item`](list_file::holds_item): true when the list file has an entry for `item`,
+/// whatever its state. Used to find the list file for an item.
+///
+/// # Errors
+///
+/// Throws on a damaged or newer-format file.
+#[wasm_bindgen(js_name = listFileHoldsItem)]
+pub fn list_file_holds_item_js(text: &str, item: &str) -> Result<bool, JsError> {
+    list_file::holds_item(text, item).map_err(js_error)
+}

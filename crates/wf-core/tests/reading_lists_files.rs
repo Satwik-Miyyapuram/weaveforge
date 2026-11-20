@@ -3,7 +3,7 @@
 
 use proptest::prelude::*;
 use wf_core::reading_lists::list_file::{
-    ListFileError, effective_decisions, list_decisions, mark_missing, read_list_file,
+    ListFileError, effective_decisions, holds_item, list_decisions, mark_missing, read_list_file,
     record_decision, remove_decision,
 };
 use wf_core::reading_lists::screening::{ScreeningDecision, ScreeningStage, ScreeningState};
@@ -38,6 +38,29 @@ fn screening_decision_saved_to_list_file() {
     let keys: Vec<&str> = file.fields.iter().map(|(k, _)| k.as_str()).collect();
     assert_eq!(keys, ["wf", "weaveforge-id", "title", "color"]);
     assert!(text.contains("title: \"Review: LLMs\""));
+}
+
+#[test]
+fn list_holds_any_item_with_an_entry_not_only_the_decided_one() {
+    let d = decision(
+        "d1",
+        "item-1",
+        ScreeningState::Included,
+        "2026-11-19T10:00:00Z",
+    );
+    let text = record_decision(LIST, &d).unwrap();
+    assert!(holds_item(&text, "item-1").unwrap());
+    // Any entry counts, whatever its state: an excluded item is still in the list.
+    let excluded = decision(
+        "d2",
+        "item-2",
+        ScreeningState::Excluded,
+        "2026-11-19T11:00:00Z",
+    );
+    let text = record_decision(&text, &excluded).unwrap();
+    assert!(holds_item(&text, "item-2").unwrap());
+    assert!(!holds_item(&text, "item-3").unwrap());
+    assert!(!holds_item(LIST, "item-1").unwrap());
 }
 
 #[test]
