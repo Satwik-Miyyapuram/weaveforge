@@ -708,7 +708,7 @@ fn the_mirror_never_reaches_into_a_strokes_folder() {
     let second = mirror_workspace(&snapshot(), &mut fs, opts).expect("second");
     assert!(second.removed.is_empty());
     assert!(fs.stat(&at("notes/method.note.md")).is_some());
-    assert!(fs.stat(ink_path).is_some());
+    assert!(fs.stat(&ink_path).is_some());
 }
 
 #[test]
