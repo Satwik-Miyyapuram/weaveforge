@@ -48,8 +48,8 @@ fn subfolder_suffix(path: &str) -> Option<&str> {
     ok.then_some(tail)
 }
 
-/// A note's strokes folder (`foo.ink/`, or the legacy `.ink/`) or a page file in it. Ink pages
-/// belong to their `.ink.md` note, so they are never a separate outside edit. Only the paths
+/// A note's strokes folder (`foo.note.ink/`, `foo.ink/`, or the legacy `.ink/`) or a page file
+/// in it. Ink pages belong to their note, so they are never a separate outside edit. Only the paths
 /// are known here, so a user's own `research.ink/` folder counts for its page files alone;
 /// its notes and subfolders are still reported.
 fn is_in_ink_strokes_folder(path: &str) -> bool {
@@ -129,10 +129,15 @@ mod tests {
                 "p/notes/foo.ink/migrated",
                 ".ink/01JNOTE/01JABC0DEF0GH0JK0MN0PQ0RST.inkb",
                 "p/notes/foo.ink.md",
+                "p/notes/bar.note.ink/01JABC0DEF0GH0JK0MN0PQ0RST.inkb",
+                "p/notes/bar.note.md",
             ],
             None,
         );
-        assert_eq!(verdict.candidates, vec!["p/notes/foo.ink.md"]);
+        assert_eq!(
+            verdict.candidates,
+            vec!["p/notes/foo.ink.md", "p/notes/bar.note.md"]
+        );
     }
 
     #[test]

@@ -135,6 +135,8 @@ export class CopyOnReadInkChunkStore implements InkChunkStore {
     const legacy = this.legacy.get(noteId) ?? new Set<string>();
     for (const id of declared) if (!local.has(id)) legacy.add(id);
     this.legacy.set(noteId, legacy);
+    // Nothing to copy, so no marker: it would make an empty strokes folder beside every note opened.
+    if (legacy.size === 0) return;
     const settled = await Promise.all(
       [...legacy].map(async (chunkId) => {
         try {
@@ -234,7 +236,7 @@ const unlocked: InkFolderRun = (fn) => fn();
 
 /** Finds the file an ink note lives in, so its strokes can be found beside it. */
 export interface InkNoteLocator {
-  /** The note's `.ink.md` path in the workspace folder, or `null` when it has none. */
+  /** The note's `.md` path in the workspace folder, or `null` when it has none. */
   pathOf(noteId: string): Promise<string | null>;
 }
 
@@ -258,11 +260,12 @@ export interface FolderInkNotesOptions {
 }
 
 /**
- * Ink notes by their file: `notes/foo.ink.md` keeps its pages in `notes/foo.ink/`.
+ * Ink notes by their file: every note takes ink. `notes/foo.note.md` keeps its
+ * pages in `notes/foo.note.ink/`; a legacy `notes/foo.ink.md` in `notes/foo.ink/`.
  *
  * Strokes pair with a note by file name only. The note id is just how the app
  * asks; it is turned into a path by reading the `weaveforge-id` of the
- * `.ink.md` files on disk, so a note that is renamed, or that comes back from
+ * `.md` files on disk, so a note that is renamed, or that comes back from
  * an import under a new id, finds the strokes that sit beside its file.
  *
  * A scan also runs the one-time move out of the old `.ink/<weaveforge-id>/`
@@ -394,7 +397,7 @@ export class FolderInkNotes implements InkNoteLocator {
     for (const dir of unpaired) {
       const files = (await fs.list(dir)).filter((entry) => entry.kind === "file").map((entry) => entry.path);
       if (readyCore().inkChunkIdsInListing(files).length === 0) continue;
-      this.report("warn", `ink: ${dir} holds strokes but there is no ${dir}.md beside it; it was left as it is`);
+      this.report("warn", `ink: ${dir} holds strokes but there is no note beside it; it was left as it is`);
     }
     if (!(await fs.stat(LEGACY_INK_DIR))) return;
     for (const entry of await fs.list(LEGACY_INK_DIR)) {
@@ -538,11 +541,12 @@ async function idOfNote(fs: IWorkspaceFs, path: string): Promise<string | null> 
 }
 
 /**
- * Every `*.ink.md` under `dir` (as "note"), and every `*.ink/` folder with no
- * `*.ink.md` beside it (as "unpaired"). A `foo.ink/` beside `foo.ink.md` holds
- * that note's strokes and is not entered; an unpaired one may be a user's own
- * folder, so it is entered too. Hidden entries -- `.git`, the old `.ink/` --
- * are not entered.
+ * Every `*.md` under `dir` (as "note"; any note can take ink), and every
+ * `*.ink/` folder with no note beside it (as "unpaired"). A strokes folder
+ * beside its note -- `foo.note.ink/` by `foo.note.md`, `foo.ink/` by
+ * `foo.md` or the legacy `foo.ink.md` -- is not entered; an unpaired one may
+ * be a user's own folder, so it is entered too. Hidden entries -- `.git`, the
+ * old `.ink/` -- are not entered.
  */
 async function walkNotes(
   fs: IWorkspaceFs,
@@ -556,11 +560,12 @@ async function walkNotes(
     if (name.startsWith(".")) continue;
     if (entry.kind === "dir") {
       if (name.endsWith(INK_STROKES_SUFFIX)) {
-        if (files.has(`${name}.md`)) continue;
+        const stem = name.slice(0, -INK_STROKES_SUFFIX.length);
+        if (files.has(`${name}.md`) || files.has(`${stem}.md`)) continue;
         await visit(entry, "unpaired");
       }
       await walkNotes(fs, entry.path, visit);
-    } else if (name.endsWith(`${INK_STROKES_SUFFIX}.md`)) {
+    } else if (name.endsWith(".md")) {
       await visit(entry, "note");
     }
   }

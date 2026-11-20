@@ -281,8 +281,8 @@ fn the_mirror_lifts_the_ink_header_into_frontmatter_and_folds_it_back_on_import(
     let files = serialize_workspace(&snap, &project()).files;
     let (path, content) = files
         .iter()
-        .find(|(p, _)| p.ends_with(".ink.md"))
-        .unwrap_or_else(|| panic!("an ink note is written as .ink.md"));
+        .find(|(p, _)| p.ends_with(".note.md"))
+        .unwrap_or_else(|| panic!("an ink note keeps its .note.md path"));
 
     assert!(content.contains("weaveforge-type: ink_page"));
     assert!(content.contains("ink-page-order"));

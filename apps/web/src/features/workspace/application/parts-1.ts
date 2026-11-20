@@ -320,15 +320,23 @@ export interface ApplyOptions {
 }
 
 /**
- * A renamed ink note takes its strokes with it: `notes/<old>.ink/` pages are copied to
- * `notes/<new>.ink/`, then the old page is removed once its copy is there. A page already
- * at the new place is kept as it is.
+ * A renamed note takes its strokes with it (every note can hold ink): the pages in its
+ * strokes folder (`notes/<old>.note.ink/`, or a legacy `notes/<old>.ink/`) are copied to the
+ * new note's folder, then the old page is removed once its copy is there. A page already at
+ * the new place is kept as it is. Two names that share one folder move nothing.
  */
 async function moveInkStrokes(fs: IWorkspaceFs, fromNote: string, toNote: string): Promise<void> {
-  if (!fromNote.endsWith(".ink.md") || !toNote.endsWith(".ink.md")) return;
-  const from = fromNote.slice(0, -".md".length);
-  const to = toNote.slice(0, -".md".length);
-  if (!(await fs.stat(from))) return;
+  if (!fromNote.endsWith(".md") || !toNote.endsWith(".md")) return;
+  let from: string;
+  let to: string;
+  try {
+    from = readyCore().inkStrokesDir(fromNote);
+    to = readyCore().inkStrokesDir(toNote);
+  } catch {
+    // Not a note path the strokes rule accepts: there is no strokes folder to move.
+    return;
+  }
+  if (from === to || !(await fs.stat(from))) return;
   await fs.mkdirp(to);
   for (const entry of await fs.list(from)) {
     if (entry.kind !== "file") continue;

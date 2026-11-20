@@ -15,11 +15,12 @@ pub fn is_ink_note_id_js(id: &str) -> bool {
     ink_paths::is_ink_note_id(id)
 }
 
-/// [`ink_strokes_dir`](ink_paths::ink_strokes_dir): `x/foo.ink.md` -> `x/foo.ink`.
+/// [`ink_strokes_dir`](ink_paths::ink_strokes_dir): `x/foo.note.md` -> `x/foo.note.ink`,
+/// legacy `x/foo.ink.md` -> `x/foo.ink`.
 ///
 /// # Errors
 ///
-/// Fails when `notePath` is not an ink note path.
+/// Fails when `notePath` is not a safe markdown note path.
 #[wasm_bindgen(js_name = inkStrokesDir)]
 pub fn ink_strokes_dir_js(note_path: &str) -> JsResult<String> {
     ink_paths::ink_strokes_dir(note_path).map_err(serde_wasm_bindgen::Error::new)

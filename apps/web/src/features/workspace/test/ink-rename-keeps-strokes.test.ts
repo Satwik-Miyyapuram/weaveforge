@@ -95,25 +95,23 @@ function fakeContainer() {
   return pages;
 }
 
-test("renaming an ink note moves its stroke folder so the strokes are still found", async () => {
+/** Renames `from` to `to` on disk as an outside edit does, applies the import, then reads the stroke back. */
+async function renameAndRead(from: string, to: string, fromDir: string, toDir: string) {
   fakeContainer();
   const { fs, store } = memoryFs({
-    [oldPath]: `---\nweaveforge-id: ${NOTE_ID}\nweaveforge-type: vault_page\ntitle: Losses\n---\n\nink\n`,
-    [`${projectRoot}/notes/losses.ink/${CHUNK}.inkb`]: STROKES,
+    [from]: `---\nweaveforge-id: ${NOTE_ID}\nweaveforge-type: vault_page\ntitle: Losses\n---\n\nink\n`,
+    [`${fromDir}/${CHUNK}.inkb`]: STROKES,
   });
   // The file moved on disk: the same note id now sits at the new name.
-  store.delete(oldPath);
-  store.set(
-    newPath,
-    `---\nweaveforge-id: ${NOTE_ID}\nweaveforge-type: vault_page\ntitle: Loss review\n---\n\nink\n`,
-  );
+  store.delete(from);
+  store.set(to, `---\nweaveforge-id: ${NOTE_ID}\nweaveforge-type: vault_page\ntitle: Loss review\n---\n\nink\n`);
 
   const entry: ImportDiffEntry = {
     action: "updated",
-    entity: { id: NOTE_ID, type: "vault_page", title: "Loss review", body: "ink", path: newPath, fields: {} },
+    entity: { id: NOTE_ID, type: "vault_page", title: "Loss review", body: "ink", path: to, fields: {} },
   } as ImportDiffEntry;
   const diff = { entries: [entry], counts: { updated: 1 } } as unknown as ImportDiff;
-  await applyEntries(fs, diff, {}, undefined, new Set([newPath]), new Map([[newPath, oldPath]]));
+  await applyEntries(fs, diff, {}, undefined, new Set([to]), new Map([[to, from]]));
 
   const bucket = {
     read: async () => {
@@ -122,5 +120,32 @@ test("renaming an ink note moves its stroke folder so the strokes are still foun
   } as never;
   const ink = new CopyOnReadInkChunkStore(new FsInkChunkStore(() => fs, new FolderInkNotes(() => fs)), bucket);
   assert.deepEqual(await ink.read(NOTE_ID, CHUNK), STROKES);
-  assert.ok(store.has(`${projectRoot}/notes/loss-review.ink/${CHUNK}.inkb`));
+  assert.ok(store.has(`${toDir}/${CHUNK}.inkb`));
+  if (fromDir !== toDir) assert.ok(!store.has(`${fromDir}/${CHUNK}.inkb`), "the strokes moved, not copied");
+}
+
+test("renaming an ink note moves its stroke folder so the strokes are still found", async () => {
+  await renameAndRead(oldPath, newPath, `${projectRoot}/notes/losses.ink`, `${projectRoot}/notes/loss-review.ink`);
+});
+
+test("renaming a plain .note.md moves its .note.ink stroke folder with it", async () => {
+  await renameAndRead(
+    `${projectRoot}/notes/losses.note.md`,
+    `${projectRoot}/notes/loss-review.note.md`,
+    `${projectRoot}/notes/losses.note.ink`,
+    `${projectRoot}/notes/loss-review.note.ink`,
+  );
+});
+
+test("a legacy .ink.md with strokes renamed to a .note.md keeps its strokes, moved to the new name", async () => {
+  await renameAndRead(
+    oldPath,
+    `${projectRoot}/notes/loss-review.note.md`,
+    `${projectRoot}/notes/losses.ink`,
+    `${projectRoot}/notes/loss-review.note.ink`,
+  );
+});
+test("two note names that share one strokes folder (foo.md and foo.ink.md) keep the strokes in place", async () => {
+  const dir = `${projectRoot}/notes/losses.ink`;
+  await renameAndRead(`${projectRoot}/notes/losses.md`, oldPath, dir, dir);
 });

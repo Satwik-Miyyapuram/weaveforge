@@ -231,11 +231,10 @@ fn write_notes(
             let (meta, body) = read_ink_note_body(&page.body);
             let mut fields = stamps;
             fields.extend(write_ink_note_meta(&meta));
-            let ink_path = ink_path_of(path);
             write_entry(
                 files,
                 assets,
-                ink_path,
+                path.to_owned(),
                 &page.id,
                 WorkspaceEntityType::InkPage,
                 fields,
@@ -255,12 +254,6 @@ fn write_notes(
         }
     }
     canvases
-}
-
-/// `.note.md` at the end of a path becomes `.ink.md`; any other path is kept.
-fn ink_path_of(path: &str) -> String {
-    path.strip_suffix(".note.md")
-        .map_or_else(|| path.to_owned(), |stem| format!("{stem}.ink.md"))
 }
 
 /// `.note.md` at the end of a path becomes `.canvas`: a canvas is written as its raw body.

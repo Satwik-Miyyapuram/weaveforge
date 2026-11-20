@@ -236,8 +236,8 @@ export async function pipeThrough(
  * nothing about pages; `loadInkPages` is what turns the note's declared order
  * plus whatever chunks exist into the page list the host shows.
  *
- * Three stores answer this port: the `<name>.ink/` folder beside the note's
- * `<name>.ink.md` when a workspace folder is open, the encrypted blob bucket the vault's assets already use
+ * Three stores answer this port: the `<name>.note.ink/` folder beside the note's
+ * `<name>.note.md` (legacy `<name>.ink/` by `<name>.ink.md`) when a workspace folder is open, the encrypted blob bucket the vault's assets already use
  * otherwise, and memory for tests. The host cannot tell them apart, which is
  * the point — an ink note is an ink note whether it sits on disk or in the database.
  */
