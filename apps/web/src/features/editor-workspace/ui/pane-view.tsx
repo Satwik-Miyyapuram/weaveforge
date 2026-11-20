@@ -17,6 +17,7 @@ import type {
 } from "@weaveforge/wasm";
 import { type WorkspaceCommand } from "../application/parts";
 import { readyCore } from "@/lib/rust-core";
+import { PaneFocusedContext } from "@/lib/hooks/use-pane-focused";
 import { openContextMenu } from "@/components/context-menu-store";
 import type { MenuItem } from "@/components/menu";
 import { Breadcrumbs } from "./breadcrumbs";
@@ -323,7 +324,7 @@ function PaneLeafView({
               return (
                 <div key={readyCore().tabKey(tab)} className="pane-document" hidden={!shown}>
                   <ToolbarSlotContext.Provider value={focus ? undefined : focused && shown ? slot : null}>
-                    {renderDocument(tab)}
+                    <PaneFocusedContext.Provider value={focused && shown}>{renderDocument(tab)}</PaneFocusedContext.Provider>
                   </ToolbarSlotContext.Provider>
                 </div>
               );
