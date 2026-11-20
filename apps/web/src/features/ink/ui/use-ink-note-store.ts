@@ -19,6 +19,7 @@ import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
 import { awaitInkWrites, beginInkSave, trackInkWrite } from "../application/parts";
+import { decideInkWrite } from "./ink-save-decision";
 import type { InkSave } from "./use-ink-worker-rpc";
 import { type InkNoteMeta } from "@weaveforge/core";
 
@@ -172,27 +173,26 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     const pages = pagesRef.current;
     const current = pages?.[pageIndex];
     if (!pages || !current) {
-      settle(true);
+      settle(false);
       return;
     }
     const write = (async () => {
       let ok = false;
       try {
         const saved = await requestSave();
-        // A page whose chunk failed to read still has its strokes in the store;
-        // writing or removing it would lose them (18-01). The body is still saved.
-        const writable = !current.unreadable;
-        if (writable && saved.bytes) {
+        const decision = decideInkWrite(current, saved, pageIndex);
+        if (decision.action === "write" && saved.bytes) {
           await chunks.write(noteId, current.chunkId, saved.bytes);
           current.chunk = saved.bytes;
           setChunkVersion((v) => v + 1);
-        } else if (writable && saved.cleared && saved.pageIndex === pageIndex && current.chunk) {
+        } else if (decision.action === "remove") {
           // The last stroke went: drop the stored page so it does not come back.
           await chunks.remove(noteId, current.chunkId);
           current.chunk = null;
           setChunkVersion((v) => v + 1);
         }
-        ok = await saveBodyOk();
+        // Unsaved strokes (unreadable page, worker not ready) must not settle ok.
+        ok = (await saveBodyOk()) && decision.ok;
       } catch (err) {
         // A failed chunk write is reported; the status bar stays unsaved.
         reportSaveFailure(err);
