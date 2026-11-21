@@ -6,6 +6,7 @@ import { moveToTrash } from "@/lib/workspace-trash";
 
 import { folderLock } from "./folder-lock";
 import { activeProject } from "./parts";
+import { inkFolderShared } from "./parts-1";
 import { readMirrorBase, readMirrorBases, writeMirrorManifest } from "./parts-3";
 import { activeWorkspaceFs, folderSession } from "./workspace-folder";
 
@@ -28,7 +29,7 @@ export function folderTrash(fs: IWorkspaceFs, now: number): Trash {
 
 /**
  * A deleted note leaves the folder: its `.md` and its ink folder go to the
- * trash, then the manifest forgets the path. Without that last step the base
+ * trash (unless another note still shares that folder), then the manifest forgets the path. Without that last step the base
  * would outlive the file, and a file of the same name made later would be
  * compared against a note that no longer exists.
  *
@@ -43,7 +44,7 @@ export async function trashNoteFiles(
 ): Promise<void> {
   if (await fs.stat(notePath)) await trash(notePath);
   const ink = readyCore().inkStrokesDir(notePath);
-  if (await fs.stat(ink)) await trash(ink);
+  if ((await fs.stat(ink)) && !(await inkFolderShared(fs, notePath))) await trash(ink);
   const base = await readMirrorBase(fs, projectRoot);
   if (!(notePath in base)) return;
   const bases = await readMirrorBases(fs, projectRoot);

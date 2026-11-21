@@ -26,6 +26,17 @@ pub fn ink_strokes_dir_js(note_path: &str) -> JsResult<String> {
     ink_paths::ink_strokes_dir(note_path).map_err(serde_wasm_bindgen::Error::new)
 }
 
+/// [`ink_strokes_dir_sharer`](ink_paths::ink_strokes_dir_sharer): the other note with the
+/// same strokes folder (`x/foo.md` <-> `x/foo.ink.md`), or `undefined`.
+///
+/// # Errors
+///
+/// Fails when `notePath` is not a safe markdown note path.
+#[wasm_bindgen(js_name = inkStrokesDirSharer)]
+pub fn ink_strokes_dir_sharer_js(note_path: &str) -> JsResult<Option<String>> {
+    ink_paths::ink_strokes_dir_sharer(note_path).map_err(serde_wasm_bindgen::Error::new)
+}
+
 /// [`legacy_ink_dir`](ink_paths::legacy_ink_dir): `.ink/<id>`, read by the migration only.
 ///
 /// # Errors
