@@ -15,8 +15,7 @@ use wf_relay::fetch::paste::{NOT_A_PAGE, NOT_AN_IMAGE};
 use wf_relay::fetch::remote::{TitleReply, fetch_image_via, fetch_title_via};
 use wf_relay::fetch::safe::{
     BROWSER_AGENT, FailKind, FetchOptions, Network, PublicNetwork, PublicResolver, TOO_SLOW,
-    check_reachable,
-    mb_label, parse_fetch_input, safe_fetch_via,
+    check_reachable, mb_label, parse_fetch_input, safe_fetch_via,
 };
 use wf_relay::fetch::url_shape::{
     DEFAULT_FETCH_LIMITS, FetchLimits, UrlRejection, describe_rejection,
@@ -519,9 +518,16 @@ async fn public_resolver_refuses_a_name_with_a_disallowed_address() {
     use reqwest::dns::Resolve;
     let resolver = PublicResolver::new(test_net());
     for refused in ["inner.test", "mixed.test", "empty.test", "missing.test"] {
-        assert!(resolver.resolve(refused.parse().unwrap()).await.is_err(), "{refused}");
+        assert!(
+            resolver.resolve(refused.parse().unwrap()).await.is_err(),
+            "{refused}"
+        );
     }
-    let addrs: Vec<_> = resolver.resolve("site.test".parse().unwrap()).await.unwrap().collect();
+    let addrs: Vec<_> = resolver
+        .resolve("site.test".parse().unwrap())
+        .await
+        .unwrap()
+        .collect();
     assert_eq!(addrs, vec!["127.0.0.1:0".parse().unwrap()]);
 }
 
