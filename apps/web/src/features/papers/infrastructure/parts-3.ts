@@ -407,11 +407,16 @@ export class ZoteroSync {
       if (this.deps.savePaper) {
         for (const [idx, created] of Object.entries(ok)) {
           const paper = batch[Number(idx)];
-          if (paper && created?.key) {
+          if (!paper || !created?.key) continue;
+          // One failed write must not stop the keys of the papers after it
+          // from being stored (P2-189).
+          try {
             await this.deps.savePaper({
               ...paper,
               metadata: { ...paper.metadata, zoteroKey: created.key },
             });
+          } catch (err) {
+            console.warn(`Could not store the Zotero key of "${paper.title}":`, err);
           }
         }
       }
