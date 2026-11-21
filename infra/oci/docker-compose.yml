@@ -239,12 +239,19 @@ services:
         set -e
         export PGHOST=postgres PGUSER="$${POSTGRES_USER}" PGDATABASE="$${POSTGRES_DB}"
         # Realtime creates the tenant on first boot; wait rather than race it.
+        found=""
         for i in $$(seq 1 30); do
           if psql -tAc "select 1 from _realtime.tenants where external_id = 'realtime-dev'" | grep -q 1; then
+            found=1
             break
           fi
           sleep 2
         done
+        # Without the row the update below sets nothing, so fail rather than report success.
+        if [ -z "$$found" ]; then
+          echo "realtime tenant 'realtime-dev' never appeared; signing keys not set" >&2
+          exit 1
+        fi
         # Through stdin, not `-c`: psql only interpolates `:'var'` in scripts.
         printf '%s' "$$JWT_KEYS" > /tmp/jwt_keys.json
         psql -v ON_ERROR_STOP=1 <<'SQL'
