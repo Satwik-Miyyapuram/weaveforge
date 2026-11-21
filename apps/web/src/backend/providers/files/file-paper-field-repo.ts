@@ -22,7 +22,7 @@ import {
 import type { FilePaperRepository } from "@/features/papers/infrastructure/file-paper-repository";
 import type { ProjectRoot } from "./file-entity-store";
 import type { SettingsSection } from "./file-tag-repo";
-import { LinkIndex } from "./link-index";
+import { LinkIndex, type Links } from "./link-index";
 
 const DEFS = "paperFields";
 
@@ -73,11 +73,13 @@ export class FilePaperFieldRepository implements IPaperFieldRepository {
   async listValuesForProject(): Promise<PaperFieldValue[]> {
     const defs = this.defs();
     const out: PaperFieldValue[] = [];
+    let links: Links | undefined;
     for (const { paperId, extras } of await this.papers.listExtras()) {
       for (const [fieldId, raw] of Object.entries(extras.fields)) {
         const def = defs.get(fieldId);
         if (!def || !isValue(raw)) continue;
-        const value = def.kind === "relation" && Array.isArray(raw) ? await this.paperIds(raw) : raw;
+        const value =
+          def.kind === "relation" && Array.isArray(raw) ? paperIds((links ??= await this.links.snapshot()), raw) : raw;
         out.push({ id: valueId(paperId, fieldId), paperId, fieldId, value });
       }
     }
@@ -87,7 +89,7 @@ export class FilePaperFieldRepository implements IPaperFieldRepository {
   async setValue({ paperId, fieldId, value }: SetPaperFieldValueInput): Promise<PaperFieldValue> {
     const def = this.defs().get(fieldId);
     if (!def) throw new NotFoundError(`No paper field with id "${fieldId}".`);
-    const stored = def.kind === "relation" && Array.isArray(value) ? await this.linksFor(value) : value;
+    const stored = def.kind === "relation" && Array.isArray(value) ? linksFor(await this.links.snapshot(), value) : value;
     const written = await this.papers.updateExtras(paperId, ({ fields }) => ({ fields: { ...fields, [fieldId]: stored } }));
     if (!written) throw new NotFoundError(`No paper with id "${paperId}".`);
     return { id: valueId(paperId, fieldId), paperId, fieldId, value: Array.isArray(value) ? [...value] : value };
@@ -116,25 +118,23 @@ export class FilePaperFieldRepository implements IPaperFieldRepository {
     }
     return out;
   }
+}
 
-  /** Paper ids as `[[links]]`; an id with no file is kept as it is. */
-  private async linksFor(ids: readonly string[]): Promise<string[]> {
-    const out: string[] = [];
-    for (const id of ids) out.push((await this.links.linkFor({ paperId: id })) ?? id);
-    return out;
-  }
+/** Paper ids as `[[links]]`; an id with no file is kept as it is. */
+function linksFor(links: Links, ids: readonly string[]): string[] {
+  return ids.map((id) => links.linkFor({ paperId: id }) ?? id);
+}
 
-  /** `[[links]]` (or bare ids) as paper ids; a link that resolves to nothing is dropped. */
-  private async paperIds(links: readonly string[]): Promise<string[]> {
-    const out: string[] = [];
-    for (const link of links) {
-      if (!link.startsWith("[[")) {
-        out.push(link);
-        continue;
-      }
-      const target = await this.links.resolve(link);
-      if (target && "paperId" in target) out.push(target.paperId);
+/** `[[links]]` (or bare ids) as paper ids; a link that resolves to nothing is dropped. */
+function paperIds(links: Links, items: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const item of items) {
+    if (!item.startsWith("[[")) {
+      out.push(item);
+      continue;
     }
-    return out;
+    const target = links.resolve(item);
+    if (target && "paperId" in target) out.push(target.paperId);
   }
+  return out;
 }

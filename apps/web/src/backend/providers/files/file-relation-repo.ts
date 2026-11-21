@@ -23,7 +23,7 @@ import {
 } from "@weaveforge/core";
 import type { FilePaperRepository, PaperExtras } from "@/features/papers/infrastructure/file-paper-repository";
 import type { ProjectRoot } from "./file-entity-store";
-import { LinkIndex } from "./link-index";
+import { LinkIndex, type Links } from "./link-index";
 
 type RelationEntry = PaperExtras["relations"][number];
 
@@ -105,24 +105,26 @@ export class FilePaperRelationRepository implements IPaperRelationRepository {
     paperId: string,
     change: (entries: RelationEntry[], read: (PaperRelation | null)[]) => RelationEntry[],
   ): Promise<void> {
-    await this.papers.updateExtras(paperId, async ({ relations }) => ({
-      relations: change(relations, await this.readEntries(paperId, relations)),
+    const links = await this.links.snapshot();
+    await this.papers.updateExtras(paperId, ({ relations }) => ({
+      relations: change(relations, this.readEntries(links, paperId, relations)),
     }));
   }
 
   private async all(): Promise<PaperRelation[]> {
     const out: PaperRelation[] = [];
+    const links = await this.links.snapshot();
     for (const { paperId, extras } of await this.papers.listExtras()) {
-      for (const r of await this.readEntries(paperId, extras.relations)) if (r) out.push(r);
+      for (const r of this.readEntries(links, paperId, extras.relations)) if (r) out.push(r);
     }
     return out;
   }
 
-  private async readEntries(fromPaper: string, entries: readonly RelationEntry[]): Promise<(PaperRelation | null)[]> {
+  private readEntries(links: Links, fromPaper: string, entries: readonly RelationEntry[]): (PaperRelation | null)[] {
     const out: (PaperRelation | null)[] = [];
     for (const e of entries) {
       const type = e.type as RelationType;
-      const toPaper = TYPES.includes(type) ? await this.targetOf(e.to) : null;
+      const toPaper = TYPES.includes(type) ? this.targetOf(links, e.to) : null;
       if (!toPaper) {
         out.push(null);
         continue;
@@ -141,10 +143,10 @@ export class FilePaperRelationRepository implements IPaperRelationRepository {
     return out;
   }
 
-  private async targetOf(to: unknown): Promise<string | null> {
+  private targetOf(links: Links, to: unknown): string | null {
     if (typeof to !== "string" || !to) return null;
     if (!to.startsWith("[[")) return to;
-    const target = await this.links.resolve(to);
+    const target = links.resolve(to);
     return target && "paperId" in target ? target.paperId : null;
   }
 }

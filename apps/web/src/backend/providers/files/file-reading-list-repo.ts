@@ -227,9 +227,10 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
     members: readonly Member[],
   ): Promise<({ id: string; target: LinkTarget } | null)[]> {
     const out: ({ id: string; target: LinkTarget } | null)[] = [];
+    const links = await this.links.snapshot();
     for (const m of members) {
       const link = typeof m === "string" || (m && typeof m === "object") ? linkOf(m) : undefined;
-      const target = typeof link === "string" ? await this.links.resolve(link) : null;
+      const target = typeof link === "string" ? links.resolve(link) : null;
       if (!target) {
         out.push(null);
         continue;
