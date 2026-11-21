@@ -25,7 +25,7 @@ Data-loss and security items were taken first.
 | --- | --- | --- |
 | P2-1 | | 1ccf9e3e7 |
 | P2-2 | The native Google sign-in times out after 60 s and falls back to the web sign-in | 883a1f1e6 |
-| P2-3 | (keychain keys per connection: see Rust lane) | 99cc8b500 |
+| P2-3 | resolved web-side: one keychain row reused (99cc8b500); a second link now asks before replacing the stored token (OverleafTokenInUseError / hasConnection). Per-connection keys need a shell command arg, left out | 99cc8b500 + next |
 | P2-10 | The arrow-key nudge keeps a figure on the page | 2bed249ad |
 | P2-146 | The collab editor shows a retry when the user id fails, instead of loading forever | 85611363e |
 | P2-147 | A desktop sign-in whose chunk or exchange fails is logged via logToApp, not left as an unhandled rejection | 5fbe8ccb7, 30a2d9ce3 |
@@ -61,7 +61,7 @@ P2-95, P2-113, P2-115, P2-82.
 
 - The wf-store BOM test `save_keeps_a_byte_order_mark` fails at `vault_checked.rs:538`.
 - The lint at `bases.rs:99` needs a fix.
-- The P2-3 per-connection keychain keys belong in the Rust lane.
+- P2-3: per-connection keychain keys would need a new shell command argument and a bindings.ts regen; fixed web-side instead (reuse + confirm before replace).
 
 ## Open decisions
 

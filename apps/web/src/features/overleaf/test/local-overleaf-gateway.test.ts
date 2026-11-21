@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { LOCAL_USER_ID } from "@weaveforge/core";
-import { LocalOverleafGateway } from "../infrastructure/local-overleaf-gateway";
+import { LocalOverleafGateway, OverleafTokenInUseError } from "../infrastructure/local-overleaf-gateway";
 
 function recorder() {
   const calls: { sql: string; params: unknown[] }[] = [];
@@ -151,10 +151,22 @@ test("gateway: a second link reuses the one connection and its prefix follows th
   const secrets = withShell();
   const { rows, gateway } = connectionsDb();
   const a = await gateway.saveConnection("Overleaf", "olp_first");
-  const b = await gateway.saveConnection("Overleaf 2", "abcd_second");
+  const b = await gateway.saveConnection("Overleaf 2", "abcd_second", { replaceToken: true });
   assert.equal(b, a);
   assert.deepEqual(rows, [{ id: a, name: "Overleaf 2", prefix: "abcd" }]);
   assert.equal(secrets["overleaf-token"], "abcd_second");
+});
+
+test("gateway: a second link does not replace the stored token unless told to (P2-3)", async (t) => {
+  t.after(() => { delete (globalThis as { window?: unknown }).window; });
+  const secrets = withShell();
+  const { rows, gateway } = connectionsDb();
+  assert.equal(await gateway.hasConnection(), false);
+  await gateway.saveConnection("Overleaf", "olp_first");
+  assert.equal(await gateway.hasConnection(), true);
+  await assert.rejects(() => gateway.saveConnection("Overleaf 2", "olp_second"), OverleafTokenInUseError);
+  assert.equal(secrets["overleaf-token"], "olp_first");
+  assert.deepEqual(rows.map((r) => r.name), ["Overleaf"]);
 });
 
 test("gateway: a failed insert leaves the stored token alone (P2-3)", async (t) => {
