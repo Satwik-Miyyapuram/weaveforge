@@ -192,3 +192,29 @@ test("a disk cache that fails to read or write is a miss, never a failure (P2-16
     process.off("unhandledRejection", onUnhandled);
   }
 });
+
+test("a miss is retried after a short while, not kept for the session (P2-170)", async () => {
+  let clock = 0;
+  let calls = 0;
+  let online = false;
+  const service = new ReferenceLookupService(
+    {
+      resolveWithSource: async () => {
+        calls += 1;
+        if (!online) throw new Error("offline");
+        return { metadata: paper({ title: "T" }), sourceId: "fake" };
+      },
+    },
+    new InMemoryPaperRepository(),
+    undefined,
+    () => clock,
+  );
+  assert.equal((await service.resolve("p1", ref({ title: "T" }))).status, "unresolved");
+  const afterMiss = calls;
+  clock += 1_000;
+  await service.resolve("p1", ref({ title: "T" }));
+  assert.equal(calls, afterMiss, "a miss is not asked again at once");
+  online = true;
+  clock += 10 * 60_000;
+  assert.equal((await service.resolve("p1", ref({ title: "T" }))).status, "resolved");
+});

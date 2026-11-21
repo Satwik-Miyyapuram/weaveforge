@@ -303,6 +303,9 @@ export interface ReferenceLookupCache {
  * rather than the paper id, so two copies of one paper — or a re-upload —
  * share one set of lookups.
  */
+/** How long a reference that found nothing is left alone before a retry. */
+const UNRESOLVED_RETRY_MS = 5 * 60_000;
+
 export class ReferenceLookupService {
   private readonly memory = new Map<string, { at: number; value: ResolvedReference }>();
   private library?: { at: number; list: ReturnType<IPaperRepository["listSummaries"]> };
@@ -319,7 +322,12 @@ export class ReferenceLookupService {
     const core = readyCore();
     const key = core.referenceCacheKey(documentKey, ref.index);
     const hit = this.memory.get(key);
-    if (hit && core.isReferenceCacheEntryFresh(hit.at, this.now())) return Promise.resolve(hit.value);
+    // A miss is often a dropped connection, so it is asked again after a
+    // short while instead of standing for the whole session (P2-170).
+    const fresh = hit && (hit.value.status === "unresolved"
+      ? this.now() - hit.at < UNRESOLVED_RETRY_MS
+      : core.isReferenceCacheEntryFresh(hit.at, this.now()));
+    if (hit && fresh) return Promise.resolve(hit.value);
     return (async () => {
       const cached = await this.readCache(key);
       if (cached) {
