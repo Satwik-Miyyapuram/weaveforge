@@ -162,14 +162,15 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
   }
 
   async listItems(listId: string): Promise<ReadingListItem[]> {
-    const row = await this.store.get(listId);
-    return row ? this.itemsOf(row) : [];
+    return this.listItemsForLists([listId]);
   }
 
   async listItemsForLists(listIds: readonly string[]): Promise<ReadingListItem[]> {
     const wanted = new Set(listIds);
+    const rows = await this.store.all();
+    const live = new Set(rows.map((r) => r.id));
     const out: ReadingListItem[] = [];
-    for (const row of await this.store.all()) if (wanted.has(row.id)) out.push(...(await this.itemsOf(row)));
+    for (const row of rows) if (wanted.has(row.id)) out.push(...(await this.itemsOf(row, live)));
     return out;
   }
 
@@ -244,13 +245,18 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
   }
 
   private async membershipsOf(match: (i: ReadingListItem) => boolean): Promise<ReadingListItem[]> {
+    const rows = await this.store.all();
+    const live = new Set(rows.map((r) => r.id));
     const out: ReadingListItem[] = [];
-    for (const row of await this.store.all()) out.push(...(await this.itemsOf(row)).filter(match));
+    for (const row of rows) out.push(...(await this.itemsOf(row, live)).filter(match));
     return out;
   }
 
-  /** The list's members that resolve, by order then place in the file. */
-  private async itemsOf(row: ListRow): Promise<ReadingListItem[]> {
+  /**
+   * The list's members that resolve, by order then place in the file. A `from` naming
+   * a list not in `live` is dropped, as Postgres's `on delete set null` did.
+   */
+  private async itemsOf(row: ListRow, live: ReadonlySet<string>): Promise<ReadingListItem[]> {
     const resolved = await this.resolveAll(row, this.membersOf(row));
     const items: ReadingListItem[] = [];
     resolved.forEach((r, index) => {
@@ -259,7 +265,7 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
       const item: ReadingListItem = { id: r.id, listId: row.id, ...r.target, sortOrder: index };
       if (typeof info.order === "number") item.sortOrder = info.order;
       if (info.note) item.note = info.note;
-      if (info.from) item.inheritedFromListId = info.from;
+      if (info.from && live.has(info.from)) item.inheritedFromListId = info.from;
       if (info["duplicate-of"]) item.duplicateOfItemId = info["duplicate-of"];
       items.push(item);
     });

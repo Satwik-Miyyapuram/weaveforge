@@ -114,6 +114,19 @@ test("add refuses a missing list, target or inherited-from list (code 23503)", a
   assert.equal(got?.duplicateOfItemId, "y");
 });
 
+test("deleting the list an item is inherited from clears its from, as on delete set null", async () => {
+  const { lists, items } = await setup();
+  const l = list();
+  const child = list({ parentId: l.id });
+  await lists.save(l);
+  await lists.save(child);
+  await items.add({ id: "x", listId: l.id, paperId: "p1", sortOrder: 0, inheritedFromListId: child.id });
+  await lists.delete(child.id);
+  assert.deepEqual(await items.listItems(l.id), [{ id: "x", listId: l.id, paperId: "p1", sortOrder: 0 }]);
+  assert.deepEqual(await items.listsForPaper("p1"), [{ id: "x", listId: l.id, paperId: "p1", sortOrder: 0 }]);
+  assert.deepEqual(await items.listItemsForLists([l.id]), [{ id: "x", listId: l.id, paperId: "p1", sortOrder: 0 }]);
+});
+
 test("listsForPaper / listsForNote span lists; remove drops one membership", async () => {
   const { lists, items } = await setup();
   const l1 = list({ name: "One" });
