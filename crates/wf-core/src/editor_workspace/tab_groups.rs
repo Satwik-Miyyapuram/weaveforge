@@ -305,15 +305,17 @@ pub fn group_runs(leaf: &PaneLeaf) -> Vec<TabRun> {
             };
             let index_i = index as i32;
             let hidden = group.collapsed == Some(true) && index_i != leaf.active_index;
-            let same = |t: &TabRef| t.group.as_deref() == Some(group.id.as_str());
-            if index > 0 && leaf.tabs.get(index - 1).is_some_and(same) {
+            // One chip per group, on its first tab, sized by all its tabs, even when a
+            // move has split the group.
+            let same = |t: &&TabRef| t.group.as_deref() == Some(group.id.as_str());
+            if leaf.tabs[..index].iter().any(|t| same(&t)) {
                 return TabRun {
                     chip: None,
                     hidden,
                     size: 0,
                 };
             }
-            let size = leaf.tabs[index..].iter().take_while(|t| same(t)).count() as i32;
+            let size = leaf.tabs[index..].iter().filter(same).count() as i32;
             TabRun {
                 chip: Some(group.clone()),
                 hidden,
@@ -411,6 +413,21 @@ mod tests {
         );
         assert_eq!(joined.tabs[1], in_group("c", "g1"));
         assert_eq!(joined.active_index, 3);
+    }
+
+    #[test]
+    fn a_split_group_draws_one_chip_sized_by_all_its_tabs() {
+        let leaf = PaneLeaf {
+            id: DEFAULT_PANE_ID.to_owned(),
+            tabs: vec![in_group("a", "g1"), tab("x"), in_group("b", "g1")],
+            active_index: 0,
+            groups: Some(vec![group("g1", "", 1)]),
+        };
+        assert_eq!(
+            chips(&leaf),
+            vec![(Some("g1".to_owned()), false), (None, false), (None, false)]
+        );
+        assert_eq!(group_runs(&leaf)[0].size, 2);
     }
 
     #[test]
