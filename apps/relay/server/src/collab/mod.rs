@@ -114,6 +114,9 @@ pub struct CollabConfig {
     pub lease_ms: i64,
     /// How long a grant check is trusted before it is asked again (0: every update).
     pub grant_cache_ms: i64,
+    /// How often an open socket re-reads its grant, so a lapsed grant closes it even when idle.
+    /// Must be non-zero.
+    pub grant_check_every: Duration,
 }
 
 impl CollabConfig {
@@ -125,6 +128,7 @@ impl CollabConfig {
             persist_every: Duration::from_secs(2),
             lease_ms: 90_000,
             grant_cache_ms: 5_000,
+            grant_check_every: Duration::from_secs(30),
         }
     }
 }

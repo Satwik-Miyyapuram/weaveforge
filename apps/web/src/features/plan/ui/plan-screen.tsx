@@ -27,6 +27,7 @@ import { formatError } from "@/lib/format-error";
 import { PlanTimelineBar } from "@/features/plan/ui/plan-timeline-bar";
 import { MilestoneForm } from "./milestone-form";
 import { MilestoneCard } from "./milestone-card";
+import { loadLinkedMilestone } from "./plan-deep-link";
 import { Button } from "@/components/button";
 import { FoldButton } from "@/components/controls";
 
@@ -86,10 +87,10 @@ export function PlanScreen() {
       return;
     }
     if (isSharedView || pinnedSharedBy.has(focusFromUrl)) {
-      void getContainer()
-        .plan.getMilestone(focusFromUrl)
-        .then((m) => {
-          if (!m) return;
+      // The cleanup drops a fetch that lands after the link or screen changed.
+      return loadLinkedMilestone(
+        () => getContainer().plan.getMilestone(focusFromUrl),
+        (m) => {
           appliedFocus.current = focusFromUrl;
           setData((prev) =>
             prev && !prev.milestones.some((x) => x.id === m.id)
@@ -99,10 +100,11 @@ export function PlanScreen() {
           requestAnimationFrame(() => {
             document.getElementById(`milestone-${focusFromUrl}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
           });
-        })
-        .catch((err: unknown) => {
+        },
+        (err) => {
           logToApp({ level: "warn", source: "plan", message: "Could not load the linked milestone", detail: formatError(err) });
-        });
+        },
+      );
     }
   }, [focusFromUrl, items, isSharedView, pinnedSharedBy, setData]);
 

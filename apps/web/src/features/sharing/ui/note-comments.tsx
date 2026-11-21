@@ -37,15 +37,7 @@ interface Thread {
   span: TextSpan | null;
 }
 
-export function NoteComments({
-  resourceType,
-  resourceId,
-  canComment,
-  isOwner = false,
-  contentRef,
-  contentKey = "",
-  embedded = false,
-}: {
+type NoteCommentsProps = {
   resourceType: string;
   resourceId: string;
   canComment: boolean;
@@ -57,7 +49,25 @@ export function NoteComments({
   contentKey?: string;
   /** Inside a sheet that has its own toggle: no header, always open. */
   embedded?: boolean;
-}) {
+};
+
+/**
+ * Keyed on the resource, so moving to another note starts with an empty
+ * composer, no reply box and that note's threads only (P2-245).
+ */
+export function NoteComments(props: NoteCommentsProps) {
+  return <NoteCommentsBody key={`${props.resourceType}:${props.resourceId}`} {...props} />;
+}
+
+function NoteCommentsBody({
+  resourceType,
+  resourceId,
+  canComment,
+  isOwner = false,
+  contentRef,
+  contentKey = "",
+  embedded = false,
+}: NoteCommentsProps) {
   const { profile, team } = useProfile();
   const [comments, setComments] = useState<Comment[]>([]);
   const [members, setMembers] = useState<Member[]>(team);

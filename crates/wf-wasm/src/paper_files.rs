@@ -11,6 +11,7 @@ use wf_core::papers::paper_file::{paper_row, parse_paper_file, write_paper_row};
 use wf_core::reader::annotations_file::{
     AnnotationRow, annotations_file_path, parse_annotations, render_annotations,
 };
+use wf_core::sync::folder_layout::comments_path;
 
 use super::to_js;
 
@@ -38,7 +39,7 @@ pub fn paper_row_from_file_js(text: &str) -> Result<JsValue, JsError> {
 ///
 /// # Errors
 ///
-/// Fails when `existing` is not a paper file, is from a newer app, or `row` has no `id`.
+/// Fails when `existing` is not a paper file or is from a newer app.
 #[wasm_bindgen(js_name = writePaperRow)]
 pub fn write_paper_row_js(
     existing: Option<String>,
@@ -73,9 +74,18 @@ pub fn render_annotations_file_js(
     Ok(render_annotations(&rows_from_js(rows)?))
 }
 
-/// [`annotations_file_path`]: the sidecar of the paper's PDF (`x.pdf` -> `x.annotations.json`).
+/// [`annotations_file_path`]: the sidecar next to the paper file, under its name
+/// (`x.paper.md` -> `x.annotations.json`).
 #[must_use]
 #[wasm_bindgen(js_name = annotationsFilePath)]
-pub fn annotations_file_path_js(paper_id: &str, project_root: &str) -> String {
-    annotations_file_path(paper_id, project_root)
+pub fn annotations_file_path_js(paper_path: &str) -> String {
+    annotations_file_path(paper_path)
+}
+
+/// [`comments_path`]: the comments sidecar next to an item, under its name
+/// (`x.paper.md` -> `x.comments.json`, `x.md` -> `x.comments.json`).
+#[must_use]
+#[wasm_bindgen(js_name = commentsFilePath)]
+pub fn comments_file_path_js(item_path: &str) -> String {
+    comments_path(item_path)
 }

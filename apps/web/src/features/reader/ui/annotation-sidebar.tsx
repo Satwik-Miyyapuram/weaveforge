@@ -30,7 +30,7 @@ interface AnnotationSidebarProps {
   onUpdateLocal?: (
     id: string,
     patch: { comment?: string; tags?: string[]; color?: string },
-  ) => Promise<void>;
+  ) => Promise<unknown>;
   onRemoveLocal?: (id: string) => void;
   onPinLocal?: (ann: ReaderAnnotation, sectionId: string | null) => Promise<void>;
   backlinks?: AnnotationBacklinkTarget[];

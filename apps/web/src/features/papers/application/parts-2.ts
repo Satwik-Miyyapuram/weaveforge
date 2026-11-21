@@ -79,8 +79,14 @@ export async function importBibFile(file: BibFileLike, deps: BibImportDeps): Pro
         skipped.push({ key: entry.citationKey ?? "", line, reason });
         continue;
       }
-      await deps.afterCreate(paper);
       added.push(paper);
+      // The paper is saved; a failed note scaffold or Zotero push must not
+      // report it as not imported (P2-174).
+      try {
+        await deps.afterCreate(paper);
+      } catch (err) {
+        console.warn(`After adding "${paper.title}" from ${file.name}:`, err);
+      }
     } catch (err) {
       problems.push({ key: entry.citationKey ?? "", line, reason: err instanceof Error ? err.message : String(err) });
     }

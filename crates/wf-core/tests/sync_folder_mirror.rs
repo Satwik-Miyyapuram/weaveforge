@@ -697,7 +697,7 @@ fn the_mirror_never_reaches_into_a_strokes_folder() {
     )
     .expect("first");
     let seen = seen_of(&first.served);
-    assert!(first.written.iter().all(|path| !path.starts_with(".ink/")));
+    assert!(first.written.iter().all(|path| !path.starts_with(&ink_dir)));
 
     // The note goes; the strokes stay. Sync never deletes, so neither the note nor a
     // chunk is removed.

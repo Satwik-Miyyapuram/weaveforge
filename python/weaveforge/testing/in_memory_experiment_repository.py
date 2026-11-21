@@ -5,8 +5,10 @@ the PostgREST adapter so the shared contract suite passes against both."""
 from __future__ import annotations
 
 import copy
+from typing import Any
 
 from ..features.experiments.domain.experiment import Experiment, ExperimentFilter
+from ..features.experiments.infrastructure.experiment_row import to_domain, to_row
 
 
 class InMemoryExperimentRepository:
@@ -32,6 +34,10 @@ class InMemoryExperimentRepository:
 
     def save(self, entity: Experiment) -> None:
         self._store[entity.id] = copy.deepcopy(entity)
+
+    def save_fields(self, id: str, fields: dict[str, Any]) -> None:
+        stored = self._store[id]
+        self._store[id] = to_domain(copy.deepcopy({**to_row(stored), **fields}))
 
     def delete(self, id: str) -> None:
         self._store.pop(id, None)

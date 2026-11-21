@@ -14,7 +14,7 @@ Source: `crates/wf-core/src/settings/`
 - `theme_config.rs`: parses the uploadable theme config file. It checks colours, font stacks and lengths against allowlists and caps the file at 64 KB.
 - `integration_credentials.rs`: reads integration fields and checks whether an integration is connected. It also converts the legacy credentials layout.
 - `settings_file.rs`: the workspace settings file (`.weaveforge/settings.json`, synced with the workspace) and the device settings file (`.weaveforge/local/device.json`, this machine only). Each is one JSON object; empty text reads as an empty object. `apply_patch` sets the keys a patch names and removes those it sets to `null`.
-- `secret_guard.rs`: refuses secrets in workspace config files. A key whose name ends in token, secret, password, passwd, apikey, accesskey, privatekey, cookie, credential(s) or bearer (ignoring case, `-` and `_`) with a non-empty string value is refused, and so is any value shaped like a known token (`sk-`, `ghp_`, `github_pat_`, `glpat-`, `xoxb-`, `AKIA` and similar, followed by at least 16 token characters, or a PEM private key). `maxTokens`, `tokenizer` and `passwordHint` are fine. The refusal names where the secret was (for example `integrations.zotero.apiKey`) and never the value.
+- `secret_guard.rs`: refuses secrets in workspace config files. A key whose name ends in token, secret, password, passwd, apikey, accesskey, privatekey, cookie, credential(s), bearer or scholarkey (the legacy `semanticScholarKey`; `integration_credential_fields_are_secrets`) (ignoring case, `-` and `_`) with a non-empty string value is refused, and so is any value shaped like a known token (`sk-`, `ghp_`, `github_pat_`, `glpat-`, `xoxb-`, `AKIA` and similar, followed by at least 16 token characters, or a PEM private key). `maxTokens`, `tokenizer` and `passwordHint` are fine. The refusal names where the secret was (for example `integrations.zotero.apiKey`) and never the value.
 
 `mod.rs` describes the module as user settings (the uploadable theme config
 file and appearance preferences), pure rules only.
@@ -42,6 +42,13 @@ Code in `apps/web` reads these through `readyCore()` or `typedCore()` from
 `readyCore()` throws until `loadCore()` has resolved, so call it only after
 the core has loaded.
 
+The desktop shell reads and patches the device settings file with the
+`device_settings_read` and `device_settings_patch` commands
+(`apps/shell/src/device_settings.rs`). Both take and return JSON object text. A
+missing file reads as `{}`. A patch goes through `apply_patch` and
+`render_settings`, so a secret is refused, and it writes only over the file it
+read, so a corrupt file is never overwritten (`apps/shell/tests/device_settings.rs`).
+
 ## What stays in TypeScript, and why
 
 - **Persistence and use cases.** Loading and saving settings and credentials
@@ -60,12 +67,30 @@ the core has loaded.
 ## Where secrets go
 
 Secrets live in the system keychain (`apps/shell/src/secrets.rs`), never in a
-workspace file. The shell's `file_write` command runs `check_config_write` on
-every write to a config file (any `.json` or `.jsonl` under `.weaveforge/`, and
-any `.overleaf.json`), so a secret is refused before it reaches the disk or git.
+workspace file. The shell's `file_write` command runs `check_config_write`, and
+`file_write_bytes` and `file_rename` run `check_config_bytes` on the bytes that
+land at the destination (a config file that is not UTF-8 is refused,
+`config_bytes_checked_like_text`), on every write to a config file (any `.json` or `.jsonl` below a `.weaveforge/`
+folder at any depth, and any `.overleaf.json`), so a secret is refused before it
+reaches the disk or git. Case is ignored and trailing dots and spaces are
+dropped from each part of the path, since Windows and macOS open the same file
+under those spellings (`config_paths_ignore_case_and_depth`). The one exception
+is `NOT_CONFIG_DIRS`: the root `.weaveforge/cache/pdf-text/` folder holds copies
+of papers' own text, which may print something token-shaped, so it is not a
+config folder (`pdf_text_cache_is_not_config`).
 A machine without a keychain keeps the secret in memory for the session only
 (`no_store_write_read_clear_behave_as_no_keychain` in
 `apps/shell/tests/secrets.rs`).
+
+A `settings.json` written by an older version may still hold a secret. When a
+workspace opens, the shell moves each one to the `settings-legacy` keychain
+entry, one JSON object keyed by where the value sat (for example
+`integrations.zotero.apiKey`), then rewrites the file without them
+(`apps/shell/src/settings_secrets.rs`; `split_legacy_secrets` in
+`settings_file.rs`). The file changes only after the keychain holds the values
+and only if nobody changed it meanwhile. Without a keychain, or with a secret
+inside a list, the file is left as it is (`apps/shell/tests/settings_secrets.rs`,
+`legacy_secrets_split_out` in `settings_files.rs`).
 
 ## Laws
 

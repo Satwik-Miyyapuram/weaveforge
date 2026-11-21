@@ -190,11 +190,22 @@ export function usePdfPictures(deps: PdfPicturesDeps) {
   }, [removeLocal]);
 
   // A picture that goes away (undo, a delete from the list, a sync) takes
-  // its editor with it; a turned page has no editor to show.
+  // its editor with it; a turned page has no editor to show, and writes the
+  // drag it held first.
   useEffect(() => {
     if (!edit) return;
-    if (!enabled || !annotations.some((a) => a.id === edit.id)) setEdit(null);
-  }, [annotations, edit, enabled]);
+    const gone = !annotations.some((a) => a.id === edit.id);
+    if (!gone && enabled) return;
+    if (gone) {
+      // Its held drag goes too: a picture back inside the hold (a redo, a
+      // sync) must not get the old drag written over it (P2-197).
+      if (pending.current) clearTimeout(pending.current.timer);
+      pending.current = null;
+    } else {
+      flush();
+    }
+    setEdit(null);
+  }, [annotations, edit, enabled, flush]);
 
   /** The picture a press is over, and which corner: the ink note's `figureAt`. */
   const pictureAt = useCallback(

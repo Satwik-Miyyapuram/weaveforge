@@ -246,7 +246,8 @@ fn split_authors(text: &str) -> Vec<&str> {
                     && rest[..end].eq_ignore_ascii_case("and")
                 {
                     parts.push(&text[start..i]);
-                    start = i + 1 + end + 1;
+                    // The space after `and` may be wider than one byte (U+00A0, U+3000).
+                    start = i + 1 + end + rest[end..].chars().next().map_or(1, char::len_utf8);
                     i = start;
                     continue;
                 }
@@ -525,6 +526,12 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn a_wide_space_after_and_splits_without_panicking() {
+        assert_eq!(split_authors("A and\u{a0}B"), vec!["A", "B"]);
+        assert_eq!(split_authors("A and\u{3000}B"), vec!["A", "B"]);
+    }
 
     // it: "a paper the add dedupes (same title) is skipped, not counted as added"
     #[test]

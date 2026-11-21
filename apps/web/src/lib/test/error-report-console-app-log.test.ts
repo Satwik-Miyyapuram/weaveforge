@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import test, { before } from "node:test";
 
 import { installConsoleCapture, recentLogs, resetLogCaptureForTest } from "@/lib/error-report/log-buffer";
+import { logToApp } from "@/lib/error-report/app-log";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 before(async () => {
@@ -112,4 +113,24 @@ test("a bridge that throws does not break console.error", () => {
     console.error = realError;
     g.window = originalWindow;
   }
+});
+
+test("a token in a console.error is redacted before it reaches the log file (P2-218)", () => {
+  const reports = withCapture(() =>
+    console.error("GET https://app.test/api/x?token=abc123secret failed", new Error("Bearer abc123secret")),
+  );
+  assert.equal(reports.length, 1);
+  const written = `${reports[0]!.message}\n${reports[0]!.detail ?? ""}`;
+  assert.ok(!written.includes("abc123secret"), written);
+  assert.match(written, /redacted/);
+});
+
+test("logToApp redacts the message and detail of any caller (P2-218)", () => {
+  const reports = withCapture(() =>
+    logToApp({ level: "warn", source: "sync", message: "open ?token=abc123secret", detail: "Bearer abc123secret" }),
+  );
+  assert.equal(reports.length, 1);
+  assert.ok(!reports[0]!.message.includes("abc123secret"), reports[0]!.message);
+  assert.ok(!(reports[0]!.detail ?? "").includes("abc123secret"), reports[0]!.detail);
+  assert.equal(reports[0]!.source, "sync");
 });

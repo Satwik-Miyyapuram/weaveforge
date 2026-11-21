@@ -26,22 +26,8 @@ import {
   writeHidden,
   writeLayout,
 } from "../application/parts";
-import {
-  breadcrumbs,
-  creationKindFor,
-  creationTarget,
-  type Draft,
-  draftMakes,
-  duplicatePlan,
-  hasInkView,
-  hasLazyBody,
-  isCreatableKind,
-  isDocumentKind,
-  kindOwner,
-  openingTab,
-  openModeFor,
-  segmentsFor,
-} from "@weaveforge/wasm";
+import { breadcrumbs, creationKindFor, creationTarget, type Draft, draftMakes, duplicatePlan, hasInkView } from "@weaveforge/wasm";
+import { hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, openingTab, openModeFor, segmentsFor } from "@weaveforge/wasm";
 import type { PaneLayout, PaneSplit, TabRef, WorkspaceTreeNode } from "@weaveforge/wasm";
 import type { ExplorerSection } from "../application/parts";
 import { DocumentHost, isCanvasDocument, type DocumentMetrics } from "./document-host";
@@ -66,8 +52,6 @@ import { FormError } from "@/components/form-error";
 import { DESKTOP_BREAKPOINT_PX, isMacPlatform } from "@/lib/parts";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { IconButton } from "@/components/button";
-
-/** The image button with no document under it: greyed, so never pressed. */
 
 /**
  * The desktop editor: the workspace as a stack of explorer sections and a set
@@ -178,7 +162,7 @@ export function WorkspaceScreen() {
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
   const pendingRef = useRef(0);
-  const { bodies: hydrated, hydrate } = useNoteBodies(setDocuments, setError);
+  const { bodies: hydrated, hydrate, unavailable, retry: retryBody } = useNoteBodies(setDocuments, setError);
   // One save of a note at a time, each naming the body the last one stored.
   // Made once and kept: a new one would drop the queues of saves in flight.
   // `hydrated` is `useNoteBodies`'s ref map, the same map every render.
@@ -527,7 +511,17 @@ export function WorkspaceScreen() {
         return <ScreenLoader status="Loading Overleaf…" showTips={false} compact />;
       }
       if (!doc) return <p className="muted">This document is no longer in the workspace.</p>;
-      if (!doc.hydrated) return <HydratingDocument tab={tab} hydrate={hydrate} />;
+      if (!doc.hydrated) {
+        const problem = unavailable.get(tab.id);
+        return (
+          <HydratingDocument
+            tab={tab}
+            hydrate={hydrate}
+            problem={problem?.message}
+            onRetry={problem?.retryable ? () => retryBody(tab) : undefined}
+          />
+        );
+      }
       if (isCanvasDocument(doc)) {
         return <CanvasDocument key={key} doc={doc} documents={documents ?? []} onSave={(body, base) => save(tab, body, { baseBody: base })} onOpen={openDoc} />;
       }
@@ -550,7 +544,7 @@ export function WorkspaceScreen() {
         />
       );
     },
-    [byKey, documents, openDoc, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate, previewOf, metrics, overleafPending],
+    [byKey, documents, openDoc, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate, unavailable, retryBody, previewOf, metrics, overleafPending],
   );
 
   // Insert ▾ → Picture in Text: a picture on disk at the caret of the focused

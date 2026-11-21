@@ -169,3 +169,52 @@ test("a library lookup that throws keeps the resolution and does not re-resolve 
   assert.equal(out.status === "resolved" && out.inLibrary, undefined);
   assert.equal(resolves, 1, "the second form is not tried for a library failure");
 });
+
+test("a disk cache that fails to read or write is a miss, never a failure (P2-169)", async () => {
+  const unhandled: unknown[] = [];
+  const onUnhandled = (err: unknown) => { unhandled.push(err); };
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    const cache: ReferenceLookupCache = {
+      get: () => { throw new Error("idb read failed"); },
+      set: async () => { throw new Error("idb write failed"); },
+    };
+    const service = new ReferenceLookupService(
+      { resolveWithSource: async () => ({ metadata: paper({ title: "T" }), sourceId: "fake" }) },
+      new InMemoryPaperRepository(),
+      cache,
+    );
+    const out = await service.resolve("p1", ref({ title: "T" }));
+    assert.equal(out.status, "resolved");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.deepEqual(unhandled, []);
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
+});
+
+test("a miss is retried after a short while, not kept for the session (P2-170)", async () => {
+  let clock = 0;
+  let calls = 0;
+  let online = false;
+  const service = new ReferenceLookupService(
+    {
+      resolveWithSource: async () => {
+        calls += 1;
+        if (!online) throw new Error("offline");
+        return { metadata: paper({ title: "T" }), sourceId: "fake" };
+      },
+    },
+    new InMemoryPaperRepository(),
+    undefined,
+    () => clock,
+  );
+  assert.equal((await service.resolve("p1", ref({ title: "T" }))).status, "unresolved");
+  const afterMiss = calls;
+  clock += 1_000;
+  await service.resolve("p1", ref({ title: "T" }));
+  assert.equal(calls, afterMiss, "a miss is not asked again at once");
+  online = true;
+  clock += 10 * 60_000;
+  assert.equal((await service.resolve("p1", ref({ title: "T" }))).status, "resolved");
+});

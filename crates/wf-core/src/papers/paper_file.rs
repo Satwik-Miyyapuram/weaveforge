@@ -1,11 +1,14 @@
-//! A paper as a workspace file (files-first, L1): `<slug>--<id-suffix>.paper.md` with
-//! the paper's fields in frontmatter and the reader's own notes as the body.
+//! A paper as a workspace file (files-first, L1): `<title>.paper.md` with the
+//! paper's fields in frontmatter and the reader's own notes as the body. A paper
+//! is identified by its path; `weaveforge-id` is optional and never added to a
+//! file that lacks it.
 //!
 //! Every value the app owns is written as one line of JSON after `key: `. JSON is
 //! valid YAML flow syntax, keeps types and escapes newlines, so the file stays
 //! readable by any YAML tool and parses back exactly. A key the app does not know
 //! is kept byte for byte, after the known ones. A value the app cannot read is
-//! kept the same way, so a write never loses what was in the file.
+//! kept the same way, so a write never loses what was in the file. The body is
+//! never Unicode-normalized, and a file with CRLF line ends is written with CRLF.
 
 use std::collections::HashSet;
 use std::fmt;
@@ -14,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::index::IndexEntry;
-use crate::sync::frontmatter::{FORMAT_VERSION, canonical_text, read_frontmatter};
+use crate::sync::frontmatter::{FORMAT_VERSION, read_frontmatter};
 
 /// The `weaveforge-type` of a paper file.
 pub const PAPER_TYPE: &str = "paper";
@@ -82,8 +85,10 @@ pub struct RelationRef {
 /// A parsed paper file.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PaperFile {
-    /// `weaveforge-id`.
+    /// `weaveforge-id`; empty when the file has none (it is then known by its path).
     pub id: String,
+    /// True when the file uses CRLF line ends; a write keeps them.
+    pub crlf: bool,
     /// The `wf` format version the file declares; a missing one reads as current.
     pub wf: u64,
     /// Known values by frontmatter key (only keys in [`VALUE_KEYS`] are written).
@@ -105,8 +110,6 @@ pub enum PaperFileError {
     NoFrontmatter,
     /// `weaveforge-type` names another kind.
     NotAPaper(String),
-    /// No `weaveforge-id`.
-    MissingId,
     /// The file is from a newer app (`wf` above [`FORMAT_VERSION`]).
     ReadOnly(u64),
 }
@@ -116,14 +119,13 @@ impl fmt::Display for PaperFileError {
         match self {
             Self::NoFrontmatter => write!(f, "The file has no frontmatter."),
             Self::NotAPaper(kind) => write!(f, "The file is a {kind}, not a paper."),
-            Self::MissingId => write!(f, "The file has no weaveforge-id."),
             Self::ReadOnly(wf) => write!(f, "The file is format wf: {wf}, newer than this app."),
         }
     }
 }
 
 impl PaperFile {
-    /// An empty paper file with this id, at the current format version.
+    /// An empty paper file with this id (`""` for none), at the current format version.
     #[must_use]
     pub fn new(id: &str) -> Self {
         Self {
@@ -147,17 +149,19 @@ pub const fn may_write(entry: &IndexEntry) -> bool {
     !entry.read_only && !entry.duplicate
 }
 
-/// Parses a paper file. The text is read in canonical form (NFC, LF).
+/// Parses a paper file. CRLF is read as LF (and remembered in `crlf`); nothing is
+/// Unicode-normalized. A file without `weaveforge-id` parses with an empty id.
 ///
 /// # Errors
 ///
-/// [`PaperFileError::NoFrontmatter`], [`PaperFileError::NotAPaper`] or
-/// [`PaperFileError::MissingId`].
+/// [`PaperFileError::NoFrontmatter`] or [`PaperFileError::NotAPaper`].
 pub fn parse_paper_file(text: &str) -> Result<PaperFile, PaperFileError> {
-    let text = canonical_text(text);
+    let crlf = text.contains("\r\n");
+    let text = text.replace("\r\n", "\n");
     let (head, body) = split_frontmatter(&text).ok_or(PaperFileError::NoFrontmatter)?;
     let mut paper = PaperFile {
         wf: FORMAT_VERSION,
+        crlf,
         body: body.to_owned(),
         ..PaperFile::default()
     };
@@ -172,17 +176,17 @@ pub fn parse_paper_file(text: &str) -> Result<PaperFile, PaperFileError> {
             paper.unknown.push(entry);
         }
     }
-    if paper.id.is_empty() {
-        return Err(PaperFileError::MissingId);
-    }
     Ok(paper)
 }
 
 /// Renders a paper file. `render(parse(f)) == f` for every file this wrote.
+/// `weaveforge-id` is written only when the file has one.
 #[must_use]
 pub fn render_paper_file(paper: &PaperFile) -> String {
     let mut out = String::from("---\n");
-    push_line(&mut out, "weaveforge-id", &Value::String(paper.id.clone()));
+    if !paper.id.is_empty() {
+        push_line(&mut out, "weaveforge-id", &Value::String(paper.id.clone()));
+    }
     out.push_str("weaveforge-type: paper\n");
     out.push_str(&format!("wf: {}\n", paper.wf));
     let tags = paper.tags.iter().cloned().map(Value::String).collect();
@@ -201,15 +205,21 @@ pub fn render_paper_file(paper: &PaperFile) -> String {
     }
     out.push_str("---\n");
     out.push_str(&paper.body);
+    if paper.crlf {
+        out = out.replace('\n', "\r\n");
+    }
     out
 }
 
-/// The paper as a `Paper` row (camelCase keys): id, tags and every known field the
-/// file holds. Missing `title`, `authors`, `status` and `metadata` get their defaults.
+/// The paper as a `Paper` row (camelCase keys): id (when the file has one), tags
+/// and every known field the file holds. Missing `title`, `authors`, `status` and
+/// `metadata` get their defaults.
 #[must_use]
 pub fn paper_row(file: &PaperFile) -> Map<String, Value> {
     let mut row = Map::new();
-    let _ = row.insert("id".to_owned(), Value::String(file.id.clone()));
+    if !file.id.is_empty() {
+        let _ = row.insert("id".to_owned(), Value::String(file.id.clone()));
+    }
     for (field, key) in PAPER_FIELDS {
         if let Some(value) = file.values.get(key) {
             let _ = row.insert(field.to_owned(), value.clone());
@@ -229,29 +239,25 @@ pub fn paper_row(file: &PaperFile) -> Map<String, Value> {
 }
 
 /// Writes a `Paper` row into `existing` (or a new file when `None`), keeping the
-/// body, relations, unknown keys and values the row does not carry.
+/// body, relations and unknown keys. The row is the complete state of the fields
+/// the app owns: a field it lacks (or holds as null) is removed from the file.
+/// An existing file keeps its own `weaveforge-id`, or none; the row's `id` (which
+/// may be the path) is written only into a new file.
 ///
 /// # Errors
 ///
-/// A parse error of `existing`, [`PaperFileError::ReadOnly`] for a newer file, or
-/// [`PaperFileError::MissingId`] when the row has no string `id`.
+/// A parse error of `existing`, or [`PaperFileError::ReadOnly`] for a newer file.
 pub fn write_paper_row(
     existing: Option<&str>,
     row: &Map<String, Value>,
 ) -> Result<String, PaperFileError> {
-    let id = row
-        .get("id")
-        .and_then(Value::as_str)
-        .filter(|id| !id.is_empty())
-        .ok_or(PaperFileError::MissingId)?;
     let mut file = match existing {
         Some(text) => parse_paper_file(text)?,
-        None => PaperFile::new(id),
+        None => PaperFile::new(row.get("id").and_then(Value::as_str).unwrap_or_default()),
     };
     if file.is_read_only() {
         return Err(PaperFileError::ReadOnly(file.wf));
     }
-    file.id = id.to_owned();
     for (field, key) in PAPER_FIELDS {
         match row.get(field).filter(|value| !value.is_null()) {
             Some(value) => {

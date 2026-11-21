@@ -65,8 +65,8 @@ pub fn remove_from_list_file_js(text: &str, id: &str) -> Result<String, JsError>
     list_file::remove_decision(text, id).map_err(js_error)
 }
 
-/// [`mark_missing`](list_file::mark_missing): entries whose item is not in `known_items`
-/// are marked missing, never dropped.
+/// [`mark_missing`](list_file::mark_missing): entries whose `[[link]]` points at no note
+/// in `known_items` (also links) are marked missing, never dropped.
 ///
 /// # Errors
 ///
@@ -88,4 +88,12 @@ pub fn mark_missing_in_list_file_js(
 #[wasm_bindgen(js_name = listFileHoldsItem)]
 pub fn list_file_holds_item_js(text: &str, item: &str) -> Result<bool, JsError> {
     list_file::holds_item(text, item).map_err(js_error)
+}
+
+/// [`item_key`](list_file::item_key): the note a `[[link]]` points at, so links to the
+/// same note compare equal; `undefined` when `item` is not one link.
+#[must_use]
+#[wasm_bindgen(js_name = listItemKey)]
+pub fn list_item_key_js(item: &str) -> Option<String> {
+    list_file::item_key(item)
 }

@@ -49,7 +49,8 @@ impl WorkspaceFs for Vault {
         Vault::read_text(self, path).map_err(|err| to_fs_error(path, err))
     }
 
-    /// Replace a file's bytes atomically, creating parent folders.
+    /// Replace a file's bytes atomically, creating parent folders; a change made while the
+    /// write runs is kept as a conflict copy (`Vault::write_file`).
     fn write_file(&mut self, path: &str, data: &[u8]) -> Result<(), FsError> {
         Vault::write_file(self, path, data).map_err(|err| to_fs_error(path, err))
     }

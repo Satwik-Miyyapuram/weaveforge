@@ -103,6 +103,34 @@ test("halting drops the pending save: an invalid body is never overwritten", () 
   assert.equal(s.saver.hasPending(), false);
 });
 
+// P2-153: a write in flight when the canvas halts must not send the change
+// queued behind it, or the body the halt protects is overwritten.
+test("a write that lands after a halt does not send the newer pending body", async () => {
+  const written: string[] = [];
+  let land: () => void = () => {};
+  let text = "A";
+  const saver = new CanvasSaver({
+    write: (t) => {
+      written.push(t);
+      return new Promise<void>((resolve) => (land = resolve));
+    },
+    onError: () => {},
+    schedule: fakeTimers().schedule,
+    unschedule: () => {},
+  });
+  const read = () => text;
+  saver.touch(read);
+  text = "B";
+  saver.flush(read);
+  text = "C";
+  saver.flush(read);
+  assert.deepEqual(written, ["B"], "C waits for B to land");
+  saver.halt();
+  land();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(written, ["B"], "nothing is sent while halted");
+});
+
 test("resume after a halt saves again from the next change", () => {
   const s = setup("A");
   s.saver.touch(s.read);

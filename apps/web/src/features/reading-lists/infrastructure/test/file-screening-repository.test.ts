@@ -8,6 +8,13 @@ before(async () => {
   await loadTestCore();
 });
 
+/** Item `iN` has the paper note `Paper N`; links resolve ignoring case, alias and heading. */
+const linkOf = (itemId: string) => `[[Paper ${itemId.slice(1)}]]`;
+function itemOf(link: string): string | null {
+  const m = /^\[\[paper (\w+)(?:[#|][^\]]*)?\]\]$/i.exec(link.trim());
+  return m ? `i${m[1]}` : null;
+}
+
 /** An in-memory folder of list files; `write` checks the hash like the shell does. */
 function memoryPort(files: Record<string, string>, itemsByFile: Record<string, string[]>) {
   const texts = new Map(Object.entries(files));
@@ -17,8 +24,15 @@ function memoryPort(files: Record<string, string>, itemsByFile: Record<string, s
     async listFiles(): Promise<ListFile[]> {
       return [...texts].map(([path, text]) => ({ path, text, hash: hash(text) }));
     },
-    async fileForItem(itemId: string): Promise<ListFile | null> {
-      const path = Object.keys(itemsByFile).find((p) => itemsByFile[p]!.includes(itemId));
+    async linkForItem(itemId: string): Promise<string | null> {
+      return itemId === "no-note" ? null : linkOf(itemId);
+    },
+    async itemForLink(link: string): Promise<string | null> {
+      return itemOf(link);
+    },
+    async fileForLink(link: string): Promise<ListFile | null> {
+      const item = itemOf(link);
+      const path = Object.keys(itemsByFile).find((p) => item !== null && itemsByFile[p]!.includes(item));
       const text = path === undefined ? undefined : texts.get(path);
       return path === undefined || text === undefined ? null : { path, text, hash: hash(text) };
     },
@@ -43,7 +57,8 @@ test("a recorded decision is written to its list file and read back", async () =
   const repo = new FileScreeningRepository(port);
   const d = decision("d1", "i1", "included", "2026-11-19T10:00:00Z");
   await repo.record(d);
-  assert.match(texts.get("lists/a.md")!, /^---\nwf: 3\ntitle: Review\nitems:\n {2}- \{"id":"d1"/);
+  assert.match(texts.get("lists/a.md")!, /^---\nwf: 3\ntitle: Review\nitems:\n {2}- \{"id":"d1","item":"\[\[Paper 1\]\]"/);
+  assert.ok(!texts.get("lists/a.md")!.includes('"i1"'), "the file names the paper by link, never by id");
   assert.ok(texts.get("lists/a.md")!.endsWith("---\nWhy.\n"));
   assert.deepEqual(await repo.listForItems(["i1"]), [d]);
 });
@@ -57,6 +72,34 @@ test("listForItems gives the latest decision per item, reviewer and stage, and o
   await repo.record(decision("d3", "i2", "included", "2026-11-19T10:00:00Z"));
   assert.deepEqual(await repo.listForItems(["i1"]), [later]);
   assert.deepEqual(await repo.listForItems([]), []);
+});
+
+test("remove takes the id out of every file that holds it, not only the first", async () => {
+  const { port, texts } = memoryPort({ "a.md": LIST, "b.md": LIST }, { "a.md": ["i1"] });
+  const repo = new FileScreeningRepository(port);
+  await repo.record(decision("d1", "i1", "included", "2026-11-19T10:00:00Z"));
+  texts.set("b.md", texts.get("a.md")!);
+  await repo.remove("d1");
+  assert.ok(!texts.get("a.md")!.includes('"id":"d1"'));
+  assert.ok(!texts.get("b.md")!.includes('"id":"d1"'), "the second file keeps the removed id");
+});
+
+test("a damaged list file is reported, not silently skipped", async () => {
+  const damaged = "---\nwf: 3\nitems:\n  - {\"not\":\"a decision\"}\n---\n";
+  const { port } = memoryPort({ "bad.md": damaged, "good.md": LIST }, { "good.md": ["i1"] });
+  const repo = new FileScreeningRepository(port);
+  const warnings: unknown[][] = [];
+  const warn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args);
+  };
+  try {
+    await repo.listForItems(["i1"]);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(warnings.length, 1);
+  assert.match(String(warnings[0]![0]), /bad\.md/);
 });
 
 test("remove takes the entry out of whichever file holds it", async () => {
@@ -99,8 +142,8 @@ test("a file changed on disk since it was read is not overwritten", async () => 
   const { port, texts } = memoryPort({ "a.md": LIST }, { "a.md": ["i1"] });
   const racing: ListFilesPort = {
     ...port,
-    async fileForItem(itemId) {
-      const file = await port.fileForItem(itemId);
+    async fileForLink(link) {
+      const file = await port.fileForLink(link);
       texts.set("a.md", `${LIST}edited elsewhere\n`);
       return file;
     },
@@ -108,4 +151,21 @@ test("a file changed on disk since it was read is not overwritten", async () => 
   const repo = new FileScreeningRepository(racing);
   await assert.rejects(repo.record(decision("d1", "i1", "included", "2026-11-19T10:00:00Z")), /changed on disk/);
   assert.equal(texts.get("a.md"), `${LIST}edited elsewhere\n`);
+});
+
+test("an item without a paper note is refused, nothing written", async () => {
+  const { port, writes } = memoryPort({ "a.md": LIST }, { "a.md": ["no-note"] });
+  const repo = new FileScreeningRepository(port);
+  await assert.rejects(repo.record(decision("d1", "no-note", "included", "2026-11-19T10:00:00Z")), NotFoundError);
+  assert.deepEqual(writes, []);
+});
+
+test("entries written by hand with another spelling of the link count for the same item", async () => {
+  const handWritten =
+    '---\nwf: 3\nitems:\n  - {"id":"d1","item":"[[paper 1|Smith]]","reviewer":"r1","stage":"title_abstract","decision":"unsure","added":"2026-11-19T10:00:00Z"}\n' +
+    '  - {"id":"d2","item":"[[Paper 1#Intro]]","reviewer":"r1","stage":"title_abstract","decision":"included","added":"2026-11-19T11:00:00Z"}\n' +
+    '  - {"id":"d3","item":"[[Someone Else]]","reviewer":"r1","stage":"title_abstract","decision":"excluded","added":"2026-11-19T11:00:00Z"}\n---\n';
+  const { port } = memoryPort({ "a.md": handWritten }, { "a.md": ["i1"] });
+  const repo = new FileScreeningRepository(port);
+  assert.deepEqual(await repo.listForItems(["i1"]), [decision("d2", "i1", "included", "2026-11-19T11:00:00Z")]);
 });

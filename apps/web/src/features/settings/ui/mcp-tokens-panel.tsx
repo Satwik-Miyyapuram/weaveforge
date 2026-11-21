@@ -10,6 +10,17 @@ import { FormError } from "@/components/form-error";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/button";
 
+/** A token just created, shown once so it can be copied. */
+interface FreshToken {
+  id: string | null;
+  plaintext: string;
+}
+
+/** Revoking keeps the new token on screen unless it is the one revoked (P2-236). */
+export function freshAfterRevoke(fresh: FreshToken | null, revokedId: string): FreshToken | null {
+  return fresh && fresh.id === revokedId ? null : fresh;
+}
+
 /**
  * The tokens an AI client such as Codex signs in to the MCP relay with. They
  * sit on Settings › Access tokens with every other kind (DA-132); the AI
@@ -17,7 +28,7 @@ import { Button } from "@/components/button";
  */
 export function McpTokensPanel() {
   const [tokens, setTokens] = useState<readonly McpTokenRecord[]>([]);
-  const [fresh, setFresh] = useState<string | null>(null);
+  const [fresh, setFresh] = useState<FreshToken | null>(null);
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -37,7 +48,7 @@ export function McpTokensPanel() {
     setError(null);
     try {
       const { plaintext, record } = await getContainer().settings.mcpTokens.create();
-      setFresh(plaintext);
+      setFresh({ id: record?.id ?? null, plaintext });
       setCopied(false);
       if (record) setTokens((list) => [record, ...list]);
     } catch (err) {
@@ -53,7 +64,7 @@ export function McpTokensPanel() {
     try {
       await getContainer().settings.mcpTokens.revoke(id);
       setTokens((list) => list.filter((token) => token.id !== id));
-      setFresh(null);
+      setFresh((current) => freshAfterRevoke(current, id));
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -87,7 +98,7 @@ export function McpTokensPanel() {
       {fresh && (
         <div className="ai-connection-value">
           <span><small>New MCP token — copy it now</small><code>••••••••••••••••••••••••</code></span>
-          <Button onClick={() => void copy(fresh)}>{copied ? "Copied" : "Copy"}</Button>
+          <Button onClick={() => void copy(fresh.plaintext)}>{copied ? "Copied" : "Copy"}</Button>
         </div>
       )}
       {tokens.length === 0 ? (

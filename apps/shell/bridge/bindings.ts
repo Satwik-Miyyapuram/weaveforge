@@ -43,6 +43,20 @@ export const commands = {
 	 */
 	sdkInboxDrain: (rows: unknown[]) => typedError<InboxDrainReply, ShellError_Serialize>(__TAURI_INVOKE("sdk_inbox_drain", { rows })),
 	/**
+	 *  Reads this machine's settings (JSON object text).
+	 * 
+	 *  # Errors
+	 *  No folder chosen, or the file cannot be read or is not a JSON object.
+	 */
+	deviceSettingsRead: () => typedError<string, ShellError_Serialize>(__TAURI_INVOKE("device_settings_read")),
+	/**
+	 *  Patches this machine's settings with `patch` (JSON object text); returns the result.
+	 * 
+	 *  # Errors
+	 *  See [`patch_device_settings`]; also no folder chosen.
+	 */
+	deviceSettingsPatch: (patch: string) => typedError<string, ShellError_Serialize>(__TAURI_INVOKE("device_settings_patch", { patch })),
+	/**
 	 *  Exports the 0.9.2 data into workspace files, verifies it, and writes the report. Shares are
 	 *  counted, not granted: the grant sink is not wired, so any grantable share keeps the
 	 *  migration incomplete.

@@ -187,10 +187,11 @@ export function ScreeningPanel({
             const verdict = summary ? readyCore().verdictFor(summary.decisions, item.id, stage) : null;
             const mine = decisionsFor(item.id).find((d) => d.reviewerId === me);
             const others = decisionsFor(item.id).filter((d) => d.reviewerId !== me);
+            const title = (item.paperId && titleById.get(item.paperId)) || "Untitled record";
             return (
               <li key={item.id} className="screening-row">
                 <span className="screening-title">
-                  {(item.paperId && titleById.get(item.paperId)) || "Untitled record"}
+                  {title}
                   {item.duplicateOfItemId && <em> — duplicate</em>}
                 </span>
                 <span className="screening-verdict">
@@ -206,12 +207,13 @@ export function ScreeningPanel({
                     <input
                       className="screening-reason"
                       placeholder="reason"
+                      aria-label={`Reason for ${title}`}
                       value={reason[item.id] ?? mine?.reason ?? ""}
                       onChange={(e) =>
                         setReason((prev) => ({ ...prev, [item.id]: e.target.value }))
                       }
                     />
-                    <span className="wf-seg" role="group" aria-label="Decision">
+                    <span className="wf-seg" role="group" aria-label={`Decision for ${title}`}>
                       {(Object.keys(STATE_LABEL) as ScreeningState[]).map((state) => (
                         <ToggleButton key={state} pressed={mine?.state === state} disabled={busy} onClick={() => decide(item.id, state)}>
                           {STATE_LABEL[state]}

@@ -3,7 +3,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::commands::ShellError;
 use crate::secrets::Secrets;
@@ -26,6 +26,13 @@ pub const TOKEN_REFUSED: &str =
     "Overleaf refused the token or project id. Check both, then link the report again.";
 /// Shown when no free checkout folder name was found in 16 tries.
 pub const NO_CHECKOUT: &str = "Could not make a folder for the Overleaf checkout.";
+/// Shown when the clone runs past its deadline or downloads more than the byte cap.
+pub const CLONE_LIMIT: &str =
+    "Reading the Overleaf project took too long or was too large. Try again later.";
+/// How long one clone may take, the same order as the other Overleaf git calls.
+pub const CLONE_TIMEOUT: Duration = Duration::from_secs(120);
+
+const MAX_CLONE_BYTES: usize = 200_000_000;
 
 const MAX_FILES: usize = 250;
 const MAX_FILE_BYTES: u64 = 2_000_000;
@@ -172,13 +179,23 @@ fn credentials(token: String) -> git2::RemoteCallbacks<'static> {
 }
 
 /// Clones `url` shallow into `dest`, with the token as the password for user `git`.
-fn clone_shallow(url: &str, token: &str, dest: &Path) -> Result<(), git2::Error> {
+/// The transfer stops once it passes `deadline` or `MAX_CLONE_BYTES`.
+fn clone_shallow(
+    url: &str,
+    token: &str,
+    dest: &Path,
+    deadline: Instant,
+) -> Result<(), git2::Error> {
     let mut fetch = git2::FetchOptions::new();
     // libgit2's local transport cannot fetch shallow; only network clones are shallow.
     if url.starts_with("http://") || url.starts_with("https://") {
         let _ = fetch.depth(1);
     }
-    let _ = fetch.remote_callbacks(credentials(token.to_owned()));
+    let mut callbacks = credentials(token.to_owned());
+    let _ = callbacks.transfer_progress(move |stats| {
+        stats.received_bytes() <= MAX_CLONE_BYTES && Instant::now() < deadline
+    });
+    let _ = fetch.remote_callbacks(callbacks);
     let mut builder = git2::build::RepoBuilder::new();
     let _ = builder.fetch_options(fetch);
     builder.clone(url, dest).map(|_| ())
@@ -290,15 +307,35 @@ pub async fn read_project(
     entry_file: &str,
     token: &str,
 ) -> Result<OverleafSource, String> {
+    read_project_within(url, project_id, entry_file, token, CLONE_TIMEOUT).await
+}
+
+/// `read_project` with its own clone deadline. A clone that stalls with no
+/// progress is answered with `CLONE_LIMIT` at the deadline; its blocking thread
+/// ends, and removes the checkout, when the connection fails.
+///
+/// # Errors
+/// As `read_project`, plus `CLONE_LIMIT` past `limit` or the byte cap.
+pub async fn read_project_within(
+    url: &str,
+    project_id: &str,
+    entry_file: &str,
+    token: &str,
+    limit: Duration,
+) -> Result<OverleafSource, String> {
     if !is_project_id(project_id) {
         return Err(INVALID_PROJECT_ID.to_owned());
     }
     let (url, token) = (url.to_owned(), token.to_owned());
     let (id, entry) = (project_id.to_owned(), normalise_entry(entry_file));
+    let deadline = Instant::now() + limit;
     // Clone, collect and the checkout's drop all run on the blocking pool, not the async thread.
-    tokio::task::spawn_blocking(move || read_blocking(&url, &token, &id, entry))
-        .await
-        .map_err(error_text)?
+    let read =
+        tokio::task::spawn_blocking(move || read_blocking(&url, &token, &id, entry, deadline));
+    match tokio::time::timeout(limit, read).await {
+        Ok(joined) => joined.map_err(error_text)?,
+        Err(_) => Err(CLONE_LIMIT.to_owned()),
+    }
 }
 
 /// The blocking half of read_project; the checkout folder is removed before this returns.
@@ -307,9 +344,16 @@ fn read_blocking(
     token: &str,
     project_id: &str,
     entry: String,
+    deadline: Instant,
 ) -> Result<OverleafSource, String> {
     let checkout = Checkout::create()?;
-    clone_shallow(url, token, &checkout.0).map_err(|error| git_text(&error))?;
+    clone_shallow(url, token, &checkout.0, deadline).map_err(|error| {
+        if error.code() == git2::ErrorCode::User {
+            CLONE_LIMIT.to_owned()
+        } else {
+            git_text(&error)
+        }
+    })?;
     let files = collect_text_files(&checkout.0)?;
     if !files.iter().any(|file| file.path == entry) {
         return Err(format!("{ENTRY_NOT_FOUND}{entry}"));

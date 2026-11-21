@@ -101,7 +101,12 @@ static STRIP_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
 /// Strips sequences that could forge region markers when interpolated.
 /// Prefers empty over emitting a poisoned close or open comment.
 fn sanitize_interpolated(text: &str) -> String {
-    text.replace("<!--", "")
+    // Repeat until none is left: removing one can join its neighbours into a new `<!--`.
+    let mut out = text.to_owned();
+    while out.contains("<!--") {
+        out = out.replace("<!--", "");
+    }
+    out
 }
 
 /// JS `String(n)` for a number. Integral values print without a fraction, and `-0` prints `0`.
@@ -569,6 +574,14 @@ mod tests {
         );
         assert_eq!(out, "Hi Ada  /wf:generated:metadata --> Lovelace");
         assert!(!out.contains("<!--"));
+    }
+
+    #[test]
+    fn substitute_strips_comment_openers_that_one_pass_would_rebuild() {
+        for value in ["<<!--!--x", "<!<!----x", "<<<!--!--!--x"] {
+            let out = substitute_variables("{{v}}", &ctx(&json!({ "v": value })));
+            assert!(!out.contains("<!--"), "{value} -> {out}");
+        }
     }
 
     #[test]

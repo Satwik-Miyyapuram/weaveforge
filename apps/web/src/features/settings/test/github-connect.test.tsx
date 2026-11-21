@@ -302,6 +302,28 @@ test("Cancel stops the wait and tells the shell", async () => {
   assert.ok(button(tree, "Connect GitHub"));
 });
 
+test("unmounting mid-flow tells the shell to stop waiting (P2-239)", async () => {
+  const { calls } = stubWindow();
+  const tree = await mount(createElement(FolderRemoteSyncPanel));
+  await click(tree, "Connect GitHub");
+  assert.match(textOf(tree.root), /Waiting for GitHub/);
+  await act(async () => {
+    tree.unmount();
+    await settle();
+  });
+  assert.equal(calls.cancel, 1);
+});
+
+test("unmounting while idle does not cancel anything", async () => {
+  const { calls } = stubWindow();
+  const tree = await mount(createElement(FolderRemoteSyncPanel));
+  await act(async () => {
+    tree.unmount();
+    await settle();
+  });
+  assert.equal(calls.cancel, 0);
+});
+
 test("the manual URL and token stay, under Advanced", async () => {
   stubWindow();
   const tree = await mount(createElement(FolderRemoteSyncPanel));

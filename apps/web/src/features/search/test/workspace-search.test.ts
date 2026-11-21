@@ -726,3 +726,66 @@ test("a worker that cannot start falls back to the main thread and says so", asy
     (globalThis as { Worker?: unknown }).Worker = held;
   }
 });
+
+test("an invalidate during a build makes the next ensure rebuild (P1-14)", async () => {
+  // The build in flight read the old snapshot. Adopting it after an
+  // invalidate would leave the index serving what the invalidate dropped.
+  let pages = [note("n1", "Method", "The GAN setup.")];
+  let release: (() => void) | null = null;
+  let first = true;
+  const search = new WorkspaceSearch({
+    snapshot: async () => {
+      const taken = snapshot({ vaultPages: [...pages] });
+      if (first) {
+        first = false;
+        await new Promise<void>((resolve) => (release = resolve));
+      }
+      return taken;
+    },
+    projectId: () => "p1",
+  });
+
+  const building = search.ensure();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  pages = [note("n2", "Results", "Diffusion numbers.")];
+  search.invalidate();
+  release!();
+  await building;
+  await search.ensure();
+
+  assert.equal(search.search("GAN").length, 0, "the stale build was adopted");
+  assert.equal(search.search("Diffusion").length, 1, "the rebuild did not run");
+});
+test("two refreshes that land out of order leave the newest note text (P2-231)", async () => {
+  let body = "The GAN setup.";
+  let deferNext = false;
+  const pending: (() => void)[] = [];
+  const search = new WorkspaceSearch({
+    snapshot: () => {
+      // The body as it was when this read started, so a late read is old.
+      const snap = snapshot({ vaultPages: [note("n1", "Method", body)] });
+      if (!deferNext) return Promise.resolve(snap);
+      return new Promise((resolve) => pending.push(() => resolve(snap)));
+    },
+    projectId: () => "p1",
+  });
+  await search.ensure();
+  deferNext = true;
+
+  body = "The alpha setup.";
+  search.markStale("vault_page");
+  const first = search.ensure();
+  body = "The beta setup.";
+  search.markStale("vault_page");
+  const second = search.ensure();
+
+  // Answer the newest read first, then the older one.
+  let settled = false;
+  void Promise.all([first, second]).then(() => (settled = true));
+  while (!settled) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    pending.pop()?.();
+  }
+  assert.equal(search.search("beta").length, 1, "the newest edit is searchable");
+  assert.equal(search.search("alpha").length, 0, "the older read did not win");
+});

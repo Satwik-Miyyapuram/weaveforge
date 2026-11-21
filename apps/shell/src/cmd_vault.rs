@@ -175,6 +175,7 @@ pub async fn vault_choose(
     .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))
     .map_err(ShellError::from)?;
     log_warnings(&app, &choice);
+    move_settings_secrets(&app, &choice);
     Ok(choice)
 }
 
@@ -184,6 +185,18 @@ fn log_warnings(app: &tauri::AppHandle, choice: &Choice) {
     for warning in &choice.warnings {
         crate::log_vault_warning(app, warning, path);
     }
+}
+
+/// Moves secrets an older version left in the newly opened workspace's settings to the
+/// keychain, in the background.
+fn move_settings_secrets(app: &tauri::AppHandle, choice: &Choice) {
+    if choice.root.is_none() {
+        return;
+    }
+    let vault = app.state::<VaultState>().inner().clone();
+    let secrets = app.state::<crate::secrets::Secrets>().inner().clone();
+    let _ =
+        tauri::async_runtime::spawn(crate::settings_secrets::move_for_open_vault(vault, secrets));
 }
 
 /// The remembered folder while none is in use, so the page can say it is not available.
@@ -225,6 +238,7 @@ pub async fn vault_retry(
             .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))
             .map_err(ShellError::from)?;
     log_warnings(&app, &choice);
+    move_settings_secrets(&app, &choice);
     Ok(choice)
 }
 
@@ -247,6 +261,7 @@ pub async fn vault_forget(
         .await
         .map_err(|_| ShellError::from(TASK_FAILED.to_owned()))?;
     log_warnings(&app, &choice);
+    move_settings_secrets(&app, &choice);
     Ok(choice)
 }
 
@@ -330,6 +345,7 @@ pub async fn workspace_skip(
     .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))
     .map_err(ShellError::from)?;
     log_warnings(&app, &choice);
+    move_settings_secrets(&app, &choice);
     Ok(choice)
 }
 

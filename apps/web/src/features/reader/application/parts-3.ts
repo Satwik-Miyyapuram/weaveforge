@@ -223,7 +223,8 @@ export async function evictReaderPdfCache(paperId: string): Promise<void> {
   const cache = getReaderPdfByteCache();
   if (!cache) return;
   try {
-    await cache.remove(paperId);
+    // evict, not remove: in a workspace folder the copy is the user's file.
+    await cache.evict(paperId);
   } catch {
     // Best-effort: the fallback fetch matters, the eviction is housekeeping.
   }
@@ -420,6 +421,9 @@ export function annotationsOwedToZotero(annotations: readonly ReaderAnnotation[]
   );
 }
 
+/** How many times a created annotation's Zotero key is stored before it counts as failed. */
+const RECORD_ATTEMPTS = 3;
+
 export async function writeBackZoteroAnnotations(deps: {
   papers: readonly Paper[];
   /** Paper → the Zotero PDF attachment to write under, or undefined. */
@@ -462,14 +466,28 @@ export async function writeBackZoteroAnnotations(deps: {
       }
       const syncState = r.outcome === "conflict" ? "conflict" : "synced";
       const prior = owed.find((a) => a.id === r.id);
-      try {
-        await deps.annotations.recordZoteroSync(r.id, {
-          zoteroKey: r.zoteroKey,
+      // Zotero already holds the annotation, so a key left unrecorded makes the
+      // next sync create it again: try a few times before giving up (P2-163).
+      const record = () =>
+        deps.annotations.recordZoteroSync(r.id, {
+          zoteroKey: r.zoteroKey!,
           zoteroVersion: r.zoteroVersion ?? prior?.zoteroVersion ?? null,
           syncState,
+          // An edit made while the push was in flight must stay owed.
+          ifUpdatedAt: prior?.updatedAt,
         });
-      } catch (err) {
-        fail(errorMessage(err));
+      let recorded = false;
+      let recordError: unknown;
+      for (let attempt = 0; attempt < RECORD_ATTEMPTS && !recorded; attempt += 1) {
+        try {
+          await record();
+          recorded = true;
+        } catch (err) {
+          recordError = err;
+        }
+      }
+      if (!recorded) {
+        fail(errorMessage(recordError));
         continue;
       }
       if (r.outcome === "created") summary.created += 1;

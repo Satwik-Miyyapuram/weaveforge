@@ -606,6 +606,21 @@ fn a_slug_of_only_separators_falls_back_and_reserved_names_get_a_suffix() {
     assert_eq!(slug_for("com0", "untitled"), "com0");
 }
 
+#[test]
+fn child_titled_like_folder_note_parent_gets_its_own_path() {
+    let nodes = vec![node("p", "Ideas", None), node("c", "Ideas", Some("p"))];
+    let paths = tree_paths(&nodes, WorkspaceEntityType::VaultPage, "");
+    let path_of = |id: &str| {
+        paths
+            .iter()
+            .find(|(i, _)| i == id)
+            .map(|(_, p)| p.clone())
+            .expect(id)
+    };
+    let (p, c) = (path_of("p"), path_of("c"));
+    assert_ne!(p, c, "parent and child map to the same file: {p}");
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::default())]
 

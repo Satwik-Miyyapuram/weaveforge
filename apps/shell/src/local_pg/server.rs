@@ -52,6 +52,11 @@ const DUMP_TIMEOUT: Duration = Duration::from_secs(600);
 /// Longest wait for one connection attempt during start.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Size at which `postgres.log` is rotated at start.
+const MAX_LOG_BYTES: u64 = 5_000_000;
+/// How much of the log a failed start reads back.
+const LOG_TAIL_BYTES: u64 = 8_192;
+
 /// A running private Postgres server. Dropping it kills the child.
 pub struct PgServer {
     child: Box<dyn ChildWrapper>,
@@ -211,11 +216,7 @@ impl PgServer {
     pub async fn start(bin: &Path, root: &Path) -> Result<PgServer, PgError> {
         let password = ensure_initialized(bin, root).await?;
         let port = free_port()?;
-        let log = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(root.join("postgres.log"))
-            .map_err(|e| io(&e))?;
+        let log = open_log(&root.join("postgres.log")).map_err(|e| io(&e))?;
         let data = root.join("data");
         let child = wrapped_command(
             bin.join(exe_name("postgres")),
@@ -246,8 +247,8 @@ impl PgServer {
         let deadline = Instant::now() + READY_TIMEOUT;
         loop {
             if self.child.try_wait().map_err(|e| io(&e))?.is_some() {
-                let log = fs::read_to_string(self.data.with_file_name("postgres.log"))
-                    .unwrap_or_default();
+                let log =
+                    read_log_tail(&self.data.with_file_name("postgres.log")).unwrap_or_default();
                 return Err(PgError::local(format!(
                     "Postgres exited at start: {}",
                     tail(&log, 500)
@@ -418,6 +419,26 @@ fn write_password(path: &Path, password: &str) -> Result<(), PgError> {
     Ok(())
 }
 
+/// Opens `postgres.log` for append. A log over `MAX_LOG_BYTES` is first moved to
+/// `postgres.log.1` (replacing the older one), so the logs never pass twice the cap.
+fn open_log(path: &Path) -> std::io::Result<fs::File> {
+    if fs::metadata(path).is_ok_and(|meta| meta.len() > MAX_LOG_BYTES) {
+        fs::rename(path, path.with_extension("log.1"))?;
+    }
+    OpenOptions::new().create(true).append(true).open(path)
+}
+
+/// The last `LOG_TAIL_BYTES` of the log as text, without reading the whole file.
+fn read_log_tail(path: &Path) -> std::io::Result<String> {
+    use std::io::{Read as _, Seek as _, SeekFrom};
+    let mut file = fs::File::open(path)?;
+    let len = file.metadata()?.len();
+    let _ = file.seek(SeekFrom::Start(len.saturating_sub(LOG_TAIL_BYTES)))?;
+    let mut bytes = Vec::new();
+    let _ = file.read_to_end(&mut bytes)?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
 /// The last `max` chars of `text`, cut on a char boundary.
 fn tail(text: &str, max: usize) -> &str {
     let count = text.chars().count();
@@ -450,6 +471,29 @@ mod tests {
         fs::create_dir_all(dir)?;
         fs::write(dir.join(exe_name("postgres")), b"")?;
         fs::write(dir.join(exe_name("initdb")), b"")
+    }
+
+    #[test]
+    fn a_big_log_is_rotated_at_start_and_only_its_tail_is_read() -> std::io::Result<()> {
+        let dir = unique_dir("log").map_err(std::io::Error::other)?;
+        fs::create_dir_all(&dir)?;
+        let log = dir.join("postgres.log");
+        let mut big = vec![b'x'; 20_000_000];
+        big.extend_from_slice(b"\nFATAL: the last line");
+        fs::write(&log, &big)?;
+        assert!(read_log_tail(&log)?.len() as u64 <= LOG_TAIL_BYTES);
+        assert!(read_log_tail(&log)?.ends_with("FATAL: the last line"));
+        drop(open_log(&log)?);
+        assert!(fs::metadata(&log)?.len() <= MAX_LOG_BYTES);
+        assert_eq!(
+            fs::metadata(dir.join("postgres.log.1"))?.len(),
+            big.len() as u64
+        );
+        // A small log is kept and appended to.
+        fs::write(&log, b"small")?;
+        drop(open_log(&log)?);
+        assert_eq!(fs::read(&log)?, b"small");
+        fs::remove_dir_all(&dir)
     }
 
     #[test]

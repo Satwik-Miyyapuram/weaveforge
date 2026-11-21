@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Apply WeaveForge schema to OCI / self-hosted Postgres — the psql original.
-# Usage: DATABASE_URL=postgres://... ./scripts/apply-migrations-oci.sh
+# Usage: DATABASE_URL=postgres://... ./scripts/apply-migrations-oci.sh [--follow-ups-only]
 #
 # `npm run migrate:schema` now runs apply-migrations-oci.mjs, which applies the
 # same files in the same order through the `pg` driver and so needs no psql on
@@ -27,22 +27,50 @@ SELF_HOSTED="$ROOT/db/migrations-self-hosted-postgres"
 
 PREREQS="$SELF_HOSTED/0000_self_host_prereqs.sql"
 
-echo "==> Self-hosted prerequisites (roles, auth/storage/realtime stubs) ..."
-echo "    $PREREQS"
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$PREREQS"
+# Same guard as apply-migrations-oci.mjs: replaying the base migrations over
+# live data duplicates seeded rows and can fail partway. The follow-ups are all
+# `create or replace` and `grant`, so --follow-ups-only is always allowed.
+FOLLOW_UPS_ONLY=""
+[[ "${1:-}" == "--follow-ups-only" ]] && FOLLOW_UPS_ONLY=1
 
-echo "==> Base migrations (Supabase-compatible schema) ..."
-for f in "$MIGRATIONS"/*.sql; do
-  echo "    $f"
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
-done
+# Rows are checked with a real read of each public table (as hasAnyRows does in
+# the .mjs), not planner statistics: n_live_tup is 0 on a freshly restored
+# database until autovacuum runs, which would let the replay through (P1-5).
+stats=$(psql "$DATABASE_URL" -tAc \
+  "select (select count(*) from pg_tables where schemaname='public')
+     || '|' || (select case when bool_or(query_to_xml(
+          format('select 1 from %I.%I limit 1', schemaname, tablename), false, true, '')::text <> '')
+        then 't' else '' end from pg_tables where schemaname='public')")
+tables=${stats%%|*}; has_rows=${stats##*|}
+if [[ "$tables" -gt 0 && "$has_rows" == "t" && -z "$FOLLOW_UPS_ONLY" && -z "${ALLOW_REAPPLY_OVER_DATA:-}" ]]; then
+  echo "Refusing: this database already has $tables tables, and they hold rows." >&2
+  echo "  Apply the self-hosted follow-ups alone with --follow-ups-only," >&2
+  echo "  or override deliberately with ALLOW_REAPPLY_OVER_DATA=1." >&2
+  exit 1
+fi
+
+# -1: each file in one transaction, so a failure rolls that file back whole.
+if [[ -n "$FOLLOW_UPS_ONLY" ]]; then
+  echo "==> Self-hosted follow-ups only (base migrations skipped) ..."
+else
+  echo "==> Self-hosted prerequisites (roles, auth/storage/realtime stubs) ..."
+  echo "    $PREREQS"
+  psql "$DATABASE_URL" -1 -v ON_ERROR_STOP=1 -f "$PREREQS"
+
+  echo "==> Base migrations (Supabase-compatible schema) ..."
+  for f in "$MIGRATIONS"/*.sql; do
+    echo "    $f"
+    psql "$DATABASE_URL" -1 -v ON_ERROR_STOP=1 -f "$f"
+  done
+fi
 
 echo "==> Self-hosted follow-ups ..."
 for f in "$SELF_HOSTED"/*.sql; do
-  # Already applied above, before anything could depend on it.
-  [[ "$f" == "$PREREQS" ]] && continue
+  # Already applied above, before anything could depend on it — unless the
+  # base migrations were skipped, in which case it has not run at all.
+  [[ "$f" == "$PREREQS" && -z "$FOLLOW_UPS_ONLY" ]] && continue
   echo "    $f"
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+  psql "$DATABASE_URL" -1 -v ON_ERROR_STOP=1 -f "$f"
 done
 
 echo "==> Verifying ..."

@@ -62,8 +62,10 @@ pub struct BibPaper {
     pub extra: Option<String>,
 }
 
-/// `/\\cite\{([^}]*)\}/g`: one `\cite{...}` command, its key list in group 1.
-static CITE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"\\cite\{([^}]*)\}").ok());
+/// One cite command, its key list in group 1: `\cite`, natbib and biblatex forms such as
+/// `\citep`, `\textcite` and `\parencite*`, with up to two optional `[...]` arguments.
+static CITE_RE: LazyLock<Option<Regex>> =
+    LazyLock::new(|| compile(r"\\[A-Za-z]*cite[a-z]*\*?(?:\[[^\]]*\]){0,2}\{([^}]*)\}").ok());
 
 /// `/@(\w+)\{[^,]+,/`: the entry head, whose key is replaced.
 static ENTRY_HEAD_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"@(\w+)\{[^,]+,").ok());
@@ -135,7 +137,8 @@ pub fn collect_cited_keys(latex: &str) -> Vec<String> {
         let list = caps.get(1).map_or("", |m| m.as_str());
         for raw in list.split(',') {
             let key = js_trim(raw);
-            if !key.is_empty() && !keys.iter().any(|k| k == key) {
+            // `\nocite{*}` names every entry, not a key.
+            if !key.is_empty() && key != "*" && !keys.iter().any(|k| k == key) {
                 keys.push(key.to_owned());
             }
         }
@@ -305,6 +308,14 @@ mod tests {
         let keys = collect_cited_keys("text \\cite{a, b} more \\cite{c} and \\cite{a}");
         assert_eq!(keys, vec!["a", "b", "c"]);
         assert!(collect_cited_keys("no cites").is_empty());
+    }
+
+    #[test]
+    fn collects_keys_from_natbib_and_biblatex_cites() {
+        let keys = collect_cited_keys(
+            "\\citep[p.~3]{a} \\citet*{b} \\parencite[see][12]{c, d} \\textcite{e} \\nocite{*}",
+        );
+        assert_eq!(keys, vec!["a", "b", "c", "d", "e"]);
     }
 
     #[test]

@@ -20,4 +20,5 @@ dir="wasm-bindgen-$wb-x86_64-unknown-linux-musl"
 curl --proto '=https' -sSfL "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/$wb/$dir.tar.gz" |
   tar -xz -C "$bin" --strip-components=1 "$dir/wasm-bindgen"
 
-npm install
+# ci installs exactly what package-lock.json pins, like the CI workflows.
+npm ci

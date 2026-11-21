@@ -26,6 +26,7 @@ use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http::HeaderValue;
 use tokio_tungstenite::tungstenite::{self, Message};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
+use wf_core::sync::instant::format_instant;
 use wf_relay_server::collab::hub::{self, Hub};
 use wf_relay_server::collab::protocol::update_frame;
 use wf_relay_server::collab::store::{
@@ -46,6 +47,8 @@ const ITEM: &str = "doc-item";
 const Q1: &str = "?epoch=1&format=1";
 const RECV: Duration = Duration::from_secs(5);
 const PERSIST: Duration = Duration::from_millis(50);
+/// The idle-socket grant timer for tests that do not exercise it (it never fires in a test).
+const GRANT_CHECK_IDLE: Duration = Duration::from_secs(3600);
 const LEASE_MS: i64 = 90_000;
 const START_MS: i64 = 1_000_000;
 
@@ -101,6 +104,8 @@ fn build_state(
     dir: &Path,
     store: Arc<dyn SharedDocStore>,
     persist_every: Duration,
+    grant_check_every: Duration,
+    now: Arc<AtomicI64>,
 ) -> Arc<CollabState> {
     Arc::new(CollabState {
         config: CollabConfig {
@@ -108,13 +113,14 @@ fn build_state(
             persist_every,
             lease_ms: LEASE_MS,
             grant_cache_ms: 0,
+            grant_check_every,
         },
         store,
         auth: Arc::new(Tokens(HashMap::from([
             (OWNER_TOKEN.to_owned(), OWNER.to_owned()),
             (GUEST_TOKEN.to_owned(), GUEST.to_owned()),
         ]))),
-        clock: Arc::new(ManualClock(Arc::new(AtomicI64::new(START_MS)))),
+        clock: Arc::new(ManualClock(now)),
         hub: Hub::new(),
     })
 }
@@ -124,11 +130,24 @@ struct Relay {
     state: Arc<CollabState>,
     port: u16,
     server: JoinHandle<()>,
+    /// The relay's clock (Unix ms); the test moves it to lapse leases.
+    now: Arc<AtomicI64>,
 }
 
 impl Relay {
     async fn start(dir: &Path, store: Arc<dyn SharedDocStore>, persist_every: Duration) -> Self {
-        let state = build_state(dir, store, persist_every);
+        Self::start_with(dir, store, persist_every, GRANT_CHECK_IDLE).await
+    }
+
+    /// Like `start`, with idle sockets re-reading their grant every `grant_check_every`.
+    async fn start_with(
+        dir: &Path,
+        store: Arc<dyn SharedDocStore>,
+        persist_every: Duration,
+        grant_check_every: Duration,
+    ) -> Self {
+        let now = Arc::new(AtomicI64::new(START_MS));
+        let state = build_state(dir, store, persist_every, grant_check_every, now.clone());
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
         let port = listener.local_addr().expect("local addr").port();
         let app = routes::router(state.clone());
@@ -139,6 +158,7 @@ impl Relay {
             state,
             port,
             server,
+            now,
         }
     }
 
@@ -456,7 +476,13 @@ async fn update_log_replayed_after_restart() {
     relay.stop();
 
     // A restart: same log dir and store, no save happened before the crash.
-    let restarted = build_state(dir.path(), store.clone(), PERSIST);
+    let restarted = build_state(
+        dir.path(),
+        store.clone(),
+        PERSIST,
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
     assert_eq!(hub::recover(&restarted).await, 1);
     let row = store.doc(ITEM).expect("doc row");
     assert_eq!(text_of(&row.state), "hello");
@@ -478,7 +504,13 @@ async fn digest_log_survives_restart() {
     drop(owner);
     relay.stop();
 
-    let restarted = build_state(dir.path(), store.clone(), PERSIST);
+    let restarted = build_state(
+        dir.path(),
+        store.clone(),
+        PERSIST,
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
     assert_eq!(hub::recover(&restarted).await, 1);
     let row = store.doc(ITEM).expect("doc row");
     assert!(map_has(&row.state, "digest-1"));
@@ -512,6 +544,40 @@ async fn unshare_waits_for_final_writeback() {
     let _closed = expect_json(&mut owner, "closed").await;
     expect_close(&mut owner).await;
     wait_for_deleted(&store, ITEM).await;
+}
+
+/// A closing doc whose holder stalls (no `lease.final`) is deleted once the lease lapses: nothing
+/// else can finish the unshare, so the sweep must not leave the row closing forever.
+#[tokio::test]
+async fn closing_doc_with_lapsed_lease_is_swept() {
+    let dir = TempDir::new("closing-sweep");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, text_update("doc")).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+    // The sweep runs on the persist tick.
+    let persist = hub::spawn_persist_loop(relay.state.clone());
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    send_text(&mut owner, r#"{"type":"lease.acquire","device":"d1"}"#).await;
+    let _granted = expect_json(&mut owner, "lease.granted").await;
+
+    let url = relay.url(&format!("/shared-docs/{ITEM}"));
+    let (status, _) = http(reqwest::Method::DELETE, &url, OWNER_TOKEN, None).await;
+    assert_eq!(status, 202);
+    // The holder stalls. While its lease is live the doc waits for the write-back.
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(
+        store.doc(ITEM).is_some(),
+        "closing doc deleted under a live lease"
+    );
+
+    // The lease lapses: the sweep now finishes the unshare.
+    relay.now.store(START_MS + LEASE_MS + 1, Ordering::SeqCst);
+    wait_for_deleted(&store, ITEM).await;
+    persist.abort();
 }
 
 #[tokio::test]
@@ -967,10 +1033,11 @@ async fn epoch_bumped_after_restore() {
     assert_eq!(fresh_hello["epoch"], 2);
 }
 
-/// Delegates to a `MemoryStore`; `access` fails while `fail` is set.
+/// Delegates to a `MemoryStore`; `access` fails while `fail` is set, `set_writer` while `fail_writer` is.
 struct AccessFails {
     inner: Arc<MemoryStore>,
     fail: AtomicBool,
+    fail_writer: AtomicBool,
 }
 
 impl SharedDocStore for AccessFails {
@@ -1009,7 +1076,12 @@ impl SharedDocStore for AccessFails {
         device: Option<&'a str>,
         until_ms: Option<i64>,
     ) -> BoxFut<'a, Result<(), String>> {
-        self.inner.set_writer(item_id, device, until_ms)
+        Box::pin(async move {
+            if self.fail_writer.load(Ordering::SeqCst) {
+                return Err("writer store down".to_owned());
+            }
+            self.inner.set_writer(item_id, device, until_ms).await
+        })
     }
     fn delete<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
         self.inner.delete(item_id)
@@ -1143,7 +1215,13 @@ async fn room_lock_is_free_while_a_save_is_in_flight() {
         entered: entered.clone(),
         release: release.clone(),
     });
-    let state = build_state(dir.path(), store, Duration::from_secs(3600));
+    let state = build_state(
+        dir.path(),
+        store,
+        Duration::from_secs(3600),
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
     let row = mem.load(ITEM).await.expect("load").expect("row");
     let room = hub::open_room(&state, row).await.expect("open room");
     room.inner.lock().await.dirty = true;
@@ -1171,6 +1249,7 @@ async fn ws_grant_check_failure_closes_socket() {
     let failing = Arc::new(AccessFails {
         inner: store.clone(),
         fail: AtomicBool::new(false),
+        fail_writer: AtomicBool::new(false),
     });
     let relay = Relay::start(dir.path(), failing.clone(), PERSIST).await;
 
@@ -1205,6 +1284,7 @@ async fn ws_revoke_rechecks_only_affected_rooms() {
     let failing = Arc::new(AccessFails {
         inner: store.clone(),
         fail: AtomicBool::new(false),
+        fail_writer: AtomicBool::new(false),
     });
     let relay = Relay::start(dir.path(), failing.clone(), PERSIST).await;
 
@@ -1228,6 +1308,47 @@ async fn ws_revoke_rechecks_only_affected_rooms() {
     // A grant on ITEM does not touch OTHER's room: it must not be rechecked.
     let quiet = tokio::time::timeout(Duration::from_millis(500), recv_text(&mut other)).await;
     assert!(quiet.is_err(), "unrelated room was rechecked: {quiet:?}");
+}
+
+/// An idle socket (no frames sent) is told `revoked` and closed once its grant lapses: only the
+/// grant timer can notice, because nothing else reaches the room.
+#[tokio::test]
+async fn ws_idle_socket_closes_when_grant_lapses() {
+    let dir = TempDir::new("grant-lapse");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    // Store expiry is wall-clock time, so the grant lapses about a second from now.
+    let now_ms = i64::try_from(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("after epoch")
+            .as_millis(),
+    )
+    .expect("fits in i64");
+    let grant = NewGrant {
+        owner: OWNER.to_owned(),
+        scope: "item".to_owned(),
+        target_id: ITEM.to_owned(),
+        grantee_user: GUEST.to_owned(),
+        permission: Permission::Edit,
+        expires_at: Some(format_instant(now_ms + 1_000)),
+    };
+    store.create_grant(&grant).await.expect("create grant");
+    let relay = Relay::start_with(
+        dir.path(),
+        store.clone(),
+        PERSIST,
+        Duration::from_millis(50),
+    )
+    .await;
+
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+    let denied = expect_json(&mut guest, "denied").await;
+    assert_eq!(denied["reason"], "revoked");
+    expect_close(&mut guest).await;
 }
 
 #[tokio::test]
@@ -1338,6 +1459,28 @@ async fn grant_refuses_expires_at_that_is_not_a_timestamp() {
 }
 
 #[tokio::test]
+async fn grant_refuses_expires_at_that_is_an_impossible_date() {
+    let dir = TempDir::new("grant-impossible-date");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    // Shaped like a timestamp but not a real one: each must be a 400, not a 500 from Postgres.
+    let url = relay.url("/grants");
+    let grantee = "6f1c2a3e-4b5d-4e6f-8a7b-9c0d1e2f3a4b";
+    for expires in [
+        "2099-13-01T00:00:00Z",
+        "2099-02-30T00:00:00Z",
+        "2099-02-29T00:00:00Z",
+    ] {
+        let body = json!({"scope": "item", "target_id": ITEM, "grantee_user": grantee,
+            "permission": "edit", "expires_at": expires});
+        let (status, _) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(body)).await;
+        assert_eq!(status, 400, "accepted {expires}");
+    }
+}
+
+#[tokio::test]
 async fn revoke_refuses_grant_id_that_is_not_a_uuid() {
     let dir = TempDir::new("revoke-id");
     let store = Arc::new(MemoryStore::new());
@@ -1347,4 +1490,158 @@ async fn revoke_refuses_grant_id_that_is_not_a_uuid() {
     let url = relay.url("/grants/not-a-uuid");
     let (status, _) = http(reqwest::Method::DELETE, &url, OWNER_TOKEN, None).await;
     assert_eq!(status, 400);
+}
+
+/// Rounds the join-versus-idle-release race runs for.
+const RACE_ROUNDS: usize = 300;
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn join_racing_idle_release_never_strands_a_client() {
+    let dir = TempDir::new("join-race");
+    let store = Arc::new(MemoryStore::new());
+    let now = Arc::new(AtomicI64::new(START_MS));
+    let state = build_state(dir.path(), store, PERSIST, GRANT_CHECK_IDLE, now);
+    let race = async {
+        for _ in 0..RACE_ROUNDS {
+            let row = DocRow {
+                item_id: ITEM.to_owned(),
+                owner: OWNER.to_owned(),
+                kind: "canvas".to_owned(),
+                project_id: None,
+                workspace_id: None,
+                epoch: 1,
+                format_version: 1,
+                state: Vec::new(),
+                status: DocStatus::Open,
+            };
+            let room = hub::open_room(&state, row).await.expect("open room");
+            let joiner = {
+                let (state, room) = (state.clone(), room.clone());
+                tokio::spawn(async move { hub::admit(&state.hub, &room).await.is_some() })
+            };
+            let releaser = {
+                let (state, room) = (state.clone(), room.clone());
+                tokio::spawn(async move { hub::remove_if_idle(&state.hub, &room).await })
+            };
+            let joined = joiner.await.expect("join task");
+            releaser.await.expect("release task");
+            // A client counted into the room must find the room still open: the idle
+            // release cannot remove a room that has a client.
+            if joined {
+                assert!(
+                    state.hub.is_current(&room),
+                    "a joined client was left outside the hub"
+                );
+            }
+            // Clear the round so the next one opens a fresh room.
+            let _ = state.hub.remove(ITEM);
+        }
+    };
+    tokio::time::timeout(Duration::from_secs(60), race)
+        .await
+        .expect("race rounds finish");
+}
+
+#[tokio::test]
+async fn renew_after_demotion_from_owner_is_lost() {
+    let dir = TempDir::new("demoted-renew");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let owner_grant = NewGrant {
+        owner: OWNER.to_owned(),
+        scope: "item".to_owned(),
+        target_id: ITEM.to_owned(),
+        grantee_user: GUEST.to_owned(),
+        permission: Permission::Owner,
+        expires_at: None,
+    };
+    let grant_id = store
+        .create_grant(&owner_grant)
+        .await
+        .expect("create owner grant")
+        .id;
+    let relay = Relay::start_with(
+        dir.path(),
+        store.clone(),
+        PERSIST,
+        Duration::from_millis(50),
+    )
+    .await;
+
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+    send_text(&mut guest, r#"{"type":"lease.acquire","device":"d1"}"#).await;
+    let _granted = expect_json(&mut guest, "lease.granted").await;
+
+    // Demote the guest to edit mid-lease: the owner grant goes, an edit grant replaces it.
+    store
+        .revoke_grant(OWNER, &grant_id)
+        .await
+        .expect("revoke owner grant");
+    store
+        .create_grant(&NewGrant {
+            permission: Permission::Edit,
+            ..owner_grant
+        })
+        .await
+        .expect("create edit grant");
+
+    // The recheck demotes the socket and gives the lease up (lease.handover reaches the room).
+    let (handover, renew) = tokio::time::timeout(Duration::from_secs(10), async {
+        let handover = expect_json(&mut guest, "lease.handover").await;
+        send_text(&mut guest, r#"{"type":"lease.renew","device":"d1"}"#).await;
+        let renew = expect_json(&mut guest, "lease.lost").await;
+        (handover, renew)
+    })
+    .await
+    .expect("demotion releases the lease and the renew is answered");
+    assert_eq!(handover["type"], "lease.handover");
+    assert_eq!(renew["type"], "lease.lost");
+}
+
+#[tokio::test]
+async fn lease_not_granted_when_writer_record_fails() {
+    let dir = TempDir::new("writer-fails");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    store
+        .create_grant(&NewGrant {
+            owner: OWNER.to_owned(),
+            scope: "item".to_owned(),
+            target_id: ITEM.to_owned(),
+            grantee_user: GUEST.to_owned(),
+            permission: Permission::Owner,
+            expires_at: None,
+        })
+        .await
+        .expect("create owner grant");
+    let failing = Arc::new(AccessFails {
+        inner: store.clone(),
+        fail: AtomicBool::new(false),
+        fail_writer: AtomicBool::new(false),
+    });
+    let relay = Relay::start(dir.path(), failing.clone(), PERSIST).await;
+
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+
+    tokio::time::timeout(Duration::from_secs(10), async {
+        // The record of the lease cannot be written, so the grant is refused and not kept.
+        failing.fail_writer.store(true, Ordering::SeqCst);
+        send_text(&mut guest, r#"{"type":"lease.acquire","device":"d1"}"#).await;
+        let denied = expect_json(&mut guest, "denied").await;
+        assert_eq!(denied["reason"], "storage");
+
+        // A different device can take the lease, so nothing was left held by d1.
+        failing.fail_writer.store(false, Ordering::SeqCst);
+        send_text(&mut guest, r#"{"type":"lease.acquire","device":"d2"}"#).await;
+        let granted = expect_json(&mut guest, "lease.granted").await;
+        assert_eq!(granted["type"], "lease.granted");
+    })
+    .await
+    .expect("refused acquire leaves no lease behind");
 }

@@ -295,3 +295,29 @@ test("startup: a refresh never opens the privacy gate on its own", async () => {
   assert.equal(harness.current.needsPrivacyAccept, true);
   await harness.unmount();
 });
+
+test("startup: a bundle that rejects opens the gate with an error, not a hang (P2-255)", async () => {
+  const user = userId();
+  const rejected: unknown[] = [];
+  const onRejection = (reason: unknown) => rejected.push(reason);
+  process.on("unhandledRejection", onRejection);
+  const failing: StartupBundleLoader = async () => {
+    await Promise.resolve();
+    throw new Error("bundle exploded");
+  };
+  try {
+    const harness = await renderHook(() => useStartup(), undefined, {
+      wrapper: withProvider(user, failing, false),
+    });
+    await harness.flush();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(harness.current.gateReady, true, "the gate must not wait for ever");
+    assert.equal(harness.current.loading, false);
+    assert.match(harness.current.settingsError ?? "", /bundle exploded/);
+    assert.deepEqual(rejected, [], "the failure is handled, not left unhandled");
+    await harness.unmount();
+  } finally {
+    process.off("unhandledRejection", onRejection);
+  }
+});

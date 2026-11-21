@@ -80,8 +80,13 @@ export function CollaborativeMarkdownEditor({
   inlinePresence?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  // Moved in an effect, not during render: when the resource changes, the old
+  // editor's cleanup (and its close-save) runs before this, so that save still
+  // targets the old resource (P2-148).
   const onSaveRef = useRef(onSave);
-  onSaveRef.current = onSave;
+  useEffect(() => {
+    onSaveRef.current = onSave;
+  });
   const displayNameRef = useRef(displayName);
   displayNameRef.current = displayName;
   const onViewCreatedRef = useRef(onViewCreated);
@@ -103,14 +108,17 @@ export function CollaborativeMarkdownEditor({
           // and a mark made then reached nobody. A save that fails takes back a
           // mark it added, so a body that never landed is not claimed as saved
           // (see reconcileWithBody).
+          // The save target is taken here, while the editor is still on the
+          // resource the body belongs to: the save itself may run after a switch.
           prepare: (body) => {
+            const target = onSaveRef.current;
             const doc = docRef.current;
             const digest = readyCore().digestText(body);
-            if (!doc) return { doc, sentState: null, digest, wasMarked: true };
+            if (!doc) return { target, doc, sentState: null, digest, wasMarked: true };
             const wasMarked = savedDigests(doc).includes(digest);
             const sentState = Y.encodeStateAsUpdate(doc);
             markSaved(doc, digest);
-            return { doc, sentState, digest, wasMarked };
+            return { target, doc, sentState, digest, wasMarked };
           },
           // The save names the bodies this document's sessions saved, so the
           // store does not take a peer's save for someone else's edit. A body
@@ -120,7 +128,7 @@ export function CollaborativeMarkdownEditor({
             const { doc } = sent;
             let stored: string | void;
             try {
-              stored = await onSaveRef.current(body, { sessionDigests: doc ? savedDigests(doc) : [] });
+              stored = await sent.target(body, { sessionDigests: doc ? savedDigests(doc) : [] });
             } catch (err) {
               if (doc && !sent.wasMarked) unmarkSaved(doc, sent.digest);
               throw err;

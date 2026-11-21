@@ -100,18 +100,22 @@ KEEP decision, not a gap.
 
 ## Annotation files (files-first)
 
-A paper's reader annotations are one JSON file next to its PDF, named after it by the
-existing sidecar rule (`x.pdf` -> `x.annotations.json`, `folder_layout::annotations_path`):
-an array of rows sorted by id. No new file name is keyed by id.
+A paper's reader annotations are one JSON file next to its paper file, under the paper's
+name (`x.paper.md` -> `x.annotations.json`, `folder_layout::annotations_path`): an array of
+rows sorted by id. Rename the paper file and its sidecar with it; no file name holds an id.
+Comments on an item sit the same way in `x.comments.json` (`folder_layout::comments_path`).
 
 - Rust: `crates/wf-core/src/reader/annotations_file.rs`. `parse_annotations`,
   `render_annotations`, `annotations_file_path` and `merge_annotations(base, local, disk)`
   (per-row three-way merge; a conflict keeps the disk value and is reported).
-- wasm: `parseAnnotationsFile`, `renderAnnotationsFile`, `annotationsFilePath`
-  (`crates/wf-wasm/src/paper_files.rs`).
+- wasm: `parseAnnotationsFile`, `renderAnnotationsFile`, `annotationsFilePath(paperPath)`,
+  `commentsFilePath(itemPath)` (`crates/wf-wasm/src/paper_files.rs`).
 - TS: `FileReaderAnnotationRepository`
   (`apps/web/src/features/reader/infrastructure/file-annotation-repository.ts`)
-  implements `IReaderAnnotationSource` and `IReaderAnnotationSink`. Each change reads
+  implements `IReaderAnnotationSource` and `IReaderAnnotationSink`. It finds the paper's
+  file through the `paperFileOf(paperId)` it is given; an unknown paper lists nothing and
+  `create` on it throws `NotFoundError`. A file with two rows of one id is refused
+  (`DuplicateId`). Each change reads
   the file, applies itself to what is there and writes only if the file is unchanged
   (`writeTextIf`); otherwise it reads again and re-applies, up to 5 times.
 
@@ -129,7 +133,9 @@ an array of rows sorted by id. No new file name is keyed by id.
 | A write happens only if the file is still what was read; a workspace without `writeTextIf` is refused, never written blind | TS "without a conditional write the repository refuses to write" |
 | `remove(id)` drops only that row; the file and every other row stay | TS "remove deletes the row and keeps the others" |
 | A row edited on one side and removed on the other is kept by the merge | `edit_beats_delete_and_conflict_keeps_disk` |
-| The annotations file is the PDF's sidecar by name | `file_path_is_the_pdf_sidecar` |
+| A file with two rows of one id is refused | `duplicate_ids_are_refused` |
+| The annotations file sits next to the paper file, under its name | `file_path_sits_next_to_the_paper_under_its_name`; TS "create writes the sidecar next to the paper file, under the paper's name", "a renamed paper file takes its annotations by name, never by id" |
+| The comments file sits next to its item, under its name | `comments_sit_next_to_the_paper_under_its_name`; TS "a comment sits next to its item, under the item's name; no id in the path" (`apps/web/src/features/sharing/test/file-comment-repository.test.ts`) |
 
 ## Related
 

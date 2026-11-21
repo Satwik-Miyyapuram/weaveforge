@@ -12,12 +12,15 @@ type Log = { level: string; source: string; message: string; detail?: string };
 
 function useCase(removeRemote: () => Promise<void>, removeImage: (path: string) => Promise<void> = async () => {}) {
   const removed: string[] = [];
-  const uc = new DeletePaperUseCase({
+  // An image store is still handed in, so a delete that reaches for it again
+  // shows up in the image test below.
+  const deps = {
     bibliography: { removeRemotePaper: removeRemote } as never,
-    images: { remove: removeImage } as never,
+    images: { remove: removeImage },
     updatePaper: { remove: async (id: string) => void removed.push(id) } as never,
     papers: {} as never,
-  });
+  };
+  const uc = new DeletePaperUseCase(deps);
   return { uc, removed };
 }
 
@@ -56,29 +59,27 @@ test("a paper with no Zotero key never calls Zotero and logs nothing", async () 
   assert.deepEqual(logs, []);
 });
 
-// xlog-11: an image left behind in storage is traceable, and the delete still goes ahead.
-test("a failed image delete is logged per image, and the rest and the row still go", async () => {
+// P2-173/190: a delete moves the paper file to the workspace trash, and a
+// restored file still points at its `paperimg:` figures. Removing them at
+// trash time made every restore lose its images, so they stay.
+test("trashing a paper keeps every image, so a restored paper loses nothing (P2-173)", async () => {
   const gone: string[] = [];
-  const { uc, removed } = useCase(
-    async () => {},
-    async (path) => {
-      if (path.endsWith("bad.png")) throw new Error("503 storage down");
-      gone.push(path);
-    },
-  );
-  const logs = await withDesktopLog(() => uc.execute(paper({ images: ["u/p1/ok.png", "u/p1/bad.png"] })));
-  assert.deepEqual(gone, ["u/p1/ok.png"]);
-  assert.deepEqual(removed, ["p1"]);
-  assert.equal(logs.length, 1);
-  assert.equal(logs[0]!.level, "warn");
-  assert.equal(logs[0]!.source, "storage");
-  assert.match(logs[0]!.detail ?? "", /u\/p1\/bad\.png/);
-  assert.match(logs[0]!.detail ?? "", /503 storage down/);
-});
-
-test("images that delete cleanly log nothing", async () => {
-  const { uc, removed } = useCase(async () => {});
+  const { uc, removed } = useCase(async () => {}, async (path) => void gone.push(path));
   const logs = await withDesktopLog(() => uc.execute(paper({ images: ["u/p1/a.png", "u/p1/b.png"] })));
   assert.deepEqual(removed, ["p1"]);
+  assert.deepEqual(gone, []);
   assert.deepEqual(logs, []);
+});
+
+test("a failed row delete keeps the Zotero item and every image (P2-173, P2-190)", async () => {
+  const touched: string[] = [];
+  const deps = {
+    bibliography: { removeRemotePaper: async (key: string) => void touched.push(key) } as never,
+    images: { remove: async (path: string) => void touched.push(path) },
+    updatePaper: { remove: async () => { throw new Error("disk full"); } } as never,
+    papers: {} as never,
+  };
+  const uc = new DeletePaperUseCase(deps);
+  await assert.rejects(() => uc.execute(paper({ zoteroKey: "ZK1", images: ["u/p1/a.png"] })), /disk full/);
+  assert.deepEqual(touched, []);
 });

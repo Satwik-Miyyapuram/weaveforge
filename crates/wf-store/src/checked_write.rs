@@ -207,13 +207,33 @@ impl Vault {
         written(&target, rel, text)
     }
 
+    /// [`Vault::write_file`] with a hook that runs before the swap, as in
+    /// [`Vault::write_checked_with_hook`]; tests use it to edit the file mid-write.
+    ///
+    /// # Errors
+    /// Refused paths, escapes, or any filesystem failure.
+    #[doc(hidden)]
+    pub fn write_file_with_hook(
+        &self,
+        rel: &str,
+        data: &[u8],
+        before_swap: &mut dyn FnMut(),
+    ) -> Result<(), VaultError> {
+        // `None` takes whatever is on disk now as the expected bytes, so a change landing
+        // while the write runs is kept as a conflict copy instead of being replaced. With no
+        // expected digest the write never reports `Changed`, so the outcome carries nothing.
+        self.write_checked_with_hook(rel, data, false, None, before_swap, &mut || {})
+            .map(drop)
+    }
+
     /// Move a file into the workspace trash; returns the trashed path, relative to the root.
     ///
     /// # Errors
     /// Refused paths, escapes, a missing file, or a failed move.
     pub fn delete_to_trash(&self, rel: &str) -> Result<String, VaultError> {
         let target = self.resolve(rel)?;
-        if !target.exists() {
+        // `symlink_metadata`, not `exists`: a dangling link is still a file the user can delete.
+        if fs::symlink_metadata(&target).is_err() {
             return Err(io_err(
                 "delete",
                 rel,
@@ -357,11 +377,11 @@ impl Vault {
 
     /// The first of `base`, `base-2`, `base-3`... that is not taken yet.
     fn free_path(&self, base: &str) -> Result<String, VaultError> {
-        for n in 1..=FREE_NAME_TRIES {
-            let candidate = numbered_path(base, n);
-            if !taken(&self.resolve(&candidate)?) {
-                return Ok(candidate);
-            }
+        let free = first_free(1..=FREE_NAME_TRIES, |n| {
+            Ok::<_, VaultError>(taken(&self.resolve(&numbered_path(base, n))?))
+        })?;
+        if let Some(n) = free {
+            return Ok(numbered_path(base, n));
         }
         Err(io_err(
             "create",
@@ -398,11 +418,19 @@ impl Vault {
             let _ = fs::remove_file(prev);
             return;
         }
-        let Ok(copy) = self.free_path(&conflict_copy_path(rel, &compact_stamp(now_ms()))) else {
-            return;
-        };
-        if let Ok(dest) = self.resolve(&copy) {
-            let _ = copy_prev_to(prev, &dest);
+        let outcome = self
+            .free_path(&conflict_copy_path(rel, &compact_stamp(now_ms())))
+            .and_then(|copy| self.resolve(&copy))
+            .map_err(|error| error.to_string())
+            .and_then(|dest| copy_prev_to(prev, &dest).map_err(|error| error.to_string()));
+        if let Err(error) = outcome {
+            // The `.wfprev` stays, so the replaced bytes are still on disk. Say so rather than
+            // drop the failure.
+            eprintln!(
+                "wf-store: could not keep the replaced bytes of {rel} as a conflict copy; \
+                 they remain in {}: {error}",
+                prev.display()
+            );
         }
     }
 }
@@ -410,15 +438,80 @@ impl Vault {
 /// Write a real copy of `prev` to the new file `dest`, then remove `prev`. A copy is never a hard
 /// link, so changing one of the two files cannot change the other.
 fn copy_prev_to(prev: &Path, dest: &Path) -> io::Result<()> {
+    copy_prev_with(prev, dest, fs::File::sync_all)
+}
+
+/// `copy_prev_to` with the step that finishes the copy (the fsync) passed in. When writing or
+/// finishing fails, the partial `dest` is removed and `prev` is kept, so no half copy is left
+/// behind as a conflict copy.
+fn copy_prev_with(
+    prev: &Path,
+    dest: &Path,
+    finish: impl FnOnce(&fs::File) -> io::Result<()>,
+) -> io::Result<()> {
     let bytes = fs::read(prev)?;
     let mut file = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(dest)?;
-    file.write_all(&bytes)?;
-    file.sync_all()?;
+    let copied = file.write_all(&bytes).and_then(|()| finish(&file));
     drop(file);
+    if let Err(error) = copied {
+        let _ = fs::remove_file(dest);
+        return Err(error);
+    }
     fs::remove_file(prev)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    /// A fresh directory under the system temp dir, unique per test run.
+    fn scratch(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "wf-copy-prev-{name}-{}-{nanos}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn copy_prev_copies_the_bytes_and_removes_prev() {
+        let dir = scratch("ok");
+        let prev = dir.join("file.md.wfprev");
+        let dest = dir.join("conflict.md");
+        fs::write(&prev, b"replaced bytes").unwrap();
+
+        copy_prev_to(&prev, &dest).unwrap();
+
+        assert_eq!(fs::read(&dest).unwrap(), b"replaced bytes");
+        assert!(!prev.exists());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_failed_finish_removes_the_partial_copy_and_keeps_prev() {
+        let dir = scratch("fail");
+        let prev = dir.join("file.md.wfprev");
+        let dest = dir.join("conflict.md");
+        fs::write(&prev, b"the only copy").unwrap();
+
+        let result = copy_prev_with(&prev, &dest, |_| {
+            Err(io::Error::other("injected sync failure"))
+        });
+
+        assert!(result.is_err());
+        assert!(!dest.exists(), "a partial conflict copy must not be left");
+        assert_eq!(fs::read(&prev).unwrap(), b"the only copy");
+        fs::remove_dir_all(&dir).unwrap();
+    }
 }
 
 /// The outcome of a write that put the new bytes at `target`, with their digest read back.
@@ -544,7 +637,28 @@ fn read_disk(target: &Path, rel: &str) -> Result<Option<Vec<u8>>, VaultError> {
 fn check_expected(disk: Option<&[u8]>, text: bool, expected: Option<&str>) -> Option<WriteOutcome> {
     let expected = expected?;
     let disk_hash = disk.map_or_else(String::new, |bytes| hash_of(bytes, text));
-    (disk_hash != expected).then_some(WriteOutcome::Changed { disk_hash })
+    (!may_replace(Some(expected), disk_hash.as_str()))
+        .then_some(WriteOutcome::Changed { disk_hash })
+}
+
+/// Law V1 (`docs/building/core/laws.md`): bytes on disk may be replaced only when the caller
+/// has seen them, or has asked for an unchecked write by expecting nothing.
+fn may_replace<T: PartialEq + ?Sized>(expected: Option<&T>, disk: &T) -> bool {
+    expected.is_none_or(|expected| expected == disk)
+}
+
+/// The first `n` in `candidates` that `is_taken` says is free, or `None` when all are taken.
+/// Law V4: trash, conflict-copy and `.wfprev` names come from here, so none lands on a file.
+fn first_free<E>(
+    candidates: impl IntoIterator<Item = u32>,
+    mut is_taken: impl FnMut(u32) -> Result<bool, E>,
+) -> Result<Option<u32>, E> {
+    for n in candidates {
+        if !is_taken(n)? {
+            return Ok(Some(n));
+        }
+    }
+    Ok(None)
 }
 
 /// Write the new bytes to the temp file and fsync them.
@@ -575,16 +689,19 @@ fn make_prev(target: &Path) -> io::Result<Option<PathBuf>> {
 /// it is never overwritten.
 fn free_prev(target: &Path) -> io::Result<PathBuf> {
     let base: OsString = target.file_name().unwrap_or_default().to_owned();
-    for n in 0..FREE_NAME_TRIES {
+    let prev_name = |n: u32| {
         let mut name = base.clone();
         if n > 0 {
             name.push(format!(".{n}"));
         }
         name.push(PREV_SUFFIX);
-        let candidate = target.with_file_name(name);
-        if !taken(&candidate) {
-            return Ok(candidate);
-        }
+        target.with_file_name(name)
+    };
+    let free = first_free(0..FREE_NAME_TRIES, |n| {
+        Ok::<_, io::Error>(taken(&prev_name(n)))
+    })?;
+    if let Some(n) = free {
+        return Ok(prev_name(n));
     }
     Err(io::Error::new(
         io::ErrorKind::AlreadyExists,
@@ -672,8 +789,89 @@ fn is_stale_temp(entry: &fs::DirEntry, cutoff: SystemTime) -> bool {
         .is_ok_and(|modified| modified <= cutoff)
 }
 
+/// The laws on [`may_replace`] and [`first_free`], stated once and checked two ways:
+/// exhaustively over small inputs by `cargo test`, and for every input in the same bounds by
+/// Kani (`cargo kani -p wf-store`). See `docs/building/core/laws.md`.
+#[cfg(any(test, kani))]
+mod laws {
+    use super::{first_free, may_replace};
+
+    /// Law V1: with an expectation, replace exactly when it matches the disk; without one
+    /// (an unchecked write), always.
+    pub(super) fn check_may_replace(expected: Option<u8>, disk: u8) {
+        let allowed = may_replace(expected.as_ref(), &disk);
+        match expected {
+            Some(seen) => assert_eq!(allowed, seen == disk),
+            None => assert!(allowed),
+        }
+    }
+
+    /// Law V4: the chosen name is in range and free, every earlier one is taken, and `None`
+    /// means every candidate was taken. `taken` holds one bit per candidate number below 16.
+    pub(super) fn check_first_free(taken: u16, start: u32, tries: u32) {
+        let is_taken = |n: u32| n < 16 && taken & (1u16 << n) != 0;
+        let end = start + tries;
+        let chosen = first_free(start..end, |n| Ok::<_, ()>(is_taken(n)));
+        assert!(chosen.is_ok(), "the predicate never fails");
+        if let Ok(Some(n)) = chosen {
+            assert!((start..end).contains(&n));
+            assert!(!is_taken(n));
+            assert!((start..n).all(is_taken));
+        } else {
+            assert!((start..end).all(is_taken));
+        }
+    }
+}
+
 #[cfg(test)]
-mod tests {
+mod law_tests {
+    use super::laws::{check_first_free, check_may_replace};
+
+    #[test]
+    fn may_replace_only_seen_bytes_for_every_byte_pair() {
+        for disk in 0..=u8::MAX {
+            check_may_replace(None, disk);
+            for seen in 0..=u8::MAX {
+                check_may_replace(Some(seen), disk);
+            }
+        }
+    }
+
+    #[test]
+    fn free_name_is_never_taken_for_every_taken_set() {
+        for taken in 0..=u16::MAX {
+            for start in 0..=1 {
+                for tries in 0..=15 {
+                    check_first_free(taken, start, tries);
+                }
+            }
+        }
+    }
+}
+
+/// Kani proofs of the same laws for every input; `cargo` never builds them. Run with
+/// `cargo kani -p wf-store`.
+#[cfg(kani)]
+mod proofs {
+    use super::laws::{check_first_free, check_may_replace};
+
+    #[kani::proof]
+    fn may_replace_only_seen_bytes() {
+        check_may_replace(kani::any(), kani::any());
+    }
+
+    #[kani::proof]
+    #[kani::unwind(17)]
+    fn free_name_is_never_taken() {
+        let start: u32 = kani::any();
+        let tries: u32 = kani::any();
+        kani::assume(start <= 1 && tries <= 15);
+        check_first_free(kani::any(), start, tries);
+    }
+}
+
+#[cfg(test)]
+mod move_tests {
     use super::move_without_replace;
     use std::fs;
 

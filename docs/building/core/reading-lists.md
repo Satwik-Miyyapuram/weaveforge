@@ -19,7 +19,7 @@ Each file under `crates/wf-core/src/reading_lists/` covers one job:
 - `name_filter.rs`: whether a list name contains a search needle, ignoring case. The decision to filter stays with the caller.
 - `extraction_keys.rs`: the extraction-table pending-fill cell key (`paperId::fieldId`) and the relation cell title text, with an unknown id shown as itself.
 - `extraction_rows.rs`: which listed papers still exist, de-duplicated in list order, each with its values (`flatten_paper_rows`).
-- `list_file.rs`: screening decisions kept in the reading-list file itself (files-first). The `items` field of the list's frontmatter holds one entry per decision, written as one-line JSON (`id`, `item`, `reviewer`, `stage`, `decision`, `reason`, `added`, `missing`). It reads and writes those entries, records and removes a decision, marks entries whose paper left the library as `missing` (never dropping them), and picks the decision that counts per item, reviewer and stage (the latest `added`). A file whose `wf` version is newer than this app is read but never written.
+- `list_file.rs`: screening decisions kept in the reading-list file itself (files-first). The `items` field of the list's frontmatter holds one entry per decision, written as one-line JSON (`id`, `item`, `reviewer`, `stage`, `decision`, `reason`, `added`, `missing`). `item` names the paper as a `[[link]]` to its note, never by id; an entry or a new decision whose `item` is not a link is refused. Links to the same note count as one item (`item_key`: alias, heading, block and `.md` dropped, case ignored). It reads and writes those entries, records and removes a decision, marks entries whose paper left the library as `missing` (never dropping them), and picks the decision that counts per item, reviewer and stage (the latest `added`). A file whose `wf` version is newer than this app is read but never written.
 
 ## How the app calls it
 
@@ -46,7 +46,10 @@ core has loaded.
 is the files-first screening repository. It finds the list file that holds an
 item, calls the exports above, and writes the file back with the hash it read,
 so a file changed on disk in between is not overwritten. It reaches the files
-through a small port (`ListFilesPort`).
+through a small port (`ListFilesPort`). The app asks by item id, so the port
+turns an id into the `[[link]]` to its paper note (`linkForItem`) and a link
+back into the item it resolves to (`itemForLink`); the file only ever holds the
+link. An item without a paper note cannot be screened in a file.
 
 ## Laws
 
@@ -63,8 +66,10 @@ run on random decisions (reasons with quotes, newlines and U+2028 included).
   (`law_mark_missing_keeps_decisions`).
 
 Named cases in the same file cover an empty list, a file with no version, a
-newer-format file (read, never written) and a damaged entry (refused, not
-dropped). They also check that a write changes only the `items` block (adding
+newer-format file (read, never written), a damaged entry (refused, not
+dropped) and an entry naming its paper by id (refused,
+`an_entry_names_its_paper_by_link_not_by_id`). Links with another case, alias
+or heading count as the same paper (`links_to_the_same_note_are_one_item`). They also check that a write changes only the `items` block (adding
 `wf: 3` when missing): spaced keys, comments, block scalars, nested maps and
 CRLF line ends stay byte for byte (`obsidian_properties_survive_every_write`,
 `crlf_list_file_stays_crlf`). Times compare as instants, so `10:00:00.500Z`

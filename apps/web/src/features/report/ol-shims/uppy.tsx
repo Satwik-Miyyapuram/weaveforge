@@ -129,10 +129,13 @@ export class Uppy<_Meta = any, _Body = any> {
   }
 
   async upload(): Promise<UploadResult> {
-    const waiting = this.getFiles().filter(f => !f.progress.uploadComplete)
+    // Skip files another upload() already holds: with autoProceed each addFile starts one (P2-222).
+    const waiting = this.getFiles().filter(f => !f.progress.uploadStarted && !f.progress.uploadComplete)
     if (this.options.onBeforeUpload?.(this.record()) === false) {
       throw new Error('Not starting the upload because onBeforeUpload returned false')
     }
+    // Claimed before the first await, so a concurrent upload() cannot pick them too.
+    for (const f of waiting) this.setFileState(f.id, { progress: { ...f.progress, uploadStarted: Date.now() } })
     this.emit('upload', { id: `upload-${nextId}`, fileIDs: waiting.map(f => f.id) })
     const result: UploadResult = { successful: [], failed: [] }
     for (const queued of waiting) {
@@ -204,7 +207,12 @@ export class Uppy<_Meta = any, _Body = any> {
       }
       throw new Error(body.error || `Upload failed (${res.status})`)
     } catch (error) {
-      this.setFileState(file.id, { error: String((error as Error).message ?? error) })
+      // Released again, so the next upload() retries it.
+      const failed = this.files.get(file.id) ?? file
+      this.setFileState(file.id, {
+        error: String((error as Error).message ?? error),
+        progress: { ...failed.progress, uploadStarted: null },
+      })
       this.emit('upload-error', this.files.get(file.id) ?? file, error, response)
       return false
     }

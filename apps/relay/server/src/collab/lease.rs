@@ -105,6 +105,16 @@ impl LeaseBook {
         ours
     }
 
+    /// Clears the lease if `user` holds it, on any device; true when cleared.
+    #[must_use]
+    pub fn release_user(&mut self, user: &str) -> bool {
+        let ours = self.current.as_ref().is_some_and(|held| held.user == user);
+        if ours {
+            self.current = None;
+        }
+        ours
+    }
+
     /// The holder while its lease is still live at `now_ms`.
     #[must_use]
     pub fn live_holder(&self, now_ms: i64) -> Option<&Lease> {

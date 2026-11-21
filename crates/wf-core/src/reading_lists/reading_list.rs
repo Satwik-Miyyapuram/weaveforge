@@ -118,16 +118,26 @@ pub fn build_list_tree(lists: &[ReadingList]) -> Vec<ReadingListTreeNode> {
 #[must_use]
 pub fn deepest_first_list_ids(list_id: &str, lists: &[ReadingList]) -> Vec<String> {
     let mut ids = Vec::new();
-    push_deepest_first(list_id, lists, &mut ids);
+    let mut seen = HashSet::new();
+    push_deepest_first(list_id, lists, &mut seen, &mut ids);
     ids
 }
 
-fn push_deepest_first(id: &str, lists: &[ReadingList], ids: &mut Vec<String>) {
+/// `seen` stops a parent cycle in hand-edited lists from recursing forever.
+fn push_deepest_first<'a>(
+    id: &'a str,
+    lists: &'a [ReadingList],
+    seen: &mut HashSet<&'a str>,
+    ids: &mut Vec<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
     for child in lists
         .iter()
         .filter(|list| list.parent_id.as_deref() == Some(id))
     {
-        push_deepest_first(&child.id, lists, ids);
+        push_deepest_first(&child.id, lists, seen, ids);
     }
     ids.push(id.to_owned());
 }
@@ -296,6 +306,17 @@ mod tests {
             vec!["a1", "a", "b", "root"]
         );
         assert_eq!(deepest_first_list_ids("other", &lists), vec!["other"]);
+    }
+
+    #[test]
+    fn deepest_first_stops_at_a_parent_cycle() {
+        let lists = vec![
+            list("a", Some("b"), 0.0, "A"),
+            list("b", Some("a"), 0.0, "B"),
+            list("c", Some("c"), 0.0, "C"),
+        ];
+        assert_eq!(deepest_first_list_ids("a", &lists), vec!["b", "a"]);
+        assert_eq!(deepest_first_list_ids("c", &lists), vec!["c"]);
     }
 
     #[test]

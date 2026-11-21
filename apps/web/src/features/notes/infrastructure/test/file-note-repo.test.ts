@@ -120,15 +120,22 @@ test("list filters by parent and by query; titleTaken ignores case and the page 
   assert.equal(await repo.titleTaken("Gamma"), false);
 });
 
-test("a save keeps unknown fields and the path; delete removes the file", async () => {
+test("a save keeps unknown fields and the path; delete moves the file to the trash", async () => {
   const { fs, repo } = setup();
   const path = "thesis/notes/old--q.note.md";
   await fs.writeFile(path, "---\nweaveforge-id: n-1\nweaveforge-type: vault_page\ntitle: Old\ntags: [x]\n---\nold\n");
   await repo.save(page({ title: "New" }));
   assert.deepEqual(await files(fs), [path]);
   assert.match(await fs.readText(path), /tags:/);
+  const text = await fs.readText(path);
   await repo.delete("n-1");
-  assert.deepEqual(await files(fs), []);
+  assert.equal(await fs.stat(path), null, "the note left its folder");
+  assert.equal(await repo.getById("n-1"), null);
+  // P1-3: a deleted note is recoverable, as a deleted paper is.
+  const trash: string[] = [];
+  for await (const entry of fs.walk(".weaveforge/trash")) trash.push(entry.path);
+  assert.equal(trash.length, 1, trash.join(", "));
+  assert.equal(await fs.readText(trash[0]!), text);
 });
 
 test("a file changed between read and write is not overwritten", async () => {

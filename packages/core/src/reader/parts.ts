@@ -160,6 +160,12 @@ export interface ReaderAnnotationSyncRecord {
   /** Zotero's version for that item, for the next update's version guard. */
   zoteroVersion: number | null;
   syncState: AnnotationSyncState;
+  /**
+   * The row's `updatedAt` when it was sent. If the row was edited since, the
+   * key and version are still kept but `syncState` is left as it is, so the
+   * edit stays owed to Zotero instead of being marked synced unsent.
+   */
+  ifUpdatedAt?: string;
 }
 
 /**
@@ -513,6 +519,12 @@ export interface IPdfByteCache {
    * `clear()` is too blunt to use for one bad document.
    */
   remove(key: string): Promise<void>;
+  /**
+   * Drop a cached copy that will not open. Unlike `remove`, a store whose
+   * bytes are the user's own file (the workspace folder) keeps them: a render
+   * failure must never delete the only copy.
+   */
+  evict(key: string): Promise<void>;
   clear(): Promise<void>;
   /** Approximate entry count — for tests / diagnostics. */
   size(): Promise<number>;
@@ -556,6 +568,10 @@ export class InMemoryPdfByteCache implements IPdfByteCache {
 
   async remove(key: string): Promise<void> {
     this.map.delete(key);
+  }
+
+  evict(key: string): Promise<void> {
+    return this.remove(key);
   }
 
   async clear(): Promise<void> {

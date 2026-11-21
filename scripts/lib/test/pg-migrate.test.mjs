@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { copyTable, cutoverVerdict, rowFingerprintSql, silenceTriggers, tableLoadOrder } from "../pg-migrate.mjs";
+import { copyTable, cutoverVerdict, hasAnyRows, rowFingerprintSql, silenceTriggers, tableLoadOrder } from "../pg-migrate.mjs";
 
 /** A pg client that knows two columns, a primary key, and a cursor over `rows`. */
 function fakeClient(rows = []) {
@@ -62,6 +62,28 @@ test("copyTable rolls the source back when an insert fails (41-08)", async () =>
   await assert.rejects(copyTable(source, target, "papers"), /boom/);
   assert.ok(source.sql.some((q) => /^\s*rollback/i.test(q)));
   assert.ok(!source.sql.some((q) => /^\s*commit/i.test(q)));
+});
+
+/** A client like `fakeClient` whose table has no primary key. */
+function withoutPrimaryKey(client) {
+  const query = client.query;
+  client.query = async (text, values) => (text.includes("pg_index") ? { rows: [] } : query(text, values));
+  return client;
+}
+
+test("copyTable copies a table without a primary key into an empty target", async () => {
+  const source = withoutPrimaryKey(fakeClient([{ id: 1, name: "a" }]));
+  const target = withoutPrimaryKey(fakeClient());
+  const out = await copyTable(source, target, "events");
+  assert.equal(out.copied, 1);
+});
+
+test("copyTable refuses to copy a table without a primary key twice, which would duplicate it", async () => {
+  const source = withoutPrimaryKey(fakeClient([{ id: 1, name: "a" }]));
+  const target = withoutPrimaryKey(fakeClient([{ present: true }]));
+  await assert.rejects(copyTable(source, target, "events"), /no primary key/);
+  assert.equal(target.sql.filter((q) => /^\s*insert /i.test(q)).length, 0);
+  assert.ok(!source.sql.some((q) => /^\s*declare /i.test(q)), "the source was never read");
 });
 
 /** A real Postgres in memory, when the desktop workspace has installed one. */
@@ -157,4 +179,18 @@ test("cutoverVerdict: safe only when nothing failed and isolation was probed", (
   assert.match(unprobed.message, /not probed/);
   assert.equal(cutoverVerdict(2, true).ok, false);
   assert.match(cutoverVerdict(2, false).message, /2 check\(s\) failed/);
+});
+
+test("hasAnyRows probes the tables, not the n_live_tup statistic (P2-101)", async () => {
+  // Right after a restore n_live_tup reads 0 on every table; only a probe sees the rows.
+  const client = (filled) => ({
+    async query(text) {
+      if (text.includes("pg_tables")) return { rows: [{ tablename: "a" }, { tablename: "b" }] };
+      if (text.includes("n_live_tup")) return { rows: [{ rows: 0 }] };
+      const table = /from "public"\."(\w+)"/.exec(text)?.[1];
+      return { rows: [{ present: table === filled }] };
+    },
+  });
+  assert.equal(await hasAnyRows(client("b")), true);
+  assert.equal(await hasAnyRows(client(null)), false);
 });

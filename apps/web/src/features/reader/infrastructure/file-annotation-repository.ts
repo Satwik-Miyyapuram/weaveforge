@@ -17,8 +17,10 @@ const DEFAULT_COLOR = "#ffd400";
 type Row = Record<string, unknown>;
 
 /**
- * A paper's reader annotations as one workspace file (files-first L2):
- * the sidecar of the paper's PDF (`x.pdf` -> `x.annotations.json`). No database.
+ * A paper's reader annotations as one workspace file (files-first L2): the sidecar
+ * next to the paper file, under its name (`x.paper.md` -> `x.annotations.json`).
+ * No database, and no id in the path: `paperFileOf` gives the paper's file, so a
+ * paper renamed in another editor keeps its annotations when the sidecar moves with it.
  *
  * Every change reads the file, applies itself to what is there and writes only if
  * the file is still what it read (`writeTextIf`); otherwise it reads again and
@@ -30,10 +32,13 @@ export class FileReaderAnnotationRepository implements IReaderAnnotationSource, 
   constructor(
     private readonly fs: IWorkspaceFs,
     private readonly projectRoot: string,
+    private readonly paperFileOf: (paperId: string) => Promise<string | null>,
   ) {}
 
   async list(paperId: string): Promise<ReaderAnnotation[]> {
-    const { rows } = await this.read(this.path(paperId));
+    const path = await this.path(paperId);
+    if (!path) return [];
+    const { rows } = await this.read(path);
     return (rows as unknown as ReaderAnnotation[]).sort((a, b) =>
       String(a.sortIndex).localeCompare(String(b.sortIndex)),
     );
@@ -60,7 +65,9 @@ export class FileReaderAnnotationRepository implements IReaderAnnotationSource, 
       updatedAt: now,
       syncState: "local",
     };
-    await this.change(this.path(paperId), (rows) => {
+    const path = await this.path(paperId);
+    if (!path) throw new NotFoundError(`Paper ${paperId} not found`);
+    await this.change(path, (rows) => {
       if (rows.some((row) => row.id === annotation.id)) {
         throw new ConflictError(`Annotation ${annotation.id} already exists`);
       }
@@ -100,8 +107,10 @@ export class FileReaderAnnotationRepository implements IReaderAnnotationSource, 
     if (path) await this.change(path, (rows) => rows.filter((row) => row.id !== id));
   }
 
-  private path(paperId: string): string {
-    return typedCore().annotationsFilePath(paperId, this.projectRoot);
+  /** The sidecar of the paper's file, or null when no file holds that paper. */
+  private async path(paperId: string): Promise<string | null> {
+    const paperPath = await this.paperFileOf(paperId);
+    return paperPath ? typedCore().annotationsFilePath(paperPath) : null;
   }
 
   /**
@@ -134,8 +143,7 @@ export class FileReaderAnnotationRepository implements IReaderAnnotationSource, 
 
   /** The annotations file that holds `id`, if any; refuses when more than one does. */
   private async pathOf(id: string): Promise<string | null> {
-    const sample = this.path("x");
-    const dir = sample.slice(0, sample.lastIndexOf("/"));
+    const dir = typedCore().entityDir("paper", this.projectRoot);
     if (!(await this.fs.stat(dir))) return null;
     const paths: string[] = [];
     for await (const entry of this.fs.walk(dir)) {

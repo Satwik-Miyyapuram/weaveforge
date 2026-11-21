@@ -70,6 +70,8 @@ export function ShareLinkPanel({
     setError(null);
     try {
       await getContainer().sharing.revokeShareLink({ id });
+      // The copy-now URL may be the one just revoked: never leave a dead link showing (P2-246).
+      setCreatedUrl(null);
       await reload();
     } catch (e) {
       setError(formatError(e));

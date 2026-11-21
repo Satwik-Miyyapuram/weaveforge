@@ -221,3 +221,26 @@ test("creates and updates in one push are routed to the right verbs", async () =
   );
   assert.deepEqual(calls.map((c) => c.method).sort(), ["PATCH", "POST"]);
 });
+
+test("120 new annotations go to Zotero in chunks of at most 50 (P2-175)", async () => {
+  // Zotero's write API takes at most 50 objects per request.
+  const calls: Call[] = [];
+  const client = new ZoteroApiAnnotationWriteBack(
+    CREDS,
+    stub(calls, (call) => {
+      const items = call.body as unknown[];
+      if (items.length > 50) return { status: 413, body: "Too many" };
+      const successful = Object.fromEntries(items.map((_, i) => [String(i), { key: `K${calls.length}-${i}`, version: 9 }]));
+      return { body: { successful }, version: "9" };
+    }),
+  );
+  const anns = Array.from({ length: 120 }, (_, i) => ann({ id: `local-${i}` }));
+  const result = await client.push("ATTACH01", anns, { live: true });
+
+  assert.deepEqual(calls.map((c) => (c.body as unknown[]).length), [50, 50, 20]);
+  const tokens = new Set(calls.map((c) => c.headers["Zotero-Write-Token"]));
+  assert.equal(tokens.size, 3, "each chunk carries its own write token");
+  assert.equal(result.results.length, 120);
+  assert.ok(result.results.every((r) => r.outcome === "created"));
+  assert.deepEqual(result.results.map((r) => r.id), anns.map((a) => a.id));
+});

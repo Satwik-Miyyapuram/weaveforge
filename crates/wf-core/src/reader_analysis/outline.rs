@@ -7,7 +7,6 @@
 // Lengths and indices stay far below 2^53, so `usize` to `f64` is exact.
 #![allow(clippy::cast_precision_loss)]
 
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
@@ -226,10 +225,7 @@ pub fn body_font_size(pages: &[Vec<OutlineTextItem>]) -> f64 {
         counts.entry(size.to_bits()).or_insert((size, 0)).1 += 1;
     }
     let mut ranked: Vec<(f64, usize)> = counts.into_values().collect();
-    ranked.sort_by(|a, b| {
-        b.1.cmp(&a.1)
-            .then(a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal))
-    });
+    ranked.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.total_cmp(&b.0)));
     ranked.first().map_or(0.0, |&(size, _)| size)
 }
 
@@ -516,7 +512,7 @@ pub fn outline_from_text(all_pages: &[Vec<OutlineTextItem>]) -> Vec<OutlineReade
             sizes.push(heading.font_size);
         }
     }
-    sizes.sort_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
+    sizes.sort_by(|a, b| b.total_cmp(a));
 
     let mut roots: Vec<OutlineReaderItem> = Vec::new();
     let mut stack: Vec<(f64, OutlineReaderItem)> = Vec::new();

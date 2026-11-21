@@ -85,15 +85,15 @@ test("write is refused when another writer changes the file after the hash check
   assert.equal(await fs.readText("thesis/reading-lists/a.list.md"), other);
 });
 
-test("fileForItem returns null when no list holds the item", async () => {
+test("fileForLink returns null when no list holds the paper", async () => {
   const { port } = await setup({ "thesis/reading-lists/a.list.md": LIST });
-  assert.equal(await port.fileForItem("i1"), null);
+  assert.equal(await port.fileForLink("[[Paper 1]]"), null);
 });
 
-test("fileForItem finds the list holding an item that has an entry", async () => {
+test("fileForLink finds the list holding the paper, whatever the link's case or alias", async () => {
   const held = typedCore().recordInListFile(LIST, {
     id: "d1",
-    itemId: "i1",
+    itemId: "[[Paper 1]]",
     reviewerId: "ana",
     stage: "title_abstract",
     state: "excluded",
@@ -103,6 +103,17 @@ test("fileForItem finds the list holding an item that has an entry", async () =>
     "thesis/reading-lists/a.list.md": LIST,
     "thesis/reading-lists/b.list.md": held,
   });
-  assert.equal((await port.fileForItem("i1"))?.path, "thesis/reading-lists/b.list.md");
-  assert.equal(await port.fileForItem("i2"), null);
+  assert.equal((await port.fileForLink("[[Paper 1]]"))?.path, "thesis/reading-lists/b.list.md");
+  assert.equal((await port.fileForLink("[[paper 1|P1]]"))?.path, "thesis/reading-lists/b.list.md");
+  assert.equal(await port.fileForLink("[[Paper 2]]"), null);
+});
+
+test("an item's link is its paper note's name, and the link resolves back to the item", async () => {
+  const paper = typedCore().writePaperRow(null, { id: "i1", title: "Paper one" });
+  const { port } = await setup({ "thesis/papers/paper-one.paper.md": paper });
+  assert.equal(await port.linkForItem("i1"), "[[paper-one.paper]]");
+  assert.equal(await port.linkForItem("i2"), null);
+  assert.equal(await port.itemForLink("[[Paper-One.paper|alias]]"), "i1");
+  assert.equal(await port.itemForLink("[[other]]"), null);
+  assert.equal(await port.itemForLink("i1"), null);
 });

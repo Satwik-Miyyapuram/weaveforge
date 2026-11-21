@@ -29,7 +29,9 @@ pub struct VaultSearchHit {
     pub matches: Vec<VaultSearchMatch>,
 }
 
-/// Every file under `dir`, depth-first, up to `SEARCH_LIMIT`.
+/// Every markdown file under `dir`, depth-first, up to `SEARCH_LIMIT`.
+///
+/// Only `.md` files are kept, so PDFs and ink files cannot spend the cap before any note.
 pub fn walk_vault(session: &VaultSession, dir: &str, out: &mut Vec<String>) {
     if out.len() >= SEARCH_LIMIT {
         return;
@@ -53,7 +55,7 @@ pub fn walk_vault(session: &VaultSession, dir: &str, out: &mut Vec<String>) {
         }
         if entry.kind == EntryKindPayload::Dir {
             walk_vault(session, &entry.path, out);
-        } else {
+        } else if entry.path.ends_with(".md") {
             out.push(entry.path);
         }
     }

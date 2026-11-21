@@ -155,7 +155,8 @@ function LibraryTidyPanel({
   );
 }
 
-function TitleFixRow({
+/** @internal exported for tests */
+export function TitleFixRow({
   fix,
   onApplied,
 }: {
@@ -176,6 +177,8 @@ function TitleFixRow({
       .then((title) => {
         if (live && title) setValue((v) => v || title);
       })
+      // A failed lookup keeps the proposed title; the reader can type one (P2-193).
+      .catch(() => undefined)
       .finally(() => live && setLooking(false));
     return () => {
       live = false;
