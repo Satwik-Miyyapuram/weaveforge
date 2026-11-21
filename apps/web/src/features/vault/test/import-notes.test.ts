@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { importNotesFromFiles, type ImportVault } from "../application/parts";
 import { readyCore } from "@/lib/rust-core";
+import { zipSync } from "fflate";
 
 before(async () => {
   await loadTestCore();
@@ -100,4 +101,34 @@ test("Notes shows the drop zone on the list only, not over an open note or a sha
   const src = readFileSync(new URL("../ui/vault-screen/vault-screen.tsx", import.meta.url), "utf8");
   assert.match(src, /\{!selectedId && !isSharedView && \(\s*<FileDropZone/);
   assert.match(src, /onImportFiles\(files\.filter\(\(f\) => readyCore\(\)\.isNoteImportFile\(f\.name\)\)\)/);
+});
+
+/** A zip whose central directory claims each entry is `declared` bytes. */
+function zipDeclaring(entries: Record<string, string>, declared: number): File {
+  const bytes = zipSync(Object.fromEntries(Object.entries(entries).map(([k, v]) => [k, new TextEncoder().encode(v)])));
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  for (let i = 0; i + 4 <= bytes.length; i += 1) {
+    if (view.getUint32(i, true) === 0x02014b50) view.setUint32(i + 24, declared, true);
+  }
+  return new File([bytes], "vault.zip");
+}
+
+test("a zip whose declared sizes pass the import cap is refused and writes no note (P2-214)", async () => {
+  const fake = fakeVault();
+  // Each entry is under the file cap; together they pass the archive cap.
+  const notes = Object.fromEntries(Array.from({ length: 10 }, (_, i) => [`root/n${i}.md`, "x"]));
+  const zip = zipDeclaring(notes, 30 * 1024 * 1024);
+  await assert.rejects(importNotesFromFiles([zip], undefined, fake.vault), (err: Error) => {
+    assert.equal(err.name, "ImportLimitError");
+    assert.ok(err.message.length > 0, "the refusal says why");
+    return true;
+  });
+  assert.equal(fake.added.length, 0);
+});
+
+test("a zip within the cap still imports its notes (P2-214)", async () => {
+  const fake = fakeVault();
+  const zip = new File([zipSync({ "root/a.md": new TextEncoder().encode("a") })], "vault.zip");
+  const out = await importNotesFromFiles([zip], undefined, fake.vault);
+  assert.equal(out.created, 1);
 });
