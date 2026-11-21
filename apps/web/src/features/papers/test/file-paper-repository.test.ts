@@ -35,8 +35,9 @@ function setup() {
 
 async function onlyFile(fs: MemoryWorkspaceFs): Promise<string> {
   const paths: string[] = [];
-  for await (const entry of fs.walk(`${ROOT}/papers`)) paths.push(entry.path);
-  assert.equal(paths.length, 1, `one file, got ${paths.join(", ")}`);
+  // Only paper files: a test may also put a PDF under papers/pdf/.
+  for await (const entry of fs.walk(`${ROOT}/papers`)) if (entry.path.endsWith(".paper.md")) paths.push(entry.path);
+  assert.equal(paths.length, 1, `one paper file, got ${paths.join(", ")}`);
   return paths[0]!;
 }
 
@@ -129,8 +130,8 @@ test("deleting the same path twice keeps both copies in the trash", async () => 
   assert.equal(copies.length, 2, copies.join(", "));
   assert.ok(copies.some((c) => c.endsWith("-2.paper.md")), copies.join(", "));
   const texts = await Promise.all(copies.map((c) => fs.readText(c)));
-  assert.ok(texts.some((t) => t.includes("summary: first")));
-  assert.ok(texts.some((t) => t.includes("summary: second")));
+  assert.ok(texts.some((t) => /summary: "?first"?\n/.test(t)));
+  assert.ok(texts.some((t) => /summary: "?second"?\n/.test(t)));
 });
 
 test("two files with one id: every write is refused and neither file changes", async () => {
