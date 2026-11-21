@@ -326,17 +326,14 @@ async fn metrics(
         if id.is_empty() {
             return bad(400, "Missing experiment_id.");
         }
-        // The server copy is cleared by the renderer's push before new points go.
-        let statements = [
-            "delete from experiment_metric_points where experiment_id = $1",
-            "delete from experiment_metric_chunks where experiment_id = $1",
-            "delete from local_metric_pushes where experiment_id = $1",
-            "insert into local_metric_resets (experiment_id) values ($1) on conflict do nothing",
-        ];
-        for sql in statements {
-            if let Err(message) = query.query(sql, vec![Value::String(id.clone())]).await {
-                return bad(500, &message);
-            }
+        // The server copy is cleared by the renderer's push before new points go. One
+        // statement, so a failure part way never leaves points cleared without the reset queued.
+        let sql = "with points as (delete from experiment_metric_points where experiment_id = $1), \
+                   chunks as (delete from experiment_metric_chunks where experiment_id = $1), \
+                   pushes as (delete from local_metric_pushes where experiment_id = $1) \
+                   insert into local_metric_resets (experiment_id) values ($1) on conflict do nothing";
+        if let Err(message) = query.query(sql, vec![Value::String(id)]).await {
+            return bad(500, &message);
         }
         return LocalApiResponse::json(200, &json!({ "ok": true }));
     }
@@ -785,20 +782,15 @@ mod tests {
         let db = FakeDb::new(vec![]);
         let response = answer(&db, "DELETE", "/api/sdk/metrics?experiment_id=exp-1", "");
         assert_eq!(response.status, 200);
+        // One statement, so the clears and the queued reset land together or not at all.
         let asked = db.asked();
-        assert_eq!(asked.len(), 4);
-        assert!(
-            asked[0]
-                .0
-                .contains("delete from experiment_metric_points where experiment_id = $1")
-        );
-        assert!(
-            asked[1]
-                .0
-                .contains("delete from experiment_metric_chunks where experiment_id = $1")
-        );
-        assert_eq!(asked[1].1, vec![json!("exp-1")]);
-        assert!(asked[3].0.contains("insert into local_metric_resets"));
+        assert_eq!(asked.len(), 1);
+        let sql = &asked[0].0;
+        assert!(sql.contains("delete from experiment_metric_points where experiment_id = $1"));
+        assert!(sql.contains("delete from experiment_metric_chunks where experiment_id = $1"));
+        assert!(sql.contains("delete from local_metric_pushes where experiment_id = $1"));
+        assert!(sql.contains("insert into local_metric_resets"));
+        assert_eq!(asked[0].1, vec![json!("exp-1")]);
     }
 
     #[test]
