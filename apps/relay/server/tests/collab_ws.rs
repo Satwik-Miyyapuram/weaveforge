@@ -1286,6 +1286,159 @@ async fn room_lock_is_free_while_a_save_is_in_flight() {
     assert!(acquired, "room lock was held across the store save");
 }
 
+/// Delegates to a `MemoryStore`; while `gate` is set, `access` announces itself on `entered`
+/// and waits for `release`.
+struct GatedAccess {
+    inner: Arc<MemoryStore>,
+    gate: AtomicBool,
+    entered: tokio::sync::Notify,
+    release: tokio::sync::Notify,
+}
+
+impl SharedDocStore for GatedAccess {
+    fn load<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<Option<DocRow>, String>> {
+        self.inner.load(item_id)
+    }
+    fn seed<'a>(&'a self, row: &'a DocRow) -> BoxFut<'a, Result<(), String>> {
+        self.inner.seed(row)
+    }
+    fn save_state<'a>(
+        &'a self,
+        item_id: &'a str,
+        epoch: i64,
+        state: &'a [u8],
+    ) -> BoxFut<'a, Result<(), String>> {
+        self.inner.save_state(item_id, epoch, state)
+    }
+    fn replace_state<'a>(
+        &'a self,
+        item_id: &'a str,
+        kind: &'a str,
+        state: &'a [u8],
+    ) -> BoxFut<'a, Result<i64, String>> {
+        self.inner.replace_state(item_id, kind, state)
+    }
+    fn set_status<'a>(
+        &'a self,
+        item_id: &'a str,
+        status: DocStatus,
+    ) -> BoxFut<'a, Result<(), String>> {
+        self.inner.set_status(item_id, status)
+    }
+    fn set_writer<'a>(
+        &'a self,
+        item_id: &'a str,
+        device: Option<&'a str>,
+        until_ms: Option<i64>,
+    ) -> BoxFut<'a, Result<(), String>> {
+        self.inner.set_writer(item_id, device, until_ms)
+    }
+    fn delete<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
+        self.inner.delete(item_id)
+    }
+    fn access<'a>(
+        &'a self,
+        item_id: &'a str,
+        user: &'a str,
+    ) -> BoxFut<'a, Result<Option<Permission>, String>> {
+        Box::pin(async move {
+            if self.gate.load(Ordering::SeqCst) {
+                self.entered.notify_one();
+                self.release.notified().await;
+            }
+            self.inner.access(item_id, user).await
+        })
+    }
+    fn create_grant<'a>(&'a self, grant: &'a NewGrant) -> BoxFut<'a, Result<GrantRow, String>> {
+        self.inner.create_grant(grant)
+    }
+    fn list_grants<'a>(
+        &'a self,
+        owner: &'a str,
+        target_id: Option<&'a str>,
+    ) -> BoxFut<'a, Result<Vec<GrantRow>, String>> {
+        self.inner.list_grants(owner, target_id)
+    }
+    fn revoke_grant<'a>(
+        &'a self,
+        owner: &'a str,
+        id: &'a str,
+    ) -> BoxFut<'a, Result<Option<String>, String>> {
+        self.inner.revoke_grant(owner, id)
+    }
+    fn revoke_item_grants<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
+        self.inner.revoke_item_grants(item_id)
+    }
+}
+
+/// An update whose grant check is still running when the owner restores must not reach the
+/// restored doc: not through the old room, and not through the shared log file.
+#[tokio::test]
+async fn update_racing_a_restore_is_refused() {
+    let dir = TempDir::new("restore-race");
+    let mem = Arc::new(MemoryStore::new());
+    seed(&mem, ITEM, text_update("v1")).await;
+    let store = Arc::new(GatedAccess {
+        inner: mem.clone(),
+        gate: AtomicBool::new(false),
+        entered: tokio::sync::Notify::new(),
+        release: tokio::sync::Notify::new(),
+    });
+    let relay = Relay::start(dir.path(), store.clone(), Duration::from_secs(3600)).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+
+    // The update passes the room check, then waits in its grant check while the restore runs.
+    store.gate.store(true, Ordering::SeqCst);
+    send_frame(&mut owner, update_frame(map_update("late", "x"))).await;
+    tokio::time::timeout(RECV, store.entered.notified())
+        .await
+        .expect("grant check started");
+    store.gate.store(false, Ordering::SeqCst);
+    let restored = text_update("restored");
+    let epoch = hub::restore(&relay.state, ITEM, "canvas", &restored)
+        .await
+        .expect("restore");
+    assert_eq!(epoch, 2);
+    store.release.notify_one();
+
+    let mut denied = None;
+    while let Some(text) = recv_text(&mut owner).await {
+        let value: Value = serde_json::from_str(&text).expect("json frame");
+        if value["type"] == "denied" {
+            denied = Some(value["reason"].clone());
+            break;
+        }
+    }
+    assert_eq!(
+        denied,
+        Some(json!("stale")),
+        "the late update was not refused"
+    );
+
+    let log = log_path(dir.path(), ITEM).expect("log path");
+    let logged = std::fs::metadata(&log).map_or(0, |meta| meta.len());
+    assert_eq!(logged, 0, "the late update reached the log");
+
+    let mut fresh = join(relay.port, ITEM, OWNER_TOKEN, "?epoch=2&format=1")
+        .await
+        .expect("fresh client joins");
+    assert_eq!(expect_json(&mut fresh, "hello").await["epoch"], 2);
+    let room = relay.state.hub.get(ITEM).expect("fresh room");
+    let inner = room.inner.lock().await;
+    let txn = inner.doc.transact();
+    assert_eq!(
+        txn.encode_state_as_update_v1(&StateVector::default()),
+        decode(&restored)
+            .transact()
+            .encode_state_as_update_v1(&StateVector::default()),
+        "the fresh room is not the restored doc"
+    );
+}
+
 #[tokio::test]
 async fn ws_grant_check_failure_closes_socket() {
     let dir = TempDir::new("fail-closed");

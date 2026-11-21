@@ -68,6 +68,8 @@ pub struct RoomInner {
     pub log: UpdateLog,
     /// How many clients are connected.
     pub clients: usize,
+    /// Set when a restore replaced this room: it takes no more updates (its log is the new room's).
+    pub retired: bool,
 }
 
 /// One open shared document, shared by every client that joined it.
@@ -253,6 +255,7 @@ pub async fn open_room(state: &CollabState, row: DocRow) -> Result<Arc<Room>, St
         lease: LeaseBook::new(state.config.lease_ms),
         log,
         clients: 0,
+        retired: false,
     };
     let room = Arc::new(Room {
         item_id,
@@ -416,13 +419,16 @@ pub async fn restore(
 ) -> Result<i64, String> {
     let new_epoch = state.store.replace_state(item_id, kind, bytes).await?;
     if let Some(room) = state.hub.get(item_id) {
+        // One critical section: an update applied after it sees `retired` and is refused, so
+        // nothing reaches the log the next room replays.
         let cleared = {
             let mut inner = room.inner.lock().await;
             let cleared = inner.log.truncate().map_err(|err| err.to_string());
             inner.dirty = false;
+            inner.retired = true;
+            state.hub.remove_if_same(&room);
             cleared
         };
-        state.hub.remove_if_same(&room);
         room.send(Event::Close(rejoin_json(new_epoch)));
         cleared?;
     }

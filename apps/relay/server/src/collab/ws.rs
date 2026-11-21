@@ -400,12 +400,20 @@ async fn on_update(
             });
             true
         }
+        // A restore replaced the room while the grant was checked: leave, as the check above does.
+        Err("stale") => {
+            let _ = send_text(socket, protocol::denied_json("stale")).await;
+            false
+        }
         Err(reason) => send_text(socket, protocol::denied_json(reason)).await,
     }
 }
 
 /// Decodes, logs and applies one update; the reason string is what the client is told.
 fn apply_locked(inner: &mut RoomInner, update: &[u8]) -> Result<(), &'static str> {
+    if inner.retired {
+        return Err("stale");
+    }
     if inner.status == DocStatus::Closing {
         return Err("closing");
     }
