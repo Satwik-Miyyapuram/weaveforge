@@ -156,6 +156,26 @@ test("every folder operation runs inside the folder lock", async () => {
   assert.equal(outside, 0);
 });
 
+test("a note found once is found again by its name: one stat, no listing", async () => {
+  const fs = await folderWith({ [NOTE_PATH]: noteText(ID), "thesis--2a3407/notes/other.md": noteText("other") });
+  const calls: string[] = [];
+  const counted = new Proxy(fs, {
+    get(target, key, receiver) {
+      const value = Reflect.get(target, key, receiver);
+      if (typeof value !== "function" || !["stat", "list", "walk"].includes(String(key))) return value;
+      return (...args: unknown[]) => {
+        calls.push(String(key));
+        return value.apply(target, args);
+      };
+    },
+  });
+  const notes = new FolderInkNotes(() => counted, { report: () => {} });
+  assert.equal(await notes.pathOf(ID), NOTE_PATH);
+  calls.length = 0;
+  assert.equal(await notes.pathOf(ID), NOTE_PATH);
+  assert.deepEqual(calls, ["stat"]);
+});
+
 test("migration copies the old folder's pages and marker beside the note, checks them, and leaves the old folder as it was", async () => {
   const [a, b] = [typedCore().newInkChunkId(), typedCore().newInkChunkId()];
   const fs = await folderWith({
