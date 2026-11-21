@@ -724,6 +724,13 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       executors: aiProposalExecutors,
       newId: () => uuidIds.newId(),
       now: () => systemClock.nowIso(),
+      revisionSources: {
+        papers: paperRepository,
+        vaultPages: vaultPageRepository,
+        reportSections: reportSectionRepository,
+        milestones: milestoneRepository,
+        experiments: experimentRepository,
+      },
     }),
     org: new OrgFacade({
       members: backend.memberRepository,
