@@ -98,6 +98,33 @@ test("a write-back records the Zotero key, so the next sync updates instead of d
   assert.deepEqual(sent, [[created.id], [created.id]]);
 });
 
+test("an edit made while the push is in flight stays owed (P1-10)", async () => {
+  const repo = new InMemoryReaderAnnotationRepository();
+  const created = await repo.create("p1", {
+    type: "highlight", color: "#ffd400", anchor: { zoteroPosition: { pageIndex: 0 } }, pageIndex: 0,
+  });
+  const pusher: ZoteroAnnotationPusher = {
+    push: async (_parent, anns) => {
+      // The user edits the mark after it was read and before the push lands.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      await repo.update(created.id, { comment: "edited mid-push" });
+      return {
+        results: anns.map((a) => ({ id: a.id, outcome: "created" as const, zoteroKey: "ZNEW", zoteroVersion: 7 })),
+      };
+    },
+  };
+  await writeBackZoteroAnnotations({
+    papers: [paper("p1", "ATT1")],
+    attachmentOf: () => "ATT1",
+    annotations: repo,
+    pusher,
+  });
+  const [row] = await repo.list("p1");
+  assert.equal(row!.zoteroKey, "ZNEW");
+  assert.equal(row!.syncState, "pending");
+  assert.deepEqual(annotationsOwedToZotero([row!]).map((a) => a.id), [created.id]);
+});
+
 test("failures and conflicts are counted and reported, not swallowed", async () => {
   const repo = new InMemoryReaderAnnotationRepository();
   const a = await repo.create("p1", {

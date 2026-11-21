@@ -160,6 +160,11 @@ export interface ReaderAnnotationSyncRecord {
   /** Zotero's version for that item, for the next update's version guard. */
   zoteroVersion: number | null;
   syncState: AnnotationSyncState;
+  /**
+   * The `updatedAt` the push read. When the row changed since, only the key and
+   * version are recorded and the sync state stays owed.
+   */
+  ifUpdatedAt?: string;
 }
 
 /**

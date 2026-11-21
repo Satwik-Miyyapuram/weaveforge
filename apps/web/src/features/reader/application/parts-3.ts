@@ -467,6 +467,8 @@ export async function writeBackZoteroAnnotations(deps: {
           zoteroKey: r.zoteroKey,
           zoteroVersion: r.zoteroVersion ?? prior?.zoteroVersion ?? null,
           syncState,
+          // Guard on what the push read: an edit made mid-push stays owed (P1-10).
+          ...(prior ? { ifUpdatedAt: prior.updatedAt } : {}),
         });
       } catch (err) {
         fail(errorMessage(err));
