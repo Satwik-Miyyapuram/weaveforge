@@ -2,8 +2,8 @@
 //!
 //! Ported from `PostgrestLogEntryRepository` in
 //! `apps/web/src/features/logbook/infrastructure/parts.ts`. Rows map with
-//! [`to_domain`] and [`to_row`]. Bodies are end-to-end encrypted, so `bodyContains`
-//! has no server filter: the decrypting repository filters after the read.
+//! [`to_domain`] and [`to_row`]. `bodyContains` has no server filter: it is matched
+//! after the read.
 
 use serde::Deserialize;
 use serde_json::{Value, json};

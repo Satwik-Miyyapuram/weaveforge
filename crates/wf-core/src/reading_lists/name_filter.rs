@@ -1,6 +1,5 @@
 //! The reading-list name filter (TS `PostgrestReadingListRepository.list`, `nameContains`).
-//! Names are encrypted at rest, so the server cannot match them and the filter runs on the
-//! decrypted names. The TS keeps the decision to filter at all (a missing or empty `nameContains`
+//! The filter runs on the names the query returns, not on the server. The TS keeps the decision to filter at all (a missing or empty `nameContains`
 //! returns every list); this module is the per-name match.
 
 /// Whether `name` contains `needle`, ignoring case (TS `name.toLowerCase().includes(needle)`

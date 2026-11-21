@@ -3,8 +3,7 @@
 //! Ported from `PostgrestReadingListRepository` in
 //! `apps/web/src/features/reading-lists/infrastructure/parts.ts`. The row mapping is
 //! [`crate::reading_lists::list_row`] and the tree is [`build_list_tree`]. `nameContains`
-//! is matched here on the rows the query returns, as the TS does, because names are
-//! encrypted at rest and the server cannot match them.
+//! is matched here on the rows the query returns, as the TS does.
 
 use serde::Deserialize;
 use serde_json::{Value, json};
