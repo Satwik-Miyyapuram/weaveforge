@@ -129,7 +129,6 @@ fn move_after(
     tab: TabRef,
     after: impl Fn(&TabRef) -> bool,
 ) -> PaneLeaf {
-    let active = tab_at_leaf(leaf, leaf.active_index).cloned();
     let rest: Vec<TabRef> = leaf
         .tabs
         .iter()
@@ -146,12 +145,12 @@ fn move_after(
     let at_usize = at.clamp(0, rest.len() as i32) as usize;
     let mut tabs = rest.clone();
     tabs.insert(at_usize, tab);
+    // Follow the active tab by position, so a second copy of one tab stays the active one.
     let active_index = if leaf.active_index == from {
         at
     } else {
-        active
-            .and_then(|a| tabs.iter().position(|t| *t == a))
-            .map_or(0, |i| i as i32)
+        let in_rest = leaf.active_index - i32::from(leaf.active_index > from);
+        in_rest + i32::from(in_rest >= at_usize as i32)
     };
     PaneLeaf {
         tabs,
@@ -386,6 +385,32 @@ mod tests {
             .iter()
             .map(|r| (r.chip.as_ref().map(|c| c.id.clone()), r.hidden))
             .collect()
+    }
+
+    fn in_group(id: &str, group: &str) -> TabRef {
+        TabRef {
+            group: Some(group.to_owned()),
+            ..tab(id)
+        }
+    }
+
+    #[test]
+    fn the_second_copy_of_a_tab_stays_active_when_another_tab_moves() {
+        let leaf = PaneLeaf {
+            id: DEFAULT_PANE_ID.to_owned(),
+            tabs: vec![in_group("b", "g1"), tab("c"), tab("a"), tab("a")],
+            active_index: 3,
+            groups: Some(vec![group("g1", "", 1)]),
+        };
+        let joined = apply_group_command(
+            &leaf,
+            1,
+            &TabGroupCommand::Join {
+                id: "g1".to_owned(),
+            },
+        );
+        assert_eq!(joined.tabs[1], in_group("c", "g1"));
+        assert_eq!(joined.active_index, 3);
     }
 
     #[test]
