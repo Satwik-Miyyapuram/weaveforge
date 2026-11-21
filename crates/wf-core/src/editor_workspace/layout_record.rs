@@ -63,13 +63,20 @@ fn parse_node(value: &Value) -> Option<PaneNode> {
 fn parse_leaf(node: &Map<String, Value>) -> Option<PaneLeaf> {
     let id = node.get("id")?.as_str()?;
     let raw_tabs = node.get("tabs")?.as_array()?;
-    let tabs: Vec<TabRef> = raw_tabs.iter().filter_map(parse_tab).collect();
-    let last = (tabs.len() as f64 - 1.0).max(0.0);
+    let parsed: Vec<Option<TabRef>> = raw_tabs.iter().map(parse_tab).collect();
     let requested = node
         .get("activeIndex")
         .and_then(Value::as_f64)
         .unwrap_or(0.0);
-    let active_index = requested.clamp(0.0, last) as i32;
+    // The stored index counts tabs that did not parse; shift it past the dropped ones.
+    let dropped_before = parsed
+        .iter()
+        .take(requested.max(0.0) as usize)
+        .filter(|tab| tab.is_none())
+        .count() as f64;
+    let tabs: Vec<TabRef> = parsed.into_iter().flatten().collect();
+    let last = (tabs.len() as f64 - 1.0).max(0.0);
+    let active_index = (requested - dropped_before).clamp(0.0, last) as i32;
     let leaf = PaneLeaf {
         id: id.to_owned(),
         tabs,
@@ -329,6 +336,17 @@ mod tests {
                 ..tab("k", "i")
             })
         );
+    }
+
+    #[test]
+    fn the_active_tab_survives_dropped_tabs_before_it() {
+        let raw = r#"{"root":{"type":"leaf","id":"p","activeIndex":2,"tabs":[
+            7,{"kind":"k","id":"a"},{"kind":"k","id":"b"}]}}"#;
+        let PaneNode::Leaf(leaf) = layout_from_record(Some(raw)).root else {
+            panic!("expected a leaf root");
+        };
+        assert_eq!(leaf.active_index, 1);
+        assert_eq!(leaf.tabs[1].id, "b");
     }
 
     #[test]
