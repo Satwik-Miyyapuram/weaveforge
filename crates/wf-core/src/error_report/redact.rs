@@ -12,7 +12,7 @@ use serde::Serialize;
 pub const MAX_REPORT_CHARS: usize = 8_000;
 
 /// Rules in the order they run. Each replacement may reference group 1.
-const RULE_SOURCES: [(&str, &str); 9] = [
+const RULE_SOURCES: [(&str, &str); 10] = [
     // A JWT: three long base64url segments.
     (
         r#"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b"#,
@@ -25,7 +25,7 @@ const RULE_SOURCES: [(&str, &str); 9] = [
     ),
     // Provider key prefixes that identify themselves.
     (
-        r#"\b(sbp_|ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|xox[baprs]-)[A-Za-z0-9_-]{8,}"#,
+        r#"\b(sbp_|ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|glpat-|xox[baprs]-)[A-Za-z0-9_-]{8,}"#,
         "<key>",
     ),
     // `sk-` needs the length rule because it collides with ordinary prose.
@@ -33,6 +33,12 @@ const RULE_SOURCES: [(&str, &str); 9] = [
     // A credential in a query string; keeps the parameter name.
     (
         r#"(?i)([?&](?:t|key|token|access_token|refresh_token|apikey|api_key|secret|code|password|signature)=)[^&\s"']+"#,
+        "${1}<redacted>",
+    ),
+    // A credential as a JSON or `key=value` pair; keeps the key. A value already
+    // redacted starts with `<`, so it is not counted twice.
+    (
+        r#"(?i)(["']?\b(?:access_token|refresh_token|token|password|secret|api_?key)["']?\s*[:=]\s*["']?)[^"'&\s,}<][^"'&\s,}]*"#,
         "${1}<redacted>",
     ),
     // An absolute home directory; the account name is the leaf. Backslashes may come doubled
@@ -157,6 +163,23 @@ mod tests {
     fn query_credential_keeps_parameter_name() {
         let out = redact("GET https://x.test/a?token=abc123&x=1");
         assert_eq!(out.text, "GET https://x.test/a?token=<redacted>&x=1");
+        assert_eq!(out.redactions, 1);
+    }
+
+    #[test]
+    fn credential_pairs_in_json_and_text_keep_their_key() {
+        let out = redact(r#"{"access_token":"abc123","password":"hunter2"} x token=abc y"#);
+        assert_eq!(
+            out.text,
+            r#"{"access_token":"<redacted>","password":"<redacted>"} x token=<redacted> y"#
+        );
+        assert_eq!(out.redactions, 3);
+    }
+
+    #[test]
+    fn gitlab_token_is_replaced() {
+        let out = redact("key glpat-abcdefghij0123456789 here");
+        assert_eq!(out.text, "key <key> here");
         assert_eq!(out.redactions, 1);
     }
 
