@@ -155,6 +155,34 @@ test("switching project throws the baseline away rather than merging into it", a
   assert.deepEqual(calls.get("papers"), ["list", "list"]);
 });
 
+test("F97-P2-21: a read for project A is never handed to a caller asking for project B", async () => {
+  const { deps } = spyDeps();
+  let project = "A";
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  const papers = {
+    list: async () => {
+      const asked = project;
+      if (asked === "A") await gate;
+      return [{ id: `paper-${asked}` }];
+    },
+    listStamps: async () => [],
+  };
+  const facade = new WorkspaceFacade({ ...(deps as object), papers, projectId: () => project } as never);
+
+  const first = facade.snapshot();
+  project = "B";
+  const second = facade.snapshot();
+  release();
+  const [a, b] = await Promise.all([first, second]);
+
+  assert.deepEqual(a.papers.map((p) => p.id), ["paper-A"]);
+  assert.deepEqual(b.papers.map((p) => p.id), ["paper-B"]);
+  // A's late answer does not become B's baseline: the next B read is a full one of B.
+  const next = await facade.snapshot();
+  assert.deepEqual(next.papers.map((p) => p.id), ["paper-B"]);
+});
+
 test("concurrent callers share one read", async () => {
   const { calls, deps } = spyDeps();
   const facade = new WorkspaceFacade(deps);

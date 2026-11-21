@@ -157,6 +157,8 @@ export async function chooseFolder(options: { git: boolean }): Promise<boolean> 
 
 /** Take up a browser folder: its git, following edits, a first sync, the news. */
 function adoptBrowserFolder(fs: BrowserWorkspaceFs, git: boolean): void {
+  // F97-P2-19: let go of the old folder first, so its watcher and syncs stop.
+  if (activeFs) closeFolder();
   activeFs = fs;
   activeGit = git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
   watchForChanges();
@@ -344,6 +346,11 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   const core = await loadCore();
   const projectRoot = core.projectDir(project);
   const snapshot = await container.workspace.snapshot();
+  // F97-P2-20: a folder switched mid-run must not get this run's writes.
+  const stillOurs = () => {
+    if (activeFs !== fs) throw new Error("The folder was switched during the sync; it stopped.");
+  };
+  stillOurs();
   // This project's manifest, and only this project's: the paths last synced. Sync never removes.
   const base = await readMirrorBase(fs, projectRoot);
   const previousPaths = Object.keys(base);
@@ -353,6 +360,7 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   const [{ exportSyncTablesStable, syncTableFolderFiles }, { restTableReader }] =
     await Promise.all([import("./sync-tables"), import("./workspace-folder-tables")]);
   const tableFiles = syncTableFolderFiles(await exportSyncTablesStable(restTableReader(getDataClient())));
+  stillOurs();
 
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
     project,
@@ -376,6 +384,7 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
     mirror.mirrored,
     mirror.bases,
   );
+  stillOurs();
 
   // Files left as the folder has them, because they changed since the app wrote
   // them. They belong in the same list the folder watcher feeds — they are

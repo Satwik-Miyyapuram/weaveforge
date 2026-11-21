@@ -55,6 +55,7 @@ export class WorkspaceFacade {
   private previous: WorkspaceSnapshot | null = null;
   private previousProjectId: string | null = null;
   private inFlight: Promise<WorkspaceSnapshot> | null = null;
+  private inFlightProjectId: string | null = null;
 
   /**
    * Read the project.
@@ -64,25 +65,28 @@ export class WorkspaceFacade {
    * stale baseline and race to replace it.
    */
   async snapshot(): Promise<WorkspaceSnapshot> {
-    if (this.inFlight) return this.inFlight;
-
     // Checked here rather than left to a caller to remember: a delta read
     // merges into what it holds, so reusing one project's rows as another's
     // baseline would not be a stale cache, it would be the wrong project's
     // notes appearing in this one.
     const projectId = this.deps.projectId();
+    // F97-P2-21: share a read only with callers asking for the same project.
+    if (this.inFlight && this.inFlightProjectId === projectId) return this.inFlight;
     if (projectId !== this.previousProjectId) this.previous = null;
     this.previousProjectId = projectId;
 
-    this.inFlight = collectWorkspaceSnapshot(this.deps, undefined, this.previous ?? undefined)
+    const read: Promise<WorkspaceSnapshot> = collectWorkspaceSnapshot(this.deps, undefined, this.previous ?? undefined)
       .then((snapshot) => {
-        this.previous = snapshot;
+        // A read that finishes after a project switch is not the new project's baseline.
+        if (this.previousProjectId === projectId) this.previous = snapshot;
         return snapshot;
       })
       .finally(() => {
-        this.inFlight = null;
+        if (this.inFlight === read) this.inFlight = null;
       });
-    return this.inFlight;
+    this.inFlight = read;
+    this.inFlightProjectId = projectId;
+    return read;
   }
 
   /**
