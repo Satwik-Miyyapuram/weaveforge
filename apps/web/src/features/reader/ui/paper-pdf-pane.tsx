@@ -37,6 +37,7 @@ import { relayUrl } from "@/lib/parts";
 import { PaperHtmlView } from "./paper-html-view";
 import { Button } from "@/components/button";
 import { paperGuard } from "./paper-guard";
+import { fetchPendingPdf } from "./pending-pdf-fetch";
 
 async function keptHtmlPage(paperId: string): Promise<PaperHtmlPage | null> {
   const { paperHtmlStore } = await import("../infrastructure/paper-html-store");
@@ -135,6 +136,8 @@ export function PaperPdfPane({
     setError(null);
     setTitle(null);
     setPendingDownload(null);
+    // A download left running for another paper no longer speaks for this view (P2-166).
+    setDownloading(false);
     setHtmlPage(null);
     setFreeStatus(null);
     openAccessIds.current = null;
@@ -210,6 +213,7 @@ export function PaperPdfPane({
         } catch {
           if (!cancelled) setQuotationTypes(new Map());
         }
+        if (cancelled) return;
         if (resolution.ok && isLocalMode() && !readyCore().isStoredPdfUrl(resolution.hit.url)) {
           // The no-account copy fetches into its own store, on request, and
           // then opens from there — so the paper is on disk for next time and
@@ -265,25 +269,24 @@ export function PaperPdfPane({
   /** Fetch a publisher's PDF into the store, then run the ladder again. */
   async function fetchPending(id: string, url: string) {
     setDownloading(true);
-    try {
-      const host = new URL(url).hostname;
-      const ok = await downloadPaperPdfToCache(id, url);
-      fetchedFor.current = id;
-      if (!ok) {
-        setError(`${host} did not answer with a PDF for this paper.`);
-        return;
-      }
-      activityRef.current?.("reader", `Fetched the PDF from ${host}; it is kept on this computer.`);
-      setPendingDownload(null);
-      // Loading again before the ladder re-runs: the effect only sets it on
-      // its next pass, and the frame in between would say "Nothing to show".
-      setLoading(true);
-      setGeneration((n) => n + 1);
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setDownloading(false);
+    const outcome = await fetchPendingPdf(id, url, {
+      download: downloadPaperPdfToCache,
+      stillOpen: paperGuard(paperIdRef, id),
+    });
+    // Another paper is open by now: its view is not this fetch's to touch (P2-166).
+    if (outcome.kind === "stale") return;
+    setDownloading(false);
+    fetchedFor.current = id;
+    if (outcome.kind === "failed") {
+      setError(outcome.message);
+      return;
     }
+    activityRef.current?.("reader", `Fetched the PDF from ${outcome.host}; it is kept on this computer.`);
+    setPendingDownload(null);
+    // Loading again before the ladder re-runs: the effect only sets it on
+    // its next pass, and the frame in between would say "Nothing to show".
+    setLoading(true);
+    setGeneration((n) => n + 1);
   }
 
   function acceptDownload() {
