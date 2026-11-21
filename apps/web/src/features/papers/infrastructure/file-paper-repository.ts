@@ -145,7 +145,8 @@ export class FilePaperRepository implements IPaperRepository {
   /**
    * Moves the paper's file, its annotations and comments sidecars and its PDF to
    * `.weaveforge/trash/<day>/<path>`, all under one day; never unlinks. The PDF is
-   * left when another paper still points at it or it is not a workspace path.
+   * left when another paper still points at it, a paper file cannot be read, or it
+   * is not a workspace path.
    */
   async delete(id: string): Promise<void> {
     const read = await this.findById(id);
@@ -158,7 +159,9 @@ export class FilePaperRepository implements IPaperRepository {
     }
     const pdf = read.paper.pdfPath;
     if (!pdf || !isSafeWorkspacePath(pdf) || !(await this.fs.stat(pdf))) return;
-    const others = (await this.readAll()).some((other) => other.paper.pdfPath === pdf);
+    // A file that does not parse may still point at this PDF, so it counts as a user (F97-P2-25).
+    const { reads, failures } = await this.scan();
+    const others = failures.length > 0 || reads.some((other) => other.paper.pdfPath === pdf);
     if (!others) await moveToTrash(this.fs, pdf, now);
   }
 
