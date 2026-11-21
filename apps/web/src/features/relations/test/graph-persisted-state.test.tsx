@@ -126,3 +126,41 @@ test("no edit, no save on unmount", async () => {
   await wait(10);
   assert.deepEqual(saves, []);
 });
+
+test("an edit made while the load is in flight is kept and saved (P2-219)", async () => {
+  let settle: (v: GraphPersistedState | null) => void = () => {};
+  const saves: { projectId: string; state: GraphPersistedState }[] = [];
+  const graph: GraphSettingsStore = {
+    getSettings: () => new Promise((resolve) => (settle = resolve)),
+    saveSettings: async (projectId, state) => void saves.push({ projectId, state }),
+  };
+  const project = freshProject();
+  const view = mount(graph, project);
+  act(() => view.handle().setLocalDepth(3));
+  await act(async () => { settle(null); });
+  assert.equal(view.handle().localDepth, 3, "the load did not replace the edit");
+  await wait(700);
+  assert.deepEqual(saves.map((s) => [s.projectId, s.state.localDepth]), [[project, 3]]);
+});
+
+test("an edit made while a save is in flight is still saved on unmount (P2-219)", async () => {
+  const pending: (() => void)[] = [];
+  const saves: { projectId: string; state: GraphPersistedState }[] = [];
+  const graph: GraphSettingsStore = {
+    getSettings: async () => null,
+    saveSettings: (projectId, state) => {
+      saves.push({ projectId, state });
+      return new Promise<void>((resolve) => pending.push(resolve));
+    },
+  };
+  const project = freshProject();
+  const view = mount(graph, project);
+  await wait(10);
+  act(() => view.handle().setLocalDepth(3));
+  await wait(700);
+  assert.equal(saves.length, 1, "the first save started");
+  act(() => view.handle().setLocalDepth(6));
+  await act(async () => { pending.shift()!(); });
+  view.unmount();
+  assert.deepEqual(saves.map((s) => s.state.localDepth), [3, 6]);
+});
