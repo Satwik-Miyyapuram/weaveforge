@@ -444,7 +444,14 @@ export class ZoteroSync {
     let deletedLocal = 0;
     let deletesSkipped = 0;
     if (this.deps.deletePaper && plan.delete.length > 0) {
-      const inLibrary = await fetchZoteroItemKeys({ baseUrl: libraryUrl, headers, fetchFn: this.fetchFn });
+      // Top-level keys only: `/items` also lists attachments and notes, and a
+      // leftover row made from an attachment must still be cleaned up.
+      const inLibrary = await fetchZoteroItemKeys({
+        baseUrl: libraryUrl,
+        path: "/items/top",
+        headers,
+        fetchFn: this.fetchFn,
+      });
       for (const i of plan.delete) {
         const key = local[i]!.metadata?.["zoteroKey"] as string | undefined;
         if (key && inLibrary.has(key)) {

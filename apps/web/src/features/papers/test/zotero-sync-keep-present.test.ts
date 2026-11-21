@@ -89,3 +89,26 @@ test("no keys read when nothing is planned for deletion", async () => {
 
   assert.ok(!urls.some((u) => u.includes("format=keys")));
 });
+
+test("a leftover attachment row is still deleted: the keys read is top-level only", async () => {
+  // An older sync made a paper from attachment ATT1. Zotero's `/items` keys
+  // include child items, `/items/top` keys do not; only the second says the
+  // row is not a paper still in the library.
+  const urls: string[] = [];
+  const fetchFn = (async (input: string | URL | Request) => {
+    const url = String(input);
+    urls.push(url);
+    if (url.includes("format=keys")) {
+      return new Response(url.includes("/items/top") ? "NEW1\n" : "NEW1\nATT1\n", { status: 200 });
+    }
+    return new Response(JSON.stringify([{ data: NEW_ITEM }]), {
+      status: 200,
+      headers: { "Total-Results": "1" },
+    });
+  }) as unknown as typeof fetch;
+  const { sync, deleted } = syncWith(fetchFn, [paper("junk", "ATT1")]);
+
+  await sync.sync();
+
+  assert.deepEqual(deleted, ["junk"]);
+});
