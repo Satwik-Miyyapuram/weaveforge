@@ -18,6 +18,8 @@ import { clearAllScreenCaches } from "@/lib/cache/parts-2";
 import { setSessionLost } from "@/lib/parts";
 import { loadCore } from "@/lib/rust-core";
 import { localFirstActive, setLocalFirstAccount } from "@/backend/providers/local/local-first-marker";
+import { logToApp } from "@/lib/error-report/app-log";
+import { completeDesktopSignIn } from "./complete-desktop-sign-in";
 
 interface AuthState {
   user: AuthUser | null;
@@ -124,6 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // A chunk that fails to load would otherwise leave the app on its
       // loading screen for good; show the signed-out state instead.
       console.error("[weaveforge] auth could not start:", error);
+      logToApp({ level: "error", source: "auth", message: "auth could not start", detail: String(error) });
       if (active) setLoading(false);
     });
 
@@ -148,17 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!bridge) return;
     let active = true;
     const stop = bridge.onSignIn((query) => {
-      void import("@/light-bootstrap").then(async ({ getLightContainer }) => {
-        if (!active) return;
-        try {
-          await getLightContainer().auth.completeOAuth(query);
-        } catch (error) {
-          // The auth listener above never fires for a failed exchange, so this
-          // is the only place that knows. Left visible rather than swallowed:
-          // the window otherwise sits on the sign-in screen with no reason.
-          console.error("[weaveforge] sign-in could not be completed:", error);
-        }
-      });
+      void completeDesktopSignIn(query, { isActive: () => active });
     });
     return () => {
       active = false;
