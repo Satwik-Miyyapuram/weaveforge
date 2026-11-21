@@ -4,27 +4,12 @@ import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import { FilePaperRepository } from "@/features/papers/infrastructure/file-paper-repository";
 import { typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { FilePaperTagRepository, FileTagRepository, type SettingsSection } from "../file-tag-repo";
+import { FilePaperTagRepository, FileTagRepository } from "../file-tag-repo";
+import { MemorySettings } from "./memory-settings";
 
 before(loadTestCore);
 
 const ROOT = "thesis";
-
-class MemorySettings implements SettingsSection {
-  doc: Record<string, unknown> = {};
-  get(key: readonly string[]): unknown {
-    let cur: unknown = this.doc;
-    for (const k of key) cur = cur && typeof cur === "object" ? (cur as Record<string, unknown>)[k] : undefined;
-    return cur;
-  }
-  set(key: readonly string[], value: unknown): void {
-    let obj = this.doc;
-    for (const k of key.slice(0, -1)) obj = (obj[k] ??= {}) as Record<string, unknown>;
-    const leaf = key[key.length - 1]!;
-    if (value === undefined) delete obj[leaf];
-    else obj[leaf] = value;
-  }
-}
 
 async function setup() {
   const fs = new MemoryWorkspaceFs();

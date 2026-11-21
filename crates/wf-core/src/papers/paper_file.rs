@@ -112,6 +112,9 @@ pub enum PaperFileError {
     NotAPaper(String),
     /// The file is from a newer app (`wf` above [`FORMAT_VERSION`]).
     ReadOnly(u64),
+    /// A key the write would replace holds a value the app cannot read (kept as
+    /// typed); replacing it would lose that text. Names the key.
+    Unreadable(String),
 }
 
 impl fmt::Display for PaperFileError {
@@ -120,6 +123,10 @@ impl fmt::Display for PaperFileError {
             Self::NoFrontmatter => write!(f, "The file has no frontmatter."),
             Self::NotAPaper(kind) => write!(f, "The file is a {kind}, not a paper."),
             Self::ReadOnly(wf) => write!(f, "The file is format wf: {wf}, newer than this app."),
+            Self::Unreadable(key) => write!(
+                f,
+                "The file's `{key}` cannot be read; fix it by hand first."
+            ),
         }
     }
 }
@@ -269,6 +276,76 @@ pub fn write_paper_row(
         }
     }
     file.tags = row.get("tags").map(string_list).unwrap_or_default();
+    Ok(render_paper_file(&file))
+}
+
+/// A paper's outgoing `relations` and custom `fields` (by field id).
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct PaperExtras {
+    /// `relations`, in file order.
+    #[serde(default)]
+    pub relations: Vec<RelationRef>,
+    /// `fields`; empty when the file has none or holds a non-object there.
+    #[serde(default)]
+    pub fields: Map<String, Value>,
+}
+
+/// What [`write_paper_extras`] replaces: a `None` part is left as it is.
+#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+pub struct ExtrasChange {
+    /// The new `relations`; empty removes the key.
+    #[serde(default)]
+    pub relations: Option<Vec<RelationRef>>,
+    /// The new `fields`; empty removes the key.
+    #[serde(default)]
+    pub fields: Option<Map<String, Value>>,
+}
+
+/// The paper's [`PaperExtras`].
+#[must_use]
+pub fn paper_extras(file: &PaperFile) -> PaperExtras {
+    let fields = match file.values.get("fields") {
+        Some(Value::Object(map)) => map.clone(),
+        _ => Map::new(),
+    };
+    PaperExtras {
+        relations: file.relations.clone(),
+        fields,
+    }
+}
+
+/// Writes the parts `change` names into `existing`, keeping the body, every other
+/// key and the line ends. An empty change leaves a file this app wrote unchanged.
+///
+/// # Errors
+///
+/// A parse error of `existing`; [`PaperFileError::ReadOnly`] for a newer file;
+/// [`PaperFileError::Unreadable`] when `relations` is replaced but the file holds
+/// a `relations` entry the app cannot read.
+pub fn write_paper_extras(existing: &str, change: &ExtrasChange) -> Result<String, PaperFileError> {
+    let mut file = parse_paper_file(existing)?;
+    if file.is_read_only() {
+        return Err(PaperFileError::ReadOnly(file.wf));
+    }
+    if let Some(relations) = &change.relations {
+        if file
+            .unknown
+            .iter()
+            .any(|raw| entry_key(raw) == Some("relations"))
+        {
+            return Err(PaperFileError::Unreadable("relations".to_owned()));
+        }
+        file.relations.clone_from(relations);
+    }
+    if let Some(fields) = &change.fields {
+        if fields.is_empty() {
+            let _ = file.values.shift_remove("fields");
+        } else {
+            let _ = file
+                .values
+                .insert("fields".to_owned(), Value::Object(fields.clone()));
+        }
+    }
     Ok(render_paper_file(&file))
 }
 

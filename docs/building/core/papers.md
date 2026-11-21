@@ -97,7 +97,15 @@ reader's notes. A paper is identified by its file: its id is the optional
   own id (or none); a new file gets `row.id`, or no id line when the row has none. A CRLF
   file stays CRLF, and text is written as given (no Unicode normalization). A file with
   `wf` above `FORMAT_VERSION` is refused.
-- wasm: `paperRowFromFile`, `writePaperRow` (`crates/wf-wasm/src/paper_files.rs`).
+  `paper_extras` gives a file's `relations` and custom `fields` (by field id);
+  `write_paper_extras(existing, change)` replaces only the parts `change` names (an empty
+  one removes its key) and refuses to replace a `relations` entry it cannot read.
+- wasm: `paperRowFromFile`, `writePaperRow`, `paperExtrasFromFile`, `writePaperExtras`
+  (`crates/wf-wasm/src/paper_files.rs`).
+- TS relations and custom fields: `FilePaperRelationRepository` and
+  `FilePaperFieldRepository` (`apps/web/src/backend/providers/files/`) store each edge in
+  its source paper's `relations` (target as a `[[link]]`) and each value in the paper's
+  `fields`; field definitions live in `.weaveforge/settings.json` under `paperFields`.
 - TS: `FilePaperRepository` (`apps/web/src/features/papers/infrastructure/file-paper-repository.ts`)
   implements `IPaperRepository` over `IWorkspaceFs`. Every write is conditional
   (`writeTextIf`); when the file changed since it was read, the write reads again and
@@ -139,6 +147,8 @@ reader's notes. A paper is identified by its file: its id is the optional
 | Pins answer like a map keyed by (paper, annotation key); a pin row added outside the app is kept | TS fast-check "law: the file repository answers like a map keyed by (paper, annotation)" (`apps/web/src/features/papers/test/file-annotation-pin-repository.test.ts`); TS "a row added outside the app between read and write is kept" (`apps/web/src/lib/test/json-rows-file.test.ts`) |
 | When two files claim one id, no write or delete touches either file; the error names both paths | TS "two files with one id: every write is refused and neither file changes" |
 | A write happens only if the file is still what was read; a workspace without a conditional write (`writeTextIf`) is refused, never written blind | TS "without a conditional write the repository refuses to write" |
+| `paper_extras(write_paper_extras(f, c))` holds what `c` set; body, other keys and CRLF are kept | `extras_round_trip_and_keep_the_rest`, `extras_change_touches_only_what_it_names` |
+| An empty `relations` or `fields` removes its key; a newer file or an unreadable `relations` is refused | `empty_extras_remove_their_keys`, `extras_refuse_newer_and_unreadable_files` |
 | A relation declared in a paper file and in `relations.json` is listed once by `relations_of` | `relation_in_file_and_relations_json_counts_once` (`crates/wf-core/tests/papers_files.rs`) |
 
 ## More paper modules
