@@ -17,8 +17,8 @@ test("a chunk that fails to load is logged and does not reject", async () => {
     isActive: () => true,
   });
   assert.equal(logged.length, 1);
-  assert.equal(logged[0].level, "error");
-  assert.match(logged[0].detail ?? "", /chunk failed/);
+  assert.equal(logged[0]?.level, "error");
+  assert.match(logged[0]?.detail ?? "", /chunk failed/);
 });
 
 test("a refused exchange is logged and does not reject", async () => {
@@ -33,7 +33,7 @@ test("a refused exchange is logged and does not reject", async () => {
     isActive: () => true,
   });
   assert.equal(logged.length, 1);
-  assert.match(logged[0].detail ?? "", /bad code/);
+  assert.match(logged[0]?.detail ?? "", /bad code/);
 });
 
 test("a good exchange redeems the query and logs nothing", async () => {
