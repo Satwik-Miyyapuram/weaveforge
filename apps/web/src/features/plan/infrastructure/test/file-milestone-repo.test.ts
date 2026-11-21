@@ -53,6 +53,47 @@ test("milestone_change_publishes_feed: every save and delete publishes the whole
   assert.deepEqual(published[2], []);
 });
 
+test("F97-P2-24: a deleted milestone moves to .weaveforge/trash/<day>/, never unlinked", async () => {
+  const { fs, repo } = setup();
+  await repo.save(milestone());
+  const [path] = await files(fs);
+  await repo.delete("ms-1");
+  const after = await files(fs);
+  assert.equal(after.length, 1);
+  const [trashed] = after;
+  assert.match(trashed ?? "", /^\.weaveforge\/trash\/\d{4}-\d{2}-\d{2}\//);
+  assert.ok(trashed?.endsWith(path ?? "missing"), trashed);
+  assert.equal(await repo.getById("ms-1"), null);
+  // A second delete of the same name the same day takes a free name, not the first one.
+  await repo.save(milestone());
+  await repo.delete("ms-1");
+  assert.equal((await files(fs)).length, 2);
+});
+
+test("F97-P2-23: one unreadable milestone file is skipped and reported; the rest still list", async () => {
+  const { fs, repo } = setup();
+  await repo.save(milestone({ id: "ms-1", title: "One" }));
+  await repo.save(milestone({ id: "ms-2", title: "Two" }));
+  await repo.save(milestone({ id: "ms-3", title: "Three" }));
+  const bad = (await files(fs)).find((p) => p.includes("two"));
+  assert.ok(bad);
+  const readText = fs.readText.bind(fs);
+  fs.readText = async (path: string) => {
+    if (path === bad) throw new Error("EACCES");
+    return readText(path);
+  };
+  const warned: unknown[] = [];
+  const warn = console.warn;
+  console.warn = (...args: unknown[]) => void warned.push(args);
+  try {
+    const listed = (await repo.list()).map((m) => m.id).sort();
+    assert.deepEqual(listed, ["ms-1", "ms-3"]);
+    assert.equal(warned.length, 1);
+  } finally {
+    console.warn = warn;
+  }
+});
+
 test("no_milestones_valid_calendar: an empty folder lists nothing and publishes an empty feed", async () => {
   const { repo, published } = setup();
   assert.deepEqual(await repo.list(), []);

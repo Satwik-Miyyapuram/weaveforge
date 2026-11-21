@@ -33,6 +33,8 @@ export interface FeedItem {
 export type PublishFeed = (items: FeedItem[]) => Promise<void>;
 
 const TYPE = "milestone";
+/** How many numbered trash names a delete tries, as for papers. */
+const TRASH_NAME_ATTEMPTS = 1000;
 const STATUSES: readonly MilestoneStatus[] = ["planned", "in_progress", "done", "blocked"];
 
 interface Found {
@@ -89,7 +91,15 @@ export class FileMilestoneRepository implements IMilestoneRepository {
     const found: Found[] = [];
     for await (const entry of this.fs.walk(this.dir)) {
       if (!entry.path.endsWith(`.${TYPE}.md`)) continue;
-      const parsed = parse(entry.path, await this.fs.readText(entry.path));
+      // One unreadable file is skipped and reported, not fatal to the list (F97-P2-23).
+      let text: string;
+      try {
+        text = await this.fs.readText(entry.path);
+      } catch (error) {
+        console.warn(`Skipped milestone ${entry.path}: could not read it.`, error);
+        continue;
+      }
+      const parsed = parse(entry.path, text);
       if (parsed) found.push(parsed);
     }
     return found.sort((a, b) => a.path.localeCompare(b.path));
@@ -129,10 +139,25 @@ export class FileMilestoneRepository implements IMilestoneRepository {
     await this.publishAll();
   }
 
+  /** Moves the milestone's file to `.weaveforge/trash/<day>/<path>`; never unlinks it. */
   async delete(id: string): Promise<void> {
     const found = (await this.readAll()).find((f) => f.milestone.id === id);
-    if (found) await this.fs.remove(found.path);
+    if (found) await this.moveToTrash(found.path);
     await this.publishAll();
+  }
+
+  /** Renames `path` to the first free trash name for today (`-2`, `-3`, … on a clash). */
+  private async moveToTrash(path: string): Promise<void> {
+    const core = readyCore();
+    const now = Date.now();
+    for (let n = 1; n <= TRASH_NAME_ATTEMPTS; n += 1) {
+      const target = core.trashPathFor(path, now, n);
+      if (await this.fs.stat(target)) continue;
+      await this.fs.mkdirp(target.slice(0, target.lastIndexOf("/")));
+      await this.fs.rename(path, target);
+      return;
+    }
+    throw new Error(`${path}: no free name in the trash; not deleted.`);
   }
 
   private async write(path: string, text: string, expected: string | null): Promise<void> {
