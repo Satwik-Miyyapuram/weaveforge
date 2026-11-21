@@ -12,7 +12,7 @@ import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { setContainerForTests } from "@/bootstrap";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { StatusSelect } from "@/components/status-select";
-import { ProjectContext } from "@/features/projects/ui/project-provider";
+import { ProjectContext } from "@/features/projects";
 import { SectionNote } from "../ui/section-note";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

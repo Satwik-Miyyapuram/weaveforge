@@ -8,7 +8,7 @@ import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
 import { setContainerForTests } from "@/bootstrap";
-import { AuthContext } from "@/features/auth/ui/auth-provider";
+import { AuthContext } from "@/features/auth";
 import { CalendarFeedPanel } from "../ui/calendar-feed-panel";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

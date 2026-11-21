@@ -13,9 +13,9 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { setContainerForTests } from "@/bootstrap";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { StatusSelect } from "@/components/status-select";
-import { ProjectContext } from "@/features/projects/ui/project-provider";
-import { ProfileProvider } from "@/features/org/ui/profile-provider";
-import { AuthContext } from "@/features/auth/ui/auth-provider";
+import { ProjectContext } from "@/features/projects";
+import { ProfileProvider } from "@/features/org";
+import { AuthContext } from "@/features/auth";
 import { PaperNote } from "../ui/paper-note";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
