@@ -557,9 +557,13 @@ pub fn encode_ink_chunk_body(page: &InkPage) -> Result<Vec<u8>, String> {
         );
         put(layout.line_text_offset + i * 4, &text_cursor.to_le_bytes());
         // A text over u16 is clipped, and the clip is what is written, so the
-        // offsets and the blob agree.
+        // offsets and the blob agree. The clip ends on a character boundary, so
+        // the stored text is always valid UTF-8 (F97-P2-11).
         let bytes = line.text.as_bytes();
-        let length = bytes.len().min(0xffff);
+        let mut length = bytes.len().min(0xffff);
+        while !line.text.is_char_boundary(length) {
+            length -= 1;
+        }
         put(
             layout.line_text_length + i * 2,
             &(length as u16).to_le_bytes(),
@@ -613,6 +617,20 @@ mod tests {
             confidence: 1.0,
         }];
         page
+    }
+
+    #[test]
+    fn f97_p2_11_a_clipped_text_never_splits_a_character() {
+        let mut long = page();
+        long.lines[0].text = format!("{}é", "a".repeat(0xffff - 1));
+        let body = encode_ink_chunk_body(&long).unwrap();
+        let back = crate::ink::chunk_read::page_from_chunk_body(&body).unwrap();
+        assert_eq!(back.lines[0].text, "a".repeat(0xffff - 1));
+        // A text that fits exactly is kept whole.
+        long.lines[0].text = format!("{}é", "a".repeat(0xffff - 2));
+        let body = encode_ink_chunk_body(&long).unwrap();
+        let back = crate::ink::chunk_read::page_from_chunk_body(&body).unwrap();
+        assert_eq!(back.lines[0].text, long.lines[0].text);
     }
 
     #[test]
