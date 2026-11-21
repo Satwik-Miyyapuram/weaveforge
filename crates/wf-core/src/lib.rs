@@ -15,6 +15,8 @@ pub mod date_format;
 pub mod db_claims;
 pub mod editor_workspace;
 pub mod error_report;
+/// One file codec per entity kind (logs, experiments, report sections, reading lists).
+pub mod entity_codecs;
 pub mod error_status;
 pub mod experiment_artifacts;
 pub mod experiment_status;
