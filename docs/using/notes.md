@@ -69,6 +69,18 @@ they overlap, your text is kept and theirs appears in the list as
 "<title> (conflict copy <date> <time>)". See
 [a note or canvas edited in two places](sync.md#a-note-or-canvas-edited-in-two-places).
 
+This also holds for two tabs of the web app open in the same browser. Their
+saves take turns, so one tab never writes over what the other just saved.
+
+### A note saved in an older text encoding
+
+WeaveForge reads notes as UTF-8, the encoding almost every app uses today. A
+note another app saved in an older encoding, such as Latin-1, still opens on
+the desktop app. Letters that are not valid UTF-8, often accented ones, show
+as `�`. When you save, the note is written back as UTF-8 with those `�` marks
+in it. To keep the letters, convert the file to UTF-8 in your text editor
+before you open it in WeaveForge.
+
 ### Remove a shared note from your library
 
 1. A note shared with you can be pinned to your library.
