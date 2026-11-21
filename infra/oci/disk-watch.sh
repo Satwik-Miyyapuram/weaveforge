@@ -60,6 +60,8 @@ if [ -f /home/ubuntu/weaveforge-infra/.env ]; then
 
   # The credentials go through a 0600 env file, not `-e`, so they stay out of `ps`.
   mc_env=$(mktemp)
+  # Removed however the script exits, so the credentials never outlive it.
+  trap 'rm -f "$mc_env"' EXIT
   chmod 600 "$mc_env"
   printf 'MC_HOST_local=http://%s:%s@minio:9000\n' "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" > "$mc_env"
   used_bytes=$(docker run --rm --entrypoint sh --network weaveforge-infra_default \
