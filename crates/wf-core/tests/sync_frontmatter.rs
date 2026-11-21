@@ -347,6 +347,26 @@ fn a_read_then_rewrite_is_byte_identical() {
 }
 
 #[test]
+fn a_value_with_a_line_break_keeps_its_field() {
+    // A raw line break inside quotes made the reader drop the field (and with `\n`, start a new key).
+    for value in [
+        "a\u{2028}b",
+        "a\u{2029}b",
+        "a\nb: x",
+        "a\r\nb",
+        "\\n stays \\u2028 text",
+        "\\\"",
+    ] {
+        let text = write_frontmatter(&[field("k", Value::from(value))], "Body.");
+        let parsed = read_frontmatter(&text);
+
+        assert_eq!(parsed.frontmatter.len(), 1, "{text:?}");
+        assert_eq!(parsed.frontmatter["k"], Value::from(value), "{text:?}");
+        assert_eq!(parsed.body, "Body.");
+    }
+}
+
+#[test]
 fn js_number_text_matches_string_of_the_number() {
     let cases: [(f64, &str); 7] = [
         (-0.0, "0"),
