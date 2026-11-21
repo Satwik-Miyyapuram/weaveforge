@@ -7,7 +7,7 @@
 //!   gives the same result in any chunk order.
 
 use std::cmp::Ordering;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// The first line of every chunk.
 pub const HEADER: &str = "run,step,metric,value,time";
@@ -139,6 +139,45 @@ pub fn merge_chunks(chunks: &[Vec<CsvMetric>]) -> Vec<CsvMetric> {
     });
     rows.dedup_by(|later, first| key_order(later, first) == Ordering::Equal);
     rows
+}
+
+/// At most about `max_points` rows per `(run, metric)` series: every
+/// `len / max_points`-th row by step, plus the series' last row, so a curve
+/// never looks like it started later or stopped earlier. Sorted by step, then
+/// metric, then run. A budget of 0 keeps everything.
+#[must_use]
+pub fn thin_series(rows: &[CsvMetric], max_points: usize) -> Vec<CsvMetric> {
+    let mut series: BTreeMap<(&str, &str), Vec<&CsvMetric>> = BTreeMap::new();
+    for row in rows {
+        series
+            .entry((row.run.as_str(), row.metric.as_str()))
+            .or_default()
+            .push(row);
+    }
+    let mut kept: Vec<CsvMetric> = Vec::new();
+    for points in series.values_mut() {
+        points.sort_by(|a, b| a.step.total_cmp(&b.step));
+        let stride = if max_points == 0 || points.len() <= max_points {
+            1
+        } else {
+            points.len() / max_points
+        };
+        let last = points.len() - 1;
+        kept.extend(
+            points
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| i % stride == 0 || *i == last)
+                .map(|(_, row)| (*row).clone()),
+        );
+    }
+    kept.sort_by(|a, b| {
+        a.step
+            .total_cmp(&b.step)
+            .then(a.metric.cmp(&b.metric))
+            .then(a.run.cmp(&b.run))
+    });
+    kept
 }
 
 /// The distinct metric names, sorted.

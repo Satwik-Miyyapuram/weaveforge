@@ -1,7 +1,9 @@
 //! Laws for metric CSV chunks (`wf_core::metric_csv`): `run,step,metric,value,time`.
 
 use proptest::prelude::*;
-use wf_core::metric_csv::{CsvMetric, HEADER, decode, encode, merge_chunks, metric_names};
+use wf_core::metric_csv::{
+    CsvMetric, HEADER, decode, encode, merge_chunks, metric_names, thin_series,
+};
 
 fn row(run: &str, step: f64, metric: &str, value: f64, time: Option<&str>) -> CsvMetric {
     CsvMetric {
@@ -95,4 +97,50 @@ fn metric_names_are_distinct_and_sorted() {
         row("a", 2.0, "loss", 1.0, None),
     ];
     assert_eq!(metric_names(&rows), ["acc", "loss"]);
+}
+
+#[test]
+fn thin_series_keeps_first_and_last_and_budgets_per_series() {
+    let mut rows = Vec::new();
+    for metric in ["loss", "acc"] {
+        for step in (0..200).rev() {
+            rows.push(row("main", f64::from(step), metric, f64::from(step), None));
+        }
+    }
+    let kept = thin_series(&rows, 10);
+    for metric in ["loss", "acc"] {
+        let steps: Vec<f64> = kept
+            .iter()
+            .filter(|r| r.metric == metric)
+            .map(|r| r.step)
+            .collect();
+        assert!(
+            steps.len() >= 10 && steps.len() <= 12,
+            "{metric}: {}",
+            steps.len()
+        );
+        assert_eq!(steps.first().copied(), Some(0.0));
+        assert_eq!(steps.last().copied(), Some(199.0));
+        assert!(steps.windows(2).all(|w| w[0] < w[1]));
+    }
+}
+
+#[test]
+fn thin_series_under_budget_or_zero_keeps_everything_sorted() {
+    let rows = vec![
+        row("main", 2.0, "loss", 1.0, None),
+        row("main", 1.0, "loss", 2.0, None),
+        row("main", 1.0, "acc", 3.0, None),
+    ];
+    let order = |kept: &[CsvMetric]| -> Vec<(f64, String)> {
+        kept.iter().map(|r| (r.step, r.metric.clone())).collect()
+    };
+    let want = vec![
+        (1.0, "acc".to_owned()),
+        (1.0, "loss".to_owned()),
+        (2.0, "loss".to_owned()),
+    ];
+    assert_eq!(order(&thin_series(&rows, 10)), want);
+    assert_eq!(order(&thin_series(&rows, 0)), want);
+    assert!(thin_series(&[], 5).is_empty());
 }
