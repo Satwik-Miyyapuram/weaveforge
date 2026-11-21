@@ -77,9 +77,8 @@ test("add and find keep the item's id; items order by sortOrder; members name pa
   assert.equal(await items.find(l.id, "p2"), null);
   const [path] = await listFile(fs);
   const text = await fs.readText(path!);
-  assert.match(text, /\[\[paper-one\.paper\]\]/);
-  assert.match(text, /\[\[Ünïcode note\.note\]\]/);
-  assert.doesNotMatch(text, /p1|n1/);
+  const row = typedCore().entityRowFromFile("reading_list", text) as { members: unknown };
+  assert.deepEqual(row.members, ["[[paper-one.paper]]", "[[Ünïcode note.note]]"]);
 });
 
 test("add upserts one membership per paper; saving the list keeps its members", async () => {
@@ -153,6 +152,61 @@ test("a hand-written member, an unresolved link and the screening items key surv
   assert.equal((await items.listItems(l.id)).length, 2);
   await items.remove(`${l.id}:p2`);
   assert.deepEqual((await items.listItems(l.id)).map((i) => i.id), ["a"]);
+});
+
+test("members are plain links; each item's id, order and note sit in member-notes", async () => {
+  const { fs, lists, items } = await setup();
+  const l = list();
+  await lists.save(l);
+  await items.add({ id: "b", listId: l.id, vaultPageId: "n1", sortOrder: 4, note: "key", duplicateOfItemId: "y" });
+  const text = await fs.readText((await listFile(fs))[0]!);
+  const row = typedCore().entityRowFromFile("reading_list", text) as { members: unknown; memberNotes: unknown };
+  assert.deepEqual(row.members, ["[[Ünïcode note.note]]"]);
+  assert.deepEqual(row.memberNotes, { "note:n1": { id: "b", order: 4, note: "key", "duplicate-of": "y" } });
+});
+
+test("a note renamed outside the app, with its link rewritten, keeps its item", async () => {
+  const { fs, lists, items } = await setup();
+  const l = list();
+  await lists.save(l);
+  await items.add({ id: "b", listId: l.id, vaultPageId: "n1", sortOrder: 4, note: "key" });
+  // What Obsidian does on a rename: move the file and rewrite every link to it.
+  const note = await fs.readText(`${ROOT}/notes/Ünïcode note.note.md`);
+  await fs.writeFile(`${ROOT}/notes/Renamed note.note.md`, note);
+  await fs.remove(`${ROOT}/notes/Ünïcode note.note.md`);
+  const path = (await listFile(fs))[0]!;
+  await fs.writeFile(path, (await fs.readText(path)).replace("[[Ünïcode note.note]]", "[[Renamed note.note]]"));
+  assert.deepEqual(await items.listItems(l.id), [
+    { id: "b", listId: l.id, vaultPageId: "n1", sortOrder: 4, note: "key" },
+  ]);
+});
+
+test("an older object-form member still reads, and the next write makes it a plain link", async () => {
+  const { fs, lists, items } = await setup();
+  const l = list();
+  await lists.save(l);
+  const path = (await listFile(fs))[0]!;
+  await fs.writeFile(
+    path,
+    (await fs.readText(path)).replace(
+      /^---\n/,
+      '---\nmembers: [{"link":"[[paper-one.paper]]","id":"a","order":3,"note":"old","from":"' + l.id + '"}]\n',
+    ),
+  );
+  assert.deepEqual(await items.listItems(l.id), [
+    { id: "a", listId: l.id, paperId: "p1", sortOrder: 3, note: "old", inheritedFromListId: l.id },
+  ]);
+  await items.add({ id: "c", listId: l.id, paperId: "p2", sortOrder: 5 });
+  const row = typedCore().entityRowFromFile("reading_list", await fs.readText(path)) as { members: unknown; memberNotes: unknown };
+  assert.deepEqual(row.members, ["[[paper-one.paper]]", "[[paper-two.paper]]"]);
+  assert.deepEqual(row.memberNotes, {
+    "paper:p1": { id: "a", order: 3, note: "old", from: l.id },
+    "paper:p2": { id: "c", order: 5 },
+  });
+  await items.remove("a");
+  const left = typedCore().entityRowFromFile("reading_list", await fs.readText(path)) as { members: unknown; memberNotes: unknown };
+  assert.deepEqual(left.members, ["[[paper-two.paper]]"]);
+  assert.deepEqual(left.memberNotes, { "paper:p2": { id: "c", order: 5 } });
 });
 
 test("an empty list file reads as no members; delete moves the list to the trash", async () => {

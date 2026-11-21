@@ -3,20 +3,22 @@
  * contract as the `reading_lists` / `reading_list_items` repos; laws in
  * test/file-reading-list-repo.test.ts.
  *
- * Members live in the list file's `members` field, each naming its paper or note
- * by `[[link]]`, never by id:
+ * Members live in the list file's `members` field as plain `[[links]]`, never ids, so
+ * a tool that renames a file and rewrites its links (Obsidian) keeps the list whole.
+ * What the app knows about each item sits apart in `member-notes`, keyed by the
+ * paper or note the link resolves to, so a rename never orphans it:
  *
  * ```yaml
- * members:
- *   - "[[smith-2024.paper]]"                                   # written by hand
- *   - {"link":"[[My note--n1.note]]","id":"i2","order":1,"note":"key","from":"l0"}
+ * members: ["[[smith-2024.paper]]", "[[My note.note]]"]
+ * member-notes: {"note:n1": {"id":"i2","order":1,"note":"key","from":"l0"}}
  * ```
  *
- * A bare link is a member whose id is `<list id>:<paper or note id>` and whose order
- * is its place in the list. The app writes the object form, which keeps the item's
- * id, order, note, `from` (the list it is inherited from) and `duplicate-of`. A link
- * that resolves to nothing is not listed but stays in the file. Every other field
- * of the file (screening `items`, unknown keys) is kept as it is.
+ * A member with no entry has the id `<list id>:<paper or note id>` and its place in
+ * the list as its order. An entry keeps the item's id, order, note, `from` (the list
+ * it is inherited from) and `duplicate-of`. A link that resolves to nothing is not
+ * listed but stays in the file. The older object form
+ * (`{"link":"[[x]]","id":…}`) still reads, and becomes a plain link on the next
+ * write. Every other field of the file (screening `items`, unknown keys) is kept.
  */
 import {
   NotFoundError,
@@ -35,8 +37,8 @@ import { LinkIndex, type LinkTarget } from "./link-index";
 /** The Postgres foreign-key code the service reads as "the `from` list is gone". */
 const INHERITED_LINK_CODE = "23503";
 
-interface MemberObject {
-  link: string;
+/** What the app keeps about one member, beside its link. */
+interface MemberInfo {
   id?: string;
   order?: number;
   note?: string;
@@ -44,12 +46,46 @@ interface MemberObject {
   "duplicate-of"?: string;
 }
 
-type Member = string | MemberObject;
+/** A plain link, or the older object form that carried its info inline. */
+type Member = string | (MemberInfo & { link: string });
+
+type MemberNotes = Record<string, MemberInfo>;
 
 type ListRow = ReadingList & { members?: Member[]; memberNotes?: unknown };
 
-function linkOf(m: Member): string {
-  return typeof m === "string" ? m : m.link;
+interface Resolved {
+  id: string;
+  target: LinkTarget;
+  link: string;
+  info: MemberInfo;
+}
+
+/** The `member-notes` key for a paper or note. */
+function infoKey(t: LinkTarget): string {
+  return "paperId" in t ? `paper:${t.paperId}` : `note:${t.vaultPageId}`;
+}
+
+function notesOf(row: ListRow): MemberNotes {
+  const n = row.memberNotes;
+  return n && typeof n === "object" && !Array.isArray(n) ? (n as MemberNotes) : {};
+}
+
+/**
+ * The row with `members` as plain links and each resolved one's info in `member-notes`.
+ * An unresolved member, and any entry it may own, is kept as it is.
+ */
+function written(row: ListRow, members: readonly Member[], resolved: readonly (Resolved | null)[]): ListRow {
+  const memberNotes: MemberNotes = { ...notesOf(row) };
+  const plain = members.map((m, i) => {
+    const r = resolved[i];
+    if (!r) return m;
+    const info: MemberInfo = { ...r.info };
+    if (info.id === `${row.id}:${targetId(r.target)}`) delete info.id;
+    if (Object.keys(info).length) memberNotes[infoKey(r.target)] = info;
+    else delete memberNotes[infoKey(r.target)];
+    return r.link;
+  });
+  return { ...row, members: plain, memberNotes };
 }
 
 function plainList({ members: _m, memberNotes: _n, ...list }: ListRow): ReadingList {
@@ -171,28 +207,40 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
     const link = await this.links.linkFor(target);
     if (!link) throw new NotFoundError(`No file for ${"paperId" in target ? "paper" : "note"} "${targetId(target)}".`);
 
-    const entry: MemberObject = { link, id: item.id, order: item.sortOrder };
-    if (item.note) entry.note = item.note;
-    if (item.inheritedFromListId) entry.from = item.inheritedFromListId;
-    if (item.duplicateOfItemId) entry["duplicate-of"] = item.duplicateOfItemId;
+    const info: MemberInfo = { id: item.id, order: item.sortOrder };
+    if (item.note) info.note = item.note;
+    if (item.inheritedFromListId) info.from = item.inheritedFromListId;
+    if (item.duplicateOfItemId) info["duplicate-of"] = item.duplicateOfItemId;
+    const entry: Resolved = { id: item.id, target, link, info };
 
-    const members = [...(found.row.members ?? [])];
-    const resolved = await this.resolveAll(found.row.id, members);
+    const members = this.membersOf(found.row);
+    const resolved = await this.resolveAll(found.row, members);
     const at = resolved.findIndex((r) => r && (r.id === item.id || sameTarget(r.target, target)));
-    if (at >= 0) members[at] = entry;
-    else members.push(entry);
-    await this.store.save({ ...found.row, members });
+    if (at >= 0) {
+      members[at] = link;
+      resolved[at] = entry;
+    } else {
+      members.push(link);
+      resolved.push(entry);
+    }
+    await this.store.save(written(found.row, members, resolved));
   }
 
   async remove(id: string): Promise<void> {
     for (const row of await this.store.all()) {
-      const members = row.members ?? [];
-      const resolved = await this.resolveAll(row.id, members);
+      const members = this.membersOf(row);
+      const resolved = await this.resolveAll(row, members);
       const at = resolved.findIndex((r) => r?.id === id);
       if (at < 0) continue;
-      await this.store.save({ ...row, members: members.filter((_, i) => i !== at) });
+      const next = written(row, members, resolved);
+      delete (next.memberNotes as MemberNotes)[infoKey(resolved[at]!.target)];
+      await this.store.save({ ...next, members: next.members!.filter((_, i) => i !== at) });
       return;
     }
+  }
+
+  private membersOf(row: ListRow): Member[] {
+    return Array.isArray(row.members) ? [...row.members] : [];
   }
 
   private async membershipsOf(match: (i: ReadingListItem) => boolean): Promise<ReadingListItem[]> {
@@ -203,41 +251,35 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
 
   /** The list's members that resolve, by order then place in the file. */
   private async itemsOf(row: ListRow): Promise<ReadingListItem[]> {
-    const members = Array.isArray(row.members) ? row.members : [];
-    const resolved = await this.resolveAll(row.id, members);
+    const resolved = await this.resolveAll(row, this.membersOf(row));
     const items: ReadingListItem[] = [];
     resolved.forEach((r, index) => {
       if (!r) return;
-      const m = members[index]!;
+      const { info } = r;
       const item: ReadingListItem = { id: r.id, listId: row.id, ...r.target, sortOrder: index };
-      if (typeof m !== "string") {
-        if (typeof m.order === "number") item.sortOrder = m.order;
-        if (m.note) item.note = m.note;
-        if (m.from) item.inheritedFromListId = m.from;
-        if (m["duplicate-of"]) item.duplicateOfItemId = m["duplicate-of"];
-      }
+      if (typeof info.order === "number") item.sortOrder = info.order;
+      if (info.note) item.note = info.note;
+      if (info.from) item.inheritedFromListId = info.from;
+      if (info["duplicate-of"]) item.duplicateOfItemId = info["duplicate-of"];
       items.push(item);
     });
     return items.sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
-  /** Each member's target and item id, or null when its link resolves to nothing. */
-  private async resolveAll(
-    listId: string,
-    members: readonly Member[],
-  ): Promise<({ id: string; target: LinkTarget } | null)[]> {
-    const out: ({ id: string; target: LinkTarget } | null)[] = [];
+  /**
+   * Each member's target, link, info and item id, or null when its link resolves to
+   * nothing. Info inline in an older object-form member wins over `member-notes`.
+   */
+  private async resolveAll(row: ListRow, members: readonly Member[]): Promise<(Resolved | null)[]> {
+    const notes = notesOf(row);
     const links = await this.links.snapshot();
-    for (const m of members) {
-      const link = typeof m === "string" || (m && typeof m === "object") ? linkOf(m) : undefined;
+    return members.map((m) => {
+      const link = typeof m === "string" ? m : m && typeof m === "object" ? m.link : undefined;
       const target = typeof link === "string" ? links.resolve(link) : null;
-      if (!target) {
-        out.push(null);
-        continue;
-      }
-      const id = typeof m !== "string" && m.id ? m.id : `${listId}:${targetId(target)}`;
-      out.push({ id, target });
-    }
-    return out;
+      if (!target) return null;
+      const { link: _l, ...inline } = typeof m === "string" ? { link } : m;
+      const info: MemberInfo = typeof m === "string" ? { ...notes[infoKey(target)] } : inline;
+      return { id: info.id || `${row.id}:${targetId(target)}`, target, link: link!, info };
+    });
   }
 }
