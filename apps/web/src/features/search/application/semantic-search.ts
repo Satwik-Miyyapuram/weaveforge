@@ -463,22 +463,52 @@ export function restoreSemanticSearch(): Promise<void> | null {
  * and re-embeds everything to catch up with one edit. Debounced: typing in a
  * note refreshes on every save.
  */
-let persistTimer: ReturnType<typeof setTimeout> | null = null;
+export function createSyncPersister<P extends object, D>(deps: {
+  current: () => { index: { ready: boolean; serialize(): P | null } | null; projectId: string | null };
+  projection: () => Promise<D>;
+  revision: (docs: D) => string;
+  save: (projectId: string | null, value: P & { revision: string }) => Promise<unknown>;
+  delayMs?: number;
+}): { schedule(): void; cancel(): void } {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const cancel = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  };
+  return {
+    cancel,
+    schedule() {
+      cancel();
+      // The sync was for this index and project; a switch during the wait must
+      // not file these vectors under the next project (P2-232).
+      const at = { ...deps.current() };
+      const still = () => {
+        const now = deps.current();
+        return now.index === at.index && now.projectId === at.projectId;
+      };
+      timer = setTimeout(() => {
+        timer = null;
+        const index = at.index;
+        if (!index?.ready || !still()) return;
+        void (async () => {
+          const docs = await deps.projection();
+          const packed = index.serialize();
+          if (packed && still()) await deps.save(at.projectId, { ...packed, revision: deps.revision(docs) });
+        })().catch(() => undefined);
+      }, deps.delayMs ?? 5_000);
+    },
+  };
+}
+
+const syncPersister = createSyncPersister({
+  current: () => ({ index: semantic, projectId: semanticProject ?? null }),
+  projection: () => getContainer().search.projectionForSemantic(),
+  revision: (docs) => readyCore().searchRevision(docs),
+  save: (projectId, value) => vectorStore().set(projectId, value),
+});
+
 function persistAfterSync(): void {
-  if (persistTimer) clearTimeout(persistTimer);
-  persistTimer = setTimeout(() => {
-    persistTimer = null;
-    const index = semantic;
-    if (!index?.ready) return;
-    void (async () => {
-      const container = getContainer();
-      const docs = await container.search.projectionForSemantic();
-      const packed = index.serialize();
-      if (packed && index === semantic) {
-        await vectorStore().set(container.projects.context.projectId, { ...packed, revision: readyCore().searchRevision(docs) });
-      }
-    })().catch(() => undefined);
-  }, 5_000);
+  syncPersister.schedule();
 }
 
 /**
@@ -491,8 +521,7 @@ function persistAfterSync(): void {
 export async function disableSemanticSearch(): Promise<void> {
   stopServingRankingRequests?.();
   stopServingRankingRequests = null;
-  if (persistTimer) clearTimeout(persistTimer);
-  persistTimer = null;
+  syncPersister.cancel();
   upgrade?.controller.abort();
   upgrade?.embedder.dispose();
   upgrade = null;

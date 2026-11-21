@@ -36,6 +36,7 @@ const slot = createRebuildSlot(async () => {
  * released none of them. Overlapping builds leave only the newest installed.
  */
 export async function ensureContainer(): Promise<AppContainer> {
+  if (testContainer) return testContainer;
   // containerKey reads storage config through the Rust core, so it must be loaded first.
   await loadCore();
   return (await slot.ensure(containerKey())).container;
@@ -43,7 +44,7 @@ export async function ensureContainer(): Promise<AppContainer> {
 
 let testContainer: AppContainer | null = null;
 
-/** @internal for tests: a stand-in container `getContainer()` returns, or null to clear it. */
+/** @internal for tests: a stand-in container `getContainer()` and `ensureContainer()` return, or null to clear it. */
 export function setContainerForTests(container: AppContainer | null): void {
   testContainer = container;
 }

@@ -42,6 +42,8 @@ export interface BibliographySyncResult {
   pushed: number;
   pulled: number;
   deletedLocal: number;
+  /** Deletes not run because the item is still in the library (another collection, or untitled). */
+  deletesSkipped?: number;
 }
 
 export interface BibliographyAnnotation {

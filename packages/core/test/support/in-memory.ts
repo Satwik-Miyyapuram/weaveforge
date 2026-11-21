@@ -722,12 +722,12 @@ export class InMemoryReaderAnnotationRepository
     const existing = this.items.get(id);
     if (!existing) throw new NotFoundError("Annotation not found");
     const { ifUpdatedAt, ...fields } = record;
-    const stale = ifUpdatedAt !== undefined && existing.updatedAt !== ifUpdatedAt;
+    const editedSince = ifUpdatedAt !== undefined && existing.updatedAt !== ifUpdatedAt;
     this.items.set(id, {
       ...existing,
       ...fields,
-      syncState: stale ? existing.syncState : fields.syncState,
       zoteroVersion: fields.zoteroVersion ?? undefined,
+      syncState: editedSince ? existing.syncState : fields.syncState,
     });
   }
 

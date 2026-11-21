@@ -353,6 +353,13 @@ export function StartupProvider({
         // A snapshot built on a failed read is not an answer worth remembering.
         if (!data.settingsError) writeCachedSnapshot(userId, data);
       })
+      .catch((err: unknown) => {
+        // Same answer as a failed settings read: the gate opens on the error,
+        // which the shell renders, instead of a loader that never ends (P2-255).
+        const message = formatError(err);
+        logToApp({ level: "error", source: "startup", message: "Could not load the startup bundle", detail: message });
+        if (active) applyDecision(false, message);
+      })
       .finally(() => {
         if (active) setLoading(false);
       });

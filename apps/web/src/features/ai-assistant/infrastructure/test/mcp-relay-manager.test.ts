@@ -33,3 +33,17 @@ test("relay manager starts each session once and stops every live relay on clean
   assert.deepEqual(stopped.sort(), ["session-a", "session-b"]);
   assert.deepEqual(manager.runningRelays(), []);
 });
+
+test("re-pairing a session with a new secret restarts its relay with that secret (P2-151)", () => {
+  const started: string[] = [];
+  const stopped: string[] = [];
+  const manager = createMcpRelayManager(({ pairingSecret }) => {
+    started.push(pairingSecret);
+    return () => { stopped.push(pairingSecret); };
+  });
+  manager.ensureRelay("session-a", "old", settings);
+  manager.ensureRelay("session-a", "new", settings);
+  assert.deepEqual(started, ["old", "new"]);
+  assert.deepEqual(stopped, ["old"]);
+  assert.equal(manager.runningRelays()[0]?.secret, "new");
+});

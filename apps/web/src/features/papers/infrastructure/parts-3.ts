@@ -416,11 +416,16 @@ export class ZoteroSync {
       if (this.deps.savePaper) {
         for (const [idx, created] of Object.entries(ok)) {
           const paper = batch[Number(idx)];
-          if (paper && created?.key) {
+          if (!paper || !created?.key) continue;
+          // One failed write must not stop the keys of the papers after it
+          // from being stored (P2-189).
+          try {
             await this.deps.savePaper({
               ...paper,
               metadata: { ...paper.metadata, zoteroKey: created.key },
             });
+          } catch (err) {
+            console.warn(`Could not store the Zotero key of "${paper.title}":`, err);
           }
         }
       }
@@ -430,15 +435,28 @@ export class ZoteroSync {
     // truly gone — its stored key is absent AND no remote item still matches it
     // by content. Skip entirely if the remote list came back empty, so a partial
     // or failed read can never mass-delete the library. ---
+    //
+    // The plan only knows the filtered read: one collection, titled top-level
+    // items. A paper whose item moved to another collection, or lost its
+    // title, is missing from that read but still in Zotero (P1-13). So before
+    // deleting, one `format=keys` read of the whole library confirms the key
+    // is really gone; any key still there is kept and counted.
     let deletedLocal = 0;
-    if (this.deps.deletePaper) {
+    let deletesSkipped = 0;
+    if (this.deps.deletePaper && plan.delete.length > 0) {
+      const inLibrary = await fetchZoteroItemKeys({ baseUrl: libraryUrl, headers, fetchFn: this.fetchFn });
       for (const i of plan.delete) {
+        const key = local[i]!.metadata?.["zoteroKey"] as string | undefined;
+        if (key && inLibrary.has(key)) {
+          deletesSkipped += 1;
+          continue;
+        }
         await this.deps.deletePaper(local[i]!.id);
         deletedLocal += 1;
       }
     }
 
-    return { pushed, pulled, deletedLocal };
+    return { pushed, pulled, deletedLocal, deletesSkipped };
   }
 }
 

@@ -356,7 +356,9 @@ export function InkFigureEditor({
       const step = event.shiftKey ? 100 : 10;
       const nudge = (dx: number, dy: number) => {
         event.preventDefault();
-        onChange({ x: figure.x + dx, y: figure.y + dy, w: figure.w, h: figure.h, crop: figure.crop });
+        // Clamped like a drop, so held keys cannot walk it off the page (P2-10).
+        const box = { x: figure.x + dx, y: figure.y + dy, w: figure.w, h: figure.h, crop: figure.crop };
+        onChange(typedCore().keepFigureOnPage(box, pageSize));
       };
       if (event.key === "ArrowLeft") nudge(-step, 0);
       else if (event.key === "ArrowRight") nudge(step, 0);
@@ -382,7 +384,7 @@ export function InkFigureEditor({
         onReorder(event.shiftKey ? "back" : "backward");
       }
     },
-    [figure, onChange, onClose, onCopy, onCut, onRemove, onReorder],
+    [figure, onChange, onClose, onCopy, onCut, onRemove, onReorder, pageSize],
   );
 
   if (cropping) {

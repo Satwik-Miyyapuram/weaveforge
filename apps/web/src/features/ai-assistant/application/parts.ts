@@ -180,18 +180,23 @@ export async function importFolderDrafts(
     const raw = await fs.readText(entry.path).catch(() => null);
     const draft = raw === null ? null : (typedCore().folderDraftForProject(raw, projectId) as FolderDraft | null);
     if (!draft) continue;
+    // Claim by rename, not delete: the draft stays on disk until the queue has it,
+    // and a claimed name is no longer a draft path, so no pass queues it twice.
+    const claimed = `${entry.path}.claimed`;
     try {
-      await fs.remove(entry.path);
+      await fs.rename(entry.path, claimed);
     } catch {
       continue;
     }
     try {
       await queue(draft);
-      imported += 1;
     } catch (err) {
       firstError ??= err;
-      await fs.writeFile(entry.path, raw!).catch(() => undefined);
+      await fs.rename(claimed, entry.path).catch(() => undefined);
+      continue;
     }
+    imported += 1;
+    await fs.remove(claimed).catch(() => undefined);
   }
   if (firstError !== null) throw firstError;
   return imported;
@@ -219,10 +224,17 @@ export function importFolderDraftsOnce(
   }
   running = (async () => {
     let total = 0;
+    let firstError: unknown = null;
     do {
       again = false;
-      total += await importFolderDrafts(...latest!);
+      try {
+        total += await importFolderDrafts(...latest!);
+      } catch (err) {
+        // Keep going: a later call's pass must still run (P2-150).
+        firstError ??= err;
+      }
     } while (again);
+    if (firstError !== null) throw firstError;
     return total;
   })().finally(() => {
     running = null;
@@ -231,6 +243,18 @@ export function importFolderDraftsOnce(
 }
 
 // --- proposal-executors ---
+/** A stored row; milestones and runs may not carry a revision. */
+type RevisionedRow = { id: string; updatedAt?: string };
+
+/**
+ * A missing row never applies. A draft naming a revision applies only to a row
+ * at that revision, so a row with no revision cannot prove it and conflicts.
+ */
+function rowMatches(row: RevisionedRow | null, expectedRevision?: string): row is RevisionedRow {
+  if (!row) return false;
+  return !expectedRevision || row.updatedAt === expectedRevision;
+}
+
 /**
  * Typed browser-only approval executors. The payload checks and the wiki-side
  * shaping live in the Rust core (wf-core `ai::proposal_inputs`, `ai::proposal_apply`);
@@ -250,6 +274,9 @@ export function createAiProposalExecutors(deps: {
   relations: AddRelationUseCase;
   milestones: IMilestoneManager;
   experiments: IExperimentManager;
+  /** The stored rows, so a status or run update checks the revision it was drafted against (P2-149). */
+  milestoneById: (id: string) => Promise<RevisionedRow | null>;
+  experimentById: (id: string) => Promise<RevisionedRow | null>;
   vaultPages: { getById(id: string): Promise<{ id: string; body: string; updatedAt: string } | null> };
   reportSections: Pick<IReportSectionManager, "setNotes">;
   reportSectionById: (id: string) => Promise<{ id: string; updatedAt?: string } | null>;
@@ -338,7 +365,9 @@ export function createAiProposalExecutors(deps: {
     }),
     executor("milestone_status", async (proposal) => {
       const status = readyCore().proposalMilestoneStatus(proposal.payload) as Parameters<IMilestoneManager["setStatus"]>[1];
-      await deps.milestones.setStatus(proposal.resourceId, status);
+      const milestone = await deps.milestoneById(proposal.resourceId);
+      if (!rowMatches(milestone, proposal.expectedRevision)) return "conflicted";
+      await deps.milestones.setStatus(milestone.id, status);
       return "accepted";
     }),
     executor("experiment_update", async (proposal) => {
@@ -347,9 +376,11 @@ export function createAiProposalExecutors(deps: {
         metrics?: Record<string, unknown>;
         artifacts?: string[];
       };
-      if (update.status) await deps.experiments.setStatus(proposal.resourceId, update.status);
-      if (update.metrics) await deps.experiments.recordMetrics(proposal.resourceId, update.metrics);
-      if (update.artifacts) await deps.experiments.addArtifacts(proposal.resourceId, update.artifacts);
+      const run = await deps.experimentById(proposal.resourceId);
+      if (!rowMatches(run, proposal.expectedRevision)) return "conflicted";
+      if (update.status) await deps.experiments.setStatus(run.id, update.status);
+      if (update.metrics) await deps.experiments.recordMetrics(run.id, update.metrics);
+      if (update.artifacts) await deps.experiments.addArtifacts(run.id, update.artifacts);
       return "accepted";
     }),
     executor("paper_annotation", async (proposal) => {

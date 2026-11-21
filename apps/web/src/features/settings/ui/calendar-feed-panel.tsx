@@ -2,7 +2,7 @@
 
 import { formatError } from "@/lib/format-error";
 import { localOffset } from "@/lib/parts-1";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Select } from "@/components/select";
@@ -51,21 +51,20 @@ export function CalendarFeedPanel() {
   const [copied, setCopied] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<"replace" | "off" | null>(null);
 
-  const load = useCallback(async () => {
+  // Reload for each account. A link that answers after the account changed
+  // belongs to the previous one and is dropped (P2-237).
+  useEffect(() => {
+    let live = true;
     setLoading(true);
     setError(null);
-    try {
-      setLink(await getContainer().plan.feedLinks.current());
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load, user?.id]);
+    setLink(null);
+    setToken(null);
+    getContainer().plan.feedLinks.current().then(
+      (current) => { if (live) setLink(current); },
+      (err: unknown) => { if (live) setError(formatError(err)); },
+    ).finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, [user?.id]);
 
   async function run(action: () => Promise<void>) {
     setBusy(true);

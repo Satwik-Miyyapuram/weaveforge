@@ -29,8 +29,8 @@ function stubWorkers() {
     constructor() {
       made.push(this);
     }
-    addEventListener(_t: string, l: Listener) {
-      this.listener = l;
+    addEventListener(t: string, l: Listener) {
+      if (t === "message") this.listener = l;
     }
     postMessage(msg: Msg) {
       if (msg.type === "load") {

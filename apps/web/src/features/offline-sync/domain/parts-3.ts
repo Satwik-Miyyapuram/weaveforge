@@ -49,7 +49,20 @@ export class OutboxPump {
     const result: PumpResult = { sent: 0, conflicts: [], stoppedBecause: null };
     // A row whose op stalled sends nothing more this run: a later op would guard on a stale base.
     const stalled = new Set<string>();
-    for (const entry of await this.outbox.pending(limit, githubConnected)) {
+    // A full page that sent nothing (every row waiting on a parent, say) must
+    // not end the run, or the rows behind it are never reached.
+    let afterSeq = 0;
+    for (;;) {
+      const page = await this.outbox.pending(limit, githubConnected, afterSeq);
+      await this.runPage(page, stalled, result);
+      if (result.stoppedBecause || result.sent > 0 || page.length < Math.max(1, limit)) break;
+      afterSeq = page.at(-1)!.seq;
+    }
+    return result;
+  }
+
+  private async runPage(page: OutboxEntry[], stalled: Set<string>, result: PumpResult): Promise<void> {
+    for (const entry of page) {
       const key = `${entry.table}:${entry.rowId}`;
       if (stalled.has(key)) continue;
       const outcome = await this.attempt(entry);
@@ -78,7 +91,6 @@ export class OutboxPump {
         else await this.outbox.fail(entry.opId, outcome.reason);
       }
     }
-    return result;
   }
 
   /**

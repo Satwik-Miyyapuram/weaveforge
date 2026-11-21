@@ -277,3 +277,28 @@ test("zotero sync: a write Zotero refused entirely pushes nothing (25-10)", asyn
   assert.equal(result.pushed, 0);
   assert.equal(saved.size, 0);
 });
+
+test("zotero sync: one key that fails to store does not stop the rest (P2-189)", async () => {
+  const { fetchFn } = mockPushLibrary();
+  const saved = new Map<string, string>();
+  const sync = new ZoteroSync({
+    credentials: async () => ({ apiKey: "k", library: "users/1" }),
+    listPapers: async () => many(3),
+    addPaper: async () => {},
+    savePaper: async (p) => {
+      if (p.id === "p1") throw new Error("disk full");
+      saved.set(p.id, String(p.metadata?.["zoteroKey"]));
+    },
+    fetchFn,
+    baseUrl: "https://api.zotero.org",
+  });
+  const warn = console.warn;
+  console.warn = () => undefined;
+  try {
+    const result = await sync.sync();
+    assert.equal(result.pushed, 3);
+    assert.deepEqual([...saved.entries()], [["p0", "K0"], ["p2", "K2"]]);
+  } finally {
+    console.warn = warn;
+  }
+});

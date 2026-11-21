@@ -22,6 +22,14 @@ test("undoing a reset marks the layout dirty so it saves", () => {
   assert.match(screen, /run: \(\) => \{ markDirty\(\); setLayout\(before\); \}/);
 });
 
+test("a project switch flushes the pending save of the old project before the load resets the flags (P2-140)", () => {
+  const load = screen.slice(screen.indexOf("// Load saved layout from the database when project changes"));
+  const flush = load.search(/pendingSave\.current\?\.\(\);\s*\n\s*pendingSave\.current = null;/);
+  assert.ok(flush >= 0, "the load effect flushes and clears the pending save");
+  assert.ok(flush < load.indexOf("if (!projectId) return;"), "before any early return");
+  assert.ok(flush < load.indexOf("layoutDirty.current = false;"), "before the dirty flag is reset");
+});
+
 test("a pending save is flushed when the screen unmounts", () => {
   assert.match(screen, /useEffect\(\(\) => \(\) => pendingSave\.current\?\.\(\), \[\]\)/);
 });

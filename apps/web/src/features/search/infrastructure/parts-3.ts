@@ -249,13 +249,12 @@ export class WorkerEmbedder implements IEmbedder {
   }
 
   /** Release the model's memory; the next `load()` fetches from the HTTP cache. */
-  dispose(): void {
+  dispose(reason: Error = new Error("The encoder was stopped.")): void {
     this.holdIdle();
     this.worker?.terminate();
     this.worker = null;
     this.ready = null;
-    for (const { reject } of this.pending.values())
-      reject(new Error("The encoder was stopped."));
+    for (const { reject } of this.pending.values()) reject(reason);
     this.pending.clear();
   }
 
@@ -308,6 +307,15 @@ export class WorkerEmbedder implements IEmbedder {
         else waiter.resolve(message);
       },
     );
+    // A crashed or unreadable worker sends no reply: without these, every
+    // pending request (and every later one sharing `ready`) would hang.
+    const worker = this.worker;
+    const crashed = () => {
+      if (this.worker !== worker) return; // a late event from a worker already replaced
+      this.dispose(new Error("The search encoder stopped. It restarts on the next search."));
+    };
+    worker.addEventListener("error", crashed);
+    worker.addEventListener("messageerror", crashed);
 
     const response = await this.send({
       type: "load",

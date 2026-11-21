@@ -8,6 +8,7 @@ import type {
 } from "@weaveforge/core";
 import { ConflictError, isSafeWorkspacePath } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
+import { moveToTrash } from "@/lib/workspace-trash";
 
 /** A paper file as read from the folder. */
 interface PaperFileRead {
@@ -144,21 +145,24 @@ export class FilePaperRepository implements IPaperRepository {
   /**
    * Moves the paper's file, its annotations and comments sidecars and its PDF to
    * `.weaveforge/trash/<day>/<path>`, all under one day; never unlinks. The PDF is
-   * left when another paper still points at it or it is not a workspace path.
+   * left when another paper still points at it, a paper file cannot be read, or it
+   * is not a workspace path.
    */
   async delete(id: string): Promise<void> {
     const read = await this.findById(id);
     if (!read) return;
     const core = typedCore();
     const now = Date.now();
-    await this.moveToTrash(read.path, now);
+    await moveToTrash(this.fs, read.path, now);
     for (const sidecar of [core.annotationsFilePath(read.path), core.commentsFilePath(read.path)]) {
-      if (await this.fs.stat(sidecar)) await this.moveToTrash(sidecar, now);
+      if (await this.fs.stat(sidecar)) await moveToTrash(this.fs, sidecar, now);
     }
     const pdf = read.paper.pdfPath;
     if (!pdf || !isSafeWorkspacePath(pdf) || !(await this.fs.stat(pdf))) return;
-    const others = (await this.readAll()).some((other) => other.paper.pdfPath === pdf);
-    if (!others) await this.moveToTrash(pdf, now);
+    // A file that does not parse may still point at this PDF, so it counts as a user (F97-P2-25).
+    const { reads, failures } = await this.scan();
+    const others = failures.length > 0 || reads.some((other) => other.paper.pdfPath === pdf);
+    if (!others) await moveToTrash(this.fs, pdf, now);
   }
 
   /**
@@ -202,22 +206,6 @@ export class FilePaperRepository implements IPaperRepository {
     }
     if (expected === null) await this.fs.mkdirp(parentOf(path));
     return this.fs.writeTextIf(path, text, expected);
-  }
-
-  /**
-   * Renames `path` to the first free trash name for `now` (`-2`, `-3`, … on a
-   * clash). The name is claimed by an exclusive create first, so a file that
-   * appears there between a look and the rename is never overwritten.
-   */
-  private async moveToTrash(path: string, now: number): Promise<void> {
-    const core = typedCore();
-    for (let n = 1; n <= NAME_ATTEMPTS; n += 1) {
-      const target = core.trashPathFor(path, now, n);
-      if (!(await this.writeIf(target, "", null))) continue;
-      await this.fs.rename(path, target);
-      return;
-    }
-    throw new ConflictError(`${path}: no free name in the trash; not deleted.`);
   }
 
   private async find(match: (paper: Paper) => boolean): Promise<PaperFileRead | null> {

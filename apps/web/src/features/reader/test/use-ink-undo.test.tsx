@@ -190,6 +190,7 @@ test("a colour or comment edit is undone and redone (D18, DA-112)", async () => 
     ...fakeWrites(true),
     updateLocal: async (id: string, patch: object) => {
       patches.push([id, patch]);
+      return true;
     },
   };
   const a = ann("a");
@@ -218,8 +219,24 @@ test("a colour or comment edit is undone and redone (D18, DA-112)", async () => 
   ]);
 });
 
+test("a failed colour or comment edit leaves nothing to undo (P2-199)", async () => {
+  const writes = { ...fakeWrites(true), updateLocal: async () => false };
+  let undo: InkUndo | null = null;
+  function Probe() {
+    undo = useInkUndo(writes, [ann("a")]);
+    return null;
+  }
+  act(() => {
+    create(createElement(Probe));
+  });
+  await act(async () => {
+    await undo!.updateLocal("a", { color: "#000000" });
+  });
+  assert.equal(undo!.canUndo, false);
+});
+
 test("an edit of an unknown mark records nothing", async () => {
-  const writes = { ...fakeWrites(true), updateLocal: async () => {} };
+  const writes = { ...fakeWrites(true), updateLocal: async () => true };
   let undo: InkUndo | null = null;
   function Probe() {
     undo = useInkUndo(writes, []);
@@ -242,4 +259,37 @@ test("the reader edits marks through the undo stack, never the raw writes (DA-11
     assert.doesNotMatch(raw, new RegExp(`\b${write}\b`), `${write} taken from the raw actions`);
   }
   assert.match(src, /\{[^}]*updateLocal[^}]*\} = inkUndo;/);
+});
+
+test("an undo whose write fails keeps the step to undo, with nothing to redo (P2-198)", async () => {
+  const writes = fakeWrites(true);
+  const get = mount(writes, [ann("a")]);
+  await act(async () => {
+    await get().removeLocal("a");
+  });
+  writes.persistDraft = async () => null;
+  await act(async () => {
+    await get().undo();
+  });
+  assert.equal(get().canUndo, true, "the mark is still deleted, so the step is still undoable");
+  assert.equal(get().canRedo, false, "nothing was undone, so nothing to redo");
+});
+
+test("a redo whose write throws keeps the step to redo (P2-198)", async () => {
+  const writes = fakeWrites(true);
+  const get = mount(writes, [ann("a")]);
+  await act(async () => {
+    await get().removeLocal("a");
+  });
+  await act(async () => {
+    await get().undo();
+  });
+  writes.removeLocal = async () => {
+    throw new Error("offline");
+  };
+  await act(async () => {
+    await assert.rejects(get().redo(), /offline/);
+  });
+  assert.equal(get().canRedo, true);
+  assert.equal(get().canUndo, false);
 });

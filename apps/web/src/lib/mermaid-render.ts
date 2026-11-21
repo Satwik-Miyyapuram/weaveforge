@@ -26,6 +26,25 @@ export function setMermaidLoaderForTests(load: (() => Promise<MermaidModule>) | 
   mermaidPromise = null;
 }
 
+type SvgSanitizer = (svg: string) => string;
+let customSanitizer: SvgSanitizer | null = null;
+
+/** @internal for tests: Node has no DOM for DOMPurify. */
+export function setSvgSanitizerForTests(sanitize: SvgSanitizer | null): void {
+  customSanitizer = sanitize;
+}
+
+/**
+ * The SVG is built from note text and lands in innerHTML, so scripts, event
+ * handlers and `javascript:` links come out first (P2-256). pele draws plain
+ * SVG with no foreignObject, so the SVG profiles keep every label.
+ */
+async function sanitizeSvg(svg: string): Promise<string> {
+  if (customSanitizer) return customSanitizer(svg);
+  const { default: DOMPurify } = await import("dompurify");
+  return DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true } });
+}
+
 /** @internal for tests */
 export function mermaidCacheSize(): number {
   return renderCache.size;
@@ -102,7 +121,7 @@ export async function renderMermaidBlock(code: string): Promise<string> {
   try {
     const pele = await getMermaid();
     const { svg } = await pele.renderAsync(source, { idPrefix: readyCore().mermaidDiagramId(source) });
-    const html = `<div class="md-mermaid">${themePeleSvg(svg)}</div>`;
+    const html = `<div class="md-mermaid">${themePeleSvg(await sanitizeSvg(svg))}</div>`;
     renderCache.set(source, html);
     if (renderCache.size > MAX_CACHE_ENTRIES) {
       const oldest = renderCache.keys().next().value;

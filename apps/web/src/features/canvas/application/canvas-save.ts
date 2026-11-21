@@ -182,7 +182,9 @@ export class CanvasSaver {
       // as the base lets the store merge it with whatever it stored.
       this.base = newer || this.timer !== null ? text : stored;
       if (newer) {
-        if (this.saved !== null) this.send(this.saved);
+        // A halt since this write was sent protects the body on screen: the
+        // queued change is dropped like any other pending save (P2-153).
+        if (this.saved !== null && !this.halted) this.send(this.saved);
         return;
       }
       this.failed = false;

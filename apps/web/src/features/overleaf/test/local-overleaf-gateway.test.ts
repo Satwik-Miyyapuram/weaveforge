@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { LOCAL_USER_ID } from "@weaveforge/core";
-import { LocalOverleafGateway } from "../infrastructure/local-overleaf-gateway";
+import { LocalOverleafGateway, OverleafTokenInUseError } from "../infrastructure/local-overleaf-gateway";
 
 function recorder() {
   const calls: { sql: string; params: unknown[] }[] = [];
@@ -101,4 +101,87 @@ test("gateway: every statement takes the user from auth.uid(), never the fixed l
     assert.ok(sql.includes("auth.uid()"), sql);
     assert.ok(!params.includes(LOCAL_USER_ID), `${sql} ${JSON.stringify(params)}`);
   }
+});
+
+/*
+ * One keychain token per machine (P2-3): a second link must reuse the first
+ * connection row, so no row is left pointing at a token it no longer matches,
+ * and the token is stored only once a row exists for it.
+ */
+function connectionsDb(options: { failInsert?: boolean } = {}) {
+  const rows: { id: string; name: string; prefix: string }[] = [];
+  const run = {
+    query: async (sql: string, params: unknown[] = []) => {
+      if (/^\s*select id from overleaf_connections/.test(sql)) return rows.slice(0, 1).map(({ id }) => ({ id }));
+      if (/^\s*insert into overleaf_connections/.test(sql)) {
+        if (options.failInsert) throw new Error("db down");
+        const row = { id: `c${rows.length + 1}`, name: String(params[0]), prefix: String(params[2]) };
+        rows.push(row);
+        return [{ id: row.id }];
+      }
+      return [];
+    },
+    exec: async (sql: string, params: unknown[] = []) => {
+      if (/^\s*update overleaf_connections/.test(sql)) {
+        const row = rows.find((r) => r.id === params[2]);
+        if (row) Object.assign(row, { name: String(params[0]), prefix: String(params[1]) });
+      }
+      if (/^\s*delete from overleaf_connections/.test(sql)) rows.splice(rows.findIndex((r) => r.id === params[0]), 1);
+    },
+  };
+  return { rows, gateway: new LocalOverleafGateway(run as never) };
+}
+
+function withShell(failWrite = false): Record<string, string> {
+  const secrets: Record<string, string> = {};
+  (globalThis as { window?: unknown }).window = {
+    weaveforge: {
+      fetchTitle: () => undefined,
+      writeSecret: async (key: string, value: string) => {
+        if (failWrite) throw new Error("no keychain");
+        secrets[key] = value;
+      },
+    },
+  };
+  return secrets;
+}
+
+test("gateway: a second link reuses the one connection and its prefix follows the token (P2-3)", async (t) => {
+  t.after(() => { delete (globalThis as { window?: unknown }).window; });
+  const secrets = withShell();
+  const { rows, gateway } = connectionsDb();
+  const a = await gateway.saveConnection("Overleaf", "olp_first");
+  const b = await gateway.saveConnection("Overleaf 2", "abcd_second", { replaceToken: true });
+  assert.equal(b, a);
+  assert.deepEqual(rows, [{ id: a, name: "Overleaf 2", prefix: "abcd" }]);
+  assert.equal(secrets["overleaf-token"], "abcd_second");
+});
+
+test("gateway: a second link does not replace the stored token unless told to (P2-3)", async (t) => {
+  t.after(() => { delete (globalThis as { window?: unknown }).window; });
+  const secrets = withShell();
+  const { rows, gateway } = connectionsDb();
+  assert.equal(await gateway.hasConnection(), false);
+  await gateway.saveConnection("Overleaf", "olp_first");
+  assert.equal(await gateway.hasConnection(), true);
+  await assert.rejects(() => gateway.saveConnection("Overleaf 2", "olp_second"), OverleafTokenInUseError);
+  assert.equal(secrets["overleaf-token"], "olp_first");
+  assert.deepEqual(rows.map((r) => r.name), ["Overleaf"]);
+});
+
+test("gateway: a failed insert leaves the stored token alone (P2-3)", async (t) => {
+  t.after(() => { delete (globalThis as { window?: unknown }).window; });
+  const secrets = withShell();
+  secrets["overleaf-token"] = "old";
+  const { gateway } = connectionsDb({ failInsert: true });
+  await assert.rejects(() => gateway.saveConnection("Overleaf", "new_token"), /db down/);
+  assert.equal(secrets["overleaf-token"], "old");
+});
+
+test("gateway: a keychain failure leaves no connection row behind (P2-3)", async (t) => {
+  t.after(() => { delete (globalThis as { window?: unknown }).window; });
+  withShell(true);
+  const { rows, gateway } = connectionsDb();
+  await assert.rejects(() => gateway.saveConnection("Overleaf", "olp_first"), /no keychain/);
+  assert.deepEqual(rows, []);
 });

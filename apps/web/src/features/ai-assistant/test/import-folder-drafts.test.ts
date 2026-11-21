@@ -79,16 +79,45 @@ test("one draft the queue refuses does not hold back the rest (32-04)", async ()
   assert.deepEqual(await remaining(fs), [`${FOLDER_DRAFTS_DIR}/a.json`]);
 });
 
-test("a file that cannot be removed is not queued, so it is never queued twice (32-10)", async () => {
+test("a file that cannot be claimed is not queued, so it is never queued twice (32-10)", async () => {
   const fs = await withFiles({ "a.json": JSON.stringify(draft) });
-  const realRemove = fs.remove.bind(fs);
-  fs.remove = async () => { throw new Error("locked"); };
+  const realRename = fs.rename.bind(fs);
+  fs.rename = async () => { throw new Error("locked"); };
   const queued: string[] = [];
   assert.equal(await importFolderDrafts(fs, async (d) => queued.push(d.resourceId)), 0);
   assert.deepEqual(await remaining(fs), [`${FOLDER_DRAFTS_DIR}/a.json`]);
-  fs.remove = realRemove;
+  fs.rename = realRename;
   assert.equal(await importFolderDrafts(fs, async (d) => queued.push(d.resourceId)), 1);
   assert.deepEqual(queued, ["note-1"]);
+});
+
+test("the draft stays on disk until the queue has it, so a crash mid-queue loses nothing (P2-1)", async () => {
+  const raw = JSON.stringify(draft);
+  const fs = await withFiles({ "a.json": raw });
+  const onDisk: boolean[] = [];
+  const queue = async () => {
+    const texts = await Promise.all((await remaining(fs)).map((p) => fs.readText(p)));
+    onDisk.push(texts.includes(raw));
+    throw new Error("offline");
+  };
+  await assert.rejects(importFolderDrafts(fs, queue), /offline/);
+  assert.deepEqual(onDisk, [true]);
+  assert.deepEqual(await remaining(fs), [`${FOLDER_DRAFTS_DIR}/a.json`]);
+});
+
+test("a pass that throws still runs the pass a later call asked for (P2-150)", async () => {
+  const first = await withFiles({ "a.json": JSON.stringify(draft) });
+  const second = await withFiles({ "b.json": JSON.stringify({ ...draft, resourceId: "note-2" }) });
+  const queued: string[] = [];
+  const failing = async () => {
+    await new Promise((r) => setTimeout(r, 5));
+    throw new Error("offline");
+  };
+  const ok = async (d: FolderDraft) => queued.push(d.resourceId);
+  const results = await Promise.allSettled([importFolderDraftsOnce(first, failing), importFolderDraftsOnce(second, ok)]);
+  assert.equal(results[0].status, "rejected");
+  assert.deepEqual(queued, ["note-2"]);
+  assert.deepEqual(await remaining(second), []);
 });
 
 test("a call during a run imports its own folder and project on the next pass (32-03)", async () => {

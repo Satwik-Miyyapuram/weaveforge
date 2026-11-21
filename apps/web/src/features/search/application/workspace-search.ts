@@ -104,6 +104,8 @@ export class WorkspaceSearch {
   /** The extracted PDF texts the index was built from, for re-projection. */
   private pdfTexts: readonly PdfIndexSource[] = [];
   private building: Promise<IWorkspaceSearchIndex> | null = null;
+  /** Bumped by `invalidate`, so a build started before it is not adopted. */
+  private generation = 0;
   private settings: SearchSettings | undefined;
   /** The optional semantic arm; null unless the user turned it on. */
   private semantic: SemanticIndex | null = null;
@@ -148,16 +150,21 @@ export class WorkspaceSearch {
     }
     if (this.building) return this.building;
 
-    this.building = this.build()
+    const generation = this.generation;
+    const building: Promise<IWorkspaceSearchIndex> = this.build()
       .then((index) => {
+        // Invalidated while building: this index read the old corpus, so it
+        // is dropped and the next build (shared or new) answers instead.
+        if (generation !== this.generation) return this.ensure();
         this.index = index;
         this.state.adopt(this.state.documentCount);
         return index;
       })
       .finally(() => {
-        this.building = null;
+        if (this.building === building) this.building = null;
       });
-    return this.building;
+    this.building = building;
+    return building;
   }
 
   private async build(): Promise<IWorkspaceSearchIndex> {
@@ -657,6 +664,9 @@ export class WorkspaceSearch {
 
   /** Drop the in-memory index so the next `ensure()` rebuilds it. */
   invalidate(): void {
+    // A build in flight read the old corpus; it must not be adopted or shared.
+    this.generation += 1;
+    this.building = null;
     this.state.forget();
     this.index = null;
     this.graph = null;
