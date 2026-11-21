@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { toasts } from "@/lib/toast/parts";
 
-import { toastLinkRewriteFailed } from "../ui/vault-screen/rename-link-toast";
+import { toastLinkRewriteFailed } from "../application/rename-link-toast";
 
 before(loadTestCore);
 

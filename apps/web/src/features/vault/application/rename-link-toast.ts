@@ -1,6 +1,6 @@
 import { showToast } from "@/lib/toast/index";
 
-import type { RenamedVaultPage } from "../../application/rename-updates-links";
+import type { RenamedVaultPage } from "./rename-updates-links";
 
 const SHOWN = 5;
 
