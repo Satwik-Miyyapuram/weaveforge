@@ -149,6 +149,14 @@ export async function copyTable(source, target, table, options = {}) {
   if (shared.length === 0) return { table, copied: 0, skipped: "no shared columns" };
 
   const pk = await primaryKeyOf(target, table, schema);
+  // Without a key, `on conflict` never fires, so copying onto rows already there
+  // would duplicate every one of them.
+  if (!pk.length) {
+    const { rows } = await target.query(`select exists (select 1 from "${schema}"."${table}") as present`);
+    if (rows[0]?.present) {
+      throw new Error(`"${table}" has no primary key and already has rows; empty it before copying again`);
+    }
+  }
   const quoted = shared.map((column) => `"${column}"`).join(", ");
   const rowsPerBatch = Math.max(1, Math.min(BATCH_ROWS, Math.floor(MAX_PARAMS / shared.length)));
 

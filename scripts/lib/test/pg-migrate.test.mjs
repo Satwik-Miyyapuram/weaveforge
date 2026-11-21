@@ -64,6 +64,28 @@ test("copyTable rolls the source back when an insert fails (41-08)", async () =>
   assert.ok(!source.sql.some((q) => /^\s*commit/i.test(q)));
 });
 
+/** A client like `fakeClient` whose table has no primary key. */
+function withoutPrimaryKey(client) {
+  const query = client.query;
+  client.query = async (text, values) => (text.includes("pg_index") ? { rows: [] } : query(text, values));
+  return client;
+}
+
+test("copyTable copies a table without a primary key into an empty target", async () => {
+  const source = withoutPrimaryKey(fakeClient([{ id: 1, name: "a" }]));
+  const target = withoutPrimaryKey(fakeClient());
+  const out = await copyTable(source, target, "events");
+  assert.equal(out.copied, 1);
+});
+
+test("copyTable refuses to copy a table without a primary key twice, which would duplicate it", async () => {
+  const source = withoutPrimaryKey(fakeClient([{ id: 1, name: "a" }]));
+  const target = withoutPrimaryKey(fakeClient([{ present: true }]));
+  await assert.rejects(copyTable(source, target, "events"), /no primary key/);
+  assert.equal(target.sql.filter((q) => /^\s*insert /i.test(q)).length, 0);
+  assert.ok(!source.sql.some((q) => /^\s*declare /i.test(q)), "the source was never read");
+});
+
 /** A real Postgres in memory, when the desktop workspace has installed one. */
 async function pglite() {
   try {
