@@ -11,6 +11,8 @@
     reason = "tab counts are far below i32::MAX, and the index is clamped to the tab count before the cast"
 )]
 
+use std::collections::HashSet;
+
 use serde_json::{Map, Value};
 
 use super::pane_tree::{
@@ -31,9 +33,10 @@ pub fn layout_from_record(raw: Option<&str>) -> PaneLayout {
     let Some(record) = parsed.as_object() else {
         return empty_layout(DEFAULT_PANE_ID);
     };
-    let Some(root) = record.get("root").and_then(parse_node) else {
+    let Some(mut root) = record.get("root").and_then(parse_node) else {
         return empty_layout(DEFAULT_PANE_ID);
     };
+    dedupe_pane_ids(&mut root, &mut HashSet::new());
     // `settleFocus` corrects a focus id that no longer matches a pane on the
     // first operation, so an absent or empty one falls back to the first leaf.
     let focused = record
@@ -155,6 +158,28 @@ fn parse_group(value: &Value) -> Option<TabGroup> {
 fn color_tone(value: &Value) -> Option<u8> {
     let n = value.as_f64()?;
     GROUP_COLORS.iter().copied().find(|c| f64::from(*c) == n)
+}
+
+/// Renames a pane whose id an earlier pane already has to `{id}-{n}`, so every pane
+/// can be found by its id. The first pane with an id keeps it.
+fn dedupe_pane_ids(node: &mut PaneNode, seen: &mut HashSet<String>) {
+    match node {
+        PaneNode::Leaf(leaf) => {
+            if !seen.insert(leaf.id.clone()) {
+                let base = leaf.id.clone();
+                let mut n = 2;
+                while seen.contains(&format!("{base}-{n}")) {
+                    n += 1;
+                }
+                leaf.id = format!("{base}-{n}");
+                let _ = seen.insert(leaf.id.clone());
+            }
+        }
+        PaneNode::Split(split) => {
+            dedupe_pane_ids(&mut split.children.0, seen);
+            dedupe_pane_ids(&mut split.children.1, seen);
+        }
+    }
 }
 
 fn first_leaf_id(node: &PaneNode) -> &str {
@@ -347,6 +372,23 @@ mod tests {
         };
         assert_eq!(leaf.active_index, 1);
         assert_eq!(leaf.tabs[1].id, "b");
+    }
+
+    #[test]
+    fn two_panes_with_one_id_load_as_distinct_ids() {
+        let raw = r#"{"root":{"type":"split","children":[
+            {"type":"leaf","id":"p1","tabs":[]},
+            {"type":"split","children":[{"type":"leaf","id":"p1","tabs":[]},
+                                        {"type":"leaf","id":"p1-2","tabs":[]}]}]}}"#;
+        let PaneNode::Split(split) = layout_from_record(Some(raw)).root else {
+            panic!("expected a split root");
+        };
+        let PaneNode::Split(inner) = *split.children.1 else {
+            panic!("expected an inner split");
+        };
+        assert_eq!(first_leaf_id(&split.children.0), "p1");
+        assert_eq!(first_leaf_id(&inner.children.0), "p1-2");
+        assert_eq!(first_leaf_id(&inner.children.1), "p1-2-2");
     }
 
     #[test]
