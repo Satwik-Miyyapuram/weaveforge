@@ -313,9 +313,18 @@ export class ZoteroSync {
       // `parentItem` is the same statement from the other side — an item that
       // hangs off a paper is not one, whatever its `itemType` says.
       .filter((d) => !isChildItem(d));
+    // Every top-level key Zotero still holds, before the title filter: an item
+    // filtered out of the pull is still in the library, so its local paper must
+    // not be deleted (P1-13). Child items stay out, so a leftover attachment
+    // row is still cleaned up.
+    const presentKeys = remoteRaw
+      .map((r) => r.data)
+      .filter((d): d is ZoteroItemData => !!d && !isChildItem(d))
+      .map((d) => d.key)
+      .filter((k): k is string => !!k);
 
     const local = await this.deps.listPapers();
-    return { remote, local, headers, libraryUrl, col };
+    return { remote, presentKeys, local, headers, libraryUrl, col };
   }
 
   /**
@@ -355,16 +364,16 @@ export class ZoteroSync {
    * and the first third of a sync against the cloud one.
    */
   async pull(): Promise<number> {
-    const { remote, local } = await this.snapshot();
-    const plan = readyCore().zoteroSyncPlan(remote, local.map(syncLocal));
+    const { remote, presentKeys, local } = await this.snapshot();
+    const plan = readyCore().zoteroSyncPlan(remote, local.map(syncLocal), presentKeys);
     return this.pullItems(remote, plan.pull);
   }
 
   async sync(): Promise<ZoteroSyncResult> {
-    const { remote, local, headers, libraryUrl, col } = await this.snapshot();
+    const { remote, presentKeys, local, headers, libraryUrl, col } = await this.snapshot();
     // One plan from this snapshot. Reconcile in a safe order: PULL first
     // (additive), then PUSH (additive), then DELETE (destructive) last.
-    const plan = readyCore().zoteroSyncPlan(remote, local.map(syncLocal));
+    const plan = readyCore().zoteroSyncPlan(remote, local.map(syncLocal), presentKeys);
     const pulled = await this.pullItems(remote, plan.pull);
 
     // --- push: local papers that have never been in Zotero. ---

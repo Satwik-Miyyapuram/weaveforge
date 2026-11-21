@@ -153,6 +153,24 @@ test("zotero sync: a leftover attachment row is deleted, never pushed back", asy
   assert.deepEqual(deleted, ["junk"]);
 });
 
+test("zotero sync: an item still in Zotero but filtered out keeps its local paper (P1-13)", async () => {
+  // UNT1 lost its title in Zotero: the title filter drops it from the pull,
+  // but it is still in the library, so its local paper must not be deleted.
+  const untitled = { key: "UNT1", itemType: "journalArticle", title: "" };
+  const fetchFn = (async () =>
+    new Response(JSON.stringify([{ data: PAPER }, { data: untitled }]), {
+      status: 200,
+      headers: { "Total-Results": "2" },
+    })) as unknown as typeof fetch;
+
+  const kept = paper({ id: "kept", title: "Was titled", metadata: { zoteroKey: "UNT1" } });
+  const gone = paper({ id: "gone", title: "Gone", metadata: { zoteroKey: "GONE1" } });
+  const { sync, deleted } = syncWith(fetchFn, [kept, gone]);
+  await sync.sync();
+
+  assert.deepEqual(deleted, ["gone"]);
+});
+
 test("zotero sync: an item with a parentItem is not a paper, whatever its type says", async () => {
   const child = { key: "C1", itemType: "journalArticle", parentItem: "PAPER1", title: "SAGE PDF Full Text" };
   const fetchFn = (async () =>
