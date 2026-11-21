@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { EditVaultPageInput, VaultPage } from "@weaveforge/core";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 
 import { withRenameLinkRewrite } from "../application/rename-updates-links";
 
@@ -144,6 +145,25 @@ test("only notes that mention the old title, in any case or spacing, are read ag
   await repo.update("two", { title: "Renamed" });
   assert.deepEqual(reads, ["two", "three"]);
   assert.equal(rows.get("three")!.body, "see [[Renamed]]");
+});
+
+test("a note open in an editor is skipped and reported, not rewritten", async () => {
+  const { rows, updates, repo } = memoryPages([
+    page("one", "One", "[[Two]]"),
+    page("three", "Three", "[[Two]]"),
+    page("two", "Two", "Body"),
+  ]);
+  // An Edit-mode editor keeps its own body and would save [[Two]] back over the rewrite.
+  const release = holdOpenNotes(["one"]);
+  try {
+    const saved = (await repo.update("two", { title: "Renamed" })) as { linkRewriteFailed?: string[] };
+    assert.deepEqual(saved.linkRewriteFailed, ["One"]);
+  } finally {
+    release();
+  }
+  assert.equal(rows.get("one")!.body, "[[Two]]");
+  assert.equal(rows.get("three")!.body, "[[Renamed]]");
+  assert.deepEqual(updates, ["two", "three"]);
 });
 
 test("the app's note writes are the link-rewriting ones", () => {

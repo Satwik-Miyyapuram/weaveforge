@@ -5,6 +5,7 @@ import type {
   IVaultPageRepository,
 } from "@weaveforge/core";
 
+import { isNoteOpen } from "@/features/workspace/application/parts-3";
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
 
@@ -40,11 +41,16 @@ export function withRenameLinkRewrite<T extends VaultPages>(pages: T): T {
       // Only a note whose text holds the old title (case and spacing folded
       // as link lookup folds them) can link to it.
       if (page.id === id || !core.normalizeTitleKey(page.body).includes(oldKey)) continue;
+      // A note open in an editor keeps its own copy of the body, and its next
+      // autosave would put [[Old]] back, so it is reported instead of rewritten.
+      if (isNoteOpen(page.id)) {
+        failed.push(page.title);
+        continue;
+      }
       try {
         // Re-read right before the write, and send what was read as baseBody:
         // the repo then merges (or keeps a conflict copy of) anything saved in
-        // between instead of overwriting it. Editors send their own baseBody,
-        // so an open note's later autosave merges with this rewrite too.
+        // between instead of overwriting it.
         const fresh = await pages.getById(page.id);
         if (!fresh) continue;
         const body = core.rewriteWikilinksOutsideCode(fresh.body, renames);
