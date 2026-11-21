@@ -316,7 +316,14 @@ export class AiAssistantFacade {
     expectedRevision?: string; evidence?: readonly AiEvidence[];
   }): Promise<{ status: "requires_review"; proposalId: string; kind: AiProposalKind; message: string }> {
     const session = this.requireActiveSession(input.sessionId);
-    const expectedRevision = input.expectedRevision || await this.currentPaperRevision(input.kind, input.resourceId);
+    // MCP agents never see a paper's revision; without one, approving a stale
+    // paper edit would overwrite the user's later edits, so stamp the current one.
+    let expectedRevision = input.expectedRevision;
+    if (!expectedRevision && PAPER_EDIT_KINDS.has(input.kind)) {
+      const paper = input.resourceId ? await this.deps.papers.getById(input.resourceId) : null;
+      if (!paper) throw new Error("This paper does not exist, so no edit to it can be drafted.");
+      expectedRevision = paper.updatedAt;
+    }
     const proposal = await this.createProposal.execute({
       id: this.deps.newId(), kind: input.kind, tool: input.tool,
       resourceId: input.resourceId ?? this.deps.newId(), resourceType: input.resourceType,
@@ -327,16 +334,6 @@ export class AiAssistantFacade {
     return { status: "requires_review", proposalId: proposal.id, kind: proposal.kind, message: "Draft saved securely. Review and approve it in WeaveForge before anything changes." };
   }
 
-  /**
-   * The revision a paper edit is drafted against. MCP agents never see one, and
-   * without it approving a stale draft overwrites the user's later edits.
-   */
-  private async currentPaperRevision(kind: AiProposalKind, paperId?: string): Promise<string | undefined> {
-    if (!PAPER_EDIT_KINDS.has(kind)) return undefined;
-    const paper = paperId ? await this.deps.papers.getById(paperId) : null;
-    if (!paper) throw new Error("This paper does not exist, so no edit to it can be drafted.");
-    return paper.updatedAt;
-  }
 
   /** Build and persist a review-only Zotero import. It never reads credentials. */
   async proposeZoteroImport(input: {

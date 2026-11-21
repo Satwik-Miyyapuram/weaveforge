@@ -359,10 +359,8 @@ export function WorkspaceScreen() {
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       const hold = closeWouldLoseWork({
-        pending: pendingRef.current,
-        dirty: dirtyRef.current,
-        inkPending: getInkSaveStatus().pending,
-        bodyPending: hasPendingBodySave(),
+        pending: pendingRef.current, dirty: dirtyRef.current,
+        inkPending: getInkSaveStatus().pending, bodyPending: hasPendingBodySave(),
       });
       if (!hold) return;
       event.preventDefault();
