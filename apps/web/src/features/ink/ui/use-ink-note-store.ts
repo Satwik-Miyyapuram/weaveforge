@@ -13,7 +13,7 @@
  * so a body built anywhere else would count a different one.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore, typedCore } from "@/lib/rust-core";
@@ -203,7 +203,10 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     trackInkWrite(noteId, write);
     await write;
   }, [chunks, noteId, pageIndex, requestSave, saveBodyOk, pagesRef, takeSaveTicket, reportSaveFailure]);
-  persistRef.current = persist;
+  // Moved to a new note's save only after the old note's pending save was flushed (F97-P1-3).
+  useLayoutEffect(() => {
+    persistRef.current = persist;
+  }, [persist]);
 
   /**
    * Flush a pending save before the page changes or the host goes away.
@@ -218,7 +221,9 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     saveTimer.current = null;
     runPersist();
   }, [runPersist]);
-  useEffect(() => () => flushSave(), [flushSave]);
+  // A layout cleanup runs before the ref above moves on, so a note switch (not only an
+  // unmount) writes the pending save into the note it was made on (F97-P1-3).
+  useLayoutEffect(() => () => flushSave(), [flushSave, noteId]);
 
   /**
    * Load the sidecar once; a note with nothing written gets one blank page.

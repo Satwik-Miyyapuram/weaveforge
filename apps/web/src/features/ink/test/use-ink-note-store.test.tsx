@@ -15,7 +15,7 @@ import { act, create } from "react-test-renderer";
 
 import { MemoryInkChunkStore, type InkStoredPage } from "../application/parts-1";
 import { awaitInkWrites } from "../application/parts";
-import { INK_SAVE_FAILED, useInkNoteStore } from "../ui/use-ink-note-store";
+import { INK_SAVE_DELAY_MS, INK_SAVE_FAILED, useInkNoteStore } from "../ui/use-ink-note-store";
 import { useInkWorkerRpc, type InkSave } from "../ui/use-ink-worker-rpc";
 import { typedCore } from "@/lib/rust-core";
 
@@ -264,4 +264,41 @@ test("a body save that fails is logged and resolves, so a loop of them goes on (
   assert.equal(logs.length, 2);
   assert.match(logs[0]!.detail ?? "", /offline/);
   assert.equal(message, INK_SAVE_FAILED);
+});
+
+test("F97-P1-3: a save pending at a note switch lands in the old note, not the new one", async () => {
+  const id = typedCore().newInkChunkId();
+  const chunks = new RecordingStore();
+  await chunks.write(NOTE, id, new Uint8Array([1]));
+  chunks.writes = [];
+  const other = "01HYYYYYYYYYYYYYYYYYYYYYYY";
+  const pagesRef: { current: InkStoredPage[] | null } = { current: null };
+  const metaRef = { current: { ...typedCore().defaultInkNoteMeta(), pageOrder: [id] } };
+  const textPagesRef = { current: [""] };
+  const onSave = async () => {};
+  const requestSave = async () => ({ bytes: new Uint8Array([9]), cleared: false, pageIndex: 0 });
+  const noop = () => {};
+  let handle: Handle | null = null;
+  function Probe({ noteId }: { noteId: string }) {
+    handle = useInkNoteStore({
+      noteId, onSave, chunks, metaRef, pagesRef, textPagesRef, requestSave,
+      pageIndex: 0, pageCount: 1, setPageCount: noop, setPageIndex: noop,
+    });
+    return null;
+  }
+  let renderer: ReturnType<typeof create> | null = null;
+  act(() => void (renderer = create(createElement(Probe, { noteId: NOTE }))));
+  mounted.push(renderer!);
+  await settle();
+  act(() => handle!.scheduleSave());
+  act(() => renderer!.update(createElement(Probe, { noteId: other })));
+  await settle();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, INK_SAVE_DELAY_MS + 100));
+  });
+  await settle();
+  await awaitInkWrites(NOTE);
+  await awaitInkWrites(other);
+  assert.deepEqual([...(await chunks.read(NOTE, id))!], [9]);
+  assert.deepEqual(await chunks.list(other), []);
 });
