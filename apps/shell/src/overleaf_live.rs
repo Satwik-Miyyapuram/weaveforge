@@ -347,12 +347,21 @@ impl Room {
         if let Ok(mut acks) = self.acks.lock() {
             let _ = acks.insert(id, tx);
         }
-        self.post(&encode_event(id, name, args)).await?;
-        match tokio::time::timeout(ACK_TIMEOUT, rx).await {
-            Ok(Ok(args)) => Ok(args),
-            Ok(Err(_)) => Err("The live connection closed.".to_owned()),
-            Err(_) => Err("Overleaf did not answer in time.".to_owned()),
+        let reply = match self.post(&encode_event(id, name, args)).await {
+            Err(e) => Err(e),
+            Ok(()) => match tokio::time::timeout(ACK_TIMEOUT, rx).await {
+                Ok(Ok(args)) => Ok(args),
+                Ok(Err(_)) => Err("The live connection closed.".to_owned()),
+                Err(_) => Err("Overleaf did not answer in time.".to_owned()),
+            },
+        };
+        if reply.is_err() {
+            // No reply is coming for this id; drop its sender so the map does not grow.
+            if let Ok(mut acks) = self.acks.lock() {
+                let _ = acks.remove(&id);
+            }
         }
+        reply
     }
 
     /// The `joinProjectResponse` arguments, waiting up to `limit`.
@@ -974,6 +983,26 @@ mod tests {
         );
         let new = serve(&opener, "events", &json!({ "liveId": second }), None).await;
         assert_eq!(new.status, 200);
+    }
+
+    #[tokio::test]
+    async fn a_failed_emit_leaves_no_ack_behind() {
+        let room = Room {
+            client: reqwest::Client::new(),
+            project: PROJECT.to_owned(),
+            url: "http://127.0.0.1:9/socket.io/1/xhr-polling/s".to_owned(),
+            cookies: String::new(),
+            origin: "http://127.0.0.1:9".to_owned(),
+            next_id: AtomicU64::new(1),
+            acks: Mutex::default(),
+            events: Mutex::default(),
+            joined: Mutex::default(),
+            doc: Mutex::default(),
+            closed: AtomicBool::new(false),
+            notify: Notify::new(),
+        };
+        assert!(room.emit("joinDoc", &[]).await.is_err());
+        assert!(room.acks.lock().unwrap().is_empty());
     }
 
     #[tokio::test]
