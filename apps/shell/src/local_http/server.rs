@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::watch;
+use tokio::sync::{Semaphore, watch};
 use tokio::time::timeout;
 
 use super::{BoxFuture, LocalApiRequest, LocalApiResponse};
@@ -35,6 +35,9 @@ const BODY_TIMEOUT: Duration = Duration::from_secs(300);
 const MAX_REFUSAL_DRAIN: Duration = Duration::from_secs(30);
 /// How long `serve` waits after a failed accept, so it cannot spin.
 const ACCEPT_BACKOFF: Duration = Duration::from_millis(100);
+/// Most connections handled at once; past this a new one is closed unanswered, so a
+/// flood of idle sockets cannot hold unbounded tasks and buffers.
+pub const MAX_CONNECTIONS: usize = 32;
 
 /// True when a `Host` header names this computer by name: `127.0.0.1`, `localhost` or `[::1]` on `port`.
 ///
@@ -64,6 +67,7 @@ pub async fn serve(listener: TcpListener, handler: Handler, mut shutdown: watch:
         return;
     };
     let port = addr.port();
+    let slots = Arc::new(Semaphore::new(MAX_CONNECTIONS));
     loop {
         if *shutdown.borrow() {
             return;
@@ -87,7 +91,17 @@ pub async fn serve(listener: TcpListener, handler: Handler, mut shutdown: watch:
             .await
         };
         match next {
-            Next::Conn(stream) => drop(tokio::spawn(handle(stream, Arc::clone(&handler), port))),
+            Next::Conn(stream) => {
+                // Full: dropping the stream closes it, and the client sees no answer.
+                let Ok(slot) = Arc::clone(&slots).try_acquire_owned() else {
+                    continue;
+                };
+                let handler = Arc::clone(&handler);
+                drop(tokio::spawn(async move {
+                    handle(stream, handler, port).await;
+                    drop(slot);
+                }));
+            }
             Next::Retry => tokio::time::sleep(ACCEPT_BACKOFF).await,
             Next::Check => {}
             Next::Stop => return,
@@ -464,6 +478,43 @@ mod tests {
             let out = exchange(port, b"NOT HTTP\r\n\r\n").await;
             assert!(out.starts_with("HTTP/1.1 400 Bad Request\r\n"), "{out}");
             assert!(out.ends_with("Bad request.\"}"), "{out}");
+        });
+    }
+
+    /// Like `exchange`, but a reset or write error counts as no answer.
+    async fn try_exchange(port: u16, request: &[u8]) -> String {
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+        let _ = stream.write_all(request).await;
+        let _ = stream.shutdown().await;
+        let mut out = Vec::new();
+        let _ = stream.read_to_end(&mut out).await;
+        String::from_utf8_lossy(&out).into_owned()
+    }
+
+    #[test]
+    fn a_connection_past_the_cap_is_refused_until_one_closes() {
+        run(async {
+            let (port, _stop) = start(echo_handler()).await;
+            let request = format!("GET / HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n");
+            // Each idle socket holds a slot while the server waits for its head.
+            let mut idle = Vec::new();
+            for _ in 0..MAX_CONNECTIONS {
+                idle.push(TcpStream::connect(("127.0.0.1", port)).await.unwrap());
+            }
+
+            let refused = try_exchange(port, request.as_bytes()).await;
+            assert_eq!(refused, "");
+
+            drop(idle.pop());
+            let mut served = String::new();
+            for _ in 0..100 {
+                served = try_exchange(port, request.as_bytes()).await;
+                if !served.is_empty() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            assert!(served.starts_with("HTTP/1.1 200 OK\r\n"), "{served}");
         });
     }
 
