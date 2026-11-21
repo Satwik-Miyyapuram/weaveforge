@@ -68,6 +68,9 @@ export class WorkspacePdfStore implements IPdfByteCache {
     if (await fs.stat(path)) await fs.remove(path);
   }
 
+  /** The folder copy is the user's file, not a cache entry: a render failure keeps it. */
+  async evict(_key: string): Promise<void> {}
+
   async clear(): Promise<void> {
     const fs = this.fs();
     if (!fs) return;
@@ -103,6 +106,9 @@ export class RoutedPdfByteCache implements IPdfByteCache {
   }
   remove(key: string) {
     return this.pick().remove(key);
+  }
+  evict(key: string) {
+    return this.pick().evict(key);
   }
   clear() {
     return this.pick().clear();

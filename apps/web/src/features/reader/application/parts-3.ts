@@ -223,7 +223,8 @@ export async function evictReaderPdfCache(paperId: string): Promise<void> {
   const cache = getReaderPdfByteCache();
   if (!cache) return;
   try {
-    await cache.remove(paperId);
+    // evict, not remove: in a workspace folder the copy is the user's file.
+    await cache.evict(paperId);
   } catch {
     // Best-effort: the fallback fetch matters, the eviction is housekeeping.
   }
