@@ -12,6 +12,22 @@ import { Button } from "@/components/button";
 
 const CONFIRMATION = "DELETE_USER";
 
+/**
+ * Signs out and goes home once the server has deleted the account. The session
+ * is already gone by then, so a sign-out error is expected and ignored (P2-238).
+ */
+export async function leaveDeletedAccount(
+  signOut: () => Promise<void>,
+  goTo: (href: string) => void = (href) => { window.location.href = href; },
+): Promise<void> {
+  try {
+    await signOut();
+  } catch {
+    // The account no longer exists; nothing left to sign out of.
+  }
+  goTo("/");
+}
+
 /** Danger zone: permanent account + data deletion (email OTP required). */
 export function DeleteAccountPanel() {
   const { user, signOut } = useAuth();
@@ -66,8 +82,7 @@ export function DeleteAccountPanel() {
 
       clearStoredAppearance();
 
-      await signOut();
-      window.location.href = "/";
+      await leaveDeletedAccount(signOut);
     } catch (err) {
       setError(formatError(err));
     } finally {
