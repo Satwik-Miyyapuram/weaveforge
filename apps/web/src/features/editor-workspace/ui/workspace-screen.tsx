@@ -26,22 +26,8 @@ import {
   writeHidden,
   writeLayout,
 } from "../application/parts";
-import {
-  breadcrumbs,
-  creationKindFor,
-  creationTarget,
-  type Draft,
-  draftMakes,
-  duplicatePlan,
-  hasInkView,
-  hasLazyBody,
-  isCreatableKind,
-  isDocumentKind,
-  kindOwner,
-  openingTab,
-  openModeFor,
-  segmentsFor,
-} from "@weaveforge/wasm";
+import { breadcrumbs, creationKindFor, creationTarget, type Draft, draftMakes, duplicatePlan, hasInkView } from "@weaveforge/wasm";
+import { hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, openingTab, openModeFor, segmentsFor } from "@weaveforge/wasm";
 import type { PaneLayout, PaneSplit, TabRef, WorkspaceTreeNode } from "@weaveforge/wasm";
 import type { ExplorerSection } from "../application/parts";
 import { DocumentHost, isCanvasDocument, type DocumentMetrics } from "./document-host";
@@ -66,8 +52,6 @@ import { FormError } from "@/components/form-error";
 import { DESKTOP_BREAKPOINT_PX, isMacPlatform } from "@/lib/parts";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { IconButton } from "@/components/button";
-
-/** The image button with no document under it: greyed, so never pressed. */
 
 /**
  * The desktop editor: the workspace as a stack of explorer sections and a set

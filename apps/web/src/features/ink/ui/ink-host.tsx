@@ -37,16 +37,9 @@ import { INK_A4_HEIGHT, INK_A4_WIDTH, type InkHand, type InkPaper, type InkNoteM
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 
-import {
-  INK_RENDER_COLOURS,
-  type InkPalette,
-} from "../render/parts-1";
-import type {
-  InkWorkerMessage,
-} from "../application/capture-protocol";
-import {
-  type InkStoredPage,
-} from "../application/parts-1";
+import { INK_RENDER_COLOURS, type InkPalette } from "../render/parts-1";
+import type { InkWorkerMessage } from "../application/capture-protocol";
+import type { InkStoredPage } from "../application/parts-1";
 import { InkBar } from "./ink-bar";
 import { InkTuningPanel } from "./ink-tuning-panel";
 import { InkSelectionChip } from "./ink-selection-chip";
