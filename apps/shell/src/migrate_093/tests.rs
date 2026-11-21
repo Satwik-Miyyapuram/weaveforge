@@ -409,6 +409,7 @@ fn sample_comment() -> CommentRow {
 
 fn sample_export() -> PaperExport {
     PaperExport {
+        updated_at: "2026-01-01T00:00:00Z".to_owned(),
         annotations: vec![sample_annotation()],
         comments: vec![sample_comment()],
         facts: PaperFacts {
@@ -609,7 +610,7 @@ fn export_rerun_is_idempotent() {
 fn sidecar_pairs_by_stem() {
     let paper = "papers/attention.paper.md";
     let files = FakeFiles::with(&[(paper, "---\ntitle: Attention\n---\nbody\n")]);
-    export_paper(&files, paper, &sample_export()).expect("export");
+    let _ = export_paper(&files, paper, &sample_export()).expect("export");
 
     let annotations = annotations_path(paper);
     let comments = comments_path(paper);
@@ -649,6 +650,7 @@ fn export_with_data_needs_its_paper_file() {
         "no sidecar without its paper"
     );
     let empty = PaperExport {
+        updated_at: "2026-01-01T00:00:00Z".to_owned(),
         annotations: vec![],
         comments: vec![],
         facts: PaperFacts::default(),
@@ -664,7 +666,7 @@ fn edited_sidecar_is_kept_and_the_export_lands_beside_it() {
         (paper, "---\ntitle: Attention\n---\nbody\n"),
         (sidecar.as_str(), "[]"),
     ]);
-    export_paper(&files, paper, &sample_export()).expect("export");
+    let _ = export_paper(&files, paper, &sample_export()).expect("export");
     assert_eq!(
         files.text(&sidecar).as_deref(),
         Some("[]"),
@@ -685,7 +687,7 @@ fn edited_sidecar_is_kept_and_the_export_lands_beside_it() {
 fn verify_reads_back_what_was_written() {
     let paper = "papers/attention.paper.md";
     let files = FakeFiles::with(&[(paper, "---\ntitle: Attention\n---\nbody\n")]);
-    export_paper(&files, paper, &sample_export()).expect("export");
+    let _ = export_paper(&files, paper, &sample_export()).expect("export");
     assert_eq!(verify_paper(&files, paper, &sample_export()), Ok(()));
 
     let _previous = files
