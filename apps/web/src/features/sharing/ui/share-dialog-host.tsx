@@ -70,6 +70,8 @@ export function ShareDialogHost({ children }: { children: ReactNode }) {
       {children}
       {req && (
         <ShareDialog
+          // A fresh dialog per request: no picks or link carry over (P2-242).
+          key={req.token}
           resourceType={req.value.resourceType}
           resourceId={req.value.resourceId}
           projectId={getContainer().projects.context.projectId}
