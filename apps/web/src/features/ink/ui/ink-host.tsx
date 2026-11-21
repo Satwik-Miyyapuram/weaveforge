@@ -488,6 +488,7 @@ export function InkHost({
     root: wrapRef,
     scale,
     paper,
+    onError: setUnavailable,
   });
 
   // Both image layers of the sheet, from the one module that knows both stores: the
@@ -520,6 +521,7 @@ export function InkHost({
       sheetInk,
       pageSize,
       wrapRef,
+      onError: setUnavailable,
     });
 
   /** Pan, pinch, erase, undo, redo (§use-ink-edit-actions). */
