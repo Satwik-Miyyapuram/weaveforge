@@ -475,7 +475,7 @@ function MergeDialog({
               onClick={() => {
                 setBusy(true);
                 setError(null);
-                void applyMerge(primaryId, secondaryId, preview.result)
+                void applyMerge(primaryId, secondaryId, preview.result, preview.expected)
                   .then(onMerged)
                   .catch((err) => {
                     setError(formatError(err));
