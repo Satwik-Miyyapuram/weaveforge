@@ -508,6 +508,7 @@ export function PdfReader({
     onPagePointerMove,
     onPagePointerUp,
     onPagePointerLeave,
+    onPagePointerCancel,
   } = usePagePointer({
     canCreate,
     createTool,
@@ -1837,8 +1838,10 @@ export function PdfReader({
               onPointerCancel={(e) => {
                 if (gestures.end(e)) return;
                 if (pictures.pointerUp(e)) return;
-                onPagePointerUp(n, e);
+                // A cancelled pointer never lifted: its stroke is dropped, not saved.
+                onPagePointerCancel(e);
               }}
+              onLostPointerCapture={onPagePointerCancel}
               onPointerLeave={onPagePointerLeave}
             >
               <div

@@ -102,6 +102,8 @@ export interface PagePointer {
   onPagePointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
   onPagePointerUp: (pageNumber: number, event: React.PointerEvent<HTMLDivElement>) => void;
   onPagePointerLeave: (event: React.PointerEvent<HTMLDivElement>) => void;
+  /** The pointer was taken away mid-gesture: drop what it was drawing. */
+  onPagePointerCancel: (event: React.PointerEvent<HTMLDivElement>) => void;
 }
 
 /**
@@ -719,6 +721,39 @@ export function usePagePointer({
     void event;
   }
 
+  function cancelStroke() {
+    ink.current.clear();
+    inkPointerId.current = null;
+    dragRect.current = null;
+    inkMove.current = null;
+    lassoPointerId.current = null;
+    lasso.current = [];
+    lassoPage.current = null;
+    clearDraft();
+    publishLasso(null);
+  }
+
+  /**
+   * The system took the pointer away (`pointercancel`, `lostpointercapture`):
+   * no up follows, so the gesture ends here and nothing in hand is written.
+   */
+  function onPagePointerCancel(event: React.PointerEvent<HTMLDivElement>) {
+    const id = event.pointerId;
+    // Capture is also lost after an ordinary up; a pointer with nothing in
+    // hand leaves another pointer's stroke alone.
+    const owns =
+      gesture.current.route(id) != null ||
+      inkPointerId.current === id ||
+      inkMove.current?.pointerId === id ||
+      lassoPointerId.current === id;
+    if (!owns) return;
+    gesture.current.up(id);
+    scheduleMove(null);
+    erased.current = new Map();
+    edge.current.end();
+    cancelStroke();
+  }
+
   return {
     penSeen,
     draftShape,
@@ -731,17 +766,7 @@ export function usePagePointer({
     endInkGroup: () => {
       inkGroup.current = null;
     },
-    cancelStroke: () => {
-      ink.current.clear();
-      inkPointerId.current = null;
-      dragRect.current = null;
-      inkMove.current = null;
-      lassoPointerId.current = null;
-      lasso.current = [];
-      lassoPage.current = null;
-      clearDraft();
-      publishLasso(null);
-    },
+    cancelStroke,
     pendingTextBox,
     setPendingTextBox,
     pageProjection,
@@ -749,5 +774,6 @@ export function usePagePointer({
     onPagePointerMove,
     onPagePointerUp,
     onPagePointerLeave,
+    onPagePointerCancel,
   };
 }
