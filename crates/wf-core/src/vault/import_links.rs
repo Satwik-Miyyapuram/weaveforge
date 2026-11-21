@@ -250,6 +250,16 @@ mod tests {
     }
 
     #[test]
+    fn outside_code_skips_fences_in_callouts() {
+        let body =
+            "> [!note]\n> ```\n> [[Old]]\n> ```\n> ~~~\n> [[Old]]\n> ~~~\n> [[Old]]\n[[Old]]";
+        assert_eq!(
+            rewrite_wikilinks_outside_code(body, &renames()),
+            "> [!note]\n> ```\n> [[Old]]\n> ```\n> ~~~\n> [[Old]]\n> ~~~\n> [[Old 2]]\n[[Old 2]]"
+        );
+    }
+
+    #[test]
     fn outside_code_without_code_matches_plain_rewrite() {
         let body = "a [[Old]] b [[Old#h]] ü [[Other]]";
         assert_eq!(
