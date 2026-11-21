@@ -163,7 +163,9 @@ pub struct DrainReport {
 }
 
 /// Stores claimed `sdk_inbox` rows as files: metrics as chunks named
-/// `b<row id>`, artifacts as `<experiment>/artifacts/<run>/a<row id>.json`.
+/// `b<row id>-<digest of its points>`, so two rows that share an id never
+/// replace each other's chunk while a re-fetched row is still one chunk
+/// (F97-P2-10); artifacts as `<experiment>/artifacts/<run>/a<row id>.json`.
 /// `dirs` maps experiment ids to folders (see [`experiment_dirs`]).
 #[must_use]
 pub fn apply_inbox_rows(
@@ -226,16 +228,25 @@ fn store_metrics(
 ) -> Result<Vec<ChunkWrite>, String> {
     let points = payload.get("points").and_then(Value::as_array);
     let points = points.ok_or("payload has no points")?;
-    store_metric_points(vault, &format!("b{id}"), points, dirs)
+    store_metric_points(
+        vault,
+        &format!("b{id}-{}", points_digest(points)),
+        points,
+        dirs,
+    )
 }
 
 /// The batch id for points posted to the local API: a digest of the points,
 /// so the same request sent twice names the same chunk.
 #[must_use]
 pub fn local_batch_id(points: &[Value]) -> String {
+    format!("l{}", points_digest(points))
+}
+
+/// The first 8 bytes of the points' SHA-256, as hex.
+fn points_digest(points: &[Value]) -> String {
     let digest = Sha256::digest(Value::from(points.to_vec()).to_string().as_bytes());
-    let hex: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
-    format!("l{hex}")
+    digest.iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
 
 /// Writes SDK metric points (`{experiment_id, metric, step, value, run?,

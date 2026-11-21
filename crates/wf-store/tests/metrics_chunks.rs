@@ -178,6 +178,22 @@ fn ack_lost_refetch() {
 }
 
 #[test]
+fn f97_p2_10_two_batches_with_one_id_both_keep_their_points() {
+    let tmp = TempDir::new();
+    experiment_file(tmp.path(), &format!("{EXP}.md"), "exp-1");
+    let vault = vault_in(tmp.path());
+    let dirs = experiment_dirs(&vault).unwrap();
+    // Same row id from two sources (another relay, a reset sequence).
+    let first = apply_inbox_rows(&vault, &[inbox_row(7, "exp-1", 0..3)], &dirs);
+    let second = apply_inbox_rows(&vault, &[inbox_row(7, "exp-1", 3..5)], &dirs);
+    assert_eq!((first.written, second.written), (1, 1));
+    assert_eq!(read_metrics(&vault, EXP).unwrap().rows.len(), 5);
+    // The same row fetched again is still one chunk.
+    let again = apply_inbox_rows(&vault, &[inbox_row(7, "exp-1", 3..5)], &dirs);
+    assert_eq!((again.written, again.duplicates), (0, 1));
+}
+
+#[test]
 fn rows_that_cannot_be_stored_are_not_acked() {
     let tmp = TempDir::new();
     let vault = vault_in(tmp.path());
