@@ -190,6 +190,7 @@ test("a colour or comment edit is undone and redone (D18, DA-112)", async () => 
     ...fakeWrites(true),
     updateLocal: async (id: string, patch: object) => {
       patches.push([id, patch]);
+      return true;
     },
   };
   const a = ann("a");
@@ -218,8 +219,24 @@ test("a colour or comment edit is undone and redone (D18, DA-112)", async () => 
   ]);
 });
 
+test("a failed colour or comment edit leaves nothing to undo (P2-199)", async () => {
+  const writes = { ...fakeWrites(true), updateLocal: async () => false };
+  let undo: InkUndo | null = null;
+  function Probe() {
+    undo = useInkUndo(writes, [ann("a")]);
+    return null;
+  }
+  act(() => {
+    create(createElement(Probe));
+  });
+  await act(async () => {
+    await undo!.updateLocal("a", { color: "#000000" });
+  });
+  assert.equal(undo!.canUndo, false);
+});
+
 test("an edit of an unknown mark records nothing", async () => {
-  const writes = { ...fakeWrites(true), updateLocal: async () => {} };
+  const writes = { ...fakeWrites(true), updateLocal: async () => true };
   let undo: InkUndo | null = null;
   function Probe() {
     undo = useInkUndo(writes, []);

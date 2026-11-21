@@ -33,10 +33,11 @@ export interface AnnotationActions {
   createBusy: boolean;
   /** Returns the persisted annotation, or null when the write failed. */
   persistDraft: (draft: NewReaderAnnotation) => Promise<ReaderAnnotation | null>;
+  /** Resolves false when the edit was not saved (and was rolled back). */
   updateLocal: (
     id: string,
     patch: { comment?: string; tags?: string[]; color?: string; text?: string },
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   /**
    * Delete now, no question asked; Ctrl+Z brings it back (`use-ink-undo.ts`).
    * Resolves false when nothing was deleted, so undo records only real deletes.
@@ -112,7 +113,7 @@ export function useAnnotationActions({
 
   const updateLocal = useCallback(
     async (id: string, patch: { comment?: string; tags?: string[]; color?: string; text?: string }) => {
-      if (!onAnnotationsChange) return;
+      if (!onAnnotationsChange) return false;
       const change: ChangeAnnotations = onAnnotationsChange;
       // A colour change repaints the highlight, so waiting for the write shows a
       // swatch that stays wrong until the network answers. Apply, then reconcile.
@@ -129,12 +130,14 @@ export function useAnnotationActions({
         const updated = await getContainer().papers.updateReaderAnnotation(id, patch);
         change((prev) => prev.map((a) => (a.id === id ? updated : a)));
         onActivity?.("annotate", "Updated annotation");
+        return true;
       } catch (err) {
         if (previous) {
           const restore = previous;
           change((prev) => prev.map((a) => (a.id === id ? restore : a)));
         }
         setAnnError(errorMessage(err, "Could not update the annotation."));
+        return false;
       }
     },
     [onAnnotationsChange, onActivity],

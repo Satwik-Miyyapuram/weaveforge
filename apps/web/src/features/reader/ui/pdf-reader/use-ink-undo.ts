@@ -142,14 +142,16 @@ export function useInkUndo(
   const updateLocal = useCallback(
     async (id: string, patch: InkUndoPatch) => {
       const ann = annotationsRef.current.find((a) => a.id === id);
-      await actionsRef.current.updateLocal?.(id, patch);
-      if (!ann) return;
+      const saved = (await actionsRef.current.updateLocal?.(id, patch)) ?? false;
+      // A failed edit was rolled back: there is nothing to undo (P2-199).
+      if (!saved || !ann) return saved;
       setState((s) =>
         typedCore().refreshInkUndoAnnotation(
           typedCore().pushInkUndo(s, { kind: "update", id, before: patchBefore(ann, patch), after: patch }),
           { ...ann, ...patch },
         ),
       );
+      return true;
     },
     [setState],
   );
