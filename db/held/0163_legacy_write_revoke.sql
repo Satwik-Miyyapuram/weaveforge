@@ -7,7 +7,7 @@
 -- Idempotent: revoking an absent privilege is a no-op, and the record table
 -- keeps the first run's rows (on conflict do nothing).
 --
--- The direct grants actually held are recorded in legacy_write_grants_0162 before
+-- The direct grants actually held are recorded in legacy_write_grants_0163 before
 -- they are revoked, to authenticated and to PUBLIC, so the rollback restores
 -- exactly what this removed. Inherited privileges are not recorded (the live ACL
 -- differs from the migration history: default privileges, and 0112 revoking
@@ -29,14 +29,14 @@
 --     user in apps/web/src/backend/test/privileged-rpc-grants.rls.integration.ts.
 --     Kept until a decision: revoking it would change that test.
 
-create table if not exists public.legacy_write_grants_0162 (
+create table if not exists public.legacy_write_grants_0163 (
   grantee text not null,
   table_name text not null,
   privilege text not null,
   primary key (grantee, table_name, privilege)
 );
 
-revoke all on public.legacy_write_grants_0162 from public, anon, authenticated;
+revoke all on public.legacy_write_grants_0163 from public, anon, authenticated;
 
 do $$
 declare
@@ -69,7 +69,7 @@ begin
               and acl.grantee = case when g = 'public' then 0::oid
                                      else (select oid from pg_roles where rolname = g) end
           ) then
-            insert into public.legacy_write_grants_0162 (grantee, table_name, privilege)
+            insert into public.legacy_write_grants_0163 (grantee, table_name, privilege)
               values (g, t, p)
               on conflict do nothing;
           end if;
