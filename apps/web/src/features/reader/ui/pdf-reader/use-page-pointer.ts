@@ -165,6 +165,15 @@ export function usePagePointer({
    * move, so the drag works from this rather than the stale annotation.
    */
   const erased = useRef<Map<string, ReaderAnnotation["anchor"] | null>>(new Map());
+  /**
+   * The eraser's writes, one after another. A drag trims a mark and then
+   * removes it; fired together, the remove could land first and the trim,
+   * landing last, wrote the mark back (P2-204).
+   */
+  const eraseWrites = useRef<Promise<unknown>>(Promise.resolve());
+  /** The latest list, for writes that finish after a render (P2-204). */
+  const annotationsRef = useRef(annotations);
+  annotationsRef.current = annotations;
   /** Each pointer's route from down to up; shared with Notes. */
   const gesture = useRef(new InkGesture(ERASER_CURSOR));
   const dragRect = useRef<{
@@ -280,8 +289,9 @@ export function usePagePointer({
       // No confirmation, and none offered: rubbing out a word is a dozen marks
       // in one drag, and a dialog per stroke would make the eraser unusable.
       // The gesture is already deliberate, and ink undo puts it back.
-      if (next) void saveAnchor({ ...ann, anchor: current }, next);
-      else void removeLocal(ann.id);
+      const write = next ? () => saveAnchor({ ...ann, anchor: current }, next) : () => removeLocal(ann.id);
+      // A failed write must not stop the ones after it.
+      eraseWrites.current = eraseWrites.current.then(write, write);
     }
   }
 
@@ -306,7 +316,7 @@ export function usePagePointer({
       readyCore().canJoinInkGroup(group, { pageIndex, color: createColor, width: input.width, at: now }) &&
       group
     ) {
-      const existing = annotations.find((a) => a.id === group.annotationId);
+      const existing = annotationsRef.current.find((a) => a.id === group.annotationId);
       const merged = existing ? appendInkStroke(existing.anchor, input.path) : null;
       if (existing && merged) {
         inkGroup.current = {
@@ -347,7 +357,7 @@ export function usePagePointer({
   async function commitInkMove(move: InkMove) {
     if (Math.hypot(move.dx, move.dy) < INK_MOVE_THRESHOLD) return;
     for (const id of move.annotationIds) {
-      const ann = annotations.find((a) => a.id === id);
+      const ann = annotationsRef.current.find((a) => a.id === id);
       const position = ann?.anchor.zoteroPosition;
       if (!ann || !position?.paths?.length) continue;
       // A moved mark is no longer where the group left off; the next stroke is a
