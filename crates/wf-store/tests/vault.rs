@@ -341,6 +341,39 @@ fn rename_moves_creates_parents_and_refuses_existing_targets() {
 }
 
 #[test]
+fn rename_replacing_moves_in_one_step_and_replaces_the_target() {
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+
+    v.write_file("a.md", b"keep me").unwrap();
+    v.rename_replacing("a.md", "x/y/b.md").unwrap();
+    assert!(!dir.path().join("a.md").exists());
+    assert_eq!(v.read_text("x/y/b.md").unwrap(), "keep me");
+
+    // The port's rename replaces: a temp file renamed over the real one is an atomic write.
+    v.write_file("p.md", b"old").unwrap();
+    v.write_file("p.md.tmp", b"new").unwrap();
+    v.rename_replacing("p.md.tmp", "p.md").unwrap();
+    assert_eq!(v.read_text("p.md").unwrap(), "new");
+    assert!(!dir.path().join("p.md.tmp").exists());
+
+    assert_eq!(
+        v.rename_replacing("nope.md", "z.md").unwrap_err().io_kind(),
+        Some(std::io::ErrorKind::NotFound)
+    );
+    v.write_file("src.md", b"s").unwrap();
+    assert!(matches!(
+        v.rename_replacing("src.md", "../out.md"),
+        Err(VaultError::UnsafePath(_))
+    ));
+    assert!(matches!(
+        v.rename_replacing("../out.md", "src.md"),
+        Err(VaultError::UnsafePath(_))
+    ));
+    assert_eq!(v.read_text("src.md").unwrap(), "s");
+}
+
+#[test]
 fn a_root_that_is_a_file_fails_without_panicking() {
     let dir = TempDir::new();
     let file = dir.path().join("root.txt");

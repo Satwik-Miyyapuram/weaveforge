@@ -322,6 +322,20 @@ impl Vault {
         fs::rename(&src, &dest).map_err(|source| io_err("rename", from, source))
     }
 
+    /// Move a file in one step, creating its parent folders and replacing a file at `to`.
+    /// This is the workspace port's rename, which callers use to finish an atomic write.
+    ///
+    /// # Errors
+    /// Refused or escaping paths, a missing source, or the rename failing.
+    pub fn rename_replacing(&self, from: &str, to: &str) -> Result<(), VaultError> {
+        let dest = self.resolve(to)?;
+        let src = self.resolve(from)?;
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent).map_err(|source| io_err("create folder", to, source))?;
+        }
+        fs::rename(&src, &dest).map_err(|source| io_err("rename", from, source))
+    }
+
     /// Normalized relative folder and its absolute target; `""` and `"."` are the root.
     fn folder(&self, dir: &str) -> Result<(String, PathBuf), VaultError> {
         if dir.is_empty() || dir == "." {

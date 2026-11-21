@@ -546,6 +546,47 @@ pub async fn vault_remove(
     .map_err(ShellError::from)
 }
 
+/// Moves one file in the chosen folder in one step, replacing a file at `to`.
+///
+/// # Errors
+/// No folder chosen, a refused path, a secret moved into a config file, a missing
+/// source, or the rename failing.
+#[tauri::command]
+#[specta::specta]
+pub async fn vault_rename(
+    state: tauri::State<'_, VaultState>,
+    watch: tauri::State<'_, WatchSlot>,
+    from: String,
+    to: String,
+) -> Result<(), ShellError> {
+    let watch = watch.inner().clone();
+    blocking(state.inner(), move |session| {
+        let is_config = wf_core::settings::secret_guard::is_config_path(&to);
+        // A file over the read cap is not noted; its arrival is reported like any other.
+        let bytes = if is_config {
+            session.read_bytes(&from)?
+        } else {
+            session.read_bytes(&from).ok().flatten()
+        };
+        if let Some(bytes) = bytes.as_deref() {
+            // A move onto a config path writes the moved file there: check it first.
+            if is_config {
+                wf_core::settings::secret_guard::check_config_bytes(&to, bytes)
+                    .map_err(|e| e.to_string())?;
+            }
+            // Noted before the move so the watcher cannot report it as an outside edit.
+            watch.note_self_write(&to, bytes);
+        }
+        watch.note_self_remove(&from);
+        session.rename(&from, &to).inspect_err(|_| {
+            watch.forget_self(&from);
+            watch.forget_self(&to);
+        })
+    })
+    .await
+    .map_err(ShellError::from)
+}
+
 #[cfg(test)]
 mod tests {
     use super::check_text_write;

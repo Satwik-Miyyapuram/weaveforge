@@ -268,6 +268,14 @@ export const commands = {
 	 */
 	vaultRemove: (path: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("vault_remove", { path })),
 	/**
+	 *  Moves one file in the chosen folder in one step, replacing a file at `to`.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, a refused path, a secret moved into a config file, a missing
+	 *  source, or the rename failing.
+	 */
+	vaultRename: (from: string, to: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("vault_rename", { from, to })),
+	/**
 	 *  Runs a sync action (settings, status, connect, pull or push) on the chosen folder.
 	 * 
 	 *  # Errors

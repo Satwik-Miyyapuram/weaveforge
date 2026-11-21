@@ -296,6 +296,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::cmd_vault::vault_list,
         crate::cmd_vault::vault_stat,
         crate::cmd_vault::vault_remove,
+        crate::cmd_vault::vault_rename,
         crate::vault_sync::vault_sync,
         crate::vault_sync::vault_commit,
         crate::vault_sync::vault_log,

@@ -207,8 +207,8 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
  * Two methods have no channel behind them and are satisfied here instead.
  * `mkdirp` is a no-op because a write creates its parents on the far side, and
  * a channel that makes empty directories is a channel that can litter a folder
- * with them. `rename` is a copy and a delete, which is what a rename across a
- * process boundary would be anyway.
+ * with them. `rename` is the shell's native move when it has one, and a copy and
+ * a delete otherwise.
  */
 
 export interface VaultFileBridge {
@@ -225,6 +225,8 @@ export interface VaultFileBridge {
     { path: string; kind: "file" | "dir"; size: number; modifiedAt: string } | null
   >;
   removeVaultFile(path: string): Promise<void>;
+  /** A native move that replaces a file at `to`; absent on shells without it (Electron). */
+  renameVaultFile?(from: string, to: string): Promise<void>;
 }
 
 export class DesktopWorkspaceFs implements IWorkspaceFs {
@@ -286,6 +288,10 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
   }
 
   async rename(from: string, to: string): Promise<void> {
+    const [src, dest] = [safeWorkspacePath(from), safeWorkspacePath(to)];
+    // One move on disk: no crash window with the file in both places, and no
+    // whole-file load into the webview.
+    if (this.bridge.renameVaultFile) return this.bridge.renameVaultFile(src, dest);
     // Bytes, not text: a text round trip mangles anything that is not UTF-8.
     await this.writeFile(to, await this.readFile(from));
     await this.remove(from);

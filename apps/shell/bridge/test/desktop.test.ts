@@ -243,11 +243,12 @@ test("reportAppLog does not leave a rejection when the promise rejects", async (
   await new Promise((resolve) => setImmediate(resolve));
 });
 
-test("writeVaultFile, removeVaultFile, writePreference, writeSecret and clearSecret resolve to undefined", async () => {
+test("writeVaultFile, removeVaultFile, renameVaultFile, writePreference, writeSecret and clearSecret resolve to undefined", async () => {
   const { cmds, calls } = fakeCommands();
   const shim = desktopShim(cmds, fakeEvents().events);
   assert.equal(await shim.writeVaultFile("a.md", "x"), undefined);
   assert.equal(await shim.removeVaultFile("a.md"), undefined);
+  assert.equal(await shim.renameVaultFile?.("a.md", "b.md"), undefined);
   assert.equal(await shim.writePreference("vault-git", true), undefined);
   assert.equal(await shim.writeSecret("git-sync-token", "t"), undefined);
   assert.equal(await shim.clearSecret("git-sync-token"), undefined);
@@ -256,6 +257,7 @@ test("writeVaultFile, removeVaultFile, writePreference, writeSecret and clearSec
     [
       "vaultWrite",
       "vaultRemove",
+      "vaultRename",
       "preferenceWrite",
       "secretWrite",
       "secretClear",

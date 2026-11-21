@@ -307,6 +307,7 @@ export type DesktopShim = Pick<
   | "listVaultFiles"
   | "statVaultFile"
   | "removeVaultFile"
+  | "renameVaultFile"
   | "readLocalFile"
   | "writeLocalFile"
   | "removeLocalFile"
@@ -559,6 +560,9 @@ export function desktopShim(
     statVaultFile: async (path) => unwrap(await cmds.vaultStat(path)),
     removeVaultFile: async (path) => {
       unwrap(await cmds.vaultRemove(path));
+    },
+    renameVaultFile: async (from, to) => {
+      unwrap(await cmds.vaultRename(from, to));
     },
     readLocalFile: async (bucket, path) => {
       const data = unwrap(await cmds.localFileRead(bucket, path));

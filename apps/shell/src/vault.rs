@@ -267,6 +267,16 @@ impl VaultSession {
         self.vault()?.remove(rel, false).map_err(|e| message(&e))
     }
 
+    /// One-step move that replaces a file at `to`, as the workspace port's rename does.
+    ///
+    /// # Errors
+    /// No root, a refused path, a missing source, or the rename failing.
+    pub fn rename(&self, from: &str, to: &str) -> Result<(), String> {
+        self.vault()?
+            .rename_replacing(from, to)
+            .map_err(|e| message(&e))
+    }
+
     /// Makes `path` the root and sweeps its stale temp files.
     fn install(&mut self, path: PathBuf, state: RootState) -> VaultRoot {
         let root = VaultRoot {
