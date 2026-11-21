@@ -69,10 +69,11 @@ button at the bottom.
 
 The window opens with three short points. In plain words, they say that:
 
-- your papers, notes and files are stored on the server, encrypted while they
-  sit there, and only you and the people you share with can open them;
-- whoever runs the server can technically read what is stored, so keep anything
-  truly sensitive out of tags;
+- your work lives on your device and in your workspace folder; without GitHub
+  sync, account sync also keeps it on the server, and with GitHub sync on, the
+  server holds only what you share, its comments and the AI relay;
+- whoever runs the server can technically read what is stored there, so keep
+  anything truly sensitive out of tags;
 - AI features stay off until you switch them on, and deleting your account needs
   a one-time code sent to your email.
 

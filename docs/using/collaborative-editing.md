@@ -136,7 +136,7 @@ signing in later leaves it where it is.
 ## Limits
 
 - **Not end-to-end encrypted.** Updates are stored and broadcast as plaintext
-  bytes; RLS and encryption at rest are the boundary. See [SECURITY.md](../SECURITY.md).
+  bytes; row-level security is the boundary. See [SECURITY.md](../SECURITY.md).
 - **Text only.** The title, tags and a note's Kind are ordinary fields with
   ordinary last-write-wins behaviour.
 - **Offline edits wait for the connection, not forever.** Edits made while only
