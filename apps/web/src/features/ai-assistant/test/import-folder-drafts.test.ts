@@ -46,6 +46,29 @@ test("a failed queue keeps the file for the next pass", async () => {
   assert.equal((await remaining(fs)).length, 1);
 });
 
+test("a claim never overwrites a claimed file a crash left behind", async () => {
+  const stale = JSON.stringify({ ...draft, resourceId: "note-old" });
+  const fs = await withFiles({ "a.json": JSON.stringify(draft), "a.json.claimed": stale });
+  const queued: string[] = [];
+  assert.equal(await importFolderDrafts(fs, async (d) => queued.push(d.resourceId)), 1);
+  assert.deepEqual(queued, ["note-1"]);
+  assert.equal(await fs.readText(`${FOLDER_DRAFTS_DIR}/a.json.claimed`), stale);
+});
+
+test("a failed queue never puts its draft back over a new draft of the same name", async () => {
+  const fs = await withFiles({ "a.json": JSON.stringify(draft) });
+  const fresh = JSON.stringify({ ...draft, resourceId: "note-new" });
+  await assert.rejects(
+    importFolderDrafts(fs, async () => {
+      await fs.writeFile(`${FOLDER_DRAFTS_DIR}/a.json`, fresh);
+      throw new Error("offline");
+    }),
+  );
+  assert.equal(await fs.readText(`${FOLDER_DRAFTS_DIR}/a.json`), fresh);
+  const kept = await Promise.all((await remaining(fs)).map((path) => fs.readText(path)));
+  assert.ok(kept.includes(JSON.stringify(draft)), "the old draft is still on disk");
+});
+
 test("overlapping runs never queue the same draft twice", async () => {
   const fs = await withFiles({ "a.json": JSON.stringify(draft), "b.json": JSON.stringify({ ...draft, resourceId: "note-2" }) });
   const queued: string[] = [];

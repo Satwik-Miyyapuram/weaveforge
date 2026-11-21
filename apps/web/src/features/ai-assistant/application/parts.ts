@@ -182,8 +182,11 @@ export async function importFolderDrafts(
     if (!draft) continue;
     // Claim by rename, not delete: the draft stays on disk until the queue has it,
     // and a claimed name is no longer a draft path, so no pass queues it twice.
-    const claimed = `${entry.path}.claimed`;
+    // Rename replaces, so the claim takes a free name: a `.claimed` file a crash
+    // left behind is someone's draft too.
+    let claimed: string;
     try {
+      claimed = await freeClaimedName(fs, entry.path);
       await fs.rename(entry.path, claimed);
     } catch {
       continue;
@@ -192,7 +195,10 @@ export async function importFolderDrafts(
       await queue(draft);
     } catch (err) {
       firstError ??= err;
-      await fs.rename(claimed, entry.path).catch(() => undefined);
+      // A new draft written under the same name meanwhile wins; ours stays claimed.
+      if (!(await fs.stat(entry.path).catch(() => null))) {
+        await fs.rename(claimed, entry.path).catch(() => undefined);
+      }
       continue;
     }
     imported += 1;
@@ -200,6 +206,14 @@ export async function importFolderDrafts(
   }
   if (firstError !== null) throw firstError;
   return imported;
+}
+
+/** `<path>.claimed`, or `<path>.claimed-2`, `-3`, ... when that is taken. */
+async function freeClaimedName(fs: IWorkspaceFs, path: string): Promise<string> {
+  for (let n = 1; ; n += 1) {
+    const name = n === 1 ? `${path}.claimed` : `${path}.claimed-${n}`;
+    if (!(await fs.stat(name))) return name;
+  }
 }
 
 type ImportArgs = Parameters<typeof importFolderDrafts>;
