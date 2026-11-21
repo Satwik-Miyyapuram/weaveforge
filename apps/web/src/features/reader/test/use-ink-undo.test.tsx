@@ -260,3 +260,36 @@ test("the reader edits marks through the undo stack, never the raw writes (DA-11
   }
   assert.match(src, /\{[^}]*updateLocal[^}]*\} = inkUndo;/);
 });
+
+test("an undo whose write fails keeps the step to undo, with nothing to redo (P2-198)", async () => {
+  const writes = fakeWrites(true);
+  const get = mount(writes, [ann("a")]);
+  await act(async () => {
+    await get().removeLocal("a");
+  });
+  writes.persistDraft = async () => null;
+  await act(async () => {
+    await get().undo();
+  });
+  assert.equal(get().canUndo, true, "the mark is still deleted, so the step is still undoable");
+  assert.equal(get().canRedo, false, "nothing was undone, so nothing to redo");
+});
+
+test("a redo whose write throws keeps the step to redo (P2-198)", async () => {
+  const writes = fakeWrites(true);
+  const get = mount(writes, [ann("a")]);
+  await act(async () => {
+    await get().removeLocal("a");
+  });
+  await act(async () => {
+    await get().undo();
+  });
+  writes.removeLocal = async () => {
+    throw new Error("offline");
+  };
+  await act(async () => {
+    await assert.rejects(get().redo(), /offline/);
+  });
+  assert.equal(get().canRedo, true);
+  assert.equal(get().canUndo, false);
+});

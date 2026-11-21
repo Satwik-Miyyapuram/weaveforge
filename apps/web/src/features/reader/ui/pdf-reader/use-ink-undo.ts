@@ -156,13 +156,17 @@ export function useInkUndo(
     [setState],
   );
 
-  /** Apply one step's inverse (undo) or the step itself (redo) through the raw writes. */
-  const apply = useCallback(async (entry: InkUndoEntry, direction: "undo" | "redo") => {
+  /**
+   * Apply one step's inverse (undo) or the step itself (redo) through the raw
+   * writes. Resolves false when a write did not land.
+   */
+  const apply = useCallback(async (entry: InkUndoEntry, direction: "undo" | "redo"): Promise<boolean> => {
     const raw = actionsRef.current;
     const recreate = async (ann: ReaderAnnotation) => {
       const created = await raw.persistDraft(draftFromAnnotation(ann));
       // Same id unless the store refused it; then the stack follows the new one.
       if (created && created.id !== ann.id) setState((s) => typedCore().renameInkUndoId(s, ann.id, created.id));
+      return created !== null;
     };
     const remove = (ann: ReaderAnnotation) => raw.removeLocal(ann.id);
     switch (entry.kind) {
@@ -170,26 +174,29 @@ export function useInkUndo(
         return direction === "undo" ? remove(entry.annotation as ReaderAnnotation) : recreate(entry.annotation as ReaderAnnotation);
       case "remove":
         return direction === "undo" ? recreate(entry.annotation as ReaderAnnotation) : remove(entry.annotation as ReaderAnnotation);
-      case "removeMany":
+      case "removeMany": {
+        let all = true;
         for (const ann of entry.annotations as ReaderAnnotation[]) {
-          if (direction === "undo") await recreate(ann);
-          else await remove(ann);
+          if (!(direction === "undo" ? await recreate(ann) : await remove(ann))) all = false;
         }
-        return;
+        return all;
+      }
       case "anchor": {
         const target = annotationsRef.current.find((a) => a.id === entry.id);
-        if (!target) return;
+        // The mark is gone: nothing to move, and the step must not block the stack.
+        if (!target) return true;
         const anchor = (direction === "undo" ? entry.before : entry.after) as ReaderAnnotation["anchor"];
-        await raw.saveAnchor(target, anchor);
+        if (!(await raw.saveAnchor(target, anchor))) return false;
         setState((s) => typedCore().refreshInkUndoAnnotation(s, { ...target, anchor }));
-        return;
+        return true;
       }
       case "update": {
         const target = annotationsRef.current.find((a) => a.id === entry.id);
+        if (!target) return true;
         const patch = direction === "undo" ? entry.before : entry.after;
-        await raw.updateLocal?.(entry.id, patch);
-        if (target) setState((s) => typedCore().refreshInkUndoAnnotation(s, { ...target, ...patch }));
-        return;
+        if (!((await raw.updateLocal?.(entry.id, patch)) ?? false)) return false;
+        setState((s) => typedCore().refreshInkUndoAnnotation(s, { ...target, ...patch }));
+        return true;
       }
     }
   }, [setState]);
@@ -200,12 +207,25 @@ export function useInkUndo(
       const taken =
         direction === "undo" ? typedCore().takeInkUndo(stack.current) : typedCore().takeInkRedo(stack.current);
       if (!taken) return;
+      // Moved before the write so a rename during it finds the entry; moved
+      // back when the write fails, so the stack never records a step that did
+      // not happen (P2-198).
       setState(() => taken.state);
       busy.current = true;
+      let landed = false;
       try {
-        await apply(taken.entry, direction);
+        landed = await apply(taken.entry, direction);
       } finally {
         busy.current = false;
+        if (!landed) {
+          setState((s) => {
+            const moved = direction === "undo" ? s.redo : s.undo;
+            const top = moved[moved.length - 1];
+            if (!top || JSON.stringify(top) !== JSON.stringify(taken.entry)) return s;
+            const back = direction === "undo" ? typedCore().takeInkRedo(s) : typedCore().takeInkUndo(s);
+            return back ? back.state : s;
+          });
+        }
       }
     },
     [apply, setState],
