@@ -48,7 +48,7 @@ Each file below owns one part:
 - `native_stroke`: `flat_stroke_samples` (wasm `inkFlatStrokeSamples`) turns a native shell's flat stroke into CSS-pixel samples, clamping pressure and dropping a partial tail. One call per stroke at pen-lift.
 - `recognise`: confidence mapping and the other pure parts of recognition. `band_union` (wasm `inkBandUnion`) spans the y-bands of a line's strokes, or is none when there are none.
 - `recognition_request`: builds the request the page sends to the desktop recogniser (`buildInkRequest`, flattening strokes to x, y, pressure) and checks the request the desktop reads (`read_ink_request`).
-- `render_instances`: the WebGL stroke renderer's maths: instance count, the packer that writes each span's capsule instances (`pack_stroke_instances`), the backing-store ratio and the highlighter-pass test. The WebGL renderer that drew these instances was removed in 0.9.5; the SVG and SDF paths still use the packing maths through `render/parts-1.ts`.
+- `render_instances`: the backing-store ratio for a page canvas (`backing_ratio`, used by `render/parts-1.ts`) and the highlighter-pass test (used by `trail`). The WebGL instance packer that lived here went with the WebGL renderer.
 - `render_strokes`: the strokes in the shape the one renderer takes, with colour names resolved.
 - `segment`: groups a page's strokes into the lines a recogniser reads.
 - `shape_snap`: fits a line, rect, ellipse or arrow to a freehand mark.
@@ -78,7 +78,7 @@ Examples of exports:
 - Palette: `paletteCss`, `paletteHex`, `paletteName`, `parseCssColour`, `samePalette`, from `ink_palette.rs`. Their TS types are declared in Rust.
 - Native argb: `inkArgbHex(colour, alpha)`, from `ink_palette.rs`. It reads the Rust light theme (`LIGHT_THEME` in `palette.rs`) and answers `#aarrggbb` for the native shell's pen. A test in `native-bridge.test.ts` pins that table against `INK_RENDER_COLOURS`.
 - Palm rule: `contactAreaMm2`, from `ink_palette.rs`. Its wrapper takes a `{ width, height }` pointer event.
-- Render instances: `inkStrokeInstanceCount`, `packInkStrokeInstances`, `inkBackingRatio`, `usesInkHighlighterPass`, from `ink_render_instances.rs`. Their TS types are declared in Rust. Only `backingRatio` in `render/parts-1.ts` is still called from the web app, through `readyCore()`, so the core must be loaded before the layout hook runs; the instance packers are left over from the removed WebGL renderer. Tests preload it with `before(loadTestCore)`.
+- Canvas ratio: `inkBackingRatio`, `usesInkHighlighterPass`, from `ink_render_instances.rs`. Their TS types are declared in Rust. `backingRatio` in `render/parts-1.ts` calls the first through `readyCore()`, so the core must be loaded before the layout hook runs. Tests preload it with `before(loadTestCore)`.
 
 The palette functions take the palette as an object of colour name to `[r, g, b]`. The wrapper turns it into ordered pairs for the wasm side, so a name that appears twice resolves as the JavaScript object does. `ink-palette.ts` and `pen-gate.ts` call these through `readyCore()`, so they need the core loaded first.
 
