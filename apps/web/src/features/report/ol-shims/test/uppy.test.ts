@@ -175,3 +175,44 @@ test("getDroppedFiles reads the dropped files", async () => {
   assert.equal(files.length, 1);
   assert.equal(files[0].name, "fig.png");
 });
+
+test("autoProceed sends each of three added files once (P2-222)", async () => {
+  // A network that answers on a later task, so each addFile's upload runs while the first is in flight.
+  const sent: unknown[] = [];
+  const own = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    sent.push(1);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    return ok();
+  }) as typeof fetch;
+  try {
+    const uppy = uploader({ autoProceed: true });
+    const done = new Promise<void>((resolve) => {
+      let pending = 3;
+      uppy.on("upload-success", () => {
+        if (--pending === 0) resolve();
+      });
+    });
+    for (let i = 0; i < 3; i++) uppy.addFile({ name: `f${i}.png`, type: "image/png", data: png() });
+    await done;
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(sent.length, 3);
+  } finally {
+    globalThis.fetch = own;
+  }
+});
+
+test("a failed file is sent again by the next upload (P2-222)", async () => {
+  let fail = true;
+  await withFetch(
+    () => (fail ? Response.json({ success: false, error: "no" }, { status: 500 }) : ok()),
+    async (sent) => {
+      const uppy = uploader();
+      uppy.addFile({ name: "fig.png", type: "image/png", data: png() });
+      assert.equal((await uppy.upload()).failed.length, 1);
+      fail = false;
+      assert.equal((await uppy.upload()).successful.length, 1);
+      assert.equal(sent.length, 2);
+    },
+  );
+});
