@@ -28,6 +28,9 @@ function memoryPages(initial: VaultPage[]) {
     getById: async (id: string) => rows.get(id) ?? null,
     list: async () => [...rows.values()],
     update: async (id: string, input: EditVaultPageInput) => {
+      // As the Rust repo does (vault_pages::assert_title_unique), refuse another note's title.
+      const taken = [...rows.values()].some((p) => p.id !== id && p.title.toLowerCase() === input.title?.toLowerCase());
+      if (taken) throw new Error("A note with this title already exists.");
       updates.push(id);
       const next = { ...rows.get(id)!, ...(input.title !== undefined && { title: input.title }), ...(input.body !== undefined && { body: input.body }) };
       rows.set(id, next);
@@ -74,6 +77,24 @@ test("links inside fenced or inline code are not rewritten", async () => {
   ]);
   await repo.update("two", { title: "Renamed" });
   assert.equal(rows.get("one")!.body, "```\n[[Two]]\n```\n`[[Two]]` and [[Renamed]]");
+});
+
+test("a rename skips the rewrite while another note still has the old title", async () => {
+  const { rows, updates, repo } = memoryPages([
+    page("one", "One", "[[Two]]"),
+    page("two", "Two", "Body"),
+    page("dup", "two", "Same title, other case"),
+  ]);
+  await repo.update("two", { title: "Renamed" });
+  assert.deepEqual(updates, ["two"]);
+  assert.equal(rows.get("one")!.body, "[[Two]]");
+});
+
+test("a rename refused as a duplicate title rewrites nothing", async () => {
+  const { rows, updates, repo } = memoryPages([page("one", "One", "[[Two]]"), page("two", "Two", "Body")]);
+  await assert.rejects(repo.update("two", { title: "one" }), /already exists/);
+  assert.equal(rows.get("one")!.body, "[[Two]]");
+  assert.deepEqual(updates, []);
 });
 
 test("the app's note writes are the link-rewriting ones", () => {
