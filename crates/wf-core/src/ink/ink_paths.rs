@@ -112,7 +112,7 @@ pub fn parse_ink_chunk_path(path: &str) -> Option<InkChunkPath> {
         return None;
     }
     let note_path = format!("{dir}.md");
-    ink_strokes_dir(&note_path).ok()?;
+    let _ = ink_strokes_dir(&note_path).ok()?;
     Some(InkChunkPath {
         note_path,
         chunk_id: chunk_id.to_owned(),
