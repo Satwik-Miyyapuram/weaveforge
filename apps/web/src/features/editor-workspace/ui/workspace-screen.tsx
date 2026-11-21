@@ -44,6 +44,7 @@ import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { useScreenShown } from "@/lib/screen-shown";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
+import { toastLinkRewriteFailed } from "@/features/vault/ui/vault-screen/rename-link-toast";
 import { useInkSaveStatus } from "./use-ink-save-status";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
@@ -459,7 +460,7 @@ export function WorkspaceScreen() {
       if (kindOwner(node.kind) === "report") {
         await getContainer().report.manageReportSection.setTitle(node.id, title);
       } else {
-        await getContainer().vault.manageVaultPage.update(node.id, { title });
+        toastLinkRewriteFailed(await getContainer().vault.manageVaultPage.update(node.id, { title }));
       }
       await reload();
     },

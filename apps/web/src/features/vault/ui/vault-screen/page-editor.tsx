@@ -9,6 +9,7 @@ import { getContainer } from "@/bootstrap";
 import { deletedMessage, removeLater } from "@/lib/toast/index";
 import { readyCore } from "@/lib/rust-core";
 import { noteKey } from "./note-key";
+import { toastLinkRewriteFailed } from "./rename-link-toast";
 import type { EditorHandle } from "@/components/editor-handle";
 import { CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
@@ -231,7 +232,7 @@ export function PageEditor({
     setBusy(true);
     setSaveError(null);
     try {
-      await getContainer().vault.manageVaultPage.update(page.id, { title: next });
+      toastLinkRewriteFailed(await getContainer().vault.manageVaultPage.update(page.id, { title: next }));
       await onChanged();
     } catch (err) {
       setSaveError(formatError(err));
