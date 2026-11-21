@@ -1,13 +1,9 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
+import { testArgs } from "../../../apps/web/scripts/lib/test-args.mjs";
 
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-
-// Without a cap node:test runs one process per core, which breaks the 1 GB RAM rule.
-test("web test runner caps node:test concurrency", () => {
-  const src = readFileSync(path.join(root, "apps/web/scripts/run-tests.mjs"), "utf8");
-  assert.match(src, /--test-concurrency=/);
+// Without a cap node:test runs one process per core, which breaks the 1 GB RAM rule (P1-8).
+test("web test runner runs one test file at a time by default", () => {
+  const args = testArgs([], { isDir: () => false, env: {} });
+  assert.equal(args[0], "--test-concurrency=1");
 });
