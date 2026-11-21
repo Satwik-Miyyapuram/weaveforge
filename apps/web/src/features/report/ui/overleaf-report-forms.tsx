@@ -79,6 +79,8 @@ export function LinkOverleafForm({ projectId, onLinked, onError, defaults }: {
         ? {
             saveConnection: () => gateway.saveConnection(name, token, { replaceToken }),
             createReport: (input) => gateway.createReport(input),
+            // A replaced token is the one every linked report uses: keep its row.
+            ...(replaceToken ? {} : { deleteConnection: (id: string) => gateway.deleteConnection(id) }),
           }
         : {
             saveConnection: async () => {
@@ -87,6 +89,7 @@ export function LinkOverleafForm({ projectId, onLinked, onError, defaults }: {
               return id;
             },
             createReport: (input) => api("/api/overleaf/reports", { method: "POST", body: JSON.stringify(input) }),
+            deleteConnection: (id) => api(`/api/overleaf/connections?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
           });
       onLinked();
     } catch (err) { onError(formatError(err)); }

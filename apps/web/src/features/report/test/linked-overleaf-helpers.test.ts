@@ -41,3 +41,29 @@ test("a padded project id is accepted, as the route trims it", async () => {
   await linkOverleafReport({ ...LINK, overleafProjectId: " abc123 " }, s);
   assert.deepEqual(s.calls, ["connection", "report:c1"]);
 });
+
+test("a refused report deletes the connection it just saved, then rethrows (P2-225)", async () => {
+  const s = steps();
+  const deleted: string[] = [];
+  await assert.rejects(
+    () => linkOverleafReport(LINK, {
+      ...s,
+      createReport: async () => { throw new Error("HTTP 500"); },
+      deleteConnection: async (id) => { deleted.push(id); },
+    }),
+    /HTTP 500/,
+  );
+  assert.deepEqual(deleted, ["c1"]);
+});
+
+test("a failed clean-up still surfaces the report error (P2-225)", async () => {
+  const s = steps();
+  await assert.rejects(
+    () => linkOverleafReport(LINK, {
+      ...s,
+      createReport: async () => { throw new Error("HTTP 500"); },
+      deleteConnection: async () => { throw new Error("offline"); },
+    }),
+    /HTTP 500/,
+  );
+});

@@ -112,6 +112,11 @@ export class LocalOverleafGateway {
     return row.id;
   }
 
+  /** Remove a connection row, e.g. one saved for a report that was then refused (P2-225). */
+  async deleteConnection(id: string): Promise<void> {
+    await this.run.exec("delete from overleaf_connections where id = $1 and user_id = auth.uid()", [id]);
+  }
+
   /** Whether a keychain token is already stored, so linking again would replace it. */
   async hasConnection(): Promise<boolean> {
     return (await this.keychainConnection()) !== null;
