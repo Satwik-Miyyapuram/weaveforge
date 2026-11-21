@@ -13,6 +13,7 @@ pub mod app_storage;
 pub mod app_update;
 pub mod auth_link;
 pub mod auth_loopback;
+pub mod close_flush;
 pub mod cmd_experiments;
 pub mod cmd_files;
 pub mod cmd_ink;
@@ -649,7 +650,10 @@ pub(crate) fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     });
     builder
         .build()
-        .map(|window| idle_memory::watch(&window))
+        .map(|window| {
+            close_flush::watch(&window);
+            idle_memory::watch(&window);
+        })
         .inspect_err(|error| {
             log_warn(
                 app,
