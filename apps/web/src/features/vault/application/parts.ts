@@ -13,7 +13,7 @@ import {
   type VaultPage,
   type VaultPageSummary,
 } from "@weaveforge/core";
-import { unzipSync } from "fflate";
+import { unzipWithinLimits } from "@/features/workspace/application/parts-2";
 
 // --- create-note-from-link ---
 export interface CreateNoteFromLinkDeps {
@@ -76,15 +76,21 @@ function relativePathOf(file: File): string {
   return readyCore().importRelativePath(file.webkitRelativePath, file.name);
 }
 
-/** Expand a .zip into synthetic File-like entries with webkitRelativePath set. */
+/**
+ * Expand a .zip into synthetic File-like entries with webkitRelativePath set.
+ * The archive's directory is checked against the import caps before anything
+ * inflates (P2-214): too many entries or too many bytes throws
+ * `ImportLimitError`, and an entry over the file cap is left out.
+ */
 async function expandZip(file: File): Promise<File[]> {
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const entries = unzipSync(bytes);
+  const { entries } = await unzipWithinLimits(bytes);
   const out: File[] = [];
   for (const [path, data] of Object.entries(entries)) {
     if (path.endsWith("/")) continue;
     const name = path.split("/").pop() ?? path;
-    const blob = new Blob([data]);
+    // unzip hands back plain ArrayBuffer-backed arrays; the lib type says ArrayBufferLike.
+    const blob = new Blob([data as Uint8Array<ArrayBuffer>]);
     const f = new File([blob], name);
     Object.defineProperty(f, "webkitRelativePath", { value: path });
     out.push(f);

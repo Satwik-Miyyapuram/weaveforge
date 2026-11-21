@@ -726,3 +726,33 @@ test("a worker that cannot start falls back to the main thread and says so", asy
     (globalThis as { Worker?: unknown }).Worker = held;
   }
 });
+
+test("an invalidate during a build makes the next ensure rebuild (P1-14)", async () => {
+  // The build in flight read the old snapshot. Adopting it after an
+  // invalidate would leave the index serving what the invalidate dropped.
+  let pages = [note("n1", "Method", "The GAN setup.")];
+  let release: (() => void) | null = null;
+  let first = true;
+  const search = new WorkspaceSearch({
+    snapshot: async () => {
+      const taken = snapshot({ vaultPages: [...pages] });
+      if (first) {
+        first = false;
+        await new Promise<void>((resolve) => (release = resolve));
+      }
+      return taken;
+    },
+    projectId: () => "p1",
+  });
+
+  const building = search.ensure();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  pages = [note("n2", "Results", "Diffusion numbers.")];
+  search.invalidate();
+  release!();
+  await building;
+  await search.ensure();
+
+  assert.equal(search.search("GAN").length, 0, "the stale build was adopted");
+  assert.equal(search.search("Diffusion").length, 1, "the rebuild did not run");
+});

@@ -140,20 +140,20 @@ export class Outbox {
    * work somebody did, and deleting it would be the one failure mode this whole
    * design exists to avoid.
    */
-  async pending(limit = 100, githubConnected = false): Promise<OutboxEntry[]> {
+  async pending(limit = 100, githubConnected = false, afterSeq = 0): Promise<OutboxEntry[]> {
     // With GitHub connected only the shared ops are owed to the server; the
     // workspace rows stay in the outbox (one op per row, see coalesceWorkspace)
-    // for when it is turned off.
+    // for when it is turned off. `afterSeq` pages past rows already tried.
     const rows = githubConnected
       ? await this.sql.query<OutboxRow>(
           `select ${COLUMNS} from sync_outbox
-            where dead_at is null and (${OWED_WHILE_CONNECTED})
+            where dead_at is null and seq > $2 and (${OWED_WHILE_CONNECTED})
             order by seq limit $1`,
-          [Math.max(1, limit)],
+          [Math.max(1, limit), afterSeq],
         )
       : await this.sql.query<OutboxRow>(
-          `select ${COLUMNS} from sync_outbox where dead_at is null order by seq limit $1`,
-          [Math.max(1, limit)],
+          `select ${COLUMNS} from sync_outbox where dead_at is null and seq > $2 order by seq limit $1`,
+          [Math.max(1, limit), afterSeq],
         );
     return toEntries(rows);
   }

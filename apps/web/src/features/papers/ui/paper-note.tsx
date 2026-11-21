@@ -131,9 +131,16 @@ export function PaperNote({
   useEffect(() => {
     let cancelled = false;
     setTrackingCitations(null);
-    void getContainer().papers.isCitationTracking(paper.id).then((enabled) => {
-      if (!cancelled) setTrackingCitations(enabled);
-    });
+    getContainer()
+      .papers.isCitationTracking(paper.id)
+      .then((enabled) => {
+        if (!cancelled) setTrackingCitations(enabled);
+      })
+      .catch((err: unknown) => {
+        // Read as "not watching", so Watch is not stuck disabled (P2-191).
+        logToApp({ level: "warn", source: "papers", message: "Could not check citation tracking", detail: describeRejection(err) });
+        if (!cancelled) setTrackingCitations(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -161,6 +168,8 @@ export function PaperNote({
   async function changeStatus(status: PaperStatus) {
     setBusy(true);
     try { onReplace(await getContainer().papers.updatePaper.setStatus(paper.id, status)); }
+    // Called as `void changeStatus(st)`: a refusal must show, not escape (P2-192).
+    catch (err) { setSaveError(formatError(err)); }
     finally { setBusy(false); }
   }
 

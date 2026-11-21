@@ -26,35 +26,45 @@ export async function clearLocalDeviceData(): Promise<void> {
   // not whatever the global holds once the Rust core has loaded.
   const session = sessionStorage;
   const local = localStorage;
-  // Which keys are account state is decided in Rust (`wf_core::app_lib::storage_keys`).
-  const core = await loadCore();
 
   // A relay lives outside React so it survives closing the settings modal.
   // It must still stop immediately when the browser's local user context ends.
   stopAllRelays();
 
-  // Storage has no .keys(); snapshot names first (removeItem mutates the store).
-  for (const key of Object.keys(session)) {
-    if (core.isAppStorageKey(key)) session.removeItem(key);
-  }
+  // Each step runs whatever the one before it did: a failed core load or a
+  // blocked storage must not leave the databases below on the device (P2-215).
+  const step = async (name: string, run: () => unknown) => {
+    try {
+      await run();
+    } catch (err) {
+      console.warn(`Sign-out wipe: ${name} failed.`, err);
+    }
+  };
 
-  for (const key of Object.keys(local)) {
-    if (core.isAppStorageKey(key)) local.removeItem(key);
-  }
+  await step("storage keys", async () => {
+    // Which keys are account state is decided in Rust (`wf_core::app_lib::storage_keys`).
+    const core = await loadCore();
+    // Storage has no .keys(); snapshot names first (removeItem mutates the store).
+    for (const store of [session, local]) {
+      for (const key of Object.keys(store)) {
+        if (core.isAppStorageKey(key)) store.removeItem(key);
+      }
+    }
+  });
 
-  await clearPersistedMcpSessions();
-  await idbClearScreenCaches();
+  await step("MCP sessions", clearPersistedMcpSessions);
+  await step("screen caches", idbClearScreenCaches);
   // The search index holds full note bodies and paper abstracts, so it has to
   // go on sign-out for the same reason the screen caches do.
-  await idbClearSearchIndexes();
-  await clearPdfTexts();
+  await step("search indexes", idbClearSearchIndexes);
+  await step("PDF texts", clearPdfTexts);
   // Vectors encode the text they were built from; leaving them is leaving the
   // workspace's content on a device the next person may be using.
-  await idbClearVectors();
+  await step("vectors", idbClearVectors);
   // Downloaded PDFs and saved paper HTML are the papers themselves.
-  await deleteDatabase(PDF_CACHE_DB_NAME);
-  await deleteDatabase(PAPER_HTML_DB_NAME);
-  await clearCacheStorage();
+  await step("PDF cache", () => deleteDatabase(PDF_CACHE_DB_NAME));
+  await step("paper HTML", () => deleteDatabase(PAPER_HTML_DB_NAME));
+  await step("Cache Storage", clearCacheStorage);
   // Last, and deliberately: every clear above opens its transaction through this
   // same connection. Closing before them would have the next one reopen it, so
   // the wipe would end holding a live handle on the database it just emptied.

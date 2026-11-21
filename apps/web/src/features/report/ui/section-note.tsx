@@ -79,6 +79,9 @@ export function SectionNote({
     setBusy(true);
     try {
       onReplace(await getContainer().report.manageReportSection.setStatus(section.id, status));
+    } catch (err) {
+      // Called as `void changeStatus(st)`: a refusal must show, not escape (P2-233).
+      setSaveError(formatError(err));
     } finally {
       setBusy(false);
     }

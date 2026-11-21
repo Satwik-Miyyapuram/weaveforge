@@ -297,4 +297,21 @@ describe("the outbox pump", () => {
     }
     assert.equal((await outbox.dead()).length, 1);
   });
+
+  it("looks past a page of rows waiting for a parent (P1-12)", async () => {
+    // A full page of waiting rows used to end every run with nothing sent, so
+    // the row behind them never went up.
+    const db = await localSqlDb();
+    open.push(db);
+    const outbox = new Outbox(db);
+    for (const n of [1, 2, 3]) {
+      await outbox.append({ table: "papers", rowId: `00000000-0000-4000-8000-00000000000${n}`, op: "update", payload: { n } });
+    }
+    const waiting: SendOutcome = { status: "refused", reason: "violates foreign key constraint", awaitingParent: true };
+    const seen: OutboxEntry[] = [];
+    const result = await new OutboxPump(outbox, transport([waiting, waiting, { status: "accepted" }], seen)).run(2);
+    assert.equal(result.sent, 1);
+    assert.deepEqual(seen.map((e) => e.payload), [{ n: 1 }, { n: 2 }, { n: 3 }]);
+    assert.equal((await outbox.pending()).length, 2, "the waiting rows stay owed");
+  });
 });

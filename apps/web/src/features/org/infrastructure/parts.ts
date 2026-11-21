@@ -17,21 +17,28 @@ import type {
   OrgJoinSource,
   OrgMembershipView,
 } from "@weaveforge/core";
+import { ORG_INVITE_ROLES } from "@weaveforge/core";
 
 // --- org-api ---
 const SERVICE_ROLE_HINT = "Lab create/join is not available on this deployment yet.";
 
-/** Rust keeps role as String; this narrows it to OrgInviteRole. */
+const JOIN_SOURCES: readonly OrgJoinSource[] = ["legacy", "invite", "create"];
+
+/**
+ * Rust keeps role as String; a role this client does not know reads as
+ * masters, the one that grants least, rather than being trusted (P2-210).
+ */
 function toInviteRole(role: string): OrgInviteRole {
-  return role as OrgInviteRole;
+  return (ORG_INVITE_ROLES as readonly string[]).includes(role) ? (role as OrgInviteRole) : "masters";
 }
 
-/** Rust keeps joinSource as String; it only emits invite, create or legacy. */
+/** Rust keeps joinSource as String; an unknown one reads as legacy. */
 function toJoinSource(source: string): OrgJoinSource {
-  return source as OrgJoinSource;
+  return (JOIN_SOURCES as readonly string[]).includes(source) ? (source as OrgJoinSource) : "legacy";
 }
 
-function toMembershipView(view: { orgId: string; orgName: string; role: string; joinSource: string }): OrgMembershipView {
+/** @internal exported for tests. */
+export function toMembershipView(view: { orgId: string; orgName: string; role: string; joinSource: string }): OrgMembershipView {
   return { orgId: view.orgId, orgName: view.orgName, role: toInviteRole(view.role), joinSource: toJoinSource(view.joinSource) };
 }
 
@@ -76,7 +83,8 @@ function orgApiError(res: Response, message: string | undefined, fallback: strin
  */
 export async function orgResponse<T extends { error?: string }>(res: Response, fallback: string): Promise<T> {
   const body = (await readJsonBody(res)) as T;
-  if (!res.ok) throw orgApiError(res, body.error, fallback);
+  // Only a string is a message; anything else in `error` falls back (P2-210).
+  if (!res.ok) throw orgApiError(res, typeof body.error === "string" ? body.error : undefined, fallback);
   return body;
 }
 

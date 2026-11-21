@@ -133,9 +133,12 @@ export function PapersScreen() {
     setError(null);
     try {
       const { library, annotations, writeBack } = await getContainer().zotero.syncBibliography();
-      const { pushed, pulled, deletedLocal } = library;
+      const { pushed, pulled, deletedLocal, deletesSkipped = 0 } = library;
+      const kept = deletesSkipped
+        ? ` · kept ${deletesSkipped} still in Zotero outside this sync (another collection or untitled)`
+        : "";
       setSyncMsg(
-        `Synced — pushed ${pushed}, pulled ${pulled}, removed ${deletedLocal} · ${annotations} annotations` +
+        `Synced — pushed ${pushed}, pulled ${pulled}, removed ${deletedLocal}${kept} · ${annotations} annotations` +
           `${readyCore().zoteroWriteBackMessage(writeBack)}.`,
       );
       await load();

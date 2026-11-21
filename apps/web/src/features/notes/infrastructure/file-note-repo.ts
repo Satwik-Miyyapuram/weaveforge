@@ -23,6 +23,7 @@ import type {
   VaultPageTreeNode,
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
+import { moveToTrash } from "@/lib/workspace-trash";
 
 const TYPE = "vault_page";
 const SUFFIX = ".note.md";
@@ -147,7 +148,8 @@ export class FileNoteRepository implements IVaultPageRepository {
 
   async delete(id: string): Promise<void> {
     const found = (await this.readAll()).find((f) => f.page.id === id);
-    if (found) await this.fs.remove(found.path);
+    // To the trash, like a paper: a note is the user's file and a delete must be undoable.
+    if (found) await moveToTrash(this.fs, found.path, Date.now());
   }
 
   private async write(path: string, text: string, expected: string | null): Promise<void> {

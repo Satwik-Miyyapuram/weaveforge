@@ -108,15 +108,18 @@ export function AiProviderPanel() {
     setResult(null);
     try {
       const chosen = descriptor();
+      // The key field is hidden for Ollama but keeps what was typed for the
+      // previous format; that key must not go to this endpoint or the keychain (P2-247).
+      const key = needsKey ? apiKey : "";
       // Built through the facade: the panel names an endpoint and a key, not
       // the transport class that speaks to it.
-      const client = getContainer().aiAssistant.createByokConversation(chosen, apiKey);
+      const client = getContainer().aiAssistant.createByokConversation(chosen, key);
       const response = await client.complete({
         messages: [{ role: "user" as const, content: "Reply with the single word: ready" }],
         temperature: 0,
       });
       setResult(response.text.trim().slice(0, 200) || "(empty reply)");
-      setActiveProvider(chosen, apiKey);
+      setActiveProvider(chosen, key);
       setActive(activeProviderLabel());
       // Storing is attempted only after the provider has answered, so a key
       // that does not work is never written anywhere. A machine with no

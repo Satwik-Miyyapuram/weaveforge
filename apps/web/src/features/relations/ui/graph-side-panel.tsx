@@ -134,7 +134,8 @@ export function GraphSidePanel({
   );
 }
 
-function PaperPanel({
+/** @internal exported for tests */
+export function PaperPanel({
   paper,
   relations,
   papers,
@@ -150,14 +151,19 @@ function PaperPanel({
   onSelectConcept: (name: string) => void;
 }) {
   const [linking, setLinking] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const touching = relations.filter((e) => e.fromPaper === paper.id || e.toPaper === paper.id);
 
   async function autoLinkPaper() {
     setLinking(true);
+    setLinkError(null);
     try {
       await getContainer().graph.linkCitations.forPaper(paper);
       onRefresh();
+    } catch (err) {
+      // Said here rather than left unhandled with a button that just comes back (P2-226).
+      setLinkError(`Could not link citations: ${formatError(err)}`);
     } finally {
       setLinking(false);
     }
@@ -197,6 +203,7 @@ function PaperPanel({
           {linking ? "Linking…" : "Auto-link citations"}
         </Button>
       </div>
+      {linkError && <FormError>{linkError}</FormError>}
       {touching.length > 0 && (
         <div className="graph-side-section">
           <div className="graph-side-label">Relations · {touching.length}</div>

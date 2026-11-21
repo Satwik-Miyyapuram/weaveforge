@@ -10,7 +10,6 @@ import {
   type IAnnotationQuotationTypeRepository,
   type IBibliographyIntegration,
   type ILibraryPinRepository,
-  imagesOf,
   type IPaperFieldRepository,
   type IPaperRelationRepository,
   type IPaperRepository,
@@ -28,20 +27,23 @@ import {
   ValidationError,
 } from "@weaveforge/core";
 import type { RelatedPaperKeys } from "@weaveforge/wasm";
-import type { IPaperImageStore } from "../domain/zotero";
 
 // --- delete-paper.use-case ---
 export class DeletePaperUseCase {
   constructor(
     private readonly deps: {
       bibliography: IBibliographyIntegration;
-      images: IPaperImageStore;
       updatePaper: UpdatePaperUseCase;
       papers: IPaperRepository;
     },
   ) {}
 
   async execute(paper: Paper): Promise<void> {
+    // The row goes first: if it cannot be removed, the Zotero item must still
+    // be there. A delete moves the paper file to the workspace trash, and a
+    // restored file still points at its `paperimg:` figures, so the images are
+    // kept here; removing them made every restore lose them (P2-173, P2-190).
+    await this.deps.updatePaper.remove(paper.id);
     const zoteroKey = paper.metadata?.zoteroKey as string | undefined;
     if (zoteroKey) {
       try {
@@ -57,25 +59,6 @@ export class DeletePaperUseCase {
         });
       }
     }
-    // A paper's images are independent objects in blob storage, so deleting
-    // them one round trip at a time made the delete take as long as the paper
-    // had figures. Best-effort per image, as before — one failure must not
-    // strand the rest or the row itself — but an image left behind is logged.
-    await Promise.all(
-      imagesOf(paper).map(async (img) => {
-        try {
-          await this.deps.images.remove(img);
-        } catch (err) {
-          logToApp({
-            level: "warn",
-            source: "storage",
-            message: "Could not delete a paper image from storage",
-            detail: `${img}: ${describeRejection(err)}`,
-          });
-        }
-      }),
-    );
-    await this.deps.updatePaper.remove(paper.id);
   }
 }
 

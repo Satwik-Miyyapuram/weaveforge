@@ -612,15 +612,21 @@ fn split_extension(rel: &str) -> (&str, &str) {
 /// Extensions of two parts that name a kind; a sidecar drops the whole of it.
 const COMPOUND_EXTENSIONS: [&str; 1] = [".paper.md"];
 
-/// `rel` without its extension, a compound one (`x.paper.md` -> `x`) included.
-fn sidecar_stem(rel: &str) -> &str {
+/// [`split_extension`], but a compound extension stays whole: `x.paper.md` -> (`x`, `.paper.md`).
+fn split_kind_extension(rel: &str) -> (&str, &str) {
     COMPOUND_EXTENSIONS
         .iter()
         .find_map(|ext| {
             rel.strip_suffix(ext)
                 .filter(|stem| !stem.ends_with('/') && !stem.is_empty())
+                .map(|stem| (stem, *ext))
         })
-        .unwrap_or_else(|| split_extension(rel).0)
+        .unwrap_or_else(|| split_extension(rel))
+}
+
+/// `rel` without its extension, a compound one (`x.paper.md` -> `x`) included.
+fn sidecar_stem(rel: &str) -> &str {
+    split_kind_extension(rel).0
 }
 
 /// Sidecar annotations file for a paper, by the paper's own name:
@@ -673,12 +679,13 @@ pub fn conflict_copy_path(rel: &str, stamp: &str) -> String {
 }
 
 /// Name of the `n`th copy of a file; `n <= 1` keeps the name: `a/b.md`, 2 -> `a/b-2.md`.
+/// A compound extension stays whole, so the copy keeps its kind: `x.paper.md` -> `x-2.paper.md`.
 #[must_use]
 pub fn numbered_path(rel: &str, n: u32) -> String {
     if n <= 1 {
         return rel.to_owned();
     }
-    let (stem, ext) = split_extension(rel);
+    let (stem, ext) = split_kind_extension(rel);
     format!("{stem}-{n}{ext}")
 }
 

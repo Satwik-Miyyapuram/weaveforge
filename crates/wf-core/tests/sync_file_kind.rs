@@ -99,6 +99,9 @@ fn layout_paths() {
     );
     assert_eq!(numbered_path("a/b.md", 2), "a/b-2.md");
     assert_eq!(numbered_path("a/b.md", 1), "a/b.md");
+    // A numbered paper is still a paper: the number goes before `.paper.md`.
+    assert_eq!(numbered_path("p/papers/x.paper.md", 2), "p/papers/x-2.paper.md");
+    assert_eq!(numbered_path("p/papers/.paper.md", 2), "p/papers/.paper-2.md");
     assert_eq!(
         trash_path("p/notes/a.md", "2026-11-18"),
         ".weaveforge/trash/2026-11-18/p/notes/a.md"

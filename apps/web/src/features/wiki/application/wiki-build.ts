@@ -152,6 +152,12 @@ export async function runWikiLint(): Promise<{ report: LintReport; steps: FixSte
   return { report, steps: typedCore().planFixOrder(report) as FixStep[] };
 }
 
+/** The pages' `updatedAt` as the preview read them; the apply checks they still hold. */
+export interface MergeExpected {
+  primaryUpdatedAt: string;
+  secondaryUpdatedAt: string;
+}
+
 /**
  * Preview a merge of two wiki pages.
  *
@@ -162,15 +168,18 @@ export async function runWikiLint(): Promise<{ report: LintReport; steps: FixSte
 export async function previewMerge(
   primaryId: string,
   secondaryId: string,
-): Promise<{ primaryTitle: string; secondaryTitle: string; result: MergeResult } | null> {
-  const pages = await wikiPageRefsNow();
+): Promise<{ primaryTitle: string; secondaryTitle: string; result: MergeResult; expected: MergeExpected } | null> {
+  const all = await notes();
+  const pages = readyCore().wikiPageRefs(all);
   const primary = pages.find((page) => page.id === primaryId);
   const secondary = pages.find((page) => page.id === secondaryId);
   if (!primary || !secondary) return null;
+  const updatedAt = (id: string) => all.find((page) => page.id === id)?.updatedAt ?? "";
 
   return {
     primaryTitle: primary.title,
     secondaryTitle: secondary.title,
+    expected: { primaryUpdatedAt: updatedAt(primaryId), secondaryUpdatedAt: updatedAt(secondaryId) },
     result: typedCore().mergeWikiPages(
       { id: primary.id, title: primary.title, body: primary.body },
       { id: secondary.id, title: secondary.title, body: secondary.body },
@@ -188,15 +197,29 @@ export async function previewMerge(
  *
  * The absorbed title is recorded as an alias in the merged body, so links to
  * the removed page still resolve.
+ *
+ * `expected` is what the preview read. If either page changed since, the
+ * merged text would overwrite that edit and the secondary would be removed
+ * with it, so the merge is refused instead.
  */
 export async function applyMerge(
   primaryId: string,
   secondaryId: string,
   merged: MergeResult,
+  expected: MergeExpected,
 ): Promise<void> {
   const container = getContainer();
-  const primary = await container.vault.getPage(primaryId);
+  const [primary, secondary] = await Promise.all([
+    container.vault.getPage(primaryId),
+    container.vault.getPage(secondaryId),
+  ]);
   if (!primary) throw new Error("The page being merged into no longer exists.");
+  if (
+    primary.updatedAt !== expected.primaryUpdatedAt ||
+    (secondary && secondary.updatedAt !== expected.secondaryUpdatedAt)
+  ) {
+    throw new Error("A page changed since the preview. Preview the merge again.");
+  }
 
   const aliasNote = merged.aliases.length
     ? `\n\n<!-- also known as: ${merged.aliases.join(", ")} -->`

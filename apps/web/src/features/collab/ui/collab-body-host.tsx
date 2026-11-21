@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Compartment, type Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { getContainer } from "@/bootstrap";
+import { Button } from "@/components/button";
 import { usePasteSettingsRef } from "@/lib/paste-cleanup-preference";
 import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
 import {
@@ -94,13 +95,27 @@ export function CollabBodyHost({
 }) {
   const [authorId, setAuthorId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("Editor");
+  const [authorFailed, setAuthorFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
+  // A failed lookup shows a retry instead of loading forever; a missing
+  // profile keeps the default name (P2-146).
   useEffect(() => {
-    void getContainer().collab.requireUserId().then(setAuthorId);
-    void getContainer()
+    let live = true;
+    getContainer().collab.requireUserId().then(
+      (id) => { if (live) setAuthorId(id); },
+      () => { if (live) setAuthorFailed(true); },
+    );
+    getContainer()
       .org.loadProfile()
-      .then((p) => setDisplayName(p?.fullName ?? p?.email ?? "Editor"));
-  }, []);
+      .then(
+        (p) => { if (live) setDisplayName(p?.fullName ?? p?.email ?? "Editor"); },
+        () => {},
+      );
+    return () => {
+      live = false;
+    };
+  }, [attempt]);
 
   // `collabSession` builds a fresh object every call, and the editor keys its
   // Yjs/CodeMirror effect on that object. Calling it inline made the identity
@@ -195,6 +210,21 @@ export function CollabBodyHost({
     [markdownExtensions, onViewCreated],
   );
 
+  if (!authorId && authorFailed) {
+    return (
+      <p className="muted">
+        Could not open the editor.{" "}
+        <Button
+          onClick={() => {
+            setAuthorFailed(false);
+            setAttempt((n) => n + 1);
+          }}
+        >
+          Try again
+        </Button>
+      </p>
+    );
+  }
   if (!authorId) return <p className="muted">Loading editor…</p>;
 
   return (

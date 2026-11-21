@@ -1,9 +1,12 @@
-import { before, test } from "node:test";
+import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { clearMermaidCache, mermaidCacheSize, renderMermaidBlock, setMermaidLoaderForTests, type MermaidModule } from "../mermaid-render";
+import { clearMermaidCache, mermaidCacheSize, renderMermaidBlock, setMermaidLoaderForTests, setSvgSanitizerForTests, type MermaidModule } from "../mermaid-render";
 
 before(loadTestCore);
+// Node has no DOM for DOMPurify; these tests are about rendering and caching.
+before(() => setSvgSanitizerForTests((svg) => svg));
+after(() => setSvgSanitizerForTests(null));
 
 /** A fake renderer that counts calls and echoes the id it was given. */
 function fakeRenderer(): { renderer: MermaidModule; calls: () => number } {

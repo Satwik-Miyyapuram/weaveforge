@@ -42,6 +42,8 @@ function fieldValueExecutors(
       relations: {} as never,
       milestones: {} as never,
       experiments: {} as never,
+      milestoneById: async () => null,
+      experimentById: async () => null,
       vaultPages: {} as never,
       reportSections: {} as never,
       reportSectionById: async () => null,
@@ -73,6 +75,8 @@ test("every proposal kind is handled by the browser-only executor registry", asy
       async recordMetrics() { calls.push("exp-metrics"); return {} as never; },
       async addArtifacts() { calls.push("exp-artifacts"); return {} as never; },
     } as never,
+    milestoneById: async (id: string) => ({ id, updatedAt: "rev-1" }),
+    experimentById: async (id: string) => ({ id, updatedAt: "rev-1" }),
     vaultPages: { async getById() { return { id: "paper-1", body: "Old", updatedAt: "rev-1" }; } },
     reportSections: { async setNotes() { calls.push("report"); return {} as never; } },
     reportSectionById: async () => ({ id: "paper-1", updatedAt: "rev-1" }),
@@ -144,13 +148,18 @@ test("paper_field_value rejects empty value payload", async () => {
 });
 
 /** A bag for the suggestion kinds: doubles that record what they were asked to write. */
-function suggestionExecutors(opts: { noteBody?: string; noteRev?: string; sectionRev?: string; paper?: boolean } = {}) {
+function suggestionExecutors(opts: { noteBody?: string; noteRev?: string; sectionRev?: string; paper?: boolean; runRev?: string | null } = {}) {
   const writes: unknown[] = [];
+  const record = (what: string) => async (id: string) => { writes.push({ what, id }); return {} as never; };
+  const run = async (id: string) => (opts.runRev === null ? null : { id, updatedAt: opts.runRev ?? "rev-1" });
   const registry = new AiProposalExecutorRegistry(createAiProposalExecutors({
     paperNotes: {} as never, vault: { async update(id: string, patch: unknown) { writes.push({ id, patch }); return {} as never; } } as never,
     logs: {} as never, papers: { async getById() { return opts.paper === false ? null : { id: "paper-1", updatedAt: "rev-1" }; } },
     updatePaper: {} as never, paperFields: {} as never, addPaper: {} as never, pushZotero: async () => undefined,
-    lists: {} as never, relations: {} as never, milestones: {} as never, experiments: {} as never,
+    lists: {} as never, relations: {} as never,
+    milestones: { setStatus: record("milestone-status") } as never,
+    experiments: { setStatus: record("exp-status"), recordMetrics: record("exp-metrics"), addArtifacts: record("exp-artifacts") } as never,
+    milestoneById: run, experimentById: run,
     vaultPages: { async getById() { return { id: "paper-1", body: opts.noteBody ?? "Body", updatedAt: opts.noteRev ?? "rev-1" }; } },
     reportSections: { async setNotes(id: string, notes: string) { writes.push({ id, notes }); return {} as never; } },
     reportSectionById: async () => ({ id: "paper-1", updatedAt: opts.sectionRev ?? "rev-1" }),
@@ -158,6 +167,23 @@ function suggestionExecutors(opts: { noteBody?: string; noteRev?: string; sectio
   }));
   return { registry, writes };
 }
+
+// P2-149: a status or run update made after the suggestion was drafted wins,
+// as it does for every other kind; the suggestion conflicts instead.
+test("milestone_status and experiment_update conflict on a stale or missing row", async () => {
+  const stale = suggestionExecutors({ runRev: "rev-2" });
+  const run = { status: "done", metrics: { acc: 0.9 }, artifacts: ["model.pt"] };
+  assert.equal(await stale.registry.execute({ ...draft("milestone_status", { status: "done" }), expectedRevision: "rev-1" }), "conflicted");
+  assert.equal(await stale.registry.execute({ ...draft("experiment_update", run), expectedRevision: "rev-1" }), "conflicted");
+  assert.deepEqual(stale.writes, []);
+  const gone = suggestionExecutors({ runRev: null });
+  assert.equal(await gone.registry.execute(draft("milestone_status", { status: "done" })), "conflicted");
+  assert.equal(await gone.registry.execute(draft("experiment_update", run)), "conflicted");
+  assert.deepEqual(gone.writes, []);
+  const fresh = suggestionExecutors();
+  assert.equal(await fresh.registry.execute({ ...draft("milestone_status", { status: "done" }), expectedRevision: "rev-1" }), "accepted");
+  assert.deepEqual(fresh.writes, [{ what: "milestone-status", id: "paper-1" }]);
+});
 
 test("note edits conflict when the note changed since the suggestion", async () => {
   const { registry, writes } = suggestionExecutors({ noteRev: "rev-2" });
@@ -205,6 +231,7 @@ function followUpExecutors() {
     lists: {} as never, relations: {} as never,
     milestones: { async add(input: unknown) { seen.milestone = input; return {} as never; } } as never,
     experiments: { async add(input: unknown) { seen.experiment = input; return {} as never; } } as never,
+    milestoneById: async () => null, experimentById: async () => null,
     vaultPages: {} as never, reportSections: {} as never, reportSectionById: async () => null, annotations: {} as never,
   }));
   return { registry, seen };

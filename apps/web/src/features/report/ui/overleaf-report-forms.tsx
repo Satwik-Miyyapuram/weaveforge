@@ -72,10 +72,15 @@ export function LinkOverleafForm({ projectId, onLinked, onError, defaults }: {
       };
       const name = String(form.get("connectionName") ?? "");
       const token = String(form.get("token") ?? "");
+      // This copy keeps one token; a new one switches every linked report to it (P2-3).
+      const replaceToken = Boolean(gateway && (await gateway.hasConnection()));
+      if (replaceToken && !window.confirm("An Overleaf token is already saved on this computer. Replace it? Every linked report will use the new token.")) return;
       await linkOverleafReport(link, gateway
         ? {
-            saveConnection: () => gateway.saveConnection(name, token),
+            saveConnection: () => gateway.saveConnection(name, token, { replaceToken }),
             createReport: (input) => gateway.createReport(input),
+            // A replaced token is the one every linked report uses: keep its row.
+            ...(replaceToken ? {} : { deleteConnection: (id: string) => gateway.deleteConnection(id) }),
           }
         : {
             saveConnection: async () => {
@@ -84,6 +89,7 @@ export function LinkOverleafForm({ projectId, onLinked, onError, defaults }: {
               return id;
             },
             createReport: (input) => api("/api/overleaf/reports", { method: "POST", body: JSON.stringify(input) }),
+            deleteConnection: (id) => api(`/api/overleaf/connections?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
           });
       onLinked();
     } catch (err) { onError(formatError(err)); }

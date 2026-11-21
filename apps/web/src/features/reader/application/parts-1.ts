@@ -337,13 +337,18 @@ export interface DownloadOptions {
   pauseMs?: number;
 }
 
-const pause = (ms: number, signal?: AbortSignal) =>
+/** A wait the signal can cut short; it takes its listener with it (P2-203). */
+export const pause = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    signal?.addEventListener("abort", () => {
+    const onAbort = () => {
       clearTimeout(timer);
       resolve();
-    });
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
 
 export async function downloadLibraryPdfs(

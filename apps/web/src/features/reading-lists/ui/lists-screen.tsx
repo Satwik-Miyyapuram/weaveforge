@@ -31,10 +31,12 @@ import type { ReadingListsScreenData } from "@/features/reading-lists/applicatio
 import { ScreenHead } from "@/components/screen-head";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { FormError } from "@/components/form-error";
-import { loadSubtreeItems } from "@/features/reading-lists/application/parts";
+import { useSubtreeItems } from "./use-subtree-items";
 import { Button } from "@/components/button";
 
 type ListsViewData = ReadingListsScreenData & { ownerNames: Map<string, string> };
+
+const fetchListItems = (ids: readonly string[]) => getContainer().readingLists.listItemsForLists(ids);
 
 /**
  * Reading-lists screen. Renders the nested list hierarchy; each list shows its
@@ -180,22 +182,7 @@ export function ListsScreen() {
 
 
   // One fetch for the shown subtree's items, not one per list node (36-08).
-  const [itemsByList, setItemsByList] = useState<ReadonlyMap<string, ReadingListItem[]>>(() => new Map());
-  useEffect(() => {
-    if (!selectedNode) return;
-    let active = true;
-    const readingLists = getContainer().readingLists;
-    loadSubtreeItems(selectedNode, (ids) => readingLists.listItemsForLists(ids))
-      .then((byList) => {
-        if (active) setItemsByList(byList);
-      })
-      .catch((err: unknown) => {
-        if (active) setError(formatError(err));
-      });
-    return () => {
-      active = false;
-    };
-  }, [selectedNode, refresh]);
+  const { itemsByList, error: itemsError, retry: retryItems } = useSubtreeItems(selectedNode, refresh, fetchListItems);
 
   const bump = useCallback(() => setRefresh((n) => n + 1), []);
   const paperTitles = useMemo(() => new Map(papers.map((p) => [p.id, p.title])), [papers]);
@@ -244,7 +231,7 @@ export function ListsScreen() {
       )}
 
       {error && <FormError>{error}</FormError>}
-      {!error && tree.length === 0 && pinnedLists.length === 0 && (
+      {!loadError && tree.length === 0 && pinnedLists.length === 0 && (
         <EmptyState
           variant="first-run"
           icon={<NavIcon name="list" />}
@@ -258,7 +245,8 @@ export function ListsScreen() {
         />
       )}
 
-      {!error && selectedNode && (
+      {/* An error is shown above the panes, never instead of them (P2-179). */}
+      {selectedNode && (
         <div className="lists-two-pane">
           <ListsRail
             tree={railTree}
@@ -278,6 +266,12 @@ export function ListsScreen() {
                   Expand all
                 </Button>
               </div>
+            )}
+            {itemsError && (
+              <FormError>
+                Could not load this list&apos;s items: {itemsError}{" "}
+                <Button variant="link" onClick={retryItems}>Retry</Button>
+              </FormError>
             )}
             <ul className="list-tree-root">
               <ListNode
