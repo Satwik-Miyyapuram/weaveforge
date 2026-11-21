@@ -38,6 +38,24 @@ const CHOICES: Record<Choice, [idle: string, busy: string, help: string]> = {
 };
 
 /**
+ * Where the saved remote points, for people: `owner/repo` on github.com,
+ * host and path elsewhere. Drops any user name or token in the URL; null when
+ * the URL does not parse.
+ */
+export function backupTarget(url: string): { label: string; href: string } | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  const path = parsed.pathname.replace(/\.git$/, "").replace(/\/+$/, "");
+  const href = `${parsed.protocol}//${parsed.host}${path}`;
+  const github = parsed.hostname === "github.com";
+  return { label: github ? path.replace(/^\//, "") : `${parsed.host}${path}`, href };
+}
+
+/**
  * The workspace folder's git remote: URL and token, then pull and push.
  * Desktop only; the caller renders it when the shell can sync.
  */
@@ -120,6 +138,7 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
     });
 
   const unsaved = url.trim() !== savedUrl;
+  const target = savedUrl ? backupTarget(savedUrl) : null;
 
   return (
     <>
@@ -140,6 +159,14 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
             setNeedsReconnect(false);
           }}
         />
+      )}
+      {target && (
+        <p className="muted jump-to-meta">
+          Backs up to{" "}
+          <a href={target.href} target="_blank" rel="noreferrer">
+            {target.label}
+          </a>
+        </p>
       )}
       <details className="git-remote-advanced">
         <summary>Advanced: any git host, with your own URL and token</summary>
