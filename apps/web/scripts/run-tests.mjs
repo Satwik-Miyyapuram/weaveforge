@@ -29,6 +29,9 @@ const child = spawn(
     "--import",
     "./src/lib/test/preload-core.mts",
     "--test",
+    // One test file at a time by default: node otherwise starts one process
+    // per core, which breaks the 1 GB RAM rule. A later flag overrides it.
+    `--test-concurrency=${process.env.WF_TEST_CONCURRENCY ?? 1}`,
     ...process.argv.slice(2),
     // Named test files run alone; otherwise the whole suite. Two patterns
     // rather than a brace expansion: node's test-runner glob does not expand
