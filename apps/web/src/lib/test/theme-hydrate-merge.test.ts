@@ -55,3 +55,31 @@ test("sanitizeControlSize keeps every size and defaults the rest", () => {
   for (const id of ["compact", "default", "comfortable"]) assert.equal(sanitizeControlSize(id), id);
   for (const bad of [null, undefined, "", "huge", "constructor"]) assert.equal(sanitizeControlSize(bad), "default");
 });
+
+test("a theme change made while hydrating wins over the server copy and is saved (P2-250)", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const { setContainerForTests } = await import("@/bootstrap");
+  const { hydrateThemeFromServer, persistThemeChange, readLocalAppearance } = await import("@/lib/theme/theme-persistence");
+  const g = globalThis as { window?: object };
+  const hadWindow = g.window !== undefined;
+  g.window ??= new EventTarget();
+  t.after(() => { if (!hadWindow) delete g.window; });
+  Object.assign(g.window, { matchMedia: () => ({ matches: false }) });
+  let release!: (value: { appearance: UserAppearance }) => void;
+  const saved: UserAppearance[] = [];
+  setContainerForTests({
+    settings: {
+      manageSettings: { getMetadata: () => new Promise((resolve) => { release = resolve; }) },
+      preferences: { saveAppearance: async (a: UserAppearance) => void saved.push(a) },
+    },
+  } as never);
+  t.after(() => setContainerForTests(null));
+  persistThemeChange({ mode: "light", lightTheme: "brutal" }, { apply: false });
+  const hydrate = hydrateThemeFromServer();
+  await new Promise((resolve) => setImmediate(resolve));
+  persistThemeChange({ mode: "dark", darkTheme: "brutal-dark" }, { apply: false });
+  release({ appearance: { mode: "light", lightTheme: "crt" } });
+  await hydrate;
+  assert.equal(readLocalAppearance().mode, "dark");
+  assert.equal(saved.at(-1)?.mode, "dark");
+});
