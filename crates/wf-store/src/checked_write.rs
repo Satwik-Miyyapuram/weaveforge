@@ -231,23 +231,65 @@ impl Vault {
     /// # Errors
     /// Refused paths, escapes, a missing file, or a failed move.
     pub fn delete_to_trash(&self, rel: &str) -> Result<String, VaultError> {
+        self.delete_to_trash_with_hook(rel, &mut |_| {})
+    }
+
+    /// [`Vault::delete_to_trash`] with a hook that runs after a trash name is picked and before
+    /// the move. Tests use it to simulate another process taking that name in between.
+    ///
+    /// # Errors
+    /// Refused paths, escapes, a missing file, or a failed move.
+    #[doc(hidden)]
+    pub fn delete_to_trash_with_hook(
+        &self,
+        rel: &str,
+        after_pick: &mut dyn FnMut(&Path),
+    ) -> Result<String, VaultError> {
         let target = self.resolve(rel)?;
         // `symlink_metadata`, not `exists`: a dangling link is still a file the user can delete.
-        if fs::symlink_metadata(&target).is_err() {
+        let Ok(meta) = fs::symlink_metadata(&target) else {
             return Err(io_err(
                 "delete",
                 rel,
                 io::Error::from(io::ErrorKind::NotFound),
             ));
-        }
+        };
         let base = trash_path(rel, &day_stamp(now_ms()));
-        let dest_rel = self.free_path(&base)?;
-        let dest = self.resolve(&dest_rel)?;
-        if let Some(parent) = dest.parent() {
-            fs::create_dir_all(parent).map_err(|source| io_err("create folder", rel, source))?;
+        // The picked name can be taken by another process before the move (F97-P2-5). A file
+        // moves without replacing; a folder rename never replaces a file or a non-empty folder.
+        // Either way a taken name fails the move, and the next free name is tried.
+        for _ in 0..FREE_NAME_TRIES {
+            let dest_rel = self.free_path(&base)?;
+            let dest = self.resolve(&dest_rel)?;
+            if let Some(parent) = dest.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|source| io_err("create folder", rel, source))?;
+            }
+            after_pick(&dest);
+            let (moved, name_taken) = if meta.is_file() {
+                // Only the link step reports `AlreadyExists`; a failed removal of the old name
+                // after it must not pick yet another name.
+                let moved = trash_file(&target, &dest);
+                let name_taken = moved
+                    .as_ref()
+                    .is_err_and(|err| err.kind() == io::ErrorKind::AlreadyExists);
+                (moved, name_taken)
+            } else {
+                let moved = fs::rename(&target, &dest);
+                let name_taken = moved.is_err() && taken(&dest);
+                (moved, name_taken)
+            };
+            match moved {
+                Ok(()) => return Ok(dest_rel),
+                Err(_) if name_taken => {}
+                Err(source) => return Err(io_err("delete", rel, source)),
+            }
         }
-        fs::rename(&target, &dest).map_err(|source| io_err("delete", rel, source))?;
-        Ok(dest_rel)
+        Err(io_err(
+            "delete",
+            rel,
+            io::Error::new(io::ErrorKind::AlreadyExists, "no free file name"),
+        ))
     }
 
     /// Move a file to a new path without overwriting: a different file already at `to` is
@@ -609,11 +651,6 @@ fn strip_bom(bytes: &[u8]) -> &[u8] {
     bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes)
 }
 
-/// The file's text as the checked write sees it: BOM stripped, invalid bytes replaced.
-fn decode_text(bytes: &[u8]) -> String {
-    String::from_utf8_lossy(strip_bom(bytes)).into_owned()
-}
-
 /// Digest of text files by canonical text, other files by raw bytes. A "text" file that is not
 /// valid UTF-8 is hashed by its raw bytes too: a lossy decode would give two different invalid
 /// byte strings the same hash (F97-P2-6).
@@ -734,6 +771,17 @@ fn move_without_replace(src: &Path, dest: &Path) -> io::Result<()> {
             fs::rename(src, dest)
         }
         Err(err) => Err(err),
+    }
+}
+
+/// Moves a file into the trash without replacing one already there. Where the filesystem has
+/// no hard links (exFAT, some network shares) it falls back to a plain rename, as before.
+fn trash_file(src: &Path, dest: &Path) -> io::Result<()> {
+    match move_without_replace(src, dest) {
+        Err(err) if err.kind() != io::ErrorKind::AlreadyExists && !taken(dest) => {
+            fs::rename(src, dest)
+        }
+        moved => moved,
     }
 }
 

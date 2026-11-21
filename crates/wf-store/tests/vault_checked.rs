@@ -274,6 +274,53 @@ fn trash_name_clash_gets_suffix() {
 }
 
 #[test]
+fn trash_name_taken_after_it_was_picked_is_not_replaced() {
+    // F97-P2-5: another process trashes a file under the same name between the free-name check
+    // and the move. The delete must go to `-2`, and both trashed copies must survive.
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    put(&at(&dir, "p/a.md"), b"mine");
+    let mut raced = false;
+    let trashed = vault
+        .delete_to_trash_with_hook("p/a.md", &mut |dest| {
+            if !raced {
+                raced = true;
+                put(dest, b"theirs");
+            }
+        })
+        .unwrap();
+    assert!(raced);
+    assert!(trashed.ends_with("p/a-2.md"), "{trashed}");
+    assert_eq!(fs::read(at(&dir, &trashed)).unwrap(), b"mine");
+    let theirs = trashed.replace("p/a-2.md", "p/a.md");
+    assert_eq!(fs::read(at(&dir, &theirs)).unwrap(), b"theirs");
+    assert!(!at(&dir, "p/a.md").exists());
+}
+
+#[test]
+fn folder_delete_skips_a_trash_name_taken_after_it_was_picked() {
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    put(&at(&dir, "f/inner.md"), b"mine");
+    let mut raced = false;
+    let trashed = vault
+        .delete_to_trash_with_hook("f", &mut |dest| {
+            if !raced {
+                raced = true;
+                put(&dest.join("inner.md"), b"theirs");
+            }
+        })
+        .unwrap();
+    assert!(trashed.ends_with("/f-2"), "{trashed}");
+    assert_eq!(
+        fs::read(at(&dir, &format!("{trashed}/inner.md"))).unwrap(),
+        b"mine"
+    );
+    let theirs = format!("{}/inner.md", trashed.trim_end_matches("-2"));
+    assert_eq!(fs::read(at(&dir, &theirs)).unwrap(), b"theirs");
+}
+
+#[test]
 fn rename_keeps_displaced_target() {
     let dir = TempDir::new();
     let vault = vault_in(&dir);
