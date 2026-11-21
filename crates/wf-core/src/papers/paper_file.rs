@@ -317,7 +317,7 @@ fn apply_entry(paper: &mut PaperFile, key: &str, entry: &str) -> Result<bool, Pa
 
 /// The value of a one-entry frontmatter block: one line of JSON, or else what the
 /// YAML-subset reader makes of it (plain scalars and block lists a person typed).
-fn entry_value(key: &str, entry: &str) -> Option<Value> {
+pub(crate) fn entry_value(key: &str, entry: &str) -> Option<Value> {
     let first = entry.lines().next().unwrap_or_default();
     let rest = first.get(key.len() + 1..).unwrap_or_default().trim();
     let one_line = entry.lines().skip(1).all(|line| line.trim().is_empty());
@@ -334,7 +334,7 @@ fn entry_value(key: &str, entry: &str) -> Option<Value> {
 }
 
 /// `---\n<head>---\n<body>`: the head (entries, each line ending in `\n`) and the body.
-fn split_frontmatter(text: &str) -> Option<(&str, &str)> {
+pub(crate) fn split_frontmatter(text: &str) -> Option<(&str, &str)> {
     let rest = text.strip_prefix("---\n")?;
     if let Some(body) = rest.strip_prefix("---\n") {
         return Some(("", body));
@@ -348,7 +348,7 @@ fn split_frontmatter(text: &str) -> Option<(&str, &str)> {
 
 /// Splits the head into entries: a top-level `key:` line plus the indented, list
 /// and blank lines after it. Lines before the first key form their own entry.
-fn entries(head: &str) -> Vec<String> {
+pub(crate) fn entries(head: &str) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     for line in head.split_inclusive('\n') {
         match out.last_mut() {
@@ -361,7 +361,7 @@ fn entries(head: &str) -> Vec<String> {
 
 /// The key of a line that opens an entry: `key:` at column 0, followed by a space
 /// or the line end, with no spaces or quotes in the key.
-fn entry_key(line: &str) -> Option<&str> {
+pub(crate) fn entry_key(line: &str) -> Option<&str> {
     let first = line.lines().next()?;
     let (key, rest) = first.split_once(':')?;
     let plain = !key.is_empty()
@@ -371,7 +371,7 @@ fn entry_key(line: &str) -> Option<&str> {
 }
 
 /// `key: <one line of JSON>\n`.
-fn push_line(out: &mut String, key: &str, value: &Value) {
+pub(crate) fn push_line(out: &mut String, key: &str, value: &Value) {
     out.push_str(key);
     out.push_str(": ");
     out.push_str(&value.to_string());

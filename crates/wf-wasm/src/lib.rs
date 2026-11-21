@@ -37,6 +37,7 @@ mod date_format;
 mod db_claims;
 mod document_stats;
 mod editor_workspace;
+mod entity_codecs;
 mod error_report;
 mod error_status;
 mod experiment_artifacts;
