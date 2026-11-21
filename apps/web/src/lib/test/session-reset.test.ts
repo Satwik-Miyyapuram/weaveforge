@@ -11,7 +11,7 @@ import { before, test } from "node:test";
 
 import { fetchBlobsCached } from "@/lib/cache/parts-1";
 import { clearSessionCaches, registerDashboardUiCacheClear, registerSessionReset } from "@/lib/cache/parts";
-import { clearMermaidCache, mermaidCacheSize, renderMermaidBlock, setMermaidLoaderForTests, type MermaidModule } from "@/lib/mermaid-render";
+import { clearMermaidCache, mermaidCacheSize, renderMermaidBlock, setMermaidLoaderForTests, setSvgSanitizerForTests, type MermaidModule } from "@/lib/mermaid-render";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
 // The mermaid renderer reads the Rust core, so load it before any test runs.
@@ -80,6 +80,8 @@ test("sign-out empties the rendered mermaid cache", async () => {
   const savedDoc = g.document;
   g.document = {};
   setMermaidLoaderForTests(() => Promise.resolve(renderer));
+  // Node has no DOM for DOMPurify; this test is about the cache.
+  setSvgSanitizerForTests((svg) => svg);
   try {
     await renderMermaidBlock("graph TD; A-->B");
     assert.equal(mermaidCacheSize(), 1);
@@ -88,6 +90,7 @@ test("sign-out empties the rendered mermaid cache", async () => {
   } finally {
     g.document = savedDoc;
     setMermaidLoaderForTests(null);
+    setSvgSanitizerForTests(null);
     clearMermaidCache();
   }
 });
