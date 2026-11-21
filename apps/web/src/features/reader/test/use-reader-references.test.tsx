@@ -12,6 +12,7 @@ import type { ParsedReference } from "@weaveforge/core";
 import type { ResolvedReference } from "../application/parts-2";
 import { useReaderReferences } from "../ui/pdf-reader/use-reader-references";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { setContainerForTests } from "@/bootstrap";
 import type { PageTextItem } from "@weaveforge/wasm";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -170,4 +171,26 @@ test("a lookup that settles after the document changed leaves the new document's
   assert.equal(calls.length, 2);
   h.get().stopPrefetch();
   h.unmount();
+});
+test("an add that settles after the document changed marks and says nothing (P2-196)", async () => {
+  let settle: (v: { paper: unknown; created: boolean }) => void = () => {};
+  setContainerForTests({
+    readerReferences: { actions: { addToLibrary: () => new Promise((r) => (settle = r)) } },
+  } as never);
+  try {
+    const h = mount("doc-a", async () => found("x"), new Map());
+    const entry = { index: 1, raw: "x", title: "x", authors: [], page: 1, x: 0, y: 0 } as ParsedReference;
+    let added: Promise<unknown> = Promise.resolve();
+    act(() => { added = h.get().actions.addToLibrary(entry); });
+    h.rerender("doc-b", new Map());
+    await act(async () => {
+      settle({ paper: { id: "p1", title: "Old doc's paper", authors: [] }, created: true });
+      await added;
+    });
+    assert.equal(h.get().resolutions.has(1), false);
+    assert.equal(h.get().notice, null);
+    h.unmount();
+  } finally {
+    setContainerForTests(null);
+  }
 });
