@@ -73,6 +73,9 @@ interface StoredZoteroEntry {
   tags?: string[];
 }
 
+/** Draft kinds that change an existing paper; their approval checks the paper's revision. */
+const PAPER_EDIT_KINDS: ReadonlySet<AiProposalKind> = new Set(["append_paper_note", "paper_update", "paper_field_value"]);
+
 /** Browser-local grant manager. Sessions intentionally disappear on reload/sign-out. */
 export class AiAssistantFacade {
   private readonly sessions = new Map<string, AiActiveSession>();
@@ -313,14 +316,26 @@ export class AiAssistantFacade {
     expectedRevision?: string; evidence?: readonly AiEvidence[];
   }): Promise<{ status: "requires_review"; proposalId: string; kind: AiProposalKind; message: string }> {
     const session = this.requireActiveSession(input.sessionId);
+    const expectedRevision = input.expectedRevision || await this.currentPaperRevision(input.kind, input.resourceId);
     const proposal = await this.createProposal.execute({
       id: this.deps.newId(), kind: input.kind, tool: input.tool,
       resourceId: input.resourceId ?? this.deps.newId(), resourceType: input.resourceType,
-      content: input.content, payload: input.payload, expectedRevision: input.expectedRevision,
+      content: input.content, payload: input.payload, expectedRevision,
       evidence: input.evidence, settings: input.settings, grant: session.grant,
       encryptionUnlocked: this.deps.isEncryptionUnlocked(), now: this.deps.now(),
     });
     return { status: "requires_review", proposalId: proposal.id, kind: proposal.kind, message: "Draft saved securely. Review and approve it in WeaveForge before anything changes." };
+  }
+
+  /**
+   * The revision a paper edit is drafted against. MCP agents never see one, and
+   * without it approving a stale draft overwrites the user's later edits.
+   */
+  private async currentPaperRevision(kind: AiProposalKind, paperId?: string): Promise<string | undefined> {
+    if (!PAPER_EDIT_KINDS.has(kind)) return undefined;
+    const paper = paperId ? await this.deps.papers.getById(paperId) : null;
+    if (!paper) throw new Error("This paper does not exist, so no edit to it can be drafted.");
+    return paper.updatedAt;
   }
 
   /** Build and persist a review-only Zotero import. It never reads credentials. */
