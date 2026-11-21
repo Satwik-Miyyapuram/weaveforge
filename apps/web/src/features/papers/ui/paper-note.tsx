@@ -161,6 +161,8 @@ export function PaperNote({
   async function changeStatus(status: PaperStatus) {
     setBusy(true);
     try { onReplace(await getContainer().papers.updatePaper.setStatus(paper.id, status)); }
+    // Called as `void changeStatus(st)`: a refusal must show, not escape (P2-192).
+    catch (err) { setSaveError(formatError(err)); }
     finally { setBusy(false); }
   }
 
