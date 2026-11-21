@@ -13,18 +13,17 @@ import { activeWorkspaceFs, folderSession } from "./workspace-folder";
 export type Trash = (path: string) => Promise<void>;
 
 /**
- * The browser's trash: each file through `moveToTrash`, then the emptied
- * folder, which is only removed when nothing new landed in it.
+ * The browser's trash: each file through `moveToTrash`, subfolders the same
+ * way, then the emptied folder, which is only removed when nothing new landed in it.
  */
 export function folderTrash(fs: IWorkspaceFs, now: number): Trash {
-  return async (path) => {
+  const trash: Trash = async (path) => {
     const stat = await fs.stat(path);
     if (stat?.kind !== "dir") return moveToTrash(fs, path, now);
-    for (const entry of await fs.list(path)) {
-      if (entry.kind === "file") await moveToTrash(fs, entry.path, now);
-    }
+    for (const entry of await fs.list(path)) await trash(entry.path);
     await fs.remove(path).catch(() => undefined);
   };
+  return trash;
 }
 
 /**
