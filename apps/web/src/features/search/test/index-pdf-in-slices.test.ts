@@ -134,3 +134,52 @@ test("indexPdfInSlices stops quietly when index is invalidated during yield", as
 
   assert.equal(search.ready, false);
 });
+
+test("a cancelled run stops waiting and leaves the index whole (P2-202)", async () => {
+  const sliced = searchFor({ papers: [paper("paper-10", "Ten Page Paper")] });
+  const whole = searchFor({ papers: [paper("paper-10", "Ten Page Paper")] });
+  await sliced.ensure();
+  await whole.ensure();
+  whole.indexPdf(tenPageSource);
+
+  let cancelled = false;
+  let yields = 0;
+  await sliced.indexPdfInSlices(
+    tenPageSource,
+    () => {
+      yields += 1;
+      cancelled = true;
+      return Promise.resolve();
+    },
+    3,
+    () => cancelled,
+  );
+
+  assert.equal(yields, 1, "no more waits once cancelled");
+  assert.deepEqual(sliced.corpusSize, whole.corpusSize, "never half-indexed");
+  assert.deepEqual(
+    sliced.search("platypus").map((h) => h.id),
+    whole.search("platypus").map((h) => h.id),
+  );
+});
+
+test("a run cancelled before it starts leaves the index untouched (P2-202)", async () => {
+  const search = searchFor({ papers: [paper("paper-10", "Ten Page Paper")] });
+  await search.ensure();
+  const before = search.corpusSize;
+
+  let yields = 0;
+  await search.indexPdfInSlices(
+    tenPageSource,
+    () => {
+      yields += 1;
+      return Promise.resolve();
+    },
+    3,
+    () => true,
+  );
+
+  assert.equal(yields, 0);
+  assert.deepEqual(search.corpusSize, before);
+  assert.equal(search.search("platypus").length, 0);
+});

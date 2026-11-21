@@ -625,22 +625,27 @@ export class WorkspaceSearch {
   /**
    * Fold a freshly extracted PDF into the live index in cooperative slices so
    * tokenizing many pages yields the main thread instead of stalling the UI.
+   *
+   * `isCancelled` (P2-202): a run cancelled before it starts touches nothing; one
+   * cancelled midway stops waiting and adds the rest at once, so the index is
+   * never left with half a paper.
    */
   async indexPdfInSlices(
     source: PdfIndexSource,
     yieldToHost: () => Promise<void>,
     pagesPerSlice = 4,
+    isCancelled: () => boolean = () => false,
   ): Promise<void> {
     const run = async () => {
       const initialIndex = this.index;
-      if (!initialIndex) return;
+      if (!initialIndex || isCancelled()) return;
 
       const previous = this.retractPdf(initialIndex, source);
       const docs = this.pdfDocs(source);
       const sliceSize = Math.max(1, pagesPerSlice);
 
       for (let i = 0; i < docs.length; i += sliceSize) {
-        if (i > 0) {
+        if (i > 0 && !isCancelled()) {
           await yieldToHost();
           if (this.index !== initialIndex) return;
         }

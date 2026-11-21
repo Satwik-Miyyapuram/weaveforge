@@ -403,7 +403,7 @@ useEffect(() => {
             // Findable now rather than after a reload: index in slices so
             // tokenizing whole PDFs yields rather than stalling the UI.
             const indexStart = perfStart();
-            await getContainer().search.indexPdfInSlices(source, () => idle());
+            await getContainer().search.indexPdfInSlices(source, () => idle(), undefined, () => cancelled);
             perfEnd("pdf:index", indexStart);
             if (cancelled) return;
           }
