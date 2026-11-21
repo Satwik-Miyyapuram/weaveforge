@@ -38,10 +38,30 @@ export interface AppLogInput {
   detail?: string;
 }
 
+/**
+ * Every line is redacted here, whoever wrote it: a console.error or a warning
+ * can quote a token as easily as a request can (P2-218). Before the core loads
+ * the text goes as it is, so a failure to load the core can still be read in
+ * the log; `reportFailedRequest` withholds its URL and body instead.
+ */
+function redactOrKeep(text: string): string {
+  try {
+    return readyCore().redact(text).text;
+  } catch {
+    return text;
+  }
+}
+
 /** Post one line. Silent, and never a promise: callers must not await a log. */
 export function logToApp(input: AppLogInput): void {
   try {
-    desktop()?.reportAppLog?.(input);
+    const bridge = desktop();
+    if (!bridge?.reportAppLog) return;
+    bridge.reportAppLog({
+      ...input,
+      message: redactOrKeep(input.message),
+      detail: input.detail === undefined ? undefined : redactOrKeep(input.detail),
+    });
   } catch {
     // A bridge that predates the method, or one that threw as it tore down.
     // Neither is worth failing the caller for.
