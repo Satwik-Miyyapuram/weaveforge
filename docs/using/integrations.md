@@ -3,7 +3,7 @@ covers:
   - crates/wf-core/src/integrations
   - crates/wf-core/src/zotero.rs
   - apps/web/src/integrations
-checked: 2026-11-14
+checked: 2026-11-21
 ---
 # Integrations
 
@@ -105,6 +105,9 @@ WeaveForge bridges Markdown research notes with formal LaTeX manuscripts in Over
    (found in Overleaf under **Menu → Git**) and **Overleaf project ID**.
 2. WeaveForge clones the project via the Overleaf Git bridge (or through this computer's
    keychain in desktop offline mode).
+3. If a token is already saved on this computer, WeaveForge asks **Replace the
+   Overleaf token?** first, because every linked report uses the same token.
+   Nothing changes until you press **Replace token**.
 
 ### Two-Way Sync
 

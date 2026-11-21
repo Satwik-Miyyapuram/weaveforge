@@ -2,7 +2,7 @@
 covers:
   - apps/shell
   - apps/android
-checked: 2026-11-16
+checked: 2026-11-21
 ---
 # The desktop app
 
@@ -184,15 +184,10 @@ updates. Try again.** and the window keeps working.
 
 ### Coming from 0.8
 
-0.8 kept your offline data in a different local database. The first time 0.9.1
-opens, it brings that data over by itself: a screen says **Bringing over your
-0.8 data…** and counts the tables as they go. You do not need to install
-anything in between or open the app twice.
-
-The old data is only read, never changed or deleted. If something goes wrong
-the screen shows what failed and a **Retry** button; retrying is safe, because
-rows already brought over are skipped. Once every table is through, the app
-notes that the import is done and does not run it again.
+This version no longer brings over the offline data that 0.8 kept in its own
+local database. If you still have 0.8 data you need, open it in 0.9.3 (or an
+earlier 0.9 release) first, which brings it over once, and then update. The old data is
+never changed or deleted, so it stays where 0.8 left it.
 
 ## A folder on your disk
 

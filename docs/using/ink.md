@@ -2,7 +2,7 @@
 covers:
   - apps/web/src/features/ink
   - crates/wf-core/src/ink
-checked: 2026-11-14
+checked: 2026-11-21
 ---
 # Handwriting
 
@@ -12,10 +12,22 @@ see as you wrote it, and the margin thinking that never fits in a typed sentence
 
 ## Start writing
 
-1. On the Notes screen, click **New note**.
-2. Choose the handwritten option instead of Text, so the body becomes a page.
+Every note can hold handwriting; there is no separate kind of note for it.
+
+1. On the Notes screen, click **New note**, or open a note you already have.
+2. In the note's **Mode** switch, pick **Ink** instead of **Text**. The note
+   becomes a page you can write on, and **Text** takes you back to typing.
 3. Write with a mouse, a pen or a finger. Press P at any time to get back to
    the **Pen (P)** tool.
+
+A note that already has handwriting opens on its page.
+
+## Where your ink is kept
+
+Your strokes are saved as files in a folder beside the note, named after it:
+`notes/foo.note.md` keeps its pages in `notes/foo.note.ink/`. The note and its
+ink are matched by that name, so keep the folder next to its note if you move
+files around outside WeaveForge.
 
 ## Pens, tools and quick colours
 
@@ -26,7 +38,10 @@ is always on screen.
 Five quick colours sit on the bar, one tap each. The pen's full palette is behind
 the colour swatch: open it and you get the theme colours, the marker colours and
 the nib sizes. Picking a new colour there replaces the quick colour you were using, unless that
-colour is already on the bar. The choice is kept on this device.
+colour is already on the bar. The pen and the highlighter each keep their own
+five quick colours, and each quick colour keeps its own nib size. Your choices
+are saved in the workspace's settings file (`.weaveforge/settings.json`), so
+they follow the workspace to your other devices.
 
 Nib sizes are 0.1, 0.3, 0.5 and 0.7 mm for the pen. The highlighter comes in 3,
 4.5, 6 and 9 mm, so it lays a wide band of colour under your words.
@@ -136,19 +151,9 @@ On a Mac, Ctrl means ⌘.
 - A picture placed as a figure starts at most half the page in each direction.
 - An arrow key nudges a selected figure 1 mm; with Shift, 10 mm.
 - Shortcuts are ignored while you are typing in a text box.
-
-### A/B renderer
-
-Settings, Editor, "Pen and handwriting" has a "Freehand ink outline" switch,
-off by default. It is for comparing two ways of drawing the same ink. The
-classic renderer draws capsules; the freehand one fills a smooth outline around
-each stroke's points, both while you write and once the stroke is saved to the
-page. The switch applies to the next ink page you open, not the one already
-open, so change it and then reload the app before comparing. Freehand always draws
-on the Canvas 2D path, not WebGL, while you write. Its width does not follow
-pressure, in either state: a stroke is the pen's width throughout, as the classic
-renderer draws it. Printing a PDF's ink stays classic in both settings.
-The switch changes only how strokes look; the saved ink is the same either way.
+- Each stroke is drawn as one smooth filled outline.
+- Ink colours follow the theme: switching between light and dark redraws your
+  strokes in the matching shade, and the saved ink stays the same.
 
 ## Stuck?
 

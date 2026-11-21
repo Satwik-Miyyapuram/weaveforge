@@ -2,7 +2,7 @@
 covers:
   - apps/web/src/features/vault
   - crates/wf-core/src/vault
-checked: 2026-11-16
+checked: 2026-11-21
 ---
 # Notes
 
@@ -57,7 +57,9 @@ same **More** menu. See [Import a OneNote section](onenote-import.md).
 1. Open the note and click **Delete note**. You go back to the list at once.
 2. The toast shows `"<title>" deleted` with **Undo**.
 3. Click **Undo** before the toast closes to keep the note.
-4. When the toast closes, or you click its close button, the note is deleted.
+4. When the toast closes, or you click its close button, the note's file moves
+   to the workspace trash (`.weaveforge/trash`), so you can still get it back
+   from there.
 5. If the delete fails, the note comes back and a toast says so.
 
 ### When two places save at once
