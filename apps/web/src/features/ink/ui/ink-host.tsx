@@ -456,6 +456,8 @@ export function InkHost({
     session: pen.session,
     penOnly: pen.penOnly,
     handedness: hand,
+    pageIndex,
+    cursorMode,
   });
 
   /** A recognised page becomes the worker's page, the column's lines and the body's text. */

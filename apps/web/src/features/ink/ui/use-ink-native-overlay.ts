@@ -13,7 +13,7 @@
  * returns `null` in a plain browser); every effect checks and returns.
  */
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { InkColour, InkHand } from "@weaveforge/core";
 
 import { trailStyle } from "../application/parts-1";
@@ -49,12 +49,19 @@ export interface InkNativeOverlayDeps {
   penOnly: boolean;
   /** Which hand the pen writes with, so the overlay's palm guard agrees. */
   handedness: InkHand;
+  /** The page a native stroke lands on. */
+  pageIndex: number;
+  /** True while the cursor tool is out: a native stroke then draws nothing. */
+  cursorMode: boolean;
 }
 
 export function useInkNativeOverlay(deps: InkNativeOverlayDeps) {
   const { canvasRef, scrollRef, sheetRef, session, penOnly, handedness } = deps;
   const native = useMemo(() => nativeInkBridge(), []);
   const active = useScreenActive();
+  /** The pen as it is now, read when a stroke arrives rather than when the handler was installed. */
+  const pen = useRef(deps);
+  pen.current = deps;
 
   /**
    * The overlay inks only over the page: its box, kept current as it moves.
@@ -133,10 +140,14 @@ export function useInkNativeOverlay(deps: InkNativeOverlayDeps) {
     return installNativeStrokeHandler((points) => {
       const events = nativeStrokeEvents(points, window.devicePixelRatio || 1);
       const first = events[0];
-      if (!first) {
+      const { cursorMode, tool, colour, nib, pageIndex } = pen.current;
+      if (!first || cursorMode) {
         native.clearOverlay();
         return;
       }
+      // The session keeps the tool its last pointer stroke set; a native
+      // stroke must carry the pen and page in force now (P1-1).
+      session.setTool({ width: nib, tool, colour, pageIndex });
       // Down, one raw update carrying the rest as its coalesced events, up.
       // The up event adds no sample, so the last one rides the raw update.
       const rest = events.slice(1);

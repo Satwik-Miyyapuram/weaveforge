@@ -90,7 +90,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 | Where | Size | What lives there |
 | --- | --- | --- |
 | `packages/core` | 24,690 lines | Domain and application logic shared by every surface |
-| `apps/web` | 244,603 lines | The app itself: screens, features, API routes, backend wiring |
+| `apps/web` | 244,715 lines | The app itself: screens, features, API routes, backend wiring |
 | `apps/shell` | 5,516 lines | The Tauri shell — what only an installed app can do |
 | `apps/pitch` | 406 lines | The public site and this documentation |
 | `python/weaveforge` | 3,375 lines | The SDK training scripts import |
@@ -98,7 +98,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 | `db/migrations` | 159 files | The schema, as an ordered sequence |
 | `docs` | 215 files | Documentation, this page included |
 
-**280,867 lines of code in all**, across 2,158 source files.
+**280,979 lines of code in all**, across 2,159 source files.
 
 <!-- /generated:code-map -->
 
