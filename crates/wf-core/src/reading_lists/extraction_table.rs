@@ -251,7 +251,7 @@ pub fn extraction_markdown(
 ) -> String {
     let headers: Vec<String> = columns
         .iter()
-        .map(|column| column_label(column, defs))
+        .map(|column| escape_md(&column_label(column, defs)))
         .collect();
     let mut lines = vec![
         format!("| {} |", headers.join(" | ")),
@@ -289,8 +289,12 @@ pub fn extraction_csv(
     lines.join("\n")
 }
 
+/// One table cell: a `|` is escaped and any line break becomes one space.
 fn escape_md(value: &str) -> String {
-    value.replace('|', "\\|").replace('\n', " ")
+    value
+        .replace('|', "\\|")
+        .replace("\r\n", " ")
+        .replace(['\r', '\n'], " ")
 }
 
 fn csv_escape(value: &str) -> String {
@@ -538,6 +542,24 @@ mod tests {
         assert_eq!(
             extraction_csv(&rows, &[method_def()], &columns),
             "Title,Method\nA,RL"
+        );
+    }
+
+    #[test]
+    fn markdown_escapes_pipes_in_headers_and_carriage_returns_in_cells() {
+        let def = ExtractionFieldDef {
+            name: "a|b".to_owned(),
+            ..method_def()
+        };
+        let rows = vec![row(
+            "p1",
+            "A",
+            &[("f1", PaperFieldValueData::Text("x\r\ny\rz".to_owned()))],
+        )];
+        let columns = vec!["title".to_owned(), "field:f1".to_owned()];
+        assert_eq!(
+            extraction_markdown(&rows, &[def], &columns),
+            "| Title | a\\|b |\n| --- | --- |\n| A | x y z |"
         );
     }
 

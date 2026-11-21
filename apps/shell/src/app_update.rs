@@ -281,28 +281,66 @@ pub async fn check(app: &AppHandle) -> AppUpdateStatus {
     }
 }
 
+/// What [`claim_install`] decided.
+enum Claim<T> {
+    /// No install may start now; the status as it is.
+    Refused(AppUpdateStatus),
+    /// Nothing is offered (after a failure): check first.
+    CheckFirst,
+    /// The offered release, the status before, and the `Downloading` status now stored.
+    Start {
+        update: T,
+        before: AppUpdateStatus,
+        downloading: AppUpdateStatus,
+    },
+}
+
+/// Checks the phase, takes the offered release and marks the status `Downloading` under
+/// one hold of the status lock, so two clicks cannot both start an install.
+fn claim_install<T>(
+    status: &Mutex<AppUpdateStatus>,
+    pending: &Mutex<Option<T>>,
+    version: impl Fn(&T) -> String,
+) -> Claim<T> {
+    let mut current = guard(status);
+    if !can_install(current.phase) {
+        return Claim::Refused(current.clone());
+    }
+    let Some(update) = guard(pending).take() else {
+        return Claim::CheckFirst;
+    };
+    let before = current.clone();
+    let downloading = AppUpdateStatus {
+        phase: Phase::Downloading,
+        version: Some(version(&update)),
+        percent: Some(0),
+        error: None,
+        ..before.clone()
+    };
+    *current = downloading.clone();
+    Claim::Start {
+        update,
+        before,
+        downloading,
+    }
+}
+
 /// Downloads the offered release and runs its installer. With nothing offered (after a
 /// failure), it checks first. On Windows the installer closes the app and relaunches it.
 pub async fn install(app: &AppHandle) -> AppUpdateStatus {
     let state = app.state::<AppUpdateState>();
-    let before = state.snapshot();
-    if !can_install(before.phase) {
-        return before;
-    }
-    let Some(update) = guard(&state.pending).take() else {
-        return check(app).await;
-    };
-    let version = platform::version(&update);
-    let _ = state.set(
-        app,
-        AppUpdateStatus {
-            phase: Phase::Downloading,
-            version: Some(version.clone()),
-            percent: Some(0),
-            error: None,
-            ..before.clone()
-        },
-    );
+    let (update, before, downloading) =
+        match claim_install(&state.status, &state.pending, platform::version) {
+            Claim::Refused(status) => return status,
+            Claim::CheckFirst => return check(app).await,
+            Claim::Start {
+                update,
+                before,
+                downloading,
+            } => (update, before, downloading),
+        };
+    let version = downloading.version.clone().unwrap_or_default();
+    let _ = state.set(app, downloading);
     let mut last = Some(0_u8);
     let progress_app = app.clone();
     let on_chunk = move |downloaded: usize, total: Option<u64>| {
@@ -380,4 +418,45 @@ pub async fn app_update_check(app: AppHandle) -> AppUpdateStatus {
 #[specta::specta]
 pub async fn app_update_install(app: AppHandle) -> AppUpdateStatus {
     install(&app).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn status(phase: Phase) -> Mutex<AppUpdateStatus> {
+        Mutex::new(AppUpdateStatus {
+            phase,
+            current: "0.9.6".to_owned(),
+            version: None,
+            percent: None,
+            error: None,
+        })
+    }
+
+    #[test]
+    fn two_installs_at_once_start_one_download() {
+        let status = status(Phase::Available);
+        let pending = Mutex::new(Some("0.9.7".to_owned()));
+        let (first, second) = std::thread::scope(|s| {
+            let a = s.spawn(|| claim_install(&status, &pending, String::clone));
+            let b = s.spawn(|| claim_install(&status, &pending, String::clone));
+            (a.join().unwrap(), b.join().unwrap())
+        });
+        let started = [&first, &second]
+            .iter()
+            .filter(|c| matches!(c, Claim::Start { .. }))
+            .count();
+        assert_eq!(started, 1);
+        for claim in [&first, &second] {
+            match claim {
+                Claim::Start { downloading, .. } => {
+                    assert_eq!(downloading.version.as_deref(), Some("0.9.7"));
+                }
+                Claim::Refused(seen) => assert_eq!(seen.phase, Phase::Downloading),
+                Claim::CheckFirst => panic!("the second click must not re-check"),
+            }
+        }
+        assert_eq!(guard(&status).phase, Phase::Downloading);
+    }
 }

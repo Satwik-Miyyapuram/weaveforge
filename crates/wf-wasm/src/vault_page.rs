@@ -256,8 +256,8 @@ pub fn plan_asset_copies_js(
     to_js(&asset_copy::plan_asset_copies(&copies))
 }
 
-/// [`copy_extension`](asset_copy::copy_extension): the text after the last `.` in `oldPath`
-/// (TS `oldPath.split(".").pop()`).
+/// [`copy_extension`](asset_copy::copy_extension): the extension of the file name in
+/// `oldPath`, or `bin` when it has none.
 #[wasm_bindgen(js_name = copyExtension)]
 #[must_use]
 pub fn copy_extension_js(old_path: &str) -> String {

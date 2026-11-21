@@ -172,9 +172,9 @@ fn walk_cap() {
     let root = TempDir::new();
     // Adopt the empty folder first: adopt refuses one that already has files.
     let session = session_at(root.path());
-    put(&root.path().join("d/a"), b"1");
-    put(&root.path().join("d/b"), b"2");
-    put(&root.path().join("d/c"), b"3");
+    put(&root.path().join("d/a.md"), b"1");
+    put(&root.path().join("d/b.md"), b"2");
+    put(&root.path().join("d/c.md"), b"3");
 
     let mut full = vec![String::from("x"); SEARCH_LIMIT];
     walk_vault(&session, "d", &mut full);
@@ -183,6 +183,22 @@ fn walk_cap() {
     let mut almost = vec![String::from("x"); SEARCH_LIMIT - 1];
     walk_vault(&session, "d", &mut almost);
     assert_eq!(almost.len(), SEARCH_LIMIT);
+}
+
+#[test]
+fn other_files_do_not_spend_the_cap() {
+    let root = TempDir::new();
+    // Adopt the empty folder first: adopt refuses one that already has files.
+    let session = session_at(root.path());
+    for i in 0..=SEARCH_LIMIT {
+        put(&root.path().join(format!("p/a/{i:05}.pdf")), b"%PDF");
+    }
+    put(&root.path().join("p/z.md"), b"the needle");
+
+    let hits = search_vault(&session, "needle", "p");
+
+    let names: Vec<&str> = hits.iter().map(|h| h.filename.as_str()).collect();
+    assert_eq!(names, vec!["p/z.md"]);
 }
 
 #[test]

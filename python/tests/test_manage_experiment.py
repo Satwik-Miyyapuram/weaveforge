@@ -1,5 +1,7 @@
 """Use-case unit tests — port of ``manage-experiment.usecase.test.ts``."""
 
+from dataclasses import replace
+
 import pytest
 
 from weaveforge import NewExperimentInput, short_sha
@@ -116,3 +118,28 @@ def test_upsert_creates_then_restarts_in_place():
     assert again.metrics == {} and again.artifacts == []
     assert metrics.history("key-id") == []
     assert len(repo.list()) == 1
+
+
+def test_set_status_with_stale_copy_keeps_other_writers_fields():
+    repo, _metrics, uc = make_uc()
+    exp = uc.add(NewExperimentInput(name="run"))
+    stale = repo.get_by_id(exp.id)
+    fresh = repo.get_by_id(exp.id)
+    repo.save(replace(fresh, result_note="mine"))  # another writer
+    uc.set_status(exp.id, "running", existing=stale)
+    got = repo.get_by_id(exp.id)
+    assert got.status == "running"
+    assert got.result_note == "mine"
+
+
+def test_add_artifacts_with_stale_copy_writes_only_the_artifacts():
+    # change() appends to the list in place, so the diff must compare against
+    # a snapshot taken before it runs.
+    repo, _metrics, uc = make_uc()
+    exp = uc.add(NewExperimentInput(name="run"))
+    stale = repo.get_by_id(exp.id)
+    repo.save(replace(repo.get_by_id(exp.id), result_note="mine"))
+    uc.add_artifacts(exp.id, ["https://x/ckpt"], existing=stale)
+    got = repo.get_by_id(exp.id)
+    assert got.artifacts == ["https://x/ckpt"]
+    assert got.result_note == "mine"

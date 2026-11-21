@@ -9,7 +9,8 @@ use std::sync::{Arc, LazyLock};
 use common::{TempDir, put};
 use keyring_core::CredentialStore;
 use weaveforge_shell_lib::overleaf_read::{
-    TOKEN_REFUSED, collect_text_files, overleaf_read_with, read_project, safe_error,
+    CLONE_LIMIT, TOKEN_REFUSED, collect_text_files, overleaf_read_with, read_project,
+    read_project_within, safe_error,
 };
 use weaveforge_shell_lib::secrets::Secrets;
 
@@ -431,6 +432,60 @@ async fn overleaf_style_refusal_without_auth_header_is_one_sentence() {
         Err(error) => assert_eq!(error, TOKEN_REFUSED),
         Ok(_) => panic!("a 401 must not read"),
     }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_stalled_remote_gives_up_at_the_deadline() {
+    use std::time::{Duration, Instant};
+    use tokio::io::{AsyncBufReadExt, BufReader};
+
+    let _guard = CLONES.lock().await;
+    let before = checkouts_left();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    let port = listener.local_addr().expect("addr").port();
+    let (release, released) = tokio::sync::oneshot::channel::<()>();
+    // Reads the request, then answers nothing until the test lets the socket go.
+    let server = tokio::spawn(async move {
+        let Ok((stream, _)) = listener.accept().await else {
+            return;
+        };
+        let mut lines = BufReader::new(stream).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            if line.is_empty() {
+                break;
+            }
+        }
+        let _ = released.await;
+    });
+    let url = format!("http://127.0.0.1:{port}/abc123");
+    let started = Instant::now();
+    let result = read_project_within(
+        &url,
+        "abc123",
+        "main.tex",
+        "tok",
+        Duration::from_millis(500),
+    )
+    .await;
+    assert!(
+        started.elapsed() < Duration::from_secs(5),
+        "{:?}",
+        started.elapsed()
+    );
+    match result {
+        Err(error) => assert_eq!(error, CLONE_LIMIT),
+        Ok(_) => panic!("a stalled remote must not read"),
+    }
+    // Closing the socket ends the clone thread, which removes its checkout.
+    let _ = release.send(());
+    let _ = server.await;
+    let waited = Instant::now();
+    while checkouts_left() != before && waited.elapsed() < Duration::from_secs(15) {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert_eq!(checkouts_left(), before);
 }
 
 // ---- overleaf_read_with and safe_error (overleaf-error.test.ts) ----

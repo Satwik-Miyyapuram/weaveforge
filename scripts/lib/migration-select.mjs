@@ -12,3 +12,16 @@ export function matchesOnly(fileName, only) {
   }
   return fileName === only || fileName === `${only}.sql`;
 }
+
+/**
+ * The files `--only` names, given each migration directory's file names.
+ *
+ * Both directories number from 0000, so a number can name one file in each.
+ * Applying both is never what was meant, so that case is `ambiguous`.
+ */
+export function selectOnly(directories, only) {
+  const hits = directories
+    .map((names) => names.filter((name) => matchesOnly(name, only)))
+    .filter((names) => names.length > 0);
+  return { names: hits.flat(), ambiguous: hits.length > 1 };
+}

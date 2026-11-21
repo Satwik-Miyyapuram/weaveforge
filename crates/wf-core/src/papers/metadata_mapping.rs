@@ -418,17 +418,18 @@ pub fn openalex_to_metadata(work: &OpenAlexWork) -> ZoteroPaperInput {
     }
 }
 
-/// Decodes the five XML entities the arXiv feed uses, in the TS order. Empty is absent.
+/// Decodes the five XML entities the arXiv feed uses. Empty is absent.
+/// `&amp;` goes last, so an escaped `&amp;lt;` stays the text `&lt;`.
 fn decode(s: &str) -> Option<String> {
     if s.is_empty() {
         return None;
     }
     Some(
-        s.replace("&amp;", "&")
-            .replace("&lt;", "<")
+        s.replace("&lt;", "<")
             .replace("&gt;", ">")
             .replace("&quot;", "\"")
-            .replace("&#39;", "'"),
+            .replace("&#39;", "'")
+            .replace("&amp;", "&"),
     )
 }
 
@@ -526,6 +527,12 @@ mod tests {
 
     fn crossref(value: Value) -> CrossrefMessage {
         serde_json::from_value(value).expect("crossref message")
+    }
+
+    #[test]
+    fn an_escaped_entity_decodes_once() {
+        assert_eq!(decode("&amp;lt;").as_deref(), Some("&lt;"));
+        assert_eq!(decode("a &amp; b &lt;c&gt;").as_deref(), Some("a & b <c>"));
     }
 
     #[test]

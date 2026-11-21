@@ -286,6 +286,24 @@ fn pretty_with_newline<T: Serialize + ?Sized>(value: &T) -> serde_json::Result<S
 
 /// Writes the token file with mode 0600 from the start on unix; `mode` only applies on create.
 fn write_private_file(path: &Path, text: &str) -> io::Result<()> {
+    // Write a sibling temp file and rename it over the target, so a crash mid-write never
+    // leaves a truncated file behind.
+    let name = path.file_name().map_or_else(
+        || std::ffi::OsString::from("file"),
+        std::ffi::OsStr::to_os_string,
+    );
+    let mut temp_name = std::ffi::OsString::from(".");
+    temp_name.push(&name);
+    temp_name.push(".tmp");
+    let temp = path.with_file_name(temp_name);
+    let written = write_new_private_file(&temp, text).and_then(|()| fs::rename(&temp, path));
+    if written.is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+    written
+}
+
+fn write_new_private_file(path: &Path, text: &str) -> io::Result<()> {
     let mut options = fs::OpenOptions::new();
     let _ = options.write(true).create(true).truncate(true);
     #[cfg(unix)]
@@ -299,7 +317,8 @@ fn write_private_file(path: &Path, text: &str) -> io::Result<()> {
         use std::os::unix::fs::PermissionsExt;
         file.set_permissions(fs::Permissions::from_mode(0o600))?;
     }
-    file.write_all(text.as_bytes())
+    file.write_all(text.as_bytes())?;
+    file.sync_all()
 }
 
 /// Percent-encodes every byte outside the JavaScript `encodeURIComponent` unreserved set.
@@ -429,6 +448,20 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn private_file_is_replaced_whole_and_leaves_no_temp_file() {
+        let scratch = Scratch::new("private-file");
+        let path = scratch.0.join("mcp.json");
+        fs::write(&path, "a much longer old text than the new one").expect("seed");
+        write_private_file(&path, "new").expect("write");
+        assert_eq!(fs::read_to_string(&path).expect("read"), "new");
+        let names: Vec<_> = fs::read_dir(&scratch.0)
+            .expect("list")
+            .map(|entry| entry.expect("entry").file_name())
+            .collect();
+        assert_eq!(names, vec![std::ffi::OsString::from("mcp.json")]);
     }
 
     fn sample_connection() -> McpConnection {

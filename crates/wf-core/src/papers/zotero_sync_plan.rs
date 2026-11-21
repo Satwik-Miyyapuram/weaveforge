@@ -38,9 +38,15 @@ pub struct ZoteroSyncPlan {
 }
 
 /// Plan one sync. `remote` is the list after the top-level and titled filters, so its indices are
-/// the ones the caller pulls by.
+/// the ones the caller pulls by. `present_keys`, when given, is every item key still in the
+/// library: a paper whose key is in it is filtered out of `remote`, not gone, so it is never
+/// deleted (P1-13).
 #[must_use]
-pub fn sync_plan(remote: &[ZoteroItem], local: &[ZoteroSyncLocal]) -> ZoteroSyncPlan {
+pub fn sync_plan(
+    remote: &[ZoteroItem],
+    local: &[ZoteroSyncLocal],
+    present_keys: Option<&[String]>,
+) -> ZoteroSyncPlan {
     let remote_keys: Vec<Vec<String>> = remote.iter().map(remote_content_keys).collect();
     let local_keys: Vec<Vec<String>> = local.iter().map(local_content_keys).collect();
     let remote_match: HashSet<&str> = remote_keys.iter().flatten().map(String::as_str).collect();
@@ -63,6 +69,7 @@ pub fn sync_plan(remote: &[ZoteroItem], local: &[ZoteroSyncLocal]) -> ZoteroSync
     let remote_item_keys: HashSet<&str> = remote
         .iter()
         .filter_map(|item| item.key.as_deref())
+        .chain(present_keys.unwrap_or_default().iter().map(String::as_str))
         .filter(|key| !key.is_empty())
         .collect();
     for (index, (paper, keys)) in local.iter().zip(&local_keys).enumerate() {
@@ -147,7 +154,7 @@ mod tests {
             remote(json!({ "key": "K2", "title": "B", "DOI": "10.1/b" })),
         ];
         let local_papers = [local(Some("10.1/a"), Some("A"), None)];
-        let plan = sync_plan(&remote_items, &local_papers);
+        let plan = sync_plan(&remote_items, &local_papers, None);
         assert_eq!(plan.pull, vec![1]);
     }
 
@@ -157,7 +164,7 @@ mod tests {
             remote(json!({ "key": "K1", "title": "A", "DOI": "10.1/a" })),
             remote(json!({ "key": "K2", "title": "A again", "DOI": "10.1/a" })),
         ];
-        let plan = sync_plan(&remote_items, &[]);
+        let plan = sync_plan(&remote_items, &[], None);
         assert_eq!(plan.pull, vec![0]);
     }
 
@@ -172,7 +179,7 @@ mod tests {
             local(Some("10.1/d"), Some("D"), Some("K9")),
             local(None, None, None),
         ];
-        let plan = sync_plan(&remote_items, &local_papers);
+        let plan = sync_plan(&remote_items, &local_papers, None);
         assert_eq!(plan.push, vec![0]);
     }
 
@@ -185,15 +192,29 @@ mod tests {
             local(Some("10.1/a"), Some("A"), Some("K1")),
             local(Some("10.1/z"), Some("Z"), Some("K7")),
         ];
-        let plan = sync_plan(&remote_items, &local_papers);
+        let plan = sync_plan(&remote_items, &local_papers, None);
         assert_eq!(plan.delete, vec![1]);
         assert!(plan.push.is_empty());
     }
 
     #[test]
+    fn item_present_in_zotero_but_filtered_out_is_not_deleted() {
+        // K7 is still in the library, just untitled now or in another collection (P1-13).
+        let remote_items = [remote(json!({ "key": "K1", "title": "Kept" }))];
+        let local_papers = [
+            local(None, Some("Kept"), Some("K1")),
+            local(None, Some("Was titled"), Some("K7")),
+            local(None, Some("Gone"), Some("K8")),
+        ];
+        let present = ["K1".to_owned(), "K7".to_owned()];
+        let plan = sync_plan(&remote_items, &local_papers, Some(&present));
+        assert_eq!(plan.delete, vec![2]);
+    }
+
+    #[test]
     fn delete_is_skipped_when_the_remote_read_is_empty() {
         let local_papers = [local(Some("10.1/z"), Some("Z"), Some("K7"))];
-        let plan = sync_plan(&[], &local_papers);
+        let plan = sync_plan(&[], &local_papers, None);
         assert!(plan.delete.is_empty());
         assert!(plan.push.is_empty());
         assert!(plan.pull.is_empty());

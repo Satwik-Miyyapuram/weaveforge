@@ -89,8 +89,14 @@ pub fn is_app_owned_path(path: &str) -> bool {
     if MACHINERY_FILES.contains(&name) {
         return true;
     }
-    // Downloaded paper PDFs and HTML snapshots are caches the app fills itself.
-    let cache_at = parts.iter().rposition(|p| *p == "papers");
+    // Downloaded paper PDFs and HTML snapshots are caches the app fills itself. They sit
+    // at the workspace or a project root (`slug--id`, see `project_dir`); a user's own
+    // `papers/pdf/` anywhere else is data.
+    let cache_at = match parts.as_slice() {
+        ["papers", ..] => Some(0),
+        [project, "papers", ..] if project.contains("--") => Some(1),
+        _ => None,
+    };
     if cache_at.is_some_and(|c| CACHE_DIRS.contains(&at(c + 1))) {
         return true;
     }

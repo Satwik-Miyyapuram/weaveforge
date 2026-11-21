@@ -112,10 +112,15 @@ pub fn check_link_folder(raw: &str) -> Result<String, String> {
         return Err(BAD_FOLDER.to_owned());
     }
     let parts: Vec<&str> = folder.split('/').collect();
+    // Case-blind, as the Windows and macOS file systems are.
     let bad_step = parts
         .iter()
-        .any(|part| matches!(*part, "" | "." | ".." | ".git"));
-    if bad_step || parts.first() == Some(&".weaveforge") {
+        .any(|part| matches!(*part, "" | "." | "..") || part.eq_ignore_ascii_case(".git"));
+    if bad_step
+        || parts
+            .first()
+            .is_some_and(|first| first.eq_ignore_ascii_case(".weaveforge"))
+    {
         return Err(BAD_FOLDER.to_owned());
     }
     Ok(folder.to_owned())

@@ -1032,7 +1032,7 @@ mod tests {
                 "add",
                 &call(
                     args,
-                    vec![Value::Null, json!([]), Value::Null],
+                    vec![Value::Null, Value::Null, json!([])],
                     Some("proj"),
                 ),
             )
@@ -1050,6 +1050,7 @@ mod tests {
         let args = vec![json!({"title": "Ink", "id": FILE_ID})];
         let replies = vec![
             Value::Null,
+            Value::Null,
             json!([]),
             json!({"error": {"code": "23505", "message": "duplicate key"}}),
         ];
@@ -1062,6 +1063,7 @@ mod tests {
     fn add_fails_with_the_message_of_any_other_insert_error() {
         let args = vec![json!({"title": "Ink", "id": FILE_ID})];
         let replies = vec![
+            Value::Null,
             Value::Null,
             json!([]),
             json!({"error": {"code": "42501", "message": "row-level security"}}),
@@ -1085,7 +1087,11 @@ mod tests {
         let value = done(
             step(
                 "add",
-                &call(args, vec![Value::Null, json!([]), Value::Null], None),
+                &call(
+                    args,
+                    vec![Value::Null, Value::Null, json!([]), Value::Null],
+                    None,
+                ),
             )
             .unwrap(),
         );
