@@ -212,6 +212,7 @@ export function InkHost({
     onAddPage,
     goToPage,
     loadError,
+    canInk,
   } = useInkNoteStore({
       noteId,
       onSave,
@@ -454,7 +455,7 @@ export function InkHost({
     penOnly: pen.penOnly,
     handedness: hand,
     pageIndex,
-    cursorMode,
+    cursorMode: cursorMode || !canInk,
   });
 
   /** A recognised page becomes the worker's page, the column's lines and the body's text. */
@@ -675,7 +676,7 @@ export function InkHost({
           scale={scale}
           paper={page.paper}
           tool={tool}
-          cursorMode={cursorMode}
+          cursorMode={cursorMode || !canInk}
           ink={{ hex: readyCore().paletteHex(palette, colour), diameterPx: nib * scale }}
           project={project}
           penHandlers={penHandlers}

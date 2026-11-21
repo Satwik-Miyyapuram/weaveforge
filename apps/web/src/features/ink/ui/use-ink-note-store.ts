@@ -110,6 +110,12 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
 
   /** Why the note's ink is not all there, or not all saved, when it is not. */
   const [loadError, setLoadError] = useState<string | null>(null);
+  /**
+   * Whether a stroke drawn now can be saved: only once the pages are known.
+   * Until then (no folder, a failed load) the host takes no strokes, since
+   * any it took would show as drawn and then be lost on reopen.
+   */
+  const [canInk, setCanInk] = useState(false);
   /** A save that failed: logged and shown, never dropped (21-18, 21-24). */
   const reportSaveFailure = useCallback(
     (err: unknown) => {
@@ -232,6 +238,7 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
   useEffect(() => {
     let live = true;
     setLoadError(null);
+    setCanInk(false);
     void awaitInkWrites(noteId)
       .then(() => loadInkPages(chunks, noteId, metaRef.current))
       .then((pages) => {
@@ -239,6 +246,7 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
         pagesRef.current = pages;
         setPageCount(pages.length);
         setPageIndex((index) => Math.min(index, pages.length - 1));
+        setCanInk(true);
         if (pages.some((page) => page.unreadable)) setLoadError(INK_PAGES_UNREADABLE);
       })
       .catch((err: unknown) => {
@@ -321,5 +329,6 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     onAddPage,
     goToPage,
     loadError,
+    canInk,
   };
 }

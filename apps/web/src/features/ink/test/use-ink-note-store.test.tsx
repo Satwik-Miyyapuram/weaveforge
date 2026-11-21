@@ -13,9 +13,9 @@ import { act, create } from "react-test-renderer";
 
 
 
-import { MemoryInkChunkStore, type InkStoredPage } from "../application/parts-1";
+import { InkNoFolderError, MemoryInkChunkStore, type InkStoredPage } from "../application/parts-1";
 import { awaitInkWrites } from "../application/parts";
-import { INK_SAVE_DELAY_MS, INK_SAVE_FAILED, useInkNoteStore } from "../ui/use-ink-note-store";
+import { INK_NEEDS_FOLDER, INK_SAVE_DELAY_MS, INK_SAVE_FAILED, useInkNoteStore } from "../ui/use-ink-note-store";
 import { useInkWorkerRpc, type InkSave } from "../ui/use-ink-worker-rpc";
 import { typedCore } from "@/lib/rust-core";
 
@@ -110,6 +110,26 @@ test("a sidecar load that fails says so and saves nothing (21-17)", async () => 
   await settle();
   assert.deepEqual(chunks.writes, []);
   assert.deepEqual(saved, []);
+});
+
+test("a note with no workspace folder takes no ink (F97 no-folder loss)", async () => {
+  class NoFolderStore extends RecordingStore {
+    override async list(): Promise<string[]> {
+      throw new InkNoFolderError();
+    }
+  }
+  const { handle } = mount(new NoFolderStore(), [typedCore().newInkChunkId()]);
+  // Before the load answers, nothing is known to be saveable either.
+  assert.equal(handle().canInk, false);
+  await settle();
+  assert.equal(handle().loadError, INK_NEEDS_FOLDER);
+  assert.equal(handle().canInk, false);
+});
+
+test("a note whose pages loaded takes ink", async () => {
+  const { handle } = mount(new RecordingStore(), [typedCore().newInkChunkId()]);
+  await settle();
+  assert.equal(handle().canInk, true);
 });
 
 test("a page that could not be read is never written over (18-01)", async () => {
