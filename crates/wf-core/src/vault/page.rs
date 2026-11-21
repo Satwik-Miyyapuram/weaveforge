@@ -21,9 +21,11 @@ use crate::sync::markdown_image::{
 };
 
 /// Fenced code blocks, lazily to the next fence or, when unclosed, to the end of the note.
-/// A `~~~` fence counts only at the start of a line, so `~~~` in prose is not code.
-pub(crate) static FENCE_RE: LazyLock<Option<Regex>> =
-    LazyLock::new(|| compile(r"(?m)```[\s\S]*?(?:```|\z)|^~~~[\s\S]*?(?:^~~~|\z)").ok());
+/// A fence counts only at the start of a line (up to three spaces in, as in list items), so
+/// a stray ```` ``` ```` or `~~~` in prose is not code; same-line spans go to `INLINE_CODE_RE`.
+pub(crate) static FENCE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
+    compile(r"(?m)^ {0,3}```[\s\S]*?(?:^ {0,3}```|\z)|^ {0,3}~~~[\s\S]*?(?:^ {0,3}~~~|\z)").ok()
+});
 /// Inline code on one line: a ``double-backtick`` span (which may hold a single backtick)
 /// or a `single-backtick` one.
 pub(crate) static INLINE_CODE_RE: LazyLock<Option<Regex>> =
@@ -923,6 +925,21 @@ mod tests {
         let refs = extract_wikilinks("[[A]]\n~~~\n[[X]]\n~~~\n[[B]] mid ~~~ [[C]]\n```\n[[Y]]");
         let targets: Vec<&str> = refs.iter().map(|r| r.target.as_str()).collect();
         assert_eq!(targets, ["A", "B", "C"]);
+    }
+
+    #[test]
+    fn stray_backtick_fence_in_prose_hides_no_later_link() {
+        let refs = extract_wikilinks("type ``` then Enter [[A]]\n[[B]]\n```\n[[X]]\n```\n[[C]]");
+        let targets: Vec<&str> = refs.iter().map(|r| r.target.as_str()).collect();
+        assert_eq!(targets, ["A", "B", "C"]);
+    }
+
+    #[test]
+    fn fences_indented_up_to_three_spaces_are_code() {
+        let refs =
+            extract_wikilinks("- item\n   ```\n   [[X]]\n   ```\n  ~~~\n  [[Y]]\n  ~~~\n[[B]]");
+        let targets: Vec<&str> = refs.iter().map(|r| r.target.as_str()).collect();
+        assert_eq!(targets, ["B"]);
     }
 
     #[test]

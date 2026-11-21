@@ -232,6 +232,15 @@ mod tests {
     }
 
     #[test]
+    fn outside_code_stray_backticks_in_prose_and_indented_fences() {
+        let body = "type ``` then [[Old]]\n[[Old]]\n  ```\n  [[Old]]\n  ```\n[[Old]]";
+        assert_eq!(
+            rewrite_wikilinks_outside_code(body, &renames()),
+            "type ``` then [[Old 2]]\n[[Old 2]]\n  ```\n  [[Old]]\n  ```\n[[Old 2]]"
+        );
+    }
+
+    #[test]
     fn outside_code_skips_double_backtick_code() {
         let body = "``[[Old]]`` and `` a ` [[Old]] `` and [[Old]]";
         assert_eq!(
