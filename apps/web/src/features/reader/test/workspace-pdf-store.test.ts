@@ -89,3 +89,20 @@ test("the routed store's has asks the store it routes to", async () => {
   await browser.set("p1", bytes(2));
   assert.equal(await routed.has("p1"), true);
 });
+
+// P1-11: a PDF that fails to render must not delete the user's file in the folder.
+test("evict never deletes the PDF in the workspace folder", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const cache = new RoutedPdfByteCache(() => new WorkspacePdfStore(() => fs, root));
+  await cache.set("p1", bytes(3));
+  await cache.evict("p1");
+  assert.ok(await fs.stat(typedCore().paperPdfPath("p1", ROOT)), "workspace PDF was deleted");
+});
+
+test("evict drops the entry from a browser-side cache", async () => {
+  const mem = new InMemoryPdfByteCache(4);
+  const cache = new RoutedPdfByteCache(() => mem);
+  await cache.set("p1", bytes(3));
+  await cache.evict("p1");
+  assert.equal(await cache.get("p1"), null);
+});

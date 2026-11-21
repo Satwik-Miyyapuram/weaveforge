@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Loads once per `key`, then again every `pollMs` (none when null).
+ * Loads once per `key`, then again `pollMs` after each load settles (none when
+ * null).
  *
  * The loader is read through a ref, so a caller passing a fresh closure each
  * render does not refetch; only a new key or interval does. An answer for an
@@ -30,26 +31,33 @@ export function usePolledLoad<T>(
     let alive = true;
     let sent = 0;
     let shown = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    // The next poll is scheduled once this load settles, so a slow load never
+    // has a second one sent over it (P2-152).
     const run = () => {
+      timer = null;
       const mine = ++sent;
-      loadRef.current().then(
-        (data) => {
-          if (!alive || mine < shown) return;
-          shown = mine;
-          setState({ key, data, error: null });
-        },
-        (error: unknown) => {
-          if (!alive || mine < shown) return;
-          shown = mine;
-          setState((s) => ({ key, data: s.key === key ? s.data : null, error }));
-        },
-      );
+      loadRef.current()
+        .then(
+          (data) => {
+            if (!alive || mine < shown) return;
+            shown = mine;
+            setState({ key, data, error: null });
+          },
+          (error: unknown) => {
+            if (!alive || mine < shown) return;
+            shown = mine;
+            setState((s) => ({ key, data: s.key === key ? s.data : null, error }));
+          },
+        )
+        .finally(() => {
+          if (alive && pollMs != null) timer = setTimeout(run, pollMs);
+        });
     };
     run();
-    const timer = pollMs == null ? null : setInterval(run, pollMs);
     return () => {
       alive = false;
-      if (timer) clearInterval(timer);
+      if (timer) clearTimeout(timer);
     };
   }, [key, pollMs]);
 

@@ -1,13 +1,15 @@
 //! Keeps secrets out of workspace config files (files-first, L7).
 //!
 //! Secrets (API keys, git and Overleaf tokens, passwords) live in the OS keychain.
-//! Config files (`.weaveforge/**/*.json`, `.weaveforge/**/*.jsonl`, `.overleaf.json`)
+//! Config files (`**/.weaveforge/**/*.json`, `**/.weaveforge/**/*.jsonl`, `.overleaf.json`)
 //! sync through git, so a write that would put a secret in one is refused. A value
 //! counts as a secret when its key names one (`apiKey`, `token`, `password`, ...) or
 //! when it has the shape of a known token (`sk-...`, `ghp_...`, a private key, ...).
 //! The refusal names where the secret sits, never its value. Pure: no I/O.
 
 use serde_json::Value;
+
+use crate::sync::folder_layout::WORKSPACE_META_DIR;
 
 /// Key endings that name a secret, compared lowercase with `-` and `_` removed.
 /// Endings, not substrings, so `tokenizer` and `keyboard` stay fine.
@@ -23,6 +25,8 @@ const SECRET_KEY_ENDINGS: &[&str] = &[
     "credential",
     "credentials",
     "bearer",
+    // The legacy `semanticScholarKey` settings column; a bare `key` ending would catch `sortKey`.
+    "scholarkey",
     "secretkey",
     "signingkey",
     "authkey",
@@ -165,17 +169,43 @@ pub fn check_value(value: &Value) -> Result<(), SecretRefused> {
     }
 }
 
-/// Whether `path` (workspace-relative) is a config file guarded by [`check_config_write`].
+/// Workspace folders under `.weaveforge/` that hold copies of document text, not
+/// config, so [`is_config_path`] never matches below them. The PDF text cache
+/// (`apps/web/src/features/search/application/parts-1.ts`) stores a paper's own
+/// words, and a paper that prints a token-shaped string must still be cached.
+/// Each entry is a root-relative folder; add one only for such copied content.
+pub const NOT_CONFIG_DIRS: &[&str] = &[".weaveforge/cache/pdf-text"];
+
+/// Whether `path` (workspace-relative) is a config file guarded by [`check_config_write`]:
+/// any `.overleaf.json`, and any `.json` or `.jsonl` file below a `.weaveforge` folder at
+/// any depth. Case is ignored and trailing dots and spaces are dropped from each part,
+/// because Windows and macOS open the same file under those spellings.
 #[must_use]
 pub fn is_config_path(path: &str) -> bool {
-    let path = path.replace('\\', "/");
-    let path = path.trim_start_matches("./");
-    let name = path.rsplit('/').next().unwrap_or(path);
+    let parts = path_parts(path);
+    if NOT_CONFIG_DIRS
+        .iter()
+        .any(|dir| parts.starts_with(&path_parts(dir)))
+    {
+        return false;
+    }
+    let Some((name, dirs)) = parts.split_last() else {
+        return false;
+    };
     if name == ".overleaf.json" {
         return true;
     }
-    let name = name.to_lowercase();
-    path.starts_with(".weaveforge/") && (name.ends_with(".json") || name.ends_with(".jsonl"))
+    dirs.iter().any(|dir| dir == WORKSPACE_META_DIR)
+        && (name.ends_with(".json") || name.ends_with(".jsonl"))
+}
+
+/// The parts of `path` as the file system compares them: lowercase, trailing dots and
+/// spaces dropped, empty and `.` parts skipped.
+fn path_parts(path: &str) -> Vec<String> {
+    path.split(['/', '\\'])
+        .map(|part| part.trim_end_matches(['.', ' ']).to_lowercase())
+        .filter(|part| !part.is_empty())
+        .collect()
 }
 
 /// Checks a write of `contents` to `path`. Paths that are not config files pass.
@@ -206,6 +236,22 @@ pub fn check_config_write(path: &str, contents: &str) -> Result<(), SecretRefuse
     Ok(())
 }
 
+/// [`check_config_write`] for raw bytes: a binary write or a rename that lands on
+/// `path`. A config file that is not UTF-8 cannot be checked, so it is refused.
+///
+/// # Errors
+///
+/// [`SecretRefused`] when a config file would hold a secret or is not UTF-8 text.
+pub fn check_config_bytes(path: &str, bytes: &[u8]) -> Result<(), SecretRefused> {
+    if !is_config_path(path) {
+        return Ok(());
+    }
+    let text = std::str::from_utf8(bytes).map_err(|_| SecretRefused {
+        location: "binary data that cannot be checked".to_owned(),
+    })?;
+    check_config_write(path, text)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,6 +265,8 @@ mod tests {
             "client-secret",
             "password",
             "cookie",
+            "zoteroApiKey",
+            "semanticScholarKey",
         ] {
             assert!(is_secret_key(k), "{k}");
         }

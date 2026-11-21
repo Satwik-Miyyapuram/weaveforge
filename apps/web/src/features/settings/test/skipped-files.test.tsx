@@ -7,7 +7,7 @@ import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
 import "@/lib/test/react-harness";
-import { SkippedFiles } from "../ui/skipped-files";
+import { notImportedNote, SkippedFiles } from "../ui/skipped-files";
 
 function text(skipped: { path: string; reason: string }[]): string {
   let r!: ReactTestRenderer;
@@ -35,6 +35,17 @@ test("one file reads singular", () => {
 
 test("nothing left out shows nothing", () => {
   assert.equal(text([]), "null");
+});
+
+test("files an import refused are named with the reason after it ran", () => {
+  assert.equal(notImportedNote([]), "");
+  assert.equal(
+    notImportedNote([
+      { path: "notes/copy.md", reason: "id already used by Losses" },
+      { path: "notes/bad.md", reason: "id not valid" },
+    ]),
+    " Not imported: notes/copy.md (id already used by Losses); notes/bad.md (id not valid).",
+  );
 });
 
 test("past ten files the rest are counted, not named", () => {

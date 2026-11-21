@@ -26,10 +26,12 @@ export function createMcpRelayManager(start: McpRelayStarter = startMcpBrowserRe
   return {
     ensureRelay(sessionId: string, secret: string, settings: AiAccessSettings): void {
       const existing = managedRelays.get(sessionId);
-      if (existing) {
+      if (existing && existing.secret === secret) {
         existing.settingsRef.current = settings;
         return;
       }
+      // A re-pair with a new secret needs a new relay: the old one decrypts with the old key.
+      existing?.stop();
       const settingsRef = { current: settings };
       const stop = start({
         sessionId,

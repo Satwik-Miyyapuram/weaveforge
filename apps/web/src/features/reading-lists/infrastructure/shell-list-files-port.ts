@@ -26,17 +26,51 @@ export class WorkspaceListFilesPort implements ListFilesPort {
     return files;
   }
 
-  /** The first list file with an entry for the item, whatever its state. */
-  async fileForItem(itemId: string): Promise<ListFile | null> {
+  async linkForItem(itemId: string): Promise<string | null> {
+    return (await this.paperNotes()).find((note) => note.id === itemId)?.link ?? null;
+  }
+
+  async itemForLink(link: string): Promise<string | null> {
+    const core = readyCore();
+    const key = core.listItemKey(link);
+    if (key === undefined) return null;
+    return (await this.paperNotes()).find((note) => core.listItemKey(note.link) === key)?.id ?? null;
+  }
+
+  /** The first list file with an entry for the paper `link` points at, whatever its state. */
+  async fileForLink(link: string): Promise<ListFile | null> {
     const core = readyCore();
     for (const file of await this.listFiles()) {
       try {
-        if (core.listFileHoldsItem(file.text, itemId)) return file;
+        if (core.listFileHoldsItem(file.text, link)) return file;
       } catch {
         continue;
       }
     }
     return null;
+  }
+
+  /**
+   * Each `.paper.md` under the project's papers folder as its id and `[[link]]`. A file
+   * without an id is the paper at its path, as in the paper repository; an unreadable one is skipped.
+   */
+  private async paperNotes(): Promise<{ id: string; link: string }[]> {
+    const core = readyCore();
+    const dir = core.entityDir("paper", this.projectRoot);
+    const notes: { id: string; link: string }[] = [];
+    if (!(await this.fs.stat(dir))) return notes;
+    for await (const entry of this.fs.walk(dir)) {
+      if (!entry.path.endsWith(".paper.md")) continue;
+      let id: unknown;
+      try {
+        id = core.paperRowFromFile(await this.fs.readText(entry.path)).id;
+      } catch {
+        continue;
+      }
+      const name = entry.path.slice(entry.path.lastIndexOf("/") + 1, -".md".length);
+      notes.push({ id: typeof id === "string" && id ? id : entry.path, link: `[[${name}]]` });
+    }
+    return notes;
   }
 
   /**

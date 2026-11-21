@@ -303,6 +303,9 @@ export interface ReferenceLookupCache {
  * rather than the paper id, so two copies of one paper — or a re-upload —
  * share one set of lookups.
  */
+/** How long a reference that found nothing is left alone before a retry. */
+const UNRESOLVED_RETRY_MS = 5 * 60_000;
+
 export class ReferenceLookupService {
   private readonly memory = new Map<string, { at: number; value: ResolvedReference }>();
   private library?: { at: number; list: ReturnType<IPaperRepository["listSummaries"]> };
@@ -319,9 +322,14 @@ export class ReferenceLookupService {
     const core = readyCore();
     const key = core.referenceCacheKey(documentKey, ref.index);
     const hit = this.memory.get(key);
-    if (hit && core.isReferenceCacheEntryFresh(hit.at, this.now())) return Promise.resolve(hit.value);
+    // A miss is often a dropped connection, so it is asked again after a
+    // short while instead of standing for the whole session (P2-170).
+    const fresh = hit && (hit.value.status === "unresolved"
+      ? this.now() - hit.at < UNRESOLVED_RETRY_MS
+      : core.isReferenceCacheEntryFresh(hit.at, this.now()));
+    if (hit && fresh) return Promise.resolve(hit.value);
     return (async () => {
-      const cached = await this.cache?.get(key);
+      const cached = await this.readCache(key);
       if (cached) {
         // Whether the paper is in the library is a fact about this workspace,
         // not the reference, so it is re-read rather than trusted from disk.
@@ -335,9 +343,23 @@ export class ReferenceLookupService {
       this.memory.set(key, { at: this.now(), value });
       // Only a hit is kept across sessions: a miss may be a dropped
       // connection, or an entry a later parser reads better.
-      if (core.shouldStoreReferenceLookup(value.status)) void this.cache?.set(key, value);
+      if (core.shouldStoreReferenceLookup(value.status)) this.writeCache(key, value);
       return value;
     })();
+  }
+
+  /** The disk cache is an aid: a failed read is a miss (P2-169). */
+  private async readCache(key: string): Promise<ResolvedReference | undefined> {
+    try {
+      return await this.cache?.get(key);
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** And a failed write costs only the next session a lookup (P2-169). */
+  private writeCache(key: string, value: ResolvedReference): void {
+    void (async () => this.cache?.set(key, value))().catch(() => undefined);
   }
 
   private async lookup(ref: ParsedReference): Promise<ResolvedReference> {

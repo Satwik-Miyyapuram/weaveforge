@@ -68,6 +68,9 @@ export class WorkspacePdfStore implements IPdfByteCache {
     if (await fs.stat(path)) await fs.remove(path);
   }
 
+  /** The folder copy is the user's file, not a cache entry: a render failure keeps it. */
+  async evict(_key: string): Promise<void> {}
+
   async clear(): Promise<void> {
     const fs = this.fs();
     if (!fs) return;
@@ -103,6 +106,9 @@ export class RoutedPdfByteCache implements IPdfByteCache {
   }
   remove(key: string) {
     return this.pick().remove(key);
+  }
+  evict(key: string) {
+    return this.pick().evict(key);
   }
   clear() {
     return this.pick().clear();
@@ -202,8 +208,9 @@ export class ZoteroApiAnnotationWriteBack implements IZoteroAnnotationWriteBack 
         creates.push({ ann, payload });
       }
     }
-    if (creates.length > 0) {
-      results.push(...(await this.create(base, creds.apiKey, creates)));
+    // Zotero takes at most 50 objects per write; each chunk has its own write token (P2-175).
+    for (let i = 0; i < creates.length; i += ZOTERO_WRITE_CHUNK) {
+      results.push(...(await this.create(base, creds.apiKey, creates.slice(i, i + ZOTERO_WRITE_CHUNK))));
     }
 
     return { dryRun: false, payloads, results };
@@ -269,6 +276,9 @@ function versionHeader(res: Response): number | undefined {
     res.headers?.get?.("Last-Modified-Version") ?? undefined,
   );
 }
+
+/** Zotero's write API accepts at most this many objects per request. */
+const ZOTERO_WRITE_CHUNK = 50;
 
 function writeToken(): string {
   const uuid = globalThis.crypto?.randomUUID?.();

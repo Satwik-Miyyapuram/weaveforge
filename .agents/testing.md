@@ -19,8 +19,8 @@ failure from one tier in one batch before you move on.
 
 - The typecheck is tsgo (`@typescript/native-preview`): it is about 5× faster
   than tsc and reports the same errors. Do not add tsc back.
-- `run-tests.mjs` caps test files at 4 at once (`WF_TEST_CONCURRENCY`
-  overrides) so the full suite stays under ~3 GB. A directory argument runs
+- `run-tests.mjs` runs one test file at a time (`WF_TEST_CONCURRENCY`
+  overrides) to stay within the 1 GB RAM rule. A directory argument runs
   only the tests under it. Never leave a test run behind; kill it if you stop.
 - The pre-push hook still runs everything. Push only after tier 0 is green.
 

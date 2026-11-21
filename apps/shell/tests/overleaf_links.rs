@@ -193,6 +193,17 @@ fn link_folders_are_relative_forward_slashes_and_inside_the_vault() {
         ".weaveforge/x",
         "x/.git",
         ".git",
+        // Windows and macOS file systems ignore case, so these are the same folders.
+        "x/.GIT",
+        ".Git",
+        ".WeaveForge/x",
+        ".WEAVEFORGE",
+        // Windows drops trailing dots and spaces from a name, so these are too (P2-117).
+        ".git.",
+        "x/.git./y",
+        "x/.git /y",
+        ".weaveforge./x",
+        ".weaveforge /x",
     ] {
         assert_eq!(check_link_folder(bad).unwrap_err(), BAD_FOLDER, "{bad}");
     }

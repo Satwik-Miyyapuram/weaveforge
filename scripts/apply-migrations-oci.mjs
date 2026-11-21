@@ -27,7 +27,8 @@ import { readFileSync, readdirSync } from "node:fs";
 
 import { loadMigrationEnv } from "./lib/load-env.mjs";
 import { pgTls } from "./lib/pg-tls.mjs";
-import { matchesOnly } from "./lib/migration-select.mjs";
+import { selectOnly } from "./lib/migration-select.mjs";
+import { hasAnyRows } from "./lib/pg-migrate.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 loadMigrationEnv(root);
@@ -116,14 +117,25 @@ async function main() {
     }
 
     if (only) {
-      const matches = [...sqlFilesIn(MIGRATIONS), ...sqlFilesIn(SELF_HOSTED)].filter((f) =>
-        matchesOnly(basename(f), only),
+      const dirs = [MIGRATIONS, SELF_HOSTED];
+      const { names, ambiguous } = selectOnly(
+        dirs.map((dir) => sqlFilesIn(dir).map((f) => basename(f))),
+        only,
       );
-      if (matches.length === 0) {
+      if (names.length === 0) {
         console.error(`\n✖ No migration matches "${only}".\n`);
         process.exitCode = 1;
         return;
       }
+      if (ambiguous) {
+        console.error(
+          `\n✖ "${only}" matches a migration in each directory: ${names.join(", ")}.\n` +
+            "  Name the file in full, e.g. --only 0025_self_host_auth\n",
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const matches = dirs.flatMap((dir) => sqlFilesIn(dir).filter((f) => names.includes(basename(f))));
       console.log(`==> Applying ${matches.length} migration(s) matching "${only}" ...`);
       for (const file of matches) await applyFile(client, file);
       console.log("==> Done.");
@@ -131,18 +143,16 @@ async function main() {
     }
 
     const { rows: state } = await client.query(
-      `select
-         (select count(*) from pg_tables where schemaname = 'public') as tables,
-         (select coalesce(sum(n_live_tup), 0) from pg_stat_user_tables) as rows`,
+      "select count(*) as tables from pg_tables where schemaname = 'public'",
     );
-    const populated = Number(state[0].tables) > 0 && Number(state[0].rows) > 0;
+    const populated = Number(state[0].tables) > 0 && (await hasAnyRows(client));
 
     // Only the base migrations are unsafe to replay. The follow-ups are all
     // `create or replace` and `grant`, so they are exempt — and they are the
     // reason anyone re-runs this against a live database.
     if (populated && !followUpsOnly && !process.env.ALLOW_REAPPLY_OVER_DATA) {
       console.error(
-        `\n✖ This database already has ${state[0].tables} tables and ~${state[0].rows} rows.\n\n` +
+        `\n✖ This database already has ${state[0].tables} tables, and some hold rows.\n\n` +
           "  Re-running the base migrations over existing data duplicates seeded rows and can\n" +
           "  fail partway on constraints that current data does not satisfy, leaving the schema\n" +
           "  half-applied.\n\n" +

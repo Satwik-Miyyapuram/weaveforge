@@ -126,7 +126,11 @@ export function useGraphPersistedState(
           }
         }
         if (!active) return;
-        const next = typedCore().mergeGraphPersistedState(stored);
+        // An edit made while the load was in flight wins over the stored
+        // state; a fresh object so the debounced save sees a change (P2-219).
+        const edit = dirty.current && lastEdit.current?.projectId === projectId ? lastEdit.current.state : null;
+        const next = edit ? { ...edit } : typedCore().mergeGraphPersistedState(stored);
+        if (edit) lastEdit.current = { projectId, state: next };
         writeGraphStateCache(projectId, next);
         setState(next);
         // Only a load that went through lets edits save: after a failed one
@@ -172,7 +176,8 @@ export function useGraphPersistedState(
       void graph
         .saveSettings(projectId, state)
         .then(() => {
-          dirty.current = false;
+          // An edit made while this save ran is still unsaved (P2-219).
+          if (lastEdit.current?.state === state) dirty.current = false;
         })
         .catch((err) => setError(formatError(err)));
     }, 600);

@@ -219,7 +219,9 @@ fn list(call: &RepoCall) -> RepoStep {
         query = query.eq("doi", doi);
     }
     if let Some(title) = filter.title_contains.filter(|t| !t.is_empty()) {
-        query = query.filter("ilike", "title", format!("%{title}%"));
+        // `%`, `_` and `\` in the typed text match themselves, not any run or character.
+        let like = crate::vault::page_query::escape_like(&title);
+        query = query.filter("ilike", "title", format!("%{like}%"));
     }
     RepoStep::send(query.order("created_at", false).order("id", true))
 }
@@ -495,6 +497,9 @@ mod tests {
         assert_eq!(q.filters[1].value, json!("read"));
         assert_eq!(q.filters[3].value, json!("10.1000/abc"));
         assert_eq!(q.filters[4].value, json!("%attention%"));
+        let wild = json!({ "titleContains": r"100%_a\b" });
+        let q = first(step("list", &call(vec![wild], vec![])).unwrap());
+        assert_eq!(q.filters[1].value, json!(r"%100\%\_a\\b%"));
         assert_eq!(q.order[0].column, "created_at");
         assert_eq!(q.order[1].column, "id");
         let mut bare = call(vec![Value::Null], vec![]);

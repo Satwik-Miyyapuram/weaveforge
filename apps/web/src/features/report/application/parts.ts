@@ -21,6 +21,8 @@ export async function linkOverleafReport(
   steps: {
     saveConnection: () => Promise<string>;
     createReport: (input: OverleafLink & { connectionId: string }) => Promise<unknown>;
+    /** Undo `saveConnection` when the report is refused; omit when the connection was not new. */
+    deleteConnection?: (id: string) => Promise<unknown>;
   },
 ): Promise<void> {
   const title = link.title.trim();
@@ -31,7 +33,15 @@ export async function linkOverleafReport(
   const entryFileInvalid = typedCore().entryFileError(entryFile);
   if (entryFileInvalid) throw new Error(entryFileInvalid);
   const connectionId = await steps.saveConnection();
-  await steps.createReport({ ...link, title, overleafProjectId, entryFile, connectionId });
+  try {
+    await steps.createReport({ ...link, title, overleafProjectId, entryFile, connectionId });
+  } catch (err) {
+    // A refused report must not leave the Git token it came with stored (P2-225).
+    await steps.deleteConnection?.(connectionId).catch((cleanup: unknown) => {
+      console.warn("Could not remove the unused Overleaf connection:", cleanup);
+    });
+    throw err;
+  }
 }
 
 // --- load-report-screen.use-case ---

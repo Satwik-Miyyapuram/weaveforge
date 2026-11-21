@@ -40,10 +40,15 @@ export function GithubConnect({
   const [copied, setCopied] = useState(false);
   // Bumped by Cancel and unmount, so a late answer from an old wait is dropped.
   const turn = useRef(0);
+  // True while the shell polls GitHub for a device code.
+  const waiting = useRef(false);
 
   useEffect(
     () => () => {
       turn.current += 1;
+      // Leaving mid-flow must stop the shell's poll too (P2-239).
+      if (waiting.current) void cancelGithubConnect().catch(() => undefined);
+      waiting.current = false;
     },
     [],
   );
@@ -60,6 +65,7 @@ export function GithubConnect({
       const next = await startGithubConnect();
       if (mine !== turn.current) return;
       setCode(next);
+      waiting.current = true;
       window.open(next.verificationUri, "_blank", "noopener");
       done = await finishGithubConnect(null);
       if (mine !== turn.current) return;
@@ -69,6 +75,7 @@ export function GithubConnect({
       if (mine === turn.current) setError(formatError(err));
     } finally {
       if (mine === turn.current) {
+        waiting.current = false;
         setBusy(false);
         setCode(null);
       }
@@ -92,6 +99,7 @@ export function GithubConnect({
 
   function cancel() {
     turn.current += 1;
+    waiting.current = false;
     setBusy(false);
     setCode(null);
     void cancelGithubConnect().catch(() => undefined);

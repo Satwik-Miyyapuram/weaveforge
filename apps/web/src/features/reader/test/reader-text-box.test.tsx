@@ -41,7 +41,7 @@ function editor(rotation = 0) {
       }),
     );
   });
-  return { area: r.root.findByType("textarea"), calls };
+  return { area: r.root.findByType("textarea"), calls, renderer: r };
 }
 
 /** The textarea as an event sees it: its words and how tall they lay out, in px. */
@@ -70,6 +70,30 @@ test("the box grows on screen as words are typed", () => {
   const short = target("a", 20);
   act(() => area.props.onInput({ currentTarget: short }));
   assert.equal(short.style.height, "48px", "never below the drawn 24 pt at scale 2");
+});
+
+test("words typed into a box that unmounts mid-typing are saved (P2-168)", () => {
+  const { area, calls, renderer } = editor();
+  act(() => area.props.onInput({ currentTarget: target("half a thought", 100) }));
+  act(() => renderer.unmount());
+  assert.deepEqual(calls.commit, [["half a thought", [10, 74, 130, 124]]]);
+  assert.equal(calls.cancel, 0);
+});
+
+test("a box unmounted with nothing typed neither saves nor cancels (P2-168)", () => {
+  const { calls, renderer } = editor();
+  act(() => renderer.unmount());
+  assert.deepEqual(calls.commit, []);
+  assert.equal(calls.cancel, 0);
+});
+
+test("a box saved by Enter is not saved again when it unmounts (P2-168)", () => {
+  const { area, calls, renderer } = editor();
+  const el = target("once", 48);
+  act(() => area.props.onInput({ currentTarget: el }));
+  act(() => area.props.onKeyDown({ key: "Enter", shiftKey: false, preventDefault() {}, currentTarget: el, nativeEvent: {} }));
+  act(() => renderer.unmount());
+  assert.equal(calls.commit.length, 1);
 });
 
 test("a turned page keeps the drawn rect", () => {

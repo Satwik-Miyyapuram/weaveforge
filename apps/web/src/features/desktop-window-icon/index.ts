@@ -20,11 +20,17 @@ const PNG_PREFIX = "data:image/png;base64,";
 
 let emblemSource: Promise<string> | null = null;
 
-function loadEmblem(): Promise<string> {
-  emblemSource ??= fetch(EMBLEM_URL).then((response) => {
-    if (!response.ok) throw new Error(`The emblem did not load (${response.status}).`);
-    return response.text();
-  });
+/** Exported for tests. A failed fetch is forgotten, so the next call retries (P2-142). */
+export function loadEmblem(): Promise<string> {
+  emblemSource ??= fetch(EMBLEM_URL)
+    .then((response) => {
+      if (!response.ok) throw new Error(`The emblem did not load (${response.status}).`);
+      return response.text();
+    })
+    .catch((error: unknown) => {
+      emblemSource = null;
+      throw error;
+    });
   return emblemSource;
 }
 

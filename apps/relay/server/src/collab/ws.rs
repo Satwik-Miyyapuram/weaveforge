@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, Query, State};
@@ -33,6 +34,8 @@ enum Next {
     Frame(Option<Result<Message, axum::Error>>),
     /// An event from the room.
     Event(Result<Event, broadcast::error::RecvError>),
+    /// The grant timer fired: the client's access is re-read even if it sent nothing.
+    GrantCheck,
 }
 
 /// One connected client's view of the document.
@@ -194,7 +197,7 @@ async fn run_client(
     let id = state.hub.next_client_id();
     let now = state.clock.now_ms();
     // A room evicted since it was opened is refused: the client reconnects and gets a fresh one.
-    let Some((mut rx, epoch, format_version)) = join(&state, &room).await else {
+    let Some((mut rx, epoch, format_version)) = hub::admit(&state.hub, &room).await else {
         close(&mut socket).await;
         return;
     };
@@ -211,20 +214,6 @@ async fn run_client(
     }
     close(&mut socket).await;
     leave(&state, &room).await;
-}
-
-/// Counts the client in and subscribes it, under the room lock so no event is missed and the
-/// room cannot be evicted in between. `None` when the room is no longer the open one.
-async fn join(
-    state: &CollabState,
-    room: &Arc<Room>,
-) -> Option<(broadcast::Receiver<Event>, i64, i64)> {
-    let mut inner = room.inner.lock().await;
-    if !state.hub.is_current(room) {
-        return None;
-    }
-    inner.clients += 1;
-    Some((room.tx.subscribe(), inner.epoch, inner.format_version))
 }
 
 /// Sends `rejoin` (stale epoch: false) or `hello` (true).
@@ -255,10 +244,16 @@ async fn pump(
     socket: &mut WebSocket,
     rx: &mut broadcast::Receiver<Event>,
 ) {
+    // A zero period would panic in `interval`; the floor only guards a misconfiguration.
+    let period = state.config.grant_check_every.max(Duration::from_millis(1));
+    let mut grant_timer = tokio::time::interval(period);
+    // The first tick is immediate, and the grant was just checked at join: skip it.
+    let _ = grant_timer.tick().await;
     loop {
         let next = tokio::select! {
             frame = socket.recv() => Next::Frame(frame),
             event = rx.recv() => Next::Event(event),
+            _ = grant_timer.tick() => Next::GrantCheck,
         };
         let keep_going = match next {
             Next::Frame(Some(Ok(message))) => {
@@ -271,6 +266,7 @@ async fn pump(
                 recheck(state, room, client, socket).await
             }
             Next::Event(Err(broadcast::error::RecvError::Closed)) => false,
+            Next::GrantCheck => recheck(state, room, client, socket).await,
         };
         if !keep_going {
             break;
@@ -346,7 +342,7 @@ async fn on_update(
     let now = state.clock.now_ms();
     if now.saturating_sub(client.last_check) >= state.config.grant_cache_ms {
         match state.store.access(&room.item_id, &client.user).await {
-            Ok(Some(permission)) => client.grant(permission, now),
+            Ok(Some(permission)) => apply_grant(state, room, client, permission, now).await,
             Ok(None) => {
                 let _ = send_text(socket, protocol::denied_json("revoked")).await;
                 return false;
@@ -415,6 +411,10 @@ async fn on_text(
     match control {
         Control::Acquire { device } => acquire(state, room, client, socket, &device).await,
         Control::Renew { device } => {
+            // A demoted holder cannot extend the lease it no longer may hold.
+            if !client.permission.can_hold_lease() {
+                return send_text(socket, protocol::lease_reply_json(&LeaseReply::Lost)).await;
+            }
             let reply = {
                 let mut inner = room.inner.lock().await;
                 inner
@@ -440,6 +440,28 @@ async fn on_text(
     }
 }
 
+/// Applies a fresh grant check. A holder that may no longer hold the lease gives it up here, so
+/// its renew is refused and the other clients see the handover.
+async fn apply_grant(
+    state: &CollabState,
+    room: &Room,
+    client: &mut Client,
+    permission: Permission,
+    now: i64,
+) {
+    client.grant(permission, now);
+    if permission.can_hold_lease() {
+        return;
+    }
+    let released = room.inner.lock().await.lease.release_user(&client.user);
+    if released {
+        if let Err(error) = state.store.set_writer(&room.item_id, None, None).await {
+            eprintln!("collab writer {}: {error}", room.item_id);
+        }
+        room.send(Event::Text(protocol::event_json("lease.handover")));
+    }
+}
+
 /// Grants or denies the write-back lease to a device.
 async fn acquire(
     state: &CollabState,
@@ -457,7 +479,8 @@ async fn acquire(
             .lease
             .acquire(device, &client.user, state.clock.now_ms())
     };
-    let sent = send_text(socket, protocol::lease_reply_json(&reply)).await;
+    // Record the holder before telling the client it has the lease. If the record fails, the
+    // grant is rolled back so no unrecorded holder blocks other devices.
     if let LeaseReply::Granted { until_ms } = reply
         && let Err(error) = state
             .store
@@ -465,8 +488,10 @@ async fn acquire(
             .await
     {
         eprintln!("collab writer {}: {error}", room.item_id);
+        let _rolled_back = room.inner.lock().await.lease.release(device, &client.user);
+        return send_text(socket, protocol::denied_json("storage")).await;
     }
-    sent
+    send_text(socket, protocol::lease_reply_json(&reply)).await
 }
 
 /// Clears the lease when `device` and `user` hold it; returns (released, doc is closing).
@@ -516,7 +541,7 @@ async fn recheck(
     let now = state.clock.now_ms();
     match state.store.access(&room.item_id, &client.user).await {
         Ok(Some(permission)) => {
-            client.grant(permission, now);
+            apply_grant(state, room, client, permission, now).await;
             true
         }
         Ok(None) => {
@@ -547,9 +572,9 @@ async fn leave(state: &CollabState, room: &Arc<Room>) {
         eprintln!("collab persist {}: {error}", room.item_id);
     }
     // Only this room is removed: a newer room for the same item must stay open.
-    let still_idle = room.inner.lock().await.clients == 0;
-    if still_idle {
-        state.hub.remove_if_same(room);
+    // A closing room stays for `sweep_closing`.
+    if !closing {
+        hub::remove_if_idle(&state.hub, room).await;
     }
 }
 

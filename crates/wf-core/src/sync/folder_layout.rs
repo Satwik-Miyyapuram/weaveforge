@@ -314,6 +314,22 @@ impl<'a> TreeLayout<'a> {
             let _ = used.insert(slug.clone());
             let _ = slug_of.insert(node.id.as_str(), slug);
         }
+        // A child whose slug equals its folder-note parent's slug would land
+        // on the parent's file. Give the child an id suffix.
+        let clashes: Vec<&str> = nodes
+            .iter()
+            .filter(|n| {
+                parent_of(n)
+                    .filter(|p| *p != n.id)
+                    .and_then(|p| slug_of.get(p))
+                    == slug_of.get(n.id.as_str())
+            })
+            .map(|n| n.id.as_str())
+            .collect();
+        for id in clashes {
+            let slug = format!("{}--{}", slug_of[id], id_suffix(id));
+            let _ = slug_of.insert(id, slug);
+        }
         Self {
             root,
             by_id,
@@ -593,10 +609,31 @@ fn split_extension(rel: &str) -> (&str, &str) {
     }
 }
 
-/// Sidecar annotations file for a paper: `p/papers/x.pdf` -> `p/papers/x.annotations.json`.
+/// Extensions of two parts that name a kind; a sidecar drops the whole of it.
+const COMPOUND_EXTENSIONS: [&str; 1] = [".paper.md"];
+
+/// [`split_extension`], but a compound extension stays whole: `x.paper.md` -> (`x`, `.paper.md`).
+fn split_kind_extension(rel: &str) -> (&str, &str) {
+    COMPOUND_EXTENSIONS
+        .iter()
+        .find_map(|ext| {
+            rel.strip_suffix(ext)
+                .filter(|stem| !stem.ends_with('/') && !stem.is_empty())
+                .map(|stem| (stem, *ext))
+        })
+        .unwrap_or_else(|| split_extension(rel))
+}
+
+/// `rel` without its extension, a compound one (`x.paper.md` -> `x`) included.
+fn sidecar_stem(rel: &str) -> &str {
+    split_kind_extension(rel).0
+}
+
+/// Sidecar annotations file for a paper, by the paper's own name:
+/// `p/papers/x.pdf` or `p/papers/x.paper.md` -> `p/papers/x.annotations.json`.
 #[must_use]
 pub fn annotations_path(paper_rel: &str) -> String {
-    format!("{}.annotations.json", split_extension(paper_rel).0)
+    format!("{}.annotations.json", sidecar_stem(paper_rel))
 }
 
 /// Sidecar pins file for a paper: `p/papers/x.pdf` -> `p/papers/x.pins.json`.
@@ -605,10 +642,11 @@ pub fn pins_path(paper_rel: &str) -> String {
     format!("{}.pins.json", split_extension(paper_rel).0)
 }
 
-/// Sidecar comments file for an item: `p/notes/x.md` -> `p/notes/x.comments.json`.
+/// Sidecar comments file for an item: `p/notes/x.md` -> `p/notes/x.comments.json`,
+/// `p/papers/x.paper.md` -> `p/papers/x.comments.json`.
 #[must_use]
 pub fn comments_path(item_rel: &str) -> String {
-    format!("{}.comments.json", split_extension(item_rel).0)
+    format!("{}.comments.json", sidecar_stem(item_rel))
 }
 
 /// Metrics chunk of one run and batch inside an experiment folder.
@@ -641,12 +679,13 @@ pub fn conflict_copy_path(rel: &str, stamp: &str) -> String {
 }
 
 /// Name of the `n`th copy of a file; `n <= 1` keeps the name: `a/b.md`, 2 -> `a/b-2.md`.
+/// A compound extension stays whole, so the copy keeps its kind: `x.paper.md` -> `x-2.paper.md`.
 #[must_use]
 pub fn numbered_path(rel: &str, n: u32) -> String {
     if n <= 1 {
         return rel.to_owned();
     }
-    let (stem, ext) = split_extension(rel);
+    let (stem, ext) = split_kind_extension(rel);
     format!("{stem}-{n}{ext}")
 }
 

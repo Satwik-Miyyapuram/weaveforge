@@ -81,6 +81,13 @@ export function measureFindDomBoxes(
     return { start, end: start + length, length };
   });
 
+  // Each span looked up once per measure, not once per match and item (P2-172).
+  const spans = new Map<number, HTMLElement>();
+  for (const el of textLayer.querySelectorAll<HTMLElement>("[data-item-index]")) {
+    const index = Number(el.getAttribute("data-item-index"));
+    if (!spans.has(index)) spans.set(index, el);
+  }
+
   const out: FindHitBox[] = [];
   let foundAny = false;
 
@@ -97,7 +104,7 @@ export function measureFindDomBoxes(
       const to = Math.min(b.length, match.end - b.start);
       if (to <= from) continue;
 
-      const span = textLayer.querySelector<HTMLElement>(`[data-item-index="${i}"]`);
+      const span = spans.get(i);
       if (!span) continue;
 
       const startPoint = findTextPointInSpan(span, from);
@@ -129,6 +136,32 @@ export function measureFindDomBoxes(
   });
 
   return foundAny ? out : null;
+}
+
+/**
+ * Run `run` at most once per animation frame however often `schedule` is
+ * called: a text layer render fires many mutations, and each one measured
+ * every match (P2-172).
+ */
+export function coalesceToFrame(
+  run: () => void,
+  raf: (cb: () => void) => number = (cb) => requestAnimationFrame(cb),
+  caf: (id: number) => void = (id) => cancelAnimationFrame(id),
+): { schedule: () => void; cancel: () => void } {
+  let id: number | null = null;
+  return {
+    schedule() {
+      if (id !== null) return;
+      id = raf(() => {
+        id = null;
+        run();
+      });
+    },
+    cancel() {
+      if (id !== null) caf(id);
+      id = null;
+    },
+  };
 }
 
 /**
@@ -173,7 +206,8 @@ function FindOverlayInner({ matches, active, pageIndex, items, projection }: Fin
 
     update();
 
-    const observer = new MutationObserver(update);
+    const frame = coalesceToFrame(update);
+    const observer = new MutationObserver(frame.schedule);
     observer.observe(textLayer, {
       childList: true,
       subtree: true,
@@ -181,10 +215,11 @@ function FindOverlayInner({ matches, active, pageIndex, items, projection }: Fin
       attributeFilter: ["data-item-index"],
     });
 
-    const onResize = () => update();
+    const onResize = frame.schedule;
     window.addEventListener("resize", onResize);
 
     return () => {
+      frame.cancel();
       observer.disconnect();
       window.removeEventListener("resize", onResize);
     };

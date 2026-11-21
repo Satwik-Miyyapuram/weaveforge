@@ -111,6 +111,22 @@ test("one failed save is reported and the rest still import", async () => {
   assert.ok(out.problems.some((p) => p.key === "smith2020" && p.reason === "disk full" && p.line === 1));
 });
 
+test("a saved paper whose follow-up fails still counts as added (P2-174)", async () => {
+  const warn = console.warn;
+  console.warn = () => undefined;
+  try {
+    const { d, added } = deps([], {
+      afterCreate: async () => { throw new Error("zotero down"); },
+    });
+    const out = await importBibFile(file(BIB), d);
+    assert.equal(added.length, 3, "every entry was saved");
+    assert.deepEqual(out.added.map((p) => p.title), ["Café Networks", "Second Paper", "Already Here"]);
+    assert.ok(!out.problems.some((p) => p.reason === "zotero down"), "a saved paper is not a problem entry");
+  } finally {
+    console.warn = warn;
+  }
+});
+
 test("an empty or garbage file adds nothing and says so", async () => {
   const { d, added } = deps();
   const out = await importBibFile(file("not a bib file at all"), d);

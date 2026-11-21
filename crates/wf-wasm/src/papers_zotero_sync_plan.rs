@@ -8,7 +8,8 @@ use wf_core::papers::zotero_sync_plan::{self, ZoteroSyncLocal};
 use super::to_js;
 
 /// [`sync_plan`](zotero_sync_plan::sync_plan) (TS `ZoteroSync`): which remote items to pull, and
-/// which local papers to push or delete, from one snapshot.
+/// which local papers to push or delete, from one snapshot. `present_keys`, if given, is every key
+/// still in the library; papers keyed by one of them are never deleted.
 ///
 /// # Errors
 ///
@@ -23,8 +24,13 @@ pub fn zotero_sync_plan_js(
         unchecked_param_type = "readonly { doi?: string | null; arxivId?: string | null; title?: string | null; zoteroKey?: string | null }[]"
     )]
     local: JsValue,
+    present_keys: Option<Vec<String>>,
 ) -> Result<JsValue, JsValue> {
     let remote: Vec<ZoteroItem> = serde_wasm_bindgen::from_value(remote)?;
     let local: Vec<ZoteroSyncLocal> = serde_wasm_bindgen::from_value(local)?;
-    Ok(to_js(&zotero_sync_plan::sync_plan(&remote, &local))?)
+    Ok(to_js(&zotero_sync_plan::sync_plan(
+        &remote,
+        &local,
+        present_keys.as_deref(),
+    ))?)
 }

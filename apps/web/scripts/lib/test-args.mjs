@@ -4,14 +4,14 @@
  * - Named `*.test.ts(x)` files run alone.
  * - A directory runs only the tests under it (`src/features/ink`).
  * - Nothing named runs the whole suite.
- * - Concurrency is capped (default 4, `WF_TEST_CONCURRENCY` overrides) so a
- *   full run stays under ~3 GB instead of one child per core.
+ * - One test file at a time by default (`WF_TEST_CONCURRENCY` or an explicit
+ *   flag overrides), not one child per core, for the 1 GB RAM rule (P1-8).
  *
  * Two glob patterns rather than a brace expansion: node's test-runner glob
  * does not expand `{ts,tsx}`, and a pattern that matches nothing is ignored.
  */
 
-const DEFAULT_CONCURRENCY = "4";
+const DEFAULT_CONCURRENCY = "1";
 
 export function testArgs(argv, { isDir, env }) {
   const out = [];

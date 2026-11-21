@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from ....infrastructure.api_client import ApiClient
 from ..domain.experiment import Experiment, ExperimentFilter
 from .experiment_row import to_domain, to_row
@@ -25,6 +27,10 @@ class ApiExperimentRepository:
         if self._pid:
             row["project_id"] = self._pid
         self._api.post("/api/sdk/experiments", json=row)
+
+    def save_fields(self, id: str, fields: dict[str, Any]) -> None:
+        # The server updates only the columns it receives and keeps the stored name.
+        self._api.post("/api/sdk/experiments", json={**fields, "id": id})
 
     def delete(self, id: str) -> None:
         self._api.delete("/api/sdk/experiments", params={"id": id})

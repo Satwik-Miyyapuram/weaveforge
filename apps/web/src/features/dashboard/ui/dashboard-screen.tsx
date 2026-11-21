@@ -101,6 +101,10 @@ export function DashboardScreen() {
 
   // Load saved layout from the database when project changes (after profile is ready).
   useEffect(() => {
+    // An edit still waiting for the debounce belongs to the project being left:
+    // save it now, before the flags below forget it (P2-140).
+    pendingSave.current?.();
+    pendingSave.current = null;
     setCardsEntered(false);
     if (!projectId) return;
     // Paints this project's device copy (once) while the live layout is not there yet.

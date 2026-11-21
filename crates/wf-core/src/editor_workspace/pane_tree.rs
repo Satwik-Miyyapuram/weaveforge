@@ -453,6 +453,10 @@ pub fn move_tab(
     else {
         return layout.clone();
     };
+    // Closing the source first would lose the tab when there is nowhere to put it.
+    if find_leaf(&layout.root, to_pane_id).is_none() {
+        return layout.clone();
+    }
     // A group belongs to its pane: within it the tab keeps it, elsewhere it drops it.
     let same_pane = from_pane_id == to_pane_id;
     let tab = if same_pane {
@@ -1114,6 +1118,16 @@ mod tests {
         let before = open(&start(), &a());
         assert_eq!(
             move_tab(&before, DEFAULT_PANE_ID, 7, DEFAULT_PANE_ID, None),
+            before
+        );
+    }
+
+    #[test]
+    fn moving_a_tab_to_a_pane_that_is_not_there_changes_nothing() {
+        let before = open_ab();
+        assert_eq!(move_tab(&before, DEFAULT_PANE_ID, 0, "gone", None), before);
+        assert_eq!(
+            move_tab(&before, DEFAULT_PANE_ID, 0, "gone", Some(0)),
             before
         );
     }

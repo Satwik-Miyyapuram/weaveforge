@@ -3,7 +3,7 @@
 import { formatError } from "@/lib/format-error";
 import { localOffset } from "@/lib/parts-1";
 import { readyCore } from "@/lib/rust-core";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -55,22 +55,20 @@ export function ApiTokensPanel() {
     setExpiry("90");
   });
 
-  const load = useCallback(async () => {
+  // Reload for each account. A list that answers after the account changed
+  // belongs to the previous one and is dropped (P2-237).
+  useEffect(() => {
+    let live = true;
     setLoading(true);
     setError(null);
     setTokens([]);
-    try {
-      setTokens(await getContainer().settings.apiTokens.list());
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [setError]);
-
-  useEffect(() => {
-    void load();
-  }, [load, user?.id]);
+    setRevealed(null);
+    getContainer().settings.apiTokens.list().then(
+      (list) => { if (live) setTokens(list); },
+      (err: unknown) => { if (live) setError(formatError(err)); },
+    ).finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, [setError, user?.id]);
 
 
   async function handleRevoke(id: string) {

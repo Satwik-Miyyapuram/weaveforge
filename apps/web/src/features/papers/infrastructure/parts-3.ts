@@ -313,9 +313,18 @@ export class ZoteroSync {
       // `parentItem` is the same statement from the other side — an item that
       // hangs off a paper is not one, whatever its `itemType` says.
       .filter((d) => !isChildItem(d));
+    // Every top-level key Zotero still holds, before the title filter: an item
+    // filtered out of the pull is still in the library, so its local paper must
+    // not be deleted (P1-13). Child items stay out, so a leftover attachment
+    // row is still cleaned up.
+    const presentKeys = remoteRaw
+      .map((r) => r.data)
+      .filter((d): d is ZoteroItemData => !!d && !isChildItem(d))
+      .map((d) => d.key)
+      .filter((k): k is string => !!k);
 
     const local = await this.deps.listPapers();
-    return { remote, local, headers, libraryUrl, col };
+    return { remote, presentKeys, local, headers, libraryUrl, col };
   }
 
   /**
@@ -355,16 +364,16 @@ export class ZoteroSync {
    * and the first third of a sync against the cloud one.
    */
   async pull(): Promise<number> {
-    const { remote, local } = await this.snapshot();
-    const plan = readyCore().zoteroSyncPlan(remote, local.map(syncLocal));
+    const { remote, presentKeys, local } = await this.snapshot();
+    const plan = readyCore().zoteroSyncPlan(remote, local.map(syncLocal), presentKeys);
     return this.pullItems(remote, plan.pull);
   }
 
   async sync(): Promise<ZoteroSyncResult> {
-    const { remote, local, headers, libraryUrl, col } = await this.snapshot();
+    const { remote, presentKeys, local, headers, libraryUrl, col } = await this.snapshot();
     // One plan from this snapshot. Reconcile in a safe order: PULL first
     // (additive), then PUSH (additive), then DELETE (destructive) last.
-    const plan = readyCore().zoteroSyncPlan(remote, local.map(syncLocal));
+    const plan = readyCore().zoteroSyncPlan(remote, local.map(syncLocal), presentKeys);
     const pulled = await this.pullItems(remote, plan.pull);
 
     // --- push: local papers that have never been in Zotero. ---
@@ -407,11 +416,16 @@ export class ZoteroSync {
       if (this.deps.savePaper) {
         for (const [idx, created] of Object.entries(ok)) {
           const paper = batch[Number(idx)];
-          if (paper && created?.key) {
+          if (!paper || !created?.key) continue;
+          // One failed write must not stop the keys of the papers after it
+          // from being stored (P2-189).
+          try {
             await this.deps.savePaper({
               ...paper,
               metadata: { ...paper.metadata, zoteroKey: created.key },
             });
+          } catch (err) {
+            console.warn(`Could not store the Zotero key of "${paper.title}":`, err);
           }
         }
       }
@@ -421,15 +435,35 @@ export class ZoteroSync {
     // truly gone — its stored key is absent AND no remote item still matches it
     // by content. Skip entirely if the remote list came back empty, so a partial
     // or failed read can never mass-delete the library. ---
+    //
+    // The plan only knows the filtered read: one collection, titled top-level
+    // items. A paper whose item moved to another collection, or lost its
+    // title, is missing from that read but still in Zotero (P1-13). So before
+    // deleting, one `format=keys` read of the whole library confirms the key
+    // is really gone; any key still there is kept and counted.
     let deletedLocal = 0;
-    if (this.deps.deletePaper) {
+    let deletesSkipped = 0;
+    if (this.deps.deletePaper && plan.delete.length > 0) {
+      // Top-level keys only: `/items` also lists attachments and notes, and a
+      // leftover row made from an attachment must still be cleaned up.
+      const inLibrary = await fetchZoteroItemKeys({
+        baseUrl: libraryUrl,
+        path: "/items/top",
+        headers,
+        fetchFn: this.fetchFn,
+      });
       for (const i of plan.delete) {
+        const key = local[i]!.metadata?.["zoteroKey"] as string | undefined;
+        if (key && inLibrary.has(key)) {
+          deletesSkipped += 1;
+          continue;
+        }
         await this.deps.deletePaper(local[i]!.id);
         deletedLocal += 1;
       }
     }
 
-    return { pushed, pulled, deletedLocal };
+    return { pushed, pulled, deletedLocal, deletesSkipped };
   }
 }
 

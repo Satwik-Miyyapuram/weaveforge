@@ -58,10 +58,17 @@ if [ -f /home/ubuntu/weaveforge-infra/.env ]; then
   # shellcheck disable=SC1091
   set -a; . /home/ubuntu/weaveforge-infra/.env; set +a
 
+  # The credentials go through a 0600 env file, not `-e`, so they stay out of `ps`.
+  mc_env=$(mktemp)
+  # Removed however the script exits, so the credentials never outlive it.
+  trap 'rm -f "$mc_env"' EXIT
+  chmod 600 "$mc_env"
+  printf 'MC_HOST_local=http://%s:%s@minio:9000\n' "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" > "$mc_env"
   used_bytes=$(docker run --rm --entrypoint sh --network weaveforge-infra_default \
-    -e MC_HOST_local="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:9000" \
+    --env-file "$mc_env" \
     minio/mc:latest -c "mc du --json local/weaveforge-cold" 2>/dev/null \
     | sed -n 's/.*"size":\([0-9]*\).*/\1/p' | head -1)
+  rm -f "$mc_env"
 
   if [ -n "${used_bytes:-}" ]; then
     used_gb=$(( used_bytes / 1000000000 ))

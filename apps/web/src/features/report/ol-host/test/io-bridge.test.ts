@@ -221,3 +221,50 @@ test("closeAll closes every live link it opened, so a closed editor stops showin
   await tick();
   assert.equal(calls.filter((c) => c[0] === "close").length, 2);
 });
+
+test("a listener that throws does not stop the next event arriving (P2-221)", async () => {
+  const { transport, push } = fakeTransport();
+  const { socket } = connect(transport);
+  const seen: string[] = [];
+  socket.on("otUpdateApplied", (n) => {
+    if (n === 1) throw new Error("listener broke");
+    seen.push(`update ${n}`);
+  });
+  const errors: unknown[] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => void errors.push(args);
+  try {
+    socket.socket.connect();
+    await tick();
+    push([{ name: "otUpdateApplied", args: [1] }]);
+    await tick();
+    push([{ name: "otUpdateApplied", args: [2] }]);
+    await tick();
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(seen, ["update 2"]);
+  assert.equal(errors.length, 1);
+});
+
+test("an open that rejects fires connect_failed, and connect can be tried again (P2-221)", async () => {
+  let attempts = 0;
+  const { transport } = fakeTransport({
+    async open() {
+      attempts++;
+      if (attempts === 1) throw new Error("shell gone");
+      return { ok: true, liveId: "L2", join: [JOIN] };
+    },
+  });
+  const { socket } = connect(transport);
+  const failed: unknown[] = [];
+  socket.on("connect_failed", (err) => failed.push(err));
+  socket.socket.connect();
+  await tick();
+  assert.equal(failed.length, 1);
+  assert.equal(socket.socket.connecting, false);
+  socket.socket.connect();
+  await tick();
+  assert.equal(socket.socket.connected, true);
+  assert.equal(socket.socket.sessionid, "L2");
+});

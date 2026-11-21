@@ -32,7 +32,8 @@ export function ExtractionTable({
   const [rows, setRows] = useState<ExtractionRow[]>([]);
   const [columns, setColumns] = useState<ExtractionColumnId[]>(["title", "year", "status"]);
   const [pending, setPending] = useState<PendingFieldFill[]>([]);
-  const [busy, setBusy] = useState(false);
+  // Cells being saved, keyed by pendingKey(paperId, fieldId): only that cell waits (P2-176).
+  const [saving, setSaving] = useState<ReadonlySet<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [promptFieldId, setPromptFieldId] = useState<string | null>(null);
@@ -100,7 +101,8 @@ export function ExtractionTable({
   }, [pending, rows]);
 
   async function saveCell(paperId: string, fieldId: string, value: PaperFieldValueData | null) {
-    setBusy(true);
+    const key = readyCore().pendingKey(paperId, fieldId);
+    setSaving((prev) => new Set(prev).add(key));
     setError(null);
     try {
       await getContainer().paperFields.setPaperFieldValue(paperId, fieldId, value);
@@ -108,7 +110,11 @@ export function ExtractionTable({
     } catch (err) {
       setError(formatError(err));
     } finally {
-      setBusy(false);
+      setSaving((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   }
 
@@ -253,7 +259,7 @@ export function ExtractionTable({
                           column={column}
                           defs={defs}
                           titleById={titleById}
-                          disabled={busy || readOnly}
+                          disabled={readOnly || (cellKey !== null && saving.has(cellKey))}
                           onSave={saveCell}
                         />
                       )}

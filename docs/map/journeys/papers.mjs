@@ -122,12 +122,12 @@ export default {
     {
       id: "delete", name: "Delete a paper",
       blurb: "Removes the paper, its images and its Zotero copy. You get a few seconds to undo.",
-      outcome: "The paper, its pasted figures and its Zotero copy are gone.",
+      outcome: "The paper and its Zotero copy are gone. Its pasted figures stay, so restoring it from the trash brings them back.",
       help: null,
       steps: [
         { title: "Delete", text: "Open the card menu and click **Delete paper**.", ui: "Delete paper", hops: [1, 2, 3, 4] },
         { title: "Zotero copy removed", text: "If the paper came from Zotero, it is removed there too. If that fails, the delete still goes on.", hops: [5, 6] },
-        { title: "Images and row removed", text: "Figures you pasted into the note go first, then the paper itself.", hops: [7, 8, 9, 10, 11, 12, 13, 14] },
+        { title: "Paper removed", text: "The paper goes to the workspace trash. Figures you pasted into the note are kept, so a restored paper still shows them.", hops: [7, 8, 9, 10, 11, 12, 13] },
       ],
       chain: [
         { n: 1, layer: "ui", fn: "PaperCard remove", path: CARD, sym: "const remove = () => removePaper(" },
@@ -136,12 +136,11 @@ export default {
         { n: 4, by: 3, layer: "service", fn: "DeletePaperUseCase.execute", path: AP, sym: "async execute(paper: Paper): Promise<void>" },
         { n: 5, by: 4, layer: "service", fn: "bibliography.removeRemotePaper", path: AP, sym: "this.deps.bibliography.removeRemotePaper(zoteroKey)" },
         { n: 6, by: 5, layer: "network", fn: "ZoteroExporter.remove", path: "apps/web/src/features/papers/infrastructure/parts-2.ts", sym: "async remove(zoteroKey: string)", note: "DELETE api.zotero.org, best effort" },
-        { n: 7, by: 4, layer: "storage", fn: "images.remove", path: AP, sym: "await this.deps.images.remove(img)" },
-        { n: 8, by: 4, layer: "service", fn: "UpdatePaperUseCase.remove", path: UPD, sym: "async remove(id: string): Promise<void>" },
-        ...tail(9, 8, "delete", "fn delete(call: &RepoCall)"),
+        { n: 7, by: 4, layer: "service", fn: "UpdatePaperUseCase.remove", path: UPD, sym: "async remove(id: string): Promise<void>" },
+        ...tail(8, 7, "delete", "fn delete(call: &RepoCall)"),
       ],
       debug: [
-        { see: "Paper comes back after the undo time ran out", check: 13 },
+        { see: "Paper comes back after the undo time ran out", check: 12 },
         { see: "Paper deleted here but still in Zotero", check: 6 },
       ],
     },

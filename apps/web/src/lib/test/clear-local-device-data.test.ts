@@ -111,3 +111,28 @@ test("device wipe: the PDF and paper HTML databases are deleted", async () => {
   assert.ok(deleted.includes(PDF_CACHE_DB_NAME), "PDF bytes");
   assert.ok(deleted.includes(PAPER_HTML_DB_NAME), "paper HTML");
 });
+
+test("device wipe: a throw in the storage sweep still deletes the databases (P2-215)", async () => {
+  const g = globalThis as Record<string, unknown>;
+  const saved = { window: g.window, localStorage: g.localStorage, sessionStorage: g.sessionStorage, indexedDB: g.indexedDB };
+  const deleted: string[] = [];
+  const refusing = new Proxy(new FakeStorage(), {
+    ownKeys() {
+      throw new Error("SecurityError: storage is blocked");
+    },
+  });
+  const warn = console.warn;
+  console.warn = () => undefined;
+  g.window = g;
+  g.localStorage = refusing;
+  g.sessionStorage = new FakeStorage();
+  g.indexedDB = fakeIndexedDb(deleted);
+  try {
+    await clearLocalDeviceData();
+  } finally {
+    Object.assign(g, saved);
+    console.warn = warn;
+  }
+  assert.ok(deleted.includes(PDF_CACHE_DB_NAME), "PDF bytes");
+  assert.ok(deleted.includes(PAPER_HTML_DB_NAME), "paper HTML");
+});

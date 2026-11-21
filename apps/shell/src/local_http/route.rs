@@ -107,7 +107,7 @@ pub async fn route_local_request(
 
     if path == SEARCH_PATH && request.method == "POST" {
         let query = query_param(search, "query").unwrap_or_default();
-        return simple_search(deps.vault, query.trim());
+        return simple_search(deps.vault, query.trim()).await;
     }
 
     if let Some(relative) = path.strip_prefix(VAULT_PREFIX) {
@@ -166,13 +166,17 @@ async fn vault_route(
     }
 }
 
-/// Searches every note for the query; a blank query is refused.
-fn simple_search(vault: &VaultState, query: &str) -> LocalApiResponse {
+/// Searches every note for the query; a blank query is refused. The walk holds
+/// the vault lock, so it runs on the blocking pool, not an async worker.
+async fn simple_search(vault: &VaultState, query: &str) -> LocalApiResponse {
     if query.is_empty() {
         return LocalApiResponse::fail(400, "A search needs a query.");
     }
-    let hits = search_vault(&vault.lock(), query, "");
-    LocalApiResponse::json(200, &serde_json::to_value(&hits).unwrap_or_default())
+    let (vault, query) = (vault.clone(), query.to_owned());
+    match tokio::task::spawn_blocking(move || search_vault(&vault.lock(), &query, "")).await {
+        Ok(hits) => LocalApiResponse::json(200, &serde_json::to_value(&hits).unwrap_or_default()),
+        Err(_) => LocalApiResponse::fail(500, "The search did not finish."),
+    }
 }
 
 fn denied(need: Permission) -> LocalApiResponse {
@@ -393,6 +397,44 @@ mod tests {
             .iter()
             .map(|hit| hit["filename"].as_str().unwrap_or_default().to_owned())
             .collect()
+    }
+
+    #[test]
+    fn a_search_waiting_on_the_vault_lock_leaves_the_async_thread_free() {
+        use std::time::{Duration, Instant};
+
+        let fixture = Fixture::new("search-off-thread");
+        let req = request("POST", "/search/simple/?query=kettle", "");
+        let deps = RouteDeps {
+            vault: &fixture.vault,
+            query: None,
+            save_artifact: None,
+            mcp: None,
+        };
+        let held = fixture.vault.clone();
+        let (locked, is_locked) = std::sync::mpsc::channel();
+        // Another thread holds the vault for 500 ms, as a slow search would.
+        let holder = std::thread::spawn(move || {
+            let _session = held.lock();
+            locked.send(()).expect("signal locked");
+            std::thread::sleep(Duration::from_millis(500));
+        });
+        is_locked.recv().expect("holder locked the vault");
+        let mut expected = single();
+        let (response, ticked) = block_on(async {
+            let started = Instant::now();
+            let tick = async {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                started.elapsed()
+            };
+            tokio::join!(
+                route_local_request(&deps, &req, &mut expected, NOW_MS, NOW_ISO),
+                tick
+            )
+        });
+        holder.join().expect("holder thread");
+        assert_eq!(response.status, 200);
+        assert!(ticked < Duration::from_millis(400), "{ticked:?}");
     }
 
     #[test]

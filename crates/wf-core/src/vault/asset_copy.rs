@@ -56,11 +56,16 @@ pub fn plan_asset_copies(copies: &[AssetCopy]) -> AssetCopyPlan {
     }
 }
 
-/// The text after the last `.` in `old_path`, as TS `old_path.split(".").pop()` returns it.
-/// No lowercasing and no default: a path without a dot is returned whole, a trailing dot gives `""`.
+/// The text after the last `.` in the file name of `old_path`, not lowercased.
+/// A name with no extension (no dot, or a trailing dot) gives `bin`, so a dot in a
+/// folder name never leaks a path into the copy's name.
 #[must_use]
 pub fn copy_extension(old_path: &str) -> &str {
-    old_path.rsplit('.').next().unwrap_or("")
+    let name = old_path.rsplit('/').next().unwrap_or(old_path);
+    match name.rsplit_once('.') {
+        Some((_, ext)) if !ext.is_empty() => ext,
+        _ => "bin",
+    }
 }
 
 #[cfg(test)]
@@ -106,14 +111,14 @@ mod tests {
         assert_eq!(plan.rewrites.len(), 1);
     }
 
-    // it: "the copy extension is the text after the last dot, as TS split('.').pop() gives it"
     #[test]
-    fn the_copy_extension_matches_the_ts_split_pop() {
+    fn the_copy_extension_comes_from_the_file_name_only() {
         assert_eq!(copy_extension("owner/a.png"), "png");
         assert_eq!(copy_extension("owner/a.tar.gz"), "gz");
         assert_eq!(copy_extension("owner/A.PNG"), "PNG");
-        assert_eq!(copy_extension("owner/noext"), "owner/noext");
-        assert_eq!(copy_extension("dir.x/file"), "x/file");
-        assert_eq!(copy_extension("owner/trailing."), "");
+        assert_eq!(copy_extension("owner/noext"), "bin");
+        assert_eq!(copy_extension("dir.x/file"), "bin");
+        assert_eq!(copy_extension("owner/trailing."), "bin");
+        assert_eq!(copy_extension("a.png"), "png");
     }
 }

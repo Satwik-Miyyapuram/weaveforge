@@ -117,8 +117,44 @@ fn quote_scalar(value: &str) -> String {
     if is_bare(value) {
         return value.to_owned();
     }
-    let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
+    // Line terminators are escaped too: raw, they end the key line and the field is lost.
+    let mut escaped = String::with_capacity(value.len() + 2);
+    for c in value.chars() {
+        match c {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\u{2028}' => escaped.push_str("\\u2028"),
+            '\u{2029}' => escaped.push_str("\\u2029"),
+            other => escaped.push(other),
+        }
+    }
     format!("\"{escaped}\"")
+}
+
+/// Reverses `quote_scalar` in one pass; an unknown escape stays as written.
+fn unescape_double(inner: &str) -> String {
+    let mut out = String::with_capacity(inner.len());
+    let mut rest = inner;
+    while let Some((head, tail)) = rest.split_once('\\') {
+        out.push_str(head);
+        let escape = [
+            ("\\", "\\"),
+            ("\"", "\""),
+            ("n", "\n"),
+            ("r", "\r"),
+            ("u2028", "\u{2028}"),
+            ("u2029", "\u{2029}"),
+        ]
+        .iter()
+        .find_map(|(code, text)| tail.strip_prefix(code).map(|after| (*text, after)));
+        let (text, after) = escape.unwrap_or(("\\", tail));
+        out.push_str(text);
+        rest = after;
+    }
+    out.push_str(rest);
+    out
 }
 
 /// Plain enough to write unquoted and read back as the same string.
@@ -362,7 +398,7 @@ fn unquote(raw: &str) -> String {
         .strip_prefix('"')
         .and_then(|rest| rest.strip_suffix('"'))
     {
-        return inner.replace("\\\"", "\"").replace("\\\\", "\\");
+        return unescape_double(inner);
     }
     if let Some(inner) = trimmed
         .strip_prefix('\'')

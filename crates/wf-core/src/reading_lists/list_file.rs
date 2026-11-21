@@ -9,12 +9,14 @@
 //! wf: 3
 //! title: My review
 //! items:
-//!   - {"id":"d1","item":"i1","reviewer":"u1","stage":"title_abstract","decision":"included","added":"2026-11-19T10:00:00Z"}
+//!   - {"id":"d1","item":"[[Smith 2024]]","reviewer":"u1","stage":"title_abstract","decision":"included","added":"2026-11-19T10:00:00Z"}
 //! ---
 //! ```
 //!
-//! Every entry stays in the file. The decision that counts for an item, reviewer and
-//! stage is the one with the latest `added` ([`effective_decisions`]). Pure: no I/O.
+//! `item` names the paper as a `[[link]]` to its note, never by id. Links to the same
+//! note count as one item ([`item_key`]). Every entry stays in the file. The decision
+//! that counts for an item, reviewer and stage is the one with the latest `added`
+//! ([`effective_decisions`]). Pure: no I/O.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -22,6 +24,7 @@ use serde_json::Value;
 use super::screening::{ScreeningDecision, ScreeningStage, ScreeningState};
 use crate::experiment_status::parse_iso_utc_ms;
 use crate::sync::frontmatter::{FORMAT_VERSION, read_frontmatter, split_fences, write_frontmatter};
+use crate::vault::page::parse_wikilink_inner;
 
 const ITEMS: &str = "items";
 const VERSION: &str = "wf";
@@ -32,7 +35,7 @@ const VERSION: &str = "wf";
 pub struct ListEntry {
     /// Decision id.
     pub id: String,
-    /// The list item the decision is about.
+    /// The paper the decision is about, as a `[[link]]` to its note.
     pub item: String,
     /// Who decided.
     pub reviewer: String,
@@ -138,8 +141,9 @@ pub fn read_list_file(text: &str) -> Result<ListFile, ListFileError> {
         };
         for line in lines {
             let raw = line.as_str().unwrap_or_default();
-            let entry =
+            let entry: ListEntry =
                 serde_json::from_str(raw).map_err(|e| ListFileError::BadEntry(e.to_string()))?;
+            check_link(&entry.item)?;
             entries.push(entry);
         }
     }
@@ -148,6 +152,36 @@ pub fn read_list_file(text: &str) -> Result<ListFile, ListFileError> {
         entries,
         body: parsed.body,
     })
+}
+
+/// The note a `[[link]]` points at, in a form where links to the same note compare
+/// equal: alias, heading and block dropped, `.md` dropped, lower case. `None` when
+/// `item` is not exactly one link (an id, an empty link, or text around it).
+#[must_use]
+pub fn item_key(item: &str) -> Option<String> {
+    let inner = item.trim().strip_prefix("[[")?.strip_suffix("]]")?;
+    if inner.contains("[[") || inner.contains("]]") {
+        return None;
+    }
+    let target = parse_wikilink_inner(inner, item).target;
+    let target = target.trim();
+    let target = target.strip_suffix(".md").unwrap_or(target).trim();
+    (!target.is_empty()).then(|| target.to_lowercase())
+}
+
+/// `Ok` when `item` is a `[[link]]`.
+fn check_link(item: &str) -> Result<(), ListFileError> {
+    match item_key(item) {
+        Some(_) => Ok(()),
+        None => Err(ListFileError::BadEntry(format!(
+            "item {item:?} is not a [[link]] to a paper note"
+        ))),
+    }
+}
+
+/// `item_key`, or the text itself when it is not a link.
+fn key_of(item: &str) -> String {
+    item_key(item).unwrap_or_else(|| item.to_owned())
 }
 
 /// Writes `file` back as text, adding `wf: 3` first when the file has no version.
@@ -167,7 +201,7 @@ pub fn render_list_file(file: &ListFile) -> Result<String, ListFileError> {
         out.push_str("items:\n");
         for entry in &file.entries {
             out.push_str("  - ");
-            out.push_str(&entry_line(entry));
+            out.push_str(&entry_line(entry)?);
             out.push('\n');
         }
     }
@@ -220,11 +254,9 @@ fn splice_entries(text: &str, file: &ListFile) -> Result<String, ListFileError> 
     let mut items: Vec<String> = Vec::new();
     if !file.entries.is_empty() {
         items.push(format!("{ITEMS}:"));
-        items.extend(
-            file.entries
-                .iter()
-                .map(|e| format!("  - {}", entry_line(e))),
-        );
+        for entry in &file.entries {
+            items.push(format!("  - {}", entry_line(entry)?));
+        }
     }
     match lines.iter().position(|l| is_items_key(l)) {
         Some(at) => {
@@ -270,11 +302,16 @@ fn items_block_end(lines: &[String], at: usize) -> usize {
 
 /// One entry as single-line JSON. U+2028 and U+2029 are escaped too, because the
 /// frontmatter reader treats them as line ends.
-fn entry_line(entry: &ListEntry) -> String {
-    serde_json::to_string(entry)
-        .unwrap_or_default()
+///
+/// # Errors
+///
+/// [`ListFileError::BadEntry`] when the entry cannot be serialised. The caller then writes
+/// nothing, rather than an empty `items` line that would drop the entry.
+fn entry_line(entry: &ListEntry) -> Result<String, ListFileError> {
+    let json = serde_json::to_string(entry).map_err(|e| ListFileError::BadEntry(e.to_string()))?;
+    Ok(json
         .replace('\u{2028}', "\\u2028")
-        .replace('\u{2029}', "\\u2029")
+        .replace('\u{2029}', "\\u2029"))
 }
 
 /// Every decision in the file, in file order.
@@ -290,16 +327,18 @@ pub fn list_decisions(text: &str) -> Result<Vec<ScreeningDecision>, ListFileErro
         .collect())
 }
 
-/// Whether the list has any entry about `item`, whatever its decision.
+/// Whether the list has any entry about `item`, whatever its decision. Links to the
+/// same note count as one item ([`item_key`]).
 ///
 /// # Errors
 ///
 /// As [`read_list_file`].
 pub fn holds_item(text: &str, item: &str) -> Result<bool, ListFileError> {
+    let key = key_of(item);
     Ok(read_list_file(text)?
         .entries
         .iter()
-        .any(|entry| entry.item == item))
+        .any(|entry| key_of(&entry.item) == key))
 }
 
 /// Whether time `a` is the same as or after `b`. Both are compared as instants when
@@ -311,14 +350,16 @@ fn not_earlier(a: &str, b: &str) -> bool {
     a >= b
 }
 
-/// The decision that counts per item, reviewer and stage: the latest `decided_at`, a tie
-/// going to the one later in `decisions`. Kept in the order each key first appears.
+/// The decision that counts per item ([`item_key`]), reviewer and stage: the latest
+/// `decided_at`, a tie going to the one later in `decisions`. Kept in the order each key
+/// first appears.
 #[must_use]
 pub fn effective_decisions(decisions: &[ScreeningDecision]) -> Vec<ScreeningDecision> {
     let mut out: Vec<ScreeningDecision> = Vec::new();
     for d in decisions {
+        let key = key_of(&d.item_id);
         let slot = out.iter_mut().find(|e| {
-            e.item_id == d.item_id && e.reviewer_id == d.reviewer_id && e.stage == d.stage
+            key_of(&e.item_id) == key && e.reviewer_id == d.reviewer_id && e.stage == d.stage
         });
         match slot {
             Some(e) if not_earlier(&d.decided_at, &e.decided_at) => *e = d.clone(),
@@ -334,8 +375,10 @@ pub fn effective_decisions(decisions: &[ScreeningDecision]) -> Vec<ScreeningDeci
 ///
 /// # Errors
 ///
-/// As [`read_list_file`] and [`render_list_file`].
+/// As [`read_list_file`] and [`render_list_file`]; [`ListFileError::BadEntry`] when
+/// `decision.item_id` is not a `[[link]]`.
 pub fn record_decision(text: &str, decision: &ScreeningDecision) -> Result<String, ListFileError> {
+    check_link(&decision.item_id)?;
     let mut file = read_list_file(text)?;
     let entry = ListEntry::from(decision);
     match file.entries.iter_mut().find(|e| e.id == decision.id) {
@@ -356,16 +399,17 @@ pub fn remove_decision(text: &str, id: &str) -> Result<String, ListFileError> {
     splice_entries(text, &file)
 }
 
-/// `text` with each entry marked missing when its item is not in `known_items`, and
-/// unmarked when it is. No decision is removed or changed.
+/// `text` with each entry marked missing when no link in `known_items` points at its
+/// note ([`item_key`]), and unmarked when one does. No decision is removed or changed.
 ///
 /// # Errors
 ///
 /// As [`read_list_file`] and [`render_list_file`].
 pub fn mark_missing(text: &str, known_items: &[String]) -> Result<String, ListFileError> {
     let mut file = read_list_file(text)?;
+    let known: Vec<String> = known_items.iter().map(|k| key_of(k)).collect();
     for entry in &mut file.entries {
-        entry.missing = !known_items.contains(&entry.item);
+        entry.missing = !known.contains(&key_of(&entry.item));
     }
     splice_entries(text, &file)
 }

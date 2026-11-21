@@ -34,8 +34,15 @@ function createSocket(transport: LiveTransport) {
   // Bumped on every connect and disconnect, so a reply from an old link is dropped.
   let generation = 0
 
+  // One broken listener must not stop the rest, or the poll loop (P2-221).
   const fire = (name: string, ...args: unknown[]) => {
-    for (const fn of [...(listeners.get(name) ?? [])]) fn(...args)
+    for (const fn of [...(listeners.get(name) ?? [])]) {
+      try {
+        fn(...args)
+      } catch (err) {
+        console.error(`Overleaf live link: a '${name}' listener failed`, err)
+      }
+    }
   }
 
   const drop = (gen: number) => {
@@ -72,7 +79,12 @@ function createSocket(transport: LiveTransport) {
       if (inner.connected || inner.connecting) return
       const gen = ++generation
       inner.connecting = true
-      void transport.open().then((result) => {
+      // A rejected open is a failed connect, not a socket stuck connecting.
+      const opened = transport.open().catch((err: unknown) => ({
+        ok: false as const,
+        message: err instanceof Error ? err.message : String(err),
+      }))
+      void opened.then((result) => {
         if (gen !== generation) return
         inner.connecting = false
         if (!result.ok) return fire('connect_failed', new Error(result.message))

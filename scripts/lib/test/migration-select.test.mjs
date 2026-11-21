@@ -1,7 +1,22 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { matchesOnly } from "../migration-select.mjs";
+import { matchesOnly, selectOnly } from "../migration-select.mjs";
+
+test("--only that matches in both migration directories is ambiguous (P2-102)", () => {
+  const base = ["0001_init.sql", "0025_tags.sql"];
+  const selfHosted = ["0000_self_host_prereqs.sql", "0025_self_host_auth.sql"];
+  assert.deepEqual(selectOnly([base, selfHosted], "25"), {
+    names: ["0025_tags.sql", "0025_self_host_auth.sql"],
+    ambiguous: true,
+  });
+  assert.deepEqual(selectOnly([base, selfHosted], "0025_self_host_auth"), {
+    names: ["0025_self_host_auth.sql"],
+    ambiguous: false,
+  });
+  assert.deepEqual(selectOnly([base, selfHosted], "1"), { names: ["0001_init.sql"], ambiguous: false });
+  assert.deepEqual(selectOnly([base, selfHosted], "9"), { names: [], ambiguous: false });
+});
 
 const files = ["0011_a.sql", "0110_b.sql", "0114_c.sql", "1011_d.sql", "0025_self_host_auth.sql"];
 

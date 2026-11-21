@@ -149,6 +149,14 @@ export async function copyTable(source, target, table, options = {}) {
   if (shared.length === 0) return { table, copied: 0, skipped: "no shared columns" };
 
   const pk = await primaryKeyOf(target, table, schema);
+  // Without a key, `on conflict` never fires, so copying onto rows already there
+  // would duplicate every one of them.
+  if (!pk.length) {
+    const { rows } = await target.query(`select exists (select 1 from "${schema}"."${table}") as present`);
+    if (rows[0]?.present) {
+      throw new Error(`"${table}" has no primary key and already has rows; empty it before copying again`);
+    }
+  }
   const quoted = shared.map((column) => `"${column}"`).join(", ");
   const rowsPerBatch = Math.max(1, Math.min(BATCH_ROWS, Math.floor(MAX_PARAMS / shared.length)));
 
@@ -227,6 +235,25 @@ export async function resyncSequences(client, schema = "public") {
     );
   }
   return rows.length;
+}
+
+/**
+ * Whether any table in `schema` holds a row.
+ *
+ * Probes the tables themselves. `pg_stat_user_tables.n_live_tup` is a statistic:
+ * it reads 0 until analyze or autovacuum runs, so right after a restore a full
+ * database looked empty.
+ */
+export async function hasAnyRows(client, schema = "public") {
+  const { rows: tables } = await client.query(
+    "select tablename from pg_tables where schemaname = $1 order by tablename",
+    [schema],
+  );
+  for (const { tablename } of tables) {
+    const { rows } = await client.query(`select exists (select 1 from "${schema}"."${tablename}") as present`);
+    if (rows[0]?.present) return true;
+  }
+  return false;
 }
 
 /** Row counts per table, for comparing the two sides afterwards. */

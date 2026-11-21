@@ -124,7 +124,8 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
         logReferenceFailure(action, entry, err);
         if (current()) setResolution(entry.index, { status: "unresolved" });
       })
-      .finally(() => inflight.current.delete(entry.index));
+      // After a document change the slot, if taken, is the new document's lookup (P2-195).
+      .finally(() => { if (current()) inflight.current.delete(entry.index); });
   }, [setResolution]);
 
   const resolve = useCallback((entry: ParsedReference) => {
@@ -140,8 +141,11 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
         continue;
       }
       const startedAt = Date.now();
+      const key = documentKeyRef.current;
       void lookUp("Prefetch", next)
         .finally(() => {
+          // The document changed: its own queue runs, and must not get a second chain (P2-195).
+          if (documentKeyRef.current !== key) return;
           inflight.current.delete(next.index);
           if (queueActiveRef.current && queueRef.current.length > 0) {
             const elapsed = Date.now() - startedAt;
@@ -263,40 +267,55 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     });
   }, []);
 
-  const actions = useMemo(() => ({
-    addManually: (entry: ParsedReference) =>
-      facade().actions.addManually(entry)
-        .then(({ paper, created }) => { markInLibrary(entry, paper); say(entry, readyCore().addedNotice(created)); })
-        .catch(fail("Add manually", entry)),
-    // `metadata` is the record the popover showed; adding it skips a second
-    // search that could find a different paper.
-    addToLibrary: (entry: ParsedReference, metadata?: PaperMetadata) =>
-      facade().actions.addToLibrary(entry, metadata)
-        .then(({ paper, created }) => { markInLibrary(entry, paper); say(entry, readyCore().addedNotice(created)); })
-        .catch(fail("Add to library", entry)),
-    linkPapers: (entry: ParsedReference, citedId: string) => {
-      if (!paperId) return Promise.resolve();
-      return facade().actions.linkPapers(paperId, citedId)
-        .then(() => { setLinked((prev) => new Set(prev).add(citedId)); say(entry, "Linked"); })
-        .catch(fail("Link papers", entry));
-    },
-    cite: (resolution: ResolvedReference, entry: ParsedReference) => {
-      const text = resolution.status === "resolved"
-        ? [resolution.metadata.authors?.join(", "), resolution.metadata.year ? `(${resolution.metadata.year})` : "", resolution.metadata.title, resolution.metadata.venue, resolution.metadata.doi ? `https://doi.org/${resolution.metadata.doi}` : ""].filter(Boolean).join(". ").replace(/\.\./g, ".")
-        : entry.raw;
-      return navigator.clipboard?.writeText(text).then(() => say(entry, "Citation copied")).catch(fail("Cite", entry)) ?? Promise.resolve();
-    },
-    jumpToEntry: (entry: ParsedReference) => {
-      // The entry carries its first line's position; landing on the page
-      // alone leaves the reader hunting through a two-column bibliography.
-      // The target scroll is the only scroll: setting the page as well queues
-      // a scroll to the page top that overrides it, and the page tracker
-      // follows the scroll on its own.
-      setOpen(null);
-      if (onFigureTarget) onFigureTarget({ page: entry.page, x: entry.x, y: entry.y });
-      else setPage(entry.page);
-    },
-  }), [markInLibrary, say, fail, paperId, setPage, onFigureTarget]);
+  // Reference numbers belong to one document: an answer that lands after the
+  // reader moved on must not mark or label the next document's entry (P2-196).
+  const actions = useMemo(() => {
+    const onThisDocument = () => {
+      const key = documentKeyRef.current;
+      return <A extends unknown[]>(fn: (...args: A) => void) =>
+        (...args: A) => { if (documentKeyRef.current === key) fn(...args); };
+    };
+    return {
+      addManually: (entry: ParsedReference) => {
+        const here = onThisDocument();
+        return facade().actions.addManually(entry)
+          .then(here(({ paper, created }: { paper: Paper; created: boolean }) => { markInLibrary(entry, paper); say(entry, readyCore().addedNotice(created)); }))
+          .catch(here(fail("Add manually", entry)));
+      },
+      // `metadata` is the record the popover showed; adding it skips a second
+      // search that could find a different paper.
+      addToLibrary: (entry: ParsedReference, metadata?: PaperMetadata) => {
+        const here = onThisDocument();
+        return facade().actions.addToLibrary(entry, metadata)
+          .then(here(({ paper, created }: { paper: Paper; created: boolean }) => { markInLibrary(entry, paper); say(entry, readyCore().addedNotice(created)); }))
+          .catch(here(fail("Add to library", entry)));
+      },
+      linkPapers: (entry: ParsedReference, citedId: string) => {
+        if (!paperId) return Promise.resolve();
+        const here = onThisDocument();
+        return facade().actions.linkPapers(paperId, citedId)
+          .then(here(() => { setLinked((prev) => new Set(prev).add(citedId)); say(entry, "Linked"); }))
+          .catch(here(fail("Link papers", entry)));
+      },
+      cite: (resolution: ResolvedReference, entry: ParsedReference) => {
+        const text = resolution.status === "resolved"
+          ? [resolution.metadata.authors?.join(", "), resolution.metadata.year ? `(${resolution.metadata.year})` : "", resolution.metadata.title, resolution.metadata.venue, resolution.metadata.doi ? `https://doi.org/${resolution.metadata.doi}` : ""].filter(Boolean).join(". ").replace(/\.\./g, ".")
+          : entry.raw;
+        const here = onThisDocument();
+        return navigator.clipboard?.writeText(text).then(here(() => say(entry, "Citation copied"))).catch(here(fail("Cite", entry))) ?? Promise.resolve();
+      },
+      jumpToEntry: (entry: ParsedReference) => {
+        // The entry carries its first line's position; landing on the page
+        // alone leaves the reader hunting through a two-column bibliography.
+        // The target scroll is the only scroll: setting the page as well queues
+        // a scroll to the page top that overrides it, and the page tracker
+        // follows the scroll on its own.
+        setOpen(null);
+        if (onFigureTarget) onFigureTarget({ page: entry.page, x: entry.x, y: entry.y });
+        else setPage(entry.page);
+      },
+    };
+  }, [markInLibrary, say, fail, paperId, setPage, onFigureTarget]);
 
   return {
     index,

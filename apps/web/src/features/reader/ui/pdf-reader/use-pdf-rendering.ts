@@ -8,6 +8,7 @@ import { createPdfTextLayer, measurePdfLinks } from "./pdf-text-layer";
 import { idle } from "./pdf-page-window";
 import { useContainerSize } from "./container-resize";
 import { canvasSize } from "./canvas-size";
+import { holdPageProxy } from "./page-proxy";
 
 import { getContainer } from "@/bootstrap";
 import { readyCore } from "@/lib/rust-core";
@@ -402,7 +403,7 @@ useEffect(() => {
             // Findable now rather than after a reload: index in slices so
             // tokenizing whole PDFs yields rather than stalling the UI.
             const indexStart = perfStart();
-            await getContainer().search.indexPdfInSlices(source, () => idle());
+            await getContainer().search.indexPdfInSlices(source, () => idle(), undefined, () => cancelled);
             perfEnd("pdf:index", indexStart);
             if (cancelled) return;
           }
@@ -562,9 +563,8 @@ useEffect(() => {
             `[data-page="${pageNumber}"]`,
           );
           if (!host) return;
-          const pdfPage = pageProxies.current.get(pageNumber) ?? (await pdf.getPage(pageNumber));
-          pageProxies.current.set(pageNumber, pdfPage);
-          if (isStale()) return;
+          const pdfPage = await holdPageProxy(pageProxies.current, pageNumber, () => pdf.getPage(pageNumber), isStale);
+          if (!pdfPage) return;
           const viewport = pdfPage.getViewport({ scale, rotation });
           const canvas = host.querySelector("canvas");
           if (!(canvas instanceof HTMLCanvasElement)) return;

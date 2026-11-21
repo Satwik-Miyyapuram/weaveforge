@@ -3,7 +3,6 @@
 //!
 //! The TS re-export `outlineIsPlausible` is not repeated here; it lives in `outline.rs`.
 
-use std::cmp::Ordering;
 use std::sync::LazyLock;
 
 use regex_lite::Regex;
@@ -122,7 +121,7 @@ fn unnumbered_sizes(decorated: &[HeadingLine]) -> Vec<f64> {
             sizes.push(size);
         }
     }
-    sizes.sort_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
+    sizes.sort_by(|a, b| b.total_cmp(a));
     sizes
 }
 
@@ -281,6 +280,22 @@ mod tests {
                 node("2 Method", 660.0, None),
             ]
         );
+    }
+
+    #[test]
+    fn a_nan_font_size_among_many_sorts_without_panicking() {
+        let mut lines: Vec<AnalysisTextLine> = (0..25)
+            .map(|i| {
+                text_line(
+                    &format!("Part {i}"),
+                    f64::from(i) + 8.0,
+                    false,
+                    700.0 - f64::from(i),
+                )
+            })
+            .collect();
+        lines.push(text_line("Odd", f64::NAN, false, 100.0));
+        assert!(!heading_outline(&lines).is_empty());
     }
 
     #[test]

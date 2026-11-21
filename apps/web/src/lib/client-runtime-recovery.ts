@@ -19,13 +19,21 @@ async function resetClientRuntimeCaches(): Promise<void> {
   await clearCacheStorage();
 }
 
+/** Every localStorage prefix this app writes under (P2-216). */
+const APP_STORAGE_PREFIXES = ["tt:", "thesis.", "weaveforge.", "wf.", "sb-"];
+
+/** Whether a localStorage key belongs to this app, so a reset removes it. */
+export function isAppStorageKey(key: string): boolean {
+  return APP_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+
 /** Clear WeaveForge local/session keys that can poison cold start after a crash. */
 function clearThesisWebStorage(): void {
   try {
     const drop: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && (k.startsWith("thesis.") || k.startsWith("sb-"))) drop.push(k);
+      if (k && isAppStorageKey(k)) drop.push(k);
     }
     for (const k of drop) localStorage.removeItem(k);
   } catch {

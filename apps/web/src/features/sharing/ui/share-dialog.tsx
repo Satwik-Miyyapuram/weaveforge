@@ -88,12 +88,17 @@ export function ShareDialog({
       setError("Select a project before blanket sharing.");
       return;
     }
+    // Each person is unpicked as their grant lands and the list reloads either
+    // way, so a failure part-way shows who now has access (P2-243).
     await runShareAction(async () => {
-      for (const recipientId of toAdd) {
-        await getContainer().sharing.manageSharing.grant({ recipientId, resourceType, resourceId, access });
+      try {
+        for (const recipientId of toAdd) {
+          await getContainer().sharing.manageSharing.grant({ recipientId, resourceType, resourceId, access });
+          setToAdd((p) => p.filter((x) => x !== recipientId));
+        }
+      } finally {
+        await reload();
       }
-      setToAdd([]);
-      await reload();
     }, ui);
   }
 

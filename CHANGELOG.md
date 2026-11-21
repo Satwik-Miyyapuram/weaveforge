@@ -22,6 +22,24 @@ tracks at once.
 
 ### iOS
 
+## [0.9.6] - 2026-11-21
+
+Desktop (`v0.9.6`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+This release is the fixes from a full code review. Nothing new to learn; things that could lose work or get stuck no longer do.
+
+### Desktop
+- **Fixed:** Zotero sync never deletes a paper whose item is still in your library, including after switching collections.
+- **Fixed:** Annotations edited while a Zotero push is running stay queued and sync on the next push.
+- **Fixed:** A note property whose value holds a line break is kept instead of vanishing on the next open.
+- **Fixed:** A child note with the same title as its parent no longer overwrites it.
+- **Fixed:** Importing a file can no longer overwrite another note.
+- **Fixed:** Deleting a note moves it to the workspace trash folder.
+- **Fixed:** Ink drawn on a PDF stops cleanly when the pen leaves the page, and the overlay follows the current tool.
+- **Fixed:** The reader no longer deletes PDFs from your workspace when it frees memory.
+- **Fixed:** Search no longer shows results from an old index, and recovers when its worker crashes.
+- **Fixed:** Many smaller fixes in the reader, papers, reading lists, report, sharing, settings and tabs: errors now say what failed, and late responses no longer land on the wrong item.
+- **Security:** Error reports and the desktop log hide tokens and home folder paths, and secrets are never written into workspace files.
+
 ## [0.9.5] - 2026-11-20
 
 Desktop (`v0.9.5`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.

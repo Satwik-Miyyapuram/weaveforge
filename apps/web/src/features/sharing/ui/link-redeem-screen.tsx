@@ -16,11 +16,13 @@ export function LinkRedeemScreen() {
   const [error, setError] = useState<string | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const token = params.get("t");
-  const redeemStarted = useRef(false);
+  // The token last redeemed: a new link in the same screen redeems too (P2-244).
+  const redeemedFor = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!token || redeemStarted.current) return;
-    redeemStarted.current = true;
+    if (!token || redeemedFor.current === token) return;
+    redeemedFor.current = token;
+    setError(null);
     setRedeeming(true);
 
     // Deliberately not cancelled on cleanup. A redemption runs once per token —
@@ -30,8 +32,11 @@ export function LinkRedeemScreen() {
     void (async () => {
       try {
         const resolved = await getContainer().sharing.redeemShareLink(token);
+        // A newer token owns the screen now.
+        if (redeemedFor.current !== token) return;
         router.replace(sharedResourceHref(resolved.resourceType, resolved.resourceId));
       } catch (e) {
+        if (redeemedFor.current !== token) return;
         setError(formatError(e));
         setRedeeming(false);
       }

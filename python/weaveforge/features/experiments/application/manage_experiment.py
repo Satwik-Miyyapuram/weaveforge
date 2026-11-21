@@ -7,6 +7,7 @@ over ``experiment_metric_points`` and ``experiment_metric_chunks``).
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Iterable
 from typing import Any
 
@@ -21,6 +22,7 @@ from ..domain.experiment import (
 from ..domain.experiment_repository import IExperimentRepository
 from ..domain.metric_point import MetricPoint
 from ..domain.metric_repository import IMetricRepository
+from ..infrastructure.experiment_row import to_row
 
 _TERMINAL: tuple[ExperimentStatus, ...] = ("done", "failed", "abandoned")
 
@@ -131,6 +133,13 @@ class ManageExperimentUseCase:
         base = existing if existing is not None else self._repo.get_by_id(id)
         if base is None:
             raise ExperimentValidationError(f'No experiment with id "{id}".')
+        # Snapshot first: change() edits base in place. Only the columns this
+        # call changed are written, so a stale `existing` cannot erase edits
+        # another writer made to the other columns.
+        before = copy.deepcopy(to_row(base))
         updated = change(base)
-        self._repo.save(updated)
+        after = to_row(updated)
+        fields = {k: v for k, v in after.items() if before.get(k) != v}
+        if fields:
+            self._repo.save_fields(id, fields)
         return updated

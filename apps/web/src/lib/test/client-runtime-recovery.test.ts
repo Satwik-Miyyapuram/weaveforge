@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isAndroidApp, RESET_APP_DATA_CONFIRM } from "../client-runtime-recovery";
+import { isAndroidApp, isAppStorageKey, RESET_APP_DATA_CONFIRM } from "../client-runtime-recovery";
 
 function withDocument(doc: unknown, run: () => void): void {
   const g = globalThis as { document?: unknown };
@@ -44,4 +44,11 @@ test("the reset warning names what is lost and that it is final", () => {
     RESET_APP_DATA_CONFIRM,
     "Reset app data? Offline copies of your work on this device will be deleted. This cannot be undone.",
   );
+});
+
+test("reset app data clears every key this app writes, not only thesis. and sb- (P2-216)", () => {
+  for (const key of ["tt:ink-colours", "thesis.workspace", "weaveforge.theme", "wf.lastProject", "sb-abc-auth-token"]) {
+    assert.equal(isAppStorageKey(key), true, key);
+  }
+  for (const key of ["other-site", "ttx", "wfa"]) assert.equal(isAppStorageKey(key), false, key);
 });

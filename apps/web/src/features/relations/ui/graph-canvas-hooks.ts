@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * The two ways the graph view follows the reader.
@@ -39,10 +39,16 @@ export function useFollowSeed(
   autoFitRef: { current: boolean },
   delayMs = 250,
 ): void {
+  // Read through a ref: `nodes` is rebuilt on every pin or data change, and
+  // following must fire once per seed, not once per rebuild (P2-220).
+  const nodesRef = useRef(nodes);
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
   useEffect(() => {
     if (!localSeed) return;
     const timer = setTimeout(() => {
-      const node = nodes.find((n) => n.id === localSeed);
+      const node = nodesRef.current.find((n) => n.id === localSeed);
       if (node?.x == null || node.y == null) return;
       const camera = cameraRef.current as Camera | null;
       autoFitRef.current = false;
@@ -50,7 +56,7 @@ export function useFollowSeed(
       camera?.zoom?.(1.2, 400);
     }, delayMs);
     return () => clearTimeout(timer);
-  }, [localSeed, nodes, cameraRef, autoFitRef, delayMs]);
+  }, [localSeed, cameraRef, autoFitRef, delayMs]);
 }
 
 /**

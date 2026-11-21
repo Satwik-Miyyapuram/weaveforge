@@ -98,6 +98,33 @@ test("a write-back records the Zotero key, so the next sync updates instead of d
   assert.deepEqual(sent, [[created.id], [created.id]]);
 });
 
+test("an edit made while the push is in flight stays owed (P1-10)", async () => {
+  const repo = new InMemoryReaderAnnotationRepository();
+  const created = await repo.create("p1", {
+    type: "highlight", color: "#ffd400", anchor: { zoteroPosition: { pageIndex: 0 } }, pageIndex: 0,
+  });
+  const pusher: ZoteroAnnotationPusher = {
+    push: async (_parent, anns) => {
+      // The user edits the mark after it was read and before the push lands.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      await repo.update(created.id, { comment: "edited mid-push" });
+      return {
+        results: anns.map((a) => ({ id: a.id, outcome: "created" as const, zoteroKey: "ZNEW", zoteroVersion: 7 })),
+      };
+    },
+  };
+  await writeBackZoteroAnnotations({
+    papers: [paper("p1", "ATT1")],
+    attachmentOf: () => "ATT1",
+    annotations: repo,
+    pusher,
+  });
+  const [row] = await repo.list("p1");
+  assert.equal(row!.zoteroKey, "ZNEW");
+  assert.equal(row!.syncState, "pending");
+  assert.deepEqual(annotationsOwedToZotero([row!]).map((a) => a.id), [created.id]);
+});
+
 test("failures and conflicts are counted and reported, not swallowed", async () => {
   const repo = new InMemoryReaderAnnotationRepository();
   const a = await repo.create("p1", {
@@ -174,4 +201,50 @@ test("a recorder or list failure on one paper does not stop the others (22-03)",
   assert.equal(summary.created, 1);
   assert.equal(summary.failed, 2);
   assert.match(summary.firstError ?? "", /db down/);
+});
+
+test("an edit made while the push is in flight stays owed (P1-10)", async () => {
+  const repo = new InMemoryReaderAnnotationRepository();
+  const created = await repo.create("p1", {
+    type: "highlight",
+    color: "#ffd400",
+    text: "hello",
+    anchor: { zoteroPosition: { pageIndex: 0, rects: [[1, 2, 3, 4]] } },
+    pageIndex: 0,
+  });
+  const sent: { id: string; key: string | null; comment: string }[] = [];
+  let editDuringPush = true;
+  const pusher: ZoteroAnnotationPusher = {
+    push: async (_parent, anns) => {
+      for (const a of anns) sent.push({ id: a.id, key: a.zoteroKey ?? null, comment: a.comment });
+      if (editDuringPush) {
+        editDuringPush = false;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        await repo.update(created.id, { comment: "typed during the push" });
+      }
+      return {
+        results: anns.map((a) => ({
+          id: a.id,
+          outcome: a.zoteroKey ? ("updated" as const) : ("created" as const),
+          zoteroKey: a.zoteroKey ?? "ZNEW",
+          zoteroVersion: 10,
+        })),
+      };
+    },
+  };
+  const deps = {
+    papers: [paper("p1", "ATT1")],
+    attachmentOf: (p: Paper) => p.metadata?.["zoteroAttachmentKey"] as string | undefined,
+    annotations: repo,
+    pusher,
+  };
+
+  await writeBackZoteroAnnotations(deps);
+  const [row] = await repo.list("p1");
+  assert.equal(row!.zoteroKey, "ZNEW");
+  assert.equal(row!.syncState, "pending");
+
+  const next = await writeBackZoteroAnnotations(deps);
+  assert.equal(next.updated, 1);
+  assert.deepEqual(sent.at(-1), { id: created.id, key: "ZNEW", comment: "typed during the push" });
 });

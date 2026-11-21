@@ -8,6 +8,7 @@ import {
   type WorkspaceProject,
 } from "@weaveforge/core";
 import type { ChangeSide, HeldReason, ImportDiff, ImportDiffEntry } from "@weaveforge/wasm";
+import type { SkippedFile } from "./parts-2";
 
 // --- mirror-manifest ---
 /**
@@ -645,6 +646,8 @@ export type FolderDiff = ImportDiff & {
   stored?: Readonly<Record<string, string>>;
   /** Canvas paths matched to their page by body (`canvasRenameIds`): renamed or moved outside the app. */
   canvasRenamed?: readonly string[];
+  /** Files an earlier apply refused (their id is not valid or another note holds it), each with the reason. */
+  refused?: readonly SkippedFile[];
 };
 
 export type { HeldReason };

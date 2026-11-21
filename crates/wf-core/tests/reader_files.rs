@@ -7,7 +7,7 @@ use wf_core::reader::annotations_file::{
     AnnotationRow, AnnotationsFileError, annotations_file_path, merge_annotations,
     parse_annotations, render_annotations,
 };
-use wf_core::sync::folder_layout::{annotations_path, paper_pdf_path};
+use wf_core::sync::folder_layout::{annotations_path, comments_path};
 
 /// Helpers live here so `cfg(test)` covers their unwraps, which clippy would otherwise flag.
 #[cfg(test)]
@@ -121,15 +121,42 @@ fn edit_beats_delete_and_conflict_keeps_disk() {
 }
 
 #[test]
-fn file_path_is_the_pdf_sidecar() {
+fn duplicate_ids_are_refused() {
     assert_eq!(
-        annotations_file_path("p-1", "thesis"),
-        annotations_path(&paper_pdf_path("p-1", "thesis"))
+        parse_annotations("[{\"id\":\"a\"},{\"id\":\"b\"},{\"id\":\"a\",\"x\":1}]"),
+        Err(AnnotationsFileError::DuplicateId("a".to_owned()))
+    );
+}
+
+#[test]
+fn file_path_sits_next_to_the_paper_under_its_name() {
+    assert_eq!(
+        annotations_file_path("thesis/papers/Attention is all.paper.md"),
+        "thesis/papers/Attention is all.annotations.json"
     );
     assert_eq!(
-        annotations_file_path("p-1", ""),
-        "papers/pdf/p-1.annotations.json"
+        annotations_file_path("papers/x.paper.md"),
+        "papers/x.annotations.json"
     );
+    // A paper stored as its PDF keeps the PDF's sidecar.
+    assert_eq!(
+        annotations_file_path("thesis/papers/x.pdf"),
+        annotations_path("thesis/papers/x.pdf")
+    );
+    // No id in the path: a dotted name keeps everything before the kind.
+    assert_eq!(
+        annotations_file_path("p/papers/v1.2 notes.paper.md"),
+        "p/papers/v1.2 notes.annotations.json"
+    );
+}
+
+#[test]
+fn comments_sit_next_to_the_paper_under_its_name() {
+    assert_eq!(
+        comments_path("thesis/papers/x.paper.md"),
+        "thesis/papers/x.comments.json"
+    );
+    assert_eq!(comments_path("p/notes/x.md"), "p/notes/x.comments.json");
 }
 
 // ---- Laws (property tests) ----

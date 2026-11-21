@@ -12,6 +12,7 @@ import type { ParsedReference } from "@weaveforge/core";
 import type { ResolvedReference } from "../application/parts-2";
 import { useReaderReferences } from "../ui/pdf-reader/use-reader-references";
 import { loadTestCore } from "@/lib/test/load-test-core";
+import { setContainerForTests } from "@/bootstrap";
 import type { PageTextItem } from "@weaveforge/wasm";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -142,4 +143,54 @@ test("a failed prefetch is logged and marked unresolved (24-17)", async () => {
   assert.equal(logs[0]!.source, "reader.references");
   assert.match(logs[0]!.detail ?? "", /lookup down/);
   h.unmount();
+});
+test("a lookup that settles after the document changed leaves the new document's queue alone (P2-195)", async () => {
+  const calls: string[] = [];
+  const pending = new Map<string, (v: ResolvedReference) => void>();
+  const h = mount("doc-a", (key, entry) => {
+    calls.push(`${key}:${entry.index}`);
+    return new Promise((r) => pending.set(`${key}:${entry.index}`, r));
+  });
+  act(() => h.get().startPrefetch());
+  assert.equal(calls.length, 1);
+  const oldCall = calls[0]!;
+  // Another document with the same three entries: its key differs, its indices do not.
+  const pagesB = new Map(pageItems);
+  pagesB.set(1, [run("A different opening [1] line.", 700), ...pageItems.get(1)!.slice(1)]);
+  h.rerender("doc-b", pagesB);
+  act(() => h.get().startPrefetch());
+  assert.equal(calls.length, 2, "the new document's queue started its own lookup");
+  assert.notEqual(calls[1]!.split(":")[0], oldCall.split(":")[0], "the document key changed");
+  await act(async () => {
+    pending.get(oldCall)!(found("late"));
+    await new Promise((r) => setTimeout(r, 1100));
+  });
+  // The old lookup must neither free the new one's slot nor start a second queue.
+  assert.equal(calls.length, 2, `no second lookup ran beside the first: ${calls.join(", ")}`);
+  act(() => h.get().ensureResolved(h.get().index.byIndex.get(1)!));
+  assert.equal(calls.length, 2);
+  h.get().stopPrefetch();
+  h.unmount();
+});
+test("an add that settles after the document changed marks and says nothing (P2-196)", async () => {
+  let settle: (v: { paper: unknown; created: boolean }) => void = () => {};
+  setContainerForTests({
+    readerReferences: { actions: { addToLibrary: () => new Promise((r) => (settle = r)) } },
+  } as never);
+  try {
+    const h = mount("doc-a", async () => found("x"), new Map());
+    const entry = { index: 1, raw: "x", title: "x", authors: [], page: 1, x: 0, y: 0 } as ParsedReference;
+    let added: Promise<unknown> = Promise.resolve();
+    act(() => { added = h.get().actions.addToLibrary(entry); });
+    h.rerender("doc-b", new Map());
+    await act(async () => {
+      settle({ paper: { id: "p1", title: "Old doc's paper", authors: [] }, created: true });
+      await added;
+    });
+    assert.equal(h.get().resolutions.has(1), false);
+    assert.equal(h.get().notice, null);
+    h.unmount();
+  } finally {
+    setContainerForTests(null);
+  }
 });

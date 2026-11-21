@@ -42,7 +42,7 @@ import { overleafSyncAvailable } from "@/features/overleaf/application/parts";
 import { OverleafSyncPanel } from "./overleaf-sync-panel";
 import { FolderFileHistory } from "./folder-file-history";
 import { ChangeFolderAction } from "./change-folder-action";
-import { SkippedFiles } from "./skipped-files";
+import { notImportedNote, SkippedFiles } from "./skipped-files";
 import type { SkippedFile } from "@/features/workspace/application/parts-2";
 import {
   folderWatchLost,
@@ -134,7 +134,7 @@ export function WorkspaceFolderPanel() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [history, setHistory] = useState<readonly WorkspaceCommit[]>([]);
-  const [diff, setDiff] = useState<(ImportDiff & { skipped?: SkippedFile[] }) | null>(null);
+  const [diff, setDiff] = useState<(ImportDiff & { skipped?: SkippedFile[]; refused?: readonly SkippedFile[] }) | null>(null);
   const archiveInput = useRef<HTMLInputElement | null>(null);
   // Resolved after mount: the server has no shell, and disagreeing would be a hydration mismatch.
   const [hasShell, setHasShell] = useState(false);
@@ -509,13 +509,33 @@ export function WorkspaceFolderPanel() {
  */
 const SETTLE_INLINE: ReadonlySet<string> = new Set(["edited on both sides", "no record of the app's write", "removed"]);
 
-function ImportPreview({
-  diff,
-  onApplied,
-}: {
-  diff: ImportDiff & { skipped?: SkippedFile[] };
+type PreviewProps = {
+  diff: ImportDiff & { skipped?: SkippedFile[]; refused?: readonly SkippedFile[] };
   onApplied: (message: string) => void;
-}) {
+};
+
+/** A number per diff object, so each new diff gets a fresh review. */
+const diffIds = new WeakMap<object, number>();
+let nextDiffId = 0;
+function diffKey(diff: object): number {
+  let id = diffIds.get(diff);
+  if (id === undefined) {
+    id = ++nextDiffId;
+    diffIds.set(diff, id);
+  }
+  return id;
+}
+
+/**
+ * The review of one diff. A re-check, restore or ZIP import brings a new diff,
+ * and the choices made against the old one (here and in each conflict card)
+ * must not carry over to it, so each diff mounts its own review (P2-234).
+ */
+export function ImportPreview(props: PreviewProps) {
+  return <ImportReview key={diffKey(props.diff)} {...props} />;
+}
+
+function ImportReview({ diff, onApplied }: PreviewProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /**
@@ -540,7 +560,7 @@ function ImportPreview({
         {diff.counts.unchanged} unchanged · {diff.counts.conflict} conflict
         {diff.counts.conflict === 1 ? "" : "s"}
       </p>
-      <SkippedFiles skipped={diff.skipped ?? []} />
+      <SkippedFiles skipped={[...(diff.skipped ?? []), ...(diff.refused ?? [])]} />
 
       {conflicts.length > 0 && (
         <ul className="wiki-lint-list">
@@ -574,7 +594,9 @@ function ImportPreview({
             setError(null);
             void applyReviewedImport(diff, resolutions)
               .then((result) =>
-                onApplied(`Imported ${result.created} new and ${result.updated} changed note(s).`),
+                onApplied(
+                  `Imported ${result.created} new and ${result.updated} changed note(s).${notImportedNote(result.refused ?? [])}`,
+                ),
               )
               .catch((err) => setError(formatError(err)))
               .finally(() => setBusy(false));

@@ -258,14 +258,6 @@ async function extractPages(bytes: ArrayBuffer): Promise<DocumentPageText[]> {
  */
 const FETCH_DELAY_MS = 3_000;
 
-const pause = (ms: number, signal?: AbortSignal) =>
-  new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    signal?.addEventListener("abort", () => {
-      clearTimeout(timer);
-      resolve();
-    }, { once: true });
-  });
 
 /**
  * Read and index the given papers, one at a time.
@@ -331,7 +323,7 @@ export async function indexLibraryPdfs(
       // A cache hit is served from this device; anything else is somebody
       // else's server, and gets the courtesy delay before it is asked again.
       const fromCache = resolution.resolverId === "browser-cache";
-      if (readyCore().courtesyPauseDue(fromCache, indexed, failed)) await pause(FETCH_DELAY_MS, options.signal);
+      if (readyCore().courtesyPauseDue(fromCache, indexed, failed)) await abortableDelay(FETCH_DELAY_MS, options.signal);
       if (options.signal?.aborted) break;
 
       const bytes = await pdfBytesForSource(resolution.hit.url);
@@ -497,18 +489,22 @@ function rememberFailures(failures: Record<string, number>): void {
   writeStoredJson(FAILED_KEY, failures);
 }
 
-/** Wait `ms`, or less if `signal` aborts first, so turning it off ends the run at once (27-10). */
-function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
+/**
+ * Wait `ms`, or less if `signal` aborts first, so turning it off ends the run
+ * at once (27-10). Exported for tests.
+ */
+export function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timer);
-        resolve();
-      },
-      { once: true },
-    );
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    // A delay that runs out takes its listener off the run's long-lived signal (P2-257).
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
 }
 

@@ -20,6 +20,7 @@ import { activeWorkspaceFs } from "@/features/workspace/application/workspace-fo
 import {
   downloadLibraryPdfs,
   downloadPaperPdf,
+  serialPdfQueue,
 } from "../application/parts-1";
 
 test("with no folder open the library walk is over before it reads anything", async () => {
@@ -46,4 +47,40 @@ test("with no folder open one paper is not fetched either", async () => {
     globalThis.fetch = original;
   }
   assert.equal(attempted, 0, "the web build fetches on open, never in the background");
+});
+
+test("queued downloads run one at a time with a pause between starts (P2-178)", async () => {
+  const pauseMs = 25;
+  let inFlight = 0;
+  let maxInFlight = 0;
+  const starts: number[] = [];
+  const enqueue = serialPdfQueue(async () => {
+    starts.push(Date.now());
+    inFlight += 1;
+    maxInFlight = Math.max(maxInFlight, inFlight);
+    await new Promise((r) => setTimeout(r, 5));
+    inFlight -= 1;
+    return true;
+  }, pauseMs);
+
+  const done = ["p1", "p2", "p3", "p4", "p5"].map((id) => enqueue(id));
+  await Promise.all(done);
+
+  assert.equal(starts.length, 5, "every queued paper is fetched");
+  assert.equal(maxInFlight, 1, "never two fetches at once");
+  for (let i = 1; i < starts.length; i += 1) {
+    // Timers can fire a millisecond early on Windows.
+    assert.ok(starts[i]! - starts[i - 1]! >= pauseMs - 2, `gap ${i} is ${starts[i]! - starts[i - 1]!}ms`);
+  }
+});
+
+test("a failed queued download does not stop the next one (P2-178)", async () => {
+  const seen: string[] = [];
+  const enqueue = serialPdfQueue(async (id) => {
+    seen.push(id);
+    if (id === "bad") throw new Error("boom");
+    return true;
+  }, 0);
+  await Promise.all([enqueue("bad"), enqueue("good")]);
+  assert.deepEqual(seen, ["bad", "good"]);
 });

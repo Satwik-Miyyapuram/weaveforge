@@ -41,6 +41,8 @@ import { removeStored, writeStored } from "@/lib/safe-storage";
 import { readyCore } from "@/lib/rust-core";
 
 let hydrating = false;
+/** Set when the user changes appearance while the server copy is loading (P2-250). */
+let changedWhileHydrating = false;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingAppearance: UserAppearance | null = null;
 
@@ -124,7 +126,10 @@ function applyThemeFromLocalStorage(): void {
 }
 
 function scheduleAppearanceSave(appearance: UserAppearance): void {
-  if (hydrating) return;
+  if (hydrating) {
+    changedWhileHydrating = true;
+    return;
+  }
   pendingAppearance = appearance;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
@@ -199,11 +204,14 @@ export function hydrateThemeFromServer(): Promise<void> {
 
 async function hydrateThemeFromServerUncached(): Promise<void> {
   hydrating = true;
+  changedWhileHydrating = false;
   try {
     const container = await ensureContainer();
     const { appearance } = await container.settings.manageSettings.getMetadata();
+    // A choice made while the server copy loaded is newer than it: keep and save it.
     if (
-      appearance?.mode ||
+      !changedWhileHydrating &&
+      (appearance?.mode ||
       appearance?.lightTheme ||
       appearance?.darkTheme ||
       appearance?.controlSize ||
@@ -213,7 +221,7 @@ async function hydrateThemeFromServerUncached(): Promise<void> {
       appearance?.cardTint ||
       appearance?.cardTilt !== undefined ||
       appearance?.scanlines !== undefined ||
-      appearance?.customTheme !== undefined
+      appearance?.customTheme !== undefined)
     ) {
       writeLocalAppearance(mergeServerAppearance(readLocalAppearance(), appearance));
       applyThemeFromLocalStorage();

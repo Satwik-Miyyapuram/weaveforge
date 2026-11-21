@@ -1242,13 +1242,18 @@ Nothing is deleted from Supabase Storage. Needs `SUPABASE_SERVICE_ROLE_KEY` and
 the R2 variables in `secrets/.env.migration`. Skippable — do it once the database move
 has settled.
 
-To use MinIO as the cold tier, make its bucket first: open
-`http://YOUR_PUBLIC_IP:9001`, sign in with `MINIO_ROOT_USER` /
+MinIO listens on the server's loopback only, so it is never reached on the
+public IP. To use it as the cold tier, make its bucket first: open an ssh
+tunnel (`ssh -L 19001:127.0.0.1:9001 ubuntu@YOUR_PUBLIC_IP`), open
+`http://127.0.0.1:19001`, sign in with `MINIO_ROOT_USER` /
 `MINIO_ROOT_PASSWORD`, then **Buckets** → **Create bucket** →
-`weaveforge-cold`. Then in your app's server environment:
+`weaveforge-cold`. Then in your app's server environment, use the compose
+hostname when the app runs on the server's compose network, or a tunnel
+(`ssh -L 19000:127.0.0.1:9000 ...`, then `http://127.0.0.1:19000`) when it
+runs elsewhere:
 
 ```ini
-BLOB_COLD_ENDPOINT=http://YOUR_PUBLIC_IP:9000
+BLOB_COLD_ENDPOINT=http://minio:9000
 BLOB_COLD_ACCESS_KEY_ID=...
 BLOB_COLD_SECRET_ACCESS_KEY=...
 BLOB_COLD_BUCKET=weaveforge-cold

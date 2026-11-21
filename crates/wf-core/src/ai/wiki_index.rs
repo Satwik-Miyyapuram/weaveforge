@@ -142,13 +142,48 @@ pub fn replace_wiki_index(body: &str, index: &str) -> String {
     };
     let before = &body[..start];
     // Only an end marker after this start closes the block. Without one the block was cut
-    // short and runs to the end of the page.
+    // short: replace only its generated lines, so text after them is kept.
     let from = start + INDEX_MARKER_START.len();
     let Some(end) = body[from..].find(INDEX_MARKER_END).map(|at| from + at) else {
-        return format!("{before}{index}\n");
+        let after = &body[from + generated_len(&body[from..])..];
+        return format!("{before}{index}{after}");
     };
     let after = &body[end + INDEX_MARKER_END.len()..];
     format!("{before}{index}{after}")
+}
+
+/// Byte length of the generated lines at the start of `rest`, the text after a start marker
+/// that has no end marker: headings, `- [[...]]` items and the footer. It stops at the footer
+/// or the first other line, and trailing blank lines stay with the text after.
+fn generated_len(rest: &str) -> usize {
+    let mut at = 0;
+    let mut end = 0;
+    for (i, line) in rest.split_inclusive('\n').enumerate() {
+        // The first piece is the rest of the marker's own line; it is kept as it is.
+        if i == 0 {
+            at += line.len();
+            continue;
+        }
+        let text = line.trim_end_matches(['\n', '\r']);
+        let footer = text == "_No pages yet._"
+            || (text.starts_with('_') && text.ends_with("._") && text.contains(". Generated "));
+        let generated = text.is_empty()
+            || footer
+            || text.starts_with("## ")
+            || text.starts_with("### ")
+            || text.starts_with("- [[");
+        if !generated {
+            break;
+        }
+        if !text.is_empty() {
+            end = at + text.len();
+        }
+        at += line.len();
+        if footer {
+            break;
+        }
+    }
+    end
 }
 
 #[cfg(test)]
@@ -239,13 +274,20 @@ mod tests {
     }
 
     #[test]
-    fn unclosed_or_reversed_block_runs_to_end_as_ts_does() {
+    fn unclosed_block_keeps_the_text_after_its_generated_lines() {
+        let old = build_wiki_index(&[page("A", None)], None, "2026-11-05T10:00:00Z");
+        let cut = old.trim_end_matches(INDEX_MARKER_END);
+        let body = format!("top\n{cut}my para\n");
+        assert_eq!(replace_wiki_index(&body, "NEW"), "top\nNEW\n\nmy para\n");
+        // Cut short before the footer: the user line right after the last item survives.
+        let body = format!("top\n{INDEX_MARKER_START}\n## Index\n\n- [[A]]\nmy para");
+        assert_eq!(replace_wiki_index(&body, "NEW"), "top\nNEW\nmy para");
         let body = format!("top\n{INDEX_MARKER_START}\nold\ntail");
-        assert_eq!(replace_wiki_index(&body, "NEW"), "top\nNEW\n");
+        assert_eq!(replace_wiki_index(&body, "NEW"), "top\nNEW\nold\ntail");
         let body = format!("{INDEX_MARKER_END}\nmid\n{INDEX_MARKER_START}");
         assert_eq!(
             replace_wiki_index(&body, "NEW"),
-            format!("{INDEX_MARKER_END}\nmid\nNEW\n")
+            format!("{INDEX_MARKER_END}\nmid\nNEW")
         );
     }
 }
