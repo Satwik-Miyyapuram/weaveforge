@@ -118,16 +118,20 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
 
   /**
    * Compares the file's text with what the caller read, then writes. Same rule as the
-   * desktop adapter's fallback: a missing file reads as null. The browser has no atomic
-   * compare-and-swap, so the window is the length of one read; no outside edit is lost
-   * to a stale save, which is what matters here.
+   * desktop adapter's fallback: a missing file reads as null. A Web Lock per path makes
+   * the read, compare and write one step across this origin's tabs, so two saves from
+   * the same text cannot both win. Without Web Locks it runs unlocked.
    */
   async writeTextIf(path: string, text: string, expected: string | null): Promise<boolean> {
-    const handle = await this.fileFor(path, false);
-    const current = handle ? await (await handle.getFile()).text() : null;
-    if (current !== expected) return false;
-    await this.writeFile(path, text);
-    return true;
+    const run = async () => {
+      const handle = await this.fileFor(path, false);
+      const current = handle ? await (await handle.getFile()).text() : null;
+      if (current !== expected) return false;
+      await this.writeFile(path, text);
+      return true;
+    };
+    const locks = globalThis.navigator?.locks;
+    return locks ? locks.request(`weaveforge:workspace-file:${safeWorkspacePath(path)}`, run) : run();
   }
 
   async remove(path: string, options?: { recursive?: boolean }): Promise<void> {

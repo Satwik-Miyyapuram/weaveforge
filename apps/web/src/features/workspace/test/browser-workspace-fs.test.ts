@@ -153,6 +153,44 @@ test("writeTextIf with expected null writes only while the file is still missing
   assert.equal(await fs.readText("notes/new.md"), "app");
 });
 
+/** Stand-in for the Web Locks API: one holder per name at a time, in request order. */
+function fakeLocks() {
+  const tails = new Map<string, Promise<unknown>>();
+  const names: string[] = [];
+  return {
+    names,
+    request<T>(name: string, callback: () => Promise<T>): Promise<T> {
+      names.push(name);
+      const run = (tails.get(name) ?? Promise.resolve()).then(callback);
+      tails.set(name, run.catch(() => undefined));
+      return run;
+    },
+  };
+}
+
+// Two tabs saving the same note both read the old text before either writes; a lock
+// per path makes the read, compare and write one step, so only one of them wins.
+test("concurrent writeTextIf calls on one path let exactly one through (Web Lock per path)", async () => {
+  const locks = fakeLocks();
+  const original = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", { value: { locks }, configurable: true, writable: true });
+  try {
+    const { fs } = workspace();
+    await fs.writeFile("notes/a.md", "base");
+    const results = await Promise.all([
+      fs.writeTextIf("notes/a.md", "tab one", "base"),
+      fs.writeTextIf("notes/a.md", "tab two", "base"),
+    ]);
+    assert.deepEqual(results.sort(), [false, true]);
+    assert.equal(locks.names.length, 2);
+    assert.equal(new Set(locks.names).size, 1);
+    assert.ok(locks.names[0]?.includes("notes/a.md"));
+  } finally {
+    if (original) Object.defineProperty(globalThis, "navigator", original);
+    else delete (globalThis as { navigator?: unknown }).navigator;
+  }
+});
+
 test("recursive remove still clears a folder", async () => {
   const { fs } = workspace();
   await fs.writeFile("project/notes/a.md", "x");
