@@ -54,6 +54,8 @@ struct LinkRow {
     paper_id: String,
     tag_id: String,
     source: String,
+    #[serde(default)]
+    annotation_ref: Option<String>,
 }
 
 /// A `paper_tags` row read for its paper id only.
@@ -584,10 +586,12 @@ fn merge_concepts(call: &RepoCall) -> Result<Value, RepoStep> {
     let links: Vec<LinkRow> = read(values.first().unwrap_or(&Value::Null))?;
     let mut queries = Vec::new();
     for link in &links {
-        queries.push(RepoQuery::upsert(
-            PAPER_TAGS,
-            json!({ "paper_id": link.paper_id, "tag_id": keep, "source": link.source }),
-        ));
+        let mut row = json!({ "paper_id": link.paper_id, "tag_id": keep, "source": link.source });
+        // An annotation tag stays tied to its annotation on the kept tag.
+        if let Some(annotation) = &link.annotation_ref {
+            row["annotation_ref"] = json!(annotation);
+        }
+        queries.push(RepoQuery::upsert(PAPER_TAGS, row));
     }
     for link in &links {
         queries.push(
@@ -1208,6 +1212,23 @@ mod tests {
         let last = queries.last().unwrap();
         assert_eq!(last.table, "tags");
         assert_eq!(last.filters[0].value, json!("t2"));
+    }
+
+    #[test]
+    fn merge_concepts_keeps_the_annotation_ref() {
+        let mut moved = link("t2", "annotation");
+        moved["annotation_ref"] = json!("ann-7");
+        let RepoStep::Send { queries } = step(
+            "mergeConcepts",
+            &call(vec![json!("t1"), json!("t2")], vec![json!([moved])]),
+        )
+        .unwrap() else {
+            panic!("expected the link moves")
+        };
+        assert_eq!(
+            queries[0].body.as_ref().unwrap()["annotation_ref"],
+            json!("ann-7")
+        );
     }
 
     #[test]

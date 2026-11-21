@@ -110,6 +110,39 @@ async fn bytes_empty_round_trip() {
     );
 }
 
+/// The local HTTP API's PUT and the bytes command reach these helpers: a secret in a
+/// committed config file is refused there too, and nothing is written.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn secret_in_a_config_file_is_refused_on_every_write() {
+    let dir = TempDir::new();
+    let state = state_at(dir.path());
+    let secret = r#"{"ai":{"apiKey":"abc"}}"#;
+    let config = ".weaveforge/settings.json";
+
+    assert!(
+        write(&state, config.to_owned(), secret.to_owned())
+            .await
+            .is_err()
+    );
+    assert!(
+        write_bytes(&state, config.to_owned(), STANDARD.encode(secret))
+            .await
+            .is_err()
+    );
+    assert!(!dir.path().join(config).exists());
+
+    write_bytes(
+        &state,
+        config.to_owned(),
+        STANDARD.encode(r#"{"theme":"crt"}"#),
+    )
+    .await
+    .unwrap();
+    write(&state, "notes/a.md".to_owned(), "apiKey: abc".to_owned())
+        .await
+        .unwrap();
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn bad_base64_writes_nothing() {
     let dir = TempDir::new();

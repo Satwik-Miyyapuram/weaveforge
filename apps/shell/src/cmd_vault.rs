@@ -29,6 +29,11 @@ fn check_text_write(path: &str, contents: &str) -> Result<(), String> {
     wf_core::settings::secret_guard::check_config_write(path, contents).map_err(|e| e.to_string())
 }
 
+/// The same refusal for bytes, the guard `file_write_bytes` runs.
+fn check_bytes_write(path: &str, bytes: &[u8]) -> Result<(), String> {
+    wf_core::settings::secret_guard::check_config_bytes(path, bytes).map_err(|e| e.to_string())
+}
+
 /// Runs `job` on the session in a blocking task, because file IO must not hold the async runtime.
 async fn blocking<T, F>(state: &VaultState, job: F) -> Result<T, String>
 where
@@ -67,9 +72,13 @@ pub async fn read(state: &VaultState, path: String) -> Result<Option<String>, St
 /// Writes text to a file in the chosen folder, creating its folders.
 ///
 /// # Errors
-/// No folder chosen, a refused path, or contents over the size cap.
+/// No folder chosen, a refused path, a secret in a config file, or contents over the size cap.
 pub async fn write(state: &VaultState, path: String, contents: String) -> Result<(), String> {
-    blocking(state, move |session| session.write_text(&path, &contents)).await
+    blocking(state, move |session| {
+        check_text_write(&path, &contents)?;
+        session.write_text(&path, &contents)
+    })
+    .await
 }
 
 /// Bytes of a file in the chosen folder as standard base64; `None` when the file is missing.
@@ -103,9 +112,13 @@ pub fn decode_bytes(bytes: &str) -> Result<Vec<u8>, String> {
 /// Writes raw bytes to a file in the chosen folder.
 ///
 /// # Errors
-/// No folder chosen, a refused path, or contents over the size cap.
+/// No folder chosen, a refused path, a secret in a config file, or contents over the size cap.
 pub async fn write_raw(state: &VaultState, path: String, bytes: Vec<u8>) -> Result<(), String> {
-    blocking(state, move |session| session.write_bytes(&path, &bytes)).await
+    blocking(state, move |session| {
+        check_bytes_write(&path, &bytes)?;
+        session.write_bytes(&path, &bytes)
+    })
+    .await
 }
 
 /// Entries directly inside `path`, or inside the chosen folder when `path` is `None`.
@@ -493,6 +506,7 @@ pub async fn vault_write_bytes(
     let bytes = decode_bytes(&bytes)?;
     let watch = watch.inner().clone();
     blocking(state.inner(), move |session| {
+        check_bytes_write(&path, &bytes)?;
         watch.note_self_write(&path, &bytes);
         session.write_bytes(&path, &bytes)
     })
@@ -548,7 +562,14 @@ pub async fn vault_remove(
 
 #[cfg(test)]
 mod tests {
-    use super::check_text_write;
+    use super::{check_bytes_write, check_text_write};
+
+    #[test]
+    fn bytes_write_refuses_a_secret_in_a_config_file() {
+        let secret = br#"{"ai":{"apiKey":"abc"}}"#;
+        assert!(check_bytes_write(".weaveforge/settings.json", secret).is_err());
+        assert!(check_bytes_write("papers/a.pdf", secret).is_ok());
+    }
 
     #[test]
     fn text_write_refuses_a_secret_in_a_config_file() {
