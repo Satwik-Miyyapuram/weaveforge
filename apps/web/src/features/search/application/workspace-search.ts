@@ -104,6 +104,8 @@ export class WorkspaceSearch {
   /** The extracted PDF texts the index was built from, for re-projection. */
   private pdfTexts: readonly PdfIndexSource[] = [];
   private building: Promise<IWorkspaceSearchIndex> | null = null;
+  /** The last refresh in line; the next one waits for it. */
+  private refreshing: Promise<void> = Promise.resolve();
   /** Bumped by `invalidate`, so a build started before it is not adopted. */
   private generation = 0;
   private settings: SearchSettings | undefined;
@@ -275,8 +277,18 @@ export class WorkspaceSearch {
    * actually goes to the network. What this avoids is the expensive half —
    * re-tokenizing PDF page text, which is most of the index and is untouched by
    * editing a note.
+   *
+   * Refreshes run one after another, like `building` is shared: two at once
+   * could land out of order and leave the older snapshot indexed (P2-231).
+   * Each reads the stale kinds only when its turn comes.
    */
-  private async refreshStale(): Promise<void> {
+  private refreshStale(): Promise<void> {
+    const run = this.refreshing.then(() => this.refreshStaleNow());
+    this.refreshing = run.catch(() => undefined);
+    return run;
+  }
+
+  private async refreshStaleNow(): Promise<void> {
     const index = this.index;
     const kinds = this.state.pendingStale();
     if (!index || kinds.length === 0) return;
