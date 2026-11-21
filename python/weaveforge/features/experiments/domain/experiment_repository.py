@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from .experiment import Experiment, ExperimentFilter
 
@@ -15,5 +15,9 @@ class IExperimentRepository(Protocol):
     def list(self, filter: ExperimentFilter | None = None) -> list[Experiment]: ...
 
     def save(self, entity: Experiment) -> None: ...
+
+    def save_fields(self, id: str, fields: dict[str, Any]) -> None:
+        """Write only these row columns of an existing experiment."""
+        ...
 
     def delete(self, id: str) -> None: ...

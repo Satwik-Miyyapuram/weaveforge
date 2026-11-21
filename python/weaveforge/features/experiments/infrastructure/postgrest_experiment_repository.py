@@ -46,5 +46,8 @@ class PostgrestExperimentRepository:
             row["project_id"] = self._pid
         self._db.table(_TABLE).upsert(row).execute()
 
+    def save_fields(self, id: str, fields: dict[str, Any]) -> None:
+        self._db.table(_TABLE).update(fields).eq("id", id).execute()
+
     def delete(self, id: str) -> None:
         self._db.table(_TABLE).delete().eq("id", id).execute()
