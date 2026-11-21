@@ -1,8 +1,10 @@
 //! Fetches a public URL on the reader's behalf, pinning each hop to an address checked as public.
 
 use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 use reqwest::redirect::Policy;
 use reqwest::{Client, Response, Url};
 
@@ -42,6 +44,40 @@ impl Network for PublicNetwork {
     fn shape(&self, url: &Url) -> Result<(), UrlRejection> {
         check_url_shape(url)
     }
+}
+
+/// A reqwest resolver that answers a name only when every address it resolves to is allowed
+/// by `N`, so the address dialled is the one checked. IP literals never reach a resolver.
+pub struct PublicResolver<N>(Arc<N>);
+
+impl<N> PublicResolver<N> {
+    /// A resolver checking names against `net`.
+    pub fn new(net: N) -> Self {
+        Self(Arc::new(net))
+    }
+}
+
+impl<N: Network + 'static> Resolve for PublicResolver<N> {
+    fn resolve(&self, name: Name) -> Resolving {
+        let net = Arc::clone(&self.0);
+        Box::pin(async move { allowed_addresses(&*net, name.as_str()).await })
+    }
+}
+
+/// Every address `host` resolves to, or an error unless `net` allows them all.
+async fn allowed_addresses<N: Network>(
+    net: &N,
+    host: &str,
+) -> Result<Addrs, Box<dyn std::error::Error + Send + Sync>> {
+    let addresses = net.resolve(host).await?;
+    if addresses.is_empty() || !addresses.iter().all(|a| net.is_allowed(a)) {
+        return Err(format!("{host} does not resolve to public addresses only").into());
+    }
+    let ips = addresses
+        .iter()
+        .map(|a| a.parse::<IpAddr>().map(|ip| SocketAddr::new(ip, 0)))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Box::new(ips.into_iter()))
 }
 
 /// Why a fetch failed: the kind, the HTTP-like status and the sentence to show.

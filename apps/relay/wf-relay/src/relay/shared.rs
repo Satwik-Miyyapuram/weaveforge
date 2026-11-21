@@ -127,11 +127,33 @@ pub const RELAY_READ_TIMEOUT: Duration = Duration::from_secs(120);
 /// # Errors
 /// When reqwest cannot build the client (TLS backend failed to load).
 pub fn relay_client() -> Result<reqwest::Client, reqwest::Error> {
+    relay_builder().build()
+}
+
+/// `relay_client` for addresses a page names: every host name must resolve to public
+/// addresses only, and the address checked is the one dialled. No proxy, since a proxy
+/// would resolve the name itself.
+/// # Errors
+/// When reqwest cannot build the client (TLS backend failed to load).
+pub fn public_relay_client() -> Result<reqwest::Client, reqwest::Error> {
+    let resolver = crate::fetch::safe::PublicResolver::new(crate::fetch::safe::PublicNetwork);
+    relay_builder()
+        .no_proxy()
+        .dns_resolver(std::sync::Arc::new(resolver))
+        .build()
+}
+
+/// The `public_relay_client` the page relays share, built once.
+pub(crate) fn shared_public_client() -> Option<&'static reqwest::Client> {
+    static CLIENT: std::sync::OnceLock<Option<reqwest::Client>> = std::sync::OnceLock::new();
+    CLIENT.get_or_init(|| public_relay_client().ok()).as_ref()
+}
+
+fn relay_builder() -> reqwest::ClientBuilder {
     crate::tls::with_roots(reqwest::Client::builder())
         .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(RELAY_CONNECT_TIMEOUT)
         .read_timeout(RELAY_READ_TIMEOUT)
-        .build()
 }
 
 #[cfg(test)]

@@ -104,10 +104,8 @@ fn magic_window() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn proxy_pdf_refusals() {
-    let client = client();
-
     let missing = Url::parse("app://localhost/api/pdf-proxy").unwrap();
-    let answer = proxy_pdf(&client, &missing).await;
+    let answer = proxy_pdf(&missing).await;
     assert_eq!(answer.status, 400);
     assert_eq!(answer.header("content-type"), Some("application/json"));
     assert_eq!(answer.body, br#"{"error":"url is required"}"#.to_vec());
@@ -137,7 +135,7 @@ async fn proxy_pdf_refusals() {
         ),
     ];
     for (request, error) in cases {
-        let answer = proxy_pdf(&client, &request).await;
+        let answer = proxy_pdf(&request).await;
         assert_eq!(answer, Answer::from(refuse(400, error)), "{request}");
     }
 }

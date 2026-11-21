@@ -11,8 +11,8 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use wf_relay::relay::shared::{
-    Hop, MAX_REDIRECTS, fetch_checked_hops, is_public_https_url, next_hop, refuse, relay_client,
-    upstream_failed,
+    Hop, MAX_REDIRECTS, fetch_checked_hops, is_public_https_url, next_hop, public_relay_client,
+    refuse, relay_client, upstream_failed,
 };
 
 #[test]
@@ -386,6 +386,17 @@ async fn unreachable_upstream_is_502() {
     .await
     .err();
     assert_eq!(err, Some(refuse(502, "Upstream fetch failed")));
+}
+
+// The page relays dial only public addresses: a name that resolves to this machine is refused.
+#[tokio::test(flavor = "multi_thread")]
+async fn public_client_refuses_a_name_that_resolves_to_a_private_address() {
+    let (base, _visited) = serve(vec![("/a", ok("ok"))]).await;
+    let by_name = Url::parse(&format!("http://localhost:{}/a", base.port().unwrap())).unwrap();
+    let plain = relay_client().unwrap().get(by_name.clone()).send().await;
+    assert_eq!(plain.unwrap().status().as_u16(), 200);
+    let public = public_relay_client().unwrap().get(by_name).send().await;
+    assert!(public.is_err());
 }
 
 #[tokio::test(flavor = "multi_thread")]

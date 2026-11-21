@@ -250,7 +250,7 @@ async fn pdf_proxy(State(state): State<Arc<AppState>>, headers: HeaderMap, uri: 
     let Some(url) = app_url(PDF_PROXY_PATH, uri.query()) else {
         return refused(400, BAD_ADDRESS);
     };
-    answer_response(proxy_pdf(&state.client, &url).await)
+    answer_response(proxy_pdf(&url).await)
 }
 
 async fn html_proxy(State(state): State<Arc<AppState>>, headers: HeaderMap, uri: Uri) -> Response {
@@ -270,7 +270,7 @@ async fn html_proxy(State(state): State<Arc<AppState>>, headers: HeaderMap, uri:
         let message = "Too many pages fetched. Try again shortly.";
         return too_many(message, retry_after);
     }
-    answer_response(proxy_html(&state.client, &url).await)
+    answer_response(proxy_html(&url).await)
 }
 
 async fn semantic_scholar(
