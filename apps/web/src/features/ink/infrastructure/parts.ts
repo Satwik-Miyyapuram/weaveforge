@@ -357,12 +357,14 @@ export class FolderInkNotes implements InkNoteLocator {
     const files = (await fs.list(legacy)).filter((entry) => entry.kind === "file").map((entry) => entry.path);
     if (readyCore().inkChunkIdsInListing(files).length === 0) return;
     const target = typedCore().inkStrokesDir(notePath);
+    const ours = new Set(files.map((path) => `${baseName(path)}${PART}`));
     const present = new Set<string>();
     if (await fs.stat(target)) {
       for (const entry of await fs.list(target)) {
         const name = baseName(entry.path);
-        // A `.part` is our own unfinished copy; only a whole page counts as there.
-        if (name.endsWith(PART)) await fs.remove(entry.path);
+        // A `.part` named after a legacy file is our own unfinished copy; only a whole
+        // page counts as there. Any other `.part` is not ours to remove.
+        if (ours.has(name)) await fs.remove(entry.path);
         else present.add(name);
       }
     }

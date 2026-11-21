@@ -212,6 +212,19 @@ test("migration never overwrites: the note's own page wins, and a copy cut off h
   assert.deepEqual(reports.filter((r) => r.level !== "info"), []);
 });
 
+test("migration removes only its own half copies, never another `.part` in the folder", async () => {
+  const a = typedCore().newInkChunkId();
+  const theirs = `${STROKES}/upload.pdf.part`;
+  const fs = await folderWith({
+    [NOTE_PATH]: noteText(ID),
+    [theirs]: bytes(9),
+    [`${LEGACY}/${a}.inkb`]: bytes(1),
+  });
+  const { store } = stores(fs);
+  assert.deepEqual(await store.list(ID), [a]);
+  assert.deepEqual(Object.keys(await filesUnder(fs, STROKES)).sort(), [`${STROKES}/${a}.inkb`, theirs].sort());
+});
+
 test("once copied, the old folder is never copied again, even after the note's folder is deleted", async () => {
   const a = typedCore().newInkChunkId();
   const fs = await folderWith({ [NOTE_PATH]: noteText(ID, [a]), [`${LEGACY}/${a}.inkb`]: bytes(1) });
