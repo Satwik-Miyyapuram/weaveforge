@@ -195,7 +195,7 @@ fn move_settings_secrets(app: &tauri::AppHandle, choice: &Choice) {
     }
     let vault = app.state::<VaultState>().inner().clone();
     let secrets = app.state::<crate::secrets::Secrets>().inner().clone();
-    let _ =
+    let _task =
         tauri::async_runtime::spawn(crate::settings_secrets::move_for_open_vault(vault, secrets));
 }
 
