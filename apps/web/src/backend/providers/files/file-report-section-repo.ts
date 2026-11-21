@@ -26,6 +26,17 @@ function compareOptional(a: string | undefined, b: string | undefined): number {
   return a < b ? -1 : 1;
 }
 
+/**
+ * A fresh `updatedAt`, always after `previous`: the AI report_edit check
+ * compares it as the section's revision, so two saves in one millisecond
+ * must still differ.
+ */
+function nextRevision(previous: string | undefined): string {
+  const now = Date.now();
+  const before = previous ? Date.parse(previous) : NaN;
+  return new Date(Number.isNaN(before) || now > before ? now : before + 1).toISOString();
+}
+
 function validation(error: unknown): never {
   throw new ReportSectionValidationError(error instanceof Error ? error.message : String(error));
 }
@@ -57,8 +68,9 @@ export class FileReportSectionRepository implements IReportSectionRepository, IR
     return readyCore().buildSectionTree(await this.store.all()) as unknown as ReportSectionTreeNode[];
   }
 
-  save(section: ReportSection): Promise<void> {
-    return this.store.save(section);
+  /** Stamps a new `updatedAt` past the stored one. */
+  async save(section: ReportSection): Promise<void> {
+    await this.stamped(section);
   }
 
   delete(id: string): Promise<void> {
@@ -79,8 +91,7 @@ export class FileReportSectionRepository implements IReportSectionRepository, IR
     } catch (error) {
       validation(error);
     }
-    await this.store.save(made);
-    return made;
+    return this.stamped(made);
   }
 
   setTitle(id: string, title: string): Promise<ReportSection> {
@@ -136,7 +147,13 @@ export class FileReportSectionRepository implements IReportSectionRepository, IR
   private async update(id: string, change: (s: ReportSection) => ReportSection): Promise<ReportSection> {
     const current = await this.store.get(id);
     if (!current) throw new NotFoundError(`No report section with id "${id}".`);
-    const next = change(current);
+    return this.stamped(change(current));
+  }
+
+  private async stamped(section: ReportSection): Promise<ReportSection> {
+    const stored = await this.store.get(section.id);
+    const latest = [stored?.updatedAt, section.updatedAt].filter(Boolean).sort().at(-1);
+    const next = { ...section, updatedAt: nextRevision(latest) };
     await this.store.save(next);
     return next;
   }

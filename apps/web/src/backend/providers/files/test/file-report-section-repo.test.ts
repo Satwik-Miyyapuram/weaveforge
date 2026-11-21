@@ -42,11 +42,29 @@ test("T4: every field round-trips; unicode and duplicate titles are two files", 
   const twin = section({ title: full.title });
   await repo.save(full);
   await repo.save(twin);
-  assert.deepEqual(await repo.getById(full.id), full);
+  const { updatedAt, ...got } = (await repo.getById(full.id))!;
+  assert.deepEqual(got, full);
+  assert.match(updatedAt ?? "", /^\d{4}-\d\d-\d\dT/);
   assert.equal((await repo.getById(twin.id))?.title, full.title);
   const files: string[] = [];
   for await (const e of fs.walk("thesis")) if (e.kind === "file") files.push(e.path);
   assert.equal(files.length, 2);
+});
+
+test("every save stamps a new updatedAt, so a stale AI revision is caught", async () => {
+  const { repo } = setup();
+  const s = section({ updatedAt: "2000-01-01T00:00:00.000Z" });
+  await repo.save(s);
+  const saved = (await repo.getById(s.id))!.updatedAt!;
+  assert.notEqual(saved, s.updatedAt);
+  const noted = await repo.setNotes(s.id, "new words");
+  assert.ok(noted.updatedAt! > saved, "an update moves updatedAt forward");
+  assert.equal((await repo.getById(s.id))!.updatedAt, noted.updatedAt);
+  const again = await repo.setStatus(s.id, "done");
+  assert.ok(again.updatedAt! > noted.updatedAt!, "back-to-back updates never share a revision");
+  const made = await repo.add({ title: "New" });
+  assert.equal((await repo.getById(made.id))!.updatedAt, made.updatedAt);
+  assert.ok(made.updatedAt);
 });
 
 test("getById is null when absent; save upserts on id", async () => {
