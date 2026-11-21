@@ -147,19 +147,54 @@ export function watchForLoss(bridge: Pick<DesktopBridge, "onVaultWatchLost">): (
 }
 
 // --- remove-project-folder ---
+/** How many numbered trash names to try before giving up. */
+const TRASH_FOLDER_ATTEMPTS = 100;
+
 /**
- * Remove a deleted project's folder from the workspace.
+ * Move a deleted project's folder to the workspace trash.
  *
- * Found by its `--id6` suffix as well as its current name, so a folder named
- * before a rename still goes. Returns the folder removed, or null.
+ * Found by its current name, or by its `--id6` suffix so a folder named before
+ * a rename still goes. A suffix that one of `others` (the projects that remain)
+ * also has is refused, and so is a folder without the project layout (an entity
+ * folder or `.weaveforge`): a short suffix is not proof of ownership. The files
+ * go to `.weaveforge/trash/<day>/<folder>`, numbered on a clash, never deleted.
+ * Returns the folder moved, or null.
  */
-export async function removeProjectFolder(fs: IWorkspaceFs, project: WorkspaceProject): Promise<string | null> {
+export async function removeProjectFolder(
+  fs: IWorkspaceFs,
+  project: WorkspaceProject,
+  others: readonly WorkspaceProject[] = [],
+): Promise<string | null> {
   const core = await loadCore();
+  const typed = typedCore();
   const exact = core.projectDir(project);
-  const tail = `--${typedCore().idSuffix(project.id)}`;
-  const dirs = (await fs.list("")).filter((s) => s.kind === "dir").map((s) => s.path.split("/").pop() ?? "");
-  const match = typedCore().pickProjectFolder(dirs, exact, tail) ?? null;
+  const tail = `--${typed.idSuffix(project.id)}`;
+  const otherTails = others.map((other) => `--${typed.idSuffix(other.id)}`);
+  const names = (entries: readonly { path: string }[]) => entries.map((s) => s.path.split("/").pop() ?? "");
+  const dirs = names((await fs.list("")).filter((s) => s.kind === "dir"));
+  const match = typed.pickProjectFolder(dirs, exact, tail, otherTails) ?? null;
   if (!match) return null;
+  if (!typed.holdsProjectLayout(names(await fs.list(match)))) return null;
+  const base = await freeTrashFolder(fs, match);
+  const files: string[] = [];
+  for await (const entry of fs.walk(match)) files.push(entry.path);
+  for (const path of files) {
+    const target = base + path.slice(match.length);
+    await fs.mkdirp(target.slice(0, target.lastIndexOf("/")));
+    await fs.rename(path, target);
+  }
+  // Only empty folders should be left; remove them unless a file appeared meanwhile.
+  for await (const _late of fs.walk(match)) return match;
   await fs.remove(match, { recursive: true });
   return match;
+}
+
+/** The first trash name for `folder` today that is not taken. */
+async function freeTrashFolder(fs: IWorkspaceFs, folder: string): Promise<string> {
+  const now = Date.now();
+  for (let n = 1; n <= TRASH_FOLDER_ATTEMPTS; n += 1) {
+    const target = typedCore().trashPathFor(folder, now, n);
+    if (!(await fs.stat(target))) return target;
+  }
+  throw new Error(`${folder}: no free name in the trash; not removed.`);
 }

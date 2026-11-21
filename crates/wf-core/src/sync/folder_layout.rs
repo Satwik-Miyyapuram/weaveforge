@@ -552,17 +552,35 @@ fn strip_id_suffix(name: &str) -> &str {
 }
 
 /// The folder a deleted project lives in: `exact` when it is listed, else the one listed folder
-/// ending in `tail` (the `--id` suffix). Two suffix matches are not surely this project's, so none.
+/// ending in `tail` (the `--id` suffix). Two suffix matches are not surely this project's, so none;
+/// nor is any suffix match when another project's tail (`other_tails`) is the same.
 #[must_use]
-pub fn pick_project_folder(dirs: &[String], exact: &str, tail: &str) -> Option<String> {
+pub fn pick_project_folder(
+    dirs: &[String],
+    exact: &str,
+    tail: &str,
+    other_tails: &[String],
+) -> Option<String> {
     if dirs.iter().any(|dir| dir.as_str() == exact) {
         return Some(exact.to_owned());
+    }
+    if other_tails.iter().any(|other| other == tail) {
+        return None;
     }
     let mut renamed = dirs.iter().filter(|dir| dir.ends_with(tail));
     match (renamed.next(), renamed.next()) {
         (Some(only), None) => Some(only.clone()),
         _ => None,
     }
+}
+
+/// Whether a folder's child names show a project folder: an entity dir or the `.weaveforge` meta
+/// dir the mirror writes. A user folder that only shares the `--id6` name holds neither.
+#[must_use]
+pub fn holds_project_layout(children: &[String]) -> bool {
+    children
+        .iter()
+        .any(|name| name == WORKSPACE_META_DIR || ENTITY_DIRS.iter().any(|(_, dir)| name == dir))
 }
 
 /// Settings file of a workspace.
@@ -654,6 +672,17 @@ pub fn numbered_path(rel: &str, n: u32) -> String {
 #[must_use]
 pub fn trash_path(rel: &str, date: &str) -> String {
     format!("{TRASH_DIR}/{date}/{rel}")
+}
+
+/// [`trash_path`] for a `rel` that is a safe workspace path, so the result
+/// stays inside the trash (F97-P2-14).
+///
+/// # Errors
+/// [`UnsafePath`](crate::workspace::UnsafePath) when `rel` is empty, absolute,
+/// drive-prefixed or climbs out with `..`.
+pub fn checked_trash_path(rel: &str, date: &str) -> Result<String, crate::workspace::UnsafePath> {
+    let rel = crate::workspace::safe_workspace_path(rel)?;
+    Ok(trash_path(&rel, date))
 }
 
 /// Compact UTC stamp for file names: `2026-11-18T10:15:02.123Z` -> `20261118T101502Z`.

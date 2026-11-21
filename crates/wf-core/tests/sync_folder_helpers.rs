@@ -3,7 +3,9 @@
 use std::collections::HashMap;
 
 use wf_core::sync::change_origin::digest_text;
-use wf_core::sync::folder_layout::{folder_title_from_path, pick_project_folder};
+use wf_core::sync::folder_layout::{
+    folder_title_from_path, holds_project_layout, pick_project_folder,
+};
 use wf_core::sync::folder_mirror::json_edit_since;
 
 #[test]
@@ -46,7 +48,7 @@ fn title_trims_and_falls_back_to_untitled() {
 fn pick_prefers_the_exact_folder() {
     let dirs = vec!["Alpha--ab12cd".to_owned(), "Alpha".to_owned()];
     assert_eq!(
-        pick_project_folder(&dirs, "Alpha", "--ab12cd"),
+        pick_project_folder(&dirs, "Alpha", "--ab12cd", &[]),
         Some("Alpha".to_owned())
     );
 }
@@ -55,7 +57,7 @@ fn pick_prefers_the_exact_folder() {
 fn pick_takes_the_single_suffix_match() {
     let dirs = vec!["Renamed--ab12cd".to_owned(), "Other".to_owned()];
     assert_eq!(
-        pick_project_folder(&dirs, "Alpha", "--ab12cd"),
+        pick_project_folder(&dirs, "Alpha", "--ab12cd", &[]),
         Some("Renamed--ab12cd".to_owned())
     );
 }
@@ -63,9 +65,35 @@ fn pick_takes_the_single_suffix_match() {
 #[test]
 fn pick_refuses_two_suffix_matches_or_none() {
     let two = vec!["One--ab12cd".to_owned(), "Two--ab12cd".to_owned()];
-    assert_eq!(pick_project_folder(&two, "Alpha", "--ab12cd"), None);
+    assert_eq!(pick_project_folder(&two, "Alpha", "--ab12cd", &[]), None);
     let none = vec!["Other".to_owned()];
-    assert_eq!(pick_project_folder(&none, "Alpha", "--ab12cd"), None);
+    assert_eq!(pick_project_folder(&none, "Alpha", "--ab12cd", &[]), None);
+}
+
+#[test]
+fn pick_refuses_a_suffix_another_project_shares() {
+    let dirs = vec!["Beta--ab12cd".to_owned()];
+    let others = vec!["--ab12cd".to_owned()];
+    assert_eq!(
+        pick_project_folder(&dirs, "Alpha--ab12cd", "--ab12cd", &others),
+        None
+    );
+    // The exact folder is still this project's.
+    let both = vec!["Alpha--ab12cd".to_owned(), "Beta--ab12cd".to_owned()];
+    assert_eq!(
+        pick_project_folder(&both, "Alpha--ab12cd", "--ab12cd", &others),
+        Some("Alpha--ab12cd".to_owned())
+    );
+}
+
+#[test]
+fn project_layout_needs_an_entity_or_meta_dir() {
+    let names = |list: &[&str]| list.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
+    assert!(holds_project_layout(&names(&["notes", "x.md"])));
+    assert!(holds_project_layout(&names(&[".weaveforge"])));
+    assert!(holds_project_layout(&names(&["logbook"])));
+    assert!(!holds_project_layout(&names(&["a.md", "photos"])));
+    assert!(!holds_project_layout(&[]));
 }
 
 #[test]

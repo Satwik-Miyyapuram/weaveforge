@@ -1,7 +1,8 @@
 //! Tests for file kinds, file headers, canonical text and workspace path rules.
 
 use wf_core::sync::folder_layout::{
-    annotations_path, compact_stamp, conflict_copy_path, day_stamp, numbered_path, trash_path,
+    annotations_path, checked_trash_path, compact_stamp, conflict_copy_path, day_stamp,
+    numbered_path, trash_path,
 };
 use wf_core::sync::frontmatter::{
     FileKind, bytes_digest, canonical_digest, canonical_eq, canonical_text, file_header, file_kind,
@@ -112,4 +113,23 @@ fn layout_paths() {
     assert!(is_conflict_copy("p/a.conflict-20261118T101502Z.md"));
     assert!(is_conflict_copy("p/a.migrated-0.9.4.md"));
     assert!(!is_conflict_copy("p/a.md"));
+}
+
+#[test]
+fn f97_p2_14_a_trash_path_never_leaves_the_trash() {
+    for rel in [
+        "../a.md",
+        "p/../../a.md",
+        "/etc/a.md",
+        "C:/a.md",
+        "c:\\a.md",
+        "..\\a.md",
+        "",
+    ] {
+        assert!(checked_trash_path(rel, "2026-11-18").is_err(), "{rel:?}");
+    }
+    assert_eq!(
+        checked_trash_path("p/notes/a.md", "2026-11-18").as_deref(),
+        Ok(".weaveforge/trash/2026-11-18/p/notes/a.md")
+    );
 }
