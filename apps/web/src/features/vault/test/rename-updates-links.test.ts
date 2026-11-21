@@ -1,0 +1,73 @@
+/**
+ * Renaming a note rewrites the links to it in every other note (F97 rename links).
+ *
+ * The Dev E2E renamed "E2E Note Two" with the explorer pencil; the tree and tab
+ * followed, but "E2E Note One" still said [[E2E Note Two]]. No rename door
+ * rewrote links, folder or no folder.
+ */
+import { before, test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import type { EditVaultPageInput, VaultPage } from "@weaveforge/core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+import { withRenameLinkRewrite } from "../application/rename-updates-links";
+
+before(loadTestCore);
+
+function page(id: string, title: string, body: string): VaultPage {
+  return { id, title, body, sortOrder: 0, createdAt: "2026-11-01T00:00:00Z", updatedAt: "2026-11-01T00:00:00Z" };
+}
+
+/** Just the reads and the `update` the rewrite uses, over a map. */
+function memoryPages(initial: VaultPage[]) {
+  const rows = new Map(initial.map((p) => [p.id, p]));
+  const updates: string[] = [];
+  const repo = {
+    getById: async (id: string) => rows.get(id) ?? null,
+    list: async () => [...rows.values()],
+    update: async (id: string, input: EditVaultPageInput) => {
+      updates.push(id);
+      const next = { ...rows.get(id)!, ...(input.title !== undefined && { title: input.title }), ...(input.body !== undefined && { body: input.body }) };
+      rows.set(id, next);
+      return next;
+    },
+  };
+  return { rows, updates, repo: withRenameLinkRewrite(repo as never) as unknown as typeof repo };
+}
+
+test("renaming a note rewrites [[Old]] links in other notes", async () => {
+  const { rows, repo } = memoryPages([
+    page("one", "E2E Note One", "See [[E2E Note Two]], [[e2e note two|the second]] and [[E2E Note Two#Intro]]."),
+    page("two", "E2E Note Two", "Body"),
+  ]);
+  await repo.update("two", { title: "E2E Note Renamed" });
+  assert.equal(rows.get("two")!.title, "E2E Note Renamed");
+  assert.equal(
+    rows.get("one")!.body,
+    "See [[E2E Note Renamed]], [[E2E Note Renamed|the second]] and [[E2E Note Renamed#Intro]].",
+  );
+});
+
+test("a rename leaves notes without such a link untouched", async () => {
+  const { updates, repo } = memoryPages([
+    page("one", "One", "Links [[Other]] only."),
+    page("two", "Two", "Body"),
+    page("three", "Three", "No links."),
+  ]);
+  await repo.update("two", { title: "Renamed" });
+  assert.deepEqual(updates, ["two"]);
+});
+
+test("an edit that keeps the title rewrites nothing", async () => {
+  const { updates, repo } = memoryPages([page("one", "One", "[[Two]]"), page("two", "Two", "Body")]);
+  await repo.update("two", { body: "New body" });
+  await repo.update("two", { title: "Two" });
+  assert.deepEqual(updates, ["two", "two"]);
+});
+
+test("the app's note writes are the link-rewriting ones", () => {
+  const src = readFileSync(fileURLToPath(new URL("../../../create-app-container.ts", import.meta.url)), "utf8");
+  assert.match(src, /const manageVaultPage = withRenameLinkRewrite\(vaultPageRepository\)/);
+});

@@ -51,6 +51,7 @@ import { DeletePaperUseCase, ImportLocalZoteroUseCase, LoadPapersScreenUseCase }
 // was adopted reaches `papers/pdf/` without a restart (explorer plan §8).
 import { LoadExperimentsScreenUseCase } from "@/features/experiments/application/parts";
 import { LoadVaultScreenUseCase } from "@/features/vault/application/parts";
+import { withRenameLinkRewrite } from "@/features/vault/application/rename-updates-links";
 import { LoadReportScreenUseCase } from "@/features/report/application/parts";
 import { LoadPlanScreenUseCase } from "@/features/plan/application/parts";
 import { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
@@ -283,7 +284,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // Writes go straight to the Rust-backed repositories; they own id, clock and
   // validation, so there is no TS use-case layer in between.
   const manageReportSection = reportSectionRepository;
-  const manageVaultPage = vaultPageRepository;
+  // A rename also rewrites [[Old]] links in the other notes.
+  const manageVaultPage = withRenameLinkRewrite(vaultPageRepository);
 
   const manageReadingList = new ManageReadingListUseCase({
     lists: readingListRepository,
