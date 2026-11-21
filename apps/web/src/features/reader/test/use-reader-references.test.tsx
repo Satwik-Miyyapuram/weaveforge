@@ -143,3 +143,31 @@ test("a failed prefetch is logged and marked unresolved (24-17)", async () => {
   assert.match(logs[0]!.detail ?? "", /lookup down/);
   h.unmount();
 });
+test("a lookup that settles after the document changed leaves the new document's queue alone (P2-195)", async () => {
+  const calls: string[] = [];
+  const pending = new Map<string, (v: ResolvedReference) => void>();
+  const h = mount("doc-a", (key, entry) => {
+    calls.push(`${key}:${entry.index}`);
+    return new Promise((r) => pending.set(`${key}:${entry.index}`, r));
+  });
+  act(() => h.get().startPrefetch());
+  assert.equal(calls.length, 1);
+  const oldCall = calls[0]!;
+  // Another document with the same three entries: its key differs, its indices do not.
+  const pagesB = new Map(pageItems);
+  pagesB.set(1, [run("A different opening [1] line.", 700), ...pageItems.get(1)!.slice(1)]);
+  h.rerender("doc-b", pagesB);
+  act(() => h.get().startPrefetch());
+  assert.equal(calls.length, 2, "the new document's queue started its own lookup");
+  assert.notEqual(calls[1]!.split(":")[0], oldCall.split(":")[0], "the document key changed");
+  await act(async () => {
+    pending.get(oldCall)!(found("late"));
+    await new Promise((r) => setTimeout(r, 1100));
+  });
+  // The old lookup must neither free the new one's slot nor start a second queue.
+  assert.equal(calls.length, 2, `no second lookup ran beside the first: ${calls.join(", ")}`);
+  act(() => h.get().ensureResolved(h.get().index.byIndex.get(1)!));
+  assert.equal(calls.length, 2);
+  h.get().stopPrefetch();
+  h.unmount();
+});

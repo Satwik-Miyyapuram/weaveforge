@@ -124,7 +124,8 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
         logReferenceFailure(action, entry, err);
         if (current()) setResolution(entry.index, { status: "unresolved" });
       })
-      .finally(() => inflight.current.delete(entry.index));
+      // After a document change the slot, if taken, is the new document's lookup (P2-195).
+      .finally(() => { if (current()) inflight.current.delete(entry.index); });
   }, [setResolution]);
 
   const resolve = useCallback((entry: ParsedReference) => {
@@ -140,8 +141,11 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
         continue;
       }
       const startedAt = Date.now();
+      const key = documentKeyRef.current;
       void lookUp("Prefetch", next)
         .finally(() => {
+          // The document changed: its own queue runs, and must not get a second chain (P2-195).
+          if (documentKeyRef.current !== key) return;
           inflight.current.delete(next.index);
           if (queueActiveRef.current && queueRef.current.length > 0) {
             const elapsed = Date.now() - startedAt;
