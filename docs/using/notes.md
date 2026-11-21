@@ -22,6 +22,9 @@ with `#hashtags`.
 4. Write in the body. Start with **Text**, or switch to **Ink** for a handwritten
    note; [Handwriting](ink.md) shows how to write on the page.
 
+Ink is kept in your workspace folder. With no folder open, a note takes no
+ink: it says so and shows an **Open folder** link to the workspace settings.
+
 ### Create a note from a link
 
 1. In a note, write `[[Some title]]` for a title that does not exist yet.
@@ -52,14 +55,22 @@ same **More** menu. See [Import a OneNote section](onenote-import.md).
 3. Press Escape to put back the old title.
 4. An empty title is not saved. The old title comes back.
 
+Links to the note follow the new title. In your other notes, `[[Old]]`,
+`[[Old|alias]]` and `[[Old#heading]]` become `[[New]]`, `[[New|alias]]` and
+`[[New#heading]]`. Links inside code (a code block or `` `code` ``) are left
+alone.
+
+A note open for editing (in **Text** or **Ink** mode, or in an Editor tab) is
+skipped, so your typing is never overwritten. The toast then lists the notes
+whose links still use the old title. Update those by hand.
+
 ### Delete a note
 
 1. Open the note and click **Delete note**. You go back to the list at once.
 2. The toast shows `"<title>" deleted` with **Undo**.
 3. Click **Undo** before the toast closes to keep the note.
-4. When the toast closes, or you click its close button, the note's file moves
-   to the workspace trash (`.weaveforge/trash`), so you can still get it back
-   from there.
+4. When the toast closes, or you click its close button, the note is deleted.
+   With no workspace folder open, it is then gone for good.
 5. If the delete fails, the note comes back and a toast says so.
 
 ### When two places save at once
@@ -127,6 +138,8 @@ before you open it in WeaveForge.
 | `Loading notes…` | Screen is loading |
 | `Opening note…` | A note is opening |
 | `"<title>" deleted` | Delete toast |
+| `Renamed, but links in N notes still use the old title: <titles>` | A rename could not update every link, for example in a note open for editing. Lists up to five titles, then "and N more" |
+| `Open a workspace folder to see this note's ink. On the desktop, ink is stored in the folder.` | A note with no workspace folder open, with an **Open folder** link |
 | `Someone else changed this note at the same time. Your text was saved; theirs is kept as a conflict copy beside it.` | Two places saved the same note and the texts overlapped |
 
 ### Sections on an open note
