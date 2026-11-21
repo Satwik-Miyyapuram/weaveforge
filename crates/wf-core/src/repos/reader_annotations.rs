@@ -275,30 +275,54 @@ fn update(call: &RepoCall) -> RepoStep {
 }
 
 /// `recordZoteroSync(id, record)`: write-back bookkeeping; only the keys the record gives.
+///
+/// With `ifUpdatedAt`, the write is guarded on the row's `updated_at` (P1-10). If the row was
+/// edited since, the guarded write matches nothing and a second write records the key and
+/// version alone, so the sync state stays owed.
 fn record_zotero_sync(call: &RepoCall) -> RepoStep {
     let project = match call.project(ACTION) {
         Ok(project) => project,
         Err(step) => return step,
     };
-    if !call.replies.is_empty() {
-        return RepoStep::unit();
-    }
     let record = call.arg(1);
-    let mut body = Map::new();
-    for (key, column) in [
-        ("zoteroKey", "zotero_key"),
-        ("zoteroVersion", "zotero_version"),
-        ("syncState", "sync_state"),
-    ] {
-        if let Some(value) = record.get(key) {
-            let _ = body.insert(column.into(), value.clone());
+    let if_updated_at = record.get("ifUpdatedAt").and_then(Value::as_str);
+    let body = |with_state: bool| {
+        let mut body = Map::new();
+        for (key, column) in [
+            ("zoteroKey", "zotero_key"),
+            ("zoteroVersion", "zotero_version"),
+            ("syncState", "sync_state"),
+        ] {
+            if let Some(value) = record.get(key).filter(|_| with_state || key != "syncState") {
+                let _ = body.insert(column.into(), value.clone());
+            }
         }
-    }
-    RepoStep::send(
         RepoQuery::update(TABLE, Value::Object(body))
             .eq("id", call.text(0))
-            .eq("project_id", project),
-    )
+            .eq("project_id", project)
+    };
+    let Some(at) = if_updated_at else {
+        return if call.replies.is_empty() {
+            RepoStep::send(body(true))
+        } else {
+            RepoStep::unit()
+        };
+    };
+    match call.replies.len() {
+        0 => RepoStep::send(
+            body(true)
+                .eq("updated_at", at)
+                .returning("id")
+                .maybe_single(),
+        ),
+        1 => match call.reply::<Option<Value>>(0) {
+            Some(Ok(Some(_))) => RepoStep::unit(),
+            Some(Ok(None)) => RepoStep::send(body(false)),
+            Some(Err(e)) => RepoStep::fail(e),
+            None => RepoStep::fail("reply 0 missing"),
+        },
+        _ => RepoStep::unit(),
+    }
 }
 
 /// `remove(id)`.
@@ -545,6 +569,41 @@ mod tests {
                 json!({})
             ]))),
             no_project_message()
+        );
+    }
+
+    #[test]
+    fn record_zotero_sync_keeps_sync_state_of_a_row_edited_since() {
+        // P1-10: an edit made while the push was in flight must stay owed.
+        let at = "2026-01-02T00:00:00Z";
+        let record = json!({
+            "zoteroKey": "K1", "zoteroVersion": 4, "syncState": "synced", "ifUpdatedAt": at
+        });
+        let args = vec![json!("a1"), record];
+        let q = sent(record_zotero_sync(&call(args.clone(), vec![])));
+        assert!(has_filter(&q, "eq", "updated_at", json!(at)));
+        assert_eq!(q.single, RepoSingle::Maybe);
+        let body = q.body.unwrap();
+        assert_eq!(body["sync_state"], "synced");
+        assert!(body.get("if_updated_at").is_none() && body.get("ifUpdatedAt").is_none());
+        // The row was unchanged: the guarded write landed, nothing more to do.
+        assert_eq!(
+            record_zotero_sync(&call(
+                args.clone(),
+                vec![row("a1", "paper1", json!("K1"), json!("synced"))]
+            )),
+            RepoStep::unit()
+        );
+        // The row changed since: the key and version still land, the sync state does not.
+        let q = sent(record_zotero_sync(&call(args.clone(), vec![Value::Null])));
+        assert!(!q.filters.iter().any(|f| f.column == "updated_at"));
+        let body = q.body.unwrap();
+        assert_eq!(body["zotero_key"], "K1");
+        assert_eq!(body["zotero_version"], 4);
+        assert!(body.get("sync_state").is_none());
+        assert_eq!(
+            record_zotero_sync(&call(args, vec![Value::Null, Value::Null])),
+            RepoStep::unit()
         );
     }
 
