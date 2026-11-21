@@ -74,8 +74,8 @@ fn parse_leaf(node: &Map<String, Value>) -> Option<PaneLeaf> {
     // The stored index counts tabs that did not parse; shift it past the dropped ones.
     let dropped_before = parsed
         .iter()
-        .take(requested.max(0.0) as usize)
-        .filter(|tab| tab.is_none())
+        .enumerate()
+        .filter(|(at, tab)| (*at as f64) < requested && tab.is_none())
         .count() as f64;
     let tabs: Vec<TabRef> = parsed.into_iter().flatten().collect();
     let last = (tabs.len() as f64 - 1.0).max(0.0);
