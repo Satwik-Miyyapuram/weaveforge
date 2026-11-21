@@ -35,9 +35,10 @@ const RULE_SOURCES: [(&str, &str); 9] = [
         r#"(?i)([?&](?:t|key|token|access_token|refresh_token|apikey|api_key|secret|code|password|signature)=)[^&\s"']+"#,
         "${1}<redacted>",
     ),
-    // An absolute home directory; the account name is the leaf.
+    // An absolute home directory; the account name is the leaf. Backslashes may come doubled
+    // (or more) when the path sits inside escaped JSON.
     (
-        r#"([A-Za-z]:\\Users\\|/Users/|/home/|/var/folders/[^/]+/)[^\\/\s"']+"#,
+        r#"([A-Za-z]:\\+Users\\+|/Users/|/home/|/var/folders/[^/]+/)[^\\/\s"']+"#,
         "${1}<user>",
     ),
     // An email address.
@@ -163,6 +164,13 @@ mod tests {
     fn home_directories_keep_prefix() {
         let out = redact(r"at C:\Users\sam\proj\a.rs and /home/sam/b");
         assert_eq!(out.text, r"at C:\Users\<user>\proj\a.rs and /home/<user>/b");
+        assert_eq!(out.redactions, 2);
+    }
+
+    #[test]
+    fn home_directories_in_escaped_json_lose_the_account_name() {
+        let out = redact(r#"{"p":"C:\\Users\\bob\\x","q":"D:\\\\Users\\\\bob\\\\y"}"#);
+        assert!(!out.text.contains("bob"), "{}", out.text);
         assert_eq!(out.redactions, 2);
     }
 
