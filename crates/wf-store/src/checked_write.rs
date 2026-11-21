@@ -675,8 +675,16 @@ fn read_disk(target: &Path, rel: &str) -> Result<Option<Vec<u8>>, VaultError> {
 fn check_expected(disk: Option<&[u8]>, text: bool, expected: Option<&str>) -> Option<WriteOutcome> {
     let expected = expected?;
     let disk_hash = disk.map_or_else(String::new, |bytes| hash_of(bytes, text));
-    (!may_replace(Some(expected), disk_hash.as_str()))
+    let seen_as_decoded = disk.is_some_and(|bytes| text && expected == lossy_digest(bytes));
+    (!seen_as_decoded && !may_replace(Some(expected), disk_hash.as_str()))
         .then_some(WriteOutcome::Changed { disk_hash })
+}
+
+/// Digest of the lossy text a reader of a non-UTF-8 file sees (`Vault::read_text`). Callers that
+/// only hold that text expect this digest (1.0.0 review P2-1). The race check in `settle_prev`
+/// still hashes raw bytes, so differing invalid bytes are kept (F97-P2-6).
+fn lossy_digest(bytes: &[u8]) -> String {
+    canonical_digest(&String::from_utf8_lossy(strip_bom(bytes)))
 }
 
 /// Law V1 (`docs/building/core/laws.md`): bytes on disk may be replaced only when the caller

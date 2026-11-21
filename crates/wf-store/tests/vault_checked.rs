@@ -680,3 +680,22 @@ fn replaced_invalid_utf8_bytes_that_differ_are_kept() {
         "the other writer's bytes were lost"
     );
 }
+
+#[test]
+fn a_non_utf8_note_saves_with_the_digest_of_its_decoded_text() {
+    // 1.0.0 review P2-1: the shell reads a Latin-1 note lossily and expects the digest of that
+    // text. The save must go through instead of returning Changed on every attempt.
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    let path = at(&dir, "latin.md");
+    put(&path, b"caf\xE9\n");
+    let seen = vault.read_text("latin.md").unwrap();
+    let outcome = vault
+        .write_text_checked("latin.md", "cafe\n", Some(&canonical_digest(&seen)))
+        .unwrap();
+    assert!(
+        matches!(outcome, WriteOutcome::Written { .. }),
+        "{outcome:?}"
+    );
+    assert_eq!(fs::read(&path).unwrap(), b"cafe\n");
+}
