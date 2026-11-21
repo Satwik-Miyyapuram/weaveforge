@@ -36,18 +36,18 @@ tauri-plugin-opener = "=2.7.2"
 # die with the shell. The std API of process-wrap never sets kill-on-close.
 process-wrap = { version = "=10.0.1", default-features = false, features = ["tokio1", "job-object", "kill-on-drop", "creation-flags", "process-group"] }
 # Rows keep column order and JSON keeps key order, as PGlite returned them.
-serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+serde_json.workspace = true
 # Editor MCP configs are often JSONC; the CST edit keeps the user's comments.
 jsonc-parser = { version = "=0.34.0", features = ["cst", "serde_json"] }
-tokio = { version = "=1.54.1", features = ["fs", "io-std", "io-util", "macros", "net", "process", "rt", "sync", "time"] }
+tokio = { workspace = true, features = ["fs", "io-std", "io-util", "macros", "net", "process", "rt", "sync", "time"] }
 # Typed commands: tauri-specta generates bridge/bindings.ts from the command signatures.
 # Specta v2 is a release candidate; the pins must move together.
-serde = { version = "=1.0.229", features = ["derive"] }
-specta = { version = "=2.0.0-rc.26", features = ["derive", "serde_json"] }
-specta-typescript = { version = "=0.0.13", features = ["serde"] }
+serde.workspace = true
+specta = { workspace = true, features = ["serde_json"] }
+specta-typescript = { workspace = true, features = ["serde"] }
 tauri-specta = { version = "=2.0.0-rc.26", features = ["derive", "typescript"] }
 # Error enums (plan §4.7); same pin as the root workspace.
-thiserror = "=2.0.21"
+thiserror.workspace = true
 # Secrets (step 2.8): keyring-core picks no store itself; the shell sets the
 # platform's native store at start, and tests use its mock store.
 keyring-core = "=1.0.1"
@@ -63,7 +63,7 @@ regex = "=1.13.1"
 base64 = "=0.23.1"
 notify = "=8.2.1"
 # Overleaf git dirs are named by a hash of the folder (step 2.13). Already in the lock.
-sha2 = "=0.10.9"
+sha2.workspace = true
 # Local HTTP API (step 5.3): token bytes, constant-time compare, request parsing.
 # All already in the lock.
 getrandom = "=0.3.4"
@@ -86,20 +86,20 @@ tauri-plugin-updater = { version = "=2.14.1", default-features = false, features
 # write the same vault or run two git syncers. Its dependencies are all in the lockfile already.
 tauri-plugin-single-instance = "=2.5.5"
 # Overleaf read (step 2.12c) clones with git2; same pin and features as the root workspace.
-git2 = { version = "=0.21.0", default-features = false, features = ["https", "ssh", "vendored-libgit2", "vendored-openssl"] }
+git2 = { workspace = true, features = ["https", "ssh", "vendored-openssl"] }
 # Relays (step 2.9): the shell fetches papers, pages and APIs the page cannot reach.
 # Same reqwest tauri already locks. native-tls, not rustls: rustls's default
 # aws-lc-rs needs cmake and nasm to build; native-tls uses schannel on Windows,
 # Security.framework on macOS, and on Linux the OpenSSL git2 already vendors.
-reqwest = { version = "=0.13.5", default-features = false, features = ["native-tls-vendored"] }
+reqwest = { workspace = true, features = ["native-tls-vendored"] }
 wf-store = { path = "../../crates/wf-store" }
 
 # Phones: vendored OpenSSL needs perl and make to cross-build, so no OpenSSL.
 # git2 without https (no Overleaf git on phones); rustls on ring, which builds
 # with the NDK's clang.
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
-git2 = { version = "=0.21.0", default-features = false, features = ["vendored-libgit2"] }
-reqwest = { version = "=0.13.5", default-features = false, features = ["rustls-no-provider"] }
+git2.workspace = true
+reqwest = { workspace = true, features = ["rustls-no-provider"] }
 rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std"] }
 wf-store = { path = "../../crates/wf-store", default-features = false }
 # The pen surface over the WebView (step 4.3a; plugins/ink).
@@ -137,7 +137,7 @@ dbus-secret-service-keyring-store = { version = "=1.0.1", features = ["crypto-ru
 android-native-keyring-store = { version = "=1.0.0", default-features = false }
 
 [dev-dependencies]
-tokio = { version = "=1.54.1", features = ["io-util", "macros", "net", "process", "rt", "rt-multi-thread", "sync", "time"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "process", "rt", "rt-multi-thread", "sync", "time"] }
 
 [build-dependencies]
 tauri-build = { version = "=2.7.4", features = [] }
