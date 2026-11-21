@@ -468,6 +468,8 @@ export async function writeBackZoteroAnnotations(deps: {
           zoteroKey: r.zoteroKey,
           zoteroVersion: r.zoteroVersion ?? prior?.zoteroVersion ?? null,
           syncState,
+          // An edit made while the push was in flight must stay owed.
+          ifUpdatedAt: prior?.updatedAt,
         });
       } catch (err) {
         fail(errorMessage(err));

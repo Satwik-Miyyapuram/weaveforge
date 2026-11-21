@@ -160,6 +160,12 @@ export interface ReaderAnnotationSyncRecord {
   /** Zotero's version for that item, for the next update's version guard. */
   zoteroVersion: number | null;
   syncState: AnnotationSyncState;
+  /**
+   * The row's `updatedAt` when it was sent. If the row was edited since, the
+   * key and version are still kept but `syncState` is left as it is, so the
+   * edit stays owed to Zotero instead of being marked synced unsent.
+   */
+  ifUpdatedAt?: string;
 }
 
 /**
