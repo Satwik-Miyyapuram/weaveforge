@@ -20,9 +20,10 @@ use crate::sync::markdown_image::{
     image_paths_in_body, markdown_image, normalize_markdown_image_syntax,
 };
 
-/// Fenced code blocks, lazily to the next fence.
+/// Fenced code blocks, lazily to the next fence or, when unclosed, to the end of the note.
+/// A `~~~` fence counts only at the start of a line, so `~~~` in prose is not code.
 pub(crate) static FENCE_RE: LazyLock<Option<Regex>> =
-    LazyLock::new(|| compile(r"```[\s\S]*?```").ok());
+    LazyLock::new(|| compile(r"(?m)```[\s\S]*?(?:```|\z)|^~~~[\s\S]*?(?:^~~~|\z)").ok());
 /// Inline code on one line.
 pub(crate) static INLINE_CODE_RE: LazyLock<Option<Regex>> =
     LazyLock::new(|| compile(r"`[^`\n]*`").ok());
@@ -914,6 +915,13 @@ mod tests {
         let refs = extract_wikilinks("```\n[[X]]\n```\n`[[Y]]` [[Z]]");
         assert_eq!(refs.len(), 1);
         assert_eq!(refs.first().map(|r| r.target.as_str()), Some("Z"));
+    }
+
+    #[test]
+    fn links_in_tilde_and_unclosed_fences_are_ignored() {
+        let refs = extract_wikilinks("[[A]]\n~~~\n[[X]]\n~~~\n[[B]] mid ~~~ [[C]]\n```\n[[Y]]");
+        let targets: Vec<&str> = refs.iter().map(|r| r.target.as_str()).collect();
+        assert_eq!(targets, ["A", "B", "C"]);
     }
 
     #[test]

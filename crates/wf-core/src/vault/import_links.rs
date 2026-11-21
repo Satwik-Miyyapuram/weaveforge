@@ -223,6 +223,15 @@ mod tests {
     }
 
     #[test]
+    fn outside_code_skips_tilde_and_unclosed_fences() {
+        let body = "~~~\n[[Old]]\n~~~\n[[Old]] mid ~~~ [[Old]]\n```\n[[Old]]";
+        assert_eq!(
+            rewrite_wikilinks_outside_code(body, &renames()),
+            "~~~\n[[Old]]\n~~~\n[[Old 2]] mid ~~~ [[Old 2]]\n```\n[[Old]]"
+        );
+    }
+
+    #[test]
     fn outside_code_without_code_matches_plain_rewrite() {
         let body = "a [[Old]] b [[Old#h]] ü [[Other]]";
         assert_eq!(
