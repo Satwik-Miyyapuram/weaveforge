@@ -98,3 +98,50 @@ None found.
     no `javascript:` path.
   - Mermaid SVG and the boot snapshot both go through DOMPurify
     (`lib/mermaid-render.ts:45`, `app/boot-snapshot.tsx:177`).
+
+## Second pass: local API, auth, crashes/hangs, flows
+
+No new P0, P1 or P2.
+
+### P3
+
+- `apps/web/src/features/ink/application/parts-1.ts:205-226`: the ink chunk
+  decompressor has no size cap; it collects every output chunk before
+  returning.
+  - Failing scenario: a crafted or corrupt `.inkb` arrives through git sync or
+    a shared folder and decompresses to gigabytes. The webview runs out of
+    memory when the note opens.
+  - Fix: stop reading past a cap (for example 64 MB per chunk) and treat the
+    chunk as corrupt.
+
+### Checked, no issue
+
+- **Local API** (`apps/shell/src/local_http/server.rs`):
+  - It binds to 127.0.0.1 only (L58-61).
+  - It checks Host against loopback names, which blocks DNS rebinding (L42).
+  - It refuses a foreign `Origin`.
+  - Limits: 16 KB head and 8 MB body, each read with a timeout; at most 32
+    connections, extra ones dropped; a 30 s drain on refusals.
+  - Shutdown (`control.rs` `stop`) signals the accept loop and awaits only that
+    loop, so in-flight connections cannot block exit (`lib.rs:549`).
+- **Auth:**
+  - Supabase uses PKCE (`backend/providers/postgrest/parts-1.ts:186`), so a
+    forged `weaveforge://` callback code (`lib.rs:736-752`) cannot log the
+    user into another account: the exchange in `supabase-auth.ts:170` needs
+    the local verifier.
+  - The web app is a static export with no server route handlers to attack.
+- **Hangs:**
+  - Every TS `for (;;)` loop ends: the stream readers stop at `done`, and
+    `awaitInkWrites` drains a set that only shrinks.
+  - The outbox pump moves `afterSeq` forward each page and stops on a short
+    page (`offline-sync/domain/parts-3.ts:55-60`).
+  - Zotero `mapWithConcurrency` is bounded.
+- **Crashes:** the `unwrap`/`expect` hits in `apps/shell/src` are all inside
+  `#[cfg(test)]` modules, apart from `app_update.rs:444`, which joins
+  test-only threads.
+
+### Not covered statically
+
+User flows (workspace open, notes, papers, ink, sharing, settings) need a
+run in the Dev app; static reading cannot clear them. Use the result of the
+Dev E2E check for those.
