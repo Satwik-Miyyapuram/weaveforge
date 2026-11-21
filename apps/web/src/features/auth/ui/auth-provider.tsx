@@ -37,7 +37,8 @@ interface AuthState {
   updatePassword: (password: string) => Promise<void>;
 }
 
-const AuthContext = createContext<AuthState | null>(null);
+/** @internal exported for tests, which provide a user without signing in. */
+export const AuthContext = createContext<AuthState | null>(null);
 
 /**
  * Provides auth state to the tree. Reads the current user once on mount and
