@@ -111,11 +111,15 @@ pub fn check_link_folder(raw: &str) -> Result<String, String> {
     {
         return Err(BAD_FOLDER.to_owned());
     }
-    let parts: Vec<&str> = folder.split('/').collect();
-    // Case-blind, as the Windows and macOS file systems are.
+    // Each name as Windows opens it: trailing dots and spaces dropped, so `.git.` is `.git`.
+    let parts: Vec<&str> = folder
+        .split('/')
+        .map(|part| part.trim_end_matches(['.', ' ']))
+        .collect();
+    // Case-blind, as the Windows and macOS file systems are. `.` and `..` trim to "".
     let bad_step = parts
         .iter()
-        .any(|part| matches!(*part, "" | "." | "..") || part.eq_ignore_ascii_case(".git"));
+        .any(|part| part.is_empty() || part.eq_ignore_ascii_case(".git"));
     if bad_step
         || parts
             .first()
