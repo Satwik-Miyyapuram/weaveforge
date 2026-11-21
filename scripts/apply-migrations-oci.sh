@@ -33,12 +33,17 @@ PREREQS="$SELF_HOSTED/0000_self_host_prereqs.sql"
 FOLLOW_UPS_ONLY=""
 [[ "${1:-}" == "--follow-ups-only" ]] && FOLLOW_UPS_ONLY=1
 
+# Rows are checked with a real read of each public table (as hasAnyRows does in
+# the .mjs), not planner statistics: n_live_tup is 0 on a freshly restored
+# database until autovacuum runs, which would let the replay through (P1-5).
 stats=$(psql "$DATABASE_URL" -tAc \
   "select (select count(*) from pg_tables where schemaname='public')
-     || '|' || (select coalesce(sum(n_live_tup),0) from pg_stat_user_tables)")
-tables=${stats%%|*}; rows=${stats##*|}
-if [[ "$tables" -gt 0 && "$rows" -gt 0 && -z "$FOLLOW_UPS_ONLY" && -z "${ALLOW_REAPPLY_OVER_DATA:-}" ]]; then
-  echo "Refusing: this database already has $tables tables and ~$rows rows." >&2
+     || '|' || (select case when bool_or(query_to_xml(
+          format('select 1 from %I.%I limit 1', schemaname, tablename), false, true, '')::text <> '')
+        then 't' else '' end from pg_tables where schemaname='public')")
+tables=${stats%%|*}; has_rows=${stats##*|}
+if [[ "$tables" -gt 0 && "$has_rows" == "t" && -z "$FOLLOW_UPS_ONLY" && -z "${ALLOW_REAPPLY_OVER_DATA:-}" ]]; then
+  echo "Refusing: this database already has $tables tables, and they hold rows." >&2
   echo "  Apply the self-hosted follow-ups alone with --follow-ups-only," >&2
   echo "  or override deliberately with ALLOW_REAPPLY_OVER_DATA=1." >&2
   exit 1
