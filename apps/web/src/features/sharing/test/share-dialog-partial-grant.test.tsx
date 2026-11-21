@@ -12,8 +12,8 @@ import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
 import { setContainerForTests } from "@/bootstrap";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { ProfileProvider } from "@/features/org/ui/profile-provider";
-import { AuthContext } from "@/features/auth/ui/auth-provider";
+import { ProfileProvider } from "@/features/org";
+import { AuthContext } from "@/features/auth";
 import { Button } from "@/components/button";
 import { MemberPicker } from "../ui/member-picker";
 import { ShareDialog } from "../ui/share-dialog";
