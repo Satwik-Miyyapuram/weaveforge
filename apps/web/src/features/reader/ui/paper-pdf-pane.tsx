@@ -36,6 +36,7 @@ import { readyCore } from "@/lib/rust-core";
 import { relayUrl } from "@/lib/parts";
 import { PaperHtmlView } from "./paper-html-view";
 import { Button } from "@/components/button";
+import { paperGuard } from "./paper-guard";
 
 async function keptHtmlPage(paperId: string): Promise<PaperHtmlPage | null> {
   const { paperHtmlStore } = await import("../infrastructure/paper-html-store");
@@ -123,6 +124,9 @@ export function PaperPdfPane({
   // The ladder effect below starts a fetch without re-running when this changes.
   const findFreeRef = useRef(findFree);
   findFreeRef.current = findFree;
+  // The paper on screen now, for async work to check after each await (P2-167).
+  const paperIdRef = useRef(paperId ?? null);
+  paperIdRef.current = paperId ?? null;
 
   useEffect(() => onTitle?.(title), [onTitle, title]);
   useEffect(() => onAnnotations?.(annotations), [onAnnotations, annotations]);
@@ -344,9 +348,11 @@ export function PaperPdfPane({
     }
     setTypedBusy(true);
     setTypedError(null);
+    const stillOpen = paperGuard(paperIdRef, paperId);
     try {
       const result = await fetchTypedPdfToCache(paperId, url);
       if (!result.ok) {
+        if (!stillOpen()) return;
         setTypedError(
           result.reason === "no-cache"
             ? "This browser cannot keep a PDF — open a workspace folder first."
@@ -358,7 +364,10 @@ export function PaperPdfPane({
         );
         return;
       }
+      // The bytes and the link belong to the paper the fetch was for, so they
+      // are kept even when another paper is open by now; the view is not touched.
       await linkPdfSource((id, link) => getContainer().papers.updatePaper.setPdfSource(id, link), paperId, url);
+      if (!stillOpen()) return;
       activityRef.current?.("reader", `Fetched the PDF from ${new URL(url).hostname} and linked it to this paper.`);
       setTypedUrl("");
       setError(null);
@@ -366,7 +375,7 @@ export function PaperPdfPane({
       setLoading(true);
       setGeneration((n) => n + 1);
     } catch (err) {
-      setTypedError(formatError(err));
+      if (stillOpen()) setTypedError(formatError(err));
     } finally {
       setTypedBusy(false);
     }
@@ -384,6 +393,7 @@ export function PaperPdfPane({
       text: readyCore().isWebArticle(openAccessIds.current) ? "Fetching the page…" : "Asking the open-access indexes…",
       error: false,
     });
+    const stillOpen = paperGuard(paperIdRef, paperId);
     try {
       const { findFreeCopyInBrowser } = await import("../application/parts-2");
       const outcome = await findFreeCopyInBrowser(paperId, openAccessIds.current);
@@ -394,6 +404,7 @@ export function PaperPdfPane({
           paperId,
           outcome.candidate.url,
         );
+        if (!stillOpen()) return;
         activityRef.current?.("reader", `Found a free PDF on ${host}; it is kept with this paper.`);
         setFreeStatus(null);
         setError(null);
@@ -401,6 +412,11 @@ export function PaperPdfPane({
         setLoading(true);
         setGeneration((n) => n + 1);
       } else if (outcome.kind === "html") {
+        // Searchable like a PDF's text. Best effort: the page is kept either way.
+        void import("@/features/search/application/parts-1")
+          .then(({ indexPaperHtmlPage }) => indexPaperHtmlPage(outcome.page, paperTitle ?? undefined))
+          .catch(() => undefined);
+        if (!stillOpen()) return;
         activityRef.current?.(
           "reader",
           outcome.candidate.source === "paper"
@@ -410,18 +426,14 @@ export function PaperPdfPane({
         setFreeStatus(null);
         setError(null);
         setHtmlPage(outcome.page);
-        // Searchable like a PDF's text. Best effort: the page is kept either way.
-        void import("@/features/search/application/parts-1")
-          .then(({ indexPaperHtmlPage }) => indexPaperHtmlPage(outcome.page, paperTitle ?? undefined))
-          .catch(() => undefined);
-      } else {
+      } else if (stillOpen()) {
         setFreeStatus({
           text: readyCore().describeFreeCopyFailure(outcome, readyCore().isWebArticle(openAccessIds.current)),
           error: true,
         });
       }
     } catch (err) {
-      setFreeStatus({ text: `The search for a free copy failed: ${formatError(err)}`, error: true });
+      if (stillOpen()) setFreeStatus({ text: `The search for a free copy failed: ${formatError(err)}`, error: true });
     } finally {
       setFreeBusy(false);
     }
@@ -429,6 +441,7 @@ export function PaperPdfPane({
 
   async function removeHtmlPage() {
     if (!paperId) return;
+    const stillOpen = paperGuard(paperIdRef, paperId);
     try {
       const { paperHtmlStore } = await import("../infrastructure/paper-html-store");
       await paperHtmlStore()?.remove(paperId);
@@ -441,11 +454,12 @@ export function PaperPdfPane({
       } catch {
         // Stale search text is pruned on the next rebuild; the page is gone either way.
       }
+      if (!stillOpen()) return;
       setHtmlPage(null);
       setLoading(true);
       setGeneration((n) => n + 1);
     } catch (err) {
-      setError(formatError(err));
+      if (stillOpen()) setError(formatError(err));
     }
   }
 
