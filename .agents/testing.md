@@ -46,7 +46,13 @@ One file or one test, faster:
 cd apps/shell && cargo test --lib launch::
 cd packages/core && node --import tsx --test test/features/reader/references.test.ts
 npm run test:web -- --test-name-pattern "find overlay"
+cd apps/web && node ./scripts/run-tests.mjs src/features/x/test/y.test.ts
 ```
+
+`npm run test:web` is `apps/web/scripts/run-tests.mjs`. Pass test *files*
+(`*.test.ts` / `*.test.tsx`, relative to `apps/web`); a folder or no file runs
+the whole suite. Web tests use `node:test` and `assert/strict` with no module
+mocking, so test pure functions.
 
 - Tests mirror source: `packages/core/test/` follows `packages/core/src/`;
   web tests sit in a `test/` folder beside the feature.
@@ -57,10 +63,25 @@ npm run test:web -- --test-name-pattern "find overlay"
   credentials or a browser install; run them only when the change touches
   that layer.
 
+## 1a. Gates before a push
+
+- Rust: `npm run check:rust -- --local` runs the same fmt, clippy
+  (`-D warnings`), nextest and doctest gates as CI, offline. The toolchain is
+  pinned in `rust-toolchain.toml`.
+- One cargo at a time on this machine: `~/.cargo/config.toml` sets
+  `jobs = 1` and a lock wrapper. Never start two cargo builds at once, no
+  `-j`; vitest runs with `--maxWorkers=1`.
+- `npm run check:hygiene`: no source file over 800 lines.
+- `npm run check:pre-push` is what the pre-push hook runs. Never skip it with
+  `--no-verify`; fix what it reports.
+- From a fresh `git worktree`: run `npm ci && npm run generate` there first
+  (section 1). Never commit `apps/web/next-env.d.ts` or the
+  `third_party/overleaf` submodule pointer; both show as dirty.
+
 ## 2. Web previews
 
 `.claude/launch.json` names the dev servers (`web`, `web-desktop-mode`,
-`web-prod`, `web-worktree`, `pitch-export`). Start one with the preview tool,
+`web-prod`, `web-worktree`, `pitch-export`, `plan-preview`). Start one with the preview tool,
 never from the shell. Good for layout and CSS; anything that depends on the
 desktop shell (local DB, file system, app:// routes) is checked in the
 desktop app below.
