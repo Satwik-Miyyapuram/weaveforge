@@ -16,6 +16,7 @@ const ALLOWED = [
   "components/local-api-tokens.tsx",
   "features/org/ui/org-screen.tsx",
   "features/projects/ui/projects-screen.tsx",
+  "features/report/ui/overleaf-report-forms.tsx",
   "features/settings/ui/api-tokens-panel.tsx",
   "features/settings/ui/calendar-feed-panel.tsx",
   "features/settings/ui/local-api-panel.tsx",
