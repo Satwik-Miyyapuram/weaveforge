@@ -94,6 +94,9 @@ mod tests {
     #[test]
     fn the_script_answers_with_the_event_the_shell_waits_for() {
         assert!(FLUSH_SCRIPT.contains(&format!("event:'{FLUSHED}'")));
-        assert!(!FLUSH_SCRIPT.contains('"'), "the page test reads the script between quotes");
+        assert!(
+            !FLUSH_SCRIPT.contains('"'),
+            "the page test reads the script between quotes"
+        );
     }
 }
