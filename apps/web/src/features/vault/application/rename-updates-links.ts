@@ -39,8 +39,14 @@ export function withRenameLinkRewrite<T extends VaultPages>(pages: T): T {
     for (const page of all) {
       if (page.id === id || !page.body.includes("[[")) continue;
       try {
-        const body = core.rewriteWikilinksOutsideCode(page.body, renames);
-        if (body !== page.body) await pages.update(page.id, { body });
+        // Re-read right before the write, and send what was read as baseBody:
+        // the repo then merges (or keeps a conflict copy of) anything saved in
+        // between instead of overwriting it. Editors send their own baseBody,
+        // so an open note's later autosave merges with this rewrite too.
+        const fresh = await pages.getById(page.id);
+        if (!fresh) continue;
+        const body = core.rewriteWikilinksOutsideCode(fresh.body, renames);
+        if (body !== fresh.body) await pages.update(page.id, { body, baseBody: fresh.body });
       } catch {
         failed.push(page.title);
       }

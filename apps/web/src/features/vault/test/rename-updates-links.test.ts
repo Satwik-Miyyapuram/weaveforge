@@ -24,10 +24,18 @@ function page(id: string, title: string, body: string): VaultPage {
 function memoryPages(initial: VaultPage[], failOn: ReadonlySet<string> = new Set()) {
   const rows = new Map(initial.map((p) => [p.id, p]));
   const updates: string[] = [];
+  const inputs: EditVaultPageInput[] = [];
+  const reads: string[] = [];
+  /** When set, `list` answers this snapshot: an edit saved after the list was read. */
+  const stale: { list?: VaultPage[] } = {};
   const repo = {
-    getById: async (id: string) => rows.get(id) ?? null,
-    list: async () => [...rows.values()],
+    getById: async (id: string) => {
+      reads.push(id);
+      return rows.get(id) ?? null;
+    },
+    list: async () => stale.list ?? [...rows.values()],
     update: async (id: string, input: EditVaultPageInput) => {
+      inputs.push(input);
       // As the Rust repo does (vault_pages::assert_title_unique), refuse another note's title.
       const taken = [...rows.values()].some((p) => p.id !== id && p.title.toLowerCase() === input.title?.toLowerCase());
       if (taken) throw new Error("A note with this title already exists.");
@@ -38,7 +46,7 @@ function memoryPages(initial: VaultPage[], failOn: ReadonlySet<string> = new Set
       return next;
     },
   };
-  return { rows, updates, repo: withRenameLinkRewrite(repo as never) as unknown as typeof repo };
+  return { rows, updates, inputs, reads, stale, repo: withRenameLinkRewrite(repo as never) as unknown as typeof repo };
 }
 
 test("renaming a note rewrites [[Old]] links in other notes", async () => {
@@ -115,6 +123,16 @@ test("a rename where every rewrite saved reports no failures", async () => {
   const { repo } = memoryPages([page("one", "One", "[[Two]]"), page("two", "Two", "Body")]);
   const saved = (await repo.update("two", { title: "Renamed" })) as { linkRewriteFailed?: string[] };
   assert.equal(saved.linkRewriteFailed, undefined);
+});
+
+test("the rewrite starts from the note as saved now and is version-guarded", async () => {
+  const { rows, inputs, stale, repo } = memoryPages([page("one", "One", "[[Two]]"), page("two", "Two", "Body")]);
+  stale.list = [...rows.values()];
+  rows.set("one", page("one", "One", "[[Two]] and an edit saved since"));
+  await repo.update("two", { title: "Renamed" });
+  assert.equal(rows.get("one")!.body, "[[Renamed]] and an edit saved since");
+  // baseBody makes the repo merge, or keep a conflict copy of, anything saved after this read.
+  assert.deepEqual(inputs.at(-1), { body: "[[Renamed]] and an edit saved since", baseBody: "[[Two]] and an edit saved since" });
 });
 
 test("the app's note writes are the link-rewriting ones", () => {
