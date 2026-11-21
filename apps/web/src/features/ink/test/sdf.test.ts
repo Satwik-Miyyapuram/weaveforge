@@ -1,15 +1,6 @@
 /**
- * The SDF pipeline's CPU half: the instance layout, the nib radius, and the degenerate
- * case the plan names.
- *
- * §7 step 4 asks for "`sdf.test.ts`: a zero-length segment renders a round dot".
- * The rendering itself needs a GPU, so what is asserted here is the part that
- * decides whether the shader *can*: a segment whose endpoints coincide must produce
- * a square quad of the nib's radius plus the AA margin, and the packer must give it
- * equal radii, because the fragment shader's distance has no direction to project
- * onto. The shader guards the same case a second time
- * (`max(dot(ba, ba), 0.0001)`), and that guard is quoted in the test so the two
- * halves of the fix are visible together.
+ * The Hermite curve a stroke is drawn as (the core's `inkCurveAt` and
+ * `inkTangentAt`, which the SVG path samples), and the canvas backing ratio.
  */
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
@@ -21,71 +12,18 @@ import {
   INK_MAX_BACKING_DIMENSION,
   INK_MAX_BACKING_PIXELS,
   backingRatio,
-  INK_AA_MARGIN_PX,
-  INK_INSTANCE_FLOATS,
-  INK_SEGMENT_SUBDIVISIONS,
-  packStrokeInstances,
-  radiusAt,
-  strokeCurveAt,
-  strokeTangentAt,
-  strokeInstanceCount,
 } from "../render/parts-1";
 
 before(loadTestCore);
 
-test("the AA margin is one device pixel, which is the overdraw lever", () => {
-  assert.equal(INK_AA_MARGIN_PX, 1);
-});
-
-test("the packer writes the subdivided spline, in the layout the shader reads", () => {
-  const out = new Float32Array(INK_INSTANCE_FLOATS * strokeInstanceCount(3));
-  const written = packStrokeInstances(
-    {
-      x: Float32Array.from([0, 10, 20]),
-      y: Float32Array.from([5, 5, 5]),
-      pressure: Uint8Array.from([0, 0, 0]),
-      width: 6,
-    },
-    out,
-  );
-  const perSegment = INK_INSTANCE_FLOATS * INK_SEGMENT_SUBDIVISIONS;
-  assert.equal(
-    written,
-    perSegment * 2,
-    "three points are two segments, each subdivided",
-  );
-  assert.equal(strokeInstanceCount(3), 2 * INK_SEGMENT_SUBDIVISIONS);
-  // Collinear, evenly spaced samples: the spline is the line, so the
-  // sub-segments are the thirds of it, and the layout is A.xy, B.xy, rA, rB,
-  // then the neighbours: prevA.xy, nextB.xy, prevRA, nextRB.
-  const third = 10 / INK_SEGMENT_SUBDIVISIONS;
-  const stride = INK_INSTANCE_FLOATS;
-  const first = Array.from(out.subarray(0, stride));
-  assert.deepEqual(first.slice(0, 2), [0, 5]);
-  assert.ok(Math.abs(first[2]! - third) < 1e-5 && first[3] === 5);
-  assert.deepEqual(first.slice(4, 6), [3, 3]);
-  assert.equal(first[10], -1, "the first instance has nothing before it");
-  assert.ok(Math.abs(first[8]! - 2 * third) < 1e-5, "and the next ends a third on");
-  assert.equal(first[11], 3);
-  const last = Array.from(out.subarray(written - stride, written));
-  assert.ok(Math.abs(last[0]! - (20 - third)) < 1e-5);
-  assert.deepEqual(last.slice(2, 6), [20, 5, 3, 3], "the last ends on the last sample");
-  assert.equal(last[11], -1, "and has nothing after it");
-  assert.ok(Math.abs(last[6]! - (20 - 2 * third)) < 1e-5);
-  // The chain is continuous: every instance starts where the previous ended,
-  // and knows it.
-  for (let at = stride; at < written; at += stride) {
-    assert.equal(out[at], out[at - stride + 2]);
-    assert.equal(out[at + 1], out[at - stride + 3]);
-    assert.equal(out[at + 6], out[at - stride], "prev is the previous start");
-    assert.equal(out[at - stride + 8], out[at + 2], "next is the following end");
-  }
-  assert.deepEqual(
-    Array.from(out.subarray(written)).every((value) => value === 0),
-    true,
-    "and nothing past it",
-  );
-});
+interface Samples {
+  x: Float32Array;
+  y: Float32Array;
+}
+const strokeCurveAt = (stroke: Samples, i: number, u: number) =>
+  typedCore().inkCurveAt(stroke.x, stroke.y, i, u);
+const strokeTangentAt = (stroke: Samples, i: number) =>
+  typedCore().inkTangentAt(stroke.x, stroke.y, i, "out");
 
 test("the spline follows an arc the polyline would cut", () => {
   // Four samples on a circle: halfway along the middle segment the chord sits
@@ -105,59 +43,6 @@ test("the spline follows an arc the polyline would cut", () => {
   assert.ok(Math.abs(along - radius) < 0.1 * radius * 0.01);
   const start = strokeCurveAt(stroke, 1, 0);
   assert.ok(Math.abs(start.x - stroke.x[1]!) < 1e-9, "and passes through the samples");
-});
-
-test("a stroke with one point has no segments, and packs to nothing", () => {
-  const out = new Float32Array(INK_INSTANCE_FLOATS * 4);
-  const written = packStrokeInstances(
-    {
-      x: Float32Array.from([100]),
-      y: Float32Array.from([100]),
-      pressure: Uint8Array.from([128]),
-      width: 6,
-    },
-    out,
-  );
-  assert.equal(written, 0);
-});
-
-test("packing from a point onward appends only the new segments (D6)", () => {
-  // Incremental drawing: a frame that added one point must cost one segment, not
-  // the whole stroke — the flush-verified measurement was 0.5 ms against 4.8 ms.
-  const points = 8;
-  const out = new Float32Array(INK_INSTANCE_FLOATS * strokeInstanceCount(points));
-  const stroke = {
-    x: Float32Array.from(
-      Array.from({ length: points }, (_unused, i) => i * 10),
-    ),
-    y: Float32Array.from(Array.from({ length: points }, () => 0)),
-    pressure: Uint8Array.from(Array.from({ length: points }, () => 200)),
-    width: 6,
-  };
-  const first = packStrokeInstances(stroke, out, { from: 0 });
-  assert.equal(first, INK_INSTANCE_FLOATS * strokeInstanceCount(points));
-  const grown = packStrokeInstances(stroke, out, { from: points - 2 });
-  assert.equal(
-    grown,
-    INK_INSTANCE_FLOATS * INK_SEGMENT_SUBDIVISIONS,
-    "only the last segment is repacked",
-  );
-  // The re-packed instance still knows the one before it, which was not.
-  assert.ok(out[10]! >= 0, "a mid-stroke instance has a previous neighbour");
-  assert.ok(
-    Math.abs(out[6]! - ((points - 2) * 10 - 10 / INK_SEGMENT_SUBDIVISIONS)) < 1e-4,
-  );
-});
-
-test("every tool keeps its width: no pressure or speed taper", () => {
-  // The live stroke and the saved one must match, so width is the tool's alone.
-  const stroke = {
-    width: 6,
-    x: Float32Array.from([0, 40, 41, 200]),
-    y: Float32Array.from([0, 0, 0, 0]),
-    pressure: Uint8Array.from([10, 255, 30, 200]),
-  };
-  for (let i = 0; i < 4; i += 1) assert.equal(radiusAt(stroke, i), 3);
 });
 
 test("a packed box is drawn as a box, with nothing visible past it", () => {

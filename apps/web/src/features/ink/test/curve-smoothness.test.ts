@@ -1,21 +1,22 @@
 // A stroke is stored (and drawn live) after simplification at INK_PACK_TOLERANCE,
 // so its samples sit up to a couple of millimetres apart. Each span is drawn as
-// INK_SEGMENT_SUBDIVISIONS straight capsules; too few and a small letter loop
-// shows visible facets. This pins how sharp the join between two capsules may be.
+// SUBDIVISIONS straight pieces (the SVG path's `INK_SEGMENT_SUBDIVISIONS`); too few
+// and a small letter loop shows visible facets. This pins how sharp the join
+// between two pieces may be.
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { INK_PACK_TOLERANCE } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import {
-  INK_INSTANCE_FLOATS,
-  packStrokeInstances,
-  strokeCurveAt,
-  strokeInstanceCount,
-} from "../render/parts-1";
 
 before(loadTestCore);
+
+/** Pieces per sample gap, as ink_svg.rs draws them. */
+const SUBDIVISIONS = 8;
+
+const strokeCurveAt = (stroke: { x: Float32Array; y: Float32Array }, i: number, u: number) =>
+  typedCore().inkCurveAt(stroke.x, stroke.y, i, u);
 
 /**
  * How deep the deepest facet is, in 0.1 mm: at each join between two drawn
@@ -33,17 +34,16 @@ function deepestFacet(points: readonly number[]): number {
     x[i] = points[2 * i]!;
     y[i] = points[2 * i + 1]!;
   }
-  const out = new Float32Array(INK_INSTANCE_FLOATS * strokeInstanceCount(n));
-  const used = packStrokeInstances({ x, y, pressure: new Uint8Array(n), width: 3 }, out);
+  // The drawn chain: the first sample, then each piece's far end.
+  const chain: { x: number; y: number }[] = n > 1 ? [{ x: x[0]!, y: y[0]! }] : [];
+  for (let i = 0; i + 1 < n; i += 1) {
+    for (let k = 1; k <= SUBDIVISIONS; k += 1) chain.push(strokeCurveAt({ x, y }, i, k / SUBDIVISIONS));
+  }
   let worst = 0;
-  for (let base = INK_INSTANCE_FLOATS; base < used; base += INK_INSTANCE_FLOATS) {
-    const prev = base - INK_INSTANCE_FLOATS;
-    const ax = out[prev]!;
-    const ay = out[prev + 1]!;
-    const bx = out[base]!;
-    const by = out[base + 1]!;
-    const cx = out[base + 2]!;
-    const cy = out[base + 3]!;
+  for (let j = 1; j + 1 < chain.length; j += 1) {
+    const { x: ax, y: ay } = chain[j - 1]!;
+    const { x: bx, y: by } = chain[j]!;
+    const { x: cx, y: cy } = chain[j + 1]!;
     const length = Math.hypot(cx - ax, cy - ay);
     if (!(length > 0)) continue;
     worst = Math.max(worst, Math.abs((cx - ax) * (ay - by) - (ax - bx) * (cy - ay)) / length);

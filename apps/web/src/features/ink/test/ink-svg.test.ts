@@ -15,16 +15,14 @@ import { before, test } from "node:test";
 import { INK_A4_HEIGHT, INK_A4_WIDTH, INK_PACK_TOLERANCE, type InkPage } from "@weaveforge/core";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
-import {
-  INK_RENDER_COLOURS,
-  INK_SEGMENT_SUBDIVISIONS,
-  type InkPalette,
-  strokeCurveAt,
-} from "../render/parts-1";
+import { INK_RENDER_COLOURS, type InkPalette } from "../render/parts-1";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 import { readyCore, toWasmInkPage, typedCore, type WasmInkSvgPage } from "@/lib/rust-core";
 
 before(loadTestCore);
+
+/** Spans the SVG path cuts each sample gap into (`INK_SEGMENT_SUBDIVISIONS` in ink_svg.rs). */
+const INK_SEGMENT_SUBDIVISIONS = 8;
 
 /** Every `x,y` a path command names, in order. */
 function pathPoints(d: string): [number, number][] {
@@ -209,16 +207,15 @@ test("figures embed under the strokes, and a crop clips rather than stretches", 
 });
 
 
-/** The WebGL renderer's centreline for the same stored points: its own curve, sampled as it draws it. */
+/** The core's curve for the same stored points (`inkCurveAt`), sampled at each subdivision. */
 function rendererPoints(points: readonly number[]): [number, number][] {
   const count = points.length / 2;
   const x = Float32Array.from({ length: count }, (_, i) => points[i * 2]!);
   const y = Float32Array.from({ length: count }, (_, i) => points[i * 2 + 1]!);
-  const input = { x, y, pressure: new Uint8Array(count), width: 0 };
   const out: [number, number][] = [[x[0]!, y[0]!]];
   for (let i = 0; i + 1 < count; i += 1)
     for (let k = 1; k <= INK_SEGMENT_SUBDIVISIONS; k += 1) {
-      const p = strokeCurveAt(input, i, k / INK_SEGMENT_SUBDIVISIONS);
+      const p = typedCore().inkCurveAt(x, y, i, k / INK_SEGMENT_SUBDIVISIONS);
       out.push([p.x, p.y]);
     }
   return out;
