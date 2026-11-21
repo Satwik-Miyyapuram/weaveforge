@@ -63,20 +63,44 @@ export class LocalOverleafGateway {
   /**
    * Keeps the token and returns the connection row to hang reports off.
    *
-   * The keychain write comes first and is allowed to fail loudly: a machine
-   * with no keychain backend has nowhere safe for this, and a row pointing at a
-   * credential that was never stored would fail later and less clearly.
+   * There is one keychain token, so there is one keychain row: a second link
+   * reuses it and updates its prefix, rather than leaving an older row whose
+   * reports would quietly run on the new token. A new row is written before
+   * the token and removed again if the keychain write fails loudly (a machine
+   * with no keychain backend has nowhere safe for it), so a failed insert
+   * never replaces a token that existing reports still use.
    */
   async saveConnection(name: string, token: string): Promise<string> {
     const shell = desktop();
     if (!shell) throw new Error("Linking Overleaf needs the desktop app.");
-    await shell.writeSecret("overleaf-token", token);
+    const prefix = token.slice(0, 4);
+    const [existing] = await this.run.query<{ id: string }>(
+      `select id from overleaf_connections
+       where user_id = auth.uid() and token_ciphertext = $1
+       order by created_at limit 1`,
+      [KEYCHAIN],
+    );
+    if (existing) {
+      await shell.writeSecret("overleaf-token", token);
+      await this.run.exec(
+        `update overleaf_connections set name = $1, token_prefix = $2, updated_at = now()
+         where id = $3 and user_id = auth.uid()`,
+        [name, prefix, existing.id],
+      );
+      return existing.id;
+    }
     const [row] = await this.run.query<{ id: string }>(
       `insert into overleaf_connections (user_id, name, token_ciphertext, token_prefix)
        values (auth.uid(), $1, $2, $3) returning id`,
-      [name, KEYCHAIN, token.slice(0, 4)],
+      [name, KEYCHAIN, prefix],
     );
     if (!row) throw new Error("Could not save the Overleaf connection.");
+    try {
+      await shell.writeSecret("overleaf-token", token);
+    } catch (err) {
+      await this.run.exec("delete from overleaf_connections where id = $1 and user_id = auth.uid()", [row.id]).catch(() => undefined);
+      throw err;
+    }
     return row.id;
   }
 
