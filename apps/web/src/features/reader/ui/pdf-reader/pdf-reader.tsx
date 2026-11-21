@@ -885,6 +885,17 @@ export function PdfReader({
   const cancelStrokeRef = useRef(cancelStroke);
   cancelStrokeRef.current = cancelStroke;
 
+  /** The mounted scroll container, as state, so the pinch effect below re-runs when it
+   * mounts again (the error screen cleared) instead of keeping a listener-less div. */
+  const [scrollerEl, setScrollerEl] = useState<HTMLDivElement | null>(null);
+  const setScrollerRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      containerRef.current = el;
+      setScrollerEl(el);
+    },
+    [containerRef],
+  );
+
   /**
    * Two-finger pinch on trackpad/mousepad, or Ctrl/Cmd + mouse wheel scroll.
    * Browsers emit trackpad pinch as WheelEvents with ctrlKey = true.
@@ -892,7 +903,7 @@ export function PdfReader({
    * once the gesture pauses (140ms debounce), commitZoom scales the pages and fixes the anchor.
    */
   useEffect(() => {
-    const scroller = containerRef.current;
+    const scroller = scrollerEl;
     if (!scroller) return;
 
     let commitTimer: number | null = null;
@@ -1001,7 +1012,7 @@ export function PdfReader({
       scroller.removeEventListener("gesturechange", onGestureChange);
       scroller.removeEventListener("gestureend", onGestureEnd);
     };
-  }, [containerRef]);
+  }, [scrollerEl]);
 
   /**
    * The size a page takes at a scale, rotation included.
@@ -1679,7 +1690,8 @@ export function PdfReader({
             <div className="pdf-reader-pill-colours" role="group" aria-label="Annotation colour">
               {quickColours.slice(0, 4).map((colour, i) => (
                 <Swatch
-                  key={colour}
+                  // By slot: two slots may hold one colour, and a shared key drops one.
+                  key={i}
                   label={`Colour ${colour}`}
                   colour={quickHexes[i]}
                   selected={drawColour === colour}
@@ -1754,7 +1766,7 @@ export function PdfReader({
         />
         <div
           className="pdf-reader-scroll"
-          ref={containerRef}
+          ref={setScrollerRef}
           onPointerUp={onSelectionEnd}
           // A press anywhere else puts the mark popover away; its own presses stop short of here.
           onPointerDown={(e) => {
