@@ -24,9 +24,10 @@ use crate::sync::markdown_image::{
 /// A `~~~` fence counts only at the start of a line, so `~~~` in prose is not code.
 pub(crate) static FENCE_RE: LazyLock<Option<Regex>> =
     LazyLock::new(|| compile(r"(?m)```[\s\S]*?(?:```|\z)|^~~~[\s\S]*?(?:^~~~|\z)").ok());
-/// Inline code on one line.
+/// Inline code on one line: a ``double-backtick`` span (which may hold a single backtick)
+/// or a `single-backtick` one.
 pub(crate) static INLINE_CODE_RE: LazyLock<Option<Regex>> =
-    LazyLock::new(|| compile(r"`[^`\n]*`").ok());
+    LazyLock::new(|| compile(r"``[^\n]*?``|`[^`\n]*`").ok());
 /// One `[[...]]` on one line; group 1 is the inside.
 pub(crate) static WIKILINK_RE: LazyLock<Option<Regex>> =
     LazyLock::new(|| compile(r"\[\[([^\[\]\n]+?)\]\]").ok());
@@ -922,6 +923,13 @@ mod tests {
         let refs = extract_wikilinks("[[A]]\n~~~\n[[X]]\n~~~\n[[B]] mid ~~~ [[C]]\n```\n[[Y]]");
         let targets: Vec<&str> = refs.iter().map(|r| r.target.as_str()).collect();
         assert_eq!(targets, ["A", "B", "C"]);
+    }
+
+    #[test]
+    fn links_in_double_backtick_code_are_ignored() {
+        let refs = extract_wikilinks("``[[X]]`` and `` a ` [[Y]] `` and [[Z]]");
+        let targets: Vec<&str> = refs.iter().map(|r| r.target.as_str()).collect();
+        assert_eq!(targets, ["Z"]);
     }
 
     #[test]

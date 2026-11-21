@@ -232,6 +232,15 @@ mod tests {
     }
 
     #[test]
+    fn outside_code_skips_double_backtick_code() {
+        let body = "``[[Old]]`` and `` a ` [[Old]] `` and [[Old]]";
+        assert_eq!(
+            rewrite_wikilinks_outside_code(body, &renames()),
+            "``[[Old]]`` and `` a ` [[Old]] `` and [[Old 2]]"
+        );
+    }
+
+    #[test]
     fn outside_code_without_code_matches_plain_rewrite() {
         let body = "a [[Old]] b [[Old#h]] ü [[Other]]";
         assert_eq!(
