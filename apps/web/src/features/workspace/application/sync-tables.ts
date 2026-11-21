@@ -12,6 +12,8 @@
  * (previewFolderImport + applyFolderImport).
  */
 
+import { parseJsonRows } from "@/lib/json-rows-file";
+
 export type SyncRow = Record<string, unknown>;
 
 /** The one database call this module needs; the test database and the app's connection both fit. */
@@ -100,8 +102,13 @@ export function syncTableRowsFromFolder(
 ): Partial<Record<SyncTable, SyncRow[]>> {
   const out: Partial<Record<SyncTable, SyncRow[]>> = {};
   for (const table of SYNC_TABLES) {
-    const text = folder[syncTableFile(table)];
-    if (text !== undefined) out[table] = JSON.parse(text) as SyncRow[];
+    const file = syncTableFile(table);
+    const text = folder[file];
+    if (text === undefined) continue;
+    // An empty file is corrupt here, not an empty table: export always writes "[]".
+    if (!text.trim()) throw new Error(`${file} is empty; not changed.`);
+    // The shape is checked so the error names the file (P2-258).
+    out[table] = parseJsonRows(text, file);
   }
   return out;
 }
