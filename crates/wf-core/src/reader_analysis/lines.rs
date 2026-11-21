@@ -367,7 +367,7 @@ pub fn detect_columns(lines: &[AnalysisTextLine]) -> Vec<f64> {
     }
     let min_count = js_math::max(3.0, lines.len() as f64 / 10.0);
     let mut dominant: Vec<&Cluster> = clusters.iter().filter(|c| c.count >= min_count).collect();
-    dominant.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap_or(Ordering::Equal));
+    dominant.sort_by(|a, b| a.x.total_cmp(&b.x));
 
     // A two-column page: the second dominant margin sits past the page's middle
     // and the first column's lines stop short of it.
