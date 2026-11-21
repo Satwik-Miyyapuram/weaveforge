@@ -249,6 +249,7 @@ test("writeVaultFile, removeVaultFile, renameVaultFile, writePreference, writeSe
   assert.equal(await shim.writeVaultFile("a.md", "x"), undefined);
   assert.equal(await shim.removeVaultFile("a.md"), undefined);
   assert.equal(await shim.renameVaultFile?.("a.md", "b.md"), undefined);
+  assert.equal(await shim.trashVaultFile?.("b.md"), undefined);
   assert.equal(await shim.writePreference("vault-git", true), undefined);
   assert.equal(await shim.writeSecret("git-sync-token", "t"), undefined);
   assert.equal(await shim.clearSecret("git-sync-token"), undefined);
@@ -258,6 +259,7 @@ test("writeVaultFile, removeVaultFile, renameVaultFile, writePreference, writeSe
       "vaultWrite",
       "vaultRemove",
       "vaultRename",
+      "fileDelete",
       "preferenceWrite",
       "secretWrite",
       "secretClear",

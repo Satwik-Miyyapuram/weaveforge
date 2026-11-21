@@ -229,6 +229,8 @@ export interface DesktopBridge {
   statVaultFile(path: string): Promise<DesktopVaultEntry | null>;
   /** Remove one file the mirror owns. Never used on anything else. */
   removeVaultFile(path: string): Promise<void>;
+  /** Move a file or folder to `.weaveforge/trash/<day>/`; absent on shells without it (Electron). */
+  trashVaultFile?(path: string): Promise<void>;
   /** Move one file in one step, replacing a file already at `to` (the workspace port's rename). */
   renameVaultFile?(from: string, to: string): Promise<void>;
   /**

@@ -51,6 +51,7 @@ import { DeletePaperUseCase, ImportLocalZoteroUseCase, LoadPapersScreenUseCase }
 // was adopted reaches `papers/pdf/` without a restart (explorer plan §8).
 import { LoadExperimentsScreenUseCase } from "@/features/experiments/application/parts";
 import { LoadVaultScreenUseCase } from "@/features/vault/application/parts";
+import { withDeleteTrashesFile } from "@/features/vault/application/delete-trashes-file";
 import { withRenameLinkRewrite } from "@/features/vault/application/rename-updates-links";
 import { LoadReportScreenUseCase } from "@/features/report/application/parts";
 import { LoadPlanScreenUseCase } from "@/features/plan/application/parts";
@@ -95,6 +96,7 @@ import {
   UnavailableInkChunkStore,
 } from "@/features/ink/infrastructure/parts";
 import { folderLock } from "@/features/workspace/application/folder-lock";
+import { trashDeletedNote } from "@/features/workspace/application/trash-note-files";
 import {
   activeWorkspaceFs,
   closeFolder,
@@ -102,6 +104,8 @@ import {
   syncToFolder,
 } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { logToApp } from "@/lib/error-report/app-log";
+import { showToast } from "@/lib/toast/index";
 import { loadCore } from "@/lib/rust-core";
 import type { ProjectContext } from "@/lib/parts-2";
 import { randomBytes, readInkHapticsOn, relayUrl, systemClock, uuidIds } from "@/lib/parts";
@@ -285,8 +289,18 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // validation, so there is no TS use-case layer in between.
   const manageReportSection = reportSectionRepository;
   // A rename also rewrites [[Old]] links in the other notes.
-  const manageVaultPage = withRenameLinkRewrite(vaultPageRepository);
-
+  // Deleting a note moves its file (and ink pages) in the open folder to
+  // `.weaveforge/trash`, or the next import offers it back. Found without
+  // syncing: the row is already gone, so a sync could not write it.
+  const noteFileLocator = new FolderInkNotes(activeWorkspaceFs, { run: (fn) => folderLock.run(fn) });
+  const manageVaultPage = withDeleteTrashesFile(
+    withRenameLinkRewrite(vaultPageRepository),
+    { pathOf: (id) => noteFileLocator.pathOf(id), trash: trashDeletedNote },
+    (message) => {
+      logToApp({ level: "warn", source: "vault", message });
+      showToast(message);
+    },
+  );
   const manageReadingList = new ManageReadingListUseCase({
     lists: readingListRepository,
     items: readingListItemRepository,

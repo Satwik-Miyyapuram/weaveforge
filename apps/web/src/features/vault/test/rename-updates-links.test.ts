@@ -168,5 +168,5 @@ test("a note open in an editor is skipped and reported, not rewritten", async ()
 
 test("the app's note writes are the link-rewriting ones", () => {
   const src = readFileSync(fileURLToPath(new URL("../../../create-app-container.ts", import.meta.url)), "utf8");
-  assert.match(src, /const manageVaultPage = withRenameLinkRewrite\(vaultPageRepository\)/);
+  assert.match(src, /const manageVaultPage = [\w(\s]*withRenameLinkRewrite\(vaultPageRepository\)/);
 });
