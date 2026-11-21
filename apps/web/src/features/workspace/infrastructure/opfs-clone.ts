@@ -1,5 +1,7 @@
 import type { IWorkspaceFs } from "@weaveforge/core";
 
+import { loadCore } from "@/lib/rust-core";
+
 /**
  * The web app's clone of the workspace repo (D-1a), kept in OPFS.
  *
@@ -224,10 +226,17 @@ export class WebClone {
     return { sha: null, bytes: null };
   }
 
+  /**
+   * A new local file joins the scan only when the git policy admits it (ignore
+   * list, size cap), so an ignored or huge file is never read and hashed
+   * (F97-P2-26). Paths the remote holds are always compared.
+   */
   private async changesIn(manifest: Manifest): Promise<FileChange[]> {
+    const core = await loadCore();
     const paths = new Set(Object.keys(manifest.files));
     for await (const entry of this.fs.walk("")) {
-      if (entry.kind === "file" && !entry.path.startsWith(LOCAL_DIR)) paths.add(entry.path);
+      if (entry.kind !== "file" || entry.path.startsWith(LOCAL_DIR) || paths.has(entry.path)) continue;
+      if (core.decideGitSyncPath(entry.path, entry.size).include) paths.add(entry.path);
     }
     const out: FileChange[] = [];
     for (const path of [...paths].sort()) {

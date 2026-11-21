@@ -178,6 +178,40 @@ test("clone_edit_commit_push: an edit is counted, pushed, and lands on the remot
   assert.equal(await clone.unpushed(), 0);
 });
 
+test("F97-P2-26: a scan never reads a new file the git policy keeps out", async () => {
+  const { remote, fs, clone } = setup({ "p/a.md": "A" });
+  await clone.clone();
+  await fs.writeFile("node_modules/pkg/index.js", "x");
+  await fs.writeFile("report/main.aux", "x");
+  await fs.writeFile("notes/big.bin", new Uint8Array(25 * 1024 * 1024 + 1));
+  await fs.writeFile("p/new.md", "N");
+  const read: string[] = [];
+  const readFile = fs.readFile.bind(fs);
+  fs.readFile = async (path: string) => {
+    read.push(path);
+    return readFile(path);
+  };
+  assert.deepEqual(
+    (await clone.changes()).map((c) => c.path),
+    ["p/new.md"],
+  );
+  assert.deepEqual(read.filter((p) => p !== "p/new.md" && p !== WEB_CLONE_MANIFEST), []);
+  await clone.sync("new note");
+  assert.equal(remote.text("p/new.md"), "N");
+  assert.equal(remote.text("node_modules/pkg/index.js"), null);
+});
+
+test("F97-P2-26: a file the remote already holds is still compared, whatever its name", async () => {
+  const { fs, clone } = setup({ "dist/app.js": "A" });
+  await clone.clone();
+  await clone.read("dist/app.js");
+  await fs.writeFile("dist/app.js", "A2");
+  assert.deepEqual(
+    (await clone.changes()).map((c) => c.path),
+    ["dist/app.js"],
+  );
+});
+
 test("a file deleted on the web is deleted on the remote; an unopened one is not", async () => {
   const { remote, fs, clone } = setup({ "a.md": "A", "b.md": "B" });
   await clone.clone();
