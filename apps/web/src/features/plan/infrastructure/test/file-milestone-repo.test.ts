@@ -159,6 +159,16 @@ test("a file changed between read and write is not overwritten", async () => {
   assert.match(await fs.readText(path ?? ""), /Theirs/);
 });
 
+test("a filesystem without a checked write refuses the save rather than overwrite unchecked", async () => {
+  const { fs, repo } = setup();
+  await repo.save(milestone());
+  const [path] = await files(fs);
+  const before = await fs.readText(path ?? "");
+  (fs as { writeTextIf?: unknown }).writeTextIf = undefined;
+  await assert.rejects(repo.save(milestone({ title: "Mine" })));
+  assert.equal(await fs.readText(path ?? ""), before);
+});
+
 test("non-milestone files in the plan folder are ignored", async () => {
   const { fs, repo } = setup();
   await fs.writeFile("thesis/plan/readme.md", "# Plan\n");

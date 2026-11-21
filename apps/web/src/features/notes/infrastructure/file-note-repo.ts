@@ -153,7 +153,7 @@ export class FileNoteRepository implements IVaultPageRepository {
   }
 
   private async write(path: string, text: string, expected: string | null): Promise<void> {
-    if (!this.fs.writeTextIf) return this.fs.writeFile(path, text);
+    if (!this.fs.writeTextIf) throw new Error(`${path}: this workspace cannot save without overwriting outside edits.`);
     if (!(await this.fs.writeTextIf(path, text, expected))) {
       throw new Error(`${path} changed on disk; reload before saving.`);
     }
