@@ -122,3 +122,21 @@ test("no polling when pollMs is null", { timeout: 10_000 }, async () => {
   assert.equal(calls, 1);
   await act(async () => { r.unmount(); });
 });
+
+test("a slow load is not polled again until it settles (P2-152)", { timeout: 10_000 }, async () => {
+  const out: Out = { current: null, renders: 0 };
+  const pending: (() => void)[] = [];
+  const load = () => new Promise<string>((resolve) => { pending.push(() => resolve(`r${pending.length}`)); });
+  let r!: ReturnType<typeof create>;
+  await act(async () => { r = create(tree("a", load, out, 10)); });
+  try {
+    await act(async () => { await new Promise((res) => setTimeout(res, 80)); });
+    assert.equal(pending.length, 1, "a poll fired while the first load was still in flight");
+    await act(async () => { pending[0]!(); });
+    await act(async () => { await new Promise((res) => setTimeout(res, 60)); });
+    assert.equal(out.current?.data, "r1");
+    assert.equal(pending.length, 2, "the next poll waits for the load to settle, then runs once");
+  } finally {
+    await act(async () => { r.unmount(); });
+  }
+});
