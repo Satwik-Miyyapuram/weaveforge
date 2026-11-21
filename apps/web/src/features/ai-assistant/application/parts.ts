@@ -180,18 +180,23 @@ export async function importFolderDrafts(
     const raw = await fs.readText(entry.path).catch(() => null);
     const draft = raw === null ? null : (typedCore().folderDraftForProject(raw, projectId) as FolderDraft | null);
     if (!draft) continue;
+    // Claim by rename, not delete: the draft stays on disk until the queue has it,
+    // and a claimed name is no longer a draft path, so no pass queues it twice.
+    const claimed = `${entry.path}.claimed`;
     try {
-      await fs.remove(entry.path);
+      await fs.rename(entry.path, claimed);
     } catch {
       continue;
     }
     try {
       await queue(draft);
-      imported += 1;
     } catch (err) {
       firstError ??= err;
-      await fs.writeFile(entry.path, raw!).catch(() => undefined);
+      await fs.rename(claimed, entry.path).catch(() => undefined);
+      continue;
     }
+    imported += 1;
+    await fs.remove(claimed).catch(() => undefined);
   }
   if (firstError !== null) throw firstError;
   return imported;
