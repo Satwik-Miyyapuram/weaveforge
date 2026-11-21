@@ -42,3 +42,65 @@ and security first.
 - `removeProjectFolder` in the browser: rename is copy-then-delete for each
   file, so a failure part way leaves the project split between its folder and
   the trash. Nothing is lost.
+
+## Follow-up: 65759e73b..989db2662
+
+Commits reviewed: `be7028280` (F97-P2-6), `989db2662` (F97-P2-5) and
+`22d0d0f14` (a docs-map fix). Files: `crates/wf-store/src/checked_write.rs`,
+`crates/wf-store/tests/vault_checked.rs` and `docs/map/journeys/papers.mjs`.
+
+**Result: one P2. No P0 or P1.**
+
+### P2: a text file that is not valid UTF-8 can no longer be saved
+
+`hash_of` now hashes a text file that is not valid UTF-8 by its raw bytes
+(`checked_write.rs:657`). The callers still build the hash they expect from
+text that was decoded lossily:
+
+- `Vault::read_text` decodes with `from_utf8_lossy` (`crates/wf-store/src/vault.rs:401`).
+- `write_text_if` passes `canonical_digest(expected_text)` (`apps/shell/src/vault.rs:226`).
+- `device_settings.rs:26` and `settings_secrets.rs:56` do the same.
+
+For such a file the two hashes can never match, so every checked save gets
+`Changed`. This hits all `writeTextIf` users:
+
+- In `file-note-repo.ts:157` (also milestones, papers and annotations), the
+  save throws "changed on disk; reload before saving" on every try. A reload
+  does not help, because the read is lossy again.
+- The user's edits to such a note can never be saved. If they close the note,
+  the edits are lost.
+- The bytes on disk are never lost, so this fails safe.
+
+This is a regression: before this change the save went through. Callers should
+get the hash from the raw bytes, for example by having the read return
+`hash_of(bytes)` and passing that on. Another option is for `write_text_if` to
+accept the old lossy digest only when the disk bytes are not valid UTF-8. Add a
+test that saves a Latin-1 `.md` file through `write_text_if`.
+
+### Checked and OK
+
+- **F97-P2-5, the trash move**
+  - A file moves by hard link with no replace, and a taken name tries the next
+    free one.
+  - If the link succeeds but removing the source fails, the error is returned
+    and both names exist, so nothing is lost.
+  - Without hard-link support it falls back to a plain rename, as before.
+  - A folder rename never lands on a non-empty folder.
+  - A name collision runs up to 1000 tries.
+- **F97-P2-6 inside `checked_write`**
+  - The merge (`:367`), `settle_prev` (`:444`) and `written` all hash with the
+    same `hash_of`, so they agree with each other.
+- **Docs map**
+  - `images.remove` is gone from `DeletePaperUseCase` (`parts-1.ts:41`).
+  - The renumbered hops and the debug `check: 12` line up.
+
+### P3 (record only)
+
+- A symlink, or a Windows file without hard-link support, is still trashed with
+  a plain `rename`. That rename can replace a name another process takes in the
+  race window.
+- `docs/building/core/laws.md:73` still says that the trash move uses a
+  replacing rename. That is now true only for those two cases.
+- If the hard link succeeds and the source removal then fails (on Windows, a
+  file open without share-delete), a hard link is left in the trash next to
+  the live file.
