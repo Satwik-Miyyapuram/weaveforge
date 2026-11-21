@@ -243,7 +243,11 @@ test("delete trashes the paper, its annotations and comments sidecars and its PD
   const pdf = `${ROOT}/papers/pdf/attention.pdf`;
   await fs.writeFile(pdf, "%PDF");
   await repo.save(paper({ pdfPath: pdf }));
-  const path = await onlyFile(fs);
+  // papers/ also holds the PDF, so pick out the one paper file.
+  const papers: string[] = [];
+  for await (const entry of fs.walk(`${ROOT}/papers`)) if (entry.path.endsWith(".paper.md")) papers.push(entry.path);
+  assert.equal(papers.length, 1, papers.join(", "));
+  const path = papers[0]!;
   const stem = path.slice(0, -".paper.md".length);
   await fs.writeFile(`${stem}.annotations.json`, "[]\n");
   await fs.writeFile(`${stem}.comments.json`, "[]\n");
