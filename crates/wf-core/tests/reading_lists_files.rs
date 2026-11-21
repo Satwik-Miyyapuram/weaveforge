@@ -131,7 +131,7 @@ fn written_entry_is_one_complete_line() {
     // empty line that would silently drop it.
     let mut d = decision(
         "d1",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Excluded,
         "2026-11-19T10:00:00Z",
     );
