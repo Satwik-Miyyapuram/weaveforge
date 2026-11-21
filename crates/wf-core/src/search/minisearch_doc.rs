@@ -131,10 +131,22 @@ impl DocStore {
         }
     }
 
-    /// Remove by id; unknown ids are ignored.
+    /// Remove by id; unknown ids are ignored. Gaps are squeezed out once they outnumber
+    /// the held documents, so add/remove churn cannot grow `slots` without bound.
     pub fn remove(&mut self, id: &str) {
         if let Some(slot) = self.positions.remove(id) {
             self.slots[slot] = None;
+            if self.slots.len() > 2 * self.positions.len() {
+                self.compact();
+            }
+        }
+    }
+
+    /// Drops the gaps, keeping insertion order, and renumbers the positions.
+    fn compact(&mut self) {
+        self.slots.retain(Option::is_some);
+        for (slot, record) in self.slots.iter().flatten().enumerate() {
+            let _ = self.positions.insert(record.id.clone(), slot);
         }
     }
 
@@ -553,5 +565,26 @@ mod tests {
     fn empty_query_returns_nothing_rather_than_everything() {
         let hits = filter_only_for(&corpus(), "   ", None, 30);
         assert!(hits.is_empty());
+    }
+
+    #[test]
+    fn add_remove_churn_keeps_slots_bounded_and_order_intact() {
+        let mut store = DocStore::new();
+        store.put(record("keep-a", SearchKind::Note, "A"));
+        store.put(record("keep-b", SearchKind::Note, "B"));
+        for i in 0..10_000 {
+            let id = format!("tmp{i}");
+            store.put(record(&id, SearchKind::Note, "T"));
+            store.remove(&id);
+        }
+        assert!(
+            store.slots.len() <= 4,
+            "slots grew to {}",
+            store.slots.len()
+        );
+        store.put(record("keep-a", SearchKind::Note, "A2"));
+        let ids: Vec<&str> = store.entries().into_iter().map(|(id, _)| id).collect();
+        assert_eq!(ids, ["keep-a", "keep-b"]);
+        assert_eq!(store.get("keep-a").map(|r| r.title.as_str()), Some("A2"));
     }
 }
