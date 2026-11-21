@@ -48,6 +48,11 @@ pub fn parse_figure_clip(text: Option<&str>) -> Option<FigureClip> {
     let note_id = clip.get("noteId")?.as_str()?.to_owned();
     let figure = clip.get("figure")?;
     let path = figure.get("path")?.as_str()?.to_owned();
+    // Clipboard text comes from anywhere and a paste fetches this path, so both must stay
+    // plain relative names that cannot climb out of the workspace.
+    if !is_plain_relative_path(&note_id) || !is_plain_relative_path(&path) {
+        return None;
+    }
     let x = figure.get("x").and_then(Value::as_f64)?;
     let y = figure.get("y").and_then(Value::as_f64)?;
     let w = figure.get("w").and_then(Value::as_f64)?;
@@ -250,6 +255,15 @@ fn clamp_shift(lo: f64, hi: f64, size: f64) -> f64 {
     }
 }
 
+/// A forward-slash path with no root, drive, scheme, empty or dot segments.
+fn is_plain_relative_path(path: &str) -> bool {
+    !path.is_empty()
+        && !path
+            .chars()
+            .any(|c| matches!(c, '\\' | ':') || c.is_control())
+        && path.split('/').all(|part| !matches!(part, "" | "." | ".."))
+}
+
 /// Every element as a finite number, or `None` when one is not.
 fn finite_numbers(values: &[Value]) -> Option<Vec<f64>> {
     values
@@ -261,4 +275,46 @@ fn finite_numbers(values: &[Value]) -> Option<Vec<f64>> {
 /// A value as one of the enum's names, or `None` when it is not one of them.
 fn one_of<T: DeserializeOwned>(value: Option<&Value>) -> Option<T> {
     value.and_then(|value| T::deserialize(value).ok())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn clip(note_id: &str, path: &str) -> String {
+        let figure = serde_json::json!({ "path": path, "x": 1, "y": 1, "w": 10, "h": 10 });
+        format!(
+            "{FIGURE_PREFIX}{}",
+            serde_json::json!({ "noteId": note_id, "figure": figure })
+        )
+    }
+
+    #[test]
+    fn a_figure_clip_with_plain_relative_names_is_accepted() {
+        for (note_id, path) in [("n1", "a.png"), ("p/notes/x.md", "u1/n1/a.png")] {
+            let parsed = parse_figure_clip(Some(&clip(note_id, path)));
+            assert_eq!(parsed.map(|c| c.figure.path), Some(path.to_owned()));
+        }
+    }
+
+    #[test]
+    fn a_figure_clip_whose_names_could_leave_the_workspace_is_rejected() {
+        for (note_id, path) in [
+            ("n1", "../secret.png"),
+            ("n1", "u1/../../x.png"),
+            ("n1", "/etc/passwd"),
+            ("n1", r"C:\x.png"),
+            ("n1", "https://evil.test/x.png"),
+            ("n1", ""),
+            ("..", "a.png"),
+            ("", "a.png"),
+            ("n1/../..", "a.png"),
+        ] {
+            assert_eq!(
+                parse_figure_clip(Some(&clip(note_id, path))),
+                None,
+                "{note_id} {path}"
+            );
+        }
+    }
 }
