@@ -322,8 +322,9 @@ export interface ApplyOptions {
 /**
  * A renamed note takes its strokes with it (every note can hold ink): the pages in its
  * strokes folder (`notes/<old>.note.ink/`, or a legacy `notes/<old>.ink/`) are copied to the
- * new note's folder, then the old page is removed once its copy is there. A page already at
- * the new place is kept as it is. Two names that share one folder move nothing.
+ * new note's folder, then the old page is removed once its copy reads back the same bytes. A
+ * page already at the new place is kept as it is (a different one keeps the old page too).
+ * Two names that share one folder move nothing.
  */
 export async function moveInkStrokes(fs: IWorkspaceFs, fromNote: string, toNote: string): Promise<void> {
   if (!fromNote.endsWith(".md") || !toNote.endsWith(".md")) return;
@@ -344,9 +345,17 @@ export async function moveInkStrokes(fs: IWorkspaceFs, fromNote: string, toNote:
   for (const entry of await fs.list(from)) {
     if (entry.kind !== "file") continue;
     const dest = `${to}/${entry.path.split("/").pop() ?? ""}`;
-    if (!(await fs.stat(dest))) await fs.writeFile(dest, await fs.readFile(entry.path));
-    if (!sameFolderMaybe) await fs.remove(entry.path);
+    const page = await fs.readFile(entry.path);
+    if (!(await fs.stat(dest))) await fs.writeFile(dest, page);
+    if (sameFolderMaybe) continue;
+    // The source goes only once the copy reads back byte for byte: a short write, or a
+    // different page already at the new place, keeps it.
+    if (sameBytes(await fs.readFile(dest), page)) await fs.remove(entry.path);
   }
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && a.every((byte, i) => byte === b[i]);
 }
 
 /** A note's title and body as one digest: what an update would overwrite. */
