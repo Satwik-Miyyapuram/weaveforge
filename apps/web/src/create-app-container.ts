@@ -445,7 +445,6 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
 
   const deletePaper = new DeletePaperUseCase({
     bibliography,
-    images: paperImageStore,
     updatePaper,
     papers: paperRepository,
   });
