@@ -89,7 +89,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 
 | Where | Size | What lives there |
 | --- | --- | --- |
-| `packages/core` | 24,676 lines | Domain and application logic shared by every surface |
+| `packages/core` | 24,679 lines | Domain and application logic shared by every surface |
 | `apps/web` | 247,739 lines | The app itself: screens, features, API routes, backend wiring |
 | `apps/shell` | 5,855 lines | The Tauri shell — what only an installed app can do |
 | `apps/pitch` | 406 lines | The public site and this documentation |
@@ -98,7 +98,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 | `db/migrations` | 160 files | The schema, as an ordered sequence |
 | `docs` | 214 files | Documentation, this page included |
 
-**284,328 lines of code in all**, across 2,194 source files.
+**284,331 lines of code in all**, across 2,194 source files.
 
 <!-- /generated:code-map -->
 

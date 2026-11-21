@@ -155,7 +155,8 @@ pub fn update(call: &RepoCall) -> Option<RepoStep> {
 fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
     let id = call.text(0).to_owned();
     let mut at = 0;
-    let mut copy_id = None;
+    // The ids of the copies this save made, oldest first.
+    let mut copy_ids: Vec<Value> = Vec::new();
     // The bodies kept as copies so far: a retry copies only text not yet kept.
     let mut copied: Vec<String> = Vec::new();
     let mut missed: Option<Stamp> = None;
@@ -181,7 +182,7 @@ fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
             &input.session_digests,
             existing.summary.kind.as_deref() == Some(CANVAS_KIND),
         ) {
-            Plan::Keep => return finish(&existing, copy_id),
+            Plan::Keep => return finish(&existing, &copy_ids),
             Plan::Write(text) => text,
             Plan::CopyThenWrite => {
                 if !copied.contains(&existing.body) {
@@ -191,7 +192,7 @@ fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
                     };
                     at = next;
                     copied.push(existing.body.clone());
-                    copy_id = Some(id);
+                    copy_ids.push(id);
                 }
                 input.body.clone()
             }
@@ -215,7 +216,7 @@ fn run(call: &RepoCall, input: &GuardedBody) -> RepoStep {
         let mut page = existing;
         page.body = text;
         page.summary.updated_at = now;
-        return finish(&page, copy_id);
+        return finish(&page, &copy_ids);
     }
     RepoStep::fail_named(
         "VaultPageConflictError",
@@ -264,14 +265,16 @@ fn read(call: &RepoCall, at: usize, id: &str) -> Result<(Stamp, VaultPage), Repo
     Ok(((version, updated), to_domain(&row)))
 }
 
-/// The saved page, naming the conflict copy when one was made.
-fn finish(page: &VaultPage, copy_id: Option<Value>) -> RepoStep {
+/// The saved page, naming the conflict copies when any were made:
+/// `conflictCopyId` is the last, `conflictCopyIds` all of them (F97-P2-12).
+fn finish(page: &VaultPage, copy_ids: &[Value]) -> RepoStep {
     let mut value = match serde_json::to_value(page) {
         Ok(value) => value,
         Err(e) => return RepoStep::fail(e),
     };
-    if let (Some(copy_id), Some(obj)) = (copy_id, value.as_object_mut()) {
-        let _ = obj.insert("conflictCopyId".into(), copy_id);
+    if let (Some(last), Some(obj)) = (copy_ids.last(), value.as_object_mut()) {
+        let _ = obj.insert("conflictCopyId".into(), last.clone());
+        let _ = obj.insert("conflictCopyIds".into(), Value::Array(copy_ids.to_vec()));
     }
     RepoStep::Done { value }
 }
@@ -607,6 +610,19 @@ THEIRS2"
             done(step(input(base, mine), replies))["conflictCopyId"],
             second["id"]
         );
+    }
+
+    #[test]
+    fn f97_p2_12_two_copies_in_one_save_are_both_reported() {
+        let (base, mine) = ("a\nb", "a\nMINE");
+        let mut replies = vec![row("a\nTHEIRS", 4)];
+        let first = only(step(input(base, mine), replies.clone())).body.unwrap();
+        replies.extend([Value::Null, json!([]), row("a\nTHEIRS2", 5)]);
+        let second = only(step(input(base, mine), replies.clone())).body.unwrap();
+        replies.extend([Value::Null, json!([{ "id": "p1" }])]);
+        let page = done(step(input(base, mine), replies));
+        assert_eq!(page["conflictCopyIds"], json!([first["id"], second["id"]]));
+        assert_eq!(page["conflictCopyId"], second["id"]);
     }
 
     #[test]

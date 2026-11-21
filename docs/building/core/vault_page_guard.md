@@ -9,7 +9,8 @@ body. It stops two writers from overwriting each other. It is part of the
 The caller passes `GuardedBody { body, baseBody, sessionDigests }` (unknown
 fields are refused). `update(call)` returns `None` for any other input, for
 example one that also sets the title, and the plain update handles it. The
-result is the saved page plus `conflictCopyId` when a copy was made
+result is the saved page plus `conflictCopyId` (the last copy) and
+`conflictCopyIds` (every copy this save made) when a copy was made
 (`EditedVaultPage` in `packages/core/src/features/vault/domain/vault-page-repository.ts`).
 
 ## Rules
