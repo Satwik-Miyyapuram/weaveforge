@@ -219,7 +219,7 @@ pub fn apply_paper_facts(content: &str, facts: &PaperFacts) -> String {
     let mut changed = false;
     for (key, value) in &wanted {
         if parsed.frontmatter.get(key) != Some(value) {
-            parsed.frontmatter.insert(key.clone(), value.clone());
+            let _ = parsed.frontmatter.insert(key.clone(), value.clone());
             changed = true;
         }
     }

@@ -180,7 +180,7 @@ impl PgEngine {
 
     /// Keeps the flag once set: a reopen after Start fresh must not clear it.
     fn record_open(&self, lost: bool) {
-        self.recreated.fetch_or(lost, Ordering::AcqRel);
+        let _ = self.recreated.fetch_or(lost, Ordering::AcqRel);
     }
 
     fn keep_aside_at(&self, path: &Path) {
