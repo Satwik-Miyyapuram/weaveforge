@@ -1,6 +1,6 @@
 # 0.9.6 web/TS P2 status
 
-Branch `fix/096-p1-web` (worktree `wf-096-web`). Not pushed. Each fix below
+Branch `fix/096-p1-web` (worktree `wf-096-web`). Not pushed: the pre-push typecheck needs tsgo (`npm ci`) and a wasm rebuild, which waits while the Rust lane holds cargo; `check:oci-infra` also fails on Windows. Each fix below
 was written test first: the test failed before the fix and passes after it.
 Data-loss and security items were taken first, then crash/UI hang.
 
@@ -76,17 +76,49 @@ Data-loss and security items were taken first, then crash/UI hang.
 | P2-256 | Mermaid SVG is sanitized before it is cached or shown. Proof gap: no DOM in the test runner, sanitizer tested on strings | 5c93506a4 |
 | F97-P2-25 | A shared PDF is kept while a paper file cannot be parsed | f1fe356f0 |
 
+### Second pass
+
+| Item | What | Commit |
+| --- | --- | --- |
+| P2-196 | A reference action that lands after a document change is dropped | 5af2e6517 |
+| P2-245 | The comment composer resets when the note changes | d464b3d3a |
+| P2-243 | The share dialog stays in step after a partial grant | 2086ba059 |
+| P2-219 | Graph edits made during a load or a save are kept | 02909de5a |
+| P2-231 | Stale search refreshes run one after another | b3efac768 |
+| P2-169 | A failing reference cache is a miss | 79f9282f3 |
+| P2-170 | A reference miss is retried after a short while | 7ea7f75bb |
+| P2-221 | One failing live-link listener or open no longer stalls the IDE | 27de87ad2 |
+| P2-239 | Leaving GitHub connect mid-flow cancels the shell's poll | 251f5fb8b |
+| P2-194 | A deep-linked milestone fetch that lands late is dropped | 8cbabea15 |
+| P2-244 | A second share link in the same screen redeems | 10bfee59c |
+| P2-242 | Each share request opens a fresh dialog | 3b1576b3c |
+| P2-240 | Settings says why the Overleaf links failed to load | 5b855b6b1 |
+| P2-142 | The window emblem is retried after a failed fetch | 29a3f2d49 |
+| P2-258 | Synced table files are shape-checked | b93145b23 |
+| P2-257 | The abort listener comes off when a delay runs out | a99e9d1ec |
+| P2-205 | The hidden print frame is always removed | d234a9598 |
+| P2-202 | The reader can cancel slice indexing | dcd5ee047 |
+| P2-177 | Each screening row's reason and decision are named | 431dc93bd |
+| P2-246 | Revoking a link hides its copy-now URL | ade50b70b |
+| P2-176 | Saving one extraction cell leaves the others editable | d7f051ae0 |
+| P2-222 | autoProceed uploads each file once; a failed file can be retried | f00f74973 |
+| P2-175 | New Zotero annotations go in chunks of 50, one write token each | e7d83bda1 |
+| P2-220 | A graph seed is followed once, not on every nodes rebuild | ae1daa3fc |
+| P2-172 | Find-overlay re-measure is coalesced to one frame and reads spans once | f7e8eca0e |
+| P2-178 | Add-paper PDF prefetch runs through one serial queue with the bulk pause | 16a6caecd |
+
+Overlap with the Rust/review lane (fix/096-review-r2): ceddb5027 (Overleaf
+confirm) and its test f85892527 are superseded by 68501de8c (ConfirmDialog);
+791041b3c is superseded by fe66092dd; e72c07ea3 (workspace-screen and ink-host
+split) overlaps 68ebddd70. Drop these four when merging.
+
 Commit messages give the detail where the What column is blank.
 
-## Not done in this pass (open, web scope)
+## Not done (open, web scope)
 
-P2-142 to P2-145, P2-154 to P2-162, P2-164, P2-165, P2-169 to P2-172,
-P2-175 to P2-178, P2-180 to P2-188, P2-194, P2-196, P2-200, P2-202,
-P2-205 to P2-209, P2-211 to P2-213, P2-217, P2-219 to P2-224, P2-227 to P2-231,
-P2-235, P2-239 to P2-246, P2-248, P2-249, P2-251 to P2-254, P2-257, P2-258.
-Data-loss, security and crash/hang items were taken first; what is left is
-mostly lower-severity UI and error-surfacing work.
-
+P2-143 to P2-145, P2-154 to P2-162, P2-164, P2-165, P2-171, P2-180 to P2-188,
+P2-200, P2-206 to P2-209, P2-211 to P2-213, P2-217, P2-223, P2-224,
+P2-227 to P2-230, P2-235, P2-241, P2-248, P2-249, P2-251 to P2-254, and the OPTs.
 ## Out of web scope
 
 P2-95, P2-113, P2-115, P2-82.
