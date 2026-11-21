@@ -25,7 +25,7 @@ export function withRenameLinkRewrite<T extends VaultPages>(pages: T): T {
     const renames = new Map([[readyCore().normalizeTitleKey(before.title), saved.title]]);
     for (const page of await pages.list()) {
       if (page.id === id || !page.body.includes("[[")) continue;
-      const body = readyCore().rewriteWikilinks(page.body, renames);
+      const body = readyCore().rewriteWikilinksOutsideCode(page.body, renames);
       if (body !== page.body) await pages.update(page.id, { body });
     }
     return saved;

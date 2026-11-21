@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::papers::js_regex::compile;
 use crate::reader_analysis::lines::{js_trim, js_trim_end};
 use crate::sync::folder_layout::strip_kind_suffix;
-use crate::vault::page::{normalize_title_key, unique_title};
+use crate::vault::page::{FENCE_RE, INLINE_CODE_RE, normalize_title_key, unique_title};
 
 /// `/\[\[([^\[\]\n]+?)\]\]/g`: a wikilink, with its inner text captured.
 static WIKILINK_RE: LazyLock<Option<Regex>> =
@@ -47,6 +47,33 @@ pub fn rewrite_wikilinks(body: &str, renames: &BTreeMap<String, String>) -> Stri
         }
     })
     .into_owned()
+}
+
+/// [`rewrite_wikilinks`], but a `[[link]]` inside fenced or inline code is kept as written.
+///
+/// Used when a note is renamed in the app: code shows links, it does not follow them. Import
+/// keeps the plain rewrite.
+#[must_use]
+pub fn rewrite_wikilinks_outside_code(body: &str, renames: &BTreeMap<String, String>) -> String {
+    let (Some(fence), Some(inline)) = (FENCE_RE.as_ref(), INLINE_CODE_RE.as_ref()) else {
+        return body.to_owned();
+    };
+    map_outside(body, fence, &|prose| {
+        map_outside(prose, inline, &|text| rewrite_wikilinks(text, renames))
+    })
+}
+
+/// Applies `f` to the text between the matches of `re`; the matches are kept as they are.
+fn map_outside(s: &str, re: &Regex, f: &dyn Fn(&str) -> String) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut last = 0;
+    for m in re.find_iter(s) {
+        out.push_str(&f(&s[last..m.start()]));
+        out.push_str(m.as_str());
+        last = m.end();
+    }
+    out.push_str(&f(&s[last..]));
+    out
 }
 
 /// Whether a picked file is a notes import input: a markdown note or a `.zip` of them.
@@ -183,6 +210,24 @@ mod tests {
         assert_eq!(
             rewrite_wikilinks(body, &renames()),
             "see [[Old Title 2|alias]] and [[Old 2#sec]] and [[Other]]"
+        );
+    }
+
+    #[test]
+    fn outside_code_skips_fences_and_inline_code() {
+        let body = "```\n[[Old]]\n```\n`[[Old]]` [[Old]] ~~~ `x` [[Old Title|a]]";
+        assert_eq!(
+            rewrite_wikilinks_outside_code(body, &renames()),
+            "```\n[[Old]]\n```\n`[[Old]]` [[Old 2]] ~~~ `x` [[Old Title 2|a]]"
+        );
+    }
+
+    #[test]
+    fn outside_code_without_code_matches_plain_rewrite() {
+        let body = "a [[Old]] b [[Old#h]] ü [[Other]]";
+        assert_eq!(
+            rewrite_wikilinks_outside_code(body, &renames()),
+            rewrite_wikilinks(body, &renames())
         );
     }
 

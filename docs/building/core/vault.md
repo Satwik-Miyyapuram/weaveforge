@@ -20,7 +20,8 @@ the pages, the files and the database.
 - `import_links.rs`: which files a notes import reads, the relative path each file
   is listed under, the title plan for folders and notes (each made unique against
   the existing titles and each other, with a rename map), and the wikilink rewrites
-  after a title is auto-suffixed.
+  after a title is auto-suffixed. `rewrite_wikilinks_outside_code` is the rewrite
+  for an in-app rename: links in fenced or inline code are kept as written.
 - `link_resolve.rs`: which existing note a `[[title]]` resolves to (first match on
   the normalised title, blank matches nothing), and the message for link targets
   that failed to load.
@@ -32,7 +33,8 @@ the pages, the files and the database.
 
 The wasm exports live in `crates/wf-wasm/src`. The TypeScript wrappers in
 `packages/wf-wasm/src` import the raw names from `../pkg/wf_wasm.js` and
-re-export them. The main names are `rewriteWikilinks`, `isNoteImportFile`,
+re-export them. The main names are `rewriteWikilinks`,
+`rewriteWikilinksOutsideCode`, `isNoteImportFile`,
 `sourceNoteTemplateContext`, `renderTemplate`, `mergeTemplate`, `applyTemplate`,
 `parseRegions`, `wrapRegion`, `stripRegionMarkers`, `substituteVariables`,
 `defaultSourceNoteTemplate`, `normalizeTitleKey`, `uniqueTitle`,

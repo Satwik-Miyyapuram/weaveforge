@@ -29,6 +29,22 @@ pub fn rewrite_wikilinks_js(
     Ok(import_links::rewrite_wikilinks(body, &renames))
 }
 
+/// [`rewrite_wikilinks_outside_code`](import_links::rewrite_wikilinks_outside_code): as
+/// [`rewriteWikilinks`](rewrite_wikilinks_js), but links in fenced or inline code are kept.
+///
+/// # Errors
+///
+/// Fails if `renames` is not a map of strings to strings.
+#[wasm_bindgen(js_name = rewriteWikilinksOutsideCode)]
+pub fn rewrite_wikilinks_outside_code_js(
+    body: &str,
+    #[wasm_bindgen(unchecked_param_type = "ReadonlyMap<string, string>")] renames: &JsValue,
+) -> Result<String, JsValue> {
+    let renames: BTreeMap<String, String> =
+        serde_wasm_bindgen::from_value(Object::from_entries(renames)?.into())?;
+    Ok(import_links::rewrite_wikilinks_outside_code(body, &renames))
+}
+
 /// [`with_tag_line`](import_links::with_tag_line). `tags` is an array of tag names.
 ///
 /// # Errors

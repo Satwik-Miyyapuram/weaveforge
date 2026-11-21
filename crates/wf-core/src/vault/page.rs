@@ -21,9 +21,11 @@ use crate::sync::markdown_image::{
 };
 
 /// Fenced code blocks, lazily to the next fence.
-static FENCE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"```[\s\S]*?```").ok());
+pub(crate) static FENCE_RE: LazyLock<Option<Regex>> =
+    LazyLock::new(|| compile(r"```[\s\S]*?```").ok());
 /// Inline code on one line.
-static INLINE_CODE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(r"`[^`\n]*`").ok());
+pub(crate) static INLINE_CODE_RE: LazyLock<Option<Regex>> =
+    LazyLock::new(|| compile(r"`[^`\n]*`").ok());
 /// One `[[...]]` on one line; group 1 is the inside.
 pub(crate) static WIKILINK_RE: LazyLock<Option<Regex>> =
     LazyLock::new(|| compile(r"\[\[([^\[\]\n]+?)\]\]").ok());

@@ -67,6 +67,15 @@ test("an edit that keeps the title rewrites nothing", async () => {
   assert.deepEqual(updates, ["two", "two"]);
 });
 
+test("links inside fenced or inline code are not rewritten", async () => {
+  const { rows, repo } = memoryPages([
+    page("one", "One", "```\n[[Two]]\n```\n`[[Two]]` and [[Two]]"),
+    page("two", "Two", "Body"),
+  ]);
+  await repo.update("two", { title: "Renamed" });
+  assert.equal(rows.get("one")!.body, "```\n[[Two]]\n```\n`[[Two]]` and [[Renamed]]");
+});
+
 test("the app's note writes are the link-rewriting ones", () => {
   const src = readFileSync(fileURLToPath(new URL("../../../create-app-container.ts", import.meta.url)), "utf8");
   assert.match(src, /const manageVaultPage = withRenameLinkRewrite\(vaultPageRepository\)/);
