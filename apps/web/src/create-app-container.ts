@@ -422,6 +422,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
           relations: addRelation,
           milestones: manageMilestone,
           experiments: manageExperiment,
+          milestoneById: (id) => milestoneRepository.getById(id),
+          experimentById: (id) => experimentRepository.getById(id),
           vaultPages: vaultPageRepository,
           reportSections: manageReportSection,
           reportSectionById: (id) => reportSectionRepository.getById(id),

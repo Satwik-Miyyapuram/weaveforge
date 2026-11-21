@@ -243,6 +243,18 @@ export function importFolderDraftsOnce(
 }
 
 // --- proposal-executors ---
+/** A stored row; milestones and runs may not carry a revision. */
+type RevisionedRow = { id: string; updatedAt?: string };
+
+/**
+ * A missing row never applies. A draft naming a revision applies only to a row
+ * at that revision, so a row with no revision cannot prove it and conflicts.
+ */
+function rowMatches(row: RevisionedRow | null, expectedRevision?: string): row is RevisionedRow {
+  if (!row) return false;
+  return !expectedRevision || row.updatedAt === expectedRevision;
+}
+
 /**
  * Typed browser-only approval executors. The payload checks and the wiki-side
  * shaping live in the Rust core (wf-core `ai::proposal_inputs`, `ai::proposal_apply`);
@@ -262,6 +274,9 @@ export function createAiProposalExecutors(deps: {
   relations: AddRelationUseCase;
   milestones: IMilestoneManager;
   experiments: IExperimentManager;
+  /** The stored rows, so a status or run update checks the revision it was drafted against (P2-149). */
+  milestoneById: (id: string) => Promise<RevisionedRow | null>;
+  experimentById: (id: string) => Promise<RevisionedRow | null>;
   vaultPages: { getById(id: string): Promise<{ id: string; body: string; updatedAt: string } | null> };
   reportSections: Pick<IReportSectionManager, "setNotes">;
   reportSectionById: (id: string) => Promise<{ id: string; updatedAt?: string } | null>;
@@ -350,7 +365,9 @@ export function createAiProposalExecutors(deps: {
     }),
     executor("milestone_status", async (proposal) => {
       const status = readyCore().proposalMilestoneStatus(proposal.payload) as Parameters<IMilestoneManager["setStatus"]>[1];
-      await deps.milestones.setStatus(proposal.resourceId, status);
+      const milestone = await deps.milestoneById(proposal.resourceId);
+      if (!rowMatches(milestone, proposal.expectedRevision)) return "conflicted";
+      await deps.milestones.setStatus(milestone.id, status);
       return "accepted";
     }),
     executor("experiment_update", async (proposal) => {
@@ -359,9 +376,11 @@ export function createAiProposalExecutors(deps: {
         metrics?: Record<string, unknown>;
         artifacts?: string[];
       };
-      if (update.status) await deps.experiments.setStatus(proposal.resourceId, update.status);
-      if (update.metrics) await deps.experiments.recordMetrics(proposal.resourceId, update.metrics);
-      if (update.artifacts) await deps.experiments.addArtifacts(proposal.resourceId, update.artifacts);
+      const run = await deps.experimentById(proposal.resourceId);
+      if (!rowMatches(run, proposal.expectedRevision)) return "conflicted";
+      if (update.status) await deps.experiments.setStatus(run.id, update.status);
+      if (update.metrics) await deps.experiments.recordMetrics(run.id, update.metrics);
+      if (update.artifacts) await deps.experiments.addArtifacts(run.id, update.artifacts);
       return "accepted";
     }),
     executor("paper_annotation", async (proposal) => {
