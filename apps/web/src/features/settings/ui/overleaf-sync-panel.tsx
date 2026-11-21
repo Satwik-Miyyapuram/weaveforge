@@ -47,7 +47,8 @@ export function OverleafSyncPanel({ onPulled }: { onPulled?: () => void }) {
     let live = true;
     void overleafSync({ action: "list" })
       .then((reply) => live && take(reply))
-      .catch(() => undefined);
+      // A failed load says why, not an empty list (P2-240).
+      .catch((err) => live && setError(formatError(err)));
     return () => {
       live = false;
     };
