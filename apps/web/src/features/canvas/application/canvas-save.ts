@@ -66,6 +66,11 @@ export class CanvasSaver {
     return this.timer !== null;
   }
 
+  /** Whether a change waits or a write is still on its way; the desktop close waits on it. */
+  busy(): boolean {
+    return this.timer !== null || this.inflight !== null;
+  }
+
   /** Whether `body` is one this saver wrote (or was loaded with), so its return is not a change. */
   isOwnEcho(body: string): boolean {
     const at = this.sent.indexOf(body);

@@ -370,6 +370,8 @@ pub async fn install(app: &AppHandle) -> AppUpdateStatus {
                 ..current
             },
         );
+        // Windows exits inside the install, so the page saves before it starts.
+        crate::close_flush::flush_and_wait(&installing_app);
     };
     match platform::download_and_install(update, on_chunk, on_done).await {
         Ok(()) => {

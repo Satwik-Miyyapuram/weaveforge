@@ -15,10 +15,11 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { holdCloseWhile } from "@/lib/desktop/close-flush";
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore, typedCore } from "@/lib/rust-core";
 
-import { awaitInkWrites, beginInkSave, trackInkWrite } from "../application/parts";
+import { awaitInkWrites, beginInkSave, getInkSaveStatus, trackInkWrite } from "../application/parts";
 import { decideInkWrite } from "./ink-save-decision";
 import type { InkSave } from "./use-ink-worker-rpc";
 import { type InkNoteMeta } from "@weaveforge/core";
@@ -238,7 +239,10 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     const flush = () => flushSave();
     win.addEventListener("pagehide", flush);
     win.addEventListener("beforeunload", flush);
+    // The desktop close waits until the write that flush started has landed.
+    const stopHold = holdCloseWhile(() => getInkSaveStatus().pending > 0);
     return () => {
+      stopHold();
       win.removeEventListener("pagehide", flush);
       win.removeEventListener("beforeunload", flush);
     };

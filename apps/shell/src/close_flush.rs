@@ -1,18 +1,28 @@
-//! Closing the window or quitting from the menu first lets the page save. The editors write
-//! their last debounced edit on `pagehide` (note body, ink, canvas, workspace settings), but
-//! a window torn down by the shell, or `exit(0)`, fires no `pagehide`. So the shell fires it,
-//! waits a short grace for those writes to reach the file commands, then closes or exits.
+//! Closing the window, quitting from the menu or installing an update first lets the page
+//! save. The editors write their last debounced edit on `pagehide` (note body, ink, canvas,
+//! workspace settings), but a window torn down by the shell, or `exit(0)`, fires no
+//! `pagehide`. So the shell runs the page's flush (`__wfFlushForClose`, in
+//! `apps/web/src/lib/desktop/close-flush.ts`): it fires `pagehide` and resolves once no editor
+//! has a write on its way. The page then emits [`FLUSHED`] and the shell closes or exits. A
+//! fixed grace either cut a slow write short or kept every close waiting.
 
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
 use std::time::Duration;
 
-use tauri::{Manager as _, Runtime};
+use tauri::{Listener as _, Manager as _, Runtime};
 
-/// How long the page gets to hand its last writes to the shell before the window goes.
-const GRACE: Duration = Duration::from_millis(500);
+/// The page's answer: its last writes have landed (or its own cap ran out).
+const FLUSHED: &str = "wf://close-flushed";
 
-/// Runs the page's own close hooks without unloading it.
-const FLUSH_SCRIPT: &str = "dispatchEvent(new Event('pagehide'))";
+/// Longest the shell waits for that answer; a little over the page's own 3 s cap.
+const CAP: Duration = Duration::from_millis(3500);
+
+/// The only window with editors; the others hold no unsaved work.
+const MAIN: &str = "main";
+
+/// Runs the page's flush, falling back to its close hooks, and answers either way.
+const FLUSH_SCRIPT: &str = "Promise.resolve(typeof __wfFlushForClose==='function'?__wfFlushForClose():dispatchEvent(new Event('pagehide'))).catch(()=>{}).then(()=>__TAURI_INTERNALS__.invoke('plugin:event|emit',{event:'wf://close-flushed',payload:null}))";
 
 /// Holds the first close of a window for the flush; a second close request goes through.
 #[derive(Default)]
@@ -25,7 +35,7 @@ impl CloseGate {
     }
 }
 
-/// Holds the window's close until the page has had [`GRACE`] to save.
+/// Holds the window's close until the page has saved, at most [`CAP`].
 pub fn watch<R: Runtime>(window: &tauri::WebviewWindow<R>) {
     let gate = CloseGate::default();
     let watched = window.clone();
@@ -44,15 +54,29 @@ pub fn watch<R: Runtime>(window: &tauri::WebviewWindow<R>) {
     });
 }
 
-/// Asks every page to save, then runs `done` after [`GRACE`] (off the event loop).
+/// Asks the page to save, then runs `done` once it has (off the event loop).
 pub fn flush_then<R: Runtime>(app: &tauri::AppHandle<R>, done: impl FnOnce() + Send + 'static) {
-    for window in app.webview_windows().values() {
-        let _ = window.eval(FLUSH_SCRIPT);
-    }
+    let app = app.clone();
     let _detached = std::thread::spawn(move || {
-        std::thread::sleep(GRACE);
+        flush_and_wait(&app);
         done();
     });
+}
+
+/// Asks the page to save and blocks until it answers, at most [`CAP`]. Returns at once when
+/// there is no main window or the script cannot run.
+pub fn flush_and_wait<R: Runtime>(app: &tauri::AppHandle<R>) {
+    let Some(window) = app.get_webview_window(MAIN) else {
+        return;
+    };
+    let (flushed, answer) = mpsc::channel::<()>();
+    let listening = app.listen_any(FLUSHED, move |_| {
+        let _ = flushed.send(());
+    });
+    if window.eval(FLUSH_SCRIPT).is_ok() {
+        let _ = answer.recv_timeout(CAP);
+    }
+    app.unlisten(listening);
 }
 
 #[cfg(test)]
@@ -65,5 +89,11 @@ mod tests {
         assert!(gate.hold());
         assert!(!gate.hold());
         assert!(!gate.hold());
+    }
+
+    #[test]
+    fn the_script_answers_with_the_event_the_shell_waits_for() {
+        assert!(FLUSH_SCRIPT.contains(&format!("event:'{FLUSHED}'")));
+        assert!(!FLUSH_SCRIPT.contains('"'), "the page test reads the script between quotes");
     }
 }

@@ -131,6 +131,30 @@ test("a write that lands after a halt does not send the newer pending body", asy
   assert.deepEqual(written, ["B"], "nothing is sent while halted");
 });
 
+test("busy covers the debounce and a write still on its way, for the desktop close", async () => {
+  let land: () => void = () => {};
+  let text = "A";
+  const timers = fakeTimers();
+  const saver = new CanvasSaver({
+    write: () => new Promise<void>((resolve) => (land = resolve)),
+    onError: () => {},
+    schedule: timers.schedule,
+    unschedule: timers.unschedule,
+  });
+  const read = () => text;
+  saver.touch(read);
+  assert.equal(saver.busy(), false, "opening is not a write");
+  text = "B";
+  saver.touch(read);
+  assert.equal(saver.busy(), true, "a change waits for the debounce");
+  saver.flush(read);
+  assert.equal(saver.hasPending(), false);
+  assert.equal(saver.busy(), true, "the write has not landed yet");
+  land();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(saver.busy(), false);
+});
+
 test("resume after a halt saves again from the next change", () => {
   const s = setup("A");
   s.saver.touch(s.read);

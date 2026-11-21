@@ -1,3 +1,4 @@
+import { holdCloseWhile } from "@/lib/desktop/close-flush";
 import { readyCore } from "@/lib/rust-core";
 import type { ICrdtUpdateStore } from "@weaveforge/core";
 import type { Peer } from "../domain/presence";
@@ -175,7 +176,10 @@ export function flushBodyOnClose(
   const flush = () => void saver.flush();
   target?.addEventListener("pagehide", flush);
   target?.addEventListener("beforeunload", flush);
+  // The desktop close waits until that write has landed.
+  const stopHold = holdCloseWhile(() => saver.busy(), target);
   return () => {
+    stopHold();
     openSavers.delete(saver);
     target?.removeEventListener("pagehide", flush);
     target?.removeEventListener("beforeunload", flush);
