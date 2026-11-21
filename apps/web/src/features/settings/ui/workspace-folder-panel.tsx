@@ -509,13 +509,33 @@ export function WorkspaceFolderPanel() {
  */
 const SETTLE_INLINE: ReadonlySet<string> = new Set(["edited on both sides", "no record of the app's write", "removed"]);
 
-function ImportPreview({
-  diff,
-  onApplied,
-}: {
+type PreviewProps = {
   diff: ImportDiff & { skipped?: SkippedFile[]; refused?: readonly SkippedFile[] };
   onApplied: (message: string) => void;
-}) {
+};
+
+/** A number per diff object, so each new diff gets a fresh review. */
+const diffIds = new WeakMap<object, number>();
+let nextDiffId = 0;
+function diffKey(diff: object): number {
+  let id = diffIds.get(diff);
+  if (id === undefined) {
+    id = ++nextDiffId;
+    diffIds.set(diff, id);
+  }
+  return id;
+}
+
+/**
+ * The review of one diff. A re-check, restore or ZIP import brings a new diff,
+ * and the choices made against the old one (here and in each conflict card)
+ * must not carry over to it, so each diff mounts its own review (P2-234).
+ */
+export function ImportPreview(props: PreviewProps) {
+  return <ImportReview key={diffKey(props.diff)} {...props} />;
+}
+
+function ImportReview({ diff, onApplied }: PreviewProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /**
