@@ -23,6 +23,9 @@ type Channel = { postMessage(message: string): void; onmessage: ((event: { data:
 
 const UNAVAILABLE: NativeGoogleSignIn = { kind: "unavailable" };
 
+/** How long the account sheet may take before the web sign-in takes over. */
+const NATIVE_SIGN_IN_TIMEOUT_MS = 60_000;
+
 export function requestNativeGoogleIdToken(
   host: unknown = globalThis,
 ): Promise<NativeGoogleSignIn> {
@@ -30,15 +33,18 @@ export function requestNativeGoogleIdToken(
   if (typeof channel?.postMessage !== "function") return Promise.resolve(UNAVAILABLE);
   const ch = channel as Channel;
   return new Promise((resolve) => {
-    ch.onmessage = (event) => {
+    // A shell that never answers must not hold sign-in forever (P2-2).
+    const finish = (result: NativeGoogleSignIn) => {
+      clearTimeout(timer);
       ch.onmessage = null;
-      resolve(readReply(event.data));
+      resolve(result);
     };
+    const timer = setTimeout(() => finish(UNAVAILABLE), NATIVE_SIGN_IN_TIMEOUT_MS);
+    ch.onmessage = (event) => finish(readReply(event.data));
     try {
       ch.postMessage("request-id-token");
     } catch {
-      ch.onmessage = null;
-      resolve(UNAVAILABLE);
+      finish(UNAVAILABLE);
     }
   });
 }

@@ -55,3 +55,24 @@ test("a shell that throws on post falls back", async () => {
   assert.deepEqual(await requestNativeGoogleIdToken(host), { kind: "unavailable" });
   assert.equal(host.AndroidGoogleSignIn.onmessage, null);
 });
+
+test("a shell that never answers gives up as unavailable and lets the channel go (P2-2)", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const channel: Channel = { onmessage: null, postMessage() {} };
+  let settled: unknown = "pending";
+  void requestNativeGoogleIdToken({ AndroidGoogleSignIn: channel }).then((r) => (settled = r));
+  await Promise.resolve();
+  assert.equal(settled, "pending");
+  t.mock.timers.tick(60_000);
+  await Promise.resolve();
+  assert.deepEqual(settled, { kind: "unavailable" });
+  assert.equal(channel.onmessage, null, "a late reply must not resolve a later request");
+});
+
+test("a reply in time clears the timeout (P2-2)", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const s = shell(JSON.stringify({ status: "cancelled" }));
+  assert.deepEqual(await requestNativeGoogleIdToken(s.host), { kind: "cancelled" });
+  t.mock.timers.tick(60_000);
+  assert.equal(s.channel.onmessage, null);
+});
