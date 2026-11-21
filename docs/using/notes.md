@@ -70,7 +70,9 @@ whose links still use the old title. Update those by hand.
 2. The toast shows `"<title>" deleted` with **Undo**.
 3. Click **Undo** before the toast closes to keep the note.
 4. When the toast closes, or you click its close button, the note is deleted.
-   With no workspace folder open, it is then gone for good.
+   With no workspace folder open, it is then gone for good. With a folder
+   open, the note's `.md` file and its ink pages move to the workspace trash
+   (`.weaveforge/trash/<day>/`), where you can still get them back.
 5. If the delete fails, the note comes back and a toast says so.
 
 ### When two places save at once
@@ -138,6 +140,7 @@ before you open it in WeaveForge.
 | `Loading notes…` | Screen is loading |
 | `Opening note…` | A note is opening |
 | `"<title>" deleted` | Delete toast |
+| `Note deleted, but its file stays in the workspace folder: <reason>` | The note was deleted, but its file could not be moved to the workspace trash. An import does not offer it back unless the file is edited in the folder |
 | `Renamed, but links in N notes still use the old title: <titles>` | A rename could not update every link, for example in a note open for editing. Lists up to five titles, then "and N more" |
 | `Open a workspace folder to see this note's ink. On the desktop, ink is stored in the folder.` | A note with no workspace folder open, with an **Open folder** link |
 | `Someone else changed this note at the same time. Your text was saved; theirs is kept as a conflict copy beside it.` | Two places saved the same note and the texts overlapped |
