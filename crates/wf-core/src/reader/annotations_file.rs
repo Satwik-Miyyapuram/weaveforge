@@ -82,7 +82,7 @@ pub fn parse_annotations(text: &str) -> Result<Vec<AnnotationRow>, AnnotationsFi
         .enumerate()
         .map(|(index, item)| match item {
             Value::Object(row) => match row_id(&row) {
-                Some(id) if id.is_empty() => Err(AnnotationsFileError::BadRow(index)),
+                Some("") => Err(AnnotationsFileError::BadRow(index)),
                 Some(id) if !seen.insert(id.to_owned()) => {
                     Err(AnnotationsFileError::DuplicateId(id.to_owned()))
                 }

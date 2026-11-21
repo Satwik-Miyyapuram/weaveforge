@@ -438,7 +438,7 @@ impl Vault {
 /// Write a real copy of `prev` to the new file `dest`, then remove `prev`. A copy is never a hard
 /// link, so changing one of the two files cannot change the other.
 fn copy_prev_to(prev: &Path, dest: &Path) -> io::Result<()> {
-    copy_prev_with(prev, dest, |file| file.sync_all())
+    copy_prev_with(prev, dest, fs::File::sync_all)
 }
 
 /// `copy_prev_to` with the step that finishes the copy (the fsync) passed in. When writing or
