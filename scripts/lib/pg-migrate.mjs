@@ -237,6 +237,25 @@ export async function resyncSequences(client, schema = "public") {
   return rows.length;
 }
 
+/**
+ * Whether any table in `schema` holds a row.
+ *
+ * Probes the tables themselves. `pg_stat_user_tables.n_live_tup` is a statistic:
+ * it reads 0 until analyze or autovacuum runs, so right after a restore a full
+ * database looked empty.
+ */
+export async function hasAnyRows(client, schema = "public") {
+  const { rows: tables } = await client.query(
+    "select tablename from pg_tables where schemaname = $1 order by tablename",
+    [schema],
+  );
+  for (const { tablename } of tables) {
+    const { rows } = await client.query(`select exists (select 1 from "${schema}"."${tablename}") as present`);
+    if (rows[0]?.present) return true;
+  }
+  return false;
+}
+
 /** Row counts per table, for comparing the two sides afterwards. */
 export async function rowCounts(client, tables, schema = "public") {
   const counts = {};

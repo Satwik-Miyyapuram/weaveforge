@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { copyTable, cutoverVerdict, rowFingerprintSql, silenceTriggers, tableLoadOrder } from "../pg-migrate.mjs";
+import { copyTable, cutoverVerdict, hasAnyRows, rowFingerprintSql, silenceTriggers, tableLoadOrder } from "../pg-migrate.mjs";
 
 /** A pg client that knows two columns, a primary key, and a cursor over `rows`. */
 function fakeClient(rows = []) {
@@ -179,4 +179,18 @@ test("cutoverVerdict: safe only when nothing failed and isolation was probed", (
   assert.match(unprobed.message, /not probed/);
   assert.equal(cutoverVerdict(2, true).ok, false);
   assert.match(cutoverVerdict(2, false).message, /2 check\(s\) failed/);
+});
+
+test("hasAnyRows probes the tables, not the n_live_tup statistic (P2-101)", async () => {
+  // Right after a restore n_live_tup reads 0 on every table; only a probe sees the rows.
+  const client = (filled) => ({
+    async query(text) {
+      if (text.includes("pg_tables")) return { rows: [{ tablename: "a" }, { tablename: "b" }] };
+      if (text.includes("n_live_tup")) return { rows: [{ rows: 0 }] };
+      const table = /from "public"\."(\w+)"/.exec(text)?.[1];
+      return { rows: [{ present: table === filled }] };
+    },
+  });
+  assert.equal(await hasAnyRows(client("b")), true);
+  assert.equal(await hasAnyRows(client(null)), false);
 });
