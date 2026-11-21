@@ -21,7 +21,7 @@ use crate::collab::{CollabState, Permission};
 
 const STORAGE_FAILED: &str = "Storage failed.";
 /// Largest client message the socket accepts; a larger one closes the socket.
-const MAX_MESSAGE_BYTES: usize = 2 * 1024 * 1024;
+pub(crate) const MAX_MESSAGE_BYTES: usize = 2 * 1024 * 1024;
 /// Largest awareness (presence) frame relayed to the others; larger ones are dropped.
 const MAX_RELAY_BYTES: usize = 64 * 1024;
 /// Awareness frames one client may relay per second; the rest are dropped.
@@ -267,8 +267,9 @@ async fn pump(
             Next::Frame(_) => false,
             Next::Event(Ok(event)) => on_event(state, room, client, socket, event).await,
             // A lag can drop the Recheck event a revoke sent, so re-read access now.
+            // It also dropped updates, so send the whole document again (F97-P1-2).
             Next::Event(Err(broadcast::error::RecvError::Lagged(_))) => {
-                recheck(state, room, client, socket).await
+                recheck(state, room, client, socket).await && resync(room, socket).await
             }
             Next::Event(Err(broadcast::error::RecvError::Closed)) => false,
         };
@@ -321,6 +322,13 @@ async fn on_binary(
         }
         Some(Incoming::Update(update)) => on_update(state, room, client, socket, update).await,
     }
+}
+
+/// Sends the whole document as a sync step 2, for a client whose updates were
+/// dropped; y-sync merges it, so what it already had is not doubled.
+async fn resync(room: &Room, socket: &mut WebSocket) -> bool {
+    let whole = diff_for(room, &StateVector::default()).await;
+    send(socket, Message::Binary(protocol::sync_step2(whole).into())).await
 }
 
 /// The part of the document the peer is missing.

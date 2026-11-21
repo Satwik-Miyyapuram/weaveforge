@@ -255,6 +255,39 @@ async fn accepts_unpadded_base64_and_defaults_the_content_type() {
 }
 
 #[tokio::test]
+async fn f97_p2_3_active_content_types_are_stored_as_octet_stream() {
+    for kind in [
+        "text/html",
+        "TEXT/HTML; charset=utf-8",
+        "image/svg+xml",
+        "application/xhtml+xml",
+        "text/xml",
+        "application/javascript",
+        "multipart/related",
+        "text/plain\r\nX-Evil: 1",
+        "nonsense",
+    ] {
+        let up = upstream(vec![(STORAGE, vec![json_reply(200, "{}")])]).await;
+        let body = json!({"experimentId": "exp1", "name": "a.bin", "contentType": kind, "dataBase64": "aGVsbG8="});
+        let (status, _) = send(&up, post(&body.to_string())).await;
+        assert_eq!(status, StatusCode::OK, "{kind}");
+        assert_eq!(
+            storage_calls(&up)[0].header("content-type"),
+            Some("application/octet-stream"),
+            "{kind}"
+        );
+    }
+    // Inert types are kept as sent.
+    for kind in ["image/png", "text/csv; charset=utf-8", "application/pdf"] {
+        let up = upstream(vec![(STORAGE, vec![json_reply(200, "{}")])]).await;
+        let body = json!({"experimentId": "exp1", "name": "a.bin", "contentType": kind, "dataBase64": "aGVsbG8="});
+        let (status, _) = send(&up, post(&body.to_string())).await;
+        assert_eq!(status, StatusCode::OK, "{kind}");
+        assert_eq!(storage_calls(&up)[0].header("content-type"), Some(kind));
+    }
+}
+
+#[tokio::test]
 async fn a_storage_refusal_answers_a_generic_server_fault() {
     let up = upstream(vec![(
         STORAGE,

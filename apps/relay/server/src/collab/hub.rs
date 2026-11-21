@@ -16,8 +16,15 @@ use crate::collab::protocol::{event_json, rejoin_json};
 use crate::collab::store::{DocRow, DocStatus};
 use crate::collab::update_log::{UpdateLog, list_logs, log_path};
 
-/// Broadcast queue length per room.
-const BROADCAST_CAPACITY: usize = 256;
+/// Broadcast queue length per room. Each queued frame may be a full-size message, so this
+/// bounds what one room can hold; a peer that falls behind gets the whole doc instead.
+const BROADCAST_CAPACITY: usize = 64;
+
+/// Most bytes one room's broadcast queue may hold (F97-P2-2).
+const BROADCAST_BYTE_CAP: usize = 128 * 1024 * 1024;
+
+const _: () =
+    assert!(BROADCAST_CAPACITY * crate::collab::ws::MAX_MESSAGE_BYTES <= BROADCAST_BYTE_CAP);
 
 /// What a room broadcasts to its clients.
 #[derive(Clone, Debug)]

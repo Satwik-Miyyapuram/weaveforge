@@ -300,7 +300,12 @@ async fn connect(
             HeaderValue::from_str(&value).expect("protocol header"),
         );
     }
-    let (ws, _) = tokio_tungstenite::connect_async(request).await?;
+    // No frame cap: a whole-document resync can be larger than tungstenite's 16 MiB default.
+    let config = tungstenite::protocol::WebSocketConfig::default()
+        .max_frame_size(None)
+        .max_message_size(None);
+    let (ws, _) =
+        tokio_tungstenite::connect_async_with_config(request, Some(config), false).await?;
     Ok(ws)
 }
 
@@ -759,6 +764,75 @@ async fn lagged_client_rechecks_after_revoke() {
             }
             Some(_) => {}
             None => panic!("guest socket closed without a denied frame"),
+        }
+    }
+}
+
+/// The update inside a y-sync SyncStep2 or Update frame; `None` for any other frame.
+fn sync_payload(frame: &[u8]) -> Option<&[u8]> {
+    let (&first, rest) = frame.split_first()?;
+    let (&kind, mut rest) = rest.split_first()?;
+    if first != 0 || (kind != 1 && kind != 2) {
+        return None;
+    }
+    let (mut len, mut shift) = (0usize, 0u32);
+    loop {
+        let (&byte, tail) = rest.split_first()?;
+        rest = tail;
+        len |= usize::from(byte & 0x7f) << shift;
+        if byte & 0x80 == 0 {
+            break;
+        }
+        shift += 7;
+    }
+    rest.get(..len)
+}
+
+#[tokio::test]
+async fn lagged_client_gets_the_whole_doc() {
+    let dir = TempDir::new("lagged-resync");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let _grant = grant_edit(&store, ITEM).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+
+    // The guest does not read while the owner floods the room, so its receiver lags past the
+    // broadcast capacity and the room drops updates it never sent to the guest.
+    let big = "x".repeat(64 * 1024);
+    let count = 400;
+    for i in 0..count {
+        send_frame(&mut owner, update_frame(map_update(&format!("a{i}"), &big))).await;
+    }
+    send_frame(&mut owner, update_frame(map_update("end", "y"))).await;
+
+    // Once the guest reads again, what it receives must add up to every update.
+    let doc = Doc::new();
+    let saves = doc.get_or_insert_map("saves");
+    loop {
+        let frame = next_binary(&mut guest).await;
+        let Some(payload) = sync_payload(&frame) else {
+            continue;
+        };
+        let update = Update::decode_v1(payload).expect("decode update");
+        doc.transact_mut()
+            .apply_update(update)
+            .expect("apply update");
+        let txn = doc.transact();
+        if saves.get(&txn, "end").is_some() {
+            let missing = (0..count)
+                .filter(|i| saves.get(&txn, &format!("a{i}")).is_none())
+                .count();
+            assert_eq!(missing, 0, "the guest never got {missing} updates");
+            return;
         }
     }
 }
