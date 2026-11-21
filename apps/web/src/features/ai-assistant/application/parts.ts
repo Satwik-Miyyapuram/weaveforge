@@ -224,10 +224,17 @@ export function importFolderDraftsOnce(
   }
   running = (async () => {
     let total = 0;
+    let firstError: unknown = null;
     do {
       again = false;
-      total += await importFolderDrafts(...latest!);
+      try {
+        total += await importFolderDrafts(...latest!);
+      } catch (err) {
+        // Keep going: a later call's pass must still run (P2-150).
+        firstError ??= err;
+      }
     } while (again);
+    if (firstError !== null) throw firstError;
     return total;
   })().finally(() => {
     running = null;

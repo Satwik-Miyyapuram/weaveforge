@@ -105,6 +105,21 @@ test("the draft stays on disk until the queue has it, so a crash mid-queue loses
   assert.deepEqual(await remaining(fs), [`${FOLDER_DRAFTS_DIR}/a.json`]);
 });
 
+test("a pass that throws still runs the pass a later call asked for (P2-150)", async () => {
+  const first = await withFiles({ "a.json": JSON.stringify(draft) });
+  const second = await withFiles({ "b.json": JSON.stringify({ ...draft, resourceId: "note-2" }) });
+  const queued: string[] = [];
+  const failing = async () => {
+    await new Promise((r) => setTimeout(r, 5));
+    throw new Error("offline");
+  };
+  const ok = async (d: FolderDraft) => queued.push(d.resourceId);
+  const results = await Promise.allSettled([importFolderDraftsOnce(first, failing), importFolderDraftsOnce(second, ok)]);
+  assert.equal(results[0].status, "rejected");
+  assert.deepEqual(queued, ["note-2"]);
+  assert.deepEqual(await remaining(second), []);
+});
+
 test("a call during a run imports its own folder and project on the next pass (32-03)", async () => {
   const first = await withFiles({ "a.json": JSON.stringify({ ...draft, projectId: "p1" }) });
   const second = await withFiles({ "b.json": JSON.stringify({ ...draft, resourceId: "note-2", projectId: "p2" }) });
