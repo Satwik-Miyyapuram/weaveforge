@@ -5,9 +5,13 @@ import type {
   IVaultPageRepository,
 } from "@weaveforge/core";
 
+import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
 
 type VaultPages = IVaultPageRepository & IVaultPageManager;
+
+/** A rename's result; `linkRewriteFailed` names the notes whose links could not be rewritten. */
+export type RenamedVaultPage = EditedVaultPage & { readonly linkRewriteFailed?: readonly string[] };
 
 /**
  * The vault page writes, where renaming a note also rewrites `[[Old]]`,
@@ -22,7 +26,7 @@ type VaultPages = IVaultPageRepository & IVaultPageManager;
  * point to that note, so they are left alone.
  */
 export function withRenameLinkRewrite<T extends VaultPages>(pages: T): T {
-  const update = async (id: string, input: EditVaultPageInput): Promise<EditedVaultPage> => {
+  const update = async (id: string, input: EditVaultPageInput): Promise<RenamedVaultPage> => {
     const before = input.title === undefined ? null : await pages.getById(id);
     const saved = await pages.update(id, input);
     if (!before || before.title === saved.title) return saved;
@@ -31,12 +35,26 @@ export function withRenameLinkRewrite<T extends VaultPages>(pages: T): T {
     const all = await pages.list();
     if (all.some((p) => p.id !== id && core.normalizeTitleKey(p.title) === oldKey)) return saved;
     const renames = new Map([[oldKey, saved.title]]);
+    const failed: string[] = [];
     for (const page of all) {
       if (page.id === id || !page.body.includes("[[")) continue;
-      const body = readyCore().rewriteWikilinksOutsideCode(page.body, renames);
-      if (body !== page.body) await pages.update(page.id, { body });
+      try {
+        const body = core.rewriteWikilinksOutsideCode(page.body, renames);
+        if (body !== page.body) await pages.update(page.id, { body });
+      } catch {
+        failed.push(page.title);
+      }
     }
-    return saved;
+    if (failed.length === 0) return saved;
+    // The rename itself saved; a retry would see the new title and rewrite
+    // nothing, so the notes still holding [[Old]] are named here.
+    logToApp({
+      level: "warn",
+      source: "rename",
+      message: `Renamed "${before.title}" to "${saved.title}", but ${failed.length} note(s) still link to the old title`,
+      detail: failed.join("\n"),
+    });
+    return { ...saved, linkRewriteFailed: failed };
   };
   return Object.assign(Object.create(pages) as T, { update });
 }

@@ -21,7 +21,7 @@ function page(id: string, title: string, body: string): VaultPage {
 }
 
 /** Just the reads and the `update` the rewrite uses, over a map. */
-function memoryPages(initial: VaultPage[]) {
+function memoryPages(initial: VaultPage[], failOn: ReadonlySet<string> = new Set()) {
   const rows = new Map(initial.map((p) => [p.id, p]));
   const updates: string[] = [];
   const repo = {
@@ -31,6 +31,7 @@ function memoryPages(initial: VaultPage[]) {
       // As the Rust repo does (vault_pages::assert_title_unique), refuse another note's title.
       const taken = [...rows.values()].some((p) => p.id !== id && p.title.toLowerCase() === input.title?.toLowerCase());
       if (taken) throw new Error("A note with this title already exists.");
+      if (failOn.has(id)) throw new Error("disk full");
       updates.push(id);
       const next = { ...rows.get(id)!, ...(input.title !== undefined && { title: input.title }), ...(input.body !== undefined && { body: input.body }) };
       rows.set(id, next);
@@ -95,6 +96,25 @@ test("a rename refused as a duplicate title rewrites nothing", async () => {
   await assert.rejects(repo.update("two", { title: "one" }), /already exists/);
   assert.equal(rows.get("one")!.body, "[[Two]]");
   assert.deepEqual(updates, []);
+});
+
+test("a note that fails to save is reported, the others are still rewritten", async () => {
+  const { rows, repo } = memoryPages(
+    [page("one", "One", "[[Two]]"), page("bad", "Bad", "[[Two]]"), page("three", "Three", "[[Two]]"), page("two", "Two", "Body")],
+    new Set(["bad"]),
+  );
+  const saved = (await repo.update("two", { title: "Renamed" })) as { title: string; linkRewriteFailed?: string[] };
+  assert.equal(saved.title, "Renamed");
+  assert.deepEqual(saved.linkRewriteFailed, ["Bad"]);
+  assert.equal(rows.get("one")!.body, "[[Renamed]]");
+  assert.equal(rows.get("three")!.body, "[[Renamed]]");
+  assert.equal(rows.get("bad")!.body, "[[Two]]");
+});
+
+test("a rename where every rewrite saved reports no failures", async () => {
+  const { repo } = memoryPages([page("one", "One", "[[Two]]"), page("two", "Two", "Body")]);
+  const saved = (await repo.update("two", { title: "Renamed" })) as { linkRewriteFailed?: string[] };
+  assert.equal(saved.linkRewriteFailed, undefined);
 });
 
 test("the app's note writes are the link-rewriting ones", () => {
