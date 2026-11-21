@@ -27,6 +27,8 @@ pub(crate) const MAX_MESSAGE_BYTES: usize = 2 * 1024 * 1024;
 const MAX_RELAY_BYTES: usize = 64 * 1024;
 /// Awareness frames one client may relay per second; the rest are dropped.
 const MAX_RELAYS_PER_SEC: u32 = 100;
+/// SyncStep1 replies one client may get back to back; one more comes back each second.
+const SYNC_STEP1_BURST: i64 = 3;
 
 /// What the socket loop woke up for.
 enum Next {
@@ -52,6 +54,8 @@ struct Client {
     relay_window: i64,
     /// Awareness frames relayed in the current window.
     relay_count: u32,
+    /// How far the SyncStep1 tokens are spent (Unix ms); see `take_sync_slot`.
+    sync_spent_to: i64,
 }
 
 impl Client {
@@ -73,7 +77,22 @@ impl Client {
             last_check: now,
             relay_window: now,
             relay_count: 0,
+            sync_spent_to: now.saturating_sub(SYNC_STEP1_BURST * 1_000),
         }
+    }
+
+    /// Takes one SyncStep1 token (burst `SYNC_STEP1_BURST`, one back per second).
+    /// Each reply encodes a diff under the room lock, so a flood would stall the room.
+    fn take_sync_slot(&mut self, now: i64) -> bool {
+        // One token per unspent second, at most the burst.
+        let spent_to = self
+            .sync_spent_to
+            .max(now.saturating_sub(SYNC_STEP1_BURST * 1_000));
+        if now.saturating_sub(spent_to) < 1_000 {
+            return false;
+        }
+        self.sync_spent_to = spent_to + 1_000;
+        true
     }
 
     /// Counts one relayed frame against this client's per-second budget.
@@ -302,6 +321,9 @@ async fn on_binary(
     match protocol::classify(&bytes) {
         None | Some(Incoming::Ignore) => true,
         Some(Incoming::SyncStep1(sv)) => {
+            if !client.take_sync_slot(state.clock.now_ms()) {
+                return true;
+            }
             let diff = diff_for(room, &sv).await;
             send(socket, Message::Binary(protocol::sync_step2(diff).into())).await
         }

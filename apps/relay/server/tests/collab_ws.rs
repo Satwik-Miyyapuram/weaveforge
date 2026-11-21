@@ -28,7 +28,7 @@ use tokio_tungstenite::tungstenite::{self, Message};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use wf_core::sync::instant::format_instant;
 use wf_relay_server::collab::hub::{self, Hub};
-use wf_relay_server::collab::protocol::update_frame;
+use wf_relay_server::collab::protocol::{sync_step1, update_frame};
 use wf_relay_server::collab::store::{
     DocRow, DocStatus, GrantRow, MemoryStore, NewGrant, SharedDocStore,
 };
@@ -786,6 +786,52 @@ async fn awareness_flood_is_rate_limited() {
         relayed <= 200,
         "relayed {relayed} of 300 awareness frames from one client"
     );
+}
+
+/// Counts the SyncStep2 replies `ws` gets until it goes quiet; panics if the socket closes.
+async fn count_step2_replies(ws: &mut Ws) -> usize {
+    let mut replies = 0;
+    loop {
+        match tokio::time::timeout(Duration::from_millis(500), ws.next()).await {
+            Err(_) => return replies,
+            Ok(Some(Ok(Message::Binary(frame)))) => {
+                if frame.get(..2) == Some(&[0, 1][..]) {
+                    replies += 1;
+                }
+            }
+            Ok(Some(Ok(Message::Close(_))) | None | Some(Err(_))) => {
+                panic!("the socket closed during a SyncStep1 flood")
+            }
+            Ok(Some(Ok(_))) => {}
+        }
+    }
+}
+
+#[tokio::test]
+async fn sync_step1_flood_is_rate_limited() {
+    let dir = TempDir::new("step1-rate");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    let step1 = sync_step1(&StateVector::default());
+
+    // The relay clock stands still, so only the burst is answered.
+    for _ in 0..100 {
+        send_frame(&mut owner, step1.clone()).await;
+    }
+    assert_eq!(count_step2_replies(&mut owner).await, 3);
+
+    // One second later one more token has come back, and the socket is still up.
+    relay.now.fetch_add(1_000, Ordering::SeqCst);
+    for _ in 0..5 {
+        send_frame(&mut owner, step1.clone()).await;
+    }
+    assert_eq!(count_step2_replies(&mut owner).await, 1);
 }
 
 #[tokio::test]
