@@ -143,10 +143,15 @@ pub fn public_relay_client() -> Result<reqwest::Client, reqwest::Error> {
         .build()
 }
 
-/// The `public_relay_client` the page relays share, built once.
+/// The `public_relay_client` the page relays share, built once it builds. A failed
+/// build is not kept, so the next request tries again.
 pub(crate) fn shared_public_client() -> Option<&'static reqwest::Client> {
-    static CLIENT: std::sync::OnceLock<Option<reqwest::Client>> = std::sync::OnceLock::new();
-    CLIENT.get_or_init(|| public_relay_client().ok()).as_ref()
+    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+    if let Some(client) = CLIENT.get() {
+        return Some(client);
+    }
+    let built = public_relay_client().ok()?;
+    Some(CLIENT.get_or_init(|| built))
 }
 
 fn relay_builder() -> reqwest::ClientBuilder {
@@ -174,6 +179,13 @@ mod tests {
     #[test]
     fn relay_client_builds() {
         assert!(relay_client().is_ok());
+    }
+
+    #[test]
+    fn shared_public_client_is_built_once() {
+        let first = shared_public_client().expect("builds");
+        let second = shared_public_client().expect("builds");
+        assert!(std::ptr::eq(first, second));
     }
 }
 

@@ -35,7 +35,7 @@ pub fn is_private_host(host: &str) -> bool {
 
 /// IPv4 rules from `isPublicIpv4`.
 fn is_public_v4(addr: Ipv4Addr) -> bool {
-    let [a, b, _, _] = addr.octets();
+    let [a, b, c, _] = addr.octets();
     !(a == 0
         || a == 10
         || a == 127
@@ -45,6 +45,9 @@ fn is_public_v4(addr: Ipv4Addr) -> bool {
         || (a == 192 && b == 0)
         || (a == 192 && b == 168)
         || (a == 198 && (b == 18 || b == 19))
+        || (a == 192 && b == 88 && c == 99)
+        || (a == 198 && b == 51 && c == 100)
+        || (a == 203 && b == 0 && c == 113)
         || a >= 224)
 }
 
@@ -71,7 +74,8 @@ fn is_public_v6(address: &str) -> bool {
     if g0 == 0 && g1 == 0 && g2 == 0 && g3 == 0 && g4 == 0 && g5 == 0 && g6 == 0 && g7 == 0 {
         return false;
     }
-    if (g0 & 0xffc0) == 0xfe80 || (g0 & 0xfe00) == 0xfc00 || (g0 & 0xff00) == 0xff00 {
+    // fe80::/10 link-local, fec0::/10 site-local (deprecated but still routed in-site).
+    if (g0 & 0xff80) == 0xfe80 || (g0 & 0xfe00) == 0xfc00 || (g0 & 0xff00) == 0xff00 {
         return false;
     }
     if g0 == 0x2001 && g1 == 0x0db8 {
