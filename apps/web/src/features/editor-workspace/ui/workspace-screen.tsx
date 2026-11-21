@@ -360,7 +360,8 @@ export function WorkspaceScreen() {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       const hold = closeWouldLoseWork({
         pending: pendingRef.current, dirty: dirtyRef.current,
-        inkPending: getInkSaveStatus().pending, bodyPending: hasPendingBodySave(),
+        inkPending: getInkSaveStatus().pending, inkFailed: getInkSaveStatus().failed,
+        bodyPending: hasPendingBodySave(),
       });
       if (!hold) return;
       event.preventDefault();

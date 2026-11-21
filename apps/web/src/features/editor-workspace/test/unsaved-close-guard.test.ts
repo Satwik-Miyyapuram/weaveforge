@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { closeWouldLoseWork } from "../ui/workspace-screen-support";
 
 const screen = readFileSync(new URL("../ui/workspace-screen.tsx", import.meta.url), "utf8");
-const idle = { pending: 0, dirty: false, inkPending: 0, bodyPending: false };
+const idle = { pending: 0, dirty: false, inkPending: 0, inkFailed: false, bodyPending: false };
 
 test("nothing waiting: the window closes without a prompt", () => {
   assert.equal(closeWouldLoseWork(idle), false);
@@ -23,9 +23,14 @@ test("a running save, a failed one, debounced ink or debounced typing each hold 
   assert.equal(closeWouldLoseWork({ ...idle, bodyPending: true }), true);
 });
 
+test("a failed ink save holds the close: its strokes are only in memory", () => {
+  assert.equal(closeWouldLoseWork({ ...idle, inkFailed: true }), true);
+});
+
 test("the guard asks the helper with the ink status and the body savers", () => {
   assert.match(screen, /closeWouldLoseWork\(\{/);
   assert.match(screen, /inkPending: getInkSaveStatus\(\)\.pending/);
+  assert.match(screen, /inkFailed: getInkSaveStatus\(\)\.failed/);
   assert.match(screen, /bodyPending: hasPendingBodySave\(\)/);
   assert.match(screen, /dirtyRef\.current = dirty;/);
 });
