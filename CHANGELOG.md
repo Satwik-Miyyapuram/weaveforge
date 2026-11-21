@@ -14,6 +14,11 @@ tracks at once.
 ## [Unreleased]
 
 ### Desktop
+- **Fixed:** Deleting a note moves its `.md` and its `.inkb` ink file to the workspace trash folder, and a deleted note is no longer offered again on import. 0.9.6 listed this fix, but in 0.9.6 a deleted note's file stayed in place; it is fixed now.
+- **Fixed:** Ink cannot be drawn until the workspace has a folder, so strokes are never kept only in memory.
+- **Fixed:** Renaming a note rewrites the `[[links]]` that point to it, leaving links inside code alone; any note it could not update is named in a message.
+- **Added:** Settings shows which repository the workspace backs up to, with a link to it.
+- **Fixed:** The privacy notice now says where your data really goes: on your device and in your workspace folder, on GitHub when GitHub sync is on, and on the server only without GitHub sync or when you share. It no longer claims encryption WeaveForge does not do, and says that the text of a PDF you opened can reach the AI when papers are an allowed source.
 
 ### Python SDK
 - **Added:** The SDK reads the token file the desktop app's Connect panel writes under `~/.weaveforge`, so it reaches the local API without a pasted token.
