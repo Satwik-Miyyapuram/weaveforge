@@ -590,3 +590,46 @@ fn save_of_a_new_file_writes_the_text_as_given() {
         .unwrap();
     assert_eq!(fs::read(at(&dir, "new.md")).unwrap(), b"a\nb\n");
 }
+
+/// Every file under `dir` whose bytes equal `want`, as paths relative to `dir`.
+#[cfg(test)]
+fn files_holding(dir: &std::path::Path, want: &[u8]) -> Vec<std::path::PathBuf> {
+    let mut found = Vec::new();
+    for entry in fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            found.extend(files_holding(&path, want));
+        } else if fs::read(&path).unwrap() == want {
+            found.push(path);
+        }
+    }
+    found
+}
+
+#[test]
+fn replaced_invalid_utf8_bytes_that_differ_are_kept() {
+    // F97-P2-6: `FF 41` and `FE 41` both decode lossily to "\u{FFFD}A". A write that expected
+    // `FF 41` must not delete `FE 41` that another writer put there in the meantime.
+    let dir = TempDir::new();
+    let vault = vault_in(&dir);
+    let path = at(&dir, "bad.md");
+    put(&path, b"\xFFA");
+    let WriteOutcome::Changed { disk_hash: seen } = vault
+        .write_text_checked("bad.md", "x", Some("not the hash"))
+        .unwrap()
+    else {
+        panic!("a wrong expectation is refused");
+    };
+    let _ = vault.write_checked_with_hook(
+        "bad.md",
+        b"mine",
+        true,
+        Some(seen.as_str()),
+        &mut || put(&path, b"\xFEA"),
+        &mut || {},
+    );
+    assert!(
+        !files_holding(dir.path(), b"\xFEA").is_empty(),
+        "the other writer's bytes were lost"
+    );
+}

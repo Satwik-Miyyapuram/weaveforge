@@ -614,12 +614,13 @@ fn decode_text(bytes: &[u8]) -> String {
     String::from_utf8_lossy(strip_bom(bytes)).into_owned()
 }
 
-/// Digest of text files by canonical text, other files by raw bytes.
+/// Digest of text files by canonical text, other files by raw bytes. A "text" file that is not
+/// valid UTF-8 is hashed by its raw bytes too: a lossy decode would give two different invalid
+/// byte strings the same hash (F97-P2-6).
 fn hash_of(bytes: &[u8], text: bool) -> String {
-    if text {
-        canonical_digest(&decode_text(bytes))
-    } else {
-        bytes_digest(bytes)
+    match text.then(|| std::str::from_utf8(strip_bom(bytes))) {
+        Some(Ok(decoded)) => canonical_digest(decoded),
+        _ => bytes_digest(bytes),
     }
 }
 
