@@ -24,6 +24,7 @@ import { dirname, join } from "node:path";
 
 import { loadMigrationEnv } from "./lib/load-env.mjs";
 import { pgTls } from "./lib/pg-tls.mjs";
+import { registerBlob } from "./lib/blob-registry.mjs";
 
 loadMigrationEnv(join(dirname(fileURLToPath(import.meta.url)), ".."));
 const require = createRequire(join(dirname(fileURLToPath(import.meta.url)), "../apps/web/package.json"));
@@ -206,6 +207,8 @@ async function main() {
       const key = `${bucket}/${object.path}`;
       try {
         if (await alreadyPresent(dest, key, object.size)) {
+          // An interrupted run may have uploaded it without recording it.
+          await registerBlob(db, { bucket, path: object.path, tier: dest.tier, sizeBytes: object.size });
           skipped += 1;
           continue;
         }
@@ -220,17 +223,7 @@ async function main() {
           }),
         );
 
-        // The registry is how the app finds the object afterwards; a copy that
-        // is not recorded is a copy the app cannot serve.
-        await db.query(
-          `insert into blob_objects (user_id, bucket, path, tier, size_bytes)
-           values (
-             coalesce(nullif(split_part($1, '/', 1), '')::uuid, (select id from auth.users limit 1)),
-             $2, $3, $4, $5
-           )
-           on conflict (bucket, path) do update set tier = excluded.tier, size_bytes = excluded.size_bytes`,
-          [object.path, bucket, object.path, dest.tier, body.byteLength],
-        );
+        await registerBlob(db, { bucket, path: object.path, tier: dest.tier, sizeBytes: body.byteLength });
 
         copied += 1;
         bytes += body.byteLength;
