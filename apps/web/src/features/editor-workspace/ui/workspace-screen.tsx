@@ -35,7 +35,9 @@ import { CanvasDocument } from "./canvas-document";
 import { ExplorerPanel } from "./explorer-panel";
 import { ExplorerResizer } from "./explorer-resizer";
 import { useFocusMode } from "./use-focus-mode";
-import { CLOSED_TABS_KEPT, keepOpen, store } from "./workspace-screen-support";
+import { CLOSED_TABS_KEPT, closeWouldLoseWork, keepOpen, store } from "./workspace-screen-support";
+import { getInkSaveStatus } from "@/features/ink/application/parts";
+import { hasPendingBodySave } from "@/features/collab";
 import { HydratingDocument, useNoteBodies } from "./use-note-bodies";
 import { useLinkTargets } from "./use-link-targets";
 import { useOutline } from "./use-outline";
@@ -356,7 +358,13 @@ export function WorkspaceScreen() {
   // starts.
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (pendingRef.current <= 0 && !dirtyRef.current) return;
+      const hold = closeWouldLoseWork({
+        pending: pendingRef.current,
+        dirty: dirtyRef.current,
+        inkPending: getInkSaveStatus().pending,
+        bodyPending: hasPendingBodySave(),
+      });
+      if (!hold) return;
       event.preventDefault();
       event.returnValue = "";
     };

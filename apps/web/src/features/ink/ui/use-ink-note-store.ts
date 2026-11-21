@@ -230,6 +230,19 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
   // A layout cleanup runs before the ref above moves on, so a note switch (not only an
   // unmount) writes the pending save into the note it was made on (F97-P1-3).
   useLayoutEffect(() => () => flushSave(), [flushSave, noteId]);
+  // Closing or quitting the window runs no unmount, so the last strokes inside
+  // INK_SAVE_DELAY_MS are written here.
+  useEffect(() => {
+    const win = typeof window === "undefined" ? undefined : window;
+    if (typeof win?.addEventListener !== "function") return;
+    const flush = () => flushSave();
+    win.addEventListener("pagehide", flush);
+    win.addEventListener("beforeunload", flush);
+    return () => {
+      win.removeEventListener("pagehide", flush);
+      win.removeEventListener("beforeunload", flush);
+    };
+  }, [flushSave]);
 
   /**
    * Load the sidecar once; a note with nothing written gets one blank page.

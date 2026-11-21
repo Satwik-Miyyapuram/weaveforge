@@ -18,7 +18,7 @@ import {
   savedDigests,
   unmarkSaved,
 } from "../domain/seed-document.js";
-import { BodySaver, publishPeers, type SaveBody } from "../application/parts.js";
+import { BodySaver, flushBodyOnClose, publishPeers, type SaveBody } from "../application/parts.js";
 import { logToApp } from "@/lib/error-report/app-log";
 import type { Peer } from "../domain/presence.js";
 import { readyCore, typedCore } from "@/lib/rust-core";
@@ -146,6 +146,8 @@ export function CollaborativeMarkdownEditor({
         initialBody,
       ),
   );
+  // Closing or quitting within SAVE_MS of typing still saves it.
+  useEffect(() => flushBodyOnClose(saver), [saver]);
 
   // Kept out of the editor effect: the display name arrives after the profile
   // loads, and listing it as a dependency tore the whole CodeMirror/Yjs stack

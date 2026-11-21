@@ -94,6 +94,11 @@ export class BodySaver<P = undefined> {
     return this.write(body);
   }
 
+  /** Typing not yet stored: waiting on the debounce, or a save in flight. */
+  busy(): boolean {
+    return this.pending !== null || this.inFlight !== null;
+  }
+
   /** The editor is going away: save `current` if this editor has an unsaved edit. */
   close(current: string): void {
     this.clearTimer();
@@ -139,6 +144,42 @@ export class BodySaver<P = undefined> {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
   }
+}
+
+/** What the window-close hooks need from a saver. */
+interface ClosingSaver {
+  busy(): boolean;
+  flush(): Promise<boolean>;
+}
+
+/** Savers of the editors now open, read by the window-close guard. */
+const openSavers = new Set<ClosingSaver>();
+
+/** Whether an open editor holds typing not yet stored. */
+export function hasPendingBodySave(): boolean {
+  for (const saver of openSavers) if (saver.busy()) return true;
+  return false;
+}
+
+/**
+ * Write the pending body when the window goes away (close, quit, reload): an
+ * unmount cleanup does not run then, so typing inside the debounce was lost.
+ * Returns the stop, for the editor's own unmount.
+ */
+export function flushBodyOnClose(
+  saver: ClosingSaver,
+  win: EventTarget | undefined = typeof window === "undefined" ? undefined : window,
+): () => void {
+  const target = typeof win?.addEventListener === "function" ? win : undefined;
+  openSavers.add(saver);
+  const flush = () => void saver.flush();
+  target?.addEventListener("pagehide", flush);
+  target?.addEventListener("beforeunload", flush);
+  return () => {
+    openSavers.delete(saver);
+    target?.removeEventListener("pagehide", flush);
+    target?.removeEventListener("beforeunload", flush);
+  };
 }
 
 // --- parts ---
