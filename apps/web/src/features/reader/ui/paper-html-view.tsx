@@ -75,6 +75,9 @@ export function PaperHtmlView({ page, toolbarExtra, onRemove }: PaperHtmlViewPro
  * Print the page from a frame of its own, so the dialog's "Save as PDF" keeps
  * real text. Still no scripts in it; same-origin and modals only so it can print.
  */
+/** A frame whose `afterprint` never fires is removed after this long (P2-205). */
+export const PRINT_FRAME_TTL_MS = 60_000;
+
 export function printPaperHtml(page: PaperHtmlPage): void {
   const frame = document.createElement("iframe");
   frame.setAttribute("sandbox", "allow-same-origin allow-modals");
@@ -84,9 +87,20 @@ export function printPaperHtml(page: PaperHtmlPage): void {
   frame.addEventListener("load", () => {
     const win = frame.contentWindow;
     if (!win) return frame.remove();
-    win.addEventListener("afterprint", () => frame.remove(), { once: true });
-    win.focus();
-    win.print();
+    // Removed on afterprint, on a print that throws, or after a while (P2-205).
+    const remove = () => {
+      clearTimeout(fallback);
+      frame.remove();
+    };
+    const fallback = setTimeout(remove, PRINT_FRAME_TTL_MS);
+    win.addEventListener("afterprint", remove, { once: true });
+    try {
+      win.focus();
+      win.print();
+    } catch (error) {
+      remove();
+      throw error;
+    }
   });
   document.body.appendChild(frame);
 }
