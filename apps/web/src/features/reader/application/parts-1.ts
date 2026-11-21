@@ -459,10 +459,35 @@ export async function downloadPaperPdf(paperId: string): Promise<boolean> {
  * no folder it is nothing at all, which is what keeps the web build on demand.
  */
 export function queuePaperPdfDownload(paperId: string): void {
-  void downloadPaperPdf(paperId).catch(() => {
-    // Best-effort: the reader resolves the paper's source on open regardless.
-  });
+  void enqueuePaperPdf(paperId);
 }
+
+/**
+ * One fetch at a time with `pauseMs` between them, the courtesy the bulk walk
+ * keeps: a batch of papers added in a row must not hit the sources in a burst
+ * (P2-178). A failed fetch is best-effort and does not stop the queue.
+ */
+export function serialPdfQueue(
+  fetchOne: (paperId: string) => Promise<boolean>,
+  pauseMs: number,
+): (paperId: string) => Promise<void> {
+  let tail: Promise<void> = Promise.resolve();
+  let ranOne = false;
+  return (paperId) => {
+    tail = tail.then(async () => {
+      if (ranOne) await pause(pauseMs);
+      ranOne = true;
+      try {
+        await fetchOne(paperId);
+      } catch {
+        // Best-effort: the reader resolves the paper's source on open regardless.
+      }
+    });
+    return tail;
+  };
+}
+
+const enqueuePaperPdf = serialPdfQueue(downloadPaperPdf, DOWNLOAD_PAUSE_MS);
 
 // --- find-free-copy ---
 /**
