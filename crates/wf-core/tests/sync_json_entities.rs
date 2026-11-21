@@ -54,6 +54,8 @@ fn the_three_data_files_are_the_readers_the_machinery_is_not() {
         format!("{root}/.weaveforge/tags.json"),
         format!("{root}/.weaveforge/reading-list-items.json"),
         format!("{root}/notes/README.md"),
+        format!("{root}/notes/papers/pdf/x.note.md"),
+        "notes/papers/html/x.html".to_owned(),
     ];
     for path in &data {
         assert!(!is_app_owned_path(path), "{path}");
