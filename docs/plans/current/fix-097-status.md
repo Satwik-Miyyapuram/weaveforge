@@ -16,8 +16,8 @@ The skip rule: the item's file also changed on release/0.9.6 in a conflicting wa
 | P2-2 | done | 9207a0402 | compile-time assert: queue length x max frame <= 128 MiB |
 | P2-3 | done | 9207a0402 | apps/relay/server/tests/sdk_artifacts.rs |
 | P2-4 | done | 9207a0402 | apps/relay/server/tests/auth.rs |
-| P2-5 | skipped | - | - |
-| P2-6 | skipped | - | - |
+| P2-5 | skipped (conflict): 0.9.6 rewrites `delete_to_trash`'s head (hunk -203,13: `symlink_metadata` check) and `free_path` (hunk -353,11: `first_free`); the claim-then-rename fix edits both | - | - |
+| P2-6 | skipped (conflict): 0.9.6 rewrites `settle_prev`/`copy_prev_to` (hunks -394,11 and -406,17) and `read_disk`/`make_prev` (-540, -571), the exact lines the raw-bytes hash changes | - | - |
 | P2-7 | done | e5cbe4a7d | crates/wf-store/tests/git_remote.rs `f97_p2_7_keep_both_never_overwrites_an_untracked_file` |
 | P2-8 | done | 5bb5df2a3 | crates/wf-store/tests/git_repo.rs `f97_p2_8_*` (2 tests) |
 | P2-9 | done | 81cd39770 | crates/wf-store/tests/gitfiles.rs `f97_p2_9_gitfiles_never_write_through_a_link`. It skips on Windows when no link can be made, so it was not red here. |
@@ -34,22 +34,22 @@ The skip rule: the item's file also changed on release/0.9.6 in a conflicting wa
 | P2-20 | done | 1e64dfe57 | apps/web/src/container/test/workspace-facade.test.ts |
 | P2-21 | done | 1e64dfe57 | apps/web/src/container/test/workspace-facade.test.ts |
 | P2-22 | done | f626d72a9 | apps/web/src/app/test/start-citation-alerts.test.ts |
-| P2-23 | partial: milestone part done, paper part skipped | 5b95ade27 | apps/web/src/features/plan/infrastructure/test/file-milestone-repo.test.ts |
+| P2-23 | partial: milestone part done; paper part skipped (conflict): 0.9.6 replaces `readAll` with `scan()` returning `failures` (hunk -175,22), the same loop the fix moves `readText` into | 5b95ade27 | apps/web/src/features/plan/infrastructure/test/file-milestone-repo.test.ts |
 | P2-24 | done | 5b95ade27 | apps/web/src/features/plan/infrastructure/test/file-milestone-repo.test.ts |
-| P2-25 | skipped | - | - |
+| P2-25 | skipped (not on main): the PDF-trashing `delete` at :158-161 exists only on 0.9.6 (hunk -105,10); on main `delete` moves the paper file alone, so no PDF can be lost here | - | - |
 | P2-26 | done | 45ad09a4f | apps/web/src/features/workspace/test/opfs-clone.test.ts |
-| P2-27 | skipped | - | - |
-| P2-28 | skipped | - | - |
+| P2-27 | fixed | 8e6ba6308 | apps/web/src/features/reader/ui/pdf-reader/test/reader-wheel-and-swatch-keys.test.ts |
+| P2-28 | fixed | 8e6ba6308 | apps/web/src/features/reader/ui/pdf-reader/test/reader-wheel-and-swatch-keys.test.ts |
 | P2-29 | done | c24bf49b9 | apps/web/src/features/ink/test/ink-action-failures.test.tsx |
 | P2-30 | done | c24bf49b9 | apps/web/src/features/ink/test/ink-action-failures.test.tsx |
 | P2-31 | done | c24bf49b9 | apps/web/src/features/ink/test/ink-action-failures.test.tsx |
-| P2-32 | skipped | - | - |
+| P2-32 | skipped (conflict): 0.9.6 edits `appendStroke`/`removeStroke` (hunk -158,10) and the paint path (-272..-339); main's renderer differs from 0.9.6 by 176 lines, so the z-order fix belongs on the merged renderer | - | - |
 | P2-33 | skipped: ws.rs and hub.rs changed on 0.9.6 | - | - |
 | P2-34 | skipped: ws.rs and hub.rs changed on 0.9.6 | - | - |
 | OPT-8 | done, with P2-15 | 23be4dd83 | covered by the page.rs tree tests |
-| OPT-10 | skipped | - | - |
+| OPT-10 | skipped (design + conflict): `find` takes a note id, and on main strokes sit in `<note>.ink/` folders found by reading each `.md`'s `weaveforge-id`, so there is no `<note>.inkb` name to stat; `FolderInkNotes` is also added on both sides with differing text (HEAD vs 0.9.6: 11/16 lines) | - | - |
 | OPT-13 | skipped: conflicts with 0.9.6 | - | - |
-| OPT-16 | skipped | - | - |
+| OPT-16 | fixed (comment only) | 620f8b9d7 | - |
 | OPT-1 to OPT-7, 9, 11, 12, 14, 15, 17 | not done: not cheap, or not safe enough for this pass | - | - |
 
 ## Notes
@@ -77,3 +77,11 @@ The skip rule: the item's file also changed on release/0.9.6 in a conflicting wa
   - The wf-core targeted tests pass.
   - The web tests listed in the table pass.
   - The full `npm run preflight` was not run.
+- **Full check (second pass):**
+  - `npm run typecheck` (tsgo: web, core, wf-wasm): exit 0.
+  - Web tests (run-tests.mjs, --test-concurrency=1): 5514/5514 pass.
+  - packages/core node:test: 951/951 pass. packages/wf-wasm TS tests: 288/288 pass.
+  - cargo test, one crate at a time: wf-core 4862 pass; wf-store 231 pass, 2 ignored; wf-wasm 19 pass; wf-relay-server all pass.
+  - Only failure: my P2-3 relay test `f97_p2_3_active_content_types_are_stored_as_octet_stream` uploaded `a.bin` while the storage mock serves `model.pt` (404 -> 500). Fixed in the test; sdk_artifacts 15/15.
+  - No failures already on main.
+  - Vitest: the repo has no vitest config or suite; all JS tests run on node:test.
