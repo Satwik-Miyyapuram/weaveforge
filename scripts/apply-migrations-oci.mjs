@@ -27,7 +27,7 @@ import { readFileSync, readdirSync } from "node:fs";
 
 import { loadMigrationEnv } from "./lib/load-env.mjs";
 import { pgTls } from "./lib/pg-tls.mjs";
-import { matchesOnly } from "./lib/migration-select.mjs";
+import { selectOnly } from "./lib/migration-select.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 loadMigrationEnv(root);
@@ -116,14 +116,25 @@ async function main() {
     }
 
     if (only) {
-      const matches = [...sqlFilesIn(MIGRATIONS), ...sqlFilesIn(SELF_HOSTED)].filter((f) =>
-        matchesOnly(basename(f), only),
+      const dirs = [MIGRATIONS, SELF_HOSTED];
+      const { names, ambiguous } = selectOnly(
+        dirs.map((dir) => sqlFilesIn(dir).map((f) => basename(f))),
+        only,
       );
-      if (matches.length === 0) {
+      if (names.length === 0) {
         console.error(`\n✖ No migration matches "${only}".\n`);
         process.exitCode = 1;
         return;
       }
+      if (ambiguous) {
+        console.error(
+          `\n✖ "${only}" matches a migration in each directory: ${names.join(", ")}.\n` +
+            "  Name the file in full, e.g. --only 0025_self_host_auth\n",
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const matches = dirs.flatMap((dir) => sqlFilesIn(dir).filter((f) => names.includes(basename(f))));
       console.log(`==> Applying ${matches.length} migration(s) matching "${only}" ...`);
       for (const file of matches) await applyFile(client, file);
       console.log("==> Done.");
