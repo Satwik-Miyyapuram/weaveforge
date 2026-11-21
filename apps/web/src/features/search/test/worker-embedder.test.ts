@@ -22,8 +22,8 @@ function stubWorker(reply: (msg: { id: number; type: string }) => unknown) {
     constructor() {
       made.push(this);
     }
-    addEventListener(_t: string, l: Listener) {
-      this.listener = l;
+    addEventListener(t: string, l: Listener) {
+      if (t === "message") this.listener = l;
     }
     postMessage(msg: { id: number; type: string }) {
       queueMicrotask(() => this.listener?.({ data: reply(msg) }));

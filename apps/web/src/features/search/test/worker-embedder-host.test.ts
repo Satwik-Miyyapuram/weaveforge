@@ -22,8 +22,8 @@ function stubWorker() {
   const loads: { host?: string }[] = [];
   class FakeWorker {
     private listener: Listener | null = null;
-    addEventListener(_t: string, l: Listener) {
-      this.listener = l;
+    addEventListener(t: string, l: Listener) {
+      if (t === "message") this.listener = l;
     }
     postMessage(msg: { id: number; type: string; host?: string }) {
       if (msg.type === "load") loads.push({ host: msg.host });
