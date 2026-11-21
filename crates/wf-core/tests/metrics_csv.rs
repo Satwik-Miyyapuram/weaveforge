@@ -59,7 +59,13 @@ proptest! {
 
 #[test]
 fn metric_name_with_comma_quote() {
-    let rows = vec![row("r1", 1.0, "loss, \"val\"", 0.5, Some("2026-01-01T00:00:00Z"))];
+    let rows = vec![row(
+        "r1",
+        1.0,
+        "loss, \"val\"",
+        0.5,
+        Some("2026-01-01T00:00:00Z"),
+    )];
     let text = encode(&rows);
     assert_eq!(
         text,

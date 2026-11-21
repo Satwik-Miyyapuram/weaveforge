@@ -1,9 +1,10 @@
 //! Ink note stroke paths and chunk ids. Port of the path and id half of
 //! `packages/core/src/ink/parts-2.ts` (`isInkNoteId` to `newInkChunkId`).
 //!
-//! A note's strokes live in a folder named after the note's file:
-//! `notes/foo.ink.md` keeps its pages in `notes/foo.ink/<ulid>.inkb`. The pair is
-//! made by file name alone, so a note whose id changes still finds its strokes.
+//! Every markdown note can hold ink. Its strokes live in a folder named after the
+//! note's file: `notes/foo.note.md` keeps its pages in `notes/foo.note.ink/<ulid>.inkb`,
+//! and a legacy `notes/foo.ink.md` in `notes/foo.ink/`. The pair is made by file
+//! name alone, so a note whose id changes still finds its strokes.
 
 use serde::Serialize;
 
@@ -30,7 +31,7 @@ const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InkChunkPath {
-    /// The note's `.ink.md` path, the strokes folder plus `.md`.
+    /// The note's path: `foo.note.ink` names `foo.note.md`, a bare `foo.ink` names `foo.ink.md`.
     pub note_path: String,
     /// The chunk id, the filename without its extension.
     pub chunk_id: String,
@@ -51,19 +52,27 @@ pub fn is_ink_strokes_segment(segment: &str) -> bool {
     segment.ends_with(INK_STROKES_DIR_EXT)
 }
 
-/// `x/foo.ink.md` -> `x/foo.ink`: the folder beside the note that holds its pages.
+/// The folder beside a note that holds its pages: drop `.md`, then add `.ink`
+/// unless the name already ends in it. `x/foo.note.md` -> `x/foo.note.ink`,
+/// `x/foo.md` -> `x/foo.ink`, and a legacy `x/foo.ink.md` -> `x/foo.ink`.
 ///
 /// # Errors
 ///
-/// Fails when `note_path` is not a normalized, workspace-relative `<name>.ink.md` path.
+/// Fails when `note_path` is not a normalized, workspace-relative `<name>.md` path.
 pub fn ink_strokes_dir(note_path: &str) -> Result<String, String> {
-    let usable = note_path.ends_with(INK_NOTE_EXT)
-        && note_path.rsplit('/').next() != Some(INK_NOTE_EXT)
+    let stem = note_path.strip_suffix(".md").unwrap_or_default();
+    let name = stem.rsplit('/').next().unwrap_or_default();
+    let usable = !name.is_empty()
+        && name != INK_STROKES_DIR_EXT
         && safe_workspace_path(note_path).as_deref() == Ok(note_path);
     if !usable {
         return Err(unusable("note path", note_path));
     }
-    Ok(note_path[..note_path.len() - ".md".len()].to_owned())
+    if stem.ends_with(INK_STROKES_DIR_EXT) {
+        Ok(stem.to_owned())
+    } else {
+        Ok(format!("{stem}{INK_STROKES_DIR_EXT}"))
+    }
 }
 
 /// `x/foo.ink/<ulid>.inkb`, one page of one note.
@@ -111,8 +120,17 @@ pub fn parse_ink_chunk_path(path: &str) -> Option<InkChunkPath> {
     if !is_ink_chunk_id(chunk_id) {
         return None;
     }
-    let note_path = format!("{dir}.md");
-    ink_strokes_dir(&note_path).ok()?;
+    // `foo.note.ink` belongs to `foo.note.md`; a bare `foo.ink` to the legacy
+    // `foo.ink.md` (a plain `foo.md` shares that folder, so the name is ambiguous).
+    let stem = dir.strip_suffix(INK_STROKES_DIR_EXT)?;
+    let note_path = if stem.rsplit('/').next().is_some_and(|n| n.contains('.')) {
+        format!("{stem}.md")
+    } else {
+        format!("{dir}.md")
+    };
+    if ink_strokes_dir(&note_path).ok()? != dir {
+        return None;
+    }
     Some(InkChunkPath {
         note_path,
         chunk_id: chunk_id.to_owned(),
@@ -264,6 +282,30 @@ mod tests {
     }
 
     #[test]
+    fn every_markdown_note_has_a_strokes_folder_beside_it() {
+        for (note, dir) in [
+            ("notes/foo.note.md", "notes/foo.note.ink"),
+            ("notes/foo.paper.md", "notes/foo.paper.ink"),
+            ("notes/foo.md", "notes/foo.ink"),
+            ("foo.md", "foo.ink"),
+            ("notes/foo.v2.note.md", "notes/foo.v2.note.ink"),
+            // A legacy ink note keeps the folder it always had.
+            ("notes/foo.ink.md", "notes/foo.ink"),
+        ] {
+            assert_eq!(ink_strokes_dir(note), Ok(dir.to_owned()), "{note}");
+        }
+        let path = ink_chunk_path("p/foo.note.md", CHUNK_A).unwrap_or_default();
+        assert_eq!(path, format!("p/foo.note.ink/{CHUNK_A}.inkb"));
+        assert_eq!(
+            parse_ink_chunk_path(&path),
+            Some(InkChunkPath {
+                note_path: "p/foo.note.md".to_owned(),
+                chunk_id: CHUNK_A.to_owned(),
+            })
+        );
+    }
+
+    #[test]
     fn the_old_id_keyed_folder_is_not_a_strokes_folder() {
         // `.ink/<id>/` is read only by the one-time migration, never as a note's strokes.
         assert_eq!(
@@ -275,10 +317,12 @@ mod tests {
     }
 
     #[test]
-    fn only_a_safe_ink_note_path_names_a_strokes_folder() {
+    fn only_a_safe_markdown_note_path_names_a_strokes_folder() {
         for bad in [
-            "p/foo.md",
+            "p/foo.txt",
             "p/foo.ink",
+            "p/.md",
+            "../foo.md",
             "../foo.ink.md",
             "/p/foo.ink.md",
             "p/.ink.md",

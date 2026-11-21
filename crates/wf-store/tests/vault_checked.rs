@@ -524,6 +524,7 @@ fn replace_write_read_error_after_prev_leaves_no_temp() {
 }
 
 /// Put `disk` on disk, save `text` over it expecting `disk`, and return the bytes now on disk.
+#[cfg(test)]
 fn save_over(name: &str, disk: &[u8], text: &str) -> Vec<u8> {
     let dir = TempDir::new();
     let vault = vault_in(&dir);
@@ -532,7 +533,10 @@ fn save_over(name: &str, disk: &[u8], text: &str) -> Vec<u8> {
         .write_text_checked(
             name,
             text,
-            Some(&canonical_digest(&String::from_utf8_lossy(disk))),
+            // The checked write hashes the text a reader sees: BOM stripped.
+            Some(&canonical_digest(&String::from_utf8_lossy(
+                disk.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(disk),
+            ))),
         )
         .unwrap();
     assert!(

@@ -43,7 +43,12 @@ function memoryFs(files: Record<string, string>) {
     list: async () => [],
     walk: async function* () {},
     stat: async () => null,
-    rename: async () => undefined,
+    rename: async (from: string, to: string) => {
+      const text = store.get(from);
+      if (text === undefined) throw new Error(`missing ${from}`);
+      store.set(to, text);
+      store.delete(from);
+    },
   } as unknown as IWorkspaceFs;
   return { fs, store, failWrites };
 }
@@ -198,7 +203,8 @@ test("a renamed note takes its title from the new name and leaves the file to th
   assert.equal(result.updated, 1);
   assert.deepEqual(result.appliedPaths, []);
   assert.equal(pages.get("p-1")?.title, "big idea");
-  assert.equal(store.has(path), false);
+  // Nothing is removed: the renamed file is the reader's only copy until the mirror writes the note.
+  assert.equal(store.has(path), true);
 });
 
 test("titleFromFileName drops the folder, kind suffix and id suffix", () => {

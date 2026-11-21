@@ -19,6 +19,7 @@ import { trailStyle } from "../application/parts-1";
 import type { InkWorkerEvent } from "../application/capture-protocol";
 import type { InkPalette } from "../render/parts-1";
 import { nibForTool, type InkBarTool } from "./ink-bar";
+import { cachedRect } from "./rect-cache";
 
 /** What the pen needs from the host. */
 export interface InkPenDeps {
@@ -89,7 +90,7 @@ export function useInkPen(deps: InkPenDeps) {
     element: () => canvasRef.current,
     project,
     bounds: () => {
-      const box = canvasRef.current?.getBoundingClientRect();
+      const box = canvasRef.current ? cachedRect(canvasRef.current) : undefined;
       return box
         ? { left: box.left, top: box.top, width: box.width, height: box.height }
         : undefined;
@@ -107,7 +108,7 @@ export function useInkPen(deps: InkPenDeps) {
           colour,
           tool: inkTool,
           width: liveWidth,
-          pageWidthPx: sheetRef.current?.getBoundingClientRect().width ?? 0,
+          pageWidthPx: sheetRef.current ? cachedRect(sheetRef.current).width : 0,
           palette,
         }),
     },

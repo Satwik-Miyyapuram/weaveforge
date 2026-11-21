@@ -352,6 +352,38 @@ export interface ApplyOptions {
   stored?: Readonly<Record<string, string>>;
   /** Paths that are renames (`renamedPaths`): retitled from the new name, then left to the mirror to write. */
   renamed?: ReadonlySet<string>;
+  /** New path to the path the renamed note lived at (`renamedFromPaths`): its stroke folder follows it. */
+  renamedFrom?: ReadonlyMap<string, string>;
+}
+
+/**
+ * A renamed note takes its strokes with it (every note can hold ink): the pages in its
+ * strokes folder (`notes/<old>.note.ink/`, or a legacy `notes/<old>.ink/`) are copied to the
+ * new note's folder, then the old page is removed once its copy is there. A page already at
+ * the new place is kept as it is. Two names that share one folder move nothing.
+ */
+export async function moveInkStrokes(fs: IWorkspaceFs, fromNote: string, toNote: string): Promise<void> {
+  if (!fromNote.endsWith(".md") || !toNote.endsWith(".md")) return;
+  let from: string;
+  let to: string;
+  try {
+    from = readyCore().inkStrokesDir(fromNote);
+    to = readyCore().inkStrokesDir(toNote);
+  } catch {
+    // Not a note path the strokes rule accepts: there is no strokes folder to move.
+    return;
+  }
+  if (from === to || !(await fs.stat(from))) return;
+  // A case-only rename may name the same folder (Windows, macOS): the page found at
+  // the new place can be the page itself, so nothing is removed.
+  const sameFolderMaybe = from.toLowerCase() === to.toLowerCase();
+  await fs.mkdirp(to);
+  for (const entry of await fs.list(from)) {
+    if (entry.kind !== "file") continue;
+    const dest = `${to}/${entry.path.split("/").pop() ?? ""}`;
+    if (!(await fs.stat(dest))) await fs.writeFile(dest, await fs.readFile(entry.path));
+    if (!sameFolderMaybe) await fs.remove(entry.path);
+  }
 }
 
 /** A note's title and body as one digest: what an update would overwrite. */
@@ -383,7 +415,7 @@ export async function applyFolderImport(
   await folderLock.idle();
   forgetSessionSeen();
 
-  const result = await applyEntries(fs, diff, resolutions, options.stored, options.renamed);
+  const result = await applyEntries(fs, diff, resolutions, options.stored, options.renamed, options.renamedFrom);
   const appliedJson = await applyJsonEntries(diff.json);
   // What was applied, the two sides now agree on: the folder's text becomes
   // the base, or the mirror would keep holding those files back for an edit
@@ -428,6 +460,7 @@ export async function applyEntries(
   resolutions: Readonly<Record<string, ConflictResolution>>,
   stored?: Readonly<Record<string, string>>,
   renamed: ReadonlySet<string> = new Set(),
+  renamedFrom: ReadonlyMap<string, string> = new Map(),
 ): Promise<{ created: number; updated: number; appliedPaths: string[]; moved: string[]; refused: SkippedFile[] }> {
   const core = await loadCore();
   const container = getContainer();
@@ -523,6 +556,8 @@ export async function applyEntries(
     // Nothing is removed here: the renamed file is the reader's only copy until then, so a duplicate is kept, never a loss.
     // A canvas is claimed, so it keeps its id until the mirror replaces it.
     if (entry.entity.kind === "canvas") await claimImportedFile(fs, path, page.id, projectRoot).catch(() => false);
+    const from = renamedFrom.get(path);
+    if (from) await moveInkStrokes(fs, from, path);
   }
 
   pendingAssets = new Map();

@@ -56,6 +56,7 @@ pub mod plan_widget_window;
 pub mod prefs;
 pub mod protocol;
 pub mod range;
+pub mod second_launch;
 pub mod secrets;
 pub mod settings_secrets;
 pub mod shim;
@@ -115,7 +116,14 @@ mod mobile_entry {
 /// Starts the shell window and blocks until it closes.
 pub fn run() -> tauri::Result<()> {
     install_tls_provider();
-    let builder = tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // One app per user (desktop): a second launch exits and brings this one forward. Registered
+    // first, as the plugin asks, so the second process stops before it opens a store or a port.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+        on_second_launch(app, &argv);
+    }));
+    let builder = builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init());
     // The pen surface over the WebView (phase 4, step 4.3a); desktops ink in the web app.
@@ -769,6 +777,34 @@ pub(crate) fn deliver_sign_in(app: &tauri::AppHandle, query: String) {
             &error.to_string(),
         );
     }
+    bring_main_window_forward(app, "sign-in");
+}
+
+/// A second launch (desktop): the main window comes forward (reopened if closed) and the
+/// launch's arguments, if any, go to the page as `second_launch::SECOND_LAUNCH_EVENT`.
+#[cfg(desktop)]
+fn on_second_launch(app: &tauri::AppHandle, argv: &[String]) {
+    use tauri::{Emitter as _, Manager as _};
+    if app.get_webview_window(MAIN_WINDOW).is_none() && open_main_window(app).is_err() {
+        return;
+    }
+    bring_main_window_forward(app, "shell");
+    let args = second_launch::forwarded_args(argv);
+    if !args.is_empty()
+        && let Err(error) = app.emit_to(MAIN_WINDOW, second_launch::SECOND_LAUNCH_EVENT, args)
+    {
+        log_warn(
+            app,
+            "shell",
+            "A second launch's arguments did not reach the page",
+            &error.to_string(),
+        );
+    }
+}
+
+/// Unminimizes, shows and focuses the main window; a failure is logged under `area`.
+fn bring_main_window_forward(app: &tauri::AppHandle, area: &str) {
+    use tauri::Manager as _;
     // Phone windows cannot be minimized.
     #[cfg(desktop)]
     let unminimize = |window: &tauri::WebviewWindow| window.unminimize();
@@ -781,7 +817,7 @@ pub(crate) fn deliver_sign_in(app: &tauri::AppHandle, query: String) {
     {
         log_warn(
             app,
-            "sign-in",
+            area,
             "The window could not come forward",
             &error.to_string(),
         );

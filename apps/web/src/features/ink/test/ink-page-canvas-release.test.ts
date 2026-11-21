@@ -75,6 +75,17 @@ function recordingContext(width = 800, height = 600) {
       calls.push({ name: "stroke", args: [path] });
       strokes.push(path);
     },
+    // Freehand ink is a filled outline, so each fill is one drawn stroke.
+    beginPath() {},
+    moveTo() {},
+    lineTo() {},
+    quadraticCurveTo() {},
+    closePath() {},
+    arc() {},
+    fill(rule?: unknown) {
+      calls.push({ name: "fill", args: [rule] });
+      strokes.push(rule);
+    },
   };
 
   return { ctx, calls, strokes };

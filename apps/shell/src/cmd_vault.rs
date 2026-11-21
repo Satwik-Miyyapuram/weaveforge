@@ -23,6 +23,12 @@ pub const PICK_BUSY: &str = "A folder dialog is already open. Finish or close it
 /// Said when the blocking task that ran a file operation panicked.
 pub const TASK_FAILED: &str = "The folder could not be read.";
 
+/// Refuses a text write that would put a secret in a synced config file. The same guard
+/// `file_write` runs, so the vault commands cannot bypass it.
+fn check_text_write(path: &str, contents: &str) -> Result<(), String> {
+    wf_core::settings::secret_guard::check_config_write(path, contents).map_err(|e| e.to_string())
+}
+
 /// Runs `job` on the session in a blocking task, because file IO must not hold the async runtime.
 async fn blocking<T, F>(state: &VaultState, job: F) -> Result<T, String>
 where
@@ -425,6 +431,7 @@ pub async fn vault_write(
     // session lock, so a folder move cannot slip between the note and the write.
     let watch = watch.inner().clone();
     blocking(state.inner(), move |session| {
+        check_text_write(&path, &contents)?;
         watch.note_self_write(&path, contents.as_bytes());
         session.write_text(&path, &contents)
     })
@@ -448,6 +455,7 @@ pub async fn vault_write_if(
 ) -> Result<bool, ShellError> {
     let watch = watch.inner().clone();
     blocking(state.inner(), move |session| {
+        check_text_write(&path, &contents)?;
         watch.note_self_write(&path, contents.as_bytes());
         session.write_text_if(&path, &contents, expected.as_deref())
     })
@@ -536,4 +544,17 @@ pub async fn vault_remove(
     })
     .await
     .map_err(ShellError::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::check_text_write;
+
+    #[test]
+    fn text_write_refuses_a_secret_in_a_config_file() {
+        let secret = r#"{"ai":{"apiKey":"abc"}}"#;
+        assert!(check_text_write(".weaveforge/settings.json", secret).is_err());
+        assert!(check_text_write(".weaveforge/settings.json", r#"{"theme":"crt"}"#).is_ok());
+        assert!(check_text_write("notes/a.md", "apiKey: abc").is_ok());
+    }
 }

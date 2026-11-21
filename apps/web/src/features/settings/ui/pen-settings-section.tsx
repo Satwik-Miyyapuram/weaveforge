@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { readInkHapticsOn, readInkRenderer, writeInkHapticsOn, writeInkRenderer } from "@/lib/parts";
+import { readInkHapticsOn, writeInkHapticsOn } from "@/lib/parts";
 
 interface PenState {
   recognition: boolean;
@@ -28,11 +28,9 @@ export function PenSettingsSection() {
   const bridge = desktop();
   const [state, setState] = useState<PenState | null>(null);
   const [hapticsOn, setHapticsOn] = useState(true);
-  const [freehandOn, setFreehandOn] = useState(false);
 
   useEffect(() => {
     setHapticsOn(readInkHapticsOn());
-    setFreehandOn(readInkRenderer() === "freehand");
     if (!bridge || typeof bridge.inkAvailable !== "function") return;
     let live = true;
     void Promise.all([
@@ -72,18 +70,6 @@ export function PenSettingsSection() {
       ) : (
         <p className="muted jump-to-meta">Pen haptics are not available: this Windows version or pen has none.</p>
       )}
-      <label className="calendar-feed-check">
-        <input
-          className="wf-check"
-          type="checkbox"
-          checked={freehandOn}
-          onChange={(event) => {
-            setFreehandOn(event.target.checked);
-            writeInkRenderer(event.target.checked ? "freehand" : "classic");
-          }}
-        />
-        Freehand ink outline for A/B testing (applies from the next ink page you open)
-      </label>
     </section>
   );
 }

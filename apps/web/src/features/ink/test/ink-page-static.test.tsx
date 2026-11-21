@@ -46,10 +46,16 @@ class FakePath2D {
 }
 (globalThis as { Path2D?: unknown }).Path2D ??= FakePath2D;
 
-/** A 2D context that keeps each stroke it is asked to draw. */
+/**
+ * A 2D context that keeps each ink outline it fills. Freehand ink is a filled
+ * path built from moveTo/quadraticCurveTo, so the path is written out as text
+ * and kept with the fill colour. Strokes (paper rules) are kept as before.
+ */
 function recordingContext() {
   const drawn: Drawn[] = [];
+  let path = "";
   const ctx = {
+    fillStyle: "",
     strokeStyle: "",
     lineWidth: 1,
     globalAlpha: 1,
@@ -57,11 +63,40 @@ function recordingContext() {
     lineJoin: "",
     setTransform() {},
     clearRect() {},
-    stroke(path: { d?: string }) {
-      drawn.push({ d: path.d, colour: ctx.strokeStyle, width: ctx.lineWidth, alpha: ctx.globalAlpha });
+    beginPath() {
+      path = "";
+    },
+    moveTo(x: number, y: number) {
+      path += `M${x} ${y}`;
+    },
+    lineTo(x: number, y: number) {
+      path += `L${x} ${y}`;
+    },
+    quadraticCurveTo(cx: number, cy: number, x: number, y: number) {
+      path += `Q${cx} ${cy} ${x} ${y}`;
+    },
+    closePath() {
+      path += "Z";
+    },
+    arc() {},
+    // A Path2D argument carries its own `d`; a rule name ("nonzero") means the built path.
+    fill(source?: { d?: string } | string) {
+      const d = typeof source === "object" && source.d !== undefined ? source.d : path;
+      drawn.push({ d, colour: ctx.fillStyle, width: ctx.lineWidth, alpha: ctx.globalAlpha });
+    },
+    stroke(p: { d?: string }) {
+      drawn.push({ d: p.d, colour: ctx.strokeStyle, width: ctx.lineWidth, alpha: ctx.globalAlpha });
     },
   };
   return { ctx, drawn };
+}
+
+/** The x and y extent of the numbers in a path string. */
+function extent(d: string): { minX: number; maxX: number; minY: number; maxY: number } {
+  const nums = (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+  const xs = nums.filter((_, i) => i % 2 === 0);
+  const ys = nums.filter((_, i) => i % 2 === 1);
+  return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
 }
 
 // No IntersectionObserver in Node, so every page counts as near and draws.
@@ -101,8 +136,8 @@ test("the sheet is the page's own size at the fit scale, with its paper and inde
   assert.match(text, /4/);
 });
 
-test("a pen stroke is one round-capped path at its own width and colour", () => {
-  const { ctx, drawn } = renderPage({
+test("a pen stroke is one filled outline around its points, in its own colour", () => {
+  const { drawn } = renderPage({
     index: 0,
     pageSize: PAGE,
     scale: SCALE,
@@ -112,10 +147,10 @@ test("a pen stroke is one round-capped path at its own width and colour", () => 
     ],
   });
   assert.equal(drawn.length, 1);
-  assert.match(drawn[0]!.d ?? "", /^M100 200L/);
-  assert.equal(drawn[0]!.width, 5);
-  assert.equal(ctx.lineCap, "round");
-  assert.equal(ctx.lineJoin, "round");
+  // The outline wraps the points, and runs a little past them by the nib.
+  const box = extent(drawn[0]!.d ?? "");
+  assert.ok(box.minX <= 100 && box.maxX >= 300, "the outline spans the stroke's x");
+  assert.ok(box.minY <= 200 && box.maxY >= 400, "the outline spans the stroke's y");
   // The colour resolves through the palette, not the stroke's name.
   assert.equal(drawn[0]!.colour, "rgb(33, 36, 41)");
 });
@@ -150,9 +185,9 @@ test("a highlighter keeps its alpha and draws over the pen", () => {
     ],
   });
   // The pen first, the tinted band after: the order the sheet and SVG export draw in.
-  assert.match(drawn[0]!.d ?? "", /^M30 30/);
+  assert.ok(extent(drawn[0]!.d ?? "").minX > 25, "the pen outline is around its own points");
+  assert.ok(extent(drawn[1]!.d ?? "").maxX < 25, "the highlighter outline is around its own points");
   assert.equal(drawn[0]!.alpha, 1);
-  assert.match(drawn[1]!.d ?? "", /^M10 10/);
   assert.equal(drawn[1]!.alpha, HIGHLIGHTER_ALPHA);
   assert.equal(ctx.globalAlpha, 1);
 });
@@ -218,7 +253,7 @@ test("a page with no strokes draws no ink layer, and nor does one with only empt
   assert.equal(drawn.length, 0);
 });
 
-test("a dot is a zero-length line a round cap draws", () => {
+test("a dot is a filled outline around its point", () => {
   const { drawn } = renderPage({
     index: 0,
     pageSize: PAGE,
@@ -226,7 +261,9 @@ test("a dot is a zero-length line a round cap draws", () => {
     paper: "blank",
     strokes: [typedCore().makeInkStroke({ points: [7, 8], pressures: [] })],
   });
-  assert.equal(drawn[0]!.d, "M7 8l0 0");
+  assert.equal(drawn.length, 1);
+  const box = extent(drawn[0]!.d ?? "");
+  assert.ok(box.minX <= 7 && box.maxX >= 7 && box.minY <= 8 && box.maxY >= 8, "the dot covers its point");
 });
 
 test("a failed background load is reported, not swallowed", () => {
@@ -253,4 +290,18 @@ test("a failed background load is reported, not swallowed", () => {
     backgroundUrl: "blob:background",
   });
   assert.match(text, /blob:background/);
+});
+
+test("a tap kept as two identical points is a filled dot, not nothing", () => {
+  const { drawn } = renderPage({
+    index: 0,
+    pageSize: PAGE,
+    scale: SCALE,
+    paper: "blank",
+    strokes: [typedCore().makeInkStroke({ points: [7, 8, 7, 8], pressures: [128, 128] })],
+  });
+  assert.equal(drawn.length, 1);
+  const box = extent(drawn[0]!.d ?? "");
+  assert.ok(box.maxX - box.minX > 0 && box.maxY - box.minY > 0, "the dot has an area");
+  assert.ok(box.minX <= 7 && box.maxX >= 7 && box.minY <= 8 && box.maxY >= 8, "the dot covers its point");
 });

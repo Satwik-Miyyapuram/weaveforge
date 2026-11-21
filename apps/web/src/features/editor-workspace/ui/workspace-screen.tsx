@@ -49,6 +49,7 @@ import { CanvasDocument } from "./canvas-document";
 import { ExplorerPanel } from "./explorer-panel";
 import { ExplorerResizer } from "./explorer-resizer";
 import { useFocusMode } from "./use-focus-mode";
+import { CLOSED_TABS_KEPT, keepOpen, store } from "./workspace-screen-support";
 import { HydratingDocument, useNoteBodies } from "./use-note-bodies";
 import { useLinkTargets } from "./use-link-targets";
 import { useOutline } from "./use-outline";
@@ -57,6 +58,7 @@ import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { useScreenShown } from "@/lib/screen-shown";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
+import { useInkSaveStatus } from "./use-ink-save-status";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
@@ -65,21 +67,7 @@ import { DESKTOP_BREAKPOINT_PX, isMacPlatform } from "@/lib/parts";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { IconButton } from "@/components/button";
 
-/** `byKey` without the entries of documents no longer open; `byKey` itself when nothing closed. */
-function keepOpen<T>(byKey: Record<string, T>, open: ReadonlySet<string>): Record<string, T> {
-  const keys = Object.keys(byKey);
-  if (keys.every((key) => open.has(key))) return byKey;
-  return Object.fromEntries(keys.filter((key) => open.has(key)).map((key) => [key, byKey[key]!]));
-}
-
 /** The image button with no document under it: greyed, so never pressed. */
-
-function store(): Storage | undefined {
-  return typeof localStorage === "undefined" ? undefined : localStorage;
-}
-
-/** How many closed tabs `⌘⇧T` can bring back. */
-const CLOSED_TABS_KEPT = 20;
 
 /**
  * The desktop editor: the workspace as a stack of explorer sections and a set
@@ -185,6 +173,7 @@ export function WorkspaceScreen() {
   const [pending, setPending] = useState(0);
   // A write that failed leaves the document dirty — "Saved" would be a lie.
   const [dirty, setDirty] = useState(false);
+  const inkSave = useInkSaveStatus();
   // Read by the close guard, which is registered once.
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
@@ -546,6 +535,7 @@ export function WorkspaceScreen() {
         <DocumentHost
           tab={tab}
           mode={readyCore().tabMode(tab)}
+          title={doc.title}
           body={doc.body}
           links={links}
           completions={completions}
@@ -786,7 +776,7 @@ export function WorkspaceScreen() {
         onSetMode={(tab, mode) => apply(readyCore().setTabMode(layout, tab, mode))}
       />
       <StatusBar
-        save={saveState({ pending, dirty })}
+        save={saveState({ pending: pending + inkSave.pending, dirty: dirty || inkSave.failed })}
         segments={
           activeDoc
             ? segmentsFor(activeMode === "ink" && hasInkView(activeDoc.kind) ? "ink_page" : activeDoc.kind)

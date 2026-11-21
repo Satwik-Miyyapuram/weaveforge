@@ -31,6 +31,8 @@ node -e "const{Client}=require('pg');const fs=require('fs');(async()=>{const c=n
 | `0146_project_showcase_flag.sql` | The `projects.is_showcase` marker — lossless in data; a showcase reset deletes same-name user projects again |
 | `0148_org_policies_drop_admin.sql` | The dead `admin` branch in the two org read policies (0085) — lossless; no role can be `admin` |
 | `0149_api_token_touch_hourly.sql` | `resolve_api_token` writing `last_used_at` on every call (0129) — lossless in data, one row write per SDK request again |
+| `0161_files_first_server.sql` | The files-first server tables and RPCs — drops `grants`, `shared_docs` and `sdk_inbox` with all their rows |
+| `0162_shared_docs_set_updated_at.sql` | `shared_docs` back on its own `shared_docs_touch()` trigger (0161) — lossless; `updated_at` is set the same way |
 
 This table had drifted three migrations behind the folder — `0116`, `0131` and
 `0132` were all absent, and a rollback nobody can find is one nobody runs.

@@ -43,7 +43,8 @@ test("a rename carries the project's folder to the new name", async () => {
   const newRoot = typedCore().projectDir(renamed);
   assert.notEqual(newRoot, oldRoot);
   assert.equal(await fs.readText(`${newRoot}/notes/a.md`), "hello");
-  assert.equal(await fs.stat(oldRoot), null);
+  // The old folder is copied, never removed: it stays the reader's copy until they check the new one.
+  assert.equal(await fs.readText(`${oldRoot}/notes/a.md`), "hello");
 });
 
 test("a project with no folder yet still renames", async () => {

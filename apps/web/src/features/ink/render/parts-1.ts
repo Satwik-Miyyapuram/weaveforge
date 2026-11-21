@@ -159,6 +159,12 @@ export interface InkLiveStroke {
   pressure: Uint8Array;
   /** How many of those points are real rather than predicted. */
   realCount: number;
+  /**
+   * The first point that differs from the last frame's (smoothing, a packer
+   * revision or a replaced predicted tail can move earlier points). Absent:
+   * assume only the newest points moved.
+   */
+  changedFrom?: number;
 }
 
 /** A decoded page image, as both renderers can consume it. */
@@ -374,6 +380,17 @@ export function packStrokeInstances(
   // Writes past the end of `out` are dropped, as a typed-array write always was.
   out.set(floats.subarray(0, out.length));
   return floats.length;
+}
+
+/**
+ * The first segment a live stroke must repack, given `packed` segments already
+ * packed, `segments` in the stroke now and `changedFrom`, the first point that
+ * moved. A point sets the tangents of the two segments before it as well as the
+ * one it starts, so the repack begins two segments before the first moved point,
+ * or before the newest packed segment when nothing earlier is known to have moved.
+ */
+export function liveRepackFrom(packed: number, segments: number, changedFrom?: number): number {
+  return Math.max(0, Math.min(packed, segments, changedFrom ?? Number.POSITIVE_INFINITY) - 2);
 }
 
 /**

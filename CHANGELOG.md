@@ -22,16 +22,32 @@ tracks at once.
 
 ### iOS
 
-## [0.9.5] - 2026-11-19
+## [0.9.5] - 2026-11-20
 
 Desktop (`v0.9.5`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+0.9.4 was not published on its own; its sync-safety fixes ship in this release.
 
 ### Desktop
-- **Changed:** Papers, reader annotations, reading lists and settings are kept as files in your workspace folder.
+- **Changed:** Ink uses one renderer with smoother, sharper strokes and steady line width. The classic and WebGL renderers are gone.
+- **Changed:** Every note can take ink. Ink is stored next to the note under the same name and moves with it when you rename the note in the app.
+- **Changed:** Each quick colour keeps its own pen width, and ink colours follow the theme.
+- **Changed:** Renaming a project copies its folder; the old folder is never removed.
+- **Changed:** Your workspace folder gets a file layout for papers, annotations, reading lists and settings. The app still reads from its local database for now.
+- **Added:** `[[Wiki links]]` in notes show as links in the editor and open the linked note from Read view.
+- **Added:** Print this note: every page, one A4 sheet each. In a split view, print uses the focused pane.
+- **Added:** Toolbar colours and other workspace preferences are saved in the workspace `settings.json`.
+- **Added:** Ink save status in the status bar, and a message over the page when ink cannot load or save.
+- **Changed:** Only one copy of the app runs at a time; opening it again brings the open window forward.
 - **Fixed:** Importing a folder keeps each item's identity, so re-importing does not create duplicates.
 - **Fixed:** Folder sync never removes or overwrites your files when a file is renamed outside the app.
-- **Added:** `[[Wiki links]]` in ink notes open the linked note from the reader.
+- **Fixed:** A refused write keeps your copy and no longer leaves a phantom conflict file.
+- **Fixed:** Strokes no longer break at a page edge, are no longer lost when you leave the page mid-stroke, and a palm touch no longer leaves a stray mark.
+- **Fixed:** A failed restore puts your previous data back; "Start fresh" survives a reopen.
+- **Fixed:** Pinning two annotations at once no longer drops one.
 - **Fixed:** The explorer panel keeps the width you drag it to after a restart.
+- **Fixed:** Moving data out of 0.9.2 now also carries comments without a paper and annotation pins.
+- **Removed:** The one-time copy of 0.8 (Electron) data at startup.
+- **Security:** Next.js 16.4.5.
 
 ## [0.9.4] - 2026-11-19
 

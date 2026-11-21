@@ -87,6 +87,8 @@ export interface DocumentLinks {
 export interface DocumentHostProps {
   tab: TabRef;
   mode: DocumentMode;
+  /** The document's title, which names an ink note's printed and exported pages. */
+  title?: string;
   body: string;
   /** Where a read-mode wikilink can go. The same lists `/notes` passes. */
   links?: DocumentLinks;
@@ -243,6 +245,7 @@ export function surfaceBody(saved: string, live: string | null): string {
 export function DocumentHost({
   tab,
   mode,
+  title,
   body,
   links,
   completions,
@@ -414,6 +417,7 @@ export function DocumentHost({
     return (
       <InkHost
         noteId={tab.id}
+        title={title}
         body={surfaceBody(body, liveBody)}
         deps={getContainer().ink}
         onSave={saveOnly}

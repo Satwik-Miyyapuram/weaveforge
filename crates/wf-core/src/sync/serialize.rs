@@ -231,11 +231,10 @@ fn write_notes(
             let (meta, body) = read_ink_note_body(&page.body);
             let mut fields = stamps;
             fields.extend(write_ink_note_meta(&meta));
-            let ink_path = ink_path_of(path);
             write_entry(
                 files,
                 assets,
-                ink_path,
+                ink_path_of(path),
                 &page.id,
                 WorkspaceEntityType::InkPage,
                 fields,
@@ -257,7 +256,8 @@ fn write_notes(
     canvases
 }
 
-/// `.note.md` at the end of a path becomes `.ink.md`; any other path is kept.
+/// `.note.md` at the end of a path becomes `.ink.md`, so an ink note keeps the one file it has
+/// on disk; a `.note.md` twin would carry the same id and close the note's ink.
 fn ink_path_of(path: &str) -> String {
     path.strip_suffix(".note.md")
         .map_or_else(|| path.to_owned(), |stem| format!("{stem}.ink.md"))

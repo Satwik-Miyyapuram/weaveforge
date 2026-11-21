@@ -56,3 +56,52 @@ export async function loadInOrder<T, R>(
     result.status === "fulfilled" ? [result.value] : [],
   );
 }
+
+// --- ink-save-status ---
+/**
+ * Whether ink is on its way to the store, or failed to get there.
+ *
+ * The status bar reads the note's save state from the workspace, which never
+ * sees ink strokes. A stroke arms a debounce, the debounce runs a write, and
+ * until that write settles the note is unsaved. A failed write stays failed
+ * until a later write succeeds. Module state, read with
+ * useSyncExternalStore, so the ink host and the workspace need no shared tree.
+ */
+export interface InkSaveStatus {
+  readonly pending: number;
+  readonly failed: boolean;
+}
+
+let inkSaveSnapshot: InkSaveStatus = { pending: 0, failed: false };
+const inkSaveListeners = new Set<() => void>();
+
+function publishInkSaveStatus(next: InkSaveStatus): void {
+  inkSaveSnapshot = next;
+  for (const listener of [...inkSaveListeners]) listener();
+}
+
+/** Start one save cycle. The returned settle runs once; a second call is ignored. */
+export function beginInkSave(): (ok: boolean) => void {
+  const current = inkSaveSnapshot;
+  publishInkSaveStatus({ pending: current.pending + 1, failed: current.failed });
+  let settled = false;
+  return (ok: boolean) => {
+    if (settled) return;
+    settled = true;
+    const now = inkSaveSnapshot;
+    publishInkSaveStatus({ pending: Math.max(0, now.pending - 1), failed: !ok });
+  };
+}
+
+/** The current status; the same object until it changes. */
+export function getInkSaveStatus(): InkSaveStatus {
+  return inkSaveSnapshot;
+}
+
+/** Called on every status change. Returns the unsubscribe. */
+export function subscribeInkSaveStatus(listener: () => void): () => void {
+  inkSaveListeners.add(listener);
+  return () => {
+    inkSaveListeners.delete(listener);
+  };
+}

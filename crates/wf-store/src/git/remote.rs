@@ -173,7 +173,9 @@ pub fn changed_paths(r: &Repository, old: Option<Oid>, new: Oid) -> Result<Vec<S
     let mut paths = BTreeSet::new();
     for delta in diff.deltas() {
         for file in [delta.old_file(), delta.new_file()] {
-            if let Some(path) = file.path().and_then(Path::to_str) {
+            // A non-UTF-8 name (possible on Unix) is listed lossily rather than dropped, so the
+            // change still reaches the batch.
+            if let Some(path) = file.path().map(|p| p.to_string_lossy()) {
                 let _ = paths.insert(path.replace('\\', "/"));
             }
         }

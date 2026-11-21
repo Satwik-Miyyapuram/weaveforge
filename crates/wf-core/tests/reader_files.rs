@@ -17,7 +17,7 @@ mod support {
 
     /// A JSON object literal as a row.
     pub fn row(value: Value) -> AnnotationRow {
-        value.as_object().expect("object").clone()
+        serde_json::from_value(value).expect("object")
     }
 
     /// Parses `text`, failing the test if it is not an annotations file.
@@ -183,7 +183,7 @@ fn rows() -> impl Strategy<Value = Vec<AnnotationRow>> {
     prop::collection::vec(annotation(), 0..12).prop_map(|rows| {
         let mut seen = std::collections::BTreeSet::new();
         rows.into_iter()
-            .filter(|row| seen.insert(row.get("id").map(|id| id.to_string())))
+            .filter(|row| seen.insert(row.get("id").map(ToString::to_string)))
             .collect()
     })
 }

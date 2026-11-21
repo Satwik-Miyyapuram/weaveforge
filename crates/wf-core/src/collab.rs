@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
-use crate::sync::text_diff::{diff_body, DiffOp};
+use crate::sync::text_diff::{DiffOp, diff_body};
 
 /// Someone else in a document, as the presence avatars show them (TS `Peer`).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -217,10 +217,12 @@ mod tests {
     fn empty_base_plans_only_inserts() {
         let plan = collab_diff_plan("", "x\ny");
         assert_eq!(theirs_of(&plan), "x\ny");
-        assert!(!plan
-            .ops
-            .iter()
-            .any(|op| matches!(op, TextOp::Insert { text } if text.is_empty())));
+        assert!(
+            !plan
+                .ops
+                .iter()
+                .any(|op| matches!(op, TextOp::Insert { text } if text.is_empty()))
+        );
     }
 
     #[test]
@@ -235,14 +237,15 @@ mod tests {
         };
         let words = ["alpha", "beta", "", "gamma", "delta"];
         for _ in 0..200 {
-            let mut make = |len: u64| {
+            let make = |next: &mut dyn FnMut(u64) -> u64| {
+                let len = next(8);
                 (0..len)
-                    .map(|_| words[next(5) as usize])
+                    .map(|_| words[usize::try_from(next(5)).unwrap_or(0)])
                     .collect::<Vec<_>>()
                     .join("\n")
             };
-            let base = make(next(8));
-            let theirs = make(next(8));
+            let base = make(&mut next);
+            let theirs = make(&mut next);
             let plan = collab_diff_plan(&base, &theirs);
             assert_eq!(
                 base_of(&plan),

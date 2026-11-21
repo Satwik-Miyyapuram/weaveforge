@@ -15,7 +15,9 @@ use wf_core::sync::folder_layout::TRASH_DIR;
 
 use crate::commands::{LocalDb, ShellError};
 use crate::vault::{EntryKindPayload, VaultSession, VaultState};
-use export::{PaperExport, export_paper, plan_exports, verify_paper};
+use export::{
+    PaperExport, export_paper, export_unmapped, plan_exports, verify_paper, verify_unmapped,
+};
 use rules::{Decision, LegacyShare};
 
 /// Where the migration report is written, inside the workspace.
@@ -26,9 +28,10 @@ const SHARES_SQL: &str =
     "SELECT owner_id, recipient_id, resource_type, resource_id, access FROM shares";
 const PAPERS_SQL: &str = "SELECT id, title FROM papers";
 const ANNOTATIONS_SQL: &str = "SELECT paper_id, type, color, text, comment, tags, page_index, sort_index, anchor, updated_at FROM reader_annotations";
-const COMMENTS_SQL: &str =
-    "SELECT resource_id, body, created_at FROM comments WHERE resource_type = 'paper'";
+const COMMENTS_SQL: &str = "SELECT id, resource_type, resource_id, author_id, body, created_at, anchor_quote, anchor_prefix, anchor_suffix, parent_id, resolved_at FROM comments";
 const PINS_SQL: &str = "SELECT resource_id FROM library_pins WHERE resource_type = 'paper'";
+const ANNOTATION_PINS_SQL: &str =
+    "SELECT paper_id, annotation_key, report_section_id, created_at FROM annotation_pins";
 const SCREENING_SQL: &str = "SELECT rli.paper_id AS paper_id, sd.state AS state, sd.reason AS reason, sd.decided_at AS decided_at FROM screening_decisions sd JOIN reading_list_items rli ON rli.id = sd.item_id";
 
 /// The workspace files a migration step reads and writes.
@@ -275,10 +278,24 @@ pub async fn migrate_093_run(
     let annotations = db.query(ANNOTATIONS_SQL.to_owned(), Vec::new()).await?;
     let comments = db.query(COMMENTS_SQL.to_owned(), Vec::new()).await?;
     let pins = db.query(PINS_SQL.to_owned(), Vec::new()).await?;
+    let annotation_pins = db.query(ANNOTATION_PINS_SQL.to_owned(), Vec::new()).await?;
     let screening = db.query(SCREENING_SQL.to_owned(), Vec::new()).await?;
-    let plan = plan_exports(&papers, &annotations, &comments, &pins, &screening);
+    let plan = plan_exports(
+        &papers,
+        &annotations,
+        &comments,
+        &pins,
+        &screening,
+        &annotation_pins,
+    );
     with_session(&state, move |session| {
-        let (written, errors) = export_papers(session, &plan.papers);
+        let (mut written, mut errors) = export_papers(session, &plan.papers);
+        let unmapped = export_unmapped(session, &plan.unmapped_comments)
+            .and_then(|count| verify_unmapped(session, &plan.unmapped_comments).map(|()| count));
+        match unmapped {
+            Ok(count) => written += count,
+            Err(reason) => errors.push(format!("{}: {reason}", export::UNMAPPED_COMMENTS_PATH)),
+        }
         let verified = errors.is_empty()
             && plan.skipped.is_empty()
             && share_skipped.is_empty()
@@ -287,6 +304,7 @@ pub async fn migrate_093_run(
             "state": if verified { "verified" } else { "incomplete" },
             "papers": { "files_written": written, "errors": errors, "skipped": plan.skipped },
             "shares": { "grants_pending": pending_grants, "skipped": share_skipped },
+            "unmapped_comments": plan.unmapped_counts,
         });
         let body = serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?;
         session.write_text(REPORT_PATH, &body)?;
@@ -304,5 +322,5 @@ pub async fn migrate_093_run(
 pub async fn migrate_093_status(
     state: tauri::State<'_, VaultState>,
 ) -> Result<MigrateReply, ShellError> {
-    with_session(&state, |session| status_of(session)).await
+    with_session(&state, status_of).await
 }

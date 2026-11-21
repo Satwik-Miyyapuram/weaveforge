@@ -48,12 +48,17 @@ import {
   type InkStoredPage,
 } from "../application/parts-1";
 import { InkBar } from "./ink-bar";
+import { InkTuningPanel } from "./ink-tuning-panel";
 import { InkSelectionChip } from "./ink-selection-chip";
 import { InkFigures } from "./ink-figures";
 import { InkSheetTextUnderlay } from "./ink-sheet-underlay";
 import { useInkSelection } from "./use-ink-selection";
 import { InkPage } from "./ink-page";
+import { useSheetProjection } from "./use-sheet-projection";
+import { useUnmountEndsStroke } from "./use-unmount-ends-stroke";
+import { useLatestRef } from "./use-latest-ref";
 import { InkRail } from "./ink-rail";
+import { InkStoreAlert } from "./ink-store-alert";
 import { InkTextLayer } from "./ink-text-layer";
 import { useSheetTextPages } from "./ink-text-flow";
 import { useDecodedStrokes } from "./use-decoded-strokes";
@@ -85,6 +90,7 @@ export type { InkHostDeps, InkHostPage, InkHostProps } from "./ink-host-types";
 
 export function InkHost({
   noteId,
+  title,
   body,
   deps,
   initialPage = 0,
@@ -101,10 +107,7 @@ export function InkHost({
    * This is that question with a live answer: it decides whether the page the
    * work was for is still the one in front of the user.
    */
-  const pageIndexRef = useRef(pageIndex);
-  useEffect(() => {
-    pageIndexRef.current = pageIndex;
-  }, [pageIndex]);
+  const pageIndexRef = useLatestRef(pageIndex);
   const [showTextLayer, setShowTextLayer] = useState<boolean>(false);
   const { tool, setTool, cursorMode, enterCursor, colour, onColourChange, onPenApproach, ...widths } =
     useInkPrefs();
@@ -137,8 +140,8 @@ export function InkHost({
   const textPagesRef = useRef<string[]>(
     typedCore().splitInkTextLayer(readyCore().readInkNoteBody(body).text),
   );
-  /** The current page's flowed text, for the print (assigned in render below). */
-  const pageTextRef = useRef("");
+  /** Every page's flowed text, for the print (assigned in render below). */
+  const flowedTextRef = useRef<readonly string[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   /**
@@ -193,19 +196,11 @@ export function InkHost({
     pageCount,
     pageIndex,
   });
-  /**
-   * Client coordinates to page units. The one projection everything shares.
-   * Against the sheet, not the canvas: the canvas is only the visible part.
-   */
-  const project = useCallback((clientX: number, clientY: number) => {
-    const sheet = sheetRef.current;
-    if (!sheet) return null;
-    const box = sheet.getBoundingClientRect();
-    return {
-      x: ((clientX - box.left) / Math.max(box.width, 1)) * pageSize.width,
-      y: ((clientY - box.top) / Math.max(box.height, 1)) * pageSize.height,
-    };
-  }, [pageSize.height, pageSize.width]);
+  /** Client coordinates to page units (§use-sheet-projection). */
+  const project = useSheetProjection(sheetRef, pageSize);
+
+  /** Declared before the store and the pen: see §use-unmount-ends-stroke. */
+  const { endStrokeRef, unmountedRef } = useUnmountEndsStroke();
 
   /**
    * The note's own saves (§use-ink-note-store): the header and body written
@@ -275,6 +270,9 @@ export function InkHost({
     onEvent,
     onPenApproach,
     onStrokeEnd: () => {
+      // A stroke acknowledged after unmount was already saved at teardown; a
+      // timer started now would post into a pen that has gone.
+      if (unmountedRef.current) return;
       // One state change per stroke, as the hook's doc comment promises.
       setStrokes((count) => count + 1);
       scheduleSave();
@@ -286,6 +284,11 @@ export function InkHost({
   // The worker's door, handed to the RPC hook's asks: the pen exists now, and
   // every ask runs after this render.
   sendRef.current = (message, transfer) => send(message, transfer);
+  // The store's timer is what its unmount flush writes; a stroke ended here
+  // must start it, since the stroke's own ack comes after the flush.
+  endStrokeRef.current = () => {
+    if (pen.session.endStroke()) scheduleSave();
+  };
 
   /**
    * Whether a stroke is in flight, by ref: the scroll watcher asks this
@@ -464,23 +467,25 @@ export function InkHost({
   /**
    * The page as a PNG download, the page on paper, and the page as vectors.
    *
-   * The blob comes back from the worker's offscreen target, never from a
-   * readback of the live canvas (§6.2.12). Printing goes through the same
-   * raster rather than through the DOM, because what the user sees is a
-   * *window* onto the sheet — the canvas is the size of the viewport, not the
-   * page (§6.2.14) — so printing the screen would crop the page to whatever
-   * happened to be scrolled into view.
+   * The blob comes from the worker's offscreen target, never a readback of the
+   * live canvas (§6.2.12). Printing uses that raster, not the DOM: the canvas is
+   * a viewport-sized window onto the sheet (§6.2.14), so a screen print crops.
+   * The files are named by the note's title.
    */
   const { onExportPng, onPrint, onExportSvg, printDoc, closePrint } = usePageExport({
     requestExport,
     requestModel,
     noteId,
+    title,
     pageIndex,
     textPages: textPagesRef,
     pageSize,
     palette,
     fetchBlob: deps.assets.fetchBlob,
-    pageText: pageTextRef,
+    pageTexts: flowedTextRef,
+    pageCount,
+    savedStrokes: strokesMap,
+    root: wrapRef,
     scale,
     paper,
   });
@@ -559,7 +564,7 @@ export function InkHost({
     ensurePageCount,
   );
   const pureText = flowedText[pageIndex] ?? "";
-  pageTextRef.current = pureText;
+  flowedTextRef.current = flowedText;
 
   const lines: readonly RecognisedLine[] = recognised?.lines ?? [];
   const confidence = recognised?.confidence ?? 0;
@@ -659,6 +664,10 @@ export function InkHost({
           onPageGap={setPageGap}
         />
       </ToolbarSlot>
+      {process.env.NODE_ENV !== "production" && (
+        <InkTuningPanel backend={pen.backend} delegating={pen.delegating} />
+      )}
+      <InkStoreAlert message={loadError} />
       {/* The rail: continuous multi-page scroll with background active page switching. */}
       <InkRail
         scrollRef={scrollRef}
@@ -763,7 +772,7 @@ export function InkHost({
         lines={lines}
         confidence={confidence}
         progress={progress}
-        unavailable={loadError ?? unavailable}
+        unavailable={unavailable}
         onAccept={onAccept}
         rawText={pureText}
       />

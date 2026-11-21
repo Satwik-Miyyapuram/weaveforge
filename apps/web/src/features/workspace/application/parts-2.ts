@@ -8,6 +8,7 @@ import {
 } from "@/lib/desktop/desktop-bridge";
 import { loadCore, readyCore, type RustCore, typedCore } from "@/lib/rust-core";
 import { folderLock } from "./folder-lock";
+import { moveInkStrokes } from "./parts-1";
 import { keepMirrorBases, readPulledDeletes, writePulledDeletes, writeTextAtomic } from "./parts-3";
 import { activeWorkspaceFs } from "./workspace-folder";
 import {
@@ -82,6 +83,59 @@ async function keepClaimedCanvasIds(
 }
 
 /**
+ * A note this session wrote whose title changed: the old file still holds the app's bytes,
+ * so it is renamed to the new path (never removed) and its strokes folder moves with it.
+ * Anything the reader touched, or a new path already on disk, is left as it is.
+ */
+async function followRenamedNotes(
+  core: RustCore,
+  fs: IWorkspaceFs,
+  files: Readonly<Record<string, string>>,
+  seen: Readonly<Record<string, string>> | undefined,
+  base: Readonly<Record<string, string>> | undefined,
+) {
+  const retry: Record<string, { to: string; digest: string; written: string }> = {};
+  if (!seen || !base) return { seen, base, retry };
+  const idOf = (text: string) => {
+    try {
+      const id = core.readFrontmatter(text).frontmatter["weaveforge-id"];
+      return typeof id === "string" && id ? id : null;
+    } catch {
+      return null;
+    }
+  };
+  const newPathOf = new Map<string, string>();
+  for (const [path, text] of Object.entries(files)) {
+    if (!path.endsWith(".md") || Object.hasOwn(seen, path)) continue;
+    const id = idOf(text);
+    if (id) newPathOf.set(id, path);
+  }
+  const nextSeen: Record<string, string> = { ...seen };
+  const nextBase: Record<string, string> = { ...base };
+  for (const [old, digest] of Object.entries(seen)) {
+    const written = base[old];
+    if (!old.endsWith(".md") || Object.hasOwn(files, old) || written === undefined) continue;
+    const text = await fs.readText(old).catch(() => null);
+    if (text === null || core.digestText(text) !== written) continue;
+    const id = idOf(text);
+    const to = id ? newPathOf.get(id) : undefined;
+    // A case-only rename is left for 0.9.6: on a case-insensitive disk both names are one file.
+    if (!to || to.toLowerCase() === old.toLowerCase() || (await fs.stat(to).catch(() => null))) continue;
+    try {
+      await moveInkStrokes(fs, old, to);
+      await fs.rename(old, to);
+    } catch {
+      // The old file stays and the new path is not written, so no twin; the next run tries again.
+      retry[old] = { to, digest, written };
+      continue;
+    }
+    nextSeen[to] = digest;
+    nextBase[to] = written;
+  }
+  return { seen: nextSeen, base: nextBase, retry };
+}
+
+/**
  * Write a snapshot to the folder. Sync never removes a file. An existing file is rewritten
  * only when its item changed in the app during this session (`seen` is the record of what
  * this session last mirrored); unchanged files are kept byte-for-byte, and a file the
@@ -130,8 +184,12 @@ export async function mirrorWorkspace(
     if (!Object.hasOwn(serialized.files, path) || (await fs.stat(path).catch(() => null))) continue;
     held.push(path);
   }
-  const files = Object.fromEntries(Object.entries(serialized.files).filter(([path]) => !held.includes(path)));
+  const unheld = Object.fromEntries(Object.entries(serialized.files).filter(([path]) => !held.includes(path)));
   const { assets } = serialized;
+  // A note renamed in the app: its file and strokes follow the new name, so no same-id twin is left.
+  const { seen, base: renamedBase, retry } = await followRenamedNotes(core, fs, unheld, options.seen, base);
+  const waiting = new Set(Object.values(retry).map(({ to }) => to));
+  const files = Object.fromEntries(Object.entries(unheld).filter(([path]) => !waiting.has(path)));
 
   // The plan reads every file it may write, and nothing else. There are no removals to read for.
   // No prototype, so a path can never collide with an inherited key.
@@ -141,7 +199,7 @@ export async function mirrorWorkspace(
     if (text !== null) disk[path] = text;
   }
 
-  const plan = core.planMirror({ ...serialized, files }, options.seen, base, disk);
+  const plan = core.planMirror({ ...serialized, files }, seen, renamedBase, disk);
 
   const written: string[] = [];
   const changedSincePlan: string[] = [];
@@ -192,6 +250,12 @@ export async function mirrorWorkspace(
     if (base?.[path] === undefined) delete mirrored[path];
     else mirrored[path] = base[path];
   }
+  // A rename that failed keeps its old path in both records, so the next run sees it and tries again.
+  const served: Record<string, string> = Object.fromEntries(plan.served);
+  for (const [old, { digest, written: last }] of Object.entries(retry)) {
+    served[old] = digest;
+    mirrored[old] = last;
+  }
   return {
     written,
     removed: plan.removed,
@@ -200,7 +264,7 @@ export async function mirrorWorkspace(
     mirrored,
     bases: Object.fromEntries(plan.bases),
     // The record the next run in this session compares against: every path and its DB digest.
-    served: Object.fromEntries(plan.served),
+    served,
   };
 }
 

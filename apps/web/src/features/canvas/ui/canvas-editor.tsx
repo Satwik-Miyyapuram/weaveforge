@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ClipboardEvent,
   type DragEvent,
   type MouseEvent as ReactMouseEvent,
@@ -14,12 +15,10 @@ import {
 } from "react";
 import { readyCore } from "@/lib/rust-core";
 import { formatError } from "@/lib/format-error";
-import { downloadBlob, readInkABOn, readInkRenderer } from "@/lib/parts";
-import { InkABToggle } from "./ink-ab-toggle";
+import { downloadBlob } from "@/lib/parts";
 import { isTextEntry, useSpaceHeld } from "./use-space-held";
 import { isPanPress, midpoint } from "../application/canvas-pan";
 import { pointerSamples } from "../application/pointer-samples";
-import type { InkRendererKind } from "@/features/ink/render/freehand-stroke";
 import { useScreenActive } from "@/lib/hooks/use-screen-active";
 import { useBlobObjectUrls, type BlobFetchers } from "@/lib/hooks/use-blob-object-urls";
 import { Button, IconButton } from "@/components/button";
@@ -45,7 +44,8 @@ import {
   type Size,
 } from "../application/freeform-geometry";
 import { encodeStroke, eraseHits, strokeAt, type InkPoint } from "../application/freeform-ink";
-import { DEFAULT_PEN_COLOUR } from "../application/pen-colour";
+import { CANVAS_PEN_COLOUR_KEY, DEFAULT_PEN_COLOUR, penColourFrom } from "../application/pen-colour";
+import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { canonicalInkColour, resolveInkColour } from "@/features/ink/render/resolve-ink-colour";
 import { useThemeInk } from "@/features/ink/render/use-theme-ink";
 import { canRedo, canUndo, createHistory, record, redo, undo, type History } from "../application/canvas-history";
@@ -88,6 +88,10 @@ type Gesture =
   | { kind: "erase"; base: CanvasFile }
   | { kind: "move"; base: CanvasFile; ids: ReadonlySet<string>; origin: Point }
   | { kind: "resize"; base: CanvasFile; id: string; origin: Point; size: Size; picture: boolean };
+
+const subscribeSettings = (listener: () => void) => workspaceSettings.subscribe(listener);
+const readPenColour = () => penColourFrom(workspaceSettings.get(CANVAS_PEN_COLOUR_KEY));
+const serverPenColour = () => DEFAULT_PEN_COLOUR;
 
 const EMPTY_FILE: CanvasFile = { nodes: [], edges: [] };
 const DEFAULT_VIEW: PageView = { x: 0, y: 0, zoom: 1 };
@@ -157,17 +161,13 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [mode, setMode] = useState<Mode>("select");
   /** Canonical (Paper) hex; drawn and shown through the live theme. Starts at the text colour. */
-  const [colour, setColour] = useState(DEFAULT_PEN_COLOUR);
+  // Kept in the workspace settings file, so the pen keeps its colour across sessions.
+  const colour = useSyncExternalStore(subscribeSettings, readPenColour, serverPenColour);
+  const setColour = useCallback((next: string) => workspaceSettings.set(CANVAS_PEN_COLOUR_KEY, next), []);
   const ink = useThemeInk();
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [view, setView] = useState<PageView>(DEFAULT_VIEW);
   const [draft, setDraft] = useState<InkDraft | null>(null);
-  /** Read once when the page opens, like the paper ink renderer. */
-  const [renderer, setRenderer] = useState<InkRendererKind>(() => readInkRenderer());
-  /** Dev flag: shows the A/B buttons. Read once when the page opens. */
-  const [abVisible] = useState(() => readInkABOn());
-  /** A/B is per open page: the device default (`writeInkRenderer`) stays as the user set it. */
-  const chooseRenderer = (kind: InkRendererKind) => setRenderer(kind);
   const gestureRef = useRef<Gesture | null>(null);
   /** Space held: a drag with the left button pans (mouse or touch, never pen). */
   const spaceRef = useSpaceHeld();
@@ -659,7 +659,6 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
       onPaste={onPaste}
     >
       <div className="canvas-editor__bar" role="toolbar" aria-label="Canvas">
-        <InkABToggle visible={abVisible} renderer={renderer} onChange={chooseRenderer} />
         <div className="canvas-editor__modes" role="group" aria-label="Mode">
           {MODES.map(({ mode: m, label, icon }) => (
             <IconButton key={m} label={label} size="sm" aria-pressed={mode === m} onClick={() => chooseMode(m)}>
@@ -782,7 +781,7 @@ export default function CanvasEditor({ body, onSave, filePaths, onOpenFile, imag
               />
             );
           })}
-          <InkLayer strokes={inkStrokes} selected={live} draft={draft} renderer={renderer} ink={ink} />
+          <InkLayer strokes={inkStrokes} selected={live} draft={draft} ink={ink} />
         </div>
       </div>
     </div>

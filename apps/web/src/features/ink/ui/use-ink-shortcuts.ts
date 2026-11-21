@@ -14,6 +14,7 @@ import type { InkColour } from "@weaveforge/core";
 
 import { readyCore, typedCore } from "@/lib/rust-core";
 import { useScreenActive } from "@/lib/hooks/use-screen-active";
+import { usePaneFocused } from "@/lib/hooks/use-pane-focused";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import type { InkBarTool } from "./ink-bar";
@@ -70,10 +71,12 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
     setZoom,
   } = deps;
   const active = useScreenActive();
+  const paneFocused = usePaneFocused();
 
-  // Not while the screen is hidden behind another (`workspace-host.tsx`).
+  // Not while the screen is hidden behind another (`workspace-host.tsx`), nor
+  // from a note in an unfocused pane or a hidden tab (`pane-view.tsx`).
   useEffect(() => {
-    if (!active) return;
+    if (!active || !paneFocused) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (typedCore().isEditableReaderTarget(event.target)) return;
       if (event.metaKey || event.ctrlKey) {
@@ -163,6 +166,7 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     active,
+    paneFocused,
     send,
     onUndo,
     onRedo,

@@ -106,7 +106,7 @@ test("a note with no file in the folder has no strokes, and a write to it fails 
   assert.equal(await store.read(ID, page), null);
   assert.equal(await store.list(ID), null);
   await assert.rejects(store.write(ID, page, bytes(1)), /no file in the workspace folder/);
-  assert.deepEqual(await filesUnder(fs, ""), {});
+  assert.deepEqual(await filesUnder(fs, "thesis--2a3407"), {});
 });
 
 test("a note the mirror has not written yet is written by a folder sync, then the page lands beside it", async () => {
@@ -301,4 +301,72 @@ test("a vault shaped like the real one (3 pages, ULID order, quoted id, old .ink
   assert.equal(await store.isMigrated(ID), true);
   for (const chunk of order) assert.notEqual(await fs.stat(`${STROKES}/${chunk}.inkb`), null);
   assert.notEqual(await fs.stat(`${LEGACY}/${order[0]}.inkb`), null, "the old folder stays");
+});
+
+/** A plain note as FileNoteRepository writes it: no `.ink.md`, no ink header. */
+function plainNoteText(id: string): string {
+  return ["---", `weaveforge-id: "${id}"`, "weaveforge-type: vault_page", "---", "", "# Losses", ""].join("\n");
+}
+
+test("every note takes ink: a .note.md keeps its pages in a .note.ink folder beside it", async () => {
+  const note = "thesis--2a3407/notes/losses.note.md";
+  const fs = await folderWith({ [note]: plainNoteText(ID) });
+  const { store, reports } = stores(fs);
+  const page = typedCore().newInkChunkId();
+  await store.write(ID, page, bytes(7));
+  const dir = "thesis--2a3407/notes/losses.note.ink";
+  assert.deepEqual(Object.keys(await filesUnder(fs, dir)), [`${dir}/${page}.inkb`]);
+  assert.deepEqual([...(await store.read(ID, page))!], [7]);
+  assert.deepEqual(await store.list(ID), [page]);
+  assert.deepEqual(reports.filter((r) => r.level !== "info"), [], "its own folder is not a stray");
+});
+
+test("every note takes ink: a plain foo.md keeps its pages in foo.ink beside it", async () => {
+  const note = "thesis--2a3407/notes/losses.md";
+  const fs = await folderWith({ [note]: plainNoteText(ID) });
+  const { store, reports } = stores(fs);
+  const page = typedCore().newInkChunkId();
+  await store.write(ID, page, bytes(8));
+  assert.notEqual(await fs.stat(`${STROKES}/${page}.inkb`), null);
+  // A second scan (a fresh store) still pairs the folder with the plain note and reports nothing.
+  const again = stores(fs);
+  assert.deepEqual([...(await again.store.read(ID, page))!], [8]);
+  assert.deepEqual([...reports, ...again.reports].filter((r) => r.level !== "info"), []);
+});
+
+test("a legacy .ink.md with strokes, moved on disk with its folder to a .note.md name, keeps every stroke", async () => {
+  const a = typedCore().newInkChunkId();
+  const b = typedCore().newInkChunkId();
+  const fs = await folderWith({
+    [NOTE_PATH]: noteText(ID, [a, b]),
+    [`${STROKES}/${a}.inkb`]: bytes(1),
+    [`${STROKES}/${b}.inkb`]: bytes(2),
+  });
+  const { store, reports } = stores(fs);
+  assert.deepEqual(await store.list(ID), [a, b].sort());
+  const renamed = "thesis--2a3407/archive/loss-review.note.md";
+  const renamedDir = "thesis--2a3407/archive/loss-review.note.ink";
+  await fs.mkdirp(renamedDir);
+  await fs.writeFile(renamed, await fs.readText(NOTE_PATH));
+  for (const chunk of [a, b]) await fs.writeFile(`${renamedDir}/${chunk}.inkb`, await fs.readFile(`${STROKES}/${chunk}.inkb`));
+  await fs.remove(NOTE_PATH);
+  for (const chunk of [a, b]) await fs.remove(`${STROKES}/${chunk}.inkb`);
+  await fs.remove(STROKES);
+  assert.deepEqual([...(await store.read(ID, a))!], [1]);
+  assert.deepEqual([...(await store.read(ID, b))!], [2]);
+  assert.deepEqual(await store.list(ID), [a, b].sort());
+  assert.deepEqual(reports.filter((r) => r.level !== "info"), []);
+});
+
+test("a .note.ink folder whose note is gone is still reported as a stray and kept", async () => {
+  const page = typedCore().newInkChunkId();
+  const fs = await folderWith({
+    [NOTE_PATH]: noteText(ID),
+    [`thesis--2a3407/notes/gone.note.ink/${page}.inkb`]: bytes(2),
+  });
+  const { store, reports } = stores(fs);
+  await store.list(ID);
+  const strays = reports.filter((r) => r.level === "warn").map((r) => r.message).join("\n");
+  assert.match(strays, /thesis--2a3407\/notes\/gone\.note\.ink/);
+  assert.notEqual(await fs.stat(`thesis--2a3407/notes/gone.note.ink/${page}.inkb`), null);
 });

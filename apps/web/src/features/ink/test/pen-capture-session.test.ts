@@ -117,6 +117,59 @@ function sessionHarness(
   return harness;
 }
 
+test("abort tells the worker to drop the live stroke, not leave it drawn", () => {
+  const harness = sessionHarness();
+  harness.session.pointerDown(pointer({ pointerType: "pen", pointerId: 11, t: 0 }));
+  harness.session.pointerRawUpdate(
+    pointer({ pointerType: "pen", pointerId: 11, clientX: 120, clientY: 120, t: 8 }),
+  );
+  harness.session.flush();
+  const begin = harness.messages.find((m) => m.type === "stroke-begin");
+  assert.ok(begin && begin.type === "stroke-begin", "the stroke was begun");
+
+  harness.session.abort();
+
+  assert.equal(harness.session.active, false);
+  const abort = harness.messages.at(-1);
+  assert.ok(abort && abort.type === "stroke-abort", `abort posts stroke-abort, got ${abort?.type}`);
+  assert.equal(abort.header.strokeId, begin.header.strokeId, "it names the stroke that was live");
+});
+
+test("a stroke the OS cancels mid-way is discarded: nothing is committed or saved", () => {
+  const harness = sessionHarness();
+  harness.session.pointerDown(pointer({ pointerType: "pen", pointerId: 13, t: 0 }));
+  for (let i = 1; i <= 10; i += 1) {
+    harness.session.pointerRawUpdate(
+      pointer({ pointerType: "pen", pointerId: 13, clientX: 100 + i * 10, clientY: 100, t: i * 8 }),
+    );
+    harness.session.flush();
+  }
+  harness.session.cancel(13);
+
+  assert.equal(harness.session.active, false);
+  assert.equal(harness.committed.length, 0, "a cancelled fragment is not a stroke");
+  assert.equal(
+    harness.messages.some((m) => m.type === "stroke-end"),
+    false,
+    "the worker is not asked to commit it",
+  );
+  assert.equal(harness.messages.at(-1)?.type, "stroke-abort");
+});
+
+test("a pen lift keeps the stroke it ends, which is how a pen cancel is handled", () => {
+  const harness = sessionHarness();
+  harness.session.pointerDown(pointer({ pointerType: "pen", pointerId: 14, t: 0 }));
+  for (let i = 1; i <= 10; i += 1) {
+    harness.session.pointerRawUpdate(
+      pointer({ pointerType: "pen", pointerId: 14, clientX: 100 + i * 10, clientY: 100, t: i * 8 }),
+    );
+    harness.session.flush();
+  }
+  harness.session.pointerUp(pointer({ pointerType: "pen", pointerId: 14, clientX: 200, clientY: 100, t: 90 }));
+
+  assert.equal(harness.messages.at(-1)?.type, "stroke-end", "the lift hands the stroke to the worker");
+});
+
 test("a 240 Hz stroke through the session touches the screen once, at the end", () => {
   const harness = sessionHarness();
   const down = pointer({ pointerType: "pen", pointerId: 7, t: 0 });
@@ -164,6 +217,28 @@ test("a 240 Hz stroke through the session touches the screen once, at the end", 
     new Uint8Array([128, 128]),
   );
   assert.equal(harness.committed.length, 1, "one acknowledgement, one render");
+});
+
+test("a first press that cannot be placed yet does not cost the whole stroke", () => {
+  // The sheet is not measured on the very first press, so project() gives null.
+  let measured = false;
+  const harness = sessionHarness({
+    project: (x, y) => (measured ? { x: x * 10, y: y * 10 } : null),
+  });
+  harness.session.pointerDown(pointer({ pointerType: "pen", pointerId: 9, t: 0 }));
+  measured = true;
+  for (let i = 1; i <= 20; i += 1) {
+    harness.session.pointerRawUpdate(
+      pointer({ pointerType: "pen", pointerId: 9, clientX: 100 + i, clientY: 100 + i, t: i * 4 }),
+    );
+    harness.session.flush();
+  }
+  harness.session.pointerUp(
+    pointer({ pointerType: "pen", pointerId: 9, clientX: 130, clientY: 130, t: 100 }),
+  );
+  const types = harness.messages.map((message) => message.type);
+  assert.ok(types.includes("stroke-begin"), `the stroke must begin on a placed point, got ${types.join(",")}`);
+  assert.ok(types.includes("stroke-end"), `the stroke must end, got ${types.join(",")}`);
 });
 
 test("coalesced events are consumed with the dispatched one, not instead of it", () => {
@@ -552,4 +627,37 @@ test("predicted samples do not bend the real stroke through the filter", () => {
     ...clean.map((value, index) => Math.abs(value - predicted[index]!)),
   );
   assert.ok(worst < 1e-9, `prediction moved a real point by ${worst}`);
+});
+
+test("a pen tap with no move posts its one sample, so the worker has a dot to keep", () => {
+  const harness = sessionHarness();
+  harness.session.pointerDown(pointer({ pointerType: "pen", pointerId: 3, clientX: 40, clientY: 50, t: 0 }));
+  harness.session.pointerUp(pointer({ pointerType: "pen", pointerId: 3, clientX: 40, clientY: 50, t: 20, pressure: 0 }));
+  const types = harness.messages.map((message) => message.type);
+  assert.ok(types.includes("stroke-begin"), `the tap begins a stroke, got ${types.join(",")}`);
+  assert.ok(types.includes("stroke-end"), `the tap ends a stroke, got ${types.join(",")}`);
+  assert.equal(harness.stroke.points.length, 2, `the tap's sample is posted, got ${JSON.stringify(harness.stroke.points)}`);
+});
+
+test("ending the stroke on unmount sends stroke-end, so the host saves what was drawn", () => {
+  const harness = sessionHarness();
+  harness.session.pointerDown(pointer({ pointerType: "pen", pointerId: 12, t: 0 }));
+  harness.session.pointerRawUpdate(
+    pointer({ pointerType: "pen", pointerId: 12, clientX: 120, clientY: 120, t: 8 }),
+  );
+  harness.session.flush();
+
+  const ended = harness.session.endStroke();
+
+  assert.equal(ended, true, "a stroke in progress is ended");
+  assert.equal(harness.session.active, false, "the session is idle afterwards");
+  assert.equal(harness.messages.at(-1)?.type, "stroke-end", "the last message ends the stroke");
+});
+
+test("ending the stroke with none in progress sends nothing", () => {
+  const harness = sessionHarness();
+  const before = harness.messages.length;
+
+  assert.equal(harness.session.endStroke(), false);
+  assert.equal(harness.messages.length, before, "no message is posted");
 });

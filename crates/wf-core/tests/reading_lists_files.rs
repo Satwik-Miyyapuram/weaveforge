@@ -3,8 +3,8 @@
 
 use proptest::prelude::*;
 use wf_core::reading_lists::list_file::{
-    ListFileError, effective_decisions, item_key, list_decisions, mark_missing, read_list_file,
-    record_decision, remove_decision,
+    ListFileError, effective_decisions, holds_item, item_key, list_decisions, mark_missing,
+    read_list_file, record_decision, remove_decision,
 };
 use wf_core::reading_lists::screening::{ScreeningDecision, ScreeningStage, ScreeningState};
 
@@ -38,6 +38,30 @@ fn screening_decision_saved_to_list_file() {
     let keys: Vec<&str> = file.fields.iter().map(|(k, _)| k.as_str()).collect();
     assert_eq!(keys, ["wf", "weaveforge-id", "title", "color"]);
     assert!(text.contains("title: \"Review: LLMs\""));
+}
+
+#[test]
+fn list_holds_any_item_with_an_entry_not_only_the_decided_one() {
+    let d = decision(
+        "d1",
+        "[[Paper 1]]",
+        ScreeningState::Included,
+        "2026-11-19T10:00:00Z",
+    );
+    let text = record_decision(LIST, &d).unwrap();
+    assert!(holds_item(&text, "[[Paper 1]]").unwrap());
+    assert!(holds_item(&text, "[[paper 1|alias]]").unwrap());
+    // Any entry counts, whatever its state: an excluded item is still in the list.
+    let excluded = decision(
+        "d2",
+        "[[Paper 2]]",
+        ScreeningState::Excluded,
+        "2026-11-19T11:00:00Z",
+    );
+    let text = record_decision(&text, &excluded).unwrap();
+    assert!(holds_item(&text, "[[Paper 2]]").unwrap());
+    assert!(!holds_item(&text, "[[Paper 3]]").unwrap());
+    assert!(!holds_item(LIST, "[[Paper 1]]").unwrap());
 }
 
 #[test]
@@ -131,7 +155,7 @@ fn written_entry_is_one_complete_line() {
     // empty line that would silently drop it.
     let mut d = decision(
         "d1",
-        "item-1",
+        "[[Paper 1]]",
         ScreeningState::Excluded,
         "2026-11-19T10:00:00Z",
     );
@@ -328,6 +352,7 @@ proptest! {
 const OBSIDIAN: &str = "---\nwf: 3\nDue date: 2026-12-01\ndescription: |\n  line one\n  line two\n# kept comment\ncssclasses:\n  - wide\n  - dark\nitems:\n  - {\"id\":\"d0\",\"item\":\"[[Paper 0]]\",\"reviewer\":\"r1\",\"stage\":\"title_abstract\",\"decision\":\"unsure\",\"added\":\"2026-11-18T10:00:00Z\"}\nnested:\n  a: 1\n  b: \"two\"\ntags: [x, \"y z\"]\n---\nBody.\n";
 
 /// The frontmatter lines outside the `items` block, as written.
+#[cfg(test)]
 fn other_head_lines(text: &str) -> Vec<String> {
     let text = text.replace("\r\n", "\n");
     let head = text

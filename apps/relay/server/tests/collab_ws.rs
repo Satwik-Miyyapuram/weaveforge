@@ -389,6 +389,17 @@ async fn expect_json(ws: &mut Ws, kind: &str) -> Value {
     }
 }
 
+/// The next binary frame (text frames skipped), as bytes.
+async fn next_binary(ws: &mut Ws) -> Vec<u8> {
+    loop {
+        match recv(ws).await.expect("a frame") {
+            Message::Binary(bytes) => return bytes.to_vec(),
+            Message::Close(_) => panic!("socket closed before a binary frame"),
+            _ => {}
+        }
+    }
+}
+
 /// Reads until the socket closes.
 async fn expect_close(ws: &mut Ws) {
     while let Some(message) = recv(ws).await {
@@ -538,6 +549,8 @@ async fn closing_doc_with_lapsed_lease_is_swept() {
     let store = Arc::new(MemoryStore::new());
     seed(&store, ITEM, text_update("doc")).await;
     let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+    // The sweep runs on the persist tick.
+    let persist = hub::spawn_persist_loop(relay.state.clone());
 
     let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
         .await
@@ -558,6 +571,62 @@ async fn closing_doc_with_lapsed_lease_is_swept() {
 
     // The lease lapses: the sweep now finishes the unshare.
     relay.now.store(START_MS + LEASE_MS + 1, Ordering::SeqCst);
+    wait_for_deleted(&store, ITEM).await;
+    persist.abort();
+}
+
+#[tokio::test]
+async fn unshare_revokes_item_grants() {
+    let dir = TempDir::new("unshare-grants");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, text_update("doc")).await;
+    let _grant_id = grant_edit(&store, ITEM).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let url = relay.url(&format!("/shared-docs/{ITEM}"));
+    let (status, body) = http(reqwest::Method::DELETE, &url, OWNER_TOKEN, None).await;
+    assert_eq!(status, 200);
+    assert_eq!(body["status"], "deleted");
+
+    // A re-share with the same item id must not bring the old grant back.
+    seed(&store, ITEM, Vec::new()).await;
+    let refused = join(relay.port, ITEM, GUEST_TOKEN, Q1).await;
+    assert_http_status(refused, 403);
+}
+
+#[tokio::test]
+async fn closing_doc_refuses_guests() {
+    let dir = TempDir::new("closing-guests");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, text_update("doc")).await;
+    let _grant_id = grant_edit(&store, ITEM).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    send_text(&mut owner, r#"{"type":"lease.acquire","device":"d1"}"#).await;
+    let _granted = expect_json(&mut owner, "lease.granted").await;
+
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins before unshare");
+    let _hello = next_json(&mut guest).await;
+
+    let url = relay.url(&format!("/shared-docs/{ITEM}"));
+    let (status, body) = http(reqwest::Method::DELETE, &url, OWNER_TOKEN, None).await;
+    assert_eq!(status, 202);
+    assert_eq!(body["status"], "closing");
+
+    // The connected guest is told to re-check, and a new join is refused while closing.
+    let denied = expect_json(&mut guest, "denied").await;
+    assert_eq!(denied["reason"], "revoked");
+    let refused = join(relay.port, ITEM, GUEST_TOKEN, Q1).await;
+    assert_http_status(refused, 403);
+
+    send_text(&mut owner, r#"{"type":"lease.final","device":"d1"}"#).await;
+    let _closed = expect_json(&mut owner, "closed").await;
     wait_for_deleted(&store, ITEM).await;
 }
 
@@ -596,6 +665,171 @@ async fn ws_grant_checked_on_update() {
 }
 
 #[tokio::test]
+async fn save_at_stale_epoch_is_an_error() {
+    let store = MemoryStore::new();
+    seed(&store, ITEM, text_update("kept")).await;
+    let before = store.doc(ITEM).expect("doc row").state;
+
+    let stale = store.save_state(ITEM, 2, &text_update("stale")).await;
+    assert!(stale.is_err(), "a stale-epoch save reported success");
+    let missing = store.save_state("no-such-item", 1, &text_update("x")).await;
+    assert!(missing.is_err(), "a save to a missing row reported success");
+    assert_eq!(store.doc(ITEM).expect("doc row").state, before);
+}
+
+/// Appends `value` as a lib0 varuint.
+fn varuint(mut value: usize, out: &mut Vec<u8>) {
+    loop {
+        let byte = u8::try_from(value & 0x7f).expect("seven bits fit a byte");
+        value >>= 7;
+        if value == 0 {
+            out.push(byte);
+            return;
+        }
+        out.push(byte | 0x80);
+    }
+}
+
+/// A y-protocols awareness frame whose one client state is about `json_len` bytes.
+fn awareness_frame(json_len: usize) -> Vec<u8> {
+    let state = format!("{{\"pad\":\"{}\"}}", "a".repeat(json_len));
+    let mut body = Vec::new();
+    varuint(1, &mut body);
+    varuint(7, &mut body);
+    varuint(1, &mut body);
+    varuint(state.len(), &mut body);
+    body.extend_from_slice(state.as_bytes());
+    let mut frame = vec![1u8];
+    varuint(body.len(), &mut frame);
+    frame.extend(body);
+    frame
+}
+
+/// Awareness query: a one-byte presence frame that the server relays as-is.
+const AWARENESS_QUERY: &[u8] = &[3];
+
+#[tokio::test]
+async fn oversized_awareness_is_not_relayed() {
+    let dir = TempDir::new("awareness-size");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let _grant = grant_edit(&store, ITEM).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+
+    let oversized = awareness_frame(70_000);
+    // classify() ignores undecodable frames, so without this check the test could pass even with
+    // no size cap. The frame must parse as a real awareness message for the cap to be what drops it.
+    assert!(
+        matches!(
+            <yrs::sync::Message as yrs::updates::decoder::Decode>::decode_v1(&oversized),
+            Ok(yrs::sync::Message::Awareness(_))
+        ),
+        "test frame is not a decodable awareness message"
+    );
+    send_frame(&mut guest, oversized).await;
+    send_frame(&mut guest, AWARENESS_QUERY.to_vec()).await;
+
+    // Frames arrive in order, so the first binary frame the owner sees must be the small one.
+    let first = next_binary(&mut owner).await;
+    assert_eq!(
+        first, AWARENESS_QUERY,
+        "an oversized awareness frame was relayed"
+    );
+}
+
+#[tokio::test]
+async fn awareness_flood_is_rate_limited() {
+    let dir = TempDir::new("awareness-rate");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let _grant = grant_edit(&store, ITEM).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+
+    for _ in 0..300 {
+        send_frame(&mut guest, AWARENESS_QUERY.to_vec()).await;
+    }
+    // Quiet period: count every frame the owner receives. A one-second window can split the
+    // burst in two on a slow machine, so the bound is two windows' worth, not one.
+    let mut relayed = 0;
+    while let Ok(Some(Ok(message))) =
+        tokio::time::timeout(Duration::from_millis(500), owner.next()).await
+    {
+        if matches!(message, Message::Binary(_)) {
+            relayed += 1;
+        }
+    }
+    assert!(relayed > 0, "no awareness frame was relayed");
+    assert!(
+        relayed <= 200,
+        "relayed {relayed} of 300 awareness frames from one client"
+    );
+}
+
+#[tokio::test]
+async fn lagged_client_rechecks_after_revoke() {
+    let dir = TempDir::new("lagged");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let grant_id = grant_edit(&store, ITEM).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let mut owner = join(relay.port, ITEM, OWNER_TOKEN, Q1)
+        .await
+        .expect("owner joins");
+    let _hello = next_json(&mut owner).await;
+    let mut guest = join(relay.port, ITEM, GUEST_TOKEN, Q1)
+        .await
+        .expect("guest joins");
+    let _hello = next_json(&mut guest).await;
+
+    // The guest does not read while the owner floods the room. The guest's receiver lags
+    // past the broadcast capacity, and the revoke's Recheck event is dropped with the lag.
+    let big = "x".repeat(64 * 1024);
+    for i in 0..200 {
+        send_frame(&mut owner, update_frame(map_update(&format!("a{i}"), &big))).await;
+    }
+    let url = relay.url(&format!("/grants/{grant_id}"));
+    let (status, _) = http(reqwest::Method::DELETE, &url, OWNER_TOKEN, None).await;
+    assert_eq!(status, 200);
+    for i in 0..400 {
+        send_frame(&mut owner, update_frame(map_update(&format!("b{i}"), &big))).await;
+    }
+
+    // Once the guest reads again it must be told it was denied, not keep receiving updates.
+    loop {
+        match recv(&mut guest).await {
+            Some(Message::Text(text)) => {
+                let value: Value = serde_json::from_str(text.as_str()).expect("json frame");
+                if value["type"] == "denied" {
+                    assert_eq!(value["reason"], "revoked");
+                    return;
+                }
+            }
+            Some(_) => {}
+            None => panic!("guest socket closed without a denied frame"),
+        }
+    }
+}
+
+#[tokio::test]
 async fn persist_every_2s() {
     let production = CollabConfig::production(PathBuf::from("unused"));
     assert_eq!(production.persist_every, Duration::from_secs(2));
@@ -629,7 +863,7 @@ async fn shared_state_post_requires_owner() {
     let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
 
     let url = relay.url(&format!("/shared-docs/{ITEM}/state"));
-    let body = json!({"kind": "canvas", "encoding": "json", "state": {"n": 1}});
+    let body = json!({"kind": "feed", "encoding": "json", "state": {"n": 1}});
     let (guest_status, _) =
         http(reqwest::Method::POST, &url, GUEST_TOKEN, Some(body.clone())).await;
     assert_eq!(guest_status, 403);
@@ -637,6 +871,52 @@ async fn shared_state_post_requires_owner() {
     let (owner_status, reply) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(body)).await;
     assert_eq!(owner_status, 200);
     assert_eq!(reply["epoch"], 2);
+}
+
+#[tokio::test]
+async fn restore_feed_stores_json_state() {
+    let dir = TempDir::new("restore-feed");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let url = relay.url(&format!("/shared-docs/{ITEM}/state"));
+    let body = json!({"kind": "feed", "encoding": "json", "state": {"n": 1}});
+    let (status, reply) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(body)).await;
+    assert_eq!(status, 200);
+    assert_eq!(reply["epoch"], 2);
+
+    let row = store.load(ITEM).await.expect("load").expect("row");
+    assert_eq!(
+        row.state,
+        serde_json::to_vec(&json!({"n": 1})).expect("json")
+    );
+}
+
+#[tokio::test]
+async fn restore_rejects_encoding_that_does_not_match_kind() {
+    let dir = TempDir::new("restore-kind");
+    let store = Arc::new(MemoryStore::new());
+    seed(&store, ITEM, Vec::new()).await;
+    let relay = Relay::start(dir.path(), store.clone(), PERSIST).await;
+
+    let url = relay.url(&format!("/shared-docs/{ITEM}/state"));
+    // A canvas is a Yjs document: JSON is not a valid restore for it.
+    let json_canvas = json!({"kind": "canvas", "encoding": "json", "state": {"n": 1}});
+    let (status, _) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(json_canvas)).await;
+    assert_eq!(status, 400);
+    // A feed is JSON: a Yjs state is not a valid restore for it.
+    let yjs_feed = json!({
+        "kind": "feed",
+        "encoding": "yjs-state",
+        "state": STANDARD.encode(text_update("x")),
+    });
+    let (status, _) = http(reqwest::Method::POST, &url, OWNER_TOKEN, Some(yjs_feed)).await;
+    assert_eq!(status, 400);
+
+    let row = store.load(ITEM).await.expect("load").expect("row");
+    assert_eq!(row.epoch, 1);
+    assert!(row.state.is_empty());
 }
 
 #[tokio::test]
@@ -761,6 +1041,129 @@ impl SharedDocStore for AccessFails {
     ) -> BoxFut<'a, Result<Option<String>, String>> {
         self.inner.revoke_grant(owner, id)
     }
+    fn revoke_item_grants<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
+        self.inner.revoke_item_grants(item_id)
+    }
+}
+
+/// Delegates to a `MemoryStore`; `save_state` announces itself on `entered` and waits for `release`.
+struct GatedSave {
+    inner: Arc<MemoryStore>,
+    entered: Arc<tokio::sync::Notify>,
+    release: Arc<tokio::sync::Notify>,
+}
+
+impl SharedDocStore for GatedSave {
+    fn load<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<Option<DocRow>, String>> {
+        self.inner.load(item_id)
+    }
+    fn seed<'a>(&'a self, row: &'a DocRow) -> BoxFut<'a, Result<(), String>> {
+        self.inner.seed(row)
+    }
+    fn save_state<'a>(
+        &'a self,
+        item_id: &'a str,
+        epoch: i64,
+        state: &'a [u8],
+    ) -> BoxFut<'a, Result<(), String>> {
+        Box::pin(async move {
+            self.entered.notify_one();
+            self.release.notified().await;
+            self.inner.save_state(item_id, epoch, state).await
+        })
+    }
+    fn replace_state<'a>(
+        &'a self,
+        item_id: &'a str,
+        kind: &'a str,
+        state: &'a [u8],
+    ) -> BoxFut<'a, Result<i64, String>> {
+        self.inner.replace_state(item_id, kind, state)
+    }
+    fn set_status<'a>(
+        &'a self,
+        item_id: &'a str,
+        status: DocStatus,
+    ) -> BoxFut<'a, Result<(), String>> {
+        self.inner.set_status(item_id, status)
+    }
+    fn set_writer<'a>(
+        &'a self,
+        item_id: &'a str,
+        device: Option<&'a str>,
+        until_ms: Option<i64>,
+    ) -> BoxFut<'a, Result<(), String>> {
+        self.inner.set_writer(item_id, device, until_ms)
+    }
+    fn delete<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
+        self.inner.delete(item_id)
+    }
+    fn access<'a>(
+        &'a self,
+        item_id: &'a str,
+        user: &'a str,
+    ) -> BoxFut<'a, Result<Option<Permission>, String>> {
+        self.inner.access(item_id, user)
+    }
+    fn create_grant<'a>(&'a self, grant: &'a NewGrant) -> BoxFut<'a, Result<GrantRow, String>> {
+        self.inner.create_grant(grant)
+    }
+    fn list_grants<'a>(
+        &'a self,
+        owner: &'a str,
+        target_id: Option<&'a str>,
+    ) -> BoxFut<'a, Result<Vec<GrantRow>, String>> {
+        self.inner.list_grants(owner, target_id)
+    }
+    fn revoke_grant<'a>(
+        &'a self,
+        owner: &'a str,
+        id: &'a str,
+    ) -> BoxFut<'a, Result<Option<String>, String>> {
+        self.inner.revoke_grant(owner, id)
+    }
+    fn revoke_item_grants<'a>(&'a self, item_id: &'a str) -> BoxFut<'a, Result<(), String>> {
+        self.inner.revoke_item_grants(item_id)
+    }
+}
+
+/// The room lock is free while a save is in flight, so clients keep sending updates during a slow
+/// store write (the save only holds the lock to snapshot the doc).
+#[tokio::test]
+async fn room_lock_is_free_while_a_save_is_in_flight() {
+    let dir = TempDir::new("save-gap");
+    let mem = Arc::new(MemoryStore::new());
+    seed(&mem, ITEM, Vec::new()).await;
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let store = Arc::new(GatedSave {
+        inner: mem.clone(),
+        entered: entered.clone(),
+        release: release.clone(),
+    });
+    let state = build_state(
+        dir.path(),
+        store,
+        Duration::from_secs(3600),
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
+    let row = mem.load(ITEM).await.expect("load").expect("row");
+    let room = hub::open_room(&state, row).await.expect("open room");
+    room.inner.lock().await.dirty = true;
+    let saver = {
+        let state = state.clone();
+        let room = room.clone();
+        tokio::spawn(async move { hub::persist_room(&state, &room).await })
+    };
+    tokio::time::timeout(RECV, entered.notified())
+        .await
+        .expect("save started");
+    // The guard is dropped inside this statement: the save needs the lock to finish.
+    let acquired = tokio::time::timeout(RECV, room.inner.lock()).await.is_ok();
+    release.notify_one();
+    saver.await.expect("saver joins").expect("persist succeeds");
+    assert!(acquired, "room lock was held across the store save");
 }
 
 #[tokio::test]

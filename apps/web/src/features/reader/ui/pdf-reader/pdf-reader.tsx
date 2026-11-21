@@ -22,8 +22,10 @@ import {
   InkSelectionChip,
   setToolColour,
   setToolQuickSlot,
+  setWidthForColour,
   type ToolColourId,
   useToolColours,
+  widthInForce,
 } from "@/features/ink";
 import { PAPER_INK_PALETTE } from "@/features/ink/render/resolve-ink-colour";
 import type { InkPalette } from "@/features/ink/render/parts-1";
@@ -206,7 +208,10 @@ export function PdfReader({
   /** The swatches a mark is recoloured from: the list of the tool that made it. */
   const markQuickHexes = (type: string) => toolColours[markColourTool(type)].quick.map(hexOf);
   /** The nib in PDF points, from the note's 0.1 mm — one nib set for both surfaces. */
-  const penWidth = readyCore().inkNoteWidthToPdfPoints(pen.prefs.width);
+  // A quick colour can carry its own nib; without one, the reader's saved width applies.
+  const inkWidth = widthInForce(toolColours.pen, pen.prefs.width);
+  const markerWidth = widthInForce(toolColours.highlighter, pen.prefs.highlighterWidth);
+  const penWidth = readyCore().inkNoteWidthToPdfPoints(inkWidth);
   // Focus, the workspace's way (`F11`): the paper and nothing else. Per
   // session, not persisted — a reader that reopens with every control hidden
   // looks broken, not focused.
@@ -475,7 +480,7 @@ export function PdfReader({
    * its on-screen size, and the eraser's block. The pointer tool is left
    * alone — it is the arrow and the text I-beam the page already gives it.
    */
-  const nibPoints = createTool === "highlighter" ? readyCore().inkNoteWidthToPdfPoints(pen.prefs.highlighterWidth) : penWidth;
+  const nibPoints = createTool === "highlighter" ? readyCore().inkNoteWidthToPdfPoints(markerWidth) : penWidth;
   const pageCursor = canCreate
     ? inkCursorFor(createTool, { hex: createColor, diameterPx: nibPoints * scale })
     : undefined;
@@ -514,7 +519,7 @@ export function PdfReader({
     createColor,
     inkEditable,
     inkWidth: penWidth,
-    highlighterWidth: pen.prefs.highlighterWidth,
+    highlighterWidth: markerWidth,
     selectedAnnId,
     pageSize,
     scale,
@@ -1571,8 +1576,8 @@ export function PdfReader({
           viewOnly={viewOnly}
           tool={barToolFor(pen.prefs.tool)}
           colour={drawColour}
-          width={pen.prefs.width}
-          highlighterWidth={pen.prefs.highlighterWidth}
+          width={inkWidth}
+          highlighterWidth={markerWidth}
           canUndo={inkUndo.canUndo}
           canRedo={inkUndo.canRedo}
           page={viewport.page}
@@ -1628,10 +1633,12 @@ export function PdfReader({
           onWidth={(width) => {
             endInkGroup();
             pen.setWidth(width);
+            setWidthForColour("pen", width);
           }}
           onHighlighterWidth={(width) => {
             endInkGroup();
             pen.setHighlighterWidth(width);
+            setWidthForColour("highlighter", width);
           }}
           onUndo={() => void inkUndo.undo()}
           onRedo={() => void inkUndo.redo()}

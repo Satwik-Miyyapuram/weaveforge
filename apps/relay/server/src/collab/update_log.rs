@@ -1,7 +1,7 @@
 //! Per-document append-only update log on disk. Each record is a u32 LE length, then the bytes.
 
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Write};
+use std::io::{self, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 /// File extension of a document's log.
@@ -68,23 +68,29 @@ pub fn list_logs(dir: &Path) -> io::Result<Vec<String>> {
     Ok(items)
 }
 
-/// The complete records at the start of `bytes`, and the byte length they span. Anything after
-/// that is a torn record from a crash mid-append.
-fn split_records(bytes: &[u8]) -> (Vec<Vec<u8>>, usize) {
-    let mut out = Vec::new();
-    let mut good = 0;
-    let mut rest: &[u8] = bytes;
-    while let Some((head, tail)) = rest.split_first_chunk::<4>() {
-        let len = usize::try_from(u32::from_le_bytes(*head)).unwrap_or(usize::MAX);
-        if tail.len() < len {
+/// Passes each complete record in the file at `path` to `visit`, one at a time, and returns the
+/// byte length those records span. A torn record from a crash mid-append is not visited.
+fn visit_records(path: &Path, mut visit: impl FnMut(&[u8]) -> io::Result<()>) -> io::Result<u64> {
+    let mut reader = BufReader::new(File::open(path)?);
+    let mut good: u64 = 0;
+    let mut head = [0_u8; 4];
+    loop {
+        match reader.read_exact(&mut head) {
+            Ok(()) => {}
+            Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => break,
+            Err(err) => return Err(err),
+        }
+        let len = u64::from(u32::from_le_bytes(head));
+        // `take` reads at most `len` bytes, so a bogus length reserves no more than the file holds.
+        let mut body = Vec::new();
+        let _read: usize = (&mut reader).take(len).read_to_end(&mut body)?;
+        if u64::try_from(body.len()) != Ok(len) {
             break;
         }
-        let (body, next) = tail.split_at(len);
-        out.push(body.to_vec());
+        visit(&body)?;
         good += 4 + len;
-        rest = next;
     }
-    (out, good)
+    Ok(good)
 }
 
 /// Writes `tail` to a new `<log>.<nanos>.bad` file beside the log and fsyncs it. The name does
@@ -126,14 +132,17 @@ impl UpdateLog {
             .append(true)
             .read(true)
             .open(&path)?;
-        let bytes = fs::read(&path)?;
-        let (_, good) = split_records(&bytes);
-        if good < bytes.len() {
+        let good = visit_records(&path, |_| Ok(()))?;
+        if good < fs::metadata(&path)?.len() {
             // Records after a bad header cannot be framed again, so cutting drops them. Keep
             // the cut bytes beside the log first, so nothing is lost on disk.
-            keep_aside(&path, &bytes[good..])?;
+            let mut tail = Vec::new();
+            let mut reader = File::open(&path)?;
+            let _at: u64 = reader.seek(SeekFrom::Start(good))?;
+            let _read: usize = reader.read_to_end(&mut tail)?;
+            keep_aside(&path, &tail)?;
             let cut = OpenOptions::new().write(true).open(&path)?;
-            cut.set_len(good as u64)?;
+            cut.set_len(good)?;
             cut.sync_data()?;
         }
         Ok(Self { path, file })
@@ -152,10 +161,20 @@ impl UpdateLog {
         self.file.sync_data()
     }
 
+    /// Calls `visit` with each complete update in order, reading one record at a time so the
+    /// whole log is never held in memory; a torn tail is skipped.
+    pub fn for_each(&self, visit: impl FnMut(&[u8]) -> io::Result<()>) -> io::Result<()> {
+        visit_records(&self.path, visit).map(|_| ())
+    }
+
     /// Every complete update in the file, in order; a torn tail is ignored.
     pub fn read_all(&self) -> io::Result<Vec<Vec<u8>>> {
-        let bytes = fs::read(&self.path)?;
-        Ok(split_records(&bytes).0)
+        let mut out = Vec::new();
+        self.for_each(|update| {
+            out.push(update.to_vec());
+            Ok(())
+        })?;
+        Ok(out)
     }
 
     /// Empties the log, after its updates are saved.

@@ -614,6 +614,12 @@ pub fn annotations_path(paper_rel: &str) -> String {
     format!("{}.annotations.json", sidecar_stem(paper_rel))
 }
 
+/// Sidecar pins file for a paper: `p/papers/x.pdf` -> `p/papers/x.pins.json`.
+#[must_use]
+pub fn pins_path(paper_rel: &str) -> String {
+    format!("{}.pins.json", split_extension(paper_rel).0)
+}
+
 /// Sidecar comments file for an item: `p/notes/x.md` -> `p/notes/x.comments.json`,
 /// `p/papers/x.paper.md` -> `p/papers/x.comments.json`.
 #[must_use]

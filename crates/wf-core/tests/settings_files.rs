@@ -15,8 +15,9 @@ use wf_core::settings::settings_file::{
 use wf_core::sync::folder_layout::{DEVICE_SETTINGS_PATH, SETTINGS_PATH};
 use wf_core::sync::git_policy::is_local_meta;
 
+#[cfg(test)]
 fn obj(value: Value) -> Map<String, Value> {
-    value.as_object().cloned().unwrap()
+    serde_json::from_value(value).unwrap()
 }
 
 #[test]
@@ -188,6 +189,8 @@ fn config_paths() {
         DEVICE_SETTINGS_PATH,
         ".weaveforge/ai/audit/2026-11/b.jsonl",
         "r/.overleaf.json",
+        ".weaveforge/settings.JSON",
+        ".weaveforge/ai/audit/2026-11/B.JSONL",
     ] {
         assert!(is_config_path(path), "{path}");
     }
@@ -271,6 +274,49 @@ fn pdf_text_cache_is_not_config() {
     }
 }
 
+/// Plurals and case variants of a secret key name a secret too. Names that only look
+/// similar (`sortKeys`, `tokenizers`) pass.
+#[test]
+fn secret_key_plurals_and_variants_refused() {
+    for key in [
+        "apiKeys",
+        "accessTokens",
+        "secretKeys",
+        "API_KEYS",
+        "client-secrets",
+        "secretKey",
+        "signingKey",
+        "authKey",
+    ] {
+        let text = format!(r#"{{"{key}":"abc"}}"#);
+        assert!(check_config_write(SETTINGS_PATH, &text).is_err(), "{key}");
+    }
+    for key in ["sortKeys", "tokenizers", "keyboards"] {
+        let text = format!(r#"{{"{key}":"abc"}}"#);
+        assert!(check_config_write(SETTINGS_PATH, &text).is_ok(), "{key}");
+    }
+}
+
+/// A secret key holding a non-string value (an array, number, object or boolean) is
+/// still a secret; only an absent or empty value is fine.
+#[test]
+fn secret_key_with_non_string_value_refused() {
+    for text in [
+        r#"{"token":["hunter2"]}"#,
+        r#"{"apiKey":12345}"#,
+        r#"{"password":{"v":"x"}}"#,
+        r#"{"cookie":true}"#,
+    ] {
+        assert!(check_config_write(SETTINGS_PATH, text).is_err(), "{text}");
+    }
+    for text in [
+        r#"{"token":null,"apiKey":""}"#,
+        r#"{"apiKeys":[],"token":{}}"#,
+    ] {
+        assert!(check_config_write(SETTINGS_PATH, text).is_ok(), "{text}");
+    }
+}
+
 const SECRET_KEYS: [&str; 8] = [
     "token",
     "apiKey",
@@ -305,6 +351,7 @@ fn arb_plain() -> impl Strategy<Value = Value> {
 }
 
 /// Puts `key: value` at a nested spot of `root`, walking down by `steps`.
+#[cfg(test)]
 fn plant(root: &mut Map<String, Value>, steps: &[usize], key: &str, value: Value) {
     let mut here = root;
     for step in steps {

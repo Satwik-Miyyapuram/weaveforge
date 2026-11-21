@@ -8,127 +8,34 @@ import assert from "node:assert/strict";
 
 import { decodeInkChunk, INK_PACK_TOLERANCE, pageFromChunk } from "@weaveforge/core";
 
-import type {
-  InkStrokeHeader,
-  InkWorkerEvent,
-  InkWorkerMessage,
-} from "../application/capture-protocol";
+import type { InkWorkerEvent, InkWorkerMessage } from "../application/capture-protocol";
 import { INK_SAMPLE_STRIDE } from "../application/capture-protocol";
 import { readyCore, typedCore } from "@/lib/rust-core";
+import {
+  appendSamples,
+  draw,
+  events,
+  frames,
+  fresh,
+  header,
+  last,
+  liveForRenderer,
+  loadInkWorker,
+  newLiveStroke,
+  nextHeader,
+  penDown,
+  penUp,
+  posted,
+  replacePredictedTail,
+  runFrames,
+  send,
+  settle,
+  stroke,
+  takeRawOverflow,
+  worker,
+} from "./ink-worker-harness";
 
-type Listener = (event: { data: InkWorkerMessage }) => void;
-
-const posted: InkWorkerEvent[] = [];
-const frames: (() => void)[] = [];
-
-/** Run queued frames, and the frames they ask for, up to `limit` rounds. */
-function runFrames(limit = 10): void {
-  for (let round = 0; round < limit && frames.length > 0; round += 1) {
-    for (const frame of frames.splice(0, frames.length)) frame();
-  }
-}
-let listener: Listener | null = null;
-let liveForRenderer: typeof import("../worker/ink-worker").liveForRenderer;
-let newLiveStroke: typeof import("../worker/ink-worker").newLiveStroke;
-let appendSamples: typeof import("../worker/ink-worker").appendSamples;
-let replacePredictedTail: typeof import("../worker/ink-worker").replacePredictedTail;
-let takeRawOverflow: typeof import("../worker/ink-worker").takeRawOverflow;
-let worker: typeof import("../worker/ink-worker");
-
-before(async () => {
-  (globalThis as { self?: unknown }).self = {
-    postMessage: (event: InkWorkerEvent) => posted.push(event),
-    addEventListener: (_type: string, fn: Listener) => {
-      listener = fn;
-    },
-    // Frames are queued, not run: a test runs them with `runFrames`.
-    requestAnimationFrame: (cb: () => void) => frames.push(cb),
-  };
-  worker = await import("../worker/ink-worker");
-  liveForRenderer = worker.liveForRenderer;
-  newLiveStroke = worker.newLiveStroke;
-  appendSamples = worker.appendSamples;
-  replacePredictedTail = worker.replacePredictedTail;
-  takeRawOverflow = worker.takeRawOverflow;
-});
-
-function send(message: InkWorkerMessage): void {
-  assert.ok(listener, "the worker registered its listener");
-  listener({ data: message });
-}
-
-function events<T extends InkWorkerEvent["type"]>(
-  type: T,
-): Extract<InkWorkerEvent, { type: T }>[] {
-  return posted.filter((event) => event.type === type) as Extract<
-    InkWorkerEvent,
-    { type: T }
-  >[];
-}
-
-function last<T extends InkWorkerEvent["type"]>(
-  type: T,
-): Extract<InkWorkerEvent, { type: T }> {
-  const all = events(type);
-  assert.ok(all.length > 0, `a ${type} event was posted`);
-  return all[all.length - 1]!;
-}
-
-/** Wait for the worker's async work (save, load) to settle. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-
-let strokeId = 0;
-const header = (tool: InkStrokeHeader["tool"] = "pen"): InkStrokeHeader => ({
-  strokeId,
-  pageIndex: 0,
-  tool,
-  width: 6,
-  colour: "text",
-});
-
-/** Send one whole stroke in a single batch. */
-function stroke(
-  samples: Float32Array,
-  count: number,
-  tool: InkStrokeHeader["tool"] = "pen",
-): void {
-  strokeId += 1;
-  const h = header(tool);
-  const empty = { buffer: new Float32Array(0), count: 0 };
-  send({ type: "stroke-begin", header: h, sample: { buffer: samples, count } });
-  send({ type: "stroke-end", header: h, sample: empty });
-}
-
-/** Draw one stroke as a straight line from (x0, y) rightwards. */
-function draw(
-  x0: number,
-  y: number,
-  count = 6,
-  tool: InkStrokeHeader["tool"] = "pen",
-): void {
-  const samples = new Float32Array(count * INK_SAMPLE_STRIDE);
-  for (let i = 0; i < count; i += 1) {
-    samples[i * INK_SAMPLE_STRIDE] = x0 + i * 30;
-    samples[i * INK_SAMPLE_STRIDE + 1] = y;
-    samples[i * INK_SAMPLE_STRIDE + 2] = 0.5;
-    samples[i * INK_SAMPLE_STRIDE + 3] = i;
-  }
-  stroke(samples, count, tool);
-}
-
-function fresh(): void {
-  posted.length = 0;
-  send({
-    type: "init",
-    canvas: null,
-    width: 400,
-    height: 600,
-    dpr: 1,
-    mode: "clone",
-    codec: "identity",
-  });
-  send({ type: "load-page", pageIndex: 0, chunk: null });
-}
+before(loadInkWorker);
 
 test("a stroke commits, is a draw step, and undo takes it back", () => {
   fresh();
@@ -489,35 +396,6 @@ test("pointInPolygon follows the even-odd rule", () => {
   assert.equal(inkPointInPolygon(15, 5, square), false);
   assert.equal(inkPointInPolygon(5, -1, square), false);
 });
-test("live stroke simplifies dense staircases so live curves match commit curves", () => {
-  fresh();
-  const count = 30;
-  const samples = new Float32Array(count * INK_SAMPLE_STRIDE);
-  for (let i = 0; i < count; i += 1) {
-    samples[i * INK_SAMPLE_STRIDE] = i * 2;
-    samples[i * INK_SAMPLE_STRIDE + 1] = Math.round(i * 1.5);
-    samples[i * INK_SAMPLE_STRIDE + 2] = 0.5;
-    samples[i * INK_SAMPLE_STRIDE + 3] = i;
-  }
-  send({
-    type: "stroke-begin",
-    header: header(),
-    sample: { buffer: samples.subarray(0, 4), count: 1 },
-  });
-  send({
-    type: "samples",
-    header: header(),
-    sample: { buffer: samples.subarray(4), count: count - 1 },
-  });
-  send({
-    type: "stroke-end",
-    header: header(),
-    sample: { buffer: new Float32Array(0), count: 0 },
-  });
-  const committed = last("stroke-committed");
-  assert.ok(committed.points.length / 2 < count, "committed stroke eliminated staircases");
-});
-
 test("the draw loop stops when idle and any message wakes it (19-05)", async () => {
   fresh();
   await settle();
@@ -543,8 +421,7 @@ test("the loop runs for a whole live stroke and idles after it (19-05)", async (
   fresh();
   await settle();
   runFrames();
-  strokeId += 1;
-  const h = header();
+  const h = nextHeader();
   const one = new Float32Array([10, 10, 0.5, 0]);
   send({ type: "stroke-begin", header: h, sample: { buffer: one, count: 1 } });
   runFrames(3);
@@ -574,8 +451,7 @@ test("transferred sample buffers still come back once the loop idled (19-05)", a
   await settle();
   runFrames();
   posted.length = 0;
-  strokeId += 1;
-  const h = header();
+  const h = nextHeader();
   send({ type: "stroke-begin", header: h, sample: { buffer: new Float32Array([10, 10, 0.5, 0]), count: 1 } });
   send({ type: "stroke-end", header: h, sample: { buffer: new Float32Array([20, 10, 0.5, 1]), count: 1 } });
   runFrames();
@@ -587,8 +463,8 @@ test("transferred sample buffers still come back once the loop idled (19-05)", a
 });
 
 test("the live stroke's real part is the stroke that will be saved, whatever the predicted tail", () => {
-  // A small wavy stroke, sampled densely: simplification here keeps few
-  // vertices, so any extra point changes which ones it keeps.
+  // A small wavy stroke, sampled densely. Freehand saves every sample,
+  // rounded to whole units, so the real part is all of them.
   const points: number[] = [];
   const pressures: number[] = [];
   for (let i = 0; i <= 120; i += 1) {
@@ -596,7 +472,7 @@ test("the live stroke's real part is the stroke that will be saved, whatever the
     points.push(100 + t * 400 + 7 * Math.cos(t * 40), 300 + 9 * Math.sin(t * 40));
     pressures.push(128);
   }
-  const saved = typedCore().packInkStroke(points, pressures, { tolerance: INK_PACK_TOLERANCE });
+  const saved = { points: points.map((v) => Math.round(v)) };
   // Two predicted samples that overshoot sideways, as a guess about a hand can.
   const stroke = newLiveStroke(header());
   appendSamples(stroke, batch(points, pressures.map((p) => p / 255)));
@@ -639,8 +515,7 @@ test("live ink only grows: drawn points never move, and lifting the pen changes 
     points.push(1000 + i * 2.5 + 6 * Math.cos(a), 1000 + 6 * Math.sin(a));
     pressures.push(0.3 + 0.4 * Math.sin((i / 140) * Math.PI));
   }
-  strokeId += 1;
-  const h = header();
+  const h = nextHeader();
   const live = newLiveStroke(h);
   const frames: number[][] = [];
   for (let at = 0; at < points.length / 2; at += 3) {
@@ -678,25 +553,9 @@ function denseWave(): { points: number[]; pressures: number[] } {
   return { points, pressures };
 }
 
-/** As `fresh`, but with the renderer named, as the page's init does. */
-function freshWith(inkRenderer: "freehand" | "classic"): void {
-  posted.length = 0;
-  send({
-    type: "init",
-    canvas: null,
-    width: 400,
-    height: 600,
-    dpr: 1,
-    mode: "clone",
-    codec: "identity",
-    inkRenderer,
-  });
-  send({ type: "load-page", pageIndex: 0, chunk: null });
-}
-
 test("freehand draws every real sample live: no simplification while the pen is down", () => {
   const { points, pressures } = denseWave();
-  const stroke = newLiveStroke(header(), true);
+  const stroke = newLiveStroke(header());
   appendSamples(stroke, batch(points, pressures.map((p) => p / 255)));
   const live = liveForRenderer(stroke);
   assert.equal(live.realCount, 241, "all 241 digitiser samples are drawn");
@@ -712,24 +571,19 @@ test("freehand draws every real sample live: no simplification while the pen is 
   );
 });
 
-test("freehand saves every real sample on lift; classic still simplifies the same stroke", () => {
+test("freehand saves every real sample on lift", () => {
   const { points, pressures } = denseWave();
   const b = batch(points, pressures.map((p) => p / 255));
 
-  freshWith("freehand");
-  stroke(b.buffer, b.count);
-  assert.equal(last("stroke-committed").points.length / 2, 241, "freehand saves all 241 samples");
-
   fresh();
   stroke(b.buffer, b.count);
-  const classic = last("stroke-committed").points.length / 2;
-  assert.ok(classic < 241, `classic packs the stroke (${classic} points kept of 241)`);
+  assert.equal(last("stroke-committed").points.length / 2, 241, "freehand saves all 241 samples");
 });
 
 test("a saved freehand stroke reloads with every sample, at the stored whole-unit precision", async () => {
   const { points, pressures } = denseWave();
   const b = batch(points, pressures.map((p) => p / 255));
-  freshWith("freehand");
+  fresh();
   stroke(b.buffer, b.count);
   const committed = last("stroke-committed").points;
   assert.equal(committed.length, points.length, "every real sample is committed");
@@ -748,23 +602,15 @@ test("a saved freehand stroke reloads with every sample, at the stored whole-uni
   );
 });
 
-test("freehand rounds the predicted tail like the real samples; classic keeps it as sampled", () => {
+test("freehand rounds the predicted tail like the real samples", () => {
   const real = batch([10.4, 20.6, 30.2, 40.7], [0.5, 0.5]);
   const tail = batch([50.6, 60.4, 70.5, 80.25], [0.5, 0.5]);
-  const freehand = newLiveStroke(header(), true);
+  const freehand = newLiveStroke(header());
   appendSamples(freehand, real);
   replacePredictedTail(freehand, tail);
   const wet = liveForRenderer(freehand);
   assert.deepEqual(Array.from(wet.x.subarray(wet.realCount)), [51, 71]);
   assert.deepEqual(Array.from(wet.y.subarray(wet.realCount)), [60, 80]);
-
-  const classic = newLiveStroke(header(), false);
-  appendSamples(classic, real);
-  replacePredictedTail(classic, tail);
-  assert.deepEqual(
-    classic.points.slice(4),
-    [50.6, 60.4, 70.5, 80.25].map((v) => Math.fround(v)),
-  );
 });
 
 test("a freehand stroke past the point cap splits; it never turns into a packed stroke", (t) => {
@@ -774,10 +620,10 @@ test("a freehand stroke past the point cap splits; it never turns into a packed 
   worker.setRawStrokeCapForTest(cap);
   t.after(() => worker.setRawStrokeCapForTest());
   const count = cap + 40;
-  // Dense and nearly straight: a packer would drop most of these.
+  // Dense and nearly straight: simplification would drop most of these.
   const points = Array.from({ length: count }, (_, i) => [10 + (i % 30) * 0.1, 10 + Math.floor(i / 30)]).flat();
   const pressures = new Array<number>(count).fill(0.5);
-  const live = newLiveStroke(header(), true);
+  const live = newLiveStroke(header());
   appendSamples(live, batch(points.slice(0, cap * 2), pressures.slice(0, cap)));
   assert.equal(takeRawOverflow(live), null, "at the cap the stroke is still whole");
   appendSamples(live, batch(points.slice(cap * 2), pressures.slice(cap)));
@@ -785,14 +631,118 @@ test("a freehand stroke past the point cap splits; it never turns into a packed 
   assert.ok(next, "past the cap the rest goes to a new stroke");
   assert.equal(live.realSamples, cap);
   assert.equal(liveForRenderer(live).realCount, cap, "the first part is drawn raw, every sample");
-  assert.equal(next.raw, true);
   assert.equal(next.realSamples, count - cap + 1, "the new stroke starts at the last kept sample");
   assert.deepEqual(next.points.slice(0, 2), live.points.slice(cap * 2 - 2, cap * 2));
-  freshWith("freehand");
+  fresh();
   const b = batch(points, pressures);
   stroke(b.buffer, b.count);
   const committed = events("stroke-committed");
   assert.equal(committed.length, 2, "one stroke of the cap, then the rest");
   assert.equal(committed[0]!.points.length / 2, cap);
   assert.equal(committed[1]!.points.length / 2, count - cap + 1);
+});
+
+/** One stroke of raw (x, y) samples at pressure 0.5, and the points the worker kept (null: none). */
+function keptStroke(pairs: readonly (readonly [number, number])[]): number[] | null {
+  fresh();
+  const b = batch(pairs.flat(), pairs.map(() => 0.5));
+  stroke(b.buffer, b.count);
+  const kept = events("stroke-committed");
+  return kept.length === 1 ? Array.from(kept[0]!.points) : null;
+}
+
+test("a single tap is kept as a dot: two points, so the renderer draws it", () => {
+  const points = keptStroke([[100, 100]]);
+  assert.ok(points && points.length >= 4, `a tap is kept, got ${JSON.stringify(points)}`);
+});
+
+test("two identical samples are kept as a dot", () => {
+  const points = keptStroke([
+    [100, 100],
+    [100, 100],
+  ]);
+  assert.ok(points && points.length >= 4, `identical samples are kept, got ${JSON.stringify(points)}`);
+});
+
+test("three samples within half a pixel are kept as a dot", () => {
+  const points = keptStroke([
+    [100, 100],
+    [100.3, 100.2],
+    [99.8, 100.4],
+  ]);
+  assert.ok(points && points.length >= 4, `a jitter dot is kept, got ${JSON.stringify(points)}`);
+});
+
+test("a 2-sample short dash is kept", () => {
+  const points = keptStroke([
+    [100, 100],
+    [106, 100],
+  ]);
+  assert.ok(points && points.length >= 4, `a short dash is kept, got ${JSON.stringify(points)}`);
+});
+
+test("a save whose encode fails answers its own request id, so the host can settle it", async () => {
+  // Breaks the deflate codec's encoder: inkChunkCodec only checks that the
+  // stream constructors exist, and the encode then throws inside savePage. The
+  // codec only runs for a body at or above the 64 KB raw threshold, so the page
+  // is filled first.
+  const globals = globalThis as {
+    CompressionStream?: unknown;
+    DecompressionStream?: unknown;
+  };
+  const savedCompression = globals.CompressionStream;
+  const savedDecompression = globals.DecompressionStream;
+  class BrokenStream {
+    constructor() {
+      throw new Error("encoder broke");
+    }
+  }
+  globals.CompressionStream = BrokenStream;
+  globals.DecompressionStream = BrokenStream;
+  try {
+    fresh("deflate-raw");
+    for (let i = 0; i < 1300; i += 1) draw(10, (i % 500) + 5);
+    send({ type: "save-page", requestId: 21 });
+    await settle();
+    const error = last("error") as InkWorkerEvent & { requestId?: number };
+    assert.equal(error.requestId, 21, "the error names the save that failed");
+    assert.equal(events("page-saved").length, 0, "a failed save posts no page-saved");
+  } finally {
+    globals.CompressionStream = savedCompression;
+    globals.DecompressionStream = savedDecompression;
+  }
+});
+
+test("a pen still down when the page changes does not land its stroke on the new page", async () => {
+  fresh();
+  const h = penDown();
+  send({ type: "load-page", pageIndex: 1, chunk: null });
+  await settle();
+  penUp(h);
+  send({ type: "save-page", requestId: 5 });
+  await settle();
+  assert.equal(last("page-saved").strokes, 0, "the old page's stroke is not on the new page");
+});
+
+test("an aborted stroke is dropped, not left drawn and then committed by a late stroke-end", async () => {
+  fresh();
+  const h = penDown();
+  await settle();
+  send({ type: "stroke-abort", header: h });
+  penUp(h);
+  send({ type: "save-page", requestId: 6 });
+  await settle();
+  assert.equal(last("page-saved").strokes, 0, "a palm-cancelled stroke is not saved");
+});
+
+test("an abort for another stroke leaves the live stroke alone", async () => {
+  fresh();
+  const h = penDown();
+  const other = { ...h, strokeId: h.strokeId + 100 };
+  await settle();
+  send({ type: "stroke-abort", header: other });
+  penUp(h);
+  send({ type: "save-page", requestId: 7 });
+  await settle();
+  assert.equal(last("page-saved").strokes, 1, "a stale abort does not drop the live stroke");
 });

@@ -46,12 +46,12 @@ fn the_index_reads_workspace_notes_and_skips_device_files() {
     fs::create_dir_all(root.join(".weaveforge/local")).unwrap();
     fs::write(
         root.join("p/a.md"),
-        "---\nid: n1\ntype: note\ntitle: A\n---\nbody [[n2]]\n",
+        "---\nweaveforge-id: n1\nweaveforge-type: note\ntitle: A\n---\nbody [[n2]]\n",
     )
     .unwrap();
     fs::write(
         root.join(".weaveforge/local/x.md"),
-        "---\nid: hidden\ntype: note\n---\n",
+        "---\nweaveforge-id: hidden\nweaveforge-type: note\n---\n",
     )
     .unwrap();
     let store = build_index(&Vault::new(root.to_path_buf()));

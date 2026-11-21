@@ -275,7 +275,7 @@ fn artifact_rows_become_files() {
     let dirs = experiment_dirs(&vault).unwrap();
     let row = json!({"id": 9, "kind": "artifacts", "experiment_id": "exp-1",
         "payload": {"experiment_id": "exp-1", "name": "model card", "url": "https://x"}});
-    let report = apply_inbox_rows(&vault, &[row.clone()], &dirs);
+    let report = apply_inbox_rows(&vault, std::slice::from_ref(&row), &dirs);
     assert_eq!(report.ack, vec![9]);
     let stored = vault
         .read_text(&format!("{EXP}/artifacts/main/a9.json"))

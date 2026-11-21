@@ -321,10 +321,11 @@ fn entry_value(key: &str, entry: &str) -> Option<Value> {
     let first = entry.lines().next().unwrap_or_default();
     let rest = first.get(key.len() + 1..).unwrap_or_default().trim();
     let one_line = entry.lines().skip(1).all(|line| line.trim().is_empty());
-    if one_line && !rest.is_empty() {
-        if let Ok(value) = serde_json::from_str(rest) {
-            return Some(value);
-        }
+    if one_line
+        && !rest.is_empty()
+        && let Ok(value) = serde_json::from_str(rest)
+    {
+        return Some(value);
     }
     read_frontmatter(&format!("---\n{entry}---\n"))
         .frontmatter

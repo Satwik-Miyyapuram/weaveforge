@@ -185,7 +185,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // at seven days, so a stored link is a link with a deadline.
   const experimentArtifactStore = new ExperimentArtifactStore(encryptedBlobStore, backend.session);
   // Ink chunks follow the page: in the folder beside the note's file
-  // (`foo.ink.md` -> `foo.ink/`) when one is open, the encrypted asset bucket
+  // (`foo.note.md` -> `foo.note.ink/`, legacy `foo.ink.md` -> `foo.ink/`) when one is open, the encrypted asset bucket
   // otherwise (§4.1). Routed per call, since a folder can be chosen or
   // forgotten while the app is running.
   const inkNotes = new FolderInkNotes(activeWorkspaceFs, {

@@ -144,9 +144,11 @@ async fn memory_save_state_needs_matching_epoch() {
     let store = MemoryStore::new();
     store.seed(&doc_row("item-1", "u1", vec![1])).await.unwrap();
 
-    // Wrong epoch (row is at 1): nothing written.
-    store.save_state("item-1", 2, &[9]).await.unwrap();
+    // Wrong epoch (row is at 1): an error, nothing written, nothing counted.
+    let err = store.save_state("item-1", 2, &[9]).await.unwrap_err();
+    assert!(err.contains("no row for item-1 at epoch 2"), "{err}");
     assert_eq!(store.doc("item-1").unwrap().state, vec![1]);
+    assert_eq!(store.saves(), 0);
 
     // Matching epoch: written and counted.
     store.save_state("item-1", 1, &[9]).await.unwrap();
@@ -296,9 +298,14 @@ async fn unparseable_grant_expiry_gives_no_access() {
 
 #[tokio::test]
 async fn pg_save_state_filters_epoch() {
+    // PostgREST answers a PATCH with `return=representation`: the changed rows
+    // as a JSON array. One matched row, then none (stale epoch).
     let up = serve(vec![(
         "/rest/v1/shared_docs",
-        vec![response(204, &[], b"")],
+        vec![
+            response(200, &[], br#"[{"item_id":"item-1"}]"#),
+            response(200, &[], b"[]"),
+        ],
     )])
     .await;
     let client = reqwest::Client::new();
@@ -306,7 +313,14 @@ async fn pg_save_state_filters_epoch() {
     let store = PgStore::new(client, data_url, "svc".to_owned());
 
     store.save_state("item-1", 4, &[1]).await.unwrap();
+    let err = store.save_state("item-1", 4, &[1]).await.unwrap_err();
+    assert!(err.contains("no row for item-1 at epoch 4"), "{err}");
 
     let seen = up.seen();
+    assert_eq!(seen.len(), 2);
     assert!(seen[0].target.contains("epoch=eq.4"));
+    assert!(seen[1].target.contains("epoch=eq.4"));
+    // The matching save sends the state (`\x01` hex) in the PATCH body.
+    let body = String::from_utf8_lossy(&seen[0].body);
+    assert!(body.contains("x01"), "{body}");
 }

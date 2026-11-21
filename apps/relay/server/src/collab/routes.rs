@@ -236,8 +236,17 @@ async fn unshare(
         .set_status(&item_id, DocStatus::Closing)
         .await
         .map_err(|error| storage_failed("unshare", &error))?;
+    // Revoke first, so a guest who reconnects (or re-checks) cannot get in during the close.
+    state
+        .store
+        .revoke_item_grants(&item_id)
+        .await
+        .map_err(|error| storage_failed("unshare", &error))?;
     let live = match state.hub.get(&item_id) {
-        Some(room) => mark_closing(&state, &room).await,
+        Some(room) => {
+            room.send(Event::Recheck);
+            mark_closing(&state, &room).await
+        }
         None => false,
     };
     if live {
@@ -250,23 +259,27 @@ async fn unshare(
 }
 
 /// The new state bytes for a restore body; a bad body is a 400.
+/// The kind decides the encoding: a feed is JSON, every other kind is a Yjs state.
 fn restore_bytes(body: &RestoreBody) -> Result<Vec<u8>, Response> {
-    match body.encoding.as_str() {
-        "json" => serde_json::to_vec(&body.state).map_err(|_| bad_request("Bad state.")),
-        "yjs-state" => {
-            let text = body
-                .state
-                .as_str()
-                .ok_or_else(|| bad_request("State must be base64."))?;
-            let bytes = STANDARD
-                .decode(text)
-                .map_err(|_| bad_request("State is not base64."))?;
-            let _: Update =
-                Update::decode_v1(&bytes).map_err(|_| bad_request("State is not a Yjs update."))?;
-            Ok(bytes)
+    if body.kind == "feed" {
+        if body.encoding != "json" {
+            return Err(bad_request("Feed state must be json."));
         }
-        _ => Err(bad_request("Unknown encoding.")),
+        return serde_json::to_vec(&body.state).map_err(|_| bad_request("Bad state."));
     }
+    if body.encoding != "yjs-state" {
+        return Err(bad_request("State must be yjs-state."));
+    }
+    let text = body
+        .state
+        .as_str()
+        .ok_or_else(|| bad_request("State must be base64."))?;
+    let bytes = STANDARD
+        .decode(text)
+        .map_err(|_| bad_request("State is not base64."))?;
+    let _: Update =
+        Update::decode_v1(&bytes).map_err(|_| bad_request("State is not a Yjs update."))?;
+    Ok(bytes)
 }
 
 /// `POST /shared-docs/{item_id}/state`: replaces the state and bumps the epoch.

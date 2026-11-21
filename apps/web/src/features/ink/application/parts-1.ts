@@ -236,8 +236,8 @@ export async function pipeThrough(
  * nothing about pages; `loadInkPages` is what turns the note's declared order
  * plus whatever chunks exist into the page list the host shows.
  *
- * Three stores answer this port: the `<name>.ink/` folder beside the note's
- * `<name>.ink.md` when a workspace folder is open, the encrypted blob bucket the vault's assets already use
+ * Three stores answer this port: the `<name>.note.ink/` folder beside the note's
+ * `<name>.note.md` (legacy `<name>.ink/` by `<name>.ink.md`) when a workspace folder is open, the encrypted blob bucket the vault's assets already use
  * otherwise, and memory for tests. The host cannot tell them apart, which is
  * the point — an ink note is an ink note whether it sits on disk or in the database.
  */
@@ -563,11 +563,13 @@ export async function requestInkPresenter(
   nav: InkNavigatorLike | null | undefined = typeof navigator === "undefined"
     ? null
     : (navigator as unknown as InkNavigatorLike),
+  /** How long to wait for the presenter (`ink.tuning.presenterTimeoutMs`). */
+  timeoutMs = 500,
 ): Promise<InkPresenterLike | null> {
   const ink = nav?.ink;
   if (!ink || typeof ink.requestPresenter !== "function") return null;
   try {
-    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 500));
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs));
     const presenter = await Promise.race([
       ink.requestPresenter({ presentationArea: area }),
       timeout,

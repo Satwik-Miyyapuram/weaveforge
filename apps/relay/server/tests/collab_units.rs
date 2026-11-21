@@ -167,27 +167,49 @@ fn update_log_torn_tail_ignored() {
 #[test]
 fn update_log_torn_tail_truncated_on_open_so_append_survives() {
     let dir = temp_dir("torn-then-append");
-    let mut log = UpdateLog::open(&dir, "doc/1").unwrap();
+    let mut log = UpdateLog::open(&dir, "doc-torn").unwrap();
     log.append(b"first").unwrap();
     drop(log);
 
     // A crash mid-write leaves a length prefix of 5 with one body byte.
     let mut raw = OpenOptions::new()
         .append(true)
-        .open(log_path(&dir, "doc/1").unwrap())
+        .open(log_path(&dir, "doc-torn").unwrap())
         .unwrap();
     raw.write_all(&[5, 0, 0, 0, 1]).unwrap();
     drop(raw);
 
     // Reopening cuts the torn bytes, so the next append is readable after a restart.
-    let mut reopened = UpdateLog::open(&dir, "doc/1").unwrap();
+    let mut reopened = UpdateLog::open(&dir, "doc-torn").unwrap();
     reopened.append(b"second").unwrap();
     drop(reopened);
 
-    let again = UpdateLog::open(&dir, "doc/1").unwrap();
+    let again = UpdateLog::open(&dir, "doc-torn").unwrap();
     assert_eq!(
         again.read_all().unwrap(),
         vec![b"first".to_vec(), b"second".to_vec()]
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn update_log_for_each_streams_records_in_order() {
+    let dir = temp_dir("for-each");
+    let mut log = UpdateLog::open(&dir, "doc-each").unwrap();
+    log.append(b"one").unwrap();
+    log.append(b"two").unwrap();
+    log.append(b"three").unwrap();
+
+    let mut seen = Vec::new();
+    log.for_each(|update| {
+        seen.push(update.to_vec());
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(seen, log.read_all().unwrap());
+    assert_eq!(
+        seen,
+        vec![b"one".to_vec(), b"two".to_vec(), b"three".to_vec()]
     );
     let _ = std::fs::remove_dir_all(&dir);
 }

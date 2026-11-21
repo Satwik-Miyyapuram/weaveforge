@@ -41,8 +41,9 @@ pub fn safe_workspace_path(path: &str) -> Result<String, UnsafePath> {
             "" | "." => {}
             ".." => return Err(refuse()),
             // Checked on every segment: `././C:` hides a drive from a check on the whole path,
-            // and on Windows joining any `C:` segment replaces the root.
-            _ if has_drive_prefix(segment) => return Err(refuse()),
+            // and on Windows joining any `C:` segment replaces the root. A colon anywhere also
+            // names an NTFS alternate stream (`note.md:hidden`), so none is allowed.
+            _ if segment.contains(':') => return Err(refuse()),
             // Windows drops trailing dots and spaces and maps device names to devices, so a
             // file written under such a name lands somewhere else, or nowhere.
             _ if is_windows_unstorable(segment) => return Err(refuse()),
@@ -79,12 +80,6 @@ fn is_windows_unstorable(segment: &str) -> bool {
         })
     };
     matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL") || numbered("COM") || numbered("LPT")
-}
-
-/// A Windows drive prefix such as `C:`; checked so `C:foo` is never treated as relative.
-fn has_drive_prefix(path: &str) -> bool {
-    let mut chars = path.chars();
-    matches!((chars.next(), chars.next()), (Some(c), Some(':')) if c.is_ascii_alphabetic())
 }
 
 #[cfg(test)]
@@ -163,6 +158,21 @@ mod tests {
     #[test]
     fn refuses_trailing_dot_or_space_in_any_segment() {
         for input in ["a.", "notes/a.md.", "notes/a ", "notes/a /x", "notes/x. /y"] {
+            assert!(safe_workspace_path(input).is_err(), "input: {input:?}");
+        }
+    }
+
+    #[test]
+    fn refuses_colon_anywhere_in_a_segment() {
+        // Windows reads `name:stream` as an NTFS alternate data stream, and `C:` as a drive.
+        for input in [
+            "note.md:hidden",
+            "a/b:c",
+            "notes/x:y/z",
+            "x:",
+            "C:foo",
+            "././C:/x",
+        ] {
             assert!(safe_workspace_path(input).is_err(), "input: {input:?}");
         }
     }

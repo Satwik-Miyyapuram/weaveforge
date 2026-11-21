@@ -31,11 +31,15 @@ before(async () => {
     serializeWorkspace(snapshot: unknown, project: typeof PROJECT): { files: Record<string, string> };
   };
   const { files } = core.serializeWorkspace({ vaultPages: [PAGE], papers: [] }, PROJECT);
-  const found = Object.entries(files).find(([, text]) => text.includes(`weaveforge-id: ${NOTE_ID}`));
+  const found = Object.entries(files).find(([, text]) => text.includes(`weaveforge-id: "${NOTE_ID}"`));
   assert.ok(found, "the mirror writes the note with its id");
   [notePath, noteFile] = found;
   setContainerForTests({
+    projects: { context: { projectId: PROJECT.id } },
     workspace: { snapshot: async () => ({ vaultPages: [PAGE], papers: [] }) },
+    // The folder diff also compares the JSON side files; this workspace has none.
+    graph: { relations: { getGraph: async () => [] }, tags: { list: async () => [] } },
+    readingLists: { allLists: async () => [], listItemsForLists: async () => [] },
   } as unknown as AppContainer);
 });
 
