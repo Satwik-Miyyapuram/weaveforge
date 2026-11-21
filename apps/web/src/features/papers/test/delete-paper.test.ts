@@ -82,3 +82,15 @@ test("images that delete cleanly log nothing", async () => {
   assert.deepEqual(removed, ["p1"]);
   assert.deepEqual(logs, []);
 });
+
+test("a failed row delete keeps the Zotero item and every image (P2-173, P2-190)", async () => {
+  const touched: string[] = [];
+  const uc = new DeletePaperUseCase({
+    bibliography: { removeRemotePaper: async (key: string) => void touched.push(key) } as never,
+    images: { remove: async (path: string) => void touched.push(path) } as never,
+    updatePaper: { remove: async () => { throw new Error("disk full"); } } as never,
+    papers: {} as never,
+  });
+  await assert.rejects(() => uc.execute(paper({ zoteroKey: "ZK1", images: ["u/p1/a.png"] })), /disk full/);
+  assert.deepEqual(touched, []);
+});

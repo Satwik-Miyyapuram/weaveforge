@@ -42,6 +42,10 @@ export class DeletePaperUseCase {
   ) {}
 
   async execute(paper: Paper): Promise<void> {
+    // The row goes first: if it cannot be removed, the Zotero item and the
+    // images must still be there. Cleanup after it is best effort, since an
+    // orphaned image costs only storage (P2-173).
+    await this.deps.updatePaper.remove(paper.id);
     const zoteroKey = paper.metadata?.zoteroKey as string | undefined;
     if (zoteroKey) {
       try {
@@ -75,7 +79,6 @@ export class DeletePaperUseCase {
         }
       }),
     );
-    await this.deps.updatePaper.remove(paper.id);
   }
 }
 
