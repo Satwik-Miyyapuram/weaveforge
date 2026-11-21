@@ -286,9 +286,12 @@ fn migrated_copy_keeps_its_kind_suffix() {
         migrated_copy_path("papers/Title.paper.md"),
         "papers/Title.migrated-0.9.4.paper.md"
     );
+    // The annotations file the runtime writes for papers/Title.paper.md.
+    let annotations = annotations_path("papers/Title.paper.md");
+    assert_eq!(annotations, "papers/Title.annotations.json");
     assert_eq!(
-        migrated_copy_path("papers/Title.paper.annotations.json"),
-        "papers/Title.paper.migrated-0.9.4.annotations.json"
+        migrated_copy_path(&annotations),
+        "papers/Title.migrated-0.9.4.annotations.json"
     );
     assert_eq!(
         migrated_copy_path("notes/plain.md"),
