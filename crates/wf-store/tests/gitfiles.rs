@@ -64,3 +64,25 @@ fn gitfiles_no_trailing_newline() {
         format!("a\n{}", block(GITIGNORE_LINES))
     );
 }
+
+/// A link named `.gitignore`, when this machine lets the test make one.
+fn link_file(target: &std::path::Path, link: &std::path::Path) -> bool {
+    #[cfg(unix)]
+    return std::os::unix::fs::symlink(target, link).is_ok();
+    #[cfg(windows)]
+    return std::os::windows::fs::symlink_file(target, link).is_ok();
+}
+
+#[test]
+fn f97_p2_9_gitfiles_never_write_through_a_link() {
+    let dir = TempDir::new();
+    let outside = TempDir::new();
+    let target = outside.path().join("victim.txt");
+    fs::write(&target, "keep\n").unwrap();
+    if !link_file(&target, &dir.path().join(".gitignore")) {
+        eprintln!("skipped: this machine cannot make a file link");
+        return;
+    }
+    assert!(ensure_gitfiles(dir.path()).is_err());
+    assert_eq!(fs::read_to_string(&target).unwrap(), "keep\n");
+}
