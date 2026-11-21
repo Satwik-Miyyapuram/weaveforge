@@ -89,7 +89,8 @@ async function expandZip(file: File): Promise<File[]> {
   for (const [path, data] of Object.entries(entries)) {
     if (path.endsWith("/")) continue;
     const name = path.split("/").pop() ?? path;
-    const blob = new Blob([data]);
+    // unzip hands back plain ArrayBuffer-backed arrays; the lib type says ArrayBufferLike.
+    const blob = new Blob([data as Uint8Array<ArrayBuffer>]);
     const f = new File([blob], name);
     Object.defineProperty(f, "webkitRelativePath", { value: path });
     out.push(f);
