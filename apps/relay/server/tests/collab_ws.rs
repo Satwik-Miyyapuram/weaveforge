@@ -682,6 +682,51 @@ async fn save_at_stale_epoch_is_an_error() {
     assert_eq!(store.doc(ITEM).expect("doc row").state, before);
 }
 
+/// A room opened from a row read before a restore saves at the old epoch, which can never land.
+/// The save must retire it (rejoin at the new epoch, log gone) instead of failing forever.
+#[tokio::test]
+async fn room_opened_at_a_stale_epoch_is_retired_on_save() {
+    let dir = TempDir::new("stale-open");
+    let mem = Arc::new(MemoryStore::new());
+    seed(&mem, ITEM, text_update("v1")).await;
+    let state = build_state(
+        dir.path(),
+        mem.clone(),
+        Duration::from_secs(3600),
+        GRANT_CHECK_IDLE,
+        Arc::new(AtomicI64::new(START_MS)),
+    );
+    let old_row = mem.load(ITEM).await.expect("load").expect("row");
+    let new_epoch = hub::restore(&state, ITEM, "canvas", &text_update("restored"))
+        .await
+        .expect("restore");
+    let room = hub::open_room(&state, old_row).await.expect("open room");
+    let mut rx = room.tx.subscribe();
+    {
+        let mut inner = room.inner.lock().await;
+        inner.log.append(&map_update("lost", "x")).expect("append");
+        inner.dirty = true;
+    }
+
+    hub::persist_all(&state).await;
+
+    assert!(
+        state.hub.get(ITEM).is_none(),
+        "the stale room is still open"
+    );
+    match rx.try_recv() {
+        Ok(hub::Event::Close(text)) => {
+            let value: Value = serde_json::from_str(&text).expect("json");
+            assert_eq!(value["type"], "rejoin");
+            assert_eq!(value["epoch"], new_epoch);
+        }
+        other => panic!("clients were not told to rejoin: {other:?}"),
+    }
+    let log = log_path(dir.path(), ITEM).expect("log path");
+    let logged = std::fs::metadata(&log).map_or(0, |meta| meta.len());
+    assert_eq!(logged, 0, "the stale room's log was kept");
+}
+
 /// Appends `value` as a lib0 varuint.
 fn varuint(mut value: usize, out: &mut Vec<u8>) {
     loop {

@@ -183,11 +183,11 @@ impl Hub {
     }
 
     /// Removes the hub entry only if it is still `room` (not a newer room for the item).
-    pub fn remove_if_same(&self, room: &Arc<Room>) {
+    pub fn remove_if_same(&self, room: &Room) {
         let mut map = self.map();
         if map
             .get(&room.item_id)
-            .is_some_and(|open| Arc::ptr_eq(open, room))
+            .is_some_and(|open| std::ptr::eq(&**open, room))
         {
             let _ = map.remove(&room.item_id);
         }
@@ -279,7 +279,16 @@ pub async fn persist_room(state: &CollabState, room: &Room) -> Result<(), String
         (encode_full(&inner.doc), inner.epoch, inner.version)
     };
     // The room lock is released during the store write, so clients keep sending updates.
-    state.store.save_state(&room.item_id, epoch, &bytes).await?;
+    if let Err(err) = state.store.save_state(&room.item_id, epoch, &bytes).await {
+        // A room opened from a row read before a restore can never save: retire it so its
+        // clients rejoin at the row's epoch, instead of editing a doc that is never kept.
+        if let Ok(Some(row)) = state.store.load(&room.item_id).await
+            && row.epoch != epoch
+        {
+            retire(state, room, row.epoch).await?;
+        }
+        return Err(err);
+    }
     let mut inner = room.inner.lock().await;
     // Updates that arrived during the save are not in `bytes`: keep their log and the dirty flag.
     if inner.version != version {
@@ -419,18 +428,23 @@ pub async fn restore(
 ) -> Result<i64, String> {
     let new_epoch = state.store.replace_state(item_id, kind, bytes).await?;
     if let Some(room) = state.hub.get(item_id) {
-        // One critical section: an update applied after it sees `retired` and is refused, so
-        // nothing reaches the log the next room replays.
-        let cleared = {
-            let mut inner = room.inner.lock().await;
-            let cleared = inner.log.truncate().map_err(|err| err.to_string());
-            inner.dirty = false;
-            inner.retired = true;
-            state.hub.remove_if_same(&room);
-            cleared
-        };
-        room.send(Event::Close(rejoin_json(new_epoch)));
-        cleared?;
+        retire(state, &room, new_epoch).await?;
     }
     Ok(new_epoch)
+}
+
+/// Ends `room` for a newer `epoch`: empties its log, drops it from the hub and tells its clients
+/// to rejoin. One critical section: an update applied after it sees `retired` and is refused, so
+/// nothing reaches the log the next room replays.
+async fn retire(state: &CollabState, room: &Room, epoch: i64) -> Result<(), String> {
+    let cleared = {
+        let mut inner = room.inner.lock().await;
+        let cleared = inner.log.truncate().map_err(|err| err.to_string());
+        inner.dirty = false;
+        inner.retired = true;
+        state.hub.remove_if_same(room);
+        cleared
+    };
+    room.send(Event::Close(rejoin_json(epoch)));
+    cleared
 }
