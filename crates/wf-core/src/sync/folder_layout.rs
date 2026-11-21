@@ -314,6 +314,22 @@ impl<'a> TreeLayout<'a> {
             let _ = used.insert(slug.clone());
             let _ = slug_of.insert(node.id.as_str(), slug);
         }
+        // A child whose slug equals its folder-note parent's slug would land
+        // on the parent's file. Give the child an id suffix.
+        let clashes: Vec<&str> = nodes
+            .iter()
+            .filter(|n| {
+                parent_of(n)
+                    .filter(|p| *p != n.id)
+                    .and_then(|p| slug_of.get(p))
+                    == slug_of.get(n.id.as_str())
+            })
+            .map(|n| n.id.as_str())
+            .collect();
+        for id in clashes {
+            let slug = format!("{}--{}", slug_of[id], id_suffix(id));
+            let _ = slug_of.insert(id, slug);
+        }
         Self {
             root,
             by_id,
