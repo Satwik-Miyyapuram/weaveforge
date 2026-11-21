@@ -31,7 +31,7 @@ Both talk to the **same Postgres schema** (`db/migrations/`; the folder keeps it
 - **Report + vault** — nested report sections with progress; Obsidian-style vault pages for long-form notes.
 - **Your notes as files** — mirror the workspace to a folder of plain Markdown that opens as an Obsidian vault, edit it out there, and pull the changes back with a diff shown first ([`docs/using/workspace-folder.md`](docs/using/workspace-folder.md)).
 - **Collaboration** — share papers, experiments, sections, vault notes, or whole types with labmates; **pin shared items into your library**; comment threads and **co-editing** where granted.
-- **Privacy model** — data stored server-side with encryption at rest; Postgres RLS is the access boundary (owner-or-shared); external **view links** (`/link?t=…`) with optional expiry. Not end-to-end encrypted.
+- **Privacy model** — your workspace is plain files on your disk; WeaveForge adds no encryption at rest of its own. For what the server keeps, Postgres RLS is the access boundary (owner-or-shared); external **view links** (`/link?t=…`) with optional expiry. Not end-to-end encrypted.
 - **Labs without IT** — professors create a lab and share three invite codes (professor / PhD / masters); join with a code or run **standalone**.
 
 Built **TDD + SOLID**: framework-agnostic core (`@weaveforge/core`), repository contracts with shared test suites, feature facades for the UI, env-driven integrations (Zotero, GitHub, GitLab, Mattermost, Semantic Scholar).

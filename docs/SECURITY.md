@@ -10,9 +10,10 @@ session, and the Python SDK uses
 Please treat credential handling and access-control (RLS) issues as
 security-sensitive.
 
-> **Note:** client-side E2EE has been dropped. Data is now stored server-side
-> with encryption at rest, and **Postgres Row-Level Security is the sole access
-> boundary**. This is not end-to-end / zero-knowledge — an operator with database
+> **Note:** client-side E2EE has been dropped, and WeaveForge adds no encryption
+> at rest of its own (workspace files rely on your disk encryption, the server
+> on its host's volume encryption). **Postgres Row-Level Security is the sole
+> access boundary** for what the server keeps. This is not end-to-end / zero-knowledge — an operator with database
 > access can technically read content. See the root [`SECURITY.md`](../SECURITY.md)
 > "Data protection model" section.
 
@@ -145,8 +146,8 @@ a proposal somebody has to read.
 
 ## Self-host operators
 
-Content is stored server-side with the database's encryption at rest; there is
-no client-side encryption to audit. Access is enforced entirely by RLS — when
+Postgres does not encrypt what it stores; encrypt the volume it lives on if you
+need data encrypted at rest. There is no client-side encryption to audit. Access is enforced entirely by RLS — when
 self-hosting, verify every entity table's policies resolve to owner-or-shared
 before exposing the instance, and keep storage buckets private (the migrations
 set them private by default).
