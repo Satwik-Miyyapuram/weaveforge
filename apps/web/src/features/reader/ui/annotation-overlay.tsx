@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useRef, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, type ReactNode } from "react";
 import {
   type FigureGeometry,
   type FigureOrderStep,
@@ -335,6 +335,20 @@ export function TextBoxEditor({
     if (el.value.trim() === "") return onCancel();
     onCommit(el.value, upright ? grownTextRect(edit.rect, el.scrollHeight / projection.scale) : edit.rect);
   };
+  // React fires no blur when the box unmounts (page change, reader closed), so
+  // words typed since the last save are saved here (P2-168). Untouched text is
+  // left alone: nothing is lost, and a dev double-mount must not close the box.
+  const typed = useRef<{ value: string; scrollHeight: number } | null>(null);
+  const finishRef = useRef(finish);
+  finishRef.current = finish;
+  const initialText = useRef(edit.text);
+  useEffect(
+    () => () => {
+      const last = typed.current;
+      if (last && last.value !== initialText.current) finishRef.current(last);
+    },
+    [],
+  );
   return (
     <textarea
       className="pdf-reader-text-edit"
@@ -348,6 +362,7 @@ export function TextBoxEditor({
       onPointerUp={(event) => event.stopPropagation()}
       onInput={(event) => {
         const el = event.currentTarget;
+        typed.current = { value: el.value, scrollHeight: el.scrollHeight };
         if (upright) el.style.height = `${Math.max(box.height, el.scrollHeight)}px`;
       }}
       onBlur={(event) => finish(event.currentTarget)}
