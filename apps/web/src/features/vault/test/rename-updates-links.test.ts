@@ -135,6 +135,17 @@ test("the rewrite starts from the note as saved now and is version-guarded", asy
   assert.deepEqual(inputs.at(-1), { body: "[[Renamed]] and an edit saved since", baseBody: "[[Two]] and an edit saved since" });
 });
 
+test("only notes that mention the old title, in any case or spacing, are read again", async () => {
+  const { rows, reads, repo } = memoryPages([
+    page("one", "One", "[[Other]] only"),
+    page("three", "Three", "see [[old   TITLE]]"),
+    page("two", "Old Title", "Body"),
+  ]);
+  await repo.update("two", { title: "Renamed" });
+  assert.deepEqual(reads, ["two", "three"]);
+  assert.equal(rows.get("three")!.body, "see [[Renamed]]");
+});
+
 test("the app's note writes are the link-rewriting ones", () => {
   const src = readFileSync(fileURLToPath(new URL("../../../create-app-container.ts", import.meta.url)), "utf8");
   assert.match(src, /const manageVaultPage = withRenameLinkRewrite\(vaultPageRepository\)/);

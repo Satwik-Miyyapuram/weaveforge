@@ -37,7 +37,9 @@ export function withRenameLinkRewrite<T extends VaultPages>(pages: T): T {
     const renames = new Map([[oldKey, saved.title]]);
     const failed: string[] = [];
     for (const page of all) {
-      if (page.id === id || !page.body.includes("[[")) continue;
+      // Only a note whose text holds the old title (case and spacing folded
+      // as link lookup folds them) can link to it.
+      if (page.id === id || !core.normalizeTitleKey(page.body).includes(oldKey)) continue;
       try {
         // Re-read right before the write, and send what was read as baseBody:
         // the repo then merges (or keeps a conflict copy of) anything saved in
