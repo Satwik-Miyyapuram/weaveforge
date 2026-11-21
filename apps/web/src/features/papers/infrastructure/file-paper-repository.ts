@@ -227,7 +227,10 @@ export class FilePaperRepository implements IPaperRepository {
     return (await this.scan()).reads;
   }
 
-  /** Every `.paper.md` under `<project>/papers/`, in walk order: read, or why not. */
+  /**
+   * Every `.paper.md` under `<project>/papers/`, in walk order: read, or why not.
+   * A file that cannot be read is a failure too, so it never empties the list.
+   */
   private async scan(): Promise<{ reads: PaperFileRead[]; failures: PaperFileFailure[] }> {
     const core = typedCore();
     const dir = core.entityDir("paper", this.projectRoot);
@@ -236,8 +239,8 @@ export class FilePaperRepository implements IPaperRepository {
     if (!(await this.fs.stat(dir))) return { reads, failures };
     for await (const entry of this.fs.walk(dir)) {
       if (!entry.path.endsWith(PAPER_SUFFIX)) continue;
-      const text = await this.fs.readText(entry.path);
       try {
+        const text = await this.fs.readText(entry.path);
         reads.push({ path: entry.path, text, paper: fromRow(core.paperRowFromFile(text), entry.path) });
       } catch (error) {
         failures.push({ path: entry.path, error: error instanceof Error ? error.message : String(error) });

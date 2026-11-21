@@ -219,6 +219,24 @@ test("failures() names each file that is not a paper; list still skips it", asyn
   assert.equal((await repo.list()).length, 1);
 });
 
+test("one unreadable file in a folder of 3: list keeps the other 2, failures() reports it", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ id: "p-1", title: "One" }));
+  await repo.save(paper({ id: "p-2", title: "Two" }));
+  await repo.save(paper({ id: "p-3", title: "Three" }));
+  const bad = (await repo.list()).find((p) => p.id === "p-2")!;
+  const badPath = await repo.pathOf(bad.id);
+  const readText = fs.readText.bind(fs);
+  fs.readText = async (path: string) => {
+    if (path === badPath) throw new Error("EACCES: permission denied");
+    return readText(path);
+  };
+  assert.deepEqual((await repo.list()).map((p) => p.id).sort(), ["p-1", "p-3"]);
+  const failures = await repo.failures();
+  assert.deepEqual(failures.map((f) => f.path), [badPath]);
+  assert.match(failures[0]!.error, /EACCES/);
+});
+
 test("a CRLF file stays CRLF after setTags", async () => {
   const { fs, repo } = setup();
   await repo.save(paper());
