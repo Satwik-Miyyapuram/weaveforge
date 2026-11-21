@@ -15,7 +15,7 @@ import {
   type NewExperimentInput,
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
-import { FileEntityStore, type ProjectRoot } from "./file-entity-store";
+import { FileEntityStore, moveToTrash, type ProjectRoot } from "./file-entity-store";
 
 /** `patch` semantics: a key present with `undefined` clears the field. */
 function applyPatch(current: Experiment, fields: ExperimentPatch): Experiment {
@@ -30,7 +30,10 @@ function applyPatch(current: Experiment, fields: ExperimentPatch): Experiment {
 export class FileExperimentRepository implements IExperimentRepository, IExperimentManager {
   private readonly store: FileEntityStore<Experiment>;
 
-  constructor(fs: IWorkspaceFs, root: ProjectRoot) {
+  constructor(
+    private readonly fs: IWorkspaceFs,
+    root: ProjectRoot,
+  ) {
     this.store = new FileEntityStore<Experiment>(fs, root, "experiment");
   }
 
@@ -55,7 +58,7 @@ export class FileExperimentRepository implements IExperimentRepository, IExperim
   }
 
   delete(id: string): Promise<void> {
-    return this.store.delete(id);
+    return this.remove(id);
   }
 
   async patch(id: string, fields: ExperimentPatch): Promise<void> {
@@ -106,8 +109,15 @@ export class FileExperimentRepository implements IExperimentRepository, IExperim
     return this.update(id, (current) => applyPatch(current, { resultNote: trimmed || undefined }));
   }
 
-  remove(id: string): Promise<void> {
-    return this.store.delete(id);
+  /** Trashes the file and the folder beside it (`metrics/`), file by file, so nothing is unlinked. */
+  async remove(id: string): Promise<void> {
+    const found = await this.store.find(id);
+    if (!found) return;
+    const folder = found.path.replace(/\.md$/, "");
+    const inside: string[] = [];
+    if (await this.fs.stat(folder)) for await (const e of this.fs.walk(folder)) if (e.kind === "file") inside.push(e.path);
+    await moveToTrash(this.fs, found.path);
+    for (const path of inside) await moveToTrash(this.fs, path);
   }
 
   private async update(id: string, change: (current: Experiment) => Experiment): Promise<Experiment> {

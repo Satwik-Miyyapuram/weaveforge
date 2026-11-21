@@ -117,3 +117,24 @@ test("remove and delete move the file to the trash", async () => {
     if (entry.kind === "file") assert.ok(entry.path.startsWith(".weaveforge/trash/"), entry.path);
   }
 });
+
+test("delete moves the experiment's metrics folder to the trash with it", async () => {
+  const { fs, repo } = setup();
+  const a = run({ name: "Run A" });
+  const other = run({ name: "Run B" });
+  await repo.save(a);
+  await repo.save(other);
+  const paths: string[] = [];
+  for await (const e of fs.walk("thesis")) if (e.kind === "file") paths.push(e.path);
+  const fileOf = (slug: string) => paths.find((p) => p.includes(`/${slug}`))!;
+  const chunk = `${fileOf("run-a").replace(/\.md$/, "")}/metrics/main/b1.csv`;
+  const kept = `${fileOf("run-b").replace(/\.md$/, "")}/metrics/main/b1.csv`;
+  await fs.writeFile(chunk, "run,step,metric,value\nmain,0,loss,1\n");
+  await fs.writeFile(kept, "run,step,metric,value\nmain,0,loss,2\n");
+  await repo.delete(a.id);
+  const left: string[] = [];
+  for await (const e of fs.walk("")) if (e.kind === "file") left.push(e.path);
+  assert.ok(!left.includes(chunk), "the chunk left its folder");
+  assert.ok(left.some((p) => p.startsWith(".weaveforge/trash/") && p.endsWith(chunk)), left.join("\n"));
+  assert.ok(left.includes(kept), "another experiment's metrics stay");
+});
