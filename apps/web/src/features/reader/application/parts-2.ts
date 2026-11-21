@@ -321,7 +321,7 @@ export class ReferenceLookupService {
     const hit = this.memory.get(key);
     if (hit && core.isReferenceCacheEntryFresh(hit.at, this.now())) return Promise.resolve(hit.value);
     return (async () => {
-      const cached = await this.cache?.get(key);
+      const cached = await this.readCache(key);
       if (cached) {
         // Whether the paper is in the library is a fact about this workspace,
         // not the reference, so it is re-read rather than trusted from disk.
@@ -335,9 +335,23 @@ export class ReferenceLookupService {
       this.memory.set(key, { at: this.now(), value });
       // Only a hit is kept across sessions: a miss may be a dropped
       // connection, or an entry a later parser reads better.
-      if (core.shouldStoreReferenceLookup(value.status)) void this.cache?.set(key, value);
+      if (core.shouldStoreReferenceLookup(value.status)) this.writeCache(key, value);
       return value;
     })();
+  }
+
+  /** The disk cache is an aid: a failed read is a miss (P2-169). */
+  private async readCache(key: string): Promise<ResolvedReference | undefined> {
+    try {
+      return await this.cache?.get(key);
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** And a failed write costs only the next session a lookup (P2-169). */
+  private writeCache(key: string, value: ResolvedReference): void {
+    void (async () => this.cache?.set(key, value))().catch(() => undefined);
   }
 
   private async lookup(ref: ParsedReference): Promise<ResolvedReference> {

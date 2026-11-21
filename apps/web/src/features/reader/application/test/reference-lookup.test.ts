@@ -169,3 +169,26 @@ test("a library lookup that throws keeps the resolution and does not re-resolve 
   assert.equal(out.status === "resolved" && out.inLibrary, undefined);
   assert.equal(resolves, 1, "the second form is not tried for a library failure");
 });
+
+test("a disk cache that fails to read or write is a miss, never a failure (P2-169)", async () => {
+  const unhandled: unknown[] = [];
+  const onUnhandled = (err: unknown) => { unhandled.push(err); };
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    const cache: ReferenceLookupCache = {
+      get: () => { throw new Error("idb read failed"); },
+      set: async () => { throw new Error("idb write failed"); },
+    };
+    const service = new ReferenceLookupService(
+      { resolveWithSource: async () => ({ metadata: paper({ title: "T" }), sourceId: "fake" }) },
+      new InMemoryPaperRepository(),
+      cache,
+    );
+    const out = await service.resolve("p1", ref({ title: "T" }));
+    assert.equal(out.status, "resolved");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.deepEqual(unhandled, []);
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
+});
