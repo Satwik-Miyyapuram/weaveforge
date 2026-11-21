@@ -131,9 +131,16 @@ export function PaperNote({
   useEffect(() => {
     let cancelled = false;
     setTrackingCitations(null);
-    void getContainer().papers.isCitationTracking(paper.id).then((enabled) => {
-      if (!cancelled) setTrackingCitations(enabled);
-    });
+    getContainer()
+      .papers.isCitationTracking(paper.id)
+      .then((enabled) => {
+        if (!cancelled) setTrackingCitations(enabled);
+      })
+      .catch((err: unknown) => {
+        // Read as "not watching", so Watch is not stuck disabled (P2-191).
+        logToApp({ level: "warn", source: "papers", message: "Could not check citation tracking", detail: describeRejection(err) });
+        if (!cancelled) setTrackingCitations(false);
+      });
     return () => {
       cancelled = true;
     };

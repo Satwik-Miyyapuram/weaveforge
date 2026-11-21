@@ -92,3 +92,36 @@ test("a refused reading-status save shows its error and rejects nothing (P2-192)
     process.off("unhandledRejection", onUnhandled);
   }
 });
+
+test("a failed citation-tracking check leaves Watch usable and rejects nothing (P2-191)", async () => {
+  const unhandled: unknown[] = [];
+  const onUnhandled = (err: unknown) => { unhandled.push(err); };
+  process.on("unhandledRejection", onUnhandled);
+  setContainerForTests(stub({
+    papers: {
+      loadScreenData: async () => null,
+      isCitationTracking: async () => { throw new Error("tracking check failed"); },
+    },
+    vault: { loadScreenData: async () => null },
+    report: { loadScreenData: async () => null },
+  }) as never);
+  const router = { push: () => undefined, replace: () => undefined, back: () => undefined, forward: () => undefined, refresh: () => undefined, prefetch: () => undefined };
+  const auth = { user: null, loading: false, expired: false, sessionEpoch: 0, signOut: async () => {}, updatePassword: async () => {} } as never;
+  let r!: ReactTestRenderer;
+  try {
+    await act(async () => {
+      const note = createElement(PaperNote, { paper: { ...PAPER, doi: "10.1/x" } as Paper, readOnly: false, onBack: () => undefined, onReplace: () => undefined, onChanged: () => undefined });
+      const project = { projectId: "p1", projects: [], current: null, loading: false, setProject: () => undefined, refresh: async () => [] } as never;
+      r = create(createElement(AppRouterContext.Provider, { value: router as never }, createElement(AuthContext.Provider, { value: auth }, createElement(ProfileProvider, null, createElement(ProjectContext.Provider, { value: project }, note)))));
+    });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
+    const watch = r.root.findAll((n) => n.type === "button" && n.props.title === "Track new citations");
+    assert.equal(watch.length, 1, "no Watch button");
+    assert.equal(watch[0]!.props.disabled, false, "Watch stayed disabled after the check failed");
+    assert.deepEqual(unhandled, []);
+  } finally {
+    act(() => r?.unmount());
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    process.off("unhandledRejection", onUnhandled);
+  }
+});
