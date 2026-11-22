@@ -11,7 +11,7 @@
 | `python/weaveforge` | 3,403 lines | The SDK training scripts import |
 | `python/tests` | 2,304 lines | Its tests |
 | `db/migrations` | 160 files | The schema, as an ordered sequence |
-| `docs` | 219 files | Documentation, this page included |
+| `docs` | 220 files | Documentation, this page included |
 
 **297,069 lines of code in all**, across 2,341 source files.
 

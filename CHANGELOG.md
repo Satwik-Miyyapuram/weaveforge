@@ -21,6 +21,10 @@ tracks at once.
 - **Added:** Settings shows which repository the workspace backs up to, with a link to it.
 - **Fixed:** The privacy notice now says where your data really goes: on your device and in your workspace folder, on GitHub when GitHub sync is on, and on the server only without GitHub sync or when you share. It no longer claims encryption WeaveForge does not do, and says that the text of a PDF you opened can reach the AI when papers are an allowed source.
 
+### Web
+- **Changed:** The "Export from 0.9.7 first." gate applies only to an account with old server data and no 0.9.7 export. New accounts are never gated. See [Upgrading to 0.9.8](docs/using/upgrading-to-098.md).
+- **Changed:** Offline sync is removed; notes are files in the workspace folder. Keys stay sealed: server-held credentials stay encrypted.
+
 ### Python SDK
 - **Added:** The SDK reads the token file the desktop app's Connect panel writes under `~/.weaveforge`, so it reaches the local API without a pasted token.
 
