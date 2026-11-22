@@ -66,3 +66,33 @@ test("unavailable desktop stays read-only and writes nothing", async () => {
   );
   assert.equal(files.size, 0, "no file was written");
 });
+
+test("with the overlay on, a settings write lands in the file repo and PostgREST sees no write", async () => {
+  const { bridge } = memoryVault();
+  const sets: string[] = [];
+  const recorded = {
+    get: () => undefined,
+    set: (path: string[]) => {
+      sets.push(path.join("."));
+    },
+  } as never;
+  const backend = wireBackend(config, { projectId: null }, () => null, {
+    migration: "verified",
+    onDesktop: true,
+    wireDesktopFileBackend: wireDesktopFileBackend(bridge, recorded),
+  });
+  const dbCalls: string[] = [];
+  const realFrom = backend.db.from.bind(backend.db);
+  backend.db.from = (table: string) => {
+    dbCalls.push(`from ${table}`);
+    return realFrom(table);
+  };
+  const realRpc = backend.db.rpc.bind(backend.db);
+  backend.db.rpc = (name: string, args?: object) => {
+    dbCalls.push(`rpc ${name}`);
+    return realRpc(name, args);
+  };
+  await backend.manageSettings.save({ disclaimerAcceptedAt: "2026-11-22T00:00:00.000Z" });
+  assert.ok(sets.length > 0, "the settings write reached the file repository");
+  assert.deepEqual(dbCalls, [], "no PostgREST call for the settings write");
+});

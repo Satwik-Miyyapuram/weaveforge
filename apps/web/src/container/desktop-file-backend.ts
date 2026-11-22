@@ -1,11 +1,28 @@
+import { ManageSettingsUseCase } from "@weaveforge/core";
 import type { BackendConfig } from "@/backend/parts";
-import { secretsStoreFor } from "@/backend/providers/secrets-store";
 import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
 import type { SettingsSection } from "@/backend/providers/files/file-tag-repo";
+import type { Secrets, SecretsStore } from "@/features/settings/infrastructure/parts";
 import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { DesktopWorkspaceFs, type VaultFileBridge } from "@/features/workspace/infrastructure/parts";
+import { systemClock } from "@/lib/parts";
 import type { WiredBackend } from "./parts";
 import { overlayFileRepositories } from "./with-file-repositories";
+
+/**
+ * Integration credentials for the desktop window, held in memory for this
+ * session only. Never the database: the desktop must not write secrets to one.
+ * TODO(KEYS): the OS keychain store replaces this and survives restarts.
+ */
+class SessionSecretsStore implements SecretsStore {
+  private current: Secrets = {};
+  async load(): Promise<Secrets> {
+    return this.current;
+  }
+  async save(secrets: Secrets): Promise<void> {
+    this.current = secrets;
+  }
+}
 
 /**
  * The desktop's personal-data backend for 0.9.7: the PostgREST backend with its
@@ -25,8 +42,12 @@ export function wireDesktopFileBackend(
     const files = wireFileBackend({
       fs: new DesktopWorkspaceFs(bridge),
       settings,
-      secrets: secretsStoreFor(postgrest.db),
+      secrets: new SessionSecretsStore(),
     });
-    return overlayFileRepositories(postgrest, files);
+    // Settings writes must reach the folder: the use case is rebuilt over the file repository.
+    return {
+      ...overlayFileRepositories(postgrest, files),
+      manageSettings: new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock }),
+    };
   };
 }
