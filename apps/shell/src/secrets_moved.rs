@@ -113,26 +113,24 @@ pub fn move_into_keychain(
     let fields = row_fields(rows)?;
     match index_source(secrets)? {
         IndexSource::Save => {
-            // The saved values win: a field already in the keychain is kept, and only the old fields
-            // it lacks are written. The index stays `save` and lists the union of keys.
+            // The save index is the truth: a key it does not list was deleted by the user and stays
+            // deleted. Only a listed key whose entry is missing gets its old value back.
+            let listed = listed_keys(secrets)?;
+            let mut restore = Vec::new();
             for (key, text) in &fields {
-                if secrets.read(&field_name(key))?.is_none() {
-                    secrets.write(&field_name(key), text)?;
+                if listed.contains(key) && secrets.read(&field_name(key))?.is_none() {
+                    restore.push((key.clone(), text.clone()));
                 }
             }
-            let mut keys = listed_keys(secrets)?;
-            for (key, _) in &fields {
-                if !keys.contains(key) {
-                    keys.push(key.clone());
-                }
-            }
-            write_index(secrets, "save", &keys)?;
+            store_fields(secrets, &restore)?;
             return marker();
         }
         IndexSource::Move | IndexSource::Absent => {}
     }
-    store_fields(secrets, &fields)?;
+    // An empty row (no rows at all) still writes an empty move index, so the move is recorded.
     let keys: Vec<String> = fields.iter().map(|(key, _)| key.clone()).collect();
+    check_index_fits(&keys)?;
+    store_fields(secrets, &fields)?;
     write_index(secrets, "move", &keys)?;
     marker()
 }
@@ -273,6 +271,15 @@ fn store_fields(secrets: &Secrets, fields: &[(String, String)]) -> Result<(), Se
     Ok(())
 }
 
+/// The index body the move writes for `keys`. Checked against the cap before any field is stored.
+fn check_index_fits(keys: &[String]) -> Result<(), SecretError> {
+    let body = serde_json::json!({ "source": "move", "keys": keys }).to_string();
+    if body.encode_utf16().count() * 2 > FIELD_LIMIT {
+        return Err(SecretError::TooLong);
+    }
+    Ok(())
+}
+
 /// Writes the index: its `source` (`move` or `save`) and the keys it lists.
 fn write_index(secrets: &Secrets, source: &str, keys: &[String]) -> Result<(), SecretError> {
     let body = serde_json::json!({ "source": source, "keys": keys }).to_string();
@@ -324,7 +331,12 @@ pub fn record_secrets_moved(folder: &Path, device: &str, count: usize) -> io::Re
         "deviceId": device,
     }))
     .map_err(io::Error::other)?;
-    write_atomic(&marker_path(folder, device), &body)
+    let path = marker_path(folder, device);
+    // One retry on AlreadyExists: `write_atomic` clears a leftover `.part` before it retries.
+    match write_atomic(&path, &body) {
+        Err(err) if err.kind() == io::ErrorKind::AlreadyExists => write_atomic(&path, &body),
+        other => other,
+    }
 }
 
 /// Writes `body` to `path` through `<path>.part`, synced before the rename. A leftover `.part` from
@@ -740,11 +752,33 @@ mod tests {
     }
 
     #[test]
-    fn a_save_keeps_the_saved_value_and_merges_the_old_fields_it_lacks() {
-        let dir = Scratch::new("save-merge");
+    fn a_key_the_user_deleted_from_a_save_stays_deleted_when_the_move_reruns() {
+        let dir = Scratch::new("deleted-key");
+        let secrets = fake_keychain(&store());
+        // The save index lists only overleafToken: gitSyncToken was deleted by the user. The marker
+        // was removed, so the move runs again with the old row that still holds gitSyncToken.
+        let save_index = r#"{"source":"save","keys":["overleafToken"]}"#;
+        secrets.write(INDEX, save_index).expect("save index");
+        secrets
+            .write("device-secrets/overleafToken", "typed")
+            .expect("typed value");
+        let row = old_row(r#"{"overleafToken":"old","gitSyncToken":"g"}"#);
+        move_now(&secrets, &dir.0, &[row]).expect("moves");
+        assert_eq!(secrets.read("device-secrets/gitSyncToken").expect("read"), None);
+        assert_eq!(
+            secrets.read("device-secrets/overleafToken").expect("read"),
+            Some("typed".to_owned())
+        );
+        assert_eq!(secrets.read(INDEX).expect("read"), Some(save_index.to_owned()));
+        assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+    }
+
+    #[test]
+    fn a_save_fills_only_its_listed_fields_that_are_missing() {
+        let dir = Scratch::new("save-fill");
         let secrets = fake_keychain(&store());
         secrets
-            .write(INDEX, r#"{"source":"save","keys":["overleafToken"]}"#)
+            .write(INDEX, r#"{"source":"save","keys":["overleafToken","gitSyncToken"]}"#)
             .expect("save index");
         secrets
             .write("device-secrets/overleafToken", "typed")
@@ -764,8 +798,24 @@ mod tests {
         )
         .expect("index is JSON");
         assert_eq!(index["source"], "save");
-        assert!(index["keys"].as_array().expect("keys").iter().any(|k| k == "gitSyncToken"));
+        assert_eq!(index["keys"], serde_json::json!(["overleafToken", "gitSyncToken"]));
         assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+    }
+
+    #[test]
+    fn an_index_over_the_cap_is_refused_before_any_field_is_written() {
+        let dir = Scratch::new("index-too-long");
+        let secrets = fake_keychain(&store());
+        // Each field is small, but 300 sub-keys make the index body larger than the 2560-byte cap.
+        let subs: Vec<String> = (0..300).map(|i| format!("\"s{i:04}\":\"1\"")).collect();
+        let row = old_row(&format!(r#"{{"overleafToken":{{{}}}}}"#, subs.join(",")));
+        assert!(matches!(
+            move_now(&secrets, &dir.0, &[row]),
+            Err(SecretError::TooLong)
+        ));
+        assert_eq!(secrets.read("device-secrets/overleafToken.s0000").expect("read"), None);
+        assert_eq!(secrets.read(INDEX).expect("read"), None);
+        assert!(!marker_path(&dir.0, DEVICE).exists());
     }
 
     #[test]
