@@ -4,7 +4,7 @@ import { FilePaperRepository } from "@/features/papers/infrastructure/file-paper
 import type { KindWriter } from "../domain/kind-writer";
 import { defsToSettings, PAPER_FIELD_KINDS, projectKey, type FileFieldValue } from "../domain/paper-fields-file";
 import type { FileSink, Row } from "../domain/ports";
-import { loadSettingsDoc, saveSettingsDoc, settingsSection } from "./settings-json-doc";
+import { loadSettingsDoc, settingsSection, updateSettingsDoc } from "./settings-json-doc";
 import { sinkAsWorkspaceFs } from "./sink-workspace-fs";
 
 /**
@@ -53,16 +53,17 @@ export function createPaperFieldsWriter(sink: FileSink, folders: ReadonlyMap<str
         const id = String(row.id);
         const def = defsToSettings([row], folders)[id];
         if (!def) throw new Error("paper field: no definition");
-        const doc = await loadSettingsDoc(sink, "paper fields");
-        await repoAt(folderOf(row.projectId), doc).saveDef({
-          id,
-          name: def.name,
-          // The server CHECK limits kind to the repo's union; defsToSettings keeps it as text.
-          kind: def.kind as Parameters<FilePaperFieldRepository["saveDef"]>[0]["kind"],
-          options: def.options,
-          sortOrder: def.sortOrder,
-        });
-        await saveSettingsDoc(sink, doc);
+        const folder = folderOf(row.projectId);
+        await updateSettingsDoc(sink, "paper fields", (doc) =>
+          repoAt(folder, doc).saveDef({
+            id,
+            name: def.name,
+            // The server CHECK limits kind to the repo's union; defsToSettings keeps it as text.
+            kind: def.kind as Parameters<FilePaperFieldRepository["saveDef"]>[0]["kind"],
+            options: def.options,
+            sortOrder: def.sortOrder,
+          }),
+        );
         return;
       }
       if (kind === "paperFieldValues") {

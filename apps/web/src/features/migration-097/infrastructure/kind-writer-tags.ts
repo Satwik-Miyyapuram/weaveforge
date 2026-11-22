@@ -1,7 +1,7 @@
 import { FileTagRepository } from "@/backend/providers/files/file-tag-repo";
 import type { KindWriter } from "../domain/kind-writer";
 import type { FileSink, Row } from "../domain/ports";
-import { loadSettingsDoc, saveSettingsDoc, settingsSection } from "./settings-json-doc";
+import { loadSettingsDoc, settingsSection, updateSettingsDoc } from "./settings-json-doc";
 
 const KIND = "tags";
 
@@ -23,10 +23,10 @@ export function createTagsWriter(sink: FileSink): KindWriter {
     kinds: [KIND],
     async write(kind: string, row: Row): Promise<void> {
       if (kind !== KIND) throw new Error(`kind-writer-tags: unknown kind "${kind}"`);
-      const doc = await loadSettingsDoc(sink, "kind-writer-tags");
       const tag = { id: String(row.id), name: String(row.name), color: row.color == null ? undefined : String(row.color) };
-      await repoOver(doc).save(tag as never);
-      await saveSettingsDoc(sink, doc);
+      await updateSettingsDoc(sink, "kind-writer-tags", async (doc) => {
+        await repoOver(doc).save(tag as never);
+      });
     },
     async readBack(kind: string): Promise<Row[]> {
       if (kind !== KIND) throw new Error(`kind-writer-tags: unknown kind "${kind}"`);

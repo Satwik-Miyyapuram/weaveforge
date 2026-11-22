@@ -9,26 +9,57 @@ export const SETTINGS_PATH = ".weaveforge/settings.json";
  * surface, or the write that follows would wipe every other setting in the file.
  */
 export async function loadSettingsDoc(sink: FileSink, label: string): Promise<Record<string, unknown>> {
+  return parseDoc(await readRaw(sinkAsWorkspaceFs(sink)), label);
+}
+
+const SETTINGS_ATTEMPTS = 3;
+
+/**
+ * Reads, changes and saves settings.json. `mutate` runs on a fresh read every attempt, so keys another
+ * writer saved meanwhile are kept. Before the rename the file is read again: if its bytes changed since
+ * the read, the change is dropped and retried. After SETTINGS_ATTEMPTS tries it throws a fixed code.
+ * Write-then-rename, so a crash never leaves a half-written settings.json.
+ */
+export async function updateSettingsDoc(
+  sink: FileSink,
+  label: string,
+  mutate: (doc: Record<string, unknown>) => void | Promise<void>,
+): Promise<void> {
   const fs = sinkAsWorkspaceFs(sink);
-  if (!(await fs.stat(SETTINGS_PATH))) return {};
-  const parsed: unknown = JSON.parse(await fs.readText(SETTINGS_PATH));
+  const part = `${SETTINGS_PATH}.part`;
+  for (let attempt = 1; attempt <= SETTINGS_ATTEMPTS; attempt++) {
+    const before = await readRaw(fs);
+    const doc = parseDoc(before, label);
+    await mutate(doc);
+    try {
+      await sink.write(part, JSON.stringify(doc, null, 2));
+      if ((await readRaw(fs)) !== before) {
+        await sink.remove(part).catch(() => undefined);
+        continue;
+      }
+      await sink.rename(part, SETTINGS_PATH);
+      return;
+    } catch (err) {
+      // Only the .part is removed: settings.json itself was never touched.
+      await sink.remove(part).catch(() => undefined);
+      throw err;
+    }
+  }
+  throw Object.assign(new Error("settings.json changed during the save"), { code: "settings-changed" });
+}
+
+/** settings.json's text, or null when the file is absent. */
+async function readRaw(fs: ReturnType<typeof sinkAsWorkspaceFs>): Promise<string | null> {
+  return (await fs.stat(SETTINGS_PATH)) ? fs.readText(SETTINGS_PATH) : null;
+}
+
+function parseDoc(raw: string | null, label: string): Record<string, unknown> {
+  if (raw === null) return {};
+  const parsed: unknown = JSON.parse(raw);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error(`${label}: ${SETTINGS_PATH} is not a JSON object`);
   }
   return parsed as Record<string, unknown>;
-}
-
-/** Write-then-rename, so a crash never leaves a half-written settings.json. */
-export async function saveSettingsDoc(sink: FileSink, doc: Record<string, unknown>): Promise<void> {
-  const part = `${SETTINGS_PATH}.part`;
-  try {
-    await sink.write(part, JSON.stringify(doc, null, 2));
-    await sink.rename(part, SETTINGS_PATH);
-  } catch (err) {
-    // Only the .part is removed: settings.json itself was never touched.
-    await sink.remove(part).catch(() => undefined);
-    throw err;
-  }
 }
 
 /** Sync get/set over a plain settings object, the shape the File repos expect. */
