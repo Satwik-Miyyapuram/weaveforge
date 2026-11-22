@@ -27,4 +27,13 @@ export class MemorySink implements FileSink {
     this.files.delete(from);
     this.files.set(to, bytes);
   }
+
+  async remove(path: string): Promise<void> {
+    if (!this.files.delete(path)) throw new Error(`missing file: ${path}`);
+  }
+
+  /** Every stored path, for the workspace bridge. */
+  paths(): string[] {
+    return [...this.files.keys()];
+  }
 }

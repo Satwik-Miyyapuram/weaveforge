@@ -35,4 +35,6 @@ export interface FileSink {
   readBytes(path: string): Promise<Uint8Array>;
   /** Atomic move within the sink, replacing any existing target. */
   rename(from: string, to: string): Promise<void>;
+  /** Removes one file; a missing file is an error. */
+  remove(path: string): Promise<void>;
 }
