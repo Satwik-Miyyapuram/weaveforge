@@ -5,7 +5,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { OpfsLike } from "@/features/migration-097/infrastructure/workspace-file-sink";
-import { INSTALL_ID_PATH, readOrCreateInstallId } from "@/container/browser-install-id";
+import {
+  INSTALL_ID_PATH,
+  InstallIdLocksUnavailableError,
+  WEBVIEW_UPDATE_MESSAGE,
+  readOrCreateInstallId,
+} from "@/container/browser-install-id";
 import type { WebUpgradeInputs } from "@/features/migration-097/application/web-upgrade-options";
 import type { WebCore, WebInputSources } from "../migrate-097-web";
 
@@ -62,6 +67,31 @@ test("the web run id is the install id browserReportOk reads from the same OPFS 
   assert.ok(inputs, "a signed-in session gives inputs");
   assert.equal(inputs.runDeviceId, await readOrCreateInstallId(fs), "same id the report check reads");
   assert.equal(fs.files.has(INSTALL_ID_PATH), true, "the id lives in the OPFS install-id file");
+});
+
+test("no Web Locks: the load still resolves, and the run fails with the WebView message", async () => {
+  const fs = memoryFs();
+  const { loadWebInputs } = await import("../migrate-097-web");
+  const { runUpgrade } = await import("../migrate-097-upgrade");
+  const { makeWebUpgradeRunner } = await import("@/features/migration-097/application/web-upgrade-runner");
+  const { webUpgradeFor } = await import("@/features/migration-097/application/web-upgrade-options");
+  const locksShim = globalThis.navigator;
+  Object.defineProperty(globalThis, "navigator", { value: {}, configurable: true });
+  try {
+    const inputs = await loadWebInputs(sources(fs));
+    const options = webUpgradeFor(false, inputs);
+    assert.ok(options, "a signed-in session gives runner options");
+    const errors: unknown[] = [];
+    const outcome = await runUpgrade("", makeWebUpgradeRunner(options), () => {}, undefined, (err) => {
+      errors.push(err);
+    });
+    assert.equal(outcome, "stopped");
+    assert.equal(errors.length, 1, "the run hands its failure to onError");
+    assert.ok(errors[0] instanceof InstallIdLocksUnavailableError);
+    assert.equal((errors[0] as Error).message, WEBVIEW_UPDATE_MESSAGE);
+  } finally {
+    Object.defineProperty(globalThis, "navigator", { value: locksShim, configurable: true });
+  }
 });
 
 test("the codec is never built before the core has loaded", async () => {

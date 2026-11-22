@@ -5,8 +5,8 @@ import { runWebExport } from "../../application/run-web-export";
 import { MemorySink } from "../../infrastructure/memory-sink";
 import { NOW, fakeCodec, fakeServer, FIXTURE, KINDS, SUPPORTED } from "./helpers";
 
-/** A second run after the browser's completion marker is cleared must match the first and add no files. */
-test("rerun: a second export after the marker clears gives the same report and adds no files", async () => {
+/** A second run must match the first and add no files. */
+test("rerun: a second export gives the same report and adds no files", async () => {
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
   const exportOnce = () =>
