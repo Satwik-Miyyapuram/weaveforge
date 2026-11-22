@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkRelease } from "./check-release-assets.mjs";
+import { checkRelease, parseBridge } from "./check-release-assets.mjs";
 
 const TAG = "v0.9.7";
 const URL_BASE = "https://github.com/Satwik-Miyyapuram/weaveforge/releases/download/v0.9.7";
@@ -249,4 +249,20 @@ test("a 0.9.7 release whose latest.json is not the same manifest as latest-v2.js
     readAsset: assetsFrom({ ...GOOD_FILES(), "latest.json": manifestFixture({ version: "0.9.6" }) }),
   });
   assert.ok(problems.some((p) => p.includes("latest.json") && p.includes("0.9.6")));
+});
+
+test("a bridge latest.json that does not parse is reported, not thrown", () => {
+  const { bridge, problems } = parseBridge("{ not json");
+  assert.equal(bridge, undefined);
+  assert.deepEqual(problems, ["bridge latest.json does not parse"]);
+});
+
+test("a readable bridge latest.json parses with no problems", () => {
+  const { bridge, problems } = parseBridge(JSON.stringify(BRIDGE));
+  assert.deepEqual(bridge, BRIDGE);
+  assert.deepEqual(problems, []);
+});
+
+test("a missing bridge latest.json is left for the release check to report", () => {
+  assert.deepEqual(parseBridge(""), { bridge: undefined, problems: [] });
 });

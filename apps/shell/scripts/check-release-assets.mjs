@@ -150,6 +150,16 @@ async function downloadAsset(release) {
   };
 }
 
+/** Parses the 0.9.7 bridge latest.json text. Unparseable text is a problem, not a throw. */
+export function parseBridge(text) {
+  if (!text) return { bridge: undefined, problems: [] };
+  try {
+    return { bridge: JSON.parse(text), problems: [] };
+  } catch {
+    return { bridge: undefined, problems: [`bridge ${LEGACY_MANIFEST_NAME} does not parse`] };
+  }
+}
+
 async function main(argv) {
   const [tag] = argv;
   if (!tag) throw new Error("usage: check-release-assets.mjs <tag>");
@@ -161,12 +171,20 @@ async function main(argv) {
   }
   const version = versionFromTag(tag);
   let bridge;
+  let problems = [];
   if (version && compareVersions(version, BRIDGE_VERSION) > 0) {
-    const bridgeRelease = await fetchRelease(`v${BRIDGE_VERSION}`);
-    const text = await (await downloadAsset(bridgeRelease))(LEGACY_MANIFEST_NAME);
-    bridge = text ? JSON.parse(text) : undefined;
+    try {
+      const bridgeRelease = await fetchRelease(`v${BRIDGE_VERSION}`);
+      const text = await (await downloadAsset(bridgeRelease))(LEGACY_MANIFEST_NAME);
+      ({ bridge, problems } = parseBridge(text));
+    } catch (error) {
+      problems = [`cannot fetch the ${BRIDGE_VERSION} bridge ${LEGACY_MANIFEST_NAME}: ${error.message}`];
+    }
   }
-  const problems = await checkRelease({ tag, release, readAsset: await downloadAsset(release), bridge });
+  problems = [
+    ...problems,
+    ...(await checkRelease({ tag, release, readAsset: await downloadAsset(release), bridge })),
+  ];
   if (problems.length > 0) {
     console.error(`check-release-assets: ${tag} fails the release gate:`);
     for (const problem of problems) console.error(`  - ${problem}`);
