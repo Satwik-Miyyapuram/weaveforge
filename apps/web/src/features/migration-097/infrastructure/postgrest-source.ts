@@ -172,9 +172,11 @@ export class PostgrestSource implements ServerSource {
 
   /** The server function (0164) takes no args and sets the marker for auth.uid(); body is {}. */
   async markExported097(): Promise<void> {
+    // Reuse the base header key's casing so the merged headers carry one content-type, not two.
+    const ctKey = Object.keys(this.opts.headers).find((k) => k.toLowerCase() === "content-type") ?? "content-type";
     await this.request(
       `${this.opts.baseUrl}/rpc/mark_exported_097`,
-      { method: "POST", body: "{}", extra: { "content-type": "application/json" } },
+      { method: "POST", body: "{}", extra: { [ctKey]: "application/json" } },
       "rpc/mark_exported_097",
     );
   }

@@ -142,6 +142,15 @@ test("markExported097 POSTs rpc/mark_exported_097 with a JSON body of {}, only w
   assert.equal(call.headers.get("content-type"), "application/json");
 });
 
+test("markExported097 sends one content-type when the base headers use another casing", async () => {
+  const { fetch, calls } = fakeFetch(() => new Response(null, { status: 204 }));
+  const source = sourceWith(fetch, { headers: { apikey: "test-key", "Content-Type": "application/vnd.pgrst.object" } });
+  await source.markExported097();
+  const call = calls[0];
+  assert.ok(call);
+  assert.equal(call.headers.get("content-type"), "application/json");
+});
+
 test("markExported097 throws on non-2xx", async () => {
   const { fetch } = fakeFetch(() => new Response("nope", { status: 403 }));
   await assert.rejects(() => sourceWith(fetch).markExported097(), /403/);
