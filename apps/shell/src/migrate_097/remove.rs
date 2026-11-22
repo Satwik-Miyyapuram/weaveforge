@@ -810,4 +810,75 @@ mod final_write_tests {
         assert!(!s.pg_root.exists(), "the cluster stays deleted");
         assert!(!s.pg_root.parent().unwrap().join("local-db-backups").exists());
     }
+
+    #[test]
+    fn a_resume_reads_only_the_own_device_file() {
+        let s = setup("own-file-resume");
+        let legacy = s.folder.join(REPORT_REL);
+        fs::remove_file(&legacy).unwrap();
+        let own = s.folder.join(MIGRATION_DIR).join("report-dev-a.json");
+        fs::write(
+            &own,
+            format!(
+                r#"{{"version":1,"state":"removing","removingDeviceId":"{DEV}","removals":{{"{DEV}":{{"state":"removing"}}}},"backup":"pre-migration.dump","verifiedAt":"{NOW_T}","runs":[{RUN}]}}"#
+            ),
+        )
+        .unwrap();
+        let mut stops = 0_usize;
+        let mut count_stop = || {
+            stops += 1;
+            Ok(())
+        };
+        assert_eq!(resume_on_launch(&s.folder, &s.pg_root, DEV, NOW_T, &mut count_stop), Ok(true));
+        assert_eq!(stops, 1, "postgres is stopped once on the resume");
+        let done: serde_json::Value = serde_json::from_str(&fs::read_to_string(&own).unwrap()).unwrap();
+        assert_eq!(done["state"], "removed", "the resume writes this device's own file");
+        assert!(!legacy.exists(), "the legacy report.json is never created");
+    }
+}
+
+#[cfg(test)]
+mod union_tests {
+    use super::*;
+
+    const REMOVING: &str = r#"{"version":1,"state":"removing","removingDeviceId":"dev-a","removals":{"dev-a":{"state":"removing"}},"runs":[]}"#;
+
+    /// A migration folder holding the given report files, and a cluster root with no removed marker.
+    fn fixture(name: &str, files: &[(&str, &str)]) -> (PathBuf, PathBuf, PathBuf) {
+        let base = std::env::temp_dir().join(format!("wf-m097-union-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let folder = base.join("vault");
+        let dir = folder.join(MIGRATION_DIR);
+        fs::create_dir_all(&dir).unwrap();
+        for (file, text) in files {
+            fs::write(dir.join(file), text).unwrap();
+        }
+        let pg_root = base.join("local-pg");
+        (base, folder, pg_root)
+    }
+
+    #[test]
+    fn a_removal_in_one_devices_own_file_refuses_the_start() {
+        let (base, folder, pg_root) = fixture("own-removing", &[("report-dev-a.json", REMOVING)]);
+        let refusal = removal_refusal(&folder, &pg_root);
+        let _ = fs::remove_dir_all(&base);
+        assert!(refusal.is_some_and(|r| r.contains("unfinished")), "a removing own file refuses the start");
+    }
+
+    #[test]
+    fn an_unreadable_conflict_copy_refuses_the_start_even_with_no_removal_running() {
+        let (base, folder, pg_root) = fixture(
+            "conflict",
+            &[
+                ("report-dev-a.json", r#"{"version":1,"state":"verified","runs":[]}"#),
+                ("report-dev-a (1).json", "{ not json"),
+            ],
+        );
+        let refusal = removal_refusal(&folder, &pg_root);
+        let _ = fs::remove_dir_all(&base);
+        assert_eq!(
+            refusal.as_deref(),
+            Some("refused: migration report report-dev-a (1).json is unreadable; delete the conflict copy report-dev-a (1).json")
+        );
+    }
 }

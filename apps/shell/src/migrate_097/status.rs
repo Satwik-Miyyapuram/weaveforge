@@ -139,6 +139,25 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_unreadable_conflict_copy_makes_the_status_unavailable() {
+        let base = std::env::temp_dir().join(format!("wf-m097-status-conflict-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let folder = base.join("vault");
+        let dir = folder.join(super::super::remove::MIGRATION_DIR);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("report-dev-a.json"), r#"{"version":1,"state":"verified","runs":[]}"#).unwrap();
+        fs::write(dir.join("report-dev-a (1).json"), "{ not json").unwrap();
+        let status = migration_status(&folder, &base.join("local-pg"), "dev-a");
+        let _ = fs::remove_dir_all(&base);
+        assert_eq!(status.state, "unavailable");
+    }
+}
+
 fn exported_to(pg_root: &Path) -> Option<String> {
     let text = fs::read_to_string(pg_root.join("exported-to.json")).ok()?;
     let value: serde_json::Value = serde_json::from_str(&text).ok()?;
