@@ -78,16 +78,20 @@ export function Install097Gate({ children, checkTimeoutMs = INSTALL_097_CHECK_TI
   const choose = async () => {
     const bridge = desktop();
     if (!bridge) return;
-    let picked: Awaited<ReturnType<DesktopBridge["chooseVaultRoot"]>>;
+    if (typeof bridge.pickFolder !== "function") {
+      setGate({ phase: "unknown", code: "PICK_UNAVAILABLE" });
+      return;
+    }
+    let picked: string | null;
     try {
-      picked = await bridge.chooseVaultRoot();
+      picked = await bridge.pickFolder();
     } catch {
       setGate({ phase: "unknown", code: "PICK_FAILED" });
       return;
     }
     if (!picked) return;
     setGate({ phase: "checking" });
-    setRequest({ folder: picked.path });
+    setRequest({ folder: picked });
   };
 
   if (gate.phase === "checking") {

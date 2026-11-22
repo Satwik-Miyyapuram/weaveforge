@@ -202,6 +202,12 @@ export interface DesktopBridge {
    * dialog is dismissed.
    */
   chooseVaultRoot(): Promise<DesktopVaultRoot | null>;
+  /**
+   * Opens a folder dialog and answers with the chosen path, or null when dismissed. Read-only:
+   * it does not switch the workspace folder, so the install gate can use it. Absent on shells
+   * that predate it; the gate then fails closed.
+   */
+  pickFolder?(): Promise<string | null>;
   /** The folder currently in use, or null when none has been chosen. */
   vaultRoot(): Promise<DesktopVaultRoot | null>;
   /**

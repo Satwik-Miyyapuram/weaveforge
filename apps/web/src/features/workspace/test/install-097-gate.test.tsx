@@ -21,7 +21,7 @@ function stubBridge(bridge: Record<string, unknown>) {
     weaveforge: {
       fetchTitle: () => Promise.resolve({}),
       vaultRoot: () => Promise.resolve(null),
-      chooseVaultRoot: () => Promise.resolve(null),
+      pickFolder: () => Promise.resolve(null),
       ...bridge,
     },
   };
@@ -132,7 +132,7 @@ test("picker: the chosen export folder is checked and, once verified, the app mo
       calls.push(folder);
       return Promise.resolve(folder === "/ws/moved");
     },
-    chooseVaultRoot: () => Promise.resolve({ path: "/ws/moved" }),
+    pickFolder: () => Promise.resolve("/ws/moved"),
   });
   const tree = await mount();
   assert.equal(childCount(tree), 0);
@@ -151,7 +151,7 @@ test("picker: a dismissed dialog keeps the gate and asks nothing more", async ()
       asked += 1;
       return Promise.resolve(false);
     },
-    chooseVaultRoot: () => Promise.resolve(null),
+    pickFolder: () => Promise.resolve(null),
   });
   const tree = await mount();
   await press(buttonWith(tree, "Choose the folder you exported to"));
@@ -166,13 +166,33 @@ test("picker: a picker that throws shows the error code with retry", async () =>
     vaultRoot: () => Promise.resolve({ path: "/ws/old" }),
     legacyDbPresent: () => Promise.resolve(true),
     migrationReportVerified: () => Promise.resolve(false),
-    chooseVaultRoot: () => Promise.reject(new Error("dialog broke")),
+    pickFolder: () => Promise.reject(new Error("dialog broke")),
   });
   const tree = await mount();
   await press(buttonWith(tree, "Choose the folder you exported to"));
   assert.equal(childCount(tree), 0);
   assert.ok(textOf(tree.root).includes("PICK_FAILED"));
   buttonWith(tree, "Try again");
+  tree.unmount();
+});
+
+test("picker: the shell has no pickFolder -> PICK_UNAVAILABLE, chooseVaultRoot never called", async () => {
+  let switched = 0;
+  stubBridge({
+    vaultRoot: () => Promise.resolve({ path: "/ws/old" }),
+    legacyDbPresent: () => Promise.resolve(true),
+    migrationReportVerified: () => Promise.resolve(false),
+    pickFolder: undefined,
+    chooseVaultRoot: () => {
+      switched += 1;
+      return Promise.resolve({ path: "/ws/other" });
+    },
+  });
+  const tree = await mount();
+  await press(buttonWith(tree, "Choose the folder you exported to"));
+  assert.equal(childCount(tree), 0);
+  assert.ok(textOf(tree.root).includes("PICK_UNAVAILABLE"));
+  assert.equal(switched, 0, "the gate never calls chooseVaultRoot, which switches the folder");
   tree.unmount();
 });
 
