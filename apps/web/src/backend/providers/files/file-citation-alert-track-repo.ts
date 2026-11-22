@@ -16,6 +16,7 @@ function storedProblem(v: unknown): string | null {
   const s = v as Partial<Record<keyof Stored, unknown>>;
   if (typeof s.id !== "string") return "id is not a string";
   if (typeof s.trackedAt !== "string") return "trackedAt is not a string";
+  if (s.lastCheckedAt !== undefined && typeof s.lastCheckedAt !== "string") return "lastCheckedAt is not a string";
   if (!Array.isArray(s.seenCitingIds) || !s.seenCitingIds.every((id) => typeof id === "string")) {
     return "seenCitingIds is not a string[]";
   }
@@ -43,7 +44,11 @@ export class FileCitationAlertTrackRepository implements ICitationAlertTrackRepo
   }
 
   async track(input: NewCitationAlertTrackInput): Promise<CitationAlertTrack> {
-    const existing = this.read(input.paperId);
+    const raw = this.settings.get(["citationAlerts", input.paperId]);
+    if (raw !== undefined && !this.check(input.paperId, raw)) {
+      throw new Error(`Citation watch for paper "${input.paperId}" is malformed; it was left as stored.`);
+    }
+    const existing = raw === undefined ? null : (raw as Stored);
     const now = new Date().toISOString();
     const stored: Stored = {
       id: existing?.id ?? crypto.randomUUID(),
@@ -73,6 +78,10 @@ export class FileCitationAlertTrackRepository implements ICitationAlertTrackRepo
   }
 
   async save(track: CitationAlertTrack): Promise<void> {
+    const raw = this.settings.get(["citationAlerts", track.paperId]);
+    if (raw !== undefined && !this.check(track.paperId, raw)) {
+      throw new Error(`Citation watch for paper "${track.paperId}" is malformed; it was left as stored.`);
+    }
     const stored: Stored = {
       id: track.id,
       trackedAt: track.trackedAt,
