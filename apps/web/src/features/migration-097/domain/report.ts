@@ -92,7 +92,26 @@ export async function readMigrationReport(fs: Pick<FileSink, "readText">): Promi
  * run lists a missing row. Anything else (absent, corrupt, incomplete, folder, zip) is false.
  */
 export async function browserReportVerified(fs: Pick<FileSink, "readText">): Promise<boolean> {
-  const report = await readMigrationReport(fs);
-  if (!report || report.state !== "verified" || report.target !== "opfs") return false;
-  return report.runs.every((run) => run.missing.length === 0);
+  return isVerifiedOpfsReport(await readMigrationReport(fs));
+}
+
+const KNOWN_KINDS: ReadonlySet<string> = new Set<string>(MIGRATION_KINDS);
+
+/**
+ * The one validator for "the OPFS repos hold a clean verified export". Used for a report read from
+ * disk, so a hand-edited file is checked the same way: state verified, target opfs, `runs` a list,
+ * every run with a `missing` list that is empty and a `kinds` object whose keys are all known kinds.
+ * Never throws; anything malformed is false.
+ */
+export function isVerifiedOpfsReport(report: unknown): boolean {
+  if (typeof report !== "object" || report === null) return false;
+  const r = report as { state?: unknown; target?: unknown; runs?: unknown };
+  if (r.state !== "verified" || r.target !== "opfs" || !Array.isArray(r.runs)) return false;
+  return r.runs.every((run: unknown) => {
+    if (typeof run !== "object" || run === null) return false;
+    const { missing, kinds } = run as { missing?: unknown; kinds?: unknown };
+    if (!Array.isArray(missing) || missing.length !== 0) return false;
+    if (typeof kinds !== "object" || kinds === null || Array.isArray(kinds)) return false;
+    return Object.keys(kinds).every((kind) => KNOWN_KINDS.has(kind));
+  });
 }

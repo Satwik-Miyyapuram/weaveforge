@@ -39,8 +39,15 @@ export const LOCAL_USER: AuthUser = {
   providers: ["local"],
 };
 
+/**
+ * 0.9.7 retires local mode (PGlite): no build selects it at runtime. DEL-WEB
+ * removes the PGlite code in 0.9.8. Flip only in a release that brings it back.
+ */
+export const LOCAL_MODE_IN_BUILD = false;
+
 /** Whether this window is working on the computer rather than on an account. */
 export function isLocalMode(): boolean {
+  if (!LOCAL_MODE_IN_BUILD) return false;
   // A window with storage denied cannot remember a choice, so it has none.
   return readyCore().localIsLocalMode(readStored(choiceKey()) ?? undefined);
 }

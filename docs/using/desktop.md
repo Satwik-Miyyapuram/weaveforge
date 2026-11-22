@@ -197,6 +197,21 @@ browser can do this too, but only for a folder you re-pick each session; the
 desktop app remembers the one you chose, and is the only place the folder is
 watched. See [`workspace-folder.md`](workspace-folder.md).
 
+### Upgrading a folder to 0.9.7
+
+A folder's notes, papers and settings now live as files in that folder, not in
+a local database. The first time 0.9.7 opens a folder, it moves the data across
+and shows an "Upgrading your workspace" screen until the move is checked. Keep
+WeaveForge open until it finishes.
+
+If the move does not finish, the screen says so, your old data is untouched,
+and it shows the path of the report. You can copy that path, then choose
+**Retry**, or **Keep using old data** to stay on the database for now.
+
+Once the move is verified, **Settings → Data → Remove old data** deletes the
+old local copy. It asks first and names the backup that stays behind. It only
+appears after a verified move to this folder.
+
 ## Links
 
 Links to other sites open in your normal browser, not inside the app window.

@@ -8,11 +8,13 @@
  * - `graph.<project id>`: the graph view state, as saved.
  * - `quotationTypes.<paper id>.<annotation key>`: `{ type, createdAt, updatedAt }`.
  * - `integrations.zoteroCollection.<project id>`: the Zotero collection key.
+ * - `integrationSettings`: the non-secret integration fields, per provider.
  * - `zoteroLibrary`, `disclaimer` (`{ acceptedAt, version }`), `appearance`,
  *   `aiAccess`, `search`, `releaseNoticeSeen`: the user settings.
  *
- * Integration secrets (`zoteroApiKey`, `semanticScholarKey`, `integrations`)
- * never reach the file: they go through a `SecretsStore` (the OS keychain).
+ * Integration secrets (`zoteroApiKey`, `semanticScholarKey`, and secret-named
+ * fields inside `integrations`) never reach the file: they go through a
+ * `SecretsStore` (the OS keychain).
  */
 import {
   CURRENT_DISCLAIMER_VERSION,
@@ -41,6 +43,33 @@ function isObject(v: unknown): v is Record<string, unknown> {
 /** A copy, so a caller mutating what it saved or read cannot change the stored value. */
 function clone<T>(v: T): T {
   return structuredClone(v);
+}
+
+type Integrations = Record<string, Record<string, string>>;
+
+const SECRET_NAME = /key|token|secret|password/i;
+
+/** Secret-named fields go to the secrets store; the rest (e.g. a zotero library) go to the file. */
+function splitIntegrations(all: Integrations): { secret: Integrations; plain: Integrations } {
+  const secret: Integrations = {};
+  const plain: Integrations = {};
+  for (const [provider, fields] of Object.entries(all)) {
+    for (const [name, value] of Object.entries(fields)) {
+      const bag = SECRET_NAME.test(name) ? secret : plain;
+      (bag[provider] ??= {})[name] = value;
+    }
+  }
+  return { secret, plain };
+}
+
+/** Merges the file part and the secrets part per provider; undefined when neither holds anything. */
+function mergeIntegrations(plain: Integrations | undefined, secret: Integrations | undefined): Integrations | undefined {
+  if (!plain && !secret) return undefined;
+  const out: Integrations = {};
+  for (const source of [plain, secret]) {
+    for (const [provider, fields] of Object.entries(source ?? {})) out[provider] = { ...out[provider], ...fields };
+  }
+  return out;
 }
 
 export class FileDashboardLayoutRepository implements IDashboardLayoutRepository {
@@ -145,7 +174,7 @@ export class FileSettingsRepository implements ISettingsRepository, SettingsWrit
       zoteroApiKey: secrets.zoteroApiKey ?? undefined,
       zoteroLibrary: this.text(["zoteroLibrary"]),
       semanticScholarKey: secrets.semanticScholarKey ?? undefined,
-      integrations: secrets.integrations ?? undefined,
+      integrations: mergeIntegrations(this.plainIntegrations(), secrets.integrations ?? undefined),
       ...this.disclaimer(),
       appearance: this.appearance(),
       aiAccess: ai
@@ -170,19 +199,33 @@ export class FileSettingsRepository implements ISettingsRepository, SettingsWrit
 
   /** Full replace of the given fields; an unset disclaimer, appearance or AI access keeps the stored one. */
   async save(settings: UserSettings): Promise<void> {
-    await this.secrets.save({
-      zoteroApiKey: settings.zoteroApiKey,
-      semanticScholarKey: settings.semanticScholarKey,
-      integrations: settings.integrations,
-    });
-    const s = this.settings;
-    s.set(["zoteroLibrary"], settings.zoteroLibrary || undefined);
-    if (settings.disclaimerAcceptedAt !== undefined || settings.disclaimerVersion !== undefined) {
-      s.set(["disclaimer"], { acceptedAt: settings.disclaimerAcceptedAt, version: settings.disclaimerVersion });
+    // Only a real key reaches the secrets store (which refuses in the browser). A save with no keys
+    // must not throw, and keys never go to a settings file either way.
+    // Integrations also carry non-secret fields (e.g. zotero library): only their secret-named fields go to the store.
+    const holdsSecret = (v: unknown, name: string): boolean =>
+      typeof v === "string" ? v.length > 0 && SECRET_NAME.test(name) : isObject(v) && Object.entries(v).some(([k, x]) => holdsSecret(x, k));
+    const { secret, plain } = splitIntegrations(settings.integrations ?? {});
+    if (
+      holdsSecret(settings.zoteroApiKey, "zoteroApiKey") ||
+      holdsSecret(settings.semanticScholarKey, "semanticScholarKey") ||
+      holdsSecret(secret, "integrations")
+    ) {
+      await this.secrets.save({
+        zoteroApiKey: settings.zoteroApiKey,
+        semanticScholarKey: settings.semanticScholarKey,
+        integrations: settings.integrations ? secret : undefined,
+      });
     }
-    if (settings.appearance) s.set(["appearance"], clone(settings.appearance));
-    if (settings.aiAccess) s.set(["aiAccess"], clone(settings.aiAccess));
-    if (settings.search) s.set(["search"], clone(settings.search));
+    const s = this.settings;
+    // Awaited: each set resolves only once its write has reached settings.json.
+    if (settings.integrations) await s.set(["integrationSettings"], clone(plain));
+    await s.set(["zoteroLibrary"], settings.zoteroLibrary || undefined);
+    if (settings.disclaimerAcceptedAt !== undefined || settings.disclaimerVersion !== undefined) {
+      await s.set(["disclaimer"], { acceptedAt: settings.disclaimerAcceptedAt, version: settings.disclaimerVersion });
+    }
+    if (settings.appearance) await s.set(["appearance"], clone(settings.appearance));
+    if (settings.aiAccess) await s.set(["aiAccess"], clone(settings.aiAccess));
+    if (settings.search) await s.set(["search"], clone(settings.search));
   }
 
   saveDisclaimer(acceptedAt: string, version: number): Promise<void> {
@@ -211,6 +254,11 @@ export class FileSettingsRepository implements ISettingsRepository, SettingsWrit
   /** The release notice last dismissed, if any. */
   noticeSeen(): string | undefined {
     return this.text(["releaseNoticeSeen"]);
+  }
+
+  private plainIntegrations(): Integrations | undefined {
+    const raw = this.settings.get(["integrationSettings"]);
+    return isObject(raw) ? (clone(raw) as Integrations) : undefined;
   }
 
   private text(key: readonly string[]): string | undefined {
