@@ -2,18 +2,18 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { Migrate097UpgradeBody, runUpgrade, upgradeReportPath } from "../migrate-097-upgrade";
+import { Migrate097UpgradeBody, runUpgrade, upgradeReportFolder } from "../migrate-097-upgrade";
 import type { Migrate097Progress } from "../desktop-bridge";
 
 const FOLDER = "C:\\Users\\me\\Documents\\WeaveForge";
 const noop = () => {};
 
-test("report path is built inside the folder with the folder's separator", () => {
+test("report folder is the migration folder inside the workspace, with the folder's separator", () => {
   assert.equal(
-    upgradeReportPath(FOLDER),
-    "C:\\Users\\me\\Documents\\WeaveForge\\.weaveforge\\migration-0.9.7\\report.json",
+    upgradeReportFolder(FOLDER),
+    "C:\\Users\\me\\Documents\\WeaveForge\\.weaveforge\\migration-0.9.7",
   );
-  assert.equal(upgradeReportPath("/home/me/ws/"), "/home/me/ws/.weaveforge/migration-0.9.7/report.json");
+  assert.equal(upgradeReportFolder("/home/me/ws/"), "/home/me/ws/.weaveforge/migration-0.9.7");
 });
 
 test("runUpgrade returns verified and forwards in-process progress when the exporter verifies", async () => {
@@ -60,7 +60,7 @@ test("running view shows per-kind progress and no retry or keep-old controls", (
     <Migrate097UpgradeBody
       phase="running"
       progress={{ notes: { done: 2, total: 5 } }}
-      reportPath={upgradeReportPath(FOLDER)}
+      reportFolder={upgradeReportFolder(FOLDER)}
       copied={false}
       onCopy={noop}
       onRetry={noop}
@@ -77,7 +77,7 @@ test("stopped view offers Retry, Keep using old data and a selectable report pat
     <Migrate097UpgradeBody
       phase="stopped"
       progress={{}}
-      reportPath={upgradeReportPath(FOLDER)}
+      reportFolder={upgradeReportFolder(FOLDER)}
       copied={false}
       onCopy={noop}
       onRetry={noop}
@@ -86,9 +86,9 @@ test("stopped view offers Retry, Keep using old data and a selectable report pat
   );
   assert.match(html, /Retry/);
   assert.match(html, /Keep using old data/);
-  assert.match(html, /Copy report path/);
+  assert.match(html, /Copy report folder/);
   assert.match(html, /user-select:text/);
-  assert.match(html, /report\.json/);
+  assert.match(html, /migration-0\.9\.7/);
 });
 
 test("stopped view lists the kinds the shell could not move", () => {
@@ -96,7 +96,7 @@ test("stopped view lists the kinds the shell could not move", () => {
     <Migrate097UpgradeBody
       phase="stopped"
       progress={{}}
-      reportPath={upgradeReportPath(FOLDER)}
+      reportFolder={upgradeReportFolder(FOLDER)}
       missing={["notes", "papers"]}
       copied={false}
       onCopy={noop}
@@ -112,7 +112,7 @@ test("stopped view without missing kinds shows no missing line", () => {
     <Migrate097UpgradeBody
       phase="stopped"
       progress={{}}
-      reportPath={upgradeReportPath(FOLDER)}
+      reportFolder={upgradeReportFolder(FOLDER)}
       copied={false}
       onCopy={noop}
       onRetry={noop}
