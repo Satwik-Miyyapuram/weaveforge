@@ -25,9 +25,10 @@ test("the folder restore refuses in no-account mode before it reaches getDataCli
   const ws = src("features/workspace/application/workspace-folder.ts");
   assert.match(
     ws,
-    /async function liveImportSeams\(\): Promise<ImportSeams> \{\s*if \(isLocalMode\(\)\) throw new Error\("[^"]+"\);\s*const \[/,
+    /async function liveImportSeams\(\): Promise<ImportSeams> \{\s*(?:\/\/[^\n]*\n\s*)?if \(isLocalMode\(\)\) throw new Error\("[^"]+"\);\s*const \[/,
   );
 });
+
 test("zotero collection listing returns no collections in no-account mode, before getDataClient", () => {
   const zotero = src("integrations/providers/zotero/bibliography-integration.ts");
   assert.match(zotero, NO_ACCOUNT_IMPORT);
