@@ -48,6 +48,8 @@ export const ORG_SERVER_WRITE_TABLES = [
   "share_links",
   "comments",
   "blob_objects",
+  "crdt_updates",
+  "profiles",
 ] as const;
 
 export const ORG_SERVER_RPCS = [
