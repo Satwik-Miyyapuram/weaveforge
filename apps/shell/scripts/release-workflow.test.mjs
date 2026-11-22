@@ -66,7 +66,10 @@ test("a validate job rejects any tag that is not vX.Y.Z before anything is built
 });
 
 test("the tag pattern takes vX.Y.Z and refuses release candidates", () => {
-  const vxyz = /^v[0-9]+\.[0-9]+\.[0-9]+$/;
+  // Parsed from the workflow, so the test checks the regex the job really runs.
+  const source = workflow.match(/=~ (\^[^\s]+\$) \]\]/);
+  assert.ok(source, "the validate step has a tag regex");
+  const vxyz = new RegExp(source[1].replace(/\\\./g, "."));
   assert.ok(vxyz.test("v0.9.7"));
   assert.ok(vxyz.test("v1.0.0"));
   assert.ok(!vxyz.test("v0.9.7-rc1"));
