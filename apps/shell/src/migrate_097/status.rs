@@ -92,9 +92,11 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
         report["state"].as_str(),
         Some("verified" | "incomplete" | "removing" | "removed")
     );
-    // This device's view, read before any top-level gate, so another device's top-level state
-    // ("exporting", or an unknown value) never hides this device's removed or verified state.
-    let state = if own_removed {
+    // Gate first: a top-level state outside the known set is unavailable for every device.
+    // No writer sets an "exporting" top-level state; known states are read per device below.
+    let state = if !top_known {
+        "unavailable".to_owned()
+    } else if own_removed {
         "removed".to_owned()
     } else if own_removing {
         "removing".to_owned()
