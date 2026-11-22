@@ -29,10 +29,23 @@ function harness(over: Partial<SwitchDeps> = {}) {
       opened += 1;
       return WIRING;
     },
+    installId: async () => INSTALL_ID,
     ...over,
   };
   return { deps, gateCalls, opened: () => opened };
 }
+
+/** This browser's install id. The DEVICE_REPORT fixture below is this browser's own run. */
+const INSTALL_ID = "dev-9";
+
+test("(P2) the switch gate gets this browser's install id as runDeviceId, and the marker carries it", async () => {
+  const sink = new MemorySink();
+  const h = harness({ openSink: async () => sink });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.equal(out.switch, true);
+  assert.equal((h.gateCalls[0] as { runDeviceId?: string }).runDeviceId, INSTALL_ID);
+  assert.equal((await readSwitchMarker(sink))?.deviceId, INSTALL_ID);
+});
 
 test("(a) a fresh verified run switches to the OPFS wiring", async () => {
   const h = harness();
@@ -249,6 +262,7 @@ const PENDING_REPORT = JSON.stringify({
     {
       startedAt: "2026-11-22T00:00:00.000Z",
       finishedAt: "2026-11-22T00:00:00.000Z",
+      deviceId: "dev-9",
       sources: ["server"],
       kinds: {},
       blobs: { db: 0, verified: 0 },
@@ -385,10 +399,11 @@ const TWO_DEVICE_REPORT = JSON.stringify({
   ],
 });
 
-test("(P3) the marker takes this device's deviceId, not the first run's (another device's)", async () => {
+test("(P3) the marker takes this device's install id, not another device's run in the report", async () => {
   const sink = new MemorySink();
   const h = harness({
     openSink: async () => sink,
+    installId: async () => "dev-me",
     gate: async (opts) => {
       await opts.sink.write(REPORT_PATH, TWO_DEVICE_REPORT);
       return { switch: true };

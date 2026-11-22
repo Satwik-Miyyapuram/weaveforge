@@ -9,6 +9,7 @@ import { workspaceFsAsSink } from "@/features/migration-097/infrastructure/works
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { decideBrowserSwitch, type SwitchDecision, type SwitchSession } from "./browser-export-switch";
 import { openBrowserFileWiring, type BrowserFileWiring } from "./browser-file-backend";
+import { readOrCreateInstallId } from "./browser-install-id";
 import { openFilesIfSwitched, type MarkerProbe } from "./browser-switch-background";
 import { localSwitchPending } from "./browser-readonly-fallback-098";
 import { HttpBlobStore } from "@/storage/providers/http/http-blob-store";
@@ -55,6 +56,7 @@ export async function decideBrowserSwitchFromConfig(
     now: () => new Date().toISOString(),
     gate: gateOpfsSwitch,
     openWiring: openBrowserFileWiring,
+    installId: async () => readOrCreateInstallId(await BrowserWorkspaceFs.openOpfs()),
     pending: localSwitchPending(),
   });
 }

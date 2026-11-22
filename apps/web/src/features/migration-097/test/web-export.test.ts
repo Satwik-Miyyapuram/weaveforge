@@ -685,7 +685,7 @@ test("order: report.json says markers pending before any mark is attempted", asy
 test("(P2-3) skipMark: the export never reads verified and sends no server mark; report.json says markers pending", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
-  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, skipMark: true });
+  const result = await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, skipMark: true });
   assert.equal(result.state, "incomplete");
   assert.equal(result.readyToMark, true);
   assert.equal(calls.some((c) => c.startsWith("mark:")), false, "the caller writes the server mark");
@@ -697,18 +697,32 @@ test("(P2-3) skipMark: the export never reads verified and sends no server mark;
 test("(P2-3) skipMark then recordServerMarked: report.json reads verified once the caller's mark has run", async () => {
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
-  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, skipMark: true });
-  await recordServerMarked(sink);
+  await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, skipMark: true });
+  await recordServerMarked(sink, WEB_ID);
   const report = await readMigrationReport(sink);
   assert.equal(report?.state, "verified");
   assert.equal(report?.runs[0]?.missing.length, 0);
 });
 
+test("(P1) recordServerMarked marks only this device's run; another device's last run is untouched", async () => {
+  const sink = new MemorySink();
+  const base = { startedAt: "t", finishedAt: "t", sources: [], kinds: {}, blobs: { db: 0, verified: 0 }, target: "opfs" };
+  const mine = { ...base, deviceId: WEB_ID, state: "incomplete", missing: [{ kind: "marker", id: "m", reason: "markers pending" }] };
+  const other = { ...base, deviceId: "other-device", state: "incomplete", missing: [{ kind: "logEntries", id: "l", reason: "failed" }] };
+  await sink.write(REPORT_PATH, JSON.stringify({ version: 1, state: "incomplete", backup: null, target: "opfs", runs: [mine, other] }));
+  await recordServerMarked(sink, WEB_ID);
+  const runs = (await readMigrationReport(sink))?.runs ?? [];
+  assert.equal(runs[0]?.state, "verified", "this device's run is marked verified");
+  assert.deepEqual(runs[0]?.missing, []);
+  assert.equal(runs[1]?.state, "incomplete", "the other device's run keeps its own state");
+  assert.equal(runs[1]?.missing.length, 1, "the other device's missing rows are not cleared");
+});
+
 test("(P2-3) recordServerMarked keeps the report incomplete while any other row is missing", async () => {
   const { source } = fakeServer({ rows: FIXTURE, failKind: "logEntries" });
   const sink = new MemorySink();
-  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, skipMark: true });
-  await recordServerMarked(sink);
+  await runWebExport({ runDeviceId: WEB_ID, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, skipMark: true });
+  await recordServerMarked(sink, WEB_ID);
   const report = await readMigrationReport(sink);
   assert.equal(report?.state, "incomplete");
   assert.ok(report?.runs[0]?.missing.some((m) => m.kind === "logEntries"), "the failed kind stays listed");

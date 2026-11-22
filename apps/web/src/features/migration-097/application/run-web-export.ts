@@ -396,13 +396,17 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
  * Called by the browser switch after its server mark succeeds. Clears the "markers pending" row a
  * skipMark run left behind and writes report.json verified, but only when no other row is missing.
  */
-export async function recordServerMarked(sink: FileSink): Promise<void> {
+export async function recordServerMarked(sink: FileSink, deviceId: string): Promise<void> {
   const report = await readMigrationReport(sink);
-  const run = report?.runs[report.runs.length - 1];
-  if (!report || !run || report.state !== "incomplete") return;
-  run.missing = run.missing.filter((m) => !(m.kind === "marker" && m.reason === "markers pending"));
-  if (run.missing.length > 0) return;
-  const next: MigrationReport = { ...report, state: "verified", verifiedAt: new Date().toISOString() };
+  if (!report) return;
+  // This device's own run, never the last run in the file: another device's run keeps its state.
+  const index = report.runs.map((r) => r.deviceId).lastIndexOf(deviceId);
+  const run = report.runs[index];
+  if (!run || run.state === "verified") return;
+  const missing = run.missing.filter((m) => !(m.kind === "marker" && m.reason === "markers pending"));
+  if (missing.length > 0) return;
+  const runs = report.runs.map((r, i) => (i === index ? { ...r, missing, state: "verified" as const } : r));
+  const next: MigrationReport = { ...report, runs, state: "verified", verifiedAt: new Date().toISOString() };
   const part = `${REPORT_PATH}.part`;
   await sink.write(part, JSON.stringify(next, null, 2));
   await sink.rename(part, REPORT_PATH);

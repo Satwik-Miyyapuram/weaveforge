@@ -3,7 +3,6 @@ import {
   type ExportOptions,
 } from "@/features/migration-097/application/run-web-export";
 import { PostgrestSource } from "@/features/migration-097/infrastructure/postgrest-source";
-import { readMigrationReport } from "@/features/migration-097/domain/report";
 import { writeSwitchMarker } from "@/features/migration-097/domain/switch-marker";
 import type { BrowserFileWiring } from "./browser-file-backend";
 
@@ -27,6 +26,8 @@ export type SwitchDeps = {
   /** Runs a fresh export and reports `switch` only when that run verified. */
   gate: (opts: ExportOptions) => Promise<{ switch: boolean }>;
   openWiring: () => Promise<BrowserFileWiring>;
+  /** Reads or creates this browser's install id (readOrCreateInstallId). Keys its run and marker. */
+  installId: () => Promise<string>;
   /**
    * P1 pending flag. Set once the server mark is written, cleared once the switch marker is written.
    * A switch left pending (marker write failed) makes the next start read-only, never server-writable.
@@ -63,12 +64,15 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
       },
     });
     const sink = await deps.openSink();
+    // This browser's install id: the only key for its own run in the report and its switch marker.
+    const deviceId = await deps.installId();
     const outcome = await deps.gate({
       kinds: deps.kinds,
       codec: deps.codec,
       source,
       sink,
       now: deps.now(),
+      runDeviceId: deviceId,
       // The export never writes the server mark itself. The mark is written below, after wiring opens.
       skipMark: true,
     });
@@ -77,16 +81,13 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
     try {
       await source.markExported097();
       deps.pending?.set();
-      await recordServerMarked(sink);
+      await recordServerMarked(sink, deviceId);
     } catch (err) {
       await wiring.close();
       throw err;
     }
     // Written last: a browser with this marker opens files directly on its next start.
     try {
-      // This device's entry: the report's own deviceId, else the last run (this run is appended last).
-      const report = await readMigrationReport(sink);
-      const deviceId = report?.deviceId ?? report?.runs[report.runs.length - 1]?.deviceId ?? null;
       await writeSwitchMarker(sink, { switchedAt: deps.now(), deviceId });
     } catch (err) {
       await wiring.close();
