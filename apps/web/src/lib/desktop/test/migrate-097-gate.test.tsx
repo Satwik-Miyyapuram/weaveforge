@@ -9,6 +9,7 @@ const FOLDER = "C:\\Users\\me\\Documents\\WeaveForge";
 
 test("only an incomplete migration in an open folder shows the upgrade screen", () => {
   assert.equal(shouldShowUpgrade("incomplete", FOLDER), true);
+  assert.equal(shouldShowUpgrade("unexported", FOLDER), true, "a folder removed by another device must be exported here first");
   assert.equal(shouldShowUpgrade("none", FOLDER), false, "nothing to upgrade on a fresh folder");
   assert.equal(shouldShowUpgrade("verified", FOLDER), false, "a verified folder needs no screen");
   assert.equal(shouldShowUpgrade("unavailable", FOLDER), false, "an unanswered read shows nothing");
@@ -16,10 +17,11 @@ test("only an incomplete migration in an open folder shows the upgrade screen", 
 });
 
 test("any state that leaves the window read-only or unknown shows a Retry banner", () => {
-  for (const state of ["unavailable", "removing-other", "incomplete"] as const) {
+  for (const state of ["unavailable", "removing-other"] as const) {
     assert.equal(shouldShowRetry(state, FOLDER), true, `${state} must offer Retry`);
   }
-  for (const state of ["none", "verified", "removed", "removing"] as const) {
+  assert.equal(shouldShowRetry("incomplete", FOLDER), false, "incomplete shows the upgrade screen alone");
+  for (const state of ["none", "verified", "removed", "removing", "unexported"] as const) {
     assert.equal(shouldShowRetry(state, FOLDER), false, `${state} needs no Retry`);
   }
   assert.equal(shouldShowRetry("unavailable", null), false, "no folder, nothing to retry");
