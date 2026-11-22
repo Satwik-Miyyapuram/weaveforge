@@ -35,6 +35,8 @@ export interface FileSink {
   list(): Promise<string[]>;
   readText(path: string): Promise<string>;
   readBytes(path: string): Promise<Uint8Array>;
+  /** Stat-style presence check, true when the file is there. It throws when the check itself fails. */
+  exists(path: string): Promise<boolean>;
   /** Atomic move within the sink, replacing any existing target. */
   rename(from: string, to: string): Promise<void>;
   /** Removes one file; a missing file is an error. */

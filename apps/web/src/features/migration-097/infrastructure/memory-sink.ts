@@ -16,6 +16,10 @@ export class MemorySink implements FileSink {
     return new TextDecoder().decode(await this.readBytes(path));
   }
 
+  async exists(path: string): Promise<boolean> {
+    return this.files.has(path);
+  }
+
   async readBytes(path: string): Promise<Uint8Array> {
     const bytes = this.files.get(path);
     if (!bytes) throw new Error(`missing file: ${path}`);

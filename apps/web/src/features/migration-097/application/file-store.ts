@@ -32,11 +32,15 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
   const conflicts: string[] = [];
 
   /**
-   * What is at `path` right now. Presence comes from a fresh listing (never one taken earlier in the run), so a
-   * file that exists but cannot be read still counts as present. `bytes` is null for that unreadable case.
+   * What is at `path` right now. Presence comes from a stat of that path, so a case-only spelling mismatch still
+   * finds the file. A file whose stat or read fails counts as present, with `bytes` null, and is never overwritten.
    */
   const stateAt = async (path: string): Promise<{ present: false } | { present: true; bytes: Uint8Array | null }> => {
-    if (!(await sink.list()).includes(path)) return { present: false };
+    try {
+      if (!(await sink.exists(path))) return { present: false };
+    } catch {
+      return { present: true, bytes: null };
+    }
     try {
       return { present: true, bytes: await sink.readBytes(path) };
     } catch {
@@ -90,6 +94,7 @@ export function guardedSink(sink: FileSink, store: FileStore): FileSink {
     list: () => sink.list(),
     readText: (path) => sink.readText(path),
     readBytes: (path) => sink.readBytes(path),
+    exists: (path) => sink.exists(path),
     async rename(from, to) {
       // Known gap until (c): the list-then-rename window is not atomic. (c) adds a refuse-to-replace rename on the real sinks.
       if ((await sink.list()).includes(to)) throw new Error(`refusing to replace an existing file: ${to}`);
