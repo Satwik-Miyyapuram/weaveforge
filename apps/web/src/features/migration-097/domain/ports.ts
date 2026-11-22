@@ -1,8 +1,8 @@
 /** One personal row as PostgREST returns it. */
 export type Row = Record<string, unknown>;
 
-/** A blob the server knows about, with the sha256 the server recorded for it. */
-export type BlobRef = { bucket: string; path: string; sha256: string };
+/** A blob the server knows about. The server records size only; the sha256 is computed locally. */
+export type BlobRef = { bucket: string; path: string; sizeBytes: number };
 
 /** Server side of the export. Real PostgREST wiring is a later step; tests use fakes. */
 export interface ServerSource {

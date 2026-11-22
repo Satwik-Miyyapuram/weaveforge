@@ -222,16 +222,24 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     for (const ref of await source.listBlobs()) {
       try {
         const bytes = await source.fetchBlob(ref);
-        if ((await sha256Hex(bytes)) !== ref.sha256) {
-          missing.push({ kind: "blobs", id: ref.path, reason: "sha256 mismatch on fetch" });
+        if (bytes.length !== ref.sizeBytes) {
+          missing.push({ kind: "blobs", id: ref.path, reason: "size mismatch on fetch" });
           continue;
         }
+        // The sha256 is computed here; the server never supplies one.
+        const sha256 = await sha256Hex(bytes);
+        const path = `assets/${ref.bucket}/${ref.path}`;
         if (blobWriter) {
-          await blobWriter.write("blobs", { bucket: ref.bucket, path: ref.path, sha256: ref.sha256, bytes });
+          await blobWriter.write("blobs", { bucket: ref.bucket, path: ref.path, sha256, bytes });
         } else {
-          const path = `assets/${ref.bucket}/${ref.path}`;
           await sink.write(path, bytes);
-          await sink.write(`${path}.sha256`, ref.sha256);
+          await sink.write(`${path}.sha256`, sha256);
+        }
+        // Read back what was written; a blob that does not read back to the local sha256 is missing.
+        const back = await sha256Hex(await sink.readBytes(path));
+        const sidecar = (await sink.readText(`${path}.sha256`)).split("\n")[0];
+        if (back !== sha256 || sidecar !== sha256) {
+          missing.push({ kind: "blobs", id: ref.path, reason: "read-back sha256 mismatch" });
         }
       } catch (err) {
         missing.push({ kind: "blobs", id: ref.path, reason: (err as Error).message });

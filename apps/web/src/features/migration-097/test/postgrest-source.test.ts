@@ -145,10 +145,19 @@ test("markExported throws on non-2xx", async () => {
   await assert.rejects(() => sourceWith(fetch).markExported(NOW), /403/);
 });
 
-test("listBlobs still throws so the run goes incomplete (no server sha256 to check against)", async () => {
-  const { fetch } = fakeFetch(() => Response.json([]));
-  const source = sourceWith(fetch);
-  await assert.rejects(() => source.listBlobs(), /blob listing not implemented: export incomplete/);
+test("listBlobs reads the user's blob_objects rows with size_bytes, paged", async () => {
+  const { fetch, calls } = fakeFetch((call) => {
+    const offset = new URL(call.url).searchParams.get("offset");
+    return Response.json(offset === "0" ? [{ bucket: "ink", path: "p/1.png", size_bytes: 4 }] : []);
+  });
+  const refs = await sourceWith(fetch).listBlobs();
+  assert.deepEqual(refs, [{ bucket: "ink", path: "p/1.png", sizeBytes: 4 }]);
+  const call = calls[0];
+  assert.ok(call);
+  const u = new URL(call.url);
+  assert.equal(u.pathname, "/rest/blob_objects");
+  assert.equal(u.searchParams.get("user_id"), "eq." + USER);
+  assert.equal(u.searchParams.get("select"), "bucket,path,size_bytes");
 });
 
 test("fetchBlob downloads the bytes through the signed URL", async () => {
@@ -161,7 +170,7 @@ test("fetchBlob downloads the bytes through the signed URL", async () => {
       return "https://blobs.example.test/signed/abc";
     },
   });
-  const got = await source.fetchBlob({ bucket: "ink", path: "p/1.png", sha256: "s" });
+  const got = await source.fetchBlob({ bucket: "ink", path: "p/1.png", sizeBytes: 4 });
   assert.deepEqual(Array.from(got), [1, 2, 3, 4]);
   assert.deepEqual(signed, ["ink/p/1.png"]);
   assert.equal(calls[0]?.url, "https://blobs.example.test/signed/abc");
@@ -171,7 +180,7 @@ test("fetchBlob throws on a non-2xx download, without the body", async () => {
   const { fetch } = fakeFetch(() => new Response("secret body", { status: 403 }));
   const source = sourceWith(fetch, { signedUrl: async () => "https://blobs.example.test/x" });
   await assert.rejects(
-    () => source.fetchBlob({ bucket: "ink", path: "p", sha256: "s" }),
+    () => source.fetchBlob({ bucket: "ink", path: "p", sizeBytes: 0 }),
     (err: Error) => /HTTP 403/.test(err.message) && !err.message.includes("secret body"),
   );
 });
@@ -179,9 +188,9 @@ test("fetchBlob throws on a non-2xx download, without the body", async () => {
 test("fetchBlob with no signed URL throws", async () => {
   const { fetch } = fakeFetch(() => new Response(new Uint8Array([1])));
   const missing = sourceWith(fetch, { signedUrl: async () => null });
-  await assert.rejects(() => missing.fetchBlob({ bucket: "ink", path: "p", sha256: "s" }), /no signed url/);
+  await assert.rejects(() => missing.fetchBlob({ bucket: "ink", path: "p", sizeBytes: 0 }), /no signed url/);
   const unwired = sourceWith(fetch);
-  await assert.rejects(() => unwired.fetchBlob({ bucket: "ink", path: "p", sha256: "s" }), /signedUrl not wired/);
+  await assert.rejects(() => unwired.fetchBlob({ bucket: "ink", path: "p", sizeBytes: 0 }), /signedUrl not wired/);
 });
 
 test("non-2xx GET throws with status and table, never the body", async () => {

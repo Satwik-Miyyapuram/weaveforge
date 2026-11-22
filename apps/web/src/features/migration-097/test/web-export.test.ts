@@ -164,30 +164,54 @@ test("a kind without a wasm codec stays incomplete and is listed as missing", as
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });
 
-test("blob with matching sha256 verifies and writes its sidecar", async () => {
+test("blob: size matches and the local sha256 verifies, sidecar written", async () => {
   const bytes = new TextEncoder().encode("png-bytes");
-  const ref: BlobRef = { bucket: "notes-assets", path: "fig/a.png", sha256: sha(bytes) };
+  const ref: BlobRef = { bucket: "notes-assets", path: "fig/a.png", sizeBytes: bytes.length };
   const { source } = fakeServer({ rows: {}, blobs: [{ ref, bytes }] });
   const sink = new MemorySink();
   const result = await runWebExport({ kinds: [], codec: fakeCodec([]), source, sink, now: NOW });
 
   assert.equal(result.state, "verified");
   assert.deepEqual(result.run.blobs, { db: 1, verified: 1 });
+  assert.deepEqual(result.run.missing, []);
   assert.deepEqual(await sink.readBytes("assets/notes-assets/fig/a.png"), bytes);
   assert.equal(await sink.readText("assets/notes-assets/fig/a.png.sha256"), sha(bytes));
 });
 
-test("blob sha256 mismatch gives incomplete and no marker", async () => {
-  const ref: BlobRef = { bucket: "notes-assets", path: "fig/a.png", sha256: sha("expected") };
-  const { source, calls } = fakeServer({
-    rows: {},
-    blobs: [{ ref, bytes: new TextEncoder().encode("tampered") }],
-  });
+test("blob size mismatch goes to missing, nothing is written, no marker", async () => {
+  const bytes = new TextEncoder().encode("8 bytes!");
+  const ref: BlobRef = { bucket: "notes-assets", path: "fig/a.png", sizeBytes: 99 };
+  const { source, calls } = fakeServer({ rows: {}, blobs: [{ ref, bytes }] });
   const sink = new MemorySink();
   const result = await runWebExport({ kinds: [], codec: fakeCodec([]), source, sink, now: NOW });
 
   assert.equal(result.state, "incomplete");
   assert.deepEqual(result.run.blobs, { db: 1, verified: 0 });
+  assert.deepEqual(result.run.missing.filter((m) => m.kind === "blobs"), [
+    { kind: "blobs", id: "fig/a.png", reason: "size mismatch on fetch" },
+  ]);
+  await assert.rejects(() => sink.readBytes("assets/notes-assets/fig/a.png"));
+  assert.equal(calls.some((c) => c.startsWith("mark:")), false);
+});
+
+test("blob read-back mismatch goes to missing (same size, different bytes), no marker", async () => {
+  class TamperingSink extends MemorySink {
+    override async readBytes(path: string): Promise<Uint8Array> {
+      const real = await super.readBytes(path);
+      return path.startsWith("assets/") ? new TextEncoder().encode("X".repeat(real.length)) : real;
+    }
+  }
+  const bytes = new TextEncoder().encode("png-bytes");
+  const ref: BlobRef = { bucket: "notes-assets", path: "fig/a.png", sizeBytes: bytes.length };
+  const { source, calls } = fakeServer({ rows: {}, blobs: [{ ref, bytes }] });
+  const result = await runWebExport({
+    kinds: [], codec: fakeCodec([]), source, sink: new TamperingSink(), now: NOW,
+  });
+
+  assert.equal(result.state, "incomplete");
+  assert.deepEqual(result.run.missing.filter((m) => m.kind === "blobs"), [
+    { kind: "blobs", id: "fig/a.png", reason: "read-back sha256 mismatch" },
+  ]);
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });
 
@@ -807,11 +831,10 @@ test("re-run conflict: a writer conflict is listed on the kind and the run is in
   assert.equal(JSON.parse(await sink.readText(REPORT_PATH)).state, "incomplete");
 });
 
-test("blobs fail closed: listBlobs throws, so the run is incomplete, the report is not verified, no marker", async () => {
-  // TODO(097-blob-sha): blob_objects has no sha256 column, so listing stays fail-closed until the server adds one.
+test("blobs: a listBlobs failure makes the run incomplete, the report is not verified, no marker", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE });
   source.listBlobs = async () => {
-    throw new Error("blob listing not implemented: export incomplete");
+    throw new Error("blob listing failed: export incomplete");
   };
   const sink = new MemorySink();
   const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
@@ -821,12 +844,24 @@ test("blobs fail closed: listBlobs throws, so the run is incomplete, the report 
   assert.deepEqual(calls.filter((c) => c.startsWith("mark:")), []);
 });
 
+test("verify: a blob whose length differs from size_bytes is incomplete, even if its sha matches the sidecar", async () => {
+  const bytes = new Uint8Array([9, 8, 7]);
+  const ref: BlobRef = { bucket: "ink", path: "img/a.png", sizeBytes: 4 };
+  const sink = new MemorySink();
+  await sink.write("assets/ink/img/a.png", bytes);
+  await sink.write("assets/ink/img/a.png.sha256", sha(bytes));
+  const { source } = fakeServer({ rows: {}, blobs: [{ ref, bytes }] });
+  const verdict = await verifyExport({ kinds: [], codec: fakeCodec([]), source, sink });
+  assert.equal(verdict.blobs.verified, 0);
+  assert.equal(verdict.state, "incomplete");
+});
+
 test("verify: a blob sidecar with a content-type line still verifies on its sha256 line", async () => {
   const bytes = new Uint8Array([9, 8, 7]);
-  const ref: BlobRef = { bucket: "ink", path: "img/a.png", sha256: sha(bytes) };
+  const ref: BlobRef = { bucket: "ink", path: "img/a.png", sizeBytes: bytes.length };
   const sink = new MemorySink();
   await sink.write(`assets/${ref.bucket}/${ref.path}`, bytes);
-  await sink.write(`assets/${ref.bucket}/${ref.path}.sha256`, `${ref.sha256}\nimage/png`);
+  await sink.write(`assets/${ref.bucket}/${ref.path}.sha256`, `${sha(bytes)}\nimage/png`);
   const { source } = fakeServer({ rows: {}, blobs: [{ ref, bytes }] });
   const verdict = await verifyExport({ kinds: [], codec: fakeCodec([]), source, sink });
   assert.deepEqual(verdict.errors, []);

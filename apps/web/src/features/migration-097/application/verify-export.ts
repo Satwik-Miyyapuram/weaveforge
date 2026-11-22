@@ -111,10 +111,12 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
       const path = `assets/${ref.bucket}/${ref.path}`;
       try {
         const bytes = await sink.readBytes(path);
-        // Line 1 is the sha256; line 2 (the content type) is not compared here.
+        // Line 1 is the sha256; line 2 (the content type) is not compared here. Checked against
+        // the local bytes and the server size only: the server records no sha256.
         const sidecar = (await sink.readText(`${path}.sha256`)).split("\n")[0];
-        if ((await sha256Hex(bytes)) === ref.sha256 && sidecar === ref.sha256) out.blobs.verified++;
-        else errors.push(`blob ${path}: sha256 mismatch`);
+        if (bytes.length !== ref.sizeBytes) errors.push(`blob ${path}: size mismatch`);
+        else if ((await sha256Hex(bytes)) !== sidecar) errors.push(`blob ${path}: sha256 mismatch`);
+        else out.blobs.verified++;
       } catch (err) {
         errors.push(`blob ${path}: read failed`);
       }

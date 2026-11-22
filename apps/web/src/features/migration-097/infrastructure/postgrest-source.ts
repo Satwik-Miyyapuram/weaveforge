@@ -52,7 +52,6 @@ export interface PostgrestSourceOptions {
 }
 
 const NOT_WIRED = "not wired";
-const BLOB_NOT_IMPLEMENTED = "blob listing not implemented: export incomplete";
 const SIGNED_URL_NOT_WIRED = "signedUrl not wired";
 
 /** Shallow snake_case -> camelCase on top-level keys; nested values untouched. */
@@ -133,12 +132,20 @@ export class PostgrestSource implements ServerSource {
     return this.opts.undecryptable(kind);
   }
 
-  // TODO(097-blob-sha): blob_objects has no sha256 column; stays fail-closed until the server records one.
+  /** The owner's blob_objects rows. blob_objects has no sha256 column, so only size_bytes comes back. */
   async listBlobs(): Promise<BlobRef[]> {
-    throw new Error(BLOB_NOT_IMPLEMENTED);
+    const table = "blob_objects";
+    const rows = await listAllPages<Row>(async (offset, limit) => {
+      const url =
+        `${this.opts.baseUrl}/${table}?user_id=eq.${this.opts.userId}` +
+        `&select=bucket,path,size_bytes&order=bucket.asc,path.asc&limit=${limit}&offset=${offset}`;
+      const res = await this.request(url, { method: "GET" }, table);
+      return (await res.json()) as Row[];
+    });
+    return rows.map((r) => ({ bucket: String(r.bucket), path: String(r.path), sizeBytes: Number(r.size_bytes) }));
   }
 
-  /** Downloads through a signed URL. The caller checks the sha256 against the ref. */
+  /** Downloads through a signed URL. The caller checks the length and computes the sha256 locally. */
   async fetchBlob(ref: BlobRef): Promise<Uint8Array> {
     if (!this.opts.signedUrl) throw new Error(SIGNED_URL_NOT_WIRED);
     const url = await this.opts.signedUrl(ref.bucket, ref.path);
