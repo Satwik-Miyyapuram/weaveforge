@@ -62,3 +62,14 @@ test("readOnlyBackend guards db and keeps org writes working", () => {
   assert.equal(backend.db.from("comments").insert({}), "inserted");
   assert.deepEqual(calls, ["insert comments"]);
 });
+
+test("projects, user_settings, milestones and experiments refuse insert, update and upsert", () => {
+  const { db, calls } = fakeDb();
+  const guarded = readOnlyDb(db);
+  for (const table of ["projects", "user_settings", "milestones", "experiments"]) {
+    assert.throws(() => guarded.from(table).insert({}), new Error(READ_ONLY_MESSAGE), `${table} insert`);
+    assert.throws(() => guarded.from(table).update({}), new Error(READ_ONLY_MESSAGE), `${table} update`);
+    assert.throws(() => guarded.from(table).upsert({}), new Error(READ_ONLY_MESSAGE), `${table} upsert`);
+  }
+  assert.deepEqual(calls, [], "no write reached the database");
+});

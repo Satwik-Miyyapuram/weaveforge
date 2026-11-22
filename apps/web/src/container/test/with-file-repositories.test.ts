@@ -90,7 +90,7 @@ test("bibliography, quotation-type and integrations keys are personal, never on 
   }
 });
 
-test("the server-key set equals the documented list (a deliberate copy, not ORG_SERVER_TABLES)", () => {
+test("the server-key set equals the documented list (a deliberate copy, not ORG_SERVER_READ_TABLES)", () => {
   const documented = [
     "config",
     "db",

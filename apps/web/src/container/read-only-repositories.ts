@@ -1,7 +1,7 @@
 import { ManageSettingsUseCase, type ISettingsRepository } from "@weaveforge/core";
 import { RPC_WRITES } from "@/backend/providers/postgrest/watch-writes";
 import { systemClock } from "@/lib/parts";
-import { ORG_SERVER_BUCKETS, ORG_SERVER_RPCS, ORG_SERVER_TABLES } from "./org-server-allowlist";
+import { ORG_SERVER_BUCKETS, ORG_SERVER_RPCS, ORG_SERVER_WRITE_TABLES } from "./org-server-allowlist";
 import { PERSONAL_ALIASES, PERSONAL_REPOSITORY_KEYS } from "./with-file-repositories";
 
 /**
@@ -129,7 +129,7 @@ export const READ_ONLY_KEYS: ReadonlySet<string> = new Set([
   "manageSettings",
 ]);
 
-const ORG_TABLES: ReadonlySet<string> = new Set(ORG_SERVER_TABLES);
+const ORG_WRITE_TABLES: ReadonlySet<string> = new Set(ORG_SERVER_WRITE_TABLES);
 const ORG_RPCS: ReadonlySet<string> = new Set(ORG_SERVER_RPCS);
 const DB_WRITE_METHODS: ReadonlySet<string> = new Set(["insert", "update", "upsert", "delete"]);
 const STORAGE_WRITE_METHODS: ReadonlySet<string> = new Set(["upload", "update", "remove", "move", "copy", "uploadToSignedUrl"]);
@@ -139,9 +139,9 @@ function rpcAllowed(name: string): boolean {
   return ORG_RPCS.has(name) || RPC_WRITES[name] === null;
 }
 
-/** A query builder for `table`: write methods throw unless the table is org-server. */
+/** A query builder for `table`: write methods throw unless the table is an org-server write table. */
 function guardBuilder<B extends object>(builder: B, table: string): B {
-  if (ORG_TABLES.has(table)) return builder;
+  if (ORG_WRITE_TABLES.has(table)) return builder;
   return new Proxy(builder, {
     get(target, prop) {
       if (typeof prop === "string" && DB_WRITE_METHODS.has(prop)) {

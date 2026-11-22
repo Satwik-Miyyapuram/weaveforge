@@ -3,10 +3,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ORG_SERVER_RPCS, ORG_SERVER_TABLES } from "../org-server-allowlist";
+import { ORG_SERVER_READ_TABLES, ORG_SERVER_RPCS, ORG_SERVER_WRITE_TABLES } from "../org-server-allowlist";
 
-/** Personal tables 0165 archives. `projects` and `user_settings` stay live until 0167 and are allowed. */
-const PERSONAL = ["papers", "notes", "tags", "metrics", "relations", "pins", "reading_lists", "citation_alerts"];
+/** Personal tables 0165 archives: they are not on the read list at all. */
+const ARCHIVED = ["papers", "notes", "tags", "metrics", "relations", "pins", "reading_lists", "citation_alerts"];
+
+/**
+ * Personal tables that stay live for reads (0165 keeps them) but are never writable over the org server:
+ * readOnlyDb refuses insert, update and upsert on each of them.
+ */
+const PERSONAL = [...ARCHIVED, "projects", "user_settings", "milestones", "experiments"];
 
 /** Personal sync and sharing names that must never reach the org server allowlist. */
 const PERSONAL_SYNC = [
@@ -30,12 +36,21 @@ const migrationSql = readdirSync(MIGRATIONS)
   .join("\n");
 
 describe("org server allowlist", () => {
-  it("excludes every personal table", () => {
-    for (const t of PERSONAL) assert.equal((ORG_SERVER_TABLES as readonly string[]).includes(t), false, t);
+  it("reads no archived personal table", () => {
+    for (const t of ARCHIVED) assert.equal((ORG_SERVER_READ_TABLES as readonly string[]).includes(t), false, t);
   });
-  it("includes the share and org tables", () => {
+  it("writes no personal table, including the live ones projects, user_settings, milestones and experiments", () => {
+    for (const t of PERSONAL) assert.equal((ORG_SERVER_WRITE_TABLES as readonly string[]).includes(t), false, t);
+  });
+  it("the write list is a subset of the read list", () => {
+    for (const t of ORG_SERVER_WRITE_TABLES) {
+      assert.equal((ORG_SERVER_READ_TABLES as readonly string[]).includes(t), true, t);
+    }
+  });
+  it("includes the share and org tables in both lists", () => {
     for (const t of ["organizations", "org_memberships", "share_links"]) {
-      assert.equal((ORG_SERVER_TABLES as readonly string[]).includes(t), true, t);
+      assert.equal((ORG_SERVER_READ_TABLES as readonly string[]).includes(t), true, t);
+      assert.equal((ORG_SERVER_WRITE_TABLES as readonly string[]).includes(t), true, t);
     }
   });
   it("lists only org and share rpcs", () => {
@@ -44,12 +59,12 @@ describe("org server allowlist", () => {
   });
   it("lists no personal sync or sharing names", () => {
     for (const name of PERSONAL_SYNC) {
-      assert.equal((ORG_SERVER_TABLES as readonly string[]).includes(name), false, `${name} is a table entry`);
+      assert.equal((ORG_SERVER_READ_TABLES as readonly string[]).includes(name), false, `${name} is a table entry`);
       assert.equal((ORG_SERVER_RPCS as readonly string[]).includes(name), false, `${name} is an rpc entry`);
     }
   });
   it("every table is created as a table in db/migrations", () => {
-    for (const table of ORG_SERVER_TABLES) {
+    for (const table of ORG_SERVER_READ_TABLES) {
       const created = new RegExp(`create table( if not exists)? (public\\.)?${table}\\b`);
       assert.match(migrationSql, created, `${table} has no create table`);
     }
