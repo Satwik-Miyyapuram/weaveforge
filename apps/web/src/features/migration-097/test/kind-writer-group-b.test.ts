@@ -112,6 +112,24 @@ test("experiments: written row reads back field-equal", async () => {
   assert.deepEqual(picked(back!, keys), picked(EXPERIMENT_ROW, keys));
 });
 
+test("experiments: every server field survives (repo, commit, branch, run, note, timing)", async () => {
+  const full = {
+    ...EXPERIMENT_ROW,
+    repoUrl: "https://example.org/repo.git",
+    commitSha: "abc1234",
+    branch: "main",
+    runCommand: "python train.py",
+    resultNote: "Val loss down",
+    startedAt: "2026-11-03T10:00:00.000Z",
+    finishedAt: "2026-11-03T11:00:00.000Z",
+    status: "completed",
+  };
+  const writer = createGroupBWriter(new MemorySink(), ROOT);
+  await writer.write("experiments", full);
+  const [back] = await writer.readBack("experiments");
+  assert.deepEqual(back, full);
+});
+
 test("metrics: written point reads back field-equal (experiment written first)", async () => {
   const writer = createGroupBWriter(new MemorySink(), ROOT);
   await writer.write("experiments", EXPERIMENT_ROW);

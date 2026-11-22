@@ -17,12 +17,17 @@ export function createTagsWriter(sink: FileSink): KindWriter {
 
   async function load(): Promise<Record<string, unknown>> {
     if (settings) return settings;
-    try {
-      const parsed: unknown = JSON.parse(await fs.readText(SETTINGS_PATH));
-      settings = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
-    } catch {
+    // Only a missing file is empty. A read or parse failure must surface, or the
+    // write below would wipe every other setting in the file.
+    if (!(await fs.stat(SETTINGS_PATH))) {
       settings = {};
+      return settings;
     }
+    const parsed: unknown = JSON.parse(await fs.readText(SETTINGS_PATH));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error(`kind-writer-tags: ${SETTINGS_PATH} is not a JSON object`);
+    }
+    settings = parsed as Record<string, unknown>;
     return settings;
   }
 
@@ -65,7 +70,10 @@ export function createTagsWriter(sink: FileSink): KindWriter {
       if (kind !== KIND) throw new Error(`kind-writer-tags: unknown kind "${kind}"`);
       const tag = { id: String(row.id), name: String(row.name), color: row.color == null ? undefined : String(row.color) };
       await (await repo()).save(tag as never);
-      await sink.write(SETTINGS_PATH, JSON.stringify(await load(), null, 2));
+      // Write-then-rename so a crash never leaves a half-written settings.json.
+      const part = `${SETTINGS_PATH}.part`;
+      await sink.write(part, JSON.stringify(await load(), null, 2));
+      await sink.rename(part, SETTINGS_PATH);
     },
     async readBack(kind: string): Promise<Row[]> {
       if (kind !== KIND) throw new Error(`kind-writer-tags: unknown kind "${kind}"`);

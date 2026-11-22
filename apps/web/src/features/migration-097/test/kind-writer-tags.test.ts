@@ -31,3 +31,11 @@ test("unknown kind is rejected", async () => {
   const writer = createTagsWriter(new MemorySink());
   await assert.rejects(() => writer.write("notes", { id: "x" }));
 });
+
+test("a corrupt settings.json is not treated as empty: write throws and the file is left as it was", async () => {
+  const sink = new MemorySink();
+  await sink.write(".weaveforge/settings.json", "{not json");
+  const writer = createTagsWriter(sink);
+  await assert.rejects(() => writer.write("tags", { id: "ml", name: "ml", color: "#ff0000" }));
+  assert.equal(await sink.readText(".weaveforge/settings.json"), "{not json");
+});

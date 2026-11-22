@@ -54,7 +54,7 @@ export function createGroupBWriter(sink: FileSink, projectRoot: string): KindWri
           createdAt: row.createdAt as string,
         } satisfies LogEntry),
       readBack: async () =>
-        (await logs.list()).map((e) => defined({ id: e.id, entryDate: e.entryDate, kind: e.kind, body: e.body, links: e.links, createdAt: e.createdAt })),
+        (await logs.list()).map((e) => defined({ ...e })),
     },
     milestones: {
       write: (row) =>
@@ -69,26 +69,11 @@ export function createGroupBWriter(sink: FileSink, projectRoot: string): KindWri
           createdAt: row.createdAt as string,
         }),
       readBack: async () =>
-        (await milestones.list()).map((m) =>
-          defined({ id: m.id, title: m.title, description: m.description, status: m.status, targetDate: m.targetDate, dependencies: m.dependencies, compute: m.compute, createdAt: m.createdAt }),
-        ),
+        (await milestones.list()).map((m) => defined({ ...m })),
     },
     experiments: {
-      write: (row) =>
-        experiments.save({
-          id: row.id as string,
-          name: row.name as string,
-          hypothesis: row.hypothesis as string | undefined,
-          status: row.status as Experiment["status"],
-          config: row.config as Record<string, unknown>,
-          metrics: row.metrics as Record<string, unknown>,
-          artifacts: row.artifacts as string[],
-          createdAt: row.createdAt as string,
-        }),
-      readBack: async () =>
-        (await experiments.list()).map((e) =>
-          defined({ id: e.id, name: e.name, hypothesis: e.hypothesis, status: e.status, config: e.config, metrics: e.metrics, artifacts: e.artifacts, createdAt: e.createdAt }),
-        ),
+      write: (row) => experiments.save({ ...row } as unknown as Experiment),
+      readBack: async () => (await experiments.list()).map((e) => defined({ ...e })),
     },
     metrics: {
       write: (row) =>
@@ -105,7 +90,7 @@ export function createGroupBWriter(sink: FileSink, projectRoot: string): KindWri
         const out: Row[] = [];
         for (const e of await experiments.list()) {
           for (const p of await metrics.history(e.id, undefined, { maxPoints: 0 })) {
-            out.push(defined({ experimentId: p.experimentId, metric: p.metric, step: p.step, value: p.value, wallTime: p.wallTime }));
+            out.push(defined({ ...p }));
           }
         }
         return out;
@@ -127,9 +112,7 @@ export function createGroupBWriter(sink: FileSink, projectRoot: string): KindWri
           createdAt: row.createdAt as string,
         }),
       readBack: async () =>
-        (await sections.list()).map((s) =>
-          defined({ id: s.id, title: s.title, sectionNo: s.sectionNo, status: s.status, wordCount: s.wordCount, targetWords: s.targetWords, deadline: s.deadline, draftUrl: s.draftUrl, notes: s.notes, sortOrder: s.sortOrder, createdAt: s.createdAt, updatedAt: s.updatedAt }),
-        ),
+        (await sections.list()).map((s) => defined({ ...s })),
     },
     aiProposals: {
       write: (row) =>
@@ -143,9 +126,7 @@ export function createGroupBWriter(sink: FileSink, projectRoot: string): KindWri
           sourceLinks: row.sourceLinks as string[],
         }),
       readBack: async () =>
-        (await proposals.listAll()).map((p) =>
-          defined({ id: p.id, kind: p.kind, resourceId: p.resourceId, content: p.content, createdAt: p.createdAt, status: p.status, sourceLinks: p.sourceLinks }),
-        ),
+        (await proposals.listAll()).map((p) => defined({ ...p })),
     },
   };
 
