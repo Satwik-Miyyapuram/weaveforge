@@ -32,9 +32,19 @@ function idOf(target: LinkTarget): string {
   return "paperId" in target ? target.paperId : target.vaultPageId;
 }
 
+/** A file the scan could not read, and why. */
+export interface Unreadable {
+  path: string;
+  reason: string;
+}
+
 /** One scan of the folders; every lookup on it is free. */
 export class Links {
-  constructor(private readonly entries: readonly Entry[]) {}
+  constructor(
+    private readonly entries: readonly Entry[],
+    /** Files the scan could not read. Their links and tags are missing from this snapshot. */
+    readonly unreadable: readonly Unreadable[] = [],
+  ) {}
 
   /** The paper or note `link` points at, or null when none or several do. */
   resolve(link: string): LinkTarget | null {
@@ -79,7 +89,12 @@ export class LinkIndex {
 
   /** Scans the folders once; use it for several lookups in one call. */
   async snapshot(): Promise<Links> {
-    return new Links([...(await this.scan("paper", ".paper.md")), ...(await this.scan("vault_page", ".note.md"))]);
+    const paper = await this.scan("paper", ".paper.md");
+    const vault = await this.scan("vault_page", ".note.md");
+    const unreadable = [...paper.unreadable, ...vault.unreadable];
+    // Lookups keep the files they could read; each unreadable one is logged, never dropped silently.
+    for (const u of unreadable) console.warn(`Skipped ${u.path}: could not read it.`, u.reason);
+    return new Links([...paper.entries, ...vault.entries], unreadable);
   }
 
   /** One lookup; see `Links.resolve`. */
@@ -92,11 +107,15 @@ export class LinkIndex {
     return (await this.snapshot()).linkFor(target);
   }
 
-  private async scan(kind: "paper" | "vault_page", suffix: string): Promise<Entry[]> {
+  private async scan(
+    kind: "paper" | "vault_page",
+    suffix: string,
+  ): Promise<{ entries: Entry[]; unreadable: Unreadable[] }> {
     const core = readyCore();
     const dir = core.entityDir(kind, this.root());
     const out: Entry[] = [];
-    if (!(await this.fs.stat(dir))) return out;
+    const unreadable: Unreadable[] = [];
+    if (!(await this.fs.stat(dir))) return { entries: out, unreadable };
     for await (const entry of this.fs.walk(dir)) {
       if (entry.kind !== "file" || !entry.path.endsWith(suffix)) continue;
       let id: string | undefined;
@@ -104,8 +123,8 @@ export class LinkIndex {
       try {
         text = await this.fs.readText(entry.path);
       } catch (error) {
-        // An unreadable file fails the scan: skipping it would drop its links and tags silently.
-        throw new Error(`Cannot read ${entry.path}: ${error instanceof Error ? error.message : String(error)}`);
+        unreadable.push({ path: entry.path, reason: error instanceof Error ? error.message : String(error) });
+        continue;
       }
       try {
         if (kind === "paper") {
@@ -124,6 +143,6 @@ export class LinkIndex {
       if (key === undefined || pathKey === undefined) continue;
       out.push({ target: kind === "paper" ? { paperId: id } : { vaultPageId: id }, key, pathKey, path, file: entry.path });
     }
-    return out;
+    return { entries: out, unreadable };
   }
 }

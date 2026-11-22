@@ -86,6 +86,10 @@ export function listFilesOf(lists: readonly { path: string; id: string }[]): Lis
 
 /** Every membership a paper or note tags, given the list files and the link snapshot. */
 export async function readTagged(fs: IWorkspaceFs, links: Links, lists: readonly ListFile[]): Promise<Tagged[]> {
+  // Membership is the whole truth for a list: a file that could not be read may hold a tag, so the read fails.
+  if (links.unreadable.length) {
+    throw new Error(links.unreadable.map((u) => `Cannot read ${u.path}: ${u.reason}`).join("; "));
+  }
   const byKey = new Map(lists.map((l) => [l.key, l]));
   const out: Tagged[] = [];
   for (const { target, file } of links.all()) {

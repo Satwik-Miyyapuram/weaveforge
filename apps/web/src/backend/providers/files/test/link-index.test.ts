@@ -70,3 +70,24 @@ test("an empty folder resolves nothing", async () => {
   assert.equal(await index.linkFor({ paperId: "p1" }), null);
   assert.equal(await index.resolve("not a link"), null);
 });
+
+test("(5c) an unreadable file is skipped by lookups, logged with its path, and the notes still resolve", async () => {
+  const { fs, papers, index } = await setup();
+  const realRead = fs.readText.bind(fs);
+  fs.readText = async (path: string) => {
+    if (path === `${papers}/x.paper.md`) throw new Error("EIO: read failed");
+    return realRead(path);
+  };
+  const warned: unknown[][] = [];
+  const realWarn = console.warn;
+  console.warn = (...args: unknown[]) => void warned.push(args);
+  try {
+    const links = await index.snapshot();
+    assert.deepEqual(links.unreadable, [{ path: `${papers}/x.paper.md`, reason: "EIO: read failed" }]);
+    assert.equal(links.all().filter((e) => "vaultPageId" in e.target).length, 3, "the three notes still resolve");
+    assert.equal(links.all().some((e) => "paperId" in e.target), false, "the unreadable paper is absent, not guessed");
+    assert.ok(warned.some((args) => String(args[0]).includes(`${papers}/x.paper.md`)), "the unreadable path is logged");
+  } finally {
+    console.warn = realWarn;
+  }
+});
