@@ -190,65 +190,88 @@ pub fn report_state_verified(folder: &Path, device_id: Option<&str>) -> Result<b
     let Some(device_id) = device_id else {
         return Ok(false);
     };
-    for path in device_report_paths(folder)? {
-        if report_file_verified(&path, device_id)? {
-            return Ok(true);
-        }
+    let mut runs = Vec::new();
+    for path in report_paths(folder)? {
+        runs.extend(report_runs(&path)?);
     }
-    report_file_verified(&folder.join(REPORT_REL), device_id)
+    Ok(own_latest_run(&runs, device_id).is_some_and(run_verified))
 }
 
-/// The `report-*.json` files beside `report.json`. A missing folder holds none.
-fn device_report_paths(folder: &Path) -> Result<Vec<PathBuf>, ShellError> {
+/// Every `report.json` and `report*.json` in the migration folder, conflict copies included, sorted by
+/// path. A missing folder holds none.
+fn report_paths(folder: &Path) -> Result<Vec<PathBuf>, ShellError> {
     let dir = folder.join(REPORT_REL).parent().map(Path::to_path_buf).unwrap_or_default();
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(e) => return Err(report_unreadable(&e)),
+        Err(e) => return Err(report_listing_unreadable(&e)),
     };
     let mut paths = Vec::new();
     for entry in entries {
-        let path = entry.map_err(|e| report_unreadable(&e))?.path();
-        let is_device_report = path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .is_some_and(|name| name.starts_with("report-") && name.ends_with(".json"));
-        if is_device_report {
-            paths.push(path);
+        let entry = entry.map_err(|e| report_listing_unreadable(&e))?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with("report") && name.ends_with(".json") {
+            paths.push(entry.path());
         }
     }
+    paths.sort();
     Ok(paths)
 }
 
-/// Whether one report file holds a verified own run for `device_id`. Missing or corrupt is `Ok(false)`.
-fn report_file_verified(path: &Path, device_id: &str) -> Result<bool, ShellError> {
+/// The runs of one report file. A file that cannot be read, or is not a 0.9.7 report (an object with a
+/// known `state` and a `runs` array of objects), is a typed error that names it, never skipped. A file
+/// that vanished since it was listed holds none.
+fn report_runs(path: &Path) -> Result<Vec<serde_json::Value>, ShellError> {
+    let name = path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
     let text = match fs::read_to_string(path) {
         Ok(text) => text,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-        Err(e) => return Err(report_unreadable(&e)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(report_unreadable(&name, &e.to_string())),
     };
-    let Ok(report) = serde_json::from_str::<serde_json::Value>(&text) else {
-        return Ok(false);
-    };
-    Ok(own_run_verified(&report, device_id))
+    let report: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| report_unreadable(&name, &format!("not valid JSON ({e})")))?;
+    let known_state = matches!(report["state"].as_str(), Some("verified" | "incomplete" | "none"));
+    match report["runs"].as_array() {
+        Some(runs) if known_state && runs.iter().all(serde_json::Value::is_object) => Ok(runs.clone()),
+        _ => Err(report_unreadable(&name, "not a 0.9.7 migration report")),
+    }
 }
 
-fn report_unreadable(e: &std::io::Error) -> ShellError {
+fn report_unreadable(name: &str, why: &str) -> ShellError {
     ShellError::coded(
         "migration_report_unreadable",
-        &format!("cannot read the 0.9.7 migration report: {e}"),
+        &format!("cannot read the 0.9.7 migration report {name}: {why}"),
     )
 }
 
-/// This device's newest run (by `deviceId`) is verified and complete. A run without a `deviceId`
-/// matches no device, so it never verifies anything.
-fn own_run_verified(report: &serde_json::Value, device_id: &str) -> bool {
-    report["runs"].as_array().is_some_and(|runs| {
-        runs.iter()
-            .rev()
-            .find(|run| run["deviceId"].as_str() == Some(device_id))
-            .is_some_and(|run| run["state"].as_str() == Some("verified") && run_is_complete(run))
-    })
+fn report_listing_unreadable(e: &std::io::Error) -> ShellError {
+    ShellError::coded(
+        "migration_report_unreadable",
+        &format!("cannot list the 0.9.7 migration reports: {e}"),
+    )
+}
+
+/// This device's latest run across all report files: the one with the later `startedAt`. A tie goes to
+/// the run that is not verified, whatever the file order. A run without a matching `deviceId` is never
+/// this device's.
+fn own_latest_run<'a>(runs: &'a [serde_json::Value], device_id: &str) -> Option<&'a serde_json::Value> {
+    runs.iter()
+        .filter(|run| run["deviceId"].as_str() == Some(device_id))
+        .reduce(|seen, run| {
+            let seen_at = seen["startedAt"].as_str().unwrap_or("");
+            let run_at = run["startedAt"].as_str().unwrap_or("");
+            let tie_to_incomplete = run_at == seen_at && run_verified(seen) && !run_verified(run);
+            if run_at > seen_at || tie_to_incomplete {
+                run
+            } else {
+                seen
+            }
+        })
+}
+
+/// A run is verified when its state is `verified` and it is complete.
+fn run_verified(run: &serde_json::Value) -> bool {
+    run["state"].as_str() == Some("verified") && run_is_complete(run)
 }
 
 /// One run is complete when nothing is missing and every kind's db count equals its files count.
@@ -671,7 +694,7 @@ mod tests {
 
     #[test]
     fn report_incomplete_is_not_verified() {
-        let folder = report("report-incomplete", r#"{"state":"incomplete"}"#);
+        let folder = report("report-incomplete", r#"{"state":"incomplete","runs":[]}"#);
         assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
     }
 
@@ -782,9 +805,11 @@ mod tests {
     }
 
     #[test]
-    fn corrupt_report_is_not_verified() {
+    fn corrupt_report_refuses_and_names_the_file() {
         let folder = report("report-corrupt", "{not json");
-        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
+        let err = report_state_verified(&folder, Some(DEVICE)).unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("migration_report_unreadable"));
+        assert!(err.message.contains("report.json"), "{}", err.message);
     }
 
     #[test]
@@ -812,10 +837,123 @@ mod tests {
     }
 
     #[test]
-    fn corrupt_per_device_report_falls_back_to_verified_report_json() {
-        let folder = device_report("report-fallback", "report-device-a.json", "{not json");
-        fs::write(folder.join(REPORT_REL), COMPLETE).unwrap();
+    fn a_corrupt_per_device_report_refuses_beside_a_verified_report_json() {
+        let folder = reports_in(
+            "report-fallback",
+            &[("report.json", COMPLETE), ("report-device-a.json", "{not json")],
+        );
+        let err = report_state_verified(&folder, Some(DEVICE)).unwrap_err();
+        assert!(err.message.contains("report-device-a.json"), "{}", err.message);
+    }
+
+    /// One run as the export writes it, with matching counts.
+    fn run(device: &str, state: &str, started: &str) -> String {
+        format!(
+            r#"{{"deviceId":"{device}","state":"{state}","startedAt":"{started}","missing":[],"kinds":{{"vault_page":{{"db":2,"files":2}}}}}}"#
+        )
+    }
+
+    /// A report file holding `runs`.
+    fn report_body(runs: &[String]) -> String {
+        format!(r#"{{"state":"verified","runs":[{}]}}"#, runs.join(","))
+    }
+
+    /// A 0.9.7 folder holding each `(file name, body)` in the migration folder.
+    fn reports_in(name: &str, files: &[(&str, &str)]) -> PathBuf {
+        let (folder, _) = temp(name);
+        let dir = folder.join(REPORT_REL).parent().unwrap().to_path_buf();
+        fs::create_dir_all(&dir).unwrap();
+        for (file, body) in files {
+            fs::write(dir.join(file), body).unwrap();
+        }
+        folder
+    }
+
+    #[test]
+    fn an_empty_report_file_refuses() {
+        let folder = report("report-empty-file", "");
+        assert!(report_state_verified(&folder, Some(DEVICE)).is_err());
+    }
+
+    #[test]
+    fn a_report_without_a_runs_list_refuses() {
+        let folder = report("report-no-runs-key", r#"{"state":"incomplete"}"#);
+        assert!(report_state_verified(&folder, Some(DEVICE)).is_err());
+    }
+
+    #[test]
+    fn a_report_with_an_unknown_state_refuses() {
+        let folder = report("report-unknown-state", r#"{"state":"done","runs":[]}"#);
+        assert!(report_state_verified(&folder, Some(DEVICE)).is_err());
+    }
+
+    #[test]
+    fn a_report_that_is_not_an_object_refuses() {
+        let folder = report("report-array", "[]");
+        assert!(report_state_verified(&folder, Some(DEVICE)).is_err());
+    }
+
+    #[test]
+    fn a_corrupt_conflict_copy_refuses_beside_a_verified_own_run() {
+        let folder = reports_in(
+            "report-conflict-corrupt",
+            &[("report-device-a.json", COMPLETE), ("report-device-a (1).json", "{not json")],
+        );
+        let err = report_state_verified(&folder, Some(DEVICE)).unwrap_err();
+        assert!(err.message.contains("report-device-a (1).json"), "{}", err.message);
+    }
+
+    #[test]
+    fn a_corrupt_other_devices_file_refuses() {
+        let folder = reports_in(
+            "report-other-corrupt",
+            &[("report-device-a.json", COMPLETE), ("report-device-b.json", "{not json")],
+        );
+        assert!(report_state_verified(&folder, Some(DEVICE)).is_err());
+    }
+
+    #[test]
+    fn a_later_incomplete_conflict_copy_run_refuses_the_earlier_verified_run() {
+        let early = report_body(&[run(DEVICE, "verified", "2026-11-22T10:00:00Z")]);
+        let late = report_body(&[run(DEVICE, "incomplete", "2026-11-22T11:00:00Z")]);
+        let folder = reports_in(
+            "report-conflict-later-incomplete",
+            &[("report.json", early.as_str()), ("report-device-a (1).json", late.as_str())],
+        );
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
+    }
+
+    #[test]
+    fn a_later_verified_conflict_copy_run_passes_over_an_earlier_incomplete_run() {
+        let early = report_body(&[run(DEVICE, "incomplete", "2026-11-22T10:00:00Z")]);
+        let late = report_body(&[run(DEVICE, "verified", "2026-11-22T11:00:00Z")]);
+        let folder = reports_in(
+            "report-conflict-later-verified",
+            &[("report.json", early.as_str()), ("report-device-a (1).json", late.as_str())],
+        );
         assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(true));
+    }
+
+    #[test]
+    fn a_tie_goes_to_the_incomplete_run_whatever_the_file_order() {
+        let same = "2026-11-22T10:00:00Z";
+        let verified = report_body(&[run(DEVICE, "verified", same)]);
+        let incomplete = report_body(&[run(DEVICE, "incomplete", same)]);
+        let names = ["report.json", "report-device-a (1).json"];
+        for (first, second) in [(names[0], names[1]), (names[1], names[0])] {
+            let folder = reports_in(
+                "report-tie",
+                &[(first, verified.as_str()), (second, incomplete.as_str())],
+            );
+            assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false), "{first} then {second}");
+        }
+    }
+
+    #[test]
+    fn empty_runs_in_every_report_file_are_not_verified() {
+        let empty = r#"{"state":"none","runs":[]}"#;
+        let folder = reports_in("report-empty-union", &[("report.json", empty), ("report-device-a.json", empty)]);
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
     }
 
     #[test]
