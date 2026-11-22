@@ -12,6 +12,7 @@ import { openBrowserFileWiring, type BrowserFileWiring } from "./browser-file-ba
 import { readOrCreateInstallId } from "./browser-install-id";
 import { openFilesIfSwitched, type MarkerProbe } from "./browser-switch-background";
 import { localSwitchPending } from "./browser-readonly-fallback-098";
+import { startSwitchRetryOnSignIn } from "./browser-switch-retry";
 import { HttpBlobStore } from "@/storage/providers/http/http-blob-store";
 
 /** Signed download URLs for the export's blob reads live for five minutes. */
@@ -59,6 +60,14 @@ export async function decideBrowserSwitchFromConfig(
     installId: async () => readOrCreateInstallId(await BrowserWorkspaceFs.openOpfs()),
     pending: localSwitchPending(),
   });
+}
+
+/**
+ * Re-runs the switch when the user signs in while the retry banner shows, through the app's shared
+ * auth client. Startup calls it once after `retrySwitch`; a second call is a no-op. Returns a stop function.
+ */
+export function watchSignInForSwitch(): () => void {
+  return startSwitchRetryOnSignIn(getDataClient().auth);
 }
 
 /**

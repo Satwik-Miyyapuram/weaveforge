@@ -39,6 +39,68 @@ test("(P2-4) a run that outlives the timeout settles to null, so the caller can 
   assert.equal(out, null);
 });
 
+test("(098 P2) a switch that lands after the timeout has its files wiring closed and its result dropped", async () => {
+  let closed = 0;
+  let land: (d: SwitchDecision) => void = () => {};
+  const late = { close: async () => void (closed += 1) } as never;
+  const out = await runBrowserSwitchInBackground(
+    () =>
+      new Promise<SwitchDecision>((resolve) => {
+        land = resolve;
+      }),
+    10,
+  );
+  assert.equal(out, null, "the caller sees the timeout, not the late switch");
+  land({ switch: true, wiring: late });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(closed, 1, "the late wiring is closed, so no OPFS handle stays open");
+});
+
+test("(098 P2) a late close that rejects is swallowed: nothing rejects after the timeout", async () => {
+  let land: (d: SwitchDecision) => void = () => {};
+  const unhandled: unknown[] = [];
+  const onUnhandled = (err: unknown) => unhandled.push(err);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    const out = await runBrowserSwitchInBackground(
+      () =>
+        new Promise<SwitchDecision>((resolve) => {
+          land = resolve;
+        }),
+      10,
+    );
+    assert.equal(out, null);
+    land({ switch: true, wiring: { close: async () => Promise.reject(new Error("locked")) } as never });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.deepEqual(unhandled, []);
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
+});
+
+test("(098 P2) a late non-switch after the timeout closes nothing and is dropped", async () => {
+  let land: (d: SwitchDecision) => void = () => {};
+  const out = await runBrowserSwitchInBackground(
+    () =>
+      new Promise<SwitchDecision>((resolve) => {
+        land = resolve;
+      }),
+    10,
+  );
+  assert.equal(out, null);
+  land({ switch: false, reason: "not-verified" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+});
+
+test("(098 P2) a switch in time keeps its wiring open for the caller", async () => {
+  let closed = 0;
+  const wiring = { close: async () => void (closed += 1) } as never;
+  const out = await runBrowserSwitchInBackground(async () => ({ switch: true, wiring }), 1000);
+  assert.deepEqual(out, { switch: true, wiring });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(closed, 0);
+});
+
 test("(P2-4) a run that throws settles to null and never rejects", async () => {
   const out = await runBrowserSwitchInBackground(async () => {
     throw new Error("opfs locked");

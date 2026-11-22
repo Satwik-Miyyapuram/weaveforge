@@ -9,19 +9,22 @@ import {
   needsSwitchRetry,
   recordReadOnlyStart,
   retrySwitch,
+  retrySwitchNow,
   setSwitchRetryNeeded,
+  startSwitchRetryOnSignIn,
   subscribeSwitchRetry,
 } from "../browser-switch-retry";
+import type { SwitchDecision } from "../browser-export-switch";
 
 /**
- * Item 3. A startup run that does not switch for a retryable reason shows the "files aren't ready"
- * banner. Retry runs the switch again and reloads into files mode only when it switches.
+ * Item 3. A startup run that does not switch for a retryable reason shows the "moving your data
+ * to files" banner. Retry runs the switch again and reloads into files mode only when it switches.
  */
 
 const WIRING = { close: async () => {} } as never;
 
-test("(item3) the banner text says the files are not ready yet", () => {
-  assert.equal(SWITCH_RETRY_TEXT, "Your files aren't ready yet.");
+test("(item3) the banner text says the data is moving to files and the page is read-only", () => {
+  assert.equal(SWITCH_RETRY_TEXT, "Moving your data to files… read-only until done.");
 });
 
 test("(item3) not-verified, error and a timed-out run all show the banner", () => {
@@ -43,7 +46,8 @@ test("(item3) desktop and a switched run never show the banner", () => {
 test("(item3) Retry runs the switch again and reloads only when it switches", async () => {
   let runs = 0;
   let reloads = 0;
-  setSwitchRetryNeeded(true);
+  clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
 
   await retrySwitch(
     async () => {
@@ -74,6 +78,7 @@ test("(item3) Retry runs the switch again and reloads only when it switches", as
 
 test("(item3 P2) a second switched run in the same session shows the banner and does not reload again", async () => {
   clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
   let reloads = 0;
   const onSwitched = () => {
     reloads += 1;
@@ -91,6 +96,7 @@ test("(item3 P2) a second switched run in the same session shows the banner and 
 
 test("(item3 P2) clearing the reload guard lets a switched run reload again", async () => {
   clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
   let reloads = 0;
   const onSwitched = () => {
     reloads += 1;
@@ -103,17 +109,12 @@ test("(item3 P2) clearing the reload guard lets a switched run reload again", as
   setSwitchRetryNeeded(false);
 });
 
-test("(item3 P4) a read-only start keeps the banner when Retry finds no session; a server start does not", async () => {
+test("(item3 P4) a read-only start keeps the banner when Retry finds no session", async () => {
   clearSwitchReloadGuard();
   recordReadOnlyStart(true);
   await retrySwitch(async () => ({ switch: false, reason: "no-session" }), () => {});
   assert.equal(isSwitchRetryNeeded(), true, "read-only stays read-only: the banner stays while signed out");
-
   recordReadOnlyStart(false);
-  setSwitchRetryNeeded(true);
-  await retrySwitch(async () => ({ switch: false, reason: "no-session" }), () => {});
-  assert.equal(isSwitchRetryNeeded(), false, "a server start with no session has nothing to retry");
-  setSwitchRetryNeeded(false);
 });
 
 test("(item1 P2) Retry while signed out on a read-only start keeps the banner, through the banner's own call", async () => {
@@ -124,6 +125,274 @@ test("(item1 P2) Retry while signed out on a read-only start keeps the banner, t
   assert.equal(isSwitchRetryNeeded(), true);
   recordReadOnlyStart(false);
   setSwitchRetryNeeded(false);
+});
+
+test("(098 item1) the switch never runs on a page that did not start read-only", async () => {
+  clearSwitchReloadGuard();
+  recordReadOnlyStart(false);
+  let runs = 0;
+  let reloads = 0;
+  const out = await retrySwitch(
+    async () => {
+      runs += 1;
+      return { switch: true, wiring: WIRING };
+    },
+    () => {
+      reloads += 1;
+    },
+  );
+  assert.equal(out, null);
+  assert.equal(runs, 0, "a writable page never exports: a write could land after the snapshot");
+  assert.equal(reloads, 0);
+  recordReadOnlyStart(true);
+  await retrySwitch(
+    async () => {
+      runs += 1;
+      return { switch: false, reason: "not-verified" };
+    },
+    () => {},
+  );
+  assert.equal(runs, 1, "a read-only page runs the switch");
+  recordReadOnlyStart(false);
+  clearSwitchReloadGuard();
+});
+
+test("(098 P2) a repeat switch that cannot reload closes its files wiring", async () => {
+  clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
+  let closed = 0;
+  const wiring = { close: async () => void (closed += 1) } as never;
+  await retrySwitch(async () => ({ switch: true, wiring: WIRING }), () => {});
+  await retrySwitch(async () => ({ switch: true, wiring }), () => {});
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(closed, 1, "the page stays on the read-only backend, so the unused wiring is closed");
+  assert.equal(isSwitchRetryNeeded(), true);
+  recordReadOnlyStart(false);
+  clearSwitchReloadGuard();
+});
+
+test("(098 item2) retrySwitchNow re-runs the last switch; with none recorded it does nothing", async () => {
+  clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
+  let runs = 0;
+  let reloads = 0;
+  await retrySwitch(
+    async () => {
+      runs += 1;
+      return runs === 1 ? { switch: false, reason: "no-session" } : { switch: true, wiring: WIRING };
+    },
+    () => {
+      reloads += 1;
+    },
+  );
+  assert.equal(runs, 1);
+  await retrySwitchNow();
+  assert.equal(runs, 2);
+  assert.equal(reloads, 1);
+  assert.equal(isSwitchRetryNeeded(), false);
+  recordReadOnlyStart(false);
+  clearSwitchReloadGuard();
+});
+
+test("(098 item2) a retry while a run is in flight joins it: never two exports at once", async () => {
+  clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
+  let runs = 0;
+  let finish: (d: SwitchDecision) => void = () => {};
+  const first = retrySwitch(
+    () => {
+      runs += 1;
+      return new Promise<SwitchDecision>((resolve) => {
+        finish = resolve;
+      });
+    },
+    () => {},
+  );
+  const second = retrySwitchNow();
+  assert.equal(runs, 1);
+  finish({ switch: false, reason: "not-verified" });
+  assert.deepEqual(await first, { switch: false, reason: "not-verified" });
+  assert.deepEqual(await second, { switch: false, reason: "not-verified" });
+  assert.equal(runs, 1);
+  recordReadOnlyStart(false);
+  clearSwitchReloadGuard();
+});
+
+test("(098 P1) a retry after a timed-out run starts no second export while the first still runs", async () => {
+  clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
+  let runs = 0;
+  let finish: (d: SwitchDecision) => void = () => {};
+  const hung = () => {
+    runs += 1;
+    return new Promise<SwitchDecision>((resolve) => {
+      finish = resolve;
+    });
+  };
+  const out = await retrySwitch(hung, () => {}, 10);
+  assert.equal(out, null, "the first run timed out");
+  assert.equal(await retrySwitchNow(), null);
+  assert.equal(runs, 1, "the timed-out export still runs, so no second export starts");
+  finish({ switch: false, reason: "not-verified" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await retrySwitch(async () => {
+    runs += 1;
+    return { switch: false, reason: "not-verified" };
+  }, () => {});
+  assert.equal(runs, 2, "once it settles, Retry runs again");
+  recordReadOnlyStart(false);
+  clearSwitchReloadGuard();
+});
+
+type AuthCb = (event: string) => void;
+function fakeAuth() {
+  const cbs = new Set<AuthCb>();
+  return {
+    cbs,
+    emit: (event: string) => {
+      for (const cb of cbs) cb(event);
+    },
+    onAuthStateChange(cb: AuthCb) {
+      cbs.add(cb);
+      return { data: { subscription: { unsubscribe: () => void cbs.delete(cb) } } };
+    },
+  };
+}
+
+test("(098 item2) signing in re-runs the switch while the banner shows; other events do not", async () => {
+  clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
+  let runs = 0;
+  await retrySwitch(
+    async () => {
+      runs += 1;
+      return { switch: false, reason: "no-session" };
+    },
+    () => {},
+  );
+  assert.equal(runs, 1);
+  const auth = fakeAuth();
+  const stop = startSwitchRetryOnSignIn(auth);
+  auth.emit("TOKEN_REFRESHED");
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(runs, 1);
+  auth.emit("SIGNED_IN");
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(runs, 2);
+  stop();
+  auth.emit("SIGNED_IN");
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(runs, 2, "after stop, sign-in no longer re-runs");
+  recordReadOnlyStart(false);
+  clearSwitchReloadGuard();
+});
+
+test("(098 item2) sign-in does nothing when no retry is needed, and watching twice subscribes once", async () => {
+  clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
+  let runs = 0;
+  let reloads = 0;
+  await retrySwitch(
+    async () => {
+      runs += 1;
+      return { switch: true, wiring: WIRING };
+    },
+    () => {
+      reloads += 1;
+    },
+  );
+  assert.equal(runs, 1);
+  assert.equal(isSwitchRetryNeeded(), false, "switched: no banner");
+  const auth = fakeAuth();
+  const stop1 = startSwitchRetryOnSignIn(auth);
+  const stop2 = startSwitchRetryOnSignIn(auth);
+  assert.equal(auth.cbs.size, 1);
+  auth.emit("SIGNED_IN");
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(runs, 1, "no banner, so sign-in starts no export");
+  stop1();
+  stop2();
+  assert.equal(auth.cbs.size, 0);
+});
+
+test("(098 P2) a reload that throws keeps the banner and Retry still resolves", async () => {
+  clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
+  const out = await retrySwitch(
+    async () => ({ switch: true, wiring: WIRING }),
+    () => {
+      throw new Error("reload blocked");
+    },
+  );
+  assert.equal(out?.switch, true, "resolves, never rejects");
+  assert.equal(isSwitchRetryNeeded(), true, "no reload happened, so the page is still read-only");
+  let reloads = 0;
+  await retrySwitch(async () => ({ switch: true, wiring: WIRING }), () => void (reloads += 1));
+  assert.equal(reloads, 1, "the failed reload did not use up the guard: Retry reloads");
+  recordReadOnlyStart(false);
+  clearSwitchReloadGuard();
+});
+
+test("(098 P2) signing in during a signed-out run re-runs once that run settles", async () => {
+  clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
+  let runs = 0;
+  let finish: (d: SwitchDecision) => void = () => {};
+  const first = retrySwitch(
+    () => {
+      runs += 1;
+      if (runs === 1) {
+        return new Promise<SwitchDecision>((resolve) => {
+          finish = resolve;
+        });
+      }
+      return Promise.resolve<SwitchDecision>({ switch: false, reason: "not-verified" });
+    },
+    () => {},
+  );
+  const auth = fakeAuth();
+  const stop = startSwitchRetryOnSignIn(auth);
+  auth.emit("SIGNED_IN");
+  assert.equal(runs, 1, "no second export while the first runs");
+  finish({ switch: false, reason: "no-session" });
+  await first;
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(runs, 2, "the sign-in re-run starts after the signed-out run settles");
+  stop();
+  recordReadOnlyStart(false);
+  clearSwitchReloadGuard();
+});
+
+test("(098 P2) signing in during a timed-out export re-runs once that export settles", async () => {
+  clearSwitchReloadGuard();
+  recordReadOnlyStart(true);
+  let runs = 0;
+  let finish: (d: SwitchDecision) => void = () => {};
+  const out = await retrySwitch(
+    () => {
+      runs += 1;
+      if (runs === 1) {
+        return new Promise<SwitchDecision>((resolve) => {
+          finish = resolve;
+        });
+      }
+      return Promise.resolve<SwitchDecision>({ switch: false, reason: "not-verified" });
+    },
+    () => {},
+    10,
+  );
+  assert.equal(out, null, "timed out");
+  const auth = fakeAuth();
+  const stop = startSwitchRetryOnSignIn(auth);
+  auth.emit("SIGNED_IN");
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(runs, 1, "no second export while the timed-out one still runs");
+  finish({ switch: false, reason: "no-session" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(runs, 2, "the sign-in re-run starts after the export settles");
+  stop();
+  recordReadOnlyStart(false);
+  clearSwitchReloadGuard();
 });
 
 test("(item3) the app shell mounts the retry banner beside the release notice", () => {
