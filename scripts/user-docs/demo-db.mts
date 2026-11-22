@@ -14,7 +14,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
-import { LOCAL_BOOTSTRAP_SQL, LOCAL_USER_ID, applyMigrations } from "@weaveforge/core";
+import { LOCAL_USER_ID, applyMigrations } from "@weaveforge/core";
+import { LOCAL_BOOTSTRAP_SQL } from "@/backend/test/local-bootstrap-sql";
 import { readyCore } from "@/lib/rust-core";
 import { DEMO_PARSERS, localQuery } from "./demo-query.mjs";
 

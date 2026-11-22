@@ -11,7 +11,7 @@ use crate::local_artifacts::{MAX_LOCAL_ARTIFACT_BYTES, is_safe_segment};
 /// The path prefix every SDK route shares.
 pub const SDK_PREFIX: &str = "/api/sdk/";
 
-/// `LOCAL_USER_ID` from `packages/core/src/database/local-postgres.ts`.
+/// `LOCAL_USER_ID` from `packages/core/src/local-user.ts`.
 pub const LOCAL_USER_ID: &str = "00000000-0000-4000-8000-000000000001";
 
 /// Columns an experiment row may carry. An allowlist: body keys are never interpolated unchecked.
