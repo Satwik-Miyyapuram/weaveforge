@@ -499,7 +499,7 @@ test("verify: a null server contentType and application/octet-stream in the file
   assert.equal(result.state, "verified");
 });
 
-test("order: report.json says verified before the desktop mark, and the server marker comes last", async () => {
+test("order: the server marker comes first, the desktop mark last, and report.json says incomplete until both succeed", async () => {
   const order: string[] = [];
   const sink = new MemorySink();
   const { source } = fakeServer({ rows: FIXTURE });
@@ -526,10 +526,12 @@ test("order: report.json says verified before the desktop mark, and the server m
     },
   });
   assert.equal(result.state, "verified");
-  assert.deepEqual(order, ["desktop-mark:report=verified", "server-mark"]);
+  assert.deepEqual(order, ["server-mark", "desktop-mark:report=incomplete"]);
+  const final = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
+  assert.equal(final.state, "verified");
 });
 
-test("order: a failed desktop mark means no server marker and report.json stays incomplete", async () => {
+test("order: a failed desktop mark (last) leaves report.json incomplete, though the server marker is already set", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
   const desktopCalls: string[] = [];
@@ -542,23 +544,75 @@ test("order: a failed desktop mark means no server marker and report.json stays 
     desktop: { folder: "C:/ws", bridge: fakeDesktop(desktopCalls, { markFails: true }) },
   });
   assert.equal(result.state, "incomplete");
-  assert.equal(calls.some((c) => c.startsWith("mark:")), false, "server marker not set");
+  assert.equal(calls.some((c) => c.startsWith("mark:")), true, "server marker set first");
   const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string; verifiedAt?: string };
   assert.equal(report.state, "incomplete");
   assert.equal("verifiedAt" in report, false);
   assert.match(JSON.stringify(report), /markExported: shell refused/);
 });
 
-test("order: a failed server marker leaves report.json incomplete", async () => {
+test("order: a failed server marker leaves report.json incomplete and the desktop is not marked", async () => {
   const { source } = fakeServer({ rows: FIXTURE });
   source.markExported = async () => {
     throw new Error("server down");
   };
   const sink = new MemorySink();
-  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const desktopCalls: string[] = [];
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: fakeDesktop(desktopCalls) },
+  });
   assert.equal(result.state, "incomplete");
+  assert.equal(desktopCalls.some((c) => c.startsWith("desktop-mark")), false, "no desktop mark");
   const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
   assert.equal(report.state, "incomplete");
+  assert.match(JSON.stringify(report), /server down/);
+});
+
+test("order: a crash between the two marks never leaves report.json verified", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: {
+      folder: "C:/ws",
+      bridge: {
+        backup: async () => ({ deviceId: "dev-1", dump: "pre-migration-097.dump" }),
+        markExported: async () => {
+          throw new Error("process died");
+        },
+      },
+    },
+  });
+  assert.equal(calls.some((c) => c.startsWith("mark:")), true, "server marker was set before the crash");
+  assert.notEqual(result.state, "verified");
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string; verifiedAt?: string };
+  assert.equal(report.state, "incomplete");
+  assert.equal("verifiedAt" in report, false);
+});
+
+test("order: report.json says markers pending before any mark is attempted", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const seen: string[] = [];
+  source.markExported = async () => {
+    const report = JSON.parse(await sink.readText(REPORT_PATH)) as {
+      state: string;
+      runs: { missing: { reason: string }[] }[];
+    };
+    seen.push(report.state + ":" + JSON.stringify(report.runs[0]?.missing ?? []));
+  };
+  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  assert.equal(seen.length, 1);
+  assert.match(seen[0] ?? "", /^incomplete:.*markers pending/);
 });
 
 test("order: a failed report.json write means no desktop mark and no server marker", async () => {
@@ -808,7 +862,7 @@ test("keys: moveSecrets runs after verify and before the desktop mark and the se
   });
   assert.equal(result.state, "verified");
   assert.match(order[0] ?? "", /^moveSecrets:rows=[1-9]/, "rows were written before the hook ran");
-  assert.deepEqual(order.slice(1), ["desktop-mark", "server-mark"]);
+  assert.deepEqual(order.slice(1), ["server-mark", "desktop-mark"]);
 });
 
 test("keys: a failed moveSecrets gives incomplete, no desktop mark and no server marker", async () => {

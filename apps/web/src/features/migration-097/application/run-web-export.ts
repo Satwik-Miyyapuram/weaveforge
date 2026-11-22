@@ -255,24 +255,30 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     }
   }
 
-  // Order (0.9.7 contract): report.json says verified, then the desktop mark, then the server
-  // marker last. A failed mark rewrites report.json as incomplete and skips the server marker.
-  await persist();
-  if (state === "verified" && desktop) {
-    try {
-      await desktop.bridge.markExported(desktop.folder);
-    } catch (err) {
-      state = "incomplete";
-      missing.push({ kind: "desktop", id: "*", reason: `markExported: ${(err as Error).message}` });
-    }
-  }
+  // Markers (0.9.7 contract): the server marker first, the desktop mark last. report.json says
+  // incomplete ("markers pending") until both succeed, so a crash between the two is never verified.
   if (state === "verified") {
+    state = "incomplete";
+    missing.push({ kind: "marker", id: "*", reason: "markers pending" });
+    const pendingAt = missing.length - 1;
+    await persist();
+    let marked = true;
     try {
       await source.markExported(now);
     } catch (err) {
-      state = "incomplete";
+      marked = false;
       missing.push({ kind: "marker", id: "*", reason: `markExported: ${(err as Error).message}` });
     }
+    if (marked && desktop) {
+      try {
+        await desktop.bridge.markExported(desktop.folder);
+      } catch (err) {
+        marked = false;
+        missing.push({ kind: "desktop", id: "*", reason: `markExported: ${(err as Error).message}` });
+      }
+    }
+    missing.splice(pendingAt, 1);
+    if (marked) state = "verified";
   }
   const run = await persist();
   return { state, run };
