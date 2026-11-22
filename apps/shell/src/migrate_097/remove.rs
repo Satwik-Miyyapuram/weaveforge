@@ -56,10 +56,10 @@ pub fn write_verified_empty_report(folder: &Path, verified_at: &str) -> Result<(
 }
 
 /// Stops the local cluster through `stop_pg`, then deletes `pg_root`. Refuses (touching nothing)
-/// unless report.json says `verified` (or resumes a `removing` report) with a `verifiedAt` at most
-/// 10 minutes before `now`, its backup is a non-empty dump with no missing items,
-/// `pg_root/exported-to.json` names this folder, `secrets-moved.json` exists and covers every
-/// `local_secrets` row, and neither `pg_root` nor anything inside it is a reparse point. Ends with
+/// unless report.json says `verified` (or resumes a `removing` report), this device's newest run
+/// finished at most 10 minutes before `now`, its backup is a non-empty dump with no missing items,
+/// `pg_root/exported-to.json` names this folder, `secrets-moved.json` names this device and covers
+/// every `local_secrets` row, and neither `pg_root` nor anything inside it is a reparse point. Ends with
 /// state `removed` and `removedAt = now`.
 ///
 /// `local_secrets_rows` runs while Postgres is still up, only for a `verified` report. A
@@ -89,10 +89,10 @@ pub fn remove_old_data(
         return Err("refused: report lists missing items".to_owned());
     }
     if state == "verified" {
-        check_verified_at(&report, now)?;
+        check_fresh_run(&report, device_id, now)?;
         check_exported_to(pg_root, folder)?;
     }
-    let moved = read_secrets_moved(folder)?;
+    let moved = read_secrets_moved(folder, device_id)?;
     if pg_root.exists() {
         if is_reparse(&fs::symlink_metadata(pg_root).map_err(|e| e.to_string())?) {
             return Err(format!(
@@ -131,20 +131,24 @@ pub fn remove_old_data(
     write_json_atomic(&report_path, &report)
 }
 
-/// The `missing` kinds of this device's newest run: the last entry of `runs` whose `deviceId`
-/// is `device_id`. A run from another device never counts; no run from this device refuses.
+/// This device's newest run: the last entry of `runs` whose `deviceId` is `device_id`. A run from
+/// another device never counts; no run from this device refuses.
+fn own_run<'a>(report: &'a serde_json::Value, device_id: &str) -> Result<&'a serde_json::Value, String> {
+    let runs = report["runs"]
+        .as_array()
+        .ok_or("refused: report has no runs; verify again")?;
+    runs.iter()
+        .rev()
+        .find(|run| run["deviceId"].as_str() == Some(device_id))
+        .ok_or_else(|| "refused: no verify run from this device; verify again".to_owned())
+}
+
+/// The `missing` kinds of this device's newest run (see `own_run`).
 pub fn own_run_missing(
     report: &serde_json::Value,
     device_id: &str,
 ) -> Result<Vec<String>, String> {
-    let runs = report["runs"]
-        .as_array()
-        .ok_or("refused: report has no runs; verify again")?;
-    let own = runs
-        .iter()
-        .rev()
-        .find(|run| run["deviceId"].as_str() == Some(device_id))
-        .ok_or("refused: no verify run from this device; verify again")?;
+    let own = own_run(report, device_id)?;
     let items = own["missing"]
         .as_array()
         .ok_or("refused: verify run has no missing list; verify again")?;
@@ -154,13 +158,13 @@ pub fn own_run_missing(
         .collect())
 }
 
-/// The verify must be at most `VERIFY_WINDOW_MS` old: the UI runs the TS verify right before
-/// removal, so an older report means the data may have changed since it was checked.
-fn check_verified_at(report: &serde_json::Value, now: &str) -> Result<(), String> {
-    let verified = report["verifiedAt"]
+/// This device's own verify run must have finished at most `VERIFY_WINDOW_MS` before removal. The
+/// top-level `verifiedAt` is not used: another device sharing the folder overwrites it.
+fn check_fresh_run(report: &serde_json::Value, device_id: &str, now: &str) -> Result<(), String> {
+    let verified = own_run(report, device_id)?["finishedAt"]
         .as_str()
         .and_then(parse_iso_ms)
-        .ok_or("refused: report has no readable verifiedAt; verify again")?;
+        .ok_or("refused: this device's verify run has no readable finishedAt; verify again")?;
     let now = parse_iso_ms(now).ok_or("refused: current time is unreadable")?;
     let age = i128::from(now) - i128::from(verified);
     if !(0..=i128::from(VERIFY_WINDOW_MS)).contains(&age) {
@@ -241,15 +245,21 @@ fn check_exported_to(pg_root: &Path, folder: &Path) -> Result<(), String> {
 }
 
 /// Reads `count` from `secrets-moved.json` (written by the KEYS lane once every local secret is in
-/// the keychain). Missing, unparsable or count-less files refuse.
-fn read_secrets_moved(folder: &Path) -> Result<u64, String> {
+/// the keychain). Missing, unparsable or count-less files refuse, and so does a file that names
+/// no `deviceId` or another device's.
+fn read_secrets_moved(folder: &Path, device_id: &str) -> Result<u64, String> {
     let text = fs::read_to_string(folder.join(SECRETS_REL))
         .map_err(|_| "refused: secrets-moved.json is missing".to_owned())?;
     let value: serde_json::Value = serde_json::from_str(&text)
         .map_err(|_| "refused: secrets-moved.json is unparsable".to_owned())?;
-    value["count"]
+    let count = value["count"]
         .as_u64()
-        .ok_or_else(|| "refused: secrets-moved.json has no count".to_owned())
+        .ok_or_else(|| "refused: secrets-moved.json has no count".to_owned())?;
+    match value["deviceId"].as_str() {
+        Some(id) if id == device_id => Ok(count),
+        Some(_) => Err("refused: secrets-moved.json was written by another device".to_owned()),
+        None => Err("refused: secrets-moved.json has no deviceId".to_owned()),
+    }
 }
 
 fn check_secrets_count(moved: u64, local_rows: u64) -> Result<(), String> {

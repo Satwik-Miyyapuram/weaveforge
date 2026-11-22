@@ -17,14 +17,14 @@ const NOW: &str = "2026-11-23T08:00:00Z";
 const DEVICE: &str = "dev-a";
 
 /// One run exactly as the TS web writer emits it (`run-web-export.ts`), with `missing` inside it.
-const RUN_CLEAN: &str = r#"{"startedAt":"2026-11-23T07:00:00Z","finishedAt":"2026-11-23T07:30:00Z","sources":[],"kinds":{},"blobs":{"db":0,"verified":0},"deviceId":"dev-a","missing":[]}"#;
+const RUN_CLEAN: &str = r#"{"startedAt":"2026-11-23T07:59:00Z","finishedAt":"2026-11-23T08:00:00Z","sources":[],"kinds":{},"blobs":{"db":0,"verified":0},"deviceId":"dev-a","missing":[]}"#;
 
 fn run_missing(missing: &str) -> String {
     format!(r#"{{"startedAt":"{NOW}","finishedAt":"{NOW}","sources":[],"kinds":{{}},"blobs":{{"db":0,"verified":0}},"deviceId":"dev-a","missing":[{missing}]}}"#)
 }
 
 fn secrets_json(count: u64) -> String {
-    format!(r#"{{"movedAt":"{NOW}","count":{count}}}"#)
+    format!(r#"{{"movedAt":"{NOW}","count":{count},"deviceId":"{DEVICE}"}}"#)
 }
 
 /// A dump that passes the header check: PGDMP, archive version 1.16, int size 4, offset size 8,
@@ -504,13 +504,15 @@ fn secrets_gate_passes_when_count_covers_local_rows() {
     assert!(!f.pg_root.exists(), "cluster removed");
 }
 
-/// Sets the report's `verifiedAt` (or removes it when `ts` is None).
-fn set_verified_at(f: &Fixture, ts: Option<&str>) {
+/// Sets `finishedAt` on this device's run. The freshness gate reads that run, not the top-level
+/// `verifiedAt`, which any device sharing the folder can overwrite.
+fn set_finished_at(f: &Fixture, ts: Option<&str>) {
     let mut report = f.report();
+    let run = report["runs"].as_array_mut().unwrap().last_mut().unwrap();
     match ts {
-        Some(ts) => report["verifiedAt"] = ts.into(),
+        Some(ts) => run["finishedAt"] = ts.into(),
         None => {
-            let _removed = report.as_object_mut().unwrap().remove("verifiedAt");
+            let _removed = run.as_object_mut().unwrap().remove("finishedAt");
         }
     }
     f.set_report(&report.to_string());
@@ -519,7 +521,7 @@ fn set_verified_at(f: &Fixture, ts: Option<&str>) {
 #[test]
 fn refuses_when_verified_at_is_older_than_ten_minutes() {
     let f = Fixture::new("stale", Some("verified"), Some(good_dump().as_slice()));
-    set_verified_at(&f, Some("2026-11-23T07:49:59Z"));
+    set_finished_at(&f, Some("2026-11-23T07:49:59Z"));
     let err = f
         .run(&mut never_stop())
         .expect_err("11 minute old verify must refuse");
@@ -529,9 +531,42 @@ fn refuses_when_verified_at_is_older_than_ten_minutes() {
 }
 
 #[test]
+fn device_bs_fresh_verify_does_not_let_device_a_pass() {
+    // Device A verified at 07:30; device B verified at 08:00 and overwrote the top-level stamp.
+    let f = Fixture::new("other-verify", Some("verified"), Some(good_dump().as_slice()));
+    let mut report = f.report();
+    report["runs"][0]["finishedAt"] = "2026-11-23T07:30:00Z".into();
+    report["runs"].as_array_mut().unwrap().push(serde_json::json!({
+        "startedAt": NOW, "finishedAt": NOW, "sources": [], "kinds": {},
+        "blobs": {"db": 0, "verified": 0}, "deviceId": "dev-b", "missing": []
+    }));
+    report["verifiedAt"] = NOW.into();
+    f.set_report(&report.to_string());
+    let err = f
+        .run(&mut never_stop())
+        .expect_err("device A's own verify is stale even though B's is fresh");
+    assert!(err.contains("stale"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
+fn refuses_secrets_moved_written_by_another_device() {
+    let f = Fixture::new("secrets-other", Some("verified"), Some(good_dump().as_slice()));
+    fs::write(f.folder.join(SECRETS), r#"{"count":0,"deviceId":"dev-b"}"#).unwrap();
+    let err = f.run(&mut never_stop()).expect_err("another device's secrets must refuse");
+    assert!(err.contains("another device"), "{err}");
+    f.assert_untouched();
+
+    fs::write(f.folder.join(SECRETS), r#"{"count":0}"#).unwrap();
+    let err = f.run(&mut never_stop()).expect_err("secrets without a deviceId must refuse");
+    assert!(err.contains("deviceId"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
 fn accepts_verified_at_exactly_ten_minutes_old() {
     let f = Fixture::new("fresh-edge", Some("verified"), Some(good_dump().as_slice()));
-    set_verified_at(&f, Some("2026-11-23T07:50:00.250Z"));
+    set_finished_at(&f, Some("2026-11-23T07:50:00.250Z"));
     let mut stopped = false;
     f.run(&mut || {
         stopped = true;
@@ -545,16 +580,16 @@ fn accepts_verified_at_exactly_ten_minutes_old() {
 #[test]
 fn refuses_when_verified_at_is_missing_or_in_the_future() {
     let f = Fixture::new("no-verified-at", Some("verified"), Some(good_dump().as_slice()));
-    set_verified_at(&f, None);
-    let err = f.run(&mut never_stop()).expect_err("no verifiedAt must refuse");
-    assert!(err.contains("verifiedAt"), "{err}");
+    set_finished_at(&f, None);
+    let err = f.run(&mut never_stop()).expect_err("no finishedAt must refuse");
+    assert!(err.contains("finishedAt"), "{err}");
     f.assert_untouched();
 
     let future = Fixture::new("future-verified-at", Some("verified"), Some(good_dump().as_slice()));
-    set_verified_at(&future, Some("2026-11-23T09:00:00Z"));
+    set_finished_at(&future, Some("2026-11-23T09:00:00Z"));
     let err = future
         .run(&mut never_stop())
-        .expect_err("future verifiedAt must refuse");
+        .expect_err("future finishedAt must refuse");
     assert!(err.contains("stale"), "{err}");
     future.assert_untouched();
 }
