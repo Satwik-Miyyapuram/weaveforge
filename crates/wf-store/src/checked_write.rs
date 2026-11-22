@@ -773,7 +773,17 @@ fn is_other_file(src_real: &Path, dest: &Path) -> bool {
 /// no-replace step (it refuses an existing name on NTFS and POSIX), then the old name goes.
 /// A case-only rename of the same file is the one case that must rename over its own name.
 fn move_without_replace(src: &Path, dest: &Path) -> io::Result<()> {
-    match fs::hard_link(src, dest) {
+    move_with_link(src, dest, |s, d| fs::hard_link(s, d))
+}
+
+/// `move_without_replace` with the link step injected, so tests can simulate a filesystem
+/// that refuses hard links.
+fn move_with_link(
+    src: &Path,
+    dest: &Path,
+    link: impl Fn(&Path, &Path) -> io::Result<()>,
+) -> io::Result<()> {
+    match link(src, dest) {
         Ok(()) => fs::remove_file(src),
         Err(err) if err.kind() == io::ErrorKind::AlreadyExists && is_same_file(src, dest) => {
             fs::rename(src, dest)
@@ -785,24 +795,49 @@ fn move_without_replace(src: &Path, dest: &Path) -> io::Result<()> {
 /// Moves a file into the trash without replacing one already there. Where the filesystem has
 /// no hard links (exFAT, some network shares) it falls back to a plain rename, as before.
 fn trash_file(src: &Path, dest: &Path) -> io::Result<()> {
-    match move_without_replace(src, dest) {
-        Err(err) if err.kind() != io::ErrorKind::AlreadyExists && !taken(dest) => {
-            rename_without_replace(src, dest)
-        }
+    trash_with_link(src, dest, |s, d| fs::hard_link(s, d))
+}
+
+/// `trash_file` with the link step injected. Only "no hard links here" errors fall back to a
+/// rename; permission and sharing errors are returned as they are.
+fn trash_with_link(
+    src: &Path,
+    dest: &Path,
+    link: impl Fn(&Path, &Path) -> io::Result<()>,
+) -> io::Result<()> {
+    match move_with_link(src, dest, link) {
+        Err(err) if is_no_hard_link(&err) && !taken(dest) => rename_without_replace(src, dest),
         moved => moved,
     }
 }
 
+/// True when the filesystem cannot make hard links at all.
+fn is_no_hard_link(err: &io::Error) -> bool {
+    if matches!(
+        err.kind(),
+        io::ErrorKind::Unsupported | io::ErrorKind::InvalidInput
+    ) {
+        return true;
+    }
+    // ERROR_NOT_SUPPORTED (50) and ERROR_INVALID_FUNCTION (1): what Windows volumes without
+    // hard links (exFAT, some network shares) return. On Unix, errno 1 is EPERM, so skip it there.
+    cfg!(windows) && matches!(err.raw_os_error(), Some(50) | Some(1))
+}
+
 /// Renames `src` to `dest` without replacing a file at `dest`, for filesystems without hard
-/// links. An empty placeholder claims the name first (`create_new`), so the rename can only
-/// replace our own placeholder, never a file that appeared after the check.
+/// links. A `create_new` probe refuses a name that already exists. The probe is closed before
+/// the rename, because an open handle can make the rename fail on Windows. If the rename
+/// fails, the probe is removed only while it is still empty, so a file written there by
+/// someone else is never deleted.
 fn rename_without_replace(src: &Path, dest: &Path) -> io::Result<()> {
-    let _placeholder = fs::OpenOptions::new()
+    fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(dest)?;
     fs::rename(src, dest).inspect_err(|_| {
-        let _ = fs::remove_file(dest);
+        if fs::metadata(dest).is_ok_and(|m| m.len() == 0) {
+            let _ = fs::remove_file(dest);
+        }
     })
 }
 
@@ -942,8 +977,59 @@ mod proofs {
 
 #[cfg(test)]
 mod move_tests {
-    use super::{move_without_replace, rename_without_replace};
+    use super::{move_without_replace, rename_without_replace, trash_with_link};
     use std::fs;
+    use std::io;
+
+    #[test]
+    fn trash_falls_back_to_rename_when_hard_links_are_unsupported() {
+        let dir = std::env::temp_dir().join(format!("wf-nr-nolink-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("src.md");
+        let dest = dir.join("dest.md");
+        fs::write(&src, "moved").unwrap();
+
+        let no_links = |_: &std::path::Path, _: &std::path::Path| {
+            Err(io::Error::from(io::ErrorKind::Unsupported))
+        };
+        trash_with_link(&src, &dest, no_links).unwrap();
+        assert!(!src.exists());
+        assert_eq!(fs::read_to_string(&dest).unwrap(), "moved");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn trash_does_not_fall_back_to_rename_on_a_permission_error() {
+        let dir = std::env::temp_dir().join(format!("wf-nr-denied-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("src.md");
+        let dest = dir.join("dest.md");
+        fs::write(&src, "kept").unwrap();
+
+        let denied = |_: &std::path::Path, _: &std::path::Path| {
+            Err(io::Error::from(io::ErrorKind::PermissionDenied))
+        };
+        let err = trash_with_link(&src, &dest, denied).expect_err("must not move");
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(fs::read_to_string(&src).unwrap(), "kept");
+        assert!(!dest.exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rename_fallback_leaves_no_placeholder_when_the_rename_fails() {
+        let dir = std::env::temp_dir().join(format!("wf-nr-placeholder-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("missing.md");
+        let dest = dir.join("dest.md");
+
+        rename_without_replace(&src, &dest).expect_err("source is missing");
+        assert!(!dest.exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn move_refuses_an_existing_destination_and_keeps_both_files() {
