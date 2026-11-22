@@ -8,7 +8,10 @@ const BASE = "https://api.example.test/rest/v1";
 function recorder() {
   const calls: { url: string; headers: Headers }[] = [];
   const inner = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    calls.push({ url: String(input), headers: new Headers(init?.headers) });
+    const url = input instanceof Request ? input.url : String(input);
+    // Mirror fetch: an init headers object replaces the Request's headers, otherwise the Request's own are used.
+    const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+    calls.push({ url, headers });
     return new Response("{}", { status: 200 });
   }) as typeof fetch;
   return { calls, inner };
@@ -46,4 +49,38 @@ test("no session means no Authorization header, and the request still goes out",
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0]?.headers.get("authorization"), null);
+});
+
+test("a host that only starts with the API base string gets no bearer token", async () => {
+  const { calls, inner } = recorder();
+  const fetchWithAuth = authedFetch(BASE, async () => "secret", inner);
+
+  await fetchWithAuth("https://api.example.test/rest/v1.evil/papers");
+  await fetchWithAuth("https://api.example.test/rest/v1evil/papers");
+
+  assert.equal(calls[0]?.headers.get("authorization"), null, "'.evil' is another path, not the API");
+  assert.equal(calls[1]?.headers.get("authorization"), null, "'evil' glued on is another path, not the API");
+});
+
+test("the exact base, base + '/' and base + '?' all get the bearer token", async () => {
+  const { calls, inner } = recorder();
+  const fetchWithAuth = authedFetch(BASE, async () => "secret", inner);
+
+  await fetchWithAuth(BASE);
+  await fetchWithAuth(`${BASE}/papers`);
+  await fetchWithAuth(`${BASE}?select=id`);
+
+  for (const call of calls) {
+    assert.equal(call.headers.get("authorization"), "Bearer secret", call.url);
+  }
+});
+
+test("a Request with no init keeps the Request's own headers and adds the bearer token", async () => {
+  const { calls, inner } = recorder();
+  const fetchWithAuth = authedFetch(BASE, async () => "secret", inner);
+
+  await fetchWithAuth(new Request(`${BASE}/papers`, { headers: { apikey: "anon" } }));
+
+  assert.equal(calls[0]?.headers.get("apikey"), "anon", "the Request's apikey survives");
+  assert.equal(calls[0]?.headers.get("authorization"), "Bearer secret");
 });
