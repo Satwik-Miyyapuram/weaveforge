@@ -2,6 +2,7 @@ import { ManageSettingsUseCase, type IWorkspaceFs } from "@weaveforge/core";
 import { systemClock } from "@/lib/parts";
 import type { BackendConfig } from "@/backend/parts";
 import { RefusingSecretsStore } from "@/backend/providers/files/refusing-secrets-store";
+import { FileBlobStore } from "@/backend/providers/files/file-blob-store";
 import { openFileSettingsSection } from "@/backend/providers/files/file-settings-section";
 import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
 import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
@@ -35,6 +36,10 @@ export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWir
     return {
       ...overlayFileRepositories(postgrest, files),
       manageSettings,
+      // Personal blobs (images, experiment files) go to the OPFS file blob store, not blob_objects.
+      // blob_objects stays allowlisted on the org server because shared images still use it.
+      // Row scoping of shared images to the signed-in user is not checked here.
+      rawBlobStore: new FileBlobStore(fs),
       db: guardOrgDb(postgrest.db),
     };
   };

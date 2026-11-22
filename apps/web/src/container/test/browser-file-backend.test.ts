@@ -112,6 +112,21 @@ test("with the overlay, org and sharing reads still go to PostgREST", async () =
   }
 });
 
+test("a personal blob upload makes zero network calls and lands in the file blob store", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const wire = await wireBrowserFiles(fs);
+  const backend = wire(config, { projectId: null }, () => null);
+  const spy = spyNetwork();
+  try {
+    await backend.rawBlobStore.upload("images", "p-1/fig.png", new Blob([new Uint8Array([1, 2, 3])]), "image/png");
+    assert.deepEqual(spy.urls, []);
+    assert.ok(await fs.stat("assets/images/p-1/fig.png"), "the blob must be a file under assets/<bucket>/<path>");
+  } finally {
+    spy.restore();
+    backend.dispose();
+  }
+});
+
 test("in files mode a settings save goes to the file repo and never PostgREST", async () => {
   const fs = new MemoryWorkspaceFs();
   const wire = await wireBrowserFiles(fs);
