@@ -13,6 +13,7 @@
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde_json::Value;
 use tauri::Manager;
@@ -339,25 +340,46 @@ pub fn record_secrets_moved(folder: &Path, device: &str, count: usize) -> io::Re
     }
 }
 
-/// Writes `body` to `path` through `<path>.part`, synced before the rename. A leftover `.part` from
-/// an earlier crash is removed first, so the file is always created fresh.
+/// Writes `body` to `path` through a temp file of its own, synced before the rename. Each write
+/// has a unique temp name, so concurrent writers never share one. A fixed-name `.json.part` left by
+/// an older build is removed first.
 fn write_atomic(path: &Path, body: &[u8]) -> io::Result<()> {
     let dir = path
         .parent()
         .ok_or_else(|| io::Error::other("the marker has no folder"))?;
     fs::create_dir_all(dir)?;
-    let part = path.with_extension("json.part");
-    match fs::remove_file(&part) {
+    match fs::remove_file(path.with_extension("json.part")) {
         Ok(()) => {}
         Err(err) if err.kind() == io::ErrorKind::NotFound => {}
         Err(err) => return Err(err),
     }
-    {
+    let part = unique_part(path);
+    let written = (|| {
         let mut file = File::create_new(&part)?;
         file.write_all(body)?;
-        file.sync_all()?;
+        file.sync_all()
+    })();
+    if let Err(err) = written {
+        let _ = fs::remove_file(&part);
+        return Err(err);
     }
-    fs::rename(&part, path)
+    let renamed = fs::rename(&part, path);
+    if renamed.is_err() {
+        let _ = fs::remove_file(&part);
+    }
+    renamed
+}
+
+/// A temp name unique to this write: pid, nanos and a process-wide counter.
+fn unique_part(path: &Path) -> PathBuf {
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let seq = SEQ.fetch_add(1, Ordering::Relaxed);
+    let file = path.file_name().unwrap_or_default().to_string_lossy();
+    path.with_file_name(format!("{file}.{}-{nanos}-{seq}.part", std::process::id()))
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -843,6 +865,28 @@ mod tests {
         move_now(&secrets, &dir.0, &[old_row(r#"{"overleafToken":"tok"}"#)]).expect("moves");
         assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
         assert!(!part.exists(), "the .part file is renamed away, not left behind");
+    }
+
+    #[test]
+    fn concurrent_marker_writes_all_succeed_and_leave_one_marker() {
+        use std::sync::{Arc, Barrier};
+        for round in 0..30 {
+            let dir = Scratch::new(&format!("marker-race-{round}"));
+            let barrier = Arc::new(Barrier::new(8));
+            let handles: Vec<_> = (0..8)
+                .map(|_| {
+                    let (folder, barrier) = (dir.0.clone(), Arc::clone(&barrier));
+                    std::thread::spawn(move || {
+                        let _ = barrier.wait();
+                        record_secrets_moved(&folder, DEVICE, 1)
+                    })
+                })
+                .collect();
+            for handle in handles {
+                handle.join().expect("thread").expect("every marker write succeeds");
+            }
+            assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+        }
     }
 
     #[test]
