@@ -421,11 +421,7 @@ pub fn record_secrets_moved(folder: &Path, device: &str, count: usize) -> io::Re
     }))
     .map_err(io::Error::other)?;
     let path = marker_path(folder, device);
-    // One retry on AlreadyExists: `write_atomic` clears a leftover `.part` before it retries.
-    match write_atomic(&path, &body) {
-        Err(err) if err.kind() == io::ErrorKind::AlreadyExists => write_atomic(&path, &body),
-        other => other,
-    }
+    write_atomic(&path, &body)
 }
 
 /// Writes `body` to `path` through a temp file of its own, synced before the rename. Each write
