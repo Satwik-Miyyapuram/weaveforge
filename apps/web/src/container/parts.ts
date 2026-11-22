@@ -360,6 +360,12 @@ export interface PersonalFileWiring {
     projectContext: { projectId: string | null },
     pid: () => string | null,
   ) => WiredBackend;
+  /** Supplied by the desktop shell: its folder's files, over the vault bridge. */
+  wireDesktopFileBackend?: (
+    config: BackendConfig,
+    projectContext: { projectId: string | null },
+    pid: () => string | null,
+  ) => WiredBackend;
 }
 
 export function wireBackend(
@@ -373,7 +379,8 @@ export function wireBackend(
   // only runtime switch.
   switch (config.provider) {
     case "postgrest": {
-      const wire = files?.wireBrowserFileBackend;
+      // The desktop shell wires its own files; without that wiring it stays read-only.
+      const wire = files?.onDesktop ? files.wireDesktopFileBackend : files?.wireBrowserFileBackend;
       return chooseFileBackend(
         files?.migration,
         {

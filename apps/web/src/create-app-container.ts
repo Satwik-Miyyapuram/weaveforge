@@ -119,6 +119,8 @@ import { createCredentialReader } from "@/integrations/parts";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
 import { resolveMigrationChoice } from "@/container/resolve-migration-choice";
+import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
+import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -165,7 +167,12 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // Awaited before `wireBackend`: the personal-data backend is chosen once, from
   // the folder's migration report, so the choice never races a late answer.
   const migration = await resolveMigrationChoice(desktop());
-  const backend = wireBackend(readBackendConfig(), projectContext, pid, { migration, onDesktop: Boolean(desktop()) });
+  const shell = desktop();
+  const backend = wireBackend(readBackendConfig(), projectContext, pid, {
+    migration,
+    onDesktop: Boolean(shell),
+    wireDesktopFileBackend: shell ? wireDesktopFileBackend(shell, workspaceSettings) : undefined,
+  });
   if ("db" in backend) {
     projectLww.watch(backend.db, pid());
   }
