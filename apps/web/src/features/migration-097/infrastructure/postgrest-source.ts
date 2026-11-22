@@ -39,22 +39,6 @@ const SOFT_DELETE_TABLES: ReadonlySet<string> = new Set([
   "reader_annotations", "annotation_pins", "library_pins", "vault_pages", "screening_decisions", "paper_tags",
 ]);
 
-/**
- * Export kinds whose server table holds `content_enc` ciphertext (db/migrations 0041 vault_pages, 0046 papers,
- * log_entries, milestones, experiments, report_sections, comments, 0057 reading_lists). The web session holds
- * no content keys, so each such row counts as undecryptable. `reading_list_items` (also content_enc) is not an
- * export kind, so it is not counted here.
- */
-const CIPHERTEXT_TABLE_BY_KIND: ReadonlyMap<string, string> = new Map([
-  ["notes", "vault_pages"],
-  ["papers", "papers"],
-  ["reportSections", "report_sections"],
-  ["logEntries", "log_entries"],
-  ["milestones", "milestones"],
-  ["experiments", "experiments"],
-  ["comments", "comments"],
-  ["readingLists", "reading_lists"],
-]);
 
 export interface PostgrestSourceOptions {
   baseUrl: string;
@@ -179,15 +163,11 @@ export class PostgrestSource implements ServerSource {
   }
 
   /**
-   * Rows the web cannot decrypt: every content_enc row the owner holds in the kind's table, counted by the
-   * server (live and trashed alike). Nothing is decrypted here. A failed count throws, so it never reads as zero.
+   * Always 0. db/migrations/0099_drop_e2ee_schema.sql:22-31 drops content_enc (and enc_epoch) from every entity
+   * table the export reads, so the server holds no ciphertext rows to count. No request is sent.
    */
-  async undecryptable(kind: string): Promise<number> {
-    const table = CIPHERTEXT_TABLE_BY_KIND.get(kind);
-    if (!table) return 0;
-    const url = `${this.opts.baseUrl}/${table}?user_id=eq.${encodeURIComponent(this.opts.userId)}&content_enc=not.is.null`;
-    const res = await this.request(url, { method: "HEAD", extra: { Prefer: "count=exact" } }, table);
-    return totalOf(res, table);
+  async undecryptable(_kind: string): Promise<number> {
+    return 0;
   }
 
   /** The owner's blob_objects rows. blob_objects has no sha256 column, so only size_bytes comes back. */

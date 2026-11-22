@@ -227,40 +227,13 @@ test("pendingOutbox defaults to not wired, injected value passes through", async
   assert.equal(await wired.pendingOutbox(), 3);
 });
 
-test("undecryptable counts the owner's content_enc rows on the server, never decrypting, one HEAD per ciphertext kind", async () => {
+test("undecryptable is 0 for every kind and sends no request: migration 0099 dropped every content_enc column", async () => {
   const { fetch, calls } = fakeFetch(() => new Response(null, { status: 200, headers: { "content-range": "*/3" } }));
   const source = sourceWith(fetch);
-  const expected: [string, string][] = [
-    ["notes", "vault_pages"],
-    ["papers", "papers"],
-    ["reportSections", "report_sections"],
-    ["logEntries", "log_entries"],
-    ["milestones", "milestones"],
-    ["experiments", "experiments"],
-    ["comments", "comments"],
-    ["readingLists", "reading_lists"],
-  ];
-  for (const [kind, table] of expected) {
-    assert.equal(await source.undecryptable(kind), 3, kind);
-    const call = calls[calls.length - 1];
-    assert.equal(call?.method, "HEAD", kind);
-    assert.equal(call?.url, `${BASE}/${table}?user_id=eq.${USER}&content_enc=not.is.null`, kind);
-    assert.equal(call?.headers.get("Prefer"), "count=exact", kind);
+  for (const kind of ["notes", "papers", "reportSections", "logEntries", "milestones", "experiments", "comments", "readingLists", "settings", "ink"]) {
+    assert.equal(await source.undecryptable(kind), 0, kind);
   }
-});
-
-test("undecryptable asks the server nothing for kinds with no ciphertext column", async () => {
-  const { fetch, calls } = fakeFetch(() => new Response(null, { status: 200, headers: { "content-range": "*/9" } }));
-  const source = sourceWith(fetch);
-  assert.equal(await source.undecryptable("settings"), 0);
-  assert.equal(await source.undecryptable("blobs"), 0);
-  assert.equal(await source.undecryptable("ink"), 0);
   assert.equal(calls.length, 0);
-});
-
-test("undecryptable: a failed count throws with the table, so the export cannot read it as zero", async () => {
-  const { fetch } = fakeFetch(() => new Response(null, { status: 500 }));
-  await assert.rejects(() => sourceWith(fetch).undecryptable("notes"), /HEAD vault_pages failed: HTTP 500/);
 });
 
 test("a table without a deleted_at column is listed with no deleted_at filter (PostgREST would 400)", async () => {
