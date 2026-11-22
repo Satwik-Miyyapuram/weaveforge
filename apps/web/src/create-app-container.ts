@@ -501,6 +501,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     lists: readingListRepository,
     papers: paperRepository,
     notes: vaultPageRepository,
+    listItems: readingListItemRepository,
     pins: backend.libraryPinRepository,
     shares: backend.shareRepository,
   });

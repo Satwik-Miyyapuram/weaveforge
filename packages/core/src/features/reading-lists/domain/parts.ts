@@ -211,6 +211,8 @@ export interface IReadingListItemRepository {
   find(listId: string, paperId: string): Promise<ReadingListItem | null>;
   /** Look up a single note membership by (list, note). Null if absent. */
   findNote(listId: string, vaultPageId: string): Promise<ReadingListItem | null>;
+  /** Workspace paths whose membership value could not be read, so their memberships are left out. Optional: stores without files have none. */
+  unreadablePaths?(): Promise<string[]>;
   add(item: ReadingListItem): Promise<void>;
   remove(id: string): Promise<void>;
 }
