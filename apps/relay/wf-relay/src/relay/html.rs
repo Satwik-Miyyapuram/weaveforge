@@ -8,7 +8,7 @@ use tokio::time::{Instant, timeout_at};
 
 use super::shared::{
     Answer, Refusal, fetch_checked_hops, header_latin1, is_public_https_url, read_capped, refuse,
-    upstream_failed,
+    shared_public_client, upstream_failed,
 };
 
 /// Path the page requests.
@@ -66,8 +66,9 @@ pub fn decode_html_bytes(bytes: &[u8], content_type: Option<&str>) -> String {
     encoding.decode_with_bom_removal(bytes).0.into_owned()
 }
 
-/// Answer the reader's HTML request: `?url=` must be an https address.
-pub async fn proxy_html(client: &reqwest::Client, request_url: &Url) -> Answer {
+/// Answer the reader's HTML request: `?url=` must be an https address whose host
+/// resolves to public addresses only.
+pub async fn proxy_html(request_url: &Url) -> Answer {
     let raw = request_url
         .query_pairs()
         .find(|(k, _)| *k == "url")
@@ -82,6 +83,9 @@ pub async fn proxy_html(client: &reqwest::Client, request_url: &Url) -> Answer {
     }
     let Ok(target) = Url::parse(&raw) else {
         return Answer::from(not_https);
+    };
+    let Some(client) = shared_public_client() else {
+        return Answer::from(refuse(502, "Upstream fetch failed"));
     };
     relay_html(
         client,

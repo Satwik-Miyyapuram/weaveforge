@@ -124,6 +124,10 @@ export interface NewReaderAnnotation {
   anchor: CombinedPdfAnchor;
   sortIndex?: string;
   pageIndex: number;
+  /** Given by the caller (an export); set to now when absent. */
+  createdAt?: string;
+  /** Given by the caller (an export); set to now when absent. */
+  updatedAt?: string;
 }
 
 export interface ReaderAnnotationPatch {

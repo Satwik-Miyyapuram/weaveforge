@@ -249,6 +249,25 @@ test("two notes with one weaveforge-id (a copied file) get no strokes until one 
   assert.ok(clash && clash.message.includes(NOTE_PATH) && clash.message.includes(copy), "the error names both files");
 });
 
+test("x/foo.md beside a legacy x/foo.ink.md share x/foo.ink, so neither gets strokes and nothing is moved", async () => {
+  const a = typedCore().newInkChunkId();
+  const plainId = "9b1c7a52-0d4e-4f1a-8c6b-3e2f1a0b9c8d";
+  const plain = "thesis--2a3407/notes/losses.md";
+  const fs = await folderWith({
+    [NOTE_PATH]: noteText(ID, [a]),
+    [`${STROKES}/${a}.inkb`]: bytes(5),
+    [plain]: ["---", `weaveforge-id: "${plainId}"`, "weaveforge-type: vault_page", "---", "", "# Losses", ""].join("\n"),
+  });
+  const { store, reports } = stores(fs);
+  assert.equal(await store.read(plainId, a), null, "the plain note does not see the legacy note's page");
+  assert.deepEqual(await store.list(plainId), null);
+  await assert.rejects(store.write(plainId, typedCore().newInkChunkId(), bytes(1)));
+  await assert.rejects(store.write(ID, typedCore().newInkChunkId(), bytes(1)));
+  assert.deepEqual(await filesUnder(fs, STROKES), { [`${STROKES}/${a}.inkb`]: [5] }, "the existing page stays where it is");
+  const clash = reports.find((r) => r.level === "error" && r.message.includes(STROKES));
+  assert.ok(clash && clash.message.includes(NOTE_PATH) && clash.message.includes(plain), "the error names both notes");
+});
+
 test("a user folder that only ends in .ink is an ordinary folder: its notes are found and it is not reported", async () => {
   const note = "thesis--2a3407/research.ink/chapter.ink.md";
   const fs = await folderWith({ [note]: noteText(ID), "thesis--2a3407/research.ink/plan.md": "# plan\n" });

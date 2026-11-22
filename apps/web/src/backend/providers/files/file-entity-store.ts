@@ -63,11 +63,13 @@ interface HeldFile {
   id: string | null;
 }
 
-const ID_LINE = /^weaveforge-id:[ \t]*"?([^"\r\n]*?)"?[ \t]*$/m;
+/** One scan of the entity folder: the readable rows, and the files that could not be read. */
+interface Scan<T> {
+  found: FoundEntity<T>[];
+  held: HeldFile[];
+}
 
 export class FileEntityStore<T extends { id: string }> {
-  private held: HeldFile[] = [];
-
   constructor(
     private readonly fs: IWorkspaceFs,
     private readonly root: ProjectRoot,
@@ -76,10 +78,15 @@ export class FileEntityStore<T extends { id: string }> {
 
   /** Every file of this kind under the project's entity folder, sorted by path. */
   async readAll(): Promise<FoundEntity<T>[]> {
+    return (await this.scan()).found;
+  }
+
+  /** Reads the folder. The held list is returned, never kept on the instance, so a concurrent scan cannot clear it. */
+  private async scan(): Promise<Scan<T>> {
     const core = readyCore();
     const dir = core.entityDir(this.kind, this.root());
-    this.held = [];
-    if (!(await this.fs.stat(dir))) return [];
+    const held: HeldFile[] = [];
+    if (!(await this.fs.stat(dir))) return { found: [], held };
     const found: FoundEntity<T>[] = [];
     for await (const entry of this.fs.walk(dir)) {
       if (entry.kind !== "file" || !entry.path.endsWith(".md")) continue;
@@ -90,12 +97,12 @@ export class FileEntityStore<T extends { id: string }> {
         row = core.entityRowFromFile(this.kind, text);
       } catch (error) {
         console.warn(`Skipped ${entry.path}: could not read it.`, error);
-        this.held.push({ path: entry.path, id: ID_LINE.exec(text)?.[1] ?? null });
+        held.push({ path: entry.path, id: core.entityIdFromText(text) ?? null });
         continue;
       }
       if (row) found.push({ path: entry.path, text, row: row as T });
     }
-    return found.sort((a, b) => a.path.localeCompare(b.path));
+    return { found: found.sort((a, b) => a.path.localeCompare(b.path)), held };
   }
 
   /** A path no file holds yet (readable or not): the codec's, or `…--id-2.<kind>.md`, `-3`… */
@@ -123,8 +130,9 @@ export class FileEntityStore<T extends { id: string }> {
   /** Writes the row to its file (a new one at the codec's path). */
   async save(row: T): Promise<void> {
     const core = readyCore();
-    const found = await this.find(row.id);
-    const blocked = this.held.find((h) => h.id === row.id);
+    const { found: rows, held } = await this.scan();
+    const found = rows.find((f) => f.row.id === row.id) ?? null;
+    const blocked = held.find((h) => h.id === row.id);
     if (blocked && !found) {
       throw new Error(`${blocked.path} could not be read; not saved over or duplicated. Fix or move that file first.`);
     }
@@ -134,7 +142,12 @@ export class FileEntityStore<T extends { id: string }> {
       await writeIfUnchanged(this.fs, found.path, text, found.text);
       return;
     }
-    const path = await this.freePath(core.entityPath(this.kind, plain, this.root()));
+    const base = core.entityPath(this.kind, plain, this.root());
+    // A file at the codec's path that could not be read may hold this row's id: never write a numbered twin.
+    if (held.some((h) => h.id === null && h.path === base)) {
+      throw new Error(`${base} could not be read; not saved over or duplicated. Fix or move that file first.`);
+    }
+    const path = await this.freePath(base);
     await writeIfUnchanged(this.fs, path, text, null);
   }
 

@@ -57,10 +57,10 @@ pub async fn answer_relay(
 ) -> Option<Answer> {
     let url = &request.url;
     if is_pdf_proxy_request(url) {
-        return Some(proxy_pdf(client, url).await);
+        return Some(proxy_pdf(url).await);
     }
     if is_html_proxy_request(url) {
-        return Some(proxy_html(client, url).await);
+        return Some(proxy_html(url).await);
     }
     if is_semantic_scholar_proxy_request(url) {
         return Some(

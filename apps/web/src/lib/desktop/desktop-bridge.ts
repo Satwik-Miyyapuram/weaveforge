@@ -448,6 +448,28 @@ export interface DesktopBridge {
   menuModel?(): Promise<DesktopMenuGroup[] | null>;
   invokeMenuItem?(id: string): Promise<void>;
   onMenuChange?(cb: () => void): () => void;
+
+  /**
+   * The 0.9.7 move of a workspace folder from the local database to files.
+   *
+   * Optional because an installed shell may predate it; without them the page
+   * keeps the database backend, which is exactly what it does today. `status`
+   * reads the folder's report, `run` performs the move and returns the report
+   * it wrote. `run` is the TS exporter (WEB-EXPORT) and reports progress
+   * in-process, so the bridge carries no progress event.
+   */
+  migrate097Status?(folder: string): Promise<{
+    state: Migrate097StateName;
+    removedAt?: string;
+    exportedTo?: string;
+    backupPath?: string;
+    missing?: string[];
+  }>;
+  migrate097Run?(folder: string): Promise<{ state: Migrate097StateName }>;
+  /** Deletes the old local data after a verified migration; the user confirms first. */
+  migrate097RemoveOld?(folder: string): Promise<void>;
+  /** Moves the migrated secrets into the OS keychain; rejects "no keychain available" when there is none. */
+  migrate097MoveSecrets?(folder: string): Promise<void>;
   /** Tint the system's window buttons to the page: two `#rrggbb` colours. */
   setTitleBarColors?(colors: { background: string; ink: string }): void;
   /** Whether the OS taskbar is in light mode. Optional: an installed shell may predate it. */
@@ -749,6 +771,16 @@ export interface DesktopWorkspaceSetup {
   defaultFolder: string | null;
 }
 export type DesktopPreferenceValue = string | boolean | null;
+
+/** A folder's 0.9.7 migration state, as the shell's report records it. */
+export type Migrate097StateName = "none" | "verified" | "incomplete";
+
+/** One step of a running migration; `done` of `total` items are through. */
+export interface Migrate097Progress {
+  kind: string;
+  done: number;
+  total: number;
+}
 
 export interface DesktopUpdate {
   /** The newer version, as `0.6.0`. */

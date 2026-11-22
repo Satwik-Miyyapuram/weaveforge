@@ -85,6 +85,7 @@ export class WorkspaceSettingsFile {
   private timer: unknown = null;
   private failedSaves = 0;
   private writing: Promise<void> = Promise.resolve();
+  private flushing = 0;
   private listeners = new Set<() => void>();
   private readonly deps: SettingsDeps;
   private readonly delayMs: number;
@@ -133,8 +134,18 @@ export class WorkspaceSettingsFile {
 
   async flush(): Promise<void> {
     this.clearTimer();
+    this.flushing += 1;
     this.writing = this.writing.then(() => this.write());
-    await this.writing;
+    try {
+      await this.writing;
+    } finally {
+      this.flushing -= 1;
+    }
+  }
+
+  /** Whether a change waits or a write is still on its way; the desktop close waits on it. */
+  busy(): boolean {
+    return this.timer !== null || this.flushing > 0;
   }
 
   state(): SettingsState {

@@ -52,6 +52,7 @@ const mcpTokensServed = GENERATED_MCP_ENABLED && hasServerRoutes();
 const OrgPanel = dynamic(() => import("@/features/org").then((m) => m.OrgPanel), { ssr: false });
 const AppLogPanel = dynamic(() => import("./app-log-panel").then((m) => m.AppLogPanel), { ssr: false });
 const StoragePanel = dynamic(() => import("./storage-panel").then((m) => m.StoragePanel), { ssr: false });
+const RemoveOldDataSection = dynamic(() => import("@/lib/desktop/migrate-097-remove-old-button").then((m) => m.RemoveOldDataSection), { ssr: false });
 const CalendarFeedPanel = dynamic(() => import("./calendar-feed-panel").then((m) => m.CalendarFeedPanel), { ssr: false });
 const DeleteAccountPanel = dynamic(() => import("./delete-account-panel").then((m) => m.DeleteAccountPanel), { ssr: false });
 
@@ -626,6 +627,7 @@ export function SettingsScreen() {
               is one they will not find while stuck. */}
           <AppLogPanel />
           <StoragePanel />
+          <RemoveOldDataSection />
           <PrivacyNotice />
           {/* Linking a provider and deleting an account both need the account. */}
           {hasAccount && <GitHubLinkCard />}

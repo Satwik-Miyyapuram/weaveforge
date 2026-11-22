@@ -322,3 +322,28 @@ test("F97-P1-3: a save pending at a note switch lands in the old note, not the n
   assert.deepEqual([...(await chunks.read(NOTE, id))!], [9]);
   assert.deepEqual(await chunks.list(other), []);
 });
+
+test("ink still on its debounce is written when the window goes away (quit loses the last stroke)", async () => {
+  const g = globalThis as { window?: unknown };
+  const had = "window" in g;
+  const before = g.window;
+  const win = new EventTarget();
+  g.window = win;
+  try {
+    const id = typedCore().newInkChunkId();
+    const chunks = new RecordingStore();
+    await chunks.write(NOTE, id, new Uint8Array([1]));
+    chunks.writes = [];
+    const { handle } = mount(chunks, [id]);
+    await settle();
+    act(() => handle().scheduleSave());
+    win.dispatchEvent(new Event("pagehide"));
+    await settle();
+    await awaitInkWrites(NOTE);
+    // Well inside INK_SAVE_DELAY_MS: only the pagehide flush can have written it.
+    assert.deepEqual(chunks.writes, [id]);
+  } finally {
+    if (had) g.window = before;
+    else delete g.window;
+  }
+});

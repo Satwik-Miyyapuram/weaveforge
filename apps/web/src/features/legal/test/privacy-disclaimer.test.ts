@@ -5,6 +5,7 @@
  * server, shares are view/comment only, and PDF text can reach the model.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import {
@@ -37,6 +38,15 @@ test("shares are described as view or comment, never edit", () => {
 test("AI copy no longer says PDF text is never sent", () => {
   assert.doesNotMatch(account, /PDFs[^.]*never sent/i);
   assert.match(account, /text of a PDF/i);
+});
+
+test("security docs and README do not claim data is encrypted at rest", () => {
+  const repo = new URL("../../../../../../", import.meta.url);
+  for (const file of ["SECURITY.md", "docs/SECURITY.md", "README.md"]) {
+    const text = readFileSync(new URL(file, repo), "utf8");
+    assert.doesNotMatch(text, /(stored|data)[^.]*with (the database's )?encryption at rest/i, file);
+    assert.match(text, /no encryption at rest of its own|does not encrypt/i, file);
+  }
 });
 
 test("local backup advice mentions GitHub sync", () => {
