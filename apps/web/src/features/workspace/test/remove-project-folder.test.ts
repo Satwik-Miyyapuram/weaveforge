@@ -99,3 +99,37 @@ test("F97-P1-1: a second removal the same day does not overwrite the first in th
     .sort();
   assert.deepEqual(texts, ["first", "second"]);
 });
+
+/** Writes `late` into the tree just before the first remove: a file that lands after the walk. */
+class LateWriteFs extends MemoryWorkspaceFs {
+  constructor(private late: string | null) {
+    super();
+  }
+
+  override async remove(path: string, options?: { recursive?: boolean }): Promise<void> {
+    if (this.late) {
+      const late = this.late;
+      this.late = null;
+      await this.writeFile(late, "late");
+    }
+    return super.remove(path, options);
+  }
+}
+
+test("F97-P2-1: a file that appears after the walk survives the folder removal", async () => {
+  const fs = new LateWriteFs("zz-verify-082--ac0e9a/notes/late.md");
+  await fs.writeFile("zz-verify-082--ac0e9a/notes/a.md", "x");
+  assert.equal(await removeProjectFolder(fs, project), "zz-verify-082--ac0e9a");
+  assert.equal(await fs.readText("zz-verify-082--ac0e9a/notes/late.md"), "late");
+  assert.equal(await fs.stat("zz-verify-082--ac0e9a/notes/a.md"), null);
+  assert.deepEqual(trashed(fs), ["zz-verify-082--ac0e9a/notes/a.md"]);
+});
+
+test("F97-P2-1: emptied folders are removed bottom-up once nothing is left in them", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile("zz-verify-082--ac0e9a/notes/deep/a.md", "x");
+  assert.equal(await removeProjectFolder(fs, project), "zz-verify-082--ac0e9a");
+  assert.equal(await fs.stat("zz-verify-082--ac0e9a/notes/deep"), null);
+  assert.equal(await fs.stat("zz-verify-082--ac0e9a/notes"), null);
+  assert.equal(await fs.stat("zz-verify-082--ac0e9a"), null);
+});

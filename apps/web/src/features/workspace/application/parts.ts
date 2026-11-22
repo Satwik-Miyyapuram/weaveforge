@@ -178,14 +178,19 @@ export async function removeProjectFolder(
   const base = await freeTrashFolder(fs, match);
   const files: string[] = [];
   for await (const entry of fs.walk(match)) files.push(entry.path);
+  const folders = new Set<string>([match]);
   for (const path of files) {
     const target = base + path.slice(match.length);
     await fs.mkdirp(target.slice(0, target.lastIndexOf("/")));
     await fs.rename(path, target);
+    const parts = path.split("/");
+    for (let i = 1; i < parts.length; i += 1) folders.add(parts.slice(0, i).join("/"));
   }
-  // Only empty folders should be left; remove them unless a file appeared meanwhile.
-  for await (const _late of fs.walk(match)) return match;
-  await fs.remove(match, { recursive: true });
+  // Remove the emptied folders deepest first, without recursion. A folder that still
+  // holds something (a file written after the walk) is refused and left in place.
+  for (const dir of [...folders].sort((a, b) => b.length - a.length)) {
+    await fs.remove(dir).catch(() => undefined);
+  }
   return match;
 }
 
