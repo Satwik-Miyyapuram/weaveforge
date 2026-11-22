@@ -17,10 +17,55 @@ import { before, describe, it } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { RouteSecretsStore } from "@/features/settings/infrastructure/parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { DeviceSecretsStore } from "../providers/local/parts";
+import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
+import {
+  DEVICE_SECRETS_NAME,
+  DeviceSecretsStore,
+  KeychainUnavailableError,
+  desktopKeychain,
+} from "../providers/local/parts";
 import { secretsStoreFor } from "../providers/secrets-store";
 
 before(loadTestCore);
+
+/** Runs `body` with `window.weaveforge` set to `weaveforge` (or with no such bridge when undefined), then restores `window`. */
+async function withWindow(weaveforge: unknown, body: () => Promise<void>): Promise<void> {
+  const g = globalThis as { window?: unknown };
+  const had = "window" in g;
+  const previous = g.window;
+  g.window = weaveforge === undefined ? {} : { weaveforge };
+  try {
+    await body();
+  } finally {
+    if (had) g.window = previous;
+    else delete g.window;
+  }
+}
+
+/** A fake desktop bridge: the keychain is a map, and every local-database query is recorded. */
+function fakeBridge() {
+  const keychain = new Map<string, string>();
+  const writes: string[] = [];
+  const queries: string[] = [];
+  const bridge = {
+    fetchTitle: async () => "",
+    readSecret: async (name: string) => keychain.get(name) ?? null,
+    writeSecret: async (name: string, text: string) => {
+      writes.push(name);
+      keychain.set(name, text);
+    },
+    clearSecret: async (name: string) => {
+      keychain.delete(name);
+    },
+    queryLocalDb: async (sql: string) => {
+      queries.push(sql);
+      return [];
+    },
+    legacyDbPresent: async () => false,
+    migrate097MoveSecrets: async () => [],
+  };
+  return { bridge: bridge as unknown as DesktopBridge, writes, queries };
+}
 
 /** A client that can answer the only thing the route store asks it. */
 function clientWithToken(token: string | null = "token"): SupabaseClient {
@@ -44,6 +89,27 @@ describe("choosing a credentials store", () => {
     const store = secretsStoreFor(clientWithToken(), false);
     assert.ok(store instanceof DeviceSecretsStore);
     assert.ok(!(store instanceof RouteSecretsStore));
+  });
+});
+
+describe("the offline credentials store", () => {
+  it("writes through the keychain and never the device table", async () => {
+    const fake = fakeBridge();
+    await withWindow(fake.bridge, async () => {
+      const store = secretsStoreFor(clientWithToken(), false);
+      await store.save({ zoteroApiKey: "k" });
+      assert.ok(fake.writes.includes(`${DEVICE_SECRETS_NAME}/zoteroApiKey`), "the key went to the keychain");
+      assert.deepEqual(fake.queries, [], "no local-database statement ran");
+      assert.deepEqual(await store.load(), { zoteroApiKey: "k" });
+    });
+  });
+
+  it("refuses a save with no desktop bridge and keeps nothing", async () => {
+    await withWindow(undefined, async () => {
+      const store = secretsStoreFor(clientWithToken(), false);
+      await assert.rejects(store.save({ zoteroApiKey: "k" }), KeychainUnavailableError);
+      assert.equal(await desktopKeychain().read("_index"), null);
+    });
   });
 });
 
