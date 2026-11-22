@@ -35,7 +35,7 @@ import {
 import type { Secrets, SecretsStore, SettingsWrites } from "@/features/settings/infrastructure/parts";
 import { typedCore } from "@/lib/rust-core";
 import type { SettingsSection } from "./file-tag-repo";
-import { SECRET_FIELDS } from "./file-settings-section";
+import { assertNoSecret, isSecretValueKey } from "./file-settings-section";
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v);
@@ -54,7 +54,7 @@ function splitIntegrations(all: Integrations): { secret: Integrations; plain: In
   const plain: Integrations = {};
   for (const [provider, fields] of Object.entries(all)) {
     for (const [name, value] of Object.entries(fields)) {
-      const bag = (SECRET_FIELDS as readonly string[]).includes(name) ? secret : plain;
+      const bag = isSecretValueKey(name) ? secret : plain;
       (bag[provider] ??= {})[name] = value;
     }
   }
@@ -67,6 +67,30 @@ function mergeIntegrations(plain: Integrations | undefined, secret: Integrations
   const out: Integrations = {};
   for (const source of [plain, secret]) {
     for (const [provider, fields] of Object.entries(source ?? {})) out[provider] = { ...out[provider], ...fields };
+  }
+  return out;
+}
+
+/**
+ * One save over the stored fields, per provider and per field: undefined keeps the stored value, "" deletes
+ * it, anything else sets it. A provider left with no fields is dropped.
+ */
+function applyFields(stored: Integrations | undefined, incoming: Integrations): Integrations {
+  const out: Integrations = {};
+  for (const [provider, fields] of Object.entries(stored ?? {})) out[provider] = { ...fields };
+  for (const [provider, fields] of Object.entries(incoming)) {
+    for (const [name, value] of Object.entries(fields)) {
+      if (value === undefined) continue;
+      if (value === "") {
+        const bag = out[provider];
+        if (bag) delete bag[name];
+        continue;
+      }
+      (out[provider] ??= {})[name] = value;
+    }
+  }
+  for (const provider of Object.keys(out)) {
+    if (Object.keys(out[provider] ?? {}).length === 0) delete out[provider];
   }
   return out;
 }
@@ -192,12 +216,12 @@ export class FileSettingsRepository implements ISettingsRepository, SettingsWrit
    */
   private async saveSecrets(settings: UserSettings, secret: Integrations): Promise<void> {
     const current: Secrets = await this.secrets.load();
-    const hasSecret = Object.keys(secret).length > 0;
+    const merged = applyFields(current.integrations, secret);
     const next: Secrets = {
       zoteroApiKey: settings.zoteroApiKey !== undefined ? settings.zoteroApiKey || undefined : current.zoteroApiKey,
       semanticScholarKey:
         settings.semanticScholarKey !== undefined ? settings.semanticScholarKey || undefined : current.semanticScholarKey,
-      integrations: settings.integrations !== undefined ? (hasSecret ? secret : undefined) : current.integrations,
+      integrations: settings.integrations === undefined ? current.integrations : Object.keys(merged).length > 0 ? merged : undefined,
     };
     const changed =
       next.zoteroApiKey !== current.zoteroApiKey ||
@@ -215,10 +239,14 @@ export class FileSettingsRepository implements ISettingsRepository, SettingsWrit
   /** Full replace of the given fields; an unset disclaimer, appearance or AI access keeps the stored one. */
   async save(settings: UserSettings): Promise<void> {
     const { secret, plain } = splitIntegrations(settings.integrations ?? {});
+    const plainNext = applyFields(this.plainIntegrations(), plain);
+    const plainValue = Object.keys(plainNext).length > 0 ? plainNext : undefined;
+    // Every planned write is checked before the first one, so a refusal cannot leave a partial save.
+    if (settings.integrations) assertNoSecret(["integrationSettings"], plainValue);
     await this.saveSecrets(settings, secret);
     const s = this.settings;
     // Awaited: each set resolves only once its write has reached settings.json.
-    if (settings.integrations) await s.set(["integrationSettings"], clone(plain));
+    if (settings.integrations) await s.set(["integrationSettings"], plainValue);
     await s.set(["zoteroLibrary"], settings.zoteroLibrary || undefined);
     if (settings.disclaimerAcceptedAt !== undefined || settings.disclaimerVersion !== undefined) {
       await s.set(["disclaimer"], { acceptedAt: settings.disclaimerAcceptedAt, version: settings.disclaimerVersion });
