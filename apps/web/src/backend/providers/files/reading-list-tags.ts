@@ -28,6 +28,8 @@ export interface ListFile {
   link: string;
   /** The `listItemKey` of `link`. */
   key: string;
+  /** The `listItemKey` of the bare file name, shared by every list with that name. */
+  bareKey: string;
 }
 
 /** A membership read from a member file's `lists` tag. */
@@ -80,7 +82,14 @@ export function listFilesOf(lists: readonly { path: string; id: string }[]): Lis
   return lists.map(({ path, id }) => {
     const name = (count.get(bare(path)) ?? 0) > 1 ? path.slice(0, -".md".length) : bare(path);
     const link = `[[${name}]]`;
-    return { id, file: path, link, key: readyCore().listItemKey(link) ?? link };
+    const bareLink = `[[${bare(path)}]]`;
+    return {
+      id,
+      file: path,
+      link,
+      key: readyCore().listItemKey(link) ?? link,
+      bareKey: readyCore().listItemKey(bareLink) ?? bareLink,
+    };
   });
 }
 
@@ -96,6 +105,13 @@ export async function readTagged(fs: IWorkspaceFs, links: Links, lists: readonly
     const fields = readyCore().readFrontmatter(await fs.readText(file)).frontmatter as Fields;
     for (const tag of tagsOf(fields)) {
       const key = tagKey(tag);
+      // A bare tag written before a second list with the same name appeared: it names no one list, so it fails loudly.
+      const sameName = key === undefined ? [] : lists.filter((l) => l.bareKey === key);
+      if (sameName.length > 1) {
+        throw new Error(
+          `Ambiguous list link ${tag} in ${file}: ${sameName.map((l) => l.file).join(", ")} share that name. Rename one list.`,
+        );
+      }
       const list = key === undefined ? undefined : byKey.get(key);
       if (list) out.push({ list, target, file, info: notesOf(fields)[list.id] ?? {} });
     }

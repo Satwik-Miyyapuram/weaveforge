@@ -317,6 +317,26 @@ test("(P5c) an unreadable tagged member file fails the read with a named error, 
   await assert.rejects(items.listItems(l1.id), /Cannot read .*paper-one\.paper\.md: EIO: read failed/);
 });
 
+test("(P3) a bare list tag written before a second same-named list appears raises a named error, not a drop", async () => {
+  const { fs, lists, items } = await setup();
+  const l1 = list();
+  await lists.save(l1);
+  await items.add({ id: "a", listId: l1.id, paperId: "p1", sortOrder: 1 });
+  assert.equal((await items.listItems(l1.id)).length, 1);
+  const l2 = list();
+  await lists.save(l2);
+  let p1 = "";
+  let p2 = "";
+  for (const p of await listFile(fs)) {
+    const text = await fs.readText(p);
+    if (text.includes(l1.id)) p1 = p;
+    if (text.includes(l2.id)) p2 = p;
+  }
+  assert.ok(p1 && p2 && p1 !== p2, "one list file per list");
+  await fs.rename(p2, `${ROOT}/reading-lists/archive/${p1.split("/").pop()!}`);
+  await assert.rejects(items.listItems(l1.id), /Ambiguous list link/);
+});
+
 test("an empty list file reads as no members; delete moves the list to the trash", async () => {
   const { fs, lists, items } = await setup();
   const l = list();
