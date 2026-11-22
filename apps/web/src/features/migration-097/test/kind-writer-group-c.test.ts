@@ -121,6 +121,28 @@ test("unknown kind is rejected on write and on readBack", async () => {
   await assert.rejects(writer.readBack("nope"), /unknown kind/);
 });
 
+test("annotations: a same id with different content is a conflict, and the existing row is kept", async () => {
+  const { writer } = fresh();
+  const row = {
+    id: "ann-conflict",
+    paperId: "p8",
+    paperFile: "proj/papers/c.paper.md",
+    type: "highlight",
+    color: "#00ff00",
+    text: "original",
+    comment: "",
+    tags: [],
+    anchor: { pageIndex: 1 },
+    sortIndex: "0001",
+    pageIndex: 1,
+  };
+  await writer.write("annotations", row);
+  await assert.rejects(() => writer.write("annotations", { ...row, text: "changed" }), /^Error: conflict:|conflict: annotation ann-conflict/);
+  const back = await writer.readBack("annotations");
+  assert.equal(back.length, 1);
+  assert.equal(back[0]?.text, "original");
+});
+
 test("annotations: a re-run of the same row is idempotent (no ConflictError, one row back)", async () => {
   const { writer } = fresh();
   const row = {

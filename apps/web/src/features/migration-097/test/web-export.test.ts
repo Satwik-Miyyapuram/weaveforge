@@ -360,12 +360,12 @@ test("per-row failure: one bad row is listed missing, the other rows are exporte
 });
 
 // Desktop contract: backup before any export read or write; mark-exported only when verified.
-function fakeDesktop(calls: string[], opts: { backupFails?: boolean; deviceId?: string; markFails?: boolean } = {}) {
+function fakeDesktop(calls: string[], opts: { backupFails?: boolean; deviceId?: string; markFails?: boolean; dump?: string } = {}) {
   return {
     backup: async (folder: string) => {
       calls.push(`backup:${folder}`);
       if (opts.backupFails) throw new Error("disk full writing pre-migration.dump");
-      return { deviceId: opts.deviceId ?? "dev-42" };
+      return { deviceId: opts.deviceId ?? "dev-42", dump: opts.dump ?? "pre-migration-097.dump" };
     },
     markExported: async (folder: string) => {
       calls.push(`desktop-mark:${folder}`);
@@ -392,6 +392,38 @@ test("desktop: backup runs first, before any server read, and the report carries
   assert.ok(firstRead > 0, "server read happens after backup");
   const report = JSON.parse(await sink.readText(REPORT_PATH)) as { deviceId?: string };
   assert.equal(report.deviceId, "dev-42");
+});
+
+test("desktop: report.backup carries the backup dump file name", async () => {
+  const sink = new MemorySink();
+  const { source } = fakeServer({ rows: FIXTURE });
+  await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: fakeDesktop([], { dump: "pre-migration-097-20261122.dump" }) },
+  });
+  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  assert.equal(report.backup, "pre-migration-097-20261122.dump");
+});
+
+test("desktop: a bridge without migrate097Backup refuses before any server read or write", async () => {
+  const sink = new MemorySink();
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: { markExported: async () => {} } as never },
+  });
+  assert.notEqual(result.state, "verified");
+  assert.match(result.run.missing[0]!.reason, /migrate097Backup missing/);
+  assert.deepEqual(calls, []);
+  assert.deepEqual(await sink.list(), []);
 });
 
 test("desktop: a failed backup aborts the export: no server read, no write, no marker, no mark-exported", async () => {
@@ -485,7 +517,7 @@ test("order: report.json says verified before the desktop mark, and the server m
     desktop: {
       folder: "C:/ws",
       bridge: {
-        backup: async () => ({ deviceId: "dev-1" }),
+        backup: async () => ({ deviceId: "dev-1", dump: "pre-migration-097.dump" }),
         markExported: async () => {
           const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
           order.push(`desktop-mark:report=${report.state}`);
@@ -700,6 +732,22 @@ test("blobs: a server image/png and a stored octet-stream are different types, o
   assert.equal(sameRows("blobs", [row("image/png")], [row("application/octet-stream")]), false);
   assert.equal(sameRows("blobs", [row("image/png")], [row("image/png")]), true);
   assert.equal(sameRows("blobs", [row(null)], [row("application/octet-stream")]), true);
+});
+
+test("re-run conflict: a writer conflict is listed on the kind and the run is incomplete", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const writer: KindWriter = {
+    kinds: ["logEntries"],
+    write: async (_k, row) => {
+      if (row.id === "l2") throw new Error("conflict: logEntry l2 exists with different content");
+    },
+    readBack: async () => (FIXTURE.logEntries ?? []).filter((r) => r.id !== "l2"),
+  };
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, writers: [writer] });
+  assert.equal(result.state, "incomplete");
+  assert.deepEqual(result.run.kinds.logEntries?.conflicts, ["l2"]);
+  assert.equal(JSON.parse(await sink.readText(REPORT_PATH)).state, "incomplete");
 });
 
 test("blobs fail closed: listBlobs throws, so the run is incomplete, the report is not verified, no marker", async () => {

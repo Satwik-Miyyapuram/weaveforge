@@ -204,7 +204,7 @@ export interface DesktopBridge {
    * any export read or write. Rejects when the dump cannot be written, and the
    * export then does not run. Answers with this install's id for report.json.
    */
-  migrate097Backup?(folder: string): Promise<{ deviceId: string }>;
+  migrate097Backup?(folder: string): Promise<{ deviceId: string; dump: string }>;
   /** 0.9.7 export, desktop only: records a verified export. Never called otherwise. */
   migrate097MarkExported?(folder: string): Promise<void>;
   /** Try the remembered folder again; rejects with why it still cannot be used. */

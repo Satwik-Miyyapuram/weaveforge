@@ -23,6 +23,13 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
  * FILES repo over the sink. `readBack` lists what this writer has written, so
  * the verify gate compares those rows with the server rows.
  */
+/** True when an on-disk annotation already holds the row's carried fields (a re-run of the same row). */
+function sameAnnotation(existing: object, row: Record<string, unknown>): boolean {
+  const pick = (o: Record<string, unknown>) =>
+    JSON.stringify([o.type, o.color, o.text, o.comment ?? "", o.tags ?? [], o.anchor ?? null, o.sortIndex, Number(o.pageIndex ?? (o.anchor as { pageIndex?: number } | null)?.pageIndex ?? 0)]);
+  return pick(existing as Record<string, unknown>) === pick(row);
+}
+
 export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWriter {
   const fs = sinkAsWorkspaceFs(sink);
 
@@ -50,8 +57,12 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
           const paperFile = row.paperFile;
           paperFiles.set(paperId, paperFile);
           paperOfSidecar.set(typedCore().annotationsFilePath(paperFile), paperId);
-          // Idempotent re-run: a row already on disk is not created again (create would throw ConflictError).
-          if ((await annotations.list(paperId)).some((a) => a.id === (row.id as string))) return;
+          // Re-run: the same row on disk is a no-op; the same id with other content is a conflict, never a silent skip.
+          const existing = (await annotations.list(paperId)).find((a) => a.id === (row.id as string));
+          if (existing) {
+            if (sameAnnotation(existing, row)) return;
+            throw new Error(`conflict: annotation ${String(row.id)} on paper ${paperId} exists with different content`);
+          }
           const draft: NewReaderAnnotation & { createdAt?: string; updatedAt?: string } = {
             id: row.id as string,
             type: row.type as NewReaderAnnotation["type"],

@@ -42,7 +42,7 @@ export type RunReport = {
 export type MigrationReport = {
   version: 1;
   state: MigrationState;
-  backup: null;
+  backup: string | null;
   /** ISO time the export verified. Absent unless state is "verified". */
   verifiedAt?: string;
   /** This install's id from the desktop backup. Absent on web and Android (no backup, no id). */

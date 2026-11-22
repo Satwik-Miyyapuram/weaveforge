@@ -32,7 +32,7 @@ export type ExportResult = { state: MigrationState; run: RunReport };
 
 /** The desktop shell's part of the 0.9.7 contract: a pre-migration dump, then a mark. */
 export type DesktopMigration = {
-  backup(folder: string): Promise<{ deviceId: string }>;
+  backup(folder: string): Promise<{ deviceId: string; dump: string }>;
   markExported(folder: string): Promise<void>;
 };
 
@@ -66,14 +66,21 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};
   const backCount: Record<string, number> = {};
+  const conflicts: Record<string, string[]> = {};
   const written: Record<string, number> = {};
   const missing: MissingRow[] = [];
 
   // The pre-migration dump comes first: nothing is read or written without it.
   let deviceId: string | undefined;
+  let dumpName: string | null = null;
+  if (desktop && typeof desktop.bridge?.backup !== "function") {
+    return refused(now, "desktop migrate097Backup missing: the shell cannot make the pre-migration dump");
+  }
   if (desktop) {
     try {
-      deviceId = (await desktop.bridge.backup(desktop.folder)).deviceId;
+      const made = await desktop.bridge.backup(desktop.folder);
+      deviceId = made.deviceId;
+      dumpName = made.dump;
     } catch (err) {
       return refused(now, `backup failed: ${(err as Error).message}`);
     }
@@ -93,7 +100,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       blobs: { db: 0, verified: 0 },
       missing: [{ kind: "outbox", id: "*", reason }],
     };
-    await writeReport(sink, { version: 1, state: "incomplete", backup: null, deviceId, runs: [run] });
+    await writeReport(sink, { version: 1, state: "incomplete", backup: dumpName, deviceId, runs: [run] });
     return { state: "incomplete", run };
   }
   if (pending > 0) {
@@ -104,7 +111,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   await writeReport(sink, {
     version: 1,
     state: "incomplete",
-    backup: null,
+    backup: dumpName,
     deviceId,
     runs: [
       {
@@ -136,7 +143,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
             await writer.write(kind, row);
             written[kind]++;
           } catch (err) {
-            missing.push({ kind, id: String(row.id), reason: (err as Error).message });
+            const reason = (err as Error).message;
+            if (reason.startsWith("conflict:")) (conflicts[kind] ??= []).push(String(row.id));
+            missing.push({ kind, id: String(row.id), reason });
           }
           onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
         }
@@ -207,7 +216,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       db: isWriter ? (dbCount[kind] ?? 0) : (verdict.kinds[kind]?.db ?? 0),
       files: isWriter ? (backCount[kind] ?? 0) : (verdict.kinds[kind]?.files ?? 0),
       written: written[kind] ?? 0,
-      conflicts: [],
+      conflicts: conflicts[kind] ?? [],
     };
   }
 
@@ -225,7 +234,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     const report: MigrationReport = {
       version: 1,
       state,
-      backup: null,
+      backup: dumpName,
       verifiedAt: state === "verified" ? finishedAt : undefined,
       deviceId,
       runs: [run],
