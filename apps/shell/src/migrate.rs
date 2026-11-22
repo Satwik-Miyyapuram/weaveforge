@@ -277,7 +277,7 @@ pub fn gate_required_from(
 ) -> bool {
     match legacy_db_from(app_data, electron) {
         Ok(false) => false,
-        Ok(true) => !migrated_here(electron.or(app_data), device_id),
+        Ok(true) => !(migrated_here(app_data, device_id) || migrated_here(electron, device_id)),
         Err(_) => true,
     }
 }
@@ -822,5 +822,21 @@ mod tests {
     #[test]
     fn missing_app_data_path_shows_the_gate() {
         assert!(gate_required_from(None, None, Some(DEVICE)));
+    }
+
+    #[test]
+    fn app_data_prefs_marker_counts_when_electron_prefs_point_elsewhere() {
+        let (data, ws) = data_with("gate-app-prefs-marker", true, false);
+        write_marker(&ws);
+        let (electron, _) = temp("gate-electron-no-prefs");
+        assert!(!gate_required_from(Some(&data), Some(&electron), Some(DEVICE)));
+    }
+
+    #[test]
+    fn electron_prefs_marker_counts_when_app_data_has_no_prefs() {
+        let (electron, ws) = data_with("gate-electron-prefs-marker", true, false);
+        write_marker(&ws);
+        let (data, _) = temp("gate-app-no-prefs");
+        assert!(!gate_required_from(Some(&data), Some(&electron), Some(DEVICE)));
     }
 }
