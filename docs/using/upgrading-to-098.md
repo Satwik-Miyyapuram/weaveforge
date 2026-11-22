@@ -35,6 +35,12 @@ If the check cannot be completed, the screen says "WeaveForge could not check th
 
 The screen links to the 0.9.7 download. On the web there is no folder picker, because the fix is an export, not a folder.
 
+<!-- Keys line depends on the 0.9.7 keys merge (wf-097-keys commit 4593c6f70, desktopMoveSecrets). Check it when 0.9.8 picks up that release. -->
+
+## Without an account
+
+No account is needed. Your notes are files in your workspace folder, and no database is used.
+<!-- Sources: apps/web/src/backend/parts.ts:183,222-234 (no-account light backend is files-only); apps/web/src/container/parts.ts:384-386. Local mode itself is kept in 0.9.8 (decision by coordinator). -->
 ## What changed
 
 - **Sync:** the offline sync feature is removed in 0.9.8. Your notes are files in your workspace folder. Sync with GitHub is a folder sync, and Settings shows which repository the workspace backs up to.
