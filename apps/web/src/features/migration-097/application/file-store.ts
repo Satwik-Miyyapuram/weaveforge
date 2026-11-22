@@ -57,6 +57,8 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
         const out = n === 0 || !copy ? { data, hash } : copy;
         const state = await stateAt(candidate);
         if (!state.present) {
+          // A conflict copy is free only when its .sha256 sidecar name is free too: a stale sidecar would leave the blob without its own.
+          if (n > 0 && (await sink.exists(`${candidate}.sha256`).catch(() => true))) continue;
           await sink.write(candidate, out.data);
         } else {
           // An unreadable file is never overwritten: skip to the next candidate.

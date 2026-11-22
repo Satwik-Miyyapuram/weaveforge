@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { createFileStore } from "../application/file-store";
 import { sha256Hex } from "../domain/hash";
 import { MemorySink } from "../infrastructure/memory-sink";
+import { conflictCopyPath } from "../domain/conflict-path";
 
 /** A sink whose reads of one path fail, as an unreadable file does. The file still lists. */
 class UnreadableSink extends MemorySink {
@@ -51,4 +52,19 @@ test("an existing readable file is read once per candidate, and the hash comes f
   await store.store("b.json", "db version", await sha256Hex("db version"));
 
   assert.equal(reads.filter((p) => p === "b.json").length, 1);
+});
+
+test("a conflict copy whose .sha256 sidecar is already taken is skipped: no blob lands without its sidecar", async () => {
+  const sink = new MemorySink();
+  await sink.write("c.bin", "user bytes");
+  const copy1 = conflictCopyPath("c.bin", 1);
+  // A stale sidecar sits at the first copy's name, while the blob name itself is free.
+  await sink.write(`${copy1}.sha256`, "stale");
+  const store = await createFileStore(sink, {});
+
+  const held = await store.store("c.bin", "db version", await sha256Hex("db version"));
+
+  assert.notEqual(held, copy1);
+  assert.equal(await sink.exists(copy1), false);
+  assert.equal(await sink.exists(conflictCopyPath("c.bin", 2)), true);
 });
