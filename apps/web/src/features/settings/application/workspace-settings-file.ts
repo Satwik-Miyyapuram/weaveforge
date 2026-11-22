@@ -11,6 +11,8 @@ export const SETTINGS_PATH = ".weaveforge/settings.json";
 export const PARKED_PATH = ".weaveforge/settings.pending.json";
 export const SETTINGS_VERSION = 1;
 export const SETTINGS_WRITE_DELAY_MS = 500;
+/** How often the no-folder warning repeats while an edit waits. Toasts time out, so it is re-shown. */
+const NO_FOLDER_REMINDER_MS = 30_000;
 /** Compare-and-swap attempts per flush; each re-reads and re-merges before retrying. */
 const SETTINGS_WRITE_ATTEMPTS = 3;
 /** The longest wait between retries of a refused save. */
@@ -101,6 +103,8 @@ export class WorkspaceSettingsFile {
   private readonly schedule: (fn: () => void, ms: number) => unknown;
   private readonly cancel: (handle: unknown) => void;
   private warnedNoFolder = false;
+  /** Repeats the no-folder warning while an edit waits; armed only with no folder open. */
+  private reminder: unknown = null;
   /** The folder the last load() read; a different one is a new workspace, so lastText is stale. */
   private boundFs: IWorkspaceFs | null = null;
 
@@ -152,6 +156,7 @@ export class WorkspaceSettingsFile {
       this.lastText = null;
     }
     this.warnedNoFolder = false;
+    this.stopNoFolderReminder();
     const run = this.writing.then(async () => {
       await this.mergeParked(fs);
       await this.reload(fs);
@@ -205,6 +210,23 @@ export class WorkspaceSettingsFile {
     for (const listener of this.listeners) listener();
   }
 
+  private remindNoFolder(): void {
+    if (this.reminder !== null) return;
+    this.reminder = this.schedule(() => {
+      this.reminder = null;
+      if (this.deps.fs() || !this.dirty()) return;
+      this.deps.warn("settings still not saved, no workspace folder open: \. Open a workspace to save them.");
+      this.remindNoFolder();
+    }, NO_FOLDER_REMINDER_MS);
+  }
+
+  private stopNoFolderReminder(): void {
+    if (this.reminder !== null) {
+      this.cancel(this.reminder);
+      this.reminder = null;
+    }
+  }
+
   private clearTimer(): void {
     if (this.timer !== null) {
       this.cancel(this.timer);
@@ -219,6 +241,7 @@ export class WorkspaceSettingsFile {
         this.warnedNoFolder = true;
         this.deps.warn("no workspace folder is open; settings edits wait in memory for the next workspace you open.");
       }
+      this.remindNoFolder();
       return;
     }
     this.clearTimer();

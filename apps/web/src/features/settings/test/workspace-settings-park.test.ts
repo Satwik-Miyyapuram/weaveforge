@@ -149,3 +149,43 @@ test("reopening an unchanged file writes the edits made while no folder was open
   await new Promise((r) => setTimeout(r, 10));
   assert.equal(JSON.parse(files.get(SETTINGS_PATH) ?? "{}").ui.zoom, 2);
 });
+test("the no-folder warning repeats while an edit waits, and stops once a folder opens", async () => {
+  const files = new Map<string, string>();
+  const refuse = { on: false };
+  const warnings: string[] = [];
+  const live = new Map<number, () => void>();
+  let nextId = 0;
+  let folder = false;
+  const fs = memoryFs(files, refuse);
+  const settings = new WorkspaceSettingsFile({
+    fs: () => (folder ? (fs as unknown as IWorkspaceFs) : null),
+    warn: (m: string) => warnings.push(m),
+    schedule: (fn: () => void) => {
+      const id = ++nextId;
+      live.set(id, fn);
+      return id;
+    },
+    cancel: (h: unknown) => {
+      live.delete(h as number);
+    },
+  });
+  const reminders = () => warnings.filter((m) => m.startsWith("settings still not saved")).length;
+  const runDue = () => {
+    const due = [...live.values()];
+    live.clear();
+    for (const fn of due) fn();
+  };
+
+  settings.set(["ink", "width"], 3);
+  assert.equal(settings.dirty(), true);
+  runDue();
+  assert.equal(reminders(), 1, "the first reminder fires while the edit still waits with no folder");
+  runDue();
+  assert.equal(reminders(), 2, "it keeps repeating while the edit waits");
+
+  folder = true;
+  await settings.load();
+  runDue();
+  assert.equal(reminders(), 2, "opening a folder stops the reminder");
+  assert.equal(live.size, 0, "no reminder stays scheduled after a folder opens");
+});

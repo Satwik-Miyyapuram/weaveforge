@@ -7,6 +7,7 @@ import test from "node:test";
 import type { IWorkspaceFs } from "@weaveforge/core";
 import {
   SETTINGS_PATH,
+  SETTINGS_WRITE_DELAY_MS,
   WorkspaceSettingsFile,
   parseSettings,
   renderSettings,
@@ -305,13 +306,13 @@ test("a refused save retries on a growing backoff timer until it lands", async (
   assert.equal(live.size, 0, "no retry once saved");
 });
 
-test("no folder: set works in memory, flush is quiet, no schedule", async () => {
+test("no folder: set works in memory, flush is quiet, no write scheduled", async () => {
   const scheduleCalls: number[] = [];
   const s = new WorkspaceSettingsFile({
     fs: () => null,
     warn: () => {},
-    schedule: () => {
-      scheduleCalls.push(1);
+    schedule: (_fn: () => void, ms: number) => {
+      scheduleCalls.push(ms);
       return 0;
     },
     cancel: () => {},
@@ -319,7 +320,8 @@ test("no folder: set works in memory, flush is quiet, no schedule", async () => 
   s.set(["ink", "toolColours"], "mem");
   assert.equal(s.get(["ink", "toolColours"]), "mem");
   await s.flush();
-  assert.equal(scheduleCalls.length, 0);
+  // Only the repeating no-folder reminder may be armed; no write debounce.
+  assert.equal(scheduleCalls.filter((ms) => ms === SETTINGS_WRITE_DELAY_MS).length, 0);
 });
 
 test("no writeTextIf: checked fallback writes, and an external change is merged", async () => {
