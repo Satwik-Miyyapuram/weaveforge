@@ -120,11 +120,16 @@ test("the newest run of a device wins across the legacy and its own file", async
   assert.equal(await browserReportVerified(cleanNewer, A), true);
 });
 
-test("on a tie in start time a verified run beats an incomplete one for the same device", async () => {
-  const sink = new MemorySink();
-  await sink.write(REPORT_PATH, reportText([run(A, T0, { state: "incomplete" })]));
-  await sink.write(ownReportPath(A), reportText([run(A, T0)]));
-  assert.equal(await browserReportVerified(sink, A), true);
+test("on a tie in start time the incomplete run wins, so the device fails closed", async () => {
+  const legacyFirst = new MemorySink();
+  await legacyFirst.write(REPORT_PATH, reportText([run(A, T0, { state: "incomplete" })]));
+  await legacyFirst.write(ownReportPath(A), reportText([run(A, T0)]));
+  assert.equal(await browserReportVerified(legacyFirst, A), false, "incomplete beats verified on a tie");
+
+  const ownFirst = new MemorySink();
+  await ownFirst.write(ownReportPath(A), reportText([run(A, T0)]));
+  await ownFirst.write(REPORT_PATH, reportText([run(A, T0, { state: "incomplete" })]));
+  assert.equal(await browserReportVerified(ownFirst, A), false, "the tie does not depend on file order");
 });
 
 test("a device with no file of its own is unexported even when another device's file is clean", async () => {

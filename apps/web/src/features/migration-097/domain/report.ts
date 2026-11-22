@@ -112,19 +112,43 @@ export async function readMigrationRuns(fs: Pick<FileSink, "list" | "readText">)
   }
   const runs: RunReport[] = [];
   for (const path of names.filter(isReportFileName)) {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(await fs.readText(path));
-    } catch {
-      return null;
-    }
-    if (typeof parsed !== "object" || parsed === null) return null;
-    const { state, runs: fileRuns } = parsed as { state?: unknown; runs?: unknown };
-    if (!(state === "verified" || state === "incomplete" || state === "none")) return null;
-    if (!Array.isArray(fileRuns) || !fileRuns.every(isRunReport)) return null;
+    const fileRuns = await readReportFile(fs, path);
+    if (fileRuns === null) return null;
     runs.push(...fileRuns);
   }
   return runs;
+}
+
+/** The runs of one report file, or null when it cannot be read as a report. Never throws. */
+async function readReportFile(fs: Pick<FileSink, "readText">, path: string): Promise<RunReport[] | null> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await fs.readText(path));
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const { state, runs } = parsed as { state?: unknown; runs?: unknown };
+  if (!(state === "verified" || state === "incomplete" || state === "none")) return null;
+  if (!Array.isArray(runs) || !runs.every(isRunReport)) return null;
+  return runs;
+}
+
+/**
+ * The file name of the first report file that cannot be read, for the refusal message. "" when the folder cannot
+ * be listed (no file to name), null when every report file reads.
+ */
+export async function unreadableReportName(fs: Pick<FileSink, "list" | "readText">): Promise<string | null> {
+  let names: string[];
+  try {
+    names = await fs.list();
+  } catch {
+    return "";
+  }
+  for (const path of names.filter(isReportFileName)) {
+    if ((await readReportFile(fs, path)) === null) return path.split("/").pop() ?? path;
+  }
+  return null;
 }
 
 function isCount(v: unknown): v is number {
@@ -198,12 +222,10 @@ export function isVerifiedOpfsReport(report: unknown, ownDeviceId?: string): boo
   return newest.every((run) => run.state === "verified" && runPassesKnownKinds(run));
 }
 
-/** On a tie in start time, the run that verified outranks an incomplete one, which outranks none. */
-const STATE_RANK: Readonly<Record<string, number>> = { verified: 3, incomplete: 2, none: 1 };
-
 /**
- * The newest run of each device: the later start time wins, and on a tie the higher state rank wins.
- * A run with no deviceId cannot be attributed, so every such run is kept: each one must be clean.
+ * The newest run of each device: the later start time wins. On a tie, any run that is not verified wins
+ * (fail closed), whatever the file order. A run with no deviceId cannot be attributed, so every such run
+ * is kept: each one must be clean.
  */
 function latestRunPerDevice(runs: RunReport[]): RunReport[] {
   const latest = new Map<string, RunReport>();
@@ -214,9 +236,8 @@ function latestRunPerDevice(runs: RunReport[]): RunReport[] {
       continue;
     }
     const seen = latest.get(run.deviceId);
-    const rank = STATE_RANK[run.state ?? ""] ?? 0;
-    const seenRank = seen ? (STATE_RANK[seen.state ?? ""] ?? 0) : 0;
-    if (!seen || run.startedAt > seen.startedAt || (run.startedAt === seen.startedAt && rank > seenRank)) {
+    const failsClosed = (r: RunReport) => (r.state === "verified" ? 0 : 1);
+    if (!seen || run.startedAt > seen.startedAt || (run.startedAt === seen.startedAt && failsClosed(run) > failsClosed(seen))) {
       latest.set(run.deviceId, run);
     }
   }

@@ -105,6 +105,6 @@ test("report: a legacy report whose runs is not a list refuses the run and is le
   await sink.write(REPORT_PATH, legacy);
   const result = await runWebExport({ runDeviceId: "dev-x", kinds: [], codec: fakeCodec([]), source: fakeServer({ rows: {} }).source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
-  assert.ok(result.run.missing.some((m) => m.reason === "report unreadable"));
+  assert.ok(result.run.missing.some((m) => /is unreadable|cannot be listed/.test(m.reason)));
   assert.equal(await sink.readText(REPORT_PATH), legacy, "the unreadable legacy report is never merged over or rewritten");
 });

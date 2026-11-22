@@ -1,6 +1,7 @@
 import {
   ownReportPath,
   readMigrationRuns,
+  unreadableReportName,
   type KindCount,
   type MigrationReport,
   type MigrationState,
@@ -88,21 +89,6 @@ async function readOwnRuns(sink: FileSink, path: string): Promise<RunReport[] | 
   return null;
 }
 
-/** Moves an unreadable report file to <path>.bad, or .bad.N when that name is taken. Nothing is overwritten. */
-async function moveAside(sink: FileSink, path: string): Promise<boolean> {
-  // Without a listing there is no safe free name, so nothing is moved and false says so.
-  let taken: Set<string>;
-  try {
-    taken = new Set(await sink.list());
-  } catch {
-    return false;
-  }
-  let bad = `${path}.bad`;
-  for (let n = 2; taken.has(bad); n++) bad = `${path}.bad.${n}`;
-  await sink.rename(path, bad);
-  return true;
-}
-
 /** The report-level backup already in this device's file, or null. Read only to keep it: see writeReport. */
 async function readOwnBackup(sink: FileSink, path: string): Promise<string | null> {
   try {
@@ -126,10 +112,8 @@ async function writeReport(sink: FileSink, report: MigrationReport): Promise<voi
   const path = ownReportPath(device);
   // Read before any move: a moved-aside file can no longer be read for its backup.
   const priorBackup = await readOwnBackup(sink, path);
-  if ((await readOwnRuns(sink, path)) === null) {
-    // Unreadable: kept aside, never merged over. If it cannot be kept aside, it is left as it is and not replaced.
-    if (!(await moveAside(sink, path))) return;
-  }
+  // Unreadable: never merged over and never renamed. It is left as it is for the user to restore or delete.
+  if ((await readOwnRuns(sink, path)) === null) return;
   const backup = priorBackup ?? report.backup;
   const merged: MigrationReport = { ...report, backup, runs: report.runs };
   const part = tempPathFor(path);
@@ -272,8 +256,10 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
 
   // Any unreadable report file (legacy, own or another device's) is never merged over: this run is refused before
   // any write. Only this device's own file is kept aside, by the refused write itself; the others are left as they are.
-  if ((await readMigrationRuns(sink)) === null) {
-    return refused(sink, now, "report unreadable", target, { deviceId });
+  const unreadable = await unreadableReportName(sink);
+  if (unreadable !== null) {
+    const reason = unreadable === "" ? "the report folder cannot be listed" : `${unreadable} is unreadable`;
+    return refused(sink, now, `${reason}; restore it from your backup or run the export again`, target, { deviceId });
   }
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};

@@ -56,7 +56,7 @@ test("report listing fails: refused even though report.json reads, since the oth
   const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-b" });
 
   assert.equal(result.state, "incomplete");
-  assert.ok(result.run.missing.some((m) => m.reason === "report unreadable"), "a listing that fails is never read as a clean union");
+  assert.ok(result.run.missing.some((m) => /is unreadable|cannot be listed/.test(m.reason)), "a listing that fails is never read as a clean union");
   assert.equal(await MemorySink.prototype.readText.call(sink, REPORT_PATH), legacy, "the legacy report is read-only");
 });
 
@@ -66,7 +66,7 @@ test("report listing fails and report.json cannot be read: refused, the legacy r
   const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-b" });
 
   assert.equal(result.state, "incomplete");
-  assert.ok(result.run.missing.some((m) => m.reason === "report unreadable"));
+  assert.ok(result.run.missing.some((m) => /is unreadable|cannot be listed/.test(m.reason)));
   // Read through the base class: the patched readText refuses report.json on purpose.
   const raw = await MemorySink.prototype.readText.call(sink, REPORT_PATH);
   assert.equal(raw, truncated, "the unreadable report is not replaced");
