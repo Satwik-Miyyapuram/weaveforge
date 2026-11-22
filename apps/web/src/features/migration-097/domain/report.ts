@@ -46,6 +46,8 @@ export type RunReport = {
   missing: MissingRow[];
   /** The device that made this run: one entry per device in report.json. Absent when no id is known. */
   deviceId?: string;
+  /** The pre-migration dump this device's run made (desktop). Null on web. Each device keeps its own. */
+  backup?: string | null;
   /** Conflict copies written or reused this run: the DB version kept beside a file that differed. */
   conflicts?: string[];
   /** Paths this device's previous run wrote and this run did not. Kept on disk, never deleted. */
@@ -57,6 +59,7 @@ export type RunReport = {
 export type MigrationReport = {
   version: 1;
   state: MigrationState;
+  /** The first non-null backup written to this report, kept for older readers. A later run never replaces it. */
   backup: string | null;
   /** ISO time the export verified. Absent unless state is "verified". */
   verifiedAt?: string;

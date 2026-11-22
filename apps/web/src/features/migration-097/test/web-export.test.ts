@@ -1378,3 +1378,21 @@ test("trash: a trashed row with no id is listed missing as missing id and writes
   );
   assert.equal((await sink.list()).some((p) => p.includes("undefined")), false);
 });
+
+test("backup: device A's backup stays in A's runs entry and the report-level backup after a web run by device B", async () => {
+  const sink = new MemorySink();
+  const bridge = {
+    backup: async () => ({ deviceId: "dev-a", dump: "dump-a.zip" }),
+    markExported: async () => {},
+  };
+  const a = fakeServer({ rows: {} });
+  await runWebExport({ kinds: [], codec: fakeCodec([]), source: a.source, sink, now: NOW, desktop: { folder: "/vault", bridge } });
+
+  const b = fakeServer({ rows: {} });
+  await runWebExport({ runDeviceId: "dev-b", kinds: [], codec: fakeCodec([]), source: b.source, sink, now: NOW });
+
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { backup: string | null; runs: RunReport[] };
+  assert.equal(report.runs.find((r) => r.deviceId === "dev-a")?.backup, "dump-a.zip");
+  assert.equal(report.runs.find((r) => r.deviceId === "dev-b")?.backup, null);
+  assert.equal(report.backup, "dump-a.zip");
+});

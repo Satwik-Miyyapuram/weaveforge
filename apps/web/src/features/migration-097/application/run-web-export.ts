@@ -93,9 +93,21 @@ async function moveAside(sink: FileSink): Promise<boolean> {
   return true;
 }
 
+/** The report-level backup already in report.json, or null. Read only to keep it: see writeReport. */
+async function readExistingBackup(sink: FileSink): Promise<string | null> {
+  try {
+    const parsed = JSON.parse(await sink.readText(REPORT_PATH)) as Partial<MigrationReport>;
+    return typeof parsed.backup === "string" ? parsed.backup : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Writes report.json via a .part file and rename, so a half-written report is never seen.
  * The runs of other devices already in report.json are kept; this device's entry is replaced.
+ * The report-level backup is the first non-null one: a later run never replaces it, not with null
+ * and not with another device's dump. Each device's own dump is in its own runs entry.
  */
 async function writeReport(sink: FileSink, report: MigrationReport): Promise<void> {
   const existing = await readExistingRuns(sink);
@@ -107,7 +119,8 @@ async function writeReport(sink: FileSink, report: MigrationReport): Promise<voi
     const device = report.runs[0]?.deviceId;
     runs = [...existing.filter((r) => r.deviceId !== device), ...report.runs];
   }
-  const merged: MigrationReport = { ...report, runs };
+  const backup = (await readExistingBackup(sink)) ?? report.backup;
+  const merged: MigrationReport = { ...report, backup, runs };
   const part = `${REPORT_PATH}.part`;
   await sink.write(part, JSON.stringify(merged, null, 2));
   await sink.rename(part, REPORT_PATH);
@@ -129,6 +142,7 @@ async function refused(
     blobs: { db: 0, verified: 0 },
     missing: [{ kind: "*", id: "*", reason }],
     deviceId: extra.deviceId,
+    backup: extra.backup,
   };
   await writeReport(sink, { version: 1, state: "incomplete", backup: extra.backup ?? null, deviceId: extra.deviceId, target, runs: [run] });
   return { state: "incomplete", run };
@@ -289,6 +303,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       blobs: { db: 0, verified: 0 },
       missing: [{ kind: "outbox", id: "*", reason }],
       deviceId,
+      backup: dumpName,
     };
     await writeReport(sink, { version: 1, state: "incomplete", backup: dumpName, deviceId, target, runs: [run] });
     return { state: "incomplete", run };
@@ -481,6 +496,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       blobs: { db: verdict.blobs.db, verified: verdict.blobs.verified },
       missing,
       deviceId,
+      backup: dumpName,
       conflicts: store.conflicts,
       orphans: orphans.length > 0 ? orphans : undefined,
       outputs,
