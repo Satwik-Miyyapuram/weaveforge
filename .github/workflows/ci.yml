@@ -73,7 +73,7 @@ jobs:
       - name: Run build-web route guard tests
         run: node --test apps/shell/scripts/build-web-held-routes.test.mjs
 
-      # The installer stage scripts for Postgres and the ink recogniser.
+      # The installer stage scripts for the ink recogniser.
       - name: Run stage script tests
         run: npm run test:stage
 
@@ -559,8 +559,8 @@ jobs:
           cargo deny --locked --manifest-path wf-relay/Cargo.toml --all-features check
 
   shell-windows:
-    # Windows-only shell code: the Job Object (kill-on-close) that ties Postgres
-    # and TeX children to the shell. fmt and cargo-deny are platform-independent
+    # Windows-only shell code: the Job Object (kill-on-close) that ties child
+    # processes to the shell. fmt and cargo-deny are platform-independent
     # and stay in the Linux job.
     runs-on: windows-latest
     timeout-minutes: 30
@@ -601,7 +601,7 @@ jobs:
         run: cargo test --locked --no-fail-fast
 
   shell-bundle-windows:
-    # Windows x64 release bundles (MSI and NSIS) with Postgres and the web
+    # Windows x64 release bundles (MSI and NSIS) with the web
     # export, and their sizes in the step summary (phase 2 done-when: installer
     # size measured on x64). This is the release product ("WeaveForge"), built
     # only to measure; the installers are not uploaded or installed anywhere.
@@ -655,22 +655,6 @@ jobs:
       - name: Build web export
         working-directory: apps/shell
         run: node scripts/build-web.mjs
-
-      - name: Stage Postgres
-        working-directory: .
-        shell: pwsh
-        # The native local database (local_pg) runs this Postgres from <resources>/postgres. Pinned build
-        # from theseus-rs/postgresql-binaries (upstream REL_18_6); the hash is of the release asset.
-        # The Rust cache can restore a stage folder from an earlier run; start from an empty one.
-        run: |
-          if (Test-Path apps/shell/target/stage) { Remove-Item apps/shell/target/stage -Recurse -Force }
-          $name = "postgresql-18.6.1-x86_64-pc-windows-msvc"
-          $tar = Join-Path $env:RUNNER_TEMP "$name.tar.gz"
-          Invoke-WebRequest -Uri "https://github.com/theseus-rs/postgresql-binaries/releases/download/18.6.1/$name.tar.gz" -OutFile $tar
-          $hash = (Get-FileHash $tar -Algorithm SHA256).Hash
-          if ($hash -ne "0C0C845626ED77C605D716051C9E8DF3368D07FBBD9F61EA39A4C5C0536FDE7E") { throw "Postgres archive hash mismatch: $hash" }
-          tar -xzf $tar -C $env:RUNNER_TEMP
-          node apps/shell/scripts/stage-postgres.mjs (Join-Path $env:RUNNER_TEMP $name) apps/shell/target/stage
 
       - name: Stage ink recogniser
         working-directory: .
