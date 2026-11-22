@@ -28,17 +28,18 @@ WeaveForge 1.0.0 is the first stable release. Your notes and papers live in your
 - **Changed:** Stable release. Everything in 0.9.8 is included.
 
 ### Server
-- **Removed:** The server keeps organisation data, sharing (including shared images) and relay data, and, for supervision and the 1.0.x transition, experiments, lab snapshots, milestones, projects, settings and Overleaf links (the last of these archived in a later 1.0.x). It no longer serves or uses your personal notes, papers, reading lists, annotations, tags, reports, log entries, vault pages, AI records, project integrations and other personal records (citation alerts, screening, library pins, paper fields); the archived copy is deleted in a later 1.0.x.
+- **Not yet:** The server's personal-table removal (`db/held/0167_archive_ported_tables.sql`) is held and is not applied in 1.0.0. Its prerequisites (RELAY-PORT released, 0165 run for a full release cycle, a pg_dump) are not met. Release notes for it are omitted until it is applied.
 
 ## [0.9.8] - TBD
 
 Desktop (`v0.9.8`). Python SDK stays on 0.7.1; Android stays on 0.9.7; iOS stays on 0.8.0.
-This release removes the built-in database. Your data is already in your workspace folder from 0.9.7. Update to 0.9.7 first: 0.9.8 does not move old database data itself.
+Your data is already in your workspace folder from 0.9.7. Update to 0.9.7 first: 0.9.8 does not move old database data itself.
 
 ### Desktop
-- **Removed:** The app no longer bundles or starts Postgres, and the 0.9.7 upgrade tools are gone.
-- **Changed:** Updates go through 0.9.7 first. An older version is offered 0.9.7 before 0.9.8.
-- **Changed:** If old database data is found and 0.9.7 never moved it, the app shows an "Install 0.9.7 first" screen and leaves that data untouched.
+- **Changed:** Device passwords and tokens live only in the OS keychain, never in a file.
+- **Changed:** The no-account copy of your data runs on the workspace files, not the local database.
+- **Changed:** The Overleaf token saved by 0.9.7 is removed from the keychain at startup.
+- **Removed:** The 0.9.7 local Postgres sync modules are removed from the shared core.
 
 ## [0.9.7] - 2026-11-23 (set at tag time)
 

@@ -217,20 +217,15 @@ then unlock the keyring and try again.
 
 ### Upgrading to 0.9.8 and 1.0.0
 
-Update to 0.9.7 first. 0.9.8 does not move old database data itself, so an
-older version is offered 0.9.7 before 0.9.8.
+Update to 0.9.7 first. 0.9.8 does not move old database data itself.
 
-- **0.9.8** removes the bundled Postgres database and the 0.9.7 upgrade tools. If old database data is found that 0.9.7 never moved,
-  the app shows an **Install 0.9.7 first** screen and leaves that data untouched.
+- **0.9.8** keeps your device passwords and tokens only in your operating
+  system's keychain. The no-account copy of your data runs on your workspace
+  files, not on the local database. The Overleaf token saved by 0.9.7 is removed
+  from the keychain when the app starts.
 - **1.0.0** is the first stable release. Everything in 0.9.8 is included. The
-  server keeps organisation data, sharing (including shared images) and relay
-  data, plus experiments and lab snapshots for supervision. Settings, milestones,
-  projects and Overleaf links stay on the server for now; they all move off once
-  their routes are ported in a later 1.0.x, and milestone comments move with
-  their milestones. The server no longer serves or uses your personal notes,
-  papers, reading lists, annotations, tags, reports, log entries, vault pages,
-  comments and edit history on those items, AI records, project integrations and
-  other personal records (citation alerts, screening, library pins, paper fields); the archived copy is deleted in a later 1.0.x.
+  server's personal-table removal is not part of 1.0.0 yet: those tables stay on
+  the server until a later 1.0.x applies it.
 
 ## A folder on your disk
 
