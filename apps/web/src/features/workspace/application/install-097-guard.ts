@@ -19,7 +19,8 @@ type Install097Bridge = Partial<Pick<DesktopBridge, "legacyDbPresent" | "migrati
 
 /**
  * The web reader's two answers. `hasLegacyRows`: the account still has rows in the old personal
- * server tables. `ownRunVerified`: a verified 0.9.7 export run exists for this account. Not wired yet.
+ * server tables. `ownRunVerified`: a verified 0.9.7 export run exists for this account (the
+ * `profiles.exported_097_at` mark). The reader is infrastructure/install-097-web-port.
  */
 export interface Install097OldUserPort {
   hasLegacyRows(): Promise<boolean>;
@@ -89,4 +90,10 @@ async function webCheck(port: Install097OldUserPort): Promise<Install097Verdict>
 export const INSTALL_097_NOTICE = {
   title: "Open 0.9.7 once more.",
   body: "Install or open WeaveForge 0.9.7 so its move finishes, then come back.",
+} as const;
+
+/** The web gate text for an account with legacy rows and no verified export. Your data is safe. */
+export const INSTALL_097_WEB_NOTICE = {
+  title: "Export from 0.9.7 first.",
+  body: "Open this account once in WeaveForge 0.9.7 on the web or desktop and export, then come back. Your data is safe.",
 } as const;
