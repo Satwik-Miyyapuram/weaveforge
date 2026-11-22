@@ -172,3 +172,40 @@ test("web Start runs the web export once and reports verified with its reconnect
   assert.equal(calls, 1, "one Start calls the export once");
   assert.deepEqual(reply, { state: "verified", reconnectProviders: ["zotero"] });
 });
+
+test("web idle view offers Start and shows no progress or retry until Start is pressed", () => {
+  const html = renderToStaticMarkup(
+    <Migrate097UpgradeBody
+      phase="idle"
+      progress={{}}
+      reportPath=""
+      copied={false}
+      onCopy={noop}
+      onRetry={noop}
+      onKeepOld={noop}
+      onStart={noop}
+    />,
+  );
+  assert.match(html, />Start</);
+  assert.doesNotMatch(html, /Starting/);
+  assert.doesNotMatch(html, /Retry/);
+});
+
+test("web verified view names the reconnect providers and offers Continue before the reload", () => {
+  const html = renderToStaticMarkup(
+    <Migrate097UpgradeBody
+      phase="verified"
+      progress={{}}
+      reportPath=""
+      copied={false}
+      onCopy={noop}
+      onRetry={noop}
+      onKeepOld={noop}
+      onContinue={noop}
+      reconnectProviders={["zotero"]}
+    />,
+  );
+  assert.match(html, /Reconnect zotero/);
+  assert.match(html, />Continue</);
+  assert.doesNotMatch(html, /Retry/);
+});
