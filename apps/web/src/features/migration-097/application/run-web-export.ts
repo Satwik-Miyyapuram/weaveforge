@@ -266,10 +266,14 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     return refused(sink, now, "no device id: the browser install id is missing or malformed", target);
   }
 
+  // The report's device id has one source for every refusal: the browser install id, or on desktop the id the
+  // dump returns. Before the dump there is none, so a desktop refusal writes no report (fail closed).
+  let deviceId: string | undefined = desktop ? undefined : runDeviceId;
+
   // Any unreadable report file (legacy, own or another device's) is never merged over: this run is refused before
   // any write. Only this device's own file is kept aside, by the refused write itself; the others are left as they are.
   if ((await readMigrationRuns(sink)) === null) {
-    return refused(sink, now, "report unreadable", target, { deviceId: runDeviceId });
+    return refused(sink, now, "report unreadable", target, { deviceId });
   }
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};
@@ -286,13 +290,12 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     try {
       reconnectProviders = await source.secretProviders();
     } catch {
-      return refused(sink, now, "keys: unreadable", target, { deviceId: runDeviceId });
+      return refused(sink, now, "keys: unreadable", target, { deviceId });
     }
   }
 
   // The pre-migration dump comes first: nothing is read or written without it.
   // Web always has a device id: the caller's stable one (refused above when absent).
-  let deviceId: string | undefined = desktop ? undefined : runDeviceId;
   let dumpName: string | null = null;
   if (desktop && typeof desktop.bridge?.backup !== "function") {
     return refused(sink, now, "desktop migrate097Backup missing: the shell cannot make the pre-migration dump", target);

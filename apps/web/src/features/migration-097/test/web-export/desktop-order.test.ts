@@ -295,16 +295,16 @@ test("interrupted run: report.json says incomplete before the first row is writt
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
   const realWrite = sink.write.bind(sink);
-  let reportAtFirstRow: string | null | undefined;
+  const firstRow: { report?: string | null } = {};
   sink.write = async (path: string, data: string | Uint8Array) => {
-    if (reportAtFirstRow === undefined && path.startsWith("logEntries/")) {
-      reportAtFirstRow = await sink.readText(await onlyReportPath(sink)).catch(() => null);
+    if (firstRow.report === undefined && path.startsWith("logEntries/")) {
+      firstRow.report = await sink.readText(await onlyReportPath(sink)).catch(() => null);
     }
     return realWrite(path, data);
   };
   await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
-  assert.ok(reportAtFirstRow, "report.json exists before the first row");
-  assert.equal(JSON.parse(reportAtFirstRow).state, "incomplete");
+  assert.ok(firstRow.report, "report.json exists before the first row");
+  assert.equal(JSON.parse(firstRow.report).state, "incomplete");
 });
 
 test("interrupted run: a throw while writing rows leaves report.json incomplete and sets no marker", async () => {
