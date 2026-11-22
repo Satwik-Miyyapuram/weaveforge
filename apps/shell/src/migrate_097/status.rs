@@ -56,7 +56,7 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
     let exported = exported_to(pg_root);
     let exported_here = exported.as_deref().is_some_and(|name| same_folder(name, folder));
     let removed = super::remove::old_db_removed(pg_root);
-    let (reports, problem) = match super::remove::read_reports(folder) {
+    let (reports, problem) = match super::remove::read_reports(folder, device_id) {
         Ok(reports) => (reports, None),
         Err(problem) => (Vec::new(), Some(problem)),
     };

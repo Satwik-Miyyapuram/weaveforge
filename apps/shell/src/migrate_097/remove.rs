@@ -49,11 +49,9 @@ pub fn record_exported_to(pg_root: &Path, folder: &Path) -> Result<(), String> {
 /// Records the export of `folder` only when this device's newest run in its report is verified.
 /// An unreadable, unparsable, or unverified report records nothing.
 pub fn record_verified_export(pg_root: &Path, folder: &Path, device_id: &str) -> Result<(), String> {
-    let text = fs::read_to_string(base_report_path(folder, device_id))
-        .map_err(|e| format!("refused: report.json unreadable: {e}"))?;
-    let report: serde_json::Value =
-        serde_json::from_str(&text).map_err(|_| "refused: report.json is unparsable".to_owned())?;
-    check_own_run_verdict(&report, device_id)?;
+    let reports = read_reports(folder, device_id).map_err(|problem| problem.refusal())?;
+    let report = device_report(&reports, device_id).ok_or_else(no_device_report)?;
+    check_own_run_verdict(report, device_id)?;
     record_exported_to(pg_root, folder)
 }
 
@@ -143,7 +141,8 @@ pub(crate) fn remove_with(
     final_write: &mut dyn FnMut(&Path, &dyn Fn(&mut serde_json::Value)) -> Result<(), String>,
 ) -> Result<(), String> {
     let report_path = own_report_path(folder, device_id);
-    let report = read_report(&base_report_path(folder, device_id))?;
+    let reports = read_reports(folder, device_id).map_err(|problem| problem.refusal())?;
+    let report = device_report(&reports, device_id).ok_or_else(no_device_report)?.clone();
     let state = report["state"].as_str().unwrap_or("").to_owned();
     // Per device: this device's removals entry and local marker decide "already removed". The
     // top-level state belongs to whichever device wrote last, so it only counts in a legacy report.
@@ -266,7 +265,7 @@ pub fn resume_on_launch(
     now: &str,
     stop_pg: &mut dyn FnMut() -> Result<(), String>,
 ) -> Result<bool, String> {
-    let reports = read_reports(folder).map_err(|problem| problem.refusal())?;
+    let reports = read_reports(folder, device_id).map_err(|problem| problem.refusal())?;
     if !reports.iter().any(|(_, report)| own_removing(report, device_id)) {
         return Ok(false);
     }
@@ -369,8 +368,8 @@ pub fn start_refusal(removed: bool) -> Option<&'static str> {
 /// Why start must not open the cluster while a removal is unfinished: a `removing` report with no
 /// marker means the cluster may still be there and a start would restore it from its backups.
 #[must_use]
-pub fn removal_refusal(folder: &Path, pg_root: &Path) -> Option<String> {
-    let reports = match read_reports(folder) {
+pub fn removal_refusal(folder: &Path, device_id: &str, pg_root: &Path) -> Option<String> {
+    let reports = match read_reports(folder, device_id) {
         Ok(reports) => reports,
         Err(problem) => return Some(problem.refusal()),
     };
@@ -393,20 +392,17 @@ pub(super) fn own_report_path(folder: &Path, device_id: &str) -> PathBuf {
     folder.join(MIGRATION_DIR).join(own_report_name(device_id))
 }
 
-/// The report this device reads its own run and removal from: its own file when it has one, else the
-/// legacy report.json. The legacy file is read-only and is never written.
-pub(super) fn base_report_path(folder: &Path, device_id: &str) -> PathBuf {
-    let own = own_report_path(folder, device_id);
-    if own.exists() { own } else { folder.join(REPORT_REL) }
-}
 
 /// Why the migration reports cannot be read as a whole. Either one refuses.
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum ReportsError {
     /// The migration folder cannot be listed.
     Listing(String),
-    /// This report file cannot be read or parsed (a conflict copy, usually).
-    Unreadable(String),
+    /// A report this device restores from its backup or by running the export again: the legacy
+    /// report.json or this device's own file.
+    Restore(String),
+    /// A conflict copy, or another device's file. The user deletes it.
+    Conflict(String),
 }
 
 impl ReportsError {
@@ -414,15 +410,18 @@ impl ReportsError {
     pub(super) fn reason(&self) -> String {
         match self {
             Self::Listing(error) => format!("cannot list the migration reports: {error}"),
-            Self::Unreadable(name) => format!("migration report {name} is unreadable"),
+            Self::Restore(name) => {
+                format!("{name} is unreadable; restore it from your backup or run the export again")
+            }
+            Self::Conflict(name) => format!("migration report {name} is unreadable"),
         }
     }
 
-    /// The step the user takes, when one is known: a conflict copy is the only file named for removal.
+    /// The step the user takes, when one is known: only a conflict copy is named for deletion.
     pub(super) fn step(&self) -> Option<String> {
         match self {
-            Self::Listing(_) => None,
-            Self::Unreadable(name) => Some(format!("delete the conflict copy {name}")),
+            Self::Listing(_) | Self::Restore(_) => None,
+            Self::Conflict(name) => Some(format!("delete the conflict copy {name}")),
         }
     }
 
@@ -436,7 +435,11 @@ impl ReportsError {
 
 /// Every report file in the migration folder (report.json and each report*.json, conflict copies
 /// included), parsed. An absent folder has none. A listing failure or one unreadable file is an error.
-pub(super) fn read_reports(folder: &Path) -> Result<Vec<(String, serde_json::Value)>, ReportsError> {
+pub(super) fn read_reports(
+    folder: &Path,
+    device_id: &str,
+) -> Result<Vec<(String, serde_json::Value)>, ReportsError> {
+    let own = own_report_name(device_id);
     let dir = folder.join(MIGRATION_DIR);
     let entries = match fs::read_dir(&dir) {
         Ok(entries) => entries,
@@ -459,7 +462,14 @@ pub(super) fn read_reports(folder: &Path) -> Result<Vec<(String, serde_json::Val
             .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok());
         match parsed {
             Some(value) => reports.push((name, value)),
-            None => return Err(ReportsError::Unreadable(name)),
+            None => {
+                let restorable = name == "report.json" || name == own;
+                return Err(if restorable {
+                    ReportsError::Restore(name)
+                } else {
+                    ReportsError::Conflict(name)
+                });
+            }
         }
     }
     Ok(reports)
@@ -478,6 +488,25 @@ pub(super) fn base_report<'a>(
         .or_else(|| reports.iter().find(|(name, _)| *name == "report.json"))
         .or_else(|| reports.first())
         .map(|(_, value)| value)
+}
+
+/// The report this device verifies and removes from: its own file, else the legacy report.json.
+/// Another device's file never stands in for it.
+pub(super) fn device_report<'a>(
+    reports: &'a [(String, serde_json::Value)],
+    device_id: &str,
+) -> Option<&'a serde_json::Value> {
+    let own = own_report_name(device_id);
+    reports
+        .iter()
+        .find(|(name, _)| *name == own)
+        .or_else(|| reports.iter().find(|(name, _)| name == "report.json"))
+        .map(|(_, value)| value)
+}
+
+/// The refusal when this device has no report of its own (or legacy) to verify or remove from.
+pub(super) fn no_device_report() -> String {
+    "refused: no export report from this device; run the export again".to_owned()
 }
 
 /// Whether this device has a removal in progress in one report: its own removals entry, or the
@@ -1062,7 +1091,7 @@ mod union_tests {
                 ("report-dev-a (1).json", "{ not json"),
             ],
         );
-        let refusal = removal_refusal(&folder, &pg_root);
+        let refusal = removal_refusal(&folder, ME, &pg_root);
         let _ = fs::remove_dir_all(&base);
         assert_eq!(
             refusal.as_deref(),

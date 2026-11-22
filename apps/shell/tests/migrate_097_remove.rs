@@ -860,7 +860,7 @@ fn a_removing_report_with_no_marker_refuses_start() {
         r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
     assert!(!old_db_removed(&f.pg_root), "no marker yet");
-    let refusal = removal_refusal(&f.folder, &f.pg_root);
+    let refusal = removal_refusal(&f.folder, DEVICE, &f.pg_root);
     assert!(refusal.is_some(), "a removing report with no marker must refuse start");
 }
 
