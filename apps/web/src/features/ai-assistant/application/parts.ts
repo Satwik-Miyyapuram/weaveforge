@@ -1,3 +1,4 @@
+import { logToApp } from "@/lib/error-report/app-log";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import {
@@ -122,11 +123,26 @@ export async function forgetStoredProvider(): Promise<void> {
  * module, but it survives upgrades that change the descriptor's shape, and a
  * half-valid provider would fail later at the model call — where the message
  * would be the provider's rather than ours.
+ *
+ * A keychain that refuses to answer (locked, or no keychain) also counts as
+ * nothing stored, so the AI settings stay usable. The log names the failure and
+ * never the value.
  */
 export async function restoreActiveProvider(): Promise<boolean> {
   const bridge = desktop();
   if (!bridge) return false;
-  const stored = await bridge.readSecret(SECRET);
+  let stored: string | null;
+  try {
+    stored = await bridge.readSecret(SECRET);
+  } catch (err) {
+    logToApp({
+      level: "warn",
+      source: "ai-provider",
+      message: "Could not restore the stored AI provider",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+    return false;
+  }
   if (!stored) return false;
   const parsed = parseStored(stored);
   if (!parsed) return false;

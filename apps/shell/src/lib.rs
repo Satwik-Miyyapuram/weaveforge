@@ -61,6 +61,7 @@ pub mod protocol;
 pub mod range;
 pub mod second_launch;
 pub mod secrets;
+pub mod secrets_moved;
 pub mod settings_secrets;
 pub mod shim;
 pub mod update_check;

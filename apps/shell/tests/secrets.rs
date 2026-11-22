@@ -7,7 +7,7 @@ use keyring_core::CredentialStore;
 use keyring_core::mock::Cred;
 use weaveforge_shell_lib::commands::ShellError;
 use weaveforge_shell_lib::secrets::{
-    PAGE_READABLE, PAGE_WRITABLE, SECRET_NAMES, SecretError, Secrets,
+    PAGE_READABLE, PAGE_WRITABLE, SECRET_NAMES, SecretError, Secrets, is_device_field,
 };
 
 const SERVICE: &str = "org.weaveforge.test";
@@ -120,8 +120,30 @@ fn no_store_write_read_clear_behave_as_no_keychain() {
     let err = s.write("ai-provider", "v").expect_err("no store");
     assert_eq!(err, SecretError::NoKeychain);
     assert_eq!(err.to_string(), NO_KEYCHAIN_TEXT);
-    assert_eq!(s.read("ai-provider"), Ok(None));
+    // No keychain is an error for a read, never "nothing stored": a caller must not overwrite on it.
+    assert_eq!(s.read("ai-provider"), Err(SecretError::NoKeychain));
     assert_eq!(s.clear("ai-provider"), Ok(()));
+}
+
+#[test]
+fn page_cannot_read_back_the_camel_case_device_tokens() {
+    let store = mock();
+    let s = secrets(&store);
+    s.write("device-secrets/overleafToken", "tok")
+        .expect("write");
+    s.write("device-secrets/gitSyncToken", "g").expect("write");
+    assert_eq!(
+        s.page_read("device-secrets/overleafToken"),
+        Err(SecretError::UnknownName)
+    );
+    assert_eq!(
+        s.page_read("device-secrets/gitSyncToken"),
+        Err(SecretError::UnknownName)
+    );
+    // The page can still write them and clear them.
+    s.page_write("device-secrets/overleafToken", "new")
+        .expect("page write");
+    assert_eq!(s.page_clear("device-secrets/gitSyncToken"), Ok(()));
 }
 
 #[test]
@@ -157,7 +179,8 @@ fn services_on_one_store_do_not_see_each_other() {
 }
 
 #[test]
-fn read_errors_become_none_and_the_next_read_succeeds() {
+fn read_errors_are_unreachable_never_none_and_the_next_read_succeeds() {
+    // A failed read is not "nothing stored": the caller must not overwrite what is there.
     let store = mock();
     let s = secrets(&store);
     s.write("ai-provider", "kept").expect("write");
@@ -166,7 +189,7 @@ fn read_errors_become_none_and_the_next_read_succeeds() {
         "ai-provider",
         keyring_core::Error::PlatformFailure("boom".into()),
     );
-    assert_eq!(s.read("ai-provider"), Ok(None));
+    assert_eq!(s.read("ai-provider"), Err(SecretError::Unreachable));
     assert_eq!(s.read("ai-provider"), Ok(Some("kept".to_owned())));
 
     inject(
@@ -174,8 +197,97 @@ fn read_errors_become_none_and_the_next_read_succeeds() {
         "ai-provider",
         keyring_core::Error::BadEncoding(vec![0xff]),
     );
-    assert_eq!(s.read("ai-provider"), Ok(None));
+    assert_eq!(s.read("ai-provider"), Err(SecretError::Unreachable));
     assert_eq!(s.read("ai-provider"), Ok(Some("kept".to_owned())));
+}
+
+#[test]
+fn a_locked_keyring_is_a_distinct_read_error_not_an_empty_store() {
+    let store = mock();
+    let s = secrets(&store);
+    s.write("ai-provider", "kept").expect("write");
+    inject(
+        &store,
+        "ai-provider",
+        keyring_core::Error::NoStorageAccess("locked".into()),
+    );
+    assert_eq!(s.read("ai-provider"), Err(SecretError::Locked));
+    assert_eq!(s.page_read("ai-provider"), Ok(Some("kept".to_owned())));
+    let text = SecretError::Locked.to_string();
+    assert!(text.contains("locked"), "{text}");
+}
+
+#[test]
+fn read_with_no_default_store_is_no_keychain_not_none() {
+    let store = mock();
+    let s = secrets(&store);
+    s.write("ai-provider", "kept").expect("write");
+    inject(&store, "ai-provider", keyring_core::Error::NoDefaultStore);
+    assert_eq!(s.read("ai-provider"), Err(SecretError::NoKeychain));
+}
+
+#[test]
+fn device_field_entries_are_page_readable_and_writable_by_key() {
+    let store = mock();
+    let s = secrets(&store);
+    s.page_write("device-secrets/zoteroApiKey", "k")
+        .expect("write");
+    s.page_write("device-secrets/integrations.overleaf", "{}")
+        .expect("write");
+    assert_eq!(
+        s.page_read("device-secrets/zoteroApiKey"),
+        Ok(Some("k".to_owned()))
+    );
+    s.page_clear("device-secrets/zoteroApiKey").expect("clear");
+    assert_eq!(s.page_read("device-secrets/zoteroApiKey"), Ok(None));
+}
+
+#[test]
+fn device_field_names_are_checked_and_other_prefixes_are_refused() {
+    let s = secrets(&mock());
+    let too_long = format!("device-secrets/{}", "a".repeat(129));
+    for name in [
+        "device-secrets/",
+        "device-secrets/../ai-provider",
+        "device-secrets/a/b",
+        "device-secrets/a b",
+        too_long.as_str(),
+        "ai-provider/zoteroApiKey",
+        "local-api-token/x",
+    ] {
+        assert_eq!(s.page_read(name), Err(SecretError::UnknownName), "{name}");
+        assert_eq!(
+            s.page_write(name, "v"),
+            Err(SecretError::UnknownName),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn the_index_entry_is_page_readable_and_writable_but_other_underscore_keys_are_refused() {
+    let store = mock();
+    let s = secrets(&store);
+    s.page_write("device-secrets/_index", r#"{"source":"save","keys":[]}"#)
+        .expect("index is a device field");
+    assert_eq!(
+        s.page_read("device-secrets/_index"),
+        Ok(Some(r#"{"source":"save","keys":[]}"#.to_owned()))
+    );
+    for name in [
+        "device-secrets/_hidden",
+        "device-secrets/_",
+        "device-secrets/_x.sub",
+    ] {
+        assert_eq!(s.page_read(name), Err(SecretError::UnknownName), "{name}");
+        assert_eq!(
+            s.page_write(name, "v"),
+            Err(SecretError::UnknownName),
+            "{name}"
+        );
+    }
+    assert!(is_device_field("device-secrets/_index"));
+    assert!(!is_device_field("device-secrets/_other"));
 }
 
 #[test]
@@ -235,6 +347,32 @@ fn page_read_returns_ai_provider_and_refuses_other_names_even_when_stored() {
     for name in ["local-api-token", "overleaf-token", "git-sync-token"] {
         assert_eq!(s.page_read(name), Err(SecretError::UnknownName), "{name}");
     }
+}
+
+#[test]
+fn write_only_tokens_are_never_page_readable_even_as_device_fields() {
+    let store = mock();
+    let s = secrets(&store);
+    s.page_write("device-secrets/overleaf-token", "ov")
+        .expect("page_write");
+    s.page_write("device-secrets/git-sync-token.host", "git")
+        .expect("page_write");
+    assert_eq!(
+        s.read("device-secrets/overleaf-token"),
+        Ok(Some("ov".to_owned()))
+    );
+    for name in [
+        "device-secrets/overleaf-token",
+        "device-secrets/git-sync-token.host",
+    ] {
+        assert_eq!(s.page_read(name), Err(SecretError::UnknownName), "{name}");
+    }
+    s.page_write("device-secrets/github.user", "{}")
+        .expect("page_write");
+    assert_eq!(
+        s.page_read("device-secrets/github.user"),
+        Ok(Some("{}".to_owned()))
+    );
 }
 
 #[test]
@@ -370,4 +508,21 @@ async fn queued_returns_the_work_result_and_its_error() {
         s.queued(|s| s.write("ai-provider", "")).await,
         Err(SecretError::EmptyValue)
     );
+}
+
+#[test]
+fn device_secrets_is_a_page_secret_for_the_device_store() {
+    // The device credentials (the page's DeviceSecretsStore) live in one keychain entry the
+    // page both reads and writes; a clear forgets it.
+    let store = mock();
+    let s = secrets(&store);
+    let json = r#"{"zoteroApiKey":"k"}"#;
+    assert!(SECRET_NAMES.contains(&"device-secrets"));
+    assert!(PAGE_READABLE.contains(&"device-secrets"));
+    assert!(PAGE_WRITABLE.contains(&"device-secrets"));
+    assert_eq!(s.page_read("device-secrets"), Ok(None));
+    s.page_write("device-secrets", json).expect("page write");
+    assert_eq!(s.page_read("device-secrets"), Ok(Some(json.to_owned())));
+    assert_eq!(s.page_clear("device-secrets"), Ok(()));
+    assert_eq!(s.page_read("device-secrets"), Ok(None));
 }

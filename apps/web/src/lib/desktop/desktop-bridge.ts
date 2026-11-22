@@ -143,6 +143,16 @@ export interface DesktopBridge {
   clearSecret(name: DesktopSecretName): Promise<void>;
 
   /**
+   * One-time move of the old local database secrets row into the keychain, for the
+   * 0.9.7 upgrade. Reads the row read-only, stores each field, and records the move in
+   * `<folder>/.weaveforge/migration-0.9.7/secrets-moved.json`. Rejects when any part fails
+   * (no keychain, locked keychain, unreadable row), so the caller shows the move as not done.
+   */
+  migrate097MoveSecrets(): Promise<void>;
+  /** True when the old local database folder exists. Metadata only: the database is never opened. */
+  legacyDbPresent(): Promise<boolean>;
+
+  /**
    * Run one statement against the local database and get its rows.
    *
    * Present only on the desktop, and only meaningful there: the local database
@@ -764,7 +774,12 @@ export interface DesktopVaultEntry {
  * (`PAGE_WRITABLE`), which also keeps `local-api-token` for the shell alone, and lets the page
  * write but never read back `overleaf-token` or `git-sync-token`.
  */
-export type DesktopSecretName = "ai-provider" | "overleaf-token" | "git-sync-token";
+export type DesktopSecretName =
+  | "ai-provider"
+  | "overleaf-token"
+  | "git-sync-token"
+  | "device-secrets"
+  | `device-secrets/${string}`;
 
 /**
  * The shell preferences the page may write. Equal to `PAGE_WRITABLE` in
