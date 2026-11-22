@@ -119,7 +119,7 @@ test("countRows sends HEAD with count=exact and reads the total after the slash"
   assert.ok(call);
   assert.equal(call.method, "HEAD");
   assert.equal(call.headers.get("prefer"), "count=exact");
-  assert.equal(call.url, `${BASE}/paper_fields?user_id=eq.${USER}&deleted_at=is.null`);
+  assert.equal(call.url, `${BASE}/paper_fields?user_id=eq.${USER}`);
 });
 
 test("countRows throws when content-range has no total", async () => {
@@ -211,4 +211,13 @@ test("pendingOutbox and undecryptable default to not wired, injected values pass
   });
   assert.equal(await wired.pendingOutbox(), 3);
   assert.equal(await wired.undecryptable("logEntries"), 2);
+});
+
+test("a table without a deleted_at column is listed with no deleted_at filter (PostgREST would 400)", async () => {
+  const { fetch, calls } = fakeFetch(() => Response.json([]));
+  await sourceWith(fetch).listRows("settings");
+  assert.equal(
+    calls[0]?.url,
+    `${BASE}/user_settings?user_id=eq.${USER}&order=id.asc&limit=1000&offset=0`,
+  );
 });

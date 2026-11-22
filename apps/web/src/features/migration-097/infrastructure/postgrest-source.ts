@@ -27,6 +27,16 @@ export const TABLE_BY_KIND = {
 /** Kinds with no server table: their rows are files only, so the server side lists none. */
 const FILE_ONLY_KINDS: readonly string[] = ["ink"];
 
+/**
+ * Tables that carry a deleted_at column (the sync-registered tables, from db/migrations 0118/0120/0138).
+ * Any other table has no such column, and PostgREST answers 400 to a filter on it.
+ */
+const SOFT_DELETE_TABLES: ReadonlySet<string> = new Set([
+  "papers", "tags", "paper_field_defs", "paper_field_values", "paper_relations", "reading_lists",
+  "reading_list_items", "log_entries", "milestones", "experiments", "report_sections",
+  "reader_annotations", "annotation_pins", "library_pins", "vault_pages", "screening_decisions", "paper_tags",
+]);
+
 export interface PostgrestSourceOptions {
   baseUrl: string;
   userId: string;
@@ -68,7 +78,8 @@ export class PostgrestSource implements ServerSource {
   }
 
   private filter(table: string): string {
-    return `${this.opts.baseUrl}/${table}?user_id=eq.${this.opts.userId}&deleted_at=is.null`;
+    const base = `${this.opts.baseUrl}/${table}?user_id=eq.${this.opts.userId}`;
+    return SOFT_DELETE_TABLES.has(table) ? `${base}&deleted_at=is.null` : base;
   }
 
   private async request(
