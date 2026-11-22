@@ -9,6 +9,7 @@ import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
 import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { browserReportVerified } from "@/features/migration-097/domain/report";
+import { reportFolderSink } from "@/features/migration-097/infrastructure/report-folder-sink";
 import { readOrCreateInstallId } from "./browser-install-id";
 import type { WiredBackend } from "./parts";
 import { guardOrgDb } from "./org-db-guard";
@@ -65,7 +66,7 @@ export async function openBrowserFileWiring(): Promise<BrowserFileWiring> {
 export async function browserReportOk(): Promise<boolean> {
   try {
     const fs = await BrowserWorkspaceFs.openOpfs();
-    return await browserReportVerified(fs, await readOrCreateInstallId(fs));
+    return await browserReportVerified(reportFolderSink(fs), await readOrCreateInstallId(fs));
   } catch {
     return false;
   }
