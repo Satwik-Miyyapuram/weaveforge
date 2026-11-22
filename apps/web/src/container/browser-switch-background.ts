@@ -13,14 +13,17 @@ export type MarkerProbe =
   | { state: "failed" };
 
 /**
- * A present switch marker means this browser already switched: open the files wiring directly, with
- * no export. It never rejects.
+ * A switch marker written by this browser (`ownDeviceId`) means it already switched: open the files
+ * wiring directly, with no export. A marker naming another install came through the git clone, so it
+ * says nothing about this browser and reads as absent. It never rejects.
  */
 export async function openFilesIfSwitched(
   sink: MarkerSink,
+  ownDeviceId: string,
   openWiring: () => Promise<BrowserFileWiring>,
 ): Promise<MarkerProbe> {
-  if ((await readSwitchMarker(sink)) === null) return { state: "absent" };
+  const marker = await readSwitchMarker(sink);
+  if (marker === null || marker.deviceId !== ownDeviceId) return { state: "absent" };
   try {
     return { state: "opened", wiring: await openWiring() };
   } catch {

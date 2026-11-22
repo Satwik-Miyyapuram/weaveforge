@@ -68,8 +68,8 @@ export async function decideBrowserSwitchFromConfig(
  */
 export async function openMarkedBrowserFiles(): Promise<MarkerProbe> {
   try {
-    const sink = workspaceFsAsSink(await BrowserWorkspaceFs.openOpfs());
-    return await openFilesIfSwitched(sink, openBrowserFileWiring);
+    const fs = await BrowserWorkspaceFs.openOpfs();
+    return await openFilesIfSwitched(workspaceFsAsSink(fs), await readOrCreateInstallId(fs), openBrowserFileWiring);
   } catch {
     return { state: "failed" };
   }

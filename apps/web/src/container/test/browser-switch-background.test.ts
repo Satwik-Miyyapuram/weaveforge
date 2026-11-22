@@ -60,7 +60,7 @@ test("(item1) a present marker opens the files wiring", async () => {
   const sink = new MemorySink();
   await writeSwitchMarker(sink, MARKED);
   let opened = 0;
-  const out = await openFilesIfSwitched(sink, async () => {
+  const out = await openFilesIfSwitched(sink, "dev-1", async () => {
     opened += 1;
     return WIRING;
   });
@@ -70,7 +70,7 @@ test("(item1) a present marker opens the files wiring", async () => {
 
 test("(item1) no marker: the files wiring is not opened and the caller stays on the server", async () => {
   let opened = 0;
-  const out = await openFilesIfSwitched(new MemorySink(), async () => {
+  const out = await openFilesIfSwitched(new MemorySink(), "dev-1", async () => {
     opened += 1;
     return WIRING;
   });
@@ -82,7 +82,19 @@ test("(item1) an unreadable marker counts as absent: nothing opens and the serve
   const sink = new MemorySink();
   await sink.write(SWITCH_MARKER_PATH, "{not json");
   let opened = 0;
-  const out = await openFilesIfSwitched(sink, async () => {
+  const out = await openFilesIfSwitched(sink, "dev-1", async () => {
+    opened += 1;
+    return WIRING;
+  });
+  assert.deepEqual(out, { state: "absent" });
+  assert.equal(opened, 0);
+});
+
+test("(P2) a marker from another install is no marker: this browser stays on the server", async () => {
+  const sink = new MemorySink();
+  await writeSwitchMarker(sink, { ...MARKED, deviceId: "dev-other" });
+  let opened = 0;
+  const out = await openFilesIfSwitched(sink, "dev-me", async () => {
     opened += 1;
     return WIRING;
   });
@@ -93,7 +105,7 @@ test("(item1) an unreadable marker counts as absent: nothing opens and the serve
 test("(item6) a marker whose files fail to open is 'failed', not 'absent', and never throws", async () => {
   const sink = new MemorySink();
   await writeSwitchMarker(sink, MARKED);
-  const out = await openFilesIfSwitched(sink, async () => {
+  const out = await openFilesIfSwitched(sink, "dev-1", async () => {
     throw new Error("opfs locked");
   });
   assert.deepEqual(out, { state: "failed" });
