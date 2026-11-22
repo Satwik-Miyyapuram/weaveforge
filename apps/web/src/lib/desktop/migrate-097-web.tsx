@@ -14,7 +14,7 @@ import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { loadCore } from "@/lib/rust-core";
 import { warnOnce } from "@/lib/error-report/parts";
 import { useAuth } from "@/features/auth/ui/auth-provider";
-import { readOrCreateInstallId } from "@/container/browser-install-id";
+import { InstallIdLocksUnavailableError, readOrCreateInstallId } from "@/container/browser-install-id";
 import type { OpfsLike } from "@/features/migration-097/infrastructure/workspace-file-sink";
 import { desktop } from "./desktop-bridge";
 import { Migrate097Gate } from "./migrate-097-gate";
@@ -74,6 +74,19 @@ const defaultWebInputSources: WebInputSources = {
 };
 
 /**
+ * The run id, or a run that fails with the WebView message when the browser has no Web Locks.
+ * The failure is raised inside the run, so the upgrade screen shows it through onError.
+ */
+async function runIdentity(fs: OpfsLike): Promise<Pick<WebUpgradeInputs, "runDeviceId" | "run">> {
+  try {
+    return { runDeviceId: await readOrCreateInstallId(fs) };
+  } catch (err) {
+    if (!(err instanceof InstallIdLocksUnavailableError)) throw err;
+    return { runDeviceId: "", run: () => Promise.reject(err) };
+  }
+}
+
+/**
  * Everything the web export needs. Null when there is no session. The run id is the install id
  * browserReportOk reads from the same OPFS root, so the report written here is the one it checks.
  */
@@ -91,18 +104,18 @@ export async function loadWebInputs(sources: WebInputSources = defaultWebInputSo
     kinds: MIGRATION_KINDS,
     pendingOutbox: webPendingOutbox,
     now: new Date().toISOString(),
-    runDeviceId: await readOrCreateInstallId(fs),
+    ...(await runIdentity(fs)),
     onVerified: () => writeFlag(WEB_EXPORTED_KEY, "1"),
   };
 }
+
+type WebUpgradeLoader = () => Promise<WebUpgradeInputs | null>;
+const defaultWebUpgradeLoader: WebUpgradeLoader = () => loadWebInputs();
 
 /**
  * Mounts the migration gate for the web app. The web export runs only in a browser
  * with a signed-in session and no completion marker, and never inside the desktop shell.
  */
-type WebUpgradeLoader = () => Promise<WebUpgradeInputs | null>;
-const defaultWebUpgradeLoader: WebUpgradeLoader = () => loadWebInputs();
-
 export function Migrate097Web({ children, load = defaultWebUpgradeLoader }: { children: React.ReactNode; load?: WebUpgradeLoader }) {
   const [webUpgrade, setWebUpgrade] = useState<WebUpgradeRunnerOptions | null>(null);
   // Read from the auth provider so a user who signs in after first paint gets a runner.
