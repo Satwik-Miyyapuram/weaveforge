@@ -1,4 +1,5 @@
 import type { IBlobStore } from "@weaveforge/core";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { getDataClient, relayUrl } from "@/lib/parts";
 import { logToApp } from "@/lib/error-report/app-log";
 import { readyCore } from "@/lib/rust-core";
@@ -8,6 +9,8 @@ import { readyCore } from "@/lib/rust-core";
  * R2/MinIO credentials stay server-side; calls `/api/blobs/*` routes.
  */
 async function sessionAccessToken(): Promise<string | null> {
+  // No account: no token, so the store reports "Not authenticated." like any signed-out call.
+  if (isLocalMode()) return null;
   const { data } = await getDataClient().auth.getSession();
   return data.session?.access_token ?? null;
 }

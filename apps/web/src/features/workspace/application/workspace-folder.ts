@@ -4,6 +4,7 @@ import { downloadLibraryPdfsOnce } from "@/features/reader/application/parts-1";
 import { desktop, type DesktopVaultRoot } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { getDataClient, notifyEach, onWorkspaceChange } from "@/lib/parts";
 import { loadCore, readyCore } from "@/lib/rust-core";
 import {
@@ -357,7 +358,8 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   // Stable: two passes must agree, so a write during the read cannot mix two moments.
   const [{ exportSyncTablesStable, syncTableFolderFiles }, { restTableReader }] =
     await Promise.all([import("./sync-tables"), import("./workspace-folder-tables")]);
-  const tableFiles = syncTableFolderFiles(await exportSyncTablesStable(restTableReader(getDataClient())));
+  // No-account copy has no account tables to mirror, and no database to read them from.
+  const tableFiles = isLocalMode() ? {} : syncTableFolderFiles(await exportSyncTablesStable(restTableReader(getDataClient())));
   stillOurs();
 
   const mirror = await mirrorWorkspace(core, snapshot, fs, {
