@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ReadOnlyError, readOnlyBackend, readOnlyDb } from "../read-only-repositories";
+import { ReadOnlyError, readOnlyDb } from "../read-only-repositories";
 
 /** A db stand-in that counts each call that reaches it, so a test can tell a refused call from a passed one. */
 function fakeDb() {
@@ -53,14 +53,6 @@ test("an rpc that writes a personal table is refused; an org rpc and a read rpc 
   assert.equal(guarded.rpc("create_organization_atomic", {}), "called");
   assert.equal(guarded.rpc("api_token_scopes", {}), "called");
   assert.deepEqual(calls, ["rpc create_organization_atomic", "rpc api_token_scopes"]);
-});
-
-test("readOnlyBackend guards db and keeps org writes working", () => {
-  const { db, calls } = fakeDb();
-  const backend = readOnlyBackend({ db, projectRepository: { create: () => "made" } });
-  assert.throws(() => backend.db.from("projects").insert({}), new ReadOnlyError());
-  assert.equal(backend.db.from("comments").insert({}), "inserted");
-  assert.deepEqual(calls, ["insert comments"]);
 });
 
 test("projects, user_settings, milestones and experiments refuse insert, update and upsert", () => {

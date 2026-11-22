@@ -4,7 +4,6 @@ import "./globals.css";
 import { AuthProvider } from "@/features/auth/ui/auth-provider";
 import { Install097Gate } from "@/features/workspace/ui/install-097-gate";
 import { AppShell } from "./app-shell";
-import { Migrate097Gate } from "@/lib/desktop/migrate-097-gate";
 import { BootSnapshot } from "./boot-snapshot";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
 import { ThemeColorMeta } from "./theme-color-meta";
@@ -92,9 +91,7 @@ export default function RootLayout({
         <Install097Gate>
           <AuthProvider>
             <BootSnapshot />
-            <Migrate097Gate>
-              <AppShell>{children}</AppShell>
-            </Migrate097Gate>
+            <AppShell>{children}</AppShell>
           </AuthProvider>
         </Install097Gate>
       </body>

@@ -5,7 +5,7 @@ import { MemoryWorkspaceFs } from "@core-test/memory-workspace-fs";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import type { BackendConfig } from "@/backend/parts";
 import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
-import { wireBrowserFiles } from "../browser-file-backend";
+import { BROWSER_STORAGE_MESSAGE, openBrowserFileWiring, wireBrowserFiles } from "../browser-file-backend";
 
 before(async () => {
   await loadTestCore();
@@ -146,4 +146,11 @@ test("in files mode a settings save goes to the file repo and never PostgREST", 
     spy.restore();
     backend.dispose();
   }
+});
+
+test("a browser storage open failure throws a clear message instead of a raw error", async () => {
+  const failing = async () => {
+    throw new Error("SecurityError: OPFS denied");
+  };
+  await assert.rejects(openBrowserFileWiring(failing), (e: Error) => e.message.startsWith(BROWSER_STORAGE_MESSAGE) && /OPFS denied/.test(e.message));
 });

@@ -23,7 +23,6 @@ import { createDataClient } from "./providers/postgrest/parts-1";
 import { rustRepository } from "./providers/postgrest/rust-repository";
 import { secretsStoreFor } from "./providers/secrets-store";
 import { SupabaseSessionProvider } from "./providers/supabase-auth/parts";
-import { guardPersonalSettings } from "./light-write-guard";
 
 // --- config ---
 /** Active persistence + auth backend — swap by env without touching features. */
@@ -206,14 +205,11 @@ export function wireLightBackend(config: BackendConfig = readBackendConfig()): L
   // first settings write, so on a build with no routes of its own it must not
   // reach for `/api/settings/credentials` either.
   const settingsRepository = new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
-  // Personal settings writes are refused in a read-only folder (see light-write-guard).
-  // Account rows (acceptDisclaimer, ensureProvisioned) are server rows and are never guarded.
-  const guardedSettings = guardPersonalSettings(settingsRepository);
-  const manageSettings = new ManageSettingsUseCaseClass({ repository: guardedSettings, clock: systemClock });
+  const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
   return {
     auth,
     manageSettings,
-    preferences: guardedSettings,
+    preferences: settingsRepository,
     selfProvisioner: new PostgrestSelfProvisioner(db),
   };
 }

@@ -8,7 +8,6 @@ import type { VaultFileBridge } from "../../features/workspace/infrastructure/pa
 import { wireDesktopFileBackend } from "../desktop-file-backend";
 import { wireBackend } from "../parts";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { READ_ONLY_MESSAGE } from "../read-only-repositories";
 
 // The AI proposal and audit stores are personal data: in files mode they must be
 // folder files, never the PostgREST tables (ai_proposals / ai_audit, archived by 0165).
@@ -73,22 +72,14 @@ const proposal: AiWriteProposal = {
 
 test("in files mode an MCP suggestion is saved to the folder, never to the database", async () => {
   const { bridge, files } = memoryVault();
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings),
-  });
+  const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings));
   await backend.aiProposalStore.save(proposal);
   assert.ok(files.has(`.weaveforge/proposals/${proposal.id}.json`), "the proposal file was written");
 });
 
 test("in files mode an accepted AI action is counted from the folder's audit files", async () => {
   const { bridge } = memoryVault();
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings),
-  });
+  const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings));
   await backend.aiAuditStore.save({
     id: "a-1",
     proposalId: proposal.id,
@@ -96,15 +87,4 @@ test("in files mode an accepted AI action is counted from the folder's audit fil
     createdAt: "2026-11-22T00:00:00.000Z",
   });
   assert.equal(await backend.aiAuditStore.countAccepted(), 1);
-});
-
-test("read-only refuses an AI save and writes nothing", async () => {
-  const { bridge, files } = memoryVault();
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "unavailable",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings),
-  });
-  await assert.rejects(async () => backend.aiProposalStore.save(proposal), { message: READ_ONLY_MESSAGE });
-  assert.equal(files.size, 0);
 });

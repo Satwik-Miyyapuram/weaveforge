@@ -63,27 +63,9 @@ function memoryVault() {
 
 test("verified desktop writes personal data to the folder through the bridge", async () => {
   const { bridge, files } = memoryVault();
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings),
-  });
+  const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings));
   await backend.projectRepository.create({ name: "Desktop project" });
   assert.ok(files.size > 0, "the project was written to the folder");
-});
-
-test("unavailable desktop stays read-only and writes nothing", async () => {
-  const { bridge, files } = memoryVault();
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "unavailable",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings),
-  });
-  await assert.rejects(
-    () => Promise.resolve().then(() => backend.projectRepository.create({ name: "Blocked" })),
-    new ReadOnlyError(),
-  );
-  assert.equal(files.size, 0, "no file was written");
 });
 
 test("with the overlay on, a settings write lands in the file repo and PostgREST sees no write", async () => {
@@ -95,11 +77,7 @@ test("with the overlay on, a settings write lands in the file repo and PostgREST
       sets.push(path.join("."));
     },
   } as never;
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, recorded, keychainSecrets()),
-  });
+  const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, recorded, keychainSecrets()));
   const dbCalls: string[] = [];
   const realFrom = backend.db.from.bind(backend.db);
   backend.db.from = (table: string) => {
@@ -119,11 +97,7 @@ test("with the overlay on, a settings write lands in the file repo and PostgREST
 test("with the overlay on, a credential save never reaches the database client", async () => {
   const { bridge } = memoryVault();
   const section = { get: () => undefined, set: () => {} } as never;
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, section, keychainSecrets()),
-  });
+  const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, section, keychainSecrets()));
   const dbCalls: string[] = [];
   backend.db.from = (table: string) => {
     dbCalls.push(`from ${table}`);
@@ -139,11 +113,7 @@ test("with the overlay on, a credential save never reaches the database client",
 
 test("with the overlay on, screening goes to the file repo and PostgREST sees no write", async () => {
   const { bridge } = memoryVault();
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings),
-  });
+  const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings));
   const dbCalls: string[] = [];
   const realFrom = backend.db.from.bind(backend.db);
   backend.db.from = (table: string) => {
@@ -172,11 +142,7 @@ test("with the overlay on, screening goes to the file repo and PostgREST sees no
 
 test("a personal image written through the desktop blob store is refused before any request", async () => {
   const { bridge } = memoryVault();
-  const backend = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings, keychainSecrets()),
-  });
+  const backend = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings, keychainSecrets()));
   await assert.rejects(
     () => backend.rawBlobStore.upload("paper-images", "p1/figure.png", new Blob(["x"]), "image/png"),
     new ReadOnlyError(),

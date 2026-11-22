@@ -43,11 +43,7 @@ function emptyVault(): VaultFileBridge {
 }
 
 function filesModeBackend() {
-  return wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(emptyVault(), settings),
-  });
+  return wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(emptyVault(), settings));
 }
 
 test("files mode refuses a write to a personal table over the database client", () => {

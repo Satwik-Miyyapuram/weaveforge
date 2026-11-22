@@ -67,19 +67,11 @@ test("a credential saved in files mode is still there after a restart", async ()
   const bridge = memoryVault();
   const keychain = fakeKeychain();
   const before = keychainSecrets(keychain);
-  const first = wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings, before),
-  });
+  const first = wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings, before));
   await first.manageSettings.save({ zoteroApiKey: "tok-restart" });
 
   // A restart: a new container and a new store, over the same keychain.
   const after = keychainSecrets(keychain);
-  wireBackend(config, { projectId: null }, () => null, {
-    migration: "verified",
-    onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings, after),
-  });
+  wireBackend(config, { projectId: null }, () => null, wireDesktopFileBackend(bridge, settings, after));
   assert.equal((await after.load()).zoteroApiKey, "tok-restart");
 });
