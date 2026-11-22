@@ -366,6 +366,12 @@ export interface DesktopBridge {
    * changes the workspace. All read-only. Absent on the Electron shell and in the browser.
    */
   legacyDbPresent?(): Promise<boolean>;
+  /**
+   * The workspace at `folder` has a verified 0.9.7 migration report (rejects when unreadable).
+   * Kept for the 0.9.8 install guard (features/workspace/application/install-097-guard.ts on
+   * feat/098-del-web), which fails closed when this key is absent. Do not drop it.
+   */
+  migrationReportVerified?(folder: string): Promise<boolean>;
   /** Whether the "install 0.9.7 first" gate shows. Rejects when the device id is unreadable. */
   installGateRequired?(): Promise<boolean>;
   pickFolder?(): Promise<string | null>;
