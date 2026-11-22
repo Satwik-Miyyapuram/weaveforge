@@ -46,15 +46,36 @@ test("writeTextIf with expected text writes only while the file still says it", 
   assert.equal(await fs.readText("n.md"), "v2");
 });
 
-test("writeTextIf with expected null goes to the guarded sink: a differing file is kept, the text lands in a conflict copy", async () => {
+test("writeTextIf with expected null is create-only: an existing file is left alone and the call reports false", async () => {
   const sink = new MemorySink();
   const store = await createFileStore(sink, {});
   const fs = sinkAsWorkspaceFs(guardedSink(sink, store));
   assert.ok(fs.writeTextIf);
   assert.equal(await fs.writeTextIf("n.md", "v1", null), true);
-  assert.equal(await fs.writeTextIf("n.md", "v2", null), true);
+  assert.equal(await fs.writeTextIf("n.md", "v2", null), false, "a file already there is never written over");
   assert.equal(await fs.readText("n.md"), "v1");
-  assert.equal(await fs.readText("n (conflict).md"), "v2");
+  assert.deepEqual(sink.paths(), ["n.md"], "no conflict copy is written for a refused create");
+});
+
+test("writeTextIf with expected null: a file that appears after the check is not reported as created", async () => {
+  // Another writer creates n.md between this call's existence check and its write.
+  class CreatedMidCall extends MemorySink {
+    private armed = true;
+    override async readText(path: string): Promise<string> {
+      if (this.armed && path === "n.md") {
+        // The existence check sees nothing; the racer lands right after it.
+        this.armed = false;
+        await this.write(path, "racer");
+        throw new Error("not there yet");
+      }
+      return super.readText(path);
+    }
+  }
+  const sink = new CreatedMidCall();
+  const fs = sinkAsWorkspaceFs(guardedSink(sink, await createFileStore(sink, {})));
+  assert.ok(fs.writeTextIf);
+  assert.equal(await fs.writeTextIf("n.md", "mine", null), false, "the write did not land at the path, so it is not true");
+  assert.equal(await fs.readText("n.md"), "racer");
 });
 
 test("stat, rename and remove", async () => {

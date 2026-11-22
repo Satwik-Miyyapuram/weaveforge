@@ -73,9 +73,11 @@ export function sinkAsWorkspaceFs(sink: FileSink, options: { compareAndSet?: boo
     async writeTextIf(path, text, expected) {
       const clean = norm(path);
       if (expected === null) {
-        // Create-only is decided by the sink: a guarded sink keeps a differing file and writes a conflict copy.
+        // Create-only: a file already at the path is never written over. The call reports true only when the text
+        // reads back at this path, so a file that appears mid-call (kept as a conflict copy) reports false.
+        if ((await sink.readText(clean).catch(() => null)) !== null) return false;
         await sink.write(clean, text);
-        return true;
+        return (await sink.readText(clean).catch(() => null)) === text;
       }
       if (options.compareAndSet) return sink.writeIf(clean, text, expected);
       // Entity saves: the file must still read `expected`. The new text then goes through the sink's write, so a
