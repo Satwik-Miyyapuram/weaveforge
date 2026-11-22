@@ -14,6 +14,8 @@ use super::mcp_draft::canonical_ai_tool_name;
 use super::mcp_projects::resolve_projects;
 use super::mcp_read::PROTOCOL_VERSION;
 use super::mcp_tools::{TrackingSetup, tools, tracking_setup, tracking_tool};
+use super::sdk_files;
+use super::verified::{FolderMode, folder_mode};
 use super::{BoxFuture, McpHome, McpRouter, SdkQuery, SemanticRanker};
 use crate::vault::VaultState;
 
@@ -45,8 +47,19 @@ impl LocalMcp {
         }
     }
 
-    /// The app's projects, or none when there is no database or the query failed (TS `projectsFrom`).
+    /// The app's projects. A verified folder names its one project from `workspace.json`
+    /// and sends no SQL; otherwise the database, or none when there is none or the query
+    /// failed (TS `projectsFrom`).
     async fn project_rows(&self) -> Vec<WorkspaceProject> {
+        if folder_mode(&self.vault) == FolderMode::Files {
+            return match sdk_files::workspace_project(&self.vault).await {
+                Ok(Some(project)) => vec![WorkspaceProject {
+                    id: js_string(&project["id"]),
+                    name: js_string(&project["name"]),
+                }],
+                _ => Vec::new(),
+            };
+        }
         let Some(query) = &self.query else {
             return Vec::new();
         };
@@ -65,16 +78,14 @@ impl LocalMcp {
     /// Tracking help when the token may log runs and Connect has run (TS `trackingFor`).
     async fn tracking(&self, allowed: bool) -> Option<TrackingSetup> {
         let home = self.home.as_ref()?;
-        let query = self.query.as_ref()?;
         if !allowed {
             return None;
         }
-        let projects = query
-            .query("select name from projects order by name", Vec::new())
+        let projects = self
+            .project_rows()
             .await
-            .unwrap_or_default()
-            .iter()
-            .map(|row| js_string(&row["name"]))
+            .into_iter()
+            .map(|row| row.name)
             .collect();
         Some(TrackingSetup {
             api_url: home.api_url.clone(),
@@ -83,9 +94,10 @@ impl LocalMcp {
         })
     }
 
-    /// Whether tracking would be offered, without querying project names.
+    /// Whether tracking would be offered. It needs the permission and the Connect home,
+    /// never a database query, so a files-only desktop folder still gets it.
     fn can_track(&self, allowed: bool) -> bool {
-        allowed && self.home.is_some() && self.query.is_some()
+        allowed && self.home.is_some()
     }
 
     /// One tool call. `Err` is the message shown to the agent.
@@ -254,6 +266,7 @@ mod tests {
     use std::future::Future;
     use std::path::PathBuf;
     use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
 
@@ -304,6 +317,23 @@ mod tests {
             _params: Vec<Value>,
         ) -> BoxFuture<'a, Result<Vec<Value>, String>> {
             Box::pin(async { Ok(vec![json!({ "id": "p1", "name": "Tea" })]) })
+        }
+    }
+
+    /// Counts project queries; a verified folder must never send one.
+    #[derive(Default)]
+    struct CountingDb {
+        asked: AtomicUsize,
+    }
+
+    impl SdkQuery for CountingDb {
+        fn query<'a>(
+            &'a self,
+            _sql: &'a str,
+            _params: Vec<Value>,
+        ) -> BoxFuture<'a, Result<Vec<Value>, String>> {
+            let _ = self.asked.fetch_add(1, Ordering::SeqCst);
+            Box::pin(async { Ok(Vec::new()) })
         }
     }
 
@@ -433,7 +463,41 @@ mod tests {
     }
 
     #[test]
-    fn tracking_tool_needs_permission_home_and_database() {
+    fn a_verified_folder_lists_projects_from_workspace_json_with_no_sql() {
+        let fx = Fixture::new("files-projects");
+        let meta = fx.root.join(".weaveforge");
+        let dir = meta.join("migration-0.9.7");
+        fs::create_dir_all(&dir).expect("migration dir");
+        let report = json!({ "version": 1, "state": "verified" }).to_string();
+        fs::write(dir.join("report.json"), report).expect("report");
+        let project = json!({ "id": "proj-1", "name": "Lab" }).to_string();
+        fs::write(meta.join("workspace.json"), project).expect("workspace");
+        let db = Arc::new(CountingDb::default());
+        let mcp = LocalMcp::new(fx.vault.clone(), Some(db.clone()), None, None);
+        let answer = call(&mcp, "list_projects", json!({}), false, false);
+        assert!(answer.to_string().contains("Lab"), "{answer}");
+        assert_eq!(db.asked.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn files_mode_without_a_query_still_offers_tracking() {
+        let fx = Fixture::new("tracking-files");
+        let dir = fx.root.join(".weaveforge").join("migration-0.9.7");
+        fs::create_dir_all(&dir).expect("migration dir");
+        let report = json!({ "version": 1, "state": "verified" }).to_string();
+        fs::write(dir.join("report.json"), report).expect("write report");
+        let files = LocalMcp::new(fx.vault.clone(), None, None, Some(home()));
+        let list = json!({ "id": 1, "method": "tools/list" });
+        assert!(
+            names(&route(&files, list, true, true).expect("list"))
+                .contains(&TRACKING_TOOL_NAME.to_owned())
+        );
+        let setup = call(&files, TRACKING_TOOL_NAME, json!({}), true, true);
+        assert!(setup.get("isError").is_none());
+    }
+
+    #[test]
+    fn tracking_tool_needs_permission_and_home() {
         let fx = Fixture::new("tracking");
         let bare = LocalMcp::new(fx.vault.clone(), None, None, None);
         let full = LocalMcp::new(
