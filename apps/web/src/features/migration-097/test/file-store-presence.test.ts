@@ -68,3 +68,29 @@ test("a conflict copy whose .sha256 sidecar is already taken is skipped: no blob
   assert.equal(await sink.exists(copy1), false);
   assert.equal(await sink.exists(conflictCopyPath("c.bin", 2)), true);
 });
+
+/**
+ * Every exists() call throws, so no candidate ever reads as free. The kill switch ends a run that does not stop
+ * on its own (after 5000 calls the sink answers honestly), so a red test fails instead of hanging.
+ */
+class AlwaysThrowingExistsSink extends MemorySink {
+  calls = 0;
+  override async exists(path: string): Promise<boolean> {
+    this.calls++;
+    if (this.calls > 5000) return super.exists(path);
+    throw new Error("EIO: exists");
+  }
+}
+
+test("store: a sink whose exists always throws ends with a coded error, not an endless candidate loop", async () => {
+  const sink = new AlwaysThrowingExistsSink();
+  const store = await createFileStore(sink, {});
+
+  const err = await store.store("d.json", "db version", await sha256Hex("db version")).then(
+    () => null,
+    (e: Error & { code?: string }) => e,
+  );
+
+  assert.equal(err?.code, "file-store-candidates-exhausted");
+  assert.ok(sink.calls < 5000, "the candidate loop stopped before the kill switch");
+});

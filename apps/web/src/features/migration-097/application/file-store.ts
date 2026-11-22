@@ -8,6 +8,9 @@ import { ConflictError } from "@weaveforge/core";
 /** Path to the sha256 of the content this run wrote there (or found there and kept). */
 export type Outputs = Record<string, string>;
 
+/** Upper bound on the conflict copies one store() call tries before it gives up with a coded error. */
+const MAX_CANDIDATES = 1000;
+
 export type FileStore = {
   /**
    * Writes the DB version at `path`. Returns the path it now holds: `path` itself, or a conflict copy when
@@ -49,16 +52,19 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
     }
   };
 
+  /** A sidecar that cannot be checked counts as taken, so the blob is never written without a sidecar name it owns. */
+  const sidecarTaken = (sidecar: string): Promise<boolean> => sink.exists(sidecar).catch(() => true);
+
   return {
     async store(path, data, hash, copy) {
       // Candidate 0 is the path itself; candidate n (n >= 1) is its nth conflict copy.
-      for (let n = 0; ; n++) {
+      for (let n = 0; n < MAX_CANDIDATES; n++) {
         const candidate = n === 0 ? path : conflictCopyPath(path, n);
         const out = n === 0 || !copy ? { data, hash } : copy;
         const state = await stateAt(candidate);
         if (!state.present) {
-          // A conflict copy is free only when its .sha256 sidecar name is free too: a stale sidecar would leave the blob without its own.
-          if (n > 0 && (await sink.exists(`${candidate}.sha256`).catch(() => true))) continue;
+          // A candidate is free only when its .sha256 sidecar name is free too: a stale sidecar would leave the blob without its own.
+          if (n > 0 && (await sidecarTaken(`${candidate}.sha256`))) continue;
           await sink.write(candidate, out.data);
         } else {
           // An unreadable file is never overwritten: skip to the next candidate.
@@ -74,6 +80,9 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
         if (candidate !== path) conflicts.push(candidate);
         return candidate;
       }
+      throw Object.assign(new Error(`no free name for ${path} within ${MAX_CANDIDATES} candidates`), {
+        code: "file-store-candidates-exhausted",
+      });
     },
     outputs,
     conflicts,
