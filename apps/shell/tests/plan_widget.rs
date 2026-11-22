@@ -12,8 +12,8 @@ use serde_json::{Value, json};
 use weaveforge_shell_lib::plan_widget::{
     PLAN_WIDGET_HEIGHT, PLAN_WIDGET_WIDTH, WIDGET_PALETTE_KEYS, WidgetBounds, WorkArea,
     clean_widget_palette, hwnd_from_handle, parse_bounds, parse_taskbar_created, pin_script,
-    place_widget, powershell_args, rows_to_milestones, switch_plan_widget, theme_push_script,
-    widget_asset,
+    place_widget, powershell_args, switch_plan_widget, theme_push_script,
+    WIDGET_SCRIPT, widget_asset,
 };
 
 /// The palette object with every colour key set to `colour`.
@@ -513,31 +513,6 @@ fn widget_asset_refuses_unknown_and_outside_paths() {
 }
 
 #[test]
-fn rows_to_milestones_drops_rows_without_an_id_and_keeps_nulls() {
-    let rows = vec![
-        json!({"title": "no id"}),
-        json!({"id": null, "title": "null id"}),
-        json!({"id": "m1", "title": null, "description": null, "status": null, "target_date": null, "project_name": null}),
-        json!({"id": "m2", "title": "T", "description": "D", "status": "done", "target_date": "2026-11-06", "project_name": "P"}),
-    ];
-    let got = rows_to_milestones(&rows);
-    assert_eq!(got.len(), 2);
-    assert_eq!(got[0].id, "m1");
-    assert_eq!(got[0].title, "");
-    assert_eq!(got[0].status, "");
-    assert!(
-        got[0].description.is_none()
-            && got[0].target_date.is_none()
-            && got[0].project_name.is_none()
-    );
-    assert_eq!(got[1].title, "T");
-    assert_eq!(got[1].description.as_deref(), Some("D"));
-    assert_eq!(got[1].status, "done");
-    assert_eq!(got[1].target_date.as_deref(), Some("2026-11-06"));
-    assert_eq!(got[1].project_name.as_deref(), Some("P"));
-}
-
-#[test]
 fn theme_push_script_embeds_the_palette_as_escaped_json() {
     let palette = BTreeMap::from([("bg".to_owned(), "</script>\"\\".to_owned())]);
     let script = theme_push_script(&palette);
@@ -551,4 +526,56 @@ fn theme_push_script_embeds_the_palette_as_escaped_json() {
         theme_push_script(&BTreeMap::new()),
         "window.__wfPlanWidgetTheme && window.__wfPlanWidgetTheme({});"
     );
+}
+
+/// 2026-11-22T00:00:00Z in epoch milliseconds.
+const NOW_MS: i64 = 20_779 * 86_400_000;
+
+const MILESTONE: &str = "---\nweaveforge-id: m1\nweaveforge-type: milestone\ntitle: Submit draft\ntarget-date: 2026-12-01\nstatus: planned\nproject: Thesis\n---\nNotes\n";
+
+#[test]
+fn plan_widget_data_reads_milestone_files_and_skips_other_notes() {
+    let dir = crate::common::TempDir::new();
+    let session = {
+        let mut s = weaveforge_shell_lib::vault::VaultSession::new();
+        let _ = s.adopt(Some(dir.path())).unwrap();
+        s
+    };
+    crate::common::put(&dir.path().join("Thesis/draft.milestone.md"), MILESTONE.as_bytes());
+    crate::common::put(&dir.path().join("Thesis/note.md"), b"---\nweaveforge-id: n1\nweaveforge-type: note\ntitle: Not a plan\n---\n");
+
+    let got = weaveforge_shell_lib::plan_widget::plan_widget_data_from_vault(&session, NOW_MS)
+        .expect("a readable folder gives a summary");
+
+    let items = got["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["id"], "m1");
+    assert_eq!(items[0]["title"], "Submit draft");
+    assert_eq!(items[0]["project"], "Thesis");
+    assert_eq!(items[0]["daysLeft"], 9);
+}
+
+#[test]
+fn plan_widget_data_without_a_folder_is_none() {
+    let session = weaveforge_shell_lib::vault::VaultSession::new();
+    assert!(weaveforge_shell_lib::plan_widget::plan_widget_data_from_vault(&session, NOW_MS).is_none());
+}
+
+#[test]
+fn plan_widget_data_for_a_folder_that_went_missing_is_none() {
+    let dir = crate::common::TempDir::new();
+    let gone = dir.path().join("moved");
+    std::fs::create_dir_all(&gone).unwrap();
+    let mut session = weaveforge_shell_lib::vault::VaultSession::new();
+    let _ = session.adopt(Some(&gone)).unwrap();
+    std::fs::remove_dir_all(&gone).unwrap();
+    assert!(weaveforge_shell_lib::plan_widget::plan_widget_data_from_vault(&session, NOW_MS).is_none());
+}
+
+#[test]
+fn widget_page_shows_an_explicit_empty_state_without_a_folder() {
+    let html = include_str!("../widget/plan-widget.html");
+    assert!(html.contains("Open WeaveForge to load your plan"));
+    assert!(WIDGET_SCRIPT.contains(r#"invoke("plan_widget_data")"#));
+    assert!(WIDGET_SCRIPT.contains("cb(null)"));
 }

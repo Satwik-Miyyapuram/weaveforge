@@ -108,43 +108,9 @@ pub fn bridge_source(source: &AppSource) -> PathBuf {
     }
 }
 
-/// The migration folders for `source`, in the order they run: shared first, then local-only.
-#[must_use]
-pub fn migration_dirs(source: &AppSource) -> Vec<PathBuf> {
-    let base = match source {
-        AppSource::Dev { repo } => without_verbatim_prefix(repo).join("db"),
-        AppSource::Bundled { resources } => without_verbatim_prefix(resources).join(APP_DIR),
-    };
-    vec![base.join("migrations"), base.join("migrations-local")]
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn migration_dirs_per_variant() {
-        let dev = AppSource::Dev {
-            repo: PathBuf::from(r"\\?\C:\repo"),
-        };
-        assert_eq!(
-            migration_dirs(&dev),
-            vec![
-                PathBuf::from(r"C:\repo").join("db").join("migrations"),
-                PathBuf::from(r"C:\repo")
-                    .join("db")
-                    .join("migrations-local"),
-            ]
-        );
-        let bundled = AppSource::Bundled {
-            resources: PathBuf::from(r"\\?\C:\app-res"),
-        };
-        let dir = PathBuf::from(r"C:\app-res").join("app");
-        assert_eq!(
-            migration_dirs(&bundled),
-            vec![dir.join("migrations"), dir.join("migrations-local")]
-        );
-    }
 
     #[test]
     fn home_variant_is_dev_or_dev_product() {

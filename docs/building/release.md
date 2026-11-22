@@ -5,15 +5,15 @@ This monorepo ships **four release tracks**, one tag prefix each. Do not mix the
 | | **Desktop app** | **Python SDK** | **Android** | **iOS** |
 |---|---|---|---|---|
 | Tag | `vX.Y.Z` | `py-vX.Y.Z` | `android-vX.Y.Z` | `ios-vX.Y.Z` |
-| Covers | Tauri shell (`apps/shell`) + the offline web build and local Postgres inside it | The `weaveforge` SDK on PyPI | Native app (`apps/android`) | WKWebView shell (`apps/ios`) |
+| Covers | Tauri shell (`apps/shell`) + the offline web build | The `weaveforge` SDK on PyPI | Native app (`apps/android`) | WKWebView shell (`apps/ios`) |
 | Artifact | Windows x64 and arm64 MSI and NSIS installers | PyPI wheel + sdist | `WeaveForge-<v>-Android.apk` | `WeaveForge-<v>-iOS.ipa` (unsigned) |
 | Workflow | None yet. Publishing is manual, see below | `publish-python.yml` | `android.yml` | `ios.yml` |
 | Changelog | [`../../CHANGELOG.md`](../../CHANGELOG.md) | Same | Same | Same |
 
 ## Overview
 
-The desktop app is a Tauri shell. It ships a web export, the database migrations,
-the MCP bridge and a pinned Postgres build inside the installer. CI builds the Windows installers on
+The desktop app is a Tauri shell. It ships a web export, the MCP bridge and the
+ink recogniser helper inside the installer. CI builds the Windows installers on
 every run of the `shell-bundle-windows` job in `.github/workflows/ci.yml`, but
 no workflow publishes them. Releasing the desktop app is a manual step today.
 
@@ -84,24 +84,9 @@ toolchain pinned by the repo (`rustup show` installs it), and PowerShell.
    cd ../..
    ```
 
-3. Stage Postgres (repo root). Start from an empty stage folder. This downloads the pinned archive from
-   `theseus-rs/postgresql-binaries` (PostgreSQL 18.6.1) and checks its SHA-256
-   before unpacking:
-
-   ```powershell
-   if (Test-Path apps/shell/target/stage) { Remove-Item apps/shell/target/stage -Recurse -Force }
-   $name = "postgresql-18.6.1-x86_64-pc-windows-msvc"
-   $tar = Join-Path $env:TEMP "$name.tar.gz"
-   Invoke-WebRequest -Uri "https://github.com/theseus-rs/postgresql-binaries/releases/download/18.6.1/$name.tar.gz" -OutFile $tar
-   $hash = (Get-FileHash $tar -Algorithm SHA256).Hash
-   if ($hash -ne "0C0C845626ED77C605D716051C9E8DF3368D07FBBD9F61EA39A4C5C0536FDE7E") { throw "Postgres archive hash mismatch: $hash" }
-   tar -xzf $tar -C $env:TEMP
-   node apps/shell/scripts/stage-postgres.mjs (Join-Path $env:TEMP $name) apps/shell/target/stage
-   ```
-
-4. Build the Windows ink recogniser helpers (repo root). They are staged into
+3. Build the Windows ink recogniser helpers (repo root). They are staged into
    `apps/shell/target/stage/native/` and ship under `native/`. Build both
-   arches once; then stage for each installer you are about to build (step 5).
+   arches once; then stage for each installer you are about to build (step 4).
    The stage step fails if a required exe is missing. An arm64 installer also
    needs the x64 helper, because `ink_recogniser_path` falls back to it:
 
@@ -115,8 +100,8 @@ toolchain pinned by the repo (`rustup show` installs it), and PowerShell.
    node apps/shell/scripts/stage-ink-recogniser.mjs apps/shell/target/stage --arch=arm64
    ```
 
-5. Build the installers (from `apps/shell`). Build the x64 installer after
-   staging x64 (step 4), and the arm64 installer after staging arm64:
+4. Build the installers (from `apps/shell`). Build the x64 installer after
+   staging x64 (step 3), and the arm64 installer after staging arm64:
 
    ```powershell
    cd apps/shell
@@ -129,12 +114,12 @@ toolchain pinned by the repo (`rustup show` installs it), and PowerShell.
    The output is in `target/release/bundle/` (`msi` and `nsis`
    folders). The MSI is `*.msi`; the NSIS installer is `*-setup.exe`.
 
-6. Delete `apps/shell/target/stage` when done. It holds the staged Postgres,
-   and CI deletes it before the cache save.
+5. Delete `apps/shell/target/stage` when done.
+   CI deletes it before the cache save.
 
-Bundle resources are set in `apps/shell/tauri.bundle.json`: the migrations and
-the MCP bridge (`app/`, straight from `db/` and `plugins/`), the Postgres
-build, the ink recogniser (`native/`) and the web export.
+Bundle resources are set in `apps/shell/tauri.bundle.json`: the MCP bridge
+(`app/`, straight from `plugins/`), the ink recogniser (`native/`) and the web
+export. No database server is bundled.
 
 ## Python SDK (`py-vX.Y.Z`)
 

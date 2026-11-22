@@ -392,6 +392,17 @@ export interface DesktopBridge {
   inkHaptics(message: DesktopInkHaptics): void;
 
   /**
+   * 0.9.7 local-database gate (0.9.8). `legacyDbPresent`: old native-Postgres or
+   * PGlite data is on this device. `migrationReportVerified(folder)`: the workspace
+   * at `folder` has a verified 0.9.7 migration report (rejects when the report is unreadable).
+   * `pickFolder` opens the folder dialog and resolves the path, or null on cancel; it never
+   * changes the workspace. All read-only. Absent on the Electron shell and in the browser.
+   */
+  legacyDbPresent?(): Promise<boolean>;
+  migrationReportVerified?(folder: string): Promise<boolean>;
+  pickFolder?(): Promise<string | null>;
+
+  /**
    * Focus mode (`F11`) at the window's level: on, the menu bar and the
    * title bar go and the window fills the screen; off, they come back. A
    * browser has its own full-screen key and this is a no-op there. Optional

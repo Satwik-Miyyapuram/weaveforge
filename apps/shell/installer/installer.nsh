@@ -7,7 +7,7 @@
 ; A running WeaveForge keeps its files and the sign-in port (53682) open. Close
 ; it before the files are replaced: a close request first, so the window exits
 ; on its own, then a forced end for whatever is still up. /T takes the app's
-; child processes (the local Postgres) with it. The Electron build is
+; child processes with it. The Electron build is
 ; WeaveForge.exe; the Tauri shell is weaveforge-shell.exe.
 !macro WF_CLOSE_RUNNING
   DetailPrint "Closing a running WeaveForge"

@@ -6,6 +6,9 @@ use std::path::{Path, PathBuf};
 
 use wf_core::sync::folder_layout::WORKSPACE_META_DIR;
 
+use crate::commands::ShellError;
+use crate::device_id;
+
 /// What is copied from Electron's data dir, by name. `secrets.json` is not: Electron sealed it.
 pub const ITEMS: [&str; 7] = [
     "local-db",
@@ -59,6 +62,140 @@ pub fn old_pglite_dir(data_dir: &Path) -> Option<PathBuf> {
         OldDb::Found(dir) => Some(dir),
         OldDb::WorkspaceMissing(_) | OldDb::None => None,
     }
+}
+
+/// The old native Postgres folder, `<app data>/local-pg`: its `data`, `data.failed-*`, moved-aside
+/// dirs and dumps all live here. Read-only use only.
+#[must_use]
+pub fn legacy_pg_dir(app_data: &Path) -> PathBuf {
+    app_data.join("local-pg")
+}
+
+/// True when the old native Postgres folder holds any entry. A missing folder is absent. Any other
+/// read error is an error, so the gate fails closed. Never starts Postgres and never writes.
+pub fn legacy_pg_data_present(app_data: &Path) -> Result<bool, ShellError> {
+    let mut entries = match fs::read_dir(legacy_pg_dir(app_data)) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(legacy_pg_unreadable(&e)),
+    };
+    match entries.next() {
+        None => Ok(false),
+        Some(Ok(_)) => Ok(true),
+        Some(Err(e)) => Err(legacy_pg_unreadable(&e)),
+    }
+}
+
+fn legacy_pg_unreadable(e: &std::io::Error) -> ShellError {
+    ShellError::coded(
+        "legacy_pg_unreadable",
+        &format!("cannot read the old local Postgres folder: {e}"),
+    )
+}
+
+/// True when any old local database (native Postgres or PGlite) may be on disk under `app_data`.
+/// A missing or unplugged workspace counts: its database may be there, so the gate fails closed.
+pub fn legacy_db_in(app_data: &Path) -> Result<bool, ShellError> {
+    Ok(legacy_pg_data_present(app_data)? || !matches!(old_db_state(app_data), OldDb::None))
+}
+
+/// Whether old local-database data is on this device. Fails closed: an Electron data dir counts as
+/// legacy data, because 0.9.7 has no code that shows Electron's data was exported. `app_data` is
+/// `None` when the platform cannot name the app data dir: that is an error, never "no data".
+pub fn legacy_db_from(app_data: Option<&Path>, electron: Option<&Path>) -> Result<bool, ShellError> {
+    if electron.is_some() {
+        return Ok(true);
+    }
+    let dir = app_data.ok_or_else(|| {
+        ShellError::coded("app_data_unavailable", "cannot locate the app data folder")
+    })?;
+    legacy_db_in(dir)
+}
+
+/// Bridge: whether old local-database data is on this device (`legacyDbPresent`).
+#[tauri::command]
+#[specta::specta]
+pub fn legacy_db_present(app: tauri::AppHandle) -> Result<bool, ShellError> {
+    use tauri::Manager as _;
+    let paths = app.path();
+    let dir = paths.app_data_dir().ok();
+    let electron = paths
+        .config_dir()
+        .ok()
+        .zip(paths.resource_dir().ok())
+        .and_then(|(config, resources)| {
+            let source = crate::launch::app_source(resources);
+            crate::launch::electron_data_dir(&source, &app.package_info().name, &config)
+        });
+    legacy_db_from(dir.as_deref(), electron.as_deref())
+}
+
+/// The 0.9.7 migration report, relative to the workspace folder.
+pub const REPORT_REL: &str = ".weaveforge/migration-0.9.7/report.json";
+
+/// True only when this device's own run in the 0.9.7 report under `folder` is verified: the newest
+/// run whose `deviceId` is `device_id` has `state == "verified"`, an empty `missing`, and a non-empty
+/// `kinds` whose db and files counts match. Other devices' runs never count. No `device_id` (the
+/// device has no id file yet) is `Ok(false)`. A missing report or bad JSON is `Ok(false)`. An IO
+/// error other than not-found is a typed error, so the page can show "unavailable" instead of "not
+/// migrated". Read-only; never writes.
+pub fn report_state_verified(folder: &Path, device_id: Option<&str>) -> Result<bool, ShellError> {
+    let Some(device_id) = device_id else {
+        return Ok(false);
+    };
+    let text = match fs::read_to_string(folder.join(REPORT_REL)) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => {
+            return Err(ShellError::coded(
+                "migration_report_unreadable",
+                &format!("cannot read the 0.9.7 migration report: {e}"),
+            ));
+        }
+    };
+    let Ok(report) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return Ok(false);
+    };
+    Ok(own_run_verified(&report, device_id))
+}
+
+/// This device's newest run (by `deviceId`) is verified and complete. A run without a `deviceId`
+/// matches no device, so it never verifies anything.
+fn own_run_verified(report: &serde_json::Value, device_id: &str) -> bool {
+    report["runs"].as_array().is_some_and(|runs| {
+        runs.iter()
+            .rev()
+            .find(|run| run["deviceId"].as_str() == Some(device_id))
+            .is_some_and(|run| run["state"].as_str() == Some("verified") && run_is_complete(run))
+    })
+}
+
+/// One run is complete when nothing is missing and every kind's db count equals its files count.
+fn run_is_complete(run: &serde_json::Value) -> bool {
+    run["missing"].as_array().is_some_and(Vec::is_empty)
+        && run["kinds"].as_object().is_some_and(|kinds| {
+            !kinds.is_empty()
+                && kinds.values().all(|counts| {
+                    counts["db"].as_u64().is_some() && counts["db"] == counts["files"]
+                })
+        })
+}
+
+/// Bridge: whether this device's own run in the 0.9.7 report of the workspace at `folder` is
+/// verified (`migrationReportVerified`). Reads this device's id from app data, never creates it.
+/// An unreadable report or id file is a typed error.
+#[tauri::command]
+#[specta::specta]
+pub fn migration_report_verified(app: tauri::AppHandle, folder: String) -> Result<bool, ShellError> {
+    use tauri::Manager as _;
+    let data = app
+        .path()
+        .app_data_dir()
+        .map_err(|_| ShellError::coded("app_data_unavailable", "cannot locate the app data folder"))?;
+    let device = device_id::read_existing(&data).map_err(|e| {
+        ShellError::coded("device_id_unreadable", &format!("cannot read this device's id: {e}"))
+    })?;
+    report_state_verified(Path::new(&folder), device.as_deref())
 }
 
 /// The non-empty `vault-root` from Electron's preferences, as a path.
@@ -211,5 +348,196 @@ mod tests {
     fn old_state_app_db_when_root_exists_without_workspace_db() {
         let (data, _) = data_with("old-state-app", true, false);
         assert_eq!(old_db_state(&data), OldDb::Found(data.join("local-db")));
+    }
+
+    #[test]
+    fn legacy_pg_is_absent_when_the_dir_is_missing() {
+        let (data, _) = temp("legacy-missing");
+        assert_eq!(legacy_pg_data_present(&data), Ok(false));
+    }
+
+    #[test]
+    fn legacy_pg_is_absent_when_the_dir_is_empty() {
+        let (data, _) = temp("legacy-empty");
+        fs::create_dir_all(legacy_pg_dir(&data)).unwrap();
+        assert_eq!(legacy_pg_data_present(&data), Ok(false));
+    }
+
+    #[test]
+    fn legacy_pg_is_present_for_a_data_dir_with_pg_version() {
+        let (data, _) = temp("legacy-populated");
+        fs::create_dir_all(legacy_pg_dir(&data).join("data")).unwrap();
+        fs::write(legacy_pg_dir(&data).join("data").join("PG_VERSION"), "18").unwrap();
+        assert_eq!(legacy_pg_data_present(&data), Ok(true));
+    }
+
+    #[test]
+    fn legacy_pg_is_present_when_only_a_dump_is_there() {
+        let (data, _) = temp("legacy-dump-only");
+        fs::create_dir_all(legacy_pg_dir(&data)).unwrap();
+        fs::write(legacy_pg_dir(&data).join("backup.sql"), "-- dump").unwrap();
+        assert_eq!(legacy_pg_data_present(&data), Ok(true));
+    }
+
+    #[test]
+    fn legacy_pg_is_present_when_only_a_failed_data_dir_is_there() {
+        let (data, _) = temp("legacy-failed-only");
+        fs::create_dir_all(legacy_pg_dir(&data).join("data.failed-x")).unwrap();
+        assert_eq!(legacy_pg_data_present(&data), Ok(true));
+    }
+
+    #[test]
+    fn legacy_pg_io_error_fails_closed() {
+        // `local-pg` as a plain file: reading it as a folder fails with an error other than not-found.
+        let (data, _) = temp("legacy-io-error");
+        fs::write(legacy_pg_dir(&data), "not a folder").unwrap();
+        let err = legacy_pg_data_present(&data).unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("legacy_pg_unreadable"));
+        assert!(legacy_db_in(&data).is_err());
+    }
+
+    #[test]
+    fn legacy_db_is_present_for_the_native_pg_dir() {
+        let (data, _) = temp("legacy-db-pg");
+        fs::create_dir_all(legacy_pg_dir(&data).join("data")).unwrap();
+        fs::write(legacy_pg_dir(&data).join("data").join("PG_VERSION"), "18").unwrap();
+        assert_eq!(legacy_db_in(&data), Ok(true));
+    }
+
+    #[test]
+    fn legacy_db_is_present_for_the_old_pglite_dir() {
+        let (data, _) = data_with("legacy-db-pglite", true, false);
+        assert_eq!(legacy_db_in(&data), Ok(true));
+    }
+
+    #[test]
+    fn legacy_db_is_absent_when_nothing_is_there() {
+        let (data, _) = temp("legacy-db-none");
+        assert_eq!(legacy_db_in(&data), Ok(false));
+    }
+
+    /// A workspace folder whose 0.9.7 report holds `body`.
+    fn report(name: &str, body: &str) -> PathBuf {
+        let (folder, _) = temp(name);
+        let path = folder.join(REPORT_REL);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, body).unwrap();
+        folder
+    }
+
+    #[test]
+    fn report_absent_is_not_verified() {
+        let (folder, _) = temp("report-absent");
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
+    }
+
+    #[test]
+    fn report_incomplete_is_not_verified() {
+        let folder = report("report-incomplete", r#"{"state":"incomplete"}"#);
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
+    }
+
+    /// This device's id, as the report's runs record it.
+    const DEVICE: &str = "device-a";
+
+    const COMPLETE: &str = r#"{"state":"verified","runs":[{"deviceId":"device-a","state":"verified","missing":[],"kinds":{"vault_page":{"db":2,"files":2}}}]}"#;
+
+    #[test]
+    fn another_devices_verified_run_is_refused() {
+        let body = COMPLETE.replace(r#""deviceId":"device-a""#, r#""deviceId":"device-b""#);
+        let folder = report("report-other-device", &body);
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
+    }
+
+    #[test]
+    fn this_devices_verified_run_passes_next_to_another_devices_run() {
+        let body = COMPLETE.replace(
+            r#"}]}"#,
+            r#"},{"deviceId":"device-b","state":"incomplete","missing":["vault_page"],"kinds":{}}]}"#,
+        );
+        let folder = report("report-own-device", &body);
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(true));
+    }
+
+    #[test]
+    fn a_missing_device_id_is_refused() {
+        let folder = report("report-no-device", COMPLETE);
+        assert_eq!(report_state_verified(&folder, None), Ok(false));
+    }
+
+    #[test]
+    fn report_verified_is_verified() {
+        let folder = report("report-verified", COMPLETE);
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(true));
+    }
+
+    #[test]
+    fn verified_report_without_runs_is_not_verified() {
+        let folder = report("report-no-runs", r#"{"state":"verified","runs":[]}"#);
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
+    }
+
+    #[test]
+    fn verified_report_with_missing_items_is_not_verified() {
+        let body = COMPLETE.replace(r#""missing":[]"#, r#""missing":["vault_page"]"#);
+        let folder = report("report-missing", &body);
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
+    }
+
+    #[test]
+    fn verified_report_with_db_files_mismatch_is_not_verified() {
+        let body = COMPLETE.replace(r#""files":2"#, r#""files":1"#);
+        let folder = report("report-mismatch", &body);
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
+    }
+
+    #[test]
+    fn a_missing_workspace_blocks_the_legacy_gate() {
+        let (data, _) = temp("legacy-ws-missing");
+        let root = data.parent().unwrap().join("unplugged-legacy");
+        let prefs = serde_json::json!({ "vault-root": root.to_string_lossy() });
+        let _ = fs::write(data.join("preferences.json"), prefs.to_string());
+        assert_eq!(legacy_db_in(&data), Ok(true));
+    }
+
+    #[test]
+    fn an_unnamed_app_data_dir_is_an_error_not_absent() {
+        let err = legacy_db_from(None, None).unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("app_data_unavailable"));
+    }
+
+    #[test]
+    fn an_electron_data_dir_blocks_even_without_an_app_data_dir() {
+        let (electron, _) = temp("legacy-electron");
+        assert_eq!(legacy_db_from(None, Some(&electron)), Ok(true));
+    }
+
+    #[test]
+    fn an_empty_app_data_dir_is_absent() {
+        let (data, _) = temp("legacy-empty-app");
+        assert_eq!(legacy_db_from(Some(&data), None), Ok(false));
+    }
+
+    #[test]
+    fn corrupt_report_is_not_verified() {
+        let folder = report("report-corrupt", "{not json");
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
+    }
+
+    #[test]
+    fn unreadable_report_is_a_typed_error() {
+        // A directory where the report file should be: the read fails with a non-NotFound error.
+        let (folder, _) = temp("report-unreadable");
+        fs::create_dir_all(folder.join(REPORT_REL)).unwrap();
+        let err = report_state_verified(&folder, Some(DEVICE)).unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("migration_report_unreadable"));
+    }
+
+    #[test]
+    fn legacy_pg_with_only_a_pid_file_is_present() {
+        let (data, _) = temp("legacy-pid-only");
+        fs::create_dir_all(legacy_pg_dir(&data).join("data")).unwrap();
+        fs::write(legacy_pg_dir(&data).join("data").join("postmaster.pid"), "1").unwrap();
+        assert_eq!(legacy_pg_data_present(&data), Ok(true));
     }
 }
