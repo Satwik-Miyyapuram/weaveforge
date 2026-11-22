@@ -5,7 +5,6 @@ import { PostgrestSource, TABLE_BY_KIND, toCamelRow } from "../infrastructure/po
 
 const BASE = "https://api.example.test/rest";
 const USER = "11111111-2222-3333-4444-555555555555";
-const NOW = "2026-11-22T00:00:00.000Z";
 
 type Call = { url: string; method: string; headers: Headers; body?: string };
 
@@ -216,10 +215,12 @@ test("undecryptable counts non-null content_enc rows with a HEAD count, ignoring
   const bare = sourceWith(fetch);
   assert.equal(await bare.undecryptable("logEntries"), 2);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].method, "HEAD");
-  assert.match(calls[0].url, /\/log_entries\?user_id=eq\./);
-  assert.match(calls[0].url, /&content_enc=not\.is\.null$/);
-  assert.doesNotMatch(calls[0].url, /deleted_at/);
+  const [call] = calls;
+  assert.ok(call);
+  assert.equal(call.method, "HEAD");
+  assert.match(call.url, /\/log_entries\?user_id=eq\./);
+  assert.match(call.url, /&content_enc=not\.is\.null$/);
+  assert.doesNotMatch(call.url, /deleted_at/);
 });
 
 test("a kind with no content_enc rows counts zero, so the switch is not blocked", async () => {
