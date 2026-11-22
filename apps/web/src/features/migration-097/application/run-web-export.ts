@@ -487,6 +487,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           path = await store.store(path, bytes, sha256);
           // The sidecar follows the blob's ownership: a re-run that replaces the blob replaces its sidecar too.
           // A differing sidecar keeps the user's bytes; the DB sidecar is the conflict copy (already in store.conflicts).
+          // The sidecar is written as "sha256" alone, with no contentType line: the only reader, verify-export.ts:15,
+          // takes line 1 and ignores the rest, and BlobRef carries no contentType to write.
           const sidecarPath = `${path}.sha256`;
           const sidecarHeld = await store.store(sidecarPath, sha256, await sha256Hex(sha256));
           if (sidecarHeld !== sidecarPath) throw new ConflictError(`conflict: ${sidecarPath} differs; kept the file's version`);
