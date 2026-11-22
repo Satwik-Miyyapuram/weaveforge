@@ -108,6 +108,7 @@ pub fn move_into_keychain(
     device: &str,
     rows: &[Value],
 ) -> Result<Vec<String>, SecretError> {
+    strip_write_only_keys(secrets)?;
     if marker_matches(secrets, folder, device) {
         return Ok(Vec::new());
     }
@@ -182,6 +183,30 @@ fn listed_keys(secrets: &Secrets) -> Result<Vec<String>, SecretError> {
         .as_array()
         .map(|keys| keys.iter().filter_map(|key| key.as_str().map(str::to_owned)).collect())
         .unwrap_or_default())
+}
+
+/// Removes write-only and routed names from an existing index, keeping its source. An index from
+/// before the routing fix can list them, and the page reads every listed key, so it would fail on
+/// them. A missing or unreadable index is left for `index_source` to report.
+fn strip_write_only_keys(secrets: &Secrets) -> Result<(), SecretError> {
+    let source = match index_source(secrets) {
+        Ok(IndexSource::Absent) | Err(SecretError::CorruptIndex) => return Ok(()),
+        Ok(IndexSource::Move) => "move",
+        Ok(IndexSource::Save) => "save",
+        Err(other) => return Err(other),
+    };
+    let keys = listed_keys(secrets)?;
+    let kept: Vec<String> = keys.iter().filter(|key| !is_write_only_key(key)).cloned().collect();
+    if kept.len() == keys.len() {
+        return Ok(());
+    }
+    write_index(secrets, source, &kept)
+}
+
+/// True for a key whose first dot segment is a write-only name. Such a key is never read back by
+/// the page.
+fn is_write_only_key(key: &str) -> bool {
+    WRITE_ONLY.contains(&key.split('.').next().unwrap_or(key))
 }
 
 /// Clears the index when it is unreadable, so the move can run again. A readable index is left
@@ -1017,5 +1042,35 @@ mod tests {
         let row = old_row(r#"{"gitSyncToken":"old"}"#);
         move_now(&secrets, &dir.0, &[row]).expect("moves");
         assert_eq!(secrets.read("git-sync-token").expect("read"), Some("newer".to_owned()));
+    }
+
+    #[test]
+    fn an_old_save_index_listing_write_only_names_is_stripped_and_keeps_its_source() {
+        let dir = Scratch::new("strip-save");
+        let secrets = fake_keychain(&store());
+        // An index written before the routing fix listed the write-only names.
+        let old = r#"{"source":"save","keys":["plainToken","overleafToken","gitSyncToken.sub"]}"#;
+        secrets.write(INDEX, old).expect("old index");
+        secrets.write("device-secrets/plainToken", "typed").expect("typed value");
+        move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"old"}"#)]).expect("save no-op");
+        let index: Value = serde_json::from_str(&secrets.read(INDEX).expect("read").expect("index"))
+            .expect("index is JSON");
+        assert_eq!(index, serde_json::json!({ "source": "save", "keys": ["plainToken"] }));
+    }
+
+    #[test]
+    fn a_marker_run_strips_write_only_names_from_an_old_move_index() {
+        let dir = Scratch::new("strip-marker");
+        let secrets = fake_keychain(&store());
+        move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("first move");
+        // A build before the fix left a write-only entry and listed it in the index.
+        secrets.write("device-secrets/overleafToken", "tok").expect("old entry");
+        secrets
+            .write(INDEX, r#"{"source":"move","keys":["plainToken","overleafToken"]}"#)
+            .expect("old index");
+        move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("marker no-op");
+        let index: Value = serde_json::from_str(&secrets.read(INDEX).expect("read").expect("index"))
+            .expect("index is JSON");
+        assert_eq!(index, serde_json::json!({ "source": "move", "keys": ["plainToken"] }));
     }
 }
