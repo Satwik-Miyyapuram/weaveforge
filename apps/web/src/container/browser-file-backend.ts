@@ -1,4 +1,5 @@
-import type { IWorkspaceFs } from "@weaveforge/core";
+import { ManageSettingsUseCase, type IWorkspaceFs } from "@weaveforge/core";
+import { systemClock } from "@/lib/parts";
 import type { BackendConfig } from "@/backend/parts";
 import { RefusingSecretsStore } from "@/backend/providers/files/refusing-secrets-store";
 import { openFileSettingsSection } from "@/backend/providers/files/file-settings-section";
@@ -28,7 +29,14 @@ export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWir
     const files = wireFileBackend({ fs, settings, secrets: new RefusingSecretsStore() });
     // The container reaches the server only through `db`, so the guard sits there: personal
     // tables and rpcs throw before any request. Org and share tables stay reachable.
-    return { ...overlayFileRepositories(postgrest, files), db: guardOrgDb(postgrest.db) };
+    // manageSettings is built inside wirePostgrestBackend over the server settings repo. Rebuild it
+    // over the file repo, so settings saves and the credential readers never reach PostgREST.
+    const manageSettings = new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock });
+    return {
+      ...overlayFileRepositories(postgrest, files),
+      manageSettings,
+      db: guardOrgDb(postgrest.db),
+    };
   };
 }
 

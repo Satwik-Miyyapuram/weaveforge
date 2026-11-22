@@ -111,3 +111,24 @@ test("with the overlay, org and sharing reads still go to PostgREST", async () =
     backend.dispose();
   }
 });
+
+test("in files mode a settings save goes to the file repo and never PostgREST", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const wire = await wireBrowserFiles(fs);
+  const backend = wire(config, { projectId: null }, () => null);
+  const spy = spyNetwork();
+  try {
+    const current = await backend.manageSettings.get();
+    await backend.manageSettings.save({
+      ...current,
+      disclaimerAcceptedAt: "2026-01-01T00:00:00.000Z",
+      disclaimerVersion: 1,
+    });
+    assert.deepEqual(spy.urls, []);
+    const written = await fs.readText(".weaveforge/settings.json");
+    assert.ok(written.includes("2026-01-01T00:00:00.000Z"), "the saved disclaimer must land in settings.json");
+  } finally {
+    spy.restore();
+    backend.dispose();
+  }
+});
