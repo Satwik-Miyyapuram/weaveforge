@@ -74,7 +74,11 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
             own_run_verified: false,
         };
     };
-    let state = report["state"].as_str().unwrap_or("none").to_owned();
+    // A missing, non-string or unknown state is unavailable, never `none` (that is for an absent report).
+    let state = match report["state"].as_str() {
+        Some(known @ ("verified" | "incomplete" | "removing" | "removed")) => known.to_owned(),
+        _ => "unavailable".to_owned(),
+    };
     let own_run_verified = super::remove::own_run(&report, device_id)
         .is_ok_and(|run| run["state"].as_str() == Some("verified"));
     let backup = super::remove::backup_name(&report, device_id)

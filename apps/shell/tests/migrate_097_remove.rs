@@ -780,6 +780,36 @@ fn status_unreadable_report_after_removal_says_removed() {
 }
 
 #[test]
+fn status_report_without_a_state_is_unavailable_not_none() {
+    let f = Fixture::new("status-no-state", Some("verified"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "unavailable");
+}
+
+#[test]
+fn status_report_with_a_non_string_state_is_unavailable_not_none() {
+    let f = Fixture::new("status-num-state", Some("verified"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":5,"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "unavailable");
+}
+
+#[test]
+fn status_report_with_an_unknown_state_is_unavailable() {
+    let f = Fixture::new("status-unknown-state", Some("verified"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"bogus","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "unavailable");
+}
+
+#[test]
 fn status_for_a_verified_migration_has_camel_case_keys() {
     let f = Fixture::new("status-verified", Some("verified"), Some(good_dump().as_slice()));
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
