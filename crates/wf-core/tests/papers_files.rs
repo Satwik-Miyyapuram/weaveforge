@@ -7,8 +7,8 @@ use wf_core::index::graph::relation_graph;
 use wf_core::index::scan::index_files;
 use wf_core::papers::paper_file::{
     ExtrasChange, PaperExtras, PaperFile, PaperFileError, RelationRef, VALUE_KEYS, may_write,
-    paper_extras, paper_row, parse_paper_file, render_paper_file, write_paper_extras,
-    write_paper_row,
+    paper_extras, paper_pinned, paper_row, parse_paper_file, render_paper_file, write_paper_extras,
+    write_paper_pinned, write_paper_row,
 };
 use wf_core::sync::frontmatter::{FORMAT_VERSION, canonical_text};
 
@@ -517,4 +517,29 @@ fn extras_refuse_newer_and_unreadable_files() {
 fn hand_typed_non_object_fields_read_as_empty() {
     let text = "---\nweaveforge-id: p\nweaveforge-type: paper\nfields: 3\n---\n";
     assert!(paper_extras(&parse(text)).fields.is_empty());
+}
+
+/// `pinned: true` in the frontmatter is the library pin; pin and unpin keep every other key.
+#[test]
+fn pinned_flag_sets_clears_and_keeps_other_keys() {
+    let text = "---\nweaveforge-id: a\nweaveforge-type: paper\nwf: 1\ntags: []\ntitle: A\nmy-note: keep\n---\nBody.\n";
+    assert!(!paper_pinned(text).expect("reads"));
+    let pinned = write_paper_pinned(text, true).expect("pins");
+    assert!(paper_pinned(&pinned).expect("reads"));
+    assert!(pinned.contains("my-note: keep\n"));
+    assert!(pinned.ends_with("---\nBody.\n"));
+    let unpinned = write_paper_pinned(&pinned, false).expect("unpins");
+    assert!(!paper_pinned(&unpinned).expect("reads"));
+    assert!(!unpinned.contains("pinned"));
+    assert!(unpinned.contains("my-note: keep\n"));
+}
+
+/// A hand-typed `pinned: true` counts, and a newer file is refused.
+#[test]
+fn hand_typed_pinned_counts_and_newer_files_are_refused() {
+    let typed =
+        "---\nweaveforge-id: a\nweaveforge-type: paper\nwf: 1\ntags: []\npinned: true\n---\n";
+    assert!(paper_pinned(typed).expect("reads"));
+    let newer = "---\nweaveforge-id: a\nweaveforge-type: paper\nwf: 999\ntags: []\n---\n";
+    assert!(write_paper_pinned(newer, true).is_err());
 }

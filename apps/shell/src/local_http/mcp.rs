@@ -14,7 +14,9 @@ use super::mcp_draft::canonical_ai_tool_name;
 use super::mcp_projects::resolve_projects;
 use super::mcp_read::PROTOCOL_VERSION;
 use super::mcp_tools::{TrackingSetup, tools, tracking_setup, tracking_tool};
-use super::{BoxFuture, McpHome, McpRouter, SdkQuery, SemanticRanker};
+use super::sdk_files;
+use super::verified::{Mode, folder_mode};
+use super::{BoxFuture, McpHome, McpRouter, SemanticRanker};
 use crate::vault::VaultState;
 
 /// The tracking tool's name, as `tracking_tool()` lists it.
@@ -23,58 +25,51 @@ const TRACKING_TOOL_NAME: &str = "experiment_tracking_setup";
 /// The app's MCP server: reads the chosen folder, asks the page to rank, and names projects.
 pub struct LocalMcp {
     vault: VaultState,
-    query: Option<Arc<dyn SdkQuery>>,
     ranker: Option<Arc<dyn SemanticRanker>>,
     home: Option<McpHome>,
 }
 
 impl LocalMcp {
-    /// `query` lists projects; `ranker` orders search hits; `home` is where Connect left the token.
+    /// `ranker` orders search hits; `home` is where Connect left the token.
     #[must_use]
     pub fn new(
         vault: VaultState,
-        query: Option<Arc<dyn SdkQuery>>,
         ranker: Option<Arc<dyn SemanticRanker>>,
         home: Option<McpHome>,
     ) -> Self {
         Self {
             vault,
-            query,
             ranker,
             home,
         }
     }
 
-    /// The app's projects, or none when there is no database or the query failed (TS `projectsFrom`).
+    /// The app's projects: the open folder's one project from `workspace.json`, or none
+    /// when no folder is open or the file is missing (TS `projectsFrom`).
     async fn project_rows(&self) -> Vec<WorkspaceProject> {
-        let Some(query) = &self.query else {
+        if folder_mode(&self.vault) != Mode::Files {
             return Vec::new();
-        };
-        query
-            .query("select id, name from projects order by name", Vec::new())
-            .await
-            .unwrap_or_default()
-            .iter()
-            .map(|row| WorkspaceProject {
-                id: js_string(&row["id"]),
-                name: js_string(&row["name"]),
-            })
-            .collect()
+        }
+        match sdk_files::workspace_project(&self.vault).await {
+            Ok(Some(project)) => vec![WorkspaceProject {
+                id: js_string(&project["id"]),
+                name: js_string(&project["name"]),
+            }],
+            _ => Vec::new(),
+        }
     }
 
     /// Tracking help when the token may log runs and Connect has run (TS `trackingFor`).
     async fn tracking(&self, allowed: bool) -> Option<TrackingSetup> {
         let home = self.home.as_ref()?;
-        let query = self.query.as_ref()?;
         if !allowed {
             return None;
         }
-        let projects = query
-            .query("select name from projects order by name", Vec::new())
+        let projects = self
+            .project_rows()
             .await
-            .unwrap_or_default()
-            .iter()
-            .map(|row| js_string(&row["name"]))
+            .into_iter()
+            .map(|row| row.name)
             .collect();
         Some(TrackingSetup {
             api_url: home.api_url.clone(),
@@ -83,9 +78,10 @@ impl LocalMcp {
         })
     }
 
-    /// Whether tracking would be offered, without querying project names.
+    /// Whether tracking would be offered. It needs the permission and the Connect home,
+    /// never a database query, so a files-only desktop folder still gets it.
     fn can_track(&self, allowed: bool) -> bool {
-        allowed && self.home.is_some() && self.query.is_some()
+        allowed && self.home.is_some()
     }
 
     /// One tool call. `Err` is the message shown to the agent.
@@ -294,19 +290,6 @@ mod tests {
         }
     }
 
-    /// Answers project queries with one fixed project.
-    struct OneProject;
-
-    impl SdkQuery for OneProject {
-        fn query<'a>(
-            &'a self,
-            _sql: &'a str,
-            _params: Vec<Value>,
-        ) -> BoxFuture<'a, Result<Vec<Value>, String>> {
-            Box::pin(async { Ok(vec![json!({ "id": "p1", "name": "Tea" })]) })
-        }
-    }
-
     /// Reverses the candidates and records what it was asked.
     #[derive(Default)]
     struct Reverse {
@@ -362,7 +345,7 @@ mod tests {
     #[test]
     fn initialize_ping_and_notifications() {
         let fx = Fixture::new("init");
-        let mcp = LocalMcp::new(fx.vault.clone(), None, None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), None, None);
         let init = route(
             &mcp,
             json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize" }),
@@ -394,7 +377,7 @@ mod tests {
     #[test]
     fn unknown_method_errors_only_for_requests() {
         let fx = Fixture::new("unknown");
-        let mcp = LocalMcp::new(fx.vault.clone(), None, None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), None, None);
         let answer =
             route(&mcp, json!({ "id": 2, "method": "nope" }), true, false).expect("answer");
         assert_eq!(
@@ -407,7 +390,7 @@ mod tests {
     #[test]
     fn tools_list_hides_suggest_for_read_only_tokens() {
         let fx = Fixture::new("list");
-        let mcp = LocalMcp::new(fx.vault.clone(), None, None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), None, None);
         let all = names(
             &route(
                 &mcp,
@@ -432,16 +415,44 @@ mod tests {
         assert!(!all.contains(&TRACKING_TOOL_NAME.to_owned()));
     }
 
+    /// Writes a `workspace.json` naming the folder's one project.
+    fn with_project(fx: &Fixture, name: &str) {
+        let project = json!({ "id": "proj-1", "name": name }).to_string();
+        fs::write(fx.root.join(".weaveforge").join("workspace.json"), project).expect("workspace");
+    }
+
     #[test]
-    fn tracking_tool_needs_permission_home_and_database() {
-        let fx = Fixture::new("tracking");
-        let bare = LocalMcp::new(fx.vault.clone(), None, None, None);
-        let full = LocalMcp::new(
-            fx.vault.clone(),
-            Some(Arc::new(OneProject)),
-            None,
-            Some(home()),
+    fn an_open_folder_lists_projects_from_workspace_json() {
+        let fx = Fixture::new("files-projects");
+        with_project(&fx, "Lab");
+        let mcp = LocalMcp::new(fx.vault.clone(), None, None);
+        let answer = call(&mcp, "list_projects", json!({}), false, false);
+        assert!(answer.to_string().contains("Lab"), "{answer}");
+    }
+
+    #[test]
+    fn a_leftover_0_9_7_report_still_offers_tracking() {
+        let fx = Fixture::new("tracking-files");
+        let dir = fx.root.join(".weaveforge").join("migration-0.9.7");
+        fs::create_dir_all(&dir).expect("migration dir");
+        let report = json!({ "version": 1, "state": "incomplete" }).to_string();
+        fs::write(dir.join("report.json"), report).expect("write report");
+        let files = LocalMcp::new(fx.vault.clone(), None, Some(home()));
+        let list = json!({ "id": 1, "method": "tools/list" });
+        assert!(
+            names(&route(&files, list, true, true).expect("list"))
+                .contains(&TRACKING_TOOL_NAME.to_owned())
         );
+        let setup = call(&files, TRACKING_TOOL_NAME, json!({}), true, true);
+        assert!(setup.get("isError").is_none());
+    }
+
+    #[test]
+    fn tracking_tool_needs_permission_and_home() {
+        let fx = Fixture::new("tracking");
+        with_project(&fx, "Tea");
+        let bare = LocalMcp::new(fx.vault.clone(), None, None);
+        let full = LocalMcp::new(fx.vault.clone(), None, Some(home()));
         let list = json!({ "id": 1, "method": "tools/list" });
         assert!(
             !names(&route(&bare, list.clone(), true, true).expect("bare"))
@@ -475,7 +486,7 @@ mod tests {
     #[test]
     fn read_only_tokens_cannot_suggest() {
         let fx = Fixture::new("readonly");
-        let mcp = LocalMcp::new(fx.vault.clone(), None, None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), None, None);
         let answer = call(
             &mcp,
             "suggest_note_create",
@@ -493,7 +504,7 @@ mod tests {
     #[test]
     fn unknown_tool_is_a_tool_error() {
         let fx = Fixture::new("unknowntool");
-        let mcp = LocalMcp::new(fx.vault.clone(), None, None, None);
+        let mcp = LocalMcp::new(fx.vault.clone(), None, None);
         let answer = call(&mcp, "no_such_tool", json!({}), true, false);
         assert_eq!(answer["isError"], json!(true));
         assert_eq!(
@@ -506,7 +517,7 @@ mod tests {
     fn search_asks_the_ranker_without_holding_the_lock() {
         let fx = Fixture::new("search");
         let ranker = Arc::new(Reverse::default());
-        let mcp = LocalMcp::new(fx.vault.clone(), None, Some(ranker.clone()), None);
+        let mcp = LocalMcp::new(fx.vault.clone(), Some(ranker.clone()), None);
         let answer = call(
             &mcp,
             "search_workspace",

@@ -20,7 +20,7 @@ function auth(id: string) {
 test("the previous account's calendar link answering last is not shown (P2-237)", async (t) => {
   const answers: ((link: unknown) => void)[] = [];
   setContainerForTests({
-    plan: { feedLinks: { current: () => new Promise((resolve) => answers.push(resolve)) } },
+    plan: { feedLinksAvailable: true, feedLinks: { current: () => new Promise((resolve) => answers.push(resolve)) } },
   } as never);
   t.after(() => setContainerForTests(null));
 

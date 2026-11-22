@@ -27,7 +27,10 @@ import { readyCore } from "@/lib/rust-core";
 /** The slice of the workspace settings file this needs (`WorkspaceSettingsFile`). */
 export interface SettingsSection {
   get(key: readonly string[]): unknown;
-  set(key: readonly string[], value: unknown): void;
+  /** A file-backed section resolves once the write is on disk; an in-memory one returns nothing. */
+  set(key: readonly string[], value: unknown): void | Promise<void>;
+  /** Resolves once pending edits are on disk; absent for in-memory sections. */
+  flush?(): Promise<void>;
 }
 
 /** The slice of the paper repository this needs (`FilePaperRepository`). */
@@ -100,16 +103,16 @@ export class FileTagRepository implements ITagRepository, ITagManager {
     if (name === undefined) throw new Error("A tag needs a name.");
     if (tag.id !== name && (await this.getById(tag.id))) {
       await this.renameEverywhere(tag.id, name);
-      this.settings.set([TAGS, tag.id], undefined);
+      await this.settings.set([TAGS, tag.id], undefined);
     }
-    this.settings.set([TAGS, name], tag.color ? { color: tag.color } : {});
+    await this.settings.set([TAGS, name], tag.color ? { color: tag.color } : {});
   }
 
   async delete(id: string): Promise<void> {
     for (const paperId of await this.listPapersForTag(id)) {
       await editTags(this.papers, paperId, (tags) => tags.filter((t) => t !== id));
     }
-    this.settings.set([TAGS, id], undefined);
+    await this.settings.set([TAGS, id], undefined);
   }
 
   async listForPaper(paperId: string): Promise<Tag[]> {
@@ -145,7 +148,7 @@ export class FileTagRepository implements ITagRepository, ITagManager {
 
   async mergeConcepts(keepTagId: string, dropTagId: string): Promise<void> {
     await this.renameEverywhere(dropTagId, keepTagId);
-    this.settings.set([TAGS, dropTagId], undefined);
+    await this.settings.set([TAGS, dropTagId], undefined);
   }
 
   async refreshPaperCache(paperId: string): Promise<Paper> {

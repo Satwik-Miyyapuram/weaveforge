@@ -93,6 +93,14 @@ test("setStatus stamps start and finish times", async () => {
   await assert.rejects(repo.setStatus("missing", "done"), NotFoundError);
 });
 
+test("setStatus refuses a status outside the known set and saves nothing", async () => {
+  const { repo } = setup();
+  const e = run({ status: "planned" });
+  await repo.save(e);
+  await assert.rejects(repo.setStatus(e.id, "bogus" as never), ExperimentValidationError);
+  assert.equal((await repo.getById(e.id))?.status, "planned");
+});
+
 test("recordMetrics merges, addArtifacts dedups in order, setResultNote trims and clears", async () => {
   const { repo } = setup();
   const e = run({ metrics: { loss: 1, acc: 0.5 }, artifacts: ["a"] });

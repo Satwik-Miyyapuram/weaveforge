@@ -388,7 +388,6 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
     ));
     let mcp = local_http::mcp::LocalMcp::new(
         vault.clone(),
-        None,
         Some(ranker.clone()),
         Some(local_http::McpHome {
             api_url: format!("http://127.0.0.1:{}", local_http::server::LOCAL_API_PORT),
@@ -401,7 +400,6 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
         prefs: Arc::new(prefs),
         secrets: Arc::new(secrets),
         opener: Arc::new(local_api::TauriOpener(app.clone())),
-        query: None,
         save_artifact: Some(Arc::new(local_api::AppArtifacts(artifacts))),
         mcp: Some(Arc::new(mcp)),
         ranker,

@@ -4,16 +4,16 @@
 
 | Where | Size | What lives there |
 | --- | --- | --- |
-| `packages/core` | 24,704 lines | Domain and application logic shared by every surface |
-| `apps/web` | 250,624 lines | The app itself: screens, features, API routes, backend wiring |
+| `packages/core` | 24,756 lines | Domain and application logic shared by every surface |
+| `apps/web` | 271,686 lines | The app itself: screens, features, API routes, backend wiring |
 | `apps/shell` | 5,453 lines | The Tauri shell — what only an installed app can do |
 | `apps/pitch` | 406 lines | The public site and this documentation |
 | `python/weaveforge` | 3,403 lines | The SDK training scripts import |
 | `python/tests` | 2,304 lines | Its tests |
-| `db/migrations` | 160 files | The schema, as an ordered sequence |
+| `db/migrations` | 161 files | The schema, as an ordered sequence |
 | `docs` | 219 files | Documentation, this page included |
 
-**286,894 lines of code in all**, across 2,247 source files.
+**308,008 lines of code in all**, across 2,433 source files.
 
 <!-- /generated:code-map -->## The IPC surfaceEverything the desktop shell can do that a tab cannot goes through one of these,a Rust command in `apps/shell/src`, typed once in the generated`apps/shell/bridge/bindings.ts` and wrapped by `desktop-bridge.ts`. Two are pushed the other way — main to renderer — becausethey are events nobody asked for: a sign-in finishing, and somebody elsechanging the folder.<!-- generated:desktop-ipc -->
 

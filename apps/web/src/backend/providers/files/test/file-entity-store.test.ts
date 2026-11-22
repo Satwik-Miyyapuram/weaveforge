@@ -151,3 +151,93 @@ test("reads the exporter's shape: a 0.9.5 serializer file", async () => {
   assert.equal(got?.name, "Run A");
   assert.equal(got?.resultNote, "R text");
 });
+
+test("an unreadable file keeps its id and name: a save never overwrites or duplicates it", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const [kept] = await files(fs);
+  assert.ok(kept);
+  const text = (await fs.readText(kept)).replace("wf: 3", "wf: 99");
+  await fs.writeFile(kept, text);
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    // The row's own file is unreadable now: refuse, rather than write a second file with the same id.
+    await assert.rejects(store.save(row({ status: "done" })), /could not be read/);
+    // Another item whose name would land on that exact file takes a different name.
+    const clash = readyCore().entityPath("experiment", { id: "bbbbbbbb2", name: "Ablation" }, "thesis");
+    const clashText = "---\nweaveforge-id: zzz\nweaveforge-type: experiment\nwf: 99\n---\n";
+    await fs.writeFile(clash, clashText);
+    await store.save(row({ id: "bbbbbbbb2" }));
+    assert.equal(await fs.readText(clash), clashText);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(await fs.readText(kept), text);
+  assert.equal((await files(fs)).length, 3);
+  assert.equal((await store.get("bbbbbbbb2"))?.name, "Ablation");
+});
+
+test("a read that fails (I/O) on the row's own file blocks the save: no duplicate id", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const [path] = await files(fs);
+  assert.ok(path);
+  const realRead = fs.readText.bind(fs);
+  fs.readText = async (p) => {
+    if (p === path) throw new Error("EIO");
+    return realRead(p);
+  };
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    await assert.rejects(store.save(row({ status: "done" })), /could not be read/);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal((await files(fs)).length, 1);
+});
+
+test("a concurrent readAll does not clear the refusal of an in-flight save", async () => {
+  const { fs, store } = setup();
+  await store.save(row());
+  const [path] = await files(fs);
+  assert.ok(path);
+  const realRead = fs.readText.bind(fs);
+  let calls = 0;
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  fs.readText = async (p) => {
+    if (p !== path) return realRead(p);
+    calls += 1;
+    if (calls === 1) {
+      await gate;
+      throw new Error("EIO");
+    }
+    return realRead(p);
+  };
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    const saving = store.save(row({ status: "done" })).then(() => "saved", (e: Error) => e.message);
+    while (calls < 1) await new Promise((r) => setImmediate(r));
+    await store.readAll();
+    release();
+    assert.match(await saving, /could not be read/);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal((await files(fs)).length, 1);
+});
+
+test("a log entry whose codec path is taken gets a numbered name that keeps its --id", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const store = new FileEntityStore<{ id: string; entryDate: string }>(fs, () => "thesis", "log_entry");
+  const base = readyCore().entityPath("log_entry", { id: "logid01", entryDate: "2026-06-24" }, "thesis");
+  await fs.writeFile(base, "# a hand-made note at that path\n");
+  await store.save({ id: "logid01", entryDate: "2026-06-24" });
+  const numbered = base.replace("--logid01", "-2--logid01");
+  assert.equal(await fs.readText(base), "# a hand-made note at that path\n");
+  assert.ok(await fs.stat(numbered), `expected ${numbered}`);
+  assert.deepEqual(await store.get("logid01"), { id: "logid01", entryDate: "2026-06-24", body: "" });
+});

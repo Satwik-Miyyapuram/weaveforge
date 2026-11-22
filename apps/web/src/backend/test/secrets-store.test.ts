@@ -13,11 +13,61 @@
  * account and no routes still has to keep them somewhere.
  */
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { RouteSecretsStore } from "@/features/settings/infrastructure/parts";
-import { DeviceSecretsStore } from "../providers/local/parts";
+import { loadTestCore } from "@/lib/test/load-test-core";
+import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
+import {
+  DEVICE_SECRETS_NAME,
+  DeviceSecretsStore,
+  KeychainUnavailableError,
+  desktopKeychain,
+  type DeviceKeychain,
+} from "../providers/local/parts";
+import type { LocalQuery } from "../providers/local/pglite-client";
 import { secretsStoreFor } from "../providers/secrets-store";
+
+before(loadTestCore);
+
+/** Runs `body` with `window.weaveforge` set to `weaveforge` (or with no such bridge when undefined), then restores `window`. */
+async function withWindow(weaveforge: unknown, body: () => Promise<void>): Promise<void> {
+  const g = globalThis as { window?: unknown };
+  const had = "window" in g;
+  const previous = g.window;
+  g.window = weaveforge === undefined ? {} : { weaveforge };
+  try {
+    await body();
+  } finally {
+    if (had) g.window = previous;
+    else delete g.window;
+  }
+}
+
+/** A fake desktop bridge: the keychain is a map, and every local-database query is recorded. */
+function fakeBridge() {
+  const keychain = new Map<string, string>();
+  const writes: string[] = [];
+  const queries: string[] = [];
+  const bridge = {
+    fetchTitle: async () => "",
+    readSecret: async (name: string) => keychain.get(name) ?? null,
+    writeSecret: async (name: string, text: string) => {
+      writes.push(name);
+      keychain.set(name, text);
+    },
+    clearSecret: async (name: string) => {
+      keychain.delete(name);
+    },
+    queryLocalDb: async (sql: string) => {
+      queries.push(sql);
+      return [];
+    },
+    legacyDbPresent: async () => false,
+    migrate097MoveSecrets: async () => [],
+  };
+  return { bridge: bridge as unknown as DesktopBridge, writes, queries };
+}
 
 /** A client that can answer the only thing the route store asks it. */
 function clientWithToken(token: string | null = "token"): SupabaseClient {
@@ -44,6 +94,47 @@ describe("choosing a credentials store", () => {
   });
 });
 
+describe("the offline credentials store", () => {
+  it("writes through the keychain and never the device table", async () => {
+    const fake = fakeBridge();
+    await withWindow(fake.bridge, async () => {
+      const store = secretsStoreFor(clientWithToken(), false);
+      await store.save({ zoteroApiKey: "k" });
+      assert.ok(fake.writes.includes(`${DEVICE_SECRETS_NAME}/zoteroApiKey`), "the key went to the keychain");
+      assert.deepEqual(fake.queries, [], "no local-database statement ran");
+      assert.deepEqual(await store.load(), { zoteroApiKey: "k" });
+    });
+  });
+
+  it("refuses a save with no desktop bridge and keeps nothing", async () => {
+    // A fake keychain behaves as desktopKeychain does with no bridge: reads find nothing,
+    // and the write is refused. The refused write is the only one attempted, and nothing is kept.
+    const kept = new Map<string, string>();
+    const attempts: string[] = [];
+    const keychain: DeviceKeychain = {
+      read: async (key: string) => kept.get(key) ?? null,
+      write: async (key: string) => {
+        attempts.push(key);
+        throw new KeychainUnavailableError();
+      },
+      clear: async (key: string) => {
+        kept.delete(key);
+      },
+    };
+    const unusedRun = (async () => {
+      throw new Error("the device table is not used for saves");
+    }) as LocalQuery;
+    const store = new DeviceSecretsStore(unusedRun, keychain, async () => {}, async () => false);
+    await assert.rejects(store.save({ zoteroApiKey: "k" }), KeychainUnavailableError);
+    assert.equal(attempts.length, 1, "the save stopped at the first refused write");
+  });
+
+  it("the desktop keychain with no bridge refuses a write with KeychainUnavailableError", async () => {
+    // null, not undefined: an undefined argument would fall back to the default (the window's bridge).
+    await assert.rejects(desktopKeychain(null).write("zoteroApiKey", "k"), KeychainUnavailableError);
+  });
+});
+
 describe("the route credentials store", () => {
   it("goes to the same-origin route, carrying the session's token", async () => {
     // The other half of the pair: on a deployment that has the route, this is
@@ -64,8 +155,8 @@ describe("the route credentials store", () => {
     }
 
     assert.equal(seen.length, 1);
-    const [request] = seen;
-    assert.ok(request, "the store made a request");
+    const request = seen[0];
+    if (!request) assert.fail("the store made no request");
     assert.equal(request.url, "/api/settings/credentials");
     assert.equal(
       (request.init?.headers as Record<string, string> | undefined)?.Authorization,

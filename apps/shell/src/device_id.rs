@@ -27,6 +27,18 @@ pub fn get_or_create(dir: &Path) -> io::Result<String> {
     parse_id(&path, text.trim())
 }
 
+/// The stored id, read-only: a missing or empty file is `None` and is never created. A corrupt
+/// file is an error, so a report written by this device is never silently mismatched.
+pub fn read_existing(dir: &Path) -> io::Result<Option<String>> {
+    let path = dir.join(FILE);
+    match fs::read_to_string(&path) {
+        Ok(text) if text.trim().is_empty() => Ok(None),
+        Ok(text) => parse_id(&path, text.trim()).map(Some),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
 /// Removes `path` only if it is still empty. Another call may have linked an id in since this
 /// call read the name, and that id must not be removed.
 ///
@@ -150,6 +162,13 @@ fn parse_id(path: &Path, id: &str) -> io::Result<String> {
 
 fn is_valid(id: &str) -> bool {
     id.len() == 64 && id.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// The one shape check for a device id used inside a file name (`report-<id>.json`,
+/// `secrets-moved-<id>.json`): non-empty, at most 128 characters, ASCII letters, digits or '-'.
+/// Every id this device mints passes it; a path separator, `.` or `_` does not.
+pub fn is_file_name_id(id: &str) -> bool {
+    !id.is_empty() && id.len() <= 128 && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
 
 fn new_id(dir: &Path) -> String {
@@ -355,5 +374,25 @@ mod tests {
             kept
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_existing_never_creates_and_rejects_corrupt_ids() {
+        use super::read_existing;
+        let dir = std::env::temp_dir().join(format!("wf-devid-read-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("device-id");
+        assert_eq!(read_existing(&dir).unwrap(), None, "missing file");
+        assert!(!path.exists(), "a read never creates the file");
+        std::fs::write(&path, "  \n").unwrap();
+        assert_eq!(read_existing(&dir).unwrap(), None, "empty leftover");
+        let id = "ef".repeat(32);
+        std::fs::write(&path, format!("{id}\n")).unwrap();
+        assert_eq!(read_existing(&dir).unwrap().as_deref(), Some(id.as_str()));
+        std::fs::write(&path, "not-an-id").unwrap();
+        assert!(read_existing(&dir).is_err(), "corrupt id is an error");
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(read_existing(&dir).unwrap(), None, "missing folder");
     }
 }

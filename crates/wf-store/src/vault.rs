@@ -184,7 +184,7 @@ impl Vault {
     /// delete the user asked for goes through [`Vault::delete_to_trash`] (law V8).
     ///
     /// # Errors
-    /// Refused paths, escapes, a folder without `recursive`, or any removal failure.
+    /// Refused paths, escapes, a non-empty folder without `recursive`, or any removal failure.
     pub fn remove(&self, rel: &str, recursive: bool) -> Result<(), VaultError> {
         let target = self.resolve(rel)?;
         let meta = match fs::symlink_metadata(&target) {
@@ -199,10 +199,8 @@ impl Vault {
         } else if recursive {
             fs::remove_dir_all(&target)
         } else {
-            Err(io::Error::new(
-                io::ErrorKind::IsADirectory,
-                "a folder needs recursive removal",
-            ))
+            // Without `recursive` only an empty folder goes; a non-empty one is refused, never emptied.
+            fs::remove_dir(&target)
         };
         outcome.map_err(|source| io_err("remove", rel, source))
     }

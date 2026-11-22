@@ -208,11 +208,17 @@ export class PlanFacade {
       notifications: INotificationIntegration;
       /** The calendar / widget link (Settings → Calendar). */
       feedLinks: PlanFeedLinks;
+      /** False in files mode: the calendar link is an api_tokens row the files-mode guard refuses. */
+      feedLinksAvailable?: boolean;
     },
   ) {}
 
   loadScreenData(): Promise<PlanScreenData> {
     return this.deps.load.execute();
+  }
+
+  get feedLinksAvailable(): boolean {
+    return this.deps.feedLinksAvailable ?? true;
   }
 
   getMilestone(id: string) {

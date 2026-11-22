@@ -71,6 +71,17 @@ test("the same name is a no-op", async () => {
   assert.equal(saved.length, 0);
 });
 
+test("a rename tells the caller the old and new folder, so per-folder records follow it", async () => {
+  const moves: [string, string][] = [];
+  const { save } = recorder();
+  const renamed = await renameProject(PROJECT, "Thesis Final", {
+    save,
+    fs: null,
+    onFolderMoved: async (from, to) => void moves.push([from, to]),
+  });
+  assert.deepEqual(moves, [[typedCore().projectDir(PROJECT), typedCore().projectDir(renamed)]]);
+});
+
 test("a failed save leaves the folder where it was", async () => {
   const fs = new MemoryWorkspaceFs();
   const oldRoot = typedCore().projectDir(PROJECT);

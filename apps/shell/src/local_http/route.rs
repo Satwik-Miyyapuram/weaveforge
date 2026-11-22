@@ -3,12 +3,11 @@
 
 use serde_json::{Value, json};
 
-use super::sdk::{SDK_PREFIX, route_sdk_request};
+use super::sdk::SDK_PREFIX;
 use super::sdk_files;
 use super::token::grant_permissions;
-use super::{
-    Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission, SaveArtifact, SdkQuery,
-};
+use super::verified::{Mode, folder_mode};
+use super::{Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission, SaveArtifact};
 use crate::cmd_vault;
 use crate::vault::{EntryKindPayload, VaultState};
 use crate::vault_search::search_vault;
@@ -23,8 +22,6 @@ const MCP_PATH: &str = "/mcp";
 pub struct RouteDeps<'a> {
     /// The chosen workspace folder.
     pub vault: &'a VaultState,
-    /// The local database for `/api/sdk/`. `None` means those paths are not served.
-    pub query: Option<&'a dyn SdkQuery>,
     /// Saves experiment artifacts for `/api/sdk/`.
     pub save_artifact: Option<&'a dyn SaveArtifact>,
     /// Answers `/mcp`. `None` answers 404, as an unserved route.
@@ -53,15 +50,11 @@ pub async fn route_local_request(
         return denied(Permission::Experiments);
     }
 
-    if let Some(answered) = sdk_files::route(deps.vault, request, &path).await {
-        return answered;
-    }
-
-    if let Some(query) = deps.query
-        && let Some(answered) =
-            route_sdk_request(query, request, &path, search, deps.save_artifact).await
-    {
-        return answered;
+    if path.starts_with(SDK_PREFIX) {
+        let mode = folder_mode(deps.vault);
+        if let Some(answered) = sdk_files::route(mode, deps.vault, request, &path, search).await {
+            return answered;
+        }
     }
 
     if path == MCP_PATH {
@@ -70,6 +63,10 @@ pub async fn route_local_request(
         }
         if request.method != "POST" {
             return LocalApiResponse::fail(405, "MCP is spoken over POST.");
+        }
+        // No open folder gets 503, never a guess at its storage.
+        if folder_mode(deps.vault) == Mode::Unavailable {
+            return LocalApiResponse::json(503, &json!({ "error": sdk_files::UNAVAILABLE }));
         }
         let Ok(message) = serde_json::from_str::<Value>(&request.body) else {
             return LocalApiResponse::json(
@@ -84,7 +81,8 @@ pub async fn route_local_request(
             .route(
                 message,
                 allowed(Permission::McpSuggest),
-                allowed(Permission::Experiments),
+                // Experiment tracking wrote SQL; 0.9.8 has no local database, so it is off.
+                false,
             )
             .await
         {
@@ -351,6 +349,37 @@ mod tests {
         Expected::Single(TOKEN.to_owned())
     }
 
+    /// Writes a `workspace.json` naming project `Lab`.
+    fn with_project(fixture: &Fixture) {
+        let project = json!({ "id": "proj-1", "name": "Lab" }).to_string();
+        fs::write(
+            fixture.root.join(".weaveforge").join("workspace.json"),
+            project,
+        )
+        .expect("write workspace");
+    }
+
+    #[test]
+    fn an_open_folder_answers_projects_from_workspace_json() {
+        let fixture = Fixture::new("zero-sql-verified");
+        with_project(&fixture);
+        let deps = RouteDeps {
+            vault: &fixture.vault,
+            save_artifact: None,
+            mcp: None,
+        };
+        let answer = block_on(route_local_request(
+            &deps,
+            &request("GET", "/api/sdk/projects?name=Lab", ""),
+            &mut single(),
+            NOW_MS,
+            NOW_ISO,
+        ));
+        assert_eq!(answer.status, 200);
+        let reply: Value = serde_json::from_str(&answer.body).expect("json");
+        assert_eq!(reply["projectId"], json!("proj-1"));
+    }
+
     fn sha256_hex(text: &str) -> String {
         Sha256::digest(text.as_bytes())
             .iter()
@@ -381,7 +410,6 @@ mod tests {
     ) -> LocalApiResponse {
         let deps = RouteDeps {
             vault: &fixture.vault,
-            query: None,
             save_artifact: None,
             mcp,
         };
@@ -407,7 +435,6 @@ mod tests {
         let req = request("POST", "/search/simple/?query=kettle", "");
         let deps = RouteDeps {
             vault: &fixture.vault,
-            query: None,
             save_artifact: None,
             mcp: None,
         };
@@ -721,7 +748,7 @@ mod tests {
         let answer: Value = serde_json::from_str(&res.body).expect("rpc json");
         assert_eq!(
             answer,
-            json!({ "id": 1, "suggest": true, "tracking": true })
+            json!({ "id": 1, "suggest": true, "tracking": false })
         );
 
         let mut read_only = grants(&[Permission::McpRead], None);
@@ -731,6 +758,114 @@ mod tests {
             answer,
             json!({ "id": 1, "suggest": false, "tracking": false })
         );
+    }
+
+    #[test]
+    fn mcp_answers_503_when_no_folder_is_open() {
+        let vault = VaultState::new();
+        let mcp = FakeMcp;
+        let deps = RouteDeps {
+            vault: &vault,
+            save_artifact: None,
+            mcp: Some(&mcp as &dyn McpRouter),
+        };
+        let body = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }).to_string();
+        let answer = block_on(route_local_request(
+            &deps,
+            &request("POST", "/mcp", &body),
+            &mut single(),
+            NOW_MS,
+            NOW_ISO,
+        ));
+        assert_eq!(answer.status, 503);
+        let reply: Value = serde_json::from_str(&answer.body).expect("json");
+        assert_eq!(reply["error"], json!(sdk_files::UNAVAILABLE));
+    }
+
+    #[test]
+    fn an_open_folder_serves_whoami_locally() {
+        let fixture = Fixture::new("files-whoami");
+        with_project(&fixture);
+        let deps = RouteDeps {
+            vault: &fixture.vault,
+            save_artifact: None,
+            mcp: None,
+        };
+        let answer = block_on(route_local_request(
+            &deps,
+            &request("GET", "/api/sdk/whoami", ""),
+            &mut single(),
+            NOW_MS,
+            NOW_ISO,
+        ));
+        assert_eq!(answer.status, 200);
+    }
+
+    #[test]
+    fn an_open_folder_answers_experiments_503() {
+        let fixture = Fixture::new("files-experiments");
+        with_project(&fixture);
+        let deps = RouteDeps {
+            vault: &fixture.vault,
+            save_artifact: None,
+            mcp: None,
+        };
+        let answer = block_on(route_local_request(
+            &deps,
+            &request("GET", "/api/sdk/experiments", ""),
+            &mut single(),
+            NOW_MS,
+            NOW_ISO,
+        ));
+        assert_eq!(answer.status, 503);
+        let reply: Value = serde_json::from_str(&answer.body).expect("json");
+        assert_eq!(reply["error"], json!(sdk_files::EXPERIMENTS_LATER));
+    }
+
+    #[test]
+    fn an_open_folder_answers_every_unfiled_sdk_route_503_and_mcp_200() {
+        let fixture = Fixture::new("zero-sql-every-route");
+        with_project(&fixture);
+        let mcp = FakeMcp;
+        let deps = RouteDeps {
+            vault: &fixture.vault,
+            save_artifact: None,
+            mcp: Some(&mcp as &dyn McpRouter),
+        };
+        // Whoami is answered locally in files mode (200), everything else is 503.
+        let whoami = block_on(route_local_request(
+            &deps,
+            &request("GET", "/api/sdk/whoami", ""),
+            &mut single(),
+            NOW_MS,
+            NOW_ISO,
+        ));
+        assert_eq!(whoami.status, 200);
+        let routes = [
+            ("GET", "/api/sdk/experiments", ""),
+            ("POST", "/api/sdk/experiments", "{}"),
+            ("GET", "/api/sdk/artifacts?experimentId=exp-1", ""),
+            ("GET", "/api/sdk/metrics", ""),
+        ];
+        for (method, url, body) in routes {
+            let answer = block_on(route_local_request(
+                &deps,
+                &request(method, url, body),
+                &mut single(),
+                NOW_MS,
+                NOW_ISO,
+            ));
+            assert_eq!(answer.status, 503, "{method} {url}");
+        }
+        let mcp_body = json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list" }).to_string();
+        let answer = block_on(route_local_request(
+            &deps,
+            &request("POST", "/mcp", &mcp_body),
+            &mut single(),
+            NOW_MS,
+            NOW_ISO,
+        ));
+        assert_eq!(answer.status, 200);
     }
 
     /// An MCP call made with the given token store, through the fake router.

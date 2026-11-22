@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { wirePostgrestBackend, type BackendParts } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { HttpAccountProvisioner } from "@/container/parts";
 import { invalidateForWrite, setActiveProjectIdForCache } from "@/lib/cache/parts-1";
 import type { ProjectContext } from "@/lib/parts-2";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+// The wiring reads the storage config from the Rust core, so the core loads before any test runs.
+before(loadTestCore);
 
 /**
  * The shared reader and the member repository are memoized like every other

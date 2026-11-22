@@ -12,11 +12,16 @@
  * - A save never overwrites a file changed since it was read.
  */
 import type {
+  ComputeNeed,
+  EditMilestoneInput,
+  IMilestoneManager,
   IMilestoneRepository,
   IWorkspaceFs,
   Milestone,
+  MilestoneDependency,
   MilestoneFilter,
   MilestoneStatus,
+  NewMilestoneInput,
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
 
@@ -74,7 +79,42 @@ function parse(path: string, text: string): Found | null {
   return { path, text, milestone };
 }
 
-export class FileMilestoneRepository implements IMilestoneRepository {
+/** Same rules as Rust `validate_dependencies` (crates/wf-core/src/plan/milestone.rs). */
+function checkDependencies(deps: MilestoneDependency[]): void {
+  for (const dep of deps) {
+    if (dep.kind === "external") {
+      if (!(dep.label ?? "").trim()) throw new Error("External dependencies need a label.");
+    } else if (!(dep.refId ?? "").trim()) {
+      throw new Error(`A ${dep.kind} dependency needs a refId.`);
+    }
+  }
+}
+
+/** Same rules as Rust `validate_compute`. */
+function checkCompute(compute: ComputeNeed[]): void {
+  for (const need of compute) {
+    if (!need.resource.trim()) throw new Error("Compute needs a resource name.");
+    if (need.count !== undefined && (!Number.isFinite(need.count) || need.count <= 0)) {
+      throw new Error("Compute count must be a positive number.");
+    }
+    if (need.hours !== undefined && (!Number.isFinite(need.hours) || need.hours < 0)) {
+      throw new Error("Compute hours cannot be negative.");
+    }
+  }
+}
+
+/** Title and date rules shared by add and update (Rust `validate_new_milestone`, `update`). */
+function checkTitle(title: string): string {
+  const trimmed = title.trim();
+  if (!trimmed) throw new Error("Milestone title is required.");
+  return trimmed;
+}
+
+function checkDate(date: string | undefined): void {
+  if (date && !readyCore().isIsoDay(date)) throw new Error("Target date must be yyyy-mm-dd.");
+}
+
+export class FileMilestoneRepository implements IMilestoneRepository, IMilestoneManager {
   constructor(
     private readonly fs: IWorkspaceFs,
     /** Project folder the `plan/` folder sits in ("" for the workspace root). */
@@ -137,6 +177,68 @@ export class FileMilestoneRepository implements IMilestoneRepository {
     const text = core.writeFrontmatter(fields, milestone.description ? `${milestone.description}\n` : "");
     await this.write(path, text, found?.text ?? null);
     await this.publishAll();
+  }
+
+  async add(input: NewMilestoneInput): Promise<Milestone> {
+    const title = checkTitle(input.title);
+    checkDate(input.targetDate || undefined);
+    const dependencies = input.dependencies ?? [];
+    const compute = input.compute ?? [];
+    checkDependencies(dependencies);
+    checkCompute(compute);
+    const milestone: Milestone = {
+      id: crypto.randomUUID(),
+      title,
+      status: input.status ?? "planned",
+      dependencies,
+      compute,
+      createdAt: new Date().toISOString(),
+    };
+    if (input.description) milestone.description = input.description;
+    if (input.targetDate) milestone.targetDate = input.targetDate;
+    await this.save(milestone);
+    return milestone;
+  }
+
+  async setStatus(id: string, status: MilestoneStatus): Promise<Milestone> {
+    if (!STATUSES.includes(status)) throw new Error(`Unknown milestone status: ${String(status)}`);
+    return this.change(id, (m) => ({ ...m, status }));
+  }
+
+  async update(id: string, input: EditMilestoneInput): Promise<Milestone> {
+    const title = input.title === undefined ? undefined : checkTitle(input.title);
+    checkDate(input.targetDate || undefined);
+    if (input.dependencies) checkDependencies(input.dependencies);
+    if (input.compute) checkCompute(input.compute);
+    return this.change(id, (m) => {
+      const next: Milestone = {
+        ...m,
+        title: title ?? m.title,
+        status: input.status ?? m.status,
+        dependencies: input.dependencies ?? m.dependencies,
+        compute: input.compute ?? m.compute,
+      };
+      const description = input.description ?? m.description;
+      const targetDate = input.targetDate === undefined ? m.targetDate : input.targetDate || undefined;
+      delete next.description;
+      delete next.targetDate;
+      if (description) next.description = description;
+      if (targetDate) next.targetDate = targetDate;
+      return next;
+    });
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.delete(id);
+  }
+
+  /** Reads milestone `id`, applies `change`, saves it and returns the saved milestone. */
+  private async change(id: string, change: (m: Milestone) => Milestone): Promise<Milestone> {
+    const current = await this.getById(id);
+    if (!current) throw new Error(`No milestone with id "${id}".`);
+    const next = change(current);
+    await this.save(next);
+    return next;
   }
 
   /** Moves the milestone's file to `.weaveforge/trash/<day>/<path>`; never unlinks it. */

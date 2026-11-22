@@ -28,7 +28,7 @@ use super::token::{
 };
 use super::{
     BoxFuture, Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission, SaveArtifact,
-    SdkQuery, SemanticRanker, TokenRecord,
+    SemanticRanker, TokenRecord,
 };
 use crate::host::{Opener, PrefAccess, SecretAccess, WindowEvents};
 use crate::prefs::PrefValue;
@@ -170,8 +170,6 @@ pub struct LocalApiDeps {
     pub secrets: Arc<dyn SecretAccess>,
     /// Opens a client's install link or the .mcpb file.
     pub opener: Arc<dyn Opener>,
-    /// The local database for `/api/sdk/`.
-    pub query: Option<Arc<dyn SdkQuery>>,
     /// Saves SDK artifact uploads.
     pub save_artifact: Option<Arc<dyn SaveArtifact>>,
     /// Answers `/mcp`.
@@ -206,7 +204,6 @@ struct State {
 /// What each request needs, owned so the server task can hold it.
 struct Serving {
     vault: VaultState,
-    query: Option<Arc<dyn SdkQuery>>,
     save_artifact: Option<Arc<dyn SaveArtifact>>,
     mcp: Option<Arc<dyn McpRouter>>,
     grants: Arc<Mutex<Vec<TokenRecord>>>,
@@ -217,7 +214,6 @@ impl Serving {
         let mut expected = Expected::Grants(lock(&self.grants).clone());
         let deps = RouteDeps {
             vault: &self.vault,
-            query: self.query.as_deref(),
             save_artifact: self.save_artifact.as_deref(),
             mcp: self.mcp.as_deref(),
         };
@@ -352,7 +348,6 @@ impl LocalApiControl {
     fn handler(&self) -> Handler {
         let serving = Arc::new(Serving {
             vault: self.deps.vault.clone(),
-            query: self.deps.query.clone(),
             save_artifact: self.deps.save_artifact.clone(),
             mcp: self.deps.mcp.clone(),
             grants: Arc::clone(&self.grants),
@@ -894,7 +889,6 @@ mod tests {
             prefs: Arc::new(FakePrefs::default()),
             secrets: secrets.clone(),
             opener: opener.clone(),
-            query: None,
             save_artifact: None,
             mcp: None,
             ranker,

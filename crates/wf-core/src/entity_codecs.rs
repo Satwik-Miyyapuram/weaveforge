@@ -121,11 +121,23 @@ const LIST: Spec = Spec {
         ("sortOrder", "order", Shape::Number),
         ("color", "color", Shape::Text),
         ("createdAt", "created-at", Shape::Text),
-        ("members", "members", Shape::Json),
-        ("memberNotes", "member-notes", Shape::Json),
     ],
     body: ("description", false),
 };
+
+/// Fields an older app wrote that the spec no longer owns. They are read, never written,
+/// so the one-time rewrite can move them into the members' frontmatter.
+const LEGACY_LIST_FIELDS: &[(&str, &str, Shape)] = &[
+    ("members", "members", Shape::Json),
+    ("memberNotes", "member-notes", Shape::Json),
+];
+
+fn legacy_fields(kind: EntityKind) -> &'static [(&'static str, &'static str, Shape)] {
+    match kind {
+        EntityKind::ReadingList => LEGACY_LIST_FIELDS,
+        _ => &[],
+    }
+}
 
 const fn spec(kind: EntityKind) -> &'static Spec {
     match kind {
@@ -196,13 +208,16 @@ impl Parsed {
     fn text(&self, key: &str) -> Option<String> {
         match self.value(key)? {
             Value::Null | Value::Array(_) | Value::Object(_) => None,
-            v => Some(value_text(&v)).filter(|t| !t.trim().is_empty()),
+            v => Some(value_text(&v)).filter(|t| !t.is_empty()),
         }
     }
 
     /// Checks the type and the format version; returns the id.
     fn check(&self, s: &Spec) -> Result<String, CodecError> {
-        let id = self.text(ID_KEY).ok_or(CodecError::NotThisKind)?;
+        let id = self
+            .text(ID_KEY)
+            .filter(|id| !id.trim().is_empty())
+            .ok_or(CodecError::NotThisKind)?;
         if self.text(TYPE_KEY).as_deref() != Some(s.entity.as_str()) {
             return Err(CodecError::NotThisKind);
         }
@@ -269,6 +284,21 @@ fn legacy_sections(body: &str) -> (Option<String>, Option<String>) {
     (hypothesis, result)
 }
 
+/// The `weaveforge-id` a file of any kind declares, read with the same frontmatter
+/// rules as the row parser (quoted or bare). `None` when there is none or it is blank.
+pub fn entity_id_from_text(text: &str) -> Option<String> {
+    if let Some(id) = split(text).and_then(|file| file.text(ID_KEY)) {
+        let id = id.trim();
+        return (!id.is_empty()).then(|| id.to_owned());
+    }
+    // Broken frontmatter (the usual reason a file is held): read the header line as-is.
+    text.lines().find_map(|line| {
+        let raw = line.strip_prefix("weaveforge-id:")?;
+        let id = raw.trim().trim_matches(|c| c == '"' || c == '\x27').trim();
+        (!id.is_empty()).then(|| id.to_owned())
+    })
+}
+
 /// Reads one file of `kind` as its camelCase row.
 ///
 /// # Errors
@@ -281,7 +311,7 @@ pub fn parse_entity_row(kind: EntityKind, text: &str) -> Result<Map<String, Valu
     let id = file.check(s)?;
     let mut row = Map::new();
     let _ = row.insert("id".into(), Value::String(id));
-    for (row_key, file_key, shape) in s.fields {
+    for (row_key, file_key, shape) in s.fields.iter().chain(legacy_fields(kind)) {
         if let Some(v) = read_field(&file, file_key, *shape) {
             let _ = row.insert((*row_key).into(), v);
         }

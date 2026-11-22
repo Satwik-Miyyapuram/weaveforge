@@ -27,6 +27,7 @@ pub mod sdk;
 pub mod sdk_files;
 pub mod server;
 pub mod token;
+pub mod verified;
 
 /// A boxed future, so the injected dependencies below stay object safe.
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
@@ -84,18 +85,6 @@ impl LocalApiResponse {
             body: String::new(),
         }
     }
-}
-
-/// Runs SQL against the local database. `Err` carries a message for the log.
-///
-/// TS: `SdkQuery` in local-sdk-api.ts. Params are JSON scalars (string, number, bool, null).
-pub trait SdkQuery: Send + Sync {
-    /// Runs one SQL statement with JSON params.
-    fn query<'a>(
-        &'a self,
-        sql: &'a str,
-        params: Vec<Value>,
-    ) -> BoxFuture<'a, Result<Vec<Value>, String>>;
 }
 
 /// Ranks candidate paths for a query in the page, or `None` when no ranker answered.

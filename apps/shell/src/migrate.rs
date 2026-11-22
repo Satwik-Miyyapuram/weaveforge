@@ -148,7 +148,10 @@ pub fn legacy_db_in(app_data: &Path) -> Result<bool, ShellError> {
 /// Whether old local-database data is on this device. Fails closed: an Electron data dir counts as
 /// legacy data, because 0.9.7 has no code that shows Electron's data was exported. `app_data` is
 /// `None` when the platform cannot name the app data dir: that is an error, never "no data".
-pub fn legacy_db_from(app_data: Option<&Path>, electron: Option<&Path>) -> Result<bool, ShellError> {
+pub fn legacy_db_from(
+    app_data: Option<&Path>,
+    electron: Option<&Path>,
+) -> Result<bool, ShellError> {
     if electron.is_some() {
         return Ok(true);
     }
@@ -200,7 +203,11 @@ pub fn report_state_verified(folder: &Path, device_id: Option<&str>) -> Result<b
 /// Every `report.json` and `report*.json` in the migration folder, conflict copies included, sorted by
 /// path. A missing folder holds none.
 fn report_paths(folder: &Path) -> Result<Vec<PathBuf>, ShellError> {
-    let dir = folder.join(REPORT_REL).parent().map(Path::to_path_buf).unwrap_or_default();
+    let dir = folder
+        .join(REPORT_REL)
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_default();
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -222,7 +229,9 @@ fn report_paths(folder: &Path) -> Result<Vec<PathBuf>, ShellError> {
 /// known `state` and a `runs` array of objects), is a typed error that names it, never skipped. A file
 /// that vanished since it was listed holds none.
 fn report_runs(path: &Path) -> Result<Vec<serde_json::Value>, ShellError> {
-    let name = path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+    let name = path
+        .file_name()
+        .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
     let text = match fs::read_to_string(path) {
         Ok(text) => text,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -236,7 +245,9 @@ fn report_runs(path: &Path) -> Result<Vec<serde_json::Value>, ShellError> {
         Some("verified" | "incomplete" | "removing" | "removed")
     );
     match report["runs"].as_array() {
-        Some(runs) if known_state && runs.iter().all(serde_json::Value::is_object) => Ok(runs.clone()),
+        Some(runs) if known_state && runs.iter().all(serde_json::Value::is_object) => {
+            Ok(runs.clone())
+        }
         _ => Err(report_unreadable(&name, "not a 0.9.7 migration report")),
     }
 }
@@ -258,7 +269,10 @@ fn report_listing_unreadable(e: &std::io::Error) -> ShellError {
 /// This device's latest run across all report files: the one with the later `startedAt`. A tie goes to
 /// the run that is not verified, whatever the file order. A run without a matching `deviceId` is never
 /// this device's.
-fn own_latest_run<'a>(runs: &'a [serde_json::Value], device_id: &str) -> Option<&'a serde_json::Value> {
+fn own_latest_run<'a>(
+    runs: &'a [serde_json::Value],
+    device_id: &str,
+) -> Option<&'a serde_json::Value> {
     runs.iter()
         .filter(|run| run["deviceId"].as_str() == Some(device_id))
         .reduce(|seen, run| {
@@ -294,14 +308,19 @@ fn run_is_complete(run: &serde_json::Value) -> bool {
 /// An unreadable report or id file is a typed error.
 #[tauri::command]
 #[specta::specta]
-pub fn migration_report_verified(app: tauri::AppHandle, folder: String) -> Result<bool, ShellError> {
+pub fn migration_report_verified(
+    app: tauri::AppHandle,
+    folder: String,
+) -> Result<bool, ShellError> {
     use tauri::Manager as _;
-    let data = app
-        .path()
-        .app_data_dir()
-        .map_err(|_| ShellError::coded("app_data_unavailable", "cannot locate the app data folder"))?;
+    let data = app.path().app_data_dir().map_err(|_| {
+        ShellError::coded("app_data_unavailable", "cannot locate the app data folder")
+    })?;
     let device = device_id::read_existing(&data).map_err(|e| {
-        ShellError::coded("device_id_unreadable", &format!("cannot read this device's id: {e}"))
+        ShellError::coded(
+            "device_id_unreadable",
+            &format!("cannot read this device's id: {e}"),
+        )
     })?;
     report_state_verified(Path::new(&folder), device.as_deref())
 }
@@ -318,7 +337,7 @@ fn configured_root(old_dir: &Path) -> Option<PathBuf> {
 }
 
 /// This device's KEYS marker, written once its secrets are moved: `<workspace>/.weaveforge/migration-0.9.7/secrets-moved-<deviceId>.json`.
-/// The marker path is defined here only; `secrets_moved.rs` was removed in 0.9.8 (the 0.9.7 gate does the move).
+/// 0.9.7 writes the marker after it moves this device's secrets; 0.9.8 only reads it.
 #[must_use]
 pub fn secrets_marker_path(workspace: &Path, device_id: &str) -> PathBuf {
     workspace
@@ -362,7 +381,10 @@ pub fn install_gate_required(app: tauri::AppHandle) -> Result<bool, ShellError> 
         });
     install_gate_with(dir.as_deref(), electron.as_deref(), |data| {
         device_id::read_existing(data).map_err(|e| {
-            ShellError::coded("device_id_unreadable", &format!("cannot read this device's id: {e}"))
+            ShellError::coded(
+                "device_id_unreadable",
+                &format!("cannot read this device's id: {e}"),
+            )
         })
     })
 }
@@ -677,7 +699,10 @@ mod tests {
         assert!(made.status.success(), "mklink /J failed");
         fs::remove_dir(&target).unwrap();
         assert_eq!(legacy_pg_data_present(&data), Ok(true));
-        let _ = Command::new("cmd").args(["/C", "rmdir"]).arg(&link).output();
+        let _ = Command::new("cmd")
+            .args(["/C", "rmdir"])
+            .arg(&link)
+            .output();
     }
 
     /// A workspace folder whose 0.9.7 report holds `body`.
@@ -797,7 +822,10 @@ mod tests {
     fn old_data_with_an_unreadable_device_id_is_still_an_error() {
         let (data, _) = data_with("gate-old-corrupt-id", true, false);
         let gated = install_gate_with(Some(&data), None, |_| Err(device_id_unreadable()));
-        assert_eq!(gated.unwrap_err().code.as_deref(), Some("device_id_unreadable"));
+        assert_eq!(
+            gated.unwrap_err().code.as_deref(),
+            Some("device_id_unreadable")
+        );
     }
 
     #[test]
@@ -843,10 +871,17 @@ mod tests {
     fn a_corrupt_per_device_report_refuses_beside_a_verified_report_json() {
         let folder = reports_in(
             "report-fallback",
-            &[("report.json", COMPLETE), ("report-device-a.json", "{not json")],
+            &[
+                ("report.json", COMPLETE),
+                ("report-device-a.json", "{not json"),
+            ],
         );
         let err = report_state_verified(&folder, Some(DEVICE)).unwrap_err();
-        assert!(err.message.contains("report-device-a.json"), "{}", err.message);
+        assert!(
+            err.message.contains("report-device-a.json"),
+            "{}",
+            err.message
+        );
     }
 
     /// One run as the export writes it, with matching counts.
@@ -918,17 +953,27 @@ mod tests {
     fn a_corrupt_conflict_copy_refuses_beside_a_verified_own_run() {
         let folder = reports_in(
             "report-conflict-corrupt",
-            &[("report-device-a.json", COMPLETE), ("report-device-a (1).json", "{not json")],
+            &[
+                ("report-device-a.json", COMPLETE),
+                ("report-device-a (1).json", "{not json"),
+            ],
         );
         let err = report_state_verified(&folder, Some(DEVICE)).unwrap_err();
-        assert!(err.message.contains("report-device-a (1).json"), "{}", err.message);
+        assert!(
+            err.message.contains("report-device-a (1).json"),
+            "{}",
+            err.message
+        );
     }
 
     #[test]
     fn a_corrupt_other_devices_file_refuses() {
         let folder = reports_in(
             "report-other-corrupt",
-            &[("report-device-a.json", COMPLETE), ("report-device-b.json", "{not json")],
+            &[
+                ("report-device-a.json", COMPLETE),
+                ("report-device-b.json", "{not json"),
+            ],
         );
         assert!(report_state_verified(&folder, Some(DEVICE)).is_err());
     }
@@ -939,7 +984,10 @@ mod tests {
         let late = report_body(&[run(DEVICE, "incomplete", "2026-11-22T11:00:00Z")]);
         let folder = reports_in(
             "report-conflict-later-incomplete",
-            &[("report.json", early.as_str()), ("report-device-a (1).json", late.as_str())],
+            &[
+                ("report.json", early.as_str()),
+                ("report-device-a (1).json", late.as_str()),
+            ],
         );
         assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
     }
@@ -950,7 +998,10 @@ mod tests {
         let late = report_body(&[run(DEVICE, "verified", "2026-11-22T11:00:00Z")]);
         let folder = reports_in(
             "report-conflict-later-verified",
-            &[("report.json", early.as_str()), ("report-device-a (1).json", late.as_str())],
+            &[
+                ("report.json", early.as_str()),
+                ("report-device-a (1).json", late.as_str()),
+            ],
         );
         assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(true));
     }
@@ -966,14 +1017,21 @@ mod tests {
                 "report-tie",
                 &[(first, verified.as_str()), (second, incomplete.as_str())],
             );
-            assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false), "{first} then {second}");
+            assert_eq!(
+                report_state_verified(&folder, Some(DEVICE)),
+                Ok(false),
+                "{first} then {second}"
+            );
         }
     }
 
     #[test]
     fn empty_runs_in_every_report_file_are_not_verified() {
         let empty = r#"{"state":"none","runs":[]}"#;
-        let folder = reports_in("report-empty-union", &[("report.json", empty), ("report-device-a.json", empty)]);
+        let folder = reports_in(
+            "report-empty-union",
+            &[("report.json", empty), ("report-device-a.json", empty)],
+        );
         assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
     }
 
@@ -988,7 +1046,11 @@ mod tests {
     fn legacy_pg_with_only_a_pid_file_is_present() {
         let (data, _) = temp("legacy-pid-only");
         fs::create_dir_all(legacy_pg_dir(&data).join("data")).unwrap();
-        fs::write(legacy_pg_dir(&data).join("data").join("postmaster.pid"), "1").unwrap();
+        fs::write(
+            legacy_pg_dir(&data).join("data").join("postmaster.pid"),
+            "1",
+        )
+        .unwrap();
         assert_eq!(legacy_pg_data_present(&data), Ok(true));
     }
 
@@ -1015,7 +1077,9 @@ mod tests {
         let ws = Path::new("ws-root");
         assert_eq!(
             secrets_marker_path(ws, DEVICE),
-            ws.join(".weaveforge").join("migration-0.9.7").join("secrets-moved-device-a.json")
+            ws.join(".weaveforge")
+                .join("migration-0.9.7")
+                .join("secrets-moved-device-a.json")
         );
     }
 
@@ -1063,7 +1127,10 @@ mod tests {
     #[test]
     fn old_data_with_another_devices_export_shows_the_gate() {
         let (data, ws) = data_with("gate-other-device", true, false);
-        write_report(&ws, &COMPLETE.replace(r#""deviceId":"device-a""#, r#""deviceId":"device-b""#));
+        write_report(
+            &ws,
+            &COMPLETE.replace(r#""deviceId":"device-a""#, r#""deviceId":"device-b""#),
+        );
         assert!(gate(&data));
     }
 
@@ -1091,7 +1158,11 @@ mod tests {
         let (data, ws) = data_with("gate-app-prefs-marker", true, false);
         write_marker(&ws);
         let (electron, _) = temp("gate-electron-no-prefs");
-        assert!(!gate_required_from(Some(&data), Some(&electron), Some(DEVICE)));
+        assert!(!gate_required_from(
+            Some(&data),
+            Some(&electron),
+            Some(DEVICE)
+        ));
     }
 
     #[test]
@@ -1099,6 +1170,10 @@ mod tests {
         let (electron, ws) = data_with("gate-electron-prefs-marker", true, false);
         write_marker(&ws);
         let (data, _) = temp("gate-app-no-prefs");
-        assert!(!gate_required_from(Some(&data), Some(&electron), Some(DEVICE)));
+        assert!(!gate_required_from(
+            Some(&data),
+            Some(&electron),
+            Some(DEVICE)
+        ));
     }
 }

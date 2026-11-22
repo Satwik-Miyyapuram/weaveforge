@@ -68,7 +68,9 @@ fn now_ms() -> i64 {
 /// Returns an error when the background read fails or the summary cannot be sent.
 #[tauri::command]
 #[specta::specta]
-pub async fn plan_widget_data(vault: tauri::State<'_, VaultState>) -> Result<Option<Json>, ShellError> {
+pub async fn plan_widget_data(
+    vault: tauri::State<'_, VaultState>,
+) -> Result<Option<Json>, ShellError> {
     let state = vault.inner().clone();
     let now = now_ms();
     let summary = tokio::task::spawn_blocking(move || {

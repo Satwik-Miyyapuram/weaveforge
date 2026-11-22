@@ -44,7 +44,11 @@ export class FileReaderAnnotationRepository implements IReaderAnnotationSource, 
     );
   }
 
-  async create(paperId: string, draft: NewReaderAnnotation): Promise<ReaderAnnotation> {
+  /** `createdAt`/`updatedAt` are optional: an import passes the source times; otherwise both are now. */
+  async create(
+    paperId: string,
+    draft: NewReaderAnnotation & { createdAt?: string; updatedAt?: string },
+  ): Promise<ReaderAnnotation> {
     const core = typedCore();
     if (!core.isReaderAnnotationType(draft.type)) {
       throw new Error(`Invalid annotation type: ${draft.type}`);
@@ -61,8 +65,8 @@ export class FileReaderAnnotationRepository implements IReaderAnnotationSource, 
       tags: [...(draft.tags ?? [])],
       anchor: structuredClone(draft.anchor),
       sortIndex: draft.sortIndex?.trim() || core.buildAnnotationSortIndex(draft.pageIndex, 0, 0),
-      createdAt: now,
-      updatedAt: now,
+      createdAt: draft.createdAt ?? now,
+      updatedAt: draft.updatedAt ?? now,
       syncState: "local",
     };
     const path = await this.path(paperId);

@@ -7,6 +7,7 @@ import {
   FileBibliographyCollectionStore,
   FileDashboardLayoutRepository,
   FileGraphSettingsRepository,
+  FileIntegrationsStore,
   FileQuotationTypeRepository,
   FileSettingsRepository,
 } from "../file-settings-repos";
@@ -112,6 +113,33 @@ test("T4: user settings round-trip; secrets go to the secrets store and never in
   assert.equal(got.appearance?.mode, "dark");
 });
 
+test("non-secret integrations survive save then reload, and stay out of the secrets store", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  await new FileSettingsRepository(settings, secrets).save({
+    integrations: { github: { repo: "a/b", branch: "main" } },
+    zoteroLibrary: "users/1",
+  });
+  const reloaded = await new FileSettingsRepository(settings, secrets).get();
+  assert.deepEqual(reloaded.integrations, { github: { repo: "a/b", branch: "main" } });
+  assert.equal(secrets.value.integrations, undefined);
+});
+
+test("a secret inside integrations goes to the secrets store; its plain siblings go to the file", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  await new FileSettingsRepository(settings, secrets).save({
+    integrations: { github: { repo: "a/b" }, zotero: { apiKey: "SECRET-bag", library: "users/1" } },
+  });
+  assert.deepEqual(secrets.value.integrations, { zotero: { apiKey: "SECRET-bag" } });
+  assert.doesNotMatch(JSON.stringify(settings.doc), /SECRET/);
+  const reloaded = await new FileSettingsRepository(settings, secrets).get();
+  assert.deepEqual(reloaded.integrations, {
+    github: { repo: "a/b" },
+    zotero: { apiKey: "SECRET-bag", library: "users/1" },
+  });
+});
+
 test("disclaimer, appearance merge and the dismissed notice; save keeps an unset disclaimer", async () => {
   const settings = new MemorySettings();
   const repo = new FileSettingsRepository(settings, new MemorySecrets());
@@ -135,4 +163,157 @@ test("disclaimer, appearance merge and the dismissed notice; save keeps an unset
 test("a failed secrets read fails get, so a save cannot wipe stored keys", async () => {
   const failing: SecretsStore = { load: () => Promise.reject(new Error("keychain locked")), save: () => Promise.resolve() };
   await assert.rejects(new FileSettingsRepository(new MemorySettings(), failing).get(), /keychain locked/);
+});
+
+test("a sync integration round-trips per project; its token goes to the secrets store, never into the file", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  const store = new FileIntegrationsStore(settings, secrets);
+  assert.deepEqual(await store.get("p1", "github"), {
+    provider: "github",
+    enabled: false,
+    branch: "main",
+  });
+  await store.save("p1", { provider: "github", enabled: true, token: "SECRET-gh", repo: "me/lab", branch: "dev" });
+  assert.deepEqual(await store.get("p1", "github"), {
+    provider: "github",
+    enabled: true,
+    token: "SECRET-gh",
+    repo: "me/lab",
+    branch: "dev",
+  });
+  assert.deepEqual(await store.get("p2", "github"), { provider: "github", enabled: false, branch: "main" });
+  assert.equal(JSON.stringify(settings).includes("SECRET-gh"), false);
+  assert.equal((await secrets.load()).integrations?.["sync:p1:github"]?.token, "SECRET-gh");
+});
+
+test("a failed secrets write leaves the integration unchanged, not half-written", async () => {
+  const settings = new MemorySettings();
+  const failing: SecretsStore = { load: () => Promise.resolve({}), save: () => Promise.reject(new Error("keychain locked")) };
+  const store = new FileIntegrationsStore(settings, failing);
+  await assert.rejects(store.save("p1", { provider: "github", enabled: true, token: "SECRET-gh", branch: "dev" }), /keychain locked/);
+  assert.equal(settings.get(["integrations", "sync", "p1", "github"]), undefined);
+});
+
+test("concurrent saves for different providers both keep their tokens", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  const store = new FileIntegrationsStore(settings, secrets);
+  await Promise.all([
+    store.save("p1", { provider: "github", enabled: true, token: "SECRET-gh", branch: "main" }),
+    store.save("p1", { provider: "gitlab", enabled: true, token: "SECRET-gl", branch: "main" }),
+  ]);
+  const stored = (await secrets.load()).integrations ?? {};
+  assert.equal(stored["sync:p1:github"]?.token, "SECRET-gh");
+  assert.equal(stored["sync:p1:gitlab"]?.token, "SECRET-gl");
+});
+
+test("clearing a token removes it from the secrets store", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  const store = new FileIntegrationsStore(settings, secrets);
+  await store.save("p1", { provider: "gitlab", enabled: true, token: "SECRET-gl", branch: "main" });
+  await store.save("p1", { provider: "gitlab", enabled: true, branch: "main" });
+  assert.equal((await secrets.load()).integrations?.["sync:p1:gitlab"], undefined);
+  assert.equal((await store.get("p1", "gitlab")).token, undefined);
+});
+
+test("an integration's meta is on disk when save resolves, not only in memory", async () => {
+  // A settings section that stages set() and commits only on flush(), like the real file.
+  const staged = new Map<string, unknown>();
+  const committed = new Map<string, unknown>();
+  const settings = {
+    get: () => undefined,
+    set: (key: readonly string[], value: unknown) => {
+      staged.set(key.join("/"), value);
+    },
+    flush: async () => {
+      for (const [key, value] of staged) committed.set(key, value);
+    },
+  };
+  const store = new FileIntegrationsStore(settings, new MemorySecrets());
+  await store.save("p1", { provider: "github", enabled: true, branch: "dev" });
+  assert.deepEqual(committed.get("integrations/sync/p1/github"), { provider: "github", enabled: true, branch: "dev" });
+});
+test("clearing a key with an empty string removes it from the secrets store", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  const repo = new FileSettingsRepository(settings, secrets);
+  await repo.save({ zoteroApiKey: "SECRET-zotero" });
+  assert.equal(secrets.value.zoteroApiKey, "SECRET-zotero");
+  await repo.save({ zoteroApiKey: "" });
+  assert.equal(secrets.value.zoteroApiKey, undefined);
+  assert.equal((await repo.get()).zoteroApiKey, undefined);
+});
+
+test("saving one secret keeps the stored integration secrets (undefined keeps, it does not wipe)", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  const repo = new FileSettingsRepository(settings, secrets);
+  await repo.save({ integrations: { zotero: { apiKey: "SECRET-bag" } } });
+  await repo.save({ zoteroApiKey: "SECRET-zotero" });
+  assert.deepEqual(secrets.value.integrations, { zotero: { apiKey: "SECRET-bag" } });
+  assert.equal(secrets.value.zoteroApiKey, "SECRET-zotero");
+});
+
+test("field names pat and credential inside integrations are secrets, not file data", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  await new FileSettingsRepository(settings, secrets).save({
+    integrations: { github: { pat: "SECRET-pat", repo: "a/b" }, other: { credential: "SECRET-cred" } },
+  });
+  assert.deepEqual(secrets.value.integrations, { github: { pat: "SECRET-pat" }, other: { credential: "SECRET-cred" } });
+  assert.doesNotMatch(JSON.stringify(settings.doc), /SECRET/);
+});
+test("P1: a save for one provider keeps the stored secrets of other providers", async () => {
+  const secrets = new MemorySecrets();
+  const repo = new FileSettingsRepository(new MemorySettings(), secrets);
+  await repo.save({ integrations: { zotero: { apiKey: "SECRET-A" } } });
+  await repo.save({ integrations: { github: { pat: "SECRET-B" } } });
+  assert.deepEqual(secrets.value.integrations, { zotero: { apiKey: "SECRET-A" }, github: { pat: "SECRET-B" } });
+});
+
+test("P1: a plain-only integrations save keeps every stored secret", async () => {
+  const secrets = new MemorySecrets();
+  const repo = new FileSettingsRepository(new MemorySettings(), secrets);
+  await repo.save({ integrations: { zotero: { apiKey: "SECRET-A" } } });
+  await repo.save({ integrations: { github: { repo: "a/b" } } });
+  assert.deepEqual(secrets.value.integrations, { zotero: { apiKey: "SECRET-A" } });
+});
+
+test("P1: an empty string inside integrations deletes that field and keeps its siblings", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  const repo = new FileSettingsRepository(settings, secrets);
+  await repo.save({ integrations: { zotero: { apiKey: "SECRET-A", library: "users/1" } } });
+  await repo.save({ integrations: { zotero: { apiKey: "" } } });
+  assert.equal(secrets.value.integrations, undefined);
+  assert.equal((await repo.get()).integrations?.zotero?.library, "users/1");
+});
+
+test("P1: an undefined field inside integrations keeps the stored value", async () => {
+  const secrets = new MemorySecrets();
+  const repo = new FileSettingsRepository(new MemorySettings(), secrets);
+  await repo.save({ integrations: { zotero: { apiKey: "SECRET-A" } } });
+  await repo.save({ integrations: { zotero: { apiKey: undefined } } as never });
+  assert.deepEqual(secrets.value.integrations, { zotero: { apiKey: "SECRET-A" } });
+});
+
+test("D: a save merges plain integration fields; an empty string removes only that field, other providers stay", async () => {
+  const settings = new MemorySettings();
+  const repo = new FileSettingsRepository(settings, new MemorySecrets());
+  await repo.save({ integrations: { github: { repo: "a/b", branch: "main" }, zotero: { library: "users/1" } } });
+  await repo.save({ integrations: { github: { branch: "" } } });
+  const after = (await repo.get()).integrations;
+  assert.deepEqual(after, { github: { repo: "a/b" }, zotero: { library: "users/1" } });
+});
+
+test("P2: an accessToken-named field is a secret for both split and refusal, so the save succeeds", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  await new FileSettingsRepository(settings, secrets).save({
+    integrations: { github: { accessToken: "SECRET-T", repo: "a/b" } },
+  });
+  assert.deepEqual(secrets.value.integrations, { github: { accessToken: "SECRET-T" } });
+  assert.doesNotMatch(JSON.stringify(settings.doc), /SECRET/);
 });

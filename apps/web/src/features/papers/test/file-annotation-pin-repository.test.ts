@@ -95,3 +95,19 @@ test("law: the file repository answers like a map keyed by (paper, annotation)",
     { numRuns: 60 },
   );
 });
+
+test("a caller's id and createdAt are kept; the repository mints only when absent", async () => {
+  const repo = new FileAnnotationPinRepository(new MemoryWorkspaceFs(), ROOT);
+  const given = await repo.save({
+    paperId: "p-1",
+    annotationKey: "k",
+    reportSectionId: "s-1",
+    id: "annotation-pin-from-export",
+    createdAt: "2026-01-02T03:04:05.000Z",
+  });
+  assert.equal(given.id, "annotation-pin-from-export");
+  assert.equal(given.createdAt, "2026-01-02T03:04:05.000Z");
+  const moved = await repo.save({ paperId: "p-1", annotationKey: "k", reportSectionId: "s-2", id: "other" });
+  assert.equal(moved.id, "annotation-pin-from-export");
+  assert.equal(moved.createdAt, "2026-01-02T03:04:05.000Z");
+});
