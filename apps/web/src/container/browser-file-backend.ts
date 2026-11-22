@@ -11,11 +11,14 @@ import { browserReportVerified } from "@/features/migration-097/domain/report";
 import type { WiredBackend } from "./parts";
 import { overlayFileRepositories } from "./with-file-repositories";
 
+/** A backend wired in files mode: its personal repositories are file repositories, marked so callers can tell. */
+export type BrowserFileBackend = WiredBackend & { readonly filesMode: true };
+
 export type BrowserFileWiring = (
   config: BackendConfig,
   projectContext: { projectId: string | null },
   pid: () => string | null,
-) => WiredBackend;
+) => BrowserFileBackend;
 
 /**
  * The browser and Android personal-data backend: PostgREST with every personal repository
@@ -34,6 +37,7 @@ export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWir
     const manageSettings = new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock });
     return {
       ...overlayFileRepositories(postgrest, files),
+      filesMode: true,
       manageSettings,
       // Personal blobs (images, experiment files) go to the OPFS file blob store, not blob_objects.
       // blob_objects stays allowlisted on the org server because shared images still use it.

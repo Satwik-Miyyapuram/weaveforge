@@ -119,6 +119,7 @@ import { createCredentialReader } from "@/integrations/parts";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
 import { resolveMigrationChoice } from "@/container/resolve-migration-choice";
+import { serverDbToWatch } from "@/container/project-watch";
 import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 
@@ -179,9 +180,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     wireDesktopFileBackend: shell ? wireDesktopFileBackend(shell, workspaceSettings) : undefined,
     wireBrowserFileBackend: browserFiles,
   });
-  if ("db" in backend) {
-    projectLww.watch(backend.db, pid());
-  }
+  const watchDb = serverDbToWatch(backend);
+  if (watchDb) projectLww.watch(watchDb, pid());
 
   const crdtUpdateStore = rustCrdtUpdateStore(backend.db);
   const crdtSnapshotStore = rustCrdtSnapshotStore(backend.db);
@@ -782,7 +782,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       manageProject,
       context: projectContext,
       watchLww: (id) => {
-        if ("db" in backend) projectLww.watch(backend.db, id);
+        const watchDb = serverDbToWatch(backend);
+        if (watchDb) projectLww.watch(watchDb, id);
       },
     }),
     auth: new AuthFacade({ auth: backend.auth }),
