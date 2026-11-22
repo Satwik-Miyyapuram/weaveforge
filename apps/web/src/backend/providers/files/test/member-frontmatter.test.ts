@@ -16,10 +16,28 @@ test("reads lists and list-notes from the frontmatter", () => {
   assert.deepEqual(readMemberFields(text), { lists: [L, M], listNotes: { [L]: "key" } });
 });
 
-test("an unparseable lists value reads as no lists, and a write refuses to overwrite it", () => {
-  const text = "---\nlists:\n  - \"[[x]]\"\n---\nBody\n";
-  assert.deepEqual(readMemberFields(text), { lists: [], listNotes: {} });
-  assert.throws(() => addListMembership(text, L));
+test("an unparseable lists value throws on read and on write; it never reads as empty", () => {
+  const broken = `---\nlists: ["${L}"\n---\nBody\n`;
+  assert.throws(() => readMemberFields(broken), /lists/);
+  assert.throws(() => addListMembership(broken, L));
+  const badItem = "---\nlists:\n  - nope\n---\nBody\n";
+  assert.throws(() => readMemberFields(badItem), /lists/);
+});
+
+test("reads a YAML block sequence (indented or at the key's column) as well as a flow sequence", () => {
+  const indented = `---\nlists:\n  - "${L}"\n  - "${M}"\n---\nBody\n`;
+  assert.deepEqual(readMemberFields(indented).lists, [L, M]);
+  const flush = `---\nlists:\n- "${L}"\n- "${M}"\ntitle: Kept\n---\nBody\n`;
+  assert.deepEqual(readMemberFields(flush).lists, [L, M]);
+  assert.deepEqual(readMemberFields(`---\nlists: ["${L}"]\n---\nBody\n`).lists, [L]);
+});
+
+test("rewriting a block-sequence list removes every item line, no orphan '- ' lines remain", () => {
+  const text = `---\nlists:\n- "${L}"\n- "${M}"\ntitle: Kept\n---\nBody\n`;
+  const without = removeListMembership(text, L);
+  assert.doesNotMatch(without, /^- /m);
+  assert.deepEqual(readMemberFields(without).lists, [M]);
+  assert.equal(removeListMembership(without, M), "---\ntitle: Kept\n---\nBody\n");
 });
 
 test("add puts lists and list-notes in place and keeps every other line byte for byte", () => {

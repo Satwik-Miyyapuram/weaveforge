@@ -3,8 +3,9 @@
  * `lists: ["[[L]]"]` names each list the file is in, and `list-notes: {"[[L]]": "…"}`
  * holds the reader's note for that list. Both are one line of JSON (valid YAML flow).
  * Every other line of the file is kept byte for byte. A file with no frontmatter gets
- * a block in front of its body when it joins a list. A value that is not readable is
- * never overwritten: a write throws instead.
+ * a block in front of its body when it joins a list. `lists` also reads as a YAML block
+ * sequence. A value that is not readable is never read as empty or overwritten: reads and
+ * writes both throw.
  */
 
 const FRONT = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/;
@@ -39,12 +40,12 @@ function render(f: Front, lines: readonly string[]): string {
   return f.open + lines.map((line) => line + eol).join("") + f.close + f.body;
 }
 
-/** The lines of a top-level key: its own line and the indented lines under it. */
+/** The lines of a top-level key: its own line, then the indented lines and the `- ` items under it (YAML allows items at the key's column). */
 function keyExtent(lines: readonly string[], key: string): { start: number; end: number } | null {
   const start = lines.findIndex((line) => line.startsWith(`${key}:`));
   if (start < 0) return null;
   let end = start + 1;
-  while (end < lines.length && /^\s/.test(lines[end]!)) end += 1;
+  while (end < lines.length && /^(\s|-(\s|$))/.test(lines[end]!)) end += 1;
   return { start, end };
 }
 
@@ -57,16 +58,33 @@ function setLine(lines: string[], key: string, value: string | null): void {
 
 const UNREADABLE = Symbol("unreadable");
 
-/** The key's value as JSON: undefined when absent, UNREADABLE when it is not one line of JSON. */
-function jsonAt(lines: readonly string[], key: string): unknown {
-  const at = keyExtent(lines, key);
-  if (!at) return undefined;
-  const raw = lines.slice(at.start, at.end).join("\n").slice(key.length + 1).trim();
+function parseJson(raw: string): unknown {
   try {
     return JSON.parse(raw);
   } catch {
     return UNREADABLE;
   }
+}
+
+/**
+ * The key's value: undefined when absent, null for an empty `key:`, UNREADABLE when it is neither
+ * one line of JSON (flow form) nor a YAML block sequence of JSON strings (`key:` then `  - "…"` lines).
+ */
+function valueAt(lines: readonly string[], key: string): unknown {
+  const at = keyExtent(lines, key);
+  if (!at) return undefined;
+  const first = lines[at.start]!.slice(key.length + 1).trim();
+  if (first !== "") return parseJson(first);
+  const items = lines.slice(at.start + 1, at.end);
+  if (items.length === 0) return null;
+  const values: unknown[] = [];
+  for (const line of items) {
+    const item = /^\s*-\s+(.*)$/.exec(line);
+    const value = item ? parseJson(item[1]!.trim()) : UNREADABLE;
+    if (value === UNREADABLE) return UNREADABLE;
+    values.push(value);
+  }
+  return values;
 }
 
 function isStrings(v: unknown): v is string[] {
@@ -77,27 +95,36 @@ function isStringMap(v: unknown): v is Record<string, string> {
   return v !== null && typeof v === "object" && !Array.isArray(v) && Object.values(v).every((x) => typeof x === "string");
 }
 
-/** The fields, and the keys whose value could not be read (those read as empty). */
+/** The fields, and the keys whose value could not be read. */
 function readFields(lines: readonly string[]): { fields: MemberFields; unreadable: string[] } {
   const unreadable: string[] = [];
-  const rawLists = jsonAt(lines, "lists");
-  const rawNotes = jsonAt(lines, "list-notes");
-  const lists = rawLists === undefined ? [] : isStrings(rawLists) ? rawLists : (unreadable.push("lists"), []);
+  const rawLists = valueAt(lines, "lists");
+  const rawNotes = valueAt(lines, "list-notes");
+  const lists =
+    rawLists === undefined || rawLists === null ? [] : isStrings(rawLists) ? rawLists : (unreadable.push("lists"), []);
   const listNotes =
-    rawNotes === undefined ? {} : isStringMap(rawNotes) ? rawNotes : (unreadable.push("list-notes"), {});
+    rawNotes === undefined || rawNotes === null
+      ? {}
+      : isStringMap(rawNotes)
+        ? rawNotes
+        : (unreadable.push("list-notes"), {});
   return { fields: { lists, listNotes }, unreadable };
 }
 
+/** An unreadable value is never read as empty: reads and writes both throw, so nothing is lost. */
 function refuseIfUnreadable(unreadable: readonly string[]): void {
   if (unreadable.length) {
     throw new Error(`The ${unreadable.join(" and ")} frontmatter is not readable; membership not changed.`);
   }
 }
 
-/** The lists a paper or note is in, and its note for each. Unreadable values read as none. */
+/** The lists a paper or note is in, and its note for each. Throws when a value is not readable. */
 export function readMemberFields(text: string): MemberFields {
   const f = splitFront(text);
-  return f ? readFields(f.lines).fields : { lists: [], listNotes: {} };
+  if (!f) return { lists: [], listNotes: {} };
+  const { fields, unreadable } = readFields(f.lines);
+  refuseIfUnreadable(unreadable);
+  return fields;
 }
 
 /** Adds the list (idempotent) and sets its note; no note clears the list's note. */
@@ -131,7 +158,11 @@ export function removeListMembership(text: string, link: string): string {
   return render(f, lines);
 }
 
-/** A list's `[[L]]`: its file's name minus `.md`. */
+/**
+ * A list's `[[L]]`: its file's name minus `.md`. The basename keeps its `--<id>` suffix on
+ * purpose: the link must match the file name exactly, and the suffix keeps two lists with the
+ * same title apart.
+ */
 export function listLinkFor(path: string): string {
   return `[[${path.slice(path.lastIndexOf("/") + 1, -".md".length)}]]`;
 }
