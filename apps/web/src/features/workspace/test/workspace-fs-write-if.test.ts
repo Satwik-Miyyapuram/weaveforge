@@ -17,3 +17,15 @@ test("F97-P2-6: every workspace fs adapter implements writeTextIf", () => {
     assert.equal(typeof adapter.prototype.writeTextIf, "function", `${adapter.name} lacks writeTextIf`);
   }
 });
+
+test("F97-P2-6: the test double's writeTextIf writes only when the file still holds the expected text", async () => {
+  const fs = new MemoryWorkspaceFs();
+  // Absent file: expected null means "create it".
+  assert.equal(await fs.writeTextIf("note.md", "one", null), true);
+  // Stale expectation is refused and the file keeps its text.
+  assert.equal(await fs.writeTextIf("note.md", "stale", null), false);
+  assert.equal(await fs.readText("note.md"), "one");
+  // Matching expectation writes.
+  assert.equal(await fs.writeTextIf("note.md", "two", "one"), true);
+  assert.equal(await fs.readText("note.md"), "two");
+});
