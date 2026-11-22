@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildFromFiles, writeManifests } from "./write-latest-json.mjs";
+import { compareVersions } from "./release-manifest.mjs";
 
 const SIG = Buffer.from(
   "untrusted comment: signature from tauri secret key\nRUQfake\ntrusted comment: timestamp\nAAAA\n",
@@ -221,4 +222,12 @@ test("a release older than 0.9.7 is refused: 0.9.6 clients are bridged by 0.9.7,
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("compareVersions rejects anything that is not X.Y.Z, so a pre-release is never newer", () => {
+  for (const bad of ["0.9.8-rc1", "0.9.8.1", "v0.9.8", "0.9", "a.b.c", ""]) {
+    assert.throws(() => compareVersions(bad, "0.9.7"), /not X\.Y\.Z/, bad);
+    assert.throws(() => compareVersions("0.9.7", bad), /not X\.Y\.Z/, bad);
+  }
+  assert.equal(compareVersions("0.9.8", "0.9.7") > 0, true);
 });

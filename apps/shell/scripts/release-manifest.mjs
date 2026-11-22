@@ -88,6 +88,9 @@ export function cargoCrateVersion(cargoText) {
 
 /** Compares `X.Y.Z` strings: negative when a < b, 0 when equal, positive when a > b. */
 export function compareVersions(a, b) {
+  for (const v of [a, b]) {
+    if (!/^\d+\.\d+\.\d+$/.test(v)) throw new Error(`"${v}" is not X.Y.Z`);
+  }
   const pa = a.split(".").map(Number);
   const pb = b.split(".").map(Number);
   for (let i = 0; i < 3; i++) {
