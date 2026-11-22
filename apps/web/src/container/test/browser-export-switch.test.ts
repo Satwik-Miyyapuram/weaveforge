@@ -16,6 +16,8 @@ function harness(over: Partial<SwitchDeps> = {}) {
     codec: {} as SwitchDeps["codec"],
     openSink: async () => ({}) as SwitchDeps["openSink"] extends () => Promise<infer S> ? S : never,
     now: () => "2026-11-22T00:00:00.000Z",
+    // The switch writes the server mark after wiring opens; stub it so no test reaches the network.
+    fetch: async () => new Response(null, { status: 204 }),
     gate: async (opts) => {
       gateCalls.push(opts);
       return { switch: true };
@@ -87,6 +89,47 @@ test("(P1-3) on desktop the browser switch never runs: no session read, no gate,
   assert.equal(sessionCalls, 0);
   assert.equal(h.gateCalls.length, 0);
   assert.equal(h.opened(), 0);
+});
+
+function recordingFetch(order: string[]) {
+  const fetch = async (input: RequestInfo | URL) => {
+    if (String(input).includes("mark_exported_097")) order.push("mark");
+    return new Response("{}", { status: 200 });
+  };
+  return fetch as unknown as typeof globalThis.fetch;
+}
+
+test("(P2-5) openWiring throws: markExported097 is never called", async () => {
+  const order: string[] = [];
+  const h = harness({
+    fetch: recordingFetch(order),
+    openWiring: async () => {
+      throw new Error("opfs locked");
+    },
+  });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.deepEqual(out, { switch: false, reason: "error" });
+  assert.deepEqual(order, []);
+});
+
+test("(P2-5) a successful switch marks the export once, after the wiring opens", async () => {
+  const order: string[] = [];
+  const h = harness({
+    fetch: recordingFetch(order),
+    openWiring: async () => {
+      order.push("wiring");
+      return WIRING;
+    },
+  });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.equal(out.switch, true);
+  assert.deepEqual(order, ["wiring", "mark"]);
+});
+
+test("(P2-5) the gate runs with skipMark so the export itself never marks", async () => {
+  const h = harness();
+  await decideBrowserSwitch(h.deps);
+  assert.equal((h.gateCalls[0] as { skipMark?: boolean }).skipMark, true);
 });
 
 test("(P1-2) the browser source reports pendingOutbox 0: no browser outbox exists to count", async () => {

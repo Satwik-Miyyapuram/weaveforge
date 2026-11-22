@@ -8,6 +8,8 @@ export type SwitchSession = { userId: string; accessToken: string };
 export type SwitchDeps = {
   /** True inside the desktop app. The browser switch never runs there. */
   desktop: boolean;
+  /** Test seam: the HTTP client the PostgREST source uses. Defaults to the global fetch. */
+  fetch?: typeof globalThis.fetch;
   session: () => Promise<SwitchSession | null>;
   dataUrl: string;
   anonKey: string;
@@ -37,7 +39,7 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
     const source = new PostgrestSource({
       baseUrl: deps.dataUrl,
       userId: session.userId,
-      fetch: globalThis.fetch.bind(globalThis),
+      fetch: deps.fetch ?? globalThis.fetch.bind(globalThis),
       // The browser has no local outbox: writes go straight to the server, so nothing waits in a
       // local queue and the count is a true 0. The static guard in test/browser-no-outbox.test.ts
       // fails if a browser-reachable module adds an outbox, so this count must be revisited then.
@@ -54,9 +56,13 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
       source,
       sink,
       now: deps.now(),
+      // The export never writes the server mark itself. The mark is written below, after wiring opens.
+      skipMark: true,
     });
     if (!outcome.switch) return { switch: false, reason: "not-verified" };
-    return { switch: true, wiring: await deps.openWiring() };
+    const wiring = await deps.openWiring();
+    await source.markExported097();
+    return { switch: true, wiring };
   } catch {
     return { switch: false, reason: "error" };
   }

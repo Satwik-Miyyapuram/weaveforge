@@ -33,6 +33,8 @@ export type ExportOptions = {
   secretsPresent?: boolean;
   /** Web only: the stable per-browser id (OPFS settings). Desktop takes its id from the backup. */
   runDeviceId?: string;
+  /** Web only: skip the server marker. The browser switch writes it itself after its wiring opens. */
+  skipMark?: boolean;
 };
 
 export type ExportResult = { state: MigrationState; run: RunReport };
@@ -121,7 +123,7 @@ async function exportTrash(kind: string, rows: Row[], sink: FileSink, missing: M
 }
 
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets, secretsPresent, runDeviceId } = opts;
+  const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets, secretsPresent, runDeviceId, skipMark = false } = opts;
   const target: MigrationTarget = desktop ? "folder" : "opfs";
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};
@@ -348,11 +350,13 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     const pendingAt = missing.length - 1;
     await persist();
     let marked = true;
-    try {
-      await source.markExported097();
-    } catch {
-      marked = false;
-      missing.push({ kind: "marker", id: "*", reason: "marker: server failed" });
+    if (!skipMark) {
+      try {
+        await source.markExported097();
+      } catch {
+        marked = false;
+        missing.push({ kind: "marker", id: "*", reason: "marker: server failed" });
+      }
     }
     if (marked && desktop) {
       try {
