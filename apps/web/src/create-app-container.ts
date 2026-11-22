@@ -120,6 +120,8 @@ import { WorkspaceSearch } from "@/features/search/application/workspace-search"
 import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
 import { resolveMigrationChoice } from "@/container/resolve-migration-choice";
 import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
+import { openBrowserFileWiring } from "@/container/browser-file-backend";
+import { chooseBrowserBackend } from "@/container/browser-backend-098";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 
 export interface CreatedAppContainer {
@@ -168,10 +170,15 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // the folder's migration report, so the choice never races a late answer.
   const migration = await resolveMigrationChoice(desktop());
   const shell = desktop();
+  // Browser and Android open the OPFS folder only when the 0.9.8 chooser says files. Legacy
+  // detection and the verified-report check are not wired yet, so both fail closed to export-first.
+  const browserFiles =
+    !shell && chooseBrowserBackend("unknown", () => false) === "files" ? await openBrowserFileWiring() : undefined;
   const backend = wireBackend(readBackendConfig(), projectContext, pid, {
     migration,
     onDesktop: Boolean(shell),
     wireDesktopFileBackend: shell ? wireDesktopFileBackend(shell, workspaceSettings) : undefined,
+    wireBrowserFileBackend: browserFiles,
   });
   if ("db" in backend) {
     projectLww.watch(backend.db, pid());
