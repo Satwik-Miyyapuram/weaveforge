@@ -4,10 +4,12 @@
  */
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import * as React from "react";
 import { createElement } from "react";
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from "react-test-renderer";
 
 import "@/lib/test/react-harness";
+Object.assign(globalThis, { React });
 import { INSTALL_097_NOTICE, INSTALL_097_URL, INSTALL_097_WEB_NOTICE } from "../application/install-097-guard";
 import { Install097Gate } from "../ui/install-097-gate";
 
@@ -282,7 +284,7 @@ test("fail open: report method absent while old DB present -> app opens", async 
   tree.unmount();
 });
 
-test("unknown: check never answers -> CHECK_TIMEOUT after the timeout, no children", async () => {
+test("check never answers -> the timeout opens the gate (no CHECK_TIMEOUT block)", async () => {
   stubBridge({ legacyDbPresent: () => new Promise(() => {}) });
   let tree!: ReactTestRenderer;
   await act(async () => {
@@ -292,21 +294,18 @@ test("unknown: check never answers -> CHECK_TIMEOUT after the timeout, no childr
   await act(async () => {
     await new Promise((r) => setTimeout(r, 40));
   });
-  assert.equal(childCount(tree), 0);
-  assert.ok(textOf(tree.root).includes("CHECK_TIMEOUT"));
+  assert.equal(childCount(tree), 1);
+  assert.ok(!textOf(tree.root).includes("CHECK_TIMEOUT"));
   tree.unmount();
 });
 
-test("retry re-runs the check and mounts the app once it passes", async () => {
-  let failing = true;
+test("a rejected check opens at once; no blocked screen or Try again is shown", async () => {
   stubBridge({
-    legacyDbPresent: () => (failing ? Promise.reject(new Error("ipc down")) : Promise.resolve(false)),
+    legacyDbPresent: () => Promise.reject(new Error("ipc down")),
   });
   const tree = await mount();
-  assert.equal(childCount(tree), 0);
-  failing = false;
-  await press(buttonWith(tree, "Try again"));
   assert.equal(childCount(tree), 1);
+  assert.ok(!textOf(tree.root).includes("Try again"));
   tree.unmount();
 });
 
@@ -383,7 +382,7 @@ test("picker: a verified pick opens even when the shell cannot keep the folder (
   tree.unmount();
 });
 
-test("stale check: a first check that answers after its timeout and a retry cannot flip the newer check", async () => {
+test("timed-out check opens; a late old-database answer cannot close the open gate", async () => {
   const pending: Array<(v: boolean) => void> = [];
   stubBridge({
     legacyDbPresent: () => new Promise<boolean>((resolve) => pending.push(resolve)),
@@ -395,19 +394,12 @@ test("stale check: a first check that answers after its timeout and a retry cann
   await act(async () => {
     await new Promise((r) => setTimeout(r, 40));
   });
-  assert.ok(textOf(tree.root).includes("CHECK_TIMEOUT"));
-  await press(buttonWith(tree, "Try again"));
-  // The first check answers "not installed" late; it belongs to a request that is gone.
+  assert.equal(childCount(tree), 1, "the timeout opens the app");
+  // The late answer belongs to a check that already settled; it must be ignored.
   await act(async () => {
-    pending[0]?.(false);
+    pending[0]?.(true);
     await new Promise((r) => setTimeout(r, 5));
   });
-  assert.equal(childCount(tree), 0, "a stale answer must not open the app");
-  // The newer check is the one that counts.
-  await act(async () => {
-    pending[1]?.(true);
-    await new Promise((r) => setTimeout(r, 5));
-  });
-  assert.equal(childCount(tree), 0, "the newer check says the old database is present and unverified");
+  assert.equal(childCount(tree), 1, "a late answer must not re-gate the app");
   tree.unmount();
 });

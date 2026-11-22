@@ -21,7 +21,7 @@ type Gate =
 /** Resolves the signed-in web reader; null when there is no account to check. */
 export type WebPortResolver = () => Promise<Install097OldUserPort | null>;
 
-/** A check that has not answered within this time counts as unknown, which blocks. */
+/** A check that has not answered within this time opens the app (fail open). */
 export const INSTALL_097_CHECK_TIMEOUT_MS = 10_000;
 
 /**
@@ -62,13 +62,13 @@ async function keepVerifiedFolder(bridge: DesktopBridge, folder: string): Promis
 }
 
 /**
- * Blocks the app until 0.9.7 has moved an old local database across. While blocked, nothing
- * under it mounts: the children are not rendered at all. Browsers and Android have no desktop
- * bridge and open at once. The check only reads, so the gate never writes data. A reject or a
- * timeout opens too (fail open): only a confirmed old database or old account blocks, with the
- * 0.9.7 download and the folder picker. An unverified report blocks with the same picker, so a moved export folder is
- * not blocked forever. On the web the old-user reader decides instead, and the picker is hidden:
- * the fix there is an export in 0.9.7, not a folder.
+ * Blocks the app only when 0.9.7 has confirmed an old local database or old account that is not
+ * yet moved or exported. While blocked, nothing under it mounts. Browsers and Android have no
+ * desktop bridge and open at once. The check only reads, so the gate never writes data. A reject,
+ * a timeout, or a check that cannot answer opens (fail open). The blocked screen shows the 0.9.7
+ * download and the folder picker; an unverified report uses the same picker, so a moved export
+ * folder is not blocked forever. On the web the old-user reader decides instead, and the picker is
+ * hidden: the fix there is an export in 0.9.7, not a folder.
  */
 export function Install097Gate({
   children,
@@ -98,8 +98,8 @@ export function Install097Gate({
       if (timer !== undefined) clearTimeout(timer);
       setGate(next);
     };
-    // A check that does not answer in time is unknown and blocks with its code (coordinator decision).
-    timer = setTimeout(() => settle({ phase: "unknown", code: "CHECK_TIMEOUT" }), checkTimeoutMs);
+    // A check that does not answer in time cannot confirm old data, so it opens (fail open).
+    timer = setTimeout(() => settle({ phase: "open" }), checkTimeoutMs);
     if (!bridge) {
       // Web or Android: the signed-in reader decides. No account (null port) opens.
       void webPort()
