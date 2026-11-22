@@ -24,7 +24,7 @@ pub const PAPER_TYPE: &str = "paper";
 
 /// Frontmatter keys the app owns besides id, type, `wf`, `tags` and `relations`,
 /// in the order they are written.
-pub const VALUE_KEYS: [&str; 20] = [
+pub const VALUE_KEYS: [&str; 21] = [
     "title",
     "authors",
     "year",
@@ -45,6 +45,7 @@ pub const VALUE_KEYS: [&str; 20] = [
     "alert",
     "created-at",
     "updated-at",
+    "pinned",
 ];
 
 /// `Paper` field (camelCase, as `packages/core` names it) and its frontmatter key.
@@ -489,4 +490,33 @@ fn string_list(value: &Value) -> Vec<String> {
         Value::String(text) => vec![text.clone()],
         _ => Vec::new(),
     }
+}
+
+/// True when the paper's frontmatter says `pinned: true` (the library pin).
+///
+/// # Errors
+///
+/// A parse error of `text`.
+pub fn paper_pinned(text: &str) -> Result<bool, PaperFileError> {
+    let file = parse_paper_file(text)?;
+    Ok(file.values.get("pinned") == Some(&Value::Bool(true)))
+}
+
+/// Sets or clears the library pin: `pinned: true`, or no `pinned` key at all when
+/// unpinned. Every other key and the body are kept.
+///
+/// # Errors
+///
+/// A parse error of `text`, or [`PaperFileError::ReadOnly`] for a newer file.
+pub fn write_paper_pinned(text: &str, pinned: bool) -> Result<String, PaperFileError> {
+    let mut file = parse_paper_file(text)?;
+    if file.is_read_only() {
+        return Err(PaperFileError::ReadOnly(file.wf));
+    }
+    if pinned {
+        let _ = file.values.insert("pinned".to_owned(), Value::Bool(true));
+    } else {
+        let _ = file.values.shift_remove("pinned");
+    }
+    Ok(render_paper_file(&file))
 }
