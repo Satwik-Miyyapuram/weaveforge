@@ -193,14 +193,12 @@ never changed or deleted, so it stays where 0.8 left it.
 
 0.9.7 keeps your notes, papers, ink and settings as ordinary files in a
 workspace folder instead of the app's internal database. A workspace folder is
-now required: on first start choose **Open folder** or **New workspace** (the
-default is `Documents/WeaveForge`).
+now required: choose a folder for your workspace before you start working.
 
 The first time you open 0.9.7, an upgrade screen shows the move's progress and
 then a report. The report is saved as `.weaveforge/migration-0.9.7/report.json`
 in your workspace, and lists how many items moved for each kind, any conflict
-copies, and where the backup is. If the move does not finish, you can retry or
-keep using your old data; the old data is not changed.
+copies, and where the backup is.
 
 Nothing is deleted automatically. A backup is kept in
 `.weaveforge/migration-0.9.7/`. Once the move is verified, a **Remove old data**
@@ -215,8 +213,7 @@ example:
 sudo apt install gnome-keyring libsecret-1-0
 ```
 
-then unlock the keyring and try again. If no keychain is available, WeaveForge
-asks again instead of saving the secret to disk.
+then unlock the keyring and try again.
 
 ### Upgrading to 0.9.8 and 1.0.0
 
