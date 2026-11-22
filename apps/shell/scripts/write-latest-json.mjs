@@ -3,8 +3,9 @@
 // assets folder:
 //   latest-v2.json  this release (what current builds read)
 //   latest.json     the 0.9.7 bridge (what 0.9.6 and older builds read)
-// A 0.9.7 release writes both as 0.9.7. Later releases copy the 0.9.7 manifest
-// (passed as the optional bridge file) into latest.json, so it never moves.
+// A 0.9.7 release writes both as 0.9.7. Every later release must be given the
+// 0.9.7 latest.json (the bridge) and writes it back byte for byte, so old clients
+// that poll releases/latest/download/latest.json always get the 0.9.7 manifest.
 // Usage:
 //   node apps/shell/scripts/write-latest-json.mjs v0.9.7 <dir-with-setup-exe-and-sig> [bridge-latest.json]
 
@@ -72,9 +73,11 @@ export function buildFromFiles({
 
 /**
  * Writes latest-v2.json for `tag` into `assetsDir`, and latest.json next to it.
- * latest.json is this release's manifest for 0.9.7, and the 0.9.7 `bridge` manifest
- * for any later release. Refuses (writing nothing) a release older than 0.9.7, or a
- * later release without a 0.9.7 bridge.
+ * A 0.9.7 release writes its own manifest as latest.json. A later release needs
+ * `bridgeText`, the exact 0.9.7 latest.json bytes, and writes them unchanged as
+ * latest.json. Refuses (writing nothing) a release older than 0.9.7, a later release
+ * without a bridge, a bridge that is not version 0.9.7, or a bridge whose bytes are
+ * not the canonical writer output (one dropped or added byte).
  */
 export function writeManifests(options) {
   const manifest = buildFromFiles(options);
@@ -83,11 +86,26 @@ export function writeManifests(options) {
     throw new Error(`release ${manifest.version} is older than ${BRIDGE_VERSION}; it has no bridge manifest`);
   }
   const text = (value) => `${JSON.stringify(value, null, 2)}\n`;
-  writeFileSync(join(options.assetsDir, MANIFEST_NAME), text(manifest));
-  // Only the 0.9.7 release writes latest.json; later releases leave the bridge alone.
+  const v2Path = join(options.assetsDir, MANIFEST_NAME);
+  const legacyPath = join(options.assetsDir, LEGACY_MANIFEST_NAME);
   if (order === 0) {
-    writeFileSync(join(options.assetsDir, LEGACY_MANIFEST_NAME), text(manifest));
+    writeFileSync(v2Path, text(manifest));
+    writeFileSync(legacyPath, text(manifest));
+    return manifest;
   }
+  const bridgeText = options.bridgeText;
+  if (bridgeText === undefined) {
+    throw new Error(`release ${manifest.version} needs the ${BRIDGE_VERSION} bridge (${LEGACY_MANIFEST_NAME}) to copy; none given`);
+  }
+  const bridgeVersion = JSON.parse(bridgeText).version;
+  if (bridgeVersion !== BRIDGE_VERSION) {
+    throw new Error(`bridge ${LEGACY_MANIFEST_NAME} is version ${bridgeVersion}, expected ${BRIDGE_VERSION}`);
+  }
+  if (bridgeText !== text(JSON.parse(bridgeText))) {
+    throw new Error(`bridge ${LEGACY_MANIFEST_NAME} is not byte-identical to the writer's output; refusing to copy it`);
+  }
+  writeFileSync(v2Path, text(manifest));
+  writeFileSync(legacyPath, bridgeText);
   return manifest;
 }
 
@@ -96,9 +114,9 @@ function main(argv) {
   if (!tag || !assetsDir) {
     throw new Error("usage: write-latest-json.mjs <tag> <assets-dir> [bridge-latest.json]");
   }
-  const bridge = bridgePath ? JSON.parse(readFileSync(bridgePath, "utf8")) : undefined;
+  const bridgeText = bridgePath ? readFileSync(bridgePath, "utf8") : undefined;
   const dir = resolve(assetsDir);
-  writeManifests({ tag, assetsDir: dir, bridge });
+  writeManifests({ tag, assetsDir: dir, bridgeText });
   console.log(`wrote ${join(dir, MANIFEST_NAME)} and ${join(dir, LEGACY_MANIFEST_NAME)}`);
 }
 
