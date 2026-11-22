@@ -31,6 +31,6 @@ export function secretsStoreFor(
   hasServerRoutes: boolean = !isOfflineBuild(),
 ): SecretsStore {
   if (hasServerRoutes) return new RouteSecretsStore(db);
-  // Offline builds reach the OS keychain through DeviceSecretsStore's default (local/parts.ts).
+  // Saves go to the OS keychain; until the 0.9.7 move runs, load still reads the old device row. (local/parts.ts)
   return new DeviceSecretsStore();
 }

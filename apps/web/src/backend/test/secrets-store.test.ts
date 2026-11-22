@@ -22,8 +22,9 @@ import {
   DEVICE_SECRETS_NAME,
   DeviceSecretsStore,
   KeychainUnavailableError,
-  desktopKeychain,
+  type DeviceKeychain,
 } from "../providers/local/parts";
+import type { LocalQuery } from "../providers/local/pglite-client";
 import { secretsStoreFor } from "../providers/secrets-store";
 
 before(loadTestCore);
@@ -105,11 +106,27 @@ describe("the offline credentials store", () => {
   });
 
   it("refuses a save with no desktop bridge and keeps nothing", async () => {
-    await withWindow(undefined, async () => {
-      const store = secretsStoreFor(clientWithToken(), false);
-      await assert.rejects(store.save({ zoteroApiKey: "k" }), KeychainUnavailableError);
-      assert.equal(await desktopKeychain().read("_index"), null);
-    });
+    // A fake keychain behaves as desktopKeychain does with no bridge: reads find nothing,
+    // and the write is refused. The refused write is the only one attempted, and nothing is kept.
+    const kept = new Map<string, string>();
+    const attempts: string[] = [];
+    const keychain: DeviceKeychain = {
+      read: async (key) => kept.get(key) ?? null,
+      write: async (key) => {
+        attempts.push(key);
+        throw new KeychainUnavailableError();
+      },
+      clear: async (key) => {
+        kept.delete(key);
+      },
+    };
+    const unusedRun = (async () => {
+      throw new Error("the device table is not used for saves");
+    }) as LocalQuery;
+    const store = new DeviceSecretsStore(unusedRun, keychain, async () => {}, async () => false);
+    await assert.rejects(store.save({ zoteroApiKey: "k" }), KeychainUnavailableError);
+    assert.equal(attempts.length, 1, "the save stopped at the first refused write");
+    assert.equal(kept.size, 0, "nothing was kept");
   });
 });
 
