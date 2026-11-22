@@ -221,10 +221,13 @@ in `release-desktop.yml`) fails while `v0.9.7` is unpublished or still a draft. 
 pointed at a newer release. Publish v0.9.7 first, then re-run the release.
 
 **The 0.9.7 gate.** The 0.9.7 `latest-v2.json` path depends on the install gate in
-`claim_install` (`apps/shell/src/app_update.rs`). A 0.9.7 install of a newer release is
-held unless local data is absent, or exported and verified. Unknown local-data state also
-holds (fail closed), so the data is never stranded. If that gate is removed, a 0.9.7
-client can update past its local data.
+`claim_install` (`apps/shell/src/app_update.rs`), which calls `install_allowed`. A 0.9.7
+install of a newer release is held unless local data is absent, or exported and verified
+for this device. Unknown local-data state also holds (fail closed), so the data is never
+stranded. If that gate is removed, a 0.9.7 client can update past its local data.
+The published release is checked after `gh release create` by
+`apps/shell/scripts/check-release-assets.mjs` in `release-desktop.yml`, so no manual check
+is needed.
 The release workflow also rejects any tag that is not `vX.Y.Z` (for example `v0.9.7-rc1`)
 in its `validate` job, before anything is built.
 
