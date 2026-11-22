@@ -22,7 +22,7 @@ export function RemoveOldDataButton({
   folder,
   state,
   removedAt,
-  exportedTo,
+  exportedHere,
   backupPath,
   deps,
   onRemoved,
@@ -30,7 +30,7 @@ export function RemoveOldDataButton({
   folder: string;
   state: "none" | "verified" | "incomplete";
   removedAt?: string;
-  exportedTo?: string;
+  exportedHere?: boolean;
   backupPath?: string;
   deps: RemoveOldDeps;
   onRemoved: () => void;
@@ -39,7 +39,7 @@ export function RemoveOldDataButton({
   const [busy, setBusy] = useState(false);
   const [refused, setRefused] = useState(false);
   const [keychainMissing, setKeychainMissing] = useState(false);
-  if (!canRemoveOld({ state, removedAt, exportedTo, backupPath }, folder) || !backupPath) return null;
+  if (!canRemoveOld({ state, removedAt, exportedHere, backupPath }) || !backupPath) return null;
 
   async function confirm() {
     setBusy(true);
@@ -101,7 +101,7 @@ export function RemoveOldDataSection({ deps = null }: { deps?: RemoveOldDeps | n
     folder: string;
     state: "none" | "verified" | "incomplete";
     removedAt?: string;
-    exportedTo?: string;
+    exportedHere?: boolean;
     backupPath?: string;
   } | null>(null);
   const ready = Boolean(deps?.verify && deps.moveSecrets);
@@ -118,9 +118,10 @@ export function RemoveOldDataSection({ deps = null }: { deps?: RemoveOldDeps | n
         if (alive) {
           setView({
             folder: root.path,
-            state: status.state,
+            // Only a verified report can offer removal; every other state maps to none (fail closed).
+            state: status.state === "verified" || status.state === "incomplete" ? status.state : "none",
             removedAt: status.removedAt,
-            exportedTo: status.exportedTo,
+            exportedHere: status.exportedHere,
             backupPath: status.backupPath,
           });
         }
@@ -139,7 +140,7 @@ export function RemoveOldDataSection({ deps = null }: { deps?: RemoveOldDeps | n
       folder={view.folder}
       state={view.state}
       removedAt={view.removedAt}
-      exportedTo={view.exportedTo}
+      exportedHere={view.exportedHere}
       backupPath={view.backupPath}
       deps={deps}
       onRemoved={() => setView(null)}

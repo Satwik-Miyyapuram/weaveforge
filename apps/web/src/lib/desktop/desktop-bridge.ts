@@ -469,7 +469,8 @@ export interface DesktopBridge {
   migrate097Status?(folder: string): Promise<{
     state: Migrate097StateName;
     removedAt?: string;
-    exportedTo?: string;
+    /** True when the export went to the open folder (EXPORT lands it; missing means false). */
+    exportedHere?: boolean;
     backupPath?: string;
     missing?: string[];
     removingDeviceId?: string;
