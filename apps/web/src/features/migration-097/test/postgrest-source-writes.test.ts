@@ -1,22 +1,37 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
+import { PostgrestSource } from "../infrastructure/postgrest-source";
 
-const SOURCE = readFileSync(
-  fileURLToPath(new URL("../infrastructure/postgrest-source.ts", import.meta.url)),
-  "utf8",
-);
+test("every read method sends only GET or HEAD; the mark RPC is the one POST", async () => {
+  const methods: string[] = [];
+  const fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const method = init?.method ?? "GET";
+    methods.push(method);
+    if (method === "HEAD") return new Response(null, { status: 200, headers: { "content-range": "*/0" } });
+    if (method === "POST") return new Response(null, { status: 204 });
+    return Response.json([]);
+  };
+  const source = new PostgrestSource({
+    baseUrl: "https://data.example",
+    userId: "u1",
+    fetch: fetch as unknown as typeof globalThis.fetch,
+    headers: {},
+    pendingOutbox: async () => 0,
+    signedUrl: async (bucket, path) => `https://dl.example/${bucket}/${path}`,
+  });
 
-test("PostgrestSource documents rpc/mark_exported_097 as its one allowed write", () => {
-  assert.match(
-    SOURCE,
-    /The only write this source makes is rpc\/mark_exported_097/,
-  );
-});
+  await source.listRows("logEntries");
+  await source.listTrashed("logEntries");
+  await source.countRows("logEntries");
+  await source.pendingOutbox();
+  await source.undecryptable("logEntries");
+  await source.listBlobs();
+  await source.fetchBlob({ bucket: "b", path: "p", sizeBytes: 1 });
 
-test("PostgrestSource has exactly one non-read request method, the mark call", () => {
-  const writes = SOURCE.match(/method: "(POST|PATCH|PUT|DELETE)"/g) ?? [];
-  assert.equal(writes.length, 1);
-  assert.match(SOURCE, /rpc\/mark_exported_097/);
+  for (const method of methods) assert.ok(method === "GET" || method === "HEAD", `read sent ${method}`);
+
+  assert.equal(methods.filter((m) => m === "POST").length, 0);
+  await source.markExported097();
+  assert.equal(methods.filter((m) => m === "POST").length, 1);
+  assert.equal(methods.at(-1), "POST");
 });
