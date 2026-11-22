@@ -26,6 +26,8 @@ const MIN_DUMP_BYTES: u64 = 256;
 const VERIFY_WINDOW_MS: u64 = 600_000;
 const NOTHING_TO_REMOVE: &str =
     "refused: nothing to remove (no verified migration backup or run in the report)";
+/// Refusal when `exported-to.json` names another folder: the workspace was moved or renamed.
+const FOLDER_MOVED: &str = "refused: folder moved, export again";
 
 /// Per-device secrets count file (written by the KEYS lane once every local secret is in the
 /// keychain): `{count, deviceId}`.
@@ -414,8 +416,9 @@ fn check_fresh_run(report: &serde_json::Value, device_id: &str, now: &str) -> Re
     Ok(())
 }
 
+/// Canonical path without the Windows `\\?\` prefix, so `exported-to.json` holds a plain path.
 fn canonical(path: &Path) -> Result<String, String> {
-    fs::canonicalize(path)
+    dunce::canonicalize(path)
         .map(|p| p.to_string_lossy().into_owned())
         .map_err(|e| format!("cannot resolve {}: {e}", path.display()))
 }
@@ -424,7 +427,19 @@ fn read_report(path: &Path) -> Result<serde_json::Value, String> {
     let text = fs::read_to_string(path).map_err(|_| {
         "refused: no migration report (state none); migration must be verified first".to_owned()
     })?;
-    serde_json::from_str(&text).map_err(|_| "refused: migration report is unparsable".to_owned())
+    serde_json::from_str(&text).map_err(|_| {
+        keep_unreadable_report(path);
+        "refused: migration report is unparsable".to_owned()
+    })
+}
+
+/// Moves an unreadable report.json aside as report.json.bad, so nothing merges over it. An existing
+/// .bad file is kept as it is, and then the unreadable report stays where it is.
+fn keep_unreadable_report(path: &Path) {
+    let bad = PathBuf::from(format!("{}.bad", path.display()));
+    if !bad.exists() {
+        let _ = fs::rename(path, &bad);
+    }
 }
 
 /// Header-only check of the named backup: reads the first bytes and the length, never the whole dump.
@@ -462,8 +477,14 @@ fn check_exported_to(pg_root: &Path, folder: &Path) -> Result<(), String> {
         .map_err(|_| "refused: exported-to.json is missing".to_owned())?;
     let value: serde_json::Value = serde_json::from_str(&text)
         .map_err(|_| "refused: exported-to.json is unparsable".to_owned())?;
-    if value["folder"].as_str() != Some(canonical(folder)?.as_str()) {
-        return Err("refused: exported-to.json names another folder".to_owned());
+    let named = value["folder"].as_str().unwrap_or_default();
+    // Both sides are canonicalized, so a `\\?\`-prefixed stored path still matches the plain one.
+    let same = match (dunce::canonicalize(named), dunce::canonicalize(folder)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    };
+    if !same {
+        return Err(FOLDER_MOVED.to_owned());
     }
     Ok(())
 }
@@ -500,6 +521,8 @@ fn write_json_atomic(path: &Path, value: &serde_json::Value) -> Result<(), Strin
         fs::create_dir_all(dir).map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
     }
     let part = PathBuf::from(format!("{}.part", path.display()));
+    // A .part left by an interrupted write is stale; it is replaced, never appended to.
+    let _ = fs::remove_file(&part);
     let mut file =
         fs::File::create(&part).map_err(|e| format!("cannot write {}: {e}", part.display()))?;
     file.write_all(value.to_string().as_bytes())

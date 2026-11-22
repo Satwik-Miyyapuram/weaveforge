@@ -120,7 +120,7 @@ impl Drop for Fixture {
 }
 
 fn canonical(path: &Path) -> String {
-    fs::canonicalize(path)
+    dunce::canonicalize(path)
         .unwrap()
         .to_string_lossy()
         .into_owned()
@@ -332,7 +332,7 @@ fn refuses_when_exported_to_names_another_folder() {
     let err = f
         .run(&mut never_stop())
         .expect_err("another folder must refuse");
-    assert!(err.contains("exported"), "reason names exported-to: {err}");
+    assert_eq!(err, "refused: folder moved, export again");
     f.assert_untouched();
 }
 
@@ -1142,4 +1142,47 @@ fn secrets_moved_for_another_device_does_not_count_for_this_one() {
     let err = f.run(&mut never_stop()).expect_err("only this device's secrets file counts");
     assert!(err.contains("secrets-moved"), "{err}");
     f.assert_untouched();
+}
+
+// ---- item 13: an unreadable report.json is kept as .bad, never merged; stale .part is replaced ----
+
+#[test]
+fn an_unparsable_report_is_moved_aside_as_bad_and_never_merged() {
+    let f = Fixture::new("unparsable", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report("{ not json");
+    let err = f.run(&mut never_stop()).expect_err("an unparsable report must refuse");
+    assert_eq!(err, "refused: migration report is unparsable");
+    assert!(f.folder.join(format!("{REPORT}.bad")).exists(), "report must be kept as .bad");
+    assert!(!f.folder.join(REPORT).exists(), "the unparsable report must not stay in place");
+    assert_eq!(
+        fs::read_to_string(f.folder.join(format!("{REPORT}.bad"))).unwrap(),
+        "{ not json"
+    );
+    f.assert_untouched();
+}
+
+#[test]
+fn an_existing_bad_file_is_never_overwritten() {
+    let f = Fixture::new("existing-bad", Some("verified"), Some(good_dump().as_slice()));
+    fs::write(f.folder.join(format!("{REPORT}.bad")), "earlier evidence").unwrap();
+    f.set_report("{ broken again");
+    let _ = f.run(&mut never_stop());
+    assert_eq!(
+        fs::read_to_string(f.folder.join(format!("{REPORT}.bad"))).unwrap(),
+        "earlier evidence",
+        "an existing .bad must stay as it is"
+    );
+    f.assert_untouched();
+}
+
+#[test]
+fn a_stale_part_file_is_replaced_when_exported_to_is_written() {
+    let f = Fixture::new("stale-part", Some("verified"), Some(good_dump().as_slice()));
+    let part = f.pg_root.join("exported-to.json.part");
+    fs::write(&part, "stale half-written junk").unwrap();
+    record_exported_to(&f.pg_root, &f.folder).expect("record must succeed");
+    assert!(!part.exists(), "the stale .part must not survive the write");
+    let text = fs::read_to_string(f.pg_root.join("exported-to.json")).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(value["folder"], canonical(&f.folder));
 }
