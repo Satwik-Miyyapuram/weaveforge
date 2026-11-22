@@ -22,10 +22,13 @@ export interface PostgrestSourceOptions {
   pendingOutbox?: () => Promise<number>;
   /** Real decrypt check is wired by the integrator. */
   undecryptable?: (kind: string) => Promise<number>;
+  /** Resolves a short-lived download URL for a blob (the web app's signed-urls route). */
+  signedUrl?: (bucket: string, path: string) => Promise<string | null>;
 }
 
 const NOT_WIRED = "not wired";
 const BLOB_NOT_IMPLEMENTED = "blob listing not implemented: export incomplete";
+const SIGNED_URL_NOT_WIRED = "signedUrl not wired";
 
 /** Shallow snake_case -> camelCase on top-level keys; nested values untouched. */
 export function toCamelRow(row: Row): Row {
@@ -106,8 +109,14 @@ export class PostgrestSource implements ServerSource {
     throw new Error(BLOB_NOT_IMPLEMENTED);
   }
 
-  async fetchBlob(_ref: BlobRef): Promise<Uint8Array> {
-    throw new Error(BLOB_NOT_IMPLEMENTED);
+  /** Downloads through a signed URL. The caller checks the sha256 against the ref. */
+  async fetchBlob(ref: BlobRef): Promise<Uint8Array> {
+    if (!this.opts.signedUrl) throw new Error(SIGNED_URL_NOT_WIRED);
+    const url = await this.opts.signedUrl(ref.bucket, ref.path);
+    if (!url) throw new Error(`no signed url for ${ref.bucket}/${ref.path}`);
+    const res = await this.opts.fetch(url);
+    if (!res.ok) throw new Error(`blob download failed: HTTP ${res.status}`);
+    return new Uint8Array(await res.arrayBuffer());
   }
 
   async markExported(at: string): Promise<void> {
