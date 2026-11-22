@@ -77,12 +77,27 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
         };
     };
     // A missing, non-string or unknown state is unavailable, never `none` (that is for an absent report).
-    let state = match report["state"].as_str() {
-        Some(known @ ("verified" | "incomplete" | "removing" | "removed")) => known.to_owned(),
-        _ => "unavailable".to_owned(),
+    let own = super::remove::own_run(&report, device_id).ok();
+    let own_state = own.as_ref().and_then(|run| run["state"].as_str());
+    let own_run_verified = own_state == Some("verified");
+    let own_removed = report["removals"][device_id]["state"].as_str() == Some("removed");
+    // This device's view: its own removal, the migration in progress, or its own latest run.
+    // Another device's `removed` or `verified` never becomes this device's state.
+    let state = if !matches!(
+        report["state"].as_str(),
+        Some("verified" | "incomplete" | "removing" | "removed")
+    ) {
+        "unavailable".to_owned()
+    } else if own_removed {
+        "removed".to_owned()
+    } else if report["state"].as_str() == Some("removing") {
+        "removing".to_owned()
+    } else {
+        match own_state {
+            Some(known @ ("verified" | "incomplete")) => known.to_owned(),
+            _ => "unavailable".to_owned(),
+        }
     };
-    let own_run_verified = super::remove::own_run(&report, device_id)
-        .is_ok_and(|run| run["state"].as_str() == Some("verified"));
     let backup = super::remove::backup_name(&report, device_id)
         .ok()
         .map(|name| folder.join(super::remove::MIGRATION_DIR).join(name));
@@ -95,7 +110,12 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
         removed_at: report["removals"][device_id]["removedAt"]
             .as_str()
             .map(str::to_owned),
-        verified_at: report["verifiedAt"].as_str().map(str::to_owned),
+        // The verify time of this device's own verified run, not another device's top-level field.
+        verified_at: own
+            .as_ref()
+            .filter(|run| run["state"].as_str() == Some("verified"))
+            .and_then(|run| run["finishedAt"].as_str())
+            .map(str::to_owned),
         exported_to: exported,
         backup_path: backup
             .filter(|path| path.is_file())

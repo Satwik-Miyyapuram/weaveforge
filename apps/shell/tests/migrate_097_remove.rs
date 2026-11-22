@@ -1186,3 +1186,34 @@ fn a_stale_part_file_is_replaced_when_exported_to_is_written() {
     let value: serde_json::Value = serde_json::from_str(&text).unwrap();
     assert_eq!(value["folder"], canonical(&f.folder));
 }
+
+// ---- item A and item 10: migrate_097_status is this device's view ----
+
+#[test]
+fn another_devices_verified_run_is_not_this_devices_state() {
+    let f = Fixture::new("status-other-device", Some("verified"), None);
+    // The report belongs to dev-a; dev-b has no run and must not inherit dev-a's verified state.
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, "dev-b")).unwrap();
+    assert_eq!(value["state"], "unavailable");
+    assert!(value.get("verifiedAt").is_none());
+}
+
+#[test]
+fn another_devices_removal_is_not_this_devices_removed_state() {
+    let f = Fixture::new("status-other-removed", Some("removed"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removed","removingDeviceId":"dev-a","runs":[{RUN_CLEAN}],"removals":{{"dev-a":{{"state":"removed","removedAt":"{NOW}"}}}}}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, "dev-b")).unwrap();
+    assert_ne!(value["state"], "removed");
+}
+
+#[test]
+fn verified_at_comes_from_this_devices_own_run() {
+    let f = Fixture::new("status-verified-at", Some("verified"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","verifiedAt":"2026-01-01T00:00:00Z","backup":"{BACKUP_NAME}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["verifiedAt"], NOW);
+}
