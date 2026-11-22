@@ -94,6 +94,9 @@ When semantic search is on in Settings, its results are fused with the keyword
 results rather than replacing them. The app drops semantic matches with a score
 below 0.3.
 
+Semantic search is off until you turn it on in Settings, and it needs a browser
+that supports Workers and WebAssembly. Keyword search works without it.
+
 ### Limits
 
 | Limit | Value |
