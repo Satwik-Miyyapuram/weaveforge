@@ -3,8 +3,8 @@
 use serde_json::json;
 use wf_core::overleaf_workshop::{
     BODY_REQUIRED, OverleafMeta, PROJECT_ID_INVALID, ROOT_INVALID, SESSION_ID_INVALID,
-    WorkshopRequest, cdn_pdf_url, encode_uri_component, parse_overleaf_meta, read_workshop_request,
-    read_workshop_session_id, safe_overleaf_error,
+    WorkshopRequest, cdn_pdf_url, encode_uri_component, parse_overleaf_meta, pdf_domain_allowed,
+    read_workshop_request, read_workshop_session_id, safe_overleaf_error,
 };
 
 const SID: &str = "1b2c3d4e-5f60-4718-9a0b-c1d2e3f4a5b6";
@@ -225,4 +225,89 @@ fn cdn_url_trims_slashes() {
         cdn_pdf_url("https://cdn.x//", "/build/output.pdf", "g1", "s 1"),
         "https://cdn.x/build/output.pdf?compileGroup=g1&clsiserverid=s%201&enable_pdf_caching=true"
     );
+}
+
+#[test]
+fn pdf_domain_overleaf_cdn_is_allowed_for_overleaf_com() {
+    let base = "https://www.overleaf.com/";
+    assert!(pdf_domain_allowed(
+        "https://compiles.overleafusercontent.com",
+        base
+    ));
+    assert!(pdf_domain_allowed(
+        "https://compiles.overleafusercontent.com/",
+        base
+    ));
+    assert!(pdf_domain_allowed("https://www.overleaf.com", base));
+    assert!(pdf_domain_allowed(
+        "https://compiles.overleafusercontent.com",
+        "https://overleaf.com/"
+    ));
+}
+
+#[test]
+fn pdf_domain_same_origin_as_base_is_allowed() {
+    assert!(pdf_domain_allowed(
+        "http://127.0.0.1:4100",
+        "http://127.0.0.1:4100/"
+    ));
+}
+
+#[test]
+fn pdf_domain_other_hosts_and_shapes_are_refused() {
+    let base = "https://www.overleaf.com/";
+    for domain in [
+        "https://evil.example",
+        "http://compiles.overleafusercontent.com",
+        "https://compiles.overleafusercontent.com:8443",
+        "https://user:pw@compiles.overleafusercontent.com",
+        "https://compiles.overleafusercontent.com/x",
+        "https://compiles.overleafusercontent.com?a=1",
+        "https://compiles.overleafusercontent.com#a",
+        "https://compiles.overleafusercontent.com.evil.example",
+        "https://evil.compiles.overleafusercontent.com",
+        "http://www.overleaf.com",
+        "https://www.overleaf.com:444",
+        "http://169.254.169.254",
+        "compiles.overleafusercontent.com",
+        "",
+        "not a url",
+    ] {
+        assert!(!pdf_domain_allowed(domain, base), "{domain}");
+    }
+}
+
+#[test]
+fn pdf_domain_cdn_is_not_allowed_for_another_base() {
+    assert!(!pdf_domain_allowed(
+        "https://compiles.overleafusercontent.com",
+        "https://overleaf.example.org/"
+    ));
+    assert!(!pdf_domain_allowed(
+        "https://overleaf.example.org",
+        "not a url"
+    ));
+    // The CDN is only for an https Overleaf base; another base port is another origin.
+    assert!(!pdf_domain_allowed(
+        "https://compiles.overleafusercontent.com",
+        "http://www.overleaf.com/"
+    ));
+    assert!(!pdf_domain_allowed(
+        "https://www.overleaf.com",
+        "https://www.overleaf.com:8443/"
+    ));
+}
+
+#[test]
+fn pdf_domain_trailing_dot_and_case_follow_the_parsed_host() {
+    let base = "https://www.overleaf.com/";
+    // A trailing dot is another host string: refused. Case folds to the listed host.
+    assert!(!pdf_domain_allowed(
+        "https://compiles.overleafusercontent.com.",
+        base
+    ));
+    assert!(pdf_domain_allowed(
+        "HTTPS://COMPILES.OverleafUserContent.com",
+        base
+    ));
 }

@@ -436,3 +436,76 @@ async fn malformed_content_range_is_err() {
         assert_eq!(got.expect_err("error"), INCOMPLETE, "{header}");
     }
 }
+
+const HOST_REFUSED: &str = "Overleaf named a PDF host that is not allowed.";
+
+async fn pdf_stand_in() -> Upstream {
+    serve(vec![(
+        "/build/output.pdf",
+        vec![response(200, &[], b"PDF")],
+    )])
+    .await
+}
+
+/// Downloads `/build/output.pdf` through the CDN branch with `domain`, base = `up`.
+async fn cdn_download(up: &Upstream, domain: &str) -> Result<Vec<u8>, String> {
+    api(up)
+        .get_file_from_clsi(
+            &identity("a=1"),
+            "/build/output.pdf",
+            "g",
+            Some("s1"),
+            Some(domain),
+        )
+        .await
+}
+
+#[tokio::test]
+async fn cdn_on_another_host_is_refused_without_a_request() {
+    let up = pdf_stand_in().await;
+    for domain in [
+        "https://evil.example",
+        "http://169.254.169.254",
+        "https://compiles.overleafusercontent.com.evil.example",
+        "not a url",
+    ] {
+        let got = cdn_download(&up, domain).await;
+        assert_eq!(got.expect_err("error"), HOST_REFUSED, "{domain}");
+    }
+    assert!(up.seen().is_empty());
+}
+
+#[tokio::test]
+async fn cdn_on_a_live_host_outside_the_allowlist_gets_no_request() {
+    // `localhost` is a different host from the 127.0.0.1 base, and its stand-in would answer.
+    let up = pdf_stand_in().await;
+    let other = pdf_stand_in().await;
+    let domain = format!("http://localhost:{}", other.port);
+    let got = cdn_download(&up, &domain).await;
+    assert_eq!(got.expect_err("error"), HOST_REFUSED);
+    assert!(other.seen().is_empty());
+    assert!(up.seen().is_empty());
+}
+
+#[tokio::test]
+async fn cdn_on_the_base_host_with_another_port_is_refused() {
+    // Another live stand-in on the same IP but its own port.
+    let up = pdf_stand_in().await;
+    let other = pdf_stand_in().await;
+    let domain = format!("http://127.0.0.1:{}", other.port);
+    let got = cdn_download(&up, &domain).await;
+    assert_eq!(got.expect_err("error"), HOST_REFUSED);
+    assert!(other.seen().is_empty());
+}
+
+#[tokio::test]
+async fn cdn_on_the_base_origin_is_fetched_without_cookies() {
+    let up = pdf_stand_in().await;
+    let domain = format!("http://127.0.0.1:{}", up.port);
+    let got = cdn_download(&up, &domain).await;
+    assert_eq!(got.expect("pdf"), b"PDF".to_vec());
+    let sent = up.seen();
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].header("cookie"), None);
+    assert!(sent[0].target.contains("compileGroup=g&clsiserverid=s1"));
+}

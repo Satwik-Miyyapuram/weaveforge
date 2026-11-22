@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use reqwest::header::{CONTENT_RANGE, CONTENT_TYPE, COOKIE, SET_COOKIE};
 use serde_json::{Value, json};
-use wf_core::overleaf_workshop::{cdn_pdf_url, parse_overleaf_meta};
+use wf_core::overleaf_workshop::{cdn_pdf_url, parse_overleaf_meta, pdf_domain_allowed};
 
 use crate::safe_error::transport_log_line;
 
@@ -22,8 +22,14 @@ const MAX_HTTP_RETRIES: u32 = 2;
 const MAX_DOWNLOAD_ROUNDS: usize = 100;
 /// Upper bound on PDF bytes kept across download rounds.
 const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
+/// The message for a compile that names a PDF host outside the allowlist.
+const HOST_REFUSED: &str = "Overleaf named a PDF host that is not allowed.";
 /// The message for a PDF download that stopped before its end.
 const INCOMPLETE: &str = "Overleaf sent an incomplete PDF.";
+/// The message for an HTTP client that could not be built.
+const CLIENT_FAILED: &str = "Could not set up the Overleaf client on the relay.";
+/// The message for a request body that could not be encoded.
+const BODY_FAILED: &str = "Could not build the Overleaf request.";
 /// The message for a JSON reply that carries no body (HTTP 204).
 const EMPTY_REPLY: &str = "Overleaf sent an empty response.";
 /// The message for a project list reply without a `projects` array.
@@ -51,7 +57,11 @@ impl OverleafApi {
         let client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .build()
-            .map_err(|err| unreached(&err))?;
+            .map_err(|_| {
+                // A local setup fault (TLS backend), not Overleaf being unreachable.
+                eprintln!("[{CONTEXT}] client build failed");
+                CLIENT_FAILED.to_string()
+            })?;
         let base = if base.ends_with('/') {
             base.to_string()
         } else {
@@ -146,7 +156,16 @@ impl OverleafApi {
             server.filter(|server| !server.is_empty()),
         ) {
             (Some(domain), Some(server)) => {
-                let cdn = cdn_pdf_url(domain, url, group, server);
+                // The domain comes from Overleaf's reply: fetch only allowlisted hosts.
+                if !pdf_domain_allowed(domain, &self.base) {
+                    eprintln!("[{CONTEXT}] pdf host refused");
+                    return Err(HOST_REFUSED.to_string());
+                }
+                // Build from the parsed origin the check saw, never the raw string.
+                let origin = ::url::Url::parse(domain)
+                    .map(|parsed| parsed.origin().ascii_serialization())
+                    .map_err(|_| HOST_REFUSED.to_string())?;
+                let cdn = cdn_pdf_url(&origin, url, group, server);
                 self.download(&cdn, None).await
             }
             _ => {
@@ -210,7 +229,7 @@ impl OverleafApi {
                         Value::from(identity.csrf_token.as_str()),
                     );
                 }
-                let bytes = serde_json::to_vec(&payload).map_err(|err| err.to_string())?;
+                let bytes = serde_json::to_vec(&payload).map_err(|_| BODY_FAILED.to_string())?;
                 self.client
                     .post(url)
                     .header(CONTENT_TYPE, "application/json")

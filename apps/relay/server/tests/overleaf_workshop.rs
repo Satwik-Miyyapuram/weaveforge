@@ -528,3 +528,39 @@ async fn pdf_truncated_download_is_502_not_200() {
     assert_eq!(status, StatusCode::BAD_GATEWAY);
     assert_eq!(error_of(&reply), "Overleaf sent an incomplete PDF.");
 }
+
+#[tokio::test]
+async fn pdf_on_a_host_outside_the_allowlist_is_502_without_a_fetch() {
+    // A live host off the allowlist (`localhost`, not the 127.0.0.1 base) that would serve a PDF.
+    let other = serve(vec![(
+        "/build/output.pdf",
+        vec![response(200, &[], b"%PDF-1.4 evil")],
+    )])
+    .await;
+    let evil = json!({
+        "status": "success",
+        "compileGroup": "g",
+        "clsiServerId": "s1",
+        "pdfDownloadDomain": format!("http://localhost:{}", other.port),
+        "outputFiles": [{"path": "output.pdf", "url": "/build/output.pdf"}]
+    })
+    .to_string();
+    let up = upstream(vec![
+        (TABLE, vec![row_reply()]),
+        (COMPILE, vec![json_reply(200, &evil)]),
+        (
+            "/build/output.pdf",
+            vec![response(200, &[], b"%PDF-1.4 test")],
+        ),
+    ])
+    .await;
+    let req = request("POST", &format!("{PREFIX}/pdf"), &work_body(), true);
+    let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(
+        error_of(&reply),
+        "Overleaf named a PDF host that is not allowed."
+    );
+    assert!(calls(&up, "/build/output.pdf").is_empty());
+    assert!(other.seen().is_empty());
+}
