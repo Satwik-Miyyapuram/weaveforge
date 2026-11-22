@@ -88,7 +88,11 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
             if (!entry.path.endsWith(".annotations.json")) continue;
             const rows = typedCore().parseAnnotationsFile(await fs.readText(entry.path));
             const paperId = paperOfSidecar.get(entry.path) ?? null;
-            for (const row of rows) out.push({ ...row, paperId });
+            // The DB column page_index is top-level, but a file row keeps pageIndex only inside its anchor.
+            for (const row of rows) {
+              const anchorPage = (row.anchor as { pageIndex?: number } | null | undefined)?.pageIndex;
+              out.push({ ...row, paperId, pageIndex: Number(anchorPage ?? 0) });
+            }
           }
           return out;
         },

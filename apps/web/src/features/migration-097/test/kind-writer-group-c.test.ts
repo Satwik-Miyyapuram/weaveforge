@@ -58,6 +58,26 @@ test("annotations: a written row is listed back with the carried fields", async 
   assert.deepEqual(pick(back[0]!), pick(row));
 });
 
+test("annotations: readBack derives the top-level pageIndex from the anchor (DB column shape)", async () => {
+  const { writer } = fresh();
+  const row = {
+    id: "ann-page",
+    paperId: "p9",
+    paperFile: "proj/papers/p.paper.md",
+    type: "highlight",
+    color: "#0000ff",
+    text: "page three",
+    comment: "",
+    tags: [],
+    anchor: { pageIndex: 3 },
+    sortIndex: "0003",
+    pageIndex: 3,
+  };
+  await writer.write("annotations", row);
+  const back = await writer.readBack("annotations");
+  assert.equal(back.length, 1);
+  assert.equal(back[0]!.pageIndex, 3);
+});
 test("annotationPins: a written row is listed back on the carried fields", async () => {
   const { writer } = fresh();
   const row = { paperId: "p1", annotationKey: "k1", reportSectionId: "s1" };
