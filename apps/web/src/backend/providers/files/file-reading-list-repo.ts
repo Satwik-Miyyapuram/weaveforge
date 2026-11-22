@@ -143,9 +143,10 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
     return (await this.memberships()).unreadable;
   }
 
-  /** The 0.9.6 leftovers of a list: members that are not items (conflicting, unresolved or pending). */
-  async legacyLeftovers(listId: string): Promise<ReadingListLegacyLeftover[]> {
-    return (await this.memberships()).leftovers.filter((l) => l.listId === listId);
+  /** The 0.9.6 leftovers: members that are not items (conflicting, unresolved or pending). All lists when no id is given. */
+  async legacyLeftovers(listId?: string): Promise<ReadingListLegacyLeftover[]> {
+    const { leftovers } = await this.memberships();
+    return listId === undefined ? leftovers : leftovers.filter((l) => l.listId === listId);
   }
 
   async find(listId: string, paperId: string): Promise<ReadingListItem | null> {

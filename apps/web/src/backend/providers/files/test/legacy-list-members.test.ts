@@ -247,3 +247,10 @@ test("one list that cannot be migrated stays legacy; the other lists still migra
   assert.deepEqual(readMemberFields(await fs.readText(P2)).lists, [LINK2]);
   assert.doesNotMatch(await fs.readText(LIST2), /^members:/m);
 });
+
+test("legacyLeftovers with no list id gives every list's leftovers, so the screen can show them", async () => {
+  const fs = await setup();
+  await migrateLegacyLists(fs, () => ROOT);
+  const repo = new FileReadingListItemRepository(fs, () => ROOT);
+  assert.deepEqual((await repo.legacyLeftovers()).map((l) => l.legacyLink), ["[[Ghost.paper]]"]);
+});

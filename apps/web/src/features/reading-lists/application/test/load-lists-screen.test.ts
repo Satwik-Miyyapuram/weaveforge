@@ -27,3 +27,25 @@ test("the lists screen reports none when the repository has no unreadable papers
   const data = await useCase.execute();
   assert.deepEqual(data.unreadablePaths, []);
 });
+
+test("the lists screen reports the legacy leftovers the list repository holds", async () => {
+  const leftovers = [{ listId: "l1", state: "unresolved" as const, legacyLink: "[[Ghost.paper]]" }];
+  const useCase = new LoadReadingListsScreenUseCase({
+    lists: { list: async () => [], getById: async () => null } as unknown as IReadingListRepository,
+    papers: { list: async () => [] } as unknown as IPaperRepository,
+    notes: { list: async () => [] } as unknown as IVaultPageRepository,
+    listItems: { legacyLeftovers: async () => leftovers } as unknown as IReadingListItemRepository,
+  });
+  const data = await useCase.execute();
+  assert.deepEqual(data.legacyLeftovers, leftovers);
+});
+
+test("the lists screen reports no legacy leftovers when the repository has none", async () => {
+  const useCase = new LoadReadingListsScreenUseCase({
+    lists: { list: async () => [], getById: async () => null } as unknown as IReadingListRepository,
+    papers: { list: async () => [] } as unknown as IPaperRepository,
+    notes: { list: async () => [] } as unknown as IVaultPageRepository,
+  });
+  const data = await useCase.execute();
+  assert.deepEqual(data.legacyLeftovers, []);
+});

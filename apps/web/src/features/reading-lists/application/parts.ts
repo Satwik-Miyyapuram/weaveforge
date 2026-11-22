@@ -14,6 +14,7 @@ import {
   type PaperFieldValueData,
   type ReadingList,
   type ReadingListItem,
+  type ReadingListLegacyLeftover,
   type ReadingListTreeNode,
   type VaultPage,
 } from "@weaveforge/core";
@@ -144,6 +145,8 @@ export interface ReadingListsScreenData {
   listCanComment: Map<string, boolean>;
   /** Workspace paths whose list membership could not be read; the screen says so. */
   unreadablePaths: string[];
+  /** 0.9.6 members that are not items (conflicting, unresolved or pending); the screen lists them. */
+  legacyLeftovers: ReadingListLegacyLeftover[];
 }
 
 export class LoadReadingListsScreenUseCase {
@@ -159,11 +162,12 @@ export class LoadReadingListsScreenUseCase {
   ) {}
 
   async execute(): Promise<ReadingListsScreenData> {
-    const [owned, papers, notes, unreadablePaths] = await Promise.all([
+    const [owned, papers, notes, unreadablePaths, legacyLeftovers] = await Promise.all([
       this.deps.lists.list(),
       this.deps.papers.list(),
       this.deps.notes.list(),
       this.deps.listItems?.unreadablePaths?.() ?? Promise.resolve<string[]>([]),
+      this.deps.listItems?.legacyLeftovers?.() ?? Promise.resolve<ReadingListLegacyLeftover[]>([]),
     ]);
 
     const merged = await loadPinnedScreenData(this.deps, {
@@ -183,6 +187,7 @@ export class LoadReadingListsScreenUseCase {
       pinnedSharedBy: merged.pinnedSharedBy,
       listCanComment: merged.canComment,
       unreadablePaths,
+      legacyLeftovers,
     };
   }
 }
