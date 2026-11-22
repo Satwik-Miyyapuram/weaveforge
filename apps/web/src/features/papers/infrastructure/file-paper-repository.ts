@@ -10,6 +10,12 @@ import { ConflictError, isSafeWorkspacePath } from "@weaveforge/core";
 import { typedCore } from "@/lib/rust-core";
 import { moveToTrash } from "@/lib/workspace-trash";
 
+/** A paper file's `relations` (outgoing, `to` a `[[link]]` or id) and custom `fields`. */
+export interface PaperExtras {
+  relations: { to: string; type: string; [key: string]: unknown }[];
+  fields: Record<string, unknown>;
+}
+
 /** A paper file as read from the folder. */
 interface PaperFileRead {
   path: string;
@@ -127,6 +133,31 @@ export class FilePaperRepository implements IPaperRepository {
 
   async setTags(id: string, tags: string[], updatedAt: string): Promise<void> {
     await this.write(id, (current) => current && { ...toRow(current), tags: [...tags], updatedAt }, false);
+  }
+
+  /** Every paper's `relations` and `fields` frontmatter (Rust `paperExtrasFromFile`). */
+  async listExtras(): Promise<{ paperId: string; extras: PaperExtras }[]> {
+    const core = typedCore();
+    return (await this.readAll()).map((read) => ({ paperId: read.paper.id, extras: core.paperExtrasFromFile(read.text) }));
+  }
+
+  /**
+   * Rewrites paper `id`'s `relations` and/or `fields` to what `change` returns from
+   * the current ones; every other key and the body are kept. False when no file
+   * holds the paper. Re-reads and re-applies when the file changed under it.
+   */
+  async updateExtras(
+    id: string,
+    change: (current: PaperExtras) => Partial<PaperExtras> | Promise<Partial<PaperExtras>>,
+  ): Promise<boolean> {
+    const core = typedCore();
+    for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt += 1) {
+      const read = await this.findById(id);
+      if (!read) return false;
+      const text = core.writePaperExtras(read.text, await change(core.paperExtrasFromFile(read.text)));
+      if (text === read.text || (await this.writeIf(read.path, text, read.text))) return true;
+    }
+    throw new ConflictError(`Paper ${id} kept changing on disk; not saved.`);
   }
 
   async replaceSummary(

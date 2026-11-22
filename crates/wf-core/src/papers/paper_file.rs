@@ -112,6 +112,9 @@ pub enum PaperFileError {
     NotAPaper(String),
     /// The file is from a newer app (`wf` above [`FORMAT_VERSION`]).
     ReadOnly(u64),
+    /// A key the write would replace holds a value the app cannot read (kept as
+    /// typed); replacing it would lose that text. Names the key.
+    Unreadable(String),
 }
 
 impl fmt::Display for PaperFileError {
@@ -120,6 +123,10 @@ impl fmt::Display for PaperFileError {
             Self::NoFrontmatter => write!(f, "The file has no frontmatter."),
             Self::NotAPaper(kind) => write!(f, "The file is a {kind}, not a paper."),
             Self::ReadOnly(wf) => write!(f, "The file is format wf: {wf}, newer than this app."),
+            Self::Unreadable(key) => write!(
+                f,
+                "The file's `{key}` cannot be read; fix it by hand first."
+            ),
         }
     }
 }
@@ -272,6 +279,76 @@ pub fn write_paper_row(
     Ok(render_paper_file(&file))
 }
 
+/// A paper's outgoing `relations` and custom `fields` (by field id).
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct PaperExtras {
+    /// `relations`, in file order.
+    #[serde(default)]
+    pub relations: Vec<RelationRef>,
+    /// `fields`; empty when the file has none or holds a non-object there.
+    #[serde(default)]
+    pub fields: Map<String, Value>,
+}
+
+/// What [`write_paper_extras`] replaces: a `None` part is left as it is.
+#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+pub struct ExtrasChange {
+    /// The new `relations`; empty removes the key.
+    #[serde(default)]
+    pub relations: Option<Vec<RelationRef>>,
+    /// The new `fields`; empty removes the key.
+    #[serde(default)]
+    pub fields: Option<Map<String, Value>>,
+}
+
+/// The paper's [`PaperExtras`].
+#[must_use]
+pub fn paper_extras(file: &PaperFile) -> PaperExtras {
+    let fields = match file.values.get("fields") {
+        Some(Value::Object(map)) => map.clone(),
+        _ => Map::new(),
+    };
+    PaperExtras {
+        relations: file.relations.clone(),
+        fields,
+    }
+}
+
+/// Writes the parts `change` names into `existing`, keeping the body, every other
+/// key and the line ends. An empty change leaves a file this app wrote unchanged.
+///
+/// # Errors
+///
+/// A parse error of `existing`; [`PaperFileError::ReadOnly`] for a newer file;
+/// [`PaperFileError::Unreadable`] when `relations` is replaced but the file holds
+/// a `relations` entry the app cannot read.
+pub fn write_paper_extras(existing: &str, change: &ExtrasChange) -> Result<String, PaperFileError> {
+    let mut file = parse_paper_file(existing)?;
+    if file.is_read_only() {
+        return Err(PaperFileError::ReadOnly(file.wf));
+    }
+    if let Some(relations) = &change.relations {
+        if file
+            .unknown
+            .iter()
+            .any(|raw| entry_key(raw) == Some("relations"))
+        {
+            return Err(PaperFileError::Unreadable("relations".to_owned()));
+        }
+        file.relations.clone_from(relations);
+    }
+    if let Some(fields) = &change.fields {
+        if fields.is_empty() {
+            let _ = file.values.shift_remove("fields");
+        } else {
+            let _ = file
+                .values
+                .insert("fields".to_owned(), Value::Object(fields.clone()));
+        }
+    }
+    Ok(render_paper_file(&file))
+}
+
 /// Reads one entry the app owns into `paper`. False when the key is not owned or
 /// the value cannot be read, so the caller keeps the entry as unknown.
 fn apply_entry(paper: &mut PaperFile, key: &str, entry: &str) -> Result<bool, PaperFileError> {
@@ -317,7 +394,7 @@ fn apply_entry(paper: &mut PaperFile, key: &str, entry: &str) -> Result<bool, Pa
 
 /// The value of a one-entry frontmatter block: one line of JSON, or else what the
 /// YAML-subset reader makes of it (plain scalars and block lists a person typed).
-fn entry_value(key: &str, entry: &str) -> Option<Value> {
+pub(crate) fn entry_value(key: &str, entry: &str) -> Option<Value> {
     let first = entry.lines().next().unwrap_or_default();
     let rest = first.get(key.len() + 1..).unwrap_or_default().trim();
     let one_line = entry.lines().skip(1).all(|line| line.trim().is_empty());
@@ -334,7 +411,7 @@ fn entry_value(key: &str, entry: &str) -> Option<Value> {
 }
 
 /// `---\n<head>---\n<body>`: the head (entries, each line ending in `\n`) and the body.
-fn split_frontmatter(text: &str) -> Option<(&str, &str)> {
+pub(crate) fn split_frontmatter(text: &str) -> Option<(&str, &str)> {
     let rest = text.strip_prefix("---\n")?;
     if let Some(body) = rest.strip_prefix("---\n") {
         return Some(("", body));
@@ -348,7 +425,7 @@ fn split_frontmatter(text: &str) -> Option<(&str, &str)> {
 
 /// Splits the head into entries: a top-level `key:` line plus the indented, list
 /// and blank lines after it. Lines before the first key form their own entry.
-fn entries(head: &str) -> Vec<String> {
+pub(crate) fn entries(head: &str) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     for line in head.split_inclusive('\n') {
         match out.last_mut() {
@@ -361,7 +438,7 @@ fn entries(head: &str) -> Vec<String> {
 
 /// The key of a line that opens an entry: `key:` at column 0, followed by a space
 /// or the line end, with no spaces or quotes in the key.
-fn entry_key(line: &str) -> Option<&str> {
+pub(crate) fn entry_key(line: &str) -> Option<&str> {
     let first = line.lines().next()?;
     let (key, rest) = first.split_once(':')?;
     let plain = !key.is_empty()
@@ -371,7 +448,7 @@ fn entry_key(line: &str) -> Option<&str> {
 }
 
 /// `key: <one line of JSON>\n`.
-fn push_line(out: &mut String, key: &str, value: &Value) {
+pub(crate) fn push_line(out: &mut String, key: &str, value: &Value) {
     out.push_str(key);
     out.push_str(": ");
     out.push_str(&value.to_string());
