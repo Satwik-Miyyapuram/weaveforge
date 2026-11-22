@@ -40,11 +40,13 @@ const CHOICES: Record<Choice, [idle: string, busy: string, help: string]> = {
 /**
  * Where the saved remote points, for people: `owner/repo` on github.com,
  * host and path elsewhere. Drops any user name or token in the URL; null when
- * the URL does not parse.
+ * the URL does not parse or is an scp remote on a host other than github.com.
  */
 export function backupTarget(url: string): { label: string; href: string } | null {
-  // scp-style `git@host:owner/repo` becomes the https page of the same repository.
+  // scp-style `git@github.com:owner/repo` becomes its https page. Other scp hosts
+  // get no link: their web address for the repository is not known from the remote.
   const scp = /^[\w.-]+@([\w.-]+):(.+)$/.exec(url.trim());
+  if (scp && scp[1] !== "github.com") return null;
   let parsed: URL;
   try {
     parsed = new URL(scp ? `https://${scp[1]}/${scp[2]}` : url);

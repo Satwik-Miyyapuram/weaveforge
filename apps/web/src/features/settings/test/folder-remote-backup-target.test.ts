@@ -3,7 +3,7 @@
  *
  * Only http(s) remotes make a link, so a `javascript:` or `file:` remote can
  * never become an href. An scp-style remote (`git@host:owner/repo`) is shown
- * as its https page, which is where that host serves the repository.
+ * as its https page on github.com; other scp hosts get no link.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -22,10 +22,9 @@ test("F97-P2-5: an scp-style remote links to the https page of the same reposito
     label: "o/r",
     href: "https://github.com/o/r",
   });
-  assert.deepEqual(backupTarget("git@git.example.org:team/notes.git"), {
-    label: "git.example.org/team/notes",
-    href: "https://git.example.org/team/notes",
-  });
+  // A host other than github.com may not serve the repository over https at that
+  // path, so no link is guessed for it.
+  assert.equal(backupTarget("git@git.example.org:team/notes.git"), null);
 });
 
 test("F97-P2-5: credentials in an https remote are not carried into the link", () => {
