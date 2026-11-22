@@ -14,12 +14,25 @@ import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { loadCore } from "@/lib/rust-core";
 import { warnOnce } from "@/lib/error-report/parts";
 import { useAuth } from "@/features/auth/ui/auth-provider";
+import { readOrCreateInstallId } from "@/container/browser-install-id";
+import type { OpfsLike } from "@/features/migration-097/infrastructure/workspace-file-sink";
 import { desktop } from "./desktop-bridge";
 import { Migrate097Gate } from "./migrate-097-gate";
 
 /** Set once a web export verifies, so a finished browser does not run the export again. */
 export const WEB_EXPORTED_KEY = "weaveforge:web-097-exported";
-const DEVICE_KEY = "weaveforge:run-device-id";
+
+export type WebCore = Awaited<ReturnType<typeof loadCore>>;
+export type WebSession = Pick<WebUpgradeInputs, "baseUrl" | "userId" | "anonKey" | "accessToken">;
+
+/** Where loadWebInputs gets each input. Tests replace these; the app uses the defaults. */
+export interface WebInputSources {
+  loadCore: () => Promise<WebCore>;
+  makeCodec: (core: WebCore) => WebUpgradeInputs["codec"];
+  /** The OPFS root: the sink needs writeTextIf, which the port's optional IWorkspaceFs method does not promise. */
+  openFs: () => Promise<OpfsLike>;
+  session: () => Promise<WebSession | null>;
+}
 
 function readFlag(key: string): string | null {
   try {
@@ -37,37 +50,48 @@ function writeFlag(key: string, value: string): void {
   }
 }
 
-function runDeviceId(): string {
-  const existing = readFlag(DEVICE_KEY);
-  if (existing) return existing;
-  const id = globalThis.crypto?.randomUUID?.() ?? `dev-${Date.now()}`;
-  writeFlag(DEVICE_KEY, id);
-  return id;
-}
-
-/** Everything the web export needs, read from the signed-in session. Null when there is no session. */
-async function loadWebInputs(): Promise<WebUpgradeInputs | null> {
+/** The signed-in session's PostgREST base, anon key and live token. Null when there is no session. */
+async function readWebSession(): Promise<WebSession | null> {
   const config = readBackendConfig();
   const client = createDataClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
   const { data, error } = await client.auth.getSession();
   if (error) warnOnce("migrate-097-web", "reading the session failed; the upgrade will not run", error);
   const userId = data.session?.user?.id;
   if (!userId) return null;
-  const sink = workspaceFileSink(await BrowserWorkspaceFs.openOpfs());
-  // The core loads asynchronously; readyCore() throws until it does, so wait for it first.
-  const core = await loadCore();
   return {
     baseUrl: `${config.dataUrl ?? config.supabaseUrl ?? ""}/rest/v1`,
     userId,
     anonKey: config.supabaseAnonKey ?? "",
     accessToken: liveAccessToken(client),
+  };
+}
+
+const defaultWebInputSources: WebInputSources = {
+  loadCore,
+  makeCodec: (core) => wasmFileCodec(core, ""),
+  openFs: () => BrowserWorkspaceFs.openOpfs(),
+  session: readWebSession,
+};
+
+/**
+ * Everything the web export needs. Null when there is no session. The run id is the install id
+ * browserReportOk reads from the same OPFS root, so the report written here is the one it checks.
+ */
+export async function loadWebInputs(sources: WebInputSources = defaultWebInputSources): Promise<WebUpgradeInputs | null> {
+  // The core loads asynchronously; readyCore() throws until it does, so nothing touches it before.
+  const core = await sources.loadCore();
+  const session = await sources.session();
+  if (!session) return null;
+  const fs = await sources.openFs();
+  return {
+    ...session,
     fetch: globalThis.fetch.bind(globalThis),
-    sink,
-    codec: wasmFileCodec(core, ""),
+    sink: workspaceFileSink(fs),
+    codec: sources.makeCodec(core),
     kinds: MIGRATION_KINDS,
     pendingOutbox: webPendingOutbox,
     now: new Date().toISOString(),
-    runDeviceId: runDeviceId(),
+    runDeviceId: await readOrCreateInstallId(fs),
     onVerified: () => writeFlag(WEB_EXPORTED_KEY, "1"),
   };
 }
