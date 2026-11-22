@@ -189,6 +189,18 @@ local database. If you still have 0.8 data you need, open it in 0.9.3 (or an
 earlier 0.9 release) first, which brings it over once, and then update. The old data is
 never changed or deleted, so it stays where 0.8 left it.
 
+### Upgrading to 0.9.8 and 1.0.0
+
+Update to 0.9.7 first. 0.9.8 does not move old database data itself, so an
+older version is offered 0.9.7 before 0.9.8.
+
+- **0.9.8** removes the built-in database and the 0.9.7 upgrade tools. The
+  installer is smaller. If old database data is found that 0.9.7 never moved,
+  the app shows an **Install 0.9.7 first** screen and leaves that data untouched.
+- **1.0.0** is the first stable release. Everything in 0.9.8 is included. The
+  server no longer keeps personal notes, papers or other personal data; only
+  organisation, sharing and relay data stays on the server.
+
 ## A folder on your disk
 
 The desktop app can point WeaveForge at any folder you pick and keep it mirrored
