@@ -3,7 +3,7 @@
  * Verify ignores exactly these and compares every other server column. Keep
  * this list reviewed: a column added here stops being checked.
  */
-const OWNER_COLUMNS = ["userId", "project_id"] as const;
+const OWNER_COLUMNS = ["userId", "projectId"] as const;
 
 export const SERVER_ONLY_FIELDS: Readonly<Record<string, readonly string[]>> = {
   logEntries: OWNER_COLUMNS,

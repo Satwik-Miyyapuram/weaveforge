@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 import { REPORT_PATH } from "../domain/report";
+import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 import type { BlobRef, FileCodec, Row, ServerSource } from "../domain/ports";
 import { runWebExport } from "../application/run-web-export";
 import { verifyExport } from "../application/verify-export";
@@ -317,4 +318,21 @@ test("verify allow-list: an unlisted server column the file lacks is a mismatch"
   const verdict = await verifyExport({ kinds: ["experiments"], codec, source, sink });
   assert.equal(verdict.state, "incomplete");
   assert.ok(verdict.errors.some((e) => e.startsWith("experiments: decoded files differ")));
+});
+
+test("verify allow-list: the owner column arrives camelCased (projectId) and absent from the file still verifies", async () => {
+  // The PostgREST source camelCases every key, so the owner column is `projectId`, never `project_id`.
+  const rows = { experiments: [{ id: "e9", name: "Z", projectId: "p-1" }] };
+  const { source } = fakeServer({ rows });
+  const codec = codecDropping(["experiments"], ["projectId"]);
+  const sink = new MemorySink();
+  await runWebExport({ kinds: ["experiments"], codec, source, sink, now: NOW });
+  const verdict = await verifyExport({ kinds: ["experiments"], codec, source, sink });
+  assert.equal(verdict.state, "verified");
+});
+
+test("allow-list: every entry is camelCase, as toCamelRow produces", () => {
+  for (const [kind, columns] of Object.entries(SERVER_ONLY_FIELDS)) {
+    for (const column of columns) assert.doesNotMatch(column, /_/, `${kind}: ${column} is snake_case`);
+  }
 });
