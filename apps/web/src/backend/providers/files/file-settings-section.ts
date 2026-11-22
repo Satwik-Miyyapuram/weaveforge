@@ -21,7 +21,7 @@ function isSecretPathSegment(segment: string): boolean {
 }
 
 /** Object keys in a value are checked strictly, including any name ending in `key`. */
-function isSecretValueKey(name: string): boolean {
+export function isSecretValueKey(name: string): boolean {
   return (SECRET_FIELDS as readonly string[]).includes(name) || SECRET_WORD.test(name) || /key$/i.test(name);
 }
 
@@ -41,6 +41,13 @@ function hasSecretInValue(value: unknown): string | null {
     }
   }
   return null;
+}
+
+/** Throws when a write would put a credential in settings.json. Callers check every planned write before the first one. */
+export function assertNoSecret(key: readonly string[], value: unknown): void {
+  if (key.some(isSecretPathSegment) || hasSecretInValue(value) !== null) {
+    throw new Error(`Refusing to store a secret in settings.json (key "${key.join(".")}").`);
+  }
 }
 
 export interface FileSettingsSection extends SettingsSection {
@@ -87,42 +94,55 @@ export async function openFileSettingsSection(fs: IWorkspaceFs, root: string): P
     if (parsed) {
       data = parsed;
     } else {
-      const badName = `settings.json.bad-${new Date().toISOString().replace(/[:.]/g, "-")}`;
-      await fs.rename(path, `${dir}/${badName}`);
-      notice = `Unreadable settings moved aside as ${badName} (starting empty)`;
+      notice = `Unreadable settings moved aside as ${await moveAside(fs, dir, path)} (starting empty)`;
     }
   }
 
+  const readRaw = async (): Promise<string | null> => ((await fs.stat(path)) ? fs.readText(path) : null);
+
+  /** What a write applies to: the file as it is on disk, or the session's values when the file is missing or corrupt. */
+  const load = async (): Promise<{ raw: string | null; doc: Json }> => {
+    const raw = await readRaw();
+    const parsed = raw === null ? null : parseObject(raw);
+    if (parsed) return { raw, doc: parsed };
+    if (raw !== null) notice = `Unreadable settings moved aside as ${await moveAside(fs, dir, path)} (kept this session's values)`;
+    return { raw: raw === null ? null : await readRaw(), doc: structuredClone(data) };
+  };
+
   /**
-   * One write at a time per file, across every handle in this process. Each write re-reads the file,
-   * applies its own change to what is on disk, and writes it back, so a write never drops another's key.
+   * Re-reads and re-applies, up to MAX_WRITE_TRIES, when another writer changed settings.json between this
+   * write's read and its rename. The rename is then done only on a file that was unchanged since the read.
+   */
+  const commit = async (apply: (doc: Json) => void): Promise<void> => {
+    for (let attempt = 1; attempt <= MAX_WRITE_TRIES; attempt++) {
+      const { raw, doc } = await load();
+      apply(doc);
+      await fs.mkdirp(dir);
+      await fs.writeFile(partPath, `${JSON.stringify(doc, null, 2)}\n`);
+      if ((await readRaw()) !== raw) continue;
+      await fs.rename(partPath, path);
+      return;
+    }
+    throw new Error(`settings.json was changed by another writer on every try (gave up after ${MAX_WRITE_TRIES})`);
+  };
+
+  /**
+   * One write at a time per file, across every handle in this process. The in-memory `data` is already
+   * updated by `set`; this only puts the change on disk. It is not replaced by what was read, so a later
+   * queued set is never lost.
    */
   const persist = (keys: readonly string[], apply: (doc: Json) => void): Promise<void> => {
     const prev = writeQueues.get(path) ?? Promise.resolve();
-    const next = prev
-      .then(async () => {
-        const doc = await readOnDisk();
-        apply(doc);
-        await fs.mkdirp(dir);
-        await fs.writeFile(partPath, `${JSON.stringify(doc, null, 2)}\n`);
-        await fs.rename(partPath, path);
-        data = doc;
-      })
-      .catch((error: unknown) => {
-        // Key names and the error name only: a value may be a credential or a private note.
-        console.error("settings.json save failed", {
-          keys: keys.join("."),
-          error: error instanceof Error ? error.name : "unknown",
-        });
-        throw error;
+    const next = prev.then(() => commit(apply)).catch((error: unknown) => {
+      // Key names and the error name only: a value may be a credential or a private note.
+      console.error("settings.json save failed", {
+        keys: keys.join("."),
+        error: error instanceof Error ? error.name : "unknown",
       });
+      throw error;
+    });
     writeQueues.set(path, next.catch(() => undefined));
     return next;
-  };
-
-  const readOnDisk = async (): Promise<Json> => {
-    if (!(await fs.stat(path))) return {};
-    return parseObject(await fs.readText(path)) ?? data;
   };
 
   return {
@@ -135,17 +155,39 @@ export async function openFileSettingsSection(fs: IWorkspaceFs, root: string): P
       return structuredClone(node);
     },
     set(key, value) {
-      if (key.some(isSecretPathSegment) || hasSecretInValue(value) !== null) {
-        throw new Error(`Refusing to store a secret in settings.json (key "${key.join(".")}").`);
-      }
+      assertNoSecret(key, value);
+      const previous = readAt(data, key);
       setAt(data, key, structuredClone(value));
-      return persist(key, (doc) => setAt(doc, key, structuredClone(value)));
+      return persist(key, (doc) => setAt(doc, key, structuredClone(value))).catch((error: unknown) => {
+        // The write did not reach disk: the in-memory value goes back to what was committed.
+        setAt(data, key, previous);
+        throw error;
+      });
     },
     flush() {
       return persist([], () => undefined);
     },
     notice,
   };
+}
+
+/** Tries per write before giving up when another writer keeps changing settings.json. */
+const MAX_WRITE_TRIES = 3;
+
+/** Renames a corrupt settings.json to `settings.json.bad-<ts>` and returns the new name. */
+async function moveAside(fs: IWorkspaceFs, dir: string, path: string): Promise<string> {
+  const badName = `settings.json.bad-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  await fs.rename(path, `${dir}/${badName}`);
+  return badName;
+}
+
+function readAt(root: Json, key: readonly string[]): unknown {
+  let node: unknown = root;
+  for (const part of key) {
+    if (!isObject(node)) return undefined;
+    node = node[part];
+  }
+  return structuredClone(node);
 }
 
 /** The write chain per settings.json path, shared by every section opened on that path in this process. */
