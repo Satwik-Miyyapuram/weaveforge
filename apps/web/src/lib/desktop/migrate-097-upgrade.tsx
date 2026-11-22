@@ -47,16 +47,19 @@ export async function runUpgrade(
   }
 }
 
-/** Path of the shell's report for a folder, shown as selectable text. */
-export function upgradeReportPath(folder: string): string {
+/**
+ * The migration folder that holds the 0.9.7 reports, shown as selectable text. Each device's own
+ * report file is inside it, so this screen does not name one (it does not know this device's id).
+ */
+export function upgradeReportFolder(folder: string): string {
   const sep = folder.includes("\\") ? "\\" : "/";
-  return [folder.replace(/[\\/]+$/, ""), ".weaveforge", "migration-0.9.7", "report.json"].join(sep);
+  return [folder.replace(/[\\/]+$/, ""), ".weaveforge", "migration-0.9.7"].join(sep);
 }
 
 export type UpgradeBodyProps = {
   phase: UpgradePhase;
   progress: Record<string, UpgradeKindProgress>;
-  reportPath: string;
+  reportFolder: string;
   /** Kind names the exporter could not move; listed when the run stopped. */
   missing?: string[];
   copied: boolean;
@@ -69,7 +72,7 @@ export type UpgradeBodyProps = {
 export function Migrate097UpgradeBody({
   phase,
   progress,
-  reportPath,
+  reportFolder,
   missing = [],
   copied,
   onCopy,
@@ -98,10 +101,10 @@ export function Migrate097UpgradeBody({
       <p>The upgrade did not finish. Your old data is untouched.</p>
       {missing.length > 0 ? <p>{`Not moved yet: ${missing.join(", ")}.`}</p> : null}
       <p>
-        Report: <code style={{ userSelect: "text", WebkitUserSelect: "text" }}>{reportPath}</code>
+        Report folder: <code style={{ userSelect: "text", WebkitUserSelect: "text" }}>{reportFolder}</code>
       </p>
       <Button variant="secondary" onClick={onCopy}>
-        {copied ? "Copied" : "Copy report path"}
+        {copied ? "Copied" : "Copy report folder"}
       </Button>
       <ModalActions>
         <Button variant="secondary" onClick={onKeepOld}>
@@ -170,7 +173,7 @@ export function Migrate097Upgrade({
 
   async function copyPath() {
     try {
-      await navigator.clipboard.writeText(upgradeReportPath(folder));
+      await navigator.clipboard.writeText(upgradeReportFolder(folder));
       setCopied(true);
     } catch {
       setCopied(false);
@@ -181,7 +184,7 @@ export function Migrate097Upgrade({
     <Migrate097UpgradeView
       phase={phase}
       progress={progress}
-      reportPath={upgradeReportPath(folder)}
+      reportFolder={upgradeReportFolder(folder)}
       missing={missing}
       copied={copied}
       onCopy={copyPath}
