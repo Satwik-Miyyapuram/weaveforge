@@ -1,0 +1,102 @@
+import type { IWorkspaceFs } from "@weaveforge/core";
+import type { SettingsSection } from "./file-tag-repo";
+
+/** The credential fields of the `Secrets` type (features/settings/infrastructure/parts.ts). */
+const SECRET_FIELDS = ["zoteroApiKey", "semanticScholarKey", "integrations"] as const;
+
+/** Words that mark a credential anywhere in a name. `auth(?!or)` keeps `author` and `authors` (paper metadata) legal. */
+const SECRET_WORD = /secret|token|password|credential|bearer|cookie|refresh|session|auth(?!or)|api.?key|private.?key/i;
+
+/** Path segments are settings names or user ids (paperId, annotationKey). Only fixed names are checked here. */
+function isSecretPathSegment(segment: string): boolean {
+  return (SECRET_FIELDS as readonly string[]).includes(segment) || SECRET_WORD.test(segment);
+}
+
+/** Object keys in a value are checked strictly, including any name ending in `key`. */
+function isSecretValueKey(name: string): boolean {
+  return (SECRET_FIELDS as readonly string[]).includes(name) || SECRET_WORD.test(name) || /key$/i.test(name);
+}
+
+function hasSecretInValue(value: unknown): string | null {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = hasSecretInValue(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (isObject(value)) {
+    for (const [name, child] of Object.entries(value)) {
+      if (isSecretValueKey(name)) return name;
+      const found = hasSecretInValue(child);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+export interface FileSettingsSection extends SettingsSection {
+  /** Resolves once every `set` so far is on disk. Rejects if the write failed. */
+  flush(): Promise<void>;
+}
+
+type Json = Record<string, unknown>;
+
+function isObject(v: unknown): v is Json {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
+/**
+ * Reads `<root>/.weaveforge/settings.json` once, keeps it in memory, and writes it back on every `set`.
+ * Each write goes to `settings.json.part` first and is renamed over the real file, so a crash mid-write
+ * keeps the old file. A missing file starts empty; an unreadable one throws so a later save cannot wipe it.
+ */
+export async function openFileSettingsSection(fs: IWorkspaceFs, root: string): Promise<FileSettingsSection> {
+  const dir = `${root}/.weaveforge`;
+  const path = `${dir}/settings.json`;
+  const partPath = `${path}.part`;
+  let data: Json = {};
+  if (await fs.stat(path)) {
+    const parsed: unknown = JSON.parse(await fs.readText(path));
+    if (!isObject(parsed)) throw new Error(`${path} is not a JSON object.`);
+    data = parsed;
+  }
+
+  let queue: Promise<void> = Promise.resolve();
+  const persist = () => {
+    const next = queue.then(async () => {
+      await fs.mkdirp(dir);
+      await fs.writeFile(partPath, `${JSON.stringify(data, null, 2)}\n`);
+      await fs.rename(partPath, path);
+    });
+    queue = next.catch(() => undefined);
+    return next;
+  };
+
+  return {
+    get(key) {
+      let node: unknown = data;
+      for (const part of key) {
+        if (!isObject(node)) return undefined;
+        node = node[part];
+      }
+      return structuredClone(node);
+    },
+    set(key, value) {
+      if (key.some(isSecretPathSegment) || hasSecretInValue(value) !== null) {
+        throw new Error(`Refusing to store a secret in settings.json (key "${key.join(".")}").`);
+      }
+      let node: Json = data;
+      for (const part of key.slice(0, -1)) {
+        if (!isObject(node[part])) node[part] = {};
+        node = node[part] as Json;
+      }
+      const last = key[key.length - 1];
+      if (last !== undefined) node[last] = structuredClone(value);
+      void persist().catch(() => undefined);
+    },
+    flush() {
+      return persist();
+    },
+  };
+}
