@@ -11,6 +11,7 @@ import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
 import { sha256Hex } from "../domain/hash";
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
+import { ID_SHAPE } from "@/container/browser-install-id";
 
 export type ExportProgress = { kind: string; done: number; total: number };
 
@@ -129,8 +130,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets, secretsPresent, runDeviceId } = opts;
   const target: MigrationTarget = desktop ? "folder" : "opfs";
 
-  // A browser run must name its install id; without it the run cannot be matched or verified later.
-  if (!desktop && runDeviceId === undefined) {
+  // A browser run must name a well-formed install id; without one the run cannot be matched or verified later.
+  if (!desktop && !ID_SHAPE.test(runDeviceId ?? "")) {
     return refused(sink, now, "no device id: the browser install id is missing", target);
   }
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));

@@ -13,7 +13,7 @@ import { unzipFiles, zipFiles } from "../infrastructure/zip";
 import { listAllPages } from "../infrastructure/paging";
 import { buildDownloadZip } from "../application/download-export";
 
-const WEB_ID = "web-me";
+const WEB_ID = "web-me-device";
 const NOW = "2026-11-22T00:00:00.000Z";
 const sha = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
 
@@ -495,6 +495,18 @@ test("web: a browser run with no runDeviceId is refused with 'no device id' befo
   assert.deepEqual(calls, [], "the server is not read without an install id");
   assert.deepEqual(await sink.list(), [], "a run without an id writes no file, report included");
 });
+
+for (const bad of ["", "../../etc", "bad id!"]) {
+  test(`web: a browser run with a malformed runDeviceId (${JSON.stringify(bad)}) is refused with 'no device id'`, async () => {
+    const sink = new MemorySink();
+    const { source, calls } = fakeServer({ rows: FIXTURE });
+    const result = await runWebExport({ runDeviceId: bad, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+    assert.equal(result.state, "incomplete");
+    assert.match(result.run.missing[0]?.reason ?? "", /no device id/);
+    assert.deepEqual(calls, [], "the server is not read with a malformed install id");
+    assert.deepEqual(await sink.list(), [], "a malformed id writes no file, report included");
+  });
+}
 
 test("desktop: a failed backup aborts the export: no server read, no write, no marker, no mark-exported", async () => {
   const { source, calls } = fakeServer({ rows: FIXTURE });
@@ -1151,7 +1163,7 @@ test("runs: a run replaces this device's entry and keeps another device's entry,
     deviceId: "dev-other",
   };
   const sink = new MemorySink();
-  const stale: RunReport = { ...other, deviceId: "web-me", startedAt: "2026-11-02T00:00:00.000Z" };
+  const stale: RunReport = { ...other, deviceId: WEB_ID, startedAt: "2026-11-02T00:00:00.000Z" };
   await sink.write(REPORT_PATH, JSON.stringify({ version: 1, state: "incomplete", backup: null, runs: [other, stale] }));
   const { source } = fakeServer({ rows: FIXTURE });
   const exportOnce = () =>
@@ -1161,7 +1173,7 @@ test("runs: a run replaces this device's entry and keeps another device's entry,
   const first = (JSON.parse(await sink.readText(REPORT_PATH)) as { runs: RunReport[] }).runs;
   assert.equal(first.length, 2);
   assert.deepEqual(first[0], other);
-  assert.equal(first[1]?.deviceId, "web-me");
+  assert.equal(first[1]?.deviceId, WEB_ID);
   assert.equal(first[1]?.startedAt, NOW);
 
   await exportOnce();

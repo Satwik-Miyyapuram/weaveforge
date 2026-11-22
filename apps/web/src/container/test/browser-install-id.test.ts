@@ -77,6 +77,36 @@ test("the id is written to a temp file and renamed into place", async () => {
   assert.equal(fs.files.has(`${INSTALL_ID_PATH}.part`), false);
 });
 
+/** A lock manager that runs each request after the previous one finishes, as navigator.locks does. */
+function serialisingLocks() {
+  let tail: Promise<unknown> = Promise.resolve();
+  return {
+    request<T>(_name: string, callback: () => Promise<T>): Promise<T> {
+      const run = tail.then(() => callback());
+      tail = run.catch(() => undefined);
+      return run;
+    },
+  };
+}
+
+test("with navigator.locks, two concurrent calls are serialised and both return the same id", async () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", { value: { locks: serialisingLocks() }, configurable: true });
+  try {
+    const fs = folder();
+    const [a, b] = await Promise.all([
+      readOrCreateInstallId(fs, () => "web-lock-a"),
+      readOrCreateInstallId(fs, () => "web-lock-b"),
+    ]);
+    assert.equal(a, "web-lock-a");
+    assert.equal(b, "web-lock-a");
+    assert.equal(fs.files.get(INSTALL_ID_PATH), "web-lock-a");
+  } finally {
+    if (original) Object.defineProperty(globalThis, "navigator", original);
+    else Reflect.deleteProperty(globalThis, "navigator");
+  }
+});
+
 test("two tabs creating an id at once both return the id that ended up stored", async () => {
   const fs = folder({}, "web-other-tab-id");
   const id = await readOrCreateInstallId(fs, () => "web-this-tab-id");
