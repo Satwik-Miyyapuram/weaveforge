@@ -7,6 +7,10 @@ export type BlobRef = { bucket: string; path: string; sha256: string };
 /** Server side of the export. Real PostgREST wiring is a later step; tests use fakes. */
 export interface ServerSource {
   listRows(kind: string): Promise<Row[]>;
+  /** Raw server count for the kind (HEAD, Prefer: count=exact). Cross-checks listRows. */
+  countRows(kind: string): Promise<number>;
+  /** Unflushed local writes. Non-zero means the export must refuse to run. */
+  pendingOutbox(): Promise<number>;
   listBlobs(): Promise<BlobRef[]>;
   fetchBlob(ref: BlobRef): Promise<Uint8Array>;
   /** Sets profiles.exported_097_at. Called only after a verified export. */

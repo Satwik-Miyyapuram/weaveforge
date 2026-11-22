@@ -7,6 +7,7 @@ import { runWebExport } from "../application/run-web-export";
 import { verifyExport } from "../application/verify-export";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { unzipFiles, zipFiles } from "../infrastructure/zip";
+import { listAllPages } from "../infrastructure/paging";
 
 const NOW = "2026-11-22T00:00:00.000Z";
 const sha = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
@@ -25,6 +26,8 @@ function fakeServer(opts: {
   rows: Record<string, Row[]>;
   blobs?: { ref: BlobRef; bytes: Uint8Array }[];
   failKind?: string;
+  rawCounts?: Record<string, number>;
+  outbox?: number;
 }) {
   const calls: string[] = [];
   const source: ServerSource = {
@@ -33,6 +36,11 @@ function fakeServer(opts: {
       if (kind === opts.failKind) throw new Error("connection reset");
       return opts.rows[kind] ?? [];
     },
+    countRows: async (kind) => {
+      calls.push(`count:${kind}`);
+      return opts.rawCounts?.[kind] ?? (opts.rows[kind] ?? []).length;
+    },
+    pendingOutbox: async () => opts.outbox ?? 0,
     listBlobs: async () => (opts.blobs ?? []).map((b) => b.ref),
     fetchBlob: async (ref) => {
       calls.push(`blob:${ref.path}`);
@@ -193,4 +201,33 @@ test("verify is strict: a file missing from the sink makes state incomplete", as
   });
   assert.equal(verdict.state, "incomplete");
   assert.equal(verdict.kinds.experiments?.files, 0);
+});
+
+test("raw server count above the exported rows gives incomplete (short source list)", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE, rawCounts: { logEntries: 3 } });
+  const sink = new MemorySink();
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+
+  assert.equal(result.state, "incomplete");
+  assert.ok(result.run.errors.some((e) => e.includes("raw count")));
+  assert.equal(calls.some((c) => c.startsWith("mark:")), false);
+});
+
+test("pending outbox refuses the export: state none, nothing written, no marker", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE, outbox: 2 });
+  const sink = new MemorySink();
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+
+  assert.equal(result.state, "none");
+  assert.deepEqual(await sink.list(), []);
+  assert.equal(calls.some((c) => c.startsWith("list:") || c.startsWith("mark:")), false);
+});
+
+test("listAllPages reads past the 1000-row PostgREST cap until an empty page", async () => {
+  const total = Array.from({ length: 2500 }, (_, i) => i);
+  const fetchPage = async (offset: number, limit: number) =>
+    total.slice(offset, offset + Math.min(limit, 1000));
+  const all = await listAllPages(fetchPage);
+  assert.equal(all.length, 2500);
+  assert.deepEqual(all, total);
 });

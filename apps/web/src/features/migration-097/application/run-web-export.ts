@@ -32,9 +32,19 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const written: Record<string, number> = {};
   const missing: MissingRow[] = [];
 
+  // Refuse before touching anything: unflushed writes would make the export stale.
+  if ((await source.pendingOutbox()) > 0) {
+    return {
+      state: "none",
+      run: { startedAt: now, finishedAt: now, sources: ["server"], kinds: {}, blobs: { db: 0, verified: 0 }, missing: [], errors: ["outbox not empty: flush before export"] },
+    };
+  }
+
   try {
     for (const kind of kinds) {
       const rows = await source.listRows(kind);
+      const raw = await source.countRows(kind);
+      if (raw !== rows.length) errors.push(`${kind}: raw count ${raw} != exported ${rows.length}`);
       written[kind] = 0;
       if (!codec.supports(kind)) {
         for (const row of rows) missing.push({ kind, id: String(row.id), reason: "no wf-wasm codec" });
