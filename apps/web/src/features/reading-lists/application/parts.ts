@@ -1,3 +1,4 @@
+import { type AppLogInput, logToApp } from "@/lib/error-report/app-log";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import {
   type AiWriteProposal,
@@ -14,6 +15,7 @@ import {
   type PaperFieldValueData,
   type ReadingList,
   type ReadingListItem,
+  type ReadingListLegacyLeftover,
   type ReadingListTreeNode,
   type VaultPage,
 } from "@weaveforge/core";
@@ -144,6 +146,8 @@ export interface ReadingListsScreenData {
   listCanComment: Map<string, boolean>;
   /** Workspace paths whose list membership could not be read; the screen says so. */
   unreadablePaths: string[];
+  /** 0.9.6 members that are not items (conflicting, unresolved or pending); the screen lists them. */
+  legacyLeftovers: ReadingListLegacyLeftover[];
 }
 
 export class LoadReadingListsScreenUseCase {
@@ -155,15 +159,32 @@ export class LoadReadingListsScreenUseCase {
       listItems?: IReadingListItemRepository;
       pins?: ILibraryPinRepository;
       shares?: IShareRepository;
+      report?: (input: AppLogInput) => void;
     },
   ) {}
 
+  /** A failed leftover read shows none and is logged, so the lists still load. */
+  private async legacyLeftovers(): Promise<ReadingListLegacyLeftover[]> {
+    try {
+      return (await this.deps.listItems?.legacyLeftovers?.()) ?? [];
+    } catch (error) {
+      (this.deps.report ?? logToApp)({
+        level: "warn",
+        source: "reading-lists",
+        message: "Legacy list members could not be read; the lists screen shows none.",
+        detail: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
+
   async execute(): Promise<ReadingListsScreenData> {
-    const [owned, papers, notes, unreadablePaths] = await Promise.all([
+    const [owned, papers, notes, unreadablePaths, legacyLeftovers] = await Promise.all([
       this.deps.lists.list(),
       this.deps.papers.list(),
       this.deps.notes.list(),
       this.deps.listItems?.unreadablePaths?.() ?? Promise.resolve<string[]>([]),
+      this.legacyLeftovers(),
     ]);
 
     const merged = await loadPinnedScreenData(this.deps, {
@@ -183,6 +204,7 @@ export class LoadReadingListsScreenUseCase {
       pinnedSharedBy: merged.pinnedSharedBy,
       listCanComment: merged.canComment,
       unreadablePaths,
+      legacyLeftovers,
     };
   }
 }

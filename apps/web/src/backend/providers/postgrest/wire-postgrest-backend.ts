@@ -396,16 +396,21 @@ export function wirePostgrestBackend(
     { resourceType: "reading_list" },
   );
   const readingListItemRepository = cacheRepo(
-    rustRepository<IReadingListItemRepository>(db, "reading_list_items", [
-      "listItems",
-      "listItemsForLists",
-      "listsForPaper",
-      "listsForNote",
-      "find",
-      "findNote",
-      "add",
-      "remove",
-    ] as (keyof IReadingListItemRepository & string)[]),
+    {
+      ...rustRepository<IReadingListItemRepository>(db, "reading_list_items", [
+        "listItems",
+        "listItemsForLists",
+        "listsForPaper",
+        "listsForNote",
+        "find",
+        "findNote",
+        "add",
+        "remove",
+      ] as (keyof IReadingListItemRepository & string)[]),
+      // Files-only reads: the PostgREST backend has no unreadable files or legacy leftovers.
+      unreadablePaths: async () => [],
+      legacyLeftovers: async () => [],
+    },
     ["listItems", "listItemsForLists", "listsForPaper", "find"],
     ["add", "remove"],
     pid,

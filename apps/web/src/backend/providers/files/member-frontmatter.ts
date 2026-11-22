@@ -70,14 +70,23 @@ function parseJson(raw: string): unknown {
   }
 }
 
-/** A scalar: a double- or single-quoted one, with an optional trailing comment; a quoted one that does not parse is unreadable; anything else is its own text (`- [[L]]`, `- reading # note`) without the comment. */
-function scalarAt(raw: string): unknown {
+const LITERAL = /^(?:-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null)$/;
+
+/**
+ * A scalar: a double- or single-quoted one, with an optional trailing comment; a quoted one that does not
+ * parse is unreadable. In a list item an unquoted number, bool or null parses as JSON, so it is refused
+ * rather than read as link text; a list-notes value of one stays its text. Otherwise a `#` comment is
+ * dropped only after a closing `]]` (`- [[L]] # note`, never inside `[[My #x note]]`), in list items and
+ * note values alike.
+ */
+function scalarAt(raw: string, listItem: boolean): unknown {
   const dq = /^("(?:[^"\\]|\\.)*")\s*(?:#.*)?$/.exec(raw);
   if (dq) return parseJson(dq[1]!);
   const sq = /^'((?:[^']|'')*)'\s*(?:#.*)?$/.exec(raw);
   if (sq) return sq[1]!.replace(/''/g, "'");
   if (raw.startsWith('"') || raw.startsWith("'")) return UNREADABLE;
-  return raw.replace(/\s+#.*$/, "").trim();
+  if (listItem && LITERAL.test(raw)) return JSON.parse(raw);
+  return (/^(.*\]\])\s+#.*$/.exec(raw)?.[1] ?? raw).trim();
 }
 
 const ITEM = /^\s*-\s+(.*)$/;
@@ -102,7 +111,7 @@ function parseBlock(body: readonly string[]): Block | null {
   if (body.every((line) => ITEM.test(line))) {
     const items: BlockItem[] = [];
     for (const line of body) {
-      const value = scalarAt(ITEM.exec(line)![1]!.trim());
+      const value = scalarAt(ITEM.exec(line)![1]!.trim(), true);
       if (typeof value !== "string") return null;
       items.push({ line, id: value, value });
     }
@@ -113,7 +122,7 @@ function parseBlock(body: readonly string[]): Block | null {
     for (const line of body) {
       const [, rawKey, rawValue] = PAIR.exec(line)!;
       const id = rawKey!.startsWith('"') ? parseJson(rawKey!) : rawKey!;
-      const value = scalarAt(rawValue!.trim());
+      const value = scalarAt(rawValue!.trim(), false);
       if (typeof id !== "string" || typeof value !== "string") return null;
       items.push({ line, id, value });
     }

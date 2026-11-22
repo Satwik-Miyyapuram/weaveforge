@@ -213,6 +213,8 @@ export interface IReadingListItemRepository {
   findNote(listId: string, vaultPageId: string): Promise<ReadingListItem | null>;
   /** Workspace paths whose membership value could not be read, so their memberships are left out. Optional: stores without files have none. */
   unreadablePaths?(): Promise<string[]>;
+  /** The 0.9.6 leftovers (members that are not items), of one list or of all lists. Optional: stores without legacy files have none. */
+  legacyLeftovers?(listId?: string): Promise<ReadingListLegacyLeftover[]>;
   add(item: ReadingListItem): Promise<void>;
   remove(id: string): Promise<void>;
 }

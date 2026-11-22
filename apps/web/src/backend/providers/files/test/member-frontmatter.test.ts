@@ -99,3 +99,32 @@ test("a block item may carry a trailing comment or a single-quoted value", () =>
   const text = "---\nlists:\n  - '[[review--l1.list]]' # reading now\n  - [[other--l2.list]] # later\n---\nBody\n";
   assert.deepEqual(readMemberFields(text).lists, ["[[review--l1.list]]", "[[other--l2.list]]"]);
 });
+
+test("removing a link listed twice drops both copies", () => {
+  const text = `---\nlists: ["${L}", "${M}", "${L}"]\n---\nBody\n`;
+  assert.deepEqual(readMemberFields(removeListMembership(text, L)).lists, [M]);
+});
+
+test("an unquoted number, bool or null block item is refused, never read as link text", () => {
+  for (const item of ["4", "true", "null"]) {
+    const text = `---\nlists:\n  - ${item}\n---\nBody\n`;
+    assert.throws(() => readMemberFields(text), Error, `- ${item} must not read as a list link`);
+  }
+});
+
+test("a # comment is dropped only after a closing ]] in a list item, never in a note value", () => {
+  const text = `---\nlists:\n  - ${L} # kept elsewhere\n  - see issue #4\n  - [[My #x note]]\nlist-notes:\n  ${L}: see issue #4\n---\nBody\n`;
+  const fields = readMemberFields(text);
+  assert.deepEqual(fields.lists, [L, "see issue #4", "[[My #x note]]"]);
+  assert.deepEqual(fields.listNotes, { [L]: "see issue #4" });
+});
+
+test("a list-notes value that is a number or bool stays text, so its key still reads", () => {
+  const text = `---\nlists:\n  - ${L}\n  - ${M}\nlist-notes:\n  ${L}: 2024\n  ${M}: true\n---\nBody\n`;
+  assert.deepEqual(readMemberFields(text), { lists: [L, M], listNotes: { [L]: "2024", [M]: "true" } });
+});
+
+test("a list-notes value drops a # comment only after a closing ]], as a list item does", () => {
+  const text = `---\nlists:\n  - ${L}\nlist-notes:\n  ${L}: [[Note A]] # keep out\n---\nBody\n`;
+  assert.deepEqual(readMemberFields(text).listNotes, { [L]: "[[Note A]]" });
+});
