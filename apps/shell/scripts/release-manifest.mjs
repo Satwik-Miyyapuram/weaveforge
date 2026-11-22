@@ -1,4 +1,4 @@
-// The desktop release manifest (`latest.json`) that the shell's updater reads,
+// The desktop release manifest (`latest-v2.json`) that the shell's updater reads,
 // in Tauri v2's static format. Shared by write-latest-json.mjs (writes it) and
 // check-release-assets.mjs (checks a published release against it).
 
@@ -9,7 +9,11 @@ export const PRODUCT = "WeaveForge";
 /** Tauri updater platform key -> the arch Tauri writes into the NSIS file name. */
 export const PLATFORMS = { "windows-x86_64": "x64", "windows-aarch64": "arm64" };
 /** The manifest's file name on a release. */
-export const MANIFEST_NAME = "latest.json";
+export const MANIFEST_NAME = "latest-v2.json";
+/** The bridge manifest 0.9.6 and older clients read; pinned to BRIDGE_VERSION from 0.9.8 on. */
+export const LEGACY_MANIFEST_NAME = "latest.json";
+/** The last release that keeps latest.json; 0.9.6 clients update to it first. */
+export const BRIDGE_VERSION = "0.9.7";
 
 const TAG = /^v(\d+\.\d+\.\d+)$/;
 
@@ -80,4 +84,14 @@ export function cargoCrateVersion(cargoText) {
   if (/^version\.workspace\s*=\s*true/m.test(section[1])) return INHERITED;
   const match = /^version\s*=\s*"([^"]+)"/m.exec(section[1]);
   return match ? match[1] : null;
+}
+
+/** Compares `X.Y.Z` strings: negative when a < b, 0 when equal, positive when a > b. */
+export function compareVersions(a, b) {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    if (pa[i] !== pb[i]) return pa[i] - pb[i];
+  }
+  return 0;
 }

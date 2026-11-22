@@ -29,6 +29,7 @@ test("triggers on desktop tags only", () => {
 test("signs with the updater key and publishes a pre-release", () => {
   assert.match(workflow, /TAURI_SIGNING_PRIVATE_KEY: \$\{\{ secrets\.TAURI_SIGNING_PRIVATE_KEY \}\}/);
   assert.match(workflow, /write-latest-json\.mjs "\$TAG" dist/);
+  assert.match(workflow, /gh release download v0\.9\.7 --pattern latest\.json --dir bridge/);
   assert.match(workflow, /gh release create "\$TAG" --verify-tag --prerelease /);
   assert.doesNotMatch(workflow, /--latest/);
 });
@@ -38,4 +39,11 @@ test("CI bundles without the updater key; the release never does", () => {
   assert.doesNotMatch(workflow, /tauri\.unsigned\.json/);
   const unsigned = JSON.parse(readFileSync(`${root}apps/shell/tauri.unsigned.json`, "utf8"));
   assert.equal(unsigned.bundle.createUpdaterArtifacts, false);
+});
+
+test("the updater reads latest-v2.json; 0.9.6 clients keep reading the latest.json bridge", () => {
+  const conf = JSON.parse(readFileSync(`${root}apps/shell/tauri.conf.json`, "utf8"));
+  const endpoints = conf.plugins.updater.endpoints;
+  assert.equal(endpoints.length, 1);
+  assert.match(endpoints[0], /\/releases\/latest\/download\/latest-v2\.json$/);
 });

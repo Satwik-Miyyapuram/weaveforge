@@ -156,9 +156,19 @@ jobs:
           path: dist
           merge-multiple: true
 
+      # Later releases keep latest.json at the 0.9.7 bridge; fetch it from v0.9.7.
+      - name: Fetch the 0.9.7 bridge manifest
+        if: env.TAG != 'v0.9.7'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download v0.9.7 --pattern latest.json --dir bridge
+
       # Fails if a .sig is missing or the tag differs from tauri.conf.json.
-      - name: Write latest.json
-        run: node apps/shell/scripts/write-latest-json.mjs "$TAG" dist
+      - name: Write latest-v2.json and latest.json
+        run: |
+          bridge=""
+          if [ "$TAG" != "v0.9.7" ]; then bridge="bridge/latest.json"; fi
+          node apps/shell/scripts/write-latest-json.mjs "$TAG" dist $bridge
 
       - name: Release notes from CHANGELOG
         run: |
