@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { BackendConfig } from "../../backend/parts";
+import { DeviceSecretsStore } from "../../backend/providers/local/parts";
 import type { VaultFileBridge } from "../../features/workspace/infrastructure/parts";
 import { wireBackend } from "../parts";
 import { wireDesktopFileBackend } from "../desktop-file-backend";
@@ -15,6 +16,26 @@ const config = {
 } as BackendConfig;
 
 const settings = { load: async () => ({}), save: async () => {} } as never;
+
+/** Credentials in an in-memory keychain: this machine has no OS keychain under test. */
+function keychainSecrets() {
+  const entries = new Map<string, string>();
+  return new DeviceSecretsStore(
+    async () => {
+      throw new Error("no local database in files mode");
+    },
+    {
+      read: async (key) => entries.get(key) ?? null,
+      write: async (key, text) => {
+        entries.set(key, text);
+      },
+      clear: async (key) => {
+        entries.delete(key);
+      },
+    },
+    async () => {},
+  );
+}
 
 /** An in-memory vault: what the shell would write to disk, keyed by path. Text and bytes share one store. */
 function memoryVault() {
@@ -79,7 +100,7 @@ test("with the overlay on, a settings write lands in the file repo and PostgREST
   const backend = wireBackend(config, { projectId: null }, () => null, {
     migration: "verified",
     onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, recorded),
+    wireDesktopFileBackend: wireDesktopFileBackend(bridge, recorded, keychainSecrets()),
   });
   const dbCalls: string[] = [];
   const realFrom = backend.db.from.bind(backend.db);
@@ -103,7 +124,7 @@ test("with the overlay on, a credential save never reaches the database client",
   const backend = wireBackend(config, { projectId: null }, () => null, {
     migration: "verified",
     onDesktop: true,
-    wireDesktopFileBackend: wireDesktopFileBackend(bridge, section),
+    wireDesktopFileBackend: wireDesktopFileBackend(bridge, section, keychainSecrets()),
   });
   const dbCalls: string[] = [];
   backend.db.from = (table: string) => {
