@@ -16,6 +16,6 @@ test("vector store has no localStore() that runs a local query", () => {
 });
 
 test("no-account branch is a no-op store, not a local one", () => {
-  assert.match(source, /const own = isLocalMode\(\) \? noStore : idbStore;/);
+  assert.match(source, /const own = isLocalMode\(\) && !activeWorkspaceFs\(\) \? noStore : idbStore;/);
   assert.match(source, /const noStore: VectorStore = \{/);
 });
