@@ -119,16 +119,8 @@ export class PostgrestSource implements ServerSource {
     return new Uint8Array(await res.arrayBuffer());
   }
 
-  async markExported(at: string): Promise<void> {
-    const url = `${this.opts.baseUrl}/profiles?user_id=eq.${this.opts.userId}`;
-    await this.request(
-      url,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ exported_097_at: at }),
-        extra: { "Content-Type": "application/json", Prefer: "return=minimal" },
-      },
-      "profiles",
-    );
+  /** The server function sets the marker for auth.uid(); no body, so the run time is not sent. */
+  async markExported(_at: string): Promise<void> {
+    await this.request(`${this.opts.baseUrl}/rpc/mark_exported_097`, { method: "POST" }, "rpc/mark_exported_097");
   }
 }

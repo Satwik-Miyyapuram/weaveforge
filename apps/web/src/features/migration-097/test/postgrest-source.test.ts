@@ -97,7 +97,7 @@ test("countRows throws when content-range has no total", async () => {
   await assert.rejects(() => sourceWith(fetch).countRows("logEntries"), /content-range/);
 });
 
-test("markExported sends PATCH only when called, with URL and body", async () => {
+test("markExported calls rpc/mark_exported_097 with POST and no body, only when called", async () => {
   const { fetch, calls } = fakeFetch(() => new Response(null, { status: 204 }));
   const source = sourceWith(fetch);
   assert.equal(calls.length, 0);
@@ -105,11 +105,9 @@ test("markExported sends PATCH only when called, with URL and body", async () =>
   assert.equal(calls.length, 1);
   const call = calls[0];
   assert.ok(call);
-  assert.equal(call.method, "PATCH");
-  assert.equal(call.url, `${BASE}/profiles?user_id=eq.${USER}`);
-  assert.equal(call.headers.get("content-type"), "application/json");
-  assert.equal(call.headers.get("prefer"), "return=minimal");
-  assert.equal(call.body, JSON.stringify({ exported_097_at: NOW }));
+  assert.equal(call.method, "POST");
+  assert.equal(call.url, `${BASE}/rpc/mark_exported_097`);
+  assert.ok(!call.body, "no body: the server function sets the row for auth.uid()");
 });
 
 test("markExported throws on non-2xx", async () => {
