@@ -10,7 +10,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -73,6 +73,10 @@ test("ratchet ignores unrelated imports", () => {
 
 test("ratchet ignores a mention inside a comment", () => {
   assert.equal(importsLocalDb(`// was: import { LocalRunner } from "./parts";\n/* PGlite removed */\nexport const x = 1;`), false);
+});
+
+test("the local migrator module is removed from core (0.9.8 has no local database)", () => {
+  assert.equal(existsSync(join(ROOT, "packages", "core", "src", "database", "migrations.ts")), false);
 });
 
 test("the core runtime barrel does not export applyMigrations (the local migrator)", () => {
