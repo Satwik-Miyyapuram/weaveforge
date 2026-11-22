@@ -55,7 +55,7 @@ export async function openBrowserFileWiring(): Promise<BrowserFileWiring> {
   return wireBrowserFiles(await BrowserWorkspaceFs.openOpfs());
 }
 
-/** True only when the OPFS folder holds a clean verified 0.9.7 export. Any failure reads as false. */
+/** True only when the OPFS folder holds a clean verified 0.9.7 export. Any failure reads as false. The browser has no device id, so its own run is the one with none. */
 export async function browserReportOk(): Promise<boolean> {
   try {
     return await browserReportVerified(await BrowserWorkspaceFs.openOpfs());

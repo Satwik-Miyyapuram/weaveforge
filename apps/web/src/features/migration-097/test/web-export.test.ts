@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
-import { REPORT_PATH, readMigrationReport, writesOff, type RunReport } from "../domain/report";
+import { REPORT_PATH, browserReportVerified, readMigrationReport, type RunReport } from "../domain/report";
 import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 import type { BlobRef, FileCodec, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
@@ -1173,15 +1173,7 @@ test("zip-only export: the zip never writes a verified report, so the browser wr
   const sink = new MemorySink();
   const zip = await buildDownloadZip(sink);
   assert.equal(unzipFiles(zip).has(REPORT_PATH), false);
-  assert.equal(writesOff(null), false);
-});
-
-test("writesOff: only a verified report with target opfs switches the browser writes off", () => {
-  assert.equal(writesOff({ state: "verified", target: "opfs" }), true);
-  assert.equal(writesOff({ state: "verified", target: "folder" }), false);
-  assert.equal(writesOff({ state: "incomplete", target: "opfs" }), false);
-  assert.equal(writesOff({ state: "verified" }), false);
-  assert.equal(writesOff(undefined), false);
+  assert.equal(await browserReportVerified(sink), false);
 });
 
 test("readMigrationReport: an absent report gives null", async () => {
@@ -1211,8 +1203,10 @@ test("readMigrationReport: the report the web export writes reads back and switc
   assert.ok(report);
   assert.equal(report.state, "verified");
   assert.equal(report.target, "opfs");
+  assert.equal(report.runs[0]?.state, "verified", "the run carries its own state");
+  assert.equal(report.runs[0]?.target, "opfs", "the run carries its own target");
   assert.deepEqual(report, JSON.parse(await sink.readText(REPORT_PATH)));
-  assert.equal(writesOff(report), true);
+  assert.equal(await browserReportVerified(sink), true);
 });
 
 const TRASH_ROW = { id: "t1", body: "gone", deleted_at: "2026-11-01T00:00:00.000Z" };

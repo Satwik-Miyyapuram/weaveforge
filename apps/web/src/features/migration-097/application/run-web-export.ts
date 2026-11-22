@@ -79,6 +79,8 @@ async function refused(
     blobs: { db: 0, verified: 0 },
     missing: [{ kind: "*", id: "*", reason }],
     deviceId: extra.deviceId,
+    state: "incomplete",
+    target,
   };
   await writeReport(sink, { version: 1, state: "incomplete", backup: extra.backup ?? null, deviceId: extra.deviceId, target, runs: [run] });
   return { state: "incomplete", run };
@@ -165,6 +167,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       blobs: { db: 0, verified: 0 },
       missing: [{ kind: "outbox", id: "*", reason }],
       deviceId,
+      state: "incomplete",
+      target,
     };
     await writeReport(sink, { version: 1, state: "incomplete", backup: dumpName, deviceId, target, runs: [run] });
     return { state: "incomplete", run };
@@ -189,6 +193,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         blobs: { db: 0, verified: 0 },
         missing: [{ kind: "*", id: "*", reason: "export in progress" }],
         deviceId,
+        state: "incomplete",
+        target,
       },
     ],
   });
@@ -315,6 +321,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       blobs: { db: verdict.blobs.db, verified: verdict.blobs.verified },
       missing,
       deviceId,
+      state,
+      target,
     };
     const report: MigrationReport = {
       version: 1,

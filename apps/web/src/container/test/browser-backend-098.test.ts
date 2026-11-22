@@ -15,7 +15,7 @@ function reportFs(text: string | null) {
 }
 
 test("browser report is verified only when opfs, verified and no run misses a row", async () => {
-  const ok = JSON.stringify({ state: "verified", target: "opfs", runs: [{ kinds: {}, missing: [] }] });
+  const ok = JSON.stringify({ state: "verified", target: "opfs", runs: [{ kinds: {}, missing: [], state: "verified", target: "opfs" }] });
   assert.equal(await browserReportVerified(reportFs(ok)), true);
   const missing = JSON.stringify({ state: "verified", target: "opfs", runs: [{ missing: ["p-1"] }] });
   assert.equal(await browserReportVerified(reportFs(missing)), false);
@@ -64,6 +64,8 @@ test("unknown legacy state fails closed to export first, even with a verified re
 const cleanRun = {
   kinds: { notes: { db: 2, files: 2, written: 2, conflicts: [], trash: 0 } },
   missing: [],
+  state: "verified",
+  target: "opfs",
 };
 const verifiedReport = (runs: unknown) => JSON.stringify({ state: "verified", target: "opfs", runs });
 
