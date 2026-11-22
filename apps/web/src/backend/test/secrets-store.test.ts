@@ -111,12 +111,12 @@ describe("the offline credentials store", () => {
     const kept = new Map<string, string>();
     const attempts: string[] = [];
     const keychain: DeviceKeychain = {
-      read: async (key) => kept.get(key) ?? null,
-      write: async (key) => {
+      read: async (key: string) => kept.get(key) ?? null,
+      write: async (key: string) => {
         attempts.push(key);
         throw new KeychainUnavailableError();
       },
-      clear: async (key) => {
+      clear: async (key: string) => {
         kept.delete(key);
       },
     };
