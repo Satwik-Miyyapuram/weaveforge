@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
+import { getLiveSyncState, setLiveSyncState } from "@/features/offline-sync/domain/parts-1";
 import {
   createCycleRunner,
+  gatedCycleRunner,
   mayDriveDevice,
 } from "@/features/offline-sync/ui/sync-loop";
 import { loadTestCore } from "@/lib/test/load-test-core";
@@ -85,6 +87,26 @@ test("concurrent callers each settle, even though only one ran", async () => {
   first.release();
   await Promise.all([one, two]);
   assert.equal(started, 1, "and the dropped caller does not hang waiting for work it never did");
+});
+
+test("a folder that was unavailable once shows sync on again when a later cycle runs", async () => {
+  // The 3 s status timeout reads as blocked for one cycle; the display must
+  // follow the gate back on, not stay "off" while the cycle is running.
+  let allowed = false;
+  let runs = 0;
+  setLiveSyncState({ enabled: true, phase: "idle" });
+  const cycle = gatedCycleRunner(async () => {
+    runs += 1;
+  }, async () => allowed);
+
+  await cycle();
+  assert.equal(getLiveSyncState().enabled, false, "a blocked cycle shows sync off");
+  assert.equal(runs, 0);
+
+  allowed = true;
+  await cycle();
+  assert.equal(runs, 1);
+  assert.equal(getLiveSyncState().enabled, true, "a cycle that runs shows sync on");
 });
 
 test("only the account that owns the device may drive it", () => {

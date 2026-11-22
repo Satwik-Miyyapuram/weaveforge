@@ -97,6 +97,24 @@ export function createCycleRunner(run: () => Promise<void>): () => Promise<void>
   };
 }
 
+/**
+ * One sync cycle behind the migration gate, re-checked on every run (the folder
+ * can migrate to files while the loop runs). A blocked cycle shows sync off; a
+ * cycle that runs puts the display back on.
+ */
+export function gatedCycleRunner(
+  run: () => Promise<void>,
+  allowed: () => Promise<boolean> = syncAllowedHere,
+): () => Promise<void> {
+  return createCycleRunner(async () => {
+    const ran = await runCycleIfAllowed(allowed, async () => {
+      setLiveSyncState({ enabled: true, phase: "syncing" });
+      await run();
+    });
+    if (!ran) setLiveSyncState({ enabled: false, phase: "idle" });
+  });
+}
+
 /** Why a failure is worth a line: the message and, for an Error, its stack. */
 function failureDetail(err: unknown): string {
   return err instanceof Error ? (err.stack ?? `${err.name}: ${err.message}`) : String(err);
@@ -313,21 +331,16 @@ function startSync(): (() => void) | undefined {
     };
 
     let lastRun = 0;
-    const cycle = createCycleRunner(async () => {
-      // Re-checked every cycle: the folder can migrate to files while the loop runs.
-      const ran = await runCycleIfAllowed(syncAllowedHere, async () => {
-        lastRun = Date.now();
-        setLiveSyncState({ phase: "syncing" });
-        await syncOnce({
-          cycle: () => engine.cycle(),
-          settle,
-          setState: setLiveSyncState,
-          online: () => typeof navigator === "undefined" || navigator.onLine,
-          log: logSyncFailure,
-        });
-        void updateConflicts();
+    const cycle = gatedCycleRunner(async () => {
+      lastRun = Date.now();
+      await syncOnce({
+        cycle: () => engine.cycle(),
+        settle,
+        setState: setLiveSyncState,
+        online: () => typeof navigator === "undefined" || navigator.onLine,
+        log: logSyncFailure,
       });
-      if (!ran) setLiveSyncState({ enabled: false, phase: "idle" });
+      void updateConflicts();
     });
 
     const unregisterTrigger = registerSyncTrigger(() => void cycle());
