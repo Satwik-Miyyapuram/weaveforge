@@ -133,3 +133,35 @@ test("defs carry their project, so two projects' same-named fields stay separate
   assert.equal(settings.get(["paperFields", a.id, "projectId"]), ROOT);
   await assert.rejects(mine.setValue({ paperId: "a", fieldId: b.id, value: "x" }), NotFoundError);
 });
+
+test("deleteDef skips a definition that belongs to another project", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const settings = new MemorySettings();
+  const papers = new FilePaperRepository(fs, ROOT);
+  const mine = new FilePaperFieldRepository(papers, settings, fs, () => ROOT);
+  const other = new FilePaperFieldRepository(papers, settings, fs, () => `${ROOT}/other`);
+  const b = def({ name: "Venue" });
+  await other.saveDef(b);
+  await mine.deleteDef(b.id);
+  assert.deepEqual(await other.listDefs(), [b]);
+  assert.equal(settings.get(["paperFields", b.id, "projectId"]), `${ROOT}/other`);
+});
+
+test("moving a project folder rewrites its defs' projectId; another project's defs stay", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const settings = new MemorySettings();
+  const papers = new FilePaperRepository(fs, ROOT);
+  const mine = new FilePaperFieldRepository(papers, settings, fs, () => ROOT);
+  const other = new FilePaperFieldRepository(papers, settings, fs, () => `${ROOT}/other`);
+  const a = def({ name: "Venue" });
+  const b = def({ name: "Venue" });
+  await mine.saveDef(a);
+  await other.saveDef(b);
+
+  await mine.moveProjectFolder(ROOT, "thesis-final");
+
+  assert.equal(settings.get(["paperFields", a.id, "projectId"]), "thesis-final");
+  assert.equal(settings.get(["paperFields", b.id, "projectId"]), `${ROOT}/other`);
+  const moved = new FilePaperFieldRepository(papers, settings, fs, () => "thesis-final");
+  assert.deepEqual(await moved.listDefs(), [a]);
+});

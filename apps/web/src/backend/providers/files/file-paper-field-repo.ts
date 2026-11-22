@@ -60,9 +60,21 @@ export class FilePaperFieldRepository implements IPaperFieldRepository {
     return Promise.resolve();
   }
 
-  /** Drops the definition; papers keep their values in the file, unlisted. */
+  /** Drops the definition; papers keep their values in the file, unlisted. A definition of another project is left alone. */
   deleteDef(id: string): Promise<void> {
-    this.settings.set([DEFS, id], undefined);
+    if (this.defs().has(id)) this.settings.set([DEFS, id], undefined);
+    return Promise.resolve();
+  }
+
+  /** Re-tags this project's definitions when its folder moves from `from` to `to`; other projects' are left alone. */
+  moveProjectFolder(from: string, to: string): Promise<void> {
+    const raw = this.settings.get([DEFS]);
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return Promise.resolve();
+    for (const [id, d] of Object.entries(raw as Record<string, Record<string, unknown>>)) {
+      if (d && typeof d === "object" && (typeof d.projectId === "string" ? d.projectId : "") === from) {
+        this.settings.set([DEFS, id, "projectId"], to);
+      }
+    }
     return Promise.resolve();
   }
 
