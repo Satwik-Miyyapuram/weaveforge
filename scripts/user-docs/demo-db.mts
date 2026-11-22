@@ -15,8 +15,8 @@ import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import { LOCAL_USER_ID, applyMigrations } from "@weaveforge/core";
-import { LOCAL_BOOTSTRAP_SQL } from "@/backend/test/local-bootstrap-sql";
-import { readyCore } from "@/lib/rust-core";
+import { LOCAL_BOOTSTRAP_SQL } from "../../apps/web/src/backend/test/local-bootstrap-sql";
+import { readyCore } from "../../apps/web/src/lib/rust-core";
 import { DEMO_PARSERS, localQuery } from "./demo-query.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -70,8 +70,11 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
   return realFetch(input, init);
 }) as typeof fetch;
 
-const { loadLocalDemoWorkspace } = await import("@/features/showcase/application/load-local-demo");
-const { projectId } = await loadLocalDemoWorkspace();
+// The showcase seed (load-local-demo) was removed with the local database, so this
+// build cannot seed a project. Fail loudly until the docs demo is rebuilt on the new design.
+const projectId: string = (() => {
+  throw new Error("demo-db: load-local-demo is gone; the local-DB demo build is retired");
+})();
 
 mkdirSync(OUT, { recursive: true });
 
