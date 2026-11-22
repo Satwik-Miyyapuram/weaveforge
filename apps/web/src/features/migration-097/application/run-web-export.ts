@@ -57,29 +57,36 @@ export type DesktopMigration = {
  * read as a report (not JSON, or no runs array). A null is never merged over.
  */
 async function readExistingRuns(sink: FileSink): Promise<RunReport[] | null> {
-  // A failed listing reads as no report, as before; the verify step reports the failed listing itself.
-  let listed: string[];
+  // A failed listing does not prove there is no report: read report.json directly before deciding.
+  let listed: string[] | null = null;
   try {
     listed = await sink.list();
   } catch {
-    return [];
+    // Falls through to the direct read.
   }
-  if (!listed.includes(REPORT_PATH)) return [];
+  if (listed !== null && !listed.includes(REPORT_PATH)) return [];
   try {
     const parsed = JSON.parse(await sink.readText(REPORT_PATH)) as Partial<MigrationReport>;
     if (Array.isArray(parsed.runs)) return parsed.runs;
   } catch {
-    // Falls through: unreadable.
+    // Falls through: unreadable or absent.
   }
   return null;
 }
 
 /** Moves an unreadable report.json to report.json.bad, or .bad.N when that name is taken. Nothing is overwritten. */
-async function moveAside(sink: FileSink): Promise<void> {
-  const taken = new Set(await sink.list());
+async function moveAside(sink: FileSink): Promise<boolean> {
+  // Without a listing there is no safe free name, so nothing is moved and false says so.
+  let taken: Set<string>;
+  try {
+    taken = new Set(await sink.list());
+  } catch {
+    return false;
+  }
   let bad = `${REPORT_PATH}.bad`;
   for (let n = 2; taken.has(bad); n++) bad = `${REPORT_PATH}.bad.${n}`;
   await sink.rename(REPORT_PATH, bad);
+  return true;
 }
 
 /**
@@ -90,8 +97,8 @@ async function writeReport(sink: FileSink, report: MigrationReport): Promise<voi
   const existing = await readExistingRuns(sink);
   let runs = report.runs;
   if (existing === null) {
-    // Unreadable: kept aside, never merged over. The export refuses before writing, so this is only a race.
-    await moveAside(sink);
+    // Unreadable: kept aside, never merged over. If it cannot be kept aside, it is left as it is and not replaced.
+    if (!(await moveAside(sink))) return;
   } else {
     const device = report.runs[0]?.deviceId;
     runs = [...existing.filter((r) => r.deviceId !== device), ...report.runs];

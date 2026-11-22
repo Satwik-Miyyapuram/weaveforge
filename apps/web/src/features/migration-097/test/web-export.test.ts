@@ -774,10 +774,12 @@ test("verify listing throw: a missing entry and an incomplete report, no marker"
   };
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
-  assert.ok(result.run.missing.some((m) => m.reason === "verify-failed"));
+  // A failed listing with no readable report.json is refused before any write: it cannot be told apart from an unreadable report.
+  assert.ok(result.run.missing.some((m) => m.reason === "report unreadable"));
   assert.equal(JSON.stringify(result.run.missing).includes("sink listing failed"), false);
-  const report = JSON.parse(await sink.readText(REPORT_PATH));
-  assert.equal(report.state, "incomplete");
+  // Nothing is written over a report that may exist, so no report is written at all.
+  const names = await MemorySink.prototype.list.call(sink);
+  assert.equal(names.includes(REPORT_PATH), false);
   assert.deepEqual(
     calls.filter((c) => c.startsWith("mark:")),
     [],
