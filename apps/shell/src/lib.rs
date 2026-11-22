@@ -361,19 +361,17 @@ fn start_resume_097(app: &tauri::AppHandle) {
     let folder = std::path::PathBuf::from(&root.path);
     let pg_root = native_root(&data);
     let now = vault::iso_utc(std::time::SystemTime::now());
-    let log = app.clone();
-    let _resume = tauri::async_runtime::spawn_blocking(move || {
-        let pid_file = pg_root.join("data").join("postmaster.pid");
-        let mut alive_check = || match migrate_097::remove::live_postmaster(&pid_file) {
-            Some(running) => Err(format!("refused: postgres still running ({running})")),
-            None => Ok(()),
-        };
-        if let Err(reason) =
-            migrate_097::remove::resume_on_launch(&folder, &pg_root, &device, &now, &mut alive_check)
-        {
-            local_api::warn(&log, &format!("0.9.7 removal not resumed: {reason}"));
-        }
-    });
+    // Synchronous on purpose: start_local_db runs next and must see the finished (or refused) resume.
+    let pid_file = pg_root.join("data").join("postmaster.pid");
+    let mut alive_check = || match migrate_097::remove::live_postmaster(&pid_file) {
+        Some(running) => Err(format!("refused: postgres still running ({running})")),
+        None => Ok(()),
+    };
+    if let Err(reason) =
+        migrate_097::remove::resume_on_launch(&folder, &pg_root, &device, &now, &mut alive_check)
+    {
+        local_api::warn(app, &format!("0.9.7 removal not resumed: {reason}"));
+    }
 }
 
 /// Stops the folder watch and the handwriting helper before the process exits.
@@ -480,10 +478,15 @@ fn start_local_db(app: &tauri::AppHandle) {
         (Ok(data), Ok(resources)) => {
             let source = launch::app_source(resources.clone());
             // After a 0.9.7 removal the cluster stays gone: no start, so no restore from backups.
-            let native = if let Some(reason) =
-                migrate_097::remove::start_refusal(migrate_097::remove::old_db_removed(&native_root(&data)))
-            {
-                Err(reason.to_owned())
+            let pg_root = native_root(&data);
+            let refused = migrate_097::remove::start_refusal(migrate_097::remove::old_db_removed(&pg_root))
+                .map(str::to_owned)
+                .or_else(|| {
+                    let root = app.try_state::<vault::VaultState>()?.lock().root()?;
+                    migrate_097::remove::removal_refusal(&std::path::PathBuf::from(&root.path), &pg_root)
+                });
+            let native = if let Some(reason) = refused {
+                Err(reason)
             } else {
                 native_db(app, &data, &resources, &source)
             };
