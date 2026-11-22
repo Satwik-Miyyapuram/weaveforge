@@ -9,11 +9,11 @@ use tauri::Manager;
 
 use crate::commands::{LocalDb, ShellError};
 use crate::migrate_097::counts::{RowCounts, counts_sql, parse_counts};
-use crate::migrate_097::remove::remove_old_data;
+use crate::migrate_097::remove::{record_verified_export, remove_old_data};
 use crate::migrate_097::status::{MigrationStatus, migration_status};
 
 /// The app's local cluster root (the dir "remove old data" deletes).
-fn pg_root(app: &tauri::AppHandle) -> Result<PathBuf, ShellError> {
+pub(crate) fn pg_root(app: &tauri::AppHandle) -> Result<PathBuf, ShellError> {
     let data = app
         .path()
         .app_data_dir()
@@ -22,7 +22,7 @@ fn pg_root(app: &tauri::AppHandle) -> Result<PathBuf, ShellError> {
 }
 
 /// This machine's id (`device-id` in app data), created on first use.
-fn device_id(app: &tauri::AppHandle) -> Result<String, ShellError> {
+pub(crate) fn device_id(app: &tauri::AppHandle) -> Result<String, ShellError> {
     let data = app
         .path()
         .app_data_dir()
@@ -80,15 +80,27 @@ pub async fn migrate_097_remove_old(
         let mut secrets = || {
             local_rows.ok_or_else(|| "refused: local_secrets count was not read".to_owned())
         };
-        let mut stop = || -> Result<(), String> {
-            crate::stop_local_db(&stop_app);
-            Ok(())
-        };
-        remove_old_data(&folder, &root, &now, &device, &mut secrets, &mut stop)
+        let mut stop = || crate::stop_postgres(&stop_app, false);
+        let removed = remove_old_data(&folder, &root, &now, &device, &mut secrets, &mut stop);
+        // The lock covers the whole removal; it is dropped only once the cluster is gone.
+        if removed.is_ok() {
+            crate::release_db_lock(&stop_app)?;
+        }
+        removed
     })
     .await
     .map_err(|e| ShellError::from(e.to_string()))?
     .map_err(ShellError::from)
+}
+
+/// Records that `folder` holds this device's verified export, so removal can check the folder. The
+/// web export calls it after its verify passes; the gate lives in `record_verified_export`.
+#[tauri::command]
+#[specta::specta]
+pub async fn mark_exported_097(app: tauri::AppHandle, folder: String) -> Result<(), ShellError> {
+    let root = pg_root(&app)?;
+    let device = device_id(&app)?;
+    record_verified_export(&root, &PathBuf::from(folder), &device).map_err(ShellError::from)
 }
 
 async fn count_local_secrets(db: &LocalDb) -> Result<u64, ShellError> {

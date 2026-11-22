@@ -7,13 +7,14 @@ use std::path::Path;
 use serde::Serialize;
 
 const REPORT_REL: &str = ".weaveforge/migration-0.9.7/report.json";
-const BACKUP_REL: &str = ".weaveforge/migration-0.9.7/pre-migration.dump";
 
 /// Status of the 0.9.7 migration as the UI sees it.
 #[derive(Debug, Serialize, specta::Type, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct MigrationStatus {
-    /// `verified`, `incomplete`, `removing`, `removed`, or `none` when no readable report exists.
+    /// This device's state: `verified`, `incomplete`, `removing`, `removed`, `unexported` (the report
+    /// exists but has no run from this device, so the export is offered), `unavailable`, or `none`
+    /// when no report or export exists.
     pub state: String,
     /// When old data was removed (report.json `removedAt`).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -30,38 +31,111 @@ pub struct MigrationStatus {
     /// Kind names (from the newest run's `missing[]`) with unexported items.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub missing: Option<Vec<String>>,
+    /// The device this status was read on; only this device's own run and removal entry count.
+    pub device_id: String,
+    /// The device whose removal is in progress (report.json `removingDeviceId`), when any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub removing_device_id: Option<String>,
+    /// Whether `exported-to.json` names this folder, compared after canonicalizing both paths.
+    pub exported_here: bool,
+    /// Whether this device's latest run in report.json is verified.
+    pub own_run_verified: bool,
 }
 
-/// Reads report.json, exported-to.json and the backup. Never writes and never fails: anything
-/// unreadable is reported as absent (state `none` when the report itself is missing or bad).
+/// Reads report.json, exported-to.json and the backup. Never writes and never fails. An unreadable
+/// report is `removed` when the removed marker exists, `none` when report.json and exported-to.json
+/// are both absent, and `unavailable` otherwise.
 pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> MigrationStatus {
-    let report: Option<serde_json::Value> = fs::read_to_string(folder.join(REPORT_REL))
+    let exported = exported_to(pg_root);
+    let exported_here = exported.as_deref().is_some_and(|name| same_folder(name, folder));
+    let removed = super::remove::old_db_removed(pg_root);
+    let report_text = fs::read_to_string(folder.join(REPORT_REL));
+    let report: Option<serde_json::Value> = report_text
+        .as_ref()
         .ok()
-        .and_then(|text| serde_json::from_str(&text).ok());
+        .and_then(|text| serde_json::from_str(text).ok());
     let Some(report) = report else {
+        let absent = matches!(&report_text, Err(e) if e.kind() == std::io::ErrorKind::NotFound);
+        let state = if removed {
+            "removed"
+        } else if absent && exported.is_none() {
+            // Nothing was ever exported here, so there is nothing to report as unavailable.
+            "none"
+        } else {
+            "unavailable"
+        };
         return MigrationStatus {
-            state: "none".to_owned(),
+            state: state.to_owned(),
             removed_at: None,
             verified_at: None,
-            exported_to: exported_to(pg_root),
+            exported_to: exported,
             backup_path: None,
             missing: None,
+            device_id: device_id.to_owned(),
+            // Removed here: this device's marker lets the wiring rule switch it to files.
+            removing_device_id: removed.then(|| device_id.to_owned()),
+            exported_here,
+            own_run_verified: false,
         };
     };
-    let state = report["state"].as_str().unwrap_or("none").to_owned();
-    let backup = folder.join(BACKUP_REL);
+    // A missing, non-string or unknown state is unavailable, never `none` (that is for an absent report).
+    let own = super::remove::own_run(&report, device_id).ok();
+    let own_state = own.as_ref().and_then(|run| run["state"].as_str());
+    let own_run_verified = own_state == Some("verified");
+    let own_removed = report["removals"][device_id]["state"].as_str() == Some("removed");
+    // Only this device's own removal entry (or the removal it started) makes it `removing`; another
+    // device's removal never does, and the top-level state is not read for that.
+    let own_removing = report["removals"][device_id]["state"].as_str() == Some("removing")
+        || (report["state"].as_str() == Some("removing")
+            && report["removingDeviceId"].as_str() == Some(device_id));
+    let top_known = matches!(
+        report["state"].as_str(),
+        Some("verified" | "incomplete" | "removing" | "removed")
+    );
+    // Gate first: a top-level state outside the known set is unavailable for every device.
+    // No writer sets an "exporting" top-level state; known states are read per device below.
+    let state = if !top_known {
+        "unavailable".to_owned()
+    } else if own_removed {
+        "removed".to_owned()
+    } else if own_removing {
+        "removing".to_owned()
+    } else {
+        match own_state {
+            Some(known @ ("verified" | "incomplete")) => known.to_owned(),
+            Some(_) => "unavailable".to_owned(),
+            // The report exists but has no run from this device: offer this device the export.
+            None if top_known => "unexported".to_owned(),
+            None => "unavailable".to_owned(),
+        }
+    };
+    let backup = super::remove::backup_name(&report, device_id)
+        .ok()
+        .map(|name| folder.join(super::remove::MIGRATION_DIR).join(name));
     let mut kinds = super::remove::own_run_missing(&report, device_id).unwrap_or_default();
     kinds.sort();
     kinds.dedup();
     MigrationStatus {
         state,
-        removed_at: report["removedAt"].as_str().map(str::to_owned),
-        verified_at: report["verifiedAt"].as_str().map(str::to_owned),
-        exported_to: exported_to(pg_root),
+        // This device's own removal only; another device's entry is not this device's removal.
+        removed_at: report["removals"][device_id]["removedAt"]
+            .as_str()
+            .map(str::to_owned),
+        // The verify time of this device's own verified run, not another device's top-level field.
+        verified_at: own
+            .as_ref()
+            .filter(|run| run["state"].as_str() == Some("verified"))
+            .and_then(|run| run["finishedAt"].as_str())
+            .map(str::to_owned),
+        exported_to: exported,
         backup_path: backup
-            .is_file()
-            .then(|| backup.to_string_lossy().into_owned()),
+            .filter(|path| path.is_file())
+            .map(|path| path.to_string_lossy().into_owned()),
         missing: (!kinds.is_empty()).then_some(kinds),
+        device_id: device_id.to_owned(),
+        removing_device_id: report["removingDeviceId"].as_str().map(str::to_owned),
+        exported_here,
+        own_run_verified,
     }
 }
 
@@ -69,4 +143,12 @@ fn exported_to(pg_root: &Path) -> Option<String> {
     let text = fs::read_to_string(pg_root.join("exported-to.json")).ok()?;
     let value: serde_json::Value = serde_json::from_str(&text).ok()?;
     value["folder"].as_str().map(str::to_owned)
+}
+
+/// Whether `exported` and `folder` are the same folder; a path that cannot be resolved is not.
+fn same_folder(exported: &str, folder: &Path) -> bool {
+    match (dunce::canonicalize(exported), dunce::canonicalize(folder)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    }
 }

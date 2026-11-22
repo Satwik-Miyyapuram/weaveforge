@@ -6,21 +6,24 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use weaveforge_shell_lib::migrate_097::remove::{
-    record_exported_to, remove_old_data, write_verified_empty_report,
+    backup_name, old_db_removed, record_exported_to, record_verified_export, remove_old_data,
+    removal_refusal, resume_on_launch, start_refusal,
 };
 
+const DIR: &str = ".weaveforge/migration-0.9.7";
 const BACKUP: &str = ".weaveforge/migration-0.9.7/pre-migration.dump";
+const BACKUP_NAME: &str = "pre-migration.dump";
 const REPORT: &str = ".weaveforge/migration-0.9.7/report.json";
-const SECRETS: &str = ".weaveforge/migration-0.9.7/secrets-moved.json";
+const SECRETS: &str = ".weaveforge/migration-0.9.7/secrets-moved-dev-a.json";
 const NOW: &str = "2026-11-23T08:00:00Z";
 /// The device id this machine reports (`device_id::get_or_create` in the real command).
 const DEVICE: &str = "dev-a";
 
 /// One run exactly as the TS web writer emits it (`run-web-export.ts`), with `missing` inside it.
-const RUN_CLEAN: &str = r#"{"startedAt":"2026-11-23T07:59:00Z","finishedAt":"2026-11-23T08:00:00Z","sources":[],"kinds":{},"blobs":{"db":0,"verified":0},"deviceId":"dev-a","missing":[]}"#;
+const RUN_CLEAN: &str = r#"{"startedAt":"2026-11-23T07:59:00Z","finishedAt":"2026-11-23T08:00:00Z","state":"verified","sources":[],"kinds":{"notes":{"db":1,"files":1}},"blobs":{"db":0,"verified":0},"deviceId":"dev-a","missing":[]}"#;
 
 fn run_missing(missing: &str) -> String {
-    format!(r#"{{"startedAt":"{NOW}","finishedAt":"{NOW}","sources":[],"kinds":{{}},"blobs":{{"db":0,"verified":0}},"deviceId":"dev-a","missing":[{missing}]}}"#)
+    format!(r#"{{"startedAt":"{NOW}","finishedAt":"{NOW}","state":"verified","sources":[],"kinds":{{"notes":{{"db":1,"files":1}}}},"blobs":{{"db":0,"verified":0}},"deviceId":"dev-a","missing":[{missing}]}}"#)
 }
 
 fn secrets_json(count: u64) -> String {
@@ -59,7 +62,7 @@ impl Fixture {
         fs::write(folder.join("note.md"), "user note").unwrap();
         if let Some(state) = state {
             let report = format!(
-                r#"{{"version":1,"state":"{state}","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+                r#"{{"version":1,"state":"{state}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
             );
             fs::write(folder.join(REPORT), report).unwrap();
         }
@@ -118,7 +121,7 @@ impl Drop for Fixture {
 }
 
 fn canonical(path: &Path) -> String {
-    fs::canonicalize(path)
+    dunce::canonicalize(path)
         .unwrap()
         .to_string_lossy()
         .into_owned()
@@ -249,7 +252,7 @@ fn refuses_a_backup_too_short_to_be_a_dump() {
 fn refuses_when_the_report_has_no_run() {
     let f = Fixture::new("no-run", Some("verified"), Some(good_dump().as_slice()));
     f.set_report(&format!(
-        r#"{{"version":1,"state":"verified","backup":"{BACKUP}","runs":[]}}"#
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","runs":[]}}"#
     ));
     let err = f
         .run(&mut never_stop())
@@ -262,7 +265,7 @@ fn refuses_when_the_report_has_no_run() {
 fn only_the_newest_run_counts_for_missing_items() {
     let f = Fixture::new("older-missing", Some("verified"), Some(good_dump().as_slice()));
     f.set_report(&format!(
-        r#"{{"version":1,"state":"verified","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{}, {RUN_CLEAN}]}}"#,
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{}, {RUN_CLEAN}]}}"#,
         run_missing(r#"{"kind":"notes","id":"old","reason":"x"}"#)
     ));
     let mut stop = || -> Result<(), String> { Ok(()) };
@@ -274,7 +277,7 @@ fn only_the_newest_run_counts_for_missing_items() {
 fn refuses_when_the_report_lists_missing_items() {
     let f = Fixture::new("missing", Some("verified"), Some(good_dump().as_slice()));
     f.set_report(&format!(
-        r#"{{"version":1,"state":"verified","backup":"{BACKUP}","runs":[{}]}}"#,
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","runs":[{}]}}"#,
         run_missing(r#"{"kind":"notes","id":"n1","reason":"x"}"#)
     ));
     let err = f
@@ -289,7 +292,7 @@ fn refuses_when_no_run_is_from_this_device() {
     let f = Fixture::new("no-own-run", Some("verified"), Some(good_dump().as_slice()));
     let other = RUN_CLEAN.replace("dev-a", "dev-b");
     f.set_report(&format!(
-        r#"{{"version":1,"state":"verified","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{other}]}}"#
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{other}]}}"#
     ));
     let mut stop = || -> Result<(), String> { Ok(()) };
     assert!(f.run(&mut stop).is_err(), "another device's clean run must not count");
@@ -302,7 +305,7 @@ fn only_this_devices_run_counts_for_missing_items() {
     let mine_missing = run_missing(r#"{"kind":"notes","id":"n1","reason":"x"}"#);
     let other_clean = RUN_CLEAN.replace("dev-a", "dev-b");
     f.set_report(&format!(
-        r#"{{"version":1,"state":"verified","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{mine_missing},{other_clean}]}}"#
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{mine_missing},{other_clean}]}}"#
     ));
     let mut stop = || -> Result<(), String> { Ok(()) };
     assert!(f.run(&mut stop).is_err(), "this device's own run lists missing items");
@@ -314,7 +317,7 @@ fn refuses_when_the_newest_run_has_no_missing_list() {
     let f = Fixture::new("no-missing-list", Some("verified"), Some(good_dump().as_slice()));
     let no_list = RUN_CLEAN.replace(r#","missing":[]"#, "");
     f.set_report(&format!(
-        r#"{{"version":1,"state":"verified","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{no_list}]}}"#
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{no_list}]}}"#
     ));
     let mut stop = || -> Result<(), String> { panic!("must not stop") };
     assert!(f.run(&mut stop).is_err(), "a run without a missing array must refuse");
@@ -330,7 +333,7 @@ fn refuses_when_exported_to_names_another_folder() {
     let err = f
         .run(&mut never_stop())
         .expect_err("another folder must refuse");
-    assert!(err.contains("exported"), "reason names exported-to: {err}");
+    assert_eq!(err, "refused: folder moved, export again");
     f.assert_untouched();
 }
 
@@ -411,6 +414,68 @@ fn stop_failure_keeps_the_cluster() {
     );
 }
 
+/// A short-lived child that stands in for postgres. On Windows it is a copy of ping.exe named
+/// postgres.exe, so the liveness check sees the image name it looks for; it exits by itself.
+fn fake_postmaster() -> std::process::Child {
+    if cfg!(windows) {
+        let dir = std::env::temp_dir().join(format!("wf-m097-fake-pg-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let exe = dir.join("postgres.exe");
+        let _copied = fs::copy(r"C:\Windows\System32\PING.EXE", &exe).unwrap();
+        std::process::Command::new(&exe)
+            .args(["-n", "10", "127.0.0.1"])
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap()
+    } else {
+        std::process::Command::new("sleep").arg("10").spawn().unwrap()
+    }
+}
+
+#[test]
+fn postmaster_pid_left_after_stop_keeps_the_cluster() {
+    let f = Fixture::new("pid-left", Some("verified"), Some(good_dump().as_slice()));
+    // A live process whose image is postgres.exe stands in for a running postmaster.
+    let _fake = fake_postmaster();
+    fs::write(
+        f.pg_root.join("data/postmaster.pid"),
+        format!("{}\n", _fake.id()),
+    )
+    .unwrap();
+    let mut stop = || Ok(());
+    let err = f.run(&mut stop).expect_err("a live postmaster must refuse the delete");
+    assert!(err.contains("postmaster.pid"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
+fn stale_postmaster_pid_of_a_dead_process_does_not_block_removal() {
+    let f = Fixture::new("pid-stale", Some("verified"), Some(good_dump().as_slice()));
+    // A crash leaves postmaster.pid behind; its PID no longer belongs to any process.
+    fs::write(f.pg_root.join("data/postmaster.pid"), "999999999\n").unwrap();
+    let mut stop = || Ok(());
+    f.run(&mut stop).expect("a stale postmaster.pid must not block the removal");
+    assert!(!f.pg_root.exists(), "cluster dir must be deleted");
+}
+
+#[test]
+fn resume_stops_postgres_before_deleting() {
+    let f = Fixture::new("resume-stop", None, Some(good_dump().as_slice()));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let mut stopped = 0;
+    let pg_root = f.pg_root.clone();
+    let mut stop = || {
+        stopped += 1;
+        assert!(pg_root.exists(), "postgres must stop while the cluster still exists");
+        Ok(())
+    };
+    f.run(&mut stop).expect("a resumed removal finishes");
+    assert_eq!(stopped, 1, "a resumed removal must stop postgres before deleting");
+    assert!(!f.pg_root.exists());
+}
+
 #[test]
 fn deletes_only_the_cluster_dir_and_records_removed_at() {
     let f = Fixture::new("happy", Some("verified"), Some(good_dump().as_slice()));
@@ -424,8 +489,8 @@ fn deletes_only_the_cluster_dir_and_records_removed_at() {
     assert_eq!(stopped, 1, "cluster stopped exactly once, before deletion");
     assert!(!f.pg_root.exists(), "cluster dir deleted");
     assert!(
-        f.base.join("local-db-backups/keep.dump").exists(),
-        "backups never deleted"
+        !f.base.join("local-db-backups").exists(),
+        "old local-db backups are deleted with the cluster"
     );
     assert!(
         f.folder.join("note.md").exists(),
@@ -439,6 +504,146 @@ fn deletes_only_the_cluster_dir_and_records_removed_at() {
         !f.folder.join(format!("{REPORT}.part")).exists(),
         "no partial report left behind"
     );
+}
+
+#[test]
+fn a_removed_cluster_is_marked_so_a_relaunch_never_restores_it() {
+    let f = Fixture::new("marked", Some("verified"), Some(good_dump().as_slice()));
+    assert!(!old_db_removed(&f.pg_root), "no marker before a removal");
+    f.run(&mut || Ok(())).expect("run removes");
+    assert!(!f.pg_root.exists(), "cluster dir is gone");
+    assert!(old_db_removed(&f.pg_root), "marker stops the relaunch restore");
+}
+
+#[test]
+fn a_crash_after_the_marker_resumes_and_finishes_the_delete() {
+    let f = Fixture::new("crash-resume", Some("verified"), Some(good_dump().as_slice()));
+    // The crash point: the marker is written and the report says removing, but the delete did not run.
+    fs::write(f.base.join("old-db-removed"), "").unwrap();
+    let removing = format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    );
+    f.set_report(&removing);
+    assert!(old_db_removed(&f.pg_root), "relaunch sees the marker and skips start");
+    f.run(&mut || Ok(())).expect("resume finishes the delete");
+    assert!(!f.pg_root.exists(), "the cluster is deleted on resume");
+    assert_eq!(f.report()["state"], "removed");
+}
+
+#[test]
+fn another_devices_removal_in_progress_is_refused_and_keeps_the_backups() {
+    let f = Fixture::new("other-device-backups", Some("verified"), Some(good_dump().as_slice()));
+    let run_b = RUN_CLEAN.replace(r#""deviceId":"dev-a""#, &format!(r#""deviceId":"dev-b","backup":"{BACKUP_NAME}""#));
+    let report = format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN},{run_b}]}}"#
+    );
+    f.set_report(&report);
+    fs::remove_dir_all(&f.pg_root).unwrap();
+    let mut stop = never_stop();
+    let result = remove_old_data(&f.folder, &f.pg_root, NOW, "dev-b", &mut || Ok(0), &mut stop);
+    let err = result.expect_err("dev-b must not finish dev-a's removal");
+    assert!(err.contains("exported"), "dev-b runs its own checks, which refuse: {err}");
+    assert!(
+        f.base.join("local-db-backups/keep.dump").exists(),
+        "dev-b must not delete the backups"
+    );
+    assert_eq!(f.report()["removingDeviceId"], DEVICE);
+}
+
+#[test]
+fn the_backup_name_comes_from_this_devices_own_run() {
+    let f = Fixture::new("run-backup", Some("verified"), None);
+    fs::write(f.folder.join(DIR).join("custom.dump"), good_dump()).unwrap();
+    let run = RUN_CLEAN.replace(r#""deviceId":"dev-a""#, r#""deviceId":"dev-a","backup":"custom.dump""#);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{run}]}}"#
+    ));
+    f.run(&mut || Ok(())).expect("the dump this device's run names is the one checked");
+    assert!(f.folder.join(DIR).join("custom.dump").exists(), "migration dump kept");
+}
+
+/// Device A's run has no backup of its own; device B wrote the report-level backup and its dump.
+fn report_with_another_devices_backup(f: &Fixture) {
+    fs::write(f.folder.join(DIR).join("b.dump"), good_dump()).unwrap();
+    let run_b = RUN_CLEAN.replace(r#""deviceId":"dev-a""#, r#""deviceId":"dev-b","backup":"b.dump""#);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"b.dump","verifiedAt":"{NOW}","runs":[{RUN_CLEAN},{run_b}]}}"#
+    ));
+}
+
+#[test]
+fn a_device_is_refused_when_only_another_devices_backup_is_named() {
+    let f = Fixture::new("other-backup", Some("verified"), None);
+    report_with_another_devices_backup(&f);
+    let err = f.run(&mut never_stop()).expect_err("A must not remove using B's dump");
+    assert!(err.contains("belongs to another device"), "{err}");
+    assert!(f.pg_root.join("data/PG_VERSION").exists(), "local cluster untouched");
+}
+
+#[test]
+fn a_run_with_conflict_copies_is_refused() {
+    let f = Fixture::new("conflict-run", Some("verified"), Some(good_dump().as_slice()));
+    let run = RUN_CLEAN.replace(
+        r#""deviceId":"dev-a""#,
+        r#""deviceId":"dev-a","conflicts":["note (conflict).md"]"#,
+    );
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{run}]}}"#
+    ));
+    let err = f.run(&mut never_stop()).expect_err("conflict copies must refuse");
+    assert!(err.contains("this device's export left conflict copies; resolve them first"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
+fn a_kind_with_conflict_copies_is_refused() {
+    let f = Fixture::new("conflict-kind", Some("verified"), Some(good_dump().as_slice()));
+    let run = RUN_CLEAN.replace(
+        r#""kinds":{"notes":{"db":1,"files":1}}"#,
+        r#""kinds":{"notes":{"db":1,"files":1,"conflicts":["note (conflict).md"]}}"#,
+    );
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{run}]}}"#
+    ));
+    let err = f.run(&mut never_stop()).expect_err("kind conflict copies must refuse");
+    assert!(err.contains("this device's export left conflict copies; resolve them first"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
+fn status_does_not_report_another_devices_dump_as_this_devices_backup() {
+    let f = Fixture::new("other-backup-status", Some("verified"), None);
+    report_with_another_devices_backup(&f);
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert!(value.get("backupPath").is_none(), "{value}");
+}
+
+#[test]
+fn a_resume_with_the_cluster_gone_finishes_the_backup_delete() {
+    let f = Fixture::new("resume-gone", Some("verified"), Some(good_dump().as_slice()));
+    fs::write(f.base.join("old-db-removed"), "").unwrap();
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    fs::remove_dir_all(&f.pg_root).unwrap();
+    // A resume stops postgres first (a crash may have left it running); the stop is allowed here.
+    f.run(&mut || Ok(())).expect("the starting device resumes and finishes");
+    assert!(!f.base.join("local-db-backups").exists(), "backups deleted on resume");
+    assert_eq!(f.report()["state"], "removed");
+}
+
+#[test]
+fn a_junction_inside_local_db_backups_is_refused() {
+    let f = Fixture::new("backups-junction", Some("verified"), Some(good_dump().as_slice()));
+    let elsewhere = f.base.join("elsewhere");
+    fs::create_dir_all(&elsewhere).unwrap();
+    if !make_dir_link(&elsewhere, &f.base.join("local-db-backups/linked")) {
+        return;
+    }
+    let err = f.run(&mut never_stop()).expect_err("a junction in the backups must refuse");
+    assert!(err.contains("local-db-backups"), "{err}");
+    f.assert_untouched();
+    assert!(f.base.join("local-db-backups/keep.dump").exists(), "backups kept on refusal");
 }
 
 #[test]
@@ -462,7 +667,7 @@ fn refuses_when_secrets_moved_is_missing() {
     let err = f
         .run(&mut stop)
         .expect_err("missing secrets-moved.json must refuse");
-    assert!(err.contains("secrets-moved.json is missing"), "{err}");
+    assert!(err.contains("secrets-moved"), "{err}");
     assert!(!stopped, "cluster must not stop on a refusal");
     f.assert_untouched();
 }
@@ -536,6 +741,7 @@ fn device_bs_fresh_verify_does_not_let_device_a_pass() {
     let f = Fixture::new("other-verify", Some("verified"), Some(good_dump().as_slice()));
     let mut report = f.report();
     report["runs"][0]["finishedAt"] = "2026-11-23T07:30:00Z".into();
+    report["runs"][0]["backup"] = BACKUP_NAME.into();
     report["runs"].as_array_mut().unwrap().push(serde_json::json!({
         "startedAt": NOW, "finishedAt": NOW, "sources": [], "kinds": {},
         "blobs": {"db": 0, "verified": 0}, "deviceId": "dev-b", "missing": []
@@ -590,7 +796,7 @@ fn refuses_when_verified_at_is_missing_or_in_the_future() {
     let err = future
         .run(&mut never_stop())
         .expect_err("future finishedAt must refuse");
-    assert!(err.contains("stale"), "{err}");
+    assert!(err.contains("clock"), "{err}");
     future.assert_untouched();
 }
 
@@ -616,39 +822,78 @@ fn refuses_when_exported_file_is_deleted_after_verify() {
 }
 
 #[test]
-fn resumes_a_removing_report_after_a_partial_delete() {
-    let f = Fixture::new("resume", Some("verified"), Some(good_dump().as_slice()));
+fn a_resume_is_not_stranded_by_another_devices_top_level_state() {
+    let f = Fixture::new("resume-b-state", Some("verified"), Some(good_dump().as_slice()));
+    // dev-a started the removal; dev-b then wrote a top-level "incomplete" state.
     f.set_report(&format!(
-        r#"{{"version":1,"state":"removing","backup":"{BACKUP}","runs":[{RUN_CLEAN}]}}"#
+        r#"{{"version":1,"state":"incomplete","removingDeviceId":"{DEVICE}","removals":{{"{DEVICE}":{{"state":"removing"}}}},"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
     fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
-    fs::write(f.pg_root.join("removing.json"), format!(r#"{{"deviceId":"{DEVICE}"}}"#)).unwrap();
-    let mut stop = || panic!("resume must not stop again");
-    f.run(&mut stop).expect("removing report resumes deletion");
+    f.run(&mut || Ok(())).expect("own removing entry decides, not the top-level state");
+    assert!(!f.pg_root.exists(), "cluster deleted on resume");
+    assert_eq!(f.report()["removals"][DEVICE]["state"], "removed");
+}
+
+#[test]
+fn resumes_a_removing_report_this_device_started() {
+    let f = Fixture::new("resume", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
+    let mut stop = || Ok(());
+    f.run(&mut stop).expect("own removing report resumes deletion");
     assert!(!f.pg_root.exists(), "rest of the cluster deleted");
     assert_eq!(f.report()["state"], "removed");
 }
 
 #[test]
-fn refuses_a_removing_report_started_by_another_device() {
-    let f = Fixture::new("other-device", Some("verified"), Some(good_dump().as_slice()));
+fn a_removing_report_with_no_marker_refuses_start() {
+    let f = Fixture::new("removing-no-marker", Some("verified"), Some(good_dump().as_slice()));
     f.set_report(&format!(
-        r#"{{"version":1,"state":"removing","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
-    fs::write(f.pg_root.join("removing.json"), r#"{"deviceId":"dev-b"}"#).unwrap();
-    let mut stop = || panic!("must not stop");
-    assert!(f.run(&mut stop).is_err(), "another device's removal must refuse");
-    f.assert_untouched();
+    assert!(!old_db_removed(&f.pg_root), "no marker yet");
+    let refusal = removal_refusal(&f.folder, &f.pg_root);
+    assert!(refusal.is_some(), "a removing report with no marker must refuse start");
 }
 
 #[test]
-fn refuses_a_removing_report_without_a_marker() {
-    let f = Fixture::new("no-marker", Some("verified"), Some(good_dump().as_slice()));
+fn another_devices_report_writes_during_the_removal_survive() {
+    let f = Fixture::new("race", Some("verified"), Some(good_dump().as_slice()));
     f.set_report(&format!(
-        r#"{{"version":1,"state":"removing","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
+    let dev_b_run = RUN_CLEAN.replace("\"deviceId\":\"dev-a\"", "\"deviceId\":\"dev-b\"");
+    // dev-b writes report.json while this device is between its read and its writes.
+    let mut stop = || {
+        let text = format!(
+            r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","removals":{{"dev-b":{{"state":"removed","removedAt":"{NOW}"}}}},"runs":[{RUN_CLEAN},{dev_b_run}]}}"#
+        );
+        fs::write(f.folder.join(REPORT), text).unwrap();
+        Ok(())
+    };
+    f.run(&mut stop).expect("removal runs although another device wrote");
+    let r = f.report();
+    assert_eq!(r["state"], "removed");
+    assert_eq!(r["removals"]["dev-a"]["state"], "removed");
+    assert_eq!(r["removals"]["dev-b"]["state"], "removed", "dev-b's removal entry kept");
+    assert!(
+        r["runs"].as_array().unwrap().iter().any(|run| run["deviceId"] == "dev-b"),
+        "dev-b's run kept"
+    );
+}
+
+#[test]
+fn another_devices_removing_report_refuses_unless_own_checks_pass() {
+    let f = Fixture::new("other-device", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"dev-b","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
     let mut stop = || panic!("must not stop");
-    assert!(f.run(&mut stop).is_err(), "resume without this device's marker must refuse");
+    let err = f.run(&mut stop).expect_err("device A must run its own exported-to check");
+    assert!(err.contains("exported"), "{err}");
     f.assert_untouched();
 }
 
@@ -662,39 +907,166 @@ fn record_exported_to_names_this_folder() {
     assert_eq!(value["folder"], canonical(&f.folder));
 }
 
-#[test]
-fn verified_empty_report_for_a_folder_with_no_old_data() {
-    let f = Fixture::new("empty", None, None);
-    write_verified_empty_report(&f.folder, NOW).expect("empty report must write");
-    let value = f.report();
-    assert_eq!(value["state"], "verified");
-    assert_eq!(value["runs"], serde_json::json!([]));
-    assert!(
-        value["backup"].is_null(),
-        "no backup when there was no data"
-    );
-    assert!(
-        !f.folder.join(format!("{REPORT}.part")).exists(),
-        "no partial file left behind"
-    );
-}
-
-#[test]
-fn verified_empty_report_refuses_to_overwrite_a_report() {
-    let f = Fixture::new("empty-overwrite", Some("incomplete"), Some(good_dump().as_slice()));
-    let err =
-        write_verified_empty_report(&f.folder, NOW).expect_err("existing report must not be replaced");
-    assert!(err.contains("already exists"), "{err}");
-    assert_eq!(
-        f.report()["state"],
-        "incomplete",
-        "existing report untouched"
-    );
-}
-
 // ---- migrate_097_status wire shape (camelCase, optional fields omitted when absent) ----
 
 use weaveforge_shell_lib::migrate_097::status::migration_status;
+
+#[test]
+fn status_reports_removing_device_and_unverified_own_run() {
+    let f = Fixture::new("status-removing", Some("removing"), Some(good_dump().as_slice()));
+    let aborted = RUN_CLEAN.replace(r#""state":"verified""#, r#""state":"aborted""#);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{aborted}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["removingDeviceId"], DEVICE);
+    assert_eq!(value["ownRunVerified"], false);
+}
+
+const DEVICE_B: &str = "dev-b";
+
+#[test]
+fn status_offers_export_to_a_device_with_no_run_in_the_report() {
+    let f = Fixture::new("status-unexported", Some("verified"), Some(good_dump().as_slice()));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE_B)).unwrap();
+    assert_eq!(value["state"], "unexported", "device B has no run; it must be offered the export");
+}
+
+#[test]
+fn status_gives_verified_when_this_device_has_its_own_verified_run() {
+    let f = Fixture::new("status-own-run-b", Some("verified"), Some(good_dump().as_slice()));
+    let run_b = RUN_CLEAN.replace(r#""deviceId":"dev-a""#, r#""deviceId":"dev-b""#);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN},{run_b}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE_B)).unwrap();
+    assert_eq!(value["state"], "verified");
+}
+
+#[test]
+fn another_devices_removal_in_progress_is_not_this_devices_removing() {
+    let f = Fixture::new("status-b-not-removing", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","removals":{{"{DEVICE}":{{"state":"removing"}}}},"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE_B)).unwrap();
+    assert_ne!(value["state"], "removing", "dev-a's removal must not block or label dev-b");
+    assert_eq!(value["state"], "unexported");
+}
+
+#[test]
+fn another_devices_exporting_state_does_not_hide_own_removed_state() {
+    let f = Fixture::new("status-own-removed", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"exporting","removals":{{"{DEVICE}":{{"state":"removed","removedAt":"{NOW}"}}}},"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "removed");
+}
+
+#[test]
+fn an_unknown_top_level_state_with_no_own_run_is_unavailable() {
+    let f = Fixture::new("status-unknown-state", Some("verified"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"bogus","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE_B)).unwrap();
+    assert_eq!(value["state"], "unavailable");
+}
+
+#[test]
+fn status_reports_not_exported_here_for_another_folder() {
+    let f = Fixture::new("status-moved", Some("verified"), Some(good_dump().as_slice()));
+    let other = f.base.join("elsewhere");
+    fs::create_dir_all(&other).unwrap();
+    fs::write(
+        f.pg_root.join("exported-to.json"),
+        serde_json::json!({ "folder": other.to_string_lossy() }).to_string(),
+    )
+    .unwrap();
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["exportedHere"], false);
+}
+
+#[test]
+fn status_absent_report_with_exported_to_is_unavailable_not_none() {
+    let f = Fixture::new("absent-exported", None, None);
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "unavailable");
+}
+
+#[test]
+fn a_removal_is_recorded_under_this_devices_removals_entry() {
+    let f = Fixture::new("removals-entry", Some("verified"), Some(good_dump().as_slice()));
+    f.run(&mut || Ok(())).expect("removal succeeds");
+    let report = f.report();
+    assert_eq!(report["removals"][DEVICE]["state"], "removed");
+    assert_eq!(report["removals"][DEVICE]["removedAt"], NOW);
+}
+
+#[test]
+fn status_reads_removed_at_only_from_this_devices_removals_entry() {
+    let f = Fixture::new("removals-status", Some("removed"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removed","runs":[{RUN_CLEAN}],"removals":{{"dev-b":{{"state":"removed","removedAt":"2026-11-23T07:00:00Z"}}}}}}"#
+    ));
+    let other = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert!(other.get("removedAt").is_none(), "another device's removal: {other}");
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removed","runs":[{RUN_CLEAN}],"removals":{{"{DEVICE}":{{"state":"removed","removedAt":"{NOW}"}}}}}}"#
+    ));
+    let own = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(own["removedAt"], NOW);
+}
+
+#[test]
+fn status_never_says_none_for_an_unreadable_report() {
+    let f = Fixture::new("status-bad", Some("verified"), None);
+    f.set_report("{ not json");
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "unavailable");
+    assert!(value.get("removedAt").is_none());
+}
+
+#[test]
+fn status_unreadable_report_after_removal_says_removed() {
+    let f = Fixture::new("status-bad-removed", Some("verified"), None);
+    f.set_report("{ not json");
+    fs::write(f.base.join("old-db-removed"), "").unwrap();
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "removed");
+    assert_eq!(value["removingDeviceId"], DEVICE);
+}
+
+#[test]
+fn status_report_without_a_state_still_shows_own_verified_run_not_none() {
+    let f = Fixture::new("status-no-state", Some("verified"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "verified");
+}
+
+#[test]
+fn status_report_with_a_non_string_state_still_shows_own_verified_run_not_none() {
+    let f = Fixture::new("status-num-state", Some("verified"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":5,"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "verified");
+}
+
+#[test]
+fn status_report_with_an_unknown_state_still_shows_own_verified_run() {
+    let f = Fixture::new("status-unknown-state-own", Some("verified"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"bogus","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "verified");
+}
 
 #[test]
 fn status_for_a_verified_migration_has_camel_case_keys() {
@@ -704,9 +1076,12 @@ fn status_for_a_verified_migration_has_camel_case_keys() {
         value,
         serde_json::json!({
             "state": "verified",
+            "deviceId": DEVICE,
+            "exportedHere": true,
+            "ownRunVerified": true,
             "verifiedAt": NOW,
             "exportedTo": canonical(&f.folder),
-            "backupPath": f.folder.join(BACKUP).to_string_lossy(),
+            "backupPath": f.folder.join(".weaveforge/migration-0.9.7").join("pre-migration.dump").to_string_lossy(),
         })
     );
 }
@@ -732,7 +1107,9 @@ fn status_lists_missing_kinds_once_and_sorted() {
 #[test]
 fn status_reports_removed_at_and_none_without_a_report() {
     let f = Fixture::new("status-removed", Some("removed"), None);
-    f.set_report(r#"{"version":1,"state":"removed","runs":[],"removedAt":"2026-11-23T08:00:00Z"}"#);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removed","runs":[],"removals":{{"{DEVICE}":{{"state":"removed","removedAt":"2026-11-23T08:00:00Z"}}}}}}"#
+    ));
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
     assert_eq!(value["removedAt"], "2026-11-23T08:00:00Z");
     assert!(
@@ -740,9 +1117,376 @@ fn status_reports_removed_at_and_none_without_a_report() {
         "no backup key in this report: {value}"
     );
 
+    // Neither report.json nor exported-to.json: the only case that is `none`.
     fs::remove_file(f.folder.join(REPORT)).unwrap();
+    fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
     let none = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
     assert_eq!(none["state"], "none");
     assert!(none.get("missing").is_none());
-    assert_eq!(none["exportedTo"], canonical(&f.folder));
+    assert!(none.get("exportedTo").is_none());
+}
+
+#[test]
+fn uses_the_backup_name_the_report_records() {
+    let f = Fixture::new("named", Some("verified"), None);
+    fs::write(f.folder.join(DIR).join("custom.dump"), good_dump()).unwrap();
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"custom.dump","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    f.run(&mut || Ok(())).expect("the dump the report names passes");
+}
+
+#[test]
+fn refuses_a_backup_name_that_leaves_the_migration_dir() {
+    for bad in ["../escape.dump", "sub/x.dump", ".."] {
+        let f = Fixture::new("sep", Some("verified"), Some(good_dump().as_slice()));
+        f.set_report(&format!(
+            r#"{{"version":1,"state":"verified","backup":"{bad}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+        ));
+        let err = f.run(&mut never_stop()).expect_err("a path in the backup name must refuse");
+        assert!(err.contains("backup name"), "{bad}: {err}");
+        f.assert_untouched();
+    }
+}
+
+#[test]
+fn falls_back_to_the_default_name_only_when_the_report_has_no_backup_field() {
+    let f = Fixture::new("nofield", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    f.run(&mut || Ok(())).expect("an old report without backup uses pre-migration.dump");
+}
+
+#[test]
+fn refuses_an_aborted_run_even_when_it_lists_no_missing_items() {
+    let f = Fixture::new("aborted", Some("verified"), Some(good_dump().as_slice()));
+    let aborted = format!(
+        r#"{{"startedAt":"{NOW}","finishedAt":"{NOW}","state":"incomplete","sources":[],"kinds":{{"notes":{{"db":1,"files":1}}}},"blobs":{{"db":0,"verified":0}},"deviceId":"dev-a","missing":[]}}"#
+    );
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{aborted}]}}"#
+    ));
+    let err = f.run(&mut never_stop()).expect_err("an aborted run must refuse");
+    assert!(err.contains("not verified"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
+fn refuses_a_kind_whose_db_and_file_counts_differ() {
+    let f = Fixture::new("differ", Some("verified"), Some(good_dump().as_slice()));
+    let differ = RUN_CLEAN.replace(r#""notes":{"db":1,"files":1}"#, r#""notes":{"db":2,"files":1}"#);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{differ}]}}"#
+    ));
+    let err = f.run(&mut never_stop()).expect_err("db and files must match per kind");
+    assert!(err.contains("notes"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
+fn refuses_a_run_with_no_kinds_to_compare() {
+    let f = Fixture::new("nokinds", Some("verified"), Some(good_dump().as_slice()));
+    let empty = RUN_CLEAN.replace(r#""kinds":{"notes":{"db":1,"files":1}}"#, r#""kinds":{}"#);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{empty}]}}"#
+    ));
+    let err = f.run(&mut never_stop()).expect_err("a run with no kinds must refuse");
+    assert!(err.contains("no kinds"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
+fn another_devices_removing_report_needs_this_devices_own_checks() {
+    let f = Fixture::new("removing-b", Some("removing"), Some(good_dump().as_slice()));
+    let stale = RUN_CLEAN.replace(
+        r#""finishedAt":"2026-11-23T08:00:00Z""#,
+        r#""finishedAt":"2026-11-23T07:00:00Z""#,
+    );
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"dev-b","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{stale}]}}"#
+    ));
+    let err = f.run(&mut never_stop()).expect_err("device A must not resume on B's say-so");
+    assert!(err.contains("stale"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
+fn secrets_moved_for_another_device_does_not_count_for_this_one() {
+    let f = Fixture::new("secrets-b", Some("verified"), Some(good_dump().as_slice()));
+    fs::remove_file(f.folder.join(SECRETS)).unwrap();
+    let dir = f.folder.join(DIR);
+    fs::write(dir.join("secrets-moved-dev-b.json"), secrets_json(0).replace(DEVICE, "dev-b")).unwrap();
+    let err = f.run(&mut never_stop()).expect_err("only this device's secrets file counts");
+    assert!(err.contains("secrets-moved"), "{err}");
+    f.assert_untouched();
+}
+
+// ---- item 13: an unreadable report.json is kept as .bad, never merged; stale .part is replaced ----
+
+#[test]
+fn an_unparsable_report_is_moved_aside_as_bad_and_never_merged() {
+    let f = Fixture::new("unparsable", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report("{ not json");
+    let err = f.run(&mut never_stop()).expect_err("an unparsable report must refuse");
+    assert_eq!(err, "refused: migration report is unparsable");
+    assert!(f.folder.join(format!("{REPORT}.bad")).exists(), "report must be kept as .bad");
+    assert!(!f.folder.join(REPORT).exists(), "the unparsable report must not stay in place");
+    assert_eq!(
+        fs::read_to_string(f.folder.join(format!("{REPORT}.bad"))).unwrap(),
+        "{ not json"
+    );
+    f.assert_untouched();
+}
+
+#[test]
+fn an_existing_bad_file_is_never_overwritten() {
+    let f = Fixture::new("existing-bad", Some("verified"), Some(good_dump().as_slice()));
+    fs::write(f.folder.join(format!("{REPORT}.bad")), "earlier evidence").unwrap();
+    f.set_report("{ broken again");
+    let _ = f.run(&mut never_stop());
+    assert_eq!(
+        fs::read_to_string(f.folder.join(format!("{REPORT}.bad"))).unwrap(),
+        "earlier evidence",
+        "an existing .bad must stay as it is"
+    );
+    f.assert_untouched();
+}
+
+#[test]
+fn a_stale_part_file_is_replaced_when_exported_to_is_written() {
+    let f = Fixture::new("stale-part", Some("verified"), Some(good_dump().as_slice()));
+    let part = f.pg_root.join("exported-to.json.part");
+    fs::write(&part, "stale half-written junk").unwrap();
+    record_exported_to(&f.pg_root, &f.folder).expect("record must succeed");
+    assert!(!part.exists(), "the stale .part must not survive the write");
+    let text = fs::read_to_string(f.pg_root.join("exported-to.json")).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(value["folder"], canonical(&f.folder));
+}
+
+// ---- item A and item 10: migrate_097_status is this device's view ----
+
+#[test]
+fn another_devices_verified_run_is_not_this_devices_state() {
+    let f = Fixture::new("status-other-device", Some("verified"), None);
+    // The report belongs to dev-a; dev-b has no run and must not inherit dev-a's verified state.
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, "dev-b")).unwrap();
+    assert_eq!(value["state"], "unexported", "no run from dev-b: offered the export");
+    assert!(value.get("verifiedAt").is_none());
+}
+
+#[test]
+fn another_devices_removal_is_not_this_devices_removed_state() {
+    let f = Fixture::new("status-other-removed", Some("removed"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removed","removingDeviceId":"dev-a","runs":[{RUN_CLEAN}],"removals":{{"dev-a":{{"state":"removed","removedAt":"{NOW}"}}}}}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, "dev-b")).unwrap();
+    assert_ne!(value["state"], "removed");
+}
+
+#[test]
+fn verified_at_comes_from_this_devices_own_run() {
+    let f = Fixture::new("status-verified-at", Some("verified"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","verifiedAt":"2026-01-01T00:00:00Z","backup":"{BACKUP_NAME}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["verifiedAt"], NOW);
+}
+
+#[test]
+fn an_unknown_top_level_state_is_unavailable_even_with_own_verified_run() {
+    let f = Fixture::new("status-bogus-verified", Some("verified"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"bogus","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "unavailable");
+}
+
+#[test]
+fn an_unknown_top_level_state_is_unavailable_even_with_own_removed_entry() {
+    let f = Fixture::new("status-bogus-removed", Some("removed"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"bogus","runs":[{RUN_CLEAN}],"removals":{{"dev-a":{{"state":"removed","removedAt":"{NOW}"}}}}}}"#
+    ));
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "unavailable");
+}
+
+// ---- item B: a run without deviceId is another device's; conflicts fail closed ----
+
+#[test]
+fn a_run_without_device_id_counts_as_another_device_for_the_backup() {
+    let _f = Fixture::new("no-device-run", Some("verified"), None);
+    // The only run has no deviceId, so it cannot be shown to be dev-a's and dev-b must not use its dump.
+    let run = RUN_CLEAN.replace(r#","deviceId":"dev-a""#, "");
+    let report = serde_json::json!({
+        "version": 1,
+        "state": "verified",
+        "backup": BACKUP_NAME,
+        "runs": [serde_json::from_str::<serde_json::Value>(&run).unwrap()],
+    });
+    let err = backup_name(&report, DEVICE).expect_err("a run without deviceId is another device's");
+    assert_eq!(err, "refused: backup belongs to another device");
+}
+
+#[test]
+fn a_non_array_or_non_zero_conflicts_value_fails_closed_on_the_run() {
+    let f = Fixture::new("conflict-shapes", Some("verified"), Some(good_dump().as_slice()));
+    for shape in [r#""none""#, "2", "{}", "true"] {
+        let run = RUN_CLEAN.replace(
+            r#""deviceId":"dev-a""#,
+            &format!(r#""deviceId":"dev-a","conflicts":{shape}"#),
+        );
+        f.set_report(&format!(
+            r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{run}]}}"#
+        ));
+        let err = f.run(&mut never_stop()).expect_err("unknown conflicts shape must refuse");
+        assert!(err.contains("this device's export left conflict copies"), "{shape}: {err}");
+    }
+    f.assert_untouched();
+}
+
+#[test]
+fn a_kind_with_a_non_array_conflicts_value_fails_closed() {
+    let f = Fixture::new("conflict-kind-shape", Some("verified"), Some(good_dump().as_slice()));
+    let run = RUN_CLEAN.replace(
+        r#""kinds":{"notes":{"db":1,"files":1}}"#,
+        r#""kinds":{"notes":{"db":1,"files":1,"conflicts":"note (conflict).md"}}"#,
+    );
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{run}]}}"#
+    ));
+    let err = f.run(&mut never_stop()).expect_err("kind conflicts string must refuse");
+    assert!(err.contains("this device's export left conflict copies"), "{err}");
+    f.assert_untouched();
+}
+
+// ---- item P-d: another device's top-level state is left alone; the PID check is by image ----
+
+#[test]
+fn another_devices_incomplete_or_exporting_top_level_state_is_left_alone() {
+    for other_state in ["incomplete", "exporting"] {
+        let f = Fixture::new("other-state", Some("verified"), Some(good_dump().as_slice()));
+        f.set_report(&format!(
+            r#"{{"version":1,"state":"{other_state}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+        ));
+        // The top-level gate refuses first: an export in progress elsewhere is not a verified migration.
+        let err = f.run(&mut never_stop()).expect_err("a non-verified top level must refuse");
+        assert!(err.contains("not verified"), "{other_state}: {err}");
+        f.assert_untouched();
+        let report = f.report();
+        assert_eq!(report["state"], other_state, "another device's top-level state must stay");
+        assert!(report["removals"].get(DEVICE).is_none(), "no removal entry may be written");
+    }
+}
+
+// ---- item 8: only a verified export of this device records exported-to.json ----
+
+#[test]
+fn a_verified_export_records_exported_to_for_this_folder() {
+    let f = Fixture::new("export-verified", Some("verified"), None);
+    fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
+    record_verified_export(&f.pg_root, &f.folder, DEVICE).expect("a verified run records the export");
+    let text = fs::read_to_string(f.pg_root.join("exported-to.json"))
+        .expect("exported-to.json must exist after a verified export");
+    let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(value["folder"], serde_json::json!(canonical(&f.folder)));
+}
+
+#[test]
+fn an_unverified_export_records_no_exported_to() {
+    let f = Fixture::new("export-unverified", None, None);
+    let incomplete = RUN_CLEAN.replace(r#""state":"verified""#, r#""state":"incomplete""#);
+    f.set_report(&format!(r#"{{"version":1,"state":"incomplete","runs":[{incomplete}]}}"#));
+    fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
+    let err = record_verified_export(&f.pg_root, &f.folder, DEVICE)
+        .expect_err("an incomplete run must not record an export");
+    assert!(!f.pg_root.join("exported-to.json").exists(), "{err}");
+}
+
+// ---- item 14: export, verify, remove, removed, with exported-to.json recorded in between ----
+
+#[test]
+fn an_export_verified_then_removed_ends_removed_with_exported_to_recorded() {
+    let f = Fixture::new("e2e-remove", Some("verified"), Some(good_dump().as_slice()));
+    fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
+    record_verified_export(&f.pg_root, &f.folder, DEVICE).expect("the verified export is recorded");
+    assert!(f.pg_root.join("exported-to.json").exists(), "exported-to.json is written before removal");
+    let mut stop = || Ok(());
+    f.run(&mut stop).expect("a verified export with its exported-to.json removes the cluster");
+    assert!(!f.pg_root.exists(), "the local cluster is gone");
+    let report = f.report();
+    assert_eq!(report["state"], "removed");
+    assert_eq!(report["removals"][DEVICE]["state"], "removed");
+}
+
+// ---- item 11: a launch finishes a removal this device left in progress ----
+
+fn removing_report(device: &str) -> String {
+    format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{device}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    )
+}
+
+#[test]
+fn a_launch_finishes_the_removal_this_device_left_in_progress() {
+    let f = Fixture::new("resume-launch", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report(&removing_report(DEVICE));
+    let mut stop = || Ok(());
+    let resumed = resume_on_launch(&f.folder, &f.pg_root, DEVICE, NOW, &mut stop)
+        .expect("a launch must resume its own removal");
+    assert!(resumed, "this device's removing report is resumed");
+    assert!(!f.pg_root.exists(), "the cluster is deleted on launch");
+    assert_eq!(f.report()["state"], "removed");
+}
+
+#[test]
+fn a_launch_leaves_a_verified_migration_alone() {
+    let f = Fixture::new("resume-verified", Some("verified"), Some(good_dump().as_slice()));
+    let mut stop = || Ok(());
+    let resumed = resume_on_launch(&f.folder, &f.pg_root, DEVICE, NOW, &mut stop)
+        .expect("a verified report is not an error at launch");
+    assert!(!resumed, "nothing is in progress");
+    assert!(f.pg_root.exists(), "a verified migration keeps its cluster");
+}
+
+#[test]
+fn a_launch_does_not_finish_another_devices_removal() {
+    let f = Fixture::new("resume-other", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report(&removing_report("dev-b"));
+    let mut stop = || Ok(());
+    let resumed = resume_on_launch(&f.folder, &f.pg_root, DEVICE, NOW, &mut stop)
+        .expect("another device's removal is not an error at launch");
+    assert!(!resumed, "only the device that started the removal resumes it");
+    assert!(f.pg_root.exists(), "the cluster stays");
+}
+
+// ---- item 7: a removal marker refuses start, so start never restores from local-db-backups ----
+
+#[test]
+fn a_removal_marker_refuses_start_with_the_reason() {
+    let f = Fixture::new("start-marker", None, None);
+    assert_eq!(start_refusal(old_db_removed(&f.pg_root)), None, "no marker, start proceeds");
+    fs::write(f.base.join("old-db-removed"), "").unwrap();
+    let reason = start_refusal(old_db_removed(&f.pg_root)).expect("a marker must refuse start");
+    assert!(reason.contains("removed in 0.9.7"), "{reason}");
+}
+
+#[cfg(windows)]
+#[test]
+fn a_reused_pid_of_a_non_postgres_program_does_not_block_removal_on_windows() {
+    let f = Fixture::new("reused-pid", Some("verified"), Some(good_dump().as_slice()));
+    // This test process is alive but is not postgres.exe, so its PID must count as dead.
+    fs::write(
+        f.pg_root.join("data/postmaster.pid"),
+        format!("{}\n", std::process::id()),
+    )
+    .unwrap();
+    let mut stop = || Ok(());
+    f.run(&mut stop).expect("a non-postgres PID must not block the removal");
+    assert!(!f.pg_root.exists(), "cluster dir must be deleted");
 }

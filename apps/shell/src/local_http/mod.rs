@@ -27,6 +27,7 @@ pub mod sdk;
 pub mod sdk_files;
 pub mod server;
 pub mod token;
+pub mod verified;
 
 /// A boxed future, so the injected dependencies below stay object safe.
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;

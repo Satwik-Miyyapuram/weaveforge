@@ -145,6 +145,7 @@ pub fn run() -> tauri::Result<()> {
             start_stores(app.handle());
             start_ink(app.handle());
             start_vault_watch(app.handle());
+            start_resume_097(app.handle());
             start_routes(app.handle());
             start_local_db(app.handle());
             start_local_api(app.handle());
@@ -177,7 +178,14 @@ pub fn run() -> tauri::Result<()> {
     app.run(|handle, event| {
         if let tauri::RunEvent::Exit = event {
             stop_local_api(handle);
-            stop_local_db(handle);
+            // After a removal the cluster is gone, so there is nothing to back up on exit.
+            use tauri::Manager;
+            let removed = handle.path().app_data_dir().is_ok_and(|data| {
+                migrate_097::remove::old_db_removed(&native_root(&data))
+            });
+            if let Err(e) = stop_local_db(handle, !removed) {
+                local_api::warn(handle, &format!("postgres stop on exit failed: {e}"));
+            }
             stop_helpers(handle);
         }
     });
@@ -228,6 +236,10 @@ fn start_stores(app: &tauri::AppHandle) {
     ));
     let _ = app.manage(prefs);
     let _ = app.manage(vault);
+    // Without it the SQL commands and the local API stay off: fail closed, never guess the mode.
+    if let Ok(mode) = local_http::verified::ModeSource::from_app(app) {
+        let _ = app.manage(mode);
+    }
     let _ = app.manage(secrets);
     let _ = app.manage(app_log::AppLog::new(&logs, &home));
     let _ = app.manage(git::GitQueue::default());
@@ -329,6 +341,38 @@ fn start_vault_watch(app: &tauri::AppHandle) {
         log_vault_warning(app, &reason, &root.path);
     }
     let _ = app.manage(slot);
+}
+
+/// Finishes a 0.9.7 removal this device left in progress, off the setup thread. Only this device's
+/// own `removing` entry resumes; the gates live in `resume_on_launch`. A failure is logged, not fatal.
+fn start_resume_097(app: &tauri::AppHandle) {
+    use tauri::Manager as _;
+    let Some(root) = app
+        .try_state::<vault::VaultState>()
+        .and_then(|vault| vault.lock().root())
+    else {
+        return;
+    };
+    let Ok(data) = app.path().app_data_dir() else {
+        return;
+    };
+    let Ok(device) = device_id::get_or_create(&data) else {
+        return;
+    };
+    let folder = std::path::PathBuf::from(&root.path);
+    let pg_root = native_root(&data);
+    let now = vault::iso_utc(std::time::SystemTime::now());
+    // Synchronous on purpose: start_local_db runs next and must see the finished (or refused) resume.
+    let pid_file = pg_root.join("data").join("postmaster.pid");
+    let mut alive_check = || match migrate_097::remove::live_postmaster(&pid_file) {
+        Some(running) => Err(format!("refused: postgres still running ({running})")),
+        None => Ok(()),
+    };
+    if let Err(reason) =
+        migrate_097::remove::resume_on_launch(&folder, &pg_root, &device, &now, &mut alive_check)
+    {
+        local_api::warn(app, &format!("0.9.7 removal not resumed: {reason}"));
+    }
 }
 
 /// Stops the folder watch and the handwriting helper before the process exits.
@@ -434,7 +478,19 @@ fn start_local_db(app: &tauri::AppHandle) {
     let db = match (paths.app_data_dir(), paths.resource_dir()) {
         (Ok(data), Ok(resources)) => {
             let source = launch::app_source(resources.clone());
-            let native = native_db(app, &data, &resources, &source);
+            // After a 0.9.7 removal the cluster stays gone: no start, so no restore from backups.
+            let pg_root = native_root(&data);
+            let refused = migrate_097::remove::start_refusal(migrate_097::remove::old_db_removed(&pg_root))
+                .map(str::to_owned)
+                .or_else(|| {
+                    let root = app.try_state::<vault::VaultState>()?.lock().root()?;
+                    migrate_097::remove::removal_refusal(&std::path::PathBuf::from(&root.path), &pg_root)
+                });
+            let native = if let Some(reason) = refused {
+                Err(reason)
+            } else {
+                native_db(app, &data, &resources, &source)
+            };
             if let Err(reason) = &native {
                 local_api::warn(app, reason);
             }
@@ -458,6 +514,7 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
     let prefs = app.try_state::<prefs::Prefs>()?.inner().clone();
     let secrets = app.try_state::<secrets::Secrets>()?.inner().clone();
     let vault = app.try_state::<vault::VaultState>()?.inner().clone();
+    let mode = app.try_state::<local_http::verified::ModeSource>()?.inner().clone();
     let paths = app.path();
     let product = app.package_info().name.clone();
     // Without a resource dir the build is unknown, so it is treated as Dev: it must never
@@ -478,6 +535,7 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
     let query: Arc<dyn local_http::SdkQuery> = Arc::new(local_api::AppQuery(app.clone()));
     let mcp = local_http::mcp::LocalMcp::new(
         vault.clone(),
+        mode.clone(),
         Some(query.clone()),
         Some(ranker.clone()),
         Some(local_http::McpHome {
@@ -488,6 +546,7 @@ fn local_api_deps(app: &tauri::AppHandle) -> Option<(local_http::control::LocalA
     let artifacts = paths.app_data_dir().unwrap_or_default().join("artifacts");
     let deps = local_http::control::LocalApiDeps {
         vault,
+        mode,
         prefs: Arc::new(prefs),
         secrets: Arc::new(secrets),
         opener: Arc::new(local_api::TauriOpener(app.clone())),
@@ -554,16 +613,33 @@ fn stop_local_api(app: &tauri::AppHandle) {
     }
 }
 
-/// Stops Postgres, then drops the database lock.
-fn stop_local_db(app: &tauri::AppHandle) {
+/// Stops Postgres and refuses while a live postgres still names its cluster in `postmaster.pid`.
+/// A stale file left by a crash does not refuse. Keeps the database lock, so a caller that still
+/// needs the cluster down (the removal) can hold it until its work is done.
+pub(crate) fn stop_postgres(app: &tauri::AppHandle, backup: bool) -> Result<(), String> {
     use tauri::Manager;
     if let Some(db) = app.try_state::<commands::LocalDb>() {
-        tauri::async_runtime::block_on(db.shutdown());
+        tauri::async_runtime::block_on(db.shutdown_with(backup));
     }
-    // Drops only this process's lock, after Postgres stopped; a no-op when it never opened.
-    if let Ok(data) = app.path().app_data_dir() {
-        db_lock::release(&native_root(&data));
+    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    match migrate_097::remove::live_postmaster(&native_root(&data).join("data").join("postmaster.pid")) {
+        Some(running) => Err(format!("refused: postgres did not stop ({running})")),
+        None => Ok(()),
     }
+}
+
+/// Drops only this process's database lock; a no-op when it never opened.
+pub(crate) fn release_db_lock(app: &tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    db_lock::release(&native_root(&data));
+    Ok(())
+}
+
+/// Stops Postgres, then drops the database lock. Used on exit.
+fn stop_local_db(app: &tauri::AppHandle, backup: bool) -> Result<(), String> {
+    stop_postgres(app, backup)?;
+    release_db_lock(app)
 }
 
 /// Makes the `app://` routes' folders and clients; the folders sit in app data, as in Electron.

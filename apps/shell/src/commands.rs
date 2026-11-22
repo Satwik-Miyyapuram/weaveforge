@@ -5,7 +5,9 @@ use std::sync::Arc;
 use serde_json::Value;
 
 use crate::local_pg::host::{PgEngine, PgHost};
+use crate::local_http::verified::{Mode, ModeSource, folder_mode};
 use crate::local_pg::import::TableReport;
+use crate::vault::VaultState;
 
 /// The native Postgres database.
 pub type NativeDb = Arc<PgHost<PgEngine>>;
@@ -148,8 +150,13 @@ impl LocalDb {
 
     /// Closes the native database.
     pub async fn shutdown(&self) {
+        self.shutdown_with(true).await;
+    }
+
+    /// Closes the native database; `backup` false skips the quit backup.
+    pub async fn shutdown_with(&self, backup: bool) {
         if let Ok(native) = &self.native {
-            native.close().await;
+            native.close_with(backup).await;
         }
     }
 
@@ -165,14 +172,52 @@ impl LocalDb {
     }
 }
 
+/// Whether `sql` is one plain SELECT: no data-modifying CTE, no second statement.
+fn is_plain_select(sql: &str) -> bool {
+    let first = sql
+        .trim_start()
+        .split(|c: char| c.is_whitespace() || c == '(')
+        .next()
+        .unwrap_or_default();
+    let body = sql.trim().trim_end_matches(';');
+    first.eq_ignore_ascii_case("select") && !body.contains(';')
+}
+
+/// Decides whether `sql` may run in `mode`. Files and unavailable folders run no SQL;
+/// the read-only database runs only a plain SELECT. Fails closed.
+pub(crate) fn check_db_query(mode: Mode, sql: &str) -> Result<(), ShellError> {
+    match mode {
+        Mode::Database => Ok(()),
+        Mode::DatabaseReadOnly if is_plain_select(sql) => Ok(()),
+        Mode::DatabaseReadOnly => Err(shell_error(
+            "the folder's database is read-only while its migration is in progress",
+        )),
+        Mode::Files | Mode::Unavailable => {
+            Err(shell_error("the database is not used for this folder"))
+        }
+    }
+}
+
+/// Only the read-write database may be reset.
+pub(crate) fn check_db_reset(mode: Mode) -> Result<(), ShellError> {
+    if mode == Mode::Database {
+        Ok(())
+    } else {
+        Err(shell_error("the database cannot be reset for this folder"))
+    }
+}
+
 /// Runs a SQL query on the local database.
 #[tauri::command]
 #[specta::specta]
 pub async fn db_query(
     db: tauri::State<'_, LocalDb>,
+    vault: tauri::State<'_, VaultState>,
+    source: tauri::State<'_, ModeSource>,
     sql: String,
     params: Vec<Json>,
 ) -> Result<Vec<Json>, ShellError> {
+    check_db_query(folder_mode(&vault, &source), &sql)?;
     let params = json_params(params)?;
     let rows = db.query(sql, params).await?;
     rows.into_iter().map(json_row).collect()
@@ -251,7 +296,12 @@ pub async fn db_state(db: tauri::State<'_, LocalDb>) -> Result<DbState, ShellErr
 /// Resets the local database.
 #[tauri::command]
 #[specta::specta]
-pub async fn db_reset(db: tauri::State<'_, LocalDb>) -> Result<(), ShellError> {
+pub async fn db_reset(
+    db: tauri::State<'_, LocalDb>,
+    vault: tauri::State<'_, VaultState>,
+    source: tauri::State<'_, ModeSource>,
+) -> Result<(), ShellError> {
+    check_db_reset(folder_mode(&vault, &source))?;
     db.reset().await
 }
 
@@ -282,6 +332,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::migrate_097::cmd::migrate_097_status,
         crate::migrate_097::cmd::migrate_097_counts,
         crate::migrate_097::cmd::migrate_097_remove_old,
+        crate::migrate_097::cmd::mark_exported_097,
         crate::cmd_files::file_write,
         crate::cmd_files::file_write_bytes,
         crate::cmd_files::file_delete,
@@ -416,6 +467,48 @@ mod tests {
     fn ipc_reply_string_ok_passes_through() {
         let reply = serde_json::json!({"ok": "true", "value": 1});
         assert_eq!(ipc_reply(reply.clone()), Ok(reply));
+    }
+
+    #[test]
+    fn the_read_write_database_runs_any_sql() {
+        assert_eq!(check_db_query(Mode::Database, "delete from notes"), Ok(()));
+    }
+
+    #[test]
+    fn the_read_only_database_runs_only_a_plain_select() {
+        assert_eq!(check_db_query(Mode::DatabaseReadOnly, "SELECT 1"), Ok(()));
+        assert_eq!(
+            check_db_query(Mode::DatabaseReadOnly, "  select * from notes;"),
+            Ok(())
+        );
+        for sql in [
+            "insert into notes values (1)",
+            "update notes set x = 1",
+            "delete from notes",
+            "with gone as (delete from notes returning *) select * from gone",
+            "select 1; delete from notes",
+            "",
+        ] {
+            assert!(
+                check_db_query(Mode::DatabaseReadOnly, sql).is_err(),
+                "{sql}"
+            );
+        }
+    }
+
+    #[test]
+    fn files_and_unavailable_folders_run_no_sql() {
+        for mode in [Mode::Files, Mode::Unavailable] {
+            assert!(check_db_query(mode, "SELECT 1").is_err(), "{mode:?}");
+        }
+    }
+
+    #[test]
+    fn only_the_read_write_database_is_reset() {
+        assert_eq!(check_db_reset(Mode::Database), Ok(()));
+        for mode in [Mode::DatabaseReadOnly, Mode::Files, Mode::Unavailable] {
+            assert!(check_db_reset(mode).is_err(), "{mode:?}");
+        }
     }
 
     #[test]
