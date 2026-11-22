@@ -166,6 +166,31 @@ test("a note open in an editor is skipped and reported, not rewritten", async ()
   assert.deepEqual(updates, ["two", "three"]);
 });
 
+test("F97-P2-4: a note that links to its own old title has that link rewritten", async () => {
+  const { rows, repo } = memoryPages([page("two", "Two", "Self: [[Two]] and [[Other]]")]);
+  await repo.update("two", { title: "Renamed" });
+  assert.equal(rows.get("two")!.body, "Self: [[Renamed]] and [[Other]]");
+});
+
+test("F97-P2-4: the renamed note open in its editor gets no warning and keeps its own self-link", async () => {
+  // The editor holds its own copy of the body, so its own [[Two]] is not rewritten
+  // (its next autosave would restore it). Other notes are still rewritten, and
+  // no warning is raised on every title rename.
+  const { rows, repo } = memoryPages([
+    page("two", "Two", "Self: [[Two]]"),
+    page("three", "Three", "[[Two]]"),
+  ]);
+  const release = holdOpenNotes(["two"]);
+  try {
+    const saved = (await repo.update("two", { title: "Renamed" })) as { linkRewriteFailed?: string[] };
+    assert.equal(saved.linkRewriteFailed, undefined);
+  } finally {
+    release();
+  }
+  assert.equal(rows.get("two")!.body, "Self: [[Two]]");
+  assert.equal(rows.get("three")!.body, "[[Renamed]]");
+});
+
 test("the app's note writes are the link-rewriting ones", () => {
   const src = readFileSync(fileURLToPath(new URL("../../../create-app-container.ts", import.meta.url)), "utf8");
   assert.match(src, /const manageVaultPage = [\w(\s]*withRenameLinkRewrite\(vaultPageRepository\)/);
