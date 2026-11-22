@@ -74,21 +74,24 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
 
 /**
  * A FileSink whose writes go through the run's no-overwrite store, so every kind writer shares one rule.
- * Settings files under `.weaveforge/` are shared documents saved by compare-and-retry, never copied, so they
- * pass straight through.
+ * Only `.part` temp files under `.weaveforge/` pass straight through. Settings files are saved by compare-and-set
+ * (writeIf), never by a plain write. A rename never replaces an existing file.
  */
 export function guardedSink(sink: FileSink, store: FileStore): FileSink {
   /** The text a non-ours file held before this run's first add-keys merge: later merges keep its body and keys. */
   const baselines = new Map<string, string>();
   return {
     async write(path, data) {
-      if (path.startsWith(".weaveforge/")) return sink.write(path, data);
+      if (path.startsWith(".weaveforge/") && path.endsWith(".part")) return sink.write(path, data);
       await store.store(path, data, await sha256Hex(data));
     },
     list: () => sink.list(),
     readText: (path) => sink.readText(path),
     readBytes: (path) => sink.readBytes(path),
-    rename: (from, to) => sink.rename(from, to),
+    async rename(from, to) {
+      if ((await sink.list()).includes(to)) throw new Error(`refusing to replace an existing file: ${to}`);
+      return sink.rename(from, to);
+    },
     remove: (path) => sink.remove(path),
     // A compare-and-set replaces only the text the caller read, so it never loses a user edit. Its result is this
     // run's output only when the file is ours: created by this write, already written this run, or still holding

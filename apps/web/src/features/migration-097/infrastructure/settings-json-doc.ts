@@ -16,9 +16,9 @@ const SETTINGS_ATTEMPTS = 3;
 
 /**
  * Reads, changes and saves settings.json. `mutate` runs on a fresh read every attempt, so keys another
- * writer saved meanwhile are kept. Before the rename the file is read again: if its bytes changed since
- * the read, the change is dropped and retried. After SETTINGS_ATTEMPTS tries it throws a fixed code.
- * Write-then-rename, so a crash never leaves a half-written settings.json.
+ * writer saved meanwhile are kept. An existing file is saved by compare-and-set: when it no longer reads what
+ * this attempt read, the change is dropped and retried. A missing file is created through a .part and rename;
+ * if the file appeared meanwhile, that save is retried too. After SETTINGS_ATTEMPTS tries it throws a fixed code.
  */
 export async function updateSettingsDoc(
   sink: FileSink,
@@ -26,26 +26,39 @@ export async function updateSettingsDoc(
   mutate: (doc: Record<string, unknown>) => void | Promise<void>,
 ): Promise<void> {
   const fs = sinkAsWorkspaceFs(sink);
-  const part = `${SETTINGS_PATH}.part`;
   for (let attempt = 1; attempt <= SETTINGS_ATTEMPTS; attempt++) {
     const before = await readRaw(fs);
     const doc = parseDoc(before, label);
     await mutate(doc);
-    try {
-      await sink.write(part, JSON.stringify(doc, null, 2));
-      if ((await readRaw(fs)) !== before) {
-        await sink.remove(part).catch(() => undefined);
-        continue;
-      }
-      await sink.rename(part, SETTINGS_PATH);
-      return;
-    } catch (err) {
-      // Only the .part is removed: settings.json itself was never touched.
-      await sink.remove(part).catch(() => undefined);
-      throw err;
+    const text = JSON.stringify(doc, null, 2);
+    if (before !== null) {
+      if (await sink.writeIf(SETTINGS_PATH, text, before)) return;
+      continue;
     }
+    if (await createSettings(sink, fs, text)) return;
   }
   throw Object.assign(new Error("settings.json changed during the save"), { code: "settings-changed" });
+}
+
+/**
+ * Creates a missing settings.json. Returns false when the file appeared since the check (the caller retries).
+ * Any other failure is thrown after the .part is removed; settings.json itself was never touched.
+ */
+async function createSettings(
+  sink: FileSink,
+  fs: ReturnType<typeof sinkAsWorkspaceFs>,
+  text: string,
+): Promise<boolean> {
+  const part = `${SETTINGS_PATH}.part`;
+  try {
+    await sink.write(part, text);
+    await sink.rename(part, SETTINGS_PATH);
+    return true;
+  } catch (err) {
+    await sink.remove(part).catch(() => undefined);
+    if ((await readRaw(fs)) !== null) return false;
+    throw err;
+  }
 }
 
 /** settings.json's text, or null when the file is absent. */

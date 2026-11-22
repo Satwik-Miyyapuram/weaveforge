@@ -6,16 +6,17 @@ import { SETTINGS_PATH, updateSettingsDoc } from "../infrastructure/settings-jso
 test("settings.json: a change made between the read and the rename is re-merged, not overwritten", async () => {
   const sink = new MemorySink();
   await sink.write(SETTINGS_PATH, JSON.stringify({ keep: 1 }));
-  const base = sink.write.bind(sink);
+  const baseWrite = sink.write.bind(sink);
+  const baseWriteIf = sink.writeIf.bind(sink);
   let raced = false;
   const racy = Object.assign(sink, {
-    write: async (path: string, text: string) => {
-      // Another writer lands between this write's read and its rename, once.
-      if (path.endsWith(".part") && !raced) {
+    writeIf: async (path: string, text: string, expected: string) => {
+      // Another writer lands between this save's read and its compare-and-set, once.
+      if (path === SETTINGS_PATH && !raced) {
         raced = true;
-        await base(SETTINGS_PATH, JSON.stringify({ keep: 1, other: "x" }));
+        await baseWrite(SETTINGS_PATH, JSON.stringify({ keep: 1, other: "x" }));
       }
-      return base(path, text);
+      return baseWriteIf(path, text, expected);
     },
   });
   await updateSettingsDoc(racy, "test", (doc) => {
@@ -27,12 +28,14 @@ test("settings.json: a change made between the read and the rename is re-merged,
 test("settings.json: a file that keeps changing gives up after 3 tries with a fixed code", async () => {
   const sink = new MemorySink();
   await sink.write(SETTINGS_PATH, JSON.stringify({ keep: 1 }));
-  const base = sink.write.bind(sink);
+  const baseWrite = sink.write.bind(sink);
+  const baseWriteIf = sink.writeIf.bind(sink);
   let tries = 0;
   const churning = Object.assign(sink, {
-    write: async (path: string, text: string) => {
-      if (path.endsWith(".part")) await base(SETTINGS_PATH, JSON.stringify({ keep: 1, n: ++tries }));
-      return base(path, text);
+    writeIf: async (path: string, text: string, expected: string) => {
+      // Every save finds the file changed under it.
+      if (path === SETTINGS_PATH) await baseWrite(SETTINGS_PATH, JSON.stringify({ keep: 1, n: ++tries }));
+      return baseWriteIf(path, text, expected);
     },
   });
   let mutations = 0;
