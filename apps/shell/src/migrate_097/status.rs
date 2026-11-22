@@ -91,7 +91,10 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
     kinds.dedup();
     MigrationStatus {
         state,
-        removed_at: report["removedAt"].as_str().map(str::to_owned),
+        // This device's own removal only; another device's entry is not this device's removal.
+        removed_at: report["removals"][device_id]["removedAt"]
+            .as_str()
+            .map(str::to_owned),
         verified_at: report["verifiedAt"].as_str().map(str::to_owned),
         exported_to: exported,
         backup_path: backup

@@ -796,6 +796,30 @@ fn status_absent_report_with_exported_to_is_unavailable_not_none() {
 }
 
 #[test]
+fn a_removal_is_recorded_under_this_devices_removals_entry() {
+    let f = Fixture::new("removals-entry", Some("verified"), Some(good_dump().as_slice()));
+    f.run(&mut || Ok(())).expect("removal succeeds");
+    let report = f.report();
+    assert_eq!(report["removals"][DEVICE]["state"], "removed");
+    assert_eq!(report["removals"][DEVICE]["removedAt"], NOW);
+}
+
+#[test]
+fn status_reads_removed_at_only_from_this_devices_removals_entry() {
+    let f = Fixture::new("removals-status", Some("removed"), None);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removed","runs":[{RUN_CLEAN}],"removals":{{"dev-b":{{"state":"removed","removedAt":"2026-11-23T07:00:00Z"}}}}}}"#
+    ));
+    let other = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert!(other.get("removedAt").is_none(), "another device's removal: {other}");
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removed","runs":[{RUN_CLEAN}],"removals":{{"{DEVICE}":{{"state":"removed","removedAt":"{NOW}"}}}}}}"#
+    ));
+    let own = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(own["removedAt"], NOW);
+}
+
+#[test]
 fn status_never_says_none_for_an_unreadable_report() {
     let f = Fixture::new("status-bad", Some("verified"), None);
     f.set_report("{ not json");
@@ -883,7 +907,9 @@ fn status_lists_missing_kinds_once_and_sorted() {
 #[test]
 fn status_reports_removed_at_and_none_without_a_report() {
     let f = Fixture::new("status-removed", Some("removed"), None);
-    f.set_report(r#"{"version":1,"state":"removed","runs":[],"removedAt":"2026-11-23T08:00:00Z"}"#);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removed","runs":[],"removals":{{"{DEVICE}":{{"state":"removed","removedAt":"2026-11-23T08:00:00Z"}}}}}}"#
+    ));
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
     assert_eq!(value["removedAt"], "2026-11-23T08:00:00Z");
     assert!(

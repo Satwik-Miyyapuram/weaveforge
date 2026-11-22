@@ -170,6 +170,7 @@ pub fn remove_old_data(
         stop_pg()?;
         report["state"] = "removing".into();
         report["removingDeviceId"] = device_id.into();
+        report["removals"][device_id] = serde_json::json!({ "state": "removing" });
         write_json_atomic(&report_path, &report)?;
     }
     if pg_root.join("data").join("postmaster.pid").exists() {
@@ -190,6 +191,7 @@ pub fn remove_old_data(
     }
     report["state"] = "removed".into();
     report["removedAt"] = now.into();
+    report["removals"][device_id] = serde_json::json!({ "state": "removed", "removedAt": now });
     write_json_atomic(&report_path, &report)
 }
 
