@@ -206,9 +206,11 @@ function bridgeProblems(bridge) {
     problems.push(`bridge ${LEGACY_MANIFEST_NAME} version is ${bridge.version}, expected ${BRIDGE_VERSION}`);
   }
   const prefix = releaseAssetUrl(`v${BRIDGE_VERSION}`, "");
-  const entries = Object.values(bridge.platforms ?? {});
+  const platforms = bridge.platforms ?? {};
+  const isMap = typeof platforms === "object" && platforms !== null && !Array.isArray(platforms);
+  const entries = isMap ? Object.values(platforms) : [];
   if (entries.length === 0) {
-    problems.push(`bridge ${LEGACY_MANIFEST_NAME} has no platforms`);
+    problems.push(`bridge ${LEGACY_MANIFEST_NAME} has no platforms (platforms must be an object of downloads)`);
   }
   for (const entry of entries) {
     if (typeof entry?.url !== "string" || !entry.url.startsWith(prefix)) {

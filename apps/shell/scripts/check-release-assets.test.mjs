@@ -312,6 +312,17 @@ test("a bridge latest.json with no platforms is reported: it must name at least 
   assert.ok(problems.some((p) => p.includes("platforms")), problems.join("; "));
 });
 
+test("a bridge latest.json whose platforms is a string is reported, not read character by character", () => {
+  const { problems } = parseBridge(JSON.stringify({ ...BRIDGE, platforms: "windows-x86_64" }));
+  assert.ok(problems.some((p) => p.includes("platforms")), problems.join("; "));
+});
+
+test("a bridge latest.json whose platforms is an array is reported, even when its entries are valid", () => {
+  const entries = Object.values(BRIDGE.platforms);
+  const { problems } = parseBridge(JSON.stringify({ ...BRIDGE, platforms: entries }));
+  assert.ok(problems.some((p) => p.includes("platforms")), problems.join("; "));
+});
+
 test("a missing bridge latest.json is left for the release check to report", () => {
   assert.deepEqual(parseBridge(""), { bridge: undefined, problems: [] });
 });
