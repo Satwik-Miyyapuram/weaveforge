@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { Button } from "@/components/button";
 import { wiringNeedsReload, type WiringKey } from "@/container/wiring-key";
 import { desktop } from "./desktop-bridge";
 import { shouldShowFinishRemoving, shouldShowRetry, shouldShowUpgrade } from "./migrate-097-gate-decision";
@@ -21,14 +22,13 @@ function MigrateBanner({ message, action, onAction }: { message: string; action:
     <div role="alert" className="migrate-097-banner">
       <p>{message}</p>
       {failed ? <p>That did not work. Try again.</p> : null}
-      <button
-        type="button"
+      <Button
         onClick={() => {
           void Promise.resolve(onAction()).then((ok) => setFailed(!ok));
         }}
       >
         {action}
-      </button>
+      </Button>
     </div>
   );
 }
