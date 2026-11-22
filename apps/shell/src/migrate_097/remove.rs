@@ -253,6 +253,12 @@ pub fn own_run_missing(
 
 /// This device's newest run must have finished `verified`, list at least one kind, and have the
 /// same db and files count for every kind. An aborted run or an empty kinds map is not a verify.
+/// Whether a `conflicts` value names any conflict copy: a non-empty list or a positive count.
+fn has_conflicts(value: &serde_json::Value) -> bool {
+    value.as_array().is_some_and(|items| !items.is_empty())
+        || value.as_u64().is_some_and(|n| n > 0)
+}
+
 fn check_own_run_verdict(report: &serde_json::Value, device_id: &str) -> Result<(), String> {
     let run = own_run(report, device_id)?;
     if run["state"].as_str() != Some("verified") {
@@ -265,6 +271,11 @@ fn check_own_run_verdict(report: &serde_json::Value, device_id: &str) -> Result<
         Some(kinds) if !kinds.is_empty() => kinds,
         _ => return Err("refused: verify run has no kinds to compare; verify again".to_owned()),
     };
+    let conflicted = has_conflicts(&run["conflicts"])
+        || kinds.values().any(|counts| has_conflicts(&counts["conflicts"]));
+    if conflicted {
+        return Err("refused: this device's export left conflict copies; resolve them first".to_owned());
+    }
     let show = |n: Option<u64>| n.map_or("?".to_owned(), |n| n.to_string());
     for (kind, counts) in kinds {
         let db = counts["db"].as_u64();

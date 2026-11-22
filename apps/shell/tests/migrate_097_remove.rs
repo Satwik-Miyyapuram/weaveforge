@@ -513,6 +513,36 @@ fn a_device_is_refused_when_only_another_devices_backup_is_named() {
 }
 
 #[test]
+fn a_run_with_conflict_copies_is_refused() {
+    let f = Fixture::new("conflict-run", Some("verified"), Some(good_dump().as_slice()));
+    let run = RUN_CLEAN.replace(
+        r#""deviceId":"dev-a""#,
+        r#""deviceId":"dev-a","conflicts":["note (conflict).md"]"#,
+    );
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{run}]}}"#
+    ));
+    let err = f.run(&mut never_stop()).expect_err("conflict copies must refuse");
+    assert!(err.contains("this device's export left conflict copies; resolve them first"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
+fn a_kind_with_conflict_copies_is_refused() {
+    let f = Fixture::new("conflict-kind", Some("verified"), Some(good_dump().as_slice()));
+    let run = RUN_CLEAN.replace(
+        r#""kinds":{"notes":{"db":1,"files":1}}"#,
+        r#""kinds":{"notes":{"db":1,"files":1,"conflicts":["note (conflict).md"]}}"#,
+    );
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{run}]}}"#
+    ));
+    let err = f.run(&mut never_stop()).expect_err("kind conflict copies must refuse");
+    assert!(err.contains("this device's export left conflict copies; resolve them first"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
 fn status_does_not_report_another_devices_dump_as_this_devices_backup() {
     let f = Fixture::new("other-backup-status", Some("verified"), None);
     report_with_another_devices_backup(&f);
