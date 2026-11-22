@@ -126,12 +126,12 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
           if ((await sha256Hex(bytes)) !== sha256) {
             throw new Error(`blobs: sha256 mismatch for ${bucket}/${path}`);
           }
-          // The type goes into the existing `.sha256` sidecar (line 2) via upload's contentType.
+          // The web export's `.sha256` sidecar holds the sha256 alone (061ff182f): this contentType is not written to it.
           const contentType = row.contentType ? String(row.contentType) : "application/octet-stream";
           await blobs.upload(bucket, path, new Blob([new Uint8Array(bytes)]), contentType);
         },
         // Scans assets/ on disk, so a blob written by an earlier run is listed too. Each file is
-        // checked against its own sidecar: sha256 on line 1, content type on line 2. A .part file is
+        // checked against its own sidecar: sha256 on line 1 (a line 2 is read if present). A .part file is
         // an interrupted write, and an asset with no sidecar is left out: its entry then reads as
         // missing, and the other blobs still read back.
         async readBack() {
@@ -146,7 +146,7 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
             const path = rel.slice(slash + 1);
             const bytes = await fs.readFile(entry.path);
             const [sha256, type] = (await fs.readText(`${entry.path}.sha256`)).split("\n");
-            // A blob that no longer matches its sidecar is left out: verify lists it missing, the others still read back.
+            // A blob that no longer matches its sidecar is left out, so its entry reads as missing; the others still read back.
             if ((await sha256Hex(bytes)) !== sha256) continue;
             out.push({ bucket, path, sha256, contentType: type || "application/octet-stream" });
           }
