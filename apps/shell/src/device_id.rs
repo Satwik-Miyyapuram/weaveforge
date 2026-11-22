@@ -29,6 +29,12 @@ pub fn get_or_create(dir: &Path) -> io::Result<String> {
 
 /// Removes `path` only if it is still empty. Another call may have linked an id in since this
 /// call read the name, and that id must not be removed.
+///
+/// Known window (TOCTOU): between the read and the `remove_file`, another call can link an id into
+/// the name, and the remove then deletes that real id. A later call would mint a new id, so reports
+/// written under the old one would stop matching. Closing it needs an atomic compare-and-remove,
+/// which std does not offer. The window is small: it needs a first call on an empty file racing a
+/// second first call. Not fixed here; flagged for review.
 fn remove_if_still_empty(path: &Path) -> io::Result<()> {
     match fs::read_to_string(path) {
         Ok(text) if text.trim().is_empty() => match fs::remove_file(path) {
@@ -102,6 +108,11 @@ fn part_path(path: &Path) -> std::path::PathBuf {
 
 /// Creates the name exclusively and writes the id into it. Used only where hard links are not
 /// supported. A crash mid-write can leave a partial id, which is then reported as corrupt.
+///
+/// Known window: the name exists before the write finishes, so a concurrent `get_or_create` can read
+/// a half-written id. That reader gets a corrupt-id error (it is never regenerated), so the call
+/// fails rather than returning a wrong id. Only this fallback path has the window; the hard-link
+/// path binds the name to a complete file.
 fn create_new_with(path: &Path, id: &str) -> io::Result<()> {
     let mut file = fs::OpenOptions::new().write(true).create_new(true).open(path)?;
     file.write_all(id.as_bytes())?;
