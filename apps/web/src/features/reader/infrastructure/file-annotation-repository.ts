@@ -44,7 +44,11 @@ export class FileReaderAnnotationRepository implements IReaderAnnotationSource, 
     );
   }
 
-  async create(paperId: string, draft: NewReaderAnnotation): Promise<ReaderAnnotation> {
+  /** `createdAt`/`updatedAt` are optional: an import passes the source times; otherwise both are now. */
+  async create(
+    paperId: string,
+    draft: NewReaderAnnotation & { createdAt?: string; updatedAt?: string },
+  ): Promise<ReaderAnnotation> {
     const core = typedCore();
     if (!core.isReaderAnnotationType(draft.type)) {
       throw new Error(`Invalid annotation type: ${draft.type}`);
