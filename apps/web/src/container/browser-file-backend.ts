@@ -9,7 +9,6 @@ import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgre
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { browserReportVerified } from "@/features/migration-097/domain/report";
 import type { WiredBackend } from "./parts";
-import { guardOrgDb } from "./org-db-guard";
 import { overlayFileRepositories } from "./with-file-repositories";
 
 export type BrowserFileWiring = (
@@ -26,10 +25,10 @@ export type BrowserFileWiring = (
 export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWiring> {
   const settings = await openFileSettingsSection(fs, "");
   return (config, projectContext, pid) => {
-    const postgrest = wirePostgrestBackend(config, projectContext, pid);
-    const files = wireFileBackend({ fs, settings, secrets: new RefusingSecretsStore() });
-    // The container reaches the server only through `db`, so the guard sits there: personal
+    // Files mode guards `db` and every repository the wiring builds on the server client, so personal
     // tables and rpcs throw before any request. Org and share tables stay reachable.
+    const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true });
+    const files = wireFileBackend({ fs, settings, secrets: new RefusingSecretsStore() });
     // manageSettings is built inside wirePostgrestBackend over the server settings repo. Rebuild it
     // over the file repo, so settings saves and the credential readers never reach PostgREST.
     const manageSettings = new ManageSettingsUseCase({ repository: files.settingsRepository, clock: systemClock });
@@ -40,7 +39,6 @@ export async function wireBrowserFiles(fs: IWorkspaceFs): Promise<BrowserFileWir
       // blob_objects stays allowlisted on the org server because shared images still use it.
       // Row scoping of shared images to the signed-in user is not checked here.
       rawBlobStore: new FileBlobStore(fs),
-      db: guardOrgDb(postgrest.db),
     };
   };
 }

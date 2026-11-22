@@ -147,3 +147,21 @@ test("in files mode a settings save goes to the file repo and never PostgREST", 
     backend.dispose();
   }
 });
+
+test("a repository built inside the wiring cannot write a personal table to the server", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const wire = await wireBrowserFiles(fs);
+  const backend = wire(config, { projectId: null }, () => null);
+  const spy = spyNetwork();
+  try {
+    // projects is personal: the Zotero collection setter writes it through a repo built on the raw client.
+    await assert.rejects(
+      backend.projectBibliographyCollection.setCollection("p-1", "collection-1"),
+      /not allowed on the org server/,
+    );
+    assert.deepEqual(spy.urls, []);
+  } finally {
+    spy.restore();
+    backend.dispose();
+  }
+});
