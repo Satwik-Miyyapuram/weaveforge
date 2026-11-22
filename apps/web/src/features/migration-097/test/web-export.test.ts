@@ -548,7 +548,7 @@ test("order: a failed desktop mark (last) leaves report.json incomplete, though 
   const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string; verifiedAt?: string };
   assert.equal(report.state, "incomplete");
   assert.equal("verifiedAt" in report, false);
-  assert.match(JSON.stringify(report), /markExported: shell refused/);
+  assert.match(JSON.stringify(report), /marker: desktop failed/);
 });
 
 test("order: a failed server marker leaves report.json incomplete and the desktop is not marked", async () => {
@@ -570,7 +570,7 @@ test("order: a failed server marker leaves report.json incomplete and the deskto
   assert.equal(desktopCalls.some((c) => c.startsWith("desktop-mark")), false, "no desktop mark");
   const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
   assert.equal(report.state, "incomplete");
-  assert.match(JSON.stringify(report), /server down/);
+  assert.match(JSON.stringify(report), /marker: server failed/);
 });
 
 test("order: a crash between the two marks never leaves report.json verified", async () => {
@@ -883,9 +883,60 @@ test("keys: a failed moveSecrets gives incomplete, no desktop mark and no server
   assert.equal(result.state, "incomplete");
   assert.equal(desktopCalls.some((c) => c.startsWith("desktop-mark")), false, "desktop mark not called");
   assert.equal(calls.some((c) => c.startsWith("mark:")), false, "server marker not set");
-  assert.match(JSON.stringify(result.run.missing), /moveSecrets: keys refused/);
+  assert.match(JSON.stringify(result.run.missing), /keys: move failed/);
   const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
   assert.equal(report.state, "incomplete");
+});
+
+test("reasons: report.json and the run never carry a thrown message (fixed codes only)", async () => {
+  // Move failure: the thrown text holds a secret-like value that must not reach the report.
+  const sinkA = new MemorySink();
+  await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source: fakeServer({ rows: FIXTURE }).source,
+    sink: sinkA,
+    now: NOW,
+    moveSecrets: async () => {
+      throw new Error("LEAK-KEY-sk-live-111");
+    },
+  });
+  const textA = await sinkA.readText(REPORT_PATH);
+  assert.equal(textA.includes("LEAK-KEY"), false, "move message not in report");
+  assert.match(textA, /keys: move failed/);
+
+  // Server marker failure.
+  const { source: srv } = fakeServer({ rows: FIXTURE });
+  srv.markExported = async () => {
+    throw new Error("LEAK-SERVER-token-222");
+  };
+  const sinkB = new MemorySink();
+  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source: srv, sink: sinkB, now: NOW });
+  const textB = await sinkB.readText(REPORT_PATH);
+  assert.equal(textB.includes("LEAK-SERVER"), false, "server message not in report");
+  assert.match(textB, /marker: server failed/);
+
+  // Desktop mark failure.
+  const sinkC = new MemorySink();
+  await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source: fakeServer({ rows: FIXTURE }).source,
+    sink: sinkC,
+    now: NOW,
+    desktop: {
+      folder: "C:/ws",
+      bridge: {
+        backup: async () => ({ deviceId: "dev-1", dump: "pre-migration-097.dump" }),
+        markExported: async () => {
+          throw new Error("LEAK-DESKTOP-path-333");
+        },
+      },
+    },
+  });
+  const textC = await sinkC.readText(REPORT_PATH);
+  assert.equal(textC.includes("LEAK-DESKTOP"), false, "desktop message not in report");
+  assert.match(textC, /marker: desktop failed/);
 });
 
 test("keys: moveSecrets does not run when the run is incomplete", async () => {

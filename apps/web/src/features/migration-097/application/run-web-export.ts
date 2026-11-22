@@ -249,9 +249,10 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   if (state === "verified" && moveSecrets) {
     try {
       await moveSecrets();
-    } catch (err) {
+    } catch {
       state = "incomplete";
-      missing.push({ kind: "keys", id: "*", reason: `moveSecrets: ${(err as Error).message}` });
+      // Fixed codes only: a thrown message can carry secret-like text, so it never reaches report.json.
+      missing.push({ kind: "keys", id: "*", reason: "keys: move failed" });
     }
   }
 
@@ -265,16 +266,16 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     let marked = true;
     try {
       await source.markExported(now);
-    } catch (err) {
+    } catch {
       marked = false;
-      missing.push({ kind: "marker", id: "*", reason: `markExported: ${(err as Error).message}` });
+      missing.push({ kind: "marker", id: "*", reason: "marker: server failed" });
     }
     if (marked && desktop) {
       try {
         await desktop.bridge.markExported(desktop.folder);
-      } catch (err) {
+      } catch {
         marked = false;
-        missing.push({ kind: "desktop", id: "*", reason: `markExported: ${(err as Error).message}` });
+        missing.push({ kind: "desktop", id: "*", reason: "marker: desktop failed" });
       }
     }
     missing.splice(pendingAt, 1);
