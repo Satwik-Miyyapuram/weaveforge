@@ -256,3 +256,29 @@ test("updatedAt and deletedAt on a log row are server columns: not written to th
   assert.equal("updatedAt" in back!, false);
   assert.equal("deletedAt" in back!, false);
 });
+
+test("server stamps a format does not keep are never written: deletedAt on every group-b kind, updatedAt where the file has none", async () => {
+  const writer = createGroupBWriter(new MemorySink(), ROOTS);
+  const stamp = { updatedAt: "2026-11-03T00:00:00.000Z", deletedAt: null };
+  await writer.write("milestones", { ...MILESTONE_ROW, ...stamp });
+  await writer.write("experiments", { ...EXPERIMENT_ROW, ...stamp });
+  await writer.write("reportSections", { ...SECTION_ROW, deletedAt: null });
+  await writer.write("aiProposals", { ...PROPOSAL_ROW, deletedAt: null });
+  const [milestone] = await writer.readBack("milestones");
+  const [experiment] = await writer.readBack("experiments");
+  const [section] = await writer.readBack("reportSections");
+  const [proposal] = await writer.readBack("aiProposals");
+  for (const row of [milestone, experiment]) {
+    assert.equal("updatedAt" in row!, false);
+    assert.equal("deletedAt" in row!, false);
+  }
+  assert.equal("deletedAt" in section!, false);
+  assert.equal("deletedAt" in proposal!, false);
+});
+
+test("syncState is local sync bookkeeping: a row carrying it is written without it", async () => {
+  const writer = createGroupBWriter(new MemorySink(), ROOTS);
+  await writer.write("milestones", { ...MILESTONE_ROW, syncState: "synced" });
+  const [back] = await writer.readBack("milestones");
+  assert.equal("syncState" in back!, false);
+});
