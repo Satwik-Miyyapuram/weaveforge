@@ -155,3 +155,18 @@ test("a call during a run imports its own folder and project on the next pass (3
   assert.deepEqual(queued.sort(), ["note-1", "note-2"]);
   assert.deepEqual(await remaining(second), []);
 });
+
+test("F97-P2-2: a draft whose name a new draft took is queued again on the next pass", async () => {
+  const fs = await withFiles({ "a.json": JSON.stringify(draft) });
+  const fresh = JSON.stringify({ ...draft, resourceId: "note-new" });
+  await assert.rejects(
+    importFolderDrafts(fs, async () => {
+      await fs.writeFile(`${FOLDER_DRAFTS_DIR}/a.json`, fresh);
+      throw new Error("offline");
+    }),
+  );
+  const queued: string[] = [];
+  assert.equal(await importFolderDrafts(fs, async (d) => queued.push(d.resourceId)), 2);
+  assert.deepEqual(queued.sort(), ["note-1", "note-new"]);
+  assert.deepEqual(await remaining(fs), []);
+});
