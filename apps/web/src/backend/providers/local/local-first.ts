@@ -115,7 +115,7 @@ export function localFirstParts(
     auth: new SupabaseAuthService(server),
     settingsRepository: new PostgrestSettingsRepository(db, session, secretsStoreFor(server)),
     blobStore,
-    // The share marker had one reader, the removed offline-sync pump, so it is a no-op here.
+    // Read by withShareMarks in wire-postgrest-backend. Its only consumer, the offline-sync pump, is removed, so marks do nothing here.
     shareMarks: { mark: async () => {}, unmark: async () => {} },
   };
 }
