@@ -1,8 +1,11 @@
 import type { IWorkspaceFs } from "@weaveforge/core";
 import type { SettingsSection } from "./file-tag-repo";
 
-/** The credential fields of the `Secrets` type (features/settings/infrastructure/parts.ts). */
-const SECRET_FIELDS = ["zoteroApiKey", "semanticScholarKey", "integrations"] as const;
+/**
+ * Credential field names: the `Secrets` fields (features/settings/infrastructure/parts.ts), plus the names an
+ * integration uses for its credential inside `integrations`. A field with one of these names is a secret.
+ */
+export const SECRET_FIELDS = ["zoteroApiKey", "semanticScholarKey", "integrations", "apiKey", "pat", "token", "secret", "password", "credential"] as const;
 
 /**
  * Words that mark a credential anywhere in a name (substring match, case-insensitive).

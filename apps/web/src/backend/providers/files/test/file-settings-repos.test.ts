@@ -163,3 +163,34 @@ test("a failed secrets read fails get, so a save cannot wipe stored keys", async
   const failing: SecretsStore = { load: () => Promise.reject(new Error("keychain locked")), save: () => Promise.resolve() };
   await assert.rejects(new FileSettingsRepository(new MemorySettings(), failing).get(), /keychain locked/);
 });
+
+test("clearing a key with an empty string removes it from the secrets store", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  const repo = new FileSettingsRepository(settings, secrets);
+  await repo.save({ zoteroApiKey: "SECRET-zotero" });
+  assert.equal(secrets.value.zoteroApiKey, "SECRET-zotero");
+  await repo.save({ zoteroApiKey: "" });
+  assert.equal(secrets.value.zoteroApiKey, undefined);
+  assert.equal((await repo.get()).zoteroApiKey, undefined);
+});
+
+test("saving one secret keeps the stored integration secrets (undefined keeps, it does not wipe)", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  const repo = new FileSettingsRepository(settings, secrets);
+  await repo.save({ integrations: { zotero: { apiKey: "SECRET-bag" } } });
+  await repo.save({ zoteroApiKey: "SECRET-zotero" });
+  assert.deepEqual(secrets.value.integrations, { zotero: { apiKey: "SECRET-bag" } });
+  assert.equal(secrets.value.zoteroApiKey, "SECRET-zotero");
+});
+
+test("field names pat and credential inside integrations are secrets, not file data", async () => {
+  const settings = new MemorySettings();
+  const secrets = new MemorySecrets();
+  await new FileSettingsRepository(settings, secrets).save({
+    integrations: { github: { pat: "SECRET-pat", repo: "a/b" }, other: { credential: "SECRET-cred" } },
+  });
+  assert.deepEqual(secrets.value.integrations, { github: { pat: "SECRET-pat" }, other: { credential: "SECRET-cred" } });
+  assert.doesNotMatch(JSON.stringify(settings.doc), /SECRET/);
+});

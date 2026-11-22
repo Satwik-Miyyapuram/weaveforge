@@ -32,9 +32,10 @@ import {
   type UserAppearance,
   type UserSettings,
 } from "@weaveforge/core";
-import type { SecretsStore, SettingsWrites } from "@/features/settings/infrastructure/parts";
+import type { Secrets, SecretsStore, SettingsWrites } from "@/features/settings/infrastructure/parts";
 import { typedCore } from "@/lib/rust-core";
 import type { SettingsSection } from "./file-tag-repo";
+import { SECRET_FIELDS } from "./file-settings-section";
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v);
@@ -47,15 +48,13 @@ function clone<T>(v: T): T {
 
 type Integrations = Record<string, Record<string, string>>;
 
-const SECRET_NAME = /key|token|secret|password/i;
-
 /** Secret-named fields go to the secrets store; the rest (e.g. a zotero library) go to the file. */
 function splitIntegrations(all: Integrations): { secret: Integrations; plain: Integrations } {
   const secret: Integrations = {};
   const plain: Integrations = {};
   for (const [provider, fields] of Object.entries(all)) {
     for (const [name, value] of Object.entries(fields)) {
-      const bag = SECRET_NAME.test(name) ? secret : plain;
+      const bag = (SECRET_FIELDS as readonly string[]).includes(name) ? secret : plain;
       (bag[provider] ??= {})[name] = value;
     }
   }
@@ -186,6 +185,26 @@ export class FileSettingsRepository implements ISettingsRepository, SettingsWrit
     return isObject(search) ? { ...hydrated, search: clone(search) as UserSettings["search"] } : hydrated;
   }
 
+  /**
+   * Writes the secrets when a secret field differs from the store. `undefined` keeps the stored value;
+   * an empty string clears it. A save with no change never reaches the store, so a browser build with
+   * no keychain does not refuse an unrelated settings save.
+   */
+  private async saveSecrets(settings: UserSettings, secret: Integrations): Promise<void> {
+    const current: Secrets = await this.secrets.load();
+    const hasSecret = Object.keys(secret).length > 0;
+    const next: Secrets = {
+      zoteroApiKey: settings.zoteroApiKey !== undefined ? settings.zoteroApiKey || undefined : current.zoteroApiKey,
+      semanticScholarKey:
+        settings.semanticScholarKey !== undefined ? settings.semanticScholarKey || undefined : current.semanticScholarKey,
+      integrations: settings.integrations !== undefined ? (hasSecret ? secret : undefined) : current.integrations,
+    };
+    const changed =
+      next.zoteroApiKey !== current.zoteroApiKey ||
+      next.semanticScholarKey !== current.semanticScholarKey ||
+      JSON.stringify(next.integrations ?? null) !== JSON.stringify(current.integrations ?? null);
+    if (changed) await this.secrets.save(next);
+  }
   getMetadata(): Promise<SettingsMetadata> {
     const out: SettingsMetadata = { ...this.disclaimer() };
     const appearance = this.appearance();
@@ -195,23 +214,8 @@ export class FileSettingsRepository implements ISettingsRepository, SettingsWrit
 
   /** Full replace of the given fields; an unset disclaimer, appearance or AI access keeps the stored one. */
   async save(settings: UserSettings): Promise<void> {
-    // Only a real key reaches the secrets store (which refuses in the browser). A save with no keys
-    // must not throw, and keys never go to a settings file either way.
-    // Integrations also carry non-secret fields (e.g. zotero library): only their secret-named fields go to the store.
-    const holdsSecret = (v: unknown, name: string): boolean =>
-      typeof v === "string" ? v.length > 0 && SECRET_NAME.test(name) : isObject(v) && Object.entries(v).some(([k, x]) => holdsSecret(x, k));
     const { secret, plain } = splitIntegrations(settings.integrations ?? {});
-    if (
-      holdsSecret(settings.zoteroApiKey, "zoteroApiKey") ||
-      holdsSecret(settings.semanticScholarKey, "semanticScholarKey") ||
-      holdsSecret(secret, "integrations")
-    ) {
-      await this.secrets.save({
-        zoteroApiKey: settings.zoteroApiKey,
-        semanticScholarKey: settings.semanticScholarKey,
-        integrations: settings.integrations ? secret : undefined,
-      });
-    }
+    await this.saveSecrets(settings, secret);
     const s = this.settings;
     // Awaited: each set resolves only once its write has reached settings.json.
     if (settings.integrations) await s.set(["integrationSettings"], clone(plain));
