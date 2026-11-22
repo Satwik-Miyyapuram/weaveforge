@@ -275,6 +275,18 @@ fn only_this_devices_run_counts_for_missing_items() {
 }
 
 #[test]
+fn refuses_when_the_newest_run_has_no_missing_list() {
+    let f = Fixture::new("no-missing-list", Some("verified"), Some(b"PGDMP"));
+    let no_list = RUN_CLEAN.replace(r#","missing":[]"#, "");
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{no_list}]}}"#
+    ));
+    let mut stop = || -> Result<(), String> { panic!("must not stop") };
+    assert!(f.run(&mut stop).is_err(), "a run without a missing array must refuse");
+    f.assert_untouched();
+}
+
+#[test]
 fn refuses_when_exported_to_names_another_folder() {
     let f = Fixture::new("other-folder", Some("verified"), Some(b"PGDMP"));
     let other = f.base.join("other-vault");

@@ -141,15 +141,13 @@ pub fn own_run_missing(
         .rev()
         .find(|run| run["deviceId"].as_str() == Some(device_id))
         .ok_or("refused: no verify run from this device; verify again")?;
-    Ok(own["missing"]
+    let items = own["missing"]
         .as_array()
-        .map(|items| {
-            items
-                .iter()
-                .map(|item| item["kind"].as_str().unwrap_or("?").to_owned())
-                .collect()
-        })
-        .unwrap_or_default())
+        .ok_or("refused: verify run has no missing list; verify again")?;
+    Ok(items
+        .iter()
+        .map(|item| item["kind"].as_str().unwrap_or("?").to_owned())
+        .collect())
 }
 
 /// The verify must be at most `VERIFY_WINDOW_MS` old: the UI runs the TS verify right before
