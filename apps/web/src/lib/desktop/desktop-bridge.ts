@@ -171,11 +171,11 @@ export interface DesktopBridge {
    */
   legacyDbPresent?(): Promise<boolean>;
   /**
-   * Whether the workspace folder holds `.weaveforge/migration-0.9.7/report.json`. Read-only.
-   * Absent on shells that predate the call. That is unknown, not present: the install gate treats
-   * unknown as missing and blocks while `legacyDbPresent` is true (fail closed).
+   * Whether `folder` holds a verified 0.9.7 migration report (`.weaveforge/migration-0.9.7/report.json`).
+   * Read-only. Absent on shells that predate the call; the install gate reads that as unknown and
+   * blocks (fail closed).
    */
-  migrationReportPresent?(): Promise<boolean>;
+  migrationReportVerified?(folder: string): Promise<boolean>;
 
   /**
    * Offline attachment bytes as files in the app's data folder, one per

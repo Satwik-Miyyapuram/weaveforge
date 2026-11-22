@@ -1,64 +1,93 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { install097Required, install097RequiredFrom } from "../application/install-097-guard";
+import { install097Check } from "../application/install-097-guard";
 
-test("install097Required blocks only when legacy DB is present and no verified report", () => {
-  assert.equal(install097Required({ legacyDbPresent: true, reportPresent: false }), true);
-  assert.equal(install097Required({ legacyDbPresent: true, reportPresent: null }), true);
-  assert.equal(install097Required({ legacyDbPresent: true, reportPresent: true }), false);
-  assert.equal(install097Required({ legacyDbPresent: false, reportPresent: false }), false);
-  assert.equal(install097Required({ legacyDbPresent: false, reportPresent: null }), false);
-});
+/** A bridge method that records each call and answers with `impl`. */
+function spyOf<A extends unknown[], R>(impl: (...args: A) => Promise<R>) {
+  const calls: A[] = [];
+  const fn = async (...args: A) => {
+    calls.push(args);
+    return impl(...args);
+  };
+  return { fn, calls };
+}
+
+const legacyTrue = async () => true;
 
 test("no desktop bridge (browser, Android): open", async () => {
-  assert.equal(await install097RequiredFrom(null), false);
+  assert.deepEqual(await install097Check(null, null), { kind: "open" });
 });
 
-test("desktop shell without legacyDbPresent: unknown, blocked (fail closed)", async () => {
-  assert.equal(await install097RequiredFrom({}), true);
-  assert.equal(await install097RequiredFrom({ migrationReportPresent: async () => true }), true);
+test("legacyDbPresent absent on a desktop shell: unknown, fail closed", async () => {
+  assert.deepEqual(await install097Check({}, "/ws"), { kind: "unknown", code: "LEGACY_CHECK_UNAVAILABLE" });
 });
 
-test("legacy false: open, even with report method absent", async () => {
-  assert.equal(await install097RequiredFrom({ legacyDbPresent: async () => false }), false);
-});
-
-test("legacy true and report true: open", async () => {
-  const bridge = {
-    legacyDbPresent: async () => true,
-    migrationReportPresent: async () => true,
-  };
-  assert.equal(await install097RequiredFrom(bridge), false);
-});
-
-test("legacy true and report false: blocked", async () => {
-  const bridge = {
-    legacyDbPresent: async () => true,
-    migrationReportPresent: async () => false,
-  };
-  assert.equal(await install097RequiredFrom(bridge), true);
-});
-
-test("legacy true and report method absent (unknown): blocked, fail closed", async () => {
-  assert.equal(await install097RequiredFrom({ legacyDbPresent: async () => true }), true);
-});
-
-test("legacy true and report throws (unknown): blocked, fail closed", async () => {
-  const bridge = {
-    legacyDbPresent: async () => true,
-    migrationReportPresent: async () => {
-      throw new Error("bridge down");
-    },
-  };
-  assert.equal(await install097RequiredFrom(bridge), true);
-});
-
-test("legacy throws: unknown, blocked (fail closed)", async () => {
+test("legacyDbPresent throws: unknown, fail closed, report never asked", async () => {
+  const verify = spyOf(async () => true);
   const bridge = {
     legacyDbPresent: async () => {
       throw new Error("bridge down");
     },
-    migrationReportPresent: async () => false,
+    migrationReportVerified: verify.fn,
   };
-  assert.equal(await install097RequiredFrom(bridge), true);
+  assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "unknown", code: "LEGACY_CHECK_FAILED" });
+  assert.equal(verify.calls.length, 0);
+});
+
+test("legacyDbPresent answers a non-boolean: unknown, fail closed", async () => {
+  const bridge = { legacyDbPresent: async () => null as unknown as boolean };
+  assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "unknown", code: "LEGACY_CHECK_FAILED" });
+});
+
+test("legacy false: open, report never asked", async () => {
+  const verify = spyOf(async () => false);
+  const bridge = { legacyDbPresent: async () => false, migrationReportVerified: verify.fn };
+  assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "open" });
+  assert.equal(verify.calls.length, 0);
+});
+
+test("legacy true and no folder known: unverified (picker), report never asked", async () => {
+  const verify = spyOf(async () => true);
+  const bridge = { legacyDbPresent: legacyTrue, migrationReportVerified: verify.fn };
+  assert.deepEqual(await install097Check(bridge, null), { kind: "unverified" });
+  assert.equal(verify.calls.length, 0);
+});
+
+test("legacy true and report method absent: unknown, fail closed", async () => {
+  assert.deepEqual(await install097Check({ legacyDbPresent: legacyTrue }, "/ws"), {
+    kind: "unknown",
+    code: "REPORT_CHECK_UNAVAILABLE",
+  });
+});
+
+test("legacy true and report verified: open, checked against the given folder", async () => {
+  const verify = spyOf(async (_folder: string) => true);
+  const bridge = { legacyDbPresent: legacyTrue, migrationReportVerified: verify.fn };
+  assert.deepEqual(await install097Check(bridge, "/ws/export"), { kind: "open" });
+  assert.deepEqual(verify.calls, [["/ws/export"]]);
+});
+
+test("legacy true and report not verified: unverified (picker), checked against the folder", async () => {
+  const verify = spyOf(async (_folder: string) => false);
+  const bridge = { legacyDbPresent: legacyTrue, migrationReportVerified: verify.fn };
+  assert.deepEqual(await install097Check(bridge, "/ws/moved"), { kind: "unverified" });
+  assert.deepEqual(verify.calls, [["/ws/moved"]]);
+});
+
+test("legacy true and report throws: unknown with its code, fail closed", async () => {
+  const bridge = {
+    legacyDbPresent: legacyTrue,
+    migrationReportVerified: async (_folder: string): Promise<boolean> => {
+      throw new Error("bridge down");
+    },
+  };
+  assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "unknown", code: "REPORT_CHECK_FAILED" });
+});
+
+test("legacy true and report answers a non-boolean: unknown, fail closed", async () => {
+  const bridge = {
+    legacyDbPresent: legacyTrue,
+    migrationReportVerified: async (_folder: string) => undefined as unknown as boolean,
+  };
+  assert.deepEqual(await install097Check(bridge, "/ws"), { kind: "unknown", code: "REPORT_CHECK_FAILED" });
 });
