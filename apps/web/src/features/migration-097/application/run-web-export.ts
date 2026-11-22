@@ -293,7 +293,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     try {
       reconnectProviders = await source.secretProviders();
     } catch {
-      return refused(sink, now, "keys: unreadable", target);
+      return refused(sink, now, "keys: unreadable", target, { deviceId: runDeviceId });
     }
   }
 
