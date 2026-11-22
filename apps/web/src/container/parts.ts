@@ -42,6 +42,8 @@ import type { OpenAlexWork, ResourceType } from "@weaveforge/wasm";
 import { type BackendConfig, readBackendConfig } from "../backend/parts";
 import type { Migrate097Resolved } from "@/lib/desktop/migrate-097";
 import { chooseFileBackend } from "./file-backend-choice";
+import { wireNoAccountBackend } from "./no-account-file-backend";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { readOnlyBackend } from "./read-only-repositories";
 import {
   type WiredPostgrestBackend,
@@ -378,6 +380,8 @@ export function wireBackend(
   // 0.9.7: local mode (PGlite) and the local-first account copy are never selected
   // at runtime on web, desktop or Android. The personal-data choice below is the
   // only runtime switch.
+  // No account (0.9.8): the personal data is the open folder's files, never a database.
+  if (isLocalMode() && config.provider === "postgrest") return { ...wireNoAccountBackend(config, projectContext, pid), filesMode: true };
   switch (config.provider) {
     case "postgrest": {
       // The desktop shell wires its own files; without that wiring it stays read-only.

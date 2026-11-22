@@ -1,16 +1,15 @@
 /**
- * B red test (0.9.8): the no-account desktop container wires the File*
- * repositories, not the local-database backend.
- *
- * Expected red until the 0.9.7 wiring merges: today `wireBackend` in no-account
- * mode returns the local-database backend, whose project repository is not a
- * File* class. Once the File* wiring lands this test turns green without edits.
+ * No-account (0.9.8): the container wires the File* repositories over the open
+ * folder, never the local database. A trap fails the test if the local runner
+ * is ever asked to query.
  */
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { loadCore } from "@/lib/rust-core";
 import { setLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { wireBackend } from "@/container/parts";
+import { NoAccountWorkspaceFs } from "@/container/no-account-file-backend";
+import { LocalRunner } from "@/backend/providers/local/parts";
 
 const host = globalThis as { localStorage?: Storage };
 const previous = host.localStorage;
@@ -35,20 +34,39 @@ after(() => {
   host.localStorage = previous;
 });
 
-test("no-account container wires a File* project repository [expected-red until 0.9.7 wiring]", () => {
+const config = { provider: "postgrest", supabaseUrl: "http://127.0.0.1:9", supabaseAnonKey: "test-anon", dataUrl: "http://127.0.0.1:9" } as never;
+
+function wireNoAccount() {
   setLocalMode(true);
   try {
-    const wired = wireBackend(
-      { provider: "postgrest", supabaseUrl: "", supabaseAnonKey: "", dataUrl: "" } as never,
-      { projectId: null },
-      () => null,
-    );
-    assert.match(
-      wired.projectRepository.constructor.name,
-      /^File[A-Za-z]*(Repo|Repository|Store)$/,
-      "no-account mode must wire the File* repositories",
-    );
+    return wireBackend(config, { projectId: null }, () => null);
   } finally {
     setLocalMode(false);
   }
+}
+
+test("no-account container wires File* repositories for each personal kind", () => {
+  const wired = wireNoAccount() as unknown as Record<string, { constructor: { name: string } }>;
+  for (const key of ["projectRepository", "paperRepository", "experimentRepository", "logEntryRepository"]) {
+    const repo = wired[key];
+    assert.ok(repo, key);
+    assert.match(repo.constructor.name, /^File/, `${key} must be a File* repository`);
+  }
+  assert.equal((wired as unknown as { filesMode?: boolean }).filesMode, true);
+});
+
+test("no-account wiring never queries the local runner", () => {
+  const original = LocalRunner.prototype.query;
+  LocalRunner.prototype.query = () => {
+    throw new Error("LocalRunner.query ran in no-account mode");
+  };
+  try {
+    assert.doesNotThrow(() => wireNoAccount());
+  } finally {
+    LocalRunner.prototype.query = original;
+  }
+});
+
+test("no-account files refuse while no folder is open", async () => {
+  await assert.rejects(() => new NoAccountWorkspaceFs().readText("paper.json"), /Open a folder/);
 });
