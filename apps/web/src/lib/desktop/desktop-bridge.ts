@@ -132,22 +132,21 @@ export interface DesktopBridge {
   clearSecret(name: DesktopSecretName): Promise<void>;
 
   /**
-   * Whether an old (pre-0.9.7) local database is on this computer. Read-only. Absent on a desktop
-   * shell that predates the call is unknown, and the install gate blocks on unknown (fail closed).
+   * Whether old (pre-0.9.7) native-Postgres or PGlite data is on this computer. Read-only. Absent on
+   * a desktop shell that predates the call is unknown, and the install gate opens on unknown (fail open).
    */
   legacyDbPresent?(): Promise<boolean>;
   /**
    * Whether `folder` holds a verified 0.9.7 migration report (`.weaveforge/migration-0.9.7/report.json`).
-   * Read-only. Absent on shells that predate the call; the install gate reads that as unknown and
-   * blocks (fail closed).
+   * Read-only; rejects when the report is unreadable. Absent on shells that predate the call; the
+   * install gate reads that as unknown and opens (fail open).
    */
   migrationReportVerified?(folder: string): Promise<boolean>;
 
   /**
-   * Offline attachment bytes as files in the app's data folder, one per
-   * `(bucket, path)`, so the local database holds only the index. The shell
-   * names each file by a hash of the pair; the page never names a disk path.
-   * Optional: a shell without them keeps the bytes in the database.
+   * Attachment bytes as files in the app's data folder, one per `(bucket, path)`.
+   * The shell names each file by a hash of the pair; the page never names a disk path.
+   * Optional, and no page code calls them since 0.9.8.
    */
   readLocalFile?(bucket: string, path: string): Promise<Uint8Array | null>;
   writeLocalFile?(bucket: string, path: string, bytes: Uint8Array): Promise<void>;
@@ -176,8 +175,8 @@ export interface DesktopBridge {
   pickFolder?(): Promise<string | null>;
   /**
    * Makes the folder the workspace folder, so the next launch opens it. The install gate calls
-   * it only after the folder's 0.9.7 report verified. Absent on shells that predate it; the
-   * gate then blocks rather than open a folder it cannot keep.
+   * it only after the folder's 0.9.7 report verified. Absent on shells that predate it, or when
+   * it throws, the gate still opens; the folder is then not kept for the next launch.
    */
   setVaultRoot?(path: string): Promise<void>;
   /** The folder currently in use, or null when none has been chosen. */
@@ -383,17 +382,6 @@ export interface DesktopBridge {
    */
   inkHapticsAvailable(): Promise<boolean>;
   inkHaptics(message: DesktopInkHaptics): void;
-
-  /**
-   * 0.9.7 local-database gate (0.9.8). `legacyDbPresent`: old native-Postgres or
-   * PGlite data is on this device. `migrationReportVerified(folder)`: the workspace
-   * at `folder` has a verified 0.9.7 migration report (rejects when the report is unreadable).
-   * `pickFolder` opens the folder dialog and resolves the path, or null on cancel; it never
-   * changes the workspace. All read-only. Absent on the Electron shell and in the browser.
-   */
-  legacyDbPresent?(): Promise<boolean>;
-  migrationReportVerified?(folder: string): Promise<boolean>;
-  pickFolder?(): Promise<string | null>;
 
   /**
    * Focus mode (`F11`) at the window's level: on, the menu bar and the
