@@ -22,6 +22,6 @@ test("the desktop app offers it without any local-database member", () => {
 });
 
 test("a half-initialised bridge with no fetchTitle does not offer it", () => {
-  g.window = { weaveforge: { queryLocalDb: () => Promise.resolve([]) } };
+  g.window = { weaveforge: { pickFolder: () => Promise.resolve(null) } };
   assert.equal(desktop() !== null, false);
 });

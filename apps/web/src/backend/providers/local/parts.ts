@@ -30,19 +30,18 @@ import { createLocalClient, type LocalQuery } from "./pglite-client";
  * and the server's PostgREST path able to run the same SQL.
  */
 
+/** 0.9.8 has no local database: every local query is refused, and no shell call is made. */
+export const LOCAL_DB_REMOVED = "The local database was removed in 0.9.8.";
+
 export type LocalParam = string | number | boolean | null | Uint8Array;
 
 /** The identity is not passed from here; see `local-db-host.ts` for why. */
 export class LocalRunner {
-  constructor(private readonly bridge: DesktopBridge | null = desktop()) {}
+  // The bridge argument is kept so callers compile; nothing is sent to it.
+  constructor(_bridge: DesktopBridge | null = desktop()) {}
 
-  private get shell(): DesktopBridge {
-    if (!this.bridge) throw new Error("The local database is only available in the desktop app.");
-    return this.bridge;
-  }
-
-  async query<T>(sql: string, params: LocalParam[] = []): Promise<T[]> {
-    return (await this.shell.queryLocalDb(sql, params)) as T[];
+  async query<T>(_sql: string, _params: LocalParam[] = []): Promise<T[]> {
+    throw new Error(LOCAL_DB_REMOVED);
   }
 
   async queryOne<T>(sql: string, params: LocalParam[] = []): Promise<T | null> {

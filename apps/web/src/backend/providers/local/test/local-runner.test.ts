@@ -3,40 +3,35 @@ import { describe, it } from "node:test";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import { LocalRunner, localRunnerQuery } from "../parts";
 
-function bridgeReturning(rows: unknown[], seen: unknown[][] = []): DesktopBridge {
+/** A bridge that would answer, so a refusal can only come from the runner itself. */
+function bridgeThatWouldAnswer(seen: unknown[][] = []): DesktopBridge {
   return {
     queryLocalDb: async (sql: string, params?: unknown) => {
       seen.push([sql, params]);
-      return rows;
+      return [{ id: 1 }];
     },
   } as unknown as DesktopBridge;
 }
 
-describe("the local database runner", () => {
-  it("passes the statement and its parameters through unchanged", async () => {
+describe("the local database runner (0.9.8: removed)", () => {
+  it("refuses every query, even on a desktop bridge that would answer", async () => {
     const seen: unknown[][] = [];
-    const runner = new LocalRunner(bridgeReturning([{ id: 1 }], seen));
-    assert.deepEqual(await runner.query("select 1 where $1", [true]), [{ id: 1 }]);
-    assert.deepEqual(seen, [["select 1 where $1", [true]]]);
+    await assert.rejects(new LocalRunner(bridgeThatWouldAnswer(seen)).query("select 1"), /removed in 0\.9\.8/);
+    assert.deepEqual(seen, []);
   });
 
-  it("answers queryOne with null rather than undefined when nothing matched", async () => {
-    assert.equal(await new LocalRunner(bridgeReturning([])).queryOne("select 1"), null);
+  it("refuses queryOne and exec the same way", async () => {
+    const runner = new LocalRunner(bridgeThatWouldAnswer());
+    await assert.rejects(runner.queryOne("select 1"), /removed in 0\.9\.8/);
+    await assert.rejects(runner.exec("select 1"), /removed in 0\.9\.8/);
   });
 
-  it("says where it is, when it is asked for outside the desktop app", async () => {
-    await assert.rejects(new LocalRunner(null).query("select 1"), /only available in the desktop app/);
+  it("refuses outside the desktop app too", async () => {
+    await assert.rejects(new LocalRunner(null).query("select 1"), /removed in 0\.9\.8/);
   });
 
-  it("gives the one default query the local backend parts share (09-18)", async () => {
-    const seen: unknown[][] = [];
-    const run = localRunnerQuery(bridgeReturning([{ id: 2 }], seen));
-    assert.deepEqual(await run("select $1", ["x"]), [{ id: 2 }]);
-    assert.deepEqual(seen, [["select $1", ["x"]]]);
-  });
-
-  it("whose query fails outside the desktop app only when it runs", async () => {
-    const run = localRunnerQuery(null);
-    await assert.rejects(run("select 1", []), /only available in the desktop app/);
+  it("refuses through the shared default query", async () => {
+    const run = localRunnerQuery(bridgeThatWouldAnswer());
+    await assert.rejects(run("select $1", ["x"]), /removed in 0\.9\.8/);
   });
 });
