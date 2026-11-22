@@ -585,3 +585,57 @@ test("interrupted run: a throw while writing rows leaves report.json incomplete 
     [],
   );
 });
+
+test("pendingOutbox throw: a missing entry and an incomplete report, no marker", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  source.pendingOutbox = async () => {
+    throw new Error("outbox unreadable");
+  };
+  const sink = new MemorySink();
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  assert.equal(result.state, "incomplete");
+  assert.ok(result.run.missing.some((m) => m.reason.includes("outbox unreadable")));
+  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  assert.equal(report.state, "incomplete");
+  assert.deepEqual(
+    calls.filter((c) => c.startsWith("mark:")),
+    [],
+  );
+});
+
+test("verify throw: a missing entry and an incomplete report, no marker", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const codec: FileCodec = {
+    ...fakeCodec(SUPPORTED),
+    toRow: () => {
+      throw new Error("decode crashed");
+    },
+  };
+  const sink = new MemorySink();
+  const result = await runWebExport({ kinds: KINDS, codec, source, sink, now: NOW });
+  assert.equal(result.state, "incomplete");
+  assert.ok(result.run.missing.some((m) => m.reason.includes("decode crashed")));
+  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  assert.equal(report.state, "incomplete");
+  assert.deepEqual(
+    calls.filter((c) => c.startsWith("mark:")),
+    [],
+  );
+});
+
+test("verify listing throw: a missing entry and an incomplete report, no marker", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  sink.list = async () => {
+    throw new Error("sink listing failed");
+  };
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  assert.equal(result.state, "incomplete");
+  assert.ok(result.run.missing.some((m) => m.reason.includes("sink listing failed")));
+  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  assert.equal(report.state, "incomplete");
+  assert.deepEqual(
+    calls.filter((c) => c.startsWith("mark:")),
+    [],
+  );
+});

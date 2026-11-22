@@ -8,7 +8,7 @@ import {
 } from "../domain/report";
 import type { FileCodec, FileSink, ServerSource } from "../domain/ports";
 import { sha256Hex } from "../domain/hash";
-import { verifyExport } from "./verify-export";
+import { verifyExport, type Verdict } from "./verify-export";
 
 export type ExportProgress = { kind: string; done: number; total: number };
 
@@ -74,7 +74,23 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   }
 
   // Refuse before touching anything: unflushed writes would make the export stale.
-  if ((await source.pendingOutbox()) > 0) {
+  let pending: number;
+  try {
+    pending = await source.pendingOutbox();
+  } catch (err) {
+    const reason = `outbox unreadable: ${(err as Error).message}`;
+    const run: RunReport = {
+      startedAt: now,
+      finishedAt: new Date().toISOString(),
+      sources: ["server"],
+      kinds: {},
+      blobs: { db: 0, verified: 0 },
+      missing: [{ kind: "outbox", id: "*", reason }],
+    };
+    await writeReport(sink, { version: 1, state: "incomplete", backup: null, deviceId, runs: [run] });
+    return { state: "incomplete", run };
+  }
+  if (pending > 0) {
     return refused(now, "outbox not empty: flush before export");
   }
 
@@ -141,7 +157,13 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     missing.push({ kind: current, id: "*", reason: (err as Error).message });
   }
 
-  const verdict = await verifyExport({ kinds, codec, source, sink });
+  let verdict: Verdict;
+  try {
+    verdict = await verifyExport({ kinds, codec, source, sink });
+  } catch (err) {
+    verdict = { state: "incomplete", kinds: {}, blobs: { db: 0, verified: 0 }, errors: [] };
+    missing.push({ kind: "verify", id: "*", reason: `verify failed: ${(err as Error).message}` });
+  }
   for (const reason of verdict.errors) missing.push({ kind: "verify", id: "*", reason });
 
   const kindCounts: Record<string, KindCount> = {};
