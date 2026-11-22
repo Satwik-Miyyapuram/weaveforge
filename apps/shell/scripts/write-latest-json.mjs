@@ -76,23 +76,18 @@ export function buildFromFiles({
  * for any later release. Refuses (writing nothing) a release older than 0.9.7, or a
  * later release without a 0.9.7 bridge.
  */
-export function writeManifests({ bridge, ...options }) {
+export function writeManifests(options) {
   const manifest = buildFromFiles(options);
   const order = compareVersions(manifest.version, BRIDGE_VERSION);
-  let legacy;
   if (order < 0) {
     throw new Error(`release ${manifest.version} is older than ${BRIDGE_VERSION}; it has no bridge manifest`);
-  } else if (order === 0) {
-    legacy = manifest;
-  } else {
-    if (!bridge || bridge.version !== BRIDGE_VERSION) {
-      throw new Error(`release ${manifest.version} needs the ${BRIDGE_VERSION} bridge manifest (latest.json) to write latest.json`);
-    }
-    legacy = bridge;
   }
   const text = (value) => `${JSON.stringify(value, null, 2)}\n`;
   writeFileSync(join(options.assetsDir, MANIFEST_NAME), text(manifest));
-  writeFileSync(join(options.assetsDir, LEGACY_MANIFEST_NAME), text(legacy));
+  // Only the 0.9.7 release writes latest.json; later releases leave the bridge alone.
+  if (order === 0) {
+    writeFileSync(join(options.assetsDir, LEGACY_MANIFEST_NAME), text(manifest));
+  }
   return manifest;
 }
 

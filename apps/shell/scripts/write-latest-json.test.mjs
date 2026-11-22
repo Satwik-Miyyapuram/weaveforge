@@ -172,7 +172,7 @@ test("a 0.9.7 release writes latest-v2.json and latest.json, both at 0.9.7", () 
   }
 });
 
-test("a 0.9.8 release with the 0.9.7 bridge: latest.json stays 0.9.7, latest-v2.json is 0.9.8", () => {
+test("a 0.9.8 release with the 0.9.7 bridge: latest-v2.json is 0.9.8, latest.json is not written", () => {
   const first = releaseAt("0.9.7");
   let bridge;
   try {
@@ -185,31 +185,20 @@ test("a 0.9.8 release with the 0.9.7 bridge: latest.json stays 0.9.7, latest-v2.
   try {
     writeManifests({ ...second.options, bridge });
     const current = readJson(second.assets, "latest-v2.json");
-    const legacy = readJson(second.assets, "latest.json");
     assert.equal(current.version, "0.9.8");
     assert.match(current.platforms["windows-x86_64"].url, /releases\/download\/v0\.9\.8\//);
-    assert.equal(legacy.version, "0.9.7");
-    assert.deepEqual(legacy, bridge);
+    assert.equal(existsSync(join(second.assets, "latest.json")), false, "a 0.9.8 build must never write latest.json");
   } finally {
     rmSync(second.root, { recursive: true, force: true });
   }
 });
 
-test("a release after 0.9.7 without the bridge is refused, and writes no manifest", () => {
+test("a release after 0.9.7 writes only latest-v2.json, even with no bridge file", () => {
   const { root, assets, options } = releaseAt("0.9.8");
   try {
-    assert.throws(() => writeManifests(options), /0\.9\.7 bridge/);
-    assert.equal(existsSync(join(assets, "latest-v2.json")), false);
+    writeManifests(options);
+    assert.equal(readJson(assets, "latest-v2.json").version, "0.9.8");
     assert.equal(existsSync(join(assets, "latest.json")), false);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("a bridge that is not the 0.9.7 manifest is refused", () => {
-  const { root, options } = releaseAt("0.9.8");
-  try {
-    assert.throws(() => writeManifests({ ...options, bridge: { version: "0.9.6", platforms: {} } }), /0\.9\.7/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
