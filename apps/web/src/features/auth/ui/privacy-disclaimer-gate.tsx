@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getLightContainer } from "@/light-bootstrap";
-import { PERSONAL_WRITES_BLOCKED_MESSAGE, personalWritesBlocked } from "@/backend/light-write-guard";
 import { ThesisLoaderScreen } from "@/components/weaveforge-loader";
 import { Modal } from "@/components/modal";
 import {
@@ -85,8 +84,7 @@ export function PrivacyDisclaimerGate({
     setBusy(true);
     setError(null);
     try {
-      // Refused before any write, including the provisioning retry below.
-      if (await personalWritesBlocked()) throw new Error(PERSONAL_WRITES_BLOCKED_MESSAGE);
+      // Account rows are allowed in every folder state, so no folder check here.
       const light = getLightContainer();
       try {
         await light.preferences.acceptDisclaimer();

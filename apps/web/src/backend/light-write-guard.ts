@@ -1,5 +1,5 @@
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { migrate097Status } from "@/lib/desktop/migrate-097";
+import { migrate097Status, usesFileBackend } from "@/lib/desktop/migrate-097";
 
 /**
  * Same text as the container's read-only message. Kept here, not imported, so
@@ -15,10 +15,21 @@ export class PersonalWritesBlockedError extends Error {
 }
 
 /**
+ * The settings writes that hold personal data. Account rows (acceptDisclaimer,
+ * ensureProvisioned) are deliberately absent: they are server rows, not exported
+ * data, so they are allowed in every state.
+ */
+export const PERSONAL_SETTINGS_WRITES = ["save", "saveDisclaimer", "saveAppearance", "saveNoticeSeen"] as const;
+
+type PersonalSettingsWrite = (typeof PERSONAL_SETTINGS_WRITES)[number];
+
+/**
  * Whether personal-data writes are refused right now. Same rule as
- * chooseFileBackend's read-only branch: on desktop, any state other than a
- * genuine "none" is read-only, and an unnamed folder fails closed. Checked at
- * call time, because the folder can move while the window is open.
+ * chooseFileBackend: on desktop, a folder in a read-only state (not wired to
+ * files, and not "none") refuses writes; the files-mode states (verified,
+ * removing, removed) write to files and allow them. An unnamed folder fails
+ * closed, because migrate097Status reports it as "unavailable". Checked at call
+ * time, because the folder can move while the window is open.
  */
 export async function personalWritesBlocked(): Promise<boolean> {
   const shell = desktop();
@@ -29,7 +40,8 @@ export async function personalWritesBlocked(): Promise<boolean> {
   } catch {
     folder = null;
   }
-  return (await migrate097Status(shell, folder)) !== "none";
+  const state = await migrate097Status(shell, folder);
+  return !usesFileBackend(state) && state !== "none";
 }
 
 /**
@@ -54,4 +66,11 @@ export function guardWrites<T extends object, K extends keyof T>(
       };
     },
   });
+}
+
+/** A settings repository whose personal writes follow the read-only rule; account rows pass. */
+export function guardPersonalSettings<T extends Record<PersonalSettingsWrite, (...args: never[]) => unknown>>(
+  repo: T,
+): T {
+  return guardWrites(repo, PERSONAL_SETTINGS_WRITES, personalWritesBlocked);
 }
