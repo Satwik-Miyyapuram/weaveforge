@@ -155,3 +155,39 @@ test("(P1-2) no in-flight tracker: wiring opens only after the gate's final read
   await decideBrowserSwitch(h.deps);
   assert.deepEqual(order, ["gate-done", "wiring"]);
 });
+test("the source the gate receives downloads blobs through the injected signedUrl", async () => {
+  const fetched: string[] = [];
+  let got: Uint8Array | undefined;
+  const h = harness({
+    signedUrl: async (bucket, path) => `https://dl.example/${bucket}/${path}`,
+    fetch: async (input) => {
+      fetched.push(String(input));
+      return new Response(new Uint8Array([7]), { status: 200 });
+    },
+    gate: async (opts) => {
+      got = await opts.source.fetchBlob({ bucket: "b", path: "p", sizeBytes: 1 });
+      return { switch: true };
+    },
+  });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.equal(out.switch, true);
+  assert.ok(fetched.includes("https://dl.example/b/p"), `blob url not fetched: ${fetched.join(", ")}`);
+  assert.deepEqual([...(got ?? [])], [7]);
+});
+
+test("the real source wiring answers undecryptable from the server, never 'not wired'", async () => {
+  let count: number | undefined;
+  const h = harness({
+    fetch: async (_input, init) =>
+      init?.method === "HEAD"
+        ? new Response(null, { status: 200, headers: { "content-range": "*/0" } })
+        : new Response(null, { status: 204 }),
+    gate: async (opts) => {
+      count = await opts.source.undecryptable("logEntries");
+      return { switch: true };
+    },
+  });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.equal(out.switch, true);
+  assert.equal(count, 0);
+});

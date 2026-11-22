@@ -9,6 +9,10 @@ import { workspaceFsAsSink } from "@/features/migration-097/infrastructure/works
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { decideBrowserSwitch, type SwitchDecision, type SwitchSession } from "./browser-export-switch";
 import { openBrowserFileWiring } from "./browser-file-backend";
+import { HttpBlobStore } from "@/storage/providers/http/http-blob-store";
+
+/** Signed download URLs for the export's blob reads live for five minutes. */
+const SIGNED_URL_TTL_SECONDS = 300;
 
 /** Reads the signed-in user from Supabase Auth; null when nobody is signed in. */
 function authSession(config: BackendConfig): () => Promise<SwitchSession | null> {
@@ -36,6 +40,8 @@ export async function decideBrowserSwitchFromConfig(config: BackendConfig): Prom
     session: authSession(config),
     dataUrl: config.dataUrl,
     anonKey: config.supabaseAnonKey,
+    signedUrl: async (bucket, path) =>
+      (await new HttpBlobStore().signedUrls(bucket, [path], SIGNED_URL_TTL_SECONDS))[0] ?? null,
     kinds: Object.keys(TABLE_BY_KIND),
     codec: wasmFileCodec(core),
     openSink: async () => workspaceFsAsSink(await BrowserWorkspaceFs.openOpfs()),

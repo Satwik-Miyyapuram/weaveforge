@@ -13,6 +13,8 @@ export type SwitchDeps = {
   session: () => Promise<SwitchSession | null>;
   dataUrl: string;
   anonKey: string;
+  /** Resolves a short-lived download URL for a blob; the export's fetchBlob needs it. */
+  signedUrl?: (bucket: string, path: string) => Promise<string | null>;
   kinds: ExportOptions["kinds"];
   codec: ExportOptions["codec"];
   openSink: () => Promise<ExportOptions["sink"]>;
@@ -44,6 +46,7 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
       // local queue and the count is a true 0. The static guard in test/browser-no-outbox.test.ts
       // fails if a browser-reachable module adds an outbox, so this count must be revisited then.
       pendingOutbox: async () => 0,
+      signedUrl: deps.signedUrl,
       headers: {
         apikey: deps.anonKey,
         Authorization: `Bearer ${session.accessToken}`,
