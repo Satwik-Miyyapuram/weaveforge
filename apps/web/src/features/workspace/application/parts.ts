@@ -190,6 +190,7 @@ export async function removeProjectFolder(
     try {
       await fs.remove(dir);
     } catch (error) {
+      if (isKeptFolderError(error)) continue;
       logToApp({
         level: "warn",
         source: "workspace",
@@ -199,6 +200,17 @@ export async function removeProjectFolder(
     }
   }
   return match;
+}
+
+/**
+ * A folder that is not empty (ENOTEMPTY) or already gone (ENOENT / NotFound) is
+ * expected here and stays silent; any other failure to remove a folder is logged.
+ */
+function isKeptFolderError(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (code === "ENOTEMPTY" || code === "ENOENT" || code === "NotFound") return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /\b(ENOTEMPTY|ENOENT|NotFound)\b/.test(message);
 }
 
 /**
