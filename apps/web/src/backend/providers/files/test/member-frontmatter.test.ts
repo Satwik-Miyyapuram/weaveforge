@@ -118,3 +118,13 @@ test("a # comment is dropped only after a closing ]] in a list item, never in a 
   assert.deepEqual(fields.lists, [L, "see issue #4", "[[My #x note]]"]);
   assert.deepEqual(fields.listNotes, { [L]: "see issue #4" });
 });
+
+test("a list-notes value that is a number or bool stays text, so its key still reads", () => {
+  const text = `---\nlists:\n  - ${L}\n  - ${M}\nlist-notes:\n  ${L}: 2024\n  ${M}: true\n---\nBody\n`;
+  assert.deepEqual(readMemberFields(text), { lists: [L, M], listNotes: { [L]: "2024", [M]: "true" } });
+});
+
+test("a list-notes value drops a # comment only after a closing ]], as a list item does", () => {
+  const text = `---\nlists:\n  - ${L}\nlist-notes:\n  ${L}: [[Note A]] # keep out\n---\nBody\n`;
+  assert.deepEqual(readMemberFields(text).listNotes, { [L]: "[[Note A]]" });
+});

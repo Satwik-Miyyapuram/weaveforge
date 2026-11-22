@@ -74,9 +74,10 @@ const LITERAL = /^(?:-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null)$/;
 
 /**
  * A scalar: a double- or single-quoted one, with an optional trailing comment; a quoted one that does not
- * parse is unreadable. An unquoted number, bool or null parses as JSON, as before (so a block item of one
- * is refused, not read as link text). Otherwise it is its own text: a list item drops a `#` comment only
- * after a closing `]]` (`- [[L]] # note`, never inside `[[My #x note]]`); a note value keeps its text whole.
+ * parse is unreadable. In a list item an unquoted number, bool or null parses as JSON, so it is refused
+ * rather than read as link text; a list-notes value of one stays its text. Otherwise a `#` comment is
+ * dropped only after a closing `]]` (`- [[L]] # note`, never inside `[[My #x note]]`), in list items and
+ * note values alike.
  */
 function scalarAt(raw: string, listItem: boolean): unknown {
   const dq = /^("(?:[^"\\]|\\.)*")\s*(?:#.*)?$/.exec(raw);
@@ -84,8 +85,7 @@ function scalarAt(raw: string, listItem: boolean): unknown {
   const sq = /^'((?:[^']|'')*)'\s*(?:#.*)?$/.exec(raw);
   if (sq) return sq[1]!.replace(/''/g, "'");
   if (raw.startsWith('"') || raw.startsWith("'")) return UNREADABLE;
-  if (LITERAL.test(raw)) return JSON.parse(raw);
-  if (!listItem) return raw.trim();
+  if (listItem && LITERAL.test(raw)) return JSON.parse(raw);
   return (/^(.*\]\])\s+#.*$/.exec(raw)?.[1] ?? raw).trim();
 }
 
