@@ -416,11 +416,42 @@ fn stop_failure_keeps_the_cluster() {
 #[test]
 fn postmaster_pid_left_after_stop_keeps_the_cluster() {
     let f = Fixture::new("pid-left", Some("verified"), Some(good_dump().as_slice()));
-    fs::write(f.pg_root.join("data/postmaster.pid"), "4242\n").unwrap();
+    // This test process is alive, so its PID stands in for a running postmaster.
+    fs::write(
+        f.pg_root.join("data/postmaster.pid"),
+        format!("{}\n", std::process::id()),
+    )
+    .unwrap();
     let mut stop = || Ok(());
     let err = f.run(&mut stop).expect_err("a live postmaster must refuse the delete");
     assert!(err.contains("postmaster.pid"), "{err}");
     f.assert_untouched();
+}
+
+#[test]
+fn stale_postmaster_pid_of_a_dead_process_does_not_block_removal() {
+    let f = Fixture::new("pid-stale", Some("verified"), Some(good_dump().as_slice()));
+    // A crash leaves postmaster.pid behind; its PID no longer belongs to any process.
+    fs::write(f.pg_root.join("data/postmaster.pid"), "999999999\n").unwrap();
+    let mut stop = || Ok(());
+    f.run(&mut stop).expect("a stale postmaster.pid must not block the removal");
+    assert!(!f.pg_root.exists(), "cluster dir must be deleted");
+}
+
+#[test]
+fn resume_stops_postgres_before_deleting() {
+    let f = Fixture::new("resume-stop", None, Some(good_dump().as_slice()));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let mut stopped = 0;
+    let mut stop = || {
+        stopped += 1;
+        Ok(())
+    };
+    f.run(&mut stop).expect("a resumed removal finishes");
+    assert_eq!(stopped, 1, "a resumed removal must stop postgres before deleting");
+    assert!(!f.pg_root.exists());
 }
 
 #[test]
@@ -558,7 +589,8 @@ fn a_resume_with_the_cluster_gone_finishes_the_backup_delete() {
         r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
     fs::remove_dir_all(&f.pg_root).unwrap();
-    f.run(&mut never_stop()).expect("the starting device resumes and finishes");
+    // A resume stops postgres first (a crash may have left it running); the stop is allowed here.
+    f.run(&mut || Ok(())).expect("the starting device resumes and finishes");
     assert!(!f.base.join("local-db-backups").exists(), "backups deleted on resume");
     assert_eq!(f.report()["state"], "removed");
 }
@@ -759,10 +791,36 @@ fn resumes_a_removing_report_this_device_started() {
         r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
     fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
-    let mut stop = || panic!("resume must not stop again");
+    let mut stop = || Ok(());
     f.run(&mut stop).expect("own removing report resumes deletion");
     assert!(!f.pg_root.exists(), "rest of the cluster deleted");
     assert_eq!(f.report()["state"], "removed");
+}
+
+#[test]
+fn another_devices_report_writes_during_the_removal_survive() {
+    let f = Fixture::new("race", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    let dev_b_run = RUN_CLEAN.replace("\"deviceId\":\"dev-a\"", "\"deviceId\":\"dev-b\"");
+    // dev-b writes report.json while this device is between its read and its writes.
+    let mut stop = || {
+        let text = format!(
+            r#"{{"version":1,"state":"verified","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","removals":{{"dev-b":{{"state":"removed","removedAt":"{NOW}"}}}},"runs":[{RUN_CLEAN},{dev_b_run}]}}"#
+        );
+        fs::write(f.folder.join(REPORT), text).unwrap();
+        Ok(())
+    };
+    f.run(&mut stop).expect("removal runs although another device wrote");
+    let r = f.report();
+    assert_eq!(r["state"], "removed");
+    assert_eq!(r["removals"]["dev-a"]["state"], "removed");
+    assert_eq!(r["removals"]["dev-b"]["state"], "removed", "dev-b's removal entry kept");
+    assert!(
+        r["runs"].as_array().unwrap().iter().any(|run| run["deviceId"] == "dev-b"),
+        "dev-b's run kept"
+    );
 }
 
 #[test]

@@ -66,11 +66,12 @@ pub fn backup_name(report: &serde_json::Value, device_id: &str) -> Result<String
     }
 }
 
-/// Whether any run in the report was written by a device other than `device_id`.
+/// Whether any run in the report may belong to a device other than `device_id`. A run with no
+/// `deviceId` cannot be shown to be this device's own, so it counts as another device's.
 fn other_device_ran(report: &serde_json::Value, device_id: &str) -> bool {
     report["runs"].as_array().is_some_and(|runs| {
         runs.iter()
-            .any(|run| run["deviceId"].as_str().is_some_and(|id| id != device_id))
+            .any(|run| run["deviceId"].as_str() != Some(device_id))
     })
 }
 
@@ -107,11 +108,19 @@ pub fn remove_old_data(
     stop_pg: &mut dyn FnMut() -> Result<(), String>,
 ) -> Result<(), String> {
     let report_path = folder.join(REPORT_REL);
-    let mut report = read_report(&report_path)?;
+    let report = read_report(&report_path)?;
     let state = report["state"].as_str().unwrap_or("").to_owned();
+    // Per device: this device's removals entry and local marker decide "already removed". The
+    // top-level state belongs to whichever device wrote last, so it only counts in a legacy report.
+    let own_entry = report["removals"][device_id]["state"].as_str().unwrap_or("").to_owned();
+    let resume = own_entry == "removing"
+        || (state == "removing" && report["removingDeviceId"].as_str() == Some(device_id));
+    let legacy_removed = report.get("removals").is_none() && state == "removed";
+    if own_entry == "removed" || legacy_removed || (old_db_removed(pg_root) && !resume) {
+        return Err("refused: old data already removed".to_owned());
+    }
     match state.as_str() {
-        "verified" | "removing" => {}
-        "removed" => return Err("refused: old data already removed".to_owned()),
+        "verified" | "removing" | "removed" => {}
         other => {
             return Err(format!(
                 "refused: migration state is not verified (report state: {other})"
@@ -129,7 +138,6 @@ pub fn remove_old_data(
     }
     check_own_run_verdict(&report, device_id)?;
     // Only the device that started the removal resumes it; any other device runs the full checks.
-    let resume = state == "removing" && report["removingDeviceId"].as_str() == Some(device_id);
     if !resume {
         check_fresh_run(&report, device_id, now)?;
         check_exported_to(pg_root, folder)?;
@@ -167,13 +175,17 @@ pub fn remove_old_data(
     if !resume {
         let local_rows = local_secrets_rows()?;
         check_secrets_count(moved, local_rows)?;
-        stop_pg()?;
-        report["state"] = "removing".into();
-        report["removingDeviceId"] = device_id.into();
-        report["removals"][device_id] = serde_json::json!({ "state": "removing" });
-        write_json_atomic(&report_path, &report)?;
     }
-    if pg_root.join("data").join("postmaster.pid").exists() {
+    // A resume stops postgres too: a crash may have left it running.
+    stop_pg()?;
+    if !resume {
+        update_report(&report_path, |r| {
+            r["state"] = "removing".into();
+            r["removingDeviceId"] = device_id.into();
+            r["removals"][device_id] = serde_json::json!({ "state": "removing" });
+        })?;
+    }
+    if postmaster_live(&pg_root.join("data").join("postmaster.pid")) {
         return Err(
             "refused: postgres still running (data/postmaster.pid present); stop it, then remove again"
                 .to_owned(),
@@ -189,14 +201,68 @@ pub fn remove_old_data(
         fs::remove_dir_all(&backups)
             .map_err(|e| format!("cannot delete {}: {e}", backups.display()))?;
     }
-    report["state"] = "removed".into();
-    report["removedAt"] = now.into();
-    report["removals"][device_id] = serde_json::json!({ "state": "removed", "removedAt": now });
-    write_json_atomic(&report_path, &report)
+    update_report(&report_path, |r| {
+        r["state"] = "removed".into();
+        r["removedAt"] = now.into();
+        r["removals"][device_id] = serde_json::json!({ "state": "removed", "removedAt": now });
+    })
+}
+
+/// Writes report.json as `change` applied to a fresh read, so other devices' runs and removal
+/// entries survive. Re-reads just before writing and retries when the file changed meanwhile.
+fn update_report(report_path: &Path, change: impl Fn(&mut serde_json::Value)) -> Result<(), String> {
+    for _ in 0..REPORT_WRITE_TRIES {
+        let before = fs::read_to_string(report_path)
+            .map_err(|e| format!("cannot read {}: {e}", report_path.display()))?;
+        let mut fresh: serde_json::Value = serde_json::from_str(&before)
+            .map_err(|_| "refused: migration report is unparsable".to_owned())?;
+        change(&mut fresh);
+        if fs::read_to_string(report_path).is_ok_and(|now| now == before) {
+            return write_json_atomic(report_path, &fresh);
+        }
+    }
+    Err("refused: report.json kept changing during the removal; try again".to_owned())
+}
+
+/// Whether a `postmaster.pid` left in the cluster names a live process. A stale file (its PID is
+/// gone) does not block; a file that exists but cannot be read or parsed does.
+fn postmaster_live(pid_file: &Path) -> bool {
+    match fs::read_to_string(pid_file) {
+        Ok(text) => match text.lines().next().and_then(|line| line.trim().parse::<u32>().ok()) {
+            Some(pid) => process_alive(pid),
+            None => true,
+        },
+        Err(_) => pid_file.exists(),
+    }
+}
+
+#[cfg(windows)]
+fn process_alive(pid: u32) -> bool {
+    // `tasklist` prints the PID column only for a running process; a failed query counts as alive.
+    std::process::Command::new("tasklist")
+        .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
+        .output()
+        .map_or(true, |out| {
+            !out.status.success()
+                || String::from_utf8_lossy(&out.stdout).contains(&format!("\"{pid}\""))
+        })
+}
+
+#[cfg(not(windows))]
+fn process_alive(pid: u32) -> bool {
+    std::process::Command::new("kill")
+        .arg("-0")
+        .arg(pid.to_string())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map_or(true, |status| status.success())
 }
 
 /// Name of the marker, in app data beside `local-pg`, that says the old cluster was removed.
 const MARKER: &str = "old-db-removed";
+/// Tries a report.json write gets when another device changes the file between its read and write.
+const REPORT_WRITE_TRIES: usize = 3;
 
 /// Whether the old local cluster was removed on this device. Start skips the local database then,
 /// so a relaunch never restores the cluster from `local-db-backups`.
@@ -253,10 +319,15 @@ pub fn own_run_missing(
 
 /// This device's newest run must have finished `verified`, list at least one kind, and have the
 /// same db and files count for every kind. An aborted run or an empty kinds map is not a verify.
-/// Whether a `conflicts` value names any conflict copy: a non-empty list or a positive count.
+/// Whether a `conflicts` value may name conflict copies. Fails closed: only an absent or null
+/// value, an empty list or a zero count counts as clean; any other shape counts as conflicts.
 fn has_conflicts(value: &serde_json::Value) -> bool {
-    value.as_array().is_some_and(|items| !items.is_empty())
-        || value.as_u64().is_some_and(|n| n > 0)
+    match value {
+        serde_json::Value::Null => false,
+        serde_json::Value::Array(items) => !items.is_empty(),
+        serde_json::Value::Number(n) => n.as_f64().is_none_or(|f| f != 0.0),
+        _ => true,
+    }
 }
 
 fn check_own_run_verdict(report: &serde_json::Value, device_id: &str) -> Result<(), String> {
