@@ -224,6 +224,37 @@ fn f97_r1_legacy_chunk_with_other_points_does_not_hide_new_points() {
     assert_eq!(read_metrics(&vault, EXP).unwrap().rows.len(), 5);
 }
 
+/// A 0.9.6 chunk as that version wrote it, frozen as a literal: the same rows as
+/// `inbox_row(7, "exp-1", 0..3)`, with `0.50` and an empty time cell.
+const FROZEN_096_CHUNK: &str =
+    "run,step,metric,value,time\nmain,0,loss,0.50,\nmain,1,loss,0.50,\nmain,2,loss,0.50,\n";
+
+#[test]
+fn f97_r1_frozen_0_9_6_chunk_counts_as_stored_whatever_its_bytes() {
+    // The legacy chunk may differ from 0.9.7's bytes (CRLF, quoted cells, other number
+    // formats). Rows are compared, so each variant still counts as the stored batch.
+    let variants = [
+        FROZEN_096_CHUNK.to_owned(),
+        FROZEN_096_CHUNK.replace('\n', "\r\n"),
+        "run,step,metric,value,time\n\"main\",\"0\",\"loss\",\"0.5\",\"\"\n\"main\",\"1\",\"loss\",\"0.5\",\"\"\n\"main\",\"2\",\"loss\",\"0.5\",\"\"\n".to_owned(),
+    ];
+    for legacy in variants {
+        let tmp = TempDir::new();
+        experiment_file(tmp.path(), &format!("{EXP}.md"), "exp-1");
+        let vault = vault_in(tmp.path());
+        let dirs = experiment_dirs(&vault).unwrap();
+        let path = wf_core::sync::folder_layout::metrics_chunk_path(EXP, "main", "b7");
+        let full = tmp.path().join(&path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(&full, legacy.as_bytes()).unwrap();
+
+        let report = apply_inbox_rows(&vault, &[inbox_row(7, "exp-1", 0..3)], &dirs);
+        assert_eq!(report.ack, vec![7]);
+        assert_eq!((report.written, report.duplicates), (0, 1), "{legacy:?}");
+        assert_eq!(read_metrics(&vault, EXP).unwrap().rows.len(), 3);
+    }
+}
+
 #[test]
 fn rows_that_cannot_be_stored_are_not_acked() {
     let tmp = TempDir::new();

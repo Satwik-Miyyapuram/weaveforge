@@ -302,10 +302,15 @@ fn store_grouped(
         let bytes = encode(rows);
         if let Some(old) = legacy {
             let old_path = metrics_chunk_path(dir, run, old);
-            if vault
-                .read_file(&old_path)
-                .is_ok_and(|b| b == bytes.as_bytes())
-            {
+            // Compare parsed rows, not bytes: 0.9.6 may have written CRLF, quoted cells or
+            // another number format for the same rows. An unreadable legacy chunk does not
+            // match, so the group is written again: that duplicates the data and never loses it.
+            if vault.read_file(&old_path).is_ok_and(|b| {
+                std::str::from_utf8(&b)
+                    .ok()
+                    .and_then(|text| decode(text).ok())
+                    .is_some_and(|old_rows| old_rows == *rows)
+            }) {
                 skipped += 1;
                 continue;
             }
