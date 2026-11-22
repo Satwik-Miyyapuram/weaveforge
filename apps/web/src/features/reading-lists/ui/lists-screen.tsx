@@ -11,7 +11,6 @@ import type {
   VaultPage,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
 import { usePinnedOwnerNames } from "@/features/sharing";
