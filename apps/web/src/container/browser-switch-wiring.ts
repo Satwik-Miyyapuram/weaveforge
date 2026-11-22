@@ -1,5 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
 import { coreIfReady } from "@/lib/rust-core";
+import { getDataClient } from "@/lib/parts";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import type { BackendConfig } from "@/backend/parts";
 import { gateOpfsSwitch } from "@/features/migration-097/application/opfs-switch-gate";
@@ -15,11 +15,11 @@ import { HttpBlobStore } from "@/storage/providers/http/http-blob-store";
 /** Signed download URLs for the export's blob reads live for five minutes. */
 const SIGNED_URL_TTL_SECONDS = 300;
 
-/** Reads the signed-in user from Supabase Auth; null when nobody is signed in. */
-function authSession(config: BackendConfig): () => Promise<SwitchSession | null> {
-  const auth = createClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "").auth;
+/** Reads the signed-in user through the app's shared data client; null when nobody is signed in. */
+function authSession(): () => Promise<SwitchSession | null> {
+  // Looked up inside the returned getter: the switch reads it under its own error handling.
   return async () => {
-    const { data } = await auth.getSession();
+    const { data } = await getDataClient().auth.getSession();
     const session = data.session;
     return session ? { userId: session.user.id, accessToken: session.access_token } : null;
   };
@@ -43,7 +43,7 @@ export async function decideBrowserSwitchFromConfig(
   return decideBrowserSwitch({
     // Desktop returned above, so the switch's own desktop guard is always off here.
     desktop: false,
-    session: authSession(config),
+    session: authSession(),
     dataUrl: config.dataUrl,
     anonKey: config.supabaseAnonKey,
     signedUrl: async (bucket, path) =>
