@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { testDb, type TestDb } from "./pg-test-db";
+
+// pg-test-db reads rows through the Rust core, so it must be loaded first.
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * Deleting the auth user is the last step of deleting an account, after
