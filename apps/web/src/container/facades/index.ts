@@ -7,7 +7,7 @@
  * design one. This barrel keeps `@/container/facades` resolving as it did.
  */
 
-import { isLocalMode, setLocalMode } from "@/features/auth/domain/no-account-mode";
+import { isLocalMode, setLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import {
   fetchSuperviseeMilestonesAndLogs,
 } from "@/features/dashboard/application/parts";

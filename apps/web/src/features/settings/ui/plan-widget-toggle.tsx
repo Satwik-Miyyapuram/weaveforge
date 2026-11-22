@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { FormError } from "@/components/form-error";
 import { desktop, type DesktopPlanWidget } from "@/lib/desktop/desktop-bridge";
-import { isLocalMode } from "@/features/auth/domain/no-account-mode";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { localFirstActive } from "@/backend/providers/local/local-first-marker";
 import { formatError } from "@/lib/format-error";
 

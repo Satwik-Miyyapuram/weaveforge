@@ -1,4 +1,4 @@
-import { isLocalMode } from "@/features/auth/domain/no-account-mode";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { getContainer } from "@/bootstrap";
 import { activeProjectRoot } from "@/features/workspace/application/parts";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";

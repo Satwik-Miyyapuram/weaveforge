@@ -30,7 +30,7 @@ import {
   pdfDownloadRemembered,
   rememberPdfDownload,
 } from "../application/parts";
-import { isLocalMode } from "@/features/auth/domain/no-account-mode";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { AnnotationSidebar } from "./annotation-sidebar";
 import { readyCore } from "@/lib/rust-core";
 import { relayUrl } from "@/lib/parts";

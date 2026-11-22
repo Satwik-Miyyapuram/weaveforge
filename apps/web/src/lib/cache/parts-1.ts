@@ -1,4 +1,4 @@
-import { isLocalMode } from "@/features/auth/domain/no-account-mode";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { getRealtimeClient } from "@/backend/providers/postgrest/parts-1";
 import type { AppContainer } from "@/container/facades/index";
 import { clearAllScreenCaches, clearScreenCachesForScreens } from "@/lib/cache/parts-2";

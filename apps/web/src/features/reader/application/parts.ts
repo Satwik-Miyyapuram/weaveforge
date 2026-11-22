@@ -1,4 +1,4 @@
-import { isLocalMode } from "@/features/auth/domain/no-account-mode";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { type AppLogInput, logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";

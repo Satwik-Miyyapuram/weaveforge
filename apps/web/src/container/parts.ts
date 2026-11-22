@@ -42,7 +42,7 @@ import type { OpenAlexWork, ResourceType } from "@weaveforge/wasm";
 import { type BackendConfig, readBackendConfig } from "../backend/parts";
 import { localFirstParts } from "../backend/providers/local/local-first";
 import { localFirstActive } from "../backend/providers/local/local-first-marker";
-import { isLocalMode } from "@/features/auth/domain/no-account-mode";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { localBackendParts } from "../backend/providers/local/parts";
 import {
   type WiredPostgrestBackend,

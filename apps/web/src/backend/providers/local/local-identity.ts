@@ -26,7 +26,7 @@ import type {
 } from "@weaveforge/core";
 import type { LocalQuery } from "./pglite-client";
 
-import { setLocalMode } from "@/features/auth/domain/no-account-mode";
+import { setLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { readyCore } from "@/lib/rust-core";
 
 export const LOCAL_USER: AuthUser = {

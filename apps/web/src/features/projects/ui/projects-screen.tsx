@@ -10,7 +10,7 @@ import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { EmptyState } from "@/components/empty-state";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
-import { isLocalMode } from "@/features/auth/domain/no-account-mode";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/button";
 import { RowButton } from "@/components/controls";

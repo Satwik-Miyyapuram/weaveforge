@@ -10,7 +10,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
-const DOMAIN = "../domain/no-account-mode.ts";
+const DOMAIN = "../infrastructure/no-account-mode.ts";
 const OLD = "../../../backend/providers/local/local-identity.ts";
 
 test("the choice module exists and exports the same two names", () => {

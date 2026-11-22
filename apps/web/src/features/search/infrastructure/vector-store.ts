@@ -1,4 +1,4 @@
-import { isLocalMode } from "@/features/auth/domain/no-account-mode";
+import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import type { LocalFiles } from "@/backend/providers/local/parts-1";
 
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
