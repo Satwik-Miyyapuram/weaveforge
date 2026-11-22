@@ -78,7 +78,7 @@ export function ProjectsScreen() {
 
   // The no-account copy starts empty. A filled workspace shows what every
   // screen looks like without the visitor first entering thirty papers.
-  const { busy: demoBusy, error: demoError, submit: loadDemo } = useSubmit(async () => {
+  const { busy: demoBusy, submit: loadDemo } = useSubmit(async () => {
     // Lazy: the seeder carries the whole showcase data set.
     const { loadLocalDemoWorkspace } = await import("@/features/showcase/application/load-local-demo");
     const { projectId } = await loadLocalDemoWorkspace();
@@ -96,7 +96,6 @@ export function ProjectsScreen() {
         <Button variant="primary" data-help-id="projects-new" onClick={() => setAddOpen(true)}>New project</Button>
       </ScreenHead>
 
-      {demoError && <FormError>{demoError}</FormError>}
       {removeError && <FormError>{removeError}</FormError>}
       {removing && (
         <ConfirmDialog

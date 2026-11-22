@@ -18,6 +18,10 @@ test("demo button is absent in no-account mode", () => {
   assert.doesNotMatch(source, /const demoButton = !local \?/);
 });
 
+test("hidden demo button renders no demo error", () => {
+  assert.doesNotMatch(source, /\{demoError && /);
+});
+
 test("demo button is absent when signed in", () => {
   assert.doesNotMatch(source, /const demoButton = local \?/);
   assert.doesNotMatch(source, /const demoButton = \(?\s*<Button/);
