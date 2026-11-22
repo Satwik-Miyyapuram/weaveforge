@@ -49,11 +49,11 @@ test("report listing fails: refused even though report.json reads, since the oth
   const report = {
     version: 1,
     state: "incomplete",
-    runs: [{ deviceId: "dev-a", state: "incomplete", at: NOW, kinds: {}, blobs: { db: 0, verified: 0 }, missing: [] }],
+    runs: [{ deviceId: "dev-alpha", state: "incomplete", at: NOW, kinds: {}, blobs: { db: 0, verified: 0 }, missing: [] }],
   };
   const legacy = JSON.stringify(report);
   const sink = listFailingSink(legacy, false);
-  const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-b" });
+  const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-bravo" });
 
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => /is unreadable|cannot be listed/.test(m.reason)), "a listing that fails is never read as a clean union");
@@ -61,9 +61,9 @@ test("report listing fails: refused even though report.json reads, since the oth
 });
 
 test("report listing fails and report.json cannot be read: refused, the legacy report is never replaced", async () => {
-  const truncated = '{"version":1,"state":"verified","runs":[{"deviceId":"dev-a"';
+  const truncated = '{"version":1,"state":"verified","runs":[{"deviceId":"dev-alpha"';
   const sink = listFailingSink(truncated, true);
-  const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-b" });
+  const result = await runWebExport({ kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-bravo" });
 
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.some((m) => /is unreadable|cannot be listed/.test(m.reason)));
