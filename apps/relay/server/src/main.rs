@@ -48,10 +48,14 @@ async fn seal_legacy_credentials_command(dry_run: bool) -> Result<(), String> {
         dry_run,
     )
     .await?;
-    let verb = if report.dry_run { "would seal" } else { "sealed" };
+    let verb = if report.dry_run {
+        "would seal"
+    } else {
+        "sealed"
+    };
     println!(
-        "legacy credential rows found: {}; {verb}: {}",
-        report.found, report.converted
+        "legacy credential rows found: {}; {verb}: {}; sealed rows still holding plaintext (left as is): {}",
+        report.found, report.converted, report.left_plaintext
     );
     Ok(())
 }

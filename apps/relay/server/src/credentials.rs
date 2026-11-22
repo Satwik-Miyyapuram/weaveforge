@@ -18,7 +18,7 @@ use wf_core::sync::instant::format_instant;
 
 use crate::auth::Caller;
 use crate::credential_crypto::{open, seal};
-use crate::legacy_credentials::{HAS_LEGACY_OR, legacy_secrets, seal_patch};
+use crate::legacy_credentials::{legacy_guard, legacy_secrets, seal_patch};
 use crate::postgrest::eq;
 use crate::routes::AppState;
 use crate::sdk::{caller, db_failure, error_response, json_response, user_db};
@@ -78,9 +78,10 @@ pub async fn credentials_get(State(state): State<Arc<AppState>>, headers: Header
             Ok(secrets) => secrets,
             Err(response) => return response,
         },
-        // Legacy plaintext is never served as is: seal it, clear the columns, then return it.
+        // Legacy plaintext: seal it and clear the columns, then return it. When the row
+        // changed meanwhile, the current stored keys are returned instead (cleaned).
         None => match legacy_secrets(&row) {
-            Some(secrets) => match seal_on_read(&state, &caller, &secrets).await {
+            Some(secrets) => match seal_on_read(&state, &caller, &row, &secrets).await {
                 Ok(stored) => stored,
                 Err(response) => return response,
             },
@@ -168,33 +169,34 @@ fn open_secrets(envelope: &str, key: Option<&str>) -> Result<Map<String, Value>,
     }
 }
 
-/// Stores legacy `secrets` sealed and clears the plaintext columns. The write is guarded so a
-/// row that changed since it was read is left alone. Returns the secrets now held: the ones
-/// sent when the write landed, else the row's current state (never the stale legacy values).
+/// Stores `row`'s legacy `secrets` (as stored) sealed and clears the plaintext columns. The
+/// write only lands while the row still holds exactly the values read, so a key written
+/// since is never overwritten. Returns the cleaned secrets now held: the ones sealed when
+/// the write landed, else the row's current state (its envelope or its current plaintext).
 /// Fails the read rather than return secrets that were not saved.
 async fn seal_on_read(
     state: &AppState,
     caller: &Caller,
+    row: &Value,
     secrets: &Map<String, Value>,
 ) -> Result<Map<String, Value>, Response> {
     let patch = seal_patch(secrets, state.settings.credential_key.as_deref())
         .map_err(|message| error_response(500, &message))?;
-    let guard = [
-        ("user_id", eq(&caller.user_id)),
-        ("credentials_enc", "is.null".to_string()),
-        ("or", HAS_LEGACY_OR.to_string()),
-    ];
+    let guard = legacy_guard(&caller.user_id, row);
     let written = user_db(state, caller)
         .update_returning("user_settings", &guard, &patch)
         .await
         .map_err(|err| db_failure(&err, "credentials"))?;
     if !written.is_empty() {
-        return Ok(secrets.clone());
+        return Ok(clean_secrets(&Value::Object(secrets.clone())));
     }
+    // Lost a race: serve what the row holds now; the next read seals it.
     let current = settings_row(state, caller).await?;
     match sealed_envelope(&current) {
         Some(envelope) => open_secrets(&envelope, state.settings.credential_key.as_deref()),
-        None => Ok(Map::new()),
+        None => Ok(legacy_secrets(&current)
+            .map(|current| clean_secrets(&Value::Object(current)))
+            .unwrap_or_default()),
     }
 }
 

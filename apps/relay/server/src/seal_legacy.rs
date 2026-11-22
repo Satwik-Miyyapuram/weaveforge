@@ -5,8 +5,8 @@ use serde_json::Value;
 
 use crate::config::Config;
 use crate::credential_crypto::MISSING_KEY;
-use crate::legacy_credentials::{HAS_LEGACY_OR, legacy_secrets, seal_patch};
-use crate::postgrest::{DbError, UserDb, eq};
+use crate::legacy_credentials::{HAS_LEGACY_OR, legacy_guard, legacy_secrets, seal_patch};
+use crate::postgrest::{DbError, UserDb};
 
 /// Rows fetched per page.
 const PAGE: usize = 200;
@@ -18,6 +18,9 @@ pub struct Report {
     pub found: usize,
     /// Rows written this run (always 0 on a dry run).
     pub converted: usize,
+    /// Rows with an envelope that still hold plaintext (saved later by an older client).
+    /// Left as they are: the envelope wins. Counted so the operator can see them.
+    pub left_plaintext: usize,
     /// Whether this run only counted.
     pub dry_run: bool,
 }
@@ -25,8 +28,9 @@ pub struct Report {
 /// Seals every legacy row, service-role, one row at a time.
 ///
 /// Refuses before any database call when `key` (the credential key) is missing. With
-/// `dry_run` it reads and counts but writes nothing. Each write is guarded by
-/// `credentials_enc is null`, so a row sealed meanwhile is left alone.
+/// `dry_run` it reads and counts but writes nothing. Each write only lands while the row
+/// still holds exactly the values read (`legacy_guard`), so a row changed meanwhile is left
+/// alone and a key is never lost.
 ///
 /// # Errors
 /// The missing-key message, or a database failure described by its error code only.
@@ -48,6 +52,7 @@ pub async fn seal_legacy_credentials(
     let mut report = Report {
         found: 0,
         converted: 0,
+        left_plaintext: 0,
         dry_run,
     };
     let mut after: Option<String> = None;
@@ -58,7 +63,8 @@ pub async fn seal_legacy_credentials(
                 "user_id,credentials_enc,zotero_api_key,semantic_scholar_key,integrations"
                     .to_string(),
             ),
-            ("credentials_enc", "is.null".to_string()),
+            // No `credentials_enc` filter: `legacy_secrets` skips sealed rows, and an empty
+            // envelope must still be sealed.
             ("or", HAS_LEGACY_OR.to_string()),
             ("order", "user_id.asc".to_string()),
             ("limit", PAGE.to_string()),
@@ -74,7 +80,9 @@ pub async fn seal_legacy_credentials(
             break;
         }
         for row in &rows {
+            // The read only returns rows holding plaintext, so `None` means a sealed row.
             let Some(secrets) = legacy_secrets(row) else {
+                report.left_plaintext += 1;
                 continue;
             };
             report.found += 1;
@@ -83,11 +91,7 @@ pub async fn seal_legacy_credentials(
             }
             let user = user_id_of(row)?;
             let patch = seal_patch(&secrets, key)?;
-            let guard = [
-                ("user_id", eq(user)),
-                ("credentials_enc", "is.null".to_string()),
-                ("or", HAS_LEGACY_OR.to_string()),
-            ];
+            let guard = legacy_guard(user, row);
             let written = db
                 .update_returning("user_settings", &guard, &patch)
                 .await
