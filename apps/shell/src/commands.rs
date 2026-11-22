@@ -141,8 +141,13 @@ impl LocalDb {
 
     /// Closes the native database.
     pub async fn shutdown(&self) {
+        self.shutdown_with(true).await;
+    }
+
+    /// Closes the native database; `backup` false skips the quit backup.
+    pub async fn shutdown_with(&self, backup: bool) {
         if let Ok(native) = &self.native {
-            native.close().await;
+            native.close_with(backup).await;
         }
     }
 
@@ -269,6 +274,10 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::device_settings::device_settings_patch,
         crate::migrate_093::migrate_093_run,
         crate::migrate_093::migrate_093_status,
+        crate::migrate_097::cmd::migrate_097_status,
+        crate::migrate_097::cmd::migrate_097_counts,
+        crate::migrate_097::cmd::migrate_097_remove_old,
+        crate::migrate_097::cmd::mark_exported_097,
         crate::cmd_files::file_write,
         crate::cmd_files::file_write_bytes,
         crate::cmd_files::file_delete,
