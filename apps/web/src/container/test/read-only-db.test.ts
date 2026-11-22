@@ -103,6 +103,17 @@ test("crdt_updates: a personal resource_type insert is refused before it reaches
   assert.deepEqual(calls, [], "no personal crdt row reached the database");
 });
 
+test("crdt_updates delete (deleteUpTo's from().delete()) is refused even for live-share types", () => {
+  // No live caller of deleteUpTo exists (only the port, the files-mode wrapper and the
+  // Rust planner). Pinned so a future caller in files mode is a deliberate change here.
+  const { db, calls } = fakeDb();
+  const guarded = readOnlyDb(db);
+  for (const type of ["experiment", "lab_snapshot"]) {
+    assert.throws(() => guarded.from("crdt_updates").delete(), new ReadOnlyError(), type);
+  }
+  assert.deepEqual(calls, [], "no crdt delete reached the database");
+});
+
 test("a profiles upsert passes the guard (lab-directory saveProfile)", () => {
   const { db, calls } = fakeDb();
   const guarded = readOnlyDb(db);
