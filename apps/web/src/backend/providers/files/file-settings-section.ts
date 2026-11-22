@@ -38,6 +38,8 @@ function hasSecretInValue(value: unknown): string | null {
 export interface FileSettingsSection extends SettingsSection {
   /** Resolves once every `set` so far is on disk. Rejects if the write failed. */
   flush(): Promise<void>;
+  /** Set when a corrupt settings.json was moved aside on open. */
+  notice?: string;
 }
 
 type Json = Record<string, unknown>;
@@ -46,29 +48,57 @@ function isObject(v: unknown): v is Json {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
+function parseObject(text: string): Json | null {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return isObject(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Reads `<root>/.weaveforge/settings.json` once, keeps it in memory, and writes it back on every `set`.
  * Each write goes to `settings.json.part` first and is renamed over the real file, so a crash mid-write
- * keeps the old file. A missing file starts empty; an unreadable one throws so a later save cannot wipe it.
+ * keeps the old file. The rename is the commit point, so a leftover `.part` on open was never committed and is
+ * discarded. A corrupt settings.json is moved aside as `settings.json.bad-<ts>` and the section starts empty.
  */
 export async function openFileSettingsSection(fs: IWorkspaceFs, root: string): Promise<FileSettingsSection> {
   const dir = `${root}/.weaveforge`;
   const path = `${dir}/settings.json`;
   const partPath = `${path}.part`;
+  let notice: string | undefined;
+
+  if (await fs.stat(partPath)) await fs.remove(partPath);
+
   let data: Json = {};
   if (await fs.stat(path)) {
-    const parsed: unknown = JSON.parse(await fs.readText(path));
-    if (!isObject(parsed)) throw new Error(`${path} is not a JSON object.`);
-    data = parsed;
+    const parsed = parseObject(await fs.readText(path));
+    if (parsed) {
+      data = parsed;
+    } else {
+      const badName = `settings.json.bad-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+      await fs.rename(path, `${dir}/${badName}`);
+      notice = `Unreadable settings moved aside as ${badName} (starting empty)`;
+    }
   }
 
   let queue: Promise<void> = Promise.resolve();
-  const persist = () => {
-    const next = queue.then(async () => {
-      await fs.mkdirp(dir);
-      await fs.writeFile(partPath, `${JSON.stringify(data, null, 2)}\n`);
-      await fs.rename(partPath, path);
-    });
+  const persist = (keys: readonly string[]) => {
+    const next = queue
+      .then(async () => {
+        await fs.mkdirp(dir);
+        await fs.writeFile(partPath, `${JSON.stringify(data, null, 2)}\n`);
+        await fs.rename(partPath, path);
+      })
+      .catch((error: unknown) => {
+        // Key names and the error name only: a value may be a credential or a private note.
+        console.error("settings.json save failed", {
+          keys: keys.join("."),
+          error: error instanceof Error ? error.name : "unknown",
+        });
+        throw error;
+      });
     queue = next.catch(() => undefined);
     return next;
   };
@@ -93,10 +123,11 @@ export async function openFileSettingsSection(fs: IWorkspaceFs, root: string): P
       }
       const last = key[key.length - 1];
       if (last !== undefined) node[last] = structuredClone(value);
-      void persist().catch(() => undefined);
+      persist(key).catch(() => undefined);
     },
     flush() {
-      return persist();
+      return persist([]);
     },
+    notice,
   };
 }
