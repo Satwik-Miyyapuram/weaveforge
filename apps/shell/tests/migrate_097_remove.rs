@@ -436,8 +436,8 @@ fn deletes_only_the_cluster_dir_and_records_removed_at() {
     assert_eq!(stopped, 1, "cluster stopped exactly once, before deletion");
     assert!(!f.pg_root.exists(), "cluster dir deleted");
     assert!(
-        f.base.join("local-db-backups/keep.dump").exists(),
-        "backups never deleted"
+        !f.base.join("local-db-backups").exists(),
+        "old local-db backups are deleted with the cluster"
     );
     assert!(
         f.folder.join("note.md").exists(),

@@ -127,6 +127,21 @@ pub fn remove_old_data(
             ));
         }
     }
+    let backups = backups_dir(pg_root);
+    if backups.exists() {
+        if is_reparse(&fs::symlink_metadata(&backups).map_err(|e| e.to_string())?) {
+            return Err(format!(
+                "refused: local-db-backups is a link or junction: {}",
+                backups.display()
+            ));
+        }
+        if let Some(link) = find_reparse_point(&backups)? {
+            return Err(format!(
+                "refused: reparse point (link or junction) inside local-db-backups: {}",
+                link.display()
+            ));
+        }
+    }
     if !resume {
         let local_rows = local_secrets_rows()?;
         check_secrets_count(moved, local_rows)?;
@@ -146,6 +161,11 @@ pub fn remove_old_data(
         fs::remove_dir_all(pg_root)
             .map_err(|e| format!("cannot delete {}: {e}", pg_root.display()))?;
     }
+    let backups = backups_dir(pg_root);
+    if backups.exists() {
+        fs::remove_dir_all(&backups)
+            .map_err(|e| format!("cannot delete {}: {e}", backups.display()))?;
+    }
     report["state"] = "removed".into();
     report["removedAt"] = now.into();
     write_json_atomic(&report_path, &report)
@@ -163,6 +183,11 @@ pub fn old_db_removed(pg_root: &Path) -> bool {
 
 fn marker_path(pg_root: &Path) -> std::path::PathBuf {
     pg_root.parent().unwrap_or(pg_root).join(MARKER)
+}
+
+/// Old local-db backups sit beside the cluster and go with it on removal.
+fn backups_dir(pg_root: &Path) -> std::path::PathBuf {
+    pg_root.parent().unwrap_or(pg_root).join("local-db-backups")
 }
 
 /// Writes the marker before anything is deleted; an existing marker is kept.
