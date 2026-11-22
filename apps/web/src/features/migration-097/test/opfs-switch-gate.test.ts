@@ -29,6 +29,7 @@ function server(rows: Record<string, Row[]>, failList = false): ServerSource {
       throw new Error("no blobs");
     },
     markExported097: async () => {},
+    secretProviders: async () => [],
   };
 }
 
@@ -38,6 +39,7 @@ const opts = (source: ServerSource, sink: MemorySink) => ({
   source,
   sink,
   now: NOW,
+  runDeviceId: "web-gate-0001",
 });
 
 test("0.9.7 verified, then a server write, then the 0.9.8 switch re-exports and the new row is in OPFS", async () => {

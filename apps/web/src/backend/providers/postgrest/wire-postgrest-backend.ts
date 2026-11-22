@@ -80,6 +80,8 @@ import {
   type IVaultPageRepository,
   type ManageSettingsUseCase,
   ManageSettingsUseCase as ManageSettingsUseCaseClass,
+  type IAiAuditStore,
+  type IAiProposalStore,
   type Milestone,
   type MilestoneFilter,
   type Project,
@@ -89,7 +91,7 @@ import type { ISharedReader, SharedItem } from "../../../features/sharing/domain
 import type { Integration, SyncProvider } from "../../../features/sync/domain/parts";
 import { SupabaseAdminUserProvisioner, SupabaseSessionProvider } from "../supabase-auth/parts";
 import { createDataClient } from "./parts-1";
-import { projectUserCtx, rustRepository, rustVaultPageRepository } from "./rust-repository";
+import { projectUserCtx, rustAiStores, rustRepository, rustVaultPageRepository } from "./rust-repository";
 import { watchWrites } from "./watch-writes";
 
 export type { SharedItem } from "../../../features/sharing/domain/shared-reader";
@@ -150,6 +152,22 @@ function rustSharedReader(db: SupabaseClient): ISharedReader {
 }
 
 /**
+ * Files mode: the named methods reject before any request. The org allowlist keeps `projects`
+ * and `user_settings` live for other reads, so guardOrgDb cannot refuse these by table. The
+ * release-notice `unseen` read joins the personal seen marker, so files mode shows no banner.
+ */
+function refuseInFilesMode<T extends object>(repo: T, names: readonly (keyof T)[], filesMode: boolean): T {
+  if (!filesMode) return repo;
+  const refused = async () => {
+    throw new Error("Not available in files mode");
+  };
+  return new Proxy(repo, {
+    get: (target, key, receiver) =>
+      names.includes(key as keyof T) ? refused : Reflect.get(target, key, receiver),
+  });
+}
+
+/**
  * Per-project Zotero collection (`projects.zotero_collection`). The API key and
  * library are per user; only the target collection is per project.
  */
@@ -168,6 +186,14 @@ export interface PostgrestWiringOptions {
   readonly filesMode?: boolean;
 }
 
+/**
+ * A repository that re-tags its records when a project folder moves. Only the
+ * file repositories have one; the overlay supplies it in files mode.
+ */
+export interface ProjectFolderMovable {
+  moveProjectFolder?(from: string, to: string): Promise<void>;
+}
+
 export interface WiredPostgrestBackend {
   readonly config: BackendConfig;
   readonly db: SupabaseClient;
@@ -182,6 +208,8 @@ export interface WiredPostgrestBackend {
   readonly dashboardLayoutRepository: IDashboardLayoutRepository;
   readonly graphSettingsRepository: IGraphSettingsRepository;
   readonly integrationsStore: IIntegrationsStore;
+  readonly aiProposalStore: IAiProposalStore;
+  readonly aiAuditStore: IAiAuditStore & { countAccepted(): Promise<number> };
   readonly paperRepository: IPaperRepository;
   readonly tagRepository: ITagRepository & ITagManager;
   readonly paperTagRepository: IPaperTagRepository;
@@ -211,7 +239,7 @@ export interface WiredPostgrestBackend {
     IReaderAnnotationSink &
     IReaderAnnotationSyncRecorder &
     IReaderAnnotationProjectSource;
-  readonly paperFieldRepository: IPaperFieldRepository;
+  readonly paperFieldRepository: IPaperFieldRepository & ProjectFolderMovable;
   /** Release what this wiring subscribed to (the session's auth listener). */
   dispose(): void;
 }
@@ -237,10 +265,8 @@ export interface BackendParts {
   shareMarks?: ShareMarks;
 }
 
-export interface PostgrestWiringOptions {
-  /** Personal data lives in files: the returned `db` and every repository are limited to the org server tables. */
-  readonly filesMode?: boolean;
-}
+/** Wraps the database client before any repository is built on it (the desktop read-only guard). */
+export type DbGuard = <T extends object>(db: T) => T;
 
 export function wirePostgrestBackend(
   config: BackendConfig,
@@ -248,6 +274,7 @@ export function wirePostgrestBackend(
   pid: () => string | null,
   parts?: BackendParts,
   options?: PostgrestWiringOptions,
+  guardDb?: DbGuard,
 ): WiredPostgrestBackend {
   const url = config.supabaseUrl;
   const anonKey = config.supabaseAnonKey;
@@ -259,9 +286,11 @@ export function wirePostgrestBackend(
 
   // Wrapped once, here, so that every repository below reports its writes
   // without any of them having to know that something is listening.
-  const db =
+  const rawDb =
     parts?.db ??
     watchWrites(createDataClient(url as string, anonKey as string, config.dataUrl), notifyWorkspaceChange);
+  // Guarded before the first repository below is built, so no repository holds the raw client.
+  const db = guardDb ? guardDb(rawDb) : rawDb;
   // A session built here listens on the client; one passed in is its owner's.
   // In files mode the repos below that the container still wires over this client may reach only
   // the org server allowlist: a personal call throws before any request is sent.
@@ -278,9 +307,13 @@ export function wirePostgrestBackend(
     parts?.settingsRepository ?? new PostgrestSettingsRepository(serverDb, session, secretsStoreFor(serverDb));
   const releaseNoticesRepository =
     parts?.releaseNotices ??
-    rustRepository<IReleaseNoticesRepository>(serverDb, "release_notices", ["unseen"], async () => ({
-      userId: (await session.getCurrentUserId()) ?? undefined,
-    }));
+    refuseInFilesMode(
+      rustRepository<IReleaseNoticesRepository>(serverDb, "release_notices", ["unseen"], async () => ({
+        userId: (await session.getCurrentUserId()) ?? undefined,
+      })),
+      ["unseen"],
+      options?.filesMode === true,
+    );
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
   const projectRepository = cacheRepo(
     rustProjectRepository(serverDb, session),
@@ -304,6 +337,8 @@ export function wirePostgrestBackend(
     { resourceType: "graph_settings" },
   );
   const integrationsStore: IIntegrationsStore = rustIntegrationsStore(serverDb);
+  // AI tables are not on the org allowlist, so they take the personal db (guarded by guardDb).
+  const ai = rustAiStores(db, projectContext, session);
   const paperRepository = cachePaperRepository(rustPaperRepository(serverDb, projectContext), pid);
 
   const tagPaperCache = new Map<string, Promise<unknown>>();
@@ -411,16 +446,21 @@ export function wirePostgrestBackend(
     { resourceType: "reading_list" },
   );
   const readingListItemRepository = cacheRepo(
-    rustRepository<IReadingListItemRepository>(serverDb, "reading_list_items", [
-      "listItems",
-      "listItemsForLists",
-      "listsForPaper",
-      "listsForNote",
-      "find",
-      "findNote",
-      "add",
-      "remove",
-    ] as (keyof IReadingListItemRepository & string)[]),
+    {
+      ...rustRepository<IReadingListItemRepository>(serverDb, "reading_list_items", [
+        "listItems",
+        "listItemsForLists",
+        "listsForPaper",
+        "listsForNote",
+        "find",
+        "findNote",
+        "add",
+        "remove",
+      ] as (keyof IReadingListItemRepository & string)[]),
+      // Files-only reads: the PostgREST backend has no unreadable files or legacy leftovers.
+      unreadablePaths: async () => [],
+      legacyLeftovers: async () => [],
+    },
     ["listItems", "listItemsForLists", "listsForPaper", "find"],
     ["add", "remove"],
     pid,
@@ -497,7 +537,11 @@ export function wirePostgrestBackend(
     pid,
   );
   const supervisionRepository = rustSupervisionRepository(serverDb);
-  const projectBibliographyCollection = rustProjectZoteroStore(serverDb);
+  const projectBibliographyCollection = refuseInFilesMode(
+    rustProjectZoteroStore(serverDb),
+    ["setCollection"],
+    options?.filesMode === true,
+  );
   const rawBlobStore = parts?.blobStore ?? wireStorage({ supabaseDb: serverDb });
   const libraryPinRepository: ILibraryPinRepository = cacheRepo(
     rustRepository<ILibraryPinRepository>(
@@ -578,6 +622,8 @@ export function wirePostgrestBackend(
     dashboardLayoutRepository,
     graphSettingsRepository,
     integrationsStore,
+    aiProposalStore: ai.proposals,
+    aiAuditStore: ai.audit,
     paperRepository,
     tagRepository,
     paperTagRepository,

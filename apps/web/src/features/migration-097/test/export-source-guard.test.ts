@@ -98,7 +98,7 @@ test("source probe: the only send() outside request() is markExported097, and ev
   assert.equal(sendCalls, 2, "send() must have exactly two call sites: request() and markExported097()");
   assert.equal(src.slice(0, markAt).split("this.send(").length - 1, 1, "only request() may call send() before markExported097");
   const requests = src.split("this.request(").length - 1;
-  const methods = [...src.matchAll(/this\.request\(\s*\w+,\s*\{\s*method: "(\w+)"/g)].map((m) => m[1]);
+  const methods = [...src.matchAll(/this\.request\(\s*[^{;]+?,\s*\{\s*method: "(\w+)"/g)].map((m) => m[1]);
   assert.equal(methods.length, requests, "every this.request() call must pass a literal method");
   for (const method of methods) assert.ok(method === "GET" || method === "HEAD", `read-only source uses ${method}`);
 });

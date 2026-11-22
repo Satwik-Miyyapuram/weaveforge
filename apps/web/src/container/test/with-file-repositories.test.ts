@@ -1,15 +1,20 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
+import { loadTestCore } from "@/lib/test/load-test-core";
 import type { BackendConfig } from "../../backend/parts";
 import { wireFileBackend, type FileRepositories } from "../../backend/providers/files/wire-file-backend";
 import { wirePostgrestBackend } from "../../backend/providers/postgrest/wire-postgrest-backend";
 import {
   PERSONAL_REPOSITORY_KEYS,
   SERVER_BACKEND_KEYS,
+  PERSONAL_ALIASES,
   overlayFileRepositories,
   unclassifiedKeys,
 } from "../with-file-repositories";
+
+// wirePostgrestBackend builds the storage layer, which needs the Rust core loaded.
+before(loadTestCore);
 
 const parts = {
   fs: {} as never,
@@ -72,4 +77,45 @@ test("the overlay overrides every personal key of the wired backend", () => {
   } finally {
     wired.dispose();
   }
+});
+
+test("bibliography, quotation-type and integrations keys are personal, never on the server list", () => {
+  for (const key of ["projectBibliographyCollection", "annotationQuotationTypeRepository", "integrationsStore"]) {
+    assert.equal(SERVER_BACKEND_KEYS.has(key), false, `${key} must not be a server key`);
+    assert.equal(
+      key in PERSONAL_REPOSITORY_KEYS || key in PERSONAL_ALIASES,
+      true,
+      `${key} must be a personal key or alias`,
+    );
+  }
+});
+
+test("the server-key set equals the documented list (a deliberate copy, not ORG_SERVER_READ_TABLES)", () => {
+  const documented = [
+    "config",
+    "db",
+    "session",
+    "auth",
+    "adminProvisioner",
+    "projectContext",
+    "releaseNoticesRepository",
+    "manageSettings",
+    "shareRepository",
+    "commentRepository",
+    "sharedReader",
+    "memberRepository",
+    "supervisionRepository",
+    "rawBlobStore",
+    "labSnapshotRepository",
+    "dispose",
+  ];
+  assert.deepEqual([...SERVER_BACKEND_KEYS].sort(), [...documented].sort());
+});
+
+test("the aliases point the PostgREST key names at the file repositories", () => {
+  const files = wireFileBackend(parts);
+  const wired = { projectBibliographyCollection: "postgrest-collection", annotationQuotationTypeRepository: "postgrest-quotation" };
+  const out = overlayFileRepositories(wired, files);
+  assert.equal(out.projectBibliographyCollection, files.bibliographyCollectionStore);
+  assert.equal(out.annotationQuotationTypeRepository, files.quotationTypeRepository);
 });

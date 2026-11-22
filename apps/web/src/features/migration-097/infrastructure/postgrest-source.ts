@@ -1,4 +1,5 @@
 import type { BlobRef, Row, ServerSource } from "../domain/ports";
+import { SECRET_TABLES } from "../domain/secret-tables";
 import { PAGE_SIZE, listAllPages } from "./paging";
 
 /** camelCase kind -> snake_case PostgREST table. */
@@ -38,6 +39,7 @@ const SOFT_DELETE_TABLES: ReadonlySet<string> = new Set([
   "reader_annotations", "annotation_pins", "library_pins", "vault_pages", "screening_decisions", "paper_tags",
 ]);
 
+
 export interface PostgrestSourceOptions {
   baseUrl: string;
   userId: string;
@@ -46,8 +48,6 @@ export interface PostgrestSourceOptions {
   headers: Record<string, string>;
   /** Real outbox check is wired by the integrator. */
   pendingOutbox?: () => Promise<number>;
-  /** Real decrypt check is wired by the integrator. */
-  undecryptable?: (kind: string) => Promise<number>;
   /** Resolves a short-lived download URL for a blob (the web app's signed-urls route). */
   signedUrl?: (bucket: string, path: string) => Promise<string | null>;
 }
@@ -62,6 +62,16 @@ export function toCamelRow(row: Row): Row {
     out[key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())] = value;
   }
   return out;
+}
+
+/** The total from a Prefer: count=exact response. Throws when the header has no total, so the count reads as unknown. */
+function totalOf(res: Response, table: string): number {
+  const range = res.headers.get("content-range") ?? "";
+  const total = Number(range.split("/")[1]);
+  if (range.split("/").length < 2 || !Number.isInteger(total)) {
+    throw new Error(`count ${table} failed: no total in content-range`);
+  }
+  return total;
 }
 
 function tableFor(kind: string): string {
@@ -125,33 +135,43 @@ export class PostgrestSource implements ServerSource {
     return rows.map(toCamelRow);
   }
 
-  /** Raw trashed rows (deleted_at not null). Tables without deleted_at have no trash. */
+  /** Trashed rows (deleted_at not null), camel-cased like live rows so the codec sees the same shape. Tables without deleted_at have no trash. */
   async listTrashed(kind: string): Promise<Row[]> {
     if (FILE_ONLY_KINDS.includes(kind)) return [];
     const table = tableFor(kind);
     if (!SOFT_DELETE_TABLES.has(table)) return [];
-    return listAllPages<Row>(async (offset, limit) => {
+    const rows = await listAllPages<Row>(async (offset, limit) => {
       const url = `${this.filter(table, true)}&order=id.asc&limit=${limit}&offset=${offset}`;
       const res = await this.request(url, { method: "GET" }, table);
       return (await res.json()) as Row[];
     }, PAGE_SIZE);
-  }
-
-  /** HEAD count of the rows matching url; fails closed when the response carries no total. */
-  private async headCount(url: string, table: string): Promise<number> {
-    const res = await this.request(url, { method: "HEAD", extra: { Prefer: "count=exact" } }, table);
-    const range = res.headers.get("content-range") ?? "";
-    const total = Number(range.split("/")[1]);
-    if (range.split("/").length < 2 || !Number.isInteger(total)) {
-      throw new Error(`count ${table} failed: no total in content-range`);
-    }
-    return total;
+    return rows.map(toCamelRow);
   }
 
   async countRows(kind: string): Promise<number> {
     if (FILE_ONLY_KINDS.includes(kind)) return 0;
     const table = tableFor(kind);
-    return this.headCount(this.filter(table), table);
+    const res = await this.request(
+      this.filter(table),
+      { method: "HEAD", extra: { Prefer: "count=exact" } },
+      table,
+    );
+    return totalOf(res, table);
+  }
+
+  /**
+   * Providers with an owner-scoped secret row, one per SECRET_TABLES entry that has rows. A failed or
+   * total-less count throws, so the export refuses rather than reading an unknown as "no secrets".
+   */
+  async secretProviders(): Promise<string[]> {
+    const uid = encodeURIComponent(this.opts.userId);
+    const providers: string[] = [];
+    for (const { table, select, owner, secret, provider } of SECRET_TABLES) {
+      const url = `${this.opts.baseUrl}/${table}?select=${select}&${owner}=eq.${uid}&${secret}=not.is.null`;
+      const res = await this.request(url, { method: "HEAD", extra: { Prefer: "count=exact" } }, table);
+      if (totalOf(res, table) > 0) providers.push(provider);
+    }
+    return providers;
   }
 
   async pendingOutbox(): Promise<number> {
@@ -160,12 +180,10 @@ export class PostgrestSource implements ServerSource {
   }
 
   /**
-   * Rows that cannot be turned into plaintext. Default is 0: migrations 0099 (drop_e2ee_schema) and
-   * 0100 (ai_proposals_plaintext) dropped content_enc from every content table, so a HEAD on it 400s
-   * and would block the switch for everyone. An injected check replaces this default.
+   * Always 0. db/migrations/0099_drop_e2ee_schema.sql:22-31 drops content_enc (and enc_epoch) from every entity
+   * table the export reads, so the server holds no ciphertext rows to count. No request is sent.
    */
-  async undecryptable(kind: string): Promise<number> {
-    if (this.opts.undecryptable) return this.opts.undecryptable(kind);
+  async undecryptable(_kind: string): Promise<number> {
     return 0;
   }
 
@@ -194,9 +212,11 @@ export class PostgrestSource implements ServerSource {
 
   /** The server function (0164) takes no args and sets the marker for auth.uid(); body is {}. */
   async markExported097(): Promise<void> {
+    // Reuse the base header key's casing so the merged headers carry one content-type, not two.
+    const ctKey = Object.keys(this.opts.headers).find((k) => k.toLowerCase() === "content-type") ?? "content-type";
     await this.send(
       `${this.opts.baseUrl}/rpc/mark_exported_097`,
-      { method: "POST", body: "{}", extra: { "content-type": "application/json" } },
+      { method: "POST", body: "{}", extra: { [ctKey]: "application/json" } },
       "rpc/mark_exported_097",
     );
   }

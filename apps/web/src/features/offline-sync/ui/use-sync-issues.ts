@@ -7,6 +7,7 @@ import { readyCore } from "@/lib/rust-core";
 import { ConflictStore, type OpenConflict } from "../domain/parts-1";
 import { Outbox, type OutboxEntry } from "../domain/parts-2";
 import { useLiveSync } from "./use-live-sync";
+import { syncAllowedHere } from "./sync-gate";
 
 /**
  * The two things sync can leave for a person to decide: rows two devices
@@ -48,12 +49,16 @@ export function useSyncIssues(): SyncIssuesHandle {
       setIssues(NONE);
       return;
     }
-    const sql = new LocalRunner();
-    void Promise.all([new ConflictStore(sql).openConflicts(), new Outbox(sql).dead()])
-      .then(([conflicts, dead]) => setIssues({ conflicts, dead }))
-      // A local database that will not answer is not something the reader can
-      // act on from here; it reads as nothing outstanding.
-      .catch(() => setIssues(NONE));
+    // A folder that is migrating or migrated to files has no sync to report on.
+    void syncAllowedHere().then((allowed) => {
+      if (!allowed) return setIssues(NONE);
+      const sql = new LocalRunner();
+      return Promise.all([new ConflictStore(sql).openConflicts(), new Outbox(sql).dead()])
+        .then(([conflicts, dead]) => setIssues({ conflicts, dead }))
+        // A local database that will not answer is not something the reader can
+        // act on from here; it reads as nothing outstanding.
+        .catch(() => setIssues(NONE));
+    });
   }, []);
 
   // The sync loop owns the count; re-read whenever it moves so the panel never shows stale rows.

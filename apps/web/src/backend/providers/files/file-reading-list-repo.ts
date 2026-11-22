@@ -1,23 +1,18 @@
 /**
- * Reading lists as `reading-lists/<slug>--<id>.list.md` files (0.9.7 L3), with
- * membership as tags on the members (0.9.8). Same contract as the `reading_lists` /
- * `reading_list_items` repos; laws in test/file-reading-list-repo.test.ts.
+ * Reading lists as `reading-lists/<slug>--<id>.list.md` files (0.9.7 L3). Each list file
+ * holds the list's own fields only: name, description, parent, color and screening items.
  *
- * A paper or note is in a list when its file carries `lists: ["[[<list file name>]]"]`.
- * What the app knows about that membership sits beside the tag, keyed by list id:
+ * Membership lives on each member, in its own frontmatter (see member-frontmatter.ts):
  *
  * ```yaml
- * lists: ["[[Review]]"]
- * list-notes: {"<list id>": {"id":"i2","order":1,"note":"key","from":"l0"}}
+ * lists: ["[[review--l1.list]]"]
+ * list-notes: {"[[review--l1.list]]": "key"}
  * ```
  *
- * A tag with no `list-notes` entry has the id `<list id>:<paper or note id>` and its
- * order as its sort. Editing an item writes only the member file, never the list file.
- *
- * The older `members` array in a list file still reads, after the tags, for members
- * whose paper or note has no tag in that list. It is read-only: removing one is refused,
- * and adding the same paper or note writes a tag that overrides it. Every other field of
- * the list file (the old `members`, screening `items`, unknown keys) is kept on save.
+ * `[[review--l1.list]]` is the list file's name minus `.md`, so a list renamed in
+ * place keeps its file path and its members still point at it. An item's id is derived as
+ * `<list id>:<paper or note id>`; its sortOrder is its index among the list's members in
+ * workspace path order. Caller-supplied item ids are not stored.
  */
 import {
   NotFoundError,
@@ -27,111 +22,64 @@ import {
   type ReadingList,
   type ReadingListFilter,
   type ReadingListItem,
+  type ReadingListLegacyLeftover,
   type ReadingListTreeNode,
 } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
-import { FileEntityStore, type ProjectRoot } from "./file-entity-store";
-import { LinkIndex, type LinkTarget, type Links } from "./link-index";
-import {
-  editMemberFile,
-  listFilesOf,
-  objectOf,
-  readTagged,
-  withTag,
-  withoutTag,
-  type ListFile,
-  type MemberInfo,
-} from "./reading-list-tags";
+import { FileEntityStore, type ProjectRoot, writeIfUnchanged } from "./file-entity-store";
+import { LinkIndex, type LinkTarget } from "./link-index";
+import { addListMembership, type MemberFields, listLinkFor, readMemberFields, removeListMembership } from "./member-frontmatter";
+import { legacyMemberLinks, legacyNoteOf, migrateLegacyLists } from "./legacy-list-members";
 
-/** The Postgres foreign-key code the service reads as "the `from` list is gone". */
-const INHERITED_LINK_CODE = "23503";
+/** A list row as the codec reads it; `members` and `memberNotes` are the 0.9.6 keys, read only for the rewrite. */
+type ListRow = ReadingList & { members?: unknown; memberNotes?: unknown };
 
-/** One membership: a list, a paper or note in it, and what the app knows about it. */
-interface Membership {
-  list: ListFile;
-  target: LinkTarget;
-  info: MemberInfo;
-  /** The member file, when the membership is a tag (legacy memberships have none). */
-  file?: string;
-  /** Its place in the list file's legacy `members`. */
-  index?: number;
-}
-
-/** A legacy `members` entry: a plain link, or the older object form with its info. */
-interface LegacyMember {
-  link: string;
-  info: MemberInfo;
-}
-
-function targetId(t: LinkTarget): string {
+function targetIdOf(t: LinkTarget): string {
   return "paperId" in t ? t.paperId : t.vaultPageId;
 }
 
-function sameTarget(a: LinkTarget, b: LinkTarget): boolean {
-  return ("paperId" in a) === ("paperId" in b) && targetId(a) === targetId(b);
+function itemIdOf(listId: string, target: LinkTarget): string {
+  return `${listId}:${targetIdOf(target)}`;
 }
 
-function targetKey(t: LinkTarget): string {
-  return `${"paperId" in t ? "paper" : "note"}:${targetId(t)}`;
-}
-
-function memberId(m: Membership): string {
-  return m.info.id || `${m.list.id}:${targetId(m.target)}`;
+function plainList({ members: _m, memberNotes: _n, ...list }: ListRow): ReadingList {
+  return list;
 }
 
 function byOrderThenName(a: ReadingList, b: ReadingList): number {
   return a.sortOrder - b.sortOrder || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 }
 
-/** The legacy `members` of a list file's text, in file order. */
-function legacyMembers(text: string): LegacyMember[] {
-  const members = (readyCore().readFrontmatter(text).frontmatter as { members?: unknown }).members;
-  if (!Array.isArray(members)) return [];
-  const out: LegacyMember[] = [];
-  for (const m of members) {
-    // The object form reads back as its JSON text (see objectOf).
-    const object = objectOf(m);
-    if (object) {
-      const { link, ...info } = object as MemberInfo & { link?: unknown };
-      if (typeof link === "string") out.push({ link, info });
-    } else if (typeof m === "string") out.push({ link: m, info: {} });
-  }
-  return out;
-}
-
-function toItem(m: Membership, live: ReadonlySet<string>): ReadingListItem {
-  const { info } = m;
-  const item: ReadingListItem = {
-    id: memberId(m),
-    listId: m.list.id,
-    ...m.target,
-    sortOrder: typeof info.order === "number" ? info.order : (m.index ?? 0),
-  };
-  if (info.note) item.note = info.note;
-  if (info.from && live.has(info.from)) item.inheritedFromListId = info.from;
-  if (info["duplicate-of"]) item.duplicateOfItemId = info["duplicate-of"];
-  return item;
+function byPath(a: { path: string }, b: { path: string }): number {
+  return a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
 }
 
 export class FileReadingListRepository implements IReadingListRepository {
-  private readonly store: FileEntityStore<ReadingList>;
+  private readonly store: FileEntityStore<ListRow>;
+  private readonly migrate: () => Promise<void>;
 
   constructor(fs: IWorkspaceFs, root: ProjectRoot) {
-    this.store = new FileEntityStore<ReadingList>(fs, root, "reading_list");
+    this.store = new FileEntityStore<ListRow>(fs, root, "reading_list");
+    this.migrate = () => migrateLegacyLists(fs, root);
   }
 
-  getById(id: string): Promise<ReadingList | null> {
-    return this.store.get(id);
+  async getById(id: string): Promise<ReadingList | null> {
+    await this.migrate();
+    const row = await this.store.get(id);
+    return row ? plainList(row) : null;
   }
 
   async listByIds(ids: readonly string[]): Promise<ReadingList[]> {
+    await this.migrate();
     const wanted = new Set(ids);
-    return (await this.store.all()).filter((l) => wanted.has(l.id));
+    return (await this.store.all()).filter((l) => wanted.has(l.id)).map(plainList);
   }
 
   async list(filter: ReadingListFilter = {}): Promise<ReadingList[]> {
+    await this.migrate();
     const needle = filter.nameContains?.toLowerCase();
     return (await this.store.all())
+      .map(plainList)
       .filter(
         (l) =>
           (filter.parentId === undefined || (l.parentId ?? null) === filter.parentId) &&
@@ -141,13 +89,17 @@ export class FileReadingListRepository implements IReadingListRepository {
   }
 
   async getTree(): Promise<ReadingListTreeNode[]> {
-    const lists = (await this.store.all()).sort(byOrderThenName);
+    await this.migrate();
+    const lists = (await this.store.all()).map(plainList).sort(byOrderThenName);
     return readyCore().buildListTree(lists) as unknown as ReadingListTreeNode[];
   }
 
-  /** Writes the list's own fields; the list file's members and other keys are kept. */
-  save(list: ReadingList): Promise<void> {
-    return this.store.save(list);
+  /**
+   * Writes the list's own fields under the list's id (a caller-supplied id is kept, and
+   * a new one makes a new file). Membership is on the members, so a save never touches it.
+   */
+  async save(list: ReadingList): Promise<void> {
+    await this.store.save(plainList(list as ListRow));
   }
 
   delete(id: string): Promise<void> {
@@ -156,29 +108,45 @@ export class FileReadingListRepository implements IReadingListRepository {
 }
 
 export class FileReadingListItemRepository implements IReadingListItemRepository {
-  private readonly store: FileEntityStore<ReadingList>;
+  private readonly lists: FileEntityStore<ListRow>;
   private readonly links: LinkIndex;
+  private readonly migrate: () => Promise<void>;
 
-  constructor(private readonly fs: IWorkspaceFs, root: ProjectRoot) {
-    this.store = new FileEntityStore<ReadingList>(fs, root, "reading_list");
+  constructor(
+    private readonly fs: IWorkspaceFs,
+    root: ProjectRoot,
+  ) {
+    this.lists = new FileEntityStore<ListRow>(fs, root, "reading_list");
     this.links = new LinkIndex(fs, root);
+    this.migrate = () => migrateLegacyLists(fs, root);
   }
 
-  listItems(listId: string): Promise<ReadingListItem[]> {
-    return this.items((m) => m.list.id === listId, listId);
+  async listItems(listId: string): Promise<ReadingListItem[]> {
+    return this.listItemsForLists([listId]);
   }
 
-  listItemsForLists(listIds: readonly string[]): Promise<ReadingListItem[]> {
+  async listItemsForLists(listIds: readonly string[]): Promise<ReadingListItem[]> {
     const wanted = new Set(listIds);
-    return this.items((m) => wanted.has(m.list.id));
+    return (await this.memberships()).items.filter((i) => wanted.has(i.listId));
   }
 
-  listsForPaper(paperId: string): Promise<ReadingListItem[]> {
-    return this.items((m) => "paperId" in m.target && m.target.paperId === paperId);
+  async listsForPaper(paperId: string): Promise<ReadingListItem[]> {
+    return (await this.memberships()).items.filter((i) => i.paperId === paperId);
   }
 
-  listsForNote(vaultPageId: string): Promise<ReadingListItem[]> {
-    return this.items((m) => "vaultPageId" in m.target && m.target.vaultPageId === vaultPageId);
+  async listsForNote(vaultPageId: string): Promise<ReadingListItem[]> {
+    return (await this.memberships()).items.filter((i) => i.vaultPageId === vaultPageId);
+  }
+
+  /** The workspace paths whose membership values could not be read; those papers and notes are left out of the lists. */
+  async unreadablePaths(): Promise<string[]> {
+    return (await this.memberships()).unreadable;
+  }
+
+  /** The 0.9.6 leftovers: members that are not items (conflicting, unresolved or pending). All lists when no id is given. */
+  async legacyLeftovers(listId?: string): Promise<ReadingListLegacyLeftover[]> {
+    const { leftovers } = await this.memberships();
+    return listId === undefined ? leftovers : leftovers.filter((l) => l.listId === listId);
   }
 
   async find(listId: string, paperId: string): Promise<ReadingListItem | null> {
@@ -189,7 +157,7 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
     return (await this.listItems(listId)).find((i) => i.vaultPageId === vaultPageId) ?? null;
   }
 
-  /** Upsert by the paper or note: one membership per target in a list. */
+  /** Adds the paper or note to the list (one membership per target), with its note. */
   async add(item: ReadingListItem): Promise<void> {
     const target: LinkTarget | null = item.paperId
       ? { paperId: item.paperId }
@@ -197,80 +165,91 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
         ? { vaultPageId: item.vaultPageId }
         : null;
     if (!target) throw new NotFoundError("A reading-list item needs a paper or a note.");
-    const found = await this.store.find(item.listId);
-    if (!found) throw new NotFoundError(`No reading list with id "${item.listId}".`);
-    if (item.inheritedFromListId && !(await this.store.get(item.inheritedFromListId))) {
-      throw Object.assign(new Error(`No reading list with id "${item.inheritedFromListId}".`), {
-        code: INHERITED_LINK_CODE,
-      });
-    }
-    const { links, memberships, files } = await this.load();
-    const file = links.fileFor(target);
-    if (!file) throw new NotFoundError(`No file for ${"paperId" in target ? "paper" : "note"} "${targetId(target)}".`);
-
-    const list = files.find((l) => l.id === found.row.id);
+    const list = await this.lists.find(item.listId);
     if (!list) throw new NotFoundError(`No reading list with id "${item.listId}".`);
-    const info: MemberInfo = { id: item.id, order: item.sortOrder };
-    if (item.note) info.note = item.note;
-    if (item.inheritedFromListId) info.from = item.inheritedFromListId;
-    if (item.duplicateOfItemId) info["duplicate-of"] = item.duplicateOfItemId;
-
-    // An item id names one membership in a list: another target's tag with it is dropped.
-    for (const m of memberships) {
-      if (m.file && m.list.id === list.id && m.info.id === item.id && !sameTarget(m.target, target)) {
-        await editMemberFile(this.fs, m.file, (f) => withoutTag(f, list));
-      }
-    }
-    await editMemberFile(this.fs, file, (f) => withTag(f, list, info));
+    const snapshot = await this.links.snapshot();
+    const file = snapshot.pathFor(target);
+    if (!file) throw new NotFoundError(`No file for ${"paperId" in target ? "paper" : "note"} "${targetIdOf(target)}".`);
+    const text = await this.fs.readText(file);
+    const next = addListMembership(text, listLinkFor(list.path), item.note);
+    if (next !== text) await writeIfUnchanged(this.fs, file, next, text);
   }
 
-  /** Drops one membership by item id. A legacy `members` entry is read-only and refused. */
+  /** Removes the membership with this item id; the list file is not touched. */
   async remove(id: string): Promise<void> {
-    const { memberships } = await this.load();
-    const hit = memberships.find((m) => memberId(m) === id);
-    if (!hit) return;
-    if (!hit.file) {
-      throw new Error(
-        `The member "${targetId(hit.target)}" of reading list "${hit.list.id}" is in the list file's members, which is read-only; remove it in the list file.`,
-      );
+    const at = id.indexOf(":");
+    if (at < 0) return;
+    const list = await this.lists.find(id.slice(0, at));
+    if (!list) return;
+    const link = listLinkFor(list.path);
+    const snapshot = await this.links.snapshot();
+    for (const { target, path } of snapshot.all()) {
+      if (itemIdOf(list.row.id, target) !== id) continue;
+      const text = await this.fs.readText(path);
+      const next = removeListMembership(text, link);
+      if (next !== text) await writeIfUnchanged(this.fs, path, next, text);
     }
-    const list = hit.list;
-    await editMemberFile(this.fs, hit.file, (f) => withoutTag(f, list));
-  }
-
-  private async items(match: (m: Membership) => boolean, focusId?: string): Promise<ReadingListItem[]> {
-    const { live, memberships } = await this.load(focusId);
-    return memberships
-      .filter(match)
-      .map((m) => toItem(m, live))
-      .sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
   /**
-   * Every membership: the tags on member files, then each list file's legacy members
-   * whose paper or note has no tag in that list. One scan per call.
+   * Every membership of a live list, each list's members ordered by workspace path, plus the
+   * paths that could not be read. A paper or note whose membership value is unreadable is left
+   * out and reported; its file is not touched. A member whose link names no live list is not
+   * listed; its frontmatter is kept. Legacy (0.9.6) members still in a list file are never items
+   * (an item needs a paper or note id): they are leftovers, see `legacyLeftovers`.
    */
-  private async load(
-    focusId?: string,
-  ): Promise<{ live: Set<string>; links: Links; files: ListFile[]; memberships: Membership[] }> {
-    const lists = await this.store.readAll();
-    const live = new Set(lists.map((f) => f.row.id));
-    const files = listFilesOf(lists.map((f) => ({ path: f.path, id: f.row.id })));
-    const links = await this.links.snapshot();
-    const tagged = await readTagged(this.fs, links, files, focusId);
-    const memberships: Membership[] = tagged.map((t) => ({ list: t.list, target: t.target, info: t.info, file: t.file }));
-    // One membership per target in a list: a tag wins, then the first legacy entry for the target.
-    const seen = new Set(tagged.map((t) => `${t.list.id}|${targetKey(t.target)}`));
-    for (const [i, f] of lists.entries()) {
-      const list = files[i]!;
-      legacyMembers(f.text).forEach((m, index) => {
-        const target = links.resolve(m.link);
-        const key = `${list.id}|${target ? targetKey(target) : ""}`;
-        if (!target || seen.has(key)) return;
-        seen.add(key);
-        memberships.push({ list, target, info: m.info, index });
-      });
+  private async memberships(): Promise<{
+    items: ReadingListItem[];
+    unreadable: string[];
+    leftovers: ReadingListLegacyLeftover[];
+  }> {
+    await this.migrate();
+    const files = await this.lists.readAll();
+    const listIdByLink = new Map(files.map((f) => [listLinkFor(f.path), f.row.id]));
+    const snapshot = await this.links.snapshot();
+    const byList = new Map<string, ReadingListItem[]>();
+    // A file the link scan could not read may hold memberships too: report it, never drop it silently.
+    const unreadable: string[] = snapshot.unreadable.map((u) => u.path);
+    for (const { target, path } of snapshot.all().sort(byPath)) {
+      let fields: MemberFields;
+      try {
+        fields = readMemberFields(await this.fs.readText(path));
+      } catch {
+        unreadable.push(path);
+        continue;
+      }
+      const { lists, listNotes } = fields;
+      for (const link of new Set(lists)) {
+        const listId = listIdByLink.get(link);
+        if (!listId) continue;
+        const item: ReadingListItem = { id: itemIdOf(listId, target), listId, ...target, sortOrder: 0 };
+        const note = listNotes[link];
+        if (note) item.note = note;
+        byList.set(listId, [...(byList.get(listId) ?? []), item]);
+      }
     }
-    return { live, links, files, memberships };
+    const leftovers: ReadingListLegacyLeftover[] = [];
+    for (const file of files) {
+      if (file.row.members === undefined && file.row.memberNotes === undefined) continue;
+      const listId = file.row.id;
+      for (const raw of legacyMemberLinks(file.row)) {
+        const target = snapshot.resolve(raw);
+        if (!target || !snapshot.pathFor(target)) {
+          leftovers.push({ listId, state: "unresolved", legacyLink: raw });
+          continue;
+        }
+        const note = legacyNoteOf(file.row, target);
+        const noteField = note === undefined ? {} : { note };
+        const item = (byList.get(listId) ?? []).find((i) => i.id === itemIdOf(listId, target));
+        if (!item) leftovers.push({ listId, state: "pending", ...target, ...noteField });
+        else if (note !== undefined && item.note !== note) leftovers.push({ listId, state: "conflict", ...target, note });
+      }
+    }
+    const out: ReadingListItem[] = [];
+    for (const items of byList.values()) {
+      items.forEach((item, index) => (item.sortOrder = index));
+      out.push(...items);
+    }
+    return { items: out, unreadable, leftovers };
   }
 }

@@ -7,8 +7,14 @@
 import type { IWorkspaceFs } from "@weaveforge/core";
 
 export const SETTINGS_PATH = ".weaveforge/settings.json";
+/** Edits a close could not write; merged on the next load, removed once a write lands. */
+export const PARKED_PATH = ".weaveforge/settings.pending.json";
 export const SETTINGS_VERSION = 1;
 export const SETTINGS_WRITE_DELAY_MS = 500;
+/** How often the no-folder warning repeats while an edit waits. Toasts time out, so it is re-shown. */
+const NO_FOLDER_REMINDER_MS = 30_000;
+/** Compare-and-swap attempts per flush; each re-reads and re-merges before retrying. */
+const SETTINGS_WRITE_ATTEMPTS = 3;
 /** The longest wait between retries of a refused save. */
 const SETTINGS_RETRY_MAX_MS = 60_000;
 export type SettingsKey = readonly string[];
@@ -63,6 +69,23 @@ interface PendingSet {
   value: unknown;
 }
 
+/** Credentials never go in a settings file, parked or not. */
+const SECRET_SEGMENT = /secret|token|password|passwd|apikey|credential|privatekey|accesskey|bearer/;
+/** Separators are dropped first, so "api-key", "api_key" and "API Key" all match. */
+const isSecretKey = (key: SettingsKey): boolean =>
+  key.some((seg) => SECRET_SEGMENT.test(seg.toLowerCase().replace(/[^a-z0-9]/g, "")));
+
+/** Drops secret-named properties at any depth, so a credential nested under a parked key is never written. */
+function stripSecrets(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripSecrets);
+  if (typeof value !== "object" || value === null) return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (!isSecretKey([k])) out[k] = stripSecrets(v);
+  }
+  return out;
+}
+
 /** Writes `value` at `key`, creating intermediate objects; `undefined` deletes the leaf. */
 function putAt(doc: SettingsDoc, key: SettingsKey, value: unknown): void {
   let obj: Record<string, unknown> = doc;
@@ -84,6 +107,7 @@ export class WorkspaceSettingsFile {
   private generation = 0;
   private timer: unknown = null;
   private failedSaves = 0;
+  private parkedOnDisk = false;
   private writing: Promise<void> = Promise.resolve();
   private flushing = 0;
   private listeners = new Set<() => void>();
@@ -91,6 +115,11 @@ export class WorkspaceSettingsFile {
   private readonly delayMs: number;
   private readonly schedule: (fn: () => void, ms: number) => unknown;
   private readonly cancel: (handle: unknown) => void;
+  private warnedNoFolder = false;
+  /** Repeats the no-folder warning while an edit waits; armed only with no folder open. */
+  private reminder: unknown = null;
+  /** The folder the last load() read; a different one is a new workspace, so lastText is stale. */
+  private boundFs: IWorkspaceFs | null = null;
 
   constructor(deps: SettingsDeps) {
     this.deps = deps;
@@ -124,10 +153,27 @@ export class WorkspaceSettingsFile {
     };
   }
 
+  /**
+   * Reads the workspace file and merges parked edits. Edits made while no folder was open
+   * wait in memory and go to the next workspace opened (accepted behaviour).
+   */
   async load(): Promise<void> {
     const fs = this.deps.fs();
-    if (!fs) return;
-    const run = this.writing.then(() => this.reload(fs));
+    if (!fs) {
+      this.boundFs = null;
+      this.lastText = null;
+      return;
+    }
+    if (fs !== this.boundFs) {
+      this.boundFs = fs;
+      this.lastText = null;
+    }
+    this.warnedNoFolder = false;
+    this.stopNoFolderReminder();
+    const run = this.writing.then(async () => {
+      await this.mergeParked(fs);
+      await this.reload(fs);
+    });
     this.writing = run.catch(() => undefined);
     await run;
   }
@@ -143,9 +189,31 @@ export class WorkspaceSettingsFile {
     }
   }
 
+  /**
+   * Flushes, then parks any edit still unsaved so the next load merges it. For window close.
+   * With no folder open nothing can be parked, so the unsaved keys are named in a warning.
+   */
+  async close(): Promise<void> {
+    await this.flush();
+    await this.park();
+    this.stopNoFolderReminder();
+    if (!this.deps.fs() && this.pending.size > 0) {
+      this.deps.warn(`Settings not saved, no workspace folder open: ${this.unsavedKeys()}.`);
+    }
+  }
+
   /** Whether a change waits or a write is still on its way; the desktop close waits on it. */
   busy(): boolean {
     return this.timer !== null || this.flushing > 0;
+  }
+
+  /** Whether an edit is still unsaved, including one made while no folder is open. */
+  dirty(): boolean {
+    return this.pending.size > 0;
+  }
+
+  private unsavedKeys(): string {
+    return [...this.pending.values()].map((p) => p.key.join(".")).join(", ");
   }
 
   state(): SettingsState {
@@ -156,6 +224,23 @@ export class WorkspaceSettingsFile {
     for (const listener of this.listeners) listener();
   }
 
+  private remindNoFolder(): void {
+    if (this.reminder !== null) return;
+    this.reminder = this.schedule(() => {
+      this.reminder = null;
+      if (this.deps.fs() || !this.dirty()) return;
+      this.deps.warn(`settings still not saved, no workspace folder open: ${this.unsavedKeys()}. Open a workspace to save them.`);
+      this.remindNoFolder();
+    }, NO_FOLDER_REMINDER_MS);
+  }
+
+  private stopNoFolderReminder(): void {
+    if (this.reminder !== null) {
+      this.cancel(this.reminder);
+      this.reminder = null;
+    }
+  }
+
   private clearTimer(): void {
     if (this.timer !== null) {
       this.cancel(this.timer);
@@ -164,7 +249,15 @@ export class WorkspaceSettingsFile {
   }
 
   private scheduleWrite(): void {
-    if (this.stateValue === "locked" || !this.deps.fs()) return;
+    if (this.stateValue === "locked") return;
+    if (!this.deps.fs()) {
+      if (!this.warnedNoFolder) {
+        this.warnedNoFolder = true;
+        this.deps.warn("no workspace folder is open; settings edits wait in memory for the next workspace you open.");
+      }
+      this.remindNoFolder();
+      return;
+    }
     this.clearTimer();
     this.timer = this.schedule(() => void this.flush(), this.delayMs);
   }
@@ -173,9 +266,55 @@ export class WorkspaceSettingsFile {
     return (await fs.stat(SETTINGS_PATH)) ? fs.readText(SETTINGS_PATH) : null;
   }
 
+  private async park(): Promise<void> {
+    const fs = this.deps.fs();
+    if (!fs) return;
+    const entries = [...this.pending.values()]
+      .filter((p) => !isSecretKey(p.key))
+      .map((p) => ({ key: p.key, value: stripSecrets(p.value) }));
+    if (entries.length === 0) return;
+    try {
+      await fs.mkdirp(".weaveforge");
+      await fs.writeFile(PARKED_PATH, JSON.stringify(entries));
+      this.parkedOnDisk = true;
+    } catch (err) {
+      this.deps.warn(`${PARKED_PATH} not written: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  private async mergeParked(fs: IWorkspaceFs): Promise<void> {
+    if (!(await fs.stat(PARKED_PATH))) return;
+    let entries: PendingSet[];
+    try {
+      entries = JSON.parse(await fs.readText(PARKED_PATH)) as PendingSet[];
+    } catch {
+      this.deps.warn(`${PARKED_PATH} is damaged; leaving it as it is.`);
+      return;
+    }
+    for (const p of entries) {
+      if (!Array.isArray(p.key) || p.key.length === 0 || isSecretKey(p.key)) continue;
+      const value = stripSecrets(p.value);
+      this.pending.set(p.key.join("\u0000"), { key: p.key, value });
+      putAt(this.doc, p.key, value);
+    }
+    this.parkedOnDisk = true;
+    this.generation += 1;
+    this.notify();
+    this.scheduleWrite();
+  }
+
+  private async dropParked(fs: IWorkspaceFs): Promise<void> {
+    if (!this.parkedOnDisk) return;
+    await fs.remove(PARKED_PATH);
+    this.parkedOnDisk = false;
+  }
+
   private async reload(fs: IWorkspaceFs): Promise<void> {
     const text = await this.readDisk(fs);
-    if (text !== null && text === this.lastText) return;
+    if (text !== null && text === this.lastText) {
+      if (this.pending.size > 0) this.scheduleWrite();
+      return;
+    }
     this.adopt(text);
   }
 
@@ -213,7 +352,7 @@ export class WorkspaceSettingsFile {
     const fs = this.deps.fs();
     if (!fs || this.pending.size === 0 || this.stateValue === "locked") return;
     try {
-      for (let attempt = 0; attempt < 2; attempt++) {
+      for (let attempt = 0; attempt < SETTINGS_WRITE_ATTEMPTS; attempt++) {
         const gen = this.generation;
         const text = renderSettings(this.doc);
         if (this.lastText === null) await fs.mkdirp(".weaveforge");
@@ -221,11 +360,14 @@ export class WorkspaceSettingsFile {
           ? await fs.writeTextIf(SETTINGS_PATH, text, this.lastText)
           : await this.checkedFallback(fs, text);
         if (ok) {
+          this.boundFs = fs;
           this.lastText = text;
           this.stateValue = "ready";
           this.failedSaves = 0;
-          if (this.generation === gen) this.pending.clear();
-          else this.scheduleWrite();
+          if (this.generation === gen) {
+            this.pending.clear();
+            await this.dropParked(fs);
+          } else this.scheduleWrite();
           return;
         }
         this.adopt(await this.readDisk(fs));

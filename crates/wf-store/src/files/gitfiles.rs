@@ -15,6 +15,7 @@ pub const GITIGNORE_LINES: &[&str] = &[
     ".weaveforge/tables/",
     ".weaveforge/migration-0.9.4/",
     ".weaveforge/migration-0.9.8/",
+    ".weaveforge/migration-0.9.7/",
     "*.wftmp",
     "*.wfprev",
 ];

@@ -1,6 +1,6 @@
-import { ORG_SERVER_RPCS, ORG_SERVER_TABLES } from "./org-server-allowlist";
+import { ORG_SERVER_READ_TABLES, ORG_SERVER_RPCS } from "./org-server-allowlist";
 
-const TABLES = new Set<string>(ORG_SERVER_TABLES);
+const TABLES = new Set<string>(ORG_SERVER_READ_TABLES);
 const RPCS = new Set<string>(ORG_SERVER_RPCS);
 
 /** The part of the PostgREST client the guard checks. Every other member passes through unchanged. */

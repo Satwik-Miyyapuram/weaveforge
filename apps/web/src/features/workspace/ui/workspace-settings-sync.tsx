@@ -23,11 +23,12 @@ export function WorkspaceSettingsSync() {
         if (paths.some((p) => p.replace(/\\/g, "/").endsWith(SETTINGS_PATH))) load();
       }) ?? (() => {});
     const flush = () => void workspaceSettings.flush();
+    const close = () => void workspaceSettings.close();
     const onHidden = () => {
       if (document.visibilityState === "hidden") flush();
     };
-    window.addEventListener("pagehide", flush);
-    window.addEventListener("beforeunload", flush);
+    window.addEventListener("pagehide", close);
+    window.addEventListener("beforeunload", close);
     document.addEventListener("visibilitychange", onHidden);
     // The desktop close waits until that write has landed.
     const stopHold = holdCloseWhile(() => workspaceSettings.busy());
@@ -35,10 +36,10 @@ export function WorkspaceSettingsSync() {
       stopHold();
       stopFolder();
       stopWatch();
-      window.removeEventListener("pagehide", flush);
-      window.removeEventListener("beforeunload", flush);
+      window.removeEventListener("pagehide", close);
+      window.removeEventListener("beforeunload", close);
       document.removeEventListener("visibilitychange", onHidden);
-      flush();
+      close();
     };
   }, []);
   return null;

@@ -29,6 +29,8 @@ export interface SettingsSection {
   get(key: readonly string[]): unknown;
   /** A file-backed section resolves once the write is on disk; an in-memory one returns nothing. */
   set(key: readonly string[], value: unknown): void | Promise<void>;
+  /** Resolves once pending edits are on disk; absent for in-memory sections. */
+  flush?(): Promise<void>;
 }
 
 /** The slice of the paper repository this needs (`FilePaperRepository`). */

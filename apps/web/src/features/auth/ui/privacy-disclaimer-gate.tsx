@@ -18,10 +18,8 @@ import {
   desktop,
   type DesktopLocalDbState,
 } from "@/lib/desktop/desktop-bridge";
-import {
-  isLocalMode,
-  setLocalMode,
-} from "@/backend/providers/local/local-identity";
+import { isLocalMode } from "@/backend/providers/local/local-identity";
+import { enterLocalOnly } from "@/lib/desktop/local-only-entry";
 import { Button } from "@/components/button";
 
 /**
@@ -86,6 +84,7 @@ export function PrivacyDisclaimerGate({
     setBusy(true);
     setError(null);
     try {
+      // Account rows are allowed in every folder state, so no folder check here.
       const light = getLightContainer();
       try {
         await light.preferences.acceptDisclaimer();
@@ -170,6 +169,7 @@ export function PrivacyDisclaimerGate({
 /** A dead end the user can act on: what went wrong, and a way to try again. */
 function StartupFailure({ message }: { message: string }) {
   const broken = useLocalDbFailure();
+  const [offlineError, setOfflineError] = useState<string | null>(null);
   return (
     <main
       className="app-shell"
@@ -190,14 +190,23 @@ function StartupFailure({ message }: { message: string }) {
         {desktop() && !isLocalMode() ? (
           <Button
             onClick={() => {
-              setLocalMode(true);
-              window.location.reload();
+              const shell = desktop();
+              if (!shell) return;
+              setOfflineError(null);
+              void enterLocalOnly(shell).then((outcome) => {
+                if (outcome === "reload") window.location.reload();
+                else if (outcome === "unavailable")
+                  setOfflineError(
+                    "This computer cannot open the offline workspace right now. Try again after restarting the app.",
+                  );
+              });
             }}
           >
             Work on this computer (offline)
           </Button>
         ) : null}
       </div>
+      {offlineError ? <FormError>{offlineError}</FormError> : null}
     </main>
   );
 }

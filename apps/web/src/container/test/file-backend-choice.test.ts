@@ -35,3 +35,8 @@ test("desktop: incomplete, unavailable or unknown fail closed to read-only, neve
     assert.equal(chooseFileBackend(state, choices, true), "readonly-old-db", `desktop, ${String(state)}`);
   }
 });
+
+test("desktop: a folder removed by another device, unexported here, fails closed to read-only and never wires files", () => {
+  assert.equal(chooseFileBackend("unexported", choices, true), "readonly-old-db");
+  assert.equal(chooseFileBackend("removing-other", choices, true), "readonly-old-db");
+});

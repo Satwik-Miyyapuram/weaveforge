@@ -5,6 +5,7 @@
  */
 import {
   NotFoundError,
+  REPORT_STATUSES,
   ReportSectionValidationError,
   type IReportSectionManager,
   type IReportSectionRepository,
@@ -111,6 +112,9 @@ export class FileReportSectionRepository implements IReportSectionRepository, IR
   }
 
   setStatus(id: string, status: ReportStatus): Promise<ReportSection> {
+    if (!REPORT_STATUSES.includes(status)) {
+      return Promise.reject(new ReportSectionValidationError(`Unknown report status: ${String(status)}`));
+    }
     return this.update(id, (s) => ({ ...s, status }));
   }
 

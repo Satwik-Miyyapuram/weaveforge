@@ -22,6 +22,7 @@ fn gitfiles_appends_missing_lines_only() {
     fs::write(dir.path().join(".gitignore"), existing).unwrap();
 
     let report = ensure_gitfiles(dir.path()).unwrap();
+    // Every wanted line except the one already present.
     assert_eq!(report.gitignore_added, GITIGNORE_LINES.len() - 1);
     let text = fs::read_to_string(dir.path().join(".gitignore")).unwrap();
     assert!(text.starts_with(existing));
@@ -96,4 +97,17 @@ fn f97_p2_9_gitfiles_never_write_through_a_link() {
     }
     assert!(ensure_gitfiles(dir.path()).is_err());
     assert_eq!(fs::read_to_string(&target).unwrap(), "keep\n");
+}
+
+#[test]
+fn gitfiles_ignores_the_migration_folder_with_the_pre_migration_dump() {
+    // pre-migration.dump holds plaintext secrets; GitHub sync must never commit it.
+    assert!(
+        GITIGNORE_LINES.contains(&".weaveforge/migration-0.9.7/"),
+        "migration folder missing from GITIGNORE_LINES"
+    );
+    let dir = TempDir::new();
+    let _ = ensure_gitfiles(dir.path()).unwrap();
+    let text = fs::read_to_string(dir.path().join(".gitignore")).unwrap();
+    assert!(text.lines().any(|l| l == ".weaveforge/migration-0.9.7/"));
 }

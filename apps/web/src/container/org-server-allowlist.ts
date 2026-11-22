@@ -5,13 +5,14 @@
  * Personal tables 0165 archives are not listed. Shared with the desktop read-only db guard,
  * so keep this the single source.
  */
-export const ORG_SERVER_TABLES = [
+export const ORG_SERVER_READ_TABLES = [
   "experiments",
   "experiment_metric_points",
   "experiment_metric_chunks",
   "experiment_metric_names",
   "lab_snapshots",
   "crdt_updates",
+  "crdt_snapshots",
   "profiles",
   "organizations",
   "org_memberships",
@@ -36,6 +37,23 @@ export const ORG_SERVER_TABLES = [
   "comments",
 ] as const;
 
+/**
+ * Org-server tables a read-only desktop may write (the share and org rows). Every other read-list
+ * table, including personal ones it keeps live (projects, user_settings, milestones, experiments),
+ * refuses insert, update, upsert and delete through readOnlyDb.
+ */
+export const ORG_SERVER_WRITE_TABLES = [
+  "organizations",
+  "org_memberships",
+  "shares",
+  "share_links",
+  "comments",
+  "blob_objects",
+  // crdt_updates: insert only, and only live-share types (read-only-repositories.ts guardCrdtUpdates).
+  "crdt_updates",
+  "profiles",
+] as const;
+
 export const ORG_SERVER_RPCS = [
   "create_organization_atomic",
   "resolve_share_link",
@@ -44,5 +62,13 @@ export const ORG_SERVER_RPCS = [
   "set_comment_resolved",
 ] as const;
 
-export type OrgServerTable = (typeof ORG_SERVER_TABLES)[number];
+/**
+ * Storage buckets whose bytes may be written to the org server while the desktop is
+ * read-only: shared blobs only. A personal image bucket (paper, log, report, vault)
+ * stays off this list, so its bytes never leave the folder.
+ */
+export const ORG_SERVER_BUCKETS: readonly string[] = [];
+
+export type OrgServerReadTable = (typeof ORG_SERVER_READ_TABLES)[number];
+export type OrgServerWriteTable = (typeof ORG_SERVER_WRITE_TABLES)[number];
 export type OrgServerRpc = (typeof ORG_SERVER_RPCS)[number];

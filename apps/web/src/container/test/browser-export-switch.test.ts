@@ -2,8 +2,15 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { decideBrowserSwitch, type SwitchDeps } from "../browser-export-switch";
 import { MemorySink } from "../../features/migration-097/infrastructure/memory-sink";
-import { REPORT_PATH, readMigrationReport } from "../../features/migration-097/domain/report";
+import { ownReportPath } from "../../features/migration-097/domain/report";
 import { SWITCH_MARKER_PATH, readSwitchMarker } from "../../features/migration-097/domain/switch-marker";
+
+/** This browser's own report state (report-<install id>.json), or null when it has none. */
+async function ownState(sink: MemorySink): Promise<string | null> {
+  const path = ownReportPath(INSTALL_ID);
+  if (!(await sink.list()).includes(path)) return null;
+  return (JSON.parse(await sink.readText(path)) as { state: string }).state;
+}
 
 const WIRING = { wiring: true, close: async () => {} } as unknown as Awaited<ReturnType<SwitchDeps["openWiring"]>>;
 
@@ -276,13 +283,13 @@ test("(P2-3) the switch writes report.json verified only after its server mark s
   const h = harness({
     openSink: async () => sink,
     gate: async (opts) => {
-      await opts.sink.write(REPORT_PATH, PENDING_REPORT);
+      await opts.sink.write(ownReportPath(INSTALL_ID), PENDING_REPORT);
       return { switch: true };
     },
   });
   const out = await decideBrowserSwitch(h.deps);
   assert.equal(out.switch, true);
-  assert.equal((await readMigrationReport(sink))?.state, "verified");
+  assert.equal((await ownState(sink)), "verified");
 });
 
 test("(P2-3) a failed server mark leaves report.json incomplete with markers pending", async () => {
@@ -291,13 +298,13 @@ test("(P2-3) a failed server mark leaves report.json incomplete with markers pen
     openSink: async () => sink,
     fetch: async () => new Response("boom", { status: 500 }),
     gate: async (opts) => {
-      await opts.sink.write(REPORT_PATH, PENDING_REPORT);
+      await opts.sink.write(ownReportPath(INSTALL_ID), PENDING_REPORT);
       return { switch: true };
     },
   });
   const out = await decideBrowserSwitch(h.deps);
   assert.deepEqual(out, { switch: false, reason: "error" });
-  assert.equal((await readMigrationReport(sink))?.state, "incomplete");
+  assert.equal((await ownState(sink)), "incomplete");
 });
 
 const DEVICE_REPORT = JSON.stringify({
@@ -322,7 +329,7 @@ test("(item1) a successful switch writes the switched marker with the run's devi
   const h = harness({
     openSink: async () => sink,
     gate: async (opts) => {
-      await opts.sink.write(REPORT_PATH, DEVICE_REPORT);
+      await opts.sink.write(ownReportPath(INSTALL_ID), DEVICE_REPORT);
       return { switch: true };
     },
   });
@@ -339,7 +346,7 @@ test("(item1) a failed server mark writes no switched marker", async () => {
     openSink: async () => sink,
     fetch: async () => new Response("boom", { status: 500 }),
     gate: async (opts) => {
-      await opts.sink.write(REPORT_PATH, DEVICE_REPORT);
+      await opts.sink.write(ownReportPath(INSTALL_ID), DEVICE_REPORT);
       return { switch: true };
     },
   });
@@ -362,7 +369,7 @@ test("(P3) recordServerMarked throwing after the server mark closes the wiring a
     openWiring: async () =>
       ({ wiring: true, close: async () => { closed += 1; } }) as unknown as Awaited<ReturnType<SwitchDeps["openWiring"]>>,
     gate: async (opts) => {
-      await opts.sink.write(REPORT_PATH, DEVICE_REPORT);
+      await opts.sink.write(ownReportPath(INSTALL_ID), DEVICE_REPORT);
       return { switch: true };
     },
   });
@@ -405,7 +412,7 @@ test("(P3) the marker takes this device's install id, not another device's run i
     openSink: async () => sink,
     installId: async () => "dev-me",
     gate: async (opts) => {
-      await opts.sink.write(REPORT_PATH, TWO_DEVICE_REPORT);
+      await opts.sink.write(ownReportPath("dev-me"), TWO_DEVICE_REPORT);
       return { switch: true };
     },
   });

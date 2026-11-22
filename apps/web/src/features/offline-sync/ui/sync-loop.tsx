@@ -17,6 +17,7 @@ import { LOCAL_USER_ID } from "@weaveforge/core";
 import { SyncStateStore } from "../domain/parts-3";
 import type { CycleResult } from "../domain/parts-3";
 import { enableSync, liveAccessToken } from "./enable-sync";
+import { runCycleIfAllowed, syncAllowedHere } from "./sync-gate";
 import { syncEngine } from "./use-sync";
 
 /**
@@ -94,6 +95,70 @@ export function createCycleRunner(run: () => Promise<void>): () => Promise<void>
       running = false;
     }
   };
+}
+
+export interface SettleEffects {
+  markedAccount(): string | null;
+  markAccount(owner: { id: string; email?: string | null }): void;
+  reload(): void;
+  refresh(): void;
+}
+
+const liveSettleEffects: SettleEffects = {
+  markedAccount: () => localFirstAccount()?.id ?? null,
+  markAccount: (owner) => setLocalFirstAccount({ id: owner.id, email: owner.email ?? null }),
+  reload: () => window.location.reload(),
+  refresh: () => {
+    invalidateAllRepoCaches();
+    clearAllScreenCaches();
+  },
+};
+
+/**
+ * What a finished cycle does to the window. `live` is checked first: a cycle that
+ * finishes after sign-out must not mark the window for an account, reload it, or
+ * refresh screens on the halted loop's behalf.
+ */
+export function settleCycle(
+  result: CycleResult,
+  owner: { id: string; email?: string | null },
+  live: () => boolean,
+  effects: SettleEffects = liveSettleEffects,
+): void {
+  if (!live()) return;
+  const caughtUp = readyCore().isCaughtUp(result.pushed.stoppedBecause, result.pulled.more);
+  if (caughtUp && effects.markedAccount() !== owner.id) {
+    effects.markAccount(owner);
+    effects.reload();
+    return;
+  }
+  // What arrived is already on disk; the screens still hold what they read.
+  if (result.pulled.applied > 0) effects.refresh();
+}
+
+/**
+ * One sync cycle behind the migration gate, re-checked on every run (the folder
+ * can migrate to files while the loop runs). A blocked cycle shows sync off; a
+ * cycle that runs puts the display back on.
+ *
+ * `live` says whether the loop that started this cycle is still running. Sign-out
+ * halts the loop and writes "off", but a cycle already waiting on the gate
+ * carries on when the gate answers, so it must check `live` before it runs or
+ * writes anything.
+ */
+export function gatedCycleRunner(
+  run: () => Promise<void>,
+  allowed: () => Promise<boolean> = syncAllowedHere,
+  live: () => boolean = () => true,
+): () => Promise<void> {
+  return createCycleRunner(async () => {
+    const ran = await runCycleIfAllowed(allowed, async () => {
+      if (!live()) return;
+      setLiveSyncState({ enabled: true, phase: "syncing" });
+      await run();
+    });
+    if (!ran && live()) setLiveSyncState({ enabled: false, phase: "idle" });
+  });
 }
 
 /** Why a failure is worth a line: the message and, for an Error, its stack. */
@@ -209,7 +274,13 @@ export function SyncLoop() {
     let gone = false;
     let stopSync: (() => void) | undefined;
     loadCore().then(
-      () => {
+      async () => {
+        if (gone) return;
+        // A folder that is migrating or migrated to files never runs the old database's sync.
+        if (!(await syncAllowedHere())) {
+          setLiveSyncState({ enabled: false, phase: "idle" });
+          return;
+        }
         if (!gone) stopSync = startSync();
       },
       (err) => {
@@ -289,35 +360,31 @@ function startSync(): (() => void) | undefined {
       if (count !== null) setLiveSyncState({ conflictsCount: count });
     };
 
-    const engine = syncEngine(liveAccessToken(client));
+    // The token is only ever for this loop's account, and only while it runs: a
+    // cycle started for A that outlives a switch to B gets no token at all.
+    let running = true;
+    const engine = syncEngine(
+      liveAccessToken(client, (userId) => running && userId === owner.id),
+    );
 
-    const settle = (result: CycleResult) => {
-      const caughtUp = readyCore().isCaughtUp(result.pushed.stoppedBecause, result.pulled.more);
-      if (caughtUp && localFirstAccount()?.id !== owner.id) {
-        setLocalFirstAccount({ id: owner.id, email: owner.email ?? null });
-        window.location.reload();
-        return;
-      }
-      // What arrived is already on disk; the screens still hold what they read.
-      if (result.pulled.applied > 0) {
-        invalidateAllRepoCaches();
-        clearAllScreenCaches();
-      }
-    };
+    const settle = (result: CycleResult) => settleCycle(result, owner, () => running);
 
     let lastRun = 0;
-    const cycle = createCycleRunner(async () => {
-      lastRun = Date.now();
-      setLiveSyncState({ phase: "syncing" });
-      await syncOnce({
-        cycle: () => engine.cycle(),
-        settle,
-        setState: setLiveSyncState,
-        online: () => typeof navigator === "undefined" || navigator.onLine,
-        log: logSyncFailure,
-      });
-      void updateConflicts();
-    });
+    const cycle = gatedCycleRunner(
+      async () => {
+        lastRun = Date.now();
+        await syncOnce({
+          cycle: () => engine.cycle(),
+          settle,
+          setState: setLiveSyncState,
+          online: () => typeof navigator === "undefined" || navigator.onLine,
+          log: logSyncFailure,
+        });
+        void updateConflicts();
+      },
+      syncAllowedHere,
+      () => running,
+    );
 
     const unregisterTrigger = registerSyncTrigger(() => void cycle());
     void cycle();
@@ -342,6 +409,7 @@ function startSync(): (() => void) | undefined {
     const timer = window.setInterval(() => void cycle(), CYCLE_MS);
 
     return () => {
+      running = false;
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       window.removeEventListener("focus", onFocus);

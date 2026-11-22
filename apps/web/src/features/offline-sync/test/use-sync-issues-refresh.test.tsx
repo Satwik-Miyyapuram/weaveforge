@@ -26,6 +26,9 @@ test("a change dead-lettered by a sync cycle shows without a reload", async () =
   g.window = {
     weaveforge: {
       fetchTitle() {},
+      // A folder never migrated to files: the only state in which sync runs.
+      vaultRoot: async () => ({ path: "C:/Users/me/Documents/WeaveForge" }),
+      migrate097Status: async () => ({ state: "none" }),
       queryLocalDb: async (sql: string) => (sql.includes("from sync_outbox") ? [...dead] : []),
     },
   };

@@ -201,6 +201,7 @@ export class FileMilestoneRepository implements IMilestoneRepository, IMilestone
   }
 
   async setStatus(id: string, status: MilestoneStatus): Promise<Milestone> {
+    if (!STATUSES.includes(status)) throw new Error(`Unknown milestone status: ${String(status)}`);
     return this.change(id, (m) => ({ ...m, status }));
   }
 

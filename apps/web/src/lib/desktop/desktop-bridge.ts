@@ -143,6 +143,17 @@ export interface DesktopBridge {
   clearSecret(name: DesktopSecretName): Promise<void>;
 
   /**
+   * One-time move of the old local database secrets row into the keychain, for the
+   * 0.9.7 upgrade. Reads the row read-only, stores each field, and records the move in
+   * `<folder>/.weaveforge/migration-0.9.7/secrets-moved-<deviceId>.json`. Rejects when any part fails
+   * (no keychain, locked keychain, unreadable row), so the caller shows the move as not done.
+   * Resolves with the NAMES of write-only fields the move did not copy (never values).
+   */
+  migrate097MoveSecrets(): Promise<string[]>;
+  /** True when the old local database folder exists. Metadata only: the database is never opened. */
+  legacyDbPresent(): Promise<boolean>;
+
+  /**
    * Run one statement against the local database and get its rows.
    *
    * Present only on the desktop, and only meaningful there: the local database
@@ -470,15 +481,16 @@ export interface DesktopBridge {
   migrate097Status?(folder: string): Promise<{
     state: Migrate097StateName;
     removedAt?: string;
-    exportedTo?: string;
+    /** True when the export went to the open folder (EXPORT lands it; missing means false). */
+    exportedHere?: boolean;
     backupPath?: string;
     missing?: string[];
+    removingDeviceId?: string;
+    deviceId?: string;
   }>;
   migrate097Run?(folder: string): Promise<{ state: Migrate097StateName }>;
   /** Deletes the old local data after a verified migration; the user confirms first. */
   migrate097RemoveOld?(folder: string): Promise<void>;
-  /** Moves the migrated secrets into the OS keychain; rejects "no keychain available" when there is none. */
-  migrate097MoveSecrets?(folder: string): Promise<void>;
   /** Tint the system's window buttons to the page: two `#rrggbb` colours. */
   setTitleBarColors?(colors: { background: string; ink: string }): void;
   /** Whether the OS taskbar is in light mode. Optional: an installed shell may predate it. */
@@ -764,7 +776,12 @@ export interface DesktopVaultEntry {
  * (`PAGE_WRITABLE`), which also keeps `local-api-token` for the shell alone, and lets the page
  * write but never read back `overleaf-token` or `git-sync-token`.
  */
-export type DesktopSecretName = "ai-provider" | "overleaf-token" | "git-sync-token";
+export type DesktopSecretName =
+  | "ai-provider"
+  | "overleaf-token"
+  | "git-sync-token"
+  | "device-secrets"
+  | `device-secrets/${string}`;
 
 /**
  * The shell preferences the page may write. Equal to `PAGE_WRITABLE` in
@@ -782,7 +799,7 @@ export interface DesktopWorkspaceSetup {
 export type DesktopPreferenceValue = string | boolean | null;
 
 /** A folder's 0.9.7 migration state, as the shell's report records it. */
-export type Migrate097StateName = "none" | "verified" | "incomplete";
+export type Migrate097StateName = "none" | "verified" | "incomplete" | "removing" | "removed";
 
 /** One step of a running migration; `done` of `total` items are through. */
 export interface Migrate097Progress {

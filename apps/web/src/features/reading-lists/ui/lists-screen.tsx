@@ -6,11 +6,11 @@ import type {
   Paper,
   ReadingList,
   ReadingListItem,
+  ReadingListLegacyLeftover,
   ReadingListTreeNode,
   VaultPage,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
 import { usePinnedOwnerNames } from "@/features/sharing";
@@ -28,6 +28,7 @@ import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/parts";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { ReadingListsScreenData } from "@/features/reading-lists/application/parts";
+import { leftoverNoticeText } from "@/features/reading-lists/application/leftover-notice";
 import { ScreenHead } from "@/components/screen-head";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { FormError } from "@/components/form-error";
@@ -79,6 +80,8 @@ export function ListsScreen() {
   }, [allTree, allFlat, hiddenKeys]);
   const papers = data?.papers ?? emptyArray<Paper>();
   const notes = data?.notes ?? emptyArray<VaultPage>();
+  const unreadable = data?.unreadablePaths ?? emptyArray<string>();
+  const leftovers = data?.legacyLeftovers ?? emptyArray<ReadingListLegacyLeftover>();
   const pinnedSharedBy = data?.pinnedSharedBy ?? emptyMap<string, string>();
   const listCanComment = data?.listCanComment ?? emptyMap<string, boolean>();
   const ownerNames = data?.ownerNames ?? emptyMap<string, string>();
@@ -231,6 +234,18 @@ export function ListsScreen() {
       )}
 
       {error && <FormError>{error}</FormError>}
+      {unreadable.length > 0 && (
+        <p role="status" className="lists-screen__notice">
+          {unreadable.length === 1 ? "One paper or note has" : `${unreadable.length} papers or notes have`} a list
+          membership this app cannot read, so {unreadable.length === 1 ? "it is" : "they are"} left out of its lists:{" "}
+          {unreadable.map((p) => p.slice(p.lastIndexOf("/") + 1)).join(", ")}.
+        </p>
+      )}
+      {leftovers.length > 0 && (
+        <p role="status" className="lists-screen__notice">
+          {leftoverNoticeText(leftovers, (id) => allFlat.find((x) => x.id === id)?.name ?? id)}
+        </p>
+      )}
       {!loadError && tree.length === 0 && pinnedLists.length === 0 && (
         <EmptyState
           variant="first-run"

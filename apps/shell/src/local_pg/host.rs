@@ -725,12 +725,19 @@ impl<E: Engine> PgHost<E> {
     /// Closes the database if it was opened, backing it up first when it changed; quitting never
     /// starts one, and no later call reopens it.
     pub async fn close(&self) {
+        self.close_with(true).await;
+    }
+
+    /// As `close`, but `backup` false skips the backup, for removal that deletes the backups anyway.
+    pub async fn close_with(&self, backup: bool) {
         let mut inner = self.inner.lock().await;
         if inner.closed {
             return;
         }
-        if let Err(e) = self.backup_locked(&mut inner, SystemTime::now()).await {
-            self.log_line(&format!("[local-db] backup on quit failed: {}", e.message));
+        if backup {
+            if let Err(e) = self.backup_locked(&mut inner, SystemTime::now()).await {
+                self.log_line(&format!("[local-db] backup on quit failed: {}", e.message));
+            }
         }
         inner.closed = true;
         inner.user = None;
@@ -1234,6 +1241,18 @@ mod tests {
         assert_eq!(engine.dumps.load(Ordering::SeqCst), 1);
         assert_eq!(engine.closes.load(Ordering::SeqCst), 1);
         assert_eq!(super::super::backup::list(&dir).len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn close_without_backup_writes_no_dump() -> Result<(), String> {
+        let (engine, host, dir) = backed_up("close-no-backup");
+        let _ = host.query("update t set a = 1", &[]).await?;
+        host.close_with(false).await;
+        assert_eq!(engine.dumps.load(Ordering::SeqCst), 0);
+        assert_eq!(engine.closes.load(Ordering::SeqCst), 1);
+        assert!(super::super::backup::list(&dir).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
         Ok(())
     }

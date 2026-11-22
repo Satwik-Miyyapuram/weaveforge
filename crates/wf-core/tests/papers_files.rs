@@ -8,8 +8,7 @@ use wf_core::index::scan::index_files;
 use wf_core::papers::paper_file::{
     ExtrasChange, PaperExtras, PaperFile, PaperFileError, RelationRef, VALUE_KEYS, may_write,
     paper_extras, paper_pinned, paper_row, parse_paper_file, render_paper_file, write_paper_extras,
-    write_paper_pinned,
-    write_paper_row,
+    write_paper_pinned, write_paper_row,
 };
 use wf_core::sync::frontmatter::{FORMAT_VERSION, canonical_text};
 
@@ -538,7 +537,8 @@ fn pinned_flag_sets_clears_and_keeps_other_keys() {
 /// A hand-typed `pinned: true` counts, and a newer file is refused.
 #[test]
 fn hand_typed_pinned_counts_and_newer_files_are_refused() {
-    let typed = "---\nweaveforge-id: a\nweaveforge-type: paper\nwf: 1\ntags: []\npinned: true\n---\n";
+    let typed =
+        "---\nweaveforge-id: a\nweaveforge-type: paper\nwf: 1\ntags: []\npinned: true\n---\n";
     assert!(paper_pinned(typed).expect("reads"));
     let newer = "---\nweaveforge-id: a\nweaveforge-type: paper\nwf: 999\ntags: []\n---\n";
     assert!(write_paper_pinned(newer, true).is_err());

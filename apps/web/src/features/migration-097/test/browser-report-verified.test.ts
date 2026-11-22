@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MemorySink } from "../infrastructure/memory-sink";
-import { REPORT_PATH, type MigrationReport, type RunReport } from "../domain/report";
-import { browserReportVerified } from "../domain/report";
+import { MIGRATION_KINDS, REPORT_PATH, type MigrationReport, type RunReport } from "../domain/report";
+import { browserReportVerified, readMigrationRuns, unverifiedDevices } from "../domain/report";
+
+const KIND_OK = { db: 2, files: 2, written: 2, conflicts: [], trash: 0 };
+
+/** Every MIGRATION_KINDS key present and clean: the shape a full verified run writes. */
+const ALL_KINDS = Object.fromEntries(MIGRATION_KINDS.map((k) => [k, KIND_OK]));
 
 /** This browser install's id (stored under .weaveforge/local/). */
 const OWN = "web-a";
@@ -12,7 +17,7 @@ const RUN: RunReport = {
   startedAt: "2026-11-22T00:00:00.000Z",
   finishedAt: "2026-11-22T00:01:00.000Z",
   sources: ["postgrest"],
-  kinds: {},
+  kinds: ALL_KINDS,
   blobs: { db: 0, verified: 0 },
   missing: [],
   state: "verified",
@@ -136,3 +141,96 @@ test("browserReportVerified: without an ownDeviceId the check is false, even for
   assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(legacy))), false);
   assert.equal(await verified(await sinkWith(JSON.stringify(legacy)), "web-a"), false);
 });
+
+const MALFORMED: [string, unknown][] = [
+  ["runs is not an array", { runs: RUN }],
+  ["a run is null", { runs: [null] }],
+  ["a run has no missing array", { runs: [{ ...RUN, missing: undefined }] }],
+  ["a run's missing is an object", { runs: [{ ...RUN, missing: {} }] }],
+];
+
+for (const [label, over] of MALFORMED) {
+  test(`readMigrationRuns: a report whose ${label} is not a report (null, never throws)`, async () => {
+    const sink = await sinkWith(JSON.stringify({ ...report(), ...(over as object) }));
+    assert.equal(await readMigrationRuns(sink), null);
+  });
+
+  test(`browserReportVerified: a report whose ${label} is false, never throws`, async () => {
+    const sink = await sinkWith(JSON.stringify({ ...report(), ...(over as object) }));
+    assert.equal(await browserReportVerified(sink), false);
+  });
+}
+
+test("readMigrationRuns: a sink whose read throws gives null, never throws", async () => {
+  const throwing = { list: async () => [REPORT_PATH], readText: async () => { throw new Error("EIO"); } };
+  assert.equal(await readMigrationRuns(throwing), null);
+  assert.equal(await browserReportVerified(throwing), false);
+});
+
+test("browserReportVerified: false when a kind's files do not match its db rows", async () => {
+  const dirty = report({ runs: [{ ...RUN, kinds: { ...ALL_KINDS, notes: { ...KIND_OK, files: 1 } } }] });
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(dirty))), false);
+});
+
+test("browserReportVerified: false when a kind lists conflicts", async () => {
+  const dirty = report({ runs: [{ ...RUN, kinds: { ...ALL_KINDS, notes: { ...KIND_OK, conflicts: ["n1"] } } }] });
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(dirty))), false);
+});
+
+test("browserReportVerified: false when the blobs verified count is short of the db count", async () => {
+  const dirty = report({ runs: [{ ...RUN, blobs: { db: 2, verified: 1 } }] });
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(dirty))), false);
+});
+
+test("browserReportVerified: a clean verified report with matching kinds and blobs is true", async () => {
+  const clean = report({ runs: [{ ...RUN, blobs: { db: 2, verified: 2 } }] });
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(clean)), OWN), true);
+});
+
+test("browserReportVerified: the latest run per device counts, so an older failed run from that device does not block", async () => {
+  const oldFailed = { ...RUN, startedAt: "2026-11-01T00:00:00.000Z", deviceId: "dev-a", missing: [{ kind: "notes", id: "n1", reason: "x" }] };
+  const newClean = { ...RUN, startedAt: "2026-11-02T00:00:00.000Z", deviceId: "dev-a" };
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(report({ runs: [RUN, oldFailed, newClean] }))), OWN), true);
+});
+
+test("browserReportVerified: a failed latest run from another device still blocks", async () => {
+  const clean = { ...RUN, deviceId: "dev-a" };
+  const failed = { ...RUN, startedAt: "2026-11-02T00:00:00.000Z", deviceId: "dev-b", missing: [{ kind: "notes", id: "n1", reason: "x" }] };
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(report({ runs: [clean, failed] })))), false);
+});
+
+test("unverifiedDevices: names the device whose latest run is not clean, so the status UI can say where to re-run", () => {
+  const clean = { ...RUN, deviceId: "dev-a" };
+  const failed = { ...RUN, startedAt: "2026-11-02T00:00:00.000Z", deviceId: "dev-b", missing: [{ kind: "notes", id: "n1", reason: "x" }] };
+  assert.deepEqual(unverifiedDevices(report({ runs: [clean, failed] })), ["dev-b"]);
+  assert.deepEqual(unverifiedDevices(report({ runs: [clean] })), []);
+});
+
+test("browserReportVerified: false when a run's kinds is empty (every MIGRATION_KINDS key must be present)", async () => {
+  const empty = report({ runs: [{ ...RUN, kinds: {} }] });
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(empty))), false);
+});
+
+test("browserReportVerified: false when a run's kinds covers only a subset of MIGRATION_KINDS", async () => {
+  const kinds = Object.fromEntries(MIGRATION_KINDS.filter((k) => k !== "ink").map((k) => [k, KIND_OK]));
+  const subset = report({ runs: [{ ...RUN, kinds, blobs: { db: 2, verified: 2 } }] });
+  assert.equal(await browserReportVerified(await sinkWith(JSON.stringify(subset))), false);
+});
+
+const BAD_SHAPE: [string, Partial<RunReport>][] = [
+  ["a kind has no files count", { kinds: { notes: { db: 1 } as never } }],
+  ["a kind's conflicts is not an array", { kinds: { notes: { ...KIND_OK, conflicts: "x" as never } } }],
+  ["blobs has a string count", { blobs: { db: "2" as never, verified: 2 } }],
+];
+
+for (const [label, over] of BAD_SHAPE) {
+  test(`readMigrationRuns: a report whose ${label} is not a report (null)`, async () => {
+    const sink = await sinkWith(JSON.stringify(report({ runs: [{ ...RUN, ...over }] })));
+    assert.equal(await readMigrationRuns(sink), null);
+  });
+
+  test(`browserReportVerified: a report whose ${label} is false`, async () => {
+    const sink = await sinkWith(JSON.stringify(report({ runs: [{ ...RUN, ...over }] })));
+    assert.equal(await browserReportVerified(sink), false);
+  });
+}

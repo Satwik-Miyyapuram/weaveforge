@@ -24,8 +24,6 @@ interface Entry {
   pathKey: string;
   /** The file's workspace path minus `.md`. */
   path: string;
-  /** The file's workspace path. */
-  file: string;
 }
 
 function idOf(target: LinkTarget): string {
@@ -42,7 +40,7 @@ export interface Unreadable {
 export class Links {
   constructor(
     private readonly entries: readonly Entry[],
-    /** Files the scan could not read. Their links and tags are missing from this snapshot. */
+    /** Files the scan could not read. Their links and memberships are missing from this snapshot. */
     readonly unreadable: readonly Unreadable[] = [],
   ) {}
 
@@ -63,25 +61,26 @@ export class Links {
     return hits.length === 1 ? hits[0]!.target : null;
   }
 
+  /** Every paper and note, with its workspace path (`.md` included). */
+  all(): { target: LinkTarget; path: string }[] {
+    return this.entries.map((e) => ({ target: e.target, path: `${e.path}.md` }));
+  }
+
+  /** The workspace path (`.md` included) of the paper or note, or null when it has no file. */
+  pathFor(target: LinkTarget): string | null {
+    const hit = this.find(target);
+    return hit ? `${hit.path}.md` : null;
+  }
+
   /** The link to the paper or note, or null when it has no file. */
   linkFor(target: LinkTarget): string | null {
-    const hit = this.entryFor(target);
+    const hit = this.find(target);
     if (!hit) return null;
     const shared = this.entries.some((e) => e !== hit && e.key === hit.key);
     return `[[${shared ? hit.path : hit.path.slice(hit.path.lastIndexOf("/") + 1)}]]`;
   }
 
-  /** The workspace path of the paper's or note's file, or null when it has none. */
-  fileFor(target: LinkTarget): string | null {
-    return this.entryFor(target)?.file ?? null;
-  }
-
-  /** Every paper and note file, with the target it holds. */
-  all(): { target: LinkTarget; file: string }[] {
-    return this.entries.map((e) => ({ target: e.target, file: e.file }));
-  }
-
-  private entryFor(target: LinkTarget): Entry | undefined {
+  private find(target: LinkTarget): Entry | undefined {
     const kind = "paperId" in target ? "paperId" : "vaultPageId";
     const id = idOf(target);
     return this.entries.find((e) => kind in e.target && idOf(e.target) === id);
@@ -148,7 +147,7 @@ export class LinkIndex {
       const key = core.listItemKey(`[[${path.slice(path.lastIndexOf("/") + 1)}]]`);
       const pathKey = core.listItemKey(`[[${path}]]`);
       if (key === undefined || pathKey === undefined) continue;
-      out.push({ target: kind === "paper" ? { paperId: id } : { vaultPageId: id }, key, pathKey, path, file: entry.path });
+      out.push({ target: kind === "paper" ? { paperId: id } : { vaultPageId: id }, key, pathKey, path });
     }
     return { entries: out, unreadable };
   }

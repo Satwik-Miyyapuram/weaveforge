@@ -10,6 +10,7 @@ import { deletedMessage, removeLater } from "@/lib/toast/index";
 import { readyCore } from "@/lib/rust-core";
 import { noteKey } from "./note-key";
 import { toastLinkRewriteFailed } from "../../application/rename-link-toast";
+import type { RenamedVaultPage } from "../../application/rename-updates-links";
 import type { EditorHandle } from "@/components/editor-handle";
 import { CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
@@ -27,6 +28,7 @@ import { WORKSPACE_PATH } from "@/lib/hooks/parts";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
 import { holdOpenNotes } from "@/features/workspace/application/parts-3";
 import { NoteSaves } from "@/features/editor-workspace/application/parts";
+import { handBackRenamedBody } from "@/features/editor-workspace/ui/rename-hand-back";
 import { LazyCanvasEditor } from "@/features/canvas";
 import { canvasImages } from "@/features/canvas/application/canvas-images";
 import { resolveCanvasFile } from "@/features/canvas/application/canvas-files";
@@ -232,7 +234,18 @@ export function PageEditor({
     setBusy(true);
     setSaveError(null);
     try {
-      toastLinkRewriteFailed(await getContainer().vault.manageVaultPage.update(page.id, { title: next }));
+      const renamed: RenamedVaultPage = await getContainer().vault.manageVaultPage.update(page.id, { title: next });
+      toastLinkRewriteFailed(renamed);
+      // The note's own `[[Old]]` self-links are rewritten from the editor's
+      // current text (unsaved typing included), and its autosave stores it.
+      const core = readyCore();
+      const renames = new Map([[core.normalizeTitleKey(page.title), renamed.title]]);
+      await handBackRenamedBody(
+        renamed,
+        editorHandle.current,
+        (body) => storeBody(body),
+        (text) => core.rewriteWikilinksOutsideCode(text, renames),
+      );
       await onChanged();
     } catch (err) {
       setSaveError(formatError(err));

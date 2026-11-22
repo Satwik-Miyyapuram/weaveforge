@@ -3,6 +3,7 @@
  * contract as the `experiments` PostgREST repo; laws in test/file-experiment-repo.test.ts.
  */
 import {
+  EXPERIMENT_STATUSES,
   ExperimentValidationError,
   NotFoundError,
   type Experiment,
@@ -82,6 +83,9 @@ export class FileExperimentRepository implements IExperimentRepository, IExperim
   }
 
   setStatus(id: string, status: ExperimentStatus): Promise<Experiment> {
+    if (!EXPERIMENT_STATUSES.includes(status)) {
+      return Promise.reject(new ExperimentValidationError(`Unknown experiment status: ${String(status)}`));
+    }
     return this.update(id, (current) => {
       const timing = readyCore().statusPatchForExperiment(current, status, new Date().toISOString());
       // An absent timestamp in the patch clears it.

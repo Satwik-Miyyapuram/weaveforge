@@ -13,11 +13,16 @@ export const SERVER_ONLY_FIELDS: Readonly<Record<string, readonly string[]>> = {
   milestones: [...OWNER_COLUMNS, ...STAMP_COLUMNS],
   experiments: [...OWNER_COLUMNS, ...STAMP_COLUMNS],
   metrics: [...OWNER_COLUMNS, ...STAMP_COLUMNS],
-  reportSections: [...OWNER_COLUMNS, "deletedAt"],
+  // The file repo stamps its own revision (the AI report_edit check), so the server stamp is not compared.
+  reportSections: [...OWNER_COLUMNS, "updatedAt", "deletedAt"],
   aiProposals: [...OWNER_COLUMNS, "deletedAt"],
-  annotations: OWNER_COLUMNS,
+  // paperFile is the exporter's path to the paper, not a DB column; syncState is local bookkeeping.
+  annotations: [...OWNER_COLUMNS, "paperFile", "syncState"],
   annotationPins: OWNER_COLUMNS,
   blobs: OWNER_COLUMNS,
   ink: OWNER_COLUMNS,
   tags: OWNER_COLUMNS,
+  paperFields: OWNER_COLUMNS,
+  // A value's file id is `<paper id>:<field id>`, not the server row id, so `id` is not compared either.
+  paperFieldValues: ["id", ...OWNER_COLUMNS],
 };

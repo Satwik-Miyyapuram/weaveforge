@@ -144,6 +144,15 @@ test("markExported097 POSTs rpc/mark_exported_097 with a JSON body of {}, only w
   assert.equal(call.headers.get("content-type"), "application/json");
 });
 
+test("markExported097 sends one content-type when the base headers use another casing", async () => {
+  const { fetch, calls } = fakeFetch(() => new Response(null, { status: 204 }));
+  const source = sourceWith(fetch, { headers: { apikey: "test-key", "Content-Type": "application/vnd.pgrst.object" } });
+  await source.markExported097();
+  const call = calls[0];
+  assert.ok(call);
+  assert.equal(call.headers.get("content-type"), "application/json");
+});
+
 test("markExported097 throws on non-2xx", async () => {
   const { fetch } = fakeFetch(() => new Response("nope", { status: 403 }));
   await assert.rejects(() => sourceWith(fetch).markExported097(), /403/);
@@ -213,13 +222,6 @@ test("non-2xx GET throws with status and table, never the body", async () => {
   );
 });
 
-test("undecryptable defaults to 0 for every kind and sends no request (content_enc dropped by 0099/0100)", async () => {
-  const { fetch, calls } = fakeFetch(() => new Response(null, { status: 400 }));
-  const bare = sourceWith(fetch);
-  for (const kind of MIGRATION_KINDS) assert.equal(await bare.undecryptable(kind), 0, kind);
-  assert.equal(calls.length, 0);
-});
-
 test("no migration after 0100 adds content_enc back; the undecryptable check must come back if one does", () => {
   const dir = fileURLToPath(new URL("../../../../../../db/migrations/", import.meta.url));
   const later = readdirSync(dir).filter((f) => /^\d{4}_.*\.sql$/.test(f) && Number(f.slice(0, 4)) > 100);
@@ -231,16 +233,20 @@ test("no migration after 0100 adds content_enc back; the undecryptable check mus
   }
 });
 
-test("pendingOutbox defaults to not wired; injected undecryptable replaces the default count", async () => {
+test("pendingOutbox defaults to not wired, injected value passes through", async () => {
   const { fetch } = fakeFetch(() => Response.json([]));
-  const bare = sourceWith(fetch);
-  await assert.rejects(() => bare.pendingOutbox(), /not wired/);
-  const wired = sourceWith(fetch, {
-    pendingOutbox: async () => 3,
-    undecryptable: async (kind: string) => (kind === "logEntries" ? 2 : 0),
-  });
+  await assert.rejects(() => sourceWith(fetch).pendingOutbox(), /not wired/);
+  const wired = sourceWith(fetch, { pendingOutbox: async () => 3 });
   assert.equal(await wired.pendingOutbox(), 3);
-  assert.equal(await wired.undecryptable("logEntries"), 2);
+});
+
+test("undecryptable is 0 for every kind and sends no request: migration 0099 dropped every content_enc column", async () => {
+  const { fetch, calls } = fakeFetch(() => new Response(null, { status: 200, headers: { "content-range": "*/3" } }));
+  const source = sourceWith(fetch);
+  for (const kind of ["notes", "papers", "reportSections", "logEntries", "milestones", "experiments", "comments", "readingLists", "settings", "ink"]) {
+    assert.equal(await source.undecryptable(kind), 0, kind);
+  }
+  assert.equal(calls.length, 0);
 });
 
 test("a table without a deleted_at column is listed with no deleted_at filter (PostgREST would 400)", async () => {
@@ -252,6 +258,14 @@ test("a table without a deleted_at column is listed with no deleted_at filter (P
   );
 });
 
+test("listTrashed camel-cases columns like listRows, so an encrypted trashed row reaches the codec as contentEnc", async () => {
+  const trashed = { id: "p8", content_enc: "cipher", deleted_at: "2026-11-01T00:00:00.000Z" };
+  const { fetch } = fakeFetch((call) => Response.json(new URL(call.url).searchParams.get("offset") === "0" ? [trashed] : []));
+  const [row] = await sourceWith(fetch).listTrashed("papers");
+  assert.equal(row?.contentEnc, "cipher");
+  assert.equal(row?.content_enc, undefined);
+});
+
 test("listTrashed reads deleted rows (deleted_at not null); listRows keeps live rows only", async () => {
   const trashed = { id: "p9", title: "old", deleted_at: "2026-11-01T00:00:00.000Z" };
   const { fetch, calls } = fakeFetch((call) => {
@@ -259,7 +273,7 @@ test("listTrashed reads deleted rows (deleted_at not null); listRows keeps live 
     return Response.json(offset === "0" ? [trashed] : []);
   });
   const source = sourceWith(fetch);
-  assert.deepEqual(await source.listTrashed("papers"), [trashed]);
+  assert.deepEqual(await source.listTrashed("papers"), [{ id: "p9", title: "old", deletedAt: trashed.deleted_at }]);
   const trashCall = calls[0];
   assert.ok(trashCall);
   assert.equal(new URL(trashCall.url).searchParams.get("deleted_at"), "not.is.null");

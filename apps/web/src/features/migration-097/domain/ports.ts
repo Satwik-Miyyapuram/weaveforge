@@ -11,6 +11,8 @@ export interface ServerSource {
   listTrashed(kind: string): Promise<Row[]>;
   /** Raw server count for the kind (HEAD, Prefer: count=exact). Cross-checks listRows. */
   countRows(kind: string): Promise<number>;
+  /** Providers whose secret the owner has set on the server (see SECRET_TABLES). Throws when unreadable. Names only, never a secret. */
+  secretProviders(): Promise<string[]>;
   /** Unflushed local writes. Non-zero means the export must refuse to run. */
   pendingOutbox(): Promise<number>;
   /** Rows whose content_enc fails to decrypt. Each one blocks verified. */
@@ -35,8 +37,15 @@ export interface FileSink {
   list(): Promise<string[]>;
   readText(path: string): Promise<string>;
   readBytes(path: string): Promise<Uint8Array>;
+  /** Stat-style presence check, true when the file is there. It throws when the check itself fails. */
+  exists(path: string): Promise<boolean>;
   /** Atomic move within the sink, replacing any existing target. */
   rename(from: string, to: string): Promise<void>;
   /** Removes one file; a missing file is an error. */
   remove(path: string): Promise<void>;
+  /**
+   * Compare-and-set: writes `text` only while the file still reads `expected`. Returns false, with nothing
+   * written, on a mismatch or a missing file. The caller re-reads and retries.
+   */
+  writeIf(path: string, text: string, expected: string): Promise<boolean>;
 }

@@ -1,6 +1,7 @@
 import {
-  REPORT_PATH,
-  readMigrationReport,
+  ownReportPath,
+  readMigrationRuns,
+  unreadableReportName,
   type KindCount,
   type MigrationReport,
   type MigrationState,
@@ -11,7 +12,21 @@ import {
 import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
 import { sha256Hex } from "../domain/hash";
+import { PAPER_FIELD_KINDS, projectDefsMismatches } from "../domain/paper-fields-file";
+import { sanitizeBlobRefs } from "../domain/asset-path";
+
+import { toConflictCopyText } from "../domain/conflict-copy";
+import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
+import { ID_SHAPE } from "../domain/install-id-shape";
+import { createFileStore, guardedSink, type FileStore, type Outputs } from "./file-store";
+import { tempPathFor } from "@/lib/temp-path";
+import { ConflictError } from "@weaveforge/core";
+
+/** A conflict is a typed ConflictError. A plain Error, whatever its message says, is a write failure. */
+function isConflict(err: unknown): boolean {
+  return err instanceof ConflictError;
+}
 
 export type ExportProgress = { kind: string; done: number; total: number };
 
@@ -24,22 +39,37 @@ export type ExportOptions = {
   now: string;
   /** Called after each row is written to the sink. */
   onProgress?: (e: ExportProgress) => void;
-  /** Writers over the FILES repos. A kind a writer owns is written and read back through it. */
-  writers?: readonly KindWriter[];
+  /**
+   * Writers over the FILES repos, built on the sink they are given. That sink is the run's guarded sink, so every
+   * kind writer gets the same no-overwrite rule: identical content is a no-op, differing content is a conflict copy.
+   */
+  writers?: (sink: FileSink) => readonly KindWriter[];
+  /** Project id to folder ("" = workspace root). Given, the run writes paper fields through the FILES repos itself. */
+  projectFolders?: ReadonlyMap<string, string>;
   /** Desktop only: the backup runs before anything else, and a failure aborts the export. */
   desktop?: { folder: string; bridge: DesktopMigration };
   /** KEYS hook: runs only after a verified run, before the markers. A throw leaves the run incomplete. */
   moveSecrets?: () => Promise<void>;
-  /** True when the source holds secrets: the run is refused unless a moveSecrets hook is given. */
-  secretsPresent?: boolean;
   /** Web only: the stable per-browser id (OPFS settings). Desktop takes its id from the backup. */
   runDeviceId?: string;
+  /** Receives the raw error text of each failure. It never reaches report.json, which carries fixed codes only. */
+  debugLog?: (line: string) => void;
   /** Web only: skip the server marker. The browser switch writes it itself after its wiring opens. */
   skipMark?: boolean;
 };
 
-/** readyToMark: the run verified and skipMark left the marks to the caller (see recordServerMarked). */
-export type ExportResult = { state: MigrationState; run: RunReport; readyToMark?: boolean };
+/** Refusal reason when unsent sync_outbox ops exist; the UI keys "sync pending changes first" on it. */
+export const OUTBOX_NOT_EMPTY_REASON = "outbox not empty: flush before export";
+
+/** `reconnectProviders` names the services whose secret stayed on the server (never the secret itself). `undecryptable` is always 0 on the web: content_enc was dropped by 0099. */
+/** `readyToMark`: the run verified and skipMark left the marks to the caller (see recordServerMarked). */
+export type ExportResult = {
+  state: MigrationState;
+  run: RunReport;
+  reconnectProviders: string[];
+  undecryptable: number;
+  readyToMark?: boolean;
+};
 
 /** The desktop shell's part of the 0.9.7 contract: a pre-migration dump, then a mark. */
 export type DesktopMigration = {
@@ -48,26 +78,62 @@ export type DesktopMigration = {
 };
 
 /**
- * Writes report.json via a .part file and rename, so a half-written report is never seen.
- * The runs of other devices already in report.json are kept; this device's entry is replaced.
- * A run with no device id is never written: without an id it cannot be told apart from another
- * browser's run, so it could replace that run or be taken for this device's own.
+ * This device's own report file: its runs, or [] when there is none yet. Null when the file exists but cannot be
+ * read as a report (not JSON, or no runs array). A null is never merged over.
+ */
+async function readOwnRuns(sink: FileSink, path: string): Promise<RunReport[] | null> {
+  // A failed listing does not prove there is no file: read it directly before deciding.
+  let listed: string[] | null = null;
+  try {
+    listed = await sink.list();
+  } catch {
+    // Falls through to the direct read.
+  }
+  if (listed !== null && !listed.includes(path)) return [];
+  try {
+    const parsed = JSON.parse(await sink.readText(path)) as Partial<MigrationReport>;
+    if (Array.isArray(parsed.runs)) return parsed.runs;
+  } catch {
+    // Falls through: unreadable or absent.
+  }
+  return null;
+}
+
+/** The report-level backup already in this device's file, or null. Read only to keep it: see writeReport. */
+async function readOwnBackup(sink: FileSink, path: string): Promise<string | null> {
+  try {
+    const parsed = JSON.parse(await sink.readText(path)) as Partial<MigrationReport>;
+    return typeof parsed.backup === "string" ? parsed.backup : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Writes this device's report file (report-<deviceId>.json) via a .part file and rename, so a half-written
+ * report is never seen. Only that file is ever written: the legacy report.json and other devices' files are
+ * read, never rewritten. The report-level backup is the first non-null one this device's file holds: a later
+ * run never replaces it, not with null and not with another device's dump.
  */
 async function writeReport(sink: FileSink, report: MigrationReport): Promise<void> {
+  // A run with no device id is never written: without an id there is no file of its own to write it to.
   const device = report.runs[0]?.deviceId;
   if (device === undefined) return;
-  let existing: RunReport[] = [];
+  const path = ownReportPath(device);
+  // Read before any move: a moved-aside file can no longer be read for its backup.
+  const priorBackup = await readOwnBackup(sink, path);
+  // Unreadable: never merged over and never renamed. It is left as it is for the user to restore or delete.
+  if ((await readOwnRuns(sink, path)) === null) return;
+  const backup = priorBackup ?? report.backup;
+  const merged: MigrationReport = { ...report, backup, runs: report.runs };
+  const part = tempPathFor(path);
   try {
-    const parsed = JSON.parse(await sink.readText(REPORT_PATH)) as Partial<MigrationReport>;
-    if (Array.isArray(parsed.runs)) existing = parsed.runs;
-  } catch {
-    existing = [];
+    await sink.write(part, JSON.stringify(merged, null, 2));
+    await sink.rename(part, path);
+  } catch (err) {
+    await sink.remove(part).catch(() => undefined);
+    throw err;
   }
-  const kept = existing.filter((r) => r.deviceId !== device);
-  const merged: MigrationReport = { ...report, runs: [...kept, ...report.runs] };
-  const part = `${REPORT_PATH}.part`;
-  await sink.write(part, JSON.stringify(merged, null, 2));
-  await sink.rename(part, REPORT_PATH);
 }
 
 /** A refused run writes nothing but an incomplete report that carries the reason. */
@@ -88,9 +154,10 @@ async function refused(
     deviceId: extra.deviceId,
     state: "incomplete",
     target,
+    backup: extra.backup ?? null,
   };
   await writeReport(sink, { version: 1, state: "incomplete", backup: extra.backup ?? null, deviceId: extra.deviceId, target, runs: [run] });
-  return { state: "incomplete", run };
+  return { state: "incomplete", run, reconnectProviders: [], undecryptable: 0 };
 }
 
 /**
@@ -102,24 +169,37 @@ async function refused(
 const TRASH_DIR = ".weaveforge/migration-0.9.7/trash";
 
 /**
- * Trashed rows are never dropped. Each raw row is written as JSON and must read back to the
- * same JSON, or it is listed missing. Returns how many rows verified.
+ * Trashed rows are never dropped. An encrypted row is written as its codec decode (the live path);
+ * any other row is written as raw JSON. Each file must read back to the text written, or the row is
+ * listed missing. Returns how many rows verified.
  */
-async function exportTrash(kind: string, rows: Row[], sink: FileSink, missing: MissingRow[]): Promise<number> {
+async function exportTrash(kind: string, rows: Row[], sink: FileSink, store: FileStore, codec: FileCodec, missing: MissingRow[]): Promise<number> {
   let verified = 0;
   for (const row of rows) {
+    if (row.id === undefined || row.id === null || row.id === "") {
+      missing.push({ kind, id: "*", reason: "missing id" });
+      continue;
+    }
     const id = String(row.id);
     const path = `${TRASH_DIR}/${kind}/${encodeURIComponent(id)}.json`;
-    const text = JSON.stringify(row);
+    let text: string;
     try {
-      await sink.write(path, text);
+      // Encrypted rows go through the same codec decode as live rows; plain rows stay raw JSON.
+      text = row.contentEnc !== undefined && codec.supports(kind) ? codec.toFile(kind, row).text : JSON.stringify(row);
+    } catch {
+      missing.push({ kind, id, reason: "trash decode failed" });
+      continue;
+    }
+    let written: string;
+    try {
+      written = await store.store(path, text, await sha256Hex(text));
     } catch {
       missing.push({ kind, id, reason: "trash write failed" });
       continue;
     }
     let back: string;
     try {
-      back = JSON.stringify(JSON.parse(await sink.readText(path)));
+      back = await sink.readText(written);
     } catch {
       back = "";
     }
@@ -129,23 +209,89 @@ async function exportTrash(kind: string, rows: Row[], sink: FileSink, missing: M
   return verified;
 }
 
+/**
+ * Project folders must be unique (ignoring case: the desktop filesystem does) and no folder may sit inside
+ * another. The root ("") may sit beside any folder, as the root's papers stay in the root.
+ */
+export function checkProjectFolders(folders: ReadonlyMap<string, string>): void {
+  const seen: string[] = [];
+  for (const raw of folders.values()) {
+    const folder = raw.toLowerCase();
+    for (const other of seen) {
+      const nested = folder !== "" && other !== "" && (folder.startsWith(`${other}/`) || other.startsWith(`${folder}/`));
+      if (folder === other || nested) throw new Error("project folders must be unique and not nested");
+    }
+    seen.push(folder);
+  }
+}
+
+/**
+ * A verify error (verify-export.ts) as a fixed report code. The raw text names a blob path or a kind, and
+ * report.json must not carry those, so only the failure kind is kept.
+ */
+export function verifyReasonCode(raw: string): string {
+  if (raw.endsWith(": unsafe path")) return "blob-unsafe-path";
+  if (raw.endsWith(": size mismatch")) return "blob-size-mismatch";
+  if (raw.endsWith(": sha256 mismatch")) return "blob-sha256-mismatch";
+  if (raw.endsWith(": read failed") || raw === "blobs: read failed") return "read-failed";
+  if (raw.includes("decoded files differ")) return "decoded-differ";
+  return "verify-error";
+}
+
+/**
+ * This device's own previous run's outputs (path to sha256). Other devices' runs are never read here, so
+ * their files are never overwritten or listed as this device's orphans. Empty when there is no such run.
+ */
+async function priorOutputs(sink: FileSink, deviceId: string | undefined): Promise<Outputs> {
+  const runs = await readMigrationRuns(sink);
+  if (runs === null) return {};
+  const own = runs.filter((r) => deviceId !== undefined && r.deviceId === deviceId);
+  const latest = own.reduce<RunReport | undefined>((best, r) => (!best || r.startedAt > best.startedAt ? r : best), undefined);
+  return latest?.outputs ?? {};
+}
+
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets, secretsPresent, runDeviceId, skipMark = false } = opts;
+  const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters, projectFolders, moveSecrets, runDeviceId, debugLog, skipMark = false } = opts;
+  if (projectFolders) checkProjectFolders(projectFolders);
   const target: MigrationTarget = desktop ? "folder" : "opfs";
+
+  // A browser run must name a well-formed install id; without one the run cannot be matched or verified later.
+  if (!desktop && !ID_SHAPE.test(runDeviceId ?? "")) {
+    return refused(sink, now, "no device id: the browser install id is missing or malformed", target);
+  }
+
+  // The report's device id has one source for every refusal: the browser install id, or on desktop the id the
+  // dump returns. Before the dump there is none, so a desktop refusal writes no report (fail closed).
+  let deviceId: string | undefined = desktop ? undefined : runDeviceId;
+
+  // Any unreadable report file (legacy, own or another device's) is never merged over and never renamed: it is left
+  // in place, and this run is refused before any write.
+  const unreadable = await unreadableReportName(sink);
+  if (unreadable !== null) {
+    const reason = unreadable === "" ? "the report folder cannot be listed" : `${unreadable} is unreadable`;
+    return refused(sink, now, `${reason}; restore it from your backup or run the export again`, target, { deviceId });
+  }
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};
   const backCount: Record<string, number> = {};
   const conflicts: Record<string, string[]> = {};
   const written: Record<string, number> = {};
   const missing: MissingRow[] = [];
+  let undecryptable = 0;
 
-  // A source that holds secrets cannot be exported without the KEYS mover that moves them.
-  if (secretsPresent && !moveSecrets) {
-    return refused(sink, now, "keys: no mover", target, { deviceId: desktop ? undefined : runDeviceId });
+  // Secrets are never deleted or cleared on this path. Every run reads which providers hold a secret. A source that
+  // cannot say so refuses the run (fail closed: never verified). With no KEYS mover (moveSecrets) each named provider
+  // stays on the server for reconnect; with a mover, the secrets are moved as before and nothing is named.
+  let providersWithSecrets: string[];
+  try {
+    providersWithSecrets = await source.secretProviders();
+  } catch {
+    return refused(sink, now, "keys: unreadable", target, { deviceId });
   }
+  const reconnectProviders: string[] = desktop && moveSecrets ? [] : providersWithSecrets;
 
   // The pre-migration dump comes first: nothing is read or written without it.
-  let deviceId: string | undefined = desktop ? undefined : runDeviceId;
+  // Web always has a device id: the caller's stable one (refused above when absent).
   let dumpName: string | null = null;
   if (desktop && typeof desktop.bridge?.backup !== "function") {
     return refused(sink, now, "desktop migrate097Backup missing: the shell cannot make the pre-migration dump", target);
@@ -156,7 +302,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       deviceId = made.deviceId;
       dumpName = made.dump;
     } catch (err) {
-      return refused(sink, now, `backup failed: ${(err as Error).message}`, target);
+      // The raw message can name a path: it goes to the debug log only, never to report.json.
+      debugLog?.(`backup failed: ${(err as Error).message}`);
+      return refused(sink, now, "backup-failed", target);
     }
   }
 
@@ -165,7 +313,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   try {
     pending = await source.pendingOutbox();
   } catch (err) {
-    const reason = `outbox unreadable: ${(err as Error).message}`;
+    debugLog?.(`outbox unreadable: ${(err as Error).message}`);
+    const reason = "outbox-unreadable";
     const run: RunReport = {
       startedAt: now,
       finishedAt: new Date().toISOString(),
@@ -176,14 +325,17 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       deviceId,
       state: "incomplete",
       target,
+      backup: dumpName,
     };
     await writeReport(sink, { version: 1, state: "incomplete", backup: dumpName, deviceId, target, runs: [run] });
-    return { state: "incomplete", run };
+    return { state: "incomplete", run, reconnectProviders: [], undecryptable: 0 };
   }
   if (pending > 0) {
-    return refused(sink, now, "outbox not empty: flush before export", target, { backup: dumpName, deviceId });
+    return refused(sink, now, OUTBOX_NOT_EMPTY_REASON, target, { backup: dumpName, deviceId });
   }
 
+  // Read before the early report, which replaces this device's run and with it its outputs.
+  const prior = await priorOutputs(sink, deviceId);
   // Early report: if the run dies before the end, report.json already says incomplete.
   await writeReport(sink, {
     version: 1,
@@ -206,10 +358,32 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     ],
   });
 
+  const store = await createFileStore(sink, prior);
+  // Every kind writer writes through the one guarded sink, so no kind can overwrite a differing file.
+  const guarded = guardedSink(sink, store);
+  const writers: readonly KindWriter[] = [
+    ...(givenWriters?.(guarded) ?? []),
+    ...(projectFolders ? [createPaperFieldsWriter(guarded, projectFolders)] : []),
+  ];
   const trashCount: Record<string, number> = {};
   let current = "*";
   try {
     for (const kind of kinds) {
+      // A writer that claims blobs (group c) is fed by the blob loop below, which reads each blob back by sha256.
+      // Its sink listing is not compared with the rows, but the raw count and the undecryptable check still run.
+      if (kind === "blobs" && writerFor(kind)) {
+        try {
+          const raw = await source.countRows(kind);
+          const listed = (await source.listBlobs()).length;
+          if (raw !== listed) missing.push({ kind, id: "*", reason: `raw count ${raw} != listed ${listed}` });
+          const bad = await source.undecryptable(kind);
+          undecryptable += bad;
+          if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
+        } catch {
+          missing.push({ kind, id: "*", reason: `${kind}: read failed` });
+        }
+        continue;
+      }
       current = kind;
       // One failing kind is listed missing; the later kinds still export.
       try {
@@ -217,10 +391,20 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         const raw = await source.countRows(kind);
         if (raw !== rows.length) missing.push({ kind, id: "*", reason: `raw count ${raw} != exported ${rows.length}` });
         const bad = await source.undecryptable(kind);
+        undecryptable += bad;
         if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
         written[kind] = 0;
         dbCount[kind] = rows.length;
-        trashCount[kind] = await exportTrash(kind, await source.listTrashed(kind), sink, missing);
+        // verify ignores syncState, so a row not yet written back is listed here rather than passed silently.
+        // Allow-list: 'local', 'synced' and an absent state pass. Any other state is listed, so a future state is never passed silently.
+        const passedSyncStates = new Set<unknown>(["local", "synced", undefined]);
+        for (const row of rows) {
+          if (kind === "annotations" && !passedSyncStates.has(row.syncState)) {
+            const reason = row.syncState === "pending" || row.syncState === "conflict" ? "unsynced (exported)" : "unknown sync state (exported)";
+            missing.push({ kind, id: String(row.id), reason });
+          }
+        }
+        trashCount[kind] = await exportTrash(kind, await source.listTrashed(kind), sink, store, codec, missing);
         const writer = writerFor(kind);
         if (writer) {
           for (const row of rows) {
@@ -228,33 +412,48 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
               await writer.write(kind, row);
               written[kind]++;
             } catch (err) {
-              const reason = (err as Error).message;
-              if (reason.startsWith("conflict:")) (conflicts[kind] ??= []).push(String(row.id));
-              missing.push({ kind, id: String(row.id), reason });
+              const message = (err as Error).message;
+              debugLog?.(`write ${kind} ${String(row.id)}: ${message}`);
+              const conflict = isConflict(err);
+              if (conflict) (conflicts[kind] ??= []).push(String(row.id));
+              // Only paper field kinds carry their DB value into report.json; every other kind (secrets included) is an allowlist miss.
+              const conflictValue = (err as { conflictValue?: unknown }).conflictValue;
+              const carry = conflict && conflictValue !== undefined && (PAPER_FIELD_KINDS as readonly string[]).includes(kind);
+              missing.push({ kind, id: String(row.id), reason: conflict ? `conflict:${kind}` : `write-failed:${kind}`, ...(carry ? { value: conflictValue } : {}) });
             }
             onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
           }
           const back = await writer.readBack(kind);
           backCount[kind] = back.length;
-          if (!sameRows(kind, rows, back)) {
-            missing.push({ kind, id: "*", reason: `readBack differs: ${back.length} read, ${rows.length} exported` });
+          if (kind === "paperFields") {
+            // Defs are compared per project, so a project that did not survive is named by its id.
+            missing.push(...projectDefsMismatches(rows, back));
+          } else if (!sameRows(kind, rows, back)) {
+            missing.push({ kind, id: "*", reason: "readback-differs" });
           }
           continue;
         }
         // TODO(097-lanes): still raw codec + sink until their FILES repo lands: group (a) papers,
-        // notes, relations, paperFields, paperFieldValues; and lists (readingLists). Keep this list in sync.
+        // notes, relations; and lists (readingLists). Keep this list in sync.
         if (!codec.supports(kind)) {
-          for (const row of rows) missing.push({ kind, id: String(row.id), reason: "no wf-wasm codec" });
+          // A paper-field kind with no writer is not a codec gap: name the real cause.
+          const reason = (PAPER_FIELD_KINDS as readonly string[]).includes(kind)
+            ? "paper fields writer not wired"
+            : "no wf-wasm codec";
+          for (const row of rows) missing.push({ kind, id: String(row.id), reason });
           continue;
         }
         for (const row of rows) {
           // One bad row is listed missing; the others are still exported.
           try {
             const file = codec.toFile(kind, row);
-            await sink.write(file.path, file.text);
+            // A conflict copy of this row holds the same data under conflictOf, never a second id.
+            const copyText = toConflictCopyText(file.text, String(row.id));
+            await store.store(file.path, file.text, await sha256Hex(file.text), { data: copyText, hash: await sha256Hex(copyText) });
             written[kind]++;
           } catch (err) {
-            missing.push({ kind, id: String(row.id), reason: (err as Error).message });
+            debugLog?.(`codec ${kind} ${String(row.id)}: ${(err as Error).message}`);
+            missing.push({ kind, id: String(row.id), reason: `codec-failed:${kind}` });
           }
           onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
         }
@@ -264,46 +463,81 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     }
     current = "blobs";
     const blobWriter = writerFor("blobs");
-    for (const ref of await source.listBlobs()) {
+    for (const item of sanitizeBlobRefs(await source.listBlobs())) {
+      const { ref } = item;
+      // The id keeps the bucket: the same path in two buckets must read apart in the report.
+      const id = `${ref.bucket}/${ref.path}`;
+      if (item.unsafe) {
+        missing.push({ kind: "blobs", id, reason: "unsafe path" });
+        continue;
+      }
       try {
         const bytes = await source.fetchBlob(ref);
         if (bytes.length !== ref.sizeBytes) {
-          missing.push({ kind: "blobs", id: ref.path, reason: "size mismatch on fetch" });
+          missing.push({ kind: "blobs", id, reason: "size mismatch on fetch" });
           continue;
         }
         // The sha256 is computed here; the server never supplies one.
         const sha256 = await sha256Hex(bytes);
-        const path = `assets/${ref.bucket}/${ref.path}`;
+        let path = `assets/${item.bucket}/${item.path}`;
         if (blobWriter) {
-          await blobWriter.write("blobs", { bucket: ref.bucket, path: ref.path, sha256, bytes });
+          await blobWriter.write("blobs", { bucket: item.bucket, path: item.path, sha256, bytes });
         } else {
-          await sink.write(path, bytes);
-          await sink.write(`${path}.sha256`, sha256);
+          // A sidecar that names another sha256 and does not describe the blob on disk is the user's: it stops the blob here,
+          // so no blob lands beside a sidecar it contradicts. A sidecar that describes the blob on disk is this device's, and follows it.
+          const userSidecar = `${path}.sha256`;
+          const named = (await sink.exists(userSidecar)) ? (await sink.readText(userSidecar)).split("\n")[0] : sha256;
+          const describesDisk = (await sink.exists(path)) && (await sha256Hex(await sink.readBytes(path))) === named;
+          if (named !== sha256 && !describesDisk) {
+            await store.store(userSidecar, sha256, await sha256Hex(sha256)); // records the DB sidecar as the conflict copy
+            throw new ConflictError(`conflict: ${userSidecar} differs; kept the file's version`);
+          }
+          // A differing file at the path keeps its bytes: the DB blob lands at a conflict copy instead.
+          path = await store.store(path, bytes, sha256);
+          // The sidecar follows the blob's ownership: a re-run that replaces the blob replaces its sidecar too.
+          // A differing sidecar keeps the user's bytes; the DB sidecar is the conflict copy (already in store.conflicts).
+          // The sidecar is written as "sha256" alone, with no contentType line: the only reader, verify-export.ts:15,
+          // takes line 1 and ignores the rest, and BlobRef carries no contentType to write.
+          const sidecarPath = `${path}.sha256`;
+          const sidecarHeld = await store.store(sidecarPath, sha256, await sha256Hex(sha256));
+          if (sidecarHeld !== sidecarPath) throw new ConflictError(`conflict: ${sidecarPath} differs; kept the file's version`);
         }
         // Read back what was written; a blob that does not read back to the local sha256 is missing.
         const back = await sha256Hex(await sink.readBytes(path));
         const sidecar = (await sink.readText(`${path}.sha256`)).split("\n")[0];
         if (back !== sha256 || sidecar !== sha256) {
-          missing.push({ kind: "blobs", id: ref.path, reason: "read-back sha256 mismatch" });
+          missing.push({ kind: "blobs", id, reason: "read-back sha256 mismatch" });
         }
       } catch (err) {
-        missing.push({ kind: "blobs", id: ref.path, reason: (err as Error).message });
+        const message = (err as Error).message;
+        debugLog?.(`blob ${ref.path}: ${message}`);
+        // A conflict keeps the user's file and records its copy in run.conflicts; it is not a failed blob.
+        if (isConflict(err)) missing.push({ kind: "blobs", id, reason: "conflict:blobs" });
+        else missing.push({ kind: "blobs", id, reason: "blob-failed" });
       }
     }
   } catch (err) {
-    missing.push({ kind: current, id: "*", reason: (err as Error).message });
+    debugLog?.(`run ${current}: ${(err as Error).message}`);
+    missing.push({ kind: current, id: "*", reason: `run-failed:${current}` });
   }
+
+  // Orphans: what this device's previous run wrote and this run did not. They stay on disk untouched and do
+  // not block verify. They stay in outputs, so later runs still see them as this device's files.
+  const kept = Object.entries(prior).filter(([path]) => store.outputs[path] === undefined);
+  const orphans = kept.map(([path]) => path);
+  const outputs: Outputs = { ...Object.fromEntries(kept), ...store.outputs };
 
   // Writer kinds are compared by readBack above; verify decodes the raw codec files only.
   const codecKinds = kinds.filter((k) => !writerFor(k));
   let verdict: Verdict;
   try {
-    verdict = await verifyExport({ kinds: codecKinds, codec, source, sink });
+    verdict = await verifyExport({ kinds: codecKinds, codec, source, sink, ignore: new Set(orphans), copies: new Set(store.conflicts) });
   } catch (err) {
     verdict = { state: "incomplete", kinds: {}, blobs: { db: 0, verified: 0 }, errors: [] };
-    missing.push({ kind: "verify", id: "*", reason: `verify failed: ${(err as Error).message}` });
+    debugLog?.(`verify: ${(err as Error).message}`);
+    missing.push({ kind: "verify", id: "*", reason: "verify-failed" });
   }
-  for (const reason of verdict.errors) missing.push({ kind: "verify", id: "*", reason });
+  for (const raw of verdict.errors) missing.push({ kind: "verify", id: "*", reason: verifyReasonCode(raw) });
 
   const kindCounts: Record<string, KindCount> = {};
   for (const kind of kinds) {
@@ -317,7 +551,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     };
   }
 
-  let state: MigrationState = missing.length === 0 && verdict.state === "verified" ? "verified" : "incomplete";
+  // A run with any conflict copy stays incomplete: a copy is the user's data to resolve, so the run is never removable.
+  const hasConflicts = store.conflicts.length > 0 || Object.values(conflicts).some((paths) => paths.length > 0);
+  let state: MigrationState = missing.length === 0 && verdict.state === "verified" && !hasConflicts ? "verified" : "incomplete";
   const finishedAt = new Date().toISOString();
   const persist = async (): Promise<RunReport> => {
     const run: RunReport = {
@@ -330,6 +566,10 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       deviceId,
       state,
       target,
+      backup: dumpName,
+      conflicts: store.conflicts,
+      orphans: orphans.length > 0 ? orphans : undefined,
+      outputs,
     };
     const report: MigrationReport = {
       version: 1,
@@ -338,6 +578,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       verifiedAt: state === "verified" ? finishedAt : undefined,
       deviceId,
       target,
+      reconnectProviders,
       runs: [run],
     };
     await writeReport(sink, report);
@@ -363,7 +604,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     state = "incomplete";
     missing.push({ kind: "marker", id: "*", reason: "markers pending" });
     const run = await persist();
-    return { state, run, readyToMark: true };
+    return { state, run, reconnectProviders, undecryptable, readyToMark: true };
   }
   if (state === "verified") {
     state = "incomplete";
@@ -389,28 +630,39 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     if (marked) state = "verified";
   }
   const run = await persist();
-  return { state, run };
+  return { state, run, reconnectProviders, undecryptable };
 }
 
 /**
  * Called by the browser switch after its server mark succeeds. Clears the "markers pending" row a
- * skipMark run left behind and writes report.json verified, but only when no other row is missing.
+ * skipMark run left behind and writes this device's report file verified, but only when no other row is missing.
+ * Only this device's own file (report-<deviceId>.json) is read and written; other files are never touched.
  */
 export async function recordServerMarked(sink: FileSink, deviceId: string): Promise<void> {
-  const report = await readMigrationReport(sink);
-  if (!report) return;
-  // This device's own run, never the last run in the file: another device's run keeps its state.
+  const path = ownReportPath(deviceId);
+  let report: MigrationReport;
+  try {
+    report = JSON.parse(await sink.readText(path)) as MigrationReport;
+  } catch {
+    return;
+  }
+  if (!Array.isArray(report.runs)) return;
   const index = report.runs.map((r) => r.deviceId).lastIndexOf(deviceId);
   const run = report.runs[index];
-  if (!run || run.state === "verified") return;
+  if (!run || run.state === "verified" || !Array.isArray(run.missing)) return;
   const pending = (m: { kind: string; reason: string }) => m.kind === "marker" && m.reason === "markers pending";
   if (!run.missing.some(pending)) return;
   const missing = run.missing.filter((m) => !pending(m));
   if (missing.length > 0) return;
   const runs = report.runs.map((r, i) => (i === index ? { ...r, missing, state: "verified" as const } : r));
   const next: MigrationReport = { ...report, runs, state: "verified", verifiedAt: new Date().toISOString() };
-  const part = `${REPORT_PATH}.part`;
-  await sink.write(part, JSON.stringify(next, null, 2));
-  await sink.rename(part, REPORT_PATH);
+  const part = tempPathFor(path);
+  try {
+    await sink.write(part, JSON.stringify(next, null, 2));
+    await sink.rename(part, path);
+  } catch (err) {
+    await sink.remove(part).catch(() => undefined);
+    throw err;
+  }
 }
 
