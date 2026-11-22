@@ -31,7 +31,7 @@ function groupByProject(rows: Row[]): Map<string, Row[]> {
 
 /** Stable text of one project's defs, over the fields the File format keeps. */
 function defsKey(rows: Row[]): string {
-  const picked = rows.map((r) => ({
+  const picked: Record<string, unknown>[] = rows.map((r) => ({
     ...Object.fromEntries(DEF_FIELDS.map((k) => [k, r[k]])),
     projectId: projectKey(r.projectId),
   }));

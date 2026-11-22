@@ -12,7 +12,7 @@ const RESERVED = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
  */
 function safeSegment(segment: string): string {
   let out = segment.replace(/[:\u0000]/g, "_").replace(/[. ]+$/, (run) => "_".repeat(run.length));
-  const base = out.split(".")[0];
+  const base = out.split(".")[0] ?? "";
   if (RESERVED.test(base)) out = `_${out}`;
   return out;
 }
