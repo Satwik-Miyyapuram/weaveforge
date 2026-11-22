@@ -27,6 +27,15 @@ fn secrets_json(count: u64) -> String {
     format!(r#"{{"movedAt":"{NOW}","count":{count}}}"#)
 }
 
+/// A dump that passes the header check: PGDMP, archive version 1.16, int size 4, offset size 8,
+/// format 1 (custom), padded past the 256-byte minimum.
+fn good_dump() -> Vec<u8> {
+    let mut bytes = b"PGDMP".to_vec();
+    bytes.extend_from_slice(&[1, 16, 0, 4, 8, 1]);
+    bytes.resize(4096, 0);
+    bytes
+}
+
 /// A fresh folder with report.json (state `state`), the backup (if given), an exported-to.json
 /// that names the folder, a cluster dir with data, and a sibling file that must survive.
 struct Fixture {
@@ -143,7 +152,7 @@ fn never_stop() -> impl FnMut() -> Result<(), String> {
 
 #[test]
 fn refuses_when_state_is_incomplete() {
-    let f = Fixture::new("incomplete", Some("incomplete"), Some(b"PGDMP"));
+    let f = Fixture::new("incomplete", Some("incomplete"), Some(good_dump().as_slice()));
     let err = f
         .run(&mut never_stop())
         .expect_err("incomplete must refuse");
@@ -153,7 +162,7 @@ fn refuses_when_state_is_incomplete() {
 
 #[test]
 fn refuses_when_state_is_none() {
-    let f = Fixture::new("state-none", Some("none"), Some(b"PGDMP"));
+    let f = Fixture::new("state-none", Some("none"), Some(good_dump().as_slice()));
     let err = f
         .run(&mut never_stop())
         .expect_err("state none must refuse");
@@ -163,7 +172,7 @@ fn refuses_when_state_is_none() {
 
 #[test]
 fn refuses_when_there_is_no_report() {
-    let f = Fixture::new("none", None, Some(b"PGDMP"));
+    let f = Fixture::new("none", None, Some(good_dump().as_slice()));
     let err = f.run(&mut never_stop()).expect_err("no report must refuse");
     assert!(err.contains("verified"), "reason names the state: {err}");
     f.assert_untouched();
@@ -171,7 +180,7 @@ fn refuses_when_there_is_no_report() {
 
 #[test]
 fn refuses_when_report_is_unparsable() {
-    let f = Fixture::new("bad-report", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("bad-report", Some("verified"), Some(good_dump().as_slice()));
     f.set_report("{not json");
     let err = f
         .run(&mut never_stop())
@@ -211,8 +220,34 @@ fn refuses_when_the_backup_is_not_a_pg_dump() {
 }
 
 #[test]
+fn refuses_a_backup_with_a_bad_header() {
+    // Magic is right but archive version 0 and format 0 are not from a custom dump.
+    let mut bytes = b"PGDMP".to_vec();
+    bytes.extend_from_slice(&[0, 0, 0, 4, 8, 0]);
+    bytes.resize(4096, 0);
+    let f = Fixture::new("bad-header", Some("verified"), Some(bytes.as_slice()));
+    let err = f
+        .run(&mut never_stop())
+        .expect_err("bad header must refuse");
+    assert!(err.contains("PostgreSQL dump"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
+fn refuses_a_backup_too_short_to_be_a_dump() {
+    let mut bytes = b"PGDMP".to_vec();
+    bytes.extend_from_slice(&[1, 16, 0, 4, 8, 1]);
+    let f = Fixture::new("short-dump", Some("verified"), Some(bytes.as_slice()));
+    let err = f
+        .run(&mut never_stop())
+        .expect_err("short backup must refuse");
+    assert!(err.contains("PostgreSQL dump"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
 fn refuses_when_the_report_has_no_run() {
-    let f = Fixture::new("no-run", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("no-run", Some("verified"), Some(good_dump().as_slice()));
     f.set_report(&format!(
         r#"{{"version":1,"state":"verified","backup":"{BACKUP}","runs":[]}}"#
     ));
@@ -225,7 +260,7 @@ fn refuses_when_the_report_has_no_run() {
 
 #[test]
 fn only_the_newest_run_counts_for_missing_items() {
-    let f = Fixture::new("older-missing", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("older-missing", Some("verified"), Some(good_dump().as_slice()));
     f.set_report(&format!(
         r#"{{"version":1,"state":"verified","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{}, {RUN_CLEAN}]}}"#,
         run_missing(r#"{"kind":"notes","id":"old","reason":"x"}"#)
@@ -237,7 +272,7 @@ fn only_the_newest_run_counts_for_missing_items() {
 
 #[test]
 fn refuses_when_the_report_lists_missing_items() {
-    let f = Fixture::new("missing", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("missing", Some("verified"), Some(good_dump().as_slice()));
     f.set_report(&format!(
         r#"{{"version":1,"state":"verified","backup":"{BACKUP}","runs":[{}]}}"#,
         run_missing(r#"{"kind":"notes","id":"n1","reason":"x"}"#)
@@ -251,7 +286,7 @@ fn refuses_when_the_report_lists_missing_items() {
 
 #[test]
 fn refuses_when_no_run_is_from_this_device() {
-    let f = Fixture::new("no-own-run", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("no-own-run", Some("verified"), Some(good_dump().as_slice()));
     let other = RUN_CLEAN.replace("dev-a", "dev-b");
     f.set_report(&format!(
         r#"{{"version":1,"state":"verified","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{other}]}}"#
@@ -263,7 +298,7 @@ fn refuses_when_no_run_is_from_this_device() {
 
 #[test]
 fn only_this_devices_run_counts_for_missing_items() {
-    let f = Fixture::new("own-run", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("own-run", Some("verified"), Some(good_dump().as_slice()));
     let mine_missing = run_missing(r#"{"kind":"notes","id":"n1","reason":"x"}"#);
     let other_clean = RUN_CLEAN.replace("dev-a", "dev-b");
     f.set_report(&format!(
@@ -276,7 +311,7 @@ fn only_this_devices_run_counts_for_missing_items() {
 
 #[test]
 fn refuses_when_the_newest_run_has_no_missing_list() {
-    let f = Fixture::new("no-missing-list", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("no-missing-list", Some("verified"), Some(good_dump().as_slice()));
     let no_list = RUN_CLEAN.replace(r#","missing":[]"#, "");
     f.set_report(&format!(
         r#"{{"version":1,"state":"verified","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{no_list}]}}"#
@@ -288,7 +323,7 @@ fn refuses_when_the_newest_run_has_no_missing_list() {
 
 #[test]
 fn refuses_when_exported_to_names_another_folder() {
-    let f = Fixture::new("other-folder", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("other-folder", Some("verified"), Some(good_dump().as_slice()));
     let other = f.base.join("other-vault");
     fs::create_dir_all(&other).unwrap();
     f.write_exported_to(&other);
@@ -301,7 +336,7 @@ fn refuses_when_exported_to_names_another_folder() {
 
 #[test]
 fn refuses_when_exported_to_is_missing() {
-    let f = Fixture::new("no-exported", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("no-exported", Some("verified"), Some(good_dump().as_slice()));
     fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
     let err = f
         .run(&mut never_stop())
@@ -312,7 +347,7 @@ fn refuses_when_exported_to_is_missing() {
 
 #[test]
 fn refuses_when_exported_to_is_unparsable() {
-    let f = Fixture::new("bad-exported", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("bad-exported", Some("verified"), Some(good_dump().as_slice()));
     fs::write(f.pg_root.join("exported-to.json"), "{nope").unwrap();
     let err = f
         .run(&mut never_stop())
@@ -323,7 +358,7 @@ fn refuses_when_exported_to_is_unparsable() {
 
 #[test]
 fn refuses_when_the_cluster_holds_a_reparse_point() {
-    let f = Fixture::new("reparse", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("reparse", Some("verified"), Some(good_dump().as_slice()));
     let outside = f.base.join("outside");
     fs::create_dir_all(&outside).unwrap();
     fs::write(outside.join("precious.txt"), "not ours").unwrap();
@@ -344,7 +379,7 @@ fn refuses_when_the_cluster_holds_a_reparse_point() {
 
 #[test]
 fn refuses_when_the_cluster_root_is_a_link() {
-    let f = Fixture::new("root-link", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("root-link", Some("verified"), Some(good_dump().as_slice()));
     let real = f.base.join("real-pg");
     fs::rename(&f.pg_root, &real).unwrap();
     if !make_dir_link(&real, &f.pg_root) {
@@ -364,7 +399,7 @@ fn refuses_when_the_cluster_root_is_a_link() {
 
 #[test]
 fn stop_failure_keeps_the_cluster() {
-    let f = Fixture::new("stop-fails", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("stop-fails", Some("verified"), Some(good_dump().as_slice()));
     let mut stop = || Err("postgres would not stop".to_owned());
     let err = f.run(&mut stop).expect_err("stop failure must abort");
     assert!(err.contains("would not stop"), "{err}");
@@ -378,7 +413,7 @@ fn stop_failure_keeps_the_cluster() {
 
 #[test]
 fn deletes_only_the_cluster_dir_and_records_removed_at() {
-    let f = Fixture::new("happy", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("happy", Some("verified"), Some(good_dump().as_slice()));
     let mut stopped = 0;
     let mut stop = || {
         stopped += 1;
@@ -408,7 +443,7 @@ fn deletes_only_the_cluster_dir_and_records_removed_at() {
 
 #[test]
 fn a_second_run_after_success_refuses() {
-    let f = Fixture::new("second-run", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("second-run", Some("verified"), Some(good_dump().as_slice()));
     f.run(&mut || Ok(())).expect("first run removes");
     let mut stop = || panic!("second run must not stop the cluster again");
     let err = f.run(&mut stop).expect_err("second run must refuse");
@@ -417,7 +452,7 @@ fn a_second_run_after_success_refuses() {
 
 #[test]
 fn refuses_when_secrets_moved_is_missing() {
-    let f = Fixture::new("secrets-missing", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("secrets-missing", Some("verified"), Some(good_dump().as_slice()));
     fs::remove_file(f.folder.join(SECRETS)).unwrap();
     let mut stopped = false;
     let mut stop = || {
@@ -434,7 +469,7 @@ fn refuses_when_secrets_moved_is_missing() {
 
 #[test]
 fn refuses_when_secrets_moved_is_unparsable() {
-    let f = Fixture::new("secrets-garbage", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("secrets-garbage", Some("verified"), Some(good_dump().as_slice()));
     fs::write(f.folder.join(SECRETS), "{not json").unwrap();
     let err = f
         .run(&mut never_stop())
@@ -445,7 +480,7 @@ fn refuses_when_secrets_moved_is_unparsable() {
 
 #[test]
 fn refuses_when_secrets_moved_count_is_short() {
-    let f = Fixture::new("secrets-short", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("secrets-short", Some("verified"), Some(good_dump().as_slice()));
     fs::write(f.folder.join(SECRETS), secrets_json(1)).unwrap();
     let mut stopped = false;
     let mut stop = || {
@@ -462,7 +497,7 @@ fn refuses_when_secrets_moved_count_is_short() {
 
 #[test]
 fn secrets_gate_passes_when_count_covers_local_rows() {
-    let f = Fixture::new("secrets-ok", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("secrets-ok", Some("verified"), Some(good_dump().as_slice()));
     fs::write(f.folder.join(SECRETS), secrets_json(2)).unwrap();
     f.run_with(&mut || Ok(2), &mut || Ok(()))
         .expect("count 2 covers 2 rows");
@@ -483,7 +518,7 @@ fn set_verified_at(f: &Fixture, ts: Option<&str>) {
 
 #[test]
 fn refuses_when_verified_at_is_older_than_ten_minutes() {
-    let f = Fixture::new("stale", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("stale", Some("verified"), Some(good_dump().as_slice()));
     set_verified_at(&f, Some("2026-11-23T07:49:59Z"));
     let err = f
         .run(&mut never_stop())
@@ -495,7 +530,7 @@ fn refuses_when_verified_at_is_older_than_ten_minutes() {
 
 #[test]
 fn accepts_verified_at_exactly_ten_minutes_old() {
-    let f = Fixture::new("fresh-edge", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("fresh-edge", Some("verified"), Some(good_dump().as_slice()));
     set_verified_at(&f, Some("2026-11-23T07:50:00.250Z"));
     let mut stopped = false;
     f.run(&mut || {
@@ -509,13 +544,13 @@ fn accepts_verified_at_exactly_ten_minutes_old() {
 
 #[test]
 fn refuses_when_verified_at_is_missing_or_in_the_future() {
-    let f = Fixture::new("no-verified-at", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("no-verified-at", Some("verified"), Some(good_dump().as_slice()));
     set_verified_at(&f, None);
     let err = f.run(&mut never_stop()).expect_err("no verifiedAt must refuse");
     assert!(err.contains("verifiedAt"), "{err}");
     f.assert_untouched();
 
-    let future = Fixture::new("future-verified-at", Some("verified"), Some(b"PGDMP"));
+    let future = Fixture::new("future-verified-at", Some("verified"), Some(good_dump().as_slice()));
     set_verified_at(&future, Some("2026-11-23T09:00:00Z"));
     let err = future
         .run(&mut never_stop())
@@ -527,7 +562,7 @@ fn refuses_when_verified_at_is_missing_or_in_the_future() {
 #[test]
 fn refuses_when_exported_file_is_deleted_after_verify() {
     // The TS verify ran; its exported file is gone, so the gate refuses before PG is stopped.
-    let f = Fixture::new("reverify", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("reverify", Some("verified"), Some(good_dump().as_slice()));
     let exported = f.folder.join("exported.md");
     fs::write(&exported, "exported note").unwrap();
     fs::remove_file(&exported).unwrap();
@@ -547,7 +582,7 @@ fn refuses_when_exported_file_is_deleted_after_verify() {
 
 #[test]
 fn resumes_a_removing_report_after_a_partial_delete() {
-    let f = Fixture::new("resume", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("resume", Some("verified"), Some(good_dump().as_slice()));
     f.set_report(&format!(
         r#"{{"version":1,"state":"removing","backup":"{BACKUP}","runs":[{RUN_CLEAN}]}}"#
     ));
@@ -561,7 +596,7 @@ fn resumes_a_removing_report_after_a_partial_delete() {
 
 #[test]
 fn refuses_a_removing_report_started_by_another_device() {
-    let f = Fixture::new("other-device", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("other-device", Some("verified"), Some(good_dump().as_slice()));
     f.set_report(&format!(
         r#"{{"version":1,"state":"removing","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
@@ -573,7 +608,7 @@ fn refuses_a_removing_report_started_by_another_device() {
 
 #[test]
 fn refuses_a_removing_report_without_a_marker() {
-    let f = Fixture::new("no-marker", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("no-marker", Some("verified"), Some(good_dump().as_slice()));
     f.set_report(&format!(
         r#"{{"version":1,"state":"removing","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
@@ -611,7 +646,7 @@ fn verified_empty_report_for_a_folder_with_no_old_data() {
 
 #[test]
 fn verified_empty_report_refuses_to_overwrite_a_report() {
-    let f = Fixture::new("empty-overwrite", Some("incomplete"), Some(b"PGDMP"));
+    let f = Fixture::new("empty-overwrite", Some("incomplete"), Some(good_dump().as_slice()));
     let err =
         write_verified_empty_report(&f.folder, NOW).expect_err("existing report must not be replaced");
     assert!(err.contains("already exists"), "{err}");
@@ -628,7 +663,7 @@ use weaveforge_shell_lib::migrate_097::status::migration_status;
 
 #[test]
 fn status_for_a_verified_migration_has_camel_case_keys() {
-    let f = Fixture::new("status-verified", Some("verified"), Some(b"PGDMP"));
+    let f = Fixture::new("status-verified", Some("verified"), Some(good_dump().as_slice()));
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
     assert_eq!(
         value,
@@ -643,7 +678,7 @@ fn status_for_a_verified_migration_has_camel_case_keys() {
 
 #[test]
 fn status_lists_missing_kinds_once_and_sorted() {
-    let f = Fixture::new("status-missing", Some("incomplete"), Some(b"PGDMP"));
+    let f = Fixture::new("status-missing", Some("incomplete"), Some(good_dump().as_slice()));
     let missing = r#"{"kind":"notes","id":"a","reason":"r"},
             {"kind":"ink","id":"b","reason":"r"},
             {"kind":"notes","id":"c","reason":"r"}"#;

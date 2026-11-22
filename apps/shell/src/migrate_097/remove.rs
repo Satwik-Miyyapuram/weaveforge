@@ -6,7 +6,7 @@
 //! -> `removed` (with `removedAt`). A `removing` report resumes deletion after a crash.
 
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use crate::local_http::control::parse_iso_ms;
@@ -16,6 +16,10 @@ const BACKUP_REL: &str = ".weaveforge/migration-0.9.7/pre-migration.dump";
 const EXPORTED_TO: &str = "exported-to.json";
 const SECRETS_REL: &str = ".weaveforge/migration-0.9.7/secrets-moved.json";
 const DUMP_MAGIC: &[u8] = b"PGDMP";
+/// Magic (5 bytes), archive major, minor, revision, int size, offset size, format.
+const HEADER_LEN: usize = 11;
+/// A custom-format dump always holds at least its table of contents; shorter files are not dumps.
+const MIN_DUMP_BYTES: u64 = 256;
 const VERIFY_WINDOW_MS: u64 = 600_000;
 /// Written in `pg_root` before the cluster stops; names the device that started the removal.
 const MARKER_REL: &str = "removing.json";
@@ -195,16 +199,34 @@ fn read_report(path: &Path) -> Result<serde_json::Value, String> {
     serde_json::from_str(&text).map_err(|_| "refused: migration report is unparsable".to_owned())
 }
 
+/// Header-only check: reads the first bytes and the length, never the whole dump.
 fn check_backup(folder: &Path) -> Result<(), String> {
-    let bytes = fs::read(folder.join(BACKUP_REL))
+    let mut file = fs::File::open(folder.join(BACKUP_REL))
         .map_err(|_| "refused: migration backup is missing".to_owned())?;
-    if bytes.is_empty() {
+    let len = file.metadata().map_err(|e| e.to_string())?.len();
+    if len == 0 {
         return Err("refused: migration backup is empty".to_owned());
     }
-    if !bytes.starts_with(DUMP_MAGIC) {
-        return Err("refused: migration backup is not a PostgreSQL dump".to_owned());
+    let not_dump = "refused: migration backup is not a PostgreSQL dump";
+    let mut header = [0u8; HEADER_LEN];
+    file.read_exact(&mut header)
+        .map_err(|_| not_dump.to_owned())?;
+    if !valid_custom_header(&header) {
+        return Err(not_dump.to_owned());
+    }
+    if len < MIN_DUMP_BYTES {
+        return Err("refused: migration backup is too short to be a PostgreSQL dump".to_owned());
     }
     Ok(())
+}
+
+/// PGDMP magic, archive major version 1, int and offset sizes 1..=8, format 1 (custom).
+fn valid_custom_header(header: &[u8; HEADER_LEN]) -> bool {
+    header.starts_with(DUMP_MAGIC)
+        && header[5] == 1
+        && (1..=8).contains(&header[8])
+        && (1..=8).contains(&header[9])
+        && header[10] == 1
 }
 
 fn check_exported_to(pg_root: &Path, folder: &Path) -> Result<(), String> {
