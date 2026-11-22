@@ -74,3 +74,27 @@ test("blob paths: runWebExport writes the sanitized names, and verifies them wit
   assert.equal(await sha256Hex(await sink.readBytes("assets/bkt/a..b.png")), await sha256Hex(bytesA));
   assert.equal(await sha256Hex(await sink.readBytes("assets/bkt/c_d.png")), await sha256Hex(bytesB));
 });
+
+test("blob paths: a missing blob's id keeps its bucket, so the same path in two buckets reads apart", async () => {
+  const refs = [ref("bkt", "x/../y.png", 1), ref("other", "c.png", 3)];
+  const source = {
+    listRows: async () => [],
+    listTrashed: async () => [],
+    countRows: async () => 0,
+    pendingOutbox: async () => 0,
+    undecryptable: async () => 0,
+    listBlobs: async () => refs,
+    fetchBlob: async () => new Uint8Array([9]),
+    markExported097: async () => {},
+  } as unknown as ServerSource;
+  const codec = { supports: () => false } as unknown as FileCodec;
+  const result = await runWebExport({
+    kinds: [],
+    codec,
+    now: "2026-11-22T00:00:00.000Z",
+    source,
+    sink: new MemorySink(),
+  });
+  const ids = result.run.missing.filter((m) => m.kind === "blobs").map((m) => m.id).sort();
+  assert.deepEqual(ids, ["bkt/x/../y.png", "other/c.png"]);
+});

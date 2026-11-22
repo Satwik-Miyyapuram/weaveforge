@@ -283,14 +283,16 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     const blobWriter = writerFor("blobs");
     for (const item of sanitizeBlobRefs(await source.listBlobs())) {
       const { ref } = item;
+      // The id keeps the bucket: the same path in two buckets must read apart in the report.
+      const id = `${ref.bucket}/${ref.path}`;
       if (item.unsafe) {
-        missing.push({ kind: "blobs", id: ref.path, reason: "unsafe path" });
+        missing.push({ kind: "blobs", id, reason: "unsafe path" });
         continue;
       }
       try {
         const bytes = await source.fetchBlob(ref);
         if (bytes.length !== ref.sizeBytes) {
-          missing.push({ kind: "blobs", id: ref.path, reason: "size mismatch on fetch" });
+          missing.push({ kind: "blobs", id, reason: "size mismatch on fetch" });
           continue;
         }
         // The sha256 is computed here; the server never supplies one.
@@ -306,11 +308,11 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         const back = await sha256Hex(await sink.readBytes(path));
         const sidecar = (await sink.readText(`${path}.sha256`)).split("\n")[0];
         if (back !== sha256 || sidecar !== sha256) {
-          missing.push({ kind: "blobs", id: ref.path, reason: "read-back sha256 mismatch" });
+          missing.push({ kind: "blobs", id, reason: "read-back sha256 mismatch" });
         }
       } catch (err) {
         debugLog?.(`blob ${ref.path}: ${(err as Error).message}`);
-        missing.push({ kind: "blobs", id: ref.path, reason: "blob-failed" });
+        missing.push({ kind: "blobs", id, reason: "blob-failed" });
       }
     }
   } catch (err) {
