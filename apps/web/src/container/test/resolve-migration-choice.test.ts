@@ -19,8 +19,8 @@ test("incomplete and none resolve to their own state", async () => {
   assert.equal(await resolveMigrationChoice(bridge(async () => ({ state: "none" }))), "none");
 });
 
-test("an unknown shell state reads as none, never verified", async () => {
-  assert.equal(await resolveMigrationChoice(bridge(async () => ({ state: "verified-ish" }))), "none");
+test("an unknown shell state is unavailable, never none and never verified", async () => {
+  assert.equal(await resolveMigrationChoice(bridge(async () => ({ state: "verified-ish" }))), "unavailable");
 });
 
 test("no bridge resolves to unavailable", async () => {

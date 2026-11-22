@@ -20,19 +20,33 @@ export interface Migrate097Bridge {
 /**
  * Asks the shell for the folder's migration state.
  *
- * Anything other than the three known states becomes `none` when the shell
- * answered, so a garbled report can never read as verified. A missing bridge,
+ * Anything other than the three known states is `unavailable`, and a status that
+ * takes longer than 3 s is `unavailable` too, so a garbled or slow report can never
+ * read as verified or as a genuine none. A missing bridge,
  * a missing folder, or a throwing call is `unavailable`.
  */
+export const MIGRATE_097_STATUS_TIMEOUT_MS = 3_000;
+
 export async function migrate097Status(
   bridge: Migrate097Bridge | null | undefined,
   folder: string | null,
 ): Promise<Migrate097Resolved> {
   if (!bridge || typeof bridge.migrate097Status !== "function" || !folder) return "unavailable";
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<Migrate097Resolved>((resolve) => {
+    timer = setTimeout(() => resolve("unavailable"), MIGRATE_097_STATUS_TIMEOUT_MS);
+  });
   try {
-    const reply = await bridge.migrate097Status(folder);
-    const state = reply?.state;
-    return state === "verified" || state === "incomplete" ? state : "none";
+    return await Promise.race([read(bridge, folder), timedOut]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function read(bridge: Migrate097Bridge, folder: string): Promise<Migrate097Resolved> {
+  try {
+    const state = (await bridge.migrate097Status?.(folder))?.state;
+    return state === "verified" || state === "incomplete" || state === "none" ? state : "unavailable";
   } catch {
     return "unavailable";
   }
