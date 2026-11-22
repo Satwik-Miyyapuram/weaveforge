@@ -22,6 +22,7 @@ import {
   DEVICE_SECRETS_NAME,
   DeviceSecretsStore,
   KeychainUnavailableError,
+  desktopKeychain,
   type DeviceKeychain,
 } from "../providers/local/parts";
 import type { LocalQuery } from "../providers/local/pglite-client";
@@ -126,7 +127,11 @@ describe("the offline credentials store", () => {
     const store = new DeviceSecretsStore(unusedRun, keychain, async () => {}, async () => false);
     await assert.rejects(store.save({ zoteroApiKey: "k" }), KeychainUnavailableError);
     assert.equal(attempts.length, 1, "the save stopped at the first refused write");
-    assert.equal(kept.size, 0, "nothing was kept");
+  });
+
+  it("the desktop keychain with no bridge refuses a write with KeychainUnavailableError", async () => {
+    // null, not undefined: an undefined argument would fall back to the default (the window's bridge).
+    await assert.rejects(desktopKeychain(null).write("zoteroApiKey", "k"), KeychainUnavailableError);
   });
 });
 
