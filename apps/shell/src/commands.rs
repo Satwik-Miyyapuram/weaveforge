@@ -272,7 +272,6 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::secrets::secret_write,
         crate::secrets_moved::migrate_097_move_secrets,
         crate::secrets_moved::legacy_db_present,
-        crate::secrets_moved::legacy_dir_missing,
         crate::secrets::secret_clear,
         crate::cmd_experiments::sdk_inbox_drain,
         crate::device_settings::device_settings_read,
