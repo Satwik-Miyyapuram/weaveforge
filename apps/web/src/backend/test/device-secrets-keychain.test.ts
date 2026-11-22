@@ -11,6 +11,7 @@ import {
   desktopKeychain,
   KEYCHAIN_HELP,
   KeychainUnavailableError,
+  desktopMoveSecrets,
   type DeviceKeychain,
 } from "../providers/local/parts";
 
@@ -362,5 +363,63 @@ describe("keychain names", () => {
       /bad name is not a name the keychain can store/,
     );
     assert.deepEqual(writes, []);
+  });
+});
+
+const NO_KEYCHAIN_TEXT =
+  "This machine has no keychain available, so there is nowhere safe to keep it. It stays in memory for this session.";
+
+describe("no keychain on this machine (Linux without a Secret Service)", () => {
+  it("maps the shell's refusal on a read to KeychainUnavailableError, so the install dialog shows", async () => {
+    const bridge = {
+      readSecret: async () => {
+        throw new Error(NO_KEYCHAIN_TEXT);
+      },
+    } as unknown as DesktopBridge;
+    await assert.rejects(() => desktopKeychain(bridge).read("_index"), KeychainUnavailableError);
+  });
+
+  it("maps the shell's refusal on the one-time move to KeychainUnavailableError", async () => {
+    const bridge = {
+      migrate097MoveSecrets: async () => {
+        throw new Error(NO_KEYCHAIN_TEXT);
+      },
+    } as unknown as DesktopBridge;
+    await assert.rejects(() => desktopMoveSecrets(bridge)(), KeychainUnavailableError);
+  });
+
+  it("a save whose move hits no keychain rejects with KeychainUnavailableError, not secrets-move-pending", async () => {
+    const { keychain, writes } = fakeKeychain();
+    const moveSecrets = async () => {
+      throw new KeychainUnavailableError();
+    };
+    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, moveSecrets);
+    await assert.rejects(store.save({ zoteroApiKey: "k" }), KeychainUnavailableError);
+    assert.deepEqual(writes, []);
+  });
+});
+
+describe("reserved keychain names", () => {
+  it("refuses a top-level credential named _index, because it would overwrite the index entry", async () => {
+    const { writes, keychain } = fakeKeychain();
+    const store = new DeviceSecretsStore(fakeRun([]).run, keychain);
+    await assert.rejects(() => store.save(flat({ _index: "x" })), /_index is reserved/);
+    assert.deepEqual(writes, []);
+  });
+});
+
+describe("a field the index lists but the keychain lacks", () => {
+  it("is surfaced by its key name, never skipped silently, and no value is shown", async () => {
+    const { keychain } = fakeKeychain({
+      "_index": indexOf(["zoteroApiKey", "integrations.overleaf"]),
+      "integrations.overleaf": '{"token":"SECRETVALUE"}',
+    });
+    const store = new DeviceSecretsStore(fakeRun([]).run, keychain);
+    await assert.rejects(store.load(), (err: { code?: string; message: string }) => {
+      assert.equal(err.code, "keychain-field-missing");
+      assert.match(err.message, /zoteroApiKey/);
+      assert.doesNotMatch(err.message, /SECRETVALUE/);
+      return true;
+    });
   });
 });

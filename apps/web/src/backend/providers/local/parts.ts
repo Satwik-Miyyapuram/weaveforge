@@ -119,6 +119,11 @@ export class KeychainUnavailableError extends Error {
 /** The shell's refusal text when this machine has no keychain (`secrets.rs`). */
 const NO_KEYCHAIN = /no keychain available/;
 
+/** Maps the shell's no-keychain refusal to the typed error the settings dialog shows; any other error passes through. */
+function asKeychainUnavailable(err: unknown): unknown {
+  return err instanceof Error && NO_KEYCHAIN.test(err.message) ? new KeychainUnavailableError() : err;
+}
+
 /** The desktop shell's keychain entry for one key; with no shell, nothing is stored. */
 export function desktopKeychain(bridge: DesktopBridge | null = desktop()): DeviceKeychain {
   const entry = (key: string): DesktopSecretName => `${DEVICE_SECRETS_NAME}/${key}`;
@@ -126,17 +131,19 @@ export function desktopKeychain(bridge: DesktopBridge | null = desktop()): Devic
     // Read errors (locked keyring, unreachable keychain) propagate: the caller must never
     // treat them as "nothing saved".
     async read(key) {
-      return bridge ? bridge.readSecret(entry(key)) : null;
+      if (!bridge) return null;
+      try {
+        return await bridge.readSecret(entry(key));
+      } catch (err) {
+        throw asKeychainUnavailable(err);
+      }
     },
     async write(key, text) {
       if (!bridge) throw new KeychainUnavailableError();
       try {
         await bridge.writeSecret(entry(key), text);
       } catch (err) {
-        if (err instanceof Error && NO_KEYCHAIN.test(err.message)) {
-          throw new KeychainUnavailableError();
-        }
-        throw err;
+        throw asKeychainUnavailable(err);
       }
     },
     async clear(key) {
@@ -189,6 +196,8 @@ function toFields(secrets: Secrets): Map<string, string> {
   for (const [name, value] of Object.entries(secrets as Record<string, unknown>)) {
     // A dot separates a name from its sub-key, so a top-level name may not hold one.
     if (!KEYCHAIN_NAME.test(name)) throw new Error(`${name} is not a name the keychain can store (letters, digits, _ and - only). Nothing was saved.`);
+    // `_index` is the keychain's own index entry; a credential under that name would overwrite it.
+    if (name === INDEX_KEY) throw new Error(`${name} is reserved for the keychain index. Nothing was saved.`);
     if (typeof value === "string") {
       if (value !== "") fields.set(name, value);
     } else if (value !== null && typeof value === "object") {
@@ -208,8 +217,22 @@ export class SecretsMovePendingError extends Error {
 /** The shell's one-time move (`migrate097MoveSecrets`); a no-op outside the desktop app. */
 export function desktopMoveSecrets(bridge: DesktopBridge | null = desktop()): () => Promise<void> {
   return async () => {
-    if (bridge) await bridge.migrate097MoveSecrets();
+    if (!bridge) return;
+    try {
+      await bridge.migrate097MoveSecrets();
+    } catch (err) {
+      throw asKeychainUnavailable(err);
+    }
   };
+}
+
+/** Thrown when the index lists a field the keychain does not hold. Only the key name is in the message. */
+export class KeychainFieldMissingError extends Error {
+  readonly code = "keychain-field-missing";
+  constructor(readonly key: string) {
+    super(`The saved credential ${key} is listed in the keychain index but is missing from the keychain. Nothing was loaded for it.`);
+    this.name = "KeychainFieldMissingError";
+  }
 }
 
 /** Thrown when the old local database cannot be read while its folder exists. Nothing is assumed, so nothing is saved over it. */
@@ -266,6 +289,7 @@ export class DeviceSecretsStore implements SecretsStore {
       try {
         await this.moveSecrets();
       } catch (err) {
+        if (err instanceof KeychainUnavailableError) throw err;
         const reason = err instanceof Error ? err.message : String(err);
         throw new SecretsMovePendingError(`The saved credentials are not in the keychain yet (${reason}). Nothing was saved.`);
       }
@@ -289,12 +313,12 @@ export class DeviceSecretsStore implements SecretsStore {
     return (JSON.parse(text) as { keys: string[] }).keys;
   }
 
-  /** Rebuilds the credentials from the listed fields; a listed field that is missing is skipped. */
+  /** Rebuilds the credentials from the listed fields. A listed field the keychain lacks throws, naming only its key. */
   private async fromKeychain(keys: string[]): Promise<Secrets> {
     const out: Record<string, unknown> = {};
     for (const key of keys) {
       const text = await this.keychain.read(key);
-      if (text === null) continue;
+      if (text === null) throw new KeychainFieldMissingError(key);
       const dot = key.indexOf(".");
       if (dot < 0) {
         out[key] = text;
