@@ -4,6 +4,7 @@ import { runWebExport } from "../application/run-web-export";
 import type { BlobRef, FileCodec, ServerSource } from "../domain/ports";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { sha256Hex } from "../domain/hash";
+import { conflictCopyPath } from "../domain/conflict-path";
 
 const NOW = "2026-11-22T00:00:00.000Z";
 const REF: BlobRef = { bucket: "images", path: "a.webp", sizeBytes: 4 };
@@ -42,4 +43,20 @@ test("blob re-run: a blob that changed in the DB, same size, verifies after the 
   assert.deepEqual(await sink.readBytes("assets/images/a.webp"), current);
   const sidecar = (await sink.readText("assets/images/a.webp.sha256")).split("\n")[0];
   assert.equal(sidecar, await sha256Hex(current), "sidecar holds the new sha256, not the first run's");
+});
+
+test("a user's sidecar that differs from the blob's sha256 is a conflict, not a blob failure", async () => {
+  const sink = new MemorySink();
+  await sink.write("assets/images/a.webp.sha256", "user-sidecar\nimage/webp");
+  const bytes = new Uint8Array([1, 2, 3, 4]);
+
+  const result = await runWebExport({ kinds: [], codec, source: server(() => bytes), sink, now: NOW, runDeviceId: "dev-a" });
+
+  const copy = conflictCopyPath("assets/images/a.webp.sha256", 1);
+  const reasons = result.run.missing.map((m) => m.reason);
+  assert.ok(reasons.includes("conflict:blobs"), JSON.stringify(reasons));
+  assert.ok(!reasons.includes("blob-failed"), "a conflict is not recorded as a failed blob");
+  assert.ok(result.run.conflicts.includes(copy), JSON.stringify(result.run.conflicts));
+  assert.equal(await sink.readText("assets/images/a.webp.sha256"), "user-sidecar\nimage/webp", "the user's sidecar is kept");
+  assert.notEqual(result.state, "verified");
 });

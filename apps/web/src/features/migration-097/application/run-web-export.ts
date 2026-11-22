@@ -443,7 +443,10 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           // A differing file at the path keeps its bytes: the DB blob lands at a conflict copy instead.
           path = await store.store(path, bytes, sha256);
           // The sidecar follows the blob's ownership: a re-run that replaces the blob replaces its sidecar too.
-          await store.store(`${path}.sha256`, sha256, await sha256Hex(sha256));
+          // A differing sidecar keeps the user's bytes; the DB sidecar is the conflict copy (already in store.conflicts).
+          const sidecarPath = `${path}.sha256`;
+          const sidecarHeld = await store.store(sidecarPath, sha256, await sha256Hex(sha256));
+          if (sidecarHeld !== sidecarPath) throw new Error(`conflict: ${sidecarPath} differs; kept the file's version`);
         }
         // Read back what was written; a blob that does not read back to the local sha256 is missing.
         const back = await sha256Hex(await sink.readBytes(path));
@@ -452,8 +455,11 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           missing.push({ kind: "blobs", id, reason: "read-back sha256 mismatch" });
         }
       } catch (err) {
-        debugLog?.(`blob ${ref.path}: ${(err as Error).message}`);
-        missing.push({ kind: "blobs", id, reason: "blob-failed" });
+        const message = (err as Error).message;
+        debugLog?.(`blob ${ref.path}: ${message}`);
+        // A conflict keeps the user's file and records its copy in run.conflicts; it is not a failed blob.
+        if (message.startsWith("conflict:")) missing.push({ kind: "blobs", id, reason: "conflict:blobs" });
+        else missing.push({ kind: "blobs", id, reason: "blob-failed" });
       }
     }
   } catch (err) {
