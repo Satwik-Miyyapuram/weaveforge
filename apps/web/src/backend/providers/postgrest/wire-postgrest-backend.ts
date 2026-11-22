@@ -15,7 +15,7 @@ import {
   rustPaperFieldRepository,
 } from "@/features/papers/infrastructure/parts-1";
 import { rustPaperRepository } from "@/features/papers/infrastructure/postgrest-paper-repository";
-import { type ShareMarks, withShareMarks } from "@/features/offline-sync/domain/shared-rows";
+import { type ShareMarks, withShareMarks } from "@/features/sharing/domain/share-marks";
 import { rustMilestoneRepository } from "@/features/plan/infrastructure/milestone-rows";
 import { rustReaderAnnotationRepository } from "@/features/reader/infrastructure/parts-1";
 import {
