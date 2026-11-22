@@ -21,7 +21,8 @@ export function authedFetch(
 }
 
 /** True for the base itself or a path or query under it, on the same origin. `rest/v1.evil` is not under `rest/v1`. */
-function isUnder(url: string, baseUrl: string): boolean {
+function isUnder(url: string, rawBase: string): boolean {
+  const baseUrl = rawBase.replace(/\/+$/, "");
   if (!(url === baseUrl || url.startsWith(`${baseUrl}/`) || url.startsWith(`${baseUrl}?`))) return false;
   return new URL(url).origin === new URL(baseUrl).origin;
 }
