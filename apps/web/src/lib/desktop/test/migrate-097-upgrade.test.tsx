@@ -7,7 +7,7 @@ import { Migrate097UpgradeBody, runUpgrade, upgradeReportFolder } from "../migra
 import type { Migrate097Progress } from "../desktop-bridge";
 import { InstallIdLocksUnavailableError } from "@/container/browser-install-id";
 
-// The component file uses JSX without importing React; under node --test the transform is classic, so expose React first.
+// The component file uses JSX without importing React, and the node --test transform needs React in scope, as the sibling tests do.
 Object.assign(globalThis, { React });
 
 const FOLDER = "C:\\Users\\me\\Documents\\WeaveForge";
