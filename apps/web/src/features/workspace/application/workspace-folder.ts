@@ -295,6 +295,8 @@ export function syncToFolder(): Promise<SyncOutcome> {
 }
 
 async function liveImportSeams(): Promise<ImportSeams> {
+  // The no-account copy has no database, so there is nothing to restore the tables into.
+  if (isLocalMode()) throw new Error("Restoring tables from the folder needs an account. A no-account copy keeps its data in the folder.");
   const [{ restTableStore, describeRestoreConflicts }, { connectedFolderTables, folderRestoreMarker }] =
     await Promise.all([import("./workspace-folder-tables"), import("./workspace-folder-apply")]);
   return {
