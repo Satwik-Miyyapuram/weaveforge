@@ -465,7 +465,7 @@ fn a_removed_cluster_is_marked_so_a_relaunch_never_restores_it() {
 #[test]
 fn another_devices_removal_in_progress_is_refused_and_keeps_the_backups() {
     let f = Fixture::new("other-device-backups", Some("verified"), Some(good_dump().as_slice()));
-    let run_b = RUN_CLEAN.replace("dev-a", "dev-b");
+    let run_b = RUN_CLEAN.replace(r#""deviceId":"dev-a""#, &format!(r#""deviceId":"dev-b","backup":"{BACKUP_NAME}""#));
     let report = format!(
         r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN},{run_b}]}}"#
     );
@@ -492,6 +492,32 @@ fn the_backup_name_comes_from_this_devices_own_run() {
     ));
     f.run(&mut || Ok(())).expect("the dump this device's run names is the one checked");
     assert!(f.folder.join(DIR).join("custom.dump").exists(), "migration dump kept");
+}
+
+/// Device A's run has no backup of its own; device B wrote the report-level backup and its dump.
+fn report_with_another_devices_backup(f: &Fixture) {
+    fs::write(f.folder.join(DIR).join("b.dump"), good_dump()).unwrap();
+    let run_b = RUN_CLEAN.replace(r#""deviceId":"dev-a""#, r#""deviceId":"dev-b","backup":"b.dump""#);
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"b.dump","verifiedAt":"{NOW}","runs":[{RUN_CLEAN},{run_b}]}}"#
+    ));
+}
+
+#[test]
+fn a_device_is_refused_when_only_another_devices_backup_is_named() {
+    let f = Fixture::new("other-backup", Some("verified"), None);
+    report_with_another_devices_backup(&f);
+    let err = f.run(&mut never_stop()).expect_err("A must not remove using B's dump");
+    assert!(err.contains("belongs to another device"), "{err}");
+    assert!(f.pg_root.join("data/PG_VERSION").exists(), "local cluster untouched");
+}
+
+#[test]
+fn status_does_not_report_another_devices_dump_as_this_devices_backup() {
+    let f = Fixture::new("other-backup-status", Some("verified"), None);
+    report_with_another_devices_backup(&f);
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert!(value.get("backupPath").is_none(), "{value}");
 }
 
 #[test]
@@ -616,6 +642,7 @@ fn device_bs_fresh_verify_does_not_let_device_a_pass() {
     let f = Fixture::new("other-verify", Some("verified"), Some(good_dump().as_slice()));
     let mut report = f.report();
     report["runs"][0]["finishedAt"] = "2026-11-23T07:30:00Z".into();
+    report["runs"][0]["backup"] = BACKUP_NAME.into();
     report["runs"].as_array_mut().unwrap().push(serde_json::json!({
         "startedAt": NOW, "finishedAt": NOW, "sources": [], "kinds": {},
         "blobs": {"db": 0, "verified": 0}, "deviceId": "dev-b", "missing": []
@@ -762,6 +789,13 @@ fn status_reports_not_exported_here_for_another_folder() {
 }
 
 #[test]
+fn status_absent_report_with_exported_to_is_unavailable_not_none() {
+    let f = Fixture::new("absent-exported", None, None);
+    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
+    assert_eq!(value["state"], "unavailable");
+}
+
+#[test]
 fn status_never_says_none_for_an_unreadable_report() {
     let f = Fixture::new("status-bad", Some("verified"), None);
     f.set_report("{ not json");
@@ -777,6 +811,7 @@ fn status_unreadable_report_after_removal_says_removed() {
     fs::write(f.base.join("old-db-removed"), "").unwrap();
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
     assert_eq!(value["state"], "removed");
+    assert_eq!(value["removingDeviceId"], DEVICE);
 }
 
 #[test]
@@ -856,11 +891,13 @@ fn status_reports_removed_at_and_none_without_a_report() {
         "no backup key in this report: {value}"
     );
 
+    // Neither report.json nor exported-to.json: the only case that is `none`.
     fs::remove_file(f.folder.join(REPORT)).unwrap();
+    fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
     let none = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
     assert_eq!(none["state"], "none");
     assert!(none.get("missing").is_none());
-    assert_eq!(none["exportedTo"], canonical(&f.folder));
+    assert!(none.get("exportedTo").is_none());
 }
 
 #[test]

@@ -44,17 +44,37 @@ pub fn record_exported_to(pg_root: &Path, folder: &Path) -> Result<(), String> {
     )
 }
 
-/// The dump file this device's run names (`runs[].backup`, else the report's `backup`), as a plain
-/// name inside the migration folder. A report without either field predates it and uses
-/// `pre-migration.dump`. A null field has nothing to remove. A name with a path separator or `..`
-/// is refused.
+/// The dump file this device's run names (`runs[].backup`), as a plain name inside the migration
+/// folder. Without a backup on its own run, the report's `backup` is used only when no other
+/// device has run; another device's dump is refused. A report without either field predates it and
+/// uses `pre-migration.dump`. A null field has nothing to remove. A name with a path separator or
+/// `..` is refused.
 pub fn backup_name(report: &serde_json::Value, device_id: &str) -> Result<String, String> {
-    let own = own_run(report, device_id).ok().and_then(|run| run.get("backup"));
-    let value = match own.or_else(|| report.get("backup")) {
-        None => return Ok(DEFAULT_BACKUP.to_owned()),
-        Some(value) if value.is_null() => return Err(NOTHING_TO_REMOVE.to_owned()),
-        Some(value) => value,
-    };
+    if let Some(value) = own_run(report, device_id).ok().and_then(|run| run.get("backup")) {
+        return match value.is_null() {
+            true => Err(NOTHING_TO_REMOVE.to_owned()),
+            false => plain_backup_name(value),
+        };
+    }
+    if other_device_ran(report, device_id) {
+        return Err("refused: backup belongs to another device".to_owned());
+    }
+    match report.get("backup") {
+        None => Ok(DEFAULT_BACKUP.to_owned()),
+        Some(value) if value.is_null() => Err(NOTHING_TO_REMOVE.to_owned()),
+        Some(value) => plain_backup_name(value),
+    }
+}
+
+/// Whether any run in the report was written by a device other than `device_id`.
+fn other_device_ran(report: &serde_json::Value, device_id: &str) -> bool {
+    report["runs"].as_array().is_some_and(|runs| {
+        runs.iter()
+            .any(|run| run["deviceId"].as_str().is_some_and(|id| id != device_id))
+    })
+}
+
+fn plain_backup_name(value: &serde_json::Value) -> Result<String, String> {
     let name = value.as_str().unwrap_or("");
     let mut parts = Path::new(name).components();
     let plain = !name.is_empty()

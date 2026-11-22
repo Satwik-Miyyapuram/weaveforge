@@ -41,8 +41,8 @@ pub struct MigrationStatus {
 }
 
 /// Reads report.json, exported-to.json and the backup. Never writes and never fails. An unreadable
-/// report is `removed` when the removed marker exists, `none` when report.json is absent, and
-/// `unavailable` otherwise; it is never reported as `none`.
+/// report is `removed` when the removed marker exists, `none` when report.json and exported-to.json
+/// are both absent, and `unavailable` otherwise.
 pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> MigrationStatus {
     let exported = exported_to(pg_root);
     let exported_here = exported.as_deref().is_some_and(|name| same_folder(name, folder));
@@ -56,7 +56,8 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
         let absent = matches!(&report_text, Err(e) if e.kind() == std::io::ErrorKind::NotFound);
         let state = if removed {
             "removed"
-        } else if absent {
+        } else if absent && exported.is_none() {
+            // Nothing was ever exported here, so there is nothing to report as unavailable.
             "none"
         } else {
             "unavailable"
@@ -69,7 +70,8 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
             backup_path: None,
             missing: None,
             device_id: device_id.to_owned(),
-            removing_device_id: None,
+            // Removed here: this device's marker lets the wiring rule switch it to files.
+            removing_device_id: removed.then(|| device_id.to_owned()),
             exported_here,
             own_run_verified: false,
         };
