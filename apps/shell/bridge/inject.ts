@@ -4,7 +4,7 @@
  */
 
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
-import { localDbBridge, unwrap, type LocalDbCommands } from "./bridge";
+import { unwrap } from "./bridge";
 import {
   desktopShim,
   type DesktopCommands,
@@ -25,7 +25,7 @@ type MenuCommands = Pick<
 >;
 
 /** Every generated command this file hands to the bridge parts. */
-type BridgeCommands = DesktopCommands & LocalDbCommands & MenuCommands;
+type BridgeCommands = DesktopCommands & MenuCommands;
 
 /** What the shell tells the page about itself. */
 export interface ShellInfo {
@@ -84,7 +84,6 @@ export function desktopBridge(
   return {
     version: info.version,
     platform: info.platform,
-    ...localDbBridge(cmds),
     ...desktopShim(cmds, events),
     onSignIn: (cb) => inbox.subscribe(cb),
     menuModel: async () => unwrap(await cmds.menuModel()),
