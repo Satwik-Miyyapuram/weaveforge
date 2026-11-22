@@ -220,17 +220,20 @@ test("non-2xx GET throws with status and table, never the body", async () => {
   );
 });
 
-test("pendingOutbox and undecryptable default to not wired, injected values pass through", async () => {
+test("pendingOutbox defaults to not wired, injected value passes through", async () => {
   const { fetch } = fakeFetch(() => Response.json([]));
-  const bare = sourceWith(fetch);
-  await assert.rejects(() => bare.pendingOutbox(), /not wired/);
-  await assert.rejects(() => bare.undecryptable("logEntries"), /not wired/);
-  const wired = sourceWith(fetch, {
-    pendingOutbox: async () => 3,
-    undecryptable: async (kind: string) => (kind === "logEntries" ? 2 : 0),
-  });
+  await assert.rejects(() => sourceWith(fetch).pendingOutbox(), /not wired/);
+  const wired = sourceWith(fetch, { pendingOutbox: async () => 3 });
   assert.equal(await wired.pendingOutbox(), 3);
-  assert.equal(await wired.undecryptable("logEntries"), 2);
+});
+
+test("undecryptable is 0 for every kind and sends no request: migration 0099 dropped every content_enc column", async () => {
+  const { fetch, calls } = fakeFetch(() => new Response(null, { status: 200, headers: { "content-range": "*/3" } }));
+  const source = sourceWith(fetch);
+  for (const kind of ["notes", "papers", "reportSections", "logEntries", "milestones", "experiments", "comments", "readingLists", "settings", "ink"]) {
+    assert.equal(await source.undecryptable(kind), 0, kind);
+  }
+  assert.equal(calls.length, 0);
 });
 
 test("a table without a deleted_at column is listed with no deleted_at filter (PostgREST would 400)", async () => {

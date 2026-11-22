@@ -56,8 +56,11 @@ export type ExportOptions = {
   debugLog?: (line: string) => void;
 };
 
-/** `reconnectProviders` names the services whose secret stayed on the server (never the secret itself). */
-export type ExportResult = { state: MigrationState; run: RunReport; reconnectProviders: string[] };
+/** Refusal reason when unsent sync_outbox ops exist; the UI keys "sync pending changes first" on it. */
+export const OUTBOX_NOT_EMPTY_REASON = "outbox not empty: flush before export";
+
+/** `reconnectProviders` names the services whose secret stayed on the server (never the secret itself). `undecryptable` is always 0 on the web: content_enc was dropped by 0099. */
+export type ExportResult = { state: MigrationState; run: RunReport; reconnectProviders: string[]; undecryptable: number };
 
 /** The desktop shell's part of the 0.9.7 contract: a pre-migration dump, then a mark. */
 export type DesktopMigration = {
@@ -145,7 +148,7 @@ async function refused(
     backup: extra.backup ?? null,
   };
   await writeReport(sink, { version: 1, state: "incomplete", backup: extra.backup ?? null, deviceId: extra.deviceId, target, runs: [run] });
-  return { state: "incomplete", run, reconnectProviders: [] };
+  return { state: "incomplete", run, reconnectProviders: [], undecryptable: 0 };
 }
 
 /**
@@ -265,6 +268,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const conflicts: Record<string, string[]> = {};
   const written: Record<string, number> = {};
   const missing: MissingRow[] = [];
+  let undecryptable = 0;
 
   // Secrets are never deleted or cleared on this path. Every run reads which providers hold a secret. A source that
   // cannot say so refuses the run (fail closed: never verified). With no KEYS mover (moveSecrets) each named provider
@@ -315,10 +319,10 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       backup: dumpName,
     };
     await writeReport(sink, { version: 1, state: "incomplete", backup: dumpName, deviceId, target, runs: [run] });
-    return { state: "incomplete", run, reconnectProviders: [] };
+    return { state: "incomplete", run, reconnectProviders: [], undecryptable: 0 };
   }
   if (pending > 0) {
-    return refused(sink, now, "outbox not empty: flush before export", target, { backup: dumpName, deviceId });
+    return refused(sink, now, OUTBOX_NOT_EMPTY_REASON, target, { backup: dumpName, deviceId });
   }
 
   // Read before the early report, which replaces this device's run and with it its outputs.
@@ -364,6 +368,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           const listed = (await source.listBlobs()).length;
           if (raw !== listed) missing.push({ kind, id: "*", reason: `raw count ${raw} != listed ${listed}` });
           const bad = await source.undecryptable(kind);
+          undecryptable += bad;
           if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
         } catch {
           missing.push({ kind, id: "*", reason: `${kind}: read failed` });
@@ -377,6 +382,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         const raw = await source.countRows(kind);
         if (raw !== rows.length) missing.push({ kind, id: "*", reason: `raw count ${raw} != exported ${rows.length}` });
         const bad = await source.undecryptable(kind);
+        undecryptable += bad;
         if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
         written[kind] = 0;
         dbCount[kind] = rows.length;
@@ -607,6 +613,6 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     if (marked) state = "verified";
   }
   const run = await persist();
-  return { state, run, reconnectProviders };
+  return { state, run, reconnectProviders, undecryptable };
 }
 

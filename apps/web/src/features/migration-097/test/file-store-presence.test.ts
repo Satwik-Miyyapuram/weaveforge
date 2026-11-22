@@ -94,3 +94,27 @@ test("store: a sink whose exists always throws ends with a coded error, not an e
   assert.equal(err?.code, "file-store-candidates-exhausted");
   assert.ok(sink.calls < 5000, "the candidate loop stopped before the kill switch");
 });
+
+test("store: a stale .sha256 at the path itself keeps the blob off that name: no blob lands without its own sidecar", async () => {
+  const sink = new MemorySink();
+  await sink.write("e.bin.sha256", "stale");
+  const store = await createFileStore(sink, {});
+
+  const held = await store.store("e.bin", "db version", await sha256Hex("db version"));
+
+  assert.notEqual(held, "e.bin");
+  assert.equal(await sink.exists("e.bin"), false);
+});
+
+test("store: a missing blob whose sidecar already holds its own sha256 lands at the path itself", async () => {
+  const sink = new MemorySink();
+  const hash = await sha256Hex("db version");
+  await sink.write("f.bin.sha256", `${hash}\n`);
+  const store = await createFileStore(sink, {});
+
+  const held = await store.store("f.bin", "db version", hash);
+
+  assert.equal(held, "f.bin");
+  assert.equal(await sink.readText("f.bin"), "db version");
+  assert.equal(await sha256Hex(await sink.readBytes("f.bin")), (await sink.readText("f.bin.sha256")).split("\n")[0]);
+});
