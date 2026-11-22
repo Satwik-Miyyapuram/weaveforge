@@ -131,7 +131,7 @@ test("interrupted run gives incomplete, writes the report and never sets the mar
   });
 
   assert.equal(result.state, "incomplete");
-  assert.ok(result.run.missing.length > 0 || result.run.errors?.length);
+  assert.ok(result.run.missing.length > 0);
   assert.ok(JSON.stringify(result.run).includes("connection reset"));
   const report = JSON.parse(await sink.readText(REPORT_PATH));
   assert.equal(report.state, "incomplete");
@@ -211,7 +211,7 @@ test("raw server count above the exported rows gives incomplete (short source li
   const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
 
   assert.equal(result.state, "incomplete");
-  assert.ok(result.run.errors.some((e) => e.includes("raw count")));
+  assert.ok(result.run.missing.some((m) => m.kind === "logEntries" && m.reason.includes("raw count")));
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });
 
@@ -225,6 +225,30 @@ test("undecryptable content_enc rows keep the export incomplete and name kind an
     result.run.missing.some((m) => m.kind === "logEntries" && m.reason.includes("2") && /decrypt/.test(m.reason)),
   );
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
+});
+
+test("report has verifiedAt when verified, no runs errors field, and is written atomically", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const events: { kind: string; done: number; total: number }[] = [];
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    onProgress: (e) => events.push(e),
+  });
+
+  assert.equal(result.state, "verified");
+  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  assert.equal(typeof report.verifiedAt, "string");
+  assert.equal("errors" in report.runs[0], false);
+  assert.deepEqual(
+    (await sink.list()).filter((p) => p.endsWith(".part")),
+    [],
+  );
+  assert.deepEqual(events.at(-1), { kind: "experiments", done: 1, total: 1 });
 });
 
 test("pending outbox refuses the export: state none, nothing written, no marker", async () => {

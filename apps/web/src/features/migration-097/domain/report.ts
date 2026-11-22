@@ -37,12 +37,13 @@ export type RunReport = {
   kinds: Record<string, KindCount>;
   blobs: { db: number; verified: number };
   missing: MissingRow[];
-  errors: string[];
 };
 
 export type MigrationReport = {
   version: 1;
   state: MigrationState;
   backup: null;
+  /** ISO time the export verified. Absent unless state is "verified". */
+  verifiedAt?: string;
   runs: RunReport[];
 };

@@ -21,4 +21,10 @@ export class MemorySink implements FileSink {
     if (!bytes) throw new Error(`missing file: ${path}`);
     return bytes;
   }
+
+  async rename(from: string, to: string): Promise<void> {
+    const bytes = await this.readBytes(from);
+    this.files.delete(from);
+    this.files.set(to, bytes);
+  }
 }

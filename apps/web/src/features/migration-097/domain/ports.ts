@@ -33,4 +33,6 @@ export interface FileSink {
   list(): Promise<string[]>;
   readText(path: string): Promise<string>;
   readBytes(path: string): Promise<Uint8Array>;
+  /** Atomic move within the sink, replacing any existing target. */
+  rename(from: string, to: string): Promise<void>;
 }
