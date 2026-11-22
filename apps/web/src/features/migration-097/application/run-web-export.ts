@@ -403,7 +403,9 @@ export async function recordServerMarked(sink: FileSink, deviceId: string): Prom
   const index = report.runs.map((r) => r.deviceId).lastIndexOf(deviceId);
   const run = report.runs[index];
   if (!run || run.state === "verified") return;
-  const missing = run.missing.filter((m) => !(m.kind === "marker" && m.reason === "markers pending"));
+  const pending = (m: { kind: string; reason: string }) => m.kind === "marker" && m.reason === "markers pending";
+  if (!run.missing.some(pending)) return;
+  const missing = run.missing.filter((m) => !pending(m));
   if (missing.length > 0) return;
   const runs = report.runs.map((r, i) => (i === index ? { ...r, missing, state: "verified" as const } : r));
   const next: MigrationReport = { ...report, runs, state: "verified", verifiedAt: new Date().toISOString() };

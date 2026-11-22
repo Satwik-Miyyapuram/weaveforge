@@ -718,6 +718,15 @@ test("(P1) recordServerMarked marks only this device's run; another device's las
   assert.equal(runs[1]?.missing.length, 1, "the other device's missing rows are not cleared");
 });
 
+test("(P3) recordServerMarked does nothing when this device's run never had markers pending", async () => {
+  const sink = new MemorySink();
+  const base = { startedAt: "t", finishedAt: "t", sources: [], kinds: {}, blobs: { db: 0, verified: 0 }, target: "opfs" };
+  const mine = { ...base, deviceId: WEB_ID, state: "incomplete", missing: [] };
+  await sink.write(REPORT_PATH, JSON.stringify({ version: 1, state: "incomplete", backup: null, target: "opfs", runs: [mine] }));
+  await recordServerMarked(sink, WEB_ID);
+  assert.equal((await readMigrationReport(sink))?.runs[0]?.state, "incomplete", "no markers were pending, so nothing is marked");
+});
+
 test("(P2-3) recordServerMarked keeps the report incomplete while any other row is missing", async () => {
   const { source } = fakeServer({ rows: FIXTURE, failKind: "logEntries" });
   const sink = new MemorySink();
