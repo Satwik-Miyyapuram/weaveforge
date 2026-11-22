@@ -18,6 +18,12 @@ const BANNED = [
   "folderWriteBlockedByLostDb",
   "LOST_DB_SYNC_MESSAGE",
   "useDatabaseLocation",
+  "queryLocalDb",
+  "LocalDbRecovery",
+  "useLocalDbFailure",
+  "localDbFailure",
+  "LOST_DB",
+  "lostDb",
 ];
 
 function productionFiles(dir: string): string[] {
