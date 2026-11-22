@@ -146,7 +146,6 @@ fn decodes_by_charset() {
 
 #[tokio::test]
 async fn proxy_html_refusals() {
-    let client = relay_client().unwrap();
     assert!(is_html_proxy_request(&request_for(None)));
 
     let cases: [(Option<&str>, &str); 7] = [
@@ -174,7 +173,7 @@ async fn proxy_html_refusals() {
         ),
     ];
     for (raw, error) in cases {
-        let answer = proxy_html(&client, &request_for(raw)).await;
+        let answer = proxy_html(&request_for(raw)).await;
         assert_eq!(answer.status, 400, "{raw:?}");
         assert_eq!(answer.header("content-type"), Some("application/json"));
         assert_eq!(body_text(&answer), format!(r#"{{"error":"{error}"}}"#));

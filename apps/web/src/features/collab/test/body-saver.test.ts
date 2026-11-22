@@ -7,7 +7,7 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { BodySaver } from "../application/parts";
+import { BodySaver, flushBodyOnClose, hasPendingBodySave } from "../application/parts";
 
 before(async () => {
   await loadTestCore();
@@ -270,4 +270,35 @@ test("a peer's text arriving while an edit waits is saved with it, and alone it 
   saver.refresh("stored + mine + peer");
   assert.equal(await saver.flush(), true);
   assert.deepEqual(saved, ["stored + mine + peer"], "the pending save must not drop the peer's text");
+});
+
+test("typing still on its debounce is written when the window goes away", async () => {
+  const { saver, saved } = harness();
+  const win = new EventTarget();
+  const stop = flushBodyOnClose(saver, win);
+  saver.schedule("typed just before quit");
+  assert.equal(saver.busy(), true);
+  assert.equal(hasPendingBodySave(), true);
+  win.dispatchEvent(new Event("pagehide"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(saved, ["typed just before quit"]);
+  assert.equal(saver.busy(), false);
+  assert.equal(hasPendingBodySave(), false);
+  stop();
+});
+
+test("beforeunload writes the pending body too, and a closed editor stops listening", async () => {
+  const { saver, saved } = harness();
+  const win = new EventTarget();
+  const stop = flushBodyOnClose(saver, win);
+  saver.schedule("first");
+  win.dispatchEvent(new Event("beforeunload"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(saved, ["first"]);
+  stop();
+  saver.schedule("after close");
+  assert.equal(hasPendingBodySave(), false, "a stopped saver is not counted");
+  win.dispatchEvent(new Event("pagehide"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(saved, ["first"]);
 });

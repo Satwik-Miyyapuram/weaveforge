@@ -261,12 +261,26 @@ export function importFolderDraftsOnce(
 type RevisionedRow = { id: string; updatedAt?: string };
 
 /**
- * A missing row never applies. A draft naming a revision applies only to a row
- * at that revision, so a row with no revision cannot prove it and conflicts.
+ * The revision a draft is checked against: the row's `updatedAt`, or for a row
+ * without one (milestones, runs) a hash of the whole row, so any change to it
+ * still reads as a change.
  */
+export function rowRevision(row: RevisionedRow): string {
+  if (row.updatedAt) return row.updatedAt;
+  // Keys sorted at every depth, so the same row always hashes the same.
+  const sorted = JSON.stringify(row, (_key, value: unknown) =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : value);
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < sorted.length; i += 1) hash = Math.imul(hash ^ sorted.charCodeAt(i), 0x01000193);
+  return `row:${(hash >>> 0).toString(16)}:${sorted.length}`;
+}
+
+/** A missing row never applies. A draft naming a revision applies only to a row at that revision. */
 function rowMatches(row: RevisionedRow | null, expectedRevision?: string): row is RevisionedRow {
   if (!row) return false;
-  return !expectedRevision || row.updatedAt === expectedRevision;
+  return !expectedRevision || rowRevision(row) === expectedRevision;
 }
 
 /**
@@ -372,8 +386,7 @@ export function createAiProposalExecutors(deps: {
     }),
     executor("report_edit", async (proposal) => {
       const section = await deps.reportSectionById(proposal.resourceId);
-      if (!section) return "conflicted";
-      if (proposal.expectedRevision && section.updatedAt !== proposal.expectedRevision) return "conflicted";
+      if (!rowMatches(section, proposal.expectedRevision)) return "conflicted";
       await deps.reportSections.setNotes(section.id, readyCore().proposalReportNotes(proposal.payload));
       return "accepted";
     }),

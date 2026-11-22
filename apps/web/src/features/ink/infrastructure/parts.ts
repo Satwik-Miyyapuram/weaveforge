@@ -330,6 +330,7 @@ export class FolderInkNotes implements InkNoteLocator {
         `ink: ${paths.join(" and ")} all carry weaveforge-id ${id}; their strokes stay closed until each has its own id`,
       );
     }
+    this.closeSharedFolders(notes);
     this.paths.clear();
     for (const [id, path] of notes) this.paths.set(id, path);
     for (const [id, path] of notes) {
@@ -388,6 +389,33 @@ export class FolderInkNotes implements InkNoteLocator {
     await fs.writeFile(record, `${target}\n`);
     if (copy.length > 0) {
       this.report("info", `ink: copied ${copy.length} file(s) from ${legacy} to ${target}; ${legacy} is left as it was`);
+    }
+  }
+
+  /**
+   * `x/foo.md` and a legacy `x/foo.ink.md` both keep their pages in `x/foo.ink/`.
+   * With both present the folder's pages could be either's, so neither note
+   * gets strokes until one is renamed; the folder itself is left as it is.
+   */
+  private closeSharedFolders(notes: Map<string, string>): void {
+    const byFolder = new Map<string, string[]>();
+    for (const [id, path] of notes) {
+      let dir: string;
+      try {
+        dir = typedCore().inkStrokesDir(path);
+      } catch {
+        continue; // No usable folder: its writes fail on their own.
+      }
+      byFolder.set(dir, [...(byFolder.get(dir) ?? []), id]);
+    }
+    for (const [dir, ids] of byFolder) {
+      if (ids.length < 2) continue;
+      const paths = ids.map((id) => notes.get(id)!);
+      for (const id of ids) notes.delete(id);
+      this.report(
+        "error",
+        `ink: ${paths.join(" and ")} both keep their pages in ${dir}; their strokes stay closed until one is renamed`,
+      );
     }
   }
 

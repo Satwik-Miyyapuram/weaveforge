@@ -324,6 +324,28 @@ test("no writeTextIf: checked fallback writes, and an external change is merged"
   assert.deepEqual(warnings, []);
 });
 
+test("busy covers a waiting change and a write still on its way, for the desktop close", async () => {
+  const files = new Map<string, string>();
+  const { s, fs } = store(files, []);
+  await s.load();
+  assert.equal(s.busy(), false);
+  s.set(["ink", "toolColours"], { a: "#fff" });
+  assert.equal(s.busy(), true, "a change waits for the debounce");
+  const write = fs.writeTextIf;
+  let land: () => void = () => {};
+  fs.writeTextIf = async (p, text, expected) => {
+    await new Promise<void>((r) => (land = r));
+    return write(p, text, expected);
+  };
+  const done = s.flush();
+  await new Promise((r) => setImmediate(r));
+  assert.equal(s.busy(), true, "the write has not landed yet");
+  land();
+  await done;
+  assert.equal(s.busy(), false);
+  assert.equal(files.has(P), true);
+});
+
 test("parseSettings: version rules and corrupt shapes", () => {
   assert.equal(parseSettings('{"ink":{}}').ok, true);
   assert.deepEqual(parseSettings('{"version":1}'), { ok: true, doc: { version: 1 } });

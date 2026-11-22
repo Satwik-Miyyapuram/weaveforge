@@ -73,6 +73,9 @@ interface StoredZoteroEntry {
   tags?: string[];
 }
 
+/** Draft kinds that change an existing paper; their approval checks the paper's revision. */
+const PAPER_EDIT_KINDS: ReadonlySet<AiProposalKind> = new Set(["append_paper_note", "paper_update", "paper_field_value"]);
+
 /** Browser-local grant manager. Sessions intentionally disappear on reload/sign-out. */
 export class AiAssistantFacade {
   private readonly sessions = new Map<string, AiActiveSession>();
@@ -313,15 +316,24 @@ export class AiAssistantFacade {
     expectedRevision?: string; evidence?: readonly AiEvidence[];
   }): Promise<{ status: "requires_review"; proposalId: string; kind: AiProposalKind; message: string }> {
     const session = this.requireActiveSession(input.sessionId);
+    // MCP agents never see a paper's revision; without one, approving a stale
+    // paper edit would overwrite the user's later edits, so stamp the current one.
+    let expectedRevision = input.expectedRevision;
+    if (!expectedRevision && PAPER_EDIT_KINDS.has(input.kind)) {
+      const paper = input.resourceId ? await this.deps.papers.getById(input.resourceId) : null;
+      if (!paper) throw new Error("This paper does not exist, so no edit to it can be drafted.");
+      expectedRevision = paper.updatedAt;
+    }
     const proposal = await this.createProposal.execute({
       id: this.deps.newId(), kind: input.kind, tool: input.tool,
       resourceId: input.resourceId ?? this.deps.newId(), resourceType: input.resourceType,
-      content: input.content, payload: input.payload, expectedRevision: input.expectedRevision,
+      content: input.content, payload: input.payload, expectedRevision,
       evidence: input.evidence, settings: input.settings, grant: session.grant,
       encryptionUnlocked: this.deps.isEncryptionUnlocked(), now: this.deps.now(),
     });
     return { status: "requires_review", proposalId: proposal.id, kind: proposal.kind, message: "Draft saved securely. Review and approve it in WeaveForge before anything changes." };
   }
+
 
   /** Build and persist a review-only Zotero import. It never reads credentials. */
   async proposeZoteroImport(input: {
