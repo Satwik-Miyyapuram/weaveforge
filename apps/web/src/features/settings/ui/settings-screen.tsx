@@ -11,6 +11,7 @@ import { ScreenHead } from "@/components/screen-head";
 import { ConnectionState } from "@/components/connection-state";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
+import { SyncSettings } from "@/features/sync";
 import { SearchSettingsPanel } from "./search-settings-panel";
 import { PasteSettingsPanel } from "./paste-settings-panel";
 import { EditorSettingsPanel } from "./editor-settings-panel";
@@ -606,6 +607,7 @@ export function SettingsScreen() {
           <ScreenLoader status="Loading settings…" compact />
         ) : (
           <div id="settings-sync" className="settings-anchor" role="tabpanel" aria-labelledby="settings-tab-sync">
+            <SyncSettings />
           </div>
         ))}
 
