@@ -128,6 +128,11 @@ async function exportTrash(kind: string, rows: Row[], sink: FileSink, missing: M
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets, secretsPresent, runDeviceId } = opts;
   const target: MigrationTarget = desktop ? "folder" : "opfs";
+
+  // A browser run must name its install id; without it the run cannot be matched or verified later.
+  if (!desktop && runDeviceId === undefined) {
+    return refused(sink, now, "no device id: the browser install id is missing", target);
+  }
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};
   const backCount: Record<string, number> = {};

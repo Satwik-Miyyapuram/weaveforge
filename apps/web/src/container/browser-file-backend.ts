@@ -58,7 +58,9 @@ export async function openBrowserFileWiring(): Promise<BrowserFileWiring> {
 
 /**
  * True only when the OPFS folder holds a clean verified 0.9.7 export for this browser install (its
- * own run is matched by its stable install id). Any failure, including no id, reads as false.
+ * own run is matched by its stable install id). The first call may write the install id, creating
+ * it when none is stored. A failed write makes this return false, as does any other failure,
+ * including no id.
  */
 export async function browserReportOk(): Promise<boolean> {
   try {

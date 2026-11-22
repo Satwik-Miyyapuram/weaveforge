@@ -3,11 +3,17 @@ import { test } from "node:test";
 
 import { INSTALL_ID_PATH, readOrCreateInstallId } from "../browser-install-id";
 
-/** An in-memory folder that throws ENOENT for a missing file, as BrowserWorkspaceFs does. */
-function folder(initial: Record<string, string> = {}) {
+/**
+ * An in-memory folder that throws ENOENT for a missing file, as BrowserWorkspaceFs does. `renames`
+ * records every rename. `otherTabWritesAfterRename`, when set, stands for a second tab that stores
+ * its own id right after this tab's rename.
+ */
+function folder(initial: Record<string, string> = {}, otherTabWritesAfterRename?: string) {
   const files = new Map(Object.entries(initial));
+  const renames: Array<[string, string]> = [];
   return {
     files,
+    renames,
     async readText(path: string): Promise<string> {
       const text = files.get(path);
       if (text === undefined) throw new Error(`ENOENT: ${path}`);
@@ -15,6 +21,14 @@ function folder(initial: Record<string, string> = {}) {
     },
     async writeFile(path: string, data: Uint8Array | string): Promise<void> {
       files.set(path, typeof data === "string" ? data : new TextDecoder().decode(data));
+    },
+    async rename(from: string, to: string): Promise<void> {
+      const text = files.get(from);
+      if (text === undefined) throw new Error(`ENOENT: ${from}`);
+      files.delete(from);
+      files.set(to, text);
+      renames.push([from, to]);
+      if (otherTabWritesAfterRename !== undefined) files.set(to, otherTabWritesAfterRename);
     },
   };
 }
@@ -53,4 +67,19 @@ test("a failed write rejects, so the caller can fail closed", async () => {
     throw new Error("quota");
   };
   await assert.rejects(readOrCreateInstallId(fs, () => "web-x"), /quota/);
+});
+
+test("the id is written to a temp file and renamed into place", async () => {
+  const fs = folder();
+  await readOrCreateInstallId(fs, () => "web-atomic-id");
+  assert.deepEqual(fs.renames, [[`${INSTALL_ID_PATH}.part`, INSTALL_ID_PATH]]);
+  assert.equal(fs.files.get(INSTALL_ID_PATH), "web-atomic-id");
+  assert.equal(fs.files.has(`${INSTALL_ID_PATH}.part`), false);
+});
+
+test("two tabs creating an id at once both return the id that ended up stored", async () => {
+  const fs = folder({}, "web-other-tab-id");
+  const id = await readOrCreateInstallId(fs, () => "web-this-tab-id");
+  assert.equal(id, "web-other-tab-id");
+  assert.equal(fs.files.get(INSTALL_ID_PATH), "web-other-tab-id");
 });

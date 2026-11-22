@@ -486,11 +486,14 @@ test("desktop: a run refused before its backup (no device id) leaves the browser
   assert.deepEqual(calls, []);
 });
 
-test("web: a browser run with no runDeviceId writes no report.json entry", async () => {
+test("web: a browser run with no runDeviceId is refused with 'no device id' before any read or write", async () => {
   const sink = new MemorySink();
-  const { source } = fakeServer({ rows: FIXTURE });
-  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
-  assert.equal((await sink.list()).includes(REPORT_PATH), false, "a run without an id is never written");
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  assert.equal(result.state, "incomplete");
+  assert.match(result.run.missing[0]?.reason ?? "", /no device id/);
+  assert.deepEqual(calls, [], "the server is not read without an install id");
+  assert.deepEqual(await sink.list(), [], "a run without an id writes no file, report included");
 });
 
 test("desktop: a failed backup aborts the export: no server read, no write, no marker, no mark-exported", async () => {
