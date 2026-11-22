@@ -4,8 +4,10 @@
  * one-time migration moves it), written, or deleted.
  */
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { readFileSync } from "node:fs";
+import { before, describe, it } from "node:test";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
+import { loadCore } from "../../lib/rust-core";
 import {
   DeviceSecretsStore,
   desktopKeychain,
@@ -77,7 +79,21 @@ const indexOf = (keys: string[], source = "move") => JSON.stringify({ source, ke
 /** A flat field map for a save: top-level names the typed `Secrets` does not list (the test fixtures). */
 const flat = (fields: Record<string, string>) => fields as unknown as Parameters<DeviceSecretsStore["save"]>[0];
 
+// The core is process-wide and loaded by the suite below, so this suite must run first.
+describe("the Rust core is required to read the legacy row", () => {
+  it("a core that is not loaded throws, and never reads as no credentials", async () => {
+    const { keychain } = fakeKeychain();
+    const db = fakeRun([{ secrets: '{"zoteroApiKey":"k"}' }]);
+    const store = new DeviceSecretsStore(db.run, keychain, async () => {}, async () => false);
+    await assert.rejects(store.load(), /Rust core not loaded/);
+  });
+});
+
 describe("device credentials in the keychain", () => {
+  before(async () => {
+    await loadCore(readFileSync(new URL("../../../../../packages/wf-wasm/pkg/wf_wasm_bg.wasm", import.meta.url)));
+  });
+
   it("rebuilds the credentials from the listed fields without touching the local database", async () => {
     const { keychain } = fakeKeychain({
       "_index": indexOf(["zoteroApiKey", "integrations.overleaf"]),

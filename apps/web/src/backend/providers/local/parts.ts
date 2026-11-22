@@ -493,9 +493,11 @@ export class DeviceSecretsStore implements SecretsStore {
    * `LegacySecretsReadError`.
    */
   private async legacyText(): Promise<string | undefined> {
+    // Outside the try: a core that is not loaded is a programming error, never "no database".
+    const sql = readyCore().localSecretsLoadSql();
     let rows: { secrets: Secrets | string | null }[];
     try {
-      rows = (await this.run(readyCore().localSecretsLoadSql(), [LOCAL_USER_ID])) as {
+      rows = (await this.run(sql, [LOCAL_USER_ID])) as {
         secrets: Secrets | string | null;
       }[];
     } catch (err) {
