@@ -117,3 +117,11 @@ test("an item's link is its paper note's name, and the link resolves back to the
   assert.equal(await port.itemForLink("[[other]]"), null);
   assert.equal(await port.itemForLink("i1"), null);
 });
+
+test("with the vault root as project root, listFiles reads reading-lists without a leading slash", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile("reading-lists/a.list.md", LIST);
+  const port = new WorkspaceListFilesPort(fs, "");
+  const paths = (await port.listFiles()).map((f) => f.path);
+  assert.deepEqual(paths, ["reading-lists/a.list.md"]);
+});

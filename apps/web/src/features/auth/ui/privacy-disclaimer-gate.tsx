@@ -14,8 +14,6 @@ import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
 import { readyCore } from "@/lib/rust-core";
 import { useCapability } from "@/deployment/capabilities";
-import { desktop } from "@/lib/desktop/desktop-bridge";
-import { isLocalMode, setLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { Button } from "@/components/button";
 
 /**
@@ -176,16 +174,6 @@ function StartupFailure({ message }: { message: string }) {
         <Button variant="primary" onClick={() => window.location.reload()}>
           Reload
         </Button>
-        {desktop() && !isLocalMode() ? (
-          <Button
-            onClick={() => {
-              setLocalMode(true);
-              window.location.reload();
-            }}
-          >
-            Work on this computer (offline)
-          </Button>
-        ) : null}
       </div>
     </main>
   );

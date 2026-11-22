@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test, { before } from "node:test";
 import { NotFoundError, type ScreeningDecision } from "@weaveforge/core";
+import type { AppLogInput } from "@/lib/error-report/app-log";
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { FileScreeningRepository, type ListFile, type ListFilesPort } from "../file-screening-repository";
 
@@ -87,7 +88,8 @@ test("remove takes the id out of every file that holds it, not only the first", 
 test("a damaged list file is reported, not silently skipped", async () => {
   const damaged = "---\nwf: 3\nitems:\n  - {\"not\":\"a decision\"}\n---\n";
   const { port } = memoryPort({ "bad.md": damaged, "good.md": LIST }, { "good.md": ["i1"] });
-  const repo = new FileScreeningRepository(port);
+  const logged: AppLogInput[] = [];
+  const repo = new FileScreeningRepository(port, (input) => logged.push(input));
   const warnings: unknown[][] = [];
   const warn = console.warn;
   console.warn = (...args: unknown[]) => {
@@ -98,8 +100,10 @@ test("a damaged list file is reported, not silently skipped", async () => {
   } finally {
     console.warn = warn;
   }
-  assert.equal(warnings.length, 1);
-  assert.match(String(warnings[0]![0]), /bad\.md/);
+  assert.equal(warnings.length, 0, "the warning goes through logToApp, not console.warn");
+  assert.equal(logged.length, 1);
+  assert.equal(logged[0]!.level, "warn");
+  assert.match(logged[0]!.message, /bad\.md/);
 });
 
 test("remove takes the entry out of whichever file holds it", async () => {

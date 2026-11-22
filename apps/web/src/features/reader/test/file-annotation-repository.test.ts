@@ -179,3 +179,17 @@ test("law: an annotation written outside the app between read and write is never
     { numRuns: 40 },
   );
 });
+
+test("a caller's id, createdAt and updatedAt are kept; the repository mints only when absent", async () => {
+  const { repo } = setup();
+  const made = await repo.create(
+    "p-1",
+    draft({ id: "ann-from-export", createdAt: "2026-01-02T03:04:05.000Z", updatedAt: "2026-01-03T00:00:00.000Z" }),
+  );
+  assert.equal(made.id, "ann-from-export");
+  assert.equal(made.createdAt, "2026-01-02T03:04:05.000Z");
+  assert.equal(made.updatedAt, "2026-01-03T00:00:00.000Z");
+  const minted = await repo.create("p-1", draft());
+  assert.match(minted.id, /^local-ann-/);
+  assert.ok(!Number.isNaN(Date.parse(minted.createdAt)));
+});

@@ -79,6 +79,8 @@ import {
   type IVaultPageRepository,
   type ManageSettingsUseCase,
   ManageSettingsUseCase as ManageSettingsUseCaseClass,
+  type IAiAuditStore,
+  type IAiProposalStore,
   type Milestone,
   type MilestoneFilter,
   type Project,
@@ -88,7 +90,7 @@ import type { ISharedReader, SharedItem } from "../../../features/sharing/domain
 import type { Integration, SyncProvider } from "../../../features/sync/domain/parts";
 import { SupabaseAdminUserProvisioner, SupabaseSessionProvider } from "../supabase-auth/parts";
 import { createDataClient } from "./parts-1";
-import { projectUserCtx, rustRepository, rustVaultPageRepository } from "./rust-repository";
+import { projectUserCtx, rustAiStores, rustRepository, rustVaultPageRepository } from "./rust-repository";
 import { watchWrites } from "./watch-writes";
 
 export type { SharedItem } from "../../../features/sharing/domain/shared-reader";
@@ -162,6 +164,14 @@ function rustProjectZoteroStore(db: SupabaseClient): IProjectBibliographyCollect
 }
 
 // --- wire-postgrest-backend ---
+/**
+ * A repository that re-tags its records when a project folder moves. Only the
+ * file repositories have one; the overlay supplies it in files mode.
+ */
+export interface ProjectFolderMovable {
+  moveProjectFolder?(from: string, to: string): Promise<void>;
+}
+
 export interface WiredPostgrestBackend {
   readonly config: BackendConfig;
   readonly db: SupabaseClient;
@@ -176,6 +186,8 @@ export interface WiredPostgrestBackend {
   readonly dashboardLayoutRepository: IDashboardLayoutRepository;
   readonly graphSettingsRepository: IGraphSettingsRepository;
   readonly integrationsStore: IIntegrationsStore;
+  readonly aiProposalStore: IAiProposalStore;
+  readonly aiAuditStore: IAiAuditStore & { countAccepted(): Promise<number> };
   readonly paperRepository: IPaperRepository;
   readonly tagRepository: ITagRepository & ITagManager;
   readonly paperTagRepository: IPaperTagRepository;
@@ -205,7 +217,7 @@ export interface WiredPostgrestBackend {
     IReaderAnnotationSink &
     IReaderAnnotationSyncRecorder &
     IReaderAnnotationProjectSource;
-  readonly paperFieldRepository: IPaperFieldRepository;
+  readonly paperFieldRepository: IPaperFieldRepository & ProjectFolderMovable;
   /** Release what this wiring subscribed to (the session's auth listener). */
   dispose(): void;
 }
@@ -231,11 +243,15 @@ export interface BackendParts {
   shareMarks?: ShareMarks;
 }
 
+/** Wraps the database client before any repository is built on it (the desktop read-only guard). */
+export type DbGuard = <T extends object>(db: T) => T;
+
 export function wirePostgrestBackend(
   config: BackendConfig,
   projectContext: ProjectContext,
   pid: () => string | null,
   parts?: BackendParts,
+  guardDb?: DbGuard,
 ): WiredPostgrestBackend {
   const url = config.supabaseUrl;
   const anonKey = config.supabaseAnonKey;
@@ -247,9 +263,11 @@ export function wirePostgrestBackend(
 
   // Wrapped once, here, so that every repository below reports its writes
   // without any of them having to know that something is listening.
-  const db =
+  const rawDb =
     parts?.db ??
     watchWrites(createDataClient(url as string, anonKey as string, config.dataUrl), notifyWorkspaceChange);
+  // Guarded before the first repository below is built, so no repository holds the raw client.
+  const db = guardDb ? guardDb(rawDb) : rawDb;
   // A session built here listens on the client; one passed in is its owner's.
   const ownSession = parts?.session ? null : new SupabaseSessionProvider(db);
   const session = parts?.session ?? ownSession!;
@@ -289,6 +307,7 @@ export function wirePostgrestBackend(
     { resourceType: "graph_settings" },
   );
   const integrationsStore: IIntegrationsStore = rustIntegrationsStore(db);
+  const ai = rustAiStores(db, projectContext, session);
   const paperRepository = cachePaperRepository(rustPaperRepository(db, projectContext), pid);
 
   const tagPaperCache = new Map<string, Promise<unknown>>();
@@ -396,16 +415,21 @@ export function wirePostgrestBackend(
     { resourceType: "reading_list" },
   );
   const readingListItemRepository = cacheRepo(
-    rustRepository<IReadingListItemRepository>(db, "reading_list_items", [
-      "listItems",
-      "listItemsForLists",
-      "listsForPaper",
-      "listsForNote",
-      "find",
-      "findNote",
-      "add",
-      "remove",
-    ] as (keyof IReadingListItemRepository & string)[]),
+    {
+      ...rustRepository<IReadingListItemRepository>(db, "reading_list_items", [
+        "listItems",
+        "listItemsForLists",
+        "listsForPaper",
+        "listsForNote",
+        "find",
+        "findNote",
+        "add",
+        "remove",
+      ] as (keyof IReadingListItemRepository & string)[]),
+      // Files-only reads: the PostgREST backend has no unreadable files or legacy leftovers.
+      unreadablePaths: async () => [],
+      legacyLeftovers: async () => [],
+    },
     ["listItems", "listItemsForLists", "listsForPaper", "find"],
     ["add", "remove"],
     pid,
@@ -563,6 +587,8 @@ export function wirePostgrestBackend(
     dashboardLayoutRepository,
     graphSettingsRepository,
     integrationsStore,
+    aiProposalStore: ai.proposals,
+    aiAuditStore: ai.audit,
     paperRepository,
     tagRepository,
     paperTagRepository,

@@ -132,6 +132,14 @@ export interface DesktopBridge {
   clearSecret(name: DesktopSecretName): Promise<void>;
 
   /**
+   * One-time move of the old local database secrets row into the keychain, for the
+   * 0.9.7 upgrade. Reads the row read-only, stores each field, and records the move in
+   * `<folder>/.weaveforge/migration-0.9.7/secrets-moved.json`. Rejects when any part fails
+   * (no keychain, locked keychain, unreadable row), so the caller shows the move as not done.
+   */
+  migrate097MoveSecrets(): Promise<void>;
+
+  /**
    * Whether an old (pre-0.9.7) local database is on this computer. Read-only. Absent on a desktop
    * shell that predates the call is unknown, and the install gate blocks on unknown (fail closed).
    */
@@ -437,6 +445,29 @@ export interface DesktopBridge {
   menuModel?(): Promise<DesktopMenuGroup[] | null>;
   invokeMenuItem?(id: string): Promise<void>;
   onMenuChange?(cb: () => void): () => void;
+
+  /**
+   * The 0.9.7 move of a workspace folder from the local database to files.
+   *
+   * Optional because an installed shell may predate it; without them the page
+   * keeps the database backend, which is exactly what it does today. `status`
+   * reads the folder's report, `run` performs the move and returns the report
+   * it wrote. `run` is the TS exporter (WEB-EXPORT) and reports progress
+   * in-process, so the bridge carries no progress event.
+   */
+  migrate097Status?(folder: string): Promise<{
+    state: Migrate097StateName;
+    removedAt?: string;
+    /** True when the export went to the open folder (EXPORT lands it; missing means false). */
+    exportedHere?: boolean;
+    backupPath?: string;
+    missing?: string[];
+    removingDeviceId?: string;
+    deviceId?: string;
+  }>;
+  migrate097Run?(folder: string): Promise<{ state: Migrate097StateName }>;
+  /** Deletes the old local data after a verified migration; the user confirms first. */
+  migrate097RemoveOld?(folder: string): Promise<void>;
   /** Tint the system's window buttons to the page: two `#rrggbb` colours. */
   setTitleBarColors?(colors: { background: string; ink: string }): void;
   /** Whether the OS taskbar is in light mode. Optional: an installed shell may predate it. */
@@ -722,7 +753,12 @@ export interface DesktopVaultEntry {
  * (`PAGE_WRITABLE`), which also keeps `local-api-token` for the shell alone, and lets the page
  * write but never read back `overleaf-token` or `git-sync-token`.
  */
-export type DesktopSecretName = "ai-provider" | "overleaf-token" | "git-sync-token";
+export type DesktopSecretName =
+  | "ai-provider"
+  | "overleaf-token"
+  | "git-sync-token"
+  | "device-secrets"
+  | `device-secrets/${string}`;
 
 /**
  * The shell preferences the page may write. Equal to `PAGE_WRITABLE` in
@@ -738,6 +774,16 @@ export interface DesktopWorkspaceSetup {
   defaultFolder: string | null;
 }
 export type DesktopPreferenceValue = string | boolean | null;
+
+/** A folder's 0.9.7 migration state, as the shell's report records it. */
+export type Migrate097StateName = "none" | "verified" | "incomplete" | "removing" | "removed";
+
+/** One step of a running migration; `done` of `total` items are through. */
+export interface Migrate097Progress {
+  kind: string;
+  done: number;
+  total: number;
+}
 
 export interface DesktopUpdate {
   /** The newer version, as `0.6.0`. */

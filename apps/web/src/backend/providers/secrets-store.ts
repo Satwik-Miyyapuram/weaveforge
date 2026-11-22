@@ -31,6 +31,9 @@ export function secretsStoreFor(
   hasServerRoutes: boolean = !isOfflineBuild(),
 ): SecretsStore {
   if (hasServerRoutes) return new RouteSecretsStore(db);
+  // TODO(097-keys): route this branch to the OS keychain (KEYS, commit 77eee46f0
+  // on feat/097-keys) once it is merged here. Until then the device table below
+  // holds the secret. Owner: 0.9.8 DeviceSecretsStore removal.
   // The shell applies `db/migrations-local` on every launch, so this table
   // is there whether or not the window is signed in.
   return new DeviceSecretsStore();

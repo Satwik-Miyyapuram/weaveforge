@@ -6,7 +6,6 @@ import { FormError } from "@/components/form-error";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { appOrigin, authRedirectTo, pastedSignInQuery } from "@/lib/desktop/desktop-auth";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { setLocalMode } from "@/features/auth/infrastructure/no-account-mode";
 import { runBusy } from "./run-busy";
 import { Button } from "@/components/button";
 
@@ -25,13 +24,6 @@ export function LoginScreen() {
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Only the desktop app has the bridge that can work without a session. A browser
-  // never sees the offer.
-  const [onThisComputer, setOnThisComputer] = useState(false);
-  useEffect(() => {
-    setOnThisComputer(desktop() !== null);
-  }, []);
-
   // When another program holds the sign-in port, the browser's redirect never
   // reaches this window, so the reader pastes the address it was sent to.
   const [portTaken, setPortTaken] = useState(false);
@@ -241,19 +233,6 @@ export function LoginScreen() {
                   </div>
                   <Button type="submit" disabled={busy || !pasted.trim()}>Finish sign-in</Button>
                 </form>
-              )}
-
-              {onThisComputer && (
-                <Button variant="link"
-                  onClick={() => {
-                    // The wiring is built once, at startup, from this choice —
-                    // so the choice is remembered and the window reopened.
-                    setLocalMode(true);
-                    window.location.reload();
-                  }}
-                >
-                  Use without an account, local only
-                </Button>
               )}
 
               {error && <FormError>{error}</FormError>}
