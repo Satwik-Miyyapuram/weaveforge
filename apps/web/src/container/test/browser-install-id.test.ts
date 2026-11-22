@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { INSTALL_ID_PATH, readOrCreateInstallId } from "../browser-install-id";
+import { INSTALL_ID_PATH, InstallIdLocksUnavailableError, readOrCreateInstallId } from "../browser-install-id";
 
 /**
  * An in-memory folder that throws ENOENT for a missing file, as BrowserWorkspaceFs does. `renames`
@@ -198,11 +198,14 @@ function rejectingLocks(error: unknown) {
   };
 }
 
-test("without navigator.locks the id is refused, not created unlocked", async () => {
+test("without navigator.locks the id is refused with the typed WebView error and its message", async () => {
   const fs = folder({ [INSTALL_ID_PATH]: "web-stored-id" });
   await assert.rejects(
     withLocks(undefined, () => readOrCreateInstallId(fs, () => "web-unlocked-id")),
-    /navigator\.locks/,
+    (error: unknown) =>
+      error instanceof InstallIdLocksUnavailableError &&
+      error.name === "InstallIdLocksUnavailableError" &&
+      error.message === "Update Android System WebView, then reopen WeaveForge",
   );
   assert.equal(fs.files.get(INSTALL_ID_PATH), "web-stored-id");
   assert.equal(fs.renames.length, 0);

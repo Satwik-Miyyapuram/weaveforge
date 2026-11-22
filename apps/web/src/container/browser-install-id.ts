@@ -6,6 +6,17 @@ export const INSTALL_ID_PATH = ".weaveforge/local/install-id";
 
 const LOCK_NAME = "wf-install-id";
 
+/** Shown to the user when the WebView has no Web Locks, so the upgrade screen can name the fix. */
+export const WEBVIEW_UPDATE_MESSAGE = "Update Android System WebView, then reopen WeaveForge";
+
+/** Thrown when navigator.locks is missing, so no install id is created. The message names the fix. */
+export class InstallIdLocksUnavailableError extends Error {
+  override readonly name = "InstallIdLocksUnavailableError";
+  constructor() {
+    super(WEBVIEW_UPDATE_MESSAGE);
+  }
+}
+
 /** The file access the install id needs. `remove` is optional: it only clears a temp file after a failed rename. */
 export type InstallIdFs = Pick<IWorkspaceFs, "readText" | "writeFile" | "rename"> & Partial<Pick<IWorkspaceFs, "remove">>;
 
@@ -24,7 +35,7 @@ export async function readOrCreateInstallId(
 ): Promise<string> {
   const locks = globalThis.navigator?.locks;
   // No unlocked fallback: two tabs could each keep a different id. Refuse instead.
-  if (!locks) throw new Error("install id: navigator.locks is unavailable, so no id is created without the lock");
+  if (!locks) throw new InstallIdLocksUnavailableError();
   return locks.request(LOCK_NAME, () => readOrCreateUnlocked(fs, newId));
 }
 
