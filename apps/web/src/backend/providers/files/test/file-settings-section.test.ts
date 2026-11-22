@@ -44,6 +44,23 @@ class FailFirstPartFs extends MemoryWorkspaceFs {
   }
 }
 
+/** Returns a corrupt settings.json on the first read after `corruptReads` is set, as if another writer had not finished its rename. */
+class FlakyReadFs extends MemoryWorkspaceFs {
+  corruptReads = 0;
+  renamed: string[] = [];
+  override async readText(path: string): Promise<string> {
+    if (path === PATH && this.corruptReads > 0) {
+      this.corruptReads -= 1;
+      return "{not json";
+    }
+    return super.readText(path);
+  }
+  override async rename(from: string, to: string): Promise<void> {
+    this.renamed.push(from);
+    return super.rename(from, to);
+  }
+}
+
 describe("file settings section: crash recovery of settings.json.part", () => {
   it("drops a half-written .part and keeps the last good settings.json", async () => {
     const fs = new MemoryWorkspaceFs();
@@ -97,6 +114,19 @@ describe("file settings section: corrupt settings.json", () => {
     assert.ok(s.notice && s.notice.includes("settings.json.bad-"), String(s.notice));
     const moved = s.notice!.match(/settings\.json\.bad-\S+/)![0];
     assert.equal(await fs.readText(`${ROOT}/.weaveforge/${moved}`), "{ not json");
+  });
+
+  it("a settings.json that reads corrupt once but is valid on the re-read is not moved aside", async () => {
+    const fs = new FlakyReadFs();
+    await fs.mkdirp(`${ROOT}/.weaveforge`);
+    await fs.writeFile(PATH, JSON.stringify({ other: 1 }));
+    const s = await openFileSettingsSection(fs, ROOT);
+    fs.corruptReads = 1;
+    await s.set(["mine"], "x");
+    assert.equal(fs.renamed.includes(PATH), false, "the valid file must not be moved aside");
+    const disk = JSON.parse(await fs.readText(PATH));
+    assert.equal(disk.other, 1);
+    assert.equal(disk.mine, "x");
   });
 });
 

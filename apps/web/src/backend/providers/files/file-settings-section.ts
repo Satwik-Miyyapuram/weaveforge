@@ -105,8 +105,13 @@ export async function openFileSettingsSection(fs: IWorkspaceFs, root: string): P
     const raw = await readRaw();
     const parsed = raw === null ? null : parseObject(raw);
     if (parsed) return { raw, doc: parsed };
-    if (raw !== null) notice = `Unreadable settings moved aside as ${await moveAside(fs, dir, path)} (kept this session's values)`;
-    return { raw: raw === null ? null : await readRaw(), doc: structuredClone(data) };
+    if (raw === null) return { raw, doc: structuredClone(data) };
+    // Read again before moving anything aside: another writer may have just renamed a whole file into place.
+    const again = await readRaw();
+    const reparsed = again === null ? null : parseObject(again);
+    if (reparsed) return { raw: again, doc: reparsed };
+    if (again !== null) notice = `Unreadable settings moved aside as ${await moveAside(fs, dir, path)} (kept this session's values)`;
+    return { raw: again === null ? null : await readRaw(), doc: structuredClone(data) };
   };
 
   /**
