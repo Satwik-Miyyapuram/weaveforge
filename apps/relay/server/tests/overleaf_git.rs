@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use wf_relay_server::overleaf_git::{collect_text_files, read_overleaf_project};
+use wf_relay_server::overleaf_git::{clone_failure, collect_text_files, read_overleaf_project};
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -113,8 +113,64 @@ async fn clone_failure_is_reported() {
     let err = read_overleaf_project(&slash(&base), "missing-1", "main.tex", "tok")
         .await
         .unwrap_err();
-    assert!(err.starts_with("Overleaf git clone failed:"), "{err}");
+    // Fixed wording: git's stderr (with the temp path and the URL) stays out.
+    assert_eq!(err, "Overleaf git clone failed: project not found.");
     let _ = std::fs::remove_dir_all(&base);
+}
+
+#[test]
+fn clone_failure_maps_stderr_to_fixed_wording() {
+    let cases = [
+        (
+            "fatal: Authentication failed for 'https://git.overleaf.com/p1/'",
+            "Overleaf git clone failed: access refused.",
+            "auth",
+        ),
+        (
+            "fatal: unable to access 'https://git.overleaf.com/p1/': The requested URL returned error: 403",
+            "Overleaf git clone failed: access refused.",
+            "auth",
+        ),
+        (
+            "fatal: could not read Username for 'https://git.overleaf.com': terminal prompts disabled",
+            "Overleaf git clone failed: access refused.",
+            "auth",
+        ),
+        (
+            "fatal: repository 'https://git.overleaf.com/p1/' not found",
+            "Overleaf git clone failed: project not found.",
+            "not-found",
+        ),
+        (
+            "fatal: unable to access 'https://git.overleaf.com/p1/': The requested URL returned error: 404",
+            "Overleaf git clone failed: project not found.",
+            "not-found",
+        ),
+        (
+            "fatal: repository 'C:/tmp/x/missing-1' does not exist",
+            "Overleaf git clone failed: project not found.",
+            "not-found",
+        ),
+        (
+            "fatal: unable to access 'https://git.overleaf.com/p1/': Could not resolve host: git.overleaf.com",
+            "Overleaf git clone failed: could not connect.",
+            "network",
+        ),
+        (
+            "fatal: unable to access 'https://git.overleaf.com/p1/': Failed to connect to git.overleaf.com port 443",
+            "Overleaf git clone failed: could not connect.",
+            "network",
+        ),
+        (
+            "fatal: something else with tok and https://user:secret@host/p401",
+            "Overleaf git clone failed: unknown error.",
+            "other",
+        ),
+        ("", "Overleaf git clone failed: unknown error.", "other"),
+    ];
+    for (stderr, message, code) in cases {
+        assert_eq!(clone_failure(stderr), (message, code), "{stderr}");
+    }
 }
 
 #[test]

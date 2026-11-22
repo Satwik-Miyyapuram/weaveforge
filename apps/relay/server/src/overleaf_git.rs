@@ -16,6 +16,8 @@ const TEXT_EXTENSIONS: [&str; 7] = [".tex", ".bib", ".sty", ".cls", ".txt", ".md
 const FILE_LIMIT_ERROR: &str = "Overleaf project exceeds the supported file limit.";
 const SIZE_LIMIT_ERROR: &str = "Overleaf project exceeds the supported text size limit.";
 const UNSAFE_PATH_ERROR: &str = "Overleaf checkout contained an unsafe path.";
+const GIT_RUN_FAILED: &str = "Could not run git on the relay.";
+const READ_FAILED: &str = "The Overleaf read stopped unexpectedly.";
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -58,7 +60,10 @@ pub async fn read_overleaf_project(
     let (id, token) = (project_id.to_string(), token.to_string());
     let joined = tokio::task::spawn_blocking(move || clone_and_collect(&url, &id, &token))
         .await
-        .map_err(|err| err.to_string())?;
+        .map_err(|_| {
+            eprintln!("[overleaf-git] read task failed");
+            READ_FAILED.to_string()
+        })?;
     let files = joined?;
     build_read(project_id, entry_file, files)
 }
@@ -130,14 +135,52 @@ fn clone_project(url: &str, dir: &Path, token: &str) -> Result<(), String> {
             if err.kind() == std::io::ErrorKind::NotFound {
                 "git is not installed on the relay.".to_string()
             } else {
-                err.to_string()
+                eprintln!("[overleaf-git] spawn failed: {:?}", err.kind());
+                GIT_RUN_FAILED.to_string()
             }
         })?;
     if output.status.success() {
         return Ok(());
     }
-    let stderr = String::from_utf8_lossy(&output.stderr).replace(&encoded, "[redacted]");
-    Err(format!("Overleaf git clone failed: {}", stderr.trim()))
+    // git's stderr names the URL and the temp path: only a fixed message and a short code leave.
+    let (message, code) = clone_failure(&String::from_utf8_lossy(&output.stderr));
+    let exit = output.status.code().unwrap_or(-1);
+    eprintln!("[overleaf-git] clone failed: {code} exit={exit}");
+    Err(message.to_string())
+}
+
+/// The fixed message and log code for a failed clone, picked from git's stderr. Exposed for tests.
+#[must_use]
+pub fn clone_failure(stderr: &str) -> (&'static str, &'static str) {
+    let text = stderr.to_lowercase();
+    let has = |needles: &[&str]| needles.iter().any(|needle| text.contains(needle));
+    if has(&[
+        "authentication failed",
+        "returned error: 401",
+        "returned error: 403",
+        "could not read username",
+        "could not read password",
+    ]) {
+        ("Overleaf git clone failed: access refused.", "auth")
+    } else if has(&[
+        "not found",
+        "returned error: 404",
+        "does not exist",
+        "does not appear to be a git repository",
+    ]) {
+        ("Overleaf git clone failed: project not found.", "not-found")
+    } else if has(&[
+        "could not resolve host",
+        "failed to connect",
+        "couldn't connect",
+        "connection refused",
+        "connection timed out",
+        "operation timed out",
+    ]) {
+        ("Overleaf git clone failed: could not connect.", "network")
+    } else {
+        ("Overleaf git clone failed: unknown error.", "other")
+    }
 }
 
 fn visit(
@@ -146,15 +189,15 @@ fn visit(
     files: &mut Vec<LatexSourceFile>,
     total: &mut u64,
 ) -> Result<(), String> {
-    let entries = std::fs::read_dir(directory).map_err(|err| err.to_string())?;
+    let entries = std::fs::read_dir(directory).map_err(|err| read_failed(&err))?;
     for entry in entries {
-        let entry = entry.map_err(|err| err.to_string())?;
+        let entry = entry.map_err(|err| read_failed(&err))?;
         if files.len() >= MAX_FILES {
             return Err(FILE_LIMIT_ERROR.to_string());
         }
         let full = entry.path();
         // `file_type` does not follow symlinks, so a link cannot read outside the checkout.
-        let file_type = entry.file_type().map_err(|err| err.to_string())?;
+        let file_type = entry.file_type().map_err(|err| read_failed(&err))?;
         if file_type.is_dir() {
             if entry.file_name() != ".git" {
                 visit(root, &full, files, total)?;
@@ -164,6 +207,12 @@ fn visit(
         }
     }
     Ok(())
+}
+
+/// A checkout read error: logged by kind only (its text can name the temp path), fixed message out.
+fn read_failed(err: &std::io::Error) -> String {
+    eprintln!("[overleaf-git] checkout read failed: {:?}", err.kind());
+    READ_FAILED.to_string()
 }
 
 fn is_text_file(path: &Path) -> bool {
@@ -180,12 +229,12 @@ fn add_file(
     total: &mut u64,
 ) -> Result<(), String> {
     let size = std::fs::metadata(full)
-        .map_err(|err| err.to_string())?
+        .map_err(|err| read_failed(&err))?
         .len();
     if size > MAX_FILE_BYTES || *total + size > MAX_TOTAL_BYTES {
         return Err(SIZE_LIMIT_ERROR.to_string());
     }
-    let bytes = std::fs::read(full).map_err(|err| err.to_string())?;
+    let bytes = std::fs::read(full).map_err(|err| read_failed(&err))?;
     let path = relative_path(root, full)?;
     files.push(LatexSourceFile {
         path,
