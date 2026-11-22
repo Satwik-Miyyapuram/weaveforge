@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { test } from "node:test";
 import { runWebExport } from "../application/run-web-export";
 import type { FileCodec, Row, ServerSource } from "../domain/ports";
-import { REPORT_PATH, readMigrationReport } from "../domain/report";
+import { readMigrationRuns } from "../domain/report";
 import { MemorySink } from "../infrastructure/memory-sink";
 
 const NOW = "2026-11-22T00:00:00.000Z";
@@ -97,8 +97,8 @@ test("orphans: a row deleted since the last run is listed as an orphan and its f
   assert.deepEqual(second.run.orphans, ["logEntries/l2.json"]);
   assert.equal(await sink.readText("logEntries/l2.json"), before, "the orphan file is never deleted or changed");
   assert.equal(second.state, "verified", "orphans do not block verify");
-  const report = await readMigrationReport(sink);
-  assert.deepEqual(report?.runs[0]?.orphans, ["logEntries/l2.json"]);
+  const runs = await readMigrationRuns(sink);
+  assert.deepEqual(runs?.[0]?.orphans, ["logEntries/l2.json"]);
 });
 
 test("orphans: another device's files are never flagged; only this device's own previous run is compared", async () => {
@@ -109,8 +109,8 @@ test("orphans: another device's files are never flagged; only this device's own 
 
   assert.deepEqual(other.run.orphans ?? [], [], "dev-b never wrote l2, so l2 is not its orphan");
   assert.equal(await sink.readText("logEntries/l2.json"), JSON.stringify(L2), "dev-a's file is untouched");
-  const report = await readMigrationReport(sink);
-  const devA = report?.runs.find((r) => r.deviceId === "dev-a");
+  const runs = await readMigrationRuns(sink);
+  const devA = runs?.find((r) => r.deviceId === "dev-a");
   assert.ok(devA, "dev-b's run replaces only dev-b's entry, so dev-a's run is kept");
   assert.equal(devA.orphans, undefined, "dev-a's own run never reports dev-b's files");
 });

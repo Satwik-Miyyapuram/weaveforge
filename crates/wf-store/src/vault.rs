@@ -199,10 +199,8 @@ impl Vault {
         } else if recursive {
             fs::remove_dir_all(&target)
         } else {
-            Err(io::Error::new(
-                io::ErrorKind::IsADirectory,
-                "a folder needs recursive removal",
-            ))
+            // Without `recursive` only an empty folder goes; a non-empty one is refused, never emptied.
+            fs::remove_dir(&target)
         };
         outcome.map_err(|source| io_err("remove", rel, source))
     }

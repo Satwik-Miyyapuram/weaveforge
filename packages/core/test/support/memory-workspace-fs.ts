@@ -45,15 +45,23 @@ export class MemoryWorkspaceFs implements IWorkspaceFs {
 
   async remove(path: string, options?: { recursive?: boolean }): Promise<void> {
     const safe = safeWorkspacePath(path);
-    this.files.delete(safe);
+    const within = (key: string) => key.startsWith(`${safe}/`);
     if (options?.recursive) {
+      this.files.delete(safe);
       for (const key of [...this.files.keys()]) {
-        if (key.startsWith(`${safe}/`)) this.files.delete(key);
+        if (within(key)) this.files.delete(key);
       }
       for (const key of [...this.dirs]) {
-        if (key === safe || key.startsWith(`${safe}/`)) this.dirs.delete(key);
+        if (key === safe || within(key)) this.dirs.delete(key);
       }
+      return;
     }
+    if (this.files.delete(safe)) return;
+    // Like rmdir: a folder goes only when it is empty.
+    if ([...this.files.keys()].some(within) || [...this.dirs].some(within)) {
+      throw new Error(`ENOTEMPTY: ${path}`);
+    }
+    this.dirs.delete(safe);
   }
 
   async mkdirp(path: string): Promise<void> {
@@ -78,6 +86,14 @@ export class MemoryWorkspaceFs implements IWorkspaceFs {
         });
       } else {
         const dirPath = prefix + rest.slice(0, slash);
+        seen.set(dirPath, { path: dirPath, size: 0, modifiedAt: this.now(), kind: "dir" });
+      }
+    }
+    // Folders made by mkdirp with nothing in them, like the desktop listing.
+    for (const dirKey of this.dirs) {
+      if (!dirKey.startsWith(prefix) || dirKey.length === prefix.length) continue;
+      const dirPath = prefix + dirKey.slice(prefix.length).split("/")[0];
+      if (!seen.has(dirPath)) {
         seen.set(dirPath, { path: dirPath, size: 0, modifiedAt: this.now(), kind: "dir" });
       }
     }

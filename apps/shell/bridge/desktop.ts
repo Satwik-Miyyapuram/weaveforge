@@ -134,6 +134,9 @@ export interface DesktopCommands {
   secretRead(name: DesktopSecretName): Promise<Result<string | null>>;
   secretWrite(name: DesktopSecretName, value: string): Promise<Result<null>>;
   secretClear(name: DesktopSecretName): Promise<Result<null>>;
+  migrate097MoveSecrets(): Promise<Result<null>>;
+  legacyDbPresent(): Promise<boolean>;
+  legacyDirMissing(): Promise<boolean>;
   planWidgetState(): Promise<Result<DesktopPlanWidget>>;
   planWidgetSet(on: boolean): Promise<Result<DesktopPlanWidget>>;
   planWidgetTheme(palette: unknown): Promise<Result<null>>;
@@ -341,6 +344,9 @@ export type DesktopShim = Pick<
   | "readSecret"
   | "writeSecret"
   | "clearSecret"
+  | "migrate097MoveSecrets"
+  | "legacyDbPresent"
+  | "legacyDirMissing"
   | "planWidgetState"
   | "setPlanWidget"
   | "setPlanWidgetTheme"
@@ -673,6 +679,11 @@ export function desktopShim(
     clearSecret: async (name) => {
       unwrap(await cmds.secretClear(name));
     },
+    migrate097MoveSecrets: async () => {
+      unwrap(await cmds.migrate097MoveSecrets());
+    },
+    legacyDbPresent: () => cmds.legacyDbPresent(),
+    legacyDirMissing: () => cmds.legacyDirMissing(),
     planWidgetState: async () => unwrap(await cmds.planWidgetState()),
     setPlanWidget: async (on) => unwrap(await cmds.planWidgetSet(on)),
     setPlanWidgetTheme: (palette) => {

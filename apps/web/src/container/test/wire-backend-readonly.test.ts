@@ -5,7 +5,7 @@ import { after, before, test } from "node:test";
 
 import { loadTestCore } from "@/lib/test/load-test-core";
 import { wireBackend } from "../parts";
-import { ORG_SERVER_TABLES } from "../org-server-allowlist";
+import { ORG_SERVER_WRITE_TABLES } from "../org-server-allowlist";
 import { READ_ONLY_KEYS } from "../read-only-repositories";
 
 before(loadTestCore);
@@ -59,7 +59,7 @@ test("the desktop read-only fallback sends no personal-table write to the server
       r.table !== "" &&
       r.method !== "GET" &&
       r.method !== "HEAD" &&
-      !(ORG_SERVER_TABLES as readonly string[]).includes(r.table),
+      !(ORG_SERVER_WRITE_TABLES as readonly string[]).includes(r.table),
   );
   assert.deepEqual(personalWrites, [], "no personal-table write reached the server");
 });

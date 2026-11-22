@@ -55,15 +55,13 @@ export class FilePaperFieldRepository implements IPaperFieldRepository {
     );
   }
 
-  saveDef({ id, name, kind, options, sortOrder }: PaperFieldDef): Promise<void> {
-    this.settings.set([DEFS, id], { projectId: this.root(), name, kind, options: [...options], sortOrder });
-    return Promise.resolve();
+  async saveDef({ id, name, kind, options, sortOrder }: PaperFieldDef): Promise<void> {
+    await this.settings.set([DEFS, id], { projectId: this.root(), name, kind, options: [...options], sortOrder });
   }
 
   /** Drops the definition; papers keep their values in the file, unlisted. A definition of another project is left alone. */
-  deleteDef(id: string): Promise<void> {
-    if (this.defs().has(id)) this.settings.set([DEFS, id], undefined);
-    return Promise.resolve();
+  async deleteDef(id: string): Promise<void> {
+    if (this.defs().has(id)) await this.settings.set([DEFS, id], undefined);
   }
 
   /** Re-tags this project's definitions when its folder moves from `from` to `to`; other projects' are left alone. */
@@ -73,7 +71,7 @@ export class FilePaperFieldRepository implements IPaperFieldRepository {
     let moved = false;
     for (const [id, d] of Object.entries(raw as Record<string, Record<string, unknown>>)) {
       if (d && typeof d === "object" && (typeof d.projectId === "string" ? d.projectId : "") === from) {
-        this.settings.set([DEFS, id, "projectId"], to);
+        await this.settings.set([DEFS, id, "projectId"], to);
         moved = true;
       }
     }

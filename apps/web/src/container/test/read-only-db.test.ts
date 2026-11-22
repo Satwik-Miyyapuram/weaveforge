@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { readOnlyBackend, readOnlyDb, READ_ONLY_MESSAGE } from "../read-only-repositories";
+import { ReadOnlyError, readOnlyBackend, readOnlyDb } from "../read-only-repositories";
 
 /** A db stand-in that counts each call that reaches it, so a test can tell a refused call from a passed one. */
 function fakeDb() {
@@ -23,10 +23,10 @@ function fakeDb() {
 test("a personal table write through db is refused before it reaches the database", () => {
   const { db, calls } = fakeDb();
   const guarded = readOnlyDb(db);
-  assert.throws(() => guarded.from("projects").insert({ name: "x" }), new Error(READ_ONLY_MESSAGE));
-  assert.throws(() => guarded.from("papers").update({}), new Error(READ_ONLY_MESSAGE));
-  assert.throws(() => guarded.from("papers").upsert({}), new Error(READ_ONLY_MESSAGE));
-  assert.throws(() => guarded.from("papers").delete(), new Error(READ_ONLY_MESSAGE));
+  assert.throws(() => guarded.from("projects").insert({ name: "x" }), new ReadOnlyError());
+  assert.throws(() => guarded.from("papers").update({}), new ReadOnlyError());
+  assert.throws(() => guarded.from("papers").upsert({}), new ReadOnlyError());
+  assert.throws(() => guarded.from("papers").delete(), new ReadOnlyError());
   assert.deepEqual(calls, [], "no write reached the database");
 });
 
@@ -48,8 +48,8 @@ test("reads through db pass on any table", () => {
 test("an rpc that writes a personal table is refused; an org rpc and a read rpc pass", () => {
   const { db, calls } = fakeDb();
   const guarded = readOnlyDb(db);
-  assert.throws(() => guarded.rpc("compact_crdt_log", {}), new Error(READ_ONLY_MESSAGE));
-  assert.throws(() => guarded.rpc("unlisted_write_fn", {}), new Error(READ_ONLY_MESSAGE));
+  assert.throws(() => guarded.rpc("compact_crdt_log", {}), new ReadOnlyError());
+  assert.throws(() => guarded.rpc("unlisted_write_fn", {}), new ReadOnlyError());
   assert.equal(guarded.rpc("create_organization_atomic", {}), "called");
   assert.equal(guarded.rpc("api_token_scopes", {}), "called");
   assert.deepEqual(calls, ["rpc create_organization_atomic", "rpc api_token_scopes"]);
@@ -58,7 +58,65 @@ test("an rpc that writes a personal table is refused; an org rpc and a read rpc 
 test("readOnlyBackend guards db and keeps org writes working", () => {
   const { db, calls } = fakeDb();
   const backend = readOnlyBackend({ db, projectRepository: { create: () => "made" } });
-  assert.throws(() => backend.db.from("projects").insert({}), new Error(READ_ONLY_MESSAGE));
+  assert.throws(() => backend.db.from("projects").insert({}), new ReadOnlyError());
   assert.equal(backend.db.from("comments").insert({}), "inserted");
   assert.deepEqual(calls, ["insert comments"]);
+});
+
+test("projects, user_settings, milestones and experiments refuse insert, update and upsert", () => {
+  const { db, calls } = fakeDb();
+  const guarded = readOnlyDb(db);
+  for (const table of ["projects", "user_settings", "milestones", "experiments"]) {
+    assert.throws(() => guarded.from(table).insert({}), new ReadOnlyError(), `${table} insert`);
+    assert.throws(() => guarded.from(table).update({}), new ReadOnlyError(), `${table} update`);
+    assert.throws(() => guarded.from(table).upsert({}), new ReadOnlyError(), `${table} upsert`);
+  }
+  assert.deepEqual(calls, [], "no write reached the database");
+});
+
+test("an experiment crdt_updates insert passes the guard (live-share relay append)", () => {
+  const { db, calls } = fakeDb();
+  const guarded = readOnlyDb(db);
+  assert.equal(guarded.from("crdt_updates").insert({ resource_type: "experiment" }), "inserted");
+  assert.deepEqual(calls, ["insert crdt_updates"]);
+});
+
+test("crdt_updates: insert of a live-share type passes; update, upsert and delete are refused", () => {
+  const { db, calls } = fakeDb();
+  const guarded = readOnlyDb(db);
+  for (const type of ["experiment", "lab_snapshot"]) {
+    assert.equal(guarded.from("crdt_updates").insert({ resource_type: type }), "inserted", type);
+  }
+  assert.throws(() => guarded.from("crdt_updates").update({}), new ReadOnlyError(), "update");
+  assert.throws(() => guarded.from("crdt_updates").upsert({}), new ReadOnlyError(), "upsert");
+  assert.throws(() => guarded.from("crdt_updates").delete(), new ReadOnlyError(), "delete");
+  assert.deepEqual(calls, ["insert crdt_updates", "insert crdt_updates"]);
+});
+
+test("crdt_updates: a personal resource_type insert is refused before it reaches the database", () => {
+  const { db, calls } = fakeDb();
+  const guarded = readOnlyDb(db);
+  for (const type of ["paper", "vault_page", "reading_list", "report_section", "milestone"]) {
+    assert.throws(() => guarded.from("crdt_updates").insert({ resource_type: type }), new ReadOnlyError(), type);
+  }
+  assert.throws(() => guarded.from("crdt_updates").insert([{ resource_type: "experiment" }, { resource_type: "paper" }]), new ReadOnlyError(), "mixed batch");
+  assert.deepEqual(calls, [], "no personal crdt row reached the database");
+});
+
+test("crdt_updates delete (deleteUpTo's from().delete()) is refused even for live-share types", () => {
+  // No live caller of deleteUpTo exists (only the port, the files-mode wrapper and the
+  // Rust planner). Pinned so a future caller in files mode is a deliberate change here.
+  const { db, calls } = fakeDb();
+  const guarded = readOnlyDb(db);
+  for (const type of ["experiment", "lab_snapshot"]) {
+    assert.throws(() => guarded.from("crdt_updates").delete(), new ReadOnlyError(), type);
+  }
+  assert.deepEqual(calls, [], "no crdt delete reached the database");
+});
+
+test("a profiles upsert passes the guard (lab-directory saveProfile)", () => {
+  const { db, calls } = fakeDb();
+  const guarded = readOnlyDb(db);
+  assert.equal(guarded.from("profiles").upsert({}), "upserted");
+  assert.deepEqual(calls, ["upsert profiles"]);
 });

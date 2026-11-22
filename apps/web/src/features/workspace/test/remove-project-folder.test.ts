@@ -99,3 +99,138 @@ test("F97-P1-1: a second removal the same day does not overwrite the first in th
     .sort();
   assert.deepEqual(texts, ["first", "second"]);
 });
+
+/** Writes `late` into the tree just before the first remove: a file that lands after the walk. */
+class LateWriteFs extends MemoryWorkspaceFs {
+  constructor(private late: string | null) {
+    super();
+  }
+
+  override async remove(path: string, options?: { recursive?: boolean }): Promise<void> {
+    if (this.late) {
+      const late = this.late;
+      this.late = null;
+      await this.writeFile(late, "late");
+    }
+    return super.remove(path, options);
+  }
+}
+
+test("F97-P2-1: a file that appears after the walk survives the folder removal", async () => {
+  const fs = new LateWriteFs("zz-verify-082--ac0e9a/notes/late.md");
+  await fs.writeFile("zz-verify-082--ac0e9a/notes/a.md", "x");
+  assert.equal(await removeProjectFolder(fs, project), "zz-verify-082--ac0e9a");
+  assert.equal(await fs.readText("zz-verify-082--ac0e9a/notes/late.md"), "late");
+  assert.equal(await fs.stat("zz-verify-082--ac0e9a/notes/a.md"), null);
+  assert.deepEqual(trashed(fs), ["zz-verify-082--ac0e9a/notes/a.md"]);
+});
+
+test("F97-P2-1: emptied folders are removed bottom-up once nothing is left in them", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile("zz-verify-082--ac0e9a/notes/deep/a.md", "x");
+  assert.equal(await removeProjectFolder(fs, project), "zz-verify-082--ac0e9a");
+  assert.equal(await fs.stat("zz-verify-082--ac0e9a/notes/deep"), null);
+  assert.equal(await fs.stat("zz-verify-082--ac0e9a/notes"), null);
+  assert.equal(await fs.stat("zz-verify-082--ac0e9a"), null);
+});
+
+test("F97-P1-2: an empty subfolder inside the project is removed with it", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile("zz-verify-082--ac0e9a/notes/a.md", "x");
+  await fs.mkdirp("zz-verify-082--ac0e9a/empty/inner");
+  assert.equal(await removeProjectFolder(fs, project), "zz-verify-082--ac0e9a");
+  assert.equal(await fs.stat("zz-verify-082--ac0e9a/empty"), null);
+  assert.equal(await fs.stat("zz-verify-082--ac0e9a"), null);
+});
+
+/** Records every remove call, so a test can assert no recursive remove was ever used. */
+class RecordingFs extends MemoryWorkspaceFs {
+  readonly removes: { path: string; recursive: boolean }[] = [];
+
+  override async remove(path: string, options?: { recursive?: boolean }): Promise<void> {
+    this.removes.push({ path, recursive: options?.recursive === true });
+    return super.remove(path, options);
+  }
+}
+
+test("F97-P1-2: folders are removed without recursion, and a folder that still holds a file is kept without a log", async () => {
+  const fs = new LateWriteFs("zz-verify-082--ac0e9a/notes/late.md");
+  await fs.writeFile("zz-verify-082--ac0e9a/notes/a.md", "x");
+  await fs.mkdirp("zz-verify-082--ac0e9a/empty");
+  const logged: { level: string; message: string }[] = [];
+  const window = (globalThis as { window?: unknown }).window;
+  (globalThis as { window?: unknown }).window = {
+    weaveforge: {
+      fetchTitle: () => undefined,
+      reportAppLog: (entry: { level: string; message: string }) => logged.push(entry),
+    },
+  };
+  try {
+    assert.equal(await removeProjectFolder(fs, project), "zz-verify-082--ac0e9a");
+  } finally {
+    (globalThis as { window?: unknown }).window = window;
+  }
+  assert.equal(await fs.readText("zz-verify-082--ac0e9a/notes/late.md"), "late");
+  assert.equal(await fs.stat("zz-verify-082--ac0e9a/empty"), null);
+  assert.equal(logged.length, 0);
+});
+
+test("F97-P1-2: the folder removal never asks for a recursive remove", async () => {
+  const fs = new RecordingFs();
+  await fs.writeFile("zz-verify-082--ac0e9a/notes/deep/a.md", "x");
+  await fs.mkdirp("zz-verify-082--ac0e9a/empty");
+  assert.equal(await removeProjectFolder(fs, project), "zz-verify-082--ac0e9a");
+  assert.ok(fs.removes.length > 0);
+  assert.equal(fs.removes.every((call) => !call.recursive), true);
+});
+
+/** Throws `failure` when asked to remove the notes folder, as the desktop does for a folder it cannot remove. */
+class FailingRemoveFs extends MemoryWorkspaceFs {
+  constructor(private readonly failure: Error) {
+    super();
+  }
+
+  override async remove(path: string, options?: { recursive?: boolean }): Promise<void> {
+    if (path === "zz-verify-082--ac0e9a/notes") throw this.failure;
+    return super.remove(path, options);
+  }
+}
+
+function coded(code: string): Error {
+  return Object.assign(new Error(`${code}: zz-verify-082--ac0e9a/notes`), { code });
+}
+
+/** Runs a removal whose removal of the notes folder throws `failure`; returns what was logged. */
+async function logsWhenRemovalFails(failure: Error): Promise<{ level: string; message: string }[]> {
+  const fs = new FailingRemoveFs(failure);
+  await fs.writeFile("zz-verify-082--ac0e9a/notes/a.md", "x");
+  const logged: { level: string; message: string }[] = [];
+  const window = (globalThis as { window?: unknown }).window;
+  (globalThis as { window?: unknown }).window = {
+    weaveforge: {
+      fetchTitle: () => undefined,
+      reportAppLog: (entry: { level: string; message: string }) => logged.push(entry),
+    },
+  };
+  try {
+    await removeProjectFolder(fs, project);
+  } finally {
+    (globalThis as { window?: unknown }).window = window;
+  }
+  return logged;
+}
+
+test("F97-P2-3: a folder that is not empty when removed is kept without a log", async () => {
+  assert.deepEqual(await logsWhenRemovalFails(coded("ENOTEMPTY")), []);
+});
+
+test("F97-P2-3: a folder already gone when removed is kept without a log", async () => {
+  assert.deepEqual(await logsWhenRemovalFails(coded("ENOENT")), []);
+});
+
+test("F97-P2-3: any other failure to remove a folder is logged", async () => {
+  const logged = await logsWhenRemovalFails(coded("EACCES"));
+  assert.equal(logged.length, 1);
+  assert.equal(logged[0]!.level, "warn");
+  assert.match(logged[0]!.message, /zz-verify-082--ac0e9a\/notes/);
+});

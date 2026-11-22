@@ -27,7 +27,7 @@ export function wireDesktopFileBackend(
 ): (config: BackendConfig, projectContext: { projectId: string | null }, pid: () => string | null) => WiredPostgrestBackend {
   return (config, projectContext, pid) => {
     // The client is guarded before the repositories are built on it, so no repository holds the raw one.
-    const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, readOnlyDb);
+    const postgrest = wirePostgrestBackend(config, projectContext, pid, undefined, { filesMode: true }, readOnlyDb);
     const files = wireFileBackend({
       fs: new DesktopWorkspaceFs(bridge),
       settings,

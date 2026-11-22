@@ -53,7 +53,10 @@ export function CalendarFeedPanel() {
 
   // Reload for each account. A link that answers after the account changed
   // belongs to the previous one and is dropped (P2-237).
+  const feedLinksAvailable = getContainer().plan.feedLinksAvailable;
+
   useEffect(() => {
+    if (!feedLinksAvailable) return;
     let live = true;
     setLoading(true);
     setError(null);
@@ -64,7 +67,7 @@ export function CalendarFeedPanel() {
       (err: unknown) => { if (live) setError(formatError(err)); },
     ).finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [user?.id]);
+  }, [user?.id, feedLinksAvailable]);
 
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -106,6 +109,15 @@ export function CalendarFeedPanel() {
       setCopied(key);
       window.setTimeout(() => setCopied(null), 1200);
     });
+  }
+
+  if (!feedLinksAvailable) {
+    return (
+      <div id="settings-calendar" className="add-form settings-anchor calendar-feed" role="tabpanel" aria-labelledby="settings-tab-calendar">
+        <h3 className="settings-group">Deadlines in your calendar</h3>
+        <p className="muted api-token-intro">The calendar link is not available in files mode.</p>
+      </div>
+    );
   }
 
   return (

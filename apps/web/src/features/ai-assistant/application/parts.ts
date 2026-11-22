@@ -1,3 +1,4 @@
+import { logToApp } from "@/lib/error-report/app-log";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readyCore, typedCore } from "@/lib/rust-core";
 import {
@@ -122,11 +123,26 @@ export async function forgetStoredProvider(): Promise<void> {
  * module, but it survives upgrades that change the descriptor's shape, and a
  * half-valid provider would fail later at the model call — where the message
  * would be the provider's rather than ours.
+ *
+ * A keychain that refuses to answer (locked, or no keychain) also counts as
+ * nothing stored, so the AI settings stay usable. The log names the failure and
+ * never the value.
  */
 export async function restoreActiveProvider(): Promise<boolean> {
   const bridge = desktop();
   if (!bridge) return false;
-  const stored = await bridge.readSecret(SECRET);
+  let stored: string | null;
+  try {
+    stored = await bridge.readSecret(SECRET);
+  } catch (err) {
+    logToApp({
+      level: "warn",
+      source: "ai-provider",
+      message: "Could not restore the stored AI provider",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+    return false;
+  }
   if (!stored) return false;
   const parsed = parseStored(stored);
   if (!parsed) return false;
@@ -195,10 +211,12 @@ export async function importFolderDrafts(
       await queue(draft);
     } catch (err) {
       firstError ??= err;
-      // A new draft written under the same name meanwhile wins; ours stays claimed.
-      if (!(await fs.stat(entry.path).catch(() => null))) {
-        await fs.rename(claimed, entry.path).catch(() => undefined);
-      }
+      // Put the draft back for the next pass. A new draft written under the same name
+      // meanwhile keeps that name, and ours takes the next free `.json` name: a `.claimed`
+      // file is not a draft path, so it would never be queued again.
+      const taken = await fs.stat(entry.path).catch(() => null);
+      const back = taken ? await freeDraftName(fs, entry.path) : entry.path;
+      await fs.rename(claimed, back).catch(() => undefined);
       continue;
     }
     imported += 1;
@@ -208,11 +226,20 @@ export async function importFolderDrafts(
   return imported;
 }
 
+/** `<stem>-2.json`, `-3.json`, ... : the first free draft name after `path`, which ends in `.json`. */
+async function freeDraftName(fs: IWorkspaceFs, path: string): Promise<string> {
+  const stem = path.slice(0, -".json".length);
+  for (let n = 2; ; n += 1) {
+    const name = `${stem}-${n}.json`;
+    if (!(await fs.stat(name).catch(() => null))) return name;
+  }
+}
+
 /** `<path>.claimed`, or `<path>.claimed-2`, `-3`, ... when that is taken. */
 async function freeClaimedName(fs: IWorkspaceFs, path: string): Promise<string> {
   for (let n = 1; ; n += 1) {
     const name = n === 1 ? `${path}.claimed` : `${path}.claimed-${n}`;
-    if (!(await fs.stat(name))) return name;
+    if (!(await fs.stat(name).catch(() => null))) return name;
   }
 }
 

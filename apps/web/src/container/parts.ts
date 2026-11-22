@@ -388,7 +388,7 @@ export function wireBackend(
           files: wire ? () => ({ ...wire(config, projectContext, pid), filesMode: true }) : undefined,
           old: () => ({ ...wirePostgrestBackend(config, projectContext, pid), filesMode: false }),
           readOnly: () => ({
-            ...readOnlyBackend(wirePostgrestBackend(config, projectContext, pid, undefined, readOnlyDb)),
+            ...readOnlyBackend(wirePostgrestBackend(config, projectContext, pid, undefined, undefined, readOnlyDb)),
             filesMode: false,
           }),
         },
