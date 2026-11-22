@@ -395,13 +395,29 @@ async fn compile_returns_status_and_output_files() {
 async fn compile_overleaf_403_is_502() {
     let up = upstream(vec![
         (TABLE, vec![row_reply()]),
-        (COMPILE, vec![response(403, &[], b"denied")]),
+        (COMPILE, vec![response(403, &[], b"denied secret-token")]),
     ])
     .await;
     let req = request("POST", &format!("{PREFIX}/compile"), &work_body(), true);
     let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
     assert_eq!(status, StatusCode::BAD_GATEWAY);
-    assert_eq!(error_of(&reply), "403: denied");
+    assert_eq!(error_of(&reply), "Overleaf refused the request (HTTP 403).");
+}
+
+#[tokio::test]
+async fn projects_overleaf_error_is_502_without_its_body() {
+    let up = upstream(vec![
+        (TABLE, vec![row_reply()]),
+        (
+            "/user/projects",
+            vec![response(500, &[], b"stack trace secret-token")],
+        ),
+    ])
+    .await;
+    let req = request("POST", &format!("{PREFIX}/projects"), &session_body(), true);
+    let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(error_of(&reply), "Overleaf refused the request (HTTP 500).");
 }
 
 #[tokio::test]
@@ -440,6 +456,29 @@ async fn pdf_failure_status_is_502() {
     let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
     assert_eq!(status, StatusCode::BAD_GATEWAY);
     assert_eq!(error_of(&reply), "Compile failed (status failure).");
+}
+
+#[tokio::test]
+async fn pdf_odd_compile_status_is_not_echoed() {
+    let odd = [
+        r#"{"status":{"detail":"secret-token"},"outputFiles":[]}"#,
+        r#"{"status":"failed at https://overleaf.internal/secret-token","outputFiles":[]}"#,
+    ];
+    for failed in odd {
+        let up = upstream(vec![
+            (TABLE, vec![row_reply()]),
+            (COMPILE, vec![json_reply(200, failed)]),
+        ])
+        .await;
+        let req = request("POST", &format!("{PREFIX}/pdf"), &work_body(), true);
+        let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
+        assert_eq!(status, StatusCode::BAD_GATEWAY, "{failed}");
+        assert_eq!(
+            error_of(&reply),
+            "Compile failed (status unknown).",
+            "{failed}"
+        );
+    }
 }
 
 #[tokio::test]

@@ -8,6 +8,14 @@ use reqwest::header::{CONTENT_TYPE, COOKIE, SET_COOKIE};
 use serde_json::{Value, json};
 use wf_core::overleaf_workshop::{cdn_pdf_url, parse_overleaf_meta};
 
+use crate::safe_error::transport_log_line;
+
+/// The log context for this client.
+const CONTEXT: &str = "overleaf";
+/// The message for a request that never got a reply; the URL stays out.
+const REACH_FAILED: &str = "Could not reach Overleaf.";
+/// The message for a 200 reply that does not parse as JSON.
+const NOT_JSON: &str = "Overleaf sent a reply that is not JSON.";
 /// Retries after the first attempt for JSON calls.
 const MAX_HTTP_RETRIES: u32 = 2;
 /// Upper bound on PDF download rounds (the TS has none).
@@ -39,7 +47,7 @@ impl OverleafApi {
         let client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .build()
-            .map_err(|err| err.to_string())?;
+            .map_err(|err| unreached(&err))?;
         let base = if base.ends_with('/') {
             base.to_string()
         } else {
@@ -60,8 +68,8 @@ impl OverleafApi {
             .header(COOKIE, cookies)
             .send()
             .await
-            .map_err(|err| err.to_string())?;
-        let html = page.text().await.map_err(|err| err.to_string())?;
+            .map_err(|err| unreached(&err))?;
+        let html = page.text().await.map_err(|err| unreached(&err))?;
         let Some(meta) = parse_overleaf_meta(&html) else {
             return Ok(None);
         };
@@ -71,7 +79,7 @@ impl OverleafApi {
             .header(COOKIE, cookies)
             .send()
             .await
-            .map_err(|err| err.to_string())?;
+            .map_err(|err| unreached(&err))?;
         let pair = script
             .headers()
             .get(SET_COOKIE)
@@ -158,11 +166,13 @@ impl OverleafApi {
             let failure = match self.send(identity, route, post, extra).await {
                 Ok((200, bytes)) => match serde_json::from_slice::<Value>(&bytes) {
                     Ok(value) => return Ok(value),
-                    Err(err) => err.to_string(),
+                    Err(_) => NOT_JSON.to_string(),
                 },
                 Ok((204, _)) => EMPTY_REPLY.to_string(),
-                Ok((status, bytes)) => {
-                    let message = format!("{status}: {}", String::from_utf8_lossy(&bytes));
+                Ok((status, _)) => {
+                    // The body is Overleaf's own page and may carry account details; only the status leaves.
+                    eprintln!("[{CONTEXT}] HTTP {status}");
+                    let message = format!("Overleaf refused the request (HTTP {status}).");
                     if !(status >= 500 || status == 429) || last {
                         return Err(message);
                     }
@@ -208,9 +218,9 @@ impl OverleafApi {
         for (name, value) in extra {
             request = request.header(*name, *value);
         }
-        let response = request.send().await.map_err(|err| err.to_string())?;
+        let response = request.send().await.map_err(|err| unreached(&err))?;
         let status = response.status().as_u16();
-        let bytes = response.bytes().await.map_err(|err| err.to_string())?;
+        let bytes = response.bytes().await.map_err(|err| unreached(&err))?;
         Ok((status, bytes.to_vec()))
     }
 
@@ -232,12 +242,12 @@ impl OverleafApi {
             if let Some(cookies) = cookies {
                 request = request.header(COOKIE, cookies);
             }
-            let response = request.send().await.map_err(|err| err.to_string())?;
+            let response = request.send().await.map_err(|err| unreached(&err))?;
             let status = response.status().as_u16();
             if status != 200 && status != 206 {
                 break;
             }
-            let chunk = response.bytes().await.map_err(|err| err.to_string())?;
+            let chunk = response.bytes().await.map_err(|err| unreached(&err))?;
             out.extend_from_slice(&chunk);
             if status == 200 {
                 break;
@@ -245,6 +255,12 @@ impl OverleafApi {
         }
         Ok(out)
     }
+}
+
+/// Logs a failed request by kind and returns the fixed message: the error's text names the URL.
+fn unreached(err: &reqwest::Error) -> String {
+    eprintln!("{}", transport_log_line(err, CONTEXT));
+    REACH_FAILED.to_string()
 }
 
 /// Moves a project's `_id` to `id`, as the TS does.

@@ -335,11 +335,19 @@ async fn download_pdf(
     Ok(pdf)
 }
 
-/// The compile status as the TS message shows it: the string, its JSON text, or "undefined".
+/// The compile status for the message: a short word like `failure` or `timedout`,
+/// "undefined" when missing, else "unknown" (Overleaf's other text is not echoed).
 fn compile_status(compiled: &Value) -> String {
     match compiled.get("status") {
-        Some(Value::String(status)) => status.clone(),
-        Some(other) => other.to_string(),
+        Some(Value::String(status))
+            if status.len() <= 40
+                && status
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') =>
+        {
+            status.clone()
+        }
+        Some(_) => "unknown".to_string(),
         None => "undefined".to_string(),
     }
 }

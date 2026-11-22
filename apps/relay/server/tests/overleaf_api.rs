@@ -171,12 +171,16 @@ async fn service_unavailable_then_ok_retries() {
 
 #[tokio::test]
 async fn server_error_three_times_is_err() {
-    let up = serve(vec![("/user/projects", vec![response(500, &[], b"boom")])]).await;
+    let up = serve(vec![(
+        "/user/projects",
+        vec![response(500, &[], b"boom secret-token")],
+    )])
+    .await;
     let err = api(&up)
         .user_projects(&identity("a=1"))
         .await
         .expect_err("error");
-    assert!(err.starts_with("500: "), "{err}");
+    assert_eq!(err, "Overleaf refused the request (HTTP 500).");
     assert_eq!(up.seen().len(), 3);
 }
 
@@ -184,14 +188,14 @@ async fn server_error_three_times_is_err() {
 async fn forbidden_is_not_retried() {
     let up = serve(vec![(
         "/user/projects",
-        vec![response(403, &[], b"denied")],
+        vec![response(403, &[], b"denied secret-token")],
     )])
     .await;
     let err = api(&up)
         .user_projects(&identity("a=1"))
         .await
         .expect_err("error");
-    assert_eq!(err, "403: denied");
+    assert_eq!(err, "Overleaf refused the request (HTTP 403).");
     assert_eq!(up.seen().len(), 1);
 }
 
@@ -199,15 +203,52 @@ async fn forbidden_is_not_retried() {
 async fn bad_json_three_times_is_err() {
     let up = serve(vec![(
         "/user/projects",
-        vec![response(200, &[], b"not json")],
+        vec![response(200, &[], b"not json secret-token")],
     )])
     .await;
     let err = api(&up)
         .user_projects(&identity("a=1"))
         .await
         .expect_err("error");
-    assert!(!err.is_empty());
+    assert_eq!(err, "Overleaf sent a reply that is not JSON.");
     assert_eq!(up.seen().len(), 3);
+}
+
+/// A client whose base has a secret in its path and nothing listening.
+fn unreachable() -> OverleafApi {
+    let port = std::net::TcpListener::bind("127.0.0.1:0")
+        .expect("bind")
+        .local_addr()
+        .expect("addr")
+        .port();
+    OverleafApi::new(&format!("http://127.0.0.1:{port}/secret-token/"), 0).expect("client")
+}
+
+#[tokio::test]
+async fn unreachable_projects_error_names_no_url() {
+    let err = unreachable()
+        .user_projects(&identity("a=1"))
+        .await
+        .expect_err("error");
+    assert_eq!(err, "Could not reach Overleaf.");
+}
+
+#[tokio::test]
+async fn unreachable_login_error_names_no_url() {
+    let err = unreachable()
+        .cookies_login("sid=secret-cookie")
+        .await
+        .expect_err("error");
+    assert_eq!(err, "Could not reach Overleaf.");
+}
+
+#[tokio::test]
+async fn unreachable_download_error_names_no_url() {
+    let err = unreachable()
+        .get_file_from_clsi(&identity("a=1"), "/build/output.pdf", "g", None, None)
+        .await
+        .expect_err("error");
+    assert_eq!(err, "Could not reach Overleaf.");
 }
 
 #[tokio::test]
