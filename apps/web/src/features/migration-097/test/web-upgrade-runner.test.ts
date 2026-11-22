@@ -22,6 +22,7 @@ const RESULT: ExportResult = {
   state: "verified",
   run: {} as ExportResult["run"],
   reconnectProviders: ["zotero"],
+  undecryptable: 0,
 };
 
 function deps(run: WebUpgradeRun) {
@@ -54,15 +55,10 @@ test("web upgrade runner: one start calls the upgrade once, forwards progress, r
   assert.deepEqual(seen, ["logEntries:1/1"]);
 });
 
-test("web upgrade runner: no local outbox and no decrypt probe on the web, so both counts are 0", async () => {
-  let captured: WebUpgradeOptions | undefined;
-  const run: WebUpgradeRun = async (opts) => {
-    captured = opts;
-    return RESULT;
-  };
-  await makeWebUpgradeRunner(deps(run))("", () => {});
+test("web upgrade runner: the run's undecryptable count reaches the screen unchanged", async () => {
+  const run: WebUpgradeRun = async () => ({ ...RESULT, state: "incomplete", undecryptable: 4 });
+  const reply = await makeWebUpgradeRunner(deps(run))("", () => {});
 
-  assert.ok(captured, "the upgrade ran");
-  assert.equal(await captured.server.pendingOutbox?.(), 0);
-  assert.equal(await captured.server.undecryptable?.("logEntries"), 0);
+  assert.equal(reply.state, "incomplete");
+  assert.equal(reply.undecryptable, 4);
 });

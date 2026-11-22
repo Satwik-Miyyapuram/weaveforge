@@ -220,17 +220,47 @@ test("non-2xx GET throws with status and table, never the body", async () => {
   );
 });
 
-test("pendingOutbox and undecryptable default to not wired, injected values pass through", async () => {
+test("pendingOutbox defaults to not wired, injected value passes through", async () => {
   const { fetch } = fakeFetch(() => Response.json([]));
-  const bare = sourceWith(fetch);
-  await assert.rejects(() => bare.pendingOutbox(), /not wired/);
-  await assert.rejects(() => bare.undecryptable("logEntries"), /not wired/);
-  const wired = sourceWith(fetch, {
-    pendingOutbox: async () => 3,
-    undecryptable: async (kind: string) => (kind === "logEntries" ? 2 : 0),
-  });
+  await assert.rejects(() => sourceWith(fetch).pendingOutbox(), /not wired/);
+  const wired = sourceWith(fetch, { pendingOutbox: async () => 3 });
   assert.equal(await wired.pendingOutbox(), 3);
-  assert.equal(await wired.undecryptable("logEntries"), 2);
+});
+
+test("undecryptable counts the owner's content_enc rows on the server, never decrypting, one HEAD per ciphertext kind", async () => {
+  const { fetch, calls } = fakeFetch(() => new Response(null, { status: 200, headers: { "content-range": "*/3" } }));
+  const source = sourceWith(fetch);
+  const expected: [string, string][] = [
+    ["notes", "vault_pages"],
+    ["papers", "papers"],
+    ["reportSections", "report_sections"],
+    ["logEntries", "log_entries"],
+    ["milestones", "milestones"],
+    ["experiments", "experiments"],
+    ["comments", "comments"],
+    ["readingLists", "reading_lists"],
+  ];
+  for (const [kind, table] of expected) {
+    assert.equal(await source.undecryptable(kind), 3, kind);
+    const call = calls[calls.length - 1];
+    assert.equal(call?.method, "HEAD", kind);
+    assert.equal(call?.url, `${BASE}/${table}?user_id=eq.${USER}&content_enc=not.is.null`, kind);
+    assert.equal(call?.headers.get("Prefer"), "count=exact", kind);
+  }
+});
+
+test("undecryptable asks the server nothing for kinds with no ciphertext column", async () => {
+  const { fetch, calls } = fakeFetch(() => new Response(null, { status: 200, headers: { "content-range": "*/9" } }));
+  const source = sourceWith(fetch);
+  assert.equal(await source.undecryptable("settings"), 0);
+  assert.equal(await source.undecryptable("blobs"), 0);
+  assert.equal(await source.undecryptable("ink"), 0);
+  assert.equal(calls.length, 0);
+});
+
+test("undecryptable: a failed count throws with the table, so the export cannot read it as zero", async () => {
+  const { fetch } = fakeFetch(() => new Response(null, { status: 500 }));
+  await assert.rejects(() => sourceWith(fetch).undecryptable("notes"), /HEAD vault_pages failed: HTTP 500/);
 });
 
 test("a table without a deleted_at column is listed with no deleted_at filter (PostgREST would 400)", async () => {

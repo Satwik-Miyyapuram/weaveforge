@@ -47,7 +47,6 @@ test("web upgrade: the PostgREST source names the reconnect providers, and the r
       headers: {},
       fetch: fakePostgrest({ user_settings: 1 }, calls),
       pendingOutbox: async () => 0,
-      undecryptable: async () => 0,
     },
     kinds: KINDS,
     codec,

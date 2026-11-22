@@ -7,7 +7,7 @@ export type WebUpgradeRun = (opts: WebUpgradeOptions, onProgress?: (e: ExportPro
 
 /** Server options the web screen supplies; the two checks the web cannot answer are filled in below. */
 export type WebUpgradeRunnerOptions = Omit<WebUpgradeOptions, "server"> & {
-  server: Omit<PostgrestSourceOptions, "pendingOutbox" | "undecryptable">;
+  server: Omit<PostgrestSourceOptions, "pendingOutbox">;
   run: WebUpgradeRun;
 };
 
@@ -26,9 +26,6 @@ export function makeWebUpgradeRunner(opts: WebUpgradeRunnerOptions) {
           ...server,
           // The web has no local outbox: writes go straight to the server, so nothing is unflushed.
           pendingOutbox: async () => 0,
-          // The web session holds no content keys and cannot decrypt rows, so there is no
-          // undecryptable count to report. Ciphertext rows are left to the server's checks.
-          undecryptable: async () => 0,
         },
       },
       onProgress,

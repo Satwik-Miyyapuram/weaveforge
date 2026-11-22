@@ -39,6 +39,23 @@ const SOFT_DELETE_TABLES: ReadonlySet<string> = new Set([
   "reader_annotations", "annotation_pins", "library_pins", "vault_pages", "screening_decisions", "paper_tags",
 ]);
 
+/**
+ * Export kinds whose server table holds `content_enc` ciphertext (db/migrations 0041 vault_pages, 0046 papers,
+ * log_entries, milestones, experiments, report_sections, comments, 0057 reading_lists). The web session holds
+ * no content keys, so each such row counts as undecryptable. `reading_list_items` (also content_enc) is not an
+ * export kind, so it is not counted here.
+ */
+const CIPHERTEXT_TABLE_BY_KIND: ReadonlyMap<string, string> = new Map([
+  ["notes", "vault_pages"],
+  ["papers", "papers"],
+  ["reportSections", "report_sections"],
+  ["logEntries", "log_entries"],
+  ["milestones", "milestones"],
+  ["experiments", "experiments"],
+  ["comments", "comments"],
+  ["readingLists", "reading_lists"],
+]);
+
 export interface PostgrestSourceOptions {
   baseUrl: string;
   userId: string;
@@ -47,8 +64,6 @@ export interface PostgrestSourceOptions {
   headers: Record<string, string>;
   /** Real outbox check is wired by the integrator. */
   pendingOutbox?: () => Promise<number>;
-  /** Real decrypt check is wired by the integrator. */
-  undecryptable?: (kind: string) => Promise<number>;
   /** Resolves a short-lived download URL for a blob (the web app's signed-urls route). */
   signedUrl?: (bucket: string, path: string) => Promise<string | null>;
 }
@@ -163,9 +178,16 @@ export class PostgrestSource implements ServerSource {
     return this.opts.pendingOutbox();
   }
 
+  /**
+   * Rows the web cannot decrypt: every content_enc row the owner holds in the kind's table, counted by the
+   * server (live and trashed alike). Nothing is decrypted here. A failed count throws, so it never reads as zero.
+   */
   async undecryptable(kind: string): Promise<number> {
-    if (!this.opts.undecryptable) throw new Error(`undecryptable ${NOT_WIRED}`);
-    return this.opts.undecryptable(kind);
+    const table = CIPHERTEXT_TABLE_BY_KIND.get(kind);
+    if (!table) return 0;
+    const url = `${this.opts.baseUrl}/${table}?user_id=eq.${encodeURIComponent(this.opts.userId)}&content_enc=not.is.null`;
+    const res = await this.request(url, { method: "HEAD", extra: { Prefer: "count=exact" } }, table);
+    return totalOf(res, table);
   }
 
   /** The owner's blob_objects rows. blob_objects has no sha256 column, so only size_bytes comes back. */
