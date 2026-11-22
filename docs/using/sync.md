@@ -22,7 +22,7 @@ Your notes, papers, plans and logbook are files in the workspace folder you chos
 Sync goes through **your own private GitHub repository**, one per workspace folder.
 
 1. Connect GitHub from the desktop app. It signs you in with GitHub's device flow, asks only for the `repo` scope, and creates a private repository named `weaveforge-<name>`. If a private repository with that name already exists under your account, the app uses it. It refuses a public repository, and one owned by someone else.
-2. The app uploads the workspace and shows **Uploading your workspace…**, then **Synced**.
+2. The app uploads the workspace and shows **Uploading your workspace…**, then the status dot reads **Synced <time>**.
 3. The **Git remote** section of workspace settings shows **Backs up to** with the repository.
 
 Once connected, the folder syncs by itself:
@@ -33,14 +33,15 @@ Once connected, the folder syncs by itself:
 - when the window regains focus,
 - when the network comes back.
 
-The status dot shows **Synced**, **Syncing…**, **Offline** (it syncs when you are back online) or **Sync failed**, with the time of the next try. After a failure the app waits 30 seconds, then 1 minute, then 5 minutes before it tries again. **Retry** on a **Sync failed** dot clears that wait and runs the sync at once.
+The status dot shows **Synced <time>**, **Syncing…**, **Offline** (it syncs when you are back online) or **Sync failed**, with the time of the next try. After a failure the app waits 30 seconds, then 1 minute, then 5 minutes before it tries again. **Retry** on a **Sync failed** dot clears that wait and runs the sync at once.
 
 ### Token and sign-in
 
-- The GitHub token stays in this machine's keychain. The page never sees it.
+- On desktop, the GitHub token stays in this machine's keychain. The page never sees it.
+- On the web, the token (valid for 8 hours) is kept only in the page's memory, not in browser storage. The server keeps the long-lived refresh token.
 - The app asks GitHub only for the `repo` scope, the narrowest scope that can create a private repository.
 - There is no client secret. Sign-in uses GitHub's device flow, which needs none.
-- The code expires after about 15 minutes, as GitHub sets it. If it expires, the app says **The GitHub code expired. Start again.** Click **Connect GitHub** again.
+- GitHub's code expires (about 15 min). If it expires, the app says **The GitHub code expired. Start again.** Click **Connect GitHub** again.
 
 ### When GitHub refuses the token
 
