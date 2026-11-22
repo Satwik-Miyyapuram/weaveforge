@@ -50,7 +50,8 @@ export async function install097Check(
     return { kind: "unknown", code: "LEGACY_CHECK_FAILED" };
   }
   if (typeof legacy !== "boolean") return { kind: "unknown", code: "LEGACY_CHECK_FAILED" };
-  if (!legacy) return { kind: "open" };
+  // No local DB: a signed-in account can still be an old user with server rows (desktop has no local DB).
+  if (!legacy) return oldUser ? webCheck(oldUser) : { kind: "open" };
   if (folder === null) return { kind: "unverified" };
   if (typeof bridge.migrationReportVerified !== "function") return { kind: "unknown", code: "REPORT_CHECK_UNAVAILABLE" };
   let verified: unknown;

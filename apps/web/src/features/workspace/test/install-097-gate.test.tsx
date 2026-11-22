@@ -8,7 +8,7 @@ import { createElement } from "react";
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from "react-test-renderer";
 
 import "@/lib/test/react-harness";
-import { INSTALL_097_NOTICE, INSTALL_097_URL } from "../application/install-097-guard";
+import { INSTALL_097_NOTICE, INSTALL_097_URL, INSTALL_097_WEB_NOTICE } from "../application/install-097-guard";
 import { Install097Gate } from "../ui/install-097-gate";
 
 const g = globalThis as { window?: unknown };
@@ -27,6 +27,9 @@ function stubBridge(bridge: Record<string, unknown>) {
     },
   };
 }
+
+/** No signed-in account: the web reader answers null, so desktop checks rest on the bridge alone. */
+const noAccount = async () => null;
 
 const textOf = (node: ReactTestInstance): string =>
   node.children.map((c) => (typeof c === "string" ? c : textOf(c))).join("");
@@ -48,7 +51,7 @@ function buttonWith(tree: ReactTestRenderer, label: string): ReactTestInstance {
 async function mount(): Promise<ReactTestRenderer> {
   let tree!: ReactTestRenderer;
   await act(async () => {
-    tree = create(createElement(Install097Gate, null, createElement(Child)));
+    tree = create(createElement(Install097Gate, { webPort: noAccount, children: createElement(Child) }));
     await new Promise((r) => setTimeout(r, 5));
   });
   return tree;
@@ -65,7 +68,7 @@ test("checking: while the check is pending the view says 'Checking…' and no ch
   stubBridge({ legacyDbPresent: () => new Promise(() => {}) });
   let tree!: ReactTestRenderer;
   await act(async () => {
-    tree = create(createElement(Install097Gate, { checkTimeoutMs: 60_000, children: createElement(Child) }));
+    tree = create(createElement(Install097Gate, { checkTimeoutMs: 60_000, webPort: noAccount, children: createElement(Child) }));
   });
   assert.ok(textOf(tree.root).includes("Checking…"));
   assert.equal(childCount(tree), 0);
@@ -216,6 +219,23 @@ test("passes: old DB present and verified report -> children mount", async () =>
   tree.unmount();
 });
 
+test("desktop, no local DB, signed-in old user with server rows and no export: web export notice, no children", async () => {
+  stubBridge({ legacyDbPresent: () => Promise.resolve(false) });
+  let tree!: ReactTestRenderer;
+  await act(async () => {
+    tree = create(
+      createElement(Install097Gate, {
+        webPort: async () => ({ hasLegacyRows: async () => true, ownRunVerified: async () => false }),
+        children: createElement(Child),
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 5));
+  });
+  assert.ok(textOf(tree.root).includes(INSTALL_097_WEB_NOTICE.title));
+  assert.equal(childCount(tree), 0);
+  tree.unmount();
+});
+
 test("passes: browser (no desktop bridge) -> children mount at once", async () => {
   g.window = undefined;
   const tree = await mount();
@@ -273,7 +293,7 @@ test("unknown: check never answers -> CHECK_TIMEOUT after the timeout", async ()
   stubBridge({ legacyDbPresent: () => new Promise(() => {}) });
   let tree!: ReactTestRenderer;
   await act(async () => {
-    tree = create(createElement(Install097Gate, { checkTimeoutMs: 10, children: createElement(Child) }));
+    tree = create(createElement(Install097Gate, { checkTimeoutMs: 10, webPort: noAccount, children: createElement(Child) }));
   });
   // The timeout starts when the effect flushes at the end of act, so wait in a second act.
   await act(async () => {
@@ -377,7 +397,7 @@ test("stale check: a first check that answers after its timeout and a retry cann
   });
   let tree!: ReactTestRenderer;
   await act(async () => {
-    tree = create(createElement(Install097Gate, { checkTimeoutMs: 10, children: createElement(Child) }));
+    tree = create(createElement(Install097Gate, { checkTimeoutMs: 10, webPort: noAccount, children: createElement(Child) }));
   });
   await act(async () => {
     await new Promise((r) => setTimeout(r, 40));

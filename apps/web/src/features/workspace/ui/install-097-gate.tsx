@@ -106,8 +106,9 @@ export function Install097Gate({
     } else {
       const folder = request.folder;
       const resolved = folder === null ? workspaceFolder(bridge) : Promise.resolve(folder);
-      void resolved
-        .then((path) => install097Check(bridge, path))
+      // The signed-in reader is also asked on desktop: an account with server rows and no local DB is an old user.
+      void Promise.all([resolved, webPort()])
+        .then(([path, port]) => install097Check(bridge, path, port ?? undefined))
         .then((verdict): Gate | Promise<Gate> => (verdict.kind === "open" && folder !== null ? keepVerifiedFolder(bridge, folder) : toGate(verdict)))
         .then((next) => settle(next), () => settle({ phase: "unknown", code: "CHECK_FAILED" }));
     }
