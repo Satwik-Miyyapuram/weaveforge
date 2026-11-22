@@ -33,11 +33,11 @@ test("blob re-run: a blob that changed in the DB, same size, verifies after the 
   let current = new Uint8Array([1, 2, 3, 4]);
   const src = server(() => current);
 
-  const first = await runWebExport({ kinds: [], codec, source: src, sink, now: NOW, runDeviceId: "dev-a" });
+  const first = await runWebExport({ kinds: [], codec, source: src, sink, now: NOW, runDeviceId: "dev-alpha" });
   assert.equal(first.state, "verified");
 
   current = new Uint8Array([9, 9, 9, 9]);
-  const second = await runWebExport({ kinds: [], codec, source: src, sink, now: NOW, runDeviceId: "dev-a" });
+  const second = await runWebExport({ kinds: [], codec, source: src, sink, now: NOW, runDeviceId: "dev-alpha" });
 
   assert.equal(second.state, "verified", JSON.stringify(second.run.missing));
   assert.deepEqual(await sink.readBytes("assets/images/a.webp"), current);
@@ -50,7 +50,7 @@ test("a user's sidecar that differs from the blob's sha256 is a conflict, not a 
   await sink.write("assets/images/a.webp.sha256", "user-sidecar\nimage/webp");
   const bytes = new Uint8Array([1, 2, 3, 4]);
 
-  const result = await runWebExport({ kinds: [], codec, source: server(() => bytes), sink, now: NOW, runDeviceId: "dev-a" });
+  const result = await runWebExport({ kinds: [], codec, source: server(() => bytes), sink, now: NOW, runDeviceId: "dev-alpha" });
 
   const copy = conflictCopyPath("assets/images/a.webp.sha256", 1);
   const reasons = result.run.missing.map((m) => m.reason);
@@ -65,7 +65,7 @@ test("a user's sidecar that names another sha256 stops the blob write: no blob l
   const sink = new MemorySink();
   await sink.write("assets/images/a.webp.sha256", "user-sidecar\nimage/webp");
 
-  await runWebExport({ kinds: [], codec, source: server(() => new Uint8Array([1, 2, 3, 4])), sink, now: NOW, runDeviceId: "dev-a" });
+  await runWebExport({ kinds: [], codec, source: server(() => new Uint8Array([1, 2, 3, 4])), sink, now: NOW, runDeviceId: "dev-alpha" });
 
   assert.equal(await sink.exists("assets/images/a.webp"), false, "the blob is not written while the sidecar is the user's");
 });
