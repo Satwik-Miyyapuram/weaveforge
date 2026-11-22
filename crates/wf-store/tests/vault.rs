@@ -300,6 +300,29 @@ fn remove_handles_files_missing_and_folders() {
 }
 
 #[test]
+fn remove_refusing_a_non_empty_folder_reports_a_real_error_not_not_found() {
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+
+    v.write_file("full/a.md", b"x").unwrap();
+    let err = v.remove("full", false).unwrap_err();
+    // The refusal is a removal failure (not a silent success, not "missing").
+    assert!(matches!(err, VaultError::Io { .. }), "got {err:?}");
+    assert_ne!(err.io_kind(), Some(std::io::ErrorKind::NotFound));
+    assert_eq!(fs::read(dir.path().join("full/a.md")).unwrap(), b"x");
+}
+
+#[test]
+fn remove_of_a_file_without_recursive_still_deletes_it() {
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+
+    v.write_file("plain.md", b"x").unwrap();
+    v.remove("plain.md", false).unwrap();
+    assert!(!dir.path().join("plain.md").exists());
+}
+
+#[test]
 fn mkdirp_creates_nested_folders_and_is_repeatable() {
     let dir = TempDir::new();
     let v = vault_in(&dir);
