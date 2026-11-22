@@ -14,12 +14,14 @@ export type ReportContent = { files: { path: string; content: string }[]; entryF
 /**
  * The rows, from wherever this copy keeps them.
  *
- * A copy working with no account has no API routes to call -- the desktop
- * build ships no server -- so the same six operations go straight to the local
- * database and the shell. Resolved once and remembered: the answer cannot
- * change without a reload, because the whole backend is wired at startup.
- * Which wiring that is comes from the auth facade; importing the local backend
- * provider here would make this file know which one a window was built with.
+ * A copy working with no account has no server to call, and 0.9.8 keeps no
+ * local database, so there are no rows to read or write: the gateway refuses
+ * every operation with "Overleaf needs an account." A signed-in copy calls the
+ * relay routes, which keep the rows on the server. Resolved once and remembered:
+ * the answer cannot change without a reload, because the whole backend is wired
+ * at startup. Which wiring that is comes from the auth facade; importing the
+ * local backend provider here would make this file know which one a window was
+ * built with.
  */
 let localGateway: LocalOverleafGateway | null | undefined;
 export function local(): LocalOverleafGateway | null {
