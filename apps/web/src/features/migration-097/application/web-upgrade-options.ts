@@ -24,6 +24,14 @@ export interface WebUpgradeInputs {
 }
 
 /**
+ * The web keeps no local sync outbox: sync runs only in the desktop shell (see the
+ * `desktop()` gate in offline-sync/ui/use-sync-issues.ts), so no unsent ops exist here.
+ */
+export async function webPendingOutbox(): Promise<number> {
+  return 0;
+}
+
+/**
  * Web runner options, or null. Desktop never gets a web runner (it uses the shell's
  * exporter), and neither does a browser without a signed-in session.
  */
