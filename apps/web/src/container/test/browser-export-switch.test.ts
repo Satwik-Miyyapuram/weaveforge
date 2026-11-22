@@ -177,21 +177,22 @@ test("the source the gate receives downloads blobs through the injected signedUr
   assert.deepEqual([...(got ?? [])], [7]);
 });
 
-test("the real source wiring answers undecryptable from the server, never 'not wired'", async () => {
-  let count: number | undefined;
+test("(P1) a HEAD 400 does not block the switch: the browser sends no content_enc HEAD at all", async () => {
+  const methods: string[] = [];
   const h = harness({
-    fetch: async (_input, init) =>
-      init?.method === "HEAD"
-        ? new Response(null, { status: 200, headers: { "content-range": "*/0" } })
-        : new Response(null, { status: 204 }),
+    fetch: async (_input, init) => {
+      methods.push(init?.method ?? "GET");
+      return init?.method === "HEAD" ? new Response(null, { status: 400 }) : new Response(null, { status: 204 });
+    },
     gate: async (opts) => {
-      count = await opts.source.undecryptable("logEntries");
+      await opts.source.undecryptable("logEntries");
+      await opts.source.undecryptable("notes");
       return { switch: true };
     },
   });
   const out = await decideBrowserSwitch(h.deps);
   assert.equal(out.switch, true);
-  assert.equal(count, 0);
+  assert.equal(methods.includes("HEAD"), false);
 });
 
 test("(P2-2) a mark that fails after wiring opens keeps the switch off, and a retry opens the wiring again", async () => {

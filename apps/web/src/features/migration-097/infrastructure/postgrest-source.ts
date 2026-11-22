@@ -160,14 +160,13 @@ export class PostgrestSource implements ServerSource {
   }
 
   /**
-   * Rows that cannot be turned into plaintext. The browser has no decrypt path, so every row whose
-   * content_enc is set counts (trash included, no silent drop). An injected check replaces this.
+   * Rows that cannot be turned into plaintext. Default is 0: migrations 0099 (drop_e2ee_schema) and
+   * 0100 (ai_proposals_plaintext) dropped content_enc from every content table, so a HEAD on it 400s
+   * and would block the switch for everyone. An injected check replaces this default.
    */
   async undecryptable(kind: string): Promise<number> {
     if (this.opts.undecryptable) return this.opts.undecryptable(kind);
-    if (FILE_ONLY_KINDS.includes(kind)) return 0;
-    const table = tableFor(kind);
-    return this.headCount(`${this.opts.baseUrl}/${table}?user_id=eq.${this.opts.userId}&content_enc=not.is.null`, table);
+    return 0;
   }
 
   /** The owner's blob_objects rows. blob_objects has no sha256 column, so only size_bytes comes back. */

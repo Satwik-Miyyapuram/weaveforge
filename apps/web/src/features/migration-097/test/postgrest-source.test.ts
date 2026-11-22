@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { MIGRATION_KINDS } from "../domain/report";
 import { PostgrestSource, TABLE_BY_KIND, toCamelRow } from "../infrastructure/postgrest-source";
 
@@ -210,27 +213,22 @@ test("non-2xx GET throws with status and table, never the body", async () => {
   );
 });
 
-test("undecryptable counts non-null content_enc rows with a HEAD count, ignoring trash", async () => {
-  const { fetch, calls } = fakeFetch(() => new Response(null, { status: 200, headers: { "content-range": "*/2" } }));
+test("undecryptable defaults to 0 for every kind and sends no request (content_enc dropped by 0099/0100)", async () => {
+  const { fetch, calls } = fakeFetch(() => new Response(null, { status: 400 }));
   const bare = sourceWith(fetch);
-  assert.equal(await bare.undecryptable("logEntries"), 2);
-  assert.equal(calls.length, 1);
-  const [call] = calls;
-  assert.ok(call);
-  assert.equal(call.method, "HEAD");
-  assert.match(call.url, /\/log_entries\?user_id=eq\./);
-  assert.match(call.url, /&content_enc=not\.is\.null$/);
-  assert.doesNotMatch(call.url, /deleted_at/);
+  for (const kind of MIGRATION_KINDS) assert.equal(await bare.undecryptable(kind), 0, kind);
+  assert.equal(calls.length, 0);
 });
 
-test("a kind with no content_enc rows counts zero, so the switch is not blocked", async () => {
-  const { fetch } = fakeFetch(() => new Response(null, { status: 200, headers: { "content-range": "*/0" } }));
-  assert.equal(await sourceWith(fetch).undecryptable("notes"), 0);
-});
-
-test("an undecryptable count with no total in content-range fails closed", async () => {
-  const { fetch } = fakeFetch(() => new Response(null, { status: 204 }));
-  await assert.rejects(() => sourceWith(fetch).undecryptable("notes"), /no total/);
+test("no migration after 0100 adds content_enc back; the undecryptable check must come back if one does", () => {
+  const dir = fileURLToPath(new URL("../../../../../../db/migrations/", import.meta.url));
+  const later = readdirSync(dir).filter((f) => /^\d{4}_.*\.sql$/.test(f) && Number(f.slice(0, 4)) > 100);
+  assert.ok(later.length > 0);
+  const addsColumn = /add\s+column\s+(if\s+not\s+exists\s+)?content_enc\b/i;
+  assert.match("ALTER TABLE t ADD COLUMN IF NOT EXISTS content_enc text;", addsColumn);
+  for (const f of later) {
+    assert.doesNotMatch(readFileSync(join(dir, f), "utf8"), addsColumn, f);
+  }
 });
 
 test("pendingOutbox defaults to not wired; injected undecryptable replaces the default count", async () => {
