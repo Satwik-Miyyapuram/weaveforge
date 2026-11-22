@@ -134,7 +134,7 @@ export interface DesktopCommands {
   secretRead(name: DesktopSecretName): Promise<Result<string | null>>;
   secretWrite(name: DesktopSecretName, value: string): Promise<Result<null>>;
   secretClear(name: DesktopSecretName): Promise<Result<null>>;
-  migrate097MoveSecrets(): Promise<Result<null>>;
+  migrate097MoveSecrets(): Promise<Result<string[]>>;
   legacyDbPresent(): Promise<boolean>;
   legacyDirMissing(): Promise<boolean>;
   planWidgetState(): Promise<Result<DesktopPlanWidget>>;

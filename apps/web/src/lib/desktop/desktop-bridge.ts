@@ -151,6 +151,8 @@ export interface DesktopBridge {
   migrate097MoveSecrets(): Promise<void>;
   /** True when the old local database folder exists. Metadata only: the database is never opened. */
   legacyDbPresent(): Promise<boolean>;
+  /** The inverse of `legacyDbPresent`: true when the old local database folder is missing. Metadata only. */
+  legacyDirMissing(): Promise<boolean>;
 
   /**
    * Run one statement against the local database and get its rows.
