@@ -6,7 +6,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use weaveforge_shell_lib::migrate_097::remove::{
-    backup_name, old_db_removed, record_exported_to, remove_old_data, start_refusal,
+    backup_name, old_db_removed, record_exported_to, record_verified_export, remove_old_data,
+    start_refusal,
 };
 
 const DIR: &str = ".weaveforge/migration-0.9.7";
@@ -1284,6 +1285,30 @@ fn another_devices_incomplete_or_exporting_top_level_state_is_left_alone() {
         assert_eq!(report["state"], other_state, "another device's top-level state must stay");
         assert!(report["removals"].get(DEVICE).is_none(), "no removal entry may be written");
     }
+}
+
+// ---- item 8: only a verified export of this device records exported-to.json ----
+
+#[test]
+fn a_verified_export_records_exported_to_for_this_folder() {
+    let f = Fixture::new("export-verified", Some("verified"), None);
+    fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
+    record_verified_export(&f.pg_root, &f.folder, DEVICE).expect("a verified run records the export");
+    let text = fs::read_to_string(f.pg_root.join("exported-to.json"))
+        .expect("exported-to.json must exist after a verified export");
+    let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(value["folder"], serde_json::json!(canonical(&f.folder)));
+}
+
+#[test]
+fn an_unverified_export_records_no_exported_to() {
+    let f = Fixture::new("export-unverified", None, None);
+    let incomplete = RUN_CLEAN.replace(r#""state":"verified""#, r#""state":"incomplete""#);
+    f.set_report(&format!(r#"{{"version":1,"state":"incomplete","runs":[{incomplete}]}}"#));
+    fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
+    let err = record_verified_export(&f.pg_root, &f.folder, DEVICE)
+        .expect_err("an incomplete run must not record an export");
+    assert!(!f.pg_root.join("exported-to.json").exists(), "{err}");
 }
 
 // ---- item 7: a removal marker refuses start, so start never restores from local-db-backups ----

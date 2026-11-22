@@ -277,6 +277,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::migrate_097::cmd::migrate_097_status,
         crate::migrate_097::cmd::migrate_097_counts,
         crate::migrate_097::cmd::migrate_097_remove_old,
+        crate::migrate_097::cmd::mark_exported_097,
         crate::cmd_files::file_write,
         crate::cmd_files::file_write_bytes,
         crate::cmd_files::file_delete,

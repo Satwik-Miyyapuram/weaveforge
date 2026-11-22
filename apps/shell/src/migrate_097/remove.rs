@@ -46,6 +46,17 @@ pub fn record_exported_to(pg_root: &Path, folder: &Path) -> Result<(), String> {
     )
 }
 
+/// Records the export of `folder` only when this device's newest run in its report is verified.
+/// An unreadable, unparsable, or unverified report records nothing.
+pub fn record_verified_export(pg_root: &Path, folder: &Path, device_id: &str) -> Result<(), String> {
+    let text = fs::read_to_string(folder.join(REPORT_REL))
+        .map_err(|e| format!("refused: report.json unreadable: {e}"))?;
+    let report: serde_json::Value =
+        serde_json::from_str(&text).map_err(|_| "refused: report.json is unparsable".to_owned())?;
+    check_own_run_verdict(&report, device_id)?;
+    record_exported_to(pg_root, folder)
+}
+
 /// The dump file this device's run names (`runs[].backup`), as a plain name inside the migration
 /// folder. Without a backup on its own run, the report's `backup` is used only when no other
 /// device has run; another device's dump is refused. A report without either field predates it and
