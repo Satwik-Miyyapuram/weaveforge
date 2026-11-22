@@ -11,7 +11,9 @@ import { MIGRATION_KINDS } from "@/features/migration-097/domain/report";
 import { wasmFileCodec } from "@/features/migration-097/infrastructure/wasm-codec";
 import { workspaceFileSink } from "@/features/migration-097/infrastructure/workspace-file-sink";
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
-import { readyCore } from "@/lib/rust-core";
+import { loadCore } from "@/lib/rust-core";
+import { warnOnce } from "@/lib/error-report/parts";
+import { useAuth } from "@/features/auth/ui/auth-provider";
 import { desktop } from "./desktop-bridge";
 import { Migrate097Gate } from "./migrate-097-gate";
 
@@ -47,10 +49,13 @@ function runDeviceId(): string {
 async function loadWebInputs(): Promise<WebUpgradeInputs | null> {
   const config = readBackendConfig();
   const client = createDataClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
-  const { data } = await client.auth.getSession();
+  const { data, error } = await client.auth.getSession();
+  if (error) warnOnce("migrate-097-web", "reading the session failed; the upgrade will not run", error);
   const userId = data.session?.user?.id;
   if (!userId) return null;
   const sink = workspaceFileSink(await BrowserWorkspaceFs.openOpfs());
+  // The core loads asynchronously; readyCore() throws until it does, so wait for it first.
+  const core = await loadCore();
   return {
     baseUrl: `${config.dataUrl ?? config.supabaseUrl ?? ""}/rest/v1`,
     userId,
@@ -58,7 +63,7 @@ async function loadWebInputs(): Promise<WebUpgradeInputs | null> {
     accessToken: liveAccessToken(client),
     fetch: globalThis.fetch.bind(globalThis),
     sink,
-    codec: wasmFileCodec(readyCore(), ""),
+    codec: wasmFileCodec(core, ""),
     kinds: MIGRATION_KINDS,
     pendingOutbox: webPendingOutbox,
     now: new Date().toISOString(),
@@ -73,21 +78,29 @@ async function loadWebInputs(): Promise<WebUpgradeInputs | null> {
  */
 export function Migrate097Web({ children }: { children: React.ReactNode }) {
   const [webUpgrade, setWebUpgrade] = useState<WebUpgradeRunnerOptions | null>(null);
+  // Read from the auth provider so a user who signs in after first paint gets a runner.
+  const { user, loading } = useAuth();
+  const userId = user?.id ?? null;
 
   useEffect(() => {
-    if (desktop() || readFlag(WEB_EXPORTED_KEY)) return;
+    if (loading || desktop() || readFlag(WEB_EXPORTED_KEY)) return;
+    if (!userId) {
+      setWebUpgrade(null);
+      return;
+    }
     let alive = true;
     void loadWebInputs()
       .then((inputs) => {
         if (alive) setWebUpgrade(webUpgradeFor(false, inputs));
       })
-      .catch(() => {
-        // No session or no workspace: the app loads without the upgrade screen.
+      .catch((err: unknown) => {
+        // No workspace or no core: the app loads without the upgrade screen.
+        warnOnce("migrate-097-web", "the web upgrade could not start", err);
       });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [userId, loading]);
 
   return <Migrate097Gate webUpgrade={webUpgrade}>{children}</Migrate097Gate>;
 }

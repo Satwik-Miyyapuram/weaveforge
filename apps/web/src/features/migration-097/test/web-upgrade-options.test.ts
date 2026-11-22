@@ -70,6 +70,17 @@ test("web export with no desktop outbox reaches verified: the web count is 0", a
   assert.equal(result.state, "verified");
 });
 
+test("webPendingOutbox refuses to answer inside the desktop shell", async () => {
+  const globals = globalThis as { window?: unknown };
+  const before = globals.window;
+  globals.window = { weaveforge: { fetchTitle: () => {} } };
+  try {
+    await assert.rejects(webPendingOutbox(), /desktop/i, "the web count is only valid off desktop");
+  } finally {
+    globals.window = before;
+  }
+});
+
 test("web without a session gets no runner", () => {
   assert.equal(webUpgradeFor(false, null), null);
 });

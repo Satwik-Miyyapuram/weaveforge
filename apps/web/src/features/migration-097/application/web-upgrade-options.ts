@@ -1,3 +1,4 @@
+import { desktop } from "../../../lib/desktop/desktop-bridge";
 import type { FileCodec, FileSink } from "../domain/ports";
 import { authedFetch } from "../infrastructure/authed-fetch";
 import type { WebUpgradeRunnerOptions, WebUpgradeRun } from "./web-upgrade-runner";
@@ -28,6 +29,8 @@ export interface WebUpgradeInputs {
  * `desktop()` gate in offline-sync/ui/use-sync-issues.ts), so no unsent ops exist here.
  */
 export async function webPendingOutbox(): Promise<number> {
+  // Tripwire: the desktop shell has its own outbox, so this count must never answer there.
+  if (desktop()) throw new Error("webPendingOutbox is for the browser only; the desktop shell counts its own outbox");
   return 0;
 }
 
