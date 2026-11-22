@@ -24,16 +24,18 @@ export class FileAnnotationPinRepository implements IAnnotationPinRepository {
     this.path = `${projectRoot}/.weaveforge/annotation-pins.json`;
   }
 
-  async save(input: SaveAnnotationPinInput): Promise<AnnotationPin> {
+  /** `id`/`createdAt` are optional: an import passes the source ones for a new pin; a moved pin keeps its own. */
+  async save(input: SaveAnnotationPinInput & { id?: string; createdAt?: string }): Promise<AnnotationPin> {
     let saved = null as AnnotationPin | null;
     await changeJsonRows(this.fs, this.path, (rows) => {
       const previous = rows.find((row) => samePin(row, input.paperId, input.annotationKey));
       saved = {
-        id: typeof previous?.id === "string" ? previous.id : `annotation-pin-${crypto.randomUUID()}`,
+        id: typeof previous?.id === "string" ? previous.id : (input.id ?? `annotation-pin-${crypto.randomUUID()}`),
         paperId: input.paperId,
         annotationKey: input.annotationKey,
         reportSectionId: input.reportSectionId,
-        createdAt: typeof previous?.createdAt === "string" ? previous.createdAt : new Date().toISOString(),
+        createdAt:
+          typeof previous?.createdAt === "string" ? previous.createdAt : (input.createdAt ?? new Date().toISOString()),
       };
       const next = { ...previous, ...saved };
       return previous ? rows.map((row) => (row === previous ? next : row)) : [...rows, next];

@@ -31,7 +31,7 @@ test("annotations: a written row is listed back with the carried fields", async 
   const row = {
     id: "ann-1",
     paperId: "p1",
-    paperFile: "papers/x.paper.md",
+    paperFile: "proj/papers/x.paper.md",
     type: "highlight",
     color: "#ff0000",
     text: "hello",
@@ -68,20 +68,6 @@ test("annotationPins: a written row is listed back on the carried fields", async
     { paperId: back[0]!.paperId, annotationKey: back[0]!.annotationKey, reportSectionId: back[0]!.reportSectionId },
     row,
   );
-});
-
-test("annotationPins: gap, the row id and createdAt are not preserved by save()", async () => {
-  const { writer } = fresh();
-  await writer.write("annotationPins", {
-    id: "annotation-pin-server-1",
-    paperId: "p1",
-    annotationKey: "k1",
-    reportSectionId: "s1",
-    createdAt: "2026-01-01T00:00:00.000Z",
-  });
-  const [back] = await writer.readBack("annotationPins");
-  assert.notEqual(back?.id, "annotation-pin-server-1");
-  assert.notEqual(back?.createdAt, "2026-01-01T00:00:00.000Z");
 });
 
 test("blobs: a written blob is listed back with bucket, path and sha256", async () => {
@@ -140,7 +126,7 @@ test("annotations: a re-run of the same row is idempotent (no ConflictError, one
   const row = {
     id: "ann-rerun",
     paperId: "p9",
-    paperFile: "papers/r.paper.md",
+    paperFile: "proj/papers/r.paper.md",
     type: "highlight",
     color: "#00ff00",
     text: "again",
@@ -155,4 +141,81 @@ test("annotations: a re-run of the same row is idempotent (no ConflictError, one
   const back = await writer.readBack("annotations");
   assert.equal(back.length, 1);
   assert.equal(back[0]?.id, "ann-rerun");
+});
+
+test("annotations: readBack scans the sidecar files, not this writer's memory", async () => {
+  const { sink, writer } = fresh();
+  await writer.write("annotations", {
+    id: "ann-1",
+    paperId: "p1",
+    paperFile: "proj/papers/x.paper.md",
+    type: "highlight",
+    color: "#ff0000",
+    text: "a",
+    comment: "",
+    tags: [],
+    anchor: { pageIndex: 0 },
+    sortIndex: "00000|000000|00000",
+    pageIndex: 0,
+  });
+  // A sidecar written outside this writer (another editor, or an earlier run) must be listed too.
+  const { typedCore } = await import("@/lib/rust-core");
+  const outside = {
+    id: "ann-outside",
+    origin: "local",
+    zoteroKey: null,
+    type: "highlight",
+    color: "#00ff00",
+    text: "b",
+    comment: "",
+    tags: [],
+    anchor: { pageIndex: 1 },
+    sortIndex: "00001|000000|00000",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    syncState: "local",
+  };
+  await sink.write(
+    "proj/papers/y.annotations.json",
+    new TextEncoder().encode(typedCore().renderAnnotationsFile([outside as unknown as Record<string, unknown>])),
+  );
+  const fresh2 = createGroupCWriter(sink, "proj");
+  const back = await fresh2.readBack("annotations");
+  assert.deepEqual(back.map((r) => r.id).sort(), ["ann-1", "ann-outside"]);
+});
+
+test("annotations: createdAt and updatedAt from the row are kept", async () => {
+  const { writer } = fresh();
+  await writer.write("annotations", {
+    id: "ann-ts",
+    paperId: "p1",
+    paperFile: "proj/papers/x.paper.md",
+    type: "highlight",
+    color: "#ff0000",
+    text: "t",
+    comment: "",
+    tags: [],
+    anchor: { pageIndex: 0 },
+    sortIndex: "00000|000000|00000",
+    pageIndex: 0,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-02-02T00:00:00.000Z",
+  });
+  const [back] = await writer.readBack("annotations");
+  assert.equal(back?.createdAt, "2026-01-01T00:00:00.000Z");
+  assert.equal(back?.updatedAt, "2026-02-02T00:00:00.000Z");
+});
+
+test("annotationPins: the row id and createdAt are kept", async () => {
+  const { writer } = fresh();
+  await writer.write("annotationPins", {
+    id: "annotation-pin-server-1",
+    paperId: "p1",
+    annotationKey: "k1",
+    reportSectionId: "s1",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  });
+  const [back] = await writer.readBack("annotationPins");
+  assert.equal(back?.id, "annotation-pin-server-1");
+  assert.equal(back?.createdAt, "2026-01-01T00:00:00.000Z");
 });

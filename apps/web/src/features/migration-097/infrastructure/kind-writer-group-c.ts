@@ -6,6 +6,7 @@ import { FileReaderAnnotationRepository } from "@/features/reader/infrastructure
 import { FileAnnotationPinRepository } from "@/features/papers/infrastructure/file-annotation-pin-repository";
 import { FileBlobStore } from "@/backend/providers/files/file-blob-store";
 import { FolderInkNotes, FsInkChunkStore } from "@/features/ink/infrastructure/parts";
+import { typedCore } from "@/lib/rust-core";
 
 interface KindHandler {
   write(row: Row): Promise<void>;
@@ -27,6 +28,8 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
 
   // Gap: `paperFile` (the paper's workspace path) is not a PostgREST column; the exporter must supply it.
   const paperFiles = new Map<string, string>();
+  // The sidecar path of each paper written in this run, to name its paper on readBack.
+  const paperOfSidecar = new Map<string, string>();
   const annotations = new FileReaderAnnotationRepository(fs, projectRoot, async (paperId) => paperFiles.get(paperId) ?? null);
   const pins = new FileAnnotationPinRepository(fs, projectRoot);
   const blobs = new FileBlobStore(fs);
@@ -41,11 +44,12 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
       {
         async write(row) {
           const paperId = String(row.paperId);
-          paperFiles.set(paperId, String(row.paperFile));
+          const paperFile = String(row.paperFile);
+          paperFiles.set(paperId, paperFile);
+          paperOfSidecar.set(typedCore().annotationsFilePath(paperFile), paperId);
           // Idempotent re-run: a row already on disk is not created again (create would throw ConflictError).
-          // Gap: create() mints createdAt/updatedAt, so server timestamps are not kept; needs a repo change.
           if ((await annotations.list(paperId)).some((a) => a.id === (row.id as string))) return;
-          const draft: NewReaderAnnotation = {
+          const draft: NewReaderAnnotation & { createdAt?: string; updatedAt?: string } = {
             id: row.id as string,
             type: row.type as NewReaderAnnotation["type"],
             color: String(row.color),
@@ -55,15 +59,22 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
             anchor: row.anchor as NewReaderAnnotation["anchor"],
             sortIndex: row.sortIndex as string,
             pageIndex: Number(row.pageIndex ?? 0),
+            createdAt: row.createdAt as string | undefined,
+            updatedAt: row.updatedAt as string | undefined,
           };
           await annotations.create(paperId, draft);
         },
+        // Lists every sidecar under the paper folder, so a file written outside this run is listed too.
+        // A sidecar this run did not write has no known paper; its rows carry paperId null and fail verify.
         async readBack() {
           const out: Row[] = [];
-          for (const paperId of paperFiles.keys()) {
-            for (const annotation of await annotations.list(paperId)) {
-              out.push({ ...annotation, paperId });
-            }
+          const dir = typedCore().entityDir("paper", projectRoot);
+          if (!(await fs.stat(dir))) return out;
+          for await (const entry of fs.walk(dir)) {
+            if (!entry.path.endsWith(".annotations.json")) continue;
+            const rows = typedCore().parseAnnotationsFile(await fs.readText(entry.path));
+            const paperId = paperOfSidecar.get(entry.path) ?? null;
+            for (const row of rows) out.push({ ...row, paperId });
           }
           return out;
         },
@@ -72,12 +83,13 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
     [
       "annotationPins",
       {
-        // Gap: save() always mints its own id and createdAt; the row's id and createdAt are not kept.
         async write(row) {
           await pins.save({
+            id: row.id === undefined ? undefined : String(row.id),
             paperId: String(row.paperId),
             annotationKey: String(row.annotationKey),
             reportSectionId: String(row.reportSectionId),
+            createdAt: row.createdAt === undefined ? undefined : String(row.createdAt),
           });
         },
         async readBack() {
