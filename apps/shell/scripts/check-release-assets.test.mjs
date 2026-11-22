@@ -307,6 +307,11 @@ test("a readable bridge latest.json parses with no problems", () => {
   assert.deepEqual(problems, []);
 });
 
+test("a bridge latest.json with no platforms is reported: it must name at least one download", () => {
+  const { problems } = parseBridge(JSON.stringify({ ...BRIDGE, platforms: {} }));
+  assert.ok(problems.some((p) => p.includes("platforms")), problems.join("; "));
+});
+
 test("a missing bridge latest.json is left for the release check to report", () => {
   assert.deepEqual(parseBridge(""), { bridge: undefined, problems: [] });
 });
