@@ -96,3 +96,36 @@ test("with the overlay on, a settings write lands in the file repo and PostgREST
   assert.ok(sets.length > 0, "the settings write reached the file repository");
   assert.deepEqual(dbCalls, [], "no PostgREST call for the settings write");
 });
+
+test("with the overlay on, screening goes to the file repo and PostgREST sees no write", async () => {
+  const { bridge } = memoryVault();
+  const backend = wireBackend(config, { projectId: null }, () => null, {
+    migration: "verified",
+    onDesktop: true,
+    wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings),
+  });
+  const dbCalls: string[] = [];
+  const realFrom = backend.db.from.bind(backend.db);
+  backend.db.from = (table: string) => {
+    dbCalls.push(`from ${table}`);
+    return realFrom(table);
+  };
+  const realRpc = backend.db.rpc.bind(backend.db);
+  backend.db.rpc = (name: string, args?: object) => {
+    dbCalls.push(`rpc ${name}`);
+    return realRpc(name, args);
+  };
+  const decision = {
+    id: "d1",
+    itemId: "no-such-item",
+    reviewerId: "r1",
+    stage: "title_abstract",
+    state: "included",
+    decidedAt: "2026-11-22T00:00:00.000Z",
+  } as never;
+  // No paper or list holds this item, so the file repository refuses with NotFoundError;
+  // a PostgREST call would fail with a network error instead.
+  await assert.rejects(backend.screeningRepository.record(decision), { name: "NotFoundError" });
+  await backend.screeningRepository.remove("d1");
+  assert.deepEqual(dbCalls, [], "no PostgREST call for screening");
+});

@@ -29,6 +29,7 @@ export const PERSONAL_REPOSITORY_KEYS: Record<keyof FileRepositories, true> = {
   graphSettingsRepository: true,
   quotationTypeRepository: true,
   bibliographyCollectionStore: true,
+  screeningRepository: true,
 };
 
 /**
@@ -58,7 +59,6 @@ export const SERVER_BACKEND_KEYS: ReadonlySet<string> = new Set([
   "releaseNoticesRepository",
   "manageSettings",
   "integrationsStore",
-  "screeningRepository",
   "shareRepository",
   "commentRepository",
   "sharedReader",
