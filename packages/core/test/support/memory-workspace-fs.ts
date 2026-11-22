@@ -89,6 +89,14 @@ export class MemoryWorkspaceFs implements IWorkspaceFs {
         seen.set(dirPath, { path: dirPath, size: 0, modifiedAt: this.now(), kind: "dir" });
       }
     }
+    // Folders made by mkdirp with nothing in them, like the desktop listing.
+    for (const dirKey of this.dirs) {
+      if (!dirKey.startsWith(prefix) || dirKey.length === prefix.length) continue;
+      const dirPath = prefix + dirKey.slice(prefix.length).split("/")[0];
+      if (!seen.has(dirPath)) {
+        seen.set(dirPath, { path: dirPath, size: 0, modifiedAt: this.now(), kind: "dir" });
+      }
+    }
     return [...seen.values()].sort((a, b) => a.path.localeCompare(b.path));
   }
 

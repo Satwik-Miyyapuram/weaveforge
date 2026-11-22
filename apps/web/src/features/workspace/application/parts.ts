@@ -1,5 +1,6 @@
 import { getContainer } from "@/bootstrap";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
+import { logToApp } from "@/lib/error-report/app-log";
 import { notifyEach } from "@/lib/parts";
 import { loadCore, readyCore, typedCore } from "@/lib/rust-core";
 import type { IWorkspaceFs, WorkspaceProject, WorkspaceSnapshot } from "@weaveforge/core";
@@ -171,27 +172,55 @@ export async function removeProjectFolder(
   const tail = `--${typed.idSuffix(project.id)}`;
   const otherTails = others.map((other) => `--${typed.idSuffix(other.id)}`);
   const names = (entries: readonly { path: string }[]) => entries.map((s) => s.path.split("/").pop() ?? "");
-  const dirs = names((await fs.list("")).filter((s) => s.kind === "dir"));
-  const match = typed.pickProjectFolder(dirs, exact, tail, otherTails) ?? null;
+  const dirNames = names((await fs.list("")).filter((s) => s.kind === "dir"));
+  const match = typed.pickProjectFolder(dirNames, exact, tail, otherTails) ?? null;
   if (!match) return null;
   if (!typed.holdsProjectLayout(names(await fs.list(match)))) return null;
   const base = await freeTrashFolder(fs, match);
-  const files: string[] = [];
-  for await (const entry of fs.walk(match)) files.push(entry.path);
-  const folders = new Set<string>([match]);
+  const { files, dirs } = await treeUnder(fs, match);
   for (const path of files) {
     const target = base + path.slice(match.length);
     await fs.mkdirp(target.slice(0, target.lastIndexOf("/")));
     await fs.rename(path, target);
-    const parts = path.split("/");
-    for (let i = 1; i < parts.length; i += 1) folders.add(parts.slice(0, i).join("/"));
   }
-  // Remove the emptied folders deepest first, without recursion. A folder that still
-  // holds something (a file written after the walk) is refused and left in place.
-  for (const dir of [...folders].sort((a, b) => b.length - a.length)) {
-    await fs.remove(dir).catch(() => undefined);
+  // Remove the emptied folders deepest first, without recursion. The desktop's
+  // remove refuses a folder that still holds something (a file written after the
+  // walk), so that folder is left in place and the refusal is logged.
+  for (const dir of [...dirs, match].sort((a, b) => b.length - a.length)) {
+    try {
+      await fs.remove(dir);
+    } catch (error) {
+      logToApp({
+        level: "warn",
+        source: "workspace",
+        message: `Could not remove the emptied folder ${dir} after moving its files to the trash`,
+        detail: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
   return match;
+}
+
+/**
+ * Every file and folder under `dir`, from `list` alone. `walk` reports files only,
+ * so a folder with nothing in it would never be seen and never removed.
+ */
+async function treeUnder(fs: IWorkspaceFs, dir: string): Promise<{ files: string[]; dirs: string[] }> {
+  const files: string[] = [];
+  const dirs: string[] = [];
+  const pending = [dir];
+  while (pending.length > 0) {
+    const current = pending.pop()!;
+    for (const entry of await fs.list(current)) {
+      if (entry.kind === "dir") {
+        dirs.push(entry.path);
+        pending.push(entry.path);
+      } else {
+        files.push(entry.path);
+      }
+    }
+  }
+  return { files, dirs };
 }
 
 /** The first trash name for `folder` today that is not taken. */
