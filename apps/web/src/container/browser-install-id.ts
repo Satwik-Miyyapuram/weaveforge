@@ -20,20 +20,9 @@ export async function readOrCreateInstallId(
   newId: () => string = () => crypto.randomUUID(),
 ): Promise<string> {
   const locks = globalThis.navigator?.locks;
-  if (locks) {
-    let granted = false;
-    try {
-      return await locks.request(LOCK_NAME, () => {
-        granted = true;
-        return readOrCreateUnlocked(fs, newId);
-      });
-    } catch (error) {
-      // A denied lock (SecurityError) that was never granted falls back to the unlocked path.
-      // Any other failure, or one raised by the file work itself, still fails closed.
-      if (granted || (error as { name?: unknown } | null)?.name !== "SecurityError") throw error;
-    }
-  }
-  return readOrCreateUnlocked(fs, newId);
+  // No unlocked fallback: two tabs could each keep a different id. Refuse instead.
+  if (!locks) throw new Error("install id: navigator.locks is unavailable, so no id is created without the lock");
+  return locks.request(LOCK_NAME, () => readOrCreateUnlocked(fs, newId));
 }
 
 async function readOrCreateUnlocked(
