@@ -49,7 +49,7 @@ pub fn record_exported_to(pg_root: &Path, folder: &Path) -> Result<(), String> {
 /// Records the export of `folder` only when this device's newest run in its report is verified.
 /// An unreadable, unparsable, or unverified report records nothing.
 pub fn record_verified_export(pg_root: &Path, folder: &Path, device_id: &str) -> Result<(), String> {
-    let text = fs::read_to_string(folder.join(REPORT_REL))
+    let text = fs::read_to_string(base_report_path(folder, device_id))
         .map_err(|e| format!("refused: report.json unreadable: {e}"))?;
     let report: serde_json::Value =
         serde_json::from_str(&text).map_err(|_| "refused: report.json is unparsable".to_owned())?;
@@ -142,8 +142,8 @@ pub(crate) fn remove_with(
     stop_pg: &mut dyn FnMut() -> Result<(), String>,
     final_write: &mut dyn FnMut(&Path, &dyn Fn(&mut serde_json::Value)) -> Result<(), String>,
 ) -> Result<(), String> {
-    let report_path = folder.join(REPORT_REL);
-    let report = read_report(&report_path)?;
+    let report_path = own_report_path(folder, device_id);
+    let report = read_report(&base_report_path(folder, device_id))?;
     let state = report["state"].as_str().unwrap_or("").to_owned();
     // Per device: this device's removals entry and local marker decide "already removed". The
     // top-level state belongs to whichever device wrote last, so it only counts in a legacy report.
@@ -215,6 +215,10 @@ pub(crate) fn remove_with(
         let local_rows = local_secrets_rows()?;
         check_secrets_count(moved, local_rows)?;
     }
+    // This device writes only its own file: the base report is copied there before the first change.
+    if !report_path.exists() {
+        write_json_atomic(&report_path, &report)?;
+    }
     // A resume stops postgres too: a crash may have left it running.
     stop_pg()?;
     if !resume {
@@ -262,16 +266,8 @@ pub fn resume_on_launch(
     now: &str,
     stop_pg: &mut dyn FnMut() -> Result<(), String>,
 ) -> Result<bool, String> {
-    let report_path = folder.join(REPORT_REL);
-    if !report_path.exists() {
-        return Ok(false);
-    }
-    let report = read_report(&report_path)?;
-    let state = report["state"].as_str().unwrap_or("");
-    let own_entry = report["removals"][device_id]["state"].as_str().unwrap_or("");
-    let in_progress = own_entry == "removing"
-        || (state == "removing" && report["removingDeviceId"].as_str() == Some(device_id));
-    if !in_progress {
+    let reports = read_reports(folder).map_err(|problem| problem.refusal())?;
+    if !reports.iter().any(|(_, report)| own_removing(report, device_id)) {
         return Ok(false);
     }
     // A resume never reads the secrets count (Postgres is already down); the closure refuses if asked.
@@ -374,16 +370,122 @@ pub fn start_refusal(removed: bool) -> Option<&'static str> {
 /// marker means the cluster may still be there and a start would restore it from its backups.
 #[must_use]
 pub fn removal_refusal(folder: &Path, pg_root: &Path) -> Option<String> {
-    let report_path = folder.join(REPORT_REL);
-    let report = read_report(&report_path).ok()?;
-    let top = report["state"].as_str() == Some("removing");
-    let own_or_any = report["removals"]
-        .as_object()
-        .is_some_and(|map| map.values().any(|entry| entry["state"].as_str() == Some("removing")));
-    if (top || own_or_any) && !old_db_removed(pg_root) {
-        return Some("refused: a 0.9.7 removal is unfinished; it finishes on the next launch".to_owned());
+    let reports = match read_reports(folder) {
+        Ok(reports) => reports,
+        Err(problem) => return Some(problem.refusal()),
+    };
+    let unfinished = reports.iter().any(|(_, report)| {
+        report["state"].as_str() == Some("removing")
+            || report["removals"].as_object().is_some_and(|map| {
+                map.values().any(|entry| entry["state"].as_str() == Some("removing"))
+            })
+    });
+    (unfinished && !old_db_removed(pg_root))
+        .then(|| "refused: a 0.9.7 removal is unfinished; it finishes on the next launch".to_owned())
+}
+
+/// This device's own report file name, the only report file this device writes.
+pub(super) fn own_report_name(device_id: &str) -> String {
+    format!("report-{device_id}.json")
+}
+
+pub(super) fn own_report_path(folder: &Path, device_id: &str) -> PathBuf {
+    folder.join(MIGRATION_DIR).join(own_report_name(device_id))
+}
+
+/// The report this device reads its own run and removal from: its own file when it has one, else the
+/// legacy report.json. The legacy file is read-only and is never written.
+pub(super) fn base_report_path(folder: &Path, device_id: &str) -> PathBuf {
+    let own = own_report_path(folder, device_id);
+    if own.exists() { own } else { folder.join(REPORT_REL) }
+}
+
+/// Why the migration reports cannot be read as a whole. Either one refuses.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum ReportsError {
+    /// The migration folder cannot be listed.
+    Listing(String),
+    /// This report file cannot be read or parsed (a conflict copy, usually).
+    Unreadable(String),
+}
+
+impl ReportsError {
+    /// Why the reports cannot be read, in plain words.
+    pub(super) fn reason(&self) -> String {
+        match self {
+            Self::Listing(error) => format!("cannot list the migration reports: {error}"),
+            Self::Unreadable(name) => format!("migration report {name} is unreadable"),
+        }
     }
-    None
+
+    /// The step the user takes, when one is known: a conflict copy is the only file named for removal.
+    pub(super) fn step(&self) -> Option<String> {
+        match self {
+            Self::Listing(_) => None,
+            Self::Unreadable(name) => Some(format!("delete the conflict copy {name}")),
+        }
+    }
+
+    pub(super) fn refusal(&self) -> String {
+        match self.step() {
+            Some(step) => format!("refused: {}; {step}", self.reason()),
+            None => format!("refused: {}", self.reason()),
+        }
+    }
+}
+
+/// Every report file in the migration folder (report.json and each report*.json, conflict copies
+/// included), parsed. An absent folder has none. A listing failure or one unreadable file is an error.
+pub(super) fn read_reports(folder: &Path) -> Result<Vec<(String, serde_json::Value)>, ReportsError> {
+    let dir = folder.join(MIGRATION_DIR);
+    let entries = match fs::read_dir(&dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(ReportsError::Listing(e.to_string())),
+    };
+    let mut names = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|e| ReportsError::Listing(e.to_string()))?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with("report") && name.ends_with(".json") {
+            names.push(name);
+        }
+    }
+    names.sort();
+    let mut reports = Vec::with_capacity(names.len());
+    for name in names {
+        let parsed = fs::read_to_string(dir.join(&name))
+            .ok()
+            .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok());
+        match parsed {
+            Some(value) => reports.push((name, value)),
+            None => return Err(ReportsError::Unreadable(name)),
+        }
+    }
+    Ok(reports)
+}
+
+/// The report the status reads for this device: its own file, else the legacy report.json, else any
+/// other device's report (so the status says "no run from this device" rather than "none").
+pub(super) fn base_report<'a>(
+    reports: &'a [(String, serde_json::Value)],
+    device_id: &str,
+) -> Option<&'a serde_json::Value> {
+    let own = own_report_name(device_id);
+    reports
+        .iter()
+        .find(|(name, _)| *name == own)
+        .or_else(|| reports.iter().find(|(name, _)| *name == "report.json"))
+        .or_else(|| reports.first())
+        .map(|(_, value)| value)
+}
+
+/// Whether this device has a removal in progress in one report: its own removals entry, or the
+/// top-level state for the device that started it.
+fn own_removing(report: &serde_json::Value, device_id: &str) -> bool {
+    let state = report["state"].as_str().unwrap_or("");
+    report["removals"][device_id]["state"].as_str() == Some("removing")
+        || (state == "removing" && report["removingDeviceId"].as_str() == Some(device_id))
 }
 
 fn marker_path(pg_root: &Path) -> std::path::PathBuf {
@@ -759,8 +861,9 @@ mod final_write_tests {
         }
     }
 
+    /// This device's own report file: every write in these tests lands there, never in report.json.
     fn read_report(folder: &Path) -> serde_json::Value {
-        let text = fs::read_to_string(folder.join(REPORT_REL)).unwrap();
+        let text = fs::read_to_string(own_report_path(folder, DEV)).unwrap();
         serde_json::from_str(&text).unwrap()
     }
 

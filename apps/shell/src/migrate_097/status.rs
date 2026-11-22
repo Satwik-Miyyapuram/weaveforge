@@ -6,8 +6,6 @@ use std::path::Path;
 
 use serde::Serialize;
 
-const REPORT_REL: &str = ".weaveforge/migration-0.9.7/report.json";
-
 /// Status of the 0.9.7 migration as the UI sees it.
 #[derive(Debug, Serialize, specta::Type, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -40,22 +38,30 @@ pub struct MigrationStatus {
     pub exported_here: bool,
     /// Whether this device's latest run in report.json is verified.
     pub own_run_verified: bool,
+    /// Why the migration reports cannot be read (an unreadable conflict copy, a failed listing).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// The step the user takes to clear `reason`, when one is known (for example
+    /// "delete the conflict copy <name>").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub step: Option<String>,
 }
 
-/// Reads report.json, exported-to.json and the backup. Never writes and never fails. An unreadable
-/// report is `removed` when the removed marker exists, `none` when report.json and exported-to.json
-/// are both absent, and `unavailable` otherwise.
+/// Reads every migration report in the folder (report.json, this device's own file and conflict
+/// copies), exported-to.json and the backup. Never writes and never fails. One unreadable report or a
+/// failed listing makes the status unavailable, with `reason` and `step` set. Otherwise this device's
+/// state comes from its own file, else the legacy report.json. An unreadable report is `removed` when
+/// the removed marker exists, `none` when no report and no export exist, and `unavailable` otherwise.
 pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> MigrationStatus {
     let exported = exported_to(pg_root);
     let exported_here = exported.as_deref().is_some_and(|name| same_folder(name, folder));
     let removed = super::remove::old_db_removed(pg_root);
-    let report_text = fs::read_to_string(folder.join(REPORT_REL));
-    let report: Option<serde_json::Value> = report_text
-        .as_ref()
-        .ok()
-        .and_then(|text| serde_json::from_str(text).ok());
-    let Some(report) = report else {
-        let absent = matches!(&report_text, Err(e) if e.kind() == std::io::ErrorKind::NotFound);
+    let (reports, problem) = match super::remove::read_reports(folder) {
+        Ok(reports) => (reports, None),
+        Err(problem) => (Vec::new(), Some(problem)),
+    };
+    let Some(report) = super::remove::base_report(&reports, device_id).cloned() else {
+        let absent = reports.is_empty() && problem.is_none();
         let state = if removed {
             "removed"
         } else if absent && exported.is_none() {
@@ -76,6 +82,8 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
             removing_device_id: removed.then(|| device_id.to_owned()),
             exported_here,
             own_run_verified: false,
+            reason: problem.as_ref().map(super::remove::ReportsError::reason),
+            step: problem.as_ref().and_then(super::remove::ReportsError::step),
         };
     };
     // A missing, non-string or unknown state is unavailable, never `none` (that is for an absent report).
@@ -136,6 +144,8 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
         removing_device_id: report["removingDeviceId"].as_str().map(str::to_owned),
         exported_here,
         own_run_verified,
+        reason: None,
+        step: None,
     }
 }
 
@@ -155,6 +165,11 @@ mod tests {
         let status = migration_status(&folder, &base.join("local-pg"), "dev-a");
         let _ = fs::remove_dir_all(&base);
         assert_eq!(status.state, "unavailable");
+        assert_eq!(
+            status.reason.as_deref(),
+            Some("migration report report-dev-a (1).json is unreadable")
+        );
+        assert_eq!(status.step.as_deref(), Some("delete the conflict copy report-dev-a (1).json"));
     }
 }
 

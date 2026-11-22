@@ -84,12 +84,18 @@ impl Fixture {
         fs::write(self.pg_root.join("exported-to.json"), exported.to_string()).unwrap();
     }
 
+    /// The report this device reads and writes: its own file once it exists, else the legacy report.json.
+    fn base_report_path(&self) -> PathBuf {
+        let own = self.folder.join(".weaveforge/migration-0.9.7").join(format!("report-{DEVICE}.json"));
+        if own.exists() { own } else { self.folder.join(REPORT) }
+    }
+
     fn set_report(&self, text: &str) {
-        fs::write(self.folder.join(REPORT), text).unwrap();
+        fs::write(self.base_report_path(), text).unwrap();
     }
 
     fn report(&self) -> serde_json::Value {
-        let text = fs::read_to_string(self.folder.join(REPORT)).unwrap();
+        let text = fs::read_to_string(self.base_report_path()).unwrap();
         serde_json::from_str(&text).unwrap()
     }
 
