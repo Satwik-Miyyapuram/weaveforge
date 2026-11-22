@@ -6,7 +6,7 @@ import { FormError } from "@/components/form-error";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { appOrigin, authRedirectTo, pastedSignInQuery } from "@/lib/desktop/desktop-auth";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { setLocalMode } from "@/backend/providers/local/local-identity";
+import { enterLocalOnly, localOnlyEntryVisible } from "@/lib/desktop/local-only-entry";
 import { runBusy } from "./run-busy";
 import { Button } from "@/components/button";
 
@@ -243,13 +243,18 @@ export function LoginScreen() {
                 </form>
               )}
 
-              {onThisComputer && (
+              {onThisComputer && localOnlyEntryVisible(desktop() !== null) && (
                 <Button variant="link"
                   onClick={() => {
-                    // The wiring is built once, at startup, from this choice —
-                    // so the choice is remembered and the window reopened.
-                    setLocalMode(true);
-                    window.location.reload();
+                    // Desktop only (the web entry is hidden): pick a folder, then
+                    // enter the migration run for it; the window reloads onto it.
+                    const shell = desktop();
+                    if (!shell) return;
+                    void run(async () => {
+                      const outcome = await enterLocalOnly(shell);
+                      if (outcome === "reload") window.location.reload();
+                      if (outcome === "unavailable") throw new Error("This app cannot open a workspace folder for local-only use yet.");
+                    });
                   }}
                 >
                   Use without an account, local only

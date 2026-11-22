@@ -18,10 +18,8 @@ import {
   desktop,
   type DesktopLocalDbState,
 } from "@/lib/desktop/desktop-bridge";
-import {
-  isLocalMode,
-  setLocalMode,
-} from "@/backend/providers/local/local-identity";
+import { isLocalMode } from "@/backend/providers/local/local-identity";
+import { enterLocalOnly } from "@/lib/desktop/local-only-entry";
 import { Button } from "@/components/button";
 
 /**
@@ -190,8 +188,10 @@ function StartupFailure({ message }: { message: string }) {
         {desktop() && !isLocalMode() ? (
           <Button
             onClick={() => {
-              setLocalMode(true);
-              window.location.reload();
+              const shell = desktop();
+              if (shell) void enterLocalOnly(shell).then((outcome) => {
+                if (outcome === "reload") window.location.reload();
+              });
             }}
           >
             Work on this computer (offline)

@@ -8,6 +8,16 @@
  */
 import { migrate097Status, type Migrate097Bridge } from "./migrate-097";
 
+/**
+ * Web keeps the local-only entry hidden until the OPFS browser wiring lands.
+ * Flip this to true then; the desktop entry is always shown.
+ */
+export const WEB_LOCAL_ONLY_ENTRY = false;
+
+export function localOnlyEntryVisible(onDesktop: boolean): boolean {
+  return onDesktop || WEB_LOCAL_ONLY_ENTRY;
+}
+
 export type LocalOnlyOutcome = "reload" | "cancelled" | "unavailable";
 
 /** The shell calls this route needs. `migrate097Run` is absent on an old shell. */
