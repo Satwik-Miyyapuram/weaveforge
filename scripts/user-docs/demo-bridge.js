@@ -1,8 +1,8 @@
 // The docs' demo app: the real app's static export with this script first in
 // every page's <head> (build-demo-app.mjs). It stands in for the desktop shell
-// (window.weaveforge, apps/web/src/lib/desktop/desktop-bridge.ts) with PGlite in
-// the page, opened on the database demo-db.mts built. Every load starts from that
-// copy and nothing is saved, so readers see the same demo thesis every time.
+// (window.weaveforge, apps/web/src/lib/desktop/desktop-bridge.ts) over the workspace
+// demo-workspace.mts built. Every load starts from that copy; edits stay in this
+// page's memory, so readers see the same demo thesis every time.
 // It also takes the docs page's messages: theme, ring around a control, actions.
 (function () {
   "use strict";
@@ -18,7 +18,7 @@
     else localStorage.removeItem("thesis.projectId");
   } catch { /* no storage: sign-in screen */ }
 
-  // The one paper with a PDF (demo-db.mts). The docs name it ?paper=demo, since
+  // The one paper with a PDF (demo-workspace.mts). The docs name it ?paper=demo, since
   // its id changes with every build; swapped before the app reads the URL.
   const pdfPaper = document.currentScript && document.currentScript.dataset.pdfPaper;
   if (params.get("paper") === "demo" && pdfPaper) {
@@ -40,22 +40,34 @@
     else document.documentElement.dataset.theme = theme;
   }
 
+  // The demo workspace: text files inline, binary files (the charts) fetched when
+  // first read. Writes live in `store` only, so nothing outlives the page.
+  const store = new Map();
   const ready = (async () => {
-    const [{ PGlite }, { pgcrypto }, q, data, meta] = await Promise.all([
-      import(BASE + "pglite/index.js"),
-      import(BASE + "pglite/contrib/pgcrypto.js"),
-      import(BASE + "demo-query.mjs"),
-      fetch(BASE + "db.tar.gz").then((r) => r.blob()),
-      fetch(BASE + "files.json").then((r) => r.json()),
-    ]);
-    const db = await PGlite.create({ loadDataDir: data, extensions: { pgcrypto }, parsers: q.DEMO_PARSERS });
+    const ws = await fetch(BASE + "workspace.json").then((r) => r.json());
+    for (const [path, entry] of Object.entries(ws.files)) {
+      store.set(path, "text" in entry ? { text: entry.text } : { url: BASE + entry.file });
+    }
     if (pdfPaper && params.has("paper")) await cachePdf(pdfPaper).catch(() => {});
-    return { db, q, meta };
+    return ws;
   })();
+
+  // Workspace paths are relative to the root, with no leading or trailing slash.
+  const key = (p) => String(p || "").replace(/^\.?\/+/, "").replace(/\/+$/, "");
+  const under = (dir) => (dir ? dir + "/" : "");
+  const now = () => new Date().toISOString();
+  const sizeOf = (e) => (e.text !== undefined ? new TextEncoder().encode(e.text).byteLength : e.bytes ? e.bytes.byteLength : 0);
+  const fileEntry = (path, e) => ({ path, kind: "file", size: sizeOf(e), modifiedAt: now() });
+  const dirEntry = (path) => ({ path, kind: "dir", size: 0, modifiedAt: now() });
+  async function bytesOf(e) {
+    if (e.text !== undefined) return new TextEncoder().encode(e.text);
+    if (!e.bytes) e.bytes = new Uint8Array(await (await fetch(e.url)).arrayBuffer());
+    return e.bytes;
+  }
 
   // Put the demo PDF where the reader's browser cache looks for it, keyed by paper
   // id (IndexedDbPdfByteCache, apps/web/src/features/reader/infrastructure/parts-1.ts).
-  // Done before the database opens, so the reader cannot ask first.
+  // Done before the app opens the paper, so the reader cannot ask first.
   async function cachePdf(paperId) {
     const bytes = await (await fetch(BASE + "demo-paper.pdf")).arrayBuffer();
     const idb = await new Promise((resolve, reject) => {
@@ -96,31 +108,63 @@
     readSecret: none,
     writeSecret: nothing,
     clearSecret: nothing,
-    async queryLocalDb(sql, params) {
-      const { db, q, meta } = await ready;
-      return q.localQuery(db, meta.claims, sql, params ?? []);
-    },
-    localDbState: async () => ({ failure: null, dataDir: "demo" }),
-    resetLocalDb: nothing,
-    async readLocalFile(bucket, path) {
-      const b64 = (await ready).meta.files[bucket + "/" + path];
-      return b64 ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) : null;
-    },
-    async writeLocalFile(bucket, path, bytes) {
-      let s = "";
-      for (const b of bytes) s += String.fromCharCode(b);
-      (await ready).meta.files[bucket + "/" + path] = btoa(s);
-    },
-    async removeLocalFile(bucket, path) { delete (await ready).meta.files[bucket + "/" + path]; },
     chooseVaultRoot: none,
-    vaultRoot: none,
-    readVaultFile: none,
-    writeVaultFile: nothing,
-    readVaultBytes: none,
-    writeVaultBytes: nothing,
-    listVaultFiles: async () => [],
-    statVaultFile: none,
-    removeVaultFile: nothing,
+    vaultRoot: async () => ({ path: "demo-workspace", state: "existing" }),
+    async readVaultFile(p) {
+      await ready;
+      const e = store.get(key(p));
+      return e ? new TextDecoder().decode(await bytesOf(e)) : null;
+    },
+    async writeVaultFile(p, text) {
+      await ready;
+      store.set(key(p), { text: String(text) });
+    },
+    async writeVaultFileIf(p, text, expected) {
+      await ready;
+      const cur = store.get(key(p));
+      const now = cur ? new TextDecoder().decode(await bytesOf(cur)) : null;
+      if (now !== expected) return false;
+      store.set(key(p), { text: String(text) });
+      return true;
+    },
+    async readVaultBytes(p) {
+      await ready;
+      const e = store.get(key(p));
+      return e ? bytesOf(e) : null;
+    },
+    async writeVaultBytes(p, bytes) {
+      await ready;
+      store.set(key(p), { bytes: new Uint8Array(bytes) });
+    },
+    async listVaultFiles(dir = "") {
+      await ready;
+      const base = under(key(dir));
+      const out = new Map();
+      for (const [p, e] of store) {
+        if (!p.startsWith(base)) continue;
+        const rest = p.slice(base.length);
+        const slash = rest.indexOf("/");
+        if (slash < 0) out.set(p, fileEntry(p, e));
+        else {
+          const d = base + rest.slice(0, slash);
+          if (!out.has(d)) out.set(d, dirEntry(d));
+        }
+      }
+      return [...out.values()];
+    },
+    async statVaultFile(p) {
+      await ready;
+      const k = key(p);
+      const e = store.get(k);
+      if (e) return fileEntry(k, e);
+      if (k === "" || [...store.keys()].some((x) => x.startsWith(k + "/"))) return dirEntry(k);
+      return null;
+    },
+    async removeVaultFile(p) {
+      await ready;
+      const k = key(p);
+      for (const x of [...store.keys()]) if (x === k || x.startsWith(k + "/")) store.delete(x);
+    },
     commitVault: async () => ({ commit: null, reason: NO_ACCOUNT }),
     vaultLog: async () => [],
     localApiState: async () => ({ enabled: false, url: "" }),
@@ -208,7 +252,7 @@
     el?.click();
   }
   // Another how-to's screen, in the running app: the router, not a new page, so the
-  // app and its database stay. Only a different open project needs a fresh start.
+  // app and its in-memory workspace stay. Only a different open project needs a fresh start.
   async function goTo(href) {
     const url = new URL(href, location.href);
     const want = url.searchParams.get("docsProject") === "none" ? null : project;
@@ -228,7 +272,7 @@
     await until(() => location.pathname === url.pathname && document.querySelector("button"), 5000);
     await new Promise((r) => setTimeout(r, 300));
   }
-  // Nothing runs before the demo database is open and the app has drawn a control.
+  // Nothing runs before the demo workspace is loaded and the app has drawn a control.
   let queue = ready.then(() => until(() => document.querySelector("button"), 15000), () => {})
     .then(() => { if (parent !== window) parent.postMessage({ docsReady: true }, "*"); });
   // The latest switch; work queued for an older one is dropped, so scrolling past
