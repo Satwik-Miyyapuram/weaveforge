@@ -38,6 +38,10 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
       baseUrl: deps.dataUrl,
       userId: session.userId,
       fetch: globalThis.fetch.bind(globalThis),
+      // The browser has no local outbox: writes go straight to the server, so nothing waits in a
+      // local queue and the count is a true 0. The static guard in test/browser-no-outbox.test.ts
+      // fails if a browser-reachable module adds an outbox, so this count must be revisited then.
+      pendingOutbox: async () => 0,
       headers: {
         apikey: deps.anonKey,
         Authorization: `Bearer ${session.accessToken}`,

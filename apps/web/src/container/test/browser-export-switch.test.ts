@@ -88,3 +88,27 @@ test("(P1-3) on desktop the browser switch never runs: no session read, no gate,
   assert.equal(h.gateCalls.length, 0);
   assert.equal(h.opened(), 0);
 });
+
+test("(P1-2) the browser source reports pendingOutbox 0: no browser outbox exists to count", async () => {
+  const h = harness();
+  await decideBrowserSwitch(h.deps);
+  const { source } = h.gateCalls[0] as { source: { pendingOutbox: () => Promise<number> } };
+  assert.equal(await source.pendingOutbox(), 0);
+});
+
+test("(P1-2) no in-flight tracker: wiring opens only after the gate's final read-back resolves", async () => {
+  const order: string[] = [];
+  const h = harness({
+    gate: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      order.push("gate-done");
+      return { switch: true };
+    },
+    openWiring: async () => {
+      order.push("wiring");
+      return WIRING;
+    },
+  });
+  await decideBrowserSwitch(h.deps);
+  assert.deepEqual(order, ["gate-done", "wiring"]);
+});
