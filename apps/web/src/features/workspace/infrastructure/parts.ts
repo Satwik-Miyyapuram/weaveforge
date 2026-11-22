@@ -82,8 +82,10 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
     if (!dir) return null;
     try {
       return await dir.getFileHandle(name, { create });
-    } catch {
-      return null;
+    } catch (error) {
+      // Only a missing file is absent. Any other refusal (permission, a type clash) reaches the caller.
+      if ((error as { name?: unknown } | null)?.name === "NotFoundError") return null;
+      throw error;
     }
   }
 

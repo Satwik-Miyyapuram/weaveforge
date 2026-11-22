@@ -191,6 +191,20 @@ test("concurrent writeTextIf calls on one path let exactly one through (Web Lock
   }
 });
 
+test("a read the browser refuses is not reported as a missing file", async () => {
+  const { root, fs } = workspace();
+  await fs.writeFile("a.md", "x");
+  root.getFileHandle = async () => {
+    throw new DOMException("Not allowed.", "NotAllowedError");
+  };
+  await assert.rejects(() => fs.readText("a.md"), { name: "NotAllowedError" });
+});
+
+test("a read of a file that is really absent still reports ENOENT", async () => {
+  const { fs } = workspace();
+  await assert.rejects(() => fs.readText("missing.md"), { message: /^ENOENT/ });
+});
+
 test("recursive remove still clears a folder", async () => {
   const { fs } = workspace();
   await fs.writeFile("project/notes/a.md", "x");
