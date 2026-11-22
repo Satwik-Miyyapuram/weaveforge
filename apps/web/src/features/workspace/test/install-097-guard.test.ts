@@ -79,10 +79,11 @@ test("legacy true and report not verified: unverified (picker), checked against 
   assert.deepEqual(verify.calls, [["/ws/moved"]]);
 });
 
-test("legacy true, 0.9.7 secrets move not finished (marker absent, gate false): unverified, never open", async () => {
+test("legacy true, install gate answers false (0.9.7 secrets marker absent): asked once, unverified, never open", async () => {
   const verify = spyOf(async (_folder: string) => false);
   const bridge = { legacyDbPresent: legacyTrue, migrationReportVerified: verify.fn };
   assert.deepEqual(await install097Check(bridge, "/ws/moved"), { kind: "unverified" });
+  assert.equal(verify.calls.length, 1, "the gate answer is the only input; a false answer must not be bypassed");
 });
 
 test("legacy true, report verified and secrets moved (marker present, gate true): open", async () => {
@@ -90,9 +91,11 @@ test("legacy true, report verified and secrets moved (marker present, gate true)
   assert.deepEqual(await install097Check(bridge, "/ws/moved"), { kind: "open" });
 });
 
-test("the gate notice tells the user to open 0.9.7 once more so the move finishes", () => {
-  assert.match(INSTALL_097_NOTICE.body, /open WeaveForge 0\.9\.7 once more/);
-  assert.match(INSTALL_097_NOTICE.body, /move/);
+test("the gate notice body is the exact 0.9.7 move instruction", () => {
+  assert.equal(
+    INSTALL_097_NOTICE.body,
+    "Install or open WeaveForge 0.9.7 so its move finishes, then come back.",
+  );
 });
 
 test("legacy true and report throws: unknown with its code, fail closed", async () => {

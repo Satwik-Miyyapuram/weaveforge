@@ -52,5 +52,5 @@ export async function install097Check(bridge: Install097Bridge | null, folder: s
 /** The gate text. Showing it does not touch the data. */
 export const INSTALL_097_NOTICE = {
   title: "Open 0.9.7 once more.",
-  body: "Your data is safe. This version cannot open the older local database yet. Open WeaveForge 0.9.7 once more so its move finishes, then come back.",
+  body: "Install or open WeaveForge 0.9.7 so its move finishes, then come back.",
 } as const;
