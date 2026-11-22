@@ -2,7 +2,23 @@ import type { KindCount, MigrationState } from "../domain/report";
 import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import { sha256Hex } from "../domain/hash";
 import { sanitizeBlobRefs } from "../domain/asset-path";
+import { conflictBasePath } from "../domain/conflict-path";
 import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
+
+/** Null when the blob at `path` matches its size and sidecar sha256; otherwise the reason. */
+async function checkBlob(sink: FileSink, path: string, sizeBytes: number): Promise<string | null> {
+  try {
+    const bytes = await sink.readBytes(path);
+    // Line 1 is the sha256; line 2 (the content type) is not compared here. Checked against
+    // the local bytes and the server size only: the server records no sha256.
+    const sidecar = (await sink.readText(`${path}.sha256`)).split("\n")[0];
+    if (bytes.length !== sizeBytes) return "size mismatch";
+    if ((await sha256Hex(bytes)) !== sidecar) return "sha256 mismatch";
+    return null;
+  } catch {
+    return "read failed";
+  }
+}
 
 /** Local-only sync bookkeeping: never part of the server row or the file, so never compared. */
 const LOCAL_ONLY_FIELDS = ["syncState"];
@@ -32,6 +48,8 @@ export type VerifyInput = {
   codec: FileCodec;
   source: ServerSource;
   sink: FileSink;
+  /** Files left on disk on purpose (orphans): not decoded, so they cannot block the gate. */
+  ignore?: ReadonlySet<string>;
 };
 
 export type Verdict = {
@@ -76,11 +94,12 @@ function firstDifference(kind: string, expected: Row[], decoded: Row[]): string 
  * Any read error is recorded and makes the state incomplete.
  */
 export async function verifyExport(input: VerifyInput): Promise<Verdict> {
-  const { kinds, codec, source, sink } = input;
+  const { kinds, codec, source, sink, ignore } = input;
   const errors: string[] = [];
   const out: Verdict = { state: "incomplete", kinds: {}, blobs: { db: 0, verified: 0 }, errors };
 
   const files = await sink.list();
+  const copied = new Set(files.map(conflictBasePath).filter((base): base is string => base !== null));
   for (const kind of kinds) {
     try {
       const expected = await source.listRows(kind);
@@ -90,6 +109,8 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
       }
       const decoded: Row[] = [];
       for (const path of files) {
+        // An original with a conflict copy is the user's own edit: the copy holds the DB version and is decoded.
+        if (copied.has(path) || ignore?.has(path)) continue;
         const row = codec.toRow(kind, path, await sink.readText(path));
         if (row) decoded.push(row);
       }
@@ -116,17 +137,20 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
         errors.push(`blob ${path}: unsafe path`);
         continue;
       }
-      try {
-        const bytes = await sink.readBytes(path);
-        // Line 1 is the sha256; line 2 (the content type) is not compared here. Checked against
-        // the local bytes and the server size only: the server records no sha256.
-        const sidecar = (await sink.readText(`${path}.sha256`)).split("\n")[0];
-        if (bytes.length !== ref.sizeBytes) errors.push(`blob ${path}: size mismatch`);
-        else if ((await sha256Hex(bytes)) !== sidecar) errors.push(`blob ${path}: sha256 mismatch`);
-        else out.blobs.verified++;
-      } catch (err) {
-        errors.push(`blob ${path}: read failed`);
+      // The original, or a conflict copy of it that holds the DB blob, passes the blob.
+      const candidates = [path, ...files.filter((f) => conflictBasePath(f) === path)];
+      const problems: string[] = [];
+      let ok = false;
+      for (const candidate of candidates) {
+        const problem = await checkBlob(sink, candidate, ref.sizeBytes);
+        if (problem === null) {
+          ok = true;
+          break;
+        }
+        problems.push(problem);
       }
+      if (ok) out.blobs.verified++;
+      else errors.push(`blob ${path}: ${problems[0] ?? "read failed"}`);
     }
   } catch (err) {
     errors.push("blobs: read failed");

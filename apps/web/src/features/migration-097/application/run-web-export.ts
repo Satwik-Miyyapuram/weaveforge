@@ -14,6 +14,7 @@ import { PAPER_FIELD_KINDS, projectDefsMismatches } from "../domain/paper-fields
 import { sanitizeBlobRefs } from "../domain/asset-path";
 import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
+import { createFileStore, type FileStore, type Outputs } from "./file-store";
 
 export type ExportProgress = { kind: string; done: number; total: number };
 
@@ -104,7 +105,7 @@ const TRASH_DIR = ".weaveforge/migration-0.9.7/trash";
  * any other row is written as raw JSON. Each file must read back to the text written, or the row is
  * listed missing. Returns how many rows verified.
  */
-async function exportTrash(kind: string, rows: Row[], sink: FileSink, codec: FileCodec, missing: MissingRow[]): Promise<number> {
+async function exportTrash(kind: string, rows: Row[], sink: FileSink, store: FileStore, codec: FileCodec, missing: MissingRow[]): Promise<number> {
   let verified = 0;
   for (const row of rows) {
     if (row.id === undefined || row.id === null || row.id === "") {
@@ -121,15 +122,16 @@ async function exportTrash(kind: string, rows: Row[], sink: FileSink, codec: Fil
       missing.push({ kind, id, reason: "trash decode failed" });
       continue;
     }
+    let written: string;
     try {
-      await sink.write(path, text);
+      written = await store.store(path, text, await sha256Hex(text));
     } catch {
       missing.push({ kind, id, reason: "trash write failed" });
       continue;
     }
     let back: string;
     try {
-      back = await sink.readText(path);
+      back = await sink.readText(written);
     } catch {
       back = "";
     }
@@ -166,6 +168,22 @@ export function verifyReasonCode(raw: string): string {
   if (raw.endsWith(": read failed") || raw === "blobs: read failed") return "read-failed";
   if (raw.includes("decoded files differ")) return "decoded-differ";
   return "verify-error";
+}
+
+/**
+ * This device's own previous run's outputs (path to sha256). Other devices' runs are never read here, so
+ * their files are never overwritten or listed as this device's orphans. Empty when there is no such run.
+ */
+async function priorOutputs(sink: FileSink, deviceId: string | undefined): Promise<Outputs> {
+  let parsed: Partial<MigrationReport>;
+  try {
+    parsed = JSON.parse(await sink.readText(REPORT_PATH)) as Partial<MigrationReport>;
+  } catch {
+    return {};
+  }
+  const own = (Array.isArray(parsed.runs) ? parsed.runs : []).filter((r) => deviceId !== undefined && r.deviceId === deviceId);
+  const latest = own.reduce<RunReport | undefined>((best, r) => (!best || r.startedAt > best.startedAt ? r : best), undefined);
+  return latest?.outputs ?? {};
 }
 
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
@@ -227,6 +245,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     return refused(sink, now, "outbox not empty: flush before export", target, { backup: dumpName, deviceId });
   }
 
+  // Read before the early report, which replaces this device's run and with it its outputs.
+  const prior = await priorOutputs(sink, deviceId);
   // Early report: if the run dies before the end, report.json already says incomplete.
   await writeReport(sink, {
     version: 1,
@@ -247,6 +267,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     ],
   });
 
+  const store = await createFileStore(sink, prior);
   const trashCount: Record<string, number> = {};
   let current = "*";
   try {
@@ -261,7 +282,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
         written[kind] = 0;
         dbCount[kind] = rows.length;
-        trashCount[kind] = await exportTrash(kind, await source.listTrashed(kind), sink, codec, missing);
+        trashCount[kind] = await exportTrash(kind, await source.listTrashed(kind), sink, store, codec, missing);
         const writer = writerFor(kind);
         if (writer) {
           for (const row of rows) {
@@ -301,7 +322,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           // One bad row is listed missing; the others are still exported.
           try {
             const file = codec.toFile(kind, row);
-            await sink.write(file.path, file.text);
+            await store.store(file.path, file.text, await sha256Hex(file.text));
             written[kind]++;
           } catch (err) {
             debugLog?.(`codec ${kind} ${String(row.id)}: ${(err as Error).message}`);
@@ -331,12 +352,13 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         }
         // The sha256 is computed here; the server never supplies one.
         const sha256 = await sha256Hex(bytes);
-        const path = `assets/${item.bucket}/${item.path}`;
+        let path = `assets/${item.bucket}/${item.path}`;
         if (blobWriter) {
           await blobWriter.write("blobs", { bucket: item.bucket, path: item.path, sha256, bytes });
         } else {
-          await sink.write(path, bytes);
-          await sink.write(`${path}.sha256`, sha256);
+          // A differing file at the path keeps its bytes: the DB blob lands at a conflict copy instead.
+          path = await store.store(path, bytes, sha256);
+          await store.writeIfMissing(`${path}.sha256`, sha256);
         }
         // Read back what was written; a blob that does not read back to the local sha256 is missing.
         const back = await sha256Hex(await sink.readBytes(path));
@@ -354,11 +376,17 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     missing.push({ kind: current, id: "*", reason: `run-failed:${current}` });
   }
 
+  // Orphans: what this device's previous run wrote and this run did not. They stay on disk untouched and do
+  // not block verify. They stay in outputs, so later runs still see them as this device's files.
+  const kept = Object.entries(prior).filter(([path]) => store.outputs[path] === undefined);
+  const orphans = kept.map(([path]) => path);
+  const outputs: Outputs = { ...Object.fromEntries(kept), ...store.outputs };
+
   // Writer kinds are compared by readBack above; verify decodes the raw codec files only.
   const codecKinds = kinds.filter((k) => !writerFor(k));
   let verdict: Verdict;
   try {
-    verdict = await verifyExport({ kinds: codecKinds, codec, source, sink });
+    verdict = await verifyExport({ kinds: codecKinds, codec, source, sink, ignore: new Set(orphans) });
   } catch (err) {
     verdict = { state: "incomplete", kinds: {}, blobs: { db: 0, verified: 0 }, errors: [] };
     debugLog?.(`verify: ${(err as Error).message}`);
@@ -389,6 +417,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       blobs: { db: verdict.blobs.db, verified: verdict.blobs.verified },
       missing,
       deviceId,
+      conflicts: store.conflicts,
+      orphans: orphans.length > 0 ? orphans : undefined,
+      outputs,
     };
     const report: MigrationReport = {
       version: 1,
