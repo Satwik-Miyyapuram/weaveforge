@@ -97,6 +97,45 @@ export function createCycleRunner(run: () => Promise<void>): () => Promise<void>
   };
 }
 
+export interface SettleEffects {
+  markedAccount(): string | null;
+  markAccount(owner: { id: string; email?: string | null }): void;
+  reload(): void;
+  refresh(): void;
+}
+
+const liveSettleEffects: SettleEffects = {
+  markedAccount: () => localFirstAccount()?.id ?? null,
+  markAccount: (owner) => setLocalFirstAccount({ id: owner.id, email: owner.email ?? null }),
+  reload: () => window.location.reload(),
+  refresh: () => {
+    invalidateAllRepoCaches();
+    clearAllScreenCaches();
+  },
+};
+
+/**
+ * What a finished cycle does to the window. `live` is checked first: a cycle that
+ * finishes after sign-out must not mark the window for an account, reload it, or
+ * refresh screens on the halted loop's behalf.
+ */
+export function settleCycle(
+  result: CycleResult,
+  owner: { id: string; email?: string | null },
+  live: () => boolean,
+  effects: SettleEffects = liveSettleEffects,
+): void {
+  if (!live()) return;
+  const caughtUp = readyCore().isCaughtUp(result.pushed.stoppedBecause, result.pulled.more);
+  if (caughtUp && effects.markedAccount() !== owner.id) {
+    effects.markAccount(owner);
+    effects.reload();
+    return;
+  }
+  // What arrived is already on disk; the screens still hold what they read.
+  if (result.pulled.applied > 0) effects.refresh();
+}
+
 /**
  * One sync cycle behind the migration gate, re-checked on every run (the folder
  * can migrate to files while the loop runs). A blocked cycle shows sync off; a
@@ -321,24 +360,16 @@ function startSync(): (() => void) | undefined {
       if (count !== null) setLiveSyncState({ conflictsCount: count });
     };
 
-    const engine = syncEngine(liveAccessToken(client));
+    // The token is only ever for this loop's account, and only while it runs: a
+    // cycle started for A that outlives a switch to B gets no token at all.
+    let running = true;
+    const engine = syncEngine(
+      liveAccessToken(client, (userId) => running && userId === owner.id),
+    );
 
-    const settle = (result: CycleResult) => {
-      const caughtUp = readyCore().isCaughtUp(result.pushed.stoppedBecause, result.pulled.more);
-      if (caughtUp && localFirstAccount()?.id !== owner.id) {
-        setLocalFirstAccount({ id: owner.id, email: owner.email ?? null });
-        window.location.reload();
-        return;
-      }
-      // What arrived is already on disk; the screens still hold what they read.
-      if (result.pulled.applied > 0) {
-        invalidateAllRepoCaches();
-        clearAllScreenCaches();
-      }
-    };
+    const settle = (result: CycleResult) => settleCycle(result, owner, () => running);
 
     let lastRun = 0;
-    let running = true;
     const cycle = gatedCycleRunner(
       async () => {
         lastRun = Date.now();

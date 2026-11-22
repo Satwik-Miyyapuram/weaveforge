@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
 import { getLiveSyncState, setLiveSyncState } from "@/features/offline-sync/domain/parts-1";
+import type { CycleResult } from "@/features/offline-sync/domain/parts-3";
 import {
   createCycleRunner,
   gatedCycleRunner,
   mayDriveDevice,
+  settleCycle,
 } from "@/features/offline-sync/ui/sync-loop";
 import { loadTestCore } from "@/lib/test/load-test-core";
 
@@ -135,6 +137,29 @@ test("a cycle still waiting on the gate when sign-out halts does not turn sync b
 
   assert.equal(runs, 0, "a halted loop runs nothing");
   assert.equal(getLiveSyncState().enabled, false, "sign-out leaves sync off");
+});
+
+test("a cycle that finishes after sign-out neither adopts the account nor reloads", () => {
+  // Caught up, and the window is not yet marked for this account: the path that
+  // normally marks it and reloads. Halted, it must do neither.
+  const caughtUp: CycleResult = {
+    pushed: { sent: 0, conflicts: [], stoppedBecause: null },
+    pulled: { applied: 0, watermark: 7, more: false },
+  };
+  let marked = 0;
+  let reloaded = 0;
+  settleCycle(caughtUp, { id: "A", email: null }, () => false, {
+    markedAccount: () => null,
+    markAccount: () => {
+      marked += 1;
+    },
+    reload: () => {
+      reloaded += 1;
+    },
+    refresh: () => {},
+  });
+  assert.equal(marked, 0, "no account marked after sign-out");
+  assert.equal(reloaded, 0, "no reload after sign-out");
 });
 
 test("only the account that owns the device may drive it", () => {
