@@ -245,7 +245,6 @@
 }
 .account-menu-head b { font-weight: 600; }
 .account-menu-head span { color: var(--muted); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.account-menu-head .account-menu-sync { font-size: var(--fs-xs); }
 /* The project panel is a `Popover` now, so it needs the same treatment as the
    other menus: the rows own their padding rather than the panel's card gap. */
 /* The account panel holds lab rows too once its flyout opens; it keeps its own look. */

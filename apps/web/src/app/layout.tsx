@@ -13,7 +13,6 @@ import { PlanWidgetTheme } from "@/components/plan-widget-theme";
 import { ReactiveMotion } from "./reactive-motion";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { ClientRuntimeRecovery } from "@/components/client-runtime-recovery";
-import { SyncLoop } from "@/features/offline-sync/ui/sync-loop-lazy";
 import { InstallGate } from "@/features/install-gate/ui/install-gate";
 
 export const metadata: Metadata = {
@@ -85,10 +84,6 @@ export default function RootLayout({
         <ReactiveMotion />
         <ServiceWorkerRegister />
         <ClientRuntimeRecovery />
-        {/* The offline outbox's pump. Renders nothing, does nothing off the
-            desktop app or before sync has been adopted, and is lazy so that the
-            engine and its transport stay out of every route's first-load JS. */}
-        <SyncLoop />
         <WindowScrollbar />
         <DesktopTitleBar />
         <DesktopWindowIcon />
