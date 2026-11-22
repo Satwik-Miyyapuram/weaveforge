@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 
 use super::sdk::{SDK_PREFIX, route_sdk_request};
 use super::sdk_files;
+use super::verified::{FolderMode, folder_mode};
 use super::token::grant_permissions;
 use super::{
     Expected, LocalApiRequest, LocalApiResponse, McpRouter, Permission, SaveArtifact, SdkQuery,
@@ -53,7 +54,7 @@ pub async fn route_local_request(
         return denied(Permission::Experiments);
     }
 
-    if let Some(answered) = sdk_files::route(deps.vault, request, &path).await {
+    if let Some(answered) = sdk_files::route(deps.vault, request, &path, search).await {
         return answered;
     }
 
@@ -70,6 +71,10 @@ pub async fn route_local_request(
         }
         if request.method != "POST" {
             return LocalApiResponse::fail(405, "MCP is spoken over POST.");
+        }
+        // A folder mid-export has no settled source for MCP reads, so it waits rather than reading SQL.
+        if folder_mode(deps.vault) == FolderMode::Migrating {
+            return LocalApiResponse::json(503, &json!({ "error": sdk_files::MIGRATING }));
         }
         let Ok(message) = serde_json::from_str::<Value>(&request.body) else {
             return LocalApiResponse::json(
@@ -311,6 +316,25 @@ mod tests {
         }
     }
 
+    /// Counts the SQL the database route runs; every query answers no rows.
+    #[derive(Default)]
+    struct CountingDb {
+        calls: std::sync::atomic::AtomicUsize,
+    }
+
+    impl SdkQuery for CountingDb {
+        fn query<'a>(
+            &'a self,
+            _sql: &'a str,
+            _params: Vec<Value>,
+        ) -> BoxFuture<'a, Result<Vec<Value>, String>> {
+            let _ = self
+                .calls
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Box::pin(async { Ok(Vec::new()) })
+        }
+    }
+
     /// Stands in for the MCP router: notifications get no answer, requests echo the flags.
     struct FakeMcp;
 
@@ -349,6 +373,61 @@ mod tests {
 
     fn single() -> Expected {
         Expected::Single(TOKEN.to_owned())
+    }
+
+    /// Writes the 0.9.7 report and a `workspace.json` naming project `Lab`.
+    fn verified_with_project(fixture: &Fixture, state: &str) {
+        let dir = fixture.root.join(".weaveforge").join("migration-0.9.7");
+        fs::create_dir_all(&dir).expect("create migration dir");
+        let report = json!({ "version": 1, "state": state }).to_string();
+        fs::write(dir.join("report.json"), report).expect("write report");
+        let project = json!({ "id": "proj-1", "name": "Lab" }).to_string();
+        fs::write(fixture.root.join(".weaveforge").join("workspace.json"), project)
+            .expect("write workspace");
+    }
+
+    #[test]
+    fn a_verified_folder_answers_projects_with_zero_sql() {
+        let fixture = Fixture::new("zero-sql-verified");
+        verified_with_project(&fixture, "verified");
+        let db = CountingDb::default();
+        let deps = RouteDeps {
+            vault: &fixture.vault,
+            query: Some(&db),
+            save_artifact: None,
+            mcp: None,
+        };
+        let answer = block_on(route_local_request(
+            &deps,
+            &request("GET", "/api/sdk/projects?name=Lab", ""),
+            &mut single(),
+            NOW_MS,
+            NOW_ISO,
+        ));
+        assert_eq!(answer.status, 200);
+        let reply: Value = serde_json::from_str(&answer.body).expect("json");
+        assert_eq!(reply["projectId"], json!("proj-1"));
+        assert_eq!(db.calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn an_unverified_folder_runs_the_projects_sql() {
+        let fixture = Fixture::new("zero-sql-unverified");
+        let db = CountingDb::default();
+        let deps = RouteDeps {
+            vault: &fixture.vault,
+            query: Some(&db),
+            save_artifact: None,
+            mcp: None,
+        };
+        let _ = block_on(route_local_request(
+            &deps,
+            &request("GET", "/api/sdk/projects?name=Lab", ""),
+            &mut single(),
+            NOW_MS,
+            NOW_ISO,
+        ));
+        assert_eq!(db.calls.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
 
     fn sha256_hex(text: &str) -> String {
@@ -731,6 +810,73 @@ mod tests {
             answer,
             json!({ "id": 1, "suggest": false, "tracking": false })
         );
+    }
+
+    #[test]
+    fn mcp_answers_503_while_the_folder_is_migrating_with_zero_sql() {
+        let fixture = Fixture::new("mcp-migrating");
+        verified_with_project(&fixture, "exporting");
+        let db = CountingDb::default();
+        let mcp = FakeMcp;
+        let deps = RouteDeps {
+            vault: &fixture.vault,
+            query: Some(&db),
+            save_artifact: None,
+            mcp: Some(&mcp as &dyn McpRouter),
+        };
+        let body = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }).to_string();
+        let answer = block_on(route_local_request(
+            &deps,
+            &request("POST", "/mcp", &body),
+            &mut single(),
+            NOW_MS,
+            NOW_ISO,
+        ));
+        assert_eq!(answer.status, 503);
+        let reply: Value = serde_json::from_str(&answer.body).expect("json");
+        assert_eq!(reply["error"], json!("migration in progress"));
+        assert_eq!(db.calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn a_verified_folder_runs_no_sql_on_any_sdk_or_mcp_route() {
+        let fixture = Fixture::new("zero-sql-every-route");
+        verified_with_project(&fixture, "verified");
+        let db = CountingDb::default();
+        let mcp = FakeMcp;
+        let deps = RouteDeps {
+            vault: &fixture.vault,
+            query: Some(&db),
+            save_artifact: None,
+            mcp: Some(&mcp as &dyn McpRouter),
+        };
+        let routes = [
+            ("GET", "/api/sdk/whoami", ""),
+            ("GET", "/api/sdk/experiments", ""),
+            ("POST", "/api/sdk/experiments", "{}"),
+            ("GET", "/api/sdk/artifacts?experimentId=exp-1", ""),
+            ("GET", "/api/sdk/metrics", ""),
+        ];
+        for (method, url, body) in routes {
+            let answer = block_on(route_local_request(
+                &deps,
+                &request(method, url, body),
+                &mut single(),
+                NOW_MS,
+                NOW_ISO,
+            ));
+            assert_eq!(answer.status, 503, "{method} {url}");
+        }
+        let mcp_body = json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list" }).to_string();
+        let answer = block_on(route_local_request(
+            &deps,
+            &request("POST", "/mcp", &mcp_body),
+            &mut single(),
+            NOW_MS,
+            NOW_ISO,
+        ));
+        assert_eq!(answer.status, 200);
+        assert_eq!(db.calls.load(std::sync::atomic::Ordering::SeqCst), 0);
     }
 
     /// An MCP call made with the given token store, through the fake router.

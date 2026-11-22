@@ -12,14 +12,21 @@ use wf_store::files::metrics_csv::{
     ChunkWrite, experiment_dirs, local_batch_id, store_metric_points,
 };
 
-use super::sdk::SDK_PREFIX;
+use super::sdk::{SDK_PREFIX, trimmed_param};
+use super::verified::{FolderMode, folder_mode};
 use super::{LocalApiRequest, LocalApiResponse};
 use crate::vault::VaultState;
 
 /// The web route's cap on points per request.
 const MAX_POINTS: usize = 5000;
+/// The project file the files-first folder keeps (`{ id, name }` plus other keys).
+const WORKSPACE_JSON: &str = ".weaveforge/workspace.json";
 /// Said when the blocking write task panicked.
 const TASK_FAILED: &str = "The metrics could not be written.";
+/// Said by every SDK route while an export is running or finished.
+pub(super) const MIGRATING: &str = "migration in progress";
+/// Said by a files-mode folder for an SDK route that is not file-backed yet. Never SQL.
+pub(super) const NOT_FILED: &str = "not available in files mode yet";
 
 /// Whether local metrics go to files (`WF_METRICS_FILES=1`); read on every call.
 #[must_use]
@@ -27,27 +34,68 @@ pub fn enabled() -> bool {
     std::env::var("WF_METRICS_FILES").is_ok_and(|value| value == "1")
 }
 
-/// Answers a local `POST /api/sdk/metrics` from files when [`enabled`];
-/// `None` leaves every other request to the database routes.
+/// Answers SDK requests for the files-backed folder. While the folder is
+/// migrating every SDK route gets 503. A verified folder answers `GET projects`
+/// from `workspace.json` and writes metrics to files (`WF_METRICS_FILES=1` also
+/// enables metrics without a report). Any other SDK route in a files folder gets
+/// 503 `NOT_FILED`, never SQL. `None` (database folders only) leaves the request to the database routes.
 pub async fn route(
     vault: &VaultState,
     request: &LocalApiRequest,
     path: &str,
+    search: &str,
 ) -> Option<LocalApiResponse> {
-    let metrics = request.method == "POST"
-        && path
-            .strip_prefix(SDK_PREFIX)
-            .map(|r| r.trim_end_matches('/'))
-            == Some("metrics");
-    if !metrics || !enabled() {
-        return None;
+    let rest = path.strip_prefix(SDK_PREFIX)?;
+    let mode = folder_mode(vault);
+    if mode == FolderMode::Migrating {
+        return Some(bad(503, MIGRATING));
     }
-    Some(append_metrics_to_files(vault, &request.body).await)
+    let route = rest.trim_end_matches('/');
+    if mode != FolderMode::Files {
+        let metrics = request.method == "POST" && route == "metrics";
+        if !metrics || !enabled() {
+            return None;
+        }
+        return Some(append_metrics_to_files(vault, &request.body).await);
+    }
+    Some(match (request.method.as_str(), route) {
+        ("GET", "projects") => project_from_files(vault, search).await,
+        ("POST", "metrics") => append_metrics_to_files(vault, &request.body).await,
+        _ => bad(503, NOT_FILED),
+    })
 }
 
 /// The SDK routes' error shape: `{"error": message}`.
 fn bad(status: u16, message: &str) -> LocalApiResponse {
     LocalApiResponse::json(status, &json!({ "error": message }))
+}
+
+/// `GET projects?name=`: the id of the project in `workspace.json` with that name,
+/// or JSON `null` when it does not match. Same reply as the database route.
+async fn project_from_files(vault: &VaultState, search: &str) -> LocalApiResponse {
+    let name = trimmed_param(search, "name");
+    if name.is_empty() {
+        return bad(400, "Missing project name.");
+    }
+    match workspace_project(vault).await {
+        Ok(project) => {
+            let id = project
+                .filter(|project| project.get("name").and_then(Value::as_str) == Some(&name))
+                .and_then(|project| project.get("id").cloned())
+                .unwrap_or(Value::Null);
+            LocalApiResponse::json(200, &json!({ "projectId": id }))
+        }
+        Err(message) => bad(500, &message),
+    }
+}
+
+/// The project object in `workspace.json`; `None` when the file is absent or not JSON.
+pub(super) async fn workspace_project(vault: &VaultState) -> Result<Option<Value>, String> {
+    let vault = vault.clone();
+    let read = tokio::task::spawn_blocking(move || vault.lock().read_text(WORKSPACE_JSON))
+        .await
+        .unwrap_or_else(|_| Err(TASK_FAILED.to_owned()))?;
+    Ok(read.and_then(|text| serde_json::from_str::<Value>(&text).ok()))
 }
 
 /// Answers a `POST /api/sdk/metrics` body by writing one chunk per experiment
@@ -127,6 +175,20 @@ mod tests {
             Self { root, vault }
         }
 
+        /// Writes the 0.9.7 migration report with this `state`.
+        fn report(self, state: &str) -> Self {
+            let dir = self.root.join(".weaveforge").join("migration-0.9.7");
+            fs::create_dir_all(&dir).expect("create migration dir");
+            let text = json!({ "version": 1, "state": state }).to_string();
+            fs::write(dir.join("report.json"), text).expect("write report");
+            self
+        }
+
+        /// Marks the folder as migrated to 0.9.7 (`report.json` says `verified`).
+        fn verified(self) -> Self {
+            self.report("verified")
+        }
+
         fn chunks(&self) -> usize {
             fs::read_dir(self.root.join(EXP).join("metrics").join("main"))
                 .map_or(0, Iterator::count)
@@ -154,6 +216,119 @@ mod tests {
             .map(|s| json!({"experiment_id": "exp-1", "metric": "loss", "step": s, "value": 0.5}))
             .collect();
         json!({ "points": points })
+    }
+
+    fn route_once(fixture: &Fixture, body: &Value) -> Option<LocalApiResponse> {
+        let request = LocalApiRequest {
+            method: "POST".to_owned(),
+            url: "/api/sdk/metrics".to_owned(),
+            authorization: None,
+            body: body.to_string(),
+        };
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(route(&fixture.vault, &request, "/api/sdk/metrics", ""))
+    }
+
+    fn route_get(fixture: &Fixture, path: &str, search: &str) -> Option<LocalApiResponse> {
+        let request = LocalApiRequest {
+            method: "GET".to_owned(),
+            url: path.to_owned(),
+            authorization: None,
+            body: String::new(),
+        };
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(route(&fixture.vault, &request, path, search))
+    }
+
+    #[test]
+    fn a_verified_folder_answers_projects_from_workspace_json() {
+        let fixture = Fixture::new("projects-route").verified();
+        fs::write(
+            fixture.root.join(".weaveforge").join("workspace.json"),
+            json!({ "id": "proj-1", "name": "Lab", "other": true }).to_string(),
+        )
+        .expect("write workspace");
+        let found = route_get(&fixture, "/api/sdk/projects", "name=Lab").expect("answered");
+        assert_eq!(found.status, 200);
+        let reply: Value = serde_json::from_str(&found.body).expect("json");
+        assert_eq!(reply["projectId"], json!("proj-1"));
+        let missing = route_get(&fixture, "/api/sdk/projects", "name=Other").expect("answered");
+        let reply: Value = serde_json::from_str(&missing.body).expect("json");
+        assert_eq!(reply["projectId"], Value::Null);
+    }
+
+    #[test]
+    fn an_unverified_folder_leaves_projects_to_the_database_path() {
+        let fixture = Fixture::new("projects-unverified");
+        assert!(route_get(&fixture, "/api/sdk/projects", "name=Lab").is_none());
+    }
+
+    #[test]
+    fn a_verified_folder_writes_metrics_to_files_without_the_env_flag() {
+        let fixture = Fixture::new("verified-route").verified();
+        let answer = route_once(&fixture, &points(0..2)).expect("answered from files");
+        assert_eq!(answer.status, 200);
+        assert_eq!(fixture.chunks(), 1);
+    }
+
+    #[test]
+    fn an_unverified_folder_leaves_metrics_to_the_database_path() {
+        let fixture = Fixture::new("unverified-route");
+        assert!(route_once(&fixture, &points(0..2)).is_none());
+        assert_eq!(fixture.chunks(), 0);
+    }
+
+    #[test]
+    fn removing_and_removed_folders_write_metrics_to_files() {
+        for state in ["removing", "removed"] {
+            let fixture = Fixture::new(&format!("files-{state}")).report(state);
+            let answer = route_once(&fixture, &points(0..2)).expect("answered from files");
+            assert_eq!(answer.status, 200, "state {state}");
+            assert_eq!(fixture.chunks(), 1, "state {state}");
+        }
+    }
+
+    #[test]
+    fn exporting_and_exported_folders_answer_503_on_every_sdk_route() {
+        for state in ["exporting", "exported"] {
+            let fixture = Fixture::new(&format!("migrating-{state}")).report(state);
+            let answer = route_once(&fixture, &points(0..2)).expect("answered 503");
+            assert_eq!(answer.status, 503, "state {state}");
+            let reply: Value = serde_json::from_str(&answer.body).expect("json body");
+            assert_eq!(reply["error"], MIGRATING);
+            assert_eq!(fixture.chunks(), 0, "state {state}");
+        }
+    }
+
+    #[test]
+    fn a_report_that_is_not_json_keeps_the_database_path() {
+        let fixture = Fixture::new("garbage-report");
+        let dir = fixture.root.join(".weaveforge").join("migration-0.9.7");
+        fs::create_dir_all(&dir).expect("create migration dir");
+        fs::write(dir.join("report.json"), "not json").expect("write report");
+        assert!(route_once(&fixture, &points(0..2)).is_none());
+    }
+
+    #[test]
+    fn a_verified_folder_answers_unfiled_sdk_routes_503_and_never_falls_back() {
+        let fixture = Fixture::new("unfiled-503").verified();
+        for (path, search) in [
+            ("/api/sdk/whoami", ""),
+            ("/api/sdk/experiments", "id=e1"),
+            ("/api/sdk/artifacts", ""),
+            ("/api/sdk/metrics", "experiment_id=e1"),
+        ] {
+            let answer = route_get(&fixture, path, search).expect("answered, not left to SQL");
+            assert_eq!(answer.status, 503, "{path}");
+            let reply: Value = serde_json::from_str(&answer.body).expect("json");
+            assert_eq!(reply["error"], json!("not available in files mode yet"), "{path}");
+        }
     }
 
     #[test]
