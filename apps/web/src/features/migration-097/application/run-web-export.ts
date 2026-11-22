@@ -26,6 +26,8 @@ export type ExportOptions = {
   writers?: readonly KindWriter[];
   /** Desktop only: the backup runs before anything else, and a failure aborts the export. */
   desktop?: { folder: string; bridge: DesktopMigration };
+  /** KEYS hook: runs only after a verified run, before the markers. A throw leaves the run incomplete. */
+  moveSecrets?: () => Promise<void>;
 };
 
 export type ExportResult = { state: MigrationState; run: RunReport };
@@ -62,7 +64,7 @@ function refused(now: string, reason: string): ExportResult {
  * Never deletes or changes a server personal row.
  */
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress, desktop, writers = [] } = opts;
+  const { kinds, codec, source, sink, now, onProgress, desktop, writers = [], moveSecrets } = opts;
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};
   const backCount: Record<string, number> = {};
@@ -242,6 +244,16 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     await writeReport(sink, report);
     return run;
   };
+
+  // KEYS runs after verify and before any marker; a failure keeps the run incomplete.
+  if (state === "verified" && moveSecrets) {
+    try {
+      await moveSecrets();
+    } catch (err) {
+      state = "incomplete";
+      missing.push({ kind: "keys", id: "*", reason: `moveSecrets: ${(err as Error).message}` });
+    }
+  }
 
   // Order (0.9.7 contract): report.json says verified, then the desktop mark, then the server
   // marker last. A failed mark rewrites report.json as incomplete and skips the server marker.

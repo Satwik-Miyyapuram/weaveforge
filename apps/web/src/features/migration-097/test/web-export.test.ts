@@ -775,3 +775,85 @@ test("verify: a blob sidecar with a content-type line still verifies on its sha2
   assert.deepEqual(verdict.errors, []);
   assert.equal(verdict.blobs.verified, 1);
 });
+
+// KEYS hook: moveSecrets runs after a verified run and before either marker; no-op when absent.
+test("keys: moveSecrets runs after verify and before the desktop mark and the server marker", async () => {
+  const order: string[] = [];
+  const sink = new MemorySink();
+  const { source } = fakeServer({ rows: FIXTURE });
+  const realMark = source.markExported;
+  source.markExported = async (at) => {
+    order.push("server-mark");
+    await realMark(at);
+  };
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: {
+      folder: "C:/ws",
+      bridge: {
+        backup: async () => ({ deviceId: "dev-1", dump: "pre-migration-097.dump" }),
+        markExported: async () => {
+          order.push("desktop-mark");
+        },
+      },
+    },
+    moveSecrets: async () => {
+      const logs = (await sink.list()).filter((p) => p.startsWith("logEntries/"));
+      order.push(`moveSecrets:rows=${logs.length}`);
+    },
+  });
+  assert.equal(result.state, "verified");
+  assert.match(order[0] ?? "", /^moveSecrets:rows=[1-9]/, "rows were written before the hook ran");
+  assert.deepEqual(order.slice(1), ["desktop-mark", "server-mark"]);
+});
+
+test("keys: a failed moveSecrets gives incomplete, no desktop mark and no server marker", async () => {
+  const desktopCalls: string[] = [];
+  const sink = new MemorySink();
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: fakeDesktop(desktopCalls) },
+    moveSecrets: async () => {
+      throw new Error("keys refused");
+    },
+  });
+  assert.equal(result.state, "incomplete");
+  assert.equal(desktopCalls.some((c) => c.startsWith("desktop-mark")), false, "desktop mark not called");
+  assert.equal(calls.some((c) => c.startsWith("mark:")), false, "server marker not set");
+  assert.match(JSON.stringify(result.run.missing), /moveSecrets: keys refused/);
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
+  assert.equal(report.state, "incomplete");
+});
+
+test("keys: moveSecrets does not run when the run is incomplete", async () => {
+  class FlakySink extends MemorySink {
+    override async write(path: string, data: string | Uint8Array): Promise<void> {
+      if (path.includes("l2")) throw new Error("disk full");
+      return super.write(path, data);
+    }
+  }
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  let moved = false;
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink: new FlakySink(),
+    now: NOW,
+    moveSecrets: async () => {
+      moved = true;
+    },
+  });
+  assert.equal(result.state, "incomplete");
+  assert.equal(moved, false);
+  assert.equal(calls.some((c) => c.startsWith("mark:")), false);
+});
