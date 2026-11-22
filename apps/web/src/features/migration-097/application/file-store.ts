@@ -28,16 +28,18 @@ export type FileStore = {
  */
 export async function createFileStore(sink: FileSink, prior: Outputs): Promise<FileStore> {
   const outputs: Outputs = {};
-  /** Checked right before each write, never from a listing taken earlier in the run: a file the user made mid-run is seen. */
-  const present = (path: string): Promise<boolean> => sink.readBytes(path).then(() => true, () => false);
   const conflicts: string[] = [];
 
-  /** sha256 of what is at `path`, or null when it cannot be read: an unreadable file is never overwritten. */
-  const hashAt = async (path: string): Promise<string | null> => {
+  /**
+   * What is at `path` right now. Presence comes from a fresh listing (never one taken earlier in the run), so a
+   * file that exists but cannot be read still counts as present. `bytes` is null for that unreadable case.
+   */
+  const stateAt = async (path: string): Promise<{ present: false } | { present: true; bytes: Uint8Array | null }> => {
+    if (!(await sink.list()).includes(path)) return { present: false };
     try {
-      return await sha256Hex(await sink.readBytes(path));
+      return { present: true, bytes: await sink.readBytes(path) };
     } catch {
-      return null;
+      return { present: true, bytes: null };
     }
   };
 
@@ -47,11 +49,13 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
       for (let n = 0; ; n++) {
         const candidate = n === 0 ? path : conflictCopyPath(path, n);
         const out = n === 0 || !copy ? { data, hash } : copy;
-        if (!(await present(candidate))) {
+        const state = await stateAt(candidate);
+        if (!state.present) {
           await sink.write(candidate, out.data);
         } else {
-          const current = await hashAt(candidate);
-          if (current === null) continue;
+          // An unreadable file is never overwritten: skip to the next candidate.
+          if (state.bytes === null) continue;
+          const current = await sha256Hex(state.bytes);
           if (current !== out.hash) {
             // A file this device wrote and left unchanged takes the new version; anything else is kept.
             if (prior[candidate] !== current) continue;
