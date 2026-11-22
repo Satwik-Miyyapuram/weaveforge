@@ -141,6 +141,7 @@ pub fn remove_old_data(
                 .to_owned(),
         );
     }
+    mark_removed(pg_root)?;
     if pg_root.exists() {
         fs::remove_dir_all(pg_root)
             .map_err(|e| format!("cannot delete {}: {e}", pg_root.display()))?;
@@ -148,6 +149,30 @@ pub fn remove_old_data(
     report["state"] = "removed".into();
     report["removedAt"] = now.into();
     write_json_atomic(&report_path, &report)
+}
+
+/// Name of the marker, in app data beside `local-pg`, that says the old cluster was removed.
+const MARKER: &str = "old-db-removed";
+
+/// Whether the old local cluster was removed on this device. Start skips the local database then,
+/// so a relaunch never restores the cluster from `local-db-backups`.
+#[must_use]
+pub fn old_db_removed(pg_root: &Path) -> bool {
+    marker_path(pg_root).exists()
+}
+
+fn marker_path(pg_root: &Path) -> std::path::PathBuf {
+    pg_root.parent().unwrap_or(pg_root).join(MARKER)
+}
+
+/// Writes the marker before anything is deleted; an existing marker is kept.
+fn mark_removed(pg_root: &Path) -> Result<(), String> {
+    let path = marker_path(pg_root);
+    match fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
+        Err(e) => Err(format!("cannot write {}: {e}", path.display())),
+    }
 }
 
 /// This device's newest run: the last entry of `runs` whose `deviceId` is `device_id`. A run from

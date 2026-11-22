@@ -6,7 +6,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use weaveforge_shell_lib::migrate_097::remove::{
-    record_exported_to, remove_old_data,
+    old_db_removed, record_exported_to, remove_old_data,
 };
 
 const DIR: &str = ".weaveforge/migration-0.9.7";
@@ -451,6 +451,15 @@ fn deletes_only_the_cluster_dir_and_records_removed_at() {
         !f.folder.join(format!("{REPORT}.part")).exists(),
         "no partial report left behind"
     );
+}
+
+#[test]
+fn a_removed_cluster_is_marked_so_a_relaunch_never_restores_it() {
+    let f = Fixture::new("marked", Some("verified"), Some(good_dump().as_slice()));
+    assert!(!old_db_removed(&f.pg_root), "no marker before a removal");
+    f.run(&mut || Ok(())).expect("run removes");
+    assert!(!f.pg_root.exists(), "cluster dir is gone");
+    assert!(old_db_removed(&f.pg_root), "marker stops the relaunch restore");
 }
 
 #[test]

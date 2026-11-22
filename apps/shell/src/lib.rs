@@ -432,7 +432,12 @@ fn start_local_db(app: &tauri::AppHandle) {
     let db = match (paths.app_data_dir(), paths.resource_dir()) {
         (Ok(data), Ok(resources)) => {
             let source = launch::app_source(resources.clone());
-            let native = native_db(app, &data, &resources, &source);
+            // After a 0.9.7 removal the cluster stays gone: no start, so no restore from backups.
+            let native = if migrate_097::remove::old_db_removed(&native_root(&data)) {
+                Err("the local database was removed in 0.9.7; the files are the source of truth".to_owned())
+            } else {
+                native_db(app, &data, &resources, &source)
+            };
             if let Err(reason) = &native {
                 local_api::warn(app, reason);
             }
