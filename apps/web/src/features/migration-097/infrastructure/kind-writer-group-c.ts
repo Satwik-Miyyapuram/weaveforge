@@ -35,8 +35,8 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
   const blobs = new FileBlobStore(fs);
   const ink = new FsInkChunkStore(() => fs, new FolderInkNotes(() => fs));
 
-  const blobRefs: Array<{ bucket: string; path: string; sha256: string; contentType: string }> = [];
-  const inkChunks: Array<{ note: string; chunkId: string }> = [];
+  // Notes written in this run: readBack lists each one's chunks from the .inkb store on disk.
+  const inkNotes = new Set<string>();
 
   const handlers = new Map<string, KindHandler>([
     [
@@ -44,7 +44,10 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
       {
         async write(row) {
           const paperId = String(row.paperId);
-          const paperFile = String(row.paperFile);
+          if (typeof row.paperFile !== "string" || row.paperFile === "") {
+            throw new Error(`annotations: paperFile missing for paper ${paperId}`);
+          }
+          const paperFile = row.paperFile;
           paperFiles.set(paperId, paperFile);
           paperOfSidecar.set(typedCore().annotationsFilePath(paperFile), paperId);
           // Idempotent re-run: a row already on disk is not created again (create would throw ConflictError).
@@ -111,17 +114,24 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
           // The type goes into the existing `.sha256` sidecar (line 2) via upload's contentType.
           const contentType = row.contentType ? String(row.contentType) : "application/octet-stream";
           await blobs.upload(bucket, path, new Blob([new Uint8Array(bytes)]), contentType);
-          blobRefs.push({ bucket, path, sha256, contentType });
         },
+        // Scans assets/ on disk, so a blob written by an earlier run is listed too. Each file is
+        // checked against its own sidecar: sha256 on line 1, content type on line 2.
         async readBack() {
           const out: Row[] = [];
-          for (const ref of blobRefs) {
-            const blob = await blobs.fetchBlob(ref.bucket, ref.path);
-            const bytes = new Uint8Array(await blob.arrayBuffer());
-            if ((await sha256Hex(bytes)) !== ref.sha256) {
-              throw new Error(`blobs: read-back sha256 mismatch for ${ref.bucket}/${ref.path}`);
+          if (!(await fs.stat("assets"))) return out;
+          for await (const entry of fs.walk("assets")) {
+            if (entry.path.endsWith(".sha256")) continue;
+            const rel = entry.path.slice("assets/".length);
+            const slash = rel.indexOf("/");
+            const bucket = rel.slice(0, slash);
+            const path = rel.slice(slash + 1);
+            const bytes = await fs.readFile(entry.path);
+            const [sha256, type] = (await fs.readText(`${entry.path}.sha256`)).split("\n");
+            if ((await sha256Hex(bytes)) !== sha256) {
+              throw new Error(`blobs: read-back sha256 mismatch for ${bucket}/${path}`);
             }
-            out.push({ bucket: ref.bucket, path: ref.path, sha256: ref.sha256, contentType: blob.type });
+            out.push({ bucket, path, sha256, contentType: type || "application/octet-stream" });
           }
           return out;
         },
@@ -134,14 +144,19 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
           const note = String(row.note);
           const chunkId = String(row.chunkId);
           await ink.write(note, chunkId, row.bytes as Uint8Array);
-          inkChunks.push({ note, chunkId });
+          inkNotes.add(note);
         },
+        // Lists each note's chunks from the .inkb store on disk, so a chunk from an earlier run is listed too.
         async readBack() {
           const out: Row[] = [];
-          for (const { note, chunkId } of inkChunks) {
-            const bytes = await ink.read(note, chunkId);
-            if (!bytes) throw new Error(`ink: chunk ${chunkId} of ${note} not found on read-back`);
-            out.push({ note, chunkId, bytes });
+          for (const note of inkNotes) {
+            const chunkIds = await ink.list(note);
+            if (chunkIds === null) throw new Error(`ink: note ${note} not found on read-back`);
+            for (const chunkId of chunkIds) {
+              const bytes = await ink.read(note, chunkId);
+              if (!bytes) throw new Error(`ink: chunk ${chunkId} of ${note} not found on read-back`);
+              out.push({ note, chunkId, bytes });
+            }
           }
           return out;
         },

@@ -219,3 +219,55 @@ test("annotationPins: the row id and createdAt are kept", async () => {
   assert.equal(back?.id, "annotation-pin-server-1");
   assert.equal(back?.createdAt, "2026-01-01T00:00:00.000Z");
 });
+
+test("blobs: readBack scans assets/ on disk, so a blob from an earlier run is listed", async () => {
+  const { sink, writer: first } = fresh();
+  const bytes = new Uint8Array([10, 20, 30]);
+  const sha256 = await sha256Hex(bytes);
+  await first.write("blobs", { bucket: "images", path: "old/x.webp", sha256, bytes, contentType: "image/webp" });
+  const later = createGroupCWriter(sink, "proj");
+  const back = await later.readBack("blobs");
+  assert.equal(back.length, 1);
+  assert.deepEqual(
+    { bucket: back[0]!.bucket, path: back[0]!.path, sha256: back[0]!.sha256, contentType: back[0]!.contentType },
+    { bucket: "images", path: "old/x.webp", sha256, contentType: "image/webp" },
+  );
+});
+
+test("blobs: readBack throws when an asset's bytes no longer match its sidecar", async () => {
+  const { sink, writer } = fresh();
+  const bytes = new Uint8Array([1, 2, 3]);
+  await writer.write("blobs", { bucket: "images", path: "t.webp", sha256: await sha256Hex(bytes), bytes });
+  await sink.write("assets/images/t.webp", "tampered");
+  const later = createGroupCWriter(sink, "proj");
+  await assert.rejects(later.readBack("blobs"), /sha256/);
+});
+
+test("ink: readBack lists the chunks on disk, including one written by an earlier run", async () => {
+  const { sink, writer: first } = fresh();
+  await sink.write("notes/a.note.md", "---\nweaveforge-id: n1\n---\n");
+  await first.write("ink", { note: "n1", chunkId: "01ARZ3NDEKTSV4RRFFQ69G5FAV", bytes: new Uint8Array([1]) });
+  const second = createGroupCWriter(sink, "proj");
+  await second.write("ink", { note: "n1", chunkId: "01ARZ3NDEKTSV4RRFFQ69G5FAW", bytes: new Uint8Array([2]) });
+  const back = await second.readBack("ink");
+  assert.deepEqual(back.map((r) => r.chunkId).sort(), ["01ARZ3NDEKTSV4RRFFQ69G5FAV", "01ARZ3NDEKTSV4RRFFQ69G5FAW"]);
+});
+
+test("annotations: a row without paperFile throws instead of writing a sidecar at 'undefined'", async () => {
+  const { writer } = fresh();
+  await assert.rejects(
+    writer.write("annotations", {
+      id: "a1",
+      paperId: "p1",
+      type: "highlight",
+      color: "yellow",
+      text: "t",
+      comment: "",
+      tags: [],
+      anchor: {},
+      sortIndex: "0",
+      pageIndex: 0,
+    }),
+    /paperFile/,
+  );
+});
