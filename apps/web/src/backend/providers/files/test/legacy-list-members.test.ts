@@ -40,11 +40,16 @@ async function setup() {
   return fs;
 }
 
-/** A filesystem whose rename fails: the list file's .part is written, the swap never happens. */
-function crashOnRename(fs: IWorkspaceFs): IWorkspaceFs {
+/** A filesystem whose write of the list file fails: the members are written, the list file is not. */
+function crashOnListWrite(fs: IWorkspaceFs): IWorkspaceFs {
   return new Proxy(fs, {
     get(target, key) {
-      if (key === "rename") return async () => { throw new Error("crash between the two writes"); };
+      if (key === "writeTextIf") {
+        return async (path: string, text: string, expected: string | null) => {
+          if (path === LIST) throw new Error("crash between the two writes");
+          return target.writeTextIf!(path, text, expected);
+        };
+      }
       const v = Reflect.get(target, key, target);
       return typeof v === "function" ? v.bind(target) : v;
     },
@@ -80,7 +85,7 @@ test("a second run changes nothing and adds no duplicate membership", async () =
 
 test("a crash between the member writes and the list rewrite leaves both sides readable; a re-run completes", async () => {
   const fs = await setup();
-  await assert.rejects(migrateLegacyLists(crashOnRename(fs), () => ROOT), /crash/);
+  await migrateLegacyLists(crashOnListWrite(fs), () => ROOT);
   // Members already carry the membership; the list file still has its old keys and stays readable.
   assert.deepEqual(readMemberFields(await fs.readText(P1)).lists, [LINK]);
   assert.match(await fs.readText(LIST), /^members:/m);
@@ -93,4 +98,52 @@ test("a crash between the member writes and the list rewrite leaves both sides r
     (await new FileReadingListItemRepository(fs, () => ROOT).listItems("l1")).map((i) => i.id),
     ["l1:p1"],
   );
+});
+
+test("a list-note already on the member is kept; a conflicting legacy note is not written over it", async () => {
+  const fs = await setup();
+  const p1 = await fs.readText(P1);
+  await fs.writeFile(P1, p1.replace("---\n", `---\nlists: ["${LINK}"]\nlist-notes: {"${LINK}": "mine"}\n`));
+  await migrateLegacyLists(fs, () => ROOT);
+  assert.equal(readMemberFields(await fs.readText(P1)).listNotes[LINK], "mine");
+  // The conflicting member stays in the list file with its legacy note: nothing is dropped.
+  const listText = await fs.readText(LIST);
+  assert.match(listText, /paper-one/);
+  assert.match(listText, /"paper:p1"/);
+});
+
+test("a list file changed on disk during the rewrite is not overwritten and stays legacy", async () => {
+  const fs = await setup();
+  const edited = `${oldListFile()}outside edit\n`;
+  const racing = new Proxy(fs, {
+    get(target, key) {
+      if (key === "writeTextIf") {
+        return async (path: string, text: string, expected: string | null) => {
+          if (path === LIST) await target.writeFile(LIST, edited);
+          return target.writeTextIf!(path, text, expected);
+        };
+      }
+      const v = Reflect.get(target, key, target);
+      return typeof v === "function" ? v.bind(target) : v;
+    },
+  });
+  await migrateLegacyLists(racing, () => ROOT);
+  assert.equal(await fs.readText(LIST), edited);
+  assert.match(await fs.readText(LIST), /^members:/m);
+});
+
+test("one list that cannot be migrated stays legacy; the other lists still migrate", async () => {
+  const fs = await setup();
+  const LIST2 = `${ROOT}/reading-lists/other--l2.list.md`;
+  const LINK2 = "[[other--l2.list]]";
+  await fs.writeFile(
+    LIST2,
+    oldListFile().replace('"l1"', '"l2"').replace('members: ["[[paper-one.paper]]", "[[Ghost.paper]]"]', 'members: ["[[paper-two.paper]]"]'),
+  );
+  // P1's own lists value is broken, so the first list cannot be rewritten.
+  await fs.writeFile(P1, (await fs.readText(P1)).replace("---\n", "---\nlists: [oops\n"));
+  await migrateLegacyLists(fs, () => ROOT);
+  assert.match(await fs.readText(LIST), /^members:/m);
+  assert.deepEqual(readMemberFields(await fs.readText(P2)).lists, [LINK2]);
+  assert.doesNotMatch(await fs.readText(LIST2), /^members:/m);
 });

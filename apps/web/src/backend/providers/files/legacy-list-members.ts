@@ -3,15 +3,17 @@
  * member's frontmatter (0.9.7). Runs on the list read path and is idempotent.
  *
  * Order matters for crash safety: each resolved member is written first (an idempotent
- * add), then the list file is replaced via `.part` + rename without its resolved keys.
- * A crash in between leaves the members carrying the membership and the list file still
- * readable; the next run adds the same membership again (no duplicate). A member link that
- * does not resolve, and any note with no member, stay in the list file.
+ * add), then the list file is replaced without its moved keys, only if it is unchanged on
+ * disk since it was read. A crash in between leaves the members carrying the membership and
+ * the list file still readable; the next run adds the same membership again (no duplicate).
+ * A member link that does not resolve, a member whose paper already holds a different note
+ * for this list, and any note with no moved member stay in the list file. Each list file is
+ * migrated on its own: one that fails is skipped and left in the 0.9.6 shape.
  */
 import type { IWorkspaceFs } from "@weaveforge/core";
 import { FileEntityStore, type FoundEntity, type ProjectRoot, writeIfUnchanged } from "./file-entity-store";
 import { LinkIndex, type Links, type LinkTarget } from "./link-index";
-import { addListMembership, listLinkFor, setFrontmatterKeys } from "./member-frontmatter";
+import { addListMembership, listLinkFor, readMemberFields, setFrontmatterKeys } from "./member-frontmatter";
 
 /** The 0.9.6 list row: the codec reads these only for this rewrite. */
 interface LegacyRow {
@@ -46,38 +48,38 @@ async function migrateOne(fs: IWorkspaceFs, file: FoundEntity<LegacyRow>, links:
   const notes = recordOf(file.row.memberNotes);
   const members = Array.isArray(file.row.members) ? (file.row.members as unknown[]) : [];
 
-  const moves: { path: string; note?: string; key: string }[] = [];
-  const unresolved: unknown[] = [];
-  for (const member of members) {
+  const moves: { index: number; path: string; key: string; note?: string }[] = [];
+  members.forEach((member, index) => {
     const raw = linkOfMember(member);
     const target = raw === null ? null : links.resolve(raw);
     const path = target ? links.pathFor(target) : null;
-    if (!target || !path) {
-      unresolved.push(member);
-      continue;
-    }
-    const key = noteKeyOf(target);
-    moves.push({ path, key, note: noteOf(notes[key]) });
-  }
+    if (target && path) moves.push({ index, path, key: noteKeyOf(target), note: noteOf(notes[noteKeyOf(target)]) });
+  });
 
-  // Members first: each add is idempotent, so a crash here is repeated harmlessly.
-  for (const { path, note } of moves) {
+  // Members first: each add is idempotent, so a crash here is repeated harmlessly. A note the
+  // paper already holds for this list is kept; a different legacy note is not written over it,
+  // so that member stays in the list file.
+  const movedIndexes = new Set<number>();
+  const movedKeys = new Set<string>();
+  for (const { index, path, key, note } of moves) {
     const text = await fs.readText(path);
-    const next = addListMembership(text, link, note);
+    const existing = readMemberFields(text).listNotes[link];
+    if (existing !== undefined && note !== undefined && existing !== note) continue;
+    const next = addListMembership(text, link, existing ?? note);
     if (next !== text) await writeIfUnchanged(fs, path, next, text);
+    movedIndexes.add(index);
+    movedKeys.add(key);
   }
 
-  // Then the list file: drop the resolved keys, keep the unresolved ones and their notes.
-  const movedKeys = new Set(moves.map((m) => m.key));
+  // Then the list file: drop the moved members and their keys, keep everything else.
+  const remaining = members.filter((_, index) => !movedIndexes.has(index));
   const keptNotes = Object.fromEntries(Object.entries(notes).filter(([key]) => !movedKeys.has(key)));
   const next = setFrontmatterKeys(file.text, {
-    members: unresolved.length ? unresolved : null,
+    members: remaining.length ? remaining : null,
     "member-notes": Object.keys(keptNotes).length ? keptNotes : null,
   });
   if (next === file.text) return;
-  const part = `${file.path}.part`;
-  await fs.writeFile(part, next);
-  await fs.rename(part, file.path);
+  await writeIfUnchanged(fs, file.path, next, file.text);
 }
 
 /** Rewrites every list file that still has `members` or `member-notes`. */
@@ -86,5 +88,11 @@ export async function migrateLegacyLists(fs: IWorkspaceFs, root: ProjectRoot): P
   const legacy = (await store.readAll()).filter((f) => f.row.members !== undefined || f.row.memberNotes !== undefined);
   if (!legacy.length) return;
   const links = await new LinkIndex(fs, root).snapshot();
-  for (const file of legacy) await migrateOne(fs, file, links);
+  for (const file of legacy) {
+    try {
+      await migrateOne(fs, file, links);
+    } catch (error) {
+      console.warn(`Skipped ${file.path}: left in the 0.9.6 shape.`, error);
+    }
+  }
 }
