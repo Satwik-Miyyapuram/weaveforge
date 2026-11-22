@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { Migrate097UpgradeBody, runUpgrade, upgradeReportFolder } from "../migrate-097-upgrade";
 import type { Migrate097Progress } from "../desktop-bridge";
+import { InstallIdLocksUnavailableError } from "@/container/browser-install-id";
 
 const FOLDER = "C:\\Users\\me\\Documents\\WeaveForge";
 const noop = () => {};
@@ -208,4 +209,20 @@ test("web verified view names the reconnect providers and offers Continue before
   assert.match(html, /Reconnect zotero/);
   assert.match(html, />Continue</);
   assert.doesNotMatch(html, /Retry/);
+});
+
+test("runUpgrade hands the error to onError and stops, so the screen can name a WebView lock failure", async () => {
+  const errors: unknown[] = [];
+  const outcome = await runUpgrade(
+    FOLDER,
+    async () => {
+      throw new InstallIdLocksUnavailableError();
+    },
+    noop,
+    undefined,
+    (err) => errors.push(err),
+  );
+  assert.equal(outcome, "stopped");
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0] instanceof InstallIdLocksUnavailableError);
 });
