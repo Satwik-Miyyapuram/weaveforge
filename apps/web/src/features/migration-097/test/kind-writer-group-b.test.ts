@@ -142,3 +142,26 @@ test("unknown kind is rejected on write and readBack", async () => {
   await assert.rejects(() => writer.write("notes", { id: "x" }), /unknown kind/);
   await assert.rejects(() => writer.readBack("notes"), /unknown kind/);
 });
+
+test("aiProposals: accepted and rejected proposals are read back too, not only pending", async () => {
+  const writer = createGroupBWriter(new MemorySink(), ROOT);
+  const accepted = { ...PROPOSAL_ROW, id: "0123456789abcd07", status: "accepted", createdAt: "2026-11-04T09:00:00.000Z" };
+  const rejected = { ...PROPOSAL_ROW, id: "0123456789abcd08", status: "rejected", createdAt: "2026-11-03T09:00:00.000Z" };
+  await writer.write("aiProposals", accepted);
+  await writer.write("aiProposals", rejected);
+  const back = await writer.readBack("aiProposals");
+  assert.deepEqual(back.map((p) => p.status).sort(), ["accepted", "rejected"]);
+});
+
+test("metrics: a long series (60 points) reads back complete, same steps and values", async () => {
+  const writer = createGroupBWriter(new MemorySink(), ROOT);
+  await writer.write("experiments", EXPERIMENT_ROW);
+  const source = Array.from({ length: 60 }, (_, i) => ({ ...METRIC_ROW, step: i, value: i / 100 }));
+  for (const p of source) await writer.write("metrics", p);
+  const back = await writer.readBack("metrics");
+  assert.equal(back.length, 60);
+  assert.deepEqual(
+    back.map((p) => [p.step, p.value]).sort((a, b) => (a[0] as number) - (b[0] as number)),
+    source.map((p) => [p.step, p.value]),
+  );
+});

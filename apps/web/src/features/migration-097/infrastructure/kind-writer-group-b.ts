@@ -143,7 +143,7 @@ export function createGroupBWriter(sink: FileSink, projectRoot: string): KindWri
           sourceLinks: row.sourceLinks as string[],
         }),
       readBack: async () =>
-        (await proposals.listPending()).map((p) =>
+        (await proposals.listAll()).map((p) =>
           defined({ id: p.id, kind: p.kind, resourceId: p.resourceId, content: p.content, createdAt: p.createdAt, status: p.status, sourceLinks: p.sourceLinks }),
         ),
     },

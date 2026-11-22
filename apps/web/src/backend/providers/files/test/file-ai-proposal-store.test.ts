@@ -77,3 +77,12 @@ test("keys that only contain 'key' mid-word are not refused; real key names are"
   const bad = proposal({ payload: { apiKey: "x" } });
   await assert.rejects(store.save(bad), /apiKey/);
 });
+
+test("listAll returns every status, newest first (accepted and rejected too)", async () => {
+  const { store } = setup();
+  const older = proposal({ id: "old", status: "accepted", createdAt: "2026-06-01T00:00:00.000Z" });
+  const newer = proposal({ id: "new", status: "rejected", createdAt: "2026-06-02T00:00:00.000Z" });
+  const open = proposal({ id: "open", status: "pending", createdAt: "2026-06-03T00:00:00.000Z" });
+  for (const p of [older, newer, open]) await store.save(p);
+  assert.deepEqual((await store.listAll()).map((p) => p.id), ["open", "new", "old"]);
+});
