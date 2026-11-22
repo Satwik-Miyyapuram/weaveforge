@@ -32,6 +32,15 @@ export function workspaceFsAsSink(fs: IWorkspaceFs): FileSink {
     },
     readText: (path) => fs.readText(norm(path)),
     readBytes: (path) => fs.readFile(norm(path)),
+    async exists(path) {
+      return (await fs.stat(norm(path)))?.kind === "file";
+    },
+    async writeIf(path, text, expected) {
+      const clean = norm(path);
+      // No compare-and-set on this workspace: refuse rather than write unchecked.
+      if (!fs.writeTextIf) throw new Error(`no compare-and-set to write ${clean}`);
+      return fs.writeTextIf(clean, text, expected);
+    },
     async rename(from, to) {
       await fs.rename(norm(from), norm(to));
     },

@@ -43,3 +43,37 @@ test("a path that escapes the sink is refused", async () => {
   const sink = workspaceFsAsSink(new MemoryWorkspaceFs());
   await assert.rejects(sink.write("../outside.md", "x"), /escapes/);
 });
+
+test("exists is true for a file and false for a missing path or a folder", async () => {
+  const sink = workspaceFsAsSink(new MemoryWorkspaceFs());
+  await sink.write("papers/a.md", "x");
+  assert.equal(await sink.exists("papers/a.md"), true);
+  assert.equal(await sink.exists("papers/missing.md"), false);
+  assert.equal(await sink.exists("papers"), false);
+});
+
+test("writeIf writes only while the file still reads as expected; a missing file is false", async () => {
+  const sink = workspaceFsAsSink(new MemoryWorkspaceFs());
+  await sink.write("a.md", "one");
+  assert.equal(await sink.writeIf("a.md", "two", "stale"), false);
+  assert.equal(await sink.readText("a.md"), "one");
+  assert.equal(await sink.writeIf("a.md", "two", "one"), true);
+  assert.equal(await sink.readText("a.md"), "two");
+  assert.equal(await sink.writeIf("missing.md", "x", ""), false);
+  assert.equal(await sink.exists("missing.md"), false);
+});
+
+test("writeIf refuses, writing nothing, when the workspace has no compare-and-set", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const plain = Object.assign(Object.create(fs) as MemoryWorkspaceFs, { writeTextIf: undefined });
+  const sink = workspaceFsAsSink(plain);
+  await sink.write("a.md", "one");
+  await assert.rejects(sink.writeIf("a.md", "two", "one"), /compare-and-set/);
+  assert.equal(await sink.readText("a.md"), "one");
+});
+
+test("exists and writeIf refuse a path that escapes the sink", async () => {
+  const sink = workspaceFsAsSink(new MemoryWorkspaceFs());
+  await assert.rejects(sink.exists("../x.md"), /escapes/);
+  await assert.rejects(sink.writeIf("../x.md", "a", "b"), /escapes/);
+});
