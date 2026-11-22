@@ -452,3 +452,26 @@ test("one unreadable file: listPinnedIds keeps the readable pinned paper and ski
   assert.deepEqual(await repo.listPinnedIds(), ["p-1"]);
   assert.deepEqual((await repo.failures()).map((f) => f.path), [badPath]);
 });
+
+test("setPinned on an unreadable paper file returns false and leaves the file untouched", async () => {
+  const { fs, repo } = setup();
+  await repo.save(paper({ id: "p-1", title: "One" }));
+  await repo.save(paper({ id: "p-2", title: "Two" }));
+  const badPath = (await repo.pathOf("p-2"))!;
+  const original = await fs.readText(badPath);
+  const readText = fs.readText.bind(fs);
+  const writeFile = fs.writeFile.bind(fs);
+  let written = 0;
+  fs.readText = async (path: string) => {
+    if (path === badPath) throw new Error("EACCES: permission denied");
+    return readText(path);
+  };
+  fs.writeFile = async (path: string, text: string) => {
+    if (path === badPath) written += 1;
+    return writeFile(path, text);
+  };
+  assert.equal(await repo.setPinned("p-2", true), false);
+  assert.equal(written, 0);
+  assert.equal(await readText(badPath), original);
+  assert.doesNotMatch(original, /pinned: true/);
+});
