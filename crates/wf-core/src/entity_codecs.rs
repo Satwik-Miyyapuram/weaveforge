@@ -272,6 +272,21 @@ fn legacy_sections(body: &str) -> (Option<String>, Option<String>) {
     (hypothesis, result)
 }
 
+/// The `weaveforge-id` a file of any kind declares, read with the same frontmatter
+/// rules as the row parser (quoted or bare). `None` when there is none or it is blank.
+pub fn entity_id_from_text(text: &str) -> Option<String> {
+    if let Some(id) = split(text).and_then(|file| file.text(ID_KEY)) {
+        let id = id.trim();
+        return (!id.is_empty()).then(|| id.to_owned());
+    }
+    // Broken frontmatter (the usual reason a file is held): read the header line as-is.
+    text.lines().find_map(|line| {
+        let raw = line.strip_prefix("weaveforge-id:")?;
+        let id = raw.trim().trim_matches(|c| c == '"' || c == '\x27').trim();
+        (!id.is_empty()).then(|| id.to_owned())
+    })
+}
+
 /// Reads one file of `kind` as its camelCase row.
 ///
 /// # Errors
