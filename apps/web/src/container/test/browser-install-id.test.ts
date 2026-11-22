@@ -69,6 +69,31 @@ test("a stored id that is not a plain token is replaced", async () => {
   assert.equal(fs.files.get(INSTALL_ID_PATH), "web-clean-id");
 });
 
+/** Makes only the first read fail with `error`, so the read-back after the rename still works. */
+function absentOnFirstRead(fs: ReturnType<typeof folder>, error: () => unknown): void {
+  const readFile = fs.readText.bind(fs);
+  let first = true;
+  fs.readText = async (path: string) => {
+    if (first) {
+      first = false;
+      throw error();
+    }
+    return readFile(path);
+  };
+}
+
+test("a NotFoundError (DOMException name) reads as absent and a new id is created", async () => {
+  const fs = folder();
+  absentOnFirstRead(fs, () => new DOMException("A requested file or directory could not be found.", "NotFoundError"));
+  assert.equal(await createId(fs, () => "web-dom-missing-id"), "web-dom-missing-id");
+});
+
+test("an error with code ENOENT reads as absent and a new id is created", async () => {
+  const fs = folder();
+  absentOnFirstRead(fs, () => Object.assign(new Error("gone"), { code: "ENOENT" }));
+  assert.equal(await createId(fs, () => "web-code-missing-id"), "web-code-missing-id");
+});
+
 test("a read error other than not-found refuses and does not replace the stored id", async () => {
   const fs = folder({ [INSTALL_ID_PATH]: "web-kept-id" });
   fs.readText = async () => {
