@@ -5,13 +5,6 @@
  */
 export type BrowserBackendChoice = "files" | "export-first";
 
-/** Verified means: state "verified", target "opfs", and an empty `missing` list. Any other shape is not verified. */
-export function reportIsVerifiedOpfs(report: unknown): boolean {
-  if (typeof report !== "object" || report === null) return false;
-  const r = report as { state?: unknown; target?: unknown; missing?: unknown };
-  return r.state === "verified" && r.target === "opfs" && Array.isArray(r.missing) && r.missing.length === 0;
-}
-
 /**
  * `legacyDataPresent` false (fresh install) → files, the report is not read.
  * `true` → files only when `reportVerified()` is true, otherwise export first.
