@@ -29,6 +29,7 @@ function deps(run: WebUpgradeRun) {
   return {
     run,
     server: SERVER,
+    pendingOutbox: async () => 0,
     kinds: ["logEntries"],
     codec: CODEC,
     sink: new MemorySink(),
@@ -53,6 +54,18 @@ test("web upgrade runner: one start calls the upgrade once, forwards progress, r
   assert.equal(reply.state, "verified");
   assert.deepEqual(reply.reconnectProviders, ["zotero"], "provider names only");
   assert.deepEqual(seen, ["logEntries:1/1"]);
+});
+
+test("web upgrade runner: the local outbox count is passed through, never a stub 0", async () => {
+  const calls: WebUpgradeOptions[] = [];
+  const run: WebUpgradeRun = async (opts) => {
+    calls.push(opts);
+    return RESULT;
+  };
+  await makeWebUpgradeRunner({ ...deps(run), pendingOutbox: async () => 2 })("", () => {});
+
+  assert.equal(calls.length, 1);
+  assert.equal(await calls[0]!.server.pendingOutbox!(), 2, "the unflushed outbox rows reach the export's refusal check");
 });
 
 test("web upgrade runner: the run's undecryptable count reaches the screen unchanged", async () => {
