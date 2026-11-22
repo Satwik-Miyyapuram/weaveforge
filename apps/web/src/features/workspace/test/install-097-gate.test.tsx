@@ -60,6 +60,17 @@ async function press(button: ReactTestInstance) {
   });
 }
 
+test("checking: while the check is pending the view says 'Checking…' and no children mount", async () => {
+  stubBridge({ legacyDbPresent: () => new Promise(() => {}) });
+  let tree!: ReactTestRenderer;
+  await act(async () => {
+    tree = create(createElement(Install097Gate, { checkTimeoutMs: 60_000, children: createElement(Child) }));
+  });
+  assert.ok(textOf(tree.root).includes("Checking…"));
+  assert.equal(childCount(tree), 0);
+  tree.unmount();
+});
+
 test("unverified: old DB present, report not verified -> notice, download link and picker; no children", async () => {
   stubBridge({
     vaultRoot: () => Promise.resolve({ path: "/ws/old" }),

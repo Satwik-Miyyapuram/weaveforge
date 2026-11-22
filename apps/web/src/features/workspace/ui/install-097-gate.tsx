@@ -38,12 +38,18 @@ async function workspaceFolder(bridge: DesktopBridge | null): Promise<string | n
  * blocks with a folder picker, so a moved export folder is not blocked forever.
  */
 export function Install097Gate({ children, checkTimeoutMs = INSTALL_097_CHECK_TIMEOUT_MS }: { children: ReactNode; checkTimeoutMs?: number }) {
-  const [gate, setGate] = useState<Gate>(() => (desktop() ? { phase: "checking" } : { phase: "open" }));
+  // Always starts at "checking", on the server and in the first client render, so the markup
+  // matches. The bridge is only read in the effect; with none (browser, Android) it opens then.
+  const [gate, setGate] = useState<Gate>({ phase: "checking" });
   const [request, setRequest] = useState<Request>({ folder: null });
 
   useEffect(() => {
     if (gate.phase !== "checking") return;
     const bridge = desktop();
+    if (!bridge) {
+      setGate({ phase: "open" });
+      return;
+    }
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const settle = (next: Gate) => {
@@ -84,7 +90,13 @@ export function Install097Gate({ children, checkTimeoutMs = INSTALL_097_CHECK_TI
     setRequest({ folder: picked.path });
   };
 
-  if (gate.phase === "checking") return null;
+  if (gate.phase === "checking") {
+    return (
+      <main className="app-shell" style={{ padding: 24, maxWidth: 480, margin: "10vh auto" }}>
+        <p role="status">Checking…</p>
+      </main>
+    );
+  }
   if (gate.phase === "open") return <>{children}</>;
   return (
     <main className="app-shell" style={{ padding: 24, maxWidth: 480, margin: "10vh auto" }}>
