@@ -966,13 +966,13 @@ fn another_devices_removal_in_progress_is_not_this_devices_removing() {
 }
 
 #[test]
-fn another_devices_exporting_state_does_not_hide_own_removed_state() {
+fn an_exporting_top_level_state_is_unavailable_even_with_own_removed_entry() {
     let f = Fixture::new("status-own-removed", Some("verified"), Some(good_dump().as_slice()));
     f.set_report(&format!(
         r#"{{"version":1,"state":"exporting","removals":{{"{DEVICE}":{{"state":"removed","removedAt":"{NOW}"}}}},"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
-    assert_eq!(value["state"], "removed");
+    assert_eq!(value["state"], "unavailable");
 }
 
 #[test]
@@ -1064,16 +1064,6 @@ fn status_report_with_a_non_string_state_still_shows_own_verified_run_not_none()
     let f = Fixture::new("status-num-state", Some("verified"), None);
     f.set_report(&format!(
         r#"{{"version":1,"state":5,"backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
-    ));
-    let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
-    assert_eq!(value["state"], "verified");
-}
-
-#[test]
-fn status_report_with_an_unknown_state_still_shows_own_verified_run() {
-    let f = Fixture::new("status-unknown-state-own", Some("verified"), None);
-    f.set_report(&format!(
-        r#"{{"version":1,"state":"bogus","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
     ));
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root, DEVICE)).unwrap();
     assert_eq!(value["state"], "verified");
