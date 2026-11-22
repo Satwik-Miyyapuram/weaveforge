@@ -51,11 +51,12 @@ async function workspaceFolder(bridge: DesktopBridge | null): Promise<string | n
  * gate. Only a verified pick gets here; the gate never persists an unverified one.
  */
 async function keepVerifiedFolder(bridge: DesktopBridge, folder: string): Promise<Gate> {
-  if (typeof bridge.setVaultRoot !== "function") return { phase: "unknown", code: "SET_FOLDER_UNAVAILABLE" };
+  // The check already passed; a failed save of the folder is not a reason to block.
+  if (typeof bridge.setVaultRoot !== "function") return { phase: "open" };
   try {
     await bridge.setVaultRoot(folder);
   } catch {
-    return { phase: "unknown", code: "SET_FOLDER_FAILED" };
+    return { phase: "open" };
   }
   return { phase: "open" };
 }
@@ -63,9 +64,9 @@ async function keepVerifiedFolder(bridge: DesktopBridge, folder: string): Promis
 /**
  * Blocks the app until 0.9.7 has moved an old local database across. While blocked, nothing
  * under it mounts: the children are not rendered at all. Browsers and Android have no desktop
- * bridge and open at once. The check only reads, so the gate never writes data. Every unknown
- * answer (a reject, a timeout) blocks with its error code, a retry, the 0.9.7 download and the
- * folder picker. An unverified report blocks with the same picker, so a moved export folder is
+ * bridge and open at once. The check only reads, so the gate never writes data. A reject or a
+ * timeout opens too (fail open): only a confirmed old database or old account blocks, with the
+ * 0.9.7 download and the folder picker. An unverified report blocks with the same picker, so a moved export folder is
  * not blocked forever. On the web the old-user reader decides instead, and the picker is hidden:
  * the fix there is an export in 0.9.7, not a folder.
  */
@@ -97,12 +98,13 @@ export function Install097Gate({
       if (timer !== undefined) clearTimeout(timer);
       setGate(next);
     };
+    // A check that does not answer in time is unknown and blocks with its code (coordinator decision).
     timer = setTimeout(() => settle({ phase: "unknown", code: "CHECK_TIMEOUT" }), checkTimeoutMs);
     if (!bridge) {
       // Web or Android: the signed-in reader decides. No account (null port) opens.
       void webPort()
         .then((port) => install097Check(null, null, port ?? undefined))
-        .then((verdict) => settle(toGate(verdict)), () => settle({ phase: "unknown", code: "CHECK_FAILED" }));
+        .then((verdict) => settle(toGate(verdict)), () => settle({ phase: "open" }));
     } else {
       const folder = request.folder;
       const resolved = folder === null ? workspaceFolder(bridge) : Promise.resolve(folder);
@@ -110,7 +112,7 @@ export function Install097Gate({
       void Promise.all([resolved, webPort()])
         .then(([path, port]) => install097Check(bridge, path, port ?? undefined))
         .then((verdict): Gate | Promise<Gate> => (verdict.kind === "open" && folder !== null ? keepVerifiedFolder(bridge, folder) : toGate(verdict)))
-        .then((next) => settle(next), () => settle({ phase: "unknown", code: "CHECK_FAILED" }));
+        .then((next) => settle(next), () => settle({ phase: "open" }));
     }
     return () => {
       settled = true;

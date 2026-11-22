@@ -243,53 +243,46 @@ test("passes: browser (no desktop bridge) -> children mount at once", async () =
   tree.unmount();
 });
 
-test("unknown: legacy check rejects -> CHECK code shown with retry, no children", async () => {
+test("fail open: legacy check rejects -> app opens, no error screen", async () => {
   stubBridge({ legacyDbPresent: () => Promise.reject(new Error("ipc down")) });
   const tree = await mount();
-  assert.equal(childCount(tree), 0);
-  const text = textOf(tree.root);
-  assert.ok(text.includes("LEGACY_CHECK_FAILED"));
-  assert.ok(!text.includes(INSTALL_097_NOTICE.title), "unknown is not the install notice");
-  buttonWith(tree, "Try again");
-  // Unknown also offers the download and the picker, so a person can still move the export.
-  const link = tree.root.findAll((n) => n.type === "a" && n.props.href === INSTALL_097_URL);
-  assert.equal(link.length, 1, "unknown screen shows the 0.9.7 download link");
-  buttonWith(tree, "Choose the folder you exported to");
+  assert.equal(childCount(tree), 1);
+  assert.ok(!textOf(tree.root).includes("LEGACY_CHECK_FAILED"));
   tree.unmount();
 });
 
-test("unknown: desktop shell without legacyDbPresent -> LEGACY_CHECK_UNAVAILABLE", async () => {
+test("fail open: desktop shell without legacyDbPresent -> app opens", async () => {
   stubBridge({});
   const tree = await mount();
-  assert.equal(childCount(tree), 0);
-  assert.ok(textOf(tree.root).includes("LEGACY_CHECK_UNAVAILABLE"));
+  assert.equal(childCount(tree), 1);
+  assert.ok(!textOf(tree.root).includes("LEGACY_CHECK_UNAVAILABLE"));
   tree.unmount();
 });
 
-test("unknown: report check throws -> REPORT_CHECK_FAILED, no children", async () => {
+test("fail open: report check throws while old DB present -> app opens", async () => {
   stubBridge({
     vaultRoot: () => Promise.resolve({ path: "/ws/old" }),
     legacyDbPresent: () => Promise.resolve(true),
     migrationReportVerified: () => Promise.reject(new Error("bridge down")),
   });
   const tree = await mount();
-  assert.equal(childCount(tree), 0);
-  assert.ok(textOf(tree.root).includes("REPORT_CHECK_FAILED"));
+  assert.equal(childCount(tree), 1);
+  assert.ok(!textOf(tree.root).includes("REPORT_CHECK_FAILED"));
   tree.unmount();
 });
 
-test("unknown: report method absent while old DB present -> REPORT_CHECK_UNAVAILABLE", async () => {
+test("fail open: report method absent while old DB present -> app opens", async () => {
   stubBridge({
     vaultRoot: () => Promise.resolve({ path: "/ws/old" }),
     legacyDbPresent: () => Promise.resolve(true),
   });
   const tree = await mount();
-  assert.equal(childCount(tree), 0);
-  assert.ok(textOf(tree.root).includes("REPORT_CHECK_UNAVAILABLE"));
+  assert.equal(childCount(tree), 1);
+  assert.ok(!textOf(tree.root).includes("REPORT_CHECK_UNAVAILABLE"));
   tree.unmount();
 });
 
-test("unknown: check never answers -> CHECK_TIMEOUT after the timeout", async () => {
+test("unknown: check never answers -> CHECK_TIMEOUT after the timeout, no children", async () => {
   stubBridge({ legacyDbPresent: () => new Promise(() => {}) });
   let tree!: ReactTestRenderer;
   await act(async () => {
@@ -375,7 +368,7 @@ test("picker: an unverified pick never sets the vault root", async () => {
   tree.unmount();
 });
 
-test("picker: a shell without setVaultRoot cannot keep the verified folder -> SET_FOLDER_UNAVAILABLE", async () => {
+test("picker: a verified pick opens even when the shell cannot keep the folder (fail open)", async () => {
   stubBridge({
     vaultRoot: () => Promise.resolve({ path: "/ws/old" }),
     legacyDbPresent: () => Promise.resolve(true),
@@ -385,8 +378,8 @@ test("picker: a shell without setVaultRoot cannot keep the verified folder -> SE
   });
   const tree = await mount();
   await press(buttonWith(tree, "Choose the folder you exported to"));
-  assert.equal(childCount(tree), 0);
-  assert.ok(textOf(tree.root).includes("SET_FOLDER_UNAVAILABLE"));
+  assert.equal(childCount(tree), 1);
+  assert.ok(!textOf(tree.root).includes("SET_FOLDER_UNAVAILABLE"));
   tree.unmount();
 });
 
