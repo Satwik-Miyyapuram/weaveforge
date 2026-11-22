@@ -190,3 +190,21 @@ test("clearing a token removes it from the secrets store", async () => {
   assert.equal((await secrets.load()).integrations?.["sync:p1:gitlab"], undefined);
   assert.equal((await store.get("p1", "gitlab")).token, undefined);
 });
+
+test("an integration's meta is on disk when save resolves, not only in memory", async () => {
+  // A settings section that stages set() and commits only on flush(), like the real file.
+  const staged = new Map<string, unknown>();
+  const committed = new Map<string, unknown>();
+  const settings = {
+    get: () => undefined,
+    set: (key: readonly string[], value: unknown) => {
+      staged.set(key.join("/"), value);
+    },
+    flush: async () => {
+      for (const [key, value] of staged) committed.set(key, value);
+    },
+  };
+  const store = new FileIntegrationsStore(settings, new MemorySecrets());
+  await store.save("p1", { provider: "github", enabled: true, branch: "dev" });
+  assert.deepEqual(committed.get("integrations/sync/p1/github"), { provider: "github", enabled: true, branch: "dev" });
+});

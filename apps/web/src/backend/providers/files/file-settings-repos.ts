@@ -284,5 +284,7 @@ export class FileIntegrationsStore implements IIntegrationsStore {
     else delete integrations[key];
     await this.secrets.save({ ...current, integrations });
     this.settings.set(["integrations", "sync", projectId, integration.provider], meta);
+    // The meta is only in memory until the settings file is flushed; save resolves once it is on disk.
+    await this.settings.flush?.();
   }
 }
