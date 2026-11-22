@@ -226,10 +226,14 @@ older version is offered 0.9.7 before 0.9.8.
 - **0.9.8** removes the bundled Postgres database and the 0.9.7 upgrade tools. If old database data is found that 0.9.7 never moved,
   the app shows an **Install 0.9.7 first** screen and leaves that data untouched.
 - **1.0.0** is the first stable release. Everything in 0.9.8 is included. The
-  server keeps organisation data, sharing (including shared images) and relay data, and, for supervision and the 1.0.x transition, experiments,
-  lab snapshots, milestones, projects, settings and Overleaf links (the last of these archived in a later 1.0.x). It no longer serves or uses your
-  personal notes, papers, reading lists, annotations, tags, reports, log entries, vault pages, AI records, project integrations and other personal records
-  (citation alerts, screening, library pins, paper fields); the archived copy is deleted in a later 1.0.x.
+  server keeps organisation data, sharing (including shared images) and relay
+  data, plus experiments and lab snapshots for supervision. Settings, milestones,
+  projects and Overleaf links stay on the server for now; they all move off once
+  their routes are ported in a later 1.0.x, and milestone comments move with
+  their milestones. The server no longer serves or uses your personal notes,
+  papers, reading lists, annotations, tags, reports, log entries, vault pages,
+  comments and edit history on those items, AI records, project integrations and
+  other personal records (citation alerts, screening, library pins, paper fields); the archived copy is deleted in a later 1.0.x.
 
 ## A folder on your disk
 
