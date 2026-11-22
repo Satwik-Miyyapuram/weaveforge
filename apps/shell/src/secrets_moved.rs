@@ -81,7 +81,8 @@ pub async fn migrate_097_move_secrets(
     // No legacy database folder means no old rows: a fresh install moves zero rows. A stopped or
     // unreadable database is an error, so the save that asked for the move is refused.
     let rows = if db.legacy_db_present() {
-        db.query(READ_LOCAL_SECRETS_SQL.to_owned(), Vec::new()).await?
+        db.query(READ_LOCAL_SECRETS_SQL.to_owned(), Vec::new())
+            .await?
     } else {
         Vec::new()
     };
@@ -115,9 +116,8 @@ pub fn move_into_keychain(
     if rows.len() > 1 {
         return Err(SecretError::SeveralRows);
     }
-    let marker = || {
-        record_secrets_moved(folder, device, rows.len()).map_err(|_| SecretError::MarkerFailed)
-    };
+    let marker =
+        || record_secrets_moved(folder, device, rows.len()).map_err(|_| SecretError::MarkerFailed);
     let (fields, mut skipped) = row_fields(rows)?;
     match index_source(secrets)? {
         IndexSource::Save => {
@@ -194,7 +194,10 @@ const ROUTED: [(&str, &str); 2] = [
 
 /// The entry name a routed legacy key is stored under, or `None` for an ordinary device field.
 fn routed_name(key: &str) -> Option<&'static str> {
-    ROUTED.iter().find(|(old, _)| *old == key).map(|(_, new)| *new)
+    ROUTED
+        .iter()
+        .find(|(old, _)| *old == key)
+        .map(|(_, new)| *new)
 }
 
 /// The keys the index lists. Call only after `index_source` has read the index as valid.
@@ -203,7 +206,11 @@ fn listed_keys(secrets: &Secrets) -> Result<Vec<String>, SecretError> {
     let index: Value = serde_json::from_str(&text).map_err(|_| SecretError::CorruptIndex)?;
     Ok(index["keys"]
         .as_array()
-        .map(|keys| keys.iter().filter_map(|key| key.as_str().map(str::to_owned)).collect())
+        .map(|keys| {
+            keys.iter()
+                .filter_map(|key| key.as_str().map(str::to_owned))
+                .collect()
+        })
         .unwrap_or_default())
 }
 
@@ -219,7 +226,11 @@ fn strip_write_only_keys(secrets: &Secrets) -> Result<(), SecretError> {
         Err(other) => return Err(other),
     };
     let keys = listed_keys(secrets)?;
-    let kept: Vec<String> = keys.iter().filter(|key| !is_write_only_key(key)).cloned().collect();
+    let kept: Vec<String> = keys
+        .iter()
+        .filter(|key| !is_write_only_key(key))
+        .cloned()
+        .collect();
     if kept.len() == keys.len() {
         return Ok(());
     }
@@ -333,9 +344,15 @@ pub fn sub_key(sub: &str) -> String {
 }
 
 /// Adds a field after checking that its key can be a keychain entry name and that its text fits.
-fn push_field(fields: &mut Vec<(String, String)>, key: String, text: String) -> Result<(), SecretError> {
+fn push_field(
+    fields: &mut Vec<(String, String)>,
+    key: String,
+    text: String,
+) -> Result<(), SecretError> {
     // `_index` is the index entry's own name; a credential under it would overwrite the index.
-    if key == RESERVED_INDEX_KEY || (routed_name(&key).is_none() && !is_device_field(&field_name(&key))) {
+    if key == RESERVED_INDEX_KEY
+        || (routed_name(&key).is_none() && !is_device_field(&field_name(&key)))
+    {
         return Err(SecretError::BadRow);
     }
     if text.is_empty() {
@@ -505,10 +522,8 @@ mod tests {
 
     impl Scratch {
         fn new(name: &str) -> Self {
-            let dir = std::env::temp_dir().join(format!(
-                "wf-secrets-moved-{name}-{}",
-                std::process::id()
-            ));
+            let dir = std::env::temp_dir()
+                .join(format!("wf-secrets-moved-{name}-{}", std::process::id()));
             let _ = fs::remove_dir_all(&dir);
             fs::create_dir_all(&dir).expect("scratch folder");
             Self(dir)
@@ -557,7 +572,10 @@ mod tests {
         let dir = Scratch::new("all-moved");
         let secrets = fake_keychain(&store());
         move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("moves");
-        assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+        assert_eq!(
+            read_marker(&dir.0),
+            serde_json::json!({ "count": 1, "deviceId": DEVICE })
+        );
         assert_eq!(
             secrets.read("device-secrets/plainToken").expect("read"),
             Some("tok".to_owned())
@@ -585,10 +603,9 @@ mod tests {
         let secrets = fake_keychain(&store());
         move_now(&secrets, &dir.0, &[]).expect("moves nothing");
         assert_eq!(read_marker(&dir.0)["count"], 0);
-        let index: Value = serde_json::from_str(
-            &secrets.read(INDEX).expect("read").expect("index written"),
-        )
-        .expect("index is JSON");
+        let index: Value =
+            serde_json::from_str(&secrets.read(INDEX).expect("read").expect("index written"))
+                .expect("index is JSON");
         assert_eq!(index["source"], "move");
         assert!(index["keys"].as_array().expect("keys").is_empty());
     }
@@ -606,7 +623,11 @@ mod tests {
     fn locked_keychain_moves_nothing_and_writes_no_marker() {
         let dir = Scratch::new("locked");
         let st = store();
-        inject(&st, INDEX, keyring_core::Error::NoStorageAccess("locked".into()));
+        inject(
+            &st,
+            INDEX,
+            keyring_core::Error::NoStorageAccess("locked".into()),
+        );
         let secrets = fake_keychain(&st);
         let rows = [old_row(r#"{"plainToken":"tok"}"#)];
         assert!(matches!(
@@ -628,7 +649,10 @@ mod tests {
             .expect("typed value");
         move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"old"}"#)])
             .expect("save on this device is a no-op move");
-        assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+        assert_eq!(
+            read_marker(&dir.0),
+            serde_json::json!({ "count": 1, "deviceId": DEVICE })
+        );
         assert_eq!(
             secrets.read("device-secrets/plainToken").expect("read"),
             Some("typed".to_owned())
@@ -664,7 +688,10 @@ mod tests {
             secrets.read("device-secrets/plainToken").expect("read"),
             Some("tok".to_owned())
         );
-        assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+        assert_eq!(
+            read_marker(&dir.0),
+            serde_json::json!({ "count": 1, "deviceId": DEVICE })
+        );
     }
 
     #[test]
@@ -692,7 +719,10 @@ mod tests {
             move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]),
             Err(SecretError::CorruptIndex)
         ));
-        assert_eq!(secrets.read("device-secrets/plainToken").expect("read"), None);
+        assert_eq!(
+            secrets.read("device-secrets/plainToken").expect("read"),
+            None
+        );
         assert!(!marker_path(&dir.0, DEVICE).exists());
     }
 
@@ -797,7 +827,10 @@ mod tests {
         let row = old_row(r#"{"plainToken":"SECRET-VALUE-XYZ"}"#);
         move_now(&secrets, &dir.0, &[row]).expect("moves");
         let text = std::fs::read_to_string(marker_path(&dir.0, DEVICE)).expect("marker");
-        assert!(!text.contains("SECRET-VALUE-XYZ"), "marker leaked a value: {text}");
+        assert!(
+            !text.contains("SECRET-VALUE-XYZ"),
+            "marker leaked a value: {text}"
+        );
     }
 
     #[test]
@@ -816,7 +849,12 @@ mod tests {
     fn an_odd_sub_key_is_hex_encoded_into_the_entry_name() {
         let dir = Scratch::new("odd-sub");
         let secrets = fake_keychain(&store());
-        move_now(&secrets, &dir.0, &[old_row(r#"{"ai-provider":{"a b":"v"}}"#)]).expect("moves");
+        move_now(
+            &secrets,
+            &dir.0,
+            &[old_row(r#"{"ai-provider":{"a b":"v"}}"#)],
+        )
+        .expect("moves");
         // "a b" is 61 20 62 in hex.
         assert_eq!(
             secrets
@@ -872,8 +910,14 @@ mod tests {
         let first = crate::device_id::get_or_create(&a.0).expect("created");
         assert_eq!(first.len(), 64);
         assert!(first.bytes().all(|c| c.is_ascii_hexdigit()));
-        assert_eq!(crate::device_id::get_or_create(&a.0).expect("reused"), first);
-        assert_ne!(crate::device_id::get_or_create(&b.0).expect("created"), first);
+        assert_eq!(
+            crate::device_id::get_or_create(&a.0).expect("reused"),
+            first
+        );
+        assert_ne!(
+            crate::device_id::get_or_create(&b.0).expect("created"),
+            first
+        );
     }
 
     #[test]
@@ -889,13 +933,22 @@ mod tests {
             .expect("typed value");
         let row = old_row(r#"{"plainToken":"old","otherToken":"g"}"#);
         move_now(&secrets, &dir.0, &[row]).expect("moves");
-        assert_eq!(secrets.read("device-secrets/otherToken").expect("read"), None);
+        assert_eq!(
+            secrets.read("device-secrets/otherToken").expect("read"),
+            None
+        );
         assert_eq!(
             secrets.read("device-secrets/plainToken").expect("read"),
             Some("typed".to_owned())
         );
-        assert_eq!(secrets.read(INDEX).expect("read"), Some(save_index.to_owned()));
-        assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+        assert_eq!(
+            secrets.read(INDEX).expect("read"),
+            Some(save_index.to_owned())
+        );
+        assert_eq!(
+            read_marker(&dir.0),
+            serde_json::json!({ "count": 1, "deviceId": DEVICE })
+        );
     }
 
     #[test]
@@ -905,7 +958,9 @@ mod tests {
         secrets
             .write(INDEX, r#"{"source":"save","keys":["plainToken"]}"#)
             .expect("save index");
-        secrets.write("overleaf-token", "newer").expect("native overleaf");
+        secrets
+            .write("overleaf-token", "newer")
+            .expect("native overleaf");
         let row = old_row(r#"{"gitSyncToken":"old-git","overleafToken":"old-overleaf"}"#);
         let skipped = move_into_keychain(&secrets, &dir.0, DEVICE, &[row]).expect("moves");
         assert_eq!(
@@ -917,7 +972,10 @@ mod tests {
             Some("newer".to_owned())
         );
         assert_eq!(skipped, vec!["overleafToken".to_owned()]);
-        assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+        assert_eq!(
+            read_marker(&dir.0),
+            serde_json::json!({ "count": 1, "deviceId": DEVICE })
+        );
     }
 
     #[test]
@@ -925,7 +983,10 @@ mod tests {
         let dir = Scratch::new("save-fill");
         let secrets = fake_keychain(&store());
         secrets
-            .write(INDEX, r#"{"source":"save","keys":["plainToken","otherToken"]}"#)
+            .write(
+                INDEX,
+                r#"{"source":"save","keys":["plainToken","otherToken"]}"#,
+            )
             .expect("save index");
         secrets
             .write("device-secrets/plainToken", "typed")
@@ -940,13 +1001,18 @@ mod tests {
             secrets.read("device-secrets/otherToken").expect("read"),
             Some("g".to_owned())
         );
-        let index: Value = serde_json::from_str(
-            &secrets.read(INDEX).expect("read").expect("index kept"),
-        )
-        .expect("index is JSON");
+        let index: Value =
+            serde_json::from_str(&secrets.read(INDEX).expect("read").expect("index kept"))
+                .expect("index is JSON");
         assert_eq!(index["source"], "save");
-        assert_eq!(index["keys"], serde_json::json!(["plainToken", "otherToken"]));
-        assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+        assert_eq!(
+            index["keys"],
+            serde_json::json!(["plainToken", "otherToken"])
+        );
+        assert_eq!(
+            read_marker(&dir.0),
+            serde_json::json!({ "count": 1, "deviceId": DEVICE })
+        );
     }
 
     #[test]
@@ -960,7 +1026,12 @@ mod tests {
             move_now(&secrets, &dir.0, &[row]),
             Err(SecretError::TooLong)
         ));
-        assert_eq!(secrets.read("device-secrets/plainToken.s0000").expect("read"), None);
+        assert_eq!(
+            secrets
+                .read("device-secrets/plainToken.s0000")
+                .expect("read"),
+            None
+        );
         assert_eq!(secrets.read(INDEX).expect("read"), None);
         assert!(!marker_path(&dir.0, DEVICE).exists());
     }
@@ -988,8 +1059,14 @@ mod tests {
         fs::write(&part, b"{\"count\": 9, \"partial").expect("leftover");
         let secrets = fake_keychain(&store());
         move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("moves");
-        assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
-        assert!(!part.exists(), "the .part file is renamed away, not left behind");
+        assert_eq!(
+            read_marker(&dir.0),
+            serde_json::json!({ "count": 1, "deviceId": DEVICE })
+        );
+        assert!(
+            !part.exists(),
+            "the .part file is renamed away, not left behind"
+        );
     }
 
     #[test]
@@ -1008,9 +1085,15 @@ mod tests {
                 })
                 .collect();
             for handle in handles {
-                handle.join().expect("thread").expect("every marker write succeeds");
+                handle
+                    .join()
+                    .expect("thread")
+                    .expect("every marker write succeeds");
             }
-            assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+            assert_eq!(
+                read_marker(&dir.0),
+                serde_json::json!({ "count": 1, "deviceId": DEVICE })
+            );
         }
     }
 
@@ -1020,11 +1103,21 @@ mod tests {
         let secrets = fake_keychain(&store());
         let row = old_row(r#"{"overleafToken":"tok","gitSyncToken":"g","notesToken":"n"}"#);
         move_now(&secrets, &dir.0, &[row]).expect("moves");
-        assert_eq!(secrets.read("overleaf-token").expect("read"), Some("tok".to_owned()));
-        assert_eq!(secrets.read("git-sync-token").expect("read"), Some("g".to_owned()));
-        assert_eq!(secrets.read("device-secrets/overleafToken").expect("read"), None);
+        assert_eq!(
+            secrets.read("overleaf-token").expect("read"),
+            Some("tok".to_owned())
+        );
+        assert_eq!(
+            secrets.read("git-sync-token").expect("read"),
+            Some("g".to_owned())
+        );
+        assert_eq!(
+            secrets.read("device-secrets/overleafToken").expect("read"),
+            None
+        );
         let index: Value =
-            serde_json::from_str(&secrets.read(INDEX).expect("read").expect("index")).expect("json");
+            serde_json::from_str(&secrets.read(INDEX).expect("read").expect("index"))
+                .expect("json");
         assert_eq!(index["keys"], serde_json::json!(["notesToken"]));
     }
 
@@ -1035,10 +1128,18 @@ mod tests {
         let row = old_row(r#"{"overleafToken":{"extra":"SECRET-SUB"},"notesToken":"n"}"#);
         let skipped = move_into_keychain(&secrets, &dir.0, DEVICE, &[row]).expect("moves");
         assert_eq!(skipped, vec!["overleafToken.extra".to_owned()]);
-        assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+        assert_eq!(
+            read_marker(&dir.0),
+            serde_json::json!({ "count": 1, "deviceId": DEVICE })
+        );
         let index = secrets.read(INDEX).expect("read").expect("index");
         assert!(!index.contains("overleafToken") && !index.contains("SECRET-SUB"));
-        assert_eq!(secrets.read("device-secrets/overleafToken.extra").expect("read"), None);
+        assert_eq!(
+            secrets
+                .read("device-secrets/overleafToken.extra")
+                .expect("read"),
+            None
+        );
     }
 
     #[test]
@@ -1065,13 +1166,15 @@ mod tests {
             secrets.read("device-secrets/plainToken").expect("read"),
             Some("tok".to_owned())
         );
-        let index: Value = serde_json::from_str(
-            &secrets.read(INDEX).expect("read").expect("index written"),
-        )
-        .expect("index is JSON");
+        let index: Value =
+            serde_json::from_str(&secrets.read(INDEX).expect("read").expect("index written"))
+                .expect("index is JSON");
         assert_eq!(index["source"], "move");
         assert_eq!(index["keys"].as_array().expect("keys").len(), 2);
-        assert_eq!(read_marker(&dir.0), serde_json::json!({ "count": 1, "deviceId": DEVICE }));
+        assert_eq!(
+            read_marker(&dir.0),
+            serde_json::json!({ "count": 1, "deviceId": DEVICE })
+        );
     }
 
     #[test]
@@ -1079,10 +1182,18 @@ mod tests {
         let dir = Scratch::new("copy-same");
         let secrets = fake_keychain(&store());
         secrets.write("git-sync-token", "tok").expect("native");
-        secrets.write("device-secrets/gitSyncToken", "tok").expect("copy");
+        secrets
+            .write("device-secrets/gitSyncToken", "tok")
+            .expect("copy");
         move_now(&secrets, &dir.0, &[old_row(r#"{"gitSyncToken":"tok"}"#)]).expect("moves");
-        assert_eq!(secrets.read("device-secrets/gitSyncToken").expect("read"), None);
-        assert_eq!(secrets.read("git-sync-token").expect("read").as_deref(), Some("tok"));
+        assert_eq!(
+            secrets.read("device-secrets/gitSyncToken").expect("read"),
+            None
+        );
+        assert_eq!(
+            secrets.read("git-sync-token").expect("read").as_deref(),
+            Some("tok")
+        );
         assert_eq!(read_marker(&dir.0)["count"], 1);
     }
 
@@ -1091,10 +1202,21 @@ mod tests {
         let dir = Scratch::new("copy-differs");
         let secrets = fake_keychain(&store());
         secrets.write("git-sync-token", "newer").expect("native");
-        secrets.write("device-secrets/gitSyncToken", "old").expect("copy");
+        secrets
+            .write("device-secrets/gitSyncToken", "old")
+            .expect("copy");
         move_now(&secrets, &dir.0, &[old_row(r#"{"gitSyncToken":"old"}"#)]).expect("moves");
-        assert_eq!(secrets.read("device-secrets/gitSyncToken").expect("read").as_deref(), Some("old"));
-        assert_eq!(secrets.read("git-sync-token").expect("read").as_deref(), Some("newer"));
+        assert_eq!(
+            secrets
+                .read("device-secrets/gitSyncToken")
+                .expect("read")
+                .as_deref(),
+            Some("old")
+        );
+        assert_eq!(
+            secrets.read("git-sync-token").expect("read").as_deref(),
+            Some("newer")
+        );
     }
 
     #[test]
@@ -1102,12 +1224,26 @@ mod tests {
         let dir = Scratch::new("copy-unverified");
         let secrets = fake_keychain(&store());
         secrets.write("git-sync-token", "tok").expect("native");
-        secrets.write("device-secrets/gitSyncToken", "tok").expect("copy");
+        secrets
+            .write("device-secrets/gitSyncToken", "tok")
+            .expect("copy");
         // Two rows are refused before anything is written, so the move is not verified.
         let rows = [old_row(r#"{"gitSyncToken":"tok"}"#), old_row(r#"{}"#)];
-        assert_eq!(move_now(&secrets, &dir.0, &rows), Err(SecretError::SeveralRows));
-        assert_eq!(secrets.read("device-secrets/gitSyncToken").expect("read").as_deref(), Some("tok"));
-        assert_eq!(secrets.read("git-sync-token").expect("read").as_deref(), Some("tok"));
+        assert_eq!(
+            move_now(&secrets, &dir.0, &rows),
+            Err(SecretError::SeveralRows)
+        );
+        assert_eq!(
+            secrets
+                .read("device-secrets/gitSyncToken")
+                .expect("read")
+                .as_deref(),
+            Some("tok")
+        );
+        assert_eq!(
+            secrets.read("git-sync-token").expect("read").as_deref(),
+            Some("tok")
+        );
     }
 
     #[test]
@@ -1115,10 +1251,15 @@ mod tests {
         let dir = Scratch::new("newer-native");
         let secrets = fake_keychain(&store());
         // github_connect.rs wrote a fresh git-sync token after the old row was saved.
-        secrets.write("git-sync-token", "newer").expect("native token");
+        secrets
+            .write("git-sync-token", "newer")
+            .expect("native token");
         let row = old_row(r#"{"gitSyncToken":"old"}"#);
         move_now(&secrets, &dir.0, &[row]).expect("moves");
-        assert_eq!(secrets.read("git-sync-token").expect("read"), Some("newer".to_owned()));
+        assert_eq!(
+            secrets.read("git-sync-token").expect("read"),
+            Some("newer".to_owned())
+        );
     }
 
     #[test]
@@ -1128,11 +1269,17 @@ mod tests {
         // An index written before the routing fix listed the write-only names.
         let old = r#"{"source":"save","keys":["plainToken","overleafToken","gitSyncToken.sub"]}"#;
         secrets.write(INDEX, old).expect("old index");
-        secrets.write("device-secrets/plainToken", "typed").expect("typed value");
+        secrets
+            .write("device-secrets/plainToken", "typed")
+            .expect("typed value");
         move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"old"}"#)]).expect("save no-op");
-        let index: Value = serde_json::from_str(&secrets.read(INDEX).expect("read").expect("index"))
-            .expect("index is JSON");
-        assert_eq!(index, serde_json::json!({ "source": "save", "keys": ["plainToken"] }));
+        let index: Value =
+            serde_json::from_str(&secrets.read(INDEX).expect("read").expect("index"))
+                .expect("index is JSON");
+        assert_eq!(
+            index,
+            serde_json::json!({ "source": "save", "keys": ["plainToken"] })
+        );
     }
 
     #[test]
@@ -1141,13 +1288,22 @@ mod tests {
         let secrets = fake_keychain(&store());
         move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("first move");
         // A build before the fix left a write-only entry and listed it in the index.
-        secrets.write("device-secrets/overleafToken", "tok").expect("old entry");
         secrets
-            .write(INDEX, r#"{"source":"move","keys":["plainToken","overleafToken"]}"#)
+            .write("device-secrets/overleafToken", "tok")
+            .expect("old entry");
+        secrets
+            .write(
+                INDEX,
+                r#"{"source":"move","keys":["plainToken","overleafToken"]}"#,
+            )
             .expect("old index");
         move_now(&secrets, &dir.0, &[old_row(r#"{"plainToken":"tok"}"#)]).expect("marker no-op");
-        let index: Value = serde_json::from_str(&secrets.read(INDEX).expect("read").expect("index"))
-            .expect("index is JSON");
-        assert_eq!(index, serde_json::json!({ "source": "move", "keys": ["plainToken"] }));
+        let index: Value =
+            serde_json::from_str(&secrets.read(INDEX).expect("read").expect("index"))
+                .expect("index is JSON");
+        assert_eq!(
+            index,
+            serde_json::json!({ "source": "move", "keys": ["plainToken"] })
+        );
     }
 }

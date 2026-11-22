@@ -60,7 +60,10 @@ fn create(
     let id = new_id(dir);
     let part = part_path(path);
     {
-        let mut file = fs::OpenOptions::new().write(true).create_new(true).open(&part)?;
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&part)?;
         file.write_all(id.as_bytes())?;
         file.sync_all()?;
     }
@@ -90,7 +93,9 @@ fn create(
 fn is_no_link_error(kind: io::ErrorKind) -> bool {
     matches!(
         kind,
-        io::ErrorKind::Unsupported | io::ErrorKind::PermissionDenied | io::ErrorKind::CrossesDevices
+        io::ErrorKind::Unsupported
+            | io::ErrorKind::PermissionDenied
+            | io::ErrorKind::CrossesDevices
     )
 }
 
@@ -114,7 +119,10 @@ fn part_path(path: &Path) -> std::path::PathBuf {
 /// fails rather than returning a wrong id. Only this fallback path has the window; the hard-link
 /// path binds the name to a complete file.
 fn create_new_with(path: &Path, id: &str) -> io::Result<()> {
-    let mut file = fs::OpenOptions::new().write(true).create_new(true).open(path)?;
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)?;
     file.write_all(id.as_bytes())?;
     file.sync_all()
 }
@@ -176,8 +184,8 @@ mod tests {
     fn concurrent_first_calls_agree_on_one_id() {
         use std::sync::{Arc, Barrier};
         for round in 0..30 {
-            let dir = std::env::temp_dir()
-                .join(format!("wf-devid-race-{}-{round}", std::process::id()));
+            let dir =
+                std::env::temp_dir().join(format!("wf-devid-race-{}-{round}", std::process::id()));
             let _ = std::fs::remove_dir_all(&dir);
             let barrier = Arc::new(Barrier::new(8));
             let handles: Vec<_> = (0..8)
@@ -209,7 +217,10 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("device-id"), "not-hex").unwrap();
         assert!(get_or_create(&dir).is_err());
-        assert_eq!(std::fs::read_to_string(dir.join("device-id")).unwrap(), "not-hex");
+        assert_eq!(
+            std::fs::read_to_string(dir.join("device-id")).unwrap(),
+            "not-hex"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -239,7 +250,11 @@ mod tests {
         let real = "cd".repeat(32);
         std::fs::write(&path, &real).unwrap();
         remove_if_still_empty(&path).unwrap();
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), real, "a real id is kept");
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            real,
+            "a real id is kept"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -255,7 +270,11 @@ mod tests {
         };
         let id = create(&dir, &path, unsupported).expect("falls back to create_new");
         assert_eq!(std::fs::read_to_string(&path).unwrap(), id);
-        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "no temp file is left");
+        assert_eq!(
+            std::fs::read_dir(&dir).unwrap().count(),
+            1,
+            "no temp file is left"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -263,16 +282,30 @@ mod tests {
     fn every_no_link_error_falls_back_to_create_new() {
         use super::create;
         use std::io::ErrorKind;
-        for kind in [ErrorKind::Unsupported, ErrorKind::PermissionDenied, ErrorKind::CrossesDevices] {
-            let dir = std::env::temp_dir().join(format!("wf-devid-kind-{}-{kind:?}", std::process::id()));
+        for kind in [
+            ErrorKind::Unsupported,
+            ErrorKind::PermissionDenied,
+            ErrorKind::CrossesDevices,
+        ] {
+            let dir =
+                std::env::temp_dir().join(format!("wf-devid-kind-{}-{kind:?}", std::process::id()));
             let _ = std::fs::remove_dir_all(&dir);
             std::fs::create_dir_all(&dir).unwrap();
             let path = dir.join("device-id");
-            let refuse_link = |_: &std::path::Path, _: &std::path::Path| Err(std::io::Error::from(kind));
+            let refuse_link =
+                |_: &std::path::Path, _: &std::path::Path| Err(std::io::Error::from(kind));
             let id = create(&dir, &path, refuse_link)
                 .unwrap_or_else(|e| panic!("{kind:?} should fall back to create_new: {e}"));
-            assert_eq!(std::fs::read_to_string(&path).unwrap(), id, "{kind:?}: the id is written");
-            assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "{kind:?}: no temp file is left");
+            assert_eq!(
+                std::fs::read_to_string(&path).unwrap(),
+                id,
+                "{kind:?}: the id is written"
+            );
+            assert_eq!(
+                std::fs::read_dir(&dir).unwrap().count(),
+                1,
+                "{kind:?}: no temp file is left"
+            );
             let _ = std::fs::remove_dir_all(&dir);
         }
     }
@@ -287,7 +320,10 @@ mod tests {
         let refuse = |_: &std::path::Path, _: &std::path::Path| {
             Err(std::io::Error::from(std::io::ErrorKind::StorageFull))
         };
-        assert!(create(&dir, &path, refuse).is_err(), "a full disk is an error, not a fallback");
+        assert!(
+            create(&dir, &path, refuse).is_err(),
+            "a full disk is an error, not a fallback"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -300,7 +336,10 @@ mod tests {
         sync_dir(&dir).expect("an existing folder syncs");
         let _ = std::fs::remove_dir_all(&dir);
         #[cfg(unix)]
-        assert!(sync_dir(&dir).is_err(), "a missing folder cannot be synced on Unix");
+        assert!(
+            sync_dir(&dir).is_err(),
+            "a missing folder cannot be synced on Unix"
+        );
     }
 
     #[test]
@@ -311,7 +350,10 @@ mod tests {
         let kept = "ab".repeat(32);
         std::fs::write(dir.join("device-id"), &kept).unwrap();
         assert_eq!(get_or_create(&dir).expect("kept"), kept);
-        assert_eq!(std::fs::read_to_string(dir.join("device-id")).unwrap(), kept);
+        assert_eq!(
+            std::fs::read_to_string(dir.join("device-id")).unwrap(),
+            kept
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
