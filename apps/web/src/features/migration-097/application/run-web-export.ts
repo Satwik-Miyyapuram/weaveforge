@@ -56,8 +56,7 @@ export type ExportOptions = {
 /** Refusal reason when unsent sync_outbox ops exist; the UI keys "sync pending changes first" on it. */
 export const OUTBOX_NOT_EMPTY_REASON = "outbox not empty: flush before export";
 
-/** `reconnectProviders` names the services whose secret stayed on the server (never the secret itself). */
-/** `undecryptable` counts the content_enc rows the web cannot read; any above 0 keeps the run incomplete. */
+/** `reconnectProviders` names the services whose secret stayed on the server (never the secret itself). `undecryptable` is always 0 on the web: content_enc was dropped by 0099. */
 export type ExportResult = { state: MigrationState; run: RunReport; reconnectProviders: string[]; undecryptable: number };
 
 /** The desktop shell's part of the 0.9.7 contract: a pre-migration dump, then a mark. */
