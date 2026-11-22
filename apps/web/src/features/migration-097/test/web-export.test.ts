@@ -6,6 +6,7 @@ import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 import type { BlobRef, FileCodec, Row, ServerSource } from "../domain/ports";
 import type { KindWriter } from "../domain/kind-writer";
 import { runWebExport } from "../application/run-web-export";
+import { createSecretMover } from "../application/move-secrets";
 import { sameRows, verifyExport } from "../application/verify-export";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { unzipFiles, zipFiles } from "../infrastructure/zip";
@@ -1007,4 +1008,53 @@ test("refused runs (outbox not empty) still write an incomplete report with the 
   const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
   assert.equal(report.state, "incomplete");
   assert.match(JSON.stringify(report), /outbox not empty/);
+});
+
+test("keys: copy-only mover; a failed marker then a re-run copies each secret once and verifies", async () => {
+  const sec = new Map([
+    ["k1", "v1"],
+    ["k2", "v2"],
+  ]);
+  const target = new Map<string, string>();
+  const copies: string[] = [];
+  const moveSecrets = createSecretMover({
+    list: async () => [...sec.keys()],
+    exists: async (id) => target.has(id),
+    copy: async (id) => {
+      copies.push(id);
+      target.set(id, sec.get(id) ?? "");
+    },
+  });
+  const sink = new MemorySink();
+  const { source } = fakeServer({ rows: FIXTURE });
+  const realMark = source.markExported;
+  source.markExported = async () => {
+    throw new Error("server down");
+  };
+  const first = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    secretsPresent: true,
+    moveSecrets,
+  });
+  assert.equal(first.state, "incomplete");
+
+  source.markExported = realMark;
+  const second = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    secretsPresent: true,
+    moveSecrets,
+  });
+  assert.equal(second.state, "verified");
+  assert.deepEqual(copies, ["k1", "k2"], "each secret copied once across both runs");
+  assert.deepEqual([...sec.keys()], ["k1", "k2"], "old secrets still present");
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
+  assert.equal(report.state, "verified");
 });
