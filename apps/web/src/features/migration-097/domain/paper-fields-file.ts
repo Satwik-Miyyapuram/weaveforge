@@ -9,7 +9,8 @@
  */
 import type { Row } from "./ports";
 
-export type FileFieldDef = { name: string; kind: string; options: string[]; sortOrder: number };
+/** One def as the File repo stores it. projectId is the project folder ("" = workspace root). */
+export type FileFieldDef = { projectId: string; name: string; kind: string; options: string[]; sortOrder: number };
 export type FileFieldValue = string | number | string[];
 
 function asOption(o: unknown): string {
@@ -23,20 +24,28 @@ function asFieldValue(v: unknown): FileFieldValue {
   throw new Error("paper field value is not text, a number or a text list");
 }
 
-/** Definition rows to the settings.json `paperFields` shape. Throws on a value that cannot be stored as-is. */
-export function defsToSettings(rows: Row[]): Record<string, FileFieldDef> {
+/**
+ * Definition rows to the settings.json `paperFields` shape. `folders` maps each server project id to its
+ * project folder ("" = workspace root), named as the project export names folders. A def whose project has
+ * no folder throws rather than landing in the workspace root. Throws on a value that cannot be stored as-is.
+ */
+export function defsToSettings(rows: Row[], folders: ReadonlyMap<string, string>): Record<string, FileFieldDef> {
   const out: Record<string, FileFieldDef> = {};
   for (const r of rows) {
+    const projectId = String(r.projectId);
+    const folder = folders.get(projectId);
+    if (folder === undefined) throw new Error(`paper field ${String(r.id)}: project ${projectId} has no folder`);
     const options = Array.isArray(r.options) ? r.options.map(asOption) : [];
-    out[String(r.id)] = { name: String(r.name), kind: String(r.kind), options, sortOrder: Number(r.sortOrder) };
+    out[String(r.id)] = { projectId: folder, name: String(r.name), kind: String(r.kind), options, sortOrder: Number(r.sortOrder) };
   }
   return out;
 }
 
-/** settings.json `paperFields` back to definition rows. */
-export function defsFromSettings(settings: Record<string, FileFieldDef>): Row[] {
+/** settings.json `paperFields` back to definition rows. `serverIds` maps each folder back to its server project id. */
+export function defsFromSettings(settings: Record<string, FileFieldDef>, serverIds: ReadonlyMap<string, string>): Row[] {
   return Object.entries(settings).map(([id, d]) => ({
     id,
+    projectId: serverIds.get(d.projectId) ?? d.projectId,
     name: d.name,
     kind: d.kind,
     options: [...d.options],
