@@ -123,7 +123,8 @@ test("a crash while writing keeps the previous settings.json", async () => {
     },
   }) as MemoryWorkspaceFs;
   const second = await openFileSettingsSection(crashing, ROOT);
-  second.set(["appearance", "theme"], "crt");
+  // set() returns the write's own promise: it must be awaited here, or its rejection is unhandled.
+  await assert.rejects(second.set(["appearance", "theme"], "crt"), /power cut/);
   await assert.rejects(second.flush(), /power cut/);
 
   const after = await openFileSettingsSection(fs, ROOT);

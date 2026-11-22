@@ -163,6 +163,11 @@ function rustProjectZoteroStore(db: SupabaseClient): IProjectBibliographyCollect
 }
 
 // --- wire-postgrest-backend ---
+export interface PostgrestWiringOptions {
+  /** Files mode: the container's personal repos wired here reach the org allowlist only. */
+  readonly filesMode?: boolean;
+}
+
 export interface WiredPostgrestBackend {
   readonly config: BackendConfig;
   readonly db: SupabaseClient;
@@ -258,6 +263,9 @@ export function wirePostgrestBackend(
     parts?.db ??
     watchWrites(createDataClient(url as string, anonKey as string, config.dataUrl), notifyWorkspaceChange);
   // A session built here listens on the client; one passed in is its owner's.
+  // In files mode the repos below that the container still wires over this client may reach only
+  // the org server allowlist: a personal call throws before any request is sent.
+  const serverDb = options?.filesMode ? guardOrgDb(db) : db;
   const ownSession = parts?.session ? null : new SupabaseSessionProvider(db);
   const session = parts?.session ?? ownSession!;
   const auth = parts?.auth ?? new SupabaseAuthService(db);
@@ -265,9 +273,6 @@ export function wirePostgrestBackend(
     !parts && url && config.supabaseServiceRoleKey
       ? new SupabaseAdminUserProvisioner(url, config.supabaseServiceRoleKey)
       : null;
-
-  // Personal data lives in files in files mode: the server client is then limited to org and share tables.
-  const serverDb = options?.filesMode ? guardOrgDb(db) : db;
 
   const settingsRepository =
     parts?.settingsRepository ?? new PostgrestSettingsRepository(serverDb, session, secretsStoreFor(serverDb));

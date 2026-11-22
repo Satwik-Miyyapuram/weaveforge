@@ -154,11 +154,10 @@ test("a repository built inside the wiring cannot write a personal table to the 
   const backend = wire(config, { projectId: null }, () => null);
   const spy = spyNetwork();
   try {
-    // projects is personal: the Zotero collection setter writes it through a repo built on the raw client.
-    await assert.rejects(
-      backend.projectBibliographyCollection.setCollection("p-1", "collection-1"),
-      /not allowed on the org server/,
-    );
+    // paper_tags is personal and not on the org allowlist: the guarded client refuses it before any request.
+    // (`projects` is on the allowlist for 1.0.x, so it is not a personal-table probe any more.)
+    assert.throws(() => backend.db.from("paper_tags"), /not allowed on the org server/);
+    assert.throws(() => backend.db.rpc("personal_probe_rpc"), /not allowed on the org server/);
     assert.deepEqual(spy.urls, []);
   } finally {
     spy.restore();

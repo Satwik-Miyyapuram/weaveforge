@@ -335,7 +335,7 @@ test("(item1) a failed server mark writes no switched marker", async () => {
 
 /** A sink whose report rename fails, so recordServerMarked throws after the server mark succeeds. */
 class RenameFailsSink extends MemorySink {
-  async rename(): Promise<void> {
+  override async rename(): Promise<void> {
     throw new Error("rename failed");
   }
 }

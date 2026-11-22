@@ -122,9 +122,9 @@ import { createCredentialReader } from "@/integrations/parts";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { clearActiveProvider } from "@/features/ai-assistant/application/parts";
 import { resolveMigrationChoice } from "@/container/resolve-migration-choice";
-import { serverDbToWatch } from "@/container/project-watch";
 import { wireDesktopFileBackend } from "@/container/desktop-file-backend";
 import { workspaceSettings } from "@/features/settings/application/workspace-settings";
+import { watchProjectChannel } from "@/container/project-watch";
 
 export interface CreatedAppContainer {
   container: AppContainer;
@@ -194,8 +194,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     wireBrowserFileBackend: start?.mode === "files" ? start.wiring : undefined,
     readOnlyServer: start?.mode === "read-only",
   });
-  const watchDb = serverDbToWatch(backend);
-  if (watchDb) projectLww.watch(watchDb, pid());
+  watchProjectChannel(projectLww, backend, pid());
 
   const crdtUpdateStore = rustCrdtUpdateStore(backend.db);
   const crdtSnapshotStore = rustCrdtSnapshotStore(backend.db);
@@ -796,8 +795,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       manageProject,
       context: projectContext,
       watchLww: (id) => {
-        const watchDb = serverDbToWatch(backend);
-        if (watchDb) projectLww.watch(watchDb, id);
+        watchProjectChannel(projectLww, backend, id);
       },
     }),
     auth: new AuthFacade({ auth: backend.auth }),
