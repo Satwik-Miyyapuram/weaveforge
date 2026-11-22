@@ -2,8 +2,8 @@
 
 /**
  * The no-account choice: this window works on the computer, not on an account.
- * Only the flag lives here; the local identity and its database wiring stay in
- * backend/providers/local. Same names and storage key as before the move, so a
+ * Only the flag lives here; the no-account identity and its files wiring stay in
+ * backend/providers/files. Same names and storage key as before the move, so a
  * stored choice still reads.
  */
 

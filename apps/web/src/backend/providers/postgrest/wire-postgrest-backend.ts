@@ -228,7 +228,7 @@ export interface WiredPostgrestBackend {
  * Everything below this line is the same for both: the repositories only ever
  * see `db`, `session` and `auth`, so swapping those three swaps the backend
  * without a second copy of the wiring. See
- * `backend/providers/local/wire-local-backend.ts`.
+ * `backend/providers/files/wire-file-backend.ts`.
  */
 export interface BackendParts {
   db: SupabaseClient;

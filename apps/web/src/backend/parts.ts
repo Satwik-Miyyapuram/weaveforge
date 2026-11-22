@@ -14,8 +14,11 @@ import {
 } from "@weaveforge/core";
 import type { BackendConfigField } from "@weaveforge/wasm";
 import { isLocalMode } from "@/features/auth/infrastructure/no-account-mode";
-import { LocalAuthService } from "./providers/local/local-identity";
-import { localBackendParts } from "./providers/local/parts";
+import { NoAccountAuthService } from "./providers/files/no-account-auth";
+import { NoAccountWorkspaceFs } from "./providers/files/no-account-fs";
+import { wireFileBackend } from "./providers/files/wire-file-backend";
+import { DeviceSecretsStore } from "./device-secrets-store";
+import { workspaceSettings } from "@/features/settings/application/workspace-settings";
 import { createDataClient } from "./providers/postgrest/parts-1";
 import { rustRepository } from "./providers/postgrest/rust-repository";
 import { secretsStoreFor } from "./providers/secrets-store";
@@ -177,7 +180,7 @@ export interface LightBackend {
 export function wireLightBackend(config: BackendConfig = readBackendConfig()): LightBackend {
   // The same choice the full container makes, made earlier: this runs first,
   // and a window working on this computer must not be asked to sign in.
-  if (isLocalMode()) return wireLocalLightBackend();
+  if (isLocalMode()) return wireNoAccountLightBackend();
 
   if (config.provider !== "postgrest") {
     throw new Error(
@@ -212,18 +215,20 @@ export function wireLightBackend(config: BackendConfig = readBackendConfig()): L
 }
 
 /**
- * Auth and settings for a copy with no account.
- *
- * Provisioning is a no-op rather than an error: the local user's rows are
- * created by the shell when it opens the database, so there is nothing left
- * for the app to ask for.
+ * Auth and settings for "work on this computer" (no account). The preferences
+ * live in the open folder's files and the credentials in the device keychain.
+ * Provisioning is a no-op: there is no account row to create.
  */
-function wireLocalLightBackend(): LightBackend {
-  const { settingsRepository } = localBackendParts();
+function wireNoAccountLightBackend(): LightBackend {
+  const files = wireFileBackend({
+    fs: new NoAccountWorkspaceFs(),
+    settings: workspaceSettings,
+    secrets: new DeviceSecretsStore(),
+  });
   return {
-    auth: new LocalAuthService(),
-    manageSettings: new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock }),
-    preferences: settingsRepository,
+    auth: new NoAccountAuthService(),
+    manageSettings: new ManageSettingsUseCaseClass({ repository: files.settingsRepository, clock: systemClock }),
+    preferences: files.settingsRepository,
     selfProvisioner: { ensureProvisioned: async () => {} },
   };
 }
