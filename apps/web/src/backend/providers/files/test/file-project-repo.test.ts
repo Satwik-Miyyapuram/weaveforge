@@ -62,6 +62,19 @@ test("delete removes the workspace file so the project is gone", async () => {
   assert.deepEqual(await repo.list(), []);
 });
 
+test("delete keeps workspace.json and its other keys, dropping only the project keys", async () => {
+  const { fs, repo } = setup();
+  const created = await repo.create({ name: "Thesis", color: "#336699" });
+  const stored = JSON.parse(await fs.readText(".weaveforge/workspace.json")) as Record<string, unknown>;
+  await fs.writeFile(".weaveforge/workspace.json", JSON.stringify({ ...stored, sharedKey: "kept" }));
+  await repo.delete(created.id);
+  assert.equal(await fs.stat(".weaveforge/workspace.json") !== null, true);
+  const after = JSON.parse(await fs.readText(".weaveforge/workspace.json")) as Record<string, unknown>;
+  assert.equal(after.sharedKey, "kept");
+  for (const key of ["id", "name", "color", "createdAt"]) assert.equal(key in after, false, key);
+  assert.equal(await repo.getById(created.id), null);
+});
+
 test("a blank name is rejected with ProjectValidationError", async () => {
   const { repo } = setup();
   await assert.rejects(repo.create({ name: "   " }), ProjectValidationError);
