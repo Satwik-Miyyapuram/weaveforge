@@ -44,14 +44,29 @@ export class Links {
     return hits.length === 1 ? hits[0]!.target : null;
   }
 
+  /** Every paper and note, with its workspace path (`.md` included). */
+  all(): { target: LinkTarget; path: string }[] {
+    return this.entries.map((e) => ({ target: e.target, path: `${e.path}.md` }));
+  }
+
+  /** The workspace path (`.md` included) of the paper or note, or null when it has no file. */
+  pathFor(target: LinkTarget): string | null {
+    const hit = this.find(target);
+    return hit ? `${hit.path}.md` : null;
+  }
+
   /** The link to the paper or note, or null when it has no file. */
   linkFor(target: LinkTarget): string | null {
-    const kind = "paperId" in target ? "paperId" : "vaultPageId";
-    const id = idOf(target);
-    const hit = this.entries.find((e) => kind in e.target && idOf(e.target) === id);
+    const hit = this.find(target);
     if (!hit) return null;
     const shared = this.entries.some((e) => e !== hit && e.key === hit.key);
     return `[[${shared ? hit.path : hit.path.slice(hit.path.lastIndexOf("/") + 1)}]]`;
+  }
+
+  private find(target: LinkTarget): Entry | undefined {
+    const kind = "paperId" in target ? "paperId" : "vaultPageId";
+    const id = idOf(target);
+    return this.entries.find((e) => kind in e.target && idOf(e.target) === id);
   }
 }
 
