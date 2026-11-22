@@ -347,3 +347,37 @@ test("ink still on its debounce is written when the window goes away (quit loses
     else delete g.window;
   }
 });
+test("F97-P2-3: a re-render that only changes the save callback does not flush the debounce early", async () => {
+  const id = typedCore().newInkChunkId();
+  const chunks = new RecordingStore();
+  await chunks.write(NOTE, id, new Uint8Array([1]));
+  chunks.writes = [];
+  const pagesRef: { current: InkStoredPage[] | null } = { current: null };
+  const metaRef = { current: { ...typedCore().defaultInkNoteMeta(), pageOrder: [id] } };
+  const textPagesRef = { current: [""] };
+  const onSave = async () => {};
+  const noop = () => {};
+  const callback = () => async () => ({ bytes: new Uint8Array([9]), cleared: false, pageIndex: 0 });
+  let handle: Handle | null = null;
+  function Probe({ requestSave }: { requestSave: () => Promise<InkSave> }) {
+    handle = useInkNoteStore({
+      noteId: NOTE, onSave, chunks, metaRef, pagesRef, textPagesRef, requestSave,
+      pageIndex: 0, pageCount: 1, setPageCount: noop, setPageIndex: noop,
+    });
+    return null;
+  }
+  let renderer: ReturnType<typeof create> | null = null;
+  act(() => void (renderer = create(createElement(Probe, { requestSave: callback() }))));
+  mounted.push(renderer!);
+  await settle();
+  act(() => handle!.scheduleSave());
+  act(() => renderer!.update(createElement(Probe, { requestSave: callback() })));
+  await settle();
+  assert.deepEqual(chunks.writes, [], "the debounce must not run on a plain re-render");
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, INK_SAVE_DELAY_MS + 100));
+  });
+  await settle();
+  await awaitInkWrites(NOTE);
+  assert.deepEqual(chunks.writes, [id]);
+});

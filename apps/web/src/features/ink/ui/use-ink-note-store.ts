@@ -230,7 +230,13 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
   }, [runPersist]);
   // A layout cleanup runs before the ref above moves on, so a note switch (not only an
   // unmount) writes the pending save into the note it was made on (F97-P1-3).
-  useLayoutEffect(() => () => flushSave(), [flushSave, noteId]);
+  // Through a ref, so a new flushSave identity (a changed save callback) does not re-run
+  // this cleanup and flush the debounce early; only a note switch or unmount flushes.
+  const flushRef = useRef(flushSave);
+  useLayoutEffect(() => {
+    flushRef.current = flushSave;
+  }, [flushSave]);
+  useLayoutEffect(() => () => flushRef.current(), [noteId]);
   // Closing or quitting the window runs no unmount, so the last strokes inside
   // INK_SAVE_DELAY_MS are written here.
   useEffect(() => {
