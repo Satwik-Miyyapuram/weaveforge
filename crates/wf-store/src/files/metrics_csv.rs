@@ -228,9 +228,10 @@ fn store_metrics(
 ) -> Result<Vec<ChunkWrite>, String> {
     let points = payload.get("points").and_then(Value::as_array);
     let points = points.ok_or("payload has no points")?;
-    store_metric_points(
+    store_grouped(
         vault,
         &format!("b{id}-{}", points_digest(points)),
+        Some(&format!("b{id}")),
         points,
         dirs,
     )
@@ -261,6 +262,19 @@ pub fn store_metric_points(
     points: &[Value],
     dirs: &HashMap<String, String>,
 ) -> Result<Vec<ChunkWrite>, String> {
+    store_grouped(vault, batch_id, None, points, dirs)
+}
+
+/// Like [`store_metric_points`], but a group whose rows already sit in the
+/// legacy chunk `legacy` (the id 0.9.6 used, `b{id}`) byte for byte is not
+/// written again. A different chunk that only shares the id does not count.
+fn store_grouped(
+    vault: &Vault,
+    batch_id: &str,
+    legacy: Option<&str>,
+    points: &[Value],
+    dirs: &HashMap<String, String>,
+) -> Result<Vec<ChunkWrite>, String> {
     // (experiment folder, run) -> rows, so each chunk holds one run.
     let mut groups: Vec<((&str, String), Vec<CsvMetric>)> = Vec::new();
     for point in points {
@@ -283,9 +297,21 @@ pub fn store_metric_points(
     // Write every chunk to a temp file first, then publish them all, so a
     // failed write leaves no part of the batch behind.
     let mut staged = Vec::with_capacity(groups.len());
+    let mut skipped = 0;
     for ((dir, run), rows) in &groups {
+        let bytes = encode(rows);
+        if let Some(old) = legacy {
+            let old_path = metrics_chunk_path(dir, run, old);
+            if vault
+                .read_file(&old_path)
+                .is_ok_and(|b| b == bytes.as_bytes())
+            {
+                skipped += 1;
+                continue;
+            }
+        }
         let path = metrics_chunk_path(dir, run, batch_id);
-        match stage(vault, &path, encode(rows).as_bytes()) {
+        match stage(vault, &path, bytes.as_bytes()) {
             Ok(pair) => staged.push(pair),
             Err(e) => {
                 discard(&staged);
@@ -293,7 +319,9 @@ pub fn store_metric_points(
             }
         }
     }
-    publish(&staged)
+    let mut out = publish(&staged)?;
+    out.extend((0..skipped).map(|_| ChunkWrite::AlreadyPresent));
+    Ok(out)
 }
 
 /// A chunk written to a temp file beside its final path: `(temp, target)`.
