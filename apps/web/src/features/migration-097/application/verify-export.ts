@@ -3,6 +3,7 @@ import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import { sha256Hex } from "../domain/hash";
 import { sanitizeBlobRefs } from "../domain/asset-path";
 import { conflictBasePath } from "../domain/conflict-path";
+import { fromConflictCopyText } from "../domain/conflict-copy";
 import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 
 /** Null when the blob at `path` matches its size and sidecar sha256; otherwise the reason. */
@@ -50,6 +51,8 @@ export type VerifyInput = {
   sink: FileSink;
   /** Files left on disk on purpose (orphans): not decoded, so they cannot block the gate. */
   ignore?: ReadonlySet<string>;
+  /** Conflict copies this run wrote or reused: the only copies decoded (through conflictOf). */
+  copies?: ReadonlySet<string>;
 };
 
 export type Verdict = {
@@ -95,11 +98,13 @@ function firstDifference(kind: string, expected: Row[], decoded: Row[]): string 
  */
 export async function verifyExport(input: VerifyInput): Promise<Verdict> {
   const { kinds, codec, source, sink, ignore } = input;
+  const copies = input.copies ?? new Set<string>();
   const errors: string[] = [];
   const out: Verdict = { state: "incomplete", kinds: {}, blobs: { db: 0, verified: 0 }, errors };
 
   const files = await sink.list();
-  const copied = new Set(files.map(conflictBasePath).filter((base): base is string => base !== null));
+  // Only this run's copies count: an original is skipped when one of them holds its DB version.
+  const copied = new Set([...copies].map(conflictBasePath).filter((base): base is string => base !== null));
   for (const kind of kinds) {
     try {
       const expected = await source.listRows(kind);
@@ -109,8 +114,15 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
       }
       const decoded: Row[] = [];
       for (const path of files) {
-        // An original with a conflict copy is the user's own edit: the copy holds the DB version and is decoded.
-        if (copied.has(path) || ignore?.has(path)) continue;
+        if (ignore?.has(path)) continue;
+        if (copies.has(path)) {
+          // This run's copy: its conflictOf is mapped back to the id before decoding.
+          const row = codec.toRow(kind, path, fromConflictCopyText(await sink.readText(path)));
+          if (row) decoded.push(row);
+          continue;
+        }
+        // Copies from earlier runs or other devices are listed, never decoded; an original with a copy of this run is the user's edit.
+        if (conflictBasePath(path) !== null || copied.has(path)) continue;
         const row = codec.toRow(kind, path, await sink.readText(path));
         if (row) decoded.push(row);
       }

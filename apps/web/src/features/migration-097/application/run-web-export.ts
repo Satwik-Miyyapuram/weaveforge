@@ -12,6 +12,7 @@ import type { KindWriter } from "../domain/kind-writer";
 import { sha256Hex } from "../domain/hash";
 import { PAPER_FIELD_KINDS, projectDefsMismatches } from "../domain/paper-fields-file";
 import { sanitizeBlobRefs } from "../domain/asset-path";
+import { toConflictCopyText } from "../domain/conflict-copy";
 import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
 import { createFileStore, type FileStore, type Outputs } from "./file-store";
@@ -363,7 +364,9 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           // One bad row is listed missing; the others are still exported.
           try {
             const file = codec.toFile(kind, row);
-            await store.store(file.path, file.text, await sha256Hex(file.text));
+            // A conflict copy of this row holds the same data under conflictOf, never a second id.
+            const copyText = toConflictCopyText(file.text, String(row.id));
+            await store.store(file.path, file.text, await sha256Hex(file.text), { data: copyText, hash: await sha256Hex(copyText) });
             written[kind]++;
           } catch (err) {
             debugLog?.(`codec ${kind} ${String(row.id)}: ${(err as Error).message}`);
@@ -428,7 +431,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const codecKinds = kinds.filter((k) => !writerFor(k));
   let verdict: Verdict;
   try {
-    verdict = await verifyExport({ kinds: codecKinds, codec, source, sink, ignore: new Set(orphans) });
+    verdict = await verifyExport({ kinds: codecKinds, codec, source, sink, ignore: new Set(orphans), copies: new Set(store.conflicts) });
   } catch (err) {
     verdict = { state: "incomplete", kinds: {}, blobs: { db: 0, verified: 0 }, errors: [] };
     debugLog?.(`verify: ${(err as Error).message}`);

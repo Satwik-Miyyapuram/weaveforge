@@ -50,7 +50,7 @@ test("conflict: a differing existing file stays byte-identical, a conflict copy 
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec, source: server([L1]), sink, now: NOW, runDeviceId: "dev-a" });
 
   assert.equal(await sink.readText("logEntries/l1.json"), userEdit);
-  assert.equal(await sink.readText("logEntries/l1 (conflict).json"), JSON.stringify(L1));
+  assert.equal(await sink.readText("logEntries/l1 (conflict).json"), JSON.stringify({ conflictOf: "l1", text: "from the database" }));
   assert.deepEqual(result.run.conflicts, ["logEntries/l1 (conflict).json"]);
   assert.equal(result.state, "verified", "a run with conflicts still verifies");
   assert.deepEqual(result.run.missing, []);
