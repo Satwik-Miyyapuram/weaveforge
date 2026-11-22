@@ -16,6 +16,7 @@ import {
   keychainHelp,
   LegacySecretsReadError,
   PartialSaveError,
+  SecretsNotMovedError,
   type DeviceKeychain,
 } from "../providers/local/parts";
 
@@ -390,6 +391,41 @@ describe("no keychain on this machine (Linux without a Secret Service)", () => {
       },
     } as unknown as DesktopBridge;
     await assert.rejects(() => desktopMoveSecrets(bridge)(), KeychainUnavailableError);
+  });
+
+  it("names the write-only fields the move left behind, and the error carries only those names", async () => {
+    const bridge = {
+      migrate097MoveSecrets: async () => ["overleafToken.extra"],
+    } as unknown as DesktopBridge;
+    const err: unknown = await desktopMoveSecrets(bridge)().then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    assert.ok(err instanceof SecretsNotMovedError, "the move must reject with SecretsNotMovedError");
+    assert.deepEqual(err.fields, ["overleafToken.extra"]);
+    assert.match(err.message, /overleafToken\.extra/);
+  });
+
+  it("a save whose move left fields behind rejects with those names and writes nothing", async () => {
+    const { keychain, writes } = fakeKeychain();
+    const moveSecrets = async () => {
+      throw new SecretsNotMovedError(["overleafToken.extra"]);
+    };
+    const store = new DeviceSecretsStore(fakeRun([]).run, keychain, moveSecrets);
+    const err: unknown = await store.save({ zoteroApiKey: "k" }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    assert.ok(err instanceof SecretsNotMovedError, "the save must surface SecretsNotMovedError, not SecretsMovePendingError");
+    assert.match(err.message, /overleafToken\.extra/);
+    assert.deepEqual(writes, []);
+  });
+
+  it("a move that moved every field still resolves", async () => {
+    const bridge = {
+      migrate097MoveSecrets: async () => [],
+    } as unknown as DesktopBridge;
+    await desktopMoveSecrets(bridge)();
   });
 
   it("a save whose move hits no keychain rejects with KeychainUnavailableError, not secrets-move-pending", async () => {

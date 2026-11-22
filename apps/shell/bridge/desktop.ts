@@ -679,9 +679,7 @@ export function desktopShim(
     clearSecret: async (name) => {
       unwrap(await cmds.secretClear(name));
     },
-    migrate097MoveSecrets: async () => {
-      unwrap(await cmds.migrate097MoveSecrets());
-    },
+    migrate097MoveSecrets: async () => unwrap(await cmds.migrate097MoveSecrets()),
     legacyDbPresent: () => cmds.legacyDbPresent(),
     legacyDirMissing: () => cmds.legacyDirMissing(),
     planWidgetState: async () => unwrap(await cmds.planWidgetState()),

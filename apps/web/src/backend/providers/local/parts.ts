@@ -276,15 +276,29 @@ export class SecretsMovePendingError extends Error {
   readonly code = "secrets-move-pending";
 }
 
+/**
+ * Thrown when the one-time move leaves write-only fields behind. `fields` are field NAMES only,
+ * never values; the message names them so the user can see what was not moved.
+ */
+export class SecretsNotMovedError extends Error {
+  readonly code = "secrets-not-moved";
+  constructor(readonly fields: string[]) {
+    super(`These saved credentials were not moved to the keychain: ${fields.join(", ")}. Nothing was saved.`);
+    this.name = "SecretsNotMovedError";
+  }
+}
+
 /** The shell's one-time move (`migrate097MoveSecrets`); a no-op outside the desktop app. */
 export function desktopMoveSecrets(bridge: DesktopBridge | null = desktop()): () => Promise<void> {
   return async () => {
     if (!bridge) return;
+    let notMoved: string[];
     try {
-      await bridge.migrate097MoveSecrets();
+      notMoved = await bridge.migrate097MoveSecrets();
     } catch (err) {
       throw asKeychainUnavailable(err);
     }
+    if (notMoved.length > 0) throw new SecretsNotMovedError(notMoved);
   };
 }
 
@@ -379,7 +393,7 @@ export class DeviceSecretsStore implements SecretsStore {
       try {
         await this.moveSecrets();
       } catch (err) {
-        if (err instanceof KeychainUnavailableError) throw err;
+        if (err instanceof KeychainUnavailableError || err instanceof SecretsNotMovedError) throw err;
         const reason = err instanceof Error ? err.message : String(err);
         throw new SecretsMovePendingError(`The saved credentials are not in the keychain yet (${reason}). Nothing was saved.`);
       }
