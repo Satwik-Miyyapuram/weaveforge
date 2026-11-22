@@ -72,7 +72,8 @@ pub fn legacy_pg_dir(app_data: &Path) -> PathBuf {
 }
 
 /// True when the old native Postgres folder holds any entry. A missing folder is absent. Any other
-/// read error is an error, so the gate fails closed. Never starts Postgres and never writes.
+/// read error is an error (`legacyDbPresent` reports it; `install_gate_passes` treats it as "cannot
+/// tell" and passes). Never starts Postgres and never writes.
 pub fn legacy_pg_data_present(app_data: &Path) -> Result<bool, ShellError> {
     dir_has_entries(&legacy_pg_dir(app_data))
         .map_err(|e| legacy_unreadable("legacy_pg_unreadable", "the old local Postgres folder", &e))
@@ -85,7 +86,7 @@ fn legacy_unreadable(code: &str, what: &str, e: &std::io::Error) -> ShellError {
 /// Whether `dir` may hold old data. A missing or empty folder is absent. A link of any kind (a
 /// symlink, or a junction on Windows, even a broken one) counts as present and is never followed.
 /// Any entry at all counts as present, so a moved-aside or failed folder still blocks. Any other
-/// read error is returned to the caller, which fails closed.
+/// read error is returned to the caller.
 fn dir_has_entries(dir: &Path) -> std::io::Result<bool> {
     let meta = match fs::symlink_metadata(dir) {
         Ok(meta) => meta,
@@ -123,7 +124,7 @@ fn is_link(meta: &fs::Metadata) -> bool {
 
 /// True when any old local database (native Postgres or PGlite) may be on disk under `app_data`.
 /// Dumps in `local-db-backups` are left out: 0.9.7 cannot migrate from them. A missing or unplugged
-/// workspace counts: its database may be there, so the gate fails closed.
+/// workspace counts as old data: its database may be there.
 pub fn legacy_db_in(app_data: &Path) -> Result<bool, ShellError> {
     let db_err = |e: std::io::Error| {
         legacy_unreadable("legacy_db_unreadable", "an old local database folder", &e)
@@ -148,6 +149,7 @@ pub fn legacy_db_in(app_data: &Path) -> Result<bool, ShellError> {
 /// Whether old local-database data is on this device. Fails closed: an Electron data dir counts as
 /// legacy data, because 0.9.7 has no code that shows Electron's data was exported. `app_data` is
 /// `None` when the platform cannot name the app data dir: that is an error, never "no data".
+/// `install_gate_passes` treats any error here as "cannot tell" and passes.
 pub fn legacy_db_from(
     app_data: Option<&Path>,
     electron: Option<&Path>,
@@ -187,8 +189,9 @@ pub const REPORT_REL: &str = ".weaveforge/migration-0.9.7/report.json";
 /// `kinds` whose db and files counts match. Other devices' runs never count. Every per-device
 /// `report-*.json` beside `report.json` is checked first, and any verified own run counts; then
 /// `report.json` is the fallback. No `device_id` (the device has no id file yet) is `Ok(false)`. A
-/// missing or corrupt report is `Ok(false)`. An IO error other than not-found is a typed error, so
-/// the page can show "unavailable" instead of "not migrated". Read-only; never writes.
+/// missing report is `Ok(false)`; a corrupt one is a typed error. An IO error other than not-found
+/// is a typed error, so the page can show "unavailable" instead of "not migrated". Read-only; never
+/// writes.
 pub fn report_state_verified(folder: &Path, device_id: Option<&str>) -> Result<bool, ShellError> {
     let Some(device_id) = device_id else {
         return Ok(false);
@@ -346,25 +349,54 @@ pub fn secrets_marker_path(workspace: &Path, device_id: &str) -> PathBuf {
         .join(format!("secrets-moved-{device_id}.json"))
 }
 
-/// Whether the "install 0.9.7 first" gate shows. Only when old local-database data is on this device
-/// AND this device has neither a verified 0.9.7 export nor its secrets-moved marker, both in the
-/// configured workspace. A fresh install has no old data, so it never sees the gate. An error or
-/// missing piece on the old-data or export check counts as "not done", so the gate shows.
+/// Whether this device may run 0.9.8 without the "install 0.9.7 first" gate. One rule: the gate
+/// shows only when old local-database data is on this device AND no configured workspace holds both
+/// this device's verified 0.9.7 export and its secrets-moved marker. A check that cannot tell (old
+/// data unreadable, no app-data path, device id unreadable, workspace folder missing, report
+/// unreadable) passes, so the gate never blocks on a guess. A fresh install never reads the device id.
 #[must_use]
-pub fn gate_required_from(
+pub fn install_gate_passes(
     app_data: Option<&Path>,
     electron: Option<&Path>,
-    device_id: Option<&str>,
+    read_device: impl FnOnce(&Path) -> Result<Option<String>, ShellError>,
 ) -> bool {
-    match legacy_db_from(app_data, electron) {
-        Ok(false) => false,
-        Ok(true) => !(migrated_here(app_data, device_id) || migrated_here(electron, device_id)),
-        Err(_) => true,
+    if !matches!(legacy_db_from(app_data, electron), Ok(true)) {
+        return true;
     }
+    let device = match app_data.map(read_device) {
+        Some(Ok(Some(id))) => id,
+        Some(Ok(None)) => return false,
+        Some(Err(_)) | None => return true,
+    };
+    [app_data, electron]
+        .into_iter()
+        .flatten()
+        .any(|dir| exported_here(dir, &device) != Some(false))
 }
 
-/// Bridge: whether the "install 0.9.7 first" gate shows (`installGateRequired`). Errors when this
-/// device's id cannot be read, so the page shows the gate rather than guessing.
+/// Whether the workspace named by the prefs in `prefs_dir` holds this device's verified 0.9.7 report
+/// AND its secrets marker. `None` means it cannot tell: the workspace folder is missing (unplugged
+/// drive), or the marker is there but a report file is unreadable or corrupt. A root that is a file
+/// is no workspace, so `Some(false)`.
+fn exported_here(prefs_dir: &Path, device_id: &str) -> Option<bool> {
+    let Some(root) = configured_root(prefs_dir) else {
+        return Some(false);
+    };
+    if root.exists() && !root.is_dir() {
+        return Some(false);
+    }
+    if !root.is_dir() {
+        return None;
+    }
+    // The marker decides first: without it the answer is "gate", whatever the reports say.
+    if !secrets_marker_path(&root, device_id).is_file() {
+        return Some(false);
+    }
+    report_state_verified(&root, Some(device_id)).ok()
+}
+
+/// Bridge: whether the "install 0.9.7 first" gate shows (`installGateRequired`). Never errors; the
+/// `Result` keeps the binding shape. See [`install_gate_passes`].
 #[tauri::command]
 #[specta::specta]
 pub fn install_gate_required(app: tauri::AppHandle) -> Result<bool, ShellError> {
@@ -379,46 +411,18 @@ pub fn install_gate_required(app: tauri::AppHandle) -> Result<bool, ShellError> 
             let source = crate::launch::app_source(resources);
             crate::launch::electron_data_dir(&source, &app.package_info().name, &config)
         });
-    install_gate_with(dir.as_deref(), electron.as_deref(), |data| {
-        device_id::read_existing(data).map_err(|e| {
-            ShellError::coded(
-                "device_id_unreadable",
-                &format!("cannot read this device's id: {e}"),
-            )
-        })
-    })
-}
-
-/// The gate decision behind `install_gate_required`. A clean "no old data" answer returns before the
-/// device id is read, so a fresh install never fails on a corrupt id file. Old data reads the id, and
-/// an unreadable id is an error so the page shows the gate.
-fn install_gate_with(
-    dir: Option<&Path>,
-    electron: Option<&Path>,
-    read_device: impl FnOnce(&Path) -> Result<Option<String>, ShellError>,
-) -> Result<bool, ShellError> {
-    if let Ok(false) = legacy_db_from(dir, electron) {
-        return Ok(false);
-    }
-    let device = match dir {
-        Some(data) => read_device(data)?,
-        None => None,
-    };
-    Ok(gate_required_from(dir, electron, device.as_deref()))
-}
-
-/// True when the workspace named by the prefs in `prefs_dir` holds this device's marker or its
-/// verified 0.9.7 run. No workspace or no device id is not migrated.
-fn migrated_here(prefs_dir: Option<&Path>, device_id: Option<&str>) -> bool {
-    let (Some(dir), Some(id)) = (prefs_dir, device_id) else {
-        return false;
-    };
-    let Some(root) = configured_root(dir) else {
-        return false;
-    };
-    // Pre-existing: the secrets marker alone passes here. It is written only after this device's secrets move.
-    secrets_marker_path(&root, id).is_file()
-        || matches!(report_state_verified(&root, Some(id)), Ok(true))
+    Ok(!install_gate_passes(
+        dir.as_deref(),
+        electron.as_deref(),
+        |data| {
+            device_id::read_existing(data).map_err(|e| {
+                ShellError::coded(
+                    "device_id_unreadable",
+                    &format!("cannot read this device's id: {e}"),
+                )
+            })
+        },
+    ))
 }
 
 #[cfg(test)]
@@ -781,7 +785,7 @@ mod tests {
     }
 
     #[test]
-    fn a_missing_workspace_blocks_the_legacy_gate() {
+    fn a_missing_workspace_counts_as_legacy_data() {
         let (data, _) = temp("legacy-ws-missing");
         let root = data.parent().unwrap().join("unplugged-legacy");
         let prefs = serde_json::json!({ "vault-root": root.to_string_lossy() });
@@ -812,27 +816,37 @@ mod tests {
     }
 
     #[test]
-    fn a_fresh_install_with_a_corrupt_device_id_is_not_gated() {
-        let (data, _) = temp("gate-fresh-corrupt-id");
-        let gated = install_gate_with(Some(&data), None, |_| Err(device_id_unreadable()));
-        assert_eq!(gated, Ok(false));
+    fn a_fresh_install_never_reads_the_device_id() {
+        let (data, _) = temp("gate-fresh-no-read");
+        let mut read = false;
+        let passes = install_gate_passes(Some(&data), None, |_| {
+            read = true;
+            Err(device_id_unreadable())
+        });
+        assert!(passes);
+        assert!(!read, "no old data: the device id is never read");
     }
 
     #[test]
-    fn old_data_with_an_unreadable_device_id_is_still_an_error() {
+    fn old_data_with_an_unreadable_device_id_passes() {
         let (data, _) = data_with("gate-old-corrupt-id", true, false);
-        let gated = install_gate_with(Some(&data), None, |_| Err(device_id_unreadable()));
-        assert_eq!(
-            gated.unwrap_err().code.as_deref(),
-            Some("device_id_unreadable")
-        );
+        assert!(install_gate_passes(Some(&data), None, |_| Err(
+            device_id_unreadable()
+        )));
+    }
+
+    #[test]
+    fn old_data_with_no_device_id_yet_is_gated() {
+        let (data, _) = data_with("gate-old-no-id", true, false);
+        assert!(!install_gate_passes(Some(&data), None, |_| Ok(None)));
     }
 
     #[test]
     fn old_data_with_a_readable_device_id_and_no_migration_is_gated() {
         let (data, _) = data_with("gate-old-no-migration", true, false);
-        let gated = install_gate_with(Some(&data), None, |_| Ok(Some(DEVICE.to_string())));
-        assert_eq!(gated, Ok(true));
+        assert!(!install_gate_passes(Some(&data), None, |_| Ok(Some(
+            DEVICE.to_string()
+        ))));
     }
 
     #[test]
@@ -1069,7 +1083,12 @@ mod tests {
 
     /// The gate as the desktop asks it: this device id, app data only (no Electron dir).
     fn gate(app: &Path) -> bool {
-        gate_required_from(Some(app), None, Some(DEVICE))
+        !install_gate_passes(Some(app), None, |_| Ok(Some(DEVICE.to_string())))
+    }
+
+    /// The gate with both data dirs, as the desktop asks it when an Electron dir exists.
+    fn gate_both(app: Option<&Path>, electron: Option<&Path>) -> bool {
+        !install_gate_passes(app, electron, |_| Ok(Some(DEVICE.to_string())))
     }
 
     #[test]
@@ -1111,17 +1130,17 @@ mod tests {
     }
 
     #[test]
-    fn old_data_with_verified_export_alone_shows_no_gate() {
+    fn old_data_with_verified_export_alone_shows_the_gate() {
         let (data, ws) = data_with("gate-export", true, false);
         write_report(&ws, COMPLETE);
-        assert!(!gate(&data));
+        assert!(gate(&data));
     }
 
     #[test]
-    fn old_data_with_marker_alone_shows_no_gate() {
+    fn old_data_with_marker_alone_shows_the_gate() {
         let (data, ws) = data_with("gate-marker", true, false);
         write_marker(&ws);
-        assert!(!gate(&data));
+        assert!(gate(&data));
     }
 
     #[test]
@@ -1131,49 +1150,107 @@ mod tests {
             &ws,
             &COMPLETE.replace(r#""deviceId":"device-a""#, r#""deviceId":"device-b""#),
         );
+        write_marker(&ws);
         assert!(gate(&data));
     }
 
     #[test]
-    fn old_data_with_an_unreadable_report_shows_the_gate() {
+    fn old_data_with_an_unreadable_report_passes() {
         let (data, ws) = data_with("gate-bad-report", true, false);
+        fs::create_dir_all(ws.join(REPORT_REL)).unwrap();
+        write_marker(&ws);
+        assert!(!gate(&data));
+    }
+
+    #[test]
+    fn old_data_with_an_unreadable_report_and_no_marker_is_gated() {
+        let (data, ws) = data_with("gate-bad-report-no-marker", true, false);
         fs::create_dir_all(ws.join(REPORT_REL)).unwrap();
         assert!(gate(&data));
     }
 
     #[test]
-    fn unreadable_old_state_shows_the_gate() {
-        let (data, _) = temp("gate-unreadable");
-        fs::write(legacy_pg_dir(&data), "not a folder").unwrap();
+    fn another_devices_marker_never_counts() {
+        let (data, ws) = data_with("gate-other-marker", true, false);
+        write_report(&ws, COMPLETE);
+        let other = secrets_marker_path(&ws, "device-b");
+        fs::create_dir_all(other.parent().unwrap()).unwrap();
+        fs::write(other, "{}").unwrap();
         assert!(gate(&data));
     }
 
     #[test]
-    fn missing_app_data_path_shows_the_gate() {
-        assert!(gate_required_from(None, None, Some(DEVICE)));
+    fn old_data_with_a_missing_workspace_folder_passes() {
+        let (data, ws) = data_with("gate-ws-gone", true, false);
+        fs::remove_dir(&ws).unwrap();
+        assert!(!gate(&data));
     }
 
     #[test]
-    fn app_data_prefs_marker_counts_when_electron_prefs_point_elsewhere() {
+    fn a_workspace_root_that_is_a_file_shows_the_gate() {
+        let (data, ws) = data_with("gate-ws-file", true, false);
+        fs::remove_dir(&ws).unwrap();
+        fs::write(&ws, "not a folder").unwrap();
+        assert!(gate(&data));
+    }
+
+    #[test]
+    fn old_data_with_a_corrupt_report_and_the_marker_passes() {
+        let (data, ws) = data_with("gate-corrupt-report", true, false);
+        write_report(&ws, "{not json");
+        write_marker(&ws);
+        assert!(!gate(&data));
+    }
+
+    #[test]
+    fn electron_prefs_to_a_missing_workspace_pass_while_app_data_is_bare() {
+        let (electron, ews) = data_with("gate-electron-ws-gone", true, false);
+        fs::remove_dir(&ews).unwrap();
+        let (data, _) = temp("gate-app-bare-2");
+        assert!(!gate_both(Some(&data), Some(&electron)));
+    }
+
+    #[test]
+    fn unreadable_old_state_passes() {
+        let (data, _) = temp("gate-unreadable");
+        fs::write(legacy_pg_dir(&data), "not a folder").unwrap();
+        assert!(legacy_db_from(Some(&data), None).is_err());
+        assert!(!gate(&data));
+    }
+
+    #[test]
+    fn missing_app_data_path_passes() {
+        assert!(!gate_both(None, None));
+    }
+
+    #[test]
+    fn an_electron_dir_without_an_app_data_path_passes() {
+        let (electron, _) = data_with("gate-electron-only", true, false);
+        assert!(!gate_both(None, Some(&electron)));
+    }
+
+    #[test]
+    fn app_data_prefs_export_counts_when_electron_prefs_point_elsewhere() {
         let (data, ws) = data_with("gate-app-prefs-marker", true, false);
+        write_report(&ws, COMPLETE);
         write_marker(&ws);
         let (electron, _) = temp("gate-electron-no-prefs");
-        assert!(!gate_required_from(
-            Some(&data),
-            Some(&electron),
-            Some(DEVICE)
-        ));
+        assert!(!gate_both(Some(&data), Some(&electron)));
     }
 
     #[test]
-    fn electron_prefs_marker_counts_when_app_data_has_no_prefs() {
+    fn electron_prefs_export_counts_when_app_data_has_no_prefs() {
         let (electron, ws) = data_with("gate-electron-prefs-marker", true, false);
+        write_report(&ws, COMPLETE);
         write_marker(&ws);
         let (data, _) = temp("gate-app-no-prefs");
-        assert!(!gate_required_from(
-            Some(&data),
-            Some(&electron),
-            Some(DEVICE)
-        ));
+        assert!(!gate_both(Some(&data), Some(&electron)));
+    }
+
+    #[test]
+    fn electron_dir_with_no_export_anywhere_shows_the_gate() {
+        let (electron, _) = data_with("gate-electron-bare", true, false);
+        let (data, _) = temp("gate-app-bare");
+        assert!(gate_both(Some(&data), Some(&electron)));
     }
 }
