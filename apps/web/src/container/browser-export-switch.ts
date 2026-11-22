@@ -76,15 +76,17 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
     const wiring = await deps.openWiring();
     try {
       await source.markExported097();
+      deps.pending?.set();
+      await recordServerMarked(sink);
     } catch (err) {
       await wiring.close();
       throw err;
     }
-    deps.pending?.set();
-    await recordServerMarked(sink);
     // Written last: a browser with this marker opens files directly on its next start.
     try {
-      const deviceId = (await readMigrationReport(sink))?.runs[0]?.deviceId ?? null;
+      // This device's entry: the report's own deviceId, else the last run (this run is appended last).
+      const report = await readMigrationReport(sink);
+      const deviceId = report?.deviceId ?? report?.runs[report.runs.length - 1]?.deviceId ?? null;
       await writeSwitchMarker(sink, { switchedAt: deps.now(), deviceId });
     } catch (err) {
       await wiring.close();

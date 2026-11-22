@@ -5,12 +5,12 @@ import { runBrowserSwitchInBackground } from "./browser-switch-background";
 export const SWITCH_RETRY_TEXT = "Your files aren't ready yet.";
 
 /**
- * A switched run never shows the banner, and desktop never runs the switch. Every other outcome,
- * including a run that timed out (null), shows it.
+ * A switched run never shows the banner, desktop never runs the switch, and no-session has no
+ * account to retry for. Every other outcome, including a run that timed out (null), shows it.
  */
 export function needsSwitchRetry(outcome: SwitchDecision | null): boolean {
   if (outcome === null) return true;
-  return !outcome.switch && outcome.reason !== "desktop";
+  return !outcome.switch && outcome.reason !== "desktop" && outcome.reason !== "no-session";
 }
 
 type Listener = () => void;

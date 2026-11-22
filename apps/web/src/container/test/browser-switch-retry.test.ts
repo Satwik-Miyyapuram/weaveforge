@@ -23,11 +23,15 @@ test("(item3) the banner text says the files are not ready yet", () => {
   assert.equal(SWITCH_RETRY_TEXT, "Your files aren't ready yet.");
 });
 
-test("(item3) no-session, not-verified, error and a timed-out run all show the banner", () => {
-  for (const reason of ["no-session", "not-verified", "error"] as const) {
+test("(item3) not-verified, error and a timed-out run all show the banner", () => {
+  for (const reason of ["not-verified", "error"] as const) {
     assert.equal(needsSwitchRetry({ switch: false, reason }), true, reason);
   }
   assert.equal(needsSwitchRetry(null), true);
+});
+
+test("(item3 P3) no-session never shows the banner: there is no account to retry for", () => {
+  assert.equal(needsSwitchRetry({ switch: false, reason: "no-session" }), false);
 });
 
 test("(item3) desktop and a switched run never show the banner", () => {
@@ -43,7 +47,7 @@ test("(item3) Retry runs the switch again and reloads only when it switches", as
   await retrySwitch(
     async () => {
       runs += 1;
-      return { switch: false, reason: "no-session" };
+      return { switch: false, reason: "not-verified" };
     },
     () => {
       reloads += 1;

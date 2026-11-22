@@ -333,6 +333,71 @@ test("(item1) a failed server mark writes no switched marker", async () => {
   assert.equal(await readSwitchMarker(sink), null);
 });
 
+/** A sink whose report rename fails, so recordServerMarked throws after the server mark succeeds. */
+class RenameFailsSink extends MemorySink {
+  async rename(): Promise<void> {
+    throw new Error("rename failed");
+  }
+}
+
+test("(P3) recordServerMarked throwing after the server mark closes the wiring and stays off", async () => {
+  let closed = 0;
+  const sink = new RenameFailsSink();
+  const h = harness({
+    openSink: async () => sink,
+    openWiring: async () =>
+      ({ wiring: true, close: async () => { closed += 1; } }) as unknown as Awaited<ReturnType<SwitchDeps["openWiring"]>>,
+    gate: async (opts) => {
+      await opts.sink.write(REPORT_PATH, DEVICE_REPORT);
+      return { switch: true };
+    },
+  });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.deepEqual(out, { switch: false, reason: "error" });
+  assert.equal(closed, 1, "wiring opened before the throw is closed");
+  assert.equal(await readSwitchMarker(sink), null);
+});
+
+const TWO_DEVICE_REPORT = JSON.stringify({
+  version: 1,
+  state: "incomplete",
+  target: "opfs",
+  deviceId: "dev-me",
+  runs: [
+    {
+      startedAt: "2026-11-21T00:00:00.000Z",
+      finishedAt: "2026-11-21T00:00:00.000Z",
+      deviceId: "dev-other",
+      sources: ["server"],
+      kinds: {},
+      blobs: { db: 0, verified: 0 },
+      missing: [],
+    },
+    {
+      startedAt: "2026-11-22T00:00:00.000Z",
+      finishedAt: "2026-11-22T00:00:00.000Z",
+      deviceId: "dev-me",
+      sources: ["server"],
+      kinds: {},
+      blobs: { db: 0, verified: 0 },
+      missing: [{ kind: "marker", id: "*", reason: "markers pending" }],
+    },
+  ],
+});
+
+test("(P3) the marker takes this device's deviceId, not the first run's (another device's)", async () => {
+  const sink = new MemorySink();
+  const h = harness({
+    openSink: async () => sink,
+    gate: async (opts) => {
+      await opts.sink.write(REPORT_PATH, TWO_DEVICE_REPORT);
+      return { switch: true };
+    },
+  });
+  await decideBrowserSwitch(h.deps);
+  assert.equal((await readSwitchMarker(sink))?.deviceId, "dev-me");
+});
+
 /** A sink whose switched-marker write fails, after every other write succeeds. */
 class MarkerWriteFailsSink extends MemorySink {
   override async write(path: string, text: string): Promise<void> {

@@ -30,8 +30,9 @@ export async function openFilesIfSwitched(
 
 /**
  * Upper bound on the background export. The export is not a fixed-length operation: it reads every
- * file and uploads over the network, so a slow link can take minutes. A run past this bound settles to
- * null and startup stays on the server backend for this load, with the switch retried on the next one.
+ * file and uploads over the network, so a slow link can take minutes. The bound is 120 seconds. A run
+ * past it settles to null and startup stays on the server backend for this load, with the switch
+ * retried on the next one.
  */
 export const BROWSER_SWITCH_TIMEOUT_MS = 120_000;
 
