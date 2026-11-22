@@ -38,8 +38,25 @@ function withoutServerOnly(kind: string, row: Row): Row {
  * repo's read-back keys) and reads null and absent alike, because the file stores a null field as absent.
  * The repo's own updatedAt stamp is ignored.
  */
-function sameExceptStamp(stored: ReportSection, row: ReportSection): boolean {
-  const field = (s: ReportSection, k: string): string => JSON.stringify((s as unknown as Row)[k] ?? null);
+/**
+ * A stable text form of a value: object keys sorted at every depth, and null or absent object keys dropped,
+ * so two values with the same content give the same text whatever their key order.
+ */
+function canonical(value: unknown): string {
+  if (value === undefined || value === null) return "null";
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (typeof value === "object") {
+    const obj = value as Row;
+    const keys = Object.keys(obj)
+      .filter((k) => obj[k] !== undefined && obj[k] !== null)
+      .sort();
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${canonical(obj[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+export function sameExceptStamp(stored: ReportSection, row: ReportSection): boolean {
+  const field = (s: ReportSection, k: string): string => canonical((s as unknown as Row)[k]);
   return Object.keys(row)
     .filter((k) => k !== "updatedAt")
     .every((k) => field(stored, k) === field(row, k));

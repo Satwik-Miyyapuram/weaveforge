@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { createGroupBWriter } from "../infrastructure/kind-writer-group-b";
+import type { ReportSection } from "@weaveforge/core";
+import { createGroupBWriter, sameExceptStamp } from "../infrastructure/kind-writer-group-b";
 import { MemorySink } from "../infrastructure/memory-sink";
 
 before(loadTestCore);
@@ -330,4 +331,12 @@ test("aiProposals are workspace-wide: with two project folders, each proposal is
   });
   const back = await writer.readBack("aiProposals");
   assert.deepEqual(back.map((p) => p.id), ["0123456789abcd06"]);
+});
+
+test("sameExceptStamp: nested objects compare by content, key order ignored (R2)", () => {
+  const stored = { id: "s1", meta: { a: 1, b: { x: 1, y: 2 } }, updatedAt: "t1" } as unknown as ReportSection;
+  const sameKeysReordered = { id: "s1", meta: { b: { y: 2, x: 1 }, a: 1 } } as unknown as ReportSection;
+  const differs = { id: "s1", meta: { b: { y: 3, x: 1 }, a: 1 } } as unknown as ReportSection;
+  assert.equal(sameExceptStamp(stored, sameKeysReordered), true);
+  assert.equal(sameExceptStamp(stored, differs), false);
 });
