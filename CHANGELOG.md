@@ -27,7 +27,6 @@ WeaveForge 1.0.0 is the first stable release. Your data lives in your workspace 
 ### Desktop
 - **Changed:** Stable release. Everything in 0.9.8 is included.
 - **Removed:** The server no longer keeps personal notes, papers or other personal data. Only organisation, sharing and relay data stays on the server.
-- **TBD:** Whether an explicit "Remove old data" action ships in 1.0.0 (the plan puts it in 1.0.x).
 
 ## [0.9.8] - TBD
 
@@ -40,9 +39,9 @@ This release removes the built-in database. Your data is already in your workspa
 - **Changed:** Updates go through 0.9.7 first. An older version is offered 0.9.7 before 0.9.8.
 - **Changed:** If old database data is found and 0.9.7 never moved it, the app shows an "Install 0.9.7 first" screen and leaves that data untouched.
 
-## [0.9.7] - 2026-11-23
+## [0.9.7] - 2026-11-23 (set at tag time)
 
-Desktop (`v0.9.7`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+Desktop (`v0.9.7`). Python SDK stays on 0.7.1; iOS stays on 0.8.0. Android (`0.9.7`) stores its data as files too, with no local database; sharing and organisations use the server only.
 Your notes, papers, ink and other work now live as normal files in your workspace folder, not in the app's internal database. Nothing is deleted automatically.
 
 ### Desktop
