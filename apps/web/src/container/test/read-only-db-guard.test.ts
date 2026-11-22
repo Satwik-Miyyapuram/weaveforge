@@ -6,22 +6,22 @@ import { READ_ONLY_MESSAGE, readOnlyDb } from "../read-only-repositories";
 /** A fake client whose storage and schema calls record what reached them. */
 function fakeClient(reached: string[]) {
   const bucket = (name: string) => ({
-    upload: async () => {
+    upload: async (..._args: unknown[]) => {
       reached.push(`upload ${name}`);
       return { error: null };
     },
-    remove: async () => {
+    remove: async (..._args: unknown[]) => {
       reached.push(`remove ${name}`);
       return { error: null };
     },
-    createSignedUrls: async () => {
+    createSignedUrls: async (..._args: unknown[]) => {
       reached.push(`sign ${name}`);
       return { data: [], error: null };
     },
   });
   const schemaClient = {
     from: (table: string) => ({
-      insert: async () => {
+      insert: async (..._args: unknown[]) => {
         reached.push(`insert ${table}`);
         return { error: null };
       },
@@ -31,7 +31,7 @@ function fakeClient(reached: string[]) {
     from: () => ({}),
     rpc: async () => ({}),
     storage: { from: (name: string) => bucket(name) },
-    schema: () => schemaClient,
+    schema: (_name: string) => schemaClient,
   };
 }
 

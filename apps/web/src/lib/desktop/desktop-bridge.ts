@@ -479,8 +479,6 @@ export interface DesktopBridge {
   migrate097Run?(folder: string): Promise<{ state: Migrate097StateName }>;
   /** Deletes the old local data after a verified migration; the user confirms first. */
   migrate097RemoveOld?(folder: string): Promise<void>;
-  /** Moves the migrated secrets into the OS keychain; rejects "no keychain available" when there is none. */
-  migrate097MoveSecrets?(folder: string): Promise<void>;
   /** Tint the system's window buttons to the page: two `#rrggbb` colours. */
   setTitleBarColors?(colors: { background: string; ink: string }): void;
   /** Whether the OS taskbar is in light mode. Optional: an installed shell may predate it. */

@@ -208,7 +208,7 @@ export class SecretsMovePendingError extends Error {
 /** The shell's one-time move (`migrate097MoveSecrets`); a no-op outside the desktop app. */
 export function desktopMoveSecrets(bridge: DesktopBridge | null = desktop()): () => Promise<void> {
   return async () => {
-    if (bridge) await bridge.migrate097MoveSecrets();
+    await bridge?.migrate097MoveSecrets();
   };
 }
 
