@@ -21,9 +21,29 @@ export type ExportOptions = {
   now: string;
   /** Called after each row is written to the sink. */
   onProgress?: (e: ExportProgress) => void;
+  /** Desktop only: the backup runs before anything else, and a failure aborts the export. */
+  desktop?: { folder: string; bridge: DesktopMigration };
 };
 
 export type ExportResult = { state: MigrationState; run: RunReport };
+
+/** The desktop shell's part of the 0.9.7 contract: a pre-migration dump, then a mark. */
+export type DesktopMigration = {
+  backup(folder: string): Promise<{ deviceId: string }>;
+  markExported(folder: string): Promise<void>;
+};
+
+function refused(now: string, reason: string): ExportResult {
+  const run: RunReport = {
+    startedAt: now,
+    finishedAt: now,
+    sources: ["server"],
+    kinds: {},
+    blobs: { db: 0, verified: 0 },
+    missing: [{ kind: "*", id: "*", reason }],
+  };
+  return { state: "none", run };
+}
 
 /**
  * Exports server rows and blobs into the sink, then runs the strict verify.
@@ -32,21 +52,23 @@ export type ExportResult = { state: MigrationState; run: RunReport };
  * Never deletes or changes a server personal row.
  */
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress } = opts;
+  const { kinds, codec, source, sink, now, onProgress, desktop } = opts;
   const written: Record<string, number> = {};
   const missing: MissingRow[] = [];
 
+  // The pre-migration dump comes first: nothing is read or written without it.
+  let deviceId: string | undefined;
+  if (desktop) {
+    try {
+      deviceId = (await desktop.bridge.backup(desktop.folder)).deviceId;
+    } catch (err) {
+      return refused(now, `backup failed: ${(err as Error).message}`);
+    }
+  }
+
   // Refuse before touching anything: unflushed writes would make the export stale.
   if ((await source.pendingOutbox()) > 0) {
-    const run: RunReport = {
-      startedAt: now,
-      finishedAt: now,
-      sources: ["server"],
-      kinds: {},
-      blobs: { db: 0, verified: 0 },
-      missing: [{ kind: "*", id: "*", reason: "outbox not empty: flush before export" }],
-    };
-    return { state: "none", run };
+    return refused(now, "outbox not empty: flush before export");
   }
 
   let current = "*";
@@ -116,6 +138,14 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       missing.push({ kind: "marker", id: "*", reason: `markExported: ${(err as Error).message}` });
     }
   }
+  if (state === "verified" && desktop) {
+    try {
+      await desktop.bridge.markExported(desktop.folder);
+    } catch (err) {
+      state = "incomplete";
+      missing.push({ kind: "desktop", id: "*", reason: `markExported: ${(err as Error).message}` });
+    }
+  }
 
   const finishedAt = new Date().toISOString();
   const run: RunReport = {
@@ -131,6 +161,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     state,
     backup: null,
     verifiedAt: state === "verified" ? finishedAt : undefined,
+    deviceId,
     runs: [run],
   };
   const part = `${REPORT_PATH}.part`;

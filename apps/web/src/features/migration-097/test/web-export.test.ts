@@ -357,3 +357,96 @@ test("per-row failure: one bad row is listed missing, the other rows are exporte
   assert.ok(await sink.readText("experiments/e2.json").then(() => true, () => false));
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });
+
+// Desktop contract: backup before any export read or write; mark-exported only when verified.
+function fakeDesktop(calls: string[], opts: { backupFails?: boolean; deviceId?: string; markFails?: boolean } = {}) {
+  return {
+    backup: async (folder: string) => {
+      calls.push(`backup:${folder}`);
+      if (opts.backupFails) throw new Error("disk full writing pre-migration.dump");
+      return { deviceId: opts.deviceId ?? "dev-42" };
+    },
+    markExported: async (folder: string) => {
+      calls.push(`desktop-mark:${folder}`);
+      if (opts.markFails) throw new Error("shell refused");
+    },
+  };
+}
+
+test("desktop: backup runs first, before any server read, and the report carries its deviceId", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: fakeDesktop(calls, { deviceId: "dev-42" }) },
+  });
+
+  assert.equal(result.state, "verified");
+  assert.equal(calls[0], "backup:C:/ws");
+  const firstRead = calls.findIndex((c) => c.startsWith("list:") || c.startsWith("count:"));
+  assert.ok(firstRead > 0, "server read happens after backup");
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { deviceId?: string };
+  assert.equal(report.deviceId, "dev-42");
+});
+
+test("desktop: a failed backup aborts the export: no server read, no write, no marker, no mark-exported", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: fakeDesktop(calls, { backupFails: true }) },
+  });
+
+  assert.equal(result.state, "none");
+  assert.match(result.run.missing[0]!.reason, /backup failed: disk full/);
+  assert.deepEqual(calls, ["backup:C:/ws"]);
+  assert.deepEqual(await sink.list(), []);
+});
+
+test("desktop: mark-exported runs only after a verified run", async () => {
+  const calls: string[] = [];
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: fakeDesktop(calls) },
+  });
+  assert.equal(result.state, "verified");
+  assert.equal(calls.at(-1), "desktop-mark:C:/ws");
+});
+
+test("desktop: an incomplete run does not call mark-exported", async () => {
+  const calls: string[] = [];
+  const { source } = fakeServer({ rows: FIXTURE, failKind: "logEntries" });
+  const sink = new MemorySink();
+  const result = await runWebExport({
+    kinds: KINDS,
+    codec: fakeCodec(SUPPORTED),
+    source,
+    sink,
+    now: NOW,
+    desktop: { folder: "C:/ws", bridge: fakeDesktop(calls) },
+  });
+  assert.equal(result.state, "incomplete");
+  assert.equal(calls.some((c) => c.startsWith("desktop-mark")), false);
+});
+
+test("web: no desktop bridge means no deviceId key in report.json", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  const report = JSON.parse(await sink.readText(REPORT_PATH)) as Record<string, unknown>;
+  assert.equal("deviceId" in report, false);
+});

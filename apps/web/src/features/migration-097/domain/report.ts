@@ -45,5 +45,7 @@ export type MigrationReport = {
   backup: null;
   /** ISO time the export verified. Absent unless state is "verified". */
   verifiedAt?: string;
+  /** This install's id from the desktop backup. Absent on web and Android (no backup, no id). */
+  deviceId?: string;
   runs: RunReport[];
 };
