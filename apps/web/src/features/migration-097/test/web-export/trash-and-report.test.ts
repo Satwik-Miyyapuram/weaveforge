@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { REPORT_PATH, type RunReport } from "../../domain/report";
+import { ownReportPath, REPORT_PATH, type RunReport } from "../../domain/report";
 import type { FileCodec, Row } from "../../domain/ports";
 import { runWebExport } from "../../application/run-web-export";
 import { MemorySink } from "../../infrastructure/memory-sink";
@@ -80,26 +80,31 @@ test("backup: device A's backup stays in A's runs entry and the report-level bac
   await runWebExport({ kinds: [], codec: fakeCodec([]), source: a.source, sink, now: NOW, desktop: { folder: "/vault", bridge } });
 
   const b = fakeServer({ rows: {} });
-  await runWebExport({ runDeviceId: "dev-b", kinds: [], codec: fakeCodec([]), source: b.source, sink, now: NOW });
+  await runWebExport({ runDeviceId: "dev-b-install", kinds: [], codec: fakeCodec([]), source: b.source, sink, now: NOW });
 
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { backup: string | null; runs: RunReport[] };
-  assert.equal(report.runs.find((r) => r.deviceId === "dev-a")?.backup, "dump-a.zip");
-  assert.equal(report.runs.find((r) => r.deviceId === "dev-b")?.backup, null);
-  assert.equal(report.backup, "dump-a.zip");
+  const reportA = JSON.parse(await sink.readText(ownReportPath("dev-a"))) as { backup: string | null; runs: RunReport[] };
+  assert.equal(reportA.runs[0]?.backup, "dump-a.zip");
+  assert.equal(reportA.backup, "dump-a.zip");
+  const reportB = JSON.parse(await sink.readText(ownReportPath("dev-b-install"))) as { backup: string | null; runs: RunReport[] };
+  assert.equal(reportB.runs[0]?.backup, null);
+  assert.equal(reportB.backup, null, "device B's file never takes device A's dump");
 });
 
 test("refused run: its runs entry carries backup null, not an absent key, when no backup was made", async () => {
   const sink = new MemorySink();
   const calls: string[] = [];
-  await runWebExport({ kinds: [], codec: fakeCodec([]), source: fakeServer({ rows: {} }).source, sink, now: NOW, desktop: { folder: "C:/ws", bridge: fakeDesktop(calls, { backupFails: true }) } });
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { runs: RunReport[] };
-  assert.equal(report.runs[0]?.backup, null);
+  const result = await runWebExport({ kinds: [], codec: fakeCodec([]), source: fakeServer({ rows: {} }).source, sink, now: NOW, desktop: { folder: "C:/ws", bridge: fakeDesktop(calls, { backupFails: true }) } });
+  // No device id is known before a desktop backup succeeds, so the refusal has no file of its own to be written to.
+  assert.equal(result.run.backup, null);
+  assert.deepEqual(await sink.list(), []);
 });
 
-test("report: the report-level backup survives a report with no runs list being moved aside", async () => {
+test("report: a legacy report whose runs is not a list refuses the run and is left untouched", async () => {
   const sink = new MemorySink();
-  await sink.write(REPORT_PATH, JSON.stringify({ version: 1, state: "incomplete", backup: "old.dump", runs: "not-a-list" }));
-  await runWebExport({ kinds: [], codec: fakeCodec([]), source: fakeServer({ rows: {} }).source, sink, now: NOW });
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { backup: string | null };
-  assert.equal(report.backup, "old.dump");
+  const legacy = JSON.stringify({ version: 1, state: "incomplete", backup: "old.dump", runs: "not-a-list" });
+  await sink.write(REPORT_PATH, legacy);
+  const result = await runWebExport({ runDeviceId: "dev-x-install", kinds: [], codec: fakeCodec([]), source: fakeServer({ rows: {} }).source, sink, now: NOW });
+  assert.equal(result.state, "incomplete");
+  assert.ok(result.run.missing.some((m) => /is unreadable|cannot be listed/.test(m.reason)));
+  assert.equal(await sink.readText(REPORT_PATH), legacy, "the unreadable legacy report is never merged over or rewritten");
 });

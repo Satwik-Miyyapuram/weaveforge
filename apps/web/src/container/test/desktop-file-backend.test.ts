@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { before, test } from "node:test";
 
 import type { BackendConfig } from "../../backend/parts";
 import { DeviceSecretsStore } from "../../backend/providers/local/parts";
 import type { VaultFileBridge } from "../../features/workspace/infrastructure/parts";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { wireBackend } from "../parts";
 import { wireDesktopFileBackend } from "../desktop-file-backend";
-import { READ_ONLY_MESSAGE } from "../read-only-repositories";
+import { ReadOnlyError } from "../read-only-repositories";
+
+// The wiring reads the storage config from the Rust core, so the core loads before any test runs.
+before(loadTestCore);
 
 const config = {
   provider: "postgrest",
@@ -83,7 +87,7 @@ test("unavailable desktop stays read-only and writes nothing", async () => {
   });
   await assert.rejects(
     () => Promise.resolve().then(() => backend.projectRepository.create({ name: "Blocked" })),
-    new Error(READ_ONLY_MESSAGE),
+    new ReadOnlyError(),
   );
   assert.equal(files.size, 0, "no file was written");
 });
@@ -181,10 +185,10 @@ test("a personal image written through the desktop blob store is refused before 
   });
   await assert.rejects(
     () => backend.rawBlobStore.upload("paper-images", "p1/figure.png", new Blob(["x"]), "image/png"),
-    new Error(READ_ONLY_MESSAGE),
+    new ReadOnlyError(),
   );
   await assert.rejects(
     () => backend.rawBlobStore.remove("paper-images", "p1/figure.png"),
-    new Error(READ_ONLY_MESSAGE),
+    new ReadOnlyError(),
   );
 });

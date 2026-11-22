@@ -6,13 +6,17 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { readyCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
 import { SupabaseBlobStore, wireStorage } from "../wire-storage";
 import { HttpBlobStore } from "../providers/http/http-blob-store";
 import type { BlobProviderId, StorageConfig } from "../config";
+
+// The core is read synchronously below, so it loads before any test runs.
+before(loadTestCore);
 
 const SRC = path.resolve(__dirname, "../..");
 

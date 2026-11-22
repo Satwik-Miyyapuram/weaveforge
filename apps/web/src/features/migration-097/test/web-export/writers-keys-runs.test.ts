@@ -1,7 +1,8 @@
+import { onlyReportPath } from "../own-report";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ConflictError } from "@weaveforge/core";
-import { REPORT_PATH, readMigrationReport, unverifiedDevices, writesOff, type RunReport } from "../../domain/report";
+import { REPORT_PATH, readMigrationRuns, unverifiedDevices, writesOff, type RunReport } from "../../domain/report";
 import type { BlobRef, FileCodec, Row } from "../../domain/ports";
 import type { KindWriter } from "../../domain/kind-writer";
 import { runWebExport } from "../../application/run-web-export";
@@ -73,7 +74,7 @@ test("re-run conflict: a writer conflict is listed on the kind and the run is in
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, writers: () => [writer] });
   assert.equal(result.state, "incomplete");
   assert.deepEqual(result.run.kinds.logEntries?.conflicts, ["l2"]);
-  assert.equal(JSON.parse(await sink.readText(REPORT_PATH)).state, "incomplete");
+  assert.equal(JSON.parse(await sink.readText(await onlyReportPath(sink))).state, "incomplete");
 });
 
 test("re-run conflict: a plain Error that only says conflict: in its message is a write failure, not a conflict", async () => {
@@ -122,7 +123,7 @@ test("failure reasons: a writer error is a fixed code; its message stays out of 
   });
   const miss = result.run.missing.find((m) => m.kind === "logEntries" && m.id === "l1");
   assert.equal(miss?.reason, "write-failed:logEntries");
-  assert.equal((await sink.readText(REPORT_PATH)).includes("SECRET"), false);
+  assert.equal((await sink.readText(await onlyReportPath(sink))).includes("SECRET"), false);
   assert.equal(logs.some((l) => l.includes("SECRET body /home/x/private.md")), true);
 });
 
@@ -141,7 +142,7 @@ test("failure reasons: a codec error and a readBack error are fixed codes, never
   assert.equal(reasons.some((r) => r.startsWith("codec-failed:")), true);
   assert.equal(reasons.includes("logEntries: read failed"), true);
   assert.equal(reasons.includes("run-failed:blobs"), true);
-  assert.equal((await sink.readText(REPORT_PATH)).includes("SECRET"), false);
+  assert.equal((await sink.readText(await onlyReportPath(sink))).includes("SECRET"), false);
 });
 
 test("blobs: a listBlobs failure makes the run incomplete, the report is not verified, no marker", async () => {
@@ -152,7 +153,7 @@ test("blobs: a listBlobs failure makes the run incomplete, the report is not ver
   const sink = new MemorySink();
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
-  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink)));
   assert.notEqual(report.state, "verified");
   assert.deepEqual(calls.filter((c) => c.startsWith("mark:")), []);
 });
@@ -235,7 +236,7 @@ test("keys: a failed moveSecrets gives incomplete, no desktop mark and no server
   assert.equal(desktopCalls.some((c) => c.startsWith("desktop-mark")), false, "desktop mark not called");
   assert.equal(calls.some((c) => c.startsWith("mark:")), false, "server marker not set");
   assert.match(JSON.stringify(result.run.missing), /keys: move failed/);
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { state: string };
   assert.equal(report.state, "incomplete");
 });
 
@@ -252,7 +253,7 @@ test("reasons: report.json and the run never carry a thrown message (fixed codes
       throw new Error("LEAK-KEY-sk-live-111");
     },
   });
-  const textA = await sinkA.readText(REPORT_PATH);
+  const textA = await sinkA.readText(await onlyReportPath(sinkA));
   assert.equal(textA.includes("LEAK-KEY"), false, "move message not in report");
   assert.match(textA, /keys: move failed/);
 
@@ -263,7 +264,7 @@ test("reasons: report.json and the run never carry a thrown message (fixed codes
   };
   const sinkB = new MemorySink();
   await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source: srv, sink: sinkB, now: NOW });
-  const textB = await sinkB.readText(REPORT_PATH);
+  const textB = await sinkB.readText(await onlyReportPath(sinkB));
   assert.equal(textB.includes("LEAK-SERVER"), false, "server message not in report");
   assert.match(textB, /marker: server failed/);
 
@@ -285,7 +286,7 @@ test("reasons: report.json and the run never carry a thrown message (fixed codes
       },
     },
   });
-  const textC = await sinkC.readText(REPORT_PATH);
+  const textC = await sinkC.readText(await onlyReportPath(sinkC));
   assert.equal(textC.includes("LEAK-DESKTOP"), false, "desktop message not in report");
   assert.match(textC, /marker: desktop failed/);
 });
@@ -337,7 +338,7 @@ test("refused runs (outbox not empty) still write an incomplete report with the 
   source.pendingOutbox = async () => 2;
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { state: string };
   assert.equal(report.state, "incomplete");
   assert.match(JSON.stringify(report), /outbox not empty/);
 });
@@ -385,11 +386,11 @@ test("keys: copy-only mover; a failed marker then a re-run copies each secret on
   assert.equal(second.state, "verified");
   assert.deepEqual(copies, ["k1", "k2"], "each secret copied once across both runs");
   assert.deepEqual([...sec.keys()], ["k1", "k2"], "old secrets still present");
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { state: string };
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { state: string };
   assert.equal(report.state, "verified");
 });
 
-test("runs: a run replaces this device's entry and keeps another device's entry, twice over", async () => {
+test("runs: a run writes only this device's file, never rewrites the legacy report, twice over", async () => {
   const other: RunReport = {
     startedAt: "2026-11-01T00:00:00.000Z",
     finishedAt: "2026-11-01T00:00:01.000Z",
@@ -400,23 +401,23 @@ test("runs: a run replaces this device's entry and keeps another device's entry,
     deviceId: "dev-other",
   };
   const sink = new MemorySink();
-  const stale: RunReport = { ...other, deviceId: "web-me", startedAt: "2026-11-02T00:00:00.000Z" };
-  await sink.write(REPORT_PATH, JSON.stringify({ version: 1, state: "incomplete", backup: null, runs: [other, stale] }));
+  const stale: RunReport = { ...other, deviceId: "web-me-device", startedAt: "2026-11-02T00:00:00.000Z" };
+  const legacy = JSON.stringify({ version: 1, state: "incomplete", backup: null, runs: [other, stale] });
+  await sink.write(REPORT_PATH, legacy);
   const { source } = fakeServer({ rows: FIXTURE });
   const exportOnce = () =>
-    runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, runDeviceId: "web-me" });
+    runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, runDeviceId: "web-me-device" });
 
   await exportOnce();
-  const first = (JSON.parse(await sink.readText(REPORT_PATH)) as { runs: RunReport[] }).runs;
-  assert.equal(first.length, 2);
-  assert.deepEqual(first[0], other);
-  assert.equal(first[1]?.deviceId, "web-me");
-  assert.equal(first[1]?.startedAt, NOW);
+  const first = (JSON.parse(await sink.readText(await onlyReportPath(sink))) as { runs: RunReport[] }).runs;
+  assert.equal(first.length, 1, "the own file holds only this device's run");
+  assert.equal(first[0]?.deviceId, "web-me-device");
+  assert.equal(first[0]?.startedAt, NOW);
+  assert.equal(await sink.readText(REPORT_PATH), legacy, "the legacy report keeps its bytes");
 
   await exportOnce();
-  const second = (JSON.parse(await sink.readText(REPORT_PATH)) as { runs: RunReport[] }).runs;
-  assert.equal(second.length, 2, "the same device is replaced, never duplicated");
-  assert.deepEqual(second[0], other);
+  const second = (JSON.parse(await sink.readText(await onlyReportPath(sink))) as { runs: RunReport[] }).runs;
+  assert.equal(second.length, 1, "the same device is replaced, never duplicated");
 });
 
 test("runs: a web run with no runDeviceId is refused with a fixed reason, never a fresh device id", async () => {
@@ -424,8 +425,31 @@ test("runs: a web run with no runDeviceId is refused with a fixed reason, never 
   const sink = new MemorySink();
   const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
-  assert.deepEqual(result.run.missing.map((m) => m.reason), ["device id missing"]);
+  assert.deepEqual(result.run.missing.map((m) => m.reason), ["no device id: the browser install id is missing or malformed"]);
   assert.equal(result.run.deviceId, undefined);
+});
+
+test("runs: a web run with a malformed runDeviceId is refused, writes no data and no server mark", async () => {
+  for (const bad of ["short", "has space!", "x".repeat(65)]) {
+    const { source, calls } = fakeServer({ rows: FIXTURE });
+    const sink = new MemorySink();
+    const result = await runWebExport({ runDeviceId: bad, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+    assert.equal(result.state, "incomplete", bad);
+    assert.deepEqual(result.run.missing.map((m) => m.reason), ["no device id: the browser install id is missing or malformed"], bad);
+    assert.equal(result.run.deviceId, undefined, bad);
+    assert.equal((await sink.list()).some((p) => p.startsWith("logEntries/")), false, `${bad}: no log entries written`);
+    assert.equal(calls.includes("mark:097"), false, `${bad}: no server mark written`);
+  }
+});
+
+test("runs: a web run accepts an 8-char and a 64-char runDeviceId at the shape boundaries", async () => {
+  for (const good of ["abcdefgh", "x".repeat(64)]) {
+    const { source } = fakeServer({ rows: FIXTURE });
+    const result = await runWebExport({ runDeviceId: good, kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink: new MemorySink(), now: NOW });
+    assert.equal(result.state, "verified", good);
+    assert.equal(result.run.deviceId, good, good);
+    assert.equal(result.run.missing.some((m) => m.reason.startsWith("no device id")), false, good);
+  }
 });
 
 test("runs: a device's run replaces only its own older runs; another device's failed run stays and is named", async () => {
@@ -438,16 +462,16 @@ test("runs: a device's run replaces only its own older runs; another device's fa
     missing: [{ kind: "notes", id: "n1", reason: "x" }],
     deviceId: "dev-other",
   };
-  const mineOld: RunReport = { ...other, deviceId: "web-me", startedAt: "2026-11-02T00:00:00.000Z" };
+  const mineOld: RunReport = { ...other, deviceId: "web-me-device", startedAt: "2026-11-02T00:00:00.000Z" };
   const sink = new MemorySink();
   await sink.write(REPORT_PATH, JSON.stringify({ version: 1, state: "incomplete", backup: null, runs: [other, mineOld] }));
   const { source } = fakeServer({ rows: FIXTURE });
-  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, runDeviceId: "web-me" });
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { runs: RunReport[] };
-  assert.equal(report.runs.filter((r) => r.deviceId === "web-me").length, 1, "own older run replaced");
-  assert.equal(report.runs.filter((r) => r.deviceId === "dev-other").length, 1, "other device's run kept");
-  // KINDS is a subset here, so web-me's own run is not clean either; the point is that dev-other is named.
-  assert.ok(unverifiedDevices(report as Parameters<typeof unverifiedDevices>[0]).includes("dev-other"));
+  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, runDeviceId: "web-me-device" });
+  const own = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { runs: RunReport[] };
+  assert.equal(own.runs.filter((r) => r.deviceId === "dev-other").length, 0, "another device's run is never copied into this file");
+  // Readers union every file: dev-other's failed run in the legacy report is still named as unverified.
+  const runs = await readMigrationRuns(sink);
+  assert.ok(runs !== null && unverifiedDevices({ runs }).includes("dev-other"));
 });
 
 test("per-kind failure: a failed kind is listed missing and the later kinds still export", async () => {
@@ -469,7 +493,7 @@ test("target: a web run records target opfs in report.json", async () => {
   const { source } = fakeServer({ rows: FIXTURE });
   const sink = new MemorySink();
   await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { target?: string };
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { target?: string };
   assert.equal(report.target, "opfs");
 });
 
@@ -484,14 +508,14 @@ test("target: a desktop run records target folder in report.json", async () => {
     now: NOW,
     desktop: { folder: "C:/ws", bridge: fakeDesktop(calls) },
   });
-  const report = JSON.parse(await sink.readText(REPORT_PATH)) as { target?: string };
+  const report = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { target?: string };
   assert.equal(report.target, "folder");
 });
 
 test("zip-only export: the zip never writes a verified report, so the browser writes stay on", async () => {
   const sink = new MemorySink();
   const zip = await buildDownloadZip(sink);
-  assert.equal(unzipFiles(zip).has(REPORT_PATH), false);
+  assert.equal([...unzipFiles(zip).keys()].some((p) => p.includes("report")), false);
   assert.equal(writesOff(null), false);
 });
 
@@ -503,33 +527,32 @@ test("writesOff: only a verified report with target opfs switches the browser wr
   assert.equal(writesOff(undefined), false);
 });
 
-test("readMigrationReport: an absent report gives null", async () => {
-  assert.equal(await readMigrationReport(new MemorySink()), null);
+test("readMigrationRuns: an absent report gives an empty list", async () => {
+  assert.deepEqual(await readMigrationRuns(new MemorySink()), []);
 });
 
-test("readMigrationReport: corrupt JSON gives null and never throws", async () => {
+test("readMigrationRuns: corrupt JSON gives null and never throws", async () => {
   const sink = new MemorySink();
   await sink.write(REPORT_PATH, "{not json");
-  assert.equal(await readMigrationReport(sink), null);
+  assert.equal(await readMigrationRuns(sink), null);
 });
 
-test("readMigrationReport: JSON that is not a report (null, or an unknown state) gives null", async () => {
+test("readMigrationRuns: JSON that is not a report (null, or an unknown state) gives null", async () => {
   const sink = new MemorySink();
   await sink.write(REPORT_PATH, "null");
-  assert.equal(await readMigrationReport(sink), null);
+  assert.equal(await readMigrationRuns(sink), null);
   await sink.write(REPORT_PATH, JSON.stringify({ state: "done" }));
-  assert.equal(await readMigrationReport(sink), null);
+  assert.equal(await readMigrationRuns(sink), null);
 });
 
-test("readMigrationReport: the report the web export writes reads back and switches writes off", async () => {
+test("readMigrationRuns: the report the web export writes reads back and switches writes off", async () => {
   const { source } = fakeServer({ rows: {} });
   const sink = new MemorySink();
   const result = await runWebExport({ runDeviceId: "dev-test", kinds: [], codec: fakeCodec([]), source, sink, now: NOW });
   assert.equal(result.state, "verified");
-  const report = await readMigrationReport(sink);
-  assert.ok(report);
-  assert.equal(report.state, "verified");
-  assert.equal(report.target, "opfs");
-  assert.deepEqual(report, JSON.parse(await sink.readText(REPORT_PATH)));
-  assert.equal(writesOff(report), true);
+  const own = JSON.parse(await sink.readText(await onlyReportPath(sink))) as { state: string; target: string; runs: RunReport[] };
+  assert.equal(own.state, "verified");
+  assert.equal(own.target, "opfs");
+  assert.deepEqual(await readMigrationRuns(sink), own.runs);
+  assert.equal(writesOff({ state: own.state as "verified", target: "opfs" }), true);
 });

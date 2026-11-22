@@ -152,6 +152,22 @@ function rustSharedReader(db: SupabaseClient): ISharedReader {
 }
 
 /**
+ * Files mode: the named methods reject before any request. The org allowlist keeps `projects`
+ * and `user_settings` live for other reads, so guardOrgDb cannot refuse these by table. The
+ * release-notice `unseen` read joins the personal seen marker, so files mode shows no banner.
+ */
+function refuseInFilesMode<T extends object>(repo: T, names: readonly (keyof T)[], filesMode: boolean): T {
+  if (!filesMode) return repo;
+  const refused = async () => {
+    throw new Error("Not available in files mode");
+  };
+  return new Proxy(repo, {
+    get: (target, key, receiver) =>
+      names.includes(key as keyof T) ? refused : Reflect.get(target, key, receiver),
+  });
+}
+
+/**
  * Per-project Zotero collection (`projects.zotero_collection`). The API key and
  * library are per user; only the target collection is per project.
  */
@@ -291,9 +307,13 @@ export function wirePostgrestBackend(
     parts?.settingsRepository ?? new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
   const releaseNoticesRepository =
     parts?.releaseNotices ??
-    rustRepository<IReleaseNoticesRepository>(serverDb, "release_notices", ["unseen"], async () => ({
-      userId: (await session.getCurrentUserId()) ?? undefined,
-    }));
+    refuseInFilesMode(
+      rustRepository<IReleaseNoticesRepository>(serverDb, "release_notices", ["unseen"], async () => ({
+        userId: (await session.getCurrentUserId()) ?? undefined,
+      })),
+      ["unseen"],
+      options?.filesMode === true,
+    );
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
   const projectRepository = cacheRepo(
     rustProjectRepository(db, session),
@@ -517,7 +537,11 @@ export function wirePostgrestBackend(
     pid,
   );
   const supervisionRepository = rustSupervisionRepository(db);
-  const projectBibliographyCollection = rustProjectZoteroStore(serverDb);
+  const projectBibliographyCollection = refuseInFilesMode(
+    rustProjectZoteroStore(serverDb),
+    ["setCollection"],
+    options?.filesMode === true,
+  );
   const rawBlobStore = parts?.blobStore ?? wireStorage({ supabaseDb: db });
   const libraryPinRepository: ILibraryPinRepository = cacheRepo(
     rustRepository<ILibraryPinRepository>(

@@ -105,6 +105,6 @@ test("read-only refuses an AI save and writes nothing", async () => {
     onDesktop: true,
     wireDesktopFileBackend: wireDesktopFileBackend(bridge, settings),
   });
-  await assert.rejects(async () => backend.aiProposalStore.save(proposal), new Error(READ_ONLY_MESSAGE));
+  await assert.rejects(async () => backend.aiProposalStore.save(proposal), { message: READ_ONLY_MESSAGE });
   assert.equal(files.size, 0);
 });

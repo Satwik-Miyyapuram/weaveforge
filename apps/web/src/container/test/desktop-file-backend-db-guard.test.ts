@@ -52,8 +52,8 @@ function filesModeBackend() {
 
 test("files mode refuses a write to a personal table over the database client", () => {
   const backend = filesModeBackend();
-  assert.throws(() => backend.db.from("papers").insert({ id: "p-1" }), new Error(READ_ONLY_MESSAGE));
-  assert.throws(() => backend.db.rpc("save_paper_bundle", {}), new Error(READ_ONLY_MESSAGE));
+  assert.throws(() => backend.db.from("papers").insert({ id: "p-1" }), { message: READ_ONLY_MESSAGE });
+  assert.throws(() => backend.db.rpc("save_paper_bundle", {}), { message: READ_ONLY_MESSAGE });
 });
 
 test("files mode still builds reads and org-table queries over the database client", () => {

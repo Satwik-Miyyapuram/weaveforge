@@ -152,6 +152,13 @@ fn is_valid(id: &str) -> bool {
     id.len() == 64 && id.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
+/// The one shape check for a device id used inside a file name (`report-<id>.json`,
+/// `secrets-moved-<id>.json`): non-empty, at most 128 characters, ASCII letters, digits or '-'.
+/// Every id this device mints passes it; a path separator, `.` or `_` does not.
+pub fn is_file_name_id(id: &str) -> bool {
+    !id.is_empty() && id.len() <= 128 && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+}
+
 fn new_id(dir: &Path) -> String {
     use sha2::{Digest, Sha256};
     let nanos = std::time::SystemTime::now()

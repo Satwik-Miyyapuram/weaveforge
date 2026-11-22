@@ -4,8 +4,10 @@
  * one-time migration moves it), written, or deleted.
  */
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { readFileSync } from "node:fs";
+import { before, describe, it } from "node:test";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
+import { loadCore } from "../../lib/rust-core";
 import {
   DeviceSecretsStore,
   desktopKeychain,
@@ -76,7 +78,21 @@ const indexOf = (keys: string[], source = "move") => JSON.stringify({ source, ke
 /** A flat field map for a save: top-level names the typed `Secrets` does not list (the test fixtures). */
 const flat = (fields: Record<string, string>) => fields as unknown as Parameters<DeviceSecretsStore["save"]>[0];
 
+// The core is process-wide and loaded by the suite below, so this suite must run first.
+describe("the Rust core is required to read the legacy row", () => {
+  it("a core that is not loaded throws, and never reads as no credentials", async () => {
+    const { keychain } = fakeKeychain();
+    const db = fakeRun([{ secrets: '{"zoteroApiKey":"k"}' }]);
+    const store = new DeviceSecretsStore(db.run, keychain, async () => {}, async () => false);
+    await assert.rejects(store.load(), /Rust core not loaded/);
+  });
+});
+
 describe("device credentials in the keychain", () => {
+  before(async () => {
+    await loadCore(readFileSync(new URL("../../../../../packages/wf-wasm/pkg/wf_wasm_bg.wasm", import.meta.url)));
+  });
+
   it("rebuilds the credentials from the listed fields without touching the local database", async () => {
     const { keychain } = fakeKeychain({
       "_index": indexOf(["zoteroApiKey", "integrations.overleaf"]),
@@ -390,6 +406,61 @@ describe("no keychain on this machine (Linux without a Secret Service)", () => {
       },
     } as unknown as DesktopBridge;
     await assert.rejects(() => desktopMoveSecrets(bridge)(), KeychainUnavailableError);
+  });
+
+  it("a move that left write-only fields behind shows their names in a notice and resolves", async () => {
+    const bridge = {
+      migrate097MoveSecrets: async () => ["overleafToken.extra", "zoteroApiKey.x"],
+    } as unknown as DesktopBridge;
+    const shown: string[] = [];
+    await desktopMoveSecrets(bridge, (message) => shown.push(message))();
+    assert.deepEqual(shown, [
+      "These keys were not moved to the keychain: Overleaf git token, Zotero key. Re-enter them in Settings.",
+    ]);
+  });
+
+  it("the notice names fields by their Settings label, never by the internal key name", async () => {
+    const bridge = {
+      migrate097MoveSecrets: async () => ["overleafToken.extra", "overleafToken.other"],
+    } as unknown as DesktopBridge;
+    const shown: string[] = [];
+    await desktopMoveSecrets(bridge, (message) => shown.push(message))();
+    assert.deepEqual(shown, [
+      "These keys were not moved to the keychain: Overleaf git token. Re-enter them in Settings.",
+    ]);
+    assert.doesNotMatch(shown[0]!, /overleafToken|\.extra|\.other/);
+  });
+
+  it("a move that moved every field shows no notice", async () => {
+    const bridge = {
+      migrate097MoveSecrets: async () => [],
+    } as unknown as DesktopBridge;
+    const shown: string[] = [];
+    await desktopMoveSecrets(bridge, (message) => shown.push(message))();
+    assert.deepEqual(shown, []);
+  });
+
+  it("a save after a move that left fields behind still saves, so the first save is not lost", async () => {
+    const { keychain, writes } = fakeKeychain();
+    const bridge = {
+      migrate097MoveSecrets: async () => ["overleafToken.extra"],
+    } as unknown as DesktopBridge;
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      const store = new DeviceSecretsStore(fakeRun([]).run, keychain, desktopMoveSecrets(bridge, () => {}));
+      await store.save({ zoteroApiKey: "k" });
+    } finally {
+      console.warn = warn;
+    }
+    assert.ok(writes.length > 0, "the save must write its fields");
+  });
+
+  it("a move that moved every field still resolves", async () => {
+    const bridge = {
+      migrate097MoveSecrets: async () => [],
+    } as unknown as DesktopBridge;
+    await desktopMoveSecrets(bridge)();
   });
 
   it("a save whose move hits no keychain rejects with KeychainUnavailableError, not secrets-move-pending", async () => {

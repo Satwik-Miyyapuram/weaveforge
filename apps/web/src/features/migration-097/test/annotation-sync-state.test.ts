@@ -38,7 +38,7 @@ test("an annotation whose server syncState is not local is listed in report.miss
     source: server(rows),
     sink: new MemorySink(),
     now: NOW,
-    runDeviceId: "dev-a",
+    runDeviceId: "dev-alpha",
   });
 
   const reasons = result.run.missing.filter((m) => m.kind === "annotations").map((m) => [m.id, m.reason]);
@@ -55,12 +55,12 @@ test("synced annotations count as exported: three synced rows verify, and a pend
     ],
   };
   const sink = new MemorySink();
-  const ok = await runWebExport({ kinds: ["annotations"], codec, source: server(synced), sink, now: NOW, runDeviceId: "dev-a" });
+  const ok = await runWebExport({ kinds: ["annotations"], codec, source: server(synced), sink, now: NOW, runDeviceId: "dev-alpha" });
   assert.equal(ok.state, "verified");
 
   const mixed = { annotations: [...synced.annotations, { id: "p1", paperFile: "papers/p.pdf", syncState: "pending" }] };
   const sink2 = new MemorySink();
-  const res = await runWebExport({ kinds: ["annotations"], codec, source: server(mixed), sink: sink2, now: NOW, runDeviceId: "dev-a" });
+  const res = await runWebExport({ kinds: ["annotations"], codec, source: server(mixed), sink: sink2, now: NOW, runDeviceId: "dev-alpha" });
   assert.deepEqual(
     res.run.missing.filter((m) => m.kind === "annotations").map((m) => [m.id, m.reason]),
     [["p1", "unsynced (exported)"]],
@@ -82,7 +82,7 @@ test("an annotation with a sync state the export does not know is listed; local 
     source: server(rows),
     sink: new MemorySink(),
     now: NOW,
-    runDeviceId: "dev-a",
+    runDeviceId: "dev-alpha",
   });
 
   const reasons = result.run.missing.filter((m) => m.kind === "annotations").map((m) => [m.id, m.reason]);

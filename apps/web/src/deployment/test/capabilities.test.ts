@@ -38,12 +38,15 @@ describe("capabilities", () => {
     }
   });
 
-  it("refuses the account-only capabilities in local mode", async () => {
+  it("ignores a stored local-mode choice, since 0.9.7 retires local mode", async () => {
+    // LOCAL_MODE_IN_BUILD is false in 0.9.7 (d1e4e5e9b), so isLocalMode() is
+    // always false and the account-only capabilities stay answered by the
+    // account. The refusal path returns when local mode is brought back.
     store.set("weaveforge.local-mode", "1");
     const { can, hasAccount } = await load();
-    assert.equal(hasAccount(), false);
+    assert.equal(hasAccount(), true);
     for (const capability of ["account", "org", "sharing", "sync", "apiTokens", "operatorDisclosure"] as const) {
-      assert.equal(can(capability), false, capability);
+      assert.equal(can(capability), true, capability);
     }
   });
 

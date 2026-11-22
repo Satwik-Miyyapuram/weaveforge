@@ -9,7 +9,8 @@ import { wireFileBackend } from "@/backend/providers/files/wire-file-backend";
 import { wirePostgrestBackend } from "@/backend/providers/postgrest/wire-postgrest-backend";
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { browserReportVerified } from "@/features/migration-097/domain/report";
-import { readOrCreateInstallId } from "./browser-install-id";
+import { reportFolderSink } from "@/features/migration-097/infrastructure/report-folder-sink";
+import { readOrCreateInstallId, type InstallIdFs } from "./browser-install-id";
 import type { WiredBackend } from "./parts";
 import { guardOrgDb } from "./org-db-guard";
 import { overlayFileRepositories } from "./with-file-repositories";
@@ -56,16 +57,21 @@ export async function openBrowserFileWiring(): Promise<BrowserFileWiring> {
   return wireBrowserFiles(await BrowserWorkspaceFs.openOpfs());
 }
 
+/** The OPFS folder the report check reads (the report folder listing) and the install id is stored in. */
+type ReportCheckFs = Parameters<typeof reportFolderSink>[0] & InstallIdFs;
+
 /**
  * True only when the OPFS folder holds a clean verified 0.9.7 export for this browser install (its
  * own run is matched by its stable install id). The first call may write the install id, creating
  * it when none is stored. A failed write makes this return false, as does any other failure,
  * including no id.
  */
-export async function browserReportOk(): Promise<boolean> {
+export async function browserReportOk(
+  openFs: () => Promise<ReportCheckFs> = () => BrowserWorkspaceFs.openOpfs(),
+): Promise<boolean> {
   try {
-    const fs = await BrowserWorkspaceFs.openOpfs();
-    return await browserReportVerified(fs, await readOrCreateInstallId(fs));
+    const fs = await openFs();
+    return await browserReportVerified(reportFolderSink(fs), await readOrCreateInstallId(fs));
   } catch {
     return false;
   }

@@ -669,6 +669,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       manageMilestone,
       notifications,
       feedLinks: new PlanFeedLinks(backend.db, backend.session),
+      feedLinksAvailable: !filesMode,
     }),
     logbook: new LogbookFacade({
       logEntries: logEntryRepository,

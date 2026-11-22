@@ -1,5 +1,7 @@
 import {
-  REPORT_PATH,
+  ownReportPath,
+  readMigrationRuns,
+  unreadableReportName,
   type KindCount,
   type MigrationReport,
   type MigrationState,
@@ -48,16 +50,17 @@ export type ExportOptions = {
   desktop?: { folder: string; bridge: DesktopMigration };
   /** KEYS hook: runs only after a verified run, before the markers. A throw leaves the run incomplete. */
   moveSecrets?: () => Promise<void>;
-  /** True when the source holds secrets: with no moveSecrets hook they stay on the server and are named for reconnect. */
-  secretsPresent?: boolean;
   /** Web only: the stable per-browser id (OPFS settings). Desktop takes its id from the backup. */
   runDeviceId?: string;
   /** Receives the raw error text of each failure. It never reaches report.json, which carries fixed codes only. */
   debugLog?: (line: string) => void;
 };
 
-/** `reconnectProviders` names the services whose secret stayed on the server (never the secret itself). */
-export type ExportResult = { state: MigrationState; run: RunReport; reconnectProviders: string[] };
+/** Refusal reason when unsent sync_outbox ops exist; the UI keys "sync pending changes first" on it. */
+export const OUTBOX_NOT_EMPTY_REASON = "outbox not empty: flush before export";
+
+/** `reconnectProviders` names the services whose secret stayed on the server (never the secret itself). `undecryptable` is always 0 on the web: content_enc was dropped by 0099. */
+export type ExportResult = { state: MigrationState; run: RunReport; reconnectProviders: string[]; undecryptable: number };
 
 /** The desktop shell's part of the 0.9.7 contract: a pre-migration dump, then a mark. */
 export type DesktopMigration = {
@@ -66,20 +69,20 @@ export type DesktopMigration = {
 };
 
 /**
- * The runs already in report.json. [] when there is no report yet; null when report.json exists but cannot be
+ * This device's own report file: its runs, or [] when there is none yet. Null when the file exists but cannot be
  * read as a report (not JSON, or no runs array). A null is never merged over.
  */
-async function readExistingRuns(sink: FileSink): Promise<RunReport[] | null> {
-  // A failed listing does not prove there is no report: read report.json directly before deciding.
+async function readOwnRuns(sink: FileSink, path: string): Promise<RunReport[] | null> {
+  // A failed listing does not prove there is no file: read it directly before deciding.
   let listed: string[] | null = null;
   try {
     listed = await sink.list();
   } catch {
     // Falls through to the direct read.
   }
-  if (listed !== null && !listed.includes(REPORT_PATH)) return [];
+  if (listed !== null && !listed.includes(path)) return [];
   try {
-    const parsed = JSON.parse(await sink.readText(REPORT_PATH)) as Partial<MigrationReport>;
+    const parsed = JSON.parse(await sink.readText(path)) as Partial<MigrationReport>;
     if (Array.isArray(parsed.runs)) return parsed.runs;
   } catch {
     // Falls through: unreadable or absent.
@@ -87,25 +90,10 @@ async function readExistingRuns(sink: FileSink): Promise<RunReport[] | null> {
   return null;
 }
 
-/** Moves an unreadable report.json to report.json.bad, or .bad.N when that name is taken. Nothing is overwritten. */
-async function moveAside(sink: FileSink): Promise<boolean> {
-  // Without a listing there is no safe free name, so nothing is moved and false says so.
-  let taken: Set<string>;
+/** The report-level backup already in this device's file, or null. Read only to keep it: see writeReport. */
+async function readOwnBackup(sink: FileSink, path: string): Promise<string | null> {
   try {
-    taken = new Set(await sink.list());
-  } catch {
-    return false;
-  }
-  let bad = `${REPORT_PATH}.bad`;
-  for (let n = 2; taken.has(bad); n++) bad = `${REPORT_PATH}.bad.${n}`;
-  await sink.rename(REPORT_PATH, bad);
-  return true;
-}
-
-/** The report-level backup already in report.json, or null. Read only to keep it: see writeReport. */
-async function readExistingBackup(sink: FileSink): Promise<string | null> {
-  try {
-    const parsed = JSON.parse(await sink.readText(REPORT_PATH)) as Partial<MigrationReport>;
+    const parsed = JSON.parse(await sink.readText(path)) as Partial<MigrationReport>;
     return typeof parsed.backup === "string" ? parsed.backup : null;
   } catch {
     return null;
@@ -113,32 +101,26 @@ async function readExistingBackup(sink: FileSink): Promise<string | null> {
 }
 
 /**
- * Writes report.json via a .part file and rename, so a half-written report is never seen.
- * The runs of other devices already in report.json are kept; this device's entry is replaced.
- * The report-level backup is the first non-null one: a later run never replaces it, not with null
- * and not with another device's dump. Each device's own dump is in its own runs entry.
+ * Writes this device's report file (report-<deviceId>.json) via a .part file and rename, so a half-written
+ * report is never seen. Only that file is ever written: the legacy report.json and other devices' files are
+ * read, never rewritten. The report-level backup is the first non-null one this device's file holds: a later
+ * run never replaces it, not with null and not with another device's dump.
  */
 async function writeReport(sink: FileSink, report: MigrationReport): Promise<void> {
-  // A run with no device id is never written: without an id it cannot be told apart from another browser's run,
-  // so it could replace that run or be taken for this device's own.
+  // A run with no device id is never written: without an id there is no file of its own to write it to.
   const device = report.runs[0]?.deviceId;
   if (device === undefined) return;
-  // Read before any move: a moved-aside report can no longer be read for its backup.
-  const priorBackup = await readExistingBackup(sink);
-  const existing = await readExistingRuns(sink);
-  let runs = report.runs;
-  if (existing === null) {
-    // Unreadable: kept aside, never merged over. If it cannot be kept aside, it is left as it is and not replaced.
-    if (!(await moveAside(sink))) return;
-  } else {
-    runs = [...existing.filter((r) => r.deviceId !== device), ...report.runs];
-  }
+  const path = ownReportPath(device);
+  // Read before any move: a moved-aside file can no longer be read for its backup.
+  const priorBackup = await readOwnBackup(sink, path);
+  // Unreadable: never merged over and never renamed. It is left as it is for the user to restore or delete.
+  if ((await readOwnRuns(sink, path)) === null) return;
   const backup = priorBackup ?? report.backup;
-  const merged: MigrationReport = { ...report, backup, runs };
-  const part = tempPathFor(REPORT_PATH);
+  const merged: MigrationReport = { ...report, backup, runs: report.runs };
+  const part = tempPathFor(path);
   try {
     await sink.write(part, JSON.stringify(merged, null, 2));
-    await sink.rename(part, REPORT_PATH);
+    await sink.rename(part, path);
   } catch (err) {
     await sink.remove(part).catch(() => undefined);
     throw err;
@@ -166,7 +148,7 @@ async function refused(
     backup: extra.backup ?? null,
   };
   await writeReport(sink, { version: 1, state: "incomplete", backup: extra.backup ?? null, deviceId: extra.deviceId, target, runs: [run] });
-  return { state: "incomplete", run, reconnectProviders: [] };
+  return { state: "incomplete", run, reconnectProviders: [], undecryptable: 0 };
 }
 
 /**
@@ -252,19 +234,15 @@ export function verifyReasonCode(raw: string): string {
  * their files are never overwritten or listed as this device's orphans. Empty when there is no such run.
  */
 async function priorOutputs(sink: FileSink, deviceId: string | undefined): Promise<Outputs> {
-  let parsed: Partial<MigrationReport>;
-  try {
-    parsed = JSON.parse(await sink.readText(REPORT_PATH)) as Partial<MigrationReport>;
-  } catch {
-    return {};
-  }
-  const own = (Array.isArray(parsed.runs) ? parsed.runs : []).filter((r) => deviceId !== undefined && r.deviceId === deviceId);
+  const runs = await readMigrationRuns(sink);
+  if (runs === null) return {};
+  const own = runs.filter((r) => deviceId !== undefined && r.deviceId === deviceId);
   const latest = own.reduce<RunReport | undefined>((best, r) => (!best || r.startedAt > best.startedAt ? r : best), undefined);
   return latest?.outputs ?? {};
 }
 
 export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
-  const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters, projectFolders, moveSecrets, secretsPresent, runDeviceId, debugLog } = opts;
+  const { kinds, codec, source, sink, now, onProgress, desktop, writers: givenWriters, projectFolders, moveSecrets, runDeviceId, debugLog } = opts;
   if (projectFolders) checkProjectFolders(projectFolders);
   const target: MigrationTarget = desktop ? "folder" : "opfs";
 
@@ -273,10 +251,16 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     return refused(sink, now, "no device id: the browser install id is missing or malformed", target);
   }
 
-  // An unreadable report.json is never merged over: it is kept aside and this run is refused before any write.
-  if ((await readExistingRuns(sink)) === null) {
-    await moveAside(sink);
-    return refused(sink, now, "report unreadable", target, { deviceId: runDeviceId });
+  // The report's device id has one source for every refusal: the browser install id, or on desktop the id the
+  // dump returns. Before the dump there is none, so a desktop refusal writes no report (fail closed).
+  let deviceId: string | undefined = desktop ? undefined : runDeviceId;
+
+  // Any unreadable report file (legacy, own or another device's) is never merged over and never renamed: it is left
+  // in place, and this run is refused before any write.
+  const unreadable = await unreadableReportName(sink);
+  if (unreadable !== null) {
+    const reason = unreadable === "" ? "the report folder cannot be listed" : `${unreadable} is unreadable`;
+    return refused(sink, now, `${reason}; restore it from your backup or run the export again`, target, { deviceId });
   }
   const writerFor = (kind: string) => writers.find((w) => w.kinds.includes(kind));
   const dbCount: Record<string, number> = {};
@@ -284,22 +268,21 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   const conflicts: Record<string, string[]> = {};
   const written: Record<string, number> = {};
   const missing: MissingRow[] = [];
+  let undecryptable = 0;
 
-  // Secrets are never deleted or cleared on this path. With no KEYS mover (moveSecrets) they stay where they are:
-  // each provider that holds one is named for reconnect and the run still verifies. Only a source that cannot say
-  // which providers hold secrets refuses the run. With a mover, the secrets are moved as before.
-  let reconnectProviders: string[] = [];
-  if (secretsPresent && !moveSecrets) {
-    try {
-      reconnectProviders = await source.secretProviders();
-    } catch {
-      return refused(sink, now, "keys: unreadable", target);
-    }
+  // Secrets are never deleted or cleared on this path. Every run reads which providers hold a secret. A source that
+  // cannot say so refuses the run (fail closed: never verified). With no KEYS mover (moveSecrets) each named provider
+  // stays on the server for reconnect; with a mover, the secrets are moved as before and nothing is named.
+  let providersWithSecrets: string[];
+  try {
+    providersWithSecrets = await source.secretProviders();
+  } catch {
+    return refused(sink, now, "keys: unreadable", target, { deviceId });
   }
+  const reconnectProviders: string[] = desktop && moveSecrets ? [] : providersWithSecrets;
 
   // The pre-migration dump comes first: nothing is read or written without it.
   // Web always has a device id: the caller's stable one (refused above when absent).
-  let deviceId: string | undefined = desktop ? undefined : runDeviceId;
   let dumpName: string | null = null;
   if (desktop && typeof desktop.bridge?.backup !== "function") {
     return refused(sink, now, "desktop migrate097Backup missing: the shell cannot make the pre-migration dump", target);
@@ -336,10 +319,10 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       backup: dumpName,
     };
     await writeReport(sink, { version: 1, state: "incomplete", backup: dumpName, deviceId, target, runs: [run] });
-    return { state: "incomplete", run, reconnectProviders: [] };
+    return { state: "incomplete", run, reconnectProviders: [], undecryptable: 0 };
   }
   if (pending > 0) {
-    return refused(sink, now, "outbox not empty: flush before export", target, { backup: dumpName, deviceId });
+    return refused(sink, now, OUTBOX_NOT_EMPTY_REASON, target, { backup: dumpName, deviceId });
   }
 
   // Read before the early report, which replaces this device's run and with it its outputs.
@@ -385,6 +368,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           const listed = (await source.listBlobs()).length;
           if (raw !== listed) missing.push({ kind, id: "*", reason: `raw count ${raw} != listed ${listed}` });
           const bad = await source.undecryptable(kind);
+          undecryptable += bad;
           if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
         } catch {
           missing.push({ kind, id: "*", reason: `${kind}: read failed` });
@@ -398,6 +382,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         const raw = await source.countRows(kind);
         if (raw !== rows.length) missing.push({ kind, id: "*", reason: `raw count ${raw} != exported ${rows.length}` });
         const bad = await source.undecryptable(kind);
+        undecryptable += bad;
         if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
         written[kind] = 0;
         dbCount[kind] = rows.length;
@@ -628,6 +613,6 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
     if (marked) state = "verified";
   }
   const run = await persist();
-  return { state, run, reconnectProviders };
+  return { state, run, reconnectProviders, undecryptable };
 }
 

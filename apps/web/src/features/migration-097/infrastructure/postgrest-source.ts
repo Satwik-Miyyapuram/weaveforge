@@ -39,6 +39,7 @@ const SOFT_DELETE_TABLES: ReadonlySet<string> = new Set([
   "reader_annotations", "annotation_pins", "library_pins", "vault_pages", "screening_decisions", "paper_tags",
 ]);
 
+
 export interface PostgrestSourceOptions {
   baseUrl: string;
   userId: string;
@@ -47,8 +48,6 @@ export interface PostgrestSourceOptions {
   headers: Record<string, string>;
   /** Real outbox check is wired by the integrator. */
   pendingOutbox?: () => Promise<number>;
-  /** Real decrypt check is wired by the integrator. */
-  undecryptable?: (kind: string) => Promise<number>;
   /** Resolves a short-lived download URL for a blob (the web app's signed-urls route). */
   signedUrl?: (bucket: string, path: string) => Promise<string | null>;
 }
@@ -163,9 +162,12 @@ export class PostgrestSource implements ServerSource {
     return this.opts.pendingOutbox();
   }
 
-  async undecryptable(kind: string): Promise<number> {
-    if (!this.opts.undecryptable) throw new Error(`undecryptable ${NOT_WIRED}`);
-    return this.opts.undecryptable(kind);
+  /**
+   * Always 0. db/migrations/0099_drop_e2ee_schema.sql:22-31 drops content_enc (and enc_epoch) from every entity
+   * table the export reads, so the server holds no ciphertext rows to count. No request is sent.
+   */
+  async undecryptable(_kind: string): Promise<number> {
+    return 0;
   }
 
   /** The owner's blob_objects rows. blob_objects has no sha256 column, so only size_bytes comes back. */

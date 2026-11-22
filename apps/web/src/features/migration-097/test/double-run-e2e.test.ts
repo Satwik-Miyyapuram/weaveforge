@@ -1,7 +1,8 @@
+import { onlyReportPath } from "./own-report";
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { loadTestCore } from "@/lib/test/load-test-core";
-import { MIGRATION_KINDS, REPORT_PATH, runIsClean } from "../domain/report";
+import { MIGRATION_KINDS, REPORT_DIR, runIsClean } from "../domain/report";
 import type { BlobRef, FileCodec, Row, ServerSource } from "../domain/ports";
 import { typedCore } from "@/lib/rust-core";
 import { runWebExport } from "../application/run-web-export";
@@ -13,7 +14,7 @@ import { MemorySink } from "../infrastructure/memory-sink";
 before(loadTestCore);
 
 const NOW = "2026-11-22T00:00:00.000Z";
-const DEVICE = { runDeviceId: "dev-e2e" };
+const DEVICE = { runDeviceId: "dev-e2e-run" };
 
 // Rows for the kinds that have a codec (logEntries, experiments), a writer (paperFields, via projectFolders)
 // and a blob. Every other MIGRATION kind has no rows, so it is counted and clean.
@@ -73,7 +74,7 @@ function exportRun(sink: MemorySink) {
 async function dataFiles(sink: MemorySink): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   for (const path of await sink.list()) {
-    if (path === REPORT_PATH) continue;
+    if (path.startsWith(`${REPORT_DIR}/`)) continue;
     out.set(path, Buffer.from(await sink.readBytes(path)).toString("base64"));
   }
   return out;
@@ -218,6 +219,6 @@ test("double run with secrets present: the run moves secrets only after verify, 
   });
   assert.equal(result.state, "verified", JSON.stringify(result.run.missing));
   assert.equal(moved, 1, "moveSecrets runs once, after the verified run");
-  const report = await sink.readText(REPORT_PATH);
+  const report = await sink.readText(await onlyReportPath(sink));
   assert.ok(!report.includes(SECRET), "report.json holds no secret value");
 });

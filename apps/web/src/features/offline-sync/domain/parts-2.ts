@@ -133,6 +133,12 @@ export class Outbox {
     return toEntries([row])[0]!;
   }
 
+  /** Every op not yet sent, dead ones included: a dead op is still work nobody has delivered. */
+  async count(): Promise<number> {
+    const row = await this.sql.queryOne<{ n: number | string }>("select count(*) as n from sync_outbox");
+    return Number(row?.n ?? 0);
+  }
+
   /**
    * The next ops to send, oldest first.
    *
