@@ -28,6 +28,8 @@ async function publish(db: Db, version: string, publishedAt: string) {
   );
 }
 
+// Dismissal is device-local now, so this file no longer tests dismissal. Latest ignoring a dismissed row is covered by the Rust test
+// release_notices.rs latest_returns_the_newest_notice_even_when_dismissed (d436148e8 dropped the web-side version).
 test("latest returns the newest published notice", async () => {
   const db = await testDb();
   const { notices } = await reposFor(db);
