@@ -40,7 +40,8 @@ test("table map covers every kind and snake_case rows convert to camelCase", () 
     notes: "vault_pages",
     papers: "papers",
     tags: "tags",
-    paperFields: "paper_fields",
+    paperFields: "paper_field_defs",
+    paperFieldValues: "paper_field_values",
     relations: "paper_relations",
     readingLists: "reading_lists",
     screening: "screening_decisions",
@@ -119,7 +120,7 @@ test("countRows sends HEAD with count=exact and reads the total after the slash"
   assert.ok(call);
   assert.equal(call.method, "HEAD");
   assert.equal(call.headers.get("prefer"), "count=exact");
-  assert.equal(call.url, `${BASE}/paper_fields?user_id=eq.${USER}`);
+  assert.equal(call.url, `${BASE}/paper_field_defs?user_id=eq.${USER}&deleted_at=is.null`);
 });
 
 test("countRows throws when content-range has no total", async () => {

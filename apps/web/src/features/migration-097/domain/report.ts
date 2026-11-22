@@ -6,6 +6,7 @@ export const MIGRATION_KINDS = [
   "papers",
   "tags",
   "paperFields",
+  "paperFieldValues",
   "relations",
   "readingLists",
   "screening",

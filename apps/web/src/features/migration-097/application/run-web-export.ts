@@ -229,7 +229,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           continue;
         }
         // TODO(097-lanes): still raw codec + sink until their FILES repo lands: group (a) papers,
-        // notes, relations, paperFields; and lists (readingLists). Keep this list in sync.
+        // notes, relations, paperFields, paperFieldValues; and lists (readingLists). Keep this list in sync.
         if (!codec.supports(kind)) {
           for (const row of rows) missing.push({ kind, id: String(row.id), reason: "no wf-wasm codec" });
           continue;
