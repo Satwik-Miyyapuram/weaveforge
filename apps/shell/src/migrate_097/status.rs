@@ -27,7 +27,7 @@ pub struct MigrationStatus {
     /// Absolute path of the PGDMP backup that "remove old data" checks, when that file exists.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub backup_path: Option<String>,
-    /// Kind names (from `runs[].missing[]` / report `missing[]`) with unexported items.
+    /// Kind names (from the newest run's `missing[]`) with unexported items.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub missing: Option<Vec<String>>,
 }
@@ -50,12 +50,7 @@ pub fn migration_status(folder: &Path, pg_root: &Path) -> MigrationStatus {
     };
     let state = report["state"].as_str().unwrap_or("none").to_owned();
     let backup = folder.join(BACKUP_REL);
-    let mut kinds: Vec<String> = report["missing"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|m| m["kind"].as_str().map(str::to_owned))
-        .collect();
+    let mut kinds = super::remove::newest_missing(&report).unwrap_or_default();
     kinds.sort();
     kinds.dedup();
     MigrationStatus {

@@ -14,6 +14,13 @@ const REPORT: &str = ".weaveforge/migration-0.9.7/report.json";
 const SECRETS: &str = ".weaveforge/migration-0.9.7/secrets-moved.json";
 const NOW: &str = "2026-11-23T08:00:00Z";
 
+/// One run exactly as the TS web writer emits it (`run-web-export.ts`), with `missing` inside it.
+const RUN_CLEAN: &str = r#"{"startedAt":"2026-11-23T07:00:00Z","finishedAt":"2026-11-23T07:30:00Z","sources":[],"kinds":{},"blobs":{"db":0,"verified":0},"missing":[]}"#;
+
+fn run_missing(missing: &str) -> String {
+    format!(r#"{{"startedAt":"{NOW}","finishedAt":"{NOW}","sources":[],"kinds":{{}},"blobs":{{"db":0,"verified":0}},"missing":[{missing}]}}"#)
+}
+
 fn secrets_json(count: u64) -> String {
     format!(r#"{{"movedAt":"{NOW}","count":{count}}}"#)
 }
@@ -41,7 +48,7 @@ impl Fixture {
         fs::write(folder.join("note.md"), "user note").unwrap();
         if let Some(state) = state {
             let report = format!(
-                r#"{{"version":1,"state":"{state}","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[]}}"#
+                r#"{{"version":1,"state":"{state}","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
             );
             fs::write(folder.join(REPORT), report).unwrap();
         }
@@ -202,10 +209,36 @@ fn refuses_when_the_backup_is_not_a_pg_dump() {
 }
 
 #[test]
+fn refuses_when_the_report_has_no_run() {
+    let f = Fixture::new("no-run", Some("verified"), Some(b"PGDMP"));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP}","runs":[]}}"#
+    ));
+    let err = f
+        .run(&mut never_stop())
+        .expect_err("a verified report without a run must refuse");
+    assert!(err.contains("run"), "{err}");
+    f.assert_untouched();
+}
+
+#[test]
+fn only_the_newest_run_counts_for_missing_items() {
+    let f = Fixture::new("older-missing", Some("verified"), Some(b"PGDMP"));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP}","verifiedAt":"{NOW}","runs":[{}, {RUN_CLEAN}]}}"#,
+        run_missing(r#"{"kind":"notes","id":"old","reason":"x"}"#)
+    ));
+    let mut stop = || Ok(());
+    f.run(&mut stop).expect("newest run has nothing missing");
+    assert!(!f.pg_root.exists(), "old run's missing item must not block");
+}
+
+#[test]
 fn refuses_when_the_report_lists_missing_items() {
     let f = Fixture::new("missing", Some("verified"), Some(b"PGDMP"));
     f.set_report(&format!(
-        r#"{{"version":1,"state":"verified","backup":"{BACKUP}","runs":[],"missing":[{{"kind":"notes","id":"n1","reason":"x"}}]}}"#
+        r#"{{"version":1,"state":"verified","backup":"{BACKUP}","runs":[{}]}}"#,
+        run_missing(r#"{"kind":"notes","id":"n1","reason":"x"}"#)
     ));
     let err = f
         .run(&mut never_stop())
@@ -477,7 +510,7 @@ fn refuses_when_exported_file_is_deleted_after_verify() {
 fn resumes_a_removing_report_after_a_partial_delete() {
     let f = Fixture::new("resume", Some("verified"), Some(b"PGDMP"));
     f.set_report(&format!(
-        r#"{{"version":1,"state":"removing","backup":"{BACKUP}","runs":[]}}"#
+        r#"{{"version":1,"state":"removing","backup":"{BACKUP}","runs":[{RUN_CLEAN}]}}"#
     ));
     fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
     let mut stop = || panic!("resume must not stop again");
@@ -548,12 +581,13 @@ fn status_for_a_verified_migration_has_camel_case_keys() {
 #[test]
 fn status_lists_missing_kinds_once_and_sorted() {
     let f = Fixture::new("status-missing", Some("incomplete"), Some(b"PGDMP"));
-    f.set_report(
-        r#"{"version":1,"state":"incomplete","backup":"x","runs":[],"missing":[
-            {"kind":"notes","id":"a","reason":"r"},
+    let missing = r#"{"kind":"notes","id":"a","reason":"r"},
             {"kind":"ink","id":"b","reason":"r"},
-            {"kind":"notes","id":"c","reason":"r"}]}"#,
-    );
+            {"kind":"notes","id":"c","reason":"r"}"#;
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"incomplete","backup":"x","runs":[{}]}}"#,
+        run_missing(missing)
+    ));
     let value = serde_json::to_value(migration_status(&f.folder, &f.pg_root)).unwrap();
     assert_eq!(value["missing"], serde_json::json!(["ink", "notes"]));
     assert!(

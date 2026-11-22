@@ -78,7 +78,7 @@ pub fn remove_old_data(
         }
     }
     check_backup(folder)?;
-    if report["missing"].as_array().is_some_and(|m| !m.is_empty()) {
+    if !newest_missing(&report)?.is_empty() {
         return Err("refused: report lists missing items".to_owned());
     }
     if state == "verified" {
@@ -114,6 +114,26 @@ pub fn remove_old_data(
     report["state"] = "removed".into();
     report["removedAt"] = now.into();
     write_json_atomic(&report_path, &report)
+}
+
+/// The `missing` list of the newest run, as the TS writer puts it (`runs[last].missing`).
+/// A report with no run has not been verified by a run, so it refuses.
+pub fn newest_missing(report: &serde_json::Value) -> Result<Vec<String>, String> {
+    let runs = report["runs"]
+        .as_array()
+        .ok_or("refused: report has no runs; verify again")?;
+    let last = runs
+        .last()
+        .ok_or("refused: report has no run; verify again")?;
+    Ok(last["missing"]
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .map(|item| item["kind"].as_str().unwrap_or("?").to_owned())
+                .collect()
+        })
+        .unwrap_or_default())
 }
 
 /// The verify must be at most `VERIFY_WINDOW_MS` old: the UI runs the TS verify right before
