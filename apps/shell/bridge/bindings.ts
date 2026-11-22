@@ -34,6 +34,12 @@ export const commands = {
 	secretWrite: (name: string, value: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_write", { name, value })),
 	/**  Forgets a secret the page may write. */
 	secretClear: (name: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_clear", { name })),
+	/**  One-time move of the old local secrets row into the keychain (0.9.7). */
+	migrate097MoveSecrets: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("migrate_097_move_secrets")),
+	/**  Whether the old local database folder is gone (no old secrets to move). Read only. */
+	legacyDbPresent: () => __TAURI_INVOKE<boolean>("legacy_db_present"),
+		/**  Whether the old local database folder is gone. Read only. */
+		legacyDirMissing: () => __TAURI_INVOKE<boolean>("legacy_dir_missing"),
 	/**
 	 *  Writes claimed SDK inbox rows into the experiment folders and returns the
 	 *  ids that are safe to ack.

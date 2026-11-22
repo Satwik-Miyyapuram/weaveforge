@@ -90,6 +90,13 @@ impl LocalDb {
         self.native.as_ref().map_err(Clone::clone)
     }
 
+    /// True when the old database folder exists. Metadata only: the database is never opened.
+    /// An unnamed folder (no native database) is not present.
+    #[must_use]
+    pub fn legacy_db_present(&self) -> bool {
+        !self.data_dir.is_empty() && std::path::Path::new(&self.data_dir).exists()
+    }
+
     /// Runs `sql` with `params` and returns the rows.
     pub async fn query(&self, sql: String, params: Vec<Value>) -> Result<Vec<Value>, ShellError> {
         self.native()?
@@ -263,6 +270,9 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         crate::prefs::preference_write,
         crate::secrets::secret_read,
         crate::secrets::secret_write,
+        crate::secrets_moved::migrate_097_move_secrets,
+        crate::secrets_moved::legacy_db_present,
+        crate::secrets_moved::legacy_dir_missing,
         crate::secrets::secret_clear,
         crate::cmd_experiments::sdk_inbox_drain,
         crate::device_settings::device_settings_read,
