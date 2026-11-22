@@ -63,7 +63,8 @@ import { rustAiStores, rustShareLinkRepository } from "@/backend/providers/postg
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import { readBackendConfig } from "@/backend/parts";
 import { decideBrowserSwitchFromConfig, openMarkedBrowserFiles } from "./container/browser-switch-wiring";
-import { retrySwitch } from "./container/browser-switch-retry";
+import { retrySwitch, setSwitchRetryNeeded } from "./container/browser-switch-retry";
+import { chooseBrowserStart, localSwitchPending } from "./container/browser-readonly-fallback-098";
 import {
   PapersFacade,
   PaperFieldsFacade,
@@ -174,8 +175,12 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // Browser and Android: a present switch marker opens OPFS files directly, with no export. Without one the
   // 0.9.7 export runs off the startup path; a verified run writes the marker and reloads into files mode.
   // A missing session, failed run or timeout keeps the server backend for this start.
-  const browserFiles = shell ? undefined : ((await openMarkedBrowserFiles()) ?? undefined);
-  if (!shell && !browserFiles) {
+  // A marker whose files do not open, or a switch left pending by a failed marker write, starts read-only
+  // with the retry banner: no user write reaches the server until the files are proven.
+  const probe = shell ? null : await openMarkedBrowserFiles();
+  const start = probe ? chooseBrowserStart(probe, localSwitchPending().isPending()) : null;
+  if (start && start.mode !== "files") {
+    setSwitchRetryNeeded(start.mode === "read-only");
     void retrySwitch(
       () => decideBrowserSwitchFromConfig(readBackendConfig(), shell),
       () => window.location.reload(),
@@ -185,7 +190,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     migration,
     onDesktop: Boolean(shell),
     wireDesktopFileBackend: shell ? wireDesktopFileBackend(shell, workspaceSettings) : undefined,
-    wireBrowserFileBackend: browserFiles,
+    wireBrowserFileBackend: start?.mode === "files" ? start.wiring : undefined,
+    readOnlyServer: start?.mode === "read-only",
   });
   const watchDb = serverDbToWatch(backend);
   if (watchDb) projectLww.watch(watchDb, pid());

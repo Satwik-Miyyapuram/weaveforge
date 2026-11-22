@@ -64,7 +64,7 @@ test("(item1) a present marker opens the files wiring", async () => {
     opened += 1;
     return WIRING;
   });
-  assert.equal(out, WIRING);
+  assert.deepEqual(out, { state: "opened", wiring: WIRING });
   assert.equal(opened, 1);
 });
 
@@ -74,7 +74,7 @@ test("(item1) no marker: the files wiring is not opened and the caller stays on 
     opened += 1;
     return WIRING;
   });
-  assert.equal(out, null);
+  assert.deepEqual(out, { state: "absent" });
   assert.equal(opened, 0);
 });
 
@@ -86,15 +86,15 @@ test("(item1) an unreadable marker counts as absent: nothing opens and the serve
     opened += 1;
     return WIRING;
   });
-  assert.equal(out, null);
+  assert.deepEqual(out, { state: "absent" });
   assert.equal(opened, 0);
 });
 
-test("(item1) a marker whose files fail to open returns null instead of throwing", async () => {
+test("(item6) a marker whose files fail to open is 'failed', not 'absent', and never throws", async () => {
   const sink = new MemorySink();
   await writeSwitchMarker(sink, MARKED);
   const out = await openFilesIfSwitched(sink, async () => {
     throw new Error("opfs locked");
   });
-  assert.equal(out, null);
+  assert.deepEqual(out, { state: "failed" });
 });

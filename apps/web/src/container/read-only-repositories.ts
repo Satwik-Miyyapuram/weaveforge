@@ -9,6 +9,13 @@
  */
 export const READ_ONLY_MESSAGE = "read-only until export verified";
 
+/** Thrown by every refused write, so callers can tell a read-only refusal from a real failure. */
+export class ReadOnlyError extends Error {
+  constructor() {
+    super(READ_ONLY_MESSAGE);
+  }
+}
+
 const WRITE_VERB =
   /^(create|save|set|update|upsert|put|add|insert|delete|remove|move|rename|pin|unpin|track|untrack|clear|reset|import|append|write|link|unlink|mark|apply|submit|record|touch|reorder|replace|share|revoke|accept|reject|dismiss|store|sync|bind|register|enqueue|claim|release|lock|unlock|commit|flush|purge|trash|restore)/;
 
@@ -36,7 +43,7 @@ export function readOnlyRepository<T extends object>(repo: T): T {
     const original = (repo as Record<string, unknown>)[name] as (...args: unknown[]) => unknown;
     wrapped[name] = isWriteMethod(name)
       ? () => {
-          throw new Error(READ_ONLY_MESSAGE);
+          throw new ReadOnlyError();
         }
       : (...args: unknown[]) => original.apply(repo, args);
   }

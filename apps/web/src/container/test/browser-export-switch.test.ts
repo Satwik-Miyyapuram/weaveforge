@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { decideBrowserSwitch, type SwitchDeps } from "../browser-export-switch";
 import { MemorySink } from "../../features/migration-097/infrastructure/memory-sink";
 import { REPORT_PATH, readMigrationReport } from "../../features/migration-097/domain/report";
-import { readSwitchMarker } from "../../features/migration-097/domain/switch-marker";
+import { SWITCH_MARKER_PATH, readSwitchMarker } from "../../features/migration-097/domain/switch-marker";
 
 const WIRING = { wiring: true, close: async () => {} } as unknown as Awaited<ReturnType<SwitchDeps["openWiring"]>>;
 
@@ -331,4 +331,39 @@ test("(item1) a failed server mark writes no switched marker", async () => {
   });
   await decideBrowserSwitch(h.deps);
   assert.equal(await readSwitchMarker(sink), null);
+});
+
+/** A sink whose switched-marker write fails, after every other write succeeds. */
+class MarkerWriteFailsSink extends MemorySink {
+  override async write(path: string, text: string): Promise<void> {
+    if (path === SWITCH_MARKER_PATH) throw new Error("disk full");
+    return super.write(path, text);
+  }
+}
+
+test("(P1-6) markExported097 ran but the marker write failed: pending is set, the run is an error", async () => {
+  const events: string[] = [];
+  const h = harness({
+    openSink: async () => new MarkerWriteFailsSink(),
+    pending: {
+      set: () => void events.push("set"),
+      clear: () => void events.push("clear"),
+    },
+  });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.deepEqual(out, { switch: false, reason: "error" });
+  assert.deepEqual(events, ["set"]);
+});
+
+test("(P1-6) a successful switch sets pending and clears it once the marker is written", async () => {
+  const events: string[] = [];
+  const h = harness({
+    pending: {
+      set: () => void events.push("set"),
+      clear: () => void events.push("clear"),
+    },
+  });
+  const out = await decideBrowserSwitch(h.deps);
+  assert.equal(out.switch, true);
+  assert.deepEqual(events, ["set", "clear"]);
 });

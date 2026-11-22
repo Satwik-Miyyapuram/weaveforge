@@ -366,6 +366,11 @@ export interface PersonalFileWiring {
     projectContext: { projectId: string | null },
     pid: () => string | null,
   ) => WiredBackend;
+  /**
+   * 0.9.8 browser fallback: the switch is not proven, so the server backend is wired read-only
+   * (every write throws ReadOnlyError) and nothing reaches the server as a write.
+   */
+  readOnlyServer?: boolean;
 }
 
 export function wireBackend(
@@ -379,6 +384,7 @@ export function wireBackend(
   // only runtime switch.
   switch (config.provider) {
     case "postgrest": {
+      if (files?.readOnlyServer) return readOnlyBackend(wirePostgrestBackend(config, projectContext, pid));
       // The desktop shell wires its own files; without that wiring it stays read-only.
       const wire = files?.onDesktop ? files.wireDesktopFileBackend : files?.wireBrowserFileBackend;
       return chooseFileBackend(

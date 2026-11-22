@@ -27,6 +27,11 @@ export type SwitchDeps = {
   /** Runs a fresh export and reports `switch` only when that run verified. */
   gate: (opts: ExportOptions) => Promise<{ switch: boolean }>;
   openWiring: () => Promise<BrowserFileWiring>;
+  /**
+   * P1 pending flag. Set once the server mark is written, cleared once the switch marker is written.
+   * A switch left pending (marker write failed) makes the next start read-only, never server-writable.
+   */
+  pending?: { set(): void; clear(): void };
 };
 
 export type SwitchDecision =
@@ -75,6 +80,7 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
       await wiring.close();
       throw err;
     }
+    deps.pending?.set();
     await recordServerMarked(sink);
     // Written last: a browser with this marker opens files directly on its next start.
     try {
@@ -84,6 +90,7 @@ export async function decideBrowserSwitch(deps: SwitchDeps): Promise<SwitchDecis
       await wiring.close();
       throw err;
     }
+    deps.pending?.clear();
     return { switch: true, wiring };
   } catch {
     return { switch: false, reason: "error" };

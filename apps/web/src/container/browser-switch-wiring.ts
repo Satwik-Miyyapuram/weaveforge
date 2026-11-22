@@ -9,7 +9,8 @@ import { workspaceFsAsSink } from "@/features/migration-097/infrastructure/works
 import { BrowserWorkspaceFs } from "@/features/workspace/infrastructure/parts";
 import { decideBrowserSwitch, type SwitchDecision, type SwitchSession } from "./browser-export-switch";
 import { openBrowserFileWiring, type BrowserFileWiring } from "./browser-file-backend";
-import { openFilesIfSwitched } from "./browser-switch-background";
+import { openFilesIfSwitched, type MarkerProbe } from "./browser-switch-background";
+import { localSwitchPending } from "./browser-readonly-fallback-098";
 import { HttpBlobStore } from "@/storage/providers/http/http-blob-store";
 
 /** Signed download URLs for the export's blob reads live for five minutes. */
@@ -54,18 +55,20 @@ export async function decideBrowserSwitchFromConfig(
     now: () => new Date().toISOString(),
     gate: gateOpfsSwitch,
     openWiring: openBrowserFileWiring,
+    pending: localSwitchPending(),
   });
 }
 
 /**
- * Startup path for a browser that already switched: a present marker opens the files wiring with no
- * export. Null means the server path. A failed OPFS open also reads as null, and this never rejects.
+ * Startup probe for a browser that may already have switched. A present marker opens the files wiring
+ * with no export (`opened`); no readable marker is `absent`. An OPFS that cannot open, or a marker whose
+ * files do not open, is `failed`: the browser stays read-only rather than writing to the server. Never rejects.
  */
-export async function openMarkedBrowserFiles(): Promise<BrowserFileWiring | null> {
+export async function openMarkedBrowserFiles(): Promise<MarkerProbe> {
   try {
     const sink = workspaceFsAsSink(await BrowserWorkspaceFs.openOpfs());
     return await openFilesIfSwitched(sink, openBrowserFileWiring);
   } catch {
-    return null;
+    return { state: "failed" };
   }
 }

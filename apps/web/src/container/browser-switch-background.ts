@@ -3,23 +3,36 @@ import type { BrowserFileWiring } from "./browser-file-backend";
 import { readSwitchMarker, type MarkerSink } from "@/features/migration-097/domain/switch-marker";
 
 /**
+ * What the switch marker says about this browser. `absent`: no readable marker, so the export has not
+ * run here. `opened`: the marker is present and the files wiring opened. `failed`: the marker is present
+ * but the files would not open, so the browser must not fall back to the writable server path.
+ */
+export type MarkerProbe =
+  | { state: "absent" }
+  | { state: "opened"; wiring: BrowserFileWiring }
+  | { state: "failed" };
+
+/**
  * A present switch marker means this browser already switched: open the files wiring directly, with
- * no export. Resolves null when the marker is absent or unreadable, or when the files cannot open,
- * so the caller stays on the server path. It never rejects.
+ * no export. It never rejects.
  */
 export async function openFilesIfSwitched(
   sink: MarkerSink,
   openWiring: () => Promise<BrowserFileWiring>,
-): Promise<BrowserFileWiring | null> {
-  if ((await readSwitchMarker(sink)) === null) return null;
+): Promise<MarkerProbe> {
+  if ((await readSwitchMarker(sink)) === null) return { state: "absent" };
   try {
-    return await openWiring();
+    return { state: "opened", wiring: await openWiring() };
   } catch {
-    return null;
+    return { state: "failed" };
   }
 }
 
-/** Upper bound on the background export. A run past this settles to null and startup keeps the server backend. */
+/**
+ * Upper bound on the background export. The export is not a fixed-length operation: it reads every
+ * file and uploads over the network, so a slow link can take minutes. A run past this bound settles to
+ * null and startup stays on the server backend for this load, with the switch retried on the next one.
+ */
 export const BROWSER_SWITCH_TIMEOUT_MS = 120_000;
 
 /**
