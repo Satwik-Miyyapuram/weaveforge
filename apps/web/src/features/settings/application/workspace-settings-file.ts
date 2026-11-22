@@ -7,6 +7,8 @@
 import type { IWorkspaceFs } from "@weaveforge/core";
 
 export const SETTINGS_PATH = ".weaveforge/settings.json";
+/** Edits a close could not write; merged on the next load, removed once a write lands. */
+export const PARKED_PATH = ".weaveforge/settings.pending.json";
 export const SETTINGS_VERSION = 1;
 export const SETTINGS_WRITE_DELAY_MS = 500;
 /** Compare-and-swap attempts per flush; each re-reads and re-merges before retrying. */
@@ -65,6 +67,10 @@ interface PendingSet {
   value: unknown;
 }
 
+/** Credentials never go in a settings file, parked or not. */
+const SECRET_SEGMENT = /secret|token|password|apikey|api_key|credential/i;
+const isSecretKey = (key: SettingsKey): boolean => key.some((seg) => SECRET_SEGMENT.test(seg));
+
 /** Writes `value` at `key`, creating intermediate objects; `undefined` deletes the leaf. */
 function putAt(doc: SettingsDoc, key: SettingsKey, value: unknown): void {
   let obj: Record<string, unknown> = doc;
@@ -86,6 +92,7 @@ export class WorkspaceSettingsFile {
   private generation = 0;
   private timer: unknown = null;
   private failedSaves = 0;
+  private parkedOnDisk = false;
   private writing: Promise<void> = Promise.resolve();
   private flushing = 0;
   private listeners = new Set<() => void>();
@@ -129,7 +136,10 @@ export class WorkspaceSettingsFile {
   async load(): Promise<void> {
     const fs = this.deps.fs();
     if (!fs) return;
-    const run = this.writing.then(() => this.reload(fs));
+    const run = this.writing.then(async () => {
+      await this.mergeParked(fs);
+      await this.reload(fs);
+    });
     this.writing = run.catch(() => undefined);
     await run;
   }
@@ -143,6 +153,12 @@ export class WorkspaceSettingsFile {
     } finally {
       this.flushing -= 1;
     }
+  }
+
+  /** Flushes, then parks any edit still unsaved so the next load merges it. For window close. */
+  async close(): Promise<void> {
+    await this.flush();
+    await this.park();
   }
 
   /** Whether a change waits or a write is still on its way; the desktop close waits on it. */
@@ -173,6 +189,46 @@ export class WorkspaceSettingsFile {
 
   private async readDisk(fs: IWorkspaceFs): Promise<string | null> {
     return (await fs.stat(SETTINGS_PATH)) ? fs.readText(SETTINGS_PATH) : null;
+  }
+
+  private async park(): Promise<void> {
+    const fs = this.deps.fs();
+    if (!fs) return;
+    const entries = [...this.pending.values()].filter((p) => !isSecretKey(p.key));
+    if (entries.length === 0) return;
+    try {
+      await fs.mkdirp(".weaveforge");
+      await fs.writeFile(PARKED_PATH, JSON.stringify(entries));
+      this.parkedOnDisk = true;
+    } catch (err) {
+      this.deps.warn(`${PARKED_PATH} not written: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  private async mergeParked(fs: IWorkspaceFs): Promise<void> {
+    if (!(await fs.stat(PARKED_PATH))) return;
+    let entries: PendingSet[];
+    try {
+      entries = JSON.parse(await fs.readText(PARKED_PATH)) as PendingSet[];
+    } catch {
+      this.deps.warn(`${PARKED_PATH} is damaged; leaving it as it is.`);
+      return;
+    }
+    for (const p of entries) {
+      if (!Array.isArray(p.key) || p.key.length === 0 || isSecretKey(p.key)) continue;
+      this.pending.set(p.key.join("\u0000"), { key: p.key, value: p.value });
+      putAt(this.doc, p.key, p.value);
+    }
+    this.parkedOnDisk = true;
+    this.generation += 1;
+    this.notify();
+    this.scheduleWrite();
+  }
+
+  private async dropParked(fs: IWorkspaceFs): Promise<void> {
+    if (!this.parkedOnDisk) return;
+    await fs.remove(PARKED_PATH);
+    this.parkedOnDisk = false;
   }
 
   private async reload(fs: IWorkspaceFs): Promise<void> {
@@ -226,8 +282,10 @@ export class WorkspaceSettingsFile {
           this.lastText = text;
           this.stateValue = "ready";
           this.failedSaves = 0;
-          if (this.generation === gen) this.pending.clear();
-          else this.scheduleWrite();
+          if (this.generation === gen) {
+            this.pending.clear();
+            await this.dropParked(fs);
+          } else this.scheduleWrite();
           return;
         }
         this.adopt(await this.readDisk(fs));
