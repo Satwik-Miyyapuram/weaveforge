@@ -9,7 +9,7 @@ import type { KindWriter } from "../domain/kind-writer";
 import { defsToSettings, projectDefsMismatches, type FileFieldValue } from "../domain/paper-fields-file";
 import type { FileCodec, FileSink, Row, ServerSource } from "../domain/ports";
 import { runWebExport } from "../application/run-web-export";
-import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
+import { createPaperFieldsWriter, valueWriteError } from "../infrastructure/kind-writer-paper-fields";
 import { createTagsWriter } from "../infrastructure/kind-writer-tags";
 import { MemorySink } from "../infrastructure/memory-sink";
 import { sinkAsWorkspaceFs } from "../infrastructure/sink-workspace-fs";
@@ -361,6 +361,12 @@ test("allowlist: a conflict in a kind that is not a paper field carries no value
   const row = result.run.missing.find((m) => m.kind === "widgets" && m.id === "w1") as { value?: unknown } | undefined;
   assert.ok(row, "the conflict is still listed");
   assert.equal("value" in (row ?? {}), false, "only paper field kinds carry their DB value");
+});
+
+test("paper field value: a plain Error that only starts conflict: is a write failure, not a kept-value conflict", () => {
+  const err = valueWriteError(new Error("conflict: paper field value differs"), "NeurIPS");
+  assert.ok(!(err instanceof ConflictError), "a message prefix alone does not make a conflict");
+  assert.equal((err as Error & { code?: string }).code, "paper-value-write-failed");
 });
 
 test("e2e: a user's paper file survives two exports, body and keys unchanged", async () => {
