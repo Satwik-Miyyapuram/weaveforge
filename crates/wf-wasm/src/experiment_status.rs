@@ -38,6 +38,27 @@ pub fn experiment_activity_at_js(
     Ok(experiment_status::experiment_activity_at(&experiment))
 }
 
+/// [`status_patch_for_experiment`](experiment_status::status_patch_for_experiment): the status and
+/// both timestamps after a move to `status` at `now`. An absent timestamp is cleared.
+///
+/// # Errors
+///
+/// Fails if `experiment` or `status` has the wrong shape.
+#[wasm_bindgen(js_name = statusPatchForExperiment, unchecked_return_type = "Pick<B.Experiment, \"status\" | \"startedAt\" | \"finishedAt\">")]
+pub fn status_patch_for_experiment_js(
+    #[wasm_bindgen(unchecked_param_type = "B.Experiment")] experiment: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "B.ExperimentStatus")] status: JsValue,
+    now: &str,
+) -> JsResult<JsValue> {
+    let experiment: Experiment = serde_wasm_bindgen::from_value(experiment)?;
+    let status = serde_wasm_bindgen::from_value(status)?;
+    to_js(&experiment_status::status_patch_for_experiment(
+        &experiment,
+        status,
+        now,
+    ))
+}
+
 /// [`is_stale_running_experiment`](experiment_status::is_stale_running_experiment); `undefined` last
 /// metric time means none. `nowMs` defaults to `Date.now()`, `staleMs` to [`STALE_RUNNING_MS`].
 ///

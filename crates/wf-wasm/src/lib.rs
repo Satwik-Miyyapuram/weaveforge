@@ -618,6 +618,7 @@ mod markdown_input_mermaid;
 mod mcp_client_config;
 mod mcp_config_rewrite;
 mod metric_chart_data;
+mod metric_csv;
 mod migrated_notice;
 mod milestone_rows;
 mod nav_open_groups;
