@@ -39,6 +39,13 @@ test("remove of a missing file is an error", async () => {
   await assert.rejects(sink.remove("missing.md"));
 });
 
+test("remove of a folder is refused: the port removes one file", async () => {
+  const sink = workspaceFsAsSink(new MemoryWorkspaceFs());
+  await sink.write("papers/a.md", "x");
+  await assert.rejects(sink.remove("papers"), /ENOENT/);
+  assert.equal(await sink.exists("papers/a.md"), true);
+});
+
 test("a path that escapes the sink is refused", async () => {
   const sink = workspaceFsAsSink(new MemoryWorkspaceFs());
   await assert.rejects(sink.write("../outside.md", "x"), /escapes/);

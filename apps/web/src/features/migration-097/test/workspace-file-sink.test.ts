@@ -28,6 +28,7 @@ function memoryFs(files: Record<string, string> = {}): OpfsLike & { files: Recor
     async remove(path) {
       delete store[path];
     },
+    async mkdirp() {},
     async stat(path) {
       if (path in store) return { path, size: (store[path] ?? "").length, modifiedAt: "", kind: "file" as const };
       return null;
@@ -73,6 +74,27 @@ test("writeIf writes only while the file still reads the expected text", async (
   assert.equal(fs.files["a.md"], "old");
   assert.equal(await sink.writeIf("a.md", "new", "old"), true);
   assert.equal(fs.files["a.md"], "new");
+});
+
+test("one adapter: workspaceFileSink creates parent folders and refuses an escaping path", async () => {
+  const fs = memoryFs();
+  const made: string[] = [];
+  const sink = workspaceFileSink({ ...fs, mkdirp: async (dir: string) => void made.push(dir) });
+  await sink.write("logs/day/a.md", "hello");
+  assert.deepEqual(made, ["logs/day"]);
+  await assert.rejects(sink.write("../outside.md", "x"), /escapes/);
+});
+
+test("list leaves out folder entries the walk yields", async () => {
+  const fs = memoryFs({ "dir/b.md": "2" });
+  const sink = workspaceFileSink({
+    ...fs,
+    async *walk() {
+      yield { path: "dir", size: 0, modifiedAt: "", kind: "dir" as const };
+      yield { path: "dir/b.md", size: 1, modifiedAt: "", kind: "file" as const };
+    },
+  });
+  assert.deepEqual(await sink.list(), ["dir/b.md"]);
 });
 
 test("rename moves the file", async () => {

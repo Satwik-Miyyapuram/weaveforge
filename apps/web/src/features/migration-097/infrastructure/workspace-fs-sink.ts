@@ -17,7 +17,13 @@ function norm(path: string): string {
  * web export can write its verified bytes into the real OPFS workspace.
  * The reverse of sinkAsWorkspaceFs. Parent directories are created on write.
  */
-export function workspaceFsAsSink(fs: IWorkspaceFs): FileSink {
+/** The slice of IWorkspaceFs the sink uses; BrowserWorkspaceFs and MemoryWorkspaceFs both fit. */
+export type SinkFs = Pick<
+  IWorkspaceFs,
+  "mkdirp" | "writeFile" | "walk" | "readText" | "readFile" | "stat" | "rename" | "remove" | "writeTextIf"
+>;
+
+export function workspaceFsAsSink(fs: SinkFs): FileSink {
   return {
     async write(path, data) {
       const clean = norm(path);
@@ -27,7 +33,7 @@ export function workspaceFsAsSink(fs: IWorkspaceFs): FileSink {
     },
     async list() {
       const names: string[] = [];
-      for await (const entry of fs.walk("")) names.push(norm(entry.path));
+      for await (const entry of fs.walk("")) if (entry.kind === "file") names.push(norm(entry.path));
       return names;
     },
     readText: (path) => fs.readText(norm(path)),
@@ -46,7 +52,8 @@ export function workspaceFsAsSink(fs: IWorkspaceFs): FileSink {
     },
     async remove(path) {
       const clean = norm(path);
-      if ((await fs.stat(clean)) === null) throw new Error(`no such file: ${clean}`);
+      // The port removes one file; a missing path or a folder is an error, never a recursive delete.
+      if ((await fs.stat(clean))?.kind !== "file") throw new Error(`ENOENT: no such file: ${clean}`);
       await fs.remove(clean);
     },
   };
