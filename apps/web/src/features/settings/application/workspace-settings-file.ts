@@ -101,6 +101,8 @@ export class WorkspaceSettingsFile {
   private readonly schedule: (fn: () => void, ms: number) => unknown;
   private readonly cancel: (handle: unknown) => void;
   private warnedNoFolder = false;
+  /** The folder the last load() read; a different one is a new workspace, so lastText is stale. */
+  private boundFs: IWorkspaceFs | null = null;
 
   constructor(deps: SettingsDeps) {
     this.deps = deps;
@@ -134,9 +136,22 @@ export class WorkspaceSettingsFile {
     };
   }
 
+  /**
+   * Reads the workspace file and merges parked edits. Edits made while no folder was open
+   * wait in memory and go to the next workspace opened (accepted behaviour).
+   */
   async load(): Promise<void> {
     const fs = this.deps.fs();
-    if (!fs) return;
+    if (!fs) {
+      this.boundFs = null;
+      this.lastText = null;
+      return;
+    }
+    if (fs !== this.boundFs) {
+      this.boundFs = fs;
+      this.lastText = null;
+    }
+    this.warnedNoFolder = false;
     const run = this.writing.then(async () => {
       await this.mergeParked(fs);
       await this.reload(fs);
@@ -156,15 +171,30 @@ export class WorkspaceSettingsFile {
     }
   }
 
-  /** Flushes, then parks any edit still unsaved so the next load merges it. For window close. */
+  /**
+   * Flushes, then parks any edit still unsaved so the next load merges it. For window close.
+   * With no folder open nothing can be parked, so the unsaved keys are named in a warning.
+   */
   async close(): Promise<void> {
     await this.flush();
     await this.park();
+    if (!this.deps.fs() && this.pending.size > 0) {
+      this.deps.warn(`Settings not saved, no workspace folder open: ${this.unsavedKeys()}.`);
+    }
   }
 
   /** Whether a change waits or a write is still on its way; the desktop close waits on it. */
   busy(): boolean {
     return this.timer !== null || this.flushing > 0;
+  }
+
+  /** Whether an edit is still unsaved, including one made while no folder is open. */
+  dirty(): boolean {
+    return this.pending.size > 0;
+  }
+
+  private unsavedKeys(): string {
+    return [...this.pending.values()].map((p) => p.key.join(".")).join(", ");
   }
 
   state(): SettingsState {
@@ -187,7 +217,7 @@ export class WorkspaceSettingsFile {
     if (!this.deps.fs()) {
       if (!this.warnedNoFolder) {
         this.warnedNoFolder = true;
-        this.deps.warn("no workspace folder is open; settings are kept in memory until it is.");
+        this.deps.warn("no workspace folder is open; settings edits wait in memory for the next workspace you open.");
       }
       return;
     }
@@ -241,7 +271,10 @@ export class WorkspaceSettingsFile {
 
   private async reload(fs: IWorkspaceFs): Promise<void> {
     const text = await this.readDisk(fs);
-    if (text !== null && text === this.lastText) return;
+    if (text !== null && text === this.lastText) {
+      if (this.pending.size > 0) this.scheduleWrite();
+      return;
+    }
     this.adopt(text);
   }
 
@@ -287,6 +320,7 @@ export class WorkspaceSettingsFile {
           ? await fs.writeTextIf(SETTINGS_PATH, text, this.lastText)
           : await this.checkedFallback(fs, text);
         if (ok) {
+          this.boundFs = fs;
           this.lastText = text;
           this.stateValue = "ready";
           this.failedSaves = 0;

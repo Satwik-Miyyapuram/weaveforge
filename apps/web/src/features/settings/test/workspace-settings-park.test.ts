@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { IWorkspaceFs } from "@weaveforge/core";
-import { WorkspaceSettingsFile, SETTINGS_PATH } from "../application/workspace-settings-file";
+import { WorkspaceSettingsFile, SETTINGS_PATH, renderSettings } from "../application/workspace-settings-file";
 
 const PARKED = ".weaveforge/settings.pending.json";
 
@@ -90,5 +90,62 @@ test("with no workspace folder open, edits stay in memory, warn once, and close(
   file.set(["ui", "zoom"], 2);
   await assert.doesNotReject(file.close());
   assert.deepEqual(file.get(["ink", "toolColours"]), { a: "#000" }, "the edit is kept in memory");
-  assert.equal(warnings.length, 1, "warns exactly once while no folder is open");
+  assert.equal(warnings.filter((m) => m.startsWith("no workspace folder is open")).length, 1, "warns exactly once while no folder is open");
+});
+
+test("closing with no folder open names the unsaved keys", async () => {
+  const warnings: string[] = [];
+  const file = new WorkspaceSettingsFile({
+    fs: () => null,
+    warn: (m: string) => warnings.push(m),
+    schedule: () => 0,
+    cancel: () => {},
+  });
+  await file.load();
+  file.set(["ink", "toolColours"], { a: "#fff" });
+  file.set(["ui", "zoom"], 2);
+  await file.close();
+  assert.ok(
+    warnings.some((m) => m.includes("ink.toolColours") && m.includes("ui.zoom")),
+    `close must name the unsaved keys, got: ${JSON.stringify(warnings)}`,
+  );
+});
+
+test("dirty() is true while an edit waits, even with no folder open", () => {
+  const file = new WorkspaceSettingsFile({
+    fs: () => null,
+    warn: () => {},
+    schedule: () => 0,
+    cancel: () => {},
+  });
+  assert.equal(file.dirty(), false);
+  file.set(["ui", "zoom"], 2);
+  assert.equal(file.dirty(), true);
+});
+
+test("reopening an unchanged file writes the edits made while no folder was open", async () => {
+  const files = new Map<string, string>([[SETTINGS_PATH, renderSettings({})]]);
+  const scheduled: Array<() => void> = [];
+  let current: ReturnType<typeof memoryFs> | null = memoryFs(files, { on: false });
+  const file = new WorkspaceSettingsFile({
+    fs: () => current as unknown as IWorkspaceFs | null,
+    warn: () => {},
+    schedule: (fn: () => void) => {
+      scheduled.push(fn);
+      return 0;
+    },
+    cancel: () => {},
+  });
+  await file.load();
+  current = null;
+  file.set(["ui", "zoom"], 2);
+  await file.close();
+  current = memoryFs(files, { on: false });
+  await file.load();
+  assert.ok(scheduled.length > 0, "load must schedule the pending edit even when the disk text is unchanged");
+  const last = scheduled[scheduled.length - 1];
+  assert.ok(last);
+  last();
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(JSON.parse(files.get(SETTINGS_PATH) ?? "{}").ui.zoom, 2);
 });
