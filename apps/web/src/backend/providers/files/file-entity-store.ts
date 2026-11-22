@@ -9,6 +9,7 @@
  * - A save never overwrites a file changed on disk since it was read.
  * - A delete moves the file to `.weaveforge/trash/<day>/`; nothing is unlinked.
  * - One bad file (unreadable, newer format) is skipped and reported, never fatal.
+ * - A bad file is kept as it is: a save never takes its path or (when its header shows it) its id.
  */
 import type { IWorkspaceFs } from "@weaveforge/core";
 import { readyCore } from "@/lib/rust-core";
@@ -56,7 +57,17 @@ export async function writeIfUnchanged(
   }
 }
 
+/** A file that could not be read: kept as it is; its id (when its header shows one) is never reused. */
+interface HeldFile {
+  path: string;
+  id: string | null;
+}
+
+const ID_LINE = /^weaveforge-id:[ \t]*"?([^"\r\n]*?)"?[ \t]*$/m;
+
 export class FileEntityStore<T extends { id: string }> {
+  private held: HeldFile[] = [];
+
   constructor(
     private readonly fs: IWorkspaceFs,
     private readonly root: ProjectRoot,
@@ -67,22 +78,34 @@ export class FileEntityStore<T extends { id: string }> {
   async readAll(): Promise<FoundEntity<T>[]> {
     const core = readyCore();
     const dir = core.entityDir(this.kind, this.root());
+    this.held = [];
     if (!(await this.fs.stat(dir))) return [];
     const found: FoundEntity<T>[] = [];
     for await (const entry of this.fs.walk(dir)) {
       if (entry.kind !== "file" || !entry.path.endsWith(".md")) continue;
       let row: Record<string, unknown> | null;
-      let text: string;
+      let text = "";
       try {
         text = await this.fs.readText(entry.path);
         row = core.entityRowFromFile(this.kind, text);
       } catch (error) {
         console.warn(`Skipped ${entry.path}: could not read it.`, error);
+        this.held.push({ path: entry.path, id: ID_LINE.exec(text)?.[1] ?? null });
         continue;
       }
       if (row) found.push({ path: entry.path, text, row: row as T });
     }
     return found.sort((a, b) => a.path.localeCompare(b.path));
+  }
+
+  /** A path no file holds yet (readable or not): the codec's, or `…--id-2.<kind>.md`, `-3`… */
+  private async freePath(path: string): Promise<string> {
+    const at = path.lastIndexOf("--");
+    for (let n = 1; ; n += 1) {
+      const candidate = n === 1 ? path : `${path.slice(0, at)}-${n}${path.slice(at)}`;
+      if (!(await this.fs.stat(candidate))) return candidate;
+      if (n >= TRASH_NAME_ATTEMPTS) throw new Error(`${path}: no free name; not saved.`);
+    }
   }
 
   async all(): Promise<T[]> {
@@ -101,10 +124,18 @@ export class FileEntityStore<T extends { id: string }> {
   async save(row: T): Promise<void> {
     const core = readyCore();
     const found = await this.find(row.id);
+    const blocked = this.held.find((h) => h.id === row.id);
+    if (blocked && !found) {
+      throw new Error(`${blocked.path} could not be read; not saved over or duplicated. Fix or move that file first.`);
+    }
     const plain = JSON.parse(JSON.stringify(row)) as Record<string, unknown>;
-    const path = found?.path ?? core.entityPath(this.kind, plain, this.root());
     const text = core.entityFileFromRow(this.kind, found?.text ?? null, plain);
-    await writeIfUnchanged(this.fs, path, text, found?.text ?? null);
+    if (found) {
+      await writeIfUnchanged(this.fs, found.path, text, found.text);
+      return;
+    }
+    const path = await this.freePath(core.entityPath(this.kind, plain, this.root()));
+    await writeIfUnchanged(this.fs, path, text, null);
   }
 
   /** Moves the row's file to the trash; a missing id is not an error. */
