@@ -17,7 +17,6 @@ import { invalidateAllRepoCaches } from "@/lib/cache/parts-1";
 import { clearAllScreenCaches } from "@/lib/cache/parts-2";
 import { setSessionLost } from "@/lib/parts";
 import { loadCore } from "@/lib/rust-core";
-import { localFirstActive, setLocalFirstAccount } from "@/backend/providers/local/local-first-marker";
 import { logToApp } from "@/lib/error-report/app-log";
 import { completeDesktopSignIn } from "./complete-desktop-sign-in";
 
@@ -79,7 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           signingOut: signingOut.current,
           wasExpired: wasExpired.current,
           desktop: Boolean(desktop()),
-          localAccount: localFirstActive,
+          // 0.9.8 keeps no local-copy marker: there is no other account's copy to find.
+          localAccount: () => null,
         });
         switch (step.kind) {
           case "offline":
@@ -104,7 +104,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(null);
             return;
           case "otherAccountOnDisk":
-            setLocalFirstAccount(null);
             clearSessionCaches();
             window.location.reload();
             return;
@@ -162,10 +161,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     signingOut.current = true;
     wasExpired.current = false;
-    // Signing out on purpose hands the window back to the server: the copy on
-    // disk stays, and signing in again picks it up.
-    const wasLocalFirst = localFirstActive() !== null;
-    setLocalFirstAccount(null);
     setSessionLost(false);
     if (expired) {
       // The session is already gone, so the auth service has nothing to
@@ -184,8 +179,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signingOut.current = false;
       throw error;
     }
-    // The repositories were wired to the local database; rewire them.
-    if (wasLocalFirst) window.location.reload();
   }, [expired]);
 
   const updatePassword = useCallback(async (password: string) => {
