@@ -4,7 +4,7 @@
 
 use std::time::Duration;
 
-use reqwest::header::{CONTENT_TYPE, COOKIE, SET_COOKIE};
+use reqwest::header::{CONTENT_RANGE, CONTENT_TYPE, COOKIE, SET_COOKIE};
 use serde_json::{Value, json};
 use wf_core::overleaf_workshop::{cdn_pdf_url, parse_overleaf_meta};
 
@@ -20,6 +20,10 @@ const NOT_JSON: &str = "Overleaf sent a reply that is not JSON.";
 const MAX_HTTP_RETRIES: u32 = 2;
 /// Upper bound on PDF download rounds (the TS has none).
 const MAX_DOWNLOAD_ROUNDS: usize = 100;
+/// Upper bound on PDF bytes kept across download rounds.
+const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
+/// The message for a PDF download that stopped before its end.
+const INCOMPLETE: &str = "Overleaf sent an incomplete PDF.";
 /// The message for a JSON reply that carries no body (HTTP 204).
 const EMPTY_REPLY: &str = "Overleaf sent an empty response.";
 /// The message for a project list reply without a `projects` array.
@@ -234,10 +238,16 @@ impl OverleafApi {
         tokio::time::sleep(Duration::from_millis(ms)).await;
     }
 
-    /// Fetches `url` in rounds: 200 ends it, 206 appends and repeats, anything else stops.
+    /// Fetches `url` in rounds: 200 ends it, 206 appends and repeats.
+    ///
+    /// A first reply that is neither gives an empty result (nothing was compiled). Once bytes
+    /// have arrived, any other status, a length that misses the `Content-Range` total, a chunk
+    /// that does not start where the last one ended, a bad or changed `Content-Range`, the byte
+    /// cap or the round cap is an error: a truncated or spliced PDF never passes as a whole one.
     async fn download(&self, url: &str, cookies: Option<&str>) -> Result<Vec<u8>, String> {
         let mut out = Vec::new();
-        for _ in 0..MAX_DOWNLOAD_ROUNDS {
+        let mut total: Option<u64> = None;
+        for round in 0..MAX_DOWNLOAD_ROUNDS {
             let mut request = self.client.get(url);
             if let Some(cookies) = cookies {
                 request = request.header(COOKIE, cookies);
@@ -245,16 +255,69 @@ impl OverleafApi {
             let response = request.send().await.map_err(|err| unreached(&err))?;
             let status = response.status().as_u16();
             if status != 200 && status != 206 {
-                break;
+                if round == 0 {
+                    return Ok(out);
+                }
+                return Err(incomplete(&format!("stopped at HTTP {status}")));
             }
-            let chunk = response.bytes().await.map_err(|err| unreached(&err))?;
-            out.extend_from_slice(&chunk);
-            if status == 200 {
-                break;
+            let received = u64::try_from(out.len()).unwrap_or(u64::MAX);
+            let Some((start, range_total)) = content_range(&response) else {
+                return Err(incomplete("sent a bad Content-Range"));
+            };
+            if start.is_some_and(|start| start != received) {
+                return Err(incomplete("chunk out of order"));
+            }
+            match (total, range_total) {
+                (Some(known), Some(new)) if known != new => {
+                    return Err(incomplete("changed its total"));
+                }
+                (None, Some(_)) => total = range_total,
+                _ => {}
+            }
+            // Read piece by piece so the byte cap stops a huge body before it is all held.
+            let mut response = response;
+            while let Some(piece) = response.chunk().await.map_err(|err| unreached(&err))? {
+                out.extend_from_slice(&piece);
+                if u64::try_from(out.len()).unwrap_or(u64::MAX) > MAX_DOWNLOAD_BYTES {
+                    return Err(incomplete("passed the size cap"));
+                }
+            }
+            let length = u64::try_from(out.len()).unwrap_or(u64::MAX);
+            match total {
+                Some(total) if length > total => return Err(incomplete("longer than its range")),
+                Some(total) if length == total => return Ok(out),
+                Some(_) if status == 200 => return Err(incomplete("shorter than its range")),
+                _ if status == 200 => return Ok(out),
+                _ => {}
             }
         }
-        Ok(out)
+        Err(incomplete("hit the round cap"))
     }
+}
+
+/// The start and total of a `Content-Range: bytes a-b/total` header (total `None` for `*`).
+/// `Some((None, None))` when there is no header; `None` when the header does not parse.
+fn content_range(response: &reqwest::Response) -> Option<(Option<u64>, Option<u64>)> {
+    let Some(value) = response.headers().get(CONTENT_RANGE) else {
+        return Some((None, None));
+    };
+    let range = value.to_str().ok()?.trim().strip_prefix("bytes ")?;
+    let (span, total) = range.split_once('/')?;
+    let (start, end) = span.trim().split_once('-')?;
+    let start: u64 = start.trim().parse().ok()?;
+    let end: u64 = end.trim().parse().ok()?;
+    let total = match total.trim() {
+        "*" => None,
+        total => Some(total.parse::<u64>().ok()?),
+    };
+    let consistent = start <= end && total.is_none_or(|total| end < total);
+    consistent.then_some((Some(start), total))
+}
+
+/// Logs why a download stopped short and returns the fixed message.
+fn incomplete(why: &str) -> String {
+    eprintln!("[{CONTEXT}] download {why}");
+    INCOMPLETE.to_string()
 }
 
 /// Logs a failed request by kind and returns the fixed message: the error's text names the URL.

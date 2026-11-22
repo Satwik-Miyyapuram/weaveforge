@@ -508,3 +508,23 @@ async fn pdf_empty_download_is_502() {
     assert_eq!(status, StatusCode::BAD_GATEWAY);
     assert_eq!(error_of(&reply), NOT_DOWNLOADED);
 }
+
+#[tokio::test]
+async fn pdf_truncated_download_is_502_not_200() {
+    let up = upstream(vec![
+        (TABLE, vec![row_reply()]),
+        (COMPILE, vec![pdf_compile_reply()]),
+        (
+            "/build/output.pdf",
+            vec![
+                response(206, &[("Content-Range", "bytes 0-3/9")], b"%PDF"),
+                response(500, &[], b"oops"),
+            ],
+        ),
+    ])
+    .await;
+    let req = request("POST", &format!("{PREFIX}/pdf"), &work_body(), true);
+    let (status, _, reply) = call(&up, settings(&up, Some(KEY)), req).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(error_of(&reply), "Overleaf sent an incomplete PDF.");
+}

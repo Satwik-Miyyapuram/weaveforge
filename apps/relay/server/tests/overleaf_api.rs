@@ -317,3 +317,122 @@ async fn other_download_status_is_empty() {
         .expect("file");
     assert!(bytes.is_empty());
 }
+
+const INCOMPLETE: &str = "Overleaf sent an incomplete PDF.";
+
+async fn download(replies: Vec<Reply>) -> (Result<Vec<u8>, String>, usize) {
+    let up = serve(vec![("/build/output.pdf", replies)]).await;
+    let got = api(&up)
+        .get_file_from_clsi(&identity("a=1"), "/build/output.pdf", "g", None, None)
+        .await;
+    (got, up.seen().len())
+}
+
+#[tokio::test]
+async fn partial_then_error_status_is_err() {
+    let (got, _) = download(vec![
+        response(206, &[("Content-Range", "bytes 0-1/4")], b"ab"),
+        response(500, &[], b"oops"),
+    ])
+    .await;
+    assert_eq!(got.expect_err("error"), INCOMPLETE);
+}
+
+#[tokio::test]
+async fn partial_without_end_hits_round_cap_and_is_err() {
+    let (got, sent) = download(vec![response(206, &[], b"ab")]).await;
+    assert_eq!(got.expect_err("error"), INCOMPLETE);
+    assert_eq!(sent, 100);
+}
+
+#[tokio::test]
+async fn final_200_short_of_content_range_total_is_err() {
+    let (got, _) = download(vec![
+        response(206, &[("Content-Range", "bytes 0-1/4")], b"ab"),
+        response(200, &[], b"c"),
+    ])
+    .await;
+    assert_eq!(got.expect_err("error"), INCOMPLETE);
+}
+
+#[tokio::test]
+async fn partial_past_content_range_total_is_err() {
+    let (got, _) = download(vec![
+        response(206, &[("Content-Range", "bytes 0-1/3")], b"ab"),
+        response(206, &[("Content-Range", "bytes 2-3/3")], b"cd"),
+    ])
+    .await;
+    assert_eq!(got.expect_err("error"), INCOMPLETE);
+}
+
+#[tokio::test]
+async fn partials_reaching_content_range_total_are_ok() {
+    let (got, sent) = download(vec![
+        response(206, &[("Content-Range", "bytes 0-1/4")], b"ab"),
+        response(206, &[("Content-Range", "bytes 2-3/4")], b"cd"),
+    ])
+    .await;
+    assert_eq!(got.expect("file"), b"abcd".to_vec());
+    assert_eq!(sent, 2);
+}
+
+#[tokio::test]
+async fn partial_with_unknown_total_then_200_is_ok() {
+    let (got, _) = download(vec![
+        response(206, &[("Content-Range", "bytes 0-1/*")], b"ab"),
+        response(200, &[], b"cd"),
+    ])
+    .await;
+    assert_eq!(got.expect("file"), b"abcd".to_vec());
+}
+
+#[tokio::test]
+async fn repeated_chunk_is_err_not_a_doubled_pdf() {
+    let (got, _) = download(vec![response(
+        206,
+        &[("Content-Range", "bytes 0-1/4")],
+        b"ab",
+    )])
+    .await;
+    assert_eq!(got.expect_err("error"), INCOMPLETE);
+}
+
+#[tokio::test]
+async fn chunk_starting_past_the_received_bytes_is_err() {
+    let (got, sent) = download(vec![
+        response(206, &[("Content-Range", "bytes 0-0/4")], b"a"),
+        response(206, &[("Content-Range", "bytes 2-3/4")], b"cd"),
+    ])
+    .await;
+    assert_eq!(got.expect_err("error"), INCOMPLETE);
+    assert_eq!(sent, 2);
+}
+#[tokio::test]
+async fn changed_content_range_total_is_err() {
+    let (got, _) = download(vec![
+        response(206, &[("Content-Range", "bytes 0-1/6")], b"ab"),
+        response(206, &[("Content-Range", "bytes 2-3/4")], b"cd"),
+    ])
+    .await;
+    assert_eq!(got.expect_err("error"), INCOMPLETE);
+}
+
+#[tokio::test]
+async fn malformed_content_range_is_err() {
+    for header in [
+        "bytes 0-1/x",
+        "bytes 0-1/18446744073709551616",
+        "bytes 1-0/4",
+        "bytes 0-4/4",
+        "bytes a-b/4",
+        "items 0-1/4",
+        "bytes */4",
+    ] {
+        let (got, _) = download(vec![
+            response(206, &[("Content-Range", header)], b"ab"),
+            response(200, &[], b"cd"),
+        ])
+        .await;
+        assert_eq!(got.expect_err("error"), INCOMPLETE, "{header}");
+    }
+}
