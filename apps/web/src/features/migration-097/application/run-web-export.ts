@@ -33,6 +33,13 @@ export type DesktopMigration = {
   markExported(folder: string): Promise<void>;
 };
 
+/** Writes report.json via a .part file and rename, so a half-written report is never seen. */
+async function writeReport(sink: FileSink, report: MigrationReport): Promise<void> {
+  const part = `${REPORT_PATH}.part`;
+  await sink.write(part, JSON.stringify(report, null, 2));
+  await sink.rename(part, REPORT_PATH);
+}
+
 function refused(now: string, reason: string): ExportResult {
   const run: RunReport = {
     startedAt: now,
@@ -70,6 +77,24 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   if ((await source.pendingOutbox()) > 0) {
     return refused(now, "outbox not empty: flush before export");
   }
+
+  // Early report: if the run dies before the end, report.json already says incomplete.
+  await writeReport(sink, {
+    version: 1,
+    state: "incomplete",
+    backup: null,
+    deviceId,
+    runs: [
+      {
+        startedAt: now,
+        finishedAt: now,
+        sources: ["server"],
+        kinds: {},
+        blobs: { db: 0, verified: 0 },
+        missing: [{ kind: "*", id: "*", reason: "export in progress" }],
+      },
+    ],
+  });
 
   let current = "*";
   try {
@@ -148,9 +173,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
       deviceId,
       runs: [run],
     };
-    const part = `${REPORT_PATH}.part`;
-    await sink.write(part, JSON.stringify(report, null, 2));
-    await sink.rename(part, REPORT_PATH);
+    await writeReport(sink, report);
     return run;
   };
 

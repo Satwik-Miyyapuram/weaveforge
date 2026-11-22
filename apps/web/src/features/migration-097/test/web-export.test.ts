@@ -551,3 +551,37 @@ test("order: a failed report.json write means no desktop mark and no server mark
   assert.deepEqual(desktopCalls, ["backup:C:/ws"]);
   assert.equal(calls.some((c) => c.startsWith("mark:")), false, "server marker not set");
 });
+
+test("interrupted run: report.json says incomplete before the first row is written", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const realWrite = sink.write.bind(sink);
+  let reportAtFirstRow: string | null | undefined;
+  sink.write = async (path: string, data: string | Uint8Array) => {
+    if (reportAtFirstRow === undefined && path.startsWith("logEntries/")) {
+      reportAtFirstRow = await sink.readText(REPORT_PATH).catch(() => null);
+    }
+    return realWrite(path, data);
+  };
+  await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  assert.ok(reportAtFirstRow, "report.json exists before the first row");
+  assert.equal(JSON.parse(reportAtFirstRow).state, "incomplete");
+});
+
+test("interrupted run: a throw while writing rows leaves report.json incomplete and sets no marker", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const realWrite = sink.write.bind(sink);
+  sink.write = async (path: string, data: string | Uint8Array) => {
+    if (path === "logEntries/l2.json") throw new Error("disk full mid-rows");
+    return realWrite(path, data);
+  };
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+  assert.equal(result.state, "incomplete");
+  const report = JSON.parse(await sink.readText(REPORT_PATH));
+  assert.equal(report.state, "incomplete");
+  assert.deepEqual(
+    calls.filter((c) => c.startsWith("mark:")),
+    [],
+  );
+});
