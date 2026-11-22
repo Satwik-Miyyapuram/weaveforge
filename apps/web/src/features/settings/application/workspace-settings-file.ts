@@ -100,6 +100,7 @@ export class WorkspaceSettingsFile {
   private readonly delayMs: number;
   private readonly schedule: (fn: () => void, ms: number) => unknown;
   private readonly cancel: (handle: unknown) => void;
+  private warnedNoFolder = false;
 
   constructor(deps: SettingsDeps) {
     this.deps = deps;
@@ -182,7 +183,14 @@ export class WorkspaceSettingsFile {
   }
 
   private scheduleWrite(): void {
-    if (this.stateValue === "locked" || !this.deps.fs()) return;
+    if (this.stateValue === "locked") return;
+    if (!this.deps.fs()) {
+      if (!this.warnedNoFolder) {
+        this.warnedNoFolder = true;
+        this.deps.warn("no workspace folder is open; settings are kept in memory until it is.");
+      }
+      return;
+    }
     this.clearTimer();
     this.timer = this.schedule(() => void this.flush(), this.delayMs);
   }

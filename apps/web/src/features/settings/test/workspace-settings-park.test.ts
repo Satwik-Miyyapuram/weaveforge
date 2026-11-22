@@ -75,3 +75,20 @@ test("a credential is never parked", async () => {
   await exiting.close();
   assert.equal(files.has(PARKED), false);
 });
+
+test("with no workspace folder open, edits stay in memory, warn once, and close() resolves", async () => {
+  const warnings: string[] = [];
+  const file = new WorkspaceSettingsFile({
+    fs: () => null,
+    warn: (m: string) => warnings.push(m),
+    schedule: () => 0,
+    cancel: () => {},
+  });
+  await file.load();
+  file.set(["ink", "toolColours"], { a: "#fff" });
+  file.set(["ink", "toolColours"], { a: "#000" });
+  file.set(["ui", "zoom"], 2);
+  await assert.doesNotReject(file.close());
+  assert.deepEqual(file.get(["ink", "toolColours"]), { a: "#000" }, "the edit is kept in memory");
+  assert.equal(warnings.length, 1, "warns exactly once while no folder is open");
+});
