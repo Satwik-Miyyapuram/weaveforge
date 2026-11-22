@@ -1326,6 +1326,22 @@ fn an_unverified_export_records_no_exported_to() {
     assert!(!f.pg_root.join("exported-to.json").exists(), "{err}");
 }
 
+// ---- item 14: export, verify, remove, removed, with exported-to.json recorded in between ----
+
+#[test]
+fn an_export_verified_then_removed_ends_removed_with_exported_to_recorded() {
+    let f = Fixture::new("e2e-remove", Some("verified"), Some(good_dump().as_slice()));
+    fs::remove_file(f.pg_root.join("exported-to.json")).unwrap();
+    record_verified_export(&f.pg_root, &f.folder, DEVICE).expect("the verified export is recorded");
+    assert!(f.pg_root.join("exported-to.json").exists(), "exported-to.json is written before removal");
+    let mut stop = || Ok(());
+    f.run(&mut stop).expect("a verified export with its exported-to.json removes the cluster");
+    assert!(!f.pg_root.exists(), "the local cluster is gone");
+    let report = f.report();
+    assert_eq!(report["state"], "removed");
+    assert_eq!(report["removals"][DEVICE]["state"], "removed");
+}
+
 // ---- item 11: a launch finishes a removal this device left in progress ----
 
 fn removing_report(device: &str) -> String {
