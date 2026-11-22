@@ -61,3 +61,19 @@ test("watches are stored under citationAlerts in the settings file", async () =>
   await repo.track({ paperId: "p-1" });
   assert.ok(settings.get(["citationAlerts", "p-1"]));
 });
+
+test("a malformed stored entry is skipped and reported, never thrown", async () => {
+  const { settings, repo } = setup();
+  await repo.track({ paperId: "p-good" });
+  settings.set(["citationAlerts", "p-bad-time"], { id: "x", trackedAt: 5, seenCitingIds: [] });
+  settings.set(["citationAlerts", "p-bad-list"], { id: "y", trackedAt: "2026-01-01T00:00:00.000Z", seenCitingIds: "c-1" });
+  settings.set(["citationAlerts", "p-bad-item"], {
+    id: "z",
+    trackedAt: "2026-01-01T00:00:00.000Z",
+    seenCitingIds: ["c-1", 3],
+  });
+  assert.deepEqual((await repo.listForProject()).map((t) => t.paperId), ["p-good"]);
+  assert.equal(await repo.getByPaperId("p-bad-list"), null);
+  assert.deepEqual((await repo.failures()).map((f) => f.paperId).sort(), ["p-bad-item", "p-bad-list", "p-bad-time"]);
+  assert.deepEqual((await repo.failures()).length, 3);
+});

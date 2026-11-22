@@ -9,8 +9,17 @@ import type { SettingsSection } from "./file-tag-repo";
 
 type Stored = { id: string; trackedAt: string; lastCheckedAt?: string; seenCitingIds: string[] };
 
-function isStored(v: unknown): v is Stored {
-  return v !== null && typeof v === "object" && typeof (v as Stored).id === "string";
+export type CitationAlertTrackFailure = { paperId: string; error: string };
+
+function storedProblem(v: unknown): string | null {
+  if (v === null || typeof v !== "object") return "entry is not an object";
+  const s = v as Partial<Record<keyof Stored, unknown>>;
+  if (typeof s.id !== "string") return "id is not a string";
+  if (typeof s.trackedAt !== "string") return "trackedAt is not a string";
+  if (!Array.isArray(s.seenCitingIds) || !s.seenCitingIds.every((id) => typeof id === "string")) {
+    return "seenCitingIds is not a string[]";
+  }
+  return null;
 }
 
 function toTrack(paperId: string, stored: Stored): CitationAlertTrack {
@@ -24,7 +33,14 @@ function toTrack(paperId: string, stored: Stored): CitationAlertTrack {
 }
 
 export class FileCitationAlertTrackRepository implements ICitationAlertTrackRepository {
+  private readonly failureByPaper = new Map<string, string>();
+
   constructor(private readonly settings: SettingsSection) {}
+
+  /** Malformed stored watches seen so far, one per paper. They are skipped, never thrown. */
+  async failures(): Promise<CitationAlertTrackFailure[]> {
+    return [...this.failureByPaper].map(([paperId, error]) => ({ paperId, error }));
+  }
 
   async track(input: NewCitationAlertTrackInput): Promise<CitationAlertTrack> {
     const existing = this.read(input.paperId);
@@ -47,8 +63,8 @@ export class FileCitationAlertTrackRepository implements ICitationAlertTrackRepo
     const all = this.settings.get(["citationAlerts"]);
     if (!all || typeof all !== "object") return [];
     return Object.entries(all as Record<string, unknown>)
-      .filter((entry): entry is [string, Stored] => isStored(entry[1]))
-      .map(([paperId, stored]) => toTrack(paperId, stored));
+      .filter(([paperId, raw]) => this.check(paperId, raw))
+      .map(([paperId, raw]) => toTrack(paperId, raw as Stored));
   }
 
   async getByPaperId(paperId: string): Promise<CitationAlertTrack | null> {
@@ -68,6 +84,16 @@ export class FileCitationAlertTrackRepository implements ICitationAlertTrackRepo
 
   private read(paperId: string): Stored | null {
     const raw = this.settings.get(["citationAlerts", paperId]);
-    return isStored(raw) ? raw : null;
+    return this.check(paperId, raw) ? (raw as Stored) : null;
+  }
+
+  private check(paperId: string, raw: unknown): boolean {
+    const problem = storedProblem(raw);
+    if (problem === null) {
+      this.failureByPaper.delete(paperId);
+      return true;
+    }
+    this.failureByPaper.set(paperId, problem);
+    return false;
   }
 }
