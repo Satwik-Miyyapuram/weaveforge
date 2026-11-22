@@ -76,23 +76,9 @@ export function ProjectsScreen() {
     await refresh();
   });
 
-  // The no-account copy starts empty. A filled workspace shows what every
-  // screen looks like without the visitor first entering thirty papers.
-  const { busy: demoBusy, submit: loadDemo } = useSubmit(async () => {
-    // Lazy: the seeder carries the whole showcase data set.
-    const { loadLocalDemoWorkspace } = await import("@/features/showcase/application/load-local-demo");
-    const { projectId } = await loadLocalDemoWorkspace();
-    await refresh();
-    setProject(projectId);
-  });
-  // 0.9.8: hidden in both modes until the seeder writes through the File*
-  // repositories (no local database). Re-show it there, then flip the gate test.
-  const demoButton = null;
-
   return (
     <section className="screen">
       <ScreenHead>
-        {demoButton}
         <Button variant="primary" data-help-id="projects-new" onClick={() => setAddOpen(true)}>New project</Button>
       </ScreenHead>
 
@@ -157,12 +143,9 @@ export function ProjectsScreen() {
           title="No projects yet"
           body="A project is one piece of research: a thesis, a paper, a lab rotation. Everything you add — papers, notes, runs, the report — belongs to one, and switching projects switches the whole workspace."
           action={
-            <>
-              <Button variant="primary" onClick={() => setAddOpen(true)}>
-                + New project
-              </Button>
-              {demoButton}
-            </>
+            <Button variant="primary" onClick={() => setAddOpen(true)}>
+              + New project
+            </Button>
           }
         />
       )}

@@ -7,8 +7,8 @@ import type { LatexSectionTree } from "@weaveforge/wasm";
  *
  * 0.9.8 has no local database and the desktop copy ships no server, so there is
  * nowhere to keep link rows or the token. Overleaf is a server feature: every
- * operation here refuses with the same copy the rest of the app uses for
- * account-only features.
+ * operation here (all 8 of them) refuses with the same copy the rest of the app
+ * uses for account-only features.
  */
 
 export const OVERLEAF_NEEDS_ACCOUNT = "Overleaf needs an account.";

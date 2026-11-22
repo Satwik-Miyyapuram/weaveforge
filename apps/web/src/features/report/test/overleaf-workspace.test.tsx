@@ -12,6 +12,11 @@ import type { LinkedReportsGateway } from "../ui/use-linked-reports";
 import { canShowWorkshop, type WorkshopSessionStore } from "../ui/use-workshop-session";
 import { WorkshopPdfViewer } from "../ui/workshop-pdf-viewer";
 import { navFoldSnapshot } from "@/lib/hooks/use-nav-fold";
+import { setContainerForTests } from "@/bootstrap";
+
+// An account copy: the Git-link action is offered. The no-account copy is
+// covered in overleaf-no-account.test.tsx (its own process).
+setContainerForTests({ auth: { isLocalMode: () => false } } as never);
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 // next/link prefetches through `self`, which node lacks.
