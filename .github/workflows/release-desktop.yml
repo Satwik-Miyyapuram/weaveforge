@@ -3,7 +3,7 @@ name: Release desktop
 # Builds the signed Windows installers for a desktop tag (vX.Y.Z), writes the
 # updater manifest, and publishes them as a GitHub pre-release. Promotion to
 # Latest stays manual (docs/building/release.md), because the in-app updater
-# reads latest.json from the Latest release only.
+# reads latest-v2.json from the Latest release only.
 
 on:
   push:

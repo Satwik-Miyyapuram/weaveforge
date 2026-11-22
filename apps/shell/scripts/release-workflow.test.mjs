@@ -47,3 +47,7 @@ test("the updater reads latest-v2.json; 0.9.6 clients keep reading the latest.js
   assert.equal(endpoints.length, 1);
   assert.match(endpoints[0], /\/releases\/latest\/download\/latest-v2\.json$/);
 });
+
+test("the workflow header names latest-v2.json as the manifest the updater reads", () => {
+  assert.match(workflow.split("\n").slice(0, 8).join("\n"), /reads latest-v2\.json from the Latest release only/);
+});
