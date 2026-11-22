@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use weaveforge_shell_lib::migrate_097::remove::{
     backup_name, old_db_removed, record_exported_to, record_verified_export, remove_old_data,
-    resume_on_launch, start_refusal,
+    removal_refusal, resume_on_launch, start_refusal,
 };
 
 const DIR: &str = ".weaveforge/migration-0.9.7";
@@ -845,6 +845,17 @@ fn resumes_a_removing_report_this_device_started() {
     f.run(&mut stop).expect("own removing report resumes deletion");
     assert!(!f.pg_root.exists(), "rest of the cluster deleted");
     assert_eq!(f.report()["state"], "removed");
+}
+
+#[test]
+fn a_removing_report_with_no_marker_refuses_start() {
+    let f = Fixture::new("removing-no-marker", Some("verified"), Some(good_dump().as_slice()));
+    f.set_report(&format!(
+        r#"{{"version":1,"state":"removing","removingDeviceId":"{DEVICE}","backup":"{BACKUP_NAME}","verifiedAt":"{NOW}","runs":[{RUN_CLEAN}]}}"#
+    ));
+    assert!(!old_db_removed(&f.pg_root), "no marker yet");
+    let refusal = removal_refusal(&f.folder, &f.pg_root);
+    assert!(refusal.is_some(), "a removing report with no marker must refuse start");
 }
 
 #[test]

@@ -370,6 +370,22 @@ pub fn start_refusal(removed: bool) -> Option<&'static str> {
     removed.then_some("the local database was removed in 0.9.7; the files are the source of truth")
 }
 
+/// Why start must not open the cluster while a removal is unfinished: a `removing` report with no
+/// marker means the cluster may still be there and a start would restore it from its backups.
+#[must_use]
+pub fn removal_refusal(folder: &Path, pg_root: &Path) -> Option<String> {
+    let report_path = folder.join(REPORT_REL);
+    let report = read_report(&report_path).ok()?;
+    let top = report["state"].as_str() == Some("removing");
+    let own_or_any = report["removals"]
+        .as_object()
+        .is_some_and(|map| map.values().any(|entry| entry["state"].as_str() == Some("removing")));
+    if (top || own_or_any) && !old_db_removed(pg_root) {
+        return Some("refused: a 0.9.7 removal is unfinished; it finishes on the next launch".to_owned());
+    }
+    None
+}
+
 fn marker_path(pg_root: &Path) -> std::path::PathBuf {
     pg_root.parent().unwrap_or(pg_root).join(MARKER)
 }
