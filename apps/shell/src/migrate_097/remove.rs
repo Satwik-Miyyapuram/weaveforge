@@ -251,7 +251,7 @@ pub(crate) fn remove_with(
             r["removedAt"] = now.into();
         }
     })
-    .map_err(|e| format!("removed, but report.json not updated: {e}"))
+    .map_err(|e| format!("removed, but {} not updated: {e}", own_report_name(device_id)))
 }
 
 /// Launch hook: finishes a removal this device started and did not finish (a crash or power cut
@@ -281,7 +281,7 @@ fn is_removal_state(report: &serde_json::Value) -> bool {
     matches!(report["state"].as_str(), Some("verified" | "removing" | "removed"))
 }
 
-/// Writes report.json as `change` applied to a fresh read, so other devices' runs and removal
+/// Writes this device's report file as `change` applied to a fresh read, so other devices' runs and removal
 /// entries survive. Re-reads just before the write, then reads back after the rename and retries
 /// when the change did not land. A narrow window remains between the re-read and the rename.
 fn update_report(report_path: &Path, change: impl Fn(&mut serde_json::Value)) -> Result<(), String> {
@@ -301,7 +301,10 @@ fn update_report(report_path: &Path, change: impl Fn(&mut serde_json::Value)) ->
             }
         }
     }
-    Err("refused: report.json kept changing during the removal; try again".to_owned())
+    let name = report_path
+        .file_name()
+        .map_or_else(|| "the report".to_owned(), |n| n.to_string_lossy().into_owned());
+    Err(format!("refused: {name} kept changing during the removal; try again"))
 }
 
 /// The running postgres named by a `postmaster.pid` left in the cluster, described for the refusal.
@@ -403,6 +406,8 @@ pub(super) enum ReportsError {
     Restore(String),
     /// A conflict copy, or another device's file. The user deletes it.
     Conflict(String),
+    /// The device id is not safe in a file name, so this device's report file cannot be named.
+    DeviceId(String),
 }
 
 impl ReportsError {
@@ -414,13 +419,14 @@ impl ReportsError {
                 format!("{name} is unreadable; restore it from your backup or run the export again")
             }
             Self::Conflict(name) => format!("migration report {name} is unreadable"),
+            Self::DeviceId(id) => format!("the device id {id:?} is not usable in a file name"),
         }
     }
 
     /// The step the user takes, when one is known: only a conflict copy is named for deletion.
     pub(super) fn step(&self) -> Option<String> {
         match self {
-            Self::Listing(_) | Self::Restore(_) => None,
+            Self::Listing(_) | Self::Restore(_) | Self::DeviceId(_) => None,
             Self::Conflict(name) => Some(format!("delete the conflict copy {name}")),
         }
     }
@@ -439,6 +445,13 @@ pub(super) fn read_reports(
     folder: &Path,
     device_id: &str,
 ) -> Result<Vec<(String, serde_json::Value)>, ReportsError> {
+    // The id becomes a file name (`report-<id>.json`), so it must not carry path characters.
+    let safe = !device_id.is_empty()
+        && device_id.len() <= 128
+        && device_id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-');
+    if !safe {
+        return Err(ReportsError::DeviceId(device_id.to_owned()));
+    }
     let own = own_report_name(device_id);
     let dir = folder.join(MIGRATION_DIR);
     let entries = match fs::read_dir(&dir) {
@@ -475,19 +488,13 @@ pub(super) fn read_reports(
     Ok(reports)
 }
 
-/// The report the status reads for this device: its own file, else the legacy report.json, else any
-/// other device's report (so the status says "no run from this device" rather than "none").
+/// The report the status reads for this device: its own file, else the legacy report.json. Another
+/// device's file never stands in for it.
 pub(super) fn base_report<'a>(
     reports: &'a [(String, serde_json::Value)],
     device_id: &str,
 ) -> Option<&'a serde_json::Value> {
-    let own = own_report_name(device_id);
-    reports
-        .iter()
-        .find(|(name, _)| *name == own)
-        .or_else(|| reports.iter().find(|(name, _)| *name == "report.json"))
-        .or_else(|| reports.first())
-        .map(|(_, value)| value)
+    device_report(reports, device_id)
 }
 
 /// The report this device verifies and removes from: its own file, else the legacy report.json.
@@ -638,25 +645,6 @@ fn canonical(path: &Path) -> Result<String, String> {
     dunce::canonicalize(path)
         .map(|p| p.to_string_lossy().into_owned())
         .map_err(|e| format!("cannot resolve {}: {e}", path.display()))
-}
-
-fn read_report(path: &Path) -> Result<serde_json::Value, String> {
-    let text = fs::read_to_string(path).map_err(|_| {
-        "refused: no migration report (state none); migration must be verified first".to_owned()
-    })?;
-    serde_json::from_str(&text).map_err(|_| {
-        keep_unreadable_report(path);
-        "refused: migration report is unparsable".to_owned()
-    })
-}
-
-/// Moves an unreadable report.json aside as report.json.bad, so nothing merges over it. An existing
-/// .bad file is kept as it is, and then the unreadable report stays where it is.
-fn keep_unreadable_report(path: &Path) {
-    let bad = PathBuf::from(format!("{}.bad", path.display()));
-    if !bad.exists() {
-        let _ = fs::rename(path, &bad);
-    }
 }
 
 /// Header-only check of the named backup: reads the first bytes and the length, never the whole dump.
@@ -915,7 +903,7 @@ mod final_write_tests {
         );
         let err = first.expect_err("the injected final write fails");
         assert!(
-            err.starts_with("removed, but report.json not updated"),
+            err.starts_with("removed, but report-dev-a.json not updated"),
             "the failure must say the cluster is gone: {err}"
         );
         assert_eq!(injected.get(), 1, "the final write runs once");

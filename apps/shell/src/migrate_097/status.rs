@@ -51,7 +51,8 @@ pub struct MigrationStatus {
 /// copies), exported-to.json and the backup. Never writes and never fails. One unreadable report or a
 /// failed listing makes the status unavailable, with `reason` and `step` set. Otherwise this device's
 /// state comes from its own file, else the legacy report.json. An unreadable report is `removed` when
-/// the removed marker exists, `none` when no report and no export exist, and `unavailable` otherwise.
+/// the removed marker exists, `none` when this device has no report and nothing was exported, and
+/// `unavailable` otherwise.
 pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> MigrationStatus {
     let exported = exported_to(pg_root);
     let exported_here = exported.as_deref().is_some_and(|name| same_folder(name, folder));
@@ -61,7 +62,8 @@ pub fn migration_status(folder: &Path, pg_root: &Path, device_id: &str) -> Migra
         Err(problem) => (Vec::new(), Some(problem)),
     };
     let Some(report) = super::remove::base_report(&reports, device_id).cloned() else {
-        let absent = reports.is_empty() && problem.is_none();
+        // No report from this device (another device's file does not count) and none unreadable.
+        let absent = problem.is_none();
         let state = if removed {
             "removed"
         } else if absent && exported.is_none() {
