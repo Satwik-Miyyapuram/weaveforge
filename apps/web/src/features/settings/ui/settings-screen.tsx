@@ -28,7 +28,6 @@ import { userIntegrationsForConfig } from "@/integrations/descriptors-resolve";
 import { isOfflineBuild } from "@/deployment/build-target";
 import { AiAccessPanel } from "./ai-access-panel";
 import { AppearancePanel } from "./appearance-panel";
-import { SyncIssuesPanel, SyncSettingsPanel } from "@/features/offline-sync";
 import { DesktopUpdatePanel, useDesktopUpdate } from "./desktop-update-panel";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
@@ -608,8 +607,6 @@ export function SettingsScreen() {
           <ScreenLoader status="Loading settings…" compact />
         ) : (
           <div id="settings-sync" className="settings-anchor" role="tabpanel" aria-labelledby="settings-tab-sync">
-            <SyncSettingsPanel />
-          <SyncIssuesPanel />
             <SyncSettings />
           </div>
         ))}

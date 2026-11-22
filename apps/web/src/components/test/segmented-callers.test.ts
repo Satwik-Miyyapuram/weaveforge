@@ -11,13 +11,6 @@ import { fileURLToPath } from "node:url";
 
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(`../../${rel}`, import.meta.url)), "utf8");
 
-test("the sync merge picks are SegmentedControls", () => {
-  const src = read("features/offline-sync/ui/sync-issues-panel.tsx");
-  assert.equal(src.match(/<SegmentedControl\b/g)?.length, 2);
-  assert.doesNotMatch(src, /className="sync-seg"/);
-  assert.doesNotMatch(src, /<ToggleButton\b/);
-});
-
 test("the shared-with-me type filter is a SegmentedControl", () => {
   const src = read("features/sharing/ui/shared-with-me-screen.tsx");
   assert.match(src, /<SegmentedControl\b/);
