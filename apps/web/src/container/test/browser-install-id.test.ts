@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { INSTALL_ID_PATH, readOrCreateInstallId } from "../browser-install-id";
+import { INSTALL_ID_PATH, InstallIdLocksUnavailableError, readOrCreateInstallId } from "../browser-install-id";
 
 /**
  * An in-memory folder that throws ENOENT for a missing file, as BrowserWorkspaceFs does. `renames`
@@ -29,6 +29,9 @@ function folder(initial: Record<string, string> = {}, otherTabWritesAfterRename?
       files.set(to, text);
       renames.push([from, to]);
       if (otherTabWritesAfterRename !== undefined) files.set(to, otherTabWritesAfterRename);
+    },
+    async remove(path: string): Promise<void> {
+      files.delete(path);
     },
   };
 }
@@ -69,6 +72,31 @@ test("a stored id that is not a plain token is replaced", async () => {
   assert.equal(fs.files.get(INSTALL_ID_PATH), "web-clean-id");
 });
 
+/** Makes only the first read fail with `error`, so the read-back after the rename still works. */
+function absentOnFirstRead(fs: ReturnType<typeof folder>, error: () => unknown): void {
+  const readFile = fs.readText.bind(fs);
+  let first = true;
+  fs.readText = async (path: string) => {
+    if (first) {
+      first = false;
+      throw error();
+    }
+    return readFile(path);
+  };
+}
+
+test("a NotFoundError (DOMException name) reads as absent and a new id is created", async () => {
+  const fs = folder();
+  absentOnFirstRead(fs, () => new DOMException("A requested file or directory could not be found.", "NotFoundError"));
+  assert.equal(await createId(fs, () => "web-dom-missing-id"), "web-dom-missing-id");
+});
+
+test("an error with code ENOENT reads as absent and a new id is created", async () => {
+  const fs = folder();
+  absentOnFirstRead(fs, () => Object.assign(new Error("gone"), { code: "ENOENT" }));
+  assert.equal(await createId(fs, () => "web-code-missing-id"), "web-code-missing-id");
+});
+
 test("a read error other than not-found refuses and does not replace the stored id", async () => {
   const fs = folder({ [INSTALL_ID_PATH]: "web-kept-id" });
   fs.readText = async () => {
@@ -77,6 +105,19 @@ test("a read error other than not-found refuses and does not replace the stored 
   await assert.rejects(createId(fs, () => "web-rotated-id"), /I\/O error/);
   assert.equal(fs.renames.length, 0);
   assert.equal(fs.files.get(INSTALL_ID_PATH), "web-kept-id");
+});
+
+test("a rename that fails removes the temp file, rejects, and writes no id", async () => {
+  const fs = folder();
+  fs.rename = async () => {
+    throw new Error("rename refused");
+  };
+  await assert.rejects(createId(fs, () => "web-lost-id"), /rename refused/);
+  assert.equal(fs.files.get(INSTALL_ID_PATH), undefined);
+  assert.deepEqual(
+    [...fs.files.keys()].filter((path) => path.endsWith(".part")),
+    [],
+  );
 });
 
 test("a failed write rejects, so the caller can fail closed", async () => {
@@ -157,11 +198,14 @@ function rejectingLocks(error: unknown) {
   };
 }
 
-test("without navigator.locks the id is refused, not created unlocked", async () => {
+test("without navigator.locks the id is refused with the typed WebView error and its message", async () => {
   const fs = folder({ [INSTALL_ID_PATH]: "web-stored-id" });
   await assert.rejects(
     withLocks(undefined, () => readOrCreateInstallId(fs, () => "web-unlocked-id")),
-    /navigator\.locks/,
+    (error: unknown) =>
+      error instanceof InstallIdLocksUnavailableError &&
+      error.name === "InstallIdLocksUnavailableError" &&
+      error.message === "Update Android System WebView, then reopen WeaveForge",
   );
   assert.equal(fs.files.get(INSTALL_ID_PATH), "web-stored-id");
   assert.equal(fs.renames.length, 0);
