@@ -1,5 +1,5 @@
 // Static checks for 0164: shared_docs accepts kind 'item', profiles gets the
-// 0.9.7 export marker, and the rollback puts both back. No SQL is run here.
+// 0.9.7 export marker, and the rollback restores only the kind check. No SQL is run here.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -43,6 +43,6 @@ test("rollback restores the 0161 kind check exactly", () => {
   assert.doesNotMatch(kindList(rollback).join(","), /item/);
 });
 
-test("rollback drops the profiles.exported_097_at column", () => {
-  assert.match(rollback, /alter table profiles\s+drop column if exists exported_097_at/i);
+test("rollback keeps the profiles.exported_097_at column (export markers are data)", () => {
+  assert.doesNotMatch(rollback, /exported_097_at/);
 });
