@@ -1,7 +1,5 @@
 import { isLocalMode } from "@/features/auth/domain/no-account-mode";
-import { LocalRunner } from "@/backend/providers/local/parts";
-import { localFiles, type LocalFiles } from "@/backend/providers/local/parts-1";
-import { desktop } from "@/lib/desktop/desktop-bridge";
+import type { LocalFiles } from "@/backend/providers/local/parts-1";
 
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { idbClearVectors, idbGetVectors, idbSetVectors, type StoredVectors } from "./parts-3";
@@ -35,21 +33,17 @@ const idbStore: VectorStore = {
 };
 
 /**
- * The local database, through the same table attachments use.
- *
- * `local_blobs` already carries bytes as base64 for exactly this reason — the
- * bridge to the shell is text — so a second table for the same problem would
- * be a second thing to migrate. The ids and the model live in the row's JSON
- * head, the vectors in its buffer, packed together so one read restores both.
- *
- * With the shell's offline files (the Rust shell), the vectors go to a file in
- * the binary format and the row is only the index `clear` walks. Rows written
- * inline before are still read.
+ * The no-account copy has no local database in 0.9.8, so it keeps no vectors of
+ * its own. Reads find nothing and writes go nowhere; the folder store still
+ * serves a connected workspace.
  */
-function localStore(): VectorStore {
-  const runner = new LocalRunner();
-  return localVectorStore((sql, params) => runner.query(sql, params as never[]), localFiles(desktop()));
-}
+const noStore: VectorStore = {
+  async get() {
+    return null;
+  },
+  async set() {},
+  async clear() {},
+};
 
 /** The local-database store over any query function; exported for tests. */
 export function localVectorStore(run: (sql: string, params: unknown[]) => Promise<unknown[]>, files?: LocalFiles): VectorStore {
@@ -206,7 +200,7 @@ let chosen: VectorStore | null = null;
  */
 export function vectorStore(): VectorStore {
   if (!chosen) {
-    const own = isLocalMode() ? localStore() : idbStore;
+    const own = isLocalMode() ? noStore : idbStore;
     chosen = {
       async get(projectId) {
         return (await folderStore.get(projectId)) ?? (await own.get(projectId));
