@@ -63,22 +63,22 @@ export function overlayFileRepositories<W extends object>(
  * relay, auth and infrastructure. Any other key must be a personal key or alias.
  */
 export const SERVER_BACKEND_KEYS: ReadonlySet<string> = new Set([
-  "config",
-  "db",
-  "session",
-  "auth",
-  "adminProvisioner",
-  "projectContext",
-  "releaseNoticesRepository",
-  "manageSettings",
-  "shareRepository",
-  "commentRepository",
-  "sharedReader",
-  "memberRepository",
-  "supervisionRepository",
-  "rawBlobStore",
-  "labSnapshotRepository",
-  "dispose",
+  "config", // backend connection settings, not user data
+  "db", // database client; guarded by readOnlyDb in read-only mode
+  "session", // current-user identity provider, not stored data
+  "auth", // sign-in service (Supabase), not stored data
+  "adminProvisioner", // org admin provisioning on the server
+  "projectContext", // active project id, not stored data
+  "releaseNoticesRepository", // release notices are published by the server, not user data
+  "manageSettings", // settings use case; the desktop overlay rebuilds it over the file settings repo
+  "shareRepository", // share links live on the org server
+  "commentRepository", // shared comment threads live on the org server
+  "sharedReader", // reads content shared through the org server
+  "memberRepository", // org membership
+  "supervisionRepository", // supervisor sharing lives on the org server
+  "rawBlobStore", // shared blob storage on the org server
+  "labSnapshotRepository", // lab snapshots are shared org data
+  "dispose", // lifecycle hook for the wired backend, not data
 ]);
 
 /** Keys of `wiredKeys` that are neither a personal key, an alias nor a listed server key. */

@@ -86,6 +86,28 @@ test("bibliography, quotation-type and integrations keys are personal, never on 
   }
 });
 
+test("the server-key set equals the documented list (a deliberate copy, not ORG_SERVER_TABLES)", () => {
+  const documented = [
+    "config",
+    "db",
+    "session",
+    "auth",
+    "adminProvisioner",
+    "projectContext",
+    "releaseNoticesRepository",
+    "manageSettings",
+    "shareRepository",
+    "commentRepository",
+    "sharedReader",
+    "memberRepository",
+    "supervisionRepository",
+    "rawBlobStore",
+    "labSnapshotRepository",
+    "dispose",
+  ];
+  assert.deepEqual([...SERVER_BACKEND_KEYS].sort(), [...documented].sort());
+});
+
 test("the aliases point the PostgREST key names at the file repositories", () => {
   const files = wireFileBackend(parts);
   const wired = { projectBibliographyCollection: "postgrest-collection", annotationQuotationTypeRepository: "postgrest-quotation" };
