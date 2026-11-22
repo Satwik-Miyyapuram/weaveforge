@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use wf_core::sync::folder_layout::WORKSPACE_META_DIR;
 
 use crate::commands::ShellError;
+use crate::device_id;
 
 /// What is copied from Electron's data dir, by name. `secrets.json` is not: Electron sealed it.
 pub const ITEMS: [&str; 7] = [
@@ -117,11 +118,16 @@ pub fn legacy_db_present(app: tauri::AppHandle) -> Result<bool, ShellError> {
 /// The 0.9.7 migration report, relative to the workspace folder.
 pub const REPORT_REL: &str = ".weaveforge/migration-0.9.7/report.json";
 
-/// True only when the 0.9.7 report under `folder` is verified: `state == "verified"`, at least one
-/// run, and every run has an empty `missing` and a non-empty `kinds` whose db and files counts
-/// match. A missing report or bad JSON is `Ok(false)`. An IO error other than not-found is a typed
-/// error, so the page can show "unavailable" instead of "not migrated". Read-only; never writes.
-pub fn report_state_verified(folder: &Path) -> Result<bool, ShellError> {
+/// True only when this device's own run in the 0.9.7 report under `folder` is verified: the newest
+/// run whose `deviceId` is `device_id` has `state == "verified"`, an empty `missing`, and a non-empty
+/// `kinds` whose db and files counts match. Other devices' runs never count. No `device_id` (the
+/// device has no id file yet) is `Ok(false)`. A missing report or bad JSON is `Ok(false)`. An IO
+/// error other than not-found is a typed error, so the page can show "unavailable" instead of "not
+/// migrated". Read-only; never writes.
+pub fn report_state_verified(folder: &Path, device_id: Option<&str>) -> Result<bool, ShellError> {
+    let Some(device_id) = device_id else {
+        return Ok(false);
+    };
     let text = match fs::read_to_string(folder.join(REPORT_REL)) {
         Ok(text) => text,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
@@ -135,14 +141,18 @@ pub fn report_state_verified(folder: &Path) -> Result<bool, ShellError> {
     let Ok(report) = serde_json::from_str::<serde_json::Value>(&text) else {
         return Ok(false);
     };
-    Ok(is_verified_report(&report))
+    Ok(own_run_verified(&report, device_id))
 }
 
-fn is_verified_report(report: &serde_json::Value) -> bool {
-    report["state"].as_str() == Some("verified")
-        && report["runs"]
-            .as_array()
-            .is_some_and(|runs| !runs.is_empty() && runs.iter().all(run_is_complete))
+/// This device's newest run (by `deviceId`) is verified and complete. A run without a `deviceId`
+/// matches no device, so it never verifies anything.
+fn own_run_verified(report: &serde_json::Value, device_id: &str) -> bool {
+    report["runs"].as_array().is_some_and(|runs| {
+        runs.iter()
+            .rev()
+            .find(|run| run["deviceId"].as_str() == Some(device_id))
+            .is_some_and(|run| run["state"].as_str() == Some("verified") && run_is_complete(run))
+    })
 }
 
 /// One run is complete when nothing is missing and every kind's db count equals its files count.
@@ -156,12 +166,21 @@ fn run_is_complete(run: &serde_json::Value) -> bool {
         })
 }
 
-/// Bridge: whether the workspace at `folder` has a verified 0.9.7 migration report
-/// (`migrationReportVerified`). Read-only; an unreadable file is a typed error.
+/// Bridge: whether this device's own run in the 0.9.7 report of the workspace at `folder` is
+/// verified (`migrationReportVerified`). Reads this device's id from app data, never creates it.
+/// An unreadable report or id file is a typed error.
 #[tauri::command]
 #[specta::specta]
-pub fn migration_report_verified(folder: String) -> Result<bool, ShellError> {
-    report_state_verified(Path::new(&folder))
+pub fn migration_report_verified(app: tauri::AppHandle, folder: String) -> Result<bool, ShellError> {
+    use tauri::Manager as _;
+    let data = app
+        .path()
+        .app_data_dir()
+        .map_err(|_| ShellError::coded("app_data_unavailable", "cannot locate the app data folder"))?;
+    let device = device_id::read_existing(&data).map_err(|e| {
+        ShellError::coded("device_id_unreadable", &format!("cannot read this device's id: {e}"))
+    })?;
+    report_state_verified(Path::new(&folder), device.as_deref())
 }
 
 /// The non-empty `vault-root` from Electron's preferences, as a path.
@@ -369,41 +388,67 @@ mod tests {
     #[test]
     fn report_absent_is_not_verified() {
         let (folder, _) = temp("report-absent");
-        assert_eq!(report_state_verified(&folder), Ok(false));
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
     }
 
     #[test]
     fn report_incomplete_is_not_verified() {
         let folder = report("report-incomplete", r#"{"state":"incomplete"}"#);
-        assert_eq!(report_state_verified(&folder), Ok(false));
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
     }
 
-    const COMPLETE: &str = r#"{"state":"verified","runs":[{"missing":[],"kinds":{"vault_page":{"db":2,"files":2}}}]}"#;
+    /// This device's id, as the report's runs record it.
+    const DEVICE: &str = "device-a";
+
+    const COMPLETE: &str = r#"{"state":"verified","runs":[{"deviceId":"device-a","state":"verified","missing":[],"kinds":{"vault_page":{"db":2,"files":2}}}]}"#;
+
+    #[test]
+    fn another_devices_verified_run_is_refused() {
+        let body = COMPLETE.replace(r#""deviceId":"device-a""#, r#""deviceId":"device-b""#);
+        let folder = report("report-other-device", &body);
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
+    }
+
+    #[test]
+    fn this_devices_verified_run_passes_next_to_another_devices_run() {
+        let body = COMPLETE.replace(
+            r#"}]}"#,
+            r#"},{"deviceId":"device-b","state":"incomplete","missing":["vault_page"],"kinds":{}}]}"#,
+        );
+        let folder = report("report-own-device", &body);
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(true));
+    }
+
+    #[test]
+    fn a_missing_device_id_is_refused() {
+        let folder = report("report-no-device", COMPLETE);
+        assert_eq!(report_state_verified(&folder, None), Ok(false));
+    }
 
     #[test]
     fn report_verified_is_verified() {
         let folder = report("report-verified", COMPLETE);
-        assert_eq!(report_state_verified(&folder), Ok(true));
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(true));
     }
 
     #[test]
     fn verified_report_without_runs_is_not_verified() {
         let folder = report("report-no-runs", r#"{"state":"verified","runs":[]}"#);
-        assert_eq!(report_state_verified(&folder), Ok(false));
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
     }
 
     #[test]
     fn verified_report_with_missing_items_is_not_verified() {
         let body = COMPLETE.replace(r#""missing":[]"#, r#""missing":["vault_page"]"#);
         let folder = report("report-missing", &body);
-        assert_eq!(report_state_verified(&folder), Ok(false));
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
     }
 
     #[test]
     fn verified_report_with_db_files_mismatch_is_not_verified() {
         let body = COMPLETE.replace(r#""files":2"#, r#""files":1"#);
         let folder = report("report-mismatch", &body);
-        assert_eq!(report_state_verified(&folder), Ok(false));
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
     }
 
     #[test]
@@ -436,7 +481,7 @@ mod tests {
     #[test]
     fn corrupt_report_is_not_verified() {
         let folder = report("report-corrupt", "{not json");
-        assert_eq!(report_state_verified(&folder), Ok(false));
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
     }
 
     #[test]
@@ -444,7 +489,7 @@ mod tests {
         // A directory where the report file should be: the read fails with a non-NotFound error.
         let (folder, _) = temp("report-unreadable");
         fs::create_dir_all(folder.join(REPORT_REL)).unwrap();
-        let err = report_state_verified(&folder).unwrap_err();
+        let err = report_state_verified(&folder, Some(DEVICE)).unwrap_err();
         assert_eq!(err.code.as_deref(), Some("migration_report_unreadable"));
     }
 

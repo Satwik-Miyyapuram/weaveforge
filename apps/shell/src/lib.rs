@@ -20,6 +20,7 @@ pub mod cmd_ink;
 pub mod cmd_tools;
 pub mod cmd_vault;
 pub mod commands;
+pub mod device_id;
 pub mod device_settings;
 #[cfg(desktop)]
 pub mod embed;
