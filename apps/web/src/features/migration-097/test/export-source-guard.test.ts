@@ -65,9 +65,9 @@ test("app writes are refused in files mode while the export source still reads",
   const realFetch = globalThis.fetch;
   globalThis.fetch = appNet.fetch;
   try {
-    // project_bibliography_collections has no file repository, so it still runs through the guard.
+    // paper_tags is personal and not allowlisted, so the guarded server db refuses it before any request.
     await assert.rejects(
-      backend.projectBibliographyCollection.setCollection("p-1", "collection-1"),
+      async () => backend.db.from("paper_tags").insert({}),
       /not allowed on the org server/,
     );
   } finally {
