@@ -15,7 +15,7 @@ import type { Migrate097Progress, Migrate097StateName } from "./desktop-bridge";
  * use.
  */
 
-export type UpgradePhase = "running" | "stopped";
+export type UpgradePhase = "idle" | "running" | "stopped" | "verified";
 
 export interface UpgradeKindProgress {
   done: number;
@@ -79,6 +79,10 @@ export type UpgradeBodyProps = {
   onCopy: () => void;
   onRetry: () => void;
   onKeepOld: () => void;
+  /** Web: the user presses Start; nothing is exported before that. */
+  onStart?: () => void;
+  /** Web: after a verified run, the user presses Continue, which reloads the app. */
+  onContinue?: () => void;
 };
 
 /** The screen's content, without the Modal shell (the Modal portals, so it is not server-rendered). */
@@ -94,8 +98,35 @@ export function Migrate097UpgradeBody({
   onCopy,
   onRetry,
   onKeepOld,
+  onStart,
+  onContinue,
 }: UpgradeBodyProps) {
   const kinds = Object.entries(progress);
+  if (phase === "idle") {
+    return (
+      <div>
+        <p>Your data will move from the local database to files in this browser. Keep this tab open until it finishes.</p>
+        <ModalActions>
+          <Button variant="primary" onClick={onStart}>
+            Start
+          </Button>
+        </ModalActions>
+      </div>
+    );
+  }
+  if (phase === "verified") {
+    return (
+      <div>
+        <p>The upgrade finished. Your data is now in files.</p>
+        {reconnectProviders.length > 0 ? <p>{`Reconnect ${reconnectProviders.join(", ")} to restore its sync.`}</p> : null}
+        <ModalActions>
+          <Button variant="primary" onClick={onContinue}>
+            Continue
+          </Button>
+        </ModalActions>
+      </div>
+    );
+  }
   if (phase === "running") {
     return (
       <div>
@@ -163,7 +194,8 @@ export function Migrate097Upgrade({
   onReady: () => void;
   onKeepOld: () => void;
 }) {
-  const [phase, setPhase] = useState<UpgradePhase>("running");
+  // The web waits for Start; the desktop answers at once (runExport is null there) and shows Retry.
+  const [phase, setPhase] = useState<UpgradePhase>(runExport ? "idle" : "running");
   const [progress, setProgress] = useState<Record<string, UpgradeKindProgress>>({});
   const [copied, setCopied] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
@@ -182,7 +214,7 @@ export function Migrate097Upgrade({
       setReply,
     );
     if (outcome === "verified") {
-      onReady();
+      setPhase("verified");
       return;
     }
     setPhase("stopped");
@@ -197,7 +229,8 @@ export function Migrate097Upgrade({
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void run();
+    // Only the desktop path (no runner) runs on mount; the web export waits for Start.
+    if (!runExport) void run();
     // Runs once per mount; run reads the latest folder and callbacks on that pass.
   }, [folder]);
 
@@ -223,6 +256,8 @@ export function Migrate097Upgrade({
       onCopy={copyPath}
       onRetry={() => void run()}
       onKeepOld={onKeepOld}
+      onStart={() => void run()}
+      onContinue={onReady}
     />
   );
 }
