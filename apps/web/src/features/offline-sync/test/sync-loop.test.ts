@@ -109,6 +109,34 @@ test("a folder that was unavailable once shows sync on again when a later cycle 
   assert.equal(getLiveSyncState().enabled, true, "a cycle that runs shows sync on");
 });
 
+test("a cycle still waiting on the gate when sign-out halts does not turn sync back on", async () => {
+  // Sign-out halts the loop and writes "off" while the cycle is inside allowed().
+  // When the gate then answers yes, the stale cycle must neither run nor re-enable.
+  const hold = gate();
+  let live = true;
+  let runs = 0;
+  setLiveSyncState({ enabled: true, phase: "idle" });
+  const cycle = gatedCycleRunner(
+    async () => {
+      runs += 1;
+    },
+    async () => {
+      await hold.promise;
+      return true;
+    },
+    () => live,
+  );
+
+  const pending = cycle();
+  live = false;
+  setLiveSyncState({ enabled: false, phase: "idle" });
+  hold.release();
+  await pending;
+
+  assert.equal(runs, 0, "a halted loop runs nothing");
+  assert.equal(getLiveSyncState().enabled, false, "sign-out leaves sync off");
+});
+
 test("only the account that owns the device may drive it", () => {
   assert.equal(mayDriveDevice("a", "a"), true);
   // A window signed in as somebody else must not push this device's rows as its

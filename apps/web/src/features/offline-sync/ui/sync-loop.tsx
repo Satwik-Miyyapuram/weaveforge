@@ -101,17 +101,24 @@ export function createCycleRunner(run: () => Promise<void>): () => Promise<void>
  * One sync cycle behind the migration gate, re-checked on every run (the folder
  * can migrate to files while the loop runs). A blocked cycle shows sync off; a
  * cycle that runs puts the display back on.
+ *
+ * `live` says whether the loop that started this cycle is still running. Sign-out
+ * halts the loop and writes "off", but a cycle already waiting on the gate
+ * carries on when the gate answers, so it must check `live` before it runs or
+ * writes anything.
  */
 export function gatedCycleRunner(
   run: () => Promise<void>,
   allowed: () => Promise<boolean> = syncAllowedHere,
+  live: () => boolean = () => true,
 ): () => Promise<void> {
   return createCycleRunner(async () => {
     const ran = await runCycleIfAllowed(allowed, async () => {
+      if (!live()) return;
       setLiveSyncState({ enabled: true, phase: "syncing" });
       await run();
     });
-    if (!ran) setLiveSyncState({ enabled: false, phase: "idle" });
+    if (!ran && live()) setLiveSyncState({ enabled: false, phase: "idle" });
   });
 }
 
@@ -331,17 +338,22 @@ function startSync(): (() => void) | undefined {
     };
 
     let lastRun = 0;
-    const cycle = gatedCycleRunner(async () => {
-      lastRun = Date.now();
-      await syncOnce({
-        cycle: () => engine.cycle(),
-        settle,
-        setState: setLiveSyncState,
-        online: () => typeof navigator === "undefined" || navigator.onLine,
-        log: logSyncFailure,
-      });
-      void updateConflicts();
-    });
+    let running = true;
+    const cycle = gatedCycleRunner(
+      async () => {
+        lastRun = Date.now();
+        await syncOnce({
+          cycle: () => engine.cycle(),
+          settle,
+          setState: setLiveSyncState,
+          online: () => typeof navigator === "undefined" || navigator.onLine,
+          log: logSyncFailure,
+        });
+        void updateConflicts();
+      },
+      syncAllowedHere,
+      () => running,
+    );
 
     const unregisterTrigger = registerSyncTrigger(() => void cycle());
     void cycle();
@@ -366,6 +378,7 @@ function startSync(): (() => void) | undefined {
     const timer = window.setInterval(() => void cycle(), CYCLE_MS);
 
     return () => {
+      running = false;
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       window.removeEventListener("focus", onFocus);
