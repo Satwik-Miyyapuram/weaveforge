@@ -7,6 +7,7 @@
  */
 import { BlobNotFoundError, type IBlobFetcher, type IWorkspaceFs } from "@weaveforge/core";
 import { moveToTrash } from "@/lib/workspace-trash";
+import { conflictCopyPath } from "@/features/migration-097/domain/conflict-path";
 
 /** `ASSET_DIR` in crates/wf-core/src/sync/folder_layout.rs. */
 const ASSET_DIR = "assets";
@@ -26,6 +27,18 @@ function assertSafe(bucket: string, path: string): void {
 async function writeAtomic(fs: IWorkspaceFs, file: string, data: Uint8Array | string): Promise<void> {
   await fs.writeFile(`${file}.part`, data);
   await fs.rename(`${file}.part`, file);
+}
+
+/**
+ * Writes a sidecar without ever renaming onto an existing one. The same text is already there: nothing to do.
+ * Different text keeps the existing sidecar and goes to the first free conflict copy beside it.
+ */
+async function putSidecar(fs: IWorkspaceFs, sidecar: string, text: string): Promise<void> {
+  for (let n = 0; ; n++) {
+    const target = n === 0 ? sidecar : conflictCopyPath(sidecar, n);
+    if (!(await fs.stat(target))) return writeAtomic(fs, target, text);
+    if ((await fs.readText(target)) === text) return;
+  }
 }
 
 function assetFile(bucket: string, path: string): string {
@@ -55,7 +68,7 @@ export class FileBlobStore implements IBlobFetcher {
       await this.fs.mkdirp(file.slice(0, file.lastIndexOf("/")));
       await writeAtomic(this.fs, file, bytes);
     }
-    await writeAtomic(this.fs, `${file}.sha256`, `${digest}\n${type}`);
+    await putSidecar(this.fs, `${file}.sha256`, `${digest}\n${type}`);
   }
 
   /** Moves the bytes and sidecar to `.weaveforge/trash`; nothing is unlinked. */

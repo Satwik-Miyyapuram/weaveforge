@@ -124,3 +124,33 @@ test("a user path ending in .sha256 is rejected, so it cannot reach a sidecar", 
   await assert.rejects(store.fetchBytes("notes", "a.png.sha256"), /Unsafe asset path/);
   await assert.rejects(store.remove("notes", "a.png.sha256"), /Unsafe asset path/);
 });
+
+/** A workspace fs whose rename refuses to replace an existing file, as the export's guarded sink does. */
+function refusingRename(fs: MemoryWorkspaceFs): MemoryWorkspaceFs {
+  const rename = fs.rename.bind(fs);
+  fs.rename = async (from: string, to: string) => {
+    if (await fs.stat(to)) throw new Error(`refusing to replace an existing file: ${to}`);
+    return rename(from, to);
+  };
+  return fs;
+}
+
+test("a second run of an already-exported blob is clean: no rename onto the existing sidecar", async () => {
+  const fs = refusingRename(new MemoryWorkspaceFs());
+  const store = new FileBlobStore(fs);
+  await store.upload("notes", "n1/diagram.png", png(1, 2, 3), "image/png");
+  await store.upload("notes", "n1/diagram.png", png(1, 2, 3), "image/png");
+  assert.deepEqual(Object.keys(fs.toRecord()).sort(), [
+    "assets/notes/n1/diagram.png",
+    "assets/notes/n1/diagram.png.sha256",
+  ]);
+});
+
+test("a re-upload whose sidecar differs keeps the sidecar and writes the new one to a conflict copy", async () => {
+  const fs = refusingRename(new MemoryWorkspaceFs());
+  const store = new FileBlobStore(fs);
+  await store.upload("notes", "n1/diagram.png", png(1, 2, 3), "image/png");
+  await store.upload("notes", "n1/diagram.png", png(1, 2, 3), "image/jpeg");
+  assert.match(await fs.readText("assets/notes/n1/diagram.png.sha256"), /image\/png$/, "the existing sidecar is kept");
+  assert.match(await fs.readText("assets/notes/n1/diagram.png (conflict).sha256"), /image\/jpeg$/, "the new sidecar is in a conflict copy");
+});
