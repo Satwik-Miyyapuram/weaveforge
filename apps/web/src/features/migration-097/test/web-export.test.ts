@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
+import { ConflictError } from "@weaveforge/core";
 import { REPORT_PATH, readMigrationReport, unverifiedDevices, writesOff, type RunReport } from "../domain/report";
 import { SERVER_ONLY_FIELDS } from "../domain/server-only-fields";
 import type { BlobRef, FileCodec, Row, ServerSource } from "../domain/ports";
@@ -923,6 +924,20 @@ test("re-run conflict: a writer conflict is listed on the kind and the run is in
   assert.equal(result.state, "incomplete");
   assert.deepEqual(result.run.kinds.logEntries?.conflicts, ["l2"]);
   assert.equal(JSON.parse(await sink.readText(REPORT_PATH)).state, "incomplete");
+});
+
+test("re-run conflict: a typed ConflictError is a conflict whatever its message says", async () => {
+  const { source } = fakeServer({ rows: FIXTURE });
+  const sink = new MemorySink();
+  const writer: KindWriter = {
+    kinds: ["logEntries"],
+    write: async (_k, row) => {
+      if (row.id === "l2") throw new ConflictError("logEntry l2 differs from the file");
+    },
+    readBack: async () => (FIXTURE.logEntries ?? []).filter((r) => r.id !== "l2"),
+  };
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW, writers: () => [writer] });
+  assert.deepEqual(result.run.kinds.logEntries?.conflicts, ["l2"]);
 });
 
 test("failure reasons: a writer error is a fixed code; its message stays out of report.json and goes to the debug log", async () => {

@@ -3,6 +3,7 @@ import { sha256Hex } from "../domain/hash";
 import { conflictCopyPath } from "../domain/conflict-path";
 import { addsKeysOnly } from "../domain/add-keys-only";
 import { isTempPath } from "@/lib/temp-path";
+import { ConflictError } from "@weaveforge/core";
 
 /** Path to the sha256 of the content this run wrote there (or found there and kept). */
 export type Outputs = Record<string, string>;
@@ -122,7 +123,7 @@ export function guardedSink(sink: FileSink, store: FileStore): FileSink {
       if (!ours && (base === null || !addsKeysOnly(base, text))) {
         // A refused merge is a conflict, not a plain miss: the DB text goes to a copy, the user's file is kept.
         await store.store(path, text, await sha256Hex(text));
-        throw new Error(`conflict: ${path} changed on disk, not add-keys-only; kept the file's version`);
+        throw new ConflictError(`conflict: ${path} changed on disk, not add-keys-only; kept the file's version`);
       }
       const ok = await sink.writeIf(path, text, expected);
       if (ok && !ours && known === undefined && expected !== null) baselines.set(path, expected);

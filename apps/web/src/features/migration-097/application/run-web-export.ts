@@ -18,6 +18,12 @@ import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fie
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
 import { createFileStore, guardedSink, type FileStore, type Outputs } from "./file-store";
 import { tempPathFor } from "@/lib/temp-path";
+import { ConflictError } from "@weaveforge/core";
+
+/** A typed ConflictError, or a plain Error whose message starts "conflict:" (a writer that throws the message only). */
+function isConflict(err: unknown): boolean {
+  return err instanceof ConflictError || (err instanceof Error && err.message.startsWith("conflict:"));
+}
 
 export type ExportProgress = { kind: string; done: number; total: number };
 
@@ -395,7 +401,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
             } catch (err) {
               const message = (err as Error).message;
               debugLog?.(`write ${kind} ${String(row.id)}: ${message}`);
-              const conflict = message.startsWith("conflict:");
+              const conflict = isConflict(err);
               if (conflict) (conflicts[kind] ??= []).push(String(row.id));
               // Only paper field kinds carry their DB value into report.json; every other kind (secrets included) is an allowlist miss.
               const conflictValue = (err as { conflictValue?: unknown }).conflictValue;
@@ -471,7 +477,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           const describesDisk = (await sink.exists(path)) && (await sha256Hex(await sink.readBytes(path))) === named;
           if (named !== sha256 && !describesDisk) {
             await store.store(userSidecar, sha256, await sha256Hex(sha256)); // records the DB sidecar as the conflict copy
-            throw new Error(`conflict: ${userSidecar} differs; kept the file's version`);
+            throw new ConflictError(`conflict: ${userSidecar} differs; kept the file's version`);
           }
           // A differing file at the path keeps its bytes: the DB blob lands at a conflict copy instead.
           path = await store.store(path, bytes, sha256);
@@ -479,7 +485,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
           // A differing sidecar keeps the user's bytes; the DB sidecar is the conflict copy (already in store.conflicts).
           const sidecarPath = `${path}.sha256`;
           const sidecarHeld = await store.store(sidecarPath, sha256, await sha256Hex(sha256));
-          if (sidecarHeld !== sidecarPath) throw new Error(`conflict: ${sidecarPath} differs; kept the file's version`);
+          if (sidecarHeld !== sidecarPath) throw new ConflictError(`conflict: ${sidecarPath} differs; kept the file's version`);
         }
         // Read back what was written; a blob that does not read back to the local sha256 is missing.
         const back = await sha256Hex(await sink.readBytes(path));
@@ -491,7 +497,7 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         const message = (err as Error).message;
         debugLog?.(`blob ${ref.path}: ${message}`);
         // A conflict keeps the user's file and records its copy in run.conflicts; it is not a failed blob.
-        if (message.startsWith("conflict:")) missing.push({ kind: "blobs", id, reason: "conflict:blobs" });
+        if (isConflict(err)) missing.push({ kind: "blobs", id, reason: "conflict:blobs" });
         else missing.push({ kind: "blobs", id, reason: "blob-failed" });
       }
     }

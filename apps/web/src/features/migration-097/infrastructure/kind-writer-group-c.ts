@@ -1,4 +1,4 @@
-import type { NewReaderAnnotation } from "@weaveforge/core";
+import { ConflictError, type NewReaderAnnotation } from "@weaveforge/core";
 import type { KindWriter } from "../domain/kind-writer";
 import type { FileSink, Row } from "../domain/ports";
 import { sinkAsWorkspaceFs } from "./sink-workspace-fs";
@@ -61,7 +61,7 @@ export function createGroupCWriter(sink: FileSink, projectRoot: string): KindWri
           const existing = (await annotations.list(paperId)).find((a) => a.id === (row.id as string));
           if (existing) {
             if (sameAnnotation(existing, row)) return;
-            throw new Error(`conflict: annotation ${String(row.id)} on paper ${paperId} exists with different content`);
+            throw new ConflictError(`conflict: annotation ${String(row.id)} on paper ${paperId} exists with different content`);
           }
           const draft: NewReaderAnnotation & { createdAt?: string; updatedAt?: string } = {
             id: row.id as string,
