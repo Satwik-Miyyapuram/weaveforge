@@ -464,6 +464,15 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
         if (blobWriter) {
           await blobWriter.write("blobs", { bucket: item.bucket, path: item.path, sha256, bytes });
         } else {
+          // A sidecar that names another sha256 and does not describe the blob on disk is the user's: it stops the blob here,
+          // so no blob lands beside a sidecar it contradicts. A sidecar that describes the blob on disk is this device's, and follows it.
+          const userSidecar = `${path}.sha256`;
+          const named = (await sink.exists(userSidecar)) ? (await sink.readText(userSidecar)).split("\n")[0] : sha256;
+          const describesDisk = (await sink.exists(path)) && (await sha256Hex(await sink.readBytes(path))) === named;
+          if (named !== sha256 && !describesDisk) {
+            await store.store(userSidecar, sha256, await sha256Hex(sha256)); // records the DB sidecar as the conflict copy
+            throw new Error(`conflict: ${userSidecar} differs; kept the file's version`);
+          }
           // A differing file at the path keeps its bytes: the DB blob lands at a conflict copy instead.
           path = await store.store(path, bytes, sha256);
           // The sidecar follows the blob's ownership: a re-run that replaces the blob replaces its sidecar too.

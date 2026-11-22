@@ -60,3 +60,12 @@ test("a user's sidecar that differs from the blob's sha256 is a conflict, not a 
   assert.equal(await sink.readText("assets/images/a.webp.sha256"), "user-sidecar\nimage/webp", "the user's sidecar is kept");
   assert.notEqual(result.state, "verified");
 });
+
+test("a user's sidecar that names another sha256 stops the blob write: no blob lands beside a sidecar it contradicts", async () => {
+  const sink = new MemorySink();
+  await sink.write("assets/images/a.webp.sha256", "user-sidecar\nimage/webp");
+
+  await runWebExport({ kinds: [], codec, source: server(() => new Uint8Array([1, 2, 3, 4])), sink, now: NOW, runDeviceId: "dev-a" });
+
+  assert.equal(await sink.exists("assets/images/a.webp"), false, "the blob is not written while the sidecar is the user's");
+});
