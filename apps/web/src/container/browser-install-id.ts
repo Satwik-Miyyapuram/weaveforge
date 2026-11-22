@@ -6,6 +6,9 @@ export const INSTALL_ID_PATH = ".weaveforge/local/install-id";
 
 const LOCK_NAME = "wf-install-id";
 
+/** The file access the install id needs. `remove` is optional: it only clears a temp file after a failed rename. */
+export type InstallIdFs = Pick<IWorkspaceFs, "readText" | "writeFile" | "rename"> & Partial<Pick<IWorkspaceFs, "remove">>;
+
 /**
  * This install's stable id, created on first use. A missing or malformed file gets a fresh id.
  *
@@ -16,7 +19,7 @@ const LOCK_NAME = "wf-install-id";
  * the caller can fail closed too.
  */
 export async function readOrCreateInstallId(
-  fs: Pick<IWorkspaceFs, "readText" | "writeFile" | "rename">,
+  fs: InstallIdFs,
   newId: () => string = () => crypto.randomUUID(),
 ): Promise<string> {
   const locks = globalThis.navigator?.locks;
@@ -32,7 +35,7 @@ function isNotFound(error: unknown): boolean {
 }
 
 async function readOrCreateUnlocked(
-  fs: Pick<IWorkspaceFs, "readText" | "writeFile" | "rename">,
+  fs: InstallIdFs,
   newId: () => string,
 ): Promise<string> {
   let stored: string | undefined;
@@ -46,7 +49,17 @@ async function readOrCreateUnlocked(
   // A unique name per call, so two tabs or two calls never write the same temp file.
   const temp = `${INSTALL_ID_PATH}.${crypto.randomUUID()}.part`;
   await fs.writeFile(temp, newId());
-  await fs.rename(temp, INSTALL_ID_PATH);
+  try {
+    await fs.rename(temp, INSTALL_ID_PATH);
+  } catch (error) {
+    // Best effort: a stranded temp file is harmless to the id, so a failed cleanup must not mask the rename error.
+    try {
+      await fs.remove?.(temp);
+    } catch {
+      // Ignored: the rename error is the one the caller needs.
+    }
+    throw error;
+  }
   const readBack = (await fs.readText(INSTALL_ID_PATH)).trim();
   if (!ID_SHAPE.test(readBack)) throw new Error("install id: stored id is malformed");
   return readBack;

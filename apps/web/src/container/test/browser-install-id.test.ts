@@ -30,6 +30,9 @@ function folder(initial: Record<string, string> = {}, otherTabWritesAfterRename?
       renames.push([from, to]);
       if (otherTabWritesAfterRename !== undefined) files.set(to, otherTabWritesAfterRename);
     },
+    async remove(path: string): Promise<void> {
+      files.delete(path);
+    },
   };
 }
 
@@ -102,6 +105,19 @@ test("a read error other than not-found refuses and does not replace the stored 
   await assert.rejects(createId(fs, () => "web-rotated-id"), /I\/O error/);
   assert.equal(fs.renames.length, 0);
   assert.equal(fs.files.get(INSTALL_ID_PATH), "web-kept-id");
+});
+
+test("a rename that fails removes the temp file, rejects, and writes no id", async () => {
+  const fs = folder();
+  fs.rename = async () => {
+    throw new Error("rename refused");
+  };
+  await assert.rejects(createId(fs, () => "web-lost-id"), /rename refused/);
+  assert.equal(fs.files.get(INSTALL_ID_PATH), undefined);
+  assert.deepEqual(
+    [...fs.files.keys()].filter((path) => path.endsWith(".part")),
+    [],
+  );
 });
 
 test("a failed write rejects, so the caller can fail closed", async () => {
