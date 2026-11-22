@@ -95,3 +95,69 @@ test("paper field value: the body and the other frontmatter lines stay byte-iden
     assert.ok(after.split("\n").includes(line), `frontmatter line kept byte-identical: ${line}`);
   }
 });
+
+const MULTI: Row = { id: "fm", projectId: "proj-a", name: "Tags", kind: "multi_select", options: ["p1", "p2"], sortOrder: 1 };
+
+test("paper field value: the conflict entry carries the DB value", async () => {
+  const core = typedCore();
+  const sink = new MemorySink();
+  await sink.write(PAPER, core.writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n");
+  const writer = createPaperFieldsWriter(sink, FOLDERS);
+  await writer.write("paperFields", DEF);
+  await writer.write("paperFieldValues", { id: "v1", projectId: "proj-a", paperId: "p1", fieldId: "fa", value: "user" });
+  await assert.rejects(
+    writer.write("paperFieldValues", { id: "v1", projectId: "proj-a", paperId: "p1", fieldId: "fa", value: "NeurIPS" }),
+    (err: Error & { conflictValue?: unknown }) => err.message.startsWith("conflict:") && err.conflictValue === "NeurIPS",
+  );
+});
+
+test("paper field value: the same set in another order is not a conflict, and the file is not rewritten", async () => {
+  const core = typedCore();
+  const sink = new MemorySink();
+  await sink.write(PAPER, core.writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n");
+  const writer = createPaperFieldsWriter(sink, FOLDERS);
+  await writer.write("paperFields", MULTI);
+  await writer.write("paperFieldValues", { id: "m1", projectId: "proj-a", paperId: "p1", fieldId: "fm", value: ["p2", "p1"] });
+  const once = await sink.readText(PAPER);
+  // A later run reads the list back in the file's order; the same members must not count as a conflict.
+  await createPaperFieldsWriter(sink, FOLDERS).write("paperFieldValues", { id: "m1", projectId: "proj-a", paperId: "p1", fieldId: "fm", value: ["p1", "p2"] });
+  assert.equal(await sink.readText(PAPER), once, "an equal set leaves the file as it is");
+});
+
+test("two clean runs: a value this device wrote is not mistaken for a user edit on the next run", async () => {
+  const core = typedCore();
+  const base = core.writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n";
+  const sink = new MemorySink();
+  // Run 1: the codec writes the note, then the field merge compare-and-sets over it.
+  const store1 = await createFileStore(sink, {});
+  const guarded1 = guardedSink(sink, store1);
+  await guarded1.write(PAPER, base);
+  await createPaperFieldsWriter(guarded1, FOLDERS).write("paperFields", DEF);
+  await createPaperFieldsWriter(guarded1, FOLDERS).write("paperFieldValues", { id: "v1", projectId: "proj-a", paperId: "p1", fieldId: "fa", value: "NeurIPS" });
+  // Run 2: the codec writes the note again from the DB. Nothing differs from what run 1 left, so no copy.
+  const store2 = await createFileStore(sink, store1.outputs);
+  await guardedSink(sink, store2).write(PAPER, base + "Rewritten.\n");
+  assert.deepEqual(store2.conflicts, [], "no conflict copy on a clean re-run");
+  assert.deepEqual(sink.paths().filter((p) => p !== ".weaveforge/settings.json"), [PAPER]);
+});
+
+test("CAS miss: the conflict check runs again on the re-read text, so a user value written in the race is kept", async () => {
+  const core = typedCore();
+  const base = core.writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n";
+  // The racing edit is a real file that already holds a differing value for the same field.
+  const seed = new MemorySink();
+  await seed.write(PAPER, base);
+  const seedWriter = createPaperFieldsWriter(seed, FOLDERS);
+  await seedWriter.write("paperFields", DEF);
+  await seedWriter.write("paperFieldValues", { id: "v1", projectId: "proj-a", paperId: "p1", fieldId: "fa", value: "user" });
+  const racedText = await seed.readText(PAPER);
+  const sink = new RacySink(PAPER, racedText);
+  await sink.write(PAPER, base);
+  const writer = createPaperFieldsWriter(sink, FOLDERS);
+  await writer.write("paperFields", DEF);
+  await assert.rejects(
+    writer.write("paperFieldValues", { id: "v1", projectId: "proj-a", paperId: "p1", fieldId: "fa", value: "NeurIPS" }),
+    (err: Error) => err.message.startsWith("conflict:"),
+  );
+  assert.ok((await sink.readText(PAPER)).includes("user"), "the user's value is not overwritten by the retry");
+});

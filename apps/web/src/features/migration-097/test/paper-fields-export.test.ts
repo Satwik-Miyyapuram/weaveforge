@@ -313,3 +313,17 @@ test("paper field values: an unmapped project is a per-row missing entry and the
   const thesis = new FilePaperFieldRepository(new FilePaperRepository(fs, "Thesis"), settingsOver(doc), fs, () => "Thesis");
   assert.deepEqual((await thesis.listValuesForProject()).map((v) => v.id), ["p1:fa", "p1:fa2"]);
 });
+
+test("paper fields: a value the file already holds is reported as a conflict that carries the DB value", async () => {
+  const sink = new MemorySink();
+  await sink.write("Thesis/papers/a.paper.md", typedCore().writePaperRow(null, { id: "p1", title: "A" }) + "Body.\n");
+  const seed = createPaperFieldsWriter(sink, FOLDERS);
+  await seed.write("paperFields", DEFS[0]);
+  await seed.write("paperFieldValues", { id: "x", projectId: "proj-a", paperId: "p1", fieldId: "fa", value: "user" });
+  const result = await runWebExport({ runDeviceId: "dev-test", kinds: ["paperFields", "paperFieldValues"], codec: NO_CODEC, now: NOW,
+    source: fakeSource({ paperFields: [DEFS[0]], paperFieldValues: [VALUES[0]] }), sink, writers: () => [createPaperFieldsWriter(sink, FOLDERS)] });
+  const row = result.run.missing.find((m) => m.kind === "paperFieldValues" && m.id === "v1") as { reason: string; value?: unknown } | undefined;
+  assert.equal(row?.reason, "conflict:paperFieldValues");
+  assert.equal(row?.value, "NeurIPS", "the report keeps the DB value so nothing is lost");
+  assert.ok((await sink.readText("Thesis/papers/a.paper.md")).includes("user"), "the file's value is kept");
+});

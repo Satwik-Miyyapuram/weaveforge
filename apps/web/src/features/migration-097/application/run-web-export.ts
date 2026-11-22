@@ -351,7 +351,8 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
               debugLog?.(`write ${kind} ${String(row.id)}: ${message}`);
               const conflict = message.startsWith("conflict:");
               if (conflict) (conflicts[kind] ??= []).push(String(row.id));
-              missing.push({ kind, id: String(row.id), reason: conflict ? `conflict:${kind}` : `write-failed:${kind}` });
+              const conflictValue = (err as { conflictValue?: unknown }).conflictValue;
+              missing.push({ kind, id: String(row.id), reason: conflict ? `conflict:${kind}` : `write-failed:${kind}`, ...(conflict && conflictValue !== undefined ? { value: conflictValue } : {}) });
             }
             onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
           }

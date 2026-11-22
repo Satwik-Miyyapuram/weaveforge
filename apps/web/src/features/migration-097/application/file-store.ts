@@ -84,7 +84,12 @@ export function guardedSink(sink: FileSink, store: FileStore): FileSink {
     readBytes: (path) => sink.readBytes(path),
     rename: (from, to) => sink.rename(from, to),
     remove: (path) => sink.remove(path),
-    // A compare-and-set replaces only the text the caller read, so it never loses a user edit: pass it through.
-    writeIf: (path, text, expected) => sink.writeIf(path, text, expected),
+    // A compare-and-set replaces only the text the caller read, so it never loses a user edit. A successful one
+    // is this run's output, so its hash is recorded: the next run must see it as ours, not as a user edit.
+    async writeIf(path, text, expected) {
+      const ok = await sink.writeIf(path, text, expected);
+      if (ok && !path.startsWith(".weaveforge/")) store.outputs[path] = await sha256Hex(text);
+      return ok;
+    },
   };
 }

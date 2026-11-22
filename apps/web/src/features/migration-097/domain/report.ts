@@ -34,7 +34,8 @@ export type MigrationTarget = "opfs" | "folder";
 
 export type KindCount = { db: number; files: number; written: number; conflicts: string[]; trash: number };
 
-export type MissingRow = { kind: string; id: string; reason: string };
+/** `value` is set only on a conflict: the DB value the file kept out, so the report loses no data. */
+export type MissingRow = { kind: string; id: string; reason: string; value?: unknown };
 
 export type RunReport = {
   startedAt: string;

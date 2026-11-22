@@ -61,6 +61,15 @@ export function projectDefsMismatches(want: Row[], got: Row[]): MissingRow[] {
 export type FileFieldDef = { projectId: string; name: string; kind: string; options: string[]; sortOrder: number };
 export type FileFieldValue = string | number | string[];
 
+/**
+ * Whether two field values hold the same data as the file and the DB see them. Relations and multi-selects are
+ * sets, so their order does not count; scalars must match exactly. A value is never an object (FileFieldValue).
+ */
+export function sameFieldValue(a: unknown, b: unknown): boolean {
+  const norm = (v: unknown): unknown => (Array.isArray(v) ? v.map(String).sort() : v);
+  return JSON.stringify(norm(a)) === JSON.stringify(norm(b));
+}
+
 function asOption(o: unknown): string {
   if (typeof o !== "string") throw new Error("paper field option is not text");
   return o;
