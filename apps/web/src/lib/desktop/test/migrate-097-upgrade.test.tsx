@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { Migrate097UpgradeBody, runUpgrade, upgradeReportFolder } from "../migrate-097-upgrade";
 import type { Migrate097Progress } from "../desktop-bridge";
 import { InstallIdLocksUnavailableError } from "@/container/browser-install-id";
+
+// The component file uses JSX without importing React; under node --test the transform is classic, so expose React first.
+Object.assign(globalThis, { React });
 
 const FOLDER = "C:\\Users\\me\\Documents\\WeaveForge";
 const noop = () => {};
