@@ -9,6 +9,13 @@ function withoutServerOnly(kind: string, row: Row): Row {
   return Object.fromEntries(Object.entries(row).filter(([k]) => !skip.has(k)));
 }
 
+/** Compared form of a row: a null blob contentType and octet-stream are the same "unknown" type. */
+function comparable(kind: string, row: Row): Row {
+  const out = withoutServerOnly(kind, row);
+  if (kind === "blobs") out.contentType = out.contentType ?? "application/octet-stream";
+  return out;
+}
+
 export type VerifyInput = {
   kinds: readonly string[];
   codec: FileCodec;
@@ -61,8 +68,8 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
         if (row) decoded.push(row);
       }
       out.kinds[kind] = { db: expected.length, files: decoded.length };
-      const want = expected.map((row) => canon(withoutServerOnly(kind, row))).sort();
-      const got = decoded.map(canon).sort();
+      const want = expected.map((row) => canon(comparable(kind, row))).sort();
+      const got = decoded.map((row) => canon(comparable(kind, row))).sort();
       if (want.length !== got.length || want.some((w, i) => w !== got[i])) {
         errors.push(`${kind}: decoded files differ from server rows`);
       }

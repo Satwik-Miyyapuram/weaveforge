@@ -450,3 +450,18 @@ test("web: no desktop bridge means no deviceId key in report.json", async () => 
   const report = JSON.parse(await sink.readText(REPORT_PATH)) as Record<string, unknown>;
   assert.equal("deviceId" in report, false);
 });
+
+test("verify: a null server contentType and application/octet-stream in the file are the same blob type", async () => {
+  // Group c writes null as octet-stream, so verify must accept that pair as equal.
+  const codec: FileCodec = {
+    supports: (kind) => kind === "blobs",
+    toFile: (kind, row) => ({
+      path: `${kind}/${String(row.id)}.json`,
+      text: JSON.stringify({ ...row, contentType: row.contentType ?? "application/octet-stream" }),
+    }),
+    toRow: (kind, path, text) => (path.startsWith(`${kind}/`) ? (JSON.parse(text) as Row) : null),
+  };
+  const { source } = fakeServer({ rows: { blobs: [{ id: "b1", contentType: null, bucket: "x" }] } });
+  const result = await runWebExport({ kinds: ["blobs"], codec, source, sink: new MemorySink(), now: NOW });
+  assert.equal(result.state, "verified");
+});
