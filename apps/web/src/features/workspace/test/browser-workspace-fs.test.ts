@@ -205,6 +205,34 @@ test("a read of a file that is really absent still reports ENOENT", async () => 
   await assert.rejects(() => fs.readText("missing.md"), { message: /^ENOENT/ });
 });
 
+test("a folder the browser refuses to open is not reported as a missing folder", async () => {
+  const { root, fs } = workspace();
+  await fs.writeFile("notes/a.md", "x");
+  root.getDirectoryHandle = async () => {
+    throw new DOMException("Not allowed.", "NotAllowedError");
+  };
+  await assert.rejects(() => fs.readText("notes/a.md"), { name: "NotAllowedError" });
+  await assert.rejects(() => fs.list("notes"), { name: "NotAllowedError" });
+});
+
+test("a read under a path that is a file, not a folder, reports the path as absent", async () => {
+  const { root, fs } = workspace();
+  await fs.writeFile("a.md", "x");
+  root.getDirectoryHandle = async () => {
+    throw new DOMException("Type mismatch.", "TypeMismatchError");
+  };
+  await assert.rejects(() => fs.readText("a.md/inner.md"), { message: /^ENOENT/ });
+  assert.deepEqual(await fs.list("a.md"), []);
+});
+
+test("a write under a path that is a file is refused with the clash, not a generic error", async () => {
+  const { root, fs } = workspace();
+  root.getDirectoryHandle = async () => {
+    throw new DOMException("Type mismatch.", "TypeMismatchError");
+  };
+  await assert.rejects(() => fs.writeFile("a.md/inner.md", "x"), { name: "TypeMismatchError" });
+});
+
 test("recursive remove still clears a folder", async () => {
   const { fs } = workspace();
   await fs.writeFile("project/notes/a.md", "x");

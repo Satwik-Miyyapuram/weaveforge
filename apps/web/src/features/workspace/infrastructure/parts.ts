@@ -63,14 +63,21 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
     return typeof (globalThis as { showDirectoryPicker?: unknown }).showDirectoryPicker === "function";
   }
 
+  /**
+   * The folder handle for `path`, or null when it is absent. Only NotFoundError is absent. A
+   * TypeMismatchError (a file sits where a folder is expected) is absent on a read, since no folder
+   * is there, but on a create it rethrows so the write reports the clash. Any other refusal rethrows.
+   */
   private async dirFor(path: string, create: boolean): Promise<DirHandle | null> {
     const parts = path ? safeWorkspacePath(path).split("/") : [];
     let dir = this.root;
     for (const part of parts) {
       try {
         dir = (await dir.getDirectoryHandle(part, { create })) as DirHandle;
-      } catch {
-        return null;
+      } catch (error) {
+        const name = (error as { name?: unknown } | null)?.name;
+        if (name === "NotFoundError" || (name === "TypeMismatchError" && !create)) return null;
+        throw error;
       }
     }
     return dir;
