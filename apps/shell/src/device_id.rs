@@ -57,7 +57,10 @@ fn create(dir: &Path, path: &Path) -> io::Result<String> {
     let linked = fs::hard_link(&part, path);
     let _ = fs::remove_file(&part);
     match linked {
-        Ok(()) => Ok(id),
+        Ok(()) => {
+            sync_dir(dir)?;
+            Ok(id)
+        }
         Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
             let text = fs::read_to_string(path)?;
             parse_id(path, text.trim())
@@ -76,6 +79,16 @@ fn part_path(path: &Path) -> std::path::PathBuf {
     let seq = SEQ.fetch_add(1, Ordering::Relaxed);
     let name = format!("{FILE}.{}-{nanos}-{seq}.part", std::process::id());
     path.with_file_name(name)
+}
+
+/// Makes the new name durable. On Unix a link is only durable once the folder is synced; Windows
+/// has no folder fsync, so there this does nothing.
+fn sync_dir(dir: &Path) -> io::Result<()> {
+    #[cfg(unix)]
+    fs::File::open(dir)?.sync_all()?;
+    #[cfg(not(unix))]
+    let _ = dir;
+    Ok(())
 }
 
 fn parse_id(path: &Path, id: &str) -> io::Result<String> {
@@ -190,6 +203,18 @@ mod tests {
         remove_if_still_empty(&path).unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), real, "a real id is kept");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn syncing_the_folder_after_a_link_needs_the_folder() {
+        use super::sync_dir;
+        let dir = std::env::temp_dir().join(format!("wf-devid-sync-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        sync_dir(&dir).expect("an existing folder syncs");
+        let _ = std::fs::remove_dir_all(&dir);
+        #[cfg(unix)]
+        assert!(sync_dir(&dir).is_err(), "a missing folder cannot be synced on Unix");
     }
 
     #[test]
