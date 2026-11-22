@@ -94,7 +94,7 @@ impl LocalDb {
     /// An unnamed folder (no native database) is not present.
     #[must_use]
     pub fn legacy_db_present(&self) -> bool {
-        !self.data_dir.is_empty() && std::path::Path::new(&self.data_dir).exists()
+        !self.data_dir.is_empty() && std::path::Path::new(&self.data_dir).is_dir()
     }
 
     /// Runs `sql` with `params` and returns the rows.

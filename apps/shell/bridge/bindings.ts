@@ -32,14 +32,28 @@ export const commands = {
 	secretRead: (name: string) => typedError<string | null, ShellError_Serialize>(__TAURI_INVOKE("secret_read", { name })),
 	/**  Stores a secret the page may write. */
 	secretWrite: (name: string, value: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_write", { name, value })),
+	/**
+	 *  Moves the old rows into the keychain and records the move. The workspace folder is the vault
+	 *  root on this side, never a value from the page. EXPORT calls it after the export is verified and
+	 *  before remove-old.
+	 * 
+	 *  # Errors
+	 *  The keychain's reason when a field is not stored (for example `NoKeychain` on a machine without
+	 *  one), or the database's reason when the rows cannot be read. No marker is written on either.
+	 */
+	migrate097MoveSecrets: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("migrate_097_move_secrets")),
+	/**
+	 *  Whether the old database folder exists. Read only, metadata only: the database is never opened.
+	 *  The page asks this when a read of the old rows fails: a missing folder means no old secrets.
+	 */
+	legacyDbPresent: () => __TAURI_INVOKE<boolean>("legacy_db_present"),
+	/**
+	 *  The inverse of `legacy_db_present`: true when the old database folder is missing, so the page's
+	 *  legacy read can report "no old secrets" without an error.
+	 */
+	legacyDirMissing: () => __TAURI_INVOKE<boolean>("legacy_dir_missing"),
 	/**  Forgets a secret the page may write. */
 	secretClear: (name: string) => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("secret_clear", { name })),
-	/**  One-time move of the old local secrets row into the keychain (0.9.7). */
-	migrate097MoveSecrets: () => typedError<null, ShellError_Serialize>(__TAURI_INVOKE("migrate_097_move_secrets")),
-	/**  Whether the old local database folder is gone (no old secrets to move). Read only. */
-	legacyDbPresent: () => __TAURI_INVOKE<boolean>("legacy_db_present"),
-		/**  Whether the old local database folder is gone. Read only. */
-		legacyDirMissing: () => __TAURI_INVOKE<boolean>("legacy_dir_missing"),
 	/**
 	 *  Writes claimed SDK inbox rows into the experiment folders and returns the
 	 *  ids that are safe to ack.

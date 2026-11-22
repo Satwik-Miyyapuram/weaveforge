@@ -120,8 +120,28 @@ fn no_store_write_read_clear_behave_as_no_keychain() {
     let err = s.write("ai-provider", "v").expect_err("no store");
     assert_eq!(err, SecretError::NoKeychain);
     assert_eq!(err.to_string(), NO_KEYCHAIN_TEXT);
-    assert_eq!(s.read("ai-provider"), Ok(None));
+    // No keychain is an error for a read, never "nothing stored": a caller must not overwrite on it.
+    assert_eq!(s.read("ai-provider"), Err(SecretError::NoKeychain));
     assert_eq!(s.clear("ai-provider"), Ok(()));
+}
+
+#[test]
+fn page_cannot_read_back_the_camel_case_device_tokens() {
+    let store = mock();
+    let s = secrets(&store);
+    s.write("device-secrets/overleafToken", "tok").expect("write");
+    s.write("device-secrets/gitSyncToken", "g").expect("write");
+    assert_eq!(
+        s.page_read("device-secrets/overleafToken"),
+        Err(SecretError::UnknownName)
+    );
+    assert_eq!(
+        s.page_read("device-secrets/gitSyncToken"),
+        Err(SecretError::UnknownName)
+    );
+    // The page can still write them and clear them.
+    s.page_write("device-secrets/overleafToken", "new").expect("page write");
+    assert_eq!(s.page_clear("device-secrets/gitSyncToken"), Ok(()));
 }
 
 #[test]

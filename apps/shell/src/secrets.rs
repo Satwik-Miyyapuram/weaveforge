@@ -20,8 +20,9 @@ pub const SECRET_NAMES: [&str; 7] = [
 ];
 /// Secrets the page may read back.
 pub const PAGE_READABLE: [&str; 2] = ["ai-provider", "device-secrets"];
-/// Secrets the page may write and clear but never read back, even as a device field.
-pub const WRITE_ONLY: [&str; 2] = ["overleaf-token", "git-sync-token"];
+/// Secrets the page may write and clear but never read back, even as a device field. The camelCase
+/// names are the device-field keys the migration writes (`device-secrets/overleafToken`).
+pub const WRITE_ONLY: [&str; 4] = ["overleaf-token", "git-sync-token", "overleafToken", "gitSyncToken"];
 /// Secrets the page may write and clear.
 pub const PAGE_WRITABLE: [&str; 4] = [
     "ai-provider",
