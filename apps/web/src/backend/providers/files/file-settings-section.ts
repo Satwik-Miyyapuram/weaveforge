@@ -4,7 +4,12 @@ import type { SettingsSection } from "./file-tag-repo";
 /** The credential fields of the `Secrets` type (features/settings/infrastructure/parts.ts). */
 const SECRET_FIELDS = ["zoteroApiKey", "semanticScholarKey", "integrations"] as const;
 
-/** Words that mark a credential anywhere in a name. `auth(?!or)` keeps `author` and `authors` (paper metadata) legal. */
+/**
+ * Words that mark a credential anywhere in a name (substring match, case-insensitive).
+ * Limits: it is a name check, not a value check. A credential stored under a neutral name
+ * (`pins.x`) passes; values are checked only for the key names in `isSecretValueKey`.
+ * `auth(?!or)` keeps `author`, `authors` and `authorName` (paper metadata) legal.
+ */
 const SECRET_WORD = /secret|token|password|credential|bearer|cookie|refresh|session|auth(?!or)|api.?key|private.?key/i;
 
 /** Path segments are settings names or user ids (paperId, annotationKey). Only fixed names are checked here. */
