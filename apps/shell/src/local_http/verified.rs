@@ -64,6 +64,8 @@ pub fn mode_for_status(status: &MigrationStatus) -> Mode {
 }
 
 /// The storage path for the chosen folder. Never writes. No open folder is `Unavailable`.
+/// Files only for a removal this device started, or a removal or verified state this device's own
+/// run confirms; another device's removal with no own verified run is read only.
 #[must_use]
 pub fn folder_mode(vault: &VaultState, source: &ModeSource) -> Mode {
     let root = vault.lock().root();

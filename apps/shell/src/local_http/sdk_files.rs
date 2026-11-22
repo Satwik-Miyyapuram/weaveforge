@@ -404,12 +404,23 @@ mod tests {
     }
 
     #[test]
-    fn a_removing_folder_from_another_device_fails_closed_to_read_only() {
-        let fixture = Fixture::new("removing-other").write_report(&json!({
+    fn a_removing_folder_from_another_device_is_files_when_this_device_verified() {
+        let fixture = Fixture::new("removing-other-verified").write_report(&json!({
             "version": 1,
             "state": "removing",
             "removingDeviceId": "device-b",
-            "runs": [{ "deviceId": DEVICE, "state": "verified" }],
+            "runs": [{ "deviceId": DEVICE, "state": "verified", "finishedAt": "2026-11-01T00:00:00Z" }],
+        }));
+        assert_eq!(mode_of(&fixture), Mode::Files);
+    }
+
+    #[test]
+    fn a_removing_folder_from_another_device_without_own_run_is_read_only() {
+        let fixture = Fixture::new("removing-other-no-run").write_report(&json!({
+            "version": 1,
+            "state": "removing",
+            "removingDeviceId": "device-b",
+            "runs": [],
         }));
         assert_eq!(mode_of(&fixture), Mode::DatabaseReadOnly);
         let answer = route_once(&fixture, &points(0..2)).expect("refused");
