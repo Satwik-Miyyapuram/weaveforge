@@ -244,7 +244,10 @@ export function ListsScreen() {
         <p role="status" className="lists-screen__notice">
           {leftovers.length === 1 ? "One member" : `${leftovers.length} members`} from an older list file{" "}
           {leftovers.length === 1 ? "is" : "are"} not shown as {leftovers.length === 1 ? "an item" : "items"} yet:{" "}
-          {leftovers.map((l) => `${l.legacyLink ?? l.paperId ?? l.vaultPageId ?? "?"} (list ${l.listId})`).join(", ")}.
+          {leftovers
+            .map((l) => `${l.legacyLink ?? l.paperId ?? l.vaultPageId ?? "?"} (list ${allFlat.find((x) => x.id === l.listId)?.name ?? l.listId})`)
+            .join(", ")}
+          . Open the list and save it to update it.
         </p>
       )}
       {!loadError && tree.length === 0 && pinnedLists.length === 0 && (
