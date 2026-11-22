@@ -163,49 +163,54 @@ export async function runWebExport(opts: ExportOptions): Promise<ExportResult> {
   try {
     for (const kind of kinds) {
       current = kind;
-      const rows = await source.listRows(kind);
-      const raw = await source.countRows(kind);
-      if (raw !== rows.length) missing.push({ kind, id: "*", reason: `raw count ${raw} != exported ${rows.length}` });
-      const bad = await source.undecryptable(kind);
-      if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
-      written[kind] = 0;
-      dbCount[kind] = rows.length;
-      const writer = writerFor(kind);
-      if (writer) {
+      // One failing kind is listed missing; the later kinds still export.
+      try {
+        const rows = await source.listRows(kind);
+        const raw = await source.countRows(kind);
+        if (raw !== rows.length) missing.push({ kind, id: "*", reason: `raw count ${raw} != exported ${rows.length}` });
+        const bad = await source.undecryptable(kind);
+        if (bad > 0) missing.push({ kind, id: "*", reason: `${bad} content_enc row(s) failed to decrypt` });
+        written[kind] = 0;
+        dbCount[kind] = rows.length;
+        const writer = writerFor(kind);
+        if (writer) {
+          for (const row of rows) {
+            try {
+              await writer.write(kind, row);
+              written[kind]++;
+            } catch (err) {
+              const reason = (err as Error).message;
+              if (reason.startsWith("conflict:")) (conflicts[kind] ??= []).push(String(row.id));
+              missing.push({ kind, id: String(row.id), reason });
+            }
+            onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
+          }
+          const back = await writer.readBack(kind);
+          backCount[kind] = back.length;
+          if (!sameRows(kind, rows, back)) {
+            missing.push({ kind, id: "*", reason: `readBack differs: ${back.length} read, ${rows.length} exported` });
+          }
+          continue;
+        }
+        // TODO(097-lanes): still raw codec + sink until their FILES repo lands: group (a) papers,
+        // notes, relations, paperFields; and lists (readingLists). Keep this list in sync.
+        if (!codec.supports(kind)) {
+          for (const row of rows) missing.push({ kind, id: String(row.id), reason: "no wf-wasm codec" });
+          continue;
+        }
         for (const row of rows) {
+          // One bad row is listed missing; the others are still exported.
           try {
-            await writer.write(kind, row);
+            const file = codec.toFile(kind, row);
+            await sink.write(file.path, file.text);
             written[kind]++;
           } catch (err) {
-            const reason = (err as Error).message;
-            if (reason.startsWith("conflict:")) (conflicts[kind] ??= []).push(String(row.id));
-            missing.push({ kind, id: String(row.id), reason });
+            missing.push({ kind, id: String(row.id), reason: (err as Error).message });
           }
           onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
         }
-        const back = await writer.readBack(kind);
-        backCount[kind] = back.length;
-        if (!sameRows(kind, rows, back)) {
-          missing.push({ kind, id: "*", reason: `readBack differs: ${back.length} read, ${rows.length} exported` });
-        }
-        continue;
-      }
-      // TODO(097-lanes): still raw codec + sink until their FILES repo lands: group (a) papers,
-      // notes, relations, paperFields; and lists (readingLists). Keep this list in sync.
-      if (!codec.supports(kind)) {
-        for (const row of rows) missing.push({ kind, id: String(row.id), reason: "no wf-wasm codec" });
-        continue;
-      }
-      for (const row of rows) {
-        // One bad row is listed missing; the others are still exported.
-        try {
-          const file = codec.toFile(kind, row);
-          await sink.write(file.path, file.text);
-          written[kind]++;
-        } catch (err) {
-          missing.push({ kind, id: String(row.id), reason: (err as Error).message });
-        }
-        onProgress?.({ kind, done: written[kind] ?? 0, total: rows.length });
+      } catch {
+        missing.push({ kind, id: "*", reason: `${kind}: read failed` });
       }
     }
     current = "blobs";

@@ -136,7 +136,8 @@ test("interrupted run gives incomplete, writes the report and never sets the mar
 
   assert.equal(result.state, "incomplete");
   assert.ok(result.run.missing.length > 0);
-  assert.ok(JSON.stringify(result.run).includes("connection reset"));
+  assert.ok(JSON.stringify(result.run).includes("experiments: read failed"));
+  assert.equal(JSON.stringify(result.run).includes("connection reset"), false);
   const report = JSON.parse(await sink.readText(REPORT_PATH));
   assert.equal(report.state, "incomplete");
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
@@ -702,7 +703,8 @@ test("verify throw: a missing entry and an incomplete report, no marker", async 
   const sink = new MemorySink();
   const result = await runWebExport({ kinds: KINDS, codec, source, sink, now: NOW });
   assert.equal(result.state, "incomplete");
-  assert.ok(result.run.missing.some((m) => m.reason.includes("decode crashed")));
+  assert.ok(result.run.missing.some((m) => m.reason === "logEntries: read failed"));
+  assert.equal(JSON.stringify(result.run).includes("decode crashed"), false);
   const report = JSON.parse(await sink.readText(REPORT_PATH));
   assert.equal(report.state, "incomplete");
   assert.deepEqual(
@@ -1087,4 +1089,19 @@ test("runs: a run replaces this device's entry and keeps another device's entry,
   const second = (JSON.parse(await sink.readText(REPORT_PATH)) as { runs: RunReport[] }).runs;
   assert.equal(second.length, 2, "the same device is replaced, never duplicated");
   assert.deepEqual(second[0], other);
+});
+
+test("per-kind failure: a failed kind is listed missing and the later kinds still export", async () => {
+  const { source, calls } = fakeServer({ rows: FIXTURE, failKind: "logEntries" });
+  const sink = new MemorySink();
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+
+  assert.equal(result.state, "incomplete");
+  assert.deepEqual(
+    result.run.missing.filter((m) => m.kind === "logEntries").map((m) => m.reason),
+    ["logEntries: read failed"],
+  );
+  assert.equal(result.run.kinds.experiments?.written, 1);
+  assert.ok((await sink.list()).includes("experiments/e1.json"), "the later kind is still written");
+  assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });

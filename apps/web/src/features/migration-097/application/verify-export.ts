@@ -100,7 +100,7 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
         errors.push(`${kind}: decoded files differ from server rows (first: ${first})`);
       }
     } catch (err) {
-      errors.push(`${kind}: ${(err as Error).message}`);
+      errors.push(`${kind}: read failed`);
     }
   }
 
@@ -116,11 +116,11 @@ export async function verifyExport(input: VerifyInput): Promise<Verdict> {
         if ((await sha256Hex(bytes)) === ref.sha256 && sidecar === ref.sha256) out.blobs.verified++;
         else errors.push(`blob ${path}: sha256 mismatch`);
       } catch (err) {
-        errors.push(`blob ${path}: ${(err as Error).message}`);
+        errors.push(`blob ${path}: read failed`);
       }
     }
   } catch (err) {
-    errors.push(`blobs: ${(err as Error).message}`);
+    errors.push("blobs: read failed");
   }
 
   const kindsOk = kinds.every((k) => {
