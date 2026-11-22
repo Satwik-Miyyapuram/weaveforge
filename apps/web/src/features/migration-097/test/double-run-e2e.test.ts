@@ -124,7 +124,7 @@ const WRITER_ROWS: Record<string, Row[]> = {
   metrics: [{ projectId: "proj-a", experimentId: "0123456789abcd04", metric: "val_loss", step: 1, value: 0.5, wallTime: "2026-11-03T10:00:00.000Z" }],
   reportSections: [{ projectId: "proj-a", id: "0123456789abcd05", title: "Introduction", sectionNo: "1", status: "drafting", wordCount: 120, targetWords: 800, deadline: "2026-12-10", draftUrl: "https://example.org/draft", notes: "Needs citations", sortOrder: 1, createdAt: "2026-11-04T09:00:00.000Z" }],
   aiProposals: [{ projectId: "proj-a", id: "0123456789abcd06", kind: "create_log_entry", resourceId: "0123456789abcd01", content: "Draft log entry", createdAt: "2026-11-05T09:00:00.000Z", status: "pending", sourceLinks: ["0123456789abcd04"] }],
-  annotations: [{ id: "ann-1", paperId: "p1", paperFile: PAPER_FILE, type: "highlight", color: "#ff0000", text: "hello", comment: "note", tags: ["t1"], anchor: { pageIndex: 0 }, sortIndex: "00000|000000|00000", createdAt: "2026-11-06T09:00:00.000Z", updatedAt: "2026-11-06T09:00:00.000Z", origin: "local", zoteroKey: null }],
+  annotations: [{ id: "ann-1", paperId: "p1", paperFile: PAPER_FILE, type: "highlight", color: "#ff0000", text: "hello", comment: "note", tags: ["t1"], anchor: { pageIndex: 0 }, pageIndex: 0, sortIndex: "00000|000000|00000", createdAt: "2026-11-06T09:00:00.000Z", updatedAt: "2026-11-06T09:00:00.000Z", origin: "local", zoteroKey: null }],
   annotationPins: [{ id: "pin-1", paperId: "p1", annotationKey: "ann-1", reportSectionId: "0123456789abcd05", createdAt: "2026-11-06T09:00:00.000Z" }],
   ink: [{ note: "n1", chunkId: CHUNK, bytes: INK_BYTES }],
   // A tag's id is its normalized name (FileTagRepository), so the row's id is the name.
