@@ -8,6 +8,7 @@
 import { BlobNotFoundError, type IBlobFetcher, type IWorkspaceFs } from "@weaveforge/core";
 import { moveToTrash } from "@/lib/workspace-trash";
 import { conflictCopyPath } from "@/features/migration-097/domain/conflict-path";
+import { tempPathFor } from "@/lib/temp-path";
 
 /** `ASSET_DIR` in crates/wf-core/src/sync/folder_layout.rs. */
 const ASSET_DIR = "assets";
@@ -25,8 +26,9 @@ function assertSafe(bucket: string, path: string): void {
 
 /** Writes through a `.part` file and a rename, so a crash never leaves a half-written asset. */
 async function writeAtomic(fs: IWorkspaceFs, file: string, data: Uint8Array | string): Promise<void> {
-  await fs.writeFile(`${file}.part`, data);
-  await fs.rename(`${file}.part`, file);
+  const part = tempPathFor(file);
+  await fs.writeFile(part, data);
+  await fs.rename(part, file);
 }
 
 /** Sidecar conflict copies live outside assets/, so they never collide with an asset's own name. */

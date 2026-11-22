@@ -107,7 +107,7 @@ test("writes go to a .part file and are renamed into place, never written direct
   };
   await store.upload("notes", "n1/a.png", png(1, 2), "image/png");
   assert.equal(written.includes("assets/notes/n1/a.png"), false);
-  assert.ok(written.includes("assets/notes/n1/a.png.part"));
+  assert.ok(written.some((p) => /^assets\/notes\/n1\/a\.png\.[0-9a-f]{8}\.part$/.test(p)), "a unique .part temp file");
   assert.equal(Object.keys(fs.toRecord()).some((k) => k.endsWith(".part")), false);
 });
 
@@ -157,4 +157,11 @@ test("a re-upload whose sidecar differs keeps the sidecar, throws a conflict, an
     /image\/jpeg$/,
     "the new sidecar is in a conflict copy outside assets/",
   );
+});
+test("an upload never overwrites a user's own <asset>.part file", async () => {
+  const { fs, store } = setup();
+  await fs.writeFile("assets/notes/n1/diagram.png.part", "USER");
+  await store.upload("notes", "n1/diagram.png", png(1, 2, 3), "image/png");
+  assert.equal(await fs.readText("assets/notes/n1/diagram.png.part"), "USER", "the user's .part file is kept");
+  assert.deepEqual([...(await store.fetchBytes("notes", "n1/diagram.png"))], [1, 2, 3]);
 });

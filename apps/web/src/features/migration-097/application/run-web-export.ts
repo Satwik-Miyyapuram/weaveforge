@@ -17,6 +17,7 @@ import { toConflictCopyText } from "../domain/conflict-copy";
 import { createPaperFieldsWriter } from "../infrastructure/kind-writer-paper-fields";
 import { sameRows, verifyExport, type Verdict } from "./verify-export";
 import { createFileStore, guardedSink, type FileStore, type Outputs } from "./file-store";
+import { tempPathFor } from "@/lib/temp-path";
 
 export type ExportProgress = { kind: string; done: number; total: number };
 
@@ -121,9 +122,14 @@ async function writeReport(sink: FileSink, report: MigrationReport): Promise<voi
   }
   const backup = (await readExistingBackup(sink)) ?? report.backup;
   const merged: MigrationReport = { ...report, backup, runs };
-  const part = `${REPORT_PATH}.part`;
-  await sink.write(part, JSON.stringify(merged, null, 2));
-  await sink.rename(part, REPORT_PATH);
+  const part = tempPathFor(REPORT_PATH);
+  try {
+    await sink.write(part, JSON.stringify(merged, null, 2));
+    await sink.rename(part, REPORT_PATH);
+  } catch (err) {
+    await sink.remove(part).catch(() => undefined);
+    throw err;
+  }
 }
 
 /** A refused run writes nothing but an incomplete report that carries the reason. */

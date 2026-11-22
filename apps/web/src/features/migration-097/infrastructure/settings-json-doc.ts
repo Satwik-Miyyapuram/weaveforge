@@ -1,6 +1,7 @@
 import type { SettingsSection } from "@/backend/providers/files/file-tag-repo";
 import type { FileSink } from "../domain/ports";
 import { sinkAsWorkspaceFs } from "./sink-workspace-fs";
+import { tempPathFor } from "@/lib/temp-path";
 
 export const SETTINGS_PATH = ".weaveforge/settings.json";
 
@@ -49,7 +50,7 @@ async function createSettings(
   fs: ReturnType<typeof sinkAsWorkspaceFs>,
   text: string,
 ): Promise<boolean> {
-  const part = `${SETTINGS_PATH}.part`;
+  const part = tempPathFor(SETTINGS_PATH);
   try {
     await sink.write(part, text);
     await sink.rename(part, SETTINGS_PATH);

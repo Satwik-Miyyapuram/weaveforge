@@ -2,6 +2,7 @@ import type { FileSink } from "../domain/ports";
 import { sha256Hex } from "../domain/hash";
 import { conflictCopyPath } from "../domain/conflict-path";
 import { addsKeysOnly } from "../domain/add-keys-only";
+import { isTempPath } from "@/lib/temp-path";
 
 /** Path to the sha256 of the content this run wrote there (or found there and kept). */
 export type Outputs = Record<string, string>;
@@ -75,7 +76,7 @@ export async function createFileStore(sink: FileSink, prior: Outputs): Promise<F
 
 /**
  * A FileSink whose writes go through the run's no-overwrite store, so every kind writer shares one rule.
- * Only `.part` temp files under `.weaveforge/` pass straight through. Settings files are saved by compare-and-set
+ * Only generated temp files (see tempPathFor) pass straight through; a user file named `*.part` is guarded. Settings files are saved by compare-and-set
  * (writeIf), never by a plain write. A rename never replaces an existing file.
  */
 export function guardedSink(sink: FileSink, store: FileStore): FileSink {
@@ -83,7 +84,7 @@ export function guardedSink(sink: FileSink, store: FileStore): FileSink {
   const baselines = new Map<string, string>();
   return {
     async write(path, data) {
-      if (path.startsWith(".weaveforge/") && path.endsWith(".part")) return sink.write(path, data);
+      if (isTempPath(path)) return sink.write(path, data);
       await store.store(path, data, await sha256Hex(data));
     },
     list: () => sink.list(),

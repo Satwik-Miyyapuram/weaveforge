@@ -14,12 +14,12 @@ test("guarded write under .weaveforge/ keeps a differing user file and writes a 
   assert.equal(await sink.readText(conflictCopyPath(".weaveforge/x.json", 1)), "mine");
 });
 
-test("a .part temp file under .weaveforge/ is written straight through", async () => {
+test("a generated temp file (<path>.<8 hex>.part) is written straight through", async () => {
   const sink = new MemorySink();
-  await sink.write(".weaveforge/x.json.part", "old");
+  await sink.write(".weaveforge/x.json.abcd1234.part", "old");
   const guarded = guardedSink(sink, await createFileStore(sink, {}));
-  await guarded.write(".weaveforge/x.json.part", "new");
-  assert.equal(await sink.readText(".weaveforge/x.json.part"), "new");
+  await guarded.write(".weaveforge/x.json.abcd1234.part", "new");
+  assert.equal(await sink.readText(".weaveforge/x.json.abcd1234.part"), "new");
 });
 
 test("rename never replaces an existing file", async () => {
@@ -49,4 +49,12 @@ test("a file the user creates mid-run is never overwritten: the DB version goes 
   assert.equal(kept, conflictCopyPath("b.md", 1));
   assert.equal(await sink.readText("b.md"), "user bytes", "the user's file is intact");
   assert.equal(await sink.readText(kept), "db b");
+});
+test("a user's own .weaveforge/x.json.part file is guarded like any other file", async () => {
+  const sink = new MemorySink();
+  await sink.write(".weaveforge/x.json.part", "user");
+  const guarded = guardedSink(sink, await createFileStore(sink, {}));
+  await guarded.write(".weaveforge/x.json.part", "mine");
+  assert.equal(await sink.readText(".weaveforge/x.json.part"), "user", "the user's file is not overwritten");
+  assert.equal(await sink.readText(conflictCopyPath(".weaveforge/x.json.part", 1)), "mine");
 });

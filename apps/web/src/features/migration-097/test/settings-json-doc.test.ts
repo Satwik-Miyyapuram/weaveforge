@@ -51,3 +51,13 @@ test("settings.json: a file that keeps changing gives up after 3 tries with a fi
   );
   assert.equal(mutations, 3);
 });
+
+test("settings.json: creating it never touches a user's own settings.json.part", async () => {
+  const sink = new MemorySink();
+  await sink.write(`${SETTINGS_PATH}.part`, "USER");
+  await updateSettingsDoc(sink, "test", (doc) => {
+    doc.added = 1;
+  });
+  assert.equal(await sink.readText(`${SETTINGS_PATH}.part`), "USER", "the user's .part file is kept");
+  assert.deepEqual(JSON.parse(await sink.readText(SETTINGS_PATH)), { added: 1 });
+});
