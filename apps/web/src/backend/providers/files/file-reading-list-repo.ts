@@ -208,7 +208,8 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
     const file = links.fileFor(target);
     if (!file) throw new NotFoundError(`No file for ${"paperId" in target ? "paper" : "note"} "${targetId(target)}".`);
 
-    const list = files.find((l) => l.id === found.row.id)!;
+    const list = files.find((l) => l.id === found.row.id);
+    if (!list) throw new NotFoundError(`No reading list with id "${item.listId}".`);
     const info: MemberInfo = { id: item.id, order: item.sortOrder };
     if (item.note) info.note = item.note;
     if (item.inheritedFromListId) info.from = item.inheritedFromListId;

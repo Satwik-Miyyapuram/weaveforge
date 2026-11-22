@@ -337,6 +337,23 @@ test("(P3) a bare list tag written before a second same-named list appears raise
   await assert.rejects(items.listItems(l1.id), /Ambiguous list link/);
 });
 
+test("(P3) a list that vanishes between the existence check and the write is NotFoundError, not a TypeError", async () => {
+  const { fs, lists, items } = await setup();
+  const l = list();
+  await lists.save(l);
+  const walk = fs.walk.bind(fs);
+  let listWalks = 0;
+  // The first walk of the lists folder is the existence check; the second is load(). Hide the list from the second.
+  fs.walk = (dir: string) => {
+    const real = walk(dir);
+    const hide = dir.includes("reading-lists") && ++listWalks >= 2;
+    return (async function* () {
+      for await (const e of real) if (!(hide && e.kind === "file")) yield e;
+    })();
+  };
+  await assert.rejects(items.add({ id: "a", listId: l.id, paperId: "p1", sortOrder: 0 }), NotFoundError);
+});
+
 test("an empty list file reads as no members; delete moves the list to the trash", async () => {
   const { fs, lists, items } = await setup();
   const l = list();
