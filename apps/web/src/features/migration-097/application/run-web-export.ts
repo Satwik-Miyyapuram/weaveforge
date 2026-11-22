@@ -101,6 +101,10 @@ const TRASH_DIR = ".weaveforge/migration-0.9.7/trash";
 async function exportTrash(kind: string, rows: Row[], sink: FileSink, codec: FileCodec, missing: MissingRow[]): Promise<number> {
   let verified = 0;
   for (const row of rows) {
+    if (row.id === undefined || row.id === null || row.id === "") {
+      missing.push({ kind, id: "*", reason: "missing id" });
+      continue;
+    }
     const id = String(row.id);
     const path = `${TRASH_DIR}/${kind}/${encodeURIComponent(id)}.json`;
     let text: string;

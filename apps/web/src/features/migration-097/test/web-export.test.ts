@@ -1291,3 +1291,16 @@ test("trash: a trash file that does not read back equal goes to missing, state i
   );
   assert.equal(calls.some((c) => c.startsWith("mark:")), false);
 });
+
+test("trash: a trashed row with no id is listed missing as missing id and writes no file, state incomplete", async () => {
+  const { source } = fakeServer({ rows: {}, trashed: { logEntries: [{ text: "no id" } as Row] } });
+  const sink = new MemorySink();
+  const result = await runWebExport({ kinds: KINDS, codec: fakeCodec(SUPPORTED), source, sink, now: NOW });
+
+  assert.equal(result.state, "incomplete");
+  assert.deepEqual(
+    result.run.missing.filter((m) => m.kind === "logEntries"),
+    [{ kind: "logEntries", id: "*", reason: "missing id" }],
+  );
+  assert.equal((await sink.list()).some((p) => p.includes("undefined")), false);
+});
