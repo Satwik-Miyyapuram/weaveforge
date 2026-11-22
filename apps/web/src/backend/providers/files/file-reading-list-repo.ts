@@ -165,7 +165,7 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
   }
 
   listItems(listId: string): Promise<ReadingListItem[]> {
-    return this.items((m) => m.list.id === listId);
+    return this.items((m) => m.list.id === listId, listId);
   }
 
   listItemsForLists(listIds: readonly string[]): Promise<ReadingListItem[]> {
@@ -238,8 +238,8 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
     await editMemberFile(this.fs, hit.file, (f) => withoutTag(f, list));
   }
 
-  private async items(match: (m: Membership) => boolean): Promise<ReadingListItem[]> {
-    const { live, memberships } = await this.load();
+  private async items(match: (m: Membership) => boolean, focusId?: string): Promise<ReadingListItem[]> {
+    const { live, memberships } = await this.load(focusId);
     return memberships
       .filter(match)
       .map((m) => toItem(m, live))
@@ -250,12 +250,14 @@ export class FileReadingListItemRepository implements IReadingListItemRepository
    * Every membership: the tags on member files, then each list file's legacy members
    * whose paper or note has no tag in that list. One scan per call.
    */
-  private async load(): Promise<{ live: Set<string>; links: Links; files: ListFile[]; memberships: Membership[] }> {
+  private async load(
+    focusId?: string,
+  ): Promise<{ live: Set<string>; links: Links; files: ListFile[]; memberships: Membership[] }> {
     const lists = await this.store.readAll();
     const live = new Set(lists.map((f) => f.row.id));
     const files = listFilesOf(lists.map((f) => ({ path: f.path, id: f.row.id })));
     const links = await this.links.snapshot();
-    const tagged = await readTagged(this.fs, links, files);
+    const tagged = await readTagged(this.fs, links, files, focusId);
     const memberships: Membership[] = tagged.map((t) => ({ list: t.list, target: t.target, info: t.info, file: t.file }));
     // One membership per target in a list: a tag wins, then the first legacy entry for the target.
     const seen = new Set(tagged.map((t) => `${t.list.id}|${targetKey(t.target)}`));

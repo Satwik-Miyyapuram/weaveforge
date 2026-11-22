@@ -93,8 +93,16 @@ export function listFilesOf(lists: readonly { path: string; id: string }[]): Lis
   });
 }
 
-/** Every membership a paper or note tags, given the list files and the link snapshot. */
-export async function readTagged(fs: IWorkspaceFs, links: Links, lists: readonly ListFile[]): Promise<Tagged[]> {
+/**
+ * Every membership a paper or note tags, given the list files and the link snapshot.
+ * `focusId` is the list being read: only its own ambiguous bare tags fail that read.
+ */
+export async function readTagged(
+  fs: IWorkspaceFs,
+  links: Links,
+  lists: readonly ListFile[],
+  focusId?: string,
+): Promise<Tagged[]> {
   // Membership is the whole truth for a list: a file that could not be read may hold a tag, so the read fails.
   if (links.unreadable.length) {
     throw new Error(links.unreadable.map((u) => `Cannot read ${u.path}: ${u.reason}`).join("; "));
@@ -105,12 +113,16 @@ export async function readTagged(fs: IWorkspaceFs, links: Links, lists: readonly
     const fields = readyCore().readFrontmatter(await fs.readText(file)).frontmatter as Fields;
     for (const tag of tagsOf(fields)) {
       const key = tagKey(tag);
-      // A bare tag written before a second list with the same name appeared: it names no one list, so it fails loudly.
+      // A bare tag written before a second list with the same name appeared: it names no one list.
       const sameName = key === undefined ? [] : lists.filter((l) => l.bareKey === key);
       if (sameName.length > 1) {
-        throw new Error(
-          `Ambiguous list link ${tag} in ${file}: ${sameName.map((l) => l.file).join(", ")} share that name. Rename one list.`,
-        );
+        // It fails the read of the list it names (or any whole-store read); other lists' reads skip it.
+        if (focusId === undefined || sameName.some((l) => l.id === focusId)) {
+          throw new Error(
+            `Ambiguous list link ${tag} in ${file}: ${sameName.map((l) => l.file).join(", ")} share that name. Rename one list.`,
+          );
+        }
+        continue;
       }
       const list = key === undefined ? undefined : byKey.get(key);
       if (list) out.push({ list, target, file, info: notesOf(fields)[list.id] ?? {} });

@@ -337,6 +337,20 @@ test("(P3) a bare list tag written before a second same-named list appears raise
   await assert.rejects(items.listItems(l1.id), /Ambiguous list link/);
 });
 
+test("(P3) a stale bare tag in list A does not fail reads of list B; list A's own reads still fail", async () => {
+  const { lists, items } = await setup();
+  const a = list({ name: "Review" });
+  await lists.save(a);
+  await items.add({ id: "a", listId: a.id, paperId: "p1", sortOrder: 0 });
+  const b = list({ name: "Beta" });
+  await lists.save(b);
+  await items.add({ id: "b", listId: b.id, paperId: "p2", sortOrder: 0 });
+  // A second "Review" makes p1's bare [[Review]] tag ambiguous. It names no list any more, but list B never reads it.
+  await lists.save(list({ name: "Review" }));
+  assert.deepEqual((await items.listItems(b.id)).map((i) => i.paperId), ["p2"]);
+  await assert.rejects(items.listItems(a.id), /Ambiguous list link/);
+});
+
 test("(P3) a list that vanishes between the existence check and the write is NotFoundError, not a TypeError", async () => {
   const { fs, lists, items } = await setup();
   const l = list();
