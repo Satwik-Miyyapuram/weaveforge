@@ -146,9 +146,12 @@ export function findRelease(releases, tag) {
   return releases.find((release) => release.tag_name === tag);
 }
 
-/** Reads a release with the GitHub CLI; never writes to GitHub. */
-async function fetchRelease(tag) {
-  const { stdout } = await run("gh", ["api", "--paginate", `repos/${REPO}/releases`, "--jq", ".[]"]);
+/**
+ * Reads a release with the GitHub CLI from the release list (drafts included); never writes.
+ * `runGh` is injected so tests can answer without the network; it defaults to `gh`.
+ */
+export async function fetchRelease(tag, runGh = run) {
+  const { stdout } = await runGh("gh", ["api", "--paginate", `repos/${REPO}/releases`, "--jq", ".[]"]);
   const releases = stdout
     .split("\n")
     .filter((line) => line.trim() !== "")

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assetRequest, checkRelease, findRelease, parseBridge } from "./check-release-assets.mjs";
+import { assetRequest, checkRelease, fetchRelease, findRelease, parseBridge } from "./check-release-assets.mjs";
+import { REPO } from "./release-manifest.mjs";
 
 const TAG = "v0.9.7";
 const URL_BASE = "https://github.com/Satwik-Miyyapuram/weaveforge/releases/download/v0.9.7";
@@ -367,6 +368,51 @@ test("a draft release is found by tag in the release list", () => {
   ];
   assert.equal(findRelease(releases, "v0.9.8")?.draft, true);
   assert.equal(findRelease(releases, "v0.9.9"), undefined);
+});
+
+/** A fake `gh` runner: records each call and answers with the given stdout. */
+function fakeGh(stdout) {
+  const calls = [];
+  const run = async (file, args) => {
+    calls.push({ file, args });
+    return { stdout };
+  };
+  return { run, calls };
+}
+
+/** `gh api --paginate --jq '.[]'` prints one compact JSON object per line. */
+const oneObjectPerLine = (objects) => objects.map((object) => JSON.stringify(object)).join("\n") + "\n";
+
+test("a release is fetched from the release list, not the releases/tags endpoint", async () => {
+  const { run, calls } = fakeGh(oneObjectPerLine([{ tag_name: TAG, draft: true, assets: [] }]));
+  await fetchRelease(TAG, run);
+  assert.deepEqual(calls, [
+    { file: "gh", args: ["api", "--paginate", `repos/${REPO}/releases`, "--jq", ".[]"] },
+  ]);
+});
+
+test("each line of the paginated output is one release, and the asked-for tag is the one returned", async () => {
+  const drafts = [
+    { tag_name: "v0.9.6", draft: false, assets: [] },
+    { tag_name: TAG, draft: true, assets: [{ name: "latest-v2.json" }] },
+    { tag_name: "v0.9.9", draft: true, assets: [] },
+  ];
+  const { run } = fakeGh(oneObjectPerLine(drafts));
+  const release = await fetchRelease(TAG, run);
+  assert.equal(release.tag_name, TAG);
+  assert.equal(release.draft, true);
+  assert.deepEqual(release.assets, [{ name: "latest-v2.json" }]);
+});
+
+test("a tag missing from the release list is reported by name", async () => {
+  const { run } = fakeGh(oneObjectPerLine([{ tag_name: TAG, assets: [] }]));
+  await assert.rejects(fetchRelease(TAG8, run), /no release named v0\.9\.8/);
+});
+
+test("multi-line JSON from the release list is rejected, not silently misread", async () => {
+  const pretty = JSON.stringify({ tag_name: TAG, draft: true, assets: [] }, null, 2);
+  const { run } = fakeGh(pretty);
+  await assert.rejects(fetchRelease(TAG, run), SyntaxError);
 });
 
 test("a draft asset is downloaded through its API url with auth when GH_TOKEN is set", () => {
