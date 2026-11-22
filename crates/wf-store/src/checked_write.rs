@@ -819,9 +819,16 @@ fn is_no_hard_link(err: &io::Error) -> bool {
     ) {
         return true;
     }
-    // ERROR_NOT_SUPPORTED (50) and ERROR_INVALID_FUNCTION (1): what Windows volumes without
-    // hard links (exFAT, some network shares) return. On Unix, errno 1 is EPERM, so skip it there.
-    cfg!(windows) && matches!(err.raw_os_error(), Some(50) | Some(1))
+    match err.raw_os_error() {
+        // EPERM (1) from vfat, exFAT and Android shared storage; EXDEV (18) across mounts.
+        #[cfg(unix)]
+        Some(1) | Some(18) => true,
+        // ERROR_NOT_SUPPORTED (50) and ERROR_INVALID_FUNCTION (1): what Windows volumes without
+        // hard links (exFAT, some network shares) return.
+        #[cfg(windows)]
+        Some(50) | Some(1) => true,
+        _ => false,
+    }
 }
 
 /// Renames `src` to `dest` without replacing a file at `dest`, for filesystems without hard
@@ -977,7 +984,7 @@ mod proofs {
 
 #[cfg(test)]
 mod move_tests {
-    use super::{move_without_replace, rename_without_replace, trash_with_link};
+    use super::{is_no_hard_link, move_without_replace, rename_without_replace, trash_with_link};
     use std::fs;
     use std::io;
 
@@ -1099,5 +1106,26 @@ mod move_tests {
         assert!(!src.exists());
         assert_eq!(fs::read_to_string(&dest).unwrap(), "moved");
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    // wf-store has no libc dependency, so the errno values are literal numbers.
+    #[cfg(unix)]
+    #[test]
+    fn unix_eperm_and_exdev_links_mean_no_hard_link() {
+        // EPERM = 1 (vfat, exFAT, Android shared storage), EXDEV = 18 (across mounts).
+        assert!(is_no_hard_link(&io::Error::from_raw_os_error(1)));
+        assert!(is_no_hard_link(&io::Error::from_raw_os_error(18)));
+        // EACCES = 13 is a real permission error and must still fail.
+        assert!(!is_no_hard_link(&io::Error::from_raw_os_error(13)));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_not_supported_codes_mean_no_hard_link() {
+        // ERROR_NOT_SUPPORTED = 50, ERROR_INVALID_FUNCTION = 1.
+        assert!(is_no_hard_link(&io::Error::from_raw_os_error(50)));
+        assert!(is_no_hard_link(&io::Error::from_raw_os_error(1)));
+        // ERROR_ACCESS_DENIED = 5 must still fail.
+        assert!(!is_no_hard_link(&io::Error::from_raw_os_error(5)));
     }
 }
