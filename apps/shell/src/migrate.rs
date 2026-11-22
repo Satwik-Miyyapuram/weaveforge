@@ -181,28 +181,63 @@ pub const REPORT_REL: &str = ".weaveforge/migration-0.9.7/report.json";
 
 /// True only when this device's own run in the 0.9.7 report under `folder` is verified: the newest
 /// run whose `deviceId` is `device_id` has `state == "verified"`, an empty `missing`, and a non-empty
-/// `kinds` whose db and files counts match. Other devices' runs never count. No `device_id` (the
-/// device has no id file yet) is `Ok(false)`. A missing report or bad JSON is `Ok(false)`. An IO
-/// error other than not-found is a typed error, so the page can show "unavailable" instead of "not
-/// migrated". Read-only; never writes.
+/// `kinds` whose db and files counts match. Other devices' runs never count. Every per-device
+/// `report-*.json` beside `report.json` is checked first, and any verified own run counts; then
+/// `report.json` is the fallback. No `device_id` (the device has no id file yet) is `Ok(false)`. A
+/// missing or corrupt report is `Ok(false)`. An IO error other than not-found is a typed error, so
+/// the page can show "unavailable" instead of "not migrated". Read-only; never writes.
 pub fn report_state_verified(folder: &Path, device_id: Option<&str>) -> Result<bool, ShellError> {
     let Some(device_id) = device_id else {
         return Ok(false);
     };
-    let text = match fs::read_to_string(folder.join(REPORT_REL)) {
+    for path in device_report_paths(folder)? {
+        if report_file_verified(&path, device_id)? {
+            return Ok(true);
+        }
+    }
+    report_file_verified(&folder.join(REPORT_REL), device_id)
+}
+
+/// The `report-*.json` files beside `report.json`. A missing folder holds none.
+fn device_report_paths(folder: &Path) -> Result<Vec<PathBuf>, ShellError> {
+    let dir = folder.join(REPORT_REL).parent().map(Path::to_path_buf).unwrap_or_default();
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(report_unreadable(&e)),
+    };
+    let mut paths = Vec::new();
+    for entry in entries {
+        let path = entry.map_err(|e| report_unreadable(&e))?.path();
+        let is_device_report = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.starts_with("report-") && name.ends_with(".json"));
+        if is_device_report {
+            paths.push(path);
+        }
+    }
+    Ok(paths)
+}
+
+/// Whether one report file holds a verified own run for `device_id`. Missing or corrupt is `Ok(false)`.
+fn report_file_verified(path: &Path, device_id: &str) -> Result<bool, ShellError> {
+    let text = match fs::read_to_string(path) {
         Ok(text) => text,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-        Err(e) => {
-            return Err(ShellError::coded(
-                "migration_report_unreadable",
-                &format!("cannot read the 0.9.7 migration report: {e}"),
-            ));
-        }
+        Err(e) => return Err(report_unreadable(&e)),
     };
     let Ok(report) = serde_json::from_str::<serde_json::Value>(&text) else {
         return Ok(false);
     };
     Ok(own_run_verified(&report, device_id))
+}
+
+fn report_unreadable(e: &std::io::Error) -> ShellError {
+    ShellError::coded(
+        "migration_report_unreadable",
+        &format!("cannot read the 0.9.7 migration report: {e}"),
+    )
 }
 
 /// This device's newest run (by `deviceId`) is verified and complete. A run without a `deviceId`
@@ -720,6 +755,35 @@ mod tests {
         fs::create_dir_all(folder.join(REPORT_REL)).unwrap();
         let err = report_state_verified(&folder, Some(DEVICE)).unwrap_err();
         assert_eq!(err.code.as_deref(), Some("migration_report_unreadable"));
+    }
+
+    /// A per-device report file, `report-<name>.json`, beside `report.json` in the 0.9.7 folder.
+    fn device_report(name: &str, file: &str, body: &str) -> PathBuf {
+        let (folder, _) = temp(name);
+        let path = folder.join(REPORT_REL).parent().unwrap().join(file);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, body).unwrap();
+        folder
+    }
+
+    #[test]
+    fn this_devices_verified_per_device_report_passes_without_report_json() {
+        let folder = device_report("report-per-device", "report-device-a.json", COMPLETE);
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(true));
+    }
+
+    #[test]
+    fn corrupt_per_device_report_falls_back_to_verified_report_json() {
+        let folder = device_report("report-fallback", "report-device-a.json", "{not json");
+        fs::write(folder.join(REPORT_REL), COMPLETE).unwrap();
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(true));
+    }
+
+    #[test]
+    fn another_devices_per_device_report_is_refused() {
+        let body = COMPLETE.replace(r#""deviceId":"device-a""#, r#""deviceId":"device-b""#);
+        let folder = device_report("report-other-per-device", "report-device-b.json", &body);
+        assert_eq!(report_state_verified(&folder, Some(DEVICE)), Ok(false));
     }
 
     #[test]
