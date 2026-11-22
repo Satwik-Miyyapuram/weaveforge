@@ -170,3 +170,26 @@ test("F97-P2-2: a draft whose name a new draft took is queued again on the next 
   assert.deepEqual(queued.sort(), ["note-1", "note-new"]);
   assert.deepEqual(await remaining(fs), []);
 });
+
+test("a stat that fails while finding a free draft name does not hide the queue error", async () => {
+  // The name `a-2.json` cannot be checked; that must count as free, so the draft
+  // goes back under it and the queue error (not the stat error) is what the caller sees.
+  class FlakyStatFs extends MemoryWorkspaceFs {
+    override async stat(path: string) {
+      if (path.endsWith("/a-2.json")) throw new Error("EACCES: a-2.json");
+      return super.stat(path);
+    }
+  }
+  const fs = new FlakyStatFs();
+  await fs.writeFile(`${FOLDER_DRAFTS_DIR}/a.json`, JSON.stringify(draft));
+  // A new draft lands under the same name while the queue fails, so the failed
+  // draft must find a free name, which is where the stat is checked.
+  await assert.rejects(
+    importFolderDrafts(fs, async () => {
+      await fs.writeFile(`${FOLDER_DRAFTS_DIR}/a.json`, JSON.stringify({ ...draft, resourceId: "note-new" }));
+      throw new Error("offline");
+    }),
+    /offline/,
+  );
+  assert.deepEqual(await remaining(fs), [`${FOLDER_DRAFTS_DIR}/a-2.json`, `${FOLDER_DRAFTS_DIR}/a.json`]);
+});

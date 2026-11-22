@@ -215,7 +215,7 @@ async function freeDraftName(fs: IWorkspaceFs, path: string): Promise<string> {
   const stem = path.slice(0, -".json".length);
   for (let n = 2; ; n += 1) {
     const name = `${stem}-${n}.json`;
-    if (!(await fs.stat(name))) return name;
+    if (!(await fs.stat(name).catch(() => null))) return name;
   }
 }
 
@@ -223,7 +223,7 @@ async function freeDraftName(fs: IWorkspaceFs, path: string): Promise<string> {
 async function freeClaimedName(fs: IWorkspaceFs, path: string): Promise<string> {
   for (let n = 1; ; n += 1) {
     const name = n === 1 ? `${path}.claimed` : `${path}.claimed-${n}`;
-    if (!(await fs.stat(name))) return name;
+    if (!(await fs.stat(name).catch(() => null))) return name;
   }
 }
 
